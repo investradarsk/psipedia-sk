@@ -201,3 +201,29 @@ test("V3 all seven navigation groups, focus and header actions work at 1440px, 3
     }
   }
 });
+
+test("compact finish 02: actual pages across four breakpoints, no horizontal overflow", async ({ page }, info) => {
+  // Real routes, not the isolated demo editor. CI's local D1 is disposable;
+  // snapshots of content requiring production data can still appear empty.
+  const widths = info.project.name === "mobile-chromium" ? [390, 320] : [1440, 768];
+  const routes = ["/admin", "/admin/kvalita", "/admin/operations", "/admin/pomoc-psom"] as const;
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: width <= 390 ? 844 : 900 });
+    for (const route of routes) {
+      const response = await page.goto(route, { waitUntil: "domcontentloaded" });
+      expect(response?.status(), route + " should render from PR code").toBe(200);
+      const main = page.locator("#obsah");
+      await expect(main).toBeVisible();
+      await expect(page.locator("[data-admin-workspace]")).toBeVisible();
+      await expect.poll(async () => page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+      ), { message: route + " overflows at " + width + "px" }).toBe(true);
+      await page.screenshot({
+        path: ".e2e-artifacts/admin-ia-2/compact-finish-02-" +
+          route.replaceAll("/", "-").replace(/^-/, "") + "-" + width + ".png",
+        fullPage: true,
+        animations: "disabled",
+      });
+    }
+  }
+});
