@@ -17,11 +17,11 @@ test("missing-data sweep covers exactly the three existing portal areas", () => 
 test("no generated descriptions or copy-pasted SEO text enter the field allowlist", () => {
   assert.doesNotMatch(engine, /field\("description"/);
   assert.doesNotMatch(engine, /field\("excerpt"/);
-  assert.match(engine, /if\(!profile\)\{/);
+  assert.match(engine, /if \(!profile\) \{/);
 });
 test("one scan claim per area and hour, without an extra credit budget", () => {
   assert.match(schema, /PRIMARY KEY\(area,hour\)/);
-  assert.match(engine, /INSERT OR IGNORE INTO quality_missing_scans\(area,hour,scanned_at\)/);
+  assert.match(engine, /INSERT OR IGNORE INTO quality_missing_scans\(area,hour,scanned_at,status\)/);
   assert.match(engine, /for \(const area of QUALITY_AREAS\)/);
   assert.match(worker, /isFullHourlyScheduledSweep\(controller\)/);
   assert.doesNotMatch(engine, /creditsPerDay|creditLimit|queriesPerRun/);
