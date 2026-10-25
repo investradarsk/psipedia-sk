@@ -192,6 +192,8 @@ function qualityFailureCode(error: unknown): string {
 const QUALITY_ERROR_LABELS: Record<string, string> = {
   AUTH_FAILED: "Autorizácia Tavily bola zamietnutá",
   RATE_LIMITED: "Tavily odmietlo požiadavku pre limit",
+  CREDITS_EXHAUSTED: "Vyčerpaný kredit alebo rozpočtový limit Tavily",
+  INVALID_REQUEST: "Tavily odmietlo parametre vyhľadávania",
   TIMEOUT: "Vyhľadávanie prekročilo časový limit",
   PROVIDER_ERROR: "Externá vyhľadávacia služba odpovedala chybou",
   INVALID_RESPONSE: "Tavily vrátilo neplatnú odpoveď",
