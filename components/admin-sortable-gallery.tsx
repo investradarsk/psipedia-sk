@@ -22,11 +22,12 @@ function SortRow({id,as:Tag,className,index,renderRow,disabled}:{
 }
 
 /** Only reorder gallery entries. Owners keep all alt/caption/credit/imageKey fields. */
-export function AdminSortableGallery({urls,onReorder,renderRow,as="div",className,rowClassName,disabled=false}:{
+export function AdminSortableGallery({urls,onReorder,renderRow,as="div",containerAs="div",className,rowClassName,disabled=false}:{
  urls:string[];
  onReorder:(from:number,to:number)=>void;
  renderRow:(index:number,handle:ReactNode)=>ReactNode;
  as?:"div"|"article"|"li";
+ containerAs?:"div"|"ol"|"ul";
  className?:string;
  rowClassName?:string;
  disabled?:boolean;
@@ -43,12 +44,13 @@ export function AdminSortableGallery({urls,onReorder,renderRow,as="div",classNam
    if(from<0||to<0)return;
    onReorder(from,to);
  }
+ const ContainerTag=containerAs;
  return <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
    <SortableContext items={ids} strategy={rectSortingStrategy}>
-     <div className={className}>{ids.map((id,index)=>
+     <ContainerTag className={className}>{ids.map((id,index)=>
        <SortRow key={id} id={id} index={index} as={as} className={rowClassName}
          renderRow={renderRow} disabled={disabled}/>
-     )}</div>
+     )}</ContainerTag>
    </SortableContext>
  </DndContext>;
 }
