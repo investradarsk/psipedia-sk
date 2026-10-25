@@ -89,6 +89,26 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   });
 });
 
+test("desktop admin navigation mounts only the active section and supports direct route changes", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile-chromium", "Desktop accordion check");
+  await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
+  await expect(nav).toHaveAttribute("data-admin-hydrated", "true");
+  await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: "Články", exact: true })).toHaveCount(0);
+  await expect(nav.getByRole("button", { name: "Obsah", exact: true })).toHaveAttribute("aria-expanded", "false");
+
+  await nav.getByRole("button", { name: "Obsah", exact: true }).click();
+  const articles = nav.getByRole("link", { name: "Články", exact: true });
+  await expect(articles).toBeVisible();
+  await expect(articles).toHaveAttribute("href", "/admin/clanky");
+  await articles.click();
+  await expect(page).toHaveURL(/\/admin\/clanky(?:\?|$)/);
+  await expect(page.getByRole("heading", { name: "Články a novinky", exact: true })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Články", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: "Upozornenia", exact: true })).toHaveCount(0);
+});
+
 test("legacy article-list URLs preserve filters and the explicit article route owns navigation state", async ({ page }, testInfo) => {
   const mobile = testInfo.project.name === "mobile-chromium";
   if (mobile) await page.setViewportSize({ width: 390, height: 844 });
