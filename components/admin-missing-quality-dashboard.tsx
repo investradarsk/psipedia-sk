@@ -237,11 +237,15 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
         </label>
         <label>Čo hľadať
           <select value={manualGroup} disabled={manualBusy} onChange={e=>setManualGroup(e.target.value as ManualQualityGroup)}>
+            <option value="address">Adresy a miesta</option>
             <option value="image">Obrázky</option>
             <option value="web">Weby a odkazy</option>
             <option value="phone">Telefóny</option>
             <option value="email">E-maily</option>
             <option value="social">Sociálne siete</option>
+            <option value="registration">Registrácie</option>
+            <option value="date">Dátumy a časy</option>
+            <option value="other">Ostatné</option>
             <option value="all">Všetky chýbajúce údaje</option>
           </select>
         </label>
