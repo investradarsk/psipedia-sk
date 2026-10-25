@@ -9,6 +9,7 @@ import {
 } from "@/lib/breed-store";
 import { mergeManagedBreedEdit } from "@/lib/breed-sync-preservation";
 import {
+  writeBackDraftBreedEditorialToNotion,
   writeBackPublishedBreedToNotion,
   type NotionBreedSyncBindings,
 } from "@/lib/notion-breed-sync";
@@ -42,14 +43,26 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const breed = await updateManagedBreed(id, mergeManagedBreedEdit(before, patch), user.email, expectedUpdatedAt);
     if (!breed) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
 
-    if (before.status !== "published" && breed.status === "published") {
-      const bindings = env as unknown as BreedRouteBindings;
-      if (bindings.DB) {
+    const bindings = env as unknown as BreedRouteBindings;
+    if (bindings.DB) {
+      if (before.status === "draft" && breed.status === "draft") {
+        try {
+          await writeBackDraftBreedEditorialToNotion({
+            database: bindings.DB, bindings, before, breed,
+          });
+        } catch (error) {
+          // Admin save is canonical and must never be rolled back due to a
+          // remote outage. The mapping remains at its last verified revision.
+          console.error(JSON.stringify({
+            event: "notion_breed_draft_writeback_failed",
+            breedId: breed.id,
+            reason: error instanceof Error ? error.message : "UNKNOWN",
+          }));
+        }
+      } else if (before.status !== "published" && breed.status === "published") {
         try {
           await writeBackPublishedBreedToNotion({
-            database: bindings.DB,
-            bindings,
-            breed,
+            database: bindings.DB, bindings, breed,
           });
         } catch (error) {
           console.error(JSON.stringify({
