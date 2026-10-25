@@ -217,14 +217,18 @@ export async function queryDirectoryAdmin<T>(
       ? Promise.resolve(null)
       : database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${membershipQuery.where}`)
           .bind(...membershipQuery.args).first<CountRow>(),
-    database.prepare(`SELECT DISTINCT 'region' AS kind, region AS value
-      FROM directory_profiles WHERE trim(region) <> ''
-      UNION ALL
-      SELECT DISTINCT 'district' AS kind, district AS value
-      FROM directory_profiles WHERE trim(district) <> ''
-      UNION ALL
-      SELECT DISTINCT 'city' AS kind, city AS value
-      FROM directory_profiles WHERE trim(city) <> ''
+    // Scan the directory once for all three global location facets instead
+    // of issuing three separate DISTINCT scans. CROSS JOIN fixes d as the
+    // outer loop; the three synthetic labels never read directory rows again.
+    database.prepare(`SELECT DISTINCT label.kind AS kind,
+        CASE label.kind WHEN 'region' THEN d.region
+          WHEN 'district' THEN d.district ELSE d.city END AS value
+      FROM directory_profiles AS d
+      CROSS JOIN (
+        SELECT 'region' AS kind UNION ALL SELECT 'district' UNION ALL SELECT 'city'
+      ) AS label
+      WHERE trim(CASE label.kind WHEN 'region' THEN d.region
+        WHEN 'district' THEN d.district ELSE d.city END) <> ''
       ORDER BY kind, value`).all<{ kind: "region" | "district" | "city"; value: string }>(),
     loadPage(requestedPage),
   ]);
