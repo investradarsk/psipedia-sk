@@ -283,19 +283,7 @@
   font: inherit;
 }
 
-.hero :global([data-section-hero-search] button) {
-  min-height: 44px;
-  padding: 9px 16px;
-  border: 0;
-  border-radius: var(--ps-radius-control, 12px);
-  color: var(--white, #fff);
-  background: var(--forest, #174b38);
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.hero :global([data-section-hero-search] :is(input, select, button):focus-visible),
+.hero :global([data-section-hero-search] :is(input, select):focus-visible),
 .quickLinks a:focus-visible {
   outline: 3px solid var(--brand-focus, #b94732);
   outline-offset: 2px;

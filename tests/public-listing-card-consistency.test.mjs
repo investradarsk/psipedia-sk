@@ -37,13 +37,14 @@ test("public cards share stateful surfaces but keep urgency and original media",
   assert.match(read("components/breed-card.tsx"), /<PublicActionLink href=\{profileHref\} variant="tertiary"/);
 });
 
-test("section search uses the approved common CTA palette without changing GET behavior", () => {
+test("section search uses shared CTA visuals and preserves GET routing", () => {
   const hero = read("components/public-visual-system/unified-section-hero.module.css");
   const search = read("components/section-hero-search.tsx");
-  const snippet = hero.slice(hero.indexOf(".hero :global([data-section-hero-search] button) {"));
-  assert.match(snippet, /border-radius: var\(--ps-radius-control, 12px\)/);
-  assert.match(snippet, /background: var\(--forest, #174b38\)/);
-  assert.doesNotMatch(snippet, /var\(--ps-color-action-primary/);
+  const css = read("components/public-visual-system/public-visual-system.module.css");
+  assert.doesNotMatch(hero, /\.hero :global\(\[data-section-hero-search\] button\) \{/);
+  assert.match(hero, /\.hero :global\(\[data-section-hero-search\] button\) \{ width: 100%; \}/);
+  assert.match(css, /\.actionPrimary \{[^}]*background: var\(--ps-color-action-primary\)/);
+  assert.match(css, /\.action \{[^}]*border-radius: var\(--ps-radius-control, 12px\)/);
   assert.match(search, /<form action=\{action\} method="get"/);
-  assert.match(search, /<button type="submit">\{buttonLabel\}<\/button>/);
+  assert.match(search, /<PublicActionButton type="submit">\{buttonLabel\}<\/PublicActionButton>/);
 });
