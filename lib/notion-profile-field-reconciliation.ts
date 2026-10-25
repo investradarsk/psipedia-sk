@@ -81,6 +81,8 @@ export function reconcileProfileFields(input: {
   notion: FieldSnapshot;
   psipedia: FieldSnapshot;
   protectedFields: ReadonlySet<string>;
+  /** Psipedia-owned fields are mirrored back to Notion, not treated as a record conflict. */
+  canonicalFieldsWin?: boolean;
   verifiedDeletes?: ReadonlySet<string>;
   /** Optional agenda-specific canonical value equality; does not rewrite data. */
   equalField?: (path: string, left: unknown, right: unknown) => boolean;
@@ -106,7 +108,12 @@ export function reconcileProfileFields(input: {
     if (p) psipediaFields.push(path);
     if (!n && !p) continue;
     if (protectedPath(path, input.protectedFields)) {
-      if (n) conflicts.push({ field: path, reason: "PROTECTED_FIELD" });
+      if (input.canonicalFieldsWin) {
+        // Preserve Psipedia's canonical field and schedule any divergent
+        // Notion value for write-back. Never advance the verified baseline here.
+        if (n) notionFields.push(path);
+        if (p) psipediaFields.push(path);
+      } else if (n) conflicts.push({ field: path, reason: "PROTECTED_FIELD" });
       continue;
     }
     if ((n && !blank(base[path]) && blank(remote[path]) && !input.verifiedDeletes?.has(`notion:${path}`))
