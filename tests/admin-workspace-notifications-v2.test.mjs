@@ -52,3 +52,18 @@ test("push switch stored with version marker; both queue and retry obey it",()=>
  assert.ok((push.match(/isAdminPushEventAllowed/g)||[]).length>=3);
  assert.match(push,/category_disabled/);
 });
+
+test("admin home streams shell and shares the exact attention read across dashboard/bell", () => {
+  const page = read("app/admin/page.tsx");
+  const shell = read("components/admin-shell.tsx");
+  const start = page.indexOf("export default async function AdminPage");
+  const home = page.slice(start);
+  assert.match(page, /async function AdminDashboardContent/);
+  assert.match(home, /const attentionPromise = loadExactAdminAttentionSummary\(\)/);
+  assert.match(home, /attentionSummaryPromise=\{attentionPromise\}/);
+  assert.match(home, /<Suspense fallback=\{<p role="status"/);
+  assert.match(home, /<AdminDashboardContent[\s\S]*?attentionPromise=\{attentionPromise\}/);
+  assert.match(shell, /summaryPromise \?\? loadExactAdminAttentionSummary\(\)/);
+  assert.doesNotMatch(home, /await Promise\.all\(/);
+  assert.doesNotMatch(home, /attentionCount=\{attention\.active\}/);
+});
