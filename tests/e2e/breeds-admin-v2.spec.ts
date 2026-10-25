@@ -17,8 +17,16 @@ async function waitForBreedEditor(page: Page) {
   await expect(page.locator('.admin-breed-editor[data-admin-breed-editor-ready="true"]')).toBeVisible();
 }
 
+// The list is streamed from SSR. Its inputs and paging controls exist before
+// React attaches event handlers. E2E must await the canonical readiness
+// marker rather than clicking a non-hydrated control.
+async function waitForBreedList(page: Page) {
+  await expect(page.locator('[data-admin-breed-hydrated="true"]')).toBeVisible();
+}
+
 async function openCreatedDraft(page: Page, testInfo: TestInfo) {
   await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
+  await waitForBreedList(page);
   await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill(draftName(testInfo));
   await page.getByRole("link", { name: draftName(testInfo) }).click();
   await waitForBreedEditor(page);
@@ -50,6 +58,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
   test("bounded breed list paginates and resets to the first page after filters", async ({ page }) => {
     await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
+    await waitForBreedList(page);
     const rows = page.locator("[data-admin-breed-row]");
     await expect(rows.first()).toBeVisible();
     const firstPageRows = await rows.count();
