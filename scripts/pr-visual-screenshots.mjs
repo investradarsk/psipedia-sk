@@ -27,8 +27,9 @@ export function parseVisualReviewRoutes(prBody) {
 
 /** Optional extra routes use exactly the same guarded URL/path contract. */
 export function parseVisualAcceptanceRoutes(prBody) {
-  if (!/^VISUAL_ACCEPTANCE_ROUTES:/m.test(String(prBody ?? ""))) return [];
-  return parseVisualReviewRoutes(String(prBody).replace(/^VISUAL_ACCEPTANCE_ROUTES:/m, "VISUAL_REVIEW_ROUTES:"));
+  const matched = String(prBody ?? "").match(/^VISUAL_ACCEPTANCE_ROUTES:[ \t]*([^\r\n]*)/m);
+  if (!matched) return [];
+  return parseVisualReviewRoutes("VISUAL_REVIEW_ROUTES: " + matched[1]);
 }
 
 export function validatePreviewBase(value) {
