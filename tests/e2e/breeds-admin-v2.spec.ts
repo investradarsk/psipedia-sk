@@ -48,6 +48,29 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
   test.beforeEach(async ({ page }) => necessaryCookies(page));
 
+  test("bounded breed list paginates and resets to the first page after filters", async ({ page }) => {
+    await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
+    const rows = page.locator("[data-admin-breed-row]");
+    await expect(rows.first()).toBeVisible();
+    const firstPageRows = await rows.count();
+    expect(firstPageRows).toBeLessThanOrEqual(50);
+    const pager = page.getByRole("navigation", { name: "Stránkovanie plemien" });
+    if (await pager.isVisible()) {
+      await expect(rows).toHaveCount(50);
+      await expect(pager.getByRole("button", { name: "Predchádzajúca" })).toBeDisabled();
+      await pager.getByRole("button", { name: "Nasledujúca" }).click();
+      await expect(pager.getByText(/Strana 2 z/)).toBeVisible();
+      await expect(rows.first()).toBeVisible();
+      await expect(rows).not.toHaveCount(0);
+      await expect(rows).toHaveCount(Math.min(50, await rows.count()));
+    }
+    await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill("burgosky");
+    await expect(page.getByRole("article").filter({ hasText: "Burgoský stavač" })).toBeVisible();
+    await expect(rows).toHaveCount(1);
+    await expect(pager).toHaveCount(0);
+    await expect(page.getByText(/Nájdené: 1 z/)).toBeVisible();
+  });
+
   test("dense list supports search, FCI/status/completeness filters and guarded publication bulk", async ({ page }) => {
     await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "Plemená" })).toBeVisible();
