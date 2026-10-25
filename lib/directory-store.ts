@@ -1069,9 +1069,19 @@ export async function listPublishedDirectoryProfiles(options: {
     `).bind(category).all<CanonicalPublicServiceRow>();
     return canonicalPublicServiceOptions(category, canonicalRows.results);
   };
-  const [optionResults, canonicalServices] = await Promise.all([
+  // When no location filter is active, the COUNT uses exactly baseClauses:
+  // start it together with the facet batch instead of waiting for the options
+  // round-trip. Location-filtered requests still validate facets first.
+  // This does not add a SQL statement or change page clamping.
+  const canCountWithFacets = !options.filters.region && !options.filters.district && !options.filters.city;
+  const earlyCount = canCountWithFacets
+    ? database.prepare(`SELECT COUNT(*) AS total FROM directory_profiles WHERE ${baseClauses.join(" AND ")}`)
+      .bind(...baseBindings).first<{ total: number }>()
+    : Promise.resolve(null);
+  const [optionResults, canonicalServices, preloadedCount] = await Promise.all([
     database.batch([locationStatement, serviceStatement, sourceStatement]),
     loadCanonicalServices(),
+    earlyCount,
   ]);
   const locationFacets = (optionResults[0].results as Array<{
     regions: string; districts: string; cities: string;
@@ -1099,7 +1109,7 @@ export async function listPublishedDirectoryProfiles(options: {
         : "featured DESC, name ASC, id ASC";
   const requestedPage = Math.max(1, Math.trunc(options.filters.page));
   const countStatement = database.prepare(`SELECT COUNT(*) AS total FROM directory_profiles WHERE ${where}`).bind(...bindings);
-  const count = await countStatement.first<{ total: number }>();
+  const count = preloadedCount ?? await countStatement.first<{ total: number }>();
   const total = Number(count?.total ?? 0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(requestedPage, totalPages);
