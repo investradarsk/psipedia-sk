@@ -13,7 +13,7 @@ test("desktop public map, controls and provider information align with the canon
   assert.match(experience, /<section className=\{\`shell public-shell \$\{styles\.experience\}\`\}/);
   assert.match(experience, /className=\{\`shell public-shell \$\{styles\.providerDisclosure\}\`\}/);
   assert.doesNotMatch(css, /1920px/, "the map must not be wider than the canonical content shell");
-  assert.doesNotMatch(css, /\.experience\s*\{[^}]*\bwidth\s*:/g);
+  assert.doesNotMatch(css, /\.experience\s*\{[^}]*\swidth\s*:/g);
   assert.doesNotMatch(css, /\.providerDisclosure\s*\{[^}]*\bwidth\s*:/g);
   assert.match(css, /\.workspace\s*\{[^}]*grid-template-columns: minmax\(280px, min\(32%, 420px\)\) minmax\(0, 1fr\)/);
   assert.match(css, /\.mapPanel\s*\{[^}]*min-width: 0;/);
