@@ -13,6 +13,7 @@ import {
 } from "@/components/admin-interaction-system";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { HELP_ADMIN_CATEGORIES, type HelpAdminFilters } from "@/lib/help-admin-query";
+import { adminFilteredListHref } from "@/lib/admin-list-query";
 import type { ManagedHelpCaseSummary } from "@/lib/help-store";
 import styles from "./admin-help-bulk.module.css";
 
@@ -29,17 +30,15 @@ type BulkStatus = "draft" | "published";
 type BulkPreflight = { selectedCount: number; changeCount: number; items: { id: number; status: BulkStatus; updatedAt: string }[]; targetStatus: BulkStatus; error?: string };
 
 function url(filters: HelpAdminFilters) {
-  const params = new URLSearchParams();
-  if (filters.category !== "all") params.set("category", filters.category);
-  if (filters.status !== "all") params.set("status", filters.status);
-  if (filters.urgent !== "all") params.set("urgent", filters.urgent);
-  if (filters.state !== "all") params.set("state", filters.state);
-  if (filters.organization) params.set("organization", filters.organization);
-  if (filters.location) params.set("location", filters.location);
-  if (filters.q) params.set("q", filters.q);
-  if (filters.page > 1) params.set("page", String(filters.page));
-  const query = params.toString();
-  return `/admin/pomoc${query ? `?${query}` : ""}`;
+  return adminFilteredListHref("/admin/pomoc", [
+    ["category", filters.category !== "all" ? filters.category : ""],
+    ["status", filters.status !== "all" ? filters.status : ""],
+    ["urgent", filters.urgent !== "all" ? filters.urgent : ""],
+    ["state", filters.state !== "all" ? filters.state : ""],
+    ["organization", filters.organization],
+    ["location", filters.location],
+    ["q", filters.q],
+  ], filters.page);
 }
 
 export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: DashboardData; filters: HelpAdminFilters; reviewedIds?: number[] }) {
