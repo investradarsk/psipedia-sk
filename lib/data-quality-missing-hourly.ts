@@ -339,21 +339,6 @@ export type MissingQualityDashboard = {
   truncated: boolean;
   schemaReady: boolean;
 };
-/**
- * Tiny read model for the Admin homepage quality card.
- * Do not hydrate up to 1000 proposals or aggregate the scan history merely
- * to show one pending count. Full detail stays in loadMissingQualityDashboard.
- *
- * Preserve the migration readiness gate so an absent/outdated schema is never
- * silently displayed as zero pending proposals.
- */
-export async function loadMissingQualityPendingSummary(db: Database): Promise<{total: number; schemaReady: boolean}> {
-  if (!(await hasScanStatusColumns(db))) return {total: 0, schemaReady: false};
-  const row = await db.prepare("SELECT COUNT(*) AS n FROM quality_missing_proposals WHERE status='OPEN'")
-    .first<{n: number}>();
-  return {total: Number(row?.n ?? 0), schemaReady: true};
-}
-
 export async function loadMissingQualityDashboard(db: Database): Promise<MissingQualityDashboard> {
   const monthly = { services: 0, events: 0, help: 0 };
   const outcomes: Record<QualityArea, QualityScanCount> = {
