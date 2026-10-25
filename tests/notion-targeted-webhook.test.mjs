@@ -110,4 +110,9 @@ test("targeted runners are scoped, do not turn into full scheduled sweeps", asyn
   const help = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
   assert.match(help, /if \(input\.webhookMappedOnly && input\.targetPageId\)/);
   assert.match(help, /pages = \[page\]/);
+  assert.match(help, /targetEntityId = Number\(mapping\.entity_id\)/);
+  assert.match(help, /input\.definition\.load\(input\.database, targetEntityId\)/);
+  const loaders = await readFile(new URL("../lib/notion-bulk-sources.ts", import.meta.url), "utf8");
+  assert.match(loaders, /WHERE managed_events\.id = \?/);
+  assert.match(loaders, /FROM help_cases WHERE .*AND id = \?/);
 });
