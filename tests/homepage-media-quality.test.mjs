@@ -80,7 +80,11 @@ test("homepage breed cards read only presentation fields, not the editor's full 
   assert.match(fn, /SELECT slug,name,image_url,intro\s+FROM managed_breeds/);
   assert.match(fn, /WHERE id IN \(\$\{canonicalBreedIdsSql\}\)/);
   assert.match(fn, /ORDER BY fci_group,name LIMIT \?/);
-  assert.match(fn, /withAvailableBreedImages/);
+  assert.match(fn, /image:ownedBreedImage\(row\.image_url\)/);
+  assert.doesNotMatch(fn, /withAvailableBreedImages|availableBreedImage\(/);
+  assert.match(fn, /SELECT slug,name,image_url,intro/);
+  const breedPhoto=await repoFile("components/breed-photo.tsx");
+  assert.match(breedPhoto, /onError=\{\(\)=>setFailed\(String\(props\.src\)\)\}/);
   assert.doesNotMatch(fn, /\$\{select\}|fromRow\(|fci_standard_json|editorial_json|gallery_json/);
   assert.match(page, /listHomepageFeaturedBreeds\(6\)/);
 });
