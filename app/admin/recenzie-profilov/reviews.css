@@ -11,7 +11,7 @@
 .admin-review-badges{display:flex;flex-wrap:wrap;gap:7px}.admin-review-badges span{padding:5px 8px;border-radius:999px;background:#eef4f0;color:#315044;font-size:.75rem;font-weight:800}
 .admin-review-badges .admin-review-status{background:#e9f2ed;color:#174b38}.admin-review-badges .admin-review-risk{background:#fff1df;color:#7b4b16}
 .admin-review-meta{display:flex;flex-wrap:wrap;gap:5px 9px;margin-top:6px;color:#60756c;font-size:.82rem}.admin-review-meta span{overflow-wrap:anywhere}
-.admin-review-open{font-weight:800;white-space:nowrap}.admin-review-empty{padding:18px 12px;text-align:center;border:1px dashed #cbd8d0;border-radius:14px;background:#f8fbf9}.admin-review-empty h2{margin:0 0 6px;font-size:1.05rem}
+.admin-review-open{display:inline-flex;align-items:center;min-height:44px;font-weight:800;white-space:nowrap}.admin-review-empty{padding:18px 12px;text-align:center;border:1px dashed #cbd8d0;border-radius:14px;background:#f8fbf9}.admin-review-empty h2{margin:0 0 6px;font-size:1.05rem}
 .admin-review-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.admin-review-detail-grid .admin-review-card{margin:0}
 .admin-review-definition{display:grid;gap:10px;margin:0}.admin-review-definition div{display:grid;grid-template-columns:minmax(120px,.8fr) minmax(0,1.2fr);gap:10px;padding-bottom:9px;border-bottom:1px solid #edf1ee}.admin-review-definition dt{color:#60756c;font-size:.8rem;font-weight:800}.admin-review-definition dd{margin:0;overflow-wrap:anywhere}
 .admin-review-technical{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem}
