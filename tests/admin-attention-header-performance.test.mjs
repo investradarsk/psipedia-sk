@@ -149,10 +149,10 @@ test("requests run concurrently, without global caching or stale counts", async 
 test("shared admin shell streams independently of a slow attention summary", () => {
   const shell = readFileSync(new URL("../components/admin-shell.tsx", import.meta.url), "utf8");
   assert.match(shell, /import \{ Suspense, type ReactNode \} from "react"/);
-  assert.match(shell, /<Suspense fallback=\{<AdminNotificationBellPending \/>\}>\s*<AdminNotificationBell count=\{attentionCount\} partial=\{attentionCountPartial\} \/>\s*<\/Suspense>/);
+  assert.match(shell, /<Suspense fallback=\{<AdminNotificationBellPending \/>\}>\s*<AdminNotificationBell count=\{attentionCount\} partial=\{attentionCountPartial\} summaryPromise=\{attentionSummaryPromise\} \/>\s*<\/Suspense>/);
   assert.match(shell, /aria-label="Upozornenia: načítava sa počet aktívnych položiek"/);
   assert.match(shell, /function AdminNotificationBellPending\(\) \{/);
-  assert.match(shell, /if \(activeCount === undefined\) \{\s*const summary = await loadExactAdminAttentionSummary\(\)/);
+  assert.match(shell, /if \(activeCount === undefined\) \{\s*const summary = await \(summaryPromise \?\? loadExactAdminAttentionSummary\(\)\)/);
   assert.match(shell, /data-testid="admin-notification-bell"/g);
   assert.doesNotMatch(shell.match(/function AdminNotificationBellPending\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "", /loadExactAdminAttentionSummary/);
 });
