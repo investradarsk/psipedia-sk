@@ -227,6 +227,16 @@ test("facet decoding keeps SQLite BINARY order and raw location whitespace dupli
   );
 });
 
+test("canonical service options share the facet request's latency budget; disabled never queries new tables", () => {
+  const fn = store.slice(store.indexOf("export async function listPublishedDirectoryProfiles("),
+    store.indexOf("export async function getDirectoryCategoryCounts("));
+  assert.match(fn, /const canonicalServicesEnabled = canonicalPublicEnabled/);
+  assert.match(fn, /if \(!canonicalServicesEnabled \|\| !category\) return \[\]/);
+  assert.match(fn, /Promise\.all\(\[\s*database\.batch\(\[locationStatement, serviceStatement, sourceStatement\]\),\s*loadCanonicalServices\(\),\s*\]\)/);
+  assert.match(fn, /const listResult = total === 0/);
+  assert.match(fn, /await listStatement\.all<DirectoryProfileRow>\(\)/);
+});
+
 test("option scans shrink from eight to three without touching publication or pagination contracts", () => {
   const fn = store.slice(store.indexOf("export async function listPublishedDirectoryProfiles("),
     store.indexOf("export async function getDirectoryCategoryCounts("));
