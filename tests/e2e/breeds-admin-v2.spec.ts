@@ -62,7 +62,9 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
       await expect(pager.getByText(/Strana 2 z/)).toBeVisible();
       await expect(rows.first()).toBeVisible();
       await expect(rows).not.toHaveCount(0);
-      await expect(rows).toHaveCount(Math.min(50, await rows.count()));
+      const secondPageRows = await rows.count();
+      expect(secondPageRows).toBeGreaterThan(0);
+      expect(secondPageRows).toBeLessThanOrEqual(50);
     }
     await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill("burgosky");
     await expect(page.getByRole("article").filter({ hasText: "Burgoský stavač" })).toBeVisible();
