@@ -31,27 +31,8 @@
   font: inherit;
   font-size: var(--ps-filter-directory-font-size);
 }
-.submit, .clear {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
-  border-radius: 11px;
-  font-size: .82rem;
-  font-weight: 850;
-  text-align: center;
-}
-.submit {
-  border: 1px solid var(--forest);
-  color: white;
-  background: var(--forest);
-  cursor: pointer;
-}
-.clear { color: var(--forest); text-decoration: underline; text-underline-offset: 3px; }
+.submit, .clear { width: 100%; }
 .sidebarForm select:focus-visible,
-.submit:focus-visible,
-.clear:focus-visible,
 .summary:focus-visible {
   outline: 3px solid rgba(23,75,56,.3);
   outline-offset: 2px;
@@ -130,8 +111,8 @@
     text-decoration: none;
     cursor: pointer;
   }
-  .mobileToolbar .modalTrigger { border: 1px solid var(--forest); color: #fff; background: var(--forest); }
-  .mobileToolbar .mapLink { border: 1px solid rgba(23,75,56,.22); color: var(--forest); background: #fff; }
+  /* Mobile CTA colors and focus are owned by PublicAction variants. */
+  .modalTrigger, .mapLink { min-width: 0; }
   .activeFilters { margin-block: 11px 2px; }
   .dialog[open] {
     display: block;

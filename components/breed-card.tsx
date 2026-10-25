@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { BreedAtlasCard } from "@/lib/breed-store";
 import { ArrowIcon } from "./icons";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
+import { PublicActionLink } from "@/components/public-visual-system";
 
 export function RatingDots({ value, label }: { value: number; label: string }) {
   return (
@@ -18,14 +19,14 @@ export function RatingDots({ value, label }: { value: number; label: string }) {
 export function BreedCard({ breed }: { breed: BreedAtlasCard }) {
   const profileHref = `/plemena/${breed.slug}`;
   return (
-    <article className={`breed-card breed-card--${breed.accent}`}>
+    <article className={`breed-card breed-card--${breed.accent}`} data-public-card="breed">
       <Link href={profileHref} className="breed-card-media" aria-label={`Otvoriť profil: ${breed.name}`}>
         {breed.image ? <BreedPhoto src={breed.image} alt={`${breed.name} – fotografia plemena`} loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true"><PublicMediaFallback /></span>}
         <span className="fci-badge">FCI {breed.fciGroup}</span>
       </Link>
       <div className="breed-card-body">
-        <span className="breed-card-classification">FCI {breed.fciGroup}{breed.fciSection ? ` · ${breed.fciSection}` : ""}</span>
-        <h3><Link href={profileHref}>{breed.name}</Link></h3>
+        <span className="breed-card-classification" data-public-card-meta>FCI {breed.fciGroup}{breed.fciSection ? ` · ${breed.fciSection}` : ""}</span>
+        <h3 data-public-card-title><Link href={profileHref}>{breed.name}</Link></h3>
         <dl className="breed-card-facts">
           {breed.origin && <div><dt>Pôvod</dt><dd>{breed.origin}</dd></div>}
           {breed.height && <div><dt>Výška</dt><dd>{breed.height}</dd></div>}
@@ -37,7 +38,7 @@ export function BreedCard({ breed }: { breed: BreedAtlasCard }) {
           <RatingDots value={breed.trainability} label="Cvičiteľnosť" />
           <RatingDots value={breed.family} label="Rodina" />
         </div>}
-        <Link href={profileHref} className="text-link">Zobraziť profil <ArrowIcon size={18} /></Link>
+        <PublicActionLink href={profileHref} variant="tertiary" icon={<ArrowIcon size={18} />}>Zobraziť profil</PublicActionLink>
       </div>
     </article>
   );

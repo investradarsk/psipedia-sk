@@ -1,8 +1,8 @@
 "use client";
 
 import { PublicChoiceInput, PublicSelect } from "@/components/public-visual-system/public-form-controls";
-import Link from "next/link";
 import { PublicFilterTag } from "@/components/public-visual-system/public-result-states";
+import { PublicActionButton, PublicActionLink } from "@/components/public-visual-system";
 import { useEffect, useRef, useSyncExternalStore, type ChangeEvent } from "react";
 import type { DirectoryCategorySlug } from "@/lib/directory";
 import { serviceFiltersForCategory } from "@/lib/directory-filter-contract";
@@ -155,8 +155,8 @@ function FilterFields({ filters, options, basePath, category, modal = false }: P
         <option value="name-desc">Názov Z–A</option><option value="newest">Najnovšie</option>
       </PublicSelect></label>
       <div className={styles.actions}>
-        <button className={styles.submit} type="submit">Použiť filtre</button>
-        <Link className={styles.clear} href={basePath}>Zrušiť všetky filtre</Link>
+        <PublicActionButton className={styles.submit} type="submit">Použiť filtre</PublicActionButton>
+        <PublicActionLink className={styles.clear} variant="tertiary" href={basePath}>Zrušiť všetky filtre</PublicActionLink>
       </div>
     </form>
   );
@@ -212,12 +212,12 @@ export function DirectoryFilterForm(props: Props) {
   return (
     <>
       <div className={styles.mobileToolbar} data-hydrated={hydrated ? "true" : "false"} data-directory-mobile-filters>
-        {hydrated && <button type="button" className={styles.modalTrigger}
+        {hydrated && <PublicActionButton type="button" className={styles.modalTrigger}
           aria-haspopup="dialog" aria-controls="directory-filter-dialog"
           onClick={() => dialog.current?.showModal()}>
           Filtre{activeSelections.length > 0 ? ` (${activeSelections.length})` : ""}
-        </button>}
-        <Link className={styles.mapLink} href={mapHref}>Mapa →</Link>
+        </PublicActionButton>}
+        <PublicActionLink className={styles.mapLink} variant="secondary" href={mapHref}>Mapa →</PublicActionLink>
       </div>
       <details ref={disclosure} open className={styles.disclosure}
         data-hydrated={hydrated ? "true" : "false"} data-directory-filter-disclosure>
