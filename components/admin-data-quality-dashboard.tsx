@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { AdminActionButton, AdminBulkActionToolbar, AdminModalDialog } from "@/components/admin-interaction-system";
+import { AdminActionButton, AdminBulkActionToolbar, AdminDestructiveConfirmDialog, AdminModalDialog } from "@/components/admin-interaction-system";
 import { MAX_IMAGE_REVIEW_BATCH, summarizeMediaReviewOutcome, type MediaReviewAction } from "@/lib/admin-data-quality-image-review";
 import styles from "./admin-data-quality-image-review-v2.module.css";
 import type { DataQualityDashboard, DataQualityFieldSuggestion } from "@/lib/data-quality-store";
@@ -56,6 +56,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
   const [busy, setBusy] = useState<string | null>(null);
   const decisionInFlight = useRef(false);
   const [message, setMessage] = useState("");
+  const [pendingFieldReject, setPendingFieldReject] = useState<{ profileId: number; suggestion: DataQualityFieldSuggestion } | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<Set<number>>(new Set());
   const [decision, setDecision] = useState<{
     action: MediaReviewAction; ids: number[]; label: string; expectedCandidates: Record<string, string>;
@@ -223,7 +224,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
     suggestion: DataQualityFieldSuggestion,
     action: "accept" | "reject",
   ) {
-    if (action === "reject" && !window.confirm(`Zamietnuť návrh pre ${suggestion.label.toLowerCase()}?`)) return;
+    if (busy !== null || decisionInFlight.current) return;
     if (action === "accept" && suggestion.reviewMode !== "accept") return;
     const key = `quality-${action}-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
     setBusy(key);
@@ -243,6 +244,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
       );
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error || "Návrh sa nepodarilo spracovať.");
+      if (action === "reject") setPendingFieldReject(null);
       setMessage(action === "accept"
         ? `${suggestion.label} bol prevzatý do profilu #${profileId}.`
         : `Návrh pre ${suggestion.label.toLowerCase()} bol zamietnutý.`);
@@ -261,6 +263,19 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
 
   return (
     <>
+      <AdminDestructiveConfirmDialog
+        open={pendingFieldReject !== null}
+        title="Zamietnuť návrh údaja"
+        description={pendingFieldReject ? `Zamietnuť návrh pre ${pendingFieldReject.suggestion.label.toLowerCase()}?` : undefined}
+        affectedCount={pendingFieldReject ? 1 : 0}
+        affectedLabel="návrh"
+        confirmLabel="Zamietnuť"
+        pending={busy !== null}
+        onCancel={() => { if (busy === null) setPendingFieldReject(null); }}
+        onConfirm={() => {
+          if (pendingFieldReject) void reviewFieldSuggestion(pendingFieldReject.profileId, pendingFieldReject.suggestion, "reject");
+        }}
+      />
       <AdminModalDialog
         open={Boolean(decision)}
         title={decision?.action === "reject" ? "Potvrdiť zamietnutie obrázkov" : "Potvrdiť schválenie obrázkov"}
@@ -605,7 +620,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                                     <button
                                       type="button"
                                       disabled={isBusy}
-                                      onClick={() => void reviewFieldSuggestion(profile.id, suggestion, "reject")}
+                                      onClick={() => setPendingFieldReject({ profileId: profile.id, suggestion })}
                                     >
                                       {busy === rejectKey ? "Zamietam…" : "Zamietnuť"}
                                     </button>
