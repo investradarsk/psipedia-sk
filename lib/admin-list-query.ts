@@ -48,3 +48,21 @@ export function sqlFoldAdminText(expression: string) {
     `lower(${expression})`,
   );
 }
+
+/**
+ * Shared GET-list URL assembly. Callers own the order and omission rules of
+ * domain-specific filters; this helper only encodes nonempty values and page.
+ */
+export function adminFilteredListHref(
+  path: string,
+  fields: ReadonlyArray<readonly [string, string | null | undefined]>,
+  page = 1,
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of fields) {
+    if (value) params.set(key, value);
+  }
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return path + (query ? `?${query}` : "");
+}
