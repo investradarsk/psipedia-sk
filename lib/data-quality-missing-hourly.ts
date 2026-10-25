@@ -566,6 +566,22 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
   const row=await db.prepare(`SELECT * FROM ${config.table} WHERE id=?`).bind(p.entity_id).first<Row>();
   if(!row||!missing(fieldValue(p.entity_type,row,f)))throw new Error("Údaj už bol medzičasom vyplnený.");
   const updatedAt=String(row.updated_at??"");
+  let reviewedImage:{key:string;url:string}|null=null;
+  if(f.group==="image") {
+    const bindings=env as unknown as {BUCKET?:R2Bucket;IMAGES?:import("@/lib/private-media").ImagesBindingLike};
+    if(!bindings.BUCKET) throw new Error("Cloudflare R2 nie je dostupné. Obrázok nebol schválený.");
+    const {downloadRemoteImage,optimizeRemoteImageForStorage}=await import("./notion-sync-shared.ts");
+    const remote=await downloadRemoteImage(p.value);
+    const stored=await optimizeRemoteImageForStorage(bindings,remote);
+    const folder=p.entity_type==="DIRECTORY"?"directory":p.entity_type==="EVENT"?"events":
+      p.entity_type==="ADOPTION"?"adoptions":p.entity_type==="LOST_FOUND"?"lost-found":"help";
+    const key=folder+"/"+new Date().getUTCFullYear()+"/"+crypto.randomUUID()+"."+stored.extension;
+    await bindings.BUCKET.put(key,stored.bytes,{
+      httpMetadata:{contentType:stored.contentType,cacheControl:"public, max-age=31536000, immutable"},
+      customMetadata:{source:"quality-missing-approved",sourceUrl:remote.finalUrl},
+    });
+    reviewedImage={key,url:"/media/"+key};
+  }
   let update:D1PreparedStatement;
   if(p.entity_type==="DIRECTORY"&&f.contact){
     const patch:Parameters<typeof mergeDirectoryPublicContactData>[1]={};
@@ -581,18 +597,34 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     if(!f.column)throw new Error("Chýba mapovanie poľa.");
     // Field column is always from the static allowlist above, never from user input.
     const by=p.entity_type==="LOST_FOUND"?"":",updated_by=?";
-    update=db.prepare(`UPDATE ${config.table} SET ${f.column}=?,updated_at=?${by}
-      WHERE id=? AND updated_at=? AND (${f.column} IS NULL OR TRIM(${f.column})='')
-      AND EXISTS (SELECT 1 FROM quality_missing_proposals WHERE id=? AND status='OPEN')`)
-      .bind(...(p.entity_type==="LOST_FOUND"?[p.value,at,p.entity_id,updatedAt,p.id]:[p.value,at,actor,p.entity_id,updatedAt,p.id]));
+    const imageKeyColumn=reviewedImage?
+      ("image_key" in row?"image_key":"main_image_key" in row?"main_image_key":null):null;
+    const value=reviewedImage?.url??p.value;
+    const keyClause=imageKeyColumn?", "+imageKeyColumn+"=?":"";
+    const sql="UPDATE "+config.table+" SET "+f.column+"=?,updated_at=?"+by+keyClause+
+      " WHERE id=? AND updated_at=? AND ("+f.column+" IS NULL OR TRIM("+f.column+")='')"+
+      " AND EXISTS (SELECT 1 FROM quality_missing_proposals WHERE id=? AND status='OPEN')";
+    const values:(string|number)[]=p.entity_type==="LOST_FOUND"?[value,at]:[value,at,actor];
+    if(imageKeyColumn) values.push(reviewedImage!.key);
+    update=db.prepare(sql).bind(...values,p.entity_id,updatedAt,p.id);
   }
   const decision=db.prepare(`UPDATE quality_missing_proposals
     SET status='ACCEPTED',decided_by=?,decided_at=?
     WHERE id=? AND status='OPEN'
       AND EXISTS (SELECT 1 FROM ${config.table} WHERE id=? AND updated_at=?)`)
     .bind(actor,at,p.id,p.entity_id,at);
-  const [result,decisionResult]=await db.batch([update,decision]);
-  if(!result.meta.changes || !decisionResult.meta.changes)throw new Error("Záznam sa medzičasom zmenil. Obnov stránku.");
+  let canonicalUpdated=false;
+  try{
+    const [result,decisionResult]=await db.batch([update,decision]);
+    canonicalUpdated=Boolean(result.meta.changes);
+    if(!canonicalUpdated || !decisionResult.meta.changes)
+      throw new Error("Záznam sa medzičasom zmenil. Obnov stránku.");
+  }catch(error){
+    // Do not delete an image already referenced by a canonical record.
+    if(reviewedImage&&!canonicalUpdated)
+      await (env as unknown as {BUCKET?:R2Bucket}).BUCKET?.delete(reviewedImage.key).catch(()=>{});
+    throw error;
+  }
 }
 export function getQualityMissingDatabase(){
   const db=(env as unknown as {DB?:D1Database}).DB;
