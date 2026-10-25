@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminNumberedPagination } from "@/components/admin-pagination";
+import { AdminDataTableRegion } from "@/components/admin-data-table-region";
 import { adminFilteredListHref } from "@/lib/admin-list-query";
 import { adoptionRegions, adoptionStatusLabels, adoptionStatuses } from "@/lib/adoption";
 import {
@@ -59,10 +60,10 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
       <select name="sort" defaultValue={filters.sort ?? "updated-desc"} aria-label="Radenie">{adoptionAdminSorts.map((sort)=><option key={sort} value={sort}>{sortLabels[sort]}</option>)}</select>
       <button type="submit">Filtrovať</button>
     </form>
-    <div className={styles.tableWrap} role="region" aria-label="Zoznam adopcií" tabIndex={0}><table className={styles.table}><thead><tr><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
+    <AdminDataTableRegion className={styles.tableWrap} label="Zoznam adopcií"><table className={styles.table}><thead><tr><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
       {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><div className={styles.rowTitle}><strong>{item.name}</strong><small>#{item.id} · /{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact /><Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link></div></td></tr>})}
       {!result.items.length&&<tr><td colSpan={7}>Žiadne adopcie pre zvolené filtre.</td></tr>}
-    </tbody></table></div>
+    </tbody></table></AdminDataTableRegion>
     <AdminNumberedPagination page={result.pagination.page} totalPages={result.pagination.totalPages}
       hrefForPage={(page)=>adminHref(filters,{page})} className={styles.pagination}
       ariaLabel="Stránkovanie adopcií" />
