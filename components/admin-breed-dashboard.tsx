@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
 import {
   adminBreedCounts,
@@ -32,6 +32,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
   const [breeds, setBreeds] = useState(initialBreeds);
   const [filters, setFilters] = useState<AdminBreedFilters>(defaultAdminBreedFilters);
   const [requestedPage, setRequestedPage] = useState(1);
+  const listRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,6 +61,13 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
   const someVisibleSelected = visibleIds.some((id) => selected.has(id)) && !allVisibleSelected;
   const bulkTargets = bulkStatus ? selectedBreeds.filter((breed) => breed.status !== bulkStatus) : [];
+
+  function changePage(nextPage: number) {
+    setRequestedPage(nextPage);
+    // A long page may have placed the pager far below its first row.
+    // Return keyboard and touch users to the next page’s first rows.
+    requestAnimationFrame(() => listRef.current?.scrollIntoView({ block: "start", behavior: "auto" }));
+  }
 
   function changeFilter(key: keyof AdminBreedFilters, value: string) {
     setFilters((current) => {
@@ -186,7 +194,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
 
       {message && <p className="admin-flash" role="status">{message}</p>}
 
-      <div className={styles.list} aria-busy={busy}>
+      <div className={styles.list} ref={listRef} aria-busy={busy}>
         {pageData.items.map((breed) => <article data-admin-breed-row className={styles.row} key={breed.id}>
           <input aria-label={`Vybrať ${breed.name}`} type="checkbox" checked={selected.has(breed.id)} disabled={busy} onChange={() => toggle(breed.id)}/>
           <div className={styles.thumb}>{breed.image ? <img src={breed.image} alt="" loading="lazy" decoding="async"/> : <span>Bez<br/>obrázka</span>}</div>
@@ -209,14 +217,14 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       {pageData.totalPages > 1 && (
         <nav className={styles.pagination} aria-label="Stránkovanie plemien">
           <button type="button" disabled={busy || pageData.page === 1}
-            onClick={() => setRequestedPage(1)}>Prvá</button>
+            onClick={() => changePage(1)}>Prvá</button>
           <button type="button" disabled={busy || pageData.page === 1}
-            onClick={() => setRequestedPage(pageData.page - 1)}>Predchádzajúca</button>
+            onClick={() => changePage(pageData.page - 1)}>Predchádzajúca</button>
           <span aria-live="polite">Strana {pageData.page} z {pageData.totalPages}</span>
           <button type="button" disabled={busy || pageData.page === pageData.totalPages}
-            onClick={() => setRequestedPage(pageData.page + 1)}>Nasledujúca</button>
+            onClick={() => changePage(pageData.page + 1)}>Nasledujúca</button>
           <button type="button" disabled={busy || pageData.page === pageData.totalPages}
-            onClick={() => setRequestedPage(pageData.totalPages)}>Posledná</button>
+            onClick={() => changePage(pageData.totalPages)}>Posledná</button>
         </nav>
       )}
     </section>
