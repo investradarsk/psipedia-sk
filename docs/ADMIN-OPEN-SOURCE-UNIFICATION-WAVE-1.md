@@ -34,3 +34,12 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - **Jednotná akcia**: tlačidlo na spustenie Lexicalu využíva kanonický `AdminActionButton` a ikonu Lucide namiesto vlastného stylingu v každom editore.
 - **Prístupnosť**: oddelený, pomenovaný skrytý file input od klikateľnej dropzóny; drag/drop sa nemení. Enter/medzerník programovo otvára výber, ktorý ostáva funkčný pre existujúce Playwright `input[type=file]` testy.
 - **CI**: rozšírená cesta workflow na všetky dotknuté komponenty, opravený historický zlepený path filter; pokryté kontrakty a partial-success galérie.
+
+
+## Vlna 3 — jednotné nahrávanie jednej fotografie
+
+- Nahrávanie primárnej fotografie cez **jeden spoločný React Dropzone**: podujatia, pomoc psom, adresár, organizácie, adopcie, stratené/nájdené psy, plemená, články a článkové Open Graph obrázky.
+- Klávesnica Enter/medzerník, drag/drop a pomenovaný file input. Všetky kanonické upload routy, R2 priečinky, odstránenie obrázka, nastavenia výrezu a persistované údaje zostávajú vlastníctvom pôvodného editora.
+- `adminSelectedImage` mení file-picker alebo Dropzone File na ten istý vstup; pri starom HTML inpute vymaže výber pred asynchrónnym nahrávaním.
+- `AdminSingleImageUpload` nikdy nezapisuje údaje do profilu a nikdy nespúšťa publikovanie. Rovnaký komponent možno vizuálne vylepšiť pre všetky editory centrálne.
+- Nový `tests/admin-single-image-unification.test.mjs` pokrýva parity a používateľské rozhranie; produkčné testy doplnené do CI.
