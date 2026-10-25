@@ -953,4 +953,7 @@
   --ps-detail-fact-label-size: .75rem;
   --ps-detail-fact-value-size: .875rem;
   --ps-detail-photo-radius: var(--ps-radius-media);
+  /* PUBLIC-BANNERS-2: one banner frame, without recoloring editorial or urgent tones. */
+  --ps-banner-radius: var(--ps-radius-filter);
+  --ps-banner-border: var(--ps-border-soft);
 }

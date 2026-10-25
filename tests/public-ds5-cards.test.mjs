@@ -146,3 +146,6 @@ import "./public-editorial-detail-consistency.test.mjs";
 
 // Phase 2, fixed item 1: public detail appearance regressions.
 import "./public-details-phase2.test.mjs";
+
+// Phase 2, fixed item 2: banner and notice consistency.
+import "./public-banners-phase2.test.mjs";
