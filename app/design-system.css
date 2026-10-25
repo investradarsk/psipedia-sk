@@ -945,3 +945,69 @@
     outline-color: Highlight;
   }
 }
+
+/* PUBLIC-DETAIL-2: scope-bound public detail presentation tokens.
+   Keep DS-1A and DS-5 blocks immutable; no change to image rendering mode. */
+:root {
+  --ps-detail-heading-size: clamp(1.55rem, 2.4vw, 2rem);
+  --ps-detail-fact-label-size: .75rem;
+  --ps-detail-fact-value-size: .875rem;
+  --ps-detail-photo-radius: var(--ps-radius-media);
+  /* PUBLIC-BANNERS-2: one banner frame, without recoloring editorial or urgent tones. */
+  --ps-banner-radius: var(--ps-radius-filter);
+  --ps-banner-border: var(--ps-border-soft);
+}
+
+/* PUBLIC-FILTER-3: visible active-filter rhythm shared by directory, events,
+   help and breeds. This does not change GET parameters or page routing. */
+[data-public-active-filters] {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block: 12px;
+}
+[data-public-active-filters] > [data-public-active-filter-label] {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 800;
+}
+[data-public-active-filters] [data-public-filter-reset] {
+  display: inline-flex;
+  min-height: var(--ps-control-min-height, 44px);
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--ps-radius-control);
+  color: var(--forest-dark);
+  font-size: .82rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+[data-public-active-filters] [data-public-filter-reset]:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 3px;
+}
+@media (forced-colors: active) {
+  [data-public-active-filters] [data-public-filter-reset]:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+/* PUBLIC-LAYOUT-4: common listing headings, filter/search widths and page rhythm.
+   Applies to visitor-facing listings; the global shell remains the only page-width source. */
+:root {
+  --ps-list-heading-size: clamp(1.5rem, 2.4vw, 2rem);
+  --ps-list-heading-leading: 1.15;
+  --ps-list-column-gap: clamp(14px, 1.8vw, 20px);
+  --ps-list-section-top: clamp(22px, 3vw, 30px);
+  --ps-list-search-max: 780px;
+}
+@media (max-width: 620px) {
+  :root {
+    --ps-list-section-top: 20px;
+    --ps-list-column-gap: 14px;
+  }
+}

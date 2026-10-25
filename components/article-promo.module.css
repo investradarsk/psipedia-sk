@@ -8,7 +8,7 @@
   margin: 30px 0;
   padding: 22px 24px;
   overflow: hidden;
-  border: 1px solid rgba(23, 75, 56, 0.16);
+  border: 1px solid var(--ps-banner-border, var(--ps-border-soft));
   border-radius: var(--ps-banner-radius, var(--ps-radius-filter, 18px));
   background: linear-gradient(135deg, var(--brand-surface, #fffdf8), var(--sage-light, #edf3e9));
   color: var(--ink, #17352b);

@@ -243,7 +243,7 @@ test("approved desktop A and mobile B render a single canonical set of category 
   );
   assert.match(
     component,
-    /<a className=\{styles\.clearAll\} href=\{basePath\}>Vymazať všetko<\/a>/,
+    /<a className=\{styles\.clearAll\} href=\{basePath\} data-public-filter-reset>Vymazať všetko<\/a>/,
   );
   assert.doesNotMatch(component, /<Link className=\{styles\.chip\}/);
   assert.match(directory, /mapHref=\{mapHref\(filters, active\?\.slug\)\}/);

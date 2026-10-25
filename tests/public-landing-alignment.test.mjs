@@ -55,7 +55,7 @@ test("shared landing heading owns compact typography and heading-to-content spac
   assert.match(layoutCss, /font-size:\s*\.7rem/);
   assert.match(layoutCss, /font-weight:\s*900/);
   assert.match(layoutCss, /letter-spacing:\s*\.09em/);
-  assert.match(layoutCss, /\.heading h2\s*\{[\s\S]*margin:\s*5px 0 0[\s\S]*font-size:\s*clamp\(1\.5rem, 2\.3vw, 2\.15rem\)[\s\S]*font-weight:\s*600[\s\S]*line-height:\s*1\.15/);
+  assert.match(layoutCss, /\.heading h2\s*\{[\s\S]*margin:\s*5px 0 0[\s\S]*font-size:\s*var\(--ps-list-heading-size\)[\s\S]*font-weight:\s*600[\s\S]*line-height:\s*var\(--ps-list-heading-leading\)/);
   assert.match(layoutCss, /\.description\s*\{[\s\S]*max-width:\s*500px[\s\S]*font-size:\s*\.82rem[\s\S]*line-height:\s*1\.55/);
   assert.match(layoutCss, /@media \(max-width: 700px\)[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*gap:\s*8px/);
 });
