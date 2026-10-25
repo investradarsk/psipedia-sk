@@ -114,3 +114,18 @@ test("e-shop and puppy area reuse one safe content drafting and single-image pic
   assert.match(puppy,/uploadAdminImage\(file, "articles"\)/);
   assert.match(puppy,/update\(index, \{ intro: appendLexicalPlainText/);
 });
+
+test("navigation and section edits use shared staged destructive dialogs",()=>{
+  const navigation=read("components/admin-navigation-editor.tsx");
+  const sections=read("components/admin-section-editor.tsx");
+  for(const source of [navigation,sections]){
+    assert.match(source,/AdminDestructiveConfirmDialog/);
+    assert.doesNotMatch(source,/window\.confirm/);
+  }
+  assert.match(navigation,/pendingRemovalId/);
+  assert.match(navigation,/confirmRemoveItem/);
+  assert.match(navigation,/item\.parentId!==id/);
+  assert.match(sections,/confirmRemoveSubpage/);
+  assert.match(sections,/updateSections\(current=>current\.map/);
+  assert.match(sections,/Uložiť sekcie/);
+});

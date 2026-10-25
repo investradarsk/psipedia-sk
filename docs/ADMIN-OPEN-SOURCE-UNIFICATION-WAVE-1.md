@@ -55,3 +55,10 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - **E-shopy**: Lexical/Radix doplnený k plain-text popisu a spoločný picker loga (`eshops` R2 priečinok). Ani `focusTags`, ani dátový kontrakt sa nemení.
 - **Šteniatka / oblasti**: spoločný picker fotografie (`articles` priečinok) a opt-in Lexical textový návrh pre plain-text `intro`; pôvodné poradie, kanonické `PUT /api/admin/sections` a obsah iných sekcií zostávajú nezmenené.
 - E2E scenár pri publikovanom článku skúša **zrušenie** aj **potvrdenie** stiahnutia; kontraktový test potvrdzuje používanie shared komponentov.
+
+## Vlna 4b — jednotné potvrdenia aj v nastavení webu
+
+- Administrácia navigácie: pred odstránením položky alebo jej podmenu sa otvorí spoločný `AdminDestructiveConfirmDialog`. Po potvrdení sa mení iba lokálna pracovná kópia menu; používateľ musí samostatne kliknúť na `Uložiť navigáciu`.
+- Administrácia sekcií: podobne sa cez ten istý dialóg potvrdzuje odstránenie podsekcie. Existujúca `PUT /api/admin/sections` logika sa nemení.
+- Zrušenie/Escape nesmie upraviť ani uložiť nič. `AdminDestructiveConfirmDialog` zabezpečuje rolu, titulok, focus a návrat na tlačidlo.
+- Kontraktové testy aktualizované z historickej povinnosti používať `window.confirm` na povinnosť použiť shared dialóg so zachovaným staging/save workflow.
