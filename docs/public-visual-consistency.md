@@ -11,7 +11,8 @@ Používame existujúce `PageContainer` / `.shell.public-shell`, `app/design-sys
 - [x] **Mapa — prvá konsolidácia ovládania:** výška vyhľadávania a filtrov, zaoblenie panelu a polí používajú schválené existujúce tokeny.
 - [x] **CTA a tlačidlá — druhá etapa:** Adresár (odoslanie/reset filtrov, mobilné akcie, bočné CTA), Pomoc psom (odoslanie/reset), Podujatia (filtrovanie/zoradenie), Plemená (ďalšie výsledky) používajú PublicActionButton/PublicActionLink. Odstránené kolízne lokálne farby a focus pravidlá; DOM označuje význam cez data-public-action.
 - [ ] **CTA a tlačidlá — zvyšok:** detaily/články, disabled stavy a ďalšie kontextové varianty.
-- [ ] **Vyhľadávanie a filtre:** porovnať vizuálne stavy, spúšťanie, reset, aktívne filtre a mobilný dialóg naprieč sekciami. Ponechať funkčné rozdiely potrebné pre konkrétne dáta.
+- [x] **Filtre — 2. etapa:** sedem existujúcich variantov polí (Adresár, Pomoc psom, Podujatia, katalóg, kluby, pôvod a FCI plemien) berie rovnaké zaoblenie z jedného tokenu. Funkčná sémantika a GET/URL zostáva bezo zmeny.
+- [ ] **Vyhľadávanie a filtre — zvyšok:** porovnať vyhľadávacie panely, aktívne filtre, reset a mobilné dialógy na všetkých routach.
 - [x] **Karty — druhá etapa:** bočné CTA Adresára a karty podujatí používajú rám a zaoblenie z existujúcich tokenov. Obsah a obrázky ostávajú pôvodné.
 - [ ] **Karty a detaily — zvyšok:** hierarchia, obrázky, metadáta a ostatné typové varianty.
 - [ ] **Bannery, farby, písmo a hlášky:** zosúladiť existujúce kanonické varianty bez zásahov do obsahu.

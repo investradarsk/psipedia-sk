@@ -15,6 +15,25 @@ test("canonical CTA component exposes semantic variants for public styling", () 
   assert.match(css, /min-height: 44px/);
 });
 
+test("all public filter variants take the same existing control radius", () => {
+  const tokens = read("components/public-visual-system/public-form-controls.module.css");
+  const names = [
+    "directory", "help", "events", "catalog", "club", "breed-origin", "breed-section",
+  ];
+  for (const name of names) {
+    assert.ok(
+      tokens.includes("--ps-filter-" + name + "-border-radius: var(--ps-radius-control, 12px);"),
+      name + " must follow one control radius",
+    );
+  }
+  const directory = read("components/directory-filter-form.module.css");
+  const help = read("components/help-public.module.css");
+  const events = read("components/events-public.module.css");
+  assert.match(directory, /border-radius: var\(--ps-filter-directory-border-radius\)/);
+  assert.match(help, /border-radius: var\(--ps-filter-help-border-radius\)/);
+  assert.match(events, /border-radius: var\(--ps-filter-events-border-radius\)/);
+});
+
 test("directory, help, events and breeds use shared visible actions", () => {
   const directory = read("components/directory-filter-form.tsx");
   const directoryPage = read("components/directory-page.tsx");

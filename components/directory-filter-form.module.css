@@ -112,6 +112,7 @@
     cursor: pointer;
   }
   /* Mobile CTA colors and focus are owned by PublicAction variants. */
+  .modalTrigger, .mapLink { min-width: 0; }
   .activeFilters { margin-block: 11px 2px; }
   .dialog[open] {
     display: block;
