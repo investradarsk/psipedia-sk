@@ -100,7 +100,7 @@
     "test:internal-discovery": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/internal-discovery.test.mjs",
     "test:public-search-simplify": "node --test tests/public-search-simplify.test.mjs",
     "test:content-discovery-v3": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/content-discovery-v3.test.mjs",
-    "test:events-public-ux": "node --experimental-strip-types --test tests/events-calendar-v1.test.mjs tests/events-public-ux-v2.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/event-listing.test.mjs",
+    "test:events-public-ux": "node --experimental-strip-types --test tests/events-calendar-v1.test.mjs tests/events-public-ux-v2.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/event-listing.test.mjs tests/event-calendar-d1-cost.test.mjs",
     "test:facebook-images": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-post.test.mjs",
     "test:facebook-publisher": "node --experimental-strip-types --test tests/facebook-image-publisher.test.mjs",
     "test:facebook-admin-v2": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-admin-v2.test.mjs",
