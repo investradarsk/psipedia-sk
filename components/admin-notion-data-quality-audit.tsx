@@ -276,6 +276,17 @@ export function AdminNotionDataQualityAudit() {
               <div><strong>{totals.qualityCounts.UNKNOWN}</strong><span>Nedostatok dôkazov</span></div>
             </div>
             <p>Potvrdená kolízia identity nie je dôkazom obsahového konfliktu. Bez aktuálnych porovnateľných snapshotov nie je známa správna verzia údajov ani posledný dôveryhodný editor.</p>
+            <details className={styles.details}>
+              <summary>Ako bezpečne vyriešiť konflikt Notion ↔ Psipedia</summary>
+              <ol>
+                <li>Najprv spusti read-only kontrolu konkrétnej agendy. Historická chyba sama osebe neznamená aktuálny konflikt.</li>
+                <li>Pri konflikte identity over pôvodný Psipedia ID a Notion stránku; nemen ID, mapovanie ani stav publikovania automaticky.</li>
+                <li>Pri obsahovom konflikte porovnaj rovnaké polia v kanonickom Admin editore a v Notione. Správnu hodnotu musí potvrdiť človek.</li>
+                <li>Potvrdené Google miesto, presnú adresu, súkromné kontakty, moderáciu a publikovanie upravuj výhradne cez príslušný Admin editor.</li>
+                <li>Po schválenej manuálnej úprave znovu skontroluj obidve aktuálne verzie. Automatický sync bez preukázateľného spoločného základu stále môže správne hlásiť konflikt.</li>
+              </ol>
+              <p>Nepoužívaj hromadné prepísanie, mazanie ani automatické vyhlásenie Notionu alebo D1 za víťaza. Táto kontrola nevykonáva žiadny zápis.</p>
+            </details>
             {totals.qualityItems.length ? (
               <div className={styles.tableScroll}>
                 <table className={styles.table}>

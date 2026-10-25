@@ -41,7 +41,7 @@ const stateLabels: Record<OverviewRow["status"], string> = {
 const runLabels: Record<RunReceipt["status"], string> = {
   UNKNOWN: "Neoverené",
   STARTED: "Prebieha",
-  STALE: "Bez potvrdeného dokončenia",
+  STALE: "Bez aktuálneho potvrdeného behu",
   SUCCESS: "Dokončené",
   NO_CHANGE: "Bez zmien",
   PARTIAL_SUCCESS: "Čiastočný úspech",

@@ -22,11 +22,13 @@
 - [ ] **2C:** pokračovať zjednotením per-agenda diagnostiky a administrátorského prehľadu, bez zmeny doménovej publikačnej logiky.
 - [x] **3A:** každé prepojené ID Adresára sa v jednom hodinovom behu reconciliuje najviac raz; fast-path bez zosúladenia naďalej povoľuje export zmenených kanonických údajov D1. Moved/archived/trashed Notion stránka nie je platný cieľ PATCH.
 - [x] **3B-1:** identická chyba Adresára sa znovu nepatchuje (rovnaký záznam konfliktu zostáva viditeľný); D1-vetva znovu využíva už načítanú Notion stránku, bez ďalších HTTP GET.
-- [ ] **3B-2:** manuálne rozlíšenie skutočne rozdielnych historických obsahových konfliktov po read-only preflight, bez hádania víťaza a bez hromadného prepísania.
+- [x] **3B-2a:** postup manuálneho riešenia konfliktov dostupný priamo v existujúcom read-only admin audite.
+- [ ] **3B-2b:** reálne historické konflikty treba overiť v produkcii a individuálne rozhodnúť; bez automatickej opravy.
 - [x] **4A:** zjednotená idempotentná konfliktná diagnostika v Events/Help: už zapísaná identická chyba sa znovu nepatchuje, takže sa nemení `last_edited_time`; existujúce doménové hranice zostávajú zachované.
 - [x] **4B-1:** spoločná kontrola vlastníctva Notion stránky v Adresári aj Events/Help. Žiadny obsahový ani diagnostický PATCH alebo Notion→D1 import presunutej, archivovanej alebo trashed stránky. Platí pre všetkých päť Events/Help agend a cielené ensure Podujatia, bez migrácie.
 - [x] **4B-2a:** každý mapped Events/Help zápis kontroluje identitu stránky a hash odrazeného obsahu ešte pred aktualizáciou D1 mappingu; zlyhanie API echo neznamená potvrdený sync.
-- [ ] **4B-2b:** doplniť runtime testy autentifikovaných operácií, súbehu a role agend po úspešnom CI (zvlášť publikovanie a súkromné údaje).
+- [x] **4B-2b-1:** päť-agendová regresná matica polia publikovania, súkromia a súbežných editácií proti reálnemu `reconcileProfileFields`.
+- [ ] **4B-2b-2:** skutočné integračné testy všetkých Admin/Notion zápisových transportov a závodov zostávajú samostatným overením.
 - [x] **5A:** spoločný read-only prehľad ôsmich oblastí na existujúcej admin stránke Notion auditu, založený na D1 evidencii bez Notion API dopytov.
 - [x] **5B-1:** posledný zaznamenaný beh Adresára a zdieľanej Events/Help automatizácie cez už existujúce `admin_notification_events` (Admin automation run STARTED/terminal receipts); bez migrácie a bez odhadu per-agenda výsledkov. UI rozlišuje neoverené, prebieha, po lehote, úspech, čiastočný úspech, zlyhanie, preskočené.
 - [ ] **5B-2:** samostatné živé receipts pre katalóg a FB obrázky nie sú v existujúcej schéme rovnocenne dostupné; zatiaľ explicitne NEOVERENÉ. Voliteľné rozšírenie iba pri schválení ďalšieho per-run eventu, nie odhadom z mapping timestamps.
@@ -106,3 +108,7 @@ Test `tests/gemini-canonical-save-sync.test.mjs` predtým simuloval úspešný N
 ## Fáza 5B-1 — skutočné záznamy behov bez migrácie
 
 Admin Notification events už ukladajú idempotentné transitions automatizácií `notion/directory` a `notion/events-help`. Read-only `lib/notion-sync-run-receipts.ts` číta nanajvýš dve posledné udalosti, kontroluje typ, run ID a reálny čas, rozlišuje `STARTED` a nedokončený `STALE`, ukladá iba číselné agregáty konflikty/chyby uvedené priamo interným producentom. Bez udalosti či schémy zostáva `UNKNOWN`. V Admin UI je výsledok udalosti **skupiny events-help zobrazený ako zdieľaný**, nie ako individuálny dôkaz úspechu piatich agend. Katalóg a FB obrázky zostávajú „Záznam behu nie je dostupný“, nakoľko ich bežný Worker nezapisuje tým istým spôsobom. Úspešná udalosť *nepreukazuje Notion online ani obsahovú zhodu*; produkčný read-only preflight zostáva povinný.
+
+## Fáza 3B-2a / 4B-2b-1 — operátorská kontrola a regresná matica
+
+Existujúci audit obsahuje stručný bezpečnostný návod: najprv dokázať, či konflikt ešte existuje, až potom opraviť schválené obsahové polia v kanonickom editore a znovu skontrolovať synchronizáciu. Žiadne automatické mazanie, hromadný sync override alebo publikovanie. Päť-adaptérová regresná matica overuje publikovanie, citlivé polia, kolízie jednej položky a nedostupný baseline cez existujúcu reálnu lossless reconciliáciu. Starý úspech vo výsledkoch Admin automatizácií po troch hodinách zobrazuje `STALE`, aby sa neskoršie výpadky netvárili ako čerstvo zelený sync.

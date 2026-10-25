@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { notionPageBelongsToDataSource } from "../lib/notion-sync-page-ownership.ts";
+import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "../lib/notion-profile-field-reconciliation.ts";
 
 import {
   decideBidirectionalChange,
@@ -1017,4 +1018,72 @@ test("every mapped Events/Help PATCH acknowledges only a verified editorial echo
         "mapping must never advance before Notion proves writeback " + index);
     }
   }
+});
+
+test("all five Events/Help agendas fail closed on publication, privacy and concurrent edits", () => {
+  const cases = [
+    { agenda: "events", status: "Stav", sensitive: "Adresa", editable: "Popis" },
+    { agenda: "organizations", status: "Stav", sensitive: "Adresa", editable: "Popis" },
+    { agenda: "adoptions", status: "Stav", sensitive: "Organizácia", editable: "Popis" },
+    { agenda: "help-cases", status: "Psipedia stav", sensitive: "Kontakt", editable: "Popis" },
+    { agenda: "lost-found", status: "Psipedia stav", sensitive: "Latitude", editable: "Popis" },
+  ];
+  const commonProtected = [
+    "Slug", "Stav", "Psipedia stav", "Kategória", "Typ", "Typ podujatia",
+    "Organizácia", "Vyriešené", "Urgentné", "Latitude", "Longitude",
+    "Presnosť lokality", "Verejný kontakt", "Zdroj", "Zdroj URL", "Zdroj dát",
+    "Zrušené", "Kontakt",
+  ];
+  for (const c of cases) {
+    const protectedFields = new Set(commonProtected);
+    if (c.agenda === "lost-found") {
+      protectedFields.add("Miesto");
+      protectedFields.add("Naposledy videný");
+    }
+    if (c.agenda === "events" || c.agenda === "organizations") {
+      for (const field of ["Adresa", "Miesto", "Mesto", "Okres", "Kraj"]) protectedFields.add(field);
+    }
+    const baseline = {
+      [c.status]: "draft", [c.sensitive]: "confirmed", [c.editable]: "Original",
+      Slug: "canonical",
+    };
+    const reconcile = (notion, canonical) => reconcileProfileFields({
+      baseline, notion: { ...baseline, ...notion },
+      psipedia: { ...baseline, ...canonical }, protectedFields,
+    });
+    const published = reconcile({ [c.status]: "published" }, {});
+    assert.equal(published.kind, "CONFLICT", c.agenda + " publication");
+    assert.ok(published.conflicts.some(x => x.reason === "PROTECTED_FIELD"), c.agenda);
+    const privateEdit = reconcile({ [c.sensitive]: "changed" }, {});
+    assert.equal(privateEdit.kind, "CONFLICT", c.agenda + " privacy");
+    const canonicalOnly = reconcile({}, { [c.status]: "published" });
+    assert.equal(canonicalOnly.kind, "MERGE", c.agenda + " Admin publication");
+    assert.equal(canonicalOnly.merged[c.status], "published");
+    const contradictory = reconcile({ [c.editable]: "Notion" }, { [c.editable]: "Admin" });
+    assert.equal(contradictory.kind, "CONFLICT", c.agenda + " concurrent");
+    const safe = reconcile({ [c.editable]: "Notion" }, {});
+    assert.equal(safe.kind, "MERGE", c.agenda + " allowed content");
+    assert.equal(safe.merged[c.editable], "Notion");
+    const unknown = trustedProfileBaselineFromHashes({
+      recorded: null, notion: { ...baseline, [c.editable]: "Notion" },
+      psipedia: { ...baseline, [c.editable]: "Admin" },
+      mappingHash: "common", notionHash: "notion-edit", psipediaHash: "admin-edit",
+    });
+    assert.equal(unknown, null, c.agenda + " missing baseline");
+    assert.equal(reconcileProfileFields({
+      baseline: unknown, notion: { ...baseline, [c.editable]: "Notion" },
+      psipedia: { ...baseline, [c.editable]: "Admin" }, protectedFields,
+    }).kind, "CONFLICT");
+  }
+});
+
+test("Events/Help review never implies automatic conflict repair or identity reassignment", async () => {
+  const sync = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const page = await readFile(new URL("../components/admin-notion-data-quality-audit.tsx", import.meta.url), "utf8");
+  assert.match(sync, /LOSSLESS_FIELD_REVIEW_REQUIRED/);
+  assert.match(sync, /appendNotionReview/);
+  assert.match(page, /Ako bezpečne vyriešiť konflikt Notion/);
+  assert.match(page, /Nepoužívaj hromadné prepísanie/);
+  assert.match(page, /Potvrdené Google miesto/);
+  assert.doesNotMatch(page, /method:\s*["'](?:PATCH|PUT|DELETE)["']/);
 });

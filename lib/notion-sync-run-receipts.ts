@@ -35,6 +35,9 @@ const STATUS_BY_EVENT: Record<string, Exclude<NotionRunState, "UNKNOWN" | "STALE
 };
 const RUN_EVENT_KEYS = Object.keys(STATUS_BY_EVENT);
 const STALE_STARTED_AFTER_MS = 2 * 60 * 60 * 1000;
+// Scheduled hourly synchronizers should not display a week-old successful
+// notification as a current success. Distinguish historical from fresh proof.
+const STALE_TERMINAL_AFTER_MS = 3 * 60 * 60 * 1000;
 
 type Row = {
   event_type: string;
@@ -66,7 +69,9 @@ export function parseNotionRunReceipt(
     || !Number.isSafeInteger(id) || id <= 0 || Math.abs(at - id) > STALE_STARTED_AFTER_MS) return empty;
   const raw = STATUS_BY_EVENT[row.event_type];
   const status = raw === "STARTED" && now.getTime() - at > STALE_STARTED_AFTER_MS
-    ? "STALE" : raw;
+    ? "STALE"
+    : raw !== "STARTED" && now.getTime() - at > STALE_TERMINAL_AFTER_MS
+      ? "STALE" : raw;
   return {
     area, status, recordedAt: new Date(at).toISOString(), runId: String(id),
     conflicts: raw === "STARTED" ? null : countFromBody(row.body, "konfliktov na kontrolu"),
