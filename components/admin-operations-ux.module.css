@@ -1,20 +1,20 @@
 .hubGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+  gap: 9px;
+  margin-bottom: 12px;
 }
 
 .hubCard {
   display: grid;
-  min-height: 168px;
-  gap: 14px;
-  padding: 22px;
+  min-height: 106px;
+  gap: var(--admin-v3-compact-gap, 10px);
+  padding: var(--admin-v3-card-padding, 12px) 14px;
   border: 1px solid rgba(23, 53, 43, .1);
-  border-radius: 18px;
+  border-radius: 12px;
   color: #17352b;
   background: #fffdf9;
-  box-shadow: 0 10px 30px rgba(23, 53, 43, .06);
+  box-shadow: 0 3px 12px rgba(23, 53, 43, .045);
   text-decoration: none;
   transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
@@ -54,9 +54,9 @@
 }
 
 .hubMetric strong {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 2.45rem;
-  font-weight: 500;
+  font-family: inherit;
+  font-size: 1.9rem;
+  font-weight: 800;
   line-height: 1;
 }
 
@@ -92,14 +92,14 @@
 .statusHero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 20px;
+  gap: 12px;
   align-items: center;
-  margin-bottom: 18px;
-  padding: 22px 24px;
+  margin-bottom: 11px;
+  padding: 12px 14px;
   border: 1px solid rgba(23, 53, 43, .1);
-  border-radius: 18px;
+  border-radius: 12px;
   background: #fffdf9;
-  box-shadow: 0 10px 30px rgba(23, 53, 43, .06);
+  box-shadow: 0 3px 12px rgba(23, 53, 43, .045);
 }
 
 .statusHeroGood {
@@ -133,9 +133,9 @@
 
 .statusCount strong {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 2.35rem;
-  font-weight: 500;
+  font-family: inherit;
+  font-size: 1.85rem;
+  font-weight: 800;
   line-height: 1;
 }
 
@@ -149,20 +149,20 @@
 }
 
 .section {
-  margin-top: 18px;
-  padding: 22px;
+  margin-top: 11px;
+  padding: 13px 14px;
   border: 1px solid rgba(23, 53, 43, .09);
-  border-radius: 18px;
+  border-radius: 12px;
   background: #fffdf9;
-  box-shadow: 0 10px 30px rgba(23, 53, 43, .055);
+  box-shadow: 0 3px 12px rgba(23, 53, 43, .04);
 }
 
 .sectionHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 9px;
 }
 
 .sectionHeader p {
@@ -193,9 +193,9 @@
 .itemCard {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: 10px;
   align-items: center;
-  padding: 16px 17px;
+  padding: 10px 12px;
   border: 1px solid #dfe7e1;
   border-radius: 14px;
   background: #fff;
@@ -531,7 +531,7 @@
 
 @media (max-width: 860px) {
   .hubGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .hubCard {
@@ -569,10 +569,12 @@
 }
 
 @media (max-width: 640px) {
+  .hubGrid { grid-template-columns: 1fr; }
+
   .section,
   .statusHero {
-    padding: 16px;
-    border-radius: 15px;
+    padding: 12px;
+    border-radius: 12px;
   }
 
   .sectionHeader {
@@ -580,7 +582,7 @@
   }
 
   .itemCard {
-    padding: 14px;
+    padding: 10px 12px;
   }
 
   .quickActions {

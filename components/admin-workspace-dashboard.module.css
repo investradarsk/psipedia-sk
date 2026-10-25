@@ -45,7 +45,7 @@
 
 .priorityGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr));
   gap: 12px;
 }
 
@@ -331,7 +331,7 @@
 /* ADMIN-V3-COMPACT-01: dashboard density without removing status or actions. */
 .workspace { gap: 13px; padding-bottom: 6px; }
 .sectionHeading { margin-bottom: 7px; gap: 8px; }
-.sectionHeading h2, .panelHeading h2 { font-size: clamp(1.05rem, 1.6vw, 1.24rem); }
+.sectionHeading h2, .panelHeading h2 { font-family: inherit; font-weight: 800; font-size: clamp(1.05rem, 1.6vw, 1.24rem); }
 .priorityGrid, .splitGrid { gap: 9px; }
 .metricCard { min-height: 142px; gap: 8px; padding: 13px 14px; border-radius: 13px; box-shadow: 0 3px 12px rgba(23, 53, 43, .045); }
 .metricValue { gap: 7px; flex-wrap: wrap; }
