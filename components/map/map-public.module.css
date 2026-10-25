@@ -279,25 +279,6 @@
   line-height: 1.45;
 }
 
-.loadingDot {
-  width: 9px;
-  height: 9px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--brand-accent-strong, #c86c3a);
-  box-shadow: 0 0 0 0 rgba(200, 108, 58, 0.3);
-  animation: pulse 1.2s infinite;
-}
-
-@keyframes pulse {
-  70% {
-    box-shadow: 0 0 0 8px rgba(200, 108, 58, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(200, 108, 58, 0);
-  }
-}
-
 .resultsScroll {
   min-width: 0;
   min-height: 0;
@@ -484,29 +465,6 @@
   background: #dce7d8;
 }
 
-.rendererFallback {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  gap: 8px;
-  padding: 28px;
-  color: var(--forest-dark, #123d2f);
-  background:
-    linear-gradient(rgba(238, 242, 229, 0.88), rgba(246, 239, 219, 0.88)),
-    repeating-linear-gradient(45deg, rgba(23, 75, 56, 0.06) 0 1px, transparent 1px 24px);
-  text-align: center;
-}
-
-.rendererFallback strong {
-  font-size: 1.05rem;
-}
-
-.rendererFallback span {
-  color: var(--map-muted);
-  font-size: 0.8rem;
-}
-
 .mapMarker,
 .clusterMarker {
   display: inline-grid;
@@ -687,25 +645,6 @@
 .mapTypeControl button[aria-pressed="true"] {
   color: white;
   background: var(--forest, #174b38);
-}
-
-.mapStatusPill {
-  position: absolute;
-  z-index: 4;
-  top: 12px;
-  right: 12px;
-  display: inline-flex;
-  min-height: 34px;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 9px;
-  border: 1px solid rgba(23, 53, 43, 0.13);
-  border-radius: 999px;
-  color: #5f6d64;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 5px 18px rgba(23, 53, 43, 0.08);
-  font-size: 0.67rem;
-  font-weight: 800;
 }
 
 .providerDisclosure {
@@ -918,11 +857,6 @@
     padding-inline: 11px;
   }
 
-  .mapStatusPill {
-    right: 10px;
-    top: 10px;
-  }
-
   .cardFooter {
     justify-content: flex-start;
   }
@@ -1076,10 +1010,6 @@
   .resultCard {
     transition: none;
   }
-
-  .loadingDot {
-    animation: none;
-  }
 }
 
 /* Compact secondary controls: one disclosure, no second search form. */
@@ -1208,11 +1138,6 @@
     min-width: 48px;
     min-height: 48px;
   }
-  .mapStatusPill {
-    top: 60px;
-    right: 8px;
-    max-width: min(190px, 48%);
-  }
   .resultsPanel {
     max-width: calc(100% - 16px);
   }
@@ -1255,4 +1180,13 @@
 }
 .stateCard {
   composes: mapState from "../public-visual-system/public-result-variants.module.css";
+}
+.loadingDot {
+  composes: mapLoadingDot from "../public-visual-system/public-result-variants.module.css";
+}
+.rendererFallback {
+  composes: mapRendererFallback from "../public-visual-system/public-result-variants.module.css";
+}
+.mapStatusPill {
+  composes: mapStatusPill from "../public-visual-system/public-result-variants.module.css";
 }

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { requireNotionWritebackEvidence } from "../lib/notion-sync-writeback-evidence.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
@@ -143,7 +144,17 @@ function importHarness(options = {}) {
     sourceById: rows => new Map(rows.map(row => [row.id, row])),
     snapshotHash: async () => "hash", editableSnapshot: () => ({}), canonicalUpdatedAt: async () => "canonical-v1",
     saveMapping: async () => { operations.push("mapping"); if (options.failMapping) throw Error("D1_FAILURE"); },
-    writeSourceToNotion: async () => { operations.push("notion"); if (options.failNotion) throw Error("timeout"); return { last_edited_time: "notion-v3" }; },
+    writeSourceToNotion: async () => {
+      operations.push("notion");
+      if (options.failNotion) throw Error("timeout");
+      return options.partialNotionEcho
+        ? { id: pageId, last_edited_time: "notion-v3" }
+        : { id: pageId, properties: {}, last_edited_time: "notion-v3" };
+    },
+    // Critical-section VM uses the same production evidence helper as the
+    // real Events/Help reconciler. The fake snapshot hash is fixed at "hash".
+    requireVerifiedMappedNotionWriteback: ({ written, expectedPageId, expectedHash }) =>
+      requireNotionWritebackEvidence(written, expectedPageId, expectedHash, async () => "hash"),
     logFailure: () => { summary.failed++; }, patchPage: async () => {}, encodeProperties: v => v,
   };
   runInNewContext(criticalJs, context);
@@ -167,7 +178,7 @@ test("scheduler and targeted imports serialize page and agenda identity checks b
 });
 
 test("ambiguous insert, mapping or Notion acknowledgement retains shared import/page locks", async () => {
-  for (const options of [{ failCreate: true }, { failMapping: true }, { failNotion: true }]) {
+  for (const options of [{ failCreate: true }, { failMapping: true }, { failNotion: true }, { partialNotionEcho: true }]) {
     const h = importHarness(options);
     await h.run();
     assert.equal(h.summary.failed, 1);

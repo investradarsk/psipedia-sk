@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
+import { explicitPrivateGeoSql, latestGoogleMapsActionSql } from "@/lib/geo-admin-moderation-sql";
 import {
   geoAdminGenericOperatorState,
   geoAdminOperatorState,
@@ -192,48 +193,6 @@ export function normalizeGeoAdminOperatorQuery(
 
 const GEO_BASE_CTE = `
 WITH
-explicit_private AS (
-  SELECT DISTINCT subject_id
-  FROM moderation_events
-  WHERE resource_type = 'GEO_POINT'
-    AND action = 'GEO_VISIBILITY_CHANGED'
-    AND actor_type = 'ADMIN'
-    AND to_status = 'SKIPPED'
-),
-map_review_ranked AS (
-  SELECT
-    subject_id,
-    action,
-    ROW_NUMBER() OVER (
-      PARTITION BY subject_id
-      ORDER BY created_at DESC, id DESC
-    ) AS row_number
-  FROM moderation_events
-  WHERE resource_type = 'GEO_POINT'
-    AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
-),
-map_review AS (
-  SELECT subject_id, action
-  FROM map_review_ranked
-  WHERE row_number = 1
-),
-organization_map_review_ranked AS (
-  SELECT
-    subject_id,
-    action,
-    ROW_NUMBER() OVER (
-      PARTITION BY subject_id
-      ORDER BY created_at DESC, id DESC
-    ) AS row_number
-  FROM moderation_events
-  WHERE resource_type = 'HELP_ORGANIZATION'
-    AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
-),
-organization_map_review AS (
-  SELECT subject_id, action
-  FROM organization_map_review_ranked
-  WHERE row_number = 1
-),
 organization_locations_ranked AS (
   SELECT
     l.*,
@@ -294,15 +253,13 @@ raw AS (
     g.last_error_code,
     g.manual_override,
     g.updated_at AS geo_updated_at,
-    CASE WHEN ep.subject_id IS NULL THEN 0 ELSE 1 END AS explicit_private,
-    mr.action AS map_review_action,
+    CASE WHEN ${explicitPrivateGeoSql('g.id')} THEN 1 ELSE 0 END AS explicit_private,
+    ${latestGoogleMapsActionSql('g.id', 'GEO_POINT')} AS map_review_action,
     NULL AS organization_map_review_action
   FROM directory_profiles d
   LEFT JOIN geo_points g
     ON g.directory_profile_id = d.id
     AND g.target_type = 'DIRECTORY_PROFILE'
-  LEFT JOIN explicit_private ep ON ep.subject_id = CAST(g.id AS TEXT)
-  LEFT JOIN map_review mr ON mr.subject_id = CAST(g.id AS TEXT)
   WHERE d.status = 'published' AND d.archived_at IS NULL
 
   UNION ALL
@@ -348,17 +305,14 @@ raw AS (
     g.last_error_code,
     g.manual_override,
     g.updated_at AS geo_updated_at,
-    CASE WHEN ep.subject_id IS NULL THEN 0 ELSE 1 END AS explicit_private,
-    mr.action AS map_review_action,
-    omr.action AS organization_map_review_action
+    CASE WHEN ${explicitPrivateGeoSql('g.id')} THEN 1 ELSE 0 END AS explicit_private,
+    ${latestGoogleMapsActionSql('g.id', 'GEO_POINT')} AS map_review_action,
+    ${latestGoogleMapsActionSql('o.id', 'HELP_ORGANIZATION')} AS organization_map_review_action
   FROM help_organizations o
   LEFT JOIN organization_location_canonical l ON l.organization_id = o.id
   LEFT JOIN geo_points g
     ON g.organization_location_id = l.id
     AND g.target_type = 'ORGANIZATION_LOCATION'
-  LEFT JOIN explicit_private ep ON ep.subject_id = CAST(g.id AS TEXT)
-  LEFT JOIN map_review mr ON mr.subject_id = CAST(g.id AS TEXT)
-  LEFT JOIN organization_map_review omr ON omr.subject_id = CAST(o.id AS TEXT)
   WHERE o.status = 'PUBLISHED' AND o.archived_at IS NULL
 
   UNION ALL
@@ -409,15 +363,13 @@ raw AS (
     g.last_error_code,
     g.manual_override,
     g.updated_at AS geo_updated_at,
-    CASE WHEN ep.subject_id IS NULL THEN 0 ELSE 1 END AS explicit_private,
-    mr.action AS map_review_action,
+    CASE WHEN ${explicitPrivateGeoSql('g.id')} THEN 1 ELSE 0 END AS explicit_private,
+    ${latestGoogleMapsActionSql('g.id', 'GEO_POINT')} AS map_review_action,
     NULL AS organization_map_review_action
   FROM managed_events e
   LEFT JOIN geo_points g
     ON g.managed_event_id = e.id
     AND g.target_type = 'MANAGED_EVENT'
-  LEFT JOIN explicit_private ep ON ep.subject_id = CAST(g.id AS TEXT)
-  LEFT JOIN map_review mr ON mr.subject_id = CAST(g.id AS TEXT)
   WHERE e.status = 'published' AND e.cancelled = 0
 ),
 base AS (

@@ -120,9 +120,9 @@ test("empty states and 390px mobile contract are explicit", () => {
   assert.match(browser, /Momentálne nemáme publikovaný prípad pre tieto filtre\./);
   assert.match(lostFound, /Momentálne nemáme publikovaný prípad pre tieto filtre\./);
   assert.match(adoption, /Momentálne nemáme publikovaný profil pre tieto filtre\./);
-  assert.match(styles, /@media\(max-width:650px\)/);
-  assert.match(styles, /grid-template-columns:1fr/);
-  assert.match(styles, /min-height:44px/);
+  assert.match(styles, /@media\s*\(max-width:\s*650px\)/);
+  assert.match(styles, /grid-template-columns:\s*1fr/);
+  assert.match(styles, /min-height:\s*44px/);
   assert.doesNotMatch(styles, /overflow-x:\s*(?:scroll|auto)/);
 });
 
@@ -142,9 +142,9 @@ test("Help Admin owns only generic Help and routes dedicated domains to their ca
 });
 
 test("Help Admin mobile controls declare touch-safe targets without changing shared AdminShell", () => {
-  assert.match(adminStyles, /min-height:44px/);
+  assert.match(adminStyles, /min-height:\s*44px/);
   assert.match(adminStyles, /@media\(max-width:760px\)/);
-  assert.match(adminStyles, /grid-template-columns:1fr/);
+  assert.match(adminStyles, /grid-template-columns:\s*1fr/);
 });
 
 

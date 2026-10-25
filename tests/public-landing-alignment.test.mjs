@@ -85,8 +85,8 @@ test("help no longer owns a second horizontal shell system", () => {
   assert.match(read("components/public-visual-system/public-help-banner.tsx"), /<PageContainer className=\{styles\.overviewPromoCopy\}>/);
   assert.match(read("components/public-visual-system/public-help-banner.tsx"), /<PageContainer className=\{styles\.closingCtaInner\}>/);
   assert.match(helpBrowser, /<PageContainer className=\{styles\.results\}>/);
-  assert.match(helpCss, /@media\(max-width:900px\)[\s\S]*\.overviewCategoryGrid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
-  assert.match(helpCss, /@media\(max-width:620px\)[\s\S]*\.overviewCategoryGrid\{grid-template-columns:1fr;gap:9px\}/);
+  assert.match(helpCss, /@media\s*\(max-width:\s*900px\)[\s\S]*\.overviewCategoryGrid\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);?\s*\}/);
+  assert.match(helpCss, /@media\s*\(max-width:\s*620px\)[\s\S]*\.overviewCategoryGrid\s*\{\s*grid-template-columns:\s*1fr;\s*gap:\s*9px;?\s*\}/);
 });
 
 test("adoption keeps hero outside the canonical listing content shell", () => {

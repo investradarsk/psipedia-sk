@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { notionDirectoryUpdateSafety } from "../lib/notion-directory-update-safety.ts";
+import { directorySyncErrorMetadataNeedsWrite, notionDirectoryUpdateSafety, notionDirectoryPageBelongsToSource, NotionDirectoryUnsafeTargetError } from "../lib/notion-directory-update-safety.ts";
 import { canRecoverNotionDirectoryMapping } from "../lib/notion-directory-update-safety.ts";
 import { mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
@@ -365,4 +365,65 @@ test("Gemini 22 Directory: Notion enrichment preserves canonical ownership and b
   assert.equal(result.seo.description, "Existing");
   assert.equal(result.seo.noindex, true);
   assert.equal(canonical.description, "Existing description");
+});
+
+test("mapped Directory pages must belong to the configured Notion data source", () => {
+  const source = "84e0664c-ca47-405f-9d54-31b20287bc8c";
+  const page = { parent: { type: "data_source_id", data_source_id: source } };
+  assert.equal(notionDirectoryPageBelongsToSource(page, source), true);
+  assert.equal(notionDirectoryPageBelongsToSource({
+    parent: { type: "data_source_id", data_source_id: source.replaceAll("-", "") },
+  }, source), true);
+  assert.equal(notionDirectoryPageBelongsToSource(page, "76d9ccde-5816-422c-bcfe-863ab69db080"), false);
+  assert.equal(notionDirectoryPageBelongsToSource({ parent: { type: "database_id" } }, source), false);
+  assert.equal(notionDirectoryPageBelongsToSource({}, source), false);
+  assert.equal(notionDirectoryPageBelongsToSource({ ...page, archived: true }, source), false);
+  assert.equal(notionDirectoryPageBelongsToSource({ ...page, in_trash: true }, source), false);
+  assert.equal(notionDirectoryPageBelongsToSource(page, "not-a-uuid"), false);
+
+  const mapped = syncSource.slice(
+    syncSource.indexOf("async function syncMappedPage("),
+    syncSource.indexOf("async function recoverMappingFromPage("),
+  );
+  assert.ok(mapped.indexOf("notionDirectoryPageBelongsToSource(page, input.dataSourceId)") <
+    mapped.indexOf("await writeProfileToNotion({"),
+    "moved pages must be rejected before any Notion write");
+});
+
+test("Directory hourly sweep never processes a mapped profile twice", () => {
+  const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  assert.match(sweep, /const attemptedMappedProfileIds = new Set<number>\(\)/);
+  const pageAttempt = sweep.indexOf("attemptedMappedProfileIds.add(mapping.directory_profile_id)");
+  const reconcile = sweep.indexOf("const result = await syncMappedPage({");
+  const fastPath = sweep.indexOf("propertyText(page, \"Sync hash\") === mapping.content_hash");
+  assert.ok(fastPath >= 0 && pageAttempt > fastPath && reconcile > pageAttempt,
+    "no-change fast path must allow later canonical D1 changes");
+  assert.match(sweep, /for \(const profileId of changedIds\) \{\s*if \(attemptedMappedProfileIds.has\(profileId\)\) continue;/);
+});
+
+test("foreign or moved Directory pages never receive diagnostic Notion PATCH", () => {
+  const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  const skipErrors = (sweep.match(/if \(!\(error instanceof NotionDirectoryUnsafeTargetError\)\) \{/g) ?? []).length;
+  assert.equal(skipErrors, 2, "both recent-page and D1-changed catch paths must fail closed");
+  assert.match(syncSource, /throw new NotionDirectoryUnsafeTargetError\("IDENTITY_CONFLICT: Notion profil/);
+  assert.match(syncSource, /throw new NotionDirectoryUnsafeTargetError\("IDENTITY_CONFLICT: Notion page ID/);
+  const denied = new NotionDirectoryUnsafeTargetError("foreign page");
+  assert.equal(denied instanceof NotionDirectoryUnsafeTargetError, true);
+});
+
+test("unchanged Directory error metadata is not rewritten every hourly run", () => {
+  const input = {
+    syncStatus: "Chyba",
+    syncError: "CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (*:BASELINE_UNAVAILABLE)",
+    message: "CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (*:BASELINE_UNAVAILABLE)",
+  };
+  assert.equal(directorySyncErrorMetadataNeedsWrite(input), false);
+  assert.equal(directorySyncErrorMetadataNeedsWrite({ ...input, message: "NEW_ERROR" }), true);
+  assert.equal(directorySyncErrorMetadataNeedsWrite({ ...input, syncStatus: "Synchronizované" }), true);
+  const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  assert.match(syncSource, /if \(page\?\.id === pageId && !directorySyncErrorMetadataNeedsWrite/);
+  assert.match(sweep, /markPageError\(input\.bindings, page\.id, error, page\)/);
+  assert.match(sweep, /markPageError\(input\.bindings, mapping\.notion_page_id, error, page\)/);
+  assert.match(sweep, /page = await fetchNotionPage\(input\.bindings, mapping\.notion_page_id\)/);
+  assert.match(sweep, /syncMappedPage\(\{[\s\S]*?mapping,\s*page,\s*forcePsipediaPush: true/);
 });

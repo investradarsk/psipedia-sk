@@ -24,7 +24,7 @@ test("PUBLIC-MAPS-1 reusable detail map reuses renderer, consent and MAP-UX coor
   assert.match(component, /buildGoogleMapsDirectionsUrl\(selected\.latitude, selected\.longitude, selected\.googlePlaceId\)/);
   assert.match(component, /!isApproximateMapItem\(selected\)/);
   assert.match(component, /Približná poloha/);
-  assert.match(component, />Navigovať</);
+  assert.match(component, />\s*Navigovať\s*</);
   assert.doesNotMatch(component, /fetch\(|\/api\/map|Geoapify|Places|Geocoder/i);
   assert.match(renderer, /let googleLoaderPromise/);
   assert.match(renderer, /script\[data-psipedia-google-maps\]/);

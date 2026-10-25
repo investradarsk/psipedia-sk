@@ -32,11 +32,11 @@ test("fallback fills existing media frames without touching real-photo cropping 
   const adoption = read("components/adoption.module.css");
   const shared = read("components/public-visual-system/public-media-fallback.module.css");
 
-  assert.match(help, /\.mediaFallback\{[^}]*width:100%;height:100%;/);
-  assert.match(help, /\.media\{[^}]*aspect-ratio:4\/3;/);
-  assert.match(adoption, /\.imageFallback\{[^}]*inset:0;/);
-  assert.doesNotMatch(adoption, /\.imageFallback span\{|\.imageFallback::before/);
-  assert.match(adoption, /\.visual\{[^}]*aspect-ratio:4\/3;/);
-  assert.match(adoption, /\.statusBadge\{[^}]*position:absolute;/);
+  assert.match(help, /\.mediaFallback\s*\{[^}]*width:\s*100%;\s*height:\s*100%;/);
+  assert.match(help, /\.media\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3;/);
+  assert.match(adoption, /\.imageFallback\s*\{[^}]*inset:\s*0;/);
+  assert.doesNotMatch(adoption, /\.imageFallback span\s*\{|\.imageFallback::before/);
+  assert.match(adoption, /\.visual\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3;/);
+  assert.match(adoption, /\.statusBadge\s*\{[^}]*position:\s*absolute;/);
   assert.match(shared, /\.fallback \{/);
 });

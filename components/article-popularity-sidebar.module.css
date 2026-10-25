@@ -108,8 +108,5 @@
 }
 
 .empty {
-  margin: 12px 0 0;
-  color: var(--muted);
-  font-size: 0.72rem;
-  line-height: 1.45;
+  composes: popularEmpty from "./public-visual-system/public-result-variants.module.css";
 }

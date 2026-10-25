@@ -1,4 +1,5 @@
 import { eventListingSql, EVENT_PAGE_SIZE, type EventListingFilters } from './event-listing';
+import { publicEventCalendarSummarySql } from './event-calendar-summary-sql';
 import { bulkEventUpdateSql, validateBulkEvents } from "./admin-events";
 import { adminEventGlobalCountsSql, adminEventYearsSql, buildAdminEventPageSql, type AdminEventListQuery, type AdminEventPageResult } from "./admin-event-pagination";
 import { env } from "cloudflare:workers";
@@ -345,7 +346,10 @@ export async function getPublicEventCalendar(filters: EventListingFilters, month
   const start = `${month}-01`;
   const [year, number] = month.split('-').map(Number);
   const end = `${month}-${String(new Date(Date.UTC(year, number, 0)).getUTCDate()).padStart(2,'0')}`;
-  const rows = await database.prepare(`WITH RECURSIVE days(day) AS (SELECT ? UNION ALL SELECT date(day, '+1 day') FROM days WHERE day < ?) SELECT days.day AS date, event_type AS type, COUNT(*) AS count FROM days JOIN managed_events ON start_date <= days.day AND COALESCE(NULLIF(end_date,''),start_date) >= days.day WHERE ${sql.where} GROUP BY days.day, event_type`).bind(start,end,...sql.values).all<{date:string;type:DogEvent['eventType'];count:number}>();
+  // Evaluate the filtered month once; do not repeat the same D1 reads for 31 days.
+  const rows = await database.prepare(publicEventCalendarSummarySql(sql.where))
+    .bind(start, end, ...sql.values, end, start)
+    .all<{date:string;type:DogEvent['eventType'];count:number}>();
   const summaries = new Map<string, {date:string;count:number;types:DogEvent['eventType'][]}>();
   for(const row of rows.results) { const summary: {date:string;count:number;types:EventType[]} = summaries.get(row.date) ?? {date:row.date,count:0,types:[]}; summary.count+=row.count; summary.types.push(row.type); summaries.set(row.date,summary); }
   for (const summary of summaries.values()) summary.types.sort((a,b)=>eventTypes.indexOf(a)-eventTypes.indexOf(b));

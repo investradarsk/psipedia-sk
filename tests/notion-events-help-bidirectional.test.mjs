@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
+import { notionPageBelongsToDataSource } from "../lib/notion-sync-page-ownership.ts";
+import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "../lib/notion-profile-field-reconciliation.ts";
 
 import {
   decideBidirectionalChange,
@@ -941,4 +943,147 @@ test("Help sweep fail-closed integration contracts preserve Gemini private revie
   assert.match(adapter, /if \(domain === "OUT_OF_DOMAIN"\) throw new Error\("OUT_OF_DOMAIN"\)/);
   assert.match(adapter, /isHelpSyncCategoryOutOfDomain\(s\(values\["Kategória"\]\)\)/);
   assert.match(adapter, /if \(domain === "MISSING_CANONICAL"\) throw new Error\("MISSING_CANONICAL"\)/);
+});
+
+test("all Events and Help agendas share the verified Notion page ownership guard", async () => {
+  const page = {
+    id: "11111111-1111-4111-8111-111111111111",
+    parent: { type: "data_source_id", data_source_id: "76d9ccde-5816-422c-bcfe-863ab69db080" },
+  };
+  const ds = "76d9ccde-5816-422c-bcfe-863ab69db080";
+  assert.equal(notionPageBelongsToDataSource(page, ds), true);
+  assert.equal(notionPageBelongsToDataSource({
+    ...page, parent: { ...page.parent, data_source_id: ds.replaceAll("-", "") },
+  }, ds), true);
+  assert.equal(notionPageBelongsToDataSource(page, "3ed793fc-1d18-819c-bb39-000b753d0002"), false);
+  assert.equal(notionPageBelongsToDataSource({ ...page, archived: true }, ds), false);
+  assert.equal(notionPageBelongsToDataSource({ ...page, in_trash: true }, ds), false);
+  assert.equal(notionPageBelongsToDataSource({
+    ...page, parent: { type: "database_id", data_source_id: ds },
+  }, ds), false);
+  assert.equal(notionPageBelongsToDataSource({ id: page.id }, ds), false);
+  assert.equal(notionPageBelongsToDataSource(page, "invalid-id"), false);
+
+  const source = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(source, /const writablePages = pages\.filter\(\(page\) =>[\s\S]*?notionPageBelongsToDataSource\(page, target\.dataSourceId!\)/);
+  assert.match(source, /const identities = writablePages\.map\(identityPage\)/);
+  assert.match(source, /const pagesById = new Map\(writablePages\.map/);
+  assert.match(source, /for \(const page of writablePages\) \{/);
+  assert.match(source, /notionPageBelongsToDataSource\(page,target\.dataSourceId!\)/);
+  for (const agenda of ["events", "organizations", "adoptions", "help-cases", "lost-found"]) {
+    assert.ok(agendaEditableFields[agenda], agenda);
+  }
+});
+
+test("mapped Events/Help writeback evidence rejects wrong page ID, missing echo and stale content", async () => {
+  const { requireNotionWritebackEvidence } = await import("../lib/notion-sync-writeback-evidence.ts");
+  const good = { id: "notion-1", properties: { title: { type: "title" } } };
+  const hashPage = async (page) => page.properties?.title ? "hash-good" : "hash-other";
+  await requireNotionWritebackEvidence(good, "notion-1", "hash-good", hashPage);
+  for (const [page, id, hash] of [
+    [good, "notion-2", "hash-good"],
+    [good, "notion-1", "hash-other"],
+    [{ id: "notion-1" }, "notion-1", "hash-good"],
+    [undefined, "notion-1", "hash-good"],
+    [good, "", "hash-good"],
+    [good, "notion-1", ""],
+  ]) {
+    await assert.rejects(
+      requireNotionWritebackEvidence(page, id, hash, hashPage),
+      /NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH/,
+    );
+  }
+});
+
+test("every mapped Events/Help PATCH acknowledges only a verified editorial echo", async () => {
+  const source = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const start = source.indexOf("async function syncAgenda(");
+  const end = source.indexOf("\nexport async function runNotionEventsHelpSyncSweep", start);
+  const sweep = source.slice(start, end > start ? end : undefined);
+  const calls = [...sweep.matchAll(/const written = await writeSourceToNotion\(\{[\s\S]*?\}\);/g)];
+  // Eight mapped writebacks include the already-verified modern three-way path.
+  assert.equal(calls.length, 8);
+  for (const [index, match] of calls.entries()) {
+    const next = sweep.slice(match.index + match[0].length,
+      match.index + match[0].length + 1250);
+    if (index === 1) {
+      assert.match(next, /written\.id !== page\.id/);
+      assert.match(next, /!written\.properties/);
+      assert.match(next, /NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH/);
+    } else {
+      assert.match(next, /await requireVerifiedMappedNotionWriteback\(\{/,
+        "missing echo guard after mapped writeback " + index);
+      assert.ok(next.indexOf("await requireVerifiedMappedNotionWriteback({") <
+        next.indexOf("await saveMapping({"),
+        "mapping must never advance before Notion proves writeback " + index);
+    }
+  }
+});
+
+test("all five Events/Help agendas fail closed on publication, privacy and concurrent edits", () => {
+  const cases = [
+    { agenda: "events", status: "Stav", sensitive: "Adresa", editable: "Popis" },
+    { agenda: "organizations", status: "Stav", sensitive: "Adresa", editable: "Popis" },
+    { agenda: "adoptions", status: "Stav", sensitive: "Organizácia", editable: "Popis" },
+    { agenda: "help-cases", status: "Psipedia stav", sensitive: "Kontakt", editable: "Popis" },
+    { agenda: "lost-found", status: "Psipedia stav", sensitive: "Latitude", editable: "Popis" },
+  ];
+  const commonProtected = [
+    "Slug", "Stav", "Psipedia stav", "Kategória", "Typ", "Typ podujatia",
+    "Organizácia", "Vyriešené", "Urgentné", "Latitude", "Longitude",
+    "Presnosť lokality", "Verejný kontakt", "Zdroj", "Zdroj URL", "Zdroj dát",
+    "Zrušené", "Kontakt",
+  ];
+  for (const c of cases) {
+    const protectedFields = new Set(commonProtected);
+    if (c.agenda === "lost-found") {
+      protectedFields.add("Miesto");
+      protectedFields.add("Naposledy videný");
+    }
+    if (c.agenda === "events" || c.agenda === "organizations") {
+      for (const field of ["Adresa", "Miesto", "Mesto", "Okres", "Kraj"]) protectedFields.add(field);
+    }
+    const baseline = {
+      [c.status]: "draft", [c.sensitive]: "confirmed", [c.editable]: "Original",
+      Slug: "canonical",
+    };
+    const reconcile = (notion, canonical) => reconcileProfileFields({
+      baseline, notion: { ...baseline, ...notion },
+      psipedia: { ...baseline, ...canonical }, protectedFields,
+    });
+    const published = reconcile({ [c.status]: "published" }, {});
+    assert.equal(published.kind, "CONFLICT", c.agenda + " publication");
+    assert.ok(published.conflicts.some(x => x.reason === "PROTECTED_FIELD"), c.agenda);
+    const privateEdit = reconcile({ [c.sensitive]: "changed" }, {});
+    assert.equal(privateEdit.kind, "CONFLICT", c.agenda + " privacy");
+    const canonicalOnly = reconcile({}, { [c.status]: "published" });
+    assert.equal(canonicalOnly.kind, "MERGE", c.agenda + " Admin publication");
+    assert.equal(canonicalOnly.merged[c.status], "published");
+    const contradictory = reconcile({ [c.editable]: "Notion" }, { [c.editable]: "Admin" });
+    assert.equal(contradictory.kind, "CONFLICT", c.agenda + " concurrent");
+    const safe = reconcile({ [c.editable]: "Notion" }, {});
+    assert.equal(safe.kind, "MERGE", c.agenda + " allowed content");
+    assert.equal(safe.merged[c.editable], "Notion");
+    const unknown = trustedProfileBaselineFromHashes({
+      recorded: null, notion: { ...baseline, [c.editable]: "Notion" },
+      psipedia: { ...baseline, [c.editable]: "Admin" },
+      mappingHash: "common", notionHash: "notion-edit", psipediaHash: "admin-edit",
+    });
+    assert.equal(unknown, null, c.agenda + " missing baseline");
+    assert.equal(reconcileProfileFields({
+      baseline: unknown, notion: { ...baseline, [c.editable]: "Notion" },
+      psipedia: { ...baseline, [c.editable]: "Admin" }, protectedFields,
+    }).kind, "CONFLICT");
+  }
+});
+
+test("Events/Help review never implies automatic conflict repair or identity reassignment", async () => {
+  const sync = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const page = await readFile(new URL("../components/admin-notion-data-quality-audit.tsx", import.meta.url), "utf8");
+  assert.match(sync, /LOSSLESS_FIELD_REVIEW_REQUIRED/);
+  assert.match(sync, /appendNotionReview/);
+  assert.match(page, /Ako bezpečne vyriešiť konflikt Notion/);
+  assert.match(page, /Nepoužívaj hromadné prepísanie/);
+  assert.match(page, /Potvrdené Google miesto/);
+  assert.doesNotMatch(page, /method:\s*["'](?:PATCH|PUT|DELETE)["']/);
 });
