@@ -61,6 +61,8 @@ export async function recordProfileFieldBaseline(input: {
       snapshot_hash=excluded.snapshot_hash,
       snapshot_json=excluded.snapshot_json,
       recorded_at=excluded.recorded_at
+    WHERE notion_profile_field_baselines.notion_page_id <> excluded.notion_page_id
+       OR notion_profile_field_baselines.snapshot_hash <> excluded.snapshot_hash
   `).bind(
     input.agenda, input.entityId, input.pageId, input.hash,
     JSON.stringify(input.snapshot), input.syncedAt,
