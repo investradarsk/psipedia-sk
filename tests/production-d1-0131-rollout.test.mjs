@@ -39,9 +39,9 @@ function fixture() {
 }
 
 test("0131 rollout requires exact SQL hash, canonical database and protected manual workflow",()=>{
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-11),target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-12),previous);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0142_quality_missing_scan_outcomes.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-12),target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-13),previous);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(migration).digest("hex"),APPROVED_0131_SHA256);
   assert.doesNotThrow(()=>assertApproved0131Target("psipedia-sk-db",APPROVED_0131_SHA256));
   assert.throws(()=>assertApproved0131Target("other-db",APPROVED_0131_SHA256),/canonical/);
