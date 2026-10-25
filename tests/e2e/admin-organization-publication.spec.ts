@@ -28,10 +28,22 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   await expect(row).toContainText("READY");
   await expect(row.getByRole("button", { name: "Publikovať", exact: true })).toBeEnabled();
 
-  page.once("dialog", (dialog) => dialog.accept());
+  // Canonical admin confirmation is an accessible HTML dialog, not window.confirm.
+  // Cancelling must never send a publication mutation.
+  await row.getByRole("button", { name: "Publikovať", exact: true }).click();
+  let confirmation = page.getByRole("dialog", { name: "Publikovať organizáciu?" });
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation.getByRole("button", { name: "Zrušiť" })).toBeFocused();
+  await confirmation.getByRole("button", { name: "Zrušiť" }).click();
+  await expect(confirmation).not.toBeVisible();
+  await expect(row).toContainText("Koncept");
+
+  await row.getByRole("button", { name: "Publikovať", exact: true }).click();
+  confirmation = page.getByRole("dialog", { name: "Publikovať organizáciu?" });
+  await expect(confirmation).toBeVisible();
   const [publishResponse] = await Promise.all([
     page.waitForResponse(response => response.url().includes("/api/admin/organizations/") && response.url().endsWith("/publication") && response.request().method() === "PUT"),
-    row.getByRole("button", { name: "Publikovať", exact: true }).click(),
+    confirmation.getByRole("button", { name: "Publikovať", exact: true }).click(),
   ]);
   expect(publishResponse.ok()).toBe(true);
   await expect(page.getByRole("status")).toContainText("Organizácia bola publikovaná");
@@ -44,8 +56,21 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   const publicAfterPublish = await request.get(`/organizacie/${fixtureSlug}`);
   expect(publicAfterPublish.status()).toBe(200);
 
-  page.once("dialog", (dialog) => dialog.accept());
   await row.getByRole("button", { name: "Presunúť do konceptu", exact: true }).click();
+  confirmation = page.getByRole("dialog", { name: "Presunúť organizáciu do konceptu?" });
+  await expect(confirmation).toBeVisible();
+  await confirmation.press("Escape");
+  await expect(confirmation).not.toBeVisible();
+  await expect(row).toContainText("Publikované");
+
+  await row.getByRole("button", { name: "Presunúť do konceptu", exact: true }).click();
+  confirmation = page.getByRole("dialog", { name: "Presunúť organizáciu do konceptu?" });
+  await expect(confirmation).toBeVisible();
+  const [unpublishResponse] = await Promise.all([
+    page.waitForResponse(response => response.url().includes("/api/admin/organizations/") && response.url().endsWith("/publication") && response.request().method() === "PUT"),
+    confirmation.getByRole("button", { name: "Presunúť do konceptu", exact: true }).click(),
+  ]);
+  expect(unpublishResponse.ok()).toBe(true);
   await expect(page.getByRole("status")).toContainText("Organizácia bola presunutá do konceptu");
 
   row = page.locator("article").filter({ hasText: fixtureName });
