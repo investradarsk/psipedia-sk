@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PublicEmptyState, PublicFilterTag } from "@/components/public-visual-system/public-result-states";
 import { PublicActionButton } from "@/components/public-visual-system";
 import { PublicSelect, PublicTextInput } from "@/components/public-visual-system/public-form-controls";
@@ -128,7 +129,7 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrim
               <span>{label}: {value}</span><span aria-hidden="true">×</span>
             </PublicFilterTag>
           ))}
-          <a href="/plemena" data-public-filter-reset>Vymazať všetko</a>
+          <Link href="/plemena" data-public-filter-reset>Vymazať všetko</Link>
         </div>
       )}
       <div className="fci-filter-panel" aria-label="FCI skupiny">
