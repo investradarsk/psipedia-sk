@@ -68,8 +68,8 @@ function schema(db) {
 
 test("0127 remains approved and pinned even when 0128 is a later supported target", () => {
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(target));
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-12), "0130_facebook_image_publisher.sql");
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0142_quality_missing_scan_outcomes.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-13), "0130_facebook_image_publisher.sql");
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   const bytes = readFileSync(path.join(root, "drizzle", target));
   assert.equal(createHash("sha256").update(bytes).digest("hex"), APPROVED_0127_SHA256);
   assert.doesNotThrow(() => assertApproved0127Target("psipedia-sk-db", APPROVED_0127_SHA256));
@@ -85,7 +85,7 @@ test("0127 scoped rollout never includes later 0128 even after its authorization
   const earlier = Array.from({ length: 62 }, (_, i) => String(i).padStart(4, "0") + "_fixture.sql");
   const { selected, excludedFuture } = selectMigrationsThrough([...earlier, ...SUPPORTED_PRODUCTION_TARGETS], target);
   assert.deepEqual(selected, [...earlier, ...SUPPORTED_PRODUCTION_TARGETS.filter(name => Number(name.slice(0,4)) <= 127)]);
-  assert.deepEqual(excludedFuture, [later, "0129_gemini_external_manual_queue.sql", "0130_facebook_image_publisher.sql", "0131_facebook_image_trash.sql", "0132_facebook_image_direct_consent.sql", "0133_services_canonical_admin_foundation.sql", "0134_services_admin_change_audit.sql", "0135_facebook_image_safe_retry.sql", "0136_gemini_global_stop.sql", "0137_media_source_review_decisions.sql", "0138_article_editorial_outbox.sql", "0139_services_catalog_notion_auto_attempts.sql", "0140_directory_service_notion_relations.sql", "0141_quality_missing_hourly.sql"]);
+  assert.deepEqual(excludedFuture, [later, "0129_gemini_external_manual_queue.sql", "0130_facebook_image_publisher.sql", "0131_facebook_image_trash.sql", "0132_facebook_image_direct_consent.sql", "0133_services_canonical_admin_foundation.sql", "0134_services_admin_change_audit.sql", "0135_facebook_image_safe_retry.sql", "0136_gemini_global_stop.sql", "0137_media_source_review_decisions.sql", "0138_article_editorial_outbox.sql", "0139_services_catalog_notion_auto_attempts.sql", "0140_directory_service_notion_relations.sql", "0141_quality_missing_hourly.sql", "0142_quality_missing_scan_outcomes.sql"]);
   const workflow = readFileSync(path.join(root, ".github/workflows/production-d1-migrate.yml"), "utf8");
   assert.match(workflow, /0128_facebook_image_posts/);
 });
