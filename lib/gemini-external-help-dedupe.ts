@@ -93,8 +93,10 @@ export async function checkGeminiHelpCanonicalDedupe(
   if (stableKey === "help.adopcia" && (!candidate.organizer.trim()
     || !normalizedUrl(candidate.source))) return "BLOCKED";
   if (stableKey === "help.utulky" && !candidate.city.trim()) return "BLOCKED";
+  // City and organization may be missing on a publicly sourced private
+  // proposal. A candidate must instead have its own verifiable source URL.
   if (["help.docasna-opatera", "help.zbierky", "help.dobrovolnictvo"].includes(stableKey)
-    && !candidate.organizer.trim() && !candidate.city.trim()) return "BLOCKED";
+    && !normalizedUrl(candidate.source)) return "BLOCKED";
 
   let outcome: HelpDedupeStatus = "NEW";
   if (["help.docasna-opatera", "help.zbierky", "help.dobrovolnictvo"].includes(stableKey)) {

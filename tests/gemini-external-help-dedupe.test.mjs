@@ -106,3 +106,15 @@ test("Help requires a grounded public URL, never private identity evidence", asy
   assert.equal(await checkGeminiHelpCanonicalDedupe(db,"help.zbierky",
     {...candidate,source:"",website:""}),"BLOCKED");
 });
+
+test("generic Help accepts a sourced private proposal without city or organizer",async()=>{
+  for(const key of ["help.docasna-opatera","help.zbierky","help.dobrovolnictvo"]){
+    const {db}=offlineDb();
+    assert.equal(await checkGeminiHelpCanonicalDedupe(db,key,{
+      ...candidate,city:"",organizer:"",source:"https://example.org/overena-vyzva",
+    }),"NEW",key);
+    assert.equal(await checkGeminiHelpCanonicalDedupe(db,key,{
+      ...candidate,city:"",organizer:"",source:"",website:"https://example.org",
+    }),"BLOCKED",key+" cannot treat an unrelated website as a specific Help source");
+  }
+});
