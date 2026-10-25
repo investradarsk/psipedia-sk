@@ -161,7 +161,8 @@ test("admin landing is the read-only workspace and old article filters redirect 
   assert.match(landing, /loadExactAdminAttentionSummary\(\)/);
   assert.match(landing, /readAdminAutomationData/);
   assert.match(read("components/admin-workspace-dashboard.tsx"), /summarizeAdminAutomationReads/);
-  assert.match(landing, /loadMissingQualityDashboard/);
+  assert.match(landing, /loadAdminQualityPendingSummary/);
+  assert.doesNotMatch(landing, /loadMissingQualityDashboard/);
   assert.match(landing, /loadAdminWorkspaceFeed/);
   assert.doesNotMatch(landing, /listManagedArticleSummaries/);
   assert.match(landing, /redirect\(legacyHref\)/);

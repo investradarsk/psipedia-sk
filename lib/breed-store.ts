@@ -76,7 +76,7 @@ type Row = {
 };
 type SummaryRow = {
   id:number;slug:string;name:string;status:string;image_url:string;fci_number:number|null;fci_group:number;fci_section:string;fci_section_number:string;
-  origin:string;group_name:string;official_fci_name:string;accent:string;updated_at:string;editorial_json:string;sports_json:string;fci_standard_json:string;
+  origin:string;group_name:string;official_fci_name:string;accent:string;updated_at:string;editorial_overview:string;sports_json:string;fci_standard_pdf:string;fci_nomenklatura_url:string;
   needs:string;exercise:string;training:string;health:string;article_relation_count:number;directory_relation_count:number;
 };
 type IndexRow = {
@@ -135,8 +135,8 @@ function fromRow(row:Row,relations:{articles?:number[];directory?:number[];publi
 function parseSeo(value:string):EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
 
 function fromSummaryRow(row:SummaryRow):ManagedBreedSummary {
-  const editorial=parseObject<BreedEditorial>(row.editorial_json);
-  const standard=parseObject<FciStandard>(row.fci_standard_json);
+  // List rows contain only the editorial/FCI scalar fields required for
+  // completeness badges; full source JSON belongs to the detail editor.
   const sports=parseArray(row.sports_json,isBreedSport);
   const articleRelationCount=Number(row.article_relation_count)||0;
   const directoryRelationCount=Number(row.directory_relation_count)||0;
@@ -146,8 +146,8 @@ function fromSummaryRow(row:SummaryRow):ManagedBreedSummary {
     fciSectionNumber:row.fci_section_number,origin:row.origin,group:row.group_name,officialFciName:row.official_fci_name,
     accent:row.accent as Breed["accent"],updatedAt:row.updated_at,articleRelationCount,directoryRelationCount,
     completenessIssues:breedCompletenessIssues({
-      image:row.image_url,overview:editorial.overview??"",needs:row.needs,exercise:row.exercise,training:row.training,health:row.health,
-      fciNumber:row.fci_number,hasFciReference:Boolean(standard.fci_standard_pdf?.trim()||standard.fci_nomenklatura_url?.trim()),
+      image:row.image_url,overview:row.editorial_overview??"",needs:row.needs,exercise:row.exercise,training:row.training,health:row.health,
+      fciNumber:row.fci_number,hasFciReference:Boolean(row.fci_standard_pdf?.trim()||row.fci_nomenklatura_url?.trim()),
       sportsCount:sports.length,articleRelationCount,directoryRelationCount,
     }),
   };
@@ -166,7 +166,16 @@ const select=`SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_nu
 valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
-export async function listManagedBreedSummaries(limit=500){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(500,Math.trunc(limit)));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,updated_at,editorial_json,sports_json,fci_standard_json,needs,exercise,training,health,
+export async function listManagedBreedSummaries(limit=500){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(500,Math.trunc(limit)));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,updated_at,sports_json,needs,exercise,training,health,
+CASE WHEN json_valid(editorial_json) THEN
+  CASE WHEN json_type(editorial_json, '$.overview') = 'text' THEN json_extract(editorial_json, '$.overview') ELSE '' END
+ELSE '' END AS editorial_overview,
+CASE WHEN json_valid(fci_standard_json) THEN
+  CASE WHEN json_type(fci_standard_json, '$.fci_standard_pdf') = 'text' THEN json_extract(fci_standard_json, '$.fci_standard_pdf') ELSE '' END
+ELSE '' END AS fci_standard_pdf,
+CASE WHEN json_valid(fci_standard_json) THEN
+  CASE WHEN json_type(fci_standard_json, '$.fci_nomenklatura_url') = 'text' THEN json_extract(fci_standard_json, '$.fci_nomenklatura_url') ELSE '' END
+ELSE '' END AS fci_nomenklatura_url,
 (SELECT COUNT(*) FROM breed_article_relations r WHERE r.breed_id=managed_breeds.id) AS article_relation_count,
 (SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
 FROM managed_breeds ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}

@@ -8,7 +8,8 @@ test("workspace is bound to real canonical event feed, real next Gemini run and 
  const feed=read("lib/admin-workspace-feed.ts");
  const ui=read("components/admin-workspace-activity.tsx");
  assert.match(page,/loadAdminWorkspaceFeed\(user\.email\)/);
- assert.match(page,/loadMissingQualityDashboard/);
+ assert.match(page,/loadAdminQualityPendingSummary/);
+ assert.doesNotMatch(page,/loadMissingQualityDashboard/);
  assert.match(feed,/FROM admin_notification_events e/);
  assert.match(feed,/admin_notification_read_receipts/);
  assert.match(feed,/FROM gemini_automation_settings/);

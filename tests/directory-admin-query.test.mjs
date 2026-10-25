@@ -93,7 +93,7 @@ test("directory category listing reuses totals and reads only three D1 statement
   assert.equal(statements.some(sql => /SELECT COUNT\(\*\) AS count FROM directory_profiles/.test(sql)), false);
   assert.match(statements.at(-1), /json_extract\(source_data_json/);
   assert.match(statements.at(-1), /AS reviewed_at/);
-  assert.equal(statements.filter((sql) => /SELECT DISTINCT 'region' AS kind/.test(sql)).length, 1);
+  assert.equal(statements.filter((sql) => /SELECT DISTINCT label.kind AS kind/.test(sql)).length, 1);
   assert.equal(result.page, 3);
   assert.equal(result.items.length, 27);
   assert.equal(result.items[0].id, 27, "third page begins after the 100 newest profiles");
@@ -102,6 +102,31 @@ test("directory category listing reuses totals and reads only three D1 statement
   assert.deepEqual(result.options.regions, ["Bratislavský kraj", "Nitriansky kraj", "Trnavský kraj", "Žilinský kraj"]);
   assert.deepEqual(result.options.cities, ["Bratislava", "Nitra", "Trnava", "Žilina"]);
   assert.equal(result.counts.total, 127);
+});
+
+
+test("location facets match three prior DISTINCT reads with a single directory scan", async () => {
+  const {db} = fixture();
+  let locationSql = "";
+  const tracked = {prepare(sql) {
+    if (sql.includes("SELECT DISTINCT label.kind AS kind")) locationSql = sql;
+    return db.prepare(sql);
+  }};
+  const result = await queryDirectoryAdmin(tracked, filters(), categories);
+  assert.ok(locationSql, "expected the one-pass location SQL");
+  const oldSql = [
+    "SELECT DISTINCT 'region' AS kind, region AS value FROM directory_profiles WHERE trim(region) <> ''",
+    "UNION ALL SELECT DISTINCT 'district' AS kind, district AS value FROM directory_profiles WHERE trim(district) <> ''",
+    "UNION ALL SELECT DISTINCT 'city' AS kind, city AS value FROM directory_profiles WHERE trim(city) <> ''",
+    "ORDER BY kind,value",
+  ].join(" ");
+  const old = await db.prepare(oldSql).all();
+  const projected = await db.prepare(locationSql).all();
+  assert.deepEqual(projected.results,old.results);
+  assert.deepEqual(projected.results.filter(row => row.kind === "city").map(row => row.value),result.options.cities);
+  const plan = await db.prepare("EXPLAIN QUERY PLAN " + locationSql).all();
+  const sourcePasses = plan.results.filter(row => /(?:SCAN|SEARCH) d\b/i.test(row.detail));
+  assert.equal(sourcePasses.length,1,JSON.stringify(plan.results));
 });
 
 test("filtered directory views retain an independent matched count", async () => {
