@@ -273,6 +273,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0140_directory_service_notion_relations.sql",
   "0141_quality_missing_hourly.sql",
   "0142_quality_missing_scan_outcomes.sql",
+  "0143_quality_missing_manual_attempts.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1475,6 +1476,10 @@ export function targetSchemaObjects(schema, targetMigration) {
     return {partial: names.has("quality_missing_scans_status") ||
       (schema.qualityMissingScanColumns ?? []).some(col =>
         ["status", "error_code"].includes(String(col.name)))};
+  }
+  if (targetMigration === "0143_quality_missing_manual_attempts.sql") {
+    return {partial: ["quality_missing_manual_attempts","quality_missing_manual_attempts_recent"]
+      .some(name => names.has(name))};
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
