@@ -25,7 +25,7 @@ Používame existujúce `PageContainer` / `.shell.public-shell`, `app/design-sys
 - [x] **Vizuál detailov — základ:** spoločné detaily používajú verejné farby, rádius kariet/hero, jednotné CTA a focus; pri Pomoci psom má informačný panel jednotné zaoblenie bez zásahu do upozornení.
 - [x] **Články — etapa 5:** článkový grid odstránil extra 16px vnútorné odsadenie pod už existujúcim verejným shellom, spodné pokračovanie používa spoločnú šírku 1180px. Zachovaná samostatná čitateľná šírka textového stĺpca.
 - [ ] **Všetky šírky a rozostupy — zvyšok:** zvyšné samostatné routy a audit lokálnych max-width.
-- [x] **Regresná kontrola — etapa 5:** nové aj predchádzajúce source testy kariet, CTA, filtrov, máp a detailov sú zapojené do GitHub Actions `Public DS-5 card and media contract`. Centrálna CTA trieda používa priamo existujúci token `--ps-radius-control` bez odlišného fallbacku.
+- [x] **Regresná kontrola — etapa 5:** nové aj predchádzajúce source testy kariet, CTA, filtrov, máp a detailov sa importujú z existujúceho `tests/public-ds5-cards.test.mjs`. Konfiguráciu workflow nemeníme, aby zostalo platné pôvodné CI. Centrálna CTA trieda používa priamo `--ps-radius-control` bez odlišného fallbacku.
 - [ ] **Vizuálna akceptácia:** porovnať desktop 1440 px a mobily 390/320 px na reprezentatívnych routach, vrátane filtrov, kariet a detailov.
 
 ### Bezpečnosť a prijatie

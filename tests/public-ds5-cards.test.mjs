@@ -136,3 +136,10 @@ test("organization cards retain their approved central variant instead of inheri
   assert.match(css, /@media \(max-width: 900px\)/);
   assert.match(css, /@media \(max-width: 620px\)/);
 });
+
+// Public visual consistency regressions remain part of the established DS-5 CI suite.
+import "./public-map-wide-layout.test.mjs";
+import "./public-listing-card-consistency.test.mjs";
+import "./public-visual-consistency-actions.test.mjs";
+import "./public-detail-visual-consistency.test.mjs";
+import "./public-editorial-detail-consistency.test.mjs";

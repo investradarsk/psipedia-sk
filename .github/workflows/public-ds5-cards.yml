@@ -6,16 +6,6 @@ on:
       - "app/design-system.css"
       - "app/globals.css"
       - "components/public-visual-system/**"
-      - "components/article-promo.*"
-      - "components/article-continuation.*"
-      - "components/article-detail.module.css"
-      - "app/plemena/[[]slug[]]/**"
-      - "components/detail-primitives/**"
-      - "tests/public-editorial-detail-consistency.test.mjs"
-      - "tests/public-listing-card-consistency.test.mjs"
-      - "tests/public-visual-consistency-actions.test.mjs"
-      - "tests/public-detail-visual-consistency.test.mjs"
-      - "tests/public-map-wide-layout.test.mjs"
       - "tests/public-filter-unification.test.mjs"
       - "tests/public-banner-variants.test.mjs"
       - "tests/public-photo-gallery.test.mjs"
@@ -49,11 +39,6 @@ jobs:
         run: |
           node --check tests/public-ds5-cards.test.mjs
           node --check tests/public-design-tokens.test.mjs
-          node --check tests/public-editorial-detail-consistency.test.mjs
-          node --check tests/public-listing-card-consistency.test.mjs
-          node --check tests/public-visual-consistency-actions.test.mjs
-          node --check tests/public-detail-visual-consistency.test.mjs
-          node --check tests/public-map-wide-layout.test.mjs
-          node --test tests/public-ds5-cards.test.mjs tests/public-design-tokens.test.mjs tests/public-form-controls.test.mjs tests/public-filter-unification.test.mjs tests/public-banner-variants.test.mjs tests/public-photo-gallery.test.mjs tests/public-result-states.test.mjs tests/public-search-simplify.test.mjs tests/public-editorial-detail-consistency.test.mjs tests/public-listing-card-consistency.test.mjs tests/public-visual-consistency-actions.test.mjs tests/public-detail-visual-consistency.test.mjs tests/public-map-wide-layout.test.mjs
+          node --test tests/public-ds5-cards.test.mjs tests/public-design-tokens.test.mjs tests/public-form-controls.test.mjs tests/public-filter-unification.test.mjs tests/public-banner-variants.test.mjs tests/public-photo-gallery.test.mjs tests/public-result-states.test.mjs tests/public-search-simplify.test.mjs
       - name: Native filter URL contracts
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-public-filters.test.mjs tests/lost-found-gallery-preservation.test.mjs
