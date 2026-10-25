@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminNumberedPagination } from "@/components/admin-pagination";
+import { adminFilteredListHref } from "@/lib/admin-list-query";
 import { adoptionRegions, adoptionStatusLabels, adoptionStatuses } from "@/lib/adoption";
 import {
   adoptionAdminSorts,
@@ -20,16 +21,15 @@ function formatDate(value: string | null) {
 
 function adminHref(filters: AdoptionAdminListFilters, overrides: Partial<AdoptionAdminListFilters> = {}) {
   const next = { ...filters, ...overrides };
-  const params = new URLSearchParams();
-  if (next.q) params.set("q", next.q);
-  if (next.status) params.set("status", next.status);
-  if (next.freshness && next.freshness !== "all") params.set("freshness", next.freshness);
-  if (next.breed) params.set("breed", next.breed);
-  if (next.region) params.set("region", next.region);
-  if (next.locality) params.set("locality", next.locality);
-  if (next.sort && next.sort !== "updated-desc") params.set("sort", next.sort);
-  if ((next.page ?? 1) > 1) params.set("page", String(next.page));
-  return `/admin/adopcie${params.toString() ? `?${params}` : ""}`;
+  return adminFilteredListHref("/admin/adopcie", [
+    ["q", next.q],
+    ["status", next.status],
+    ["freshness", next.freshness && next.freshness !== "all" ? next.freshness : ""],
+    ["breed", next.breed],
+    ["region", next.region],
+    ["locality", next.locality],
+    ["sort", next.sort && next.sort !== "updated-desc" ? next.sort : ""],
+  ], next.page ?? 1);
 }
 
 const sortLabels: Record<AdoptionAdminSort, string> = {
