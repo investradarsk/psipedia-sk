@@ -19,7 +19,7 @@ import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runArticlePublishNotionReconciliation } from "../lib/article-publish-notion-reconciliation";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
-import {runSimpleServiceCatalogSync} from "../lib/service-catalog-simple-sync.ts";
+import { runServicesV3CatalogAutoSweep } from "../lib/service-catalog-notion-auto-sweep.ts";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
 import {
   runNotionDirectoryBootstrapSweep,
@@ -358,8 +358,10 @@ const worker = {
       // This task is isolated from article and other Notion sweeps.
       if(env.SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true"){
         _ctx.waitUntil(
-          runSimpleServiceCatalogSync({
-            db:env.DB,bindings:env,now:new Date(controller.scheduledTime??Date.now())
+          runServicesV3CatalogAutoSweep({
+            db: env.DB,
+            bindings: env,
+            now: new Date(controller.scheduledTime ?? Date.now()),
           }).then(summary=>{
             // Never log provider bodies or credentials.
             console.info(JSON.stringify({event:"services_v3_notion_auto",...summary}));
