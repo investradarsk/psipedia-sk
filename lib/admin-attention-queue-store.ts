@@ -1205,8 +1205,14 @@ export async function loadAdminAttentionPage(
     };
   }
 
+  // Snapshot counts already use the exact same view/priority criteria as
+  // the page query. A source with zero matching items cannot contribute rows,
+  // so avoid an expensive page SELECT for it. Keep every snapshot for exact
+  // totals, availability diagnostics and page counters.
   const candidates = snapshots.filter(
-    (source) => source.state !== "UNAVAILABLE" && snapshotMatchesSource(source, filters),
+    (source) => source.state !== "UNAVAILABLE"
+      && snapshotMatchesSource(source, filters)
+      && filteredSnapshotCount(source, filters) > 0,
   );
   const bindings = timeBindings(now);
   const pageResults = await Promise.all(candidates.map(async (source) => {
