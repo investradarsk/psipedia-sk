@@ -180,7 +180,8 @@ test.describe("admin directory v2", () => {
     await phone.fill(previous + " 9");
     await expect(page.locator("form.admin-directory-editor [data-editor-status]").filter({ hasText: "Neuložené zmeny" })).toBeVisible();
 
-    const back = page.getByRole("link", { name: "← Späť na adresár", exact: true });
+    // The admin shell and the editor both expose this link; exercise the guarded editor link.
+    const back = page.locator("form.admin-directory-editor").getByRole("link", { name: "← Späť na adresár", exact: true });
     await back.click();
     const confirm = page.getByRole("dialog", { name: "Neuložené zmeny" });
     await expect(confirm).toBeVisible();
