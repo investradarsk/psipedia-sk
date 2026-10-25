@@ -303,7 +303,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
   const hasFilters = data.filters.group !== "ALL" || Boolean(data.filters.category) || Boolean(data.filters.query);
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div className="admin-geo-operator-workspace">
       <section className="admin-form-card" data-admin-map-summary>
         <div className="admin-section-heading">
           <div>
@@ -414,7 +414,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
           </p>
         ) : null}
         {bulkResults.length ? (
-          <div data-google-bulk-summary style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <div data-google-bulk-summary>
             <strong>✓ Hotovo: {bulkSummary.done}</strong>
             <strong>⚠ Na kontrolu: {bulkSummary.review}</strong>
             <strong>○ Nenájdené: {bulkSummary.noMatch}</strong>
@@ -438,7 +438,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
 
       {message ? <p className="admin-message" role="status">{message}</p> : null}
 
-      <section style={{ display: "grid", gap: 12 }} aria-label="Nevyriešené mapové položky">
+      <section className="admin-geo-operator-list" aria-label="Nevyriešené mapové položky">
         {data.items.length ? data.items.map((item) => {
           const pickerOpen = activePickerKey === item.key;
           const endpoint = item.group === "HELP" && item.organizationId
