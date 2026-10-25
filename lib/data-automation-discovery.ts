@@ -1011,11 +1011,18 @@ export type AutomationSearchProviderErrorCode = (typeof automationSearchProvider
 
 export class AutomationSearchProviderError extends Error {
   readonly code: AutomationSearchProviderErrorCode;
+  // Only safe scalar diagnostics: never retain response bodies, URLs, or credentials.
+  readonly httpStatus: number | null;
+  readonly transportFailure: boolean;
 
-  constructor(code: AutomationSearchProviderErrorCode) {
+  constructor(code: AutomationSearchProviderErrorCode, diagnostics?: { httpStatus?: number; transportFailure?: boolean }) {
     super(`automation_search_provider_${code.toLowerCase()}`);
     this.name = "AutomationSearchProviderError";
     this.code = code;
+    const status = diagnostics?.httpStatus;
+    this.httpStatus = typeof status === "number" && Number.isInteger(status) && status >= 500 &&
+      status <= 599 ? status : null;
+    this.transportFailure = diagnostics?.transportFailure === true;
   }
 }
 

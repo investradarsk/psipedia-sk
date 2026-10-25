@@ -237,7 +237,7 @@ test("canonical service options share the facet request's latency budget; disabl
   assert.match(fn, /const canCountWithFacets = !options\.filters\.region && !options\.filters\.district && !options\.filters\.city/);
   assert.match(fn, /const count = preloadedCount \?\? await countStatement\.first/);
   assert.match(fn, /readNonemptyD1Page\(total, \(\) => listStatement\.all<DirectoryProfileRow>\(\)\)/);
-  assert.match(fn, /await listStatement\.all<DirectoryProfileRow>\(\)/);
+  assert.doesNotMatch(fn, /await listStatement\.all<DirectoryProfileRow>\(\)/);
 });
 
 test("actual SQLite reads: no page SQL for verified empty count, full rows otherwise", async () => {

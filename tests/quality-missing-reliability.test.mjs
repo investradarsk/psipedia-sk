@@ -29,7 +29,17 @@ test("failed Tavily requests remain on the same profile until a successful persi
   assert.ok(search !== -1 && success > search && moveCursor > success && failure > moveCursor);
   assert.ok(failedStatus > failure);
   assert.doesNotMatch(afterFailure, /UPDATE quality_missing_cursors/);
-  assert.match(engine, /error instanceof AutomationSearchProviderError \? error\.code : "INTERNAL_ERROR"/);
+  assert.match(engine, /if \(!\(error instanceof AutomationSearchProviderError\)\) return "INTERNAL_ERROR"/);
+  assert.match(engine, /if \(error\.httpStatus !== null\) return/);
+  assert.match(engine, /if \(error\.transportFailure\) return "NETWORK_ERROR"/);
+});
+
+test("provider diagnostics reveal only safe failure categories without changing the scan schema", () => {
+  assert.match(engine, /function qualityFailureLabel\(code: string\)/);
+  assert.match(engine, /\^HTTP_5/);
+  assert.match(dashboard, /function qualityErrorLabel\(code: string \| null\)/);
+  assert.match(dashboard, /NETWORK_ERROR: "Chyba spojenia medzi Cloudflare a Tavily"/);
+  assert.match(worker, /if \(controller\.cron === "\* \* \* \* \*"\) return false/);
 });
 
 test("notifier emits a new incident only after recovery or a different reason", () => {
