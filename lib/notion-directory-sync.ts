@@ -1,3 +1,4 @@
+import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
 import {importNotionServiceChoices} from "./service-profile-notion-bridge.ts";
 import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
   from "./service-catalog-notion-relations";
@@ -650,9 +651,16 @@ async function writeProfileToNotion(input: {
   const geo = await loadGeoMirror(input.database, input.profile.id);
   const properties = notionProfileProperties(input.profile, geo ?? null, hash, syncedAt, sourceImageUrl);
   if (input.pageId) delete (properties as Partial<typeof properties>)["Vytvoril"];
-  const page = input.pageId
-    ? await patchNotionPage(input.bindings, input.pageId, properties)
-    : await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
+  let page: NotionPage;
+  if (input.pageId) {
+    const current = await fetchNotionPage(input.bindings, input.pageId);
+    if (current.id !== input.pageId || !notionDirectoryPageBelongsToSource(current, input.dataSourceId))
+      throw new NotionDirectoryUnsafeTargetError("NOTION_DIRECTORY_TARGET_MOVED");
+    const patch = selectiveNotionProperties(current.properties ?? {}, properties);
+    page = patch ? await patchNotionPage(input.bindings, input.pageId, patch) : current;
+  } else {
+    page = await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
+  }
 
   // A partial or stale Notion response is not evidence of a successful
   // editorial write. Check page identity and the complete reflected snapshot
@@ -1407,6 +1415,7 @@ export async function runNotionDirectoryBootstrapSweep(input: {
     hasMore: false,
   };
   if (!enabled) return summary;
+  if (input.targetPageId && input.targetProfileId) throw new Error("NOTION_TARGET_SCOPE_AMBIGUOUS");
 
   const dataSourceId = input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() ?? "";
   if (!input.bindings.NOTION_API_TOKEN?.trim() || !dataSourceId) {
@@ -1446,6 +1455,8 @@ export async function runNotionDirectorySyncSweep(input: {
   // Optional one-page operator recovery, using the exact existing sync pipeline.
   // Never automatically invoked or used for routine sweep scheduling.
   targetPageId?: string;
+  /** Direct Admin save: reconcile only an already linked canonical profile. */
+  targetProfileId?: number;
   expectedNotionRevision?: string;
 }): Promise<NotionDirectorySyncSummary> {
   const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
@@ -1470,6 +1481,27 @@ export async function runNotionDirectorySyncSweep(input: {
 
   summary.schemaReady = await schemaReady(input.database);
   if (!summary.schemaReady) return summary;
+
+  // Admin -> Notion fast path: no data-source query, backfill or unrelated profiles.
+  // It reuses the verified per-field reconciliation and never creates mappings.
+  if (input.targetProfileId !== undefined) {
+    if (!Number.isSafeInteger(input.targetProfileId) || input.targetProfileId <= 0)
+      throw new Error("NOTION_TARGET_PROFILE_INVALID");
+    const mapping = await loadMappingByProfile(input.database, input.targetProfileId);
+    if (!mapping) return summary;
+    try {
+      const action = await syncMappedPage({
+        database: input.database, bindings: input.bindings, dataSourceId, mapping,
+      });
+      if (action === "pulled") summary.pulledFromNotion++;
+      else if (action === "pushed") summary.pushedToNotion++;
+      else summary.unchanged++;
+    } catch {
+      // The canonical save has already succeeded; the hourly sweep retries it.
+      summary.failed++;
+    }
+    return summary;
+  }
 
   // The relation is an optional, additive Notion UI bridge. Without migration
   // 0140 the existing Directory article/profile sync behaves exactly as before.

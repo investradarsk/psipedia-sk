@@ -1,3 +1,4 @@
+import { selectiveNotionProperties } from "./notion-selective-property-patch.ts";
 import { SITE_URL } from "@/config/public-site";
 import {
   createManagedEshop,
@@ -311,9 +312,16 @@ async function writeShopToNotion(input: {
   const syncedAt = new Date().toISOString();
   const hash = await snapshotHash(profileSnapshot(input.shop));
   const properties = notionProperties(input.shop, hash, syncedAt);
-  const page = input.pageId
-    ? await patchPage(input.bindings, input.pageId, properties)
-    : await createPage(input.bindings, input.dataSourceId, properties);
+  let page: NotionPage;
+  if (input.pageId) {
+    const current = await fetchPage(input.bindings, input.pageId);
+    if (current.id !== input.pageId || !notionPageBelongsToDataSource(current, input.dataSourceId))
+      throw new Error("ESHOP_IDENTITY_OR_PARENT_MISMATCH");
+    const patch = selectiveNotionProperties(current.properties ?? {}, properties);
+    page = patch ? await patchPage(input.bindings, input.pageId, patch) : current;
+  } else {
+    page = await createPage(input.bindings, input.dataSourceId, properties);
+  }
 
   // Notion's 200 response is not sufficient proof of durable field parity.
   // A rejected or partial echo must never advance the common D1 baseline.
@@ -637,6 +645,7 @@ export async function runNotionEshopBootstrapSweep(input: {
 export async function runNotionEshopSyncSweep(input: {
   database: D1Database;
   bindings: NotionEshopSyncBindings;
+  targetPageId?: string;
 }): Promise<NotionEshopSyncSummary> {
   const summary: NotionEshopSyncSummary = {
     enabled: configured(input.bindings),
@@ -654,11 +663,23 @@ export async function runNotionEshopSyncSweep(input: {
   if (!summary.schemaReady) return summary;
 
   const dataSourceId = input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID!.trim();
-  const bootstrap = await runNotionEshopBootstrapSweep(input);
-  summary.bootstrapped += bootstrap.bootstrapped;
-  summary.failed += bootstrap.failed;
+  if (!input.targetPageId) {
+    const bootstrap = await runNotionEshopBootstrapSweep(input);
+    summary.bootstrapped += bootstrap.bootstrapped;
+    summary.failed += bootstrap.failed;
+  }
 
-  const pages = await recentPages(input.bindings, dataSourceId);
+  let pages: NotionPage[];
+  if (input.targetPageId !== undefined) {
+    if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(input.targetPageId))
+      throw new Error("NOTION_ESHOP_TARGET_INVALID");
+    const page = await fetchPage(input.bindings, input.targetPageId);
+    if (page.id !== input.targetPageId || !notionPageBelongsToDataSource(page, dataSourceId))
+      throw new Error("NOTION_ESHOP_TARGET_UNSAFE");
+    pages = [page];
+  } else {
+    pages = await recentPages(input.bindings, dataSourceId);
+  }
   summary.notionScanned = pages.length;
 
   for (const page of pages) {
@@ -688,7 +709,7 @@ export async function runNotionEshopSyncSweep(input: {
     }
   }
 
-  for (const id of await changedIds(input.database)) {
+  for (const id of input.targetPageId ? [] : await changedIds(input.database)) {
     try {
       const mapping = await loadMappingByShop(input.database, id);
       if (!mapping) continue;

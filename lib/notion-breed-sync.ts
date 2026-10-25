@@ -490,6 +490,7 @@ async function syncOneBreed(
 export async function runNotionBreedSyncSweep(args: {
   database: D1Database;
   bindings: NotionBreedSyncBindings;
+  targetPageId?: string;
 }): Promise<NotionBreedSyncSummary> {
   const summary: NotionBreedSyncSummary = {
     enabled: notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED),
@@ -504,7 +505,17 @@ export async function runNotionBreedSyncSweep(args: {
   const dataSourceId = args.bindings.NOTION_BREEDS_DATA_SOURCE_ID?.trim();
   if (!dataSourceId) throw new Error("NOTION_BREEDS_DATA_SOURCE_ID nie je nakonfigurovaný.");
 
-  const pages = await listReadyNotionPages(args.bindings, dataSourceId, MAX_SYNC_ITEMS);
+  let pages: NotionPage[];
+  if (args.targetPageId !== undefined) {
+    if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(args.targetPageId))
+      throw new Error("BREED_NOTION_TARGET_INVALID");
+    const page = await notionRequest<NotionPage>(args.bindings, "/pages/" + encodeURIComponent(args.targetPageId));
+    if (page.id !== args.targetPageId || !notionPageBelongsToDataSource(page, dataSourceId))
+      throw new Error("BREED_NOTION_TARGET_UNSAFE");
+    pages = notionSelectProperty(page, "Stav") === "Ready" ? [page] : [];
+  } else {
+    pages = await listReadyNotionPages(args.bindings, dataSourceId, MAX_SYNC_ITEMS);
+  }
   summary.scanned = pages.length;
 
   for (const page of pages) {

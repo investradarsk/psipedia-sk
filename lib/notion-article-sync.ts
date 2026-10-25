@@ -40,6 +40,7 @@ export type NotionSyncBindings = {
 
 type NotionPage = {
   id: string;
+  parent?: { type?: string; data_source_id?: string };
   archived?: boolean;
   in_trash?: boolean;
   last_edited_time?: string;
@@ -1760,6 +1761,7 @@ async function syncOneNotionPage(
 export async function runNotionArticleSyncSweep(args: {
   database: D1Database;
   bindings: NotionSyncBindings;
+  targetPageId?: string;
 }): Promise<NotionArticleSyncSummary> {
   const summary: NotionArticleSyncSummary = {
     enabled: flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED),
@@ -1771,7 +1773,20 @@ export async function runNotionArticleSyncSweep(args: {
   };
   if (!summary.enabled) return summary;
 
-  const pages = await listReadyNotionPages(args.bindings);
+  let pages: NotionPage[];
+  if (args.targetPageId !== undefined) {
+    if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(args.targetPageId))
+      throw new Error("NOTION_ARTICLE_TARGET_INVALID");
+    const page = await notionRequest<NotionPage>(args.bindings, "/pages/" + encodeURIComponent(args.targetPageId));
+    const dataSourceId = args.bindings.NOTION_ARTICLES_DATA_SOURCE_ID?.trim() ?? "";
+    if (page.id !== args.targetPageId || page.archived || page.in_trash
+      || page.parent?.type !== "data_source_id" || !dataSourceId
+      || page.parent.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
+      throw new Error("NOTION_ARTICLE_TARGET_UNSAFE");
+    pages = selectProperty(page, "Stav") === "Ready" && checkboxProperty(page, "Odoslať na Psipedia") ? [page] : [];
+  } else {
+    pages = await listReadyNotionPages(args.bindings);
+  }
   summary.scanned = pages.length;
 
   for (const page of pages) {
