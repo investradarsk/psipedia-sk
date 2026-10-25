@@ -7,6 +7,7 @@ import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
+  AdminDestructiveConfirmDialog,
   AdminModalDialog,
 } from "@/components/admin-interaction-system";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
@@ -44,6 +45,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
   const router = useRouter();
   const reviewed = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ManagedHelpCaseSummary | null>(null);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -133,13 +135,14 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
   }
 
   async function removeItem(item: ManagedHelpCaseSummary) {
-    if (!window.confirm(`Naozaj chceš natrvalo odstrániť „${item.title}“?`)) return;
+    if (deletingId !== null || bulkBusy) return;
     setDeletingId(item.id); setMessage("");
     try {
       const response = await fetch(`/api/admin/help/${item.id}`, { method: "DELETE" });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error || "Prípad sa nepodarilo odstrániť.");
       setSelected((current) => { const next = new Set(current); next.delete(item.id); return next; });
+      setPendingDelete(null);
       setMessage("Help záznam bol odstránený.");
       router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Prípad sa nepodarilo odstrániť."); }
@@ -198,7 +201,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
           <label className={styles.rowCheckTarget}><span className="sr-only">Označiť {item.title}</span><input className={styles.rowCheck} data-help-row-select aria-label={`Označiť ${item.title}`} type="checkbox" checked={selected.has(item.id)} disabled={bulkBusy} onChange={() => toggle(item.id)} /></label>
           <div className="admin-help-thumb">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
           <div className="admin-article-main"><div className="admin-article-tags"><span className={`admin-status admin-status--${item.status}`}>{item.status === "published" ? "Publikované" : "Koncept"}</span><span>{item.category === "utulky" ? "Útulok" : category?.label ?? item.category}</span>{item.verified && <span>Overené</span>}{item.urgent && !item.resolved && <span>Urgentné</span>}{item.resolved && <span>Vybavené</span>}</div><h2><Link href={`/admin/pomoc/${item.id}`}>{item.title}</Link></h2><p>{[item.organization, item.city, item.dogName ? `Pes: ${item.dogName}` : ""].filter(Boolean).join(" · ")}</p></div>
-          <div className="admin-row-actions"><AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />{item.status === "published" && <Link href={helpCaseHref(item)} target="_blank" rel="noreferrer">Pozrieť na webe ↗</Link>}<Link className="admin-row-edit" href={`/admin/pomoc/${item.id}`}>Upraviť</Link><button type="button" disabled={deletingId === item.id || bulkBusy} onClick={() => void removeItem(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</button></div>
+          <div className="admin-row-actions"><AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />{item.status === "published" && <Link href={helpCaseHref(item)} target="_blank" rel="noreferrer">Pozrieť na webe ↗</Link>}<Link className="admin-row-edit" href={`/admin/pomoc/${item.id}`}>Upraviť</Link><AdminActionButton variant="destructive" disabled={deletingId !== null || bulkBusy} onClick={() => setPendingDelete(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</AdminActionButton></div>
         </article>;
       })}</div> : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
       <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov">{page > 1 ? <Link href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link> : <span>Ďalšia →</span>}</nav>
@@ -225,5 +228,16 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         {bulkReview.preview.selectedCount - bulkReview.preview.changeCount > 0 && <> {bulkReview.preview.selectedCount - bulkReview.preview.changeCount} už má cieľový stav.</>}
       </p>}
     </AdminModalDialog>
+    <AdminDestructiveConfirmDialog
+      open={pendingDelete !== null}
+      title="Natrvalo odstrániť Help záznam"
+      description={pendingDelete ? `Naozaj chceš natrvalo odstrániť „${pendingDelete.title}“?` : undefined}
+      affectedCount={pendingDelete ? 1 : 0}
+      affectedLabel="Help záznam"
+      confirmLabel="Natrvalo odstrániť"
+      pending={deletingId !== null}
+      onCancel={() => { if (deletingId === null) setPendingDelete(null); }}
+      onConfirm={() => { if (pendingDelete) void removeItem(pendingDelete); }}
+    />
   </div>;
 }
