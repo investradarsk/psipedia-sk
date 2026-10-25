@@ -20,15 +20,15 @@ function schema(db) {
 }
 
 test("0140 and 0141 retain separate protected production targets in correct order", () => {
-  assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS.slice(-3,-1), [migration140, migration141]);
+  assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS.filter(name => ["0140_","0141_"].some(prefix => name.startsWith(prefix))), [migration140, migration141]);
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   const fixture = Array.from({ length: 62 }, (_, n) => String(n).padStart(4, "0") + "_fixture.sql");
   const selected140 = selectMigrationsThrough([...fixture, ...SUPPORTED_PRODUCTION_TARGETS], migration140);
   assert.equal(selected140.selected.at(-1), migration140);
-  assert.deepEqual(selected140.excludedFuture, [migration141, "0142_quality_missing_scan_outcomes.sql"]);
+  assert.deepEqual(selected140.excludedFuture, [migration141, "0142_quality_missing_scan_outcomes.sql", "0143_quality_missing_manual_attempts.sql"]);
   const selected141 = selectMigrationsThrough([...fixture, ...SUPPORTED_PRODUCTION_TARGETS], migration141);
   assert.equal(selected141.selected.at(-1), migration141);
-  assert.deepEqual(selected141.excludedFuture, ["0142_quality_missing_scan_outcomes.sql"]);
+  assert.deepEqual(selected141.excludedFuture, ["0142_quality_missing_scan_outcomes.sql", "0143_quality_missing_manual_attempts.sql"]);
 });
 
 test("0140 preflight detects partial schema; postflight verifies canonical FK and index", () => {

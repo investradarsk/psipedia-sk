@@ -197,7 +197,10 @@ test("ARTICLE-PROMO admin/public integration exposes add, target, variant, previ
   assert.match(renderer, /ArticlePromo/);
   assert.match(promoComponent, /aria-label=/);
   assert.match(promoComponent, /aria-hidden="true"/);
-  assert.match(promoCss, /focus-visible/);
+  // Promo CTA uses the shared PublicActionLink focus ring; no competing local style.
+  const sharedActionCss = readFileSync("components/public-visual-system/public-visual-system.module.css", "utf8");
+  assert.match(sharedActionCss, /\.action:focus-visible/);
+  assert.doesNotMatch(promoCss, /\.cta:focus-visible/);
   assert.match(promoCss, /@media \(max-width: 640px\)/);
   assert.match(promoCss, /grid-template-columns: 1fr/);
 
