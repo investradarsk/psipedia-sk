@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { notionDirectoryUpdateSafety, notionDirectoryPageBelongsToSource } from "../lib/notion-directory-update-safety.ts";
+import { notionDirectoryUpdateSafety, notionDirectoryPageBelongsToSource, NotionDirectoryUnsafeTargetError } from "../lib/notion-directory-update-safety.ts";
 import { canRecoverNotionDirectoryMapping } from "../lib/notion-directory-update-safety.ts";
 import { mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
@@ -399,4 +399,14 @@ test("Directory hourly sweep never processes a mapped profile twice", () => {
   assert.ok(fastPath >= 0 && pageAttempt > fastPath && reconcile > pageAttempt,
     "no-change fast path must allow later canonical D1 changes");
   assert.match(sweep, /for \(const profileId of changedIds\) \{\s*if \(attemptedMappedProfileIds.has\(profileId\)\) continue;/);
+});
+
+test("foreign or moved Directory pages never receive diagnostic Notion PATCH", () => {
+  const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  const skipErrors = (sweep.match(/if \(!\(error instanceof NotionDirectoryUnsafeTargetError\)\) \{/g) ?? []).length;
+  assert.equal(skipErrors, 2, "both recent-page and D1-changed catch paths must fail closed");
+  assert.match(syncSource, /throw new NotionDirectoryUnsafeTargetError\("IDENTITY_CONFLICT: Notion profil/);
+  assert.match(syncSource, /throw new NotionDirectoryUnsafeTargetError\("IDENTITY_CONFLICT: Notion page ID/);
+  const denied = new NotionDirectoryUnsafeTargetError("foreign page");
+  assert.equal(denied instanceof NotionDirectoryUnsafeTargetError, true);
 });

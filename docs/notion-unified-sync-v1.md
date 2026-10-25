@@ -53,3 +53,7 @@ Regresný test: `node --experimental-strip-types --test tests/notion-sync-health
 - Rýchly skip podľa nezmeneného Notion snapshotu zámerne nepridáva ID do tejto množiny: kanonický D1 edit sa aj vtedy musí môcť dostať cez druhú vetvu. Ak niekto zmení D1 súbežne až po pokuse, zmena zostáva na ďalšie existujúce cron spustenie, neprepisuje sa naslepo.
 - Nezmenené: canonical identity, potvrdené Google miesto, Notion stavy schvaľovania, príprava obrázkov, Services V3 choices, Facebook publisher, feature flagy, počet cronov, D1 schéma.
 - Regresie sú v existujúcom `tests/notion-directory-sync.test.mjs`.
+
+### Bezpečnostné doplnenie fázy 3A
+
+Pri nesúhlase identity Notion stránky alebo pri presune z kanonického data source vznikne typovaná chyba `NotionDirectoryUnsafeTargetError`. Obe catch vetvy stále započítajú zlyhanie do diagnostiky, ale **neposielajú ani diagnostický PATCH** `Sync stav / Sync chyba` na neoverenú Notion stránku. Dáta zostávajú nedotknuté a existujúce D1 mapovanie sa nemení. Test kontroluje obe cesty.

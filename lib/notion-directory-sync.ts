@@ -42,7 +42,7 @@ import {
 } from "@/lib/media-source-monitor";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { SITE_URL } from "@/config/public-site";
-import { canRecoverNotionDirectoryMapping, notionDirectoryPageBelongsToSource, notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
+import { canRecoverNotionDirectoryMapping, NotionDirectoryUnsafeTargetError, notionDirectoryPageBelongsToSource, notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
@@ -1080,12 +1080,12 @@ async function syncMappedPage(input: {
 
   const page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
   if (page.id !== input.mapping.notion_page_id) {
-    throw new Error("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
+    throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
   }
   // A mapping alone does not grant write access to a page moved out of the
   // canonical Directory data source. Never PATCH an unrelated Notion page.
   if (!notionDirectoryPageBelongsToSource(page, input.dataSourceId)) {
-    throw new Error("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
+    throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
   }
 
   // A mapping can already exist when the first Notion write-back failed.
@@ -1635,7 +1635,10 @@ export async function runNotionDirectorySyncSweep(input: {
       else summary.unchanged += 1;
     } catch (error) {
       summary.failed += 1;
-      await markPageError(input.bindings, page.id, error);
+      // Even a diagnostic PATCH must not mutate an unrelated/moved Notion page.
+      if (!(error instanceof NotionDirectoryUnsafeTargetError)) {
+        await markPageError(input.bindings, page.id, error);
+      }
       // Preserve an uncertain import lock for explicit reconciliation. Never
       // create a second profile after a lost response or mapping failure.
       release = null;
@@ -1666,7 +1669,9 @@ export async function runNotionDirectorySyncSweep(input: {
       else summary.unchanged += 1;
     } catch (error) {
       summary.failed += 1;
-      await markPageError(input.bindings, mapping.notion_page_id, error);
+      if (!(error instanceof NotionDirectoryUnsafeTargetError)) {
+        await markPageError(input.bindings, mapping.notion_page_id, error);
+      }
     }
   }
 

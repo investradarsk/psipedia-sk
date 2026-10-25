@@ -46,6 +46,9 @@ export function canRecoverNotionDirectoryMapping(
  * source. A moved, trashed, or wrong-parent page is never a safe PATCH target.
  * This guard uses existing page metadata and needs no D1 migration.
  */
+/** A foreign/moved page must never receive even a Sync chyba metadata PATCH. */
+export class NotionDirectoryUnsafeTargetError extends Error {}
+
 export function notionDirectoryPageBelongsToSource(
   page: {
     archived?: boolean;
