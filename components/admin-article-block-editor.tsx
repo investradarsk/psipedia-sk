@@ -1,10 +1,13 @@
 "use client";
 
-import { ChangeEvent, Fragment, useEffect, useState } from "react";
+import { ChangeEvent, Fragment, useEffect, useRef, useState } from "react";
 import { ArticleBlocks } from "@/components/article-blocks";
 import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { ArticlePromo } from "@/components/article-promo";
 import { AdminRichTextEditor } from "@/components/admin-rich-text-editor";
+import {AdminGalleryDropzone} from "@/components/admin-gallery-dropzone";
+import {AdminSortableGallery} from "@/components/admin-sortable-gallery";
+import {arrayMove} from "@dnd-kit/sortable";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import {
   articleBlockLabels,
@@ -124,6 +127,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const galleryUploadPending=useRef(false);
 
   useEffect(() => {
     fetch("/api/admin/articles?limit=100")
@@ -198,23 +202,46 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
     }
   }
 
-  async function uploadGallery(event: ChangeEvent<HTMLInputElement>, blockId: string) {
-    const files = [...(event.target.files ?? [])];
-    if (!files.length) return;
+  async function uploadGallery(event: ChangeEvent<HTMLInputElement> | File[], blockId: string) {
+    const files = Array.isArray(event) ? event : [...(event.target.files ?? [])];
+    if (!Array.isArray(event)) event.target.value = "";
+    if (!files.length || galleryUploadPending.current) return;
+    const current = blocks.find(block => block.id === blockId);
+    if (current?.type !== "gallery") return;
+    const remaining = Math.max(0, 24 - current.images.length);
+    if (files.length > remaining || files.length > 12) {
+      onError(`Vyber najviac ${Math.min(remaining,12)} ďalších fotografií. Galéria článku má limit 24.`);
+      return;
+    }
+
+    galleryUploadPending.current = true;
     onUploadingChange(true);
     onError("");
+    const uploaded: ArticleBlockImage[] = [];
+    const failures: string[] = [];
     try {
-      const uploaded = await Promise.all(files.slice(0, 12).map(async (file): Promise<ArticleBlockImage> => {
-        const data = await uploadAdminImage(file, "articles");
-        return { url: data.imageUrl, imageKey: data.imageKey, alt: file.name.replace(/\.[^.]+$/, ""), caption: "", credit: "", size: "normal" };
-      }));
-      update(blockId, (block) => block.type === "gallery" ? { ...block, images: [...block.images, ...uploaded].slice(0, 24) } : block);
-      onMessage(`Do galérie bolo nahraných ${uploaded.length} obrázkov. Ulož článok, aby sa zmena zachovala.`);
-    } catch (error) {
-      onError(error instanceof Error ? error.message : "Galériu sa nepodarilo nahrať.");
+      // Keep every successful upload even when another file fails.
+      for (const file of files) {
+        try {
+          const data = await uploadAdminImage(file, "articles");
+          uploaded.push({
+            url: data.imageUrl, imageKey: data.imageKey,
+            alt: file.name.replace(/\.[^.]+$/, ""), caption: "", credit: "", size: "normal",
+          });
+        } catch (error) {
+          failures.push(`${file.name}: ${error instanceof Error ? error.message : "Nahratie zlyhalo."}`);
+        }
+      }
+      if (uploaded.length) {
+        update(blockId, block => block.type === "gallery"
+          ? { ...block, images: [...block.images, ...uploaded] }
+          : block);
+        onMessage(`Do galérie bolo nahraných ${uploaded.length} obrázkov. Ulož článok, aby sa zmena zachovala.`);
+      }
+      if (failures.length) onError(failures.join(" "));
     } finally {
+      galleryUploadPending.current = false;
       onUploadingChange(false);
-      event.target.value = "";
     }
   }
 
@@ -276,19 +303,21 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
             </div>}
 
             {block.type === "gallery" && <div className="admin-gallery-editor">
-              <label className="admin-upload-button"><input type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadGallery(event, block.id)} />+ Nahrať obrázky do galérie</label>
-              <div className="admin-gallery-items">{block.images.map((image, imageIndex) => <div className="admin-gallery-item" key={`${image.url}-${imageIndex}`}>
+              <AdminGalleryDropzone label="Nahrať obrázky do galérie" onFiles={files=>uploadGallery(files,block.id)} onRejected={onError} disabled={block.images.length>=24} maxFiles={12} />
+              <AdminSortableGallery urls={block.images.map(image=>image.url)} className="admin-gallery-items"
+                rowClassName="admin-gallery-item" onReorder={(from,to)=>update(block.id,item=>item.type==="gallery"?{...item,images:arrayMove(item.images,from,to)}:item)}
+                renderRow={(imageIndex,handle)=>{const image=block.images[imageIndex];return <>
                 <img src={image.url} alt={image.alt} />
                 <label>Alt text<input value={image.alt} aria-label={`Alt text obrázka ${imageIndex + 1}`} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, alt: event.target.value } : entry) } : item)} placeholder="Čo je na obrázku" /></label>
                 <label>Popis pod obrázkom<input value={image.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, caption: event.target.value } : entry) } : item)} /></label>
                 <label>Kredit / zdroj<input value={image.credit ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, credit: event.target.value } : entry) } : item)} /></label>
                 <label>Veľkosť<select value={image.size ?? "normal"} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, size: event.target.value === "wide" ? "wide" : "normal" } : entry) } : item)}><option value="normal">Normálna</option><option value="wide">Široká</option></select></label>
-                <div className="admin-gallery-item-actions">
+                <div className="admin-gallery-item-actions">{handle}
                   <button type="button" onClick={() => moveGalleryImage(block.id, imageIndex, -1)} disabled={imageIndex === 0} aria-label={`Presunúť obrázok ${imageIndex + 1} doľava`}>←</button>
                   <button type="button" onClick={() => moveGalleryImage(block.id, imageIndex, 1)} disabled={imageIndex === block.images.length - 1} aria-label={`Presunúť obrázok ${imageIndex + 1} doprava`}>→</button>
                   <button type="button" className="is-danger" onClick={() => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.filter((_, entryIndex) => entryIndex !== imageIndex) } : item)}>Odstrániť</button>
                 </div>
-              </div>)}</div>
+              </>;}}/>
             </div>}
 
             {(block.type === "bullet-list" || block.type === "numbered-list") && <div className="admin-list-editor">

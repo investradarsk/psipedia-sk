@@ -5,17 +5,13 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, rectSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import { useDropzone } from "react-dropzone";
+import { AdminGalleryDropzone } from "@/components/admin-gallery-dropzone";
 import { useForm } from "react-hook-form";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { validateAdminPhotoGalleryUrl } from "@/lib/admin-photo-gallery-url";
 import { uploadAdminImage, type AdminImageFolder } from "@/lib/admin-image-upload";
+import {gallerySortableIds} from "@/lib/admin-gallery-sortable-ids";
 import styles from "./admin-photo-gallery.module.css";
-
-function gallerySortableId(src: string, index: number): string {
-  // Stable and unique even for legacy galleries with duplicate photo URLs.
-  return index + ":" + src;
-}
 
 function SortableGalleryPhoto({ src, index, itemId, count, locked, onMove, onRemove }: {
   src: string; index: number; itemId: string; count: number; locked: boolean;
@@ -97,22 +93,11 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
     } finally { pending.current = false; setBusy(false); onBusyChange(false); }
   }
 
-  const {getRootProps,getInputProps,isDragActive}=useDropzone({
-    accept:{"image/jpeg":[],"image/png":[],"image/webp":[],"image/avif":[]},
-    multiple:true,
-    disabled:locked||value.length>=limit,
-    noDragEventsBubbling:true,
-    onDrop:(files,rejections)=>{
-      if(rejections.length){setError("Nepodporovaný súbor. Vyber JPG, PNG, WebP alebo AVIF.");}
-      if(files.length) void upload(files);
-    },
-  });
-
   const sensors = useSensors(
     useSensor(PointerSensor, {activationConstraint: {distance: 6}}),
     useSensor(KeyboardSensor, {coordinateGetter: sortableKeyboardCoordinates}),
   );
-  const sortableIds = value.map(gallerySortableId);
+  const sortableIds = gallerySortableIds(value);
   function onDragEnd(event: DragEndEvent) {
     if (locked || !event.over || event.active.id === event.over.id) return;
     const source = sortableIds.indexOf(String(event.active.id));
@@ -133,15 +118,13 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
   return <section className={styles.gallery} aria-labelledby={`${id}-title`} aria-busy={busy}>
     <h3 id={`${id}-title`}>Galéria fotografií ({value.length}/{limit})</h3>
     <p>Poradie môžeš zmeniť šípkami. Odstránenie vyradí fotografiu z galérie tohto profilu. Zmeny potvrď uložením profilu.</p>
-    <div {...getRootProps({className:"admin-upload-button "+styles.dropZone,role:"button","aria-label":"Nahrať fotografie"})}>
-      <input {...getInputProps()} />
-      {busy?"Nahrávam fotografie…":isDragActive?"Pusti fotografie do galérie":"Nahrať fotografie alebo ich presunúť sem"}
-    </div>
+    <AdminGalleryDropzone label="Nahrať fotografie" onFiles={upload} disabled={locked||value.length>=limit} busy={busy}
+      onRejected={setError} />
     <div className="admin-field"><label htmlFor={`${id}-url`}>Pridať fotografiu z URL</label><input id={`${id}-url`} type="text" inputMode="url" {...register("photoUrl")} disabled={locked || value.length >= limit} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addUrl(); } }} placeholder="/media/… alebo https://…" /><button type="button" disabled={locked || !url.trim() || value.length >= limit} onClick={addUrl}><Plus size={16} aria-hidden="true" /> Pridať do galérie</button></div>
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
         <ol className={styles.items}>{value.map((src,index) =>
-          <SortableGalleryPhoto key={gallerySortableId(src,index)} itemId={gallerySortableId(src,index)}
+          <SortableGalleryPhoto key={sortableIds[index]} itemId={sortableIds[index]}
             src={src} index={index} count={value.length} locked={locked}
             onMove={move} onRemove={imageIndex=>onChange(value.filter((_,i)=>i!==imageIndex))} />
         )}</ol>

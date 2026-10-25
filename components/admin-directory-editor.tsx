@@ -1,4 +1,8 @@
 "use client";
+import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import {adminSelectedImage} from "@/lib/admin-selected-image";
+import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
+import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
 import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
 
@@ -13,6 +17,7 @@ import {
 } from "@/components/admin-interaction-system";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { EditorStatus, EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import type { ArticleSeo } from "@/lib/content";
@@ -201,6 +206,9 @@ export function AdminDirectoryEditor({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [formDirty, setFormDirty] = useState(false);
+  const [confirmDirectoryExit, setConfirmDirectoryExit] = useState(false);
+  const directoryBackLinkRef = useRef<HTMLAnchorElement>(null);
+  const allowDirectoryExitRef = useRef(false);
 
   useEffect(() => {
     if (formRef.current) formRef.current.dataset.hydrated = "true";
@@ -220,8 +228,8 @@ export function AdminDirectoryEditor({
     setQualityResolution(field, "");
   }
 
-  async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function uploadImage(event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(true); setError(""); setMessage("");
     try {
@@ -236,7 +244,6 @@ export function AdminDirectoryEditor({
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
     } finally {
       setUploading(false);
-      event.target.value = "";
     }
   }
 
@@ -435,8 +442,7 @@ export function AdminDirectoryEditor({
           <span>Odkontrolované</span>
           {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
         </label>
-        {message && <p className="admin-flash" role="status">{message}</p>}
-        {error && <p className="admin-flash admin-flash--error" role="alert">{error}</p>}
+        <AdminFormFeedback message={message} error={error} pending={saving} pendingLabel="Obnovujem…" className="admin-flash" errorClassName="admin-flash--error" />
         <AdminActionButton variant="primary" disabled={saving} onClick={() => void restoreArchivedProfile()}>
           {saving ? "Obnovujem…" : "Obnoviť do konceptu"}
         </AdminActionButton>
@@ -653,7 +659,7 @@ export function AdminDirectoryEditor({
 
           <AdminEditorSection id="directory-content" className="admin-form-card">
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
-            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={9} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} /></div>
+            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={9} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
             <AdminHelpText term="Formát">Adresár dnes ukladá popis ako plain text. Editor preto zachováva aktuálny dátový contract; rich-text patrí do samostatnej migrácie.</AdminHelpText>
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => setServices(event.target.value)} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
@@ -688,7 +694,7 @@ export function AdminDirectoryEditor({
 
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             <div className="admin-card-heading"><div><span>05</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
-            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
+            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {notionDraft && <div className="admin-field"><label htmlFor="directory-notion-logo">URL oficiálneho loga</label><input id="directory-notion-logo" type="url" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://…" /><small>Logo je samostatné od hlavnej fotografie. Nastavenie výrezu fotografie bude dostupné po synchronizácii profilu do Adresára.</small></div>}
             {!imageUrl ? (
@@ -730,10 +736,14 @@ export function AdminDirectoryEditor({
       </AdminDrawer>
 
       </NotionDraftFields>
-      {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>{error || message}</div>}
+      <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
       <div className="admin-editor-actions">
-        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" onClick={event => {
-          if (formDirty && !window.confirm("Zahodiť neuložené zmeny profilu?")) event.preventDefault();
+        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" ref={directoryBackLinkRef} onClick={event => {
+          // Preserve native behavior for modified clicks and background tabs.
+          if (formDirty && !allowDirectoryExitRef.current && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+            event.preventDefault();
+            setConfirmDirectoryExit(true);
+          }
         }}>← Späť na adresár</Link>}</div>
         {notionDraft && !notionDraft.psipediaId && !canonicalEditorUrl && (
           <div>
@@ -758,7 +768,18 @@ export function AdminDirectoryEditor({
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
         </div>
       </div>
-      <EditorUnsavedChangesGuard active={formDirty} open={false} onStay={() => {}} onDiscard={() => {}} />
+      <EditorUnsavedChangesGuard
+        active={formDirty}
+        open={confirmDirectoryExit}
+        onStay={() => setConfirmDirectoryExit(false)}
+        onDiscard={() => {
+          allowDirectoryExitRef.current = true;
+          setConfirmDirectoryExit(false);
+          setFormDirty(false);
+          // Reuse the existing Next Link, keeping Gemini/Notion modal free of router context.
+          directoryBackLinkRef.current?.click();
+        }}
+      />
     </form>
   );
 }

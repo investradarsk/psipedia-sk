@@ -160,7 +160,9 @@ test("ADMIN-ARTICLE-UX-V2 publish/schedule feedback is focused and visible", () 
   const style = readFileSync("components/admin-shell.module.css", "utf8");
   assert.match(editor, /scrollIntoView\(\{ behavior: "smooth", block: "center" \}\)/);
   assert.match(editor, /resultRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
-  assert.match(editor, /role=\{error \? "alert" : "status"\}/);
+  assert.match(editor, /<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
+  const feedback = readFileSync("components/admin-form-feedback.tsx", "utf8");
+  assert.match(feedback, /role=\{state === "error" \? "alert" : "status"\}/);
   assert.match(editor, /focusResult\(\)/);
   assert.match(shell, /styles\.topbarSticky/);
   assert.match(style, /\.topbarSticky\s*\{[^}]*position: sticky/s);

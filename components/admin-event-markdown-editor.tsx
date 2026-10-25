@@ -1,10 +1,9 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import { EventMarkdown } from "@/components/event-markdown";
-import dynamic from "next/dynamic";
+import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { appendLexicalPlainTextToMarkdown } from "@/lib/editorial-lexical-append";
-const LexicalDraftDialog = dynamic(() => import("@/components/admin-lexical-draft-dialog").then(m => m.AdminLexicalDraftDialog), { ssr: false });
 import { safeEventLink } from "@/lib/event-markdown";
 
 const subscribeToHydration = () => () => {};
@@ -12,7 +11,6 @@ const subscribeToHydration = () => () => {};
 export function AdminEventMarkdownEditor({ id, label, value, onChange, required = false }: { id: string; label: string; value: string; onChange: (value: string) => void; required?: boolean }) {
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const textarea = useRef<HTMLTextAreaElement>(null);
-  const [draftOpen, setDraftOpen] = useState(false);
   function insert(kind: string) {
     const field = textarea.current;
     if (!field) return;
@@ -39,10 +37,8 @@ export function AdminEventMarkdownEditor({ id, label, value, onChange, required 
     <div className="admin-markdown-toolbar" role="group" aria-label={`Formátovanie: ${label}`}>
       {[["bold", "Tučné"], ["italic", "Kurzíva"], ["list", "Odrážky"], ["ordered", "Číslovaný zoznam"], ["heading", "Medzititulok"], ["link", "Odkaz"], ["paragraph", "Odsek"]].map(([kind, name]) => <button key={kind} type="button" disabled={!hydrated} onClick={() => insert(kind)}>{name}</button>)}
     </div>
-    <button type="button" className="admin-lexical-draft-trigger" disabled={!hydrated}
-      onClick={() => setDraftOpen(true)}>+ Pripraviť nový text</button>
-    {draftOpen && <LexicalDraftDialog open={draftOpen} onOpenChange={setDraftOpen}
-      onAppend={plainText => onChange(appendLexicalPlainTextToMarkdown(value, plainText))}/>}
+    <AdminLexicalAppendButton disabled={!hydrated}
+      onAppend={plainText => onChange(appendLexicalPlainTextToMarkdown(value, plainText))}/>
     <small id={`${id}-help`}>Označ text a použi formátovanie. Nový odsek oddeľ prázdnym riadkom. HTML sa zobrazí ako obyčajný text.</small>
     <textarea disabled={!hydrated} ref={textarea} id={id} aria-describedby={`${id}-help`} rows={12} value={value} onChange={(event) => onChange(event.target.value)} required={required} />
     <section className="admin-markdown-preview" aria-label={`Náhľad: ${label}`}><h3>Živý náhľad</h3>{value ? <EventMarkdown value={value} /> : <p>Tu sa zobrazí formátovaný text.</p>}</section>

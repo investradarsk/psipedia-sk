@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { defaultNavigationItems, type NavigationItem } from "@/lib/navigation";
+import {AdminDestructiveConfirmDialog} from "@/components/admin-interaction-system";
 
 type AutomaticNavigationItem = {
   id: string;
@@ -33,6 +34,7 @@ export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [pendingRemovalId, setPendingRemovalId] = useState<string | null>(null);
   const roots = useMemo(() => items.filter((item) => !item.parentId), [items]);
   const previewFamilies = useMemo(() => roots.map((root) => {
     const managedChildren = items.filter((item) => item.parentId === root.id);
@@ -53,12 +55,18 @@ export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: 
   }
 
   function removeItem(id: string) {
-    const item = items.find((candidate) => candidate.id === id);
-    if (!item || !window.confirm(`Odstrániť položku „${item.label}“${item.parentId ? "" : " aj s jej podmenu"}?`)) return;
-    setItems((current) => normalizePositions(current.filter((candidate) => candidate.id !== id && candidate.parentId !== id)));
+    if (items.some(candidate=>candidate.id===id)) setPendingRemovalId(id);
+  }
+  function confirmRemoveItem() {
+    const id=pendingRemovalId;
+    setPendingRemovalId(null);
+    if (!id) return;
+    setItems(current=>normalizePositions(current.filter(item=>item.id!==id&&item.parentId!==id)));
     setMessage("");
     setError("");
   }
+  const pendingRemoval=pendingRemovalId?items.find(item=>item.id===pendingRemovalId):null;
+  const removalCount=pendingRemoval?1+items.filter(item=>item.parentId===pendingRemoval.id).length:0;
 
   function moveItem(id: string, direction: -1 | 1) {
     setItems((current) => {
@@ -204,5 +212,15 @@ export function AdminNavigationEditor({ initialItems, automaticChildren = {} }: 
       {error && <p className="is-error" role="alert">{error}</p>}
       <button type="button" className="admin-primary-action" onClick={save} disabled={saving}>{saving ? "Ukladám…" : "Uložiť navigáciu"}</button>
     </div>
+    <AdminDestructiveConfirmDialog
+      open={Boolean(pendingRemoval)}
+      title={pendingRemoval ? `Odstrániť položku „${pendingRemoval.label}“?` : "Odstrániť položku?"}
+      description="Odstránenie zmení iba rozpracovanú navigáciu. Verejný web sa zmení až po kliknutí na Uložiť navigáciu."
+      affectedCount={removalCount}
+      affectedLabel={removalCount===1?"položku navigácie":"položky navigácie vrátane podmenu"}
+      confirmLabel="Odstrániť položku"
+      onCancel={()=>setPendingRemovalId(null)}
+      onConfirm={confirmRemoveItem}
+    />
   </section>;
 }
