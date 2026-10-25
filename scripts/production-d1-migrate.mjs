@@ -1525,6 +1525,22 @@ export function assertQualityMissingHourly0141Schema(schema) {
     String(names.get("quality_missing_proposals_pending")?.sql ?? "")), "0141 review index drift");
 }
 
+/** Production 0143: durable manual searches, independent of hourly claims. */
+export function assertQualityManual0143Schema(schema) {
+  assertQualityMissingScanOutcomes0142Schema(schema);
+  const names=objectMap(schema.objects ?? []);
+  const table=names.get("quality_missing_manual_attempts");
+  const index=names.get("quality_missing_manual_attempts_recent");
+  invariant(table?.type==="table", "0143 manual search history table is missing");
+  invariant(index?.type==="index", "0143 manual search history index is missing");
+  const sql=String(table.sql??"");
+  invariant(/id\s+TEXT\s+PRIMARY\s+KEY/i.test(sql),"0143 manual history identity must be unique");
+  invariant(/status\s+TEXT\s+NOT\s+NULL\s+CHECK\s*\(\s*status\s+IN\s*\(\s*'RUNNING'\s*,\s*'SUCCESS'\s*,\s*'FAILED'\s*\)\s*\)/i.test(sql),
+    "0143 manual history statuses are not constrained");
+  invariant(/ON\s+quality_missing_manual_attempts\s*\(\s*created_at\s+DESC\s*\)/i.test(String(index.sql??"")),
+    "0143 recent history index drift");
+}
+
 /** Additive quality scan outcomes; rejects incomplete/manual schema changes. */
 export function assertQualityMissingScanOutcomes0142Schema(schema) {
   assertQualityMissingHourly0141Schema(schema);
@@ -2699,6 +2715,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 140) assertDirectoryServiceNotionRelations0140Schema(schema);
   if (migrationIndex(targetMigration) >= 141) assertQualityMissingHourly0141Schema(schema);
   if (migrationIndex(targetMigration) >= 142) assertQualityMissingScanOutcomes0142Schema(schema);
+  if (migrationIndex(targetMigration) >= 143) assertQualityManual0143Schema(schema);
 }
 
 /** Exact 0139 Services V3 journal, including append-only no-delete/rewrite guarantees. */
