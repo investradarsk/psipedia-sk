@@ -301,9 +301,9 @@
   min-height: 44px;
   padding: 9px 16px;
   border: 0;
-  border-radius: 9px;
-  color: #fff;
-  background: #174b38;
+  border-radius: var(--ps-radius-control, 12px);
+  color: var(--ps-color-action-primary-text, #fff);
+  background: var(--ps-color-action-primary, #174b38);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
@@ -312,7 +312,7 @@
 .hero :global([data-section-hero-search] :is(input, select, button):focus-visible),
 .managedCta:focus-visible,
 .quickLinks a:focus-visible {
-  outline: 3px solid #f3a88f;
+  outline: 3px solid var(--brand-focus, #b94732);
   outline-offset: 2px;
 }
 

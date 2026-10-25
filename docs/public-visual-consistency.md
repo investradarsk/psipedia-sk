@@ -12,9 +12,11 @@ Používame existujúce `PageContainer` / `.shell.public-shell`, `app/design-sys
 - [x] **CTA a tlačidlá — druhá etapa:** Adresár (odoslanie/reset filtrov, mobilné akcie, bočné CTA), Pomoc psom (odoslanie/reset), Podujatia (filtrovanie/zoradenie), Plemená (ďalšie výsledky) používajú PublicActionButton/PublicActionLink. Odstránené kolízne lokálne farby a focus pravidlá; DOM označuje význam cez data-public-action.
 - [ ] **CTA a tlačidlá — zvyšok:** detaily/články, disabled stavy a ďalšie kontextové varianty.
 - [x] **Filtre — 2. etapa:** sedem existujúcich variantov polí (Adresár, Pomoc psom, Podujatia, katalóg, kluby, pôvod a FCI plemien) berie rovnaké zaoblenie z jedného tokenu. Funkčná sémantika a GET/URL zostáva bezo zmeny.
-- [ ] **Vyhľadávanie a filtre — zvyšok:** porovnať vyhľadávacie panely, aktívne filtre, reset a mobilné dialógy na všetkých routach.
+- [x] **Vyhľadávanie — etapa 3:** tlačidlo sekčného hero vyhľadávania využíva spoločnú farbu, výšku a zaoblenie CTA, vrátane focus tokenu. GET kontrakty ostávajú.
+- [ ] **Vyhľadávanie a filtre — zvyšok:** porovnať aktívne filtre, reset a mobilné dialógy na všetkých routach.
 - [x] **Karty — druhá etapa:** bočné CTA Adresára a karty podujatí používajú rám a zaoblenie z existujúcich tokenov. Obsah a obrázky ostávajú pôvodné.
-- [ ] **Karty a detaily — zvyšok:** hierarchia, obrázky, metadáta a ostatné typové varianty.
+- [x] **Karty — etapa 3:** články, plemená, adresár, podujatia (grid aj riadky) a Pomoc psom dostali spoločný verejný kontrakt `data-public-card`. Centrálny CSS blok riadi rám, zaoblenie, tieň, hover, focus a farbu nadpisov/metadát. Špecifické rozmery obrázkov a urgentné zvýraznenie pomoci ostávajú.
+- [ ] **Karty a detaily — zvyšok:** karty ďalších sekcií, detailové hlavičky a layout faktov.
 - [ ] **Bannery, farby, písmo a hlášky:** zosúladiť existujúce kanonické varianty bez zásahov do obsahu.
 - [ ] **Všetky šírky a rozostupy:** skontrolovať nepravidelné lokálne max-width, sidebary a zarovnanie s hero na ostatných verejných routach.
 - [ ] **Vizuálna akceptácia:** porovnať desktop 1440 px a mobily 390/320 px na reprezentatívnych routach, vrátane filtrov, kariet a detailov.

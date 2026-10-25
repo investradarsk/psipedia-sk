@@ -68,6 +68,7 @@ export function ArticleCard({
     <article
       className={[`article-card article-card--${article.accent} article-card--${resolvedVariant}`, className].filter(Boolean).join(" ")}
       data-article-card
+      data-public-card="article"
       data-article-variant={resolvedVariant}
     >
       {(article.image || !omitMissingImage) ? <Link
@@ -95,11 +96,11 @@ export function ArticleCard({
         )}
       </Link> : null}
       <div className="article-card-body">
-        <div className="article-card-meta">
+        <div className="article-card-meta" data-public-card-meta>
           <Link href={topicHref} className="article-card-topic">{metaLabel}</Link>
           {date ? (dateIso ? <time dateTime={dateIso}>{date}</time> : <span>{date}</span>) : null}
         </div>
-        <Heading className="article-card-title">
+        <Heading className="article-card-title" data-public-card-title>
           <Link href={href}>{article.title}</Link>
         </Heading>
         {excerpt ? <p className="article-card-excerpt">{excerpt}</p> : null}
