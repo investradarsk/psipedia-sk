@@ -131,3 +131,8 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - Adresár: E2E test nevyhľadáva všetky elementy textu „Neuložené zmeny“; zacieli presne `form.admin-directory-editor [data-editor-status]` a nepopletie ho s obsahom zatvoreného potvrdenia.
 - ADMIN-IA-2 Články: test navigácie sekcií vyžaduje, aby bol panel **aspoň z polovice v zornom poli**, namiesto neprimeranej podmienky `top > 0`, ktorá zlyhá už pri presahu ~9 px, keď je panel stále použiteľný.
 - Obe zmeny upravujú iba testy; neobchádzajú kontrolu zachovania vstupov, navigácie, nezmenených API zápisov ani horizontálneho pretečenia.
+
+## Vlna 14B — Adopcie, bezpečný odchod z kanonického editora
+- Editor Adopcií používa rovnaký `useAdminUnsavedFormLinks` a `EditorUnsavedChangesGuard` ako Pomoc psom a Stratené/Nájdené. Pri upravených údajoch potvrdí odchod zo zoznamového odkazu alebo Zrušiť; pri zrušení ostane text aj formulár bez zmeny.
+- Dirty sa nastaví po zmene polí a lifecycle vo formulári, úspešnom nahratí/výmene fotografie, galérie, výrezu, automatizačnej oprave alebo pridaní textu cez Lexical v podeditore. Neúspešné nahratie nespúšťa falošný dirty stav.
+- Po úspešnom PUT/POST sa dirty stav vymaže; pri novom profile zostáva existujúce presmerovanie. Nemenia sa kanonické `ManagedAdoptionInput`, `expectedUpdatedAt`, väzby organizácií, serverové validácie, prechody stavov ani mediálne pravidlá.
