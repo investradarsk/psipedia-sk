@@ -1407,6 +1407,7 @@ export async function runNotionDirectoryBootstrapSweep(input: {
     hasMore: false,
   };
   if (!enabled) return summary;
+  if (input.targetPageId && input.targetProfileId) throw new Error("NOTION_TARGET_SCOPE_AMBIGUOUS");
 
   const dataSourceId = input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() ?? "";
   if (!input.bindings.NOTION_API_TOKEN?.trim() || !dataSourceId) {
@@ -1446,6 +1447,8 @@ export async function runNotionDirectorySyncSweep(input: {
   // Optional one-page operator recovery, using the exact existing sync pipeline.
   // Never automatically invoked or used for routine sweep scheduling.
   targetPageId?: string;
+  /** Direct Admin save: reconcile only an already linked canonical profile. */
+  targetProfileId?: number;
   expectedNotionRevision?: string;
 }): Promise<NotionDirectorySyncSummary> {
   const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
@@ -1470,6 +1473,27 @@ export async function runNotionDirectorySyncSweep(input: {
 
   summary.schemaReady = await schemaReady(input.database);
   if (!summary.schemaReady) return summary;
+
+  // Admin -> Notion fast path: no data-source query, backfill or unrelated profiles.
+  // It reuses the verified per-field reconciliation and never creates mappings.
+  if (input.targetProfileId !== undefined) {
+    if (!Number.isSafeInteger(input.targetProfileId) || input.targetProfileId <= 0)
+      throw new Error("NOTION_TARGET_PROFILE_INVALID");
+    const mapping = await loadMappingByProfile(input.database, input.targetProfileId);
+    if (!mapping) return summary;
+    try {
+      const action = await syncMappedPage({
+        database: input.database, bindings: input.bindings, dataSourceId, mapping,
+      });
+      if (action === "pulled") summary.pulledFromNotion++;
+      else if (action === "pushed") summary.pushedToNotion++;
+      else summary.unchanged++;
+    } catch {
+      // The canonical save has already succeeded; the hourly sweep retries it.
+      summary.failed++;
+    }
+    return summary;
+  }
 
   // The relation is an optional, additive Notion UI bridge. Without migration
   // 0140 the existing Directory article/profile sync behaves exactly as before.
