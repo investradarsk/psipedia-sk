@@ -5,6 +5,16 @@ on:
     paths:
       - "scripts/admin-duplication-inventory.mjs"
       - "tests/admin-duplication-inventory.test.mjs"
+      - "tests/admin-form-control-unification-point-2.test.mjs"
+      - "docs/ADMIN-COMPONENT-UNIFICATION-POINT-2.md"
+      - "components/admin-editor-workspace.tsx"
+      - "components/admin-help-dashboard.tsx"
+      - "components/admin-service-catalog-workspace.tsx"
+      - "components/admin-partner-event-actions.tsx"
+      - "components/admin-automation-finding-review.tsx"
+      - "components/admin-missing-quality-dashboard.tsx"
+      - "components/admin-data-quality-dashboard.tsx"
+      - "components/admin-puppy-area-editor.tsx"
       - "docs/ADMIN-DUPLICATION-AUDIT-POINT-1.md"
       - ".github/workflows/admin-duplication-inventory.yml"
 
@@ -22,3 +32,5 @@ jobs:
         run: node --test tests/admin-duplication-inventory.test.mjs
       - name: Print read-only inventory indicators
         run: node scripts/admin-duplication-inventory.mjs
+      - name: Verify point 2 form and confirmation contracts
+        run: node --test tests/admin-form-control-unification-point-2.test.mjs
