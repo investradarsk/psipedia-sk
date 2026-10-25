@@ -95,7 +95,8 @@ const categoryProperties = {
     "Čas začiatku": { type: "rich_text" }, "Čas konca": { type: "rich_text" },
     "Organizátor": { type: "rich_text" }, "Web": { type: "url" }, "Zdroj dát": { type: "url" },
     "Stav": { type: "select", select: { options: [{ name: "Nápad" }, { name: "Publikované" }] } },
-  } : { "Kategória": { type: "rich_text" }, "Psipedia stav": { type: "rich_text" } }),
+  } : { "Kategória": { type: "rich_text" }, "Psipedia stav": { type: "rich_text" },
+    "Zdroj dát": { type: "url" }, "CTA URL": { type: "url" } }),
 };
 const shelterProperties = {
   "Názov":{type:"title"}, "Typ":{type:"rich_text"},
@@ -146,6 +147,8 @@ const dynamicArgs = { fields: {
   "Ďalší overený fakt": "Nové obsahové pole zo živej schémy", "Počet miest": "4",
   "Prístupnosť": "ÁNO", "Zameranie": ["Male psy", "Veľké psy"],
   ...(lostFound ? { Typ: "LOST" } : {}),
+  ...(section === "help" && !lostFound && !adoption && !shelter
+    ? { "Zdroj dát": "https://example.com/about" } : {}),
   ...(adoption ? { "Hmotnosť": "4 kg", "Plemeno": "kríženec yorkšírskeho teriéra", "Kríženec": true,
     "Dátum narodenia": "08/2024", "Zdravotné poznámky": "Očkovaný a kastrovaný.",
     "Popis": "Psík je približne 4-kilogramový kríženec yorkšírskeho teriéra, očkovaný a kastrovaný. Narodený približne 08/2024." } : {}),

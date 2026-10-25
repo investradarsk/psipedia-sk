@@ -470,7 +470,10 @@ for (const key of ["events.vystavy", "help.zbierky", "help.adopcia", "help.utulk
     test(key + " keeps usable draft despite optional gap: " + scenario, () => {
       const run = runOffline(scenario, key, "1");
       assert.equal(run.exitCode, 0, run.stderr);
-      assert.equal(run.counts.notionPosts, 1);
+      // A generic Help candidate with no public evidence URL is rejected
+      // individually, without failing the entire background Gemini run.
+      const needsSource = key === "help.zbierky" && scenario === "missing_source";
+      assert.equal(run.counts.notionPosts, needsSource ? 0 : 1, run.stderr);
       assert.ok(!JSON.stringify(run.pages).includes("http://example"));
     });
   }
