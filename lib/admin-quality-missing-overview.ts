@@ -72,9 +72,10 @@ export function overviewHref(f:OverviewFilters,patch:Partial<OverviewFilters>={}
   return "/admin/kvalita/prehlad?"+params.toString();
 }
 
+type MetricKey = `m_${OverviewField}`;
 type OverviewRow = {
   id:number;kind:QualityResearchKind;name:string;category:string;status:string;city:string;
-} & Record<"m_address"|"m_image"|"m_web"|"m_phone"|"m_email"|"m_social"|"m_registration"|"m_date"|"m_other",number>;
+} & Record<MetricKey,number>;
 export type OverviewItem={
   id:number;kind:QualityResearchKind;name:string;category:string;status:string;city:string;
   missing:OverviewField[];editorHref:string;
@@ -210,7 +211,7 @@ export async function loadMissingDataOverview(db:ReadDb,filters:OverviewFilters,
     visibleCount,page,pages,
     items:result.results.map(x=>({
       id:x.id,kind:x.kind,name:x.name,category:x.category,status:x.status,city:x.city??"",
-      missing:fieldIds.filter(k=>Number(x["m_"+k])===1),
+      missing:fieldIds.filter(k=>Number(x[("m_"+k) as MetricKey])===1),
       editorHref:editorHref(x.kind,x.id),
     })),
   };
