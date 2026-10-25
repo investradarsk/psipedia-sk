@@ -1084,7 +1084,7 @@ async function syncMappedPage(input: {
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile) return "unchanged" as const;
 
-  const page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
+  let page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
   if (page.id !== input.mapping.notion_page_id) {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
   }
@@ -1110,6 +1110,43 @@ async function syncMappedPage(input: {
     return "pushed" as const;
   }
 
+  // A confirmed canonical physical address must reach Notion even if a
+  // different editorial field has an unresolved conflict. PATCH only these
+  // protected fields; never advance the common mapping or field baseline on
+  // this partial operation.
+  const currentGeo = await loadGeoMirror(input.database, profile.id);
+  const confirmedPlace = Boolean(currentGeo?.google_place_id
+    && currentGeo.google_place_source_fingerprint && currentGeo.source_fingerprint
+    && currentGeo.google_place_source_fingerprint === currentGeo.source_fingerprint);
+  if (profile.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" || confirmedPlace) {
+    const addressKeys = [
+      "Kraj", "Okres", "Mesto", "Adresa", "PSČ", "Ulica",
+      "Číslo domu", "Formát adresy", "Potvrdená prevádzka",
+    ] as const;
+    const expected = profileSnapshot(profile);
+    const differs = (candidate: NotionPage) => {
+      const actual = notionSnapshot(candidate);
+      return actual.region !== expected.region || actual.district !== expected.district
+        || actual.city !== expected.city || actual.address !== expected.address
+        || actual.postalCode !== expected.postalCode || actual.street !== expected.street
+        || actual.houseNumber !== expected.houseNumber
+        || actual.addressFormat !== expected.addressFormat
+        || actual.confirmedServiceLocation !== expected.confirmedServiceLocation;
+    };
+    if (differs(page)) {
+      const latest = await fetchNotionPage(input.bindings, page.id);
+      if (latest.id !== page.id || !notionDirectoryPageBelongsToSource(latest, input.dataSourceId))
+        throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Canonical address target changed.");
+      if (differs(latest)) {
+        const properties = notionProfileProperties(profile, currentGeo, "", new Date().toISOString());
+        const patch = Object.fromEntries(addressKeys.map(key => [key, properties[key]]));
+        const echoed = await patchNotionPage(input.bindings, latest.id, patch);
+        if (echoed.id !== latest.id || !echoed.properties || differs(echoed))
+          throw new Error("NOTION_DIRECTORY_ADDRESS_WRITEBACK_UNVERIFIED");
+        page = echoed;
+      } else page = latest;
+    }
+  }
   const existingMonitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", profile.id);
   const currentSourceImageUrl = existingMonitor?.sourceImageUrl || externalSourceImageUrl(profile.imageUrl);
   const profileHash = await snapshotHash(profileSnapshot(profile, currentSourceImageUrl));
@@ -1149,7 +1186,7 @@ async function syncMappedPage(input: {
     database: input.database, agenda: "directory", entityId: profile.id,
     pageId: page.id, expectedHash: lastHash,
   });
-  const geoMirror = await loadGeoMirror(input.database, profile.id);
+  const geoMirror = currentGeo;
   const canonicalSnapshot = profileSnapshot(profile, currentSourceImageUrl);
   const notionEditorial = notionSnapshot(page);
   // If only one side changed, the other side still equals the last
@@ -1178,6 +1215,7 @@ async function syncMappedPage(input: {
   }
   const resolution = reconcileProfileFields({
     baseline, notion: notionEditorial, psipedia: canonicalSnapshot, protectedFields,
+    canonicalFieldsWin: true,
   });
   if (resolution.kind === "CONFLICT") {
     throw new Error("CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (" +
