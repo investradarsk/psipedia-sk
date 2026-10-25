@@ -419,13 +419,24 @@ async function syncOneBreed(
     const adminEdit = Date.parse(existing.updatedAt);
     const canonicalTextDiffers = BREED_DRAFT_TEXT_FIELDS.some(([key, property]) =>
       normalizedBreedText(existing[key]) !== notionBreedTextValue(page, property));
-    // Equal remote content hash means Notion has not supplied any newer
-    // editorial value. If mapped Admin text differs, the Admin revision is
-    // pending even when the save happened milliseconds after the last sweep.
-    // A real new Notion change still uses its acknowledged hash comparison.
-    if ((mapping.content_hash === contentHash && canonicalTextDiffers)
-      || (Number.isFinite(lastAck) && Number.isFinite(adminEdit)
-        && adminEdit > lastAck + 2_000)) {
+    // Notion still equals the previous acknowledged source snapshot. This
+    // allows a failed Admin -> Notion writeback to retry automatically on the
+    // existing hourly sweep, without picking a winner from page timestamps.
+    // The writer re-fetches and verifies ownership, each changed field and
+    // PATCH echo before updating any mapping receipt.
+    if (mapping.content_hash === contentHash && canonicalTextDiffers) {
+      const lastCommonText = { ...existing };
+      for (const [key, property] of BREED_DRAFT_TEXT_FIELDS) {
+        lastCommonText[key] = notionBreedTextValue(page, property);
+      }
+      const result = await writeBackDraftBreedEditorialToNotion({
+        database, bindings, before: lastCommonText, breed: existing,
+      });
+      if (!result.updated) throw new Error("BREED_ADMIN_WRITEBACK_NOT_ACKNOWLEDGED");
+      return "updated";
+    }
+    if (Number.isFinite(lastAck) && Number.isFinite(adminEdit)
+      && adminEdit > lastAck + 2_000) {
       throw new Error("BREED_ADMIN_REVISION_NOT_SYNCED");
     }
 
