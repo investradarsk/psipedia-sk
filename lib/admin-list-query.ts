@@ -66,3 +66,12 @@ export function adminFilteredListHref(
   const query = params.toString();
   return path + (query ? `?${query}` : "");
 }
+
+/** Sliding numeric page window shared by GET-filtered admin lists. */
+export function adminNumberedPageWindow(page: number, totalPages: number, limit = 7): number[] {
+  if (!Number.isSafeInteger(page) || !Number.isSafeInteger(totalPages) || totalPages < 1 || limit < 1) return [];
+  const count = Math.min(totalPages, Math.floor(limit));
+  const start = Math.max(1, Math.min(page - Math.floor(count / 2), totalPages - count + 1));
+  return Array.from({ length: count }, (_, index) => start + index);
+}
+
