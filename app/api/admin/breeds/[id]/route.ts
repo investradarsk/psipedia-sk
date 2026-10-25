@@ -44,20 +44,24 @@ export async function PUT(request: Request, { params }: RouteProps) {
     if (!breed) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
 
     const bindings = env as unknown as BreedRouteBindings;
+    let notionEditorialWriteback: { status: string; code?: string } | undefined;
     if (bindings.DB) {
       if (before.status === "draft" && breed.status === "draft") {
         try {
-          await writeBackDraftBreedEditorialToNotion({
+          const result = await writeBackDraftBreedEditorialToNotion({
             database: bindings.DB, bindings, before, breed,
           });
+          notionEditorialWriteback = {
+            status: result.updated ? "synced" : (result.reason ?? "unchanged"),
+          };
         } catch (error) {
-          // Admin save is canonical and must never be rolled back due to a
-          // remote outage. The mapping remains at its last verified revision.
-          console.error(JSON.stringify({
-            event: "notion_breed_draft_writeback_failed",
-            breedId: breed.id,
-            reason: error instanceof Error ? error.message : "UNKNOWN",
-          }));
+          // Admin save remains canonical. Never expose raw provider messages,
+          // titles, Notion pages or credentials to the browser or logs.
+          const raw = error instanceof Error ? error.message : "";
+          const code = /^BREED_[A-Z0-9_]+$/.test(raw)
+            ? raw : "REMOTE_WRITEBACK_FAILED";
+          notionEditorialWriteback = { status: "blocked", code };
+          console.error("notion_breed_draft_writeback_failed", { breedId: breed.id, code });
         }
       } else if (before.status !== "published" && breed.status === "published") {
         try {
@@ -74,7 +78,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       }
     }
 
-    return Response.json({ breed });
+    return Response.json({ breed, ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}) });
   } catch (error) {
     if (error instanceof BreedUpdateConflictError) {
       return Response.json({ code: "BREED_EDIT_CONFLICT", error: error.message }, { status: 409 });
