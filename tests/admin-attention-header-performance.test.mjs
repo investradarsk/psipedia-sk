@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { performance } from "node:perf_hooks";
 import {
@@ -142,4 +143,16 @@ test("requests run concurrently, without global caching or stale counts", async 
   assert.equal(mock.calls.length, 15);
   // Diagnostic only: mocked read latency is not representative of Cloudflare D1.
   assert.ok(Number.isFinite(elapsedMs) && elapsedMs >= 0);
+});
+
+
+test("shared admin shell streams independently of a slow attention summary", () => {
+  const shell = readFileSync(new URL("../components/admin-shell.tsx", import.meta.url), "utf8");
+  assert.match(shell, /import \{ Suspense, type ReactNode \} from "react"/);
+  assert.match(shell, /<Suspense fallback=\{<AdminNotificationBellPending \/>\}>\s*<AdminNotificationBell count=\{attentionCount\} partial=\{attentionCountPartial\} \/>\s*<\/Suspense>/);
+  assert.match(shell, /aria-label="Upozornenia: načítava sa počet aktívnych položiek"/);
+  assert.match(shell, /function AdminNotificationBellPending\(\) \{/);
+  assert.match(shell, /if \(activeCount === undefined\) \{\s*const summary = await loadExactAdminAttentionSummary\(\)/);
+  assert.match(shell, /data-testid="admin-notification-bell"/g);
+  assert.doesNotMatch(shell.match(/function AdminNotificationBellPending\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "", /loadExactAdminAttentionSummary/);
 });
