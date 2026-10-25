@@ -227,3 +227,35 @@ test("compact finish 02: actual pages across four breakpoints, no horizontal ove
     }
   }
 });
+
+test("compact finish 02: specialized admin screens have rendered before-merge evidence", async ({ page }, info) => {
+  // Screenshot the actual admin routes affected by standalone CSS modules.
+  // Isolated local D1 may contain no records: screenshot geometry is valid,
+  // but populated-list acceptance still needs separate realistic fixtures.
+  const width = info.project.name === "mobile-chromium" ? 390 : 1440;
+  const routes = [
+    "/admin/mapy",
+    "/admin/recenzie-profilov",
+    "/admin/partners",
+    "/admin/organizacie",
+    "/admin/podujatia",
+    "/admin/plemena",
+    "/admin/sluzby-pre-psov",
+  ] as const;
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+  for (const route of routes) {
+    const response = await page.goto(route, { waitUntil: "domcontentloaded" });
+    expect(response?.status(), route + " should render from PR code").toBe(200);
+    await expect(page.locator("#obsah")).toBeVisible();
+    await expect(page.locator("[data-admin-workspace]")).toBeVisible();
+    await expect.poll(async () => page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+    ), { message: route + " should have no document overflow at " + width + "px" }).toBe(true);
+    await page.screenshot({
+      path: ".e2e-artifacts/admin-ia-2/compact-finish-02-special-" +
+        route.replaceAll("/", "-").replace(/^-/, "") + "-" + width + ".png",
+      fullPage: true,
+      animations: "disabled",
+    });
+  }
+});
