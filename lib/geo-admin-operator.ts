@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import {
   geoAdminGenericOperatorState,
   geoAdminOperatorState,
@@ -930,16 +931,14 @@ export async function loadGeoAdminOperatorProfiles(
   const offset = (paging.page - 1) * paging.pageSize;
   // Category aggregation already verified that no rows match this filter.
   // Avoid rebuilding the expensive GEO_BASE_CTE a third time for an empty page.
-  const pageRows = total === 0
-    ? { results: [] as DbRow[] }
-    : await db.prepare(`
-      ${GEO_BASE_CTE}
-      SELECT *
-      FROM base
-      ${filtered.clause}
-      ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC
-      LIMIT ? OFFSET ?
-    `).bind(...filtered.bindings, paging.pageSize, offset).all<DbRow>();
+  const pageRows = await readNonemptyD1Page(total, () => db.prepare(`
+    ${GEO_BASE_CTE}
+    SELECT *
+    FROM base
+    ${filtered.clause}
+    ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC
+    LIMIT ? OFFSET ?
+  `).bind(...filtered.bindings, paging.pageSize, offset).all<DbRow>());
 
   const operators: GeoAdminOperatorSummary = {
     ON_MAP: integer(summaryRow, "op_on_map"),
