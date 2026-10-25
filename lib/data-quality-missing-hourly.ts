@@ -186,7 +186,17 @@ async function hasScanStatusColumns(db: Database): Promise<boolean> {
 }
 
 function qualityFailureCode(error: unknown): string {
-  return error instanceof AutomationSearchProviderError ? error.code : "INTERNAL_ERROR";
+  if (!(error instanceof AutomationSearchProviderError)) return "INTERNAL_ERROR";
+  if (error.code === "PROVIDER_ERROR") {
+    if (error.httpStatus !== null) return `HTTP_${error.httpStatus}`;
+    if (error.transportFailure) return "NETWORK_ERROR";
+  }
+  return error.code;
+}
+
+function qualityFailureLabel(code: string): string {
+  if (/^HTTP_5\d{2}$/.test(code)) return `Tavily vrátilo HTTP ${code.slice(5)} (chyba servera)`;
+  return QUALITY_ERROR_LABELS[code] ?? QUALITY_ERROR_LABELS.INTERNAL_ERROR;
 }
 
 const QUALITY_ERROR_LABELS: Record<string, string> = {
@@ -196,6 +206,7 @@ const QUALITY_ERROR_LABELS: Record<string, string> = {
   INVALID_REQUEST: "Tavily odmietlo parametre vyhľadávania",
   TIMEOUT: "Vyhľadávanie prekročilo časový limit",
   PROVIDER_ERROR: "Externá vyhľadávacia služba odpovedala chybou",
+  NETWORK_ERROR: "Spojenie Cloudflare s Tavily zlyhalo",
   INVALID_RESPONSE: "Tavily vrátilo neplatnú odpoveď",
   CONFIG_MISSING: "Chyba konfigurácie vyhľadávania",
   INTERNAL_ERROR: "Chyba spracovania alebo uloženia údajov",
@@ -304,7 +315,7 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
             actorRef: "tavily-quality", targetUrl: "/admin/kvalita",
             title: "Tavily – vyhľadávanie sa nepodarilo dokončiť",
             body: "Oblasť: " + AREA_LABELS[area] + ". Dôvod: " +
-              (QUALITY_ERROR_LABELS[errorCode] ?? QUALITY_ERROR_LABELS.INTERNAL_ERROR) + ".",
+              qualityFailureLabel(errorCode) + ".",
             tag: "quality-failed-" + area + "-" + hour,
             dedupeKey: "quality/failed/" + area + "/" + hour,
           }, now);

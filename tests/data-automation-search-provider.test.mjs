@@ -324,6 +324,27 @@ test("DISCOVERY-2C-B Tavily maps provider errors and never exposes the secret", 
       && !error.message.includes("test-tavily-key"),
   );
 
+  // 5xx and transport failures must carry only safe scalar diagnostics,
+  // never a response body, request URL, raw fetch error, or the API key.
+  for (const status of [500, 502, 503, 504]) {
+    const provider = new TavilyAutomationSearchProvider({
+      apiKey: "test-tavily-key",
+      async fetchImpl() { return tavilyMockResponse(status, { error: "sensitive test-tavily-key" }); },
+    });
+    await assert.rejects(() => provider.search({ query: "dogs", maxResults: 5 }),
+      (error) => error instanceof AutomationSearchProviderError
+        && error.code === "PROVIDER_ERROR"
+        && error.httpStatus === status
+        && error.transportFailure === false
+        && !error.message.includes("test-tavily-key"));
+  }
+  await assert.rejects(() => network.search({ query: "dogs", maxResults: 5 }),
+    (error) => error instanceof AutomationSearchProviderError
+      && error.code === "PROVIDER_ERROR"
+      && error.httpStatus === null
+      && error.transportFailure === true
+      && !error.message.includes("test-tavily-key"));
+
   const timeout = new TavilyAutomationSearchProvider({
     apiKey: "test-tavily-key",
     async fetchImpl() {

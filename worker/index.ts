@@ -174,6 +174,9 @@ const pushTaskEnabled = (value: string | undefined) => ["true", "1"].includes((v
 function isFullHourlyScheduledSweep(controller: { cron?: string; scheduledTime?: number }) {
   // Keep one Cloudflare Cron Trigger: minute 00 runs the full hourly work,
   // while the other five-minute ticks deliver admin push only.
+  // The per-minute Facebook publisher must never start hourly Tavily/Notion scans.
+  // This also avoids 59 unnecessary D1 schema checks per hour.
+  if (controller.cron === "* * * * *") return false;
   if (controller.cron !== ADMIN_PUSH_CRON) return true;
   if (typeof controller.scheduledTime !== "number") return false;
   return new Date(controller.scheduledTime).getUTCMinutes() === 0;
