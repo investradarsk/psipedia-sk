@@ -118,3 +118,9 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 ## Vlna 13 — zdieľaná ochrana formulárov
 - `useAdminUnsavedFormLinks`: jeden spoločný hook pre označenie rozpracovaného formulára, ochranu všetkých interných odkazov, bezpečné zrušenie a potvrdené opustenie. Ignoruje nové karty, externé adresy, modifikačné kliknutia a ten istý URL. Formulárový hook nemení API ani databázu.
 - `EditorUnsavedChangesGuard` voliteľne podporuje `allowNativeExitRef`, aby úspešne uložený nový záznam po presmerovaní nespustil falošné upozornenie `beforeunload`. Bez zmeny existujúcich používaní.
+
+## Vlna 13B — ochrana neuložených zmien v Pomoci psom a Stratených/Nájdených
+- Oba kanonické editory používajú ten istý `useAdminUnsavedFormLinks` a `EditorUnsavedChangesGuard`; zrušenie odchodu zachová hodnoty, potvrdené zahodenie otvorí pôvodný interný odkaz.
+- Rozpracovaný stav sa nastaví pri editácii polí, automatizačných návrhoch, úspešnom nahratí fotografie, odstránení či zmene výrezu. Stratené/Nájdené tiež pri zmene galérie a moderátorských polí.
+- Po úspešnom uložení (vrátane publikovania, zmien lifecycle či označenia duplicity) sa dirty príznak vymaže. Neúspešné zápisy príznak nezmažú; pri úspešnom vytvorení je zachované pôvodné presmerovanie bez falošného browser upozornenia.
+- Nedotknuté: kanonické API, bezpečnostné hranice LOST/FOUND, formáty R2/galérií, statusy a publikovanie.

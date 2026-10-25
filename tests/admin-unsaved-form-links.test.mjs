@@ -15,3 +15,25 @@ test("beforeunload cancellation after confirmed save is controlled by an opt-in 
  assert.match(s,/if \(allowNativeExitRef\?\.current\) return/);
  assert.match(s,/window\.addEventListener\("beforeunload", warn\)/);
 });
+
+test("Help and Lost/Found use one shared guard with canonical save-state control",()=>{
+ const help=read("components/admin-help-editor.tsx");
+ const lost=read("components/admin-lost-found-editor.tsx");
+ for(const src of [help,lost]){
+  assert.match(src,/useAdminUnsavedFormLinks\(\)/);
+  assert.match(src,/onChangeCapture=\{navigation\.captureChange\}/);
+  assert.match(src,/onClickCapture=\{navigation\.captureLinkClick\}/);
+  assert.match(src,/<EditorUnsavedChangesGuard active=\{navigation\.dirty\} open=\{navigation\.confirmOpen\}/);
+  assert.match(src,/allowNativeExitRef=\{navigation\.allowNativeExitRef\}/);
+  assert.match(src,/navigation\.markSavedBeforeRedirect\(\)/);
+  assert.match(src,/navigation\.markSaved\(\)/);
+  assert.match(src,/navigation\.markDirty\(\)/);
+  assert.match(src,/<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
+ }
+ assert.match(help,/mutationPending\.current/);
+ assert.match(help,/status: nextStatus/);
+ assert.match(lost,/allowedLostFoundTransitions\(state\.status\)/);
+ assert.match(lost,/\/api\/admin\/lost-found/);
+ assert.match(lost,/\/duplicate/);
+ assert.match(lost,/<AdminPhotoGallery/);
+});
