@@ -1,6 +1,6 @@
 .hubGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
   gap: 9px;
   margin-bottom: 12px;
 }
