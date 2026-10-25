@@ -43,6 +43,8 @@ test("help chips preserve other GET filters and breed chips reset dependent FCI 
   assert.match(breed, /key === "fciGroup" \? \{ fciSection: "" \}/);
   assert.match(breed, /<Link href="\/plemena" data-public-filter-reset>/);
   assert.match(breed, /aria-pressed=\{selectedGroup ===/);
+  const page = read("app/plemena/page.tsx");
+  assert.match(page, /<BreedBrowser key=\{breedAtlasHref\(initialFilters\)\}/);
   const directory = read("components/directory-filter-form.tsx");
   assert.match(directory, /key === "region" \? \["region", "district", "city"\]/);
   assert.match(directory, /key === "district" \? \["district", "city"\]/);

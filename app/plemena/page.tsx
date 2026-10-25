@@ -14,7 +14,7 @@ import {
 } from "@/components/public-visual-system";
 import { StructuredData } from "@/components/structured-data";
 import { fciGroups } from "@/lib/content";
-import { parseBreedAtlasFilters } from "@/lib/breed-atlas";
+import { breedAtlasHref, parseBreedAtlasFilters } from "@/lib/breed-atlas";
 import { portalSections, portalSubpageHref } from "@/lib/portal";
 import { listPublishedCanonicalBreedAtlasCards } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
@@ -93,7 +93,7 @@ export default async function BreedsPage({ searchParams }: Props) {
           </UnifiedSectionHeroShell>
           <section className="page-body">
             <PublicContentShell variant="listing">
-            <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} hidePrimarySearch actions={breedSection ? (
+            <BreedBrowser key={breedAtlasHref(initialFilters)} breeds={breeds} groups={fciGroups} initialFilters={initialFilters} hidePrimarySearch actions={breedSection ? (
               <section className={styles.atlasActions} aria-labelledby="breed-actions-heading" data-breed-primary-actions>
                 <PublicLandingSectionHeading
                   eyebrow="Plemená podľa cieľa"
