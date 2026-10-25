@@ -124,3 +124,5 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - Rozpracovaný stav sa nastaví pri editácii polí, automatizačných návrhoch, úspešnom nahratí fotografie, odstránení či zmene výrezu. Stratené/Nájdené tiež pri zmene galérie a moderátorských polí.
 - Po úspešnom uložení (vrátane publikovania, zmien lifecycle či označenia duplicity) sa dirty príznak vymaže. Neúspešné zápisy príznak nezmažú; pri úspešnom vytvorení je zachované pôvodné presmerovanie bez falošného browser upozornenia.
 - Nedotknuté: kanonické API, bezpečnostné hranice LOST/FOUND, formáty R2/galérií, statusy a publikovanie.
+
+- Programovo dopĺňaný text zo spoločného Lexical dialógu a SEO nastavenia v Pomoci psom výslovne nastavujú `dirty` aj bez syntetickej udalosti `onChange` pôvodného formulára.

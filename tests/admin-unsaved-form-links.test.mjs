@@ -37,3 +37,9 @@ test("Help and Lost/Found use one shared guard with canonical save-state control
  assert.match(lost,/\/duplicate/);
  assert.match(lost,/<AdminPhotoGallery/);
 });
+
+test("Help Lexical text append and SEO edits explicitly mark the editor dirty",()=>{
+ const src=read("components/admin-help-editor.tsx");
+ assert.match(src,/onAppend=\{text=>\{ navigation\.markDirty\(\); setDescription\(appendLexicalPlainText/);
+ assert.match(src,/onChange=\{nextSeo => \{ navigation\.markDirty\(\); setSeo\(nextSeo\); \}\}/);
+});
