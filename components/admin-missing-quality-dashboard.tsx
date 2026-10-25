@@ -24,7 +24,9 @@ const GROUPS = [
 function plural(n:number) { return n===1?"nález":n>1&&n<5?"nálezy":"nálezov"; }
 const ERROR_LABELS: Record<string, string> = {
   AUTH_FAILED: "Neplatné oprávnenie Tavily",
-  RATE_LIMITED: "Limit Tavily (požiadavky alebo kredity)",
+  RATE_LIMITED: "Priveľa požiadaviek Tavily",
+  CREDITS_EXHAUSTED: "Vyčerpané kredity alebo limit Tavily",
+  INVALID_REQUEST: "Nesprávne parametre vyhľadávania",
   TIMEOUT: "Vypršal časový limit",
   PROVIDER_ERROR: "Chyba externej služby",
   INVALID_RESPONSE: "Neplatná odpoveď",
