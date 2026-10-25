@@ -295,17 +295,21 @@ export async function getBreedOfTheDay(dayOfYear:number):Promise<BreedOfTheDayIt
 }
 export async function listPublishedBreeds(){const database=db();if(!database)return seedBreeds;const result=await database.prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<Row>();return withAvailableBreedImages(result.results.map(row=>fromRow(row,{public:true})),env);}
 export async function listFeaturedBreeds(limit=3){const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));const database=db();if(!database)return seedBreeds.slice(0,safeLimit);const result=await database.prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<Row>();return withAvailableBreedImages(result.results.map(row=>fromRow(row,{public:true})),env);}
-/** Homepage only needs four fields; avoid decoding complete breed editors/FCI JSON. */
+/** Homepage only needs four fields; avoid decoding complete breed editors/FCI JSON.
+ * A failed image request is handled by the client BreedPhoto fallback, so
+ * speculative R2 HEAD checks for every featured card must not block HTML SSR.
+ * Breed of the day keeps its existing bounded verified-image selection.
+ */
 export async function listHomepageFeaturedBreeds(limit=6):Promise<Array<Pick<Breed,"slug"|"name"|"image"|"intro">>> {
   const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));
   const database=db();
-  if(!database)return seedBreeds.slice(0,safeLimit).map(({slug,name,image,intro})=>({slug,name,image,intro}));
+  if(!database)return seedBreeds.slice(0,safeLimit).map(({slug,name,image,intro})=>({slug,name,image:ownedBreedImage(image),intro}));
   const result=await database.prepare(`SELECT slug,name,image_url,intro
     FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql})
     ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<{slug:string;name:string;image_url:string;intro:string}>();
-  return withAvailableBreedImages(result.results.map(row=>({
-    slug:row.slug,name:row.name,image:row.image_url,intro:row.intro,
-  })),env);
+  return result.results.map(row=>({
+    slug:row.slug,name:row.name,image:ownedBreedImage(row.image_url),intro:row.intro,
+  }));
 }
 export async function getManagedBreed(id:number){const database=requireDb();await ensure(database);const [breedResult,articleResult,directoryResult]=await database.batch([database.prepare(`${select} WHERE id=?`).bind(id),database.prepare("SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id").bind(id),database.prepare("SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id").bind(id)]);const row=(breedResult.results?.[0]??null) as unknown as Row|null;return row?fromRow(row,{articles:(articleResult.results as RelationIdRow[]).map((item)=>item.id),directory:(directoryResult.results as RelationIdRow[]).map((item)=>item.id)}):null;}
 const getPublishedBreedUncached=async(slug:string)=>{const database=db();if(!database)return seedBreeds.find((breed)=>breed.slug===slug)??null;const row=await database.prepare(`${select} WHERE slug=? AND ${canonicalBreedWinnerSql('managed_breeds')} LIMIT 1`).bind(slug).first<Row>();if(!row)return null;const breed=fromRow(row,{public:true});breed.image=ownedBreedImage(breed.image);breed.gallery=(breed.gallery??[]).map(item=>({...item,imageUrl:ownedBreedImage(item.imageUrl)})).filter(item=>item.imageUrl);return breed;};
