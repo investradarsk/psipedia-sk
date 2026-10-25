@@ -450,20 +450,20 @@ export async function runManualQualitySearch(
         "entity_type=? AND entity_id=?").bind(profile.kind,profile.id)
         .all<{field_key:string;value:string}>();
       const previousImages=new Set(previous.results.filter(x=>x.field_key==="imageUrl").map(x=>x.value));
-      const images=search.images.filter(x=>!previousImages.has(x));
-      let discovered=discover(profile,search.results,images)
-        .filter(x=>input.group==="all"||x.field.group===input.group);
-      // Reject inaccessible candidates before queueing. Canonical image still requires manual approval.
-      if(discovered.some(x=>x.field.group==="image")) {
+      let images=search.images.filter(x=>!previousImages.has(x));
+      if(profile.missing.some(field=>field.group==="image")) {
         const {downloadRemoteImage}=await import("./notion-sync-shared.ts");
-        const validated:typeof discovered=[];
-        for(const candidate of discovered) {
-          if(candidate.field.group!=="image"){validated.push(candidate);continue;}
-          try { await downloadRemoteImage(candidate.value); validated.push(candidate); }
-          catch { /* Broken or unsafe image is not a reviewable candidate. */ }
+        // A Tavily image URL is only a candidate: verify actual image bytes before queueing.
+        // Probe at most three alternatives to avoid long or costly manual requests.
+        const viable:string[]=[];
+        for(const image of images.slice(0,3)) {
+          try { await downloadRemoteImage(image); viable.push(image); break; }
+          catch { /* Broken candidate, try a different returned URL. */ }
         }
-        discovered=validated;
+        images=viable;
       }
+      const discovered=discover(profile,search.results,images)
+        .filter(x=>input.group==="all"||x.field.group===input.group);
       for(const item of discovered) {
         const r=await db.prepare("INSERT OR IGNORE INTO quality_missing_proposals"+
           "(area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at)"+
