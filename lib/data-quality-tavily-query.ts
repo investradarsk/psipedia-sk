@@ -61,6 +61,20 @@ const commonGroupTerms: Record<string, string> = {
   other: "organizátor IČO oficiálne údaje",
 };
 
+// When a profile is missing many different fields, keep all groups in a single
+// reasonably short Tavily query rather than silently truncating the last groups.
+const compactGroupTerms: Record<string, string> = {
+  address: "adresa miesto",
+  image: "fotografia plagát",
+  web: "oficiálny web",
+  phone: "telefón",
+  email: "email",
+  social: "Facebook Instagram",
+  registration: "registrácia",
+  date: "dátum čas",
+  other: "organizátor IČO",
+};
+
 function pictureTerms(kind: QualityResearchKind): string {
   switch (kind) {
     case "EVENT": return "kynologické podujatie psy plagát propozície fotografia";
@@ -115,11 +129,19 @@ function context(profile: QualityResearchProfile): string[] {
 export function buildQualityTavilyQuery(profile: QualityResearchProfile): string {
   const base = quoted(nonempty(profile.label));
   const groups = [...new Set(profile.missing.map(field => field.group))];
-  const terms = groups.map(group => group === "image" ? pictureTerms(profile.kind) : commonGroupTerms[group])
+  const manyGroups = groups.length > 3;
+  const terms = groups.map(group => manyGroups ? compactGroupTerms[group]
+    : group === "image" ? pictureTerms(profile.kind) : commonGroupTerms[group])
     .filter((value): value is string => Boolean(value));
   const otherFields = profile.missing.filter(f => f.group === "other").map(f => f.key);
-  if (otherFields.includes("organizer")) terms.push("usporiadateľ organizátor");
-  if (otherFields.includes("registrationNumber")) terms.push("IČO registračné číslo");
-  // Retain the exact record identity and locality ahead of optional keywords.
-  return [base, ...context(profile), ...terms].filter(Boolean).join(" ").slice(0, 450);
+  if(!manyGroups) {
+    if (otherFields.includes("organizer")) terms.push("usporiadateľ organizátor");
+    if (otherFields.includes("registrationNumber")) terms.push("IČO registračné číslo");
+  }
+  const termText = terms.join(" ");
+  // Reserve space for every missing data type, then use the rest for stored
+  // organizer/city/date context. Always keep the named record first.
+  const contextLimit = Math.max(0, 450 - base.length - termText.length - 2);
+  const contextText = context(profile).join(" ").slice(0, contextLimit).trim();
+  return [base, contextText, termText].filter(Boolean).join(" ").slice(0, 450);
 }
