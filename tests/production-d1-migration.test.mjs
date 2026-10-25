@@ -163,6 +163,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0140_directory_service_notion_relations.sql",
     "0141_quality_missing_hourly.sql",
     "0142_quality_missing_scan_outcomes.sql",
+    "0143_quality_missing_manual_attempts.sql",
   ]);
 });
 
