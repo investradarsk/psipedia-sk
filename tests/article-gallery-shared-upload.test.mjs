@@ -12,12 +12,12 @@ const code=ts.transpileModule(handler,{compilerOptions:{target:ts.ScriptTarget.E
 function fixture({images=[],pending=false,upload}={}){
   let blocks=[{id:"gallery",type:"gallery",images}];
   const lock={current:pending};
-  let busy=false,message="",error="";
+  let busy=false,galleryUploading=false,message="",error="";
   const update=(id,modify)=>{blocks=blocks.map(block=>block.id===id?modify(block):block);};
-  const run=new Function("blocks","galleryUploadPending","onUploadingChange","onError","onMessage","uploadAdminImage","update",code+"; return uploadGallery;")(
-    blocks,lock,v=>{busy=v;},v=>{error=v;},v=>{message=v;},upload,update
+  const run=new Function("blocks","galleryUploadPending","onUploadingChange","onError","onMessage","uploadAdminImage","update","setGalleryUploading",code+"; return uploadGallery;")(
+    blocks,lock,v=>{busy=v;},v=>{error=v;},v=>{message=v;},upload,update,v=>{galleryUploading=v;}
   );
-  return {run,read:()=>({images:blocks[0].images,busy,message,error,pending:lock.current})};
+  return {run,read:()=>({images:blocks[0].images,busy,galleryUploading,message,error,pending:lock.current})};
 }
 const image=(name)=>({name});
 
@@ -33,6 +33,7 @@ test("gallery keeps successful images when an upload in the middle fails",async(
   assert.match(f.read().message,/2 obrázkov/);
   assert.equal(f.read().pending,false);
   assert.equal(f.read().busy,false);
+  assert.equal(f.read().galleryUploading,false);
 });
 
 test("gallery checks available capacity before uploading and never truncates silently",async()=>{
