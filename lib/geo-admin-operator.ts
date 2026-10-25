@@ -839,10 +839,25 @@ export async function loadGeoAdminOperatorProfiles(
     pageSize: filters.pageSize,
   }));
 
+  // The default first page is almost always the first admin Mapy interaction.
+  // Its bounded rows are independent of the summary and category counts, so
+  // run that one read concurrently. Other/filtered pages wait for exact counts
+  // to retain the existing no-query-on-empty and last-page clamp behavior.
+  const speculativeFirstPage = filters.page === 1
+    && filters.group === "ALL" && !filters.category && !filters.query;
+  const loadPage = (page: number) => db.prepare(`
+    ${GEO_BASE_CTE}
+    SELECT *
+    FROM base
+    ${filtered.clause}
+    ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC
+    LIMIT ? OFFSET ?
+  `).bind(...filtered.bindings, filters.pageSize, (page - 1) * filters.pageSize).all<DbRow>();
+
   // Category buckets use the same predicate as the filtered total (except
   // the selected category). Reuse them rather than rebuilding the expensive
   // GEO_BASE_CTE a third time just to count the filtered rows.
-  const [summaryRow, categoryRows] = await Promise.all([
+  const [summaryRow, categoryRows, firstPageRows] = await Promise.all([
     db.prepare(`
       ${GEO_BASE_CTE}
       SELECT
@@ -873,6 +888,7 @@ export async function loadGeoAdminOperatorProfiles(
       GROUP BY group_key, category
       ORDER BY group_key ASC, category COLLATE NOCASE ASC
     `).bind(...categoryFilter.bindings).all<DbRow>(),
+    speculativeFirstPage ? loadPage(1) : Promise.resolve(null),
   ]);
 
   // This includes empty/unknown categories even though the UI hides them.
@@ -880,17 +896,13 @@ export async function loadGeoAdminOperatorProfiles(
   const total = (categoryRows.results ?? []).reduce((sum, row) =>
     sum + (!filters.category || row.category === filters.category ? Number(row.count ?? 0) : 0), 0);
   const paging = pagination(filters.page, filters.pageSize, total);
-  const offset = (paging.page - 1) * paging.pageSize;
-  // Category aggregation already verified that no rows match this filter.
-  // Avoid rebuilding the expensive GEO_BASE_CTE a third time for an empty page.
-  const pageRows = await readNonemptyD1Page(total, () => db.prepare(`
-    ${GEO_BASE_CTE}
-    SELECT *
-    FROM base
-    ${filtered.clause}
-    ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC
-    LIMIT ? OFFSET ?
-  `).bind(...filtered.bindings, paging.pageSize, offset).all<DbRow>());
+  // Empty filtered selections still do not issue the deferred page query.
+  // On a default first-page read, the already-completed result is reused,
+  // never fetched twice. Out-of-range pages use the exact clamped offset.
+  const pageRows = await readNonemptyD1Page(total,
+    () => firstPageRows && paging.page === 1
+      ? Promise.resolve(firstPageRows)
+      : loadPage(paging.page));
 
   const operators: GeoAdminOperatorSummary = {
     ON_MAP: integer(summaryRow, "op_on_map"),
