@@ -73,3 +73,9 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - Spoločné potvrdenie vždy zaostrí **Zrušiť**; pri prebiehajúcej operácii blokuje tlačidlá aj zavretie Escape. Žiadny PATCH nie je spustený samotným otvorením dialógu.
 - Existujúce PATCH endpointy, parametre `decisionNote` / `reviewNote`, OWNER a verification pravidlá, `router.refresh` a chybové hlásenia zostávajú nezmenené.
 - `tests/admin-unified-partner-confirmations.test.mjs` kontroluje bezpečnú modalitu a zachovanie pôvodných kontraktov; produkčný workflow spúšťa test aj lint všetkých troch dotknutých komponentov.
+
+## Vlna 7 — návrhy úprav a nové partnerské profily (25.10.2026)
+- Zdieľaný `AdminDestructiveConfirmDialog` pri **schválení/zamietnutí partnerskej zmeny**, **vytvorení konceptu alebo prepojení nového profilu**, **rýchlom prepojení kandidáta** a **schválení/zamietnutí verejného návrhu úpravy Adresára**.
+- Rozhodnutia sa najskôr pripravia v lokálnom stave; zrušenie/Escape nevykoná mutáciu. Pri novom profile sa pred potvrdením zachytí `canonicalId`, `applyImage` a `reasonCode`, aby request zodpovedal videnej voľbe. Neplatné canonical ID sa nepustí do potvrdenia.
+- Existujúce `PATCH /api/admin/partners/changes/[id]`, `PATCH /api/admin/partners/submissions/[id]` a `PUT /api/admin/profile-change-requests/[id]` ostávajú nezmenené; Adresár automaticky neprepisuje profil po schválení návrhu.
+- Nové kontraktové regresné testy `tests/admin-unified-review-confirmations.test.mjs` a lint v produkčnom open-source workflow.
