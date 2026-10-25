@@ -44,7 +44,8 @@ test("0142 is additive; old scans become UNKNOWN while proposals and cursors rem
     assert.deepEqual(targetSchemaObjects(snapshot(db), target), { partial: true });
     assert.doesNotThrow(() => assertQualityMissingScanOutcomes0142Schema(snapshot(db)));
     const row = db.prepare("SELECT status,error_code FROM quality_missing_scans WHERE area='services'").get();
-    assert.deepEqual(row, { status: "UNKNOWN", error_code: null });
+    assert.equal(row.status, "UNKNOWN");
+    assert.equal(row.error_code, null);
     assert.equal(db.prepare("SELECT entity_id FROM quality_missing_cursors WHERE area='services'").get().entity_id, 123);
     assert.equal(db.prepare("SELECT COUNT(*) AS n FROM quality_missing_proposals").get().n, 1);
     assert.throws(() => db.exec("UPDATE quality_missing_scans SET status='INVALID'"), /CHECK constraint failed/);
