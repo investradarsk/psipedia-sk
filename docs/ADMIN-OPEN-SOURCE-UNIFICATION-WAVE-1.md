@@ -27,3 +27,10 @@ Nadväzuje na zlúčené PR #1035 a schválených desať open-source knižníc. 
 `node tests/admin-photo-gallery.browser.mjs` (320px, partial upload, keyboard buttons)
 
 Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, že všetkých desať knižníc sa musí objaviť v každej obrazovke.
+
+## Pokračovanie: ďalší editor a prístupnosť (25.10.2026)
+
+- **Adopcie**: spoločný bezpečný Lexical/Radix nástroj aj pri hlavnom príbehu psa. Textarea zostáva súčasťou pôvodného HTML FormData odoslania pod `name=description`; zmena je len lokálny kontrolovaný UI stav bez migrácie údajov.
+- **Jednotná akcia**: tlačidlo na spustenie Lexicalu využíva kanonický `AdminActionButton` a ikonu Lucide namiesto vlastného stylingu v každom editore.
+- **Prístupnosť**: oddelený, pomenovaný skrytý file input od klikateľnej dropzóny; drag/drop sa nemení. Enter/medzerník programovo otvára výber, ktorý ostáva funkčný pre existujúce Playwright `input[type=file]` testy.
+- **CI**: rozšírená cesta workflow na všetky dotknuté komponenty, opravený historický zlepený path filter; pokryté kontrakty a partial-success galérie.

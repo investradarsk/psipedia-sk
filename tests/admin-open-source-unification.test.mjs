@@ -22,6 +22,7 @@ test("one Radix/Lexical draft control is reused by canonical profile editors",()
     "components/admin-directory-editor.tsx",
     "components/admin-help-editor.tsx",
     "components/admin-breed-editor.tsx",
+    "components/admin-adoption-editor-profile.tsx",
   ];
   for(const path of paths){
     const source=read(path);
@@ -30,6 +31,11 @@ test("one Radix/Lexical draft control is reused by canonical profile editors",()
   }
   assert.match(read("components/admin-event-markdown-editor.tsx"),/appendLexicalPlainTextToMarkdown/);
   for(const p of paths.slice(1))assert.match(read(p),/appendLexicalPlainText/,p);
+  const adoption=read("components/admin-adoption-editor-profile.tsx");
+  assert.match(adoption,/name="description"/);
+  assert.match(adoption,/value=\{description\}/);
+  assert.match(adoption,/setDescription\(current=>appendLexicalPlainText\(current,text\)\)/);
+  assert.doesNotMatch(adoption,/id="adoption-description"[^>]*defaultValue=/);
 });
 
 test("canonical URL-only galleries and structured galleries share one Dropzone",()=>{
@@ -60,4 +66,16 @@ test("structured photo galleries support dnd-kit without altering alt/caption/cr
   }
   assert.match(breed,/gallery:arrayMove\(current\.gallery,from,to\)/);
   assert.match(article,/images:arrayMove\(item\.images,from,to\)/);
+});
+
+test("shared Dropzone meets axe: file input labeled and not nested in interactive root",()=>{
+  const source=read("components/admin-gallery-dropzone.tsx");
+  assert.match(source,/noClick:true/);
+  assert.match(source,/noKeyboard:true/);
+  assert.match(source,/getInputProps\(\{"aria-label":label/);
+  assert.match(source,/onKeyDown:event=>/);
+  assert.match(source,/event\.key==="Enter"\|\|event\.key===" "/);
+  const rootEnd=source.indexOf("</div>");
+  const fileInput=source.indexOf("<input {...getInputProps");
+  assert.ok(rootEnd > -1 && fileInput > rootEnd,"file input must be a sibling of role=button");
 });
