@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { adminNumberedPageWindow } from "@/lib/admin-list-query";
 
 export type AdminPaginationState = {
   page: number;
@@ -37,13 +38,6 @@ export function AdminPagination({ pagination, basePath }: {
  * The page URL is owned by each module so changing pages never drops filters.
  * Uses the same seven-page sliding window previously duplicated by both lists.
  */
-export function adminNumberedPageWindow(page: number, totalPages: number, limit = 7): number[] {
-  if (!Number.isSafeInteger(page) || !Number.isSafeInteger(totalPages) || totalPages < 1 || limit < 1) return [];
-  const count = Math.min(totalPages, Math.floor(limit));
-  const start = Math.max(1, Math.min(page - Math.floor(count / 2), totalPages - count + 1));
-  return Array.from({ length: count }, (_, index) => start + index);
-}
-
 export function AdminNumberedPagination({
   page,
   totalPages,
