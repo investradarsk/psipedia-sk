@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import {useRouter} from "next/navigation";
+import {AdminUnsavedNavigationDialog} from "@/components/admin-unsaved-navigation-dialog";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
 import { adminSelectedImage } from "@/lib/admin-selected-image";
@@ -33,6 +35,8 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [confirmLeave,setConfirmLeave]=useState(false);
+  const router=useRouter();
   const [savedSignature, setSavedSignature] = useState(() => JSON.stringify({
     name: shop.name, slug: shop.slug, websiteUrl: shop.websiteUrl,
     description: shop.description, sourceUrl: shop.sourceUrl,
@@ -135,7 +139,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         actions={<EditorActionBar
           secondary={<div className={styles.actionLinks}>
             <Link href="/admin/recenzie/eshopy" onClick={event => {
-              if (dirty && !window.confirm("Zahodiť neuložené zmeny e-shopu?")) event.preventDefault();
+              if(dirty && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey){event.preventDefault();setConfirmLeave(true);}
             }}>← Späť na e-shopy</Link>
             {shop.status === "published" && <Link href={"/recenzie/eshopy/" + shop.slug} target="_blank" rel="noopener noreferrer">Pozrieť publikovaný profil ↗</Link>}
           </div>}
@@ -211,6 +215,8 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       </fieldset>
       {(message || error) ? <p className={error ? styles.error : styles.success} role={error ? "alert" : "status"}>{error || message}</p> : null}
       </EditorWorkspace>
+      <AdminUnsavedNavigationDialog open={confirmLeave} destination="prehľad e-shopov" onStay={()=>setConfirmLeave(false)}
+        onLeave={()=>{setConfirmLeave(false);router.push("/admin/recenzie/eshopy");}}/>
     </form>
   );
 }

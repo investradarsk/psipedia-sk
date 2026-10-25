@@ -62,3 +62,8 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - Administrácia sekcií: podobne sa cez ten istý dialóg potvrdzuje odstránenie podsekcie. Existujúca `PUT /api/admin/sections` logika sa nemení.
 - Zrušenie/Escape nesmie upraviť ani uložiť nič. `AdminDestructiveConfirmDialog` zabezpečuje rolu, titulok, focus a návrat na tlačidlo.
 - Kontraktové testy aktualizované z historickej povinnosti používať `window.confirm` na povinnosť použiť shared dialóg so zachovaným staging/save workflow.
+
+
+## Vlna 5 — neuložené zmeny
+- Gemini prompty a e-shop späť: odstránené pôvodné prehliadačové `window.confirm`, nahradené spoločným dostupným potvrdením `AdminUnsavedNavigationDialog`. Bez D1 migrácií, automatického publikovania a bez spustenia platených Gemini operácií.
+- Zostať je predvolená bezpečná akcia, potvrdzovanie nevykonáva zápis ani neprepisuje text.
