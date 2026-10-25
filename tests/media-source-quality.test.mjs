@@ -124,7 +124,7 @@ test("admin quality displays found missing values for all areas", () => {
   assert.match(adminNavigation, /href: "\/admin\/kvalita"/);
   assert.match(adminPage, /AdminMissingQualityDashboard/);
   assert.match(adminComponent, /Nájdené nové údaje na schválenie/);
-  assert.match(adminComponent, /Tento mesiac spustené/);
+  assert.match(adminComponent, /Tento mesiac – pokusy o kontrolu/);
   assert.match(adminComponent, /Služby pre psov/);
   assert.match(adminComponent, /Podujatia/);
   assert.match(adminComponent, /Pomoc psom/);
