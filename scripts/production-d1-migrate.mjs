@@ -34,6 +34,7 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
   if(targetMigration===PROPOSED_SERVICES_V3_SQL)
     invariant(!targetApplied,"0139 already applied; refusing repeated production APPLY");
 }
+// Migration 0142 remains owner-dispatched through the existing protected production workflow.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
@@ -271,6 +272,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0139_services_catalog_notion_auto_attempts.sql",
   "0140_directory_service_notion_relations.sql",
   "0141_quality_missing_hourly.sql",
+  "0142_quality_missing_scan_outcomes.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -923,6 +925,7 @@ function schemaState(databaseName, configPath) {
   const articleNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('article_notion_sync')");
   const articleNotionEditorialOutboxColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('article_notion_editorial_outbox')");
   const articleNotionEditorialOutboxForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('article_notion_editorial_outbox')");
+  const qualityMissingScanColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('quality_missing_scans')");
   const objects = d1Execute(
     databaseName,
     configPath,
@@ -967,6 +970,7 @@ function schemaState(databaseName, configPath) {
     articleNotionSyncColumns,
     articleNotionEditorialOutboxColumns,
     articleNotionEditorialOutboxForeignKeys,
+    qualityMissingScanColumns,
     objects,
   };
 }
@@ -1467,6 +1471,11 @@ export function targetSchemaObjects(schema, targetMigration) {
       "quality_missing_proposals_pending",
     ].some(name => names.has(name))};
   }
+  if (targetMigration === "0142_quality_missing_scan_outcomes.sql") {
+    return {partial: names.has("quality_missing_scans_status") ||
+      (schema.qualityMissingScanColumns ?? []).some(col =>
+        ["status", "error_code"].includes(String(col.name)))};
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1509,6 +1518,26 @@ export function assertQualityMissingHourly0141Schema(schema) {
     String(names.get("quality_missing_scans_month")?.sql ?? "")), "0141 monthly scan index drift");
   invariant(/ON\s+quality_missing_proposals\s*\(status\s*,\s*area\s*,\s*field_group\s*,\s*id\s*\)/i.test(
     String(names.get("quality_missing_proposals_pending")?.sql ?? "")), "0141 review index drift");
+}
+
+/** Additive quality scan outcomes; rejects incomplete/manual schema changes. */
+export function assertQualityMissingScanOutcomes0142Schema(schema) {
+  assertQualityMissingHourly0141Schema(schema);
+  const names = objectMap(schema.objects ?? []);
+  const tableSql = String(names.get("quality_missing_scans")?.sql ?? "");
+  const index = names.get("quality_missing_scans_status");
+  invariant(index?.type === "index", "0142 scan status index is missing");
+  invariant(/ON\s+quality_missing_scans\s*\(area\s*,\s*status\s*,\s*scanned_at\s*\)/i.test(String(index?.sql ?? "")),
+    "0142 scan status index drift");
+  const cols = schema.qualityMissingScanColumns ?? [];
+  const status = cols.find(col => col.name === "status");
+  const error = cols.find(col => col.name === "error_code");
+  invariant(status && Number(status.notnull) === 1 && String(status.dflt_value) === "'UNKNOWN'",
+    "0142 status must be NOT NULL DEFAULT UNKNOWN");
+  invariant(error && String(error.type).toUpperCase() === "TEXT" && Number(error.notnull) === 0,
+    "0142 error_code must be optional TEXT");
+  invariant(/CHECK\s*\(\s*status\s+IN\s*\(\s*'UNKNOWN'\s*,\s*'RUNNING'\s*,\s*'SUCCESS'\s*,\s*'FAILED'\s*,\s*'SKIPPED'\s*\)\s*\)/i.test(tableSql),
+    "0142 scan status CHECK constraint is missing");
 }
 
 function assertAdminEntityReviewSchema(schema) {
@@ -2664,6 +2693,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 139) assertServicesV3Auto0139Schema(schema);
   if (migrationIndex(targetMigration) >= 140) assertDirectoryServiceNotionRelations0140Schema(schema);
   if (migrationIndex(targetMigration) >= 141) assertQualityMissingHourly0141Schema(schema);
+  if (migrationIndex(targetMigration) >= 142) assertQualityMissingScanOutcomes0142Schema(schema);
 }
 
 /** Exact 0139 Services V3 journal, including append-only no-delete/rewrite guarantees. */
@@ -3043,6 +3073,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   }
   // The missing-data automation requires the real 0140 relation schema before 0141.
   if (targetIndex >= 141) assertDirectoryServiceNotionRelations0140Schema(schema);
+  if (targetIndex >= 142) assertQualityMissingHourly0141Schema(schema);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -3391,6 +3422,11 @@ async function verify(targetMigration) {
     invariant(scalarCount(databaseName, prepared.configPath,
       "SELECT COUNT(*) AS count FROM quality_missing_cursors WHERE area IN ('services','events','help')") === 3,
       "0141 must initialize one durable cursor for each quality-data area");
+  }
+  if (targetIndex === 142) {
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM quality_missing_scans WHERE status NOT IN ('UNKNOWN','RUNNING','SUCCESS','FAILED','SKIPPED')") === 0,
+      "0142 scan history contains invalid states");
   }
   if (targetIndex === 135)
     assertFacebookRetryPreserved(internal.facebookRetryBefore,

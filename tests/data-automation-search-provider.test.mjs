@@ -300,7 +300,7 @@ test("DISCOVERY-2C-B Tavily maps provider errors and never exposes the secret", 
   );
   assert.equal(noSecretNetworkCall, false);
 
-  for (const [status, code] of [[401, "AUTH_FAILED"], [403, "AUTH_FAILED"], [429, "RATE_LIMITED"], [500, "PROVIDER_ERROR"]]) {
+  for (const [status, code] of [[400, "INVALID_REQUEST"], [401, "AUTH_FAILED"], [403, "AUTH_FAILED"], [429, "RATE_LIMITED"], [432, "CREDITS_EXHAUSTED"], [433, "CREDITS_EXHAUSTED"], [500, "PROVIDER_ERROR"]]) {
     const provider = new TavilyAutomationSearchProvider({
       apiKey: "test-tavily-key",
       async fetchImpl() { return tavilyMockResponse(status, { error: "test-tavily-key should not propagate" }); },
