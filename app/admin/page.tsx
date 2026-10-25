@@ -7,7 +7,7 @@ import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-stor
 import {
   readAdminAutomationData,
 } from "@/lib/admin-automation-reliability";
-import {loadMissingQualityDashboard,getQualityMissingDatabase} from "@/lib/data-quality-missing-hourly";
+import {loadMissingQualityPendingSummary,getQualityMissingDatabase} from "@/lib/data-quality-missing-hourly";
 import {loadAdminWorkspaceFeed} from "@/lib/admin-workspace-feed";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ function loadWorkspaceQuality() {
   return readAdminAutomationData({
     key: "admin-workspace:data-quality",
     load: async () => {
-      const result = await loadMissingQualityDashboard(getQualityMissingDatabase());
+      const result = await loadMissingQualityPendingSummary(getQualityMissingDatabase());
       if (!result.schemaReady) throw Error("Quality suggestions unavailable");
       return { profilesWithCoreIssues: result.total, mediaIssues: 0 };
     },
