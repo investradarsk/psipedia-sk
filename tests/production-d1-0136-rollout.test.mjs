@@ -32,9 +32,9 @@ function fixture() {
 test("0136 is immutable, follows canonical applied 0135, and can only be owner-dispatched", () => {
   assert.equal(createHash("sha256").update(sql).digest("hex"), PINNED_SHA256_0136);
   assert.equal(APPROVED_0136_SHA256, PINNED_SHA256_0136);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-7), "0135_facebook_image_safe_retry.sql");
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-6), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0142_quality_missing_scan_outcomes.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-8), "0135_facebook_image_safe_retry.sql");
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-7), target);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.doesNotThrow(() => assertApproved0136Target("psipedia-sk-db", APPROVED_0136_SHA256));
   assert.throws(() => assertApproved0136Target("other-db", APPROVED_0136_SHA256), /canonical/);
   assert.throws(() => assertApproved0136Target("psipedia-sk-db", "different"), /SHA256/);
