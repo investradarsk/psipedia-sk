@@ -58,6 +58,10 @@ type NotionPage = {
   url?: string;
   last_edited_time?: string;
   properties?: Record<string, unknown>;
+  // Notion page ownership is verified before a mapped-page PATCH.
+  parent?: { type?: string; data_source_id?: string };
+  archived?: boolean;
+  in_trash?: boolean;
 };
 
 type NotionQueryResponse = {
