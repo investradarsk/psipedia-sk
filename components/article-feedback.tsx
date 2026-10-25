@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import {
   PublicTextarea,
@@ -131,9 +132,14 @@ export function ArticleFeedback({
         </>
       )}
       {result && (
-        <p className={`article-feedback-result is-${result.type}`} role="status">
+        <PublicNotice
+          appearance="context"
+          tone={result.type === "error" ? "error" : "success"}
+          className={`article-feedback-result is-${result.type}`}
+          role="status"
+        >
           {result.text}
-        </p>
+        </PublicNotice>
       )}
     </section>
   );

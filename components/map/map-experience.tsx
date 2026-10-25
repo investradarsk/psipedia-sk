@@ -1,12 +1,34 @@
 "use client";
+import {
+  PublicLoadingState,
+  PublicNotice,
+  PublicEmptyState,
+} from "@/components/public-visual-system/public-result-states";
 
-import { PublicSelect, PublicTextInput } from "@/components/public-visual-system/public-form-controls";
+import {
+  PublicSelect,
+  PublicTextInput,
+} from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { type CSSProperties, type MutableRefObject, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type MutableRefObject,
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { SearchIcon } from "@/components/icons";
 import { traceMapDebug } from "@/lib/map-debug";
-import { MAP_RETURN_KEY, sheetStateAfterDrag, validMapReturnState, type MapSheetState } from "@/lib/map-mobile-ux";
+import {
+  MAP_RETURN_KEY,
+  sheetStateAfterDrag,
+  validMapReturnState,
+  type MapSheetState,
+} from "@/lib/map-mobile-ux";
 import { directoryCategories } from "@/lib/directory";
 import { eventTypes, slovakRegions } from "@/lib/events";
 import type { MapCluster, MapItem, MapResponse } from "@/lib/map-contract";
@@ -77,13 +99,23 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
       {serviceCategory ? (
         <label>
           <span>Typ služby</span>
-          <PublicSelect appearance="context"
+          <PublicSelect
+            appearance="context"
             value={filters.subcategory}
-            onChange={(event) => onChange({ ...filters, subcategory: event.target.value, facets: {}, canonicalService: "" })}
+            onChange={(event) =>
+              onChange({
+                ...filters,
+                subcategory: event.target.value,
+                facets: {},
+                canonicalService: "",
+              })
+            }
           >
             <option value="">Všetky služby</option>
             {directoryCategories.map((category) => (
-              <option value={category.slug} key={category.slug}>{category.label}</option>
+              <option value={category.slug} key={category.slug}>
+                {category.label}
+              </option>
             ))}
           </PublicSelect>
         </label>
@@ -91,25 +123,36 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
 
       {serviceCategory && filters.canonicalService ? (
         <div data-services-v3-map-filter aria-label="Potvrdená služba">
-          <p>Aktívny filter: potvrdená služba z katalógu Psipedia. Mapa zobrazuje iba profily s výslovne potvrdenou hodnotou Áno.</p>
-          <button type="button" onClick={() => onChange({...filters,canonicalService:""})}>Zrušiť filter služby</button>
+          <p>
+            Aktívny filter: potvrdená služba z katalógu Psipedia. Mapa zobrazuje iba profily s
+            výslovne potvrdenou hodnotou Áno.
+          </p>
+          <button type="button" onClick={() => onChange({ ...filters, canonicalService: "" })}>
+            Zrušiť filter služby
+          </button>
         </div>
       ) : null}
 
       <label>
         <span>Kraj</span>
-        <PublicSelect appearance="context"
+        <PublicSelect
+          appearance="context"
           value={filters.region}
           onChange={(event) => onChange(mapFiltersForRegion(filters, event.target.value))}
         >
           <option value="">Všetky kraje</option>
-          {regions.map((region) => <option value={region} key={region}>{region}</option>)}
+          {regions.map((region) => (
+            <option value={region} key={region}>
+              {region}
+            </option>
+          ))}
         </PublicSelect>
       </label>
 
       <label>
         <span>Okres</span>
-        <PublicTextInput appearance="context"
+        <PublicTextInput
+          appearance="context"
           value={filters.district}
           onChange={(event) => onChange(mapFiltersForDistrict(filters, event.target.value))}
           placeholder="Napr. Nitra"
@@ -119,7 +162,8 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
 
       <label>
         <span>Mesto / obec</span>
-        <PublicTextInput appearance="context"
+        <PublicTextInput
+          appearance="context"
           value={filters.city}
           onChange={(event) => onChange({ ...filters, city: event.target.value })}
           placeholder="Napr. Trnava"
@@ -131,22 +175,30 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
         <>
           <label>
             <span>Typ podujatia</span>
-            <PublicSelect appearance="context"
+            <PublicSelect
+              appearance="context"
               value={filters.eventType}
               onChange={(event) => onChange({ ...filters, eventType: event.target.value })}
             >
               <option value="">Všetky typy</option>
-              {eventTypes.map((eventType) => <option value={eventType} key={eventType}>{eventType}</option>)}
+              {eventTypes.map((eventType) => (
+                <option value={eventType} key={eventType}>
+                  {eventType}
+                </option>
+              ))}
             </PublicSelect>
           </label>
           <label>
             <span>Termín</span>
-            <PublicSelect appearance="context"
+            <PublicSelect
+              appearance="context"
               value={filters.eventTiming}
-              onChange={(event) => onChange({
-                ...filters,
-                eventTiming: event.target.value as MapUiFilters["eventTiming"],
-              })}
+              onChange={(event) =>
+                onChange({
+                  ...filters,
+                  eventTiming: event.target.value as MapUiFilters["eventTiming"],
+                })
+              }
             >
               <option value="active">Aktuálne a najbližšie</option>
               <option value="current">Práve prebiehajú</option>
@@ -159,7 +211,8 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
       {!serviceCategory && !eventCategory ? (
         <label>
           <span>Podkategória</span>
-          <PublicTextInput appearance="context"
+          <PublicTextInput
+            appearance="context"
             value={filters.subcategory}
             onChange={(event) => onChange({ ...filters, subcategory: event.target.value })}
             placeholder={filters.category === "organizations" ? "Typ organizácie" : "Voliteľné"}
@@ -201,7 +254,8 @@ function isMapResponse(value: unknown): value is MapResponse {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<MapResponse>;
   if (candidate.mode === "items") return Array.isArray(candidate.items) && Boolean(candidate.meta);
-  if (candidate.mode === "clusters") return Array.isArray(candidate.clusters) && Boolean(candidate.meta);
+  if (candidate.mode === "clusters")
+    return Array.isArray(candidate.clusters) && Boolean(candidate.meta);
   return false;
 }
 
@@ -245,7 +299,9 @@ function MapResultCard({
   const eventDate = item.entityType === "event" ? formatEventDate(item.eventStart) : "";
   const linkLabel = item.entityType === "event" ? "Detail podujatia" : "Zobraziť profil";
   const googleMapsUrl = buildGoogleMapsPlaceUrl(item.latitude, item.longitude, item.googlePlaceId);
-  const directionsUrl = approximate ? null : buildGoogleMapsDirectionsUrl(item.latitude, item.longitude, item.googlePlaceId);
+  const directionsUrl = approximate
+    ? null
+    : buildGoogleMapsDirectionsUrl(item.latitude, item.longitude, item.googlePlaceId);
 
   return (
     <article
@@ -270,7 +326,13 @@ function MapResultCard({
         <p>{item.displayLocation || item.city || item.region || "Lokalita nie je uvedená"}</p>
       </button>
       <div className={styles.cardFooter}>
-        <Link className={styles.resultLink} href={item.href} onClick={() => onNavigateToProfile(item.id)}>{linkLabel}</Link>
+        <Link
+          className={styles.resultLink}
+          href={item.href}
+          onClick={() => onNavigateToProfile(item.id)}
+        >
+          {linkLabel}
+        </Link>
         {googleMapsUrl ? (
           <a
             className={styles.externalMapLink}
@@ -329,7 +391,9 @@ function MapResults({
 }) {
   const items = responseItems(response);
   const clusters = responseClusters(response);
-  const hasSelectedItem = Boolean(selectedItemId && items.some((item) => item.id === selectedItemId));
+  const hasSelectedItem = Boolean(
+    selectedItemId && items.some((item) => item.id === selectedItemId),
+  );
   const hasGroupedClusters = response?.mode === "clusters" && clusters.length > 0;
   const countLabel = response
     ? response.mode === "items"
@@ -377,11 +441,12 @@ function MapResults({
 
     const delta = event.clientY - drag.startY;
     event.preventDefault();
-    const nextOffset = drag.startState === "peek"
-      ? Math.max(-drag.maxTravel, Math.min(0, delta))
-      : drag.startState === "expanded"
-        ? Math.min(drag.maxTravel, Math.max(0, delta))
-        : Math.max(-drag.maxTravel, Math.min(drag.maxTravel, delta));
+    const nextOffset =
+      drag.startState === "peek"
+        ? Math.max(-drag.maxTravel, Math.min(0, delta))
+        : drag.startState === "expanded"
+          ? Math.min(drag.maxTravel, Math.max(0, delta))
+          : Math.max(-drag.maxTravel, Math.min(drag.maxTravel, delta));
     setDragOffset(nextOffset);
   };
 
@@ -433,10 +498,13 @@ function MapResults({
     };
   };
 
-  useEffect(() => () => {
-    pointerCleanupRef.current?.();
-    pointerCleanupRef.current = null;
-  }, []);
+  useEffect(
+    () => () => {
+      pointerCleanupRef.current?.();
+      pointerCleanupRef.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!selectedItemId || sheetState === "peek") return;
@@ -444,7 +512,8 @@ function MapResults({
     const card = cardRefs.current.get(selectedItemId);
     if (!container || !card) return;
     // Avoid scrollIntoView: it may scroll the whole document and hide the map.
-    container.scrollTop += card.getBoundingClientRect().top - container.getBoundingClientRect().top - 8;
+    container.scrollTop +=
+      card.getBoundingClientRect().top - container.getBoundingClientRect().top - 8;
   }, [selectedItemId, sheetState, items.length, cardRefs]);
 
   const sheetStyle = { "--map-sheet-drag-y": `${dragOffset}px` } as CSSProperties;
@@ -468,10 +537,25 @@ function MapResults({
         <div className={styles.resultsHeadTop}>
           <h2>{countLabel}</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {loading ? <span className={styles.loadingDot} role="status" aria-label="Načítavam výsledky" /> : null}
+            {loading ? (
+              <PublicLoadingState
+                as="span"
+                appearance="context"
+                className={styles.loadingDot}
+                role="status"
+                aria-label="Načítavam výsledky"
+              />
+            ) : null}
             {hasSelectedItem ? (
-              <button type="button" className={styles.sheetClose} onClick={onCloseSelection}
-                aria-label="Zavrieť detail vybraného miesta" data-testid="map-close-selection">×</button>
+              <button
+                type="button"
+                className={styles.sheetClose}
+                onClick={onCloseSelection}
+                aria-label="Zavrieť detail vybraného miesta"
+                data-testid="map-close-selection"
+              >
+                ×
+              </button>
             ) : null}
             <button
               type="button"
@@ -480,11 +564,17 @@ function MapResults({
               aria-expanded={sheetState === "expanded"}
               aria-controls="map-result-scroll"
             >
-              {sheetState === "expanded" ? "Zmenšiť" : sheetState === "preview" ? "Viac výsledkov" : "Výsledky"}
+              {sheetState === "expanded"
+                ? "Zmenšiť"
+                : sheetState === "preview"
+                  ? "Viac výsledkov"
+                  : "Výsledky"}
             </button>
           </div>
         </div>
-        <p aria-live="polite" data-testid="map-results-guidance">{resultsGuidance}</p>
+        <p aria-live="polite" data-testid="map-results-guidance">
+          {resultsGuidance}
+        </p>
       </header>
 
       <div
@@ -494,41 +584,75 @@ function MapResults({
         data-testid="map-results-scroll"
       >
         {error ? (
-          <div className={styles.stateCard} role="alert" data-testid="map-api-error">
+          <PublicNotice
+            as="div"
+            appearance="context"
+            tone="error"
+            className={styles.stateCard}
+            role="alert"
+            data-testid="map-api-error"
+          >
             <strong>{error.message}</strong>
-            <span>{error.kind === "validation" ? "Skús zrušiť filtre a načítať mapu znova." : "Mapa zostáva na stránke; požiadavku môžeš zopakovať."}</span>
-            <button type="button" className={styles.statusAction} onClick={onRetry}>Skúsiť znova</button>
-          </div>
+            <span>
+              {error.kind === "validation"
+                ? "Skús zrušiť filtre a načítať mapu znova."
+                : "Mapa zostáva na stránke; požiadavku môžeš zopakovať."}
+            </span>
+            <button type="button" className={styles.statusAction} onClick={onRetry}>
+              Skúsiť znova
+            </button>
+          </PublicNotice>
         ) : null}
 
         {!error && !response && loading ? (
-          <div className={styles.stateCard} role="status">
+          <PublicLoadingState appearance="context" className={styles.stateCard} role="status">
             <strong>Načítavam mapu Psipedie…</strong>
             <span>Pripravujeme záznamy pre aktuálnu oblasť.</span>
-          </div>
+          </PublicLoadingState>
         ) : null}
 
         {!error && response?.mode === "items" && response.meta.count === 0 ? (
-          <div className={styles.stateCard} data-testid="map-empty-state">
+          <PublicEmptyState
+            variant="context"
+            className={styles.stateCard}
+            data-testid="map-empty-state"
+          >
             <strong>V tejto oblasti sme nenašli záznamy pre zvolené filtre.</strong>
             <span>Skús zrušiť filtre alebo oddialiť mapu.</span>
-            <button type="button" className={styles.statusAction} onClick={onClearFilters}>Zrušiť filtre</button>
-          </div>
+            <button type="button" className={styles.statusAction} onClick={onClearFilters}>
+              Zrušiť filtre
+            </button>
+          </PublicEmptyState>
         ) : null}
 
         {!error && response?.mode === "clusters" && clusters.length === 0 && items.length === 0 ? (
-          <div className={styles.stateCard} data-testid="map-empty-state">
+          <PublicEmptyState
+            variant="context"
+            className={styles.stateCard}
+            data-testid="map-empty-state"
+          >
             <strong>V tejto oblasti sme nenašli záznamy pre zvolené filtre.</strong>
             <span>Skús zrušiť filtre alebo zmeniť oblasť mapy.</span>
-            <button type="button" className={styles.statusAction} onClick={onClearFilters}>Zrušiť filtre</button>
-          </div>
+            <button type="button" className={styles.statusAction} onClick={onClearFilters}>
+              Zrušiť filtre
+            </button>
+          </PublicEmptyState>
         ) : null}
 
         {!error && response?.mode === "clusters" && hasGroupedClusters && !hasSelectedItem ? (
-          <div className={styles.stateCard} data-testid="map-cluster-summary">
+          <PublicNotice
+            as="div"
+            appearance="context"
+            className={styles.stateCard}
+            role={null}
+            data-testid="map-cluster-summary"
+          >
             <strong>Mapa je zatiaľ v súhrnnom pohľade.</strong>
-            <span>{mapResultLabel(response.meta.matched)} je zoskupených do {response.meta.count} oblastí. Vyber zhluk na mape alebo mapu priblíž.</span>
-          </div>
+            <span>
+              {mapResultLabel(response.meta.matched)} je zoskupených do {response.meta.count}{" "}
+              oblastí. Vyber zhluk na mape alebo mapu priblíž.
+            </span>
+          </PublicNotice>
         ) : null}
 
         {!error && items.length > 0 ? (
@@ -558,11 +682,15 @@ function MapResults({
         ) : null}
         {response?.meta.attribution?.length ? (
           <div className={styles.attribution} aria-label="Zdroj lokalizačných údajov">
-            {response.meta.attribution.map((item, index) => (
-              item.url
-                ? <a href={item.url} target="_blank" rel="noreferrer" key={`${item.label}-${index}`}>{item.label}</a>
-                : <span key={`${item.label}-${index}`}>{item.label}</span>
-            ))}
+            {response.meta.attribution.map((item, index) =>
+              item.url ? (
+                <a href={item.url} target="_blank" rel="noreferrer" key={`${item.label}-${index}`}>
+                  {item.label}
+                </a>
+              ) : (
+                <span key={`${item.label}-${index}`}>{item.label}</span>
+              ),
+            )}
           </div>
         ) : null}
       </div>
@@ -598,7 +726,11 @@ export function MapExperience({
   const [error, setError] = useState<MapApiError | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [rendererStatus, setRendererStatus] = useState<MapRendererStatus>(
-    testRenderer ? "ready" : (!effectiveGoogleApiKey || !effectiveGoogleMapId ? "missing-config" : "loading"),
+    testRenderer
+      ? "ready"
+      : !effectiveGoogleApiKey || !effectiveGoogleMapId
+        ? "missing-config"
+        : "loading",
   );
   const [rendererCommand, setRendererCommand] = useState<MapRendererCommand | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
@@ -639,9 +771,10 @@ export function MapExperience({
   }, []);
 
   useEffect(() => {
-    const read = () => setGoogleMapsConsentState(
-      hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY)),
-    );
+    const read = () =>
+      setGoogleMapsConsentState(
+        hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY)),
+      );
     read();
     window.addEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
     return () => window.removeEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
@@ -674,7 +807,9 @@ export function MapExperience({
         setSheetState(saved.selectedItemId ? "preview" : "peek");
       });
       return () => window.cancelAnimationFrame(frame);
-    } catch { /* Private browsing may disable sessionStorage. */ }
+    } catch {
+      /* Private browsing may disable sessionStorage. */
+    }
   }, []);
 
   useEffect(() => {
@@ -715,22 +850,44 @@ export function MapExperience({
         if (!request.isCurrent()) return;
 
         if (!result.ok) {
-          if (result.status === 400) throw { kind: "validation", message: "Filtre sa nepodarilo spracovať." } satisfies MapApiError;
-          if (result.status === 429) throw { kind: "rate-limit", message: "Mapa dostala priveľa požiadaviek. Skús to o chvíľu znova." } satisfies MapApiError;
-          if (result.status === 503) throw { kind: "unavailable", message: "Mapové dáta sú dočasne nedostupné." } satisfies MapApiError;
-          throw { kind: "server", message: "Mapové výsledky sa nepodarilo načítať." } satisfies MapApiError;
+          if (result.status === 400)
+            throw {
+              kind: "validation",
+              message: "Filtre sa nepodarilo spracovať.",
+            } satisfies MapApiError;
+          if (result.status === 429)
+            throw {
+              kind: "rate-limit",
+              message: "Mapa dostala priveľa požiadaviek. Skús to o chvíľu znova.",
+            } satisfies MapApiError;
+          if (result.status === 503)
+            throw {
+              kind: "unavailable",
+              message: "Mapové dáta sú dočasne nedostupné.",
+            } satisfies MapApiError;
+          throw {
+            kind: "server",
+            message: "Mapové výsledky sa nepodarilo načítať.",
+          } satisfies MapApiError;
         }
         if (!isMapResponse(payload)) {
-          throw { kind: "server", message: "Mapové výsledky majú neočakávaný formát." } satisfies MapApiError;
+          throw {
+            kind: "server",
+            message: "Mapové výsledky majú neočakávaný formát.",
+          } satisfies MapApiError;
         }
 
         setResponse(payload);
         setSelectedItemId((current) => selectedMapItemAfterResponse(current, payload));
       } catch (caught) {
         if (!request.isCurrent()) return;
-        const next = caught && typeof caught === "object" && "kind" in caught
-          ? caught as MapApiError
-          : { kind: "network", message: "Spojenie s mapou sa prerušilo." } satisfies MapApiError;
+        const next =
+          caught && typeof caught === "object" && "kind" in caught
+            ? (caught as MapApiError)
+            : ({
+                kind: "network",
+                message: "Spojenie s mapou sa prerušilo.",
+              } satisfies MapApiError);
         setError(next);
       } finally {
         if (request.isCurrent()) setLoading(false);
@@ -760,8 +917,11 @@ export function MapExperience({
         return;
       }
       if (event.key !== "Tab") return;
-      const focusable = Array.from(dialog!.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]"))
-        .filter((element) => element.offsetParent !== null);
+      const focusable = Array.from(
+        dialog!.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]",
+        ),
+      ).filter((element) => element.offsetParent !== null);
       if (!focusable.length) return;
       const firstElement = focusable[0];
       const lastElement = focusable[focusable.length - 1];
@@ -783,57 +943,79 @@ export function MapExperience({
     };
   }, [mobileFiltersOpen]);
 
-  const selectItem = useCallback((item: MapItem, focusMap = true, nextSheet: MapSheetState = "expanded") => {
-    setSelectedItemId(item.id);
-    setSheetState(nextSheet);
-    if (focusMap) {
+  const selectItem = useCallback(
+    (item: MapItem, focusMap = true, nextSheet: MapSheetState = "expanded") => {
+      setSelectedItemId(item.id);
+      setSheetState(nextSheet);
+      if (focusMap) {
+        setRendererCommand((current) => ({
+          key: (current?.key ?? 0) + 1,
+          type: "item",
+          id: item.id,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          zoom: Math.max(viewport.zoom, 13),
+        }));
+      }
+    },
+    [viewport.zoom],
+  );
+
+  const selectItemById = useCallback(
+    (id: string) => {
+      const item = items.find((candidate) => candidate.id === id);
+      if (!item) return;
+      const singletonClusterItem =
+        response?.mode === "clusters" &&
+        response.clusters.some(
+          (cluster) => cluster.count === 1 && cluster.singletonItem?.id === id,
+        );
+      selectItem(item, !singletonClusterItem, "preview");
+    },
+    [items, response, selectItem],
+  );
+
+  const selectCluster = useCallback(
+    (cluster: MapCluster) => {
+      setSelectedItemId(null);
+      // At the maximum zoom clusters can still overlap. Offer actionable guidance
+      // rather than repeatedly issuing the same no-op camera command.
+      if (viewport.zoom >= 20) {
+        setSheetState("expanded");
+        return;
+      }
+      setSheetState("peek");
+      const target = mapClusterTarget(cluster, viewport.zoom);
       setRendererCommand((current) => ({
         key: (current?.key ?? 0) + 1,
-        type: "item",
-        id: item.id,
-        latitude: item.latitude,
-        longitude: item.longitude,
-        zoom: Math.max(viewport.zoom, 13),
+        type: "cluster",
+        id: cluster.id,
+        latitude: target.latitude,
+        longitude: target.longitude,
+        zoom: target.zoom,
       }));
-    }
-  }, [viewport.zoom]);
+    },
+    [viewport.zoom],
+  );
 
-  const selectItemById = useCallback((id: string) => {
-    const item = items.find((candidate) => candidate.id === id);
-    if (!item) return;
-    const singletonClusterItem = response?.mode === "clusters"
-      && response.clusters.some((cluster) => cluster.count === 1 && cluster.singletonItem?.id === id);
-    selectItem(item, !singletonClusterItem, "preview");
-  }, [items, response, selectItem]);
-
-  const selectCluster = useCallback((cluster: MapCluster) => {
-    setSelectedItemId(null);
-    // At the maximum zoom clusters can still overlap. Offer actionable guidance
-    // rather than repeatedly issuing the same no-op camera command.
-    if (viewport.zoom >= 20) {
-      setSheetState("expanded");
-      return;
-    }
-    setSheetState("peek");
-    const target = mapClusterTarget(cluster, viewport.zoom);
-    setRendererCommand((current) => ({
-      key: (current?.key ?? 0) + 1,
-      type: "cluster",
-      id: cluster.id,
-      latitude: target.latitude,
-      longitude: target.longitude,
-      zoom: target.zoom,
-    }));
-  }, [viewport.zoom]);
-
-  const saveMapReturnContext = useCallback((itemId: string) => {
-    try {
-      window.sessionStorage.setItem(MAP_RETURN_KEY, JSON.stringify({
-        filtersKey: serializeMapUiFilters(filters).toString(),
-        viewport, selectedItemId: itemId, savedAt: Date.now(),
-      }));
-    } catch { /* The link remains usable without storage. */ }
-  }, [filters, viewport]);
+  const saveMapReturnContext = useCallback(
+    (itemId: string) => {
+      try {
+        window.sessionStorage.setItem(
+          MAP_RETURN_KEY,
+          JSON.stringify({
+            filtersKey: serializeMapUiFilters(filters).toString(),
+            viewport,
+            selectedItemId: itemId,
+            savedAt: Date.now(),
+          }),
+        );
+      } catch {
+        /* The link remains usable without storage. */
+      }
+    },
+    [filters, viewport],
+  );
 
   useEffect(() => {
     if (mobileFiltersOpen || !selectedItemId) return;
@@ -851,225 +1033,261 @@ export function MapExperience({
     if (loading || (!error && (!response || response.meta.count !== 0))) return;
     // Show actionable empty/error feedback in preview without blocking map gestures.
     const frame = window.requestAnimationFrame(() => {
-      setSheetState((state) => state === "peek" ? "preview" : state);
+      setSheetState((state) => (state === "peek" ? "preview" : state));
     });
     return () => window.cancelAnimationFrame(frame);
   }, [loading, error, response]);
 
-  const rendererStatusLabel = !effectiveRendererEnabled && !testRenderer
-    ? "Google Maps nie je nakonfigurovaný"
-    : effectiveRendererEnabled && !googleMapsConsent && !testRenderer
-      ? "Google Maps čaká na tvoje povolenie"
-    : rendererStatus === "ready"
-    ? "Mapa pripravená"
-    : rendererStatus === "loading"
-      ? "Načítavam mapu"
-      : rendererStatus === "missing-config"
-        ? "Google Maps nie je nakonfigurovaný"
-        : "Mapový podklad nie je dostupný";
+  const rendererStatusLabel =
+    !effectiveRendererEnabled && !testRenderer
+      ? "Google Maps nie je nakonfigurovaný"
+      : effectiveRendererEnabled && !googleMapsConsent && !testRenderer
+        ? "Google Maps čaká na tvoje povolenie"
+        : rendererStatus === "ready"
+          ? "Mapa pripravená"
+          : rendererStatus === "loading"
+            ? "Načítavam mapu"
+            : rendererStatus === "missing-config"
+              ? "Google Maps nie je nakonfigurovaný"
+              : "Mapový podklad nie je dostupný";
   const showProviderDisclosure = !(googleMapsConsent && rendererStatus === "ready");
 
   return (
     <>
       <section className={styles.experience} aria-label="Interaktívna mapa Psipedie">
-      <div className={styles.toolbar}>
-        <div className={styles.primaryRow}>
-          <label className={styles.searchField}>
-            <SearchIcon size={19} />
-            <PublicTextInput appearance="context"
-              value={filters.search}
-              onChange={(event) => updateFilters({ ...filters, search: event.target.value })}
-              placeholder="Hľadať názov, službu alebo lokalitu"
-              aria-label="Vyhľadávanie v mape"
-            />
-          </label>
+        <div className={styles.toolbar}>
+          <div className={styles.primaryRow}>
+            <label className={styles.searchField}>
+              <SearchIcon size={19} />
+              <PublicTextInput
+                appearance="context"
+                value={filters.search}
+                onChange={(event) => updateFilters({ ...filters, search: event.target.value })}
+                placeholder="Hľadať názov, službu alebo lokalitu"
+                aria-label="Vyhľadávanie v mape"
+              />
+            </label>
 
-          <div className={styles.categoryChips} aria-label="Typ obsahu">
-            {[
-              ["", "Všetko"],
-              ["services", "Služby"],
-              ["organizations", "Organizácie"],
-              ["events", "Podujatia"],
-            ].map(([value, label]) => (
-              <button
-                type="button"
-                className={styles.chip}
-                aria-pressed={filters.category === value}
-                key={value || "all"}
-                onClick={() => updateFilters(mapFiltersForCategory(filters, value as MapUiFilters["category"]))}
-              >
-                {label}
-              </button>
-            ))}
+            <div className={styles.categoryChips} aria-label="Typ obsahu">
+              {[
+                ["", "Všetko"],
+                ["services", "Služby"],
+                ["organizations", "Organizácie"],
+                ["events", "Podujatia"],
+              ].map(([value, label]) => (
+                <button
+                  type="button"
+                  className={styles.chip}
+                  aria-pressed={filters.category === value}
+                  key={value || "all"}
+                  onClick={() =>
+                    updateFilters(mapFiltersForCategory(filters, value as MapUiFilters["category"]))
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              ref={filterTriggerRef}
+              className={styles.filterButton}
+              type="button"
+              onClick={() => setMobileFiltersOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={mobileFiltersOpen}
+            >
+              <span>Ďalšie filtre</span>
+              {filterCount ? <span className={styles.filterCount}>{filterCount}</span> : null}
+            </button>
           </div>
 
-          <button
-            ref={filterTriggerRef}
-            className={styles.filterButton}
-            type="button"
-            onClick={() => setMobileFiltersOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={mobileFiltersOpen}
-          >
-            <span>Ďalšie filtre</span>
-            {filterCount ? <span className={styles.filterCount}>{filterCount}</span> : null}
-          </button>
+          <div className={styles.desktopFilterDisclosure}>
+            <button
+              type="button"
+              className={styles.desktopFilterToggle}
+              onClick={() => setDesktopFiltersOpen((open) => !open)}
+              aria-expanded={desktopFiltersOpen}
+              aria-controls="map-desktop-filter-fields"
+            >
+              Ďalšie filtre{filterCount ? ` (${filterCount})` : ""}
+              <span aria-hidden="true">{desktopFiltersOpen ? "−" : "+"}</span>
+            </button>
+            {desktopFiltersOpen ? (
+              <div
+                id="map-desktop-filter-fields"
+                className={styles.secondaryFilters}
+                data-testid="map-desktop-filters"
+              >
+                <FilterFields filters={filters} onChange={updateFilters} />
+                <button type="button" className={styles.clearFilters} onClick={clearFilters}>
+                  Zrušiť filtre
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <div className={styles.desktopFilterDisclosure}>
-          <button
-            type="button"
-            className={styles.desktopFilterToggle}
-            onClick={() => setDesktopFiltersOpen((open) => !open)}
-            aria-expanded={desktopFiltersOpen}
-            aria-controls="map-desktop-filter-fields"
-          >
-            Ďalšie filtre{filterCount ? ` (${filterCount})` : ""}
-            <span aria-hidden="true">{desktopFiltersOpen ? "−" : "+"}</span>
-          </button>
-          {desktopFiltersOpen ? (
-            <div id="map-desktop-filter-fields" className={styles.secondaryFilters} data-testid="map-desktop-filters">
-              <FilterFields filters={filters} onChange={updateFilters} />
-              <button type="button" className={styles.clearFilters} onClick={clearFilters}>Zrušiť filtre</button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className={styles.workspace}>
-        <MapResults
-          response={response}
-          loading={loading}
-          error={error}
-          selectedItemId={selectedItemId}
-          onSelectItem={selectItem}
-          onRetry={() => setRetryNonce((value) => value + 1)}
-          onClearFilters={clearFilters}
-          viewportZoom={viewport.zoom}
-          sheetState={sheetState}
-          onToggleSheet={() => setSheetState((value) => value === "expanded" ? "preview" : "expanded")}
-          onSheetStateChange={setSheetState}
-          onCloseSelection={() => { setSelectedItemId(null); setSheetState("peek"); }}
-          onNavigateToProfile={saveMapReturnContext}
-          cardRefs={cardRefs}
-        />
-
-        <div className={styles.mapPanel}>
-          <GoogleMapRenderer
-            apiKey={effectiveGoogleApiKey}
-            mapId={effectiveGoogleMapId}
-            testMode={testRenderer}
-            rendererEnabled={effectiveRendererEnabled}
-            consentGranted={googleMapsConsent}
-            items={items}
-            clusters={clusters}
+        <div className={styles.workspace}>
+          <MapResults
+            response={response}
+            loading={loading}
+            error={error}
             selectedItemId={selectedItemId}
-            viewport={viewport}
-            mapType={mapType}
-            command={rendererCommand}
-            onViewportChange={handleViewportChange}
-            onSelectItem={selectItemById}
-            onClusterClick={selectCluster}
-            onStatusChange={setRendererStatus}
+            onSelectItem={selectItem}
+            onRetry={() => setRetryNonce((value) => value + 1)}
+            onClearFilters={clearFilters}
+            viewportZoom={viewport.zoom}
+            sheetState={sheetState}
+            onToggleSheet={() =>
+              setSheetState((value) => (value === "expanded" ? "preview" : "expanded"))
+            }
+            onSheetStateChange={setSheetState}
+            onCloseSelection={() => {
+              setSelectedItemId(null);
+              setSheetState("peek");
+            }}
+            onNavigateToProfile={saveMapReturnContext}
+            cardRefs={cardRefs}
           />
-          {(testRenderer || (effectiveRendererEnabled && googleMapsConsent)) ? (
-            <div className={styles.mapTypeControl} role="group" aria-label="Typ mapového podkladu">
-              <button
-                type="button"
-                aria-pressed={mapType === "roadmap"}
-                onClick={() => {
-                  traceMapDebug("experience:map-type-click", { nextMapType: "roadmap", currentMapType: mapType });
-                  setMapType("roadmap");
-                }}
+
+          <div className={styles.mapPanel}>
+            <GoogleMapRenderer
+              apiKey={effectiveGoogleApiKey}
+              mapId={effectiveGoogleMapId}
+              testMode={testRenderer}
+              rendererEnabled={effectiveRendererEnabled}
+              consentGranted={googleMapsConsent}
+              items={items}
+              clusters={clusters}
+              selectedItemId={selectedItemId}
+              viewport={viewport}
+              mapType={mapType}
+              command={rendererCommand}
+              onViewportChange={handleViewportChange}
+              onSelectItem={selectItemById}
+              onClusterClick={selectCluster}
+              onStatusChange={setRendererStatus}
+            />
+            {testRenderer || (effectiveRendererEnabled && googleMapsConsent) ? (
+              <div
+                className={styles.mapTypeControl}
+                role="group"
+                aria-label="Typ mapového podkladu"
               >
-                Mapa
-              </button>
-              <button
-                type="button"
-                aria-pressed={mapType === "hybrid"}
-                onClick={() => {
-                  traceMapDebug("experience:map-type-click", { nextMapType: "hybrid", currentMapType: mapType });
-                  setMapType("hybrid");
-                }}
-              >
-                Satelit
-              </button>
+                <button
+                  type="button"
+                  aria-pressed={mapType === "roadmap"}
+                  onClick={() => {
+                    traceMapDebug("experience:map-type-click", {
+                      nextMapType: "roadmap",
+                      currentMapType: mapType,
+                    });
+                    setMapType("roadmap");
+                  }}
+                >
+                  Mapa
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={mapType === "hybrid"}
+                  onClick={() => {
+                    traceMapDebug("experience:map-type-click", {
+                      nextMapType: "hybrid",
+                      currentMapType: mapType,
+                    });
+                    setMapType("hybrid");
+                  }}
+                >
+                  Satelit
+                </button>
+              </div>
+            ) : null}
+            {effectiveRendererEnabled && !googleMapsConsent && !testRenderer ? (
+              <div className={styles.mapConsentGate} data-testid="map-consent-gate">
+                <strong>Načítať interaktívnu Google mapu?</strong>
+                <span>
+                  Textové výsledky fungujú aj bez nej. Google mapový podklad sa načíta až po tvojom
+                  výslovnom povolení.
+                </span>
+                <button type="button" onClick={() => setGoogleMapsConsent(true)}>
+                  Povoliť Google Maps
+                </button>
+              </div>
+            ) : null}
+            <div className={styles.mapStatusPill} role="status" data-testid="map-renderer-status">
+              <span>{rendererStatusLabel}</span>
             </div>
-          ) : null}
-          {effectiveRendererEnabled && !googleMapsConsent && !testRenderer ? (
-            <div className={styles.mapConsentGate} data-testid="map-consent-gate">
-              <strong>Načítať interaktívnu Google mapu?</strong>
-              <span>Textové výsledky fungujú aj bez nej. Google mapový podklad sa načíta až po tvojom výslovnom povolení.</span>
-              <button type="button" onClick={() => setGoogleMapsConsent(true)}>Povoliť Google Maps</button>
-            </div>
-          ) : null}
-          <div className={styles.mapStatusPill} role="status" data-testid="map-renderer-status">
-            <span>{rendererStatusLabel}</span>
           </div>
         </div>
-      </div>
 
-      {mobileFiltersOpen ? (
-        <>
-          <button
-            type="button"
-            className={styles.mobileBackdrop}
-            data-testid="map-filter-backdrop"
-            tabIndex={-1}
-            aria-hidden="true"
-            onClick={() => {
-              setMobileFiltersOpen(false);
-              window.setTimeout(() => filterTriggerRef.current?.focus(), 0);
-            }}
-            aria-label="Zavrieť filtre"
-          />
-          <div
-            ref={filterDialogRef}
-            className={styles.mobileFilterDialog}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="map-filter-dialog-title"
-            data-testid="map-filter-dialog"
-          >
-            <header className={styles.mobileFilterHead}>
-              <h2 id="map-filter-dialog-title">Filtre mapy</h2>
-              <button
-                type="button"
-                aria-label="Zavrieť filtre"
-                onClick={() => {
-                  setMobileFiltersOpen(false);
-                  window.setTimeout(() => filterTriggerRef.current?.focus(), 0);
-                }}
-              >×</button>
-            </header>
-            <div className={styles.mobileFilterBody}>
-              <FilterFields filters={filters} onChange={updateFilters} />
+        {mobileFiltersOpen ? (
+          <>
+            <button
+              type="button"
+              className={styles.mobileBackdrop}
+              data-testid="map-filter-backdrop"
+              tabIndex={-1}
+              aria-hidden="true"
+              onClick={() => {
+                setMobileFiltersOpen(false);
+                window.setTimeout(() => filterTriggerRef.current?.focus(), 0);
+              }}
+              aria-label="Zavrieť filtre"
+            />
+            <div
+              ref={filterDialogRef}
+              className={styles.mobileFilterDialog}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="map-filter-dialog-title"
+              data-testid="map-filter-dialog"
+            >
+              <header className={styles.mobileFilterHead}>
+                <h2 id="map-filter-dialog-title">Filtre mapy</h2>
+                <button
+                  type="button"
+                  aria-label="Zavrieť filtre"
+                  onClick={() => {
+                    setMobileFiltersOpen(false);
+                    window.setTimeout(() => filterTriggerRef.current?.focus(), 0);
+                  }}
+                >
+                  ×
+                </button>
+              </header>
+              <div className={styles.mobileFilterBody}>
+                <FilterFields filters={filters} onChange={updateFilters} />
+              </div>
+              <footer className={styles.mobileFilterActions}>
+                <button type="button" onClick={clearFilters}>
+                  Zrušiť filtre
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileFiltersOpen(false);
+                    window.setTimeout(() => filterTriggerRef.current?.focus(), 0);
+                  }}
+                >
+                  Použiť filtre
+                </button>
+              </footer>
             </div>
-            <footer className={styles.mobileFilterActions}>
-              <button type="button" onClick={clearFilters}>Zrušiť filtre</button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileFiltersOpen(false);
-                  window.setTimeout(() => filterTriggerRef.current?.focus(), 0);
-                }}
-              >Použiť filtre</button>
-            </footer>
-          </div>
-        </>
-      ) : null}
+          </>
+        ) : null}
 
-      {rendererStatus === "load-error" || rendererStatus === "missing-config" ? (
-        <p className="sr-only" aria-live="polite">
-          {rendererStatusLabel}. Textový zoznam výsledkov zostáva dostupný.
-        </p>
-      ) : null}
+        {rendererStatus === "load-error" || rendererStatus === "missing-config" ? (
+          <p className="sr-only" aria-live="polite">
+            {rendererStatusLabel}. Textový zoznam výsledkov zostáva dostupný.
+          </p>
+        ) : null}
 
-      {clusters.length > 0 ? (
-        <span className="sr-only" aria-live="polite">
-          Mapa zobrazuje {clusters.length} zoskupených oblastí.
-        </span>
-      ) : null}
+        {clusters.length > 0 ? (
+          <span className="sr-only" aria-live="polite">
+            Mapa zobrazuje {clusters.length} zoskupených oblastí.
+          </span>
+        ) : null}
       </section>
 
       {showProviderDisclosure ? (
@@ -1078,12 +1296,16 @@ export function MapExperience({
           aria-label="Informácie o mapovom podklade"
           data-testid="map-provider-disclosure"
         >
-          Interaktívny mapový podklad poskytuje Google Maps a načíta sa až po tvojom výslovnom povolení.
-          Používanie Google Maps podlieha{" "}
-          <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noreferrer">podmienkam Google Maps</a>
-          {" "}a{" "}
-          <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">zásadám ochrany súkromia Google</a>.
-          Lokalizačné údaje Psipedie a rozhodnutia o ich verejnosti zostávajú v databáze Psipedie.
+          Interaktívny mapový podklad poskytuje Google Maps a načíta sa až po tvojom výslovnom
+          povolení. Používanie Google Maps podlieha{" "}
+          <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noreferrer">
+            podmienkam Google Maps
+          </a>{" "}
+          a{" "}
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
+            zásadám ochrany súkromia Google
+          </a>
+          . Lokalizačné údaje Psipedie a rozhodnutia o ich verejnosti zostávajú v databáze Psipedie.
         </aside>
       ) : null}
     </>

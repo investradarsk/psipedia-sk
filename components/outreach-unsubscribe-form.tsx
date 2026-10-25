@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import { useState } from "react";
 
@@ -15,14 +16,21 @@ export function OutreachUnsubscribeForm({ token }: { token: string }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ token }),
       });
-      const payload = await response.json() as { result?: { suppressed?: boolean }; error?: string };
-      if (!response.ok || !payload.result?.suppressed) throw new Error(payload.error || "Odhlásenie sa nepodarilo.");
+      const payload = (await response.json()) as {
+        result?: { suppressed?: boolean };
+        error?: string;
+      };
+      if (!response.ok || !payload.result?.suppressed)
+        throw new Error(payload.error || "Odhlásenie sa nepodarilo.");
       setResult({
         type: "success",
         text: "Hotovo. Tento e-mail bol pridaný do suppression zoznamu pre ďalší profilový outreach Psipedia.",
       });
     } catch (error) {
-      setResult({ type: "error", text: error instanceof Error ? error.message : "Odhlásenie sa nepodarilo." });
+      setResult({
+        type: "error",
+        text: error instanceof Error ? error.message : "Odhlásenie sa nepodarilo.",
+      });
     } finally {
       setBusy(false);
     }
@@ -30,8 +38,21 @@ export function OutreachUnsubscribeForm({ token }: { token: string }) {
 
   return (
     <div>
-      {result && <p role="status">{result.text}</p>}
-      <button className="button button--primary" type="button" onClick={() => void unsubscribe()} disabled={busy || result?.type === "success"}>
+      {result && (
+        <PublicNotice
+          appearance="context"
+          tone={result.type === "error" ? "error" : "success"}
+          role="status"
+        >
+          {result.text}
+        </PublicNotice>
+      )}
+      <button
+        className="button button--primary"
+        type="button"
+        onClick={() => void unsubscribe()}
+        disabled={busy || result?.type === "success"}
+      >
         {busy ? "Spracúvam…" : "Nechcem ďalší profilový outreach"}
       </button>
     </div>

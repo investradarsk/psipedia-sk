@@ -45,5 +45,8 @@ test("search page opts into shared controls without changing SSR GET actions or 
     'name="podsekcia"',
     "searchPortal(query",
   ])
-    assert.ok(page.includes(fragment), "missing unchanged search contract: " + fragment);
+    assert.ok(
+      page.replace(/\s+/g, " ").includes(fragment),
+      "missing unchanged search contract: " + fragment,
+    );
 });

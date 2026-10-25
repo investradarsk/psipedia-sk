@@ -33,14 +33,27 @@ test("Services preserve one canonical GET search, secondary filters and URL stat
   assert.match(directory, /searchScope="services"/);
   assert.match(directory, /action=\{basePath\}/);
   assert.match(directory, /hidden=\{directoryQueryFields\(filters, \["q", "page"\]\)\}/);
-  assert.match(portalSearch, /<form action=\{action\} method="get"[^>]*role="search"[^>]*data-public-search-form=\{searchScope\}/);
+  assert.match(
+    portalSearch,
+    /<form action=\{action\} method="get"[^>]*role="search"[^>]*data-public-search-form=\{searchScope\}/,
+  );
   assert.match(portalSearch, /name=\{inputName\}/);
   assert.match(portalSearch, /<button type="submit">/);
   assert.match(services, /method="get"/);
   assert.match(services, /data-directory-filter-form/);
   assert.match(services, /directoryQueryFields\(filters,/);
   assert.doesNotMatch(services, /data-public-search-form=|<PublicFilterDisclosure\b/);
-  for (const name of ["region", "district", "city", "service", "breed", "fci", "organization", "type", "sort"]) {
+  for (const name of [
+    "region",
+    "district",
+    "city",
+    "service",
+    "breed",
+    "fci",
+    "organization",
+    "type",
+    "sort",
+  ]) {
     assert.match(services, new RegExp('name="' + name + '"'));
   }
   assert.match(directoryQuery, /export function directoryQueryFields/);
@@ -66,7 +79,10 @@ test("Events use URL-backed server rendering instead of client dataset filtering
   assert.match(eventsLib, /eventRegionFilterFromParam/);
   assert.match(eventsLib, /eventMonthFilterFromParam/);
   assert.match(eventsRoot, /initialQuery=\{eventSearchQueryFromParam\(rawSearchParams\.q\)\}/);
-  assert.match(eventsType, /initialRegion=\{eventRegionFilterFromParam\(rawSearchParams\.region\)\}/);
+  assert.match(
+    eventsType,
+    /initialRegion=\{eventRegionFilterFromParam\(rawSearchParams\.region\)\}/,
+  );
 });
 
 test("Help category pages have one primary search and URL-backed SSR filters", () => {
@@ -81,7 +97,10 @@ test("Help category pages have one primary search and URL-backed SSR filters", (
   assert.match(helpBrowser, /name="stav"/);
   assert.match(helpBrowser, /<PublicFilterDisclosure/);
   assert.match(helpBrowser, /Zobraziť celý zoznam/);
-  assert.match(helpCategory, /initialQuery = scalar\(rawSearchParams\.q\)\.trim\(\)\.slice\(0, 120\)/);
+  assert.match(
+    helpCategory,
+    /initialQuery = scalar\(rawSearchParams\.q\)\.trim\(\)\.slice\(0, 120\)/,
+  );
   assert.match(helpCategory, /initialRegion = regionFilter\(rawSearchParams\.region\)/);
   assert.match(helpCategory, /initialActiveOnly = scalar\(rawSearchParams\.stav\) !== "vsetky"/);
 });
@@ -92,10 +111,9 @@ test("public search simplification does not introduce persistence or routing red
   }
 });
 
-
 test("DS-3 main search shares one visual contract without changing GET destinations or scopes", () => {
   const header = read("components/site-header.tsx");
-  const results = read("app/hladat/page.tsx");
+  const results = read("app/hladat/page.tsx").replace(/\s+/g, " ");
   const help = read("components/help-overview.tsx");
   const eventPage = read("components/events-page.tsx");
   const reviews = read("components/reviews-hub.tsx");
@@ -106,7 +124,10 @@ test("DS-3 main search shares one visual contract without changing GET destinati
     assert.match(source, /className="public-search-icon" aria-hidden="true"/);
     assert.match(source, /<button type="submit">/);
   }
-  assert.match(portalSearch, /<form action=\{action\} method="get"[^>]*role="search"[^>]*data-public-search-form=\{searchScope\}/);
+  assert.match(
+    portalSearch,
+    /<form action=\{action\} method="get"[^>]*role="search"[^>]*data-public-search-form=\{searchScope\}/,
+  );
   assert.match(portalSearch, /name=\{inputName\}/);
   assert.match(portalSearch, /minLength=\{allowEmpty \? undefined : 2\}/);
   assert.match(portalSearch, /hidden\.map\(\(field\) => <input type="hidden" name=\{field.name\}/);

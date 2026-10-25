@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import {
   PublicChoiceInput,
@@ -333,13 +334,15 @@ export function ProfileReviewSubmissionForm({
       </div>
 
       {result ? (
-        <p
+        <PublicNotice
+          appearance="context"
+          tone={result.type === "error" ? "error" : "info"}
           className={result.type === "already" ? styles.already : styles.error}
           role={result.type === "error" ? "alert" : "status"}
           aria-live="polite"
         >
           {result.text}
-        </p>
+        </PublicNotice>
       ) : null}
 
       <div className={styles.actions}>

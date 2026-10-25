@@ -22,3 +22,14 @@ Variant `context` zachováva pôvodné CSS konkrétneho povrchu. Spoločný komp
 - Existujúca browser matica detailov je zapojená do PR workflow vrátane screenshot artefaktov. Zahŕňa desktop a šírky 320/375/390/430/768; nie je úplnou vizuálnou akceptáciou všetkých stránok.
 - Lokálna vizuálna a klávesnicová akceptácia všetkých dotknutých povrchov zostáva otvorená. CI ani nasadenie nie sú vyhlásené za úspešné.
 - Bez merge a deploymentu; na CI sa podľa zadania nečaká. Body 4D, 5C, 6C a finálne prijatie 6D nemožno uzavrieť iba source testami.
+
+## Dokončenie stavov a stránkovania po #1034
+
+- Vyhľadávanie, kynologické kluby a recenzie profilov teraz používajú `PublicPagination`. Query parametre, kotvy, disabled prvky, texty a prázdne sloty vyhľadávania zostávajú pôvodné.
+- Vyhľadávanie a mapa používajú `PublicEmptyState`; formulárové výsledky `PublicNotice`; mapové načítavanie `PublicLoadingState`.
+- Kontextové hlášky zachovávajú pôvodné `role`, `aria-live`, `ref`, `tabIndex` a vnorené retry/reset tlačidlá. Kontextová hláška môže mať `role={null}` pre pôvodne neoznamovaný informačný obsah.
+- `public-result-variants.module.css` vlastní pôvodné varianty stránkovania vyhľadávania/recenzií, mapových stavov a výsledkov hodnotení/hlásení. Lokálne CSS triedy ich len importujú cez `composes`.
+- `public-result-global.css` vlastní existujúce globálne varianty stránkovania adresára, prázdneho vyhľadávania a formulárových výsledkov (kontakt, zmena profilu, tip redakcii, spätná väzba, overenie autora). Importuje ho `app/globals.css`.
+- Nové varianty sa majú dopĺňať do týchto centrálnych súborov. Odlišné vzhľady zostávajú explicitnými variantmi; toto nie je nový grafický návrh ani tvrdenie, že každý špecifický prvok webu už používa rovnaké CSS.
+
+Pred merge ostáva vizuálne prijatie presného PR commitu. Lokálne stiahnutie Chromium zlyhalo; PR označuje skutočne dotknuté cesty pre workflow `PR Visual Evidence`. Na CI sa podľa zadania nečaká.
