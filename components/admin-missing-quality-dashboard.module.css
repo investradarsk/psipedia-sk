@@ -1,5 +1,5 @@
-.root { display:grid; gap:12px; color:inherit; }
-.top { display:grid; grid-template-columns:minmax(220px,1fr) minmax(270px,1.6fr); align-items:center; gap:12px; padding:12px 14px; border:1px solid #d8e2dd; background:#f8fbf9; border-radius:16px; }
+.root { display:grid; gap:var(--admin-v3-compact-gap, 10px); color:inherit; }
+.top { display:grid; grid-template-columns:minmax(220px,1fr) minmax(270px,1.6fr); align-items:center; gap:var(--admin-v3-compact-gap, 10px); padding:var(--admin-v3-card-padding, 12px) 14px; border:1px solid #d8e2dd; background:#f8fbf9; border-radius:16px; }
 .eyebrow {font-size:13px;font-weight:700;color:#375747;}
 .total {font-size:36px;font-weight:800;line-height:1.1;letter-spacing:-.04em;color:#153e2b;font-variant-numeric:tabular-nums;}
 .subtle {font-size:13px;color:#63776b;margin:4px 0 0;}
@@ -16,7 +16,7 @@
 .areaSymbol {font-size:20px;}
 .area strong {margin-left:auto;min-width:30px;text-align:center;padding:4px 8px;background:#eef1ef;border-radius:9px;font-size:15px;}
 .area.hasFindings strong {background:#cdebd5;color:#1c693a;}
-.results {padding:12px 14px;border:1px solid #dbe3dd;background:white;border-radius:16px;min-width:0;}
+.results {padding:var(--admin-v3-card-padding, 12px) 14px;border:1px solid #dbe3dd;background:white;border-radius:16px;min-width:0;}
 .heading {display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
 .heading h2 {font-size:20px;margin:0;color:#23392e;}
 .heading span {color:#64766a;font-size:13px;}
