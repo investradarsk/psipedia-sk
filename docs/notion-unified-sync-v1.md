@@ -57,3 +57,7 @@ Regresný test: `node --experimental-strip-types --test tests/notion-sync-health
 ### Bezpečnostné doplnenie fázy 3A
 
 Pri nesúhlase identity Notion stránky alebo pri presune z kanonického data source vznikne typovaná chyba `NotionDirectoryUnsafeTargetError`. Obe catch vetvy stále započítajú zlyhanie do diagnostiky, ale **neposielajú ani diagnostický PATCH** `Sync stav / Sync chyba` na neoverenú Notion stránku. Dáta zostávajú nedotknuté a existujúce D1 mapovanie sa nemení. Test kontroluje obe cesty.
+
+## CI regresná oprava — izolované VM integračné testy
+
+Doplnený reálny `notionDirectoryPageBelongsToSource` a `NotionDirectoryUnsafeTargetError` do existujúcich VM fixture kontextov `tests/notion-directory-apply-sql-r2-integration.test.mjs` a `tests/gemini-canonical-publish-handoff.test.mjs`. Skúšobné Notion stránky majú validné `parent.type` a `parent.data_source_id`; produkčná ochrana sa teda testuje, neobchádza. Regresie v predchádzajúcom SHA boli spôsobené tým, že výňatok funkcie bol spustený bez jeho importov.
