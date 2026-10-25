@@ -8,8 +8,8 @@
 .hubCard {
   display: grid;
   min-height: 106px;
-  gap: 9px;
-  padding: 13px 14px;
+  gap: var(--admin-v3-compact-gap, 10px);
+  padding: var(--admin-v3-card-padding, 12px) 14px;
   border: 1px solid rgba(23, 53, 43, .1);
   border-radius: 18px;
   color: #17352b;
