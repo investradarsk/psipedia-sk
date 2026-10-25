@@ -266,7 +266,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
         <div className="admin-event-bulk">
           <BulkSelectionCheckbox checked={pageAllSelected} indeterminate={pageSomeSelected}
             disabled={!hydrated || busy || loading || !rows.length}
-            label="Vybrať túto stranu" className="admin-event-page-select"
+            label="Vybrať túto stranu"
             onChange={(checked) => {
               setSelected((current) => {
                 const next = new Set(current);
