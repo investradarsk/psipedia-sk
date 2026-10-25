@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminWorkspaceDashboard } from "@/components/admin-workspace-dashboard";
@@ -7,7 +6,6 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import {
   readAdminAutomationData,
-  summarizeAdminAutomationReads,
 } from "@/lib/admin-automation-reliability";
 import {loadMissingQualityDashboard,getQualityMissingDatabase} from "@/lib/data-quality-missing-hourly";
 import {loadAdminWorkspaceFeed} from "@/lib/admin-workspace-feed";
@@ -40,29 +38,6 @@ function loadWorkspaceQuality() {
   });
 }
 
-async function AdminDashboardContent({
-  attentionPromise,
-  qualityPromise,
-  workspaceFeedPromise,
-}: {
-  attentionPromise: ReturnType<typeof loadExactAdminAttentionSummary>;
-  qualityPromise: ReturnType<typeof loadWorkspaceQuality>;
-  workspaceFeedPromise: ReturnType<typeof loadAdminWorkspaceFeed>;
-}) {
-  const [attention, qualityRead, workspaceFeed] = await Promise.all([
-    attentionPromise, qualityPromise, workspaceFeedPromise,
-  ]);
-  const workspaceReliability = summarizeAdminAutomationReads([qualityRead]);
-  return (
-    <AdminWorkspaceDashboard
-      attention={attention}
-      activity={workspaceFeed}
-      quality={{ status: qualityRead.status, data: qualityRead.data }}
-      workspaceReliability={workspaceReliability}
-    />
-  );
-}
-
 export default async function AdminPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireAdminPageUser("/admin");
   const params = await searchParams;
@@ -84,13 +59,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       actions={<Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link>}
       attentionSummaryPromise={attentionPromise}
     >
-      <Suspense fallback={<p role="status" aria-live="polite">Načítava sa pracovný prehľad…</p>}>
-        <AdminDashboardContent
-          attentionPromise={attentionPromise}
-          qualityPromise={qualityPromise}
-          workspaceFeedPromise={workspaceFeedPromise}
-        />
-      </Suspense>
+      <AdminWorkspaceDashboard
+        attentionPromise={attentionPromise}
+        qualityPromise={qualityPromise}
+        activityPromise={workspaceFeedPromise}
+      />
     </AdminShell>
   );
 }
