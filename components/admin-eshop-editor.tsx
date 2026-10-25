@@ -5,6 +5,7 @@ import {useRouter} from "next/navigation";
 import {AdminUnsavedNavigationDialog} from "@/components/admin-unsaved-navigation-dialog";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { adminSelectedImage } from "@/lib/admin-selected-image";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import type { ManagedEshop } from "@/lib/eshop-ratings";
@@ -213,7 +214,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       </section>
 
       </fieldset>
-      {(message || error) ? <p className={error ? styles.error : styles.success} role={error ? "alert" : "status"}>{error || message}</p> : null}
+      <AdminFormFeedback message={message} error={error} pending={saving} errorClassName={styles.error} successClassName={styles.success} />
       </EditorWorkspace>
       <AdminUnsavedNavigationDialog open={confirmLeave} destination="prehľad e-shopov" onStay={()=>setConfirmLeave(false)}
         onLeave={()=>{setConfirmLeave(false);router.push("/admin/recenzie/eshopy");}}/>

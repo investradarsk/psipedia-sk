@@ -54,3 +54,21 @@ test("Breed measurement errors are linked to their inputs",()=>{
     assert.ok(src.includes('<AdminFieldFeedback id="'+id+'" message={measurementMessage(form.'+field+',"'+field+'")} invalid={measurementHasError(form.'+field+',"'+field+'")}'));
   }
 });
+
+test("Eshop, Organization and Directory editors share the same save feedback without changing write contracts", () => {
+  const eshop = read("components/admin-eshop-editor.tsx");
+  const organization = read("components/admin-organization-editor.tsx");
+  const directory = read("components/admin-directory-editor.tsx");
+  for (const source of [eshop, organization, directory]) {
+    assert.match(source, /import \{ AdminFormFeedback \} from "@\/components\/admin-form-feedback"/);
+    assert.match(source, /<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
+    assert.doesNotMatch(source, /\{error \|\| message\}<\/div>/);
+  }
+  assert.match(eshop, /AdminUnsavedNavigationDialog/);
+  assert.match(eshop, /\.\/admin\/recenzie\/eshopy|\/admin\/recenzie\/eshopy/);
+  assert.match(organization, /EditorUnsavedChangesGuard active=\{dirty\}/);
+  assert.match(organization, /expectedUpdatedAt/);
+  assert.match(directory, /pendingLabel="Obnovujem…"/);
+  assert.match(directory, /NotionDraftFields/);
+  assert.match(directory, /<AdminSingleImageUpload/);
+});

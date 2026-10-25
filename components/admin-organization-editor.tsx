@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AdminActionButton, AdminEditorSection, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
@@ -262,8 +263,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
     {imageEditorOpen && draft.imageUrl && <ImageDisplayEditor src={draft.imageUrl} alt={draft.name || "Organizácia"} title={draft.name} excerpt={draft.shortDescription} entityLabel="organizácie" thumbnailAspectRatio="4 / 3"
        thumbnail={draft.thumbnailImageDisplay ?? null} detail={draft.detailImageDisplay ?? null} onCancel={() => setImageEditorOpen(false)}
        onSave={(thumbnail, detail) => { patch({ thumbnailImageDisplay: thumbnail, detailImageDisplay: detail }); setImageEditorOpen(false); }} />}
-    {message && <p className="admin-message" role="status">{message}</p>}
-    {error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
+    <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
     <div className="admin-editor-actions">
       <div><Link href="/admin/organizacie">← Späť na organizácie</Link></div>
       <div><AdminActionButton variant="primary" type="submit" disabled={editingDisabled || saving || uploading}>{saving ? "Ukladám…" : organization ? "Uložiť organizáciu" : "Vytvoriť koncept"}</AdminActionButton></div>

@@ -17,6 +17,7 @@ import {
 } from "@/components/admin-interaction-system";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { EditorStatus, EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import type { ArticleSeo } from "@/lib/content";
@@ -438,8 +439,7 @@ export function AdminDirectoryEditor({
           <span>Odkontrolované</span>
           {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
         </label>
-        {message && <p className="admin-flash" role="status">{message}</p>}
-        {error && <p className="admin-flash admin-flash--error" role="alert">{error}</p>}
+        <AdminFormFeedback message={message} error={error} pending={saving} pendingLabel="Obnovujem…" className="admin-flash" errorClassName="admin-flash--error" />
         <AdminActionButton variant="primary" disabled={saving} onClick={() => void restoreArchivedProfile()}>
           {saving ? "Obnovujem…" : "Obnoviť do konceptu"}
         </AdminActionButton>
@@ -733,7 +733,7 @@ export function AdminDirectoryEditor({
       </AdminDrawer>
 
       </NotionDraftFields>
-      {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>{error || message}</div>}
+      <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
       <div className="admin-editor-actions">
         <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" onClick={event => {
           if (formDirty && !window.confirm("Zahodiť neuložené zmeny profilu?")) event.preventDefault();
