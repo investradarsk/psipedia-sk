@@ -67,9 +67,12 @@ test("public article integration stays single-slot and does not restore related/
   assert.doesNotMatch(detail, /Najnovšie články|Súvisiace články/);
   assert.match(component, /data-content-discovery-v3/);
   assert.match(component, /aria-label="Pokračovanie po článku"/);
-  assert.match(css, /min-height:\s*44px/);
+  assert.match(component, /<PublicActionLink href=\{next.href\} variant="tertiary"/);
+  // The shared PublicAction now owns touch size and keyboard focus, not local link CSS.
+  const actionCss = source("components/public-visual-system/public-visual-system.module.css");
+  assert.match(actionCss, /\.action\s*\{[^}]*min-height:\s*44px/);
+  assert.match(actionCss, /\.action:focus-visible/);
   assert.match(css, /overflow-wrap:\s*anywhere/);
-  assert.match(css, /:focus-visible/);
   assert.match(css, /@media \(max-width: 600px\)/);
   assert.doesNotMatch(source("components/portal-hub.tsx"), /data-content-discovery-v3/);
 });
