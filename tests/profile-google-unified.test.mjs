@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { latestGoogleMapsActionSql } from "../lib/geo-admin-moderation-sql.ts";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -85,8 +86,8 @@ test("HELP confirmation creates at most the one missing canonical address and ne
 test("HELP organization NOT_REQUIRED is organization-level and Admin Mapy honors it", () => {
   assert.match(organizationWorkflow, /ORGANIZATION_GOOGLE_MAPS_RESOURCE_TYPE = "HELP_ORGANIZATION"/);
   assert.match(organizationWorkflow, /GOOGLE_MAPS_NOT_REQUIRED_ACTION/);
-  assert.match(operator, /organization_map_review_ranked/);
-  assert.match(operator, /resource_type = 'HELP_ORGANIZATION'/);
+  assert.match(operator, /latestGoogleMapsActionSql\('o\.id', 'HELP_ORGANIZATION'\)/);
+  assert.match(latestGoogleMapsActionSql('o.id', 'HELP_ORGANIZATION'), /resource_type = 'HELP_ORGANIZATION'/);
   assert.match(bulk, /getOrganizationGoogleMapsWorkflowDecision/);
 });
 
