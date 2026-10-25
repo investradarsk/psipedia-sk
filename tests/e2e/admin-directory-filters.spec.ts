@@ -169,6 +169,33 @@ test.describe("admin directory v2", () => {
     expect(invalidTrust.status()).toBe(400);
   });
 
+  test("directory editor cancels and discards unsaved navigation through shared dialog", async ({ page }) => {
+    // Read-only test: no profile update or publication request is sent.
+    await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "domcontentloaded" });
+    await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
+
+    const phone = page.getByLabel("Verejný telefón");
+    const previous = await phone.inputValue();
+    await phone.fill(previous + " 9");
+    await expect(page.locator("form.admin-directory-editor [data-editor-status]").filter({ hasText: "Neuložené zmeny" })).toBeVisible();
+
+    // The admin shell and the editor both expose this link; exercise the guarded editor link.
+    const back = page.locator("form.admin-directory-editor").getByRole("link", { name: "← Späť na adresár", exact: true });
+    await back.click();
+    const confirm = page.getByRole("dialog", { name: "Neuložené zmeny" });
+    await expect(confirm).toBeVisible();
+    await expect(confirm.getByRole("button", { name: "Pokračovať v úpravách" })).toBeFocused();
+    await confirm.press("Escape");
+    await expect(confirm).not.toBeVisible();
+    await expect(phone).toHaveValue(previous + " 9");
+    await expect(page).toHaveURL(/\/admin\/adresar\/\d+$/);
+
+    await back.click();
+    await confirm.getByRole("button", { name: "Zahodiť zmeny a zavrieť" }).click();
+    await expect(page).toHaveURL(/\/admin\/adresar$/);
+  });
+
   test("editor safely edits contacts/media, preserves relation metadata and keeps trust separate from publication", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");

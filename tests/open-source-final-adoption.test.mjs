@@ -14,7 +14,9 @@ test("Lexical plain text appends without rewriting existing Markdown",()=>{
 });
 test("Radix and Lexical must remain opt-in and must not replace canonical article format",()=>{
   const event=read("components/admin-event-markdown-editor.tsx"), draft=read("components/admin-lexical-draft-dialog.tsx");
-  assert.ok(event.includes('dynamic(() => import("@/components/admin-lexical-draft-dialog")'));
+  const shared=read("components/admin-lexical-append-button.tsx");
+  assert.ok(event.includes('from "@/components/admin-lexical-append-button"'));
+  assert.ok(shared.includes('import("@/components/admin-lexical-draft-dialog")'));
   assert.ok(event.includes("appendLexicalPlainTextToMarkdown(value, plainText)"));
   assert.ok(event.includes('<textarea disabled={!hydrated}'));
   for(const val of ['from "@radix-ui/react-dialog"','from "@lexical/react/LexicalComposer"','from "@lexical/react/LexicalPlainTextPlugin"','from "@lexical/react/LexicalOnChangePlugin"'])assert.ok(draft.includes(val));

@@ -147,17 +147,21 @@ export function EditorActionBar({
   secondary,
   destructive,
   message,
+  feedback,
 }: {
   primary?: ReactNode;
   secondary?: ReactNode;
   destructive?: ReactNode;
   message?: ReactNode;
+  /** Already-announced alert/status element; render without nesting in another live region. */
+  feedback?: ReactNode;
 }) {
   return (
     <div className={styles.actionBar} data-editor-actionbar>
       <div className={styles.actionStart}>
         {destructive}
         {message && <div className={styles.actionMessage} role="status" aria-live="polite">{message}</div>}
+        {feedback}
       </div>
       <div className={styles.actionEnd}>{secondary}{primary}</div>
     </div>
@@ -169,21 +173,24 @@ export function EditorUnsavedChangesGuard({
   open,
   onStay,
   onDiscard,
+  allowNativeExitRef,
 }: {
   active: boolean;
   open: boolean;
   onStay: () => void;
   onDiscard: () => void;
+  allowNativeExitRef?: RefObject<boolean>;
 }) {
   useEffect(() => {
     if (!active) return;
     const warn = (event: BeforeUnloadEvent) => {
+      if (allowNativeExitRef?.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [active]);
+  }, [active, allowNativeExitRef]);
 
   return (
     <AdminModalDialog
@@ -191,9 +198,10 @@ export function EditorUnsavedChangesGuard({
       title="Neuložené zmeny"
       description="Upravované údaje zatiaľ nie sú uložené."
       onClose={onStay}
+      preferExplicitAutofocus
       footer={
         <>
-          <AdminActionButton variant="neutral" onClick={onStay}>Pokračovať v úpravách</AdminActionButton>
+          <AdminActionButton variant="neutral" data-admin-autofocus="true" onClick={onStay}>Pokračovať v úpravách</AdminActionButton>
           <AdminActionButton variant="destructive" onClick={onDiscard}>Zahodiť zmeny a zavrieť</AdminActionButton>
         </>
       }

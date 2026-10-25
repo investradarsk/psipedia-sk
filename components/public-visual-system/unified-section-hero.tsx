@@ -14,6 +14,7 @@ import type { SectionHeroConfig } from "@/lib/portal";
 import { PageContainer } from "@/components/page-system";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import styles from "./unified-section-hero.module.css";
+import { PublicActionLink } from "./public-visual-system";
 
 type VisualStyle = CSSProperties & Record<
   | "--section-visual-desktop-x"
@@ -110,15 +111,17 @@ function managedSearch(searchSlot: ReactNode, config: SectionHeroConfig, fallbac
 function managedCta(config: SectionHeroConfig, fallback: ReactNode) {
   if (config.ctaEnabled === false) return null;
   if (config.ctaEnabled === true && config.ctaLabel && config.ctaHref) {
+    const tone = config.ctaVariant ?? "primary";
     return (
-      <a
+      <PublicActionLink
         className={styles.managedCta}
         href={config.ctaHref}
+        variant={tone === "secondary" ? "secondary" : "primary"}
         data-section-hero-cta
-        data-variant={config.ctaVariant ?? "primary"}
+        data-variant={tone}
       >
         {config.ctaLabel}
-      </a>
+      </PublicActionLink>
     );
   }
   return fallback;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import {
+  PublicActionLink,
   PublicContentShell,
   PublicFoundation,
   UnifiedSectionHero,
@@ -136,14 +137,14 @@ export async function DirectoryPage({
                   <h2>Nájdi služby na mape</h2>
                   <p>Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality.</p>
                   {filters.canonicalService&&<p>Mapa používa rovnaký filter potvrdenej služby ako zoznam.</p>}
-                  <Link href={mapHref(filters, active?.slug)}>Zobraziť na mape →</Link>
+                  <PublicActionLink variant="primary" href={mapHref(filters, active?.slug)}>Zobraziť na mape →</PublicActionLink>
                 </section>
 
                 <section className={styles.sidebarCard} data-directory-provider-cta>
                   <span className={styles.sidebarEyebrow}>Pre poskytovateľov</span>
                   <h2>Poskytuješ služby pre psov?</h2>
                   <p>Požiadaj o pridanie alebo úpravu údajov svojho profilu.</p>
-                  <Link href="/o-nas#kontakt">Pridať alebo upraviť profil →</Link>
+                  <PublicActionLink variant="secondary" href="/o-nas#kontakt">Pridať alebo upraviť profil →</PublicActionLink>
                 </section>
 
                 <div className={styles.popularityCard} data-directory-popular-articles>

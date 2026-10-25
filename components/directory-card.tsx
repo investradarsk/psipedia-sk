@@ -18,6 +18,7 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
       className={styles.card}
       href={directoryProfileHref(profile)}
       data-directory-card
+      data-public-card="directory"
       data-directory-featured={profile.featured ? "true" : undefined}
     >
       <span className={`${styles.cardInner} ${styles.cardWithImage}`}>
@@ -25,14 +26,14 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
           {profile.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={profile.thumbnailImageDisplay} src={profile.imageUrl} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback />}
         </span>
         <span className={styles.cardCopy}>
-          <span className={styles.cardTopline}>
+          <span className={styles.cardTopline} data-public-card-meta>
             <span className={styles.cardType}>{category?.singular ?? "Služba pre psov"}</span>
             {profile.featured && <span className={styles.featured}>Odporúčame</span>}
           </span>
-          <strong className={styles.cardTitle}>{profile.name}</strong>
+          <strong className={styles.cardTitle} data-public-card-title>{profile.name}</strong>
           {location && <span className={styles.cardLocation}>{location}</span>}
           {(serviceMeta.length > 0 || profile.priceNote) && (
-            <span className={styles.cardMeta}>
+            <span className={styles.cardMeta} data-public-card-meta>
               {serviceMeta.map((service) => <span key={service}>{service}</span>)}
               {profile.priceNote && <span>{profile.priceNote}</span>}
             </span>

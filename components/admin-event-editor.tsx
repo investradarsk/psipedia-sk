@@ -1,7 +1,10 @@
 "use client";
+import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
+import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { useRouter } from "next/navigation";
-import { AdminActionButton, AdminModalDialog } from "@/components/admin-interaction-system";
+import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
 import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, EditorUnsavedChangesGuard, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
 import { AdminEventMarkdownEditor } from "@/components/admin-event-markdown-editor";
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -157,8 +160,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
     if (!slugEdited) setSlug(slugify(value));
   }
 
-  async function uploadImage(uploadEvent: ChangeEvent<HTMLInputElement>) {
-    const file = uploadEvent.target.files?.[0];
+  async function uploadImage(uploadEvent: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(uploadEvent);
     if (!file) return;
     setUploading(true); setError(""); setMessage("");
     try {
@@ -166,7 +169,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       setImageUrl(data.imageUrl); setImageKey(data.imageKey); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setMessage(adminImageUploadMessage(data, "Ulož podujatie."));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
-    } finally { setUploading(false); uploadEvent.target.value = ""; }
+    } finally { setUploading(false); }
   }
 
   function applyAutomationUpdate(values: Record<string, unknown>) {
@@ -241,7 +244,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         closeLabel="Späť na podujatia"
         actions={
           <EditorActionBar
-            message={error ? <span className={styles.errorText} role="alert">{error}</span> : message || (dirty ? "Neuložené zmeny" : undefined)}
+            message={dirty ? "Neuložené zmeny" : undefined}
+            feedback={<AdminFormFeedback message={message} error={error} pending={saving} />}
             destructive={status === "published" ? <AdminActionButton type="button" variant="secondary" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z kalendára</AdminActionButton> : undefined}
             secondary={status === "draft" ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton> : undefined}
             primary={status === "published"
@@ -302,7 +306,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
             <div className="admin-field"><label htmlFor="event-slug">Adresa podujatia</label><div className="admin-slug-input"><span>psipedia.sk/podujatia/</span><input id="event-slug" value={slug} onChange={(input) => { setSlugEdited(true); setSlug(slugify(input.target.value)); }} placeholder="adresa-podujatia" required /></div></div>
             <div className="admin-upload-row">
               <div className="admin-upload-preview admin-upload-preview--coral">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" src={imageUrl} config={thumbnailImageDisplay} legacyMode={imageDisplay} alt="Náhľad obrázka podujatia" /> : <span>📅</span>}</div>
-              <div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); }}>Odstrániť fotku</button>}<small>Odporúčaný pomer 16 : 9, najviac 8 MB.</small></div>
+              <div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); }}>Odstrániť fotku</button>}<small>Odporúčaný pomer 16 : 9, najviac 8 MB.</small></div>
             </div>
             {imageUrl && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
              <label className="admin-event-cancelled"><input type="checkbox" checked={cancelled} onChange={(input) => setCancelled(input.target.checked)} /><span><strong>Podujatie je zrušené</strong><small>Na verejnej stránke sa zobrazí výrazné upozornenie.</small></span></label>
@@ -328,21 +332,18 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         onStay={stayInEditor}
         onDiscard={discardAndNavigate}
       />
-      <AdminModalDialog
+      <AdminDestructiveConfirmDialog
         open={confirmUnpublish}
         title="Stiahnuť podujatie z kalendára?"
         description="Podujatie sa zmení na koncept a nebude verejne publikované."
-        onClose={() => setConfirmUnpublish(false)}
-        footer={
-          <>
-            <AdminActionButton type="button" variant="neutral" onClick={() => setConfirmUnpublish(false)}>Ponechať publikované</AdminActionButton>
-            <AdminActionButton type="button" variant="destructive" disabled={saving || uploading}
-              onClick={() => { setConfirmUnpublish(false); void save("draft"); }}>Potvrdiť stiahnutie</AdminActionButton>
-          </>
-        }
-      >
-        <p>Táto akcia je oddelená od uloženia úprav publikovaného podujatia.</p>
-      </AdminModalDialog>
+        affectedCount={1}
+        affectedLabel="podujatie"
+        confirmLabel="Potvrdiť stiahnutie"
+        cancelLabel="Ponechať publikované"
+        pending={saving || uploading}
+        onCancel={() => setConfirmUnpublish(false)}
+        onConfirm={() => { setConfirmUnpublish(false); void save("draft"); }}
+      />
     </div>
   );
 }

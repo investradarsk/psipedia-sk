@@ -1,10 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import {useRouter} from "next/navigation";
+import {AdminUnsavedNavigationDialog} from "@/components/admin-unsaved-navigation-dialog";
 import { ChangeEvent, FormEvent, useState } from "react";
+import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
+import { adminSelectedImage } from "@/lib/admin-selected-image";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import type { ManagedEshop } from "@/lib/eshop-ratings";
 import { AdminActionButton } from "@/components/admin-interaction-system";
+import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
+import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 import styles from "./admin-eshop-editor.module.css";
 
@@ -29,6 +36,8 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [confirmLeave,setConfirmLeave]=useState(false);
+  const router=useRouter();
   const [savedSignature, setSavedSignature] = useState(() => JSON.stringify({
     name: shop.name, slug: shop.slug, websiteUrl: shop.websiteUrl,
     description: shop.description, sourceUrl: shop.sourceUrl,
@@ -40,8 +49,8 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   });
   const dirty = currentSignature !== savedSignature;
 
-  async function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function uploadLogo(event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(true);
     setMessage("");
@@ -55,7 +64,6 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       setError(uploadError instanceof Error ? uploadError.message : "Logo sa nepodarilo nahrať.");
     } finally {
       setUploading(false);
-      event.target.value = "";
     }
   }
 
@@ -132,7 +140,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         actions={<EditorActionBar
           secondary={<div className={styles.actionLinks}>
             <Link href="/admin/recenzie/eshopy" onClick={event => {
-              if (dirty && !window.confirm("Zahodiť neuložené zmeny e-shopu?")) event.preventDefault();
+              if(dirty && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey){event.preventDefault();setConfirmLeave(true);}
             }}>← Späť na e-shopy</Link>
             {shop.status === "published" && <Link href={"/recenzie/eshopy/" + shop.slug} target="_blank" rel="noopener noreferrer">Pozrieť publikovaný profil ↗</Link>}
           </div>}
@@ -149,7 +157,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
           <label><span>Názov</span><input value={name} onChange={(event) => setName(event.target.value)} required /></label>
           <label><span>Adresa profilu</span><input value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))} required /></label>
           <label className={styles.wide}><span>Web e-shopu</span><input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} required /></label>
-          <label className={styles.wide}><span>Popis</span><textarea rows={6} value={description} onChange={(event) => setDescription(event.target.value)} required /></label>
+          <div className={styles.wide}><label><span>Popis</span><textarea rows={6} value={description} onChange={(event) => setDescription(event.target.value)} required /></label><AdminLexicalAppendButton disabled={saving || uploading} onAppend={text => setDescription(current => appendLexicalPlainText(current,text))}/></div>
           <label className={styles.wide}><span>Zdroj profilu</span><input type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} required /></label>
         </div>
       </section>
@@ -182,10 +190,8 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         <div className={styles.logoRow}>
           <div className={styles.logoPreview}>{logoUrl ? <img src={logoUrl} alt={`Logo ${name}`} /> : <span>LOGO</span>}</div>
           <div className={styles.logoActions}>
-            <label className={styles.uploadButton}>
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadLogo} disabled={uploading} />
-              {uploading ? "Nahrávam…" : logoUrl ? "Nahrať iné logo" : "Nahrať logo"}
-            </label>
+            <AdminSingleImageUpload label={logoUrl ? "Nahrať iné logo" : "Nahrať logo"}
+              onFile={uploadLogo} busy={uploading} disabled={saving} onRejected={setError}/>
             <label><span>URL loga</span><input value={logoUrl} onChange={(event) => { setLogoUrl(event.target.value); setLogoKey(""); }} placeholder="https://… alebo /media/…" /></label>
             {logoUrl ? <button type="button" className={styles.remove} onClick={() => { setLogoUrl(""); setLogoKey(""); }}>Odstrániť logo</button> : null}
           </div>
@@ -208,8 +214,10 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       </section>
 
       </fieldset>
-      {(message || error) ? <p className={error ? styles.error : styles.success} role={error ? "alert" : "status"}>{error || message}</p> : null}
+      <AdminFormFeedback message={message} error={error} pending={saving} errorClassName={styles.error} successClassName={styles.success} />
       </EditorWorkspace>
+      <AdminUnsavedNavigationDialog open={confirmLeave} destination="prehľad e-shopov" onStay={()=>setConfirmLeave(false)}
+        onLeave={()=>{setConfirmLeave(false);router.push("/admin/recenzie/eshopy");}}/>
     </form>
   );
 }

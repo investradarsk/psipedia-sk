@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
-import { PublicMediaFallback } from "@/components/public-visual-system";
+import { PublicActionLink, PublicMediaFallback } from "@/components/public-visual-system";
 import {
   formatHelpAmount,
   formatHelpDate,
@@ -22,7 +22,7 @@ export function HelpCard({ item }: { item: PublicHelpCard }) {
   const location = publicLocationLabel([publicLocationValue(item.city, "city"), publicLocationValue(item.region, "region")]);
 
   return (
-    <article data-help-card className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
+    <article data-help-card data-public-card="help" data-public-card-emphasis={item.urgent && !item.resolved ? "urgent" : undefined} className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
       <Link className={styles.media} href={detailHref} aria-label={"Otvoriť " + item.title}>
         {item.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={item.thumbnailImageDisplay} src={item.imageUrl} alt={item.dogName ? item.dogName + " – " + item.title : item.title} loading="lazy" decoding="async" /> : <span className={styles.mediaFallback} aria-hidden="true"><PublicMediaFallback /></span>}
         <span className={styles.badges}>
@@ -34,10 +34,10 @@ export function HelpCard({ item }: { item: PublicHelpCard }) {
         <div className={styles.tags}>
           <span>{category?.singular ?? "Pomoc psom"}</span>
         </div>
-        <h3><Link href={detailHref}>{item.title}</Link></h3>
+        <h3 data-public-card-title><Link href={detailHref}>{item.title}</Link></h3>
         {item.excerpt ? <p className={styles.excerpt}>{item.excerpt}</p> : null}
 
-        <div className={styles.metaList}>
+        <div className={styles.metaList} data-public-card-meta>
           {item.organization ? <span className={[styles.metaItem, styles.organization].join(" ")}>{item.organization}</span> : null}
           {location ? <span className={styles.metaItem}><LocationIcon size={16} /><span>{location}</span></span> : null}
           {displayDate ? <span className={styles.metaItem}><CalendarIcon size={16} /><span>Aktualizované {formatHelpDate(displayDate)}</span></span> : null}
@@ -55,7 +55,9 @@ export function HelpCard({ item }: { item: PublicHelpCard }) {
           <p>{progress} % cieľa</p>
         </div> : null}
 
-        <Link className={styles.cardAction} href={detailHref}>{item.resolved ? "Pozrieť výsledok" : "Otvoriť detail"} <ArrowIcon size={17} /></Link>
+        <PublicActionLink className={styles.cardAction} variant="tertiary" href={detailHref} icon={<ArrowIcon size={17} />}>
+          {item.resolved ? "Pozrieť výsledok" : "Otvoriť detail"}
+        </PublicActionLink>
       </div>
     </article>
   );

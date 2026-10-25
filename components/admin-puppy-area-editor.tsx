@@ -7,6 +7,10 @@ import type { PortalSubpage } from "@/lib/portal";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 import { AdminActionButton } from "@/components/admin-interaction-system";
+import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
+import { adminSelectedImage } from "@/lib/admin-selected-image";
+import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
+import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
 export function AdminPuppyAreaEditor({ initialSections }: { initialSections: ManagedPortalSection[] }) {
   const [sections, setSections] = useState(initialSections);
@@ -40,8 +44,8 @@ export function AdminPuppyAreaEditor({ initialSections }: { initialSections: Man
     replaceAreas(next);
   }
 
-  async function upload(index: number, event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function upload(index: number, event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(areas[index].slug); setError(""); setMessage("");
     try {
@@ -51,7 +55,7 @@ export function AdminPuppyAreaEditor({ initialSections }: { initialSections: Man
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
     } finally {
-      setUploading(""); event.target.value = "";
+      setUploading("");
     }
   }
 
@@ -88,8 +92,8 @@ export function AdminPuppyAreaEditor({ initialSections }: { initialSections: Man
       <div className="admin-puppy-content-fields">
         <div className="admin-field-grid"><div className="admin-field"><label>Názov oblasti</label><input value={area.label} onChange={(event) => update(index, { label: event.target.value })} /></div><div className="admin-field"><label>Adresa URL</label><input value={area.slug} disabled /></div></div>
         <div className="admin-field"><label>Krátky opis</label><textarea rows={2} value={area.description} onChange={(event) => update(index, { description: event.target.value })} /></div>
-        <div className="admin-field"><label>Úvodný text stránky</label><textarea rows={6} value={area.intro ?? ""} onChange={(event) => update(index, { intro: event.target.value })} placeholder="Vlastný praktický úvod pre túto oblasť…" /></div>
-        <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--coral">{area.imageUrl ? <img src={area.imageUrl} alt="Náhľad oblasti" /> : <span>🐶</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void upload(index, event)} disabled={Boolean(uploading)} />{uploading === area.slug ? "Nahrávam…" : area.imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{area.imageUrl && <button type="button" onClick={() => update(index, { imageUrl: "", imageAlt: "" })}>Odstrániť fotku</button>}<small>JPG, PNG, WebP alebo AVIF, najviac 8 MB.</small></div></div>
+        <div className="admin-field"><label>Úvodný text stránky</label><textarea rows={6} value={area.intro ?? ""} onChange={(event) => update(index, { intro: event.target.value })} placeholder="Vlastný praktický úvod pre túto oblasť…" /><AdminLexicalAppendButton disabled={saving || Boolean(uploading)} onAppend={text => update(index, { intro: appendLexicalPlainText(area.intro ?? "", text) })}/></div>
+        <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--coral">{area.imageUrl ? <img src={area.imageUrl} alt="Náhľad oblasti" /> : <span>🐶</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={area.imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={file=>upload(index,file)} busy={uploading === area.slug} disabled={saving || Boolean(uploading)} onRejected={setError}/>{area.imageUrl && <button type="button" onClick={() => update(index, { imageUrl: "", imageAlt: "" })}>Odstrániť fotku</button>}<small>JPG, PNG, WebP alebo AVIF, najviac 8 MB.</small></div></div>
         {area.imageUrl && <div className="admin-field"><label>Alt text obrázka</label><input value={area.imageAlt ?? ""} onChange={(event) => update(index, { imageAlt: event.target.value })} placeholder={`Fotografia: ${area.label}`} /></div>}
         <div className="admin-puppy-content-actions"><button type="button" onClick={() => move(index, -1)} disabled={index === 0}>↑ Vyššie</button><button type="button" onClick={() => move(index, 1)} disabled={index === areas.length - 1}>↓ Nižšie</button><Link href={`/admin/novy?sekcia=steniatka&oblast=${area.slug}`}>+ Pridať článok do oblasti</Link><Link href={`/steniatka/${area.slug}`} target="_blank">Pozrieť stránku ↗</Link></div>
       </div>

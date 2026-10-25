@@ -32,6 +32,37 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.viewport + 1);
 }
 
+
+test("adoption editor keeps unsaved input on cancelled navigation and discards only on confirmation", async ({ page }) => {
+  const response = await page.goto("/admin/adopcie/novy", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  const form = page.locator("form.admin-event-editor");
+  await expect(form).toHaveAttribute("data-hydrated", "true");
+
+  const name = form.locator("#adoption-name");
+  await name.fill("Rozpracovaný adopčný profil");
+  await expect(form.locator("[data-editor-status]")).toContainText("Neuložené zmeny");
+  const writes: string[] = [];
+  page.on("request", request => {
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) &&
+        request.url().includes("/api/admin/adoptions")) writes.push(request.url());
+  });
+
+  await form.getByRole("link", { name: "Zrušiť", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Neuložené zmeny" });
+  await expect(dialog).toBeVisible();
+  const stay = dialog.getByRole("button", { name: "Pokračovať v úpravách" });
+  await expect(stay).toBeFocused();
+  await stay.click();
+  await expect(name).toHaveValue("Rozpracovaný adopčný profil");
+  await expect(page).toHaveURL(/\/admin\/adopcie\/novy$/);
+
+  await form.getByRole("link", { name: "Zrušiť", exact: true }).click();
+  await dialog.getByRole("button", { name: "Zahodiť zmeny a zavrieť" }).click();
+  await expect(page).toHaveURL(/\/admin\/adopcie$/);
+  expect(writes).toEqual([]);
+});
+
 test("seeded adoption catalogue, filters and detail stay public-safe and accessible", async ({ page }) => {
   const response = await page.goto(catalogPath, { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);

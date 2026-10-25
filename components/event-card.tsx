@@ -39,15 +39,15 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
   const endLabel = endDateLabel(event);
   const statusLabel = event.cancelled ? "Zrušené" : dateStatus === "current" ? "Prebieha" : dateStatus === "past" ? "Uskutočnilo sa" : null;
 
-  if (variant === 'grid') return <article className={styles.gridCard} data-event-card data-event-has-image={ownImage ? 'true':'false'} data-event-status={event.cancelled ? 'cancelled':dateStatus}>
+  if (variant === 'grid') return <article className={styles.gridCard} data-public-card="event-grid" data-event-card data-event-has-image={ownImage ? 'true':'false'} data-event-status={event.cancelled ? 'cancelled':dateStatus}>
     <Link href={eventHref(event)} className={styles.gridCardLink}>
       <div className={styles.gridMedia}>
         <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} config={event.thumbnailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 900px) calc(100vw - 284px), (max-width: 1199px) calc((100vw - 334px) / 2), (max-width: 1279px) calc((100vw - 354px) / 3), 290px" alt="" loading="lazy" decoding="async"/>
         <time className={styles.gridDate} dateTime={event.startDate}>{day}. {month}</time>
       </div>
       <div className={styles.gridBody}>
-        <div className={styles.cardMeta}><span className={styles.gridType} style={{'--event-type-color':eventTypePresentation[event.eventType].color} as CSSProperties}>{eventTypePresentation[event.eventType].label}</span>{statusLabel ? <b>{statusLabel}</b>:null}</div>
-        <h3>{event.title}</h3>
+        <div className={styles.cardMeta} data-public-card-meta><span className={styles.gridType} style={{'--event-type-color':eventTypePresentation[event.eventType].color} as CSSProperties}>{eventTypePresentation[event.eventType].label}</span>{statusLabel ? <b>{statusLabel}</b>:null}</div>
+        <h3 data-public-card-title>{event.title}</h3>
         <p>{formatEventDate(event)}{timeLabel ? ' · '+timeLabel:''}</p>
         <p>{location || "Miesto nie je uvedené"}</p>
       </div>
@@ -60,6 +60,7 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
         event.cancelled ? styles.cancelledCard : styles.eventCard,
         styles.eventCardWithImage,
       ].filter(Boolean).join(" ")}
+      data-public-card="event-list"
       data-event-card
       data-event-has-image={ownImage ? "true" : "false"}
       data-event-status={event.cancelled ? "cancelled" : dateStatus}
@@ -75,11 +76,11 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
       </span>
 
       <div className={styles.cardBody}>
-        <div className={styles.cardMeta}>
+        <div className={styles.cardMeta} data-public-card-meta>
           <span>{event.eventType}</span>
           {statusLabel && <b>{statusLabel}</b>}
         </div>
-        <h3><Link href={eventHref(event)}>{event.title}</Link></h3>
+        <h3 data-public-card-title><Link href={eventHref(event)}>{event.title}</Link></h3>
         <div className={styles.cardFacts}>
           {timeLabel && <span><strong>Čas</strong> {timeLabel}</span>}
           <span><strong>Miesto</strong> {location || "Miesto nie je uvedené"}</span>

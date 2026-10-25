@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import {useRouter} from "next/navigation";
+import {AdminUnsavedNavigationDialog} from "@/components/admin-unsaved-navigation-dialog";
 import { useState, type FormEvent } from "react";
 import { geminiAutomationSections, type GeminiSectionKey } from "@/lib/gemini-automation-catalog";
 import {
@@ -53,6 +55,8 @@ function GeminiCategoryPromptForm({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
+  const [pendingHref,setPendingHref]=useState<string|null>(null);
+  const router=useRouter();
 
   const dirty = draft !== current.effectivePrompt;
   const valid = draft.trim().length >= GEMINI_PROMPT_MIN_LENGTH
@@ -144,9 +148,9 @@ function GeminiCategoryPromptForm({
                     aria-current={item.stableKey === selectedKey ? "page" : undefined}
                     className={item.stableKey === selectedKey ? styles.active : styles.categoryLink}
                     onClick={(event) => {
-                      if (dirty && item.stableKey !== selectedKey &&
-                          !window.confirm("Máš neuložené zmeny. Naozaj chceš prejsť na inú kategóriu?")) {
+                      if (dirty && item.stableKey !== selectedKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
                         event.preventDefault();
+                        setPendingHref("/admin/automatizacie-gemini/prompty?stable_key="+encodeURIComponent(item.stableKey));
                       }
                     }}
                   >
@@ -210,6 +214,9 @@ function GeminiCategoryPromptForm({
           Použitie uloženého textu v externom Gemini pracovníkovi zabezpečí samostatná integrácia.
         </p>
       </section>
+      <AdminUnsavedNavigationDialog open={Boolean(pendingHref)} destination="inú kategóriu Gemini promptov"
+        onStay={()=>setPendingHref(null)}
+        onLeave={()=>{const next=pendingHref;setPendingHref(null);if(next)router.push(next);}}/>
     </div>
   );
 }

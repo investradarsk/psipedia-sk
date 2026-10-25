@@ -1054,7 +1054,7 @@ export function MapExperience({
 
   return (
     <>
-      <section className={styles.experience} aria-label="Interaktívna mapa Psipedie">
+      <section className={`shell public-shell ${styles.experience}`} aria-label="Interaktívna mapa Psipedie">
         <div className={styles.toolbar}>
           <div className={styles.primaryRow}>
             <label className={styles.searchField}>
@@ -1298,7 +1298,7 @@ export function MapExperience({
 
       {showProviderDisclosure ? (
         <aside
-          className={styles.providerDisclosure}
+          className={`shell public-shell ${styles.providerDisclosure}`}
           aria-label="Informácie o mapovom podklade"
           data-testid="map-provider-disclosure"
         >

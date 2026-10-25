@@ -6,7 +6,7 @@ import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
 import { BreedSectionNav } from "@/components/breed-section-nav";
 import { ArrowIcon, PawMark } from "@/components/icons";
-import { PublicArticleListItem, PublicContentList, PublicDataCard, PublicFoundation } from "@/components/public-visual-system";
+import { PublicActionLink, PublicArticleListItem, PublicContentList, PublicDataCard, PublicFoundation } from "@/components/public-visual-system";
 import { breedAtlasHref } from "@/lib/breed-atlas";
 import {
   combinedFciMeasurement,
@@ -497,13 +497,13 @@ export default async function BreedDetailPage({ params }: Props) {
                 ))}
               </dl>
             ) : null}
-            <Link
+            <PublicActionLink
               href={`/plemena/${breed.slug}/fci-standard`}
               className={styles.primaryLink}
               data-testid="breed-fci-cta"
             >
               Pozrieť celý FCI štandard <span aria-hidden="true">→</span>
-            </Link>
+            </PublicActionLink>
           </section>
         ) : null}
         </div>

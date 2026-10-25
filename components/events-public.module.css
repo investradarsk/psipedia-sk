@@ -1929,8 +1929,8 @@
   min-width: 0;
   padding: 18px;
   background: white;
-  border: 1px solid #dfe5dd;
-  border-radius: 16px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-filter, 18px);
 }
 .mobileFilters > summary {
   display: none;
@@ -1991,17 +1991,7 @@
   height: 18px;
   accent-color: #205443;
 }
-.sidebarContent button,
-.listHeading button {
-  min-height: 44px;
-  border: 0;
-  border-radius: 8px;
-  padding: 10px 14px;
-  background: #205443;
-  color: white;
-  font: inherit;
-  cursor: pointer;
-}
+/* Filter and sort actions use shared PublicActionButton variants. */
 .listingLayout .upcomingSection {
   margin: 0;
   min-width: 0;
@@ -2027,8 +2017,8 @@
 .gridCard {
   min-width: 0;
   background: white;
-  border: 1px solid #dfe5dd;
-  border-radius: 14px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-card, 22px);
   overflow: hidden;
   box-shadow: 0 3px 10px #173f3509;
 }
@@ -2185,8 +2175,8 @@
 .dayDetail {
   scroll-margin-top: 126px;
 }
-.sidebarContent :is(input, select, button, a):focus-visible,
-.listHeading :is(select, button):focus-visible,
+.sidebarContent :is(input, select, a):focus-visible,
+.listHeading select:focus-visible,
 .pagination a:focus-visible {
   outline: 3px solid var(--forest);
   outline-offset: 3px;
