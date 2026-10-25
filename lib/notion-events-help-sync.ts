@@ -1145,7 +1145,7 @@ await requireVerifiedMappedNotionWriteback({
         let resolvedSource = source;
         if (changed.length) {
           await applyNotionToCanonical(agenda, entityId, merged, input.database);
-          sources = await input.definition.load(input.database, targetEntityId);
+          sources = await input.definition.load(input.database, input.webhookMappedOnly ? targetEntityId : undefined);
           sourcesById = sourceById(sources);
           const reloaded = sourcesById.get(entityId);
           if (!reloaded) throw new Error("CANONICAL_MISSING_AFTER_FIELD_RECONCILIATION");
@@ -1219,7 +1219,7 @@ await requireVerifiedMappedNotionWriteback({
         let resolvedSource = source;
         if (changedFields.length) {
           await applyNotionToCanonical("events", entityId, desired, input.database);
-          sources = await input.definition.load(input.database, targetEntityId);
+          sources = await input.definition.load(input.database, input.webhookMappedOnly ? targetEntityId : undefined);
           sourcesById = sourceById(sources);
           const reloaded = sourcesById.get(entityId);
           if (!reloaded) throw new Error("Canonical event missing after approved Notion merge.");
@@ -1293,7 +1293,7 @@ await requireVerifiedMappedNotionWriteback({
           // Existing canonical adapters enforce review, private contacts,
           // publication and moderation lifecycle independently.
           await applyNotionToCanonical(agenda, entityId, desired, input.database);
-          sources = await input.definition.load(input.database, targetEntityId);
+          sources = await input.definition.load(input.database, input.webhookMappedOnly ? targetEntityId : undefined);
           sourcesById = sourceById(sources);
           const reloaded = sourcesById.get(entityId);
           if (!reloaded) throw new Error("Canonical Help item missing after Notion priority merge.");
@@ -1451,7 +1451,7 @@ await requireVerifiedMappedNotionWriteback({
           pageSnapshot(input.definition.key, page, schema),
           input.database,
         );
-        sources = await input.definition.load(input.database, targetEntityId);
+        sources = await input.definition.load(input.database, input.webhookMappedOnly ? targetEntityId : undefined);
         sourcesById = sourceById(sources);
         const updatedSource = sourcesById.get(entityId);
         if (!updatedSource) throw new Error("Canonical záznam po Notion update zmizol.");
@@ -1694,7 +1694,7 @@ await requireVerifiedMappedNotionWriteback({
       if (!Number.isSafeInteger(entityId) || entityId <= 0) {
         throw new Error("Canonical create nevrátil platné ID.");
       }
-      sources = await input.definition.load(input.database, targetEntityId);
+      sources = await input.definition.load(input.database, input.webhookMappedOnly ? targetEntityId : undefined);
       sourcesById = sourceById(sources);
       const source = sourcesById.get(entityId);
       if (!source) throw new Error("Nový canonical záznam sa po create nenašiel.");
