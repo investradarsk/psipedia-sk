@@ -47,7 +47,7 @@ function fixture() {
 test("0132 is explicitly pinned and gated by manual approval on canonical main", () => {
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-10), target);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-11), previous);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0142_quality_missing_scan_outcomes.sql"]);
   assert.equal(createHash("sha256").update(sql).digest("hex"), APPROVED_0132_SHA256);
   assert.doesNotThrow(() => assertApproved0132Target("psipedia-sk-db", APPROVED_0132_SHA256));
   assert.throws(() => assertApproved0132Target("other-db", APPROVED_0132_SHA256), /canonical/);
