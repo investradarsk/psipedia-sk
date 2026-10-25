@@ -1,4 +1,4 @@
-.root{display:grid;gap:11px;padding:12px 14px;border:1px solid var(--admin-border,#d9e0dc);border-radius:14px;background:var(--admin-surface,#fff);min-width:0}
+.root{display:grid;gap:var(--admin-v3-compact-gap,10px);padding:var(--admin-v3-card-padding,12px) 14px;border:1px solid var(--admin-border,#d9e0dc);border-radius:14px;background:var(--admin-surface,#fff);min-width:0}
 .titleRow{display:flex;justify-content:space-between;align-items:start;gap:12px}
 .titleRow h2{margin:2px 0 0;font-size:1.18rem}
 .titleRow small,.highlight small{display:block;color:var(--admin-muted,#67736d);font-size:.78rem}
