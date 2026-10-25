@@ -6,7 +6,7 @@ import { useAdminUnsavedFormLinks } from "@/components/admin-unsaved-form-links"
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import Link from "next/link";
-import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   adoptionStatusLabels,
   canTransitionAdoptionStatus,
@@ -51,6 +51,8 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
   const [error, setError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const navigation = useAdminUnsavedFormLinks();
+  // Local Playwright/SSR gate: do not type into an inert server-rendered form.
+  useEffect(() => { if (formRef.current) formRef.current.dataset.hydrated = "true"; }, []);
 
   const lifecycleOptions = useMemo(() => item
     ? (["DRAFT", "ACTIVE", "RESERVED", "ADOPTED", "ARCHIVED"] as AdoptionStatus[]).filter((next) => canTransitionAdoptionStatus(persistedStatus, next))

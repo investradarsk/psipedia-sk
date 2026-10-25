@@ -136,3 +136,6 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - Editor Adopcií používa rovnaký `useAdminUnsavedFormLinks` a `EditorUnsavedChangesGuard` ako Pomoc psom a Stratené/Nájdené. Pri upravených údajoch potvrdí odchod zo zoznamového odkazu alebo Zrušiť; pri zrušení ostane text aj formulár bez zmeny.
 - Dirty sa nastaví po zmene polí a lifecycle vo formulári, úspešnom nahratí/výmene fotografie, galérie, výrezu, automatizačnej oprave alebo pridaní textu cez Lexical v podeditore. Neúspešné nahratie nespúšťa falošný dirty stav.
 - Po úspešnom PUT/POST sa dirty stav vymaže; pri novom profile zostáva existujúce presmerovanie. Nemenia sa kanonické `ManagedAdoptionInput`, `expectedUpdatedAt`, väzby organizácií, serverové validácie, prechody stavov ani mediálne pravidlá.
+
+### Test ochrany Adopcií v skutočnom prehliadači
+- Nový Playwright test `tests/e2e/adoption.spec.ts` používa lokálny editor `/admin/adopcie/novy`, čaká na hydratáciu, vyplní testovací názov, skúsi odísť cez **Zrušiť**, overí predvolený bezpečný fokus a zachovanie textu po zrušení dialógu. Až druhé výslovné potvrdenie Zahodiť vráti do zoznamu. Test kontroluje, že neodošiel žiadny POST/PUT/PATCH/DELETE na API Adopcií.
