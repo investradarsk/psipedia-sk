@@ -1,4 +1,5 @@
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
+import { PublicActionButton } from "@/components/public-visual-system/public-visual-system";
 import type { ReactNode } from "react";
 import { SearchIcon } from "@/components/icons";
 
@@ -34,7 +35,7 @@ export function SectionHeroSearch({
         <span className="sr-only">{label}</span>
         <PublicTextInput appearance="context" id={id} name={inputName} defaultValue={defaultValue} maxLength={120} placeholder={placeholder} autoComplete="off" />
       </label>
-      <button type="submit">{buttonLabel}</button>
+      <PublicActionButton type="submit">{buttonLabel}</PublicActionButton>
     </form>
   );
 }

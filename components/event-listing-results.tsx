@@ -7,7 +7,7 @@ import {
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { EventCard } from "./event-card";
-import { PublicFilterTag, PublicNotice, PublicPagination } from "@/components/public-visual-system";
+import { PublicActionButton, PublicFilterTag, PublicNotice, PublicPagination } from "@/components/public-visual-system";
 import { eventListingParams, EVENT_PAGE_SIZE, type EventListingFilters } from "@/lib/event-listing";
 import { eventTypes, slovakRegions, type PublicEventCard } from "@/lib/events";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
@@ -142,7 +142,7 @@ export function EventListingResults({
                 </label>
               ))}
             </fieldset>
-            <button type="submit">Zobraziť výsledky</button>
+            <PublicActionButton type="submit">Zobraziť výsledky</PublicActionButton>
           </form>
         </div>
       </aside>
@@ -172,7 +172,7 @@ export function EventListingResults({
                 <option value="najnovsie">Od najnovšieho dátumu</option>
               </PublicSelect>
             </label>
-            <button type="submit">Zoradiť</button>
+            <PublicActionButton type="submit">Zoradiť</PublicActionButton>
           </form>
         </div>
         {active.length ? (

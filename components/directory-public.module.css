@@ -1882,7 +1882,7 @@
   gap: 9px;
   padding: 17px;
   border: 1px solid rgba(23,75,56,.12);
-  border-radius: 16px;
+  border-radius: var(--ps-radius-card, 22px);
   background: #fff;
 }
 .sidebarEyebrow {
@@ -1905,7 +1905,7 @@
   font-size: .79rem;
   line-height: 1.5;
 }
-.sidebarCard a {
+.sidebarCard a:not([data-public-action]) {
   display: inline-flex;
   min-height: 44px;
   width: fit-content;
@@ -1917,7 +1917,8 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.sidebarCard a:focus-visible { outline: 3px solid rgba(23,75,56,.3); outline-offset: 2px; }
+.sidebarCard a:not([data-public-action]):focus-visible { outline: 3px solid rgba(23,75,56,.3); outline-offset: 2px; }
+.sidebarCard [data-public-action] { width: fit-content; margin-top: 2px; }
 .popularityCard { min-width: 0; }
 .resultsShell { padding-bottom: clamp(36px,5vw,58px); }
 @media (max-width: 1100px) {

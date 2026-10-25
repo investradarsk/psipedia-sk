@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { HelpCard } from "@/components/help-card";
 import { PageContainer } from "@/components/page-system";
-import { PublicContentShell } from "@/components/public-visual-system";
+import { PublicActionButton, PublicActionLink, PublicContentShell } from "@/components/public-visual-system";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import type { PublicHelpCard, HelpCategorySlug } from "@/lib/help";
@@ -107,12 +107,8 @@ export function HelpBrowser({
                 <option value="vsetky">Aj ukončené</option>
               </PublicSelect>
             </label>
-            <button className={styles.searchSubmit} type="submit">
-              Použiť filtre
-            </button>
-            <Link className={styles.resetFilters} href={basePath}>
-              Zrušiť filtre
-            </Link>
+            <PublicActionButton className={styles.searchSubmit} type="submit">Použiť filtre</PublicActionButton>
+            <PublicActionLink className={styles.resetFilters} variant="tertiary" href={basePath}>Zrušiť filtre</PublicActionLink>
           </PublicFilterDisclosure>
         </form>
 

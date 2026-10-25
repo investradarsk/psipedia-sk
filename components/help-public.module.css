@@ -443,16 +443,9 @@
   font-size: 0.76rem;
 }
 .cardAction {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-self: start;
+  width: fit-content;
   margin-top: 2px;
-  color: #174b38;
-  font-size: 0.82rem;
-  font-weight: 800;
-  text-decoration: none;
 }
 
 /* PUBLIC-POLISH-2 photo contract */
@@ -867,9 +860,7 @@
 .primarySearch {
   min-width: 0;
 }
-.searchSubmit,
-.filterToggle,
-.resetFilters {
+.filterToggle {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -883,11 +874,7 @@
   text-decoration: none;
 }
 .searchSubmit {
-  padding: 0 18px;
-  border-color: var(--forest, #174b38);
-  color: #fff;
-  background: var(--forest, #174b38);
-  cursor: pointer;
+  min-width: 0;
 }
 .filterToggle {
   gap: 8px;
@@ -928,13 +915,9 @@
   min-width: 0;
 }
 .resetFilters {
-  padding: 0 12px;
-  color: var(--forest, #174b38);
-  background: #fff;
+  justify-self: start;
 }
-.searchSubmit:focus-visible,
-.filterToggle:focus-visible,
-.resetFilters:focus-visible {
+.filterToggle:focus-visible {
   outline: 3px solid rgba(23, 75, 56, 0.24);
   outline-offset: 2px;
 }

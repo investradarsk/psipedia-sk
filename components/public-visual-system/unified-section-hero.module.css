@@ -236,32 +236,18 @@
 }
 
 .managedCta {
-  display: inline-flex;
-  min-height: 46px;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 16px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  font-size: .78rem;
-  font-weight: 850;
   white-space: nowrap;
 }
 
-.managedCta[data-variant="primary"] {
-  color: #fff;
-  background: #174b38;
-}
-
+/* Accent preserves the section's explicit editorial tone; default and secondary
+   CTA appearance comes exclusively from shared PublicActionLink variants. */
 .managedCta[data-variant="accent"] {
-  color: #fff;
-  background: #b94732;
+  border-color: var(--brand-accent-strong, #b94732);
+  color: var(--white);
+  background: var(--brand-accent-strong, #b94732);
 }
-
-.managedCta[data-variant="secondary"] {
-  border-color: rgba(23, 75, 56, .2);
-  color: #174b38;
-  background: #fff;
+.managedCta[data-variant="accent"]:hover {
+  background: var(--coral-dark, #9b361b);
 }
 
 .hero :global([data-section-hero-search]) {
@@ -297,22 +283,9 @@
   font: inherit;
 }
 
-.hero :global([data-section-hero-search] button) {
-  min-height: 44px;
-  padding: 9px 16px;
-  border: 0;
-  border-radius: 9px;
-  color: #fff;
-  background: #174b38;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.hero :global([data-section-hero-search] :is(input, select, button):focus-visible),
-.managedCta:focus-visible,
+.hero :global([data-section-hero-search] :is(input, select):focus-visible),
 .quickLinks a:focus-visible {
-  outline: 3px solid #f3a88f;
+  outline: 3px solid var(--brand-focus, #b94732);
   outline-offset: 2px;
 }
 

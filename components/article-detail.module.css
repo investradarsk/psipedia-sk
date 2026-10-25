@@ -13,7 +13,7 @@
   align-items: start;
   justify-content: center;
   min-width: 0;
-  padding-inline: 16px;
+  padding-inline: 0;
 }
 
 .articleMainColumn {
