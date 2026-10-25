@@ -36,6 +36,7 @@ on:
       - "components/admin-adoption-editor.tsx"
       - "components/admin-lost-found-editor.tsx"
       - "tests/admin-shared-form-feedback.test.mjs"
+      - "tests/e2e/admin-directory-filters.spec.ts"
       - "components/admin-partner-claim-actions.tsx"
       - "components/admin-partner-verification-actions.tsx"
       - "components/admin-partner-profile-change-actions.tsx"

@@ -107,3 +107,7 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - **ARTICLE-ADMIN unit contract:** historický test očakával lokálne `role={error ? "alert" : "status"}`; po unifikácii už kontroluje centrálny `AdminFormFeedback` a jeho skutočné role.
 - **Admin Operations E2E:** očakávanie úspechu ukladania organizácie je zacielené na kanonické `data-admin-form-feedback="success"` namiesto neurčitého vyhľadania dvoch `role=status` (označenie dirty a samotné hlásenie).
 - Regresné zdrojové testy pokrývajú focus, zachovanie dátových kontraktov, zrušenie a explicitné zahodenie rozpracovaných zmien; bez novej knižnice, migrácie či nasadenia.
+
+### E2E overenie ochrany Adresára
+- Playwright scenár v `admin-directory-filters.spec.ts` upraví neuložený telefón bez požiadavky na server, otvorí dialóg, overí bezpečný fokus na Zostať, Escape bez straty textu a následné explicitné Zahodiť s návratom do zoznamu.
+- Scenár nemení údaje na lokálnej fixture; zostáva súčasťou existujúcej sady Adresára.
