@@ -6,11 +6,6 @@
 .controls { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
 .controls button, .gallery button { min-height: 44px; min-width: 44px; }
 
-/* Existing upload endpoint and hidden file-input contract remain intact. */
-.dropZone{display:flex;align-items:center;justify-content:center;min-height:44px;cursor:pointer;border:1px dashed #b8cbbf;border-radius:9px;padding:9px 12px;touch-action:manipulation}
-.dropZone:focus-visible{outline:3px solid #d6a44c;outline-offset:2px}
-.dropZone[aria-disabled="true"]{cursor:not-allowed;opacity:.65}
-
 /* dnd-kit: users can reorder through a dedicated handle without stealing clicks or upload drags. */
 .controls button[aria-label^="Presunúť fotografiu"]{cursor:grab;touch-action:none}
 .controls button[aria-label^="Presunúť fotografiu"]:active{cursor:grabbing}
