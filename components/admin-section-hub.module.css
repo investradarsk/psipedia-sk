@@ -1,7 +1,7 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
+  gap: var(--admin-v3-compact-gap, 10px);
 }
 
 .card {
@@ -10,7 +10,7 @@
   grid-template-columns: auto 1fr;
   grid-template-rows: auto auto;
   gap: 9px;
-  padding: 12px 13px;
+  padding: var(--admin-v3-card-padding, 12px) 13px;
   border: 1px solid rgba(23, 53, 43, .1);
   border-radius: 12px;
   color: #17352b;
