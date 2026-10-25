@@ -103,4 +103,11 @@ test("targeted runners are scoped, do not turn into full scheduled sweeps", asyn
   assert.match(webhook, /notionPageBelongsToDataSource\(/);
   assert.match(webhook, /NOTION_WEBHOOK_SYNC_ENABLED/);
   assert.doesNotMatch(webhook, /runNotionFacebookImagesSync|runServicesV3CatalogAutoSweep/);
+  assert.match(webhook, /runNotionEventsHelpSyncSweep\(/);
+  assert.match(webhook, /webhookMappedOnly: true/);
+  assert.match(webhook, /targetPageId: id/);
+  assert.doesNotMatch(webhook, /event\.type === "page\.content_updated"\) return "ignored"/);
+  const help = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(help, /if \(input\.webhookMappedOnly && input\.targetPageId\)/);
+  assert.match(help, /pages = \[page\]/);
 });
