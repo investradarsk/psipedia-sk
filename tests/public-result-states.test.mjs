@@ -55,7 +55,8 @@ test("events preserve URL form and paging while using common status/chip styles"
   const event = read("components/event-listing-results.tsx");
   for (const contract of [
     '<PublicNotice role="alert" tone="error">{f.error}</PublicNotice>',
-    "<PublicFilterTag key={i}>{value}</PublicFilterTag>",
+    "<PublicFilterTag key={key} href={clearOneHref(key)}",
+    "data-public-active-filters",
     'method="get"',
     "const pages =",
     "href(listing.page - 1)",
