@@ -100,3 +100,10 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - **Podujatia**: `EditorActionBar` má spätnokompatibilný voliteľný slot `feedback` pre existujúci `AdminFormFeedback`. Chybový `role="alert"` nie je vnorený do ďalšieho `role="status"`, zatiaľ čo samostatné „Neuložené zmeny“ zostáva dostupné.
 - **Články**: úspech, ukladanie aj chyba používajú ten istý komponent; pôvodný `resultRef` a `tabIndex=-1` zostávajú na vonkajšom wrapperi. QA blocker stále automaticky zameria relevantnú sekciu a neprepisuje sa formát blokového obsahu.
 - Pôvodné API endpointy, stavy draft/published/scheduled, formulárové akcie aj `expectedUpdatedAt` sa nemenia. Regresie pokryté existujúcim `tests/admin-shared-form-feedback.test.mjs`, produkčným lintom a buildom.
+
+## Vlna 12 — návrat bez straty údajov + regresné opravy
+- **Adresár:** hlavný návrat do zoznamu pri rozpracovanom profile zobrazuje skutočný shared `EditorUnsavedChangesGuard` (Zostať/Zahodiť), nie natívne `window.confirm`. Modifikované kliknutia na otvorenie v ďalšej karte nemenia stav. Potvrdenie vykoná klientsku navigáciu; neodosiela POST/PUT a nezapisuje do Notion.
+- **Spoločný dialóg:** bezpečný predvolený focus na tlačidlo **Pokračovať v úpravách**, existujúca ochrana `beforeunload` ostáva. Zmeny polí a API zostali nedotknuté; oddelené potvrdenie pri zahadzovaní neuložených kategóriových filtrov má vlastnú semantiku a v tejto vlne sa nemení.
+- **ARTICLE-ADMIN unit contract:** historický test očakával lokálne `role={error ? "alert" : "status"}`; po unifikácii už kontroluje centrálny `AdminFormFeedback` a jeho skutočné role.
+- **Admin Operations E2E:** očakávanie úspechu ukladania organizácie je zacielené na kanonické `data-admin-form-feedback="success"` namiesto neurčitého vyhľadania dvoch `role=status` (označenie dirty a samotné hlásenie).
+- Regresné zdrojové testy pokrývajú focus, zachovanie dátových kontraktov, zrušenie a explicitné zahodenie rozpracovaných zmien; bez novej knižnice, migrácie či nasadenia.

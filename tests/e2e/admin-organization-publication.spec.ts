@@ -115,7 +115,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   await page.getByLabel("Web").fill("https://example.sk/org-final");
   await page.getByLabel("Zdroj / referencia").fill("https://example.sk/source");
   await page.getByRole("button", { name: "Uložiť organizáciu" }).click();
-  await expect(page.getByRole("status")).toContainText("Canonical údaje organizácie boli uložené");
+  await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText("Canonical údaje organizácie boli uložené");
 
   await page.goto("/admin/organizacie?q=" + encodeURIComponent(name), { waitUntil: "domcontentloaded" });
   const result = page.locator("article").filter({ hasText: name });

@@ -195,9 +195,10 @@ export function EditorUnsavedChangesGuard({
       title="Neuložené zmeny"
       description="Upravované údaje zatiaľ nie sú uložené."
       onClose={onStay}
+      preferExplicitAutofocus
       footer={
         <>
-          <AdminActionButton variant="neutral" onClick={onStay}>Pokračovať v úpravách</AdminActionButton>
+          <AdminActionButton variant="neutral" data-admin-autofocus="true" onClick={onStay}>Pokračovať v úpravách</AdminActionButton>
           <AdminActionButton variant="destructive" onClick={onDiscard}>Zahodiť zmeny a zavrieť</AdminActionButton>
         </>
       }

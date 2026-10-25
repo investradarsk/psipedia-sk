@@ -26,3 +26,24 @@ test("e-shop navigation uses same guard and keeps existing persistence",()=>{
  assert.doesNotMatch(src,/window\.confirm/);
  assert.match(src,/uploadAdminImage\(file, "eshops"\)/);
 });
+
+test("Directory back navigation uses shared guard and keeps existing canonical or Notion saves", () => {
+  const source = read("components/admin-directory-editor.tsx");
+  assert.match(source, /const \[confirmDirectoryExit, setConfirmDirectoryExit\] = useState\(false\)/);
+  assert.match(source, /setConfirmDirectoryExit\(true\)/);
+  assert.match(source, /<EditorUnsavedChangesGuard\s+active=\{formDirty\}\s+open=\{confirmDirectoryExit\}/);
+  assert.match(source, /onStay=\{\(\) => setConfirmDirectoryExit\(false\)\}/);
+  assert.match(source, /setFormDirty\(false\);\s+router\.push\("\/admin\/adresar"\)/);
+  assert.doesNotMatch(source, /window\.confirm\("Zahodiť neuložené zmeny profilu/);
+  assert.match(source, /setFilterSourceData\(savedProfile\.importData/);
+  assert.match(source, /onNotionSaved\?/);
+});
+
+test("All EditorUnsavedChangesGuard instances have cancel-focused accessible confirmation", () => {
+  const source = read("components/admin-editor-workspace.tsx");
+  assert.match(source, /export function EditorUnsavedChangesGuard/);
+  assert.match(source, /preferExplicitAutofocus/);
+  assert.match(source, /data-admin-autofocus="true" onClick=\{onStay\}/);
+  assert.match(source, /window\.addEventListener\("beforeunload", warn\)/);
+  assert.match(source, /onDiscard/);
+});

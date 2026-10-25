@@ -7,6 +7,7 @@ import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   AdminActionButton,
@@ -206,6 +207,8 @@ export function AdminDirectoryEditor({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [formDirty, setFormDirty] = useState(false);
+  const [confirmDirectoryExit, setConfirmDirectoryExit] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (formRef.current) formRef.current.dataset.hydrated = "true";
@@ -736,7 +739,11 @@ export function AdminDirectoryEditor({
       <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
       <div className="admin-editor-actions">
         <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" onClick={event => {
-          if (formDirty && !window.confirm("Zahodiť neuložené zmeny profilu?")) event.preventDefault();
+          // Preserve native behavior for modified clicks and background tabs.
+          if (formDirty && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+            event.preventDefault();
+            setConfirmDirectoryExit(true);
+          }
         }}>← Späť na adresár</Link>}</div>
         {notionDraft && !notionDraft.psipediaId && !canonicalEditorUrl && (
           <div>
@@ -761,7 +768,16 @@ export function AdminDirectoryEditor({
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
         </div>
       </div>
-      <EditorUnsavedChangesGuard active={formDirty} open={false} onStay={() => {}} onDiscard={() => {}} />
+      <EditorUnsavedChangesGuard
+        active={formDirty}
+        open={confirmDirectoryExit}
+        onStay={() => setConfirmDirectoryExit(false)}
+        onDiscard={() => {
+          setConfirmDirectoryExit(false);
+          setFormDirty(false);
+          router.push("/admin/adresar");
+        }}
+      />
     </form>
   );
 }
