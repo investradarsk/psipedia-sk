@@ -85,3 +85,8 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - Hromadné operácie si ponechávajú zdieľaný `AdminModalDialog`, detailnú informáciu o eligible/blocked položkách, pôvodný `POST /api/admin/organizations/bulk`, stránkový výber aj ochranu verzie. Bezpečný fokus je na Zrušiť.
 - Opravená regresia **Partner platform security and UX**: Playwright test ešte akceptoval natívny prehliadačový dialog, ale po vlnách 6–7 sa potvrdenie zmenilo na vlastný modal. Aktualizované E2E teraz skutočne otvárajú a potvrdzujú zdieľané modály (vrátane zrušenia pri CREATE). Native potvrdenia zostávajú iba pri nedotknutom editore partnerských podujatí.
 - Nový regresný `tests/admin-unified-organization-confirmations.test.mjs` a existujúci `tests/organization-dashboard-hydration.test.mjs` v CI. Žiadne R2/D1 migrácie, zmena publikovania, Notion alebo deployment.
+
+## Vlna 9A — jednotný stav uloženia a chyby (25.10.2026)
+- Založený kanonický prezentačný komponent `AdminFormFeedback`: tri navzájom výlučné stavy `saving` / `success` / `error`, s prístupným `role="status"` alebo `role="alert"`. Chyba má prednosť pred loadingom, úspech sa ukáže len po dokončení.
+- Prvá adopcia: editory **Adopcie** a **Stratené/Nájdené**. Zostávajú pôvodné `fetch` endpointy, stavové prechody, bezpečnostné pravidlá, chyby aj presmerovanie.
+- Centrálny CSS modul umožní neskoršie jednotné vizuálne vylepšenie. Nasledujúce diely v rovnakom PR: Pomoc psom/Plemená, chyby konkrétnych polí, potom konzistentná navigácia pri neuložených zmenách.

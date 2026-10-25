@@ -1,0 +1,21 @@
+.feedback {
+  display: block;
+  margin-block: 0.65rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid;
+  border-radius: 0.7rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.info {
+  color: var(--admin-v3-text, #234332);
+  background: var(--admin-v3-surface, #f5faf6);
+  border-color: var(--admin-v3-border, #cbded0);
+}
+
+.error {
+  color: #842f35;
+  background: #fff3f2;
+  border-color: #e9b5b2;
+}
