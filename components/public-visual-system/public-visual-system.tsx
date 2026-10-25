@@ -205,7 +205,7 @@ export function PublicActionLink({
   "data-testid"?: string;
 }) {
   return (
-    <Link {...linkProps} className={cx(styles.action, actionVariantClass[variant], className)} data-public-action={variant} href={href} target={target} rel={rel}>
+    <Link className={cx(styles.action, actionVariantClass[variant], className)} {...linkProps} data-public-action={variant} href={href} target={target} rel={rel}>
       <span>{children}</span>
       {icon ? <PublicIcon icon={icon} size="sm" /> : null}
     </Link>
