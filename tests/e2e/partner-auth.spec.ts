@@ -798,8 +798,14 @@ test("internal admin Partner overview and account detail are protected admin pag
       response.url().includes("/api/admin/partners/submissions/") &&
       response.request().method()==="PATCH" && response.ok(),
     );
-    page.once("dialog",dialog=>void dialog.accept());
     await page.getByRole("button",{name:"Vytvoriť nový profil"}).click();
+    const createDialog=page.getByRole("dialog",{name:"Vytvoriť nový profil?"});
+    await expect(createDialog).toBeVisible();
+    // Cancel stays read-only; the same action can be reopened and explicitly confirmed.
+    await createDialog.getByRole("button",{name:"Zrušiť"}).click();
+    await expect(createDialog).not.toBeVisible();
+    await page.getByRole("button",{name:"Vytvoriť nový profil"}).click();
+    await createDialog.getByRole("button",{name:"Vytvoriť koncept"}).click();
     await createResponse;
     await expect(page.getByText("CREATED_NEW")).toBeVisible();
     const directoryResponse=await page.request.get("/api/admin/directory?limit=100");
@@ -820,8 +826,10 @@ test("internal admin Partner overview and account detail are protected admin pag
       response.url().includes("/api/admin/partners/submissions/") &&
       response.request().method()==="PATCH" && response.ok(),
     );
-    page.once("dialog",dialog=>void dialog.accept());
     await page.getByRole("button",{name:"Prepojiť tento profil"}).first().click();
+    const linkDialog=page.getByRole("dialog",{name:"Prepojiť tento profil?"});
+    await expect(linkDialog).toBeVisible();
+    await linkDialog.getByRole("button",{name:"Prepojiť profil"}).click();
     await linkResponse;
     await expect(page.getByText("LINKED_EXISTING")).toBeVisible();
     await page.goto("/admin/partners/accounts/partner-e2e-mobile");
@@ -900,8 +908,10 @@ test("internal admin Partner overview and account detail are protected admin pag
       response.request().method()==="PATCH" &&
       response.ok(),
     );
-    page.once("dialog",dialog=>void dialog.accept());
     await page.getByRole("button",{name:"Schváliť zmeny"}).click();
+    const changeDialog=page.getByRole("dialog",{name:"Schváliť zmeny profilu?"});
+    await expect(changeDialog).toBeVisible();
+    await changeDialog.getByRole("button",{name:"Schváliť zmeny"}).click();
     await changeResponse;
     await page.goto("/admin/partners");
     await expect(page.getByRole("link",{name:/Úpravy 1/})).toBeVisible();
@@ -919,8 +929,10 @@ test("internal admin Partner overview and account detail are protected admin pag
       response.request().method() === "PATCH" &&
       response.ok(),
     );
-    page.once("dialog", dialog => void dialog.accept());
-    await page.getByRole("button",{name:"Overiť"}).click();
+    await page.getByRole("button",{name:"Overiť",exact:true}).click();
+    const verificationDialog=page.getByRole("dialog",{name:"Overiť správcu profilu?"});
+    await expect(verificationDialog).toBeVisible();
+    await verificationDialog.getByRole("button",{name:"Overiť správcu"}).click();
     await verificationResponse;
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
     await expect(page.getByText("Overený správca")).toBeVisible();
@@ -936,8 +948,10 @@ test("internal admin Partner overview and account detail are protected admin pag
       response.request().method() === "PATCH" &&
       response.ok(),
     );
-    page.once("dialog", dialog => void dialog.accept());
-    await page.getByRole("button",{name:"Schváliť"}).click();
+    await page.getByRole("button",{name:"Schváliť",exact:true}).click();
+    const claimDialog=page.getByRole("dialog",{name:"Schváliť prevzatie profilu?"});
+    await expect(claimDialog).toBeVisible();
+    await claimDialog.getByRole("button",{name:"Schváliť prevzatie"}).click();
     await claimResponse;
     await page.goto("/admin/partners");
     await expect(page.getByRole("link",{name:/Claims 1/})).toBeVisible();

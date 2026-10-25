@@ -79,3 +79,9 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - Rozhodnutia sa najskôr pripravia v lokálnom stave; zrušenie/Escape nevykoná mutáciu. Pri novom profile sa pred potvrdením zachytí `canonicalId`, `applyImage` a `reasonCode`, aby request zodpovedal videnej voľbe. Neplatné canonical ID sa nepustí do potvrdenia.
 - Existujúce `PATCH /api/admin/partners/changes/[id]`, `PATCH /api/admin/partners/submissions/[id]` a `PUT /api/admin/profile-change-requests/[id]` ostávajú nezmenené; Adresár automaticky neprepisuje profil po schválení návrhu.
 - Nové kontraktové regresné testy `tests/admin-unified-review-confirmations.test.mjs` a lint v produkčnom open-source workflow.
+
+## Vlna 8 — lifecycle organizácií a kompatibilita partnerského E2E (25.10.2026)
+- Každá individuálna akcia publikovať / stiahnuť do konceptu / archivovať / obnoviť v prehľade organizácií otvára **jeden zdieľaný** `AdminDestructiveConfirmDialog`, nie `window.confirm`. Potvrdenie vykoná presne pôvodný `PUT /api/admin/organizations/[id]/publication` vrátane optimistickej kontroly `expectedUpdatedAt`; zrušenie a Escape nič neodosielajú.
+- Hromadné operácie si ponechávajú zdieľaný `AdminModalDialog`, detailnú informáciu o eligible/blocked položkách, pôvodný `POST /api/admin/organizations/bulk`, stránkový výber aj ochranu verzie. Bezpečný fokus je na Zrušiť.
+- Opravená regresia **Partner platform security and UX**: Playwright test ešte akceptoval natívny prehliadačový dialog, ale po vlnách 6–7 sa potvrdenie zmenilo na vlastný modal. Aktualizované E2E teraz skutočne otvárajú a potvrdzujú zdieľané modály (vrátane zrušenia pri CREATE). Native potvrdenia zostávajú iba pri nedotknutom editore partnerských podujatí.
+- Nový regresný `tests/admin-unified-organization-confirmations.test.mjs` a existujúci `tests/organization-dashboard-hydration.test.mjs` v CI. Žiadne R2/D1 migrácie, zmena publikovania, Notion alebo deployment.

@@ -13,6 +13,7 @@ import {
   AdminActionButton,
   AdminBulkActionToolbar,
   AdminModalDialog,
+  AdminDestructiveConfirmDialog,
 } from "@/components/admin-interaction-system";
 import { AdminPagination } from "@/components/admin-pagination";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
@@ -63,6 +64,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
   const [busyId, setBusyId] = useState<number | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkAction, setBulkAction] = useState<OrganizationPublicationAction | null>(null);
+  const [pendingPublication, setPendingPublication] = useState<{ item: OrganizationPublicationAdminItem; action: OrganizationPublicationAction } | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -133,9 +135,10 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
     }
   }
 
-  async function changePublication(item: OrganizationPublicationAdminItem, action: OrganizationPublicationAction) {
-    if (!hydrated || busyId !== null || bulkBusy) return;
-    if (!window.confirm(actionQuestion(item, action))) return;
+  async function changePublication() {
+    const pending = pendingPublication;
+    if (!hydrated || !pending || busyId !== null || bulkBusy) return;
+    const { item, action } = pending;
     setBusyId(item.id); setMessage(""); setError("");
     try {
       const response = await fetch("/api/admin/organizations/" + item.id + "/publication", {
@@ -152,7 +155,12 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Lifecycle zmenu sa nepodarilo uložiť.");
-    } finally { setBusyId(null); }
+    } finally { setBusyId(null); setPendingPublication(null); }
+  }
+
+  function requestPublication(item: OrganizationPublicationAdminItem, action: OrganizationPublicationAction) {
+    if (!hydrated || busyId !== null || bulkBusy || bulkAction !== null) return;
+    setPendingPublication({ item, action });
   }
 
   return <>
@@ -242,10 +250,10 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
               {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
               <Link className="admin-row-edit" href={"/admin/organizacie/" + item.id}>Spravovať</Link>
               <Link href={`/admin/organizacie/${item.id}#fundraising`}>Fundraising</Link>
-              {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!hydrated || !item.preflight.ready || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "publish")}>Publikovať</AdminActionButton>}
-              {item.status === "PUBLISHED" && <AdminActionButton variant="secondary" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "unpublish")}>Presunúť do konceptu</AdminActionButton>}
-              {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "archive")}>Archivovať</AdminActionButton>}
-              {item.status === "ARCHIVED" && <AdminActionButton variant="secondary" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "restore")}>Obnoviť do konceptu</AdminActionButton>}
+              {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!hydrated || !item.preflight.ready || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "publish")}>Publikovať</AdminActionButton>}
+              {item.status === "PUBLISHED" && <AdminActionButton variant="secondary" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "unpublish")}>Presunúť do konceptu</AdminActionButton>}
+              {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "archive")}>Archivovať</AdminActionButton>}
+              {item.status === "ARCHIVED" && <AdminActionButton variant="secondary" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "restore")}>Obnoviť do konceptu</AdminActionButton>}
             </div>
           </article>;
         })}
@@ -253,6 +261,24 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
       </div>
       <AdminPagination pagination={data.pagination} basePath={organizationAdminHref({ ...filters, page: 1 })} />
     </section>
+
+    <AdminDestructiveConfirmDialog
+      open={pendingPublication !== null}
+      title={pendingPublication?.action === "publish" ? "Publikovať organizáciu?"
+        : pendingPublication?.action === "unpublish" ? "Presunúť organizáciu do konceptu?"
+        : pendingPublication?.action === "archive" ? "Archivovať organizáciu?"
+        : "Obnoviť organizáciu?"}
+      description={pendingPublication ? actionQuestion(pendingPublication.item, pendingPublication.action) : undefined}
+      affectedCount={1}
+      affectedLabel="organizáciu"
+      confirmLabel={pendingPublication?.action === "publish" ? "Publikovať"
+        : pendingPublication?.action === "unpublish" ? "Presunúť do konceptu"
+        : pendingPublication?.action === "archive" ? "Archivovať" : "Obnoviť"}
+      confirmVariant={pendingPublication?.action === "archive" || pendingPublication?.action === "unpublish" ? "destructive" : "primary"}
+      pending={busyId !== null}
+      onCancel={() => { if (busyId === null) setPendingPublication(null); }}
+      onConfirm={() => void changePublication()}
+    />
 
     <AdminModalDialog
       open={bulkAction !== null}
@@ -264,8 +290,9 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
         ? "Archivovanie zneprístupní verejné profily. Akcia sa vykoná iba pre záznamy, ktoré stále spĺňajú canonical lifecycle."
         : "Server pred zmenou znovu overí aktuálny lifecycle a verziu každého záznamu."}
       onClose={() => { if (!bulkBusy) setBulkAction(null); }}
+      preferExplicitAutofocus
       footer={<>
-        <AdminActionButton variant="neutral" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction(null)}>Zrušiť</AdminActionButton>
+        <AdminActionButton variant="neutral" data-admin-autofocus="true" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction(null)}>Zrušiť</AdminActionButton>
         <AdminActionButton
           variant={bulkAction === "archive" ? "destructive" : "primary"}
           disabled={!hydrated || bulkBusy || bulkTargets.length === 0}
