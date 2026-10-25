@@ -5,6 +5,7 @@ import {
   parseDirectoryFacetValues,
 } from "@/lib/directory-read-facets";
 import { cache } from "react";
+import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import { parsePublicDirectoryFacets, directoryPublicFacetSql, type DirectoryPublicFacets } from "@/lib/directory-public-filters";
 import {serviceFilterCategories} from "@/lib/directory-filter-contract";
 import {canonicalPublicServiceWhere,canonicalPublicServiceOptions,
@@ -1109,9 +1110,7 @@ export async function listPublishedDirectoryProfiles(options: {
   `).bind(...bindings, pageSize, (page - 1) * pageSize);
 
   // A verified zero-count listing has no rows: avoid an unnecessary D1 page read.
-  const listResult = total === 0
-    ? { results: [] as DirectoryProfileRow[] }
-    : await listStatement.all<DirectoryProfileRow>();
+  const listResult = await readNonemptyD1Page(total, () => listStatement.all<DirectoryProfileRow>());
   return {
     profiles: (listResult.results as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
     total, page, pageSize, totalPages,
