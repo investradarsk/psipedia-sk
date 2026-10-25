@@ -7,6 +7,15 @@ on:
       - "tests/admin-duplication-inventory.test.mjs"
       - "tests/admin-form-control-unification-point-2.test.mjs"
       - "tests/admin-media-text-unification-point-3.test.mjs"
+      - "tests/admin-lists-unification-point-4.test.mjs"
+      - "docs/ADMIN-COMPONENT-UNIFICATION-POINT-4.md"
+      - "components/admin-pagination.tsx"
+      - "components/admin-data-table-region.tsx"
+      - "components/admin-adoption-dashboard.tsx"
+      - "components/admin-lost-found-dashboard.tsx"
+      - "components/admin-help-dashboard.tsx"
+      - "components/admin-event-dashboard.tsx"
+      - "lib/admin-list-query.ts"
       - "tests/admin-open-source-unification.test.mjs"
       - "docs/ADMIN-COMPONENT-UNIFICATION-POINT-3.md"
       - "components/admin-article-block-editor.tsx"
@@ -42,3 +51,5 @@ jobs:
         run: node --test tests/admin-form-control-unification-point-2.test.mjs
       - name: Verify point 3 image and editor contracts
         run: node --experimental-strip-types --test tests/admin-media-text-unification-point-3.test.mjs tests/admin-open-source-unification.test.mjs
+      - name: Verify point 4 list and selection equivalence
+        run: node --experimental-strip-types --test tests/admin-lists-unification-point-4.test.mjs
