@@ -6,6 +6,12 @@ on:
       - "scripts/admin-duplication-inventory.mjs"
       - "tests/admin-duplication-inventory.test.mjs"
       - "tests/admin-form-control-unification-point-2.test.mjs"
+      - "tests/admin-media-text-unification-point-3.test.mjs"
+      - "tests/admin-open-source-unification.test.mjs"
+      - "docs/ADMIN-COMPONENT-UNIFICATION-POINT-3.md"
+      - "components/admin-article-block-editor.tsx"
+      - "components/admin-photo-gallery.tsx"
+      - "components/admin-sortable-gallery.tsx"
       - "docs/ADMIN-COMPONENT-UNIFICATION-POINT-2.md"
       - "components/admin-editor-workspace.tsx"
       - "components/admin-help-dashboard.tsx"
@@ -34,3 +40,5 @@ jobs:
         run: node scripts/admin-duplication-inventory.mjs
       - name: Verify point 2 form and confirmation contracts
         run: node --test tests/admin-form-control-unification-point-2.test.mjs
+      - name: Verify point 3 image and editor contracts
+        run: node --experimental-strip-types --test tests/admin-media-text-unification-point-3.test.mjs tests/admin-open-source-unification.test.mjs
