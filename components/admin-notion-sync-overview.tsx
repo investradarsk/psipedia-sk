@@ -42,26 +42,30 @@ function formatDate(timestamp: string | null): string {
   }).format(new Date(timestamp));
 }
 
+async function fetchOverview(): Promise<OverviewResponse> {
+  const response = await fetch("/api/admin/notion-sync-overview", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("HTTP_ERROR");
+  const result = await response.json() as Partial<OverviewResponse>;
+  if (result.readOnly !== true || result.basis !== "EXISTING_D1_MAPPING_HISTORY"
+    || result.liveNotionStatus !== "UNKNOWN" || !Array.isArray(result.rows)) {
+    throw new Error("INVALID_RESPONSE");
+  }
+  return result as OverviewResponse;
+}
+
 export function AdminNotionSyncOverview() {
   const [snapshot, setSnapshot] = useState<OverviewResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/notion-sync-overview", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("HTTP_ERROR");
-      const result = await response.json() as Partial<OverviewResponse>;
-      if (result.readOnly !== true || result.basis !== "EXISTING_D1_MAPPING_HISTORY"
-        || result.liveNotionStatus !== "UNKNOWN" || !Array.isArray(result.rows)) {
-        throw new Error("INVALID_RESPONSE");
-      }
-      setSnapshot(result as OverviewResponse);
+      setSnapshot(await fetchOverview());
     } catch {
       setSnapshot(null);
       setError("Prehľad sa nepodarilo načítať. Over pripojenie D1 a oprávnenie administrátora.");
@@ -71,8 +75,23 @@ export function AdminNotionSyncOverview() {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let active = true;
+    // Initial loading starts with the fetch, not a synchronous state update in
+    // an effect. Reuses the exact same API validation as a manual refresh.
+    void fetchOverview().then(
+      (result) => {
+        if (!active) return;
+        setSnapshot(result);
+        setLoading(false);
+      },
+      () => {
+        if (!active) return;
+        setError("Prehľad sa nepodarilo načítať. Over pripojenie D1 a oprávnenie administrátora.");
+        setLoading(false);
+      },
+    );
+    return () => { active = false; };
+  }, []);
 
   return (
     <section className={styles.panel} aria-labelledby="notion-sync-overview-heading">
