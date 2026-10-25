@@ -16,6 +16,9 @@ import {
   AdminHelpText,
 } from "@/components/admin-interaction-system";
 import styles from "./admin-breed-editor.module.css";
+import {AdminGalleryDropzone} from "@/components/admin-gallery-dropzone";
+import {AdminSortableGallery} from "@/components/admin-sortable-gallery";
+import {arrayMove} from "@dnd-kit/sortable";
 import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 
 function slugify(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90);}
@@ -75,9 +78,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   function toggleId(key:"relatedBreedIds"|"relatedArticleIds"|"directoryProfileIds",id:number){setForm((current)=>({...current,[key]:current[key].includes(id)?current[key].filter((item)=>item!==id):[...current[key],id]}));}
 
   async function uploadCover(event:ChangeEvent<HTMLInputElement>){const file=event.target.files?.[0];if(!file||uploadPending.current||saving)return;uploadPending.current=true;setUploading(true);setError("");try{const result=await uploadAdminImage(file,"breeds");setForm((current)=>({...current,image:result.imageUrl,imageKey:result.imageKey}));setMessage(adminImageUploadMessage(result,"Ulož plemeno, aby sa titulná fotografia priradila."));}catch(e){setError(e instanceof Error?e.message:"Obrázok sa nepodarilo nahrať.");}finally{uploadPending.current=false;setUploading(false);event.target.value="";}}
-  async function uploadGallery(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
+  async function uploadGallery(event: ChangeEvent<HTMLInputElement> | File[]) {
+    const files = Array.isArray(event) ? event : Array.from(event.target.files ?? []);
+    if (!Array.isArray(event)) event.target.value = "";
     if (!files.length || uploadPending.current || saving) return;
     const remaining = Math.max(0, 30 - form.gallery.length);
     if (files.length > remaining) { setError(`Vyber najviac ${remaining} ďalších fotografií. Galéria plemena má limit 30.`); return; }
@@ -303,10 +306,13 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
             <label className="admin-field"><span>Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)</span><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e)=>void uploadCover(e)} disabled={uploading||saving}/><small>{uploading?"Nahrávam…":form.image||"Zatiaľ bez fotografie"}</small></label>
             {form.image&&<AdminActionButton variant="destructive" onClick={()=>setForm((current)=>({...current,image:"",imageKey:""}))}>Odstrániť titulnú fotografiu</AdminActionButton>}
             <AdminHelpText>Vyber zdrojovú fotografiu s rezervou okolo psa; focal-point schema zatiaľ neexistuje, preto tesný crop nie je možné v admine bezpečne korigovať.</AdminHelpText>
-            <label className="admin-field"><span>Ďalšie fotografie</span><input type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e)=>void uploadGallery(e)} disabled={uploading||saving}/></label>
+            <div className="admin-field"><span>Ďalšie fotografie</span><AdminGalleryDropzone label="Nahrať fotografie plemena" disabled={uploading||saving||form.gallery.length>=30} busy={uploading} onFiles={uploadGallery} onRejected={setError}/></div>
           </div>
         </div>
-        <div className={styles.galleryList}>{form.gallery.map((item,index)=><article key={`${item.imageUrl}-${index}`} className={styles.galleryRow}><img src={item.imageUrl} alt={item.alt||"Náhľad"}/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></article>)}</div>
+        <AdminSortableGallery urls={form.gallery.map(item=>item.imageUrl)} as="article"
+          className={styles.galleryList} rowClassName={styles.galleryRow} disabled={uploading||saving}
+          onReorder={(from,to)=>setForm(current=>({...current,gallery:arrayMove(current.gallery,from,to)}))}
+          renderRow={(index,handle)=>{const item=form.gallery[index];return <><img src={item.imageUrl} alt={item.alt||"Náhľad"}/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}>{handle}<AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></>;}}/>
       </div>
     </AdminEditorSection>
 

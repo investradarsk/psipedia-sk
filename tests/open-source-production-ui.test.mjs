@@ -63,7 +63,7 @@ test("TanStack Table/Virtual remove the silent 200-row service catalogue truncat
 });
 test("React Dropzone preserves canonical gallery upload sequencing and E2E file input", () => {
   const source = read("components/admin-photo-gallery.tsx");
-  assert.ok(source.includes('from "react-dropzone"'));
+  assert.ok(read("components/admin-gallery-dropzone.tsx").includes('from "react-dropzone"'));
   assert.ok(source.includes("getInputProps()"));
   assert.ok(source.includes("async function upload(files: File[])"));
   assert.ok(source.includes("for (const file of files)"));

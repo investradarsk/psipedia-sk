@@ -5,6 +5,9 @@ import { ArticleBlocks } from "@/components/article-blocks";
 import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { ArticlePromo } from "@/components/article-promo";
 import { AdminRichTextEditor } from "@/components/admin-rich-text-editor";
+import {AdminGalleryDropzone} from "@/components/admin-gallery-dropzone";
+import {AdminSortableGallery} from "@/components/admin-sortable-gallery";
+import {arrayMove} from "@dnd-kit/sortable";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import {
   articleBlockLabels,
@@ -198,8 +201,8 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
     }
   }
 
-  async function uploadGallery(event: ChangeEvent<HTMLInputElement>, blockId: string) {
-    const files = [...(event.target.files ?? [])];
+  async function uploadGallery(event: ChangeEvent<HTMLInputElement> | File[], blockId: string) {
+    const files = Array.isArray(event) ? event : [...(event.target.files ?? [])];
     if (!files.length) return;
     onUploadingChange(true);
     onError("");
@@ -214,7 +217,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
       onError(error instanceof Error ? error.message : "Galériu sa nepodarilo nahrať.");
     } finally {
       onUploadingChange(false);
-      event.target.value = "";
+      if (!Array.isArray(event)) event.target.value = "";
     }
   }
 
@@ -276,19 +279,21 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
             </div>}
 
             {block.type === "gallery" && <div className="admin-gallery-editor">
-              <label className="admin-upload-button"><input type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadGallery(event, block.id)} />+ Nahrať obrázky do galérie</label>
-              <div className="admin-gallery-items">{block.images.map((image, imageIndex) => <div className="admin-gallery-item" key={`${image.url}-${imageIndex}`}>
+              <AdminGalleryDropzone label="Nahrať obrázky do galérie" onFiles={files=>uploadGallery(files,block.id)} onRejected={onError} disabled={block.images.length>=24} maxFiles={12} />
+              <AdminSortableGallery urls={block.images.map(image=>image.url)} className="admin-gallery-items"
+                rowClassName="admin-gallery-item" onReorder={(from,to)=>update(block.id,item=>item.type==="gallery"?{...item,images:arrayMove(item.images,from,to)}:item)}
+                renderRow={(imageIndex,handle)=>{const image=block.images[imageIndex];return <>
                 <img src={image.url} alt={image.alt} />
                 <label>Alt text<input value={image.alt} aria-label={`Alt text obrázka ${imageIndex + 1}`} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, alt: event.target.value } : entry) } : item)} placeholder="Čo je na obrázku" /></label>
                 <label>Popis pod obrázkom<input value={image.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, caption: event.target.value } : entry) } : item)} /></label>
                 <label>Kredit / zdroj<input value={image.credit ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, credit: event.target.value } : entry) } : item)} /></label>
                 <label>Veľkosť<select value={image.size ?? "normal"} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, size: event.target.value === "wide" ? "wide" : "normal" } : entry) } : item)}><option value="normal">Normálna</option><option value="wide">Široká</option></select></label>
-                <div className="admin-gallery-item-actions">
+                <div className="admin-gallery-item-actions">{handle}
                   <button type="button" onClick={() => moveGalleryImage(block.id, imageIndex, -1)} disabled={imageIndex === 0} aria-label={`Presunúť obrázok ${imageIndex + 1} doľava`}>←</button>
                   <button type="button" onClick={() => moveGalleryImage(block.id, imageIndex, 1)} disabled={imageIndex === block.images.length - 1} aria-label={`Presunúť obrázok ${imageIndex + 1} doprava`}>→</button>
                   <button type="button" className="is-danger" onClick={() => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.filter((_, entryIndex) => entryIndex !== imageIndex) } : item)}>Odstrániť</button>
                 </div>
-              </div>)}</div>
+              </>;}}/>
             </div>}
 
             {(block.type === "bullet-list" || block.type === "numbered-list") && <div className="admin-list-editor">
