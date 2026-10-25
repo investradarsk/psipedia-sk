@@ -38,6 +38,13 @@ test("hourly multi-field query combines field-specific terms without one search 
   assert.match(q,/plagát/);assert.match(q,/telefón/);assert.match(q,/registrácia/);
   assert.ok(q.length<=450);
 });
+test("hourly search reserves room for every missing group, not only first ones",()=>{
+  const groups=["address","image","web","phone","email","social","registration","date","other"];
+  const q=buildQualityTavilyQuery({...base,missing:groups.map(group=>({key:group,group}))});
+  for(const needle of ["adresa","fotografia","web","telefón","email","Facebook","registrácia","dátum","IČO"])
+    assert.ok(q.includes(needle),"missing search term "+needle);
+  assert.ok(q.length<=450);
+});
 test("queries use stored identity and context for all seven record kinds",()=>{
   const samples=[
     ["DIRECTORY",{city:"Nitra",category:"veterinari"},"služby pre psov"],
