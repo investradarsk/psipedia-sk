@@ -531,7 +531,7 @@
 
 @media (max-width: 860px) {
   .hubGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .hubCard {
@@ -569,10 +569,12 @@
 }
 
 @media (max-width: 640px) {
+  .hubGrid { grid-template-columns: 1fr; }
+
   .section,
   .statusHero {
-    padding: 16px;
-    border-radius: 15px;
+    padding: 12px;
+    border-radius: 12px;
   }
 
   .sectionHeader {
@@ -580,7 +582,7 @@
   }
 
   .itemCard {
-    padding: 14px;
+    padding: 10px 12px;
   }
 
   .quickActions {
