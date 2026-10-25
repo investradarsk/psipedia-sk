@@ -315,7 +315,9 @@ test("Attention read model has 15 user-facing sources, bounded page size and no 
   assert.match(store, /ADMIN_ATTENTION_MAX_PAGE_SIZE = 50/);
   assert.match(store, /LIMIT \\?/);
   assert.match(store, /ATTENTION_ORDER_SQL/);
-  assert.match(store, /ADMIN_ATTENTION_REQUEST_QUERY_MAX = ADMIN_ATTENTION_SOURCE_QUERY_COUNT \* 2/);
+  assert.match(store, /ADMIN_ATTENTION_PROBE_GROUP_SIZE = 5/);
+  assert.match(store, /ADMIN_ATTENTION_REQUEST_QUERY_MAX =\s*ADMIN_ATTENTION_PROBE_QUERY_COUNT \+ ADMIN_ATTENTION_SOURCE_QUERY_COUNT \* 2/);
+  assert.match(store, /probeSourcesGrouped/);
   assert.match(store, /sourcePageQuery/);
   assert.match(store, /compareAttentionRows/);
   assert.doesNotMatch(store, /availableUnion/);
