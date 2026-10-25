@@ -412,6 +412,16 @@ async function syncOneBreed(
       throw new Error("Prepojené plemeno už nie je Draft. Automatický sync ho nebude prepisovať ani odpublikovávať.");
     }
 
+    // A later Admin edit is not an acknowledgement from Notion. Never
+    // mark its old snapshot "synchronized" or pull an older remote version
+    // on top of the unacknowledged D1 revision.
+    const lastAck = Date.parse(mapping.last_synced_at ?? "");
+    const adminEdit = Date.parse(existing.updatedAt);
+    if (Number.isFinite(lastAck) && Number.isFinite(adminEdit)
+      && adminEdit > lastAck + 2_000) {
+      throw new Error("BREED_ADMIN_REVISION_NOT_SYNCED");
+    }
+
     if (mapping.content_hash === contentHash) {
       await upsertMapping(database, page, existing.id, contentHash, now);
       await updateNotionSyncState(bindings, page.id, {
@@ -428,7 +438,7 @@ async function syncOneBreed(
       const updated = await updateManagedBreed(existing.id, payload, SYNC_ACTOR, existing.updatedAt);
       if (!updated) throw new Error("Prepojené plemeno sa nepodarilo aktualizovať.");
       await cleanupNotionImageKeys(bindings.BUCKET, prepared.replacedKeys);
-      await upsertMapping(database, page, updated.id, contentHash, now);
+      await upsertMapping(database, page, updated.id, contentHash, new Date().toISOString());
       await updateNotionSyncState(bindings, page.id, {
         state: "Synchronizované",
         psipediaId: updated.id,
@@ -446,7 +456,7 @@ async function syncOneBreed(
   try {
     const created = await createManagedBreed(payload, SYNC_ACTOR);
     if (!created) throw new Error("Plemeno sa nepodarilo vytvoriť.");
-    await upsertMapping(database, page, created.id, contentHash, now);
+    await upsertMapping(database, page, created.id, contentHash, new Date().toISOString());
     await updateNotionSyncState(bindings, page.id, {
       state: "Synchronizované",
       psipediaId: created.id,
