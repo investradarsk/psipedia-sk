@@ -256,7 +256,7 @@ const BREED_DRAFT_TEXT_FIELDS = [
 ] as const;
 
 function normalizedBreedText(value: string) {
-  return value.replace(/\\s+/g, " ").trim();
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function richTextNotionValue(text: string, kind: "title" | "rich_text") {
