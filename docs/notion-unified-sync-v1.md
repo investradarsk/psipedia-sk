@@ -28,11 +28,11 @@
 - [x] **4B-1:** spoločná kontrola vlastníctva Notion stránky v Adresári aj Events/Help. Žiadny obsahový ani diagnostický PATCH alebo Notion→D1 import presunutej, archivovanej alebo trashed stránky. Platí pre všetkých päť Events/Help agend a cielené ensure Podujatia, bez migrácie.
 - [x] **4B-2a:** každý mapped Events/Help zápis kontroluje identitu stránky a hash odrazeného obsahu ešte pred aktualizáciou D1 mappingu; zlyhanie API echo neznamená potvrdený sync.
 - [x] **4B-2b-1:** päť-agendová regresná matica polia publikovania, súkromia a súbežných editácií proti reálnemu `reconcileProfileFields`.
-- [ ] **4B-2b-2:** skutočné integračné testy všetkých Admin/Notion zápisových transportov a závodov zostávajú samostatným overením.
+- [x] **4B-2b-2:** produkčné writeback/dispatcher funkcie overené v offline VM s mocked Notion/D1 hranicami pre všetkých päť agend. [ ] Živý provider-backed E2E je súčasťou kontrolovaného produkčného kroku.
 - [x] **5A:** spoločný read-only prehľad ôsmich oblastí na existujúcej admin stránke Notion auditu, založený na D1 evidencii bez Notion API dopytov.
 - [x] **5B-1:** posledný zaznamenaný beh Adresára a zdieľanej Events/Help automatizácie cez už existujúce `admin_notification_events` (Admin automation run STARTED/terminal receipts); bez migrácie a bez odhadu per-agenda výsledkov. UI rozlišuje neoverené, prebieha, po lehote, úspech, čiastočný úspech, zlyhanie, preskočené.
 - [ ] **5B-2:** samostatné živé receipts pre katalóg a FB obrázky nie sú v existujúcej schéme rovnocenne dostupné; zatiaľ explicitne NEOVERENÉ. Voliteľné rozšírenie iba pri schválení ďalšieho per-run eventu, nie odhadom z mapping timestamps.
-- [ ] **6:** integračné testy Admin → D1 → Notion a povolených Notion → D1 zmien pre každú agendu, vrátane opakovania, súbehu, chybných ID a nedostupného Notion API.
+- [x] **6A:** runtime offline kontrakt pre päť agend: úspešný/opakovaný Notion PATCH, rozdielne ID stránky, neúplná/stale odpoveď, timeout po remote zmene, chyba izolovanej agendy, read-only dry-run a cielený Admin import. [ ] **6B:** real-world Notion/D1 dostupnosť, práva a aktuálne dáta overiť bezpečným produkčným dry-run po deploy.
 - [x] **7A:** admin read-only preflight konfigurácie nasadeného Workera a existujúcich D1 tabuliek, bez tokenov, Notion API a zápisov; viditeľný priamo na stránke auditu.
 - [ ] **7B:** potvrdenie reálnej produkčnej dostupnosti zdrojov, práv a údajov po schválenom nasadení — bez produkčných opráv počas Draft fázy.
 
@@ -121,3 +121,7 @@ Rozšírenie existujúceho chráneného `GET /api/admin/notion-sync-overview` ho
 ## Fáza 2C — jeden scheduler, presná diagnostika agend
 
 K spoločnému `notion_sync_health` pribudol `notion_sync_agenda_health` (len na základe už doručených výsledkov hodinového Events/Help runnera) s explicitnou agendou, stavom a sanitizovanými číselnými súhrnmi. Päť agend sa nesynchronizuje v novom cron, ani sa nededukuje úspech jednotlivej agendy zo spoločného `events-help` Admin notifikačného dokladu. `targetMissing` sa označí ako `BLOCKED`, skutočný konflikt ako `CONFLICT`, chyba ako `ERROR`; nevypisujú sa ID, obsah, tokeny ani voľné správy. Nemení sa žiadny Notion/D1 write path.
+
+## Fáza 6A — offline runtime integrácie
+
+V `tests/notion-events-help-runtime-integration.test.mjs` sa spúšťa reálny TypeScript z existujúcich `writeSourceToNotion`, `pageSnapshot`, `snapshotHash`, `requireVerifiedMappedNotionWriteback`, `totals` a `runNotionEventsHelpSyncSweep` v izolovanom VM. Mockované sú iba I/O hranice (Notion PATCH a D1 mapping). Všetkých päť agend testuje opakovanie, chybnú odpoveď, neúplné properties, stale editorial obsah, timeout po remote zmene, izoláciu zlyhania a cielené požiadavky; pri neistom zápise nemôže postúpiť potvrdený D1 mapping hash. Nejde o tvrdenie úspešnej produkčnej synchronizácie, ktorá je osobitným kontrolovaným krokom 6B/7B.
