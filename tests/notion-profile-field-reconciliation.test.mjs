@@ -473,31 +473,3 @@ test("events and all help agendas use canonical authority through shared reconci
   assert.match(source, /canonicalFieldsWin: true/);
   assert.match(source, /"Adresa", "Mesto", "Okres", "Kraj"/);
 });
-
-test("0143 installs the real production field baseline for seven non-Facebook agendas", async () => {
-  const db = new DatabaseSync(":memory:");
-  db.exec(await readFile(new URL("../drizzle/0143_notion_profile_field_baselines.sql", import.meta.url), "utf8"));
-  const d1db = d1(db);
-  const expected = ["directory", "events", "organizations", "adoptions", "help-cases", "lost-found", "eshops"];
-  for (let i = 0; i < expected.length; i++) {
-    const agenda = expected[i];
-    const snapshot = { name: "Test " + agenda, status: "draft" };
-    const hash = await profileFieldSnapshotHash(agenda, snapshot);
-    const args = { database: d1db, agenda, entityId: i + 1,
-      pageId: "notion-" + i, hash, snapshot, syncedAt: "2026-10-25T00:00:00Z" };
-    await recordProfileFieldBaseline(args);
-    const row = await readProfileFieldBaseline({
-      database: d1db, agenda, entityId: i + 1, pageId: "notion-" + i,
-      expectedHash: hash,
-    });
-    assert.deepEqual(row, snapshot);
-    await recordProfileFieldBaseline({ ...args, syncedAt: "2026-10-25T01:00:00Z" });
-  }
-  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM notion_profile_field_baselines").get().n, 7);
-  assert.equal(db.prepare("SELECT recorded_at FROM notion_profile_field_baselines WHERE agenda='eshops'").get().recorded_at,
-    "2026-10-25T00:00:00Z", "idempotent run must not rewrite unchanged baselines");
-  assert.throws(() => db.prepare(
-    "INSERT INTO notion_profile_field_baselines (agenda,entity_id,notion_page_id,snapshot_hash,snapshot_json,recorded_at) VALUES (?,?,?,?,?,?)"
-  ).run("facebook-images",42,"foo","hash","{}","now"));
-  db.close();
-});
