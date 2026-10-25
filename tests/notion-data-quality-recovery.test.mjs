@@ -5,6 +5,7 @@ import {
   NOTION_REVIEW_BATCH_SIZE,
   appendNotionReview,
   canClearResolvedNotionConflict,
+  notionConflictMetadataNeedsWrite,
   classifyDirectorySyncError,
   emptyNotionReviewQueue,
 } from "../lib/notion-data-quality-recovery.ts";
@@ -148,4 +149,22 @@ test("Notion audit user interface requires admin login, does not mutate content 
   assert.match(client, /nextCursor/);
   assert.match(client, /navigator\.clipboard\.writeText/);
   assert.doesNotMatch(client, /\/api\/admin\/notion-events-help-sync/);
+});
+
+test("repeated identical Events/Help conflict does not advance Notion revision", async () => {
+  const message = "LOSSLESS_FIELD_REVIEW_REQUIRED: *:BASELINE_UNAVAILABLE";
+  const last = "CONFLICT: " + message;
+  assert.equal(notionConflictMetadataNeedsWrite({
+    syncStatus: "Chyba", syncError: last, message,
+  }), false);
+  for (const changed of [
+    { syncStatus: "Synchronizované", syncError: last, message },
+    { syncStatus: "Chyba", syncError: "", message },
+    { syncStatus: "Chyba", syncError: last, message: "different" },
+  ]) assert.equal(notionConflictMetadataNeedsWrite(changed), true);
+  const source = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(source, /if \(input\.page\?\.id === input\.pageId && !notionConflictMetadataNeedsWrite/);
+  assert.match(source, /page: pagesById\.get\(pageId\)/);
+  assert.match(source, /message: "LOSSLESS_FIELD_REVIEW_REQUIRED:/);
+  assert.match(source, /page,\s*message: "LOSSLESS_FIELD_REVIEW_REQUIRED:/);
 });

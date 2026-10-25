@@ -1,5 +1,6 @@
 import { AdminShell } from "@/components/admin-shell";
 import { AdminNotionDataQualityAudit } from "@/components/admin-notion-data-quality-audit";
+import { AdminNotionSyncOverview } from "@/components/admin-notion-sync-overview";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,10 @@ export default async function NotionDataQualityAuditPage() {
       title="Kontrola údajov v Notione"
       description="Bezpečná kontrola synchronizácie po 100 záznamoch. Nezapisuje nič do Notionu ani produkčnej databázy."
     >
-      <AdminNotionDataQualityAudit />
+      <div style={{ display: "grid", gap: 20 }}>
+        <AdminNotionSyncOverview />
+        <AdminNotionDataQualityAudit />
+      </div>
     </AdminShell>
   );
 }
