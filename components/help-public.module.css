@@ -237,13 +237,13 @@
 }
 
 .resultsBand {
-  padding: 34px 0 58px;
+  padding: var(--ps-list-section-top) 0 58px;
   border-top: 1px solid var(--help-border);
   background: linear-gradient(180deg, rgba(237, 243, 233, 0.52), rgba(248, 244, 235, 0.72));
 }
 .results {
   display: grid;
-  gap: 18px;
+  gap: var(--ps-list-column-gap);
 }
 .resultHeading {
   display: flex;
@@ -255,7 +255,8 @@
   margin: 0;
   color: var(--help-ink);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.55rem, 2.4vw, 2rem);
+  font-size: var(--ps-list-heading-size);
+  line-height: var(--ps-list-heading-leading);
   font-weight: 500;
   letter-spacing: -0.02em;
 }
@@ -1032,7 +1033,7 @@
 }
 .toolbar {
   width: 100%;
-  max-width: 780px;
+  max-width: var(--ps-list-search-max);
   grid-template-columns: minmax(0, 1fr) auto auto;
   border-radius: var(--ps-radius-filter, 18px);
 }

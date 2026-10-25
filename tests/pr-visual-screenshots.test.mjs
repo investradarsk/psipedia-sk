@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   parseVisualReviewRoutes,
+  parseVisualAcceptanceRoutes,
   validatePreviewBase,
   screenshotFolder,
   VIEWPORTS,
@@ -31,6 +32,14 @@ test("PR description selects concrete changed routes, never production", () => {
     assert.throws(() => parseVisualReviewRoutes(routes), routes);
 });
 
+test("secondary acceptance routes cover seeded details without relaxing URL safety", () => {
+  assert.deepEqual(parseVisualAcceptanceRoutes("VISUAL_REVIEW_ROUTES: /plemena"), []);
+  assert.deepEqual(parseVisualAcceptanceRoutes("VISUAL_REVIEW_ROUTES: /plemena\nVISUAL_ACCEPTANCE_ROUTES: /plemena/biely-svajciarsky-ovciak,/novinky"), [
+    "/plemena/biely-svajciarsky-ovciak", "/novinky",
+  ]);
+  assert.throws(() => parseVisualAcceptanceRoutes("VISUAL_ACCEPTANCE_ROUTES: https://psipedia.sk"), /Unsafe/);
+});
+
 test("base URL is loopback-only HTTP", () => {
   assert.equal(validatePreviewBase("http://localhost:5173"), "http://localhost:5173");
   assert.equal(validatePreviewBase("http://127.0.0.1:5173"), "http://127.0.0.1:5173");
@@ -51,7 +60,7 @@ test("base URL is loopback-only HTTP", () => {
   assert.equal(screenshotFolder("/admin/nastavenia"), "admin__nastavenia");
   assert.deepEqual(
     VIEWPORTS.map((x) => x.width),
-    [1440, 390],
+    [1440, 390, 320],
   );
 });
 
@@ -69,6 +78,9 @@ test("workflow checks out the PR head with local-only data and uploads artifacts
   assert.match(workflow, /VISUAL_REVIEW_ROUTES:/);
   assert.match(workflow, /PSIPEDIA_E2E_LOCAL_BOOTSTRAP/);
   assert.match(workflow, /--local/);
+  assert.match(workflow, /node scripts\/bootstrap-breed-e2e\.mjs prepare/);
+  assert.match(workflow, /node scripts\/bootstrap-breed-e2e\.mjs seed/);
+  assert.match(workflow, /node scripts\/bootstrap-phase5-e2e\.mjs full/);
   assert.match(workflow, /upload-artifact@v4/);
   assert.match(agents, /screenshot evidence from the exact PR revision/i);
   assert.doesNotMatch(workflow, /wrangler deploy|--remote/);

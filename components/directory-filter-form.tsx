@@ -235,7 +235,7 @@ export function DirectoryFilterForm(props: Props) {
         </dialog>
       )}
       {activeSelections.length > 0 && (
-        <div className={styles.activeFilters} aria-label="Aktívne filtre" data-directory-active-filters>
+        <div className={styles.activeFilters} aria-label="Aktívne filtre" data-directory-active-filters data-public-active-filters>
           <span className={styles.activeTitle}>Aktívne filtre</span>
           {activeSelections.map(({ key, label, value }) =>
             // Use native GET navigation: resetting a facet must not depend on
@@ -244,7 +244,7 @@ export function DirectoryFilterForm(props: Props) {
               removeLabel={`Odstrániť filter ${label}: ${value}`}>
               <span>{label}: {value}</span><span aria-hidden="true">×</span>
             </PublicFilterTag>)}
-          <a className={styles.clearAll} href={basePath}>Vymazať všetko</a>
+          <a className={styles.clearAll} href={basePath} data-public-filter-reset>Vymazať všetko</a>
         </div>
       )}
     </>

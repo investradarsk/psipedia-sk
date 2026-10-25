@@ -63,6 +63,8 @@ jobs:
           mv drizzle/0038_adoption_staging_data.sql "$RUNNER_TEMP/0038_adoption_staging_data.sql"
           mv drizzle/0039_activate_canonical_adoptions.sql "$RUNNER_TEMP/0039_activate_canonical_adoptions.sql"
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Prepare isolated canonical breed fixture
+        run: node scripts/bootstrap-breed-e2e.mjs prepare
       - name: Disable outbound automations in preview
         run: |
           {
@@ -93,6 +95,10 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
         run: node scripts/bootstrap-phase5-e2e.mjs sections-only
+      - name: Seed real breed detail in isolated D1
+        run: node scripts/bootstrap-breed-e2e.mjs seed
+      - name: Seed review article detail in isolated D1
+        run: node scripts/bootstrap-phase5-e2e.mjs full
       - name: Capture exact PR code screenshots
         run: node scripts/pr-visual-screenshots.mjs
       - name: GitHub run summary
