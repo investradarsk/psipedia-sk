@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import {AdminWorkspaceActivity} from "./admin-workspace-activity";
 import type {WorkspaceFeed} from "@/lib/admin-workspace-feed";
 import type { AdminAttentionExactSummary } from "@/lib/admin-attention-queue-store";
 import type { AdminAttentionQueueSourceType } from "@/lib/admin-attention-queue";
-import type { AdminAutomationReliabilitySummary } from "@/lib/admin-automation-reliability";
+import { summarizeAdminAutomationReads, type AdminAutomationReadResult } from "@/lib/admin-automation-reliability";
 import type { AdminDataQualitySummary } from "@/lib/admin-dashboard-store";
 import styles from "./admin-workspace-dashboard.module.css";
 
@@ -90,49 +91,46 @@ function QueueLink({
   );
 }
 
-export function AdminWorkspaceDashboard({
-  attention,
-  activity,
-  quality,
-  workspaceReliability,
-}: {
-  attention: AdminAttentionExactSummary;
-  activity: WorkspaceFeed;
-  quality: {
-    status: "OK" | "EMPTY" | "UNAVAILABLE";
-    data: AdminDataQualitySummary;
-  };
-  workspaceReliability: AdminAutomationReliabilitySummary;
-}) {
+
+// Render each source independently. Slow D1 readers never block unrelated cards.
+type QualityRead = AdminAutomationReadResult<AdminDataQualitySummary>;
+type AttentionPromise = Promise<AdminAttentionExactSummary>;
+type QualityPromise = Promise<QualityRead>;
+type ActivityPromise = Promise<WorkspaceFeed>;
+
+function PendingMetric({ label }: { label: string }) {
+  return <div className={styles.metricCard} role="status" aria-busy="true">{label}: načítava sa…</div>;
+}
+
+async function WorkspaceActivityPanel({ promise }: { promise: ActivityPromise }) {
+  const activity = await promise;
+  return <AdminWorkspaceActivity initial={activity} />;
+}
+
+async function WorkspaceReliabilityPanel({ promise }: { promise: QualityPromise }) {
+  const qualityRead = await promise;
+  const workspaceReliability = summarizeAdminAutomationReads([qualityRead]);
+  return workspaceReliability.status === "PARTIAL" || workspaceReliability.status === "UNAVAILABLE" ? (
+    <section className={styles.reliabilityNotice} role="alert">
+      <div>
+        <strong>
+          {workspaceReliability.status === "UNAVAILABLE"
+            ? "Časť pracovného prehľadu sa nedá načítať."
+            : "Pracovný prehľad má čiastočné údaje."}
+        </strong>
+        <p>Nedostupný reader sa nezobrazuje ako nula. Otvor príslušnú agendu alebo obnov stránku.</p>
+      </div>
+      <span data-status={workspaceReliability.status}>{availabilityLabel[workspaceReliability.status]}</span>
+    </section>
+  ) : null;
+}
+
+async function WorkspaceAttentionMetrics({ promise }: { promise: AttentionPromise }) {
+  const attention = await promise;
   const partnerClaims = sourceMetric(attention, "PARTNER_CLAIM_REVIEW");
   const overallAttentionStatus = attentionStatus(attention);
-
   return (
-    <div className={styles.workspace}>
-      <AdminWorkspaceActivity initial={activity} />
-      {workspaceReliability.status === "PARTIAL" || workspaceReliability.status === "UNAVAILABLE" ? (
-        <section className={styles.reliabilityNotice} role="alert">
-          <div>
-            <strong>
-              {workspaceReliability.status === "UNAVAILABLE"
-                ? "Časť pracovného prehľadu sa nedá načítať."
-                : "Pracovný prehľad má čiastočné údaje."}
-            </strong>
-            <p>Nedostupný reader sa nezobrazuje ako nula. Otvor príslušnú agendu alebo obnov stránku.</p>
-          </div>
-          <span data-status={workspaceReliability.status}>{availabilityLabel[workspaceReliability.status]}</span>
-        </section>
-      ) : null}
-
-      <section aria-labelledby="admin-priority-title">
-        <div className={styles.sectionHeading}>
-          <div>
-            <span>Teraz</span>
-            <h2 id="admin-priority-title">Čo potrebuje pozornosť</h2>
-          </div>
-          <Link href="/admin/operations">Všetky upozornenia →</Link>
-        </div>
-        <div className={styles.priorityGrid}>
+    <>
           <MetricCard
             emphasized
             title="Aktívne upozornenia"
@@ -150,6 +148,15 @@ export function AdminWorkspaceDashboard({
             status={partnerClaims.status}
             valueLabel="claims čaká na kontrolu"
           />
+
+    </>
+  );
+}
+
+async function WorkspaceQualityMetric({ promise }: { promise: QualityPromise }) {
+  const qualityRead = await promise;
+  const quality = { status: qualityRead.status, data: qualityRead.data };
+  return (
           <MetricCard
             title="Kvalita údajov"
             description="Nové skutočne nájdené chýbajúce údaje z Tavily, pripravené na individuálne schválenie."
@@ -158,9 +165,13 @@ export function AdminWorkspaceDashboard({
             status={quality.status}
             valueLabel="návrhov na schválenie"
           />
-        </div>
-      </section>
 
+  );
+}
+
+async function WorkspaceCommunity({ promise }: { promise: AttentionPromise }) {
+  const attention = await promise;
+  return (
       <section aria-labelledby="admin-community-title">
         <div className={styles.sectionHeading}>
           <div>
@@ -179,6 +190,47 @@ export function AdminWorkspaceDashboard({
         </div>
       </section>
 
+
+  );
+}
+
+export function AdminWorkspaceDashboard({
+  attentionPromise,
+  qualityPromise,
+  activityPromise,
+}: {
+  attentionPromise: AttentionPromise;
+  qualityPromise: QualityPromise;
+  activityPromise: ActivityPromise;
+}) {
+  return (
+    <div className={styles.workspace}>
+      <Suspense fallback={<p role="status">Načítava sa pracovný feed…</p>}>
+        <WorkspaceActivityPanel promise={activityPromise} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <WorkspaceReliabilityPanel promise={qualityPromise} />
+      </Suspense>
+      <section aria-labelledby="admin-priority-title">
+        <div className={styles.sectionHeading}>
+          <div>
+            <span>Teraz</span>
+            <h2 id="admin-priority-title">Čo potrebuje pozornosť</h2>
+          </div>
+          <Link href="/admin/operations">Všetky upozornenia →</Link>
+        </div>
+        <div className={styles.priorityGrid}>
+          <Suspense fallback={<><PendingMetric label="Aktívne upozornenia" /><PendingMetric label="Partner claims" /></>}>
+            <WorkspaceAttentionMetrics promise={attentionPromise} />
+          </Suspense>
+          <Suspense fallback={<PendingMetric label="Kvalita údajov" />}>
+            <WorkspaceQualityMetric promise={qualityPromise} />
+          </Suspense>
+        </div>
+      </section>
+      <Suspense fallback={<section role="status">Načítavajú sa verejné podnety…</section>}>
+        <WorkspaceCommunity promise={attentionPromise} />
+      </Suspense>
       <section className={styles.splitGrid} aria-label="Automatizácie a rýchla správa">
         <article className={styles.panel}>
           <div className={styles.panelHeading}>
@@ -212,6 +264,7 @@ export function AdminWorkspaceDashboard({
           </div>
         </article>
       </section>
+
     </div>
   );
 }

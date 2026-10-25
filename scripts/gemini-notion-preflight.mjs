@@ -162,7 +162,7 @@ export function geminiFeedQualityProposal(stableKey, properties) {
   else if(stableKey==="help.adopcia")mapping={shortDescription:"Krátky popis",breedName:"Plemeno",color:"Farba"};
   else if(stableKey==="help.stratene-a-najdene")mapping={dogName:"Meno psa",breed:"Plemeno",color:"Farba"};
   else if(["help.docasna-opatera","help.zbierky","help.dobrovolnictvo"].includes(stableKey))
-    mapping={excerpt:"Perex",actionUrl:"Web"};
+    mapping={excerpt:"Perex",actionUrl:"CTA URL"};
   else return {};
   return Object.fromEntries(Object.entries(mapping).map(([key,name])=>[key,read(name)]).filter(([,value])=>value));
 }

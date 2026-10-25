@@ -28,7 +28,7 @@ function fixture(){
 test("0139 approved immutable bytes, exact canonical owner-only workflow and explicit confirmation",()=>{
   assert.equal(createHash("sha256").update(sql).digest("hex"),PINNED_SHA256_0139);
   assert.equal(APPROVED_0139_SHA256,PINNED_SHA256_0139);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3),target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-4),target);
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS,[]);
   assert.doesNotThrow(()=>assertApproved0139Target("psipedia-sk-db",PINNED_SHA256_0139));
   assert.throws(()=>assertApproved0139Target("wrong-db",PINNED_SHA256_0139),/canonical/);

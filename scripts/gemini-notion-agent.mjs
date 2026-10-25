@@ -203,7 +203,7 @@ async function createDraft(args, snapshot, target) {
   let draft;
   try { draft = buildGeminiNotionDraft({ args, ...snapshot, target }); }
   catch (error) {
-    if (/^GEMINI_(?:DRAFT_NAME_REQUIRED|DRAFT_INPUT_INVALID|LOST_FOUND_TYPE_REQUIRED)$/.test(error.message))
+    if (/^GEMINI_(?:DRAFT_NAME_REQUIRED|DRAFT_INPUT_INVALID|DRAFT_SOURCE_REQUIRED|LOST_FOUND_TYPE_REQUIRED)$/.test(error.message))
       return { status: "rejected", reason: error.message };
     throw error;
   }
@@ -397,7 +397,8 @@ async function runAgent() {
   const instruction = "Pokračuj podľa používateľského promptu: " + categoryGuidance +
     ". Pozri existujúce Notion záznamy cez search_notion; odpoveď uvádza stránkovanie a next_offset. " +
     "Následne použi create_notion_draft pre overené identity aj vtedy, keď už existuje podobný alebo zhodný profil. Zhoda je len upozornenie pre redaktora. " +
-    "Nevytváraj znovu ten istý nerozhodnutý Notion koncept; neupravuj existujúce profily automaticky. Nezistené údaje nechaj prázdne. " +
+    "Nevytváraj znovu ten istý nerozhodnutý Notion koncept; neupravuj existujúce profily automaticky. " +
+    "V kategóriách Pomoc psom vyplň Zdroj dát overiteľnou verejnou URL (nie CTA URL); nevytváraj návrh bez overiteľného zdroja. Nezistené údaje nechaj prázdne. " +
     "Nie je potrebné dokazovať každé pole ani presne zhodovať URL s citáciami Google. " +
     "Neopakuj technický zápis toho istého kandidáta. Nikdy nepublikuj. " +
     "Ak sa nenašiel žiadny použiteľný subjekt alebo prípad, nevytváraj falošný profil; " +
