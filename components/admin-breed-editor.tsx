@@ -1,4 +1,6 @@
 "use client";
+import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import {adminSelectedImage} from "@/lib/admin-selected-image";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
@@ -77,7 +79,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   function updateHeroTrait(index:number,patch:Partial<BreedHeroTrait>){setForm((current)=>{const traits=[...(current.editorial.heroTraits??[])];while(traits.length<=index)traits.push({label:"",rating:3});traits[index]={...traits[index],...patch};return {...current,editorial:{...current.editorial,heroTraits:traits}};});}
   function toggleId(key:"relatedBreedIds"|"relatedArticleIds"|"directoryProfileIds",id:number){setForm((current)=>({...current,[key]:current[key].includes(id)?current[key].filter((item)=>item!==id):[...current[key],id]}));}
 
-  async function uploadCover(event:ChangeEvent<HTMLInputElement>){const file=event.target.files?.[0];if(!file||uploadPending.current||saving)return;uploadPending.current=true;setUploading(true);setError("");try{const result=await uploadAdminImage(file,"breeds");setForm((current)=>({...current,image:result.imageUrl,imageKey:result.imageKey}));setMessage(adminImageUploadMessage(result,"Ulož plemeno, aby sa titulná fotografia priradila."));}catch(e){setError(e instanceof Error?e.message:"Obrázok sa nepodarilo nahrať.");}finally{uploadPending.current=false;setUploading(false);event.target.value="";}}
+  async function uploadCover(event:File|ChangeEvent<HTMLInputElement>){const file=adminSelectedImage(event);if(!file||uploadPending.current||saving)return;uploadPending.current=true;setUploading(true);setError("");try{const result=await uploadAdminImage(file,"breeds");setForm((current)=>({...current,image:result.imageUrl,imageKey:result.imageKey}));setMessage(adminImageUploadMessage(result,"Ulož plemeno, aby sa titulná fotografia priradila."));}catch(e){setError(e instanceof Error?e.message:"Obrázok sa nepodarilo nahrať.");}finally{uploadPending.current=false;setUploading(false);}}
   async function uploadGallery(event: ChangeEvent<HTMLInputElement> | File[]) {
     const files = Array.isArray(event) ? event : Array.from(event.target.files ?? []);
     if (!Array.isArray(event)) event.target.value = "";
@@ -303,7 +305,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <div className={styles.mediaGrid}>
           <div className={styles.coverPreview}>{form.image?<img src={form.image} alt={`Náhľad: ${form.name||"plemeno"}`}/>:<span>Bez fotografie<br/>verejne sa použije fallback</span>}</div>
           <div className={styles.mediaActions}>
-            <label className="admin-field"><span>Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)</span><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e)=>void uploadCover(e)} disabled={uploading||saving}/><small>{uploading?"Nahrávam…":form.image||"Zatiaľ bez fotografie"}</small></label>
+            <div className="admin-field"><span>Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)</span><AdminSingleImageUpload label={form.image?"Vybrať inú titulnú fotografiu":"Nahrať titulnú fotografiu"} onFile={uploadCover} disabled={saving} busy={uploading} onRejected={setError}/><small>{uploading?"Nahrávam…":form.image||"Zatiaľ bez fotografie"}</small></div>
             {form.image&&<AdminActionButton variant="destructive" onClick={()=>setForm((current)=>({...current,image:"",imageKey:""}))}>Odstrániť titulnú fotografiu</AdminActionButton>}
             <AdminHelpText>Vyber zdrojovú fotografiu s rezervou okolo psa; focal-point schema zatiaľ neexistuje, preto tesný crop nie je možné v admine bezpečne korigovať.</AdminHelpText>
             <div className="admin-field"><span>Ďalšie fotografie</span><AdminGalleryDropzone label="Nahrať fotografie plemena" disabled={uploading||saving||form.gallery.length>=30} busy={uploading} onFiles={uploadGallery} onRejected={setError}/></div>

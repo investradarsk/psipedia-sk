@@ -1,4 +1,6 @@
 "use client";
+import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
@@ -56,8 +58,8 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
     if (!slugEdited) setSlug(slugifyAdoptionSlug(value));
   }
 
-  async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function uploadImage(event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(true); setError(""); setMessage("");
     try {
@@ -67,7 +69,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
     } finally {
-      setUploading(false); event.target.value = "";
+      setUploading(false);
     }
   }
 

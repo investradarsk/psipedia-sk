@@ -1,4 +1,6 @@
 "use client";
+import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
@@ -216,8 +218,8 @@ export function AdminArticleEditor({
     if (value === "novinky" && category === "Výcvik") setCategory("Život so psom");
   }
 
-  async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function uploadImage(event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(true);
     setError("");
@@ -235,12 +237,11 @@ export function AdminArticleEditor({
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
     } finally {
       setUploading(false);
-      event.target.value = "";
     }
   }
 
-  async function uploadOgImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function uploadOgImage(event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(true); setError(""); setMessage("");
     try {
@@ -250,7 +251,7 @@ export function AdminArticleEditor({
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Open Graph obrázok sa nepodarilo nahrať.");
     } finally {
-      setUploading(false); event.target.value = "";
+      setUploading(false);
     }
   }
 
@@ -498,7 +499,7 @@ export function AdminArticleEditor({
           </div>
           <div className="admin-upload-row admin-og-upload">
             <div className={`admin-upload-preview admin-upload-preview--${accent}`}>{ogImageUrl ? <img src={ogImageUrl} alt="Náhľad Open Graph obrázka" /> : <span>OG</span>}</div>
-            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadOgImage} disabled={uploading} />{ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"}</label>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setEditorDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
+            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><AdminSingleImageUpload label={ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"} onFile={uploadOgImage} busy={uploading} onRejected={setError}/>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setEditorDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
           </div>
           <label className="admin-check"><input type="checkbox" checked={noindex} onChange={(event) => setNoindex(event.target.checked)} /><span><strong>Neindexovať článok (noindex)</strong><small>Článok zostane dostupný cez URL, ale vyhľadávače ho nemajú zaradiť.</small></span></label>
         </section>
@@ -594,10 +595,7 @@ export function AdminArticleEditor({
               {imageUrl ? <img src={imageUrl} alt="Náhľad titulnej fotografie" /> : <span>🐕</span>}
             </div>
             <div className="admin-upload-actions">
-              <label className="admin-upload-button">
-                <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />
-                {uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}
-              </label>
+              <AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>
               {imageUrl && <button type="button" onClick={() => {
                 setImageUrl("");
                 setImageKey("");
