@@ -25,17 +25,17 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
   const organizationId = Number(id);
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) notFound();
   const user = await requireAdminPageUser("/admin/organizacie/" + id);
-  const [organization, locations, methods] = await Promise.all([
+  // These six independent reads need only the validated canonical ID.
+  // Keep locations and fundraising editable with exactly their prior props.
+  const [organization, locations, methods, duplicateWarning, automationSuggestions, review] = await Promise.all([
     getOrganizationPublicationAdminById(organizationId),
     listOrganizationLocationsAdmin(organizationId),
     listOrganizationFundraisingMethodsAdmin(organizationId),
+    getCanonicalDraftDuplicateWarning("ORGANIZATION", organizationId).catch(() => null),
+    listCanonicalAutomationUpdateSuggestions({ entityType: "ORGANIZATION", canonicalEntityId: organizationId }),
+    getAdminEntityReview("ORGANIZATION", organizationId),
   ]);
   if (!organization) notFound();
-  const [duplicateWarning, automationSuggestions, review] = await Promise.all([
-    getCanonicalDraftDuplicateWarning("ORGANIZATION", organization.id).catch(() => null),
-    listCanonicalAutomationUpdateSuggestions({ entityType: "ORGANIZATION", canonicalEntityId: organization.id }),
-    getAdminEntityReview("ORGANIZATION", organization.id),
-  ]);
 
   return <AdminShell
     user={user}
