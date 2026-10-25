@@ -51,9 +51,15 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
   const queryKey=`${month}|${status}|${source}|${page}|${refresh}`;
   const[settledQuery,setSettledQuery]=useState(queryKey);
+  const initialQueryHandled=useRef(false);
   const loading=opening||settledQuery!==queryKey;
   const dirty=!!editor && JSON.stringify(form)!==baseline;
-  useEffect(()=>{const abort=new AbortController();
+  useEffect(()=>{
+    // SSR already delivered the first calendar/list view. A duplicate GET at
+    // hydration re-reads the same D1 rows and image metadata unnecessarily.
+    // Changed filters, explicit refresh and 12s live polling still fetch.
+    if(!initialQueryHandled.current){initialQueryHandled.current=true;return;}
+    const abort=new AbortController();
     fetch(`/api/admin/facebook-images?month=${month}&status=${status}&source=${source}&page=${page}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as Data & {error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");setData(body);setError("");}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setSettledQuery(queryKey);});
     return()=>abort.abort();
   },[month,status,source,page,refresh,queryKey]);
