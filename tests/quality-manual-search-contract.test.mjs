@@ -19,7 +19,8 @@ test("manual Tavily controls are admin-only, paid requests are one per explicit 
   assert.match(dashboard,/manualLimit,setManualLimit\]=useState\(5\)/);
   assert.match(dashboard,/<option value=\{20\}>20<\/option>/);
   assert.match(dashboard,/for\(let i=0;i<manualLimit&&!stopManual.current;i\+\+\)/);
-  assert.doesNotMatch(engine,/runQualityMissingHourly[\s\S]*runManualQualitySearch\(/);
+  const manual=engine.slice(engine.indexOf("export async function runManualQualitySearch"),engine.indexOf("export type MissingQualityProposal"));
+  assert.doesNotMatch(manual,/UPDATE quality_missing_cursors/);
 });
 test("manual attempts have durable history and require owner-dispatched 0143",()=>{
   assert.match(migration,/CREATE TABLE quality_missing_manual_attempts/);
