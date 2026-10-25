@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
+import { readNonemptyD1Page } from "../lib/perf-d1-page-read.ts";
 import test from "node:test";
 import {
   directoryLocationFacetStatement,
@@ -233,8 +234,27 @@ test("canonical service options share the facet request's latency budget; disabl
   assert.match(fn, /const canonicalServicesEnabled = canonicalPublicEnabled/);
   assert.match(fn, /if \(!canonicalServicesEnabled \|\| !category\) return \[\]/);
   assert.match(fn, /Promise\.all\(\[\s*database\.batch\(\[locationStatement, serviceStatement, sourceStatement\]\),\s*loadCanonicalServices\(\),\s*\]\)/);
-  assert.match(fn, /const listResult = total === 0/);
+  assert.match(fn, /readNonemptyD1Page\(total, \(\) => listStatement\.all<DirectoryProfileRow>\(\)\)/);
   assert.match(fn, /await listStatement\.all<DirectoryProfileRow>\(\)/);
+});
+
+test("actual SQLite reads: no page SQL for verified empty count, full rows otherwise", async () => {
+  const { database, getCalls, close } = fixture(40);
+  try {
+    const load = () => database.prepare(
+      "SELECT id, name FROM directory_profiles WHERE status = 'published' ORDER BY name ASC LIMIT 5"
+    ).all();
+    const callsBeforeEmpty = getCalls();
+    assert.deepEqual(await readNonemptyD1Page(0, load), { results: [] });
+    assert.equal(getCalls(), callsBeforeEmpty, "empty page must not prepare or execute SQL");
+    const populated = await readNonemptyD1Page(12, load);
+    assert.equal(populated.results.length, 5);
+    assert.deepEqual(populated.results.map((row) => row.name),
+      ["Profil 1", "Profil 10", "Profil 11", "Profil 12", "Profil 14"]);
+    assert.equal(getCalls(), callsBeforeEmpty + 1, "nonempty page runs exactly one query");
+    const failure = new Error("D1 unavailable");
+    await assert.rejects(readNonemptyD1Page(1, async () => { throw failure; }), (error) => error === failure);
+  } finally { close(); }
 });
 
 test("option scans shrink from eight to three without touching publication or pagination contracts", () => {
