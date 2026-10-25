@@ -92,7 +92,28 @@ test("mapping hash resolves conflicts while rating-only changes force a Notion m
   const source = read("lib/notion-eshop-sync.ts");
   assert.match(source, /profileHash !== lastHash/);
   assert.match(source, /pageHash !== lastHash/);
-  assert.match(source, /notionTime > profileTime/);
+  assert.match(source, /reconcileProfileFields/);
+  assert.match(source, /trustedProfileBaselineFromHashes/);
+  assert.match(source, /canonicalFieldsWin: true/);
+  assert.doesNotMatch(source, /notionTime > profileTime/);
   assert.match(source, /rating\.updated_at > ens\.last_synced_at/);
   assert.match(source, /forcePush: true/);
+});
+
+test("e-shop common baseline is recorded only after a verified remote payload", () => {
+  const source = read("lib/notion-eshop-sync.ts");
+  const write = source.slice(source.indexOf("async function writeShopToNotion("), source.indexOf("function readyForCreate("));
+  const echo = write.indexOf("NOTION_ESHOP_WRITEBACK_ECHO_MISMATCH");
+  const mapping = write.indexOf("await saveMapping(");
+  const baseline = write.indexOf("await recordProfileFieldBaseline(");
+  assert.ok(echo > 0 && mapping > echo && baseline > mapping);
+  assert.match(write, /snapshotHash\(notionSnapshot\(page\)\) !== hash/);
+});
+
+test("e-shop mapping recovery rejects divergent pages and self-declared Sync hash", () => {
+  const source = read("lib/notion-eshop-sync.ts");
+  const fn = source.slice(source.indexOf("async function recoverMapping("),
+    source.indexOf("async function syncMapped("));
+  assert.match(fn, /ESHOP_MAPPING_REVIEW_REQUIRED/);
+  assert.doesNotMatch(fn, /notionRichTextProperty\(input.page, "Sync hash"\) \|\| hash/);
 });
