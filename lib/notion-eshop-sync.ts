@@ -20,6 +20,9 @@ import {
   sha256Text,
   type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
+import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
+import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
+import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 
 export type NotionEshopSyncBindings = NotionSyncBindings & {
   NOTION_ESHOP_SYNC_ENABLED?: string;
@@ -30,6 +33,9 @@ type NotionPage = {
   id: string;
   last_edited_time?: string;
   properties?: Record<string, unknown>;
+  parent?: { type?: string; data_source_id?: string };
+  archived?: boolean;
+  in_trash?: boolean;
 };
 
 type NotionQueryResponse = {
@@ -309,6 +315,13 @@ async function writeShopToNotion(input: {
     ? await patchPage(input.bindings, input.pageId, properties)
     : await createPage(input.bindings, input.dataSourceId, properties);
 
+  // Notion's 200 response is not sufficient proof of durable field parity.
+  // A rejected or partial echo must never advance the common D1 baseline.
+  if (!page?.id || (input.pageId && page.id !== input.pageId)
+      || !notionPageBelongsToDataSource(page, input.dataSourceId)
+      || !page.properties || await snapshotHash(notionSnapshot(page)) !== hash) {
+    throw new Error("NOTION_ESHOP_WRITEBACK_ECHO_MISMATCH");
+  }
   await saveMapping({
     database: input.database,
     pageId: page.id,
@@ -317,6 +330,10 @@ async function writeShopToNotion(input: {
     notionLastEditedTime: page.last_edited_time ?? syncedAt,
     psipediaUpdatedAt: input.shop.updatedAt,
     syncedAt,
+  });
+  await recordProfileFieldBaseline({
+    database: input.database, agenda: "eshops", entityId: input.shop.id,
+    pageId: page.id, hash, snapshot: profileSnapshot(input.shop), syncedAt,
   });
 }
 
@@ -404,8 +421,9 @@ async function applyNotionToShop(input: {
   bindings: NotionEshopSyncBindings;
   page: NotionPage;
   shop: ManagedEshop;
+  desiredOverride?: EditableSnapshot;
 }) {
-  const desired = notionSnapshot(input.page);
+  const desired = input.desiredOverride ?? notionSnapshot(input.page);
   const logo = await prepareLogo(input.bindings, desired.logoUrl, input.shop);
   try {
     const updated = await updateManagedEshop(
@@ -459,7 +477,9 @@ async function changedIds(database: D1Database) {
 }
 
 async function recoverMapping(input: { database: D1Database; page: NotionPage }) {
-  const shopId = Number.parseInt(notionRichTextProperty(input.page, "Psipedia ID"), 10);
+  const rawId = notionRichTextProperty(input.page, "Psipedia ID");
+  if (!/^[1-9]\\d*$/.test(rawId)) return null;
+  const shopId = Number(rawId);
   if (!Number.isSafeInteger(shopId) || shopId <= 0) return null;
   const shop = await getManagedEshopById(shopId, input.database);
   if (!shop) return null;
@@ -469,16 +489,21 @@ async function recoverMapping(input: { database: D1Database; page: NotionPage })
     throw new Error("Psipedia e-shop ID " + shopId + " už je prepojený s iným Notion záznamom.");
   }
 
-  const hash = await snapshotHash(profileSnapshot(shop));
+  const snapshot = profileSnapshot(shop);
+  const hash = await snapshotHash(snapshot);
+  // A self-reported Notion Sync hash is not evidence of a shared baseline.
+  if (await snapshotHash(notionSnapshot(input.page)) !== hash) {
+    throw new Error("ESHOP_MAPPING_REVIEW_REQUIRED");
+  }
   const syncedAt = new Date().toISOString();
   await saveMapping({
-    database: input.database,
-    pageId: input.page.id,
-    shopId,
-    contentHash: notionRichTextProperty(input.page, "Sync hash") || hash,
-    notionLastEditedTime: input.page.last_edited_time ?? null,
-    psipediaUpdatedAt: shop.updatedAt,
-    syncedAt,
+    database: input.database, pageId: input.page.id, shopId,
+    contentHash: hash, notionLastEditedTime: input.page.last_edited_time ?? null,
+    psipediaUpdatedAt: shop.updatedAt, syncedAt,
+  });
+  await recordProfileFieldBaseline({
+    database: input.database, agenda: "eshops", entityId: shopId,
+    pageId: input.page.id, hash, snapshot, syncedAt,
   });
   return loadMappingByShop(input.database, shopId);
 }
@@ -494,8 +519,15 @@ async function syncMapped(input: {
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) return "unchanged" as const;
   const page = input.page ?? await fetchPage(input.bindings, input.mapping.notion_page_id);
+  if (page.id !== input.mapping.notion_page_id
+    || !notionPageBelongsToDataSource(page, input.dataSourceId)) {
+    throw new Error("ESHOP_IDENTITY_OR_PARENT_MISMATCH");
+  }
 
-  if (notionRichTextProperty(page, "Psipedia ID") !== String(shop.id)) {
+  const claimedId = notionRichTextProperty(page, "Psipedia ID");
+  if (claimedId !== String(shop.id)) {
+    // Never overwrite a page explicitly claimed by a different D1 entity.
+    if (claimedId) throw new Error("ESHOP_IDENTITY_CONFLICT");
     await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId, shop, pageId: page.id });
     return "pushed" as const;
   }
@@ -512,24 +544,48 @@ async function syncMapped(input: {
       await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId, shop, pageId: page.id });
       return "pushed" as const;
     }
+    await recordProfileFieldBaseline({
+      database: input.database, agenda: "eshops", entityId: shop.id,
+      pageId: page.id, hash: profileHash, snapshot: profileSnapshot(shop),
+      syncedAt: new Date().toISOString(),
+    });
     return "unchanged" as const;
   }
 
-  let notionWins = notionChanged && !profileChanged;
-  if (notionChanged && profileChanged) {
-    const notionTime = Date.parse(page.last_edited_time ?? "");
-    const profileTime = Date.parse(shop.updatedAt);
-    notionWins = Number.isFinite(notionTime) && (!Number.isFinite(profileTime) || notionTime > profileTime);
+  // Per-field reconciliation: the previous acknowledged common snapshot is
+  // authoritative evidence, not record-level Notion/Psipedia edit timestamps.
+  const canonical = profileSnapshot(shop);
+  const notion = notionSnapshot(page);
+  const stored = await readProfileFieldBaseline({
+    database: input.database, agenda: "eshops", entityId: shop.id,
+    pageId: page.id, expectedHash: lastHash,
+  });
+  const baseline = trustedProfileBaselineFromHashes({
+    recorded: stored, notion, psipedia: canonical,
+    mappingHash: lastHash, notionHash: pageHash, psipediaHash: profileHash,
+  });
+  const resolution = reconcileProfileFields({
+    baseline, notion, psipedia: canonical,
+    protectedFields: new Set(["slug", "status"]),
+    canonicalFieldsWin: true,
+  });
+  if (resolution.kind === "CONFLICT") {
+    throw new Error("ESHOP_FIELD_REVIEW_REQUIRED (" +
+      resolution.conflicts.map(({field, reason}) => field + ":" + reason).join(", ").slice(0,700) + ")");
   }
 
-  if (notionWins) {
-    const updated = await applyNotionToShop({ database: input.database, bindings: input.bindings, page, shop });
-    await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId, shop: updated, pageId: page.id });
-    return "pulled" as const;
-  }
-
-  await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId, shop, pageId: page.id });
-  return "pushed" as const;
+  const merged = resolution.merged as EditableSnapshot;
+  const changedCanonical = await snapshotHash(merged) !== profileHash;
+  const updated = changedCanonical
+    ? await applyNotionToShop({
+        database: input.database, bindings: input.bindings, page, shop,
+        desiredOverride: merged,
+      }) : shop;
+  await writeShopToNotion({
+    database: input.database, bindings: input.bindings,
+    dataSourceId: input.dataSourceId, shop: updated, pageId: page.id,
+  });
+  return changedCanonical ? "pulled" as const : "pushed" as const;
 }
 
 function configured(bindings: NotionEshopSyncBindings) {

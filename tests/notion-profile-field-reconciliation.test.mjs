@@ -424,3 +424,52 @@ test("both profile adapters reject malformed IDs without rejecting valid numeric
     assert.equal(valid.test(id), false, id);
   }
 });
+
+test("canonical-owned confirmed address mirrors to Notion while accepting a different Notion field", () => {
+  const before = { address: "Hlavná 8", name: "Vet", description: "Old" };
+  const result = reconcileProfileFields({
+    baseline: before,
+    notion: { ...before, description: "New from Notion" },
+    psipedia: { ...before, address: "Hlavná 10" },
+    protectedFields: new Set(["address"]), canonicalFieldsWin: true,
+  });
+  assert.equal(result.kind, "MERGE");
+  assert.deepEqual(result.merged, { ...before, address: "Hlavná 10", description: "New from Notion" });
+  assert.deepEqual(result.conflicts, []);
+});
+test("canonical-only address differs in Notion: mark as pending write-back, not conflict", () => {
+  const before = { address: "Hlavná 10", name: "Vet" };
+  const result = reconcileProfileFields({
+    baseline: before, notion: { ...before, address: "Hlavná 8" },
+    psipedia: before, protectedFields: new Set(["address"]), canonicalFieldsWin: true,
+  });
+  assert.equal(result.kind, "MERGE");
+  assert.equal(result.merged.address, "Hlavná 10");
+  assert.deepEqual(result.notionFields, ["address"]);
+});
+test("canonical authority never guesses the last writer of unrelated simultaneous edits", () => {
+  const before = { address: "A", description: "Original" };
+  const result = reconcileProfileFields({
+    baseline: before,
+    notion: { address: "B", description: "Notion" },
+    psipedia: { address: "C", description: "Admin" },
+    protectedFields: new Set(["address"]), canonicalFieldsWin: true,
+  });
+  assert.equal(result.kind, "CONFLICT");
+  assert.deepEqual(result.conflicts.map(c => c.field), ["description"]);
+  assert.equal(result.merged.address, "C");
+});
+test("directory sync exports canonical address through a scoped and echo-verified PATCH", async () => {
+  const source = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const mapped = source.slice(source.indexOf("async function syncMappedPage("),
+    source.indexOf("async function recoverMappingFromPage("));
+  assert.match(mapped, /const addressKeys = \[/);
+  assert.match(mapped, /await patchNotionPage\(input.bindings, latest.id, patch\)/);
+  assert.match(mapped, /NOTION_DIRECTORY_ADDRESS_WRITEBACK_UNVERIFIED/);
+  assert.match(mapped, /canonicalFieldsWin: true/);
+});
+test("events and all help agendas use canonical authority through shared reconciliation", async () => {
+  const source = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(source, /canonicalFieldsWin: true/);
+  assert.match(source, /"Adresa", "Mesto", "Okres", "Kraj"/);
+});

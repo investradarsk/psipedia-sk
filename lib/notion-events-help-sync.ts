@@ -1067,6 +1067,9 @@ await requireVerifiedMappedNotionWriteback({
           // Publication-adjacent moderator decisions and contact notes are
           // edited via the canonical Admin flow, not inferred from Notion.
           "Zrušené", "Kontakt",
+          // Physical address values are edited in the canonical Admin.
+          // Notion may update independent editorial fields of the same item.
+          "Adresa", "Mesto", "Okres", "Kraj",
         ]);
         if (agenda === "lost-found") {
           protectedFields.add("Miesto");
@@ -1082,6 +1085,7 @@ await requireVerifiedMappedNotionWriteback({
         }
         const resolution = reconcileProfileFields({
           baseline, notion: notionSnapshot, psipedia: sourceSnapshot, protectedFields,
+          canonicalFieldsWin: true,
           // Existing Events/Help hash comparison already trims strings and
           // normalizes timezone-aware lost/found instants. Apply the same
           // semantics to field-level change detection, not just record hashes.
