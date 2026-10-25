@@ -90,8 +90,9 @@ function source(
   };
 }
 
-async function rows(database: D1Database, sql: string) {
-  const result = await database.prepare(sql).all<Record<string, unknown>>();
+async function rows(database: D1Database, sql: string, targetId?: number) {
+  const query = database.prepare(sql);
+  const result = await (targetId === undefined ? query : query.bind(targetId)).all<Record<string, unknown>>();
   return result.results ?? [];
 }
 
@@ -162,7 +163,7 @@ function isUsableGeminiSource(value: string): boolean {
       url.hostname.toLowerCase() !== "vertexaisearch.cloud.google.com";
   } catch { return false; }
 }
-export async function loadNotionBulkEvents(database: D1Database) {
+export async function loadNotionBulkEvents(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,
     organizer,description,practical_info,website_url,registration_url,image_url,cancelled,seo_json,
     (SELECT c.primary_source_url FROM gemini_automation_concepts c
@@ -188,7 +189,7 @@ export async function loadNotionBulkEvents(database: D1Database) {
   geo.google_place_source_fingerprint AS geo_google_place_source_fingerprint
       FROM geo_points geo WHERE geo.target_type = 'MANAGED_EVENT'
     ) geo ON geo.geo_target_id = managed_events.id
-    ORDER BY managed_events.id ASC`);
+    ${targetId === undefined ? "" : "WHERE managed_events.id = ?"} ORDER BY managed_events.id ASC`, targetId);
 
   return sourceRows.map((row) => {
     const seo = (jsonObject(row.seo_json) ?? {}) as EditableSeo;
@@ -225,7 +226,7 @@ export async function loadNotionBulkEvents(database: D1Database) {
   });
 }
 
-export async function loadNotionBulkOrganizations(database: D1Database) {
+export async function loadNotionBulkOrganizations(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT o.id,o.name,o.slug,o.legal_name,o.registration_number,o.type,o.status,o.short_description,o.description,
     o.website_url,o.facebook_url,o.instagram_url,
     COALESCE(NULLIF(loc.city,''),o.city) AS city,
@@ -258,7 +259,7 @@ export async function loadNotionBulkOrganizations(database: D1Database) {
   geo.google_place_source_fingerprint AS geo_google_place_source_fingerprint
       FROM geo_points geo WHERE geo.target_type = 'ORGANIZATION_LOCATION'
     ) geo ON geo.geo_org_target_id = loc.id
-    ORDER BY o.id ASC`);
+    ${targetId === undefined ? "" : "WHERE o.id = ?"} ORDER BY o.id ASC`, targetId);
 
   return sourceRows.map((row) => {
     const url = `${SITE_URL}/organizacie/${s(row.slug)}`;
@@ -285,10 +286,10 @@ export async function loadNotionBulkOrganizations(database: D1Database) {
   });
 }
 
-export async function loadNotionBulkAdoptions(database: D1Database) {
+export async function loadNotionBulkAdoptions(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,name,slug,status,sex,birth_date,approximate_age_months,size,weight,breed_name,breed_mix,color,
     region,district,city,organization_name,main_image,short_description,description,temperament,activity_level,health_notes,special_needs,
-    external_source_url FROM adoption_dogs ORDER BY id ASC`);
+    external_source_url FROM adoption_dogs ${targetId === undefined ? "" : "WHERE id = ?"} ORDER BY id ASC`, targetId);
 
   return sourceRows.map((row) => {
     const url = `${SITE_URL}/pomoc-psom/adopcia/${s(row.slug)}`;
@@ -320,11 +321,11 @@ export async function loadNotionBulkAdoptions(database: D1Database) {
   });
 }
 
-export async function loadNotionBulkHelpCases(database: D1Database) {
+export async function loadNotionBulkHelpCases(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,slug,title,category,status,excerpt,description,organization,dog_name,breed,age_note,city,region,
     location_note,reported_date,deadline_date,action_label,action_url,contact_note,goal_amount,raised_amount,image_url,urgent,resolved,
     created_at,updated_at,published_at,seo_json
-    FROM help_cases WHERE ${HELP_ADMIN_DOMAIN_SQL} ORDER BY id ASC`);
+    FROM help_cases WHERE ${HELP_ADMIN_DOMAIN_SQL} ${targetId === undefined ? "" : "AND id = ?"} ORDER BY id ASC`, targetId);
 
   return sourceRows.map((row) => {
     const category = s(row.category);
@@ -362,11 +363,11 @@ export async function loadNotionBulkHelpCases(database: D1Database) {
   });
 }
 
-export async function loadNotionBulkLostFound(database: D1Database) {
+export async function loadNotionBulkLostFound(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,type,status,slug,dog_name,sex,breed,color,approximate_age,size,description,distinguishing_marks,
     collar_description,chipped,main_image,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,
     public_location_precision,public_contact_note,source,source_url,updated_at,published_at,expires_at,resolved_at,duplicate_of_id,duplicate_reason
-    FROM lost_found_dog_reports ORDER BY id ASC`);
+    FROM lost_found_dog_reports ${targetId === undefined ? "" : "WHERE id = ?"} ORDER BY id ASC`, targetId);
 
   return sourceRows.map((row) => {
     const type = s(row.type);
