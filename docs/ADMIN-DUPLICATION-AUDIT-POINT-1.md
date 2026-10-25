@@ -47,3 +47,31 @@
 2. Žiadne nové funkcie, vizuálny redesign, Cloudflare/D1/R2/Notion zmeny ani automatický merge.
 3. Nerobiť plošné vymazanie podľa grep výstupu: potvrdenie, tlačidlo, filter alebo tabuľka môžu mať odlišnú doménovú sémantiku.
 4. Tento audit je **príprava**. V bode 1 nebol odstránený žiadny produkčný duplikát; to sa vykoná postupne v bodoch 2–5.
+
+
+## 6. Zlúčenie pôvodných auditov #1054 a #1056 (25. 10. 2026)
+
+Hlavný audit je **#1056**, vypracovaný po merge **#1040**. Starší **#1054** vznikol na stave `main` pred #1040; jeho syntaktické počty (napr. 117 komponentov / 106 stránok) a označenia „chýba shared komponent“ sú **historický baseline, nie aktuálny stav**. Neprenášať ich ako dnešné počty ani neimplementovať znova komponenty dodané #1040.
+
+Po porovnaní registra 12 nálezov v #1054 so súčasným auditom #1056 ostávajú tieto **doplňujúce, konkrétne príklady na ďalšie body** (cesty boli overené na `main` po merge #1040):
+
+| Pôvodný nález | Doplnok k tomuto registru | Hodnotenie a bod |
+| --- | --- | --- |
+| DUP-04: podobné čisto funkčné helpery | `lib/admin-list-query.ts`: `boundedAdminPage`, `boundedAdminPageSize`, `sqlFoldAdminText`; `lib/admin-event-pagination.ts`: `positiveInteger`, `foldSql` | **Kandidát C1/C2 — bod 4.** Existuje prekryv v kontrole čísel a normalizácii slovenských znakov, ale `positiveInteger` neprijíma tie isté vstupy a vyhľadávacie SQL má iné kontrakty (`instr` vs. `LIKE`). Vytvoriť ekvivalenčné testy skôr, než sa čokoľvek zdieľa. |
+| DUP-02: tri varianty lokálneho stránkovania | `components/admin-adoption-dashboard.tsx` a `components/admin-lost-found-dashboard.tsx` obsahujú vlastný číselný panel (okno do 7 strán); `components/admin-help-dashboard.tsx` používa Predchádzajúca/Ďalšia + údaj o strane | **Kandidát C2 — bod 4.** Overiť spoločné jadro `AdminPagination`, no zachovať režim, rozloženie navigácie, GET filtre a URL parametre podľa agendy. |
+| DUP-10: rôzny bulk výber | `components/admin-event-dashboard.tsx` má stránkový výber cez `Set` a serverové kontroly; `components/admin-help-dashboard.tsx` má vlastný bulk review a potvrdenie | **Kandidát C2 — bod 4.** Pred spájaním porovnať explicitný vs. all-matching výber, snapshot filtrov, verzií a prípustnosť akcie. Žiadna zmena množiny schvaľovaných/publikovaných záznamov. |
+| DUP-08/11: ďalšie hranice zdieľania | `components/admin-facebook-images.tsx` používa natívny upload s vlastným limitom 8 MB a publikačným workflow; `components/admin-address-research-import.tsx` používa **JSON import**, vlastný preview a širšie tabuľky | **Kandidáti D1/E1 — body 3/5.** Facebook upload len po porovnaní obrázkového kontraktu; JSON import nikdy nenahradiť pickerom obrázkov. Tabuľkové obaly možno zjednotiť len pri zhodnej interakcii a bez redizajnu. |
+
+Ostatné položky #1054 (confirm dialógy, tlačidlá, feedback, unsaved guard, filtre, galérie, odlišné rich-text AST) už pokrývajú **A1–A3, B1–B2, C1–C2, D1–D2, E1** alebo ich vyriešil #1040. Nie je dôvod držať druhý register ani druhý inventarizačný skript.
+
+### Overenie aktuálneho skenera (iba čítanie)
+
+```bash
+node scripts/admin-duplication-inventory.mjs
+node scripts/admin-duplication-inventory.mjs --json
+node --test tests/admin-duplication-inventory.test.mjs
+```
+
+Priložený samostatný CI job `ADMIN duplication inventory (read-only)` overuje parser signálov a štruktúru inventarizácie, nepíše do runtime kódu ani nespúšťa migrácie. Úspešné pôvodné CI #1054 **nenahrádza** CI nového headu #1056.
+
+**Uzavretie #1054:** po prenose relevantných nálezov uzavrieť bez merge ako duplicitný audit; bod 1 sa považuje za odovzdaný až po úspešnej kontrole #1056 a ručnom merge používateľom.
