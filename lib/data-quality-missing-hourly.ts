@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { TavilyAutomationSearchProvider } from "./data-automation-search-tavily.ts";
+import { AutomationSearchProviderError } from "./data-automation-discovery.ts";
 import { isSafeAutomationSourceUrl, normalizeAutomationIdentity } from "./data-automation.ts";
 import { mergeDirectoryPublicContactData, readDirectoryPublicContacts, type DirectoryImportData } from "./directory-profile-metadata.ts";
 
@@ -165,108 +166,205 @@ async function nextProfile(db:Database,area:QualityArea) {
   }
   return null;
 }
-export async function runQualityMissingHourly(input:{database:Database;tavilyApiKey?:string;now?:Date}) {
-  const db=input.database,now=input.now??new Date(),at=now.toISOString(),hour=at.slice(0,13);
-  if(!input.tavilyApiKey) return {enabled:false,scanned:0,found:0};
-  const provider=new TavilyAutomationSearchProvider({apiKey:input.tavilyApiKey});
-  let scanned=0,found=0;
-  try{
-    for(const area of ["services","events","help"] as const) {
-      const claimed=await db.prepare("INSERT OR IGNORE INTO quality_missing_scans(area,hour,scanned_at) VALUES(?,?,?)")
-        .bind(area,hour,at).run();
-      if(!claimed.meta.changes) continue;
-      const profile=await nextProfile(db,area);
-      if(profile && "skipped" in profile){
-        await db.prepare("UPDATE quality_missing_cursors SET type_index=?,entity_id=?,updated_at=? WHERE area=?")
-          .bind(profile.index,profile.id,at,area).run();
-        continue;
-      }
-      if(!profile){
-        await db.prepare("UPDATE quality_missing_cursors SET type_index=0,entity_id=0,updated_at=? WHERE area=?").bind(at,area).run();
-        continue;
-      }
-      await db.prepare("UPDATE quality_missing_cursors SET type_index=?,entity_id=?,updated_at=? WHERE area=?")
-        .bind(profile.index,profile.id,at,area).run();
-      await db.prepare("UPDATE quality_missing_scans SET entity_type=?,entity_id=? WHERE area=? AND hour=?")
-        .bind(profile.kind,profile.id,area,hour).run();
-      scanned++;
-      const terms=area==="events"?"registrácia dátum čas miesto plagát":area==="help"?"kontakt email telefón web facebook fotografia":"kontakt telefón email web facebook instagram fotografia";
-      const city=String(profile.row.city??"").trim();
-      const query=[profile.label,city,terms].filter(Boolean).join(" ").slice(0,500);
-      const beforeFound=found;
-      try {
-        const search=await provider.searchWithImages({query,maxResults:5,locale:"sk-SK",country:"SK"});
-        const foundFields=discover(profile,search.results,search.images);
-        for(const item of foundFields){
-          const written=await db.prepare(`INSERT OR IGNORE INTO quality_missing_proposals
-            (area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at)
-            VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(
-              area,profile.kind,profile.id,profile.label,item.field.key,item.field.label,
-              item.field.group,item.value,item.source,at,
-            ).run();
-          found+=Number(written.meta.changes??0);
-        }
-        if(found>beforeFound){
-          try{
-            await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db,{
-              eventType:"quality_missing_found",sourceType:"QUALITY_MISSING",
-              resourceType:area,resourceRef:profile.id,actorType:"AUTOMATION",
-              actorRef:"tavily-quality",targetUrl:"/admin/kvalita",
-              title:"Nájdené nové údaje – "+(area==="services"?"Služby":area==="events"?"Podujatia":"Pomoc psom"),
-              body:profile.label+": "+(found-beforeFound)+" návrhov na schválenie",
-              tag:"quality-"+area+"-"+hour,
-              dedupeKey:"quality/found/"+area+"/"+hour,
-            },now);
-          }catch{/* Notification errors never stop the hourly research. */}
-        }
-      }catch(error){
-        // Provider failures (including exhausted credits) never stop other Psipedia jobs.
-        console.info(JSON.stringify({event:"quality_missing_tavily_unavailable",area,error:error instanceof Error?error.name:"provider_error"}));
-        try{
-          await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db,{
-            eventType:"quality_missing_failed",sourceType:"QUALITY_MISSING",
-            resourceType:area,resourceRef:profile.id,
-            actorType:"AUTOMATION",actorRef:"tavily-quality",
-            targetUrl:"/admin/kvalita",
-            title:"Tavily – vyhľadávanie sa nepodarilo dokončiť",
-            body:"Oblasť: "+area+". Ostatné automatizácie zostávajú v prevádzke.",
-            tag:"quality-failed-"+area+"-"+hour,
-            dedupeKey:"quality/failed/"+area+"/"+hour,
-          },now);
-        }catch{/* Diagnostics are observational. */}
+type ScanStatus = "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED" | "UNKNOWN";
+type QualityScanCount = { total: number; successful: number; failed: number; unknown: number; running: number };
+type QualityScanLast = { status: ScanStatus; errorCode: string | null } | null;
+const QUALITY_AREAS: QualityArea[] = ["services", "events", "help"];
 
-      }
-    }
-    return {enabled:true,scanned,found};
-  }catch(error) {
-    if(/no such table:\s*quality_missing_/i.test(String(error)))return {enabled:false,schemaReady:false,scanned,found};
+function emptyScanCount(): QualityScanCount {
+  return { total: 0, successful: 0, failed: 0, unknown: 0, running: 0 };
+}
+
+async function hasScanStatusColumns(db: Database): Promise<boolean> {
+  try {
+    await db.prepare("SELECT status,error_code FROM quality_missing_scans LIMIT 1").all();
+    return true;
+  } catch (error) {
+    if (/no such (table|column):/i.test(String(error))) return false;
     throw error;
   }
 }
+
+function qualityFailureCode(error: unknown): string {
+  return error instanceof AutomationSearchProviderError ? error.code : "INTERNAL_ERROR";
+}
+
+const QUALITY_ERROR_LABELS: Record<string, string> = {
+  AUTH_FAILED: "Autorizácia Tavily bola zamietnutá",
+  RATE_LIMITED: "Tavily odmietlo požiadavku pre limit",
+  TIMEOUT: "Vyhľadávanie prekročilo časový limit",
+  PROVIDER_ERROR: "Externá vyhľadávacia služba odpovedala chybou",
+  INVALID_RESPONSE: "Tavily vrátilo neplatnú odpoveď",
+  CONFIG_MISSING: "Chyba konfigurácie vyhľadávania",
+  INTERNAL_ERROR: "Chyba spracovania alebo uloženia údajov",
+};
+
+export async function runQualityMissingHourly(input: { database: Database; tavilyApiKey?: string; now?: Date }) {
+  const db = input.database;
+  const now = input.now ?? new Date();
+  const at = now.toISOString();
+  const hour = at.slice(0, 13);
+  if (!input.tavilyApiKey) return { enabled: false, schemaReady: true, scanned: 0, found: 0, failed: 0 };
+  // A pending migration must not make the scheduled cron fail or produce misleading counts.
+  if (!(await hasScanStatusColumns(db))) {
+    return { enabled: false, schemaReady: false, scanned: 0, found: 0, failed: 0 };
+  }
+
+  const provider = new TavilyAutomationSearchProvider({ apiKey: input.tavilyApiKey });
+  let scanned = 0;
+  let found = 0;
+  let failed = 0;
+
+  for (const area of QUALITY_AREAS) {
+    // Read the preceding completed attempt BEFORE claiming the current hour.
+    const previous = await db.prepare(
+      "SELECT status,error_code FROM quality_missing_scans WHERE area=? AND status IN ('SUCCESS','FAILED') ORDER BY scanned_at DESC LIMIT 1"
+    ).bind(area).first<{ status: ScanStatus; error_code: string | null }>();
+    const claimed = await db.prepare(
+      "INSERT OR IGNORE INTO quality_missing_scans(area,hour,scanned_at,status) VALUES(?,?,?,'RUNNING')"
+    ).bind(area, hour, at).run();
+    if (!claimed.meta.changes) continue;
+
+    const profile = await nextProfile(db, area);
+    if (profile && "skipped" in profile) {
+      await db.prepare("UPDATE quality_missing_cursors SET type_index=?,entity_id=?,updated_at=? WHERE area=?")
+        .bind(profile.index, profile.id, at, area).run();
+      await db.prepare("UPDATE quality_missing_scans SET status='SKIPPED' WHERE area=? AND hour=?")
+        .bind(area, hour).run();
+      continue;
+    }
+    if (!profile) {
+      await db.prepare("UPDATE quality_missing_cursors SET type_index=0,entity_id=0,updated_at=? WHERE area=?")
+        .bind(at, area).run();
+      await db.prepare("UPDATE quality_missing_scans SET status='SKIPPED' WHERE area=? AND hour=?")
+        .bind(area, hour).run();
+      continue;
+    }
+
+    await db.prepare("UPDATE quality_missing_scans SET entity_type=?,entity_id=? WHERE area=? AND hour=?")
+      .bind(profile.kind, profile.id, area, hour).run();
+    scanned++;
+
+    const terms = area === "events" ? "registrácia dátum čas miesto plagát"
+      : area === "help" ? "kontakt email telefón web facebook fotografia"
+      : "kontakt telefón email web facebook instagram fotografia";
+    const city = String(profile.row.city ?? "").trim();
+    const query = [profile.label, city, terms].filter(Boolean).join(" ").slice(0, 500);
+    const beforeFound = found;
+
+    try {
+      const search = await provider.searchWithImages({ query, maxResults: 5, locale: "sk-SK", country: "SK" });
+      const foundFields = discover(profile, search.results, search.images);
+      for (const item of foundFields) {
+        const written = await db.prepare(
+          "INSERT OR IGNORE INTO quality_missing_proposals " +
+          "(area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at) " +
+          "VALUES(?,?,?,?,?,?,?,?,?,?)"
+        ).bind(area, profile.kind, profile.id, profile.label, item.field.key, item.field.label,
+          item.field.group, item.value, item.source, at).run();
+        found += Number(written.meta.changes ?? 0);
+      }
+
+      await db.prepare("UPDATE quality_missing_scans SET status='SUCCESS',error_code=NULL WHERE area=? AND hour=?")
+        .bind(area, hour).run();
+      // Move the cursor only AFTER the provider succeeds and proposals have been persisted.
+      await db.prepare("UPDATE quality_missing_cursors SET type_index=?,entity_id=?,updated_at=? WHERE area=?")
+        .bind(profile.index, profile.id, at, area).run();
+
+      if (found > beforeFound) {
+        try {
+          await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db, {
+            eventType: "quality_missing_found", sourceType: "QUALITY_MISSING",
+            resourceType: area, resourceRef: profile.id, actorType: "AUTOMATION",
+            actorRef: "tavily-quality", targetUrl: "/admin/kvalita",
+            title: "Nájdené nové údaje – " + AREA_LABELS[area],
+            body: profile.label + ": " + (found - beforeFound) + " návrhov na schválenie",
+            tag: "quality-" + area + "-" + hour,
+            dedupeKey: "quality/found/" + area + "/" + hour,
+          }, now);
+        } catch { /* Notification errors must not undo successful research. */ }
+      }
+    } catch (error) {
+      // A rejected provider request or D1 write is retryable in the NEXT hour.
+      // Do not move the cursor and do not erase the original missing fields.
+      failed++;
+      const errorCode = qualityFailureCode(error);
+      await db.prepare("UPDATE quality_missing_scans SET status='FAILED',error_code=? WHERE area=? AND hour=?")
+        .bind(errorCode, area, hour).run();
+      console.error(JSON.stringify({ event: "quality_missing_search_failed", area, reason: errorCode }));
+
+      // Notify only on a new incident or changed reason, not every hour.
+      if (previous?.status !== "FAILED" || previous.error_code !== errorCode) {
+        try {
+          await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db, {
+            eventType: "quality_missing_failed", sourceType: "QUALITY_MISSING",
+            resourceType: area, resourceRef: profile.id, actorType: "AUTOMATION",
+            actorRef: "tavily-quality", targetUrl: "/admin/kvalita",
+            title: "Tavily – vyhľadávanie sa nepodarilo dokončiť",
+            body: "Oblasť: " + AREA_LABELS[area] + ". Dôvod: " +
+              (QUALITY_ERROR_LABELS[errorCode] ?? QUALITY_ERROR_LABELS.INTERNAL_ERROR) + ".",
+            tag: "quality-failed-" + area + "-" + hour,
+            dedupeKey: "quality/failed/" + area + "/" + hour,
+          }, now);
+        } catch { /* Notification delivery must never stop other areas. */ }
+      }
+    }
+  }
+  return { enabled: true, schemaReady: true, scanned, found, failed };
+}
+
 export type MissingQualityProposal = {
   id:number;area:QualityArea;entity_type:Kind;entity_id:number;profile_label:string;
   field_key:string;field_label:string;field_group:string;value:string;source_url:string|null;found_at:string;
 };
 export type MissingQualityDashboard = {
-  pending:MissingQualityProposal[]; total:number; monthly:Record<QualityArea,number>; truncated:boolean;schemaReady:boolean;
+  pending: MissingQualityProposal[];
+  total: number;
+  monthly: Record<QualityArea, number>;
+  outcomes: Record<QualityArea, QualityScanCount>;
+  last: Record<QualityArea, QualityScanLast>;
+  truncated: boolean;
+  schemaReady: boolean;
 };
-export async function loadMissingQualityDashboard(db:Database):Promise<MissingQualityDashboard>{
-  const monthly={services:0,events:0,help:0};
-  try{
-    const [rows,counts,runCounts]=await Promise.all([
-      db.prepare("SELECT id,area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at FROM quality_missing_proposals WHERE status='OPEN' ORDER BY id DESC LIMIT 1000").all<MissingQualityProposal>(),
-      db.prepare("SELECT COUNT(*) AS n FROM quality_missing_proposals WHERE status='OPEN'").first<{n:number}>(),
-      db.prepare("SELECT area,COUNT(*) AS n FROM quality_missing_scans WHERE scanned_at>=? AND entity_id IS NOT NULL GROUP BY area")
-        .bind(new Date().toISOString().slice(0,7)+"-01").all<{area:QualityArea;n:number}>(),
-    ]);
-    for(const r of runCounts.results)if(r.area in monthly) monthly[r.area]=Number(r.n);
-    const total=Number(counts?.n??0);
-    return {pending:rows.results,total,monthly,truncated:total>rows.results.length,schemaReady:true};
-  }catch(error){
-    if(/no such table:\s*quality_missing_/i.test(String(error)))return {pending:[],total:0,monthly,truncated:false,schemaReady:false};
-    throw error;
+export async function loadMissingQualityDashboard(db: Database): Promise<MissingQualityDashboard> {
+  const monthly = { services: 0, events: 0, help: 0 };
+  const outcomes: Record<QualityArea, QualityScanCount> = {
+    services: emptyScanCount(), events: emptyScanCount(), help: emptyScanCount(),
+  };
+  const last: Record<QualityArea, QualityScanLast> = { services: null, events: null, help: null };
+  if (!(await hasScanStatusColumns(db))) {
+    return { pending: [], total: 0, monthly, outcomes, last, truncated: false, schemaReady: false };
   }
+  const since = new Date().toISOString().slice(0, 7) + "-01";
+  const [rows, counts, runCounts, latest] = await Promise.all([
+    db.prepare("SELECT id,area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at FROM quality_missing_proposals WHERE status='OPEN' ORDER BY id DESC LIMIT 1000").all<MissingQualityProposal>(),
+    db.prepare("SELECT COUNT(*) AS n FROM quality_missing_proposals WHERE status='OPEN'").first<{ n: number }>(),
+    db.prepare("SELECT area,status,COUNT(*) AS n FROM quality_missing_scans WHERE scanned_at>=? AND entity_id IS NOT NULL GROUP BY area,status")
+      .bind(since).all<{ area: QualityArea; status: ScanStatus; n: number }>(),
+    db.prepare(
+      "SELECT scans.area,scans.status,scans.error_code FROM quality_missing_scans scans " +
+      "JOIN (SELECT area,MAX(scanned_at) AS latest FROM quality_missing_scans GROUP BY area) last " +
+      "ON scans.area=last.area AND scans.scanned_at=last.latest"
+    ).all<{ area: QualityArea; status: ScanStatus; error_code: string | null }>(),
+  ]);
+  for (const row of runCounts.results) {
+    if (!QUALITY_AREAS.includes(row.area)) continue;
+    const stats = outcomes[row.area];
+    stats.total += Number(row.n);
+    if (row.status === "SUCCESS") stats.successful += Number(row.n);
+    else if (row.status === "FAILED") stats.failed += Number(row.n);
+    else if (row.status === "RUNNING") stats.running += Number(row.n);
+    else stats.unknown += Number(row.n);
+  }
+  for (const area of QUALITY_AREAS) monthly[area] = outcomes[area].total;
+  for (const row of latest.results) {
+    if (QUALITY_AREAS.includes(row.area)) last[row.area] = { status: row.status, errorCode: row.error_code };
+  }
+  const total = Number(counts?.n ?? 0);
+  return { pending: rows.results, total, monthly, outcomes, last,
+    truncated: total > rows.results.length, schemaReady: true };
 }
+
 export async function reviewMissingQualityProposal(db:Database,id:number,action:"accept"|"reject",actor:string) {
   const p=await db.prepare("SELECT * FROM quality_missing_proposals WHERE id=? AND status='OPEN'")
     .bind(id).first<MissingQualityProposal>();
