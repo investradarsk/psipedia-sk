@@ -10,6 +10,7 @@ Používame existujúce `PageContainer` / `.shell.public-shell`, `app/design-sys
 - [x] **Mapa na mobile:** vyhľadávacia lišta má štandardné odsadenie; iba interaktívne mapové plátno ostáva vedome na celú šírku mobilu, aby sa dalo ovládať. Nezasahuje do ostatných stránok.
 - [x] **Mapa — prvá konsolidácia ovládania:** výška vyhľadávania a filtrov, zaoblenie panelu a polí používajú schválené existujúce tokeny.
 - [x] **CTA a tlačidlá — druhá etapa:** Adresár (odoslanie/reset filtrov, mobilné akcie, bočné CTA), Pomoc psom (odoslanie/reset), Podujatia (filtrovanie/zoradenie), Plemená (ďalšie výsledky) používajú PublicActionButton/PublicActionLink. Odstránené kolízne lokálne farby a focus pravidlá; DOM označuje význam cez data-public-action.
+- [x] **CTA na kartách — etapa 3:** odkazy na profil plemena a detail pomoci prešli na spoločný terciárny CTA; pôvodné linky a šípky ostali.
 - [ ] **CTA a tlačidlá — zvyšok:** detaily/články, disabled stavy a ďalšie kontextové varianty.
 - [x] **Filtre — 2. etapa:** sedem existujúcich variantov polí (Adresár, Pomoc psom, Podujatia, katalóg, kluby, pôvod a FCI plemien) berie rovnaké zaoblenie z jedného tokenu. Funkčná sémantika a GET/URL zostáva bezo zmeny.
 - [x] **Vyhľadávanie — etapa 3:** tlačidlo sekčného hero vyhľadávania využíva spoločnú farbu, výšku a zaoblenie CTA, vrátane focus tokenu. GET kontrakty ostávajú.

@@ -33,6 +33,8 @@ test("public cards share stateful surfaces but keep urgency and original media",
   assert.match(rules, /forced-colors: active/);
   assert.doesNotMatch(rules, /aspect-ratio|object-fit|grid-template-columns|\/admin/);
   assert.match(read("components/help-card.tsx"), /data-public-card-emphasis=\{item\.urgent && !item\.resolved/);
+  assert.match(read("components/help-card.tsx"), /<PublicActionLink className=\{styles.cardAction\} variant="tertiary"/);
+  assert.match(read("components/breed-card.tsx"), /<PublicActionLink href=\{profileHref\} variant="tertiary"/);
 });
 
 test("section search uses the approved common CTA palette without changing GET behavior", () => {

@@ -71,7 +71,7 @@
 .progressTrack{height:7px;overflow:hidden;border-radius:999px;background:#e8ece9}
 .progressTrack span{display:block;height:100%;border-radius:inherit;background:#2d704f}
 .progress p{margin:0;color:#53635a;font-size:.76rem}
-.cardAction{display:inline-flex;min-height:44px;align-items:center;justify-content:space-between;gap:8px;margin-top:2px;color:#174b38;font-size:.82rem;font-weight:800;text-decoration:none}
+.cardAction{justify-self:start;width:fit-content;margin-top:2px}
 .empty{display:grid;justify-items:start;gap:7px;padding:28px;border:1px dashed #bdcbc2;border-radius:16px;background:#fff}
 .empty h2{margin:0;color:var(--help-ink);font-family:Georgia,"Times New Roman",serif;font-size:1.2rem;font-weight:500;letter-spacing:-.02em}
 .empty p{margin:0;color:var(--help-muted)}

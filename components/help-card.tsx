@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
-import { PublicMediaFallback } from "@/components/public-visual-system";
+import { PublicActionLink, PublicMediaFallback } from "@/components/public-visual-system";
 import {
   formatHelpAmount,
   formatHelpDate,
@@ -55,7 +55,9 @@ export function HelpCard({ item }: { item: PublicHelpCard }) {
           <p>{progress} % cieľa</p>
         </div> : null}
 
-        <Link className={styles.cardAction} href={detailHref}>{item.resolved ? "Pozrieť výsledok" : "Otvoriť detail"} <ArrowIcon size={17} /></Link>
+        <PublicActionLink className={styles.cardAction} variant="tertiary" href={detailHref} icon={<ArrowIcon size={17} />}>
+          {item.resolved ? "Pozrieť výsledok" : "Otvoriť detail"}
+        </PublicActionLink>
       </div>
     </article>
   );

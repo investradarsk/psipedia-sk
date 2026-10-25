@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { BreedAtlasCard } from "@/lib/breed-store";
 import { ArrowIcon } from "./icons";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
+import { PublicActionLink } from "@/components/public-visual-system";
 
 export function RatingDots({ value, label }: { value: number; label: string }) {
   return (
@@ -37,7 +38,7 @@ export function BreedCard({ breed }: { breed: BreedAtlasCard }) {
           <RatingDots value={breed.trainability} label="Cvičiteľnosť" />
           <RatingDots value={breed.family} label="Rodina" />
         </div>}
-        <Link href={profileHref} className="text-link">Zobraziť profil <ArrowIcon size={18} /></Link>
+        <PublicActionLink href={profileHref} variant="tertiary" icon={<ArrowIcon size={18} />}>Zobraziť profil</PublicActionLink>
       </div>
     </article>
   );
