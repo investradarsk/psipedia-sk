@@ -43,4 +43,4 @@ Zavedený `lib/notion-sync-health.ts` normalizuje iba výsledky už vykonaných 
 - Pri events-help so zapnutým bidirectional režimom zostáva legacy event synchronizátor vypnutý; nevznikajú dva paralelné zapisovače.
 - Automatické zobrazenie jednotných stavov priamo v admin rozhraní je samostatná nasledujúca časť, nie tvrdenie o hotovej UI funkcii.
 
-Regresný test: `node --experimental-strip-types --test tests/notion-sync-health.test.mjs`.
+Regresný test: `node --experimental-strip-types --test tests/notion-sync-health.test.mjs`. Zahrnutý aj v `npm run test:notion-events-help-sync`, takže bude súčasťou existujúceho testovacieho workflow bez samostatného runnera.

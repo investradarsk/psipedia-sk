@@ -67,7 +67,7 @@ export function notionSyncHealth(area: NotionSyncArea, raw: unknown): NotionSync
   let updated = 0;
   let conflicts = 0;
   let failed = 0;
-  let state: NotionSyncHealthState | null = null;
+  let state: NotionSyncHealthState = "ERROR";
 
   switch (area) {
     case "service-catalog": {
