@@ -32,7 +32,10 @@ test("SECTION-ADMIN keeps secondary settings in the shared drawer without invent
 test("SECTION-ADMIN preserves existing section write contract and explicit destructive preview", () => {
   assert.match(editor, /fetch\("\/api\/admin\/sections"/);
   assert.match(editor, /method: "PUT"/);
-  assert.match(editor, /window\.confirm/);
+  assert.match(editor, /AdminDestructiveConfirmDialog/);
+  assert.match(editor, /confirmRemoveSubpage/);
+  assert.match(editor, /onCancel=\{\(\)=>setPendingRemoval\(null\)\}/);
+  assert.doesNotMatch(editor, /window\.confirm/);
   assert.match(store, /cleanSubpages/);
   assert.match(store, /item\.visible === false \? 0 : 1/);
 });

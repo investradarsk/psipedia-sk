@@ -270,6 +270,18 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await persistedBody.fill("Finálny verejný obsah po odstránení internej redakčnej poznámky.");
     await page.getByRole("button", { name: "Publikovať článok" }).click();
     await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Stiahnuť z webu" }).click();
+    const unpublish = page.getByRole("dialog", { name: "Stiahnuť článok z webu?" });
+    await expect(unpublish).toBeVisible();
+    await unpublish.getByRole("button", { name: "Ponechať publikované" }).click();
+    await expect(unpublish).toBeHidden();
+    await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Stiahnuť z webu" }).click();
+    await unpublish.getByRole("button", { name: "Potvrdiť stiahnutie" }).click();
+    await expect(unpublish).toBeHidden();
+    await expect(page.getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
   });
 
   test("IMAGE-EDITOR-1 independently persists thumbnail blur and detail crop, with cancel and reset", async ({ page }, testInfo) => {

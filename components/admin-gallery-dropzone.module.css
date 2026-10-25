@@ -1,0 +1,5 @@
+.dropzone{display:flex;align-items:center;justify-content:center;min-height:44px;min-width:0;
+border:1px dashed #a8c2ae;border-radius:9px;padding:10px 12px;cursor:pointer;text-align:center;
+overflow-wrap:anywhere;touch-action:manipulation}
+.dropzone:focus-visible{outline:3px solid #d6a44c;outline-offset:2px}
+.dropzone[aria-disabled="true"]{opacity:.65;cursor:not-allowed}

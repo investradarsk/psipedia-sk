@@ -123,7 +123,9 @@ for (const editor of editors) {
         const box = await nav.boundingBox();
         return (section?.y ?? -1) >= (box?.y ?? 0) + (box?.height ?? 0) - 1;
       }).toBe(true);
-      expect(await nav.evaluate(el => el.getBoundingClientRect().top)).toBeGreaterThan(0);
+      // The editor can sit just above the viewport edge after scrolling, but its
+      // navigation must remain visibly usable rather than merely having a positive top.
+      await expect(nav).toBeInViewport({ ratio: 0.5 });
     }
     expect(writes).toEqual([]);
     await noOverflow(page);

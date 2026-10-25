@@ -6,6 +6,7 @@ import {
   AdminActionButton,
   AdminDrawer,
   AdminHelpText,
+  AdminDestructiveConfirmDialog,
 } from "@/components/admin-interaction-system";
 import type {
   ManagedPortalSection,
@@ -65,6 +66,7 @@ export function AdminSectionEditor({
   );
   const [query, setQuery] = useState(initialOpenSlug ?? "");
   const [settingsTarget, setSettingsTarget] = useState<SettingsTarget>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<{slug:string;index:number;label:string}|null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const updateSections: typeof setSections = (value) => { setDirty(true); setSections(value); };
@@ -116,12 +118,18 @@ export function AdminSectionEditor({
   }
 
   function removeSubpage(slug: string, index: number) {
-    const section = sections.find((item) => item.slug === slug);
-    const target = section?.subpages[index];
-    if (!target || !window.confirm(`Odstrániť podsekciu „${target.label}“ z tejto sekcie? Zmena sa uloží až po kliknutí na Uložiť sekcie.`)) return;
-    updateSections((current) => current.map((item) => item.slug === slug
-      ? { ...item, subpages: item.subpages.filter((_, itemIndex) => itemIndex !== index) }
+    const target=sections.find(item=>item.slug===slug)?.subpages[index];
+    if (target) setPendingRemoval({slug,index,label:target.label});
+  }
+  function confirmRemoveSubpage() {
+    const selection=pendingRemoval;
+    setPendingRemoval(null);
+    if (!selection) return;
+    updateSections(current=>current.map(item=>item.slug===selection.slug
+      ? {...item,subpages:item.subpages.filter((_,i)=>i!==selection.index)}
       : item));
+    setMessage("");
+    setError("");
   }
 
   function moveSubpage(slug: string, index: number, direction: -1 | 1) {
@@ -442,6 +450,16 @@ export function AdminSectionEditor({
           </div>
         )}
       </AdminDrawer>
+      <AdminDestructiveConfirmDialog
+        open={Boolean(pendingRemoval)}
+        title={pendingRemoval ? `Odstrániť podsekciu „${pendingRemoval.label}“?` : "Odstrániť podsekciu?"}
+        description="Zmena sa zapíše iba do rozpracovanej konfigurácie. Verejný web sa aktualizuje až po kliknutí na Uložiť sekcie."
+        affectedCount={1}
+        affectedLabel="podsekciu"
+        confirmLabel="Odstrániť podsekciu"
+        onCancel={()=>setPendingRemoval(null)}
+        onConfirm={confirmRemoveSubpage}
+      />
     </section>
     </EditorWorkspace>
   );
