@@ -95,7 +95,6 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
           </button>
         </div>
       </>}/>
-ext>
     {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
   </section>;
 }
