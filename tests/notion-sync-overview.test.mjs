@@ -119,3 +119,41 @@ test("run receipts read only existing persisted Automation Run transitions", asy
   assert.equal(unknown.directory.status, "UNKNOWN");
   assert.equal(unknown["events-help"].status, "UNKNOWN");
 });
+
+test("configuration preflight checks deployed flags, schema and token without exposing secrets", async () => {
+  const { notionSyncConfigurationPreflight } = await import("../lib/notion-sync-preflight.ts");
+  const rows = NOTION_SYNC_OVERVIEW_AREAS.map(item => ({
+    area:item.key,label:item.label,evidence:item.evidence,count:0,lastMappingAt:null,status:"EMPTY",
+  }));
+  const config = {
+    NOTION_API_TOKEN: "PRIVATE_SHOULD_NOT_LEAK",
+    NOTION_DIRECTORY_SYNC_ENABLED: "true",
+    NOTION_DIRECTORY_DATA_SOURCE_ID: "84e0664c-ca47-405f-9d54-31b20287bc8c",
+    NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED: "true",
+    SERVICE_CATALOG_NOTION_AUTO_ENABLED: "true",
+    SERVICE_CATALOG_ADMIN_WRITES_ENABLED: "true",
+    SERVICE_CATALOG_NOTION_MIRROR_READY: "true",
+    SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED: "true",
+    NOTION_FACEBOOK_IMAGES_SYNC_ENABLED: "true",
+    NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID: "2d945afe-0c79-467e-b9e6-6b0f62a27a49",
+  };
+  const good = notionSyncConfigurationPreflight(config, rows);
+  assert.equal(good.length, 4);
+  assert.ok(good.every(x => x.status === "CONFIGURED"));
+  assert.doesNotMatch(JSON.stringify(good), /PRIVATE_SHOULD_NOT_LEAK/);
+  const off = notionSyncConfigurationPreflight({ ...config, NOTION_DIRECTORY_SYNC_ENABLED: "false" }, rows);
+  assert.equal(off[0].status, "DISABLED");
+  const missingToken = notionSyncConfigurationPreflight({ ...config, NOTION_API_TOKEN: "" }, rows);
+  assert.equal(missingToken[1].status, "BLOCKED");
+  assert.equal(missingToken[1].details, "TOKEN_MISSING");
+  const missingSchema = notionSyncConfigurationPreflight(config,
+    rows.map(x => x.area === "adoptions" ? { ...x, status:"SCHEMA_UNAVAILABLE" } : x));
+  assert.equal(missingSchema[1].details, "SCHEMA_MISSING");
+  const unavailableSchema = notionSyncConfigurationPreflight(config,
+    rows.map(x => x.area === "directory" ? { ...x, status:"UNKNOWN" } : x));
+  assert.equal(unavailableSchema[0].status, "UNKNOWN");
+  assert.equal(notionSyncConfigurationPreflight({ ...config,
+    NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID: "not-a-uuid" }, rows)[3].details, "DATA_SOURCE_MISSING");
+  assert.equal(notionSyncConfigurationPreflight({ ...config,
+    SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED: "false" }, rows)[2].details, "FEATURE_GATES_MISSING");
+});

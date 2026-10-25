@@ -33,7 +33,8 @@
 - [x] **5B-1:** posledný zaznamenaný beh Adresára a zdieľanej Events/Help automatizácie cez už existujúce `admin_notification_events` (Admin automation run STARTED/terminal receipts); bez migrácie a bez odhadu per-agenda výsledkov. UI rozlišuje neoverené, prebieha, po lehote, úspech, čiastočný úspech, zlyhanie, preskočené.
 - [ ] **5B-2:** samostatné živé receipts pre katalóg a FB obrázky nie sú v existujúcej schéme rovnocenne dostupné; zatiaľ explicitne NEOVERENÉ. Voliteľné rozšírenie iba pri schválení ďalšieho per-run eventu, nie odhadom z mapping timestamps.
 - [ ] **6:** integračné testy Admin → D1 → Notion a povolených Notion → D1 zmien pre každú agendu, vrátane opakovania, súbehu, chybných ID a nedostupného Notion API.
-- [ ] **7:** read-only produkčné preverenie schém, prepojení, povolení a nasadených flagov; následný rollout len po explicitnom schválení používateľa.
+- [x] **7A:** admin read-only preflight konfigurácie nasadeného Workera a existujúcich D1 tabuliek, bez tokenov, Notion API a zápisov; viditeľný priamo na stránke auditu.
+- [ ] **7B:** potvrdenie reálnej produkčnej dostupnosti zdrojov, práv a údajov po schválenom nasadení — bez produkčných opráv počas Draft fázy.
 
 ## Fáza 1 — presná zmena
 
@@ -112,3 +113,7 @@ Admin Notification events už ukladajú idempotentné transitions automatizáci�
 ## Fáza 3B-2a / 4B-2b-1 — operátorská kontrola a regresná matica
 
 Existujúci audit obsahuje stručný bezpečnostný návod: najprv dokázať, či konflikt ešte existuje, až potom opraviť schválené obsahové polia v kanonickom editore a znovu skontrolovať synchronizáciu. Žiadne automatické mazanie, hromadný sync override alebo publikovanie. Päť-adaptérová regresná matica overuje publikovanie, citlivé polia, kolízie jednej položky a nedostupný baseline cez existujúcu reálnu lossless reconciliáciu. Starý úspech vo výsledkoch Admin automatizácií po troch hodinách zobrazuje `STALE`, aby sa neskoršie výpadky netvárili ako čerstvo zelený sync.
+
+## Fáza 7A — read-only preflight priamo z nasadeného Workera
+
+Rozšírenie existujúceho chráneného `GET /api/admin/notion-sync-overview` hodnotí iba základné príznaky: nastavené feature flagy, existenciu tokenu (nikdy nie hodnotu), formát známych Notion data source UUID, závislé Services V3 bezpečnostné flagy a dostupnosť existujúcich D1 tabuliek cez rovnaký prehľad. Bez ďalších SQL SELECT, Cloudflare API, cronov, mutácií alebo Provider fetch. Stavy `CONFIGURED`/`BLOCKED`/`DISABLED`/`UNKNOWN` nie sú indikátorom dostupnosti Notion API, správnych stránkových práv ani bezchybného behu. Finálny produkčný smoke test a riešenie skutočných konfliktov zostáva schvaľovacím krokom po merge/deploy.

@@ -25,3 +25,13 @@ test("admin overview labels combined run evidence without fabricating per-agenda
   assert.match(component, /Konflikty \/ chyby v behu/);
   assert.doesNotMatch(component, /method: ["'](?:POST|PATCH)["']/);
 });
+
+test("read-only production preflight is shown without exposing config values or creating work", async () => {
+  const endpoint = await readFile(new URL("../app/api/admin/notion-sync-overview/route.ts", import.meta.url), "utf8");
+  const view = await readFile(new URL("../components/admin-notion-sync-overview.tsx", import.meta.url), "utf8");
+  assert.match(endpoint, /notionSyncConfigurationPreflight/);
+  assert.match(view, /read-only prednasadzovacia kontrola/);
+  assert.match(view, /snapshot\.preflight\.map/);
+  assert.match(view, /Neprezrádza tokeny/);
+  assert.doesNotMatch(view, /NOTION_API_TOKEN|method:\s*["'](?:POST|PATCH)["']/);
+});

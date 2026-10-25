@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { readNotionSyncOverview } from "@/lib/notion-sync-overview";
 import { readNotionRunReceipts } from "@/lib/notion-sync-run-receipts";
+import { notionSyncConfigurationPreflight } from "@/lib/notion-sync-preflight";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +18,18 @@ export async function GET() {
   }
 
   try {
+    const rows = await readNotionSyncOverview(db);
     return Response.json({
       readOnly: true,
       basis: "EXISTING_D1_MAPPING_HISTORY",
       liveNotionStatus: "UNKNOWN",
       runBasis: "EXISTING_ADMIN_AUTOMATION_EVENTS",
       checkedAt: new Date().toISOString(),
-      rows: await readNotionSyncOverview(db),
+      rows,
       runs: await readNotionRunReceipts(db),
+      preflight: notionSyncConfigurationPreflight(
+        env as unknown as Record<string, unknown>, rows,
+      ),
     }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return Response.json(

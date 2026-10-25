@@ -21,12 +21,22 @@ type RunReceipt = {
   errors: number | null;
 };
 
+type NotionPreflightRow = {
+  area: "directory" | "events-help" | "service-catalog" | "facebook-images";
+  label: string;
+  status: "DISABLED" | "BLOCKED" | "CONFIGURED" | "UNKNOWN";
+  details: "FLAG_DISABLED" | "TOKEN_MISSING" | "DATA_SOURCE_MISSING"
+    | "SCHEMA_MISSING" | "SCHEMA_UNKNOWN" | "FEATURE_GATES_MISSING"
+    | "BASIC_REQUIREMENTS_MET";
+};
+
 type OverviewResponse = {
   readOnly: true;
   basis: "EXISTING_D1_MAPPING_HISTORY";
   liveNotionStatus: "UNKNOWN";
   runBasis: "EXISTING_ADMIN_AUTOMATION_EVENTS";
   runs: Record<RunReceipt["area"], RunReceipt>;
+  preflight: NotionPreflightRow[];
   checkedAt: string;
   rows: OverviewRow[];
 };
@@ -58,6 +68,23 @@ function runForArea(area: string, runs: OverviewResponse["runs"]): RunReceipt | 
   return null;
 }
 
+const configurationLabels: Record<NotionPreflightRow["status"], string> = {
+  DISABLED: "Vypnuté",
+  BLOCKED: "Chýba požiadavka",
+  CONFIGURED: "Základná konfigurácia prítomná",
+  UNKNOWN: "Neoverené",
+};
+
+const configurationDetailLabels: Record<NotionPreflightRow["details"], string> = {
+  FLAG_DISABLED: "Funkcia je vypnutá",
+  TOKEN_MISSING: "Nie je nakonfigurovaný Notion token",
+  DATA_SOURCE_MISSING: "Chýba platné ID Notion zdroja",
+  SCHEMA_MISSING: "Chýbajú existujúce D1 tabuľky",
+  SCHEMA_UNKNOWN: "D1 tabuľky nie je možné overiť",
+  FEATURE_GATES_MISSING: "Nie sú zapnuté všetky bezpečnostné podmienky",
+  BASIC_REQUIREMENTS_MET: "Nevyhodnocuje dostupnosť Notion API ani práva k stránkam",
+};
+
 const countLabels: Record<OverviewRow["evidence"], string> = {
   MAPPINGS: "mapovaní",
   VERIFIED_ATTEMPTS: "overených pokusov",
@@ -84,7 +111,7 @@ async function fetchOverview(): Promise<OverviewResponse> {
     || result.liveNotionStatus !== "UNKNOWN"
     || result.runBasis !== "EXISTING_ADMIN_AUTOMATION_EVENTS"
     || !result.runs || !result.runs.directory || !result.runs["events-help"]
-    || !Array.isArray(result.rows)) {
+    || !Array.isArray(result.rows) || !Array.isArray(result.preflight)) {
     throw new Error("INVALID_RESPONSE");
   }
   return result as OverviewResponse;
@@ -186,6 +213,19 @@ export function AdminNotionSyncOverview() {
               </tbody>
             </table>
           </div>
+          <details className={styles.details}>
+            <summary>Konfigurácia synchronizácie – read-only prednasadzovacia kontrola</summary>
+            <p>Toto je kontrola aktuálnych nastavení Workera a existujúcich D1 tabuliek.
+              Neprezrádza tokeny ani nemeria dostupnosť Notion API.</p>
+            <ul>
+              {snapshot.preflight.map((check) => (
+                <li key={check.area}>
+                  <strong>{check.label}:</strong> {configurationLabels[check.status]}
+                  {" · "}{configurationDetailLabels[check.details]}
+                </li>
+              ))}
+            </ul>
+          </details>
           <p className={styles.progress}>
             D1 evidencia načítaná: {formatDate(snapshot.checkedAt)}.
             Posledný beh je doložený uloženou udalosťou automatizácie; Podujatia a päť oblastí Pomoci psom
