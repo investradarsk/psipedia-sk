@@ -20,12 +20,17 @@ export default async function EditHelpCasePage({ params }: Props) {
   const { id } = await params; const numericId = Number.parseInt(id, 10);
   if (!Number.isSafeInteger(numericId) || numericId < 1) notFound();
   const user = await requireAdminPageUser(`/admin/pomoc/${id}`);
-  const item = await getManagedHelpCaseById(numericId); if (!item) notFound();
+  // The review badge is independent of the category-specific FOSTER/HELP_ITEM
+  // warning and update suggestions, so begin its read alongside the item.
+  const [item, review] = await Promise.all([
+    getManagedHelpCaseById(numericId),
+    getAdminEntityReview("HELP_CASE", numericId),
+  ]);
+  if (!item) notFound();
   const entityType = item.category === "docasna-opatera" ? "FOSTER" as const : "HELP_ITEM" as const;
-  const [duplicateWarning, automationSuggestions, review] = await Promise.all([
+  const [duplicateWarning, automationSuggestions] = await Promise.all([
     getCanonicalDraftDuplicateWarning(entityType, item.id).catch(() => null),
     listCanonicalAutomationUpdateSuggestions({ entityType, canonicalEntityId: item.id }),
-    getAdminEntityReview("HELP_CASE", item.id),
   ]);
   return <AdminShell
     user={user}
