@@ -21,4 +21,4 @@
 .admin-partner-checkbox{display:flex!important;gap:.55rem;align-items:flex-start}.admin-partner-checkbox input{width:auto!important;margin-top:.2rem}
 @media(max-width:720px){.admin-partner-media-compare{grid-template-columns:1fr}}
 
-.admin-partner-pagination{display:flex;gap:10px;margin-top:9px}.admin-partner-pagination a{color:#1f684b;font-weight:700}
+.admin-partner-pagination{display:flex;gap:10px;margin-top:9px}.admin-partner-pagination a{display:inline-flex;align-items:center;min-height:44px;color:#1f684b;font-weight:700}
