@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { PublicActionLink } from "@/components/public-visual-system";
+import { ArrowIcon } from "@/components/icons";
 import {
   resolveArticlePromo,
   type ArticlePromoKey,
@@ -35,10 +36,9 @@ export function ArticlePromo({
         <h3 className={styles.headline}>{copy.headline}</h3>
         <p className={styles.body}>{copy.body}</p>
       </div>
-      <Link className={styles.cta} href={target.href} aria-label={`${ctaLabel}: ${target.label}`}>
-        <span>{ctaLabel}</span>
-        <span className={styles.arrow} aria-hidden="true">→</span>
-      </Link>
+      <PublicActionLink className={styles.cta} variant="secondary" href={target.href} aria-label={`${ctaLabel}: ${target.label}`} icon={<ArrowIcon size={16} />}>
+        {ctaLabel}
+      </PublicActionLink>
     </aside>
   );
 }

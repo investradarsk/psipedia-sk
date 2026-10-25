@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactElement, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ComponentProps, HTMLAttributes, ReactElement, ReactNode } from "react";
 import { ArrowIcon } from "@/components/icons";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { ImageDisplay } from "@/components/image-display";
@@ -194,17 +194,18 @@ export function PublicActionLink({
   className,
   target,
   rel,
-}: {
+  ...linkProps
+}: Omit<ComponentProps<typeof Link>, "href" | "children" | "icon" | "variant" | "target" | "rel"> & {
   href: string;
   variant?: PublicActionVariant;
   children: ReactNode;
   icon?: ReactElement;
-  className?: string;
   target?: "_blank" | "_self";
   rel?: string;
+  "data-testid"?: string;
 }) {
   return (
-    <Link className={cx(styles.action, actionVariantClass[variant], className)} data-public-action={variant} href={href} target={target} rel={rel}>
+    <Link {...linkProps} className={cx(styles.action, actionVariantClass[variant], className)} data-public-action={variant} href={href} target={target} rel={rel}>
       <span>{children}</span>
       {icon ? <PublicIcon icon={icon} size="sm" /> : null}
     </Link>

@@ -6,8 +6,7 @@
 .reportIcon {display:grid;width:42px;height:42px;flex:0 0 auto;place-items:center;border-radius:12px;color:var(--help-accent-strong);background:#ffe8df}
 .reportCopy strong {display:block;margin:2px 0 3px;color:var(--help-ink);font-family:Georgia,"Times New Roman",serif;font-size:1.12rem;font-weight:500}
 .reportCopy p {margin:0;color:var(--help-muted);font-size:.82rem;line-height:1.45}
-.reportBanner a {flex:0 0 auto;border-color:var(--help-accent-strong);color:#fff;background:var(--help-accent-strong)}
-.reportBanner a:hover {background:#a63e2c}
+.reportBanner a {flex:0 0 auto}
 .closingCta {min-height:330px;background-image:linear-gradient(90deg,rgba(36,31,26,.82) 0%,rgba(36,31,26,.6) 47%,rgba(36,31,26,.18) 100%),url("/images/hero-labrador.webp");background-position:center 44%;background-size:cover}
 .closingCtaOverlay {min-height:inherit;display:flex;align-items:center}
 .closingCtaInner {padding-top:52px;padding-bottom:52px;color:#fff}
