@@ -114,3 +114,7 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 
 ### Stabilizácia Gemini/Notion samostatného editora
 - Modul Adresára je súčasne používaný v izolovanom Gemini/Notion modáli bez `NextRouter` kontextu. Preto ochrana návratu v kanonickom Adresári nevolá `useRouter()` v spoločnej komponentovej funkcii. Po výslovnom potvrdení použije existujúci Next Link cez bezpečne označený `ref`, čím zachová SPA navigáciu a nevyvolá nové sieťové zápisy. Modál Gemini/Notion sa vie znova zobraziť aj v izolovaných browser testoch.
+
+## Vlna 13 — zdieľaná ochrana formulárov
+- `useAdminUnsavedFormLinks`: jeden spoločný hook pre označenie rozpracovaného formulára, ochranu všetkých interných odkazov, bezpečné zrušenie a potvrdené opustenie. Ignoruje nové karty, externé adresy, modifikačné kliknutia a ten istý URL. Formulárový hook nemení API ani databázu.
+- `EditorUnsavedChangesGuard` voliteľne podporuje `allowNativeExitRef`, aby úspešne uložený nový záznam po presmerovaní nespustil falošné upozornenie `beforeunload`. Bez zmeny existujúcich používaní.

@@ -173,21 +173,24 @@ export function EditorUnsavedChangesGuard({
   open,
   onStay,
   onDiscard,
+  allowNativeExitRef,
 }: {
   active: boolean;
   open: boolean;
   onStay: () => void;
   onDiscard: () => void;
+  allowNativeExitRef?: RefObject<boolean>;
 }) {
   useEffect(() => {
     if (!active) return;
     const warn = (event: BeforeUnloadEvent) => {
+      if (allowNativeExitRef?.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [active]);
+  }, [active, allowNativeExitRef]);
 
   return (
     <AdminModalDialog
