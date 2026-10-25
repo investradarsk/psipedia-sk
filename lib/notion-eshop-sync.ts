@@ -21,6 +21,7 @@ import {
   type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
+import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 
 export type NotionEshopSyncBindings = NotionSyncBindings & {
@@ -32,6 +33,9 @@ type NotionPage = {
   id: string;
   last_edited_time?: string;
   properties?: Record<string, unknown>;
+  parent?: { type?: string; data_source_id?: string };
+  archived?: boolean;
+  in_trash?: boolean;
 };
 
 type NotionQueryResponse = {
@@ -314,6 +318,7 @@ async function writeShopToNotion(input: {
   // Notion's 200 response is not sufficient proof of durable field parity.
   // A rejected or partial echo must never advance the common D1 baseline.
   if (!page?.id || (input.pageId && page.id !== input.pageId)
+      || !notionPageBelongsToDataSource(page, input.dataSourceId)
       || !page.properties || await snapshotHash(notionSnapshot(page)) !== hash) {
     throw new Error("NOTION_ESHOP_WRITEBACK_ECHO_MISMATCH");
   }
@@ -514,8 +519,15 @@ async function syncMapped(input: {
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) return "unchanged" as const;
   const page = input.page ?? await fetchPage(input.bindings, input.mapping.notion_page_id);
+  if (page.id !== input.mapping.notion_page_id
+    || !notionPageBelongsToDataSource(page, input.dataSourceId)) {
+    throw new Error("ESHOP_IDENTITY_OR_PARENT_MISMATCH");
+  }
 
-  if (notionRichTextProperty(page, "Psipedia ID") !== String(shop.id)) {
+  const claimedId = notionRichTextProperty(page, "Psipedia ID");
+  if (claimedId !== String(shop.id)) {
+    // Never overwrite a page explicitly claimed by a different D1 entity.
+    if (claimedId) throw new Error("ESHOP_IDENTITY_CONFLICT");
     await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId, shop, pageId: page.id });
     return "pushed" as const;
   }
