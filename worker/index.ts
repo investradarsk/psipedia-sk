@@ -20,7 +20,7 @@ import { runArticlePublishNotionReconciliation } from "../lib/article-publish-no
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
 import { runServicesV3CatalogAutoSweep } from "../lib/service-catalog-notion-auto-sweep.ts";
-import { notionSyncHealth } from "../lib/notion-sync-health.ts";
+import { notionSyncHealth, notionAgendaHealth } from "../lib/notion-sync-health.ts";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
 import {
   runNotionDirectoryBootstrapSweep,
@@ -624,6 +624,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
     console.info(JSON.stringify({ ...notionEventsHelp, event: "notion_events_help_sync_sweep" }));
     console.info(JSON.stringify(notionSyncHealth("events-help", notionEventsHelp)));
+    for (const record of notionAgendaHealth(notionEventsHelp)) console.info(JSON.stringify(record));
     console.info(JSON.stringify({ event: "notion_directory_sync_sweep", ...notionDirectory }));
     console.info(JSON.stringify(notionSyncHealth("directory", notionDirectory)));
     console.info(JSON.stringify({ event: "notion_eshop_sync_sweep", ...notionEshops }));

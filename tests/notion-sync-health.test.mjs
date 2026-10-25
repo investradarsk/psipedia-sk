@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { notionSyncHealth } from "../lib/notion-sync-health.ts";
+import { notionSyncHealth, notionAgendaHealth } from "../lib/notion-sync-health.ts";
 
 const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 
@@ -74,4 +74,28 @@ test("existing scheduled Worker logs shared health for all four areas without ex
   for (const pattern of expected) assert.match(worker, pattern);
   assert.match(worker, /replacedByBidirectionalSync: true/);
   assert.doesNotMatch(worker, /runSimpleServiceCatalogSync/);
+});
+
+test("all five Events/Help agendas have bounded, value-free per-agenda health", () => {
+  const names = ["events", "organizations", "adoptions", "help-cases", "lost-found"];
+  const sample = notionAgendaHealth({
+    enabled: true, schemaReady: true,
+    agendas: names.map((agenda, index) => ({
+      agenda, enabled: true, schemaReady: true, targetMissing: index === 3,
+      scanned: 2, createdFromNotion: 0, createdInNotion: 0,
+      pulledFromNotion: 0, pushedToNotion: index === 1 ? 1 : 0,
+      conflicts: index === 2 ? 1 : 0, failed: index === 4 ? 1 : 0,
+      entityId: 99, notionPageId: "PRIVATE", errors: ["PRIVATE_ERROR"],
+    })),
+  });
+  assert.deepEqual(sample.map(s => s.agenda), names);
+  assert.deepEqual(sample.map(s => s.state), ["IDLE","SYNCED","CONFLICT","BLOCKED","ERROR"]);
+  assert.ok(sample.every(s => s.area === "events-help" && s.event === "notion_sync_agenda_health"));
+  assert.doesNotMatch(JSON.stringify(sample), /PRIVATE|entityId|notionPageId|errors/);
+  assert.equal(notionAgendaHealth({ enabled:false, schemaReady:true, agendas:[
+    {agenda:"events", enabled:true, schemaReady:true}, {agenda:"events"}, {agenda:"private-agenda"},
+  ]}).length, 1);
+  assert.equal(notionAgendaHealth({ enabled:false, schemaReady:true, agendas:[{agenda:"events"}]})[0].state, "DISABLED");
+  assert.match(worker, /for \(const record of notionAgendaHealth\(notionEventsHelp\)\)/);
+  assert.doesNotMatch(worker, /NOTION_AGENDA_SEPARATE_CRON/);
 });

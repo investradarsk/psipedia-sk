@@ -20,6 +20,81 @@ export type NotionSyncHealthState =
   | "CONFLICT"
   | "ERROR";
 
+/**
+ * Individual Events/Help results come from the SAME verified hourly sweep.
+ * Never split a parent receipt into five invented independent run outcomes.
+ * Emit counts and fixed agenda IDs only; user-edited content/IDs stay private.
+ */
+export type NotionAgendaHealth = {
+  event: "notion_sync_agenda_health";
+  area: "events-help";
+  agenda: "events" | "organizations" | "adoptions" | "help-cases" | "lost-found";
+  state: NotionSyncHealthState;
+  checked: number;
+  created: number;
+  updated: number;
+  conflicts: number;
+  failed: number;
+};
+
+const EVENT_HELP_AGENDAS = new Set<NotionAgendaHealth["agenda"]>([
+  "events", "organizations", "adoptions", "help-cases", "lost-found",
+]);
+
+type AgendaCounts = {
+  agenda: string;
+  enabled?: boolean;
+  schemaReady?: boolean;
+  targetMissing?: boolean;
+  scanned?: number;
+  createdFromNotion?: number;
+  createdInNotion?: number;
+  pulledFromNotion?: number;
+  pushedToNotion?: number;
+  conflicts?: number;
+  failed?: number;
+};
+
+/** Existing scheduler summary only; pure, bounded and write-free. */
+export function notionAgendaHealth(raw: {
+  enabled: boolean;
+  schemaReady: boolean;
+  agendas: readonly AgendaCounts[];
+}): NotionAgendaHealth[] {
+  const result: NotionAgendaHealth[] = [];
+  const seen = new Set<string>();
+  for (const item of raw.agendas.slice(0, 5)) {
+    if (!EVENT_HELP_AGENDAS.has(item.agenda as NotionAgendaHealth["agenda"])
+      || seen.has(item.agenda)) continue;
+    seen.add(item.agenda);
+    const health = notionSyncHealth("events-help", {
+      enabled: raw.enabled && item.enabled !== false,
+      schemaReady: raw.schemaReady && item.schemaReady !== false && !item.targetMissing,
+      totals: {
+        scanned: item.scanned,
+        createdFromNotion: item.createdFromNotion,
+        createdInNotion: item.createdInNotion,
+        pulledFromNotion: item.pulledFromNotion,
+        pushedToNotion: item.pushedToNotion,
+        conflicts: item.conflicts,
+        failed: item.failed,
+      },
+    });
+    result.push({
+      event: "notion_sync_agenda_health",
+      area: "events-help",
+      agenda: item.agenda as NotionAgendaHealth["agenda"],
+      state: health.state,
+      checked: health.checked,
+      created: health.created,
+      updated: health.updated,
+      conflicts: health.conflicts,
+      failed: health.failed,
+    });
+  }
+  return result;
+}
+
 export type NotionSyncHealth = {
   event: "notion_sync_health";
   area: NotionSyncArea;

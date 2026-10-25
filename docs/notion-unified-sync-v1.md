@@ -19,7 +19,7 @@
 - [x] **1B:** doplnený regresný test pre konkrétne cron zapojenie a zákaz návratu k paralelnému jednoduchému importéru v scheduled Workeri.
 - [x] **2A:** vykonaný audit existujúcich hourly/five-minute tokov; ponechaný jediný existujúci Worker bez nových cronov a bez duplikovania event sync pri bidirectional režime.
 - [x] **2B:** spoločný bezstratový read-only log `notion_sync_health` pre Služby V3, Adresár, Podujatia/Pomoc psom a Facebook obrázky. Výstup rozlišuje `DISABLED`, `BLOCKED`, `IDLE`, `SYNCED`, `PARTIAL`, `CONFLICT`, `ERROR`; bez úniku obsahu alebo tokenov.
-- [ ] **2C:** pokračovať zjednotením per-agenda diagnostiky a administrátorského prehľadu, bez zmeny doménovej publikačnej logiky.
+- [x] **2C:** jeden spoločný read-only admin prehľad + samostatné agregované logy pre päť Events/Help agend z výsledku jediného existujúceho sweepu. Per-agenda logy nie sú umelé úspechy samostatných behov ani provider availability.
 - [x] **3A:** každé prepojené ID Adresára sa v jednom hodinovom behu reconciliuje najviac raz; fast-path bez zosúladenia naďalej povoľuje export zmenených kanonických údajov D1. Moved/archived/trashed Notion stránka nie je platný cieľ PATCH.
 - [x] **3B-1:** identická chyba Adresára sa znovu nepatchuje (rovnaký záznam konfliktu zostáva viditeľný); D1-vetva znovu využíva už načítanú Notion stránku, bez ďalších HTTP GET.
 - [x] **3B-2a:** postup manuálneho riešenia konfliktov dostupný priamo v existujúcom read-only admin audite.
@@ -117,3 +117,7 @@ Existujúci audit obsahuje stručný bezpečnostný návod: najprv dokázať, č
 ## Fáza 7A — read-only preflight priamo z nasadeného Workera
 
 Rozšírenie existujúceho chráneného `GET /api/admin/notion-sync-overview` hodnotí iba základné príznaky: nastavené feature flagy, existenciu tokenu (nikdy nie hodnotu), formát známych Notion data source UUID, závislé Services V3 bezpečnostné flagy a dostupnosť existujúcich D1 tabuliek cez rovnaký prehľad. Bez ďalších SQL SELECT, Cloudflare API, cronov, mutácií alebo Provider fetch. Stavy `CONFIGURED`/`BLOCKED`/`DISABLED`/`UNKNOWN` nie sú indikátorom dostupnosti Notion API, správnych stránkových práv ani bezchybného behu. Finálny produkčný smoke test a riešenie skutočných konfliktov zostáva schvaľovacím krokom po merge/deploy.
+
+## Fáza 2C — jeden scheduler, presná diagnostika agend
+
+K spoločnému `notion_sync_health` pribudol `notion_sync_agenda_health` (len na základe už doručených výsledkov hodinového Events/Help runnera) s explicitnou agendou, stavom a sanitizovanými číselnými súhrnmi. Päť agend sa nesynchronizuje v novom cron, ani sa nededukuje úspech jednotlivej agendy zo spoločného `events-help` Admin notifikačného dokladu. `targetMissing` sa označí ako `BLOCKED`, skutočný konflikt ako `CONFLICT`, chyba ako `ERROR`; nevypisujú sa ID, obsah, tokeny ani voľné správy. Nemení sa žiadny Notion/D1 write path.
