@@ -30,11 +30,17 @@ function AdminNotificationBellPending() {
   );
 }
 
-async function AdminNotificationBell({ count, partial = false }: { count?: number; partial?: boolean }) {
+async function AdminNotificationBell({
+  count, partial = false, summaryPromise,
+}: {
+  count?: number;
+  partial?: boolean;
+  summaryPromise?: ReturnType<typeof loadExactAdminAttentionSummary>;
+}) {
   let activeCount = count;
   let incomplete = partial;
   if (activeCount === undefined) {
-    const summary = await loadExactAdminAttentionSummary();
+    const summary = await (summaryPromise ?? loadExactAdminAttentionSummary());
     activeCount = summary.active;
     incomplete = summary.availability !== "OK";
   }
@@ -72,6 +78,7 @@ export function AdminShell({
   children,
   attentionCount,
   attentionCountPartial,
+  attentionSummaryPromise,
 }: {
   user: ChatGPTUser;
   eyebrow: string;
@@ -81,6 +88,7 @@ export function AdminShell({
   children: ReactNode;
   attentionCount?: number;
   attentionCountPartial?: boolean;
+  attentionSummaryPromise?: ReturnType<typeof loadExactAdminAttentionSummary>;
 }) {
   return (
     <main id="obsah" className="admin-root" data-admin-shell>
@@ -108,7 +116,7 @@ export function AdminShell({
               <div className={styles.topbarActions}>
                 <Link href="/" className={styles.backToWeb} aria-label="Návrat na Psipedia.sk">↗ <span>Späť na web</span></Link>
                 <Suspense fallback={<AdminNotificationBellPending />}>
-                  <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} />
+                  <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} summaryPromise={attentionSummaryPromise} />
                 </Suspense>
                 <div className={`admin-account ${styles.account}`}>
                   <span><small>Prihlásený používateľ</small><strong>{user.displayName}</strong></span>
