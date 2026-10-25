@@ -33,3 +33,11 @@ Variant `context` zachováva pôvodné CSS konkrétneho povrchu. Spoločný komp
 - Nové varianty sa majú dopĺňať do týchto centrálnych súborov. Odlišné vzhľady zostávajú explicitnými variantmi; toto nie je nový grafický návrh ani tvrdenie, že každý špecifický prvok webu už používa rovnaké CSS.
 
 Pred merge ostáva vizuálne prijatie presného PR commitu. Lokálne stiahnutie Chromium zlyhalo; PR označuje skutočne dotknuté cesty pre workflow `PR Visual Evidence`. Na CI sa podľa zadania nečaká.
+
+### Ďalšie doplnenie po merge #1037
+
+Pôvodne pripravované do #1037; po jeho merge pokračuje v jednom nadväzujúcom PR.
+
+- Centrálne varianty prázdnych stavov: Pomoc psom, meniny, prehľad kategórií, podujatia, stratené/nájdené, redakčné sekcie, recenzie, novinky, populárne články a adopcie. Zhodný základ adopcií a hlásení je definovaný iba raz; špecifické vnorené prvky zostávajú variantmi.
+- Mapové fallbacky pri čakaní na súhlas alebo nedostupnom podklade a stav mapového rendereru používajú PublicNotice. Životný cyklus mapy, súhlas, retry a odosielanie požiadaviek sa nemenia.
+- Mapový indikátor načítavania vrátane animácie a prefers-reduced-motion má štýly v centrálnom súbore. Lokálne pravidlá okolitého layoutu (napríklad rozostup medzi štítkom menín a prázdnym stavom) zostávajú pri príslušnej stránke.

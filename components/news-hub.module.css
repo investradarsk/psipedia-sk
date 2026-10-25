@@ -8,7 +8,7 @@
 
 .headerShell :global(.article-breadcrumbs) {
   margin-bottom: 4px;
-  font-size: .72rem;
+  font-size: 0.72rem;
 }
 
 .archive {
@@ -40,11 +40,11 @@
   align-items: center;
   justify-content: flex-start;
   padding: 8px 12px;
-  border: 1px solid rgba(23, 75, 56, .16);
+  border: 1px solid rgba(23, 75, 56, 0.16);
   border-radius: 999px;
   color: var(--forest);
   background: #fff;
-  font-size: .75rem;
+  font-size: 0.75rem;
   font-weight: 800;
   line-height: 1.2;
   text-decoration: none;
@@ -55,14 +55,13 @@
   color: #fff;
   background: var(--forest);
   text-decoration: underline;
-  text-underline-offset: .22em;
+  text-underline-offset: 0.22em;
 }
 
 .filters a:focus-visible {
-  outline: 3px solid rgba(23, 75, 56, .25);
+  outline: 3px solid rgba(23, 75, 56, 0.25);
   outline-offset: 3px;
 }
-
 
 .guidance,
 .trust {
@@ -70,7 +69,7 @@
   gap: 8px;
   margin-bottom: 24px;
   padding: 18px 20px;
-  border: 1px solid rgba(23, 75, 56, .12);
+  border: 1px solid rgba(23, 75, 56, 0.12);
   border-radius: 14px;
   background: #fff;
 }
@@ -94,7 +93,7 @@
   max-width: 70ch;
   margin: 0;
   color: var(--muted);
-  font-size: .86rem;
+  font-size: 0.86rem;
   line-height: 1.55;
 }
 
@@ -104,27 +103,12 @@
   margin: 2px 0 0;
   padding-left: 1.15rem;
   color: var(--ink-2);
-  font-size: .82rem;
+  font-size: 0.82rem;
   line-height: 1.5;
 }
 
 .trust {
   margin-bottom: 24px;
-}
-
-.empty {
-  display: grid;
-  justify-items: start;
-  gap: 8px;
-  padding: 24px;
-  border: 1px solid rgba(23, 75, 56, .12);
-  border-radius: 14px;
-  background: #fff;
-}
-
-.empty p {
-  margin: 0 0 6px;
-  color: var(--muted);
 }
 
 .footerTools {
@@ -134,8 +118,8 @@
   align-items: center;
   margin-bottom: 62px;
   padding-block: 24px;
-  border-top: 1px solid rgba(23, 75, 56, .12);
-  border-bottom: 1px solid rgba(23, 75, 56, .12);
+  border-top: 1px solid rgba(23, 75, 56, 0.12);
+  border-bottom: 1px solid rgba(23, 75, 56, 0.12);
 }
 
 .footerTools h2 {
@@ -149,7 +133,7 @@
   max-width: 65ch;
   margin: 0;
   color: var(--muted);
-  font-size: .86rem;
+  font-size: 0.86rem;
   line-height: 1.55;
 }
 
@@ -185,5 +169,11 @@
 }
 
 @media (max-width: 420px) {
-  .filters { grid-template-columns: minmax(0, 1fr); }
+  .filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.empty {
+  composes: newsEmpty from "./public-visual-system/public-result-variants.module.css";
 }
