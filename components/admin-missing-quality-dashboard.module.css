@@ -43,4 +43,4 @@ a.value {color:#145ca5;}
 .empty,.state {padding:18px;text-align:center;border:1px dashed #cbd8ce;border-radius:12px;color:#597063;font-size:14px;}
 .notice {border-left:3px solid #498360;background:#eff8f1;padding:10px 12px;margin-bottom:12px;font-size:13px;}
 @media(max-width:800px) {.top{grid-template-columns:1fr}.areas{grid-template-columns:1fr}.monthGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.results{padding:12px}.actions{width:100%;justify-content:flex-end}.item{align-items:stretch}.total{font-size:32px}}
-@media(max-width:375px) {.monthGrid{grid-template-columns:1fr}.actions button{flex:1}.filters button{padding:7px 10px}.top{padding:14px}}
+@media(max-width:375px) {.monthGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.actions button{flex:1}.filters button{padding:7px 10px}.top{padding:14px}}
