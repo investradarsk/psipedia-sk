@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MapItem } from "@/lib/map-contract";
@@ -51,14 +52,15 @@ export function PublicLocationMap({
   const [mapType, setMapType] = useState<PublicMapType>("roadmap");
   const [consentGranted, setConsentGranted] = useState(false);
   const [rendererStatus, setRendererStatus] = useState<MapRendererStatus>("loading");
-  const [command, setCommand] = useState<MapRendererCommand | null>(() => detailMapCommandForItems(items, 1));
+  const [command, setCommand] = useState<MapRendererCommand | null>(() =>
+    detailMapCommandForItems(items, 1),
+  );
   const selected = items.find((item) => item.id === selectedItemId) ?? items[0] ?? null;
 
   useEffect(() => {
     if (sectionRef.current) sectionRef.current.dataset.hydrated = "true";
-    const read = () => setConsentGranted(
-      hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY)),
-    );
+    const read = () =>
+      setConsentGranted(hasGoogleMapsConsent(window.localStorage.getItem(GOOGLE_MAPS_CONSENT_KEY)));
     read();
     window.addEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
     return () => window.removeEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
@@ -82,10 +84,13 @@ export function PublicLocationMap({
 
   if (!items.length) return null;
 
-  const placeUrl = selected ? buildGoogleMapsPlaceUrl(selected.latitude, selected.longitude, selected.googlePlaceId) : null;
-  const directionsUrl = selected && !isApproximateMapItem(selected)
-    ? buildGoogleMapsDirectionsUrl(selected.latitude, selected.longitude, selected.googlePlaceId)
+  const placeUrl = selected
+    ? buildGoogleMapsPlaceUrl(selected.latitude, selected.longitude, selected.googlePlaceId)
     : null;
+  const directionsUrl =
+    selected && !isApproximateMapItem(selected)
+      ? buildGoogleMapsDirectionsUrl(selected.latitude, selected.longitude, selected.googlePlaceId)
+      : null;
   const rendererAvailable = testRenderer || rendererEnabled;
   const waitingForConsent = rendererAvailable && !consentGranted;
   const showRenderer = consentGranted && rendererAvailable;
@@ -104,7 +109,12 @@ export function PublicLocationMap({
   }
 
   return (
-    <section ref={sectionRef} className={styles.section} aria-labelledby="public-location-map-title" data-testid="public-location-map">
+    <section
+      ref={sectionRef}
+      className={styles.section}
+      aria-labelledby="public-location-map-title"
+      data-testid="public-location-map"
+    >
       <div className={styles.heading}>
         <span className="eyebrow">{eyebrow}</span>
         <h2 id="public-location-map-title">{title}</h2>
@@ -135,23 +145,46 @@ export function PublicLocationMap({
               ariaLabel={`Interaktívna mapa: ${title}`}
             />
           ) : (
-            <div className={styles.fallback} role="status">
-              <strong>{waitingForConsent ? "Google Maps čaká na tvoje povolenie" : "Interaktívna mapa momentálne nie je dostupná"}</strong>
-              <span>{waitingForConsent ? "Mapový podklad sa načíta až po povolení nižšie." : "Ostatný obsah profilu zostáva plne dostupný."}</span>
-            </div>
+            <PublicNotice as="div" appearance="context" className={styles.fallback} role="status">
+              <strong>
+                {waitingForConsent
+                  ? "Google Maps čaká na tvoje povolenie"
+                  : "Interaktívna mapa momentálne nie je dostupná"}
+              </strong>
+              <span>
+                {waitingForConsent
+                  ? "Mapový podklad sa načíta až po povolení nižšie."
+                  : "Ostatný obsah profilu zostáva plne dostupný."}
+              </span>
+            </PublicNotice>
           )}
 
           {showMapControls ? (
             <div className={styles.mapTypeControl} role="group" aria-label="Typ mapového podkladu">
-              <button type="button" aria-pressed={mapType === "roadmap"} onClick={() => setMapType("roadmap")}>Mapa</button>
-              <button type="button" aria-pressed={mapType === "hybrid"} onClick={() => setMapType("hybrid")}>Satelit</button>
+              <button
+                type="button"
+                aria-pressed={mapType === "roadmap"}
+                onClick={() => setMapType("roadmap")}
+              >
+                Mapa
+              </button>
+              <button
+                type="button"
+                aria-pressed={mapType === "hybrid"}
+                onClick={() => setMapType("hybrid")}
+              >
+                Satelit
+              </button>
             </div>
           ) : null}
 
           {waitingForConsent ? (
             <div className={styles.consent} data-testid="detail-map-consent-gate">
               <strong>Načítať interaktívnu Google mapu?</strong>
-              <span>Google Maps sa načíta až po tvojom výslovnom povolení. Detail stránky funguje aj bez nej.</span>
+              <span>
+                Google Maps sa načíta až po tvojom výslovnom povolení. Detail stránky funguje aj bez
+                nej.
+              </span>
               <button
                 type="button"
                 onClick={() => {
@@ -167,8 +200,12 @@ export function PublicLocationMap({
 
         {selected && (selected.displayLocation || isApproximateMapItem(selected)) ? (
           <div className={styles.locations}>
-            {isApproximateMapItem(selected) ? <span className={styles.approximate}>Približná poloha</span> : null}
-            {selected.displayLocation ? <span className={styles.locationMeta}>{selected.displayLocation}</span> : null}
+            {isApproximateMapItem(selected) ? (
+              <span className={styles.approximate}>Približná poloha</span>
+            ) : null}
+            {selected.displayLocation ? (
+              <span className={styles.locationMeta}>{selected.displayLocation}</span>
+            ) : null}
           </div>
         ) : null}
 
@@ -176,18 +213,34 @@ export function PublicLocationMap({
           <div className={styles.actions} aria-label="Mapové odkazy">
             {placeUrl ? (
               <a href={placeUrl} target="_blank" rel="noreferrer">
-                {isApproximateMapItem(selected) ? "Otvoriť približnú polohu v Google Maps" : "Otvoriť v Google Maps"}
+                {isApproximateMapItem(selected)
+                  ? "Otvoriť približnú polohu v Google Maps"
+                  : "Otvoriť v Google Maps"}
               </a>
             ) : null}
-            {directionsUrl ? <a href={directionsUrl} target="_blank" rel="noreferrer">Navigovať</a> : null}
+            {directionsUrl ? (
+              <a href={directionsUrl} target="_blank" rel="noreferrer">
+                Navigovať
+              </a>
+            ) : null}
           </div>
         ) : null}
 
         {attribution?.length ? (
-          <div className={styles.attribution} data-testid="detail-map-provider-attribution" aria-label="Zdroje mapových údajov">
-            {attribution.map((entry) => entry.url
-              ? <a href={entry.url} target="_blank" rel="noreferrer" key={entry.label}>{entry.label}</a>
-              : <span key={entry.label}>{entry.label}</span>)}
+          <div
+            className={styles.attribution}
+            data-testid="detail-map-provider-attribution"
+            aria-label="Zdroje mapových údajov"
+          >
+            {attribution.map((entry) =>
+              entry.url ? (
+                <a href={entry.url} target="_blank" rel="noreferrer" key={entry.label}>
+                  {entry.label}
+                </a>
+              ) : (
+                <span key={entry.label}>{entry.label}</span>
+              ),
+            )}
           </div>
         ) : null}
 

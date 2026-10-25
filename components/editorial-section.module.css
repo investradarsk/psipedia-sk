@@ -1,27 +1,27 @@
 .foundation {
-  --section-border: var(--ps-border-soft, rgba(23, 53, 43, .1));
+  --section-border: var(--ps-border-soft, rgba(23, 53, 43, 0.1));
   --section-card: var(--white, #fff);
   --section-accent: var(--forest);
   --section-accent-soft: var(--sage-light);
-  --section-accent-border: rgba(23, 75, 56, .18);
+  --section-accent-border: rgba(23, 75, 56, 0.18);
 }
 
 .puppyTone {
   --section-accent: var(--coral-dark);
   --section-accent-soft: #fff8f3;
-  --section-accent-border: rgba(185, 71, 50, .2);
+  --section-accent-border: rgba(185, 71, 50, 0.2);
 }
 
 .careTone {
   --section-accent: var(--forest);
   --section-accent-soft: #f3f7f2;
-  --section-accent-border: rgba(23, 75, 56, .18);
+  --section-accent-border: rgba(23, 75, 56, 0.18);
 }
 
 .activityTone {
   --section-accent: #856317;
   --section-accent-soft: #fffaf0;
-  --section-accent-border: rgba(177, 128, 25, .22);
+  --section-accent-border: rgba(177, 128, 25, 0.22);
 }
 
 .main {
@@ -94,7 +94,7 @@
   color: var(--white);
   background: var(--section-accent);
   font: inherit;
-  font-size: .8125rem;
+  font-size: 0.8125rem;
   font-weight: 800;
   cursor: pointer;
 }
@@ -120,7 +120,7 @@
   border: 1px solid var(--section-accent-border);
   border-radius: 18px;
   background: linear-gradient(135deg, var(--section-accent-soft), var(--section-card));
-  box-shadow: 0 10px 30px rgba(23, 53, 43, .065);
+  box-shadow: 0 10px 30px rgba(23, 53, 43, 0.065);
 }
 
 .callout h2,
@@ -135,7 +135,7 @@
   max-width: 720px;
   margin: 0;
   color: var(--muted);
-  font-size: .875rem;
+  font-size: 0.875rem;
   line-height: 1.55;
 }
 
@@ -157,7 +157,7 @@
 
 .calloutUrgent,
 .urgent {
-  border-color: rgba(178, 75, 54, .22);
+  border-color: rgba(178, 75, 54, 0.22);
   background: #fffaf6;
 }
 
@@ -172,9 +172,9 @@
 
 .eyebrow {
   color: var(--section-accent);
-  font-size: .6875rem;
+  font-size: 0.6875rem;
   font-weight: 850;
-  letter-spacing: .09em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
@@ -189,7 +189,7 @@
 
 .contentSection,
 .nextSection {
-  background: rgba(237, 243, 233, .34);
+  background: rgba(237, 243, 233, 0.34);
 }
 
 .contentList {
@@ -214,25 +214,9 @@
   padding: 14px 16px;
   border-left: 3px solid var(--section-accent);
   color: var(--muted);
-  background: rgba(255, 255, 255, .7);
-  font-size: .8125rem;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.8125rem;
   line-height: 1.55;
-}
-
-.emptyState {
-  padding: 20px 4px;
-  border-block: 1px solid var(--section-border);
-}
-
-.emptyState strong {
-  display: block;
-  margin-bottom: 4px;
-}
-
-.emptyState p {
-  margin: 0;
-  color: var(--muted);
-  font-size: .875rem;
 }
 
 .topicBody {
@@ -275,7 +259,7 @@
   border-radius: 999px;
   color: var(--section-accent);
   background: var(--section-card);
-  font-size: .75rem;
+  font-size: 0.75rem;
   font-weight: 750;
   text-decoration: none;
 }
@@ -336,12 +320,12 @@
   margin: 0;
   padding-left: 18px;
   color: var(--muted);
-  font-size: .875rem;
+  font-size: 0.875rem;
   line-height: 1.55;
 }
 
 .warningCard {
-  border-color: rgba(178, 75, 54, .18);
+  border-color: rgba(178, 75, 54, 0.18);
   background: #fffaf6;
 }
 
@@ -371,7 +355,7 @@
 .expertCallout p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: .875rem;
+  font-size: 0.875rem;
   line-height: 1.55;
 }
 
@@ -483,7 +467,6 @@
   }
 }
 
-
 /* HOMEPAGE + SECTION POLISH: image-led topic cards and homepage-style service carousel. */
 .dataGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -496,18 +479,21 @@
   min-height: 206px;
   overflow: hidden;
   grid-template-columns: minmax(138px, 34%) minmax(0, 1fr);
-  border: 1px solid rgba(23, 53, 43, .13);
+  border: 1px solid rgba(23, 53, 43, 0.13);
   border-radius: 18px;
   color: inherit;
   background: var(--section-card);
-  box-shadow: 0 7px 22px rgba(23, 53, 43, .05);
+  box-shadow: 0 7px 22px rgba(23, 53, 43, 0.05);
   text-decoration: none;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .topicCard:hover {
-  border-color: color-mix(in srgb, var(--section-accent) 42%, rgba(23, 53, 43, .13));
-  box-shadow: 0 12px 30px rgba(23, 53, 43, .09);
+  border-color: color-mix(in srgb, var(--section-accent) 42%, rgba(23, 53, 43, 0.13));
+  box-shadow: 0 12px 30px rgba(23, 53, 43, 0.09);
   transform: translateY(-2px);
 }
 
@@ -544,9 +530,9 @@
 
 .topicCardEyebrow {
   color: var(--section-accent);
-  font-size: .69rem;
+  font-size: 0.69rem;
   font-weight: 850;
-  letter-spacing: .085em;
+  letter-spacing: 0.085em;
   line-height: 1.35;
   text-transform: uppercase;
 }
@@ -561,14 +547,14 @@
 
 .topicCardDescription {
   color: var(--muted);
-  font-size: .84rem;
+  font-size: 0.84rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 .topicCardMeta {
   color: var(--muted);
-  font-size: .73rem;
+  font-size: 0.73rem;
   line-height: 1.4;
 }
 
@@ -580,7 +566,7 @@
   gap: 7px;
   margin-top: 2px;
   color: var(--section-accent);
-  font-size: .78rem;
+  font-size: 0.78rem;
   font-weight: 850;
 }
 
@@ -608,18 +594,21 @@
   overflow: hidden;
   grid-template-rows: auto 1fr;
   scroll-snap-align: start;
-  border: 1px solid rgba(23, 53, 43, .13);
+  border: 1px solid rgba(23, 53, 43, 0.13);
   border-radius: 18px;
   color: var(--section-accent);
   background: var(--section-card);
-  box-shadow: 0 8px 24px rgba(23, 53, 43, .045);
+  box-shadow: 0 8px 24px rgba(23, 53, 43, 0.045);
   text-decoration: none;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .nextCard:hover {
   border-color: var(--section-accent-border);
-  box-shadow: 0 12px 30px rgba(23, 53, 43, .08);
+  box-shadow: 0 12px 30px rgba(23, 53, 43, 0.08);
   transform: translateY(-2px);
 }
 
@@ -651,7 +640,7 @@
   border-radius: 999px;
   color: var(--forest);
   background: var(--section-accent-soft);
-  box-shadow: 0 5px 14px rgba(23, 53, 43, .06);
+  box-shadow: 0 5px 14px rgba(23, 53, 43, 0.06);
 }
 
 .nextCardIcon svg {
@@ -678,7 +667,7 @@
 
 .nextCardCopy > span:not(.nextCardAction) {
   color: var(--muted);
-  font-size: .78rem;
+  font-size: 0.78rem;
   line-height: 1.5;
 }
 
@@ -691,7 +680,7 @@
   align-items: center;
   gap: 5px;
   color: var(--section-accent);
-  font-size: .75rem;
+  font-size: 0.75rem;
   font-weight: 850;
 }
 
@@ -707,7 +696,7 @@
   width: 42px;
   height: 42px;
   place-items: center;
-  border: 1px solid rgba(23, 53, 43, .15);
+  border: 1px solid rgba(23, 53, 43, 0.15);
   border-radius: 999px;
   color: var(--section-accent);
   background: var(--section-card);
@@ -715,7 +704,11 @@
   font-size: 1.05rem;
   font-weight: 850;
   cursor: pointer;
-  transition: color 150ms ease, background 150ms ease, border-color 150ms ease, transform 150ms ease;
+  transition:
+    color 150ms ease,
+    background 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
 }
 
 .carouselControl:hover {
@@ -739,7 +732,7 @@
   gap: 8px;
   margin: 0;
   color: color-mix(in srgb, var(--section-accent) 65%, transparent);
-  font-size: .82rem;
+  font-size: 0.82rem;
   font-weight: 800;
 }
 
@@ -785,7 +778,7 @@
   }
 
   .topicCardDescription {
-    font-size: .79rem;
+    font-size: 0.79rem;
   }
 
   .nextCarousel {
@@ -821,7 +814,7 @@
   }
 
   .topicCardEyebrow {
-    font-size: .63rem;
+    font-size: 0.63rem;
   }
 
   .topicCardDescription {
@@ -833,7 +826,7 @@
 
   .topicCardAction {
     min-height: 30px;
-    font-size: .75rem;
+    font-size: 0.75rem;
   }
 
   .nextCardMedia {
@@ -894,14 +887,30 @@
 }
 
 @media (max-width: 430px) {
-  .contentHub { gap: 18px; }
-  .contentHubPillar :global(.article-card) { max-width: 100%; }
+  .contentHub {
+    gap: 18px;
+  }
+  .contentHubPillar :global(.article-card) {
+    max-width: 100%;
+  }
 }
 
 /* CONTENT-HUB-CONTEXT-CTA-1: a compact feed item, never a parallel banner. */
-.contextualCtaItem { min-width: 0; }
+.contextualCtaItem {
+  min-width: 0;
+}
 
 /* GLOBAL-DESIGN-UNIFICATION-1: compact rhythm below photo headers. */
-.directorySection { padding-block: 0 6px; }
-.contentSection, .nextSection { padding-block: clamp(24px, 3.4vw, 42px); }
-.topicBody { padding-block: clamp(22px, 3.4vw, 42px); }
+.directorySection {
+  padding-block: 0 6px;
+}
+.contentSection,
+.nextSection {
+  padding-block: clamp(24px, 3.4vw, 42px);
+}
+.topicBody {
+  padding-block: clamp(22px, 3.4vw, 42px);
+}
+.emptyState {
+  composes: editorialEmpty from "./public-visual-system/public-result-variants.module.css";
+}

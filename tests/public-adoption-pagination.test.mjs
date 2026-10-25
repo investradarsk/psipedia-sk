@@ -22,6 +22,6 @@ test("adoption catalog uses canonical accessible anchor pagination without chang
   assert.ok(pagination.includes('rel="prev"'));
   assert.ok(pagination.includes('rel="next"'));
   assert.ok(pagination.includes('aria-current="page"'));
-  assert.ok(css.includes(".pagination span,.pagination strong{background:"));
+  assert.match(css, /\.pagination span,\s*\.pagination strong\s*\{\s*background:/);
   assert.doesNotMatch(src, /<nav className=\{styles\.pagination\}/);
 });
