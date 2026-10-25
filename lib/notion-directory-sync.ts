@@ -42,7 +42,7 @@ import {
 } from "@/lib/media-source-monitor";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { SITE_URL } from "@/config/public-site";
-import { canRecoverNotionDirectoryMapping, notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
+import { canRecoverNotionDirectoryMapping, notionDirectoryPageBelongsToSource, notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
@@ -1078,6 +1078,11 @@ async function syncMappedPage(input: {
   if (page.id !== input.mapping.notion_page_id) {
     throw new Error("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
   }
+  // A mapping alone does not grant write access to a page moved out of the
+  // canonical Directory data source. Never PATCH an unrelated Notion page.
+  if (!notionDirectoryPageBelongsToSource(page, input.dataSourceId)) {
+    throw new Error("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
+  }
 
   // A mapping can already exist when the first Notion write-back failed.
   // Restore the canonical Psipedia ID/status before ordinary conflict resolution.
@@ -1476,6 +1481,12 @@ export async function runNotionDirectorySyncSweep(input: {
     }
   }
   summary.notionScanned = pages.length;
+  // A single scheduled sweep has two overlapping discovery routes: recent
+  // Notion pages and canonical D1 changes. Do not PATCH or report a conflict
+  // twice for the same mapped profile in one sweep. A fast-path page with no
+  // actual reconcile is deliberately NOT marked, so a pending D1 change can
+  // still be exported via changedProfileIds below.
+  const attemptedMappedProfileIds = new Set<number>();
 
   for (const candidate of pages) {
     let page = candidate;
@@ -1605,6 +1616,8 @@ export async function runNotionDirectorySyncSweep(input: {
         continue;
       }
 
+      if (attemptedMappedProfileIds.has(mapping.directory_profile_id)) continue;
+      attemptedMappedProfileIds.add(mapping.directory_profile_id);
       const result = await syncMappedPage({
         database: input.database,
         bindings: input.bindings,
@@ -1632,6 +1645,7 @@ export async function runNotionDirectorySyncSweep(input: {
   // A targeted import must not touch unrelated canonical profiles.
   const changedIds = input.targetPageId ? [] : await changedProfileIds(input.database);
   for (const profileId of changedIds) {
+    if (attemptedMappedProfileIds.has(profileId)) continue;
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping) continue;
     try {

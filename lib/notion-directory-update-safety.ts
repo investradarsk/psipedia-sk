@@ -40,3 +40,25 @@ export function canRecoverNotionDirectoryMapping(
 ): boolean {
   return Boolean(canonicalHash) && canonicalHash === notionHash;
 }
+
+/**
+ * Mapped Notion Directory pages must remain in the configured canonical data
+ * source. A moved, trashed, or wrong-parent page is never a safe PATCH target.
+ * This guard uses existing page metadata and needs no D1 migration.
+ */
+export function notionDirectoryPageBelongsToSource(
+  page: {
+    archived?: boolean;
+    in_trash?: boolean;
+    parent?: { type?: string; data_source_id?: string };
+  },
+  expectedDataSourceId: string,
+): boolean {
+  const valid = /^[0-9a-f]{32}$/i;
+  const normalized = (value: string) => value.replaceAll("-", "").toLowerCase();
+  const expected = normalized(expectedDataSourceId);
+  const actual = normalized(page.parent?.data_source_id ?? "");
+  return !page.archived && !page.in_trash
+    && page.parent?.type === "data_source_id"
+    && valid.test(expected) && actual === expected;
+}

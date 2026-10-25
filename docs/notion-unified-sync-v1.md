@@ -20,7 +20,8 @@
 - [x] **2A:** vykonaný audit existujúcich hourly/five-minute tokov; ponechaný jediný existujúci Worker bez nových cronov a bez duplikovania event sync pri bidirectional režime.
 - [x] **2B:** spoločný bezstratový read-only log `notion_sync_health` pre Služby V3, Adresár, Podujatia/Pomoc psom a Facebook obrázky. Výstup rozlišuje `DISABLED`, `BLOCKED`, `IDLE`, `SYNCED`, `PARTIAL`, `CONFLICT`, `ERROR`; bez úniku obsahu alebo tokenov.
 - [ ] **2C:** pokračovať zjednotením per-agenda diagnostiky a administrátorského prehľadu, bez zmeny doménovej publikačnej logiky.
-- [ ] **3:** Adresár a Služby: bezpečné aktualizácie obsahu/volieb, stabilná identita a ochrana potvrdených údajov. Vyriešiť historické konflikty cez identifikovateľné existujúce riadky bez hromadného prepísania.
+- [x] **3A:** každé prepojené ID Adresára sa v jednom hodinovom behu reconciliuje najviac raz; fast-path bez zosúladenia naďalej povoľuje export zmenených kanonických údajov D1. Moved/archived/trashed Notion stránka nie je platný cieľ PATCH.
+- [ ] **3B:** ďalšie bezpečné rekonciliácie obsahových zmien a starších konfliktov cez existujúce prepojenia, bez hromadného prepísania.
 - [ ] **4:** Podujatia a Pomoc psom: spoločné vykonávanie pre agendy `events`, `organizations`, `adoptions`, `help-cases`, `lost-found` s oddelenými doménovými hranicami.
 - [ ] **5:** zjednotiť reportovanie „Posledný sync / Čaká / Chyba / Konflikt“ a dočasné zlyhania bez hádania o stave publikovania.
 - [ ] **6:** integračné testy Admin → D1 → Notion a povolených Notion → D1 zmien pre každú agendu, vrátane opakovania, súbehu, chybných ID a nedostupného Notion API.
@@ -44,3 +45,11 @@ Zavedený `lib/notion-sync-health.ts` normalizuje iba výsledky už vykonaných 
 - Automatické zobrazenie jednotných stavov priamo v admin rozhraní je samostatná nasledujúca časť, nie tvrdenie o hotovej UI funkcii.
 
 Regresný test: `node --experimental-strip-types --test tests/notion-sync-health.test.mjs`. Zahrnutý aj v `npm run test:notion-events-help-sync`, takže bude súčasťou existujúceho testovacieho workflow bez samostatného runnera.
+
+## Fáza 3A — identita a predchádzanie duplicitnému spracovaniu Adresára
+
+- `notionDirectoryPageBelongsToSource` je čistá ochranná funkcia nad Notion `parent.type/data_source_id`, `archived` a `in_trash`. Porovnáva konfigurovanú databázu po normalizácii UUID. Nesprávny cieľ sa odmietne pred zápisom do D1/Notion, nie automaticky „opravený“ presunom či založením nového profilu.
+- Dve existujúce hodinové vetvy (`recentNotionPages` a `changedProfileIds`) môžu zachytiť rovnaký profil. `attemptedMappedProfileIds` zaisťuje maximálne jeden skutočný reconcile pokus na ID za beh, vrátane opakovaných konfliktov a čiastočných zlyhaní.
+- Rýchly skip podľa nezmeneného Notion snapshotu zámerne nepridáva ID do tejto množiny: kanonický D1 edit sa aj vtedy musí môcť dostať cez druhú vetvu. Ak niekto zmení D1 súbežne až po pokuse, zmena zostáva na ďalšie existujúce cron spustenie, neprepisuje sa naslepo.
+- Nezmenené: canonical identity, potvrdené Google miesto, Notion stavy schvaľovania, príprava obrázkov, Services V3 choices, Facebook publisher, feature flagy, počet cronov, D1 schéma.
+- Regresie sú v existujúcom `tests/notion-directory-sync.test.mjs`.
