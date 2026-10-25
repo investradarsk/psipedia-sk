@@ -175,6 +175,9 @@ const pushTaskEnabled = (value: string | undefined) => ["true", "1"].includes((v
 function isFullHourlyScheduledSweep(controller: { cron?: string; scheduledTime?: number }) {
   // Keep one Cloudflare Cron Trigger: minute 00 runs the full hourly work,
   // while the other five-minute ticks deliver admin push only.
+  // The per-minute Facebook publisher must never start hourly Tavily/Notion scans.
+  // This also avoids 59 unnecessary D1 schema checks per hour.
+  if (controller.cron === "* * * * *") return false;
   if (controller.cron !== ADMIN_PUSH_CRON) return true;
   if (typeof controller.scheduledTime !== "number") return false;
   return new Date(controller.scheduledTime).getUTCMinutes() === 0;
@@ -334,7 +337,7 @@ const worker = {
       const notionFacebookImagesTask = runNotionFacebookImagesSync({database:env.DB,bindings:env})
         .then((summary) => {
           console.info(JSON.stringify({event:"notion_facebook_images_sync",...summary}));
-          console.info(JSON.stringify(notionSyncHealth("facebook-images", summary)));
+    console.info(JSON.stringify(notionSyncHealth("facebook-images", summary)));
         }).catch(() => {
           // No provider payloads, signed image URLs, secrets or raw error messages.
           console.error(JSON.stringify({event:"notion_facebook_images_sync",result:"failed"}));
@@ -367,7 +370,7 @@ const worker = {
           }).then(summary=>{
             // Never log provider bodies or credentials.
             console.info(JSON.stringify({event:"services_v3_notion_auto",...summary}));
-            console.info(JSON.stringify(notionSyncHealth("service-catalog", summary)));
+    console.info(JSON.stringify(notionSyncHealth("service-catalog", summary)));
           }).catch(()=>{
             console.error(JSON.stringify({event:"services_v3_notion_auto",state:"BLOCKED",reason:"SWEEP_ERROR"}));
           })
