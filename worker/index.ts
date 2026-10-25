@@ -20,6 +20,7 @@ import { runArticlePublishNotionReconciliation } from "../lib/article-publish-no
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
 import { runServicesV3CatalogAutoSweep } from "../lib/service-catalog-notion-auto-sweep.ts";
+import { notionSyncHealth } from "../lib/notion-sync-health.ts";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
 import {
   runNotionDirectoryBootstrapSweep,
@@ -333,6 +334,7 @@ const worker = {
       const notionFacebookImagesTask = runNotionFacebookImagesSync({database:env.DB,bindings:env})
         .then((summary) => {
           console.info(JSON.stringify({event:"notion_facebook_images_sync",...summary}));
+          console.info(JSON.stringify(notionSyncHealth("facebook-images", summary)));
         }).catch(() => {
           // No provider payloads, signed image URLs, secrets or raw error messages.
           console.error(JSON.stringify({event:"notion_facebook_images_sync",result:"failed"}));
@@ -365,6 +367,7 @@ const worker = {
           }).then(summary=>{
             // Never log provider bodies or credentials.
             console.info(JSON.stringify({event:"services_v3_notion_auto",...summary}));
+            console.info(JSON.stringify(notionSyncHealth("service-catalog", summary)));
           }).catch(()=>{
             console.error(JSON.stringify({event:"services_v3_notion_auto",state:"BLOCKED",reason:"SWEEP_ERROR"}));
           })
@@ -617,7 +620,9 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
     console.info(JSON.stringify({ ...notionEventsHelp, event: "notion_events_help_sync_sweep" }));
+    console.info(JSON.stringify(notionSyncHealth("events-help", notionEventsHelp)));
     console.info(JSON.stringify({ event: "notion_directory_sync_sweep", ...notionDirectory }));
+    console.info(JSON.stringify(notionSyncHealth("directory", notionDirectory)));
     console.info(JSON.stringify({ event: "notion_eshop_sync_sweep", ...notionEshops }));
     console.info(JSON.stringify({ event: "media_source_quality_sweep", ...mediaSourceQuality }));
     console.info(JSON.stringify({ event: "partner_media_cleanup", ...partnerMediaCleanup }));
