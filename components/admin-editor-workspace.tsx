@@ -147,17 +147,21 @@ export function EditorActionBar({
   secondary,
   destructive,
   message,
+  feedback,
 }: {
   primary?: ReactNode;
   secondary?: ReactNode;
   destructive?: ReactNode;
   message?: ReactNode;
+  /** Already-announced alert/status element; render without nesting in another live region. */
+  feedback?: ReactNode;
 }) {
   return (
     <div className={styles.actionBar} data-editor-actionbar>
       <div className={styles.actionStart}>
         {destructive}
         {message && <div className={styles.actionMessage} role="status" aria-live="polite">{message}</div>}
+        {feedback}
       </div>
       <div className={styles.actionEnd}>{secondary}{primary}</div>
     </div>

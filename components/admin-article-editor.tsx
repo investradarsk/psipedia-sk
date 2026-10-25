@@ -1,5 +1,6 @@
 "use client";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
@@ -666,7 +667,9 @@ export function AdminArticleEditor({
           />
         </section>
 
-        {(message || error) && <div ref={resultRef} tabIndex={-1} className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>{error || message}</div>}
+        {(message || error || saving) && <div ref={resultRef} tabIndex={-1}>
+          <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
+        </div>}
 
       </form>
       </EditorWorkspace>

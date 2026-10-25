@@ -1,5 +1,6 @@
 "use client";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { useRouter } from "next/navigation";
@@ -243,7 +244,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         closeLabel="Späť na podujatia"
         actions={
           <EditorActionBar
-            message={error ? <span className={styles.errorText} role="alert">{error}</span> : message || (dirty ? "Neuložené zmeny" : undefined)}
+            message={dirty ? "Neuložené zmeny" : undefined}
+            feedback={<AdminFormFeedback message={message} error={error} pending={saving} />}
             destructive={status === "published" ? <AdminActionButton type="button" variant="secondary" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z kalendára</AdminActionButton> : undefined}
             secondary={status === "draft" ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton> : undefined}
             primary={status === "published"

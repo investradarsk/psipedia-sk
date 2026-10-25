@@ -95,3 +95,8 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - Spoločný prezentačný komponent `AdminFormFeedback` teraz využíva aj **E-shop**, **Organizácie** a **Adresár**. V Adresári sa používa aj vo vetve archivovaného profilu, ktorá poskytuje samostatný stav „Obnovujem…“.
 - Jednotný prístupný `role="alert"` pri chybe, `role="status"` pri úspechu/čakaní a spoločné centrálne farby. Tlačidlá, canonical/Notion režimy, serverové validácie, optimistické verzie, ukladanie bez zmeny publikovania a správanie pri návrate zostávajú nedotknuté.
 - Regresie rozšírené v `tests/admin-shared-form-feedback.test.mjs`; lint a produkčný build v existujúcom CI. Ďalší krok: ostatné editorové plochy a jednotná ochrana neuložených zmien bez prepisu API.
+
+## Vlna 11 — Podujatia a Články (25.10.2026)
+- **Podujatia**: `EditorActionBar` má spätnokompatibilný voliteľný slot `feedback` pre existujúci `AdminFormFeedback`. Chybový `role="alert"` nie je vnorený do ďalšieho `role="status"`, zatiaľ čo samostatné „Neuložené zmeny“ zostáva dostupné.
+- **Články**: úspech, ukladanie aj chyba používajú ten istý komponent; pôvodný `resultRef` a `tabIndex=-1` zostávajú na vonkajšom wrapperi. QA blocker stále automaticky zameria relevantnú sekciu a neprepisuje sa formát blokového obsahu.
+- Pôvodné API endpointy, stavy draft/published/scheduled, formulárové akcie aj `expectedUpdatedAt` sa nemenia. Regresie pokryté existujúcim `tests/admin-shared-form-feedback.test.mjs`, produkčným lintom a buildom.

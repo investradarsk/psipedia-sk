@@ -72,3 +72,24 @@ test("Eshop, Organization and Directory editors share the same save feedback wit
   assert.match(directory, /NotionDraftFields/);
   assert.match(directory, /<AdminSingleImageUpload/);
 });
+
+test("Event action bar reuses shared feedback without nesting alerts inside polite status", () => {
+  const workspace=read("components/admin-editor-workspace.tsx");
+  const event=read("components/admin-event-editor.tsx");
+  assert.match(workspace,/feedback\?: ReactNode/);
+  assert.match(workspace,/\{feedback\}/);
+  assert.match(event,/feedback=\{<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
+  assert.match(event,/message=\{dirty \? "Neuložené zmeny" : undefined\}/);
+  assert.match(event,/EditorUnsavedChangesGuard/);
+  assert.match(event,/save\("published"\)/);
+  assert.match(event,/save\("draft"\)/);
+});
+
+test("Article feedback keeps focusable result wrapper and QA blocker focus", () => {
+  const article=read("components/admin-article-editor.tsx");
+  assert.match(article,/\(message \|\| error \|\| saving\) && <div ref=\{resultRef\} tabIndex=\{-1\}>/);
+  assert.match(article,/<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
+  assert.match(article,/if \(!hasQaIssues\) focusResult\(\)/);
+  assert.match(article,/firstBlocker/);
+  assert.match(article,/expectedUpdatedAt: lastSavedUpdatedAtRef\.current/);
+});
