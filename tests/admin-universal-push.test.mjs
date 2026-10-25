@@ -217,9 +217,14 @@ test("five-minute admin push and isolated per-minute Facebook publishing preserv
   assert.ok(worker.includes(`ADMIN_PUSH_CRON = "${pushCron}"`));
   // The one-minute Facebook publisher must return before the five-minute and
   // hourly work so frequent publishing never triggers unrelated sweeps.
-  const minuteStart=worker.indexOf(`if (controller.cron === "${facebookCron}")`);
+  // Search only inside the scheduled dispatcher. A separate hourly-policy
+  // helper intentionally checks the same cron string before this function,
+  // but it must not be mistaken for the executable per-minute branch.
+  const scheduledStart=worker.indexOf("async scheduled(controller:");
+  assert.ok(scheduledStart>0,"Worker must expose the scheduled dispatcher");
+  const minuteStart=worker.indexOf(`if (controller.cron === "${facebookCron}") {`,scheduledStart);
   const fiveMinuteStart=worker.indexOf(`if (controller.cron === "${pushCron}" &&`,minuteStart);
-  assert.ok(minuteStart>0 && fiveMinuteStart>minuteStart,"per-minute dispatch must precede five-minute work");
+  assert.ok(minuteStart>scheduledStart && fiveMinuteStart>minuteStart,"per-minute dispatch must precede five-minute work");
   const minuteBranch=worker.slice(minuteStart,fiveMinuteStart);
   assert.match(minuteBranch,/runFacebookImagePublishSweep/);
   assert.match(minuteBranch,/return;/);
