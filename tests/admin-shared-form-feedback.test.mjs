@@ -31,3 +31,26 @@ test("Adoptions and Lost/Found reuse shared save feedback without changing mutat
   assert.match(lost, /markDuplicate\(/);
   assert.match(lost, /<AdminPhotoGallery/);
 });
+
+test("Help and Breeds share save feedback without changing persistence",()=>{
+  const help=read("components/admin-help-editor.tsx");
+  const breeds=read("components/admin-breed-editor.tsx");
+  for(const src of [help,breeds]){
+    assert.match(src,/<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
+    assert.match(src,/setSaving\(true\)/);
+  }
+  assert.match(help,/\/api\/admin\/help/);
+  assert.match(breeds,/expectedUpdatedAt/);
+  assert.match(breeds,/inspectBreedMeasurement\(value,kind\)/);
+});
+
+test("Breed measurement errors are linked to their inputs",()=>{
+  const src=read("components/admin-breed-editor.tsx");
+  const shared=read("components/admin-form-feedback.tsx");
+  assert.match(shared,/export function AdminFieldFeedback/);
+  assert.match(shared,/role=\{invalid\?"alert":undefined\}/);
+  for(const [field,id] of [["weight","breed-weight-feedback"],["height","breed-height-feedback"],["lifespan","breed-lifespan-feedback"]]){
+    assert.ok(src.includes('aria-describedby={measurementMessage(form.'+field+',"'+field+'") ? "'+id+'" : undefined}'));
+    assert.ok(src.includes('<AdminFieldFeedback id="'+id+'" message={measurementMessage(form.'+field+',"'+field+'")} invalid={measurementHasError(form.'+field+',"'+field+'")}'));
+  }
+});

@@ -19,3 +19,12 @@
   background: #fff3f2;
   border-color: #e9b5b2;
 }
+
+.fieldFeedback {
+  display:block;
+  margin-block-start:0.25rem;
+  line-height:1.45;
+  color:var(--admin-v3-muted,#64726b);
+  overflow-wrap:anywhere;
+}
+.fieldError { color:#842f35; }

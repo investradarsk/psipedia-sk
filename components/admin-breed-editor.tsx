@@ -9,6 +9,7 @@ import type { BreedEditorOptions, BreedHeroTrait, BreedSport, ManagedBreed } fro
 import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { AdminFieldFeedback, AdminFormFeedback } from "@/components/admin-form-feedback";
 import { breedSeoFallback } from "@/lib/content-seo";
 import { inspectBreedMeasurement, type BreedMeasurementKind, type FciStandard, type FciStandardTextKey } from "@/lib/breed-fci";
 import {
@@ -210,9 +211,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
           <label className="admin-field"><span>Číslo FCI sekcie</span><input value={form.fciSectionNumber} onChange={(e)=>change("fciSectionNumber",e.target.value)}/></label>
           <label className="admin-field"><span>Skupina / pôvodné využitie</span><input value={form.group} onChange={(e)=>change("group",e.target.value)}/></label>
           <label className="admin-field"><span>Veľkosť</span><input value={form.size} onChange={(e)=>change("size",e.target.value)}/></label>
-          <label className="admin-field"><span>Hmotnosť</span><input aria-invalid={measurementHasError(form.weight,"weight")} value={form.weight} onChange={(e)=>change("weight",e.target.value)}/>{measurementMessage(form.weight,"weight")&&<small className="admin-field-warning">{measurementMessage(form.weight,"weight")}</small>}</label>
-          <label className="admin-field"><span>Výška v kohútiku</span><input aria-invalid={measurementHasError(form.height,"height")} value={form.height} onChange={(e)=>change("height",e.target.value)}/>{measurementMessage(form.height,"height")&&<small className="admin-field-warning">{measurementMessage(form.height,"height")}</small>}</label>
-          <label className="admin-field"><span>Dĺžka života</span><input aria-invalid={measurementHasError(form.lifespan,"lifespan")} value={form.lifespan} onChange={(e)=>change("lifespan",e.target.value)}/>{measurementMessage(form.lifespan,"lifespan")&&<small className="admin-field-warning">{measurementMessage(form.lifespan,"lifespan")}</small>}</label>
+          <label className="admin-field"><span>Hmotnosť</span><input aria-invalid={measurementHasError(form.weight,"weight")} aria-describedby={measurementMessage(form.weight,"weight") ? "breed-weight-feedback" : undefined} value={form.weight} onChange={(e)=>change("weight",e.target.value)}/><AdminFieldFeedback id="breed-weight-feedback" message={measurementMessage(form.weight,"weight")} invalid={measurementHasError(form.weight,"weight")} className="admin-field-warning" /></label>
+          <label className="admin-field"><span>Výška v kohútiku</span><input aria-invalid={measurementHasError(form.height,"height")} aria-describedby={measurementMessage(form.height,"height") ? "breed-height-feedback" : undefined} value={form.height} onChange={(e)=>change("height",e.target.value)}/><AdminFieldFeedback id="breed-height-feedback" message={measurementMessage(form.height,"height")} invalid={measurementHasError(form.height,"height")} className="admin-field-warning" /></label>
+          <label className="admin-field"><span>Dĺžka života</span><input aria-invalid={measurementHasError(form.lifespan,"lifespan")} aria-describedby={measurementMessage(form.lifespan,"lifespan") ? "breed-lifespan-feedback" : undefined} value={form.lifespan} onChange={(e)=>change("lifespan",e.target.value)}/><AdminFieldFeedback id="breed-lifespan-feedback" message={measurementMessage(form.lifespan,"lifespan")} invalid={measurementHasError(form.lifespan,"lifespan")} className="admin-field-warning" /></label>
           <label className="admin-field"><span>Srsť</span><input value={form.coat} onChange={(e)=>change("coat",e.target.value)}/></label>
         </div>
       </div>
@@ -318,7 +319,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       </div>
     </AdminEditorSection>
 
-    {error&&<p className="admin-form-error" role="alert">{error}</p>}{message&&<p className="admin-flash" role="status">{message}</p>}
+    <AdminFormFeedback message={message} error={error} pending={saving} errorClassName="admin-form-error" successClassName="admin-flash" />
     <AdminDrawer
       open={settingsOpen}
       title="Nastavenia plemena"

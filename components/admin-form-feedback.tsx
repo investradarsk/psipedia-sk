@@ -47,3 +47,15 @@ export function AdminFormFeedback({
     </div>
   );
 }
+
+/** Reuses existing editor validation; links text to its input through aria-describedby. */
+export function AdminFieldFeedback({id,message,invalid=false,className}: {
+  id:string;message?:string|null;invalid?:boolean;className?:string;
+}) {
+  if(!message) return null;
+  return <small id={id} role={invalid?"alert":undefined}
+    data-admin-field-feedback={invalid?"error":"hint"}
+    className={[styles.fieldFeedback,invalid?styles.fieldError:"",className].filter(Boolean).join(" ")}>
+    {message}
+  </small>;
+}
