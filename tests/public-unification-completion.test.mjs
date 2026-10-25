@@ -130,3 +130,77 @@ test("central article CTA preserves sponsorship, target, rel and screen-reader d
   const native = render(callouts.PublicArticleCallout, { href: "/plemena", buttonText: "Plemená" });
   assert.doesNotMatch(native, /target=|rel=|Partnerský odkaz|<div>/);
 });
+
+test("shared context pagination preserves native query links, search slots and review wording", () => {
+  const html = render(states.PublicPagination, {
+    variant: "context",
+    className: "search",
+    currentPage: 1,
+    totalPages: 3,
+    summaryAs: "span",
+    emptyDisabledControls: true,
+    nextHref: "/hladat?q=pes&lokalita=Nitra&page=2",
+  });
+  assert.match(html, /<span><\/span><span aria-current="page">Strana 1 z 3<\/span>/);
+  assert.match(html, /href="\/hladat\?q=pes&amp;lokalita=Nitra&amp;page=2" rel="next"/);
+  assert.doesNotMatch(html, /class="pagination|<strong|aria-disabled/);
+  const review = render(states.PublicPagination, {
+    variant: "context",
+    currentPage: 2,
+    totalPages: 2,
+    previousHref: "/adresar/test?recenzie=1#recenzie",
+    previousLabel: "← Predchádzajúce",
+    nextLabel: "Ďalšie →",
+  });
+  assert.match(review, /rel="prev">← Predchádzajúce/);
+  assert.match(review, /aria-disabled="true">Ďalšie →/);
+  assert.equal(render(states.PublicPagination, { currentPage: 1, totalPages: 1 }), "");
+});
+
+test("context notices retain focus refs, live-region semantics and existing retry actions", () => {
+  const ref = React.createRef();
+  const element = states.PublicNotice({
+    appearance: "context",
+    tone: "error",
+    ref,
+    tabIndex: -1,
+    role: "status",
+    "aria-live": "polite",
+    className: "original",
+    children: "Chyba",
+  });
+  assert.equal(element.props.ref, ref);
+  assert.equal(element.props.tabIndex, -1);
+  assert.equal(element.props.role, "status");
+  assert.equal(element.props["aria-live"], "polite");
+  assert.equal(element.props.className, "original");
+  const retry = () => {};
+  const action = React.createElement("button", { onClick: retry }, "Znova");
+  const notice = states.PublicNotice({
+    as: "div",
+    appearance: "context",
+    tone: "error",
+    children: action,
+  });
+  assert.equal(notice.type, "div");
+  assert.equal(notice.props.children.props.onClick, retry);
+  assert.equal(notice.props.role, "alert");
+  assert.doesNotMatch(
+    render(states.PublicNotice, { as: "div", appearance: "context", role: null }, "Súhrn"),
+    /role=/,
+  );
+});
+
+test("context loading keeps dot and map-card variants without injecting a spinner or live region", () => {
+  const dot = render(states.PublicLoadingState, {
+    as: "span",
+    appearance: "context",
+    className: "dot",
+    "aria-label": "Načítavam výsledky",
+  });
+  assert.match(dot, /^<span role="status"/);
+  assert.match(dot, /aria-label="Načítavam výsledky"/);
+  assert.doesNotMatch(dot, /spinner|aria-live|Načítavam…/);
+  assert.match(render(states.PublicLoadingState, {}), /aria-live="polite"/);
+  assert.match(render(states.PublicLoadingState, {}), /class="spinner"/);
+});

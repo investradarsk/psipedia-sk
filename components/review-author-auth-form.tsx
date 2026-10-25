@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 
@@ -75,7 +76,9 @@ export function ReviewAuthorAuthForm({
       <PartnerTurnstile siteKey={siteKey} action="review_author_auth_request" onToken={onToken} />
 
       {result && (
-        <p
+        <PublicNotice
+          appearance="context"
+          tone={result.type === "error" ? "error" : "success"}
           ref={statusRef}
           tabIndex={-1}
           className={"review-auth-message is-" + result.type}
@@ -83,7 +86,7 @@ export function ReviewAuthorAuthForm({
           aria-live="polite"
         >
           {result.text}
-        </p>
+        </PublicNotice>
       )}
 
       <button

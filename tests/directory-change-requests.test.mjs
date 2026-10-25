@@ -8,25 +8,49 @@ function createD1Adapter(sqlite) {
   function statement(sql, bindings = []) {
     function execute() {
       const prepared = sqlite.prepare(sql);
-      if (/^\s*(SELECT|WITH|PRAGMA|EXPLAIN)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) return { success: true, results: prepared.all(...bindings), meta: { changes: 0 } };
+      if (/^\s*(SELECT|WITH|PRAGMA|EXPLAIN)\b/i.test(sql) || /\bRETURNING\b/i.test(sql))
+        return { success: true, results: prepared.all(...bindings), meta: { changes: 0 } };
       const result = prepared.run(...bindings);
-      return { success: true, results: [], meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid ?? 0) } };
+      return {
+        success: true,
+        results: [],
+        meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid ?? 0) },
+      };
     }
     return {
-      bind(...values) { return statement(sql, values); },
-      async all() { queries.push({ sql, bindings }); return execute(); },
-      async first() { queries.push({ sql, bindings }); return execute().results[0] ?? null; },
-      async run() { queries.push({ sql, bindings }); return execute(); },
+      bind(...values) {
+        return statement(sql, values);
+      },
+      async all() {
+        queries.push({ sql, bindings });
+        return execute();
+      },
+      async first() {
+        queries.push({ sql, bindings });
+        return execute().results[0] ?? null;
+      },
+      async run() {
+        queries.push({ sql, bindings });
+        return execute();
+      },
       execute,
     };
   }
   return {
     queries,
-    prepare(sql) { return statement(sql); },
+    prepare(sql) {
+      return statement(sql);
+    },
     async batch(statements) {
       sqlite.exec("BEGIN");
-      try { const results = statements.map((item) => item.execute()); sqlite.exec("COMMIT"); return results; }
-      catch (error) { sqlite.exec("ROLLBACK"); throw error; }
+      try {
+        const results = statements.map((item) => item.execute());
+        sqlite.exec("COMMIT");
+        return results;
+      } catch (error) {
+        sqlite.exec("ROLLBACK");
+        throw error;
+      }
     },
   };
 }
@@ -61,7 +85,11 @@ function createDatabase() {
     "../drizzle/0048_article_feedback_attention_status.sql",
   ]) {
     const migration = readFileSync(new URL(file, import.meta.url), "utf8");
-    for (const sql of migration.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) sqlite.exec(sql);
+    for (const sql of migration
+      .split("--> statement-breakpoint")
+      .map((value) => value.trim())
+      .filter(Boolean))
+      sqlite.exec(sql);
   }
   const insert = sqlite.prepare(`
     INSERT INTO directory_profiles (
@@ -72,17 +100,142 @@ function createDatabase() {
   `);
   const now = "2026-08-29T10:00:00.000Z";
   const profiles = [
-    ["veterinar-test", "Veterina Test", "veterinari", "Veterinárna starostlivosť pre psy.", "Podrobný verejný popis veterinárnej ambulancie.", ["Prevencia"], ["Stav overenia: čiastočne overené"], "Nitra", "Nitra", "Nitriansky kraj", "Hlavná 1", "od 20 €", "https://vet.example", "vet-internal@example.sk", "import-vet", { Telefón: "+421900111222", "E-mail": "verejny@vet.example", Web: "https://vet.example" }],
-    ["trener-test", "Tréner Test", "treneri", "Výcvik psov v Bratislave.", "Podrobný verejný popis trénera a jeho služieb.", ["Individuálny výcvik"], [], "Bratislava", "Bratislava I", "Bratislavský kraj", "", "dohodou", "https://trener.example", null, "import-trener", { "Typ služby": "Tréner", Facebook: "https://facebook.com/trener" }],
-    ["stanica-test", "Stanica Test", "chovatelske-stanice", "Chovateľská stanica border kólií.", "Podrobný verejný popis chovateľskej stanice.", ["Chov"], [], "Žilina", "Žilina", "Žilinský kraj", "", "", "https://stanica.example", null, "import-stanica", { Plemeno: "Border kólia", "FCI skupina": "1", Chovateľ: "Jana Testová", "Aktívny chov": "Áno" }],
-    ["vencenie-test", "Venčenie Test", "vencenie", "Spoľahlivé venčenie psov.", "Podrobný verejný popis venčenia a starostlivosti.", ["Individuálne venčenie"], [], "Košice", "Košice I", "Košický kraj", "", "10 €", null, null, "import-vencenie", { "Individuálne venčenie": "Áno", "GPS / foto report": "Áno", Pokrytie: "Košice" }],
-    ["fyzio-test", "Fyzio Test", "fyzioterapia", "Rehabilitácia a fyzioterapia psov.", "Podrobný verejný popis rehabilitačných služieb.", ["Hydroterapia"], [], "Trnava", "Trnava", "Trnavský kraj", "", "od 25 €", "https://fyzio.example", null, "import-fyzio", { Hydroterapia: "Áno", Laserterapia: "Áno", "Odborník / certifikácia": "MVDr." }],
-    ["dalsia-test", "Ďalšia služba Test", "dalsie-sluzby", "Fotografovanie psov po celom Slovensku.", "Podrobný verejný popis fotografovania psov.", ["Fotografovanie"], [], "Online", "", "Online", "", "od 80 €", "https://foto.example", null, "import-dalsia", { "Typ služby": "Fotograf", Pokrytie: "Celé Slovensko", "Celoslovenská dostupnosť": "Áno" }],
+    [
+      "veterinar-test",
+      "Veterina Test",
+      "veterinari",
+      "Veterinárna starostlivosť pre psy.",
+      "Podrobný verejný popis veterinárnej ambulancie.",
+      ["Prevencia"],
+      ["Stav overenia: čiastočne overené"],
+      "Nitra",
+      "Nitra",
+      "Nitriansky kraj",
+      "Hlavná 1",
+      "od 20 €",
+      "https://vet.example",
+      "vet-internal@example.sk",
+      "import-vet",
+      { Telefón: "+421900111222", "E-mail": "verejny@vet.example", Web: "https://vet.example" },
+    ],
+    [
+      "trener-test",
+      "Tréner Test",
+      "treneri",
+      "Výcvik psov v Bratislave.",
+      "Podrobný verejný popis trénera a jeho služieb.",
+      ["Individuálny výcvik"],
+      [],
+      "Bratislava",
+      "Bratislava I",
+      "Bratislavský kraj",
+      "",
+      "dohodou",
+      "https://trener.example",
+      null,
+      "import-trener",
+      { "Typ služby": "Tréner", Facebook: "https://facebook.com/trener" },
+    ],
+    [
+      "stanica-test",
+      "Stanica Test",
+      "chovatelske-stanice",
+      "Chovateľská stanica border kólií.",
+      "Podrobný verejný popis chovateľskej stanice.",
+      ["Chov"],
+      [],
+      "Žilina",
+      "Žilina",
+      "Žilinský kraj",
+      "",
+      "",
+      "https://stanica.example",
+      null,
+      "import-stanica",
+      {
+        Plemeno: "Border kólia",
+        "FCI skupina": "1",
+        Chovateľ: "Jana Testová",
+        "Aktívny chov": "Áno",
+      },
+    ],
+    [
+      "vencenie-test",
+      "Venčenie Test",
+      "vencenie",
+      "Spoľahlivé venčenie psov.",
+      "Podrobný verejný popis venčenia a starostlivosti.",
+      ["Individuálne venčenie"],
+      [],
+      "Košice",
+      "Košice I",
+      "Košický kraj",
+      "",
+      "10 €",
+      null,
+      null,
+      "import-vencenie",
+      { "Individuálne venčenie": "Áno", "GPS / foto report": "Áno", Pokrytie: "Košice" },
+    ],
+    [
+      "fyzio-test",
+      "Fyzio Test",
+      "fyzioterapia",
+      "Rehabilitácia a fyzioterapia psov.",
+      "Podrobný verejný popis rehabilitačných služieb.",
+      ["Hydroterapia"],
+      [],
+      "Trnava",
+      "Trnava",
+      "Trnavský kraj",
+      "",
+      "od 25 €",
+      "https://fyzio.example",
+      null,
+      "import-fyzio",
+      { Hydroterapia: "Áno", Laserterapia: "Áno", "Odborník / certifikácia": "MVDr." },
+    ],
+    [
+      "dalsia-test",
+      "Ďalšia služba Test",
+      "dalsie-sluzby",
+      "Fotografovanie psov po celom Slovensku.",
+      "Podrobný verejný popis fotografovania psov.",
+      ["Fotografovanie"],
+      [],
+      "Online",
+      "",
+      "Online",
+      "",
+      "od 80 €",
+      "https://foto.example",
+      null,
+      "import-dalsia",
+      { "Typ služby": "Fotograf", Pokrytie: "Celé Slovensko", "Celoslovenská dostupnosť": "Áno" },
+    ],
   ];
-  for (const profile of profiles) insert.run(
-    profile[0], profile[1], profile[2], profile[3], profile[4], JSON.stringify(profile[5]), JSON.stringify(profile[6]),
-    profile[7], profile[8], profile[9], profile[10], profile[11], profile[12], profile[13], profile[14], JSON.stringify(profile[15]), now, now, now,
-  );
+  for (const profile of profiles)
+    insert.run(
+      profile[0],
+      profile[1],
+      profile[2],
+      profile[3],
+      profile[4],
+      JSON.stringify(profile[5]),
+      JSON.stringify(profile[6]),
+      profile[7],
+      profile[8],
+      profile[9],
+      profile[10],
+      profile[11],
+      profile[12],
+      profile[13],
+      profile[14],
+      JSON.stringify(profile[15]),
+      now,
+      now,
+      now,
+    );
   return { sqlite, d1: createD1Adapter(sqlite), profiles };
 }
 
@@ -90,25 +243,53 @@ async function request(worker, d1, path, init = {}, admin = false) {
   const headers = new Headers(init.headers);
   if (admin) headers.set("oai-authenticated-user-email", "admin@psipedia.sk");
   try {
-    return await worker.fetch(new Request(`http://localhost${path}`, { ...init, headers }), {
-      ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) }, DB: d1, ADMIN_EMAILS: "admin@psipedia.sk",
-    }, { waitUntil() {}, passThroughOnException() {} });
+    return await worker.fetch(
+      new Request(`http://localhost${path}`, { ...init, headers }),
+      {
+        ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+        DB: d1,
+        ADMIN_EMAILS: "admin@psipedia.sk",
+      },
+      { waitUntil() {}, passThroughOnException() {} },
+    );
   } catch (error) {
     const latest = d1.queries.at(-1);
-    throw new Error(`${path}: ${error instanceof Error ? error.message : String(error)}${latest ? `\nLast SQL: ${latest.sql}` : ""}`, { cause: error });
+    throw new Error(
+      `${path}: ${error instanceof Error ? error.message : String(error)}${latest ? `\nLast SQL: ${latest.sql}` : ""}`,
+      { cause: error },
+    );
   }
 }
 
 function proposal(overrides = {}) {
   return {
-    profileId: 1, requesterName: "Ján Majiteľ", requesterEmail: "jan@example.sk", requesterPhone: "+421900000000",
-    requesterRole: "majiteľ", authorized: true, consent: true, note: "Zmenilo sa telefónne číslo.",
+    profileId: 1,
+    requesterName: "Ján Majiteľ",
+    requesterEmail: "jan@example.sk",
+    requesterPhone: "+421900000000",
+    requesterRole: "majiteľ",
+    authorized: true,
+    consent: true,
+    note: "Zmenilo sa telefónne číslo.",
     proposedData: {
-      name: "Veterina Test", serviceType: "Veterinárne pracovisko", city: "Nitra", district: "Nitra", region: "Nitriansky kraj",
-      address: "Hlavná 1", phone: "+421911222333", email: "verejny@vet.example", website: "https://vet.example/",
-      facebook: "", instagram: "", description: "Podrobný verejný popis veterinárnej ambulancie.", services: ["Prevencia"],
-      priceNote: "od 20 €", coverage: "", specialized: {},
-    }, ...overrides,
+      name: "Veterina Test",
+      serviceType: "Veterinárne pracovisko",
+      city: "Nitra",
+      district: "Nitra",
+      region: "Nitriansky kraj",
+      address: "Hlavná 1",
+      phone: "+421911222333",
+      email: "verejny@vet.example",
+      website: "https://vet.example/",
+      facebook: "",
+      instagram: "",
+      description: "Podrobný verejný popis veterinárnej ambulancie.",
+      services: ["Prevencia"],
+      priceNote: "od 20 €",
+      coverage: "",
+      specialized: {},
+    },
+    ...overrides,
   };
 }
 
@@ -116,7 +297,8 @@ test("profile-specific forms are prefilled for representative directory categori
   const { d1, profiles } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
   Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk" });
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url); workerUrl.searchParams.set("change-form", String(Date.now()));
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("change-form", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
   for (const [slug, name, category] of profiles) {
     const detail = await request(worker, d1, `/adresar/${category}/${slug}`);
@@ -127,7 +309,10 @@ test("profile-specific forms are prefilled for representative directory categori
     const html = await form.text();
     assert.match(html, /Navrhnúť úpravu profilu/);
     assert.match(html, new RegExp(name));
-    assert.doesNotMatch(html, /Stav overenia|čiastočne overené|import-vet|vet-internal@example\.sk/i);
+    assert.doesNotMatch(
+      html,
+      /Stav overenia|čiastočne overené|import-vet|vet-internal@example\.sk/i,
+    );
   }
   const kennel = await request(worker, d1, "/adresar/chovatelske-stanice/stanica-test/upravit");
   assert.match(await kennel.text(), /Border kólia/);
@@ -149,30 +334,52 @@ test("server validation stores a separate request and never changes the profile"
   });
   delete runtimeEnv.EDITORIAL_EMAIL;
   globalThis.fetch = async (url, init) => {
-    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, resendRequests.length + 1, "Resend is called only after INSERT");
+    assert.equal(
+      sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
+      resendRequests.length + 1,
+      "Resend is called only after INSERT",
+    );
     resendRequests.push({ url: String(url), init, body: JSON.parse(String(init.body)) });
     return Response.json({ id: "email-test-1" }, { status: 200 });
   };
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url); workerUrl.searchParams.set("change-submit", String(Date.now()));
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("change-submit", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
   const before = sqlite.prepare("SELECT * FROM directory_profiles WHERE id = 1").get();
 
   for (const [label, body] of [
     ["required authorization", proposal({ authorized: false })],
     ["invalid requester email", proposal({ requesterEmail: "zly-email" })],
-    ["invalid URL", proposal({ proposedData: { ...proposal().proposedData, website: "javascript:alert(1)" } })],
+    [
+      "invalid URL",
+      proposal({ proposedData: { ...proposal().proposedData, website: "javascript:alert(1)" } }),
+    ],
     ["missing profile", proposal({ profileId: 99999 })],
-    ["legacy online field", proposal({ proposedData: { ...proposal().proposedData, online: true } })],
+    [
+      "legacy online field",
+      proposal({ proposedData: { ...proposal().proposedData, online: true } }),
+    ],
   ]) {
-    const response = await request(worker, d1, "/api/directory/profile-change-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const response = await request(worker, d1, "/api/directory/profile-change-requests", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
     assert.equal(response.status, 400, label);
   }
   assert.equal(resendRequests.length, 0, "validation errors must not send email");
 
-  const success = await request(worker, d1, "/api/directory/profile-change-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal()) });
+  const success = await request(worker, d1, "/api/directory/profile-change-requests", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(proposal()),
+  });
   assert.equal(success.status, 201);
   assert.deepEqual(await success.json(), { success: true });
-  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 1);
+  assert.equal(
+    sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
+    1,
+  );
   const stored = sqlite.prepare("SELECT * FROM directory_profile_change_requests").get();
   assert.equal(stored.profile_id, 1);
   assert.equal(stored.profile_name, "Veterina Test");
@@ -189,17 +396,27 @@ test("server validation stores a separate request and never changes the profile"
   assert.equal(resendRequests[0].body.to, "psipedia.sk@gmail.com");
   assert.match(resendRequests[0].body.subject, /^\[Návrh profilu\] Veterina Test$/);
   assert.match(resendRequests[0].body.text, /Veterina Test/);
-  assert.match(resendRequests[0].body.text, /https:\/\/psipedia\.sk\/admin\/adresar\/navrhy#navrh-1/);
+  assert.match(
+    resendRequests[0].body.text,
+    /https:\/\/psipedia\.sk\/admin\/adresar\/navrhy#navrh-1/,
+  );
   assert.doesNotMatch(resendRequests[0].body.text, /proposed_data_json|Navrhované údaje/i);
 
   const unexpectedField = await request(worker, d1, "/api/directory/profile-change-requests", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...proposal({ requesterEmail: "autofill@example.sk" }), company: "Autofill Company" }),
+    body: JSON.stringify({
+      ...proposal({ requesterEmail: "autofill@example.sk" }),
+      company: "Autofill Company",
+    }),
   });
   assert.equal(unexpectedField.status, 201);
   assert.deepEqual(await unexpectedField.json(), { success: true });
-  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 2, "unexpected client fields must never produce a false-success without storing the request");
+  assert.equal(
+    sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
+    2,
+    "unexpected client fields must never produce a false-success without storing the request",
+  );
   assert.equal(resendRequests.length, 2);
 });
 
@@ -218,30 +435,63 @@ test("editorial notifications follow successful inserts and email failures never
     resendRequests.push({ url: String(url), body: JSON.parse(String(init.body)) });
     return Response.json({ id: `email-test-${resendRequests.length}` }, { status: 200 });
   };
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url); workerUrl.searchParams.set("editorial-email", String(Date.now()));
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("editorial-email", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
 
   const invalidInquiry = await request(worker, d1, "/api/directory/inquiries", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ profileId: 1, senderName: "Ján", senderEmail: "zly-email", message: "Dostatočne dlhá testovacia správa.", consent: true, submissionKey: "10000000-0000-4000-8000-000000000001" }),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      profileId: 1,
+      senderName: "Ján",
+      senderEmail: "zly-email",
+      message: "Dostatočne dlhá testovacia správa.",
+      consent: true,
+      submissionKey: "10000000-0000-4000-8000-000000000001",
+    }),
   });
   assert.equal(invalidInquiry.status, 400);
   assert.equal(resendRequests.length, 0);
 
   const inquiry = await request(worker, d1, "/api/directory/inquiries", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ profileId: 1, senderName: "Ján Klient", senderEmail: "jan@example.sk", senderPhone: "+421900123456", dogInfo: "Dvojročný labrador", message: "Prosím o termín preventívnej prehliadky môjho psa.", consent: true, submissionKey: "10000000-0000-4000-8000-000000000002" }),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      profileId: 1,
+      senderName: "Ján Klient",
+      senderEmail: "jan@example.sk",
+      senderPhone: "+421900123456",
+      dogInfo: "Dvojročný labrador",
+      message: "Prosím o termín preventívnej prehliadky môjho psa.",
+      consent: true,
+      submissionKey: "10000000-0000-4000-8000-000000000002",
+    }),
   });
   assert.equal(inquiry.status, 201);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, 1);
   assert.match(resendRequests.at(-1).body.subject, /^Nový dopyt: Veterina Test$/);
   assert.match(resendRequests.at(-1).body.text, /preventívnej prehliadky/);
   assert.match(resendRequests.at(-1).body.text, /admin\/dopyty#dopyt-1/);
-  assert.doesNotMatch(resendRequests.at(-1).body.text, /jan@example\.sk|\+421900123456|Dvojročný labrador/);
+  assert.doesNotMatch(
+    resendRequests.at(-1).body.text,
+    /jan@example\.sk|\+421900123456|Dvojročný labrador/,
+  );
 
   const tip = await request(worker, d1, "/api/news-tips", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ topic: "iny", title: "Nové podujatie pre psov", summary: "V Nitre sa pripravuje verejné podujatie pre psov a ich majiteľov.", sourceUrl: "https://example.sk/zdroj", location: "Nitra", eventDate: "2026-09-20", contactName: "Anna Tipérka", contactEmail: "anna@example.sk", consent: true }),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      topic: "iny",
+      title: "Nové podujatie pre psov",
+      summary: "V Nitre sa pripravuje verejné podujatie pre psov a ich majiteľov.",
+      sourceUrl: "https://example.sk/zdroj",
+      location: "Nitra",
+      eventDate: "2026-09-20",
+      contactName: "Anna Tipérka",
+      contactEmail: "anna@example.sk",
+      consent: true,
+    }),
   });
   assert.equal(tip.status, 201);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
@@ -249,16 +499,39 @@ test("editorial notifications follow successful inserts and email failures never
   assert.match(resendRequests.at(-1).body.text, /admin\/tipy#tip-1/);
 
   const positive = await request(worker, d1, "/api/article-feedback", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ articlePath: "/clanky/test", articleTitle: "Testovací článok", helpful: true, missingText: "" }),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      articlePath: "/clanky/test",
+      articleTitle: "Testovací článok",
+      helpful: true,
+      missingText: "",
+    }),
   });
   assert.equal(positive.status, 201);
-  assert.equal(resendRequests.length, 2, "positive usefulness votes do not require editorial action");
-  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM editorial_notifications WHERE resource_type = 'article_feedback'").get().count, 0);
+  assert.equal(
+    resendRequests.length,
+    2,
+    "positive usefulness votes do not require editorial action",
+  );
+  assert.equal(
+    sqlite
+      .prepare(
+        "SELECT COUNT(*) AS count FROM editorial_notifications WHERE resource_type = 'article_feedback'",
+      )
+      .get().count,
+    0,
+  );
 
   const negative = await request(worker, d1, "/api/article-feedback", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ articlePath: "/clanky/test", articleTitle: "Testovací článok", helpful: false, missingText: "V článku chýba dôležitý zdroj." }),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      articlePath: "/clanky/test",
+      articleTitle: "Testovací článok",
+      helpful: false,
+      missingText: "V článku chýba dôležitý zdroj.",
+    }),
   });
   assert.equal(negative.status, 201);
   assert.equal(resendRequests.length, 3);
@@ -266,21 +539,71 @@ test("editorial notifications follow successful inserts and email failures never
   assert.match(resendRequests.at(-1).body.text, /V článku chýba dôležitý zdroj/);
 
   const failureCases = [
-    { label: "missing API key", email: "missing-key@example.sk", key: "10000000-0000-4000-8000-000000000010", prepare() { delete runtimeEnv.RESEND_API_KEY; globalThis.fetch = async () => { throw new Error("fetch must not run without key"); }; } },
-    { label: "Resend 400", email: "resend-400@example.sk", key: "10000000-0000-4000-8000-000000000011", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => new Response("bad request", { status: 400 }); } },
-    { label: "Resend 500", email: "resend-500@example.sk", key: "10000000-0000-4000-8000-000000000012", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => new Response("server error", { status: 500 }); } },
-    { label: "network exception", email: "network-error@example.sk", key: "10000000-0000-4000-8000-000000000013", prepare() { runtimeEnv.RESEND_API_KEY = "re_test_key"; globalThis.fetch = async () => { throw new Error("simulated network failure"); }; } },
+    {
+      label: "missing API key",
+      email: "missing-key@example.sk",
+      key: "10000000-0000-4000-8000-000000000010",
+      prepare() {
+        delete runtimeEnv.RESEND_API_KEY;
+        globalThis.fetch = async () => {
+          throw new Error("fetch must not run without key");
+        };
+      },
+    },
+    {
+      label: "Resend 400",
+      email: "resend-400@example.sk",
+      key: "10000000-0000-4000-8000-000000000011",
+      prepare() {
+        runtimeEnv.RESEND_API_KEY = "re_test_key";
+        globalThis.fetch = async () => new Response("bad request", { status: 400 });
+      },
+    },
+    {
+      label: "Resend 500",
+      email: "resend-500@example.sk",
+      key: "10000000-0000-4000-8000-000000000012",
+      prepare() {
+        runtimeEnv.RESEND_API_KEY = "re_test_key";
+        globalThis.fetch = async () => new Response("server error", { status: 500 });
+      },
+    },
+    {
+      label: "network exception",
+      email: "network-error@example.sk",
+      key: "10000000-0000-4000-8000-000000000013",
+      prepare() {
+        runtimeEnv.RESEND_API_KEY = "re_test_key";
+        globalThis.fetch = async () => {
+          throw new Error("simulated network failure");
+        };
+      },
+    },
   ];
   for (const [index, failure] of failureCases.entries()) {
     failure.prepare();
-    const beforeCount = sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count;
+    const beforeCount = sqlite
+      .prepare("SELECT COUNT(*) AS count FROM directory_inquiries")
+      .get().count;
     const response = await request(worker, d1, "/api/directory/inquiries", {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ profileId: 1, senderName: `Klient ${index + 1}`, senderEmail: failure.email, message: "Prosím o ďalší dostupný termín pre môjho psa.", consent: true, submissionKey: failure.key }),
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        profileId: 1,
+        senderName: `Klient ${index + 1}`,
+        senderEmail: failure.email,
+        message: "Prosím o ďalší dostupný termín pre môjho psa.",
+        consent: true,
+        submissionKey: failure.key,
+      }),
     });
     assert.equal(response.status, 201, failure.label);
     assert.deepEqual(await response.json(), { success: true }, failure.label);
-    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count, beforeCount + 1, `${failure.label}: stored inquiry survives email failure`);
+    assert.equal(
+      sqlite.prepare("SELECT COUNT(*) AS count FROM directory_inquiries").get().count,
+      beforeCount + 1,
+      `${failure.label}: stored inquiry survives email failure`,
+    );
   }
 });
 
@@ -298,25 +621,50 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
     failedRequests.push({ url: String(url), init });
     return new Response("temporary failure", { status: 503 });
   };
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url); workerUrl.searchParams.set("editorial-outbox", String(Date.now()));
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("editorial-outbox", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
 
   const change = await request(worker, d1, "/api/directory/profile-change-requests", {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal({ requesterEmail: "outbox-change@example.sk" })),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(proposal({ requesterEmail: "outbox-change@example.sk" })),
   });
   const tip = await request(worker, d1, "/api/news-tips", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ topic: "iny", title: "Outbox test podujatia", summary: "Dostatočne podrobný opis testovacieho podujatia pre spoľahlivú notifikáciu.", contactEmail: "outbox-tip@example.sk", consent: true }),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      topic: "iny",
+      title: "Outbox test podujatia",
+      summary: "Dostatočne podrobný opis testovacieho podujatia pre spoľahlivú notifikáciu.",
+      contactEmail: "outbox-tip@example.sk",
+      consent: true,
+    }),
   });
   const negative = await request(worker, d1, "/api/article-feedback", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ articlePath: "/clanky/outbox-test", articleTitle: "Outbox test článku", helpful: false, missingText: "Chýba zdroj." }),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      articlePath: "/clanky/outbox-test",
+      articleTitle: "Outbox test článku",
+      helpful: false,
+      missingText: "Chýba zdroj.",
+    }),
   });
-  assert.deepEqual([change.status, tip.status, negative.status], [201, 201, 201], "Resend failure must not fail saved submissions");
-  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 1);
+  assert.deepEqual(
+    [change.status, tip.status, negative.status],
+    [201, 201, 201],
+    "Resend failure must not fail saved submissions",
+  );
+  assert.equal(
+    sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
+    1,
+  );
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
-  const failed = sqlite.prepare("SELECT * FROM editorial_notifications ORDER BY resource_type").all();
+  const failed = sqlite
+    .prepare("SELECT * FROM editorial_notifications ORDER BY resource_type")
+    .all();
   assert.equal(failed.length, 3);
   for (const row of failed) {
     assert.equal(row.status, "failed");
@@ -325,14 +673,20 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
     assert.equal(row.provider_message_id, null);
   }
   assert.equal(failedRequests.length, 3);
-  const firstAttemptKeys = failedRequests.map((entry) => entry.init.headers["Idempotency-Key"]).sort();
+  const firstAttemptKeys = failedRequests
+    .map((entry) => entry.init.headers["Idempotency-Key"])
+    .sort();
 
   const sentRequests = [];
   globalThis.fetch = async (url, init) => {
     sentRequests.push({ url: String(url), init });
     return Response.json({ id: `provider-${sentRequests.length}` }, { status: 200 });
   };
-  const scheduledEnv = { DB: d1, RESEND_API_KEY: "re_test_key", EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk" };
+  const scheduledEnv = {
+    DB: d1,
+    RESEND_API_KEY: "re_test_key",
+    EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk",
+  };
   Object.assign(runtimeEnv, scheduledEnv);
   await worker.scheduled({}, scheduledEnv, { waitUntil() {}, passThroughOnException() {} });
   assert.equal(sentRequests.length, 3);
@@ -353,7 +707,10 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
   }
   await worker.scheduled({}, scheduledEnv, { waitUntil() {}, passThroughOnException() {} });
   assert.equal(sentRequests.length, 3, "sent notifications must not be delivered twice");
-  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count, 1);
+  assert.equal(
+    sqlite.prepare("SELECT COUNT(*) AS count FROM directory_profile_change_requests").get().count,
+    1,
+  );
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM news_tips").get().count, 1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM article_feedback").get().count, 1);
 });
@@ -361,19 +718,49 @@ test("all three legacy editorial flows persist failed outbox entries and schedul
 test("admin endpoints are protected and review uses the safe manual workflow", async () => {
   const { sqlite, d1 } = createDatabase();
   const runtimeEnv = (globalThis.__CLOUDFLARE_WORKERS_ENV__ ??= {});
-  Object.assign(runtimeEnv, { DB: d1, ADMIN_EMAILS: "admin@psipedia.sk", EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk", RESEND_API_KEY: "re_test_key" });
+  Object.assign(runtimeEnv, {
+    DB: d1,
+    ADMIN_EMAILS: "admin@psipedia.sk",
+    EDITORIAL_FROM_EMAIL: "redakcia@psipedia.sk",
+    RESEND_API_KEY: "re_test_key",
+  });
   delete runtimeEnv.EDITORIAL_EMAIL;
   globalThis.fetch = async () => Response.json({ id: "email-admin-test" }, { status: 200 });
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url); workerUrl.searchParams.set("change-admin", String(Date.now()));
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("change-admin", String(Date.now()));
   const { default: worker } = await import(workerUrl.href);
-  for (const [email, profileId] of [["approve@example.sk", 1], ["reject@example.sk", 2]]) {
-    const body = proposal({ profileId, requesterEmail: email, proposedData: { ...proposal().proposedData, name: profileId === 1 ? "Veterina nový názov" : "Tréner nový názov", region: profileId === 1 ? "Nitriansky kraj" : "Bratislavský kraj" } });
-    const response = await request(worker, d1, "/api/directory/profile-change-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  for (const [email, profileId] of [
+    ["approve@example.sk", 1],
+    ["reject@example.sk", 2],
+  ]) {
+    const body = proposal({
+      profileId,
+      requesterEmail: email,
+      proposedData: {
+        ...proposal().proposedData,
+        name: profileId === 1 ? "Veterina nový názov" : "Tréner nový názov",
+        region: profileId === 1 ? "Nitriansky kraj" : "Bratislavský kraj",
+      },
+    });
+    const response = await request(worker, d1, "/api/directory/profile-change-requests", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
     assert.equal(response.status, 201);
   }
   const profilesBefore = sqlite.prepare("SELECT * FROM directory_profiles ORDER BY id").all();
   assert.equal((await request(worker, d1, "/api/admin/profile-change-requests")).status, 401);
-  assert.equal((await request(worker, d1, "/api/admin/profile-change-requests/1", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "approved" }) })).status, 401);
+  assert.equal(
+    (
+      await request(worker, d1, "/api/admin/profile-change-requests/1", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "approved" }),
+      })
+    ).status,
+    401,
+  );
 
   const adminPage = await request(worker, d1, "/admin/adresar/navrhy", {}, true);
   assert.equal(adminPage.status, 200);
@@ -383,33 +770,70 @@ test("admin endpoints are protected and review uses the safe manual workflow", a
   assert.match(html, /Veterina nový názov/);
   assert.match(html, /Schváliť návrh/);
 
-  const approved = await request(worker, d1, "/api/admin/profile-change-requests/1", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "approved" }) }, true);
+  const approved = await request(
+    worker,
+    d1,
+    "/api/admin/profile-change-requests/1",
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "approved" }),
+    },
+    true,
+  );
   assert.equal(approved.status, 200);
   assert.equal((await approved.json()).request.status, "approved");
-  const rejected = await request(worker, d1, "/api/admin/profile-change-requests/2", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "rejected" }) }, true);
+  const rejected = await request(
+    worker,
+    d1,
+    "/api/admin/profile-change-requests/2",
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "rejected" }),
+    },
+    true,
+  );
   assert.equal(rejected.status, 200);
   assert.equal((await rejected.json()).request.status, "rejected");
-  assert.deepEqual(sqlite.prepare("SELECT * FROM directory_profiles ORDER BY id").all(), profilesBefore);
-  assert.equal(sqlite.prepare("SELECT reviewed_by FROM directory_profile_change_requests WHERE id = 1").get().reviewed_by, "admin@psipedia.sk");
+  assert.deepEqual(
+    sqlite.prepare("SELECT * FROM directory_profiles ORDER BY id").all(),
+    profilesBefore,
+  );
+  assert.equal(
+    sqlite.prepare("SELECT reviewed_by FROM directory_profile_change_requests WHERE id = 1").get()
+      .reviewed_by,
+    "admin@psipedia.sk",
+  );
 });
 
 test("change request layout stacks safely on mobile", () => {
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.directory-change-grid \{ grid-template-columns: 1fr; \}/);
+  assert.match(
+    css,
+    /@media \(max-width: 720px\)[\s\S]*?\.directory-change-grid\s*\{\s*grid-template-columns: 1fr;\s*\}/,
+  );
   assert.match(css, /\.directory-change-form input:not\(\[type="checkbox"\]\)[\s\S]*?width: 100%/);
-  assert.match(css, /\.directory-change-submit button \{ width: 100%;/);
+  assert.match(css, /\.directory-change-submit button\s*\{\s*width: 100%;/);
 });
 
 test("public contact and Resend transport stay restricted to the editorial inbox", () => {
   const contact = readFileSync(new URL("../lib/public-contact.ts", import.meta.url), "utf8");
   const privacy = readFileSync(new URL("../app/sukromie/page.tsx", import.meta.url), "utf8");
-  const corrections = readFileSync(new URL("../app/opravy-a-podnety/page.tsx", import.meta.url), "utf8");
+  const corrections = readFileSync(
+    new URL("../app/opravy-a-podnety/page.tsx", import.meta.url),
+    "utf8",
+  );
   const legal = readFileSync(new URL("../app/pravne-informacie/page.tsx", import.meta.url), "utf8");
   const footer = readFileSync(new URL("../components/site-footer.tsx", import.meta.url), "utf8");
-  const editorialEmail = readFileSync(new URL("../lib/editorial-email.ts", import.meta.url), "utf8");
+  const editorialEmail = readFileSync(
+    new URL("../lib/editorial-email.ts", import.meta.url),
+    "utf8",
+  );
   const wrangler = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
   assert.match(contact, /psipedia\.sk@gmail\.com/);
-  for (const source of [privacy, corrections, legal, footer]) assert.match(source, /EDITORIAL_EMAIL_ADDRESS/);
+  for (const source of [privacy, corrections, legal, footer])
+    assert.match(source, /EDITORIAL_EMAIL_ADDRESS/);
   assert.equal(wrangler.send_email, undefined);
   assert.match(editorialEmail, /RESEND_API_KEY/);
   assert.match(editorialEmail, /https:\/\/api\.resend\.com\/emails/);

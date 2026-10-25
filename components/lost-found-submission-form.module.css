@@ -84,7 +84,7 @@
 .help {
   margin: 0;
   color: #53625a;
-  font-size: .92rem;
+  font-size: 0.92rem;
   font-weight: 450;
 }
 
@@ -105,15 +105,6 @@
 .checkbox input {
   width: 20px;
   height: 20px;
-}
-
-.error {
-  margin: 0;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: #fff0ed;
-  color: #7a2116;
-  font-weight: 700;
 }
 
 .turnstile {
@@ -168,4 +159,8 @@
     justify-content: center;
     text-align: center;
   }
+}
+
+.error {
+  composes: reportError from "./public-visual-system/public-result-variants.module.css";
 }

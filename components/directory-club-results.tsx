@@ -1,3 +1,4 @@
+import { PublicPagination } from "@/components/public-visual-system/public-result-states";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
@@ -128,25 +129,21 @@ export function DirectoryClubResults({
         </PublicEmptyState>
       )}
       {result.pagination.totalPages > 1 && (
-        <nav className="directory-pagination" aria-label="Stránkovanie klubov">
-          {result.pagination.page > 1 ? (
-            <Link rel="prev" href={pageHref(current, result.pagination.page - 1)}>
-              ← Predchádzajúca
-            </Link>
-          ) : (
-            <span aria-disabled="true">← Predchádzajúca</span>
-          )}
-          <strong>
-            Strana {result.pagination.page} z {result.pagination.totalPages}
-          </strong>
-          {result.pagination.page < result.pagination.totalPages ? (
-            <Link rel="next" href={pageHref(current, result.pagination.page + 1)}>
-              Ďalšia →
-            </Link>
-          ) : (
-            <span aria-disabled="true">Ďalšia →</span>
-          )}
-        </nav>
+        <PublicPagination
+          variant="context"
+          className="directory-pagination"
+          label="Stránkovanie klubov"
+          currentPage={result.pagination.page}
+          totalPages={result.pagination.totalPages}
+          previousHref={
+            result.pagination.page > 1 ? pageHref(current, result.pagination.page - 1) : undefined
+          }
+          nextHref={
+            result.pagination.page < result.pagination.totalPages
+              ? pageHref(current, result.pagination.page + 1)
+              : undefined
+          }
+        />
       )}
     </section>
   );
