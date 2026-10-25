@@ -973,3 +973,48 @@ test("all Events and Help agendas share the verified Notion page ownership guard
     assert.ok(agendaEditableFields[agenda], agenda);
   }
 });
+
+test("mapped Events/Help writeback evidence rejects wrong page ID, missing echo and stale content", async () => {
+  const { requireNotionWritebackEvidence } = await import("../lib/notion-sync-writeback-evidence.ts");
+  const good = { id: "notion-1", properties: { title: { type: "title" } } };
+  const hashPage = async (page) => page.properties?.title ? "hash-good" : "hash-other";
+  await requireNotionWritebackEvidence(good, "notion-1", "hash-good", hashPage);
+  for (const [page, id, hash] of [
+    [good, "notion-2", "hash-good"],
+    [good, "notion-1", "hash-other"],
+    [{ id: "notion-1" }, "notion-1", "hash-good"],
+    [undefined, "notion-1", "hash-good"],
+    [good, "", "hash-good"],
+    [good, "notion-1", ""],
+  ]) {
+    await assert.rejects(
+      requireNotionWritebackEvidence(page, id, hash, hashPage),
+      /NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH/,
+    );
+  }
+});
+
+test("every mapped Events/Help PATCH acknowledges only a verified editorial echo", async () => {
+  const source = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const start = source.indexOf("async function syncAgenda(");
+  const end = source.indexOf("\nexport async function runNotionEventsHelpSyncSweep", start);
+  const sweep = source.slice(start, end > start ? end : undefined);
+  const calls = [...sweep.matchAll(/const written = await writeSourceToNotion\(\{[\s\S]*?\}\);/g)];
+  // Eight mapped writebacks include the already-verified modern three-way path.
+  assert.equal(calls.length, 8);
+  for (const [index, match] of calls.entries()) {
+    const next = sweep.slice(match.index + match[0].length,
+      match.index + match[0].length + 1250);
+    if (index === 1) {
+      assert.match(next, /written\.id !== page\.id/);
+      assert.match(next, /!written\.properties/);
+      assert.match(next, /NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH/);
+    } else {
+      assert.match(next, /await requireVerifiedMappedNotionWriteback\(\{/,
+        "missing echo guard after mapped writeback " + index);
+      assert.ok(next.indexOf("await requireVerifiedMappedNotionWriteback({") <
+        next.indexOf("await saveMapping({"),
+        "mapping must never advance before Notion proves writeback " + index);
+    }
+  }
+});

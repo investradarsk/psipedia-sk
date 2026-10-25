@@ -55,6 +55,7 @@ import {
   notionSeoSchemaExtensionFields,
   notionSeoSchemaExtensionIsDefault,
 } from "./notion-seo-contract.ts";
+import { requireNotionWritebackEvidence } from "./notion-sync-writeback-evidence.ts";
 import {
   notionRequest,
   sha256Text,
@@ -352,6 +353,19 @@ function pageSnapshot(
       .filter((name) => Boolean(schema[name]))
       .map((name) => [name, pageProperty(page, name)]),
   ) as Record<string, ReconciliationValue>;
+}
+
+async function requireVerifiedMappedNotionWriteback(input: {
+  written: NotionPage;
+  expectedPageId: string;
+  agenda: BidirectionalAgendaKey;
+  schema: Record<string, DataSourceProperty>;
+  expectedHash: string;
+}) {
+  await requireNotionWritebackEvidence(
+    input.written, input.expectedPageId, input.expectedHash,
+    (page) => snapshotHash(input.agenda, pageSnapshot(input.agenda, page, input.schema)),
+  );
 }
 
 async function snapshotHash(
@@ -958,6 +972,10 @@ async function syncAgenda(input: {
             schema,
             pageId: page.id,
           });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: canonicalHash,
+});
           const syncedAt = new Date().toISOString();
           const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
           await saveMapping({
@@ -1114,6 +1132,7 @@ async function syncAgenda(input: {
         // common mapping hash unless its editorial payload matches canonical.
         // Otherwise the next run could mistake an unacknowledged write for
         // a successful synchronization.
+        if (written.id !== page.id) throw new Error("NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH");
         if (!written.properties ||
             await snapshotHash(agenda, pageSnapshot(agenda, written, schema)) !== verifiedHash) {
           throw new Error("NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH");
@@ -1188,6 +1207,10 @@ async function syncAgenda(input: {
           schema,
           pageId: page.id,
         });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: "events",
+  schema, expectedHash: await snapshotHash("events", editableSnapshot("events", resolvedSource.properties, schema)),
+});
         const syncedAt = new Date().toISOString();
         await saveMapping({
           database: input.database,
@@ -1254,6 +1277,10 @@ async function syncAgenda(input: {
           schema,
           pageId: page.id,
         });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: agenda,
+  schema, expectedHash: await snapshotHash(agenda, editableSnapshot(agenda, resolvedSource.properties, schema)),
+});
         const syncedAt = new Date().toISOString();
         await saveMapping({
           database: input.database,
@@ -1346,6 +1373,10 @@ async function syncAgenda(input: {
             schema,
             pageId: page.id,
           });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: canonicalHash,
+});
           const syncedAt = new Date().toISOString();
           const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
           await saveMapping({
@@ -1403,6 +1434,10 @@ async function syncAgenda(input: {
           schema,
           pageId: page.id,
         });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: updatedHash,
+});
         const syncedAt = new Date().toISOString();
         const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
         await saveMapping({
@@ -1427,6 +1462,10 @@ async function syncAgenda(input: {
         schema,
         pageId: page.id,
       });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: canonicalHash,
+});
       const syncedAt = new Date().toISOString();
       const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
       await saveMapping({
@@ -1652,6 +1691,10 @@ async function syncAgenda(input: {
         schema,
         pageId: page.id,
       });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: hash,
+});
       const syncedAt = new Date().toISOString();
       const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
       await saveMapping({

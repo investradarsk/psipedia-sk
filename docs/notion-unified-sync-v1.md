@@ -25,7 +25,8 @@
 - [ ] **3B-2:** manuálne rozlíšenie skutočne rozdielnych historických obsahových konfliktov po read-only preflight, bez hádania víťaza a bez hromadného prepísania.
 - [x] **4A:** zjednotená idempotentná konfliktná diagnostika v Events/Help: už zapísaná identická chyba sa znovu nepatchuje, takže sa nemení `last_edited_time`; existujúce doménové hranice zostávajú zachované.
 - [x] **4B-1:** spoločná kontrola vlastníctva Notion stránky v Adresári aj Events/Help. Žiadny obsahový ani diagnostický PATCH alebo Notion→D1 import presunutej, archivovanej alebo trashed stránky. Platí pre všetkých päť Events/Help agend a cielené ensure Podujatia, bez migrácie.
-- [ ] **4B-2:** zostávajúce regresné a integračné overenie všetkých Events/Help agend (konflikty, súbeh, súkromné údaje, schvaľovanie).
+- [x] **4B-2a:** každý mapped Events/Help zápis kontroluje identitu stránky a hash odrazeného obsahu ešte pred aktualizáciou D1 mappingu; zlyhanie API echo neznamená potvrdený sync.
+- [ ] **4B-2b:** doplniť runtime testy autentifikovaných operácií, súbehu a role agend po úspešnom CI (zvlášť publikovanie a súkromné údaje).
 - [x] **5A:** spoločný read-only prehľad ôsmich oblastí na existujúcej admin stránke Notion auditu, založený na D1 evidencii bez Notion API dopytov.
 - [ ] **5B:** živý stav posledných behov (úspech, chyba, čaká, konflikt) až po zavedení dôveryhodných run receipts; neodvodzovať ho zo starých mapovaní.
 - [ ] **6:** integračné testy Admin → D1 → Notion a povolených Notion → D1 zmien pre každú agendu, vrátane opakovania, súbehu, chybných ID a nedostupného Notion API.
@@ -93,3 +94,6 @@ Endpoint `GET /api/admin/notion-sync-overview` používa existujúce admin oprá
 Živú dostupnosť Notionu, úspešnosť schedulerov, čakajúce zmeny ani aktuálne obsahové konflikty tieto metadáta nedokazujú. Na to zostáva ďalšia fáza 5B. Nová UI vrstva potrebuje pred merge screenshoty presne z hlavy PR: desktop 1440 px a mobil 390 px; `VISUAL_REVIEW_ROUTES: /admin/nastroje/notion-audit`.
 
 Test `tests/notion-sync-overview.test.mjs` beží v existujúcom `test:notion-events-help-sync`.
+## Fáza 4B-2a — dôkaz zápisu Notion pred aktualizáciou D1 mapovania
+
+V existujúcich vetvách Events/Help bolo možné po čiastočnej alebo nesprávnej odpovedi `PATCH /pages/{id}` posunúť `notion_agenda_sync` alebo `event_notion_sync` mapping na hash, ktorý Notion v skutočnosti nepotvrdil. Doplnili sme `lib/notion-sync-writeback-evidence.ts` a jeho mapovanú adaptáciu: správne page ID, prítomné properties a presný hash kanonického editorial snapshotu sú povinné **pred** `saveMapping`. Platí pri staršom SEO rozšírení, owner-gated priority módoch, mapovaných jednosmerných a obojsmerných zápisoch i writebacku po D1 create. Moderná trojcestná vetva si ponechala svoj existujúci inline hash guard a získala kontrolu ID. Žiadny fallback na LWW, zmenu statusu, novú databázu ani dodatočný cron. Nezachytené/čiastočné odpovede zostanú vyhodnotené ako chyba namiesto falošného úspechu; neistý remote commit sa nesmie automaticky vyhlásiť za úspešný.
