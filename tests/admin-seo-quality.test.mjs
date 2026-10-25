@@ -145,6 +145,16 @@ test("ADMIN-SEO-QUALITY-1 reports explicit noindex and only non-self custom cano
   assert.equal(crossCanonical.some((item) => item.code === "canonical-nonstandard"), true);
 });
 
+test("ADMIN-SEO-QUALITY performance: keep global counts and filter only the paged items", () => {
+  const store = fs.readFileSync(new URL("../lib/admin-seo-quality-store.ts", import.meta.url), "utf8");
+  assert.match(store, /const visible = filtered\.filter\(\(item\) => item\.findings\.some\(matchesVisibleFinding\)\)/);
+  assert.match(store, /items: visible\.slice\(offset, offset \+ PAGE_SIZE\)\.map\(\(item\) =>/);
+  assert.match(store, /resultCount: visible\.length/);
+  assert.match(store, /itemsWithAnyFinding: inbox\.length/);
+  assert.match(store, /agendaCounts,/);
+  assert.doesNotMatch(store, /filtered\.map\(\(item\)/);
+});
+
 test("ADMIN-SEO-QUALITY-1 stays read-only and exposes management links", () => {
   const entities = fs.readFileSync(new URL("../lib/admin-seo-quality-entities.ts", import.meta.url), "utf8");
   const store = fs.readFileSync(new URL("../lib/admin-seo-quality-store.ts", import.meta.url), "utf8");
