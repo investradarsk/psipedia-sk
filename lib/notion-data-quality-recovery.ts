@@ -69,6 +69,20 @@ export function canClearResolvedNotionConflict(input: {
   );
 }
 
+/**
+ * A repeated already-recorded conflict must not PATCH Notion again.
+ * Rewriting an unchanged error advances Notion's last_edited_time and can
+ * create phantom bidirectional changes. Real divergent data still needs review.
+ */
+export function notionConflictMetadataNeedsWrite(input: {
+  syncStatus: string;
+  syncError: string;
+  message: string;
+}): boolean {
+  const expected = `CONFLICT: ${input.message}`.slice(0, 1800);
+  return input.syncStatus !== "Chyba" || input.syncError !== expected;
+}
+
 export type DirectorySyncErrorKind =
   | "BIDIRECTIONAL_CONFLICT"
   | "CONFIRMED_SITE_REVIEW_REQUIRED"

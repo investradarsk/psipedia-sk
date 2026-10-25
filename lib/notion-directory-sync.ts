@@ -42,7 +42,7 @@ import {
 } from "@/lib/media-source-monitor";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { SITE_URL } from "@/config/public-site";
-import { canRecoverNotionDirectoryMapping, notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
+import { canRecoverNotionDirectoryMapping, directorySyncErrorMetadataNeedsWrite, NotionDirectoryUnsafeTargetError, notionDirectoryPageBelongsToSource, notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
@@ -58,6 +58,10 @@ type NotionPage = {
   url?: string;
   last_edited_time?: string;
   properties?: Record<string, unknown>;
+  // Notion page ownership is verified before a mapped-page PATCH.
+  parent?: { type?: string; data_source_id?: string };
+  archived?: boolean;
+  in_trash?: boolean;
 };
 
 type NotionQueryResponse = {
@@ -616,8 +620,14 @@ async function markPageError(
   bindings: NotionDirectorySyncBindings,
   pageId: string,
   error: unknown,
+  page?: NotionPage,
 ) {
   const message = error instanceof Error ? error.message : String(error);
+  if (page?.id === pageId && !directorySyncErrorMetadataNeedsWrite({
+    syncStatus: propertyText(page, "Sync stav"),
+    syncError: propertyText(page, "Sync chyba"),
+    message,
+  })) return;
   await patchNotionPage(bindings, pageId, {
     "Sync stav": select("Chyba"),
     "Sync chyba": richText(message.slice(0, 1800)),
@@ -1076,7 +1086,12 @@ async function syncMappedPage(input: {
 
   const page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
   if (page.id !== input.mapping.notion_page_id) {
-    throw new Error("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
+    throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
+  }
+  // A mapping alone does not grant write access to a page moved out of the
+  // canonical Directory data source. Never PATCH an unrelated Notion page.
+  if (!notionDirectoryPageBelongsToSource(page, input.dataSourceId)) {
+    throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
   }
 
   // A mapping can already exist when the first Notion write-back failed.
@@ -1476,6 +1491,12 @@ export async function runNotionDirectorySyncSweep(input: {
     }
   }
   summary.notionScanned = pages.length;
+  // A single scheduled sweep has two overlapping discovery routes: recent
+  // Notion pages and canonical D1 changes. Do not PATCH or report a conflict
+  // twice for the same mapped profile in one sweep. A fast-path page with no
+  // actual reconcile is deliberately NOT marked, so a pending D1 change can
+  // still be exported via changedProfileIds below.
+  const attemptedMappedProfileIds = new Set<number>();
 
   for (const candidate of pages) {
     let page = candidate;
@@ -1605,6 +1626,8 @@ export async function runNotionDirectorySyncSweep(input: {
         continue;
       }
 
+      if (attemptedMappedProfileIds.has(mapping.directory_profile_id)) continue;
+      attemptedMappedProfileIds.add(mapping.directory_profile_id);
       const result = await syncMappedPage({
         database: input.database,
         bindings: input.bindings,
@@ -1618,7 +1641,10 @@ export async function runNotionDirectorySyncSweep(input: {
       else summary.unchanged += 1;
     } catch (error) {
       summary.failed += 1;
-      await markPageError(input.bindings, page.id, error);
+      // Even a diagnostic PATCH must not mutate an unrelated/moved Notion page.
+      if (!(error instanceof NotionDirectoryUnsafeTargetError)) {
+        await markPageError(input.bindings, page.id, error, page);
+      }
       // Preserve an uncertain import lock for explicit reconciliation. Never
       // create a second profile after a lost response or mapping failure.
       release = null;
@@ -1632,14 +1658,20 @@ export async function runNotionDirectorySyncSweep(input: {
   // A targeted import must not touch unrelated canonical profiles.
   const changedIds = input.targetPageId ? [] : await changedProfileIds(input.database);
   for (const profileId of changedIds) {
+    if (attemptedMappedProfileIds.has(profileId)) continue;
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping) continue;
+    let page: NotionPage | undefined;
     try {
+      // Load only once. The same snapshot is used for identity validation,
+      // reconciliation and the conditional diagnostic marker.
+      page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
       const result = await syncMappedPage({
         database: input.database,
         bindings: input.bindings,
         dataSourceId,
         mapping,
+        page,
         forcePsipediaPush: true,
       });
       await syncRelation(mapping.notion_page_id,profileId);
@@ -1648,7 +1680,9 @@ export async function runNotionDirectorySyncSweep(input: {
       else summary.unchanged += 1;
     } catch (error) {
       summary.failed += 1;
-      await markPageError(input.bindings, mapping.notion_page_id, error);
+      if (!(error instanceof NotionDirectoryUnsafeTargetError)) {
+        await markPageError(input.bindings, mapping.notion_page_id, error, page);
+      }
     }
   }
 
