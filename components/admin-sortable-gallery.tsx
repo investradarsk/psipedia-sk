@@ -4,6 +4,7 @@ import {DndContext,KeyboardSensor,PointerSensor,closestCenter,useSensor,useSenso
 import {SortableContext,useSortable,sortableKeyboardCoordinates,rectSortingStrategy} from "@dnd-kit/sortable";
 import {CSS} from "@dnd-kit/utilities";
 import {GripVertical} from "lucide-react";
+import {gallerySortableIds} from "@/lib/admin-gallery-sortable-ids";
 
 function SortRow({id,as:Tag,className,index,renderRow,disabled}:{
  id:string; as:"div"|"article"|"li"; className?:string; index:number; disabled:boolean;
@@ -30,8 +31,8 @@ export function AdminSortableGallery({urls,onReorder,renderRow,as="div",classNam
  rowClassName?:string;
  disabled?:boolean;
 }){
- // Index and URL support duplicate URLs while preserving the original gallery array.
- const ids=urls.map((url,index)=>index+":"+url);
+ // Stable across reorders: preserve focus and sortable sensor identity.
+ const ids=gallerySortableIds(urls);
  const sensors=useSensors(
    useSensor(PointerSensor,{activationConstraint:{distance:6}}),
    useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates})
