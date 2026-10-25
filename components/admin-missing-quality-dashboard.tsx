@@ -187,6 +187,12 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
     </div>
   );
   return <div className={styles.root}>
+    <div className={styles.overviewShortcut}>
+      <a href="/admin/kvalita/prehlad" target="_blank" rel="noopener noreferrer" className={styles.overviewLink}>
+        Prehľad chýbajúcich údajov ↗
+      </a>
+      <span>Otvorí sa v novej karte · bez spúšťania Tavily</span>
+    </div>
     <section className={styles.top}>
       <div>
         <span className={styles.eyebrow}>Nájdené nové údaje na schválenie</span>
