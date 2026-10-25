@@ -18,7 +18,7 @@ import { EditorialRichText } from "@/components/editorial-rich-text";
 import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
 import { effectiveArticleStatus, articleEffectiveStatusLabel } from "@/lib/article-effective-status";
 import { formatArticleLocalDateTime } from "@/lib/article-schedule-time";
-import type { ManagedBreedSummary } from "@/lib/breed-store";
+import type { AdminArticleBreedOption } from "@/lib/breed-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
   articlePortalSectionOptions,
@@ -75,7 +75,7 @@ export function AdminArticleEditor({
   article?: ManagedArticle;
   defaultPortalSection?: ArticlePortalSection;
   defaultPortalSubpage?: string;
-  breedOptions?: ManagedBreedSummary[];
+  breedOptions?: AdminArticleBreedOption[];
   managedSections?: Array<PortalSection & { visible?: boolean }>;
   topicOptions?: ArticleTopic[];
   promoUtcDay?: string;
