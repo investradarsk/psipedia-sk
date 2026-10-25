@@ -29,7 +29,7 @@ test("0139 approved immutable bytes, exact canonical owner-only workflow and exp
   assert.equal(createHash("sha256").update(sql).digest("hex"),PINNED_SHA256_0139);
   assert.equal(APPROVED_0139_SHA256,PINNED_SHA256_0139);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3),target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS,[]);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS,["0142_quality_missing_scan_outcomes.sql"]);
   assert.doesNotThrow(()=>assertApproved0139Target("psipedia-sk-db",PINNED_SHA256_0139));
   assert.throws(()=>assertApproved0139Target("wrong-db",PINNED_SHA256_0139),/canonical/);
   assert.throws(()=>assertApproved0139Target("psipedia-sk-db","f".repeat(64)),/SHA256/);
