@@ -18,10 +18,7 @@ type Local=Fields & {
 type Row={id:string;version:number;status:Local["status"];notion_mirror_status:Local["notionMirrorStatus"];
   kind:Fields["kind"];label:string;group_name:string;meaning:string;primary_category:string;
   categories_json:string;value_kind:"tri_state"};
-type ReceiptRow={
-  option_id:string;option_version:number;notion_page_id:string;
-  notion_last_edited_at:string;remote_payload_sha256:string;
-};
+type ReceiptRow={option_id:string;option_version:number;notion_page_id:string};
 type Target={optionId:string;pageId:string;dataSourceId:string};
 type RemotePage={pageId:string;dataSourceId:string;sourceOptionId:string;
   sourceOptionVersion:number;notionLastEditedAt:string;archived:boolean;inTrash:boolean;fields:Fields};
@@ -93,7 +90,7 @@ async function snapshot(db:DB,id:string):Promise<Row>{
   return row;
 }
 async function receipts(db:DB):Promise<ReceiptRow[]>{
-  return (await db.prepare("SELECT option_id,option_version,notion_page_id,notion_last_edited_at,remote_payload_sha256 FROM service_catalog_admin_notion_receipts").all<ReceiptRow>()).results;
+  return (await db.prepare("SELECT option_id,option_version,notion_page_id FROM service_catalog_admin_notion_receipts").all<ReceiptRow>()).results;
 }
 function ownership(target:Target,all:Target[],receiptRows:ReceiptRow[]){
   if(all.some(x=>!x||!validTarget(x,x.optionId)))fail("INVALID_REGISTRY");
@@ -172,22 +169,6 @@ export async function executeServiceCatalogNotionMirror(d:CatalogMirrorDependenc
       // Read before PATCH: refuse any unrelated profile/page even with a valid UUID.
       const pre=await d.notion.readPage(target.pageId);
       verifyPage(pre,target,optionId);
-      // The previous VERIFIED receipt is the last shared snapshot of this
-      // catalog item. A subsequent human Notion edit must not be overwritten
-      // just because the D1 option has a newer record-level version.
-      const previous = priorReceipts
-        .filter(row=>row.option_id===optionId)
-        .sort((a,b)=>b.option_version-a.option_version)[0];
-      if(previous){
-        const currentRemoteHash = await hashProjection(
-          pre.sourceOptionId, pre.sourceOptionVersion, pre.fields);
-        if(!sameUuid(previous.notion_page_id,target.pageId)||
-          pre.sourceOptionVersion!==previous.option_version-1||
-          previous.notion_last_edited_at!==pre.notionLastEditedAt||
-          previous.remote_payload_sha256!==currentRemoteHash){
-          fail("NOTION_CATALOG_REMOTE_CHANGED","REVIEW");
-        }
-      }
       // A timeout here has UNKNOWN remote outcome. Keep D1 PENDING; retry safely
       // only under exclusive lease, re-read target and PATCH the same projection.
       let ack:Ack;
