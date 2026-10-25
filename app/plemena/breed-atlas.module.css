@@ -153,8 +153,8 @@
 
 .foundation :global(.breed-crawl-index-intro h2) {
   margin: 4px 0 0;
-  font-size: clamp(1.45rem, 2.5vw, 2rem);
-  line-height: 1.1;
+  font-size: var(--ps-list-heading-size);
+  line-height: var(--ps-list-heading-leading);
 }
 
 .foundation :global(.breed-crawl-index-intro p) {
@@ -256,7 +256,7 @@
 }
 
 /* GLOBAL-DESIGN-UNIFICATION-1: search first, then atlas actions. */
-.foundation :global(.browser-toolbar) { width: 100%; max-width: 780px; margin-inline: auto; margin-bottom: 16px; border-radius: var(--ps-radius-filter, 18px); }
+.foundation :global(.browser-toolbar) { width: 100%; max-width: var(--ps-list-search-max); margin-inline: auto; margin-bottom: 16px; border-radius: var(--ps-radius-filter, 18px); }
 .atlasActions { padding-block: 8px 12px; }
 .atlasActions :global([data-public-landing-section-heading]) { margin-bottom: 12px; }
 @media (max-width: 620px) { .atlasActions { padding-block: 4px 8px; } }

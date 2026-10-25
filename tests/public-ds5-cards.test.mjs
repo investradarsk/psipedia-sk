@@ -152,3 +152,6 @@ import "./public-banners-phase2.test.mjs";
 
 // Phase 2, fixed item 3: URL-backed filter reset and mobile control contracts.
 import "./public-filters-phase2.test.mjs";
+
+// Phase 2, fixed item 4: public listing width, rhythm and typography.
+import "./public-layout-phase2.test.mjs";

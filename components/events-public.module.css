@@ -1921,8 +1921,8 @@
 .listingLayout {
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);
-  gap: 24px;
-  margin-top: 24px;
+  gap: var(--ps-list-column-gap);
+  margin-top: var(--ps-list-section-top);
   align-items: start;
 }
 .filterSidebar {
@@ -2000,8 +2000,17 @@
   display: flex;
   justify-content: space-between;
   align-items: start;
-  gap: 16px;
+  gap: var(--ps-list-column-gap);
   flex-wrap: wrap;
+}
+.listingLayout .listHeading h2 {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: var(--ps-list-heading-size);
+  line-height: var(--ps-list-heading-leading);
+  overflow-wrap: anywhere;
 }
 .listHeading form {
   display: flex;
@@ -2215,7 +2224,7 @@
 }
 .categorySearchShell :global(.home-search-panel) {
   width: 100%;
-  max-width: 780px;
+  max-width: var(--ps-list-search-max);
   margin-inline: auto;
   grid-template-columns: minmax(0, 1fr);
   border-radius: var(--ps-radius-filter, 18px);
@@ -2240,9 +2249,7 @@
   margin-top: 8px;
   background: transparent;
 }
-.detailPage .relatedSection :global(.shell) {
-  width: min(1120px, calc(100% - 32px));
-}
+/* Related detail content inherits the same responsive .shell width as the page. */
 .detailPage .returnBar {
   margin: 0;
   font-size: 0.75rem;
