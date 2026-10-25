@@ -8,6 +8,24 @@
 
 > **Dôležité:** PR #1040 („ADMIN — Spoločné galérie, titulné fotky, texty a modály“) bolo pri audite stále **otvorené ako Draft, NIE merged**. Preto tabuľka „na main“ nie je opisom jeho rozpracovaných zmien. Pred bodom 2 najprv znovu overiť merge #1040 a odpočítať jeho implementácie. Nerobiť totožnú prácu dvakrát.
 
+## Kvantitatívny baseline z úspešného CI skenera
+
+Skener prešiel všetkých **223** zdrojových vstupov (`117` komponentov a `106` stránok). Záznam z `ADMIN-DUP-01 read-only inventory` na `main` baseline:
+
+| Syntaktický signál | Výskytov | Súborov |
+|---|---:|---:|
+| Natívne `window.confirm` | 50 | 35 |
+| Vlastné navigácie so štítkom „Stránkovanie“ | 10 | 9 |
+| Použitie zdieľaného `AdminPagination` | 4 | 4 |
+| HTML `<button>` | 351 | 104 |
+| Zdieľané `AdminActionButton` | 149 | 28 |
+| HTML file-input | 21 | 17 |
+| Použitie spoločných modálov | 23 | 17 |
+| Zdieľané galérie | 2 | 2 |
+| Použitie `EditorUnsavedChangesGuard` | 5 | 5 |
+
+**Interpretácia:** 50 potvrdení **neznamená 50 bugov** a 351 tlačidiel **neznamená 351 duplicít**. Ide o počet syntaktických výskytov v pôvodnom `main`, nie počty chýb. Dôležitý je zoznam potvrdených miest, ich pracovný tok a odpočet zmien už pripravených v #1040. Výsledky sú reprodukovateľné príkazom `node scripts/admin-ui-duplication-inventory.mjs --json`.
+
 ## Výsledok auditu
 
 - **Potvrdená duplicita:** dva alebo viac implementačných miest riešia rovnaký UI mechanizmus (napr. stránkovací panel, potvrdenie odchodu). Zhodné použitie komponentu neznamená rovnaký dátový kontrakt.
