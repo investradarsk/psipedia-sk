@@ -59,13 +59,11 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   let summary: { failed: number } | undefined;
   if (sameSource(sourceId, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!)) {
-    if (event.type === "page.content_updated") return "ignored";
     summary = await runNotionDirectorySyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
     });
   } else if (sameSource(sourceId, bindings.NOTION_BREEDS_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_BREEDS_DATA_SOURCE_ID!)) {
-    if (event.type === "page.content_updated") return "ignored";
     summary = await runNotionBreedSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
     });
@@ -76,12 +74,10 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     });
   } else if (sameSource(sourceId, bindings.NOTION_ESHOPS_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_ESHOPS_DATA_SOURCE_ID!)) {
-    if (event.type === "page.content_updated") return "ignored";
     summary = await runNotionEshopSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
     });
-  } else if (bindings.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED === "true"
-      && event.type !== "page.content_updated") {
+  } else if (bindings.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED === "true") {
     // Dynamic event/help targets are resolved only from existing verified D1
     // mappings, never from a title or a user-controlled Notion property.
     const table = await bindings.DB.prepare(
@@ -99,6 +95,8 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       agendas: [agenda.agenda as (typeof allowed)[number]],
       targetPageId: id, webhookMappedOnly: true,
     });
+    if (result.totals.failed === 0 && (result.totals.conflicts || result.totals.reviewRequired))
+      return "review-required";
     summary = { failed: result.totals.failed };
   } else {
     // Includes Facebook image source, Services V3 and unsupported pages.
