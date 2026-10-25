@@ -83,6 +83,21 @@ jobs:
           trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
 
+      - name: Configure ephemeral PII keys for disposable local preview
+        run: |
+          # Partner account list fails closed if encryption is not configured.
+          # These keys belong ONLY to the isolated local D1 fixture, never to
+          # production or a deployed preview. Do not print them or upload them.
+          umask 077
+          node --input-type=module -e '
+            import { randomBytes } from "node:crypto";
+            import { writeFileSync } from "node:fs";
+            writeFileSync(".dev.vars",
+              "PII_ENCRYPTION_KEY=" + randomBytes(32).toString("base64url") + "\\n" +
+              "PII_HASH_KEY=" + randomBytes(32).toString("base64url") + "\\n",
+              { mode: 0o600 });
+          '
+
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/admin-ia-2
