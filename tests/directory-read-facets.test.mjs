@@ -233,7 +233,9 @@ test("canonical service options share the facet request's latency budget; disabl
     store.indexOf("export async function getDirectoryCategoryCounts("));
   assert.match(fn, /const canonicalServicesEnabled = canonicalPublicEnabled/);
   assert.match(fn, /if \(!canonicalServicesEnabled \|\| !category\) return \[\]/);
-  assert.match(fn, /Promise\.all\(\[\s*database\.batch\(\[locationStatement, serviceStatement, sourceStatement\]\),\s*loadCanonicalServices\(\),\s*\]\)/);
+  assert.match(fn, /Promise\.all\(\[\s*database\.batch\(\[locationStatement, serviceStatement, sourceStatement\]\),\s*loadCanonicalServices\(\),\s*earlyCount,\s*\]\)/);
+  assert.match(fn, /const canCountWithFacets = !options\.filters\.region && !options\.filters\.district && !options\.filters\.city/);
+  assert.match(fn, /const count = preloadedCount \?\? await countStatement\.first/);
   assert.match(fn, /readNonemptyD1Page\(total, \(\) => listStatement\.all<DirectoryProfileRow>\(\)\)/);
   assert.match(fn, /await listStatement\.all<DirectoryProfileRow>\(\)/);
 });
