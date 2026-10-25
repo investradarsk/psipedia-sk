@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import { AdminBreadcrumbs, AdminNavigation } from "./admin-navigation";
@@ -15,11 +15,32 @@ function BellIcon() {
   );
 }
 
-async function AdminNotificationBell({ count, partial = false }: { count?: number; partial?: boolean }) {
+function AdminNotificationBellPending() {
+  // Keep the bell actionable while the current (never cached) D1 count streams in.
+  return (
+    <Link
+      href="/admin/operations"
+      className={styles.notificationLink}
+      aria-label="Upozornenia: načítava sa počet aktívnych položiek"
+      title="Otvoriť upozornenia"
+      data-testid="admin-notification-bell"
+    >
+      <BellIcon />
+    </Link>
+  );
+}
+
+async function AdminNotificationBell({
+  count, partial = false, summaryPromise,
+}: {
+  count?: number;
+  partial?: boolean;
+  summaryPromise?: ReturnType<typeof loadExactAdminAttentionSummary>;
+}) {
   let activeCount = count;
   let incomplete = partial;
   if (activeCount === undefined) {
-    const summary = await loadExactAdminAttentionSummary();
+    const summary = await (summaryPromise ?? loadExactAdminAttentionSummary());
     activeCount = summary.active;
     incomplete = summary.availability !== "OK";
   }
@@ -57,6 +78,7 @@ export function AdminShell({
   children,
   attentionCount,
   attentionCountPartial,
+  attentionSummaryPromise,
 }: {
   user: ChatGPTUser;
   eyebrow: string;
@@ -66,6 +88,7 @@ export function AdminShell({
   children: ReactNode;
   attentionCount?: number;
   attentionCountPartial?: boolean;
+  attentionSummaryPromise?: ReturnType<typeof loadExactAdminAttentionSummary>;
 }) {
   return (
     <main id="obsah" className="admin-root" data-admin-shell>
@@ -92,7 +115,9 @@ export function AdminShell({
               <span className={styles.topbarCaption}>Psipedia · Administrácia</span>
               <div className={styles.topbarActions}>
                 <Link href="/" className={styles.backToWeb} aria-label="Návrat na Psipedia.sk">↗ <span>Späť na web</span></Link>
-                <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} />
+                <Suspense fallback={<AdminNotificationBellPending />}>
+                  <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} summaryPromise={attentionSummaryPromise} />
+                </Suspense>
                 <div className={`admin-account ${styles.account}`}>
                   <span><small>Prihlásený používateľ</small><strong>{user.displayName}</strong></span>
                   <a href={chatGPTSignOutPath("/", user.authProvider)} aria-label="Odhlásiť">

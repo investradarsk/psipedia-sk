@@ -5,6 +5,7 @@ import {
   parseDirectoryFacetValues,
 } from "@/lib/directory-read-facets";
 import { cache } from "react";
+import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import { parsePublicDirectoryFacets, directoryPublicFacetSql, type DirectoryPublicFacets } from "@/lib/directory-public-filters";
 import {serviceFilterCategories} from "@/lib/directory-filter-contract";
 import {canonicalPublicServiceWhere,canonicalPublicServiceOptions,
@@ -1047,13 +1048,16 @@ export async function listPublishedDirectoryProfiles(options: {
       profileTypes: DIRECTORY_SOURCE_FACETS.profileType,
     },
   );
-  // One D1 batch: 3 statements rather than 8 for identical option scopes.
-  const optionResults = await database.batch([locationStatement, serviceStatement, sourceStatement]);
-  // Extra read is opt-in, category-scoped and uses only explicit YES assignments.
-  // Never touch the new 0133 tables on the default disabled path.
-  let canonicalServices:CanonicalPublicServiceOption[]=[];
-  if(canonicalPublicEnabled&&category&&(serviceFilterCategories as readonly string[]).includes(category)){
-    const canonicalRows=await database.prepare(`
+
+  // Keep the three location/source/service facet reads in one D1 batch.
+  // The canonical service-option lookup is independent: start it in parallel
+  // instead of serializing a separate network roundtrip after the batch.
+  // Never reference canonical tables when the feature flag is disabled.
+  const canonicalServicesEnabled = canonicalPublicEnabled && Boolean(category)
+    && (serviceFilterCategories as readonly string[]).includes(category ?? "");
+  const loadCanonicalServices = async (): Promise<CanonicalPublicServiceOption[]> => {
+    if (!canonicalServicesEnabled || !category) return [];
+    const canonicalRows = await database.prepare(`
       SELECT DISTINCT choice.option_id AS optionId,
         opt.label AS label,opt.kind AS kind,opt.status AS status,
         opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson
@@ -1063,8 +1067,12 @@ export async function listPublishedDirectoryProfiles(options: {
       WHERE profile.status='published' AND profile.category=? AND choice.choice='yes'
       ORDER BY choice.option_id
     `).bind(category).all<CanonicalPublicServiceRow>();
-    canonicalServices=canonicalPublicServiceOptions(category,canonicalRows.results);
-  }
+    return canonicalPublicServiceOptions(category, canonicalRows.results);
+  };
+  const [optionResults, canonicalServices] = await Promise.all([
+    database.batch([locationStatement, serviceStatement, sourceStatement]),
+    loadCanonicalServices(),
+  ]);
   const locationFacets = (optionResults[0].results as Array<{
     regions: string; districts: string; cities: string;
   }>)[0];
@@ -1101,7 +1109,8 @@ export async function listPublishedDirectoryProfiles(options: {
     ORDER BY ${orderBy} LIMIT ? OFFSET ?
   `).bind(...bindings, pageSize, (page - 1) * pageSize);
 
-  const listResult = await listStatement.all<DirectoryProfileRow>();
+  // A verified zero-count listing has no rows: avoid an unnecessary D1 page read.
+  const listResult = await readNonemptyD1Page(total, () => listStatement.all<DirectoryProfileRow>());
   return {
     profiles: (listResult.results as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
     total, page, pageSize, totalPages,

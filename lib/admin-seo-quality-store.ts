@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { loadPublishedSeoQualityEntities } from "@/lib/admin-seo-quality-entities";
+import { selectAdminSeoQualityPage } from "@/lib/admin-seo-quality-page";
 import {
   adminSeoAgendas,
   adminSeoIssueDefinitions,
@@ -86,19 +87,8 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
     return true;
   });
 
-  const visible = filtered.map((item) => ({
-    ...item,
-    findings: item.findings.filter((finding) => {
-      if (filters.scope === "quality" && finding.scope === "custom") return false;
-      if (filters.scope === "custom" && finding.scope !== "custom") return false;
-      if (filters.issue !== "all" && finding.code !== filters.issue) return false;
-      return true;
-    }),
-  })).filter((item) => item.findings.length > 0);
-
-  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const page = Math.min(filters.page, totalPages);
-  const offset = (page - 1) * PAGE_SIZE;
+  // Keep global counts exact; project detailed findings only for the visible page.
+  const selected = selectAdminSeoQualityPage(filtered, filters, filters.page, PAGE_SIZE);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -107,8 +97,8 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
     entitiesWithQualityFindings: audited.filter((item) => item.qualityFindingCount > 0).length,
     entitiesWithCustomGaps: audited.filter((item) => item.customGapCount > 0).length,
     explicitNoindex: audited.filter((item) => item.findings.some((finding) => finding.code === "noindex-explicit")).length,
-    resultCount: visible.length,
-    items: visible.slice(offset, offset + PAGE_SIZE),
+    resultCount: selected.total,
+    items: selected.items,
     agendaCounts,
     issueCounts,
     filters: {
@@ -118,10 +108,10 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
       query: filters.query,
     },
     pagination: {
-      page,
+      page: selected.page,
       pageSize: PAGE_SIZE,
-      total: visible.length,
-      totalPages,
+      total: selected.total,
+      totalPages: selected.totalPages,
     },
   };
 }
