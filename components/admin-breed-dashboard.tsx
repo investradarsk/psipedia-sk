@@ -7,6 +7,7 @@ import {
   adminBreedCounts,
   defaultAdminBreedFilters,
   filterAdminBreeds,
+  paginateAdminBreeds,
   type AdminBreedFilters,
 } from "@/lib/admin-breeds";
 import {
@@ -30,6 +31,7 @@ function formatUpdatedAt(value: string) {
 export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedBreedSummary[] }) {
   const [breeds, setBreeds] = useState(initialBreeds);
   const [filters, setFilters] = useState<AdminBreedFilters>(defaultAdminBreedFilters);
+  const [requestedPage, setRequestedPage] = useState(1);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,6 +40,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
 
   const visible = useMemo(() => filterAdminBreeds(breeds, filters), [breeds, filters]);
   const counts = useMemo(() => adminBreedCounts(breeds), [breeds]);
+  const pageData = useMemo(() => paginateAdminBreeds(visible, requestedPage), [visible, requestedPage]);
   const fciGroups = useMemo(
     () => [...new Map(breeds.map((breed) => [breed.fciGroup, breed.group])).entries()].sort((a, b) => a[0] - b[0]),
     [breeds],
@@ -50,7 +53,9 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
     () => [...new Set(breeds.map((breed) => breed.origin).filter(Boolean))].sort((a, b) => a.localeCompare(b, "sk")),
     [breeds],
   );
-  const visibleIds = visible.map((breed) => breed.id);
+  // “Select visible” means the current rendered page; selected breeds on
+  // other pages remain selected for the existing guarded bulk action.
+  const visibleIds = pageData.items.map((breed) => breed.id);
   const selectedBreeds = breeds.filter((breed) => selected.has(breed.id));
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
   const someVisibleSelected = visibleIds.some((id) => selected.has(id)) && !allVisibleSelected;
@@ -63,6 +68,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       return next;
     });
     setSelected(new Set());
+    setRequestedPage(1);
   }
 
   function toggle(id: number) {
@@ -152,7 +158,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
         <label><span>Pôvod</span><select value={filters.origin} onChange={(event) => changeFilter("origin", event.target.value)}><option value="all">Všetky krajiny</option>{origins.map((origin) => <option value={origin} key={origin}>{origin}</option>)}</select></label>
         <label><span>Publikovanie</span><select value={filters.status} onChange={(event) => changeFilter("status", event.target.value)}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
         <label><span>Úplnosť</span><select value={filters.completeness} onChange={(event) => changeFilter("completeness", event.target.value)}><option value="all">Všetky profily</option><option value="incomplete">Len neúplné</option><option value="complete">Bez detegovaných medzier</option></select></label>
-        <div className={styles.filterActions}><AdminActionButton variant="link" onClick={() => { setFilters(defaultAdminBreedFilters); setSelected(new Set()); }}>Zrušiť filtre</AdminActionButton></div>
+        <div className={styles.filterActions}><AdminActionButton variant="link" onClick={() => { setFilters(defaultAdminBreedFilters); setSelected(new Set()); setRequestedPage(1); }}>Zrušiť filtre</AdminActionButton></div>
       </div>
 
       <div className={styles.resultBar}>
@@ -164,9 +170,9 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
             disabled={!visible.length || busy}
             onChange={(event) => toggleVisible(event.currentTarget.checked)}
           />
-          Vybrať zobrazené ({visible.length})
+          Vybrať zobrazené ({pageData.items.length})
         </label>
-        <strong role="status">Nájdené: {visible.length} z {breeds.length}</strong>
+        <strong role="status">Nájdené: {visible.length} z {breeds.length} · Zobrazené {pageData.from}–{pageData.to}</strong>
       </div>
 
       {selected.size > 500 && <p role="alert">V jednej dávke vyber najviac 500 plemien.</p>}
@@ -181,9 +187,9 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       {message && <p className="admin-flash" role="status">{message}</p>}
 
       <div className={styles.list} aria-busy={busy}>
-        {visible.map((breed) => <article className={styles.row} key={breed.id}>
+        {pageData.items.map((breed) => <article className={styles.row} key={breed.id}>
           <input aria-label={`Vybrať ${breed.name}`} type="checkbox" checked={selected.has(breed.id)} disabled={busy} onChange={() => toggle(breed.id)}/>
-          <div className={styles.thumb}>{breed.image ? <img src={breed.image} alt=""/> : <span>Bez<br/>obrázka</span>}</div>
+          <div className={styles.thumb}>{breed.image ? <img src={breed.image} alt="" loading="lazy" decoding="async"/> : <span>Bez<br/>obrázka</span>}</div>
           <div className={styles.identity}>
             <div className={styles.statusLine}><span className={`admin-status admin-status--${breed.status}`}>{breed.status === "published" ? "Publikované" : "Koncept"}</span>{breed.fciNumber && <span>FCI {breed.fciNumber}</span>}</div>
             <h2><Link href={`/admin/plemena/${breed.id}`}>{breed.name}</Link></h2>
@@ -200,6 +206,19 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
         </article>)}
         {!visible.length && <div className={styles.empty}>Žiadne plemeno nezodpovedá zvoleným filtrom.</div>}
       </div>
+      {pageData.totalPages > 1 && (
+        <nav className={styles.pagination} aria-label="Stránkovanie plemien">
+          <button type="button" disabled={busy || pageData.page === 1}
+            onClick={() => setRequestedPage(1)}>Prvá</button>
+          <button type="button" disabled={busy || pageData.page === 1}
+            onClick={() => setRequestedPage(pageData.page - 1)}>Predchádzajúca</button>
+          <span aria-live="polite">Strana {pageData.page} z {pageData.totalPages}</span>
+          <button type="button" disabled={busy || pageData.page === pageData.totalPages}
+            onClick={() => setRequestedPage(pageData.page + 1)}>Nasledujúca</button>
+          <button type="button" disabled={busy || pageData.page === pageData.totalPages}
+            onClick={() => setRequestedPage(pageData.totalPages)}>Posledná</button>
+        </nav>
+      )}
     </section>
 
     <AdminModalDialog
