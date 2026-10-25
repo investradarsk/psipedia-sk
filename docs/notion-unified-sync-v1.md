@@ -26,7 +26,8 @@
 - [x] **4A:** zjednotená idempotentná konfliktná diagnostika v Events/Help: už zapísaná identická chyba sa znovu nepatchuje, takže sa nemení `last_edited_time`; existujúce doménové hranice zostávajú zachované.
 - [x] **4B-1:** spoločná kontrola vlastníctva Notion stránky v Adresári aj Events/Help. Žiadny obsahový ani diagnostický PATCH alebo Notion→D1 import presunutej, archivovanej alebo trashed stránky. Platí pre všetkých päť Events/Help agend a cielené ensure Podujatia, bez migrácie.
 - [ ] **4B-2:** zostávajúce regresné a integračné overenie všetkých Events/Help agend (konflikty, súbeh, súkromné údaje, schvaľovanie).
-- [ ] **5:** zjednotiť reportovanie „Posledný sync / Čaká / Chyba / Konflikt“ a dočasné zlyhania bez hádania o stave publikovania.
+- [x] **5A:** spoločný read-only prehľad ôsmich oblastí na existujúcej admin stránke Notion auditu, založený na D1 evidencii bez Notion API dopytov.
+- [ ] **5B:** živý stav posledných behov (úspech, chyba, čaká, konflikt) až po zavedení dôveryhodných run receipts; neodvodzovať ho zo starých mapovaní.
 - [ ] **6:** integračné testy Admin → D1 → Notion a povolených Notion → D1 zmien pre každú agendu, vrátane opakovania, súbehu, chybných ID a nedostupného Notion API.
 - [ ] **7:** read-only produkčné preverenie schém, prepojení, povolení a nasadených flagov; následný rollout len po explicitnom schválení používateľa.
 
@@ -82,3 +83,13 @@ Tento krok nikdy nemigruje, nemaže, nepresúva ani neprepája Notion záznamy, 
 ## CI kompatibilita so súčasným main (bez zmeny Notion správania)
 
 Široký workflow `Playwright E2E and production smoke` zlyhal v `tests/directory-read-facets.test.mjs` na vzájomne protichodnom očakávaní: test vyžadoval `readNonemptyD1Page(total, () => listStatement.all())` **aj** staré priame `await listStatement.all()` pri verejnom Adresári. S predpokladaným guardom priamy await neexistuje. Použitý presne aktuálny výkonový kód z `main` (vrátane jeho existujúceho read helpera) a opravené očakávanie v teste tak, aby vyžadovalo lazy page read a zakazovalo jeho obídenie. Nezavádza sa žiadna iná implementácia, produkčné dáta, D1 migrácia ani zmena Notion práv.
+
+## Fáza 5A – evidencia prepojení v administrácii
+
+Do existujúcej cesty `/admin/nastroje/notion-audit` pribudol kompaktný prehľad pre Adresár, Podujatia, Organizácie, Adopcie, Pomoc psom, Stratené a nájdené, Katalóg Služby V3 a Facebook obrázky. Opätovne používa vizuálne triedy existujúceho auditu, nevytvára ďalšiu administrátorskú sekciu.
+
+Endpoint `GET /api/admin/notion-sync-overview` používa existujúce admin oprávnenie, cache `no-store` a nanajvýš deväť read-only D1 SELECT dotazov. Neposiela Notion tokeny, obsah ani jednotlivé identifikátory profilov; vôbec nekontaktuje Notion. Vyhodnocuje počet mapovaní a posledný zaznamenaný čas podľa existujúcich tabuliek. Katalóg V3 má inú metriku – dokončené overené automatické pokusy. Facebook má počet prepojených obrázkov, **bez falošného času synchronizácie**. Chýbajúca D1 schéma či chybný dotaz sa zobrazí ako neznáme, nie úspešné.
+
+Živú dostupnosť Notionu, úspešnosť schedulerov, čakajúce zmeny ani aktuálne obsahové konflikty tieto metadáta nedokazujú. Na to zostáva ďalšia fáza 5B. Nová UI vrstva potrebuje pred merge screenshoty presne z hlavy PR: desktop 1440 px a mobil 390 px; `VISUAL_REVIEW_ROUTES: /admin/nastroje/notion-audit`.
+
+Test `tests/notion-sync-overview.test.mjs` beží v existujúcom `test:notion-events-help-sync`.
