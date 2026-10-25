@@ -9,9 +9,11 @@ Používame existujúce `PageContainer` / `.shell.public-shell`, `app/design-sys
 - [x] **Šírka /mapa:** panel aj vyhľadávacia lišta sa zarovnávajú podľa rovnakého `.shell.public-shell` ako verejné stránky (max. 1180 px); informačná hláška o podklade má rovnakú šírku.
 - [x] **Mapa na mobile:** vyhľadávacia lišta má štandardné odsadenie; iba interaktívne mapové plátno ostáva vedome na celú šírku mobilu, aby sa dalo ovládať. Nezasahuje do ostatných stránok.
 - [x] **Mapa — prvá konsolidácia ovládania:** výška vyhľadávania a filtrov, zaoblenie panelu a polí používajú schválené existujúce tokeny.
-- [ ] **CTA a tlačidlá:** skontrolovať významové varianty (primárne, sekundárne, menej výrazné, deaktivované), stav focus a minimálne dotykové rozmery na domovskej stránke, adresári, článkoch, podujatiach, plemenách a pomoci psom.
+- [x] **CTA a tlačidlá — druhá etapa:** Adresár (odoslanie/reset filtrov, mobilné akcie, bočné CTA), Pomoc psom (odoslanie/reset), Podujatia (filtrovanie/zoradenie), Plemená (ďalšie výsledky) používajú PublicActionButton/PublicActionLink. Odstránené kolízne lokálne farby a focus pravidlá; DOM označuje význam cez data-public-action.
+- [ ] **CTA a tlačidlá — zvyšok:** detaily/články, disabled stavy a ďalšie kontextové varianty.
 - [ ] **Vyhľadávanie a filtre:** porovnať vizuálne stavy, spúšťanie, reset, aktívne filtre a mobilný dialóg naprieč sekciami. Ponechať funkčné rozdiely potrebné pre konkrétne dáta.
-- [ ] **Karty a detaily:** zjednotiť hierarchiu nadpisov, rámy, obrázky, metadáta, medzery a CTA pri zachovaní typových variantov.
+- [x] **Karty — druhá etapa:** bočné CTA Adresára a karty podujatí používajú rám a zaoblenie z existujúcich tokenov. Obsah a obrázky ostávajú pôvodné.
+- [ ] **Karty a detaily — zvyšok:** hierarchia, obrázky, metadáta a ostatné typové varianty.
 - [ ] **Bannery, farby, písmo a hlášky:** zosúladiť existujúce kanonické varianty bez zásahov do obsahu.
 - [ ] **Všetky šírky a rozostupy:** skontrolovať nepravidelné lokálne max-width, sidebary a zarovnanie s hero na ostatných verejných routach.
 - [ ] **Vizuálna akceptácia:** porovnať desktop 1440 px a mobily 390/320 px na reprezentatívnych routach, vrátane filtrov, kariet a detailov.

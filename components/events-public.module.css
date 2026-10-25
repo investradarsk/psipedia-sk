@@ -1928,7 +1928,7 @@
 
 /* Public listing only: related/detail cards keep their existing presentation. */
 .listingLayout { display:grid; grid-template-columns:250px minmax(0,1fr); gap:24px; margin-top:24px; align-items:start; }
-.filterSidebar { min-width:0; padding:18px; background:white; border:1px solid #dfe5dd; border-radius:16px; }
+.filterSidebar { min-width:0; padding:18px; background:white; border:1px solid var(--ps-border-soft); border-radius:var(--ps-radius-filter,18px); }
 .mobileFilters > summary { display:none; }
 .mobileFilters:not([open]) + .sidebarContent { display:block; }
 .sidebarHeading h2 { font-size:1.1rem; color:#173f35; margin:0 0 8px; }
@@ -1940,12 +1940,12 @@
 .sidebarContent legend { font-weight:700; margin-bottom:6px; }
 .sidebarContent .typeChoice { display:flex; align-items:center; gap:8px; min-height:44px; }
 .typeChoice input { width:18px; height:18px; accent-color:#205443; }
-.sidebarContent button, .listHeading button { min-height:44px; border:0; border-radius:8px; padding:10px 14px; background:#205443; color:white; font:inherit; cursor:pointer; }
+/* Filter submit and sort actions use shared PublicActionButton, not local color rules. */
 .listingLayout .upcomingSection { margin:0; min-width:0; }
 .listingLayout .listHeading { display:flex; justify-content:space-between; align-items:start; gap:16px; flex-wrap:wrap; }
 .listHeading form { display:flex; gap:8px; align-items:end; max-width:100%; }
 .cardGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
-.gridCard { min-width:0; background:white; border:1px solid #dfe5dd; border-radius:14px; overflow:hidden; box-shadow:0 3px 10px #173f3509; }
+.gridCard { min-width:0; background:white; border:1px solid var(--ps-border-soft); border-radius:var(--ps-radius-card,22px); overflow:hidden; box-shadow:0 3px 10px #173f3509; }
 .gridCardLink { display:flex; flex-direction:column; height:100%; color:inherit; text-decoration:none; }
 .gridCardLink:hover h3 { text-decoration:underline; }
 .gridCardLink:focus-visible { outline:3px solid #287fca; outline-offset:-3px; }
@@ -1992,8 +1992,8 @@
 .monthCalendar, .upcomingSection, .dayDetail {
   scroll-margin-top: 126px;
 }
-.sidebarContent :is(input, select, button, a):focus-visible,
-.listHeading :is(select, button):focus-visible,
+.sidebarContent :is(input, select, a):focus-visible,
+.listHeading select:focus-visible,
 .pagination a:focus-visible {
   outline: 3px solid var(--forest);
   outline-offset: 3px;

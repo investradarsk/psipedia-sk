@@ -204,7 +204,7 @@ export function PublicActionLink({
   rel?: string;
 }) {
   return (
-    <Link className={cx(styles.action, actionVariantClass[variant], className)} href={href} target={target} rel={rel}>
+    <Link className={cx(styles.action, actionVariantClass[variant], className)} data-public-action={variant} href={href} target={target} rel={rel}>
       <span>{children}</span>
       {icon ? <PublicIcon icon={icon} size="sm" /> : null}
     </Link>
@@ -235,6 +235,7 @@ export function PublicActionButton({
       disabled={disabled || loading}
       aria-busy={loading ? true : ariaBusy}
       aria-label={loading ? loadingLabel : props["aria-label"]}
+      data-public-action={variant}
       className={cx(styles.action, actionVariantClass[variant], loading && styles.actionLoading, className)}
     >
       <span role={loading ? "status" : undefined} aria-live={loading ? "polite" : undefined}>
