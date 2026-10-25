@@ -49,8 +49,8 @@ test("directory, help and adoption cards follow compact shell and intentional me
   assert.match(directory, /\.directoryColumns \.cardImage\s*\{\s*width:\s*80px;\s*height:\s*80px;/);
   assert.match(directory.slice(directory.lastIndexOf("/* DS-5")), /\.cardImage\s*\{[\s\S]*?aspect-ratio:\s*1;/);
   assert.match(directory.slice(directory.lastIndexOf("/* DS-5")), /@media\s*\(max-width:\s*620px\)[\s\S]*?width:\s*68px;\s*height:\s*68px;/);
-  assert.match(adoption, /\.visual\{[^}]*aspect-ratio:4\/3;/);
-  assert.match(help, /\.media\{[^}]*aspect-ratio:4\/3;/);
+  assert.match(adoption, /\.visual\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3;/);
+  assert.match(help, /\.media\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3;/);
   assert.match(adoption, /\.imageFallback\s*\{/);
   assert.match(help, /\.mediaFallback\s*\{/);
 });
@@ -137,7 +137,7 @@ test("organization cards retain their approved central variant instead of inheri
   assert.match(css, /@media \(max-width: 620px\)/);
 });
 
-// Public visual consistency regressions remain part of the established DS-5 CI suite.
+// Public visual consistency regressions run within the established DS-5 suite.
 import "./public-map-wide-layout.test.mjs";
 import "./public-listing-card-consistency.test.mjs";
 import "./public-visual-consistency-actions.test.mjs";

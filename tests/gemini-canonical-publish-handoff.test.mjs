@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import { notionDirectoryPageBelongsToSource, NotionDirectoryUnsafeTargetError } from "../lib/notion-directory-update-safety.ts";
 import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
 import { geminiAgendaForKey } from "../lib/gemini-notion-agenda-review.ts";
 import { planGeminiPublishHandoff } from "../lib/gemini-canonical-publish-handoff.ts";
@@ -221,6 +222,8 @@ test("mapped Directory native publication pushes verified D1 status to the same 
       const context = {
         exports, structuredClone, reconcileProfileFields, trustedProfileBaselineFromHashes,
         gemini22PriorityEnabled: () => false,
+        notionDirectoryPageBelongsToSource,
+        NotionDirectoryUnsafeTargetError,
         getManagedDirectoryProfileById: async () => profile,
         fetchNotionPage: async () => {throw Error("Should reuse the explicit page");},
         propertyText: (page,key) => key === "Psipedia ID" ? "77" : "",
@@ -241,10 +244,12 @@ test("mapped Directory native publication pushes verified D1 status to the same 
       runInNewContext(js, context);
       const mapping = {notion_page_id: id, directory_profile_id: 77,
         content_hash: "draft", notion_last_edited_time: "notion-original"};
-      const page = {id: pageId, status: notionStatus, last_edited_time: "notion-original"};
+      const dataSourceId = "84e0664c-ca47-405f-9d54-31b20287bc8c";
+      const page = {id: pageId, status: notionStatus, last_edited_time: "notion-original",
+        parent: { type: "data_source_id", data_source_id: dataSourceId }};
       const run = () => exports.syncMappedPage({database: {}, bindings: {
         NOTION_GEMINI_22_PRIORITY_A_ENABLED: "false",
-      }, dataSourceId: "configured-notion-source", mapping, page});
+      }, dataSourceId, mapping, page});
       return {run, writes, edits, profiles};
     }
     const accepted = await scenario("draft");

@@ -19,7 +19,8 @@ import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runArticlePublishNotionReconciliation } from "../lib/article-publish-notion-reconciliation";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
-import {runSimpleServiceCatalogSync} from "../lib/service-catalog-simple-sync.ts";
+import { runServicesV3CatalogAutoSweep } from "../lib/service-catalog-notion-auto-sweep.ts";
+import { notionSyncHealth, notionAgendaHealth } from "../lib/notion-sync-health.ts";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
 import {
   runNotionDirectoryBootstrapSweep,
@@ -336,6 +337,7 @@ const worker = {
       const notionFacebookImagesTask = runNotionFacebookImagesSync({database:env.DB,bindings:env})
         .then((summary) => {
           console.info(JSON.stringify({event:"notion_facebook_images_sync",...summary}));
+    console.info(JSON.stringify(notionSyncHealth("facebook-images", summary)));
         }).catch(() => {
           // No provider payloads, signed image URLs, secrets or raw error messages.
           console.error(JSON.stringify({event:"notion_facebook_images_sync",result:"failed"}));
@@ -361,11 +363,14 @@ const worker = {
       // This task is isolated from article and other Notion sweeps.
       if(env.SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true"){
         _ctx.waitUntil(
-          runSimpleServiceCatalogSync({
-            db:env.DB,bindings:env,now:new Date(controller.scheduledTime??Date.now())
+          runServicesV3CatalogAutoSweep({
+            db: env.DB,
+            bindings: env,
+            now: new Date(controller.scheduledTime ?? Date.now()),
           }).then(summary=>{
             // Never log provider bodies or credentials.
             console.info(JSON.stringify({event:"services_v3_notion_auto",...summary}));
+    console.info(JSON.stringify(notionSyncHealth("service-catalog", summary)));
           }).catch(()=>{
             console.error(JSON.stringify({event:"services_v3_notion_auto",state:"BLOCKED",reason:"SWEEP_ERROR"}));
           })
@@ -618,7 +623,10 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
     console.info(JSON.stringify({ ...notionEventsHelp, event: "notion_events_help_sync_sweep" }));
+    console.info(JSON.stringify(notionSyncHealth("events-help", notionEventsHelp)));
+    for (const record of notionAgendaHealth(notionEventsHelp)) console.info(JSON.stringify(record));
     console.info(JSON.stringify({ event: "notion_directory_sync_sweep", ...notionDirectory }));
+    console.info(JSON.stringify(notionSyncHealth("directory", notionDirectory)));
     console.info(JSON.stringify({ event: "notion_eshop_sync_sweep", ...notionEshops }));
     console.info(JSON.stringify({ event: "media_source_quality_sweep", ...mediaSourceQuality }));
     console.info(JSON.stringify({ event: "partner_media_cleanup", ...partnerMediaCleanup }));

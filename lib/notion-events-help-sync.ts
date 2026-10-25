@@ -1,4 +1,5 @@
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
+import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import { geminiImportAgenda } from "./gemini-notion-provenance.ts";
 import { resolveGeminiPublicSlug, type GeminiSlugAgenda } from "./gemini-public-slug.ts";
 import { notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
@@ -47,12 +48,14 @@ import {
   appendNotionReview,
   canClearResolvedNotionConflict,
   emptyNotionReviewQueue,
+  notionConflictMetadataNeedsWrite,
   type NotionReviewQueue,
 } from "./notion-data-quality-recovery.ts";
 import {
   notionSeoSchemaExtensionFields,
   notionSeoSchemaExtensionIsDefault,
 } from "./notion-seo-contract.ts";
+import { requireNotionWritebackEvidence } from "./notion-sync-writeback-evidence.ts";
 import {
   notionRequest,
   sha256Text,
@@ -227,6 +230,7 @@ function pageProperty(page: NotionPage, name: string): ReconciliationValue {
   if (typeof record.checkbox === "boolean") return record.checkbox;
   if (typeof record.number === "number") return record.number;
   if (record.select && typeof record.select === "object") return clean((record.select as Record<string, unknown>).name);
+  if (record.status && typeof record.status === "object") return clean((record.status as Record<string, unknown>).name);
   if (record.date && typeof record.date === "object") return clean((record.date as Record<string, unknown>).start);
   return "";
 }
@@ -349,6 +353,19 @@ function pageSnapshot(
       .filter((name) => Boolean(schema[name]))
       .map((name) => [name, pageProperty(page, name)]),
   ) as Record<string, ReconciliationValue>;
+}
+
+async function requireVerifiedMappedNotionWriteback(input: {
+  written: NotionPage;
+  expectedPageId: string;
+  agenda: BidirectionalAgendaKey;
+  schema: Record<string, DataSourceProperty>;
+  expectedHash: string;
+}) {
+  await requireNotionWritebackEvidence(
+    input.written, input.expectedPageId, input.expectedHash,
+    (page) => snapshotHash(input.agenda, pageSnapshot(input.agenda, page, input.schema)),
+  );
 }
 
 async function snapshotHash(
@@ -550,7 +567,13 @@ async function markConflict(input: {
   pageId: string;
   schema: Record<string, DataSourceProperty>;
   message: string;
+  page?: NotionPage;
 }) {
+  if (input.page?.id === input.pageId && !notionConflictMetadataNeedsWrite({
+    syncStatus: clean(pageProperty(input.page, "Sync stav")),
+    syncError: clean(pageProperty(input.page, "Sync chyba")),
+    message: input.message,
+  })) return;
   const properties = encodeProperties({
     "Sync stav": "Chyba",
     "Sync chyba": `CONFLICT: ${input.message}`.slice(0, 1800),
@@ -657,8 +680,22 @@ async function syncAgenda(input: {
   let sources = await input.definition.load(input.database);
   const pages = await listAllPages(input.bindings, target.dataSourceId);
   summary.scanned = pages.length;
-  const identities = pages.map(identityPage);
-  const pagesById = new Map(pages.map((page) => [page.id, page]));
+  // Never infer authority from a Notion query result alone. Cross-check the
+  // actual parent and trash/archive metadata before identity matching,
+  // canonical imports, or ANY PATCH (including Sync chyba metadata).
+  const writablePages = pages.filter((page) =>
+    notionPageBelongsToDataSource(page, target.dataSourceId!));
+  for (const page of pages) {
+    if (notionPageBelongsToDataSource(page, target.dataSourceId)) continue;
+    summary.conflicts += 1;
+    appendNotionReview(summary.reviewQueue, {
+      entityId: null, notionPageId: page.id, reason: "IDENTITY_CONFLICT",
+      fields: ["Notion data source"], baselineAvailable: false,
+      notionChanged: null, psipediaChanged: null,
+    });
+  }
+  const identities = writablePages.map(identityPage);
+  const pagesById = new Map(writablePages.map((page) => [page.id, page]));
   // Targeted admin save still reads full source for identity conflicts, but
   // must never mutate a different Notion page or canonical profile.
   if (input.targetPageId && !pagesById.has(input.targetPageId))
@@ -718,6 +755,7 @@ async function syncAgenda(input: {
               bindings: input.bindings,
               pageId,
               schema,
+              page: pagesById.get(pageId),
               message: identity.reason,
             }).catch(() => undefined);
           }
@@ -739,6 +777,7 @@ async function syncAgenda(input: {
               bindings: input.bindings,
               pageId: identity.page.id,
               schema,
+              page: pagesById.get(identity.page.id),
               message: "Notion stránka je už namapovaná na iný Psipedia záznam.",
             }).catch(() => undefined);
           }
@@ -773,6 +812,7 @@ async function syncAgenda(input: {
               bindings: input.bindings,
               pageId: page.id,
               schema,
+              page,
               message: `Existujúci backfill záznam sa obsahovo líši od canonical Psipedia a nemá bezpečný baseline. Rozdielne polia: ${fields.join(", ") || "neznáme"}.`,
             }).catch(() => undefined);
           }
@@ -874,6 +914,7 @@ async function syncAgenda(input: {
             bindings: input.bindings,
             pageId: page.id,
             schema,
+            page,
             message: "Namapovaná stránka má iné Psipedia ID.",
           });
         }
@@ -890,6 +931,7 @@ async function syncAgenda(input: {
             bindings: input.bindings,
             pageId: page.id,
             schema,
+            page,
             message: "Namapovaná stránka má inú URL Psipedia.",
           });
         }
@@ -930,6 +972,10 @@ async function syncAgenda(input: {
             schema,
             pageId: page.id,
           });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: canonicalHash,
+});
           const syncedAt = new Date().toISOString();
           const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
           await saveMapping({
@@ -962,6 +1008,7 @@ async function syncAgenda(input: {
               bindings: input.bindings,
               pageId: page.id,
               schema,
+              page,
               message: "Legacy mapping nemá bidirectional baseline a obe strany sa obsahovo líšia.",
             });
           }
@@ -1052,7 +1099,7 @@ async function syncAgenda(input: {
           });
           if (input.mode === "sync") {
             await markConflict({
-              bindings: input.bindings, pageId: page.id, schema,
+              bindings: input.bindings, pageId: page.id, schema, page,
               message: "LOSSLESS_FIELD_REVIEW_REQUIRED: " +
                 resolution.conflicts.map((c) => c.field + ":" + c.reason).join(", ").slice(0, 1300),
             });
@@ -1085,6 +1132,7 @@ async function syncAgenda(input: {
         // common mapping hash unless its editorial payload matches canonical.
         // Otherwise the next run could mistake an unacknowledged write for
         // a successful synchronization.
+        if (written.id !== page.id) throw new Error("NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH");
         if (!written.properties ||
             await snapshotHash(agenda, pageSnapshot(agenda, written, schema)) !== verifiedHash) {
           throw new Error("NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH");
@@ -1159,6 +1207,10 @@ async function syncAgenda(input: {
           schema,
           pageId: page.id,
         });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: "events",
+  schema, expectedHash: await snapshotHash("events", editableSnapshot("events", resolvedSource.properties, schema)),
+});
         const syncedAt = new Date().toISOString();
         await saveMapping({
           database: input.database,
@@ -1225,6 +1277,10 @@ async function syncAgenda(input: {
           schema,
           pageId: page.id,
         });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: agenda,
+  schema, expectedHash: await snapshotHash(agenda, editableSnapshot(agenda, resolvedSource.properties, schema)),
+});
         const syncedAt = new Date().toISOString();
         await saveMapping({
           database: input.database,
@@ -1260,6 +1316,7 @@ async function syncAgenda(input: {
             bindings: input.bindings,
             pageId: page.id,
             schema,
+            page,
             message: conflictMessage.slice("CONFLICT: ".length),
           });
         }
@@ -1316,6 +1373,10 @@ async function syncAgenda(input: {
             schema,
             pageId: page.id,
           });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: canonicalHash,
+});
           const syncedAt = new Date().toISOString();
           const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
           await saveMapping({
@@ -1373,6 +1434,10 @@ async function syncAgenda(input: {
           schema,
           pageId: page.id,
         });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: updatedHash,
+});
         const syncedAt = new Date().toISOString();
         const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
         await saveMapping({
@@ -1397,6 +1462,10 @@ async function syncAgenda(input: {
         schema,
         pageId: page.id,
       });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: canonicalHash,
+});
       const syncedAt = new Date().toISOString();
       const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
       await saveMapping({
@@ -1425,7 +1494,7 @@ async function syncAgenda(input: {
   mappings = input.mode === "dry-run" ? mappings : await loadMappings(input.database, input.definition.key);
   const mappedPageIds = new Set(mappings.map((mapping) => mapping.notion_page_id));
 
-  for (const page of pages) {
+  for (const page of writablePages) {
     if (input.targetPageId && page.id !== input.targetPageId) continue;
     if (mappedPageIds.has(page.id)) continue;
     // The generic Help editor does not own these categories, even when an
@@ -1541,6 +1610,7 @@ async function syncAgenda(input: {
           bindings: input.bindings,
           pageId: page.id,
           schema,
+          page,
           message: `Canonical záznam už existuje pre slug/URL (Psipedia ID: ${duplicate}).`,
         }).catch(() => undefined);
       }
@@ -1621,6 +1691,10 @@ async function syncAgenda(input: {
         schema,
         pageId: page.id,
       });
+await requireVerifiedMappedNotionWriteback({
+  written, expectedPageId: page.id, agenda: input.definition.key,
+  schema, expectedHash: hash,
+});
       const syncedAt = new Date().toISOString();
       const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
       await saveMapping({
@@ -1840,7 +1914,8 @@ export async function ensureManagedEventInNotion(input: {
   const schema=dataSource.properties ?? {};
   if(!["Názov","Psipedia ID","URL Psipedia"].every(name=>Boolean(schema[name])))
     throw new Error("GEMINI_EVENT_NOTION_SCHEMA_INVALID");
-  const pages=await listAllPages(input.bindings,target.dataSourceId);
+  const pages=(await listAllPages(input.bindings,target.dataSourceId))
+    .filter(page => notionPageBelongsToDataSource(page,target.dataSourceId!));
   const mappings=await loadMappings(input.database,"events");
   const existing=mappings.find(m=>Number(m.entity_id)===input.eventId);
   const canonicalHash=await snapshotHash("events",editableSnapshot("events",source.properties,schema));

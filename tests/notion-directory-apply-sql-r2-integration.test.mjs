@@ -10,6 +10,10 @@ import {
   reconcileProfileFields,
   trustedProfileBaselineFromHashes,
 } from "../lib/notion-profile-field-reconciliation.ts";
+import {
+  notionDirectoryPageBelongsToSource,
+  NotionDirectoryUnsafeTargetError,
+} from "../lib/notion-directory-update-safety.ts";
 
 // Execute the real production Notion apply function, not a reimplementation of
 // its ordering. Canonical UPDATE SQL and R2 reference-check SQL execute on real
@@ -162,6 +166,8 @@ function fixture(options = {}) {
     async loadGeoMirror() { return null; },
     trustedProfileBaselineFromHashes,
     reconcileProfileFields,
+    notionDirectoryPageBelongsToSource,
+    NotionDirectoryUnsafeTargetError,
     profileSnapshot(profile) {
       return {
         ...desired,
@@ -194,10 +200,12 @@ function fixture(options = {}) {
   const run = () => ctx.exports.applyNotionToProfile({
     database: db, bindings: { BUCKET: bucket }, page: { id: "notion-page-1" }, profile: current,
   });
+  const dataSourceId = "84e0664c-ca47-405f-9d54-31b20287bc8c";
   const runMappedWorker = () => ctx.exports.syncMappedPage({
-    database: db, bindings: { BUCKET: bucket }, dataSourceId: "test-notion-source",
+    database: db, bindings: { BUCKET: bucket }, dataSourceId,
     mapping: { directory_profile_id: 1, notion_page_id: "notion-page-1", content_hash: "stable-profile-hash", notion_last_edited_time: null },
-    page: { id: "notion-page-1", last_edited_time: "2026-10-14T09:00:00.000Z" },
+    page: { id: "notion-page-1", last_edited_time: "2026-10-14T09:00:00.000Z",
+      parent: { type: "data_source_id", data_source_id: dataSourceId } },
   });
   return { run, runMappedWorker, read, initial, deleted, objects, calls, sqlite, bucket, db };
 }

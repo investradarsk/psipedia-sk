@@ -1,3 +1,5 @@
+import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
+
 /**
  * Conservative policy for a Notion-to-canonical DIRECTORY update.
  *
@@ -39,4 +41,37 @@ export function canRecoverNotionDirectoryMapping(
   notionHash: string,
 ): boolean {
   return Boolean(canonicalHash) && canonicalHash === notionHash;
+}
+
+/**
+ * Mapped Notion Directory pages must remain in the configured canonical data
+ * source. A moved, trashed, or wrong-parent page is never a safe PATCH target.
+ * This guard uses existing page metadata and needs no D1 migration.
+ */
+/** A foreign/moved page must never receive even a Sync chyba metadata PATCH. */
+export class NotionDirectoryUnsafeTargetError extends Error {}
+
+export function notionDirectoryPageBelongsToSource(
+  page: {
+    archived?: boolean;
+    in_trash?: boolean;
+    parent?: { type?: string; data_source_id?: string };
+  },
+  expectedDataSourceId: string,
+): boolean {
+  return notionPageBelongsToDataSource(
+    { id: "directory-page", ...page },
+    expectedDataSourceId,
+  );
+}
+
+/** Skip an unchanged failure marker to avoid Notion revision churn.
+ * A changed error still replaces the old state; no canonical content changes.
+ */
+export function directorySyncErrorMetadataNeedsWrite(input: {
+  syncStatus: string;
+  syncError: string;
+  message: string;
+}): boolean {
+  return input.syncStatus !== "Chyba" || input.syncError !== input.message.slice(0, 1800);
 }

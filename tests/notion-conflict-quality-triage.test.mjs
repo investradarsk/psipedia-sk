@@ -97,3 +97,12 @@ test("integration is read-only, reports do not export identifiers or cursors", a
   assert.doesNotMatch(ui, /checkpoint: lastBatch\?\.resume/);
   assert.match(quality, /href="\/admin\/nastroje\/notion-audit"/);
 });
+
+test("manual conflict playbook never applies bulk Notion/D1 writes", async () => {
+  const ui = await readFile(new URL("../components/admin-notion-data-quality-audit.tsx", import.meta.url), "utf8");
+  const section = ui.slice(ui.indexOf("Ako bezpečne vyriešiť konflikt Notion"));
+  assert.match(section, /upravuj výhradne cez príslušný Admin editor/);
+  assert.match(section, /Správnu hodnotu musí potvrdiť človek/);
+  assert.match(section, /Táto kontrola nevykonáva žiadny zápis/);
+  assert.match(section, /Otvoriť editor/);
+});

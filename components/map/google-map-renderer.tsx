@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MapCluster, MapItem } from "@/lib/map-contract";
@@ -23,7 +24,13 @@ export type MapRendererStatus = "ready" | "loading" | "missing-config" | "load-e
 export type MapRendererCommand =
   | { key: number; type: "item"; id: string; latitude: number; longitude: number; zoom?: number }
   | { key: number; type: "cluster"; id: string; latitude: number; longitude: number; zoom: number }
-  | { key: number; type: "fit"; bounds: { north: number; south: number; east: number; west: number }; padding?: number; maxZoom?: number };
+  | {
+      key: number;
+      type: "fit";
+      bounds: { north: number; south: number; east: number; west: number };
+      padding?: number;
+      maxZoom?: number;
+    };
 
 type Props = {
   apiKey: string;
@@ -67,7 +74,10 @@ type GoogleMapInstance = {
   panTo(position: LatLngLiteral): void;
   setZoom(zoom: number): void;
   setMapTypeId(mapTypeId: PublicMapType): void;
-  fitBounds(bounds: { north: number; south: number; east: number; west: number }, padding?: number): void;
+  fitBounds(
+    bounds: { north: number; south: number; east: number; west: number },
+    padding?: number,
+  ): void;
 };
 
 type GoogleMapConstructor = new (
@@ -122,7 +132,8 @@ function googleScriptUrl(apiKey: string) {
 }
 
 function loadGoogleMaps(apiKey: string) {
-  if (typeof window === "undefined") return Promise.reject(new Error("Google Maps requires a browser."));
+  if (typeof window === "undefined")
+    return Promise.reject(new Error("Google Maps requires a browser."));
   if (window.google?.maps?.importLibrary) return Promise.resolve(window.google);
   if (googleLoaderPromise) return googleLoaderPromise;
 
@@ -137,7 +148,11 @@ function loadGoogleMaps(apiKey: string) {
 
     if (existing) {
       existing.addEventListener("load", finish, { once: true });
-      existing.addEventListener("error", () => reject(new Error("Google Maps script failed to load.")), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Google Maps script failed to load.")),
+        { once: true },
+      );
       return;
     }
 
@@ -145,10 +160,14 @@ function loadGoogleMaps(apiKey: string) {
     script.async = true;
     script.src = googleScriptUrl(apiKey);
     script.dataset.psipediaGoogleMaps = "1";
-    script.addEventListener("error", () => {
-      googleLoaderPromise = null;
-      reject(new Error("Google Maps script failed to load."));
-    }, { once: true });
+    script.addEventListener(
+      "error",
+      () => {
+        googleLoaderPromise = null;
+        reject(new Error("Google Maps script failed to load."));
+      },
+      { once: true },
+    );
     document.head.appendChild(script);
   });
 
@@ -162,13 +181,7 @@ function markerSymbol(item: MapItem) {
 }
 
 function itemSignature(item: MapItem) {
-  return [
-    item.latitude,
-    item.longitude,
-    item.entityType,
-    item.precision,
-    item.name,
-  ].join("|");
+  return [item.latitude, item.longitude, item.entityType, item.precision, item.name].join("|");
 }
 
 function clusterSignature(cluster: MapCluster) {
@@ -190,7 +203,9 @@ function markerClass(item: MapItem, selected: boolean) {
     item.entityType === "event" ? styles.eventMarker : "",
     item.precision !== "EXACT" ? styles.approximateMarker : "",
     selected ? styles.selectedMarker : "",
-  ].filter(Boolean).join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function detachGoogleMarker(marker: GoogleAdvancedMarkerElement) {
@@ -282,7 +297,12 @@ function TestMapRenderer({
   }, [command, onViewportChange]);
 
   return (
-    <div className={styles.testMap} data-testid="map-test-renderer" data-map-init-count="1" data-map-type={mapType}>
+    <div
+      className={styles.testMap}
+      data-testid="map-test-renderer"
+      data-map-init-count="1"
+      data-map-type={mapType}
+    >
       <div className={styles.testMapLabel}>Testovací renderer mapy</div>
       <div className={styles.testMarkerLayer}>
         {clusters.map((cluster) => (
@@ -348,9 +368,15 @@ export function GoogleMapRenderer(props: Props) {
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => { onViewportChangeRef.current = onViewportChange; }, [onViewportChange]);
-  useEffect(() => { onSelectItemRef.current = onSelectItem; }, [onSelectItem]);
-  useEffect(() => { onClusterClickRef.current = onClusterClick; }, [onClusterClick]);
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
+  useEffect(() => {
+    onSelectItemRef.current = onSelectItem;
+  }, [onSelectItem]);
+  useEffect(() => {
+    onClusterClickRef.current = onClusterClick;
+  }, [onClusterClick]);
 
   useEffect(() => {
     mapTypeRef.current = mapType;
@@ -397,10 +423,10 @@ export function GoogleMapRenderer(props: Props) {
       onStatusChange("loading");
       try {
         const google = await loadGoogleMaps(apiKey);
-        const [mapsLibrary, markerLibrary] = await Promise.all([
+        const [mapsLibrary, markerLibrary] = (await Promise.all([
           google.maps.importLibrary("maps"),
           google.maps.importLibrary("marker"),
-        ]) as [
+        ])) as [
           { Map: GoogleMapConstructor },
           { AdvancedMarkerElement: GoogleAdvancedMarkerConstructor },
         ];
@@ -625,23 +651,35 @@ export function GoogleMapRenderer(props: Props) {
         role="region"
         aria-label={ariaLabel}
         onPointerDownCapture={() => {
-          traceMapDebug("renderer:user-pointer", { pending: mapTypeIdleSuppressionRef.current.pending });
+          traceMapDebug("renderer:user-pointer", {
+            pending: mapTypeIdleSuppressionRef.current.pending,
+          });
           cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
         }}
         onWheelCapture={() => {
-          traceMapDebug("renderer:user-wheel", { pending: mapTypeIdleSuppressionRef.current.pending });
+          traceMapDebug("renderer:user-wheel", {
+            pending: mapTypeIdleSuppressionRef.current.pending,
+          });
           cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
         }}
         onKeyDownCapture={() => {
-          traceMapDebug("renderer:user-key", { pending: mapTypeIdleSuppressionRef.current.pending });
+          traceMapDebug("renderer:user-key", {
+            pending: mapTypeIdleSuppressionRef.current.pending,
+          });
           cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
         }}
       />
       {configMissing || !ready ? (
-        <div className={styles.rendererFallback} role="status" aria-live="polite">
+        <PublicNotice
+          as="div"
+          appearance="context"
+          className={styles.rendererFallback}
+          role="status"
+          aria-live="polite"
+        >
           <strong>{fallbackText}</strong>
           <span>Výsledky môžeš stále prehliadať v zozname.</span>
-        </div>
+        </PublicNotice>
       ) : null}
     </div>
   );
