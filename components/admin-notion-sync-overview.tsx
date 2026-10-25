@@ -12,10 +12,21 @@ type OverviewRow = {
   lastMappingAt: string | null;
 };
 
+type RunReceipt = {
+  area: "directory" | "events-help";
+  status: "UNKNOWN" | "STARTED" | "STALE" | "SUCCESS" | "NO_CHANGE" | "PARTIAL_SUCCESS" | "FAILED" | "SKIPPED" | "CANCELLED";
+  recordedAt: string | null;
+  runId: string | null;
+  conflicts: number | null;
+  errors: number | null;
+};
+
 type OverviewResponse = {
   readOnly: true;
   basis: "EXISTING_D1_MAPPING_HISTORY";
   liveNotionStatus: "UNKNOWN";
+  runBasis: "EXISTING_ADMIN_AUTOMATION_EVENTS";
+  runs: Record<RunReceipt["area"], RunReceipt>;
   checkedAt: string;
   rows: OverviewRow[];
 };
@@ -26,6 +37,26 @@ const stateLabels: Record<OverviewRow["status"], string> = {
   SCHEMA_UNAVAILABLE: "Chýba schéma",
   UNKNOWN: "Neoverené",
 };
+
+const runLabels: Record<RunReceipt["status"], string> = {
+  UNKNOWN: "Neoverené",
+  STARTED: "Prebieha",
+  STALE: "Bez potvrdeného dokončenia",
+  SUCCESS: "Dokončené",
+  NO_CHANGE: "Bez zmien",
+  PARTIAL_SUCCESS: "Čiastočný úspech",
+  FAILED: "Zlyhalo",
+  SKIPPED: "Preskočené",
+  CANCELLED: "Zrušené",
+};
+
+function runForArea(area: string, runs: OverviewResponse["runs"]): RunReceipt | null {
+  if (area === "directory") return runs.directory;
+  if (["events", "organizations", "adoptions", "help-cases", "lost-found"].includes(area)) {
+    return runs["events-help"];
+  }
+  return null;
+}
 
 const countLabels: Record<OverviewRow["evidence"], string> = {
   MAPPINGS: "mapovaní",
@@ -50,7 +81,10 @@ async function fetchOverview(): Promise<OverviewResponse> {
   if (!response.ok) throw new Error("HTTP_ERROR");
   const result = await response.json() as Partial<OverviewResponse>;
   if (result.readOnly !== true || result.basis !== "EXISTING_D1_MAPPING_HISTORY"
-    || result.liveNotionStatus !== "UNKNOWN" || !Array.isArray(result.rows)) {
+    || result.liveNotionStatus !== "UNKNOWN"
+    || result.runBasis !== "EXISTING_ADMIN_AUTOMATION_EVENTS"
+    || !result.runs || !result.runs.directory || !result.runs["events-help"]
+    || !Array.isArray(result.rows)) {
     throw new Error("INVALID_RESPONSE");
   }
   return result as OverviewResponse;
@@ -124,6 +158,8 @@ export function AdminNotionSyncOverview() {
                   <th scope="col">Evidencia</th>
                   <th scope="col">Počet</th>
                   <th scope="col">Posledný zapísaný sync</th>
+                  <th scope="col">Posledný beh automatizácie</th>
+                  <th scope="col">Konflikty / chyby v behu</th>
                 </tr>
               </thead>
               <tbody>
@@ -133,6 +169,18 @@ export function AdminNotionSyncOverview() {
                     <td>{stateLabels[row.status]}</td>
                     <td>{row.count === null ? "Neznámy" : String(row.count) + " " + countLabels[row.evidence]}</td>
                     <td>{row.evidence === "LINKED_POSTS" ? "Neeviduje sa" : formatDate(row.lastMappingAt)}</td>
+                    <td>{(() => {
+                      const run = runForArea(row.area, snapshot.runs);
+                      return run
+                        ? runLabels[run.status] + (run.recordedAt ? " · " + formatDate(run.recordedAt) : "")
+                        : "Záznam behu nie je dostupný";
+                    })()}</td>
+                    <td>{(() => {
+                      const run = runForArea(row.area, snapshot.runs);
+                      return !run || (run.conflicts === null && run.errors === null)
+                        ? "Neoverené"
+                        : `${run.conflicts ?? "?"} / ${run.errors ?? "?"}`;
+                    })()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -140,8 +188,11 @@ export function AdminNotionSyncOverview() {
           </div>
           <p className={styles.progress}>
             D1 evidencia načítaná: {formatDate(snapshot.checkedAt)}.
-            Toto nie je živý stav synchronizátora. Čas posledného mapovania nedokazuje
-            aktuálnu dostupnosť Notionu ani zhodu obsahu. Konflikty skontroluj v audite nižšie.
+            Posledný beh je doložený uloženou udalosťou automatizácie; Podujatia a päť oblastí Pomoci psom
+            zdieľajú jednu hodinovú úlohu, takže zobrazujú spoločný výsledok, nie samostatné overenie každej oblasti.
+            Ak chýba záznam, údaj zostáva neoverený. Toto nie je živý stav synchronizátora.
+            Čas posledného mapovania ani úspešný beh nedokazuje aktuálnu dostupnosť Notionu či zhodu obsahu.
+            Konflikty skontroluj v audite nižšie.
           </p>
         </>
       ) : null}

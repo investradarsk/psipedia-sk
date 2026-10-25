@@ -28,7 +28,8 @@
 - [x] **4B-2a:** každý mapped Events/Help zápis kontroluje identitu stránky a hash odrazeného obsahu ešte pred aktualizáciou D1 mappingu; zlyhanie API echo neznamená potvrdený sync.
 - [ ] **4B-2b:** doplniť runtime testy autentifikovaných operácií, súbehu a role agend po úspešnom CI (zvlášť publikovanie a súkromné údaje).
 - [x] **5A:** spoločný read-only prehľad ôsmich oblastí na existujúcej admin stránke Notion auditu, založený na D1 evidencii bez Notion API dopytov.
-- [ ] **5B:** živý stav posledných behov (úspech, chyba, čaká, konflikt) až po zavedení dôveryhodných run receipts; neodvodzovať ho zo starých mapovaní.
+- [x] **5B-1:** posledný zaznamenaný beh Adresára a zdieľanej Events/Help automatizácie cez už existujúce `admin_notification_events` (Admin automation run STARTED/terminal receipts); bez migrácie a bez odhadu per-agenda výsledkov. UI rozlišuje neoverené, prebieha, po lehote, úspech, čiastočný úspech, zlyhanie, preskočené.
+- [ ] **5B-2:** samostatné živé receipts pre katalóg a FB obrázky nie sú v existujúcej schéme rovnocenne dostupné; zatiaľ explicitne NEOVERENÉ. Voliteľné rozšírenie iba pri schválení ďalšieho per-run eventu, nie odhadom z mapping timestamps.
 - [ ] **6:** integračné testy Admin → D1 → Notion a povolených Notion → D1 zmien pre každú agendu, vrátane opakovania, súbehu, chybných ID a nedostupného Notion API.
 - [ ] **7:** read-only produkčné preverenie schém, prepojení, povolení a nasadených flagov; následný rollout len po explicitnom schválení používateľa.
 
@@ -101,3 +102,7 @@ V existujúcich vetvách Events/Help bolo možné po čiastočnej alebo nespráv
 ### CI oprava izolovaného Gemini import testu po 4B-2a
 
 Test `tests/gemini-canonical-save-sync.test.mjs` predtým simuloval úspešný Notion PATCH objektom iba s `last_edited_time`, čo je podľa nového kontraktu nedôveryhodná čiastočná odpoveď. Fixture teraz vracia ID stránky a `properties` a používa skutočný `requireNotionWritebackEvidence`; samostatný `partialNotionEcho` prípad musí zlyhať, zachovať import lock a **nepotvrdiť** mapovanie po neistom remote výsledku.
+
+## Fáza 5B-1 — skutočné záznamy behov bez migrácie
+
+Admin Notification events už ukladajú idempotentné transitions automatizácií `notion/directory` a `notion/events-help`. Read-only `lib/notion-sync-run-receipts.ts` číta nanajvýš dve posledné udalosti, kontroluje typ, run ID a reálny čas, rozlišuje `STARTED` a nedokončený `STALE`, ukladá iba číselné agregáty konflikty/chyby uvedené priamo interným producentom. Bez udalosti či schémy zostáva `UNKNOWN`. V Admin UI je výsledok udalosti **skupiny events-help zobrazený ako zdieľaný**, nie ako individuálny dôkaz úspechu piatich agend. Katalóg a FB obrázky zostávajú „Záznam behu nie je dostupný“, nakoľko ich bežný Worker nezapisuje tým istým spôsobom. Úspešná udalosť *nepreukazuje Notion online ani obsahovú zhodu*; produkčný read-only preflight zostáva povinný.

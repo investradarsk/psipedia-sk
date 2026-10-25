@@ -80,3 +80,42 @@ test("overview endpoint is admin-only, no-store and never launches Notion writes
   assert.match(source, /"EXISTING_D1_MAPPING_HISTORY"/);
   assert.doesNotMatch(source, /notionRequest|runNotionEventsHelpSyncSweep|runNotionDirectorySyncSweep/);
 });
+
+test("run receipts read only existing persisted Automation Run transitions", async () => {
+  const { readNotionRunReceipts, parseNotionRunReceipt } = await import("../lib/notion-sync-run-receipts.ts");
+  const recordedAt = "2026-10-25T16:00:05Z";
+  const runId = String(Date.parse("2026-10-25T16:00:00Z"));
+  const receipt = (event_type, body = "Automatická kontrola dokončená. chýb: 0, konfliktov na kontrolu: 2.") => ({
+    event_type, resource_ref: runId, created_at: recordedAt, body,
+  });
+  const now = new Date("2026-10-25T16:05:00Z");
+  const db = {
+    prepare(sql) {
+      assert.match(sql, /^SELECT /);
+      assert.match(sql, /source_type='AUTOMATION_RUN'/);
+      assert.match(sql, /actor_ref=\?/);
+      assert.match(sql, /ORDER BY id DESC LIMIT 1/);
+      return { bind(scope, ...events) {
+        assert.ok(events.includes("automation_run_failed"));
+        return { first: async () => scope === "notion/directory"
+          ? receipt("automation_run_success") : receipt("automation_run_partial_success") };
+      } };
+    },
+  };
+  const rows = await readNotionRunReceipts(db, now);
+  assert.equal(rows.directory.status, "SUCCESS");
+  assert.equal(rows["events-help"].status, "PARTIAL_SUCCESS");
+  assert.equal(rows["events-help"].conflicts, 2);
+  assert.equal(rows["events-help"].errors, 0);
+  assert.equal(rows.directory.runId, runId);
+  assert.equal(parseNotionRunReceipt("directory", receipt("automation_run_started"), now).status, "STARTED");
+  assert.equal(parseNotionRunReceipt("directory", receipt("automation_run_started"), new Date("2026-10-25T19:00:00Z")).status, "STALE");
+  assert.equal(parseNotionRunReceipt("directory", receipt("automation_run_failed"), now).status, "FAILED");
+  assert.equal(parseNotionRunReceipt("directory", receipt("automation_run_success", "Safe"), now).conflicts, null);
+  assert.equal(parseNotionRunReceipt("directory", { ...receipt("automation_run_success"), resource_ref:"FAKE_ID" }, now).status, "UNKNOWN");
+  assert.equal(parseNotionRunReceipt("directory", { ...receipt("automation_run_success"), event_type: "untrusted_status" }, now).status, "UNKNOWN");
+  const noSchema = { prepare() { throw Error("no such table"); } };
+  const unknown = await readNotionRunReceipts(noSchema, now);
+  assert.equal(unknown.directory.status, "UNKNOWN");
+  assert.equal(unknown["events-help"].status, "UNKNOWN");
+});
