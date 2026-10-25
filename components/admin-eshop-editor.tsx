@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
+import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
+import { adminSelectedImage } from "@/lib/admin-selected-image";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import type { ManagedEshop } from "@/lib/eshop-ratings";
 import { AdminActionButton } from "@/components/admin-interaction-system";
@@ -42,8 +44,8 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   });
   const dirty = currentSignature !== savedSignature;
 
-  async function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function uploadLogo(event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(true);
     setMessage("");
@@ -57,7 +59,6 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       setError(uploadError instanceof Error ? uploadError.message : "Logo sa nepodarilo nahrať.");
     } finally {
       setUploading(false);
-      event.target.value = "";
     }
   }
 
@@ -184,10 +185,8 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         <div className={styles.logoRow}>
           <div className={styles.logoPreview}>{logoUrl ? <img src={logoUrl} alt={`Logo ${name}`} /> : <span>LOGO</span>}</div>
           <div className={styles.logoActions}>
-            <label className={styles.uploadButton}>
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadLogo} disabled={uploading} />
-              {uploading ? "Nahrávam…" : logoUrl ? "Nahrať iné logo" : "Nahrať logo"}
-            </label>
+            <AdminSingleImageUpload label={logoUrl ? "Nahrať iné logo" : "Nahrať logo"}
+              onFile={uploadLogo} busy={uploading} disabled={saving} onRejected={setError}/>
             <label><span>URL loga</span><input value={logoUrl} onChange={(event) => { setLogoUrl(event.target.value); setLogoKey(""); }} placeholder="https://… alebo /media/…" /></label>
             {logoUrl ? <button type="button" className={styles.remove} onClick={() => { setLogoUrl(""); setLogoKey(""); }}>Odstrániť logo</button> : null}
           </div>
