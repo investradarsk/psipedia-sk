@@ -187,7 +187,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       {message && <p className="admin-flash" role="status">{message}</p>}
 
       <div className={styles.list} aria-busy={busy}>
-        {pageData.items.map((breed) => <article className={styles.row} key={breed.id}>
+        {pageData.items.map((breed) => <article data-admin-breed-row className={styles.row} key={breed.id}>
           <input aria-label={`Vybrať ${breed.name}`} type="checkbox" checked={selected.has(breed.id)} disabled={busy} onChange={() => toggle(breed.id)}/>
           <div className={styles.thumb}>{breed.image ? <img src={breed.image} alt="" loading="lazy" decoding="async"/> : <span>Bez<br/>obrázka</span>}</div>
           <div className={styles.identity}>
