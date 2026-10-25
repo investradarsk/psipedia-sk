@@ -647,6 +647,8 @@ async function syncAgenda(input: {
   isEnabled: boolean;
   ready: boolean;
   targetPageId?: string;
+  /** Webhooks reconcile only previously verified mappings; new pages use hourly import. */
+  webhookMappedOnly?: boolean;
   expectedNotionRevision?: string;
   reviewedLegacy?: boolean;
 }) {
@@ -678,7 +680,21 @@ async function syncAgenda(input: {
   }
 
   let sources = await input.definition.load(input.database);
-  const pages = await listAllPages(input.bindings, target.dataSourceId);
+  let pages: NotionPage[];
+  if (input.webhookMappedOnly && input.targetPageId) {
+    // Never enumerate the source just because one page changed. Limit this
+    // webhook fast path to an existing one-to-one mapping; unlinked pages
+    // remain handled by the original full hourly identity/duplicate checks.
+    const linked = (await loadMappings(input.database, input.definition.key))
+      .some(row => row.notion_page_id === input.targetPageId);
+    if (!linked) return summary;
+    const page = await notionRequest<NotionPage>(input.bindings, "/pages/" + encodeURIComponent(input.targetPageId));
+    if (page.id !== input.targetPageId || !notionPageBelongsToDataSource(page, target.dataSourceId))
+      throw new Error("NOTION_WEBHOOK_TARGET_UNSAFE");
+    pages = [page];
+  } else {
+    pages = await listAllPages(input.bindings, target.dataSourceId);
+  }
   summary.scanned = pages.length;
   // Never infer authority from a Notion query result alone. Cross-check the
   // actual parent and trash/archive metadata before identity matching,
@@ -1837,6 +1853,7 @@ export async function runNotionEventsHelpSyncSweep(input: {
   force?: boolean;
   agendas?: BidirectionalAgendaKey[];
   targetPageId?: string;
+  webhookMappedOnly?: boolean;
   expectedNotionRevision?: string;
   reviewedLegacy?: boolean;
 }): Promise<NotionEventsHelpSyncSummary> {
@@ -1844,6 +1861,8 @@ export async function runNotionEventsHelpSyncSweep(input: {
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.targetPageId) ||
     input.agendas?.length !== 1
   )) throw new Error("GEMINI_TARGETED_NOTION_SCOPE_INVALID");
+  if (input.webhookMappedOnly && (!input.targetPageId || input.agendas?.length !== 1))
+    throw new Error("NOTION_WEBHOOK_TARGET_SCOPE_REQUIRED");
   // Legacy review is limited to one explicit admin-confirmed Notion revision;
   // never an unattended full sweep or an unapproved source page.
   if (input.reviewedLegacy && (!input.targetPageId || !input.expectedNotionRevision ||
@@ -1866,6 +1885,7 @@ export async function runNotionEventsHelpSyncSweep(input: {
         isEnabled,
         ready,
         targetPageId: input.targetPageId,
+        webhookMappedOnly: input.webhookMappedOnly,
         expectedNotionRevision: input.expectedNotionRevision,
         reviewedLegacy: input.reviewedLegacy,
       }));
