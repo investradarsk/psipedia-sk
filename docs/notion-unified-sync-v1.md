@@ -97,3 +97,7 @@ Test `tests/notion-sync-overview.test.mjs` beží v existujúcom `test:notion-ev
 ## Fáza 4B-2a — dôkaz zápisu Notion pred aktualizáciou D1 mapovania
 
 V existujúcich vetvách Events/Help bolo možné po čiastočnej alebo nesprávnej odpovedi `PATCH /pages/{id}` posunúť `notion_agenda_sync` alebo `event_notion_sync` mapping na hash, ktorý Notion v skutočnosti nepotvrdil. Doplnili sme `lib/notion-sync-writeback-evidence.ts` a jeho mapovanú adaptáciu: správne page ID, prítomné properties a presný hash kanonického editorial snapshotu sú povinné **pred** `saveMapping`. Platí pri staršom SEO rozšírení, owner-gated priority módoch, mapovaných jednosmerných a obojsmerných zápisoch i writebacku po D1 create. Moderná trojcestná vetva si ponechala svoj existujúci inline hash guard a získala kontrolu ID. Žiadny fallback na LWW, zmenu statusu, novú databázu ani dodatočný cron. Nezachytené/čiastočné odpovede zostanú vyhodnotené ako chyba namiesto falošného úspechu; neistý remote commit sa nesmie automaticky vyhlásiť za úspešný.
+
+### CI oprava izolovaného Gemini import testu po 4B-2a
+
+Test `tests/gemini-canonical-save-sync.test.mjs` predtým simuloval úspešný Notion PATCH objektom iba s `last_edited_time`, čo je podľa nového kontraktu nedôveryhodná čiastočná odpoveď. Fixture teraz vracia ID stránky a `properties` a používa skutočný `requireNotionWritebackEvidence`; samostatný `partialNotionEcho` prípad musí zlyhať, zachovať import lock a **nepotvrdiť** mapovanie po neistom remote výsledku.
