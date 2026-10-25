@@ -6,7 +6,6 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import {
   readAdminAutomationData,
-  summarizeAdminAutomationReads,
 } from "@/lib/admin-automation-reliability";
 import {loadMissingQualityDashboard,getQualityMissingDatabase} from "@/lib/data-quality-missing-hourly";
 import {loadAdminWorkspaceFeed} from "@/lib/admin-workspace-feed";
@@ -26,28 +25,30 @@ function legacyArticleListHref(params: SearchParams) {
   return query.size ? `/admin/clanky?${query.toString()}` : "/admin/clanky";
 }
 
+function loadWorkspaceQuality() {
+  return readAdminAutomationData({
+    key: "admin-workspace:data-quality",
+    load: async () => {
+      const result = await loadMissingQualityDashboard(getQualityMissingDatabase());
+      if (!result.schemaReady) throw Error("Quality suggestions unavailable");
+      return { profilesWithCoreIssues: result.total, mediaIssues: 0 };
+    },
+    fallback: { profilesWithCoreIssues: 0, mediaIssues: 0 },
+    empty: (value) => value.profilesWithCoreIssues === 0 && value.mediaIssues === 0,
+  });
+}
+
 export default async function AdminPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireAdminPageUser("/admin");
   const params = await searchParams;
   const legacyHref = legacyArticleListHref(params);
   if (legacyHref) redirect(legacyHref);
 
-  const [attention, qualityRead, workspaceFeed] = await Promise.all([
-    loadExactAdminAttentionSummary(),
-    readAdminAutomationData({
-      key: "admin-workspace:data-quality",
-      load: async () => {
-        const result=await loadMissingQualityDashboard(getQualityMissingDatabase());
-        if(!result.schemaReady)throw Error("Quality suggestions unavailable");
-        return {profilesWithCoreIssues:result.total,mediaIssues:0};
-      },
-      fallback: { profilesWithCoreIssues: 0, mediaIssues: 0 },
-      empty: (value) => value.profilesWithCoreIssues === 0 && value.mediaIssues === 0,
-    }),
-    loadAdminWorkspaceFeed(user.email),
-  ]);
-
-  const workspaceReliability = summarizeAdminAutomationReads([qualityRead]);
+  // Start independent D1 reads immediately, but do not hold back the admin shell.
+  // Pass the *same* attention promise to the bell and dashboard: one exact read.
+  const attentionPromise = loadExactAdminAttentionSummary();
+  const qualityPromise = loadWorkspaceQuality();
+  const workspaceFeedPromise = loadAdminWorkspaceFeed(user.email);
 
   return (
     <AdminShell
@@ -56,17 +57,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       title="Pracovný prehľad"
       description="Začni tým, čo čaká na kontrolu. Odtiaľto sa dostaneš priamo do canonical frontov, správy obsahu, automatizácií a kvality údajov."
       actions={<Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link>}
-      attentionCount={attention.active}
-      attentionCountPartial={attention.availability !== "OK"}
+      attentionSummaryPromise={attentionPromise}
     >
       <AdminWorkspaceDashboard
-        attention={attention}
-        activity={workspaceFeed}
-        quality={{
-          status: qualityRead.status,
-          data: qualityRead.data,
-        }}
-        workspaceReliability={workspaceReliability}
+        attentionPromise={attentionPromise}
+        qualityPromise={qualityPromise}
+        activityPromise={workspaceFeedPromise}
       />
     </AdminShell>
   );

@@ -141,6 +141,12 @@ export class TavilyAutomationSearchProvider implements AutomationSearchProvider 
     if (response.status === 429) {
       throw new AutomationSearchProviderError("RATE_LIMITED");
     }
+    if (response.status === 432 || response.status === 433) {
+      throw new AutomationSearchProviderError("CREDITS_EXHAUSTED");
+    }
+    if (response.status === 400) {
+      throw new AutomationSearchProviderError("INVALID_REQUEST");
+    }
     if (response.status >= 500) {
       throw new AutomationSearchProviderError("PROVIDER_ERROR");
     }

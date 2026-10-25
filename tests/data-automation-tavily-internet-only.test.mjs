@@ -82,15 +82,14 @@ test("production automation entrypoints explicitly select TAVILY_ONLY and do not
   assert.match(worker, /tavilyApiKey:\s*env\.TAVILY_API_KEY/);
   assert.doesNotMatch(worker, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
 
-  assert.match(sourceRunRoute, /internetTransport:\s*"TAVILY_ONLY"/);
-  assert.doesNotMatch(sourceRunRoute, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
-
-  assert.match(sourceConfigureRoute, /internetTransport:\s*"TAVILY_ONLY"/);
-  assert.doesNotMatch(sourceConfigureRoute, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
-
-  assert.match(searchRoute, /TavilyAutomationSearchProvider/);
-  assert.match(searchRoute, /internetTransport:\s*"TAVILY_ONLY"/);
-  assert.match(searchRoute, /tavilyApiKey:\s*bindings\.TAVILY_API_KEY/);
+  // PR #1032 retired these legacy API routes. They must fail closed instead
+  // of running a deprecated Tavily automation or allowing direct HTML transport.
+  for (const route of [sourceRunRoute, sourceConfigureRoute, searchRoute]) {
+    assert.match(route, /legacyAutomationRetiredResponse/);
+    assert.match(route, /export async function POST\(\)/);
+    assert.doesNotMatch(route, /internetTransport|TavilyAutomationSearchProvider/);
+    assert.doesNotMatch(route, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
+  }
 });
 
 test("Tavily-only source execution uses explicit provider strategy instead of direct source transport", async () => {

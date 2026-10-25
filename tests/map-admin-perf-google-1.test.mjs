@@ -98,6 +98,12 @@ test("MAP-ADMIN-PERF reuses facet buckets for exact filtered total without a fou
   } finally { db.close(); }
 });
 
+test("MAP-ADMIN-PERF skips the third GEO CTE when the filtered result is provably empty", () => {
+  assert.match(loader, /const total = \(categoryRows\.results \?\? \[\]\)\.reduce/);
+  assert.match(loader, /const pageRows = await readNonemptyD1Page\(total, \(\) => db\.prepare\(/);
+  assert.match(loader, /LIMIT \? OFFSET \?/);
+});
+
 test("Admin Mapy mounts Google picker only for an explicitly opened unresolved row", () => {
   assert.match(dashboard, /activePickerKey/);
   assert.match(dashboard, /pickerOpen = activePickerKey === item\.key/);

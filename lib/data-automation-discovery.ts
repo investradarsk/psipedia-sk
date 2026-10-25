@@ -1001,6 +1001,8 @@ export const automationSearchProviderErrorCodes = [
   "CONFIG_MISSING",
   "AUTH_FAILED",
   "RATE_LIMITED",
+  "CREDITS_EXHAUSTED",
+  "INVALID_REQUEST",
   "TIMEOUT",
   "PROVIDER_ERROR",
   "INVALID_RESPONSE",

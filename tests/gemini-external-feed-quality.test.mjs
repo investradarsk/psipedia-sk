@@ -43,15 +43,16 @@ function mock(opts={}){
 }
 test("all six events and all six Help categories expose strictly public field maps",()=>{
   const pairs={
-    "help.docasna-opatera":{excerpt:"Perex",actionUrl:"Web"},
-    "help.zbierky":{excerpt:"Perex",actionUrl:"Web"},
-    "help.dobrovolnictvo":{excerpt:"Perex",actionUrl:"Web"},
+    "help.docasna-opatera":{excerpt:"Perex",actionUrl:"CTA URL"},
+    "help.zbierky":{excerpt:"Perex",actionUrl:"CTA URL"},
+    "help.dobrovolnictvo":{excerpt:"Perex",actionUrl:"CTA URL"},
     "help.utulky":{shortDescription:"Krátky popis",websiteUrl:"Web"},
     "help.adopcia":{shortDescription:"Krátky popis",breedName:"Plemeno",color:"Farba"},
     "help.stratene-a-najdene":{dogName:"Meno psa",breed:"Plemeno",color:"Farba"},
   };
   const source={"Perex":{rich_text:[{text:{content:"Nové informácie"}}]},
     "Web":{url:"https://example.sk/case"},
+    "CTA URL":{url:"https://example.sk/case"},
     "Krátky popis":{rich_text:[{text:{content:"Nové informácie"}}]},
     "Plemeno":{rich_text:[{text:{content:"Labrador"}}]},
     "Farba":{rich_text:[{text:{content:"Čierna"}}]},

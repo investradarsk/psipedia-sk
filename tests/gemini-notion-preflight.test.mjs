@@ -99,3 +99,15 @@ test("pending generic Help with same title and city is not repeatedly proposed w
   }};
   assert.equal(geminiNotionDraftReviewDecision(key,item,[pending]),"ALREADY_PENDING");
 });
+
+test("generic Help D1 evidence identity never confuses CTA URL with source",()=>{
+ const candidate=geminiDedupeCandidate("help.docasna-opatera",{
+  "Názov":t("Dočasná opatera"),"Mesto":r(""),"Organizácia":r(""),
+  "Zdroj dát":u("https://example.org/overena-vyzva"),
+  "CTA URL":u("https://donate.example.org"),
+ });
+ assert.equal(candidate.source,"https://example.org/overena-vyzva");
+ assert.equal(candidate.website,"");
+ assert.equal(candidate.city,"");
+ assert.equal(candidate.organizer,"");
+});
