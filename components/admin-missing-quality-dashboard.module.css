@@ -8,6 +8,8 @@
 .monthGrid>div {display:grid;gap:4px;padding:12px;background:white;border:1px solid #e0e7e2;border-radius:10px;}
 .monthGrid strong {font-size:26px;color:#17492c;font-variant-numeric:tabular-nums;}
 .monthGrid small {font-size:12px;color:#4d6355;}
+.outcome {font-size:12px;color:#4d6355;line-height:1.4;}
+.lastError {font-size:12px;color:#9b392d;line-height:1.4;overflow-wrap:anywhere;}
 .areas {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
 .area {position:relative;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:16px;text-align:left;border:1px solid #dbe3dd;background:white;border-radius:14px;cursor:pointer;font-weight:700;color:#31483a;min-height:74px;}
 .area:hover {border-color:#5d8a6e;}

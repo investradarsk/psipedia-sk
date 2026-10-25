@@ -12,6 +12,7 @@ type Counts = {
   updated?: number;
   skipped?: number;
   errors?: number;
+  conflicts?: number;
 };
 
 export async function observeScheduledAutomation<T>(input: {
@@ -58,7 +59,7 @@ export async function observeScheduledAutomation<T>(input: {
     await safelyRecordAdminAutomationRunEvent({
       ...identity, status, at: new Date(),
       checked: counts.checked, created: counts.created, updated: counts.updated,
-      skipped: counts.skipped, errors: counts.errors,
+      skipped: counts.skipped, errors: counts.errors, conflicts: counts.conflicts,
     });
     return result;
   } catch (error) {
