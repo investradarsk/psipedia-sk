@@ -469,11 +469,14 @@ for (const key of ["events.vystavy", "help.zbierky", "help.adopcia", "help.utulk
   for (const scenario of ["missing_source", "invalid_source", "ungrounded", "missing_evidence", "missing_grounding", "partial_property", "missing_organizer"]) {
     test(key + " keeps usable draft despite optional gap: " + scenario, () => {
       const run = runOffline(scenario, key, "1");
-      assert.equal(run.exitCode, 0, run.stderr);
-      // A generic Help candidate with no public evidence URL is rejected
-      // individually, without failing the entire background Gemini run.
-      const needsSource = key === "help.zbierky" && scenario === "missing_source";
-      assert.equal(run.counts.notionPosts, needsSource ? 0 : 1, run.stderr);
+      const rejectedSource = key === "help.zbierky"
+        && ["missing_source","invalid_source"].includes(scenario);
+      // A requested concept without an evidenced, valid source must never be
+      // written. If the model cannot repair its rejected candidate, the agent
+      // reports an unresolved task rather than a false success.
+      assert.equal(run.exitCode, rejectedSource ? 1 : 0, run.stderr);
+      assert.equal(run.counts.notionPosts, rejectedSource ? 0 : 1, run.stderr);
+      if (rejectedSource) assert.equal(run.callback.error_code,"AGENT_CANDIDATE_UNRESOLVED");
       assert.ok(!JSON.stringify(run.pages).includes("http://example"));
     });
   }
