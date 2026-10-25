@@ -132,7 +132,7 @@ export class TavilyAutomationSearchProvider implements AutomationSearchProvider 
       if (name === "TimeoutError" || name === "AbortError") {
         throw new AutomationSearchProviderError("TIMEOUT");
       }
-      throw new AutomationSearchProviderError("PROVIDER_ERROR");
+      throw new AutomationSearchProviderError("PROVIDER_ERROR", { transportFailure: true });
     }
 
     if (response.status === 401 || response.status === 403) {
@@ -148,7 +148,7 @@ export class TavilyAutomationSearchProvider implements AutomationSearchProvider 
       throw new AutomationSearchProviderError("INVALID_REQUEST");
     }
     if (response.status >= 500) {
-      throw new AutomationSearchProviderError("PROVIDER_ERROR");
+      throw new AutomationSearchProviderError("PROVIDER_ERROR", { httpStatus: response.status });
     }
     if (!response.ok) {
       throw new AutomationSearchProviderError("PROVIDER_ERROR");
