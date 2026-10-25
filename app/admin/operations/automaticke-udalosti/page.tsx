@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminAutomationHistoryRead } from "@/components/admin-automation-history-read";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { normalizeAdminNotificationPath } from "@/lib/admin-web-push";
+import { automationHistoryDetailHref } from "@/lib/admin-automation-history-detail";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +96,7 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
               <div className="admin-form-actions">
                 <span>{event.read_at ? "Prečítané" : "Neprečítané"}</span>
                 {!event.read_at && <AdminAutomationHistoryRead eventId={event.id} />}
-                <Link href={normalizeAdminNotificationPath(event.target_url)}>Otvoriť detail →</Link>
+                <Link href={automationHistoryDetailHref(event.id)}>Otvoriť detail →</Link>
               </div>
             </article>)}
           </div>
