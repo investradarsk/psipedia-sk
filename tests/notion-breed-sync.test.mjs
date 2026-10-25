@@ -134,5 +134,9 @@ test("pending Admin breed edits block stale Notion sync and false success", () =
   const guard = mapped.indexOf("BREED_ADMIN_REVISION_NOT_SYNCED");
   const original = mapped.indexOf("if (mapping.content_hash === contentHash)");
   assert.ok(guard >= 0 && original > guard);
+  assert.match(mapped, /canonicalTextDiffers/);
+  assert.match(mapped, /mapping.content_hash === contentHash && canonicalTextDiffers/);
   assert.match(breedRouteSource, /notion_breed_draft_writeback_failed/);
+  assert.match(breedRouteSource, /notionEditorialWriteback/);
+  assert.match(breedRouteSource, /REMOTE_WRITEBACK_FAILED/);
 });
