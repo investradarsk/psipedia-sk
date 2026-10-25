@@ -417,8 +417,15 @@ async function syncOneBreed(
     // on top of the unacknowledged D1 revision.
     const lastAck = Date.parse(mapping.last_synced_at ?? "");
     const adminEdit = Date.parse(existing.updatedAt);
-    if (Number.isFinite(lastAck) && Number.isFinite(adminEdit)
-      && adminEdit > lastAck + 2_000) {
+    const canonicalTextDiffers = BREED_DRAFT_TEXT_FIELDS.some(([key, property]) =>
+      normalizedBreedText(existing[key]) !== notionBreedTextValue(page, property));
+    // Equal remote content hash means Notion has not supplied any newer
+    // editorial value. If mapped Admin text differs, the Admin revision is
+    // pending even when the save happened milliseconds after the last sweep.
+    // A real new Notion change still uses its acknowledged hash comparison.
+    if ((mapping.content_hash === contentHash && canonicalTextDiffers)
+      || (Number.isFinite(lastAck) && Number.isFinite(adminEdit)
+        && adminEdit > lastAck + 2_000)) {
       throw new Error("BREED_ADMIN_REVISION_NOT_SYNCED");
     }
 
