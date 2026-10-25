@@ -38,12 +38,12 @@
 .factGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); margin: 0; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-card); overflow: hidden; background: var(--white); }
 .factGrid div { min-width: 0; padding: 14px 16px; border-right: 1px solid var(--ps-border-soft); }
 .factGrid div:last-child { border-right: 0; }
-.factGrid dt, .fciFacts dt, .standardFacts dt, .dimensionList dt { margin-bottom: 5px; color: var(--muted); font-size: .67rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
-.factGrid dd, .fciFacts dd, .standardFacts dd, .dimensionList dd { margin: 0; color: var(--ink); font-size: .92rem; font-weight: 800; line-height: 1.45; overflow-wrap: anywhere; }
+.factGrid dt, .fciFacts dt, .standardFacts dt, .dimensionList dt { margin-bottom: 5px; color: var(--muted); font-size: var(--ps-detail-fact-label-size); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.factGrid dd, .fciFacts dd, .standardFacts dd, .dimensionList dd { margin: 0; color: var(--ink); font-size: var(--ps-detail-fact-value-size); font-weight: 800; line-height: 1.45; overflow-wrap: anywhere; }
 
 .readingSection { max-width: 840px; margin: 0 auto; padding: 52px 0; }
 .eyebrow { margin: 0 0 9px; color: var(--coral-dark); font-size: .7rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
-.readingSection h2, .sectionIntro h2, .fciHeading h2, .officialSources h2 { margin: 0; font-size: clamp(1.65rem, 2.7vw, 2.35rem); line-height: 1.1; letter-spacing: -.025em; }
+.readingSection h2, .sectionIntro h2, .fciHeading h2, .officialSources h2 { margin: 0; font-size: var(--ps-detail-heading-size); line-height: 1.15; letter-spacing: -.025em; }
 .prose { color: var(--ink-2); font-size: 1rem; line-height: 1.72; }
 .prose p { margin: 0; }
 .prose p + p { margin-top: 1.35em; }
@@ -146,7 +146,7 @@
 .standardArticle { max-width: 860px; margin: 0 auto; }
 .standardSection { scroll-margin-top: 120px; padding: 0 0 56px; margin-bottom: 56px; border-bottom: 1px solid var(--ps-border-soft); }
 .standardSection:last-child { margin-bottom: 0; }
-.standardSection h2 { margin: 0 0 24px; font-size: clamp(1.7rem, 3vw, 2.35rem); line-height: 1.12; letter-spacing: -.025em; }
+.standardSection h2 { margin: 0 0 24px; font-size: var(--ps-detail-heading-size); line-height: 1.15; letter-spacing: -.025em; }
 .standardSubsection + .standardSubsection { margin-top: 27px; }
 .standardSubsection h3 { margin: 0 0 12px; font-size: 1.03rem; }
 .dimensionList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 0 24px; border: 1px solid var(--ps-border-soft); border-radius: var(--ps-radius-control); overflow: hidden; }
@@ -183,36 +183,36 @@
   .fciIdentity { margin-bottom: 13px; }
   .fciIdentity span { font-size: .62rem; }
   .officialName { margin-top: 10px; }
-  .heroPhoto { border-radius: 18px; }
+  .heroPhoto { border-radius: var(--ps-detail-photo-radius); }
   .heroImage { max-height: 320px; }
   .quickFacts { padding-top: 22px; }
-  .factGrid { grid-template-columns: 1fr 1fr; border-radius: 18px; }
+  .factGrid { grid-template-columns: 1fr 1fr; border-radius: var(--ps-radius-card); }
   .factGrid div { padding: 15px; }
   .factGrid div:nth-child(2n) { border-right: 0; }
-  .factGrid dt { font-size: .61rem; }
-  .factGrid dd { font-size: .83rem; }
+  .factGrid dt { font-size: var(--ps-detail-fact-label-size); }
+  .factGrid dd { font-size: var(--ps-detail-fact-value-size); }
   .readingSection, .practicalSection { padding: 42px 0; }
-  .readingSection h2, .sectionIntro h2, .fciHeading h2 { font-size: 1.75rem; }
+  .readingSection h2, .sectionIntro h2, .fciHeading h2 { font-size: var(--ps-detail-heading-size); }
   .prose { font-size: .98rem; line-height: 1.76; }
   .fitSection { padding: 40px 0 44px; }
   .sportsSection { padding: 40px 0 44px; }
-  .fitGrid > div { padding: 22px; border-radius: 18px; }
+  .fitGrid > div { padding: 22px; border-radius: var(--ps-radius-card); }
   .accordionButton { min-height: 60px; padding: 11px 2px; }
   .accordionIcon { width: 32px; height: 32px; flex-basis: 32px; }
   .accordionPanel { padding-bottom: 24px; }
   .tip { padding: 16px; }
   .sportList > div { gap: 12px; padding: 14px; }
-  .fciSection { padding: 22px 18px; border-radius: 18px; }
+  .fciSection { padding: 22px 18px; border-radius: var(--ps-radius-card); }
   .fciFacts { grid-template-columns: 1fr; }
   .standardHero { padding: 28px 0 38px; }
   .standardHero h1 { font-size: clamp(2.25rem, 11vw, 3.6rem); }
-  .standardFacts { grid-template-columns: 1fr 1fr; border-radius: 18px; }
+  .standardFacts { grid-template-columns: 1fr 1fr; border-radius: var(--ps-radius-card); }
   .standardFacts div { padding: 14px; }
   .standardNav { padding: 18px; margin-bottom: 44px; }
   .standardNav > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
   .standardNav a { min-height: 44px; display: flex; align-items: center; }
   .standardSection { padding-bottom: 40px; margin-bottom: 40px; }
-  .standardSection h2 { font-size: 1.7rem; }
+  .standardSection h2 { font-size: var(--ps-detail-heading-size); }
   .dimensionList { grid-template-columns: 1fr; }
   .officialSources { padding: 22px; }
 }

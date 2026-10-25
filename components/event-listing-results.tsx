@@ -47,15 +47,25 @@ export function EventListingResults({
     return `${pathname}?${next.toString()}#events-list`;
   }
   const active = [
-    f.query && `Hľadať: ${f.query}`,
-    f.region && `Kraj: ${f.region}`,
-    f.month && `Mesiac: ${f.month}`,
-    f.from && `Od: ${f.from}`,
-    f.to && `Do: ${f.to}`,
-    f.city && `Lokalita: ${f.city}`,
-    f.type === "Všetky" ? "" : `Typ: ${eventTypePresentation[f.type].label}`,
-    f.time === "current" ? "Obdobie: Prebiehajúce" : f.time === "past" ? "Obdobie: Ukončené" : "",
-  ].filter(Boolean);
+    { key: "q", label: "Hľadanie", value: f.query },
+    { key: "region", label: "Kraj", value: f.region },
+    { key: "mesiac", label: "Mesiac", value: f.month },
+    { key: "od", label: "Od", value: f.from },
+    { key: "do", label: "Do", value: f.to },
+    { key: "mesto", label: "Lokalita", value: f.city },
+    { key: "typ", label: "Typ", value: f.type === "Všetky" ? "" : eventTypePresentation[f.type].label },
+    { key: "termin", label: "Obdobie", value: f.time === "current" ? "Prebiehajúce" : f.time === "past" ? "Ukončené" : "" },
+    { key: "zoradenie", label: "Zoradenie", value: f.sort === "najblizsie" ? "Najbližšie" : f.sort === "najnovsie" ? "Najnovšie" : "" },
+  ].filter((entry) => Boolean(entry.value));
+  const clearOneHref = (key: string) => {
+    const next = new URLSearchParams(params);
+    next.delete(key);
+    // The type is encoded in the event category pathname, not in a query parameter.
+    const target = key === "typ" ? "/podujatia" : pathname;
+    // Removing a date period must show all events, rather than restore the default upcoming filter.
+    if (key === "termin") next.set("termin", "vsetky");
+    return target + (next.size ? `?${next.toString()}` : "") + "#events-list";
+  };
   const pages = [...new Set([1, listing.page - 1, listing.page, listing.page + 1, listing.pages])]
     .filter((page) => page >= 1 && page <= listing.pages)
     .sort((a, b) => a - b);
@@ -176,11 +186,15 @@ export function EventListingResults({
           </form>
         </div>
         {active.length ? (
-          <p className={styles.filterSummary} aria-label="Aktívne filtre">
-            {active.map((value, i) => (
-              <PublicFilterTag key={i}>{value}</PublicFilterTag>
+          <div className={styles.filterSummary} aria-label="Aktívne filtre" data-public-active-filters>
+            <span data-public-active-filter-label>Aktívne filtre</span>
+            {active.map(({ key, label, value }) => (
+              <PublicFilterTag key={key} href={clearOneHref(key)} removeLabel={`Odstrániť filter ${label}: ${value}`}>
+                <span>{label}: {value}</span><span aria-hidden="true">×</span>
+              </PublicFilterTag>
             ))}
-          </p>
+            <Link href="/podujatia" data-public-filter-reset>Vymazať všetko</Link>
+          </div>
         ) : null}
         {f.error ? (
           <PublicNotice role="alert" tone="error">

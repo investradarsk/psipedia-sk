@@ -1825,7 +1825,7 @@
   display: grid;
   min-width: 0;
   grid-template-columns: 220px minmax(0,1fr) 255px;
-  gap: 18px;
+  gap: var(--ps-list-column-gap);
   align-items: start;
 }
 .filterColumn, .resultsColumn, .directorySidebar { min-width: 0; }
@@ -1849,8 +1849,8 @@
   margin: 4px 0 0;
   color: var(--ink);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.35rem, 2.3vw, 1.95rem);
-  line-height: 1.15;
+  font-size: var(--ps-list-heading-size);
+  line-height: var(--ps-list-heading-leading);
   overflow-wrap: anywhere;
 }
 .resultsHeading > strong {
@@ -1949,7 +1949,7 @@
 
 /* GLOBAL-DESIGN-UNIFICATION-1: align the directory search below the shared hero. */
 .resultsSection { background: var(--paper); }
-.directorySearch { width: 100%; max-width: 780px; margin: 0 auto 18px; border-radius: var(--ps-radius-filter, 18px); }
+.directorySearch { width: 100%; max-width: var(--ps-list-search-max); margin: 0 auto 18px; border-radius: var(--ps-radius-filter, 18px); }
 @media (max-width: 620px) { .directorySearch { margin-bottom: 14px; } }
 
 /* DS-5 directory: compact, square thumbnails in the existing list card. */

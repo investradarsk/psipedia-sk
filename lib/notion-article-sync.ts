@@ -40,6 +40,7 @@ export type NotionSyncBindings = {
 
 type NotionPage = {
   id: string;
+  parent?: { type?: string; data_source_id?: string };
   archived?: boolean;
   in_trash?: boolean;
   last_edited_time?: string;
@@ -1176,6 +1177,13 @@ export async function writeBackPublishedArticleToNotion(args: {
     args.bindings,
     "/pages/" + encodeURIComponent(mapping.notion_page_id),
   );
+  // A mapped page may have been moved/archived or re-linked since mapping
+  // creation. Never PATCH a foreign page or acknowledge it in D1.
+  if (page.id !== mapping.notion_page_id || page.archived || page.in_trash
+    || (richTextProperty(page, "Psipedia ID")
+      && richTextProperty(page, "Psipedia ID") !== String(args.article.id))) {
+    throw new Error("NOTION_ARTICLE_PUBLICATION_IDENTITY_CONFLICT");
+  }
   const notionState = selectProperty(page, "Stav");
   const remoteUrl = urlProperty(page, "URL Psipedia");
   const date = propertyRecord(page, "Dátum publikácie")?.date;
@@ -1216,7 +1224,10 @@ export async function writeBackPublishedArticleToNotion(args: {
     && selectProperty(page, "Sync stav") === "Synchronizované"
     && !richTextProperty(page, "Sync chyba");
   if (!alreadySynced) {
-    await notionRequest(
+    // Read-before-write alone cannot prove the remote PATCH completed.
+    // Verify the returned page ID and exact canonical publication properties
+    // before advancing the D1 receipt; a partial response is not success.
+    const echoed = await notionRequest<NotionPage>(
       args.bindings,
       "/pages/" + encodeURIComponent(mapping.notion_page_id),
       {
@@ -1233,6 +1244,19 @@ export async function writeBackPublishedArticleToNotion(args: {
         }),
       },
     );
+    const echoedDate = propertyRecord(echoed, "Dátum publikácie")?.date;
+    const echoedPublishedAt = echoedDate && typeof echoedDate === "object"
+      ? (echoedDate as { start?: unknown }).start : null;
+    if (echoed.id !== mapping.notion_page_id || echoed.archived || echoed.in_trash
+      || !echoed.properties
+      || (richTextProperty(echoed, "Psipedia ID")
+        && richTextProperty(echoed, "Psipedia ID") !== String(args.article.id))
+      || selectProperty(echoed, "Stav") !== "Publikované"
+      || urlProperty(echoed, "URL Psipedia") !== publicUrl
+      || typeof echoedPublishedAt !== "string"
+      || Date.parse(echoedPublishedAt) !== Date.parse(publishedAt)) {
+      throw new Error("NOTION_ARTICLE_PUBLICATION_ECHO_UNVERIFIED");
+    }
   }
 
   // Mark only a successfully repaired/already correct mapping. This timestamp
@@ -1737,6 +1761,7 @@ async function syncOneNotionPage(
 export async function runNotionArticleSyncSweep(args: {
   database: D1Database;
   bindings: NotionSyncBindings;
+  targetPageId?: string;
 }): Promise<NotionArticleSyncSummary> {
   const summary: NotionArticleSyncSummary = {
     enabled: flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED),
@@ -1748,7 +1773,20 @@ export async function runNotionArticleSyncSweep(args: {
   };
   if (!summary.enabled) return summary;
 
-  const pages = await listReadyNotionPages(args.bindings);
+  let pages: NotionPage[];
+  if (args.targetPageId !== undefined) {
+    if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(args.targetPageId))
+      throw new Error("NOTION_ARTICLE_TARGET_INVALID");
+    const page = await notionRequest<NotionPage>(args.bindings, "/pages/" + encodeURIComponent(args.targetPageId));
+    const dataSourceId = args.bindings.NOTION_ARTICLES_DATA_SOURCE_ID?.trim() ?? "";
+    if (page.id !== args.targetPageId || page.archived || page.in_trash
+      || page.parent?.type !== "data_source_id" || !dataSourceId
+      || page.parent.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
+      throw new Error("NOTION_ARTICLE_TARGET_UNSAFE");
+    pages = selectProperty(page, "Stav") === "Ready" && checkboxProperty(page, "Odoslať na Psipedia") ? [page] : [];
+  } else {
+    pages = await listReadyNotionPages(args.bindings);
+  }
   summary.scanned = pages.length;
 
   for (const page of pages) {

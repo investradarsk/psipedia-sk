@@ -48,10 +48,10 @@
   margin: 5px 0 0;
   color: var(--public-landing-heading, var(--forest-dark, #17352b));
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.5rem, 2.3vw, 2.15rem);
+  font-size: var(--ps-list-heading-size);
   font-weight: 600;
   letter-spacing: -.025em;
-  line-height: 1.15;
+  line-height: var(--ps-list-heading-leading);
 }
 
 .headingAside {

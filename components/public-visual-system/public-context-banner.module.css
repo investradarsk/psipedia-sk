@@ -1,13 +1,12 @@
 .banner {
-  /* Shared radius token; section tones keep their own intentional colors. */
-  --ps-banner-radius: var(--ps-radius-filter, 18px);
+  /* Shared public banner geometry; editorial tone colors remain intentionally distinct. */
   --context-banner-ink: var(--forest-dark, #17352b);
   --context-banner-muted: var(--muted, #5f6e66);
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid rgba(23, 53, 43, .12);
+  border: 1px solid var(--ps-banner-border, var(--ps-border-soft));
   border-radius: var(--ps-banner-radius, 18px);
   color: var(--context-banner-ink);
   background: var(--paper, #fffdf8);

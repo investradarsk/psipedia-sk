@@ -160,3 +160,17 @@ test("publishing with omitted content preserves blocks, SEO, topics and R2 refer
   assert.equal(stored.imageKey, h.original.imageKey);
   assert.equal(stored.ogImageKey, h.original.ogImageKey);
 });
+
+test("article publication cannot mark D1 mapping synchronized without a verified Notion PATCH response", async () => {
+  const notion = await readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8");
+  const fn = notion.slice(notion.indexOf("export async function writeBackPublishedArticleToNotion("),
+    notion.indexOf("export async function writeBackDraftArticleContentToNotion("));
+  const remoteCheck = fn.indexOf("NOTION_ARTICLE_PUBLICATION_IDENTITY_CONFLICT");
+  const echoCheck = fn.indexOf("NOTION_ARTICLE_PUBLICATION_ECHO_UNVERIFIED");
+  const mappingUpdate = fn.indexOf("UPDATE article_notion_sync SET last_synced_at");
+  assert.ok(remoteCheck >= 0 && echoCheck > remoteCheck && mappingUpdate > echoCheck);
+  assert.match(fn, /const echoed = await notionRequest<NotionPage>/);
+  assert.match(fn, /echoed.id !== mapping.notion_page_id/);
+  assert.match(fn, /urlProperty\(echoed, "URL Psipedia"\) !== publicUrl/);
+  assert.match(fn, /Date.parse\(echoedPublishedAt\) !== Date.parse\(publishedAt\)/);
+});

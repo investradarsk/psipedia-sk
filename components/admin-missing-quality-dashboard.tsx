@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { MissingQualityDashboard, MissingQualityProposal, QualityArea } from "@/lib/data-quality-missing-hourly";
+import type { MissingQualityDashboard, MissingQualityProposal, QualityArea, ManualQualityResponse, ManualQualityCursor, ManualQualityGroup } from "@/lib/data-quality-missing-hourly";
 import styles from "./admin-missing-quality-dashboard.module.css";
 
 const AREAS: Array<{id:QualityArea;label:string;symbol:string}> = [
@@ -40,6 +40,29 @@ function qualityErrorLabel(code: string | null): string {
   return ERROR_LABELS[code ?? ""] ?? "Neznáma chyba";
 }
 
+
+function adminProfileHref(p:Pick<MissingQualityProposal,"entity_type"|"entity_id">):string {
+  // Each target is an existing authenticated canonical editor, not a public profile.
+  const routes:Record<MissingQualityProposal["entity_type"],string>={
+    DIRECTORY:"adresar",EVENT:"podujatia",ORGANIZATION:"organizacie",
+    ADOPTION:"adopcie",FOSTER:"pomoc",HELP_ITEM:"pomoc",LOST_FOUND:"stratene-najdene",
+  };
+  return "/admin/"+routes[p.entity_type]+"/"+p.entity_id;
+}
+
+function QualityCandidateImage({url,label,onPreview}:{url:string;label:string;onPreview:(url:string)=>void}) {
+  const [broken,setBroken]=useState(false);
+  if(broken) return <div className={styles.brokenImage}>Obrázok sa nedá načítať.
+    <a href={url} target="_blank" rel="noopener noreferrer">Skontrolovať odkaz ↗</a>
+  </div>;
+  return <button type="button" className={styles.imageButton}
+    onClick={()=>onPreview(url)} aria-label={"Zväčšiť obrázok pre "+label}>
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img src={url} className={styles.preview} alt={"Navrhnutý obrázok pre "+label}
+      loading="lazy" onError={()=>setBroken(true)} />
+  </button>;
+}
+
 export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboard}) {
   const router=useRouter();
   const [removedIds,setRemovedIds]=useState<number[]>([]);
@@ -50,14 +73,75 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   const [busy,setBusy]=useState<number|null>(null);
   const [bulkBusy,setBulkBusy]=useState(false);
   const [notice,setNotice]=useState("");
+  const [manualMode,setManualMode]=useState<"profiles"|"free">("profiles");
+  const [manualGroup,setManualGroup]=useState<ManualQualityGroup>("image");
+  const [manualQuery,setManualQuery]=useState("");
+  const [manualLimit,setManualLimit]=useState(5);
+  const [manualBusy,setManualBusy]=useState(false);
+  const [manualProgress,setManualProgress]=useState("");
+  const [manualResults,setManualResults]=useState<ManualQualityResponse|null>(null);
+  const [profileFilter,setProfileFilter]=useState("");
+  const [preview,setPreview]=useState<string|null>(null);
+  const stopManual=useRef(false);
 
   const total=Math.max(0,data.total-data.pending.filter(p=>removed.has(p.id)).length);
   const countArea=(id:QualityArea)=>items.filter(x=>x.area===id).length;
   const areaItems=items.filter(x=>x.area===area);
   const countGroup=(g:string)=>areaItems.filter(x=>g==="all"||x.field_group===g).length;
-  const shown=areaItems.filter(x=>group==="all"||x.field_group===group);
+  const shown=areaItems.filter(x=>(group==="all"||x.field_group===group)&&
+    x.profile_label.toLocaleLowerCase("sk").includes(profileFilter.trim().toLocaleLowerCase("sk")));
+  async function manualRequest(payload:Record<string,unknown>):Promise<ManualQualityResponse> {
+    const response=await fetch("/api/admin/data-quality/missing/manual",{
+      method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload),
+    });
+    const result=await response.json() as ManualQualityResponse & {error?:string};
+    if(!response.ok) throw new Error(result.error??"Ručné vyhľadávanie sa nepodarilo.");
+    return result;
+  }
+  async function runManualSearch(){
+    if(manualBusy||busy!==null||bulkBusy||!data.manualReady)return;
+    stopManual.current=false;setManualBusy(true);setManualResults(null);setManualProgress("");
+    let used=0,found=0,inspected=0;
+    let cursor:ManualQualityCursor|null=null;
+    try {
+      if(manualMode==="free") {
+        const result=await manualRequest({area,group:manualGroup,mode:"free",query:manualQuery.trim()});
+        setManualResults(result);
+        setManualProgress("Voľné vyhľadávanie dokončené. Výsledky sa nepriraďujú automaticky k profilom.");
+      } else {
+        for(let i=0;i<manualLimit&&!stopManual.current;i++){
+          const result=await manualRequest({area,group:manualGroup,mode:"profiles",cursor});
+          if(result.finished)break;
+          inspected+=result.inspected;found+=result.found;used+=result.estimatedCredits;
+          cursor=result.cursor;
+          setManualProgress("Skontrolované: "+inspected+" / "+manualLimit+
+            " · Nové návrhy: "+found+" · Odhad kreditov: "+used);
+          if(!cursor)break;
+        }
+        setManualProgress("Dokončené · Skontrolované: "+inspected+
+          " · Nájdené návrhy: "+found+" · Odhad: "+used+" kreditov.");
+      }
+      router.refresh();
+    } catch(error) {
+      setManualProgress(error instanceof Error?error.message:"Vyhľadávanie zlyhalo.");
+      router.refresh();
+    } finally {setManualBusy(false);}
+  }
+  async function findOtherImage(p:MissingQualityProposal){
+    if(manualBusy||busy!==null||bulkBusy||!data.manualReady)return;
+    setManualBusy(true);setManualProgress("");
+    try{
+      const result=await manualRequest({area:p.area,group:"image",mode:"alternative",
+        entityType:p.entity_type,entityId:p.entity_id});
+      setManualProgress(result.found?
+        "Pridaný nový návrh obrázka na schválenie pre "+p.profile_label+".":
+        "Pre "+p.profile_label+" sa ďalší použiteľný obrázok nenašiel.");
+      router.refresh();
+    } catch(error){setManualProgress(error instanceof Error?error.message:"Hľadanie zlyhalo.");}
+    finally{setManualBusy(false);}
+  }
   async function decide(item:MissingQualityProposal,action:"accept"|"reject") {
-    if(busy!==null||bulkBusy)return;
+    if(busy!==null||bulkBusy||manualBusy)return;
     setBusy(item.id);setNotice("");
     try{
       const response=await fetch(`/api/admin/data-quality/missing/${item.id}`,{
@@ -72,7 +156,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
     finally{setBusy(null)}
   }
   async function rejectVisible() {
-    if(!shown.length||busy!==null||bulkBusy)return;
+    if(!shown.length||busy!==null||bulkBusy||manualBusy)return;
     if(!window.confirm(`Zamietnuť všetkých ${shown.length} zobrazených návrhov?\nNávrhy sa odstránia zo zoznamu.`))return;
     setBulkBusy(true);setNotice("");
     try{
@@ -100,6 +184,12 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
     </div>
   );
   return <div className={styles.root}>
+    <div className={styles.overviewShortcut}>
+      <a href="/admin/kvalita/prehlad" target="_blank" rel="noopener noreferrer" className={styles.overviewLink}>
+        Prehľad chýbajúcich údajov ↗
+      </a>
+      <span>Otvorí sa v novej karte · bez spúšťania Tavily</span>
+    </div>
     <section className={styles.top}>
       <div>
         <span className={styles.eyebrow}>Nájdené nové údaje na schválenie</span>
@@ -138,10 +228,80 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
         </button>;
       })}
     </section>
+
+    <section className={styles.manualPanel} aria-label="Ručné vyhľadávanie">
+      <div className={styles.heading}>
+        <h2>Ručné vyhľadávanie · {AREAS.find(a=>a.id===area)?.label}</h2>
+        <span>Automatické hodinové kontroly sa nemenia</span>
+      </div>
+      <div className={styles.manualControls}>
+        <label>Režim
+          <select value={manualMode} disabled={manualBusy} onChange={e=>setManualMode(e.target.value as "profiles"|"free")}>
+            <option value="profiles">Existujúce profily s chýbajúcimi údajmi</option>
+            <option value="free">Voľné vyhľadávanie (bez priradenia)</option>
+          </select>
+        </label>
+        <label>Čo hľadať
+          <select value={manualGroup} disabled={manualBusy} onChange={e=>setManualGroup(e.target.value as ManualQualityGroup)}>
+            <option value="address">Adresy a miesta</option>
+            <option value="image">Obrázky</option>
+            <option value="web">Weby a odkazy</option>
+            <option value="phone">Telefóny</option>
+            <option value="email">E-maily</option>
+            <option value="social">Sociálne siete</option>
+            <option value="registration">Registrácie</option>
+            <option value="date">Dátumy a časy</option>
+            <option value="other">Ostatné</option>
+            <option value="all">Všetky chýbajúce údaje</option>
+          </select>
+        </label>
+        {manualMode==="profiles"?<label>Koľko profilov
+          <select value={manualLimit} disabled={manualBusy} onChange={e=>setManualLimit(Number(e.target.value))}>
+            <option value={5}>5</option><option value={10}>10</option><option value={20}>20</option>
+          </select>
+        </label>:<label>Hľadaný výraz
+          <input value={manualQuery} disabled={manualBusy} maxLength={250} placeholder="Napr. fotografie psích podujatí"
+            onChange={e=>setManualQuery(e.target.value)} />
+        </label>}
+      </div>
+      <p className={styles.subtle}>Jedna kontrola = najviac jedno volanie Tavily. Odhad: najviac {manualMode==="free"?1:manualLimit} základných vyhľadávaní; skutočnú spotrebu určuje Tavily. Vyžaduje tvoje schválenie.</p>
+      <div className={styles.manualActions}>
+        <button type="button" className={styles.accept} onClick={()=>void runManualSearch()}
+          disabled={!data.manualReady||manualBusy||busy!==null||bulkBusy||(manualMode==="free"&&manualQuery.trim().length<3)}>
+          {manualBusy?"Vyhľadávam…":"Spustiť vyhľadávanie"}
+        </button>
+        {manualBusy?<button type="button" className={styles.reject} onClick={()=>{stopManual.current=true;}}>
+          Zastaviť po aktuálnej kontrole
+        </button>:null}
+      </div>
+      {!data.manualReady?<p className={styles.lastError}>Ručné vyhľadávanie zatiaľ nie je dostupné – treba spustiť migráciu D1 0143. Hodinová automatika funguje ďalej.</p>:null}
+      {manualProgress?<div className={styles.notice} role="status">{manualProgress}</div>:null}
+      {manualResults?<div className={styles.manualResults}>
+        <strong>Výsledky voľného vyhľadávania (bez priradenia k profilu)</strong>
+        {manualResults.images?.map((url,i)=><div key={url} className={styles.manualResult}>
+          <QualityCandidateImage url={url} label={"Vyhľadávanie "+(i+1)} onPreview={setPreview} />
+          <a href={url} target="_blank" rel="noopener noreferrer">Otvoriť obrázok ↗</a>
+        </div>)}
+        {manualResults.results?.map(r=><p key={r.url} className={styles.manualResult}>
+          <a href={r.url} target="_blank" rel="noopener noreferrer">{r.title} ↗</a>
+          {r.snippet?<span>{r.snippet.slice(0,220)}</span>:null}
+        </p>)}
+        <p className={styles.subtle}>Po kontrole môžeš zdroj použiť v príslušnom editore. Systém ho automaticky neuloží.</p>
+      </div>:null}
+      {data.manualHistory.length>0?<details className={styles.history}><summary>Posledných {data.manualHistory.length} manuálnych kontrol</summary>
+        <div className={styles.historyItems}>{data.manualHistory.map(run=><div key={run.id}>
+          <span>{run.created_at.slice(0,16).replace("T"," ")} UTC · {AREAS.find(a=>a.id===run.area)?.label} · {run.profile_label??"Voľné vyhľadávanie"}</span>
+          <strong>{run.status==="SUCCESS"?"Úspešné":run.status==="FAILED"?"Chyba":"Prebieha"} · {run.found} návrhov</strong>
+        </div>)}</div>
+      </details>:null}
+    </section>
     <section className={styles.results}>
       <div className={styles.heading}>
         <h2>{AREAS.find(a=>a.id===area)?.label}</h2>
         <span>{areaItems.length} {plural(areaItems.length)} na schválenie</span>
+      </div>
+      <div className={styles.profileSearch}><label htmlFor="quality-profile-filter">Vyhľadať profil</label>
+        <input id="quality-profile-filter" value={profileFilter} onChange={e=>setProfileFilter(e.target.value)} placeholder="Názov profilu" />
       </div>
       <div className={styles.filters} aria-label="Typy údajov">
         <button type="button" className={group==="all"?styles.current:""} onClick={()=>setGroup("all")}
@@ -161,14 +321,10 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
           <div className={styles.list}>
             {shown.map(p=><article className={styles.item} key={p.id}>
               <div className={styles.itemContent}>
-                <div className={styles.profile}>{p.profile_label}</div>
+                <div className={styles.profile}>{p.profile_label} <a className={styles.profileLink} href={adminProfileHref(p)} target="_blank" rel="noopener noreferrer">Otvoriť profil ↗</a></div>
                 <div className={styles.field}>{p.field_label}</div>
                 {p.field_group==="image"?
-                  <a href={p.value} target="_blank" rel="noopener noreferrer">
-                    {/* Remote candidate preview, stored only after the administrator explicitly approves. */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img className={styles.preview} alt={`Navrhnutý obrázok pre ${p.profile_label}`} src={p.value} loading="lazy"/>
-                  </a>:
+                  <QualityCandidateImage url={p.value} label={p.profile_label} onPreview={setPreview} />:
                   ["web","social","registration"].includes(p.field_group)?
                     <a href={p.value} target="_blank" rel="noopener noreferrer" className={styles.value}>{p.value} ↗</a>:
                     <div className={styles.value}>{p.value}</div>
@@ -176,18 +332,28 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                 {p.source_url&&p.source_url!==p.value?<a className={styles.source} href={p.source_url} rel="noopener noreferrer" target="_blank">Otvoriť zdroj ↗</a>:null}
               </div>
               <div className={styles.actions}>
-                <button type="button" className={styles.reject} disabled={busy!==null||bulkBusy} onClick={()=>void decide(p,"reject")}>Zamietnuť</button>
+                {p.field_group==="image"?<button type="button" className={styles.reject} disabled={manualBusy||!data.manualReady||busy!==null||bulkBusy}
+                  onClick={()=>void findOtherImage(p)}>Hľadať iný obrázok</button>:null}
+                <button type="button" className={styles.reject} disabled={busy!==null||bulkBusy||manualBusy} onClick={()=>void decide(p,"reject")}>Zamietnuť</button>
                 <button type="button" className={styles.accept} disabled={busy!==null||bulkBusy} onClick={()=>void decide(p,"accept")}>{busy===p.id?"Ukladám…":"Schváliť"}</button>
               </div>
             </article>)}
           </div>
           <div className={styles.footer}>
-            <button type="button" className={styles.rejectAll} onClick={()=>void rejectVisible()} disabled={bulkBusy||busy!==null}>
+            <button type="button" className={styles.rejectAll} onClick={()=>void rejectVisible()} disabled={bulkBusy||busy!==null||manualBusy}>
               {bulkBusy?"Zamietam…":`Zamietnuť všetky zobrazené (${shown.length})`}
             </button>
           </div>
         </>
       )}
     </section>
+    {preview?<div className={styles.previewOverlay} role="dialog" aria-modal="true" aria-label="Náhľad obrázka">
+      <div className={styles.previewDialog}>
+        <button type="button" className={styles.reject} onClick={()=>setPreview(null)}>Zavrieť náhľad</button>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={preview} alt="Zväčšený kandidát obrázka" onError={()=>setPreview(null)}/>
+        <a href={preview} target="_blank" rel="noopener noreferrer">Otvoriť pôvodný obrázok ↗</a>
+      </div>
+    </div>:null}
   </div>;
 }

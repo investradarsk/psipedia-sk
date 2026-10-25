@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+// Focused NOTION-SYNC CI runs this suite; include webhook security/field-delta regressions.
+import "./notion-targeted-webhook.test.mjs";
 import { directorySyncErrorMetadataNeedsWrite, notionDirectoryUpdateSafety, notionDirectoryPageBelongsToSource, NotionDirectoryUnsafeTargetError } from "../lib/notion-directory-update-safety.ts";
 import { canRecoverNotionDirectoryMapping } from "../lib/notion-directory-update-safety.ts";
 import { mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";

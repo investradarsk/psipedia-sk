@@ -605,7 +605,7 @@ test("ARTICLE-READING-WHITE-1 scopes a high-contrast reading surface to article 
   );
   assert.match(
     styles,
-    /\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.58rem;/s,
+    /\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*var\(--ps-detail-heading-size\);/s,
   );
   assert.match(
     styles,

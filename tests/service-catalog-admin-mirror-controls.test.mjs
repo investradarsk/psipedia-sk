@@ -66,7 +66,10 @@ test("simple catalog has no manual Notion write UX; legacy route stays protected
  const worker=read("worker/index.ts");
  assert.doesNotMatch(ui,/manualCatalogMirrorAction|PROVISION_ONE|MIRROR_ONE/);
  assert.match(ui,/\+ Nová služba/);
- assert.match(worker,/runSimpleServiceCatalogSync/);
+ // Use the deployed owner-gated D1-first runner; the deprecated simple sync
+ // must never execute in parallel from the scheduled Worker.
+ assert.match(worker,/runServicesV3CatalogAutoSweep/);
+ assert.doesNotMatch(worker,/runSimpleServiceCatalogSync/);
  assert.match(route,/strictProvenance:true/);
  assert.match(route,/size>1024/);
 });
