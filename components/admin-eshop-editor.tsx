@@ -5,6 +5,8 @@ import { ChangeEvent, FormEvent, useState } from "react";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import type { ManagedEshop } from "@/lib/eshop-ratings";
 import { AdminActionButton } from "@/components/admin-interaction-system";
+import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
+import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 import styles from "./admin-eshop-editor.module.css";
 
@@ -149,7 +151,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
           <label><span>Názov</span><input value={name} onChange={(event) => setName(event.target.value)} required /></label>
           <label><span>Adresa profilu</span><input value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))} required /></label>
           <label className={styles.wide}><span>Web e-shopu</span><input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} required /></label>
-          <label className={styles.wide}><span>Popis</span><textarea rows={6} value={description} onChange={(event) => setDescription(event.target.value)} required /></label>
+          <div className={styles.wide}><label><span>Popis</span><textarea rows={6} value={description} onChange={(event) => setDescription(event.target.value)} required /></label><AdminLexicalAppendButton disabled={saving || uploading} onAppend={text => setDescription(current => appendLexicalPlainText(current,text))}/></div>
           <label className={styles.wide}><span>Zdroj profilu</span><input type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} required /></label>
         </div>
       </section>

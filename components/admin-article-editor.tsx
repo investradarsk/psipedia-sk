@@ -8,7 +8,7 @@ import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
 import { preservedEditorArticleMetadata } from "@/components/admin-article-editor-preserve";
 import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-field";
-import { AdminActionButton, AdminHelpText } from "@/components/admin-interaction-system";
+import { AdminActionButton, AdminDestructiveConfirmDialog, AdminHelpText } from "@/components/admin-interaction-system";
 import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 import editorStyles from "./admin-content-editor-v3.module.css";
 import { ArticleBlocks } from "@/components/article-blocks";
@@ -171,6 +171,7 @@ export function AdminArticleEditor({
   const [error, setError] = useState("");
   const [qaIssues, setQaIssues] = useState<ArticleQaIssue[]>([]);
   const [previewOpen, setPreviewOpen] = useState(true);
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [dirty, setDirtyState] = useState(false);
   const dirtyRef = useRef(false);
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
@@ -387,9 +388,7 @@ export function AdminArticleEditor({
   }
 
   function unpublish() {
-    if (window.confirm("Stiahnuť tento článok z verejného webu a ponechať ho ako koncept?")) {
-      void save("draft");
-    }
+    if (!saving && !uploading) setConfirmUnpublish(true);
   }
 
   return (
@@ -673,6 +672,18 @@ export function AdminArticleEditor({
       </EditorWorkspace>
       </div>
 
+      <AdminDestructiveConfirmDialog
+        open={confirmUnpublish}
+        title="Stiahnuť článok z webu?"
+        description="Článok sa zmení na koncept a nebude verejne publikovaný."
+        affectedCount={1}
+        affectedLabel="článok"
+        confirmLabel="Potvrdiť stiahnutie"
+        cancelLabel="Ponechať publikované"
+        pending={saving || uploading}
+        onCancel={() => setConfirmUnpublish(false)}
+        onConfirm={() => { setConfirmUnpublish(false); void save("draft"); }}
+      />
       {imageEditorOpen && imageUrl && <ImageDisplayEditor
         src={imageUrl} alt={imageAlt || title} title={title} excerpt={excerpt}
         thumbnail={thumbnailImageDisplay} detail={detailImageDisplay}

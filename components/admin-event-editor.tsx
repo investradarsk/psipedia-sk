@@ -3,7 +3,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { useRouter } from "next/navigation";
-import { AdminActionButton, AdminModalDialog } from "@/components/admin-interaction-system";
+import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
 import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, EditorUnsavedChangesGuard, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
 import { AdminEventMarkdownEditor } from "@/components/admin-event-markdown-editor";
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -330,21 +330,18 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         onStay={stayInEditor}
         onDiscard={discardAndNavigate}
       />
-      <AdminModalDialog
+      <AdminDestructiveConfirmDialog
         open={confirmUnpublish}
         title="Stiahnuť podujatie z kalendára?"
         description="Podujatie sa zmení na koncept a nebude verejne publikované."
-        onClose={() => setConfirmUnpublish(false)}
-        footer={
-          <>
-            <AdminActionButton type="button" variant="neutral" onClick={() => setConfirmUnpublish(false)}>Ponechať publikované</AdminActionButton>
-            <AdminActionButton type="button" variant="destructive" disabled={saving || uploading}
-              onClick={() => { setConfirmUnpublish(false); void save("draft"); }}>Potvrdiť stiahnutie</AdminActionButton>
-          </>
-        }
-      >
-        <p>Táto akcia je oddelená od uloženia úprav publikovaného podujatia.</p>
-      </AdminModalDialog>
+        affectedCount={1}
+        affectedLabel="podujatie"
+        confirmLabel="Potvrdiť stiahnutie"
+        cancelLabel="Ponechať publikované"
+        pending={saving || uploading}
+        onCancel={() => setConfirmUnpublish(false)}
+        onConfirm={() => { setConfirmUnpublish(false); void save("draft"); }}
+      />
     </div>
   );
 }

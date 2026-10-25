@@ -229,6 +229,7 @@ export function AdminDestructiveConfirmDialog({
   affectedCount,
   affectedLabel,
   confirmLabel,
+  cancelLabel = "Zrušiť",
   pending = false,
   onCancel,
   onConfirm,
@@ -239,6 +240,7 @@ export function AdminDestructiveConfirmDialog({
   affectedCount: number;
   affectedLabel: string;
   confirmLabel: string;
+  cancelLabel?: string;
   pending?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -251,7 +253,7 @@ export function AdminDestructiveConfirmDialog({
       onClose={onCancel}
       footer={(
         <>
-          <AdminActionButton variant="neutral" onClick={onCancel} disabled={pending}>Zrušiť</AdminActionButton>
+          <AdminActionButton variant="neutral" onClick={onCancel} disabled={pending}>{cancelLabel}</AdminActionButton>
           <AdminActionButton
             variant="destructive"
             data-admin-autofocus="true"
