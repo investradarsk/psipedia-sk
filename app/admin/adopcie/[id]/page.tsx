@@ -25,21 +25,18 @@ export default async function EditAdoptionPage({ params }: Props) {
   const user = await requireAdminPageUser(`/admin/adopcie/${id}`);
   // The selected breed is the only dependent option; start all other
   // canonical lookups together and await their already-running promises.
-  const organizationsPromise = listAdoptionAdminOrganizationOptions();
-  const duplicateWarningPromise = getCanonicalDraftDuplicateWarning("ADOPTION", numericId).catch(() => null);
-  const automationSuggestionsPromise = listCanonicalAutomationUpdateSuggestions({ entityType: "ADOPTION", canonicalEntityId: numericId });
-  const reviewPromise = getAdminEntityReview("ADOPTION", numericId);
-  const item = await getAdoptionById(numericId);
+  const [item, organizations, duplicateWarning, automationSuggestions, review] = await Promise.all([
+    getAdoptionById(numericId),
+    listAdoptionAdminOrganizationOptions(),
+    getCanonicalDraftDuplicateWarning("ADOPTION", numericId).catch(() => null),
+    listCanonicalAutomationUpdateSuggestions({ entityType: "ADOPTION", canonicalEntityId: numericId }),
+    getAdminEntityReview("ADOPTION", numericId),
+  ]);
   if (!item) notFound();
   const selectedBreed = item.breedId && item.breedName.trim()
     ? { id: item.breedId, name: item.breedName }
     : null;
-  const [organizations, breeds, duplicateWarning, automationSuggestions, review] = await Promise.all([
-    organizationsPromise,
-    listAdoptionAdminBreedOptions(undefined, selectedBreed, item.breedId),
-    duplicateWarningPromise,
-    automationSuggestionsPromise,
-    reviewPromise,
-  ]);
+  // This option set alone depends on the selected breed of the loaded item.
+  const breeds = await listAdoptionAdminBreedOptions(undefined, selectedBreed, item.breedId);
   return <AdminShell user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />{isAdoptionPublicStatus(item.status) && <Link href={adoptionDetailPath(item.slug)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}<Link href="/admin/adopcie">← Späť na adopcie</Link></>}><AdminGeminiOriginBadge agenda="adoptions" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref="/admin/adopcie" />}</AdminShell>;
 }
