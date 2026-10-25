@@ -3,7 +3,7 @@
 .eyebrow {font-size:13px;font-weight:700;color:#375747;}
 .total {font-size:36px;font-weight:800;line-height:1.1;letter-spacing:-.04em;color:#153e2b;font-variant-numeric:tabular-nums;}
 .subtle {font-size:13px;color:#63776b;margin:4px 0 0;}
-.month h2 {margin:0 0 7px;font-size:15px;}
+.month h2 {margin:0 0 7px;font-family:inherit;font-weight:800;font-size:15px;}
 .monthGrid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
 .monthGrid>div {display:grid;gap:4px;padding:9px 10px;background:white;border:1px solid #e0e7e2;border-radius:10px;}
 .monthGrid strong {font-size:21px;color:#17492c;font-variant-numeric:tabular-nums;}
@@ -18,7 +18,7 @@
 .area.hasFindings strong {background:#cdebd5;color:#1c693a;}
 .results {padding:var(--admin-v3-card-padding, 12px) 14px;border:1px solid #dbe3dd;background:white;border-radius:16px;min-width:0;}
 .heading {display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
-.heading h2 {font-size:20px;margin:0;color:#23392e;}
+.heading h2 {font-family:inherit;font-weight:800;font-size:18px;margin:0;color:#23392e;}
 .heading span {color:#64766a;font-size:13px;}
 .filters {display:flex;flex-wrap:wrap;gap:8px;padding:10px 0;}
 .filters button {min-height:44px;border:1px solid #d6dfd8;background:#f6f8f6;color:#33473a;border-radius:999px;padding:8px 12px;font-size:13px;cursor:pointer;white-space:nowrap;}
