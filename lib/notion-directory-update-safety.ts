@@ -65,3 +65,14 @@ export function notionDirectoryPageBelongsToSource(
     && page.parent?.type === "data_source_id"
     && valid.test(expected) && actual === expected;
 }
+
+/** Skip an unchanged failure marker to avoid Notion revision churn.
+ * A changed error still replaces the old state; no canonical content changes.
+ */
+export function directorySyncErrorMetadataNeedsWrite(input: {
+  syncStatus: string;
+  syncError: string;
+  message: string;
+}): boolean {
+  return input.syncStatus !== "Chyba" || input.syncError !== input.message.slice(0, 1800);
+}

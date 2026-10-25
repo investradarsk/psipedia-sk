@@ -21,7 +21,8 @@
 - [x] **2B:** spoločný bezstratový read-only log `notion_sync_health` pre Služby V3, Adresár, Podujatia/Pomoc psom a Facebook obrázky. Výstup rozlišuje `DISABLED`, `BLOCKED`, `IDLE`, `SYNCED`, `PARTIAL`, `CONFLICT`, `ERROR`; bez úniku obsahu alebo tokenov.
 - [ ] **2C:** pokračovať zjednotením per-agenda diagnostiky a administrátorského prehľadu, bez zmeny doménovej publikačnej logiky.
 - [x] **3A:** každé prepojené ID Adresára sa v jednom hodinovom behu reconciliuje najviac raz; fast-path bez zosúladenia naďalej povoľuje export zmenených kanonických údajov D1. Moved/archived/trashed Notion stránka nie je platný cieľ PATCH.
-- [ ] **3B:** ďalšie bezpečné rekonciliácie obsahových zmien a starších konfliktov cez existujúce prepojenia, bez hromadného prepísania.
+- [x] **3B-1:** identická chyba Adresára sa znovu nepatchuje (rovnaký záznam konfliktu zostáva viditeľný); D1-vetva znovu využíva už načítanú Notion stránku, bez ďalších HTTP GET.
+- [ ] **3B-2:** manuálne rozlíšenie skutočne rozdielnych historických obsahových konfliktov po read-only preflight, bez hádania víťaza a bez hromadného prepísania.
 - [x] **4A:** zjednotená idempotentná konfliktná diagnostika v Events/Help: už zapísaná identická chyba sa znovu nepatchuje, takže sa nemení `last_edited_time`; existujúce doménové hranice zostávajú zachované.
 - [ ] **4B:** zostávajúce zjednotenie a regresné overenie všetkých Podujatia/Pomoc psom agend vrátane identity, súbehu a schvaľovania.
 - [ ] **5:** zjednotiť reportovanie „Posledný sync / Čaká / Chyba / Konflikt“ a dočasné zlyhania bez hádania o stave publikovania.
@@ -66,3 +67,7 @@ Doplnený reálny `notionDirectoryPageBelongsToSource` a `NotionDirectoryUnsafeT
 ## Fáza 4A — idempotentná diagnostika konfliktov Events/Help
 
 Opakovanie tej istej detegovanej chyby `BASELINE_UNAVAILABLE` alebo identity konfliktu už nezapisuje nezmenené `Sync chyba`/`Sync stav`/`Posledný sync` do Notionu pri každom hodinovom behu. `markConflict` používa údaje o stránke už získané v danej dávke, nezavádza nové API čítania. Ak sa chyba zmení alebo stav prestane byť `Chyba`, aktualizácia sa vykoná ako doteraz. Konflikt sa stále počíta a posiela na kontrolu; oba obsahové systémy zostávajú nedotknuté a nedochádza k automatickému výberu víťaza. Nové testy sú v existujúcom `notion-data-quality-recovery.test.mjs`.
+
+## Fáza 3B-1 — stabilné stavy chýb Adresára
+
+Pri identickom `Sync stav=Chyba` a `Sync chyba` sa nevykoná opakovaný diagnostický PATCH. Nemení sa posledná Notion revízia, takže následná hodinová synchronizácia nedostáva umelé zmeny iba kvôli vlastnému chybovému hláseniu. Kontrola funguje v smere nedávno editovaných stránok aj v smere D1 zmien; druhá vetva odovzdáva už načítaný snapshot namiesto ďalšieho GET. Ak sa chyba zmení, PATCH sa vykoná. Historické konflikty s **odlišnými** hodnotami zostávajú blokované na manuálne overenie; systém nevyberá víťaza podľa času úpravy.

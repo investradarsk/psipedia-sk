@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { notionDirectoryUpdateSafety, notionDirectoryPageBelongsToSource, NotionDirectoryUnsafeTargetError } from "../lib/notion-directory-update-safety.ts";
+import { directorySyncErrorMetadataNeedsWrite, notionDirectoryUpdateSafety, notionDirectoryPageBelongsToSource, NotionDirectoryUnsafeTargetError } from "../lib/notion-directory-update-safety.ts";
 import { canRecoverNotionDirectoryMapping } from "../lib/notion-directory-update-safety.ts";
 import { mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
@@ -409,4 +409,21 @@ test("foreign or moved Directory pages never receive diagnostic Notion PATCH", (
   assert.match(syncSource, /throw new NotionDirectoryUnsafeTargetError\("IDENTITY_CONFLICT: Notion page ID/);
   const denied = new NotionDirectoryUnsafeTargetError("foreign page");
   assert.equal(denied instanceof NotionDirectoryUnsafeTargetError, true);
+});
+
+test("unchanged Directory error metadata is not rewritten every hourly run", () => {
+  const input = {
+    syncStatus: "Chyba",
+    syncError: "CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (*:BASELINE_UNAVAILABLE)",
+    message: "CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (*:BASELINE_UNAVAILABLE)",
+  };
+  assert.equal(directorySyncErrorMetadataNeedsWrite(input), false);
+  assert.equal(directorySyncErrorMetadataNeedsWrite({ ...input, message: "NEW_ERROR" }), true);
+  assert.equal(directorySyncErrorMetadataNeedsWrite({ ...input, syncStatus: "Synchronizované" }), true);
+  const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  assert.match(syncSource, /if \(page\?\.id === pageId && !directorySyncErrorMetadataNeedsWrite/);
+  assert.match(sweep, /markPageError\(input\.bindings, page\.id, error, page\)/);
+  assert.match(sweep, /markPageError\(input\.bindings, mapping\.notion_page_id, error, page\)/);
+  assert.match(sweep, /page = await fetchNotionPage\(input\.bindings, mapping\.notion_page_id\)/);
+  assert.match(sweep, /syncMappedPage\(\{[\s\S]*?mapping,\s*page,\s*forcePsipediaPush: true/);
 });
