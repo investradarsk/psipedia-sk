@@ -33,10 +33,12 @@ test("help informational banner follows shared banner radius without changing sa
   assert.match(css, /\.safety \{ background: #fff7e4; border-color: #f5dba4; \}/);
 });
 
-test("section hero CTA respects existing design token adoption boundaries", () => {
-  const css=read("components/public-visual-system/unified-section-hero.module.css");
-  const button=css.slice(css.indexOf(".hero :global([data-section-hero-search] button) {"), css.indexOf(".hero :global([data-section-hero-search] :is"));
-  assert.match(button,/color: var\(--white, #fff\)/);
-  assert.match(button,/background: var\(--forest, #174b38\)/);
-  assert.doesNotMatch(button,/var\(--ps-color-action-primary/);
+test("section hero search delegates button palette to the canonical shared CTA", () => {
+  const heroCss = read("components/public-visual-system/unified-section-hero.module.css");
+  const actionCss = read("components/public-visual-system/public-visual-system.module.css");
+  const search = read("components/section-hero-search.tsx");
+  assert.match(search, /<PublicActionButton type="submit">\{buttonLabel\}<\/PublicActionButton>/);
+  assert.match(actionCss, /\.actionPrimary \{[^}]*background: var\(--ps-color-action-primary\)/);
+  assert.match(actionCss, /\.action \{[^}]*border-radius: var\(--ps-radius-control, 12px\)/);
+  assert.doesNotMatch(heroCss, /var\(--ps-color-action-primary/);
 });

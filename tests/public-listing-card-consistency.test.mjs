@@ -41,8 +41,10 @@ test("section search uses shared CTA visuals and preserves GET routing", () => {
   const hero = read("components/public-visual-system/unified-section-hero.module.css");
   const search = read("components/section-hero-search.tsx");
   const css = read("components/public-visual-system/public-visual-system.module.css");
-  assert.doesNotMatch(hero, /\.hero :global\(\[data-section-hero-search\] button\) \{/);
-  assert.match(hero, /\.hero :global\(\[data-section-hero-search\] button\) \{ width: 100%; \}/);
+  const buttonRules = [...hero.matchAll(/\.hero :global\(\[data-section-hero-search\] button\) \{([^}]*)\}/g)];
+  assert.equal(buttonRules.length, 1, "only the responsive width override belongs in hero CSS");
+  assert.match(buttonRules[0][1], /width:\s*100%/);
+  assert.doesNotMatch(buttonRules[0][1], /background:|color:|border-radius:/);
   assert.match(css, /\.actionPrimary \{[^}]*background: var\(--ps-color-action-primary\)/);
   assert.match(css, /\.action \{[^}]*border-radius: var\(--ps-radius-control, 12px\)/);
   assert.match(search, /<form action=\{action\} method="get"/);
