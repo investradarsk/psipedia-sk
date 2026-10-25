@@ -259,6 +259,26 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
   }
 }
 
+/* COMPACT-FINISH-02: Mapy's formerly inline layout uses the same Admin V3
+   density values as shared cards. All Google Place actions/data are unchanged. */
+[data-admin-workspace] .admin-geo-operator-workspace,
+[data-admin-workspace] .admin-geo-operator-list {
+  display: grid;
+  min-width: 0;
+  gap: var(--admin-v3-compact-gap, 10px);
+}
+[data-admin-workspace] [data-google-bulk-summary] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+@media (max-width: 390px) {
+  [data-admin-workspace] .admin-geo-operator-list {
+    gap: 8px;
+  }
+}
+
 /* ADMIN-V3-COMPACT-01: one scoped density contract for legacy admin surfaces.
    Forms, state, map selection, images, editor payloads and mobile touch targets
    retain their existing behavior. Do not apply these rules to public pages. */

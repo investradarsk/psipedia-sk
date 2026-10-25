@@ -1,7 +1,7 @@
 .filters {
   display: grid;
   grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(140px, 1fr));
-  gap: 12px;
+  gap: 9px;
   align-items: end;
 }
 .filters label { min-width: 0; }
@@ -9,16 +9,16 @@
 .filters input,
 .filters select { width: 100%; min-width: 0; }
 .filterActions { display: flex; gap: 8px; align-items: center; }
-.resultBar { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 16px 0 10px; }
+.resultBar { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 10px 0 7px; }
 .selectPage { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; font-weight: 700; }
 .list { display: grid; gap: 1px; background: #dfe8e2; border: 1px solid #dfe8e2; border-radius: 14px; overflow: hidden; }
 .row {
   display: grid;
   grid-template-columns: 34px 54px minmax(230px, 2fr) minmax(160px, 1fr) minmax(180px, 1.2fr) 120px 128px;
-  gap: 12px;
+  gap: 9px;
   align-items: center;
   background: #fff;
-  padding: 11px 12px;
+  padding: 9px 10px;
   min-width: 0;
 }
 .thumb { width: 54px; height: 54px; border-radius: 10px; overflow: hidden; background: #eef3ef; display: grid; place-items: center; color: #67786e; font-size: 11px; text-align: center; }
@@ -44,7 +44,7 @@
 .complete { background: #e8f5ec; color: #245c36; }
 .updated { font-size: 12px; color: #5d7066; }
 .actions { display: flex; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
-.empty { padding: 28px; background: #fff; text-align: center; color: #5d7066; }
+.empty { padding: 18px; background: #fff; text-align: center; color: #5d7066; }
 .confirmSummary { margin: 0; }
 .mobileLabels { display: none; }
 @media (max-width: 1180px) {
