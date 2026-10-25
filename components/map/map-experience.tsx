@@ -1215,9 +1215,15 @@ export function MapExperience({
                 </button>
               </div>
             ) : null}
-            <div className={styles.mapStatusPill} role="status" data-testid="map-renderer-status">
+            <PublicNotice
+              as="div"
+              appearance="context"
+              className={styles.mapStatusPill}
+              role="status"
+              data-testid="map-renderer-status"
+            >
               <span>{rendererStatusLabel}</span>
-            </div>
+            </PublicNotice>
           </div>
         </div>
 

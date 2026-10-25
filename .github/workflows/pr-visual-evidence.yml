@@ -16,6 +16,7 @@ on:
       - "AGENTS.md"
       - "docs/PR-VISUAL-REVIEW.md"
       - "scripts/pr-visual-screenshots.mjs"
+      - "scripts/bootstrap-phase5-e2e.mjs"
       - "tests/pr-visual-screenshots.test.mjs"
       - ".github/workflows/pr-visual-evidence.yml"
 
@@ -88,6 +89,10 @@ jobs:
             tail -150 .e2e-artifacts/pr-visual/server.log
             exit 1
           fi
+      - name: Initialize local managed sections
+        env:
+          E2E_BASE_URL: http://localhost:5173
+        run: node scripts/bootstrap-phase5-e2e.mjs sections-only
       - name: Capture exact PR code screenshots
         run: node scripts/pr-visual-screenshots.mjs
       - name: GitHub run summary
