@@ -48,7 +48,14 @@ type RuntimeBindings = { DB?: D1Database };
 export const ADMIN_ATTENTION_PAGE_SIZE = 24;
 export const ADMIN_ATTENTION_MAX_PAGE_SIZE = 50;
 export const ADMIN_ATTENTION_SOURCE_QUERY_COUNT = 15;
-export const ADMIN_ATTENTION_REQUEST_QUERY_MAX = ADMIN_ATTENTION_SOURCE_QUERY_COUNT * 2;
+// Fast path: three five-source count queries. Worst case: all three groups
+// fail and retry their 15 sources individually before up to 15 page queries.
+export const ADMIN_ATTENTION_PROBE_GROUP_SIZE = 5;
+export const ADMIN_ATTENTION_PROBE_QUERY_COUNT = Math.ceil(
+  ADMIN_ATTENTION_SOURCE_QUERY_COUNT / ADMIN_ATTENTION_PROBE_GROUP_SIZE,
+);
+export const ADMIN_ATTENTION_REQUEST_QUERY_MAX =
+  ADMIN_ATTENTION_PROBE_QUERY_COUNT + ADMIN_ATTENTION_SOURCE_QUERY_COUNT * 2;
 
 export const adminAttentionAvailabilityStates = ["OK", "EMPTY", "PARTIAL", "UNAVAILABLE"] as const;
 export type AdminAttentionAvailability = (typeof adminAttentionAvailabilityStates)[number];
@@ -743,9 +750,11 @@ function paramsCte() {
   )`;
 }
 
-function sourceProbeSql(source: AdminAttentionQueueSourceType) {
-  return `${paramsCte()}, source_rows AS (${ATTENTION_SOURCE_SELECTS[source]})
-    SELECT
+// Reuse exactly the same grouped and isolated aggregate projections.
+// The payload is only needed when fetching page rows, so do not compute its
+// total length or the unused MIN(relevantAt) when counting each source.
+function sourceProbeSelectSql(source: AdminAttentionQueueSourceType) {
+  return `SELECT '${source}' AS sourceType,
       COUNT(*) AS total,
       COALESCE(SUM(CASE WHEN activeRank=0 THEN 1 ELSE 0 END),0) AS activeCount,
       COALESCE(SUM(CASE WHEN activeRank=1 THEN 1 ELSE 0 END),0) AS historyCount,
@@ -761,11 +770,18 @@ function sourceProbeSql(source: AdminAttentionQueueSourceType) {
       COALESCE(SUM(CASE WHEN activeRank=0 AND priority='LOW' THEN 1 ELSE 0 END),0) AS activeLowCount,
       COALESCE(SUM(CASE WHEN activeRank=1 AND priority='HIGH' THEN 1 ELSE 0 END),0) AS historyHighCount,
       COALESCE(SUM(CASE WHEN activeRank=1 AND priority='MEDIUM' THEN 1 ELSE 0 END),0) AS historyMediumCount,
-      COALESCE(SUM(CASE WHEN activeRank=1 AND priority='LOW' THEN 1 ELSE 0 END),0) AS historyLowCount,
-      MIN(relevantAt) AS minRelevantAt,
-      COALESCE(SUM(CASE WHEN payload IS NOT NULL THEN length(payload) ELSE 0 END),0) AS payloadLength
-    FROM source_rows`;
+      COALESCE(SUM(CASE WHEN activeRank=1 AND priority='LOW' THEN 1 ELSE 0 END),0) AS historyLowCount
+    FROM (${ATTENTION_SOURCE_SELECTS[source]})`;
 }
+
+function sourceProbeSql(source: AdminAttentionQueueSourceType) {
+  return `${paramsCte()}\n${sourceProbeSelectSql(source)}`;
+}
+
+function sourceProbeGroupSql(sources: readonly AdminAttentionQueueSourceType[]) {
+  return `${paramsCte()}\n${sources.map(sourceProbeSelectSql).join("\nUNION ALL\n")}`;
+}
+
 
 function safeLogSourceFailure(sourceType: AdminAttentionQueueSourceType, operation: string, error?: unknown) {
   console.warn("Admin attention source unavailable.", {
@@ -838,6 +854,55 @@ async function probeSources(
       return unavailableSnapshot(sourceType);
     }
   }));
+}
+
+// The Operations queue needs all state, view and priority counts, but they
+// are independent per source. Group five canonical sources into one D1 read
+// while retaining per-source availability and exact cursor/count semantics.
+// A group failure retries each source; never let one missing table conceal
+// counts from the other four sources.
+async function probeSourcesGrouped(
+  db: AdminAttentionD1Database,
+  now: Date,
+): Promise<AttentionSourceSnapshot[]> {
+  const groups: AdminAttentionQueueSourceType[][] = [];
+  for (let i = 0; i < adminAttentionQueueSourceTypes.length; i += ADMIN_ATTENTION_PROBE_GROUP_SIZE) {
+    groups.push(adminAttentionQueueSourceTypes.slice(i, i + ADMIN_ATTENTION_PROBE_GROUP_SIZE));
+  }
+  const bindings = timeBindings(now);
+  const results = await Promise.all(groups.map(async (sources) => {
+    try {
+      const response = await db.prepare(sourceProbeGroupSql(sources))
+        .bind(...bindings).all<AttentionSourceProbeRow & { sourceType: AdminAttentionQueueSourceType }>();
+      const counts = new Map<AdminAttentionQueueSourceType, AttentionSourceProbeRow>();
+      for (const row of response.results) {
+        const values = [
+          row.total, row.activeCount, row.historyCount, row.newCount,
+          row.inProgressCount, row.resolvedCount, row.dismissedCount,
+          row.highCount, row.mediumCount, row.lowCount,
+          row.activeHighCount, row.activeMediumCount, row.activeLowCount,
+          row.historyHighCount, row.historyMediumCount, row.historyLowCount,
+        ];
+        if (!sources.includes(row.sourceType) || counts.has(row.sourceType)
+          || values.some((value) => !Number.isSafeInteger(Number(value)) || Number(value) < 0)) {
+          throw new Error("Invalid admin attention grouped probe.");
+        }
+        counts.set(row.sourceType, row);
+      }
+      if (counts.size !== sources.length) {
+        throw new Error("Incomplete admin attention grouped probe.");
+      }
+      return sources.map((source) => rowToSnapshot(source, counts.get(source)!));
+    } catch (error) {
+      console.warn("Admin attention grouped probe unavailable; retrying sources.", {
+        sourceTypes: sources,
+        errorCode: "ATTENTION_SOURCE_UNAVAILABLE",
+        errorMessage: error instanceof Error ? error.message : undefined,
+      });
+      return probeSources(db, now, sources);
+    }
+  }));
+  return results.flat();
 }
 
 // The shared bell only needs active counts, not the full priority/history probes
@@ -1190,7 +1255,7 @@ export async function loadAdminAttentionPage(
   const invalidCursor = Boolean(requestedCursor) && !cursor;
   const currentCursor = invalidCursor ? null : cursor;
 
-  let snapshots = await probeSources(db, now);
+  let snapshots = await probeSourcesGrouped(db, now);
   let sourceAvailability = publicSourceAvailability(snapshots);
 
   if (!sourceAvailability.some((source) => source.state !== "UNAVAILABLE")) {
