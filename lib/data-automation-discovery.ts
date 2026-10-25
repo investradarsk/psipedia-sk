@@ -1019,8 +1019,9 @@ export class AutomationSearchProviderError extends Error {
     super(`automation_search_provider_${code.toLowerCase()}`);
     this.name = "AutomationSearchProviderError";
     this.code = code;
-    this.httpStatus = Number.isInteger(diagnostics?.httpStatus) && diagnostics!.httpStatus! >= 500 &&
-      diagnostics!.httpStatus! <= 599 ? diagnostics!.httpStatus! : null;
+    const status = diagnostics?.httpStatus;
+    this.httpStatus = typeof status === "number" && Number.isInteger(status) && status >= 500 &&
+      status <= 599 ? status : null;
     this.transportFailure = diagnostics?.transportFailure === true;
   }
 }
