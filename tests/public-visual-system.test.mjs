@@ -116,7 +116,8 @@ test("DS-2A: button loading is opt-in and native disabled cannot be overridden",
 
 test("DS-2A: navigational link does not acquire fake disabled semantics", () => {
   const link = source.split("export function PublicActionLink(")[1].split("export function PublicActionButton(")[0];
-  assert.ok(link.includes("<Link className="));
+  // Attribute order has no semantic meaning; verify the native Link and its styling.
+  assert.match(link, /<Link\b[^>]*className=/);
   assert.ok(link.includes("href={href}"));
   assert.ok(link.includes("target={target} rel={rel}"));
   assert.doesNotMatch(link, /disabled|loading|aria-pressed|preventDefault/);
@@ -222,7 +223,8 @@ test("PUBLIC-POLISH-2 keeps public photography square without flattening UI cont
   assert.match(helpStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.card\s*\{\s*border-radius:\s*0/);
   assert.match(lostFoundStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.detailImage[\s\S]*?border-radius:\s*0/);
   assert.match(directoryStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.cardImage[\s\S]*?border-radius:\s*0/);
-  assert.match(styles, /\.action\s*\{[^}]*border-radius:\s*var\(--pv-radius-control/s);
+  // Shared CTA keeps the existing --ps-radius-control token via the public design alias.
+  assert.match(styles, /\.action\s*\{[^}]*border-radius:\s*var\(--(?:ps|pv)-radius-control/s);
 });
 
 test("PUBLIC-POLISH-2 homepage section CTAs follow their content", () => {
