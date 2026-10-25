@@ -22,7 +22,7 @@ test("no generated descriptions or copy-pasted SEO text enter the field allowlis
 test("one scan claim per area and hour, without an extra credit budget", () => {
   assert.match(schema, /PRIMARY KEY\(area,hour\)/);
   assert.match(engine, /INSERT OR IGNORE INTO quality_missing_scans\(area,hour,scanned_at\)/);
-  assert.match(engine, /for\(const area of \["services","events","help"\] as const\)/);
+  assert.match(engine, /for \(const area of QUALITY_AREAS\)/);
   assert.match(worker, /isFullHourlyScheduledSweep\(controller\)/);
   assert.doesNotMatch(engine, /creditsPerDay|creditLimit|queriesPerRun/);
 });
