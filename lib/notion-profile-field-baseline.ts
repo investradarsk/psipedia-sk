@@ -3,7 +3,7 @@ import { stableAgendaSnapshotJson } from "./notion-bidirectional-reconciliation.
 import { sha256Text } from "./notion-sync-shared.ts";
 
 const VALID_AGENDAS = new Set([
-  "directory", "events", "organizations", "adoptions", "help-cases", "lost-found",
+  "directory", "events", "organizations", "adoptions", "help-cases", "lost-found", "eshops",
 ]);
 
 /** Recompute the same canonical hash used by each existing synchronizer. */
@@ -14,7 +14,7 @@ export async function profileFieldSnapshotHash(
       || Array.isArray(snapshot)) {
     throw new Error("INVALID_PROFILE_FIELD_BASELINE");
   }
-  return sha256Text(agenda === "directory"
+  return sha256Text((agenda === "directory" || agenda === "eshops")
     ? JSON.stringify(snapshot) : stableAgendaSnapshotJson(agenda, snapshot));
 }
 
