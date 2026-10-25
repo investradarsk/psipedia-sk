@@ -36,6 +36,11 @@ export function sameNotionProperty(remote: unknown, desired: unknown): boolean {
   if (!old || !next) return false;
   if ("rich_text" in next || "title" in next) {
     const type = "title" in next ? "title" : "rich_text";
+    // Notion GET /pages can truncate a large rich-text property to its first
+    // 25 items. Never infer equality or overwrite that partial remote value.
+    if (Array.isArray(old[type]) && old[type].length >= 25) {
+      throw new Error("NOTION_LONG_PROPERTY_REQUIRES_COMPLETE_READ");
+    }
     const from = richText(old[type]), to = richText(next[type]);
     return from !== null && to !== null && from === to;
   }
