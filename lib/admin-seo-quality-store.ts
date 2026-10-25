@@ -86,15 +86,17 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
     return true;
   });
 
-  const visible = filtered.map((item) => ({
-    ...item,
-    findings: item.findings.filter((finding) => {
-      if (filters.scope === "quality" && finding.scope === "custom") return false;
-      if (filters.scope === "custom" && finding.scope !== "custom") return false;
-      if (filters.issue !== "all" && finding.code !== filters.issue) return false;
-      return true;
-    }),
-  })).filter((item) => item.findings.length > 0);
+  // Totals must include all matching entities, but materializing full finding arrays
+  // for every off-page entity allocates needless data on large SEO dashboards.
+  // Apply the exact same finding predicate for the result count, and project only
+  // the bounded visible page below.
+  const matchesVisibleFinding = (finding: AdminSeoQualityItem["findings"][number]) => {
+    if (filters.scope === "quality" && finding.scope === "custom") return false;
+    if (filters.scope === "custom" && finding.scope !== "custom") return false;
+    if (filters.issue !== "all" && finding.code !== filters.issue) return false;
+    return true;
+  };
+  const visible = filtered.filter((item) => item.findings.some(matchesVisibleFinding));
 
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const page = Math.min(filters.page, totalPages);
@@ -108,7 +110,10 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
     entitiesWithCustomGaps: audited.filter((item) => item.customGapCount > 0).length,
     explicitNoindex: audited.filter((item) => item.findings.some((finding) => finding.code === "noindex-explicit")).length,
     resultCount: visible.length,
-    items: visible.slice(offset, offset + PAGE_SIZE),
+    items: visible.slice(offset, offset + PAGE_SIZE).map((item) => ({
+      ...item,
+      findings: item.findings.filter(matchesVisibleFinding),
+    })),
     agendaCounts,
     issueCounts,
     filters: {
