@@ -892,3 +892,56 @@
     box-shadow: none;
   }
 }
+
+/* PUBLIC-VISUAL-CONSISTENCY: a single visitor-facing card contract.
+   It applies only to the explicit public listing cards, not admin/partner UI.
+   Keep image aspect ratios, card layout and warning-state borders per type. */
+[data-public-card][data-public-card] {
+  min-width: 0;
+  border-radius: var(--ps-radius-card);
+  background: var(--ps-surface-raised);
+  box-shadow: var(--ps-ds5-card-shadow);
+  transition: var(--ps-ds5-card-transition);
+}
+
+[data-public-card][data-public-card]:not([data-public-card-emphasis="urgent"]) {
+  border-color: var(--ps-border-soft);
+}
+
+[data-public-card][data-public-card]:hover {
+  transform: var(--ps-ds5-card-hover-transform);
+  box-shadow: var(--ps-ds5-card-hover-shadow);
+}
+
+[data-public-card][data-public-card]:is(:focus-visible, :has(a:focus-visible)) {
+  outline: var(--ps-ds5-card-focus-outline);
+  outline-offset: var(--ps-ds5-card-focus-offset);
+}
+
+[data-public-card] [data-public-card-title] {
+  color: var(--ink);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+[data-public-card] [data-public-card-meta] {
+  color: var(--muted);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-public-card][data-public-card] {
+    transition: none;
+  }
+
+  [data-public-card][data-public-card]:hover {
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  [data-public-card][data-public-card]:is(:focus-visible, :has(a:focus-visible)) {
+    outline-color: Highlight;
+  }
+}

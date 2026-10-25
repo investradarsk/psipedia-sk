@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { PublicActionLink } from "@/components/public-visual-system";
+import { ArrowIcon } from "@/components/icons";
 import type { ArticleContinuationDecision } from "@/lib/article-continuation";
 import styles from "./article-continuation.module.css";
 
@@ -8,9 +9,9 @@ export function ArticleContinuation({ next }: { next: ArticleContinuationDecisio
     <nav className={styles.outer} aria-label="Pokračovanie po článku" data-content-discovery-v3>
       <div className={`${styles.inner} shell`}>
         <span className={styles.copy}>{next.context === "cross-section" ? "Ďalší praktický krok" : "Pokračovať v téme"}</span>
-        <Link href={next.href} className={styles.link}>
-          {next.label}<span aria-hidden="true">→</span>
-        </Link>
+        <PublicActionLink href={next.href} variant="tertiary" className={styles.link} icon={<ArrowIcon size={16} />}>
+          {next.label}
+        </PublicActionLink>
       </div>
     </nav>
   );

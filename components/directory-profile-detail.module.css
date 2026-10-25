@@ -25,7 +25,7 @@
 .qualificationsList li { padding: 8px 10px; border: 1px solid #e6ede6; border-radius: 8px; font-size: .8rem; overflow-wrap: anywhere; }
 .priceNote { margin-top: 18px; }
 .priceNote p { white-space: pre-line; }
-.contactSection { width: min(1120px, calc(100% - 32px)); margin: 0 auto; scroll-margin-top: 100px; }
+.contactSection { width: min(var(--ps-content-max, 1180px), calc(100% - 48px)); margin: 0 auto; scroll-margin-top: 100px; }
 .contactShell { width: 100%; max-width: none; padding: 0; }
 .hours { color: #455e66; font-size: .85rem; line-height: 1.65; }
 
@@ -40,3 +40,6 @@
 .servicesList li::before { content: ""; flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: #7b9d8d; }
 .contactValues a { overflow-wrap: anywhere; }
 @media(max-width: 380px) { .servicesList { grid-template-columns: minmax(0, 1fr); } }
+
+/* Contact section follows the same mobile gutter as the shared public shell. */
+@media (max-width: 620px) { .contactSection { width: min(100% - 24px, 520px); } }
