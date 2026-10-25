@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import { PublicTextarea } from "@/components/public-visual-system/public-form-controls";
 
@@ -71,9 +72,14 @@ export function OutreachVerificationForm({
   return (
     <form onSubmit={submit}>
       {result && (
-        <p role="status" className={result.type === "success" ? "admin-flash" : "error-text"}>
+        <PublicNotice
+          appearance="context"
+          tone={result.type === "error" ? "error" : "success"}
+          role="status"
+          className={result.type === "success" ? "admin-flash" : "error-text"}
+        >
           {result.text}
-        </p>
+        </PublicNotice>
       )}
       {entities.map((entity) => {
         const key = entity.entityType + ":" + entity.entityId;

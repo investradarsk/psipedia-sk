@@ -1,3 +1,8 @@
+import {
+  PublicNotice,
+  PublicEmptyState,
+  PublicPagination,
+} from "@/components/public-visual-system/public-result-states";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
@@ -60,11 +65,14 @@ const searchArticleDateFormatter = new Intl.DateTimeFormat("sk-SK", {
 function searchArticleDate(value?: string) {
   if (!value) return "";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value.slice(0, 10) : searchArticleDateFormatter.format(date);
+  return Number.isNaN(date.getTime())
+    ? value.slice(0, 10)
+    : searchArticleDateFormatter.format(date);
 }
 
 function searchArticleTopic(item: { type: string; category?: string; newsCategory?: string }) {
-  if (item.type === "Novinka") return getNewsCategory(item.newsCategory)?.shortLabel ?? "Zo sveta psov";
+  if (item.type === "Novinka")
+    return getNewsCategory(item.newsCategory)?.shortLabel ?? "Zo sveta psov";
   return item.category ?? "Článok";
 }
 
@@ -88,8 +96,24 @@ function searchHref(
 function knownContentFallbacks(query: string, section: string) {
   if (normalizePortalSearch(query) !== "labrador") return [];
   return [
-    ...(section ? [] : [{ href: "/plemena/labradorsky-retriever", label: "Labradorský retriever", type: "Plemeno" }]),
-    ...(!section || section === "steniatka" ? [{ href: "/steniatka/prvy-rok-labradora-mesiac-po-mesiaci", label: "Prvý rok labradora: čo vás čaká mesiac po mesiaci", type: "Článok" }] : []),
+    ...(section
+      ? []
+      : [
+          {
+            href: "/plemena/labradorsky-retriever",
+            label: "Labradorský retriever",
+            type: "Plemeno",
+          },
+        ]),
+    ...(!section || section === "steniatka"
+      ? [
+          {
+            href: "/steniatka/prvy-rok-labradora-mesiac-po-mesiaci",
+            label: "Prvý rok labradora: čo vás čaká mesiac po mesiaci",
+            type: "Článok",
+          },
+        ]
+      : []),
   ];
 }
 
@@ -112,7 +136,11 @@ function locationLabel(parsed: ParsedPortalSearchQuery) {
 }
 
 function resultLocation(item: PortalSearchItem) {
-  return [item.city, item.district && item.district !== item.city ? item.district : "", item.region && item.region !== item.district ? item.region : ""]
+  return [
+    item.city,
+    item.district && item.district !== item.city ? item.district : "",
+    item.region && item.region !== item.district ? item.region : "",
+  ]
     .filter(Boolean)
     .join(" · ");
 }
@@ -122,10 +150,17 @@ function serviceLabels(value?: string) {
   try {
     const parsed: unknown = JSON.parse(value);
     if (Array.isArray(parsed)) {
-      return parsed.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim()).slice(0, 4);
+      return parsed
+        .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+        .map((item) => item.trim())
+        .slice(0, 4);
     }
   } catch {
-    return value.split(/[,;|]/).map((item) => item.trim()).filter(Boolean).slice(0, 4);
+    return value
+      .split(/[,;|]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 4);
   }
   return [];
 }
@@ -171,7 +206,14 @@ export default async function SearchPage({ searchParams }: Props) {
   const params = await searchParams;
   const query = (first(params.q) ?? "").trim().slice(0, SEARCH_MAX_QUERY_LENGTH);
   const rawSection = first(params.sekcia);
-  const supportedSections = new Set(["starostlivost", "aktivity", "steniatka", "novinky", "recenzie", "pomoc-psom"]);
+  const supportedSections = new Set([
+    "starostlivost",
+    "aktivity",
+    "steniatka",
+    "novinky",
+    "recenzie",
+    "pomoc-psom",
+  ]);
   const section = rawSection && supportedSections.has(rawSection) ? rawSection : "";
   const subsection = section ? (first(params.podsekcia) ?? "").trim().slice(0, 80) : "";
   const requestedPage = Math.max(1, Number.parseInt(first(params.page) ?? "1", 10) || 1);
@@ -194,13 +236,23 @@ export default async function SearchPage({ searchParams }: Props) {
   });
   const fallbacks = portalSearchFallbacks(result.parsed);
   const knownFallbacks = knownContentFallbacks(query, section);
-  const broadenings = broadenSearchLinks(query, section, result.parsed, typeFilterParam, locationFilterParam, subsection);
+  const broadenings = broadenSearchLinks(
+    query,
+    section,
+    result.parsed,
+    typeFilterParam,
+    locationFilterParam,
+    subsection,
+  );
   const activeTypeFilter = portalSearchTypeFilterFromParsed(result.parsed);
   const activeTypeLabel = typeFilterLabel(activeTypeFilter);
   const activeLocationLabel = locationLabel(result.parsed);
   const mapHref = section ? null : portalSearchMapHref(result.parsed);
-  const explicitLocation = locationProvided ? parsePortalSearchLocationFilter(rawLocationFilter) : null;
-  const invalidTypeFilter = typeProvided && Boolean(rawTypeFilter) && !parsePortalSearchTypeFilter(rawTypeFilter);
+  const explicitLocation = locationProvided
+    ? parsePortalSearchLocationFilter(rawLocationFilter)
+    : null;
+  const invalidTypeFilter =
+    typeProvided && Boolean(rawTypeFilter) && !parsePortalSearchTypeFilter(rawTypeFilter);
   const invalidLocationFilter = locationProvided && Boolean(rawLocationFilter) && !explicitLocation;
   const locationFieldValue = locationProvided
     ? explicitLocation?.level === "city"
@@ -219,20 +271,45 @@ export default async function SearchPage({ searchParams }: Props) {
         <div className="shell">
           <span className="eyebrow">Celá Psipedia na jednom mieste</span>
           <h1>Čo hľadáš?</h1>
-          <p>{section === "starostlivost" ? "Vyhľadávame iba v poradni Zdravie a starostlivosť." : section === "aktivity" ? "Vyhľadávame iba v sekcii Výcvik a aktivity." : section === "steniatka" ? "Vyhľadávame iba v sprievodcovi Šteniatka." : section === "novinky" ? "Vyhľadávame iba medzi Novinkami." : section === "recenzie" ? "Vyhľadávame iba medzi redakčnými recenziami a testami." : section === "pomoc-psom" ? "Vyhľadávame iba v sekcii Pomoc psom." : "Článok, plemeno, podujatie, veterinára, trénera, službu alebo pomoc nájdeš jedným vyhľadávaním."}</p>
-          <form action="/hladat" method="get" className="portal-search-form" role="search" data-public-search-ui="main">
+          <p>
+            {section === "starostlivost"
+              ? "Vyhľadávame iba v poradni Zdravie a starostlivosť."
+              : section === "aktivity"
+                ? "Vyhľadávame iba v sekcii Výcvik a aktivity."
+                : section === "steniatka"
+                  ? "Vyhľadávame iba v sprievodcovi Šteniatka."
+                  : section === "novinky"
+                    ? "Vyhľadávame iba medzi Novinkami."
+                    : section === "recenzie"
+                      ? "Vyhľadávame iba medzi redakčnými recenziami a testami."
+                      : section === "pomoc-psom"
+                        ? "Vyhľadávame iba v sekcii Pomoc psom."
+                        : "Článok, plemeno, podujatie, veterinára, trénera, službu alebo pomoc nájdeš jedným vyhľadávaním."}
+          </p>
+          <form
+            action="/hladat"
+            method="get"
+            className="portal-search-form"
+            role="search"
+            data-public-search-ui="main"
+          >
             {section && <input type="hidden" name="sekcia" value={section} />}
             {section && subsection && <input type="hidden" name="podsekcia" value={subsection} />}
             <span className="public-search-entry">
-              <span className="public-search-icon" aria-hidden="true"><SearchIcon size={21} /></span>
-              <label className="sr-only" htmlFor="portal-query">Hľadaný výraz</label>
-              <PublicTextInput appearance="context"
-              id="portal-query"
-              name="q"
-              defaultValue={query}
-              maxLength={SEARCH_MAX_QUERY_LENGTH}
-              placeholder="Hľadať na Psipedii"
-              autoComplete="off"
+              <span className="public-search-icon" aria-hidden="true">
+                <SearchIcon size={21} />
+              </span>
+              <label className="sr-only" htmlFor="portal-query">
+                Hľadaný výraz
+              </label>
+              <PublicTextInput
+                appearance="context"
+                id="portal-query"
+                name="q"
+                defaultValue={query}
+                maxLength={SEARCH_MAX_QUERY_LENGTH}
+                placeholder="Hľadať na Psipedii"
+                autoComplete="off"
               />
             </span>
             <button type="submit">Hľadať</button>
@@ -241,7 +318,10 @@ export default async function SearchPage({ searchParams }: Props) {
       </header>
 
       {query.length >= 2 && !section ? (
-        <section className={`shell ${styles.discovery}`} aria-labelledby="search-interpretation-title">
+        <section
+          className={`shell ${styles.discovery}`}
+          aria-labelledby="search-interpretation-title"
+        >
           <div className={styles.discoveryIntro}>
             <div>
               <span className={styles.discoveryEyebrow}>Ako chápeme dotaz</span>
@@ -252,9 +332,15 @@ export default async function SearchPage({ searchParams }: Props) {
               </h2>
             </div>
             <div className={styles.discoveryActions}>
-              {mapHref ? <Link className={styles.mapLink} href={mapHref}>Zobraziť na mape</Link> : null}
+              {mapHref ? (
+                <Link className={styles.mapLink} href={mapHref}>
+                  Zobraziť na mape
+                </Link>
+              ) : null}
               {typeProvided || locationProvided ? (
-                <Link href={searchHref(query, section, 1, undefined, undefined, subsection)}>Obnoviť rozpoznanie z dotazu</Link>
+                <Link href={searchHref(query, section, 1, undefined, undefined, subsection)}>
+                  Obnoviť rozpoznanie z dotazu
+                </Link>
               ) : null}
             </div>
           </div>
@@ -282,19 +368,28 @@ export default async function SearchPage({ searchParams }: Props) {
             </div>
           ) : null}
 
-          <form action="/hladat" method="get" className={styles.filterForm} aria-label="Upraviť filtre vyhľadávania">
+          <form
+            action="/hladat"
+            method="get"
+            className={styles.filterForm}
+            aria-label="Upraviť filtre vyhľadávania"
+          >
             <input type="hidden" name="q" value={query} />
             <PublicFormField label="Typ výsledku">
               <PublicSelect name="typ" defaultValue={activeTypeFilter}>
                 <option value="">Všetky typy</option>
                 <optgroup label="Služby pre psov">
                   {directoryCategories.map((category) => (
-                    <option key={category.slug} value={category.slug}>{category.label}</option>
+                    <option key={category.slug} value={category.slug}>
+                      {category.label}
+                    </option>
                   ))}
                 </optgroup>
                 <optgroup label="Podujatia">
                   {eventTypes.map((eventType) => (
-                    <option key={eventType} value={`event:${eventType}`}>{eventType}</option>
+                    <option key={eventType} value={`event:${eventType}`}>
+                      {eventType}
+                    </option>
                   ))}
                 </optgroup>
                 <optgroup label="Pomoc psom">
@@ -316,22 +411,36 @@ export default async function SearchPage({ searchParams }: Props) {
           </form>
 
           {invalidTypeFilter || invalidLocationFilter ? (
-            <p className={styles.filterNotice} role="status">
+            <PublicNotice
+              appearance="context"
+              tone="info"
+              className={styles.filterNotice}
+              role="status"
+            >
               {invalidTypeFilter ? "Neznámy typ výsledku sme nepoužili. " : ""}
-              {invalidLocationFilter ? `Lokalitu „${rawLocationFilter}“ sme nerozpoznali, preto podľa nej výsledky neobmedzujeme.` : ""}
-            </p>
+              {invalidLocationFilter
+                ? `Lokalitu „${rawLocationFilter}“ sme nerozpoznali, preto podľa nej výsledky neobmedzujeme.`
+                : ""}
+            </PublicNotice>
           ) : null}
         </section>
       ) : null}
 
       <section className="section shell portal-search-results" aria-live="polite" aria-busy="false">
         {query.length < 2 ? (
-          <div className="portal-search-start">
+          <PublicEmptyState variant="context" className="portal-search-start">
             <span aria-hidden="true">🔎</span>
             <h2>Napíš aspoň dve písmená</h2>
-            <p>Vyhľadávame bez ohľadu na diakritiku a rozumieme aj kombinácii služby s lokalitou.</p>
-            <div><Link href="/plemena">Atlas plemien</Link><Link href="/podujatia">Kalendár</Link><Link href="/adresar">Služby pre psov</Link><Link href="/pomoc-psom">Pomoc psom</Link></div>
-          </div>
+            <p>
+              Vyhľadávame bez ohľadu na diakritiku a rozumieme aj kombinácii služby s lokalitou.
+            </p>
+            <div>
+              <Link href="/plemena">Atlas plemien</Link>
+              <Link href="/podujatia">Kalendár</Link>
+              <Link href="/adresar">Služby pre psov</Link>
+              <Link href="/pomoc-psom">Pomoc psom</Link>
+            </div>
+          </PublicEmptyState>
         ) : result.items.length ? (
           <>
             <div className="portal-search-summary">
@@ -351,17 +460,32 @@ export default async function SearchPage({ searchParams }: Props) {
                     data-article-list-item={item.kind === "article" ? "" : undefined}
                   >
                     {item.kind === "article" ? (
-                      <span className={`${styles.copy} ${item.imageUrl ? styles.articleCopy : styles.articleCopyNoImage}`}>
+                      <span
+                        className={`${styles.copy} ${item.imageUrl ? styles.articleCopy : styles.articleCopyNoImage}`}
+                      >
                         {item.imageUrl ? (
                           <span className={styles.articleImage} data-article-image>
-                            <img src={item.imageUrl} alt={"Ilustračná fotografia k článku: " + item.title} loading="lazy" decoding="async" />
+                            <img
+                              src={item.imageUrl}
+                              alt={"Ilustračná fotografia k článku: " + item.title}
+                              loading="lazy"
+                              decoding="async"
+                            />
                           </span>
                         ) : null}
                         <span className={styles.articleText}>
-                          <span className={styles.articleTopic} data-article-topic>{searchArticleTopic(item)}</span>
+                          <span className={styles.articleTopic} data-article-topic>
+                            {searchArticleTopic(item)}
+                          </span>
                           <strong data-article-title>{item.title}</strong>
                           {item.publishedAt ? (
-                            <time className={styles.articleDate} dateTime={item.publishedAt} data-article-date>{searchArticleDate(item.publishedAt)}</time>
+                            <time
+                              className={styles.articleDate}
+                              dateTime={item.publishedAt}
+                              data-article-date
+                            >
+                              {searchArticleDate(item.publishedAt)}
+                            </time>
                           ) : null}
                         </span>
                       </span>
@@ -372,10 +496,14 @@ export default async function SearchPage({ searchParams }: Props) {
                           {location ? <span className={styles.location}>{location}</span> : null}
                         </span>
                         <strong>{item.title}</strong>
-                        {item.description ? <span className={styles.description}>{item.description}</span> : null}
+                        {item.description ? (
+                          <span className={styles.description}>{item.description}</span>
+                        ) : null}
                         {services.length ? (
                           <span className={styles.services} aria-label="Dostupné služby">
-                            {services.map((service) => <span key={service}>{service}</span>)}
+                            {services.map((service) => (
+                              <span key={service}>{service}</span>
+                            ))}
                           </span>
                         ) : null}
                       </span>
@@ -386,18 +514,51 @@ export default async function SearchPage({ searchParams }: Props) {
               })}
             </div>
 
-            {result.capped ? <p className={styles.limitNote}>Pri veľmi širokom dotaze zobrazujeme najrelevantnejších 480 výsledkov. Pre úplný zoznam použi príslušnú sekciu alebo adresár.</p> : null}
+            {result.capped ? (
+              <p className={styles.limitNote}>
+                Pri veľmi širokom dotaze zobrazujeme najrelevantnejších 480 výsledkov. Pre úplný
+                zoznam použi príslušnú sekciu alebo adresár.
+              </p>
+            ) : null}
 
             {result.totalPages > 1 ? (
-              <nav className={styles.pagination} aria-label="Stránkovanie výsledkov">
-                {result.page > 1 ? <Link href={searchHref(query, section, result.page - 1, typeFilterParam, locationFilterParam, subsection)} rel="prev">← Predchádzajúca</Link> : <span />}
-                <span>Strana {result.page} z {result.totalPages}</span>
-                {result.page < result.totalPages ? <Link href={searchHref(query, section, result.page + 1, typeFilterParam, locationFilterParam, subsection)} rel="next">Ďalšia →</Link> : <span />}
-              </nav>
+              <PublicPagination
+                variant="context"
+                className={styles.pagination}
+                label="Stránkovanie výsledkov"
+                currentPage={result.page}
+                totalPages={result.totalPages}
+                previousHref={
+                  result.page > 1
+                    ? searchHref(
+                        query,
+                        section,
+                        result.page - 1,
+                        typeFilterParam,
+                        locationFilterParam,
+                        subsection,
+                      )
+                    : undefined
+                }
+                nextHref={
+                  result.page < result.totalPages
+                    ? searchHref(
+                        query,
+                        section,
+                        result.page + 1,
+                        typeFilterParam,
+                        locationFilterParam,
+                        subsection,
+                      )
+                    : undefined
+                }
+                summaryAs="span"
+                emptyDisabledControls
+              />
             ) : null}
           </>
         ) : (
-          <div className="portal-search-start">
+          <PublicEmptyState variant="context" className="portal-search-start">
             <span aria-hidden="true">🐾</span>
             <span>Výsledky pre „{query}“</span>
             <h2>Nenašli sme presnú zhodu</h2>
@@ -406,10 +567,34 @@ export default async function SearchPage({ searchParams }: Props) {
                 ? "Pre zvolený typ alebo lokalitu momentálne nemáme zodpovedajúci publikovaný výsledok. Môžeš rozšíriť lokalitu alebo zrušiť jeden z filtrov."
                 : `Pre dotaz „${query}“ momentálne nemáme zodpovedajúci publikovaný výsledok. Skús upraviť názov, službu alebo lokalitu.`}
             </p>
-            {broadenings.length ? <div>{broadenings.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}</div> : null}
-            {knownFallbacks.length ? <div>{knownFallbacks.map((link) => <Link href={link.href} key={link.href}><small>{link.type}</small> {link.label}</Link>)}</div> : null}
-            {fallbacks.length ? <div>{fallbacks.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}</div> : null}
-          </div>
+            {broadenings.length ? (
+              <div>
+                {broadenings.map((link) => (
+                  <Link href={link.href} key={link.href}>
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+            {knownFallbacks.length ? (
+              <div>
+                {knownFallbacks.map((link) => (
+                  <Link href={link.href} key={link.href}>
+                    <small>{link.type}</small> {link.label}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+            {fallbacks.length ? (
+              <div>
+                {fallbacks.map((link) => (
+                  <Link href={link.href} key={link.href}>
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </PublicEmptyState>
         )}
       </section>
     </main>

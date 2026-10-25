@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import {
   PublicTextInput,
@@ -115,9 +116,14 @@ export function DirectoryProfileChangeForm({ profile, initialData, specializedFi
   return (
     <form className="directory-change-form" onSubmit={submit}>
       {result && (
-        <p className={`directory-change-result is-${result.type}`} role="status">
+        <PublicNotice
+          appearance="context"
+          tone={result.type === "error" ? "error" : "success"}
+          className={`directory-change-result is-${result.type}`}
+          role="status"
+        >
           {result.text}
-        </p>
+        </PublicNotice>
       )}
       <section className="directory-change-profile" aria-labelledby="change-profile-title">
         <div>

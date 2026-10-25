@@ -1,0 +1,183 @@
+/* Existing public variants: change their presentation here, not in page modules. */
+
+.searchPagination {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.searchPagination > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-align: center;
+}
+
+.searchPagination > a {
+  width: fit-content;
+  max-width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.searchPagination > a:last-child {
+  justify-self: end;
+}
+
+@media (max-width: 620px) {
+  .searchPagination {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .searchPagination > span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 620px) {
+  .searchPagination > a:first-of-type {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 620px) {
+  .searchPagination > a:last-child {
+    grid-column: 2;
+  }
+}
+
+.reviewPagination {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.reviewPagination a,
+.reviewPagination span,
+.reviewPagination strong {
+  font-size: 0.76rem;
+}
+
+.reviewPagination a {
+  display: inline-flex;
+  min-height: var(--ps-control-min-height);
+  align-items: center;
+  color: var(--forest);
+  font-weight: 800;
+}
+
+.reviewPagination span {
+  color: var(--muted);
+}
+
+.reviewPagination a:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .reviewPagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .reviewPagination a,
+  .reviewPagination span,
+  .reviewPagination strong {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .reviewPagination a {
+    justify-content: center;
+  }
+}
+
+.mapState {
+  display: grid;
+  gap: 10px;
+  margin: 4px;
+  padding: 22px;
+  border: 1px dashed rgba(23, 75, 56, 0.24);
+  border-radius: 16px;
+  color: var(--map-muted);
+  background: rgba(246, 249, 243, 0.78);
+  line-height: 1.55;
+}
+
+.mapState strong {
+  color: var(--ink, #17352b);
+}
+
+.ratingSuccess,
+.ratingError {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+}
+
+.ratingSuccess {
+  color: #174b38;
+  background: #e8f3ec;
+}
+
+.ratingError {
+  color: #8b2f2f;
+  background: #fdeaea;
+}
+
+.reviewError,
+.reviewAlready {
+  margin: 9px 0 0;
+  padding: 11px 13px;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.reviewError {
+  color: #8b3126;
+  background: #fff1ed;
+}
+
+.reviewAlready {
+  color: #174f39;
+  background: #edf7f0;
+}
+
+.reportError {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff0ed;
+  color: #7a2116;
+  font-weight: 700;
+}
+
+.searchFilterNotice {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}

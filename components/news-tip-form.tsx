@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import {
   PublicSelect,
@@ -237,9 +238,14 @@ export function NewsTipForm() {
         </span>
       </label>
       {result && (
-        <p className={`news-tip-result is-${result.type}`} role="status">
+        <PublicNotice
+          appearance="context"
+          tone={result.type === "error" ? "error" : "success"}
+          className={`news-tip-result is-${result.type}`}
+          role="status"
+        >
           {result.text}
-        </p>
+        </PublicNotice>
       )}
       <button className="button button--coral news-tip-submit" type="submit" disabled={sending}>
         {sending ? "Odosielam…" : "Odoslať tip redakcii"}
