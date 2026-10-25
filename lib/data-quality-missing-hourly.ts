@@ -3,6 +3,7 @@ import { TavilyAutomationSearchProvider } from "./data-automation-search-tavily.
 import { AutomationSearchProviderError } from "./data-automation-discovery.ts";
 import { isSafeAutomationSourceUrl, normalizeAutomationIdentity } from "./data-automation.ts";
 import { mergeDirectoryPublicContactData, readDirectoryPublicContacts, type DirectoryImportData } from "./directory-profile-metadata.ts";
+import { buildQualityTavilyQuery, qualityMayResearch, qualityTodayInSlovakia } from "./data-quality-tavily-query.ts";
 
 export type QualityArea = "services" | "events" | "help";
 type Kind = "DIRECTORY" | "EVENT" | "ORGANIZATION" | "ADOPTION" | "FOSTER" | "HELP_ITEM" | "LOST_FOUND";
@@ -80,7 +81,8 @@ function title(kind:Kind,row:Row) {
   const label=String(row[SPECS[kind].label]??"").trim();
   return label || (kind==="LOST_FOUND" ? `Hlásenie #${row.id}` : "");
 }
-function eligible(area:QualityArea,kind:Kind,index:number,row:Row):Profile|null {
+function eligible(area:QualityArea,kind:Kind,index:number,row:Row,today:string):Profile|null {
+  if(!qualityMayResearch(kind,row,today)) return null;
   const label=title(kind,row);
   if(!label) return null;
   const pending=SPECS[kind].fields.filter(f=>missing(fieldValue(kind,row,f)));
@@ -136,7 +138,7 @@ function discover(profile:Profile,results:Array<{url:string;title:string;snippet
   }
   return found;
 }
-async function nextProfile(db:Database,area:QualityArea) {
+async function nextProfile(db:Database,area:QualityArea,today:string) {
   const state=await db.prepare("SELECT type_index,entity_id FROM quality_missing_cursors WHERE area=?").bind(area).first<{type_index:number;entity_id:number}>();
   const kinds=AREA_KINDS[area];
   const start=Math.max(0,Math.min(kinds.length-1,Number(state?.type_index??0)));
@@ -150,7 +152,7 @@ async function nextProfile(db:Database,area:QualityArea) {
       const rows=await db.prepare(`SELECT * FROM ${spec.table} WHERE id>?${scope} ORDER BY id ASC LIMIT 250`).bind(after).all<Row>();
       if(!rows.results.length) break;
       for(const row of rows.results) {
-        const profile=eligible(area,kind,i,row);
+        const profile=eligible(area,kind,i,row,today);
         if(!profile) continue;
         // An existing open proposal means the same missing field already awaits the user.
         const opened=await db.prepare("SELECT field_key FROM quality_missing_proposals WHERE entity_type=? AND entity_id=? AND status='OPEN'")
@@ -224,6 +226,7 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
   }
 
   const provider = new TavilyAutomationSearchProvider({ apiKey: input.tavilyApiKey });
+  const today = qualityTodayInSlovakia(now);
   let scanned = 0;
   let found = 0;
   let failed = 0;
@@ -238,7 +241,7 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
     ).bind(area, hour, at).run();
     if (!claimed.meta.changes) continue;
 
-    const profile = await nextProfile(db, area);
+    const profile = await nextProfile(db, area, today);
     if (profile && "skipped" in profile) {
       await db.prepare("UPDATE quality_missing_cursors SET type_index=?,entity_id=?,updated_at=? WHERE area=?")
         .bind(profile.index, profile.id, at, area).run();
@@ -258,11 +261,7 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
       .bind(profile.kind, profile.id, area, hour).run();
     scanned++;
 
-    const terms = area === "events" ? "registrácia dátum čas miesto plagát"
-      : area === "help" ? "kontakt email telefón web facebook fotografia"
-      : "kontakt telefón email web facebook instagram fotografia";
-    const city = String(profile.row.city ?? "").trim();
-    const query = [profile.label, city, terms].filter(Boolean).join(" ").slice(0, 500);
+    const query = buildQualityTavilyQuery(profile);
     const beforeFound = found;
 
     try {
@@ -327,7 +326,7 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
 }
 
 
-export type ManualQualityGroup = "image" | "web" | "phone" | "email" | "social" | "all";
+export type ManualQualityGroup = "address" | "image" | "web" | "phone" | "email" | "social" | "registration" | "date" | "other" | "all";
 export type ManualQualityMode = "profiles" | "free" | "alternative";
 export type ManualQualityCursor = { index: number; id: number };
 export type ManualQualityInput = {
@@ -346,7 +345,7 @@ export type ManualQualityResponse = {
   images?:string[];
 };
 
-const MANUAL_GROUPS:readonly ManualQualityGroup[]=["image","web","phone","email","social","all"];
+const MANUAL_GROUPS:readonly ManualQualityGroup[]=["address","image","web","phone","email","social","registration","date","other","all"];
 const MANUAL_MODES:readonly ManualQualityMode[]=["profiles","free","alternative"];
 export function validManualQualityRequest(input:ManualQualityInput) {
   if(!QUALITY_AREAS.includes(input.area)||!MANUAL_GROUPS.includes(input.group)||!MANUAL_MODES.includes(input.mode)) {
@@ -376,7 +375,7 @@ export async function listManualQualityHistory(db:Database):Promise<ManualQualit
   return rows.results;
 }
 
-async function nextManualQualityProfile(db:Database, input:ManualQualityInput):Promise<Profile|null> {
+async function nextManualQualityProfile(db:Database, input:ManualQualityInput,today:string):Promise<Profile|null> {
   const kinds=AREA_KINDS[input.area];
   const exact=input.mode==="alternative";
   const selectedKinds=exact?[input.entityType as Kind]:kinds;
@@ -394,7 +393,7 @@ async function nextManualQualityProfile(db:Database, input:ManualQualityInput):P
         "SELECT * FROM "+spec.table+" WHERE id>?"+scope+" ORDER BY id ASC LIMIT 250";
       const rows=await db.prepare(query).bind(exact?input.entityId:after).all<Row>();
       for(const row of rows.results) {
-        const profile=eligible(input.area,kind,index,row);
+        const profile=eligible(input.area,kind,index,row,today);
         if(!profile) continue;
         profile.missing=profile.missing.filter(f=>input.group==="all"||f.group===input.group);
         if(!profile.missing.length) continue;
@@ -421,18 +420,14 @@ export async function runManualQualitySearch(
     "Ručné vyhľadávanie vyžaduje databázovú migráciu 0143. Automatická kontrola zostáva zapnutá."
   );
   if(!apiKey?.trim()) throw new Error("Tavily nie je nakonfigurované.");
-  const profile=input.mode==="free"?null:await nextManualQualityProfile(db,input);
+  const profile=input.mode==="free"?null:await nextManualQualityProfile(db,input,qualityTodayInSlovakia());
   if(input.mode!=="free"&&!profile) return {
     inspected:0,found:0,cursor:null,finished:true,profileLabel:null,estimatedCredits:0,
   };
   const now=new Date().toISOString();
   const id=crypto.randomUUID();
   const cursor=profile?{index:profile.index,id:profile.id}:null;
-  const terms=input.area==="events"?"registrácia miesto podujatie"
-    :input.area==="help"?"kontakt pomoc psom organizácia":"kontakt veterinár psi služby";
-  const query=input.mode==="free"?input.query!.trim():
-    [profile!.label, String(profile!.row.city??"").trim(),input.group==="image"?"fotografia obrázok":terms]
-      .filter(Boolean).join(" ").slice(0,500);
+  const query=input.mode==="free"?input.query!.trim():buildQualityTavilyQuery(profile!);
   const claimed=await db.prepare(
     "INSERT INTO quality_missing_manual_attempts"+
     "(id,area,search_group,mode,entity_type,entity_id,profile_label,created_at,status,actor)"+
