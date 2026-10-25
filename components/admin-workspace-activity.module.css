@@ -9,7 +9,7 @@
 .highlight div{display:grid;gap:4px}.highlight strong{font-size:1.03rem}.highlight time{font-size:.85rem;color:var(--admin-muted,#5e6a64)}
 .highlight a,.actions a{font-size:.84rem;text-decoration:underline;text-underline-offset:2px}
 .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.metrics>div,.metrics>a{display:flex;justify-content:space-between;align-items:center;gap:7px;padding:9px 10px;border:1px solid var(--admin-border,#d9e0dc);border-radius:10px;font-size:.82rem;text-decoration:none}
+.metrics>div,.metrics>a{display:flex;justify-content:space-between;align-items:center;gap:7px;min-height:44px;padding:9px 10px;border:1px solid var(--admin-border,#d9e0dc);border-radius:10px;font-size:.82rem;text-decoration:none}
 .metrics strong{font-size:1.05rem;white-space:nowrap}
 .toolbar{display:flex;flex-wrap:wrap;gap:7px}
 .events{display:grid;gap:0}
