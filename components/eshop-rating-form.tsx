@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import { PublicChoiceInput } from "@/components/public-visual-system/public-form-controls";
 
@@ -127,9 +128,14 @@ export function EshopRatingForm({ eshopId, eshopName, eshopSlug, siteKey, initia
       </div>
 
       {result ? (
-        <p className={result.type === "success" ? styles.success : styles.error} role="status">
+        <PublicNotice
+          appearance="context"
+          tone={result.type === "error" ? "error" : "success"}
+          className={result.type === "success" ? styles.success : styles.error}
+          role="status"
+        >
           {result.text}
-        </p>
+        </PublicNotice>
       ) : null}
 
       <div className={styles.actions}>

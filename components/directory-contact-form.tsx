@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import {
   PublicTextInput,
@@ -177,9 +178,14 @@ export function DirectoryContactForm({
         </span>
       </label>
       {result && (
-        <p className={`directory-contact-result is-${result.type}`} role="status">
+        <PublicNotice
+          appearance="context"
+          tone={result.type === "error" ? "error" : "success"}
+          className={`directory-contact-result is-${result.type}`}
+          role="status"
+        >
           {result.text}
-        </p>
+        </PublicNotice>
       )}
       <button className="button button--primary" type="submit" disabled={sending}>
         {sending ? "Odosielam…" : "Odoslať dopyt cez Psipediu"}
