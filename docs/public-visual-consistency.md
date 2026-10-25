@@ -12,7 +12,8 @@ Používame existujúce `PageContainer` / `.shell.public-shell`, `app/design-sys
 - [x] **CTA a tlačidlá — druhá etapa:** Adresár (odoslanie/reset filtrov, mobilné akcie, bočné CTA), Pomoc psom (odoslanie/reset), Podujatia (filtrovanie/zoradenie), Plemená (ďalšie výsledky) používajú PublicActionButton/PublicActionLink. Odstránené kolízne lokálne farby a focus pravidlá; DOM označuje význam cez data-public-action.
 - [x] **CTA na kartách — etapa 3:** odkazy na profil plemena a detail pomoci prešli na spoločný terciárny CTA; pôvodné linky a šípky ostali.
 - [x] **CTA — etapa 5:** FCI odkaz detailu plemena, editorial promo v článku a „Pokračovať v téme“ používajú PublicActionLink vrátane presnej sémantiky primary/secondary/tertiary. Spoločný odkaz podporuje natívne bezpečné aria/data atribúty a zachováva test ID.
-- [ ] **CTA a tlačidlá — zvyšok:** ostatné detaily, disabled stavy a ďalšie kontextové varianty.
+- [x] **Sekčné Hero CTA — etapa 6:** všetky konfiguráciou riadené CTA v spoločnom UnifiedSectionHero používajú PublicActionLink. Primary a secondary variant už nevytvára vlastné farby a focus; iba výslovne nastavený accent si necháva koralovú farbu.
+- [ ] **CTA a tlačidlá — zvyšok:** ďalšie detailové varianty a disabled stavy.
 - [x] **Filtre — 2. etapa:** sedem existujúcich variantov polí (Adresár, Pomoc psom, Podujatia, katalóg, kluby, pôvod a FCI plemien) berie rovnaké zaoblenie z jedného tokenu. Funkčná sémantika a GET/URL zostáva bezo zmeny.
 - [x] **Vyhľadávanie — etapa 3:** tlačidlo sekčného hero vyhľadávania využíva spoločnú farbu, výšku a zaoblenie CTA, vrátane focus tokenu. GET kontrakty ostávajú.
 - [ ] **Vyhľadávanie a filtre — zvyšok:** porovnať aktívne filtre, reset a mobilné dialógy na všetkých routach.

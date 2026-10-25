@@ -63,3 +63,14 @@ test("local public listing CSS no longer competes with CTA or card tokens", () =
   assert.doesNotMatch(events, /\.sidebarContent button, \.listHeading button/);
   assert.match(events, /\.gridCard\s*\{[^}]*border-radius:\s*var\(--ps-radius-card,\s*22px\)/);
 });
+
+test("all managed section hero actions use shared CTA variants, keeping only accent as an override", () => {
+  const source = read("components/public-visual-system/unified-section-hero.tsx");
+  const css = read("components/public-visual-system/unified-section-hero.module.css");
+  assert.match(source, /<PublicActionLink[\s\S]*?data-section-hero-cta[\s\S]*?data-variant=\{tone\}/);
+  assert.match(source, /variant=\{tone === "secondary" \? "secondary" : "primary"\}/);
+  assert.match(css, /\.managedCta\[data-variant="accent"\] \{/);
+  assert.doesNotMatch(css, /\.managedCta\[data-variant="primary"\]/);
+  assert.doesNotMatch(css, /\.managedCta\[data-variant="secondary"\]/);
+  assert.doesNotMatch(css, /\.managedCta:focus-visible/);
+});
