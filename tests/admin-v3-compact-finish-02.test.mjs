@@ -75,6 +75,8 @@ test("compact dashboard and Operations use all available columns without serif h
   assert.match(dashboard, /\.sectionHeading h2, \.panelHeading h2 \{ font-family: inherit; font-weight: 800;/);
   assert.match(activity, /\.titleRow h2\{[^\n]*font-family:inherit;font-weight:800;/);
   assert.match(quality, /\.heading h2 \{font-family:inherit;font-weight:800;/);
+  const inbox = read("components/admin-attention-queue.module.css");
+  assert.match(inbox, /\.empty h2 \{[\s\S]*?font-family: inherit;[\s\S]*?font-size: 1\.05rem;/);
 
   // Tablet/mobile overrides and keyboard/touch controls remain present.
   assert.match(dashboard, /@media \(max-width: 1100px\)/);
