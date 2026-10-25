@@ -126,3 +126,8 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - Nedotknuté: kanonické API, bezpečnostné hranice LOST/FOUND, formáty R2/galérií, statusy a publikovanie.
 
 - Programovo dopĺňaný text zo spoločného Lexical dialógu a SEO nastavenia v Pomoci psom výslovne nastavujú `dirty` aj bez syntetickej udalosti `onChange` pôvodného formulára.
+
+## Vlna 14A — stabilizácia E2E testov po zjednotení
+- Adresár: E2E test nevyhľadáva všetky elementy textu „Neuložené zmeny“; zacieli presne `form.admin-directory-editor [data-editor-status]` a nepopletie ho s obsahom zatvoreného potvrdenia.
+- ADMIN-IA-2 Články: test navigácie sekcií vyžaduje, aby bol panel **aspoň z polovice v zornom poli**, namiesto neprimeranej podmienky `top > 0`, ktorá zlyhá už pri presahu ~9 px, keď je panel stále použiteľný.
+- Obe zmeny upravujú iba testy; neobchádzajú kontrolu zachovania vstupov, navigácie, nezmenených API zápisov ani horizontálneho pretečenia.

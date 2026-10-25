@@ -178,7 +178,7 @@ test.describe("admin directory v2", () => {
     const phone = page.getByLabel("Verejný telefón");
     const previous = await phone.inputValue();
     await phone.fill(previous + " 9");
-    await expect(page.getByText("Neuložené zmeny")).toBeVisible();
+    await expect(page.locator("form.admin-directory-editor [data-editor-status]").filter({ hasText: "Neuložené zmeny" })).toBeVisible();
 
     const back = page.getByRole("link", { name: "← Späť na adresár", exact: true });
     await back.click();
