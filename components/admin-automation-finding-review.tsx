@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import type { AutomationFindingDetail } from "@/lib/data-automation-store";
 import type { AutomationReviewAction } from "@/lib/data-automation";
 import styles from "./admin-operations-ux.module.css";
@@ -16,23 +18,27 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
   const [busy, setBusy] = useState(false);
   const [notes, setNotes] = useState(finding.reviewerNotes ?? "");
   const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [pendingReview, setPendingReview] = useState<{ action: FindingAction; description: string } | null>(null);
 
   const canApply = applyFindingTypes.has(finding.findingType);
 
-  async function review(action: FindingAction, suppressedDays?: number) {
-    if (action === "approve-apply") {
-      const warning = finding.findingType === "DUPLICATE_CANDIDATE"
+  function requestReview(action: FindingAction) {
+    if (busy) return;
+    const description = action === "approve-apply"
+      ? finding.findingType === "DUPLICATE_CANDIDATE"
         ? "Vytvoriť samostatný koncept označený ako možná duplicita? Existujúci canonical záznam zostane nezmenený."
-        : "Vytvoriť koncept z tohto návrhu? Koncept zostane rozpracovaný a nebude automaticky publikovaný.";
-      if (!window.confirm(warning)) return;
-    }
-    if (action === "approve" && !window.confirm(
-      "Označiť návrh ako schválený bez zmeny záznamu?",
-    )) return;
-    if (action === "reject" && !window.confirm("Zamietnuť tento návrh? Rovnaká nezmenená verzia sa nebude znovu otvárať.")) return;
+        : "Vytvoriť koncept z tohto návrhu? Koncept zostane rozpracovaný a nebude automaticky publikovaný."
+      : action === "approve" ? "Označiť návrh ako schválený bez zmeny záznamu?"
+      : "Zamietnuť tento návrh? Rovnaká nezmenená verzia sa nebude znovu otvárať.";
+    setPendingReview({ action, description });
+  }
 
+  async function review(action: FindingAction, suppressedDays?: number) {
+    if (busy) return;
     setBusy(true);
     setMessage("");
+    setErrorMessage("");
     try {
       const response = await fetch("/api/admin/automation-findings/" + finding.id, {
         method: "PUT",
@@ -54,9 +60,10 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
             ? "Položka je označená ako schválená bez zmeny záznamu."
             : "Rozhodnutie bolo uložené.",
       );
+      setPendingReview(null);
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Položku sa nepodarilo spracovať.");
+      setErrorMessage(error instanceof Error ? error.message : "Položku sa nepodarilo spracovať.");
     } finally {
       setBusy(false);
     }
@@ -87,19 +94,19 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} maxLength={2000} placeholder="Voliteľné…" />
       </label>
 
-      {message && <p className="admin-flash" role="status">{message}</p>}
+      <AdminFormFeedback message={message} error={errorMessage} className="admin-flash" />
 
       <div className="admin-form-actions">
         {canApply && (
-          <button className="is-primary" type="button" disabled={busy} onClick={() => void review("approve-apply")}>
+          <AdminActionButton variant="primary" disabled={busy} onClick={() => requestReview("approve-apply")}>
             {finding.findingType === "DUPLICATE_CANDIDATE" ? "Vytvoriť koncept s varovaním" : "Vytvoriť koncept"}
-          </button>
+          </AdminActionButton>
         )}
         {finding.reviewStatus !== "APPROVED" && (
-          <button className="is-danger" type="button" disabled={busy} onClick={() => void review("reject")}>Zamietnuť</button>
+          <AdminActionButton variant="destructive" disabled={busy} onClick={() => requestReview("reject")}>Zamietnuť</AdminActionButton>
         )}
         {finding.reviewStatus !== "APPROVED" && (
-          <button type="button" disabled={busy} onClick={() => void review("suppress", 30)}>Odložiť na 30 dní</button>
+          <AdminActionButton disabled={busy} onClick={() => void review("suppress", 30)}>Odložiť na 30 dní</AdminActionButton>
         )}
       </div>
 
@@ -108,12 +115,12 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
         <div className={styles.advancedBody}>
           <div className="admin-form-actions">
             {finding.reviewStatus !== "APPROVED" && finding.reviewStatus !== "IN_REVIEW" && (
-              <button type="button" disabled={busy} onClick={() => void review("start-review")}>Označiť ako rozpracované</button>
+              <AdminActionButton disabled={busy} onClick={() => void review("start-review")}>Označiť ako rozpracované</AdminActionButton>
             )}
             {finding.reviewStatus !== "APPROVED" && (
               <>
-                <button type="button" disabled={busy} onClick={() => void review("ignore")}>Ignorovať</button>
-                <button type="button" disabled={busy} onClick={() => void review("approve")}>Schváliť bez zmeny záznamu</button>
+                <AdminActionButton disabled={busy} onClick={() => void review("ignore")}>Ignorovať</AdminActionButton>
+                <AdminActionButton disabled={busy} onClick={() => requestReview("approve")}>Schváliť bez zmeny záznamu</AdminActionButton>
               </>
             )}
           </div>
@@ -122,6 +129,14 @@ export function AdminAutomationFindingReview({ finding }: { finding: AutomationF
           )}
         </div>
       </details>
+      <AdminDestructiveConfirmDialog
+        open={pendingReview!==null} title="Potvrdiť rozhodnutie"
+        description={pendingReview?.description} affectedCount={pendingReview?1:0}
+        affectedLabel="návrh" confirmLabel={pendingReview?.action==="reject"?"Zamietnuť":"Potvrdiť"}
+        confirmVariant={pendingReview?.action==="reject"?"destructive":"primary"} pending={busy}
+        onCancel={()=>{if(!busy)setPendingReview(null);}}
+        onConfirm={()=>{if(pendingReview)void review(pendingReview.action);}}
+      />
     </section>
   );
 }

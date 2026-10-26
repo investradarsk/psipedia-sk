@@ -48,3 +48,30 @@ export function sqlFoldAdminText(expression: string) {
     `lower(${expression})`,
   );
 }
+
+/**
+ * Shared GET-list URL assembly. Callers own the order and omission rules of
+ * domain-specific filters; this helper only encodes nonempty values and page.
+ */
+export function adminFilteredListHref(
+  path: string,
+  fields: ReadonlyArray<readonly [string, string | null | undefined]>,
+  page = 1,
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of fields) {
+    if (value) params.set(key, value);
+  }
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return path + (query ? `?${query}` : "");
+}
+
+/** Sliding numeric page window shared by GET-filtered admin lists. */
+export function adminNumberedPageWindow(page: number, totalPages: number, limit = 7): number[] {
+  if (!Number.isSafeInteger(page) || !Number.isSafeInteger(totalPages) || totalPages < 1 || limit < 1) return [];
+  const count = Math.min(totalPages, Math.floor(limit));
+  const start = Math.max(1, Math.min(page - Math.floor(count / 2), totalPages - count + 1));
+  return Array.from({ length: count }, (_, index) => start + index);
+}
+

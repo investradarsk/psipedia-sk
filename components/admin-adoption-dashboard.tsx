@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+import { AdminNumberedPagination } from "@/components/admin-pagination";
+import { AdminDataTableRegion } from "@/components/admin-data-table-region";
+import { adminFilteredListHref } from "@/lib/admin-list-query";
 import { adoptionRegions, adoptionStatusLabels, adoptionStatuses } from "@/lib/adoption";
 import {
   adoptionAdminSorts,
@@ -19,16 +22,15 @@ function formatDate(value: string | null) {
 
 function adminHref(filters: AdoptionAdminListFilters, overrides: Partial<AdoptionAdminListFilters> = {}) {
   const next = { ...filters, ...overrides };
-  const params = new URLSearchParams();
-  if (next.q) params.set("q", next.q);
-  if (next.status) params.set("status", next.status);
-  if (next.freshness && next.freshness !== "all") params.set("freshness", next.freshness);
-  if (next.breed) params.set("breed", next.breed);
-  if (next.region) params.set("region", next.region);
-  if (next.locality) params.set("locality", next.locality);
-  if (next.sort && next.sort !== "updated-desc") params.set("sort", next.sort);
-  if ((next.page ?? 1) > 1) params.set("page", String(next.page));
-  return `/admin/adopcie${params.toString() ? `?${params}` : ""}`;
+  return adminFilteredListHref("/admin/adopcie", [
+    ["q", next.q],
+    ["status", next.status],
+    ["freshness", next.freshness && next.freshness !== "all" ? next.freshness : ""],
+    ["breed", next.breed],
+    ["region", next.region],
+    ["locality", next.locality],
+    ["sort", next.sort && next.sort !== "updated-desc" ? next.sort : ""],
+  ], next.page ?? 1);
 }
 
 const sortLabels: Record<AdoptionAdminSort, string> = {
@@ -58,10 +60,12 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
       <select name="sort" defaultValue={filters.sort ?? "updated-desc"} aria-label="Radenie">{adoptionAdminSorts.map((sort)=><option key={sort} value={sort}>{sortLabels[sort]}</option>)}</select>
       <button type="submit">Filtrovať</button>
     </form>
-    <div className={styles.tableWrap} role="region" aria-label="Zoznam adopcií" tabIndex={0}><table className={styles.table}><thead><tr><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
+    <AdminDataTableRegion className={styles.tableWrap} label="Zoznam adopcií"><table className={styles.table}><thead><tr><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
       {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><div className={styles.rowTitle}><strong>{item.name}</strong><small>#{item.id} · /{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact /><Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link></div></td></tr>})}
       {!result.items.length&&<tr><td colSpan={7}>Žiadne adopcie pre zvolené filtre.</td></tr>}
-    </tbody></table></div>
-    {result.pagination.totalPages>1&&<nav className={styles.pagination} aria-label="Stránkovanie adopcií">{result.pagination.page>1&&<Link href={adminHref(filters,{page:result.pagination.page-1})}>←</Link>}{Array.from({length:Math.min(result.pagination.totalPages,7)},(_,index)=>{const start=Math.max(1,Math.min(result.pagination.page-3,result.pagination.totalPages-6));const page=start+index;if(page>result.pagination.totalPages)return null;return page===result.pagination.page?<span key={page}>{page}</span>:<Link key={page} href={adminHref(filters,{page})}>{page}</Link>})}{result.pagination.page<result.pagination.totalPages&&<Link href={adminHref(filters,{page:result.pagination.page+1})}>→</Link>}</nav>}
+    </tbody></table></AdminDataTableRegion>
+    <AdminNumberedPagination page={result.pagination.page} totalPages={result.pagination.totalPages}
+      hrefForPage={(page)=>adminHref(filters,{page})} className={styles.pagination}
+      ariaLabel="Stránkovanie adopcií" />
   </>;
 }

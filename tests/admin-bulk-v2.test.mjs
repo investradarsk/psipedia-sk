@@ -24,13 +24,19 @@ test("directory, help and events keep selection visible to the current page/quer
 
   assert.doesNotMatch(help, /selectionMode/);
   assert.doesNotMatch(help, /mode: "filter"/);
-  assert.match(help, /node\.indeterminate = pageSomeSelected/);
+  assert.match(help, /<BulkSelectionCheckbox/);
+  assert.match(help, /indeterminate=\{pageSomeSelected\}/);
+  assert.match(help, /onChange=\{togglePage\}/);
   assert.match(help, /viewFingerprint/);
   assert.match(help, /AdminBulkActionToolbar/);
   assert.match(help, /AdminModalDialog/);
   assert.doesNotMatch(help, /window\.confirm\([^\n]*Hromad/);
 
-  assert.match(events, /node\.indeterminate = pageSomeSelected/);
+  assert.match(events, /<BulkSelectionCheckbox/);
+  assert.match(events, /indeterminate=\{pageSomeSelected\}/);
+  const checkbox = read("components/admin-bulk-selection.tsx");
+  assert.match(checkbox, /ref\.current\.indeterminate = indeterminate/);
+  assert.match(checkbox, /onChange\(event\.currentTarget\.checked\)/);
   assert.match(events, /clearSelection\(\); setPage\(currentPage - 1\)/);
   assert.match(events, /clearSelection\(\); setPage\(currentPage \+ 1\)/);
 });

@@ -30,7 +30,10 @@ test("automation source actions expose clear primary and destructive hierarchy",
   assert.match(detail, /className="is-danger" type="button"[\s\S]{0,500}?action: "disable"/);
   assert.match(manager, /className="is-primary" type="submit"[^>]*>Vytvoriť vypnutý zdroj/);
   assert.match(manager, /className="is-danger" type="button"[\s\S]{0,500}?candidateAction\(candidate\.id, "reject"\)/);
-  assert.match(finding, /className="is-danger" type="button"[\s\S]{0,500}?review\("reject"\)/);
+  assert.match(finding, /<AdminActionButton variant="destructive" disabled=\{busy\} onClick=\{\(\) => requestReview\("reject"\)\}>Zamietnuť<\/AdminActionButton>/);
+  assert.match(finding, /<AdminDestructiveConfirmDialog/);
+  assert.match(finding, /onConfirm=\{\(\)=>\{if\(pendingReview\)void review\(pendingReview.action\);\}\}/);
+  assert.doesNotMatch(finding, /window\.confirm/);
 });
 
 test("generic monetization and outreach actions use the same semantic variants", () => {

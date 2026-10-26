@@ -6,6 +6,8 @@ import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { ArticlePromo } from "@/components/article-promo";
 import { AdminRichTextEditor } from "@/components/admin-rich-text-editor";
 import {AdminGalleryDropzone} from "@/components/admin-gallery-dropzone";
+import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import {adminSelectedImage} from "@/lib/admin-selected-image";
 import {AdminSortableGallery} from "@/components/admin-sortable-gallery";
 import {arrayMove} from "@dnd-kit/sortable";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
@@ -128,6 +130,9 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
   const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const galleryUploadPending=useRef(false);
+  const [galleryUploading,setGalleryUploading]=useState(false);
+  const singleUploadPending=useRef(false);
+  const [uploadingSingleId,setUploadingSingleId]=useState<string|null>(null);
 
   useEffect(() => {
     fetch("/api/admin/articles?limit=100")
@@ -185,9 +190,11 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
     </div>;
   }
 
-  async function uploadSingle(event: ChangeEvent<HTMLInputElement>, blockId: string) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function uploadSingle(event: File | ChangeEvent<HTMLInputElement>, blockId: string) {
+    const file = adminSelectedImage(event);
+    if (!file || singleUploadPending.current) return;
+    singleUploadPending.current = true;
+    setUploadingSingleId(blockId);
     onUploadingChange(true);
     onError("");
     try {
@@ -197,8 +204,9 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
     } catch (error) {
       onError(error instanceof Error ? error.message : "Obrázok sa nepodarilo nahrať.");
     } finally {
+      singleUploadPending.current = false;
+      setUploadingSingleId(null);
       onUploadingChange(false);
-      event.target.value = "";
     }
   }
 
@@ -215,6 +223,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
     }
 
     galleryUploadPending.current = true;
+    setGalleryUploading(true);
     onUploadingChange(true);
     onError("");
     const uploaded: ArticleBlockImage[] = [];
@@ -241,6 +250,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
       if (failures.length) onError(failures.join(" "));
     } finally {
       galleryUploadPending.current = false;
+      setGalleryUploading(false);
       onUploadingChange(false);
     }
   }
@@ -293,7 +303,9 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
 
             {block.type === "image" && <div className="admin-block-image-fields">
               {block.url ? <img src={block.url} alt={block.alt} /> : <div className="admin-block-image-placeholder">Obrázok ešte nie je vybraný</div>}
-              <label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => void uploadSingle(event, block.id)} />{block.url ? "Vymeniť obrázok" : "Nahrať obrázok"}</label>
+              <AdminSingleImageUpload label={block.url ? "Vymeniť obrázok" : "Nahrať obrázok"}
+                 onFile={file=>uploadSingle(file, block.id)} busy={uploadingSingleId===block.id}
+                 disabled={uploadingSingleId!==null || galleryUploading} onRejected={onError} />
               <div className="admin-field-grid">
                 <div className="admin-field"><label>Alt text</label><input value={block.alt} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, alt: event.target.value } : item)} placeholder="Stručne opíš, čo je na obrázku" /></div>
                 <div className="admin-field"><label>Popis pod obrázkom</label><input value={block.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, caption: event.target.value } : item)} /></div>

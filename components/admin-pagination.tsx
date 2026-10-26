@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { adminNumberedPageWindow } from "@/lib/admin-list-query";
 
 export type AdminPaginationState = {
   page: number;
@@ -28,6 +29,36 @@ export function AdminPagination({ pagination, basePath }: {
       {pagination.page < pagination.totalPages
         ? <Link href={pageHref(basePath, next)}>Ďalšia →</Link>
         : <span aria-disabled="true">Ďalšia →</span>}
+    </nav>
+  );
+}
+
+/**
+ * Numbered link pagination for the existing GET-filtered admin lists.
+ * The page URL is owned by each module so changing pages never drops filters.
+ * Uses the same seven-page sliding window previously duplicated by both lists.
+ */
+export function AdminNumberedPagination({
+  page,
+  totalPages,
+  hrefForPage,
+  className,
+  ariaLabel = "Stránkovanie zoznamu",
+}: {
+  page: number;
+  totalPages: number;
+  hrefForPage: (page: number) => string;
+  className?: string;
+  ariaLabel?: string;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <nav className={className ?? "admin-pagination"} aria-label={ariaLabel}>
+      {page > 1 && <Link href={hrefForPage(page - 1)} aria-label="Predchádzajúca strana">←</Link>}
+      {adminNumberedPageWindow(page, totalPages).map((current) => current === page
+        ? <span key={current} aria-current="page">{current}</span>
+        : <Link key={current} href={hrefForPage(current)} aria-label={`Strana ${current}`}>{current}</Link>)}
+      {page < totalPages && <Link href={hrefForPage(page + 1)} aria-label="Nasledujúca strana">→</Link>}
     </nav>
   );
 }

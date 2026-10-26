@@ -6,6 +6,7 @@ import type { ManagedPortalSection } from "@/lib/section-store";
 import type { PortalSubpage } from "@/lib/portal";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminActionButton } from "@/components/admin-interaction-system";
 import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
 import { adminSelectedImage } from "@/lib/admin-selected-image";
@@ -81,7 +82,7 @@ export function AdminPuppyAreaEditor({ initialSections }: { initialSections: Man
     closeLabel="Späť do administrácie"
     onClose={() => { setDirty(false); window.setTimeout(() => window.location.assign("/admin"), 0); }}
     actions={<EditorActionBar
-      message={<span role={error ? "alert" : "status"}>{error || message || (dirty ? "Neuložené zmeny" : "Všetky zmeny uložené")}</span>}
+      feedback={<AdminFormFeedback error={error} message={message || (dirty ? "Neuložené zmeny" : "Všetky zmeny uložené")} pending={saving} />}
       primary={<AdminActionButton variant="primary" disabled={saving || Boolean(uploading) || !dirty} onClick={() => void save()}>{saving ? "Ukladám…" : "Uložiť všetky oblasti"}</AdminActionButton>}
     />}
   >

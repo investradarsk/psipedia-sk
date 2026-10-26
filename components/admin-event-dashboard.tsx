@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+import { BulkSelectionCheckbox } from "@/components/admin-bulk-selection";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
@@ -263,26 +264,19 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
         </fieldset>
 
         <div className="admin-event-bulk">
-          <label>
-            <input
-              type="checkbox"
-              disabled={!hydrated || busy || loading || !rows.length}
-              checked={pageAllSelected}
-              ref={(node) => { if (node) node.indeterminate = pageSomeSelected; }}
-              onChange={(event) => {
-                const checked = event.target.checked;
-                setSelected((current) => {
-                  const next = new Set(current);
-                  rows.forEach((row) => {
-                    if (checked) next.add(row.id);
-                    else next.delete(row.id);
-                  });
-                  return next;
+          <BulkSelectionCheckbox checked={pageAllSelected} indeterminate={pageSomeSelected}
+            disabled={!hydrated || busy || loading || !rows.length}
+            label="Vybrať túto stranu"
+            onChange={(checked) => {
+              setSelected((current) => {
+                const next = new Set(current);
+                rows.forEach((row) => {
+                  if (checked) next.add(row.id);
+                  else next.delete(row.id);
                 });
-              }}
-            />
-            Vybrať túto stranu
-          </label>
+                return next;
+              });
+            }} />
           <span role="status">Vybrané: {selected.size}</span>
         </div>
 

@@ -81,7 +81,11 @@ test("shared Dropzone meets axe: file input labeled and not nested in interactiv
 });
 
 test("sortable IDs do not change on reordering a unique image URL",()=>{
-  assert.match(read("components/admin-photo-gallery.tsx"),/gallerySortableIds\(value\)/);
+  const photo=read("components/admin-photo-gallery.tsx");
+  assert.match(photo,/<AdminSortableGallery/);
+  assert.match(photo,/containerAs="ol"/);
+  assert.match(photo,/as="li"/);
+  assert.match(photo,/onReorder=\{\(from,to\)=>onChange\(arrayMove\(value,from,to\)\)\}/);
   assert.match(read("components/admin-sortable-gallery.tsx"),/gallerySortableIds\(urls\)/);
   assert.doesNotMatch(read("components/admin-sortable-gallery.tsx"),/index\+":"\+url/);
 });

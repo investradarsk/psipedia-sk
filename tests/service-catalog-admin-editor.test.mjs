@@ -41,7 +41,14 @@ test("active entries are selectable independently of Notion state",()=>{
  assert.match(catalog,/item.status!=="RETIRED"/);
 });
 
-test("navigation and cancel do not silently discard draft values",()=>{assert.match(catalog,/Zahodiť neuložené zmeny/);assert.match(profile,/Zahodiť neuložené hodnoty služieb/);});
+test("navigation and cancel do not silently discard draft values",()=>{
+ const workspace=read("components/admin-editor-workspace.tsx");
+ assert.match(catalog,/actions=\{\(requestClose\)=>\s*<EditorActionBar/);
+ assert.match(catalog,/onClick=\{requestClose\}>Zrušiť/);
+ assert.match(workspace,/if \(dirty\) setConfirmClose\(true\)/);
+ assert.match(workspace,/EditorUnsavedChangesGuard/);
+ assert.match(profile,/Zahodiť neuložené hodnoty služieb/);
+});
 test("Services profile delegates its single feedback status to shared EditorActionBar",()=>{const workspace=read("components/admin-editor-workspace.tsx");assert.doesNotMatch(profile,/<span role="status">|<span aria-live="polite" aria-atomic="true">/);assert.match(profile,/<EditorActionBar message=\{message\}/);assert.match(workspace,/className=\{styles\.actionMessage\} role="status" aria-live="polite"/);});
 test("simple catalog retains CAS, auth and multi-category inputs",()=>{
  const route=read("app/api/admin/service-catalog/options/[id]/route.ts");
@@ -88,7 +95,9 @@ test("runtime dynamic attribute eligibility is fail-closed until ACTIVE and SYNC
 
 test("Services V3 catalog sync runs without routine Notion controls",()=>{
  const scheduler=read("worker/index.ts");
- assert.match(scheduler,/runSimpleServiceCatalogSync/);
+ assert.match(scheduler,/if\(env\.SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true"\)/);
+ assert.match(scheduler,/runServicesV3CatalogAutoSweep/);
+ assert.match(scheduler,/runServicesV3CatalogAutoSweep\(\{[\s\S]*?db: env\.DB/);
  assert.doesNotMatch(catalog,/Skontrolovať Notion/);
  assert.doesNotMatch(catalog,/>Schváliť<\/AdminActionButton>/);
 });

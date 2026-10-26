@@ -236,7 +236,8 @@ export function EditorWorkspace({
   preview?: ReactNode;
   previewTitle?: string;
   previewFocusable?: boolean;
-  actions?: ReactNode;
+  /** Optional render callback lets custom footer buttons reuse the workspace's guarded close. */
+  actions?: ReactNode | ((requestClose: () => void) => ReactNode);
   dirty?: boolean;
   onClose?: () => void;
   closeLabel?: string;
@@ -266,6 +267,8 @@ export function EditorWorkspace({
     }
   };
 
+  const resolvedActions = typeof actions === "function" ? actions(requestClose) : actions;
+
   const body = (
     <div className={styles.workspace} data-editor-workspace data-mobile-panel={showPreview ? "preview" : "edit"}>
       <EditorHeader status={mode === "modal" ? status : undefined} />
@@ -293,7 +296,7 @@ export function EditorWorkspace({
           description={description}
           className={styles.workspaceModal}
           onClose={requestClose}
-          footer={actions}
+          footer={resolvedActions}
         >
           {body}
         </AdminModalDialog>
@@ -301,7 +304,7 @@ export function EditorWorkspace({
         <section className={styles.pageWorkspace} aria-label={title} data-editor-page>
           <EditorHeader title={title} description={description} status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
           {body}
-          {actions && <div className={styles.pageActions}>{actions}</div>}
+          {resolvedActions && <div className={styles.pageActions}>{resolvedActions}</div>}
         </section>
       )}
       <EditorUnsavedChangesGuard
