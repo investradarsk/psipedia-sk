@@ -144,6 +144,8 @@ export type NotionDirectorySyncSummary = {
   pushedToNotion: number;
   unchanged: number;
   failed: number;
+  /** Only present when an explicit Admin choice save requests Services V3 sync. */
+  serviceRelationSync?: "skipped" | "unchanged" | "pushed" | "pulled";
 };
 
 export type NotionDirectoryBootstrapSummary = {
@@ -1524,6 +1526,7 @@ export async function runNotionDirectorySyncSweep(input: {
       // relation. A skipped relation does NOT count as successfully mirrored.
       if (input.syncServiceRelations) {
         const relation = await syncRelation(mapping.notion_page_id, input.targetProfileId);
+        summary.serviceRelationSync = relation;
         if (relation === "skipped") summary.failed++;
       }
     } catch {
