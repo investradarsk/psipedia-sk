@@ -459,3 +459,56 @@ test("targeted Directory import refuses archived, trashed, and foreign Notion pa
   assert.equal(notionDirectoryPageBelongsToSource({ ...page, in_trash: true }, source), false);
   assert.equal(notionDirectoryPageBelongsToSource(page, "76d9ccde-5816-422c-bcfe-863ab69db080"), false);
 });
+
+test("Services V3 selected choices trigger a targeted Notion relation after canonical CAS", async () => {
+  const route = await readFile(
+    new URL("../app/api/admin/directory/[id]/service-options/route.ts", import.meta.url), "utf8");
+  const saved = route.indexOf("await saveAdminServiceChoice(");
+  const reset = route.indexOf("await resetAdminServiceChoice(");
+  const projection = route.indexOf("await projectServiceChoiceToDirectoryNotion(");
+  const sync = route.indexOf("await runNotionDirectorySyncSweep(");
+  assert.ok(saved >= 0 && reset >= 0 && projection > saved && projection > reset);
+  assert.ok(sync > projection, "relation writeback must run only after canonical choice CAS and projection");
+  assert.ok(route.includes("targetProfileId:profileId,syncServiceRelations:true"));
+  assert.ok(route.includes('NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED==="true"'));
+  assert.ok(route.includes('notionFieldSync="pending"'));
+  assert.ok(route.includes('notionProjection==="deferred"'));
+  assert.ok(route.includes("return Response.json({selection,notionProjection,notionFieldSync,"));
+  assert.ok(route.includes("if(!cfg.DB)return Response.json("), "D1 must be available before saving");
+  assert.equal(route.includes("runServicesV3CatalogAutoSweep"), false,
+    "saving a service selection must not trigger unrelated catalog creation/sweeps");
+});
+
+test("Services V3 relation sync runs only when requested for an existing mapped Directory profile", async () => {
+  const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  const fastStart = sweep.indexOf("if (input.targetProfileId !== undefined) {");
+  const helper = sweep.indexOf("async function syncRelation(");
+  const targetEnd = sweep.indexOf("let pages: NotionPage[];", fastStart);
+  const target = sweep.slice(fastStart, targetEnd);
+  assert.ok(helper >= 0 && helper < fastStart, "the hourly and targeted paths reuse one relation helper");
+  assert.ok(target.includes("const mapping = await loadMappingByProfile("));
+  assert.ok(target.includes("if (!mapping) return summary"), "no new Notion page for unmapped records");
+  assert.ok(target.includes("if (input.syncServiceRelations) {"));
+  assert.ok(target.includes("await syncRelation(mapping.notion_page_id, input.targetProfileId)"));
+  assert.ok(target.includes("summary.serviceRelationSync = relation"));
+  assert.ok(target.includes('if (relation === "skipped") summary.failed++'),
+    "missing migration or missing remote relation must not be reported as synced");
+  assert.ok(target.includes("return summary"), "no ordinary full Directory sweep");
+  const handler = await readFile(
+    new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
+  assert.equal(handler.includes("syncServiceRelations:true"), false,
+    "saving unrelated Directory fields must not requery the entire Notion catalog");
+});
+
+test("Services V3 relation verifies current Directory owner and preserves conflict protection", async () => {
+  const relation = await readFile(
+    new URL("../lib/service-catalog-notion-relations.ts", import.meta.url), "utf8");
+  assert.ok(relation.includes("directoryDataSourceId:string"));
+  assert.ok(relation.includes("notionPageBelongsToDataSource(p,expectedDirectorySourceId)"));
+  assert.ok(relation.includes("SERVICES_PROFILE_NOTION_SOURCE_CHANGED"));
+  assert.ok(relation.includes("readRemote(bindings,pageId,directoryDataSourceId)"));
+  assert.ok(relation.includes("SERVICES_RELATION_BOTH_SIDES_CHANGED_REVIEW"));
+  assert.ok(relation.includes("SERVICES_RELATION_WRITE_NOT_VERIFIED"));
+  assert.ok(relation.includes("SERVICES_RELATION_CATALOG_NOT_YET_MIRRORED"));
+  assert.equal(relation.includes("INSERT INTO service_catalog_admin_options"), false);
+});
