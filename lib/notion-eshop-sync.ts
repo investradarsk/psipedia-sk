@@ -23,6 +23,7 @@ import {
 } from "@/lib/notion-sync-shared";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
+import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 
 export type NotionEshopSyncBindings = NotionSyncBindings & {
@@ -422,10 +423,70 @@ async function createFromNotion(input: {
   const desired = notionSnapshot(input.page);
   const logo = await prepareLogo(input.bindings, desired.logoUrl, null);
   try {
-    return await createManagedEshop(updateInput(desired, logo), SYSTEM_ACTOR, input.database);
+    // Notion is an import source, not publication authority for a new E-shop.
+    // A newly created canonical profile always awaits Admin approval.
+    return await createManagedEshop(updateInput({ ...desired, status: "draft" }, logo), SYSTEM_ACTOR, input.database);
   } catch (error) {
     if (logo.uploadedKey) await cleanupNotionImageKeys(input.bindings.BUCKET, [logo.uploadedKey]);
     throw error;
+  }
+}
+
+/**
+ * A signed webhook and the hourly sweep may observe the same unmapped page.
+ * Acquire existing D1 locks before creating a canonical E-shop and establish
+ * durable one-to-one mapping BEFORE any uncertain remote PATCH.
+ */
+async function importUnmappedEshop(input: {
+  database: D1Database;
+  bindings: NotionEshopSyncBindings;
+  page: NotionPage;
+  dataSourceId: string;
+}): Promise<"created" | "already-mapped" | "not-ready"> {
+  let releaseAgenda: (() => Promise<void>) | null = null;
+  let releasePage: (() => Promise<void>) | null = null;
+  let canonicalWriteUncertain = false;
+  try {
+    releaseAgenda = await acquireGeminiNotionLock(input.database, "notion-eshop-import");
+    if (!releaseAgenda) throw new Error("ESHOP_IMPORT_BUSY");
+    releasePage = await acquireGeminiNotionLock(input.database, input.page.id);
+    if (!releasePage) throw new Error("ESHOP_IMPORT_PAGE_BUSY");
+
+    // Re-evaluate evidence under both locks, never from a stale webhook body.
+    if (await loadMappingByPage(input.database, input.page.id)) return "already-mapped";
+    const latest = await fetchPage(input.bindings, input.page.id);
+    if (latest.id !== input.page.id ||
+        !notionPageBelongsToDataSource(latest, input.dataSourceId))
+      throw new Error("ESHOP_IMPORT_PAGE_UNSAFE");
+    if (latest.last_edited_time !== input.page.last_edited_time)
+      throw new Error("ESHOP_IMPORT_STALE_REVISION");
+    if (!readyForCreate(latest)) return "not-ready";
+
+    // A lost D1 create acknowledgement is ambiguous: preserve both locks,
+    // rather than retrying into an accidental duplicate canonical identity.
+    canonicalWriteUncertain = true;
+    const created = await createFromNotion({
+      database: input.database, bindings: input.bindings, page: latest,
+    });
+    const syncedAt = new Date().toISOString();
+    await saveMapping({
+      database: input.database, pageId: latest.id, shopId: created.id,
+      contentHash: "", notionLastEditedTime: latest.last_edited_time ?? null,
+      psipediaUpdatedAt: null, syncedAt,
+    });
+    // An empty provisional hash cannot be mistaken for a verified common
+    // baseline. The established syncMapped reconciler retries safe writeback.
+    canonicalWriteUncertain = false;
+    await writeShopToNotion({
+      database: input.database, bindings: input.bindings,
+      dataSourceId: input.dataSourceId, shop: created, pageId: latest.id,
+    });
+    return "created";
+  } finally {
+    if (!canonicalWriteUncertain) {
+      if (releasePage) await releasePage();
+      if (releaseAgenda) await releaseAgenda();
+    }
   }
 }
 
@@ -719,9 +780,11 @@ export async function runNotionEshopSyncSweep(input: {
       if (!mapping) mapping = await recoverMapping({ database: input.database, page });
 
       if (!mapping && readyForCreate(page)) {
-        const created = await createFromNotion({ database: input.database, bindings: input.bindings, page });
-        await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId, shop: created, pageId: page.id });
-        summary.createdFromNotion += 1;
+        const imported = await importUnmappedEshop({
+          database: input.database, bindings: input.bindings, page, dataSourceId,
+        });
+        if (imported === "created") summary.createdFromNotion += 1;
+        else summary.unchanged += 1;
         continue;
       }
 
