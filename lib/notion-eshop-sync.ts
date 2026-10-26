@@ -525,7 +525,7 @@ async function syncMapped(input: {
   forcePush?: boolean;
 }) {
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
-  if (!shop) return "unchanged" as const;
+  if (!shop) throw new Error("ESHOP_CANONICAL_MAPPING_ORPHAN");
   const page = input.page ?? await fetchPage(input.bindings, input.mapping.notion_page_id);
   if (page.id !== input.mapping.notion_page_id
     || !notionPageBelongsToDataSource(page, input.dataSourceId)) {
