@@ -4,16 +4,11 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "app/layout.tsx"
-      - "app/*.css"
+      # Global layout/CI configuration is validated by the required workflow.
       - "app/organizacie/**"
       - "components/organization-profile-*"
       - "components/adoption-card-media.tsx"
       - "components/detail-primitives/**"
-      - "components/page-system.tsx"
-      - "components/site-header*"
-      - "components/site-footer*"
-      - "components/cookie-consent*"
       - "lib/help-organization-store.ts"
       - "lib/organization-adoption-store.ts"
       - "lib/organization-profile-presentation.ts"
@@ -22,7 +17,6 @@ on:
       - "lib/adoption-store.ts"
       - "lib/adoption-detail.ts"
       - "lib/seo.ts"
-      - "lib/navigation-store.ts"
       - "db/adoption-schema.ts"
       - "db/foundation-schema.ts"
       - "drizzle/0034_adoption_dogs_foundation.sql"
@@ -41,9 +35,6 @@ on:
       - "tests/fixtures/organization-profile-e2e.sql"
       - "tests/organization-profile-presentation.test.mjs"
       - "tests/organization-profile-route.test.mjs"
-      - "playwright.config.ts"
-      - "vite.config.*"
-      - "tsconfig.json"
       - ".github/workflows/organization-profile-e2e.yml"
 
 concurrency:
