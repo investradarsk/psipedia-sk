@@ -2,8 +2,10 @@ name: IMAGE-EDITOR-2 focused checks
 
 on:
   pull_request:
+    branches: [main]
+    # Image-specific changes only. Generic homepage, store, and dependency checks
+    # belong to the always-on required CI/migration safety workflows.
     paths:
-      - "app/page.tsx"
       - "components/image-display*"
       - "components/smart-card-image.tsx"
       - "components/public-profile/public-profile*"
@@ -23,14 +25,15 @@ on:
       - "components/lost-found-dogs-page.tsx"
       - "components/lost-found-dog-detail.tsx"
       - "lib/image-display.ts"
-      - "lib/*-store.ts"
       - "lib/adoption.ts"
       - "drizzle/0122_entity_image_display_config.sql"
-      - "scripts/production-d1-migrate.mjs"
       - "tests/image-editor-2.test.mjs"
-      - "package.json"
       - ".github/workflows/image-editor-2-ci.yml"
   workflow_dispatch:
+
+concurrency:
+  group: image-editor-2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
