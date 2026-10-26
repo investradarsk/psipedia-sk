@@ -11,6 +11,15 @@ type Database = D1Database;
 type Row = Record<string, unknown>;
 type Field = { key: string; column?: string; label: string; group: string; contact?: "phone"|"email"|"facebook"|"instagram" };
 type Found = { field: Field; value: string; source: string | null };
+const QUALITY_CANDIDATE_PREFIX = "quality-missing-candidate:";
+
+// Candidate image bytes are held privately in R2 until an administrator approves them.
+// Never allow an arbitrary D1 string to select a bucket object.
+export function qualityMissingCandidateKey(value: string): string | null {
+  if (!value.startsWith(QUALITY_CANDIDATE_PREFIX)) return null;
+  const key = value.slice(QUALITY_CANDIDATE_PREFIX.length);
+  return /^quality-missing-candidates\/[0-9]{4}\/[0-9a-f-]{36}\.(?:jpg|png|webp|avif)$/.test(key) ? key : null;
+}
 type Profile = { area: QualityArea; kind: Kind; index: number; id: number; row: Row; label: string; missing: Field[] };
 
 const field = (key: string, column: string | undefined, label: string, group: string, contact?: Field["contact"]): Field =>
@@ -138,6 +147,62 @@ function discover(profile:Profile,results:Array<{url:string;title:string;snippet
   }
   return found;
 }
+// Tavily and Facebook CDN links can expire between discovery and the administrator's review.
+// Persist a validated, optimized PRIVATE R2 copy before the proposal is created.
+// No public profile field is changed by discovery; unavailable images are simply skipped.
+async function discoverWithStagedImage(
+  db:Database, profile:Profile,
+  results:Array<{url:string;title:string;snippet?:string|null}>, images:string[],
+):Promise<Found[]> {
+  const findings=discover(profile,results,[]);
+  const imageField=profile.missing.find(f=>f.group==="image");
+  if(!imageField || !results.some(r=>idMatches(profile.label,String(profile.row.city??""),r))) return findings;
+  const bucket=(env as unknown as {BUCKET?:R2Bucket}).BUCKET;
+  if(!bucket) return findings;
+  const past=await db.prepare("SELECT value,source_url FROM quality_missing_proposals WHERE entity_type=? AND entity_id=? AND field_key='imageUrl'")
+    .bind(profile.kind,profile.id).all<{value:string;source_url:string|null}>();
+  const alreadySeen=new Set(past.results.map(p=>qualityMissingCandidateKey(p.value)?p.source_url:p.value).filter(Boolean));
+  const {downloadRemoteImage,optimizeRemoteImageForStorage}=await import("./notion-sync-shared.ts");
+  // Bounded: at most three image fetches; invalid/expired Facebook URLs never become proposals.
+  for(const source of images.slice(0,3)) {
+    if(!allowedPage(source)||alreadySeen.has(source)) continue;
+    let key:string|null=null;
+    try {
+      const remote=await downloadRemoteImage(source);
+      const stored=await optimizeRemoteImageForStorage(
+        env as unknown as {BUCKET?:R2Bucket;IMAGES?:import("@/lib/private-media").ImagesBindingLike},remote);
+      key="quality-missing-candidates/"+new Date().getUTCFullYear()+"/"+crypto.randomUUID()+"."+stored.extension;
+      await bucket.put(key,stored.bytes,{
+        httpMetadata:{contentType:stored.contentType,cacheControl:"private, no-store"},
+        customMetadata:{source:"quality-missing-unapproved",sourceImageUrl:remote.finalUrl.slice(0,400)},
+      });
+      findings.push({field:imageField,value:QUALITY_CANDIDATE_PREFIX+key,source:remote.finalUrl});
+      break;
+    } catch {
+      if(key) await bucket.delete(key).catch(()=>undefined);
+      // A social network may return HTML/login instead of image bytes. Try next candidate.
+    }
+  }
+  return findings;
+}
+
+async function insertQualityFinding(db:Database,profile:Profile,item:Found,now:string) {
+  const candidateKey=qualityMissingCandidateKey(item.value);
+  try {
+    const written=await db.prepare("INSERT OR IGNORE INTO quality_missing_proposals"+
+      "(area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at)"+
+      " VALUES(?,?,?,?,?,?,?,?,?,?)")
+      .bind(profile.area,profile.kind,profile.id,profile.label,item.field.key,item.field.label,
+        item.field.group,item.value,item.source,now).run();
+    if(!written.meta.changes&&candidateKey)
+      await (env as unknown as {BUCKET?:R2Bucket}).BUCKET?.delete(candidateKey).catch(()=>undefined);
+    return Number(written.meta.changes??0);
+  } catch(error) {
+    if(candidateKey)await (env as unknown as {BUCKET?:R2Bucket}).BUCKET?.delete(candidateKey).catch(()=>undefined);
+    throw error;
+  }
+}
+
 async function nextProfile(db:Database,area:QualityArea,today:string) {
   const state=await db.prepare("SELECT type_index,entity_id FROM quality_missing_cursors WHERE area=?").bind(area).first<{type_index:number;entity_id:number}>();
   const kinds=AREA_KINDS[area];
@@ -266,16 +331,8 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
 
     try {
       const search = await provider.searchWithImages({ query, maxResults: 5, locale: "sk-SK", country: "SK" });
-      const foundFields = discover(profile, search.results, search.images);
-      for (const item of foundFields) {
-        const written = await db.prepare(
-          "INSERT OR IGNORE INTO quality_missing_proposals " +
-          "(area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at) " +
-          "VALUES(?,?,?,?,?,?,?,?,?,?)"
-        ).bind(area, profile.kind, profile.id, profile.label, item.field.key, item.field.label,
-          item.field.group, item.value, item.source, at).run();
-        found += Number(written.meta.changes ?? 0);
-      }
+      const foundFields = await discoverWithStagedImage(db,profile,search.results,search.images);
+      for (const item of foundFields) found += await insertQualityFinding(db,profile,item,at);
 
       await db.prepare("UPDATE quality_missing_scans SET status='SUCCESS',error_code=NULL WHERE area=? AND hour=?")
         .bind(area, hour).run();
@@ -441,32 +498,9 @@ export async function runManualQualitySearch(
     const search=await provider.searchWithImages({query,maxResults:5,locale:"sk-SK",country:"SK"},
       input.group==="all"||input.group==="image");
     if(profile) {
-      const previous=await db.prepare("SELECT field_key,value FROM quality_missing_proposals WHERE "+
-        "entity_type=? AND entity_id=?").bind(profile.kind,profile.id)
-        .all<{field_key:string;value:string}>();
-      const previousImages=new Set(previous.results.filter(x=>x.field_key==="imageUrl").map(x=>x.value));
-      let images=search.images.filter(x=>!previousImages.has(x));
-      if(profile.missing.some(field=>field.group==="image")) {
-        const {downloadRemoteImage}=await import("./notion-sync-shared.ts");
-        // A Tavily image URL is only a candidate: verify actual image bytes before queueing.
-        // Probe at most three alternatives to avoid long or costly manual requests.
-        const viable:string[]=[];
-        for(const image of images.slice(0,3)) {
-          try { await downloadRemoteImage(image); viable.push(image); break; }
-          catch { /* Broken candidate, try a different returned URL. */ }
-        }
-        images=viable;
-      }
-      const discovered=discover(profile,search.results,images)
+      const discovered=(await discoverWithStagedImage(db,profile,search.results,search.images))
         .filter(x=>input.group==="all"||x.field.group===input.group);
-      for(const item of discovered) {
-        const r=await db.prepare("INSERT OR IGNORE INTO quality_missing_proposals"+
-          "(area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at)"+
-          " VALUES(?,?,?,?,?,?,?,?,?,?)")
-          .bind(input.area,profile.kind,profile.id,profile.label,item.field.key,item.field.label,
-            item.field.group,item.value,item.source,now).run();
-        found+=Number(r.meta.changes??0);
-      }
+      for(const item of discovered) found+=await insertQualityFinding(db,profile,item,now);
     }
     await db.prepare("UPDATE quality_missing_manual_attempts SET status='SUCCESS',found=?,finished_at=? WHERE id=?")
       .bind(found,new Date().toISOString(),id).run();
@@ -552,11 +586,14 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     const r=await db.prepare("UPDATE quality_missing_proposals SET status='REJECTED',decided_by=?,decided_at=? WHERE id=? AND status='OPEN'")
       .bind(actor,at,id).run();
     if(!r.meta.changes)throw new Error("Návrh už bol spracovaný.");
+    const staged=qualityMissingCandidateKey(p.value);
+    if(staged)await (env as unknown as {BUCKET?:R2Bucket}).BUCKET?.delete(staged).catch(()=>undefined);
     return;
   }
   const config=SPECS[p.entity_type],f=config.fields.find(x=>x.key===p.field_key);
   if(!f)throw new Error("Tento údaj sa nedá automaticky prevziať.");
-  if(["web","image","social","registration"].includes(f.group)&&!allowedPage(p.value))
+  const stagedKey=f.group==="image"?qualityMissingCandidateKey(p.value):null;
+  if(["web","image","social","registration"].includes(f.group)&&!stagedKey&&!allowedPage(p.value))
     throw new Error("Neplatný externý odkaz.");
   const row=await db.prepare(`SELECT * FROM ${config.table} WHERE id=?`).bind(p.entity_id).first<Row>();
   if(!row||!missing(fieldValue(p.entity_type,row,f)))throw new Error("Údaj už bol medzičasom vyplnený.");
@@ -566,14 +603,36 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     const bindings=env as unknown as {BUCKET?:R2Bucket;IMAGES?:import("@/lib/private-media").ImagesBindingLike};
     if(!bindings.BUCKET) throw new Error("Cloudflare R2 nie je dostupné. Obrázok nebol schválený.");
     const {downloadRemoteImage,optimizeRemoteImageForStorage}=await import("./notion-sync-shared.ts");
-    const remote=await downloadRemoteImage(p.value);
-    const stored=await optimizeRemoteImageForStorage(bindings,remote);
+    let bytes:Uint8Array;
+    let extension:string;
+    let contentType:string;
+    let sourceUrl=p.source_url??p.value;
+    if(stagedKey) {
+      const staged=await bindings.BUCKET.get(stagedKey);
+      if(!staged)throw new Error("Pripravený obrázok už nie je v úložisku. Vyhľadaj iný obrázok.");
+      bytes=new Uint8Array(await staged.arrayBuffer());
+      extension=stagedKey.split(".").pop()!;
+      contentType=staged.httpMetadata?.contentType??"image/webp";
+    } else {
+      // Legacy proposals are still external URLs. A Facebook link can expire at any time.
+      let remote:Awaited<ReturnType<typeof downloadRemoteImage>>;
+      try { remote=await downloadRemoteImage(p.value); }
+      catch(error) {
+        const hostname=new URL(p.value).hostname.toLowerCase();
+        if(hostname.endsWith("facebook.com")||hostname.endsWith("fbcdn.net")||hostname.endsWith("fbsbx.com"))
+          throw new Error("Facebook už neposkytuje platný obrázok na tejto adrese. Zvoľ Hľadať iný obrázok.");
+        throw error;
+      }
+      const stored=await optimizeRemoteImageForStorage(bindings,remote);
+      bytes=stored.bytes;extension=stored.extension;contentType=stored.contentType;
+      sourceUrl=remote.finalUrl;
+    }
     const folder=p.entity_type==="DIRECTORY"?"directory":p.entity_type==="EVENT"?"events":
       p.entity_type==="ADOPTION"?"adoptions":p.entity_type==="LOST_FOUND"?"lost-found":"help";
-    const key=folder+"/"+new Date().getUTCFullYear()+"/"+crypto.randomUUID()+"."+stored.extension;
-    await bindings.BUCKET.put(key,stored.bytes,{
-      httpMetadata:{contentType:stored.contentType,cacheControl:"public, max-age=31536000, immutable"},
-      customMetadata:{source:"quality-missing-approved",sourceUrl:remote.finalUrl},
+    const key=folder+"/"+new Date().getUTCFullYear()+"/"+crypto.randomUUID()+"."+extension;
+    await bindings.BUCKET.put(key,bytes,{
+      httpMetadata:{contentType,cacheControl:"public, max-age=31536000, immutable"},
+      customMetadata:{source:"quality-missing-approved",sourceUrl:sourceUrl.slice(0,400)},
     });
     reviewedImage={key,url:"/media/"+key};
   }
@@ -620,6 +679,7 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
       await (env as unknown as {BUCKET?:R2Bucket}).BUCKET?.delete(reviewedImage.key).catch(()=>{});
     throw error;
   }
+  if(stagedKey)await (env as unknown as {BUCKET?:R2Bucket}).BUCKET?.delete(stagedKey).catch(()=>undefined);
 }
 export function getQualityMissingDatabase(){
   const db=(env as unknown as {DB?:D1Database}).DB;
