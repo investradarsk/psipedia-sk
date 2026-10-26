@@ -72,7 +72,8 @@ test("common D1-backed admin lists authenticate before starting reads, then stre
     const source = read(path);
     const handler = source.slice(source.indexOf("export default async function " + name));
     assert.ok(handler.indexOf("requireAdminPageUser(") >= 0, path);
-    assert.ok(handler.indexOf("requireAdminPageUser(") < handler.indexOf("Promise"), path);
+    const readStart = handler.search(/const (?:dataPromise|breedsPromise|overviewPromise|attentionPromise) =/);
+    assert.ok(readStart > handler.indexOf("await requireAdminPageUser("), path);
     assert.match(handler, /<AdminShell/);
     assert.match(handler, /<Suspense fallback=/);
     assert.match(handler, /<AdminDataLoading|Načítavajú sa upozornenia/);
