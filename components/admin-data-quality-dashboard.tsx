@@ -294,7 +294,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
           {singleDecisionItem?.monitor.candidateImageKey ? (
             <img className={styles.confirmImage}
               src={`/media/${singleDecisionItem.monitor.candidateImageKey}`}
-              alt={`Navrhovaný obrázok pre ${singleDecisionItem.label}`} />
+              alt={`Navrhovaný obrázok pre ${singleDecisionItem.label}`} decoding="async" />
           ) : null}
           {decision?.action === "reject" ? (
             <p>Zamietnuté návrhy sa odstránia z aktuálnej kontroly. Aktuálne publikované obrázky sa tým nezmenia. Systém sa následne pokúsi nájsť iných kandidátov; náhrada nie je zaručená.</p>
@@ -322,13 +322,13 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
           {detailItem?.monitor.activeImageKey ? (
             <figure>
               <figcaption>Aktuálny obrázok</figcaption>
-              <img src={`/media/${detailItem.monitor.activeImageKey}`} alt={`Aktuálny obrázok pre ${detailItem.label}`} />
+              <img src={`/media/${detailItem.monitor.activeImageKey}`} alt={`Aktuálny obrázok pre ${detailItem.label}`} decoding="async" />
             </figure>
           ) : <p>Profil zatiaľ nemá aktuálny obrázok.</p>}
           {detailItem?.monitor.candidateImageKey ? (
             <figure>
               <figcaption>Navrhovaný obrázok</figcaption>
-              <img src={`/media/${detailItem.monitor.candidateImageKey}`} alt={`Navrhovaný obrázok pre ${detailItem.label}`} />
+              <img src={`/media/${detailItem.monitor.candidateImageKey}`} alt={`Navrhovaný obrázok pre ${detailItem.label}`} decoding="async" />
             </figure>
           ) : null}
           {detailItem ? (
@@ -748,13 +748,13 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                             {hasCurrent && hasCandidate ? (
                               <figure>
                                 <span>Aktuálny</span>
-                                <img src={`/media/${monitor.activeImageKey}`} alt={`Aktuálny obrázok pre ${label}`} />
+                                <img src={`/media/${monitor.activeImageKey}`} alt={`Aktuálny obrázok pre ${label}`} loading="lazy" decoding="async" />
                               </figure>
                             ) : null}
                             {hasCandidate ? (
                               <figure>
                                 <span>{hasCurrent ? "Nový" : "Nájdený"}</span>
-                                <img src={`/media/${monitor.candidateImageKey}`} alt={`Navrhovaný obrázok pre ${label}`} />
+                                <img src={`/media/${monitor.candidateImageKey}`} alt={`Navrhovaný obrázok pre ${label}`} loading="lazy" decoding="async" />
                               </figure>
                             ) : (
                               <div className="admin-quality-media-placeholder" aria-hidden="true">!</div>

@@ -3,7 +3,7 @@ import { AdminArticleEditor } from "@/components/admin-article-editor";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getManagedArticleById } from "@/lib/article-store";
-import { listManagedBreedSummaries } from "@/lib/breed-store";
+import { listAdminArticleBreedOptions } from "@/lib/breed-store";
 import { listArticleTopics } from "@/lib/article-topics";
 import { articlePromoUtcDay } from "@/lib/article-promo";
 import { listManagedPortalSections } from "@/lib/section-store";
@@ -19,7 +19,7 @@ export default async function EditArticlePage({ params, searchParams }: Props) {
   const user = await requireAdminPageUser(`/admin/clanky/${id}`);
   const [article, breedOptions, managedSections, topicOptions] = await Promise.all([
     getManagedArticleById(numericId),
-    listManagedBreedSummaries(500),
+    listAdminArticleBreedOptions(500),
     listManagedPortalSections(),
     listArticleTopics({ includeInactive: true }),
   ]);

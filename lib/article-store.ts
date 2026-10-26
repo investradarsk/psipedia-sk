@@ -1004,10 +1004,15 @@ export async function listManagedArticleSummaries(options: {
       ORDER BY ${query.orderBy}
       LIMIT ? OFFSET ?
     `).bind(now, ...query.bindings, query.pageSize, query.offset).all<ArticleSummaryRow>();
-  const [[filteredCountResult, countResult], requestedResult] = await Promise.all([
-    database.batch([
-    database.prepare(`SELECT COUNT(*) AS total FROM managed_articles ${filteredQuery.where}`)
-      .bind(...filteredQuery.bindings),
+  // On an unfiltered list, the global counter already counts the exact
+  // same rows (including any fixed portal section). Skip a second full COUNT.
+  // Search, effective status and topic filters still require their own count.
+  const reuseGlobalCount = !filters.query && filters.status === "all" && !filters.topicId;
+  const countStatements = [
+    ...(!reuseGlobalCount
+      ? [database.prepare(`SELECT COUNT(*) AS total FROM managed_articles ${filteredQuery.where}`)
+        .bind(...filteredQuery.bindings)]
+      : []),
     database.prepare(`
       SELECT
         COUNT(*) AS total,
@@ -1020,9 +1025,13 @@ export async function listManagedArticleSummaries(options: {
       ) AS article_statuses
       ${globalWhere}
     `).bind(now, ...globalBindings),
-    ]),
+  ];
+  const [countResults, requestedResult] = await Promise.all([
+    database.batch(countStatements),
     loadPage(filteredQuery),
   ]);
+  const countResult = countResults[countResults.length - 1];
+  const filteredCountResult = reuseGlobalCount ? countResult : countResults[0];
   const resultCount = Number((filteredCountResult.results?.[0] as { total?: number } | undefined)?.total ?? 0);
   const rawCounts = (countResult.results?.[0] ?? null) as unknown as ArticleCountRow | null;
   const counts = {

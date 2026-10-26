@@ -25,12 +25,14 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
   const id = Number.parseInt(rawId, 10);
   const user = await requireAdminPageUser(`/admin/adresar/${rawId}`);
   if (!Number.isSafeInteger(id) || id < 1) notFound();
-  const profile = await getManagedDirectoryProfileById(id);
-  if (!profile) notFound();
-  const [duplicateWarning, automationSuggestions] = await Promise.all([
-    getCanonicalDraftDuplicateWarning("DIRECTORY", profile.id).catch(() => null),
-    listCanonicalAutomationUpdateSuggestions({ entityType: "DIRECTORY", canonicalEntityId: profile.id }),
+  // All three reads depend only on the validated ID. Start them together
+  // so duplicate and automation lookups do not wait for profile hydration.
+  const [profile, duplicateWarning, automationSuggestions] = await Promise.all([
+    getManagedDirectoryProfileById(id),
+    getCanonicalDraftDuplicateWarning("DIRECTORY", id).catch(() => null),
+    listCanonicalAutomationUpdateSuggestions({ entityType: "DIRECTORY", canonicalEntityId: id }),
   ]);
+  if (!profile) notFound();
 
   // Independent canonical Services V3 editor; no legacy source-data inference.
   const isServiceCategory = (serviceFilterCategories as readonly string[]).includes(profile.category);

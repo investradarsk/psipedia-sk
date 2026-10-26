@@ -470,9 +470,15 @@ export async function listManagedEventPage(input: AdminEventListQuery): Promise<
     "SELECT id, slug, title, event_type, status, start_date, start_time, end_date, end_time, city, venue, region, organizer, cancelled, image_url, created_at, updated_at " +
     "FROM managed_events WHERE " + sql.where + " ORDER BY " + sql.order + " LIMIT ? OFFSET ?",
   ).bind(...sql.values, ...sql.orderValues, input.pageSize, (page - 1) * input.pageSize).all<EventSummaryRow>();
+  // With no record filters, the always-required global counters already
+  // provide the exact matched total. Avoid counting every event twice.
+  // Non-default filters still run their precise independent COUNT.
+  const reuseGlobalCount = sql.where === "1=1";
   const [match, globals, yearsResult, requestedResult] = await Promise.all([
-    database.prepare("SELECT COUNT(*) AS total FROM managed_events WHERE " + sql.where)
-      .bind(...sql.values).first<{total: number}>(),
+    reuseGlobalCount
+      ? Promise.resolve(null)
+      : database.prepare("SELECT COUNT(*) AS total FROM managed_events WHERE " + sql.where)
+        .bind(...sql.values).first<{total: number}>(),
     database.prepare(adminEventGlobalCountsSql)
       .bind(today, today, today, today).first<{
         all_count: number; upcoming: number; current: number; past: number;
@@ -481,7 +487,7 @@ export async function listManagedEventPage(input: AdminEventListQuery): Promise<
     database.prepare(adminEventYearsSql).all<{year: string}>(),
     loadPage(requestedPage),
   ]);
-  const total = Number(match?.total ?? 0);
+  const total = reuseGlobalCount ? Number(globals?.all_count ?? 0) : Number(match?.total ?? 0);
   const pages = Math.max(1, Math.ceil(total / input.pageSize));
   const page = Math.min(requestedPage, pages);
   const result = page === requestedPage ? requestedResult : await loadPage(page);
