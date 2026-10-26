@@ -39,9 +39,13 @@ test("missing files leave the article hero optional", () => {
 });
 
 test("uploaded image fields fail closed on invalid multi-file or unsigned input", () => {
-  assert.throws(() => notionArticleMainImageSource({ properties: {
-    "Titulný obrázok": { files: [{ type: "file", file: { url: "https://a.example/a" } }] },
-  }}), /stabilné ID/);
+  const noId = { properties: { "Titulný obrázok": { files: [
+    { type: "file", file: { url: "https://a.example/photos/dog.jpg?token=1" } },
+  ] } } };
+  const first = notionArticleMainImageSource(noId);
+  noId.properties["Titulný obrázok"].files[0].file.url = "https://a.example/photos/dog.jpg?token=2";
+  assert.equal(notionArticleMainImageSource(noId).identity, first.identity,
+    "fall back to stable origin + pathname if the Notion file has no ID");
   assert.throws(() => notionArticleMainImageSource({ properties: {
     "Titulný obrázok": { files: [{ id:"x", type: "file", file: { url: "http://a.example/a" } }] },
   }}), /HTTPS/);
