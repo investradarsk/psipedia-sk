@@ -10,7 +10,7 @@ import { facebookWallTime } from "@/lib/facebook-image-post";
 export const dynamic = "force-dynamic";
 
 function loadFacebookOverview(month: string) {
-  return listFacebookImagePosts(month, "all")
+  return listFacebookImagePosts(month,"all")
     .then((data) => ({ data, error: "" }))
     .catch((error: unknown) => ({
       data: null,
