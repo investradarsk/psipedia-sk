@@ -45,8 +45,9 @@ export async function PATCH(request:Request,{params}:Props){
           database:cfg.DB,bindings:cfg,targetProfileId:profileId,syncServiceRelations:true,
         });
         notionFieldSync=(!result.enabled||!result.schemaReady||result.failed)?"pending"
-          :result.pulledFromNotion||result.pushedToNotion?"synced"
-          :result.unchanged?"unchanged":"unlinked";
+          :result.serviceRelationSync==="pushed"||result.serviceRelationSync==="pulled"
+            ||result.pulledFromNotion||result.pushedToNotion?"synced"
+          :result.serviceRelationSync==="unchanged"?"unchanged":"unlinked";
       }catch{
         notionFieldSync="pending";
       }
