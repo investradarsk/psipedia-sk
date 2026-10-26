@@ -157,7 +157,7 @@ test("e-shop production mapping upsert never silently reassigns Notion page", as
       /ESHOP_MAPPING_REASSIGNMENT_BLOCKED/,
     );
     assert.deepEqual(
-      sqlite.prepare("SELECT notion_page_id,content_hash FROM eshop_notion_sync WHERE eshop_id=12").get(),
+      { ...sqlite.prepare("SELECT notion_page_id,content_hash FROM eshop_notion_sync WHERE eshop_id=12").get() },
       { notion_page_id: "notion-a", content_hash: "hash-b" },
     );
   } finally {
