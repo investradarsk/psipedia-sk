@@ -44,11 +44,10 @@ export function notionArticleMainImageSource(page: NotionPageMedia): NotionArtic
     throw new Error("Titulný obrázok musí mať dostupnú HTTPS adresu.");
   }
   const fileId = typeof file.id === "string" && file.id.trim() ? file.id.trim() : null;
-  // Notion-uploaded files must have an ID so signed URL rotation cannot cause
-  // repeated imports. External files are stable by their original URL.
-  if (kind === "file" && !fileId) {
-    throw new Error("Titulnému obrázku chýba stabilné ID súboru v Notione.");
-  }
-  const identity = kind === "file" ? `notion-file:${fileId}` : `notion-external:${remoteUrl}`;
+  // Match the existing Facebook-image importer: use a Notion file ID where
+  // available, otherwise the stable origin + path without the signed query.
+  const stablePath = new URL(remoteUrl);
+  const stableIdentity = fileId ?? stablePath.origin + stablePath.pathname;
+  const identity = kind === "file" ? `notion-file:${stableIdentity}` : `notion-external:${remoteUrl}`;
   return { url: remoteUrl, identity, fileIdentity: identity, kind: "file" };
 }
