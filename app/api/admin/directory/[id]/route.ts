@@ -140,22 +140,27 @@ export async function PUT(request: Request, { params }: Props) {
     // entire directory scan, trigger Services V3 or affect Facebook images.
     // The canonical Admin save is not rolled back if Notion is unavailable;
     // the established hourly sweep will retry unacknowledged field changes.
-    let notionFieldSync: "synced" | "unchanged" | "pending" | "disabled" = "disabled";
+    let notionFieldSync: "synced" | "unchanged" | "pending" | "disabled" | "unlinked" = "disabled";
     const notionEnv = env as unknown as {
       DB?: D1Database;
       NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string;
     };
-    if (notionEnv.DB && notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true") {
-      try {
-        const result = await runNotionDirectorySyncSweep({
-          database: notionEnv.DB,
-          bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
-          targetProfileId: id,
-        });
-        notionFieldSync = result.failed ? "pending"
-          : result.pushedToNotion || result.pulledFromNotion ? "synced" : "unchanged";
-      } catch {
+    if (notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true") {
+      if (!notionEnv.DB) {
         notionFieldSync = "pending";
+      } else {
+        try {
+          const result = await runNotionDirectorySyncSweep({
+            database: notionEnv.DB,
+            bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
+            targetProfileId: id,
+          });
+          notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
+            : result.pushedToNotion || result.pulledFromNotion ? "synced"
+            : result.unchanged ? "unchanged" : "unlinked";
+        } catch {
+          notionFieldSync = "pending";
+        }
       }
     }
     return Response.json({ profile, notionFieldSync });
