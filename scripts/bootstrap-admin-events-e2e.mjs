@@ -30,6 +30,14 @@ for (const statement of schemaStatements) {
   const sql = statement.replace(/^CREATE TABLE(?! IF NOT EXISTS)/i, 'CREATE TABLE IF NOT EXISTS') + ';';
   db.exec(sql);
 }
+// Catch a parser regression at the source instead of a misleading
+// "no such table" from some unrelated ALTER TABLE many migrations later.
+for (const name of ['managed_events', 'directory_profiles', 'gemini_manual_background_jobs']) {
+  const present = db.prepare(
+    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1"
+  ).get(name);
+  if (!present) throw new Error('E2E_BOOTSTRAP_REQUIRED_TABLE_MISSING: ' + name);
+}
 for (const statement of schemaStatements) {
   if (!/^ALTER TABLE\b[\s\S]*\bADD\b/i.test(statement)) continue;
   const sql = statement + ';';
