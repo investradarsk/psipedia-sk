@@ -40,58 +40,58 @@ export async function loadAdminWorkspaceFeed(email:string,db=database()):Promise
           AND (CASE
             WHEN e.source_type IN ('MODERATION_SUBMISSION','PARTNER_PROPOSAL')
               THEN EXISTS (SELECT 1 FROM moderation_submissions s
-                WHERE CAST(s.id AS TEXT)=e.resource_ref
+                WHERE s.id=e.resource_ref
                   AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED'))
             WHEN e.source_type='PROFILE_REVIEW_MODERATION'
               THEN EXISTS (SELECT 1 FROM profile_reviews p
-                WHERE CAST(p.id AS TEXT)=e.resource_ref AND p.status='PENDING_REVIEW')
+                WHERE p.id=CAST(e.resource_ref AS INTEGER) AND p.status='PENDING_REVIEW')
             WHEN e.source_type='PARTNER_CLAIM_REVIEW'
               THEN EXISTS (SELECT 1 FROM partner_claims p
-                WHERE CAST(p.id AS TEXT)=e.resource_ref AND p.status='PENDING')
+                WHERE p.id=e.resource_ref AND p.status='PENDING')
             WHEN e.source_type='NEWS_TIP'
               THEN EXISTS (SELECT 1 FROM news_tips n
-                WHERE CAST(n.id AS TEXT)=e.resource_ref AND n.status IN ('new','reviewing'))
+                WHERE n.id=CAST(e.resource_ref AS INTEGER) AND n.status IN ('new','reviewing'))
             WHEN e.source_type='DIRECTORY_CHANGE_REQUEST'
               THEN EXISTS (SELECT 1 FROM directory_profile_change_requests d
-                WHERE CAST(d.id AS TEXT)=e.resource_ref AND d.status='new')
+                WHERE d.id=CAST(e.resource_ref AS INTEGER) AND d.status='new')
             WHEN e.source_type='DIRECTORY_INQUIRY'
               THEN EXISTS (SELECT 1 FROM directory_inquiries d
-                WHERE CAST(d.id AS TEXT)=e.resource_ref AND d.status IN ('new','read'))
+                WHERE d.id=CAST(e.resource_ref AS INTEGER) AND d.status IN ('new','read'))
             WHEN e.source_type='ARTICLE_FEEDBACK'
               THEN EXISTS (SELECT 1 FROM article_feedback a
-                WHERE CAST(a.id AS TEXT)=e.resource_ref
+                WHERE a.id=CAST(e.resource_ref AS INTEGER)
                   AND a.helpful=0 AND a.status IN ('new','reviewing'))
             WHEN e.source_type='ADOPTION_STALE'
               THEN EXISTS (SELECT 1 FROM adoption_dogs a
-                WHERE CAST(a.id AS TEXT)=e.resource_ref
+                WHERE a.id=CAST(e.resource_ref AS INTEGER)
                   AND a.status IN ('ACTIVE','RESERVED')
                   AND (a.last_verified_at IS NULL OR a.last_verified_at<?))
             WHEN e.source_type='PARTNER_COMMERCIAL_AGREEMENT'
               THEN EXISTS (SELECT 1 FROM partner_commercial_agreements a
-                WHERE CAST(a.id AS TEXT)=e.resource_ref
+                WHERE a.id=CAST(e.resource_ref AS INTEGER)
                   AND a.status='ACTIVE' AND a.end_at>? AND a.end_at<=?)
             WHEN e.source_type='QUALITY_MISSING' AND e.event_type='quality_missing_found'
               THEN EXISTS (SELECT 1 FROM quality_missing_proposals q
-                WHERE CAST(q.entity_id AS TEXT)=e.resource_ref
+                WHERE q.entity_id=CAST(e.resource_ref AS INTEGER)
                   AND q.area=e.resource_type AND q.status='OPEN')
             WHEN e.source_type='FACEBOOK_IMAGE'
               AND e.event_type IN ('facebook_image_imported','facebook_image_failed')
               THEN EXISTS (SELECT 1 FROM facebook_image_posts f
-                WHERE CAST(f.id AS TEXT)=e.resource_ref AND f.status<>'published')
+                WHERE f.id=e.resource_ref AND f.status<>'published')
             WHEN e.source_type='GEMINI_CREATED' AND e.resource_type='DIRECTORY'
               THEN EXISTS (SELECT 1 FROM directory_profiles d
-                WHERE CAST(d.id AS TEXT)=e.resource_ref AND d.status='draft')
+                WHERE d.id=CAST(e.resource_ref AS INTEGER) AND d.status='draft')
             WHEN e.source_type='GEMINI_CREATED' AND e.resource_type='EVENT'
               THEN EXISTS (SELECT 1 FROM managed_events m
-                WHERE CAST(m.id AS TEXT)=e.resource_ref AND m.status='draft')
+                WHERE m.id=CAST(e.resource_ref AS INTEGER) AND m.status='draft')
             WHEN e.event_type='automation_draft_created'
               AND e.target_url LIKE '/admin/adresar/%'
               THEN EXISTS (SELECT 1 FROM directory_profiles d
-                WHERE CAST(d.id AS TEXT)=e.resource_ref AND d.status='draft')
+                WHERE d.id=CAST(e.resource_ref AS INTEGER) AND d.status='draft')
             WHEN e.event_type='automation_draft_created'
               AND e.target_url LIKE '/admin/podujatia/%'
               THEN EXISTS (SELECT 1 FROM managed_events m
-                WHERE CAST(m.id AS TEXT)=e.resource_ref AND m.status='draft')
+                WHERE m.id=CAST(e.resource_ref AS INTEGER) AND m.status='draft')
             ELSE 1
           END)
         ORDER BY e.created_at DESC,e.id DESC LIMIT 30`)
