@@ -20,6 +20,8 @@ on:
       - "tests/pr-visual-screenshots.test.mjs"
       - "tests/public-page-template-contracts.test.mjs"
       - "tests/public-details-v2-ui.test.mjs"
+      - "tests/pr-visual-baseline-compare.test.mjs"
+      - "scripts/pr-visual-baseline-compare.mjs"
       - ".github/workflows/pr-visual-evidence.yml"
 
 concurrency:
@@ -46,6 +48,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -60,6 +63,27 @@ jobs:
         run: npm run build
       - name: Install browser
         run: npx playwright install --with-deps chromium
+      - name: Capture common-ancestor template baseline
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          BASE_SHA="$(git merge-base HEAD "$PR_BASE_SHA")"
+          if [ -z "$BASE_SHA" ]; then
+            echo "Missing Git ancestor: cannot compare visual baseline."
+            exit 1
+          fi
+          echo "VISUAL_BASELINE_SHA=$BASE_SHA" >> "$GITHUB_ENV"
+          BASE_DIR="$RUNNER_TEMP/psipedia-visual-base"
+          git worktree add --detach "$BASE_DIR" "$BASE_SHA"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$BASE_DIR/node_modules"
+          # Use the SAME fixture cases for both code revisions; only implementation changes.
+          cp "$GITHUB_WORKSPACE/tests/public-details-v2-ui.test.mjs" "$BASE_DIR/tests/public-details-v2-ui.test.mjs"
+          mkdir -p "$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/template-baseline"
+          (
+            cd "$BASE_DIR"
+            DETAIL_TEST_SCREENSHOTS="$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/template-baseline"               node --test tests/public-details-v2-ui.test.mjs
+          )
       - name: Test and capture isolated public template fixtures
         env:
           DETAIL_TEST_SCREENSHOTS: .e2e-artifacts/pr-visual/template-fixtures
@@ -107,11 +131,19 @@ jobs:
         run: node scripts/bootstrap-phase5-e2e.mjs full
       - name: Capture exact PR code screenshots
         run: node scripts/pr-visual-screenshots.mjs
+      - name: Verify and compare fixture screenshots against Git ancestor
+        run: |
+          node --test tests/pr-visual-baseline-compare.test.mjs
+          node scripts/pr-visual-baseline-compare.mjs
       - name: GitHub run summary
         if: always()
         run: |
           if test -f .e2e-artifacts/pr-visual/summary.md; then
             cat .e2e-artifacts/pr-visual/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if test -f .e2e-artifacts/pr-visual/template-diff/summary.md; then
+            printf '\n---\n\n' >> "$GITHUB_STEP_SUMMARY"
+            cat .e2e-artifacts/pr-visual/template-diff/summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Upload screenshots and diagnostics
         if: always()
