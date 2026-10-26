@@ -38,6 +38,10 @@ on:
       - "components/admin-data-quality-dashboard.tsx"
       - "tests/media-source-quality.test.mjs"
       - "tests/notion-article-sync.test.mjs"
+      - "tests/notion-article-image-source.test.mjs"
+      - "tests/notion-article-related-publication.test.mjs"
+      - "lib/notion-article-image-source.ts"
+      - "lib/notion-article-related-publication.ts"
       - "tests/article-publish-notion-reconciliation.test.mjs"
       - "tests/notion-breed-sync.test.mjs"
       - "tests/notion-event-sync.test.mjs"
@@ -87,6 +91,9 @@ jobs:
 
       - name: Notion sync safety contract
         run: node --test tests/notion-article-sync.test.mjs tests/notion-article-content-writeback.test.mjs tests/article-publish-notion-reconciliation.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-directory-sync.test.mjs tests/media-source-quality.test.mjs
+
+      - name: Notion article media and published-link safety
+        run: node --experimental-strip-types --test tests/notion-article-image-source.test.mjs tests/notion-article-related-publication.test.mjs
 
       - name: Article content writeback focused test
         run: node --experimental-strip-types --test tests/notion-article-content-writeback.test.mjs tests/notion-article-editorial-retry.test.mjs
