@@ -429,3 +429,34 @@ test("unchanged Directory error metadata is not rewritten every hourly run", () 
   assert.match(sweep, /page = await fetchNotionPage\(input\.bindings, mapping\.notion_page_id\)/);
   assert.match(sweep, /syncMappedPage\(\{[\s\S]*?mapping,\s*page,\s*forcePsipediaPush: true/);
 });
+
+test("Directory bootstrap has no targeted selectors; reconciler rejects ambiguous scope", () => {
+  const bootstrapStart = syncSource.indexOf("export async function runNotionDirectoryBootstrapSweep");
+  const syncStart = syncSource.indexOf("export async function runNotionDirectorySyncSweep");
+  assert.ok(bootstrapStart >= 0 && syncStart > bootstrapStart);
+  const bootstrap = syncSource.slice(bootstrapStart, syncStart);
+  const sweep = syncSource.slice(syncStart);
+  assert.doesNotMatch(bootstrap, /input\\.targetPageId|input\\.targetProfileId/);
+  const guard = "if (input.targetPageId !== undefined && input.targetProfileId !== undefined)";
+  assert.ok(sweep.includes(guard), "mixed page/profile targets must be rejected");
+  assert.ok(sweep.indexOf(guard) < sweep.indexOf("const enabled = notionFlagEnabled("),
+    "invalid scope must fail before feature flag and any D1/Notion reads");
+  assert.match(sweep, /throw new Error\\("NOTION_TARGET_SCOPE_AMBIGUOUS"\\)/);
+});
+
+test("targeted Directory import refuses archived, trashed, and foreign Notion pages", () => {
+  const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  const target = sweep.slice(
+    sweep.indexOf("if (input.targetPageId !== undefined) {"),
+    sweep.indexOf("pages = [targetPage];"),
+  );
+  assert.match(target, /notionDirectoryPageBelongsToSource\\(targetPage, dataSourceId\\)/);
+  assert.ok(target.indexOf("notionDirectoryPageBelongsToSource(targetPage, dataSourceId)") <
+    target.indexOf("pages = [targetPage]") || !target.includes("pages = [targetPage]"));
+  const source = "84e0664c-ca47-405f-9d54-31b20287bc8c";
+  const page = { parent: { type: "data_source_id", data_source_id: source } };
+  assert.equal(notionDirectoryPageBelongsToSource(page, source), true);
+  assert.equal(notionDirectoryPageBelongsToSource({ ...page, archived: true }, source), false);
+  assert.equal(notionDirectoryPageBelongsToSource({ ...page, in_trash: true }, source), false);
+  assert.equal(notionDirectoryPageBelongsToSource(page, "76d9ccde-5816-422c-bcfe-863ab69db080"), false);
+});
