@@ -86,7 +86,7 @@ test("homepage breed cards read only presentation fields, not the editor's full 
   const breedPhoto=await repoFile("components/breed-photo.tsx");
   assert.match(breedPhoto, /onError=\{\(\)=>setFailed\(String\(props\.src\)\)\}/);
   assert.doesNotMatch(fn, /\$\{select\}|fromRow\(|fci_standard_json|editorial_json|gallery_json/);
-  assert.match(page, /listHomepageFeaturedBreeds\(6\)/);
+  assert.match(page, /listHomepageFeaturedBreeds\(5\)/);
 });
 
 test("homepage previews preserve safe fallbacks and truthful empty messages", async () => {
@@ -98,7 +98,8 @@ test("homepage previews preserve safe fallbacks and truthful empty messages", as
   for (const selector of ["data-home-events-empty", "data-home-veterinarians-empty", "data-home-help-empty"]) assert.match(page, new RegExp(selector));
   assert.match(editorial, /data-home-section-cta/);
   assert.match(editorial, /variant="featured" headingLevel=\{3\} omitMissingImage/);
-  assert.match(articleSelection, /articles\.filter\(\(article\) => Boolean\(article\.image\?\.trim\(\)\)\)/);
+  assert.match(articleSelection, /const ordered = \[\.\.\.articles\]\.sort\(comparePublishedArticles\)/);
+  assert.match(articleSelection, /const latest = ordered\.slice\(0, latestLimit\)/);
   assert.match(publicStyles, /\.articleListMedia\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
   for (const selector of ["home-event-list", "home-vet-list", "home-help-grid"]) {
     assert.match(css, new RegExp(`\\.${selector}\\)[\\s\\S]*?repeat\\(auto-fit, minmax`));
