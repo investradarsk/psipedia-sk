@@ -633,6 +633,10 @@ export async function EditorialSectionTopic({
       10,
     ),
   });
+  const isHealthLanding = sectionSlug === "starostlivost" && subpage.slug === "zdravie";
+  const companionArticles = isHealthLanding && pillar ? remainingArticles.slice(0, 3) : [];
+  const furtherArticles = companionArticles.length ? remainingArticles.slice(companionArticles.length) : remainingArticles;
+  const healthUrgent = isHealthLanding && contextualCta?.key === "health-urgent" ? contextualCta : null;
   const labels = guidanceLabels(sectionSlug);
   const path = portalSubpageHref(section, subpage);
   const schema = buildCollectionPageJsonLd({
@@ -666,7 +670,12 @@ export async function EditorialSectionTopic({
             title={subpage.label}
             intro={subpage.description}
             visual={heroVisual}
-            portalSearchSlot={<SearchBox sectionSlug={sectionSlug} subpage={subpage} />}
+            portalSearchSlot={<SearchBox sectionSlug={sectionSlug} subpage={subpage}
+                shortcuts={isHealthLanding ? [
+                  { href: "/adresar/veterinari", label: "Veterinári" },
+                  { href: "/starostlivost/vyziva", label: "Výživa" },
+                ] : undefined}
+              />}
           />
         </UnifiedSectionHeroShell>
 
@@ -795,24 +804,38 @@ export async function EditorialSectionTopic({
             </>
           ) : (
             <div className={styles.contentHub} data-content-hub>
-              {subpage.intro && <p className={styles.contentHubIntro}>{subpage.intro}</p>}
+              {subpage.intro && !isHealthLanding && <p className={styles.contentHubIntro}>{subpage.intro}</p>}
               {pillar && (
-                <section
-                  className={styles.contentHubPillar}
-                  aria-labelledby="topic-pillar-heading"
-                  data-content-hub-pillar
-                >
-                  <span className={styles.eyebrow}>Začni tu</span>
-                  <h2 id="topic-pillar-heading">Hlavný sprievodca</h2>
-                  <ArticleCard
-                    article={pillar}
-                    variant="grid"
-                    headingLevel={3}
-                    showFavorite={false}
-                    omitMissingImage
-                  />
-                </section>
+                <div className={isHealthLanding ? styles.contentHubLeadPair : undefined}>
+                  <section
+                    className={styles.contentHubPillar}
+                    aria-labelledby="topic-pillar-heading"
+                    data-content-hub-pillar
+                  >
+                    <span className={styles.eyebrow}>Začni tu</span>
+                    <h2 id="topic-pillar-heading">Hlavný sprievodca</h2>
+                    <ArticleCard
+                      article={pillar}
+                      variant="grid"
+                      headingLevel={3}
+                      showFavorite={false}
+                      omitMissingImage
+                    />
+                  </section>
+                  {companionArticles.length > 0 && (
+                    <section className={styles.contentHubCompanion} aria-labelledby="health-companion-heading">
+                      <span className={styles.eyebrow}>Súvisiace čítanie</span>
+                      <h2 id="health-companion-heading">Ďalšie články</h2>
+                      <SectionContentList
+                        articles={companionArticles}
+                        label="Ďalšie články o zdraví psa"
+                        limit={3}
+                      />
+                    </section>
+                  )}
+                </div>
               )}
+              {healthUrgent && <div className={styles.healthUrgentRow}><HealthUrgent cta={healthUrgent} /></div>}
               <section
                 className={styles.relatedSection}
                 aria-labelledby="topic-related-heading"
@@ -829,10 +852,10 @@ export async function EditorialSectionTopic({
                   }
                 />
                 <SectionContentList
-                  articles={remainingArticles}
+                  articles={furtherArticles}
                   label={`Články k téme ${subpage.label}`}
                   limit={10}
-                  contextualCta={contextualCta}
+                  contextualCta={healthUrgent ? null : contextualCta}
                 />
               </section>
             </div>
