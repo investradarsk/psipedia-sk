@@ -240,16 +240,16 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Novinky zo sveta psov/);
   assert.match(html, /Najbližšie podujatia/);
   assert.match(html, /<h2 id="home-steniatka-title">Šteniatka<\/h2>/);
-  assert.match(html, /Veterinárna starostlivosť na jednom mieste/);
+  assert.match(html, /Veterinári/);
+  assert.match(html, /Tréneri a psie školy/);
+  assert.match(html, /Objav plemená/);
   assert.match(html, /<h2 id="home-starostlivost-title">Zdravie a starostlivosť<\/h2>/);
-  // Homepage V3 separates directory categories into featured and secondary bands.
-  assert.match(html, /Nájdi odborníka pre svojho psa/);
-  assert.match(html, /Pomoc aj mimo bežného dňa/);
+  // The agreed magazine pairs editorial topics with their contextual right-side links.
   assert.match(html, /<h2 id="home-aktivity-title">Výcvik a aktivity<\/h2>/);
   assert.match(html, /Pomoc psom/);
-  assert.match(html, /Plemeno dňa/);
+  assert.doesNotMatch(html, /Plemeno dňa/);
   assert.match(html, /Koľko „ľudských rokov“ má tvoj pes/);
-  assert.match(html, /Pozri si kalendár podujatí/);
+  assert.match(html, /Najbližšie podujatia/);
   assert.match(html, /Objav možnosti pomoci psom/);
   assert.doesNotMatch(html, /Nové podujatia práve dopĺňame|Momentálne tu nie je otvorená výzva/);
   assert.match(html, /href="\/o-nas#kontakt"/);
@@ -258,23 +258,18 @@ test("renders the portal homepage", async () => {
   // their current neighbouring sections rather than in the old V2 positions.
   const magazineTitles = [
     "home-latest-title",
-    "home-services-featured-title",
     "home-steniatka-title",
     "home-starostlivost-title",
-    "home-services-secondary-title",
-    "home-aktivity-title",
     "home-help-title",
-    "home-plemena-title",
+    "home-aktivity-title",
   ];
   const titlePositions = magazineTitles.map((id) => html.indexOf(`id="${id}"`));
   assert.ok(titlePositions.every((position) => position >= 0), "all homepage section headings must render");
-  assert.ok(titlePositions.every((position, index) => index === 0 || position > titlePositions[index - 1]), "editorial and profile sections retain their current order");
+  assert.ok(titlePositions.every((position, index) => index === 0 || position > titlePositions[index - 1]), "editorial and help sections retain their approved magazine order");
   const profileBanner = html.indexOf('data-home-banner="profil"');
-  const eventBanner = html.indexOf('data-home-banner="podujatie"');
   assert.ok(profileBanner > html.indexOf('id="home-steniatka-title"') && profileBanner < html.indexOf('id="home-starostlivost-title"'), "profile banner follows puppies and precedes care");
-  assert.ok(eventBanner > html.indexOf('id="home-aktivity-title"') && eventBanner < html.indexOf('id="home-help-title"'), "event banner follows activities and precedes help");
   assert.match(html, /href="\/partner\/profily\/novy"/);
-  assert.match(html, /href="\/partner\/podujatia\/nove"/);
+  assert.doesNotMatch(html, /data-home-banner="podujatie"/);
   assert.doesNotMatch(html, /Vybrané redakciou/);
   assert.doesNotMatch(html, /Najnovšie publikovaný obsah naprieč Psipediou/);
   assert.doesNotMatch(html, /Najbližšie publikované podujatia zoradené podľa dátumu/);
@@ -288,18 +283,19 @@ test("renders the portal homepage", async () => {
   const articleStoreSource = readFileSync(new URL("../lib/article-store.ts", import.meta.url), "utf8");
   const breedStoreSource = readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
   const publishedSummariesStart = articleStoreSource.indexOf("export async function getPublishedArticleSummaries");
-  const breedOfTheDayStart = breedStoreSource.indexOf("export async function getBreedOfTheDay");
+  const featuredBreedsStart = breedStoreSource.indexOf("export async function listHomepageFeaturedBreeds");
   const publishedSummariesQuery = articleStoreSource.slice(publishedSummariesStart, articleStoreSource.indexOf("/** Backwards-compatible", publishedSummariesStart));
-  const breedOfTheDayQuery = breedStoreSource.slice(breedOfTheDayStart, breedStoreSource.indexOf("export async function listPublishedBreeds", breedOfTheDayStart));
+  const featuredBreedsQuery = breedStoreSource.slice(featuredBreedsStart, breedStoreSource.indexOf("export async function getManagedBreed", featuredBreedsStart));
   assert.match(homeSource, /getPublishedArticleSummaries\(\{ limit: 120 \}\)/);
   assert.match(homeSource, /selectHomepageArticles\(publishedArticles/);
-  assert.match(homeSource, /getBreedOfTheDay\(dayOfYear\)/);
+  assert.match(homeSource, /listHomepageFeaturedBreeds\(5\)/);
   assert.doesNotMatch(homeSource, /getHomepageArticles|getPublishedArticles|listPublishedBreedsForComparison/);
   assert.match(publishedSummariesQuery, /ORDER BY published_at DESC/);
   assert.match(publishedSummariesQuery, /LIMIT \?/);
   assert.doesNotMatch(publishedSummariesQuery, /SELECT \*/);
-  assert.match(breedOfTheDayQuery, /canonicalBreedIdsSql/);
-  assert.doesNotMatch(breedOfTheDayQuery, /fci_standard_json|SELECT \*/);
+  assert.match(featuredBreedsQuery, /canonicalBreedIdsSql/);
+  assert.match(featuredBreedsQuery, /ORDER BY RANDOM\(\) LIMIT \?/);
+  assert.doesNotMatch(featuredBreedsQuery, /fci_standard_json|SELECT \*/);
 });
 
 test("homepage events retain approved photographs and show category fallback art when missing", async () => {
@@ -762,8 +758,8 @@ test("renders article freshness and expert sources", async () => {
   const html = await response.text();
   assert.match(html, /Aktualizované/);
   assert.match(html, /Odborné zdroje/);
-  assert.match(html, /<details[^>]*><summary>Obsah článku<\/summary>/);
-  assert.doesNotMatch(html, /<details[^>]*\\sopen(?:=|\\s|>)/);
+  assert.match(html, /<nav[^>]*aria-label="Obsah článku"/);
+  assert.doesNotMatch(html, /<details[^>]*><summary>Obsah článku<\/summary>/);
   assert.match(html, /Ďalšie články k téme/);
   assert.match(html, /WSAVA: Global Nutrition Guidelines/);
   assert.match(html, /"dateModified":"2026-08-16"/);
