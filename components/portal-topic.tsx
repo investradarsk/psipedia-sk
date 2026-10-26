@@ -113,6 +113,7 @@ export async function PortalTopic({
   const isPuppies = section.slug === "steniatka";
   const isReviews = section.slug === "recenzie";
   const isStructuredTopic = isCare || isActivities || isPuppies;
+  const showSectionTabs = isStructuredTopic || isReviews;
   if (isStructuredTopic)
     return <EditorialSectionTopic section={section} subpage={subpage} articles={articles} />;
   const reviewHeroVisual = isReviews ? await getSectionHeroVisual(`reviews.${subpage.slug}`) : null;
@@ -296,9 +297,7 @@ export async function PortalTopic({
         </SectionHero>
       )}
 
-      {isStructuredTopic && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
-
-      {isReviews && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
+      {showSectionTabs && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
 
       {!isReviews && (
         <section className="section shell public-shell portal-topic-body">
