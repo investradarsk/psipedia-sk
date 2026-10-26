@@ -330,3 +330,18 @@ test("Notion main image metadata syncs alt text and source URL and participates 
   assert.match(syncSource, /notionImageCreditUrl/);
   assert.match(syncSource, /JSON\.stringify\(\{[\s\S]*notionImageSourceUrl,[\s\S]*notionImageAlt,[\s\S]*notionImageCreditUrl/);
 });
+
+
+test("Notion Files article hero reuses stable identity and preserves URL fallback", () => {
+  assert.match(syncSource, /notionArticleMainImageSource\(page\)/);
+  assert.match(syncSource, /sha256\(source\.identity\)/);
+  assert.match(syncSource, /notionImageFileIdentity/);
+  assert.match(syncSource, /const sourceUrl = source\.url/);
+  assert.match(syncSource, /notionHero\.kind === "file" \? null : notionHero\.url/);
+});
+
+test("Notion-related manifest links require existing published canonical articles", () => {
+  assert.match(syncSource, /await assertPublishedRelatedBlocks\(/);
+  assert.match(syncSource, /await getPublishedArticle\(slug\)/);
+  assert.match(syncSource, /articleHref\(published\)/);
+});

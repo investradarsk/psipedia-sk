@@ -2,6 +2,7 @@ import {
   createManagedArticle,
   deleteManagedArticle,
   getManagedArticleById,
+  getPublishedArticle,
   isArticleSlugConflict,
   updateManagedArticle,
   type ManagedArticle,
@@ -9,6 +10,8 @@ import {
 } from "@/lib/article-store";
 import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import { preserveArticlePromoBlocks } from "@/lib/article-promo";
+import { notionArticleMainImageSource } from "@/lib/notion-article-image-source";
+import { assertPublishedRelatedBlocks } from "@/lib/notion-article-related-publication";
 import {
   EDITORIAL_RICH_TEXT_VERSION,
   sanitizeEditorialHref,
@@ -369,7 +372,8 @@ async function prepareNotionMainImage(
   payload: ManagedArticleInput,
   existing?: ManagedArticle | null,
 ): Promise<PreparedNotionImage> {
-  const sourceUrl = urlProperty(page, "Hlavný obrázok URL");
+  const source = notionArticleMainImageSource(page);
+  const sourceUrl = source.url;
   const imageSourceUrl = urlProperty(page, "Zdroj obrázka");
   const altText = richTextProperty(page, "Alt text obrázka");
 
@@ -397,7 +401,8 @@ async function prepareNotionMainImage(
     throw new Error("Cloudflare R2 úložisko nie je pripojené; hlavný obrázok sa nedá synchronizovať.");
   }
 
-  const sourceFingerprint = await sha256(sourceUrl);
+  // Notion file download URLs expire; use the stable uploaded file ID.
+  const sourceFingerprint = await sha256(source.identity);
 
   if (existing?.imageKey) {
     const currentObject = await bucket.head(existing.imageKey);
@@ -1321,15 +1326,15 @@ export async function writeBackDraftArticleContentToNotion(args: {
     !checkboxProperty(page, "Odoslať na Psipedia")) {
     throw new Error("NOTION_DRAFT_WRITEBACK_NOT_APPROVED");
   }
-  // ManagedArticle keeps SEO under .seo, not as top-level editor fields.
-  // Retain the original Notion image URL when the R2 source fingerprint proves
-  // that the editor did not replace the hero image.
+  // Keep file-backed heroes in Notion Files during text-only writeback.
+  // If an editor replaces the hero, export the new R2 URL into the legacy URL
+  // property; that explicit URL takes precedence over a previous attachment.
   let mirroredHero = article.image ?? null;
-  const notionHero = urlProperty(page, "Hlavný obrázok URL");
-  if (article.imageKey && notionHero && args.bindings.BUCKET) {
+  const notionHero = notionArticleMainImageSource(page);
+  if (article.imageKey && notionHero.url && args.bindings.BUCKET) {
     const currentImage = await args.bindings.BUCKET.head(article.imageKey);
-    if (currentImage?.customMetadata?.notionSourceHash === await sha256(notionHero)) {
-      mirroredHero = notionHero;
+    if (currentImage?.customMetadata?.notionSourceHash === await sha256(notionHero.identity)) {
+      mirroredHero = notionHero.kind === "file" ? null : notionHero.url;
     }
   }
   const editorProjection = {
@@ -1361,7 +1366,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   // Guard them on initial and resumed attempts, including after all PATCHes.
   const protectedPropertyNames = [
     "Psipedia ID", "Slug", "Kategória", "Typ obsahu",
-    "Stav", "Odoslať na Psipedia",
+    "Stav", "Odoslať na Psipedia", "Titulný obrázok",
   ];
   const pageGuard = (value: NotionPage) => JSON.stringify(
     protectedPropertyNames.map((name) => [name, value.properties?.[name] ?? null]),
@@ -1379,6 +1384,9 @@ export async function writeBackDraftArticleContentToNotion(args: {
     const currentContentHash = await sha256(JSON.stringify({
       payload: current,
       notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
+      // Keep the previous hash shape for pages without a Files hero.
+      ...(notionArticleMainImageSource(page).fileIdentity
+        ? { notionImageFileIdentity: notionArticleMainImageSource(page).fileIdentity } : {}),
       notionImageAlt: richTextProperty(page, "Alt text obrázka"),
       notionImageCreditUrl: urlProperty(page, "Zdroj obrázka"),
     }));
@@ -1561,6 +1569,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const finalHash = await sha256(JSON.stringify({
     payload: newPayload,
     notionImageSourceUrl: urlProperty(verifiedPage, "Hlavný obrázok URL"),
+    ...(notionArticleMainImageSource(verifiedPage).fileIdentity
+      ? { notionImageFileIdentity: notionArticleMainImageSource(verifiedPage).fileIdentity } : {}),
     notionImageAlt: richTextProperty(verifiedPage, "Alt text obrázka"),
     notionImageCreditUrl: urlProperty(verifiedPage, "Zdroj obrázka"),
   }));
@@ -1667,12 +1677,25 @@ async function syncOneNotionPage(
   }
 
   const basePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined);
+  // Notion manifests bypass the Admin's published-article-only picker.
+  // Resolve related article blocks against the currently public canonical URL.
+  await assertPublishedRelatedBlocks(
+    basePayload.blocks ?? [],
+    basePayload.slug ?? "",
+    async (slug) => {
+      const published = await getPublishedArticle(slug);
+      return published ? articleHref(published) : null;
+    },
+    SITE_URL,
+  );
   const notionImageSourceUrl = urlProperty(page, "Hlavný obrázok URL");
+  const notionImageFileIdentity = notionArticleMainImageSource(page).fileIdentity;
   const notionImageAlt = richTextProperty(page, "Alt text obrázka");
   const notionImageCreditUrl = urlProperty(page, "Zdroj obrázka");
   const contentHash = await sha256(JSON.stringify({
     payload: basePayload,
     notionImageSourceUrl,
+    ...(notionImageFileIdentity ? { notionImageFileIdentity } : {}),
     notionImageAlt,
     notionImageCreditUrl,
   }));

@@ -45,7 +45,7 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
   const targetB = fingerprint(node("heading-b", "heading_2", "Upravená druhá kapitola"));
   const protectedPropertyNames = [
     "Psipedia ID", "Slug", "Kategória", "Typ obsahu",
-    "Stav", "Odoslať na Psipedia",
+    "Stav", "Odoslať na Psipedia", "Titulný obrázok",
   ];
   const plan = {
     pageGuard: JSON.stringify(protectedPropertyNames.map(name => [name, notion.properties[name] ?? null])),
@@ -223,6 +223,8 @@ async function loadWriter(h) {
     "@/lib/article-store": {},
     "@/lib/article-blocks": {},
     "@/lib/article-promo": {},
+    "@/lib/notion-article-image-source": { notionArticleMainImageSource: () => ({ url: "", identity: "", fileIdentity: null, kind: "none" }) },
+    "@/lib/notion-article-related-publication": { assertPublishedRelatedBlocks: async () => {} },
     "@/lib/editorial-content": { EDITORIAL_RICH_TEXT_VERSION: 1 },
     "@/lib/portal": {},
     "@/lib/article-subsection-taxonomy": {},
