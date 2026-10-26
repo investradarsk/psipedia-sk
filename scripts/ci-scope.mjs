@@ -159,6 +159,8 @@ const RULES = {
     /^\.github\/workflows\/(?:clean-d1-migration-validation|production-d1-migrate)\.yml$/,
   ],
   VISUAL: [
+    // Shared public shell needs visual contracts, not every domain integration suite.
+    /^app\/(?:layout\.tsx|globals\.css)$/,
     /^components\/public-visual-system\//,
     /^components\/admin-section-visuals/,
     /^lib\/section-(?:visual|store)/,
@@ -195,7 +197,6 @@ const RULES = {
   ],
   SHARED_CORE: [
     /^lib\/(?:auth|admin-auth|partner-auth(?:-store)?|pii-crypto|private-media|resource-access|turnstile|rate-limit)\.ts$/,
-    /^app\/(?:layout\.tsx|globals\.css)$/,
     /^worker\/index\.ts$/,
     /^db\/index\.ts$/,
     /^config\/(?:runtime-env|public-site)\.ts$/,
@@ -217,6 +218,20 @@ function isDocsOnlyFile(file) {
 }
 
 const CI_CONTROL_RE = /^(?:\.github\/workflows\/|scripts\/(?:ci-scope(?:-conditions)?|check-ci-scope)\.mjs$)/;
+
+// Deliberately a superset of DS-0B's internal selection so we may cheaply skip
+// the whole job for unrelated PRs without losing relevant visual regressions.
+const PUBLIC_DS0B_RE = [
+  /^\.github\/workflows\/playwright-e2e\.yml$/,
+  /^app\/(?:layout\.tsx|globals\.css|design-system\.css)$/,
+  /^app\/(?:adresar|pomoc-psom|podujatia|recenzie|steniatka|starostlivost|aktivity|\[section\])\//,
+  /^components\/(?:public-visual-system\/|detail-primitives\/|directory-|help-|events?-|reviews-hub\.tsx$|editorial-|home-portal-search\.tsx$|public-filter-disclosure\.tsx$|page-system\.tsx$)/,
+  /^lib\/(?:directory-|events?(?:-|\.ts$)|editorial-|help-|section-(?:visual|store))/,
+  /^scripts\/start-public-regression-ci\.sh$/,
+  /^tests\/fixtures\/public-regression-ci\.sql$/,
+  /^tests\/(?:global-design-unification|public-search-simplify|public-landing-alignment|public-unification-completion|public-design-tokens)\.test\.mjs$/,
+  /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
+];
 
 const AUTOMATION_BROAD_RE = /^(?:lib\/(?:data-automation(?:\.ts|-apply\.ts|-canonical-apply\.ts|-store\.ts|-runner\.ts|-governance\.ts|-identity\.ts|-dynamic-identity\.ts|-matching\.ts|-clustering\.ts|-capability-registry\.ts|-draft-mapper\.ts|-enrichment-normalize\.ts|-enrichment-template\.ts|-http-policy\.ts|-source-store\.ts|-source-provisioning\.ts|-source-scoped-extraction\.ts|-generic-source-extractor\.ts|-ingestion-receipts\.ts|-lifecycle(?:-apply|-store)?\.ts)|automation-record-suppressions\.ts|canonical-draft-delete\.ts)|drizzle\/(?:0050|0052|0055|0056|0057|0073|0075|0076|0078|0079|0080|0081|0082|0083|0084|0085|0086|0087|0088|0089|0091|0092|0093|0094|0095|0096|0097)_|tests\/fixtures\/data-automation\/|\.github\/workflows\/data-automation-(?:ci|v2-ci)\.yml$)/;
 
@@ -319,6 +334,7 @@ export function classifyChangedFiles(inputFiles, { packageTestScriptsOnly = fals
     ciControl,
     ciControlOnly,
     sharedCore,
+    publicDs0b: files.length === 0 || files.some((file) => PUBLIC_DS0B_RE.some((pattern) => pattern.test(file))),
     automationBroad,
     automationAdminE2e,
     scopes,
@@ -420,6 +436,7 @@ function writeGithubOutput(result, files) {
     `sitemap_diagnostic=${sitemapDiagnostic}`,
     `lost_found=${lostFound}`,
     `scopes=${result.scopes.join(",")}`,
+    `public_ds0b=${result.publicDs0b}`,
     `docs_only=${result.docsOnly}`,
     `production_smoke=${productionSmokeRequired(result)}`,
     `validation_mode=${result.validationMode}`,
