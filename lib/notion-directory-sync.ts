@@ -1415,8 +1415,6 @@ export async function runNotionDirectoryBootstrapSweep(input: {
     hasMore: false,
   };
   if (!enabled) return summary;
-  if (input.targetPageId && input.targetProfileId) throw new Error("NOTION_TARGET_SCOPE_AMBIGUOUS");
-
   const dataSourceId = input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() ?? "";
   if (!input.bindings.NOTION_API_TOKEN?.trim() || !dataSourceId) {
     summary.failed = 1;
@@ -1459,6 +1457,11 @@ export async function runNotionDirectorySyncSweep(input: {
   targetProfileId?: number;
   expectedNotionRevision?: string;
 }): Promise<NotionDirectorySyncSummary> {
+  // One operation may target a Notion page OR a canonical Admin profile, never both.
+  // This check belongs to the targeted reconciler, not the unscoped bootstrap job.
+  if (input.targetPageId !== undefined && input.targetProfileId !== undefined) {
+    throw new Error("NOTION_TARGET_SCOPE_AMBIGUOUS");
+  }
   const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
   const summary: NotionDirectorySyncSummary = {
     enabled,
@@ -1527,8 +1530,9 @@ export async function runNotionDirectorySyncSweep(input: {
     const targetPage = await fetchNotionPage(input.bindings, input.targetPageId);
     if (input.expectedNotionRevision && targetPage.last_edited_time !== input.expectedNotionRevision)
       throw new Error("GEMINI_SAVED_REVISION_CHANGED");
-    const parent = (targetPage as NotionPage & { parent?: { data_source_id?: string } }).parent;
-    if (parent?.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
+    // A matching source ID alone is insufficient: archived/trashed pages must
+    // never be imported, even when called outside the signed webhook route.
+    if (!notionDirectoryPageBelongsToSource(targetPage, dataSourceId))
       throw new Error("NOTION_TARGET_DATA_SOURCE_MISMATCH");
     pages = [targetPage];
   } else {
