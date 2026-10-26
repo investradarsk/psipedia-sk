@@ -12,6 +12,7 @@ import {planCatalogRelationSync} from "./service-catalog-notion-relation-plan";
 import {serviceCatalog} from "./service-catalog-contract";
 import {importNotionServiceChoices,projectServiceChoiceToDirectoryNotion} from "./service-profile-notion-bridge";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port";
+import {notionPageBelongsToDataSource} from "./notion-sync-page-ownership";
 
 const SOURCE=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
 const PROPERTY="Služby z katalógu";
@@ -94,18 +95,22 @@ async function canonicalYes(db:D1Database,profileId:number,known:Map<string,Item
 async function schemaExists(db:D1Database){
   return !!await db.prepare("SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'").first();
 }
-async function readRemote(bindings:NotionSyncBindings,pageId:string){
+async function readRemote(bindings:NotionSyncBindings,pageId:string,expectedDirectorySourceId:string){
   const p=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId),{method:"GET"});
   if(normal(p.id??"")!==normal(pageId))throw Error("SERVICES_PROFILE_NOTION_PAGE_ID_CHANGED");
+  // Revalidate ownership on every read, including pre-PATCH and post-PATCH.
+  // A moved/archived/trashed page must never receive the Services V3 relation.
+  if(!notionPageBelongsToDataSource(p,expectedDirectorySourceId))
+    throw Error("SERVICES_PROFILE_NOTION_SOURCE_CHANGED");
   return p;
 }
 export async function syncProfileCatalogRelation(input:{
  db:D1Database;bindings:NotionSyncBindings;pageId:string;profileId:number;category:string;
- lookup:CatalogRelationLookup;
+ directoryDataSourceId:string;lookup:CatalogRelationLookup;
 }):Promise<"skipped"|"unchanged"|"pushed"|"pulled">{
- const {db,bindings,pageId,profileId,category,lookup}=input;
+ const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
  if(!await schemaExists(db))return "skipped"; // Migration not yet applied: do not break existing sync.
- const page=await readRemote(bindings,pageId);
+ const page=await readRemote(bindings,pageId,directoryDataSourceId);
  const raw=relationIds(page);
  if(raw===null)return "skipped";
  const available=await canonicalItems(db,category);
@@ -134,7 +139,7 @@ export async function syncProfileCatalogRelation(input:{
  if(plan.action==="conflict")throw Error("SERVICES_RELATION_BOTH_SIDES_CHANGED_REVIEW");
  if(plan.action==="pull"){
    // Recheck the relation before touching D1; never import a truncated/superseded page.
-   const latest=relationIds(await readRemote(bindings,pageId));
+   const latest=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
    const before=new Set(local);
@@ -150,7 +155,7 @@ export async function syncProfileCatalogRelation(input:{
  }
  if(plan.action==="push"){
    // Recheck before PATCH. PATCH touches only our relation, no editorial/identity fields.
-   const latest=relationIds(await readRemote(bindings,pageId));
+   const latest=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_EXPORT");
    const pages=plan.target.map(id=>({id:lookup.serviceToPage.get(id)!}));
@@ -158,7 +163,7 @@ export async function syncProfileCatalogRelation(input:{
      method:"PATCH",body:JSON.stringify({properties:{[PROPERTY]:{relation:pages}}})
    },{retryTransient:false}); // Unknown outcome must be read back, not blindly retried.
    if(normal(ack.id??"")!==normal(pageId))throw Error("SERVICES_RELATION_WRITE_UNCERTAIN");
-   const observed=relationIds(await readRemote(bindings,pageId));
+   const observed=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(observed?.sort())!==JSON.stringify(pages.map(x=>x.id).sort()))
      throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
  }
