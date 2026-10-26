@@ -436,23 +436,22 @@ test("Directory bootstrap has no targeted selectors; reconciler rejects ambiguou
   assert.ok(bootstrapStart >= 0 && syncStart > bootstrapStart);
   const bootstrap = syncSource.slice(bootstrapStart, syncStart);
   const sweep = syncSource.slice(syncStart);
-  assert.doesNotMatch(bootstrap, /input\\.targetPageId|input\\.targetProfileId/);
+  assert.equal(bootstrap.includes("input.targetPageId"), false);
+  assert.equal(bootstrap.includes("input.targetProfileId"), false);
   const guard = "if (input.targetPageId !== undefined && input.targetProfileId !== undefined)";
   assert.ok(sweep.includes(guard), "mixed page/profile targets must be rejected");
   assert.ok(sweep.indexOf(guard) < sweep.indexOf("const enabled = notionFlagEnabled("),
     "invalid scope must fail before feature flag and any D1/Notion reads");
-  assert.match(sweep, /throw new Error\\("NOTION_TARGET_SCOPE_AMBIGUOUS"\\)/);
+  assert.ok(sweep.includes('throw new Error("NOTION_TARGET_SCOPE_AMBIGUOUS")'));
 });
 
 test("targeted Directory import refuses archived, trashed, and foreign Notion pages", () => {
   const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
-  const target = sweep.slice(
-    sweep.indexOf("if (input.targetPageId !== undefined) {"),
-    sweep.indexOf("pages = [targetPage];"),
-  );
-  assert.match(target, /notionDirectoryPageBelongsToSource\\(targetPage, dataSourceId\\)/);
-  assert.ok(target.indexOf("notionDirectoryPageBelongsToSource(targetPage, dataSourceId)") <
-    target.indexOf("pages = [targetPage]") || !target.includes("pages = [targetPage]"));
+  const targetStart = sweep.indexOf("if (input.targetPageId !== undefined) {");
+  const ownershipCheck = sweep.indexOf("if (!notionDirectoryPageBelongsToSource(targetPage, dataSourceId))", targetStart);
+  const beforeImport = sweep.indexOf("pages = [targetPage];", targetStart);
+  assert.ok(targetStart >= 0 && ownershipCheck > targetStart && beforeImport > ownershipCheck,
+    "target page ownership must be verified before it is admitted for import");
   const source = "84e0664c-ca47-405f-9d54-31b20287bc8c";
   const page = { parent: { type: "data_source_id", data_source_id: source } };
   assert.equal(notionDirectoryPageBelongsToSource(page, source), true);
