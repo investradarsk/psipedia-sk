@@ -193,3 +193,34 @@ test("event-level push settings handle independent device switches and never pin
   assert.equal(isAdminPushEventAllowed(["EVENTS_CONFIGURED"],"partner_account_registered"),false);
   assert.equal(isAdminPushEventAllowed(["EVENTS_CONFIGURED"],"admin_push_test"),true);
 });
+
+
+test("Notion run receipts stay in operational history, not workspace alerts or phone push", () => {
+  // Even explicitly enabled system categories must not ping for hourly Notion checks.
+  const allSystemCategories = ["SYSTEM_FAILURE", "SYSTEM_ACTIVITY", "EVENTS_CONFIGURED"];
+  for (const event of [
+    "automation_run_started", "automation_run_success", "automation_run_no_change",
+    "automation_run_partial_success", "automation_run_failed",
+    "automation_run_skipped", "automation_run_cancelled",
+  ]) {
+    assert.equal(adminPushEventKey(event, "AUTOMATION_RUN", "notion"), null, event);
+    assert.equal(isAdminPushEventAllowed(allSystemCategories, event, "AUTOMATION_RUN", "notion"), false, event);
+  }
+
+  // Real requests and other system problems keep their prior policies.
+  assert.equal(adminPushEventKey("automation_run_failed", "AUTOMATION_RUN", "data"), "SYSTEM_FAILURE");
+  assert.equal(isAdminPushEventAllowed(allSystemCategories, "automation_run_failed", "AUTOMATION_RUN", "data"), true);
+  assert.equal(adminPushEventKey("automation_draft_created", "AUTOMATION_ACTION", "automation_draft_veterinari"), "GEMINI_PROFILE");
+  assert.equal(adminPushEventKey("facebook_image_imported", "FACEBOOK_IMAGE", "notion"), "FACEBOOK_IMPORTED");
+
+  // Filter old persisted rows, not just new records. Receipts are still written
+  // and available for operational Notion status and manual history inspection.
+  const hiddenReceipt = /AND NOT \\(e\\.source_type='AUTOMATION_RUN' AND e\\.resource_type='notion'\\)/;
+  assert.match(read("lib/admin-workspace-feed.ts"), hiddenReceipt);
+  const push = read("lib/admin-push.ts");
+  assert.match(push, hiddenReceipt);
+  assert.match(push, /isAdminPushEventAllowed\\(parseStoredPushCategories\\(row\\.categories_json\\),row\\.event_type,row\\.source_type,row\\.resource_type\\)/);
+  assert.match(read("lib/admin-automation-events.ts"), /sourceType: "AUTOMATION_RUN"/);
+  assert.match(read("lib/notion-sync-run-receipts.ts"), /FROM admin_notification_events/);
+  assert.match(read("app/admin/operations/automaticke-udalosti/page.tsx"), /e.source_type = 'AUTOMATION_RUN'/);
+});
