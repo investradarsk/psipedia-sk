@@ -653,8 +653,10 @@ async function syncAgenda(input: {
   isEnabled: boolean;
   ready: boolean;
   targetPageId?: string;
-  /** Webhooks reconcile only previously verified mappings; new pages use hourly import. */
+  /** Signed webhook: target one verified Notion page and skip full Notion scans. */
   webhookMappedOnly?: boolean;
+  /** Permit an unmapped target page to enter the EXISTING gated Notion create flow. */
+  webhookImportUnmapped?: boolean;
   expectedNotionRevision?: string;
   reviewedLegacy?: boolean;
 }) {
@@ -695,12 +697,16 @@ async function syncAgenda(input: {
         .bind(input.targetPageId).first<{ entity_id: number }>()
       : await input.database.prepare("SELECT entity_id FROM notion_agenda_sync WHERE agenda=? AND notion_page_id=? LIMIT 1")
         .bind(input.definition.key, input.targetPageId).first<{ entity_id: number }>();
-    if (!mapping) return summary;
-    targetEntityId = Number(mapping.entity_id);
-    if (!Number.isSafeInteger(targetEntityId) || targetEntityId <= 0)
-      throw new Error("NOTION_WEBHOOK_CANONICAL_ID_INVALID");
+    if (!mapping && !input.webhookImportUnmapped) return summary;
+    if (mapping) {
+      // An existing link always takes the original one-record reconciliation.
+      targetEntityId = Number(mapping.entity_id);
+      if (!Number.isSafeInteger(targetEntityId) || targetEntityId <= 0)
+        throw new Error("NOTION_WEBHOOK_CANONICAL_ID_INVALID");
+    }
   }
-  let sources = await input.definition.load(input.database, targetEntityId);
+  const webhookNewPage = input.webhookMappedOnly && input.webhookImportUnmapped
+    && targetEntityId === undefined && input.targetPageId !== undefined;
   let pages: NotionPage[];
   if (input.webhookMappedOnly && input.targetPageId) {
     const page = await notionRequest<NotionPage>(input.bindings, "/pages/" + encodeURIComponent(input.targetPageId));
@@ -710,6 +716,20 @@ async function syncAgenda(input: {
   } else {
     pages = await listAllPages(input.bindings, target.dataSourceId);
   }
+  if (webhookNewPage) {
+    // A new webhook often arrives while the user/Gemini is still filling out
+    // the record. Do not enumerate the entire D1 agenda until it is eligible.
+    const page = pages[0];
+    if (clean(pageProperty(page, "Psipedia ID"))) return summary;
+    const preview = pageSnapshot(input.definition.key, page, schema);
+    if (!readyForCreate(input.definition.key, preview)) {
+      const origin = await input.database.prepare(
+        "SELECT 1 AS ok FROM gemini_notion_created_pages WHERE notion_page_id=? AND import_agenda=? LIMIT 1"
+      ).bind(page.id, input.definition.key).first<{ok:number}>();
+      if (!origin) return summary;
+    }
+  }
+  let sources = await input.definition.load(input.database, targetEntityId);
   summary.scanned = pages.length;
   // Never infer authority from a Notion query result alone. Cross-check the
   // actual parent and trash/archive metadata before identity matching,
@@ -765,6 +785,9 @@ async function syncAgenda(input: {
   let sourcesById = sourceById(sources);
 
   for (const source of sources) {
+    // For a new webhook page, only the inbound page may be imported.
+    // Never bootstrap, attach or PATCH unrelated canonical D1 profiles.
+    if (webhookNewPage) break;
     const entityId = sourceId(source);
     if (entityId === null) continue;
     let mapping = mappingByEntity.get(entityId) ?? null;
@@ -1663,7 +1686,9 @@ await requireVerifiedMappedNotionWriteback({
     let releasePage: (() => Promise<void>) | null = null;
     let importWriteStarted = false;
     try {
-      if (trustedGemini || input.reviewedLegacy) {
+      if (trustedGemini || input.reviewedLegacy || input.webhookImportUnmapped) {
+        // Multiple page.created/properties_updated events may race. Serialize
+        // the canonical INSERT with the existing per-agenda and page locks.
         releaseImport = await acquireGeminiNotionLock(input.database, "gemini-canonical-import-" + input.definition.key);
         if (!releaseImport) {
           summary.conflicts += 1;
@@ -1702,7 +1727,7 @@ await requireVerifiedMappedNotionWriteback({
       if (!Number.isSafeInteger(entityId) || entityId <= 0) {
         throw new Error("Canonical create nevrátil platné ID.");
       }
-      sources = await input.definition.load(input.database, input.webhookMappedOnly ? targetEntityId : undefined);
+      sources = await input.definition.load(input.database, entityId);
       sourcesById = sourceById(sources);
       const source = sourcesById.get(entityId);
       if (!source) throw new Error("Nový canonical záznam sa po create nenašiel.");
@@ -1871,9 +1896,14 @@ export async function runNotionEventsHelpSyncSweep(input: {
   agendas?: BidirectionalAgendaKey[];
   targetPageId?: string;
   webhookMappedOnly?: boolean;
+  /** Only the signed one-page webhook may enable new-record imports. */
+  webhookImportUnmapped?: boolean;
   expectedNotionRevision?: string;
   reviewedLegacy?: boolean;
 }): Promise<NotionEventsHelpSyncSummary> {
+  if (input.webhookImportUnmapped && (!input.webhookMappedOnly || !input.targetPageId ||
+      input.agendas?.length !== 1 || input.mode !== "sync" || input.reviewedLegacy))
+    throw new Error("NOTION_WEBHOOK_NEW_PAGE_SCOPE_INVALID");
   if (input.targetPageId !== undefined && (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.targetPageId) ||
     input.agendas?.length !== 1
@@ -1903,6 +1933,7 @@ export async function runNotionEventsHelpSyncSweep(input: {
         ready,
         targetPageId: input.targetPageId,
         webhookMappedOnly: input.webhookMappedOnly,
+        webhookImportUnmapped: input.webhookImportUnmapped,
         expectedNotionRevision: input.expectedNotionRevision,
         reviewedLegacy: input.reviewedLegacy,
       }));
