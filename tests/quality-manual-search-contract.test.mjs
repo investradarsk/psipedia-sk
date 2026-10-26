@@ -35,7 +35,7 @@ test("manual attempts have durable history and require owner-dispatched 0143",()
 });
 test("new proposals stay review-only and hourly cursor cannot be moved by manual search",()=>{
   const part=engine.slice(engine.indexOf("export async function runManualQualitySearch"),engine.indexOf("export type MissingQualityProposal"));
-  assert.match(part,/quality_missing_proposals/);
+  assert.match(part,/insertQualityFinding/);
   assert.doesNotMatch(part,/UPDATE quality_missing_cursors/);
   assert.doesNotMatch(part,/status='ACCEPTED'/);
   assert.match(part,/discoverWithStagedImage/);
