@@ -339,32 +339,6 @@ export default async function Home() {
             )
           }
           href="/pomoc-psom"
-              actionLabel="Všetky možnosti pomoci"
-            >
-              {activeHelpCases.length ? (
-                <ul className="home-side-quicklinks">
-                  {activeHelpCases.map((item) => (
-                    <li key={item.id}>
-                      <Link href={helpCaseHref(item)}>
-                        {item.title}
-                        <span>
-                          {getHelpCategory(item.category)?.singular ?? "Pomoc psom"}
-                          {publicLocationValue(item.city, "city")
-                            ? " · " + publicLocationValue(item.city, "city")
-                            : ""}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="home-side-muted">
-                  Sleduj zverejnené výzvy, adopcie a organizácie, ktorým môžeš pomôcť.
-                </p>
-              )}
-            </HomeMagazineSidebar>
-          }
-          href="/pomoc-psom"
           actionLabel="Všetky možnosti pomoci"
           testId="help"
         />
