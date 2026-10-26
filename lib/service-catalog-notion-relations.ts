@@ -18,6 +18,11 @@ const SOURCE=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
 const PROPERTY="Služby z katalógu";
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const ID=/^svc\.(?:admin\.[a-f0-9]{32}|[a-z0-9._-]+)$/;
+/** Stable, verified mapping of canonical Service V3 IDs to Notion catalog pages. */
+export type CatalogRelationLookup={
+  serviceToPage:Map<string,string>;
+  pageToService:Map<string,string>;
+};
 type Item={id:string;label:string;categories:readonly string[]};
 type Page={id:string;parent?:{type?:string;data_source_id?:string};
   properties?:Record<string,unknown>;archived?:boolean;in_trash?:boolean};
