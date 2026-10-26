@@ -343,6 +343,8 @@ async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBind
     const events = await database.prepare(`SELECT e.id, e.event_type, e.actor_type, e.resource_type, e.source_type
       FROM admin_notification_events e
       WHERE e.created_at >= ?
+        -- Do not create phone deliveries for Notion's technical run receipts.
+        AND NOT (e.source_type='AUTOMATION_RUN' AND e.resource_type='notion')
         AND (e.source_type <> 'AUTOMATION_ACTION' OR e.event_type IN ('automation_source_issue','automation_draft_created'))
         AND (e.event_type <> 'admin_push_test' OR e.resource_ref = ?)
         AND NOT EXISTS (

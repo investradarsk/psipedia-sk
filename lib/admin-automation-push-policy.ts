@@ -29,6 +29,9 @@ export const DEFAULT_ADMIN_PUSH_EVENT_KEYS = ADMIN_PUSH_EVENT_SETTINGS.filter(x=
 /** Exact event routing: unclassified events must never silently ping a phone. */
 export function adminPushEventKey(eventType:string, sourceType = "", system = ""): AdminPushEventKey | null {
   if(eventType==="admin_push_test")return null;
+  // Notion sync run receipts are operational diagnostics, even on FAILED.
+  // Never send them as phone alerts, regardless of saved legacy categories.
+  if(sourceType==="AUTOMATION_RUN" && system==="notion")return null;
   if(eventType==="gemini_profile_created" || eventType==="gemini_event_created" || eventType==="automation_draft_created")
     return "GEMINI_PROFILE";
   if(eventType==="gemini_run_failed")return "GEMINI_FAILURE";
