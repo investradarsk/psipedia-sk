@@ -5,7 +5,7 @@ import type { NotionOverviewRow } from "./notion-sync-overview.ts";
  * and the existing D1 mapping tables. No secrets, provider requests or writes.
  * CONFIGURED never means that the Notion API is reachable or data is in sync.
  */
-export type NotionPreflightKey = "directory" | "events-help" | "service-catalog" | "facebook-images";
+export type NotionPreflightKey = "directory" | "breeds" | "articles" | "eshops" | "events-help" | "service-catalog" | "facebook-images";
 export type NotionPreflightStatus = "DISABLED" | "BLOCKED" | "CONFIGURED" | "UNKNOWN";
 export type NotionPreflightRow = {
   area: NotionPreflightKey;
@@ -35,6 +35,12 @@ type Requirement = {
 const REQUIREMENTS: Requirement[] = [
   {key:"directory",label:"Adresár",gate:"NOTION_DIRECTORY_SYNC_ENABLED",
     source:"NOTION_DIRECTORY_DATA_SOURCE_ID",areas:["directory"]},
+  {key:"breeds",label:"Plemená",gate:"NOTION_BREED_SYNC_ENABLED",
+    source:"NOTION_BREEDS_DATA_SOURCE_ID",areas:["breeds"]},
+  {key:"articles",label:"Články",gate:"NOTION_ARTICLE_SYNC_ENABLED",
+    source:"NOTION_ARTICLES_DATA_SOURCE_ID",areas:["articles"]},
+  {key:"eshops",label:"E-shopy",gate:"NOTION_ESHOP_SYNC_ENABLED",
+    source:"NOTION_ESHOPS_DATA_SOURCE_ID",areas:["eshops"]},
   {key:"events-help",label:"Podujatia a Pomoc psom",gate:"NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED",
     // Individual canonical Notion targets are resolved from existing D1
     // notion_agenda_targets; flags alone do not prove their availability.

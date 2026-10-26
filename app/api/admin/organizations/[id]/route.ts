@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { OrganizationAdminValidationError } from "@/lib/help-organization-admin-input";
 import { getOrganizationPublicationAdminById } from "@/lib/help-organization-admin-store";
@@ -43,6 +44,7 @@ export async function PUT(request: Request, { params }: Props) {
     const item = await updateOrganizationFromAdmin(id, body.payload, user.email, expectedUpdatedAt);
     if (!item) return Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
 
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id });
     const bindings = env as unknown as UploadBindings;
     if (before.imageKey && before.imageKey !== item.imageKey && bindings.BUCKET) {
       await bindings.BUCKET.delete(before.imageKey).catch(() => undefined);
@@ -54,7 +56,7 @@ export async function PUT(request: Request, { params }: Props) {
         invalidateVersionedPublicHtmlCacheUrl(new URL(`/organizacie/${item.slug}`, request.url), version),
       ]);
     }
-    return Response.json({ item });
+    return Response.json({ item, notionFieldSync });
   } catch (error) {
     if (error instanceof OrganizationAdminValidationError) {
       return Response.json({ error: error.message }, { status: 400 });

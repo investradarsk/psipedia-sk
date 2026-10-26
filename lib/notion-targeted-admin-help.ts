@@ -30,8 +30,21 @@ export async function syncOneAdminHelpRecord(input: {
       database: input.database, bindings: input.bindings, mode: "sync",
       agendas: [input.agenda], targetPageId: mapping.notion_page_id, webhookMappedOnly: true,
     });
-    return summary.totals.failed || summary.totals.conflicts || summary.totals.reviewRequired
-      ? "pending" : "synced";
+    // A disabled, missing-target, or schema-unavailable runner cannot
+    // acknowledge the canonical Admin edit. Only the exact mapped page counts.
+    if (!summary.enabled || !summary.schemaReady) return "pending";
+    const processed = summary.agendas.find(item => item.agenda === input.agenda);
+    if (!processed || !processed.enabled || !processed.schemaReady ||
+        processed.targetMissing || !processed.dataSourceId || processed.scanned !== 1) {
+      return "pending";
+    }
+    if (summary.totals.failed || summary.totals.conflicts || summary.totals.reviewRequired)
+      return "pending";
+    // An orphan D1 mapping can still yield one scanned page but no resolved
+    // canonical record. That must not falsely report successful writeback.
+    const confirmed = processed.unchanged + processed.pulledFromNotion +
+      processed.pushedToNotion + processed.bootstrapped;
+    return confirmed > 0 ? "synced" : "pending";
   } catch {
     // An already committed Admin edit cannot be rolled back by remote outage.
     return "pending";

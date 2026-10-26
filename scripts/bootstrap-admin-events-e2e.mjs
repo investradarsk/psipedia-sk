@@ -10,10 +10,18 @@ const db = new DatabaseSync(resolve(directory, files[0]));
 // Materialize existing empty schema only in the isolated test DB. No migration
 // data repairs are executed; the shared layout also needs navigation/settings.
 const migrations = readdirSync('drizzle').filter(name => name.endsWith('.sql')).sort();
+// SQL comments can contain semicolons. Remove whole comment lines BEFORE
+// splitting statements; otherwise a comment such as "admin POST; cron ..."
+// can hide the CREATE TABLE that follows and break local E2E bootstrapping.
 const schemaStatements = migrations.flatMap(name =>
   readFileSync('drizzle/' + name, 'utf8')
+    // Drizzle may append "--> statement-breakpoint" after a semicolon.
+    // It is a marker, not SQL: leaving it before the next CREATE TABLE
+    // silently skips that table and causes "no such table" in later ALTERs.
+    .replace(/-->[ \t]*statement-breakpoint[ \t]*(?:\r?\n|$)/g, '\n')
+    .replace(/^[ \t]*--[^\r\n]*(?:\r?\n|$)/gm, '')
     .split(';')
-    .map(statement => statement.replace(/^\s*(?:(?:--[^\r\n]*)(?:\r?\n|$)\s*)+/, '').trim())
+    .map(statement => statement.trim())
     .filter(Boolean)
 );
 
@@ -21,6 +29,14 @@ for (const statement of schemaStatements) {
   if (!/^CREATE TABLE\b/i.test(statement)) continue;
   const sql = statement.replace(/^CREATE TABLE(?! IF NOT EXISTS)/i, 'CREATE TABLE IF NOT EXISTS') + ';';
   db.exec(sql);
+}
+// Catch a parser regression at the source instead of a misleading
+// "no such table" from some unrelated ALTER TABLE many migrations later.
+for (const name of ['managed_events', 'directory_profiles', 'gemini_manual_background_jobs']) {
+  const present = db.prepare(
+    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1"
+  ).get(name);
+  if (!present) throw new Error('E2E_BOOTSTRAP_REQUIRED_TABLE_MISSING: ' + name);
 }
 for (const statement of schemaStatements) {
   if (!/^ALTER TABLE\b[\s\S]*\bADD\b/i.test(statement)) continue;
