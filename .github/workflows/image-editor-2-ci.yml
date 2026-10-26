@@ -15,7 +15,6 @@ on:
       - "components/admin-event-editor.tsx"
       - "tests/image-editor-3.test.mjs"
       - "tests/smart-card-images.test.mjs"
-      - "components/admin-*-editor*"
       - "components/event-image.tsx"
       - "components/directory-card.tsx"
       - "components/help-card.tsx"
@@ -23,12 +22,10 @@ on:
       - "components/lost-found-dogs-page.tsx"
       - "components/lost-found-dog-detail.tsx"
       - "lib/image-display.ts"
-      - "lib/*-store.ts"
       - "lib/adoption.ts"
       - "drizzle/0122_entity_image_display_config.sql"
       - "scripts/production-d1-migrate.mjs"
       - "tests/image-editor-2.test.mjs"
-      - "package.json"
       - ".github/workflows/image-editor-2-ci.yml"
   workflow_dispatch:
 
