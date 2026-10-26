@@ -261,7 +261,7 @@ export function AdminWorkspaceDashboard({
           </div>
         </article>
       </section>
-      // Event history belongs after actionable queues and commonly used agendas.
+      {/* Event history belongs after actionable queues and commonly used agendas. */}
       <Suspense fallback={<p role="status">Načítava sa pracovný feed…</p>}>
         <WorkspaceActivityPanel promise={activityPromise} />
       </Suspense>
