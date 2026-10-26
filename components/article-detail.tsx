@@ -90,6 +90,10 @@ export function ArticleDetail({
   const headings = articleBlockHeadings(blocks);
   const tocHeadings = headings.filter((heading) => heading.level === 2);
   const showTableOfContents = tocHeadings.length >= 3;
+  // Keep the table of contents permanently visible but brief; the article itself is never collapsed.
+  const visibleTocHeadings = tocHeadings.length > 9
+    ? [...tocHeadings.slice(0, 7), ...tocHeadings.slice(-2)]
+    : tocHeadings;
   const showUpdated = article.showUpdated ?? article.updatedDateIso !== article.dateIso;
   const wordCount = [editorialRichTextPlainText(introDocument), editorialRichTextPlainText(takeawayDocument), articleBlockPlainText(blocks)]
     .join(" ")
@@ -233,7 +237,7 @@ export function ArticleDetail({
               <nav className={styles.toc} aria-label="Obsah článku">
                 <strong className={styles.tocTitle}>Obsah článku</strong>
                 <ol>
-                  {tocHeadings.map((heading) => (
+                  {visibleTocHeadings.map((heading) => (
                     <li key={heading.blockId}>
                       <a href={`#${heading.id}`}>{heading.text}</a>
                     </li>
