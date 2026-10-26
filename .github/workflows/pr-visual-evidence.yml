@@ -18,6 +18,8 @@ on:
       - "scripts/pr-visual-screenshots.mjs"
       - "scripts/bootstrap-phase5-e2e.mjs"
       - "tests/pr-visual-screenshots.test.mjs"
+      - "tests/public-page-template-contracts.test.mjs"
+      - "tests/public-details-v2-ui.test.mjs"
       - ".github/workflows/pr-visual-evidence.yml"
 
 concurrency:
@@ -58,6 +60,10 @@ jobs:
         run: npm run build
       - name: Install browser
         run: npx playwright install --with-deps chromium
+      - name: Test and capture isolated public template fixtures
+        env:
+          DETAIL_TEST_SCREENSHOTS: .e2e-artifacts/pr-visual/template-fixtures
+        run: node --test tests/public-page-template-contracts.test.mjs tests/public-details-v2-ui.test.mjs
       - name: Apply disposable local D1 migrations
         run: |
           mv drizzle/0038_adoption_staging_data.sql "$RUNNER_TEMP/0038_adoption_staging_data.sql"
