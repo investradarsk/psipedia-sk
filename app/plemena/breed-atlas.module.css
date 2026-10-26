@@ -260,3 +260,19 @@
 .atlasActions { padding-block: 8px 12px; }
 .atlasActions :global([data-public-landing-section-heading]) { margin-bottom: 12px; }
 @media (max-width: 620px) { .atlasActions { padding-block: 4px 8px; } }
+
+
+/* S-05: denser cards and faster access to the full atlas, preserving photo-led profiles. */
+.foundation :global(.fci-group-list) { gap: clamp(26px, 3.2vw, 38px); }
+.foundation :global(.breed-card-body) { padding: 14px 15px; }
+.foundation :global(.breed-card-body > p) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-block: 7px; }
+.foundation :global(.breed-card-facts) { gap: 6px 10px; }
+.foundation :global(.breed-crawl-index) { margin-top: 28px; padding-top: 16px; }
+.foundation :global(.breed-crawl-index-groups) { gap: 14px; padding: 14px; }
+.foundation :global(.fci-filter-panel) { margin-bottom: 12px; }
+@media (max-width: 620px) {
+  .foundation :global(.breed-card-body) { padding: 12px; }
+  .foundation :global(.breed-card-body > p) { -webkit-line-clamp: 2; }
+  .foundation :global(.fci-group-list) { gap: 24px; }
+  .foundation :global(.breed-crawl-index-groups) { padding: 10px; }
+}
