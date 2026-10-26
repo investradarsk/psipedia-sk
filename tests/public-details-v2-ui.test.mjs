@@ -42,8 +42,8 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const organization={id:1,name:'Test organizácie',slug:'test-organizacie',legalName:'',registrationNumber:'',type:'CIVIC_ASSOCIATION',shortDescription:'Test minimálneho profilu bez fotografie.',description:'Test rozloženia hlavného obsahu organizácie.',publicEmail:'',publicPhone:'',websiteUrl:'',facebookUrl:'',instagramUrl:'',city:'Trnava',district:'Trnava',region:'Trnavský kraj',countryCode:'SK',locations:[],imageUrl:null,sourceUrl:'',publishedAt:'2026-10-18',lastVerifiedAt:null,updatedAt:'2026-10-18',directory:null};
  view=<OrganizationProfileDetail composition={{organization,adoptions:[],fundraisingMethods:[]}} reviews={null}/>;
  } else {
- globalThis.fixtureReport={id:1,type:'LOST',slug:'test',dogName:'Test hlásenia',status:name==='lost-resolved'?'RESOLVED':'ACTIVE',sex:'UNKNOWN',size:'UNKNOWN',breed:'',breedSlug:'',color:'',approximateAge:'',chipped:'UNKNOWN',city:'Trnava',district:'Trnava',region:'Trnavský kraj',eventDate:'2026-10-18',lastSeenDateTime:null,description:'Test verejného hlásenia bez súkromných údajov.',distinguishingMarks:'',collarDescription:'',gallery:[],mainImage:null,source:'',sourceUrl:'',publicContactNote:'',publicLatitude:null,locationDescription:'',publishedAt:'2026-10-18',createdAt:'2026-10-18',updatedAt:'2026-10-18'};
- view=await LostFoundDogDetail({type:'LOST',slug:'test'});
+ globalThis.fixtureReport={id:1,type:name==='found'?'FOUND':'LOST',slug:'test',dogName:'Test hlásenia',status:name==='lost-resolved'?'RESOLVED':'ACTIVE',sex:'UNKNOWN',size:'UNKNOWN',breed:'',breedSlug:'',color:'',approximateAge:'',chipped:'UNKNOWN',city:'Trnava',district:'Trnava',region:'Trnavský kraj',eventDate:'2026-10-18',lastSeenDateTime:null,description:'Test verejného hlásenia bez súkromných údajov.',distinguishingMarks:'',collarDescription:'',gallery:[],mainImage:null,source:'',sourceUrl:'',publicContactNote:'',publicLatitude:null,locationDescription:'',publishedAt:'2026-10-18',createdAt:'2026-10-18',updatedAt:'2026-10-18'};
+ view=await LostFoundDogDetail({type:name==='found'?'FOUND':'LOST',slug:'test'});
  }
  createRoot(document.getElementById('root')).render(<><SiteHeader navigationItems={defaultNavigationItems} partnerAuthenticated={false}/>{view}</>);
  ` }, bundle:true, format:'esm', conditions:['style'], outfile:join(dir,'app.js'), jsx:'automatic', define:{'process.env.NODE_ENV':'"production"'}, plugins:[{name:'platform-fixtures',setup(b){
@@ -56,7 +56,7 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const shots=process.env.DETAIL_TEST_SCREENSHOTS;
  if(shots) await mkdir(shots,{recursive:true});
  const sources=JSON.parse(await readFile('tests/fixtures/unified-public-details-v2.json','utf8'));
- for(const name of ['directory','event','adoption','directory-minimal','directory-blur','directory-crop','directory-long','event-minimal','event-cancelled','event-long','adoption-minimal','adoption-reserved','adoption-breed-duplicate','help-docasna-opatera','help-zbierky','help-dobrovolnictvo','help-urgentne-pripady','help-adopcia','help-stratene-a-najdene','organization','lost','lost-resolved']) {
+ for(const name of ['directory','event','adoption','directory-minimal','directory-blur','directory-crop','directory-long','event-minimal','event-cancelled','event-long','adoption-minimal','adoption-reserved','adoption-breed-duplicate','help-docasna-opatera','help-zbierky','help-dobrovolnictvo','help-urgentne-pripady','organization','lost','lost-resolved','found']) {
  for(const width of ([ 'directory','event','adoption'].includes(name)?[1440,768,430,390,375,320]:[1440,320])) {
  const context=await browser.newContext({viewport:{width,height:960}}); const page=await context.newPage(); const writes=[]; let rejectInquiry=true; const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{
@@ -94,7 +94,7 @@ test('unified public details: responsive layout, honest media/data, actions and 
  assert.deepEqual(axe.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],`${name} ${width} accessibility`);
  const action=hero.locator('a').last();await action.focus();assert.equal(await action.evaluate(n=>document.activeElement===n),true,'keyboard focus');
  await action.blur();
- if(shots&&(['directory','event','adoption'].includes(name)||width===320)) await page.screenshot({path:join(shots,`${name}-${width}.png`),fullPage:true});
+ if(shots&&(width === 1440 || width === 320)) await page.screenshot({path:join(shots,`${name}-${width}.png`),fullPage:true});
  if(name==='directory'&&width===390) {
  assert.equal(writes.length,0,'view is read only');
  const primary=hero.locator('[data-profile-primary-action]'); await primary.focus();await page.keyboard.press('Enter');
