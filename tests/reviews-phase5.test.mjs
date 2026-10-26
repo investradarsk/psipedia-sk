@@ -42,13 +42,11 @@ test("Phase 5 review category pages are direct filtered listings, not generic in
   const topic = read("components/portal-topic.tsx");
   assert.match(topic, /const isReviews = section\.slug === "recenzie"/);
   assert.match(topic, /section\.slug !== "recenzie" \|\| article\.portalSubpage === subpage\.slug/);
+  // Structured topics use EditorialSectionTopic; reviews keep the shared tabs here.
+  assert.match(topic, /const showSectionTabs = isStructuredTopic \|\| isReviews/);
   assert.match(
     topic,
-    /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/,
-  );
-  assert.match(
-    topic,
-    /isReviews && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/,
+    /showSectionTabs && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/,
   );
   assert.match(
     topic,
