@@ -553,6 +553,19 @@ assert.equal(simulation(["app/layout.tsx"]).runs("ds-0b-focused-regression"), tr
 assert.equal(simulation(["components/directory-card.tsx"]).runs("ds-0b-focused-regression"), true);
 assert.equal(simulation(["components/admin-article-editor.tsx"]).runs("ds-0b-focused-regression"), false);
 assert.equal(simulation(["docs/ci-audit.md"]).runs("ds-0b-focused-regression"), false);
+assert.equal(simulation(["components/site-header.tsx"]).runs("ds-0b-focused-regression"), true);
+assert.equal(simulation(["lib/navigation-store.ts"]).runs("ds-0b-focused-regression"), true);
+// Domain E2E must stay focused; public shell is guarded by core + DS-0B.
+for (const shared of ["app/layout.tsx", "app/globals.css", "components/site-header.tsx"]) {
+  assert.equal(prWorkflowWouldRun("article-ux-ci.yml", [shared]), false, shared);
+  assert.equal(prWorkflowWouldRun("organization-profile-e2e.yml", [shared]), false, shared);
+}
+assert.equal(prWorkflowWouldRun("article-ux-ci.yml", ["components/article-detail.tsx"]), true);
+assert.equal(prWorkflowWouldRun("organization-profile-e2e.yml", ["components/organization-profile-detail.tsx"]), true);
+assert.equal(prWorkflowWouldRun("profile-review-admin-ci.yml", ["lib/admin-attention-queue.ts"]), false);
+assert.equal(prWorkflowWouldRun("profile-review-admin-ci.yml", ["lib/profile-review-admin.ts"]), true);
+assert.equal(prWorkflowWouldRun("image-editor-2-ci.yml", ["lib/unrelated-store.ts"]), false);
+assert.equal(prWorkflowWouldRun("image-editor-2-ci.yml", ["components/image-display.tsx"]), true);
 assert.equal(simulation(["components/admin-article-editor.tsx"]).stepRuns("Shared visual contracts"), false);
 for (const id of ["search-e2e", "directory-e2e"]) {
   assert.ok(!job(id).block.includes("run: npm run build"), `${id} must reuse its required build`);
