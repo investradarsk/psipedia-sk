@@ -37,7 +37,6 @@ import {
   upsertAutomationFinding,
   type AutomationD1Database,
 } from "./data-automation-store.ts";
-import { enqueuePersistentAutomationSourceIssueAdminNotification } from "./admin-notifications";
 import { completedAutomationRunStatus, safelyRecordAdminAutomationRunEvent, type AutomationActor } from "./admin-automation-events.ts";
 import {
   linkAutomationFindingToCluster,
@@ -915,19 +914,6 @@ async function runSource(
     actor, scheduled: actor === "AUTOMATION", at: completedAt,
     checked, created: newFindings, updated: updatedFindings, errors,
   });
-
-  if (status === "FAILED") {
-    try {
-      await enqueuePersistentAutomationSourceIssueAdminNotification(options.database, source.id, completedAt);
-    } catch (error) {
-      console.error(JSON.stringify({
-        event: "automation_source_issue_notification_event",
-        sourceId: source.id,
-        result: "failed",
-        error: safeErrorCode(error),
-      }));
-    }
-  }
 
   const summary = {
     sourceId: source.id,

@@ -436,18 +436,6 @@ test("automation action presentation is aggregated, human-readable and category-
   }, NOW);
   assert.equal(urgentUpdate.priority, "HIGH");
 
-  const sourceIssue = mapAutomationActionAttention({
-    actionType: "SOURCE_ISSUE",
-    sourceId: "source-issue:42",
-    categorySlug: "podujatia",
-    count: 1,
-    relevantAt: "2026-09-15T09:00:00.000Z",
-    targetHref: "/admin/automatizacie/zdroje/42",
-    sourceLabel: "ASKA",
-  }, NOW);
-  assert.equal(sourceIssue.title, "ASKA potrebuje kontrolu");
-  assert.equal(sourceIssue.reason, "Posledné 3 kontroly zdroja zlyhali.");
-  assert.equal(sourceIssue.priority, "HIGH");
 });
 
 test("automation Attention SQL stays within the production D1 compound-select budget", () => {
@@ -457,13 +445,13 @@ test("automation Attention SQL stays within the production D1 compound-select bu
   assert.ok(start >= 0 && end > start, "AUTOMATION_ACTION_SELECT must be present");
   const sql = store.slice(start + "const AUTOMATION_ACTION_SELECT = \`".length, end);
   assert.doesNotMatch(sql, /^\s*WITH\b/, "nested WITH inside source_rows is not production-D1 safe");
-  assert.equal((sql.match(/\n  UNION ALL\n/g) ?? []).length, 4, "AUTOMATION_ACTION_SELECT must stay at five top-level compound terms");
+  assert.equal((sql.match(/\n  UNION ALL\n/g) ?? []).length, 3, "AUTOMATION_ACTION_SELECT must stay at four actionable top-level terms");
   assert.match(sql, /AS review_groups/);
   assert.match(sql, /FROM automation_source_candidates/);
   assert.match(sql, /FROM automation_update_suggestions/);
   assert.match(sql, /FROM automation_address_review_cases/);
   assert.match(sql, /FROM automation_cluster_match_candidates/);
-  assert.match(sql, /FROM automation_sources/);
+  assert.doesNotMatch(sql, /FROM automation_sources|SOURCE_ISSUE|source-issue:/);
 });
 
 test("automation attention derives active state from bounded domain queries and rollout-safe draft events", () => {
@@ -480,15 +468,14 @@ test("automation attention derives active state from bounded domain queries and 
   assert.match(store, /finding_type='POSSIBLE_CANCELLED'/);
   assert.match(store, /LOWER\(event\.status\)='published'/);
   assert.match(store, /status='OPEN'/);
-  assert.match(store, /failing_sources/);
-  assert.match(store, /recent\.status='FAILED'/);
-  assert.match(store, /ORDER BY last_run\.started_at DESC,last_run\.id DESC[\s\S]+LIMIT 3/);
+  assert.doesNotMatch(store, /failing_sources|source-issue:|SOURCE_ISSUE/);
   assert.doesNotMatch(store, /ROW_NUMBER\(\) OVER \(PARTITION BY r\.source_id/);
   assert.match(notifications, /sourceType: "AUTOMATION_ACTION"/);
-  assert.match(notifications, /automation\/source-issue\/\$\{sourceId\}\/\$\{sequence\.sequenceStart\}/);
+  assert.doesNotMatch(notifications, /eventType: "automation_source_issue"|enqueuePersistentAutomationSourceIssueAdminNotification/);
   assert.doesNotMatch(runner, /enqueueAutomationFindingAdminNotification|enqueueEditorialNotification|maybeQueueHighPriorityNotification/);
-  assert.match(runner, /enqueuePersistentAutomationSourceIssueAdminNotification/);
-  assert.match(push, /e\.source_type <> 'AUTOMATION_ACTION' OR e\.event_type IN/);
+  assert.doesNotMatch(runner, /enqueuePersistentAutomationSourceIssueAdminNotification/);
+  assert.match(push, /e\.source_type <> 'AUTOMATION_ACTION' OR e\.event_type = 'automation_draft_created'/);
+  assert.match(push, /row\.event_type === "automation_source_issue"/);
 });
 
 

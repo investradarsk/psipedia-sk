@@ -732,7 +732,7 @@ export function mapAutomationFindingAttention(
 }
 
 export type AutomationActionAttentionRow = {
-  actionType: "NEW_DRAFTS" | "NEW_FEED_SOURCES" | "UPDATE_SUGGESTIONS" | "ADDRESS_REVIEW" | "POSSIBLE_MATCH_REVIEW" | "SOURCE_ISSUE";
+  actionType: "NEW_DRAFTS" | "NEW_FEED_SOURCES" | "UPDATE_SUGGESTIONS" | "ADDRESS_REVIEW" | "POSSIBLE_MATCH_REVIEW";
   sourceId: string;
   categorySlug: string | null;
   count: number;
@@ -845,14 +845,8 @@ function automationActionPresentation(row: AutomationActionAttentionRow) {
       priority: "MEDIUM" as const,
     };
   }
-  return {
-    title: `${row.sourceLabel || "Zdroj"} potrebuje kontrolu`,
-    reason: "Posledné 3 kontroly zdroja zlyhali.",
-    targetHref: row.targetHref,
-    actionLabel: "Otvoriť zdroj",
-    contextLabel: categoryLabel,
-    priority: "HIGH" as const,
-  };
+  const unsupported: never = row.actionType;
+  throw new Error(`Nepodporovaný typ upozornenia automatizácie: ${unsupported}`);
 }
 
 export function mapAutomationActionAttention(
