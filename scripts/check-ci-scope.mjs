@@ -277,11 +277,17 @@ assert.equal(scenarioH.dependency, true);
 assert.equal(scenarioH.fullCore, true);
 assert.equal(scenarioH.validationMode, "full");
 
-// Scenario I — shared root/runtime primitive must stay broad.
+// Scenario I — shared UI shell stays bounded, with visual contracts.
 const scenarioI = classifyChangedFiles(["app/layout.tsx"]);
-assert.ok(scenarioI.scopes.includes("SHARED_CORE"));
-assert.equal(scenarioI.fullCore, true);
-assert.equal(scenarioI.validationMode, "full");
+assert.ok(scenarioI.scopes.includes("VISUAL"));
+assert.equal(scenarioI.scopes.includes("SHARED_CORE"), false);
+assert.equal(scenarioI.fullCore, false);
+assert.equal(scenarioI.boundedCore, true);
+assert.equal(scenarioI.publicDs0b, true);
+assert.equal(scenarioI.validationMode, "bounded");
+assert.equal(classifyChangedFiles(["app/globals.css"]).validationMode, "bounded");
+assert.equal(classifyChangedFiles(["worker/index.ts"]).fullCore, true);
+assert.equal(classifyChangedFiles(["lib/pii-crypto.ts"]).fullCore, true);
 
 // Scenario J — docs-only keeps required status without install/Playwright.
 const scenarioJFiles = ["README.md", "docs/ci.md"];
@@ -434,6 +440,7 @@ function simulation(files, eventName = "pull_request", options = {}) {
     full_core: String(result.fullCore), bounded_core: String(result.boundedCore),
     package_test_scripts_only: String(result.packageTestScriptsOnly), docs_only: String(result.docsOnly),
     core: String(result.core), scopes: result.scopes.join(","),
+    public_ds0b: String(result.publicDs0b),
     admin_events: String(flags.adminEvents), directory: String(flags.directory), search: String(flags.search),
     seo_recovery: String(flags.seoRecovery), sitemap_diagnostic: String(flags.sitemapDiagnostic), lost_found: String(flags.lostFound),
     production_smoke: String(productionSmokeRequired(result, {eventName, ref: "refs/heads/main"})),
@@ -469,6 +476,8 @@ const cases = [
   ["dependency", ["package-lock.json"], true],
   ["migration", ["drizzle/0122_entity_image_display_config.sql"], true],
   ["shared-runtime", ["worker/index.ts"], true],
+  ["shared-layout", ["app/layout.tsx"], false],
+  ["shared-css", ["app/globals.css"], false],
   ["cross-domain-762", ["components/event-image.tsx", "components/directory-card.tsx", "components/admin-directory-editor.tsx", "components/help-card.tsx", "drizzle/0122_entity_image_display_config.sql", "package.json"], true],
   ["CI-YAML-only", [".github/workflows/playwright-e2e.yml"], false],
   ["unknown-push-range", [], true],
@@ -538,6 +547,12 @@ for (const protection of ["expected_head_sha", "action_required", "/approve", "a
 
 
 assert.equal(simulation(["components/public-visual-system/unified-section-hero.tsx"]).stepRuns("Shared visual contracts"), true);
+assert.equal(simulation(["app/layout.tsx"]).stepRuns("Shared visual contracts"), true);
+assert.equal(simulation(["app/globals.css"]).stepRuns("Shared visual contracts"), true);
+assert.equal(simulation(["app/layout.tsx"]).runs("ds-0b-focused-regression"), true);
+assert.equal(simulation(["components/directory-card.tsx"]).runs("ds-0b-focused-regression"), true);
+assert.equal(simulation(["components/admin-article-editor.tsx"]).runs("ds-0b-focused-regression"), false);
+assert.equal(simulation(["docs/ci-audit.md"]).runs("ds-0b-focused-regression"), false);
 assert.equal(simulation(["components/admin-article-editor.tsx"]).stepRuns("Shared visual contracts"), false);
 for (const id of ["search-e2e", "directory-e2e"]) {
   assert.ok(!job(id).block.includes("run: npm run build"), `${id} must reuse its required build`);
