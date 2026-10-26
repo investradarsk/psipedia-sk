@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import {useCallback,useEffect,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import type {WorkspaceEvent,WorkspaceFeed} from "@/lib/admin-workspace-feed";
 import styles from "./admin-workspace-activity.module.css";
 
@@ -19,17 +19,39 @@ export function AdminWorkspaceActivity({initial}:{initial:WorkspaceFeed}){
   const[busy,setBusy]=useState<number|null>(null);
   const[loading,setLoading]=useState(false);
   const[error,setError]=useState("");
-  const refresh=useCallback(async()=>{
-    try{
-      const res=await fetch("/api/admin/workspace/feed",{cache:"no-store"});
-      if(!res.ok)throw Error("Prehľad sa nepodarilo načítať.");
-      const next=await res.json() as WorkspaceFeed;
-      setData(next);setError("");
-    }catch{setError("Aktualizácia prehľadu sa nepodarila.")}
+  const hiddenIds=useRef(new Set<number>());
+  const refreshPending=useRef<Promise<void>|null>(null);
+  const refresh=useCallback(()=>{
+    if(refreshPending.current)return refreshPending.current;
+    const request=(async()=>{
+      try{
+        const res=await fetch("/api/admin/workspace/feed",{cache:"no-store"});
+        if(!res.ok)throw Error("Prehľad sa nepodarilo načítať.");
+        const next=await res.json() as WorkspaceFeed;
+        if(next.status==="UNAVAILABLE"){
+          setError("Aktualizácia prehľadu sa nepodarila.");
+          return;
+        }
+        setData({...next,items:next.items.filter(x=>!x.read&&!hiddenIds.current.has(x.id))});
+        setError("");
+      }catch{setError("Aktualizácia prehľadu sa nepodarila.")}
+    })();
+    refreshPending.current=request;
+    void request.finally(()=>{refreshPending.current=null;});
+    return request;
   },[]);
   useEffect(()=>{
-    const id=window.setInterval(()=>{void refresh();},60_000);
-    return()=>window.clearInterval(id);
+    const onReturn=()=>{
+      if(document.visibilityState==="visible")void refresh();
+    };
+    const id=window.setInterval(onReturn,60_000);
+    document.addEventListener("visibilitychange",onReturn);
+    window.addEventListener("focus",onReturn);
+    return()=>{
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange",onReturn);
+      window.removeEventListener("focus",onReturn);
+    };
   },[refresh]);
   async function read(id:number){
     if(busy!==null)return;
@@ -38,12 +60,13 @@ export function AdminWorkspaceActivity({initial}:{initial:WorkspaceFeed}){
       const res=await fetch("/api/admin/workspace/feed",{method:"POST",
         headers:{"content-type":"application/json"},body:JSON.stringify({id})});
       if(!res.ok)throw Error("Uloženie zlyhalo.");
-      setData(v=>({...v,items:v.items.map(x=>x.id===id?{...x,read:true}:x)}));
+      hiddenIds.current.add(id);
+      setData(v=>({...v,items:v.items.filter(x=>x.id!==id)}));
     }catch{setError("Nepodarilo sa označiť upozornenie ako prečítané.");}
     finally{setBusy(null);}
   }
-  const shown=useMemo(()=>data.items.filter(x=>
-    filter==="all" ||(filter==="action"?isAction(x):!isAction(x))),[data.items,filter]);
+  const shown=useMemo(()=>data.items.filter(x=>!x.read&&
+    (filter==="all" ||(filter==="action"?isAction(x):!isAction(x)))),[data.items,filter]);
   const unread=data.items.filter(x=>!x.read).length;
   return <section className={styles.root} aria-label="Aktuálne udalosti Psipedie">
     <div className={styles.titleRow}>
@@ -76,17 +99,17 @@ export function AdminWorkspaceActivity({initial}:{initial:WorkspaceFeed}){
         <div className={styles.eventContent}>
           <Link href={x.href}><strong>{x.title}</strong></Link>
           <p>{x.body}</p>
-          <small>{formatTime(x.createdAt)} · {x.read?"Prečítané":"Nové"}</small>
+          <small>{formatTime(x.createdAt)} · Nové</small>
         </div>
         <div className={styles.actions}>
           <Link href={x.href}>Otvoriť</Link>
-          {!x.read&&<button type="button" disabled={busy!==null} onClick={()=>void read(x.id)}>Prečítané</button>}
+          <button type="button" disabled={busy!==null} onClick={()=>void read(x.id)}>Prečítané</button>
         </div>
       </article>)}
       {data.status==="OK"&&!shown.length&&<p className={styles.empty}>V tomto filtri nie sú žiadne udalosti.</p>}
     </div>
     {error&&<p role="status" className={styles.error}>{error}</p>}
     <p className={styles.note}>Označenie za prečítané nezmení stav hodnotenia, návrhu ani profilu.
-      Udalosti sa obnovujú automaticky približne každú minútu.</p>
+      Vybavené úlohy miznú po obnovení; nové údaje sa načítajú každú minútu a po návrate na stránku.</p>
   </section>;
 }
