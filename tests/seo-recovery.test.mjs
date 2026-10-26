@@ -156,10 +156,19 @@ test("SEO-RECOVERY-1 crawler access remains open for filtered URLs and named sea
   assert.doesNotMatch(source, /region|district|city|termin|fciGroup|sort|order/);
 });
 
-test("SEO-RECOVERY-1 topic metadata uses the central metadata contract", () => {
+test("SEO-RECOVERY-1 retired /tema routes permanently redirect without creating duplicate metadata", () => {
   const source = fs.readFileSync(new URL("../app/tema/[slug]/page.tsx", import.meta.url), "utf8");
-  assert.match(source, /buildPageMetadata\(\{/);
-  assert.doesNotMatch(source, /openGraph:\s*\{/);
+  const targets = fs.readFileSync(new URL("../lib/article-category-routes.ts", import.meta.url), "utf8");
+  const sitemap = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
+  assert.match(source, /legacyTopicRedirectHref\(slug\)/);
+  assert.match(source, /permanentRedirect\(destination\)/);
+  assert.match(source, /if \(!destination\) notFound\(\)/);
+  assert.doesNotMatch(source, /buildPageMetadata|openGraph:/);
+  assert.doesNotMatch(sitemap, /sitemapEntry\(\x60\/tema\//);
+  for (const target of [
+    "/starostlivost/zdravie", "/starostlivost/vyziva",
+    "/clanky?tema=vycvik", "/clanky?tema=zivot-so-psom",
+  ]) assert.ok(targets.includes(target));
 });
 
 test("SEO-RECOVERY-1 preserves sitemap runtime safety and >1000 corpus coverage regression", () => {
