@@ -646,7 +646,13 @@ export async function runNotionEshopSyncSweep(input: {
   database: D1Database;
   bindings: NotionEshopSyncBindings;
   targetPageId?: string;
+  /** Immediate Admin save: reconcile ONLY an existing mapped e-shop. */
+  targetShopId?: number;
 }): Promise<NotionEshopSyncSummary> {
+  if (input.targetPageId !== undefined && input.targetShopId !== undefined)
+    throw new Error("NOTION_ESHOP_TARGET_SCOPE_AMBIGUOUS");
+  if (input.targetShopId !== undefined && (!Number.isSafeInteger(input.targetShopId) || input.targetShopId <= 0))
+    throw new Error("NOTION_ESHOP_TARGET_SHOP_INVALID");
   const summary: NotionEshopSyncSummary = {
     enabled: configured(input.bindings),
     schemaReady: false,
@@ -663,6 +669,26 @@ export async function runNotionEshopSyncSweep(input: {
   if (!summary.schemaReady) return summary;
 
   const dataSourceId = input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID!.trim();
+
+  // Admin fast path: one verified mapping, one canonical shop and one remote page.
+  // No bootstrap, no recent-page query, no unrelated changes, no page creates.
+  if (input.targetShopId !== undefined) {
+    const mapping = await loadMappingByShop(input.database, input.targetShopId);
+    if (!mapping) return summary;
+    try {
+      const action = await syncMapped({
+        database: input.database, bindings: input.bindings, dataSourceId, mapping,
+      });
+      if (action === "pulled") summary.pulledFromNotion++;
+      else if (action === "pushed") summary.pushedToNotion++;
+      else summary.unchanged++;
+    } catch {
+      // Admin save is already committed. The scheduled sweep will retry.
+      summary.failed++;
+    }
+    return summary;
+  }
+
   if (!input.targetPageId) {
     const bootstrap = await runNotionEshopBootstrapSweep(input);
     summary.bootstrapped += bootstrap.bootstrapped;
