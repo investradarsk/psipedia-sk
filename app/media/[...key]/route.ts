@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: RouteProps) {
     return new Response("Not found", { status: 404 });
   }
 
-  if (segments[0] === "quarantine" || segments[0] === "safe") {
+  if (segments[0] === "quarantine" || segments[0] === "safe" || segments[0] === "quality-missing-candidates") {
     return new Response("Not found", { status: 404 });
   }
 
