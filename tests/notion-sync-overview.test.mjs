@@ -10,10 +10,14 @@ function mockDb(names, values = {}, failures = []) {
       statements.push(sql);
       function lookup(agenda) {
         const key = sql.includes("FROM directory_notion_sync") ? "directory"
-          : sql.includes("FROM event_notion_sync") ? "events"
-            : sql.includes("FROM facebook_image_posts") ? "facebook-images"
-              : sql.includes("FROM service_catalog_notion_auto_attempts") ? "service-catalog"
-                : agenda;
+          : sql.includes("FROM breed_notion_sync") ? "breeds"
+            : sql.includes("FROM article_notion_sync") ? "articles"
+              : sql.includes("FROM eshop_notion_sync") ? "eshops"
+                : sql.includes("FROM article_notion_editorial_outbox") ? "articles-outbox"
+                  : sql.includes("FROM event_notion_sync") ? "events"
+                    : sql.includes("FROM facebook_image_posts") ? "facebook-images"
+                      : sql.includes("FROM service_catalog_notion_auto_attempts") ? "service-catalog"
+                        : agenda;
         if (failures.includes(key)) throw Error("PRIVATE_PROVIDER_ERROR");
         return values[key] ?? { count: 0, last_at: null };
       }
@@ -27,12 +31,16 @@ function mockDb(names, values = {}, failures = []) {
   return { db, statements };
 }
 
-test("overview covers all existing eight sync areas and performs only bounded reads", async () => {
+test("overview covers all eleven sync areas and performs only bounded reads", async () => {
   const { db, statements } = mockDb(
-    ["directory_notion_sync", "event_notion_sync", "notion_agenda_sync",
+    ["directory_notion_sync", "breed_notion_sync", "article_notion_sync",
+      "eshop_notion_sync", "event_notion_sync", "notion_agenda_sync",
       "service_catalog_notion_auto_attempts", "facebook_image_posts"],
     {
       directory: { count: 21, last_at: "2026-10-25T12:00:00Z" },
+      breeds: { count: 14, last_at: "2026-10-25T12:10:00Z" },
+      articles: { count: 18, last_at: "2026-10-25T12:20:00Z" },
+      eshops: { count: 6, last_at: "2026-10-25T12:30:00Z" },
       events: { count: 8, last_at: "2026-10-25T11:00:00Z" },
       organizations: { count: 2, last_at: null },
       adoptions: { count: 3, last_at: null },
@@ -42,16 +50,21 @@ test("overview covers all existing eight sync areas and performs only bounded re
       "facebook-images": { count: 7, last_at: null },
     },
   );
-  assert.equal(NOTION_SYNC_OVERVIEW_AREAS.length, 8);
+  assert.equal(NOTION_SYNC_OVERVIEW_AREAS.length, 11);
   const rows = await readNotionSyncOverview(db);
-  assert.equal(rows.length, 8);
-  assert.equal(rows[0].count, 21);
-  assert.equal(rows[0].status, "RECORDED");
-  assert.equal(rows[4].count, 4);
-  assert.equal(rows[6].evidence, "VERIFIED_ATTEMPTS");
-  assert.equal(rows[7].evidence, "LINKED_POSTS");
-  assert.equal(rows[7].lastMappingAt, null);
-  assert.equal(statements.length, 9);
+  assert.equal(rows.length, 11);
+  assert.equal(rows.find(x => x.area === "directory").count, 21);
+  assert.equal(rows.find(x => x.area === "directory").status, "RECORDED");
+  assert.equal(rows.find(x => x.area === "breeds").count, 14);
+  assert.equal(rows.find(x => x.area === "articles").count, 18);
+  assert.equal(rows.find(x => x.area === "eshops").count, 6);
+  assert.equal(rows.find(x => x.area === "help-cases").count, 4);
+  assert.equal(rows.find(x => x.area === "service-catalog").evidence, "VERIFIED_ATTEMPTS");
+  assert.equal(rows.find(x => x.area === "facebook-images").evidence, "LINKED_POSTS");
+  assert.equal(rows.find(x => x.area === "facebook-images").lastMappingAt, null);
+  assert.equal(rows.find(x => x.area === "breeds").pendingCount, null);
+  assert.equal(rows.find(x => x.area === "breeds").pendingBasis, "NOT_RECORDED");
+  assert.equal(statements.length, 12);
   for (const sql of statements) {
     assert.match(sql, /^SELECT\b/);
     assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|ALTER|DROP|REPLACE)\b/i);
@@ -124,11 +137,18 @@ test("configuration preflight checks deployed flags, schema and token without ex
   const { notionSyncConfigurationPreflight } = await import("../lib/notion-sync-preflight.ts");
   const rows = NOTION_SYNC_OVERVIEW_AREAS.map(item => ({
     area:item.key,label:item.label,evidence:item.evidence,count:0,lastMappingAt:null,status:"EMPTY",
+    pendingCount:null,pendingBasis:"NOT_RECORDED",
   }));
   const config = {
     NOTION_API_TOKEN: "PRIVATE_SHOULD_NOT_LEAK",
     NOTION_DIRECTORY_SYNC_ENABLED: "true",
     NOTION_DIRECTORY_DATA_SOURCE_ID: "84e0664c-ca47-405f-9d54-31b20287bc8c",
+    NOTION_BREED_SYNC_ENABLED: "true",
+    NOTION_BREEDS_DATA_SOURCE_ID: "84e0664c-ca47-405f-9d54-31b20287bc8c",
+    NOTION_ARTICLE_SYNC_ENABLED: "true",
+    NOTION_ARTICLES_DATA_SOURCE_ID: "84e0664c-ca47-405f-9d54-31b20287bc8c",
+    NOTION_ESHOP_SYNC_ENABLED: "true",
+    NOTION_ESHOPS_DATA_SOURCE_ID: "84e0664c-ca47-405f-9d54-31b20287bc8c",
     NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED: "true",
     SERVICE_CATALOG_NOTION_AUTO_ENABLED: "true",
     SERVICE_CATALOG_ADMIN_WRITES_ENABLED: "true",
@@ -138,22 +158,53 @@ test("configuration preflight checks deployed flags, schema and token without ex
     NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID: "2d945afe-0c79-467e-b9e6-6b0f62a27a49",
   };
   const good = notionSyncConfigurationPreflight(config, rows);
-  assert.equal(good.length, 4);
+  assert.equal(good.length, 7);
   assert.ok(good.every(x => x.status === "CONFIGURED"));
   assert.doesNotMatch(JSON.stringify(good), /PRIVATE_SHOULD_NOT_LEAK/);
   const off = notionSyncConfigurationPreflight({ ...config, NOTION_DIRECTORY_SYNC_ENABLED: "false" }, rows);
   assert.equal(off[0].status, "DISABLED");
   const missingToken = notionSyncConfigurationPreflight({ ...config, NOTION_API_TOKEN: "" }, rows);
-  assert.equal(missingToken[1].status, "BLOCKED");
-  assert.equal(missingToken[1].details, "TOKEN_MISSING");
+  assert.equal(missingToken.find(x => x.area === "breeds").status, "BLOCKED");
+  assert.equal(missingToken.find(x => x.area === "breeds").details, "TOKEN_MISSING");
   const missingSchema = notionSyncConfigurationPreflight(config,
     rows.map(x => x.area === "adoptions" ? { ...x, status:"SCHEMA_UNAVAILABLE" } : x));
-  assert.equal(missingSchema[1].details, "SCHEMA_MISSING");
+  assert.equal(missingSchema.find(x => x.area === "events-help").details, "SCHEMA_MISSING");
   const unavailableSchema = notionSyncConfigurationPreflight(config,
     rows.map(x => x.area === "directory" ? { ...x, status:"UNKNOWN" } : x));
   assert.equal(unavailableSchema[0].status, "UNKNOWN");
   assert.equal(notionSyncConfigurationPreflight({ ...config,
-    NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID: "not-a-uuid" }, rows)[3].details, "DATA_SOURCE_MISSING");
+    NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID: "not-a-uuid" }, rows)
+    .find(x => x.area === "facebook-images").details, "DATA_SOURCE_MISSING");
   assert.equal(notionSyncConfigurationPreflight({ ...config,
-    SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED: "false" }, rows)[2].details, "FEATURE_GATES_MISSING");
+    SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED: "false" }, rows)
+    .find(x => x.area === "service-catalog").details, "FEATURE_GATES_MISSING");
+});
+
+test("pending evidence is bounded, honest, and missing tables never become a zero", async () => {
+  const names = [
+    "directory_notion_sync", "breed_notion_sync", "article_notion_sync", "eshop_notion_sync",
+    "event_notion_sync", "notion_agenda_sync", "service_catalog_notion_auto_attempts",
+    "facebook_image_posts", "directory_profiles", "managed_eshops", "eshop_ratings",
+    "article_notion_editorial_outbox",
+  ];
+  const { db, statements } = mockDb(names, {
+    directory: { count: 5, last_at: "2026-10-25T10:00:00Z" },
+    breeds: { count: 7, last_at: "2026-10-25T10:00:00Z" },
+    articles: { count: 2, last_at: "2026-10-25T10:00:00Z" },
+    eshops: { count: 6, last_at: "2026-10-25T10:00:00Z" },
+    "articles-outbox": { count: 3, last_at: null },
+  }, ["eshops"]);
+  const rows = await readNotionSyncOverview(db);
+  assert.equal(rows.length, 11);
+  assert.equal(rows.find(x => x.area === "directory").pendingBasis, "REVISION_GAP");
+  assert.equal(rows.find(x => x.area === "articles").pendingCount, 3);
+  assert.equal(rows.find(x => x.area === "articles").pendingBasis, "EDITORIAL_OUTBOX");
+  assert.equal(rows.find(x => x.area === "eshops").pendingCount, null);
+  assert.equal(rows.find(x => x.area === "eshops").pendingBasis, "NOT_RECORDED");
+  assert.equal(rows.find(x => x.area === "breeds").pendingCount, null);
+  assert.equal(rows.find(x => x.area === "events").pendingCount, null);
+  assert.equal(statements.length, 15);
+  assert.ok(statements.every(sql => /^SELECT\b/.test(sql)));
+  assert.ok(statements.every(sql => !/\b(INSERT|UPDATE|DELETE|ALTER|DROP|REPLACE)\b/i.test(sql)));
+  assert.ok(statements.some(sql => sql.includes("FROM article_notion_editorial_outbox")));
 });
