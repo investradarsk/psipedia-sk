@@ -2320,3 +2320,118 @@
 
 /* DS-4: homepage partner banners retain their compact #887 spacing and order; */
 /* share the contextual-banner corner and mobile action contract. */
+
+/* S-01 approved front page: magazine hierarchy, no duplicated sidebar promotions. */
+.homeV2 :global(.home-magazine-grid--wide) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.homeV2 :global(.home-news-section .home-magazine-main .home-latest-layout) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+.homeV2 :global(.home-news-section .home-magazine-main .home-latest-list) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media)) {
+  position: relative;
+  isolation: isolate;
+  min-height: 260px;
+}
+.homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-media) {
+  display: block;
+  aspect-ratio: 16 / 9;
+}
+.homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-body) {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1;
+  padding: 72px 20px 18px;
+  color: #fff;
+  background: linear-gradient(180deg, transparent, rgba(7, 26, 21, .93));
+}
+.homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-title),
+.homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-title a),
+.homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-meta),
+.homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-meta a),
+.homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-excerpt) {
+  color: #fff;
+}
+.homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-excerpt) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.homeV2 :global(.home-side-breed-list) {
+  display: grid;
+  gap: 0;
+}
+.homeV2 :global(.home-side-breed-item) {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ps-border-soft);
+  color: var(--ink);
+  text-decoration: none;
+}
+.homeV2 :global(.home-side-breed-item:last-child) { border-bottom: 0; }
+.homeV2 :global(.home-side-breed-thumb) {
+  display: block;
+  width: 72px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 9px;
+}
+.homeV2 :global(.home-side-breed-thumb img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.homeV2 :global(.home-side-breed-copy) { display: grid; min-width: 0; gap: 3px; }
+.homeV2 :global(.home-side-breed-copy strong) { font-size: .86rem; line-height: 1.25; }
+.homeV2 :global(.home-side-breed-copy small) {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  color: var(--muted);
+  font-size: .7rem;
+}
+.homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-grid) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+}
+.homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-item > a) {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+  padding: 0;
+}
+.homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-item .home-help-media) {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+}
+.homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-item .home-help-copy) {
+  padding: 12px;
+}
+@media (max-width: 760px) {
+  .homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 540px) {
+  .homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-body) {
+    padding: 48px 14px 12px;
+  }
+}
