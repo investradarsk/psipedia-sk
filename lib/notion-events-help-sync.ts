@@ -407,20 +407,26 @@ async function schemaReady(database: D1Database) {
   return (eventColumns.results ?? []).some((row) => row.name === "psipedia_updated_at");
 }
 
-async function loadMappings(database: D1Database, agenda: BidirectionalAgendaKey) {
+async function loadMappings(database: D1Database, agenda: BidirectionalAgendaKey, targetPageId?: string) {
+  // Targeted saves/webhooks read only one mapped page, not all agenda mappings.
+  // Full historical mapping checks remain unchanged for the scheduled sweep.
   if (agenda === "events") {
-    const result = await database.prepare(`
+    const query = database.prepare(`
       SELECT notion_page_id,event_id AS entity_id,content_hash,notion_last_edited_time,
         psipedia_updated_at,last_synced_at
       FROM event_notion_sync
-    `).all<MappingRow>();
+    ` + (targetPageId ? " WHERE notion_page_id=?" : ""));
+    const result = targetPageId
+      ? await query.bind(targetPageId).all<MappingRow>()
+      : await query.all<MappingRow>();
     return result.results ?? [];
   }
-  const result = await database.prepare(`
+  const query = database.prepare(`
     SELECT notion_page_id,entity_id,content_hash,notion_last_edited_time,
       psipedia_updated_at,last_synced_at
     FROM notion_agenda_sync WHERE agenda=?
-  `).bind(agenda).all<MappingRow>();
+  ` + (targetPageId ? " AND notion_page_id=?" : ""));
+  const result = await query.bind(...(targetPageId ? [agenda, targetPageId] : [agenda])).all<MappingRow>();
   return result.results ?? [];
 }
 
@@ -728,8 +734,9 @@ async function syncAgenda(input: {
   if (input.targetPageId && input.expectedNotionRevision &&
       pagesById.get(input.targetPageId)?.last_edited_time !== input.expectedNotionRevision)
     throw new Error("GEMINI_SAVED_REVISION_CHANGED");
-  let mappings = await loadMappings(input.database, input.definition.key);
-  if (input.definition.key === "help-cases") {
+  let mappings = await loadMappings(input.database, input.definition.key,
+    input.webhookMappedOnly ? input.targetPageId : undefined);
+  if (input.definition.key === "help-cases" && !input.webhookMappedOnly) {
     // All historical mappings remain reserved, including excluded categories
     // and orphan IDs. The loader now returns only domain-valid canonical rows,
     // so an orphan/dedicated mapping is NEVER pulled, patched, or recreated.
@@ -1520,7 +1527,8 @@ await requireVerifiedMappedNotionWriteback({
 
   // Import new Notion rows after all existing canonical identities have been
   // adopted. Title is never used as identity.
-  mappings = input.mode === "dry-run" ? mappings : await loadMappings(input.database, input.definition.key);
+  mappings = input.mode === "dry-run" ? mappings : await loadMappings(input.database, input.definition.key,
+    input.webhookMappedOnly ? input.targetPageId : undefined);
   const mappedPageIds = new Set(mappings.map((mapping) => mapping.notion_page_id));
 
   for (const page of writablePages) {
