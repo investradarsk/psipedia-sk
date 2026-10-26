@@ -38,7 +38,7 @@ export function notionArticleMainImageSource(page: NotionPageMedia): NotionArtic
   }
   const file = record(files[0]);
   const kind = file.type;
-  const location = kind === "file" ? record(file.file) : kind === "external" ? record(file.external) : {};
+  const location: Record<string, unknown> = kind === "file" ? record(file.file) : kind === "external" ? record(file.external) : {};
   const remoteUrl = location.url;
   if (typeof remoteUrl !== "string" || !remoteUrl.startsWith("https://")) {
     throw new Error("Titulný obrázok musí mať dostupnú HTTPS adresu.");
