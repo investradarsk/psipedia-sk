@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { isAdoptionAdminConflict, updateAdoptionFromAdmin } from "@/lib/adoption-admin-write";
 import type { ManagedAdoptionInput } from "@/lib/adoption";
@@ -25,7 +27,9 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({ error: "Neplatný payload adopčného profilu alebo chýbajúca verzia záznamu." }, { status: 400 });
     }
     const item = await updateAdoptionFromAdmin(id, body.payload as ManagedAdoptionInput, user.email, body.expectedUpdatedAt);
-    return item ? Response.json({ item }) : Response.json({ error: "Adopčný profil sa nenašiel." }, { status: 404 });
+    if (!item) return Response.json({ error: "Adopčný profil sa nenašiel." }, { status: 404 });
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id });
+    return Response.json({ item, notionFieldSync });
   } catch (error) {
     return errorResponse(error);
   }

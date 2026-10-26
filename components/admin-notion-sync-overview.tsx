@@ -10,6 +10,8 @@ type OverviewRow = {
   evidence: "MAPPINGS" | "VERIFIED_ATTEMPTS" | "LINKED_POSTS";
   count: number | null;
   lastMappingAt: string | null;
+  pendingCount: number | null;
+  pendingBasis: "REVISION_GAP" | "EDITORIAL_OUTBOX" | "NOT_RECORDED";
 };
 
 type RunReceipt = {
@@ -22,7 +24,7 @@ type RunReceipt = {
 };
 
 type NotionPreflightRow = {
-  area: "directory" | "events-help" | "service-catalog" | "facebook-images";
+  area: "directory" | "breeds" | "articles" | "eshops" | "events-help" | "service-catalog" | "facebook-images";
   label: string;
   status: "DISABLED" | "BLOCKED" | "CONFIGURED" | "UNKNOWN";
   details: "FLAG_DISABLED" | "TOKEN_MISSING" | "DATA_SOURCE_MISSING"
@@ -62,6 +64,9 @@ const runLabels: Record<RunReceipt["status"], string> = {
 
 function runForArea(area: string, runs: OverviewResponse["runs"]): RunReceipt | null {
   if (area === "directory") return runs.directory;
+  // No per-domain durable Automation Run receipt exists for these agendas.
+  // A shared runner outcome must never be presented as independent success.
+  if (["breeds", "articles", "eshops"].includes(area)) return null;
   if (["events", "organizations", "adoptions", "help-cases", "lost-found"].includes(area)) {
     return runs["events-help"];
   }
@@ -84,6 +89,12 @@ const configurationDetailLabels: Record<NotionPreflightRow["details"], string> =
   FEATURE_GATES_MISSING: "Nie sú zapnuté všetky bezpečnostné podmienky",
   BASIC_REQUIREMENTS_MET: "Nevyhodnocuje dostupnosť Notion API ani práva k stránkam",
 };
+
+function pendingLabel(row: OverviewRow): string {
+  if (row.pendingCount === null || row.pendingBasis === "NOT_RECORDED") return "Neoverené";
+  if (row.pendingBasis === "EDITORIAL_OUTBOX") return String(row.pendingCount) + " v redakčnom outboxe";
+  return String(row.pendingCount) + " bez zhody revízie";
+}
 
 const countLabels: Record<OverviewRow["evidence"], string> = {
   MAPPINGS: "mapovaní",
@@ -111,7 +122,8 @@ async function fetchOverview(): Promise<OverviewResponse> {
     || result.liveNotionStatus !== "UNKNOWN"
     || result.runBasis !== "EXISTING_ADMIN_AUTOMATION_EVENTS"
     || !result.runs || !result.runs.directory || !result.runs["events-help"]
-    || !Array.isArray(result.rows) || !Array.isArray(result.preflight)) {
+    || !Array.isArray(result.rows) || !Array.isArray(result.preflight)
+    || result.rows.some(row => !("pendingBasis" in row) || !("pendingCount" in row))) {
     throw new Error("INVALID_RESPONSE");
   }
   return result as OverviewResponse;
@@ -159,7 +171,7 @@ export function AdminNotionSyncOverview() {
       <div className={styles.heading}>
         <div>
           <h2 id="notion-sync-overview-heading">Prepojenia Psipedia ↔ Notion</h2>
-          <p>Jedno miesto pre evidenciu existujúcich prepojení všetkých oblastí.</p>
+          <p>Všetky agendy, posledné evidované potvrdenia, možné čakajúce zmeny a dostupné výsledky behov.</p>
         </div>
         <strong className={styles.readOnly}>Len na čítanie</strong>
       </div>
@@ -185,6 +197,7 @@ export function AdminNotionSyncOverview() {
                   <th scope="col">Evidencia</th>
                   <th scope="col">Počet</th>
                   <th scope="col">Posledný zapísaný sync</th>
+                  <th scope="col">Zmeny bez potvrdenia</th>
                   <th scope="col">Posledný beh automatizácie</th>
                   <th scope="col">Konflikty / chyby v behu</th>
                 </tr>
@@ -196,6 +209,7 @@ export function AdminNotionSyncOverview() {
                     <td>{stateLabels[row.status]}</td>
                     <td>{row.count === null ? "Neznámy" : String(row.count) + " " + countLabels[row.evidence]}</td>
                     <td>{row.evidence === "LINKED_POSTS" ? "Neeviduje sa" : formatDate(row.lastMappingAt)}</td>
+                    <td>{pendingLabel(row)}</td>
                     <td>{(() => {
                       const run = runForArea(row.area, snapshot.runs);
                       return run
@@ -231,6 +245,8 @@ export function AdminNotionSyncOverview() {
             Posledný beh je doložený uloženou udalosťou automatizácie; Podujatia a päť oblastí Pomoci psom
             zdieľajú jednu hodinovú úlohu, takže zobrazujú spoločný výsledok, nie samostatné overenie každej oblasti.
             Ak chýba záznam, údaj zostáva neoverený. Toto nie je živý stav synchronizátora.
+            Počty „bez zhody revízie“ sú iba indikátory zmeny v D1; redakčný outbox eviduje iba časť článkových úprav.
+            Nula neznamená úplnú zhodu ani prázdny Notion front.
             Čas posledného mapovania ani úspešný beh nedokazuje aktuálnu dostupnosť Notionu či zhodu obsahu.
             Konflikty skontroluj v audite nižšie.
           </p>

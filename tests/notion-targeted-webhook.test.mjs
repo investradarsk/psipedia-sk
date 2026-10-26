@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import ts from "typescript";
+import { runInNewContext } from "node:vm";
 import {
   verifyNotionWebhook, metadataOnlyChange, sameSource,
 } from "../lib/notion-webhook-contract.ts";
@@ -115,4 +117,221 @@ test("targeted runners are scoped, do not turn into full scheduled sweeps", asyn
   const loaders = await readFile(new URL("../lib/notion-bulk-sources.ts", import.meta.url), "utf8");
   assert.match(loaders, /WHERE managed_events\.id = \?/);
   assert.match(loaders, /FROM help_cases WHERE .*AND id = \?/);
+});
+
+test("Admin save hooks target only one prelinked record after canonical save", async () => {
+  const cases = [
+    ["app/api/admin/eshops/[id]/route.ts", "eshops", "updateManagedEshop("],
+    ["app/api/admin/events/[id]/route.ts", "events", "updateManagedEvent("],
+    ["app/api/admin/organizations/[id]/route.ts", "organizations", "updateOrganizationFromAdmin("],
+    ["app/api/admin/adoptions/[id]/route.ts", "adoptions", "updateAdoptionFromAdmin("],
+    ["app/api/admin/help/[id]/route.ts", "help-cases", "updateManagedHelpCase("],
+    ["app/api/admin/lost-found/[id]/route.ts", "lost-found", "updateAdminDogReport("],
+  ];
+  for (const [path, agenda, save] of cases) {
+    const source = await readFile(new URL("../" + path, import.meta.url), "utf8");
+    const put = source.slice(source.indexOf("export async function PUT("));
+    assert.ok(put.indexOf(save) >= 0, path + " must save canonically");
+    assert.ok(put.indexOf("syncSavedNotionRecord({") > put.indexOf(save),
+      path + " must write only after successful canonical persistence");
+    assert.ok(put.includes('agenda: "' + agenda + '"'), path + " must target its own agenda");
+    assert.ok(put.includes("notionFieldSync"), path + " must expose nonsecret sync status");
+    const get = source.slice(source.indexOf("export async function GET("),
+      source.indexOf("export async function PUT("));
+    assert.equal(get.includes("syncSavedNotionRecord({"), false, path + " GET must not sync");
+    const deleteAt = source.indexOf("export async function DELETE(");
+    if (deleteAt >= 0) assert.equal(source.slice(deleteAt).includes("syncSavedNotionRecord({"), false,
+      path + " DELETE must not sync or resurrect a removed profile");
+  }
+  const events = await readFile(
+    new URL("../app/api/admin/events/[id]/route.ts", import.meta.url), "utf8");
+  assert.ok(events.includes("quickEditManagedEvent(") &&
+    events.includes('agenda: "events", entityId: event.id'),
+    "Event quick-edit must also synchronize its saved record");
+});
+
+test("Admin-save E-shop reconciliation is one-mapping only, without creating pages or full scans", async () => {
+  const source = await readFile(new URL("../lib/notion-eshop-sync.ts", import.meta.url), "utf8");
+  const runner = source.slice(source.indexOf("export async function runNotionEshopSyncSweep"));
+  assert.ok(runner.includes("targetShopId?: number;"));
+  const one = runner.slice(
+    runner.indexOf("if (input.targetShopId !== undefined) {"),
+    runner.indexOf("if (!input.targetPageId) {"),
+  );
+  assert.ok(one.includes("loadMappingByShop(input.database, input.targetShopId)"));
+  assert.ok(one.includes("if (!mapping) return summary"));
+  assert.ok(one.includes("await syncMapped("));
+  assert.ok(one.includes("return summary"));
+  for (const prohibited of ["runNotionEshopBootstrapSweep(", "recentPages(",
+    "changedIds(", "createFromNotion(", "writeShopToNotion("]) {
+    assert.equal(one.includes(prohibited), false, "fast path must not call " + prohibited);
+  }
+  assert.ok(runner.includes("NOTION_ESHOP_TARGET_SCOPE_AMBIGUOUS"));
+  assert.ok(runner.includes("NOTION_ESHOP_TARGET_SHOP_INVALID"));
+});
+
+test("Admin save sync fails closed and never reports unconfigured or unmapped as synchronized", async () => {
+  const source = await readFile(
+    new URL("../lib/notion-targeted-admin-save.ts", import.meta.url), "utf8");
+  const help = await readFile(
+    new URL("../lib/notion-targeted-admin-help.ts", import.meta.url), "utf8");
+  assert.ok(source.includes('NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true"'));
+  assert.ok(source.includes('if (!bindings.DB) return "pending"'));
+  assert.ok(source.includes("targetShopId: entityId"));
+  assert.ok(source.includes('return "pending"'));
+  assert.ok(source.includes(' ? "synced" : "unlinked"'));
+  assert.ok(source.includes("syncOneAdminHelpRecord("));
+  assert.ok(help.includes("if (!summary.enabled || !summary.schemaReady) return \"pending\";"));
+  assert.ok(help.includes("webhookMappedOnly: true"));
+  assert.ok(help.includes("agendas: [input.agenda]"));
+});
+
+test("Events and Help targeted writes avoid reading unrelated agenda mappings", async () => {
+  const source = await readFile(
+    new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const mappings = source.slice(source.indexOf("async function loadMappings("),
+    source.indexOf("async function saveMapping("));
+  assert.ok(mappings.includes("targetPageId?: string"));
+  assert.ok(mappings.includes(' WHERE notion_page_id=?'));
+  assert.ok(mappings.includes(' AND notion_page_id=?'));
+  assert.ok(source.includes("input.webhookMappedOnly ? input.targetPageId : undefined"));
+  assert.ok(source.includes('input.definition.key === "help-cases" && !input.webhookMappedOnly'),
+    "global Help diagnostics must not turn an unrelated conflict into a failed one-record save");
+  const hook = await readFile(
+    new URL("../lib/notion-targeted-admin-help.ts", import.meta.url), "utf8");
+  assert.ok(hook.includes("webhookMappedOnly: true"));
+  assert.ok(hook.includes("targetPageId: mapping.notion_page_id"));
+});
+
+test("unmapped Events/Help Notion webhook pages are imported through existing review gates", async () => {
+  const webhook = await readFile(
+    new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
+  const sync = await readFile(
+    new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.ok(webhook.includes("verifyNotionWebhook("));
+  assert.ok(webhook.includes("notionPageBelongsToDataSource(page,"));
+  assert.ok(webhook.includes("webhookMappedOnly: true,"));
+  assert.ok(webhook.includes("webhookImportUnmapped: true,"));
+  assert.equal(webhook.includes("runNotionFacebookImagesSync("), false);
+  assert.equal(webhook.includes("runServicesV3CatalogAutoSweep("), false);
+  const mapped = sync.slice(sync.indexOf("// Webhook fast path:"),
+    sync.indexOf("let sources = await input.definition.load("));
+  assert.ok(mapped.includes("if (!mapping && !input.webhookImportUnmapped) return summary"),
+    "Admin writeback must continue to skip unknown Notion pages");
+  assert.ok(mapped.includes("if (mapping) {"), "mapped webhook pages still use their verified ID");
+  assert.ok(mapped.includes("const webhookNewPage ="));
+  assert.ok(mapped.includes("pages = [page]"), "new page path must not enumerate the whole Notion source");
+  assert.ok(mapped.includes("if (clean(pageProperty(page, \"Psipedia ID\"))) return summary"),
+    "a Notion-claimed canonical ID is never imported as a new identity");
+  assert.ok(mapped.includes("readyForCreate(input.definition.key, preview)"));
+  assert.ok(mapped.includes("gemini_notion_created_pages"),
+    "only signed worker provenance may bypass human Ready");
+  const loop = sync.slice(sync.indexOf("for (const source of sources)"),
+    sync.indexOf("// Import new Notion rows"));
+  assert.ok(loop.includes("if (webhookNewPage) break"),
+    "new-page delivery must NEVER bootstrap unrelated canonical profiles");
+  assert.ok(sync.includes("trustedGeminiSourceIsPrivateDraft("));
+  assert.ok(sync.includes("helpCaseMayEnterCanonicalSync("));
+  assert.ok(sync.includes("sourceDuplicateCandidate("));
+  assert.ok(sync.includes("createCanonicalFromNotion(input.definition.key, draftValues"));
+});
+
+test("new-page webhook mode requires one signed-target scope and cannot bypass review", async () => {
+  const sync = await readFile(
+    new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const runner = sync.slice(sync.indexOf("export async function runNotionEventsHelpSyncSweep"));
+  assert.ok(runner.includes('throw new Error("NOTION_WEBHOOK_NEW_PAGE_SCOPE_INVALID")'));
+  assert.ok(runner.includes('input.mode !== "sync" || input.reviewedLegacy'));
+  assert.ok(runner.includes("input.agendas?.length !== 1"));
+  assert.ok(runner.includes("input.webhookMappedOnly"));
+  assert.ok(runner.includes("webhookImportUnmapped: input.webhookImportUnmapped"));
+  const create = sync.slice(sync.indexOf("// Import new Notion rows"), sync.indexOf("// Canonical GEO"));
+  assert.ok(create.includes("input.targetPageId && page.id !== input.targetPageId"));
+  assert.ok(create.includes("if (mappedPageIds.has(page.id)) continue"));
+  assert.ok(create.includes("provenance.canonical_entity_id !== null"));
+  assert.ok(create.includes("GEMINI_PRIVATE_DRAFT_REQUIRED"));
+  assert.ok(create.includes("GEMINI_PROVENANCE_MISMATCH"));
+  assert.ok(create.includes("GEMINI_CATEGORY_MISMATCH"));
+  assert.ok(create.includes('clean(pageProperty(page, "Vytvoril")) === "Gemini automatizácia"'));
+  assert.ok(create.includes("const liveMappings = await loadMappings("));
+  assert.ok(create.includes("acquireGeminiNotionLock(input.database, page.id)"));
+  assert.ok(create.includes("const latest = await notionRequest<NotionPage>"));
+  assert.ok(create.includes("if (sourceDuplicateCandidate(latest"));
+  assert.ok(create.indexOf("await saveMapping({") < create.indexOf("const written = await writeSourceToNotion({"),
+    "durable mapping must be recorded before uncertain remote writeback");
+  assert.ok(create.includes("if (trustedGemini) {"));
+  assert.ok(create.includes("UPDATE gemini_notion_created_pages SET canonical_entity_id"));
+});
+
+test("targeted Admin Help statuses require actual reconciliation evidence", async () => {
+  const source = await readFile(new URL("../lib/notion-targeted-admin-help.ts", import.meta.url), "utf8");
+  const functionOnly = source.slice(source.indexOf("export async function syncOneAdminHelpRecord("));
+  const compiled = ts.transpileModule(functionOnly, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const makeCase = (overrides, linked = true) => {
+    const calls = [];
+    const item = {
+      agenda: "events", enabled: true, schemaReady: true, targetMissing: false,
+      dataSourceId: "84e0664c-ca47-405f-9d54-31b20287bc8c",
+      scanned: 1, unchanged: 1, pulledFromNotion: 0,
+      pushedToNotion: 0, bootstrapped: 0,
+      ...overrides,
+    };
+    const totals = { failed: 0, conflicts: 0, reviewRequired: 0, ...overrides.totals };
+    const summary = { enabled: true, schemaReady: true, agendas: [item], totals, ...overrides.summary };
+    const context = {
+      exports: {},
+      runNotionEventsHelpSyncSweep: async args => { calls.push(args); return summary; },
+    };
+    runInNewContext(compiled, context);
+    const input = {
+      database: { prepare: () => ({ bind: () => ({
+        first: async () => linked ? { notion_page_id: "11111111-1111-4111-8111-111111111111" } : null,
+      }) }) },
+      bindings: { NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED: "true" },
+      agenda: "events", entityId: 17,
+    };
+    return { input, calls, run: () => context.exports.syncOneAdminHelpRecord(input) };
+  };
+  const ok = makeCase({});
+  assert.equal(await ok.run(), "synced");
+  assert.equal(ok.calls.length, 1);
+  assert.equal(ok.calls[0].webhookMappedOnly, true);
+  assert.equal(ok.calls[0].targetPageId, "11111111-1111-4111-8111-111111111111");
+  const orphan = makeCase({ unchanged: 0 });
+  assert.equal(await orphan.run(), "pending", "a scanned orphan with no resolved entity is not synced");
+  assert.equal(await makeCase({ scanned: 0 }).run(), "pending");
+  assert.equal(await makeCase({ targetMissing: true }).run(), "pending");
+  assert.equal(await makeCase({ dataSourceId: null }).run(), "pending");
+  assert.equal(await makeCase({ summary: { enabled: false } }).run(), "pending");
+  assert.equal(await makeCase({ summary: { schemaReady: false } }).run(), "pending");
+  assert.equal(await makeCase({ totals: { failed: 1 } }).run(), "pending");
+  assert.equal(await makeCase({ totals: { conflicts: 1 } }).run(), "pending");
+  assert.equal(await makeCase({}, false).run(), "unlinked");
+});
+
+test("Directory and E-shop targeted saves fail closed on missing configuration or orphan mapping", async () => {
+  const directory = await readFile(
+    new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
+  const eshop = await readFile(new URL("../lib/notion-eshop-sync.ts", import.meta.url), "utf8");
+  assert.ok(directory.includes('!result.enabled || !result.schemaReady || result.failed ? "pending"'));
+  assert.ok(directory.includes('result.unchanged ? "unchanged" : "unlinked"'));
+  assert.ok(directory.includes('if (!notionEnv.DB) {'));
+  assert.ok(eshop.includes('if (!shop) throw new Error("ESHOP_CANONICAL_MAPPING_ORPHAN")'));
+});
+
+test("signed Notion webhook never acknowledges a disabled or unready runner as processed", async () => {
+  const webhook = await readFile(
+    new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
+  assert.ok(webhook.includes('if (!summary.enabled) return "disabled"'));
+  assert.ok(webhook.includes('if (summary.schemaReady === false) throw new Error("NOTION_TARGETED_SCHEMA_UNAVAILABLE")'));
+  assert.ok(webhook.includes('if (summary.failed > 0) throw new Error("NOTION_TARGETED_RECONCILIATION_FAILED")'));
+  assert.ok(webhook.includes('if (summary.scanned === 0 || summary.notionScanned === 0) return "deferred"'));
+  assert.ok(webhook.includes('if (!result.schemaReady || result.agendas.length !== 1'));
+  assert.ok(webhook.includes('result.agendas[0].targetMissing || !result.agendas[0].dataSourceId'));
+  assert.ok(webhook.includes('throw new Error("NOTION_TARGETED_AGENDA_UNAVAILABLE")'));
+  assert.ok(webhook.includes('if (result.totals.failed === 0 && (result.totals.conflicts || result.totals.reviewRequired))'));
+  assert.ok(webhook.includes('if (result === "not-configured") return new Response(null, { status: 503 })'));
+  assert.ok(webhook.includes('return new Response(null, { status: 503 })'));
 });

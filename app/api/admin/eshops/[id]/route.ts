@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
   EshopRatingError,
@@ -55,7 +56,8 @@ export async function PUT(request: Request, { params }: Props) {
       if (bucket) await bucket.delete(before.logoKey).catch(() => undefined);
     }
 
-    return Response.json({ shop });
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "eshops", entityId: shop.id });
+    return Response.json({ shop, notionFieldSync });
   } catch (error) {
     return errorResponse(error);
   }

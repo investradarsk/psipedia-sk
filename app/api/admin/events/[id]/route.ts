@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
 import { writeBackPublishedEventToNotion, type NotionEventSyncBindings } from "@/lib/notion-event-sync";
@@ -58,7 +59,8 @@ export async function PUT(request: Request, { params }: Props) {
         });
       }
     }
-    return Response.json({ event });
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id });
+    return Response.json({ event, notionFieldSync });
   } catch (error) { return errorResponse(error); }
 }
 
@@ -73,7 +75,8 @@ export async function PATCH(request: Request, { params }: Props) {
   }
   try {
     const event = await quickEditManagedEvent(id, await request.json() as ManagedEventQuickEditInput, user.email);
-    return Response.json({ event });
+    const notionFieldSync = event ? await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id }) : "unlinked";
+    return Response.json({ event, notionFieldSync });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Rýchla úprava zlyhala." }, { status: 409 });
   }

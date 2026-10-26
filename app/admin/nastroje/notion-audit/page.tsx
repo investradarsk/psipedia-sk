@@ -12,7 +12,7 @@ export default async function NotionDataQualityAuditPage() {
       user={user}
       eyebrow="Admin · Nástroje · Notion"
       title="Kontrola údajov v Notione"
-      description="Bezpečná kontrola synchronizácie po 100 záznamoch. Nezapisuje nič do Notionu ani produkčnej databázy."
+      description="Jednotný read-only prehľad synchronizácie všetkých oblastí a kontrola kvality údajov. Nezapisuje do Notionu ani do produkčnej databázy."
     >
       <div style={{ display: "grid", gap: 20 }}>
         <AdminNotionSyncOverview />

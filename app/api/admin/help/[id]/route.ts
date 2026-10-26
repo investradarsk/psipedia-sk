@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { deleteManagedHelpCase, getManagedHelpCaseById, isHelpCaseConflict, updateManagedHelpCase, type ManagedHelpCaseInput } from "@/lib/help-store";
 
@@ -22,7 +23,8 @@ export async function PUT(request: Request, { params }: Props) {
     const before = await getManagedHelpCaseById(id); if (!before) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
     const item = await updateManagedHelpCase(id, await request.json() as ManagedHelpCaseInput, user.email, before); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
     if (before.imageKey && before.imageKey !== item.imageKey) { const bucket = (env as unknown as UploadBindings).BUCKET; if (bucket) await bucket.delete(before.imageKey).catch(() => undefined); }
-    return Response.json({ item });
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
+    return Response.json({ item, notionFieldSync });
   } catch (error) { return errorResponse(error); }
 }
 

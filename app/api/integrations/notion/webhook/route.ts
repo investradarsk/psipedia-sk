@@ -56,7 +56,13 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   if (metadataOnlyChange(event, page)) return "metadata-only";
 
   const sourceId = page.parent?.data_source_id;
-  let summary: { failed: number } | undefined;
+  // All agenda runners must be configured before a webhook is acknowledged.
+  // Missing schema/provider failure is retried by Notion; intentionally
+  // disabled agendas are reported explicitly, never falsely "processed".
+  let summary: {
+    enabled: boolean; failed: number; schemaReady?: boolean;
+    scanned?: number; notionScanned?: number;
+  } | undefined;
   if (sameSource(sourceId, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!)) {
     summary = await runNotionDirectorySyncSweep({
@@ -78,8 +84,9 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       database: bindings.DB, bindings, targetPageId: id,
     });
   } else if (bindings.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED === "true") {
-    // Dynamic event/help targets are resolved only from existing verified D1
-    // mappings, never from a title or a user-controlled Notion property.
+    // Dynamic event/help targets come from canonical D1 agenda configuration,
+    // never from a page title or a Notion-editable category. Unmapped pages
+    // may enter ONLY the existing private-draft / human-Ready import gate.
     const table = await bindings.DB.prepare(
       "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='notion_agenda_targets' LIMIT 1",
     ).first<{ ok: number }>();
@@ -94,15 +101,31 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       database: bindings.DB, bindings, mode: "sync",
       agendas: [agenda.agenda as (typeof allowed)[number]],
       targetPageId: id, webhookMappedOnly: true,
+      // Signed, owner-verified one-page delivery: unmapped Ready pages and
+      // trusted Gemini private drafts may now be imported immediately.
+      // Admin targeted writeback still does NOT enable this option.
+      webhookImportUnmapped: true,
     });
+    if (!result.enabled) return "disabled";
+    if (!result.schemaReady || result.agendas.length !== 1 ||
+        result.agendas[0].targetMissing || !result.agendas[0].dataSourceId) {
+      throw new Error("NOTION_TARGETED_AGENDA_UNAVAILABLE");
+    }
     if (result.totals.failed === 0 && (result.totals.conflicts || result.totals.reviewRequired))
       return "review-required";
-    summary = { failed: result.totals.failed };
+    summary = {
+      enabled: result.enabled, schemaReady: result.schemaReady,
+      failed: result.totals.failed, scanned: result.totals.scanned,
+    };
   } else {
     // Includes Facebook image source, Services V3 and unsupported pages.
     return "out-of-scope";
   }
+  if (!summary) throw new Error("NOTION_TARGETED_NO_RESULT");
+  if (!summary.enabled) return "disabled";
+  if (summary.schemaReady === false) throw new Error("NOTION_TARGETED_SCHEMA_UNAVAILABLE");
   if (summary.failed > 0) throw new Error("NOTION_TARGETED_RECONCILIATION_FAILED");
+  if (summary.scanned === 0 || summary.notionScanned === 0) return "deferred";
   return "processed";
 }
 
