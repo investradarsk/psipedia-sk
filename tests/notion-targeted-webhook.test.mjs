@@ -116,3 +116,70 @@ test("targeted runners are scoped, do not turn into full scheduled sweeps", asyn
   assert.match(loaders, /WHERE managed_events\.id = \?/);
   assert.match(loaders, /FROM help_cases WHERE .*AND id = \?/);
 });
+
+test("Admin save hooks target only one prelinked record after canonical save", async () => {
+  const cases = [
+    ["app/api/admin/eshops/[id]/route.ts", "eshops", "updateManagedEshop("],
+    ["app/api/admin/events/[id]/route.ts", "events", "updateManagedEvent("],
+    ["app/api/admin/organizations/[id]/route.ts", "organizations", "updateOrganizationFromAdmin("],
+    ["app/api/admin/adoptions/[id]/route.ts", "adoptions", "updateAdoptionFromAdmin("],
+    ["app/api/admin/help/[id]/route.ts", "help-cases", "updateManagedHelpCase("],
+    ["app/api/admin/lost-found/[id]/route.ts", "lost-found", "updateAdminDogReport("],
+  ];
+  for (const [path, agenda, save] of cases) {
+    const source = await readFile(new URL("../" + path, import.meta.url), "utf8");
+    const put = source.slice(source.indexOf("export async function PUT("));
+    assert.ok(put.indexOf(save) >= 0, path + " must save canonically");
+    assert.ok(put.indexOf("syncSavedNotionRecord({") > put.indexOf(save),
+      path + " must write only after successful canonical persistence");
+    assert.ok(put.includes('agenda: "' + agenda + '"'), path + " must target its own agenda");
+    assert.ok(put.includes("notionFieldSync"), path + " must expose nonsecret sync status");
+    const get = source.slice(source.indexOf("export async function GET("),
+      source.indexOf("export async function PUT("));
+    assert.equal(get.includes("syncSavedNotionRecord({"), false, path + " GET must not sync");
+    const deleteAt = source.indexOf("export async function DELETE(");
+    if (deleteAt >= 0) assert.equal(source.slice(deleteAt).includes("syncSavedNotionRecord({"), false,
+      path + " DELETE must not sync or resurrect a removed profile");
+  }
+  const events = await readFile(
+    new URL("../app/api/admin/events/[id]/route.ts", import.meta.url), "utf8");
+  assert.ok(events.includes("quickEditManagedEvent(") &&
+    events.includes('agenda: "events", entityId: event.id'),
+    "Event quick-edit must also synchronize its saved record");
+});
+
+test("Admin-save E-shop reconciliation is one-mapping only, without creating pages or full scans", async () => {
+  const source = await readFile(new URL("../lib/notion-eshop-sync.ts", import.meta.url), "utf8");
+  const runner = source.slice(source.indexOf("export async function runNotionEshopSyncSweep"));
+  assert.ok(runner.includes("targetShopId?: number;"));
+  const one = runner.slice(
+    runner.indexOf("if (input.targetShopId !== undefined) {"),
+    runner.indexOf("if (!input.targetPageId) {"),
+  );
+  assert.ok(one.includes("loadMappingByShop(input.database, input.targetShopId)"));
+  assert.ok(one.includes("if (!mapping) return summary"));
+  assert.ok(one.includes("await syncMapped("));
+  assert.ok(one.includes("return summary"));
+  for (const prohibited of ["runNotionEshopBootstrapSweep(", "recentPages(",
+    "changedIds(", "createFromNotion(", "writeShopToNotion("]) {
+    assert.equal(one.includes(prohibited), false, "fast path must not call " + prohibited);
+  }
+  assert.ok(runner.includes("NOTION_ESHOP_TARGET_SCOPE_AMBIGUOUS"));
+  assert.ok(runner.includes("NOTION_ESHOP_TARGET_SHOP_INVALID"));
+});
+
+test("Admin save sync fails closed and never reports unconfigured or unmapped as synchronized", async () => {
+  const source = await readFile(
+    new URL("../lib/notion-targeted-admin-save.ts", import.meta.url), "utf8");
+  const help = await readFile(
+    new URL("../lib/notion-targeted-admin-help.ts", import.meta.url), "utf8");
+  assert.ok(source.includes('NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true"'));
+  assert.ok(source.includes('if (!bindings.DB) return "pending"'));
+  assert.ok(source.includes("targetShopId: entityId"));
+  assert.ok(source.includes('return "pending"'));
+  assert.ok(source.includes(' ? "synced" : "unlinked"'));
+  assert.ok(source.includes("syncOneAdminHelpRecord("));
+  assert.ok(help.includes("if (!summary.enabled || !summary.schemaReady) return \"pending\";"));
+  assert.ok(help.includes("webhookMappedOnly: true"));
+  assert.ok(help.includes("agendas: [input.agenda]"));
+});
