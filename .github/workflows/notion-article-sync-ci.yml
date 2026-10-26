@@ -38,6 +38,8 @@ on:
       - "components/admin-data-quality-dashboard.tsx"
       - "tests/media-source-quality.test.mjs"
       - "tests/notion-article-sync.test.mjs"
+      - "tests/article-publish-notion-reconciliation.test.mjs"
+      - "tests/notion-article-editorial-retry.test.mjs"
       - "tests/notion-article-image-source.test.mjs"
       - "tests/notion-article-related-publication.test.mjs"
       - "lib/notion-article-image-source.ts"
