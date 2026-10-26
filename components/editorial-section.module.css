@@ -914,3 +914,48 @@
 .emptyState {
   composes: editorialEmpty from "./public-visual-system/public-result-variants.module.css";
 }
+
+/* S-04: the published guide and three related articles share the desktop content width. */
+.contentHubLeadPair {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  align-items: start;
+  gap: clamp(18px, 2.4vw, 30px);
+}
+.contentHubLeadPair .contentHubPillar :global(.article-card) {
+  max-width: 100%;
+}
+.contentHubCompanion {
+  min-width: 0;
+}
+.contentHubCompanion h2 {
+  margin: 4px 0 14px;
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+}
+.contentHubCompanion :global([data-article-list-item]) {
+  min-width: 0;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--section-border);
+  border-radius: 0;
+  background: transparent;
+}
+.contentHubCompanion :global([data-article-list-item]:first-child) {
+  border-top: 1px solid var(--section-border);
+}
+.healthUrgentRow {
+  max-width: 100%;
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .contentHubLeadPair {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+@media (max-width: 640px) {
+  .topicBody { padding-block: 20px 27px; }
+  .contentHub { gap: 16px; }
+  .contentHubCompanion h2 { margin-bottom: 10px; }
+}
