@@ -167,3 +167,16 @@ test("catalog cards link to the new detail route", () => {
   assert.match(catalog, /adoptionDetailPath\(dog\.slug\)/);
   assert.match(catalog, /Zobraziť profil/);
 });
+
+test("generic Help renderer cannot become a second public adoption template", () => {
+  const dispatcher = read("../components/help-detail.tsx");
+  const variants = read("../components/help-details/help-detail-types.tsx");
+  const adoptionRoute = read("../app/pomoc-psom/adopcia/[slug]/page.tsx");
+
+  assert.match(dispatcher, /item\\.category === "adopcia"/);
+  assert.match(dispatcher, /canonical \\/pomoc-psom\\/adopcia\\/\\[slug\\] route/);
+  assert.match(variants, /Exclude<HelpCategorySlug, "utulky" \\| "adopcia">/);
+  assert.doesNotMatch(variants, /\\bAdoptionHelpDetail\\b/);
+  assert.doesNotMatch(variants, /^\\s*adopcia\\s*:/m);
+  assert.match(adoptionRoute, /<AdoptionDetail dog=\\{dog\\} organization=\\{organization\\}/);
+});
