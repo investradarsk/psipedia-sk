@@ -417,6 +417,31 @@ assert.equal(scriptWithLock.dependency, true);
 assert.equal(scriptWithLock.fullCore, true);
 assert.equal(classifyChangedFiles(["package.json"]).fullCore, true);
 
+// Broad shared UI changes must not fan out into unrelated heavy feature suites.
+// These PRs are still protected by the mandatory build/lint/safety workflow.
+for (const [workflow, unrelated] of [
+  ["homepage-name-days-ci.yml", ["app/page.tsx", "components/site-header.tsx"]],
+  ["image-editor-2-ci.yml", ["app/page.tsx", "lib/article-store.ts", "package.json", "scripts/production-d1-migrate.mjs"]],
+  ["article-ux-ci.yml", ["app/layout.tsx", "app/globals.css", "components/site-header.tsx", "components/page-system.tsx", "lib/navigation-store.ts"]],
+  ["organization-profile-e2e.yml", ["app/layout.tsx", "app/globals.css", "components/site-header.tsx", "lib/seo.ts", "drizzle/0064_geo_foundation.sql"]],
+]) {
+  for (const file of unrelated) {
+    assert.equal(prWorkflowWouldRun(workflow, [file]), false,
+      `${workflow}: unrelated ${file} must not trigger expensive feature E2E`);
+  }
+  assert.equal(prWorkflowWouldRun(workflow, [`.github/workflows/${workflow}`]), true,
+    `${workflow}: workflow edits must still self-trigger`);
+}
+for (const [workflow, relevant] of [
+  ["homepage-name-days-ci.yml", "lib/dog-name-day-calendar.ts"],
+  ["image-editor-2-ci.yml", "lib/image-display.ts"],
+  ["article-ux-ci.yml", "components/article-detail.tsx"],
+  ["organization-profile-e2e.yml", "components/organization-profile-detail.tsx"],
+]) {
+  assert.equal(prWorkflowWouldRun(workflow, [relevant]), true,
+    `${workflow}: domain-relevant code must still be validated`);
+}
+
 assert.ok(required.includes("name: Changed package test scripts"));
 assert.ok(required.includes("run: node scripts/ci-scope.mjs --run-changed-package-tests"));
 console.log(
