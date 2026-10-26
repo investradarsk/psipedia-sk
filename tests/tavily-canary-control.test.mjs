@@ -182,11 +182,12 @@ test("TAVILY-CANARY-1 single canary inherits 3-query / 3-request / maxResults=5 
   assert.equal(r.config.maxResults, 5);
 });
 
-test("TAVILY-GOV-1 approval route derives policy from root and keeps optimistic concurrency", () => {
+test("TAVILY-GOV-1 retired root approval endpoint is permanently blocked", () => {
   const route = read("app/api/admin/automation-discovery-roots/[id]/route.ts");
-  assert.match(route, /tavilySearchGovernancePresetForRoot\(root\)/);
-  assert.match(route, /expectedUpdatedAt:\s*governanceRead\.state\?\.updatedAt \?\? null/);
-  assert.doesNotMatch(route, /\.\.\.TAVILY_SEARCH_GOVERNANCE_PRESET/);
+  const retired = read("lib/legacy-automation-retired.ts");
+  assert.match(route, /legacyAutomationRetiredResponse/);
+  assert.match(retired, /status: 410/);
+  assert.doesNotMatch(route, /tavilySearchGovernancePresetForRoot|saveGovernance|waitUntil|\.prepare\(/);
 });
 
 test("TAVILY-GOV-1 blocked saved ADOPTION governance remains re-approvable in the UI", () => {
@@ -197,19 +198,16 @@ test("TAVILY-GOV-1 blocked saved ADOPTION governance remains re-approvable in th
   );
 });
 
-test("TAVILY-CANARY-1 operator actions are explicit and secret value is never rendered", () => {
+test("TAVILY-CANARY-1 legacy UI remains secret-safe but actions cannot reach the retired endpoint", () => {
   const ui = read("components/admin-tavily-root-detail.tsx");
   const route = read("app/api/admin/automation-discovery-roots/[id]/route.ts");
-  for (const label of ["Schváliť governance", "Schváliť root", "Zapnúť", "Spustiť jednorazový canary"]) {
-    assert.ok(ui.includes(label), label);
+  assert.match(route, /legacyAutomationRetiredResponse/);
+  for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
+    assert.match(route, new RegExp("export async function " + method + "\\\("));
   }
-  assert.match(route, /action === "governance-approve"/);
-  assert.match(route, /action === "approve-root"/);
-  assert.match(route, /action === "enable"/);
-  assert.match(route, /action === "canary"/);
+  assert.doesNotMatch(route, /action === "governance-approve"|action === "approve-root"|action === "enable"|action === "canary"/);
   assert.match(ui, /secretConfigured \? "configured" : "not configured"/);
-  assert.doesNotMatch(ui, /TAVILY_API_KEY/);
-  assert.doesNotMatch(ui, /apiKey/);
+  assert.doesNotMatch(ui, /TAVILY_API_KEY|apiKey/);
 });
 
 test("TAVILY-CANARY-1 approve and enable remain governance-gated", () => {
