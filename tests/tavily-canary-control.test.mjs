@@ -203,7 +203,7 @@ test("TAVILY-CANARY-1 legacy UI remains secret-safe but actions cannot reach the
   const route = read("app/api/admin/automation-discovery-roots/[id]/route.ts");
   assert.match(route, /legacyAutomationRetiredResponse/);
   for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
-    assert.match(route, new RegExp("export async function " + method + "\\\("));
+    assert.ok(route.includes("export async function " + method + "()"), method);
   }
   assert.doesNotMatch(route, /action === "governance-approve"|action === "approve-root"|action === "enable"|action === "canary"/);
   assert.match(ui, /secretConfigured \? "configured" : "not configured"/);
