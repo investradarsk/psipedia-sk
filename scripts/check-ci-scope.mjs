@@ -614,7 +614,8 @@ for (const id of ["pull-request-e2e", "production-smoke"]) {
 const coverage4 = [
   ["map", ["components/map/public-location-map.tsx"], ["MAPS"], ["map-public-ui-ci.yml"]],
   ["profiles", ["components/directory-profile-detail.tsx"], ["DIRECTORY_SERVICES", "ENTITY_SURFACES"], ["sitewide-ai-entity-surface-ci.yml"]],
-  ["homepage", ["app/page.tsx"], [], ["homepage-name-days-ci.yml"]],
+  ["homepage", ["app/page.tsx"], [], []],
+  ["name-days", ["lib/dog-name-day-calendar.ts"], [], ["homepage-name-days-ci.yml"]],
   ["articles", ["components/article-detail.tsx"], ["ARTICLES"], ["article-ux-ci.yml"]],
   ["notion-sync", ["lib/notion-article-sync.ts"], ["NOTION"], ["notion-article-sync-ci.yml"]],
   ["admin", ["components/admin-article-editor.tsx"], ["ADMIN", "ARTICLES"], ["article-admin-ci.yml"]],
