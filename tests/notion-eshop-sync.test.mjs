@@ -178,7 +178,14 @@ test("e-shop new-page import locks identity and uses a provisional mapping befor
   assert.match(code, /notionPageBelongsToDataSource\(latest, input\.dataSourceId\)/);
   assert.ok(code.indexOf("canonicalWriteUncertain = true") < code.indexOf("await createFromNotion"));
   assert.ok(code.indexOf('contentHash: ""') < code.indexOf("await writeShopToNotion("));
-  assert.ok(code.indexOf("canonicalWriteUncertain = false") > code.indexOf("await saveMapping({"));
+  const provisionalMappingAt = code.indexOf("await saveMapping({");
+  const resetUncertaintyAt = code.lastIndexOf("canonicalWriteUncertain = false");
+  const writebackAt = code.indexOf("await writeShopToNotion(");
+  assert.ok(provisionalMappingAt >= 0);
+  assert.ok(resetUncertaintyAt > provisionalMappingAt,
+    "release locks only after the provisional D1 mapping has been stored");
+  assert.ok(writebackAt > resetUncertaintyAt,
+    "remote Notion writeback must run after the durable provisional mapping");
   assert.match(code, /if \(!canonicalWriteUncertain\)/);
   assert.match(source, /createManagedEshop\(updateInput\(\{ \.\.\.desired, status: "draft" \}, logo\)/);
 });
