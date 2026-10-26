@@ -124,7 +124,7 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.doesNotMatch(section, /<SectionHero\b/);
   // The primary guide is now an article card, while the rest remains a content list.
   assert.match(section, /<ArticleCard\s+article=\{pillar\}/);
-  assert.match(section, /<SectionContentList\s+articles=\{remainingArticles\}/);
+  assert.match(section, /<SectionContentList\s+articles=\{furtherArticles\}/);
   assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
   assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(css, /@media \(max-width: 390px\)/);
