@@ -250,14 +250,15 @@ async function saveMapping(input: {
   psipediaUpdatedAt?: string | null;
   syncedAt: string;
 }) {
-  await input.database.prepare(
+  const receipt = await input.database.prepare(
     "INSERT INTO eshop_notion_sync (" +
     "notion_page_id,eshop_id,content_hash,notion_last_edited_time,psipedia_updated_at,last_synced_at,created_at,updated_at" +
     ") VALUES (?1,?2,?3,?4,?5,?6,?6,?6) " +
     "ON CONFLICT(eshop_id) DO UPDATE SET " +
     "notion_page_id=excluded.notion_page_id,content_hash=excluded.content_hash," +
     "notion_last_edited_time=excluded.notion_last_edited_time,psipedia_updated_at=excluded.psipedia_updated_at," +
-    "last_synced_at=excluded.last_synced_at,updated_at=excluded.updated_at",
+    "last_synced_at=excluded.last_synced_at,updated_at=excluded.updated_at " +
+    "WHERE eshop_notion_sync.notion_page_id=excluded.notion_page_id",
   ).bind(
     input.pageId,
     input.shopId,
@@ -266,6 +267,10 @@ async function saveMapping(input: {
     input.psipediaUpdatedAt ?? null,
     input.syncedAt,
   ).run();
+  // A missing change means a canonical shop is already linked to a DIFFERENT
+  // Notion page. Never silently reassign its identity or acknowledge the write.
+  if (!receipt.success || receipt.meta.changes !== 1)
+    throw new Error("ESHOP_MAPPING_REASSIGNMENT_BLOCKED");
 }
 
 async function fetchPage(bindings: NotionEshopSyncBindings, pageId: string) {
