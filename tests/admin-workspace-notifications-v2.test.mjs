@@ -74,3 +74,32 @@ test("admin home streams attention, quality and activity in independent suspense
   assert.doesNotMatch(home, /await Promise\.all\(/);
   assert.doesNotMatch(home, /attentionCount=\{attention\.active\}/);
 });
+
+test("workspace inbox excludes read receipts and canonically completed work before applying limit", () => {
+  const feed = read("lib/admin-workspace-feed.ts");
+  assert.match(feed, /WHERE r\.read_at IS NULL/);
+  assert.match(feed, /WHEN e\.source_type='PROFILE_REVIEW_MODERATION'[\s\S]*?p\.status='PENDING_REVIEW'/);
+  assert.match(feed, /WHEN e\.source_type='PARTNER_CLAIM_REVIEW'[\s\S]*?p\.status='PENDING'/);
+  assert.match(feed, /WHEN e\.source_type='NEWS_TIP'[\s\S]*?n\.status IN \('new','reviewing'\)/);
+  assert.match(feed, /WHEN e\.source_type='DIRECTORY_CHANGE_REQUEST'[\s\S]*?d\.status='new'/);
+  assert.match(feed, /WHEN e\.source_type='ARTICLE_FEEDBACK'[\s\S]*?a\.status IN \('new','reviewing'\)/);
+  assert.match(feed, /WHEN e\.source_type='QUALITY_MISSING'[\s\S]*?q\.status='OPEN'/);
+  assert.match(feed, /WHEN e\.source_type='FACEBOOK_IMAGE'[\s\S]*?f\.status<>'published'/);
+  assert.match(feed, /WHEN e\.source_type='GEMINI_CREATED'[\s\S]*?d\.status='draft'/);
+  assert.ok(feed.indexOf("WHERE r.read_at IS NULL") < feed.indexOf("LIMIT 30"));
+  assert.doesNotMatch(feed, /UPDATE (profile_reviews|news_tips|moderation_submissions)/);
+});
+
+test("dashboard prioritizes real queues and quick agendas over the activity feed", () => {
+  const dashboard = read("components/admin-workspace-dashboard.tsx");
+  const activity = read("components/admin-workspace-activity.tsx");
+  const attention = dashboard.indexOf('id="admin-priority-title"');
+  const community = dashboard.indexOf("<WorkspaceCommunity promise={attentionPromise} />");
+  const quick = dashboard.indexOf('aria-label="Automatizácie a rýchla správa"');
+  const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} />");
+  assert.ok(attention !== -1 && attention < community && community < quick && quick < feed);
+  assert.match(activity, /items\.filter\(x=>x\.id!==id\)/);
+  assert.match(activity, /hiddenIds\.current\.has\(x\.id\)/);
+  assert.match(activity, /visibilitychange/);
+  assert.match(activity, /window\.addEventListener\("focus"/);
+});
