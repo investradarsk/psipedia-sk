@@ -9,7 +9,8 @@ function mockDb(names, values = {}, failures = []) {
     prepare(sql) {
       statements.push(sql);
       function lookup(agenda) {
-        const key = sql.includes("FROM directory_notion_sync") ? "directory"
+        const key = sql.includes("FROM eshop_notion_sync m") ? "eshops-pending"
+          : sql.includes("FROM directory_notion_sync") ? "directory"
           : sql.includes("FROM breed_notion_sync") ? "breeds"
             : sql.includes("FROM article_notion_sync") ? "articles"
               : sql.includes("FROM eshop_notion_sync") ? "eshops"
@@ -193,7 +194,7 @@ test("pending evidence is bounded, honest, and missing tables never become a zer
     articles: { count: 2, last_at: "2026-10-25T10:00:00Z" },
     eshops: { count: 6, last_at: "2026-10-25T10:00:00Z" },
     "articles-outbox": { count: 3, last_at: null },
-  }, ["eshops"]);
+  }, ["eshops-pending"]);
   const rows = await readNotionSyncOverview(db);
   assert.equal(rows.length, 11);
   assert.equal(rows.find(x => x.area === "directory").pendingBasis, "REVISION_GAP");
