@@ -3,17 +3,13 @@ name: Organization profile E2E
 on:
   pull_request:
     branches: [main]
+    # Shared shell and unrelated geo migrations are checked by central CI.
+    # Run the expensive organization browser matrix for organization changes.
     paths:
-      - "app/layout.tsx"
-      - "app/*.css"
       - "app/organizacie/**"
       - "components/organization-profile-*"
       - "components/adoption-card-media.tsx"
       - "components/detail-primitives/**"
-      - "components/page-system.tsx"
-      - "components/site-header*"
-      - "components/site-footer*"
-      - "components/cookie-consent*"
       - "lib/help-organization-store.ts"
       - "lib/organization-adoption-store.ts"
       - "lib/organization-profile-presentation.ts"
@@ -21,10 +17,7 @@ on:
       - "lib/adoption.ts"
       - "lib/adoption-store.ts"
       - "lib/adoption-detail.ts"
-      - "lib/seo.ts"
-      - "lib/navigation-store.ts"
       - "db/adoption-schema.ts"
-      - "db/foundation-schema.ts"
       - "drizzle/0034_adoption_dogs_foundation.sql"
       - "drizzle/0036_help_organizations_foundation.sql"
       - "drizzle/0038_adoption_staging_data.sql"
@@ -32,19 +25,14 @@ on:
       - "drizzle/0040_organization_locations_foundation.sql"
       - "drizzle/0041_organization_fundraising_methods.sql"
       - "drizzle/0042_adoption_organization_relation_hardening.sql"
-      - "drizzle/0064_geo_foundation.sql"
-      - "drizzle/0074_directory_service_address.sql"
-      - "drizzle/0077_directory_geo_provider_result_id.sql"
-      - "drizzle/0090_geo_google_place_identity.sql"
       - "scripts/bootstrap-adoption-staging-ci.mjs"
       - "tests/e2e/organization-profile.spec.ts"
       - "tests/fixtures/organization-profile-e2e.sql"
       - "tests/organization-profile-presentation.test.mjs"
       - "tests/organization-profile-route.test.mjs"
       - "playwright.config.ts"
-      - "vite.config.*"
-      - "tsconfig.json"
       - ".github/workflows/organization-profile-e2e.yml"
+  workflow_dispatch:
 
 concurrency:
   group: organization-profile-e2e-${{ github.ref }}
