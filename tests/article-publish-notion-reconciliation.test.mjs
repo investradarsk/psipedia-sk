@@ -25,6 +25,8 @@ const syncDependencies = {
   "@/lib/article-store": {},
   "@/lib/article-blocks": {},
   "@/lib/article-promo": {},
+  "@/lib/notion-article-image-source": { notionArticleMainImageSource: () => ({ url: "", identity: "", fileIdentity: null, kind: "none" }) },
+  "@/lib/notion-article-related-publication": { assertPublishedRelatedBlocks: async () => {} },
   "@/lib/editorial-content": { EDITORIAL_RICH_TEXT_VERSION: 1 },
   "@/lib/portal": { articleHref: ({ portalSection, slug }) => "/" + portalSection + "/" + slug },
   "@/lib/article-subsection-taxonomy": {},
