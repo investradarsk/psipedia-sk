@@ -74,8 +74,11 @@ export async function loadAdminWorkspaceFeed(email:string,db=database()):Promise
               THEN EXISTS (SELECT 1 FROM quality_missing_proposals q
                 WHERE q.entity_id=CAST(e.resource_ref AS INTEGER)
                   AND q.area=e.resource_type AND q.status='OPEN')
-            WHEN e.source_type='FACEBOOK_IMAGE'
-              AND e.event_type IN ('facebook_image_imported','facebook_image_failed')
+            WHEN e.source_type='FACEBOOK_IMAGE' AND e.event_type='facebook_image_imported'
+              THEN EXISTS (SELECT 1 FROM facebook_image_posts f
+                WHERE f.id=e.resource_ref
+                  AND f.status='draft' AND f.approval_status='UNREVIEWED')
+            WHEN e.source_type='FACEBOOK_IMAGE' AND e.event_type='facebook_image_failed'
               THEN EXISTS (SELECT 1 FROM facebook_image_posts f
                 WHERE f.id=e.resource_ref AND f.status<>'published')
             WHEN e.source_type='GEMINI_CREATED' AND e.resource_type='DIRECTORY'
