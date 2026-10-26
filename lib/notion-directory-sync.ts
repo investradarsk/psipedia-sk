@@ -1504,7 +1504,8 @@ export async function runNotionDirectorySyncSweep(input: {
     lookupPromise ??= loadNotionCatalogRelationLookup(input.bindings);
     return syncProfileCatalogRelation({
       db: input.database, bindings: input.bindings, pageId, profileId,
-      category: profile.category, lookup: await lookupPromise,
+      category: profile.category, directoryDataSourceId: dataSourceId,
+      lookup: await lookupPromise,
     });
   }
 
