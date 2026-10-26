@@ -1689,8 +1689,9 @@ await requireVerifiedMappedNotionWriteback({
       // The scheduled sweep can race with a webhook on the same new page.
       // Give ALL canonical imports the same locks, including manual Ready rows,
       // not just Gemini provenance. No second D1 identity may be created.
-      if (input.mode === "sync") {
-        // Serialize create with the existing per-agenda and page locks.
+      if (trustedGemini || input.reviewedLegacy || input.webhookImportUnmapped || input.mode === "sync") {
+        // Preserve Gemini's original lock contract and serialize all scheduled
+        // creates, including manual Ready rows, with webhook deliveries.
         releaseImport = await acquireGeminiNotionLock(input.database, "gemini-canonical-import-" + input.definition.key);
         if (!releaseImport) {
           summary.conflicts += 1;
