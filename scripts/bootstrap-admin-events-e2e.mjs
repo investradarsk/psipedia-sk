@@ -15,6 +15,10 @@ const migrations = readdirSync('drizzle').filter(name => name.endsWith('.sql')).
 // can hide the CREATE TABLE that follows and break local E2E bootstrapping.
 const schemaStatements = migrations.flatMap(name =>
   readFileSync('drizzle/' + name, 'utf8')
+    // Drizzle may append "--> statement-breakpoint" after a semicolon.
+    // It is a marker, not SQL: leaving it before the next CREATE TABLE
+    // silently skips that table and causes "no such table" in later ALTERs.
+    .replace(/-->[ \t]*statement-breakpoint[ \t]*(?:\r?\n|$)/g, '\n')
     .replace(/^[ \t]*--[^\r\n]*(?:\r?\n|$)/gm, '')
     .split(';')
     .map(statement => statement.trim())
