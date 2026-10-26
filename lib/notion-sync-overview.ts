@@ -32,7 +32,12 @@ export type NotionOverviewRow = {
   pendingBasis: "REVISION_GAP" | "EDITORIAL_OUTBOX" | "NOT_RECORDED";
 };
 
-const KNOWN_TABLES = new Set<string>(NOTION_SYNC_OVERVIEW_AREAS.map((area) => area.table));
+// Names come only from our static allowlist; none can come from a request.
+const KNOWN_TABLES = new Set<string>([
+  ...NOTION_SYNC_OVERVIEW_AREAS.map((area) => area.table),
+  "directory_profiles", "managed_eshops", "eshop_ratings",
+  "article_notion_editorial_outbox",
+]);
 
 function finiteCount(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
