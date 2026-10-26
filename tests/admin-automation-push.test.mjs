@@ -215,11 +215,11 @@ test("Notion run receipts stay in operational history, not workspace alerts or p
 
   // Filter old persisted rows, not just new records. Receipts are still written
   // and available for operational Notion status and manual history inspection.
-  const hiddenReceipt = /AND NOT \\(e\\.source_type='AUTOMATION_RUN' AND e\\.resource_type='notion'\\)/;
-  assert.match(read("lib/admin-workspace-feed.ts"), hiddenReceipt);
+  const hiddenReceipt = "AND NOT (e.source_type='AUTOMATION_RUN' AND e.resource_type='notion')";
+  assert.ok(read("lib/admin-workspace-feed.ts").includes(hiddenReceipt));
   const push = read("lib/admin-push.ts");
-  assert.match(push, hiddenReceipt);
-  assert.match(push, /isAdminPushEventAllowed\\(parseStoredPushCategories\\(row\\.categories_json\\),row\\.event_type,row\\.source_type,row\\.resource_type\\)/);
+  assert.ok(push.includes(hiddenReceipt));
+  assert.ok(push.includes("isAdminPushEventAllowed(parseStoredPushCategories(row.categories_json),row.event_type,row.source_type,row.resource_type)"));
   assert.match(read("lib/admin-automation-events.ts"), /sourceType: "AUTOMATION_RUN"/);
   assert.match(read("lib/notion-sync-run-receipts.ts"), /FROM admin_notification_events/);
   assert.match(read("app/admin/operations/automaticke-udalosti/page.tsx"), /e.source_type = 'AUTOMATION_RUN'/);
