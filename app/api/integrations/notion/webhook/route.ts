@@ -78,8 +78,9 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       database: bindings.DB, bindings, targetPageId: id,
     });
   } else if (bindings.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED === "true") {
-    // Dynamic event/help targets are resolved only from existing verified D1
-    // mappings, never from a title or a user-controlled Notion property.
+    // Dynamic event/help targets come from canonical D1 agenda configuration,
+    // never from a page title or a Notion-editable category. Unmapped pages
+    // may enter ONLY the existing private-draft / human-Ready import gate.
     const table = await bindings.DB.prepare(
       "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='notion_agenda_targets' LIMIT 1",
     ).first<{ ok: number }>();
@@ -94,6 +95,10 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       database: bindings.DB, bindings, mode: "sync",
       agendas: [agenda.agenda as (typeof allowed)[number]],
       targetPageId: id, webhookMappedOnly: true,
+      // Signed, owner-verified one-page delivery: unmapped Ready pages and
+      // trusted Gemini private drafts may now be imported immediately.
+      // Admin targeted writeback still does NOT enable this option.
+      webhookImportUnmapped: true,
     });
     if (result.totals.failed === 0 && (result.totals.conflicts || result.totals.reviewRequired))
       return "review-required";
