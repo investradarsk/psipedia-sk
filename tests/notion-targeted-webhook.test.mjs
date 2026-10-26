@@ -183,3 +183,20 @@ test("Admin save sync fails closed and never reports unconfigured or unmapped as
   assert.ok(help.includes("webhookMappedOnly: true"));
   assert.ok(help.includes("agendas: [input.agenda]"));
 });
+
+test("Events and Help targeted writes avoid reading unrelated agenda mappings", async () => {
+  const source = await readFile(
+    new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const mappings = source.slice(source.indexOf("async function loadMappings("),
+    source.indexOf("async function saveMapping("));
+  assert.ok(mappings.includes("targetPageId?: string"));
+  assert.ok(mappings.includes(' WHERE notion_page_id=?'));
+  assert.ok(mappings.includes(' AND notion_page_id=?'));
+  assert.ok(source.includes("input.webhookMappedOnly ? input.targetPageId : undefined"));
+  assert.ok(source.includes('input.definition.key === "help-cases" && !input.webhookMappedOnly'),
+    "global Help diagnostics must not turn an unrelated conflict into a failed one-record save");
+  const hook = await readFile(
+    new URL("../lib/notion-targeted-admin-help.ts", import.meta.url), "utf8");
+  assert.ok(hook.includes("webhookMappedOnly: true"));
+  assert.ok(hook.includes("targetPageId: mapping.notion_page_id"));
+});
