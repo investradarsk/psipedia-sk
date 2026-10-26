@@ -205,9 +205,6 @@ export function AdminWorkspaceDashboard({
 }) {
   return (
     <div className={styles.workspace}>
-      <Suspense fallback={<p role="status">Načítava sa pracovný feed…</p>}>
-        <WorkspaceActivityPanel promise={activityPromise} />
-      </Suspense>
       <Suspense fallback={null}>
         <WorkspaceReliabilityPanel promise={qualityPromise} />
       </Suspense>
@@ -264,6 +261,10 @@ export function AdminWorkspaceDashboard({
           </div>
         </article>
       </section>
+      // Event history belongs after actionable queues and commonly used agendas.
+      <Suspense fallback={<p role="status">Načítava sa pracovný feed…</p>}>
+        <WorkspaceActivityPanel promise={activityPromise} />
+      </Suspense>
 
     </div>
   );
