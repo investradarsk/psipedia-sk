@@ -31,15 +31,15 @@ test("operations bell retains exact availability and unavailable source semantic
   assert.doesNotMatch(projection, /loadAdminAttentionPage/);
 });
 
-test("activity feed avoids hidden-tab polls, overlapping GETs and stale acknowledgement resets", () => {
+test("workspace activity reuses canonical main feed with single-flight refresh and hidden read events", () => {
   const source = read("components/admin-workspace-activity.tsx");
-  assert.match(source, /refreshInFlight\.current\)return refreshInFlight\.current/);
-  assert.match(source, /document\.visibilityState==="visible"&&navigator\.onLine/);
-  assert.match(source, /document\.addEventListener\("visibilitychange",poll\)/);
-  assert.match(source, /document\.removeEventListener\("visibilitychange",poll\)/);
-  assert.match(source, /acknowledgedIds\.current\.add\(id\)/);
-  assert.match(source, /acknowledgedIds\.current\.has\(item\.id\)/);
-  assert.match(source, /window\.setInterval\(poll,60_000\)/);
+  assert.match(source, /refreshPending\.current\)return refreshPending\.current/);
+  assert.match(source, /document\.visibilityState==="visible"/);
+  assert.match(source, /document\.addEventListener\("visibilitychange",onReturn\)/);
+  assert.match(source, /document\.removeEventListener\("visibilitychange",onReturn\)/);
+  assert.match(source, /hiddenIds\.current\.add\(id\)/);
+  assert.match(source, /hiddenIds\.current\.has\(x\.id\)/);
+  assert.match(source, /window\.setInterval\(onReturn,60_000\)/);
 });
 
 
