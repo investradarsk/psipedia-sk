@@ -230,18 +230,16 @@ export function ArticleDetail({
             <EditorialRichText className="article-intro" document={introDocument} keyPrefix="article-intro" />
             {showTakeaway ? <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside> : null}
             {showTableOfContents ? (
-              <details className={styles.toc}>
-                <summary>Obsah článku</summary>
-                <nav aria-label="Obsah článku">
-                  <ol>
-                    {tocHeadings.map((heading) => (
-                      <li key={heading.blockId}>
-                        <a href={`#${heading.id}`}>{heading.text}</a>
-                      </li>
-                    ))}
-                  </ol>
-                </nav>
-              </details>
+              <nav className={styles.toc} aria-label="Obsah článku">
+                <strong className={styles.tocTitle}>Obsah článku</strong>
+                <ol>
+                  {tocHeadings.map((heading) => (
+                    <li key={heading.blockId}>
+                      <a href={`#${heading.id}`}>{heading.text}</a>
+                    </li>
+                  ))}
+                </ol>
+              </nav>
             ) : null}
             <ArticleBlocks blocks={contentBlocks} promoUtcDay={discovery.utcDay} />
             {sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} /> : null}
