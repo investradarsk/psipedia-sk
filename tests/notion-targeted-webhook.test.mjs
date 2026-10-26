@@ -200,3 +200,63 @@ test("Events and Help targeted writes avoid reading unrelated agenda mappings", 
   assert.ok(hook.includes("webhookMappedOnly: true"));
   assert.ok(hook.includes("targetPageId: mapping.notion_page_id"));
 });
+
+test("unmapped Events/Help Notion webhook pages are imported through existing review gates", async () => {
+  const webhook = await readFile(
+    new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
+  const sync = await readFile(
+    new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.ok(webhook.includes("verifyNotionWebhook("));
+  assert.ok(webhook.includes("notionPageBelongsToDataSource(page,"));
+  assert.ok(webhook.includes("webhookMappedOnly: true,"));
+  assert.ok(webhook.includes("webhookImportUnmapped: true,"));
+  assert.equal(webhook.includes("runNotionFacebookImagesSync("), false);
+  assert.equal(webhook.includes("runServicesV3CatalogAutoSweep("), false);
+  const mapped = sync.slice(sync.indexOf("// Webhook fast path:"),
+    sync.indexOf("let sources = await input.definition.load("));
+  assert.ok(mapped.includes("if (!mapping && !input.webhookImportUnmapped) return summary"),
+    "Admin writeback must continue to skip unknown Notion pages");
+  assert.ok(mapped.includes("if (mapping) {"), "mapped webhook pages still use their verified ID");
+  assert.ok(mapped.includes("const webhookNewPage ="));
+  assert.ok(mapped.includes("pages = [page]"), "new page path must not enumerate the whole Notion source");
+  assert.ok(mapped.includes("if (clean(pageProperty(page, \"Psipedia ID\"))) return summary"),
+    "a Notion-claimed canonical ID is never imported as a new identity");
+  assert.ok(mapped.includes("readyForCreate(input.definition.key, preview)"));
+  assert.ok(mapped.includes("gemini_notion_created_pages"),
+    "only signed worker provenance may bypass human Ready");
+  const loop = sync.slice(sync.indexOf("for (const source of sources)"),
+    sync.indexOf("// Import new Notion rows"));
+  assert.ok(loop.includes("if (webhookNewPage) break"),
+    "new-page delivery must NEVER bootstrap unrelated canonical profiles");
+  assert.ok(sync.includes("trustedGeminiSourceIsPrivateDraft("));
+  assert.ok(sync.includes("helpCaseMayEnterCanonicalSync("));
+  assert.ok(sync.includes("sourceDuplicateCandidate("));
+  assert.ok(sync.includes("createCanonicalFromNotion(input.definition.key, draftValues"));
+});
+
+test("new-page webhook mode requires one signed-target scope and cannot bypass review", async () => {
+  const sync = await readFile(
+    new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const runner = sync.slice(sync.indexOf("export async function runNotionEventsHelpSyncSweep"));
+  assert.ok(runner.includes('throw new Error("NOTION_WEBHOOK_NEW_PAGE_SCOPE_INVALID")'));
+  assert.ok(runner.includes('input.mode !== "sync" || input.reviewedLegacy'));
+  assert.ok(runner.includes("input.agendas?.length !== 1"));
+  assert.ok(runner.includes("input.webhookMappedOnly"));
+  assert.ok(runner.includes("webhookImportUnmapped: input.webhookImportUnmapped"));
+  const create = sync.slice(sync.indexOf("// Import new Notion rows"), sync.indexOf("// Canonical GEO"));
+  assert.ok(create.includes("input.targetPageId && page.id !== input.targetPageId"));
+  assert.ok(create.includes("if (mappedPageIds.has(page.id)) continue"));
+  assert.ok(create.includes("provenance.canonical_entity_id !== null"));
+  assert.ok(create.includes("GEMINI_PRIVATE_DRAFT_REQUIRED"));
+  assert.ok(create.includes("GEMINI_PROVENANCE_MISMATCH"));
+  assert.ok(create.includes("GEMINI_CATEGORY_MISMATCH"));
+  assert.ok(create.includes('clean(pageProperty(page, "Vytvoril")) === "Gemini automatizácia"'));
+  assert.ok(create.includes("const liveMappings = await loadMappings("));
+  assert.ok(create.includes("acquireGeminiNotionLock(input.database, page.id)"));
+  assert.ok(create.includes("const latest = await notionRequest<NotionPage>"));
+  assert.ok(create.includes("if (sourceDuplicateCandidate(latest"));
+  assert.ok(create.indexOf("await saveMapping({") < create.indexOf("const written = await writeSourceToNotion({"),
+    "durable mapping must be recorded before uncertain remote writeback");
+  assert.ok(create.includes("if (trustedGemini) {"));
+  assert.ok(create.includes("UPDATE gemini_notion_created_pages SET canonical_entity_id"));
+});
