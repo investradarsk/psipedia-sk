@@ -1455,6 +1455,8 @@ export async function runNotionDirectorySyncSweep(input: {
   targetPageId?: string;
   /** Direct Admin save: reconcile only an already linked canonical profile. */
   targetProfileId?: number;
+  /** Explicit Services V3 choice save only: also reconcile its Notion relation. */
+  syncServiceRelations?: boolean;
   expectedNotionRevision?: string;
 }): Promise<NotionDirectorySyncSummary> {
   // One operation may target a Notion page OR a canonical Admin profile, never both.
@@ -1485,6 +1487,25 @@ export async function runNotionDirectorySyncSweep(input: {
   summary.schemaReady = await schemaReady(input.database);
   if (!summary.schemaReady) return summary;
 
+  // Reuse the existing Services V3 relation reconciler for hourly runs and
+  // explicit Admin service-choice saves. Ordinary profile saves do not query
+  // the entire service catalog; no new cron, schema or parallel writer.
+  let relationSchemaReady: Promise<boolean> | undefined;
+  let lookupPromise: Promise<CatalogRelationLookup> | null = null;
+  async function syncRelation(pageId: string, profileId: number) {
+    relationSchemaReady ??= input.database.prepare(
+      "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'"
+    ).first<{ok:number}>().then(Boolean);
+    if (!await relationSchemaReady) return "skipped" as const;
+    const profile = await getManagedDirectoryProfileById(profileId, input.database);
+    if (!profile) throw new Error("SERVICES_RELATION_PROFILE_NOT_FOUND");
+    lookupPromise ??= loadNotionCatalogRelationLookup(input.bindings);
+    return syncProfileCatalogRelation({
+      db: input.database, bindings: input.bindings, pageId, profileId,
+      category: profile.category, lookup: await lookupPromise,
+    });
+  }
+
   // Admin -> Notion fast path: no data-source query, backfill or unrelated profiles.
   // It reuses the verified per-field reconciliation and never creates mappings.
   if (input.targetProfileId !== undefined) {
@@ -1499,28 +1520,17 @@ export async function runNotionDirectorySyncSweep(input: {
       if (action === "pulled") summary.pulledFromNotion++;
       else if (action === "pushed") summary.pushedToNotion++;
       else summary.unchanged++;
+      // Only an explicit service-choice save enables this additional targeted
+      // relation. A skipped relation does NOT count as successfully mirrored.
+      if (input.syncServiceRelations) {
+        const relation = await syncRelation(mapping.notion_page_id, input.targetProfileId);
+        if (relation === "skipped") summary.failed++;
+      }
     } catch {
       // The canonical save has already succeeded; the hourly sweep retries it.
       summary.failed++;
     }
     return summary;
-  }
-
-  // The relation is an optional, additive Notion UI bridge. Without migration
-  // 0140 the existing Directory article/profile sync behaves exactly as before.
-  const relationSchema=await input.database.prepare(
-    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'"
-  ).first<{ok:number}>();
-  let lookupPromise:Promise<CatalogRelationLookup>|null=null;
-  async function syncRelation(pageId:string,profileId:number){
-    if(!relationSchema)return;
-    const profile=await getManagedDirectoryProfileById(profileId,input.database);
-    if(!profile)return;
-    lookupPromise??=loadNotionCatalogRelationLookup(input.bindings);
-    await syncProfileCatalogRelation({
-      db:input.database,bindings:input.bindings,pageId,profileId,
-      category:profile.category,lookup:await lookupPromise
-    });
   }
 
   let pages: NotionPage[];
