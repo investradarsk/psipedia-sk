@@ -176,7 +176,7 @@ async function discoverWithStagedImage(
         httpMetadata:{contentType:stored.contentType,cacheControl:"private, no-store"},
         customMetadata:{source:"quality-missing-unapproved",sourceImageUrl:remote.finalUrl.slice(0,400)},
       });
-      findings.push({field:imageField,value:QUALITY_CANDIDATE_PREFIX+key,source:remote.finalUrl});
+      findings.unshift({field:imageField,value:QUALITY_CANDIDATE_PREFIX+key,source:remote.finalUrl});
       break;
     } catch {
       if(key) await bucket.delete(key).catch(()=>undefined);
