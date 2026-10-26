@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import type { MissingQualityDashboard, MissingQualityProposal, QualityArea, ManualQualityResponse, ManualQualityCursor, ManualQualityGroup } from "@/lib/data-quality-missing-hourly";
 import styles from "./admin-missing-quality-dashboard.module.css";
 
@@ -73,6 +75,8 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   const [busy,setBusy]=useState<number|null>(null);
   const [bulkBusy,setBulkBusy]=useState(false);
   const [notice,setNotice]=useState("");
+  const [noticeError,setNoticeError]=useState(false);
+  const [pendingRejectIds,setPendingRejectIds]=useState<number[]|null>(null);
   const [manualMode,setManualMode]=useState<"profiles"|"free">("profiles");
   const [manualGroup,setManualGroup]=useState<ManualQualityGroup>("image");
   const [manualQuery,setManualQuery]=useState("");
@@ -142,7 +146,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   }
   async function decide(item:MissingQualityProposal,action:"accept"|"reject") {
     if(busy!==null||bulkBusy||manualBusy)return;
-    setBusy(item.id);setNotice("");
+    setBusy(item.id);setNotice("");setNoticeError(false);
     try{
       const response=await fetch(`/api/admin/data-quality/missing/${item.id}`,{
         method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action}),
@@ -152,15 +156,13 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       setRemovedIds(prev=>[...prev,item.id]);
       setNotice(action==="accept"?"Údaj bol doplnený do profilu.":"Návrh bol zamietnutý.");
       router.refresh();
-    }catch(error){setNotice(error instanceof Error?error.message:"Návrh sa nepodarilo spracovať.");}
+    }catch(error){setNoticeError(true);setNotice(error instanceof Error?error.message:"Návrh sa nepodarilo spracovať.");}
     finally{setBusy(null)}
   }
-  async function rejectVisible() {
-    if(!shown.length||busy!==null||bulkBusy||manualBusy)return;
-    if(!window.confirm(`Zamietnuť všetkých ${shown.length} zobrazených návrhov?\nNávrhy sa odstránia zo zoznamu.`))return;
-    setBulkBusy(true);setNotice("");
+  async function rejectVisible(ids:number[]) {
+    if(!ids.length||busy!==null||bulkBusy||manualBusy)return;
+    setBulkBusy(true);setNotice("");setNoticeError(false);
     try{
-      const ids=shown.map(x=>x.id);
       const rejected:number[]=[];
       let failed=0;
       for(let from=0;from<ids.length;from+=200){
@@ -174,8 +176,9 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       }
       setRemovedIds(prev=>[...prev,...rejected]);
       setNotice(failed?`Zamietnuté: ${rejected.length}. Nepodarilo sa: ${failed}.`:`Zamietnutých ${rejected.length} návrhov.`);
+      setPendingRejectIds(null);
       router.refresh();
-    }catch(error){setNotice(error instanceof Error?error.message:"Zamietnutie zlyhalo.");}
+    }catch(error){setNoticeError(true);setNotice(error instanceof Error?error.message:"Zamietnutie zlyhalo.");}
     finally{setBulkBusy(false)}
   }
   if(!data.schemaReady)return (
@@ -314,7 +317,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
           </button>;
         })}
       </div>
-      {notice?<div role="status" className={styles.notice}>{notice}</div>:null}
+      <AdminFormFeedback error={noticeError?notice:undefined} message={!noticeError?notice:undefined} className={styles.notice}/>
       {data.truncated?<p className={styles.subtle}>Zobrazuje sa prvých 1 000 návrhov. Po ich spracovaní sa načítajú ďalšie.</p>:null}
       {shown.length===0?<div className={styles.empty}>V tejto kategórii zatiaľ nie sú žiadne nájdené údaje na schválenie.</div>:(
         <>
@@ -334,15 +337,15 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
               <div className={styles.actions}>
                 {p.field_group==="image"?<button type="button" className={styles.reject} disabled={manualBusy||!data.manualReady||busy!==null||bulkBusy}
                   onClick={()=>void findOtherImage(p)}>Hľadať iný obrázok</button>:null}
-                <button type="button" className={styles.reject} disabled={busy!==null||bulkBusy||manualBusy} onClick={()=>void decide(p,"reject")}>Zamietnuť</button>
-                <button type="button" className={styles.accept} disabled={busy!==null||bulkBusy} onClick={()=>void decide(p,"accept")}>{busy===p.id?"Ukladám…":"Schváliť"}</button>
+                <AdminActionButton variant="destructive" className={styles.reject} disabled={busy!==null||bulkBusy||manualBusy} onClick={()=>void decide(p,"reject")}>Zamietnuť</AdminActionButton>
+                <AdminActionButton variant="primary" className={styles.accept} disabled={busy!==null||bulkBusy} onClick={()=>void decide(p,"accept")}>{busy===p.id?"Ukladám…":"Schváliť"}</AdminActionButton>
               </div>
             </article>)}
           </div>
           <div className={styles.footer}>
-            <button type="button" className={styles.rejectAll} onClick={()=>void rejectVisible()} disabled={bulkBusy||busy!==null||manualBusy}>
+            <AdminActionButton variant="destructive" className={styles.rejectAll} onClick={()=>setPendingRejectIds(shown.map(p=>p.id))} disabled={bulkBusy||busy!==null||manualBusy}>
               {bulkBusy?"Zamietam…":`Zamietnuť všetky zobrazené (${shown.length})`}
-            </button>
+            </AdminActionButton>
           </div>
         </>
       )}
@@ -355,5 +358,13 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
         <a href={preview} target="_blank" rel="noopener noreferrer">Otvoriť pôvodný obrázok ↗</a>
       </div>
     </div>:null}
+    <AdminDestructiveConfirmDialog
+      open={pendingRejectIds!==null} title="Zamietnuť všetky zobrazené návrhy"
+      description="Návrhy sa odstránia zo zoznamu."
+      affectedCount={pendingRejectIds?.length??0} affectedLabel="návrhov"
+      confirmLabel="Zamietnuť všetky zobrazené" pending={bulkBusy}
+      onCancel={()=>{if(!bulkBusy)setPendingRejectIds(null);}}
+      onConfirm={()=>{if(pendingRejectIds)void rejectVisible(pendingRejectIds);}}
+    />
   </div>;
 }

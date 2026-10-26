@@ -4,7 +4,8 @@ import {useEffect,useMemo,useRef,useState} from "react";
 import {getCoreRowModel,useReactTable,type ColumnDef} from "@tanstack/react-table";
 import {useVirtualizer} from "@tanstack/react-virtual";
 import {useRouter} from "next/navigation";
-import {AdminActionButton} from "@/components/admin-interaction-system";
+import {AdminActionButton, AdminDestructiveConfirmDialog} from "@/components/admin-interaction-system";
+import {AdminFormFeedback} from "@/components/admin-form-feedback";
 import {EditorActionBar,EditorWorkspace} from "@/components/admin-editor-workspace";
 import type {CatalogEditorItem} from "@/lib/service-catalog-admin-editor-view";
 import styles from "./admin-service-catalog.module.css";
@@ -29,6 +30,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [messageIsError,setMessageIsError]=useState(false);
+  const [archiveCandidate,setArchiveCandidate]=useState<CatalogEditorItem|null>(null);
   const visible=useMemo(()=>items.filter(item=>{
     const q=query.trim().toLocaleLowerCase("sk");
     return (!q||[item.label,item.group,item.meaning].some(s=>s.toLocaleLowerCase("sk").includes(q)))
@@ -93,7 +95,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
     setEditing(item);
   }
   async function archive(item:CatalogEditorItem){
-    if(!mayEdit(item)||busy||!window.confirm("Archivovať túto službu? Existujúce profily sa nezmažú."))return;
+    if(!mayEdit(item)||busy)return;
     setBusy(true);setMessage("");setMessageIsError(false);
     try{
       const res=await fetch("/api/admin/service-catalog/options/"+encodeURIComponent(item.id),{
@@ -102,7 +104,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       });
       const data=await res.json() as ErrorResponse;
       if(!res.ok||!data.option?.id)throw new Error(data.error??"Archivácia sa nepodarila.");
-      setSelectedId(null);setMessage("Služba bola archivovaná.");router.refresh();
+      setSelectedId(null);setArchiveCandidate(null);setMessage("Služba bola archivovaná.");router.refresh();
     }catch(e){setMessageIsError(true);setMessage(e instanceof Error?e.message:"Chyba archivácie.");}
     finally{setBusy(false);}
   }
@@ -158,14 +160,15 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
             {selected.source==="admin"&&<>
               <AdminActionButton disabled={!mayEdit(selected)||busy} onClick={()=>beginEdit(selected)}>Upraviť</AdminActionButton>
               <AdminActionButton variant="destructive" disabled={!mayEdit(selected)||busy}
-                onClick={()=>archive(selected)}>Archivovať</AdminActionButton>
+                onClick={()=>setArchiveCandidate(selected)}>Archivovať</AdminActionButton>
             </>}
             {selected.source==="built_in"&&<p className={styles.muted}>Súčasť existujúceho katalógu.</p>}
           </div>
         </>:<p>Vyber službu zo zoznamu.</p>}
       </div>
     </div>
-    {message&&<p role={messageIsError?"alert":"status"} className={messageIsError?styles.error:styles.notice}>{message}</p>}
+    <AdminFormFeedback error={messageIsError?message:undefined} message={!messageIsError?message:undefined}
+      errorClassName={styles.error} successClassName={styles.notice}/>
     <details className={styles.statusDetails}>
       <summary>Technické informácie o synchronizácii</summary>
       <p>Služby sa ukladajú v Psipedii. Prenos do Notionu sa vykonáva automaticky na pozadí.</p>
@@ -175,8 +178,8 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       description="Zadaj názov a vyber jednu alebo viac kategórií."
       sections={[{id:"service-option-main",label:"Základné údaje"}]}
       dirty={dirty} onClose={close}
-      actions={<EditorActionBar
-        secondary={<AdminActionButton disabled={busy} onClick={()=>{if(!dirty||window.confirm("Zahodiť neuložené zmeny?"))close();}}>Zrušiť</AdminActionButton>}
+      actions={(requestClose)=><EditorActionBar
+        secondary={<AdminActionButton disabled={busy} onClick={requestClose}>Zrušiť</AdminActionButton>}
         primary={<AdminActionButton variant="primary" disabled={busy||!draftValid||Boolean(editing&&!dirty)}
           onClick={persist}>{busy?"Ukladám…":"Uložiť"}</AdminActionButton>}/>}>
       <section id="service-option-main" data-admin-editor-section tabIndex={-1} className={styles.formGrid}>
@@ -201,5 +204,16 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
         </details>
       </section>
     </EditorWorkspace>}
+    <AdminDestructiveConfirmDialog
+      open={archiveCandidate!==null}
+      title="Archivovať službu"
+      description="Existujúce profily sa nezmažú."
+      affectedCount={archiveCandidate ? 1 : 0}
+      affectedLabel="službu"
+      confirmLabel="Archivovať"
+      pending={busy}
+      onCancel={()=>{if(!busy)setArchiveCandidate(null);}}
+      onConfirm={()=>{if(archiveCandidate)void archive(archiveCandidate);}}
+    />
   </section>;
 }

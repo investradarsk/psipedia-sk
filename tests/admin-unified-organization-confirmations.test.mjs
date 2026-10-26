@@ -34,13 +34,20 @@ test("organization bulk lifecycle keeps selection/version contract and safe canc
   assert.match(src, /bulkSelection\.clear\(\)/);
 });
 
-test("Partner E2E uses browser dialog only where the existing editor still uses native confirmation", () => {
+test("Partner E2E confirms every moderation action with shared in-page dialogs", () => {
   const e2e = read("tests/e2e/partner-auth.spec.ts");
   const admin = e2e.slice(e2e.indexOf('test("internal admin Partner overview'), e2e.indexOf('for (const token of [', e2e.indexOf('test("internal admin Partner overview')));
   for (const label of ["Vytvoriť nový profil?", "Prepojiť tento profil?", "Schváliť zmeny profilu?", "Overiť správcu profilu?", "Schváliť prevzatie profilu?"]) {
     assert.ok(admin.includes('getByRole("dialog",{name:"' + label + '"})'), label);
   }
   assert.match(admin, /await createDialog\.getByRole\("button",\{name:"Zrušiť"\}\)\.click\(\)/);
-  // Only the unchanged Partner Events editor still emits native window.confirm.
-  assert.equal((admin.match(/page\.once\("dialog"/g) ?? []).length, 2);
+  // The Partner Events editor now uses the same safe modal as other admin actions.
+  // Confirm that neither event action still accepts a native browser confirmation.
+  assert.equal((admin.match(/page\.once\("dialog"/g) ?? []).length, 0);
+  assert.match(admin, /getByRole\("dialog",\{name:"Potvrdiť partnerské rozhodnutie"\}\)/);
+  assert.match(admin, /createEventDialog\.getByRole\("button",\{name:"Zrušiť"\}\)\.click\(\)/);
+  assert.match(admin, /createEventDialog\.getByRole\("button",\{name:"Potvrdiť"\}\)\.click\(\)/);
+  assert.match(admin, /approveEventDialog\.getByRole\("button",\{name:"Potvrdiť"\}\)\.click\(\)/);
+  assert.match(read("components/admin-partner-event-actions.tsx"), /<AdminDestructiveConfirmDialog/);
+  assert.doesNotMatch(read("components/admin-partner-event-actions.tsx"), /window\.confirm/);
 });

@@ -22,9 +22,12 @@ test("Radix and Lexical must remain opt-in and must not replace canonical articl
   for(const val of ['from "@radix-ui/react-dialog"','from "@lexical/react/LexicalComposer"','from "@lexical/react/LexicalPlainTextPlugin"','from "@lexical/react/LexicalOnChangePlugin"'])assert.ok(draft.includes(val));
   assert.ok(draft.includes("Pridať do popisu"));
 });
-test("dnd-kit stays in gallery with arrow and remove accessibility controls",()=>{
+test("dnd-kit stays in the shared gallery sorter with arrow and remove accessibility controls",()=>{
   const gallery=read("components/admin-photo-gallery.tsx");
-  for(const val of ['from "@dnd-kit/core"','from "@dnd-kit/sortable"','from "@dnd-kit/utilities"','<DndContext','<SortableContext','ref={setActivatorNodeRef}','onChange(arrayMove(value, source, target))','Posunúť fotografiu','Odstrániť fotografiu'])assert.ok(gallery.includes(val),val);
+  const sorter=read("components/admin-sortable-gallery.tsx");
+  for(const val of ['from "@dnd-kit/core"','from "@dnd-kit/sortable"','from "@dnd-kit/utilities"','<DndContext','<SortableContext','ref={setActivatorNodeRef}','gallerySortableIds(urls)','KeyboardSensor'])assert.ok(sorter.includes(val),val);
+  for(const val of ['<AdminSortableGallery','as="li"','containerAs="ol"','onReorder={(from,to)=>onChange(arrayMove(value,from,to))}','Posunúť fotografiu','Odstrániť fotografiu'])assert.ok(gallery.includes(val),val);
+  assert.doesNotMatch(gallery, /<DndContext|useSortable|gallerySortableIds/);
 });
 test("all ten approved packages are direct pinned production dependencies",()=>{
   const p=JSON.parse(read("package.json")),l=JSON.parse(read("package-lock.json"));

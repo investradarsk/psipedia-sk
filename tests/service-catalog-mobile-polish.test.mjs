@@ -30,7 +30,13 @@ const fakeRequire=(id)=>{
   };
   if(id.endsWith(".module.css"))return {__esModule:true,default:styles};
   if(id==="@/components/admin-interaction-system")return {
-    AdminActionButton:({children,disabled})=>createElement("button",{disabled},children)
+    AdminActionButton:({children,disabled})=>createElement("button",{disabled},children),
+    AdminDestructiveConfirmDialog:()=>null
+  };
+  if(id==="@/components/admin-form-feedback")return {
+    AdminFormFeedback:({message,error})=>error
+      ? createElement("p",{role:"alert"},error)
+      : message ? createElement("p",{role:"status"},message) : null
   };
   if(id==="@/components/admin-editor-workspace")return {
     EditorActionBar:()=>null,
