@@ -1,55 +1,15 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { ArticleCard } from "@/components/article-card";
-import { categories, categoryBySlug } from "@/lib/content";
-import { getPublishedArticleSummaries } from "@/lib/article-store";
-import { formatSlovakCount } from "@/lib/slovak-count";
-import { buildPageMetadata } from "@/lib/seo";
+import { notFound, permanentRedirect } from "next/navigation";
+import { categories } from "@/lib/content";
+import { legacyTopicRedirectHref } from "@/lib/article-category-routes";
 
-export const dynamic = "force-dynamic";
-
-type Props = { params: Promise<{ slug: string }> };
-
+/** All four legacy /tema/* archives have a single replacement destination. */
 export function generateStaticParams() {
   return categories.map((category) => ({ slug: category.slug }));
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export default async function LegacyTopicPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const category = categoryBySlug[slug];
-  if (!category) return {};
-  return buildPageMetadata({
-    title: category.label,
-    description: category.description,
-    path: `/tema/${category.slug}`,
-    socialTitle: `${category.label} – články o psoch | Psipedia.sk`,
-  });
-}
-
-export default async function TopicPage({ params }: Props) {
-  const { slug } = await params;
-  const category = categoryBySlug[slug];
-  if (!category) notFound();
-  const articles = await getPublishedArticleSummaries({ category: category.label, limit: 120 });
-  const filtered = articles.filter((article) =>
-    article.portalSection !== "novinky" &&
-    article.portalSection !== "podujatia" &&
-    article.portalSection !== "recenzie"
-  );
-
-  return (
-    <main id="obsah">
-      <header className="page-hero shell">
-        <div className="page-hero-inner">
-          <span className="eyebrow">Téma</span>
-          <h1>{category.label}</h1>
-          <p>{category.description} Vyber si z našich sprievodcov a praktických postupov.</p>
-        </div>
-      </header>
-      <section className="page-body shell">
-        <p className="result-count">{formatSlovakCount(filtered.length, { one: "článok", few: "články", many: "článkov" })}</p>
-        <div className="article-grid">{filtered.map((article) => <ArticleCard article={article} headingLevel={2} key={article.slug} />)}</div>
-      </section>
-    </main>
-  );
+  const destination = legacyTopicRedirectHref(slug);
+  if (!destination) notFound();
+  permanentRedirect(destination);
 }
