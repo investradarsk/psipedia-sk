@@ -82,7 +82,8 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/template-baseline"
           (
             cd "$BASE_DIR"
-            DETAIL_TEST_SCREENSHOTS="$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/template-baseline"               node --test tests/public-details-v2-ui.test.mjs
+            export DETAIL_TEST_SCREENSHOTS="$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/template-baseline"
+            node --test tests/public-details-v2-ui.test.mjs
           )
       - name: Test and capture isolated public template fixtures
         env:
