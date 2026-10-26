@@ -85,3 +85,28 @@ test("removable active filter chips retain shared touch and focus geometry", () 
   const source = read("components/public-visual-system/public-result-states.tsx");
   assert.match(source, /<a[\s\S]*?data-public-filter-tag/);
 });
+
+test("e-shop detail uses shared public CTA variants and semantic surfaces", () => {
+  const profile = read("app/recenzie/eshopy/[slug]/page.tsx");
+  const css = read("app/recenzie/eshopy/[slug]/eshop-profile.module.css");
+  assert.match(profile, /<PublicActionLink variant="primary" href=/);
+  assert.match(profile, /<PublicActionLink variant="secondary" href=\{shop\.websiteUrl\} target="_blank" rel="noopener noreferrer">/);
+  assert.doesNotMatch(css, /\.heroActions a(?:\s|:|\{)/);
+  for (const token of ["--ps-color-canvas", "--ps-border-soft", "--ps-radius-card", "--ps-radius-filter", "--ps-surface-raised"]) {
+    assert.ok(css.includes("var(" + token), "missing shared e-shop visual token: " + token);
+  }
+  assert.match(css, /\.hero h1 \{[^}]*font: 500 clamp\(2rem, 3\.8vw, 3\.5rem\)\/1\.06 Georgia/);
+  assert.match(profile, /ESHOP_RATING_FIELDS\.map/);
+  assert.match(profile, /shop\.averages \?/);
+  assert.match(css, /\.logo img \{[^}]*object-fit: contain/);
+});
+
+test("editorial category pages use one shared subcategory navigation component", () => {
+  const hub = read("components/portal-hub.tsx");
+  const topic = read("components/portal-topic.tsx");
+  assert.match(hub, /\{showSectionTabs && <PortalSectionTabs section=\{section\} \/>/);
+  assert.match(topic, /const showSectionTabs = isStructuredTopic \|\| isReviews/);
+  assert.equal((topic.match(/<PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/g) ?? []).length, 1);
+  assert.match(topic, /<UnifiedSectionHero/);
+  assert.match(topic, /<SectionHero/);
+});
