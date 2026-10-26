@@ -57,6 +57,27 @@ test("settings polling never writes synchronous effect-derived state", () => {
   assert.match(workspace, /setRemote\(\(previous\) =>/);
 });
 
+test("Gemini admin initial queue read runs in parallel with settings, recent runs and global control", () => {
+  assert.match(page, /\[settings, runs, control, queuedJobs\] = await Promise\.all\(\[/);
+  assert.match(page, /queueEnabled \? listGeminiManualBackgroundJobs\(db\) : Promise\.resolve\(\[\]\)/);
+  assert.doesNotMatch(page, /if \(queueEnabled\) queuedJobs = await listGeminiManualBackgroundJobs\(db\)/);
+  assert.match(page, /requireAdminPageUser\("\/admin\/automatizacie-gemini"\)/);
+  assert.match(page, /catch \{\s*ready = false;/);
+  assert.match(workspace, /initialJobs=|initialJobs:/);
+});
+
+test("Gemini does not duplicate a full D1 GET at hydration, but retains polling and visibility refresh", () => {
+  assert.match(workspace, /const id = window\.setInterval\(\(\) => void refresh\(\), 10000\)/);
+  assert.match(workspace, /document\.addEventListener\("visibilitychange", onVisible\)/);
+  assert.match(workspace, /document\.removeEventListener\("visibilitychange", onVisible\)/);
+  assert.match(workspace, /if \(cancelled \|\| inFlight \|\| document\.visibilityState === "hidden"\) return/);
+  const effect = workspace.match(/const onVisible = \(\) => \{[\s\S]*?\}, \[available, settings, initialJobs, recentRuns, control\]\);/)?.[0];
+  assert.ok(effect, "polling effect missing");
+  assert.doesNotMatch(effect, /\n\s*void refresh\(\);\s*\n/);
+  assert.match(workspace, /if \(!response\.ok\) return/);
+  assert.match(workspace, /if \(!cancelled\)/);
+});
+
 test("dashboard is responsive with accessible compact panels, no 960px grid requirement", () => {
   assert.match(css, /\.workGrid \{ display: grid; grid-template-columns:/);
   assert.match(css, /@media \(max-width: 900px\)/);

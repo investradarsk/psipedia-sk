@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   adminNavigationGroups,
@@ -12,6 +12,15 @@ import styles from "./admin-navigation.module.css";
 
 function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const prefetched = useRef(new Set<string>());
+  const prefetchOnIntent = (href: string) => {
+    // Prefetch only with user intent, not automatically for every visible
+    // link to a dynamic, D1-backed admin page.
+    if (prefetched.current.has(href)) return;
+    prefetched.current.add(href);
+    router.prefetch(href);
+  };
   const active = findActiveAdminNavigationItem(pathname);
   // Remember manual disclosure per route; a route change naturally reverts to its active group.
   const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<{ pathname: string; group: string } | null>(null);
@@ -42,11 +51,14 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
             </button>
           )}
           <div id={mobile ? undefined : `admin-group-${groupIndex}`} hidden={!expanded}>
-            {group.items.map((item, itemIndex) => {
+            {expanded && group.items.map((item, itemIndex) => {
               const current = active?.href === item.href;
               return (
                 <Link
                   href={item.href}
+                  prefetch={false}
+                  onMouseEnter={() => prefetchOnIntent(item.href)}
+                  onFocus={() => prefetchOnIntent(item.href)}
                   key={item.href}
                   aria-current={current ? "page" : undefined}
                   data-admin-drawer-first={mobile && groupIndex === 0 && itemIndex === 0 ? "true" : undefined}

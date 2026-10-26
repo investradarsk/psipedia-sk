@@ -255,13 +255,13 @@ test("AdminShell V3 navigation and canonical Gemini concept editor integrate wit
     await menu.click();
     const drawer = page.getByRole("dialog", { name: "Navigácia administrácie" });
     await expect(drawer).toBeVisible();
-    await expect(drawer.getByRole("link", { name: "Automatizácie Gemini" })).toBeVisible();
+    await expect(drawer.getByRole("link", { name: "Automatizácie", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(drawer).not.toBeVisible();
     await expect(menu).toBeFocused();
   } else {
     await expect(page.getByRole("navigation", { name: "Redakčné moduly" }).first()).toBeVisible();
-    await expect(page.locator('[data-admin-sidebar] [aria-current="page"]')).toContainText("Automatizácie Gemini");
+    await expect(page.locator('[data-admin-sidebar] [aria-current="page"]')).toContainText("Automatizácie");
   }
 
   const category = page.getByRole("combobox", { name: "Kategória", exact: true });

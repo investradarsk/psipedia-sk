@@ -133,6 +133,22 @@ test("admin shell renders shared active navigation, breadcrumbs, sticky position
   assert.match(navigationCss, /a\[aria-current="page"\]/);
 });
 
+test("sidebar links are mounted only for expanded groups and prefetched only on navigation intent", () => {
+  const navigation = read("components/admin-navigation.tsx");
+  const shell = read("components/admin-shell.tsx");
+  assert.match(navigation, /\{expanded && group\.items\.map\(\(item, itemIndex\) =>/);
+  assert.match(navigation, /hidden=\{!expanded\}/);
+  assert.match(navigation, /prefetch=\{false\}/);
+  assert.match(navigation, /onMouseEnter=\{\(\) => prefetchOnIntent\(item\.href\)\}/);
+  assert.match(navigation, /onFocus=\{\(\) => prefetchOnIntent\(item\.href\)\}/);
+  assert.match(navigation, /prefetched\.current\.has\(href\)/);
+  assert.match(navigation, /router\.prefetch\(href\)/);
+  assert.match(navigation, /aria-expanded=\{expanded\}/);
+  assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
+  assert.match(shell, /<AdminNavigation/);
+  assert.match(navigation, /<NavigationGroups mobile \/>/);
+});
+
 test("mobile admin navigation has Escape close, focus trap and focus return without a second back-to-top control", () => {
   const navigation = read("components/admin-navigation.tsx");
   const navigationCss = read("components/admin-navigation.module.css");

@@ -44,12 +44,15 @@ export default async function AdminGeminiAutomationPage({ searchParams }: {
 
   try {
     const db = requireGeminiAdminD1();
-    [settings, runs, control] = await Promise.all([
+    // The queue is independent of settings, history and global control.
+    // Await all four reads together instead of delaying the entire dashboard
+    // until a second sequential D1 round trip has completed.
+    [settings, runs, control, queuedJobs] = await Promise.all([
       listGeminiSettings(db),
       listRecentGeminiRuns(db),
       getGeminiGlobalControl(db),
+      queueEnabled ? listGeminiManualBackgroundJobs(db) : Promise.resolve([]),
     ]);
-    if (queueEnabled) queuedJobs = await listGeminiManualBackgroundJobs(db);
   } catch {
     ready = false;
   }

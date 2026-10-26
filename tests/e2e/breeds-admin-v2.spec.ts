@@ -17,8 +17,16 @@ async function waitForBreedEditor(page: Page) {
   await expect(page.locator('.admin-breed-editor[data-admin-breed-editor-ready="true"]')).toBeVisible();
 }
 
+// The list is streamed from SSR. Its inputs and paging controls exist before
+// React attaches event handlers. E2E must await the canonical readiness
+// marker rather than clicking a non-hydrated control.
+async function waitForBreedList(page: Page) {
+  await expect(page.locator('[data-admin-breed-hydrated="true"]')).toBeVisible();
+}
+
 async function openCreatedDraft(page: Page, testInfo: TestInfo) {
   await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
+  await waitForBreedList(page);
   await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill(draftName(testInfo));
   await page.getByRole("link", { name: draftName(testInfo) }).click();
   await waitForBreedEditor(page);
@@ -48,10 +56,37 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
   test.beforeEach(async ({ page }) => necessaryCookies(page));
 
+  test("bounded breed list paginates and resets to the first page after filters", async ({ page }) => {
+    await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
+    await waitForBreedList(page);
+    const rows = page.locator("[data-admin-breed-row]");
+    await expect(rows.first()).toBeVisible();
+    const firstPageRows = await rows.count();
+    expect(firstPageRows).toBeLessThanOrEqual(50);
+    const pager = page.getByRole("navigation", { name: "Stránkovanie plemien" });
+    if (await pager.isVisible()) {
+      await expect(rows).toHaveCount(50);
+      await expect(pager.getByRole("button", { name: "Predchádzajúca" })).toBeDisabled();
+      await pager.getByRole("button", { name: "Nasledujúca" }).click();
+      await expect(pager.getByText(/Strana 2 z/)).toBeVisible();
+      await expect(rows.first()).toBeVisible();
+      await expect(rows).not.toHaveCount(0);
+      const secondPageRows = await rows.count();
+      expect(secondPageRows).toBeGreaterThan(0);
+      expect(secondPageRows).toBeLessThanOrEqual(50);
+    }
+    await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill("burgosky");
+    await expect(page.getByRole("article").filter({ hasText: "Burgoský stavač" })).toBeVisible();
+    await expect(rows).toHaveCount(1);
+    await expect(pager).toHaveCount(0);
+    await expect(page.getByText(/Nájdené: 1 z/)).toBeVisible();
+  });
+
   test("dense list supports search, FCI/status/completeness filters and guarded publication bulk", async ({ page }) => {
     await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "Plemená" })).toBeVisible();
     await expect(page.getByText("Obsahovo neúplné")).toBeVisible();
+    await expect(page.locator('[data-admin-breed-hydrated="true"]')).toBeVisible();
 
     const search = page.getByPlaceholder("Názov, slug, pôvod, FCI…");
     await search.fill("burgosky");

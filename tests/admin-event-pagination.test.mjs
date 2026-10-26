@@ -121,3 +121,48 @@ test("admin API and SSR page use the bounded loader; review and edits stay scope
   assert.match(dashboard, /\/admin\/podujatia\/\$\{event.id\}/);
   assert.match(dashboard, /setReviewedIds\(snapshot.reviewedIds\)/);
 });
+
+
+test("unfiltered event total reuses exact global all_count for any page and sort", () => {
+  const db = fixture();
+  try {
+    const global = db.prepare(adminEventGlobalCountsSql).get(today,today,today,today);
+    for (const params of [{},{page:"3"},{page:"14"},{sort:"title"},{sort:"created"},{sort:"updated"}]) {
+      const input=query(params);
+      const sql=buildAdminEventPageSql(input,today);
+      assert.equal(sql.where,"1=1",JSON.stringify(params));
+      const independent=db.prepare("SELECT COUNT(*) AS total FROM managed_events WHERE "+sql.where).get(...sql.values);
+      assert.equal(independent.total,global.all_count,JSON.stringify(params));
+      assert.equal(list(db,input).total,global.all_count);
+    }
+    assert.equal(global.all_count,652);
+  } finally {db.close();}
+});
+
+test("event filters still use exact selected totals rather than the global count", () => {
+  const db=fixture();
+  try {
+    for (const params of [{query:"cierny"},{time:"past"},{region:"Žilinský kraj"},
+      {status:"published"},{year:"2026"},{month:"10"},{time:"cancelled"},
+      {type:"Preteky"},{query:"neexistuje"}]) {
+      const input=query(params);
+      const sql=buildAdminEventPageSql(input,today);
+      assert.notEqual(sql.where,"1=1",JSON.stringify(params));
+      const independent=db.prepare("SELECT COUNT(*) AS total FROM managed_events WHERE "+sql.where).get(...sql.values).total;
+      assert.equal(list(db,input).total,independent,JSON.stringify(params));
+    }
+    assert.equal(list(db,query({query:"cierny"})).total,1);
+  } finally {db.close();}
+});
+
+test("events admin SQL avoids a duplicate unfiltered COUNT but preserves all other reads", () => {
+  const source=readFileSync(new URL("../lib/event-store.ts",import.meta.url),"utf8");
+  const method=source.slice(source.indexOf("export async function listManagedEventPage("),source.indexOf("export async function getManagedEventById("));
+  assert.match(method,/const reuseGlobalCount = sql\.where === "1=1"/);
+  assert.match(method,/reuseGlobalCount\s*\?\s*Promise\.resolve\(null\)\s*:\s*database\.prepare/);
+  assert.match(method,/const total = reuseGlobalCount \? Number\(globals\?\.all_count \?\? 0\) : Number\(match\?\.total \?\? 0\)/);
+  assert.match(method,/adminEventGlobalCountsSql/);
+  assert.match(method,/adminEventYearsSql/);
+  assert.match(method,/page === requestedPage/i);
+  assert.doesNotMatch(method,/\b(?:INSERT INTO|UPDATE \w+ SET|DELETE FROM)\b/i);
+});

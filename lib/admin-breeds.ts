@@ -99,6 +99,33 @@ export function adminBreedCounts<T extends AdminBreedFilterable>(breeds: T[]) {
   }, { all: 0, published: 0, draft: 0, incomplete: 0 });
 }
 
+// Only render the current slice of a large admin breed list. Filtering and
+// aggregate counts still cover all loaded breeds; selection can span pages.
+export const ADMIN_BREED_PAGE_SIZE = 50;
+
+export function paginateAdminBreeds<T>(
+  items: readonly T[],
+  requestedPage: number,
+  pageSize = ADMIN_BREED_PAGE_SIZE,
+) {
+  const safeSize = Number.isSafeInteger(pageSize) ? Math.max(1, Math.min(100, pageSize)) : ADMIN_BREED_PAGE_SIZE;
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / safeSize));
+  const page = Number.isSafeInteger(requestedPage)
+    ? Math.min(totalPages, Math.max(1, requestedPage))
+    : 1;
+  const offset = (page - 1) * safeSize;
+  return {
+    items: items.slice(offset, offset + safeSize),
+    page,
+    pageSize: safeSize,
+    totalItems,
+    totalPages,
+    from: totalItems ? offset + 1 : 0,
+    to: totalItems ? Math.min(offset + safeSize, totalItems) : 0,
+  };
+}
+
 export type BreedBulkSelectionSnapshot = {
   id: number;
   status: "draft" | "published";

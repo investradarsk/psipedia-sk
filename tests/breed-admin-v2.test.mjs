@@ -6,6 +6,8 @@ import {
   breedCompletenessIssues,
   defaultAdminBreedFilters,
   filterAdminBreeds,
+  ADMIN_BREED_PAGE_SIZE,
+  paginateAdminBreeds,
   normalizeAdminBreedSearch,
   validateBulkBreedStatus,
 } from "../lib/admin-breeds.ts";
@@ -92,6 +94,45 @@ test("counts and incomplete filter reflect issue presence rather than percentage
     filterAdminBreeds([complete, sparse], { ...defaultAdminBreedFilters, completeness: "complete" }).map((breed) => breed.id),
     [1],
   );
+});
+
+test("500 breed rows render in 50-item slices with exact page counts and no omissions", () => {
+  const breeds = Array.from({length:500}, (_, i) => ({id:i+1}));
+  assert.equal(ADMIN_BREED_PAGE_SIZE,50);
+  const pages = Array.from({length:10}, (_, i) => paginateAdminBreeds(breeds,i+1));
+  assert.deepEqual(pages.map(p=>p.items.length),Array(10).fill(50));
+  assert.deepEqual(pages.flatMap(p=>p.items).map(b=>b.id),breeds.map(b=>b.id));
+  assert.deepEqual([pages[0].from,pages[0].to,pages[9].from,pages[9].to],[1,50,451,500]);
+  assert.equal(pages[5].page,6);
+  assert.equal(pages[5].totalItems,500);
+  assert.equal(pages[5].totalPages,10);
+});
+
+test("pagination clamps after filtering or deleting rows and handles zero, invalid, partial pages", () => {
+  const breeds = Array.from({length:103}, (_,i)=>({id:i+1}));
+  assert.deepEqual(paginateAdminBreeds(breeds,3).items.map(b=>b.id),[101,102,103]);
+  assert.equal(paginateAdminBreeds(breeds,999).page,3);
+  assert.equal(paginateAdminBreeds(breeds.slice(0,25),3).page,1);
+  assert.equal(paginateAdminBreeds(breeds.slice(0,25),3).to,25);
+  assert.equal(paginateAdminBreeds(breeds,0).page,1);
+  assert.equal(paginateAdminBreeds(breeds,NaN).page,1);
+  const empty = paginateAdminBreeds([],20);
+  assert.deepEqual(empty.items,[]);
+  assert.deepEqual([empty.page,empty.totalPages,empty.from,empty.to],[1,1,0,0]);
+  assert.equal(paginateAdminBreeds(breeds,2,999).pageSize,100);
+});
+
+test("breed admin UI renders only a page and keeps bulk selection scoped to the current page", async () => {
+  const {readFileSync} = await import("node:fs");
+  const component=readFileSync(new URL("../components/admin-breed-dashboard.tsx",import.meta.url),"utf8");
+  assert.match(component,/paginateAdminBreeds\(visible, requestedPage\)/);
+  assert.match(component,/pageData\.items\.map\(\(breed\) => <article/);
+  assert.doesNotMatch(component,/\{visible\.map\(\(breed\) => <article/);
+  assert.match(component,/const visibleIds = pageData\.items\.map/);
+  assert.match(component,/selectedBreeds = breeds\.filter/);
+  assert.match(component,/setRequestedPage\(1\)/);
+  assert.match(component,/Strana \{pageData\.page\} z \{pageData\.totalPages\}/);
+  assert.match(component,/loading="lazy" decoding="async"/);
 });
 
 test("bulk publication accepts explicit fresh snapshots only", () => {

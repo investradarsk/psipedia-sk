@@ -65,7 +65,7 @@ test("MAP-ADMIN-PERF loader stays server-paginated", () => {
 });
 
 test("MAP-ADMIN-PERF reuses facet buckets for exact filtered total without a fourth GEO CTE scan", () => {
-  assert.match(loader, /const \[summaryRow, categoryRows\] = await Promise\.all/);
+  assert.match(loader, /const \[summaryRow, categoryRows, firstPageRows\] = await Promise\.all/);
   assert.doesNotMatch(loader, /pageCountRow|SELECT COUNT\(\*\) AS total\s+FROM base\s+\$\{filtered\.clause\}/);
   assert.match(loader, /row\.category === filters\.category/);
 
@@ -100,7 +100,17 @@ test("MAP-ADMIN-PERF reuses facet buckets for exact filtered total without a fou
 
 test("MAP-ADMIN-PERF skips the third GEO CTE when the filtered result is provably empty", () => {
   assert.match(loader, /const total = \(categoryRows\.results \?\? \[\]\)\.reduce/);
-  assert.match(loader, /const pageRows = await readNonemptyD1Page\(total, \(\) => db\.prepare\(/);
+  assert.match(loader, /const pageRows = await readNonemptyD1Page\(total,/);
+  assert.match(loader, /speculativeFirstPage \? loadPage\(1\) : Promise\.resolve\(null\)/);
+  assert.match(loader, /LIMIT \? OFFSET \?/);
+});
+
+test("MAP-ADMIN-PERF overlaps the default page with summary while preserving filtered no-query-on-empty", () => {
+  assert.match(loader, /filters\.page === 1/);
+  assert.match(loader, /filters\.group === "ALL" && !filters\.category && !filters\.query/);
+  assert.match(loader, /const loadPage = \(page: number\) => db\.prepare/);
+  assert.match(loader, /firstPageRows && paging\.page === 1/);
+  assert.match(loader, /loadPage\(paging\.page\)/);
   assert.match(loader, /LIMIT \? OFFSET \?/);
 });
 

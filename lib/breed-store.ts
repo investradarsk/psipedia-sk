@@ -179,6 +179,19 @@ ELSE '' END AS fci_nomenklatura_url,
 (SELECT COUNT(*) FROM breed_article_relations r WHERE r.breed_id=managed_breeds.id) AS article_relation_count,
 (SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
 FROM managed_breeds ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}
+// Article relations need only identifiers and FCI labels, not all the
+// completeness, image, editorial JSON and relation-count fields required by
+// the breed administration dashboard. Keep the same 500-row order/limit.
+export type AdminArticleBreedOption = { id: number; name: string; fciNumber: number | null };
+export async function listAdminArticleBreedOptions(limit=500): Promise<AdminArticleBreedOption[]> {
+  const database = requireDb();
+  const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
+  const result = await database.prepare(
+    "SELECT id,name,fci_number AS fciNumber FROM managed_breeds ORDER BY fci_group,name LIMIT ?"
+  ).bind(safeLimit).all<AdminArticleBreedOption>();
+  return result.results;
+}
+
 export async function listPublishedBreedIndex(){const database=db();if(!database)return seedBreeds.map((breed,index)=>({id:-(index+1),status:"published" as const,officialFciName:"",fciSectionNumber:"",searchText:normalizeBreedSearchText(`${breed.name} ${breed.group} ${breed.fciSection} ${breed.intro}`),editorialComplete:true,seo:breed.seo??{},updatedAt:"2026-08-17",...breed}));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();return withAvailableBreedImages(result.results.map(fromIndexRow),env);}
 export async function listPublishedCanonicalBreedIndex(){
   const database=db();

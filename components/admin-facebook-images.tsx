@@ -51,9 +51,15 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
   const queryKey=`${month}|${status}|${source}|${page}|${refresh}`;
   const[settledQuery,setSettledQuery]=useState(queryKey);
+  const initialQueryHandled=useRef(false);
   const loading=opening||settledQuery!==queryKey;
   const dirty=!!editor && JSON.stringify(form)!==baseline;
-  useEffect(()=>{const abort=new AbortController();
+  useEffect(()=>{
+    // SSR already delivered the first calendar/list view. A duplicate GET at
+    // hydration re-reads the same D1 rows and image metadata unnecessarily.
+    // Changed filters, explicit refresh and 12s live polling still fetch.
+    if(!initialQueryHandled.current){initialQueryHandled.current=true;return;}
+    const abort=new AbortController();
     fetch(`/api/admin/facebook-images?month=${month}&status=${status}&source=${source}&page=${page}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as Data & {error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");setData(body);setError("");}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setSettledQuery(queryKey);});
     return()=>abort.abort();
   },[month,status,source,page,refresh,queryKey]);
@@ -222,7 +228,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         {scheduledInMonth.length? <div className={styles.upcomingList}>{scheduledInMonth.map(post=>
           <AdminActionButton key={post.id} type="button" className={styles.upcomingRow} disabled={loading||!ready}
             onClick={()=>edit(post)}>
-            {post.imageUrl?<img src={post.imageUrl} width={48} height={48} alt=""/>:
+            {post.imageUrl?<img src={post.imageUrl} width={48} height={48} alt="" loading="lazy" decoding="async"/>:
               <span className={styles.imageFallback} aria-hidden="true">FB</span>}
             <span className={styles.upcomingText}>
               <strong>{post.title}</strong>
@@ -311,7 +317,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         {!data.items.length&&<p className={styles.emptyNote}>Žiadne príspevky pre zvolený filter.</p>}
         <div className={styles.list}>{data.items.map(post=><article key={post.id}
           className={[styles.listItem,styles[visualStatus(post).kind+"Card"]??""].join(" ")}>
-          {post.imageUrl?<img src={post.imageUrl} alt="" width={72} height={72}/>:
+          {post.imageUrl?<img src={post.imageUrl} alt="" width={72} height={72} loading="lazy" decoding="async"/>:
             <span className={styles.imageFallback} aria-hidden="true">FB</span>}
           <div className={styles.listText}>
             <div className={styles.listTitle}>{entry(post)}</div>
@@ -349,7 +355,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked} className={styles.fields}>
           <label>Názov<input autoFocus required maxLength={200} value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label>
           <label>Obrázok (JPG, PNG, WebP, max. 8 MB)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.target.value="";}}/></label>
-          {form.imageUrl&&<img className={styles.preview} src={form.imageUrl} alt="Náhľad Facebook obrázka"/>}
+          {form.imageUrl&&<img className={styles.preview} src={form.imageUrl} alt="Náhľad Facebook obrázka" decoding="async"/>}
           <label htmlFor="facebook-caption">Popis na Facebook</label><textarea id="facebook-caption" rows={6} maxLength={15000} value={form.caption} onChange={e=>setForm({...form,caption:e.target.value})}/>
           <div className={styles.dateFields}><label>Dátum<input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value,time:e.target.value?(form.time||"09:00"):"",repeatedHour:""})}/></label><label>Čas (Bratislava)<input type="time" value={form.time} onChange={e=>setForm({...form,time:e.target.value,repeatedHour:""})}/></label></div>
           <label>Ak sa hodina pri zmene zimného času opakuje<select value={form.repeatedHour} onChange={e=>setForm({...form,repeatedHour:e.target.value})}><option value="">Vybrať pri opakovanej hodine</option><option value="earlier">Prvý výskyt (letný čas)</option><option value="later">Druhý výskyt (zimný čas)</option></select></label>
