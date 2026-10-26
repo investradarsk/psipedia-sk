@@ -33,24 +33,6 @@ function GenericContacts({ item }: Props) {
   return <HelpContactsCard contacts={presentation.contacts} note={presentation.contactNote} />;
 }
 
-export function AdoptionHelpDetail({ item }: Props) {
-  const presentation = getHelpPresentation(item);
-  const dogTitle = usefulHelpValue(item.dogName) ?? item.title;
-  return <HelpDetailShell item={item} title={dogTitle} contextTitle={dogTitle !== item.title ? item.title : null} sidebar={<>
-    <HelpFactsCard facts={[
-      textFact("Plemeno / typ", item.breed),
-      textFact("Vek", item.ageNote),
-      textFact("Lokalita", location(item)),
-      textFact("Organizácia", item.organization),
-      rawFact("Zverejnené / hlásené", formatHelpDate(item.reportedDate)),
-    ]} />
-    <GenericContacts item={item} />
-  </>}>
-    {presentation.description && <HelpSection eyebrow="Adopcia" title="O psovi"><HelpParagraphs value={presentation.description} /></HelpSection>}
-    {item.resolved && <HelpSection title="Stav adopcie"><p>Tento záznam je označený ako ukončený alebo vyriešený. Pred ďalším kontaktovaním si overte aktuálny stav u uvedenej organizácie.</p></HelpSection>}
-  </HelpDetailShell>;
-}
-
 export function FosterHelpDetail({ item }: Props) {
   const presentation = getHelpPresentation(item);
   const dogTitle = usefulHelpValue(item.dogName) ?? item.title;
@@ -118,10 +100,9 @@ export function GenericCaseHelpDetail({ item }: Props) {
   </HelpDetailShell>;
 }
 
-type RenderedHelpCategory = Exclude<HelpCategorySlug, "utulky">;
+type RenderedHelpCategory = Exclude<HelpCategorySlug, "utulky" | "adopcia">;
 
 export const helpDetailViews: Record<RenderedHelpCategory, ComponentType<Props>> = {
-  adopcia: AdoptionHelpDetail,
   "docasna-opatera": FosterHelpDetail,
   zbierky: FundraiserHelpDetail,
   dobrovolnictvo: VolunteerHelpDetail,
