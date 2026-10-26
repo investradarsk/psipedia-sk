@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import {useCallback,useEffect,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import type {WorkspaceEvent,WorkspaceFeed} from "@/lib/admin-workspace-feed";
 import styles from "./admin-workspace-activity.module.css";
 
@@ -19,17 +19,38 @@ export function AdminWorkspaceActivity({initial}:{initial:WorkspaceFeed}){
   const[busy,setBusy]=useState<number|null>(null);
   const[loading,setLoading]=useState(false);
   const[error,setError]=useState("");
-  const refresh=useCallback(async()=>{
-    try{
-      const res=await fetch("/api/admin/workspace/feed",{cache:"no-store"});
-      if(!res.ok)throw Error("Prehľad sa nepodarilo načítať.");
-      const next=await res.json() as WorkspaceFeed;
-      setData(next);setError("");
-    }catch{setError("Aktualizácia prehľadu sa nepodarila.")}
+  const refreshInFlight=useRef<Promise<void>|null>(null);
+  const acknowledgedIds=useRef<Set<number>>(new Set());
+  const refresh=useCallback(():Promise<void>=>{
+    // Timer and manual updates share a request; preserve acknowledged events.
+    if(refreshInFlight.current)return refreshInFlight.current;
+    const request=(async()=>{
+      try{
+        const res=await fetch("/api/admin/workspace/feed",{cache:"no-store"});
+        if(!res.ok)throw Error("Prehľad sa nepodarilo načítať.");
+        const next=await res.json() as WorkspaceFeed;
+        setData({...next,items:next.items.map(item=>
+          acknowledgedIds.current.has(item.id)?{...item,read:true}:item)});
+        setError("");
+      }catch{setError("Aktualizácia prehľadu sa nepodarila.");}
+    })();
+    refreshInFlight.current=request;
+    void request.finally(()=>{
+      if(refreshInFlight.current===request)refreshInFlight.current=null;
+    });
+    return request;
   },[]);
   useEffect(()=>{
-    const id=window.setInterval(()=>{void refresh();},60_000);
-    return()=>window.clearInterval(id);
+    const poll=()=>{
+      // Avoid background D1 traffic for a hidden or offline admin tab.
+      if(document.visibilityState==="visible"&&navigator.onLine)void refresh();
+    };
+    const id=window.setInterval(poll,60_000);
+    document.addEventListener("visibilitychange",poll);
+    return()=>{
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange",poll);
+    };
   },[refresh]);
   async function read(id:number){
     if(busy!==null)return;
@@ -38,6 +59,7 @@ export function AdminWorkspaceActivity({initial}:{initial:WorkspaceFeed}){
       const res=await fetch("/api/admin/workspace/feed",{method:"POST",
         headers:{"content-type":"application/json"},body:JSON.stringify({id})});
       if(!res.ok)throw Error("Uloženie zlyhalo.");
+      acknowledgedIds.current.add(id);
       setData(v=>({...v,items:v.items.map(x=>x.id===id?{...x,read:true}:x)}));
     }catch{setError("Nepodarilo sa označiť upozornenie ako prečítané.");}
     finally{setBusy(null);}
