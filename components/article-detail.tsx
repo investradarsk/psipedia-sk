@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { categorySlug } from "@/components/article-card";
+import { articleCategoryHref } from "@/lib/article-category-routes";
 import { ArticleBlocks } from "@/components/article-blocks";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
@@ -68,7 +68,7 @@ export function ArticleDetail({
   const reviewCategory = section === "recenzie" && portalSection?.slug === "recenzie" && article.portalSubpage
     ? portalSection.subpages.find((item) => item.slug === article.portalSubpage && item.visible !== false) ?? null
     : null;
-  const topicHref = newsCategory ? `/novinky/${newsCategory.slug}` : reviewCategory ? portalSubpageHref(portalSection!, reviewCategory) : `/tema/${categorySlug(article.category)}`;
+  const topicHref = newsCategory ? `/novinky/${newsCategory.slug}` : reviewCategory ? portalSubpageHref(portalSection!, reviewCategory) : articleCategoryHref(article.category);
   const topicLabel = newsCategory?.label ?? reviewCategory?.label ?? article.category;
   const canonical = absoluteUrl(article.seo?.canonicalUrl || articleHref(article));
   const image = article.image ? absoluteUrl(article.image) : undefined;
