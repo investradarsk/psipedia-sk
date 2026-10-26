@@ -86,10 +86,13 @@ test("portal hub callouts cannot pull back over section tabs", () => {
 
 test("structured topic landing pages keep the section system and active tab", () => {
   const topic = read("components/portal-topic.tsx");
+  const editorial = read("components/editorial-section.tsx");
+  // Structured topics now delegate to the shared editorial renderer.
   assert.match(
     topic,
-    /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/,
+    /if \(isStructuredTopic\)\s*return <EditorialSectionTopic section=\{section\} subpage=\{subpage\} articles=\{articles\} \/>/,
   );
+  assert.match(editorial, /<PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
   assert.match(topic, /subpage\.homeSteps/);
   assert.match(topic, /subpage\.warningSigns/);
   assert.match(topic, /subpage\.expertAdvice/);
