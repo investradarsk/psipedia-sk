@@ -30,6 +30,8 @@ export async function syncOneAdminHelpRecord(input: {
       database: input.database, bindings: input.bindings, mode: "sync",
       agendas: [input.agenda], targetPageId: mapping.notion_page_id, webhookMappedOnly: true,
     });
+    // A disabled or unavailable runner cannot acknowledge an Admin edit.
+    if (!summary.enabled || !summary.schemaReady) return "pending";
     return summary.totals.failed || summary.totals.conflicts || summary.totals.reviewRequired
       ? "pending" : "synced";
   } catch {
