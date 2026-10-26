@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { PublicActionLink } from "@/components/public-visual-system";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import { getPublishedEshopBySlug } from "@/lib/eshop-ratings";
 import styles from "./eshop-profile.module.css";
@@ -44,8 +45,8 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
             </div>
           </div>
           <div className={styles.heroActions}>
-            <Link href={`/recenzie/eshopy/${shop.slug}/hodnotit`}>Ohodnotiť e-shop</Link>
-            <a href={shop.websiteUrl} target="_blank" rel="noreferrer">Navštíviť e-shop ↗</a>
+            <PublicActionLink variant="primary" href={`/recenzie/eshopy/${shop.slug}/hodnotit`}>Ohodnotiť e-shop</PublicActionLink>
+            <PublicActionLink variant="secondary" href={shop.websiteUrl} target="_blank" rel="noopener noreferrer">Navštíviť e-shop ↗</PublicActionLink>
           </div>
         </section>
 
