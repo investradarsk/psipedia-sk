@@ -25,7 +25,7 @@ export function BreedCard({ breed }: { breed: BreedAtlasCard }) {
         <span className="fci-badge">FCI {breed.fciGroup}</span>
       </Link>
       <div className="breed-card-body">
-        <span className="breed-card-classification" data-public-card-meta>FCI {breed.fciGroup}{breed.fciSection ? ` · ${breed.fciSection}` : ""}</span>
+        {breed.fciSection && <span className="breed-card-classification" data-public-card-meta>{breed.fciSection}</span>}
         <h3 data-public-card-title><Link href={profileHref}>{breed.name}</Link></h3>
         <dl className="breed-card-facts">
           {breed.origin && <div><dt>Pôvod</dt><dd>{breed.origin}</dd></div>}
