@@ -1366,7 +1366,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   // Guard them on initial and resumed attempts, including after all PATCHes.
   const protectedPropertyNames = [
     "Psipedia ID", "Slug", "Kategória", "Typ obsahu",
-    "Stav", "Odoslať na Psipedia",
+    "Stav", "Odoslať na Psipedia", "Titulný obrázok",
   ];
   const pageGuard = (value: NotionPage) => JSON.stringify(
     protectedPropertyNames.map((name) => [name, value.properties?.[name] ?? null]),
@@ -1384,7 +1384,9 @@ export async function writeBackDraftArticleContentToNotion(args: {
     const currentContentHash = await sha256(JSON.stringify({
       payload: current,
       notionImageSourceUrl: urlProperty(page, "Hlavný obrázok URL"),
-      notionImageFileIdentity: notionArticleMainImageSource(page).fileIdentity,
+      // Keep the previous hash shape for pages without a Files hero.
+      ...(notionArticleMainImageSource(page).fileIdentity
+        ? { notionImageFileIdentity: notionArticleMainImageSource(page).fileIdentity } : {}),
       notionImageAlt: richTextProperty(page, "Alt text obrázka"),
       notionImageCreditUrl: urlProperty(page, "Zdroj obrázka"),
     }));
@@ -1567,7 +1569,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const finalHash = await sha256(JSON.stringify({
     payload: newPayload,
     notionImageSourceUrl: urlProperty(verifiedPage, "Hlavný obrázok URL"),
-    notionImageFileIdentity: notionArticleMainImageSource(verifiedPage).fileIdentity,
+    ...(notionArticleMainImageSource(verifiedPage).fileIdentity
+      ? { notionImageFileIdentity: notionArticleMainImageSource(verifiedPage).fileIdentity } : {}),
     notionImageAlt: richTextProperty(verifiedPage, "Alt text obrázka"),
     notionImageCreditUrl: urlProperty(verifiedPage, "Zdroj obrázka"),
   }));
@@ -1692,7 +1695,7 @@ async function syncOneNotionPage(
   const contentHash = await sha256(JSON.stringify({
     payload: basePayload,
     notionImageSourceUrl,
-    notionImageFileIdentity,
+    ...(notionImageFileIdentity ? { notionImageFileIdentity } : {}),
     notionImageAlt,
     notionImageCreditUrl,
   }));
