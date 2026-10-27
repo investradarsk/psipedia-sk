@@ -47,3 +47,37 @@ test("unavailable and incorrect targets cannot silently pass",async()=>{
  assert.match(wrong.issues[0],/WRONG_DATA_SOURCE_OR_SCHEMA/);
  await assert.rejects(verifyNotionSchemas({token:"",fetcher:fake().fetcher,contracts:sample}),/TOKEN_MISSING/);
 });
+
+test("schema guard retries an inaccessible data source with a second integration",async()=>{
+ const calls=[];const recovered=[];
+ const fetcher=async(_url,opts)=>{
+  calls.push(opts.headers.Authorization);
+  if(opts.headers.Authorization==="Bearer primary")return new Response("",{status:404});
+  return Response.json({id:sample[0].id,...good});
+ };
+ const result=await verifyNotionSchemas({token:"primary",fallbackToken:"secondary",
+  contracts:sample,fetcher,onFallback:name=>recovered.push(name)});
+ assert.deepEqual(result,{checked:1,expected:1,issues:[]});
+ assert.deepEqual(calls,["Bearer primary","Bearer secondary"]);
+ assert.deepEqual(recovered,["Pomoc psom"]);
+});
+test("schema guard does not hide missing access or invalid schemas behind fallback",async()=>{
+ const denied=await verifyNotionSchemas({token:"primary",fallbackToken:"secondary",
+  contracts:sample,fetcher:async()=>new Response("",{status:404})});
+ assert.equal(denied.checked,0);
+ assert.match(denied.issues[0],/NOTION_HTTP_404/);
+ const changed=await verifyNotionSchemas({token:"primary",fallbackToken:"secondary",
+  contracts:sample,fetcher:async(_url,opts)=>opts.headers.Authorization==="Bearer primary"
+   ? new Response("",{status:404})
+   : Response.json({id:sample[0].id,properties:{"Zdroj dát":{type:"rich_text"}}})});
+ assert.equal(changed.checked,1);
+ assert.ok(changed.issues.some(issue=>issue.includes("WRONG_TYPE Zdroj dát")));
+ assert.ok(changed.issues.some(issue=>issue.includes("MISSING_PROPERTY Psipedia stav")));
+});
+test("identical primary/fallback token never triggers duplicate Notion requests",async()=>{
+ let calls=0;
+ const result=await verifyNotionSchemas({token:"same",fallbackToken:"same",contracts:sample,
+  fetcher:async()=>{calls++;return new Response("",{status:404});}});
+ assert.equal(calls,1);
+ assert.match(result.issues[0],/NOTION_HTTP_404/);
+});
