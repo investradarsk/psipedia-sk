@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { AdminAttentionQueue } from "@/components/admin-attention-queue";
 import { AdminAttentionHistorySync } from "@/components/admin-attention-history-sync";
 import { AdminShell } from "@/components/admin-shell";
@@ -9,7 +10,7 @@ import {
   isAdminAttentionView,
   type AdminAttentionFilters,
 } from "@/lib/admin-attention-queue";
-import { loadAdminAttentionPage } from "@/lib/admin-attention-queue-store";
+import { loadAdminAttentionPage, type AdminAttentionExactSummary, type AdminAttentionPage } from "@/lib/admin-attention-queue-store";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -17,36 +18,32 @@ export const dynamic = "force-dynamic";
 type SearchParams = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] ?? "" : value ?? "";
 
-export default async function AdminOperationsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const user = await requireAdminPageUser("/admin/operations");
-  const raw = await searchParams;
-  const source = first(raw.source);
-  const priority = first(raw.priority);
-  const view = first(raw.view);
-  const filters: AdminAttentionFilters = {
-    sourceType: isAdminAttentionQueueSourceType(source) ? source : "all",
-    priority: isAdminAttentionPriority(priority) ? priority : "all",
-    view: isAdminAttentionView(view) ? view : "active",
+function toNotificationSummary(page: AdminAttentionPage): AdminAttentionExactSummary {
+  return {
+    active: page.summary.active,
+    bySource: page.summary.bySource,
+    availability: page.availability === "PARTIAL" || page.availability === "UNAVAILABLE"
+      ? page.availability : "OK",
+    unavailableSources: page.sourceAvailability
+      .filter((source) => source.state === "UNAVAILABLE")
+      .map((source) => source.sourceType),
   };
+}
 
-  const cursor = first(raw.cursor) || undefined;
-  const attention = await loadAdminAttentionPage({
-    filters,
-    cursor,
-  });
-
+async function AdminOperationsContent({
+  attentionPromise,
+  filters,
+  cursor,
+}: {
+  attentionPromise: ReturnType<typeof loadAdminAttentionPage>;
+  filters: AdminAttentionFilters;
+  cursor?: string;
+}) {
+  const attention = await attentionPromise;
   const automationAttention = attention.summary.bySource.AUTOMATION_ACTION;
 
-
   return (
-    <AdminShell
-      user={user}
-      eyebrow="Admin"
-      title="Upozornenia"
-      description="Veci, pri ktorých treba niečo skontrolovať, schváliť, zamietnuť alebo vyriešiť. Technické nástroje a mapové operácie sú oddelené v hlavnej navigácii."
-      attentionCount={attention.summary.active}
-      attentionCountPartial={attention.availability === "PARTIAL" || attention.availability === "UNAVAILABLE"}
-    >
+    <>
       <section className={styles.hubGrid} aria-label="Rýchly prehľad upozornení">
         <a className={`${styles.hubCard} ${attention.summary.active > 0 ? styles.hubCardPrimary : styles.hubCardGood}`} href="#centrum-pozornosti">
           <span className={styles.hubKicker}>Čaká na teba</span>
@@ -83,6 +80,43 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
           filters={filters}
         />
       </div>
+    </>
+  );
+}
+
+export default async function AdminOperationsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const user = await requireAdminPageUser("/admin/operations");
+  const raw = await searchParams;
+  const source = first(raw.source);
+  const priority = first(raw.priority);
+  const view = first(raw.view);
+  const filters: AdminAttentionFilters = {
+    sourceType: isAdminAttentionQueueSourceType(source) ? source : "all",
+    priority: isAdminAttentionPriority(priority) ? priority : "all",
+    view: isAdminAttentionView(view) ? view : "active",
+  };
+
+  const cursor = first(raw.cursor) || undefined;
+
+  // One canonical read for both the bell and page; stream the shell before D1 finishes.
+  const attentionPromise = loadAdminAttentionPage({ filters, cursor });
+  const attentionSummaryPromise = attentionPromise.then(toNotificationSummary);
+
+  return (
+    <AdminShell
+      user={user}
+      eyebrow="Admin"
+      title="Upozornenia"
+      description="Veci, pri ktorých treba niečo skontrolovať, schváliť, zamietnuť alebo vyriešiť. Technické nástroje a mapové operácie sú oddelené v hlavnej navigácii."
+      attentionSummaryPromise={attentionSummaryPromise}
+    >
+      <Suspense fallback={
+        <div id="centrum-pozornosti" className="admin-panel" role="status" aria-busy="true">
+          Načítavajú sa upozornenia…
+        </div>
+      }>
+        <AdminOperationsContent attentionPromise={attentionPromise} filters={filters} cursor={cursor} />
+      </Suspense>
     </AdminShell>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -9,6 +9,17 @@ import {
   getAdminBreadcrumbs,
 } from "@/lib/admin-navigation";
 import styles from "./admin-navigation.module.css";
+
+function NavigationPendingIndicator() {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      className={styles.navigationPendingIndicator}
+      data-pending={pending ? "true" : undefined}
+      aria-hidden="true"
+    />
+  );
+}
 
 function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
@@ -64,6 +75,7 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
                   data-admin-drawer-first={mobile && groupIndex === 0 && itemIndex === 0 ? "true" : undefined}
                 >
                   {item.label}
+                  <NavigationPendingIndicator />
                 </Link>
               );
             })}

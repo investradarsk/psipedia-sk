@@ -401,3 +401,41 @@
 @media (max-width: 1100px) {
   .breadcrumbs { margin-bottom: 8px; }
 }
+
+/* Navigation feedback for slow dynamic D1-backed admin pages. */
+.desktopGroup a,
+.mobileGroup a {
+  position: relative;
+}
+
+.navigationPendingIndicator {
+  position: absolute;
+  right: 10px;
+  top: calc(50% - 6px);
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.navigationPendingIndicator[data-pending="true"] {
+  animation: admin-nav-pending-fade 150ms 120ms forwards,
+    admin-nav-pending-spin 850ms linear infinite;
+}
+
+@keyframes admin-nav-pending-fade {
+  to { opacity: .7; }
+}
+
+@keyframes admin-nav-pending-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigationPendingIndicator[data-pending="true"] {
+    animation: admin-nav-pending-fade 150ms 120ms forwards;
+  }
+}
