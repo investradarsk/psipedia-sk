@@ -3,8 +3,9 @@ name: HOMEPAGE-UX-ENHANCEMENTS-1 name-day calendar
 on:
   pull_request:
     branches: [main]
+    # Homepage layout changes use mandatory public CI; costly calendar E2E
+    # runs for name-day-specific changes or via workflow_dispatch.
     paths:
-      - "app/page.tsx"
       - "app/psie-meniny/**"
       - "components/*dog-name-day*"
       - "lib/dog-name-day*"
