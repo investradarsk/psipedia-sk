@@ -35,7 +35,7 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
     invariant(!targetApplied,"0139 already applied; refusing repeated production APPLY");
 }
 // Migration 0142 remains owner-dispatched through the existing protected production workflow.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0144_facebook_articles_shared_calendar.sql"]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
