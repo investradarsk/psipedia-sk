@@ -57,3 +57,6 @@
     transition: none;
   }
 }
+
+/* Mobile: never obscure content, forms or swipe gestures with a floating up arrow. */
+@media (max-width: 760px) { .button { display: none; } }

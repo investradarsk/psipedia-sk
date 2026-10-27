@@ -101,13 +101,12 @@ export function SiteHeader({
 
     let start: { x: number; y: number; time: number } | null = null;
     function onTouchStart(event: globalThis.TouchEvent) {
-      document.removeEventListener("touchmove", onTouchMove);
       start = null;
       if (event.touches.length !== 1 || !window.matchMedia("(max-width: 767px)").matches) return;
       const touch = event.touches[0];
       // Do not compete with the browser\'s left/right edge gestures. Chrome
       // may own those gestures before any page touch events arrive.
-      if (touch.clientX < Math.max(28, window.innerWidth * 0.32) || touch.clientX > window.innerWidth - 8) return;
+      if (touch.clientX < 28 || touch.clientX > window.innerWidth - 28) return;
       const target = event.target;
       if (!(target instanceof Element) || target.closest(
         '#mobile-menu, .search-modal, [role="dialog"], [role="slider"], input, textarea, select, button, [contenteditable="true"], .gm-style, .leaflet-container, .maplibregl-map, .swiper, [data-no-swipe-back]',
@@ -118,18 +117,10 @@ export function SiteHeader({
         if (/auto|scroll/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 8) return;
       }
       start = { x: touch.clientX, y: touch.clientY, time: Date.now() };
-      document.addEventListener("touchmove", onTouchMove, { passive: false });
-    }
-    function onTouchMove(event: globalThis.TouchEvent) {
-      if (!start || event.touches.length !== 1) return;
-      const touch = event.touches[0];
-      const left = start.x - touch.clientX;
-      const vertical = Math.abs(start.y - touch.clientY);
-      // Claim only a clear inward left swipe; vertical scrolling remains native.
-      if (left > 8 && vertical < left * 0.38 && event.cancelable) event.preventDefault();
+      // Vertical scrolling and browser-edge history gestures remain native.
     }
     function onTouchEnd(event: globalThis.TouchEvent) {
-      document.removeEventListener("touchmove", onTouchMove);
+      
       const origin = start;
       start = null;
       if (!origin || event.changedTouches.length !== 1) return;
@@ -140,19 +131,18 @@ export function SiteHeader({
       const current = window.location.pathname + window.location.search;
       const trail = internalTrailRef.current;
       const previous = trail.length > 1 ? trail[trail.length - 2] : null;
-      if (previous && previous !== current) router.replace(previous);
-      else if (current !== "/") router.replace("/");
+      if (previous && previous !== current) router.back();
     }
     function onTouchCancel() {
       start = null;
-      document.removeEventListener("touchmove", onTouchMove);
+      
     }
     document.addEventListener("touchstart", onTouchStart, { passive: true });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     document.addEventListener("touchcancel", onTouchCancel, { passive: true });
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
-      document.removeEventListener("touchmove", onTouchMove);
+      
       document.removeEventListener("touchend", onTouchEnd);
       document.removeEventListener("touchcancel", onTouchCancel);
     };
@@ -481,7 +471,8 @@ export function SiteHeader({
     const current = window.location.pathname + window.location.search;
     const trail = internalTrailRef.current;
     const previous = trail.length > 1 ? trail[trail.length - 2] : null;
-    router.replace(previous && previous !== current ? previous : "/");
+    if (previous && previous !== current) router.back();
+    else router.push("/");
   }
 
   function menuButton(className: string) {

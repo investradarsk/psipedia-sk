@@ -689,3 +689,20 @@
     flex-basis: 24px;
   }
 }
+
+/* Reuse the approved full-width mobile name-day strip on desktop. */
+@media (min-width: 1200px) {
+  .desktopNameDay { display: none; }
+  .mobileNameDay {
+    display: flex;
+    gap: 9px;
+    padding: 7px 24px;
+    font-size: .75rem;
+    line-height: 1.4;
+    border-top: 0;
+    border-bottom: 1px solid var(--ps-border-soft);
+    background: var(--cream);
+  }
+  .mobileNameDay span { font-size: .65rem; }
+  .mobileNameDay .currentDate { font-size: .72rem; }
+}
