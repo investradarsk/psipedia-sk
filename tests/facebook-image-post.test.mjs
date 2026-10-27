@@ -83,8 +83,23 @@ test('API GET reload and PUT conflict retain newer data; immutable publish metad
 test('missing migration renders a safe disabled admin page; legacy article upload still works',async t=>{
  const{images}=fixture(t,false);
  const {default:Page}=await import('../app/admin/facebook-obrazky/page.tsx');
- const {renderToStaticMarkup}=await import('react-dom/server');const html=renderToStaticMarkup(await Page());
- assert.match(html,/0128/);assert.match(html,/disabled=""/);assert.doesNotMatch(html,/<form/);
+ // The page streams its DB result under Suspense: static markup only contains the loading fallback.
+ // Wait for all async server components before asserting the migration error state.
+ const {renderToPipeableStream}=await import('react-dom/server');
+ const {PassThrough}=await import('node:stream');
+ const tree=await Page();
+ const html=await new Promise((resolve,reject)=>{
+  const output=new PassThrough();let rendered='';
+  output.setEncoding('utf8');
+  output.on('data',chunk=>{rendered+=chunk;});
+  output.once('end',()=>resolve(rendered));
+  output.once('error',reject);
+  const stream=renderToPipeableStream(tree,{
+   onAllReady(){stream.pipe(output);},
+   onError(error){reject(error);}
+  });
+ });
+ assert.match(html,/0128/);assert.match(html,/disabled=""/);assert.doesNotMatch(html,/<form/);assert.doesNotMatch(html,/načítavajú sa údaje/);
  const legacy=await upload(new Request('http://localhost/api/admin/uploads',{method:'POST',headers:{'content-type':'image/png','x-upload-folder':'articles'},body:png}));assert.equal(legacy.status,201);assert.equal(images.size,1);
 });
 test('prepared SQL and Drizzle agree; migration adds only its own table and indexes',async t=>{

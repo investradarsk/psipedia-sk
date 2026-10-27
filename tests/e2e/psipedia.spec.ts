@@ -296,7 +296,7 @@ test("article magazine detail is accessible and overflow-safe on desktop and 390
   expect(mobileOverflow, "Article detail overflows horizontally at 390px").toBeLessThanOrEqual(1);
 });
 
-test("@production homepage search, CTA and Plemeno dňa work without JS errors", async ({ page }) => {
+test("@production homepage search, CTA and featured breeds work without JS errors", async ({ page }) => {
   await expectHealthyPage(page, "/");
   await expect(page.locator("main#obsah h1")).toBeVisible();
   await expect(page.locator("[data-home-hero]")).toBeVisible();
@@ -304,7 +304,7 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
   // PR #815 displays a real empty state until image-backed articles exist.
   // Every editorial section must render exactly one of its article layout or empty state.
   const homepageSections = [
-    { root: "[data-home-latest]", id: "latest", title: "Novinky zo sveta psov", cta: "Archív noviniek", href: "/clanky", empty: "[data-home-latest-empty]", emptyLabel: "Nové správy pripravujeme" },
+    { root: "[data-home-latest]", id: "latest", title: "Novinky zo sveta psov", cta: "Všetky články", href: "/clanky", empty: "[data-home-latest-empty]", emptyLabel: "Nové články pripravujeme" },
     { root: '[data-home-editorial="steniatka"]', id: "steniatka", title: "Šteniatka", cta: "Všetko o šteniatkach", href: "/steniatka", empty: '[data-home-editorial-empty="steniatka"]', emptyLabel: "Ďalší obsah pripravujeme" },
     { root: '[data-home-editorial="starostlivost"]', id: "starostlivost", title: "Zdravie a starostlivosť", cta: "Všetko o zdraví", href: "/starostlivost", empty: '[data-home-editorial-empty="starostlivost"]', emptyLabel: "Ďalší obsah pripravujeme" },
     { root: '[data-home-editorial="aktivity"]', id: "aktivity", title: "Výcvik a aktivity", cta: "Výcvik a aktivity", href: "/aktivity", empty: '[data-home-editorial-empty="aktivity"]', emptyLabel: "Ďalší obsah pripravujeme" },
@@ -384,12 +384,9 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
     await expect(page.locator('[data-home-editorial="' + id + '"] .home-editorial-grid')).toHaveCount(0);
   }
 
-  // Newly added partner banners must remain actionable navigation links, not inert marketing.
+  // The partner profile banner must remain an actionable navigation link.
   await expect(page.locator('[data-home-banner="profil"]').getByRole("link", { name: "Pridať profil" }))
     .toHaveAttribute("href", "/partner/profily/novy");
-  await expect(page.locator('[data-home-banner="podujatie"]').getByRole("link", { name: "Pridať podujatie" }))
-    .toHaveAttribute("href", "/partner/podujatia/nove");
-
   const search = page.getByRole("search").filter({ has: page.locator("#home-search") });
   await search.locator("input[name=q]").fill("labrador");
   await Promise.all([
@@ -399,20 +396,21 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
   await expect(page.locator("h1")).toContainText(/Čo hľadáš\?|Hľadať|Výsledky/i);
   await gotoProductionPage(page, "/");
 
-  // Breed of the day is now in the Šteniatka sidebar, with a valid atlas fallback.
+  // Šteniatka now displays a compact featured-breed list, with a stable atlas link
+  // even when no image-backed breed can be featured.
   const breedSidebar = page.locator('[data-home-editorial="steniatka"] .home-magazine-sidebar-block');
   await expect(breedSidebar).toBeVisible();
-  const breedLink = breedSidebar.locator("[data-home-breed]");
-  if (await breedLink.count()) {
-    await expect(breedSidebar.getByRole("heading", { name: "Plemeno dňa" })).toBeVisible();
-    await expect(breedLink).toHaveAttribute("href", /^\/plemena\/[^/?#]+$/);
-    await expect(breedLink.locator("strong")).not.toHaveText("");
-    await expect(breedLink.locator('img:not([aria-hidden="true"])')).toHaveCount(1);
-  } else {
-    await expect(breedSidebar.getByRole("heading", { name: "Atlas plemien" })).toBeVisible();
-    await expect(breedSidebar).toContainText("Spoznaj atlas publikovaných plemien");
+  await expect(breedSidebar.getByRole("heading", { name: "Objav plemená" })).toBeVisible();
+  await expect(breedSidebar.getByRole("link", { name: "Všetky plemená" })).toHaveAttribute("href", "/plemena");
+  const breedCards = breedSidebar.locator(".home-side-breed-item");
+  const breedCount = await breedCards.count();
+  expect(breedCount, "More than four featured breeds rendered").toBeLessThanOrEqual(4);
+  for (let index = 0; index < breedCount; index += 1) {
+    const card = breedCards.nth(index);
+    await expect(card).toHaveAttribute("href", /^\/plemena\/[^/?#]+$/);
+    await expect(card.locator("strong")).not.toHaveText("");
+    await expect(card.locator('img:not([aria-hidden="true"])')).toHaveCount(1);
   }
-  await expect(breedSidebar.getByRole("link", { name: "Prejsť do atlasu" })).toHaveAttribute("href", "/plemena");
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(horizontalOverflow, "Homepage overflows horizontally on " + (await page.evaluate(() => innerWidth)) + "px viewport").toBeLessThanOrEqual(1);
 });
