@@ -3,11 +3,15 @@ import {readFileSync} from "node:fs";
 import {env} from "cloudflare:workers";
 const migrations=["0128_facebook_image_posts.sql","0130_facebook_image_publisher.sql",
   "0131_facebook_image_trash.sql","0132_facebook_image_direct_consent.sql",
-  "0135_facebook_image_safe_retry.sql"]
+  "0135_facebook_image_safe_retry.sql", "0144_facebook_articles_shared_calendar.sql"]
   .map(name=>readFileSync(new URL("../drizzle/"+name,import.meta.url),"utf8"));
 export const png=Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aOioAAAAASUVORK5CYII=','base64'));
 export function fixture(t,withSchema=true){
- const sqlite=new DatabaseSync(':memory:');if(withSchema)for(const migration of migrations)sqlite.exec(migration);
+ const sqlite=new DatabaseSync(':memory:');
+ if(withSchema){
+   sqlite.exec('CREATE TABLE managed_articles (id INTEGER PRIMARY KEY)');
+   for(const migration of migrations)sqlite.exec(migration);
+ }
  const db={prepare(sql){const stmt=sqlite.prepare(sql);return {values:[],bind(...values){this.values=values;return this;},async first(){return stmt.get(...this.values)??null;},async all(){return {results:stmt.all(...this.values)};},async run(){return {meta:{changes:stmt.run(...this.values).changes}};}};}};
  const images=new Map();const before={DB:env.DB,BUCKET:env.BUCKET,AUTH_MODE:env.AUTH_MODE,
    FB_PAGE_ID:env.FB_PAGE_ID,FB_PAGE_ACCESS_TOKEN:env.FB_PAGE_ACCESS_TOKEN,
