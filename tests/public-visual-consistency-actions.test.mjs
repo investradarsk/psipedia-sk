@@ -92,7 +92,7 @@ test("e-shop detail uses shared public CTA variants and semantic surfaces", () =
   assert.match(profile, /<PublicActionLink variant="primary" href=/);
   assert.match(profile, /<PublicActionLink variant="secondary" href=\{shop\.websiteUrl\} target="_blank" rel="noopener noreferrer">/);
   assert.doesNotMatch(css, /\.heroActions a(?:\s|:|\{)/);
-  for (const token of ["--ps-color-canvas", "--ps-border-soft", "--ps-radius-card", "--ps-radius-filter", "--ps-surface-raised"]) {
+  for (const token of ["--cream", "--ps-border-soft", "--ps-radius-card", "--ps-radius-filter", "--ps-surface-raised"]) {
     assert.ok(css.includes("var(" + token), "missing shared e-shop visual token: " + token);
   }
   assert.match(css, /\.hero h1 \{[^}]*font: 500 clamp\(2rem, 3\.8vw, 3\.5rem\)\/1\.06 Georgia/);
