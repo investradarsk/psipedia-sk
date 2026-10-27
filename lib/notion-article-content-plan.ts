@@ -12,6 +12,7 @@ export type EditorialArticle = {
   id: number; status: string; title: string; slug: string; intro: string;
   introRichText?: EditorialRichTextDocument | null; blocks: ArticleBlock[];
   seoTitle: string; metaDescription: string; focusKeyword: string;
+  socialCaption?: string;
   ogTitle?: string; ogDescription?: string; image?: string | null;
   imageAlt?: string | null; imageCreditUrl?: string | null;
 };
@@ -240,6 +241,7 @@ export function buildNotionEditorialPlan(args: {
     ["Alt text obrázka", "rich_text", article.imageAlt ?? ""],
     ["Zdroj obrázka", "url", article.imageCreditUrl ?? ""],
   ];
+  if ("Popis na sociálne siete" in pageProperties) fields.push(["Popis na sociálne siete", "rich_text", article.socialCaption ?? ""]);
   if ("OG title" in pageProperties) fields.push(["OG title", "rich_text", article.ogTitle ?? ""]);
   if ("OG description" in pageProperties) fields.push(["OG description", "rich_text", article.ogDescription ?? ""]);
   for (const [name, type, value] of fields) {

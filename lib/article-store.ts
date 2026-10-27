@@ -69,6 +69,7 @@ export type ManagedArticle = Article & {
   publishedAt: string | null;
   contentUpdatedAt: string | null;
   showUpdated: boolean;
+  socialCaption: string;
   createdBy: string;
   updatedBy: string;
   relatedBreedIds: number[];
@@ -150,6 +151,7 @@ export type ManagedArticleInput = {
   publishedAt?: string | null;
   contentUpdatedAt?: string | null;
   showUpdated?: boolean;
+  socialCaption?: string;
   seoTitle?: string;
   metaDescription?: string;
   canonicalUrl?: string;
@@ -202,6 +204,7 @@ type ArticleRow = {
   updated_by: string;
   content_updated_at: string | null;
   show_updated_label: number;
+  social_caption?: string;
   seo_title: string;
   meta_description: string;
   canonical_url: string;
@@ -397,6 +400,7 @@ function rowToManagedArticle(row: ArticleRow, relatedBreedIds: number[] = [], to
     publishedAt: row.published_at,
     contentUpdatedAt: row.content_updated_at ?? null,
     showUpdated: Boolean(row.show_updated_label),
+    socialCaption: row.social_caption ?? "",
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     relatedBreedIds,
@@ -736,6 +740,7 @@ async function normalizeInput(
     publishedAt,
     contentUpdatedAt,
     showUpdated: Boolean(payload.showUpdated),
+    socialCaption: typeof payload.socialCaption === "string" ? payload.socialCaption.trim().slice(0, 15000) : "",
     seoTitle: payload.seoTitle?.trim().slice(0, 180) ?? "",
     metaDescription: payload.metaDescription?.trim().slice(0, 320) ?? "",
     canonicalUrl,
@@ -1087,10 +1092,10 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
       slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, author_profile_id,
       intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json, image_url, image_key, image_display, image_focus_x, image_focus_y, thumbnail_display_json, detail_display_json,
       image_alt, image_caption, image_credit, image_credit_url,
-      reading_minutes, created_at, updated_at, published_at, created_by, updated_by,
+      reading_minutes, social_caption, created_at, updated_at, published_at, created_by, updated_by,
       content_updated_at, show_updated_label, seo_title, meta_description, canonical_url, noindex,
       focus_keyword, og_title, og_description, og_image_url, og_image_key
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `).bind(
     input.slug,
@@ -1123,6 +1128,7 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
     input.imageCredit,
     input.imageCreditUrl,
     input.readingMinutes,
+    input.socialCaption,
     now,
     now,
     publishedAt,
@@ -1182,7 +1188,7 @@ export async function updateManagedArticle(
     UPDATE managed_articles SET
       slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, portal_subpage = ?, news_category = ?, status = ?, accent = ?,
       author = ?, author_profile_id = ?, intro = ?, intro_rich_text_json = ?, takeaway = ?, takeaway_rich_text_json = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
-      image_url = ?, image_key = ?, image_display = ?, image_focus_x = ?, image_focus_y = ?, thumbnail_display_json = ?, detail_display_json = ?, image_alt = ?, image_caption = ?, image_credit = ?, image_credit_url = ?, reading_minutes = ?, updated_at = ?,
+      image_url = ?, image_key = ?, image_display = ?, image_focus_x = ?, image_focus_y = ?, thumbnail_display_json = ?, detail_display_json = ?, image_alt = ?, image_caption = ?, image_credit = ?, image_credit_url = ?, reading_minutes = ?, social_caption = ?, updated_at = ?,
       published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
       seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
       og_title = ?, og_description = ?, og_image_url = ?, og_image_key = ?
@@ -1221,6 +1227,7 @@ export async function updateManagedArticle(
     imageCredit,
     imageCreditUrl,
     input.readingMinutes,
+    input.socialCaption,
     now,
     publishedAt,
     editorEmail,
