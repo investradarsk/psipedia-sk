@@ -100,7 +100,9 @@ function managedSearch(searchSlot: ReactNode, config: SectionHeroConfig, fallbac
   const existingLinks = (searchSlot as ReactElement<SearchElementProps>).props.shortcuts;
   if (configuredLinks.length) {
     overrides.shortcuts = configuredLinks.map(({ href, label }) => ({ href, label }));
-  } else if (!existingLinks?.length) {
+  } else if (existingLinks === undefined) {
+    // An explicit [] means a contextual editorial search does not want
+    // unrelated generic destinations repeated under its form.
     overrides.shortcuts = fallbackShortcuts;
   }
   return Object.keys(overrides).length
