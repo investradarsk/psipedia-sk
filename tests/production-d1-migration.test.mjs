@@ -164,6 +164,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0141_quality_missing_hourly.sql",
     "0142_quality_missing_scan_outcomes.sql",
     "0143_quality_missing_manual_attempts.sql",
+    "0144_facebook_articles_shared_calendar.sql",
   ]);
 });
 
