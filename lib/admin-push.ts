@@ -345,7 +345,9 @@ async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBind
       WHERE e.created_at >= ?
         -- Do not create phone deliveries for Notion's technical run receipts.
         AND NOT (e.source_type='AUTOMATION_RUN' AND e.resource_type='notion')
-        AND (e.source_type <> 'AUTOMATION_ACTION' OR e.event_type IN ('automation_source_issue','automation_draft_created'))
+        -- Retired source failures remain in technical history, never in mobile push.
+        AND e.event_type <> 'automation_source_issue'
+        AND (e.source_type <> 'AUTOMATION_ACTION' OR e.event_type = 'automation_draft_created')
         AND (e.event_type <> 'admin_push_test' OR e.resource_ref = ?)
         AND NOT EXISTS (
           SELECT 1 FROM admin_push_event_deliveries d
@@ -409,6 +411,14 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   summary.candidates += eventRows.results.length;
   for (const row of eventRows.results) {
     try {
+      // Close deliveries queued before the legacy source alert was retired.
+      if (row.event_type === "automation_source_issue") {
+        await resolved.database.prepare(`UPDATE admin_push_event_deliveries
+          SET status = 'dead', last_error = 'legacy_source_issue_retired', updated_at = ? WHERE id = ?`)
+          .bind(nowIso, row.id).run();
+        summary.dead += 1;
+        continue;
+      }
       if (!isAdminPushEventAllowed(parseStoredPushCategories(row.categories_json),row.event_type,row.source_type,row.resource_type)) {
         await resolved.database.prepare(`UPDATE admin_push_event_deliveries
           SET status = 'dead', last_error = 'category_disabled', updated_at = ? WHERE id = ?`)
