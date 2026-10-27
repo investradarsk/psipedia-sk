@@ -423,6 +423,34 @@ assert.equal(scriptWithLock.dependency, true);
 assert.equal(scriptWithLock.fullCore, true);
 assert.equal(classifyChangedFiles(["package.json"]).fullCore, true);
 
+// Consolidated PR #1083/#1084: expensive feature CI is scoped, while mandatory
+// build, lint, security, and migration workflows remain the fallback.
+for (const [workflow, unrelated] of [
+  ["homepage-name-days-ci.yml", ["app/page.tsx", "components/site-header.tsx"]],
+  ["image-editor-2-ci.yml", ["app/page.tsx", "lib/article-store.ts", "package.json", "scripts/production-d1-migrate.mjs", "components/admin-directory-editor.tsx"]],
+  ["organization-profile-e2e.yml", ["app/layout.tsx", "app/globals.css", "components/site-header.tsx", "lib/seo.ts", "drizzle/0064_geo_foundation.sql"]],
+]) {
+  for (const file of unrelated) {
+    assert.equal(prWorkflowWouldRun(workflow, [file]), false,
+      `${workflow}: unrelated ${file} must not launch expensive feature validation`);
+  }
+  assert.equal(prWorkflowWouldRun(workflow, [`.github/workflows/${workflow}`]), true,
+    `${workflow}: workflow edits must remain covered`);
+}
+for (const [workflow, relevant] of [
+  ["homepage-name-days-ci.yml", "lib/dog-name-day-calendar.ts"],
+  ["image-editor-2-ci.yml", "lib/image-display.ts"],
+  ["organization-profile-e2e.yml", "components/organization-profile-detail.tsx"],
+]) {
+  assert.equal(prWorkflowWouldRun(workflow, [relevant]), true,
+    `${workflow}: relevant source must trigger validation`);
+}
+assert.equal(prWorkflowWouldRun("playwright-e2e.yml", ["app/page.tsx"]), true,
+  "Main required CI must remain unconditionally available for homepage changes");
+assert.doesNotMatch(workflows.get("open-source-production-ui.yml"),
+  /name: Production build[\s\S]*?run: npm run build/,
+  "Secondary integration workflow must not re-build code already covered by required CI");
+
 assert.ok(required.includes("name: Changed package test scripts"));
 assert.ok(required.includes("run: node scripts/ci-scope.mjs --run-changed-package-tests"));
 console.log(
@@ -619,7 +647,8 @@ for (const id of ["pull-request-e2e", "production-smoke"]) {
 const coverage4 = [
   ["map", ["components/map/public-location-map.tsx"], ["MAPS"], ["map-public-ui-ci.yml"]],
   ["profiles", ["components/directory-profile-detail.tsx"], ["DIRECTORY_SERVICES", "ENTITY_SURFACES"], ["sitewide-ai-entity-surface-ci.yml"]],
-  ["homepage", ["app/page.tsx"], [], ["homepage-name-days-ci.yml"]],
+  ["homepage", ["app/page.tsx"], [], []],
+  ["name-days", ["lib/dog-name-day-calendar.ts"], [], ["homepage-name-days-ci.yml"]],
   ["articles", ["components/article-detail.tsx"], ["ARTICLES"], ["article-ux-ci.yml"]],
   ["notion-sync", ["lib/notion-article-sync.ts"], ["NOTION"], ["notion-article-sync-ci.yml"]],
   ["admin", ["components/admin-article-editor.tsx"], ["ADMIN", "ARTICLES"], ["article-admin-ci.yml"]],
