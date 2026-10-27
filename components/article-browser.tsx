@@ -79,11 +79,21 @@ export function ArticleBrowser({
 
   useEffect(() => {
     if (!hidePrimarySearch) return;
+    // The hero input is rendered by the server. In a fast Playwright/user interaction
+    // its value can change before this client-side effect has attached listeners.
+    // Read the current value once, then use delegated input events for live filtering.
+    const sync = (value: string) => {
+      setQuery(value);
+      setShown(INITIAL_COUNT);
+    };
     const input = document.getElementById("article-hero-search");
-    if (!(input instanceof HTMLInputElement)) return;
-    const sync = () => { setQuery(input.value); setShown(INITIAL_COUNT); };
-    input.addEventListener("input", sync);
-    return () => input.removeEventListener("input", sync);
+    if (input instanceof HTMLInputElement) sync(input.value);
+    const onInput = (event: Event) => {
+      if (!(event.target instanceof HTMLInputElement)) return;
+      if (event.target.id === "article-hero-search") sync(event.target.value);
+    };
+    document.addEventListener("input", onInput, true);
+    return () => document.removeEventListener("input", onInput, true);
   }, [hidePrimarySearch]);
 
   const visible = useMemo(() => {
