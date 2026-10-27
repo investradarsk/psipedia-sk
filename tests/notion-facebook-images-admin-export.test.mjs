@@ -10,9 +10,10 @@ const POST="11111111-2222-4333-8444-555555555555",NOW="2030-01-02T09:00:00.000Z"
 const settings={NOTION_API_TOKEN:"OFFLINE_FAKE_TOKEN",NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID:SOURCE,
   NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED:"true"};
 function setup(){
-  const sql=new DatabaseSync(":memory:");sql.exec("PRAGMA foreign_keys=ON;");
+  const sql=new DatabaseSync(":memory:");sql.exec("PRAGMA foreign_keys=ON; CREATE TABLE managed_articles (id INTEGER PRIMARY KEY);");
   for(const file of ["0128_facebook_image_posts.sql","0130_facebook_image_publisher.sql",
-    "0131_facebook_image_trash.sql","0132_facebook_image_direct_consent.sql"])sql.exec(readFileSync(new URL("../drizzle/"+file,import.meta.url),"utf8"));
+    "0131_facebook_image_trash.sql","0132_facebook_image_direct_consent.sql",
+    "0144_facebook_articles_shared_calendar.sql"])sql.exec(readFileSync(new URL("../drizzle/"+file,import.meta.url),"utf8"));
   const db={prepare(stmt){let params=[];return {bind(...a){params=a;return this;},
     all(){return {results:sql.prepare(stmt).all(...params)};},
     first(){return sql.prepare(stmt).get(...params)??null;},
