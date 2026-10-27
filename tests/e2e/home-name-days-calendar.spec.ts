@@ -5,11 +5,14 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
 
-test("homepage entry opens independent canonical month calendar", async ({ page }) => {
+test("compact header name-day link opens independent canonical month calendar", async ({ page }) => {
   await page.goto("/");
-  const entry = page.locator("[data-home-dog-name-day]");
-  await expect(entry).toBeVisible();
-  await entry.getByRole("link", { name: /Otvoriť mesačný kalendár/ }).click();
+  // Approved S-01 removed the large, standalone homepage name-day entry.
+  await expect(page.locator("[data-home-dog-name-day]")).toHaveCount(0);
+  // The shared header shows the link when there are published names for today.
+  const link = page.getByRole("link", { name: "Otvoriť kalendár psích menín" }).first();
+  if (await link.count()) await link.click();
+  else await page.goto("/psie-meniny");
   await expect(page).toHaveURL(/\/psie-meniny/);
   await expect(page.locator("[data-name-day-calendar]")).toBeVisible();
   const count = await page.locator("[data-name-day-date]").count();
