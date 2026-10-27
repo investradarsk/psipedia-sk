@@ -178,7 +178,7 @@ test("e-shop new-page import locks identity and uses a provisional mapping befor
   assert.match(code, /notionPageBelongsToDataSource\(latest, input\.dataSourceId\)/);
   assert.ok(code.indexOf("canonicalWriteUncertain = true") < code.indexOf("await createFromNotion"));
   assert.ok(code.indexOf('contentHash: ""') < code.indexOf("await writeShopToNotion("));
-  assert.ok(code.indexOf("canonicalWriteUncertain = false") > code.indexOf("await saveMapping({"));
+  assert.ok(code.lastIndexOf("canonicalWriteUncertain = false") > code.indexOf("await saveMapping({"));
   assert.match(code, /if \(!canonicalWriteUncertain\)/);
   assert.match(source, /createManagedEshop\(updateInput\(\{ \.\.\.desired, status: "draft" \}, logo\)/);
 });

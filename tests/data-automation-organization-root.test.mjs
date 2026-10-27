@@ -130,12 +130,13 @@ test("DISCOVERY-CAT-1B discovery remains candidate-only and ORGANIZATION matcher
   assert.match(matcher, /verified_canonical_organization_linkage/);
 });
 
-test("DISCOVERY-CAT-1B admin category exposes ORGANIZATION Tavily roots", () => {
+test("DISCOVERY-CAT-1B preserves internal ORGANIZATION policy while retired admin routes redirect to Gemini", () => {
   const presentation = read("lib/admin-automation-presentation.ts");
   const categoryPage = read("app/admin/automatizacie/[category]/page.tsx");
   const rootPage = read("app/admin/automatizacie/[category]/discovery/[id]/page.tsx");
   assert.match(presentation, /entityTypes: \["ORGANIZATION"\]/);
-  assert.match(categoryPage, /import \{ isTavilySearchDiscoveryRoot \} from "@\/lib\/tavily-canary-control"/);
-  assert.match(categoryPage, /\.filter\(isTavilySearchDiscoveryRoot\)/);
-  assert.match(rootPage, /category\.entityTypes\.includes\(root\.entityType\)/);
+  for (const page of [categoryPage, rootPage]) {
+    assert.match(page, /redirect\("\/admin\/automatizacie-gemini"\)/);
+    assert.doesNotMatch(page, /isTavilySearchDiscoveryRoot|runDataAutomation|listAutomationDiscoveryRoots/);
+  }
 });
