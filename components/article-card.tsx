@@ -79,6 +79,7 @@ export function ArticleCard({
       >
         {article.image ? (
           <ImageDisplay
+                fallbackOnError
             context="thumbnail"
             config={article.thumbnailImageDisplay}
             legacyMode={article.imageDisplay}

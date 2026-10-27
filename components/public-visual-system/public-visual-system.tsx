@@ -3,6 +3,7 @@ import type { ButtonHTMLAttributes, ComponentProps, HTMLAttributes, ReactElement
 import { ArrowIcon } from "@/components/icons";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "./public-media-fallback";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import type { SmartImageMode } from "@/lib/smart-image";
 import styles from "./public-visual-system.module.css";
@@ -279,12 +280,12 @@ export function PublicArticleListItem({
   listItem?: boolean;
 }) {
   return (
-    <Link className={cx(styles.articleListItem, image && styles.articleListItemWithImage, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
-      {image ? (
-        <span className={styles.articleListMedia} data-article-image>
-          <ImageDisplay context="thumbnail" config={image.config} legacyMode={image.mode} legacyFocusX={image.focusX} legacyFocusY={image.focusY} src={image.src} srcSet={responsiveMediaSrcSet(image.src, [160, 320, 480])} sizes="(max-width: 620px) 90px, 112px" alt={image.alt} loading="lazy" decoding="async" />
-        </span>
-      ) : null}
+    <Link className={cx(styles.articleListItem, styles.articleListItemWithImage, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
+      <span className={styles.articleListMedia} data-article-image>
+        {image ? (
+          <ImageDisplay fallbackOnError context="thumbnail" config={image.config} legacyMode={image.mode} legacyFocusX={image.focusX} legacyFocusY={image.focusY} src={image.src} srcSet={responsiveMediaSrcSet(image.src, [160, 320, 480])} sizes="(max-width: 620px) 90px, 112px" alt={image.alt} loading="lazy" decoding="async" />
+        ) : <PublicMediaFallback label="Článok zatiaľ nemá fotografiu" />}
+      </span>
       <span className={styles.articleListCopy}>
         <strong className={styles.articleListTitle} data-article-title>{title}</strong>
         <span className={styles.articleListMeta}>
@@ -317,8 +318,10 @@ export function PublicContentListItem({
   className?: string;
 }) {
   return (
-    <Link className={cx(styles.contentItem, image && styles.contentItemWithImage, className)} href={href} role="listitem">
-      {image ? <span className={styles.contentMedia}><ImageDisplay context="thumbnail" config={image.config} legacyMode={image.mode} legacyFocusX={image.focusX} legacyFocusY={image.focusY} src={image.src} srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, 33vw" alt={image.alt} loading="lazy" decoding="async" /></span> : null}
+    <Link className={cx(styles.contentItem, styles.contentItemWithImage, className)} href={href} role="listitem">
+      <span className={styles.contentMedia}>
+        {image ? <ImageDisplay fallbackOnError context="thumbnail" config={image.config} legacyMode={image.mode} legacyFocusX={image.focusX} legacyFocusY={image.focusY} src={image.src} srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, 33vw" alt={image.alt} loading="lazy" decoding="async" /> : <PublicMediaFallback label="Fotografia zatiaľ nie je pridaná" />}
+      </span>
       <span className={styles.contentCopy}>
         {eyebrow ? <span className={styles.itemEyebrow}>{eyebrow}</span> : null}
         <strong className={styles.contentTitle}>{title}</strong>

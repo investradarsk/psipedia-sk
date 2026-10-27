@@ -2,6 +2,7 @@
 
 import { useState, type ImgHTMLAttributes } from "react";
 import { SmartCardImage } from "@/components/smart-card-image";
+import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import {
   DEFAULT_DETAIL, DEFAULT_THUMBNAIL, automaticThumbnailFit,
   legacyArticleThumbnail, legacyArticleDetail,
@@ -22,14 +23,17 @@ export type ImageDisplayProps = ImageProps & {
   legacyFocusY?: number | null;
   className?: string;
   imageClassName?: string;
+  /** Public image slots can opt in; admin image editors keep their native error UI. */
+  fallbackOnError?: boolean;
 };
 
 /** Non-destructive renderer shared by the live editor and public image slots. */
 export function ImageDisplay({
   src, alt, context, config, legacyMode, legacyFocusX, legacyFocusY, roleHint = "article",
-  className, imageClassName, style, ...imageProps
+  className, imageClassName, style, fallbackOnError = false, ...imageProps
 }: ImageDisplayProps) {
   const [autoFit, setAutoFit] = useState<{ src: string; fit: "cover" | "contain" } | null>(null);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const settings = config ?? (context === "thumbnail"
     ? legacyArticleThumbnail(legacyMode, legacyFocusX, legacyFocusY)
     : legacyArticleDetail(legacyMode, legacyFocusX, legacyFocusY))
@@ -44,18 +48,28 @@ export function ImageDisplay({
   const fitMode: SmartImageMode = settings.mode === "auto" ? resolvedFit
     : settings.mode === "crop" ? "cover" : "contain";
 
+  if (fallbackOnError && failedSrc === src) {
+    return <span className={[styles.frame, className].filter(Boolean).join(" ")} data-image-error-fallback>
+      <PublicMediaFallback label="Obrázok nie je dostupný" />
+    </span>;
+  }
+
+  const handleError: NonNullable<ImgHTMLAttributes<HTMLImageElement>["onError"]> = (event) => {
+    imageProps.onError?.(event);
+    if (fallbackOnError) setFailedSrc(src);
+  };
   return (
     <span className={[styles.frame, natural && styles.natural, className].filter(Boolean).join(" ")}
       data-image-display={natural ? "natural" : blur ? "blur" : "crop"}>
       {natural ? (
-        <img {...imageProps} src={src} alt={alt} className={[styles.naturalPhoto, imageClassName].filter(Boolean).join(" ")}
+        <img {...imageProps} src={src} alt={alt} onError={handleError} className={[styles.naturalPhoto, imageClassName].filter(Boolean).join(" ")}
           style={style} draggable={false} />
       ) : (
         <>
           {blur && <img className={styles.blurBackground} src={src} srcSet={imageProps.srcSet}
             sizes={imageProps.sizes} loading={imageProps.loading} decoding={imageProps.decoding}
             alt="" aria-hidden="true" draggable={false} />}
-          <SmartCardImage {...imageProps} src={src} alt={alt} roleHint={roleHint} mode={fitMode}
+          <SmartCardImage {...imageProps} onError={handleError} src={src} alt={alt} roleHint={roleHint} mode={fitMode}
             focusX={settings.x} focusY={settings.y}
             onImageDimensions={settings.mode === "auto" ? ({ width, height, frameRatio, lightBackgroundShare }) => {
               const fit = automaticThumbnailFit(width, height, frameRatio, lightBackgroundShare);

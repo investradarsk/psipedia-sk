@@ -24,6 +24,7 @@ import { sectionVisualPositionPercent } from "@/lib/section-visual-contract";
 import { getResolvedSectionVisual } from "@/lib/section-visual-store";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { EventImage } from "@/components/event-image";
 import { AD_PLACEMENTS } from "@/lib/monetization";
 import { buildPageMetadata } from "@/lib/seo";
@@ -239,8 +240,8 @@ export default async function Home() {
                     <article className="home-vet-item" key={profile.id}>
                       <Link href={directoryProfileHref(profile)}>
                         <span className="home-vet-photo">
-                          {profile.imageUrl && (
-                            <ImageDisplay
+                          {profile.imageUrl ? (
+                            <ImageDisplay fallbackOnError
                               roleHint="generic"
                               context="thumbnail"
                               config={profile.thumbnailImageDisplay}
@@ -251,7 +252,7 @@ export default async function Home() {
                               loading="lazy"
                               decoding="async"
                             />
-                          )}
+                          ) : <PublicMediaFallback />}
                         </span>
                         <span>
                           <strong>{profile.name}</strong>
@@ -299,8 +300,8 @@ export default async function Home() {
                   >
                     <Link href={helpCaseHref(item)}>
                       <span className="home-help-media">
-                        {item.imageUrl && (
-                          <ImageDisplay
+                        {item.imageUrl ? (
+                          <ImageDisplay fallbackOnError
                             roleHint="generic"
                             context="thumbnail"
                             config={item.thumbnailImageDisplay}
@@ -311,7 +312,7 @@ export default async function Home() {
                             loading="lazy"
                             decoding="async"
                           />
-                        )}
+                        ) : <PublicMediaFallback />}
                       </span>
                       <span className="home-help-copy">
                         <span className="home-help-meta">
@@ -360,11 +361,11 @@ export default async function Home() {
                   <article className="home-vet-item" key={profile.id}>
                     <Link href={directoryProfileHref(profile)}>
                       <span className="home-vet-photo">
-                        {profile.imageUrl && <ImageDisplay roleHint="generic" context="thumbnail"
+                        {profile.imageUrl ? <ImageDisplay fallbackOnError roleHint="generic" context="thumbnail"
                           config={profile.thumbnailImageDisplay} src={profile.imageUrl}
                           srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="50px"
                           alt={`Fotografia profilu ${profile.name}`} loading="lazy" decoding="async"
-                        />}
+                        /> : <PublicMediaFallback />}
                       </span>
                       <span><strong>{profile.name}</strong><small>{profile.city}</small></span>
                       <ArrowIcon size={18} />
