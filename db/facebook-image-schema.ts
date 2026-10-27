@@ -2,7 +2,9 @@ import {sql} from "drizzle-orm";
 import {check,index,integer,sqliteTable,text,uniqueIndex} from "drizzle-orm/sqlite-core";
 import {managedArticles} from "@/db/schema";
 export const facebookImagePosts=sqliteTable("facebook_image_posts",{
-  id:text("id").primaryKey().notNull(),articleId:integer("article_id").references(() => managedArticles.id, {onDelete:"set null"}),title:text("title").notNull(),
+  id:text("id").primaryKey().notNull(),articleId:integer("article_id").references(() => managedArticles.id, {onDelete:"set null"}),
+  articleImageMode:text("article_image_mode").notNull().default("photo"),
+  articleIncludeLink:integer("article_include_link").notNull().default(1),title:text("title").notNull(),
   imageUrl:text("image_url").notNull().default(""),imageKey:text("image_key").notNull().default(""),caption:text("caption").notNull().default(""),
   scheduledAt:text("scheduled_at"),timeZone:text("time_zone").notNull().default("Europe/Bratislava"),status:text("status").notNull().default("draft"),version:integer("version").notNull().default(1),
   approvalStatus:text("approval_status").notNull().default("UNREVIEWED"),approvedAt:text("approved_at"),approvedBy:text("approved_by"),

@@ -16,6 +16,7 @@ type Row = {id:string;title:string;image_url:string;image_key:string;caption:str
   updated_at:string;approval_status:string;attempt_state?:string|null;error_code?:string|null;
   outcome_kind?:string|null;retry_not_before?:string|null;retry_count?:number|null;
   facebook_post_id?:string|null;published_at?:string|null;notion_page_id?:string|null;
+  article_id?:number|null;article_image_mode?: "photo" | "graphic";article_include_link?:number;
   approved_at?:string|null;approved_by?:string|null;attempt_started_at?:string|null;
   direct_publish_consent?:number;direct_consent_at?:string|null;direct_consent_by?:string|null;
   attempt_completed_at?:string|null;deleted_at?:string|null;deleted_by?:string|null;
@@ -26,6 +27,8 @@ function post(row:Row):FacebookImagePost {
   const retryEnabled=facebookSafeRetryEnabled(env as unknown as {FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?:string});
   return {id:row.id,title:row.title,imageUrl:row.image_url,imageKey:row.image_key,
     caption:row.caption,scheduledAt:row.scheduled_at,status:row.status,version:row.version,
+    articleId:row.article_id??null,articleImageMode:row.article_image_mode??"photo",
+    articleIncludeLink:row.article_include_link!==0,
     createdAt:row.created_at,updatedAt:row.updated_at,approvalStatus:row.approval_status,
     publicationState:row.outcome_kind==="SUPERSEDED"?"PENDING"
       :row.attempt_state==="UNCERTAIN"&&row.outcome_kind==="PROVEN_REJECTED"
@@ -37,7 +40,7 @@ function post(row:Row):FacebookImagePost {
     retryNotBefore:row.outcome_kind==="PROVEN_REJECTED"?row.retry_not_before??null:null,
     retryCount:row.retry_count??0,
     facebookPostId:row.facebook_post_id??null,publishedAt:row.published_at??null,
-    source:row.notion_page_id?"notion":"manual",notionPageId:row.notion_page_id??null,
+    source:row.article_id?"article":row.notion_page_id?"notion":"manual",notionPageId:row.notion_page_id??null,
     approvedAt:row.approved_at??null,approvedBy:row.approved_by??null,
     attemptStartedAt:row.attempt_started_at??null,
     attemptCompletedAt:row.attempt_completed_at??null,
@@ -45,7 +48,7 @@ function post(row:Row):FacebookImagePost {
     directPublishConsent:row.direct_publish_consent===1,
     directConsentAt:row.direct_consent_at??null,directConsentBy:row.direct_consent_by??null};
 }
-const columns="id,title,image_url,image_key,caption,scheduled_at,status,version,created_at,updated_at,approval_status,facebook_post_id,published_at,notion_page_id,approved_at,approved_by";
+const columns="id,title,image_url,image_key,caption,scheduled_at,status,version,created_at,updated_at,approval_status,facebook_post_id,published_at,notion_page_id,approved_at,approved_by,article_id,article_image_mode,article_include_link";
 async function hasPublisherSchema(db:D1Database) {
   try {await db.prepare("SELECT post_id,state,error_code FROM facebook_image_publish_attempts LIMIT 0").all();return true;}
   catch(error) {
@@ -109,7 +112,7 @@ export async function listFacebookImagePosts(
   if(!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month))throw new Error("Neplatný mesiac.");
   if(!["all","draft","scheduled","published","sending","review"].includes(status))
     throw new Error("Neplatný filter.");
-  if(!["all","manual","notion"].includes(source))throw new Error("Neplatný zdroj.");
+  if(!["all","manual","notion","article"].includes(source))throw new Error("Neplatný zdroj.");
   const publisher=await hasPublisherSchema(db),trash=await hasTrashSchema(db),consent=await hasDirectConsentSchema(db);
   const retry=publisher&&await hasRetrySchema(db);
   // Disabling the feature returns durable pending retry claims to manual review.
@@ -131,8 +134,9 @@ export async function listFacebookImagePosts(
     if(publisher&&(status==="sending"||!activeRetry))
       values.push(status==="sending"?"SENDING":"UNCERTAIN");
   }
-  if(source==="notion")where.push("p.notion_page_id IS NOT NULL");
-  else if(source==="manual")where.push("p.notion_page_id IS NULL");
+  if(source==="notion")where.push("p.notion_page_id IS NOT NULL AND p.article_id IS NULL");
+  else if(source==="manual")where.push("p.notion_page_id IS NULL AND p.article_id IS NULL");
+  else if(source==="article")where.push("p.article_id IS NOT NULL");
   const clause=where.length?where.join(" AND "):"1=1";
   const join=publisherJoin(publisher),select=selectColumns(publisher,trash,consent,retry);
   const totalRow=await db.prepare("SELECT COUNT(*) AS n FROM facebook_image_posts p"+join+
@@ -170,14 +174,18 @@ async function verifyImage(input:FacebookImageInput) {
   const object=await bucket.head(input.imageKey);
   if (!object || !["image/jpeg","image/png","image/webp"].includes(object.httpMetadata?.contentType??"")) throw new Error("Uložený obrázok sa v úložisku nenašiel.");
 }
-export async function saveFacebookImagePost(id:string|null,raw:unknown,actor:string,db=facebookImageDb()) {
+export async function saveFacebookImagePost(
+  id:string|null,raw:unknown,actor:string,db=facebookImageDb(),
+  articleId:number|null=null,articleOptions?:{imageMode:"photo"|"graphic";includeLink:boolean},
+) {
   await requireFacebookImageSchema(db);
   const input=normalizeFacebookImageInput(raw);await verifyImage(input);
   const policy=facebookImageScheduleV2Policy(env as unknown as Parameters<typeof facebookImageScheduleV2Policy>[0]);
   // The authenticated admin scheduling action itself is authorization in V2.
   if(policy.enabled&&input.scheduledAt&&input.imageKey)input.status="scheduled";
   const now=new Date().toISOString();
-  const approved=policy.enabled&&input.status==="scheduled"&&Boolean(input.imageKey);
+  // Article publishing must have a separate explicit approval.
+  const approved=!articleId&&policy.enabled&&input.status==="scheduled"&&Boolean(input.imageKey);
   const approvalStatus=approved?"APPROVED":"UNREVIEWED";
   const approvedAt=approved?now:null,approvedBy=approved?actor:null;
   const publisher=await hasPublisherSchema(db),consent=await hasDirectConsentSchema(db);
@@ -186,18 +194,20 @@ export async function saveFacebookImagePost(id:string|null,raw:unknown,actor:str
   if(id){
     const expected=(raw as {expectedVersion?:unknown}).expectedVersion;
     if (!Number.isSafeInteger(expected) || Number(expected)<1)throw new FacebookImageConflict();
-    const row=await db.prepare(`UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,scheduled_at=?,status=?,approval_status=?,approved_at=?,approved_by=?,${consent?"direct_publish_consent=0,direct_consent_at=NULL,direct_consent_by=NULL,":""}version=version+1,updated_at=?,updated_by=? WHERE id=? AND version=? AND status IN ('draft','scheduled') ${await hasTrashSchema(db)?"AND deleted_at IS NULL ":""}${publisher?(safeRetry?
+    const row=await db.prepare(`UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,scheduled_at=?,status=?,approval_status=?,approved_at=?,approved_by=?,article_image_mode=?,article_include_link=?,${consent?"direct_publish_consent=0,direct_consent_at=NULL,direct_consent_by=NULL,":""}version=version+1,updated_at=?,updated_by=? WHERE id=? AND version=? AND status IN ('draft','scheduled') ${articleId?"AND article_id=?":"AND article_id IS NULL"} ${await hasTrashSchema(db)?"AND deleted_at IS NULL ":""}${publisher?(safeRetry?
       "AND (NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id) "+
       "OR EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id "+
         "AND a.state='UNCERTAIN' AND a.outcome_kind IN ('PROVEN_REJECTED','SUPERSEDED') "+
         "AND a.snapshot_version<=facebook_image_posts.version))":
       "AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)"):""} RETURNING ${columns}`)
       .bind(input.title,input.imageUrl,input.imageKey,input.caption,input.scheduledAt,input.status,
-        approvalStatus,approvedAt,approvedBy,now,actor,id,expected).first<Row>();
+        approvalStatus,approvedAt,approvedBy,articleOptions?.imageMode??"photo",articleOptions?.includeLink===false?0:1,
+        now,actor,id,expected,...(articleId?[articleId]:[])).first<Row>();
     if(!row)throw new FacebookImageConflict();return post(row);
   }
-  const row=await db.prepare(`INSERT INTO facebook_image_posts(id,title,image_url,image_key,caption,scheduled_at,status,approval_status,approved_at,approved_by,version,created_at,updated_at,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?,?,?) RETURNING ${columns}`)
+  const row=await db.prepare(`INSERT INTO facebook_image_posts(id,title,image_url,image_key,caption,scheduled_at,status,approval_status,approved_at,approved_by,article_id,article_image_mode,article_include_link,version,created_at,updated_at,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?) RETURNING ${columns}`)
     .bind(crypto.randomUUID(),input.title,input.imageUrl,input.imageKey,input.caption,input.scheduledAt,
-      input.status,approvalStatus,approvedAt,approvedBy,now,now,actor,actor).first<Row>();
+      input.status,approvalStatus,approvedAt,approvedBy,articleId,articleOptions?.imageMode??"photo",
+      articleOptions?.includeLink===false?0:1,now,now,actor,actor).first<Row>();
   if(!row)throw new Error("Príspevok sa nepodarilo uložiť.");return post(row);
 }

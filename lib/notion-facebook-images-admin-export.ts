@@ -125,7 +125,7 @@ export async function exportFacebookAdminChanges(args:{
     "approval_status,"+(consent?"direct_publish_consent":"0 AS direct_publish_consent")+
     ",notion_page_id,sync_hash,updated_by,"+
     (trash?"deleted_at":"NULL AS deleted_at")+",facebook_post_id,published_at "+
-    "FROM facebook_image_posts WHERE "+where+" ORDER BY updated_at DESC,id LIMIT 100")
+    "FROM facebook_image_posts WHERE article_id IS NULL AND "+where+" ORDER BY updated_at DESC,id LIMIT 100")
     .bind(IMPORT_ACTOR).all<AdminImageRow>();
   for(const row of rows.results){
     if(result.scanned>=LIMIT)break;
