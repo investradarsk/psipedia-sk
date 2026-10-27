@@ -104,8 +104,7 @@ export function SiteHeader({
       start = null;
       if (event.touches.length !== 1 || !window.matchMedia("(max-width: 767px)").matches) return;
       const touch = event.touches[0];
-      // Do not compete with the browser\'s left/right edge gestures. Chrome
-      // may own those gestures before any page touch events arrive.
+      // Leave browser-owned edge gestures untouched.
       if (touch.clientX < 28 || touch.clientX > window.innerWidth - 28) return;
       const target = event.target;
       if (!(target instanceof Element) || target.closest(
@@ -120,7 +119,6 @@ export function SiteHeader({
       // Vertical scrolling and browser-edge history gestures remain native.
     }
     function onTouchEnd(event: globalThis.TouchEvent) {
-      
       const origin = start;
       start = null;
       if (!origin || event.changedTouches.length !== 1) return;
@@ -135,14 +133,12 @@ export function SiteHeader({
     }
     function onTouchCancel() {
       start = null;
-      
     }
     document.addEventListener("touchstart", onTouchStart, { passive: true });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     document.addEventListener("touchcancel", onTouchCancel, { passive: true });
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
-      
       document.removeEventListener("touchend", onTouchEnd);
       document.removeEventListener("touchcancel", onTouchCancel);
     };

@@ -19,7 +19,7 @@
 .layout :global(.article-grid--listing.article-grid--compact) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 22px;
+  gap: var(--ps-ds5-grid-gap, 16px);
 }
 .layout :global(.article-grid--compact [role="listitem"]) {
   min-width: 0;
