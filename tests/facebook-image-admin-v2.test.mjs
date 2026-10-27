@@ -14,9 +14,10 @@ const id=n=>"00000000-0000-4000-8000-"+String(n).padStart(12,"0");
 const imageKey=n=>"facebook-images/2030/"+id(n)+".jpg";
 const pageId="3e0793fc-1d18-8138-8bb7-f0e0a7495728";
 function fixture(full=true) {
-  const sqlite=new DatabaseSync(":memory:");sqlite.exec("PRAGMA foreign_keys=ON;");
+  const sqlite=new DatabaseSync(":memory:");sqlite.exec("PRAGMA foreign_keys=ON; CREATE TABLE managed_articles (id INTEGER PRIMARY KEY);");
   for(const [i,file] of paths.entries())if(full||i<2)
     sqlite.exec(readFileSync(new URL("../drizzle/"+file,import.meta.url),"utf8"));
+  sqlite.exec(readFileSync(new URL("../drizzle/0144_facebook_articles_shared_calendar.sql",import.meta.url),"utf8"));
   function wrap(sql,params=[]){
     return {
       bind(...args){return wrap(sql,args);},
