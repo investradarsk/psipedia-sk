@@ -466,22 +466,23 @@ test("save and share remain available in header and at article end", () => {
   assert.match(shareComponent, /navigator\.clipboard\.writeText/);
 });
 
-test("TOC remains deterministic, H2-only, collapsed, keyboard focusable and bound to heading anchors", () => {
+test("TOC stays deterministic, H2-only, always visible and accessible with anchor links", () => {
   assert.match(detail, /articleBlockHeadings\(blocks\)/);
   assert.match(
     detail,
     /const tocHeadings = headings\.filter\(\(heading\) => heading\.level === 2\)/,
   );
   assert.match(detail, /const showTableOfContents = tocHeadings\.length >= 3/);
-  assert.match(detail, /tocHeadings\.map/);
+  assert.match(detail, /visibleTocHeadings\.map/);
+  assert.match(detail, /tocHeadings\.slice\(0, 7\)/);
   assert.doesNotMatch(detail, /readMinutes|article\.readTime/);
-  assert.match(detail, /<details className=\{styles\.toc\}>/);
-  assert.doesNotMatch(detail, /<details[^>]*\sopen(?:=|\s|>)/);
-  assert.match(detail, /<nav aria-label="Obsah článku">/);
+  assert.match(detail, /<nav className=\{styles\.toc\} aria-label="Obsah článku">/);
+  assert.doesNotMatch(detail, /<details className=\{styles\.toc\}>/);
+  assert.match(detail, /className=\{styles\.tocTitle\}/);
   assert.match(blocks, /const headingIds = new Map\(\s*articleBlockHeadings\(blocks\)/);
   assert.match(blocks, /<h2\s+id=\{headingIds\.get\(block\.id\)\}/);
   assert.match(styles, /scroll-margin-top:\s*calc\(var\(--psipedia-sticky-header-height,/);
-  assert.match(styles, /\.toc summary:focus-visible/);
+  assert.match(styles, /\.tocTitle\s*\{/);
 });
 
 test("article schema and metadata preserve canonical, dates, author and image semantics", () => {

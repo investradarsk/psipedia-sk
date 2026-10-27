@@ -177,8 +177,8 @@ test("344-record FCI import remains idempotent and production routes preserve ed
 
   sqlite.prepare("UPDATE managed_breeds SET height='454',weight='4544545' WHERE fci_number=171").run();applyMigration(sqlite,"../drizzle/0024_breed_data_audit_repairs.sql");assert.deepEqual({...sqlite.prepare("SELECT height,weight,fci_section FROM managed_breeds WHERE fci_number=171").get()},{height:"52–62 cm",weight:"22–35 kg",fci_section:"Pastierske psy okrem švajčiarskych salašníckych psov"});
 
-  const homepage=await get(worker,d1,"/");assert.equal(homepage.status,200);assert.match(await homepage.text(),/Plemeno dňa/);
-  sqlite.exec("SAVEPOINT no_breeds; UPDATE managed_breeds SET status='draft'");const emptyHomepage=await get(worker,d1,"/");assert.equal(emptyHomepage.status,200);assert.doesNotMatch(await emptyHomepage.text(),/Plemeno dňa|class="home-breed-day"/);sqlite.exec("ROLLBACK TO no_breeds; RELEASE no_breeds");
+  const homepage=await get(worker,d1,"/");assert.equal(homepage.status,200);const homepageHtml=await homepage.text();assert.match(homepageHtml,/Objav plemená/);assert.match(homepageHtml,/home-side-breed-item/);
+  sqlite.exec("SAVEPOINT no_breeds; UPDATE managed_breeds SET status='draft'");const emptyHomepage=await get(worker,d1,"/");assert.equal(emptyHomepage.status,200);const emptyHomepageHtml=await emptyHomepage.text();assert.doesNotMatch(emptyHomepageHtml,/home-side-breed-item|class="home-breed-day"/);sqlite.exec("ROLLBACK TO no_breeds; RELEASE no_breeds");
 
   const labrador=sqlite.prepare("SELECT * FROM managed_breeds WHERE fci_number=122").get();assert.equal(labrador.slug,"labradorsky-retriever");assert.equal(labrador.image_url,"/images/hero-labrador.webp");assert.equal(labrador.intro,"Pôvodný redakčný úvod.");assert.equal(labrador.character,"Pôvodná redakčná povaha.");assert.equal(labrador.seo_json,'{"title":"Ručné SEO"}');assert.equal(JSON.parse(labrador.fci_standard_json).historicky_suhrn,"História plemena Labradorský retriever.");
 

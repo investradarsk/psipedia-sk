@@ -328,7 +328,14 @@ export async function listHomepageFeaturedBreeds(limit=6):Promise<Array<Pick<Bre
   if(!database)return seedBreeds.slice(0,safeLimit).map(({slug,name,image,intro})=>({slug,name,image:ownedBreedImage(image),intro}));
   const result=await database.prepare(`SELECT slug,name,image_url,intro
     FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql})
-    ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<{slug:string;name:string;image_url:string;intro:string}>();
+    AND (
+      image_url LIKE '/images/%' OR image_url LIKE '/media/%'
+      OR image_url LIKE '/migrated-media/%'
+      OR image_url LIKE 'https://psipedia.sk/images/%'
+      OR image_url LIKE 'https://psipedia.sk/media/%'
+      OR image_url LIKE 'https://psipedia.sk/migrated-media/%'
+    )
+    ORDER BY RANDOM() LIMIT ?`).bind(safeLimit).all<{slug:string;name:string;image_url:string;intro:string}>();
   return result.results.map(row=>({
     slug:row.slug,name:row.name,image:ownedBreedImage(row.image_url),intro:row.intro,
   }));

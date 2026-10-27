@@ -301,25 +301,21 @@
   font-family: "Avenir Next", Avenir, sans-serif;
 }
 
-.toc summary {
-  min-height: 44px;
-  padding: 13px 2px;
+.tocTitle {
+  display: block;
+  padding: 12px 2px 8px;
   color: var(--forest);
   font-size: 0.82rem;
   font-weight: 800;
-  cursor: pointer;
 }
 
-.toc summary:focus-visible,
 .sidebar a:focus-visible {
   outline: 3px solid rgba(244, 119, 87, 0.42);
   outline-offset: 4px;
   border-radius: 5px;
 }
 
-.toc nav {
-  padding: 0 2px 15px;
-}
+.toc ol { padding-block: 0 15px; }
 
 .toc ol {
   display: grid;

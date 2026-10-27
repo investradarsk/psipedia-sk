@@ -24,11 +24,13 @@ test("breed crawl hierarchy does not create indexable pagination or filter varia
   assert.match(page, /const policy = resolveListingIndexPolicy\("\/plemena", rawSearchParams\)/);
 });
 
-test("interactive breed browser keeps the existing 60-card load-more UX", () => {
-  assert.match(browser, /useState\(60\)/);
+test("interactive breed browser starts with 24 cards and preserves load-more and canonical crawl index", () => {
+  assert.match(browser, /INITIAL_BREED_COUNT = 24/);
+  assert.match(browser, /useState\(INITIAL_BREED_COUNT\)/);
   assert.match(browser, /visible\.slice\(0,shown\)/);
   assert.match(browser, /Zobraziť ďalšie plemená/);
-  assert.match(browser, /setShown\(\(value\)=>value\+60\)/);
+  assert.match(browser, /MORE_BREED_COUNT = 24/);
+  assert.match(browser, /setShown\(\(value\) => value \+ MORE_BREED_COUNT\)/);
 });
 
 

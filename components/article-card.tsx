@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Article, ArticleListingCard } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, portalSectionLabel, articlePortalSection } from "@/lib/portal";
+import { articleCategoryHref, articleCategorySlug } from "@/lib/article-category-routes";
 import { ArticleListItem } from "./article-list-item";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { FavoriteButton } from "./favorite-button";
@@ -41,7 +42,7 @@ export function ArticleCard({
   const href = articleHref(article);
   const section = articlePortalSection(article);
   const newsCategory = section === "novinky" ? getNewsCategory(article.newsCategory) : null;
-  const topicHref = topicHrefOverride ?? (newsCategory ? `/novinky/${newsCategory.slug}` : `/tema/${categorySlug(article.category)}`);
+  const topicHref = topicHrefOverride ?? (newsCategory ? `/novinky/${newsCategory.slug}` : articleCategoryHref(article.category));
   const topicLabel = topicLabelOverride ?? (newsCategory ? newsCategory.shortLabel : article.category);
   const sectionLabel = portalSectionLabel(section);
   const metaLabel = section === "novinky" ? `${sectionLabel} · ${topicLabel}` : topicLabel;
@@ -114,11 +115,7 @@ export function ArticleCard({
   );
 }
 
+/** Kept for callers that still need the short filter slug. */
 export function categorySlug(category: Article["category"]) {
-  return {
-    "Výcvik": "vycvik",
-    "Zdravie": "zdravie",
-    "Výživa": "vyziva",
-    "Život so psom": "zivot-so-psom",
-  }[category];
+  return articleCategorySlug(category);
 }

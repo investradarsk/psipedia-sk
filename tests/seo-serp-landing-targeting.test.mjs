@@ -27,22 +27,16 @@ test("SEO-SERP homepage has a brand-level title, distinct metadata and an explan
   assert.doesNotMatch(source, /buildSiteIdentityJsonLd|serializeJsonLd/);
 });
 
-test("SEO-SERP homepage category cards expose category-specific anchors with separated visible text", () => {
+test("SEO-SERP homepage links directly to contextual directory categories without duplicate service cards", () => {
   const source = read("app/page.tsx");
-  assert.match(source, /directoryCategoryHref\(category\)/);
-  assert.match(source, /<strong>\{category\.heroTitle\}<\/strong>/);
-  assert.match(source, /category\.description/);
-  // Homepage cards now separate the title and description in distinct semantic elements.
-  // Keep the SEO anchor contract without requiring a typographic em dash.
-  assert.match(
-    source,
-    /<strong>\{category\.heroTitle\}<\/strong>\s*<span>\{category\.description\}<\/span>/,
-  );
-  assert.doesNotMatch(
-    source,
-    /<strong>\{category\.label\}<\/strong>\s*<span>\{category\.description\}<\/span>/,
-  );
+  assert.match(source, /title="Veterinári"/);
   assert.match(source, /href="\/adresar\/veterinari"/);
+  assert.match(source, /title="Tréneri a psie školy"/);
+  assert.match(source, /href="\/adresar\/treneri"/);
+  assert.match(source, /directoryProfileHref\(profile\)/);
+  assert.match(source, /testId="starostlivost"/);
+  assert.match(source, /testId="aktivity"/);
+  assert.doesNotMatch(source, /HomeProfileCategoryBand|home-service-card-icon/);
 });
 
 test("SEO-SERP main directory categories have a unique indexable page title, meta description, and unchanged self-canonical", () => {

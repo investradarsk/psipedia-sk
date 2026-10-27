@@ -93,7 +93,7 @@ test("sidebar or manual promo on same destination removes duplicate inline links
   assert.equal(new Set(select("starostlivost", "zdravie", 5).actions.map((a) => a.href)).size, 2);
 });
 
-test("CTA stays inside original article feed and keeps existing ArticleListItem/pillar", () => {
+test("CTA keeps existing article flow, moving the health urgent panel below the main guide", () => {
   const section = read("components/editorial-section.tsx");
   const cta = read("components/content-hub-cta.tsx");
   const css = read("components/content-hub-cta.module.css");
@@ -101,8 +101,8 @@ test("CTA stays inside original article feed and keeps existing ArticleListItem/
   assert.match(section, /<ArticleCard\s+article=\{pillar\}/);
   assert.match(section, /<ArticleListItem article=\{article\}/);
   assert.match(section, /contextualCta\?\.afterArticleCount === index \+ 1/);
-  assert.match(section, /contextualCta=\{contextualCta\}/);
-  assert.match(section, /<HealthUrgent cta=\{contextualCta\}/);
+  assert.match(section, /contextualCta=\{healthUrgent \? null : contextualCta\}/);
+  assert.match(section, /<HealthUrgent cta=\{healthUrgent\}/);
   assert.doesNotMatch(section, /<PageContainer className=\{styles.calloutShell\}><HealthUrgent/);
   assert.match(cta, /data-contextual-hub-cta/);
   assert.match(css, /min-width: 0/);

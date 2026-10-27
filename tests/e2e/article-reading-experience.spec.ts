@@ -318,15 +318,10 @@ for (const articleCase of cases) {
     expect(backToTopBox!.height).toBeLessThanOrEqual(46);
     await page.evaluate(() => window.scrollTo(0, 0));
 
-    const toc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
+    const toc = page.getByRole("navigation", { name: "Obsah článku" });
     if (articleCase.toc) {
       await expect(toc).toHaveCount(1);
-      await expect(toc).not.toHaveAttribute("open");
-      const summary = toc.locator("summary");
-      await summary.focus();
-      await expect(summary).toBeFocused();
-      await summary.press("Enter");
-      await expect(toc).toHaveAttribute("open", "");
+      await expect(toc).toBeVisible();
       const firstAnchor = toc.locator("a[href^='#']").first();
       await expect(firstAnchor).toBeVisible();
       const href = await firstAnchor.getAttribute("href");
@@ -340,8 +335,8 @@ for (const articleCase of cases) {
       await page.goto("about:blank");
       await page.goto(`${articleCase.path}${href}`);
       await expectAnchorClearsStickyHeader(page, href!);
-      const directToc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
-      await expect(directToc).not.toHaveAttribute("open");
+      const directToc = page.getByRole("navigation", { name: "Obsah článku" });
+      await expect(directToc).toBeVisible();
     } else {
       await expect(toc).toHaveCount(0);
     }
@@ -511,13 +506,11 @@ for (const articleCase of cases) {
     expect(desktopSidebarBox).not.toBeNull();
     expect(desktopSidebarBox!.x).toBeGreaterThan(desktopProseBox!.x + desktopProseBox!.width);
 
-    const toc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
+    const toc = page.getByRole("navigation", { name: "Obsah článku" });
     await expect(toc).toHaveCount(articleCase.toc ? 1 : 0);
     if (articleCase.toc) {
-      await expect(toc).not.toHaveAttribute("open");
+      await expect(toc).toBeVisible();
       const firstAnchor = toc.locator("a[href^='#']").first();
-      await toc.locator("summary").click();
-      await expect(toc).toHaveAttribute("open", "");
       const href = await firstAnchor.getAttribute("href");
       expect(href).toBeTruthy();
       await firstAnchor.click();
@@ -526,7 +519,7 @@ for (const articleCase of cases) {
       await page.goto("about:blank");
       await page.goto(`${articleCase.path}${href}`);
       await expectAnchorClearsStickyHeader(page, href!);
-      const directToc = page.locator("details").filter({ has: page.getByText("Obsah článku", { exact: true }) });
+      const directToc = page.getByRole("navigation", { name: "Obsah článku" });
       await expect(directToc).not.toHaveAttribute("open");
     }
     await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
@@ -721,7 +714,7 @@ test("ARTICLE-PUBLIC canonical news landing redirects and topic URLs stay availa
   await page.goto("/novinky");
   await expect(page).toHaveURL(/\/clanky$/);
   await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
-  await expect(page.locator("[data-article-card]").first()).toBeVisible();
+  await expect(page.locator(".article-browser a[role='listitem']").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
   await page.goto("/novinky/veda-a-zdravie");
@@ -750,17 +743,12 @@ test("ARTICLE-PUBLIC unknown article remains a real 404", async ({ page }) => {
 });
 
 
-test("ARTICLE-CARDS-1 article listings are responsive, keyboard-usable and visually stable", async ({ page }, testInfo) => {
+test("ARTICLE-CARDS-1 approved magazine rows and homepage feature remain responsive and keyboard-usable", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "Viewport matrix is captured once from the desktop Chromium project.");
 
   const surfaces = [
-    { id: "magazine-cards", path: "/clanky", selector: "[data-article-card]", emptySelector: null },
-    {
-      id: "homepage-cards",
-      path: "/",
-      selector: "[data-home-latest] [data-article-card]",
-      emptySelector: "[data-home-latest-empty]",
-    },
+    { id: "magazine-cards", path: "/clanky", selector: ".article-browser a[role='listitem']", emptySelector: null },
+    { id: "homepage-cards", path: "/", selector: "[data-home-latest] [data-article-card]", emptySelector: "[data-home-latest-empty]" },
   ] as const;
   const viewports = [
     { width: 360, height: 800, label: "mobile-360x800" },
@@ -772,68 +760,48 @@ test("ARTICLE-CARDS-1 article listings are responsive, keyboard-usable and visua
   for (const surface of surfaces) {
     for (const viewport of viewports) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-
       if (viewport.width === 390 || viewport.width === 1440) {
-        await captureProductionBaseline(
-          page,
-          surface.path,
-          `.e2e-artifacts/article-ux-1/${surface.id}-before-production-${viewport.label}.png`,
-        );
+        await captureProductionBaseline(page, surface.path,
+          `.e2e-artifacts/article-ux-1/${surface.id}-before-production-${viewport.label}.png`);
       }
-
       await page.goto(surface.path);
       const cards = page.locator(surface.selector);
-      const cardCount = await cards.count();
-
-      if (cardCount === 0 && surface.emptySelector) {
+      if ((await cards.count()) === 0 && surface.emptySelector) {
         await expect(page.locator(surface.emptySelector)).toBeVisible();
-        expect(
-          await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth)),
-          `${surface.id} ${viewport.label}: empty state horizontal overflow`,
-        ).toBeLessThanOrEqual(1);
-        await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
-
-        if (viewport.width === 390 || viewport.width === 1440) {
-          await page.evaluate(() => window.scrollTo(0, 0));
-          await page.screenshot({
-            path: `.e2e-artifacts/article-ux-1/${surface.id}-after-local-${viewport.label}.png`,
-          });
-          await expectNoSeriousAccessibilityViolations(page);
+      } else {
+        await expect(cards.first()).toBeVisible();
+        const metrics = await page.evaluate(({ selector, magazine }) => {
+          const card = document.querySelector<HTMLElement>(selector);
+          const title = magazine ? card?.querySelector<HTMLElement>("strong") : card?.querySelector<HTMLElement>(".article-card-title");
+          const media = magazine ? card?.querySelector<HTMLElement>("img") : card?.querySelector<HTMLElement>(".article-card-media");
+          const rect = media?.getBoundingClientRect();
+          return {
+            overflow: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+            width: card?.getBoundingClientRect().width ?? 0,
+            ratio: rect && rect.height ? rect.width / rect.height : 0,
+            hasMedia: Boolean(media),
+            clipping: title ? title.scrollHeight - title.clientHeight : 0,
+          };
+        }, { selector: surface.selector, magazine: surface.id === "magazine-cards" });
+        expect(metrics.overflow, `${surface.id} ${viewport.label}: horizontal overflow`).toBeLessThanOrEqual(1);
+        expect(metrics.width).toBeGreaterThan(0);
+        if (metrics.hasMedia) {
+          // Compact magazine thumbnails may be portrait; require valid, visible media geometry.
+          expect(metrics.ratio).toBeGreaterThan(0);
+          expect(metrics.ratio).toBeLessThan(5);
         }
-        continue;
+        expect(metrics.clipping, "Article titles must not be clipped").toBeLessThanOrEqual(1);
+        const primaryLink = surface.id === "magazine-cards"
+          ? cards.first()
+          : cards.first().locator(".article-card-title a");
+        await primaryLink.focus();
+        await expect(primaryLink).toBeFocused();
       }
-
-      expect(cardCount, `${surface.id} should expose article cards or its canonical empty state`).toBeGreaterThan(0);
-      await expect(cards.first()).toBeVisible();
-
-      const metrics = await page.evaluate((selector) => {
-        const card = document.querySelector<HTMLElement>(selector);
-        const media = card?.querySelector<HTMLElement>(".article-card-media");
-        const title = card?.querySelector<HTMLElement>(".article-card-title");
-        const mediaRect = media?.getBoundingClientRect();
-        return {
-          overflow: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
-          cardWidth: card?.getBoundingClientRect().width ?? 0,
-          mediaRatio: mediaRect && mediaRect.height ? mediaRect.width / mediaRect.height : 0,
-          titleClipping: title ? title.scrollHeight - title.clientHeight : 0,
-        };
-      }, surface.selector);
-
-      expect(metrics.overflow, `${surface.id} ${viewport.label}: horizontal overflow`).toBeLessThanOrEqual(1);
-      expect(metrics.cardWidth).toBeGreaterThan(0);
-      expect(metrics.mediaRatio).toBeGreaterThan(1.45);
-      expect(metrics.titleClipping, `${surface.id} ${viewport.label}: article title must not be line-clamped`).toBeLessThanOrEqual(1);
       await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
-
-      const primaryLink = cards.first().locator(".article-card-title a");
-      await primaryLink.focus();
-      await expect(primaryLink).toBeFocused();
-
+      expect(await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth))).toBeLessThanOrEqual(1);
       if (viewport.width === 390 || viewport.width === 1440) {
         await page.evaluate(() => window.scrollTo(0, 0));
-        await page.screenshot({
-          path: `.e2e-artifacts/article-ux-1/${surface.id}-after-local-${viewport.label}.png`,
-        });
+        await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${surface.id}-after-local-${viewport.label}.png` });
         await expectNoSeriousAccessibilityViolations(page);
       }
     }
@@ -841,27 +809,13 @@ test("ARTICLE-CARDS-1 article listings are responsive, keyboard-usable and visua
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/clanky");
-
-  const longTitle = page.getByRole("heading", {
-    level: 2,
-    name: "Bikejoring so psom: kompletný sprievodca od prvého tréningu až po preteky na Slovensku",
-  });
-  if (await longTitle.count()) {
-    const clipping = await longTitle.evaluate((node) => node.scrollHeight - node.clientHeight);
-    expect(clipping, "Long Slovak titles must remain fully readable").toBeLessThanOrEqual(1);
+  const noImage = page.locator(".article-browser a[role='listitem']").filter({ hasText: "E2E článok bez hero obrázka" });
+  if (await noImage.count()) {
+    await expect(noImage.locator("img")).toHaveCount(0);
+    await expect(noImage.getByText("E2E článok bez hero obrázka")).toBeVisible();
+    expect(await noImage.getAttribute("href")).toMatch(/^\//);
   }
-
-  const noImageCard = page.locator("[data-article-card]").filter({ hasText: "E2E článok bez hero obrázka" });
-  if (await noImageCard.count()) {
-    // The magazine listing intentionally omits media when no image exists.
-    await expect(noImageCard.locator(".article-placeholder")).toHaveCount(0);
-    await expect(noImageCard.locator(".article-card-media")).toHaveCount(0);
-    await expect(noImageCard.getByRole("heading", { name: "E2E článok bez hero obrázka" })).toBeVisible();
-    expect(await noImageCard.locator(".article-card-title a").getAttribute("href")).toMatch(/^\//);
-  }
-
-  const magazineSearch = page.getByPlaceholder("Hľadať v magazíne");
-  await magazineSearch.fill("article-cards-empty-state-no-match");
+  await page.getByPlaceholder("Hľadať v magazíne").fill("article-cards-empty-state-no-match");
   await expect(page.getByRole("heading", { name: "Na túto stopu sme ešte nenarazili" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });

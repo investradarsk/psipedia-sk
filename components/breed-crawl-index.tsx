@@ -56,8 +56,7 @@ export function BreedCrawlIndex({ breeds, groups }: BreedCrawlIndexProps) {
         </p>
       </div>
 
-      <details className="breed-crawl-index-details">
-        <summary>Zobraziť všetky plemená ({breeds.length})</summary>
+      <div className="breed-crawl-index-details" aria-label={`Kompletný index ${breeds.length} plemien`}>
         <div className="breed-crawl-index-groups">
           {groupedBreeds.map((group) => (
             <section className="breed-crawl-group" key={group.number} aria-labelledby={`breed-crawl-group-${group.number}`}>
@@ -74,7 +73,7 @@ export function BreedCrawlIndex({ breeds, groups }: BreedCrawlIndexProps) {
             </section>
           ))}
         </div>
-      </details>
+      </div>
     </section>
   );
 }

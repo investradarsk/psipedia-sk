@@ -1,7 +1,6 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { BreedPhoto } from "@/components/breed-photo";
 import {
-  HomeBreedMagazine,
   HomeEditorialSection,
   HomeLatestArticles,
   HomeMagazineBanner,
@@ -10,12 +9,10 @@ import {
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon, PawMark, SparkIcon } from "@/components/icons";
 import { DogAgeCalculator } from "@/components/dog-age-calculator";
-import { HomeDogNameDayEntry } from "@/components/home-dog-name-day-entry";
 import { AdSlot } from "@/components/ad-slot";
-import { dayOfYearInBratislava } from "@/lib/breed-canonical";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
-import { getBreedOfTheDay, listHomepageFeaturedBreeds } from "@/lib/breed-store";
-import { directoryCategories, directoryCategoryHref, directoryProfileHref } from "@/lib/directory";
+import { listHomepageFeaturedBreeds } from "@/lib/breed-store";
+import { directoryProfileHref } from "@/lib/directory";
 import { getHomepageDirectoryProfilesWithImages } from "@/lib/directory-store";
 import { getHomepageUpcomingEventsWithImages } from "@/lib/event-store";
 import { eventHref, formatEventDate } from "@/lib/events";
@@ -50,98 +47,23 @@ export const metadata: Metadata = {
   title: { absolute: "Psipedia.sk – rozumej svojmu psovi" },
 };
 
-type HomeServiceCategory = (typeof directoryCategories)[number];
-
-const homeServiceCardImages: Record<string, string> = {
-  veterinari: "/images/zdravie-veterinar.webp",
-  treneri: "/images/trening-pri-nohe.webp",
-  "salony-a-sluzby": "/images/breeds/anglicky-koker-spaniel.webp",
-  "hotely-a-opatrovanie": "/images/breeds/beagle.webp",
-  vencenie: "/images/breeds/jack-russell-terier.webp",
-  fyzioterapia: "/images/zdravie-veterinar.webp",
-  "dalsie-sluzby": "/images/hero-labrador.webp",
-};
-
-function HomeProfileCategoryBand({
-  id,
-  eyebrow,
-  title,
-  description,
-  categories,
-}: {
-  id: "featured" | "secondary";
-  eyebrow: string;
-  title: string;
-  description: string;
-  categories: HomeServiceCategory[];
-}) {
-  return (
-    <section
-      className="section shell home-services-wide home-profile-categories"
-      data-home-services-primary={id === "featured" ? "" : undefined}
-      data-home-services-secondary={id === "secondary" ? "" : undefined}
-      aria-labelledby={`home-services-${id}-title`}
-    >
-      <div className="home-services-wide-copy">
-        <span className="eyebrow">{eyebrow}</span>
-        <h2 id={`home-services-${id}-title`}>{title}</h2>
-        <p>{description}</p>
-      </div>
-      <nav className="home-service-carousel" aria-label={title}>
-        {categories
-          .filter((category) => Boolean(homeServiceCardImages[category.slug]))
-          .map((category) => (
-            <Link
-              key={category.slug}
-              href={directoryCategoryHref(category)}
-              className="home-service-card"
-            >
-              <span className="home-service-card-media">
-                <img
-                  src={homeServiceCardImages[category.slug]}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                />
-                <span className="home-service-card-icon" aria-hidden="true">
-                  {category.icon}
-                </span>
-              </span>
-              <span className="home-service-card-copy">
-                <strong>{category.heroTitle}</strong>
-                <span>{category.description}</span>
-                <span className="home-service-card-arrow" aria-hidden="true">
-                  <ArrowIcon size={18} />
-                </span>
-              </span>
-            </Link>
-          ))}
-      </nav>
-      <Link href="/adresar" className="button button--dark home-services-wide-link">
-        Všetky profily a služby <ArrowIcon size={18} />
-      </Link>
-    </section>
-  );
-}
-
 export default async function Home() {
-  const dayOfYear = dayOfYearInBratislava();
   const [
     publishedArticles,
     nextEvents,
     activeHelpCases,
-    breedOfTheDay,
     veterinarians,
+    trainers,
     homeHeroVisual,
     featuredBreeds,
   ] = await Promise.all([
     getPublishedArticleSummaries({ limit: 120 }),
     getHomepageUpcomingEventsWithImages(3),
     getHomepageHighlightedHelpCasesWithImages(3),
-    getBreedOfTheDay(dayOfYear),
     getHomepageDirectoryProfilesWithImages("veterinari", 3),
+    getHomepageDirectoryProfilesWithImages("treneri", 3),
     getResolvedSectionVisual("home.hero"),
-    listHomepageFeaturedBreeds(6).catch((error) => {
+    listHomepageFeaturedBreeds(5).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
     }),
@@ -165,16 +87,10 @@ export default async function Home() {
     sectionLimit: 5,
     backfillSectionsFromLatest: true,
   });
-  const featuredBreedCards = [...(breedOfTheDay ? [breedOfTheDay] : []), ...featuredBreeds]
+  const featuredBreedCards = featuredBreeds
     .filter((breed) => Boolean(breed.image?.trim()))
     .filter((breed, index, all) => all.findIndex((item) => item.slug === breed.slug) === index)
-    .slice(0, 5);
-  const featuredServiceCategories = directoryCategories.filter((category) =>
-    ["veterinari", "salony-a-sluzby", "treneri"].includes(category.slug),
-  );
-  const otherServiceCategories = directoryCategories.filter((category) =>
-    ["hotely-a-opatrovanie", "vencenie", "fyzioterapia", "dalsie-sluzby"].includes(category.slug),
-  );
+    .slice(0, 4);
 
   return (
     <main id="obsah" className={styles.homeV2}>
@@ -261,10 +177,61 @@ export default async function Home() {
                 </PublicEmptyState>
               )}
             </HomeMagazineSidebar>
+
+          </>
+        }
+      />
+
+
+      <HomeEditorialSection
+        eyebrow="Od prvých dní"
+        title="Šteniatka"
+        description="Prvé mesiace, socializácia, rast a dobré základy spoločného života."
+        articles={articleSelection.bySection.steniatka}
+        href="/steniatka"
+        actionLabel="Všetko o šteniatkach"
+        testId="steniatka"
+        sidebar={
+          <HomeMagazineSidebar title="Objav plemená" href="/plemena" actionLabel="Všetky plemená">
+            <div className="home-side-breed-list" data-home-featured-breeds>
+              {featuredBreedCards.map((breed) => (
+                <Link className="home-side-breed-item" href={`/plemena/${breed.slug}`} key={breed.slug}>
+                  <span className="home-side-breed-thumb">
+                    <BreedPhoto src={breed.image!} alt={breed.name} sizes="88px" loading="lazy" decoding="async" />
+                  </span>
+                  <span className="home-side-breed-copy">
+                    <strong>{breed.name}</strong>
+                    {breed.intro?.trim() ? <small>{breed.intro}</small> : null}
+                  </span>
+                  <ArrowIcon size={16} />
+                </Link>
+              ))}
+            </div>
+          </HomeMagazineSidebar>
+        }
+      />
+
+      <HomeMagazineBanner
+        testId="profil"
+        title="Pridajte svoj profil"
+        description="Prevádzkujete službu pre psov? Nech vás majitelia ľahšie nájdu v adresári."
+        label="Pridať profil"
+        href="/partner/profily/novy"
+      />
+
+      <HomeEditorialSection
+        eyebrow="Poradňa"
+        title="Zdravie a starostlivosť"
+        description="Prevencia, výživa a starostlivosť o psa s praktickými odporúčaniami."
+        articles={articleSelection.bySection.starostlivost}
+        href="/starostlivost"
+        actionLabel="Všetko o zdraví"
+        testId="starostlivost"
+        sidebar={
             <HomeMagazineSidebar
-              title="Veterinárna starostlivosť na jednom mieste"
+              title="Veterinári"
               href="/adresar/veterinari"
-              actionLabel="Všetci veterinári"
+              actionLabel="Nájsť veterinára"
             >
               {veterinarians.length ? (
                 <div className="home-vet-list" data-home-veterinarians>
@@ -309,154 +276,9 @@ export default async function Home() {
                 </PublicEmptyState>
               )}
             </HomeMagazineSidebar>
-          </>
         }
       />
 
-      <HomeProfileCategoryBand
-        id="featured"
-        eyebrow="Adresár profilov"
-        title="Nájdi odborníka pre svojho psa"
-        description="Veterinári, psie salóny a tréneri pre každodennú starostlivosť a výcvik."
-        categories={featuredServiceCategories}
-      />
-
-      <HomeEditorialSection
-        eyebrow="Od prvých dní"
-        title="Šteniatka"
-        description="Prvé mesiace, socializácia, rast a dobré základy spoločného života."
-        articles={articleSelection.bySection.steniatka}
-        href="/steniatka"
-        actionLabel="Všetko o šteniatkach"
-        testId="steniatka"
-        sidebar={
-          <HomeMagazineSidebar
-            title={breedOfTheDay?.image?.trim() ? "Plemeno dňa" : "Atlas plemien"}
-            href="/plemena"
-            actionLabel="Prejsť do atlasu"
-          >
-            {breedOfTheDay?.image?.trim() ? (
-              <Link
-                className="home-side-breed"
-                href={`/plemena/${breedOfTheDay.slug}`}
-                data-home-breed
-              >
-                <BreedPhoto
-                  src={breedOfTheDay.image}
-                  alt={`${breedOfTheDay.name} – plemeno dňa`}
-                  sizes="(max-width: 900px) 55vw, 320px"
-                  loading="lazy"
-                  decoding="async"
-                />
-                <strong>{breedOfTheDay.name}</strong>
-                <span>{breedOfTheDay.intro}</span>
-                <span className="home-side-more">
-                  Profil plemena <ArrowIcon size={16} />
-                </span>
-              </Link>
-            ) : (
-              <p className="home-side-muted">Spoznaj atlas publikovaných plemien a ich potreby.</p>
-            )}
-          </HomeMagazineSidebar>
-        }
-      />
-
-      <HomeMagazineBanner
-        testId="profil"
-        title="Pridajte svoj profil"
-        description="Prevádzkujete službu pre psov? Nech vás majitelia ľahšie nájdu v adresári."
-        label="Pridať profil"
-        href="/partner/profily/novy"
-      />
-
-      <HomeEditorialSection
-        eyebrow="Poradňa"
-        title="Zdravie a starostlivosť"
-        description="Prevencia, výživa a starostlivosť o psa s praktickými odporúčaniami."
-        articles={articleSelection.bySection.starostlivost}
-        href="/starostlivost"
-        actionLabel="Všetko o zdraví"
-        testId="starostlivost"
-        sidebar={
-          <HomeMagazineSidebar
-            title="Veterinári v adresári"
-            href="/adresar/veterinari"
-            actionLabel="Nájsť veterinára"
-          >
-            {veterinarians.length ? (
-              <ul className="home-side-quicklinks">
-                {veterinarians.map((profile) => (
-                  <li key={profile.id}>
-                    <Link href={directoryProfileHref(profile)}>
-                      {profile.name}
-                      <span>{profile.city}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="home-side-muted">
-                V adresári nájdeš veterinárne ambulancie a kliniky podľa lokality.
-              </p>
-            )}
-          </HomeMagazineSidebar>
-        }
-      />
-
-      <HomeProfileCategoryBand
-        id="secondary"
-        eyebrow="Ďalšie profily a služby"
-        title="Pomoc aj mimo bežného dňa"
-        description="Opatrovanie, venčenie, fyzioterapia a ďalšie praktické služby v adresári."
-        categories={otherServiceCategories}
-      />
-
-      <HomeEditorialSection
-        eyebrow="Spoločné zážitky"
-        title="Výcvik a aktivity"
-        description="Tréning, šport a aktivity pre spokojný spoločný život."
-        articles={articleSelection.bySection.aktivity}
-        href="/aktivity"
-        actionLabel="Výcvik a aktivity"
-        testId="aktivity"
-        sidebar={
-          <HomeMagazineSidebar
-            title="Kynologické podujatia"
-            href="/podujatia"
-            actionLabel="Zobraziť kalendár"
-          >
-            {nextEvents.length ? (
-              <ul className="home-side-quicklinks">
-                {nextEvents.map((event) => (
-                  <li key={event.id}>
-                    <Link href={eventHref(event)}>
-                      {event.title}
-                      <span>
-                        {formatEventDate(event)}
-                        {publicLocationValue(event.city, "city")
-                          ? " · " + publicLocationValue(event.city, "city")
-                          : ""}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="home-side-muted">
-                Výstavy, športové podujatia a semináre priebežne pribúdajú v kalendári.
-              </p>
-            )}
-          </HomeMagazineSidebar>
-        }
-      />
-
-      <HomeMagazineBanner
-        testId="podujatie"
-        title="Pridajte podujatie"
-        description="Organizujete výstavu, preteky, seminár alebo tréning? Dajte o ňom vedieť komunite."
-        label="Pridať podujatie"
-        href="/partner/podujatia/nove"
-      />
 
       <div data-home-help>
         <HomeEditorialSection
@@ -516,35 +338,6 @@ export default async function Home() {
               </PublicEmptyState>
             )
           }
-          sidebar={
-            <HomeMagazineSidebar
-              title="Aktuálne možnosti pomoci"
-              href="/pomoc-psom"
-              actionLabel="Všetky možnosti pomoci"
-            >
-              {activeHelpCases.length ? (
-                <ul className="home-side-quicklinks">
-                  {activeHelpCases.map((item) => (
-                    <li key={item.id}>
-                      <Link href={helpCaseHref(item)}>
-                        {item.title}
-                        <span>
-                          {getHelpCategory(item.category)?.singular ?? "Pomoc psom"}
-                          {publicLocationValue(item.city, "city")
-                            ? " · " + publicLocationValue(item.city, "city")
-                            : ""}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="home-side-muted">
-                  Sleduj zverejnené výzvy, adopcie a organizácie, ktorým môžeš pomôcť.
-                </p>
-              )}
-            </HomeMagazineSidebar>
-          }
           href="/pomoc-psom"
           actionLabel="Všetky možnosti pomoci"
           testId="help"
@@ -552,30 +345,37 @@ export default async function Home() {
       </div>
 
       <HomeEditorialSection
-        eyebrow="Atlas FCI"
-        title="Plemená"
-        description="Povaha, pracovné vlohy a potreby skutočných publikovaných plemien."
-        articles={[]}
-        feature={<HomeBreedMagazine breeds={featuredBreedCards} />}
-        href="/plemena"
-        actionLabel="Všetky plemená"
-        testId="plemena"
+        eyebrow="Spoločné zážitky"
+        title="Výcvik a aktivity"
+        description="Tréning, šport a aktivity pre spokojný spoločný život."
+        articles={articleSelection.bySection.aktivity}
+        href="/aktivity"
+        actionLabel="Výcvik a aktivity"
+        testId="aktivity"
         sidebar={
-          <HomeMagazineSidebar
-            title="Vyberte si plemeno"
-            href="/plemena"
-            actionLabel="Otvoriť atlas plemien"
-          >
-            <nav className="home-side-quicklinks" aria-label="Výber plemena">
-              <Link href="/plemena">Prehliadať všetky plemená</Link>
-              <Link href="/porovnat-plemena">Porovnať dve plemená</Link>
-              <Link href="/adresar/chovatelske-kluby">Chovateľské kluby</Link>
-            </nav>
+          <HomeMagazineSidebar title="Tréneri a psie školy" href="/adresar/treneri" actionLabel="Všetci tréneri">
+            {trainers.length ? (
+              <div className="home-vet-list" data-home-trainers>
+                {trainers.map((profile) => (
+                  <article className="home-vet-item" key={profile.id}>
+                    <Link href={directoryProfileHref(profile)}>
+                      <span className="home-vet-photo">
+                        {profile.imageUrl && <ImageDisplay roleHint="generic" context="thumbnail"
+                          config={profile.thumbnailImageDisplay} src={profile.imageUrl}
+                          srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="50px"
+                          alt={`Fotografia profilu ${profile.name}`} loading="lazy" decoding="async"
+                        />}
+                      </span>
+                      <span><strong>{profile.name}</strong><small>{profile.city}</small></span>
+                      <ArrowIcon size={18} />
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            ) : <p className="home-side-muted">Trénerov a psie školy nájdeš v adresári podľa lokality.</p>}
           </HomeMagazineSidebar>
         }
       />
-
-      <HomeDogNameDayEntry />
 
       <section className="section shell home-utility-section" data-home-calculator>
         <div className="calculator-section">

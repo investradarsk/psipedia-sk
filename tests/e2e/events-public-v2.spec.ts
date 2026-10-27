@@ -65,7 +65,7 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event filters preserve URL state and safe fallbac
 
   const toggle = page.locator("summary").filter({ hasText: "Filtrovať" });
   if (await toggle.isVisible()) { await expect(toggle).toContainText("3"); await toggle.click(); }
-  await expect(page.getByLabel("Kraj")).toHaveValue("Nitriansky kraj");
+  await expect(page.getByRole("combobox", { name: "Kraj", exact: true })).toHaveValue("Nitriansky kraj");
   await expect(page.getByLabel("Mesiac", { exact: true })).toHaveValue("2026-10");
 
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();

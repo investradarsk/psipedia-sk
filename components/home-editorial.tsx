@@ -49,7 +49,7 @@ function HomeArticleFeatureLayout({ articles, testId }: { articles: Article[]; t
 
 function HomeMagazineColumns({ children, sidebar }: { children: ReactNode; sidebar?: ReactNode }) {
   return (
-    <div className="home-magazine-grid">
+    <div className={sidebar ? "home-magazine-grid" : "home-magazine-grid home-magazine-grid--wide"}>
       <div className="home-magazine-main">{children}</div>
       {sidebar ? (
         <aside className="home-magazine-side" aria-label="Súvisiace informácie">
@@ -128,7 +128,7 @@ export function HomeLatestArticles({
         <div>
           <span className="eyebrow">Redakcia Psipedia</span>
           <h2 id="home-latest-title">Novinky zo sveta psov</h2>
-          <p>Výskum, kynologické úspechy, významné udalosti a dianie doma aj vo svete.</p>
+          <p>Najnovšie články, odborné rady a správy zo všetkých rubrík Psipedie.</p>
         </div>
       </div>
       <HomeMagazineColumns sidebar={sidebar}>
@@ -140,17 +140,16 @@ export function HomeLatestArticles({
             className="home-editorial-empty"
             data-home-latest-empty
           >
-            <strong>Nové správy pripravujeme</strong>
+            <strong>Nové články pripravujeme</strong>
             <p>
-              Publikované aktuality sa tu objavia po vydaní. Návody zo Šteniatok, Zdravia ani
-              Výcviku za novinky nevydávame.
+              Články zo všetkých redakčných kategórií sa tu zobrazia hneď po publikovaní.
             </p>
           </PublicEmptyState>
         )}
       </HomeMagazineColumns>
       <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="latest">
         <Link href="/clanky" className="text-link">
-          Archív noviniek <ArrowIcon size={17} />
+          Všetky články <ArrowIcon size={17} />
         </Link>
       </div>
     </section>

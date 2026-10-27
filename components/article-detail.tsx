@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { categorySlug } from "@/components/article-card";
+import { articleCategoryHref } from "@/lib/article-category-routes";
 import { ArticleBlocks } from "@/components/article-blocks";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
@@ -68,7 +68,7 @@ export function ArticleDetail({
   const reviewCategory = section === "recenzie" && portalSection?.slug === "recenzie" && article.portalSubpage
     ? portalSection.subpages.find((item) => item.slug === article.portalSubpage && item.visible !== false) ?? null
     : null;
-  const topicHref = newsCategory ? `/novinky/${newsCategory.slug}` : reviewCategory ? portalSubpageHref(portalSection!, reviewCategory) : `/tema/${categorySlug(article.category)}`;
+  const topicHref = newsCategory ? `/novinky/${newsCategory.slug}` : reviewCategory ? portalSubpageHref(portalSection!, reviewCategory) : articleCategoryHref(article.category);
   const topicLabel = newsCategory?.label ?? reviewCategory?.label ?? article.category;
   const canonical = absoluteUrl(article.seo?.canonicalUrl || articleHref(article));
   const image = article.image ? absoluteUrl(article.image) : undefined;
@@ -90,6 +90,10 @@ export function ArticleDetail({
   const headings = articleBlockHeadings(blocks);
   const tocHeadings = headings.filter((heading) => heading.level === 2);
   const showTableOfContents = tocHeadings.length >= 3;
+  // Keep the table of contents permanently visible but brief; the article itself is never collapsed.
+  const visibleTocHeadings = tocHeadings.length > 9
+    ? [...tocHeadings.slice(0, 7), ...tocHeadings.slice(-2)]
+    : tocHeadings;
   const showUpdated = article.showUpdated ?? article.updatedDateIso !== article.dateIso;
   const wordCount = [editorialRichTextPlainText(introDocument), editorialRichTextPlainText(takeawayDocument), articleBlockPlainText(blocks)]
     .join(" ")
@@ -230,18 +234,16 @@ export function ArticleDetail({
             <EditorialRichText className="article-intro" document={introDocument} keyPrefix="article-intro" />
             {showTakeaway ? <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside> : null}
             {showTableOfContents ? (
-              <details className={styles.toc}>
-                <summary>Obsah článku</summary>
-                <nav aria-label="Obsah článku">
-                  <ol>
-                    {tocHeadings.map((heading) => (
-                      <li key={heading.blockId}>
-                        <a href={`#${heading.id}`}>{heading.text}</a>
-                      </li>
-                    ))}
-                  </ol>
-                </nav>
-              </details>
+              <nav className={styles.toc} aria-label="Obsah článku">
+                <strong className={styles.tocTitle}>Obsah článku</strong>
+                <ol>
+                  {visibleTocHeadings.map((heading) => (
+                    <li key={heading.blockId}>
+                      <a href={`#${heading.id}`}>{heading.text}</a>
+                    </li>
+                  ))}
+                </ol>
+              </nav>
             ) : null}
             <ArticleBlocks blocks={contentBlocks} promoUtcDay={discovery.utcDay} />
             {sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} /> : null}

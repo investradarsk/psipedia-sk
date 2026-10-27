@@ -40,6 +40,8 @@ export default async function ArticlesPage({ searchParams }: Props) {
     getArticleDiscoveryData({ slug: "article-listing", portalSection: "novinky" }),
   ]);
   const categories: Record<string, string> = {
+    novinky: "Novinky",
+    steniatka: "Šteniatka",
     vycvik: "Výcvik",
     zdravie: "Zdravie",
     vyziva: "Výživa",
@@ -90,29 +92,27 @@ export default async function ArticlesPage({ searchParams }: Props) {
         <section className="page-body">
           <PublicContentShell variant="listing">
           <div className={styles.layout} data-article-listing-layout>
-            <div className={styles.main}>
-              <ArticleBrowser
-                articles={articles.map(({slug,title,excerpt,category,date,dateIso,image,imageAlt,accent,
-                  portalSection,newsCategory,imageDisplay,imageFocusX,imageFocusY,thumbnailImageDisplay})=>({
-                  slug,title,excerpt,category,date,dateIso,image,imageAlt,accent,
-                  portalSection,newsCategory,imageDisplay,imageFocusX,imageFocusY,thumbnailImageDisplay,
-                }))}
-                hidePrimarySearch
-                initialQuery={scalar(params.hladat) ?? ""}
-                initialCategory={categories[scalar(params.tema) ?? ""] ?? "Všetky"}
-              />
-            </div>
-            <aside className={styles.sidebar} aria-label="Objavte ďalší obsah" data-article-discovery-sidebar>
-              <div className={styles.sidebarSticky}>
-                <ArticlePopularitySidebar popularity={discovery.popularity} initialWindow="24h" />
-                {discovery.promo ? (
-                  <div className={styles.promo} data-automatic-article-promo>
-                    <ArticlePromo promoKey={discovery.promo.promoKey} variant="auto"
-                      seed={discovery.promo.seed} utcDay={discovery.utcDay} compact />
-                  </div>
-                ) : null}
-              </div>
-            </aside>
+            <ArticleBrowser
+              articles={articles.map(({slug,title,excerpt,category,date,dateIso,image,imageAlt,accent,
+                portalSection,newsCategory,imageDisplay,imageFocusX,imageFocusY,thumbnailImageDisplay})=>({
+                slug,title,excerpt,category,date,dateIso,image,imageAlt,accent,
+                portalSection,newsCategory,imageDisplay,imageFocusX,imageFocusY,thumbnailImageDisplay,
+              }))}
+              hidePrimarySearch
+              initialQuery={scalar(params.hladat) ?? ""}
+              initialCategory={categories[scalar(params.tema) ?? ""] ?? "Všetky"}
+              sidebar={<aside className={styles.sidebar} aria-label="Objavte ďalší obsah" data-article-discovery-sidebar>
+                <div className={styles.sidebarSticky}>
+                  <ArticlePopularitySidebar popularity={discovery.popularity} initialWindow="24h" />
+                  {discovery.promo ? (
+                    <div className={styles.promo} data-automatic-article-promo>
+                      <ArticlePromo promoKey={discovery.promo.promoKey} variant="auto"
+                        seed={discovery.promo.seed} utcDay={discovery.utcDay} compact />
+                    </div>
+                  ) : null}
+                </div>
+              </aside>}
+            />
           </div>
           </PublicContentShell>
         </section>

@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { MetadataRoute } from "next";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
-import { categories } from "@/lib/content";
 import { listPublishedCanonicalBreedSitemapIndex } from "@/lib/breed-store";
 import { eventHref } from "@/lib/events";
 import { directoryCategories, isDirectoryCategory } from "@/lib/directory";
@@ -338,10 +337,6 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
     ...directoryCategories.map((category) => sitemapEntry(`/adresar/${category.slug}`, {
       lastModified: latestModified(directoryProfiles.filter((profile) => profile.category === category.slug).map((profile) => profile.updatedAt)),
       changeFrequency: "weekly", priority: 0.7,
-    })),
-    ...categories.map((category) => sitemapEntry(`/tema/${category.slug}`, {
-      lastModified: latestModified(articles.filter((article) => article.category === category.label).map(articleModified)),
-      changeFrequency: "weekly", priority: 0.6,
     })),
   ]);
 
