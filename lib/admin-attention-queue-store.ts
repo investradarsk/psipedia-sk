@@ -381,65 +381,6 @@ const AUTOMATION_ACTION_SELECT = `
       )
     HAVING COUNT(*)>0
   ) AS review_groups
-
-  UNION ALL
-
-  SELECT
-    'AUTOMATION_ACTION' AS sourceType,
-    'source-issue:' || id AS sourceId,
-    0 AS activeRank,'IN_PROGRESS' AS attentionState,'HIGH' AS priority,0 AS priorityRank,relevantAt,
-    json_object(
-      'actionType','SOURCE_ISSUE',
-      'sourceId','source-issue:' || id,
-      'categorySlug',
-        CASE
-          WHEN entity_type='EVENT' THEN 'podujatia'
-          WHEN entity_type='ADOPTION' THEN 'adopcie'
-          WHEN entity_type='FOSTER' THEN 'docasna-opatera'
-          WHEN entity_type='LOST_FOUND' THEN 'stratene-najdene'
-          WHEN entity_type='ORGANIZATION' THEN 'utulky-organizacie'
-          WHEN entity_type='DIRECTORY' AND json_extract(CASE WHEN json_valid(config_json) THEN config_json ELSE '{}' END,'$.staticFields.category')='veterinari' THEN 'veterinari'
-          WHEN entity_type='DIRECTORY' THEN 'psie-sluzby'
-          ELSE NULL
-        END,
-      'count',1,
-      'relevantAt',relevantAt,
-      'targetHref','/admin/automatizacie/zdroje/' || id,
-      'sourceLabel',label
-    ) AS payload
-  FROM (
-    SELECT
-      s.id,s.label,s.entity_type,s.config_json,
-      (
-        SELECT MIN(failed.started_at)
-        FROM automation_runs failed
-        WHERE failed.source_id=s.id
-          AND failed.status='FAILED'
-          AND failed.started_at>COALESCE((
-            SELECT MAX(reset.started_at)
-            FROM automation_runs reset
-            WHERE reset.source_id=s.id
-              AND reset.status NOT IN ('FAILED','RUNNING')
-          ),'')
-      ) AS relevantAt
-    FROM automation_sources s
-    WHERE s.enabled=1
-      AND s.review_status='APPROVED'
-      AND (
-        SELECT COUNT(*)
-        FROM automation_runs recent
-        WHERE recent.source_id=s.id
-          AND recent.status='FAILED'
-          AND recent.id IN (
-            SELECT last_run.id
-            FROM automation_runs last_run
-            WHERE last_run.source_id=s.id
-              AND last_run.status<>'RUNNING'
-            ORDER BY last_run.started_at DESC,last_run.id DESC
-            LIMIT 3
-          )
-      )=3
-  ) AS failing_sources
 `;
 
 const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = {

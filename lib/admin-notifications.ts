@@ -278,40 +278,6 @@ export async function enqueueAutomationDraftCreatedAdminNotification(
   }, now);
 }
 
-export async function enqueuePersistentAutomationSourceIssueAdminNotification(
-  database: Pick<D1Database, "prepare">,
-  sourceId: number,
-  now: Date = new Date(),
-) {
-  const source = await database.prepare(
-    "SELECT id,label,enabled,review_status reviewStatus FROM automation_sources WHERE id=? LIMIT 1",
-  ).bind(sourceId).first<{ id: number; label: string; enabled: number; reviewStatus: string }>();
-  if (!source || !source.enabled || source.reviewStatus !== "APPROVED") return { created: false };
-
-  const sequence = await database.prepare(`
-    SELECT COUNT(*) failCount,MIN(started_at) sequenceStart
-    FROM automation_runs
-    WHERE source_id=?
-      AND status='FAILED'
-      AND started_at>COALESCE((
-        SELECT MAX(started_at) FROM automation_runs
-        WHERE source_id=? AND status NOT IN ('FAILED','RUNNING')
-      ),'')
-  `).bind(sourceId, sourceId).first<{ failCount: number; sequenceStart: string | null }>();
-  if (Number(sequence?.failCount ?? 0) < 3 || !sequence?.sequenceStart) return { created: false };
-
-  return enqueueAutomationActionAdminNotification(database, {
-    eventType: "automation_source_issue",
-    resourceType: "automation_source",
-    resourceRef: sourceId,
-    targetUrl: `/admin/automatizacie/zdroje/${sourceId}`,
-    title: `${source.label} potrebuje kontrolu`,
-    body: "Posledné 3 kontroly zdroja zlyhali.",
-    tag: `automation-source-issue-${sourceId}`,
-    dedupeKey: `automation/source-issue/${sourceId}/${sequence.sequenceStart}`,
-  }, now);
-}
-
 export async function enqueueAutomationFindingAdminNotification(
   database: Pick<D1Database, "prepare">,
   findingId: number,
