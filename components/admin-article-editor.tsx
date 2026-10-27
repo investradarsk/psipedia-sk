@@ -18,7 +18,7 @@ import { EditorialRichText } from "@/components/editorial-rich-text";
 import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
 import { effectiveArticleStatus, articleEffectiveStatusLabel } from "@/lib/article-effective-status";
 import { formatArticleLocalDateTime } from "@/lib/article-schedule-time";
-import {facebookWallTime,type FacebookImagePost} from "@/lib/facebook-image-post";
+import {facebookScheduleInstant,facebookWallTime,type FacebookImagePost} from "@/lib/facebook-image-post";
 import {createFacebookArticleGraphic} from "@/lib/facebook-article-graphic";
 import type { AdminArticleBreedOption } from "@/lib/breed-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
@@ -157,7 +157,8 @@ export function AdminArticleEditor({
         const post=result.post;
         setFbPost(post);setFbEnabled(post?.status==="scheduled");setFbApprove(post?.approvalStatus==="APPROVED");
         setFbMode(post?.articleImageMode??"photo");setFbLink(post?.articleIncludeLink??true);
-        if(post?.scheduledAt){const wall=facebookWallTime(post.scheduledAt);setFbDateTime(`${wall.date}T${wall.time}`);}
+        if(post?.scheduledAt){const wall=facebookWallTime(post.scheduledAt);setFbDateTime(`${wall.date}T${wall.time}`);
+          setFbRepeatedHour(facebookScheduleInstant(wall.date,wall.time,"earlier")===post.scheduledAt?"earlier":"later");}
         if(post?.articleImageMode==="graphic")setFbGraphic({imageKey:post.imageKey,imageUrl:post.imageUrl});
         setFbLoaded(true);
       }).catch(error=>{if(!controller.signal.aborted)setFbError(error instanceof Error?error.message:"Kalendár nie je dostupný.");});
@@ -254,6 +255,7 @@ export function AdminArticleEditor({
     finally{setFbGenerating(false);}
   }
   function changeTitle(value: string) {
+    if(fbPost?.status==="scheduled"||fbEnabled){changeFacebook();if(fbMode==="graphic")setFbGraphic({imageKey:"",imageUrl:""});}
     setTitle(value);
     if (!slugEdited) setSlug(slugify(value, 60));
   }
@@ -276,6 +278,7 @@ export function AdminArticleEditor({
       const data = await uploadAdminImage(file, "articles");
       setImageUrl(data.imageUrl);
       setImageKey(data.imageKey);
+      if(fbPost?.status==="scheduled"||fbEnabled){changeFacebook();if(fbMode==="graphic")setFbGraphic({imageKey:"",imageUrl:""});}
       setThumbnailImageDisplay(null);
       setDetailImageDisplay(null);
       setEditorDirty(true);
@@ -397,7 +400,7 @@ export function AdminArticleEditor({
       setPublishedAt(dateTimeValue(data.article.publishedAt));
       const changedContent = socialCaption.trim()!==savedFacebookContent.current.caption.trim()
         || title!==savedFacebookContent.current.title || (imageKey||"")!==savedFacebookContent.current.imageKey;
-      const updateFb = fbDirty || (!article && fbEnabled)
+      const updateFb = (fbDirty && fbPost?.status!=="published") || (!article && fbEnabled)
         || (fbPost!==null && fbPost.status!=="published" && changedContent);
       if(updateFb){
         if(!fbLoaded||fbError)throw new Error("Článok sa uložil, ale Facebook kalendár nie je dostupný. Obnov editor.");
@@ -406,7 +409,7 @@ export function AdminArticleEditor({
           method:"PUT",headers:{"content-type":"application/json"},
           body:JSON.stringify({enabled:fbEnabled,date:date||"",time:time||"",repeatedHour:fbRepeatedHour,
             imageMode:fbMode,graphicImageKey:fbGraphic.imageKey,includeLink:fbLink,
-            approve:fbApprove&&!changedContent,expectedVersion:fbPost?.version}),
+            approve:fbApprove,expectedVersion:fbPost?.version}),
         });
         const result=await response.json() as {post:FacebookImagePost|null;error?:string};
         if(!response.ok)throw new Error("Článok je uložený, ale Facebook príspevok nie: "+(result.error||"Neznáma chyba."));
@@ -560,7 +563,7 @@ export function AdminArticleEditor({
               <span>Naplánovať Facebook článok</span></label>
             <label htmlFor="article-social-caption">Popis na sociálne siete</label>
             <textarea id="article-social-caption" rows={4} maxLength={15000} value={socialCaption}
-              onChange={event=>{setSocialCaption(event.target.value);changeFacebook();}}
+              onChange={event=>{setSocialCaption(event.target.value);setEditorDirty(true);if(fbPost?.status==="scheduled"||fbEnabled)changeFacebook();}}
               placeholder="Text k fotografii a článku na Facebooku."/>
             <small>{socialCaption.length} znakov · toto pole má byť aj v databáze Články v Notione.</small>
             <label className="admin-check"><input type="checkbox" checked={fbLink}
