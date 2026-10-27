@@ -176,3 +176,15 @@
 @media (max-width: 380px) {
   .section, .card { padding: 15px; }
 }
+
+/* Breed profiles reuse this frame, but their entire dog image must remain visible. */
+.hero[data-public-detail-hero="breed"] .heroMedia {
+  aspect-ratio: 4 / 3; align-self: center; max-height: 310px;
+  background: var(--sage-light);
+}
+.hero[data-public-detail-hero="breed"] .heroMedia > div { min-height: 0; }
+@media (max-width: 800px) {
+  .hero[data-public-detail-hero="breed"] .heroMedia { max-height: 255px; }
+  .hero[data-public-detail-hero="breed"] .heroCopy { grid-row: 1; }
+  .hero[data-public-detail-hero="breed"] .heroMedia { grid-row: 2; }
+}

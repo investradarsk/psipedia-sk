@@ -267,3 +267,46 @@
   .utilityLinks { grid-template-columns: minmax(0, 1fr); }
   .utilityLink { min-height: 52px; }
 }
+
+/* S-06: every breed now shares DetailHero with directory and event details. */
+.heroPhoto {
+  width: 100%; height: 100%; min-height: 0; max-height: 292px;
+  padding: 8px; border: 0; border-radius: var(--ps-detail-photo-radius);
+  background: var(--sage-light); box-shadow: none;
+}
+.heroImage { width: 100%; height: 100%; max-height: 276px; object-fit: contain; }
+.photoPlaceholder { min-height: 230px; }
+.lead { max-width: 68ch; margin: 10px 0 0; font-size: 1rem; line-height: 1.6; }
+.fciIdentity { margin-bottom: 8px; }
+.quickFacts { padding: 14px 0 18px; }
+.factGrid div { padding: 11px 13px; }
+.readingSection, .practicalSection { padding-block: clamp(22px, 3vw, 32px); }
+.fitSection, .sportsSection { padding-block: clamp(22px, 3vw, 32px); }
+.fitGrid { gap: 12px; }
+.fitGrid > div { padding: 16px 18px; background: var(--ps-surface-raised); }
+.fitPositive { background: var(--sage-light) !important; }
+.fitConsider { background: var(--ps-surface-raised) !important; }
+.fitGrid h3 { margin-bottom: 10px; font-size: 1.08rem; }
+.accordionList { border-top: 0; }
+.accordion { padding: 15px 0; border-bottom: 1px solid var(--ps-border-soft); }
+.accordionHeading { display: grid; gap: 4px; margin-bottom: 10px; }
+.accordionHeading small { color: var(--muted); font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.accordionHeading strong { color: var(--forest-dark); font: 600 clamp(1.06rem, 1.7vw, 1.3rem)/1.3 Georgia, serif; }
+.accordionPanel { padding: 0 0 8px; }
+.fciSection { gap: 18px; padding: 20px 22px; background: var(--ps-surface-raised); }
+.utilityLinks { gap: 6px; }
+.utilityLink { min-height: 44px; padding: 9px 11px; border-radius: var(--ps-radius-control); }
+@media (max-width: 900px) {
+  .heroPhoto { max-height: 270px; }
+  .heroImage { max-height: 252px; }
+  .photoPlaceholder { min-height: 220px; }
+}
+@media (max-width: 560px) {
+  .heroPhoto { max-height: 240px; }
+  .heroImage { max-height: 224px; }
+  .readingSection, .practicalSection, .fitSection, .sportsSection { padding-block: 22px; }
+  .fitGrid > div { padding: 14px; }
+  .factGrid div { padding: 11px; }
+  .utilitySidebar { margin-top: 2px; }
+  .fciSection { padding: 16px; }
+}
