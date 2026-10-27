@@ -97,11 +97,26 @@ test("event type landing has canonical listing schema and filtered variant does 
   expect(filteredTypes).not.toContain("CollectionPage");
 });
 
-test("topic landing uses canonical social metadata contract", async ({ page }) => {
-  const seo = await readSeo(page, "/tema/vycvik");
-  expect(seo.canonical).toBe(`${PROD_ORIGIN}/tema/vycvik`);
-  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute("content", `${PROD_ORIGIN}/tema/vycvik`);
-  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
+test("retired /tema paths redirect to an accessible canonical topic or filtered archive", async ({ page, request }) => {
+  const destinations = [
+    ["/tema/zdravie", "/starostlivost/zdravie"],
+    ["/tema/vyziva", "/starostlivost/vyziva"],
+    ["/tema/vycvik", "/clanky?tema=vycvik"],
+    ["/tema/zivot-so-psom", "/clanky?tema=zivot-so-psom"],
+  ] as const;
+  for (const [legacy, target] of destinations) {
+    const response = await request.get(legacy, { maxRedirects: 0 });
+    expect([301, 308]).toContain(response.status());
+    const location = new URL(response.headers()["location"] ?? "", PROD_ORIGIN);
+    expect(location.pathname + location.search).toBe(target);
+
+    const seo = await readSeo(page, legacy);
+    await expect(page).toHaveURL((url) => url.pathname + url.search === target);
+    const filtered = target.startsWith("/clanky?");
+    expect(seo.canonical).toBe(PROD_ORIGIN + (filtered ? "/clanky" : target));
+    if (filtered) expect(seo.robots.toLowerCase()).toContain("noindex");
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
+  }
 });
 
 test("sitemap is production-shaped and contains only clean unique canonical URLs", async ({ request }) => {
