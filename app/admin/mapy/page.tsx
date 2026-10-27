@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminGeoOperatorDashboard } from "@/components/admin-geo-operator-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -11,6 +13,31 @@ function firstParam(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
 }
 
+function loadMapOverview(params: SearchParams) {
+  return loadGeoAdminOperatorProfiles({
+    group: firstParam(params.group),
+    category: firstParam(params.category),
+    query: firstParam(params.q),
+    page: firstParam(params.page),
+    pageSize: firstParam(params.pageSize),
+  }).then((operatorData) => ({ operatorData, unavailable: "" }))
+    .catch((error: unknown) => ({
+      operatorData: null,
+      unavailable: error instanceof Error ? error.message : "Geo foundation zatiaľ nie je dostupný.",
+    }));
+}
+
+async function MapContent({ promise }: { promise: ReturnType<typeof loadMapOverview> }) {
+  const { operatorData, unavailable } = await promise;
+  const dashboardKey = operatorData
+    ? [operatorData.filters.group, operatorData.filters.category, operatorData.filters.query].join("|")
+    : "unavailable";
+
+  return unavailable || !operatorData
+    ? <section className="admin-form-card"><p className="admin-message admin-message--error">{unavailable || "Geo operator view sa nepodarilo načítať."}</p></section>
+    : <AdminGeoOperatorDashboard key={dashboardKey} data={operatorData} />;
+}
+
 export default async function AdminMapsPage({
   searchParams,
 }: {
@@ -18,27 +45,7 @@ export default async function AdminMapsPage({
 }) {
   const user = await requireAdminPageUser("/admin/mapy");
   const params = await searchParams;
-  let operatorData = null;
-  let unavailable = "";
-  try {
-    operatorData = await loadGeoAdminOperatorProfiles({
-      group: firstParam(params.group),
-      category: firstParam(params.category),
-      query: firstParam(params.q),
-      page: firstParam(params.page),
-      pageSize: firstParam(params.pageSize),
-    });
-  } catch (error) {
-    unavailable = error instanceof Error ? error.message : "Geo foundation zatiaľ nie je dostupný.";
-  }
-
-  const dashboardKey = operatorData
-    ? [
-        operatorData.filters.group,
-        operatorData.filters.category,
-        operatorData.filters.query,
-      ].join("|")
-    : "unavailable";
+  const dataPromise = loadMapOverview(params);
 
   return (
     <AdminShell
@@ -47,9 +54,9 @@ export default async function AdminMapsPage({
       title="Mapy"
       description="Pracovný inbox položiek, ktoré ešte treba vyriešiť cez Google Maps. Hotové položky sa tu nezobrazujú."
     >
-      {unavailable || !operatorData
-        ? <section className="admin-form-card"><p className="admin-message admin-message--error">{unavailable || "Geo operator view sa nepodarilo načítať."}</p></section>
-        : <AdminGeoOperatorDashboard key={dashboardKey} data={operatorData} />}
+      <Suspense fallback={<AdminDataLoading label="Mapy" />}>
+        <MapContent promise={dataPromise} />
+      </Suspense>
     </AdminShell>
   );
 }
