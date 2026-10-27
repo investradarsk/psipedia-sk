@@ -277,11 +277,17 @@ assert.equal(scenarioH.dependency, true);
 assert.equal(scenarioH.fullCore, true);
 assert.equal(scenarioH.validationMode, "full");
 
-// Scenario I — shared root/runtime primitive must stay broad.
+// Scenario I — shared UI shell stays bounded, with visual contracts.
 const scenarioI = classifyChangedFiles(["app/layout.tsx"]);
-assert.ok(scenarioI.scopes.includes("SHARED_CORE"));
-assert.equal(scenarioI.fullCore, true);
-assert.equal(scenarioI.validationMode, "full");
+assert.ok(scenarioI.scopes.includes("VISUAL"));
+assert.equal(scenarioI.scopes.includes("SHARED_CORE"), false);
+assert.equal(scenarioI.fullCore, false);
+assert.equal(scenarioI.boundedCore, true);
+assert.equal(scenarioI.publicDs0b, true);
+assert.equal(scenarioI.validationMode, "bounded");
+assert.equal(classifyChangedFiles(["app/globals.css"]).validationMode, "bounded");
+assert.equal(classifyChangedFiles(["worker/index.ts"]).fullCore, true);
+assert.equal(classifyChangedFiles(["lib/pii-crypto.ts"]).fullCore, true);
 
 // Scenario J — docs-only keeps required status without install/Playwright.
 const scenarioJFiles = ["README.md", "docs/ci.md"];
@@ -417,6 +423,34 @@ assert.equal(scriptWithLock.dependency, true);
 assert.equal(scriptWithLock.fullCore, true);
 assert.equal(classifyChangedFiles(["package.json"]).fullCore, true);
 
+// Consolidated PR #1083/#1084: expensive feature CI is scoped, while mandatory
+// build, lint, security, and migration workflows remain the fallback.
+for (const [workflow, unrelated] of [
+  ["homepage-name-days-ci.yml", ["app/page.tsx", "components/site-header.tsx"]],
+  ["image-editor-2-ci.yml", ["app/page.tsx", "lib/article-store.ts", "package.json", "scripts/production-d1-migrate.mjs", "components/admin-directory-editor.tsx"]],
+  ["organization-profile-e2e.yml", ["app/layout.tsx", "app/globals.css", "components/site-header.tsx", "lib/seo.ts", "drizzle/0064_geo_foundation.sql"]],
+]) {
+  for (const file of unrelated) {
+    assert.equal(prWorkflowWouldRun(workflow, [file]), false,
+      `${workflow}: unrelated ${file} must not launch expensive feature validation`);
+  }
+  assert.equal(prWorkflowWouldRun(workflow, [`.github/workflows/${workflow}`]), true,
+    `${workflow}: workflow edits must remain covered`);
+}
+for (const [workflow, relevant] of [
+  ["homepage-name-days-ci.yml", "lib/dog-name-day-calendar.ts"],
+  ["image-editor-2-ci.yml", "lib/image-display.ts"],
+  ["organization-profile-e2e.yml", "components/organization-profile-detail.tsx"],
+]) {
+  assert.equal(prWorkflowWouldRun(workflow, [relevant]), true,
+    `${workflow}: relevant source must trigger validation`);
+}
+assert.equal(prWorkflowWouldRun("playwright-e2e.yml", ["app/page.tsx"]), true,
+  "Main required CI must remain unconditionally available for homepage changes");
+assert.doesNotMatch(workflows.get("open-source-production-ui.yml"),
+  /name: Production build[\s\S]*?run: npm run build/,
+  "Secondary integration workflow must not re-build code already covered by required CI");
+
 assert.ok(required.includes("name: Changed package test scripts"));
 assert.ok(required.includes("run: node scripts/ci-scope.mjs --run-changed-package-tests"));
 console.log(
@@ -434,6 +468,7 @@ function simulation(files, eventName = "pull_request", options = {}) {
     full_core: String(result.fullCore), bounded_core: String(result.boundedCore),
     package_test_scripts_only: String(result.packageTestScriptsOnly), docs_only: String(result.docsOnly),
     core: String(result.core), scopes: result.scopes.join(","),
+    public_ds0b: String(result.publicDs0b),
     admin_events: String(flags.adminEvents), directory: String(flags.directory), search: String(flags.search),
     seo_recovery: String(flags.seoRecovery), sitemap_diagnostic: String(flags.sitemapDiagnostic), lost_found: String(flags.lostFound),
     production_smoke: String(productionSmokeRequired(result, {eventName, ref: "refs/heads/main"})),
@@ -469,6 +504,8 @@ const cases = [
   ["dependency", ["package-lock.json"], true],
   ["migration", ["drizzle/0122_entity_image_display_config.sql"], true],
   ["shared-runtime", ["worker/index.ts"], true],
+  ["shared-layout", ["app/layout.tsx"], false],
+  ["shared-css", ["app/globals.css"], false],
   ["cross-domain-762", ["components/event-image.tsx", "components/directory-card.tsx", "components/admin-directory-editor.tsx", "components/help-card.tsx", "drizzle/0122_entity_image_display_config.sql", "package.json"], true],
   ["CI-YAML-only", [".github/workflows/playwright-e2e.yml"], false],
   ["unknown-push-range", [], true],
@@ -538,6 +575,25 @@ for (const protection of ["expected_head_sha", "action_required", "/approve", "a
 
 
 assert.equal(simulation(["components/public-visual-system/unified-section-hero.tsx"]).stepRuns("Shared visual contracts"), true);
+assert.equal(simulation(["app/layout.tsx"]).stepRuns("Shared visual contracts"), true);
+assert.equal(simulation(["app/globals.css"]).stepRuns("Shared visual contracts"), true);
+assert.equal(simulation(["app/layout.tsx"]).runs("ds-0b-focused-regression"), true);
+assert.equal(simulation(["components/directory-card.tsx"]).runs("ds-0b-focused-regression"), true);
+assert.equal(simulation(["components/admin-article-editor.tsx"]).runs("ds-0b-focused-regression"), false);
+assert.equal(simulation(["docs/ci-audit.md"]).runs("ds-0b-focused-regression"), false);
+assert.equal(simulation(["components/site-header.tsx"]).runs("ds-0b-focused-regression"), true);
+assert.equal(simulation(["lib/navigation-store.ts"]).runs("ds-0b-focused-regression"), true);
+// Domain E2E must stay focused; public shell is guarded by core + DS-0B.
+for (const shared of ["app/layout.tsx", "app/globals.css", "components/site-header.tsx"]) {
+  assert.equal(prWorkflowWouldRun("article-ux-ci.yml", [shared]), false, shared);
+  assert.equal(prWorkflowWouldRun("organization-profile-e2e.yml", [shared]), false, shared);
+}
+assert.equal(prWorkflowWouldRun("article-ux-ci.yml", ["components/article-detail.tsx"]), true);
+assert.equal(prWorkflowWouldRun("organization-profile-e2e.yml", ["components/organization-profile-detail.tsx"]), true);
+assert.equal(prWorkflowWouldRun("profile-review-admin-ci.yml", ["lib/admin-attention-queue.ts"]), false);
+assert.equal(prWorkflowWouldRun("profile-review-admin-ci.yml", ["lib/profile-review-admin.ts"]), true);
+assert.equal(prWorkflowWouldRun("image-editor-2-ci.yml", ["lib/unrelated-store.ts"]), false);
+assert.equal(prWorkflowWouldRun("image-editor-2-ci.yml", ["components/image-display.tsx"]), true);
 assert.equal(simulation(["components/admin-article-editor.tsx"]).stepRuns("Shared visual contracts"), false);
 for (const id of ["search-e2e", "directory-e2e"]) {
   assert.ok(!job(id).block.includes("run: npm run build"), `${id} must reuse its required build`);
@@ -591,7 +647,8 @@ for (const id of ["pull-request-e2e", "production-smoke"]) {
 const coverage4 = [
   ["map", ["components/map/public-location-map.tsx"], ["MAPS"], ["map-public-ui-ci.yml"]],
   ["profiles", ["components/directory-profile-detail.tsx"], ["DIRECTORY_SERVICES", "ENTITY_SURFACES"], ["sitewide-ai-entity-surface-ci.yml"]],
-  ["homepage", ["app/page.tsx"], [], ["homepage-name-days-ci.yml"]],
+  ["homepage", ["app/page.tsx"], [], []],
+  ["name-days", ["lib/dog-name-day-calendar.ts"], [], ["homepage-name-days-ci.yml"]],
   ["articles", ["components/article-detail.tsx"], ["ARTICLES"], ["article-ux-ci.yml"]],
   ["notion-sync", ["lib/notion-article-sync.ts"], ["NOTION"], ["notion-article-sync-ci.yml"]],
   ["admin", ["components/admin-article-editor.tsx"], ["ADMIN", "ARTICLES"], ["article-admin-ci.yml"]],
