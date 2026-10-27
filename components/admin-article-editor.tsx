@@ -19,6 +19,7 @@ import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
 import { effectiveArticleStatus, articleEffectiveStatusLabel } from "@/lib/article-effective-status";
 import { formatArticleLocalDateTime } from "@/lib/article-schedule-time";
 import {facebookScheduleInstant,facebookWallTime,type FacebookImagePost} from "@/lib/facebook-image-post";
+import Link from "next/link";
 import {createFacebookArticleGraphic} from "@/lib/facebook-article-graphic";
 import type { AdminArticleBreedOption } from "@/lib/breed-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
@@ -597,7 +598,7 @@ export function AdminArticleEditor({
               disabled={!fbLoaded||!fbEnabled||fbPost?.status==="published"}
               onChange={event=>{setFbApprove(event.target.checked);setFbDirty(true);setEditorDirty(true);}}/>
               <span>Individuálne povoliť publikovanie (globálny STOP zostáva platný)</span></label>
-            {fbPost&&<small>Stav FB: {fbPost.status==="published"?"Publikovaný":fbPost.status==="scheduled"?"Naplánovaný":"Koncept"} · <a href="/admin/facebook-obrazky">Spoločný kalendár</a></small>}
+            {fbPost&&<small>Stav FB: {fbPost.status==="published"?"Publikovaný":fbPost.status==="scheduled"?"Naplánovaný":"Koncept"} · <Link href="/admin/facebook-obrazky">Spoločný kalendár</Link></small>}
             {fbError&&<p role="alert">{fbError}</p>}
           </div>
           <label className="admin-check"><input type="checkbox" checked={showUpdated} onChange={(event) => setShowUpdated(event.target.checked)} /><span><strong>Zobraziť označenie Aktualizované</strong><small>Pri titulku sa zobrazí zvolený dátum aktualizácie.</small></span></label>
