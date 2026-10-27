@@ -36,5 +36,9 @@ jobs:
           node-version: '22'
       - name: Read-only check of 11 current Notion schemas
         env:
+          # Each integration can be authorized for a different subset of the
+          # existing Notion data sources. Keep missing access as a failure if
+          # neither credential is authorized.
           NOTION_SCHEMA_TOKEN: ${{ secrets.NOTION_API_TOKEN || secrets.GEMINI_AGENT_NOTION_TOKEN }}
+          NOTION_SCHEMA_FALLBACK_TOKEN: ${{ secrets.GEMINI_AGENT_NOTION_TOKEN }}
         run: node scripts/notion-schema-verify.mjs
