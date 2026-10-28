@@ -77,10 +77,17 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(target);
-    const calendar = await page.locator("#events-calendar").boundingBox();
-    const legend = await page.locator("[data-events-legend]").boundingBox();
-    if (width >= 768) expect(legend!.x).toBeGreaterThanOrEqual(calendar!.x + calendar!.width);
-    else expect(legend!.y).toBeGreaterThanOrEqual(calendar!.y + calendar!.height);
+    // Avoid measuring before hydration/fonts settle, and read both boxes in the
+    // same layout snapshot so a concurrent reflow cannot create false overlap.
+    await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+    const { calendar, legend } = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const month = document.querySelector("#events-calendar")!.getBoundingClientRect();
+      const types = document.querySelector("[data-events-legend]")!.getBoundingClientRect();
+      return { calendar: { x: month.x, y: month.y, width: month.width, height: month.height }, legend: { x: types.x, y: types.y } };
+    });
+    if (width >= 768) expect(legend.x).toBeGreaterThanOrEqual(calendar.x + calendar.width);
+    else expect(legend.y).toBeGreaterThanOrEqual(calendar.y + calendar.height);
     const full = await page.locator('[data-calendar-date="2026-10-15"]').boundingBox();
     const empty = await page.locator('[data-calendar-date="2026-10-17"]').boundingBox();
     expect(full!.height).toBe(empty!.height);
@@ -95,6 +102,8 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
 
 
 test("month, day, period and legend change without reloading the document", async ({ page }) => {
+  // A native link clicked before client hydration cannot be intercepted.
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
   await page.evaluate(() => {
     (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker = "retained";
   });
