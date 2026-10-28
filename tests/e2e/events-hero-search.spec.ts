@@ -25,6 +25,9 @@ test("events hero has the approved copy and a single event-only GET search", asy
   await expect(page).toHaveURL(url => url.searchParams.get("q") === "pes" && url.searchParams.get("kalendar") === "2026-11");
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();
   await expect(page).toHaveURL(url => url.searchParams.get("q") === "pes" && url.searchParams.get("termin") === "ukoncene");
+  // In-place calendar navigation loads the listing asynchronously. The filter
+  // sidebar is rendered only once that response replaces the loading state.
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
   await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
   const toggle = page.locator("summary").filter({ hasText: "Filtrovať" });
   if (await toggle.isVisible()) await toggle.click();
