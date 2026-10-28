@@ -77,7 +77,6 @@ export function DirectoryContactForm({
     <form className="directory-contact-form" onSubmit={submit}>
       <div className="directory-contact-heading">
         <div>
-          <span className="eyebrow">Kontakt cez Psipediu</span>
           <h2>Napíš svoj dopyt</h2>
           <p>Správa príde najprv redakcii. Skontrolujeme ju a sprostredkujeme ďalší kontakt.</p>
         </div>
