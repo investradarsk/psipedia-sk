@@ -208,7 +208,7 @@ export function AdminWorkspaceDashboard({
           <Link href="/admin/operations">Všetky upozornenia →</Link>
         </div>
         <div className={styles.priorityGrid}>
-          <Suspense fallback={<><PendingMetric label="Aktívne upozornenia" /><PendingMetric label="Partner claims" /></>}>
+          <Suspense fallback={<PendingMetric label="Aktívne upozornenia" />}>
             <WorkspaceAttentionMetrics promise={attentionPromise} />
           </Suspense>
           <Suspense fallback={<PendingMetric label="Kvalita údajov" />}>
