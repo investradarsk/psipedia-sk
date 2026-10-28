@@ -66,6 +66,43 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   });
 
+  test("mobile page editor scrolls to deep publishing fields without a clipped inner pane", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+
+    const layout = await page.evaluate(() => {
+      const editor = document.querySelector<HTMLElement>("[data-editor-page]");
+      const workspace = editor?.querySelector<HTMLElement>("[data-editor-workspace]");
+      const columns = editor?.querySelector<HTMLElement>("[data-editor-columns]");
+      const content = editor?.querySelector<HTMLElement>("[data-editor-content]");
+      if (!editor || !workspace || !columns || !content) throw new Error("Editor workspace missing");
+      return {
+        documentHeight: document.scrollingElement?.scrollHeight ?? 0,
+        viewportHeight: innerHeight,
+        pageOverflow: getComputedStyle(editor).overflowY,
+        workspaceMaxHeight: getComputedStyle(workspace).maxHeight,
+        columnsOverflow: getComputedStyle(columns).overflowY,
+        contentOverflow: getComputedStyle(content).overflowY,
+      };
+    });
+    expect(layout.documentHeight).toBeGreaterThan(layout.viewportHeight * 2);
+    expect(layout.pageOverflow).toBe("visible");
+    expect(layout.workspaceMaxHeight).toBe("none");
+    expect(layout.columnsOverflow).toBe("visible");
+    expect(layout.contentOverflow).toBe("visible");
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const facebookDate = page.locator("#article-facebook-at");
+    await facebookDate.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+    const fieldBounds = await facebookDate.boundingBox();
+    expect(fieldBounds).not.toBeNull();
+    expect(fieldBounds!.y).toBeGreaterThan(100);
+    expect(fieldBounds!.y + fieldBounds!.height).toBeLessThan(760);
+    await expect(page.locator("[data-editor-actionbar] button")).toBeVisible();
+  });
+
   test("article publishing fields fit inside mobile cards at 320, 390 and 430px", async ({ page }) => {
     for (const width of [320, 390, 430]) {
       await page.setViewportSize({ width, height: 844 });
