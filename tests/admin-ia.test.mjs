@@ -312,3 +312,15 @@ test("V3 shared shell exposes owner-approved sidebar, responsive drawer and pres
   assert.match(registry, /\/admin\/facebook-obrazky/);
   assert.match(registry, /\/admin\/automatizacie-gemini/);
 });
+
+test("admin logo uses a Next Link with a full document reload instead of a raw HTML anchor", () => {
+  const shell = read("components/admin-shell.tsx");
+  const brand = read("components/admin-home-brand-link.tsx");
+  assert.match(shell, /<AdminHomeBrandLink className=\{styles\.sidebarBrand\}>/);
+  assert.match(shell, /<AdminHomeBrandLink className=\{styles\.mobileBrand\}>/);
+  assert.doesNotMatch(shell, /<a href="\/admin"/);
+  assert.match(brand, /"use client"/);
+  assert.match(brand, /<Link[\s\S]*?href="\/admin"/);
+  assert.match(brand, /window\.location\.assign\("\/admin"\)/);
+  assert.match(brand, /event\.preventDefault\(\)/);
+});
