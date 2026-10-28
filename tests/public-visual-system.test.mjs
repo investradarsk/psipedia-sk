@@ -169,6 +169,7 @@ test("article list contract keeps text minimal while allowing an optional thumbn
   assert.match(contract, /image\?: \{ src: string; alt: string; mode\?: SmartImageMode; focusX\?: number \| null; focusY\?: number \| null; config\?: ImageDisplayConfig \| null \}/);
   assert.match(contract, /image \? \(/);
   assert.match(contract, /<ImageDisplay fallbackOnError context="thumbnail" config=\{image\.config\} legacyMode=\{image\.mode\} legacyFocusX=\{image\.focusX\} legacyFocusY=\{image\.focusY\} src=\{image\.src\}/);
+  assert.match(contract, /<PublicMediaFallback label="Článok zatiaľ nemá fotografiu" \/>/);
   assert.match(contract, /srcSet=\{responsiveMediaSrcSet\(image\.src,/);
   assert.match(contract, /date \? <span aria-hidden="true">·<\/span> : null/);
   assert.match(contract, /date \? \(dateTime \? <time dateTime=\{dateTime\} data-article-date>\{date\}<\/time>/);

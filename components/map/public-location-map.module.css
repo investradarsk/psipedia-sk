@@ -237,3 +237,16 @@
 .fallback {
   composes: locationMapFallback from "../public-visual-system/public-result-variants.module.css";
 }
+
+/* Public entity maps share one compact mobile presentation. Map controls,
+   consent prompt, approximate-position warning and provider credit stay intact. */
+@media (max-width: 620px) {
+  .section { margin-block: 16px; }
+  .heading { margin-bottom: 10px; }
+  .heading h2 { font-size: clamp(1.24rem, 5vw, 1.55rem); }
+  .mapWrap { height: 245px; min-height: 245px; }
+  .locations { padding: 10px 12px; gap: 6px; }
+  .actions { display: flex; padding: 10px 12px; gap: 8px; }
+  .actions a { flex: 1 1 auto; width: auto; min-height: 44px; padding: 9px 11px; font-size: .79rem; }
+  .attribution { padding: 0 12px 10px; }
+}

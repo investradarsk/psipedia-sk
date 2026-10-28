@@ -162,3 +162,15 @@
     width: 100%;
   }
 }
+
+/* Shared public owner / correction actions on all claimed partner profiles. */
+.wrap { margin-top: 18px; margin-bottom: 36px; }
+.management, .correction { gap: 14px; padding: 16px 20px; }
+.management p, .correction p { line-height: 1.5; }
+.actions { gap: 7px; }
+@media (max-width: 700px) {
+  .wrap { margin-bottom: 30px; }
+  .management, .correction { gap: 12px; padding: 15px; }
+  .actions { display: flex; flex-wrap: wrap; justify-content: stretch; }
+  .primaryCta, .secondaryCta, .correctionCta { width: auto; max-width: 100%; padding-inline: 14px; }
+}

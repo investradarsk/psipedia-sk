@@ -43,3 +43,38 @@
 
 /* Contact section follows the same mobile gutter as the shared public shell. */
 @media (max-width: 620px) { .contactSection { width: min(100% - 24px, 520px); } }
+
+/* S-18 common directory-detail template — applies to every service category. */
+.servicesList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 7px 18px;
+  margin-top: 11px;
+}
+.servicesList li {
+  display: flex;
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 9px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--detail-border);
+  border-radius: 0;
+  background: transparent;
+  font-size: .84rem;
+  line-height: 1.45;
+}
+.servicesList li::before { margin-top: .5em; }
+.practicalGrid { margin-top: 8px; }
+.practicalItem { grid-template-columns: minmax(95px, .7fr) minmax(0, 1.3fr); gap: 10px; }
+.practicalItem dt { align-self: start; }
+.updatedAt { margin-top: 10px; }
+.hours { font-size: .84rem; line-height: 1.5; }
+.contactSection { scroll-margin-top: calc(var(--psipedia-sticky-header-height, 76px) + 12px); }
+@media (max-width: 620px) {
+  .servicesList { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .practicalItem { grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); gap: 9px; }
+  .practicalItem dt, .practicalItem dd { font-size: .78rem; }
+}
+@media (max-width: 340px) {
+  .practicalItem { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+}
