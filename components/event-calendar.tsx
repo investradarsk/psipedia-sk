@@ -88,7 +88,7 @@ export function EventCalendar({
   const [pending,setPending] = useState(false);
   const [loadError,setLoadError] = useState("");
   const requestRef = useRef<AbortController|null>(null);
-  const cacheRef = useRef(new Map<string,{ value:CalendarData; storedAt:number }>());
+  const cacheRef = useRef(new Map<string,CalendarData>());
   const f = {...initialFilters,month:view.filterMonth,time:view.time,type:view.type};
   const query = initialQuery.trim().slice(0,120);
   const region = initialRegion;
@@ -121,8 +121,8 @@ export function EventCalendar({
     if (next.type!=="Všetky") endpoint.searchParams.set("typ",next.type);
     const key=endpoint.pathname+endpoint.search;
     const cached=cacheRef.current.get(key);
-    if (cached && Date.now()-cached.storedAt < 60_000) {
-      setData(cached.value);
+    if (cached) {
+      setData(cached);
       setPending(false);
       return;
     }
@@ -133,7 +133,12 @@ export function EventCalendar({
       if (!Array.isArray(payload.events)||!Array.isArray(payload.calendarEvents)
         ||!Array.isArray(payload.calendarSummaries)||!payload.listing) throw new Error("Calendar response invalid");
       if (!controller.signal.aborted) {
-        cacheRef.current.set(key,{value:payload,storedAt:Date.now()});
+        cacheRef.current.set(key,payload);
+        // Short-lived session cache; the expiry timer avoids impure Date.now()
+        // calls during React's render analysis, and never removes fresh data.
+        window.setTimeout(() => {
+          if (cacheRef.current.get(key) === payload) cacheRef.current.delete(key);
+        }, 60_000);
         if (cacheRef.current.size>16) cacheRef.current.delete(cacheRef.current.keys().next().value!);
         setData(payload);
       }
