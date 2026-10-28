@@ -317,18 +317,11 @@ export function assessArticleContentQa(payload: ManagedArticleInput): ArticleQaI
     else sourceIdentity.set(key, entry.field);
   }
 
-    const healthContent = payload.category === "Zdravie"
+  // Sources are always optional across every article category, including health.
+  // Only validate sources which the editor actually supplied.
+  const healthContent = payload.category === "Zdravie"
     || (payload.portalSection === "starostlivost" && payload.portalSubpage === "zdravie");
   if (healthContent) {
-    const sources = [
-      ...(payload.sources ?? []),
-      ...rawBlocks.filter((block) => block.type === "source"),
-    ];
-    if (!sources.length) result.push(issue({
-      code: "HEALTH_SOURCE_REQUIRED", field: "sources", severity: "BLOCKER",
-      message: "Zdravotný článok nemá uvedený odborný zdroj.",
-      suggestedAction: "Doplň aspoň jeden reálny odborný zdroj; URL, autora ani dátum nevymýšľaj.",
-    }));
     result.push(issue({
       code: "HEALTH_DISCLAIMER_RENDERED", field: "portalSection", severity: "INFO",
       message: "Verejný article renderer pridáva informačný disclaimer a odkaz na opravy.",

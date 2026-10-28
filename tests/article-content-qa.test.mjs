@@ -271,16 +271,39 @@ test("CONTENT-QA validates relation shape, plain-text notes, duplicates and unsa
   );
 });
 
-test("CONTENT-QA health content requires a real source but never creates reviewer claims", () => {
+test("CONTENT-QA never requires a source for any article, including health and scheduled publication", () => {
+  const categories = [
+    { category: "Zdravie", portalSection: "clanky" },
+    { category: "Zdravie", portalSection: "starostlivost", portalSubpage: "zdravie" },
+    { category: "Život so psom", portalSection: "starostlivost", portalSubpage: "zdravie" },
+    { category: "Život so psom", portalSection: "clanky" },
+    { category: "Život so psom", portalSection: "novinky" },
+  ];
+  for (const status of ["draft", "published", "scheduled"]) {
+    for (const category of categories) {
+      const issues = assessArticleContentQa(base({ ...category, status, sources: [] }));
+      assert.deepEqual(blockerIssues(issues), [], `Source-free ${status} ${category.portalSection} article must be valid`);
+      assert.ok(!issues.some((item) => item.code === "HEALTH_SOURCE_REQUIRED"),
+        "The removed source requirement must never return");
+      if (category.category === "Zdravie" ||
+          (category.portalSection === "starostlivost" && category.portalSubpage === "zdravie")) {
+        assert.ok(issues.some((item) => item.code === "HEALTH_DISCLAIMER_RENDERED" && item.severity === "INFO"));
+      }
+    }
+  }
+});
+
+test("CONTENT-QA keeps optional sources safe and never invents reviewer claims", () => {
   const health = assessArticleContentQa(base({ category: "Zdravie" }));
-  assert.ok(
-    health.some((item) => item.code === "HEALTH_SOURCE_REQUIRED" && item.severity === "BLOCKER"),
-  );
-  assert.ok(
-    health.some((item) => item.code === "HEALTH_DISCLAIMER_RENDERED" && item.severity === "INFO"),
-  );
   assert.equal(JSON.stringify(health).includes("Overené"), false);
   assert.equal(JSON.stringify(health).includes("reviewer"), false);
+  assert.ok(codes(base({
+    category: "Zdravie",
+    blocks: [
+      { id: "body", type: "text", content: "Finálny obsah." },
+      { id: "bad-source", type: "source", label: "Zdroj", url: "javascript:alert(1)" },
+    ],
+  })).includes("SOURCE_URL_UNSAFE"));
 });
 
 test("CONTENT-QA server integration gates publish/scheduled, keeps draft save path and returns structured 422", () => {

@@ -771,7 +771,7 @@ export function AdminArticleEditor({
           <div className="admin-card-heading">
             <div><span>06</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
           </div>
-          {portalSection === "novinky" && <p className="admin-block-news-note"><strong>Zdroj je voliteľný.</strong> Ak ho máš, pridaj blok Zdroj.</p>}
+          <p className="admin-block-news-note"><strong>Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných.</strong> Ak ich chceš uviesť, pridaj blok Zdroj.</p>
           <p className="admin-block-news-note">Pre viac zdrojov pridaj viac blokov <strong>Zdroj</strong>. Na verejnom článku sa spoja do jedného prehľadného zoznamu.</p>
           <AdminArticleBlockEditor
             blocks={blocks}
