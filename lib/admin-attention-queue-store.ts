@@ -47,9 +47,11 @@ type RuntimeBindings = { DB?: D1Database };
 
 export const ADMIN_ATTENTION_PAGE_SIZE = 24;
 export const ADMIN_ATTENTION_MAX_PAGE_SIZE = 50;
-export const ADMIN_ATTENTION_SOURCE_QUERY_COUNT = 15;
-// Fast path: three five-source count queries. Worst case: all three groups
-// fail and retry their 15 sources individually before up to 15 page queries.
+// One source (AUTOMATION_ACTION) is retired from the public queue. Do not
+// read its legacy automation tables or include their stale rows in the badge.
+export const ADMIN_ATTENTION_SOURCE_QUERY_COUNT = adminAttentionQueueSourceTypes.length;
+// Fast path: up to three five-source count queries. A failed group is retried
+// per active source, without querying archived automation alert sources.
 export const ADMIN_ATTENTION_PROBE_GROUP_SIZE = 5;
 export const ADMIN_ATTENTION_PROBE_QUERY_COUNT = Math.ceil(
   ADMIN_ATTENTION_SOURCE_QUERY_COUNT / ADMIN_ATTENTION_PROBE_GROUP_SIZE,
