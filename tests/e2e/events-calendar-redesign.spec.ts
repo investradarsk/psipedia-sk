@@ -118,3 +118,24 @@ test("month, day, period and legend change without reloading the document", asyn
     (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker,
   )).toBe("retained");
 });
+
+test("month, date and event type update in place without reloading the public document", async ({ page }) => {
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await page.evaluate(() => document.documentElement.setAttribute("data-calendar-no-reload-marker", "retained"));
+  const calendar = page.locator("[data-events-month-calendar]");
+
+  await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
+  await expect(calendar.getByRole("heading", { level: 2 })).toContainText("november 2026");
+  await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
+  await expect(page.locator(".calendar")).toHaveAttribute("aria-busy", "false");
+
+  await page.locator('[data-calendar-date="2026-11-03"]').click();
+  await expect(page.locator('[data-selected-day="2026-11-03"]')).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
+  await expect(page.locator(".calendar")).toHaveAttribute("aria-busy", "false");
+
+  await page.locator('[data-events-legend]').getByRole("link", { name: "Preteky", exact: true }).click();
+  await expect(page).toHaveURL(/\/podujatia\/preteky/);
+  await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
+  await expect(page.locator(".calendar")).toHaveAttribute("aria-busy", "false");
+});
