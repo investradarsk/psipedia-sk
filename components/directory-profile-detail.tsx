@@ -5,6 +5,7 @@ import { ImageDisplay } from "@/components/image-display";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { DirectoryServicesList } from "@/components/directory-services-list";
+import { DirectoryOpeningHours } from "@/components/directory-opening-hours";
 import { ProfileReviewSection } from "@/components/profile-review-section";
 import { RelatedBreedList } from "@/components/related-entity-list";
 import { RelatedEntityLinks } from "@/components/related-entity-links";
@@ -197,7 +198,7 @@ export function DirectoryProfileDetail({
 
 
 
-        {presentation.openingHours ? <section className={`${styles.practical} ${styles.hoursPosition}`}><h2 className={styles.singleHeading}>Ordinačné / otváracie hodiny</h2><p className={styles.hours}>{presentation.openingHours}</p></section> : null}
+        {presentation.openingHours ? <DirectoryOpeningHours value={presentation.openingHours} /> : null}
 
         {publicMap?.items.length ? (
           <div className={styles.mapPosition}><PublicLocationMap
