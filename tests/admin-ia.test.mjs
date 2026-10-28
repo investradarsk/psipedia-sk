@@ -223,7 +223,7 @@ test("existing automation reliability contract distinguishes OK EMPTY PARTIAL an
 test("dashboard count cards point to current canonical filtered work queues", () => {
   const dashboard = read("components/admin-workspace-dashboard.tsx");
   for (const pair of [
-    ["PARTNER_CLAIM_REVIEW", "/admin/operations?source=PARTNER_CLAIM_REVIEW"],
+    ["PARTNER_CLAIM_REVIEW", "PARTNER_CLAIM_REVIEW"],
     ["MODERATION_SUBMISSION", "MODERATION_SUBMISSION"],
     ["PROFILE_REVIEW_MODERATION", "PROFILE_REVIEW_MODERATION"],
     ["NEWS_TIP", "NEWS_TIP"],
@@ -233,6 +233,7 @@ test("dashboard count cards point to current canonical filtered work queues", ()
   ]) {
     assert.match(dashboard, new RegExp(pair[1].replace(/[?]/g, "\\?")));
   }
+  assert.match(dashboard, /QueueLink title="Žiadosti o správu profilu" source="PARTNER_CLAIM_REVIEW"/);
   assert.match(dashboard, /href="\/admin\/kvalita"/);
   assert.match(dashboard, /href="\/admin\/automatizacie-gemini"/);
 });
