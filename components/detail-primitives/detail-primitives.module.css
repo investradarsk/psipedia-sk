@@ -369,3 +369,21 @@
     white-space: nowrap;
   }
 }
+
+/* Semantic H2 with the approved small rust-red treatment; opt-in for profiles. */
+.section h2.compactHeading {
+  margin: 0 0 13px;
+  color: var(--brand-accent-strong, #b94732);
+  font-family: inherit;
+  font-size: .78rem;
+  font-weight: 850;
+  letter-spacing: .085em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+/* One shared compact action treatment across all directory profile categories. */
+.page .heroActions > :first-child { grid-column: auto; }
+@media (max-width: 800px) {
+  .page .heroActions { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .page .heroActions a { min-width: 0; padding: 11px 6px; font-size: clamp(.68rem, 2.8vw, .82rem); line-height: 1.25; }
+}
