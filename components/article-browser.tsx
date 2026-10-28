@@ -6,7 +6,6 @@ import { PublicActionButton } from "@/components/public-visual-system";
 import { ArticleListItem } from "@/components/article-list-item";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ArticleListingCard } from "@/lib/content";
-import { articleHref } from "@/lib/portal";
 import { SearchIcon } from "./icons";
 
 const filters = ["Všetky", "Novinky", "Šteniatka", "Výcvik", "Zdravie", "Výživa", "Život so psom"];
