@@ -1,6 +1,6 @@
 .root {
   display: grid;
-  gap: 12px;
+  gap: var(--admin-v3-compact-gap, 10px);
   padding: 14px;
   border: 1px solid var(--admin-border, #d9e0dc);
   border-radius: 14px;
@@ -32,5 +32,5 @@
 @media (max-width: 650px) {
   .root { padding: 10px; gap: 10px; }
   .links { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .linkCard { min-height: 0; padding: 11px 12px; }
+  .linkCard { min-height: 44px; padding: 11px 12px; }
 }
