@@ -21,15 +21,17 @@ test("alerts center, shared bell and active/history controls are accessible and 
 
   await expect(page.getByRole("heading", { name: "Upozornenia", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Aktívne upozornenia", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Automatizácie", exact: true })).toBeVisible();
+  // Old automation source discoveries and change suggestions are no longer
+  // operational alerts; their historical data must not inflate the bell.
+  await expect(page.getByRole("heading", { name: "Automatizácie", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Automatizačné zdroje", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Automatizácie na kontrolu", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Neisté zhody entít", exact: true })).toHaveCount(0);
   await expect(page.getByTestId("admin-attention-queue")).toBeVisible();
 
   const sourceCounts = page.getByRole("list", { name: "Aktívne upozornenia podľa zdroja" });
-  const automationSourceCount = sourceCounts.getByRole("listitem").filter({ hasText: "Automatizácie" });
-  await expect(automationSourceCount).toContainText("1");
+  await expect(sourceCounts.getByRole("listitem").filter({ hasText: "Automatizácie" })).toHaveCount(0);
+  await expect(page.locator('[data-source="AUTOMATION_ACTION"]')).toHaveCount(0);
 
   const bell = page.getByTestId("admin-notification-bell");
   await expect(bell).toBeVisible();
@@ -95,19 +97,19 @@ test("alerts center, shared bell and active/history controls are accessible and 
   await expectAxeClean(page);
 });
 
-test("automation Attention source is available and its action is reachable through the source filter", async ({ page }) => {
+test("retired automation alerts cannot be selected or counted in the active queue", async ({ page }) => {
   const response = await page.goto("/admin/operations?source=AUTOMATION_ACTION", { waitUntil: "domcontentloaded" });
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
 
   const filter = page.getByRole("form", { name: "Filtrovať upozornenia" });
-  await expect(filter.getByLabel("Zdroj")).toHaveValue("AUTOMATION_ACTION");
-  await expect(page.getByRole("alert").filter({ hasText: "Zvolený zdroj je momentálne nedostupný" })).toHaveCount(0);
-
-  const automationAction = page.locator('[data-source="AUTOMATION_ACTION"]');
-  await expect(automationAction).toHaveCount(1);
-  await expect(automationAction.getByRole("heading", { name: "1 nový zdroj čaká na schválenie", exact: true })).toBeVisible();
-
+  // An old bookmarked source degrades safely to all *current* sources.
+  await expect(filter.getByLabel("Zdroj")).toHaveValue("all");
+  await expect(filter.getByLabel("Zdroj").locator('option[value="AUTOMATION_ACTION"]')).toHaveCount(0);
+  const sourceCounts = page.getByRole("list", { name: "Aktívne upozornenia podľa zdroja" });
+  await expect(sourceCounts.getByRole("listitem").filter({ hasText: "Automatizácie" })).toHaveCount(0);
+  await expect(page.locator('[data-source="AUTOMATION_ACTION"]')).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Aktívne upozornenia", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
