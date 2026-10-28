@@ -22,7 +22,7 @@ export function PublicArticleCallout({
       : undefined;
   return (
     <aside
-      className={`article-block-cta ${sponsored ? "is-sponsored" : ""}`}
+      className={`ps-public-banner-frame article-block-cta ${sponsored ? "is-sponsored" : ""}`}
       data-public-article-callout
     >
       {(text || sponsored) && (
