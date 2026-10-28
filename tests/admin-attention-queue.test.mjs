@@ -487,7 +487,12 @@ test("automation attention derives active state from bounded domain queries and 
 test("attention source count chips filter the queue directly", () => {
   const page = readFileSync(new URL("../app/admin/operations/page.tsx", import.meta.url), "utf8");
   const component = readFileSync(new URL("../components/admin-attention-queue.tsx", import.meta.url), "utf8");
-  assert.match(component, /href=\{queueHref\(\{ \.\.\.filters, sourceType \}\)\}/);
+  assert.match(component, /href=\\{queueHref\\(\\{ \\.\\.\\.filters, sourceType \\}\\)\\}/);
+  assert.match(component, /const visibleSources = adminAttentionQueueSourceTypes\\.filter/);
+  assert.match(component, /count === null \\|\\| \\(count \\?\\? 0\\) > 0/);
+  assert.match(component, /visibleSources\\.map\\(\\(sourceType\\) =>/);
+  assert.match(component, /adminAttentionQueueSourceTypes\\.map\\(\\(sourceType\\) =>/);
+  assert.doesNotMatch(page, /Automatické udalosti — história behov/);
   assert.match(component, /aria-current=\{selected \? "page" : undefined\}/);
   assert.doesNotMatch(page, /href="\/admin\/operations\?source=AUTOMATION_ACTION#centrum-pozornosti"/);
   assert.match(page, /Prejsť na upozornenia ↓/);
