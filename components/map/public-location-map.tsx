@@ -34,6 +34,8 @@ type Props = {
   googleMapId: string;
   rendererEnabled: boolean;
   testRendererEnvironment?: boolean;
+  /** Hide the secondary directions link when the hero already offers it. */
+  showDirections?: boolean;
 };
 
 export function PublicLocationMap({
@@ -45,6 +47,7 @@ export function PublicLocationMap({
   googleMapId,
   rendererEnabled,
   testRendererEnvironment = false,
+  showDirections = true,
 }: Props) {
   const testRenderer = testRendererEnvironment || process.env.NODE_ENV === "test";
   const sectionRef = useRef<HTMLElement>(null);
@@ -218,7 +221,7 @@ export function PublicLocationMap({
                   : "Otvoriť v Google Maps"}
               </a>
             ) : null}
-            {directionsUrl ? (
+            {showDirections && directionsUrl ? (
               <a href={directionsUrl} target="_blank" rel="noreferrer">
                 Navigovať
               </a>
