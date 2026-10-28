@@ -165,7 +165,7 @@ export async function DirectoryPage({
               )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
-                <section className={styles.sidebarCard} data-directory-map-cta>
+                <section className={`ps-public-banner-frame ${styles.sidebarCard}`} data-directory-map-cta>
                   <span className={styles.sidebarEyebrow}>Služby v okolí</span>
                   <h2>Nájdi služby na mape</h2>
                   <p>Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality.</p>
@@ -173,7 +173,7 @@ export async function DirectoryPage({
                   <PublicActionLink variant="primary" href={mapHref(filters, active?.slug)}>Zobraziť na mape →</PublicActionLink>
                 </section>
 
-                <section className={styles.sidebarCard} data-directory-provider-cta>
+                <section className={`ps-public-banner-frame ${styles.sidebarCard}`} data-directory-provider-cta>
                   <span className={styles.sidebarEyebrow}>Pre poskytovateľov</span>
                   <h2>Poskytuješ služby pre psov?</h2>
                   <p>Požiadaj o pridanie alebo úpravu údajov svojho profilu.</p>
