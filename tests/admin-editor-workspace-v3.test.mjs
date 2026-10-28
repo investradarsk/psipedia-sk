@@ -127,3 +127,40 @@ test("ADMIN V3 section and puppy editors use guarded workspace without replacing
   assert.match(puppy, /uploadAdminImage/);
   assert.match(puppy, /imageAlt/);
 });
+
+test("ARTICLE-MOBILE-COMPACT: six changes remain scoped to the canonical article editor", () => {
+  const editor = read("components/admin-article-editor.tsx");
+  const css = read("components/admin-content-editor-v3.module.css");
+  const workspace = read("components/admin-editor-workspace.tsx");
+
+  // One primary save action in the mobile footer; destructive and publish remain available elsewhere.
+  assert.match(editor, /className=\{editorStyles\.mobileActions\}/);
+  assert.match(editor, /className=\{editorStyles\.desktopActions\}/);
+  assert.match(editor, /type="submit" form="article-canonical-editor-form"/);
+  assert.match(editor, /className=\{editorStyles\.mobileExtraActions\}/);
+  assert.match(editor, /<summary>Ďalšie akcie článku<\/summary>/);
+  assert.match(editor, /displayedStatus === "published" && <AdminActionButton variant="destructive"/);
+  assert.match(editor, /displayedStatus !== "published" && <AdminActionButton variant="secondary"[^>]*onClick=\{\(\) => void save\("scheduled"\)\}/);
+  assert.doesNotMatch(editor, /disabled=\{saving \|\| uploading \|\| !publishedAt \|\| displayedStatus === "published"\}/);
+
+  // Mobile preview toggle belongs in the navigation; close is next to the preview itself.
+  assert.match(editor, /admin-preview-bar[^\n]*className=\{editorStyles\.previewClose\}/);
+  assert.match(editor, /className=\{editorStyles\.previewRestore\}/);
+  assert.match(workspace, /showingPreview \? "Späť na úpravy" : "Náhľad"/);
+
+  // Searchable breed relations without the old giant card list.
+  assert.match(editor, /id="article-breed-search" type="search"/);
+  assert.match(editor, /setBreedVisibleLimit\(12\)/);
+  assert.match(editor, /\.slice\(0, breedVisibleLimit\)/);
+  assert.match(editor, /className=\{editorStyles\.breedRow\}/);
+  assert.doesNotMatch(editor, /className="admin-breed-article-links"/);
+
+  // Scope changes to article only; other editors retain the shared V3 structure.
+  assert.match(css, /\.mobileActions \{ display: none; \}/);
+  assert.match(css, /@media \(max-width: 820px\)/);
+  assert.match(css, /\.mobileActions \{ display: flex;/);
+  assert.match(css, /\[data-editor-actionbar\] > div:first-child/);
+  assert.match(css, /\[data-editor-page\] > div:last-child/);
+  assert.match(css, /\[data-editor-navigation\] select/);
+  assert.match(css, /\.breedRow \{/);
+});
