@@ -166,12 +166,14 @@ test("SERVICES-V2 map and provider CTAs remain safe and above real popularity", 
 });
 
 
-test("SERVICES-V2 category navigation preserves canonical hrefs and accessible more", () => {
+test("SERVICES-V2 category navigation keeps canonical links and accessible mobile selection", () => {
   const navigation = read("components/directory-category-navigation.tsx");
   const navigator = read("components/public-visual-system/public-subcategory-navigator.tsx");
   assert.match(directory, /href: directoryCategoryHref\(category\)/);
   assert.doesNotMatch(directory, /\?category=/);
-  assert.match(navigation, /aria-expanded=\{expanded\}/);
+  assert.match(navigation, /aria-label="Vyber kategóriu služby"/);
+  assert.match(navigation, /router.push\(event.target.value\)/);
+  assert.match(navigation, /<option key=\{item.href\} value=\{item.href\}>/);
   assert.match(navigation, /<PublicSubcategoryNavigator/);
   assert.match(navigator, /aria-current=\{item\.current \? "page" : undefined\}/);
 });
