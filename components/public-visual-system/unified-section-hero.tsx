@@ -140,6 +140,18 @@ export function UnifiedSectionHeroShell({ className, ...props }: HTMLAttributes<
   );
 }
 
+/** A short editorial introduction is easier to scan than a full-page paragraph.
+ * Keep sentence boundaries intact. This affects only the visible intro,
+ * not page SEO metadata or the managed source text stored in D1. */
+function conciseHeroIntro(intro: ReactNode): ReactNode {
+  if (typeof intro !== "string") return intro;
+  const clean = intro.replace(/\\s+/g, " ").trim();
+  if (clean.length <= 230) return clean;
+  const sentences = clean.match(/[^.!?]+[.!?]+(?:\\s|$)/g) ?? [];
+  const summary = sentences.slice(0, 2).join(" ").trim();
+  return summary && summary.length <= 265 ? summary : (sentences[0]?.trim() || clean);
+}
+
 export async function UnifiedSectionHero({
   breadcrumbs,
   eyebrow,
@@ -168,7 +180,7 @@ export async function UnifiedSectionHero({
 }) {
   const managedTitle = visual.heroContent?.title || title;
   const managedEyebrow = visual.heroContent?.eyebrow || eyebrow;
-  const managedIntro = visual.heroContent?.intro || intro;
+  const managedIntro = conciseHeroIntro(visual.heroContent?.intro || intro);
   const config: SectionHeroConfig = visual.heroContent?.config ?? {};
 
   const configuredLinks = (config.quickLinks ?? []).filter((item) => item.visible !== false && item.label && item.href)
