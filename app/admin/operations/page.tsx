@@ -40,7 +40,6 @@ async function AdminOperationsContent({
   cursor?: string;
 }) {
   const attention = await attentionPromise;
-  const automationAttention = attention.summary.bySource.AUTOMATION_ACTION;
 
   return (
     <>
@@ -52,27 +51,14 @@ async function AdminOperationsContent({
             <span>{attention.availability === "PARTIAL" ? "aktívnych úloh v dostupných zdrojoch" : "aktívnych úloh"}</span>
           </div>
           <h2>Aktívne upozornenia</h2>
-          <p>Podnety z dopytov, moderácie, partnerov a ďalších canonical workflowov, ktoré vyžadujú ľudské rozhodnutie.</p>
+          <p>Žiadosti, moderácia, partneri a adopcie. Zobrazené sú len aktuálne úlohy, ktoré ešte treba vyriešiť.</p>
           <span className={styles.hubOpen}>Prejsť na upozornenia ↓</span>
         </a>
 
-        <Link
-          className={`${styles.hubCard} ${typeof automationAttention === "number" && automationAttention > 0 ? styles.hubCardPrimary : automationAttention === 0 ? styles.hubCardGood : ""}`}
-          href="/admin/operations?source=AUTOMATION_ACTION#centrum-pozornosti"
-        >
-          <span className={styles.hubKicker}>Automatizácie</span>
-          <div className={styles.hubMetric}>
-            <strong>{automationAttention ?? "—"}</strong>
-            <span>{automationAttention === 1 ? "vec vyžaduje kontrolu" : "vecí vyžaduje kontrolu"}</span>
-          </div>
-          <h2>Automatizácie</h2>
-          <p>Nové koncepty, návrhy zmien, zdroje a problémy automatizácií.</p>
-          <span className={styles.hubOpen}>Zobraziť upozornenia →</span>
-        </Link>
+
       </section>
 
       <AdminAttentionHistorySync cursor={cursor ?? ""} />
-      <p><Link href="/admin/operations/automaticke-udalosti">Automatické udalosti — história behov a push výsledkov →</Link></p>
       <div id="centrum-pozornosti">
         <AdminAttentionQueue
           key={JSON.stringify({ ...filters, cursor: cursor ?? "" })}
