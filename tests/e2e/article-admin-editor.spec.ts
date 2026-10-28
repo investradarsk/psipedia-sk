@@ -468,4 +468,33 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       expect((box?.width ?? 9999)).toBeLessThanOrEqual((page.viewportSize()?.width ?? 390) + 1);
     }
   });
+
+  test("mobile dashboard filters do not stretch into giant blank gaps", async ({ page }) => {
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      const response = await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
+      expect(response?.status()).toBe(200);
+      const toolbar = page.locator('form.admin-toolbar[role="search"][action="/admin/clanky"]');
+      await expect(toolbar.getByPlaceholder("Názov, slug, perex alebo téma")).toBeVisible();
+      await expect(toolbar).toHaveCSS("display", "grid");
+      const selects = toolbar.locator("label.admin-select-filter");
+      expect(await selects.count()).toBe(5);
+      const positions = await selects.evaluateAll(elements => elements.map(element => {
+        const box = element.getBoundingClientRect();
+        return { top: box.top, height: box.height, width: box.width };
+      }));
+      expect(positions.every(item => item.height > 43 && item.height < 100 && item.width > 0)).toBe(true);
+      for (let i = 1; i < positions.length; i++) {
+        expect(positions[i].top - positions[i - 1].top, "Filters cannot reserve vertical desktop flex-basis").toBeLessThan(110);
+      }
+      const height = await toolbar.evaluate(element => element.getBoundingClientRect().height);
+      expect(height, "Filter toolbar must fit without giant blank spaces").toBeLessThan(width === 390 ? 490 : 650);
+      const pills = page.getByRole("navigation", { name: "Rýchly filter stavu článkov" });
+      await expect(pills).toHaveCSS("display", "grid");
+      await expect(pills.getByRole("link")).toHaveCount(4);
+      await expect(toolbar.getByRole("button", { name: "Filtrovať" })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    }
+  });
+
 });
