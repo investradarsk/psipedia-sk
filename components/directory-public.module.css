@@ -1987,3 +1987,32 @@
     height: 68px;
   }
 }
+
+/* Shared directory category pattern: native selection on small screens,
+   linked PublicSubcategoryNavigator on desktop. No hidden horizontal choices. */
+.categoryNavTop > label {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 800;
+}
+.categoryMobileSelect { display: none; }
+@media (max-width: 820px) {
+  .categorySwitcherWrap { margin-bottom: 12px; padding-block: 5px 8px; }
+  .categoryDesktopTabs { display: none; }
+  .categoryMobileSelect {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    padding: 10px 14px;
+    border: 1px solid var(--ps-border-strong);
+    border-radius: var(--ps-radius-control);
+    background: var(--paper);
+    color: var(--forest-dark);
+    font: inherit;
+    font-size: .9rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .categoryMobileSelect:focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
+}

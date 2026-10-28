@@ -286,3 +286,86 @@
   .heroFrame[data-media-presentation="compact"] .heroActions > :first-child { grid-column: 1 / -1; }
   .page :global(.directory-contact-form) { padding: 14px; }
 }
+
+/* Shared detail fact typography: quiet information, never thick oversized tiles.
+   The same primitives serve events and other public detail templates. */
+.factTiles {
+  gap: 0 17px;
+  margin-top: 13px;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+}
+.factTiles > div {
+  min-width: 0;
+  padding: 9px 2px 10px;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--detail-border);
+  border-radius: 0;
+}
+.factTiles dt, .facts dt {
+  color: var(--detail-muted);
+  font-size: .72rem;
+  font-weight: 650;
+}
+.factTiles dd, .facts dd {
+  margin-top: 3px;
+  color: var(--detail-ink);
+  font-size: .84rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.heroCopy [data-event-facts] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+@media(max-width:440px) {
+  .heroCopy [data-event-facts] { grid-template-columns: minmax(0,1fr); }
+  .heroCopy [data-event-facts] > div { padding: 9px 1px; }
+}
+/* Compact service hero: full-width media area (logo OR photo) with contain crop,
+   and three equal, minimum 44px touch actions in a single mobile row. */
+@media(max-width:800px) {
+  .heroFrame[data-media-presentation="compact"] .heroMedia {
+    grid-row: 1;
+    width: 100%;
+    height: clamp(140px, 36vw, 195px);
+    max-width: none;
+    max-height: 195px;
+    aspect-ratio: auto;
+    justify-self: stretch;
+    display: grid;
+    place-items: center;
+    background: var(--sage-light);
+  }
+  .heroFrame[data-media-presentation="compact"] .heroMedia > :first-child {
+    width: 100%;
+    height: 100%;
+  }
+  .heroFrame[data-media-presentation="compact"] .heroMedia img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .heroFrame[data-media-presentation="compact"] .heroActions {
+    display: grid;
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    gap: 6px;
+  }
+  .heroFrame[data-media-presentation="compact"] .heroActions > :first-child {
+    grid-column: auto;
+  }
+  /* Never leave empty grid columns when a profile has only one or two
+     contact methods: preserve the complete 44px touch targets. */
+  .heroFrame[data-media-presentation="compact"] .heroActions:has(> :only-child) {
+    grid-template-columns: minmax(0,1fr);
+  }
+  .heroFrame[data-media-presentation="compact"] .heroActions:has(> :nth-child(2):last-child) {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .heroFrame[data-media-presentation="compact"] .primaryAction,
+  .heroFrame[data-media-presentation="compact"] .secondaryAction {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 5px;
+    font-size: clamp(.7rem, 2.4vw, .8rem);
+    white-space: nowrap;
+  }
+}

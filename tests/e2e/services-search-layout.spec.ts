@@ -86,8 +86,8 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
     await openDirectory(page, "/adresar");
     const hero = page.locator("[data-unified-section-hero]");
     await expect(hero.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
-    const nav = page.getByRole("navigation", { name: "Prepnúť kategóriu služby" });
-    await expect(nav).toHaveAttribute("data-public-subcategory-mode","compact");
+    const categorySelect = page.getByRole("combobox", { name: "Vyber kategóriu služby" });
+    const nav = page.locator('[data-directory-category-navigation] nav[aria-label="Prepnúť kategóriu služby"]');
     const expected = [
       "/adresar", "/adresar/veterinari", "/adresar/treneri",
       "/adresar/kynologicke-kluby", "/adresar/chovatelske-kluby",
@@ -95,8 +95,17 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
       "/adresar/hotely-a-opatrovanie", "/adresar/vencenie",
       "/adresar/fyzioterapia", "/adresar/dalsie-sluzby",
     ];
-    expect(await nav.getByRole("link").evaluateAll(links => links.map(el => el.getAttribute("href")))).toEqual(expected);
+    // Desktop SEO links remain in the DOM. Mobile presents all canonical
+    // destinations in a native selector, not a clipped horizontal tab track.
+    expect(await nav.locator("a").evaluateAll(links => links.map(el => el.getAttribute("href")))).toEqual(expected);
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
+    if (await categorySelect.isVisible()) {
+      expect(await categorySelect.locator("option").evaluateAll(options => options.map(el => el.value))).toEqual(expected);
+      await expect(nav).toBeHidden();
+    } else {
+      await expect(nav).toHaveAttribute("data-public-subcategory-mode","compact");
+      await expect(nav).toBeVisible();
+    }
     await expect(page.locator("#directory-results-heading")).toBeVisible();
     await expect(page.locator("[data-directory-category-overview]")).toHaveCount(0);
     expect(await page.locator(results + " [data-directory-card]").count()).toBeGreaterThan(0);

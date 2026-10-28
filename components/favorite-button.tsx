@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { BookmarkIcon } from "./icons";
+import utilityStyles from "./public-utility-action.module.css";
 
 const STORAGE_KEY = "psipedia-favorites";
 
@@ -40,7 +41,7 @@ export function FavoriteButton({ slug, compact = false }: { slug: string; compac
   return (
     <button
       type="button"
-      className={`favorite-button ${compact ? "favorite-button--compact" : ""} ${saved ? "is-saved" : ""}`}
+      className={`${utilityStyles.utility} public-utility-action favorite-button ${compact ? "favorite-button--compact" : ""} ${saved ? "is-saved" : ""}`}
       onClick={toggle}
       aria-pressed={saved}
       aria-label={saved ? "Odstrániť z obľúbených" : "Uložiť medzi obľúbené"}

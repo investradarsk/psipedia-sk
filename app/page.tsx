@@ -130,11 +130,13 @@ export default async function Home() {
         <HomePortalSearch />
       </div>
 
-      <HomeLatestArticles
-        articles={articleSelection.latest}
-        sidebar={
-          <>
-            <HomeMagazineSidebar
+      <HomeLatestArticles articles={articleSelection.latest} />
+
+      {/* The article archive link belongs to the article section above,
+          not below the following events panel. */}
+      <section className="section shell home-independent-events" data-home-events-section aria-label="Najbližšie podujatia">
+        <div className="home-magazine-side home-independent-events-inner">
+          <HomeMagazineSidebar
               title="Najbližšie podujatia"
               href="/podujatia"
               actionLabel="Celý kalendár"
@@ -166,11 +168,8 @@ export default async function Home() {
                 </PublicEmptyState>
               )}
             </HomeMagazineSidebar>
-
-          </>
-        }
-      />
-
+        </div>
+      </section>
 
       <HomeEditorialSection
         eyebrow="Od prvých dní"

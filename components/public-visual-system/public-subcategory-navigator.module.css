@@ -326,3 +326,23 @@
 @media (max-width: 360px) {
   .landingCard { grid-template-columns: 92px minmax(0, 1fr); }
 }
+
+/* Reused by section category tabs across the public web: mobile must not
+   conceal navigation links behind an unmarked sideways scroll area. */
+@media (max-width: 620px) {
+  .compactTrack {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: visible;
+    scroll-snap-type: none;
+    gap: 7px;
+    padding-block: 7px;
+  }
+  .compactItem {
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+}
