@@ -128,7 +128,7 @@ test("breed profile: representative canonical details return 200, keep canonical
     await expect(sharedHero).toBeVisible();
     await expect.poll(() => sharedHero.evaluate((hero) => {
       const style = getComputedStyle(hero);
-      const tracks = style.gridTemplateColumns.trim().split(/\\s+/);
+      const tracks = style.gridTemplateColumns.trim().split(" ").filter(Boolean);
       return style.display === "grid" && tracks.length === (window.innerWidth <= 800 ? 1 : 2);
     })).toBe(true);
 
