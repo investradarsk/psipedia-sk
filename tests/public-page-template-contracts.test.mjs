@@ -56,7 +56,6 @@ const listings = [
   ["chovateľské stanice", "app/adresar/chovatelske-stanice/plemeno/[breedSlug]/page.tsx", /<BreedingStationLandingPage landing=\{landing\}/],
   ["chovateľské stanice podľa kraja", "app/adresar/chovatelske-stanice/kraj/[regionSlug]/page.tsx", /<BreedingStationLandingPage landing=\{landing\}/],
   ["chovateľské stanice podľa plemena a kraja", "app/adresar/chovatelske-stanice/plemeno/[breedSlug]/kraj/[regionSlug]/page.tsx", /<BreedingStationLandingPage landing=\{landing\}/],
-  ["redakčné témy", "app/tema/[slug]/page.tsx", /<ArticleCard article=\{article\}/],
   ["porovnanie plemien", "app/porovnat-plemena/page.tsx", /<BreedComparison breeds=\{breeds\}/],
   ["Pomoc psom", "app/pomoc-psom/[category]/page.tsx", /<HelpPage items=\{items\}/],
   ["adopcie", "app/pomoc-psom/adopcia/page.tsx", /<AdoptionCatalog/],
@@ -67,6 +66,10 @@ const listings = [
 test("public category and listing routes reuse existing shared presentations", () => {
   for (const [name, route, renderer] of listings)
     assert.match(read(route), renderer, name + " listing template missing");
+  // /tema/* was intentionally consolidated into canonical editorial sections.
+  const legacyTopic = read("app/tema/[slug]/page.tsx");
+  assert.match(legacyTopic, /legacyTopicRedirectHref\(slug\)/);
+  assert.match(legacyTopic, /permanentRedirect\(destination\)/);
   const section = read("app/[section]/page.tsx");
   for (const renderer of [/<PortalHub section=\{section\}/, /<ReviewsHub section=\{section\}/, /<EventsPage listing=\{events\}/])
     assert.match(section, renderer);

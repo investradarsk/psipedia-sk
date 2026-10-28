@@ -1,5 +1,6 @@
 import {sql} from "drizzle-orm";
 import {check,index,integer,sqliteTable,text,uniqueIndex} from "drizzle-orm/sqlite-core";
+import {managedArticles} from "@/db/schema";
 export const facebookImagePosts=sqliteTable("facebook_image_posts",{
   id:text("id").primaryKey().notNull(),title:text("title").notNull(),
   imageUrl:text("image_url").notNull().default(""),imageKey:text("image_key").notNull().default(""),caption:text("caption").notNull().default(""),
@@ -11,6 +12,10 @@ export const facebookImagePosts=sqliteTable("facebook_image_posts",{
   deletedAt:text("deleted_at"),deletedBy:text("deleted_by"),
   directPublishConsent:integer("direct_publish_consent").notNull().default(0),
   directConsentAt:text("direct_consent_at"),directConsentBy:text("direct_consent_by"),
+  // 0144 additions belong at the tail: ALTER TABLE appends physical D1 columns.
+  articleId:integer("article_id").references(() => managedArticles.id, {onDelete:"set null"}),
+  articleImageMode:text("article_image_mode").notNull().default("photo"),
+  articleIncludeLink:integer("article_include_link").notNull().default(1),
 },t=>[
   check("facebook_image_posts_status_check",sql`${t.status} IN ('draft','scheduled','published')`),
   check("facebook_image_posts_zone_check",sql`${t.timeZone}='Europe/Bratislava'`),check("facebook_image_posts_version_check",sql`${t.version}>=1`),
@@ -18,6 +23,7 @@ export const facebookImagePosts=sqliteTable("facebook_image_posts",{
   check("facebook_image_posts_schedule_check",sql`${t.status}<>'scheduled' OR (${t.scheduledAt} IS NOT NULL AND ${t.imageKey}<>'')`),
   index("facebook_image_posts_schedule_idx").on(t.status,t.scheduledAt,t.id),index("facebook_image_posts_updated_idx").on(t.updatedAt,t.id),
   uniqueIndex("facebook_image_posts_notion_idx").on(t.notionPageId).where(sql`${t.notionPageId} IS NOT NULL`),
+  uniqueIndex("facebook_image_posts_article_idx").on(t.articleId).where(sql`${t.articleId} IS NOT NULL`),
 ]);
 
 /** Optional V2 objects: migration 0130 is prepared until separately approved. */

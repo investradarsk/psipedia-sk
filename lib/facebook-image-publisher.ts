@@ -191,7 +191,26 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
     :{results:[] as Candidate[]};
   const retryIds=new Set(retryCandidates.results.map(p=>p.id));
   summary.due=candidates.results.length+retryCandidates.results.length;
+  // Facebook articles share the original photo queue, but must never be
+  // published before their linked website article is publicly available.
+  // The column check retains compatibility with historical 0128 fixtures.
+  const articleColumns=await db.prepare("PRAGMA table_info('facebook_image_posts')").all<{name:string}>();
+  const hasArticleLink=articleColumns.results.some(column=>column.name==="article_id");
   for(const item of [...retryCandidates.results,...candidates.results]){
+    if(hasArticleLink){
+      const linked=await db.prepare("SELECT article_id FROM facebook_image_posts WHERE id=?")
+        .bind(item.id).first<{article_id:number|null}>();
+      if(linked?.article_id){
+        const publicArticle=await db.prepare("SELECT status,published_at FROM managed_articles WHERE id=?")
+          .bind(linked.article_id).first<{status:string;published_at:string|null}>();
+        const articleDate=publicArticle?.published_at?Date.parse(publicArticle.published_at):NaN;
+        if(!publicArticle||!["published","scheduled"].includes(publicArticle.status)
+          ||!Number.isFinite(articleDate)||articleDate>now.getTime()){
+          summary.preflightSkipped++;
+          continue;
+        }
+      }
+    }
     if(safeRetry){
       try{
         const media=await bindings.BUCKET!.head(item.image_key);

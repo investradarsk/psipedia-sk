@@ -3,10 +3,11 @@ export const FACEBOOK_IMAGE_TIME_ZONE = "Europe/Bratislava";
 export type FacebookImageStatus = "draft" | "scheduled" | "published";
 export type FacebookImagePost = {
   id: string; title: string; imageUrl: string; imageKey: string; caption: string;
+  articleId?: number | null; articleImageMode?: "photo" | "graphic"; articleIncludeLink?: boolean;
   scheduledAt: string | null; status: FacebookImageStatus; version: number;
   createdAt: string; updatedAt: string;
   approvalStatus?: string; publicationState?: string; publicationError?: string | null; facebookPostId?: string | null;
-  source?: "notion" | "manual"; notionPageId?: string | null;
+  source?: "notion" | "manual" | "article"; notionPageId?: string | null;
   publishedAt?: string | null; approvedAt?: string | null; approvedBy?: string | null;
   attemptStartedAt?: string | null; attemptCompletedAt?: string | null;
   retryNotBefore?: string | null; retryCount?: number;

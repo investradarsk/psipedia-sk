@@ -79,7 +79,8 @@ test("homepage breed cards read only presentation fields, not the editor's full 
   const fn = store.slice(start, end);
   assert.match(fn, /SELECT slug,name,image_url,intro\s+FROM managed_breeds/);
   assert.match(fn, /WHERE id IN \(\$\{canonicalBreedIdsSql\}\)/);
-  assert.match(fn, /ORDER BY fci_group,name LIMIT \?/);
+  // Homepage deliberately rotates its image-backed breed picks; projection stays small.
+  assert.match(fn, /ORDER BY RANDOM\(\) LIMIT \?/);
   assert.match(fn, /image:ownedBreedImage\(row\.image_url\)/);
   assert.doesNotMatch(fn, /withAvailableBreedImages|availableBreedImage\(/);
   assert.match(fn, /SELECT slug,name,image_url,intro/);
