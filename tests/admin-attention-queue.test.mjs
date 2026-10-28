@@ -305,12 +305,15 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
   assert.equal(mapPartnerVerificationAttention({...verification,status:"REJECTED"},NOW).attentionState,"DISMISSED");
 });
 
-test("Attention read model has 15 user-facing sources, bounded page size and no silent empty fallback", () => {
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 15);
-  assert.equal(adminAttentionQueueSourceTypes.length, 15);
-  assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_ACTION"), true);
+test("Attention read model excludes retired automation and uses only current actionable sources", () => {
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 14);
+  assert.equal(adminAttentionQueueSourceTypes.length, 14);
+  assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_ACTION"), false);
   assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_FINDING"), false);
   assert.equal(adminAttentionQueueSourceTypes.includes("GEO_LOCATION_ISSUE"), false);
+  assert.equal(adminAttentionQueueSourceTypes.includes("NEWS_TIP"), true);
+  assert.equal(adminAttentionQueueSourceTypes.includes("ADOPTION_STALE"), true);
+  assert.equal(adminAttentionQueueSourceTypes.includes("PARTNER_CLAIM_REVIEW"), true);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.match(store, /ADMIN_ATTENTION_MAX_PAGE_SIZE = 50/);
   assert.match(store, /LIMIT \\?/);
@@ -384,13 +387,13 @@ test("operations presentation does not add a competing mutation endpoint", () =>
 });
 
 
-test("automation actions replace legacy research in the user-facing queue", () => {
-  assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_ACTION"), true);
+test("legacy automation actions are not exposed in the user-facing queue", () => {
+  assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_ACTION"), false);
   assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_FINDING"), false);
   const page = readFileSync(new URL("../app/admin/operations/page.tsx", import.meta.url), "utf8");
   const component = readFileSync(new URL("../components/admin-attention-queue.tsx", import.meta.url), "utf8");
-  assert.match(page, /attention\.summary\.bySource\.AUTOMATION_ACTION/);
-  assert.equal((page.match(/<h2>Automatizácie<\/h2>/g) ?? []).length, 1);
+  assert.doesNotMatch(page, /attention\.summary\.bySource\.AUTOMATION_ACTION/);
+  assert.equal((page.match(/<h2>Automatizácie<\/h2>/g) ?? []).length, 0);
   assert.doesNotMatch(page, /Automatizačné zdroje|Automatizácie na kontrolu|POSSIBLE matches|Identity review/);
   assert.doesNotMatch(page, /listAutomationSourceCandidates|listAutomationSourcesAdmin|listAutomationPossibleMatchReviews/);
   assert.match(component, /item\.sourceType !== "AUTOMATION_ACTION"/);
@@ -486,6 +489,6 @@ test("attention source count chips filter the queue directly", () => {
   const component = readFileSync(new URL("../components/admin-attention-queue.tsx", import.meta.url), "utf8");
   assert.match(component, /href=\{queueHref\(\{ \.\.\.filters, sourceType \}\)\}/);
   assert.match(component, /aria-current=\{selected \? "page" : undefined\}/);
-  assert.match(page, /href="\/admin\/operations\?source=AUTOMATION_ACTION#centrum-pozornosti"/);
-  assert.match(page, /Zobraziť upozornenia →/);
+  assert.doesNotMatch(page, /href="\/admin\/operations\?source=AUTOMATION_ACTION#centrum-pozornosti"/);
+  assert.match(page, /Prejsť na upozornenia ↓/);
 });
