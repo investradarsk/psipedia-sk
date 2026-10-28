@@ -129,3 +129,10 @@
   .servicesColumns { gap: 6px; }
   .servicesColumns .servicesList li { font-size: .76rem; padding-inline: 2px; }
 }
+
+@media (max-width: 680px) {
+  .servicesColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 360px) {
+  .singleHeading { font-size: .75rem; }
+}
