@@ -201,6 +201,7 @@ export function DirectoryProfileDetail({
 
         {publicMap?.items.length ? (
           <div className={styles.mapPosition}><PublicLocationMap
+            compactHeading
             title="Kde nás nájdete"
             items={publicMap.items}
             attribution={publicMap.attribution}
@@ -212,6 +213,7 @@ export function DirectoryProfileDetail({
         ) : null}
 
         <ProfileReviewSection
+          compactHeading
           data={reviews}
           baseHref={"/adresar/" + presentation.category + "/" + presentation.slug}
           readError={reviewReadError}
