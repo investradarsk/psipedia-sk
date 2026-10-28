@@ -96,10 +96,16 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const facebookDate = page.locator("#article-facebook-at");
     await facebookDate.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "auto" }));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+    // The site sets scroll-behavior: smooth on html. A positive scrollY
+    // only means animation has started, not that the target is visible yet.
+    // Wait for the deep field to settle above the fixed mobile save bar.
+    await expect.poll(async () => {
+      const bounds = await facebookDate.boundingBox();
+      return bounds ? bounds.y + bounds.height : Infinity;
+    }, { message: "Facebook publication date becomes reachable above the save bar" }).toBeLessThan(760);
     const fieldBounds = await facebookDate.boundingBox();
     expect(fieldBounds).not.toBeNull();
     expect(fieldBounds!.y).toBeGreaterThan(100);
-    expect(fieldBounds!.y + fieldBounds!.height).toBeLessThan(760);
     await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
   });
 
