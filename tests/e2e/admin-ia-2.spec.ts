@@ -30,7 +30,7 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   await expect(page.getByRole("link", { name: "Automatizácie Gemini →", exact: true })).toHaveAttribute("href", "/admin/automatizacie-gemini");
   await expect(page.getByRole("link", { name: "Kvalita údajov →", exact: true })).toHaveAttribute("href", "/admin/kvalita");
   await expect(page.getByRole("link", { name: /Žiadosti o správu profilu/ })).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
-  await expect(page.locator('a[href="/admin/kvalita"]').filter({ hasText: "návrhov na schválenie" })).toHaveAttribute("href", "/admin/kvalita");
+  await expect(page.locator('a[href="/admin/kvalita"][class*="metricCard"]')).toHaveAttribute("href", "/admin/kvalita");
 
   const breadcrumb = page.getByRole("navigation", { name: "Drobečková navigácia" });
   await expect(breadcrumb.getByText("Pracovný prehľad", { exact: true })).toHaveAttribute("aria-current", "page");
