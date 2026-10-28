@@ -94,7 +94,7 @@ export function EventCalendar({
   const visibleMonth = view.month;
   const todayMonth = today.slice(0,7);
   const days = calendarMonthDays(visibleMonth);
-  const selectedDay = /^\\d{4}-\\d{2}-\\d{2}$/.test(view.day)
+  const selectedDay = /^\d{4}-\d{2}-\d{2}$/.test(view.day)
     && days.some(item=>item.inMonth && item.date===view.day) ? view.day : "";
   const typePathname = view.type === "Všetky" ? "/podujatia" : eventTypePortalHref(view.type) ?? "/podujatia";
   const filtered = pending ? [] : data.events;
