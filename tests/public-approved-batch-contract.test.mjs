@@ -40,5 +40,16 @@ test("profile layouts use one compact two-column services control and accessible
   assert.match(profile, /compactHeading/);
   assert.match(list, /slice\(0, 10\)/);
   assert.match(list, /Math\.min\(5/);
+  assert.match(list, /expanded \? Math\.ceil\(visible\.length \/ 2\) : Math\.min\(5/);
+  assert.match(list, /Zobraziť všetky služby/);
   assert.match(list, /aria-expanded=\{expanded\}/);
+});
+
+test("calendar cache cannot block React purity lint and mobile swipe replaces the header arrow", () => {
+  const calendar = read("components/event-calendar.tsx");
+  const header = read("components/site-header.tsx");
+  assert.doesNotMatch(calendar, /Date\\.now\\(\\)/);
+  assert.match(calendar, /window\\.setTimeout/);
+  assert.match(header, /const isBackGesture = deltaX/);
+  assert.doesNotMatch(header, /className=\\{styles\\.backNavButton\\}/);
 });
