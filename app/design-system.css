@@ -1038,3 +1038,39 @@
     min-height: var(--ps-banner-cta-height);
   }
 }
+
+/* PUBLIC-LANDING-ALIGNMENT-1: review category landing uses listing rhythm;
+   later editorial sections keep the global .section spacing. */
+.section.review-topic-first-section {
+  padding-top: 0;
+}
+
+
+/* Public directory enquiry: retain every form field and consent, use one
+   compact heading and shared spacing across all provider categories. */
+.directory-contact-form .directory-contact-heading h2 {
+  margin: 0 0 8px;
+  color: var(--brand-accent-strong, #b94732);
+  font-family: inherit;
+  font-size: .78rem;
+  font-weight: 850;
+  letter-spacing: .085em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+.directory-contact-form .directory-contact-heading p { margin: 0; line-height: 1.5; }
+.directory-contact-form { row-gap: 14px; }
+.directory-contact-form .directory-contact-grid { row-gap: 12px; }
+.directory-contact-form :is(input,textarea) { min-height: 44px; }
+
+/* Shared promotion controls extend the canonical public banner frame above. */
+.ps-public-banner-frame :is(.button, .article-block-cta-button) {
+  max-width: 100%;
+  min-height: 44px;
+  border-radius: var(--ps-radius-control, 12px);
+}
+@media (max-width: 620px) {
+  .ps-public-banner-frame :is(.button, .article-block-cta-button) {
+    min-height: 48px;
+  }
+}
