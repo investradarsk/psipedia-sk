@@ -45,7 +45,8 @@ test.describe("PUBLIC-MAPS-1 canonical detail maps", () => {
     await page.goto("/adresar/veterinari/map-e2e-vet-a", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "MAP E2E Veterina A" })).toBeVisible();
     const map = page.getByTestId("public-location-map");
-    await expect(map.getByRole("heading", { name: "Kde nás nájdete" })).toBeVisible();
+    // Shared directory profiles use one small rust-red heading, not a duplicate H2.
+    await expect(map.getByRole("heading", { name: "Poloha", exact: true })).toBeVisible();
     await expect(page.getByTestId("detail-map-consent-gate")).toBeVisible();
     await expect(map.getByText("Google Maps čaká na tvoje povolenie", { exact: true })).toBeVisible();
     await expect(map).not.toContainText("Interaktívna mapa momentálne nie je dostupná");
