@@ -295,7 +295,7 @@ test("breed profile: sticky section navigation, no-crop media, useful cards and 
   await expect(page.getByText("Fotografia sa pripravuje", { exact: true })).toBeVisible();
 });
 
-test("breed profile: FCI CTA opens the production standard with seven adaptive groups and global controls", async ({ page }) => {
+test("breed profile: FCI standard renders seven permanently visible expert sections and working anchor navigation", async ({ page }) => {
   await page.goto("/plemena/biely-svajciarsky-ovciak");
   const cta = page.getByTestId("breed-fci-cta");
   await expect(cta).toHaveAttribute("href", "/plemena/biely-svajciarsky-ovciak/fci-standard");
@@ -303,43 +303,46 @@ test("breed profile: FCI CTA opens the production standard with seven adaptive g
   const response = await page.goto("/plemena/biely-svajciarsky-ovciak/fci-standard", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/i);
-  await expectNoHorizontalOverflow(page, "White Swiss FCI standard");
 
   const groups = page.locator("[data-fci-group]");
   await expect(groups).toHaveCount(7);
-  const triggers = page.locator("[data-fci-trigger]");
-  await expect(triggers).toHaveCount(7);
-  await expect(triggers.first()).toHaveAttribute("aria-expanded", "true");
-  for (let index = 1; index < await triggers.count(); index += 1) {
-    await expect(triggers.nth(index)).toHaveAttribute("aria-expanded", "false");
-  }
+  await expect(page.locator("[data-fci-trigger], [data-fci-group] [hidden]")).toHaveCount(0);
+  await expect(page.getByTestId("fci-expand-all")).toHaveCount(0);
+  await expect(page.getByTestId("fci-collapse-all")).toHaveCount(0);
+  await expect(page.getByText("Jednotlivé časti sú zbalené")).toHaveCount(0);
 
   const subsections = page.locator("[data-fci-subsection]");
   const subsectionCount = await subsections.count();
   expect(subsectionCount).toBeGreaterThan(0);
   for (let index = 0; index < subsectionCount; index += 1) {
     const subsection = subsections.nth(index);
+    await expect(subsection).toBeVisible();
     expect((await subsection.textContent())?.trim(), `FCI subsection ${index} is empty`).toBeTruthy();
     expect(await subsection.locator("p, dl").count(), `FCI subsection ${index} has no content element`).toBeGreaterThan(0);
   }
 
-  await page.getByTestId("fci-expand-all").click();
-  for (let index = 0; index < await triggers.count(); index += 1) {
-    await expect(triggers.nth(index)).toHaveAttribute("aria-expanded", "true");
-  }
-  await page.getByTestId("fci-collapse-all").click();
-  for (let index = 0; index < await triggers.count(); index += 1) {
-    await expect(triggers.nth(index)).toHaveAttribute("aria-expanded", "false");
+  const errors = page.locator('[data-fci-group="chyby"]');
+  if (await errors.count()) {
+    await expect(errors.getByRole("heading", { name: "Chyby", exact: true })).toHaveCount(1);
+    await expect(errors.locator("h3").filter({ hasText: /^Chyby$/ })).toHaveCount(0);
   }
 
   const sidebar = page.getByTestId("fci-sidebar");
-  const viewport = page.viewportSize();
-  if ((viewport?.width ?? 0) > 900) {
-    await expect(sidebar).toBeVisible();
-    expect(await sidebar.evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
-  } else {
-    await expect(sidebar).toBeHidden();
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expectNoHorizontalOverflow(page, `FCI reference at ${width}px`);
+    await expect(groups.first()).toBeVisible();
+    if (width > 900) {
+      await expect(sidebar).toBeVisible();
+      expect(await sidebar.evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
+    } else {
+      await expect(sidebar).toBeHidden();
+    }
   }
+  const headLink = sidebar.getByRole("link", { name: /Hlava/ });
+  await headLink.click();
+  await expect(page).toHaveURL(/#hlava$/);
+  await expect(page.locator("#hlava")).toBeVisible();
 });
 
 test("breed profile: sparse FCI content never renders empty groups or subsections", async ({ page }) => {

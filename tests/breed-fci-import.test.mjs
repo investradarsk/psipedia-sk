@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { breedAtlasHref, listFciSectionOptions, parseBreedAtlasFilters, validFciSectionForGroup } from "../lib/breed-atlas.ts";
-import { combinedFciMeasurement, fciMeasurement, inspectBreedMeasurement, publicBreedMeasurement, publicFciDate, publicFciSectionName } from "../lib/breed-fci.ts";
+import { combinedFciMeasurement, fciMeasurement, fciSexMeasurementGroups, inspectBreedMeasurement, publicBreedMeasurement, publicFciDate, publicFciSectionName } from "../lib/breed-fci.ts";
 
 const LONG_FCI_TEXT=Array.from({length:45},(_,index)=>`Odborná veta ${index+1} opisuje stavbu tela plemena bez skrátenia.`).join(" ")+" Úplný koniec odborného textu.";
 
@@ -198,7 +198,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   assert.match(detailHtml,/Plemeno v skratke/);assert.match(detailHtml,/O plemene/);assert.match(detailHtml,/Hodí sa pre/);assert.match(detailHtml,/Treba zvážiť/);assert.match(detailHtml,/Redakčná starostlivosť o srsť/);assert.match(detailHtml,/Častá chyba majiteľov/);assert.match(detailHtml,/Agility/);assert.match(detailHtml,/Oficiálne zaradenie FCI/);assert.match(detailHtml,/href="\/plemena\/labradorsky-retriever\/fci-standard"/);assert.doesNotMatch(detailHtml,/História plemena Labradorský retriever\./);
   assert.match(detailHtml,/href="\/plemena\?fciGroup=8"/);assert.match(detailHtml,/href="\/plemena\?fciGroup=8&amp;fciSection=1"/);assert.match(detailHtml,/Súvisiaci článok o labradorovi/);assert.match(detailHtml,/Labrador domov/);assert.match(detailHtml,/Retriever klub/);assert.match(detailHtml,/Podobné plemená/);assert.match(detailHtml,/Rotvajler/);assert.match(detailHtml,/href="\/adresar\/treneri"/);assert.doesNotMatch(detailHtml,/\/adresar\/treneri\?breed=/);
 
-  const fciDetail=await get(worker,d1,"/plemena/labradorsky-retriever/fci-standard");assert.equal(fciDetail.status,200);const fciDetailHtml=await fciDetail.text();assert.match(fciDetailHtml,/História plemena Labradorský retriever\./);assert.match(fciDetailHtml,/Lebečná časť podľa štandardu/);assert.match(fciDetailHtml,/Tvárová časť podľa štandardu/);assert.match(fciDetailHtml,/50–60 cm/);assert.match(fciDetailHtml,/48–58 cm/);assert.match(fciDetailHtml,/20–30 kg/);assert.match(fciDetailHtml,/18–28 kg/);assert.match(fciDetailHtml,/FCI nomenklatúra/);assert.match(fciDetailHtml,/Oficiálny FCI štandard \(PDF\)/);assert.match(fciDetailHtml,/data-fci-group="celkovy-vzhlad-a-povaha"/);assert.match(fciDetailHtml,/aria-expanded="true"/);assert.equal((fciDetailHtml.match(/data-fci-group=/g)??[]).length,7);
+  const fciDetail=await get(worker,d1,"/plemena/labradorsky-retriever/fci-standard");assert.equal(fciDetail.status,200);const fciDetailHtml=await fciDetail.text();assert.match(fciDetailHtml,/História plemena Labradorský retriever\./);assert.match(fciDetailHtml,/Lebečná časť podľa štandardu/);assert.match(fciDetailHtml,/Tvárová časť podľa štandardu/);assert.match(fciDetailHtml,/50–60 cm/);assert.match(fciDetailHtml,/48–58 cm/);assert.match(fciDetailHtml,/20–30 kg/);assert.match(fciDetailHtml,/18–28 kg/);assert.match(fciDetailHtml,/FCI nomenklatúra/);assert.match(fciDetailHtml,/Oficiálny FCI štandard \(PDF\)/);assert.match(fciDetailHtml,/data-fci-group="celkovy-vzhlad-a-povaha"/);assert.match(fciDetailHtml,/href="#celkovy-vzhlad-a-povaha"/);assert.match(fciDetailHtml,/data-fci-subsection/);assert.doesNotMatch(fciDetailHtml,/data-fci-trigger=|data-testid="fci-expand-all"|data-testid="fci-collapse-all"/);assert.equal((fciDetailHtml.match(/data-fci-group=/g)??[]).length,7);
 
   const tollerMain=await get(worker,d1,"/plemena/nova-scotia-duck-tolling-retriever");assert.equal(tollerMain.status,200);const tollerMainHtml=await tollerMain.text();assert.match(tollerMainHtml,/Nova Scotia Duck Tolling Retriever/);assert.match(tollerMainHtml,/NOVA SCOTIA DUCK TOLLING RETRIEVER/);assert.match(tollerMainHtml,/45–51 cm/);assert.match(tollerMainHtml,/17–23 kg/);assert.match(tollerMainHtml,/Fotografia sa pripravuje/);
   const tollerFciResponse=await get(worker,d1,"/plemena/nova-scotia-duck-tolling-retriever/fci-standard");assert.equal(tollerFciResponse.status,200);const tollerFci=await tollerFciResponse.text();assert.match(tollerFci,/48–51 cm/);assert.match(tollerFci,/45–48 cm/);assert.match(tollerFci,/20–23 kg/);assert.match(tollerFci,/17–20 kg/);assert.match(tollerFci,/Úplný koniec odborného textu\./);assert.match(tollerFci,/24\. 6\. 1987/);assert.doesNotMatch(tollerFci,/1987-06-24/);assert.match(tollerFci,/Chovateľská poznámka/);
@@ -229,4 +229,27 @@ test("breed encyclopedia relations stay explicit, bounded and editable",()=>{
   const store=readFileSync(new URL("../lib/breed-store.ts",import.meta.url),"utf8");const relationQuery=store.slice(store.indexOf("export async function getBreedDetailRelations"),store.indexOf("function clean("));assert.match(relationQuery,/LIMIT 5/);assert.match(relationQuery,/LIMIT 4/);assert.match(relationQuery,/LIMIT 3/);assert.doesNotMatch(relationQuery,/SELECT \*/);assert.match(store,/LIMIT 500/);
   const breedEditor=readFileSync(new URL("../components/admin-breed-editor.tsx",import.meta.url),"utf8");for(const label of ["Srsť a údržba","Život s rodinou a deťmi","Vzťah k iným psom","Zaujímavosti","Časté chyby majiteľov","Športy a aktivity","Súvisiace články","Podobné plemená","Chovateľské stanice a kluby"])assert.match(breedEditor,new RegExp(label));
   const articleEditor=readFileSync(new URL("../components/admin-article-editor.tsx",import.meta.url),"utf8");assert.match(articleEditor,/Prepojenie na plemená/);assert.match(articleEditor,/relatedBreedIds/);
+});
+
+
+test("FCI standard only combines verified identical male/female height AND weight", () => {
+  const dog = [{ label: "Výška", value: "38–41 cm" }, { label: "Hmotnosť", value: "cca 23 kg" }];
+  const bitch = [{ label: "Výška", value: "38–41 cm" }, { label: "Hmotnosť", value: "cca 23 kg" }];
+  assert.deepEqual(fciSexMeasurementGroups(dog, bitch), [{ label: "Pes aj suka", facts: dog }]);
+
+  assert.deepEqual(
+    fciSexMeasurementGroups(dog, [{ label: "Výška", value: "38–41 cm" }, { label: "Hmotnosť", value: "22 kg" }])
+      .map((group) => group.label),
+    ["Pes", "Suka"],
+  );
+  assert.deepEqual(
+    fciSexMeasurementGroups([{ label: "Výška", value: "38–41 cm" }], [{ label: "Výška", value: "38–41 cm" }])
+      .map((group) => group.label),
+    ["Pes", "Suka"],
+  );
+  assert.deepEqual(
+    fciSexMeasurementGroups(dog, []).map((group) => group.label),
+    ["Pes"],
+  );
+  assert.deepEqual(fciSexMeasurementGroups([], []), []);
 });

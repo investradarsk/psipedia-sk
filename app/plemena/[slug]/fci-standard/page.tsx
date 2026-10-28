@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getFciGroup } from "@/lib/content";
 import {
   publicBreedMeasurement,
+  fciSexMeasurementGroups,
   publicFciDate,
   publicFciSectionName,
   type FciStandard,
@@ -12,10 +13,10 @@ import { textParagraphs } from "@/lib/breed-profile";
 import { getPublishedBreed, type ManagedBreed } from "@/lib/breed-store";
 import { serializeJsonLd, SITE_URL } from "@/lib/seo";
 import {
-  FciStandardAccordions,
-  type FciAccordionGroup,
-  type FciAccordionItem,
-} from "./fci-standard-accordion";
+  FciStandardSections,
+  type FciStandardGroup,
+  type FciStandardItem,
+} from "./fci-standard-sections";
 import styles from "./fci-standard.module.css";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -36,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function textItem(label: string, value?: string): FciAccordionItem | null {
+function textItem(label: string, value?: string): FciStandardItem | null {
   const paragraphs = textParagraphs(value);
   return paragraphs.length ? { label, paragraphs } : null;
 }
@@ -44,9 +45,9 @@ function textItem(label: string, value?: string): FciAccordionItem | null {
 function group(
   id: string,
   title: string,
-  items: Array<FciAccordionItem | null>,
-): FciAccordionGroup | null {
-  const available = items.filter((item): item is FciAccordionItem => Boolean(item));
+  items: Array<FciStandardItem | null>,
+): FciStandardGroup | null {
+  const available = items.filter((item): item is FciStandardItem => Boolean(item));
   return available.length ? { id, title, items: available } : null;
 }
 
@@ -110,8 +111,7 @@ export default async function BreedFciStandardPage({ params }: Props) {
       textItem("Farba", fci.farba),
     ]),
     group("vyska-a-hmotnost", "Výška a hmotnosť", [
-      dogFacts.length ? { label: "Pes", facts: dogFacts } : null,
-      bitchFacts.length ? { label: "Suka", facts: bitchFacts } : null,
+      ...fciSexMeasurementGroups(dogFacts, bitchFacts),
       dimensionNote.length
         ? { label: "Poznámky k veľkosti a hmotnosti", paragraphs: dimensionNote }
         : null,
@@ -122,7 +122,7 @@ export default async function BreedFciStandardPage({ params }: Props) {
       textItem("Diskvalifikačné chyby", fci.diskvalifikacne_chyby),
       textItem("Chovateľská poznámka", fci.poznamka_chov),
     ]),
-  ].filter((item): item is FciAccordionGroup => Boolean(item));
+  ].filter((item): item is FciStandardGroup => Boolean(item));
 
   const referenceFacts = [
     { label: "FCI číslo", value: managed?.fciNumber ? String(managed.fciNumber) : "" },
@@ -201,9 +201,8 @@ export default async function BreedFciStandardPage({ params }: Props) {
             <div className={styles.standardIntro}>
               <p className={styles.eyebrow}>Štandard plemena</p>
               <h2>Oficiálny opis po tematických častiach</h2>
-              <p>Jednotlivé časti sú zbalené pre rýchlejšie skenovanie. Otvorte iba to, čo práve potrebujete, alebo rozbaľte celý štandard naraz.</p>
             </div>
-            <FciStandardAccordions groups={groups} />
+            <FciStandardSections groups={groups} />
           </>
         ) : null}
       </div>
