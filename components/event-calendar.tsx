@@ -134,8 +134,8 @@ export function EventCalendar({
         ||!Array.isArray(payload.calendarSummaries)||!payload.listing) throw new Error("Calendar response invalid");
       if (!controller.signal.aborted) {
         cacheRef.current.set(key,payload);
-        // Short-lived session cache; the expiry timer avoids impure Date.now()
-        // calls during React's render analysis, and never removes fresh data.
+        // A bounded, short-lived cache uses an expiry timer rather than rendering-time
+        // clock reads, and never removes a newer response for the same key.
         window.setTimeout(() => {
           if (cacheRef.current.get(key) === payload) cacheRef.current.delete(key);
         }, 60_000);
