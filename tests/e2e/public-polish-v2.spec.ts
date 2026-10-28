@@ -73,12 +73,13 @@ test("editorial landing polish is responsive at 1440, 1920 and 390", async ({ pa
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await gotoPublic(page, "/steniatka");
     await expectNoHorizontalOverflow(page, `/steniatka at ${viewport.width}px`);
-    const subcategoryNav = page.locator('[data-section-subcategories] [data-public-subcategory-navigator][data-public-subcategory-mode="landing"]');
-    await expect(subcategoryNav).toBeVisible();
-    await expect(subcategoryNav.locator("[data-public-subcategory-item]").first().locator("img")).toBeVisible();
+    const groupedTopics = page.locator("[data-section-article-group]");
+    expect(await groupedTopics.count()).toBeGreaterThan(1);
+    await expect(groupedTopics.first().locator("img")).toBeVisible();
+    expect(await groupedTopics.first().locator("[data-article-list-item]").count()).toBeLessThanOrEqual(5);
     const carousel = page.locator("[data-section-next-carousel]");
     await expect(carousel).toBeVisible();
-    expect(await carousel.locator("[data-section-next-card]").count()).toBe(4);
+    expect(await carousel.locator("[data-section-next-card]").count()).toBe(3);
     expect(await carousel.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
     await expectAxeSeriousCriticalClean(page, `/steniatka at ${viewport.width}px`);
     await page.screenshot({ path: `.e2e-artifacts/public-polish-v2/steniatka-${viewport.label}.png`, fullPage: true });
@@ -96,9 +97,9 @@ test("editorial landing polish is responsive at 1440, 1920 and 390", async ({ pa
       cardWidth: first?.getBoundingClientRect().width ?? 0,
     };
   });
-  expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth);
-  expect(dimensions.cardWidth).toBeGreaterThan(dimensions.clientWidth * 0.75);
-  expect(dimensions.cardWidth).toBeLessThan(dimensions.clientWidth);
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  expect(dimensions.cardWidth).toBeGreaterThan(dimensions.clientWidth * 0.95);
+  expect(dimensions.cardWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
   await expectAxeSeriousCriticalClean(page, "/starostlivost at 390px");
   await page.screenshot({ path: ".e2e-artifacts/public-polish-v2/starostlivost-390.png", fullPage: true });
 });
