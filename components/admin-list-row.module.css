@@ -58,3 +58,32 @@
     justify-content: flex-start;
   }
 }
+
+/* Shared narrow-list contract: selection, image, title and actions should
+   not squeeze each other on 320–390px admin screens. */
+@media (max-width: 720px) {
+  .row {
+    grid-template-columns: 24px 58px minmax(0, 1fr);
+    gap: 9px;
+    min-width: 0;
+    align-items: start;
+  }
+  .thumb { width: 58px; max-width: 100%; height: 56px; }
+  .main { min-width: 0; overflow-wrap: anywhere; }
+  .main :global(.admin-article-tags) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    min-width: 0;
+    line-height: 1.35;
+  }
+  .actions {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    padding-left: 0;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .actions :is(a, button) { min-height: 44px; }
+}

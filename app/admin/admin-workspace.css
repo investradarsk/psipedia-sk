@@ -340,3 +340,113 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
   [data-admin-workspace] .admin-stats strong { font-size: 1.45rem; }
   [data-admin-workspace] .admin-heading-actions > * { min-height: 44px; }
 }
+
+/* ADMIN-MOBILE-DENSITY-20261028: do not let desktop flex-basis become a
+   vertical height when the toolbar stacks on phones. Article and puppy
+   dashboards share AdminDashboard; keep both selectors in lockstep. */
+@media (max-width: 760px) {
+  [data-admin-workspace] .admin-toolbar {
+    min-width: 0;
+    height: auto;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+  [data-admin-workspace] .admin-toolbar > :is(.admin-search, .admin-select-filter) {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 0;
+  }
+  [data-admin-workspace] .admin-toolbar .admin-select-filter select {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+  }
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"],
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/steniatka"] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 10px;
+    padding: 12px;
+    height: auto;
+  }
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"] > .admin-search,
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/steniatka"] > .admin-search {
+    grid-column: 1 / -1;
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"] > .admin-select-filter,
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/steniatka"] > .admin-select-filter {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    align-self: start;
+  }
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"] > :is(button[type="submit"], a),
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/steniatka"] > :is(button[type="submit"], a) {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    min-height: 44px;
+    width: 100%;
+    margin: 0;
+  }
+  [data-admin-workspace] .admin-article-row .admin-article-tags {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 7px;
+    min-width: 0;
+    line-height: 1.4;
+  }
+  [data-admin-workspace] .admin-article-row .admin-article-main {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  [data-admin-workspace] .admin-article-row .admin-row-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    padding-left: 0;
+  }
+}
+@media (max-width: 340px) {
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"],
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/steniatka"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The same checkbox card is used by Facebook scheduling, article metadata
+   and other admin editors. Keep it compact and never stretch its input. */
+@media (max-width: 760px) {
+  [data-admin-workspace] .admin-check {
+    box-sizing: border-box;
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 10px 12px;
+    line-height: 1.4;
+  }
+  [data-admin-workspace] .admin-check input[type="checkbox"] {
+    box-sizing: border-box;
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    margin: 2px 0 0;
+  }
+  [data-admin-workspace] .admin-check span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  [data-admin-workspace] .admin-cta-editor { min-width: 0; gap: 10px; }
+  [data-admin-workspace] .admin-cta-editor > * { min-width: 0; max-width: 100%; }
+}

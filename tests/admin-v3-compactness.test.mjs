@@ -61,3 +61,27 @@ test("reduced whitespace never trades away core mobile hit targets", () => {
   assert.match(compact("services"), /\.profileRow select \{ width: 100%; \}/);
   assert.match(compact("directory"), /\.toplineActions :global\(button\) \{ min-height: 44px/);
 });
+
+test("mobile article filter contract prevents vertical flex growth", () => {
+  const source = read("app/admin/admin-workspace.css");
+  const start = source.indexOf("/* ADMIN-MOBILE-DENSITY-20261028");
+  assert.ok(start > 0, "admin-only mobile correction exists");
+  const mobile = source.slice(start);
+  assert.match(mobile, /form\.admin-toolbar\[role="search"\]\[action="\/admin\/clanky"\]/);
+  assert.match(mobile, /form\.admin-toolbar\[role="search"\]\[action="\/admin\/steniatka"\]/);
+  assert.match(mobile, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(mobile, /\.admin-select-filter\s*\{[^}]*flex:\s*none/);
+  assert.match(mobile, /\.admin-toolbar > :is\(\.admin-search, \.admin-select-filter\)\s*\{[^}]*flex:\s*0 0 auto/);
+  assert.match(mobile, /@media \(max-width: 340px\)/);
+  assert.doesNotMatch(mobile, /overflow-x:\s*hidden/);
+});
+
+test("narrow article cards and editor retain usable action targets", () => {
+  const rows = read("components/admin-list-row.module.css");
+  const filters = read("components/admin-article-dashboard.module.css");
+  const article = read("components/admin-content-editor-v3.module.css");
+  assert.match(rows, /grid-template-columns: 24px 58px minmax\(0, 1fr\)/);
+  assert.match(rows, /\.actions :is\(a, button\) \{ min-height: 44px/);
+  assert.match(filters, /\.quickFilters\s*\{\s*display: grid/);
+  assert.match(article, /\.articleForm :global\(\.admin-rich-toolbar button\)[\s\S]*min-height: 44px/);
+});
