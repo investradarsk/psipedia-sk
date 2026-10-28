@@ -100,7 +100,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     expect(fieldBounds).not.toBeNull();
     expect(fieldBounds!.y).toBeGreaterThan(100);
     expect(fieldBounds!.y + fieldBounds!.height).toBeLessThan(760);
-    await expect(page.locator("[data-editor-actionbar] button")).toBeVisible();
+    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
   });
 
   test("article publishing fields fit inside mobile cards at 320, 390 and 430px", async ({ page }) => {
