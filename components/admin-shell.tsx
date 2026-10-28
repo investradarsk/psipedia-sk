@@ -99,7 +99,7 @@ export function AdminShell({
             <a href="/admin" className={styles.sidebarBrand} aria-label="Psipedia Admin – pracovný prehľad">
               <PawMark size={31} />
               <span>Psipedia<small>Admin</small></span>
-            </Link>
+            </a>
             <AdminNavigation
               stickyClassName={styles.stickyNav}
               signOutHref={chatGPTSignOutPath("/", user.authProvider)}
@@ -111,7 +111,7 @@ export function AdminShell({
               <a href="/admin" className={styles.mobileBrand} aria-label="Psipedia Admin – pracovný prehľad">
                 <PawMark size={25} />
                 <span>Psipedia<small>Admin</small></span>
-              </Link>
+              </a>
               <span className={styles.topbarCaption}>Psipedia · Administrácia</span>
               <div className={styles.topbarActions}>
                 <Link href="/" className={styles.backToWeb} aria-label="Návrat na Psipedia.sk">↗ <span>Späť na web</span></Link>
