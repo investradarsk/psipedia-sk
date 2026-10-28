@@ -578,15 +578,10 @@ export function AdminArticleEditor({
         <section id="article-publish" tabIndex={-1} data-admin-editor-section className="admin-form-card">
           <div className="admin-card-heading"><div><span>01</span><div><h2>Publikovanie</h2><p>Termín publikovania a redakčná aktualizácia.</p></div></div></div>
           <p data-article-current-status aria-live="polite">Aktuálny stav: {articleEffectiveStatusLabel(displayedStatus)}</p>
-          <div className={editorStyles.mobileExtraActions}>
-            <details>
-              <summary>Ďalšie akcie článku</summary>
-              <div className={editorStyles.mobileExtraButtons}>
-                {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>Naplánovať publikovanie</AdminActionButton>}
-                {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("published")}>Publikovať {portalSection === "novinky" ? "novinku" : "článok"}</AdminActionButton>}
-                {displayedStatus === "published" && <AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton>}
-              </div>
-            </details>
+          <div className={editorStyles.mobileExtraActions} aria-label="Ďalšie publikačné akcie">
+            {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>Naplánovať publikovanie</AdminActionButton>}
+            {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("published")}>Publikovať {portalSection === "novinky" ? "novinku" : "článok"}</AdminActionButton>}
+            {displayedStatus === "published" && <AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton>}
           </div>
           <div className="admin-field-grid">
             <div className="admin-field">
