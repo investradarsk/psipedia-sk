@@ -121,14 +121,15 @@ test("breed profile: representative canonical details return 200, keep canonical
     await expect(identity).toBeVisible();
     await expect(photo).toBeVisible();
 
-    // S-06: the breed hero uses canonical DetailHero with a two-column
-    // desktop grid, rather than the previous breed-only grid-template-areas.
+    // S-06: the canonical DetailHero is two-column on desktop and
+    // intentionally single-column on mobile. Verify both responsive modes.
     await page.evaluate(() => document.fonts.ready);
     const sharedHero = page.locator('[data-public-detail-hero="breed"] [data-has-media="true"]');
     await expect(sharedHero).toBeVisible();
     await expect.poll(() => sharedHero.evaluate((hero) => {
       const style = getComputedStyle(hero);
-      return style.display === "grid" && style.gridTemplateColumns.split(" ").length >= 2;
+      const tracks = style.gridTemplateColumns.trim().split(/\\s+/);
+      return style.display === "grid" && tracks.length === (window.innerWidth <= 800 ? 1 : 2);
     })).toBe(true);
 
     // Read all boxes in one synchronous layout snapshot. Still fail on any

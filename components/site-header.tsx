@@ -130,6 +130,7 @@ export function SiteHeader({
       const trail = internalTrailRef.current;
       const previous = trail.length > 1 ? trail[trail.length - 2] : null;
       if (previous && previous !== current) router.back();
+      else if (current !== "/") router.push("/");
     }
     function onTouchCancel() {
       start = null;
