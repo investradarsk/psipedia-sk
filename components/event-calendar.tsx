@@ -1,6 +1,7 @@
 "use client";
 
 import { EventListingResults } from './event-listing-results';
+import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { eventListingParams, parseEventListing, type EventListingFilters } from '@/lib/event-listing';
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent } from "react";
@@ -281,12 +282,16 @@ export function EventCalendar({
               <ul className={styles.dayEvents}>
                 {dailyEvents.map((event) => (
                   <li key={event.id} className={styles.dayEvent}>
+                    <Link className={styles.dayEventMedia} href={eventHref(event)} aria-label={"Otvoriť podujatie: "+event.title}>
+                      {event.imageUrl ? <img src={event.imageUrl} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback decorative />}
+                    </Link>
                     <div>
+                      <span className={styles.dayEventType}>{eventTypePresentation[event.eventType].label}</span>
                       <Link href={eventHref(event)}>{event.title}</Link>
                       <span>{formatEventDate(event)}{event.startTime ? " · " + event.startTime : ""}</span>
                       <span>{[event.venue, publicLocationValue(event.city, "city")].filter(Boolean).join(" · ") || (/\bwebin[aá]r\b/iu.test(event.title) ? "Webinár" : "Miesto nie je uvedené")}</span>
+                      {event.cancelled ? <strong>Zrušené</strong> : null}
                     </div>
-                    {event.cancelled ? <strong>Zrušené</strong> : null}
                   </li>
                 ))}
               </ul>
