@@ -136,3 +136,19 @@
 @media (max-width: 360px) {
   .singleHeading { font-size: .75rem; }
 }
+
+/* Consistent, readable weekday schedule. Ambiguous values remain untouched. */
+.weekHours { display: grid; margin: 10px 0 0; }
+.weekHoursRow {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: 12px;
+  min-width: 0;
+  padding: 9px 0;
+  border-top: 1px solid var(--ps-border-soft);
+}
+.weekHoursRow dt { font-size: .82rem; font-weight: 750; color: var(--forest-dark); }
+.weekHoursRow dd { min-width: 0; margin: 0; font-size: .82rem; line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
+@media(max-width: 360px) {
+  .weekHoursRow { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+}
