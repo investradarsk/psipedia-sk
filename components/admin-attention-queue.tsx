@@ -71,6 +71,12 @@ export function AdminAttentionQueue({
   const selectedEmpty = selectedSource?.state === "EMPTY"
     && (filters.view ?? "active") === "active"
     && (!filters.priority || filters.priority === "all");
+  // A forest of zero-count chips is not actionable. Preserve an explicit
+  // selection and unavailable sources; the source dropdown still offers all.
+  const visibleSources = adminAttentionQueueSourceTypes.filter((sourceType) => {
+    const count = page.summary.bySource[sourceType];
+    return count === null || (count ?? 0) > 0 || filters.sourceType === sourceType;
+  });
 
   return (
     <div className={styles.workspace} data-testid="admin-attention-queue">
@@ -102,7 +108,7 @@ export function AdminAttentionQueue({
       )}
 
       <ul className={styles.sourceCounts} aria-label="Aktívne upozornenia podľa zdroja">
-        {adminAttentionQueueSourceTypes.map((sourceType) => {
+        {visibleSources.map((sourceType) => {
           const selected = filters.sourceType === sourceType;
           return (
             <li key={sourceType}>
