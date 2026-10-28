@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 function projectSuffix(name: string) {
   return name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
@@ -24,6 +24,53 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+  });
+
+  async function expandMobileArticleActions(page: Page) {
+    const details = page.locator("details").filter({ has: page.getByText("Ďalšie akcie článku", { exact: true }) });
+    if (await details.isVisible() && !(await details.evaluate((element) => (element as HTMLDetailsElement).open))) {
+      await details.locator("summary").click();
+    }
+  }
+
+  test("mobile article editor has one save action, compact navigation and searchable breeds", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+
+    const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+    await expect(nav.getByLabel("Sekcia editora")).toBeVisible();
+    expect(await nav.evaluate((element) => element.getBoundingClientRect().height),
+      "Mobile article section bar should stay compact").toBeLessThan(80);
+
+    const footer = page.locator("[data-editor-actionbar]");
+    await expect(footer.getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
+    await expect(footer.getByRole("button")).toHaveCount(1);
+    expect(await footer.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(100);
+
+    const breeds = page.locator("#article-relations");
+    const search = breeds.getByRole("searchbox", { name: "Hľadať plemeno" });
+    await expect(search).toBeVisible();
+    const rows = breeds.locator('label[class*="breedRow"]');
+    expect(await rows.count()).toBeLessThanOrEqual(12);
+    if (await rows.count()) {
+      const name = await rows.first().locator("span").innerText();
+      await rows.first().locator('input[type="checkbox"]').check();
+      await expect(breeds.getByText("1 vybraných", { exact: false })).toBeVisible();
+      await search.fill(name);
+      await expect(rows.first()).toContainText(name);
+      await expect(rows.first().locator('input[type="checkbox"]')).toBeChecked();
+    }
+    await search.fill("___nonexistent_breed___");
+    await expect(breeds.getByText("Žiadne plemená nezodpovedajú vyhľadávaniu.")).toBeVisible();
+    await search.fill("");
+
+    await nav.getByRole("button", { name: "Náhľad" }).click();
+    await expect(page.getByRole("button", { name: "Skryť náhľad" })).toBeVisible();
+    await page.getByRole("button", { name: "Skryť náhľad" }).click();
+    await expect(page.locator("#article-title")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ukázať náhľad článku" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   });
 
   test("creates and edits canonical rich text, author profiles and external video inline", async ({ page }, testInfo) => {
@@ -235,14 +282,16 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.locator("#article-intro").fill("Legacy článok je teraz upravený cez canonical WYSIWYG bez straty spätnej kompatibility.");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
-    await expect(page.getByText("Všetky zmeny uložené")).toBeVisible();
+    await expect(page.getByText("Uložené", { exact: true })).toBeVisible();
 
     const suffix = projectSuffix(testInfo.project.name);
     await page.goto("/admin/novy?sekcia=novinky", { waitUntil: "domcontentloaded" });
     await fillMinimumArticle(page, `ARTICLE ADMIN Novinky optional source ${suffix}`);
     await expect(page.getByText("Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných.")).toBeVisible();
+    await expandMobileArticleActions(page);
     await page.getByRole("button", { name: /Publikovať novinku/ }).click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
+    await expandMobileArticleActions(page);
     await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
   });
 
@@ -254,6 +303,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const bodyEditor = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
     await bodyEditor.fill("Po publikovaní bude vhodné prepojiť aj článok Ako spoznať bolesť u psa.");
 
+    await expandMobileArticleActions(page);
     await page.getByRole("button", { name: "Publikovať článok" }).click();
     await expect(page.getByRole("heading", { name: "Chýbajú povinné údaje" })).toBeVisible();
     await expect(page.getByText(/internú redakčnú poznámku alebo placeholder/).first()).toBeVisible();
@@ -268,16 +318,21 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const persistedBody = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
     await expect(persistedBody).toBeVisible();
     await persistedBody.fill("Finálny verejný obsah po odstránení internej redakčnej poznámky.");
+    await expandMobileArticleActions(page);
     await page.getByRole("button", { name: "Publikovať článok" }).click();
+    await expandMobileArticleActions(page);
     await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
 
+    await expandMobileArticleActions(page);
     await page.getByRole("button", { name: "Stiahnuť z webu" }).click();
     const unpublish = page.getByRole("dialog", { name: "Stiahnuť článok z webu?" });
     await expect(unpublish).toBeVisible();
     await unpublish.getByRole("button", { name: "Ponechať publikované" }).click();
     await expect(unpublish).toBeHidden();
+    await expandMobileArticleActions(page);
     await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
 
+    await expandMobileArticleActions(page);
     await page.getByRole("button", { name: "Stiahnuť z webu" }).click();
     await unpublish.getByRole("button", { name: "Potvrdiť stiahnutie" }).click();
     await expect(unpublish).toBeHidden();

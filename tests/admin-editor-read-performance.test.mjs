@@ -67,7 +67,8 @@ test("article editor's breed picker transfers only the scalar values its checkbo
   assert.match(page, /listAdminArticleBreedOptions\(500\)/);
   assert.doesNotMatch(page, /listManagedBreedSummaries/);
   assert.match(editor, /breedOptions\?: AdminArticleBreedOption\[\]/);
-  assert.match(editor, /item\.name\}\{item\.fciNumber\?/);
+  assert.match(editor, /className=\{editorStyles\.breedName\}>\{item\.name\}/);
+  assert.match(editor, /item\.fciNumber \? <small>FCI \{item\.fciNumber\}<\/small>/);
   const db = new DatabaseSync(":memory:");
   try {
     db.exec("CREATE TABLE managed_breeds (id INTEGER PRIMARY KEY,name TEXT,fci_number INTEGER,fci_group INTEGER, editorial_json TEXT)");
