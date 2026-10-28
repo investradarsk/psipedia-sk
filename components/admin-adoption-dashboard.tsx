@@ -49,7 +49,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
   ];
 
   return <>
-    <nav className={styles.tabs} aria-label="Globálne počty adopcií">{stats.map((stat)=><Link key={stat.key} data-active={stat.active} href={stat.href}>{stat.label} <strong>{stat.count}</strong></Link>)}</nav>
+    <nav className={`${styles.tabs} ${styles.adoptionTabs}`} aria-label="Globálne počty adopcií">{stats.map((stat)=><Link key={stat.key} data-active={stat.active} href={stat.href}>{stat.label} <strong>{stat.count}</strong></Link>)}</nav>
     <form className={styles.filters} method="get" aria-label="Filtrovať adopcie">
       <input name="q" defaultValue={filters.q} aria-label="Vyhľadávanie" placeholder="Meno, organizácia, mesto…" />
       <select name="status" defaultValue={filters.status ?? ""} aria-label="Lifecycle stav"><option value="">Všetky stavy</option>{adoptionStatuses.map((status)=><option key={status} value={status}>{adoptionStatusLabels[status]}</option>)}</select>
