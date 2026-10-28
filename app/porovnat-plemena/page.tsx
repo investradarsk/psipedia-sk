@@ -4,6 +4,7 @@ import { BreedComparison } from "@/components/breed-comparison";
 import { ArrowIcon } from "@/components/icons";
 import { listPublishedBreedsForComparison } from "@/lib/breed-store";
 import { buildPageMetadata } from "@/lib/seo";
+import styles from "./comparison.module.css";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Porovnanie plemien psov",
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function CompareBreedsPage() {
   const breeds = await listPublishedBreedsForComparison();
   return (
-    <main id="obsah">
+    <main id="obsah" className={styles.comparisonPage}>
       <header className="page-hero page-hero--compact shell compare-page-hero">
         <div className="page-hero-inner">
           <span className="eyebrow">Porovnávač plemien</span>
