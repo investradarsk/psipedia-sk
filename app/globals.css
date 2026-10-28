@@ -18075,3 +18075,25 @@ a.breed-fci-path-node:focus-visible {
 .directory-contact-form { row-gap: 14px; }
 .directory-contact-form .directory-contact-grid { row-gap: 12px; }
 .directory-contact-form :is(input,textarea) { min-height: 44px; }
+
+
+/* Shared public promotion contract. All article, magazine, context and help
+   banners opt in to this class; text/photography and emergency semantics can
+   vary without reintroducing a separate per-URL frame or control size. */
+.ps-public-banner-frame {
+  box-sizing: border-box;
+  min-width: 0;
+  border-radius: var(--ps-banner-radius, 18px);
+  overflow-wrap: anywhere;
+}
+.ps-public-banner-frame :is(h2, p) { overflow-wrap: anywhere; }
+.ps-public-banner-frame :is(.button, .article-block-cta-button) {
+  max-width: 100%;
+  min-height: 44px;
+  border-radius: var(--ps-radius-control, 12px);
+}
+@media (max-width: 620px) {
+  .ps-public-banner-frame :is(.button, .article-block-cta-button) {
+    min-height: 48px;
+  }
+}
