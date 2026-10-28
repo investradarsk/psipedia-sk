@@ -17,7 +17,7 @@ export function PublicMagazineBanner({
   testId: string;
 }) {
   return (
-    <section className={["shell home-magazine-banner", styles.magazine].join(" ")} data-home-banner={testId} aria-label={title}>
+    <section className={["shell home-magazine-banner ps-public-banner-frame", styles.magazine].join(" ")} data-home-banner={testId} aria-label={title}>
       <div>
         <span className="eyebrow">Psipedia spája ľudí so psami</span>
         <h2>{title}</h2>
