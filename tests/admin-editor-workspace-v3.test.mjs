@@ -22,6 +22,15 @@ test("caller owns save and publish while dirty close remains guarded", () => {
   assert.match(source, /type="button"/);
   assert.match(source, /querySelectorAll<HTMLElement>/);
 });
+test("ADMIN-MOBILE-SCROLL: page editors use document scrolling without changing modals", () => {
+  const css = read("components/admin-editor-workspace.module.css");
+  assert.match(css, /\.pageWorkspace\s*\{\s*overflow:\s*visible/);
+  assert.match(css, /\.pageWorkspace\s*>\s*\.workspace\s*\{[^}]*max-height:\s*none/s);
+  assert.match(css, /\.pageWorkspace\s*\.columns[^}]*overflow:\s*visible/s);
+  assert.match(css, /\.pageWorkspace\s*\.content,\s*\.pageWorkspace\s*\.preview\s*\{[^}]*overflow:\s*visible/s);
+  assert.match(css, /dialog\.workspaceModal\[open\][^{]*\{[^}]*overflow:\s*hidden/s);
+});
+
 test("responsive CSS supports desktop preview, mobile section switch and visible actions", () => {
   const css = read("components/admin-editor-workspace.module.css");
   assert.match(css, /dialog\.workspaceModal\[open\]/);
