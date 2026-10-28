@@ -33,7 +33,8 @@ test("directory contact, copy, service list and map stay wired to one shared tem
   assert.match(directory, /<ProfileReviewSection/);
   assert.match(directory, /<RelatedEntityLinks/);
   assert.match(directory, /<PublicLocationMap/);
-  assert.match(directory, /showDirections=\{publicMap\.items\.length > 1\}/);
+  assert.doesNotMatch(directory, /showDirections=/);
+  // Exact GEO keeps its canonical map directions, including mobile and desktop.
   assert.match(directory, /isApproximateMapItem\(mapItem\)/);
   assert.match(directory, /href="#kontakt"/);
   assert.match(directoryCss, /\.servicesList li \{/);
@@ -42,9 +43,8 @@ test("directory contact, copy, service list and map stay wired to one shared tem
 });
 
 test("map uses an opt-out only for duplicate directory directions and preserves privacy", () => {
-  assert.match(map, /showDirections\?: boolean/);
-  assert.match(map, /showDirections = true/);
-  assert.match(map, /showDirections && directionsUrl/);
+  assert.match(map, /\{directionsUrl \? \(/);
+  assert.doesNotMatch(map, /showDirections\?: boolean/);
   assert.match(map, /hasGoogleMapsConsent/);
   assert.match(map, /isApproximateMapItem\(selected\)/);
   assert.match(map, /setGoogleMapsConsent\(true\)/);

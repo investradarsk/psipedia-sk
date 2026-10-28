@@ -3470,6 +3470,28 @@ function assertPreservedResources(beforeRows, afterRows) {
   }
 }
 
+
+/**
+ * 0144 is a schema-only migration. The public website and background jobs can
+ * legitimately edit unrelated D1 tables between preflight and postflight.
+ * Instead of comparing mutable cross-domain snapshots, verify the approved
+ * DDL-only SQL, exact migration history and complete live schema.
+ */
+export function assert0144AdditiveOnlySql(source) {
+  const statements = String(source).replace(/--[^\n]*/g, "")
+    .split(";").map(statement => statement.trim().replace(/\s+/g, " ")).filter(Boolean);
+  const expected = [
+    /^ALTER TABLE managed_articles ADD COLUMN social_caption TEXT NOT NULL DEFAULT ''$/i,
+    /^ALTER TABLE facebook_image_posts ADD COLUMN article_id INTEGER REFERENCES managed_articles\(id\) ON DELETE SET NULL$/i,
+    /^CREATE UNIQUE INDEX IF NOT EXISTS facebook_image_posts_article_idx ON facebook_image_posts\(article_id\) WHERE article_id IS NOT NULL$/i,
+    /^ALTER TABLE facebook_image_posts ADD COLUMN article_image_mode TEXT NOT NULL DEFAULT 'photo' CHECK\(article_image_mode IN \('photo','graphic'\)\)$/i,
+    /^ALTER TABLE facebook_image_posts ADD COLUMN article_include_link INTEGER NOT NULL DEFAULT 1 CHECK\(article_include_link IN \(0,1\)\)$/i,
+  ];
+  invariant(statements.length === expected.length && statements.every((statement,index) => expected[index].test(statement)),
+    "0144 verification requires exact additive-only canonical DDL, without table writes");
+  return true;
+}
+
 async function verify(targetMigration) {
   const prepared = await prepareScopedMigration({ targetMigration });
   assertCredentialContract(prepared.resources);
@@ -3484,6 +3506,41 @@ async function verify(targetMigration) {
   assertExactMigrationHistory(state.historyNames, prepared.selection.selected, "Postflight");
   assertTargetSchema(schema, targetMigration);
   const targetIndex = migrationIndex(targetMigration);
+  if (targetIndex === 144) {
+    // 0144's five DDL-only statements cannot change legacy row values. The
+    // production site remains live: unrelated events, partners, and directory
+    // records may change while the migration workflow is running.
+    const sql = await fs.readFile(path.join(repoRoot, "drizzle", targetMigration), "utf8");
+    assert0144AdditiveOnlySql(sql);
+    const orphanCount = scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM facebook_image_posts p WHERE p.article_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM managed_articles a WHERE a.id=p.article_id)");
+    invariant(orphanCount === 0, "0144 found orphaned Facebook article links");
+    const invalidOptions = scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM facebook_image_posts WHERE article_image_mode NOT IN ('photo','graphic') OR article_include_link NOT IN (0,1)");
+    invariant(invalidOptions === 0, "0144 found invalid article image or link flags");
+    if (!internal.targetApplied) {
+      const newHistory = state.historyNames.filter(name => !new Set(internal.historyNames).has(name));
+      invariant(newHistory.length === 1 && newHistory[0] === targetMigration,
+        "0144 postflight must record exactly its own migration");
+    }
+    await writeJson(".production-d1/postflight-report.json", {
+      targetMigration,
+      targetMigrationSha256: prepared.targetMigrationSha256,
+      databaseName,
+      databaseId: prepared.resources.d1.database_id,
+      verifiedAt: new Date().toISOString(),
+      targetApplied: true,
+      latestAppliedMigration: state.historyNames.at(-1),
+      postflight: "PASS",
+      verificationMode: "schema-and-live-integrity",
+      sourceRunTargetApplied: internal.targetApplied,
+      orphanedArticleLinks: orphanCount,
+      invalidFacebookOptions: invalidOptions,
+      note: "0144 modifies only schema. Mutable unrelated tables are not compared across time.",
+    });
+    console.log("[production-d1] 0144 postflight PASS — canonical history, exact schema, additive DDL and live article-link integrity");
+    return;
+  }
   if (targetIndex === 136) {
     invariant(scalarCount(databaseName, prepared.configPath,
       "SELECT COUNT(*) AS count FROM gemini_global_control WHERE id=1 AND state='RUNNING' AND revision=0") === 1,

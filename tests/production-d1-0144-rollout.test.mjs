@@ -6,6 +6,7 @@ import {
   targetSchemaObjects,
   assertPendingTargetSchemaClean,
   assertFacebookArticles0144Schema,
+  assert0144AdditiveOnlySql,
   SUPPORTED_PRODUCTION_TARGETS,
 } from "../scripts/production-d1-migrate.mjs";
 
@@ -80,4 +81,18 @@ test("0144 rejects dropped uniqueness, altered defaults and relaxed image-mode c
     const withWeakFk = {...state,facebookImagePostForeignKeys:[]};
     assert.throws(() => assertFacebookArticles0144Schema(withWeakFk),/foreign key missing/);
   } finally {db.close();}
+});
+
+test("0144 live postflight accepts only the canonical data-preserving DDL", () => {
+  assert.equal(assert0144AdditiveOnlySql(source), true);
+  assert.throws(() => assert0144AdditiveOnlySql(source + "\\nDELETE FROM managed_articles;"),
+    /additive-only canonical DDL/);
+  assert.throws(() => assert0144AdditiveOnlySql(source.replace(
+    "CREATE UNIQUE INDEX IF NOT EXISTS facebook_image_posts_article_idx",
+    "CREATE INDEX IF NOT EXISTS facebook_image_posts_article_idx")),
+    /additive-only canonical DDL/);
+  assert.throws(() => assert0144AdditiveOnlySql(source.replace(
+    "ALTER TABLE managed_articles ADD COLUMN social_caption TEXT NOT NULL DEFAULT ''",
+    "UPDATE managed_articles SET title='changed'")),
+    /additive-only canonical DDL/);
 });
