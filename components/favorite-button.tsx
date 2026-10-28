@@ -40,7 +40,7 @@ export function FavoriteButton({ slug, compact = false }: { slug: string; compac
   return (
     <button
       type="button"
-      className={`favorite-button ${compact ? "favorite-button--compact" : ""} ${saved ? "is-saved" : ""}`}
+      className={`public-utility-action favorite-button ${compact ? "favorite-button--compact" : ""} ${saved ? "is-saved" : ""}`}
       onClick={toggle}
       aria-pressed={saved}
       aria-label={saved ? "Odstrániť z obľúbených" : "Uložiť medzi obľúbené"}

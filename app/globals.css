@@ -18054,3 +18054,45 @@ a.breed-fci-path-node:focus-visible {
 .section.review-topic-first-section {
   padding-top: 0;
 }
+
+/* One public utility button visual contract for Save / Share / Copy.
+   Reused by every ArticleDetail, article card and review that includes them. */
+.favorite-button.public-utility-action,
+[data-public-action].public-utility-action {
+  display: inline-flex;
+  gap: 7px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 13px;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius-control);
+  color: var(--forest-dark);
+  background: var(--paper);
+  font-family: inherit;
+  font-size: .8rem;
+  font-weight: 800;
+  line-height: 1.25;
+  box-shadow: none;
+  cursor: pointer;
+}
+.favorite-button.public-utility-action:hover,
+[data-public-action].public-utility-action:hover {
+  background: var(--sage-light);
+  border-color: var(--forest);
+}
+.favorite-button.public-utility-action.is-saved {
+  background: var(--sage-light);
+  color: var(--forest);
+  border-color: var(--forest);
+}
+.favorite-button.public-utility-action.favorite-button--compact {
+  width: 44px;
+  min-width: 44px;
+  padding: 9px;
+}
+.public-utility-action svg { flex: 0 0 auto; }
+.public-utility-action:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 3px;
+}

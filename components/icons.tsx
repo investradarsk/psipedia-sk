@@ -109,3 +109,16 @@ export function SparkIcon({ size = 25, ...props }: IconProps) {
     </svg>
   );
 }
+
+/** Shared public utility action icon for articles, news, reviews and cards. */
+export function ShareIcon({ size = 18, ...props }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size}
+      fill="none" stroke="currentColor" strokeWidth="1.9"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="M15 8l4-4m0 0v5m0-5h-5" />
+      <path d="M11 6H7a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-5" />
+      <path d="M10 14 19 5" />
+    </svg>
+  );
+}
