@@ -29,7 +29,7 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   await expect(page.getByRole("link", { name: /Automatizácie na kontrolu/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Automatizácie Gemini →", exact: true })).toHaveAttribute("href", "/admin/automatizacie-gemini");
   await expect(page.getByRole("link", { name: "Kvalita údajov →", exact: true })).toHaveAttribute("href", "/admin/kvalita");
-  await expect(page.getByRole("link", { name: /Partner claims/ })).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
+  await expect(page.getByRole("link", { name: /Žiadosti o správu profilu/ })).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
   await expect(page.locator('a[href="/admin/kvalita"]').filter({ hasText: "návrhov na schválenie" })).toHaveAttribute("href", "/admin/kvalita");
 
   const breadcrumb = page.getByRole("navigation", { name: "Drobečková navigácia" });
@@ -87,6 +87,19 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
     path: `.e2e-artifacts/admin-ia-2/dashboard-${suffix}.png`,
     fullPage: true,
   });
+});
+
+test("admin logo navigates from content to the homepage without a blank screen", async ({ page }, testInfo) => {
+  if (testInfo.project.name === "mobile-chromium") {
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
+  await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
+  const brand = page.getByRole("link", { name: "Psipedia Admin – pracovný prehľad" }).filter({ visible: true });
+  await expect(brand).toHaveAttribute("href", "/admin");
+  await brand.click();
+  await expect(page).toHaveURL(/\\/admin\\/?$/);
+  await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Čo potrebuje pozornosť" })).toBeVisible();
 });
 
 test("desktop admin navigation mounts only the active section and supports direct route changes", async ({ page }, info) => {
