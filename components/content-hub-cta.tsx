@@ -6,7 +6,7 @@ import styles from "./content-hub-cta.module.css";
 export function ContentHubCta({ cta }: { cta: ContentHubCtaDecision }) {
   return (
     <aside
-      className={styles.card}
+      className={`ps-public-banner-frame ${styles.card}`}
       aria-label={cta.headline}
       data-contextual-hub-cta
       data-cta-key={cta.key}
