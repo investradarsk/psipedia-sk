@@ -43,7 +43,7 @@ test("shared detail fact list is slimmer and keeps semantic values", () => {
   assert.match(factStyles, /font-weight: 500/);
   assert.match(factStyles, /border-top: 1px solid var\(--detail-border\)/);
   const event = source("components/event-detail.tsx");
-  assert.match(event, /<dl className=\{detailStyles.factTiles\}/);
+  assert.match(event, /<dl className=\{detailStyles.factTiles\}\s+data-event-facts/);
   assert.match(event, /<dt>Termín<\/dt>/);
   assert.match(event, /<dt>Miesto<\/dt>/);
 });
