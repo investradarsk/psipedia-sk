@@ -138,7 +138,7 @@ test("ARTICLE-MOBILE-COMPACT: six changes remain scoped to the canonical article
   assert.match(editor, /className=\{editorStyles\.desktopActions\}/);
   assert.match(editor, /type="submit" form="article-canonical-editor-form"/);
   assert.match(editor, /className=\{editorStyles\.mobileExtraActions\}/);
-  assert.match(editor, /<summary>Ďalšie akcie článku<\/summary>/);
+  assert.match(editor, /className=\{editorStyles\.mobileExtraActions\} aria-label="Ďalšie publikačné akcie"/);
   assert.match(editor, /displayedStatus === "published" && <AdminActionButton variant="destructive"/);
   assert.match(editor, /displayedStatus !== "published" && <AdminActionButton variant="secondary"[^>]*onClick=\{\(\) => void save\("scheduled"\)\}/);
   assert.doesNotMatch(editor, /disabled=\{saving \|\| uploading \|\| !publishedAt \|\| displayedStatus === "published"\}/);
