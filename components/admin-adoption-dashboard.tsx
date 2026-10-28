@@ -49,7 +49,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
   ];
 
   return <>
-    <nav className={styles.tabs} aria-label="Globálne počty adopcií">{stats.map((stat)=><Link key={stat.key} data-active={stat.active} href={stat.href}>{stat.label} <strong>{stat.count}</strong></Link>)}</nav>
+    <nav className={`${styles.tabs} ${styles.adoptionTabs}`} aria-label="Globálne počty adopcií">{stats.map((stat)=><Link key={stat.key} data-active={stat.active} href={stat.href}>{stat.label} <strong>{stat.count}</strong></Link>)}</nav>
     <form className={styles.filters} method="get" aria-label="Filtrovať adopcie">
       <input name="q" defaultValue={filters.q} aria-label="Vyhľadávanie" placeholder="Meno, organizácia, mesto…" />
       <select name="status" defaultValue={filters.status ?? ""} aria-label="Lifecycle stav"><option value="">Všetky stavy</option>{adoptionStatuses.map((status)=><option key={status} value={status}>{adoptionStatusLabels[status]}</option>)}</select>
@@ -60,10 +60,37 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
       <select name="sort" defaultValue={filters.sort ?? "updated-desc"} aria-label="Radenie">{adoptionAdminSorts.map((sort)=><option key={sort} value={sort}>{sortLabels[sort]}</option>)}</select>
       <button type="submit">Filtrovať</button>
     </form>
-    <AdminDataTableRegion className={styles.tableWrap} label="Zoznam adopcií"><table className={styles.table}><thead><tr><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
+    <AdminDataTableRegion className={`${styles.tableWrap} ${styles.adoptionTableRegion}`} label="Zoznam adopcií – tabuľka"><table className={styles.table}><thead><tr><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
       {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><div className={styles.rowTitle}><strong>{item.name}</strong><small>#{item.id} · /{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact /><Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link></div></td></tr>})}
       {!result.items.length&&<tr><td colSpan={7}>Žiadne adopcie pre zvolené filtre.</td></tr>}
     </tbody></table></AdminDataTableRegion>
+    <section className={styles.adoptionCards} aria-label="Zoznam adopcií – mobilné karty">
+      {result.items.map((item) => {
+        const locality = [item.city, item.district, item.region].filter(Boolean).join(" · ");
+        const verified = formatDate(item.lastVerifiedAt);
+        const isPublic = item.status === "ACTIVE" || item.status === "RESERVED";
+        return <article key={item.id} className={styles.adoptionCard}>
+          <div className={styles.adoptionCardTop}>
+            <div className={styles.adoptionCardIdentity}>
+              <h2><Link href={`/admin/adopcie/${item.id}`}>{item.name}</Link></h2>
+              <small>#{item.id} · {item.breedName || "Plemeno neuvedené"}</small>
+            </div>
+            <span className={styles.adoptionCardStatus}>{adoptionStatusLabels[item.status]}</span>
+          </div>
+          <dl className={styles.adoptionCardFacts}>
+            <div><dt>Organizácia</dt><dd>{item.organizationName || "—"}</dd></div>
+            <div><dt>Lokalita</dt><dd>{locality || "—"}</dd></div>
+            <div><dt>Overenie</dt><dd>{verified || "Neoverené"}{item.stale && <span className={styles.adoptionCardWarning}> · Treba overiť</span>}</dd></div>
+            <div><dt>Web</dt><dd>{isPublic ? "Verejný profil" : "Neverejný profil"} · {item.indexable ? "index" : "noindex"}</dd></div>
+          </dl>
+          <div className={styles.adoptionCardActions}>
+            <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+            <Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link>
+          </div>
+        </article>;
+      })}
+      {!result.items.length && <p>Žiadne adopcie pre zvolené filtre.</p>}
+    </section>
     <AdminNumberedPagination page={result.pagination.page} totalPages={result.pagination.totalPages}
       hrefForPage={(page)=>adminHref(filters,{page})} className={styles.pagination}
       ariaLabel="Stránkovanie adopcií" />

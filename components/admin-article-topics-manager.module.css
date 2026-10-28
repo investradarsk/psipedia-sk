@@ -1,0 +1,84 @@
+.panel { min-width: 0; }
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  border-bottom: 1px solid #e2eae3;
+}
+.search { display: block; min-width: 0; }
+.search input, .topicField input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid #cbd9ce;
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: #fff;
+  color: #18382b;
+  font: inherit;
+}
+.search input:focus-visible, .topicField input:focus-visible {
+  outline: 2px solid #26744f;
+  outline-offset: 2px;
+}
+.toolbar > button {
+  min-height: 44px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: #174b38;
+  font: inherit;
+  font-weight: 750;
+}
+.toolbar > button:disabled { opacity: .5; }
+.topicList { display: grid; gap: 0; padding: 0 14px 12px; }
+.topicRow {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #e4ebe5;
+}
+.topicRow:last-child { border-bottom: 0; }
+.topicMain { display: grid; min-width: 0; gap: 8px; }
+.topicMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 6px 10px;
+  color: #607368;
+  font-size: .76rem;
+  font-weight: 650;
+}
+.topicMeta span:first-child { color: #196445; }
+.topicMeta span:last-child { overflow-wrap: anywhere; }
+.topicField { display: block; min-width: 0; }
+.topicActions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.topicActions button {
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid #cbd9ce;
+  border-radius: 9px;
+  background: #fff;
+  color: #274e3d;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 750;
+}
+.topicActions button:first-child { background: #e9f3eb; }
+.topicActions button:disabled { opacity: .55; }
+@media (max-width: 760px) {
+  .toolbar { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .toolbar > button { width: 100%; }
+  .topicList { padding-inline: 12px; }
+  .topicRow { grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 10px; }
+  .topicActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .topicActions button { min-width: 0; padding: 8px 7px; }
+}

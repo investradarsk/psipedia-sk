@@ -179,7 +179,7 @@ test("admin landing is the read-only workspace and old article filters redirect 
   assert.match(read("components/admin-workspace-dashboard.tsx"), /summarizeAdminAutomationReads/);
   assert.match(landing, /loadAdminQualityPendingSummary/);
   assert.doesNotMatch(landing, /loadMissingQualityDashboard/);
-  assert.match(landing, /loadAdminWorkspaceFeed/);
+  assert.match(landing, /loadAdminWorkspaceOverview/);
   assert.doesNotMatch(landing, /listManagedArticleSummaries/);
   assert.match(landing, /redirect\(legacyHref\)/);
   for (const key of ["query", "q", "status", "section", "sort", "direction", "page", "pageSize"]) {
@@ -223,7 +223,7 @@ test("existing automation reliability contract distinguishes OK EMPTY PARTIAL an
 test("dashboard count cards point to current canonical filtered work queues", () => {
   const dashboard = read("components/admin-workspace-dashboard.tsx");
   for (const pair of [
-    ["PARTNER_CLAIM_REVIEW", "/admin/operations?source=PARTNER_CLAIM_REVIEW"],
+    ["PARTNER_CLAIM_REVIEW", "PARTNER_CLAIM_REVIEW"],
     ["MODERATION_SUBMISSION", "MODERATION_SUBMISSION"],
     ["PROFILE_REVIEW_MODERATION", "PROFILE_REVIEW_MODERATION"],
     ["NEWS_TIP", "NEWS_TIP"],
@@ -233,6 +233,7 @@ test("dashboard count cards point to current canonical filtered work queues", ()
   ]) {
     assert.match(dashboard, new RegExp(pair[1].replace(/[?]/g, "\\?")));
   }
+  assert.match(dashboard, /QueueLink title="Žiadosti o správu profilu" source="PARTNER_CLAIM_REVIEW"/);
   assert.match(dashboard, /href="\/admin\/kvalita"/);
   assert.match(dashboard, /href="\/admin\/automatizacie-gemini"/);
 });
@@ -310,4 +311,16 @@ test("V3 shared shell exposes owner-approved sidebar, responsive drawer and pres
   assert.match(nav, /aria-label="Menu"/);
   assert.match(registry, /\/admin\/facebook-obrazky/);
   assert.match(registry, /\/admin\/automatizacie-gemini/);
+});
+
+test("admin logo uses a Next Link with a full document reload instead of a raw HTML anchor", () => {
+  const shell = read("components/admin-shell.tsx");
+  const brand = read("components/admin-home-brand-link.tsx");
+  assert.match(shell, /<AdminHomeBrandLink className=\{styles\.sidebarBrand\}>/);
+  assert.match(shell, /<AdminHomeBrandLink className=\{styles\.mobileBrand\}>/);
+  assert.doesNotMatch(shell, /<a href="\/admin"/);
+  assert.match(brand, /"use client"/);
+  assert.match(brand, /<Link[\s\S]*?href="\/admin"/);
+  assert.match(brand, /window\.location\.assign\("\/admin"\)/);
+  assert.match(brand, /event\.preventDefault\(\)/);
 });

@@ -3,11 +3,11 @@ import {readFileSync} from "node:fs";
 import test from "node:test";
 const read=(path)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
-test("workspace is bound to real canonical event feed, real next Gemini run and new quality proposals",()=>{
+test("workspace uses lightweight actionable overview while canonical event history remains in the API",()=>{
  const page=read("app/admin/page.tsx");
  const feed=read("lib/admin-workspace-feed.ts");
  const ui=read("components/admin-workspace-activity.tsx");
- assert.match(page,/loadAdminWorkspaceFeed\(user\.email\)/);
+ assert.match(page,/loadAdminWorkspaceOverview\(\)/);
  assert.match(page,/loadAdminQualityPendingSummary/);
  assert.doesNotMatch(page,/loadMissingQualityDashboard/);
  assert.match(feed,/FROM admin_notification_events e/);
@@ -15,9 +15,11 @@ test("workspace is bound to real canonical event feed, real next Gemini run and 
  assert.match(feed,/FROM gemini_automation_settings/);
  assert.match(feed,/enabled=1 AND next_run_at IS NOT NULL/);
  assert.match(feed,/quality_missing_proposals WHERE status='OPEN'/);
- assert.match(ui,/Na kontrolu/);
- assert.match(ui,/Prečítané/);
- assert.match(ui,/setInterval/);
+ assert.match(feed,/export async function loadAdminWorkspaceOverview/);
+ assert.match(ui,/href="\/admin\/operations"/);
+ assert.match(ui,/href="\/admin\/mapy"/);
+ assert.match(ui,/href="\/admin\/kvalita"/);
+ assert.doesNotMatch(ui,/shown\.map|data\.items\.map/);
  assert.doesNotMatch(ui,/Math\.random\(\)/);
 });
 test("work feed write is authenticated and only marks read, not canonical approval",()=>{
@@ -98,8 +100,8 @@ test("dashboard prioritizes real queues and quick agendas over the activity feed
   const quick = dashboard.indexOf('aria-label="Automatizácie a rýchla správa"');
   const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} />");
   assert.ok(attention !== -1 && attention < community && community < quick && quick < feed);
-  assert.match(activity, /items\.filter\(x=>x\.id!==id\)/);
-  assert.match(activity, /hiddenIds\.current\.has\(x\.id\)/);
-  assert.match(activity, /visibilitychange/);
-  assert.match(activity, /window\.addEventListener\("focus"/);
+  assert.match(activity, /Otvoriť pracovnú sekciu/);
+  assert.match(activity, /href="\/admin\/operations"/);
+  assert.match(activity, /href="\/admin\/mapy"/);
+  assert.doesNotMatch(activity, /Prečítané|shown\.map|hiddenIds/);
 });

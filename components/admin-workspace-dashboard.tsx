@@ -127,7 +127,6 @@ async function WorkspaceReliabilityPanel({ promise }: { promise: QualityPromise 
 
 async function WorkspaceAttentionMetrics({ promise }: { promise: AttentionPromise }) {
   const attention = await promise;
-  const partnerClaims = sourceMetric(attention, "PARTNER_CLAIM_REVIEW");
   const overallAttentionStatus = attentionStatus(attention);
   return (
     <>
@@ -140,15 +139,6 @@ async function WorkspaceAttentionMetrics({ promise }: { promise: AttentionPromis
             status={overallAttentionStatus}
             valueLabel={overallAttentionStatus === "PARTIAL" ? "potvrdených v dostupných zdrojoch" : "čaká na spracovanie"}
           />
-          <MetricCard
-            title="Partner claims"
-            description="Žiadosti partnerov o prístup alebo správu canonical profilov."
-            href="/admin/operations?source=PARTNER_CLAIM_REVIEW"
-            value={partnerClaims.value}
-            status={partnerClaims.status}
-            valueLabel="claims čaká na kontrolu"
-          />
-
     </>
   );
 }
@@ -176,9 +166,9 @@ async function WorkspaceCommunity({ promise }: { promise: AttentionPromise }) {
         <div className={styles.sectionHeading}>
           <div>
             <span>Komunita</span>
-            <h2 id="admin-community-title">Verejné podnety a moderovanie</h2>
+            <h2 id="admin-community-title">Podnety, žiadosti a moderovanie</h2>
           </div>
-          <p>Každé číslo vedie priamo na rovnakú canonical frontu s filtrom.</p>
+          <p>Každá položka otvorí príslušné žiadosti a podnety.</p>
         </div>
         <div className={styles.queueGrid}>
           <QueueLink title="Moderácia podaní" source="MODERATION_SUBMISSION" summary={attention} />
@@ -187,6 +177,7 @@ async function WorkspaceCommunity({ promise }: { promise: AttentionPromise }) {
           <QueueLink title="Návrhy úprav" source="DIRECTORY_CHANGE_REQUEST" summary={attention} />
           <QueueLink title="Dopyty" source="DIRECTORY_INQUIRY" summary={attention} />
           <QueueLink title="Hodnotenia článkov" source="ARTICLE_FEEDBACK" summary={attention} />
+          <QueueLink title="Žiadosti o správu profilu" source="PARTNER_CLAIM_REVIEW" summary={attention} />
         </div>
       </section>
 
@@ -217,7 +208,7 @@ export function AdminWorkspaceDashboard({
           <Link href="/admin/operations">Všetky upozornenia →</Link>
         </div>
         <div className={styles.priorityGrid}>
-          <Suspense fallback={<><PendingMetric label="Aktívne upozornenia" /><PendingMetric label="Partner claims" /></>}>
+          <Suspense fallback={<PendingMetric label="Aktívne upozornenia" />}>
             <WorkspaceAttentionMetrics promise={attentionPromise} />
           </Suspense>
           <Suspense fallback={<PendingMetric label="Kvalita údajov" />}>

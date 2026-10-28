@@ -9,7 +9,7 @@ import {
 } from "@/lib/admin-automation-reliability";
 import { env } from "cloudflare:workers";
 import { loadAdminQualityPendingSummary } from "@/lib/admin-quality-pending-summary";
-import {loadAdminWorkspaceFeed} from "@/lib/admin-workspace-feed";
+import { loadAdminWorkspaceOverview } from "@/lib/admin-workspace-feed";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +49,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   // Pass the *same* attention promise to the bell and dashboard: one exact read.
   const attentionPromise = loadExactAdminAttentionSummary();
   const qualityPromise = loadWorkspaceQuality();
-  const workspaceFeedPromise = loadAdminWorkspaceFeed(user.email);
+  const workspaceFeedPromise = loadAdminWorkspaceOverview();
 
   return (
     <AdminShell

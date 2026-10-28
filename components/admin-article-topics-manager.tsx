@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ArticleTopic } from "@/lib/article-topics";
+import styles from "./admin-article-topics-manager.module.css";
 
 function TopicRow({ topic, onSaved }: { topic: ArticleTopic; onSaved(topic: ArticleTopic): void }) {
   const [label, setLabel] = useState(topic.label);
@@ -30,20 +31,20 @@ function TopicRow({ topic, onSaved }: { topic: ArticleTopic; onSaved(topic: Arti
   }
 
   return (
-    <article className="admin-article-row">
-      <div className="admin-article-main">
-        <div className="admin-article-tags">
+    <article className={styles.topicRow}>
+      <div className={styles.topicMain}>
+        <div className={styles.topicMeta}>
           <span>{topic.isActive ? "Aktívna" : "Neaktívna"}</span>
           <span>{topic.articleCount ?? 0} článkov</span>
           <span>/{topic.slug}</span>
         </div>
-        <label className="admin-field">
+        <label className={styles.topicField}>
           <span className="sr-only">Názov témy</span>
           <input value={label} onChange={(event) => setLabel(event.target.value)} maxLength={120} />
         </label>
         {message && <small role="status">{message}</small>}
       </div>
-      <div className="admin-row-actions">
+      <div className={styles.topicActions}>
         <button type="button" disabled={saving || !label.trim()} onClick={() => void save()}>{saving ? "Ukladám…" : "Uložiť názov"}</button>
         <button type="button" disabled={saving} onClick={() => void save(!topic.isActive)}>
           {topic.isActive ? "Deaktivovať" : "Aktivovať"}
@@ -89,15 +90,15 @@ export function AdminArticleTopicsManager({ initialTopics }: { initialTopics: Ar
 
   return (
     <>
-      <section className="admin-panel">
-        <div className="admin-toolbar">
-          <label className="admin-search"><span className="sr-only">Hľadať tému</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať tému" /></label>
+      <section className={`admin-panel ${styles.panel}`}>
+        <div className={styles.toolbar}>
+          <label className={styles.search}><span className="sr-only">Hľadať tému</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať tému" /></label>
           <label className="admin-search"><span className="sr-only">Nová téma</span><input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Nová téma, napr. Field trials" /></label>
           <button type="button" disabled={creating || !newLabel.trim()} onClick={() => void createTopic()}>{creating ? "Vytváram…" : "+ Vytvoriť tému"}</button>
         </div>
         {message && <p className="admin-flash" role="status">{message}</p>}
         <p className="admin-event-result-count">Témy: {filtered.length} · aktívne: {topics.filter((topic) => topic.isActive).length}</p>
-        <div className="admin-article-list">
+        <div className={styles.topicList}>
           {filtered.map((topic) => (
             <TopicRow
               key={topic.id}

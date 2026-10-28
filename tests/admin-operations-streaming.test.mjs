@@ -31,15 +31,17 @@ test("operations bell retains exact availability and unavailable source semantic
   assert.doesNotMatch(projection, /loadAdminAttentionPage/);
 });
 
-test("workspace activity reuses canonical main feed with single-flight refresh and hidden read events", () => {
+test("homepage activity links to canonical agendas without duplicating the notification inbox", () => {
   const source = read("components/admin-workspace-activity.tsx");
-  assert.match(source, /refreshPending\.current\)return refreshPending\.current/);
-  assert.match(source, /document\.visibilityState==="visible"/);
-  assert.match(source, /document\.addEventListener\("visibilitychange",onReturn\)/);
-  assert.match(source, /document\.removeEventListener\("visibilitychange",onReturn\)/);
-  assert.match(source, /hiddenIds\.current\.add\(id\)/);
-  assert.match(source, /hiddenIds\.current\.has\(x\.id\)/);
-  assert.match(source, /window\.setInterval\(onReturn,60_000\)/);
+  const page = read("app/admin/page.tsx");
+  const feed = read("lib/admin-workspace-feed.ts");
+  assert.match(page, /loadAdminWorkspaceOverview/);
+  assert.match(feed, /export async function loadAdminWorkspaceOverview/);
+  assert.match(source, /Otvoriť pracovnú sekciu/);
+  for (const path of ["/admin/operations", "/admin/kvalita", "/admin/mapy", "/admin/automatizacie-gemini", "/admin/facebook-obrazky"]) {
+    assert.ok(source.includes(`href="${path}"`), path);
+  }
+  assert.doesNotMatch(source, /hiddenIds|refreshPending|shown\.map|Prečítané/);
 });
 
 
