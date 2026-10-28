@@ -86,7 +86,7 @@ test('unified public details: responsive layout, honest media/data, actions and 
  if(name==='event-cancelled') assert.equal(await hero.locator('[data-detail-state="cancelled"]').count(),1,'cancelled state distinct from type');
  if(name==='directory' || name==='adoption') { const img=image.locator('img').last(); const size=await img.evaluate(i=>({w:i.naturalWidth,h:i.naturalHeight,cw:i.getBoundingClientRect().width,ch:i.getBoundingClientRect().height})); assert.ok(size.w>0);assert.ok(Math.abs(size.cw/size.ch-size.w/size.h)<.02,'natural image ratio preserved'); }
  if(name==='directory-minimal') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'missing directory photo uses the common visual');
- if(name.includes('minimal')&&!name.startsWith('event')&&name!=='directory-minimal') assert.equal(await image.count(),0);
+ if(name==='adoption-minimal') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'missing adoption photo uses the common visual');
  if(name==='organization') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'organization without photo uses the common visual');
  if(name==='event-minimal') assert.equal(await image.locator('[data-event-image-source="fallback"]').count(),1,'existing event illustration retained');
  if(name==='help-zbierky') assert.equal(await hero.locator('a[href="https://example.test/support"]').count(),0,'unverified fundraising gate preserved');
