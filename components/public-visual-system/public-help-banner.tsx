@@ -15,7 +15,7 @@ export type PublicHelpPhotoBannerData = {
 
 export function PublicHelpPhotoBanner({ promo }: { promo: PublicHelpPhotoBannerData }) {
   return (
-    <aside className={[styles.overviewPromo, styles[`overviewPromo_${promo.tone}`]].join(" ")}>
+    <aside className={["ps-public-banner-frame", styles.overviewPromo, styles[`overviewPromo_${promo.tone}`]].join(" ")}>
       <div className={styles.overviewPromoShade}>
         <PageContainer className={styles.overviewPromoCopy}>
           <span>{promo.eyebrow}</span>
