@@ -1,7 +1,9 @@
+"use client";
+
 import { EventListingResults } from './event-listing-results';
 import { eventListingParams, parseEventListing, type EventListingFilters } from '@/lib/event-listing';
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode, type MouseEvent } from "react";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
 import {
   calendarMonthDays,
@@ -71,8 +73,15 @@ export function EventCalendar({
   const visibleMonth = resolveCalendarMonth(initialCalendarMonth, month, today);
   const todayMonth = today.slice(0, 7);
   const days = calendarMonthDays(visibleMonth);
-  const selectedDay = /^\d{4}-\d{2}-\d{2}$/.test(initialDay)
-    && days.some((item) => item.date === initialDay && item.inMonth) ? initialDay : "";
+  const [daySelection, setDaySelection] = useState(initialDay);
+  const selectedDay = /^\d{4}-\d{2}-\d{2}$/.test(daySelection)
+    && days.some((item) => item.date === daySelection && item.inMonth) ? daySelection : "";
+  useEffect(() => {
+    // Keep native browser Back/Forward in sync with in-place day selections.
+    const syncDay = () => setDaySelection(new URLSearchParams(window.location.search).get("den") ?? "");
+    window.addEventListener("popstate", syncDay);
+    return () => window.removeEventListener("popstate", syncDay);
+  }, []);
   const typePathname = initialType === "Všetky" ? "/podujatia" : eventTypePortalHref(initialType) ?? "/podujatia";
   // Both reads are already filtered by the shared D1 contract; never filter a partial page.
   const filtered = events;
@@ -93,6 +102,14 @@ export function EventCalendar({
     if (day) params.set("den", day);
     const serialized = params.toString();
     return serialized ? typePathname + "?" + serialized : typePathname;
+  }
+
+  function selectDayInPlace(event: MouseEvent<HTMLAnchorElement>, day: string) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    const target = calendarHref(visibleMonth, day) + (day ? "#vybrany-den" : "#events-calendar");
+    window.history.pushState(window.history.state, "", target);
+    setDaySelection(day);
   }
 
   function timeHref(value: EventTimeFilter) {
@@ -160,6 +177,7 @@ export function EventCalendar({
               <Link
                 key={day.date}
                 href={calendarHref(visibleMonth, day.date) + "#vybrany-den"}
+                onClick={(event) => selectDayInPlace(event, day.date)}
                 className={styles.monthDay}
                 data-calendar-date={day.date}
                 data-selected={active ? "true" : undefined}
@@ -187,7 +205,7 @@ export function EventCalendar({
           <section className={styles.dayDetail} id="vybrany-den" tabIndex={-1} aria-labelledby="selected-day-title" data-selected-day={selectedDay}>
             <div className={styles.dayDetailHeading}>
               <div><p className={styles.selectedDayEyebrow}>Vybraný dátum</p><h3 id="selected-day-title">{dateLabel(selectedDay)}</h3></div>
-              <Link href={calendarHref(visibleMonth)} aria-label="Zrušiť výber dňa">Zavrieť výber</Link>
+              <Link href={calendarHref(visibleMonth)} onClick={(event) => selectDayInPlace(event, "")} aria-label="Zrušiť výber dňa">Zavrieť výber</Link>
             </div>
             {(daySummaries.get(selectedDay)?.count ?? 0) > dailyEvents.length ? <p>Zobrazených prvých {dailyEvents.length} z {daySummaries.get(selectedDay)?.count} podujatí. <Link href={typePathname + '?' + (()=>{const p=eventListingParams({...f,from:selectedDay,to:selectedDay,page:1}); return p.toString();})() + '#events-list'}>Zobraziť všetky podujatia tohto dňa</Link></p>:null}
             {dailyEvents.length ? (
