@@ -121,13 +121,14 @@ test("breed profile: representative canonical details return 200, keep canonical
     await expect(identity).toBeVisible();
     await expect(photo).toBeVisible();
 
-    // DS-6: wait for the CSS grid and fonts before measuring. A previous
-    // check compared photo and lead boxes from different layout frames while
-    // mobile fonts/images were still settling after DOMContentLoaded.
+    // S-06: the breed hero uses canonical DetailHero with a two-column
+    // desktop grid, rather than the previous breed-only grid-template-areas.
     await page.evaluate(() => document.fonts.ready);
-    await expect.poll(() => page.getByTestId("breed-hero").evaluate((hero) => {
+    const sharedHero = page.locator('[data-public-detail-hero="breed"] [data-has-media="true"]');
+    await expect(sharedHero).toBeVisible();
+    await expect.poll(() => sharedHero.evaluate((hero) => {
       const style = getComputedStyle(hero);
-      return style.display === "grid" && style.gridTemplateAreas.includes("photo");
+      return style.display === "grid" && style.gridTemplateColumns.split(" ").length >= 2;
     })).toBe(true);
 
     // Read all boxes in one synchronous layout snapshot. Still fail on any
@@ -220,33 +221,19 @@ test("breed profile: quick facts stay dense for rich data and collapse cleanly f
   }
 });
 
-test("breed profile: suitability, accessible accordion controls and normalized sports work", async ({ page }) => {
+test("breed profile: suitability, permanently visible expert sections and normalized sports work", async ({ page }) => {
   await page.goto("/plemena/biely-svajciarsky-ovciak");
 
   const fit = page.getByTestId("breed-fit");
   await expect(fit.getByRole("heading", { name: "Hodí sa pre" })).toBeVisible();
   await expect(fit.getByRole("heading", { name: "Treba zvážiť" })).toBeVisible();
 
-  const movement = page.getByRole("button", { name: /Pohyb a každodenný život/ });
-  await expect(movement).toHaveAttribute("aria-expanded", "false");
-  await expect.poll(async () => {
-    if (await movement.getAttribute("aria-expanded") !== "true") await movement.click();
-    return movement.getAttribute("aria-expanded");
-  }).toBe("true");
-  const panelId = await movement.getAttribute("aria-controls");
-  expect(panelId).toBeTruthy();
-  await expect(page.locator(`#${panelId}`)).toBeVisible();
-  await expect.poll(async () => {
-    if (await movement.getAttribute("aria-expanded") !== "false") await movement.click();
-    return movement.getAttribute("aria-expanded");
-  }).toBe("false");
-  await expect(page.locator(`#${panelId}`)).toBeHidden();
-
-  await movement.focus();
-  await page.keyboard.press("Enter");
-  await expect(movement).toHaveAttribute("aria-expanded", "true");
-  await page.keyboard.press("Space");
-  await expect(movement).toHaveAttribute("aria-expanded", "false");
+  const movement = page.locator('[data-breed-profile-section="Pohyb a každodenný život"]');
+  await expect(movement).toBeVisible();
+  await expect(movement.getByRole("heading", { name: "Pohyb a každodenný život" })).toBeVisible();
+  // Approved S-06: full article content remains visible without any disclosure control.
+  await expect(movement.locator("button, [aria-expanded], [hidden]")).toHaveCount(0);
+  await expect(movement.locator("p").first()).toBeVisible();
 
   const sportKeys = await page.locator("[data-sport-key]").evaluateAll((rows) =>
     rows.map((row) => row.getAttribute("data-sport-key")).filter((value): value is string => Boolean(value)),
