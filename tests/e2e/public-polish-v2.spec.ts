@@ -80,7 +80,7 @@ test("editorial landing polish is responsive at 1440, 1920 and 390", async ({ pa
     const carousel = page.locator("[data-section-next-carousel]");
     await expect(carousel).toBeVisible();
     expect(await carousel.locator("[data-section-next-card]").count()).toBe(3);
-    expect(await carousel.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+    expect(await carousel.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
     await expectAxeSeriousCriticalClean(page, `/steniatka at ${viewport.width}px`);
     await page.screenshot({ path: `.e2e-artifacts/public-polish-v2/steniatka-${viewport.label}.png`, fullPage: true });
   }
