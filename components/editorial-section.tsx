@@ -369,6 +369,8 @@ export async function EditorialSectionHub({
   if (!isEditorialSectionSlug(sectionSlug)) return null;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
   const visibleArticles = orderedArticles(section, articles);
+  const nextCards = nextSteps(sectionSlug);
+  const hasScrollableServices = nextCards.length > 3;
   const heroVisual = await getSectionHeroVisual(`section.${sectionSlug}`);
   const schema = buildCollectionPageJsonLd({
     name: section.label,
@@ -459,13 +461,13 @@ export async function EditorialSectionHub({
               eyebrow="Ďalší krok"
               title="Užitočné služby a pokračovanie"
               id={`${sectionSlug}-next`}
-              action={
+              action={hasScrollableServices ? (
                 <HorizontalCarouselControls
                   targetId={`${sectionSlug}-next-carousel`}
                   className={styles.carouselControls}
                   buttonClassName={styles.carouselControl}
                 />
-              }
+              ) : null}
             />
             <div
               id={`${sectionSlug}-next-carousel`}
@@ -474,7 +476,7 @@ export async function EditorialSectionHub({
               role="region"
               aria-label="Užitočné služby a pokračovanie"
             >
-              {nextSteps(sectionSlug).map((item) => (
+              {nextCards.map((item) => (
                 <Link
                   href={item.href}
                   className={styles.nextCard}
@@ -497,13 +499,11 @@ export async function EditorialSectionHub({
                 </Link>
               ))}
             </div>
-            <div className={styles.carouselCue} aria-hidden="true">
-              <span>←</span>
-              <i />
-              <i />
-              <i />
-              <span>→</span>
-            </div>
+            {hasScrollableServices ? (
+              <div className={styles.carouselCue} aria-hidden="true">
+                <span>←</span><i /><i /><i /><span>→</span>
+              </div>
+            ) : null}
             <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
           </PageContainer>
         </section>
