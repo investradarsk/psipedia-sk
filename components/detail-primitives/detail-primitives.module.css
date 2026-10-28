@@ -202,7 +202,19 @@
   aspect-ratio: 1;
   align-self: center;
   justify-self: end;
+  overflow: hidden;
   background: var(--sage-light);
+}
+/* Natural/logotype images must fit their compact frame instead of escaping it. */
+.heroFrame[data-media-presentation="compact"] .heroMedia [data-image-display="natural"] {
+  height: 100%;
+  width: 100%;
+}
+.heroFrame[data-media-presentation="compact"] .heroMedia [data-image-display="natural"] img {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 .heroFrame[data-media-presentation="compact"] .heroMedia > :first-child {
   min-height: 0;
