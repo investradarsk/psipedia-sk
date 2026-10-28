@@ -2339,3 +2339,50 @@
 .emptyState {
   composes: eventEmpty from "./public-visual-system/public-result-variants.module.css";
 }
+
+
+/* Approved calendar day result: reusable compact preview without hero reflow. */
+.dayEvent {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  justify-content: initial;
+  align-items: start;
+  gap: 12px;
+  min-height: 96px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--ps-surface-raised, #fff);
+}
+.dayEventMedia {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--sage-light, #edf4ec);
+}
+.dayEventMedia img,
+.dayEventMedia [data-public-media-fallback] {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dayEventMedia img { object-fit: cover; }
+.dayEventMedia [data-public-media-fallback] {
+  display: grid;
+  place-items: center;
+  border-radius: 0;
+}
+.dayEvent .dayEventType {
+  color: var(--brand-accent-strong, #b94732);
+  font-size: .67rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.dayEvent > div { min-width: 0; }
+.dayEvent > div > a { font-size: .9rem; line-height: 1.35; }
+@media (max-width: 360px) {
+  .dayEvent { grid-template-columns: 72px minmax(0, 1fr); gap: 9px; }
+}
