@@ -58,12 +58,14 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
       const body = main.locator("article[data-public-profile-body]");
       const h2 = await body.getByRole("heading", { level: 2 }).allTextContents();
       const aboutIndex = h2.indexOf("O službe");
-      await expect(main.locator("aside").getByRole("heading", { name: contact, exact: true })).toBeVisible();
+      await expect(body.getByRole("heading", { name: contact, exact: true })).toBeVisible();
+      const contactIndex = h2.indexOf(contact);
       const servicesIndex = h2.indexOf("Poskytované služby");
       const expertiseIndex = h2.indexOf("Odborné informácie");
       const reviewIndex = h2.indexOf("Recenzie");
       expect(aboutIndex).toBeGreaterThanOrEqual(0);
-      expect(servicesIndex).toBeGreaterThan(aboutIndex);
+      expect(contactIndex).toBeGreaterThan(aboutIndex);
+      expect(servicesIndex).toBeGreaterThan(contactIndex);
       expect(expertiseIndex).toBeGreaterThan(servicesIndex);
       expect(reviewIndex).toBeGreaterThan(expertiseIndex);
 
