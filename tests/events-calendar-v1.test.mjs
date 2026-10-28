@@ -65,8 +65,17 @@ test("one published-only bounded read powers calendar while listing remains cano
   assert.match(type, /getPublicEventCalendar\(parseEventListing/);
   assert.match(page, /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarEvents=\{calendarEvents\}/);
   assert.match(read("lib/event-listing.ts"), /status = 'published'/);
-  assert.match(calendar, /const monthMatches = calendarEvents;/);
-  assert.doesNotMatch(calendar, /"use client"|useState|window\.history/);
+  // The approved interactive version reads bounded fresh data rather than
+  // pretending the initial day's 12 previews represent the entire month.
+  const route = read("app/api/public/events/calendar/route.ts");
+  assert.match(calendar, /"use client"/);
+  assert.match(calendar, /fetch\(endpoint\.toString\(\)/);
+  assert.match(calendar, /setView\(next\)/);
+  assert.match(calendar, /pushState/);
+  assert.match(calendar, /popstate/);
+  assert.match(route, /getPublicEventCalendar/);
+  assert.match(route, /getPublishedEventListing/);
+  assert.match(route, /Cache-Control.*no-store/);
 });
 
 test("hero precedes one search and calendar, with a banner before the listing", () => {
