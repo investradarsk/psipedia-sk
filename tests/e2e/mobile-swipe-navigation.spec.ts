@@ -187,10 +187,19 @@ test("scrolling the menu never dismisses it; tapping the backdrop does", async (
   await expect(menu).not.toHaveClass(/is-open/);
 });
 
-test("mobile back button is in-site and falls back to home on direct entry", async ({ page }) => {
+test("mobile header has no redundant back arrow; brand still opens home", async ({ page }) => {
   await page.goto("/o-nas");
   await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
-  await page.getByRole("button", { name: "Späť na predchádzajúcu stránku Psipedie" }).click();
+  await expect(page.getByRole("button", { name: "Späť na predchádzajúcu stránku Psipedie" })).toHaveCount(0);
+  await page.locator("[data-header-brand]").click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("rightward gesture from the left content area goes back, without stealing vertical scroll", async ({ page }) => {
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
+  await expect(page).toHaveURL(/\/starostlivost$/);
+  await touchSwipe(page, "main", [66, 385], [210, 386]);
   await expect(page).toHaveURL(/\/$/);
 });
 
