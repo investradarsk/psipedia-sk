@@ -182,18 +182,20 @@ export function ProfileReviewSection({
   data,
   baseHref,
   readError = false,
+  compactHeading = false,
 }: {
   data: PublicProfileReviewData | null;
   baseHref: string;
   readError?: boolean;
+  compactHeading?: boolean;
 }) {
   const reviewSubmissionEnabled = profileReviewSubmissionEnabled();
 
   if (readError || !data) {
     return (
       <section className={styles.section} id="recenzie" aria-labelledby="profile-reviews-heading">
-        <span className={styles.eyebrow}>Skúsenosti používateľov</span>
-        <h2 id="profile-reviews-heading">Recenzie</h2>
+        {!compactHeading ? <span className={styles.eyebrow}>Skúsenosti používateľov</span> : null}
+        <h2 className={compactHeading ? styles.compactHeading : undefined} id="profile-reviews-heading">Recenzie</h2>
         <div className={styles.zeroState}>
           <strong>Recenzie sa momentálne nepodarilo načítať.</strong>
           <p>Profil zostáva dostupný; hodnotenia skúste zobraziť neskôr.</p>
@@ -205,8 +207,8 @@ export function ProfileReviewSection({
   if (data.summary.count === 0) {
     return (
       <section className={styles.section} id="recenzie" aria-labelledby="profile-reviews-heading">
-        <span className={styles.eyebrow}>Skúsenosti používateľov</span>
-        <h2 id="profile-reviews-heading">Recenzie</h2>
+        {!compactHeading ? <span className={styles.eyebrow}>Skúsenosti používateľov</span> : null}
+        <h2 className={compactHeading ? styles.compactHeading : undefined} id="profile-reviews-heading">Recenzie</h2>
         <div className={styles.zeroState} data-review-zero-state>
           <strong>Zatiaľ bez recenzií</strong>
           <p>Tento profil zatiaľ nemá hodnotenia používateľov Psipedia.sk.</p>
@@ -219,8 +221,8 @@ export function ProfileReviewSection({
   const average = formatRating(data.summary.average);
   return (
     <section className={styles.section} id="recenzie" aria-labelledby="profile-reviews-heading">
-      <span className={styles.eyebrow}>Skúsenosti používateľov</span>
-      <h2 id="profile-reviews-heading">Recenzie</h2>
+      {!compactHeading ? <span className={styles.eyebrow}>Skúsenosti používateľov</span> : null}
+      <h2 className={compactHeading ? styles.compactHeading : undefined} id="profile-reviews-heading">Recenzie</h2>
       {reviewSubmissionEnabled ? <ReviewSubmissionCta resourceId={data.resourceId} /> : null}
 
       <div className={styles.summary}>
