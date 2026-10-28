@@ -415,7 +415,7 @@
     font-size: .88rem;
     line-height: 1.48;
   }
-  .portalSearch { margin-top: -12px; }
+  /* Keep the shared homepage-style search overlapping the compact mobile hero\n     by the approved 18px, without affecting hero height or the form itself. */\n  .portalSearch { margin-top: -18px; }
   .portalSearch :global(.home-search-panel) {
     padding: 12px 13px;
     gap: 8px;
