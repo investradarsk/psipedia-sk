@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 function projectSuffix(name: string) {
   return name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
@@ -27,13 +27,53 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   });
 
   async function expandMobileArticleActions(page: Page) {
-  const details = page.locator("details").filter({ has: page.getByText("Ďalšie akcie článku", { exact: true }) });
-  if (await details.isVisible() && !(await details.evaluate((element) => (element as HTMLDetailsElement).open))) {
-    await details.locator("summary").click();
+    const details = page.locator("details").filter({ has: page.getByText("Ďalšie akcie článku", { exact: true }) });
+    if (await details.isVisible() && !(await details.evaluate((element) => (element as HTMLDetailsElement).open))) {
+      await details.locator("summary").click();
+    }
   }
-}
 
-test("creates and edits canonical rich text, author profiles and external video inline", async ({ page }, testInfo) => {
+  test("mobile article editor has one save action, compact navigation and searchable breeds", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+
+    const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+    await expect(nav.getByLabel("Sekcia editora")).toBeVisible();
+    expect(await nav.evaluate((element) => element.getBoundingClientRect().height),
+      "Mobile article section bar should stay compact").toBeLessThan(80);
+
+    const footer = page.locator("[data-editor-actionbar]");
+    await expect(footer.getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
+    await expect(footer.getByRole("button")).toHaveCount(1);
+    expect(await footer.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(100);
+
+    const breeds = page.locator("#article-relations");
+    const search = breeds.getByRole("searchbox", { name: "Hľadať plemeno" });
+    await expect(search).toBeVisible();
+    const rows = breeds.locator('label[class*="breedRow"]');
+    expect(await rows.count()).toBeLessThanOrEqual(12);
+    if (await rows.count()) {
+      const name = await rows.first().locator("span").innerText();
+      await rows.first().locator('input[type="checkbox"]').check();
+      await expect(breeds.getByText("1 vybraných", { exact: false })).toBeVisible();
+      await search.fill(name);
+      await expect(rows.first()).toContainText(name);
+      await expect(rows.first().locator('input[type="checkbox"]')).toBeChecked();
+    }
+    await search.fill("___nonexistent_breed___");
+    await expect(breeds.getByText("Žiadne plemená nezodpovedajú vyhľadávaniu.")).toBeVisible();
+    await search.fill("");
+
+    await nav.getByRole("button", { name: "Náhľad" }).click();
+    await expect(page.getByRole("button", { name: "Skryť náhľad" })).toBeVisible();
+    await page.getByRole("button", { name: "Skryť náhľad" }).click();
+    await expect(page.locator("#article-title")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ukázať náhľad článku" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  });
+
+  test("creates and edits canonical rich text, author profiles and external video inline", async ({ page }, testInfo) => {
     const suffix = projectSuffix(testInfo.project.name);
     const title = `ARTICLE ADMIN WYSIWYG ${suffix}`;
     const authorName = `ARTICLE ADMIN Autor ${suffix}`;
