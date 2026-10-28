@@ -31,7 +31,7 @@ test("editorial cards are one lead and a vertical secondary list, with a real ne
     source("app/home-v2.module.css"),
   ]);
   assert.match(editorial, /const \[lead, \.\.\.secondary\] = articles/);
-  assert.match(editorial, /variant="featured" headingLevel=\{3\} omitMissingImage/);
+  assert.match(editorial, /variant="featured" headingLevel=\{3\} omitMissingImage=\{false\}/);
   assert.match(editorial, /variant="compact" listItem=\{false\}/);
   assert.match(editorial, /data-home-latest-empty/);
   assert.match(

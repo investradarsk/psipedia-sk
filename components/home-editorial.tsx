@@ -24,7 +24,7 @@ function HomeArticleFeatureLayout({ articles, testId }: { articles: Article[]; t
         data-home-article-date={lead.dateIso}
         data-home-article-section={articlePortalSection(lead)}
       >
-        <ArticleCard article={lead} variant="featured" headingLevel={3} omitMissingImage />
+        <ArticleCard article={lead} variant="featured" headingLevel={3} omitMissingImage={false} />
       </div>
       <div
         className="home-latest-list"

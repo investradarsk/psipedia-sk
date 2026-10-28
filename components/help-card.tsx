@@ -24,7 +24,7 @@ export function HelpCard({ item }: { item: PublicHelpCard }) {
   return (
     <article data-help-card data-public-card="help" data-public-card-emphasis={item.urgent && !item.resolved ? "urgent" : undefined} className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
       <Link className={styles.media} href={detailHref} aria-label={"Otvoriť " + item.title}>
-        {item.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={item.thumbnailImageDisplay} src={item.imageUrl} alt={item.dogName ? item.dogName + " – " + item.title : item.title} loading="lazy" decoding="async" /> : <span className={styles.mediaFallback} aria-hidden="true"><PublicMediaFallback /></span>}
+        {item.imageUrl ? <ImageDisplay roleHint="generic" fallbackOnError context="thumbnail" config={item.thumbnailImageDisplay} src={item.imageUrl} alt={item.dogName ? item.dogName + " – " + item.title : item.title} loading="lazy" decoding="async" /> : <span className={styles.mediaFallback} aria-hidden="true"><PublicMediaFallback /></span>}
         <span className={styles.badges}>
           {item.resolved ? <b className={[styles.badge, styles.badgeResolved].join(" ")}>Vyriešené</b> : item.urgent ? <b className={[styles.badge, styles.badgeUrgent].join(" ")}>Urgentné</b> : null}
         </span>
