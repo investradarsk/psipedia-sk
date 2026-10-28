@@ -127,15 +127,15 @@ test("month, date and event type update in place without reloading the public do
   await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
   await expect(calendar.getByRole("heading", { level: 2 })).toContainText("november 2026");
   await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
-  await expect(page.locator(".calendar")).toHaveAttribute("aria-busy", "false");
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
 
   await page.locator('[data-calendar-date="2026-11-03"]').click();
   await expect(page.locator('[data-selected-day="2026-11-03"]')).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
-  await expect(page.locator(".calendar")).toHaveAttribute("aria-busy", "false");
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
 
   await page.locator('[data-events-legend]').getByRole("link", { name: "Preteky", exact: true }).click();
   await expect(page).toHaveURL(/\/podujatia\/preteky/);
   await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
-  await expect(page.locator(".calendar")).toHaveAttribute("aria-busy", "false");
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
 });
