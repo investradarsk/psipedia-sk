@@ -8,7 +8,8 @@ export function DirectoryServicesList({ services }: { services: string[] }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? services : services.slice(0, 10);
   if (!services.length) return null;
-  const midpoint = Math.min(5, Math.ceil(visible.length / 2));
+  // First ten are five-and-five; after expansion balance every extra item.
+  const midpoint = expanded ? Math.ceil(visible.length / 2) : Math.min(5, Math.ceil(visible.length / 2));
   const columns = [visible.slice(0, midpoint), visible.slice(midpoint)];
   return (
     <div data-directory-services-count={services.length}>
