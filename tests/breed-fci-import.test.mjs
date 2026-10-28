@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { breedAtlasHref, listFciSectionOptions, parseBreedAtlasFilters, validFciSectionForGroup } from "../lib/breed-atlas.ts";
-import { combinedFciMeasurement, fciMeasurement, inspectBreedMeasurement, publicBreedMeasurement, publicFciDate, publicFciSectionName } from "../lib/breed-fci.ts";
+import { combinedFciMeasurement, fciMeasurement, fciSexMeasurementGroups, inspectBreedMeasurement, publicBreedMeasurement, publicFciDate, publicFciSectionName } from "../lib/breed-fci.ts";
 
 const LONG_FCI_TEXT=Array.from({length:45},(_,index)=>`Odborná veta ${index+1} opisuje stavbu tela plemena bez skrátenia.`).join(" ")+" Úplný koniec odborného textu.";
 
@@ -229,4 +229,27 @@ test("breed encyclopedia relations stay explicit, bounded and editable",()=>{
   const store=readFileSync(new URL("../lib/breed-store.ts",import.meta.url),"utf8");const relationQuery=store.slice(store.indexOf("export async function getBreedDetailRelations"),store.indexOf("function clean("));assert.match(relationQuery,/LIMIT 5/);assert.match(relationQuery,/LIMIT 4/);assert.match(relationQuery,/LIMIT 3/);assert.doesNotMatch(relationQuery,/SELECT \*/);assert.match(store,/LIMIT 500/);
   const breedEditor=readFileSync(new URL("../components/admin-breed-editor.tsx",import.meta.url),"utf8");for(const label of ["Srsť a údržba","Život s rodinou a deťmi","Vzťah k iným psom","Zaujímavosti","Časté chyby majiteľov","Športy a aktivity","Súvisiace články","Podobné plemená","Chovateľské stanice a kluby"])assert.match(breedEditor,new RegExp(label));
   const articleEditor=readFileSync(new URL("../components/admin-article-editor.tsx",import.meta.url),"utf8");assert.match(articleEditor,/Prepojenie na plemená/);assert.match(articleEditor,/relatedBreedIds/);
+});
+
+
+test("FCI standard only combines verified identical male/female height AND weight", () => {
+  const dog = [{ label: "Výška", value: "38–41 cm" }, { label: "Hmotnosť", value: "cca 23 kg" }];
+  const bitch = [{ label: "Výška", value: "38–41 cm" }, { label: "Hmotnosť", value: "cca 23 kg" }];
+  assert.deepEqual(fciSexMeasurementGroups(dog, bitch), [{ label: "Pes aj suka", facts: dog }]);
+
+  assert.deepEqual(
+    fciSexMeasurementGroups(dog, [{ label: "Výška", value: "38–41 cm" }, { label: "Hmotnosť", value: "22 kg" }])
+      .map((group) => group.label),
+    ["Pes", "Suka"],
+  );
+  assert.deepEqual(
+    fciSexMeasurementGroups([{ label: "Výška", value: "38–41 cm" }], [{ label: "Výška", value: "38–41 cm" }])
+      .map((group) => group.label),
+    ["Pes", "Suka"],
+  );
+  assert.deepEqual(
+    fciSexMeasurementGroups(dog, []).map((group) => group.label),
+    ["Pes"],
+  );
+  assert.deepEqual(fciSexMeasurementGroups([], []), []);
 });
