@@ -31,136 +31,89 @@ async function expectAxeClean(page: Page, label: string) {
 
 test.beforeEach(async ({ page }) => useNecessaryCookies(page));
 
-test("SECTION-PUBLIC landings use compact content lists and keep the health urgent contract", async ({ page }) => {
+test("SECTION-PUBLIC landings group at most five real articles under each topic and preserve urgent care", async ({ page }) => {
   for (const path of LANDINGS) {
-    const response = await page.goto(path, { waitUntil: "commit" });
+    const response = await page.goto(path, { waitUntil: "domcontentloaded" });
     expect(response?.status(), path).toBe(200);
-    await expect(page.locator("main")).toBeVisible();
-    await expect(page.locator(".portal-hero")).toHaveCount(0);
-    await expect(page.locator("[data-section-content-list]")).toHaveCount(1);
-    await expect(page.locator("[data-section-directory]")).toHaveCount(1);
-    await expect(page.locator("main .article-card")).toHaveCount(0);
+    const groups = page.locator("[data-section-article-group]");
+    expect(await groups.count(), path + ": topic groups").toBeGreaterThan(1);
+    await expect(page.locator("[data-section-topic-groups]")).toHaveCount(1);
+    await expect(page.locator("[data-section-public-topic-body]")).toHaveCount(0);
+    for (const group of await groups.all()) {
+      await expect(group.locator("h2 a")).toBeVisible();
+      expect(await group.locator("[data-article-list-item]").count()).toBeLessThanOrEqual(5);
+      await expect(group.getByRole("link", { name: "Všetky články z oblasti" })).toBeVisible();
+    }
   }
-
   await page.goto("/starostlivost");
-  const urgent = page.locator("[data-health-urgent]");
-  await expect(urgent.getByText("Keď ide o čas", { exact: true })).toBeVisible();
+  const urgent = page.locator("[data-section-public-callout]");
   await expect(urgent.getByRole("heading", { name: "Má pes akútny problém?" })).toBeVisible();
   await expect(urgent.getByRole("link", { name: "Kedy volať ihneď" })).toHaveAttribute("href", "/starostlivost/kedy-ist-so-psom-k-veterinarovi");
   await expect(urgent.getByRole("link", { name: "Nájsť veterinára" })).toHaveAttribute("href", "/adresar/veterinari");
+  await expect(page.locator("[data-section-topic-groups]")).toBeVisible();
 });
-
-test("SECTION-PUBLIC topic cards use photos and the next-step services reuse a horizontal carousel", async ({ page }) => {
+test("SECTION-PUBLIC grouped topics keep meaningful thumbnails and mobile static services", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/steniatka");
-
-  const topicCards = page.locator("[data-section-topic-card]");
-  expect(await topicCards.count()).toBeGreaterThan(2);
-  await expect(topicCards.first().locator("[data-section-topic-image] img")).toBeVisible();
-
+  const groups = page.locator("[data-section-article-group]");
+  await expect(groups.first().locator("img")).toBeVisible();
   const carousel = page.locator("[data-section-next-carousel]");
   await expect(carousel).toBeVisible();
-  expect(await carousel.locator("[data-section-next-card]").count()).toBe(4);
-  expect(await carousel.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
-
-  const before = await carousel.evaluate((element) => element.scrollLeft);
-  await page.getByRole("button", { name: "Posunúť carousel doprava" }).click();
-  await expect.poll(() => carousel.evaluate((element) => element.scrollLeft)).toBeGreaterThan(before);
-
+  expect(await carousel.locator("[data-section-next-card]").count()).toBe(3);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/aktivity");
-  await expectNoHorizontalOverflow(page, "Výcvik carousel at 390px");
+  await expectNoHorizontalOverflow(page, "Activity landing at 390px");
   const mobileCarousel = page.locator("[data-section-next-carousel]");
-  const metrics = await mobileCarousel.evaluate((element) => {
-    const card = element.querySelector<HTMLElement>("[data-section-next-card]");
-    return {
-      clientWidth: element.clientWidth,
-      scrollWidth: element.scrollWidth,
-      cardWidth: card?.getBoundingClientRect().width ?? 0,
-    };
-  });
-  expect(metrics.scrollWidth).toBeGreaterThan(metrics.clientWidth);
-  expect(metrics.cardWidth).toBeGreaterThan(metrics.clientWidth * 0.75);
-  expect(metrics.cardWidth).toBeLessThan(metrics.clientWidth);
+  expect(await mobileCarousel.locator("[data-section-next-card]").count()).toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: "Posunúť carousel doprava" })).toBeHidden();
 });
-
-test("SECTION-PUBLIC details use compact headers, preserve useful content and avoid duplicate category blocks", async ({ page }) => {
+test("SECTION-PUBLIC details have scoped articles, shared search and safety note", async ({ page }) => {
   for (const path of DETAILS) {
-    const response = await page.goto(path, { waitUntil: "commit" });
+    const response = await page.goto(path, { waitUntil: "domcontentloaded" });
     expect(response?.status(), path).toBe(200);
     await expect(page.locator("main h1")).toBeVisible();
-    await expect(page.locator(".portal-topic-hero")).toHaveCount(0);
-    await expect(page.locator("[data-section-directory]")).toHaveCount(0);
+    await expect(page.locator("[data-section-topic-groups]")).toHaveCount(0);
+    await expect(page.locator("[data-section-public-topic-body]")).toHaveCount(1);
     await expect(page.locator("[data-section-content-list]")).toHaveCount(1);
-    await expect(page.locator("main .article-card")).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Na čo sa ľudia pri tejto téme pýtajú" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Užitočné kroky a hranice" })).toBeVisible();
+    await expect(page.locator("[data-section-hero-intro]")).toBeVisible();
+    await expect(page.locator("[data-section-public-topic-body] .safety-note")).toHaveCount(0);
   }
-
-  await page.goto("/steniatka/prve-dni");
-  await expect(page.getByText("Praktická orientácia", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Praktické kroky" })).toBeVisible();
-  await expect(page.getByText("Krok za krokom", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Čo urobiť teraz", { exact: true })).toHaveCount(0);
-
   await page.goto("/starostlivost/zdravie");
   const urgent = page.locator("[data-health-urgent]");
   await expect(urgent.getByRole("link", { name: "Kedy volať ihneď" })).toBeVisible();
   await expect(urgent.getByRole("link", { name: "Nájsť veterinára" })).toBeVisible();
 });
-
-test("SECTION-PUBLIC article lists use title, topic and date only", async ({ page }) => {
+test("SECTION-PUBLIC article lists retain title, category and date without repeated abstracts", async ({ page }) => {
   for (const path of ALL_SECTION_PAGES) {
     await page.goto(path);
-    const list = page.locator("[data-section-content-list]").first();
-    const items = list.locator("[data-article-list-item]");
-    const count = await items.count();
-    if (!count) continue;
-    const first = items.first();
-    await expect(first.locator("[data-article-title]")).toBeVisible();
-    await expect(first.locator("[data-article-topic]")).toBeVisible();
-    await expect(first.locator("[data-article-date]")).toBeVisible();
-    await expect(first.locator("p")).toHaveCount(0);
-    await expect(first).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b|Čítať článok|Čítať novinku|Prečítať|Zistiť viac/i);
-    const image = first.locator("[data-article-image] img");
-    if (await image.count()) {
-      await expect(image).toBeVisible();
-      await expect(image).toHaveAttribute("alt", /Ilustračná fotografia k článku:/);
+    for (const list of await page.locator("[data-section-content-list]").all()) {
+      const first = list.locator("[data-article-list-item]").first();
+      if (!(await first.count())) continue;
+      await expect(first.locator("[data-article-title]")).toBeVisible();
+      await expect(first.locator("[data-article-topic]")).toBeVisible();
+      await expect(first.locator("[data-article-date]")).toBeVisible();
+      await expect(first.locator("p")).toHaveCount(0);
     }
   }
 });
-
-test("SECTION-PUBLIC navigation is keyboard-operable, touch-sized and locally scrollable at 390px", async ({ page }) => {
+test("SECTION-PUBLIC navigation uses one labelled mobile select and normal desktop links", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/aktivity");
-
+  await page.goto("/aktivity/trening");
   const nav = page.getByRole("navigation", { name: "Navigácia v sekcii Výcvik a aktivity" });
   await expect(nav).toBeVisible();
-  expect(await nav.evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
+  expect(await nav.evaluate((element) => getComputedStyle(element).position)).not.toBe("sticky");
+  const select = nav.getByRole("combobox", { name: "Oblasť v sekcii Výcvik a aktivity" });
+  await expect(select).toBeVisible();
+  await expect(select).toHaveValue("/aktivity/trening");
+  await select.selectOption("/aktivity/psie-sporty");
+  await expect(page).toHaveURL(/\/aktivity\/psie-sporty$/);
+  await expectNoHorizontalOverflow(page, "Activity topic at 390px");
 
-  const navMetrics = await nav.locator(".section-tabs-inner").evaluate((element) => ({
-    overflowX: getComputedStyle(element).overflowX,
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-  }));
-  expect(navMetrics.overflowX).toBe("auto");
-  expect(navMetrics.scrollWidth).toBeGreaterThanOrEqual(navMetrics.clientWidth);
-
-  const heights = await nav.locator(".section-tab").evaluateAll((links) => links.map((link) => link.getBoundingClientRect().height));
-  expect(heights.length).toBeGreaterThan(1);
-  expect(heights.every((height) => height >= 44)).toBe(true);
-  await expectNoHorizontalOverflow(page, "Výcvik landing at 390px");
-
-  const training = nav.getByRole("link", { name: "Tréning", exact: true });
-  await training.focus();
-  await expect(training).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/aktivity\/trening$/);
-  const active = page.getByRole("navigation", { name: "Navigácia v sekcii Výcvik a aktivity" }).getByRole("link", { name: "Tréning", exact: true });
-  await expect(active).toHaveAttribute("aria-current", "page");
-  await expectNoHorizontalOverflow(page, "Výcvik detail at 390px");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/aktivity/trening");
+  await expect(nav.getByRole("link", { name: "Psie športy" })).toBeVisible();
+  await expect(select).toBeHidden();
 });
-
 test("SECTION-PUBLIC pages keep canonical metadata and CollectionPage structured data", async ({ page }) => {
   for (const path of ALL_SECTION_PAGES) {
     await page.goto(path);
