@@ -334,7 +334,7 @@
    not require horizontal panning to read or act on an adoption on phones. */
 .adoptionCards { display: none; }
 @media (max-width: 760px) {
-  .tabs {
+  .adoptionTabs {
     display: flex;
     flex-wrap: nowrap;
     gap: 8px;
@@ -344,7 +344,7 @@
     padding: 2px 1px 10px;
     scrollbar-width: thin;
   }
-  .tabs a {
+  .adoptionTabs a {
     flex: 0 0 auto;
     min-height: 44px;
     white-space: nowrap;
