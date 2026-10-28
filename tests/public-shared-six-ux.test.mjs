@@ -12,7 +12,7 @@ const categoryStyles = source("components/directory-public.module.css");
 const sharedTabs = source("components/public-visual-system/public-subcategory-navigator.module.css");
 const favorite = source("components/favorite-button.tsx");
 const share = source("components/share-button.tsx");
-const globals = source("app/globals.css");
+const utilityStyles = source("components/public-utility-action.module.css");
 
 test("homepage article archive link precedes an independent events section", () => {
   assert.match(home, /<HomeLatestArticles articles=\{articleSelection.latest\} \/>/);
@@ -32,10 +32,10 @@ test("homepage featured card has strong visible light-on-dark metadata", () => {
 
 test("bookmark and share use one reusable public utility action style", () => {
   assert.match(favorite, /public-utility-action favorite-button/);
-  assert.match(share, /className="public-utility-action"/);
+  assert.match(share, /utilityStyles.utility/);
   assert.match(share, /<ShareIcon/);
-  assert.match(globals, /\.favorite-button\.public-utility-action/);
-  assert.match(globals, /min-height: 44px/);
+  assert.match(utilityStyles, /\.utility:global\(\.favorite-button\)/);
+  assert.match(utilityStyles, /min-height: 44px/);
 });
 
 test("shared detail fact list is slimmer and keeps semantic values", () => {

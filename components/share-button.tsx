@@ -4,6 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { PublicActionButton, PublicActionLink } from "@/components/public-visual-system";
 import styles from "./share-button.module.css";
 import { ShareIcon } from "./icons";
+import utilityStyles from "./public-utility-action.module.css";
 
 export function ShareButton({
   title,
@@ -68,7 +69,7 @@ export function ShareButton({
   if (compact) {
     return (
       <div className={`${styles.sharePanel} ${styles.compact}`} role="group" aria-label={label}>
-        <PublicActionButton variant="secondary" className="public-utility-action" icon={<ShareIcon size={17} />} onClick={supportsNativeShare ? nativeShare : copyLink}>
+        <PublicActionButton variant="secondary" className={`${utilityStyles.utility} public-utility-action`} icon={<ShareIcon size={17} />} onClick={supportsNativeShare ? nativeShare : copyLink}>
           {copied ? "Odkaz skopírovaný" : supportsNativeShare ? "Zdieľať" : "Kopírovať odkaz"}
         </PublicActionButton>
       </div>

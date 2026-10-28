@@ -1,0 +1,26 @@
+/* Public Save/Share/Copy utility action contract, opt in from all templates.
+   Kept out of the already size-limited app/globals.css. */
+.utility:global(.favorite-button),
+.utility:global([data-public-action]) {
+  display: inline-flex;
+  gap: 7px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 13px;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius-control);
+  color: var(--forest-dark);
+  background: var(--paper);
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 800;
+  line-height: 1.25;
+  box-shadow: none;
+  cursor: pointer;
+}
+.utility:hover { background: var(--sage-light); border-color: var(--forest); }
+.utility:global(.is-saved) { color: var(--forest); background: var(--sage-light); border-color: var(--forest); }
+.utility:global(.favorite-button--compact) { width: 44px; min-width: 44px; padding: 9px; }
+.utility svg { flex: 0 0 auto; }
+.utility:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
