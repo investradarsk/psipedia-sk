@@ -71,7 +71,6 @@ function DirectoryProfileHero({
             <a className={styles.primaryAction} data-profile-primary-action href="#kontakt">Poslať dopyt</a>
             {presentation.phone ? <a className={styles.secondaryAction} href={presentation.phone.href}>Zavolať</a> : null}
             {navigationHref ? <a className={styles.secondaryAction} href={navigationHref} target="_blank" rel="noreferrer">Navigovať</a> : null}
-            {presentation.websiteUrl ? <a className={styles.secondaryAction} href={presentation.websiteUrl} target="_blank" rel="noreferrer">Web ↗</a> : null}
           </nav>
 </>} />;
 
