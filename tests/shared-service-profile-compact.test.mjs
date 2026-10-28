@@ -33,7 +33,7 @@ test("directory contact, copy, service list and map stay wired to one shared tem
   assert.match(directory, /<ProfileReviewSection/);
   assert.match(directory, /<RelatedEntityLinks/);
   assert.match(directory, /<PublicLocationMap/);
-  assert.match(directory, /showDirections=\{false\}/);
+  assert.match(directory, /showDirections=\{publicMap\.items\.length > 1\}/);
   assert.match(directory, /isApproximateMapItem\(mapItem\)/);
   assert.match(directory, /href="#kontakt"/);
   assert.match(directoryCss, /\.servicesList li \{/);

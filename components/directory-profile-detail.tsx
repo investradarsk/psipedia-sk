@@ -230,7 +230,7 @@ export function DirectoryProfileDetail({
             googleMapId={publicMap.googleMapId}
             rendererEnabled={publicMap.rendererEnabled}
             testRendererEnvironment={publicMap.testRendererEnvironment}
-            showDirections={false}
+            showDirections={publicMap.items.length > 1}
           />
         ) : null}
       </aside>
