@@ -42,7 +42,7 @@ export function PublicProfileHero({
   badges?: PublicProfileBadge[];
   actions?: PublicProfileAction[];
 }) {
-  return <DetailHero kind="organization" breadcrumbs={<Breadcrumbs label="Drobečková navigácia">{breadcrumbs}</Breadcrumbs>}
+  return <DetailHero kind="organization" mediaPresentation="compact" breadcrumbs={<Breadcrumbs label="Drobečková navigácia">{breadcrumbs}</Breadcrumbs>}
     copy={<>
             <div className={styles.badges}>
               <span className={styles.typeBadge}>{typeLabel}</span>

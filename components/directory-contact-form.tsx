@@ -76,7 +76,6 @@ export function DirectoryContactForm({
   return (
     <form className="directory-contact-form" onSubmit={submit}>
       <div className="directory-contact-heading">
-        <span aria-hidden="true">✉️</span>
         <div>
           <span className="eyebrow">Kontakt cez Psipediu</span>
           <h2>Napíš svoj dopyt</h2>
@@ -140,7 +139,7 @@ export function DirectoryContactForm({
           appearance="context"
           value={message}
           onChange={(event) => setMessage(event.target.value)}
-          rows={6}
+          rows={4}
           minLength={20}
           maxLength={3000}
           placeholder="Stručne opíš, s čím potrebuješ pomôcť a aký termín ti vyhovuje."

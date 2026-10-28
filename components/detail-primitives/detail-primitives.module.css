@@ -188,3 +188,101 @@
   .hero[data-public-detail-hero="breed"] .heroCopy { grid-row: 1; }
   .hero[data-public-detail-hero="breed"] .heroMedia { grid-row: 2; }
 }
+
+/* S-18: an explicit presentation mode, shared by DirectoryProfileDetail and
+   PublicProfileHero (organizations). Event / breed / adoption photos stay standard. */
+.heroFrame[data-media-presentation="compact"] {
+  grid-template-columns: minmax(0, 1fr) minmax(136px, 220px);
+  align-items: center;
+}
+.heroFrame[data-media-presentation="compact"] .heroMedia {
+  width: 100%;
+  max-width: 220px;
+  max-height: 220px;
+  aspect-ratio: 1;
+  align-self: center;
+  justify-self: end;
+  overflow: hidden;
+  background: var(--sage-light);
+}
+/* Natural/logotype images must fit their compact frame instead of escaping it. */
+.heroFrame[data-media-presentation="compact"] .heroMedia [data-image-display="natural"] {
+  height: 100%;
+  width: 100%;
+}
+.heroFrame[data-media-presentation="compact"] .heroMedia [data-image-display="natural"] img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.heroFrame[data-media-presentation="compact"] .heroMedia > :first-child {
+  min-height: 0;
+}
+.heroFrame[data-media-presentation="compact"] .heroCopy h1 { margin-block: 8px 6px; }
+.heroFrame[data-media-presentation="compact"] .heroActions { margin-top: 10px; }
+.heroFrame[data-media-presentation="compact"] .primaryAction,
+.heroFrame[data-media-presentation="compact"] .secondaryAction {
+  min-height: 44px;
+  padding: 8px 13px;
+}
+.body, .aside { gap: 12px; }
+.section, .card { padding: clamp(14px, 1.8vw, 18px); }
+.section h2 { margin-bottom: 10px; }
+.section p { line-height: 1.55; }
+.aside [data-testid="public-location-map"] { padding: 14px; }
+.aside [data-testid="public-location-map"] [class*="mapWrap"] {
+  height: clamp(240px, 30vw, 290px);
+  min-height: 240px;
+}
+.page :global(.directory-contact-form) {
+  padding: clamp(16px, 2.3vw, 24px);
+  box-shadow: none;
+}
+.page :global(.directory-contact-heading) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  margin-bottom: 18px;
+}
+.page :global(.directory-contact-heading) h2 { margin-top: 4px; font-size: clamp(1.45rem, 2.4vw, 1.95rem); }
+.page :global(.directory-contact-grid) { gap: 12px 16px; }
+.page :global(.directory-contact-form) input:not([type="checkbox"]) { height: 44px; }
+.page :global(.directory-contact-message) { margin-top: 13px; }
+.page :global(.directory-contact-form) textarea { min-height: 116px; }
+.page :global(.directory-contact-consent) { margin-block: 14px; }
+.page :global(.directory-contact-form) > :global(.button) { min-height: 44px; }
+@media (max-width: 800px) {
+  .heroFrame[data-media-presentation="compact"] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    padding: 13px;
+  }
+  .heroFrame[data-media-presentation="compact"] .heroCopy {
+    grid-row: 2;
+    grid-column: 1;
+  }
+  .heroFrame[data-media-presentation="compact"] .heroMedia {
+    grid-row: 1;
+    grid-column: 1;
+    justify-self: start;
+    align-self: start;
+    width: clamp(94px, 27vw, 128px);
+    height: clamp(94px, 27vw, 128px);
+    max-height: 128px;
+    aspect-ratio: 1;
+  }
+  .heroFrame[data-media-presentation="compact"] .heroCopy h1 { font-size: clamp(1.6rem, 6vw, 2.35rem); }
+  .heroFrame[data-media-presentation="compact"] .heroActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .heroFrame[data-media-presentation="compact"] .heroActions > :first-child { grid-column: 1 / -1; }
+  .aside [data-testid="public-location-map"] [class*="mapWrap"] { height: 245px; min-height: 245px; }
+}
+@media (max-width: 380px) {
+  .heroFrame[data-media-presentation="compact"] .heroActions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .heroFrame[data-media-presentation="compact"] .heroActions > :first-child { grid-column: 1 / -1; }
+  .page :global(.directory-contact-form) { padding: 14px; }
+}
