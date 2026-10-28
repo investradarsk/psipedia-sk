@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { AdminAttentionQueue } from "@/components/admin-attention-queue";
 import { AdminAttentionHistorySync } from "@/components/admin-attention-history-sync";
