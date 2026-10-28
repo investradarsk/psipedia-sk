@@ -214,7 +214,7 @@ export function EventCalendar({
     ? "Prebiehajúce podujatia" : view.time === "all" ? "Zoznam podujatí" : "Nadchádzajúce podujatia";
 
   return (
-    <div className={styles.calendar} aria-busy={pending}>
+    <div className={styles.calendar} data-public-calendar aria-busy={pending}>
       <div className={styles.resultBar}>
         <div className={styles.timeBar} role="group" aria-label="Obdobie podujatia">
           {([
