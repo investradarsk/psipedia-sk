@@ -179,7 +179,7 @@ test("admin landing is the read-only workspace and old article filters redirect 
   assert.match(read("components/admin-workspace-dashboard.tsx"), /summarizeAdminAutomationReads/);
   assert.match(landing, /loadAdminQualityPendingSummary/);
   assert.doesNotMatch(landing, /loadMissingQualityDashboard/);
-  assert.match(landing, /loadAdminWorkspaceFeed/);
+  assert.match(landing, /loadAdminWorkspaceOverview/);
   assert.doesNotMatch(landing, /listManagedArticleSummaries/);
   assert.match(landing, /redirect\(legacyHref\)/);
   for (const key of ["query", "q", "status", "section", "sort", "direction", "page", "pageSize"]) {
