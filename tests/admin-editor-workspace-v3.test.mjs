@@ -156,7 +156,7 @@ test("ARTICLE-MOBILE-COMPACT: six changes remain scoped to the canonical article
   assert.doesNotMatch(editor, /className="admin-breed-article-links"/);
 
   // Scope changes to article only; other editors retain the shared V3 structure.
-  assert.match(css, /\.mobileActions \{ display: none; \}/);
+  assert.match(css, /\.mobileActions, \.mobileExtraActions \{ display: none; \}/);
   assert.match(css, /@media \(max-width: 820px\)/);
   assert.match(css, /\.mobileActions \{ display: flex;/);
   assert.match(css, /\[data-editor-actionbar\] > div:first-child/);
