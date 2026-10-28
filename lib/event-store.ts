@@ -118,7 +118,7 @@ function rowToPublicEventCard(row: PublicEventCardRow): PublicEventCard {
 /** The day detail panel displays just links, dates, venues and cancellation flags. */
 type PublicEventDayRow = Pick<EventRow,
   "id" | "slug" | "title" | "event_type" | "start_date" | "start_time" |
-  "end_date" | "venue" | "city" | "cancelled">;
+  "end_date" | "venue" | "city" | "cancelled" | "image_url">;
 
 function rowToPublicEventDayPreview(row: PublicEventDayRow): PublicEventDayPreview {
   return {
@@ -126,6 +126,7 @@ function rowToPublicEventDayPreview(row: PublicEventDayRow): PublicEventDayPrevi
     eventType: (eventTypes as readonly string[]).includes(row.event_type) ? row.event_type as EventType : "Iné",
     startDate: row.start_date, startTime: row.start_time, endDate: row.end_date,
     venue: row.venue, city: row.city, cancelled: Boolean(row.cancelled),
+    imageUrl: row.image_url,
   };
 }
 
@@ -354,7 +355,7 @@ export async function getPublicEventCalendar(filters: EventListingFilters, month
   for(const row of rows.results) { const summary: {date:string;count:number;types:EventType[]} = summaries.get(row.date) ?? {date:row.date,count:0,types:[]}; summary.count+=row.count; summary.types.push(row.type); summaries.set(row.date,summary); }
   for (const summary of summaries.values()) summary.types.sort((a,b)=>eventTypes.indexOf(a)-eventTypes.indexOf(b));
   if (!/^20\d{2}-\d{2}-\d{2}$/.test(day) || day < start || day > end) return {events:empty.events,summaries:[...summaries.values()]};
-  const result = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,venue,city,cancelled
+  const result = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,venue,city,cancelled,image_url
     FROM managed_events WHERE ${sql.where} AND start_date <= ?
       AND COALESCE(NULLIF(end_date,''),start_date) >= ?
     ORDER BY ${sql.order} LIMIT 12`)
