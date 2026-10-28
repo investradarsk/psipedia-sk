@@ -9,7 +9,7 @@ test("editorial section tabs use the managed subsection source of truth", () => 
   assert.match(tabs, /section\.subpages\.filter/);
   assert.match(tabs, /subpage\.visible !== false/);
   assert.match(tabs, /portalSubpageHref\(section, subpage\)/);
-  assert.match(tabs, /<PublicSubcategoryNavigator/);
+  assert.match(tabs, /PortalMobileCategorySelect/);
   assert.match(tabs, /mode="compact"/);
   assert.match(tabs, /current: activeSlug === subpage\.slug/);
   assert.doesNotMatch(tabs, /pred-kupou-psa|zdravie|psie-sporty/);
@@ -116,15 +116,15 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.match(section, /getSectionHeroVisual/);
   assert.match(section, /PublicContentList/);
   assert.match(section, /data-section-subcategories/);
-  assert.match(section, /<PublicSubcategoryNavigator/);
-  assert.match(section, /mode="landing"/);
+  assert.match(section, /data-section-topic-groups/);
+  assert.match(section, /data-section-article-group/);
   assert.match(section, /HorizontalCarouselControls/);
   assert.match(section, /StructuredData/);
   assert.match(section, /buildCollectionPageJsonLd/);
   assert.doesNotMatch(section, /<SectionHero\b/);
   // The primary guide is now an article card, while the rest remains a content list.
-  assert.match(section, /<ArticleCard\s+article=\{pillar\}/);
-  assert.match(section, /<SectionContentList\s+articles=\{furtherArticles\}/);
+  assert.match(section, /limit=\{5\}/);
+  assert.match(section, /articles=\{topicArticles\}/);
   assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
   assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(css, /@media \(max-width: 390px\)/);
@@ -137,7 +137,7 @@ test("PUBLIC-HUBS-UX-1 keeps one landing navigator on editorial roots and compac
   assert.ok(hubStart >= 0 && topicStart > hubStart);
   const hub = section.slice(hubStart, topicStart);
   const topic = section.slice(topicStart);
-  assert.match(hub, /<PublicSubcategoryNavigator[\s\S]*mode="landing"/);
+  assert.match(hub, /data-section-topic-groups/);
   assert.doesNotMatch(hub, /<PortalSectionTabs/);
   assert.doesNotMatch(hub, /data-section-topic-card/);
   assert.match(topic, /<PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
@@ -162,7 +162,7 @@ test("SECTION-PUBLIC preserves urgent health guidance and removes generic puppy 
   assert.match(section, /Má pes akútny problém\?/);
   assert.match(section, /Kedy volať ihneď/);
   assert.match(section, /Nájsť veterinára/);
-  assert.match(section, /Praktické kroky/);
+  assert.match(section, /topicArticles/);
   assert.doesNotMatch(section, /Krok za krokom|Čo urobiť teraz/);
 });
 
@@ -176,7 +176,7 @@ test("SECTION-PUBLIC keeps puppies, care and activities on one shared visual con
   assert.match(section, /aktivity:/);
   assert.match(section, /sectionToneClass\(sectionSlug\)/);
   assert.match(section, /data-section-subcategories/);
-  assert.match(section, /<PublicSubcategoryNavigator/);
+  assert.match(section, /data-section-topic-groups/);
   assert.match(section, /HorizontalCarouselControls/);
   assert.match(css, /\.puppyTone/);
   assert.match(css, /\.careTone/);
@@ -190,7 +190,7 @@ test("SECTION-PUBLIC navigation scopes mobile overflow to the canonical navigati
   const tabs = read("components/portal-section-tabs.tsx");
   const css = read("components/public-visual-system/public-subcategory-navigator.module.css");
   assert.match(tabs, /styles\.nav/);
-  assert.match(tabs, /<PublicSubcategoryNavigator/);
+  assert.match(tabs, /PortalMobileCategorySelect/);
   assert.match(css, /min-height:\s*44px/);
   assert.match(css, /flex-wrap:\s*nowrap/);
   assert.match(css, /overflow-x:\s*auto/);
