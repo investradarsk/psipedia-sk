@@ -73,7 +73,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   ADOPTION_STALE: "Adopcie",
   AUTOMATION_ACTION: "Automatizácie",
   AUTOMATION_FINDING: "Automation finding (legacy)",
-  PARTNER_CLAIM_REVIEW: "Partner claims",
+  PARTNER_CLAIM_REVIEW: "Žiadosti o správu profilu",
   PARTNER_PROFILE_CHANGE_REVIEW: "Partner úpravy profilov",
   PARTNER_NEW_PROFILE_REVIEW: "Partner nové profily",
   PARTNER_EVENT_REVIEW: "Partner podujatia",
