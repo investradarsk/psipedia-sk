@@ -16,10 +16,10 @@ test("workspace uses lightweight actionable overview while canonical event histo
  assert.match(feed,/enabled=1 AND next_run_at IS NOT NULL/);
  assert.match(feed,/quality_missing_proposals WHERE status='OPEN'/);
  assert.match(feed,/export async function loadAdminWorkspaceOverview/);
- assert.match(ui,/href="\\/admin\\/operations"/);
- assert.match(ui,/href="\\/admin\\/mapy"/);
- assert.match(ui,/href="\\/admin\\/kvalita"/);
- assert.doesNotMatch(ui,/shown\\.map|data\\.items\\.map/);
+ assert.match(ui,/href="\/admin\/operations"/);
+ assert.match(ui,/href="\/admin\/mapy"/);
+ assert.match(ui,/href="\/admin\/kvalita"/);
+ assert.doesNotMatch(ui,/shown\.map|data\.items\.map/);
  assert.doesNotMatch(ui,/Math\.random\(\)/);
 });
 test("work feed write is authenticated and only marks read, not canonical approval",()=>{
@@ -101,7 +101,7 @@ test("dashboard prioritizes real queues and quick agendas over the activity feed
   const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} />");
   assert.ok(attention !== -1 && attention < community && community < quick && quick < feed);
   assert.match(activity, /Otvoriť pracovnú sekciu/);
-  assert.match(activity, /href="\\/admin\\/operations"/);
-  assert.match(activity, /href="\\/admin\\/mapy"/);
-  assert.doesNotMatch(activity, /Prečítané|shown\\.map|hiddenIds/);
+  assert.match(activity, /href="\/admin\/operations"/);
+  assert.match(activity, /href="\/admin\/mapy"/);
+  assert.doesNotMatch(activity, /Prečítané|shown\.map|hiddenIds/);
 });
