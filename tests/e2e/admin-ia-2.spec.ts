@@ -94,10 +94,10 @@ test("admin logo navigates from content to the homepage without a blank screen",
     await page.setViewportSize({ width: 390, height: 844 });
   }
   await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
-  const brand = page.getByRole("link", { name: "Psipedia Admin – pracovný prehľad" }).filter({ visible: true });
+  const brand = page.getByRole("link", { name: "Psipedia Admin – pracovný prehľad" });
   await expect(brand).toHaveAttribute("href", "/admin");
   await brand.click();
-  await expect(page).toHaveURL(/\\/admin\\/?$/);
+  await expect(page).toHaveURL(/\/admin\/?$/);
   await expect(page.getByRole("heading", { name: "Pracovný prehľad", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Čo potrebuje pozornosť" })).toBeVisible();
 });
