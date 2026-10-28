@@ -63,8 +63,11 @@ test("Services preserve one canonical GET search, secondary filters and URL stat
   assert.match(servicesStore, /page: Math\.max\(1,/);
   assert.match(servicesStore, /query: firstParam\(params\.q\)\.slice\(0, 100\)/);
 });
-test("Events use URL-backed server rendering instead of client dataset filtering", () => {
-  assert.doesNotMatch(events, /"use client"|useState|useMemo|window\.history/);
+test("Events keep server-backed search while calendar navigation updates in place", () => {
+  assert.match(events, /"use client"/);
+  assert.match(events, /window\.history\.pushState/);
+  assert.match(events, /fetch\(endpoint\.toString\(\)/);
+  assert.match(events, /\/api\/public\/events\/calendar/);
   const results = read("components/event-listing-results.tsx");
   const page = read("components/events-page.tsx");
   assert.match(results, /method="get"/);
