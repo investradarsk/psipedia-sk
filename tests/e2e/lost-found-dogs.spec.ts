@@ -353,6 +353,9 @@ test("valid public submission stays private until admin approval, then publishes
 
   const adminHref = await adminReportHref(page, unique);
   await page.goto(adminHref, { waitUntil: "domcontentloaded" });
+  // A server-rendered button is visible before its React handler is hydrated.
+  // Wait for the real editor readiness contract before clicking a state mutation.
+  await expect(page.locator('form[data-hydrated="true"]')).toBeVisible();
   await expect(page.locator('input[type="email"]')).toHaveValue(email);
   const inputValues = await page.locator("input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
   expect(inputValues).toContain(phone);
