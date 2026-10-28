@@ -240,7 +240,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const suffix = projectSuffix(testInfo.project.name);
     await page.goto("/admin/novy?sekcia=novinky", { waitUntil: "domcontentloaded" });
     await fillMinimumArticle(page, `ARTICLE ADMIN Novinky optional source ${suffix}`);
-    await expect(page.getByText("Zdroj je voliteľný.")).toBeVisible();
+    await expect(page.getByText("Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných.")).toBeVisible();
     await page.getByRole("button", { name: /Publikovať novinku/ }).click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
     await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
