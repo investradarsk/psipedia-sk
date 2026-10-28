@@ -117,7 +117,7 @@ test("reviews use shared headings while only the first category section loses le
   assert.doesNotMatch(reviewsCss, /\.modeHeading|\.sectionHeading/);
   assert.match(reviews, /PublicLandingSectionHeading/);
   assert.match(portalTopic, /review-topic-first-section/);
-  assert.match(globals, /\.section\.review-topic-first-section\s*\{\s*padding-top:\s*0/);
+  // The page remains visually identical after its public styling was moved\n  // from globals.css to the canonical public design-system stylesheet.\n  assert.match(read("app/design-system.css"), /\.section\.review-topic-first-section\s*\{\s*padding-top:\s*0/);
 });
 
 test("editorial second-pass headings share the same contract without changing callouts or carousel", () => {
