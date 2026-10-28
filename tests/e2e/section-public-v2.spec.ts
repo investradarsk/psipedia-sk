@@ -32,6 +32,7 @@ async function expectAxeClean(page: Page, label: string) {
 test.beforeEach(async ({ page }) => useNecessaryCookies(page));
 
 test("SECTION-PUBLIC landings group at most five real articles under each topic and preserve urgent care", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   for (const path of LANDINGS) {
     const response = await page.goto(path, { waitUntil: "domcontentloaded" });
     expect(response?.status(), path).toBe(200);
@@ -43,8 +44,22 @@ test("SECTION-PUBLIC landings group at most five real articles under each topic 
       await expect(group.locator("h2 a")).toBeVisible();
       expect(await group.locator("[data-article-list-item]").count()).toBeLessThanOrEqual(5);
       await expect(group.getByRole("link", { name: "Všetky články z oblasti" })).toBeVisible();
+      // Read in this order on all three landings: area title, articles, then CTA.
+      const order = await group.evaluate((element) => [...element.children].map((child) => {
+        if (child.matches("h2")) return "heading";
+        if (child.matches("[data-section-content-list]")) return "articles";
+        if (child.querySelector("a")?.textContent?.includes("Všetky články z oblasti")) return "more";
+        return "unexpected";
+      }));
+      expect(order, `${path}: heading → article rows → all-articles link`).toEqual(["heading", "articles", "more"]);
     }
+    await expectNoHorizontalOverflow(page, `${path} editorial groups at 390px`);
   }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/aktivity");
+  const desktopGroup = page.locator("[data-section-article-group]").first();
+  await expect(desktopGroup.locator("h2 + [data-section-content-list] + div").getByRole("link", { name: "Všetky články z oblasti" })).toBeVisible();
+  await expectNoHorizontalOverflow(page, "Activity editorial groups at 1440px");
   await page.goto("/starostlivost");
   const urgent = page.locator("[data-section-public-callout]");
   await expect(urgent.getByRole("heading", { name: "Má pes akútny problém?" })).toBeVisible();

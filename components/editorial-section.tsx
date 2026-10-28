@@ -24,7 +24,6 @@ import {
 import { StructuredData } from "@/components/structured-data";
 import type { Article } from "@/lib/content";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
-import { formatSlovakCount } from "@/lib/slovak-count";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import {
   articleHref,
@@ -45,18 +44,6 @@ function sectionToneClass(slug: EditorialSectionSlug) {
   if (slug === "starostlivost") return styles.careTone;
   if (slug === "aktivity") return styles.activityTone;
   return styles.puppyTone;
-}
-
-function topicImage(sectionSlug: EditorialSectionSlug, topicSlug: string, articles: Article[]) {
-  const fallback = {
-    steniatka: "/images/hero-labrador.webp",
-    starostlivost: "/images/zdravie-veterinar.webp",
-    aktivity: "/images/trening-pri-nohe.webp",
-  } satisfies Record<EditorialSectionSlug, string>;
-  return (
-    articles.find((article) => articleArea(article, sectionSlug) === topicSlug && article.image)
-      ?.image ?? fallback[sectionSlug]
-  );
 }
 
 function nextStepImage(href: string) {
@@ -368,7 +355,6 @@ export async function EditorialSectionHub({
   const sectionSlug = section.slug;
   if (!isEditorialSectionSlug(sectionSlug)) return null;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
-  const visibleArticles = orderedArticles(section, articles);
   const nextCards = nextSteps(sectionSlug);
   const hasScrollableServices = nextCards.length > 3;
   const heroVisual = await getSectionHeroVisual(`section.${sectionSlug}`);
@@ -421,23 +407,9 @@ export async function EditorialSectionHub({
               return (
                 <section className={styles.topicGroup} key={subpage.slug}
                   aria-labelledby={`area-${sectionSlug}-${subpage.slug}`} data-section-article-group>
-                  <div className={styles.topicGroupHeader}>
-                    <img
-                      src={subpage.imageUrl || topicImage(sectionSlug, subpage.slug, visibleArticles)}
-                      alt=""
-                      loading="lazy" decoding="async"
-                      className={styles.topicGroupPhoto}
-                    />
-                    <div className={styles.topicGroupHeading}>
-                      <h2 id={`area-${sectionSlug}-${subpage.slug}`}>
-                        <Link href={href}>{subpage.label}</Link>
-                      </h2>
-                      <span>{formatSlovakCount(related.length, { one: "článok", few: "články", many: "článkov" })}</span>
-                    </div>
-                    <PublicActionLink href={href} variant="tertiary" icon={<ArrowIcon />}>
-                      Všetky články z oblasti
-                    </PublicActionLink>
-                  </div>
+                  <h2 className={styles.topicGroupTitle} id={`area-${sectionSlug}-${subpage.slug}`}>
+                    <Link href={href}>{subpage.label}</Link>
+                  </h2>
                   <div data-section-content-list>
                     {related.length > 0 ? (
                       <SectionContentList
@@ -448,6 +420,11 @@ export async function EditorialSectionHub({
                     ) : (
                       <p className={styles.topicGroupEmpty}>Články z tejto oblasti pripravujeme.</p>
                     )}
+                  </div>
+                  <div className={styles.topicGroupFooter}>
+                    <PublicActionLink href={href} variant="tertiary" icon={<ArrowIcon />}>
+                      Všetky články z oblasti
+                    </PublicActionLink>
                   </div>
                 </section>
               );
