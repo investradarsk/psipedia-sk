@@ -145,9 +145,9 @@ export function UnifiedSectionHeroShell({ className, ...props }: HTMLAttributes<
  * not page SEO metadata or the managed source text stored in D1. */
 function conciseHeroIntro(intro: ReactNode): ReactNode {
   if (typeof intro !== "string") return intro;
-  const clean = intro.replace(/\\s+/g, " ").trim();
+  const clean = intro.replace(/\s+/g, " ").trim();
   if (clean.length <= 230) return clean;
-  const sentences = clean.match(/[^.!?]+[.!?]+(?:\\s|$)/g) ?? [];
+  const sentences = clean.match(/[^.!?]+[.!?]+(?:\s|$)/g) ?? [];
   const summary = sentences.slice(0, 2).join(" ").trim();
   return summary && summary.length <= 265 ? summary : (sentences[0]?.trim() || clean);
 }
