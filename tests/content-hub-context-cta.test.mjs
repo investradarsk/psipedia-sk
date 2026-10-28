@@ -28,7 +28,7 @@ test("health CTA preserves exact emergency copy and two canonical routes", () =>
 });
 
 test("puppy, training and care context maps use real canonical destinations", () => {
-  assert.equal(select("steniatka", "pred-kupou-psa").actions[0].href, "/plemena/vyber-plemena");
+  assert.equal(select("steniatka", "pred-kupou-psa").actions[0].href, "/plemena");
   assert.equal(select("steniatka", "vyber-plemena").actions[0].href, "/porovnat-plemena");
   assert.equal(
     select("steniatka", "vyber-chovatela").actions[0].href,
@@ -86,24 +86,22 @@ test("sidebar or manual promo on same destination removes duplicate inline links
   assert.equal(select("steniatka", "socializacia", 6, { occupiedPromoKeys: ["treneri"] }), null);
   assert.equal(
     select("steniatka", "pred-kupou-psa", 6, {
-      occupiedHrefs: ["/plemena/vyber-plemena?source=sidebar"],
+      occupiedHrefs: ["/plemena?source=sidebar"],
     }),
     null,
   );
   assert.equal(new Set(select("starostlivost", "zdravie", 5).actions.map((a) => a.href)).size, 2);
 });
 
-test("CTA keeps existing article flow, moving the health urgent panel below the main guide", () => {
+test("editorial topic pages show articles directly while preserving urgent veterinary guidance", () => {
   const section = read("components/editorial-section.tsx");
   const cta = read("components/content-hub-cta.tsx");
   const css = read("components/content-hub-cta.module.css");
-  assert.match(section, /data-content-hub-pillar/);
-  assert.match(section, /<ArticleCard\s+article=\{pillar\}/);
+  assert.match(section, /data-section-topic-groups/);
   assert.match(section, /<ArticleListItem article=\{article\}/);
-  assert.match(section, /contextualCta\?\.afterArticleCount === index \+ 1/);
-  assert.match(section, /contextualCta=\{healthUrgent \? null : contextualCta\}/);
-  assert.match(section, /<HealthUrgent cta=\{healthUrgent\}/);
-  assert.doesNotMatch(section, /<PageContainer className=\{styles.calloutShell\}><HealthUrgent/);
+  assert.match(section, /<HubCallout sectionSlug="starostlivost" \/>/);
+  assert.match(section, /data-health-urgent/);
+  assert.doesNotMatch(section, /data-content-hub-pillar/);
   assert.match(cta, /data-contextual-hub-cta/);
   assert.match(css, /min-width: 0/);
   assert.match(css, /min-height: 44px/);

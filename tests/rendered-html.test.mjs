@@ -883,10 +883,10 @@ test("renders the care hub, urgent guidance and topic-specific articles", async 
   const nutrition = await worker.fetch(new Request("http://localhost/starostlivost/vyziva", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(nutrition.status, 200);
   const nutritionHtml = await nutrition.text();
-  // Care topic pages use the article-first content hub, not the old instructional template.
-  assert.match(nutritionHtml, /data-content-hub/);
+  // Care topic pages show only topic-scoped articles below a compact category selector.
+  assert.match(nutritionHtml, /data-section-public-topic-body/);
   assert.match(nutritionHtml, /data-section-content-list/);
-  assert.match(nutritionHtml, /Súvisiace čítanie/);
+  assert.match(nutritionHtml, /Články v oblasti/);
   assert.match(nutritionHtml, /Ako vybrať granule bez marketingových mýtov/);
   assert.doesNotMatch(nutritionHtml, /Chôdza pri nohe bez ťahania/);
 
@@ -911,7 +911,7 @@ test("renders the activities hub, safe-start guidance and activity admin fields"
   assert.equal(hub.status, 200);
   const hubHtml = await hub.text();
   assert.match(hubHtml, /Výcvik a aktivity/);
-  assert.match(hubHtml, /Dobrá aktivita sedí konkrétnemu psovi/);
+  assert.match(hubHtml, /data-section-topic-groups/);
   assert.match(hubHtml, /Hľadať v sekcii/);
   assert.match(hubHtml, /Užitočné služby a pokračovanie/);
   assert.match(hubHtml, /Kynologické kluby/);
@@ -919,9 +919,9 @@ test("renders the activities hub, safe-start guidance and activity admin fields"
   const sports = await worker.fetch(new Request("http://localhost/aktivity/psie-sporty", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(sports.status, 200);
   const sportsHtml = await sports.text();
-  assert.match(sportsHtml, /Psie športy(?:<!-- -->)? v praxi/);
-  assert.match(sportsHtml, /Ako začať/);
-  assert.match(sportsHtml, /Bezpečnosť a limity/);
+  assert.match(sportsHtml, /data-section-public-topic-body/);
+  assert.match(sportsHtml, /Články v oblasti/);
+  assert.match(sportsHtml, /Bezpečný pohyb/);
   assert.match(sportsHtml, /Aport: od naháňačky k spoľahlivému odovzdaniu do ruky/);
 
   const editorSource = readFileSync(new URL("../components/admin-section-editor.tsx", import.meta.url), "utf8");
@@ -946,8 +946,8 @@ test("renders the puppy journey, practical topic guidance and puppy admin fields
   const hub = await worker.fetch(new Request("http://localhost/steniatka", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(hub.status, 200);
   const hubHtml = await hub.text();
-  assert.match(hubHtml, /Čakáš šteniatko alebo je už doma/);
-  assert.match(hubHtml, /Vyber tému/);
+  assert.match(hubHtml, /data-section-topic-groups/);
+  assert.match(hubHtml, /Všetky články z oblasti/);
   assert.match(hubHtml, /Prvé dni doma/);
   assert.match(hubHtml, /Rast a vývoj/);
   assert.match(hubHtml, /Hľadať v sprievodcovi/);
@@ -956,10 +956,10 @@ test("renders the puppy journey, practical topic guidance and puppy admin fields
   const firstDays = await worker.fetch(new Request("http://localhost/steniatka/prve-dni", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(firstDays.status, 200);
   const firstDaysHtml = await firstDays.text();
-  // Puppy topic pages also use the article-first content hub.
-  assert.match(firstDaysHtml, /data-content-hub/);
+  // Puppy topic pages also display scoped article lists rather than duplicate guides.
+  assert.match(firstDaysHtml, /data-section-public-topic-body/);
   assert.match(firstDaysHtml, /data-section-content-list/);
-  assert.match(firstDaysHtml, /Súvisiace čítanie/);
+  assert.match(firstDaysHtml, /Články v oblasti/);
 
   const editorSource = readFileSync(new URL("../components/admin-section-editor.tsx", import.meta.url), "utf8");
   assert.match(editorSource, /Obsah oblasti Šteniatok/);

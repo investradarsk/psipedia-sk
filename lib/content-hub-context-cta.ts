@@ -32,7 +32,7 @@ const rules: Readonly<Record<string, Rule>> = {
   "steniatka/pred-kupou-psa": {
     key: "puppy-before", headline: "Najprv vhodné plemeno",
     text: "Porovnaj potreby plemien so svojím denným režimom skôr, než sa rozhodneš.",
-    primary: page("/plemena/vyber-plemena", "Pomoc s výberom plemena"),
+    primary: page("/plemena", "Atlas plemien"),
   },
   "steniatka/vyber-plemena": {
     key: "puppy-breed", headline: "Porovnaj viac možností",

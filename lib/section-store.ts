@@ -200,7 +200,10 @@ function merge(row: Row): ManagedPortalSection | null {
     description: hasLegacyActivityCopy ? base.description : row.description,
     intro: hasLegacyActivityCopy ? base.intro : canonicalSectionHeroField(row, base, "intro"),
     heroConfig: { ...(base.heroConfig ?? {}), ...cleanHeroConfig(row.hero_config_json) },
-    subpages: parseSubpages(row.subpages_json, base.subpages),
+    // Retired standalone breed-choice landing must not reappear from old D1 mirrors.
+    // This is a public read projection only; stored editorial records stay untouched.
+    subpages: parseSubpages(row.subpages_json, base.subpages)
+      .filter((item) => !(base.slug === "plemena" && item.slug === "vyber-plemena")),
     position: row.position,
     visible: Boolean(row.visible),
     ...(row.updated_at ? { updatedAt: row.updated_at } : {}),

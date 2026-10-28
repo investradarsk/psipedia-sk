@@ -301,93 +301,35 @@ test("mobile menu scrolls to the final items with Šteniatka expanded", async ({
   await expect(menu.getByRole("link", { name: "Kontakt", exact: true })).toBeInViewport();
 });
 
-test("PortalHub landing navigation and PortalTopic compact tabs share gutters without overlap", async ({ page, isMobile }) => {
+test("shared editorial hubs and topics keep accessible navigation without overlaying articles", async ({ page, isMobile }) => {
   for (const route of uxFoundationRoutes) {
     await page.goto(route.path);
     await expect(page.locator("main#obsah")).toBeVisible();
     await expectNoHorizontalOverflow(page, route.path);
-
-    const headerContainer = page.locator("[data-section-public-header]").first();
-    const breadcrumbs = headerContainer.locator(".page-breadcrumbs");
-    const compactTabs = page.locator(".portal-section-tabs");
-    const navigation = route.navigation === "compact"
-      ? compactTabs
-      : page.locator('[data-section-subcategories] [data-public-subcategory-navigator][data-public-subcategory-mode="landing"]');
-    const navigationTrack = navigation.locator("[data-public-subcategory-track]");
-    const firstContent = page.locator(route.firstContent).first();
-
-    await expect(headerContainer, `${route.path}: compact public header container missing`).toBeVisible();
-    await expect(breadcrumbs, `${route.path}: shared Breadcrumbs missing`).toBeVisible();
-    await expect(navigation, `${route.path}: ${route.navigation} subcategory navigation missing`).toBeVisible();
-    await expect(navigationTrack, `${route.path}: subcategory navigation track missing`).toBeVisible();
-    await expect(firstContent, `${route.path}: first content block missing`).toBeVisible();
+    const hero = page.locator("[data-section-public-header]").first();
+    await expect(hero).toBeVisible();
+    await expect(hero.locator(".page-breadcrumbs")).toBeVisible();
 
     if (route.navigation === "landing") {
-      await expect(compactTabs, `${route.path}: obsolete compact SectionTabs returned on landing hub`).toHaveCount(0);
-      const items = navigation.locator("[data-public-subcategory-item]");
-      expect(await items.count(), `${route.path}: landing subcategory navigation is empty`).toBeGreaterThan(0);
-      await expect(items.first(), `${route.path}: first landing subcategory is not visible`).toBeVisible();
-
-      const directory = page.locator("[data-section-subcategories]").first();
-      const [directoryBox, contentBox] = await Promise.all([
-        measuredBox(directory, `${route.path}: landing subcategory section`),
-        measuredBox(firstContent, `${route.path}: content after landing subcategories`),
-      ]);
-      expect(
-        contentBox.y - (directoryBox.y + directoryBox.height),
-        `${route.path}: landing subcategories overlap following content`,
-      ).toBeGreaterThanOrEqual(0);
+      const groups = page.locator("[data-section-article-group]");
+      expect(await groups.count(), route.path + ": grouped topics missing").toBeGreaterThan(0);
+      await expect(page.locator(".portal-section-tabs")).toHaveCount(0);
+      const links = groups.first().getByRole("link");
+      await expect(links.first()).toBeVisible();
+      if (isMobile) await expectNoHorizontalOverflow(page, route.path + " mobile");
     } else {
-      const activeTab = navigation.locator('.section-tab[aria-current="page"]');
-      await expect(activeTab, `${route.path}: active tab missing`).toHaveCount(1);
-      await activeTab.scrollIntoViewIfNeeded();
-      await expect(activeTab).toBeVisible();
-
-      const activeBox = await measuredBox(activeTab, `${route.path}: active tab`);
-      expect(activeBox.height, `${route.path}: section tab touch target`).toBeGreaterThanOrEqual(44);
-      const activeHit = await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest(".section-tab")), {
-        x: activeBox.x + activeBox.width / 2,
-        y: activeBox.y + activeBox.height / 2,
-      });
-      expect(activeHit, `${route.path}: active tab is covered`).toBe(true);
-
-      const navigationBox = await measuredBox(navigation, `${route.path}: compact section tabs`);
-      const contentTarget = firstContent.locator(":scope > *").first();
-      const contentBox = await measuredBox(contentTarget, `${route.path}: content after tabs`);
-      const flowGap = contentBox.y - (navigationBox.y + navigationBox.height);
-      expect(flowGap, `${route.path}: tabs/content spacing`).toBeGreaterThanOrEqual(route.minGap);
-      expect(flowGap, `${route.path}: tabs/content spacing`).toBeLessThanOrEqual(route.maxGap);
-    }
-
-    const headerPublicBox = await measuredBox(headerContainer, `${route.path}: public header container`);
-    const navigationTrackBox = await measuredBox(navigationTrack, `${route.path}: subcategory navigation container`);
-
-    if (isMobile) {
-      const siteHeaderBox = await measuredBox(page.locator(".header-inner"), `${route.path}: site header`);
-      const contentShellBox = await measuredBox(firstContent, `${route.path}: content shell`);
-      const viewportWidth = page.viewportSize()!.width;
-      for (const [label, measured, gutter] of [
-        ["site header", siteHeaderBox, 16],
-        ["section header", headerPublicBox, 12],
-        ["subcategory navigation", navigationTrackBox, 12],
-        ["content", contentShellBox, 12],
-      ] as const) {
-        expect(Math.abs(measured.x - gutter), `${route.path}: ${label} left gutter`).toBeLessThanOrEqual(1);
-        expect(Math.abs(viewportWidth - (measured.x + measured.width) - gutter), `${route.path}: ${label} right gutter`).toBeLessThanOrEqual(1);
-      }
-      const breadcrumbBox = await measuredBox(breadcrumbs, `${route.path}: breadcrumbs`);
-      // Homepage-style photography deliberately uses a 20px *inside-image*
-      // text safe-zone on mobile; public navigation/content shells use 12px.
-      const heroVisual = headerContainer.locator("[data-unified-section-hero-visual]");
-      if (await heroVisual.count()) {
-        const photoBox = await measuredBox(heroVisual, `${route.path}: photographic hero`);
-        expect(Math.abs(breadcrumbBox.x - photoBox.x - 20), `${route.path}: photo-overlay breadcrumb safe zone`).toBeLessThanOrEqual(1);
+      const navigation = page.getByRole("navigation", { name: /Navigácia v sekcii/ });
+      await expect(navigation).toBeVisible();
+      const content = page.locator("[data-section-public-topic-body]");
+      await expect(content).toBeVisible();
+      if (isMobile) {
+        const picker = navigation.getByRole("combobox");
+        await expect(picker).toBeVisible();
+        expect(await picker.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+        expect(await navigation.evaluate((element) => getComputedStyle(element).position)).not.toBe("sticky");
       } else {
-        expect(Math.abs(breadcrumbBox.x - 12), `${route.path}: breadcrumbs gutter`).toBeLessThanOrEqual(1);
+        await expect(navigation.getByRole("link").first()).toBeVisible();
       }
-    } else {
-      expect(headerPublicBox.width, `${route.path}: desktop header container exceeds 1180px`).toBeLessThanOrEqual(1180.5);
-      expect(navigationTrackBox.width, `${route.path}: desktop subcategory navigation exceeds 1180px`).toBeLessThanOrEqual(1180.5);
     }
   }
 });

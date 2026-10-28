@@ -1,0 +1,62 @@
+
+/* Only the breed comparator uses these compact overrides. The shared public
+   CSS is intentionally not modified by this visual update. */
+.comparisonPage :global(.compare-page-hero.page-hero--compact) {
+  padding-block: clamp(18px, 3vw, 36px) clamp(15px, 2.4vw, 28px);
+}
+.comparisonPage :global(.compare-page-hero .page-hero-inner) { max-width: 860px; }
+.comparisonPage :global(.compare-page-hero h1) {
+  margin: 7px 0 11px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.1rem, 4.6vw, 3.4rem);
+  line-height: 1.12;
+  letter-spacing: -.022em;
+}
+.comparisonPage :global(.compare-page-hero p) { font-size: .95rem; line-height: 1.5; }
+.comparisonPage :global(.compare-page-hero .text-link) { margin-top: 14px; }
+.comparisonPage :global(.compare-page-hero + .page-body) { padding-top: 8px; }
+.comparisonPage :global(.breed-compare) { gap: 18px; }
+.comparisonPage :global(.compare-picker) { gap: 12px; padding: 15px; }
+.comparisonPage :global(.compare-picker label) { gap: 5px; min-width: 0; }
+.comparisonPage :global(.compare-picker select) { min-height: 44px; }
+.comparisonPage :global(.compare-swap) { width: 44px; height: 44px; }
+.comparisonPage :global(.comparison-row > *) { padding: 12px 15px; overflow-wrap: anywhere; }
+.comparisonPage :global(.comparison-row--head > *) { padding-block: 15px; }
+.comparisonPage :global(.compare-breed-image) { margin-bottom: 9px; border-width: 2px; border-radius: 11px; }
+.comparisonPage :global(.compare-breed-heading > span) { font-size: .63rem; letter-spacing: .015em; line-height: 1.25; }
+.comparisonPage :global(.compare-breed-heading h2) {
+  margin: 5px 0;
+  font-size: clamp(1.32rem, 2.3vw, 1.9rem);
+  line-height: 1.2;
+}
+.comparisonPage :global(.compare-breed-heading a) { margin-top: 10px; min-height: 44px; align-items: center; }
+.comparisonPage :global(.comparison-summary) { gap: 14px; }
+.comparisonPage :global(.comparison-summary article) { padding: clamp(16px, 2.4vw, 23px); }
+.comparisonPage :global(.comparison-intro) { min-height: 0; margin: 10px 0 16px; line-height: 1.55; }
+.comparisonPage :global(.comparison-summary h3) { margin: 17px 0 9px; font-size: 1.15rem; line-height: 1.3; }
+.comparisonPage :global(.comparison-summary li) { padding: 6px 10px; font-size: .71rem; }
+
+@media (max-width: 680px) {
+  .comparisonPage :global(.compare-page-hero.page-hero--compact) { padding-block: 15px 14px; }
+  .comparisonPage :global(.compare-page-hero h1) { font-size: clamp(2rem, 7.6vw, 2.6rem); }
+  .comparisonPage :global(.compare-page-hero p) { font-size: .87rem; }
+  .comparisonPage :global(.compare-picker) { padding: 11px; gap: 6px; }
+  .comparisonPage :global(.compare-picker label > span) { font-size: .67rem; }
+  .comparisonPage :global(.compare-swap) { width: 42px; height: 42px; }
+  .comparisonPage :global(.comparison-row > *) { padding: 10px 11px; }
+  .comparisonPage :global(.comparison-row--head > *) { padding-block: 12px; }
+  .comparisonPage :global(.compare-breed-heading h2) { font-size: clamp(1.13rem, 4.4vw, 1.5rem); }
+  .comparisonPage :global(.compare-breed-heading small) { font-size: .72rem; }
+  .comparisonPage :global(.compare-breed-heading > span) {
+    display: block;
+    max-height: 2.7em;
+    overflow: hidden;
+    font-size: .58rem;
+    line-height: 1.35;
+  }
+  .comparisonPage :global(.compare-breed-image) { width: 100%; aspect-ratio: 4/3; margin-bottom: 7px; }
+  .comparisonPage :global(.comparison-label) { font-size: .7rem; }
+  .comparisonPage :global(.comparison-summary) { gap: 12px; }
+  .comparisonPage :global(.comparison-summary article) { padding: 15px; }
+  .comparisonPage :global(.comparison-summary h3) { margin-top: 15px; }
+}

@@ -107,8 +107,8 @@ export const portalSections: PortalSection[] = [
     icon: "🐶",
     accent: "coral",
     eyebrow: "Dobrý začiatok",
-    description: "Od rozhodnutia až po prvý rok: pokojný a praktický sprievodca životom so šteniatkom.",
-    intro: "Prvé mesiace formujú zdravie, vzťah aj budúce správanie psa. Tu nájdeš postupy zoradené podľa toho, čo práve riešiš.",
+    description: "Rady pre prvé mesiace so šteniatkom: výživa, zdravie, socializácia a výchova.",
+    intro: "Články o príprave na psa, starostlivosti a výcviku šteniatka.",
     articleEnabled: true,
     subpages: [
       {
@@ -119,7 +119,7 @@ export const portalSections: PortalSection[] = [
         homeSteps: ["Spíš si bežný pracovný aj víkendový režim.", "Vytvor rozpočet na kúpu, výbavu, krmivo a veterinára.", "Dohodni si plán starostlivosti počas dovolenky a choroby."],
         warningSigns: ["Rozhodnutie vzniká impulzívne alebo ako prekvapenie.", "Výber sa riadi iba vzhľadom psa.", "Nikto nevie zabezpečiť pravidelný pohyb a kontakt."],
         expertAdvice: "Ak sa potreby psa nevojdú do vášho reálneho dňa, odloženie rozhodnutia je zodpovednejšie než spoliehanie sa, že sa režim vyrieši sám.",
-        serviceLinks: [{ label: "Ako vybrať plemeno", href: "/plemena/vyber-plemena" }, { label: "Chovateľské stanice", href: "/adresar/chovatelske-stanice" }],
+        serviceLinks: [{ label: "Chovateľské stanice", href: "/adresar/chovatelske-stanice" }],
       },
       {
         slug: "vyber-plemena", label: "Výber plemena", icon: "🐕", description: "Povaha, veľkosť, aktivita a potreby plemena podľa tvojho života.",
@@ -129,7 +129,7 @@ export const portalSections: PortalSection[] = [
         homeSteps: ["Pomenuj tri vlastnosti, ktoré od spolužitia naozaj potrebuješ.", "Porovnaj viac plemien podľa energie a nárokov.", "Porozprávaj sa s majiteľmi aj chovateľským klubom."],
         warningSigns: ["Plemeno vyberáš iba podľa fotografie.", "Podceňuješ lovecký pud, hlasitosť alebo potrebu práce.", "Rátaš s tým, že povahu úplne zmení výcvik."],
         expertAdvice: "Aj v jednom plemene sú rozdiely medzi líniami a jednotlivými psami. Pýtaj sa na povahu rodičov a reálny život s plemenom.",
-        serviceLinks: [{ label: "Nájsť vhodné plemeno", href: "/plemena/vyber-plemena" }, { label: "Porovnať plemená", href: "/porovnat-plemena" }],
+        serviceLinks: [{ label: "Porovnať plemená", href: "/porovnat-plemena" }],
         featuredArticleSlugs: ["ako-si-vybrat-plemeno-psa"],
       },
       {
@@ -239,7 +239,6 @@ export const portalSections: PortalSection[] = [
     subpages: [
       { slug: "atlas", label: "Atlas plemien", description: "Prehľad plemien podľa medzinárodného členenia FCI.", href: "/plemena" },
       { slug: "porovnanie", label: "Porovnať plemená", description: "Dve plemená vedľa seba podľa praktických vlastností.", href: "/porovnat-plemena" },
-      { slug: "vyber-plemena", label: "Nájsť vhodné plemeno", description: "Praktický vstup do atlasu a porovnania plemien podľa potrieb vášho života." },
       { slug: "kluby-plemien", label: "Kluby plemien", description: "Organizácie zastrešujúce konkrétne plemená na Slovensku.", href: "/adresar/chovatelske-kluby" },
     ],
   },
