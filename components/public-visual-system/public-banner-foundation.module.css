@@ -1,0 +1,9 @@
+/* Single foundation for promotional banners across articles, portals and service pages.
+ * The surface can be forest, coral, photo or neutral; geometry and type rhythm
+ * remain consistent. Emergency alerts use their separate semantic treatment. */
+.frame { min-width: 0; box-sizing: border-box; border-radius: var(--ps-banner-radius, 18px); }
+.kicker { display: block; font-size: .69rem; font-weight: 850; line-height: 1.3; letter-spacing: .09em; text-transform: uppercase; }
+.title { margin: 0; line-height: 1.12; letter-spacing: -.026em; overflow-wrap: anywhere; }
+.description { line-height: 1.55; overflow-wrap: anywhere; }
+.action { max-width: 100%; min-height: 44px; border-radius: var(--ps-radius-control, 12px); }
+@media (max-width: 620px) { .action { min-height: 48px; } }
