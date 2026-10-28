@@ -218,8 +218,6 @@
 .workspaceRoot :global([data-editor-content]) .articleForm :global(input[type="date"]) {
   min-inline-size: 0;
   max-inline-size: 100%;
-  -webkit-appearance: none;
-  appearance: none;
 }
 /* Do not style the visually hidden upload field as a full-width input. */
 @media (max-width: 820px) {
