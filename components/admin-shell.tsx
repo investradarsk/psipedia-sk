@@ -96,7 +96,7 @@ export function AdminShell({
       <div className={`admin-shell shell ${styles.shellV3}`}>
         <div className={styles.workspace}>
           <aside className={styles.sidebarFrame} data-admin-sidebar-shell aria-label="Bočný panel Psipedia Admin">
-            <Link href="/admin" className={styles.sidebarBrand} aria-label="Psipedia Admin – pracovný prehľad">
+            <a href="/admin" className={styles.sidebarBrand} aria-label="Psipedia Admin – pracovný prehľad">
               <PawMark size={31} />
               <span>Psipedia<small>Admin</small></span>
             </Link>
@@ -108,7 +108,7 @@ export function AdminShell({
           </aside>
           <div className={styles.workspacePage}>
             <header className={`admin-topbar ${styles.topbarSticky}`} data-admin-topbar>
-              <Link href="/admin" className={styles.mobileBrand} aria-label="Psipedia Admin – pracovný prehľad">
+              <a href="/admin" className={styles.mobileBrand} aria-label="Psipedia Admin – pracovný prehľad">
                 <PawMark size={25} />
                 <span>Psipedia<small>Admin</small></span>
               </Link>
