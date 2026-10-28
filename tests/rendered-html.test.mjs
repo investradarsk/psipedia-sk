@@ -838,7 +838,10 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.match(directoryHtml, /data-public-search-form="services"/);
   assert.match(directoryHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
   assert.match(directoryHtml, /data-directory-filter-form/);
-  assert.match(directoryHtml, /data-directory-results/);
+  // Clean landing shows five real published profiles per category; filtered
+  // requests and category URLs retain the existing full DirectoryResults list.
+  assert.match(directoryHtml, /data-directory-category-previews/);
+  assert.match(directoryHtml, /Zobraziť všetky/);
   assert.match(directoryHtml, /data-directory-map-cta/);
   assert.match(directoryHtml, /data-directory-provider-cta/);
   assert.match(directoryHtml, /Poskytuješ služby pre psov/);
