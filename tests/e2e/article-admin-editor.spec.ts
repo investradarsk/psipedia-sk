@@ -94,7 +94,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await page.evaluate(() => window.scrollTo(0, 0));
     const facebookDate = page.locator("#article-facebook-at");
-    await facebookDate.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await facebookDate.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "auto" }));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
     const fieldBounds = await facebookDate.boundingBox();
     expect(fieldBounds).not.toBeNull();
