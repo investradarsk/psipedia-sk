@@ -305,7 +305,7 @@ export function EventCalendar({
           const href = eventTypePortalHref(type);
           if (!href) return null;
           return <Link key={type} href={href + timeHref(view.time).slice(typePathname.length)}
-            onClick={(event)=>{const target=href + timeHref(view.time).slice(typePathname.length);clickNavigate(event,target,{...view,type,day:""});}}
+            onClick={(event)=>{const target=href + timeHref(view.time).slice(typePathname.length);clickNavigate(event,target,{...view,type});}}
             aria-current={view.type === type ? "page" : undefined}>
             <span className={styles.typeDot} aria-hidden="true" data-event-type={type} style={{ "--event-type-color": presentation.color } as CSSProperties} />
             {presentation.label}
