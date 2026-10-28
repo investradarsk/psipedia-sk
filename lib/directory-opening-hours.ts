@@ -16,7 +16,8 @@ const DAYS = [
 ] as const;
 
 function dayIndex(token: string): number {
-  return DAYS.findIndex((day) => day.aliases.includes(token.toLocaleLowerCase("sk") as never));
+  const normalized = token.toLocaleLowerCase("sk");
+  return DAYS.findIndex((day) => day.aliases.some((alias) => alias === normalized));
 }
 
 export function parseDirectoryOpeningHours(value: string): WeekdayHours[] | null {
@@ -31,6 +32,8 @@ export function parseDirectoryOpeningHours(value: string): WeekdayHours[] | null
     const index = dayIndex(match[1]);
     if (index < 0 || collected.has(index)) return null;
     const hours = match[2].trim();
+    // A range such as "Po - Pi" must never be rendered as Monday-only hours.
+    if (/^(?:po|ut|st|št|pi|so|ne|pondelok|utorok|streda|štvrtok|piatok|sobota|nedeľa|nedela)\s*[:–-]/iu.test(hours)) return null;
     // Do not reinterpret non-clock notes such as holiday schedules.
     if (!/(?:\b(?:[01]?\d|2[0-3])[:.][0-5]\d\b|^zatvoren[eé]?$|^na objedn[aá]vku$|^pod[lľ]a dohody$|^nonstop$)/iu.test(hours)) return null;
     collected.set(index, hours);
