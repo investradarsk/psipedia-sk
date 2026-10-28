@@ -198,7 +198,9 @@ test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable type shortcuts and comp
   assert.match(page, /eventTypes\.filter\(\(type\) => type !== "Iné"\)\.flatMap/);
   assert.match(page, /eventTypePortalHref\(type\)/);
   assert.match(calendar, /eventTypePortalHref\(type\)/);
-  assert.match(calendar, /aria-current=\{initialType === type/);
+  // Active state follows client-side calendar selection, not initial SSR props.
+  assert.match(calendar, /aria-current=\{view\.type === type/);
+  assert.match(calendar, /data-events-legend/);
   assert.match(page, /PublicContextBanner/);
   assert.match(page, /ctaHref="\/podujatia\/pridat-podujatie"/);
   assert.doesNotMatch(page, /SectionHeroSearch|PublicCategoryTiles|searchSlot=/);
