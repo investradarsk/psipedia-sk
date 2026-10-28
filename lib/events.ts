@@ -63,7 +63,7 @@ export type PublicEventCard = Pick<DogEvent,
 /** Minimal D1 response for the 12 linked events shown after selecting a calendar day. */
 export type PublicEventDayPreview = Pick<DogEvent,
   "id" | "slug" | "title" | "eventType" | "startDate" | "startTime" |
-  "endDate" | "venue" | "city" | "cancelled">;
+  "endDate" | "venue" | "city" | "cancelled" | "imageUrl">;
 
 export const eventTypeFilters = [
   { value: "Všetky", label: "Všetky" },
