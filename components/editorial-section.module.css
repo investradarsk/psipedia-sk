@@ -990,42 +990,35 @@
   .nextCardCopy { padding-right: 34px; }
 }
 
-/* S-10/S-12: one compact editorial-topic feed shared across all three portals. */
+/* Shared editorial-area rhythm: heading → up to 5 articles → area link.
+   Applies identically to puppies, care and activities, not to topic details. */
 .topicGroups {
-  padding: clamp(18px, 3vw, 35px) 0 10px;
+  padding: clamp(12px, 2.3vw, 24px) 0 10px;
 }
 .topicGroup {
   min-width: 0;
-  padding: clamp(19px, 3vw, 32px) 0;
+  padding: clamp(18px, 2.8vw, 30px) 0;
   border-bottom: 1px solid var(--section-border);
 }
-.topicGroup:first-child { padding-top: 8px; }
-.topicGroupHeader {
-  display: grid;
-  grid-template-columns: 100px minmax(0, 1fr) auto;
-  gap: 17px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.topicGroupPhoto {
-  display: block;
-  width: 100px;
-  height: 74px;
-  border-radius: var(--ps-radius-card, 14px);
-  object-fit: cover;
-  background: var(--section-accent-soft);
-}
-.topicGroupHeading { min-width: 0; }
-.topicGroupHeading h2 {
-  margin: 0 0 5px;
+.topicGroup:first-child { padding-top: 6px; }
+.topicGroupTitle {
+  margin: 0 0 10px;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.25rem, 2.1vw, 1.65rem);
+  font-size: clamp(1.4rem, 2.3vw, 1.85rem);
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.24;
+  overflow-wrap: anywhere;
 }
-.topicGroupHeading h2 a { color: var(--forest-dark); text-decoration: none; }
-.topicGroupHeading h2 a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.topicGroupHeading > span { color: var(--muted); font-size: .76rem; }
+.topicGroupTitle a { color: var(--forest-dark); text-decoration: none; }
+.topicGroupTitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.topicGroupTitle a:focus-visible { outline: 3px solid var(--section-accent); outline-offset: 3px; }
+.topicGroupFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 44px;
+  margin-top: 12px;
+}
 .topicGroupEmpty {
   margin: 0;
   padding: 10px 0;
@@ -1037,18 +1030,9 @@
 .topicEmergency { margin-bottom: 19px; }
 @media (max-width: 680px) {
   .topicGroups { padding-top: 12px; }
-  .topicGroup { padding-block: 18px; }
-  .topicGroupHeader {
-    grid-template-columns: 76px minmax(0, 1fr);
-    gap: 9px 12px;
-  }
-  .topicGroupPhoto { width: 76px; height: 64px; }
-  .topicGroupHeading h2 { font-size: 1.23rem; }
-  .topicGroupHeader > :last-child {
-    grid-column: 2;
-    justify-self: start;
-    min-height: 44px;
-  }
+  .topicGroup { padding-block: 17px; }
+  .topicGroupTitle { margin-bottom: 8px; font-size: 1.38rem; }
+  .topicGroupFooter { margin-top: 9px; }
   .topicGroup :global([data-article-list-item]) { padding-block: 9px; }
   /* Vertical lists on phones must not show controls for a non-scrollable carousel. */
   .carouselControls, .carouselCue { display: none !important; }
