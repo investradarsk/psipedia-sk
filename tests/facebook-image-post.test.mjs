@@ -108,7 +108,7 @@ test('prepared SQL and Drizzle agree; migration adds only its own table and inde
  assert.deepEqual(columns.map(c=>c.name),config.columns.map(c=>c.name));
  for(const column of config.columns){const sql=columns.find(c=>c.name===column.name);assert.equal(sql.type.toLowerCase(),column.getSQLType());assert.equal(Boolean(sql.notnull),column.notNull);}
  const indexes=sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='facebook_image_posts' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r=>r.name);
- assert.deepEqual(indexes,['facebook_image_posts_notion_idx','facebook_image_posts_schedule_idx','facebook_image_posts_trash_idx','facebook_image_posts_updated_idx']);
+ assert.deepEqual(indexes,['facebook_image_posts_article_idx','facebook_image_posts_notion_idx','facebook_image_posts_schedule_idx','facebook_image_posts_trash_idx','facebook_image_posts_updated_idx']);
 });
 
 test("retry lifecycle: cancel to draft, keep append-only history, replan and publish once",async t=>{
