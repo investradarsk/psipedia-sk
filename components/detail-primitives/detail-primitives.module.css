@@ -351,6 +351,14 @@
   .heroFrame[data-media-presentation="compact"] .heroActions > :first-child {
     grid-column: auto;
   }
+  /* Never leave empty grid columns when a profile has only one or two
+     contact methods: preserve the complete 44px touch targets. */
+  .heroFrame[data-media-presentation="compact"] .heroActions:has(> :only-child) {
+    grid-template-columns: minmax(0,1fr);
+  }
+  .heroFrame[data-media-presentation="compact"] .heroActions:has(> :nth-child(2):last-child) {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
   .heroFrame[data-media-presentation="compact"] .primaryAction,
   .heroFrame[data-media-presentation="compact"] .secondaryAction {
     width: 100%;
