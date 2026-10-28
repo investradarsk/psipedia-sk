@@ -922,6 +922,7 @@ function schemaState(databaseName, configPath) {
   const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
   const moderationSubmissionForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('moderation_submissions')");
   const facebookImagePostColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('facebook_image_posts')");
+  const facebookImagePostForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('facebook_image_posts')");
   const facebookImageAttemptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('facebook_image_publish_attempts')");
   const mediaSourceMonitorColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('media_source_monitors')");
   const articleNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('article_notion_sync')");
@@ -967,6 +968,7 @@ function schemaState(databaseName, configPath) {
     partnerAuthIdentityForeignKeys,
     moderationSubmissionForeignKeys,
     facebookImagePostColumns,
+    facebookImagePostForeignKeys,
     facebookImageAttemptColumns,
     mediaSourceMonitorColumns,
     articleNotionSyncColumns,
@@ -1482,6 +1484,12 @@ export function targetSchemaObjects(schema, targetMigration) {
     return {partial: ["quality_missing_manual_attempts","quality_missing_manual_attempts_recent"]
       .some(name => names.has(name))};
   }
+  if (targetMigration === "0144_facebook_articles_shared_calendar.sql") {
+    const article = (schema.managedArticleColumns ?? []).some(column => column.name === "social_caption");
+    const facebook = (schema.facebookImagePostColumns ?? []).some(column =>
+      ["article_id", "article_image_mode", "article_include_link"].includes(String(column.name)));
+    return {partial: article || facebook || names.has("facebook_image_posts_article_idx")};
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1540,6 +1548,48 @@ export function assertQualityManual0143Schema(schema) {
     "0143 manual history statuses are not constrained");
   invariant(/ON\s+quality_missing_manual_attempts\s*\(\s*created_at\s+DESC\s*\)/i.test(String(index.sql??"")),
     "0143 recent history index drift");
+}
+
+/** 0144 is strictly additive: one editorial text field and three Facebook post fields.
+ * Owner-dispatched D1 migration only. Reject half-applied fields, foreign-key
+ * drift, relaxed CHECKs and nonunique article-to-post linkage. */
+export function assertFacebookArticles0144Schema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  invariant(objects.get("managed_articles")?.type === "table", "0144 managed_articles table missing");
+  invariant(objects.get("facebook_image_posts")?.type === "table", "0144 Facebook posts table missing");
+
+  const validate = (columns, name, type, notnull, defaultValue) => {
+    const matching = columns.filter(col => String(col.name) === name);
+    invariant(matching.length === 1, "0144 missing or duplicate column: " + name);
+    const col = matching[0];
+    invariant(String(col.type).toUpperCase() === type && Number(col.notnull) === notnull &&
+      Number(col.pk) === 0 &&
+      (col.dflt_value == null ? null : String(col.dflt_value)) === defaultValue,
+      "0144 column definition drift: " + name);
+  };
+  validate(schema.managedArticleColumns ?? [], "social_caption", "TEXT", 1, "''");
+  validate(schema.facebookImagePostColumns ?? [], "article_id", "INTEGER", 0, null);
+  validate(schema.facebookImagePostColumns ?? [], "article_image_mode", "TEXT", 1, "'photo'");
+  validate(schema.facebookImagePostColumns ?? [], "article_include_link", "INTEGER", 1, "1");
+
+  const postsSql = String(objects.get("facebook_image_posts")?.sql ?? "").replace(/\s+/g, " ");
+  invariant(/article_id\s+INTEGER\s+REFERENCES\s+managed_articles\s*\(id\)\s+ON\s+DELETE\s+SET\s+NULL/i.test(postsSql),
+    "0144 article relation must use managed_articles(id) ON DELETE SET NULL");
+  invariant(/CHECK\s*\(\s*article_image_mode\s+IN\s*\(\s*'photo'\s*,\s*'graphic'\s*\)\s*\)/i.test(postsSql),
+    "0144 graphic mode CHECK constraint missing");
+  invariant(/CHECK\s*\(\s*article_include_link\s+IN\s*\(\s*0\s*,\s*1\s*\)\s*\)/i.test(postsSql),
+    "0144 include-link CHECK constraint missing");
+  const foreignKeys = schema.facebookImagePostForeignKeys ?? [];
+  invariant(foreignKeys.some(key => key.table === "managed_articles" && key.from === "article_id" &&
+    key.to === "id" && String(key.on_delete).toUpperCase() === "SET NULL"),
+    "0144 article foreign key missing or altered");
+
+  const index = objects.get("facebook_image_posts_article_idx");
+  invariant(index?.type === "index" && index.tbl_name === "facebook_image_posts" &&
+    /^CREATE\s+UNIQUE\s+INDEX\s+facebook_image_posts_article_idx\s+ON\s+facebook_image_posts\s*\(\s*article_id\s*\)\s+WHERE\s+article_id\s+IS\s+NOT\s+NULL$/i.test(
+      String(index.sql ?? "").replace(/\s+/g, " ").trim()),
+    "0144 unique article-to-post index missing or altered");
+  return true;
 }
 
 /** Additive quality scan outcomes; rejects incomplete/manual schema changes. */
@@ -2717,6 +2767,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 141) assertQualityMissingHourly0141Schema(schema);
   if (migrationIndex(targetMigration) >= 142) assertQualityMissingScanOutcomes0142Schema(schema);
   if (migrationIndex(targetMigration) >= 143) assertQualityManual0143Schema(schema);
+  if (migrationIndex(targetMigration) >= 144) assertFacebookArticles0144Schema(schema);
 }
 
 /** Exact 0139 Services V3 journal, including append-only no-delete/rewrite guarantees. */
@@ -3097,6 +3148,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   // The missing-data automation requires the real 0140 relation schema before 0141.
   if (targetIndex >= 141) assertDirectoryServiceNotionRelations0140Schema(schema);
   if (targetIndex >= 142) assertQualityMissingHourly0141Schema(schema);
+  if (targetIndex >= 144) assertQualityManual0143Schema(schema);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -3266,8 +3318,11 @@ async function preflight(targetMigration) {
     scalarCount(databaseName, prepared.configPath,
       "SELECT COUNT(*) AS count FROM facebook_image_publish_attempts WHERE state='SENDING'") === 0,
     "0135 requires no in-flight Facebook publisher claims");
-  const facebookPostsBefore = (targetIndex >= 130 && targetIndex <= 132)
+  const facebookPostsBefore = (targetIndex >= 130 && targetIndex <= 132 || targetIndex === 144)
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM facebook_image_posts")
+    : null;
+  const articleRowsBefore = targetIndex === 144
+    ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM managed_articles")
     : null;
   const reviewCountBefore = targetIndex >= 63
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews")
@@ -3313,6 +3368,7 @@ async function preflight(targetMigration) {
     additivePreservationBefore,
     geminiSchedulerBefore,
     facebookPostsBefore,
+    articleRowsBefore,
     facebookRetryBefore,
     before: snapshot,
   };
@@ -3450,6 +3506,17 @@ async function verify(targetMigration) {
     invariant(scalarCount(databaseName, prepared.configPath,
       "SELECT COUNT(*) AS count FROM quality_missing_scans WHERE status NOT IN ('UNKNOWN','RUNNING','SUCCESS','FAILED','SKIPPED')") === 0,
       "0142 scan history contains invalid states");
+  }
+  if (targetIndex === 144) {
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM managed_articles") === internal.articleRowsBefore,
+      "0144 must preserve all existing article rows");
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM facebook_image_posts") === internal.facebookPostsBefore,
+      "0144 must preserve all existing Facebook image posts");
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM facebook_image_posts WHERE article_id IS NOT NULL OR article_image_mode <> 'photo' OR article_include_link <> 1") === 0,
+      "0144 must start with no linked Facebook articles and safe default photo/link values");
   }
   if (targetIndex === 135)
     assertFacebookRetryPreserved(internal.facebookRetryBefore,
