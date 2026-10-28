@@ -245,7 +245,8 @@ test("PUBLIC-POLISH-2 homepage section CTAs follow their content", () => {
   const sidebarEnd = homeEditorial.indexOf('export function HomeMagazineBanner(', sidebarStart);
   assert.ok(sidebarStart >= 0 && sidebarChildren > sidebarStart && sidebarAction > sidebarChildren && sidebarEnd > sidebarAction);
 
-  const vetSidebar = homePage.indexOf('title="Veterinárna starostlivosť na jednom mieste"');
+  // The canonical sidebar title is now short; layout order remains unchanged.
+  const vetSidebar = homePage.indexOf('title="Veterinári"');
   const vetList = homePage.indexOf('className="home-vet-list"', vetSidebar);
   const vetEmpty = homePage.indexOf('data-home-veterinarians-empty', vetSidebar);
   const vetEnd = homePage.indexOf('</HomeMagazineSidebar>', vetSidebar);
