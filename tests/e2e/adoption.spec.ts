@@ -123,3 +123,23 @@ test("all 36 activated migration profiles resolve to canonical detail", async ({
     expect(html, dog.slug).toContain(dog.dogName);
   }
 });
+
+test("adoption administration uses readable cards rather than a wide table on iPhone", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium", "Mobile layout regression");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const response = await page.goto("/admin/adopcie", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBeLessThan(400);
+  const cards = page.locator('section[aria-label="Zoznam adopcií – mobilné karty"]');
+  const table = page.locator('div[aria-label="Zoznam adopcií – tabuľka"]');
+  await expect(cards).toBeVisible();
+  await expect(table).toBeHidden();
+  await expect(page.locator('nav[aria-label="Globálne počty adopcií"]')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const firstCard = cards.locator("article").first();
+  if (await firstCard.count()) {
+    await expect(firstCard.getByRole("link", { name: /Upraviť/ })).toBeVisible();
+    await expect(firstCard).toContainText("Organizácia");
+    await expect(firstCard).toContainText("Lokalita");
+  }
+});
+
