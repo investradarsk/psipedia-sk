@@ -10,3 +10,20 @@ test("admin query supports stale and fresh filtering",()=>{const stale=buildAdop
 test("admin query combines breed, region, locality and sorting server-side",()=>{const query=buildAdoptionAdminListQuery({breed:"Labrador",region:"Nitriansky kraj",locality:"Nitra",sort:"name-asc"},now);assert.match(query.where,/breed_name LIKE \?/);assert.match(query.where,/region = \?/);assert.match(query.where,/city LIKE \?.*district LIKE \?/);assert.deepEqual(query.bindings,["%Labrador%","Nitriansky kraj","%Nitra%","%Nitra%"]);assert.equal(query.orderBy,"name COLLATE NOCASE ASC, id ASC");});
 test("admin list paginates filtered results while global counts stay independent of the current page",async()=>{const db=adminDatabase();const result=await listAdoptionAdminDashboard({q:"Ben",page:2},db,now);assert.equal(result.pagination.page,2);assert.equal(result.pagination.pageSize,40);assert.equal(result.pagination.total,85);assert.equal(result.pagination.totalPages,3);assert.equal(result.items.length,40);assert.equal(result.counts.total,105);assert.equal(result.counts.DRAFT,11);assert.equal(result.counts.ACTIVE,52);assert.equal(result.counts.RESERVED,8);assert.equal(result.counts.ADOPTED,24);assert.equal(result.counts.ARCHIVED,10);assert.equal(result.counts.stale,7);assert.notEqual(result.counts.total,result.pagination.total);});
 test("admin list stays GET-filtered and canonical admin navigation exposes adoption without losing core links",()=>{const route=read("../app/admin/adopcie/page.tsx");const component=read("../components/admin-adoption-dashboard.tsx");const shell=read("../components/admin-shell.tsx");const navigation=read("../lib/admin-navigation.ts");const navigationComponent=read("../components/admin-navigation.tsx");assert.match(route,/requireAdminPageUser\("\/admin\/adopcie"\)/);assert.match(route,/listAdoptionAdminDashboard\(filters\)/);assert.match(route,/<AdminShell/);assert.match(component,/method="get"/);assert.doesNotMatch(component,/method="post"|fetch\(/);for(const [label,href] of [["Pomoc psom","/admin/pomoc-psom"],["Upozornenia","/admin/operations"],["Mapy","/admin/mapy"],["Nástroje","/admin/nastroje"]]){assert.ok(navigation.includes(`label: "${label}"`),label);assert.ok(navigation.includes(`href: "${href}"`),href);}assert.ok(navigation.includes('matches: ["/admin/pomoc", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie"]'),"Pomoc psom owns adoption and related legacy routes");assert.doesNotMatch(navigation,/label: "Operácie"/);assert.match(shell,/<AdminNavigation\s+[\s\S]*?stickyClassName=\{styles\.stickyNav\}[\s\S]*?\/>/);assert.match(shell,/signOutHref=\{chatGPTSignOutPath\("\/", user\.authProvider\)\}/);assert.match(shell,/userDisplayName=\{user\.displayName\}/);assert.match(navigationComponent,/admin-section-nav/);assert.match(navigationComponent,/aria-current=\{current \? "page" : undefined\}/);assert.match(shell,/data-testid="admin-notification-bell"/);assert.ok(shell.includes('href="/admin/operations"'));});
+
+test("mobile adoption cards keep actions readable without horizontal table scrolling", () => {
+  const ui = read("../components/admin-adoption-dashboard.tsx");
+  const css = read("../components/admin-lost-found.module.css");
+  assert.match(ui, /className=\{styles\.adoptionCards\}/);
+  assert.match(ui, /className=\{styles\.adoptionCard\}/);
+  assert.match(ui, /className=\{\`\$\{styles\.tableWrap\} \$\{styles\.adoptionTableRegion\}\`\}/);
+  assert.match(ui, /<AdminReviewCheckbox entityType="ADOPTION"/);
+  assert.match(ui, /adoptionStatusLabels\[item\.status\]/);
+  assert.match(ui, /item\.organizationName/);
+  assert.match(ui, /item\.stale/);
+  assert.match(css, /\.adoptionCards \{ display: none; \}/);
+  assert.match(css, /@media \(max-width: 760px\)/);
+  assert.match(css, /\.adoptionTableRegion \{ display: none; \}/);
+  assert.match(css, /\.adoptionCards \{[\s\S]*?display: grid;/);
+  assert.match(css, /\.adoptionCardActions :is\(a, button, label\) \{ min-height: 44px; \}/);
+});
