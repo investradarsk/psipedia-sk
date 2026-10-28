@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   PublicSubcategoryNavigator,
   type PublicSubcategoryItem,
@@ -12,14 +13,41 @@ import styles from "./directory-public.module.css";
  * Desktop continues to use the canonical SEO-friendly linked category tabs. */
 export function DirectoryCategoryNavigation({ items }: { items: PublicSubcategoryItem[] }) {
   const router = useRouter();
+  const [expanded, setExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const navId = useId();
+  const selectId = useId();
+
+  useEffect(() => {
+    const track = wrapperRef.current?.querySelector<HTMLElement>("[data-public-subcategory-track]");
+    if (!track) return;
+    const refresh = () => setHasOverflow(expanded || track.scrollWidth > track.clientWidth + 2);
+    setHydrated(true);
+    refresh();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(refresh) : null;
+    observer?.observe(track);
+    window.addEventListener("resize", refresh);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", refresh); };
+  }, [expanded, items]);
+
   const currentHref = items.find((item) => item.current)?.href ?? "";
   return (
-    <div className={styles.categorySwitcherWrap} data-directory-category-navigation>
+    <div className={styles.categorySwitcherWrap} data-directory-category-navigation
+      data-expanded={expanded ? "true" : "false"} ref={wrapperRef}>
       <div className={styles.categoryNavTop}>
-        <label htmlFor="directory-category-select">Kategória služby</label>
+        <label htmlFor={selectId}>Kategória služby</label>
+        {hydrated && (hasOverflow || expanded) ? (
+          <button type="button" className={styles.categoryMore}
+            aria-expanded={expanded} aria-controls={navId}
+            onClick={() => setExpanded((value) => !value)}>
+            {expanded ? "Zbaliť" : "Ďalšie"}
+          </button>
+        ) : null}
       </div>
       <select
-        id="directory-category-select"
+        id={selectId}
         className={styles.categoryMobileSelect}
         value={currentHref}
         onChange={(event) => {
@@ -34,7 +62,7 @@ export function DirectoryCategoryNavigation({ items }: { items: PublicSubcategor
           </option>
         ))}
       </select>
-      <div className={styles.categoryDesktopTabs}>
+      <div className={styles.categoryDesktopTabs} id={navId}>
         <PublicSubcategoryNavigator
           mode="compact"
           items={items}
