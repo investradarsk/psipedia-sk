@@ -344,3 +344,28 @@ export function prepareFciBreedImport(value: unknown, maxRecords = 500): Prepare
 
   return { total:source.length,records, errors, duplicateFciNumbers, duplicateImportKeys, duplicateSlugs };
 }
+
+
+/** Public FCI standard: combine sex-specific measurements only when both
+ * height and weight are present and equal. Never infer missing measurements. */
+export type FciMeasurementFact = { label: string; value: string };
+export type FciSexMeasurementGroup = { label: string; facts: FciMeasurementFact[] };
+
+export function fciSexMeasurementGroups(
+  dogFacts: FciMeasurementFact[],
+  bitchFacts: FciMeasurementFact[],
+): FciSexMeasurementGroup[] {
+  const required = ["Výška", "Hmotnosť"];
+  const comparable = required.every((label) => {
+    const dog = dogFacts.find((fact) => fact.label === label)?.value.trim();
+    const bitch = bitchFacts.find((fact) => fact.label === label)?.value.trim();
+    return Boolean(dog && bitch && dog === bitch);
+  });
+  if (comparable && dogFacts.length === 2 && bitchFacts.length === 2) {
+    return [{ label: "Pes aj suka", facts: dogFacts }];
+  }
+  return [
+    ...(dogFacts.length ? [{ label: "Pes", facts: dogFacts }] : []),
+    ...(bitchFacts.length ? [{ label: "Suka", facts: bitchFacts }] : []),
+  ];
+}
