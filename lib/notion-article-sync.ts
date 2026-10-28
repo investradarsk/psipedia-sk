@@ -963,6 +963,9 @@ export function notionPageToManagedArticleInput(
   const notionSubsection = selectProperty(page, "Podsekcia");
   const contentType = selectProperty(page, "Typ obsahu");
   const metaDescription = richTextProperty(page, "Meta description");
+  const socialCaption = propertyRecord(page, "Popis na sociálne siete")
+    ? richTextProperty(page, "Popis na sociálne siete")
+    : (existing && "socialCaption" in existing ? (existing as { socialCaption?: string }).socialCaption ?? "" : "");
   const seoTitle = richTextProperty(page, "SEO title");
   const focusKeyword = richTextProperty(page, "Hlavné kľúčové slovo");
   const { intro, introRichText, blocks: articleBlocks } = convertBodyBlocks(blocks);
@@ -995,6 +998,7 @@ export function notionPageToManagedArticleInput(
     showUpdated: false,
     seoTitle,
     metaDescription,
+    socialCaption,
     canonicalUrl: "",
     noindex: false,
     focusKeyword,
@@ -1343,6 +1347,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     blocks: article.blocks ?? [],
     seoTitle: article.seo?.title ?? "",
     metaDescription: article.seo?.description ?? "",
+    socialCaption: article.socialCaption ?? "",
     focusKeyword: article.seo?.focusKeyword ?? "",
     ogTitle: article.seo?.ogTitle ?? "",
     ogDescription: article.seo?.ogDescription ?? "",

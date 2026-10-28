@@ -165,6 +165,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   useEffect(()=>()=>openRequest.current?.abort(),[]);
   function close(){if(lock.current||busy)return;if(dirty&&!window.confirm("Zahodiť neuložené zmeny?"))return;dialog.current?.close();setEditor(null);origin.current?.focus();}
   function edit(post:FacebookImagePost|null,date=""){
+    if(post?.articleId){window.location.assign(`/admin/clanky/${post.articleId}`);return;}
     origin.current=document.activeElement as HTMLElement;setEditorError("");setNotice("");openRequest.current?.abort();
     if(!post){const next=blank(date);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:null});return;}
     const abort=new AbortController();openRequest.current=abort;setOpening(true);
@@ -189,7 +190,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     const appearance=visualStatus(post);
     return <AdminActionButton type="button" key={post.id} className={`${shared.entry} ${styles.entry}`} disabled={loading||!ready} onClick={()=>edit(post)}>
       <span className={`${styles.statusPill} ${styles[appearance.kind]}`}>{appearance.label}</span>
-      <span className={shared.entryTitle}>{post.title}</span>
+      <span className={shared.entryTitle}>{post.articleId?"Článok · ":""}{post.title}</span>
       {post.scheduledAt&&<time dateTime={post.scheduledAt}>{facebookWallTime(post.scheduledAt).time}</time>}
     </AdminActionButton>;
   };
@@ -207,8 +208,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     <div className={styles.dashboard}>
       <header className={styles.heading}>
         <div>
-          <h2>Prehľad publikovania</h2>
-          <p>Príspevky z Notionu a administrácie · časové pásmo Bratislava</p>
+          <h2>Spoločný kalendár Facebooku</h2>
+          <p>Obrázky aj články v jednom plánovači · časové pásmo Bratislava</p>
         </div>
         <AdminActionButton data-facebook-create-post type="button" variant="primary" disabled={loading||!!error||!ready} onClick={()=>edit(null)}>Vytvoriť príspevok</AdminActionButton>
       </header>
@@ -231,7 +232,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
             {post.imageUrl?<img src={post.imageUrl} width={48} height={48} alt="" loading="lazy" decoding="async"/>:
               <span className={styles.imageFallback} aria-hidden="true">FB</span>}
             <span className={styles.upcomingText}>
-              <strong>{post.title}</strong>
+              <strong>{post.articleId?"Článok · ":""}{post.title}</strong>
               <small>{shownAt(post.scheduledAt)} · {post.approvalStatus==="APPROVED"?"Schválený":"Čaká na povolenie"}</small>
             </span>
             <span className={[styles.statusPill,styles.scheduled].join(" ")}>Naplánovaný</span>
@@ -306,7 +307,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
               {Object.entries(filters).map(([key,label])=><option key={key} value={key}>{label}</option>)}
             </select></label>
             <label>Zdroj <select disabled={loading||!ready} value={source} onChange={e=>{setSource(e.target.value);setPage(1);}}>
-              <option value="all">Všetky zdroje</option><option value="notion">Notion</option><option value="manual">Ručne</option>
+              <option value="all">Všetky zdroje</option><option value="article">Facebook články</option><option value="notion">Notion obrázky</option><option value="manual">Ručne – obrázky</option>
             </select></label>
           </div>
         </div>
@@ -321,7 +322,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
             <span className={styles.imageFallback} aria-hidden="true">FB</span>}
           <div className={styles.listText}>
             <div className={styles.listTitle}>{entry(post)}</div>
-            <p>{post.source==="notion"?"Notion":"Ručne"} · {post.scheduledAt?
+            <p>{post.source==="article"?"Facebook článok":post.source==="notion"?"Notion obrázok":"Ručne"} · {post.scheduledAt?
               facebookWallTime(post.scheduledAt).date+" "+facebookWallTime(post.scheduledAt).time+" · Bratislava":"Bez dátumu"}
               {post.approvalStatus==="APPROVED"?" · Povolené plánované publikovanie":""}
               {post.directPublishConsent?" · Súhlas majiteľa s priamym publikovaním":""}

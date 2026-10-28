@@ -7,7 +7,7 @@ import {runFacebookImagePublishSweep} from "../lib/facebook-image-publisher.ts";
 import {facebookImageScheduleV2Policy} from "../lib/facebook-image-schedule-v2.ts";
 
 const migrations=["drizzle/0128_facebook_image_posts.sql","drizzle/0130_facebook_image_publisher.sql",
-  "drizzle/0135_facebook_image_safe_retry.sql"];
+  "drizzle/0135_facebook_image_safe_retry.sql", "drizzle/0144_facebook_articles_shared_calendar.sql"];
 const time=new Date("2030-01-02T10:00:00.000Z");
 const pageId="3e0793fc-1d18-8138-8bb7-f0e0a7495728";
 const imageBytes=Uint8Array.from([0xff,0xd8,0xff,0xe0,0x11,0x22,0x33]);
@@ -34,7 +34,7 @@ function notionPage(approved=true){
 }
 function fixture(){
   const sqlite=new DatabaseSync(":memory:");
-  sqlite.exec("PRAGMA foreign_keys=ON;");
+  sqlite.exec("PRAGMA foreign_keys=ON; CREATE TABLE managed_articles (id INTEGER PRIMARY KEY);");
   for(const migration of migrations)sqlite.exec(readFileSync(new URL("../"+migration,import.meta.url),"utf8"));
   function bound(sql,params=[]){
     return {

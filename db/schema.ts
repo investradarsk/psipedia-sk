@@ -61,6 +61,7 @@ export const managedArticles = sqliteTable(
     showUpdatedLabel: integer("show_updated_label").notNull().default(0),
     seoTitle: text("seo_title").notNull().default(""),
     metaDescription: text("meta_description").notNull().default(""),
+    socialCaption: text("social_caption").notNull().default(""),
     canonicalUrl: text("canonical_url").notNull().default(""),
     noindex: integer("noindex").notNull().default(0),
     focusKeyword: text("focus_keyword").notNull().default(""),
