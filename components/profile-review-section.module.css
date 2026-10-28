@@ -366,3 +366,6 @@
   .ctaRow { align-items: flex-start; }
   .reviewCta { width: auto; max-width: 100%; padding-inline: 16px; }
 }
+
+/* Service profiles opt in; other review contexts keep their existing hierarchy. */
+.section h2.compactHeading { margin: 0 0 12px; color: var(--brand-accent-strong, #b94732); font-family: inherit; font-size: .78rem; font-weight: 850; letter-spacing: .085em; line-height: 1.45; text-transform: uppercase; }
