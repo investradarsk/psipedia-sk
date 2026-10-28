@@ -88,6 +88,7 @@ export function EventCalendar({
   const [pending,setPending] = useState(false);
   const [loadError,setLoadError] = useState("");
   const requestRef = useRef<AbortController|null>(null);
+  const cacheRef = useRef(new Map<string,{ value:CalendarData; storedAt:number }>());
   const f = {...initialFilters,month:view.filterMonth,time:view.time,type:view.type};
   const query = initialQuery.trim().slice(0,120);
   const region = initialRegion;
@@ -118,13 +119,24 @@ export function EventCalendar({
     const endpoint=new URL("/api/public/events/calendar",window.location.origin);
     target.searchParams.forEach((value,key)=>endpoint.searchParams.set(key,value));
     if (next.type!=="Všetky") endpoint.searchParams.set("typ",next.type);
+    const key=endpoint.pathname+endpoint.search;
+    const cached=cacheRef.current.get(key);
+    if (cached && Date.now()-cached.storedAt < 60_000) {
+      setData(cached.value);
+      setPending(false);
+      return;
+    }
     try {
       const response=await fetch(endpoint.toString(),{signal:controller.signal,headers:{Accept:"application/json"}});
       if (!response.ok) throw new Error("Calendar request failed");
       const payload=await response.json() as CalendarData;
       if (!Array.isArray(payload.events)||!Array.isArray(payload.calendarEvents)
         ||!Array.isArray(payload.calendarSummaries)||!payload.listing) throw new Error("Calendar response invalid");
-      if (!controller.signal.aborted) setData(payload);
+      if (!controller.signal.aborted) {
+        cacheRef.current.set(key,{value:payload,storedAt:Date.now()});
+        if (cacheRef.current.size>16) cacheRef.current.delete(cacheRef.current.keys().next().value!);
+        setData(payload);
+      }
     } catch {
       if (!controller.signal.aborted) setLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
     } finally {
@@ -182,6 +194,15 @@ export function EventCalendar({
     const serialized = params.toString();
     return serialized ? typePathname + "?" + serialized : typePathname;
   }
+
+  useEffect(()=>{
+    if (pending || !selectedDay || loadError) return;
+    const target=document.getElementById("vybrany-den");
+    if (!target) return;
+    const motion=window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    const id=window.requestAnimationFrame(()=>target.scrollIntoView({behavior:motion,block:"start"}));
+    return ()=>window.cancelAnimationFrame(id);
+  },[selectedDay,pending,loadError]);
 
   const windowSafeQuery = (state:View)=> {
     const params=eventListingParams({...initialFilters,time:state.time,month:state.filterMonth,type:state.type});
