@@ -2016,3 +2016,20 @@
   }
   .categoryMobileSelect:focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
 }
+
+/* Shared listing-row rhythm: same mobile information hierarchy as article
+   previews without losing service-specific location, badges or summaries. */
+@media (max-width: 620px) {
+  .directoryColumns .card { border-radius: 15px; box-shadow: none; }
+  .directoryColumns .cardInner { padding: 13px 11px; }
+  .directoryColumns .cardWithImage { grid-template-columns: 76px minmax(0, 1fr); gap: 11px; }
+  .directoryColumns .cardImage { width: 76px; height: 76px; }
+  .directoryColumns .cardCopy { min-width: 0; gap: 4px; }
+  .directoryColumns .cardTitle { font-size: clamp(.98rem, 4.2vw, 1.17rem); line-height: 1.23; }
+  .directoryColumns .cardLocation { font-size: .78rem; line-height: 1.4; }
+  .directoryColumns .cardMeta { font-size: .74rem; line-height: 1.4; }
+}
+@media (max-width: 360px) {
+  .directoryColumns .cardWithImage { grid-template-columns: 68px minmax(0,1fr); gap: 8px; }
+  .directoryColumns .cardImage { width: 68px; height: 68px; }
+}
