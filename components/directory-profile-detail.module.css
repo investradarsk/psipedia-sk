@@ -78,3 +78,54 @@
 @media (max-width: 340px) {
   .practicalItem { grid-template-columns: minmax(0, 1fr); gap: 3px; }
 }
+
+/* Central, semantic content order for every service profile:
+   intro → address → services → hours → map → reviews → nearby → enquiry.
+   Desktop keeps a sidebar while mobile follows this exact DOM order. */
+.page .layout { display: block; padding-block: 16px 32px; }
+.page .content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.page .content > :not(.contactPosition):not(.hoursPosition):not(.mapPosition) { grid-column: 1; min-width: 0; }
+.page .content > .contactPosition { grid-column: 2; grid-row: 1; }
+.page .content > .hoursPosition { grid-column: 2; grid-row: 2; }
+.page .content > .mapPosition { grid-column: 2; grid-row: 3; min-width: 0; }
+.mapPosition :global(.public-location-map) { max-width: 100%; min-width: 0; }
+.singleHeading {
+  margin: 0 0 12px;
+  color: var(--brand-accent-strong, #b94732);
+  font-family: inherit;
+  font-size: .78rem;
+  font-weight: 850;
+  letter-spacing: .085em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+.servicesColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.servicesColumns .servicesList { display: grid; grid-template-columns: 1fr; align-content: start; margin: 0; gap: 0; }
+.servicesColumns .servicesList li {
+  min-width: 0; min-height: 38px; padding: 8px 5px;
+  overflow-wrap: anywhere; line-height: 1.4;
+}
+.servicesExpand {
+  display: inline-flex; align-items: center; min-height: 44px;
+  margin-top: 10px; padding: 7px 12px;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius-control);
+  background: #fff; color: var(--forest-dark);
+  font-size: .8rem; font-weight: 800; cursor: pointer;
+}
+.servicesExpand:hover { background: var(--sage-light); }
+.servicesExpand:focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
+@media (max-width: 800px) {
+  .page .content { grid-template-columns: minmax(0, 1fr); }
+  .page .content > * { grid-column: 1 !important; grid-row: auto !important; }
+  .servicesColumns { gap: 8px; }
+}
+@media (max-width: 340px) {
+  .servicesColumns { gap: 6px; }
+  .servicesColumns .servicesList li { font-size: .76rem; padding-inline: 2px; }
+}
