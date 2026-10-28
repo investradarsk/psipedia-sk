@@ -9290,11 +9290,14 @@ h3 {
 
 .home-news-lead-shade {
   z-index: -1;
+  /* Keep the photograph visible through the upper two thirds of the hero.
+     Only darken the title zone strongly enough for white-text readability. */
   background: linear-gradient(
     0deg,
-    rgba(7, 29, 22, 0.95) 0%,
-    rgba(7, 29, 22, 0.66) 62%,
-    rgba(7, 29, 22, 0.28) 100%
+    rgba(7, 29, 22, 0.88) 0%,
+    rgba(7, 29, 22, 0.69) 26%,
+    rgba(7, 29, 22, 0.22) 55%,
+    rgba(7, 29, 22, 0.06) 100%
   );
 }
 
