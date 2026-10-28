@@ -28,3 +28,9 @@
 .list small { color: var(--muted, #5c6860); line-height: 1.35; }
 .list a > span:last-child { flex: none; color: var(--forest, #174b38); font-weight: 800; }
 @media (max-width: 520px) { .list { grid-template-columns: 1fr; } }
+
+/* Shared compact discovery links: no extra tall cards per administrative level. */
+.list { gap: 7px; margin-top: 10px; }
+.list a { min-height: 52px; padding: 10px 13px; border-radius: var(--ps-radius-control); gap: 10px; }
+.list strong { font-size: .84rem; }
+.list small { font-size: .75rem; line-height: 1.35; }

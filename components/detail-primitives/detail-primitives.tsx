@@ -44,10 +44,11 @@ export function DetailContentLayout({ children, aside }: { children: ReactNode; 
 }
 
 /** One visual frame; callers retain ownership of their data, actions and states. */
-export function DetailHero({ breadcrumbs, copy, media, kind }: {
+export function DetailHero({ breadcrumbs, copy, media, kind, mediaPresentation = "standard" }: {
   breadcrumbs: ReactNode;
   copy: ReactNode;
   media?: ReactNode;
+  mediaPresentation?: "standard" | "compact";
   kind: "directory" | "event" | "adoption" | "help" | "lost-found" | "organization" | "breed";
 }) {
   return <header className={styles.hero} data-public-detail-hero={kind}
@@ -56,7 +57,7 @@ export function DetailHero({ breadcrumbs, copy, media, kind }: {
     data-event-detail-header={kind === "event" ? "" : undefined}>
     <div className={styles.shell}>
       <div className={styles.breadcrumbs}>{breadcrumbs}</div>
-      <div className={styles.heroFrame} data-has-media={media ? "true" : "false"}>
+      <div className={styles.heroFrame} data-has-media={media ? "true" : "false"} data-media-presentation={mediaPresentation}>
         <div className={styles.heroCopy}>{copy}</div>
         {media ? <div className={styles.heroMedia} data-public-profile-media data-event-image={kind === "event" ? "" : undefined}>{media}</div> : null}
       </div>

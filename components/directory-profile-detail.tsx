@@ -26,14 +26,16 @@ function DirectoryProfileHero({
   categoryLabel,
   commercial,
   navigationHref,
+  showExcerpt,
 }: {
   presentation: DirectoryDetailPresentation;
   categoryLabel: string;
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
   navigationHref: string | null;
+  showExcerpt: boolean;
 }) {
   const hasLocation = Boolean(presentation.city || presentation.district || presentation.region);
-  return <DetailHero kind="directory" breadcrumbs={<Breadcrumbs label="Drobečková navigácia">
+  return <DetailHero kind="directory" mediaPresentation="compact" breadcrumbs={<Breadcrumbs label="Drobečková navigácia">
           <Link href="/">Domov</Link><span aria-hidden="true">/</span>
           <Link href="/adresar">Služby pre psov</Link><span aria-hidden="true">/</span>
           <Link href={"/adresar/" + presentation.category}>{getDirectoryCategory(presentation.category)?.label}</Link>
@@ -64,7 +66,7 @@ function DirectoryProfileHero({
               {presentation.region ? <span>{presentation.region}</span> : null}
             </p>
           ) : null}
-          {presentation.excerpt ? <p className={styles.heroLead}>{presentation.excerpt}</p> : null}
+          {showExcerpt && presentation.excerpt ? <p className={styles.heroLead}>{presentation.excerpt}</p> : null}
           <nav className={styles.heroActions} aria-label="Akcie profilu">
             <a className={styles.primaryAction} data-profile-primary-action href="#kontakt">Poslať dopyt</a>
             {presentation.phone ? <a className={styles.secondaryAction} href={presentation.phone.href}>Zavolať</a> : null}
@@ -141,6 +143,7 @@ export function DirectoryProfileDetail({
         categoryLabel={category?.singular ?? category?.label ?? "Profil služby"}
         commercial={commercial}
         navigationHref={navigationHref}
+        showExcerpt={!hasExtendedDescription}
       />
       <div className={styles.layout}>
       <article className={styles.content} data-public-profile-body>
@@ -227,6 +230,7 @@ export function DirectoryProfileDetail({
             googleMapId={publicMap.googleMapId}
             rendererEnabled={publicMap.rendererEnabled}
             testRendererEnvironment={publicMap.testRendererEnvironment}
+            showDirections={false}
           />
         ) : null}
       </aside>

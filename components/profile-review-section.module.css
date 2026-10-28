@@ -355,3 +355,14 @@
 .pagination {
   composes: reviewPagination from "./public-visual-system/public-result-variants.module.css";
 }
+
+/* All directory and organization review sections share the same empty state. */
+.zeroState { padding: 12px 15px; }
+.zeroState strong { font-size: .91rem; }
+.zeroState p { margin-top: 4px; font-size: .81rem; line-height: 1.5; }
+.ctaRow { margin: 10px 0 12px; gap: 7px 12px; }
+.reviewCta { min-height: 44px; }
+@media (max-width: 640px) {
+  .ctaRow { align-items: flex-start; }
+  .reviewCta { width: auto; max-width: 100%; padding-inline: 16px; }
+}
