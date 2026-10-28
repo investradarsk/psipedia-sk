@@ -48,7 +48,7 @@ export function DetailHero({ breadcrumbs, copy, media, kind }: {
   breadcrumbs: ReactNode;
   copy: ReactNode;
   media?: ReactNode;
-  kind: "directory" | "event" | "adoption" | "help" | "lost-found" | "organization";
+  kind: "directory" | "event" | "adoption" | "help" | "lost-found" | "organization" | "breed";
 }) {
   return <header className={styles.hero} data-public-detail-hero={kind}
     data-public-profile-hero={kind === "directory" || kind === "organization" ? "" : undefined}

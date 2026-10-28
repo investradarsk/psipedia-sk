@@ -39,7 +39,7 @@ function DirectoryProfileHero({
           <Link href={"/adresar/" + presentation.category}>{getDirectoryCategory(presentation.category)?.label}</Link>
           <span aria-hidden="true">/</span><span aria-current="page">{presentation.name}</span>
         </Breadcrumbs>}
-    media={presentation.imageUrl ? <ImageDisplay
+    media={presentation.imageUrl ? <ImageDisplay fallbackOnError
               context="detail"
               roleHint="generic"
               config={presentation.detailImageDisplay}

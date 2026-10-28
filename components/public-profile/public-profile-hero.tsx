@@ -70,7 +70,7 @@ export function PublicProfileHero({
               </nav>
             ) : null}
 </>}
-    media={imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={imageConfig} src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" /> : <PublicMediaFallback size="detail" label={`Fotografia profilu ${title} zatiaľ nie je pridaná`} />} />;
+    media={imageUrl ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={imageConfig} src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" /> : <PublicMediaFallback size="detail" label={`Fotografia profilu ${title} zatiaľ nie je pridaná`} />} />;
 
 }
 

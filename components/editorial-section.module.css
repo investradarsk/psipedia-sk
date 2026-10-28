@@ -959,3 +959,33 @@
   .contentHub { gap: 16px; }
   .contentHubCompanion h2 { margin-bottom: 10px; }
 }
+
+/* These editorial widgets are reused by Steniatka, Starostlivost and Aktivity.
+   Mobile readers can see whole cards without a horizontal carousel. */
+@media (max-width: 640px) {
+  .nextCarousel {
+    display: grid; grid-template-columns: minmax(0, 1fr);
+    gap: 10px; overflow: visible; padding: 0;
+    scroll-snap-type: none; scroll-behavior: auto;
+  }
+  .nextCard {
+    display: grid; grid-template-columns: 112px minmax(0, 1fr);
+    grid-template-rows: minmax(112px, auto);
+    flex: auto; min-height: 112px; border-radius: var(--ps-radius-card);
+  }
+  .nextCardMedia { aspect-ratio: 1; height: 100%; overflow: hidden; }
+  .nextCardMedia img { border-radius: var(--ps-radius-card) 0 0 var(--ps-radius-card); }
+  .nextCardIcon { display: none; }
+  .nextCardCopy { min-height: 0; padding: 12px 42px 12px 14px; gap: 5px; align-content: center; }
+  .nextCardCopy > strong { font-size: 1.04rem; font-weight: 600; line-height: 1.2; }
+  .nextCardCopy > span:not(.nextCardAction) { font-size: .76rem; line-height: 1.4; }
+  .nextCardAction { right: 10px; bottom: 8px; min-height: 30px; font-size: .71rem; }
+  .callout, .urgent { padding: 14px; gap: 9px; }
+  .calloutIcon { display: none; }
+  .calloutShell { padding-top: 8px; }
+  .contentSection, .nextSection { padding-block: 22px; }
+}
+@media (max-width: 360px) {
+  .nextCard { grid-template-columns: 92px minmax(0, 1fr); }
+  .nextCardCopy { padding-right: 34px; }
+}

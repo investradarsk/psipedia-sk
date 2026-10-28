@@ -23,7 +23,7 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
     >
       <span className={`${styles.cardInner} ${styles.cardWithImage}`}>
         <span className={styles.cardImage}>
-          {profile.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={profile.thumbnailImageDisplay} src={profile.imageUrl} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback />}
+          {profile.imageUrl ? <ImageDisplay fallbackOnError roleHint="generic" context="thumbnail" config={profile.thumbnailImageDisplay} src={profile.imageUrl} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback />}
         </span>
         <span className={styles.cardCopy}>
           <span className={styles.cardTopline} data-public-card-meta>

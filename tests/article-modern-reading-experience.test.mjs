@@ -572,7 +572,7 @@ test("ARTICLE-CARDS-1 reserves media geometry and keeps long titles unclamped", 
 test("ARTICLE-CARDS-1 reuses shared article presentation on homepage and only adapts article rows inside unified search", () => {
   assert.match(
     homeEditorial,
-    /<ArticleCard article=\{lead\} variant="featured" headingLevel=\{3\} omitMissingImage \/>/,
+    /<ArticleCard article=\{lead\} variant="featured" headingLevel=\{3\} omitMissingImage=\{false\} \/>/,
   );
   assert.match(
     homeEditorial,

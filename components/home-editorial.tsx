@@ -24,7 +24,7 @@ function HomeArticleFeatureLayout({ articles, testId }: { articles: Article[]; t
         data-home-article-date={lead.dateIso}
         data-home-article-section={articlePortalSection(lead)}
       >
-        <ArticleCard article={lead} variant="featured" headingLevel={3} omitMissingImage />
+        <ArticleCard article={lead} variant="featured" headingLevel={3} omitMissingImage={false} />
       </div>
       <div
         className="home-latest-list"
@@ -58,6 +58,21 @@ function HomeMagazineColumns({ children, sidebar }: { children: ReactNode; sideb
       ) : null}
     </div>
   );
+}
+
+/** One row component for events, breeds, veterinarians and trainers. */
+export function HomeSidebarRow({ href, media, eyebrow, title, description }: {
+  href: string; media: ReactNode; eyebrow?: ReactNode; title: ReactNode; description?: ReactNode;
+}) {
+  return <Link href={href} className="home-side-unified-row" data-home-sidebar-row>
+    <span className="home-side-unified-media">{media}</span>
+    <span className="home-side-unified-copy">
+      {eyebrow ? <small className="home-side-unified-eyebrow">{eyebrow}</small> : null}
+      <strong>{title}</strong>
+      {description ? <small className="home-side-unified-description">{description}</small> : null}
+    </span>
+    <ArrowIcon size={17} />
+  </Link>;
 }
 
 export function HomeMagazineSidebar({

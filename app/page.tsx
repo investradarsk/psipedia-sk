@@ -5,6 +5,7 @@ import {
   HomeLatestArticles,
   HomeMagazineBanner,
   HomeMagazineSidebar,
+  HomeSidebarRow,
 } from "@/components/home-editorial";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon, PawMark, SparkIcon } from "@/components/icons";
@@ -24,6 +25,7 @@ import { sectionVisualPositionPercent } from "@/lib/section-visual-contract";
 import { getResolvedSectionVisual } from "@/lib/section-visual-store";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { EventImage } from "@/components/event-image";
 import { AD_PLACEMENTS } from "@/lib/monetization";
 import { buildPageMetadata } from "@/lib/seo";
@@ -90,7 +92,7 @@ export default async function Home() {
   const featuredBreedCards = featuredBreeds
     .filter((breed) => Boolean(breed.image?.trim()))
     .filter((breed, index, all) => all.findIndex((item) => item.slug === breed.slug) === index)
-    .slice(0, 4);
+    .slice(0, 3);
 
   return (
     <main id="obsah" className={styles.homeV2}>
@@ -141,28 +143,15 @@ export default async function Home() {
                 <div className="home-event-list home-side-list" data-home-events>
                   {nextEvents.map((event) => (
                     <article className="home-event-item" key={event.id} data-home-event>
-                      <Link href={eventHref(event)}>
-                        <span className="home-event-media">
-                          <EventImage
-                            imageUrl={event.imageUrl}
-                            eventType={event.eventType}
-                            mode={event.imageDisplay}
-                            config={event.thumbnailImageDisplay}
-                            sizes="96px"
-                            alt={`Obrázok k podujatiu ${event.title}`}
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        </span>
-                        <span className="home-event-copy">
-                          <time dateTime={event.startDate}>{formatEventDate(event)}</time>
-                          <strong>{event.title}</strong>
-                          <span>{publicLocationValue(event.city, "city")}</span>
-                        </span>
-                        <span className="home-event-arrow" aria-hidden="true">
-                          <ArrowIcon size={18} />
-                        </span>
-                      </Link>
+                      <HomeSidebarRow
+                        href={eventHref(event)}
+                        media={<EventImage imageUrl={event.imageUrl} eventType={event.eventType}
+                          mode={event.imageDisplay} config={event.thumbnailImageDisplay}
+                          alt={`Obrázok k podujatiu ${event.title}`} loading="lazy" decoding="async" />}
+                        eyebrow={<time dateTime={event.startDate}>{formatEventDate(event)}</time>}
+                        title={event.title}
+                        description={publicLocationValue(event.city, "city")}
+                      />
                     </article>
                   ))}
                 </div>
@@ -195,16 +184,10 @@ export default async function Home() {
           <HomeMagazineSidebar title="Objav plemená" href="/plemena" actionLabel="Všetky plemená">
             <div className="home-side-breed-list" data-home-featured-breeds>
               {featuredBreedCards.map((breed) => (
-                <Link className="home-side-breed-item" href={`/plemena/${breed.slug}`} key={breed.slug}>
-                  <span className="home-side-breed-thumb">
-                    <BreedPhoto src={breed.image!} alt={breed.name} sizes="88px" loading="lazy" decoding="async" />
-                  </span>
-                  <span className="home-side-breed-copy">
-                    <strong>{breed.name}</strong>
-                    {breed.intro?.trim() ? <small>{breed.intro}</small> : null}
-                  </span>
-                  <ArrowIcon size={16} />
-                </Link>
+                <HomeSidebarRow key={breed.slug} href={`/plemena/${breed.slug}`}
+                  media={<BreedPhoto src={breed.image!} alt={breed.name} sizes="76px" loading="lazy" decoding="async" />}
+                  title={breed.name} description={breed.intro?.trim() || undefined}
+                />
               ))}
             </div>
           </HomeMagazineSidebar>
@@ -237,31 +220,16 @@ export default async function Home() {
                 <div className="home-vet-list" data-home-veterinarians>
                   {veterinarians.map((profile) => (
                     <article className="home-vet-item" key={profile.id}>
-                      <Link href={directoryProfileHref(profile)}>
-                        <span className="home-vet-photo">
-                          {profile.imageUrl && (
-                            <ImageDisplay
-                              roleHint="generic"
-                              context="thumbnail"
-                              config={profile.thumbnailImageDisplay}
-                              src={profile.imageUrl}
-                              srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])}
-                              sizes="50px"
-                              alt={`Obrázok profilu ${profile.name}`}
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          )}
-                        </span>
-                        <span>
-                          <strong>{profile.name}</strong>
-                          <small>
-                            {profile.city}
-                            {profile.district ? ` · ${profile.district}` : ""}
-                          </small>
-                        </span>
-                        <ArrowIcon size={18} />
-                      </Link>
+                      <HomeSidebarRow href={directoryProfileHref(profile)}
+                        media={profile.imageUrl
+                          ? <ImageDisplay fallbackOnError roleHint="generic" context="thumbnail"
+                              config={profile.thumbnailImageDisplay} src={profile.imageUrl}
+                              srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="76px"
+                              alt={`Obrázok profilu ${profile.name}`} loading="lazy" decoding="async" />
+                          : <PublicMediaFallback />}
+                        title={profile.name}
+                        description={[profile.city, profile.district && profile.district !== profile.city ? profile.district : ""].filter(Boolean).join(" · ")}
+                      />
                     </article>
                   ))}
                 </div>
@@ -299,8 +267,8 @@ export default async function Home() {
                   >
                     <Link href={helpCaseHref(item)}>
                       <span className="home-help-media">
-                        {item.imageUrl && (
-                          <ImageDisplay
+                        {item.imageUrl ? (
+                          <ImageDisplay fallbackOnError
                             roleHint="generic"
                             context="thumbnail"
                             config={item.thumbnailImageDisplay}
@@ -311,7 +279,7 @@ export default async function Home() {
                             loading="lazy"
                             decoding="async"
                           />
-                        )}
+                        ) : <PublicMediaFallback />}
                       </span>
                       <span className="home-help-copy">
                         <span className="home-help-meta">
@@ -358,17 +326,15 @@ export default async function Home() {
               <div className="home-vet-list" data-home-trainers>
                 {trainers.map((profile) => (
                   <article className="home-vet-item" key={profile.id}>
-                    <Link href={directoryProfileHref(profile)}>
-                      <span className="home-vet-photo">
-                        {profile.imageUrl && <ImageDisplay roleHint="generic" context="thumbnail"
-                          config={profile.thumbnailImageDisplay} src={profile.imageUrl}
-                          srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="50px"
-                          alt={`Fotografia profilu ${profile.name}`} loading="lazy" decoding="async"
-                        />}
-                      </span>
-                      <span><strong>{profile.name}</strong><small>{profile.city}</small></span>
-                      <ArrowIcon size={18} />
-                    </Link>
+                    <HomeSidebarRow href={directoryProfileHref(profile)}
+                      media={profile.imageUrl
+                        ? <ImageDisplay fallbackOnError roleHint="generic" context="thumbnail"
+                            config={profile.thumbnailImageDisplay} src={profile.imageUrl}
+                            srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="76px"
+                            alt={`Fotografia profilu ${profile.name}`} loading="lazy" decoding="async" />
+                        : <PublicMediaFallback />}
+                      title={profile.name} description={profile.city}
+                    />
                   </article>
                 ))}
               </div>

@@ -401,3 +401,26 @@
     margin-top: 8px;
   }
 }
+
+/* Shared mobile editorial hero: content, controls and focus stay accessible,
+   but the introductory photo no longer consumes an entire viewport. */
+@media (max-width: 620px) {
+  .hero:not([data-hero-variant="task"]) .visual { min-height: 264px; }
+  .hero:not([data-hero-variant="task"]) .copy {
+    min-height: 264px;
+    padding: 68px 20px 24px;
+  }
+  .hero:not([data-hero-variant="task"]) .intro {
+    max-width: 100%;
+    font-size: .88rem;
+    line-height: 1.48;
+  }
+  .portalSearch { margin-top: -12px; }
+  .portalSearch :global(.home-search-panel) {
+    padding: 12px 13px;
+    gap: 8px;
+    border-radius: var(--ps-radius-filter, 16px);
+  }
+  .portalSearch :global(.home-search-copy strong) { font-size: .94rem; }
+  .portalSearch :global(.home-search-shortcuts) { padding-top: 2px; }
+}

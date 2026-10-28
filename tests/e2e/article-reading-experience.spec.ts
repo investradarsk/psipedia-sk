@@ -308,14 +308,8 @@ for (const articleCase of cases) {
       expect(stripBox!.y + stripBox!.height).toBeLessThanOrEqual(1);
     }
 
-    const backToTop = page.getByRole("button", { name: "Späť hore" });
-    await expect(backToTop).toBeVisible();
-    const backToTopBox = await backToTop.boundingBox();
-    expect(backToTopBox).not.toBeNull();
-    expect(backToTopBox!.width).toBeGreaterThanOrEqual(44);
-    expect(backToTopBox!.width).toBeLessThanOrEqual(46);
-    expect(backToTopBox!.height).toBeGreaterThanOrEqual(44);
-    expect(backToTopBox!.height).toBeLessThanOrEqual(46);
+    // Approved shared mobile UX: no floating back-to-top control covering content.
+    await expect(page.getByRole("button", { name: "Späť hore" })).toHaveCount(0);
     await page.evaluate(() => window.scrollTo(0, 0));
 
     const toc = page.getByRole("navigation", { name: "Obsah článku" });

@@ -5,6 +5,7 @@ import { BreedPhoto } from "@/components/breed-photo";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
 import { BreedSectionNav } from "@/components/breed-section-nav";
+import { DetailHero } from "@/components/detail-primitives/detail-primitives";
 import { ArrowIcon, PawMark } from "@/components/icons";
 import { PublicActionLink, PublicArticleListItem, PublicContentList, PublicDataCard, PublicFoundation } from "@/components/public-visual-system";
 import { breedAtlasHref } from "@/lib/breed-atlas";
@@ -296,9 +297,6 @@ export default async function BreedDetailPage({ params }: Props) {
     { label: "FCI číslo", value: managedBreed?.fciNumber ? String(managedBreed.fciNumber) : "" },
     { label: "Skupina", value: fciGroupName ? `${breed.fciGroup}. ${fciGroupName}` : String(breed.fciGroup), href: fciGroupHref },
     { label: "Sekcia", value: [sectionNumber, sectionName].filter(Boolean).join(" · "), href: fciSectionHref },
-    { label: "Krajina pôvodu", value: breed.origin?.trim() ?? "" },
-    { label: "Využitie", value: use },
-    { label: "Pracovná skúška", value: workingTrial },
     { label: "Platný štandard", value: standardDate },
   ].filter((item) => Boolean(item.value));
   const hasFciReference = Boolean(
@@ -322,43 +320,47 @@ export default async function BreedDetailPage({ params }: Props) {
     <main id="obsah" className={styles.page}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
       <PublicFoundation>
-      <div className={`shell ${styles.shell}`}>
-        <nav className={`article-breadcrumbs ${styles.breadcrumbs}`} aria-label="Navigácia">
-          <Link href="/">Domov</Link><span>/</span><Link href="/plemena">Plemená</Link><span>/</span><span>{breed.name}</span>
-        </nav>
-
-        <header className={styles.hero} data-testid="breed-hero">
-          <div className={styles.identity} data-testid="breed-hero-identity">
-            <div className={styles.fciIdentity}>
-              {managedBreed?.fciNumber ? <span>FCI č. {managedBreed.fciNumber}</span> : null}
-              {fciGroupName ? <span>Skupina {breed.fciGroup}</span> : null}
-            </div>
-            <h1>{breed.name}</h1>
-            {managedBreed?.officialFciName?.trim() ? <p className={styles.officialName}>{managedBreed.officialFciName}</p> : null}
-          </div>
-
-          <div
-            className={styles.heroPhoto}
-            data-testid="breed-hero-photo"
-            data-image-fallback="breed-photo"
-          >
-            {breed.image ? (
-              <BreedPhoto
-                src={breed.image}
-                alt={`${breed.name} – profilová fotografia plemena`}
-                className={styles.heroImage}
-                data-testid="breed-hero-image"
-              />
-            ) : (
-              <div className={styles.photoPlaceholder}>
-                <PublicMediaFallback size="detail" label={`Fotografia plemena ${breed.name} zatiaľ nie je dostupná`} />
+      <div data-testid="breed-hero">
+        <DetailHero
+          kind="breed"
+          breadcrumbs={
+            <nav className={styles.breadcrumbs} aria-label="Navigácia">
+              <Link href="/">Domov</Link><span>/</span>
+              <Link href="/plemena">Plemená</Link><span>/</span><span>{breed.name}</span>
+            </nav>
+          }
+          copy={
+            <>
+              <div className={styles.identity} data-testid="breed-hero-identity">
+                <div className={styles.fciIdentity}>
+                  {managedBreed?.fciNumber ? <span>FCI č. {managedBreed.fciNumber}</span> : null}
+                  {fciGroupName ? <span>Skupina {breed.fciGroup}</span> : null}
+                </div>
+                <h1>{breed.name}</h1>
+                {managedBreed?.officialFciName?.trim() ? <p className={styles.officialName}>{managedBreed.officialFciName}</p> : null}
               </div>
-            )}
-          </div>
-
-          {breed.intro?.trim() ? <p className={styles.lead} data-testid="breed-hero-lead">{breed.intro}</p> : null}
-        </header>
-
+              {breed.intro?.trim() ? <p className={styles.lead} data-testid="breed-hero-lead">{breed.intro}</p> : null}
+            </>
+          }
+          media={
+            <div className={styles.heroPhoto} data-testid="breed-hero-photo" data-image-fallback="breed-photo">
+              {breed.image ? (
+                <BreedPhoto
+                  src={breed.image}
+                  alt={breed.name + " – profilová fotografia plemena"}
+                  className={styles.heroImage}
+                  data-testid="breed-hero-image"
+                />
+              ) : (
+                <div className={styles.photoPlaceholder}>
+                  <PublicMediaFallback size="detail" label={"Fotografia plemena " + breed.name + " zatiaľ nie je dostupná"} />
+                </div>
+              )}
+            </div>
+          }
+        />
+      </div>
+      <div className={`shell ${styles.shell}`}>
         {quickFacts.length ? (
           <section className={styles.quickFacts} aria-labelledby="breed-facts">
             <h2 id="breed-facts" className={styles.sectionLabel}>Plemeno v skratke</h2>
@@ -415,7 +417,6 @@ export default async function BreedDetailPage({ params }: Props) {
             <div className={styles.sectionIntro}>
               <p className={styles.eyebrow}>Každodenný život so psom</p>
               <h2 id="breed-practical">Praktické informácie</h2>
-              <p>Podrobnosti sú zbalené do tém, aby profil zostal prehľadný aj pri väčšom množstve odborného obsahu.</p>
             </div>
             <div className={styles.accordionList}>
               {accordions.map((item) => (
