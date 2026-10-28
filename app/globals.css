@@ -18058,3 +18058,20 @@ a.breed-fci-path-node:focus-visible {
   padding-top: 0;
 }
 
+
+/* Public directory enquiry: retain every form field and consent, use one
+   compact heading and shared spacing across all provider categories. */
+.directory-contact-form .directory-contact-heading h2 {
+  margin: 0 0 8px;
+  color: var(--brand-accent-strong, #b94732);
+  font-family: inherit;
+  font-size: .78rem;
+  font-weight: 850;
+  letter-spacing: .085em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+.directory-contact-form .directory-contact-heading p { margin: 0; line-height: 1.5; }
+.directory-contact-form { row-gap: 14px; }
+.directory-contact-form .directory-contact-grid { row-gap: 12px; }
+.directory-contact-form :is(input,textarea) { min-height: 44px; }
