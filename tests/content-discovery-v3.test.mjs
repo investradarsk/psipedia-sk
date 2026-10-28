@@ -24,26 +24,26 @@ const source = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "u
 
 test("article next step reuses curated destination without creating an extra feed CTA", () => {
   assert.deepEqual(next(), {
-    href: "/plemena/vyber-plemena",
-    label: "Pomoc s výberom plemena",
+    href: "/plemena",
+    label: "Atlas plemien",
     context: "cross-section",
   });
   assert.equal(resolveContentHubCta({ section: "steniatka", topic: "pred-kupou-psa", visibleArticleCount: 2 }), null);
-  assert.equal(resolveContentHubNextAction({ section: "steniatka", topic: "pred-kupou-psa" })?.href, "/plemena/vyber-plemena");
+  assert.equal(resolveContentHubNextAction({ section: "steniatka", topic: "pred-kupou-psa" })?.href, "/plemena");
 });
 
 test("manual article destinations and existing recommendations suppress duplicate links", () => {
   assert.equal(next(fixture({ blocks: [
-    { id: "r", type: "related", href: "/plemena/vyber-plemena", title: "Výber plemena" },
+    { id: "r", type: "related", href: "/plemena", title: "Výber plemena" },
   ] })).context, "topic");
-  assert.equal(next(fixture(), { relatedHrefs: ["/plemena/vyber-plemena?from=related"] }).context, "topic");
+  assert.equal(next(fixture(), { relatedHrefs: ["/plemena?from=related"] }).context, "topic");
   assert.equal(next(fixture({ portalSubpage: "vyber-chovatela", blocks: [
     { id: "p", type: "psipedia-promo", promoKey: "chovatelske-stanice", variant: "auto" },
   ] })).context, "topic");
   assert.equal(next(fixture({ portalSubpage: "socializacia" }), { sidebarPromoKey: "treneri" }).context, "topic");
   assert.equal(next(fixture({ blocks: [
     { id: "r", type: "related", href: "/steniatka/pred-kupou-psa", title: "Téma" },
-  ] }), { relatedHrefs: ["/plemena/vyber-plemena"] }), null);
+  ] }), { relatedHrefs: ["/plemena"] }), null);
 });
 
 test("unmapped articles return to the existing topic, never a global map promo", () => {
@@ -54,7 +54,7 @@ test("unmapped articles return to the existing topic, never a global map promo",
     topicHref: "/tema/vycvik", topicLabel: "Výcvik",
   })?.href, "/tema/vycvik");
   assert.equal(next(fixture({ portalSubpage: "neznama-tema" }), { topicHref: "/steniatka/sample" }), null);
-  assert.equal(next(fixture(), { topicHref: "https://example.com", relatedHrefs: ["/plemena/vyber-plemena"] }), null);
+  assert.equal(next(fixture(), { topicHref: "https://example.com", relatedHrefs: ["/plemena"] }), null);
 });
 
 test("public article integration stays single-slot and does not restore related/latest sidebar", () => {
