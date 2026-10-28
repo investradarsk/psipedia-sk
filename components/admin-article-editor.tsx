@@ -236,6 +236,16 @@ export function AdminArticleEditor({
     resultRef.current?.focus({ preventScroll: true });
   });
   const [relatedBreedIds,setRelatedBreedIds]=useState(article?.relatedBreedIds??[]);
+  const [breedSearch, setBreedSearch] = useState("");
+  const [breedVisibleLimit, setBreedVisibleLimit] = useState(12);
+  const normalizeBreed = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const breedQuery = normalizeBreed(breedSearch);
+  const matchingBreeds = breedOptions.filter((item) =>
+    !breedQuery || normalizeBreed(`${item.name} ${item.fciNumber ?? ""}`).includes(breedQuery));
+  const selectedBreeds = matchingBreeds.filter((item) => relatedBreedIds.includes(item.id));
+  const unselectedBreeds = matchingBreeds.filter((item) => !relatedBreedIds.includes(item.id));
+  const visibleBreeds = [...selectedBreeds, ...unselectedBreeds.slice(0, breedVisibleLimit)];
+
   const [topicIds, setTopicIds] = useState(article?.topics.map((topic) => topic.id) ?? []);
 
   function setEditorDirty(value: boolean) {
@@ -475,7 +485,7 @@ export function AdminArticleEditor({
         previewTitle="Živý náhľad článku"
         preview={previewOpen ? (
           <aside className="admin-live-preview" aria-label="Živý náhľad článku">
-                    <div className="admin-preview-bar"><span><i /> Živý náhľad</span><small>takto bude článok vyzerať</small></div>
+                    <div className="admin-preview-bar"><span><i /> Živý náhľad</span><small>takto bude článok vyzerať</small><button type="button" className={editorStyles.previewClose} onClick={() => { document.querySelector<HTMLButtonElement>('[data-editor-navigation] button[aria-pressed="true"]')?.click(); setPreviewOpen(false); }}>Skryť náhľad</button></div>
                     <article className="admin-preview-paper">
                       <span className="eyebrow">{portalSectionLabel(portalSection)} · {portalSection === "novinky" ? getNewsCategory(newsCategory)?.shortLabel : category}</span>
                       <h1 className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť názov článku" onClick={() => navigatePreview("article-basics", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-basics", true); } }}>{title || "Názov tvojho článku"}</h1>
@@ -496,12 +506,18 @@ export function AdminArticleEditor({
         ) : undefined}
         actions={<EditorActionBar
           message={<span className="admin-editor-dirty-state">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
-          destructive={displayedStatus === "published" ? <AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton> : undefined}
-          secondary={<AdminActionButton variant="neutral" onClick={() => { document.querySelector<HTMLButtonElement>('[data-editor-navigation] button[aria-pressed="true"]')?.click(); setPreviewOpen((value) => !value); }}>{previewOpen ? "Skryť náhľad" : "Ukázať náhľad"}</AdminActionButton>}
+          destructive={displayedStatus === "published" ? <span className={editorStyles.desktopActions}><AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton></span> : undefined}
           primary={<>
-            <AdminActionButton variant="secondary" type="submit" form="article-canonical-editor-form" disabled={saving || uploading}>{saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť zmeny" : displayedStatus === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}</AdminActionButton>
-            <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt || displayedStatus === "published"} onClick={() => void save("scheduled")}>{saving ? "Ukladám…" : "Naplánovať publikovanie"}</AdminActionButton>
-            <AdminActionButton variant="primary" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť a aktualizovať" : `Publikovať ${portalSection === "novinky" ? "novinku" : "článok"}`}</AdminActionButton>
+            <span className={editorStyles.desktopActions}>
+              <AdminActionButton variant="secondary" type="submit" form="article-canonical-editor-form" disabled={saving || uploading}>{saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť zmeny" : displayedStatus === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}</AdminActionButton>
+              {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>Naplánovať publikovanie</AdminActionButton>}
+              <AdminActionButton variant="primary" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť a aktualizovať" : `Publikovať ${portalSection === "novinky" ? "novinku" : "článok"}`}</AdminActionButton>
+            </span>
+            <span className={editorStyles.mobileActions}>
+              <AdminActionButton variant="primary" type="submit" form="article-canonical-editor-form" disabled={saving || uploading}>
+                {saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť a aktualizovať" : displayedStatus === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}
+              </AdminActionButton>
+            </span>
           </>}
         />}
       >
@@ -522,6 +538,7 @@ export function AdminArticleEditor({
             </ul>
           </section>
         )}
+        {!previewOpen && <button type="button" className={editorStyles.previewRestore} onClick={() => setPreviewOpen(true)}>Ukázať náhľad článku</button>}
         <section id="article-basics" tabIndex={-1} data-admin-editor-section className="admin-form-card admin-form-card--intro">
           <div className="admin-field admin-field--title">
             <label htmlFor="article-title">Názov {portalSection === "novinky" ? "novinky" : "článku"}</label>
@@ -536,12 +553,41 @@ export function AdminArticleEditor({
 
         <section id="article-relations" tabIndex={-1} data-admin-editor-section className="admin-form-card">
           <div className="admin-card-heading"><div><span>03B</span><div><h2>Prepojenie na plemená</h2><p>Článok sa zobrazí v časti „Prehĺbte si vedomosti“ iba pri vybraných plemenách.</p></div></div></div>
-          <div className="admin-breed-article-links">{breedOptions.map((item)=><label className="admin-check" key={item.id}><input type="checkbox" checked={relatedBreedIds.includes(item.id)} onChange={()=>setRelatedBreedIds((current)=>current.includes(item.id)?current.filter((id)=>id!==item.id):[...current,item.id])}/><span>{item.name}{item.fciNumber?` · FCI ${item.fciNumber}`:""}</span></label>)}</div>
+          <div className={editorStyles.breedSearchBar}>
+            <label htmlFor="article-breed-search">Hľadať plemeno</label>
+            <input id="article-breed-search" type="search" value={breedSearch}
+              placeholder="Názov plemena alebo FCI číslo"
+              onChange={(event) => { setBreedSearch(event.target.value); setBreedVisibleLimit(12); }} />
+            <small>{relatedBreedIds.length} vybraných · {matchingBreeds.length} výsledkov</small>
+          </div>
+          <div className={editorStyles.breedList} aria-label="Prepojené plemená">
+            {visibleBreeds.map((item) => <label className={editorStyles.breedRow} key={item.id}>
+              <input type="checkbox" checked={relatedBreedIds.includes(item.id)}
+                onChange={() => { setRelatedBreedIds((current) => current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]); setEditorDirty(true); }} />
+              <span className={editorStyles.breedName}>{item.name}</span>
+              {item.fciNumber ? <small>FCI {item.fciNumber}</small> : null}
+            </label>)}
+            {!matchingBreeds.length && <p role="status">Žiadne plemená nezodpovedajú vyhľadávaniu.</p>}
+          </div>
+          {unselectedBreeds.length > breedVisibleLimit && <button type="button" className={editorStyles.breedMore}
+            onClick={() => setBreedVisibleLimit((value) => value + 24)}>
+            Zobraziť ďalšie plemená ({unselectedBreeds.length - breedVisibleLimit})
+          </button>}
         </section>
 
         <section id="article-publish" tabIndex={-1} data-admin-editor-section className="admin-form-card">
           <div className="admin-card-heading"><div><span>01</span><div><h2>Publikovanie</h2><p>Termín publikovania a redakčná aktualizácia.</p></div></div></div>
           <p data-article-current-status aria-live="polite">Aktuálny stav: {articleEffectiveStatusLabel(displayedStatus)}</p>
+          <div className={editorStyles.mobileExtraActions}>
+            <details>
+              <summary>Ďalšie akcie článku</summary>
+              <div className={editorStyles.mobileExtraButtons}>
+                {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>Naplánovať publikovanie</AdminActionButton>}
+                {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("published")}>Publikovať {portalSection === "novinky" ? "novinku" : "článok"}</AdminActionButton>}
+                {displayedStatus === "published" && <AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton>}
+              </div>
+            </details>
+          </div>
           <div className="admin-field-grid">
             <div className="admin-field">
               <label htmlFor="article-published-at">Dátum a čas publikovania</label>
