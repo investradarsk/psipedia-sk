@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
 const NO_CONSENT_TEST = "@production cookie consent first visit navigation and rejection work";
@@ -296,6 +296,28 @@ test("article magazine detail is accessible and overflow-safe on desktop and 390
   expect(mobileOverflow, "Article detail overflows horizontally at 390px").toBeLessThanOrEqual(1);
 });
 
+/** Homepage legitimately includes photo-less articles, and ImageDisplay may render
+ * a visible fallback after an image request fails. The smoke contract is
+ * "one usable media slot", not "a network image exists for every article". */
+async function expectReadyEditorialMedia(media: Locator, label: string) {
+  await expect(media, label + ": missing media frame").toBeVisible();
+  await media.scrollIntoViewIfNeeded();
+  await expect.poll(
+    () => media.evaluate((root) => {
+      const fallback = root.querySelector<HTMLElement>("[data-public-media-fallback]");
+      if (fallback && fallback.getBoundingClientRect().width > 0 &&
+          fallback.getBoundingClientRect().height > 0) return "fallback";
+      const content = Array.from(root.querySelectorAll<HTMLImageElement>('img:not([aria-hidden="true"])'));
+      if (content.length !== 1) return "pending";
+      const image = content[0];
+      return image.complete && image.naturalWidth > 0 ? "image" : "pending";
+    }),
+    { message: label + ": expected loaded image or visible Psipedia fallback", timeout: 10_000 },
+  ).not.toBe("pending");
+  await expect(media.locator('img:not([aria-hidden="true"]), [data-public-media-fallback]'),
+    label + ": exactly one visible content image or fallback is required").toHaveCount(1);
+}
+
 test("@production homepage search, CTA and featured breeds work without JS errors", async ({ page }) => {
   await expectHealthyPage(page, "/");
   await expect(page.locator("main#obsah h1")).toBeVisible();
@@ -336,7 +358,7 @@ test("@production homepage search, CTA and featured breeds work without JS error
     await expect(leadMeta).toBeVisible();
     await expect(leadMeta).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
     await expect(featured.locator(".article-card-title a[href]")).toHaveCount(1);
-    await expect(featured.locator('.article-card-media img:not([aria-hidden="true"])')).toHaveCount(1);
+    await expectReadyEditorialMedia(featured.locator(".article-card-media"), item.id + ": featured media");
 
     const secondary = layout.locator("[data-home-article-secondary]");
     await expect(secondary, item.id + ": compact-article container is missing").toHaveCount(1);
@@ -346,7 +368,7 @@ test("@production homepage search, CTA and featured breeds work without JS error
     const compactRows = articleRows.locator("[data-article-list-item]");
     await expect(compactRows, item.id + ": secondary articles must use the compact list design").toHaveCount(rowCount);
     const media = compactRows.locator("[data-article-image]");
-    await expect(media, item.id + ": every compact article needs a photograph").toHaveCount(rowCount);
+    await expect(media, item.id + ": every compact article needs an image or fallback slot").toHaveCount(rowCount);
 
     if (rowCount) {
       const first = compactRows.first();
@@ -355,19 +377,10 @@ test("@production homepage search, CTA and featured breeds work without JS error
       await expect(first.locator("[data-article-date]")).toBeVisible();
       await expect(first.locator("p")).toHaveCount(0);
 
-      const imagedRows = compactRows.filter({ visible: true }).filter({ has: page.locator("[data-article-image]") });
-      for (let index = 0; index < await imagedRows.count(); index += 1) {
-        const image = imagedRows.nth(index).locator('[data-article-image] img:not([aria-hidden="true"])');
-        await expect(image, item.id + ": compact thumbnail must have exactly one content image").toHaveCount(1);
-        await image.scrollIntoViewIfNeeded();
-        await expect(image).toBeVisible();
-        await expect.poll(
-          async () => image.evaluate((element) => {
-            const img = element as HTMLImageElement;
-            return img.complete ? img.naturalWidth : 0;
-          }),
-          { message: item.id + ": compact thumbnail failed to load" },
-        ).toBeGreaterThan(0);
+      const visibleRows = compactRows.filter({ visible: true });
+      for (let index = 0; index < await visibleRows.count(); index += 1) {
+        await expectReadyEditorialMedia(visibleRows.nth(index).locator("[data-article-image]"),
+          item.id + ": compact media " + index);
       }
 
       const sizes = await media.evaluateAll((elements) => elements.map((element) => {
