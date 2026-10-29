@@ -10,15 +10,20 @@ test("EVENTS-PUBLIC-UX-V2 retains one published-data calendar and crawlable list
   const route = source("app/[section]/page.tsx");
 
   assert.match(page, /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarEvents=\{calendarEvents\}/);
-  assert.match(calendar, /const monthMatches = calendarEvents;/);
+  // Month-scoped event data is refreshed without a full-page navigation.
+  assert.match(calendar, /eventsForCalendarDay\(data\.calendarEvents,selectedDay\)/);
+  assert.match(calendar, /new URL\("\/api\/public\/events\/calendar",window\.location\.origin\)/);
   assert.match(calendar, /data-events-month-calendar/);
   assert.match(calendar, /id="events-calendar"/);
   assert.match(source("components/event-listing-results.tsx"), /id="events-list"/);
-  assert.doesNotMatch(calendar, /EventBrowseMode|useState/);
+  assert.doesNotMatch(calendar, /EventBrowseMode/);
+  assert.match(calendar, /useState<View>/);
   assert.match(calendar, /data-events-legend/);
   assert.match(calendar, /href=\{eventHref\(event\)\}/);
   assert.match(route, /getPublicEventCalendar\(parseEventListing/);
-  assert.doesNotMatch(calendar, /"use client"|window\.history|useState/);
+  assert.match(calendar, /^"use client";/);
+  assert.match(calendar, /window\.history\.pushState/);
+  assert.match(calendar, /window\.addEventListener\("popstate",restore\)/);
 });
 
 test("month navigation drops an obsolete month filter, preserving search and region", () => {
@@ -46,7 +51,8 @@ test("mobile cards and details keep online events accurate and provide a listing
   assert.doesNotMatch(card, /Online podujatie/);
   assert.match(card, /Miesto nie je uvedené/);
   assert.doesNotMatch(card, /<strong>Organizátor<\/strong>/);
-  assert.match(detail, /event\.region !== "Online" && publicMap\?\.items\.length/);
+  assert.match(detail, /const hasMap = event\.region !== "Online" && Boolean\(publicMap\?\.items\.length\)/);
+  assert.match(detail, /hasMap && publicMap && <aside/);
   assert.match(detail, /<EventsBackLink fallbackHref=\{typeHref \?\? "\/podujatia"\}/);
   assert.match(page, /<RememberEventsListing key=/);
   assert.match(returnLink, /window\.sessionStorage\.setItem/);

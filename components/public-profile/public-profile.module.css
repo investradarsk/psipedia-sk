@@ -7,7 +7,7 @@
 .actions { composes: heroActions from "../detail-primitives/detail-primitives.module.css"; }
 .primaryAction { composes: primaryAction from "../detail-primitives/detail-primitives.module.css"; }
 .secondaryAction { composes: secondaryAction from "../detail-primitives/detail-primitives.module.css"; }
-.layout { composes: shell layout from "../detail-primitives/detail-primitives.module.css"; }
-.body { composes: body from "../detail-primitives/detail-primitives.module.css"; }
-.aside { composes: aside from "../detail-primitives/detail-primitives.module.css"; }
+.layout { min-width: 0; }
+.body { min-width: 0; }
+.aside { min-width: 0; }
 .location svg { display: inline-block; vertical-align: middle; }

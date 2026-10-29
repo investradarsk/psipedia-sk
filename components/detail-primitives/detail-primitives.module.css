@@ -387,3 +387,50 @@
   .page .heroActions { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .page .heroActions a { min-width: 0; padding: 11px 6px; font-size: clamp(.68rem, 2.8vw, .82rem); line-height: 1.25; }
 }
+
+
+/* GLOBAL-DETAIL-TEMPLATE: one real shared content layout across public routes.
+ * Cards, facts, forms and maps retain their semantic component content.
+ * Mobile uses the same gutters as DetailHero and moves the sidebar below. */
+.publicDetailShell {
+  display: grid;
+  width: min(var(--ps-content-max, 1180px), calc(100% - 48px));
+  min-width: 0;
+  margin: 16px auto 32px;
+  align-items: start;
+  gap: var(--ps-detail-layout-gap, 16px);
+}
+.publicDetailSplit {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.publicDetailSingle {
+  grid-template-columns: minmax(0, 1fr);
+}
+.publicDetailInline {
+  grid-template-columns: minmax(0, 1fr);
+}
+.publicDetailInline:has(> aside) {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.publicDetailMain, .publicDetailAside,
+.publicDetailInline > article, .publicDetailInline > aside,
+.publicDetailInline > div {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--ps-detail-layout-gap, 16px);
+}
+.publicDetailAside > *, .publicDetailInline > aside > * { min-width: 0; }
+.publicDetailAside :global(.public-location-map),
+.publicDetailInline > aside :global(.public-location-map) { max-width: 100%; }
+@media (max-width: 800px) {
+  .publicDetailShell {
+    width: min(100% - 24px, 520px);
+    grid-template-columns: minmax(0, 1fr);
+    margin-block: 12px 24px;
+    gap: 12px;
+  }
+  .publicDetailMain, .publicDetailAside,
+  .publicDetailInline > article, .publicDetailInline > aside,
+  .publicDetailInline > div { gap: 12px; }
+}

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { DetailHero } from "@/components/detail-primitives/detail-primitives";
+import { DetailHero, PublicDetailLayout } from "@/components/detail-primitives/detail-primitives";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
 import { PublicMediaFallback } from "@/components/public-visual-system";
@@ -76,12 +76,16 @@ export function PublicProfileHero({
 
 export function PublicProfileContentLayout({ children, aside }: { children: ReactNode; aside: ReactNode }) {
   return (
-    <section className={styles.layout} data-public-profile-layout>
-      <div className={styles.body} data-public-profile-body>{children}</div>
-      <aside className={styles.aside} aria-label="Kontaktné a praktické informácie" data-public-profile-sidebar>
-        {aside}
-      </aside>
-
-    </section>
+    <PublicDetailLayout
+      element="section"
+      className={styles.layout}
+      contentClassName={styles.body}
+      asideClassName={styles.aside}
+      asideLabel="Kontaktné a praktické informácie"
+      aside={<div data-public-profile-sidebar>{aside}</div>}
+      data-public-profile-layout
+    >
+      <div data-public-profile-body>{children}</div>
+    </PublicDetailLayout>
   );
 }

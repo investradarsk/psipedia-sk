@@ -23,6 +23,8 @@ import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
 import { runServicesV3CatalogAutoSweep } from "../lib/service-catalog-notion-auto-sweep.ts";
 import { notionSyncHealth, notionAgendaHealth } from "../lib/notion-sync-health.ts";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
+import { dispatchNotionPageChange } from "../lib/notion-webhook-dispatch";
+import { runNotionWebhookInboxSweep } from "../lib/notion-webhook-inbox";
 import {
   runNotionDirectoryBootstrapSweep,
   runNotionDirectorySyncSweep,
@@ -74,6 +76,10 @@ interface Env {
   NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID?: string;
   NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED?: string;
   NOTION_API_TOKEN?: string;
+  NOTION_WEBHOOK_SYNC_ENABLED?: string;
+  NOTION_WEBHOOK_INBOX_ENABLED?: string;
+  NOTION_WEBHOOK_VERIFICATION_TOKEN?: string;
+  NOTION_WEBHOOK_SUBSCRIPTION_ID?: string;
   SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;
   SERVICE_CATALOG_NOTION_MIRROR_READY?:string;
   SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED?:string;
@@ -337,6 +343,19 @@ const worker = {
         console.error(JSON.stringify({event:"facebook_image_publish_sweep",result:"failed"}));
       }
       return;
+    }
+    // Every five minutes, consume a bounded batch of durable signed Notion
+    // receipts. This is independent of FB images, hourly sweeps and Gemini.
+    if (controller.cron === ADMIN_PUSH_CRON && pushTaskEnabled(env.NOTION_WEBHOOK_SYNC_ENABLED) && pushTaskEnabled(env.NOTION_WEBHOOK_INBOX_ENABLED)) {
+      _ctx.waitUntil(runNotionWebhookInboxSweep({
+        database: env.DB,
+        process: event => dispatchNotionPageChange(event, env),
+      }).then(summary => {
+        console.info(JSON.stringify({ event: "notion_webhook_inbox_sweep", ...summary }));
+      }).catch(() => {
+        // No payloads, secret material or personal data in logs.
+        console.error(JSON.stringify({ event: "notion_webhook_inbox_sweep", result: "failed" }));
+      }));
     }
     // Existing five-minute Cron: standalone Notion image import + published result writeback.
     // Strict feature gate is OFF unless explicitly enabled; this is never a new Cron.
