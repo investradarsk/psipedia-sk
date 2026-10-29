@@ -68,3 +68,12 @@ test("mobile swipe history persists only in the same tab and never calls browser
   assert.match(header, /router\.push\(previous\)/);
   assert.doesNotMatch(header, /router\.back\(\)|window\.history\.back\(\)/);
 });
+
+
+test("article swipe remains gesture-only, with no extra back arrow or button", () => {
+  const article = read("components/article-detail.tsx");
+  const css = read("components/article-detail.module.css");
+  assert.doesNotMatch(article, /ArticleReturnLink|data-article-safe-back/);
+  assert.doesNotMatch(css, /\\.mobileReturnLink/);
+  assert.match(css, /touch-action:\\s*pan-y pinch-zoom/);
+});
