@@ -9,23 +9,23 @@
   margin: 22px auto 48px;
   min-width: 0;
 }
-.content, .aside { min-width: 0; display: grid; align-content: start; gap: 18px; }
+.content, .aside, .layout > :global(article), .layout > :global(aside) { min-width: 0; display: grid; align-content: start; gap: 18px; }
 .content > :global(article), .content > :global(div) {
   min-width: 0;
   display: grid;
   gap: 18px;
 }
-.content :global(section), .aside :global(section) {
+.content :global(section), .aside :global(section), .layout > :global(article) :global(section), .layout > :global(aside) :global(section) {
   min-width: 0;
   overflow-wrap: anywhere;
   border-radius: var(--ps-radius-card, 20px);
 }
-.content :global(section) :global(h2), .aside :global(section) :global(h2) {
+.content :global(section) :global(h2), .aside :global(section) :global(h2), .layout > :global(article) :global(h2), .layout > :global(aside) :global(h2) {
   overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {
   .layout { width: min(100% - 32px, 1120px); grid-template-columns: minmax(0,1fr); gap: 14px; margin: 16px auto 32px; }
-  .content, .aside, .content > :global(article), .content > :global(div) { gap: 14px; }
+  .content, .aside, .content > :global(article), .content > :global(div), .layout > :global(article), .layout > :global(aside) { gap: 14px; }
 }
 @media (max-width: 360px) {
   .layout { width: min(100% - 24px, 1120px); }
