@@ -66,7 +66,9 @@ export function HomePortalSearch({
         {shortcuts.length > 0 && (
           <div className="home-search-shortcuts" aria-label="Rýchle vstupy">
             <span>Rýchlo:</span>
-            {shortcuts.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
+            {shortcuts.map((item) => item.href === "/podujatia"
+              ? <a href={item.href} key={item.href} data-events-native-entry>{item.label}</a>
+              : <Link href={item.href} key={item.href}>{item.label}</Link>)}
           </div>
         )}
       </div>
