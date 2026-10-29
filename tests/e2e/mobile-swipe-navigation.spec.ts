@@ -230,3 +230,81 @@ test("site does not install a global touchend redirect or additional back button
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
 });
+
+
+async function emulateChromeOnIphone(page: Page) {
+  // Real-device Chrome iOS behaviour cannot be fully emulated by desktop
+  // Chromium; the test validates our app's iOS-specific link policy.
+  await page.addInitScript(() => {
+    const chromeIosUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0.6723.90 Mobile/15E148 Safari/604.1";
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true, get: () => chromeIosUA,
+    });
+    const key = "psipedia:e2e:document-loads";
+    sessionStorage.setItem(key, String(Number(sessionStorage.getItem(key) ?? "0") + 1));
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).toHaveAttribute("data-native-history-navigation", "chrome-ios");
+}
+
+async function loadCount(page: Page) {
+  return page.evaluate(() => Number(sessionStorage.getItem("psipedia:e2e:document-loads") ?? "0"));
+}
+
+test("sitewide Chrome iPhone: homepage → events → detail → back twice stays on Psipedia", async ({ page }) => {
+  await emulateChromeOnIphone(page);
+  const homepageCount = await loadCount(page);
+  await page.locator('[data-home-search] a[href="/podujatia"]').click();
+  await expect(page).toHaveURL(/\/podujatia$/);
+  expect(await loadCount(page)).toBeGreaterThan(homepageCount);
+
+  const entryCount = await loadCount(page);
+  const detail = page.locator('[data-event-card] a[href^="/podujatia/"]').first();
+  await expect(detail).toBeVisible();
+  await detail.click();
+  await expect(page).toHaveURL(/\/podujatia\/[^/?#]+$/);
+  expect(await loadCount(page)).toBeGreaterThan(entryCount);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/podujatia$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator("[data-home-search]")).toBeVisible();
+});
+
+test("sitewide Chrome iPhone: homepage → magazine → article → two browser backs", async ({ page }) => {
+  await emulateChromeOnIphone(page);
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/clanky"]').first().click();
+  await expect(page).toHaveURL(/\/clanky$/);
+  const beforeArticle = await loadCount(page);
+  const article = page.locator('.article-browser a[role="listitem"]').first();
+  await expect(article).toBeVisible();
+  await article.click();
+  await expect(page).not.toHaveURL(/\/clanky$/);
+  expect(await loadCount(page)).toBeGreaterThan(beforeArticle);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/clanky$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("sitewide Chrome iPhone: calendar month changes stay client-side", async ({ page }) => {
+  await emulateChromeOnIphone(page);
+  await page.locator('[data-home-search] a[href="/podujatia"]').click();
+  await expect(page).toHaveURL(/\/podujatia$/);
+  const loads = await loadCount(page);
+  const month = page.getByRole("link", { name: "Nasledujúci mesiac" });
+  await expect(month).toBeVisible();
+  await month.click();
+  await expect(page.locator("[data-public-calendar]")).toBeVisible();
+  expect(await loadCount(page)).toBe(loads);
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
+});
+
+test("other browsers retain normal client-side navigation policy", async ({ page }) => {
+  await expect(page.locator("html")).not.toHaveAttribute("data-native-history-navigation", "chrome-ios");
+  await page.locator('[data-home-search] a[href="/podujatia"]').click();
+  await expect(page).toHaveURL(/\/podujatia$/);
+});
