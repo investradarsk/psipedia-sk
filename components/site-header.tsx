@@ -516,7 +516,9 @@ export function SiteHeader({
                   {item.children.map((child) => <Link href={child.href} key={child.id} data-active={isPathActive(pathname, child.href) ? "true" : undefined} aria-current={pathname === child.href ? "page" : undefined} onClick={() => setOpenDesktopMenu(null)}>{child.label}</Link>)}
                 </div>
               </div>
-            ) : <Link href={item.href} className={item.className} title={item.title} key={item.id} data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined}>{item.label}</Link>)}
+            ) : item.href === "/podujatia"
+              ? <a href={item.href} className={item.className} title={item.title} key={item.id} data-events-native-entry data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined}>{item.label}</a>
+              : <Link href={item.href} className={item.className} title={item.title} key={item.id} data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined}>{item.label}</Link>)}
           </nav>
         </div>
 
@@ -536,7 +538,9 @@ export function SiteHeader({
             {nav.map((item) => (
               <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>
                 <div className="mobile-nav-parent">
-                  <Link href={item.href} className={item.className} title={item.title} data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined} onClick={() => setMenuOpen(false)}>{item.label}</Link>
+                  {item.href === "/podujatia"
+                    ? <a href={item.href} className={item.className} title={item.title} data-events-native-entry data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined} onClick={() => setMenuOpen(false)}>{item.label}</a>
+                    : <Link href={item.href} className={item.className} title={item.title} data-active={isPathActive(pathname, item.href) ? "true" : undefined} aria-current={pathname === item.href ? "page" : undefined} onClick={() => setMenuOpen(false)}>{item.label}</Link>}
                   {item.children.length > 0 && (
                     <button
                       type="button"
