@@ -659,6 +659,18 @@ export const serviceCatalog:readonly ServiceDefinition[]=[
     "meaning": "Nie laserterapia."
   },
   {
+    "id": "svc.physio.magnetotherapy",
+    "label": "Magnetoterapia",
+    "categories": [
+      "fyzioterapia"
+    ],
+    "group": "Fyzioterapia",
+    "aliases": [
+      "Magnetická terapia"
+    ],
+    "meaning": "Výslovne poskytovaná magnetoterapia; nie všeobecná elektroterapia ani laserterapia."
+  },
+  {
     "id": "svc.physio.lasertherapy",
     "label": "Laserterapia",
     "categories": [
@@ -875,6 +887,18 @@ export const serviceCatalog:readonly ServiceDefinition[]=[
       "Laparoskopia"
     ],
     "meaning": "Všeobecná chirurgia neimplikuje laparoskopiu."
+  },
+  {
+    "id": "svc.vet.inhalation_anesthesia",
+    "label": "Inhalačná anestézia",
+    "categories": [
+      "veterinari"
+    ],
+    "group": "Anestézia",
+    "aliases": [
+      "Inhalačná anestézia zvierat"
+    ],
+    "meaning": "Konkrétne poskytovaná inhalačná anestézia; nesmie sa odvodiť z chirurgie alebo všeobecnej anestézie."
   },
   {
     "id": "svc.training.recall",
