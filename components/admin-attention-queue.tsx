@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminAttentionActions } from "./admin-attention-actions";
 import {
   adminAttentionPriorities,
   adminAttentionPriorityLabels,
@@ -189,6 +190,7 @@ export function AdminAttentionQueue({
                 {item.metadata?.map((entry) => <div className={styles.meta} key={`${entry.label}:${entry.value}`}><span>{entry.label}: {entry.value}</span></div>)}
               </div>
               <Link className={styles.open} href={item.targetHref}>{item.actionLabel ?? "Otvoriť"}</Link>
+              {isAdminAttentionActive(item) && <AdminAttentionActions item={item} />}
             </article>
           ))}
         </section>
