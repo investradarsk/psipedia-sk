@@ -109,7 +109,9 @@ export async function DirectoryPage({
                 buttonLabel="Hľadať"
                 allowEmpty
                 hidden={directoryQueryFields(filters, ["q", "page"])}
-                shortcuts={categoryItems.slice(0, 5).map((item) => ({ href: item.href, label: item.title }))}
+                // Category navigation is directly below the hero. Do not show
+                // a second row of the same destinations inside the search.
+                shortcuts={[]}
                 searchScope="services"
               />
             }
