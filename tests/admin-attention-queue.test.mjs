@@ -361,8 +361,8 @@ test("operations page uses server pagination while shared bell uses the exact ty
   assert.match(page, /cursor:/);
   assert.match(page, /attentionSummaryPromise=\{attentionSummaryPromise\}/);
   assert.match(page, /attentionSummaryPromise = loadExactAdminAttentionSummary\(\)/);
-  assert.match(page, /page\.availability === "PARTIAL"/);
-  assert.match(page, /page\.availability === "UNAVAILABLE"/);
+  assert.match(page, /attention\.availability === "PARTIAL"/);
+  assert.match(page, /attention\.availability === "UNAVAILABLE"/);
   assert.match(shell, /loadExactAdminAttentionSummary/);
   assert.match(shell, /niektoré zdroje nie sú dostupné/);
   assert.match(shell, /href="\/admin\/operations"/);
