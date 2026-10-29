@@ -369,3 +369,17 @@ test("article fallback stays keyboard accessible and hidden on desktop", async (
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(back).toBeHidden();
 });
+
+
+test("magazine article return link goes exactly one page back to /clanky", async ({ page }) => {
+  await page.goto("/clanky");
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  const article = page.locator('.article-browser a[role="listitem"]').first();
+  await expect(article).toBeVisible();
+  await article.click();
+  const back = page.locator("[data-article-safe-back]");
+  await expect(back).toBeVisible();
+  await expect(back).toHaveAttribute("href", "/clanky");
+  await back.click();
+  await expect(page).toHaveURL(/\/clanky$/);
+});
