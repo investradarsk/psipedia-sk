@@ -8,8 +8,19 @@ function hasContent(value: ReactNode) {
   return value !== null && value !== undefined && value !== false && (typeof value !== "string" || Boolean(value.trim()));
 }
 
-export function DetailSection({ eyebrow, title, children }: { eyebrow?: string; title: string; children: ReactNode }) {
-  return <section className={styles.section}>{eyebrow && <span className={styles.eyebrow}>{eyebrow}</span>}<h2>{title}</h2>{children}</section>;
+export function DetailSection({
+  eyebrow, title, children, compactHeading = false,
+}: {
+  eyebrow?: string; title: string; children: ReactNode; compactHeading?: boolean;
+}) {
+  return (
+    <section className={styles.section}>
+      {compactHeading
+        ? <h2 className={styles.compactHeading}>{title}</h2>
+        : <>{eyebrow && <span className={styles.eyebrow}>{eyebrow}</span>}<h2>{title}</h2></>}
+      {children}
+    </section>
+  );
 }
 
 export function DetailParagraphs({ value }: { value: string | null | undefined }) {

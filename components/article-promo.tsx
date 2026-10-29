@@ -25,7 +25,7 @@ export function ArticlePromo({
 
   return (
     <aside
-      className={`${styles.card} ${compact ? styles.compact : ""}`}
+      className={`ps-public-banner-frame ${styles.card} ${compact ? styles.compact : ""}`}
       aria-label={`Promo Psipedie: ${copy.headline}`}
       data-promo-key={promoKey}
       data-promo-variant={variantKey}

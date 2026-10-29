@@ -311,12 +311,9 @@ export async function PortalHub({
           }
           eyebrow={section.eyebrow}
           title={section.label}
-          intro={
-            <>
-              <p>{section.description}</p>
-              <p>{section.intro}</p>
-            </>
-          }
+          // A single concise hero introduction; the section's full editorial
+          // copy stays available in its underlying content/SEO model.
+          intro={section.description}
           visual={heroVisual}
           portalSearchSlot={
             isReviews ? (

@@ -2016,3 +2016,67 @@
   }
   .categoryMobileSelect:focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
 }
+
+/* Shared listing-row rhythm: same mobile information hierarchy as article
+   previews without losing service-specific location, badges or summaries. */
+@media (max-width: 620px) {
+  .directoryColumns .card { border-radius: 15px; box-shadow: none; }
+  .directoryColumns .cardInner { padding: 13px 11px; }
+  .directoryColumns .cardWithImage { grid-template-columns: 76px minmax(0, 1fr); gap: 11px; }
+  .directoryColumns .cardImage { width: 76px; height: 76px; }
+  .directoryColumns .cardCopy { min-width: 0; gap: 4px; }
+  .directoryColumns .cardTitle { font-size: clamp(.98rem, 4.2vw, 1.17rem); line-height: 1.23; }
+  .directoryColumns .cardLocation { font-size: .78rem; line-height: 1.4; }
+  .directoryColumns .cardMeta { font-size: .74rem; line-height: 1.4; }
+}
+@media (max-width: 360px) {
+  .directoryColumns .cardWithImage { grid-template-columns: 68px minmax(0,1fr); gap: 8px; }
+  .directoryColumns .cardImage { width: 68px; height: 68px; }
+}
+
+/* Unfiltered directory overview follows the three editorial landing sections:
+   category name → five real profiles → the complete category. */
+.categoryPreviewResults { display: grid; min-width: 0; gap: 4px; }
+.categoryPreviewSection { min-width: 0; padding: 8px 0 22px; border-bottom: 1px solid var(--ps-border-soft); }
+.categoryPreviewSection:first-child { padding-top: 0; }
+.categoryPreviewTitle {
+  margin: 0 0 11px;
+  color: var(--forest-dark);
+  font: 600 clamp(1.45rem, 2.5vw, 1.95rem)/1.25 Georgia, "Times New Roman", serif;
+  overflow-wrap: anywhere;
+}
+.categoryPreviewTitle a { color: inherit; text-decoration: none; }
+.categoryPreviewTitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.categoryPreviewTitle a:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
+.categoryPreviewCards { display: grid; min-width: 0; gap: 10px; }
+.categoryPreviewCards .card { min-width: 0; }
+.categoryPreviewMore {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 9px;
+  margin-top: 9px;
+  color: var(--forest-dark);
+  font-size: .83rem;
+  font-weight: 800;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.categoryPreviewMore:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
+.categoryPreviewEmpty { margin: 0; color: var(--muted); font-size: .81rem; line-height: 1.5; }
+@media (max-width: 620px) {
+  .categoryPreviewSection { padding-block: 14px 18px; }
+  .categoryPreviewTitle { font-size: 1.43rem; margin-bottom: 8px; }
+  .categoryPreviewCards { gap: 8px; }
+  .categoryPreviewCards .card { box-shadow: none; border-radius: 15px; }
+  .categoryPreviewCards .cardInner { padding: 13px 11px; }
+  .categoryPreviewCards .cardWithImage { grid-template-columns: 76px minmax(0,1fr); gap: 11px; }
+  .categoryPreviewCards .cardImage { width: 76px; height: 76px; }
+  .categoryPreviewCards .cardTitle { font-size: clamp(.98rem, 4.2vw, 1.17rem); line-height: 1.23; }
+  .categoryPreviewCards .cardLocation { font-size: .78rem; }
+  .categoryPreviewCards .cardMeta { font-size: .74rem; }
+}
+@media (max-width: 360px) {
+  .categoryPreviewCards .cardWithImage { grid-template-columns: 68px minmax(0,1fr); gap: 8px; }
+  .categoryPreviewCards .cardImage { width: 68px; height: 68px; }
+}

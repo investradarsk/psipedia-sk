@@ -15,7 +15,7 @@ export type PublicHelpPhotoBannerData = {
 
 export function PublicHelpPhotoBanner({ promo }: { promo: PublicHelpPhotoBannerData }) {
   return (
-    <aside className={[styles.overviewPromo, styles[`overviewPromo_${promo.tone}`]].join(" ")}>
+    <aside className={["ps-public-banner-frame", styles.overviewPromo, styles[`overviewPromo_${promo.tone}`]].join(" ")}>
       <div className={styles.overviewPromoShade}>
         <PageContainer className={styles.overviewPromoCopy}>
           <span>{promo.eyebrow}</span>
@@ -33,7 +33,7 @@ export function PublicHelpPhotoBanner({ promo }: { promo: PublicHelpPhotoBannerD
 
 export function PublicHelpReportBanner() {
   return (
-          <aside className={styles.reportBanner} aria-label="Rýchla pomoc pri nájdenom psovi">
+          <aside className={`ps-public-banner-frame ${styles.reportBanner}`} aria-label="Rýchla pomoc pri nájdenom psovi">
             <div className={styles.reportCopy}>
               <span className={styles.reportIcon}><AlertCircleIcon size={22} /></span>
               <div>
@@ -51,7 +51,7 @@ export function PublicHelpReportBanner() {
 
 export function PublicHelpClosingBanner() {
   return (
-        <section className={styles.closingCta} aria-labelledby="help-closing-cta-heading">
+        <section className={`ps-public-banner-frame ${styles.closingCta}`} aria-labelledby="help-closing-cta-heading">
           <div className={styles.closingCtaOverlay}>
             <PageContainer className={styles.closingCtaInner}>
               <span className={styles.closingEyebrow}>Každá pomoc má zmysel</span>

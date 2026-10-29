@@ -10,12 +10,17 @@ const modalForm = '[data-directory-filter-form][data-directory-modal="true"]';
 const filterPanel = '[data-directory-filter-disclosure]';
 const categories = '[data-directory-category-navigation]';
 const results = '[data-directory-results]';
+const overview = '[data-directory-category-previews]';
 
 async function openDirectory(page: Page, path: string) {
   const response = await page.goto(path, { waitUntil: "domcontentloaded" });
   expect(response?.status(), path).toBe(200);
   await expect(page.locator(searchForm)).toHaveCount(1);
-  await expect(page.locator(results)).toBeVisible();
+  // The clean root is the approved category → up to five profiles preview.
+  // Category pages and filtered root URLs still render the full results list.
+  const isCleanRoot = path === "/adresar";
+  await expect(page.locator(isCleanRoot ? overview : results)).toBeVisible();
+  await expect(page.locator(isCleanRoot ? results : overview)).toHaveCount(0);
 }
 
 async function expectNoHorizontalOverflow(page: Page, label: string) {
@@ -106,9 +111,16 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
       await expect(nav).toHaveAttribute("data-public-subcategory-mode","compact");
       await expect(nav).toBeVisible();
     }
-    await expect(page.locator("#directory-results-heading")).toBeVisible();
-    await expect(page.locator("[data-directory-category-overview]")).toHaveCount(0);
-    expect(await page.locator(results + " [data-directory-card]").count()).toBeGreaterThan(0);
+    const previews = page.locator(overview);
+    await expect(previews.locator("section[aria-labelledby^='preview-']")).toHaveCount(10);
+    await expect(page.locator(results)).toHaveCount(0);
+    const previewSections = previews.locator("section[aria-labelledby^='preview-']");
+    for (const section of await previewSections.all()) {
+      await expect(section.locator("h2 a")).toHaveCount(1);
+      await expect(section.getByRole("link", { name: /Zobraziť všetky/ })).toHaveCount(1);
+      expect(await section.locator("[data-directory-card]").count()).toBeLessThanOrEqual(5);
+    }
+    expect(await previews.locator("[data-directory-card]").count()).toBeGreaterThan(0);
     const provider = page.locator("[data-directory-provider-cta]");
     await expect(provider.getByRole("link", {name:/Pridať alebo upraviť profil/})).toHaveAttribute("href","/o-nas#kontakt");
     const jsonLd = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("\n");
@@ -238,11 +250,12 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
   test("hero, search, categories, filters/results/sidebar are in stable document order",async({page})=>{
     for(const path of ["/adresar","/adresar/treneri"]){
       await openDirectory(page,path);
-      const order=await page.evaluate(()=>{
-        const select=["[data-unified-section-hero]",'form[data-public-search-form="services"]',"[data-directory-category-navigation]","[data-directory-filter-disclosure]","[data-directory-results]","[data-directory-map-cta]"];
+      const listingSelector=path==="/adresar" ? overview : results;
+      const order=await page.evaluate((listing)=>{
+        const select=["[data-unified-section-hero]",'form[data-public-search-form="services"]',"[data-directory-category-navigation]","[data-directory-filter-disclosure]",listing,"[data-directory-map-cta]"];
         const nodes=select.map(x=>document.querySelector(x));
         return nodes.every((node,i)=>!!node&&(!i||!!(nodes[i-1]!.compareDocumentPosition(node)&Node.DOCUMENT_POSITION_FOLLOWING)));
-      });
+      },listingSelector);
       expect(order,path+" content order").toBe(true);
       await expect(page.locator("[data-directory-map-cta] a")).toHaveAttribute("href",/\/mapa\?category=services/);
       await expect(page.locator("[data-directory-provider-cta] a")).toHaveAttribute("href","/o-nas#kontakt");

@@ -250,3 +250,18 @@
   .actions a { flex: 1 1 auto; width: auto; min-height: 44px; padding: 9px 11px; font-size: .79rem; }
   .attribution { padding: 0 12px 10px; }
 }
+
+/* Shared detail-map option: one rust-red heading, not two duplicated titles. */
+.heading h2.compactHeading {
+  margin: 0;
+  color: var(--brand-accent-strong, #b94732);
+  font-family: inherit;
+  font-size: .78rem;
+  font-weight: 850;
+  letter-spacing: .085em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+@media (max-width: 620px) {
+  .heading h2.compactHeading { font-size: .78rem; }
+}

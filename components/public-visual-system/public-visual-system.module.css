@@ -392,7 +392,8 @@
 }
 
 .articleListTopic {
-  color: var(--forest);
+  /* One category accent on homepage, archive and all editorial portals. */
+  color: var(--brand-accent-strong, #b94732);
   font-weight: 800;
 }
 

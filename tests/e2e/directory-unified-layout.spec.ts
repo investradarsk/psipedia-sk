@@ -49,7 +49,20 @@ test("SERVICES-V2 desktop/mobile matrix uses one search, accessible categories a
         await expect(page.locator("[data-directory-category-navigation] [data-public-subcategory-item]")).toHaveCount(11);
         await expect(page.locator("[data-directory-columns]")).toBeVisible();
         expect(await page.locator('form[data-directory-filter-form]').count()).toBeGreaterThanOrEqual(1);
-        await expect(page.locator("[data-directory-results]")).toBeVisible();
+        // The approved clean root is a category overview (five per category).
+        // Category routes keep the original search results and sidebar.
+        if (path === "/adresar") {
+          const previews = page.locator("[data-directory-category-previews]");
+          await expect(previews).toBeVisible();
+          await expect(previews.locator("section[aria-labelledby^='preview-']")).toHaveCount(10);
+          await expect(page.locator("[data-directory-results]")).toHaveCount(0);
+          for (const section of await previews.locator("section[aria-labelledby^='preview-']").all()) {
+            expect(await section.locator("[data-directory-card]").count()).toBeLessThanOrEqual(5);
+          }
+        } else {
+          await expect(page.locator("[data-directory-results]")).toBeVisible();
+          await expect(page.locator("[data-directory-category-previews]")).toHaveCount(0);
+        }
         await expect(page.locator("[data-directory-map-cta] a")).toHaveAttribute("href", /\/mapa\?category=services/);
         await expect(page.locator("[data-directory-provider-cta] a")).toHaveAttribute("href", "/o-nas#kontakt");
         const metrics = await page.evaluate(() => ({
@@ -111,7 +124,8 @@ test("SERVICES-V2 category more keyboard interaction and 200% text do not clip",
   await expect(more).toHaveAttribute("aria-expanded","false");
   await expect(more).toBeFocused();
   await page.evaluate(() => {document.documentElement.style.fontSize="200%";});
-  await expect(page.locator("[data-directory-results] h2").first()).toBeVisible();
+  // At 200% text zoom, the root's real category headings must remain visible.
+  await expect(page.locator("[data-directory-category-previews] h2").first()).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1181);
   const results = await new AxeBuilder({page}).include("[data-directory-columns]").analyze();
   expect(results.violations.filter(v=>v.impact==="critical"||v.impact==="serious")).toEqual([]);

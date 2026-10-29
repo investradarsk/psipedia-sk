@@ -123,9 +123,13 @@ export function SiteHeader({
       start = null;
       if (!origin || event.changedTouches.length !== 1) return;
       const touch = event.changedTouches[0];
-      const left = origin.x - touch.clientX;
+      const deltaX = touch.clientX - origin.x;
+      const distance = Math.abs(deltaX);
       const vertical = Math.abs(touch.clientY - origin.y);
-      if (left < 85 || vertical > Math.min(65, left * 0.38) || Date.now() - origin.time > 1100) return;
+      // Keep the previously supported leftward in-site swipe, and support the
+      // natural rightward gesture from the left side. Never capture scrolling.
+      const isBackGesture = deltaX < -85 || (deltaX > 85 && origin.x <= 100);
+      if (!isBackGesture || vertical > Math.min(65, distance * 0.38) || Date.now() - origin.time > 1100) return;
       const current = window.location.pathname + window.location.search;
       const trail = internalTrailRef.current;
       const previous = trail.length > 1 ? trail[trail.length - 2] : null;
@@ -464,14 +468,6 @@ export function SiteHeader({
     setSearchOpen(true);
   }
 
-  function goBackWithinSite() {
-    const current = window.location.pathname + window.location.search;
-    const trail = internalTrailRef.current;
-    const previous = trail.length > 1 ? trail[trail.length - 2] : null;
-    if (previous && previous !== current) router.back();
-    else router.push("/");
-  }
-
   function menuButton(className: string) {
     return (
       <button
@@ -511,19 +507,6 @@ export function SiteHeader({
         <div className={`header-inner shell public-shell ${styles.masthead}`} data-header-masthead>
           <div className={styles.mobileNavControls}>
             {menuButton(styles.mobileLeftTrigger)}
-            {pathname !== "/" && (
-              <button
-                type="button"
-                className={styles.backNavButton}
-                onClick={goBackWithinSite}
-                aria-label="Späť na predchádzajúcu stránku Psipedie"
-                title="Späť v Psipedii"
-              >
-                <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M19 12H5m7-7-7 7 7 7" />
-                </svg>
-              </button>
-            )}
           </div>
           <div className={styles.brandCluster}>
             <Link href="/" className="brand" aria-label="Psipedia.sk – domov" data-header-brand>

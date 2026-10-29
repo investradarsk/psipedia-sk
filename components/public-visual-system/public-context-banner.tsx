@@ -45,7 +45,7 @@ export function PublicContextBanner({
 
   return (
     <aside
-      className={cx(styles.banner, styles[`tone_${tone}`], hasImage && styles.hasImage, inline && styles.inline, className)}
+      className={cx("ps-public-banner-frame", styles.banner, styles[`tone_${tone}`], hasImage && styles.hasImage, inline && styles.inline, className)}
       data-public-context-banner
       data-public-context-banner-tone={tone}
       data-public-context-banner-layout={inline ? "inline" : "stacked"}

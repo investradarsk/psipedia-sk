@@ -122,7 +122,7 @@ test("central article CTA preserves sponsorship, target, rel and screen-reader d
     sponsored: true,
     newTab: true,
   });
-  assert.match(html, /class="article-block-cta is-sponsored"/);
+  assert.match(html, /class="[^"]*\bps-public-banner-frame\b[^"]*\barticle-block-cta\b[^"]*\bis-sponsored\b"/);
   assert.match(html, /Partnerský odkaz/);
   assert.match(html, /target="_blank"/);
   assert.match(html, /rel="sponsored nofollow noreferrer"/);

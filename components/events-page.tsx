@@ -84,6 +84,9 @@ export async function EventsPage({
     },
   };
   const today = bratislavaDateKey();
+  // A new server-side listing/filter response must reset client calendar state;
+  // calendar month/day/type interactions remain in-place while this key is stable.
+  const listingIdentity = [initialCalendarMonth, initialDay, initialType, initialTime, initialQuery, initialRegion, initialMonth, filters?.from, filters?.to, filters?.city, filters?.sort, listing?.page].join("|");
   const visibleMonth = resolveCalendarMonth(initialCalendarMonth, initialMonth, today);
   const selectedDay = calendarMonthDays(visibleMonth).some((day) => day.inMonth && day.date === initialDay) ? initialDay : "";
   const searchHidden = [
@@ -105,7 +108,7 @@ export async function EventsPage({
 
   return (
     <main id="obsah">
-      <RememberEventsListing key={[initialCalendarMonth, initialDay, initialType, initialTime, initialQuery, initialRegion, initialMonth, filters?.from, filters?.to, filters?.city, filters?.sort, listing?.page].join("|")} />
+      <RememberEventsListing key={listingIdentity} />
       <PublicFoundation className={styles.foundation}>
         <div className={homeStyles.homeV2}>
           <UnifiedSectionHeroShell className={isMainListing ? styles.homeHeroShell : styles.heroShell}>
@@ -143,7 +146,7 @@ export async function EventsPage({
 
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">
-            <EventCalendar filters={filters} listing={listing} events={events} calendarEvents={calendarEvents} calendarSummaries={calendarSummaries} initialCalendarMonth={initialCalendarMonth} initialDay={initialDay} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} initialRegion={initialRegion} initialMonth={initialMonth}
+            <EventCalendar key={listingIdentity} filters={filters} listing={listing} events={events} calendarEvents={calendarEvents} calendarSummaries={calendarSummaries} initialCalendarMonth={initialCalendarMonth} initialDay={initialDay} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} initialRegion={initialRegion} initialMonth={initialMonth}
               afterCalendar={
                 <section className={styles.calendarOrganizer} aria-label="Pre organizátorov">
                   <PublicContextBanner

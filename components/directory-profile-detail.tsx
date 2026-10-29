@@ -4,6 +4,8 @@ import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
+import { DirectoryServicesList } from "@/components/directory-services-list";
+import { DirectoryOpeningHours } from "@/components/directory-opening-hours";
 import { ProfileReviewSection } from "@/components/profile-review-section";
 import { RelatedBreedList } from "@/components/related-entity-list";
 import { RelatedEntityLinks } from "@/components/related-entity-links";
@@ -147,23 +149,35 @@ export function DirectoryProfileDetail({
       <div className={styles.layout}>
       <article className={styles.content} data-public-profile-body>
         {hasExtendedDescription ? (
-          <DetailSection eyebrow="Predstavenie" title="O službe">
+          <DetailSection compactHeading eyebrow="Predstavenie" title="O službe">
             <DetailParagraphs value={presentation.description} />
           </DetailSection>
         ) : null}
 
 
 
+        {practicalRows.length ? (
+          <section className={`${styles.practical} ${styles.contactPosition}`} aria-labelledby="directory-profile-contact" data-public-profile-sidebar>
+            <h2 className={styles.singleHeading} id="directory-profile-contact">Adresa a kontakt</h2>
+            <dl className={styles.practicalGrid}>
+              {practicalRows.map((row) => (
+                <div className={styles.practicalItem} key={row.label}>
+                  <dt>{row.label}</dt><dd>{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+            {updatedAt ? <p className={styles.updatedAt}><time dateTime={presentation.updatedAt}>{updatedAt}</time></p> : null}
+          </section>
+        ) : null}
+
         {presentation.services.length > 0 ? (
-          <DetailSection eyebrow="Ponuka" title="Poskytované služby">
-            <ul className={styles.servicesList}>
-              {presentation.services.map((service) => <li key={service}>{service}</li>)}
-            </ul>
+          <DetailSection compactHeading eyebrow="Ponuka" title="Poskytované služby">
+            <DirectoryServicesList services={presentation.services} />
           </DetailSection>
         ) : null}
 
         {hasExpertise ? (
-          <DetailSection eyebrow="Zameranie" title={presentation.health?.title ?? "Odborné informácie"}>
+          <DetailSection compactHeading eyebrow="Zameranie" title={presentation.health?.title ?? "Odborné informácie"}>
             {presentation.facts.length > 0 ? <DetailOptionGrid options={presentation.facts} /> : null}
             {visibleQualifications.length > 0 ? (
               <div className={styles.qualifications}>
@@ -184,44 +198,11 @@ export function DirectoryProfileDetail({
 
 
 
-        <ProfileReviewSection
-          data={reviews}
-          baseHref={"/adresar/" + presentation.category + "/" + presentation.slug}
-          readError={reviewReadError}
-        />
+        {presentation.openingHours ? <DirectoryOpeningHours value={presentation.openingHours} /> : null}
 
-        {locationDiscoveryLinks.length > 0 ? (
-          <DetailSection eyebrow="Ďalšie v okolí" title="Ďalšie profily v lokalite">
-            <RelatedEntityLinks links={locationDiscoveryLinks} label="Ďalšie profily v lokalite" />
-          </DetailSection>
-        ) : null}
-
-        {relatedBreeds.length > 0 ? (
-          <DetailSection eyebrow="Súvisiace plemená" title="Plemená prepojené s týmto profilom">
-            <RelatedBreedList breeds={relatedBreeds} label="Plemená prepojené s týmto profilom" />
-          </DetailSection>
-        ) : null}
-      </article>
-      <aside className={styles.aside} aria-label="Kontaktné a praktické informácie">
-        {practicalRows.length ? (
-          <section className={styles.practical} aria-labelledby="directory-profile-contact" data-public-profile-sidebar>
-            <div className={styles.sectionHeader}>
-              <span className={styles.eyebrow}>Praktické informácie</span>
-              <h2 id="directory-profile-contact">Adresa a kontakt</h2>
-            </div>
-            <dl className={styles.practicalGrid}>
-              {practicalRows.map((row) => (
-                <div className={styles.practicalItem} key={row.label}>
-                  <dt>{row.label}</dt><dd>{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-            {updatedAt ? <p className={styles.updatedAt}><time dateTime={presentation.updatedAt}>{updatedAt}</time></p> : null}
-          </section>
-        ) : null}
-        {presentation.openingHours ? <section className={styles.practical}><h2>Ordinačné / otváracie hodiny</h2><p className={styles.hours}>{presentation.openingHours}</p></section> : null}
         {publicMap?.items.length ? (
-          <PublicLocationMap
+          <div className={styles.mapPosition}><PublicLocationMap
+            compactHeading
             title="Kde nás nájdete"
             items={publicMap.items}
             attribution={publicMap.attribution}
@@ -229,9 +210,29 @@ export function DirectoryProfileDetail({
             googleMapId={publicMap.googleMapId}
             rendererEnabled={publicMap.rendererEnabled}
             testRendererEnvironment={publicMap.testRendererEnvironment}
-          />
+          /></div>
         ) : null}
-      </aside>
+
+        <ProfileReviewSection
+          compactHeading
+          data={reviews}
+          baseHref={"/adresar/" + presentation.category + "/" + presentation.slug}
+          readError={reviewReadError}
+        />
+
+        {locationDiscoveryLinks.length > 0 ? (
+          <DetailSection compactHeading eyebrow="Ďalšie v okolí" title="Ďalšie profily v lokalite">
+            <RelatedEntityLinks links={locationDiscoveryLinks} label="Ďalšie profily v lokalite" />
+          </DetailSection>
+        ) : null}
+
+        {relatedBreeds.length > 0 ? (
+          <DetailSection compactHeading eyebrow="Súvisiace plemená" title="Plemená prepojené s týmto profilom">
+            <RelatedBreedList breeds={relatedBreeds} label="Plemená prepojené s týmto profilom" />
+          </DetailSection>
+        ) : null}
+      </article>
+
       </div>
 
       <section className={styles.contactSection} id="kontakt">

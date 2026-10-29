@@ -77,10 +77,17 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(target);
-    const calendar = await page.locator("#events-calendar").boundingBox();
-    const legend = await page.locator("[data-events-legend]").boundingBox();
-    if (width >= 768) expect(legend!.x).toBeGreaterThanOrEqual(calendar!.x + calendar!.width);
-    else expect(legend!.y).toBeGreaterThanOrEqual(calendar!.y + calendar!.height);
+    // Avoid measuring before hydration/fonts settle, and read both boxes in the
+    // same layout snapshot so a concurrent reflow cannot create false overlap.
+    await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+    const { calendar, legend } = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const month = document.querySelector("#events-calendar")!.getBoundingClientRect();
+      const types = document.querySelector("[data-events-legend]")!.getBoundingClientRect();
+      return { calendar: { x: month.x, y: month.y, width: month.width, height: month.height }, legend: { x: types.x, y: types.y } };
+    });
+    if (width >= 768) expect(legend.x).toBeGreaterThanOrEqual(calendar.x + calendar.width);
+    else expect(legend.y).toBeGreaterThanOrEqual(calendar.y + calendar.height);
     const full = await page.locator('[data-calendar-date="2026-10-15"]').boundingBox();
     const empty = await page.locator('[data-calendar-date="2026-10-17"]').boundingBox();
     expect(full!.height).toBe(empty!.height);
@@ -91,4 +98,53 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
   await page.setViewportSize({ width: 320, height: 1000 });
   const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(result.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
+});
+
+
+test("month, day, period and legend change without reloading the document", async ({ page }) => {
+  // A native link clicked before client hydration cannot be intercepted.
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await page.evaluate(() => {
+    (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker = "retained";
+  });
+  await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
+  await expect(page).toHaveURL(url => url.searchParams.get("kalendar") === "2026-11");
+  await expect(page.getByRole("heading", { name: /november 2026/i })).toBeVisible();
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker,
+  )).toBe("retained");
+  await page.getByRole("link", { name: "Predchádzajúci mesiac" }).click();
+  await expect(page.getByRole("heading", { name: /október 2026/i })).toBeVisible();
+  await page.locator('[data-calendar-date="2026-10-15"]').click();
+  await expect(page).toHaveURL(url => url.searchParams.get("den") === "2026-10-15");
+  await expect(page.locator('[data-selected-day="2026-10-15"]')).toBeVisible();
+  await expect(page.locator('[data-selected-day="2026-10-15"] li')).toHaveCount(7);
+  await page.getByRole("link", { name: "Ukončené", exact: true }).click();
+  await expect(page).toHaveURL(url => url.searchParams.get("termin") === "ukoncene");
+  await page.locator('[data-events-legend]').getByRole("link", { name: "Preteky" }).click();
+  await expect(page).toHaveURL(url => url.pathname === "/podujatia/preteky");
+  expect(await page.evaluate(() =>
+    (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker,
+  )).toBe("retained");
+});
+
+test("month, date and event type update in place without reloading the public document", async ({ page }) => {
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await page.evaluate(() => document.documentElement.setAttribute("data-calendar-no-reload-marker", "retained"));
+  const calendar = page.locator("[data-events-month-calendar]");
+
+  await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
+  await expect(calendar.getByRole("heading", { level: 2 })).toContainText("november 2026");
+  await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
+
+  await page.locator('[data-calendar-date="2026-11-03"]').click();
+  await expect(page.locator('[data-selected-day="2026-11-03"]')).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
+
+  await page.locator('[data-events-legend]').getByRole("link", { name: "Preteky", exact: true }).click();
+  await expect(page).toHaveURL(/\/podujatia\/preteky/);
+  await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
 });

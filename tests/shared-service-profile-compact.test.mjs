@@ -37,6 +37,8 @@ test("directory contact, copy, service list and map stay wired to one shared tem
   // Exact GEO keeps its canonical map directions, including mobile and desktop.
   assert.match(directory, /isApproximateMapItem\(mapItem\)/);
   assert.match(directory, /href="#kontakt"/);
+  assert.match(directory, /<DirectoryServicesList services=\{presentation\.services\}/);
+  assert.match(directoryCss, /\.servicesColumns \{/);
   assert.match(directoryCss, /\.servicesList li \{/);
   assert.match(directoryCss, /border-bottom: 1px solid var\(--detail-border\)/);
   assert.match(css, /\[data-testid="public-location-map"\]/);

@@ -28,6 +28,7 @@ type Attribution = { label: string; url?: string };
 type Props = {
   title: string;
   eyebrow?: string;
+  compactHeading?: boolean;
   items: MapItem[];
   attribution?: Attribution[];
   googleApiKey: string;
@@ -39,6 +40,7 @@ type Props = {
 export function PublicLocationMap({
   title,
   eyebrow = "Poloha",
+  compactHeading = false,
   items,
   attribution,
   googleApiKey,
@@ -115,9 +117,12 @@ export function PublicLocationMap({
       aria-labelledby="public-location-map-title"
       data-testid="public-location-map"
     >
-      <div className={styles.heading}>
-        <span className="eyebrow">{eyebrow}</span>
-        <h2 id="public-location-map-title">{title}</h2>
+      <div className={styles.heading} data-compact-heading={compactHeading ? "true" : undefined}>
+        {compactHeading ? (
+          <h2 id="public-location-map-title" className={styles.compactHeading}>{eyebrow}</h2>
+        ) : (
+          <><span className="eyebrow">{eyebrow}</span><h2 id="public-location-map-title">{title}</h2></>
+        )}
       </div>
 
       <div className={styles.shell}>

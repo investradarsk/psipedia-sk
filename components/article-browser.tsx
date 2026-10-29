@@ -2,10 +2,10 @@
 
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
-import { PublicActionButton, PublicContentListItem } from "@/components/public-visual-system";
+import { PublicActionButton } from "@/components/public-visual-system";
+import { ArticleListItem } from "@/components/article-list-item";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ArticleListingCard } from "@/lib/content";
-import { articleHref } from "@/lib/portal";
 import { SearchIcon } from "./icons";
 
 const filters = ["Všetky", "Novinky", "Šteniatka", "Výcvik", "Zdravie", "Výživa", "Život so psom"];
@@ -20,23 +20,8 @@ function matchesCategory(article: ArticleListingCard, category: string) {
 }
 
 function ArchiveArticleRow({ article }: { article: ArticleListingCard }) {
-  return (
-    <PublicContentListItem
-      href={articleHref(article)}
-      title={article.title}
-      eyebrow={<>{article.category}{article.date ? ` · ${article.date}` : ""}</>}
-      excerpt={article.excerpt || undefined}
-      image={article.image ? {
-        src: article.image,
-        alt: article.imageAlt || `Fotografia k článku: ${article.title}`,
-        mode: article.imageDisplay,
-        focusX: article.imageFocusX,
-        focusY: article.imageFocusY,
-        config: article.thumbnailImageDisplay,
-      } : undefined}
-      actionLabel="Čítať článok"
-    />
-  );
+  // Use the same article preview as the homepage and editorial section lists.
+  return <ArticleListItem article={article} />;
 }
 
 /** First three articles share a row with discovery, the rest use the full available width. */

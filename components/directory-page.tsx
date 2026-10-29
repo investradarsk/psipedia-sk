@@ -10,6 +10,7 @@ import {
 import { DirectoryCategoryNavigation } from "@/components/directory-category-navigation";
 import { DirectoryFilterForm } from "@/components/directory-filter-form";
 import { DirectoryResults } from "@/components/directory-results";
+import { DirectoryCard } from "@/components/directory-card";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
@@ -18,7 +19,7 @@ import {
   type DirectoryCategorySlug,
 } from "@/lib/directory";
 import { directoryQueryFields } from "@/lib/directory-query";
-import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
+import { getDirectoryCategoryPreviews, type DirectoryFilters, type PublicDirectoryProfilePage } from "@/lib/directory-store";
 import { EMPTY_MAP_FILTERS, serializeMapUiFilters } from "@/lib/map-public-ui";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./directory-public.module.css";
@@ -51,6 +52,14 @@ export async function DirectoryPage({
   initialCategory?: "all" | DirectoryCategorySlug;
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
+  // Only the unfiltered overview uses five bounded profiles per category.
+  // All searches, facets, sorts, category routes and pages keep full results.
+  const isOverview = !active && filters.page === 1 && filters.sort === "recommended" &&
+    ![filters.query, filters.category, filters.region, filters.district, filters.city,
+      filters.service, filters.canonicalService, filters.breed, filters.fciGroup,
+      filters.organization, filters.profileType].some(Boolean) &&
+    Object.keys(filters.facets ?? {}).length === 0;
+  const categoryPreviews = isOverview ? await getDirectoryCategoryPreviews(5) : null;
   const basePath = active ? `/adresar/${active.slug}` : "/adresar";
   const [heroVisual, discovery] = await Promise.all([
     getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar"),
@@ -124,15 +133,39 @@ export async function DirectoryPage({
                 />
               </aside>
 
-              <DirectoryResults
-                result={result}
-                filters={filters}
-                basePath={basePath}
-                title={active ? active.resultsTitle : filters.query || filters.category || filters.region || filters.city ? "Výsledky vyhľadávania" : "Všetky služby pre psov"}
-              />
+              {isOverview && categoryPreviews ? (
+                <div className={styles.categoryPreviewResults} data-directory-category-previews>
+                  {directoryCategories.map((category) => {
+                    const profiles = categoryPreviews[category.slug] ?? [];
+                    const href = directoryCategoryHref(category);
+                    return (
+                      <section className={styles.categoryPreviewSection} key={category.slug} aria-labelledby={`preview-${category.slug}`}>
+                        <h2 id={`preview-${category.slug}`} className={styles.categoryPreviewTitle}>
+                          <Link href={href}>{category.label}</Link>
+                        </h2>
+                        {profiles.length > 0 ? (
+                          <div className={styles.categoryPreviewCards}>
+                            {profiles.map((profile) => <DirectoryCard profile={profile} key={profile.id} />)}
+                          </div>
+                        ) : <p className={styles.categoryPreviewEmpty}>Profily v tejto kategórii ešte dopĺňame.</p>}
+                        <Link className={styles.categoryPreviewMore} href={href}>
+                          Zobraziť všetky {category.label.toLocaleLowerCase("sk")} <span aria-hidden="true">→</span>
+                        </Link>
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : (
+                <DirectoryResults
+                  result={result}
+                  filters={filters}
+                  basePath={basePath}
+                  title={active ? active.resultsTitle : filters.query || filters.category || filters.region || filters.city ? "Výsledky vyhľadávania" : "Všetky služby pre psov"}
+                />
+              )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
-                <section className={styles.sidebarCard} data-directory-map-cta>
+                <section className={`ps-public-banner-frame ${styles.sidebarCard}`} data-directory-map-cta>
                   <span className={styles.sidebarEyebrow}>Služby v okolí</span>
                   <h2>Nájdi služby na mape</h2>
                   <p>Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality.</p>
@@ -140,7 +173,7 @@ export async function DirectoryPage({
                   <PublicActionLink variant="primary" href={mapHref(filters, active?.slug)}>Zobraziť na mape →</PublicActionLink>
                 </section>
 
-                <section className={styles.sidebarCard} data-directory-provider-cta>
+                <section className={`ps-public-banner-frame ${styles.sidebarCard}`} data-directory-provider-cta>
                   <span className={styles.sidebarEyebrow}>Pre poskytovateľov</span>
                   <h2>Poskytuješ služby pre psov?</h2>
                   <p>Požiadaj o pridanie alebo úpravu údajov svojho profilu.</p>

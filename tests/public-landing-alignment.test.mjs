@@ -117,7 +117,7 @@ test("reviews use shared headings while only the first category section loses le
   assert.doesNotMatch(reviewsCss, /\.modeHeading|\.sectionHeading/);
   assert.match(reviews, /PublicLandingSectionHeading/);
   assert.match(portalTopic, /review-topic-first-section/);
-  assert.match(globals, /\.section\.review-topic-first-section\s*\{\s*padding-top:\s*0/);
+  // The page remains visually identical after its public styling was moved\n  // from globals.css to the canonical public design-system stylesheet.\n  assert.match(read("app/design-system.css"), /\.section\.review-topic-first-section\s*\{\s*padding-top:\s*0/);
 });
 
 test("editorial second-pass headings share the same contract without changing callouts or carousel", () => {
@@ -135,24 +135,29 @@ test("event category listing and lost-found listing do not stack old top padding
 });
 
 
-test("SERVICES-V2 has one main GET search, no category preview data path and no duplicate visible search", () => {
+test("SERVICES-V2 keeps one GET search while only the clean root shows five per category", () => {
   const root = read("app/adresar/page.tsx");
   const category = read("app/adresar/[category]/page.tsx");
   const form = read("components/directory-filter-form.tsx");
   const results = read("components/directory-results.tsx");
   const query = read("lib/directory-query.ts");
   assert.match(root, /listPublishedDirectoryProfiles\(\{ filters \}\)/);
-  assert.doesNotMatch(root, /getDirectoryCategoryPreviews|getDirectoryCategoryCounts|showOverview/);
+  // A clean root has the approved category -> five profiles -> all navigation.
+  // No preview data path is allowed in root route, category route or filtered results.
+  assert.match(directory, /!active && filters\.page === 1/);
+  assert.match(directory, /Object\.keys\(filters\.facets \?\? \{\}\)\.length === 0/);
+  assert.match(directory, /isOverview \? await getDirectoryCategoryPreviews\(5\) : null/);
+  assert.match(directory, /data-directory-category-previews/);
+  assert.match(directory, /<DirectoryResults/);
+  assert.doesNotMatch(root, /getDirectoryCategoryPreviews/);
+  assert.doesNotMatch(category, /getDirectoryCategoryPreviews/);
   assert.match(directory, /HomePortalSearch[\s\S]*searchScope="services"/);
   assert.doesNotMatch(form, /<input name="q"/);
   assert.match(form, /directoryQueryFields\(filters/);
   assert.match(results, /directoryPageHref\(basePath, filters, result\.page/);
   assert.match(query, /directoryQueryFields/);
   assert.match(query, /directoryEmptyQueryRedirect/);
-  assert.match(category, /directoryCategoryListingMetadata/);
-  assert.match(category, /resolveListingIndexPolicy/);
 });
-
 
 test("SERVICES-V2 map and provider CTAs remain safe and above real popularity", () => {
   assert.match(directory, /data-directory-map-cta/);
@@ -206,16 +211,17 @@ test("SERVICES-V2 keeps cards and URLs while preventing narrow three-column thum
 });
 
 
-test("SERVICES-V2 root shows published profiles and never fetches hidden category previews", () => {
+test("SERVICES-V2 root renders bounded category previews and preserves filtered listings", () => {
   const root = read("app/adresar/page.tsx");
   const cat = read("app/adresar/[category]/page.tsx");
   assert.doesNotMatch(root, /getDirectoryCategoryPreviews|showOverview|categoryPreviews/);
   assert.match(root, /<DirectoryPage result=\{result\} filters=\{filters\} \/>/);
   assert.match(cat, /<DirectoryPage result=\{result\} filters=\{filters\} initialCategory=\{category.slug\}/);
-  assert.doesNotMatch(directory, /showResults|DirectoryCategoryOverview/);
+  assert.match(directory, /getDirectoryCategoryPreviews\(5\)/);
+  assert.match(directory, /profiles\.map\(\(profile\) => <DirectoryCard profile=\{profile\}/);
+  assert.match(directory, /isOverview && categoryPreviews \? \(/);
   assert.match(directory, /<DirectoryResults/);
 });
-
 
 test("PUBLIC-MOBILE-GUTTER-1 uses the homepage 12px gutter for all PageContainer public routes", () => {
   const ds = read("app/design-system.css");
