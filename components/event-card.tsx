@@ -1,6 +1,5 @@
 import { eventTypePresentation, getEventOwnImage } from '@/lib/event-type-presentation';
 import type { CSSProperties } from 'react';
-import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { eventDateStatus, eventHref, formatEventDate, type PublicEventCard } from "@/lib/events";
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
@@ -40,7 +39,7 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
   const statusLabel = event.cancelled ? "Zrušené" : dateStatus === "current" ? "Prebieha" : dateStatus === "past" ? "Uskutočnilo sa" : null;
 
   if (variant === 'grid') return <article className={styles.gridCard} data-public-card="event-grid" data-event-card data-event-has-image={ownImage ? 'true':'false'} data-event-status={event.cancelled ? 'cancelled':dateStatus}>
-    <Link href={eventHref(event)} className={styles.gridCardLink}>
+    <a data-events-native-detail href={eventHref(event)} className={styles.gridCardLink}>
       <div className={styles.gridMedia}>
         <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} config={event.thumbnailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 900px) calc(100vw - 284px), (max-width: 1199px) calc((100vw - 334px) / 2), (max-width: 1279px) calc((100vw - 354px) / 3), 290px" alt="" loading="lazy" decoding="async"/>
         <time className={styles.gridDate} dateTime={event.startDate}>{day}. {month}</time>
@@ -51,7 +50,7 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
         <p>{formatEventDate(event)}{timeLabel ? ' · '+timeLabel:''}</p>
         <p>{location || "Miesto nie je uvedené"}</p>
       </div>
-    </Link>
+    </a>
   </article>;
 
   return (
@@ -80,16 +79,16 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
           <span>{event.eventType}</span>
           {statusLabel && <b>{statusLabel}</b>}
         </div>
-        <h3 data-public-card-title><Link href={eventHref(event)}>{event.title}</Link></h3>
+        <h3 data-public-card-title><a data-events-native-detail href={eventHref(event)}>{event.title}</a></h3>
         <div className={styles.cardFacts}>
           {timeLabel && <span><strong>Čas</strong> {timeLabel}</span>}
           <span><strong>Miesto</strong> {location || "Miesto nie je uvedené"}</span>
         </div>
       </div>
 
-      <Link href={eventHref(event)} className={styles.detailLink} aria-label={"Detail podujatia " + event.title}>
+      <a data-events-native-detail href={eventHref(event)} className={styles.detailLink} aria-label={"Detail podujatia " + event.title}>
         Detail <ArrowIcon size={17} />
-      </Link>
+      </a>
     </article>
   );
 }
