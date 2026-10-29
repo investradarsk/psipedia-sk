@@ -109,7 +109,7 @@ export async function DirectoryPage({
                 buttonLabel="Hľadať"
                 allowEmpty
                 hidden={directoryQueryFields(filters, ["q", "page"])}
-                shortcuts={categoryItems.slice(0, 5).map((item) => ({ href: item.href, label: item.title }))}
+                shortcuts={[]}
                 searchScope="services"
               />
             }

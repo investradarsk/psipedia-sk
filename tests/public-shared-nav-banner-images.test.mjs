@@ -32,3 +32,29 @@ test("Help overview falls back to shared automatic thumbnail fit", () => {
   assert.match(image, /automaticThumbnailFit/);
   assert.match(image, /styles\.blurBackground/);
 });
+
+test("Help categories use the existing navigator in a compact, accessible two-column mobile grid", () => {
+  const nav = read("components/public-visual-system/public-subcategory-navigator.tsx");
+  const css = read("components/public-visual-system/public-subcategory-navigator.module.css");
+  const help = read("components/public-visual-system/public-help-category-nav.tsx");
+  assert.match(help, /mobileLayout="grid"/);
+  assert.match(help, /mode="compact"/);
+  assert.match(nav, /mobileLayout\?: "wrap" \| "grid"/);
+  assert.match(nav, /styles\.compactGridMobile/);
+  assert.match(css, /\.compactGridMobile \.compactTrack\s*\{/);
+  assert.match(css, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /min-height: 52px/);
+  assert.match(css, /@media \(max-width: 360px\)/);
+});
+
+test("Services show one mobile category control, not duplicated shortcuts in hero and category picker", () => {
+  const directory = read("components/directory-page.tsx");
+  const switcher = read("components/directory-category-navigation.tsx");
+  const css = read("components/directory-public.module.css");
+  assert.match(directory, /shortcuts=\{\[\]\}/);
+  assert.match(directory, /<DirectoryCategoryNavigation items=\{categoryItems\}/);
+  assert.match(switcher, /aria-label="Vyber kategóriu služby"/);
+  assert.match(switcher, /router\.push\(event\.target\.value\)/);
+  assert.match(css, /\.categoryDesktopTabs\s*\{\s*display: none;\s*\}/);
+  assert.match(css, /\.categoryMobileSelect\s*\{[\s\S]*min-height: 46px/);
+});
