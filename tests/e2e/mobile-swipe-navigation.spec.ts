@@ -323,3 +323,20 @@ test("in-site trail unwinds one route at a time across hard document navigations
   await touchSwipe(page, "main", [316, 390], [181, 393]);
   await expect(page).toHaveURL(/\/$/);
 });
+
+
+test("homepage article returns to homepage after the same left swipe reported on iPhone", async ({ page }) => {
+  const article = page.locator("[data-home-latest] [data-article-list-item]").first();
+  await expect(article).toBeVisible();
+  await article.click();
+  await expect(page).not.toHaveURL(/\/$/);
+  await page.waitForFunction(() => {
+    const trail = JSON.parse(sessionStorage.getItem("psipedia:public-route-trail:v1") ?? "[]");
+    return Array.isArray(trail) && trail.at(-2) === "/";
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await chromeFingerSwipe(page, [315, 440], [160, 441]);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator("[data-home-latest]")).toBeVisible();
+});
