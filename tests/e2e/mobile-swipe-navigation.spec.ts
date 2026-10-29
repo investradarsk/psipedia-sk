@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Simulate a single-finger gesture using actual DOM Touch events so React's
-// delegated menu handlers and the document-level back gesture both run.
+// Simulate a single-finger gesture in the mobile menu only.
+// Page-level history gestures belong exclusively to the browser.
 async function touchSwipe(page: Page, selector: string, start: [number, number], end: [number, number]) {
   await page.locator(selector).first().evaluate((element, { start, end }) => {
     const touch = (coords: [number, number]) => new Touch({
@@ -97,20 +97,6 @@ test("pulling the visible grip dismisses the menu while content scrolling stays 
   await expect(open).toHaveAttribute("aria-expanded", "false");
 });
 
-test("leftward content swipe returns to the previous Psipedia page without leaving the site", async ({ page }) => {
-  // The link must run through client-side routing, as do the article cards.
-  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\/starostlivost$/);
-  await expect(page.locator("#mobile-menu")).not.toHaveClass(/is-open/);
-
-  await touchSwipe(page, "main", [315, 400], [190, 406]);
-  await expect(page).toHaveURL(/\/$/);
-  // On the home page another swipe must not navigate to an external referrer.
-  await touchSwipe(page, "main", [315, 400], [190, 406]);
-  await expect(page).toHaveURL(/\/$/);
-});
-
 test("vertical article scroll and horizontal scrolling areas do not trigger in-site navigation", async ({ page }) => {
   await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
   await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
@@ -131,13 +117,6 @@ test("vertical article scroll and horizontal scrolling areas do not trigger in-s
   });
   await touchSwipe(page, "#swipe-gesture-scroll-test", [315, 400], [190, 400]);
   await expect(page).toHaveURL(/\/starostlivost$/);
-});
-
-test("direct entry falls back to Psipedia home rather than browser history", async ({ page }) => {
-  await page.goto("/o-nas");
-  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
-  await touchSwipe(page, "main", [315, 400], [190, 405]);
-  await expect(page).toHaveURL(/\/$/);
 });
 
 test("real Chrome touch: dragging the marked grip closes the menu", async ({ page }) => {
@@ -195,148 +174,59 @@ test("mobile header has no redundant back arrow; brand still opens home", async 
   await expect(page).toHaveURL(/\/$/);
 });
 
-test("rightward gesture from the left content area goes back, without stealing vertical scroll", async ({ page }) => {
-  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\/starostlivost$/);
-  await touchSwipe(page, "main", [66, 385], [210, 386]);
-  await expect(page).toHaveURL(/\/$/);
-});
 
-test("real Chrome touch: inward left swipe returns to the previous internal route", async ({ page }) => {
-  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\/starostlivost$/);
-  // Browser-level touch on a clear area, outside horizontal carousels.
-  await page.evaluate(() => {
-    const zone = document.createElement("div");
-    zone.setAttribute("data-e2e-gesture-zone", "");
-    Object.assign(zone.style, {
-      position: "fixed", left: "195px", top: "265px", width: "130px",
-      height: "200px", zIndex: "49", pointerEvents: "auto",
-    });
-    document.body.append(zone);
-  });
-  await chromeFingerSwipe(page, [280, 380], [125, 380]);
-  await expect(page).toHaveURL(/\/$/);
-});
-
-
-test("real Chrome touch: inward right swipe from the left half navigates within Psipedia", async ({ page }) => {
-  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\/starostlivost$/);
-  await expect(page.locator("#mobile-menu")).not.toHaveClass(/is-open/);
-  // Browser touch input is essential: synthetic touchend alone cannot detect
-  // Safari/Chrome touchcancel caused by a native scrolling gesture.
-  await page.evaluate(() => {
-    const zone = document.createElement("div");
-    zone.setAttribute("data-e2e-inward-right-gesture", "");
-    Object.assign(zone.style, {
-      position: "fixed", left: "100px", top: "310px", width: "170px",
-      height: "150px", zIndex: "49", pointerEvents: "auto",
-    });
-    document.body.append(zone);
-  });
-  await chromeFingerSwipe(page, [130, 380], [280, 383]);
-  await expect(page).toHaveURL(/\/$/);
-});
-
-test("a vertical content drag is not mistaken for a rightward back swipe", async ({ page }) => {
-  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\/starostlivost$/);
-  await touchSwipe(page, "main", [125, 465], [165, 245]);
-  await expect(page).toHaveURL(/\/starostlivost$/);
-});
-
-test("real Chrome touch: rightward back swipe works from the right half of the page", async ({ page }) => {
-  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\/starostlivost$/);
-  await expect(page.locator("#mobile-menu")).not.toHaveClass(/is-open/);
-  // Make a neutral hit area on the right: actual browser touch events must
-  // travel through the document listener rather than a synthetic touchend.
-  await page.evaluate(() => {
-    const zone = document.createElement("div");
-    zone.setAttribute("data-e2e-right-half-swipe", "");
-    Object.assign(zone.style, {
-      position: "fixed", left: "225px", top: "310px", width: "155px",
-      height: "155px", zIndex: "49", pointerEvents: "auto",
-    });
-    document.body.append(zone);
-  });
-  await chromeFingerSwipe(page, [297, 385], [358, 387]);
-  await expect(page).toHaveURL(/\/$/);
-});
-
-test("320px viewport: rightward back swipe starts outside the left half", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 740 });
-  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\/starostlivost$/);
-  await touchSwipe(page, "main", [213, 385], [282, 387]);
-  await expect(page).toHaveURL(/\/$/);
-});
-
-test("vertical drag beginning on the right of the page never triggers back", async ({ page }) => {
-  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\/starostlivost$/);
-  await touchSwipe(page, "main", [295, 465], [323, 252]);
-  await expect(page).toHaveURL(/\/starostlivost$/);
-});
-
-
-test("article swipe returns to the exact magazine listing after a full reload", async ({ page }) => {
-  // Reproduce iPhone Chrome: enter the magazine, open one article, reload
-  // its document and then make the same inward leftward swipe.
-  await page.goto("/clanky");
-  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
-  const article = page.locator('.article-browser a[role="listitem"]').first();
-  await expect(article).toBeVisible();
-  await article.click();
-  await expect(page).not.toHaveURL(/\/clanky$/);
-  await page.waitForFunction(() => {
-    const trail = JSON.parse(sessionStorage.getItem("psipedia:public-route-trail:v1") ?? "[]");
-    return Array.isArray(trail) && trail.length >= 3 && trail.at(-2) === "/clanky";
-  });
-
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
-  // Use the actual browser touch recognizer, not only dispatched JS events.
-  await chromeFingerSwipe(page, [315, 440], [175, 442]);
-  await expect(page).toHaveURL(/\/clanky$/);
-  // This must never return to Chrome's external new-tab or an earlier root.
-  await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
-});
-
-test("in-site trail unwinds one route at a time across hard document navigations", async ({ page }) => {
-  await page.goto("/starostlivost");
-  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
-  await page.goto("/o-nas");
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
-
-  await touchSwipe(page, "main", [316, 390], [181, 393]);
-  await expect(page).toHaveURL(/\/starostlivost$/);
-  await touchSwipe(page, "main", [316, 390], [181, 393]);
-  await expect(page).toHaveURL(/\/$/);
-});
-
-
-test("homepage article returns to homepage after the same left swipe reported on iPhone", async ({ page }) => {
+test("native browser back and forward traverse homepage → article → homepage", async ({ page }) => {
   const article = page.locator("[data-home-latest] [data-article-list-item]").first();
   await expect(article).toBeVisible();
+  const href = await article.getAttribute("href");
+  expect(href).toBeTruthy();
+  const articleUrl = new URL(href!, page.url()).toString();
   await article.click();
-  await expect(page).not.toHaveURL(/\/$/);
-  await page.waitForFunction(() => {
-    const trail = JSON.parse(sessionStorage.getItem("psipedia:public-route-trail:v1") ?? "[]");
-    return Array.isArray(trail) && trail.at(-2) === "/";
-  });
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
-  await chromeFingerSwipe(page, [315, 440], [160, 441]);
+  await expect(page).toHaveURL(articleUrl);
+
+  // This is Chrome/Safari's own history, not a website touchend handler.
+  await page.goBack();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.locator("[data-home-latest]")).toBeVisible();
+
+  await page.goForward();
+  await expect(page).toHaveURL(articleUrl);
+  await expect(page.locator("[data-article-reading-start]")).toBeVisible();
+});
+
+test("native browser history returns from article to magazine and then homepage", async ({ page }) => {
+  await page.goto("/clanky");
+  const article = page.locator('.article-browser a[role="listitem"]').first();
+  await expect(article).toBeVisible();
+  const url = new URL((await article.getAttribute("href"))!, page.url()).toString();
+  await article.click();
+  await expect(page).toHaveURL(url);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/clanky$/);
+  await expect(page.locator(".article-browser")).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("reloading an article preserves browser history without inventing a custom back route", async ({ page }) => {
+  const article = page.locator("[data-home-latest] [data-article-list-item]").first();
+  await expect(article).toBeVisible();
+  const url = new URL((await article.getAttribute("href"))!, page.url()).toString();
+  await article.click();
+  await expect(page).toHaveURL(url);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(url);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("site does not install a global touchend redirect or additional back button", async ({ page }) => {
+  await expect(page.getByRole("button", { name: "Späť na predchádzajúcu stránku Psipedie" })).toHaveCount(0);
+  await expect(page.locator("[data-article-safe-back]")).toHaveCount(0);
+  await page.goto("/o-nas");
+  await expect(page).toHaveURL(/\/o-nas$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
 });
