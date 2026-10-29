@@ -9,7 +9,7 @@ test("Help categories reuse the public subcategory navigator, not custom chips",
   assert.match(help, /<PublicSubcategoryNavigator/);
   assert.match(help, /mode="compact"/);
   assert.match(help, /data-public-category-navigation/);
-  assert.doesNotMatch(help, /<Link\\b/);
+  assert.doesNotMatch(help, /<Link\b/);
 });
 
 test("Help photo promos reuse the exact homepage magazine banner markup", () => {
@@ -20,15 +20,15 @@ test("Help photo promos reuse the exact homepage magazine banner markup", () => 
   assert.match(magazine, /data-public-photo-callout/);
   assert.match(magazine, /photoTone/);
   assert.match(styles, /object-fit: contain/);
-  assert.match(styles, /filter: blur\\(18px\\)/);
-  assert.match(styles, /@media \\(max-width: 620px\\)/);
+  assert.match(styles, /filter: blur\(18px\)/);
+  assert.match(styles, /@media \(max-width: 620px\)/);
 });
 
 test("Help overview falls back to shared automatic thumbnail fit", () => {
   const overview = read("components/help-overview.tsx");
   const image = read("components/image-display.tsx");
-  assert.match(overview, /config=\\{item\\.thumbnailImageDisplay\\}/);
-  assert.doesNotMatch(overview, /thumbnailImageDisplay \\?\\? \\{ mode: "crop"/);
+  assert.match(overview, /config=\{item\.thumbnailImageDisplay\}/);
+  assert.doesNotMatch(overview, /thumbnailImageDisplay \?\? \{ mode: "crop"/);
   assert.match(image, /automaticThumbnailFit/);
-  assert.match(image, /styles\\.blurBackground/);
+  assert.match(image, /styles\.blurBackground/);
 });
