@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { readFile } from "node:fs/promises";
 import ts from "typescript";
 import { runInNewContext } from "node:vm";
+import { enqueueNotionWebhook, runNotionWebhookInboxSweep } from "../lib/notion-webhook-inbox.ts";
 import {
   verifyNotionWebhook, metadataOnlyChange, sameSource,
 } from "../lib/notion-webhook-contract.ts";
@@ -102,12 +104,13 @@ test("targeted runners are scoped, do not turn into full scheduled sweeps", asyn
   assert.match(directory, /if \(input\.targetProfileId !== undefined\)/);
   const webhook = await readFile(new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
   assert.match(webhook, /verifyNotionWebhook\(/);
-  assert.match(webhook, /notionPageBelongsToDataSource\(/);
+  const dispatch = await readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
+  assert.match(dispatch, /notionPageBelongsToDataSource\(/);
   assert.match(webhook, /NOTION_WEBHOOK_SYNC_ENABLED/);
   assert.doesNotMatch(webhook, /runNotionFacebookImagesSync|runServicesV3CatalogAutoSweep/);
-  assert.match(webhook, /runNotionEventsHelpSyncSweep\(/);
-  assert.match(webhook, /webhookMappedOnly: true/);
-  assert.match(webhook, /targetPageId: id/);
+  assert.match(dispatch, /runNotionEventsHelpSyncSweep\(/);
+  assert.match(dispatch, /webhookMappedOnly: true/);
+  assert.match(dispatch, /targetPageId: id/);
   assert.doesNotMatch(webhook, /event\.type === "page\.content_updated"\) return "ignored"/);
   const help = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
   assert.match(help, /if \(input\.webhookMappedOnly && input\.targetPageId\)/);
@@ -206,12 +209,13 @@ test("Events and Help targeted writes avoid reading unrelated agenda mappings", 
 test("unmapped Events/Help Notion webhook pages are imported through existing review gates", async () => {
   const webhook = await readFile(
     new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
+  const dispatch = await readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
   const sync = await readFile(
     new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
   assert.ok(webhook.includes("verifyNotionWebhook("));
-  assert.ok(webhook.includes("notionPageBelongsToDataSource(page,"));
-  assert.ok(webhook.includes("webhookMappedOnly: true,"));
-  assert.ok(webhook.includes("webhookImportUnmapped: true,"));
+  assert.ok(dispatch.includes("notionPageBelongsToDataSource(page,"));
+  assert.ok(dispatch.includes("webhookMappedOnly: true,"));
+  assert.ok(dispatch.includes("webhookImportUnmapped: true,"));
   assert.equal(webhook.includes("runNotionFacebookImagesSync("), false);
   assert.equal(webhook.includes("runServicesV3CatalogAutoSweep("), false);
   const mapped = sync.slice(sync.indexOf("// Webhook fast path:"),
@@ -321,17 +325,121 @@ test("Directory and E-shop targeted saves fail closed on missing configuration o
   assert.ok(eshop.includes('if (!shop) throw new Error("ESHOP_CANONICAL_MAPPING_ORPHAN")'));
 });
 
-test("signed Notion webhook never acknowledges a disabled or unready runner as processed", async () => {
+test("signed webhook only acknowledges a committed D1 receipt", async () => {
   const webhook = await readFile(
     new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
-  assert.ok(webhook.includes('if (!summary.enabled) return "disabled"'));
-  assert.ok(webhook.includes('if (summary.schemaReady === false) throw new Error("NOTION_TARGETED_SCHEMA_UNAVAILABLE")'));
-  assert.ok(webhook.includes('if (summary.failed > 0) throw new Error("NOTION_TARGETED_RECONCILIATION_FAILED")'));
-  assert.ok(webhook.includes('if (summary.scanned === 0 || summary.notionScanned === 0) return "deferred"'));
-  assert.ok(webhook.includes('if (!result.schemaReady || result.agendas.length !== 1'));
-  assert.ok(webhook.includes('result.agendas[0].targetMissing || !result.agendas[0].dataSourceId'));
-  assert.ok(webhook.includes('throw new Error("NOTION_TARGETED_AGENDA_UNAVAILABLE")'));
-  assert.ok(webhook.includes('if (result.totals.failed === 0 && (result.totals.conflicts || result.totals.reviewRequired))'));
-  assert.ok(webhook.includes('if (result === "not-configured") return new Response(null, { status: 503 })'));
-  assert.ok(webhook.includes('return new Response(null, { status: 503 })'));
+  const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
+  const dispatcher = await readFile(
+    new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
+  const sql = await readFile(
+    new URL("../drizzle/0145_notion_webhook_inbox.sql", import.meta.url), "utf8");
+  assert.ok(webhook.includes("verifyNotionWebhook(body,"));
+  assert.ok(webhook.includes("NOTION_WEBHOOK_SUBSCRIPTION_ID"));
+  assert.ok(webhook.includes('NOTION_WEBHOOK_SYNC_ENABLED !== "true"'));
+  assert.ok(webhook.includes("await enqueueNotionWebhook(bindings.DB, data, body)"));
+  assert.ok(webhook.includes('result: "queued"'));
+  assert.ok(webhook.includes('status: 503'));
+  assert.ok(webhook.includes("if (bindings.NOTION_WEBHOOK_INBOX_ENABLED !== \"true\")"));
+  assert.ok(webhook.includes("await dispatchNotionPageChange(data, bindings)"));
+  assert.ok(webhook.indexOf("await dispatchNotionPageChange(data, bindings)") < webhook.indexOf("await enqueueNotionWebhook(bindings.DB, data, body)"));
+  assert.ok(worker.includes("controller.cron === ADMIN_PUSH_CRON"));
+  assert.ok(worker.includes("pushTaskEnabled(env.NOTION_WEBHOOK_INBOX_ENABLED)"));
+  assert.ok(worker.includes("runNotionWebhookInboxSweep({"));
+  assert.ok(worker.includes("process: event => dispatchNotionPageChange(event, env)"));
+  assert.ok(dispatcher.includes('if (!summary.enabled) return "disabled"'));
+  assert.ok(dispatcher.includes('throw new Error("NOTION_TARGETED_SCHEMA_UNAVAILABLE")'));
+  assert.ok(sql.includes("CREATE TABLE notion_webhook_inbox"));
+  assert.ok(sql.includes("CREATE INDEX notion_webhook_inbox_pending"));
+  assert.ok(sql.includes("CREATE INDEX notion_webhook_inbox_page"));
+});
+
+test("durable Notion receipts deduplicate by event ID and store no values", async () => {
+  const statements = [];
+  const db = { prepare: sql => ({
+    bind: (...args) => ({
+      run: async () => { statements.push({sql, args}); },
+    }),
+  }) };
+  const event = { id: "aaaa1111-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    type: "page.properties_updated",
+    entity: { id: "11111111-2222-4333-8444-555555555555", type: "page" },
+    data: {updated_properties: ["Phone", "abc123"]},
+  };
+  await enqueueNotionWebhook(db, event, JSON.stringify(event));
+  await enqueueNotionWebhook(db, event, JSON.stringify(event));
+  assert.equal(statements.length, 2);
+  assert.ok(statements.every(s => s.sql.includes("INSERT OR IGNORE")));
+  assert.equal(statements[0].args[0], statements[1].args[0]);
+  assert.equal(statements[0].args[0], event.id);
+  assert.deepEqual(JSON.parse(statements[0].args[3]), ["Phone", "abc123"]);
+  assert.equal(JSON.stringify(statements).includes("0900"), false);
+});
+
+test("inbox retries transient processing failures without silently dropping the event", async () => {
+  const writes = [];
+  let claimed = false;
+  const db = { prepare: sql => ({
+    bind: (...args) => ({
+      first: async () => {
+        if (!sql.includes("RETURNING event_key")) throw new Error("unexpected claim");
+        if (claimed) return null;
+        claimed = true;
+        return { event_key: "evt", page_id: "11111111-2222-4333-8444-555555555555",
+          event_type: "page.content_updated", changed_properties_json: "[]", attempts: 1 };
+      },
+      run: async () => { writes.push({sql, args}); },
+    }),
+  }) };
+  const result = await runNotionWebhookInboxSweep({
+    database: db, now: 1_800_000_000_000, process: async () => {
+      throw new Error("simulated upstream outage");
+    },
+  });
+  assert.deepEqual(result, {claimed: 1, done: 0, review: 0, retried: 1});
+  assert.ok(writes.some(w => w.sql.includes("status='PENDING'")));
+  assert.ok(writes.every(w => !w.sql.startsWith("UPDATE notion_webhook_inbox SET status='DONE'")));
+  assert.ok(writes.every(w => !JSON.stringify(w).includes("simulated upstream outage")));
+});
+
+test("real SQLite inbox claims, processes and deduplicates signed page change", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(await readFile(new URL("../drizzle/0145_notion_webhook_inbox.sql", import.meta.url), "utf8"));
+    // Minimal Cloudflare D1 adapter backed by real SQLite, not a mocked SQL response.
+    const database = {
+      prepare(sql) {
+        const stmt = db.prepare(sql);
+        return {
+          bind(...params) {
+            return {
+              first: async () => stmt.get(...params) ?? null,
+              run: async () => stmt.run(...params),
+            };
+          },
+        };
+      },
+    };
+    const event = { id: "aaaa1111-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      type: "page.properties_updated",
+      entity: { id: "11111111-2222-4333-8444-555555555555", type: "page" },
+      data: { updated_properties: ["phone-id"] },
+    };
+    await enqueueNotionWebhook(database, event, JSON.stringify(event));
+    await enqueueNotionWebhook(database, event, JSON.stringify(event));
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM notion_webhook_inbox").get().n, 1);
+    const processed = [];
+    const summary = await runNotionWebhookInboxSweep({
+      database, now: 1_800_000_000_000,
+      process: async (e) => { processed.push(e); return "processed"; },
+    });
+    assert.deepEqual(summary, { claimed: 1, done: 1, review: 0, retried: 0 });
+    assert.equal(processed.length, 1);
+    assert.equal(processed[0].entity.id, event.entity.id);
+    assert.equal(db.prepare("SELECT status FROM notion_webhook_inbox").get().status, "DONE");
+    const again = await runNotionWebhookInboxSweep({
+      database, now: 1_800_000_000_000,
+      process: async () => { throw Error("duplicate delivery must not run"); },
+    });
+    assert.equal(again.claimed, 0);
+  } finally { db.close(); }
 });
