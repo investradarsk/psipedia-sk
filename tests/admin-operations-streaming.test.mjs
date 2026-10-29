@@ -4,12 +4,12 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("operations shell streams before the 15-source read without duplicate bell queries", () => {
+test("operations shell streams queue and independent unread-bell summary", () => {
   const source = read("app/admin/operations/page.tsx");
   const handler = source.slice(source.indexOf("export default async function AdminOperationsPage"));
   assert.match(handler, /const attentionPromise = loadAdminAttentionPage\(\{ filters, cursor \}\)/);
   assert.doesNotMatch(handler, /await loadAdminAttentionPage/);
-  assert.match(handler, /attentionSummaryPromise = attentionPromise\.then\(toNotificationSummary\)/);
+  assert.match(handler, /attentionSummaryPromise = loadExactAdminAttentionSummary\(\)/);
   assert.match(handler, /attentionSummaryPromise=\{attentionSummaryPromise\}/);
   assert.match(handler, /<Suspense fallback=/);
   assert.match(handler, /<AdminOperationsContent attentionPromise=\{attentionPromise\}/);
@@ -17,18 +17,17 @@ test("operations shell streams before the 15-source read without duplicate bell 
   assert.match(source, /const attention = await attentionPromise/);
   assert.match(source, /id="centrum-pozornosti"/);
   assert.match(source, /<AdminAttentionQueue[\s\S]*?page=\{attention\}/);
-  assert.doesNotMatch(handler, /loadExactAdminAttentionSummary/);
+  assert.match(handler, /loadExactAdminAttentionSummary/);
 });
 
-test("operations bell retains exact availability and unavailable source semantics", () => {
+test("operations bell counts unread notices and queue retains real active totals", () => {
   const source = read("app/admin/operations/page.tsx");
-  const projection = source.slice(source.indexOf("function toNotificationSummary"), source.indexOf("async function AdminOperationsContent"));
-  assert.match(projection, /page\.summary\.active/);
-  assert.match(projection, /page\.summary\.bySource/);
-  assert.match(projection, /page\.availability === "PARTIAL"/);
-  assert.match(projection, /page\.availability === "UNAVAILABLE"/);
-  assert.match(projection, /source\.state === "UNAVAILABLE"/);
-  assert.doesNotMatch(projection, /loadAdminAttentionPage/);
+  const store = read("lib/admin-attention-queue-store.ts");
+  assert.match(source, /const attentionSummaryPromise = loadExactAdminAttentionSummary\(\)/);
+  assert.match(source, /attentionSummaryPromise=\{attentionSummaryPromise\}/);
+  assert.match(store, /admin_attention_ack/);
+  assert.match(store, /read_at IS NULL/);
+  assert.match(store, /probeSourcesGrouped/);
 });
 
 test("homepage activity links to canonical agendas without duplicating the notification inbox", () => {
