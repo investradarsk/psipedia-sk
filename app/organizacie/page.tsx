@@ -146,10 +146,7 @@ export default async function OrganizationsHubPage() {
                                 decoding="async"
                               />
                             ) : (
-                              <PublicMediaFallback
-                                appearance="context"
-                                decorative
-                              />
+                              <PublicMediaFallback decorative />
                             )}
                           </Link>
                         }
