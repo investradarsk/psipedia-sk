@@ -27,6 +27,12 @@ test("one identical profile card component serves Help root and every category",
 test("one detail content grid is used for adoption, Help and lost/found", () => {
   const detail = read("components/public-visual-system/public-help-profile-detail-layout.tsx");
   assert.match(detail, /data-public-help-detail-layout/);
+  assert.match(detail, /aria-label=\{asideLabel\}/);
+  assert.match(detail, /<aside className=\{styles\.aside\}/);
+  assert.match(
+    read("components/help-details/help-detail-shell.tsx"),
+    /<PublicHelpProfileDetailLayout aside=\{sidebar\} asideLabel="Praktické informácie"/,
+  );
   for (const file of [
     "components/adoption-detail.tsx",
     "components/help-details/help-detail-shell.tsx",
