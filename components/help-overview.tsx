@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   PublicHelpClosingBanner,
   PublicHelpPhotoBanner,
+  lostFoundSubmitPromo,
   type PublicHelpPhotoBannerData,
 } from "@/components/public-visual-system/public-help-banner";
 import { ImageDisplay } from "@/components/image-display";
@@ -49,14 +50,6 @@ export type HelpOverviewSection = {
 
 type PromoBanner = PublicHelpPhotoBannerData;
 
-const lostFoundSubmitPromo: PromoBanner = {
-  eyebrow: "Stratený alebo nájdený pes",
-  title: "Stratil sa vám pes alebo ste psa našli?",
-  text: "Pošlite hlásenie cez krátky formulár. Kontaktné údaje zostanú súkromné a záznam sa zobrazí až po kontrole.",
-  href: "/pomoc-psom/stratene-a-najdene/nahlasit",
-  action: "Nahlásiť psa",
-  tone: "rescue",
-};
 
 const promos: Record<number, PromoBanner> = {
   0: {
