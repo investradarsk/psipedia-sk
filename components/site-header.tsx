@@ -134,9 +134,10 @@ export function SiteHeader({
         start = null;
         return;
       }
-      const withinLeftStart = origin.x <= Math.min(180, window.innerWidth * 0.48);
-      if (!origin.horizontal && Math.abs(dx) > 22 && Math.abs(dx) > dy * 1.6
-        && (dx < 0 || withinLeftStart)) origin.horizontal = true;
+      // Back swipe is page-wide in either direction: never gate it on start X.
+      // Vertical scroll and horizontal child scrollers are filtered separately.
+      if (!origin.horizontal && Math.abs(dx) > 22 && Math.abs(dx) > dy * 1.6)
+        origin.horizontal = true;
       if (origin.horizontal && event.cancelable) event.preventDefault();
     }
     function onTouchEnd(event: globalThis.TouchEvent) {
@@ -147,11 +148,12 @@ export function SiteHeader({
       const deltaX = touch.clientX - origin.x;
       const distance = Math.abs(deltaX);
       const vertical = Math.abs(touch.clientY - origin.y);
-      // Both established leftward and natural rightward gestures navigate back
-      // inside Psipedia. Rightward swipes may start in the left half, not only
-      // in the first 100px; the exact edge gesture remains native Safari.
-      const isBackGesture = deltaX < -85 || (deltaX > 75 && origin.x <= Math.min(180, window.innerWidth * 0.48));
-      if (!isBackGesture || vertical > Math.min(80, distance * 0.45) || Date.now() - origin.time > 1800) return;
+      // A deliberate swipe back works from any non-interactive content area,
+      // including the middle/right of a card. A rightward gesture near the
+      // right side has less room than one starting at the left edge.
+      const isBackGesture = deltaX < -85 || deltaX > 45;
+      if (!origin.horizontal || !isBackGesture || vertical > Math.min(80, distance * 0.45)
+        || Date.now() - origin.time > 1800) return;
       const current = window.location.pathname + window.location.search;
       const trail = internalTrailRef.current;
       const previous = trail.length > 1 ? trail[trail.length - 2] : null;
