@@ -54,6 +54,8 @@ export type AdminAttentionItem = {
   ageDays: number;
   targetHref: string;
   actionLabel?: string;
+  readAt?: string | null;
+  snoozedUntil?: string | null;
   contextLabel?: string;
   metadata?: AdminAttentionMetadata[];
 };
