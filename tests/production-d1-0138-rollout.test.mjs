@@ -43,7 +43,7 @@ test("0138 pinned SQL requires canonical D1, exact owner dispatch and no repeate
   assert.equal(APPROVED_0138_SHA256, PINNED_SHA256_0138);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0137_")), "0137_media_source_review_decisions.sql");
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0138_")), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0146_help_source_daily_checks.sql"]);
   assert.doesNotThrow(() => assertApproved0138Target("psipedia-sk-db", PINNED_SHA256_0138));
   assert.throws(() => assertApproved0138Target("other-db", PINNED_SHA256_0138), /canonical/);
   assert.throws(() => assertApproved0138Target("psipedia-sk-db", "invalid"), /SHA256/);
