@@ -1,4 +1,5 @@
 import { ImageDisplay } from "@/components/image-display";
+import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
@@ -89,10 +90,9 @@ export function HelpDetailShell({
       media={item.imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={item.detailImageDisplay} src={item.imageUrl} alt={imageAlt} loading="eager" /> : null} />
 
     <section className={styles.content}>
-      <div className={`${styles.shell} ${styles.layout}`}>
+      <PublicHelpProfileDetailLayout aside={sidebar}>
         <article className={styles.copy}>{children}</article>
-        <aside className={styles.aside} aria-label="Praktické informácie">{sidebar}</aside>
-      </div>
+      </PublicHelpProfileDetailLayout>
       {showTrust && <div className={styles.shell}>
         <section className={styles.trust} aria-labelledby={`help-trust-${item.id}`}>
           <span className={styles.trustIcon} aria-hidden="true"><ShieldCheckIcon size={18} /></span>
