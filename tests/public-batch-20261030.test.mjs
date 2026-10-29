@@ -44,6 +44,8 @@ test("map has an explicit search submit and a visible labeled mobile filter cont
   assert.match(map, /type="submit">Hľadať/);
   assert.match(map, /enterKeyHint="search"/);
   assert.match(map, /<span>Filtre<\/span>/);
+  assert.match(read("app/mapa/page.tsx"), /hideQuickLinks/);
+  assert.match(read("components/public-visual-system/unified-section-hero.tsx"), /hideQuickLinks \|\| portalSearchSlot \? \[\] : activeShortcuts/);
   assert.match(css, /\.filterButton > span:first-child \{\s*position: static/);
 });
 
