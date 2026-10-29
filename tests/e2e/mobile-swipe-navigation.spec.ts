@@ -249,3 +249,40 @@ test("a vertical content drag is not mistaken for a rightward back swipe", async
   await touchSwipe(page, "main", [125, 465], [165, 245]);
   await expect(page).toHaveURL(/\/starostlivost$/);
 });
+
+test("real Chrome touch: rightward back swipe works from the right half of the page", async ({ page }) => {
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
+  await expect(page).toHaveURL(/\/starostlivost$/);
+  await expect(page.locator("#mobile-menu")).not.toHaveClass(/is-open/);
+  // Make a neutral hit area on the right: actual browser touch events must
+  // travel through the document listener rather than a synthetic touchend.
+  await page.evaluate(() => {
+    const zone = document.createElement("div");
+    zone.setAttribute("data-e2e-right-half-swipe", "");
+    Object.assign(zone.style, {
+      position: "fixed", left: "225px", top: "310px", width: "155px",
+      height: "155px", zIndex: "49", pointerEvents: "auto",
+    });
+    document.body.append(zone);
+  });
+  await chromeFingerSwipe(page, [297, 385], [358, 387]);
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("320px viewport: rightward back swipe starts outside the left half", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
+  await expect(page).toHaveURL(/\/starostlivost$/);
+  await touchSwipe(page, "main", [213, 385], [282, 387]);
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("vertical drag beginning on the right of the page never triggers back", async ({ page }) => {
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
+  await expect(page).toHaveURL(/\/starostlivost$/);
+  await touchSwipe(page, "main", [295, 465], [323, 252]);
+  await expect(page).toHaveURL(/\/starostlivost$/);
+});
