@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { AdminAttentionQueue } from "@/components/admin-attention-queue";
 import { AdminAttentionHistorySync } from "@/components/admin-attention-history-sync";
@@ -9,7 +10,7 @@ import {
   isAdminAttentionView,
   type AdminAttentionFilters,
 } from "@/lib/admin-attention-queue";
-import { loadAdminAttentionPage, loadExactAdminAttentionSummary, type AdminAttentionPage } from "@/lib/admin-attention-queue-store";
+import { loadAdminAttentionPage, loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ async function AdminOperationsContent({
 
       </section>
 
-      <p className="admin-panel"><a href="/admin/operations/overovanie-zdrojov">Overovanie zdrojov psov – výsledky denných automatických kontrol →</a></p>
+      <p className="admin-panel"><Link href="/admin/operations/overovanie-zdrojov">Overovanie zdrojov psov – výsledky denných automatických kontrol →</Link></p>
 
       <AdminAttentionHistorySync cursor={cursor ?? ""} />
       <div id="centrum-pozornosti">
