@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { EventCard } from "@/components/event-card";
 import { EventImage } from "@/components/event-image";
+import { EventsBackLink } from "@/components/events-return-link";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
@@ -99,6 +100,7 @@ export function EventDetail({
             {event.websiteUrl && <PublicActionLink className={detailStyles.secondaryAction} href={event.websiteUrl} variant="secondary" target="_blank" rel="noreferrer" icon={<ArrowIcon size={17} />}>Oficiálna stránka</PublicActionLink>}
           </nav>}
         </>} />
+      <div className={styles.returnBar}><EventsBackLink fallbackHref={typeHref ?? "/podujatia"} /></div>
       <div className={`${detailStyles.shell} ${detailStyles.layout} ${!hasMap ? styles.detailSingleColumn : ""}`}>
         <article className={detailStyles.body}>
           {event.description && <DetailSection title="O podujatí"><EventMarkdown value={event.description} /></DetailSection>}
