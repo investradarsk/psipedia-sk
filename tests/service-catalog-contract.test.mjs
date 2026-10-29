@@ -69,13 +69,25 @@ test("contract is not imported by live writers, filters, editors or maps",()=>{
 });
 
 test("V0.3 expands SAME approved registry, preserving legacy mappings",()=>{
- assert.equal(serviceCatalog.length,91);
+ assert.equal(serviceCatalog.length,93);
  assert.equal(attributeCatalog.length,28);
  assert.equal(providerTypeCatalog.length,2);
  assert.doesNotThrow(validateServiceCatalogContract);
  assert.equal(legacyFacetMappings.length,21);
  for(const id of ["svc.vet.eye_exam","svc.vet.orthopedic_exam","svc.vet.echocardiography","svc.vet.dental_xray","svc.vet.dental_scaling","svc.vet.dental_extraction","svc.vet.laparoscopy"])
   assert.ok(servicesForCategory("veterinari").some(x=>x.id===id),id);
+});
+test("added procedures are distinct and scoped to their actual providers",()=>{
+ const anesthesia=getServiceById("svc.vet.inhalation_anesthesia");
+ const magnetotherapy=getServiceById("svc.physio.magnetotherapy");
+ assert.deepEqual(anesthesia.categories,["veterinari"]);
+ assert.deepEqual(magnetotherapy.categories,["fyzioterapia"]);
+ assert.equal(resolveApprovedServiceName("Inhalačná anestézia","veterinari")?.id,anesthesia.id);
+ assert.equal(resolveApprovedServiceName("Magnetická terapia","fyzioterapia")?.id,magnetotherapy.id);
+ assert.equal(resolveApprovedServiceName("Inhalačná anestézia","treneri"),null);
+ assert.equal(resolveApprovedServiceName("Magnetoterapia","veterinari"),null);
+ assert.notEqual(magnetotherapy.id,getServiceById("svc.physio.electrotherapy").id);
+ assert.notEqual(anesthesia.id,getServiceById("svc.vet.soft_tissue_surgery").id);
 });
 test("exam families and vet focus do not imply all procedures",()=>{
  assert.ok(getAttributeById("attr.vet.focus_areas").allowedValues.includes("ophthalmology"));
