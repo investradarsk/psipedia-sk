@@ -241,20 +241,11 @@ export async function HelpOverview({
                       title={section.label}
                       description={section.description}
                       id={`help-overview-${section.slug}`}
-                      action={
-                        <PublicActionLink
-                          href={section.href}
-                          variant="secondary"
-                          icon={<ArrowIcon size={16} />}
-                        >
-                          Zobraziť všetky
-                        </PublicActionLink>
-                      }
                     />
 
                     {section.items.length ? (
                       <div className={styles.overviewGrid}>
-                        {section.items.slice(0, 6).map((item) => (
+                        {section.items.slice(0, 5).map((item) => (
                           <OverviewCard item={item} key={item.id} />
                         ))}
                       </div>
@@ -264,6 +255,13 @@ export async function HelpOverview({
                         <Link href={section.href}>
                           Otvoriť kategóriu <ArrowIcon size={15} />
                         </Link>
+                      </div>
+                    )}
+                    {section.items.length > 0 && (
+                      <div className={styles.overviewSectionFooter}>
+                        <PublicActionLink href={section.href} variant="tertiary" icon={<ArrowIcon size={16} />}>
+                          Zobraziť všetky
+                        </PublicActionLink>
                       </div>
                     )}
                   </PageContainer>
