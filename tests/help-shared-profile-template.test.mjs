@@ -15,6 +15,7 @@ test("one identical profile card component serves Help root and every category",
     "components/adoption-catalog.tsx",
     "components/lost-found-dogs-page.tsx",
     "components/organization-profile-detail.tsx",
+    "app/organizacie/page.tsx",
   ]) {
     assert.match(read(file), /<PublicHelpProfileCard\b/, file);
   }
@@ -76,4 +77,17 @@ test("broken media uses same fallback system throughout Help profile cards and d
     const source = read(file);
     assert.match(source, /PublicMediaFallback/);
   }
+});
+
+
+test("S-27 organizations reuse the Help list card and automatic photo display without local card geometry", () => {
+  const organizations = read("app/organizacie/page.tsx");
+  const styles = read("app/organizacie/organization-hub.module.css");
+  assert.match(organizations, /<PublicHelpProfileCard/);
+  assert.match(organizations, /data-organization-hub-card/);
+  assert.match(organizations, /config=\{organization\.thumbnailImageDisplay\}/);
+  assert.match(organizations, /fallbackOnError/);
+  assert.doesNotMatch(organizations, /mode: "crop"/);
+  assert.doesNotMatch(styles, /\.card\s*\{|\.media\s*\{|\.cardBody\s*\{/);
+  assert.match(styles, /grid-template-columns: 1fr/);
 });
