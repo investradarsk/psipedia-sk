@@ -984,7 +984,7 @@ export function mapAdoptionStaleAttention(row: AdoptionStaleAttentionRow, now = 
     reason,
     priority: markedlyStale ? "HIGH" : "MEDIUM",
     status: row.status,
-    attentionState: "IN_PROGRESS",
+    attentionState: "NEW",
     createdAt: row.createdAt,
     relevantAt,
     ageDays: ageDays(relevantAt, now),
