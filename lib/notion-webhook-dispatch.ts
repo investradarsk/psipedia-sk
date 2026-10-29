@@ -1,4 +1,5 @@
 import { metadataOnlyChange, sameSource, UUID, EVENT_TYPES, type NotionWebhookEvent as WebhookEvent } from "@/lib/notion-webhook-contract";
+import type { NotionWebhookInboxResult } from "@/lib/notion-webhook-inbox";
 import { runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
 import { runNotionBreedSyncSweep } from "@/lib/notion-breed-sync";
 import { runNotionArticleSyncSweep } from "@/lib/notion-article-sync";
@@ -33,7 +34,7 @@ type OwnedPage = NotionPage & {
   in_trash?: boolean;
 };
 
-export async function dispatchNotionPageChange(event: WebhookEvent, bindings: WebhookBindings) {
+export async function dispatchNotionPageChange(event: WebhookEvent, bindings: WebhookBindings): Promise<NotionWebhookInboxResult> {
   if (!bindings.DB || !bindings.NOTION_API_TOKEN) return "not-configured";
   const id = event.entity?.id ?? "";
   if (!UUID.test(id) || (event.entity?.type !== "page" && event.entity?.entity_type !== "page"))
