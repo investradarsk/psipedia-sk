@@ -63,6 +63,7 @@ export default async function MapPage() {
         <UnifiedSectionHero
           breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Mapa Psipedie</span></Breadcrumbs>}
           eyebrow="Objavujte miesta a podujatia"
+          hideQuickLinks
           title="Mapa Psipedie"
           intro="Vyhľadajte služby, organizácie a podujatia vo svojom okolí. Pri citlivých záznamoch zobrazujeme iba približnú oblasť."
           visual={heroVisual}
