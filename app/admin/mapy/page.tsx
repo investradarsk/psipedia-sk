@@ -52,7 +52,7 @@ export default async function AdminMapsPage({
       user={user}
       eyebrow="Admin · Mapy"
       title="Mapy"
-      description="Pracovný inbox položiek, ktoré ešte treba vyriešiť cez Google Maps. Hotové položky sa tu nezobrazujú."
+      description="Profily s neúplnou alebo nejednoznačnou adresou či polohou. Tu môžeš overiť správne miesto v Google Maps; vyriešené záznamy zo zoznamu zmiznú."
     >
       <Suspense fallback={<AdminDataLoading label="Mapy" />}>
         <MapContent promise={dataPromise} />

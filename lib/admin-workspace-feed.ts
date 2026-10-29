@@ -126,6 +126,40 @@ export async function loadAdminWorkspaceFeed(email:string,db=database()):Promise
   }
 }
 
+/**
+ * Lightweight read-only home summary. The workspace no longer renders a list
+ * of notifications, so it must not execute the notification/event history
+ * query on every visit. Keep loadAdminWorkspaceFeed for the existing API.
+ */
+export async function loadAdminWorkspaceOverview(db=database()):Promise<WorkspaceFeed>{
+  const empty:WorkspaceFeed={items:[],nextGemini:null,qualityPending:0,status:"UNAVAILABLE"};
+  if(!db)return empty;
+  try{
+    const [upcoming,quality]=await Promise.all([
+      db.prepare(`SELECT stable_key AS stableKey,next_run_at AS nextRunAt
+        FROM gemini_automation_settings
+        WHERE enabled=1 AND next_run_at IS NOT NULL AND next_run_at>=?
+        ORDER BY next_run_at ASC,stable_key ASC LIMIT 1`)
+        .bind(new Date().toISOString()).first<{stableKey:string;nextRunAt:string}>(),
+      db.prepare("SELECT COUNT(*) AS n FROM quality_missing_proposals WHERE status='OPEN'")
+        .first<{n:number}>(),
+    ]);
+    return {
+      items:[],
+      status:"OK",
+      nextGemini:upcoming?{
+        stableKey:upcoming.stableKey,
+        label:getGeminiCatalogItem(upcoming.stableKey)?.label??upcoming.stableKey,
+        nextRunAt:upcoming.nextRunAt,
+      }:null,
+      qualityPending:Number(quality?.n??0),
+    };
+  }catch(error){
+    console.warn(JSON.stringify({event:"admin_workspace_overview_unavailable",reason:error instanceof Error?error.name:"unknown"}));
+    return empty;
+  }
+}
+
 export async function markAdminWorkspaceEventRead(email:string,id:number,db=database()){
   if(!db||!Number.isSafeInteger(id)||id<=0)throw Error("Invalid event.");
   // Never allow marking an event outside the canonical admin notification registry.

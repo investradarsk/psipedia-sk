@@ -1,115 +1,59 @@
-"use client";
 import Link from "next/link";
-import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import type {WorkspaceEvent,WorkspaceFeed} from "@/lib/admin-workspace-feed";
+import type { WorkspaceFeed } from "@/lib/admin-workspace-feed";
 import styles from "./admin-workspace-activity.module.css";
 
-function formatTime(raw:string){
-  const date=new Date(raw);
-  return Number.isFinite(date.getTime())?date.toLocaleString("sk-SK",{dateStyle:"short",timeStyle:"short"}):"—";
-}
-function isAction(x:WorkspaceEvent){
-  return /partner|review|proposal|submitted|actionable|_created$|quality_missing_found|facebook_image_imported/.test(x.eventType)
-    || ["PROFILE_REVIEW_MODERATION","GEMINI_CREATED","PARTNER_CLAIM_REVIEW"].includes(x.sourceType);
+function formatTime(raw: string) {
+  const date = new Date(raw);
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleString("sk-SK", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Bratislava" })
+    : "—";
 }
 
-export function AdminWorkspaceActivity({initial}:{initial:WorkspaceFeed}){
-  const[data,setData]=useState(initial);
-  const[filter,setFilter]=useState<"all"|"action"|"automation">("all");
-  const[busy,setBusy]=useState<number|null>(null);
-  const[loading,setLoading]=useState(false);
-  const[error,setError]=useState("");
-  const hiddenIds=useRef(new Set<number>());
-  const refreshPending=useRef<Promise<void>|null>(null);
-  const refresh=useCallback(()=>{
-    if(refreshPending.current)return refreshPending.current;
-    const request=(async()=>{
-      try{
-        const res=await fetch("/api/admin/workspace/feed",{cache:"no-store"});
-        if(!res.ok)throw Error("Prehľad sa nepodarilo načítať.");
-        const next=await res.json() as WorkspaceFeed;
-        if(next.status==="UNAVAILABLE"){
-          setError("Aktualizácia prehľadu sa nepodarila.");
-          return;
-        }
-        setData({...next,items:next.items.filter(x=>!x.read&&!hiddenIds.current.has(x.id))});
-        setError("");
-      }catch{setError("Aktualizácia prehľadu sa nepodarila.")}
-    })();
-    refreshPending.current=request;
-    void request.finally(()=>{refreshPending.current=null;});
-    return request;
-  },[]);
-  useEffect(()=>{
-    const onReturn=()=>{
-      if(document.visibilityState==="visible")void refresh();
-    };
-    const id=window.setInterval(onReturn,60_000);
-    document.addEventListener("visibilitychange",onReturn);
-    window.addEventListener("focus",onReturn);
-    return()=>{
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange",onReturn);
-      window.removeEventListener("focus",onReturn);
-    };
-  },[refresh]);
-  async function read(id:number){
-    if(busy!==null)return;
-    setBusy(id);
-    try{
-      const res=await fetch("/api/admin/workspace/feed",{method:"POST",
-        headers:{"content-type":"application/json"},body:JSON.stringify({id})});
-      if(!res.ok)throw Error("Uloženie zlyhalo.");
-      hiddenIds.current.add(id);
-      setData(v=>({...v,items:v.items.filter(x=>x.id!==id)}));
-    }catch{setError("Nepodarilo sa označiť upozornenie ako prečítané.");}
-    finally{setBusy(null);}
-  }
-  const shown=useMemo(()=>data.items.filter(x=>!x.read&&
-    (filter==="all" ||(filter==="action"?isAction(x):!isAction(x)))),[data.items,filter]);
-  const unread=data.items.filter(x=>!x.read).length;
-  return <section className={styles.root} aria-label="Aktuálne udalosti Psipedie">
-    <div className={styles.titleRow}>
-      <div><small>Prehľad aktivít</small><h2>Čo sa deje na Psipedii</h2></div>
-      <button type="button" className={styles.secondary} disabled={loading} onClick={()=>{
-        setLoading(true);void refresh().finally(()=>setLoading(false));}}>Obnoviť</button>
-    </div>
-    {data.status==="UNAVAILABLE"&&<p role="status">Udalosti momentálne nie sú dostupné. Otvor príslušnú agendu alebo obnov prehľad.</p>}
-    <div className={styles.highlight}>
-      <div><small>Najbližšie plánované Gemini vyhľadávanie</small>
-        {data.nextGemini
-          ? <><strong>{data.nextGemini.label}</strong>
-            <time dateTime={data.nextGemini.nextRunAt}>{formatTime(data.nextGemini.nextRunAt)}</time></>
-          : <strong>Bez potvrdeného najbližšieho termínu</strong>}
+/**
+ * The workspace is a navigation hub, not another inbox. The notification bell
+ * and canonical queues own item-level activity and acknowledgement.
+ */
+export function AdminWorkspaceActivity({ initial }: { initial: WorkspaceFeed }) {
+  return (
+    <section className={styles.root} aria-label="Prejsť do pracovných sekcií">
+      <div className={styles.titleRow}>
+        <div>
+          <small>Rýchly prehľad</small>
+          <h2>Otvoriť pracovnú sekciu</h2>
+          <p>Vyber oblasť, v ktorej chceš pokračovať. Jednotlivé udalosti nájdeš v príslušnej agende.</p>
+        </div>
       </div>
-      <Link href="/admin/automatizacie-gemini">Otvoriť plánovač →</Link>
-    </div>
-    <div className={styles.metrics}>
-      <Link href="/admin/operations">Čakajúce úlohy <strong>Otvoriť →</strong></Link>
-      <Link href="/admin/kvalita">Nové údaje na schválenie <strong>{data.status==="OK"?data.qualityPending:"—"}</strong></Link>
-      <div>Neprečítané udalosti <strong>{data.status==="OK"?unread:"—"}</strong></div>
-    </div>
-    <div className={styles.toolbar} aria-label="Filter pracovných udalostí">
-      {([["all","Všetko"],["action","Na kontrolu"],["automation","Automatizácie a systém"]] as const).map(([key,label])=>
-        <button key={key} type="button" aria-pressed={filter===key}
-          className={filter===key?styles.active:styles.secondary} onClick={()=>setFilter(key)}>{label}</button>)}
-    </div>
-    <div className={styles.events}>
-      {shown.map(x=><article className={styles.event} key={x.id} data-unread={!x.read}>
-        <div className={styles.eventContent}>
-          <Link href={x.href}><strong>{x.title}</strong></Link>
-          <p>{x.body}</p>
-          <small>{formatTime(x.createdAt)} · Nové</small>
-        </div>
-        <div className={styles.actions}>
-          <Link href={x.href}>Otvoriť</Link>
-          <button type="button" disabled={busy!==null} onClick={()=>void read(x.id)}>Prečítané</button>
-        </div>
-      </article>)}
-      {data.status==="OK"&&!shown.length&&<p className={styles.empty}>V tomto filtri nie sú žiadne udalosti.</p>}
-    </div>
-    {error&&<p role="status" className={styles.error}>{error}</p>}
-    <p className={styles.note}>Označenie za prečítané nezmení stav hodnotenia, návrhu ani profilu.
-      Vybavené úlohy miznú po obnovení; nové údaje sa načítajú každú minútu a po návrate na stránku.</p>
-  </section>;
+      <div className={styles.links}>
+        <Link href="/admin/operations" className={styles.linkCard}>
+          <strong>Podnety a upozornenia</strong>
+          <span>Čakajúce schválenia a žiadosti</span>
+          <b>Otvoriť upozornenia →</b>
+        </Link>
+        <Link href="/admin/kvalita" className={styles.linkCard}>
+          <strong>Chýbajúce údaje</strong>
+          <span>{initial.status === "OK" ? `${initial.qualityPending} návrhov na schválenie` : "Počet momentálne nie je dostupný"}</span>
+          <b>Otvoriť kvalitu údajov →</b>
+        </Link>
+        <Link href="/admin/mapy" className={styles.linkCard}>
+          <strong>Adresy a polohy na overenie</strong>
+          <span>Neúplné, nejednoznačné alebo nepotvrdené lokality profilov</span>
+          <b>Otvoriť mapy →</b>
+        </Link>
+        <Link href="/admin/automatizacie-gemini" className={styles.linkCard}>
+          <strong>Automatizácie Gemini</strong>
+          <span>{initial.nextGemini
+            ? `Najbližšie: ${initial.nextGemini.label}, ${formatTime(initial.nextGemini.nextRunAt)}`
+            : "Najbližšie spustenie nie je potvrdené"}</span>
+          <b>Otvoriť plánovač →</b>
+        </Link>
+        <Link href="/admin/facebook-obrazky" className={styles.linkCard}>
+          <strong>Facebook obrázky</strong>
+          <span>Príspevky, schvaľovanie a publikovanie</span>
+          <b>Otvoriť Facebook obrázky →</b>
+        </Link>
+      </div>
+      {initial.status === "UNAVAILABLE" &&
+        <p role="status" className={styles.note}>Počty a termíny sa nepodarilo načítať. Pracovné sekcie môžeš stále otvoriť.</p>}
+    </section>
+  );
 }

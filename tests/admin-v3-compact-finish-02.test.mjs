@@ -27,7 +27,8 @@ test("compact finish 02 changes real specialized admin surfaces, not public page
 test("touch targets and upload behavior survive compact design", () => {
   assert.match(read("components/admin-missing-quality-dashboard.module.css"), /\.actions button,\.rejectAll \{[^\n]*min-height:44px;/);
   assert.match(read("components/admin-missing-quality-dashboard.module.css"), /\.filters button \{min-height:44px;/);
-  assert.match(read("components/admin-workspace-activity.module.css"), /\.secondary,\.active,\.actions button\{min-height:44px;/);
+  assert.match(read("components/admin-workspace-activity.module.css"), /\.linkCard \{[\s\S]*?min-height: 100px;/);
+  assert.match(read("components/admin-workspace-activity.module.css"), /\.linkCard \{ min-height: 44px;/);
   assert.match(read("components/admin-attention-queue.module.css"), /\.open \{[\s\S]*?min-height: 44px;/);
   assert.match(read("components/admin-attention-queue.module.css"), /\.sourceCounts a \{[\s\S]*?min-height: 44px;/);
   assert.match(read("components/admin-eshop-editor.module.css"), /\.uploadButton \{[^\n]*min-height: 44px;/);
@@ -73,7 +74,7 @@ test("compact dashboard and Operations use all available columns without serif h
   assert.match(dashboard, /grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 245px\), 1fr\)\)/);
   assert.match(operations, /grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 290px\), 1fr\)\)/);
   assert.match(dashboard, /\.sectionHeading h2, \.panelHeading h2 \{ font-family: inherit; font-weight: 800;/);
-  assert.match(activity, /\.titleRow h2\{[^\n]*font-family:inherit;font-weight:800;/);
+  assert.match(activity, /\.titleRow h2 \{[^\n]*font-family: inherit;[^\n]*font-weight: 800;/);
   assert.match(quality, /\.heading h2 \{font-family:inherit;font-weight:800;/);
   const inbox = read("components/admin-attention-queue.module.css");
   assert.match(inbox, /\.empty h2 \{[\s\S]*?font-family: inherit;[\s\S]*?font-size: 1\.05rem;/);

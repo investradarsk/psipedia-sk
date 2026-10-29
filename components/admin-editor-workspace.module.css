@@ -325,3 +325,34 @@ dialog.workspaceModal[open] :is(h2, h3),
   .content, .preview { padding: 0.55rem; }
   .actionEnd > * { min-height: 44px; }
 }
+
+
+/* Mobile full-page editors must scroll as part of the document, not inside a
+   viewport-height workspace. The modal editor intentionally retains its own
+   scroll container. This also keeps long article/Facebook forms reachable on
+   iOS Safari when the top navigation and save bar are sticky. */
+@media (max-width: 820px) {
+  .pageWorkspace {
+    overflow: visible;
+  }
+  .pageWorkspace > .workspace {
+    flex: none;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+  .pageWorkspace .columns,
+  .pageWorkspace .columns[data-editor-columns="with-preview"] {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+  .pageWorkspace .content,
+  .pageWorkspace .preview {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+}

@@ -4,6 +4,7 @@ import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import { AdminBreadcrumbs, AdminNavigation } from "./admin-navigation";
 import { AdminStickyMetrics } from "./admin-sticky-metrics";
+import { AdminHomeBrandLink } from "./admin-home-brand-link";
 import { PawMark } from "./icons";
 import styles from "./admin-shell.module.css";
 
@@ -96,10 +97,10 @@ export function AdminShell({
       <div className={`admin-shell shell ${styles.shellV3}`}>
         <div className={styles.workspace}>
           <aside className={styles.sidebarFrame} data-admin-sidebar-shell aria-label="Bočný panel Psipedia Admin">
-            <Link href="/admin" className={styles.sidebarBrand} aria-label="Psipedia Admin – pracovný prehľad">
+            <AdminHomeBrandLink className={styles.sidebarBrand}>
               <PawMark size={31} />
               <span>Psipedia<small>Admin</small></span>
-            </Link>
+            </AdminHomeBrandLink>
             <AdminNavigation
               stickyClassName={styles.stickyNav}
               signOutHref={chatGPTSignOutPath("/", user.authProvider)}
@@ -108,10 +109,10 @@ export function AdminShell({
           </aside>
           <div className={styles.workspacePage}>
             <header className={`admin-topbar ${styles.topbarSticky}`} data-admin-topbar>
-              <Link href="/admin" className={styles.mobileBrand} aria-label="Psipedia Admin – pracovný prehľad">
+              <AdminHomeBrandLink className={styles.mobileBrand}>
                 <PawMark size={25} />
                 <span>Psipedia<small>Admin</small></span>
-              </Link>
+              </AdminHomeBrandLink>
               <span className={styles.topbarCaption}>Psipedia · Administrácia</span>
               <div className={styles.topbarActions}>
                 <Link href="/" className={styles.backToWeb} aria-label="Návrat na Psipedia.sk">↗ <span>Späť na web</span></Link>

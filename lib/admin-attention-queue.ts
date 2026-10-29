@@ -1,7 +1,7 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
-export const ADMIN_ATTENTION_QUERY_COUNT = 15;
+export const ADMIN_ATTENTION_QUERY_COUNT = 14; // Legacy automation tasks are owned by newer workflows.
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -25,7 +25,7 @@ export const adminAttentionSourceTypes = [
 export type AdminAttentionSourceType = (typeof adminAttentionSourceTypes)[number];
 export type AdminAttentionQueueSourceType = Exclude<AdminAttentionSourceType, "AUTOMATION_FINDING">;
 export const adminAttentionQueueSourceTypes = adminAttentionSourceTypes.filter(
-  (source): source is AdminAttentionQueueSourceType => source !== "AUTOMATION_FINDING" && source !== "GEO_LOCATION_ISSUE",
+  (source): source is AdminAttentionQueueSourceType => source !== "AUTOMATION_FINDING" && source !== "GEO_LOCATION_ISSUE" && source !== "AUTOMATION_ACTION",
 );
 
 export const adminAttentionPriorities = ["HIGH", "MEDIUM", "LOW"] as const;
@@ -73,7 +73,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   ADOPTION_STALE: "Adopcie",
   AUTOMATION_ACTION: "Automatizácie",
   AUTOMATION_FINDING: "Automation finding (legacy)",
-  PARTNER_CLAIM_REVIEW: "Partner claims",
+  PARTNER_CLAIM_REVIEW: "Žiadosti o správu profilu",
   PARTNER_PROFILE_CHANGE_REVIEW: "Partner úpravy profilov",
   PARTNER_NEW_PROFILE_REVIEW: "Partner nové profily",
   PARTNER_EVENT_REVIEW: "Partner podujatia",
