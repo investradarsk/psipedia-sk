@@ -308,12 +308,12 @@ export function EventCalendar({
               <ul className={styles.dayEvents}>
                 {dailyEvents.map((event) => (
                   <li key={event.id} className={styles.dayEvent}>
-                    <Link className={styles.dayEventMedia} href={eventHref(event)} aria-label={"Otvoriť podujatie: "+event.title}>
+                    <a className={styles.dayEventMedia} href={eventHref(event)} data-events-native-detail aria-label={"Otvoriť podujatie: "+event.title}>
                       {event.imageUrl ? <img src={event.imageUrl} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback decorative />}
-                    </Link>
+                    </a>
                     <div>
                       <span className={styles.dayEventType}>{eventTypePresentation[event.eventType].label}</span>
-                      <Link href={eventHref(event)}>{event.title}</Link>
+                      <a href={eventHref(event)} data-events-native-detail>{event.title}</a>
                       <span>{formatEventDate(event)}{event.startTime ? " · " + event.startTime : ""}</span>
                       <span>{[event.venue, publicLocationValue(event.city, "city")].filter(Boolean).join(" · ") || (/\bwebin[aá]r\b/iu.test(event.title) ? "Webinár" : "Miesto nie je uvedené")}</span>
                       {event.cancelled ? <strong>Zrušené</strong> : null}
