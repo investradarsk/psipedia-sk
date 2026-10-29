@@ -4,6 +4,7 @@ import {
   adminAttentionQueueSourceTypes,
   isAdminAttentionQueueSourceType,
   mapAdoptionStaleAttention,
+  mapHelpSourceReviewAttention,
   mapAutomationActionAttention,
   mapArticleFeedbackAttention,
   mapDirectoryChangeRequestAttention,
@@ -40,6 +41,7 @@ import {
   type PartnerProfileChangeAttentionRow,
   type PartnerVerificationAttentionRow,
   type ProfileReviewAttentionRow,
+  type HelpSourceReviewAttentionRow,
 } from "./admin-attention-queue.ts";
 
 export type AdminAttentionD1Database = Pick<D1Database, "prepare">;
@@ -469,6 +471,29 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
     FROM adoption_dogs
     WHERE status IN ('ACTIVE','RESERVED')
       AND (last_verified_at IS NULL OR last_verified_at < (SELECT staleAdoptionAt FROM params))
+      -- Avoid duplicate alerts once the dedicated inspection has been recorded.
+      AND NOT EXISTS (SELECT 1 FROM help_source_checks checked
+        WHERE checked.entity_type='ADOPTION' AND checked.entity_id=adoption_dogs.id)
+  `,
+  HELP_SOURCE_REVIEW: `
+    SELECT 'HELP_SOURCE_REVIEW' AS sourceType,
+      (c.entity_type || ':' || c.entity_id) AS sourceId,
+      0 AS activeRank, 'NEW' AS attentionState,
+      CASE WHEN c.source_state='POSSIBLE_CHANGE' THEN 'HIGH' ELSE 'MEDIUM' END AS priority,
+      CASE WHEN c.source_state='POSSIBLE_CHANGE' THEN 0 ELSE 1 END AS priorityRank,
+      COALESCE(c.last_checked_at,c.created_at) AS relevantAt,
+      json_object('id',c.entity_id,'entityType',c.entity_type,
+        'name',COALESCE(a.name,l.dog_name,l.breed,'Pes'),
+        'state',c.source_state,'evidence',c.evidence,
+        'lastCheckedAt',COALESCE(c.last_checked_at,c.created_at)) AS payload
+    FROM help_source_checks c
+    LEFT JOIN adoption_dogs a ON c.entity_type='ADOPTION' AND a.id=c.entity_id
+      AND a.status IN ('ACTIVE','RESERVED')
+    LEFT JOIN lost_found_dog_reports l ON c.entity_type='LOST_FOUND' AND l.id=c.entity_id
+      AND l.status='ACTIVE' AND l.published_at IS NOT NULL
+    WHERE (a.id IS NOT NULL OR l.id IS NOT NULL)
+      AND c.source_state IN ('POSSIBLE_CHANGE','UNCERTAIN','UNAVAILABLE','NO_SOURCE')
+      AND (c.last_reviewed_at IS NULL OR c.last_reviewed_state<>c.source_state)
   `,
   AUTOMATION_ACTION: AUTOMATION_ACTION_SELECT,
   PARTNER_CLAIM_REVIEW: `
@@ -1144,6 +1169,7 @@ function mapGenericRow(row: AttentionGenericRow, now: Date): AdminAttentionItem 
     case "DIRECTORY_INQUIRY": return mapDirectoryInquiryAttention(payload as DirectoryInquiryAttentionRow, now);
     case "ARTICLE_FEEDBACK": return mapArticleFeedbackAttention(payload as ArticleFeedbackAttentionRow, now);
     case "ADOPTION_STALE": return mapAdoptionStaleAttention(payload as AdoptionStaleAttentionRow, now);
+    case "HELP_SOURCE_REVIEW": return mapHelpSourceReviewAttention(payload as HelpSourceReviewAttentionRow, now);
     case "AUTOMATION_ACTION": return mapAutomationActionAttention(payload as AutomationActionAttentionRow, now);
     case "PARTNER_CLAIM_REVIEW": return mapPartnerClaimAttention(payload as PartnerClaimAttentionRow, now);
     case "PARTNER_PROFILE_CHANGE_REVIEW": return mapPartnerProfileChangeAttention(payload as PartnerProfileChangeAttentionRow, now);
