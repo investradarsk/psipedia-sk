@@ -1310,7 +1310,7 @@ export async function loadAdminAttentionPage(
         const ack = acknowledgements.get(item.sourceType + ':' + item.sourceId);
         if (!ack || ack.relevant_at !== item.relevantAt) continue;
         item.readAt = ack.read_at;
-        item.snoozedUntil = ack.snoozed_until;
+        item.snoozedUntil = ack.snoozed_until && Date.parse(ack.snoozed_until) > now.getTime() ? ack.snoozed_until : null;
       }
     } catch {
       // This is a supplementary overlay. Never hide the canonical queue.
