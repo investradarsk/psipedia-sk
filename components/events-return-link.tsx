@@ -51,5 +51,5 @@ export function EventsBackLink({ fallbackHref }: { fallbackHref: string }) {
     }
   }
 
-  return <Link href={fallbackHref} onClick={returnToListing}>← Späť na výsledky podujatí</Link>;
+  return <Link href={fallbackHref} onClick={returnToListing} data-native-history-skip>← Späť na výsledky podujatí</Link>;
 }
