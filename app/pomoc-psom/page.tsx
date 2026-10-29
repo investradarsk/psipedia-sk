@@ -90,14 +90,14 @@ function reportPreview(report: HelpLandingReportItem): HelpOverviewItem {
 export default async function HelpRootPage() {
   const { generic, organizations, adoptions, reports } = await getHelpLandingSnapshot();
 
-  // Original overview combines six per type before sorting by event date.
+  // Use the same five-preview limit as the shared public editorial groups.
   // Keep LOST before FOUND on equal dates to preserve the stable tie order.
   const lostFoundPreview = [
     ...reports.items.filter((report) => report.type === "LOST"),
     ...reports.items.filter((report) => report.type === "FOUND"),
   ]
     .sort((left, right) => right.eventDate.localeCompare(left.eventDate))
-    .slice(0, 6)
+    .slice(0, 5)
     .map(reportPreview);
 
   const genericPreviewFor = (category: HelpCategorySlug) =>
