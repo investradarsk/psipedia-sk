@@ -24,7 +24,8 @@ test("S-23 related events use the exact canonical EventCard grid variant as list
   assert.match(detail, /<EventCard key=\{item\.id\} event=\{item\} variant="grid"/);
   assert.match(detail, /styles\.relatedList\} \$\{styles\.cardGrid/);
   assert.match(detail, /data-event-facts/);
-  assert.doesNotMatch(detail, /<DetailFactsCard|EventsBackLink/);
+  assert.doesNotMatch(detail, /<DetailFactsCard/);
+  assert.match(detail, /<EventsBackLink fallbackHref=/);
   assert.match(detail, /<EventMarkdown value=\{event\.description\}/);
   assert.match(detail, /<EventMarkdown value=\{event\.practicalInfo\}/);
 });
