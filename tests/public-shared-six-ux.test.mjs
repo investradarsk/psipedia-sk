@@ -24,10 +24,14 @@ test("homepage article archive link precedes an independent events section", () 
   assert.match(homeStyles, /\.home-independent-events-inner/);
 });
 
-test("homepage featured card has strong visible light-on-dark metadata", () => {
-  assert.match(homeStyles, /rgba\(5,25,19,\.97\)/);
+test("homepage featured card keeps its photograph readable beneath white metadata", () => {
+  // The editorial overlay is intentionally translucent instead of the old
+  // 97%-opaque block. Lock in both image visibility and text contrast.
+  assert.match(homeStyles, /linear-gradient\(0deg,\s*rgba\(5,\s*25,\s*19,\s*\.88\) 0%/);
+  assert.match(homeStyles, /text-shadow:\s*0 1px 2px rgba\(0,\s*0,\s*0,\s*\.35\)/);
   assert.match(homeStyles, /article-card-meta > time/);
-  assert.match(homeStyles, /color: #fff;/);
+  assert.match(homeStyles, /color:\s*#fff;/);
+  assert.match(homeStyles, /opacity:\s*1;/);
 });
 
 test("bookmark and share use one reusable public utility action style", () => {
