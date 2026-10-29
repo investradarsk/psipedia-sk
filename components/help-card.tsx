@@ -1,3 +1,4 @@
+import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
 import Link from "next/link";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
@@ -22,7 +23,7 @@ export function HelpCard({ item }: { item: PublicHelpCard }) {
   const location = publicLocationLabel([publicLocationValue(item.city, "city"), publicLocationValue(item.region, "region")]);
 
   return (
-    <article data-help-card data-public-card="help" data-public-card-emphasis={item.urgent && !item.resolved ? "urgent" : undefined} className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
+    <PublicHelpCardSurface data-help-card data-public-card="help" data-public-card-emphasis={item.urgent && !item.resolved ? "urgent" : undefined} className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
       <Link className={styles.media} href={detailHref} aria-label={"Otvoriť " + item.title}>
         {item.imageUrl ? <ImageDisplay roleHint="generic" fallbackOnError context="thumbnail" config={item.thumbnailImageDisplay} src={item.imageUrl} alt={item.dogName ? item.dogName + " – " + item.title : item.title} loading="lazy" decoding="async" /> : <span className={styles.mediaFallback} aria-hidden="true"><PublicMediaFallback /></span>}
         <span className={styles.badges}>
@@ -59,6 +60,6 @@ export function HelpCard({ item }: { item: PublicHelpCard }) {
           {item.resolved ? "Pozrieť výsledok" : "Otvoriť detail"}
         </PublicActionLink>
       </div>
-    </article>
+    </PublicHelpCardSurface>
   );
 }
