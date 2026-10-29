@@ -286,3 +286,39 @@ test("vertical drag beginning on the right of the page never triggers back", asy
   await touchSwipe(page, "main", [295, 465], [323, 252]);
   await expect(page).toHaveURL(/\/starostlivost$/);
 });
+
+
+test("article swipe returns to the exact magazine listing after a full reload", async ({ page }) => {
+  // Reproduce iPhone Chrome: enter the magazine, open one article, reload
+  // its document and then make the same inward leftward swipe.
+  await page.goto("/clanky");
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  const article = page.locator('.article-browser a[role="listitem"]').first();
+  await expect(article).toBeVisible();
+  await article.click();
+  await expect(page).not.toHaveURL(/\/clanky$/);
+  await page.waitForFunction(() => {
+    const trail = JSON.parse(sessionStorage.getItem("psipedia:public-route-trail:v1") ?? "[]");
+    return Array.isArray(trail) && trail.length >= 3 && trail.at(-2) === "/clanky";
+  });
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await touchSwipe(page, "main", [315, 440], [175, 442]);
+  await expect(page).toHaveURL(/\/clanky$/);
+  // This must never return to Chrome's external new-tab or an earlier root.
+  await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
+});
+
+test("in-site trail unwinds one route at a time across hard document navigations", async ({ page }) => {
+  await page.goto("/starostlivost");
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await page.goto("/o-nas");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+
+  await touchSwipe(page, "main", [316, 390], [181, 393]);
+  await expect(page).toHaveURL(/\/starostlivost$/);
+  await touchSwipe(page, "main", [316, 390], [181, 393]);
+  await expect(page).toHaveURL(/\/$/);
+});
