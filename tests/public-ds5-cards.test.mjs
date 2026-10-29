@@ -123,16 +123,14 @@ test("DS-5 shared effects resolve to the approved values for every existing card
   }
 });
 
-test("organization cards retain their approved central variant instead of inheriting DS-5 geometry", () => {
+test("organizations use the canonical Help cards after S-27 (#1120), without a parallel card geometry", () => {
   const css = read("app/organizacie/organization-hub.module.css");
-  for (const [name, value] of [
-    ["grid-gap", "1.25rem"], ["radius", "1.25rem"], ["padding", "1.15rem"],
-    ["shadow", "0 12px 28px rgba(20, 44, 36, 0.06)"],
-  ]) {
-    assert.ok(design.includes(`--ps-card-organization-${name}: ${value};`));
-    assert.ok(css.includes(`var(--ps-card-organization-${name})`));
-  }
-  assert.match(css, /aspect-ratio:\s*16\s*\/\s*10/);
+  const organizations = read("app/organizacie/page.tsx");
+  const helpCard = read("components/public-visual-system/public-help-profile-card.tsx");
+  assert.match(organizations, /<PublicHelpProfileCard/);
+  assert.match(organizations, /config=\{organization\.thumbnailImageDisplay\}/);
+  assert.match(helpCard, /<PublicHelpCardSurface/);
+  assert.doesNotMatch(css, /\.card\s*\{|\.media\s*\{|\.cardBody\s*\{/);
   assert.match(css, /@media \(max-width: 900px\)/);
   assert.match(css, /@media \(max-width: 620px\)/);
 });
