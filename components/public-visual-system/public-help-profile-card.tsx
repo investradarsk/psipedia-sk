@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { PublicHelpCardSurface } from "./public-help-card-surface";
@@ -25,7 +25,7 @@ export function PublicHelpProfileCard({
   className?: string;
   titleLevel?: "h2" | "h3";
   children?: ReactNode;
-} & Omit<React.HTMLAttributes<HTMLElement>, "title" | "children">) {
+} & Omit<HTMLAttributes<HTMLElement>, "title" | "children">) {
   const heading = <Link href={href}>{title}</Link>;
   return (
     <PublicHelpCardSurface
