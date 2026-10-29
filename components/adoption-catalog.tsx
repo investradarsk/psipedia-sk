@@ -1,4 +1,5 @@
 import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
+import { PublicHelpCategoryNav, publicHelpCategoryItems } from "@/components/public-visual-system/public-help-category-nav";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import {
@@ -196,6 +197,9 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
       </UnifiedSectionHeroShell>
 
       <PublicContentShell variant="listing">
+        <div className={styles.categoryNavShell}>
+          <PublicHelpCategoryNav items={publicHelpCategoryItems("adopcia")} />
+        </div>
         <PublicFilterDisclosure
           label="Filtrovať psy"
           activeCount={[
