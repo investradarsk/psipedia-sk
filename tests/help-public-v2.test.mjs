@@ -5,6 +5,7 @@ import test from "node:test";
 const read = (path) => readFileSync(path, "utf8");
 const landing = read("components/help-page.tsx");
 const overview = read("components/help-overview.tsx");
+const helpNav = read("components/public-visual-system/public-help-category-nav.tsx");
 const browser = read("components/help-browser.tsx");
 const card = read("components/help-card.tsx");
 const icons = read("components/help-public-icons.tsx");
@@ -31,9 +32,10 @@ test("Help landing uses the canonical unified hero and curated category previews
   assert.match(overview, /<UnifiedSectionHero/);
   assert.match(overview, /getSectionHeroVisual\("section\.pomoc-psom"\)/);
   assert.doesNotMatch(overview, /<PublicSectionHeader|heroImage|help-hero--photo/);
-  assert.match(overview, /data-help-category-nav/);
+  assert.match(overview, /<PublicHelpCategoryNav/);
+  assert.match(helpNav, /data-help-category-nav/);
   assert.match(overview, /data-help-overview-section/);
-  assert.match(overview, /section\.items\.slice\(0, 6\)/);
+  assert.match(overview, /section\.items\.slice\(0, 5\)/);
   assert.match(rootRoute, /<HelpOverview sections=\{sections\} totalActive=\{totalActive\}/);
 });
 
@@ -41,7 +43,8 @@ test("Help category navigation routes canonical modules without emoji UI", () =>
   assert.match(landing, /category === "adopcia"\) return "\/pomoc-psom\/adopcia"/);
   assert.match(landing, /category === "stratene-a-najdene"\) return "\/pomoc-psom\/stratene-psy"/);
   assert.match(categoryRoute, /redirect\("\/pomoc-psom\/stratene-psy"\)/);
-  assert.match(landing, /<HelpCategoryIcon/);
+  assert.match(landing, /<PublicHelpCategoryNav/);
+  assert.match(helpNav, /<HelpCategoryIcon/);
   assert.doesNotMatch(landing, emojiUi);
   assert.doesNotMatch(overview, emojiUi);
   assert.doesNotMatch(browser, emojiUi);
@@ -58,7 +61,7 @@ test("Help landing counts and limited previews come from canonical public read p
   assert.match(rootRoute, /getHelpLandingSnapshot\(\)/);
   assert.match(rootRoute, /adopcia: adoptions\.count/);
   assert.match(rootRoute, /"stratene-a-najdene": reports\.counts\.LOST \+ reports\.counts\.FOUND/);
-  assert.match(rootRoute, /slice\(0, 6\)/);
+  assert.match(rootRoute, /slice\(0, 5\)/);
   assert.match(rootRoute, /return "\/pomoc-psom\/stratene-a-najdene"/);
   assert.match(landingRead, /d\.status IN \('ACTIVE','RESERVED'\)/);
   assert.match(landingRead, /r\.status = 'ACTIVE'/);
