@@ -1,4 +1,4 @@
-import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
+import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { PublicHelpCategoryNav, publicHelpCategoryItems } from "@/components/public-visual-system/public-help-category-nav";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
@@ -59,65 +59,40 @@ function formatCatalogDate(value: string) {
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   const href = adoptionDetailPath(dog.slug);
   return (
-    <PublicHelpCardSurface className={styles.card}>
-      <AdoptionCardMedia
+    <PublicHelpProfileCard
+      data-adoption-card={dog.slug}
+      href={href}
+      title={dog.name}
+      category={dog.status === "RESERVED" ? "Rezervovaný" : "Pes na adopciu"}
+      titleLevel="h2"
+      actionLabel="Zobraziť profil"
+      media={<AdoptionCardMedia
         href={href}
         name={dog.name}
         status={dog.status}
         mainImage={dog.mainImage}
         imageConfig={dog.thumbnailImageDisplay}
-      />
-      <div className={styles.cardBody}>
-        {(dog.city || dog.region) && (
-          <p className={styles.location}>{[dog.city, dog.region].filter(Boolean).join(" · ")}</p>
-        )}
-        <h2>
-          <Link href={href}>{dog.name}</Link>
-        </h2>
-        {dog.organizationName ? (
-          <p className={styles.organization}>
-            Organizácia:{" "}
-            {dog.organizationSlug ? (
-              <Link href={"/organizacie/" + dog.organizationSlug}>{dog.organizationName}</Link>
-            ) : (
-              dog.organizationName
-            )}
-          </p>
-        ) : null}
-        {dog.breedName && (
-          <p className={styles.breed}>
-            {dog.breedMix ? "Kríženec · " : ""}
-            {dog.breedName}
-          </p>
-        )}
-        {dog.shortDescription && <p className={styles.description}>{dog.shortDescription}</p>}
-        <dl className={styles.quickFacts}>
-          <div>
-            <dt>Vek</dt>
-            <dd>{formatAdoptionCatalogAge(dog)}</dd>
-          </div>
-          <div>
-            <dt>Pohlavie</dt>
-            <dd>{adoptionCatalogSexLabels[dog.sex]}</dd>
-          </div>
-          <div>
-            <dt>Veľkosť</dt>
-            <dd>{adoptionCatalogSizeLabels[dog.size]}</dd>
-          </div>
-        </dl>
-        {dog.status === "RESERVED" && (
-          <p className={styles.reservedNote}>Tento pes je momentálne rezervovaný.</p>
-        )}
-        {dog.lastVerifiedAt ? (
-          <p className={styles.freshness}>
-            Dostupnosť potvrdená: {formatCatalogDate(dog.lastVerifiedAt)}
-          </p>
-        ) : dog.publishedAt ? (
-          <p className={styles.freshness}>Publikované: {formatCatalogDate(dog.publishedAt)}</p>
-        ) : null}
-        <Link href={href}>Zobraziť profil →</Link>
-      </div>
-    </PublicHelpCardSurface>
+      />}
+      meta={<>
+        {(dog.city || dog.region) && <p>{[dog.city, dog.region].filter(Boolean).join(" · ")}</p>}
+        {dog.organizationName && <p>Organizácia: {dog.organizationSlug
+          ? <Link href={"/organizacie/" + dog.organizationSlug}>{dog.organizationName}</Link>
+          : dog.organizationName}</p>}
+      </>}
+      excerpt={dog.shortDescription}
+      extras={<>
+        <p>{[
+          dog.breedName ? (dog.breedMix ? "Kríženec · " : "") + dog.breedName : null,
+          formatAdoptionCatalogAge(dog),
+          adoptionCatalogSexLabels[dog.sex],
+          adoptionCatalogSizeLabels[dog.size],
+        ].filter(Boolean).join(" · ")}</p>
+        {dog.status === "RESERVED" && <p className={styles.reservedNote}>Tento pes je momentálne rezervovaný.</p>}
+        {dog.lastVerifiedAt
+          ? <p>Dostupnosť potvrdená: {formatCatalogDate(dog.lastVerifiedAt)}</p>
+          : dog.publishedAt ? <p>Publikované: {formatCatalogDate(dog.publishedAt)}</p> : null}
+      </>}
+    />
   );
 }
 
