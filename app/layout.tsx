@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { NativeHistoryNavigation } from "@/components/native-history-navigation";
 import { CookieConsent } from "@/components/cookie-consent";
 import { ProgrammaticAdLoader } from "@/components/programmatic-ad-loader";
 import { StructuredData } from "@/components/structured-data";
@@ -83,6 +84,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="sk">
       <body>
         <StructuredData value={buildSiteIdentityJsonLd()} />
+        <NativeHistoryNavigation />
         <SiteHeader navigationItems={navigationItems} partnerAuthenticated={Boolean(partnerSession)} />
         {children}
         <SiteFooter />
