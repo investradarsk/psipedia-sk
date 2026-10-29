@@ -274,10 +274,8 @@ test("sitewide Chrome iPhone: homepage → events → detail → back twice stay
 
 test("sitewide Chrome iPhone: homepage → magazine → article → two browser backs", async ({ page }) => {
   await emulateChromeOnIphone(page);
-  await page.locator('[data-home-search] a[href="/clanky"]').first().click().catch(async () => {
-    await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-    await page.locator('#mobile-menu a[href="/clanky"]').first().click();
-  });
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/clanky"]').first().click();
   await expect(page).toHaveURL(/\/clanky$/);
   const beforeArticle = await loadCount(page);
   const article = page.locator('.article-browser a[role="listitem"]').first();
