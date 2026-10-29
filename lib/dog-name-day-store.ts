@@ -97,6 +97,26 @@ function isMissingTableError(error: unknown) {
   return /no such table:\s*dog_name_days/i.test(message);
 }
 
+/** Public read-only name search across all months. Only published names are visible. */
+export async function searchPublishedDogNameDays(query: string) {
+  const normalized = normalizeDogNameDayName(query).slice(0, 80);
+  const database = getD1Binding();
+  if (!database || normalized.length < 2) return [] as Array<{ month: number; day: number; name: string }>;
+  try {
+    const result = await database.prepare(`
+      SELECT month, day, name FROM dog_name_days
+      WHERE status = 'published' AND instr(normalized_name, ?) > 0
+      ORDER BY month ASC, day ASC, normalized_name ASC LIMIT 30
+    `).bind(normalized).all<{ month: number; day: number; name: string }>();
+    return result.results;
+  } catch (error) {
+    if (!isMissingTableError(error)) {
+      console.error(JSON.stringify({ event: "dog_name_day_public_search_failed", error: error instanceof Error ? error.message : String(error) }));
+    }
+    return [] as Array<{ month: number; day: number; name: string }>;
+  }
+}
+
 export async function getPublishedDogNameDaysForDate(date: Date = new Date()) {
   const database = getD1Binding();
   const parts = dogNameDayDateParts(date);
