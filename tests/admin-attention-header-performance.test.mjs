@@ -109,7 +109,7 @@ test("one source failure falls back only within its group and retains partial so
   assert.equal(result.bySource.NEWS_TIP, null);
   assert.equal(result.active, 26);
   assert.equal(result.bySource.MODERATION_SUBMISSION, 2);
-  assert.equal(result.bySource.AUTOMATION_ACTION, 2);
+  assert.equal(result.bySource.PROFILE_REVIEW_MODERATION, 2);
 });
 
 test("a malformed group response retries rather than silently dropping source counts", async () => {
