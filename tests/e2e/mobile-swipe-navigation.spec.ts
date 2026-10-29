@@ -340,3 +340,32 @@ test("homepage article returns to homepage after the same left swipe reported on
   await expect(page).toHaveURL(/\/$/);
   await expect(page.locator("[data-home-latest]")).toBeVisible();
 });
+
+
+test("Chrome iOS fallback: an article has a reliable return link after a full reload", async ({ page }) => {
+  const origin = page.locator("[data-home-latest] [data-article-list-item]").first();
+  await expect(origin).toBeVisible();
+  await origin.click();
+  await expect(page).not.toHaveURL(/\/$/);
+  const back = page.locator("[data-article-safe-back]");
+  await expect(back).toBeVisible();
+  await expect(back).toHaveAttribute("href", "/");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await expect(back).toHaveAttribute("href", "/");
+  await back.click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator("[data-home-latest]")).toBeVisible();
+});
+
+test("article fallback stays keyboard accessible and hidden on desktop", async ({ page }) => {
+  await page.locator("[data-home-latest] [data-article-list-item]").first().click();
+  const back = page.getByRole("link", { name: "Späť na predchádzajúcu stránku na Psipedii" });
+  await expect(back).toBeVisible();
+  await back.focus();
+  await expect(back).toBeFocused();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(back).toBeHidden();
+});
