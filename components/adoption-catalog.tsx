@@ -1,3 +1,4 @@
+import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import {
@@ -57,7 +58,7 @@ function formatCatalogDate(value: string) {
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   const href = adoptionDetailPath(dog.slug);
   return (
-    <article className={styles.card}>
+    <PublicHelpCardSurface className={styles.card}>
       <AdoptionCardMedia
         href={href}
         name={dog.name}
@@ -115,7 +116,7 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
         ) : null}
         <Link href={href}>Zobraziť profil →</Link>
       </div>
-    </article>
+    </PublicHelpCardSurface>
   );
 }
 
