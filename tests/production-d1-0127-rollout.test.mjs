@@ -69,7 +69,7 @@ function schema(db) {
 test("0127 remains approved and pinned even when 0128 is a later supported target", () => {
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(target));
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0130_")), "0130_facebook_image_publisher.sql");
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0146_help_source_daily_checks.sql"]);
   const bytes = readFileSync(path.join(root, "drizzle", target));
   assert.equal(createHash("sha256").update(bytes).digest("hex"), APPROVED_0127_SHA256);
   assert.doesNotThrow(() => assertApproved0127Target("psipedia-sk-db", APPROVED_0127_SHA256));
