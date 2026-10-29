@@ -55,6 +55,26 @@ test("Help landing is compact, canonical, accessible and touch-safe", async ({ p
   await expectNoAxeViolations(page);
 });
 
+test("shared Help cards have identical compact media-left anatomy on listings", async ({ page }) => {
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const route of ["/pomoc-psom", "/pomoc-psom/utulky", "/pomoc-psom/docasna-opatera", "/pomoc-psom/adopcia"]) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      const card = page.locator("[data-help-profile-card]").first();
+      await expect(card).toBeVisible();
+      const media = await card.locator("[data-help-profile-media]").boundingBox();
+      const copy = await card.locator("[data-help-profile-copy]").boundingBox();
+      expect(media).not.toBeNull();
+      expect(copy).not.toBeNull();
+      expect(media?.width ?? 0).toBeGreaterThan(90);
+      expect(media?.width ?? 0).toBeLessThanOrEqual(164);
+      expect((media?.x ?? 0) + (media?.width ?? 0)).toBeLessThanOrEqual((copy?.x ?? 0) + 2);
+      await expect(card.getByRole("link", { name: /(?:Zobraziť detail|Zobraziť profil|Otvoriť detail)/ })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    }
+  }
+});
+
 test("Help category flows preserve dedicated domains and canonical organization profiles", async ({ page }) => {
   await page.goto("/pomoc-psom/utulky", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1, name: "Útulky a organizácie" })).toBeVisible();
