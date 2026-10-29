@@ -49,11 +49,11 @@ function mockDatabase(activeTip = false) {
 test("empty Admin Operations queue uses 3 grouped snapshots and no empty page SQL", async () => {
   const {db,queries} = mockDatabase();
   const page = await loadAdminAttentionPage({},db,now);
-  assert.equal(adminAttentionQueueSourceTypes.length,14);
+  assert.equal(adminAttentionQueueSourceTypes.length,15);
   assert.equal(ADMIN_ATTENTION_PROBE_GROUP_SIZE,5);
   assert.equal(ADMIN_ATTENTION_PROBE_QUERY_COUNT,3);
   assert.equal(queries.length,3);
-  assert.deepEqual(queries.map(x=>x.group.length),[5,5,4]);
+  assert.deepEqual(queries.map(x=>x.group.length),[5,5,5]);
   assert.equal(queries.filter(item => item.isPage).length,0);
   assert.equal(page.resultCount,0);
   assert.equal(page.summary.active,0);
