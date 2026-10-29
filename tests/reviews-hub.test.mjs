@@ -66,3 +66,24 @@ test("reviews hub styling stays isolated and shared landing tiles live in the pu
   assert.match(css, /\.eshopGrid/);
   assert.match(css, /@media \(max-width: 620px\)/);
 });
+
+test("S-29 reuses the established compact cards instead of standalone oversized article and e-shop layouts", () => {
+  const hub = read("components/reviews-hub.tsx");
+  const css = read("components/reviews-hub.module.css");
+  const shared = read("components/public-visual-system/public-visual-system.tsx");
+  assert.match(hub, /<PublicContentList className=\{styles\.articleGrid\}/);
+  assert.match(hub, /<ArticleCard[\s\S]*?variant="compact"/);
+  assert.doesNotMatch(hub, /\s+large\s*\n\s+topicHref=/);
+  assert.match(hub, /<PublicContentList className=\{styles\.eshopGrid\}/);
+  assert.match(hub, /<PublicContentListItem[\s\S]*?title=\{shop\.name\}/);
+  assert.match(hub, /shop\.averages\.overall/);
+  assert.match(hub, /shop\.ratingCount/);
+  assert.match(hub, /shop\.logoUrl/);
+  assert.match(hub, /<PublicDataCard/);
+  assert.match(hub, /<PublicCategoryTiles/);
+  assert.match(hub, /<PublicSubcategoryNavigator/);
+  assert.match(shared, /export function PublicContentListItem/);
+  assert.match(shared, /export function PublicDataCard/);
+  assert.doesNotMatch(css, /\.eshopCard\s*\{|\.eshopMiniRatings\s*\{|\.serviceLinks a\s*\{/);
+  assert.match(css, /\.methodGrid article/);
+});
