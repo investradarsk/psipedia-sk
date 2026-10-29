@@ -1,7 +1,7 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
-export const ADMIN_ATTENTION_QUERY_COUNT = 14; // Legacy automation tasks are owned by newer workflows.
+export const ADMIN_ATTENTION_QUERY_COUNT = 15; // Legacy automation tasks are owned by newer workflows.
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
