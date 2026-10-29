@@ -1,4 +1,4 @@
-import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
+import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { PublicHelpCategoryNav } from "@/components/public-visual-system/public-help-category-nav";
 import Link from "next/link";
@@ -87,12 +87,22 @@ const promos: Record<number, PromoBanner> = {
 
 function OverviewCard({ item }: { item: HelpOverviewItem }) {
   return (
-    <PublicHelpCardSurface className={styles.overviewCard} data-help-overview-card>
-      <Link className={styles.overviewMedia} href={item.href} aria-label={`Otvoriť: ${item.title}`}>
+    <PublicHelpProfileCard
+      data-help-overview-card
+      href={item.href}
+      title={item.title}
+      category={item.eyebrow}
+      meta={item.meta}
+      excerpt={item.excerpt}
+      badge={item.badge
+        ? <span className={[styles.overviewBadge, item.urgent ? styles.overviewBadgeUrgent : ""].filter(Boolean).join(" ")}>{item.badge}</span>
+        : null}
+      media={<Link href={item.href} aria-label={`Otvoriť: ${item.title}`}>
         {item.imageUrl ? (
           <ImageDisplay
             roleHint="generic"
             context="thumbnail"
+            fallbackOnError
             config={item.thumbnailImageDisplay ?? { mode: "crop", x: 50, y: 50, zoom: 1 }}
             src={item.imageUrl}
             alt=""
@@ -107,28 +117,8 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
             decorative
           />
         )}
-        {item.badge ? (
-          <span
-            className={[styles.overviewBadge, item.urgent ? styles.overviewBadgeUrgent : ""]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            {item.badge}
-          </span>
-        ) : null}
-      </Link>
-      <div className={styles.overviewCardCopy}>
-        <span className={styles.overviewEyebrow}>{item.eyebrow}</span>
-        <h3>
-          <Link href={item.href}>{item.title}</Link>
-        </h3>
-        {item.meta ? <p className={styles.overviewMeta}>{item.meta}</p> : null}
-        {item.excerpt ? <p className={styles.overviewExcerpt}>{item.excerpt}</p> : null}
-        <Link className={styles.overviewCardAction} href={item.href}>
-          Zobraziť detail <ArrowIcon size={16} />
-        </Link>
-      </div>
-    </PublicHelpCardSurface>
+      </Link>}
+    />
   );
 }
 

@@ -138,7 +138,13 @@ test.describe("organization public profile", () => {
     const media = luna.getByRole("link", { name: "Zobraziť profil E2E Luna rezervovaná" });
     const mediaBox = await media.boundingBox();
     expect(mediaBox).not.toBeNull();
-    expect(Math.abs((mediaBox?.width ?? 0) / (mediaBox?.height ?? 1) - (4 / 3))).toBeLessThan(0.04);
+    // Unified Help cards are horizontal, with a compact media rail on the
+    // left. Media no longer uses the old standalone 4:3 top-card ratio.
+    expect(mediaBox?.width ?? 0).toBeGreaterThan(85);
+    expect(mediaBox?.width ?? 0).toBeLessThanOrEqual(164);
+    const copyBox = await luna.locator("[data-help-profile-copy]").boundingBox();
+    expect(copyBox).not.toBeNull();
+    expect((mediaBox?.x ?? 0) + (mediaBox?.width ?? 0)).toBeLessThanOrEqual((copyBox?.x ?? 0) + 2);
 
     const ctaBox = await luna.getByRole("link", { name: "Zobraziť profil", exact: true }).boundingBox();
     expect(ctaBox).not.toBeNull();

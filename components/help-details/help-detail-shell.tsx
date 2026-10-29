@@ -1,4 +1,6 @@
 import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "@/components/public-visual-system";
+import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
@@ -83,16 +85,15 @@ export function HelpDetailShell({
             {item.excerpt && <p className={styles.excerpt}>{item.excerpt}</p>}
             <div className={styles.heroActions}>
               {externalAction(item) && <a className={styles.primaryAction} href={item.actionUrl ?? undefined} target="_blank" rel="noreferrer">{item.actionLabel || "Zistiť viac"} ↗</a>}
-              <Link className={styles.secondaryAction} href={`/pomoc-psom/${item.category}`}>Späť na {category?.label?.toLocaleLowerCase("sk") ?? "prehľad"}</Link>
+              
             </div>
 </>}
-      media={item.imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={item.detailImageDisplay} src={item.imageUrl} alt={imageAlt} loading="eager" /> : null} />
+      media={item.imageUrl ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={item.detailImageDisplay} src={item.imageUrl} alt={imageAlt} loading="eager" /> : <PublicMediaFallback size="detail" label="Fotografia záznamu zatiaľ nie je dostupná" />} />
 
     <section className={styles.content}>
-      <div className={`${styles.shell} ${styles.layout}`}>
+      <PublicHelpProfileDetailLayout aside={sidebar} asideLabel="Praktické informácie">
         <article className={styles.copy}>{children}</article>
-        <aside className={styles.aside} aria-label="Praktické informácie">{sidebar}</aside>
-      </div>
+      </PublicHelpProfileDetailLayout>
       {showTrust && <div className={styles.shell}>
         <section className={styles.trust} aria-labelledby={`help-trust-${item.id}`}>
           <span className={styles.trustIcon} aria-hidden="true"><ShieldCheckIcon size={18} /></span>
