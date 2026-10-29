@@ -122,6 +122,17 @@ export async function HelpPage({
               }))} />
             </section>
           )}
+          {active && (
+            <section className={styles.categoryBlock} aria-label="Ďalšie kategórie pomoci">
+              <PublicHelpCategoryNav items={helpCategories.map((category) => ({
+                slug: category.slug,
+                label: category.label,
+                href: categoryDestination(category.slug),
+                count: categoryCounts[category.slug],
+                current: category.slug === initialCategory,
+              }))} />
+            </section>
+          )}
 
           <PublicHelpReportBanner />
         </HelpBrowser>
