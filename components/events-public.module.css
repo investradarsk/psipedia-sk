@@ -2438,3 +2438,26 @@
 /* With the duplicate facts sidebar gone, details without a map occupy the
    full shared detail container rather than leaving an unused empty column. */
 .detailSingleColumn { grid-template-columns: minmax(0, 1fr); }
+
+/* S-22: organizer CTA follows the same compact banner controls sitewide. */
+.calendarOrganizer :global([data-public-context-banner-layout="inline"]) {
+  min-height: 0;
+}
+.calendarOrganizer :global([data-public-context-banner-layout="inline"] > div:first-child) {
+  padding: 16px 18px;
+  gap: 7px;
+}
+.calendarOrganizer :global([data-public-context-banner-layout="inline"] a[data-public-action]) {
+  min-height: 44px;
+}
+@media (max-width: 760px) {
+  .calendarOrganizer :global([data-public-context-banner-layout="inline"] > div:first-child) {
+    padding: 16px;
+  }
+}
+.detailUpdated {
+  margin: 10px 0 0;
+  color: var(--detail-muted, #52695f);
+  font-size: .76rem;
+  line-height: 1.45;
+}
