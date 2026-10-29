@@ -13,7 +13,7 @@ import { PublicLocationMap } from "@/components/map/public-location-map";
 import { buildGoogleMapsDirectionsUrl, isApproximateMapItem } from "@/lib/map-public-ui";
 import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
-import { DetailHero, DetailOptionGrid, DetailParagraphs, DetailSection } from "@/components/detail-primitives/detail-primitives";
+import { DetailHero, DetailOptionGrid, DetailParagraphs, DetailSection, PublicDetailLayout } from "@/components/detail-primitives/detail-primitives";
 import { getDirectoryCategory } from "@/lib/directory";
 import { formatDirectoryUpdatedAt, type DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
 import type { PublicProfileReviewData } from "@/lib/profile-review-read";
@@ -146,7 +146,7 @@ export function DirectoryProfileDetail({
         navigationHref={navigationHref}
         showExcerpt={!hasExtendedDescription}
       />
-      <div className={styles.layout}>
+      <PublicDetailLayout mode="inline" className={styles.layout}>
       <article className={styles.content} data-public-profile-body>
         {hasExtendedDescription ? (
           <DetailSection compactHeading eyebrow="Predstavenie" title="O službe">
@@ -233,7 +233,7 @@ export function DirectoryProfileDetail({
         ) : null}
       </article>
 
-      </div>
+      </PublicDetailLayout>
 
       <section className={styles.contactSection} id="kontakt">
         <div className={"shell " + styles.contactShell}>

@@ -54,6 +54,50 @@ export function DetailContentLayout({ children, aside }: { children: ReactNode; 
   return <div className={className}><div className={styles.contentMain}>{children}</div>{aside ? <aside className={styles.contentAside}>{aside}</aside> : null}</div>;
 }
 
+/**
+ * Canonical content shell for ALL public detail pages: services, events,
+ * organizations, adoptions, rescue cases, lost/found.
+ *
+ * "split" wraps the content and optional sidebar in the same grid.
+ * "inline" keeps existing semantic <article>/<aside> children in place, for
+ * profile types with safety-specific DOM order and advanced side panels.
+ * Both modes share exactly the same gutters, breakpoint and column ratio.
+ */
+export function PublicDetailLayout({
+  children, aside, asideLabel = "Praktické informácie", mode = "split",
+  element = "div", className, contentClassName, asideClassName, ...attrs
+}: {
+  children: ReactNode;
+  aside?: ReactNode;
+  asideLabel?: string;
+  mode?: "split" | "inline";
+  element?: "div" | "section";
+  className?: string;
+  contentClassName?: string;
+  asideClassName?: string;
+} & Omit<import("react").HTMLAttributes<HTMLDivElement>, "children">) {
+  const hasAside = aside !== undefined && aside !== null && aside !== false;
+  const classes = [
+    styles.publicDetailShell,
+    mode === "inline" ? styles.publicDetailInline :
+      hasAside ? styles.publicDetailSplit : styles.publicDetailSingle,
+    className,
+  ].filter(Boolean).join(" ");
+  const content = mode === "inline" ? children : (
+    <>
+      <div className={[styles.publicDetailMain, contentClassName].filter(Boolean).join(" ")}
+        data-public-detail-main>{children}</div>
+      {hasAside ? <aside
+        className={[styles.publicDetailAside, asideClassName].filter(Boolean).join(" ")}
+        aria-label={asideLabel} data-public-detail-aside>{aside}</aside> : null}
+    </>
+  );
+  if (element === "section") {
+    return <section {...attrs} className={classes} data-public-detail-layout>{content}</section>;
+  }
+  return <div {...attrs} className={classes} data-public-detail-layout>{content}</div>;
+}
+
 /** One visual frame; callers retain ownership of their data, actions and states. */
 export function DetailHero({ breadcrumbs, copy, media, kind, mediaPresentation = "standard" }: {
   breadcrumbs: ReactNode;
