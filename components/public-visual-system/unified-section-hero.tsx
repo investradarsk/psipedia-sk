@@ -162,6 +162,7 @@ export async function UnifiedSectionHero({
   portalSearchSlot,
   ctaSlot,
   metaSlot,
+  hideQuickLinks = false,
   className,
   variant = "homepage-style",
 }: {
@@ -175,6 +176,7 @@ export async function UnifiedSectionHero({
   portalSearchSlot?: ReactNode;
   ctaSlot?: ReactNode;
   metaSlot?: ReactNode;
+  hideQuickLinks?: boolean;
   className?: string;
   variant?: UnifiedSectionHeroVariant;
 }) {
@@ -189,7 +191,7 @@ export async function UnifiedSectionHero({
   const resolvedSearch = portalSearchSlot ? null : managedSearch(searchSlot, config, activeShortcuts);
   const resolvedPortalSearch = managedSearch(portalSearchSlot, config, activeShortcuts);
   const resolvedCta = managedCta(config, ctaSlot);
-  const quickLinks = portalSearchSlot ? [] : activeShortcuts;
+  const quickLinks = hideQuickLinks || portalSearchSlot ? [] : activeShortcuts;
   const hasTools = Boolean(resolvedSearch || resolvedCta || metaSlot || config.metaLabel || quickLinks.length);
 
   return (
