@@ -5,7 +5,6 @@ import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
 import { ArticleReadTracker } from "@/components/article-read-tracker";
 import { ArticleReadingProgress } from "@/components/article-reading-progress";
-import { ArticleReturnLink } from "@/components/article-return-link";
 import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
 import { ArticlePromo } from "@/components/article-promo";
 import { ArticleContinuation } from "@/components/article-continuation";
@@ -180,7 +179,6 @@ export function ArticleDetail({
           <Link href={sectionHref}>{portalSectionLabel(section)}</Link><span>/</span>
           <Link href={topicHref}>{topicLabel}</Link>
         </Breadcrumbs>
-        <ArticleReturnLink fallbackHref={sectionHref} className={styles.mobileReturnLink} />
         <div className={styles.heroGrid}>
           <div className={styles.title}>
             <span className={styles.kicker}>{portalSectionLabel(section)} · {topicLabel}</span>
