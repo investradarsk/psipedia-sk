@@ -2482,8 +2482,10 @@
 /* Public magazine: news and "Všetky články" are one consecutive section.
    The events block is independent, never inserted between the list and CTA. */
 .homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media) .article-card-body) {
-  background: linear-gradient(0deg, rgba(5,25,19,.97) 0%, rgba(5,25,19,.88) 70%, rgba(5,25,19,.75) 100%);
-  text-shadow: 0 1px 3px rgba(0,0,0,.48);
+  /* Preserve the photograph above the copy: the former 75–97% opaque
+     green slab hid most of the image on narrow screens. */
+  background: linear-gradient(0deg, rgba(5, 25, 19, .88) 0%, rgba(5, 25, 19, .56) 58%, rgba(5, 25, 19, 0) 100%);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
 }
 .homeV2 :global(.home-news-section .home-latest-lead .article-card--featured .article-card-meta > time),
 .homeV2 :global(.home-news-section .home-latest-lead .article-card--featured .article-card-meta > span),
@@ -2551,11 +2553,11 @@
 }
 @media(max-width:620px) {
   .homeV2 :global(.home-news-section .home-latest-lead .article-card--featured .article-card-body) {
-    padding: 28px 15px 15px;
+    padding: 39px 14px 12px;
   }
   .homeV2 :global(.home-news-section .home-latest-lead .article-card--featured .article-card-title) {
-    font-size: clamp(1.44rem, 6vw, 1.78rem);
-    line-height: 1.14;
+    font-size: clamp(1.34rem, 5.45vw, 1.6rem);
+    line-height: 1.16;
   }
   .homeV2 :global(.home-independent-events) { padding-block: 5px 18px; }
   .homeV2 :global(.home-independent-events .home-magazine-sidebar-block) { padding: 14px; }
