@@ -85,7 +85,7 @@ test("S-29 reuses the established compact cards instead of standalone oversized 
   assert.match(hub, /shop\.logoUrl/);
   assert.match(hub, /<PublicDataCard/);
   assert.match(hub, /<PublicCategoryTiles/);
-  assert.match(hub, /<PublicSubcategoryNavigator/);
+  assert.doesNotMatch(hub, /<PublicSubcategoryNavigator/);
   assert.match(shared, /export function PublicContentListItem/);
   assert.match(shared, /export function PublicDataCard/);
   assert.doesNotMatch(css, /\.eshopCard\s*\{|\.eshopMiniRatings\s*\{|\.serviceLinks a\s*\{/);
