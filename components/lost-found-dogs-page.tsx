@@ -1,3 +1,4 @@
+import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import {
@@ -295,7 +296,7 @@ export async function LostFoundDogsPage({
             {result.items.length ? (
               <div className={styles.grid}>
                 {result.items.map((report) => (
-                  <article className={styles.card} key={report.id}>
+                  <PublicHelpCardSurface className={styles.card} key={report.id}>
                     <div className={styles.visual}>
                       {report.mainImage ? (
                         <ImageDisplay
@@ -356,7 +357,7 @@ export async function LostFoundDogsPage({
                         Zobraziť hlásenie →
                       </Link>
                     </div>
-                  </article>
+                  </PublicHelpCardSurface>
                 ))}
               </div>
             ) : (
