@@ -44,7 +44,8 @@ test('help banner variants retain destinations, photo tones, inherited colors an
   assert.ok(html.includes('data-public-photo-callout="'+tone+'"'));assert.match(html,/<h2>Pomoc<\/h2>/);
  }
  const css=read('components/public-visual-system/public-magazine-banner.module.css');
- for(const image of ['zdravie-veterinar','hero-labrador','trening-pri-nohe'])assert.ok(css.includes('/images/'+image+'.webp'));
+ const media=read('components/public-visual-system/public-magazine-banner.tsx');
+ for(const image of ['zdravie-veterinar','hero-labrador','trening-pri-nohe'])assert.ok(media.includes('/images/'+image+'.webp'));
  assert.match(css,/max-width: 620px/);assert.match(css,/min-height: 44px/);
  assert.doesNotMatch(read('components/help-public.module.css'),/\.(?:reportBanner|closingCta|overviewPromo)\b/);
 });
