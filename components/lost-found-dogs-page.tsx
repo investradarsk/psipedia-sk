@@ -1,4 +1,5 @@
 import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
+import { PublicHelpCategoryNav, publicHelpCategoryItems } from "@/components/public-visual-system/public-help-category-nav";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import {
@@ -204,6 +205,9 @@ export async function LostFoundDogsPage({
           </UnifiedSectionHeroShell>
 
           <PublicContentShell variant="listing" className={styles.listingShell}>
+            <div className={styles.categoryNavShell}>
+              <PublicHelpCategoryNav items={publicHelpCategoryItems("stratene-a-najdene")} />
+            </div>
             <form
               className={styles.filters}
               method="get"
