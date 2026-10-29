@@ -1102,3 +1102,27 @@
 .emptyReset {
   composes: helpEmptyReset from "./public-visual-system/public-result-variants.module.css";
 }
+
+/* S-24 — the same section order as EditorialSectionHub:
+   heading / five results / ONE footer action below the results. */
+.overviewSectionFooter {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 14px;
+  min-height: 44px;
+}
+.overviewSectionFooter a { min-height: 44px; }
+.overviewSection { padding-block: 22px 26px; }
+.overviewGrid { gap: var(--ps-ds5-grid-gap, 14px); }
+.overviewCard {
+  border-radius: var(--ps-radius-card, 22px);
+  box-shadow: var(--ps-ds5-card-shadow);
+}
+.overviewCardCopy { gap: 7px; }
+@media (max-width: 650px) {
+  .overviewSection { padding-block: 20px 24px; }
+  .overviewGrid { gap: 10px; }
+  .overviewCardCopy { padding: 11px 12px; }
+  .overviewSectionFooter { margin-top: 10px; }
+  .overviewSectionFooter a { width: fit-content; max-width: 100%; }
+}
