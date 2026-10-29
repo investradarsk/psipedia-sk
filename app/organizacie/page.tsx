@@ -1,3 +1,4 @@
+import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { env } from "cloudflare:workers";
@@ -121,54 +122,38 @@ export default async function OrganizationsHubPage() {
                     const location = placeLabel(organization.city, organization.region);
                     const excerpt = organization.shortDescription || organization.description;
                     return (
-                      <article
-                        className={styles.card}
+                      <PublicHelpProfileCard
                         key={organization.id}
                         data-organization-hub-card
-                      >
-                        <Link
-                          className={styles.media}
-                          href={href}
-                          aria-label={`Otvoriť profil organizácie ${organization.name}`}
-                        >
-                          {organization.imageUrl ? (
-                            <ImageDisplay
-                              roleHint="generic"
-                              context="thumbnail"
-                              config={
-                                organization.thumbnailImageDisplay ?? {
-                                  mode: "crop",
-                                  x: 50,
-                                  y: 50,
-                                  zoom: 1,
-                                }
-                              }
-                              src={organization.imageUrl}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
-                            <PublicMediaFallback
-                              appearance="context"
-                              className={styles.mediaFallback}
-                              iconSize={36}
-                              decorative
-                            />
-                          )}
-                        </Link>
-                        <div className={styles.cardBody}>
-                          <span className={styles.eyebrow}>Organizácia</span>
-                          <h2>
-                            <Link href={href}>{organization.name}</Link>
-                          </h2>
-                          {location ? <p className={styles.location}>{location}</p> : null}
-                          {excerpt ? <p className={styles.excerpt}>{excerpt}</p> : null}
-                          <Link className={styles.action} href={href}>
-                            Zobraziť profil <ArrowIcon size={16} />
+                        href={href}
+                        title={organization.name}
+                        titleLevel="h2"
+                        category="Útulok alebo organizácia"
+                        meta={location ? <span>{location}</span> : undefined}
+                        excerpt={excerpt}
+                        actionLabel="Zobraziť profil"
+                        media={
+                          <Link href={href} aria-label={`Otvoriť profil organizácie ${organization.name}`}>
+                            {organization.imageUrl ? (
+                              <ImageDisplay
+                                roleHint="generic"
+                                context="thumbnail"
+                                fallbackOnError
+                                config={organization.thumbnailImageDisplay}
+                                src={organization.imageUrl}
+                                alt={organization.name}
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : (
+                              <PublicMediaFallback
+                                appearance="context"
+                                decorative
+                              />
+                            )}
                           </Link>
-                        </div>
-                      </article>
+                        }
+                      />
                     );
                   })}
                 </div>
