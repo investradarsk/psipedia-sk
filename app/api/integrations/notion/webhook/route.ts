@@ -33,15 +33,22 @@ export async function POST(request: Request) {
     return new Response(null, { status: 204 });
   }
 
-  if (bindings.NOTION_WEBHOOK_SYNC_ENABLED !== "true")
+  if (bindings.NOTION_WEBHOOK_SYNC_ENABLED !== "true") {
+    console.error("notion_webhook_disabled");
     return new Response(null, { status: 503 });
+  }
   if (!await verifyNotionWebhook(body, request.headers.get("x-notion-signature"),
       bindings.NOTION_WEBHOOK_VERIFICATION_TOKEN?.trim() ?? "")) {
+    // Distinguish missing/mismatched signature from D1 and dispatch errors.
+    // Never log HMAC values, the request body, or integration tokens.
+    console.error("notion_webhook_signature_invalid");
     return new Response(null, { status: 401 });
   }
   if (bindings.NOTION_WEBHOOK_SUBSCRIPTION_ID
-      && data.subscription_id !== bindings.NOTION_WEBHOOK_SUBSCRIPTION_ID)
+      && data.subscription_id !== bindings.NOTION_WEBHOOK_SUBSCRIPTION_ID) {
+    console.error("notion_webhook_subscription_mismatch");
     return new Response(null, { status: 403 });
+  }
 
   if (!bindings.DB || !bindings.NOTION_API_TOKEN?.trim()) {
     console.error("notion_webhook_not_configured");
