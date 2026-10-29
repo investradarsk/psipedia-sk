@@ -3,13 +3,12 @@
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { NavigationItem } from "@/lib/navigation";
 import { portalSections } from "@/lib/portal";
 import { BookmarkIcon, ChevronDownIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
 import { STORAGE_KEY } from "./favorite-button";
 import { NavigationProgress } from "./navigation-progress";
-import { readInternalTrail, reconcileInternalTrail, writeInternalTrail } from "@/lib/internal-route-trail";
 import styles from "./site-header.module.css";
 
 function isPathActive(pathname: string, href: string) {
@@ -36,12 +35,10 @@ export function SiteHeader({
   const searchDialogRef = useRef<HTMLDivElement>(null);
   const searchReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
-  const internalTrailRef = useRef<string[]>([]);
   const menuReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   const suppressMenuFocus = useRef(false);
   const pathname = usePathname();
-  const router = useRouter();
   const partnerHref = partnerAuthenticated ? "/partner" : "/partner/prihlasenie";
   const partnerLabel = "Partner účet";
   const nav = useMemo(() => {
@@ -86,102 +83,9 @@ export function SiteHeader({
     return () => window.clearTimeout(timer);
   }, [pathname]);
 
-  // Per-tab session storage keeps the last internal page across full reloads
-  // (for example Chrome iOS when opening an article). The ref alone resets
-  // with the header and used to lose the actual article-list origin.
-  useEffect(() => {
-    const route = window.location.pathname + window.location.search;
-    const trail = internalTrailRef.current.length
-      ? internalTrailRef.current
-      : readInternalTrail(window.sessionStorage);
-    const next = reconcileInternalTrail(trail, route);
-    internalTrailRef.current = next;
-    writeInternalTrail(window.sessionStorage, next);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (menuOpen || searchOpen) return;
-
-    // Safari can cancel a touch sequence when it decides to scroll. Lock only
-    // clearly horizontal gestures so touchend still arrives on real phones.
-    // The outermost screen edge stays owned by the browser's native history.
-    let start: { x: number; y: number; time: number; id: number; horizontal: boolean } | null = null;
-    function onTouchStart(event: globalThis.TouchEvent) {
-      start = null;
-      if (event.touches.length !== 1 || !window.matchMedia("(max-width: 767px)").matches) return;
-      const touch = event.touches[0];
-      if (touch.clientX < 28 || touch.clientX > window.innerWidth - 28) return;
-      const target = event.target;
-      if (!(target instanceof Element) || target.closest(
-        '#mobile-menu, .search-modal, [role="dialog"], [role="slider"], input, textarea, select, button, [contenteditable="true"], .gm-style, .leaflet-container, .maplibregl-map, .swiper, [data-no-swipe-back]',
-      )) return;
-      // Do not override carousels, horizontal tables or the native map.
-      for (let node: Element | null = target; node; node = node.parentElement) {
-        const style = window.getComputedStyle(node);
-        if (/auto|scroll/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 8) return;
-      }
-      start = { x: touch.clientX, y: touch.clientY, time: Date.now(), id: touch.identifier, horizontal: false };
-    }
-    function onTouchMove(event: globalThis.TouchEvent) {
-      const origin = start;
-      if (!origin) return;
-      if (event.touches.length !== 1 || event.touches[0].identifier !== origin.id) {
-        start = null;
-        return;
-      }
-      const touch = event.touches[0];
-      const dx = touch.clientX - origin.x;
-      const dy = Math.abs(touch.clientY - origin.y);
-      // Prefer ordinary vertical scrolling until intent is clearly horizontal.
-      if (!origin.horizontal && dy > Math.abs(dx) * 0.85 && dy > 12) {
-        start = null;
-        return;
-      }
-      // Back swipe is page-wide in either direction: never gate it on start X.
-      // Vertical scroll and horizontal child scrollers are filtered separately.
-      if (!origin.horizontal && Math.abs(dx) > 22 && Math.abs(dx) > dy * 1.6)
-        origin.horizontal = true;
-      if (origin.horizontal && event.cancelable) event.preventDefault();
-    }
-    function onTouchEnd(event: globalThis.TouchEvent) {
-      const origin = start;
-      start = null;
-      if (!origin || event.changedTouches.length !== 1 || event.changedTouches[0].identifier !== origin.id) return;
-      const touch = event.changedTouches[0];
-      const deltaX = touch.clientX - origin.x;
-      const distance = Math.abs(deltaX);
-      const vertical = Math.abs(touch.clientY - origin.y);
-      // A deliberate swipe back works from any non-interactive content area,
-      // including the middle/right of a card. A rightward gesture near the
-      // right side has less room than one starting at the left edge.
-      const isBackGesture = deltaX < -85 || deltaX > 45;
-      if (!origin.horizontal || !isBackGesture || vertical > Math.min(80, distance * 0.45)
-        || Date.now() - origin.time > 1800) return;
-      const current = window.location.pathname + window.location.search;
-      const trail = internalTrailRef.current;
-      const previous = trail.length > 1 ? trail[trail.length - 2] : null;
-      if (previous && previous !== current) {
-        // Never invoke browser back blindly: it may lead to an external referrer.
-        const next = trail.slice(0, -1);
-        internalTrailRef.current = next;
-        writeInternalTrail(window.sessionStorage, next);
-        router.push(previous);
-      } else if (current !== "/") router.push("/");
-    }
-    function onTouchCancel() {
-      start = null;
-    }
-    document.addEventListener("touchstart", onTouchStart, { passive: true });
-    document.addEventListener("touchmove", onTouchMove, { passive: false });
-    document.addEventListener("touchend", onTouchEnd, { passive: true });
-    document.addEventListener("touchcancel", onTouchCancel, { passive: true });
-    return () => {
-      document.removeEventListener("touchstart", onTouchStart);
-      document.removeEventListener("touchmove", onTouchMove);
-      document.removeEventListener("touchend", onTouchEnd);
-      document.removeEventListener("touchcancel", onTouchCancel);
-    };
-  }, [menuOpen, pathname, router, searchOpen]);
+  // Mobile page navigation uses the browser's native history gestures.
+  // Do not register document-level swipe listeners: on iOS Chrome they can
+  // compete with back/forward and unexpectedly open Chrome's New Tab page.
 
   useLayoutEffect(() => {
     const header = headerRef.current;

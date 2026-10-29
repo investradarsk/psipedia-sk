@@ -45,26 +45,29 @@ test("profile layouts use one compact two-column services control and accessible
   assert.match(list, /aria-expanded=\{expanded\}/);
 });
 
-test("calendar cache cannot block React purity lint and mobile swipe replaces the header arrow", () => {
+test("calendar cache stays React-safe and mobile header remains free of a back arrow", () => {
   const calendar = read("components/event-calendar.tsx");
   const header = read("components/site-header.tsx");
   assert.doesNotMatch(calendar, /Date\.now\(\)/);
   assert.match(calendar, /window\.setTimeout/);
-  assert.match(header, /const isBackGesture = deltaX/);
   assert.doesNotMatch(header, /className=\{styles\.backNavButton\}/);
 });
 
-
-test("mobile swipe history persists only in the same tab and never calls browser back", () => {
+test("browser owns full-page back/forward gestures; only the menu handles drag", () => {
   const header = read("components/site-header.tsx");
-  const trail = read("lib/internal-route-trail.ts");
-  assert.match(trail, /export const INTERNAL_ROUTE_TRAIL_KEY = "psipedia:public-route-trail:v1"/);
-  assert.match(trail, /session storage survives|session storage/i);
-  assert.match(trail, /export function reconcileInternalTrail/);
-  assert.match(trail, /export function readInternalTrail/);
-  assert.match(trail, /export function writeInternalTrail/);
-  assert.match(header, /readInternalTrail\(window\.sessionStorage\)/);
-  assert.match(header, /writeInternalTrail\(window\.sessionStorage, next\)/);
-  assert.match(header, /router\.push\(previous\)/);
-  assert.doesNotMatch(header, /router\.back\(\)|window\.history\.back\(\)/);
+  const css = read("app/globals.css");
+  const detail = read("components/article-detail.module.css");
+  const article = read("components/article-detail.tsx");
+  const card = read("components/article-card.tsx");
+  const list = read("components/public-visual-system/public-visual-system.tsx");
+  assert.doesNotMatch(header, /document\.addEventListener\("touch(?:start|move|end|cancel)"/);
+  assert.doesNotMatch(header, /internalTrailRef|readInternalTrail|writeInternalTrail|router\.push\(previous\)/);
+  assert.doesNotMatch(css, /overscroll-behavior-x:\s*none/);
+  assert.doesNotMatch(detail, /touch-action:\s*pan-y pinch-zoom/);
+  assert.doesNotMatch(article, /ArticleReturnLink|data-article-safe-back/);
+  assert.doesNotMatch(detail, /\.mobileReturnLink/);
+  assert.match(card, /<Link[\s\S]*?href=\{href\}/);
+  assert.match(list, /<Link className=\{cx\(styles\.articleListItem[\s\S]*?href=\{href\}/);
+  // The existing drawer grip can still be swiped to dismiss the mobile menu.
+  assert.match(header, /grip\.addEventListener\("touchstart", onStart/);
 });
