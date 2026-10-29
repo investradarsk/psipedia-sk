@@ -7,6 +7,9 @@ import { HomePortalSearch } from "@/components/home-portal-search";
 import {
   PublicCategoryTiles,
   PublicContentShell,
+  PublicContentList,
+  PublicContentListItem,
+  PublicDataCard,
   PublicFoundation,
   PublicLandingSectionHeading,
   PublicSubcategoryNavigator,
@@ -14,7 +17,6 @@ import {
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
-import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import type { PublicEshop } from "@/lib/eshop-ratings";
 import type { Article } from "@/lib/content";
 import type { PortalSection } from "@/lib/portal";
@@ -174,7 +176,7 @@ export async function ReviewsHub({
                   href: viewHref("products"),
                   title: "Produkty",
                   description: "Redakčné testy krmív, výbavy a produktov pre psy.",
-                  meta: view === "products" ? "Zobrazené" : "Otvoriť",
+                  meta: view === "products" ? "Zobrazené" : undefined,
                   icon: <BowlIcon size={22} />,
                   current: view === "products",
                   rel: "nofollow",
@@ -185,7 +187,7 @@ export async function ReviewsHub({
                   title: "Služby",
                   description:
                     "Skúsenosti používateľov s veterinármi, trénermi a ďalšími službami.",
-                  meta: view === "services" ? "Zobrazené" : "Otvoriť",
+                  meta: view === "services" ? "Zobrazené" : undefined,
                   icon: <PawMark size={22} />,
                   current: view === "services",
                   rel: "nofollow",
@@ -196,7 +198,7 @@ export async function ReviewsHub({
                   title: "E-shopy",
                   description:
                     "Jednoduché hodnotenia nákupnej skúsenosti od e-mailom overených používateľov.",
-                  meta: view === "eshops" ? "Zobrazené" : "Otvoriť",
+                  meta: view === "eshops" ? "Zobrazené" : undefined,
                   icon: <SearchIcon size={22} />,
                   current: view === "eshops",
                   rel: "nofollow",
@@ -204,15 +206,11 @@ export async function ReviewsHub({
                 },
               ]}
             />
-            <div className={styles.allReviewsRow}>
-              {view !== "all" ? (
-                <Link href={viewHref("all")} rel="nofollow">
-                  Zobraziť všetko
-                </Link>
-              ) : (
-                <span>Všetko je zobrazené</span>
-              )}
-            </div>
+            {view !== "all" ? (
+              <div className={styles.allReviewsRow}>
+                <Link href={viewHref("all")} rel="nofollow">Zobraziť všetko</Link>
+              </div>
+            ) : null}
           </PublicContentShell>
         </section>
 
@@ -246,7 +244,7 @@ export async function ReviewsHub({
                   description="Pri každom teste uvádzame, čo bolo hodnotené, pre akého psa dáva produkt zmysel a či článok obsahuje partnerský alebo affiliate odkaz."
                 />
                 {reviewArticles.length ? (
-                  <div className={styles.articleGrid}>
+                  <PublicContentList className={styles.articleGrid} label="Najnovšie redakčné testy">
                     {reviewArticles.slice(0, 3).map((article) => {
                       const category = article.portalSubpage
                         ? subpages.find((item) => item.slug === article.portalSubpage)
@@ -255,14 +253,14 @@ export async function ReviewsHub({
                         <ArticleCard
                           key={article.slug}
                           article={article}
-                          large
+                          variant="compact"
                           topicHref={category ? portalSubpageHref(section, category) : "/recenzie"}
                           topicLabel={category?.label ?? "Recenzie a testy"}
                           actionLabel="Čítať test"
                         />
                       );
                     })}
-                  </div>
+                  </PublicContentList>
                 ) : (
                   <PublicEmptyState variant="context" className={styles.emptyState}>
                     <strong>Prvé redakčné testy pripravujeme.</strong>
@@ -280,7 +278,7 @@ export async function ReviewsHub({
                 <PublicLandingSectionHeading
                   eyebrow="Kategórie produktov"
                   title="Čo chceš porovnať?"
-                  description="Každá kategória používa spravovanú taxonómiu Psipedia, takže redakcia môže obsah ďalej rozširovať bez nového systému."
+                  description="Vyber si oblasť, ktorá ťa zaujíma, a pozri si dostupné testy."
                 />
                 <PublicSubcategoryNavigator
                   mode="landing"
@@ -331,13 +329,15 @@ export async function ReviewsHub({
                   </p>
                 </PublicEmptyState>
               )}
-              <div className={styles.serviceLinks}>
+              <div className={styles.serviceLinks} aria-label="Kategórie služieb">
                 {serviceCategories.map((category) => (
-                  <Link href={`/adresar/${category.slug}`} key={category.slug}>
-                    <span aria-hidden="true">{category.icon}</span>
-                    <strong>{category.label}</strong>
-                    <ArrowIcon size={17} />
-                  </Link>
+                  <PublicDataCard
+                    key={category.slug}
+                    href={`/adresar/${category.slug}`}
+                    title={category.label}
+                    icon={<span aria-hidden="true">{category.icon}</span>}
+                    actionLabel="Zobraziť"
+                  />
                 ))}
               </div>
             </PageContainer>
@@ -353,73 +353,32 @@ export async function ReviewsHub({
                 description="Používateľ ohodnotí päť oblastí od 1 do 5. Na odoslanie stačí overený e-mail; externé hviezdičky sa do skóre Psipedia nemiešajú."
               />
               {eshops.length ? (
-                <div className={styles.eshopGrid}>
+                <PublicContentList className={styles.eshopGrid} label="E-shopy a ich hodnotenia">
                   {eshops.map((shop) => (
-                    <Link
-                      className={styles.eshopCard}
-                      href={`/recenzie/eshopy/${shop.slug}`}
+                    <PublicContentListItem
                       key={shop.id}
-                    >
-                      <div className={styles.eshopCardTop}>
-                        <div className={styles.eshopIdentity}>
-                          <span className={styles.eshopLogo}>
-                            {shop.logoUrl ? (
-                              <img src={shop.logoUrl} alt="" />
-                            ) : (
-                              <span aria-hidden="true">🛒</span>
-                            )}
-                          </span>
-                          <div>
-                            <span>E-shop</span>
-                            <h3>{shop.name}</h3>
-                          </div>
-                        </div>
-                        {shop.averages ? (
-                          <strong aria-label={`Celkové hodnotenie ${shop.averages.overall} z 5`}>
-                            {shop.averages.overall.toLocaleString("sk-SK", {
-                              minimumFractionDigits: 1,
-                              maximumFractionDigits: 1,
-                            })}{" "}
-                            ★
-                          </strong>
-                        ) : (
-                          <small>Bez hodnotení</small>
-                        )}
-                      </div>
-                      <p>{shop.description}</p>
-                      {shop.focusTags.length ? (
-                        <div className={styles.eshopTags}>
-                          {shop.focusTags.slice(0, 6).map((tag) => (
-                            <span key={tag}>{tag}</span>
-                          ))}
-                        </div>
-                      ) : null}
-                      {shop.averages ? (
-                        <dl className={styles.eshopMiniRatings}>
-                          {ESHOP_RATING_FIELDS.slice(0, 4).map((field) => (
-                            <div key={field.key}>
-                              <dt>{field.label}</dt>
-                              <dd>
-                                {shop.averages?.[field.key].toLocaleString("sk-SK", {
-                                  minimumFractionDigits: 1,
-                                  maximumFractionDigits: 1,
-                                })}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      ) : null}
-                      <footer>
-                        <span>
+                      href={`/recenzie/eshopy/${shop.slug}`}
+                      title={shop.name}
+                      eyebrow={<>E-shop{shop.focusTags.length ? ` · ${shop.focusTags.slice(0, 2).join(", ")}` : ""}</>}
+                      excerpt={shop.description}
+                      image={shop.logoUrl ? { src: shop.logoUrl, alt: `Logo e-shopu ${shop.name}` } : undefined}
+                      meta={
+                        <>
+                          {shop.averages ? (
+                            <strong aria-label={`Celkové hodnotenie ${shop.averages.overall} z 5`}>
+                              {shop.averages.overall.toLocaleString("sk-SK", {
+                                minimumFractionDigits: 1, maximumFractionDigits: 1,
+                              })} ★
+                            </strong>
+                          ) : <span>Bez hodnotení</span>}
+                          {" · "}
                           {shop.ratingCount} {shop.ratingCount === 1 ? "hodnotenie" : "hodnotení"}
-                        </span>
-                        <b>
-                          Detail a hodnotenie <ArrowIcon size={17} />
-                        </b>
-                      </footer>
-                    </Link>
+                        </>
+                      }
+                      actionLabel="Detail a hodnotenie"
+                    />
                   ))}
-                </div>
+                </PublicContentList>
               ) : (
                 <PublicEmptyState variant="context" className={styles.emptyState}>
                   <strong>Profily e-shopov sa momentálne nepodarilo načítať.</strong>

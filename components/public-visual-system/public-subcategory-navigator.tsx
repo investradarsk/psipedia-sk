@@ -86,11 +86,13 @@ export function PublicSubcategoryNavigator({
   items,
   label,
   mode = "landing",
+  mobileLayout = "wrap",
   className,
 }: {
   items: PublicSubcategoryItem[];
   label: string;
   mode?: PublicSubcategoryNavigatorMode;
+  mobileLayout?: "wrap" | "grid";
   className?: string;
 }) {
   if (!items.length) return null;
@@ -98,7 +100,7 @@ export function PublicSubcategoryNavigator({
   if (mode === "compact") {
     return (
       <nav
-        className={cx(styles.navigator, styles.compact, className)}
+        className={cx(styles.navigator, styles.compact, mobileLayout === "grid" && styles.compactGridMobile, className)}
         aria-label={label}
         data-public-subcategory-navigator
         data-public-subcategory-mode="compact"
