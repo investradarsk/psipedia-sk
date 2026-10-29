@@ -1082,6 +1082,31 @@ export const serviceCatalog:readonly ServiceDefinition[]=[
     "group": "Fyzioterapia",
     "aliases": [],
     "meaning": "Nie automaticky manuálna terapia."
+  },
+  {
+    "id": "svc.groom.ozone_treatment",
+    "label": "Ozonoterapia",
+    "categories": [
+      "salony-a-sluzby"
+    ],
+    "group": "Špecializované procedúry",
+    "aliases": [
+      "Ozónová procedúra"
+    ],
+    "meaning": "Samostatne uvádzaná ozónová procedúra v psom salóne; nevypovedá o liečebných účinkoch ani o bežnom kúpaní."
+  },
+  {
+    "id": "svc.other.canistherapy",
+    "label": "Canisterapia",
+    "categories": [
+      "kynologicke-kluby",
+      "dalsie-sluzby"
+    ],
+    "group": "Aktivity so psom",
+    "aliases": [
+      "Canisterapeutické aktivity"
+    ],
+    "meaning": "Cielené canisterapeutické aktivity; nie bežný výcvik, socializácia alebo rekreačné stretnutie so psom."
   }
 ];
 export const attributeCatalog:readonly PropertyDefinition[]=[
