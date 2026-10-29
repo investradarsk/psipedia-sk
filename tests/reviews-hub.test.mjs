@@ -27,8 +27,12 @@ test("reviews hub separates editorial products, user service reviews and verifie
   assert.match(hub, /<UnifiedSectionHero/);
   assert.match(hub, /getSectionHeroVisual\("section\.recenzie"\)/);
   assert.match(hub, /<PublicCategoryTiles/);
-  assert.match(hub, /<PublicSubcategoryNavigator/);
-  assert.match(hub, /label="Kategórie produktových recenzií"/);
+  // Redakčné testy sú články: neukazovať ďalší duplicitný veľký zoznam
+  // kategórií na review hub-e, ale zachovať existujúce kategórie článkov.
+  assert.doesNotMatch(hub, /<PublicSubcategoryNavigator/);
+  assert.doesNotMatch(hub, /Čo chceš porovnať\?/);
+  assert.match(hub, /<ArticleCard/);
+  assert.match(hub, /portalSubpageHref\(section, category\)/);
   assert.match(hub, /Najnovšie testy Psipedia/);
   assert.match(hub, /Najnovšie recenzie služieb/);
   assert.match(hub, /Hodnotenia nákupnej skúsenosti/);
