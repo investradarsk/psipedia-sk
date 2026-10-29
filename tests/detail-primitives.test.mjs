@@ -26,7 +26,7 @@ test("DetailActions layout wraps without defining button variants", () => {
 });
 
 test("DetailContentLayout renders content before an optional semantic aside", () => {
-  const block = exportedFunction("DetailContentLayout");
+  const block = exportedFunction("DetailContentLayout", "PublicDetailLayout");
   assert.match(block, /children: ReactNode; aside\?: ReactNode/);
   assert.match(block, /aside \? .*contentLayoutWithAside/);
   assert.ok(block.indexOf("styles.contentMain") < block.indexOf("<aside"), "content must stay before the aside in DOM order");
