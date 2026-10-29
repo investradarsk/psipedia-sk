@@ -53,7 +53,7 @@ test("events have one heading per section, return link after map and nonduplicat
   assert.ok(event.indexOf("<EventsBackLink") > event.indexOf("</PublicDetailLayout>"));
   assert.match(event, /<DetailSection title="Praktické informácie"/);
   assert.doesNotMatch(event, /<DetailSection eyebrow="Pred návštevou"/);
-  assert.match(event, /alt="" loading="eager"/);
+  assert.match(event, /alt="Fotografia podujatia" loading="eager"/);
   assert.doesNotMatch(shared, /eyebrow && <span className=\{styles\.eyebrow\}/);
 });
 
