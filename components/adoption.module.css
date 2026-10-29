@@ -466,3 +466,6 @@
   .cardBody { padding: 10px; }
   .quickFacts { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
+
+.categoryNavShell { margin: 0 0 15px; }
+@media (max-width: 650px) { .categoryNavShell { margin-bottom: 12px; } }
