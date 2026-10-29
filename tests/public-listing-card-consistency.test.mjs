@@ -16,8 +16,12 @@ test("five public content card families opt in to one visible design contract", 
   for (const [path, marker] of components) {
     const source = read(path);
     assert.ok(source.includes(marker), path + " must opt in");
-    assert.match(source, /data-public-card-title/, path + " title");
-    assert.match(source, /data-public-card-meta/, path + " metadata");
+    // Help cards render their semantic title/meta through one shared template.
+    const rendered = path === "components/help-card.tsx"
+      ? read("components/public-visual-system/public-help-profile-card.tsx")
+      : source;
+    assert.match(rendered, /data-public-card-title/, path + " title");
+    assert.match(rendered, /data-public-card-meta/, path + " metadata");
   }
 });
 
@@ -33,7 +37,8 @@ test("public cards share stateful surfaces but keep urgency and original media",
   assert.match(rules, /forced-colors: active/);
   assert.doesNotMatch(rules, /aspect-ratio|object-fit|grid-template-columns|\/admin/);
   assert.match(read("components/help-card.tsx"), /data-public-card-emphasis=\{item\.urgent && !item\.resolved/);
-  assert.match(read("components/help-card.tsx"), /<PublicActionLink className=\{styles.cardAction\} variant="tertiary"/);
+  assert.match(read("components/help-card.tsx"), /<PublicHelpProfileCard/);
+  assert.match(read("components/public-visual-system/public-help-profile-card.tsx"), /className={styles.action}/);
   assert.match(read("components/breed-card.tsx"), /<PublicActionLink href=\{profileHref\} variant="tertiary"/);
 });
 
