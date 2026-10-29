@@ -36,7 +36,7 @@ test("0137 SQL is pinned to canonical database and protected owner dispatch", ()
   assert.equal(APPROVED_0137_SHA256, PINNED_SHA256_0137);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0136_")), "0136_gemini_global_stop.sql");
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0137_")), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0146_help_source_daily_checks.sql"]);
   assert.doesNotThrow(()=>assertApproved0137Target("psipedia-sk-db",PINNED_SHA256_0137));
   assert.throws(()=>assertApproved0137Target("wrong-db",PINNED_SHA256_0137), /canonical/);
   assert.throws(()=>assertApproved0137Target("psipedia-sk-db","changed"), /SHA256/);

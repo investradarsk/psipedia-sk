@@ -22,7 +22,7 @@ function AdminNotificationBellPending() {
     <Link
       href="/admin/operations"
       className={styles.notificationLink}
-      aria-label="Upozornenia: načítava sa počet aktívnych položiek"
+      aria-label="Upozornenia: načítava sa počet neprečítaných upozornení"
       title="Otvoriť upozornenia"
       data-testid="admin-notification-bell"
     >
@@ -46,12 +46,12 @@ async function AdminNotificationBell({
     incomplete = summary.availability !== "OK";
   }
   const label = incomplete
-    ? `Upozornenia: najmenej ${activeCount} aktívnych položiek; niektoré zdroje nie sú dostupné`
+    ? `Upozornenia: najmenej ${activeCount} neprečítaných upozornení; niektoré zdroje nie sú dostupné`
     : activeCount === 0
-      ? "Upozornenia: žiadne aktívne položky"
+      ? "Upozornenia: žiadne neprečítané upozornenia"
       : activeCount === 1
-        ? "Upozornenia: 1 aktívna položka"
-        : `Upozornenia: ${activeCount} aktívnych položiek`;
+        ? "Upozornenia: 1 neprečítané upozornenie"
+        : `Upozornenia: ${activeCount} neprečítaných upozornení`;
   const badge = activeCount > 0
     ? `${activeCount > 99 ? "99+" : activeCount}${incomplete ? "+" : ""}`
     : incomplete ? "!" : null;

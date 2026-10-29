@@ -33,7 +33,7 @@ function fixture(){
 test("0130 is an explicit pinned canonical production migration after 0129, not an unapproved prepared target",()=>{
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0130_")),target);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0129_")),predecessor);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0146_help_source_daily_checks.sql"]);
   assert.equal(createHash("sha256").update(sql).digest("hex"),APPROVED_0130_SHA256);
   assert.doesNotThrow(()=>assertApproved0130Target("psipedia-sk-db",APPROVED_0130_SHA256));
   assert.throws(()=>assertApproved0130Target("other-db",APPROVED_0130_SHA256),/canonical psipedia-sk-db/);

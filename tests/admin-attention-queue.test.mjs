@@ -164,7 +164,7 @@ test("adoption adapter reuses existing stale contracts without inventing urgency
   assert.equal(stale.priority, "MEDIUM");
   assert.equal(veryStale.priority, "HIGH");
   assert.equal(neverVerified.priority, "HIGH");
-  assert.equal(stale.attentionState, "IN_PROGRESS");
+  assert.equal(stale.attentionState, "NEW");
   assert.equal(stale.targetHref, "/admin/adopcie/11");
 });
 
@@ -306,13 +306,14 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
 });
 
 test("Attention read model excludes retired automation and uses only current actionable sources", () => {
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 14);
-  assert.equal(adminAttentionQueueSourceTypes.length, 14);
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 15);
+  assert.equal(adminAttentionQueueSourceTypes.length, 15);
   assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_ACTION"), false);
   assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_FINDING"), false);
   assert.equal(adminAttentionQueueSourceTypes.includes("GEO_LOCATION_ISSUE"), false);
   assert.equal(adminAttentionQueueSourceTypes.includes("NEWS_TIP"), true);
   assert.equal(adminAttentionQueueSourceTypes.includes("ADOPTION_STALE"), true);
+  assert.equal(adminAttentionQueueSourceTypes.includes("HELP_SOURCE_REVIEW"), true);
   assert.equal(adminAttentionQueueSourceTypes.includes("PARTNER_CLAIM_REVIEW"), true);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.match(store, /ADMIN_ATTENTION_MAX_PAGE_SIZE = 50/);
@@ -359,9 +360,9 @@ test("operations page uses server pagination while shared bell uses the exact ty
   assert.match(page, /loadAdminAttentionPage/);
   assert.match(page, /cursor:/);
   assert.match(page, /attentionSummaryPromise=\{attentionSummaryPromise\}/);
-  assert.match(page, /attentionSummaryPromise = attentionPromise\.then\(toNotificationSummary\)/);
-  assert.match(page, /page\.availability === "PARTIAL"/);
-  assert.match(page, /page\.availability === "UNAVAILABLE"/);
+  assert.match(page, /attentionSummaryPromise = loadExactAdminAttentionSummary\(\)/);
+  assert.match(page, /attention\.availability === "PARTIAL"/);
+  assert.match(page, /attention\.availability === "UNAVAILABLE"/);
   assert.match(shell, /loadExactAdminAttentionSummary/);
   assert.match(shell, /niektoré zdroje nie sú dostupné/);
   assert.match(shell, /href="\/admin\/operations"/);

@@ -19,7 +19,7 @@ test("0129 remains approved and pinned while 0130 is a later separate target", (
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0129_")), target);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0128_")), predecessor);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.find(name => name.startsWith("0130_")), "0130_facebook_image_publisher.sql");
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0146_help_source_daily_checks.sql"]);
   assert.equal(createHash("sha256").update(migration).digest("hex"), APPROVED_0129_SHA256);
   assert.doesNotThrow(() => assertApproved0129Target("psipedia-sk-db", APPROVED_0129_SHA256));
   assert.throws(() => assertApproved0129Target("wrong", APPROVED_0129_SHA256), /canonical psipedia-sk-db/);

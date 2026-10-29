@@ -11,6 +11,7 @@ import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notif
 import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
 import { runAdminPushSweep } from "../lib/admin-push";
 import { runQualityMissingHourly } from "../lib/data-quality-missing-hourly.ts";
+import { runHelpSourceDailySweep } from "../lib/help-source-daily-check.ts";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runPartnerNotificationSweep } from "../lib/partner-email";
 import { cleanupPartnerMedia } from "../lib/partner-media";
@@ -319,6 +320,12 @@ const worker = {
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
     // Exactly one existing-profile research attempt per area per hour.
     // All three areas share the existing hourly trigger; database claims prevent double scans.
+    if (isFullHourlyScheduledSweep(controller)) {
+      // Spread daily checks across existing hourly ticks; no new Cron and no paid API.
+      _ctx.waitUntil(runHelpSourceDailySweep({ database: env.DB, now: new Date(controller.scheduledTime ?? Date.now()) })
+        .then((summary) => console.info(JSON.stringify({ event: "help_source_daily", ...summary })))
+        .catch(() => console.error(JSON.stringify({ event: "help_source_daily", result: "failed" }))));
+    }
     if (isFullHourlyScheduledSweep(controller)) {
       _ctx.waitUntil(runQualityMissingHourly({
         database: env.DB, tavilyApiKey: env.TAVILY_API_KEY,
