@@ -11,6 +11,7 @@ export const adminAttentionSourceTypes = [
   "DIRECTORY_INQUIRY",
   "ARTICLE_FEEDBACK",
   "ADOPTION_STALE",
+  "HELP_SOURCE_REVIEW",
   "AUTOMATION_ACTION",
   "AUTOMATION_FINDING",
   "PARTNER_CLAIM_REVIEW",
@@ -71,6 +72,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   DIRECTORY_INQUIRY: "Dopyty",
   ARTICLE_FEEDBACK: "Hodnotenia článkov",
   ADOPTION_STALE: "Adopcie",
+  HELP_SOURCE_REVIEW: "Overovanie zdrojov",
   AUTOMATION_ACTION: "Automatizácie",
   AUTOMATION_FINDING: "Automation finding (legacy)",
   PARTNER_CLAIM_REVIEW: "Žiadosti o správu profilu",
@@ -985,6 +987,33 @@ export function mapAdoptionStaleAttention(row: AdoptionStaleAttentionRow, now = 
     relevantAt,
     ageDays: ageDays(relevantAt, now),
     targetHref: `/admin/adopcie/${row.id}`,
+  };
+}
+
+export type HelpSourceReviewAttentionRow = {
+  id: number;
+  entityType: "ADOPTION" | "LOST_FOUND";
+  name: string;
+  state: string;
+  evidence: string;
+  lastCheckedAt: string;
+};
+
+export function mapHelpSourceReviewAttention(row: HelpSourceReviewAttentionRow, now = new Date()): AdminAttentionItem {
+  return {
+    key: "help-source:" + row.entityType + ":" + row.id,
+    sourceType: "HELP_SOURCE_REVIEW",
+    sourceId: row.entityType + ":" + row.id,
+    title: "Overiť zdroj: " + row.name,
+    reason: row.evidence,
+    priority: row.state === "POSSIBLE_CHANGE" ? "HIGH" : "MEDIUM",
+    status: row.state,
+    attentionState: "NEW",
+    createdAt: row.lastCheckedAt,
+    relevantAt: row.lastCheckedAt,
+    ageDays: ageDays(row.lastCheckedAt, now),
+    targetHref: "/admin/operations/overovanie-zdrojov",
+    actionLabel: "Skontrolovať",
   };
 }
 
