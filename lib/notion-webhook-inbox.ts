@@ -1,4 +1,4 @@
-import { UUID, type NotionWebhookEvent } from "./notion-webhook-contract";
+import { UUID, type NotionWebhookEvent } from "./notion-webhook-contract.ts";
 
 const MAX_ATTEMPTS = 12;
 const CLAIM_SECONDS = 600;
