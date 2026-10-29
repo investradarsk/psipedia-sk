@@ -29,3 +29,29 @@
 .detailFacts { gap: 10px; }
 .contactLinks a { min-height: 34px; }
 @media(max-width:800px) { .detailFacts { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+/* S-25 shared detail rhythm: same photo/fact/section tokens as Help details. */
+.detailVerification {
+  margin: 10px 0 0;
+  color: var(--detail-muted, #53695e);
+  font-size: .78rem;
+  line-height: 1.45;
+}
+.detailVerification strong { color: var(--detail-ink, #17352b); }
+.detailPanel { overflow-wrap: anywhere; }
+.detailPanel .preline { line-height: 1.56; }
+.contactLinks { gap: 8px; }
+.contactLinks a { min-height: 44px; display: flex; align-items: center; }
+.heroActions { gap: 9px; }
+@media (max-width: 760px) {
+  .detailFacts { gap: 8px; }
+  .detailFacts > div { padding: 10px 11px; }
+  .detailPanel { padding: 16px; }
+  .detailPanel .preline { line-height: 1.53; }
+  .contactCard { padding: 16px; }
+  .heroActions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .heroActions a { min-width: 0; font-size: .77rem; line-height: 1.3; }
+}
+@media (max-width: 360px) {
+  .heroActions { grid-template-columns: minmax(0, 1fr); }
+}

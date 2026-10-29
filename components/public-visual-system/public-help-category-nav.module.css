@@ -1,0 +1,39 @@
+/* Canonical Help category navigation for landing and subcategory pages. */
+.nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.item {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--ps-border-soft, #dae2db);
+  border-radius: 999px;
+  color: var(--forest-dark, #17352b);
+  background: var(--paper, white);
+  font-size: .84rem;
+  font-weight: 780;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: border-color 140ms, background-color 140ms;
+}
+.item svg { flex: 0 0 auto; width: 19px; height: 19px; }
+.item:hover, .item[aria-current="page"] { border-color: #a8c5b5; background: #edf3e9; }
+.item:focus-visible { outline: 3px solid var(--forest, #174b38); outline-offset: 2px; }
+.label { overflow-wrap: anywhere; }
+.count {
+  min-width: 25px;
+  min-height: 25px;
+  display: grid;
+  place-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f0eee6;
+  font-size: .73rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 650px) {
+  .nav { gap: 7px; }
+  .item { padding: 8px 10px; font-size: .8rem; }
+}

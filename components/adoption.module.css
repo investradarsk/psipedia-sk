@@ -406,3 +406,66 @@
 .emptyIcon {
   composes: adoptionEmptyIcon from "./public-visual-system/public-result-variants.module.css";
 }
+
+/* S-25: one filter-disclosure interaction as used by other public listings. */
+.filterToggle { display: none; }
+.filterDisclosure { min-width: 0; }
+@media (max-width: 650px) {
+  .filterToggle {
+    display: flex;
+    width: 100%;
+    min-height: 48px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 11px 14px;
+    border: 1px solid var(--ps-border-soft, #ccd9cf);
+    border-radius: var(--ps-radius-control, 12px);
+    color: var(--forest-dark, #17352b);
+    background: var(--sage-light, #edf3e9);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .filterToggle:focus-visible { outline: 3px solid var(--forest, #174b38); outline-offset: 2px; }
+  .filterToggle [data-public-filter-count] { font-size: .78rem; font-weight: 750; }
+  .filterDisclosure { display: none; }
+  .filterDisclosureOpen { display: block; }
+  .filters { gap: 11px; padding: 14px; margin-bottom: 16px; }
+  .field { gap: 5px; }
+  .summary { gap: 10px; margin-block: 16px 12px; }
+  .summary h2 { font-size: clamp(1.55rem, 7vw, 2rem); }
+  .sortForm { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .sortForm label { grid-column: 1 / -1; }
+  .sortForm button { min-width: 92px; }
+  /* Exactly the same compact media-left card rhythm as the Help overview. */
+  .card {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: stretch;
+    min-height: 170px;
+  }
+  .visual { width: 112px; height: 100%; aspect-ratio: auto; min-height: 0; }
+  .visual img { width: 100%; height: 100%; object-fit: cover; }
+  .cardBody { min-width: 0; gap: 6px; padding: 12px; }
+  .card h2 { font-size: 1.11rem; line-height: 1.2; }
+  .location { font-size: .66rem; line-height: 1.35; }
+  .organization, .breed, .description { font-size: .76rem; line-height: 1.4; }
+  .description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .quickFacts { gap: 4px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .quickFacts div { padding: 5px; }
+  .quickFacts dt { font-size: .58rem; }
+  .quickFacts dd { font-size: .66rem; }
+  .freshness { font-size: .72rem; }
+  .statusBadge { top: 7px; left: 6px; padding: 5px 6px; font-size: .57rem; }
+}
+@media (max-width: 360px) {
+  .card { grid-template-columns: 96px minmax(0,1fr); }
+  .visual { width: 96px; }
+  .cardBody { padding: 10px; }
+  .quickFacts { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+.categoryNavShell { margin: 0 0 15px; }
+@media (max-width: 650px) { .categoryNavShell { margin-bottom: 12px; } }

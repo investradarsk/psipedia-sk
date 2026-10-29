@@ -791,3 +791,47 @@
 .empty {
   composes: animalEmpty from "./public-visual-system/public-result-variants.module.css";
 }
+
+/* S-24/S-25: same category navigation, filters and cards across Help family. */
+.categoryNavShell { margin-bottom: 15px; }
+.filterToggle { display: none; }
+.filterDisclosure { min-width: 0; }
+@media (max-width: 650px) {
+  .categoryNavShell { margin-bottom: 12px; }
+  .filterToggle {
+    display: flex;
+    min-height: 48px;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--ps-border-soft, #ccd9cf);
+    border-radius: var(--ps-radius-control, 12px);
+    color: var(--forest-dark, #17352b);
+    background: var(--sage-light, #edf3e9);
+    font: inherit;
+    font-weight: 800;
+  }
+  .filterDisclosure { display: none; }
+  .filterDisclosureOpen { display: block; }
+  .filters { gap: 11px; padding: 14px; }
+  .card {
+    display: grid;
+    grid-template-columns: 112px minmax(0,1fr);
+    align-items: stretch;
+    min-height: 154px;
+  }
+  .visual { width: 112px; height: 100%; aspect-ratio: auto; min-height: 0; }
+  .visual img { width: 100%; height: 100%; object-fit: cover; }
+  .cardBody { gap: 7px; padding: 12px; min-width: 0; }
+  .card h3 { font-size: 1.08rem; line-height: 1.25; }
+  .card p, .meta { font-size: .77rem; line-height: 1.4; }
+  .grid { gap: 10px; }
+}
+@media (max-width: 360px) {
+  .card { grid-template-columns: 96px minmax(0,1fr); }
+  .visual { width: 96px; }
+  .cardBody { padding: 10px; }
+}

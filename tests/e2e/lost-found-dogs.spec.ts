@@ -53,6 +53,14 @@ for (const entry of cases) {
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: entry.heading })).toBeVisible();
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `https://psipedia.sk${entry.listPath}`);
+    // Filters are intentionally collapsed on mobile, matching adoption.
+    // Open the canonical disclosure before asserting the field accessibility.
+    const filterToggle = page.getByRole("button", { name: /Filtrovať hlásenia/ });
+    if (await filterToggle.isVisible()) {
+      await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+      await filterToggle.click();
+      await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
+    }
     await expect(page.locator('form[aria-label^="Filtrovať"]')).toBeVisible();
     await expect(page.getByLabel("Kraj")).toBeVisible();
     await expect(page.getByLabel("Okres alebo lokalita")).toBeVisible();

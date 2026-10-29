@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { PublicHelpClosingBanner, PublicHelpReportBanner } from "@/components/public-visual-system/public-help-banner";
 import { HelpBrowser } from "@/components/help-browser";
-import { HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
+import { ShieldCheckIcon } from "@/components/help-public-icons";
+import { PublicHelpCategoryNav } from "@/components/public-visual-system/public-help-category-nav";
 import {
   PublicFoundation,
   UnifiedSectionHero,
@@ -112,18 +113,24 @@ export async function HelpPage({
                 <p>Vyberte oblasť a prejdite priamo na adopcie, organizácie, dočasnú opateru, zbierky alebo hlásenia.</p>
               </div>
 
-              <nav className={styles.categoryNav} data-help-category-nav aria-label="Kategórie pomoci">
-                {helpCategories.map((category) => {
-                  const count = categoryCounts[category.slug];
-                  return (
-                    <Link href={categoryDestination(category.slug)} key={category.slug}>
-                      <HelpCategoryIcon category={category.slug} size={18} />
-                      <span>{category.label}</span>
-                      {typeof count === "number" ? <small>{count}</small> : null}
-                    </Link>
-                  );
-                })}
-              </nav>
+              <PublicHelpCategoryNav items={helpCategories.map((category) => ({
+                slug: category.slug,
+                label: category.label,
+                href: categoryDestination(category.slug),
+                count: categoryCounts[category.slug],
+                current: category.slug === initialCategory,
+              }))} />
+            </section>
+          )}
+          {active && (
+            <section className={styles.categoryBlock} aria-label="Ďalšie kategórie pomoci">
+              <PublicHelpCategoryNav items={helpCategories.map((category) => ({
+                slug: category.slug,
+                label: category.label,
+                href: categoryDestination(category.slug),
+                count: categoryCounts[category.slug],
+                current: category.slug === initialCategory,
+              }))} />
             </section>
           )}
 

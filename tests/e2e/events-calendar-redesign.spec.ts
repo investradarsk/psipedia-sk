@@ -84,10 +84,17 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
       await document.fonts.ready;
       const month = document.querySelector("#events-calendar")!.getBoundingClientRect();
       const types = document.querySelector("[data-events-legend]")!.getBoundingClientRect();
-      return { calendar: { x: month.x, y: month.y, width: month.width, height: month.height }, legend: { x: types.x, y: types.y } };
+      return {
+        calendar: { x: month.x, y: month.y, width: month.width, height: month.height },
+        legend: { x: types.x, y: types.y, width: types.width, height: types.height },
+      };
     });
-    if (width >= 768) expect(legend.x).toBeGreaterThanOrEqual(calendar.x + calendar.width);
-    else expect(legend.y).toBeGreaterThanOrEqual(calendar.y + calendar.height);
+    // The approved layout now puts the legend INSIDE the calendar card at all
+    // viewport sizes, rather than as a separate card beside or below it.
+    expect(legend.x).toBeGreaterThanOrEqual(calendar.x - 2);
+    expect(legend.y).toBeGreaterThanOrEqual(calendar.y - 2);
+    expect(legend.x + legend.width).toBeLessThanOrEqual(calendar.x + calendar.width + 2);
+    expect(legend.y + legend.height).toBeLessThanOrEqual(calendar.y + calendar.height + 2);
     const full = await page.locator('[data-calendar-date="2026-10-15"]').boundingBox();
     const empty = await page.locator('[data-calendar-date="2026-10-17"]').boundingBox();
     expect(full!.height).toBe(empty!.height);

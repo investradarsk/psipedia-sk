@@ -64,7 +64,9 @@ test("detail exposes real event fields before optional media and never renders e
   assert.match(detail, /timeLabel && <span>/);
   assert.match(detail, /event\.registrationUrl && <PublicActionLink/);
   assert.match(detail, /event\.websiteUrl && <PublicActionLink/);
-  assert.match(detail, /DetailFactsCard title="Miesto konania"[\s\S]*locationLines\.join/);
+  assert.match(detail, /<dl className=\{detailStyles\.factTiles\}/);
+  assert.match(detail, /locationLines\.map/);
+  assert.doesNotMatch(detail, /<DetailFactsCard/);
   assert.match(detail, /event\.organizer &&/);
   assert.match(detail, /event\.description &&/);
   assert.match(detail, /event\.practicalInfo &&/);

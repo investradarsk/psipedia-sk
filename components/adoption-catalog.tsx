@@ -1,4 +1,7 @@
+import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
+import { PublicHelpCategoryNav, publicHelpCategoryItems } from "@/components/public-visual-system/public-help-category-nav";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
+import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import {
   PublicChoiceInput,
   PublicSelect,
@@ -56,7 +59,7 @@ function formatCatalogDate(value: string) {
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   const href = adoptionDetailPath(dog.slug);
   return (
-    <article className={styles.card}>
+    <PublicHelpCardSurface className={styles.card}>
       <AdoptionCardMedia
         href={href}
         name={dog.name}
@@ -114,7 +117,7 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
         ) : null}
         <Link href={href}>Zobraziť profil →</Link>
       </div>
-    </article>
+    </PublicHelpCardSurface>
   );
 }
 
@@ -194,6 +197,20 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
       </UnifiedSectionHeroShell>
 
       <PublicContentShell variant="listing">
+        <div className={styles.categoryNavShell}>
+          <PublicHelpCategoryNav items={publicHelpCategoryItems("adopcia")} />
+        </div>
+        <PublicFilterDisclosure
+          label="Filtrovať psy"
+          activeCount={[
+            filters.breedId, filters.region !== "all" && filters.region,
+            filters.sex, filters.age, filters.size, filters.status,
+            filters.children, filters.dogs, filters.cats,
+          ].filter(Boolean).length}
+          buttonClassName={styles.filterToggle}
+          contentClassName={styles.filterDisclosure}
+          openContentClassName={styles.filterDisclosureOpen}
+        >
         <form className={styles.filters} method="get" aria-label="Filtrovať psy na adopciu">
           <input type="hidden" name="q" value={filters.q} />
           <div className={styles.field}>
@@ -329,6 +346,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
             <Link href="/pomoc-psom/adopcia">Vyčistiť</Link>
           </div>
         </form>
+        </PublicFilterDisclosure>
 
         <div className={styles.summary}>
           <div>

@@ -74,6 +74,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
         {dog.breedName && <p className={styles.detailBreed}>{dog.breedMix && !genericBreedName ? "Kríženec · " : ""}{dog.breedSlug ? <Link href={`/plemena/${dog.breedSlug}`}>{dog.breedName}</Link> : dog.breedName}</p>}
         {dog.shortDescription && <p className={styles.detailLead}>{dog.shortDescription}</p>}
         <Facts items={basicFacts} />
+        {verifiedAt && <p className={styles.detailVerification}>Naposledy potvrdená dostupnosť: <strong>{verifiedAt}</strong></p>}
         {stale && <div className={styles.staleNotice}><strong>Profil potrebuje potvrdiť aktuálnosť</strong><span>Pred rozhodnutím si aktuálnu dostupnosť potvrďte priamo s organizáciou.</span></div>}
 
 <nav className={styles.heroActions} aria-label="Kontakt k adopcii">
@@ -97,18 +98,13 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
           <h2>{organization ? <Link className={styles.organizationLink} href={`/organizacie/${organization.slug}`}>{organization.name}</Link> : dog.organizationName || "Kontakt k adopcii"}</h2>
           {dog.status === "ACTIVE" ? <p>O dostupnosti a podmienkach adopcie rozhoduje uvedená organizácia alebo zodpovedná osoba.</p> : <p>Profil je rezervovaný. Aktuálny stav si overte priamo u uvedeného kontaktu.</p>}
           <div className={styles.contactLinks}>
-            {dog.contactUrl && <a href={dog.contactUrl} target="_blank" rel="nofollow noreferrer">Kontaktný odkaz ↗</a>}
+            {dog.contactUrl && <a href={dog.contactUrl} target="_blank" rel="nofollow noreferrer">Kontakt cez stránku organizácie</a>}
             {dog.contactEmail && <a href={`mailto:${dog.contactEmail}`}>{dog.contactEmail}</a>}
             {dog.contactPhone && phoneHref && <a href={phoneHref}>{dog.contactPhone}</a>}
-            {dog.externalSourceUrl && dog.externalSourceUrl !== dog.contactUrl && <a href={dog.externalSourceUrl} target="_blank" rel="nofollow noreferrer">Pôvodný zdroj ↗</a>}
+            {dog.externalSourceUrl && dog.externalSourceUrl !== dog.contactUrl && <a href={dog.externalSourceUrl} target="_blank" rel="nofollow noreferrer">Pôvodný zdroj</a>}
           </div>
         </section>}
-        <section className={styles.verificationCard}>
-          <span className={styles.detailEyebrow}>Aktuálnosť</span>
-          <h2>Aktuálnosť profilu</h2>
-          {verifiedAt ? <p>Naposledy potvrdená dostupnosť: <strong>{verifiedAt}</strong></p> : <p>Dátum potvrdenia dostupnosti nie je uvedený.</p>}
-          <Link href="/pomoc-psom/adopcia">← Späť na psy na adopciu</Link>
-        </section>
+
       </aside>
     </div>
   </main>;
