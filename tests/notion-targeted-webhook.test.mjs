@@ -393,6 +393,6 @@ test("inbox retries transient processing failures without silently dropping the 
   });
   assert.deepEqual(result, {claimed: 1, done: 0, review: 0, retried: 1});
   assert.ok(writes.some(w => w.sql.includes("status='PENDING'")));
-  assert.ok(writes.some(w => w.sql.includes("status='DONE'") && w.sql.startsWith("DELETE")) === false);
+  assert.ok(writes.every(w => !w.sql.startsWith("UPDATE notion_webhook_inbox SET status='DONE'")));
   assert.ok(writes.every(w => !JSON.stringify(w).includes("simulated upstream outage")));
 });
