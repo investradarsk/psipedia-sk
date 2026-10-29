@@ -51,5 +51,7 @@ test("the compact/foto banner variants keep their own responsive layouts and des
   assert.match(css, /\.inline > \.copy \{/);
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(help, /href="\/pomoc-psom\/nahlasit-psa-v-nudzi"/);
-  assert.match(help, /href="\/pomoc-psom\/dobrovolnictvo"/);
+  assert.match(help, /href: "\/pomoc-psom\/dobrovolnictvo"/);
+  assert.match(help, /<PublicPhotoCallout/);
+  assert.match(read("components/public-visual-system/public-photo-callout.module.css"), /\.banner \{/);
 });
