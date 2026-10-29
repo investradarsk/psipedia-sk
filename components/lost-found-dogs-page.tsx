@@ -1,5 +1,6 @@
 import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
 import { PublicHelpCategoryNav, publicHelpCategoryItems } from "@/components/public-visual-system/public-help-category-nav";
+import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import {
@@ -208,6 +209,13 @@ export async function LostFoundDogsPage({
             <div className={styles.categoryNavShell}>
               <PublicHelpCategoryNav items={publicHelpCategoryItems("stratene-a-najdene")} />
             </div>
+            <PublicFilterDisclosure
+              label="Filtrovať hlásenia"
+              activeCount={[region, locality, date, sex, size, breedId].filter(Boolean).length}
+              buttonClassName={styles.filterToggle}
+              contentClassName={styles.filterDisclosure}
+              openContentClassName={styles.filterDisclosureOpen}
+            >
             <form
               className={styles.filters}
               method="get"
@@ -292,6 +300,7 @@ export async function LostFoundDogsPage({
                 <Link href={dogReportBasePath(type)}>Vyčistiť</Link>
               </div>
             </form>
+            </PublicFilterDisclosure>
 
             <div className={styles.summary}>
               <h2>{dogReportTypeLabel(type)}</h2>
