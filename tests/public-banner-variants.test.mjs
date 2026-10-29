@@ -17,6 +17,7 @@ function load(path) {
   if(name.endsWith('/icons')||name.endsWith('/help-public-icons'))return {ArrowIcon:()=>null,AlertCircleIcon:()=>null};
   if(name.endsWith('/page-system'))return {PageContainer:({children,...props})=>React.createElement('div',props,children)};
   if(name==='./public-visual-system')return {PublicActionLink:anchor};
+  if(name==='./public-magazine-banner')return load('components/public-visual-system/public-magazine-banner.tsx');
   if(name==='./public-photo-callout')return load('components/public-visual-system/public-photo-callout.tsx');
   throw new Error(name);
  },exports);
