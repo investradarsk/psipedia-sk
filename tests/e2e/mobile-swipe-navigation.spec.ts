@@ -304,7 +304,8 @@ test("article swipe returns to the exact magazine listing after a full reload", 
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
-  await touchSwipe(page, "main", [315, 440], [175, 442]);
+  // Use the actual browser touch recognizer, not only dispatched JS events.
+  await chromeFingerSwipe(page, [315, 440], [175, 442]);
   await expect(page).toHaveURL(/\/clanky$/);
   // This must never return to Chrome's external new-tab or an earlier root.
   await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
