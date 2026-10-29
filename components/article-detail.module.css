@@ -950,3 +950,34 @@
   object-fit: contain;
   border-radius: 0;
 }
+
+/* Chrome iOS may intercept an edge swipe before the page receives touchend.
+   Provide an unobtrusive but dependable return action inside article content;
+   do not resurrect the redundant back arrow beside the site's logo. */
+.mobileReturnLink {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileReturnLink {
+    display: inline-flex;
+    width: fit-content;
+    min-height: 38px;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 8px;
+    padding: 7px 11px;
+    border: 1px solid var(--ps-border-soft, rgba(23, 53, 43, .13));
+    border-radius: 12px;
+    color: var(--forest-dark, #173b2d);
+    background: var(--paper, #fff);
+    font-size: .82rem;
+    font-weight: 750;
+    text-decoration: none;
+  }
+
+  .mobileReturnLink:focus-visible {
+    outline: 3px solid var(--forest, #174b38);
+    outline-offset: 2px;
+  }
+}
