@@ -8,7 +8,7 @@ import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { DetailHero, DetailSection } from "./detail-primitives/detail-primitives";
+import { DetailHero, DetailSection, PublicDetailLayout } from "./detail-primitives/detail-primitives";
 import detailStyles from "./detail-primitives/detail-primitives.module.css";
 import { PublicActionLink, PublicFoundation } from "@/components/public-visual-system";
 import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, formatEventUpdatedAt, type DogEvent, type PublicEventCard } from "@/lib/events";
@@ -101,12 +101,8 @@ export function EventDetail({
           </nav>}
         </>} />
       <div className={styles.returnBar}><EventsBackLink fallbackHref={typeHref ?? "/podujatia"} /></div>
-      <div className={`${detailStyles.shell} ${detailStyles.layout} ${!hasMap ? styles.detailSingleColumn : ""}`}>
-        <article className={detailStyles.body}>
-          {event.description && <DetailSection title="O podujatí"><EventMarkdown value={event.description} /></DetailSection>}
-          {event.practicalInfo && <DetailSection eyebrow="Pred návštevou" title="Praktické informácie"><EventMarkdown value={event.practicalInfo} /></DetailSection>}
-        </article>
-        {hasMap && publicMap && <aside className={detailStyles.aside} aria-label="Mapa podujatia">
+      <PublicDetailLayout
+        aside={hasMap && publicMap ? (
           <PublicLocationMap
             eyebrow="Miesto"
             title="Miesto podujatia"
@@ -117,8 +113,14 @@ export function EventDetail({
             rendererEnabled={publicMap.rendererEnabled}
             testRendererEnvironment={publicMap.testRendererEnvironment}
           />
-        </aside>}
-      </div>
+        ) : undefined}
+        asideLabel="Mapa podujatia"
+      >
+        <article className={detailStyles.body}>
+          {event.description && <DetailSection title="O podujatí"><EventMarkdown value={event.description} /></DetailSection>}
+          {event.practicalInfo && <DetailSection eyebrow="Pred návštevou" title="Praktické informácie"><EventMarkdown value={event.practicalInfo} /></DetailSection>}
+        </article>
+      </PublicDetailLayout>
 
       {related.length > 0 && (
         <section className={styles.relatedSection} aria-labelledby="event-related-title">
