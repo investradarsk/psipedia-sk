@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { verifyNotionWebhook, UUID, EVENT_TYPES, type NotionWebhookEvent as WebhookEvent } from "@/lib/notion-webhook-contract";
 import { enqueueNotionWebhook } from "@/lib/notion-webhook-inbox";
-import type { WebhookBindings } from "@/lib/notion-webhook-dispatch";
+import { dispatchNotionPageChange, type WebhookBindings } from "@/lib/notion-webhook-dispatch";
 
 export { dispatchNotionPageChange } from "@/lib/notion-webhook-dispatch";
 export const dynamic = "force-dynamic";
@@ -60,6 +60,19 @@ export async function POST(request: Request) {
       !UUID.test(data.entity?.id ?? "") ||
       (data.entity?.type !== "page" && data.entity?.entity_type !== "page")) {
     return Response.json({ received: true, result: "ignored" });
+  }
+  // Safe staged rollout: this PR can be merged before protected migration
+  // 0145. Until D1 is provisioned and the owner enables the flag, preserve
+  // the previously deployed synchronous contract rather than returning 503.
+  if (bindings.NOTION_WEBHOOK_INBOX_ENABLED !== "true") {
+    try {
+      const result = await dispatchNotionPageChange(data, bindings);
+      if (result === "not-configured") return new Response(null, { status: 503 });
+      return Response.json({ received: true, result }, { status: 200 });
+    } catch {
+      console.error("notion_targeted_webhook_failed");
+      return new Response(null, { status: 503 });
+    }
   }
   try {
     await enqueueNotionWebhook(bindings.DB, data, body);
