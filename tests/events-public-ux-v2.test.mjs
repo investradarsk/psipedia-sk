@@ -52,7 +52,11 @@ test("mobile cards and details keep online events accurate and provide a listing
   assert.match(card, /Miesto nie je uvedené/);
   assert.doesNotMatch(card, /<strong>Organizátor<\/strong>/);
   assert.match(detail, /const hasMap = event\.region !== "Online" && Boolean\(publicMap\?\.items\.length\)/);
-  assert.match(detail, /hasMap && publicMap && <aside/);
+  // The shared detail layout owns the semantic aside; event details provide the map as a prop.
+  assert.match(detail, /<PublicDetailLayout/);
+  assert.match(detail, /aside=\{hasMap && publicMap \? \(/);
+  assert.match(detail, /<PublicLocationMap/);
+  assert.match(detail, /items=\{publicMap\.items\}/);
   assert.match(detail, /<EventsBackLink fallbackHref=\{typeHref \?\? "\/podujatia"\}/);
   assert.match(page, /<RememberEventsListing key=/);
   assert.match(returnLink, /window\.sessionStorage\.setItem/);
