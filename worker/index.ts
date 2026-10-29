@@ -76,6 +76,7 @@ interface Env {
   NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_WEBHOOK_SYNC_ENABLED?: string;
+  NOTION_WEBHOOK_INBOX_ENABLED?: string;
   NOTION_WEBHOOK_VERIFICATION_TOKEN?: string;
   NOTION_WEBHOOK_SUBSCRIPTION_ID?: string;
   SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;
@@ -338,7 +339,7 @@ const worker = {
     }
     // Every five minutes, consume a bounded batch of durable signed Notion
     // receipts. This is independent of FB images, hourly sweeps and Gemini.
-    if (controller.cron === ADMIN_PUSH_CRON && pushTaskEnabled(env.NOTION_WEBHOOK_SYNC_ENABLED)) {
+    if (controller.cron === ADMIN_PUSH_CRON && pushTaskEnabled(env.NOTION_WEBHOOK_SYNC_ENABLED) && pushTaskEnabled(env.NOTION_WEBHOOK_INBOX_ENABLED)) {
       _ctx.waitUntil(runNotionWebhookInboxSweep({
         database: env.DB,
         process: event => dispatchNotionPageChange(event, env),
