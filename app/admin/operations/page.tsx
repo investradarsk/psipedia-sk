@@ -9,25 +9,13 @@ import {
   isAdminAttentionView,
   type AdminAttentionFilters,
 } from "@/lib/admin-attention-queue";
-import { loadAdminAttentionPage, type AdminAttentionExactSummary, type AdminAttentionPage } from "@/lib/admin-attention-queue-store";
+import { loadAdminAttentionPage, loadExactAdminAttentionSummary, type AdminAttentionPage } from "@/lib/admin-attention-queue-store";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] ?? "" : value ?? "";
-
-function toNotificationSummary(page: AdminAttentionPage): AdminAttentionExactSummary {
-  return {
-    active: page.summary.active,
-    bySource: page.summary.bySource,
-    availability: page.availability === "PARTIAL" || page.availability === "UNAVAILABLE"
-      ? page.availability : "OK",
-    unavailableSources: page.sourceAvailability
-      .filter((source) => source.state === "UNAVAILABLE")
-      .map((source) => source.sourceType),
-  };
-}
 
 async function AdminOperationsContent({
   attentionPromise,
@@ -87,7 +75,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
 
   // One canonical read for both the bell and page; stream the shell before D1 finishes.
   const attentionPromise = loadAdminAttentionPage({ filters, cursor });
-  const attentionSummaryPromise = attentionPromise.then(toNotificationSummary);
+  const attentionSummaryPromise = loadExactAdminAttentionSummary();
 
   return (
     <AdminShell
