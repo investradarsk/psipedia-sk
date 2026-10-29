@@ -1,0 +1,11 @@
+.card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ps-border-soft, #dbe4de);
+  border-radius: var(--ps-radius-card, 22px);
+  background: white;
+  box-shadow: var(--ps-ds5-card-shadow, 0 5px 18px rgba(23,53,43,.06));
+  transition: var(--ps-ds5-card-transition, box-shadow 140ms ease);
+}
+.card:focus-within { outline: 2px solid var(--forest, #174b38); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } }
