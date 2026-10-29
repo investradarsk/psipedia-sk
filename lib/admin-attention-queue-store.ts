@@ -885,8 +885,12 @@ type AttentionActiveCountRow = { sourceType: AdminAttentionQueueSourceType; acti
 function summaryGroupSql(sources: readonly AdminAttentionQueueSourceType[]) {
   const queries = sources.map((sourceType) => `
     SELECT '${sourceType}' AS sourceType,
-      COALESCE(SUM(CASE WHEN activeRank=0 THEN 1 ELSE 0 END),0) AS activeCount
-    FROM (${ATTENTION_SOURCE_SELECTS[sourceType]})
+      COALESCE(SUM(CASE WHEN base.activeRank=0 AND
+        (ack.relevant_at IS NULL OR ack.relevant_at<>base.relevantAt
+          OR (ack.read_at IS NULL AND (ack.snoozed_until IS NULL OR ack.snoozed_until<=(SELECT nowIso FROM params))))
+        THEN 1 ELSE 0 END),0) AS activeCount
+    FROM (${ATTENTION_SOURCE_SELECTS[sourceType]}) base
+    LEFT JOIN admin_attention_ack ack ON ack.source_type=base.sourceType AND ack.source_id=base.sourceId
   `);
   return `${paramsCte()}\n${queries.join("\nUNION ALL\n")}`;
 }
@@ -1285,6 +1289,26 @@ export async function loadAdminAttentionPage(
     .sort(compareAttentionRows);
   const visibleRows = rows.slice(0, pageSize);
   const items = visibleRows.map((row) => mapGenericRow(row, now));
+  // Read/snooze is user-facing inbox state, NOT canonical domain resolution.
+  // Attach it only to the visible page; source probes remain exact domain counts.
+  if (items.length) {
+    const predicates = items.map(() => "(source_type=? AND source_id=?)").join(" OR ");
+    const params = items.flatMap((item) => [item.sourceType, item.sourceId]);
+    try {
+      const response = await db.prepare(
+        "SELECT source_type,source_id,relevant_at,read_at,snoozed_until FROM admin_attention_ack WHERE " + predicates,
+      ).bind(...params).all<{ source_type: string; source_id: string; relevant_at: string; read_at: string | null; snoozed_until: string | null }>();
+      const acknowledgements = new Map((response.results ?? []).map((entry) => [entry.source_type + ':' + entry.source_id, entry]));
+      for (const item of items) {
+        const ack = acknowledgements.get(item.sourceType + ':' + item.sourceId);
+        if (!ack || ack.relevant_at !== item.relevantAt) continue;
+        item.readAt = ack.read_at;
+        item.snoozedUntil = ack.snoozed_until;
+      }
+    } catch {
+      // This is a supplementary overlay. Never hide the canonical queue.
+    }
+  }
   const nextCursor = rows.length > pageSize && visibleRows.length
     ? encodeAdminAttentionCursor(visibleRows[visibleRows.length - 1], filters)
     : null;
