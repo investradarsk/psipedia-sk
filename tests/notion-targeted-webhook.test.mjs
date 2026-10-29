@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { readFile } from "node:fs/promises";
 import ts from "typescript";
 import { runInNewContext } from "node:vm";
@@ -398,4 +399,47 @@ test("inbox retries transient processing failures without silently dropping the 
   assert.ok(writes.some(w => w.sql.includes("status='PENDING'")));
   assert.ok(writes.every(w => !w.sql.startsWith("UPDATE notion_webhook_inbox SET status='DONE'")));
   assert.ok(writes.every(w => !JSON.stringify(w).includes("simulated upstream outage")));
+});
+
+test("real SQLite inbox claims, processes and deduplicates signed page change", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(await readFile(new URL("../drizzle/0145_notion_webhook_inbox.sql", import.meta.url), "utf8"));
+    // Minimal Cloudflare D1 adapter backed by real SQLite, not a mocked SQL response.
+    const database = {
+      prepare(sql) {
+        const stmt = db.prepare(sql);
+        return {
+          bind(...params) {
+            return {
+              first: async () => stmt.get(...params) ?? null,
+              run: async () => stmt.run(...params),
+            };
+          },
+        };
+      },
+    };
+    const event = { id: "aaaa1111-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      type: "page.properties_updated",
+      entity: { id: "11111111-2222-4333-8444-555555555555", type: "page" },
+      data: { updated_properties: ["phone-id"] },
+    };
+    await enqueueNotionWebhook(database, event, JSON.stringify(event));
+    await enqueueNotionWebhook(database, event, JSON.stringify(event));
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM notion_webhook_inbox").get().n, 1);
+    const processed = [];
+    const summary = await runNotionWebhookInboxSweep({
+      database, now: 1_800_000_000_000,
+      process: async (e) => { processed.push(e); return "processed"; },
+    });
+    assert.deepEqual(summary, { claimed: 1, done: 1, review: 0, retried: 0 });
+    assert.equal(processed.length, 1);
+    assert.equal(processed[0].entity.id, event.entity.id);
+    assert.equal(db.prepare("SELECT status FROM notion_webhook_inbox").get().status, "DONE");
+    const again = await runNotionWebhookInboxSweep({
+      database, now: 1_800_000_000_000,
+      process: async () => { throw Error("duplicate delivery must not run"); },
+    });
+    assert.equal(again.claimed, 0);
+  } finally { db.close(); }
 });
