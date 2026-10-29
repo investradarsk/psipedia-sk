@@ -28,8 +28,10 @@ export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }
   const router = useRouter();
   const [pending, setPending] = useState("");
   const [error, setError] = useState("");
-  const urgent = items.filter((item) => item.source_state !== "ACTIVE_SIGNAL" && !item.last_reviewed_at);
-  const done = items.filter((item) => item.source_state === "ACTIVE_SIGNAL" || Boolean(item.last_reviewed_at));
+  const isReviewDue = (item: HelpSourceCheckRow) => item.source_state !== "ACTIVE_SIGNAL"
+    && (!item.last_reviewed_at || Date.now() - Date.parse(item.last_reviewed_at) >= 7 * 86_400_000);
+  const urgent = items.filter(isReviewDue);
+  const done = items.filter((item) => !isReviewDue(item));
 
   async function confirmCurrent(item: HelpSourceCheckRow) {
     const key = item.entity_type + ":" + item.entity_id;
