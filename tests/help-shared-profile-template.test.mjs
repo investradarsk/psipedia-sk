@@ -14,6 +14,7 @@ test("one identical profile card component serves Help root and every category",
     "components/help-card.tsx",
     "components/adoption-catalog.tsx",
     "components/lost-found-dogs-page.tsx",
+    "components/organization-profile-detail.tsx",
   ]) {
     assert.match(read(file), /<PublicHelpProfileCard\b/, file);
   }
