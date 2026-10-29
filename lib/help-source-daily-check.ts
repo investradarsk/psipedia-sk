@@ -177,9 +177,12 @@ async function persistOutcome(db: D1Database, row: SourceRow, outcome: SourceOut
   const date = now.toISOString();
   const statement = [
     "INSERT INTO help_source_checks",
-    "(entity_type,entity_id,source_url,source_state,last_checked_at,last_success_at,last_http_status,evidence,error_code,created_at,updated_at)",
-    "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+    "(entity_type,entity_id,source_url,source_state,last_checked_at,state_changed_at,last_success_at,last_http_status,evidence,error_code,created_at,updated_at)",
+    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
     "ON CONFLICT(entity_type,entity_id) DO UPDATE SET",
+    "state_changed_at=CASE WHEN help_source_checks.source_state=excluded.source_state AND",
+    "help_source_checks.source_url=excluded.source_url THEN COALESCE(help_source_checks.state_changed_at,excluded.state_changed_at)",
+    "ELSE excluded.state_changed_at END,",
     "source_url=excluded.source_url,source_state=excluded.source_state,last_checked_at=excluded.last_checked_at,",
     "last_success_at=CASE WHEN excluded.last_success_at IS NOT NULL THEN excluded.last_success_at ELSE help_source_checks.last_success_at END,",
     "last_http_status=excluded.last_http_status,evidence=excluded.evidence,error_code=excluded.error_code,updated_at=excluded.updated_at,",
@@ -189,7 +192,7 @@ async function persistOutcome(db: D1Database, row: SourceRow, outcome: SourceOut
     "  AND help_source_checks.source_url=excluded.source_url THEN help_source_checks.last_reviewed_state ELSE NULL END",
   ].join(" ");
   await db.prepare(statement).bind(
-    row.entity_type, row.entity_id, row.source_url?.trim() || "", outcome.state, date,
+    row.entity_type, row.entity_id, row.source_url?.trim() || "", outcome.state, date, date,
     outcome.httpStatus === 200 ? date : null, outcome.httpStatus, outcome.evidence,
     outcome.errorCode, date, date,
   ).run();
@@ -198,7 +201,6 @@ async function persistOutcome(db: D1Database, row: SourceRow, outcome: SourceOut
 export async function runHelpSourceDailySweep(input: {
   database: D1Database;
   now?: Date;
-  fetchOverride?: typeof fetch;
 }): Promise<HelpSourceSweepResult> {
   const result: HelpSourceSweepResult = { enabled: false, selected: 0, checked: 0, activeSignals: 0, manualReview: 0, unavailable: 0, failed: 0 };
   if (!await helpSourceSchemaReady(input.database)) return result;
