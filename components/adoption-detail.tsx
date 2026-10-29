@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DetailHero } from "./detail-primitives/detail-primitives";
+import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
 import { LocationIcon } from "@/components/help-public-icons";
 import {
   adoptionDetailActivityLabels,
@@ -82,7 +83,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
           {organization && <Link className={styles.secondaryAction} href={`/organizacie/${organization.slug}`}>Zobraziť profil organizácie</Link>}
         </nav></>} />
 
-    <div className={styles.detailGrid}>
+    <PublicHelpProfileDetailLayout>
       <article className={styles.detailContent}>
         {sections.story && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>O psovi</span><h2>Príbeh a informácie</h2><p className={styles.preline}>{dog.description}</p></section>}
         {sections.temperament && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Povaha</span><h2>Charakter</h2><p className={styles.preline}>{dog.temperament}</p></section>}
@@ -106,6 +107,6 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
         </section>}
 
       </aside>
-    </div>
+    </PublicHelpProfileDetailLayout>
   </main>;
 }
