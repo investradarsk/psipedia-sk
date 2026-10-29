@@ -221,3 +221,31 @@ test("real Chrome touch: inward left swipe returns to the previous internal rout
   await expect(page).toHaveURL(/\/$/);
 });
 
+
+test("real Chrome touch: inward right swipe from the left half navigates within Psipedia", async ({ page }) => {
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
+  await expect(page).toHaveURL(/\/starostlivost$/);
+  await expect(page.locator("#mobile-menu")).not.toHaveClass(/is-open/);
+  // Browser touch input is essential: synthetic touchend alone cannot detect
+  // Safari/Chrome touchcancel caused by a native scrolling gesture.
+  await page.evaluate(() => {
+    const zone = document.createElement("div");
+    zone.setAttribute("data-e2e-inward-right-gesture", "");
+    Object.assign(zone.style, {
+      position: "fixed", left: "100px", top: "310px", width: "170px",
+      height: "150px", zIndex: "49", pointerEvents: "auto",
+    });
+    document.body.append(zone);
+  });
+  await chromeFingerSwipe(page, [130, 380], [280, 383]);
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("a vertical content drag is not mistaken for a rightward back swipe", async ({ page }) => {
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
+  await expect(page).toHaveURL(/\/starostlivost$/);
+  await touchSwipe(page, "main", [125, 465], [165, 245]);
+  await expect(page).toHaveURL(/\/starostlivost$/);
+});

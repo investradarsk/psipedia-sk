@@ -158,3 +158,14 @@ test("homepage directory cards preserve legacy district fallback with validated 
     assert.deepEqual(db.prepare(sql).all().map(row => row.district), ["Nitra", null, null, "17"]);
   } finally { db.close(); }
 });
+
+test("homepage leading article shows its photo above a restrained mobile text gradient", async () => {
+  const css = await repoFile("app/home-v2.module.css");
+  const overrideStart = css.indexOf("/* Public magazine: news and");
+  assert.ok(overrideStart >= 0, "final homepage magazine override exists");
+  const finalOverrides = css.slice(overrideStart);
+  assert.match(finalOverrides, /background:\s*linear-gradient\(0deg, rgba\(5, 25, 19, \.88\) 0%/);
+  assert.match(finalOverrides, /rgba\(5, 25, 19, 0\) 100%/);
+  assert.doesNotMatch(finalOverrides, /rgba\(5,25,19,\.97\)|rgba\(5,25,19,\.88\) 70%/);
+  assert.match(finalOverrides, /font-size:\s*clamp\(1\.34rem, 5\.45vw, 1\.6rem\)/);
+});
