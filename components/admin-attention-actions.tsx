@@ -13,7 +13,7 @@ export function AdminAttentionActions({ item }: { item: ActionItem }) {
   const [error, setError] = useState("");
   const [readAt, setReadAt] = useState(item.readAt);
   const [snoozedUntil, setSnoozedUntil] = useState(item.snoozedUntil);
-  const deferred = Boolean(snoozedUntil && Date.parse(snoozedUntil) > Date.now());
+  const deferred = Boolean(snoozedUntil);
   async function save(action: "READ" | "SNOOZE_7D" | "UNREAD") {
     setPending(true);
     setError("");
