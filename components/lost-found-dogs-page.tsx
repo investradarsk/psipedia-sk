@@ -1,4 +1,4 @@
-import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
+import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { PublicHelpCategoryNav, publicHelpCategoryItems } from "@/components/public-visual-system/public-help-category-nav";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
@@ -309,68 +309,28 @@ export async function LostFoundDogsPage({
             {result.items.length ? (
               <div className={styles.grid}>
                 {result.items.map((report) => (
-                  <PublicHelpCardSurface className={styles.card} key={report.id}>
-                    <div className={styles.visual}>
-                      {report.mainImage ? (
-                        <ImageDisplay
-                          roleHint="generic"
-                          context="thumbnail"
-                          config={report.thumbnailImageDisplay}
-                          src={report.mainImage}
-                          alt={
-                            report.dogName
-                              ? dogReportTypeShortLabel(type) + " pes " + report.dogName
-                              : dogReportTypeLabel(type)
-                          }
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      ) : (
-                        <PublicMediaFallback
-                          appearance="context"
-                          className={styles.visualFallback}
-                          iconSize={38}
-                          decorative
-                        />
-                      )}
-                    </div>
-                    <div className={styles.cardBody}>
-                      <div className={styles.badges}>
-                        <span
-                          className={[
-                            styles.badge,
-                            type === "LOST" ? styles.lost : styles.found,
-                          ].join(" ")}
-                        >
-                          {dogReportTypeLabel(type)}
-                        </span>
-                        {report.breed && <span className={styles.badge}>{report.breed}</span>}
-                      </div>
-                      <h3>{report.dogName || report.breed || "Pes bez známeho mena"}</h3>
-                      <div className={styles.meta}>
-                        <span className={styles.metaItem}>
-                          <LocationIcon size={16} />
-                          {report.city}
-                          {report.district ? " · " + report.district : ""}
-                        </span>
-                        <span className={styles.metaItem}>
-                          <CalendarIcon size={16} />
-                          {formatDogReportDate(report.eventDate)}
-                        </span>
-                        <span>
-                          {dogSexLabel[report.sex]} · {dogSizeLabel[report.size]}
-                        </span>
-                      </div>
-                      <p>
-                        {report.description.length > 150
-                          ? report.description.slice(0, 147) + "…"
-                          : report.description}
-                      </p>
-                      <Link className={styles.cardLink} href={dogReportHref(report)}>
-                        Zobraziť hlásenie →
-                      </Link>
-                    </div>
-                  </PublicHelpCardSurface>
+                  <PublicHelpProfileCard
+                    key={report.id}
+                    data-dog-report-card={report.id}
+                    href={dogReportHref(report)}
+                    title={report.dogName || report.breed || "Pes bez známeho mena"}
+                    category={dogReportTypeLabel(type)}
+                    actionLabel="Zobraziť hlásenie"
+                    badge={<>
+                      <span className={[styles.badge, type === "LOST" ? styles.lost : styles.found].join(" ")}>{dogReportTypeLabel(type)}</span>
+                    </>}
+                    media={<Link href={dogReportHref(report)} aria-label={"Otvoriť hlásenie: " + (report.dogName || report.breed || "Pes")}>
+                      {report.mainImage
+                        ? <ImageDisplay roleHint="generic" context="thumbnail" fallbackOnError config={report.thumbnailImageDisplay} src={report.mainImage} alt={report.dogName ? dogReportTypeShortLabel(type) + " pes " + report.dogName : dogReportTypeLabel(type)} loading="lazy" decoding="async" />
+                        : <PublicMediaFallback appearance="context" decorative />}
+                    </Link>}
+                    meta={<>
+                      <p><LocationIcon size={14} /> {report.city}{report.district ? " · " + report.district : ""}</p>
+                      <p><CalendarIcon size={14} /> {formatDogReportDate(report.eventDate)}</p>
+                    </>}
+                    excerpt={report.description.length > 150 ? report.description.slice(0, 147) + "…" : report.description}
+                    extras={<p>{[report.breed, dogSexLabel[report.sex], dogSizeLabel[report.size]].filter(Boolean).join(" · ")}</p>}
+                  />
                 ))}
               </div>
             ) : (
