@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
+import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { ProfileReviewSection } from "@/components/profile-review-section";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
@@ -47,27 +48,25 @@ function ContactLink({
 
 function OrganizationAdoptionCard({ adoption }: { adoption: OrganizationPublicAdoption }) {
   const href = adoptionDetailPath(adoption.slug);
-
   return (
-    <article className={styles.adoptionCard} data-adoption-card={adoption.slug}>
-      <AdoptionCardMedia
+    <PublicHelpProfileCard
+      data-adoption-card={adoption.slug}
+      href={href}
+      title={adoption.name}
+      category={adoption.status === "RESERVED" ? "Rezervovaný" : "Pes na adopciu"}
+      actionLabel="Zobraziť profil"
+      media={<AdoptionCardMedia
         href={href}
         name={adoption.name}
         status={adoption.status}
         mainImage={adoption.mainImage}
         imageConfig={adoption.thumbnailImageDisplay}
-      />
-      <div className={styles.adoptionCardBody}>
-        {adoption.city ? <p className={styles.adoptionLocation}>{adoption.city}</p> : null}
-        <h3><Link href={href}>{adoption.name}</Link></h3>
-        {adoption.status === "RESERVED" ? (
-          <p className={styles.adoptionReserved}>Tento pes je momentálne rezervovaný.</p>
-        ) : null}
-        <Link className={styles.adoptionCta} href={href}>
-          Zobraziť profil <span aria-hidden="true">→</span>
-        </Link>
-      </div>
-    </article>
+      />}
+      meta={adoption.city ? <span>{adoption.city}</span> : null}
+      extras={adoption.status === "RESERVED"
+        ? <p className={styles.adoptionReserved}>Tento pes je momentálne rezervovaný.</p>
+        : null}
+    />
   );
 }
 
