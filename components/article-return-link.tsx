@@ -24,7 +24,9 @@ export function ArticleReturnLink({
     const current = window.location.pathname + window.location.search;
     const trail = readInternalTrail(window.sessionStorage);
     const index = trail.lastIndexOf(current);
-    const previous = index > 0 ? trail[index - 1] : null;
+    // The article effect may run before the shared header records this route.
+    // In that case the trail tail is still the genuine page we came from.
+    const previous = index > 0 ? trail[index - 1] : index === -1 ? trail.at(-1) : null;
     setDestination(previous && previous !== current ? previous : fallbackHref);
   }, [pathname, fallbackHref]);
 
