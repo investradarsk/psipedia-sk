@@ -328,9 +328,7 @@ export function EventCalendar({
         ) : (
           <p className={styles.monthHint}>{pending ? "Načítavajú sa podujatia…" : daySummaries.size === 0 ? "V tomto mesiaci nie sú podujatia zodpovedajúce aktuálnym filtrom. Zmeňte mesiac alebo upravte vyhľadávanie." : "Vyberte deň a zobrazia sa podujatia s odkazmi na ich detail."}</p>
         )}
-      </section>
-
-      <nav className={styles.calendarLegend} aria-label="Kategórie podujatí" data-events-legend>
+        <nav className={styles.calendarLegend} aria-label="Kategórie podujatí" data-events-legend>
         {eventTypes.map((type) => {
           const presentation = eventTypePresentation[type];
           const href = eventTypePortalHref(type);
@@ -342,7 +340,8 @@ export function EventCalendar({
             {presentation.label}
           </Link>;
         })}
-      </nav>
+        </nav>
+      </section>
       </div>
       {afterCalendar}
       {pending ? <p role="status" className={styles.monthHint}>Načítavajú sa podujatia…</p> : null}
