@@ -39,8 +39,8 @@ export function PublicHelpProfileCard({
       </div>
       <div className={styles.body} data-help-profile-copy>
         <span className={styles.category}>{category}</span>
-        {titleLevel === "h2" ? <h2 className={styles.title}>{heading}</h2> : <h3 className={styles.title}>{heading}</h3>}
-        {meta ? <div className={styles.meta}>{meta}</div> : null}
+        {titleLevel === "h2" ? <h2 className={styles.title} data-public-card-title>{heading}</h2> : <h3 className={styles.title} data-public-card-title>{heading}</h3>}
+        {meta ? <div className={styles.meta} data-public-card-meta>{meta}</div> : null}
         {excerpt ? <p className={styles.excerpt}>{excerpt}</p> : null}
         {extras ? <div className={styles.extras}>{extras}</div> : null}
         {children}
