@@ -52,7 +52,7 @@ test('actual public D1 reads clamp pages and count all 601 events independently 
     assert.equal(listing.total,601);assert.equal(listing.page,51);assert.equal(listing.pages,51);assert.deepEqual(listing.events.map(event=>event.id),[601]);
     const calendar = await getPublicEventCalendar(filters,'2026-10','2026-10-11');
     assert.deepEqual(calendar.summaries.map(summary=>summary.count),[601,601,601]);assert.equal(calendar.events.length,12);assert.deepEqual(calendar.summaries[0].types,['Výstava']);
-    assert.deepEqual(Object.keys(calendar.events[0]).sort(), ['id','slug','title','eventType','startDate','startTime','endDate','venue','city','cancelled'].sort());
+    assert.deepEqual(Object.keys(calendar.events[0]).sort(), ['id','slug','title','eventType','startDate','startTime','endDate','venue','city','cancelled','imageUrl'].sort());
     assert.equal(calendar.events[0].title, 'ŽILINSKÁ výstava 1');assert.equal(calendar.events[0].eventType,'Výstava');
     }
   } finally {env.DB=previous;db.close();}
