@@ -83,10 +83,16 @@ test("help no longer owns a second horizontal shell system", () => {
   for (const source of [helpOverview, helpPage, helpBrowser]) assert.doesNotMatch(source, /styles\.shell/);
   assert.match(helpOverview, /<PageContainer className=\{styles\.overviewSectionInner\}>/);
   assert.match(read("components/public-visual-system/public-help-banner.tsx"), /<PublicPhotoCallout promo=\{promo\}/);
-  assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /<PageContainer className=\{styles\.copy\}>/);
+  // The photographic Help CTA now delegates to the homepage's one shared banner
+  // instead of shipping its own page container and banner CSS.
+  assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /<PublicMagazineBanner/);
+  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /ps-public-banner-frame/);
   assert.match(helpBrowser, /<PageContainer className=\{styles\.results\}>/);
-  assert.match(read("components/public-visual-system/public-help-category-nav.module.css"), /\.nav \{ display: flex; flex-wrap: wrap/);
-  assert.match(read("components/public-visual-system/public-help-category-nav.module.css"), /@media \(max-width: 650px\)/);
+  // Help category data feeds the canonical public subcategory navigator.
+  const category = read("components/public-visual-system/public-help-category-nav.tsx");
+  assert.match(category, /<PublicSubcategoryNavigator/);
+  assert.match(category, /mode="compact"/);
+  assert.doesNotMatch(category, /<Link\b/);
 });
 
 test("adoption keeps hero outside the canonical listing content shell", () => {

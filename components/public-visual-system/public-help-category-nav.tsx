@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { HelpCategoryIcon } from "@/components/help-public-icons";
 import { helpCategories, helpCategoryHref, type HelpCategorySlug } from "@/lib/help";
+import { PublicSubcategoryNavigator } from "./public-subcategory-navigator";
 import styles from "./public-help-category-nav.module.css";
 
 export type HelpNavItem = {
@@ -11,7 +11,7 @@ export type HelpNavItem = {
   current?: boolean;
 };
 
-/** Canonical navigation for every public Help subcategory. */
+/** All Help category links use the same public navigator as editorial subcategories. */
 export function publicHelpCategoryItems(current?: HelpCategorySlug): HelpNavItem[] {
   return helpCategories.map((category) => ({
     slug: category.slug,
@@ -25,6 +25,7 @@ export function publicHelpCategoryItems(current?: HelpCategorySlug): HelpNavItem
   }));
 }
 
+/** One compact category presentation across Help root and all Help subcategories. */
 export function PublicHelpCategoryNav({
   items,
   label = "Kategórie pomoci",
@@ -33,19 +34,20 @@ export function PublicHelpCategoryNav({
   label?: string;
 }) {
   return (
-    <nav className={styles.nav} aria-label={label} data-help-category-nav data-public-category-navigation>
-      {items.map((item) => (
-        <Link
-          key={item.slug}
-          className={styles.item}
-          href={item.href}
-          aria-current={item.current ? "page" : undefined}
-        >
-          <HelpCategoryIcon category={item.slug} size={19} />
-          <span className={styles.label}>{item.label}</span>
-          {typeof item.count === "number" && <span className={styles.count}>{item.count}</span>}
-        </Link>
-      ))}
-    </nav>
+    <div className={styles.nav} data-help-category-nav data-public-category-navigation>
+      <PublicSubcategoryNavigator
+        label={label}
+        mode="compact"
+        items={items.map((item) => ({
+          href: item.href,
+          title: item.label,
+          icon: <HelpCategoryIcon category={item.slug} size={19} />,
+          meta: typeof item.count === "number"
+            ? <span aria-label={`Počet profilov: ${item.count}`}>{item.count}</span>
+            : undefined,
+          current: item.current,
+        }))}
+      />
+    </div>
   );
 }

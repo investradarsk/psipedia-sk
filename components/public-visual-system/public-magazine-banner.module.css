@@ -97,3 +97,77 @@
     width: 100%;
     min-height: 48px;
   }}
+
+/* Help, article and homepage promos share PublicMagazineBanner geometry.
+ * Optional photos retain their full frame over a blurred copy instead of
+ * forcing a destructive crop at narrow viewport ratios. */
+.magazine:global(.home-magazine-banner).withPhoto {
+  position: relative;
+  isolation: isolate;
+  min-height: 160px;
+  overflow: hidden;
+  border-color: rgba(23, 53, 43, .3);
+  color: #fff;
+  background: #17352b;
+}
+.withPhoto::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(90deg, rgba(15, 47, 35, .96), rgba(15, 47, 35, .86) 54%, rgba(15, 47, 35, .42));
+  pointer-events: none;
+}
+.withPhoto .photoMedia {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+}
+.photoBlur, .photoFull {
+  position: absolute;
+  display: block;
+  height: 100%;
+}
+.photoBlur {
+  inset: 0;
+  width: 100%;
+  object-fit: cover;
+  filter: blur(18px) saturate(.85);
+  transform: scale(1.08);
+}
+.photoFull {
+  top: 0;
+  right: 0;
+  width: 46%;
+  object-fit: contain;
+  object-position: center;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 26%);
+  mask-image: linear-gradient(90deg, transparent, black 26%);
+}
+.magazine:global(.home-magazine-banner).withPhoto > div:not(.photoMedia),
+.magazine:global(.home-magazine-banner).withPhoto > a {
+  position: relative;
+  z-index: 2;
+}
+.magazine:global(.home-magazine-banner).withPhoto h2,
+.magazine:global(.home-magazine-banner).withPhoto p {
+  color: #fff;
+}
+.magazine:global(.home-magazine-banner).withPhoto .eyebrow {
+  color: #f7cfbd;
+}
+.magazine:global(.home-magazine-banner).withPhoto :global(.button.button--dark) {
+  border-color: #fff;
+  color: #174b38;
+  background: #fff;
+}
+@media (max-width: 620px) {
+  .magazine:global(.home-magazine-banner).withPhoto { min-height: 0; }
+  .withPhoto::before {
+    background: linear-gradient(90deg, rgba(15, 47, 35, .95), rgba(15, 47, 35, .83) 60%, rgba(15, 47, 35, .59));
+  }
+  .photoFull { width: 56%; opacity: .7; }
+}

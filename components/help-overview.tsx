@@ -103,7 +103,7 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
             roleHint="generic"
             context="thumbnail"
             fallbackOnError
-            config={item.thumbnailImageDisplay ?? { mode: "crop", x: 50, y: 50, zoom: 1 }}
+            config={item.thumbnailImageDisplay}
             src={item.imageUrl}
             alt=""
             loading="lazy"
