@@ -38,6 +38,7 @@ export function PublicHelpCategoryNav({
       <PublicSubcategoryNavigator
         label={label}
         mode="compact"
+        mobileLayout="grid"
         items={items.map((item) => ({
           href: item.href,
           title: item.label,
