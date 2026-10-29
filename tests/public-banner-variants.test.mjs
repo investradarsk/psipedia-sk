@@ -17,6 +17,7 @@ function load(path) {
   if(name.endsWith('/icons')||name.endsWith('/help-public-icons'))return {ArrowIcon:()=>null,AlertCircleIcon:()=>null};
   if(name.endsWith('/page-system'))return {PageContainer:({children,...props})=>React.createElement('div',props,children)};
   if(name==='./public-visual-system')return {PublicActionLink:anchor};
+  if(name==='./public-photo-callout')return load('components/public-visual-system/public-photo-callout.tsx');
   throw new Error(name);
  },exports);
  return exports;
@@ -39,10 +40,10 @@ test('help banner variants retain destinations, photo tones, inherited colors an
  assert.match(closing,/href="\/pomoc-psom\/dobrovolnictvo"/);
  for(const tone of ['care','rescue','volunteer']) {
   const html=renderToStaticMarkup(React.createElement(PublicHelpPhotoBanner,{promo:{eyebrow:'Téma',title:'Pomoc',text:'Popis',href:'/pomoc-psom',action:'Otvoriť',tone}}));
-  assert.ok(html.includes('overviewPromo_'+tone));assert.match(html,/<h2>Pomoc<\/h2>/);
+  assert.ok(html.includes('data-public-photo-callout="'+tone+'"'));assert.match(html,/<h2>Pomoc<\/h2>/);
  }
- const css=read('components/public-visual-system/public-help-banner.module.css');
+ const css=read('components/public-visual-system/public-photo-callout.module.css');
  for(const image of ['zdravie-veterinar','hero-labrador','trening-pri-nohe'])assert.ok(css.includes('/images/'+image+'.webp'));
- assert.match(css,/max-width: 650px/);assert.match(css,/min-height: 48px/);
+ assert.match(css,/max-width: 760px/);assert.match(css,/min-height: 44px/);
  assert.doesNotMatch(read('components/help-public.module.css'),/\.(?:reportBanner|closingCta|overviewPromo)\b/);
 });
