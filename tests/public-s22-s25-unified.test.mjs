@@ -55,7 +55,7 @@ test("S-24 Help banners and listing cards have one reusable visual surface", () 
     "components/help-card.tsx",
     "components/adoption-catalog.tsx",
     "components/lost-found-dogs-page.tsx",
-  ]) assert.match(read(file), /<PublicHelpCardSurface/);
+  ]) assert.match(read(file), /<PublicHelpProfileCard/);
 });
 
 test("S-25 adoption keeps specialized filters and verified dates without a redundant back arrow", () => {
