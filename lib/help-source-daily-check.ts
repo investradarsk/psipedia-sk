@@ -233,8 +233,8 @@ export async function listHelpSourceChecks(db: D1Database, limit = 60): Promise<
   const query = [
     "SELECT c.entity_type,c.entity_id,",
     "COALESCE(a.name,l.dog_name,l.breed,'Pes') AS title,",
-    "c.source_url,c.source_state,c.last_checked_at,c.last_success_at,c.last_http_status,c.evidence,c.last_reviewed_at,
-    CASE WHEN c.last_reviewed_at IS NULL OR julianday('now')>=julianday(c.last_reviewed_at)+7 THEN 1 ELSE 0 END AS review_due",
+    "c.source_url,c.source_state,c.last_checked_at,c.last_success_at,c.last_http_status,c.evidence,c.last_reviewed_at,",
+    "CASE WHEN c.last_reviewed_at IS NULL OR julianday('now')>=julianday(c.last_reviewed_at)+7 THEN 1 ELSE 0 END AS review_due",
     "FROM help_source_checks c",
     "LEFT JOIN adoption_dogs a ON c.entity_type='ADOPTION' AND a.id=c.entity_id AND a.status IN ('ACTIVE','RESERVED')",
     "LEFT JOIN lost_found_dog_reports l ON c.entity_type='LOST_FOUND' AND l.id=c.entity_id AND l.status='ACTIVE'",
