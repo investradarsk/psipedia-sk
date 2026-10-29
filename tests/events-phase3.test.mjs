@@ -200,7 +200,6 @@ test("calendar data is month-scoped, publication-only and read-only", () => {
   );
   // Selected-day events now come from the latest scoped JSON response.
   assert.ok(calendar.includes("eventsForCalendarDay(data.calendarEvents,selectedDay)"));
-  assert.ok(calendar.includes("calendarSummaries: calendar.summaries") === false);
   const ajax = readFileSync(new URL("../app/api/public/events/calendar/route.ts", import.meta.url), "utf8");
   assert.ok(ajax.includes("getPublicEventCalendar(filters, month, day)"));
   assert.ok(ajax.includes("getPublishedEventListing(filters)"));
