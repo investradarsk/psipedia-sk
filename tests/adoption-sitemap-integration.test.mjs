@@ -73,7 +73,9 @@ test("Pomoc psom keeps the existing adoption category entry pointed at the new c
   assert.match(help, /return `\/pomoc-psom\/\$\{category\.slug\}`/);
   assert.match(page, /helpCategories\.map/);
   assert.match(page, /category === "adopcia"\) return "\/pomoc-psom\/adopcia"/);
-  assert.match(page, /href=\{categoryDestination\(category\.slug\)\}/);
+  // Shared navigator keeps the exact existing category destinations.
+  assert.match(page, /<PublicHelpCategoryNav/);
+  assert.match(page, /href: categoryDestination\(category\.slug\)/);
 });
 
 test("sitemap adoption filter includes fresh described ACTIVE profiles even without an optional image", () => {
