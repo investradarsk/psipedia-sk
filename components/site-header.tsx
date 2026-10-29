@@ -99,51 +99,78 @@ export function SiteHeader({
   useEffect(() => {
     if (menuOpen || searchOpen) return;
 
-    let start: { x: number; y: number; time: number } | null = null;
+    // Safari can cancel a touch sequence when it decides to scroll. Lock only
+    // clearly horizontal gestures so touchend still arrives on real phones.
+    // The outermost screen edge stays owned by the browser's native history.
+    let start: { x: number; y: number; time: number; id: number; horizontal: boolean } | null = null;
     function onTouchStart(event: globalThis.TouchEvent) {
       start = null;
       if (event.touches.length !== 1 || !window.matchMedia("(max-width: 767px)").matches) return;
       const touch = event.touches[0];
-      // Leave browser-owned edge gestures untouched.
       if (touch.clientX < 28 || touch.clientX > window.innerWidth - 28) return;
       const target = event.target;
       if (!(target instanceof Element) || target.closest(
         '#mobile-menu, .search-modal, [role="dialog"], [role="slider"], input, textarea, select, button, [contenteditable="true"], .gm-style, .leaflet-container, .maplibregl-map, .swiper, [data-no-swipe-back]',
       )) return;
-      // Don't steal horizontal carousels, maps, or scrollable tables.
+      // Do not override carousels, horizontal tables or the native map.
       for (let node: Element | null = target; node; node = node.parentElement) {
         const style = window.getComputedStyle(node);
         if (/auto|scroll/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 8) return;
       }
-      start = { x: touch.clientX, y: touch.clientY, time: Date.now() };
-      // Vertical scrolling and browser-edge history gestures remain native.
+      start = { x: touch.clientX, y: touch.clientY, time: Date.now(), id: touch.identifier, horizontal: false };
+    }
+    function onTouchMove(event: globalThis.TouchEvent) {
+      const origin = start;
+      if (!origin) return;
+      if (event.touches.length !== 1 || event.touches[0].identifier !== origin.id) {
+        start = null;
+        return;
+      }
+      const touch = event.touches[0];
+      const dx = touch.clientX - origin.x;
+      const dy = Math.abs(touch.clientY - origin.y);
+      // Prefer ordinary vertical scrolling until intent is clearly horizontal.
+      if (!origin.horizontal && dy > Math.abs(dx) * 0.85 && dy > 12) {
+        start = null;
+        return;
+      }
+      const withinLeftStart = origin.x <= Math.min(180, window.innerWidth * 0.48);
+      if (!origin.horizontal && Math.abs(dx) > 22 && Math.abs(dx) > dy * 1.6
+        && (dx < 0 || withinLeftStart)) origin.horizontal = true;
+      if (origin.horizontal && event.cancelable) event.preventDefault();
     }
     function onTouchEnd(event: globalThis.TouchEvent) {
       const origin = start;
       start = null;
-      if (!origin || event.changedTouches.length !== 1) return;
+      if (!origin || event.changedTouches.length !== 1 || event.changedTouches[0].identifier !== origin.id) return;
       const touch = event.changedTouches[0];
       const deltaX = touch.clientX - origin.x;
       const distance = Math.abs(deltaX);
       const vertical = Math.abs(touch.clientY - origin.y);
-      // Keep the previously supported leftward in-site swipe, and support the
-      // natural rightward gesture from the left side. Never capture scrolling.
-      const isBackGesture = deltaX < -85 || (deltaX > 85 && origin.x <= 100);
-      if (!isBackGesture || vertical > Math.min(65, distance * 0.38) || Date.now() - origin.time > 1100) return;
+      // Both established leftward and natural rightward gestures navigate back
+      // inside Psipedia. Rightward swipes may start in the left half, not only
+      // in the first 100px; the exact edge gesture remains native Safari.
+      const isBackGesture = deltaX < -85 || (deltaX > 75 && origin.x <= Math.min(180, window.innerWidth * 0.48));
+      if (!isBackGesture || vertical > Math.min(80, distance * 0.45) || Date.now() - origin.time > 1800) return;
       const current = window.location.pathname + window.location.search;
       const trail = internalTrailRef.current;
       const previous = trail.length > 1 ? trail[trail.length - 2] : null;
-      if (previous && previous !== current) router.back();
-      else if (current !== "/") router.push("/");
+      if (previous && previous !== current) {
+        // Never invoke browser back blindly: it may lead to an external referrer.
+        trail.pop();
+        router.push(previous);
+      } else if (current !== "/") router.push("/");
     }
     function onTouchCancel() {
       start = null;
     }
     document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     document.addEventListener("touchcancel", onTouchCancel, { passive: true });
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
       document.removeEventListener("touchcancel", onTouchCancel);
     };
