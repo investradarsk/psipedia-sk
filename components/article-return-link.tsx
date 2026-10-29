@@ -21,13 +21,16 @@ export function ArticleReturnLink({
   const [destination, setDestination] = useState(fallbackHref);
 
   useEffect(() => {
-    const current = window.location.pathname + window.location.search;
-    const trail = readInternalTrail(window.sessionStorage);
-    const index = trail.lastIndexOf(current);
-    // The article effect may run before the shared header records this route.
-    // In that case the trail tail is still the genuine page we came from.
-    const previous = index > 0 ? trail[index - 1] : index === -1 ? trail.at(-1) : null;
-    setDestination(previous && previous !== current ? previous : fallbackHref);
+    // Defer state changes until after the effect; keep React hooks lint clean.
+    const frame = window.requestAnimationFrame(() => {
+      const current = window.location.pathname + window.location.search;
+      const trail = readInternalTrail(window.sessionStorage);
+      const index = trail.lastIndexOf(current);
+      // The article may mount before the header records this new URL.
+      const previous = index > 0 ? trail[index - 1] : index === -1 ? trail.at(-1) : null;
+      setDestination(previous && previous !== current ? previous : fallbackHref);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [pathname, fallbackHref]);
 
   return (
