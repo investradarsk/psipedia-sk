@@ -91,3 +91,60 @@ test("S-27 organizations reuse the Help list card and automatic photo display wi
   assert.doesNotMatch(styles, /\.card\s*\{|\.media\s*\{|\.cardBody\s*\{/);
   assert.match(styles, /grid-template-columns: 1fr/);
 });
+
+test("global public details share one actual content layout across events, services, organizations and Help", () => {
+  const shell = read("components/detail-primitives/detail-primitives.tsx");
+  const css = read("components/detail-primitives/detail-primitives.module.css");
+  const helpAdapter = read("components/public-visual-system/public-help-profile-detail-layout.tsx");
+  const orgAdapter = read("components/public-profile/public-profile-hero.tsx");
+  const service = read("components/directory-profile-detail.tsx");
+  const event = read("components/event-detail.tsx");
+  assert.match(shell, /export function PublicDetailLayout\(/);
+  assert.match(shell, /data-public-detail-layout/);
+  assert.match(shell, /data-public-detail-aside/);
+  assert.match(css, /\.publicDetailShell\s*\{/);
+  assert.match(css, /\.publicDetailSplit\s*\{/);
+  assert.match(css, /\.publicDetailInline:has\(> aside\)/);
+  assert.match(css, /@media \(max-width: 800px\)\s*\{/);
+  for (const [name, source] of [
+    ["event", event],
+    ["directory", service],
+    ["organization adapter", orgAdapter],
+    ["Help adapter", helpAdapter],
+  ]) assert.match(source, /<PublicDetailLayout\b/, name);
+  assert.match(read("components/organization-profile-detail.tsx"), /<PublicProfileContentLayout/);
+  for (const path of [
+    "components/adoption-detail.tsx",
+    "components/lost-found-dog-detail.tsx",
+    "components/help-details/help-detail-shell.tsx",
+  ]) assert.match(read(path), /<PublicHelpProfileDetailLayout\b/, path);
+  const helpCss = read("components/public-visual-system/public-help-profile-detail-layout.module.css");
+  assert.doesNotMatch(helpCss, /grid-template-columns|width:\s*min\(/);
+});
+
+test("global details preserve domain-specific data, safe contacts and shared photo handling", () => {
+  const paths = {
+    event: "components/event-detail.tsx",
+    directory: "components/directory-profile-detail.tsx",
+    organization: "components/organization-profile-detail.tsx",
+    help: "components/help-details/help-detail-shell.tsx",
+    adoption: "components/adoption-detail.tsx",
+    lostFound: "components/lost-found-dog-detail.tsx",
+  };
+  const sources = Object.fromEntries(Object.entries(paths).map(([name, path]) => [name, read(path)]));
+  for (const source of Object.values(sources)) {
+    assert.match(source, /<DetailHero\b|<PublicProfileHero\b/);
+  }
+  assert.match(sources.event, /formatEventDate\(event\)/);
+  assert.match(sources.directory, /DirectoryContactForm/);
+  assert.match(sources.organization, /DetailContactsCard/);
+  assert.match(sources.help, /Pomáhajte bezpečne/);
+  assert.match(sources.adoption, /Naposledy potvrdená dostupnosť/);
+  assert.match(sources.lostFound, /Telefón a e-mail oznamovateľa nie sú automaticky publikované/);
+  for (const name of ["directory", "help", "adoption", "lostFound"]) {
+    assert.match(sources[name], /<ImageDisplay/);
+    assert.match(sources[name], /<PublicMediaFallback/);
+  }
+  assert.match(read("components/public-profile/public-profile-hero.tsx"), /<ImageDisplay/);
+  assert.match(sources.event, /<EventImage/);
+});
