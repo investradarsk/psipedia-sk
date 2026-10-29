@@ -959,6 +959,16 @@
 }
 
 @media (max-width: 767px) {
+  /* On non-scrollable article text, encourage vertical browser panning so
+     horizontal movement can reach the page's custom gesture listener.
+     Horizontal tables, media carousels, maps and pinch zoom stay untouched. */
+  .modernArticle .hero,
+  .modernArticle :global(.article-prose > p),
+  .modernArticle :global(.article-prose > h2),
+  .modernArticle :global(.article-prose > h3) {
+    touch-action: pan-y pinch-zoom;
+  }
+
   .mobileReturnLink {
     display: inline-flex;
     width: fit-content;
