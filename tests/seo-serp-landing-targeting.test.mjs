@@ -20,7 +20,8 @@ test("SEO-SERP homepage has a brand-level title, distinct metadata and an explan
   assert.match(source, /description: homepageSearchDescription/);
   assert.match(source, /Psipedia\.sk je slovenský portál o psoch/);
   assert.match(source, /path: "\/"/);
-  assert.match(source, /<h1>\s*Rozumej svojmu psovi\./);
+  assert.match(source, /<h1>\s*Všetko dôležité/);
+  assert.match(source, /pre život so psom\./);
   assert.doesNotMatch(source, /data-nosnippet|noindex/i);
   // The root layout already emits one site identity graph.
   assert.match(read("app/layout.tsx"), /<StructuredData value=\{buildSiteIdentityJsonLd\(\)\}/);
