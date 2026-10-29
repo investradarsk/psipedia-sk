@@ -91,7 +91,7 @@ export function HelpDetailShell({
       media={item.imageUrl ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={item.detailImageDisplay} src={item.imageUrl} alt={imageAlt} loading="eager" /> : <PublicMediaFallback size="detail" label="Fotografia záznamu zatiaľ nie je dostupná" />} />
 
     <section className={styles.content}>
-      <PublicHelpProfileDetailLayout aside={sidebar}>
+      <PublicHelpProfileDetailLayout aside={sidebar} asideLabel="Praktické informácie">
         <article className={styles.copy}>{children}</article>
       </PublicHelpProfileDetailLayout>
       {showTrust && <div className={styles.shell}>
