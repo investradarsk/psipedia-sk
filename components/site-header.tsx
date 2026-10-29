@@ -9,6 +9,7 @@ import { portalSections } from "@/lib/portal";
 import { BookmarkIcon, ChevronDownIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
 import { STORAGE_KEY } from "./favorite-button";
 import { NavigationProgress } from "./navigation-progress";
+import { readInternalTrail, reconcileInternalTrail, writeInternalTrail } from "@/lib/internal-route-trail";
 import styles from "./site-header.module.css";
 
 function isPathActive(pathname: string, href: string) {
@@ -85,15 +86,17 @@ export function SiteHeader({
     return () => window.clearTimeout(timer);
   }, [pathname]);
 
-  // Maintain a page trail strictly within Psipedia. Browser history may also
-  // contain the external website that led the visitor here.
+  // Per-tab session storage keeps the last internal page across full reloads
+  // (for example Chrome iOS when opening an article). The ref alone resets
+  // with the header and used to lose the actual article-list origin.
   useEffect(() => {
     const route = window.location.pathname + window.location.search;
-    const trail = internalTrailRef.current;
-    if (trail[trail.length - 1] === route) return;
-    const previousIndex = trail.lastIndexOf(route);
-    if (previousIndex !== -1) trail.splice(previousIndex + 1);
-    else trail.push(route);
+    const trail = internalTrailRef.current.length
+      ? internalTrailRef.current
+      : readInternalTrail(window.sessionStorage);
+    const next = reconcileInternalTrail(trail, route);
+    internalTrailRef.current = next;
+    writeInternalTrail(window.sessionStorage, next);
   }, [pathname]);
 
   useEffect(() => {
@@ -159,7 +162,9 @@ export function SiteHeader({
       const previous = trail.length > 1 ? trail[trail.length - 2] : null;
       if (previous && previous !== current) {
         // Never invoke browser back blindly: it may lead to an external referrer.
-        trail.pop();
+        const next = trail.slice(0, -1);
+        internalTrailRef.current = next;
+        writeInternalTrail(window.sessionStorage, next);
         router.push(previous);
       } else if (current !== "/") router.push("/");
     }
