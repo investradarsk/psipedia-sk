@@ -481,11 +481,17 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
       0 AS activeRank, 'NEW' AS attentionState,
       CASE WHEN c.source_state='POSSIBLE_CHANGE' THEN 'HIGH' ELSE 'MEDIUM' END AS priority,
       CASE WHEN c.source_state='POSSIBLE_CHANGE' THEN 0 ELSE 1 END AS priorityRank,
-      COALESCE(c.state_changed_at,c.last_checked_at,c.created_at) AS relevantAt,
+      CASE WHEN c.last_reviewed_at IS NOT NULL AND c.last_reviewed_state=c.source_state
+        AND julianday((SELECT nowIso FROM params))>=julianday(c.last_reviewed_at)+7
+        THEN datetime(c.last_reviewed_at,'+7 days')
+        ELSE COALESCE(c.state_changed_at,c.last_checked_at,c.created_at) END AS relevantAt,
       json_object('id',c.entity_id,'entityType',c.entity_type,
         'name',COALESCE(a.name,l.dog_name,l.breed,'Pes'),
         'state',c.source_state,'evidence',c.evidence,
-        'lastCheckedAt',COALESCE(c.state_changed_at,c.last_checked_at,c.created_at)) AS payload
+        'lastCheckedAt',CASE WHEN c.last_reviewed_at IS NOT NULL AND c.last_reviewed_state=c.source_state
+          AND julianday((SELECT nowIso FROM params))>=julianday(c.last_reviewed_at)+7
+          THEN datetime(c.last_reviewed_at,'+7 days')
+          ELSE COALESCE(c.state_changed_at,c.last_checked_at,c.created_at) END) AS payload
     FROM help_source_checks c
     LEFT JOIN adoption_dogs a ON c.entity_type='ADOPTION' AND a.id=c.entity_id
       AND a.status IN ('ACTIVE','RESERVED')
@@ -493,7 +499,8 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
       AND l.status='ACTIVE' AND l.published_at IS NOT NULL
     WHERE (a.id IS NOT NULL OR l.id IS NOT NULL)
       AND c.source_state IN ('POSSIBLE_CHANGE','UNCERTAIN','UNAVAILABLE','NO_SOURCE')
-      AND (c.last_reviewed_at IS NULL OR c.last_reviewed_state<>c.source_state)
+      AND (c.last_reviewed_at IS NULL OR c.last_reviewed_state<>c.source_state
+        OR julianday((SELECT nowIso FROM params))>=julianday(c.last_reviewed_at)+7)
   `,
   AUTOMATION_ACTION: AUTOMATION_ACTION_SELECT,
   PARTNER_CLAIM_REVIEW: `
