@@ -90,14 +90,14 @@ export function HomeMagazineSidebar({
     <section className="home-magazine-sidebar-block">
       <div className="home-magazine-sidebar-heading">
         <h3>{title}</h3>
-        <Link href={href} aria-label={`Otvoriť: ${title}`}>
-          <ArrowIcon size={18} />
-        </Link>
+        {href === "/podujatia"
+          ? <a href={href} aria-label={`Otvoriť: ${title}`} data-events-native-entry><ArrowIcon size={18} /></a>
+          : <Link href={href} aria-label={`Otvoriť: ${title}`}><ArrowIcon size={18} /></Link>}
       </div>
       {children}
-      <Link href={href} className="home-magazine-sidebar-action">
-        {actionLabel} <ArrowIcon size={16} />
-      </Link>
+      {href === "/podujatia"
+        ? <a href={href} className="home-magazine-sidebar-action" data-events-native-entry>{actionLabel} <ArrowIcon size={16} /></a>
+        : <Link href={href} className="home-magazine-sidebar-action">{actionLabel} <ArrowIcon size={16} /></Link>}
     </section>
   );
 }
