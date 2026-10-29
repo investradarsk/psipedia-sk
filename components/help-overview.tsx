@@ -1,3 +1,4 @@
+import { PublicHelpCardSurface } from "@/components/public-visual-system/public-help-card-surface";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { PublicHelpCategoryNav } from "@/components/public-visual-system/public-help-category-nav";
 import Link from "next/link";
@@ -86,7 +87,7 @@ const promos: Record<number, PromoBanner> = {
 
 function OverviewCard({ item }: { item: HelpOverviewItem }) {
   return (
-    <article className={styles.overviewCard} data-help-overview-card>
+    <PublicHelpCardSurface className={styles.overviewCard} data-help-overview-card>
       <Link className={styles.overviewMedia} href={item.href} aria-label={`Otvoriť: ${item.title}`}>
         {item.imageUrl ? (
           <ImageDisplay
@@ -127,7 +128,7 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
           Zobraziť detail <ArrowIcon size={16} />
         </Link>
       </div>
-    </article>
+    </PublicHelpCardSurface>
   );
 }
 
