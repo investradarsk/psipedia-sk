@@ -1627,7 +1627,7 @@
 html {
   max-width: 100%;
   overflow-x: clip;
-  overscroll-behavior-x: none;
+  /* Keep native browser history overscroll/navigation available. */
   scroll-behavior: smooth;
   background: var(--cream);
 }
