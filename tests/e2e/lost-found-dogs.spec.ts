@@ -67,7 +67,7 @@ for (const entry of cases) {
     await expect(page.getByLabel("Pohlavie")).toBeVisible();
     await expect(page.getByLabel("Veľkosť")).toBeVisible();
     await expect(page.getByLabel("Plemeno")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Zobraziť hlásenie →" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Zobraziť hlásenie", exact: true }).first()).toBeVisible();
     await expectPrivateValuesHidden(page);
     await expectNoHorizontalOverflow(page);
     await expectNoAxeViolations(page);
