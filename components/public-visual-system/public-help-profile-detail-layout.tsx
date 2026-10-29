@@ -11,8 +11,12 @@ export function PublicHelpProfileDetailLayout({
 }: HTMLAttributes<HTMLDivElement> & { children: ReactNode; aside?: ReactNode }) {
   return (
     <div {...props} className={[styles.layout, className].filter(Boolean).join(" ")} data-public-help-detail-layout>
-      <div className={styles.content} data-help-profile-content>{children}</div>
-      {aside ? <aside className={styles.aside} data-help-profile-aside aria-label="Informácie a kontakty">{aside}</aside> : null}
+      {aside ? (
+        <>
+          <div className={styles.content} data-help-profile-content>{children}</div>
+          <aside className={styles.aside} data-help-profile-aside aria-label="Informácie a kontakty">{aside}</aside>
+        </>
+      ) : children}
     </div>
   );
 }
