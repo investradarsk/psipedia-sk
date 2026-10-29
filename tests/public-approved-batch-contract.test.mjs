@@ -68,3 +68,18 @@ test("mobile swipe history persists only in the same tab and never calls browser
   assert.match(header, /router\.push\(previous\)/);
   assert.doesNotMatch(header, /router\.back\(\)|window\.history\.back\(\)/);
 });
+
+
+test("Chrome iOS article return remains available when native swipe cannot be intercepted", () => {
+  const article = read("components/article-detail.tsx");
+  const action = read("components/article-return-link.tsx");
+  const css = read("components/article-detail.module.css");
+  const header = read("components/site-header.tsx");
+  assert.match(article, /<ArticleReturnLink fallbackHref=\{sectionHref\}/);
+  assert.match(action, /readInternalTrail\(window\.sessionStorage\)/);
+  assert.match(action, /trail\.at\(-1\)/);
+  assert.match(action, /data-article-safe-back/);
+  assert.match(action, /writeInternalTrail\(window\.sessionStorage, trail\.slice\(0, index\)\)/);
+  assert.match(css, /\.mobileReturnLink[\s\S]*@media \(max-width: 767px\)/);
+  assert.doesNotMatch(header, /className=\{styles\.backNavButton\}/);
+});
