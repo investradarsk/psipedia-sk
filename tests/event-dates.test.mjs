@@ -77,7 +77,14 @@ test("event type navigation and time filters stay crawlable with the intended tr
   assert.match(calendar, /if \(region\) params\.set\("region", region\)/);
   assert.match(calendar, /if \(month\) params\.set\("mesiac", month\)/);
   assert.match(calendar, /if \(timeParam\) params\.set\("termin", timeParam\)/);
-  assert.doesNotMatch(calendar, /history\.(?:pushState|replaceState)|eventTypePortalHref\(option\.value\)/);
+  // These are crawlable, shareable links with fast in-place navigation.
+  assert.ok(calendar.includes('window.history.pushState(window.history.state,"",href)'));
+  assert.ok(calendar.includes('window.addEventListener("popstate",restore)'));
+  assert.ok(calendar.includes('event.preventDefault()'));
+  assert.ok(calendar.includes('fetch(endpoint.toString(),{signal:controller.signal'));
+  assert.ok(calendar.includes('new URL("/api/public/events/calendar",window.location.origin)'));
+  assert.ok(calendar.includes('href={calendarHref(moveCalendarMonth(visibleMonth, 1))}'));
+  assert.ok(calendar.includes('href={calendarHref(moveCalendarMonth(visibleMonth, -1))}'));
 });
 
 test("homepage and event listing reuse the central event date implementation", () => {

@@ -275,6 +275,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0142_quality_missing_scan_outcomes.sql",
   "0143_quality_missing_manual_attempts.sql",
   "0144_facebook_articles_shared_calendar.sql",
+  "0145_notion_webhook_inbox.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1490,6 +1491,10 @@ export function targetSchemaObjects(schema, targetMigration) {
       ["article_id", "article_image_mode", "article_include_link"].includes(String(column.name)));
     return {partial: article || facebook || names.has("facebook_image_posts_article_idx")};
   }
+  if (targetMigration === "0145_notion_webhook_inbox.sql") {
+    return { partial: ["notion_webhook_inbox", "notion_webhook_inbox_pending",
+      "notion_webhook_inbox_page"].some(name => names.has(name)) };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1548,6 +1553,29 @@ export function assertQualityManual0143Schema(schema) {
     "0143 manual history statuses are not constrained");
   invariant(/ON\s+quality_missing_manual_attempts\s*\(\s*created_at\s+DESC\s*\)/i.test(String(index.sql??"")),
     "0143 recent history index drift");
+}
+
+/** 0145: exact additive-only Notion webhook inbox, without public content. */
+export function assertNotionWebhookInbox0145Schema(schema) {
+  const names = objectMap(schema.objects ?? []);
+  const table = names.get("notion_webhook_inbox");
+  const pending = names.get("notion_webhook_inbox_pending");
+  const perPage = names.get("notion_webhook_inbox_page");
+  invariant(table?.type === "table", "0145 Notion inbox table missing");
+  invariant(pending?.type === "index" && pending.tbl_name === "notion_webhook_inbox",
+    "0145 pending inbox index missing");
+  invariant(perPage?.type === "index" && perPage.tbl_name === "notion_webhook_inbox",
+    "0145 per-page inbox index missing");
+  const sql = String(table.sql ?? "");
+  invariant(/event_key\s+TEXT\s+PRIMARY\s+KEY\s+NOT\s+NULL/i.test(sql),
+    "0145 event identity must be unique");
+  invariant(/status\s+TEXT\s+NOT\s+NULL\s+DEFAULT\s+'PENDING'/i.test(sql),
+    "0145 inbox missing default status");
+  invariant(/CHECK\s*\(\s*status\s+IN\s*\(\s*'PENDING'\s*,\s*'PROCESSING'\s*,\s*'DONE'\s*,\s*'REVIEW'\s*\)\s*\)/i.test(sql),
+    "0145 inbox status safety check missing");
+  invariant(/ON\s+notion_webhook_inbox\s*\(\s*status\s*,\s*next_attempt_at\s*,\s*received_at\s*\)/i.test(String(pending.sql ?? "")),
+    "0145 pending claim index drift");
+  return true;
 }
 
 /** 0144 is strictly additive: one editorial text field and three Facebook post fields.
@@ -2768,6 +2796,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 142) assertQualityMissingScanOutcomes0142Schema(schema);
   if (migrationIndex(targetMigration) >= 143) assertQualityManual0143Schema(schema);
   if (migrationIndex(targetMigration) >= 144) assertFacebookArticles0144Schema(schema);
+  if (migrationIndex(targetMigration) >= 145) assertNotionWebhookInbox0145Schema(schema);
 }
 
 /** Exact 0139 Services V3 journal, including append-only no-delete/rewrite guarantees. */
