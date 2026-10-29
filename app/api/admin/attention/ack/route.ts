@@ -14,7 +14,7 @@ export async function PATCH(request: Request) {
   const id = body?.sourceId;
   const relevant = body?.relevantAt;
   const action = body?.action;
-  if (!isAdminAttentionQueueSourceType(source)
+  if (typeof source !== "string" || !isAdminAttentionQueueSourceType(source)
       || typeof id !== "string" || id.length < 1 || id.length > 200
       || typeof relevant !== "string" || relevant.length > 60 || !Number.isFinite(Date.parse(relevant))
       || !["READ", "SNOOZE_7D", "UNREAD"].includes(String(action))) {
