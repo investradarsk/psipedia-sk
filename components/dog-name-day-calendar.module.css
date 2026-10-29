@@ -286,3 +286,41 @@
 .empty {
   composes: nameDayEmpty from "./public-visual-system/public-result-variants.module.css";
 }
+
+/* Compact shared search control; the already-approved calendar remains unchanged. */
+.nameSearch {
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid var(--ps-border-soft, var(--line));
+  border-radius: var(--ps-radius-card, 16px);
+  background: var(--paper);
+}
+.nameSearch form { display: grid; gap: 8px; }
+.nameSearch form > label { font-weight: 800; color: var(--forest-dark); }
+.nameSearchControls { display: flex; min-width: 0; gap: 8px; }
+.nameSearchControls input {
+  flex: 1 1 auto; min-width: 0; min-height: 46px; padding: 10px 12px;
+  border: 1px solid var(--ps-border-strong, var(--line));
+  border-radius: var(--ps-radius-control, 12px); background: var(--white);
+  color: var(--ink); font: inherit;
+}
+.nameSearchControls button {
+  flex: none; min-height: 46px; padding: 10px 17px;
+  border: 0; border-radius: var(--ps-radius-control, 12px);
+  background: var(--forest); color: white; font: inherit; font-weight: 800; cursor: pointer;
+}
+.nameSearchControls :is(button,input):focus-visible { outline: 3px solid var(--coral-dark); outline-offset: 2px; }
+.nameSearchResults { margin-top: 14px; }
+.nameSearchResults > strong { color: var(--forest-dark); font-size: .86rem; }
+.nameSearchResults ul { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; }
+.nameSearchResults a {
+  display: flex; min-height: 44px; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 8px 10px; border-radius: 10px;
+  background: var(--sage-light); color: var(--forest-dark);
+  font-weight: 750; text-decoration: none;
+}
+.nameSearchResults a:focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
+@media (max-width: 430px) {
+  .nameSearch { padding: 12px; }
+  .nameSearchControls button { padding-inline: 12px; }
+}
