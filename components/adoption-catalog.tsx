@@ -1,4 +1,5 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
+import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import {
   PublicChoiceInput,
   PublicSelect,
@@ -194,6 +195,17 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
       </UnifiedSectionHeroShell>
 
       <PublicContentShell variant="listing">
+        <PublicFilterDisclosure
+          label="Filtrovať psy"
+          activeCount={[
+            filters.breedId, filters.region !== "all" && filters.region,
+            filters.sex, filters.age, filters.size, filters.status,
+            filters.children, filters.dogs, filters.cats,
+          ].filter(Boolean).length}
+          buttonClassName={styles.filterToggle}
+          contentClassName={styles.filterDisclosure}
+          openContentClassName={styles.filterDisclosureOpen}
+        >
         <form className={styles.filters} method="get" aria-label="Filtrovať psy na adopciu">
           <input type="hidden" name="q" value={filters.q} />
           <div className={styles.field}>
@@ -329,6 +341,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
             <Link href="/pomoc-psom/adopcia">Vyčistiť</Link>
           </div>
         </form>
+        </PublicFilterDisclosure>
 
         <div className={styles.summary}>
           <div>
