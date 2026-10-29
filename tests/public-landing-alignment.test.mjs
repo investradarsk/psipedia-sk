@@ -67,7 +67,7 @@ test("directory root and categories retain shared content shell and canonical ro
   assert.match(directory, /UnifiedSectionHeroShell/);
   assert.doesNotMatch(events, /PublicSubcategoryNavigator/);
   assert.match(reviews, /PublicCategoryTiles/);
-  assert.match(helpOverview, /overviewCategoryGrid/);
+  assert.match(helpOverview, /<PublicHelpCategoryNav/);
 });
 
 
@@ -82,11 +82,11 @@ test("help no longer owns a second horizontal shell system", () => {
   assert.doesNotMatch(helpCss, /\.shell\s*\{/);
   for (const source of [helpOverview, helpPage, helpBrowser]) assert.doesNotMatch(source, /styles\.shell/);
   assert.match(helpOverview, /<PageContainer className=\{styles\.overviewSectionInner\}>/);
-  assert.match(read("components/public-visual-system/public-help-banner.tsx"), /<PageContainer className=\{styles\.overviewPromoCopy\}>/);
-  assert.match(read("components/public-visual-system/public-help-banner.tsx"), /<PageContainer className=\{styles\.closingCtaInner\}>/);
+  assert.match(read("components/public-visual-system/public-help-banner.tsx"), /<PublicPhotoCallout promo=\{promo\}/);
+  assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /<PageContainer className=\{styles\.copy\}>/);
   assert.match(helpBrowser, /<PageContainer className=\{styles\.results\}>/);
-  assert.match(helpCss, /@media\s*\(max-width:\s*900px\)[\s\S]*\.overviewCategoryGrid\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);?\s*\}/);
-  assert.match(helpCss, /@media\s*\(max-width:\s*620px\)[\s\S]*\.overviewCategoryGrid\s*\{\s*grid-template-columns:\s*1fr;\s*gap:\s*9px;?\s*\}/);
+  assert.match(read("components/public-visual-system/public-help-category-nav.module.css"), /\.nav \{ display: flex; flex-wrap: wrap/);
+  assert.match(read("components/public-visual-system/public-help-category-nav.module.css"), /@media \(max-width: 650px\)/);
 });
 
 test("adoption keeps hero outside the canonical listing content shell", () => {
