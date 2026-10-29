@@ -950,14 +950,3 @@
   object-fit: contain;
   border-radius: 0;
 }
-
-/* Mobile article text accepts vertical scrolling and pinch-zoom without
-   disabling the existing in-page horizontal gesture handler. */
-@media (max-width: 767px) {
-  .modernArticle .hero,
-  .modernArticle :global(.article-prose > p),
-  .modernArticle :global(.article-prose > h2),
-  .modernArticle :global(.article-prose > h3) {
-    touch-action: pan-y pinch-zoom;
-  }
-}
