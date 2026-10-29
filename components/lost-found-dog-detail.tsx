@@ -2,6 +2,7 @@ import { PublicPhotoGallery } from "@/components/public-visual-system/public-pho
 import { DetailHero } from "./detail-primitives/detail-primitives";
 import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
 import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "@/components/public-visual-system";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -82,7 +83,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
         {type === "FOUND" && report.locationDescription && <div className={styles.foundAt}><strong>Miesto nájdenia</strong><span>{report.locationDescription}</span></div>}
         <div className={styles.detailActions}>{report.sourceUrl ? <a className={styles.cta} href={report.sourceUrl} target="_blank" rel="nofollow noreferrer">Otvoriť pôvodné hlásenie ↗</a> : active ? <Link className={styles.cta} href={relayHref}>Kontaktovať cez Psipediu</Link> : null}</div>
 </>}
-      media={report.mainImage ? <ImageDisplay roleHint="generic" context="detail" config={report.detailImageDisplay} src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)} loading="eager" /> : null} />
+      media={report.mainImage ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={report.detailImageDisplay} src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)} loading="eager" /> : <PublicMediaFallback size="detail" label="Fotografia psa zatiaľ nie je dostupná" />} />
 
     <PublicHelpProfileDetailLayout><div className={styles.detailCopy}>
       <section className={styles.panel}><span className={styles.detailEyebrow}>Informácie o psovi</span><h2>Popis</h2><p>{report.description}</p>{report.distinguishingMarks && <><h3>Rozpoznávacie znaky</h3><p>{report.distinguishingMarks}</p></>}{report.collarDescription && <><h3>Obojok alebo postroj</h3><p>{report.collarDescription}</p></>}</section>
