@@ -70,8 +70,8 @@ test("Events 2.0 presents calendar after managed hero, with shared date filterin
 });
 
 test("event filters keep canonical page type, regions, date status, search and reliable month ranges", () => {
-  assert.match(calendar, /const typePathname = initialType === "Všetky"/);
-  assert.match(calendar, /eventTypePortalHref\(initialType\)/);
+  assert.match(calendar, /const typePathname = view.type === "Všetky"/);
+  assert.match(calendar, /eventTypePortalHref\(view.type\)/);
   assert.match(listing, /slovakRegions\s*\.filter/);
   assert.match(eventCard, /eventDateStatus\(event, today\)/);
   assert.match(filters, /normalizeEventSearch/);
@@ -82,7 +82,12 @@ test("event filters keep canonical page type, regions, date status, search and r
   assert.match(listing, /method="get"/);
   assert.match(eventsPage, /searchScope="events"/);
   assert.match(listing, /<details/);
-  assert.doesNotMatch(calendar, /useState|useMemo|window\.history/);
+  // Approved UX: month/type/time changes update only calendar data, not the hero.
+  assert.ok(calendar.includes("useState<View>"));
+  assert.ok(calendar.includes('window.history.pushState(window.history.state,"",href)'));
+  assert.ok(calendar.includes('window.addEventListener("popstate",restore)'));
+  assert.ok(calendar.includes('requestRef.current?.abort()'));
+  assert.ok(calendar.includes('fetch(endpoint.toString(),{signal:controller.signal'));
   assert.doesNotMatch(calendar, /eventTypeFilters\.map|const eventTypes\s*=/);
 });
 
@@ -193,8 +198,14 @@ test("calendar data is month-scoped, publication-only and read-only", () => {
     ),
     /\b(?:UPDATE|DELETE|INSERT)\s+managed_events\b|createManagedEvent|updateManagedEvent|deleteManagedEvent/,
   );
-  assert.match(calendar, /const monthMatches = calendarEvents;/);
-  assert.match(calendar, /eventsForCalendarDay\(monthMatches, selectedDay\)/);
+  // Selected-day events now come from the latest scoped JSON response.
+  assert.ok(calendar.includes("eventsForCalendarDay(data.calendarEvents,selectedDay)"));
+  assert.ok(calendar.includes("calendarSummaries: calendar.summaries") === false);
+  const ajax = readFileSync(new URL("../app/api/public/events/calendar/route.ts", import.meta.url), "utf8");
+  assert.ok(ajax.includes("getPublicEventCalendar(filters, month, day)"));
+  assert.ok(ajax.includes("getPublishedEventListing(filters)"));
+  assert.ok(ajax.includes("calendarSummaries: calendar.summaries"));
+  assert.ok(ajax.includes('"Cache-Control": "private, no-store"'));
   assert.doesNotMatch(
     calendar,
     /\.push\(event\)|Object\.assign\(event|event\.(?:status|startDate|endDate)\s*=/,
