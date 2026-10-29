@@ -57,6 +57,8 @@ async function AdminOperationsContent({
 
       </section>
 
+      <p className="admin-panel"><a href="/admin/operations/overovanie-zdrojov">Overovanie zdrojov psov – výsledky denných automatických kontrol →</a></p>
+
       <AdminAttentionHistorySync cursor={cursor ?? ""} />
       <div id="centrum-pozornosti">
         <AdminAttentionQueue
