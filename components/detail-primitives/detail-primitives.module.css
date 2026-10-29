@@ -434,3 +434,18 @@
   .publicDetailInline > article, .publicDetailInline > aside,
   .publicDetailInline > div { gap: 12px; }
 }
+
+/* Correct the higher-specificity desktop :has() rule on ALL narrow public details.
+ * The mobile base shell by itself cannot override .publicDetailInline:has(> aside).
+ * Keep the safe article -> contact sidebar DOM order, but stack both full-width. */
+@media (max-width: 800px) {
+  .publicDetailInline:has(> aside) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .publicDetailInline > article,
+  .publicDetailInline > aside {
+    min-width: 0;
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
