@@ -18,7 +18,10 @@ test("reviews landing route uses the dedicated unified hub and keeps failures no
 
 test("reviews hub separates editorial products, user service reviews and verified e-shop ratings", () => {
   const hub = read("components/reviews-hub.tsx");
-  assert.match(hub, /Všetko/);
+  // The landing offers three categories; "all" is a return link, not a fourth tile.
+  assert.match(hub, /return "\/recenzie#obsah-recenzie"/);
+  assert.match(hub, /view !== "all" \? \(/);
+  assert.match(hub, /<Link href=\{viewHref\("all"\)\} rel="nofollow">Zobraziť všetko<\/Link>/);
   assert.match(hub, /Produkty/);
   assert.match(hub, /Služby/);
   assert.match(hub, /E-shopy/);
