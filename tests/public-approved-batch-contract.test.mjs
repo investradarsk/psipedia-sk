@@ -53,3 +53,18 @@ test("calendar cache cannot block React purity lint and mobile swipe replaces th
   assert.match(header, /const isBackGesture = deltaX/);
   assert.doesNotMatch(header, /className=\{styles\.backNavButton\}/);
 });
+
+
+test("mobile swipe history persists only in the same tab and never calls browser back", () => {
+  const header = read("components/site-header.tsx");
+  const trail = read("lib/internal-route-trail.ts");
+  assert.match(trail, /export const INTERNAL_ROUTE_TRAIL_KEY = "psipedia:public-route-trail:v1"/);
+  assert.match(trail, /session storage survives|session storage/i);
+  assert.match(trail, /export function reconcileInternalTrail/);
+  assert.match(trail, /export function readInternalTrail/);
+  assert.match(trail, /export function writeInternalTrail/);
+  assert.match(header, /readInternalTrail\(window\.sessionStorage\)/);
+  assert.match(header, /writeInternalTrail\(window\.sessionStorage, next\)/);
+  assert.match(header, /router\.push\(previous\)/);
+  assert.doesNotMatch(header, /router\.back\(\)|window\.history\.back\(\)/);
+});
