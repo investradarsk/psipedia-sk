@@ -463,7 +463,7 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
   `,
   ADOPTION_STALE: `
     SELECT 'ADOPTION_STALE' AS sourceType, CAST(id AS TEXT) AS sourceId,
-      0 AS activeRank, 'IN_PROGRESS' AS attentionState,
+      0 AS activeRank, 'NEW' AS attentionState,
       CASE WHEN last_verified_at IS NULL OR last_verified_at < (SELECT adoptionHighAt FROM params) THEN 'HIGH' ELSE 'MEDIUM' END AS priority,
       CASE WHEN last_verified_at IS NULL OR last_verified_at < (SELECT adoptionHighAt FROM params) THEN 0 ELSE 1 END AS priorityRank,
       COALESCE(last_verified_at,created_at) AS relevantAt,
