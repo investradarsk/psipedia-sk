@@ -163,9 +163,8 @@
 }
 
 .articleGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  /* Same compact article list used by the other editorial hubs. */
+  grid-template-columns: minmax(0, 1fr);
 }
 .articleGrid > * {
   min-width: 0;
@@ -290,112 +289,10 @@
   gap: 10px;
   margin-top: 22px;
 }
-.serviceLinks a {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  padding: 14px 16px;
-  border: 1px solid rgba(23, 53, 43, 0.1);
-  border-radius: 13px;
-  color: var(--forest);
-  background: #f8faf7;
-  text-decoration: none;
-  font-size: 0.77rem;
-}
-
 .eshopGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  /* Uses the shared PublicContentList / PublicContentListItem geometry. */
+  grid-template-columns: minmax(0, 1fr);
 }
-.eshopCard {
-  display: grid;
-  gap: 15px;
-  padding: 22px;
-  border: 1px solid rgba(23, 53, 43, 0.11);
-  border-radius: 18px;
-  color: inherit;
-  background: white;
-  text-decoration: none;
-  transition:
-    transform 0.16s ease,
-    box-shadow 0.16s ease;
-}
-.eshopCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 34px rgba(40, 53, 43, 0.08);
-}
-.eshopCardTop {
-  display: flex;
-  gap: 18px;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-.eshopCardTop > div > span {
-  color: var(--muted);
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.eshopCardTop h3 {
-  margin: 4px 0 0;
-  font-size: 1.15rem;
-}
-.eshopCardTop strong {
-  flex: none;
-  color: #7d5c12;
-  font-size: 1.1rem;
-}
-.eshopCardTop small {
-  flex: none;
-  color: var(--muted);
-  font-weight: 750;
-}
-.eshopCard > p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.79rem;
-  line-height: 1.55;
-}
-.eshopMiniRatings {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
-  margin: 0;
-}
-.eshopMiniRatings div {
-  padding: 9px 10px;
-  border-radius: 9px;
-  background: #f4f7f2;
-}
-.eshopMiniRatings dt {
-  color: var(--muted);
-  font-size: 0.63rem;
-}
-.eshopMiniRatings dd {
-  margin: 3px 0 0;
-  color: var(--forest);
-  font-size: 0.85rem;
-  font-weight: 850;
-}
-.eshopCard footer {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: 0.68rem;
-}
-.eshopCard footer b {
-  display: inline-flex;
-  gap: 5px;
-  align-items: center;
-  color: var(--forest);
-  font-size: 0.72rem;
-}
-
 .eshopBox {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
@@ -432,9 +329,13 @@
   gap: 14px;
 }
 .methodGrid article {
-  padding: 24px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 5px 13px;
+  align-content: start;
+  padding: clamp(14px, 2vw, 20px);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 17px;
+  border-radius: var(--ps-radius-card, 17px);
   background: rgba(255, 255, 255, 0.06);
 }
 .methodGrid article > strong {
@@ -447,12 +348,14 @@
   background: #f0cb72;
 }
 .methodGrid h3 {
-  margin: 18px 0 7px;
-  font-size: 1.05rem;
+  align-self: center;
+  margin: 0;
+  font-size: 1.02rem;
 }
 .methodGrid p {
+  grid-column: 2;
   margin: 0;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.82);
   font-size: 0.8rem;
 }
 
@@ -511,62 +414,6 @@
     width: 100%;
     margin-left: 0;
   }
-  .eshopMiniRatings {
-    grid-template-columns: 1fr;
-  }
-  .eshopCard footer {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
-.eshopIdentity {
-  display: flex;
-  min-width: 0;
-  gap: 12px;
-  align-items: center;
-}
-.eshopIdentity > div > span {
-  color: var(--muted);
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.eshopLogo {
-  display: grid;
-  width: 62px;
-  height: 50px;
-  flex: 0 0 62px;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid rgba(23, 53, 43, 0.1);
-  border-radius: 11px;
-  background: #f7f9f6;
-}
-.eshopLogo img {
-  width: 100%;
-  height: 100%;
-  padding: 7px;
-  box-sizing: border-box;
-  object-fit: contain;
-  background: #fff;
-}
-.eshopLogo > span {
-  font-size: 1.35rem;
-}
-.eshopTags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.eshopTags span {
-  padding: 5px 8px;
-  border-radius: 999px;
-  color: #315246;
-  background: #eef4ee;
-  font-size: 0.65rem;
-  font-weight: 800;
 }
 
 /* CATEGORY-BANNERS-1 */
@@ -597,4 +444,17 @@
 }
 .emptyState {
   composes: reviewEmpty from "./public-visual-system/public-result-variants.module.css";
+}
+
+/* S-29: editorial, services and e-shop results all use the site's canonical
+ * shared list/card components. Only page-level grid/spacing belongs here. */
+.serviceLinks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.articleGrid, .eshopGrid { gap: 0; }
+@media (max-width: 620px) {
+  .methodology { padding-block: 24px; }
+  .methodGrid article { grid-template-columns: 30px minmax(0,1fr); gap: 5px 11px; padding: 14px; }
+  .methodGrid article > strong { width: 30px; height: 30px; }
+  .methodGrid h3 { font-size: .97rem; }
+  .methodGrid p { font-size: .78rem; line-height: 1.45; }
+  .serviceLinks { grid-template-columns: minmax(0, 1fr); }
 }
