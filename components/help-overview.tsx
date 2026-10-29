@@ -1,4 +1,5 @@
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
+import { PublicHelpCategoryNav } from "@/components/public-visual-system/public-help-category-nav";
 import Link from "next/link";
 import {
   PublicHelpClosingBanner,
@@ -7,7 +8,7 @@ import {
 } from "@/components/public-visual-system/public-help-banner";
 import { ImageDisplay } from "@/components/image-display";
 import type { ImageDisplayConfig } from "@/lib/image-display";
-import { HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
+import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import {
@@ -201,25 +202,12 @@ export async function HelpOverview({
               id="help-categories-heading"
             />
 
-            <nav
-              className={styles.overviewCategoryGrid}
-              data-help-category-nav
-              aria-label="Kategórie pomoci"
-            >
-              {sections.map((section) => (
-                <Link href={section.href} key={section.slug}>
-                  <span className={styles.overviewCategoryIcon}>
-                    <HelpCategoryIcon category={section.slug} size={22} />
-                  </span>
-                  <span className={styles.overviewCategoryCopy}>
-                    <strong>{section.label}</strong>
-                    <small>{section.description}</small>
-                  </span>
-                  <span className={styles.overviewCategoryCount}>{section.count}</span>
-                  <ArrowIcon size={17} />
-                </Link>
-              ))}
-            </nav>
+            <PublicHelpCategoryNav items={sections.map((section) => ({
+              slug: section.slug,
+              label: section.label,
+              count: section.count,
+              href: section.href,
+            }))} />
           </PublicContentShell>
         </section>
 
