@@ -61,14 +61,14 @@ function mockedDb({ failGroupContaining, failSingleSource, malformedGroup } = {}
   return { db, calls };
 }
 
-test("15-source queue uses three grouped exact read probes and retains counts", async () => {
+test("14-source queue uses three grouped exact read probes and retains counts", async () => {
   const { db, calls } = mockedDb();
   const page = await loadAdminAttentionPage({}, db, NOW);
   assert.equal(ADMIN_ATTENTION_PROBE_GROUP_SIZE, 5);
   assert.equal(ADMIN_ATTENTION_PROBE_QUERY_COUNT, 3);
-  assert.equal(ADMIN_ATTENTION_REQUEST_QUERY_MAX, 33);
+  assert.equal(ADMIN_ATTENTION_REQUEST_QUERY_MAX, 31);
   assert.equal(calls.filter(x => !x.isPage).length, 3);
-  assert.deepEqual(calls.filter(x => !x.isPage).map(x => x.group.length), [5, 5, 5]);
+  assert.deepEqual(calls.filter(x => !x.isPage).map(x => x.group.length), [5, 5, 4]);
   assert.equal(page.summary.total, 5);
   assert.equal(page.summary.active, 3);
   assert.equal(page.summary.history, 2);
@@ -76,7 +76,7 @@ test("15-source queue uses three grouped exact read probes and retains counts", 
   assert.deepEqual(page.summary.byPriority, { HIGH: 2, MEDIUM: 2, LOW: 1 });
   assert.equal(page.resultCount, 3);
   assert.equal(page.availability, "OK");
-  assert.equal(page.sourceAvailability.length, 15);
+  assert.equal(page.sourceAvailability.length, 14);
   assert.equal(calls.filter(x => x.isPage).length, 2);
   const filtered = await loadAdminAttentionPage({ filters: { view: "history", sourceType: "all", priority: "HIGH" } }, db, NOW);
   assert.equal(filtered.resultCount, 1);
@@ -90,7 +90,7 @@ test("one broken source retries only its five-member group and keeps precise par
   console.warn = () => {};
   let page;
   try { page = await loadAdminAttentionPage({}, db, NOW); } finally { console.warn = warn; }
-  assert.equal(calls.filter(x => !x.isPage && x.group.length === 5).length, 3);
+  assert.equal(calls.filter(x => !x.isPage && x.group.length > 1).length, 3);
   assert.equal(calls.filter(x => !x.isPage && x.group.length === 1).length, 5);
   assert.equal(page.availability, "PARTIAL");
   assert.deepEqual(page.sourceAvailability.filter(x => x.state === "UNAVAILABLE").map(x => x.sourceType), ["NEWS_TIP"]);
@@ -106,8 +106,8 @@ test("malformed grouped rows retry each source independently", async () => {
   console.warn = () => {};
   let page;
   try { page = await loadAdminAttentionPage({}, db, NOW); } finally { console.warn = warn; }
-  assert.equal(calls.filter(x => !x.isPage && x.group.length === 5).length, 3);
-  assert.equal(calls.filter(x => !x.isPage && x.group.length === 1).length, 15);
+  assert.equal(calls.filter(x => !x.isPage && x.group.length > 1).length, 3);
+  assert.equal(calls.filter(x => !x.isPage && x.group.length === 1).length, 14);
   assert.equal(page.availability, "OK");
   assert.equal(page.summary.active, 3);
   assert.equal(page.summary.total, 5);
