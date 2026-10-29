@@ -7,14 +7,14 @@ import styles from "./public-help-profile-detail-layout.module.css";
  * Hero is already shared through DetailHero.
  */
 export function PublicHelpProfileDetailLayout({
-  children, aside, className, ...props
-}: HTMLAttributes<HTMLDivElement> & { children: ReactNode; aside?: ReactNode }) {
+  children, aside, asideLabel = "Informácie a kontakty", className, ...props
+}: HTMLAttributes<HTMLDivElement> & { children: ReactNode; aside?: ReactNode; asideLabel?: string }) {
   return (
     <div {...props} className={[styles.layout, className].filter(Boolean).join(" ")} data-public-help-detail-layout>
       {aside ? (
         <>
           <div className={styles.content} data-help-profile-content>{children}</div>
-          <aside className={styles.aside} data-help-profile-aside aria-label="Informácie a kontakty">{aside}</aside>
+          <aside className={styles.aside} data-help-profile-aside aria-label={asideLabel}>{aside}</aside>
         </>
       ) : children}
     </div>
