@@ -108,3 +108,30 @@ export function advanceBreedAdminReceipt(
   for (const key of accepted) next[key] = actual[key];
   return next;
 }
+
+
+/** Explicit changed-field reconciliation for a legacy SHA-only mapping.
+ * An automatic call must supply names obtained from a signed Notion event;
+ * a manual call must be separately authenticated by Admin.
+ */
+export function explicitBreedFieldPatch(
+  incoming:ManagedBreedInput,
+  fields:readonly BreedNotionField[],
+):{patch:ManagedBreedInput;accepted:BreedNotionField[];conflicts:BreedNotionField[]}{
+  const latest=breedFieldSnapshot(incoming);
+  const patch:ManagedBreedInput={};
+  const accepted:BreedNotionField[]=[];
+  const conflicts:BreedNotionField[]=[];
+  for(const key of fields){
+    let desired:unknown=latest[key];
+    if(numeric.has(key) && desired===null)desired=key==="fciGroup"?1:3;
+    if(key==="name" && (typeof desired!=="string"||!desired.trim())){
+      conflicts.push(key);continue;
+    }
+    accepted.push(key);
+    if(key==="seo.title"||key==="seo.description")
+      patch.seo={...patch.seo,[key.slice(4)]:desired};
+    else (patch as Record<string,unknown>)[key]=desired;
+  }
+  return {patch,accepted,conflicts};
+}
