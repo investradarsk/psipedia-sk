@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminAttentionActions } from "./admin-attention-actions";
+import { AdminHelpSourceQuickActions } from "./admin-help-source-quick-actions";
 import {
   adminAttentionPriorities,
   adminAttentionPriorityLabels,
@@ -42,6 +43,22 @@ function stateClass(state: AdminAttentionState) {
   if (state === "IN_PROGRESS") return styles.stateProgress;
   if (state === "RESOLVED") return styles.stateResolved;
   return styles.stateDismissed;
+}
+
+const helpSourceStateLabels: Record<string, string> = {
+  POSSIBLE_CHANGE: "Možná zmena stavu",
+  UNCERTAIN: "Nedá sa potvrdiť",
+  UNAVAILABLE: "Nedostupný zdroj",
+  NO_SOURCE: "Bez zdrojového odkazu",
+};
+
+function safeSourceHref(value?: string) {
+  try {
+    const url = new URL(value ?? "");
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function queueHref(filters: AdminAttentionFilters, cursor?: string | null) {
@@ -177,7 +194,7 @@ export function AdminAttentionQueue({
                 </div>
                 <h2>{item.title}</h2>
                 {item.sourceType !== "AUTOMATION_ACTION" && (
-                  <div className={styles.meta}><span>Zdrojový stav: {item.status}</span><span>ID: {item.sourceId}</span></div>
+                  <div className={styles.meta}><span>Zdrojový stav: {item.sourceType === "HELP_SOURCE_REVIEW" ? (helpSourceStateLabels[item.status] ?? item.status) : item.status}</span>{item.sourceType !== "HELP_SOURCE_REVIEW" && <span>ID: {item.sourceId}</span>}</div>
                 )}
               </header>
               <div className={styles.reason}>
@@ -190,7 +207,20 @@ export function AdminAttentionQueue({
                 {item.metadata?.map((entry) => <div className={styles.meta} key={`${entry.label}:${entry.value}`}><span>{entry.label}: {entry.value}</span></div>)}
               </div>
               <Link className={styles.open} href={item.targetHref}>{item.actionLabel ?? "Otvoriť"}</Link>
-              {isAdminAttentionActive(item) && <AdminAttentionActions item={item} />}
+              {item.sourceType === "HELP_SOURCE_REVIEW" && /^(ADOPTION|LOST_FOUND):[1-9]\d*$/.test(item.sourceId) && (
+                <div className={styles.sourceDecision}>
+                  {safeSourceHref(item.sourceUrl) && (
+                    <a className={styles.open} href={safeSourceHref(item.sourceUrl)!} target="_blank"
+                      rel="noopener noreferrer nofollow">Otvoriť pôvodný zdroj</a>
+                  )}
+                  <AdminHelpSourceQuickActions
+                    entityType={item.sourceId.startsWith("ADOPTION:") ? "ADOPTION" : "LOST_FOUND"}
+                    entityId={Number(item.sourceId.split(":")[1])}
+                    checkedAt={item.sourceCheckedAt ?? null}
+                  />
+                </div>
+              )}
+              {isAdminAttentionActive(item) && <AdminAttentionActions item={item} />
             </article>
           ))}
         </section>
