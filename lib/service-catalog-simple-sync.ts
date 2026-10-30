@@ -13,7 +13,7 @@ import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-
 
 const source=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
 const p=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.properties;
-const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const optionId=/^(svc|attr)\.admin\.[a-f0-9]{32}$/;
 const sameUuid=(a:string,b:string)=>a.replaceAll("-","").toLowerCase()===b.replaceAll("-","").toLowerCase();
 const text=(value:unknown,key:"rich_text"|"title")=>{
