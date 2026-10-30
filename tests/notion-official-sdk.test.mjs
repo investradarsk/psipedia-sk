@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Client, signWebhookPayload, verifyWebhookSignature } from "@notionhq/client";
+import notionSdk from "@notionhq/client";
+const { Client, signWebhookPayload, verifyWebhookSignature } = notionSdk;
 import { notionRequest } from "../lib/notion-sync-shared.ts";
 import { verifyNotionWebhook } from "../lib/notion-webhook-contract.ts";
 
