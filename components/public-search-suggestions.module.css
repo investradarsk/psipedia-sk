@@ -109,7 +109,7 @@
 }
 .quickLinks a:hover, .quickLinks a:focus-visible { background: var(--sage); }
 @media (max-width: 620px) {
-  .homePanel { padding: 8px; }
+  .homePanel { top: 107px; padding: 8px; }
   .option { min-height: 48px; }
   .optionText strong { font-size: 0.86rem; }
 }
