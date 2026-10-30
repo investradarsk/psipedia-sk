@@ -98,7 +98,8 @@ export function PublicSearchSuggestions({
     const input = inputRef.current;
     if (!input) return;
     // Attach to the existing forms instead of replacing their native submit behavior.
-    input.setAttribute("role", "combobox");
+    // Keep the native textbox role: existing header keyboard and accessibility
+    // contracts locate this control as a textbox, not a combobox.
     input.setAttribute("aria-autocomplete", "list");
     input.setAttribute("aria-controls", listId);
     input.setAttribute("aria-expanded", String(isOpen));
