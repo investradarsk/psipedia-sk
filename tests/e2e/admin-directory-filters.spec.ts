@@ -7,17 +7,17 @@ test.describe("admin directory v2", () => {
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: "Profily a služby" })).toBeVisible();
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 61");
-    await expect(page.locator(".admin-directory-row")).toHaveCount(50);
-    await expect(page.locator(".admin-directory-row").first()).toContainText("Aktualizované");
+    await expect(page.locator("[data-testid="admin-record-row"]")).toHaveCount(50);
+    await expect(page.getByRole("columnheader", { name: /Aktualizované/ })).toBeVisible();
 
     await page.getByRole("link", { name: "Ďalšia →" }).click();
     await expect(page).toHaveURL(/page=2/);
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 61");
-    await expect(page.locator(".admin-directory-row")).toHaveCount(11);
+    await expect(page.locator("[data-testid="admin-record-row"]")).toHaveCount(11);
 
     await page.goto("/admin/adresar?category=veterinari&status=draft&q=zilina&region=%C5%BDilinsk%C3%BD+kraj&district=%C5%BDilina&city=%C5%BDilina&verification=unverified&media=without-image");
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 1");
-    const onlyRow = page.locator(".admin-directory-row").first();
+    const onlyRow = page.locator("[data-testid="admin-record-row"]").first();
     await expect(onlyRow).toContainText("E2E Veterina 061");
     await expect(onlyRow).toContainText("Neoverené");
     await expect(onlyRow).toContainText("Bez obrázka");
@@ -56,7 +56,7 @@ test.describe("admin directory v2", () => {
 
     await page.getByRole("link", { name: "Ďalšia →" }).click();
     await expect(page).toHaveURL(/page=2/);
-    await expect(page.locator(".admin-directory-row")).toHaveCount(11);
+    await expect(page.locator("[data-testid="admin-record-row"]")).toHaveCount(11);
     await expect(page.getByText("Vybrané: 50", { exact: true })).toHaveCount(0);
 
     const secondPageCheckbox = page.getByLabel("Vybrať všetky profily na tejto strane");
@@ -85,7 +85,7 @@ test.describe("admin directory v2", () => {
     await expect(dialog).toContainText("Hotovo: 1 zmenených / 1 preskočených / 0 zlyhaní");
     await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
 
-    await expect(page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture Draft" })).toContainText("Publikované");
+    await expect(page.locator("[data-testid="admin-record-row"]").filter({ hasText: "Bulk Fixture Draft" })).toContainText("Publikované");
     await page.getByLabel("Vybrať všetky profily na tejto strane").check();
     await page.getByRole("button", { name: "Skontrolovať presun do konceptov" }).click();
     dialog = page.getByRole("dialog", { name: "Presunúť do konceptov 2 profilov?" });
@@ -94,7 +94,7 @@ test.describe("admin directory v2", () => {
     await dialog.getByRole("button", { name: /Potvrdiť a vykonať: presunúť do konceptov/i }).click();
     await expect(dialog).toContainText("Hotovo: 2 zmenených / 0 preskočených / 0 zlyhaní");
     await dialog.getByRole("button", { name: "Zavrieť a obnoviť" }).click();
-    await expect(page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture Published" })).toContainText("Koncept");
+    await expect(page.locator("[data-testid="admin-record-row"]").filter({ hasText: "Bulk Fixture Published" })).toContainText("Koncept");
   });
 
   test("bulk API enforces same-origin requests and keeps verification outside bulk actions", async ({ page, request }, testInfo) => {
@@ -120,7 +120,7 @@ test.describe("admin directory v2", () => {
     });
     expect(rejectedCrossOrigin.status()).toBe(403);
 
-    const firstRow = page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture" }).first();
+    const firstRow = page.locator("[data-testid="admin-record-row"]").filter({ hasText: "Bulk Fixture" }).first();
     await firstRow.getByRole("checkbox", { name: /^Vybrať profil / }).check();
     const editHref = await firstRow.locator("a.admin-row-edit").getAttribute("href");
     const selectedId = Number(editHref?.match(/\/admin\/adresar\/(\d+)/)?.[1]);
