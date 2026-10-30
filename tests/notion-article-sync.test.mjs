@@ -64,11 +64,11 @@ test("Ready sync requires an explicit send opt-in, even for a page returned by a
 test("retry is idempotent, protects non-drafts and preserves Admin-owned promo blocks", () => {
   assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(migrationSource, /article_id INTEGER NOT NULL UNIQUE/);
-  assert.match(syncSource, /if \(mapping\.content_hash === contentHash\)/);
+  assert.match(syncSource, /if \(mapping && mapping\.content_hash === contentHash\)/);
   assert.match(syncSource, /return "unchanged"/);
   assert.match(syncSource, /ON CONFLICT\(notion_page_id\) DO UPDATE SET/);
   assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"/);
-  assert.match(syncSource, /Automatická synchronizácia ho nebude prepisovať ani odpublikovávať/);
+  assert.match(syncSource, /ARTICLE_CREATE_REQUIRES_READY/);
   assert.match(syncSource, /preserveArticlePromoBlocks\(existing\.blocks \?\? \[\], basePayload\.blocks \?\? \[\]\)/);
   assert.match(syncSource, /catch \(error\) \{[\s\S]*?isArticleSlugConflict\(error\)/);
   assert.match(syncSource, /await updateNotionSyncState\(bindings, page\.id, \{[\s\S]*?state: "Synchronizované"/);
@@ -177,8 +177,8 @@ test("article routes reject collisions with subsection landing slugs", () => {
 
 test("mapped Draft is loaded before placement resolution so a legacy missing subsection can preserve a valid route", () => {
   const mappingLoad = syncSource.indexOf("const mapping = await loadMapping");
-  const existingLoad = syncSource.indexOf("existing = await getManagedArticleById", mappingLoad);
-  const payloadBuild = syncSource.indexOf("notionPageToManagedArticleInput(page, blocks, existing ?? undefined)", existingLoad);
+  const existingLoad = syncSource.indexOf("const mappedExisting = mapping ?", mappingLoad);
+  const payloadBuild = syncSource.indexOf("notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined)", existingLoad);
   assert.ok(mappingLoad >= 0 && existingLoad > mappingLoad && payloadBuild > existingLoad);
   assert.match(syncSource, /existing\.status !== "draft"/);
 });
