@@ -1704,9 +1704,22 @@ async function syncOneNotionPage(
     ).bind(page.id).first<{ article_id: number }>();
     if (pending) throw new Error("NOTION_EDITORIAL_WRITEBACK_PENDING");
   }
-  const blocks = await getPageBlocks(bindings, page.id);
   const mapping = await loadMapping(database, page.id);
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
+  // Review-only Notion drafts must not be treated as failed syncs. A public
+  // canonical counterpart is the sole exception to their review-state gate.
+  if (selectProperty(page, "Stav") === "Na kontrolu") {
+    if (mapping && !mappedExisting) throw new Error("ARTICLE_MAPPING_ORPHAN");
+    if (mapping && mappedExisting?.status !== "published") return "unchanged";
+    if (!mapping) {
+      const slug = richTextProperty(page, "Slug").trim();
+      const published = slug ? await database.prepare(
+        "SELECT id FROM managed_articles WHERE slug = ? AND status = 'published' LIMIT 1",
+      ).bind(slug).first<{ id: number }>() : null;
+      if (!published) return "unchanged";
+    }
+  }
+  const blocks = await getPageBlocks(bindings, page.id);
   // Legacy article placements require the canonical mapped article for a
   // correct fallback; do not parse a mapped page without that context.
   const proposed = notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined);
