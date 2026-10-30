@@ -314,10 +314,25 @@ test.describe("admin directory v2", () => {
     }
 
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
-    await Promise.all([
-      page.waitForURL((url) => url.pathname.startsWith("/admin/adresar/") && url.pathname !== "/admin/adresar"),
-      page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click(),
-    ]);
+    const profileLink = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
+    const editorHref = await profileLink.getAttribute("href");
+    expect(editorHref).toMatch(/^\\/admin\\/adresar\\/\\d+$/);
+    // The Vite-backed local E2E server can reload the list while the first
+    // mobile click is in flight. Retry the real link click, not the assertion
+    // or a direct page.goto(), so a genuinely broken editor link still fails.
+    let openedEditor = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await profileLink.click();
+      try {
+        await expect(page).toHaveURL(new RegExp(editorHref + "$"), { timeout: 2_000 });
+        openedEditor = true;
+        break;
+      } catch (error) {
+        if (attempt === 2) throw error;
+        await page.waitForLoadState("load");
+      }
+    }
+    expect(openedEditor).toBe(true);
     await expect(page.getByRole("button", { name: "Pokročilé a SEO" })).toBeVisible();
     const editorOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(editorOverflow).toBeLessThanOrEqual(1);
