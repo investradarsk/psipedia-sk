@@ -85,7 +85,10 @@ export function PublicSearchSuggestions({
     };
   }, [normalizedQuery, enabled]);
 
-  const groups = state.query === normalizedQuery ? state.groups : [];
+  const groups = useMemo(
+    () => state.query === normalizedQuery ? state.groups : [],
+    [state.query, state.groups, normalizedQuery],
+  );
   const status = state.query === normalizedQuery ? state.status : "loading";
   const suggestions = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   const listId = `ps-search-${componentId}`;
