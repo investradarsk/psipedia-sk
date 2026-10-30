@@ -187,7 +187,7 @@ test("Partner session alone never unlocks reviewer submission", async ({ page, c
   await expect(page).toHaveURL(/\/recenzia\/prihlasenie\?returnTo=/);
   const returnTo = new URL(page.url()).searchParams.get("returnTo");
   expect(returnTo).toBe("/recenzia/napisat?resourceId=" + DIRECTORY_RESOURCE);
-  await expect(page.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overenie e-mailu" })).toBeVisible();
 });
 
 test("malicious review text remains inert and server validation error is associated with body", async ({ page, context }, testInfo) => {
