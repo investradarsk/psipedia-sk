@@ -91,7 +91,10 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     const result = await runNotionFacebookImagesSync({
       database: bindings.DB, bindings, targetPageId: id,
     });
-    if (result.conflicts || result.invalid) return "review-required";
+    // A concurrent five-minute Facebook sweep can lose the CAS; retry later.
+    // Truly invalid Notion posts require review rather than endless retries.
+    if (result.invalid) return "review-required";
+    if (result.conflicts) return "deferred";
     summary = { enabled: result.enabled, failed: result.failed, scanned: result.scanned };
   } else if (bindings.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED === "true") {
     // Dynamic event/help targets come from canonical D1 agenda configuration,
