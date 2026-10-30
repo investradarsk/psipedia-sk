@@ -84,7 +84,12 @@ export function AdminRecordTable<T extends { id: number }>({
         </details>
       </div>
       <div className={styles.scroll} role="region" aria-label={label + " – tabuľka"} tabIndex={0}>
-        <table className={styles.table}>
+        <table className={styles.table} style={{ width: Math.max(table.getTotalSize(), 820) }}>
+          <colgroup>
+            {table.getVisibleLeafColumns().map((column) => (
+              <col key={column.id} style={{ width: column.getSize() }} />
+            ))}
+          </colgroup>
           <thead>
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
