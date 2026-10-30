@@ -1,5 +1,6 @@
 "use client";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
+import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { ArticlePopularityWindow } from "@/lib/article-popularity";
@@ -87,8 +88,9 @@ export function ArticlePopularitySidebar({
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <a href={item.href}>
-                  <strong>{item.title}</strong>
-                  <small>{item.label}</small>
+                  <span className={styles.thumbnail}>{item.image ? <img src={item.image} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback />}</span>
+                  <span className={styles.itemText}><strong>{item.title}</strong>
+                  <small>{item.label}</small></span>
                 </a>
               </li>
             ))}
