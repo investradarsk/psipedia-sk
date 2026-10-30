@@ -59,7 +59,7 @@ test("MAP-MOBILE-UX-V3: iPhone 390px sheet, selection, close and filter dialog",
   await page.getByTestId("map-close-selection").click();
   await expect(sheet).toHaveAttribute("data-sheet-state", "peek");
 
-  await page.getByRole("button", { name: /Ďalšie filtre/ }).click();
+  await page.getByRole("button", { name: /^Filtre/ }).click();
   const dialog = page.getByTestId("map-filter-dialog");
   await expect(dialog).toHaveAttribute("aria-modal", "true");
   // The clickable backdrop is not part of the modal keyboard or accessibility tree.
@@ -95,7 +95,7 @@ test("PUBLIC-UX-V3 closeout: first-visit cookie panel never competes with the ma
   expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
 
   // An undecided analytics choice must not prevent using map controls.
-  const filterTrigger = page.getByRole("button", { name: /Ďalšie filtre/ });
+  const filterTrigger = page.getByRole("button", { name: /^Filtre/ });
   await filterTrigger.click();
   const filterDialog = page.getByTestId("map-filter-dialog");
   await expect(filterDialog).toBeVisible();
