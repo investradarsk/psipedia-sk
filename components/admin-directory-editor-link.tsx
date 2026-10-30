@@ -1,14 +1,9 @@
-"use client";
-
-import Link from "next/link";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /**
- * Canonical directory editors depend on several uncached D1-backed reads.
- * Open them with a real document navigation instead of reusing a potentially
- * stale App Router transition from the client-side sortable admin grid.
- *
- * Preserve normal middle-click, open-in-new-tab and modified-click behavior.
+ * A plain anchor keeps canonical profile editing reachable even when the
+ * read-first data grid has not hydrated yet (including mobile E2E).
+ * The destination is authenticated by its existing admin page.
  */
 export function AdminDirectoryEditorLink({
   profileId,
@@ -19,19 +14,9 @@ export function AdminDirectoryEditorLink({
   className?: string;
   children: ReactNode;
 }) {
-  const href = `/admin/adresar/${profileId}`;
-  const navigate = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (
-      event.defaultPrevented
-      || event.button !== 0
-      || event.metaKey
-      || event.ctrlKey
-      || event.shiftKey
-      || event.altKey
-    ) return;
-    event.preventDefault();
-    window.location.assign(href);
-  };
-
-  return <Link href={href} className={className} prefetch={false} onClick={navigate}>{children}</Link>;
+  return (
+    // This admin transition intentionally requests a fresh document.
+    // eslint-disable-next-line @next/next/no-html-link-for-pages
+    <a href={`/admin/adresar/${profileId}`} className={className}>{children}</a>
+  );
 }
