@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
 import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, EditorUnsavedChangesGuard, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
 import { AdminEventMarkdownEditor } from "@/components/admin-event-markdown-editor";
+import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
@@ -258,7 +259,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
           <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
           <EditorSection id="event-basics" className="admin-form-card admin-form-card--intro">
             <div className="admin-field admin-field--title"><label htmlFor="event-title">Názov podujatia</label><input id="event-title" value={title} onChange={(input) => changeTitle(input.target.value)} placeholder="Napríklad: Klubová výstava retrieverov" required /></div>
-            <div className="admin-field"><label htmlFor="event-excerpt">Krátky popis</label><textarea id="event-excerpt" rows={3} value={excerpt} onChange={(input) => setExcerpt(input.target.value)} placeholder="Čo sa bude diať a pre koho je podujatie určené?" required /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
+            <div className="admin-field"><label htmlFor="event-excerpt">Krátky popis</label><AdminLexicalTextField id="event-excerpt" rows={3} value={excerpt} onChange={setExcerpt} placeholder="Čo sa bude diať a pre koho je podujatie určené?" required /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </EditorSection>
 
           <EditorSection id="event-schedule" className="admin-form-card">
