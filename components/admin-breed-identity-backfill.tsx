@@ -69,7 +69,7 @@ export function AdminBreedIdentityBackfill(){
       Konflikty: {summary.conflicts}. Nenájdené: {summary.unmatched}. Neschválené: {summary.unapproved}. Chyby: {summary.failed}.
       {runs>0&&<> Spracované dávky: {runs}. Doplnené ID: {totals.linked}. Nové väzby: {totals.mappingsCreated}. FCI v D1: {totals.fciD1Filled}. FCI v Notione: {totals.fciNotionFilled}.</>}
     </p>}
-    {summary?.review?.length>0&&<details style={{fontSize:".875rem",marginTop:8}}>
+    {summary&&summary.review.length>0&&<details style={{fontSize:".875rem",marginTop:8}}>
       <summary>Nejednoznačné záznamy ({summary.review.length} v náhľade)</summary>
       <ul>{summary.review.map((item,i)=><li key={i}>{item.slug}: {item.reason}</li>)}</ul>
     </details>}
