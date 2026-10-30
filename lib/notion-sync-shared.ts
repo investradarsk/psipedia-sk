@@ -183,7 +183,7 @@ export async function notionRequest<T>(
         ...(url.search ? { query } : {}),
         ...(body ? { body } : {}),
         headers,
-      }) as T;
+      }) as unknown as T;
     } catch (error) {
       if (!isHTTPResponseError(error)) throw error;
       if (options.retryTransient !== false && attempt < NOTION_MAX_RETRIES && notionRetryableStatus(error.status)) {
