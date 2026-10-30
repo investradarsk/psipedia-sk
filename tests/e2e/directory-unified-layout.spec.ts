@@ -111,19 +111,27 @@ test("SERVICES-V2 GET search and filters work without JavaScript and keep catego
   } finally {await context.close();}
 });
 
-test("SERVICES-V2 category more keyboard interaction and 200% text do not clip", async ({ page }) => {
+test("SERVICES-V2 category grid keyboard interaction and 200% text do not clip", async ({ page }) => {
   await page.setViewportSize({width:1180,height:900});
   await open(page,"/adresar");
-  const more = page.locator("[data-directory-category-navigation] button[aria-controls]");
-  await expect(more, "The category track needs a keyboard-accessible overflow affordance").toBeVisible();
-  await more.focus();
-  await more.press("Enter");
-  await expect(more).toHaveAttribute("aria-expanded","true");
-  await expect(page.locator('[data-directory-category-navigation][data-expanded="true"]')).toBeVisible();
-  await more.press("Enter");
-  await expect(more).toHaveAttribute("aria-expanded","false");
-  await expect(more).toBeFocused();
+  // The shared category navigator now shows all links in a responsive grid.
+  // There is no overflow rail and therefore no obsolete "Ďalšie" toggle.
+  const nav = page.locator("[data-directory-category-navigation]");
+  const track = nav.locator("[data-public-subcategory-track]");
+  const links = nav.locator("[data-public-subcategory-item]");
+  await expect(track).toBeVisible();
+  await expect(links).toHaveCount(10);
+  await expect(links.first()).toBeVisible();
+  await expect(links.last()).toBeVisible();
+  await expect(nav.locator("button[aria-controls]")).toHaveCount(0);
+  await links.first().focus();
+  await expect(links.first()).toBeFocused();
+  await links.first().press("Tab");
+  await expect(links.nth(1)).toBeFocused();
+  expect(await track.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(2);
   await page.evaluate(() => {document.documentElement.style.fontSize="200%";});
+  await expect(links.first()).toBeVisible();
+  await expect(links.last()).toBeVisible();
   // At 200% text zoom, the root's real category headings must remain visible.
   await expect(page.locator("[data-directory-category-previews] h2").first()).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1181);
