@@ -89,6 +89,7 @@ const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_VERSION = "2025-09-03";
 const SYNC_ACTOR = "notion-sync@psipedia.sk";
 const MAX_SYNC_ITEMS = 100;
+const MAX_EDITORIAL_UPDATES_PER_SWEEP = 20;
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_REMOTE_IMAGE_REDIRECTS = 3;
 const REMOTE_IMAGE_ACCEPT = "image/avif,image/webp,image/png,image/jpeg";
@@ -1008,7 +1009,10 @@ export function notionPageToManagedArticleInput(
   };
 }
 
-function validateSyncGate(page: NotionPage) {
+function validateSyncGate(page: NotionPage, existingPublished = false) {
+  // Canonical publication authorizes editorial edits regardless of whether
+  // the Notion row still says "Na kontrolu". New publication still needs Ready.
+  if (existingPublished || selectProperty(page, "Stav") === "Publikované") return;
   if (selectProperty(page, "Stav") !== "Ready") {
     throw new Error("Článok nie je v stave Ready na automatický prenos do adminu.");
   }
@@ -1059,9 +1063,13 @@ async function listReadyNotionPages(bindings: NotionSyncBindings) {
           // An explicit editorial opt-in avoids retrying historical errors and
           // prevents importing Ready articles that were not approved for sending.
           filter: {
-            and: [
-              { property: "Stav", select: { equals: "Ready" } },
-              { property: "Odoslať na Psipedia", checkbox: { equals: true } },
+            or: [
+              { and: [
+                { property: "Stav", select: { equals: "Ready" } },
+                { property: "Odoslať na Psipedia", checkbox: { equals: true } },
+              ] },
+              { property: "Stav", select: { equals: "Publikované" } },
+              { property: "Stav", select: { equals: "Na kontrolu" } },
             ],
           },
           sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
@@ -1650,12 +1658,41 @@ async function upsertMapping(
   ).run();
 }
 
+/** Existing canonical articles may precede the Notion bridge. Adopt only a
+ * one-to-one slug + section match; never create duplicate public URLs. */
+async function findUnmappedCanonicalArticle(
+  database: D1Database, page: NotionPage, input: ManagedArticleInput,
+) {
+  const slug = input.slug?.trim();
+  if (!slug) return null;
+  const rows = await database.prepare(
+    "SELECT id, portal_section FROM managed_articles WHERE slug = ? LIMIT 2",
+  ).bind(slug).all<{ id: number; portal_section: string }>();
+  if (!rows.results.length) return null;
+  if (rows.results.length !== 1 || rows.results[0].portal_section !== input.portalSection) {
+    throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED: slug alebo sekcia nesúhlasí.");
+  }
+  const id = rows.results[0].id;
+  const claimedId = richTextProperty(page, "Psipedia ID").trim();
+  if (claimedId && claimedId !== String(id)) {
+    throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED: Psipedia ID nesúhlasí.");
+  }
+  const occupied = await database.prepare(
+    "SELECT notion_page_id FROM article_notion_sync WHERE article_id = ? LIMIT 1",
+  ).bind(id).first<{ notion_page_id: string }>();
+  if (occupied && occupied.notion_page_id !== page.id) {
+    throw new Error("ARTICLE_MAPPING_REVIEW_REQUIRED");
+  }
+  const canonical = await getManagedArticleById(id);
+  // Existing drafts are not evidence of an approved public pairing.
+  return canonical?.status === "published" ? canonical : null;
+}
+
 async function syncOneNotionPage(
   database: D1Database,
   bindings: NotionSyncBindings,
   page: NotionPage,
 ): Promise<"created" | "updated" | "unchanged"> {
-  validateSyncGate(page);
   // An in-flight editor writeback is not a valid Notion import baseline.
   // Check schema existence to keep legacy imports safe while the article outbox is only an unnumbered proposal.
   const journalTable = await database.prepare(
@@ -1667,19 +1704,38 @@ async function syncOneNotionPage(
     ).bind(page.id).first<{ article_id: number }>();
     if (pending) throw new Error("NOTION_EDITORIAL_WRITEBACK_PENDING");
   }
-  const blocks = await getPageBlocks(bindings, page.id);
   const mapping = await loadMapping(database, page.id);
-  let existing: ManagedArticle | null = null;
-
-  if (mapping) {
-    existing = await getManagedArticleById(Number(mapping.article_id));
-    if (!existing) {
-      throw new Error("Notion záznam je prepojený na chýbajúci článok v Psipedii. Synchronizácia bola zastavená.");
-    }
-    if (existing.status !== "draft") {
-      throw new Error("Prepojený článok už nie je Draft. Automatická synchronizácia ho nebude prepisovať ani odpublikovávať.");
+  const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
+  // Review-only Notion drafts must not be treated as failed syncs. A public
+  // canonical counterpart is the sole exception to their review-state gate.
+  if (selectProperty(page, "Stav") === "Na kontrolu") {
+    if (mapping && !mappedExisting) throw new Error("ARTICLE_MAPPING_ORPHAN");
+    if (mapping && mappedExisting?.status !== "published") return "unchanged";
+    if (!mapping) {
+      const slug = richTextProperty(page, "Slug").trim();
+      const published = slug ? await database.prepare(
+        "SELECT id FROM managed_articles WHERE slug = ? AND status = 'published' LIMIT 1",
+      ).bind(slug).first<{ id: number }>() : null;
+      if (!published) return "unchanged";
     }
   }
+  const blocks = await getPageBlocks(bindings, page.id);
+  // Legacy article placements require the canonical mapped article for a
+  // correct fallback; do not parse a mapped page without that context.
+  const proposed = notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined);
+  let existing: ManagedArticle | null = mappedExisting
+    ?? (mapping ? null : await findUnmappedCanonicalArticle(database, page, proposed));
+  if (mapping && !existing) {
+    throw new Error("Notion záznam je prepojený na chýbajúci článok v Psipedii.");
+  }
+  if (existing && (existing.slug !== proposed.slug || existing.portalSection !== proposed.portalSection)) {
+    throw new Error("ARTICLE_IDENTITY_REVIEW_REQUIRED");
+  }
+  if (existing && existing.status !== "draft" && existing.status !== "published") {
+    throw new Error("ARTICLE_STATUS_REVIEW_REQUIRED");
+  }
+  if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
+  validateSyncGate(page, existing?.status === "published");
 
   const basePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined);
   // Notion manifests bypass the Admin's published-article-only picker.
@@ -1706,8 +1762,8 @@ async function syncOneNotionPage(
   }));
   const now = new Date().toISOString();
 
-  if (mapping && existing) {
-    if (mapping.content_hash === contentHash) {
+  if (existing) {
+    if (mapping && mapping.content_hash === contentHash) {
       // Hash equality proves only that Notion did not change. It does NOT
       // prove a newer human Admin edit was written back successfully.
       // Keep the last-success receipt intact until the editor revision has
@@ -1717,6 +1773,10 @@ async function syncOneNotionPage(
       if (existing.updatedBy !== SYNC_ACTOR &&
         (!Number.isFinite(receiptTime) || !Number.isFinite(adminTime) || adminTime > receiptTime)) {
         throw new Error("ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION");
+      }
+      if (selectProperty(page, "Sync stav") === "Synchronizované"
+        && richTextProperty(page, "Psipedia ID") === String(existing.id)) {
+        return "unchanged"; // No metadata-only writeback loop.
       }
       await upsertMapping(database, page, existing.id, contentHash, now);
       await updateNotionSyncState(bindings, page.id, {
@@ -1729,7 +1789,55 @@ async function syncOneNotionPage(
 
     // A locally edited draft belongs to the editor, not to the next Notion sweep.
     // Hash-only checks cannot detect admin edits after the previous import.
-    if (existing.updatedBy !== SYNC_ACTOR) {
+    if (existing.status === "published") {
+      // The article remains published with its original URL, assets, topic
+      // relations, author and moderation state. Only Notion editorial fields
+      // (body, intro, title, excerpt, SEO and social caption) flow inbound.
+      if (mapping && existing.updatedBy !== SYNC_ACTOR
+        && (!Number.isFinite(Date.parse(mapping.last_synced_at))
+          || Date.parse(existing.updatedAt) > Date.parse(mapping.last_synced_at) + 2_000)) {
+        throw new Error("ARTICLE_ADMIN_REVISION_NOT_SYNCED");
+      }
+      const publishedPayload: ManagedArticleInput = {
+        ...existing,
+        ...basePayload,
+        status: existing.status,
+        publishedAt: existing.publishedAt,
+        slug: existing.slug,
+        category: existing.category,
+        portalSection: existing.portalSection,
+        portalSubpage: existing.portalSubpage,
+        newsCategory: existing.newsCategory,
+        accent: existing.accent,
+        author: existing.author,
+        authorProfileId: existing.authorProfileId,
+        relatedBreedIds: existing.relatedBreedIds,
+        sections: existing.sections,
+        sources: existing.sources,
+        takeaway: existing.takeaway,
+        takeawayRichText: existing.takeawayRichText,
+        imageUrl: existing.image,
+        imageKey: existing.imageKey,
+        ogImageUrl: existing.ogImage,
+        ogImageKey: existing.ogImageKey,
+        canonicalUrl: existing.canonicalUrl,
+        noindex: existing.noindex,
+        contentUpdatedAt: now,
+        showUpdated: existing.showUpdated,
+        blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
+      };
+      const updated = await updateManagedArticle(existing.id, publishedPayload, SYNC_ACTOR, existing, {
+        updatedAt: existing.updatedAt,
+      });
+      if (!updated) throw new Error("ARTICLE_PUBLISHED_UPDATE_FAILED");
+      await upsertMapping(database, page, updated.id, contentHash, now);
+      await updateNotionSyncState(bindings, page.id, {
+        state: "Synchronizované", articleId: updated.id, syncedAt: now,
+      });
+      return "updated";
+    }
+    // Drafts retain the existing Admin-authority conflict contract.
+    if (mapping && existing.updatedBy !== SYNC_ACTOR) {
       throw new Error("Prepojený koncept bol upravený v administrácii. Automatický sync ho neprepíše; zmeny treba zosúladiť ručne.");
     }
     const preservedPayload: ManagedArticleInput = {
@@ -1758,6 +1866,9 @@ async function syncOneNotionPage(
     return "updated";
   }
 
+  if (selectProperty(page, "Stav") !== "Ready" || !checkboxProperty(page, "Odoslať na Psipedia")) {
+    throw new Error("ARTICLE_CREATE_REQUIRES_READY");
+  }
   const prepared = await prepareNotionMainImage(bindings, page, basePayload);
   let created: Awaited<ReturnType<typeof createManagedArticle>> | null = null;
   try {
@@ -1811,13 +1922,13 @@ export async function runNotionArticleSyncSweep(args: {
       || page.parent?.type !== "data_source_id" || !dataSourceId
       || page.parent.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
       throw new Error("NOTION_ARTICLE_TARGET_UNSAFE");
-    pages = selectProperty(page, "Stav") === "Ready" && checkboxProperty(page, "Odoslať na Psipedia") ? [page] : [];
+    pages = [page];
   } else {
     pages = await listReadyNotionPages(args.bindings);
   }
-  summary.scanned = pages.length;
-
   for (const page of pages) {
+    if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
+    summary.scanned += 1;
     try {
       const result = await syncOneNotionPage(args.database, args.bindings, page);
       summary[result] += 1;

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 const syncSource = await readFile(new URL("../lib/notion-breed-sync.ts", import.meta.url), "utf8");
 const sharedSource = await readFile(new URL("../lib/notion-sync-shared.ts", import.meta.url), "utf8");
@@ -13,13 +14,39 @@ const wranglerSource = await readFile(new URL("../wrangler.jsonc", import.meta.u
 test("Ready Notion breeds flow into Psipedia as draft only", () => {
   assert.match(syncSource, /notionSelectProperty\(page, "Stav"\) !== "Ready"/);
   assert.match(syncSource, /status: "draft"/);
-  assert.match(syncSource, /existing\.status !== "draft"/);
+  assert.match(syncSource, /existing\.status === "published"/);
   assert.doesNotMatch(syncSource, /status: "published"/);
+});
+
+test("published breeds can receive approved Notion editorial updates without changing public status", () => {
+  assert.match(syncSource, /Profil skvalitnený/);
+  assert.match(syncSource, /listEditableNotionBreeds/);
+  assert.match(syncSource, /findUnmappedCanonicalBreed/);
+  assert.match(syncSource, /Number\(rows\.results\[0\]\.fci_number\) !== fciNumber/);
+  assert.match(syncSource, /BREED_MAPPING_REVIEW_REQUIRED/);
+  assert.match(syncSource, /existing\.status === "published"/);
+  assert.match(syncSource, /status: existing\.status/);
+  assert.match(syncSource, /image: existing\.image/);
+  assert.match(syncSource, /BREED_CREATE_REQUIRES_READY/);
+});
+
+test("published canonical breeds ignore an obsolete Notion review state, but new drafts do not", () => {
+  const start = syncSource.indexOf("function validateReady(");
+  const end = syncSource.indexOf("\n/** A missing mapping", start);
+  assert.ok(start >= 0 && end > start);
+  const source = syncSource.slice(start, end).replace("page: NotionPage", "page").replace("existingPublished: boolean", "existingPublished");
+  const validate = runInNewContext(`(${source})`, {
+    notionSelectProperty: (page) => page.state,
+    checkboxProperty: (page) => page.checked === true,
+  }, { timeout: 500 });
+  assert.doesNotThrow(() => validate({ state: "Na kontrolu", checked: false }, true));
+  assert.doesNotThrow(() => validate({ state: "Ready", checked: false }, false));
+  assert.throws(() => validate({ state: "Na kontrolu", checked: false }, false), /schválenú/);
 });
 
 test("breed sync uses the exact configured Notion data source and hourly worker", () => {
   assert.match(syncSource, /NOTION_BREEDS_DATA_SOURCE_ID/);
-  assert.match(syncSource, /listReadyNotionPages\(args\.bindings, dataSourceId/);
+  assert.match(syncSource, /listEditableNotionBreeds\(args\.bindings, dataSourceId/);
   assert.match(workerSource, /runNotionBreedSyncSweep/);
   assert.match(workerSource, /event: "notion_breed_sync_sweep"/);
   assert.match(wranglerSource, /"NOTION_BREED_SYNC_ENABLED": "true"/);
@@ -132,7 +159,7 @@ test("pending Admin breed edits block stale Notion sync and false success", () =
   const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
   const guard = mapped.indexOf("BREED_ADMIN_REVISION_NOT_SYNCED");
-  const original = mapped.indexOf("if (mapping.content_hash === contentHash)");
+  const original = mapped.indexOf("if (mapping && mapping.content_hash === contentHash)");
   assert.ok(guard >= 0 && original > guard);
   assert.match(mapped, /canonicalTextDiffers/);
   assert.match(mapped, /mapping.content_hash === contentHash && canonicalTextDiffers/);
@@ -145,7 +172,7 @@ test("hourly breed sweep replays unacknowledged Admin-only text changes safely",
   const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
   const replay = mapped.indexOf("const lastCommonText = { ...existing }");
-  const acknowledged = mapped.indexOf("if (mapping.content_hash === contentHash) {");
+  const acknowledged = mapped.indexOf("if (mapping && mapping.content_hash === contentHash) {");
   assert.ok(replay >= 0 && acknowledged > replay);
   assert.match(mapped, /mapping.content_hash === contentHash && canonicalTextDiffers/);
   assert.match(mapped, /await writeBackDraftBreedEditorialToNotion\(/);
