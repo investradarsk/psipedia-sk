@@ -257,3 +257,10 @@
     width: 100%;
   }
 }
+
+/* A source-review case can be resolved from the inbox without opening its editor. */
+.sourceDecision {
+  grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: .55rem; min-width: 0;
+}
+.sourceDecision .open { width: 100%; white-space: normal; text-align: center; }
