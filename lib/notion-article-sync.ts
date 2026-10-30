@@ -1009,10 +1009,10 @@ export function notionPageToManagedArticleInput(
   };
 }
 
-function validateSyncGate(page: NotionPage) {
-  // A previously published article stays editable in Notion. This is not a
-  // permission to publish a new article: unmatched pages remain draft-only.
-  if (selectProperty(page, "Stav") === "Publikované") return;
+function validateSyncGate(page: NotionPage, existingPublished = false) {
+  // Canonical publication authorizes editorial edits regardless of whether
+  // the Notion row still says "Na kontrolu". New publication still needs Ready.
+  if (existingPublished || selectProperty(page, "Stav") === "Publikované") return;
   if (selectProperty(page, "Stav") !== "Ready") {
     throw new Error("Článok nie je v stave Ready na automatický prenos do adminu.");
   }
@@ -1069,6 +1069,7 @@ async function listReadyNotionPages(bindings: NotionSyncBindings) {
                 { property: "Odoslať na Psipedia", checkbox: { equals: true } },
               ] },
               { property: "Stav", select: { equals: "Publikované" } },
+              { property: "Stav", select: { equals: "Na kontrolu" } },
             ],
           },
           sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
@@ -1690,7 +1691,6 @@ async function syncOneNotionPage(
   bindings: NotionSyncBindings,
   page: NotionPage,
 ): Promise<"created" | "updated" | "unchanged"> {
-  validateSyncGate(page);
   // An in-flight editor writeback is not a valid Notion import baseline.
   // Check schema existence to keep legacy imports safe while the article outbox is only an unnumbered proposal.
   const journalTable = await database.prepare(
@@ -1719,6 +1719,8 @@ async function syncOneNotionPage(
   if (existing && existing.status !== "draft" && existing.status !== "published") {
     throw new Error("ARTICLE_STATUS_REVIEW_REQUIRED");
   }
+  if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
+  validateSyncGate(page, existing?.status === "published");
 
   const basePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined);
   // Notion manifests bypass the Admin's published-article-only picker.
