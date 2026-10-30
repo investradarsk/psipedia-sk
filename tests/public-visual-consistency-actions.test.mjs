@@ -47,7 +47,9 @@ test("directory, help, events and breeds use shared visible actions", () => {
   assert.match(help, /<PublicActionButton className=\{styles.searchSubmit\} type="submit">/);
   assert.match(help, /<PublicActionLink className=\{styles.resetFilters\} variant="tertiary"/);
   assert.equal(events.match(/<PublicActionButton type="submit">/g)?.length, 2);
-  assert.match(breeds, /<PublicActionButton type="button" onClick=\{\(\)=>setShown/);
+  assert.match(breeds, /className="breed-group-cta"/);
+  assert.match(breeds, /toggleGroup\(group\.number\)/);
+  assert.match(breeds, /INITIAL_PER_GROUP = 3/);
 });
 
 test("local public listing CSS no longer competes with CTA or card tokens", () => {
