@@ -268,7 +268,7 @@ export function AdminSectionEditor({
                       <AdminLexicalTextField rows={4} value={section.intro} onChange={(next) => update(section.slug, { intro: next })} ariaLabel="intro" />
                     </label>
                     <AdminHelpText term="Editor">
-                      Spoločný Lexical editor upravuje pôvodné textové polia. Štruktúrované zoznamy a SEO zostávajú bez zmeny.
+                      Spoločný Lexical editor upravuje pôvodné plain text polia. Štruktúrované zoznamy a SEO zostávajú bez zmeny.
                     </AdminHelpText>
                   </section>
 
