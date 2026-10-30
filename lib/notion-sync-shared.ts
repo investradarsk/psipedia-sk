@@ -164,6 +164,12 @@ export async function notionRequest<T>(
     logLevel: LogLevel.ERROR,
     logger: () => { /* do not log provider data, tokens or HTTP bodies */ },
   });
+  const query: Record<string, string | string[]> = {};
+  for (const [key, value] of url.searchParams) {
+    const prior = query[key];
+    query[key] = prior === undefined ? value
+      : Array.isArray(prior) ? [...prior, value] : [prior, value];
+  }
   const headers = Object.fromEntries(new Headers(init.headers).entries());
   // Authentication and Notion-Version remain owned by SDK runtime secrets.
   for (const key of Object.keys(headers)) {
@@ -174,7 +180,7 @@ export async function notionRequest<T>(
       return await client.request<Record<string, unknown>>({
         path: url.pathname.slice("/v1/".length),
         method,
-        ...(url.search ? { query: url.searchParams } : {}),
+        ...(url.search ? { query } : {}),
         ...(body ? { body } : {}),
         headers,
       }) as T;
