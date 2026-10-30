@@ -1,4 +1,5 @@
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { AdminPhotoGallery } from "@/components/admin-photo-gallery";
 import type { ChangeEvent } from "react";
 import { adoptionVaccinationStatuses, type AdoptionDog } from "@/lib/adoption";
@@ -38,9 +39,9 @@ export function AdminAdoptionEditorDetails({
         <div className="admin-field"><label htmlFor="adoption-vaccination">Očkovanie</label><select id="adoption-vaccination" name="vaccinationStatus" defaultValue={item?.vaccinationStatus ?? "UNKNOWN"}>{adoptionVaccinationStatuses.map((value) => <option key={value} value={value}>{vaccinationLabels[value]}</option>)}</select></div>
         {[ ["chipped","Čip",item?.chipped], ["neutered","Kastrácia",item?.neutered] ].map(([key,label,value]) => <div className="admin-field" key={String(key)}><label htmlFor={`adoption-${key}`}>{label}</label><select id={`adoption-${key}`} name={String(key)} defaultValue={triState(value as boolean | null | undefined)}><option value="">Neuvedené</option><option value="true">Áno</option><option value="false">Nie</option></select></div>)}
       </div>
-      <div className="admin-field"><label htmlFor="adoption-health">Zdravotné poznámky</label><textarea id="adoption-health" name="healthNotes" rows={4} defaultValue={item?.healthNotes ?? ""}/></div>
-      <div className="admin-field"><label htmlFor="adoption-special">Špeciálne potreby</label><textarea id="adoption-special" name="specialNeeds" rows={3} defaultValue={item?.specialNeeds ?? ""}/></div>
-      <div className="admin-field"><label htmlFor="adoption-requirements">Podmienky adopcie</label><textarea id="adoption-requirements" name="adoptionRequirements" rows={4} defaultValue={item?.adoptionRequirements ?? ""}/></div>
+      <div className="admin-field"><label htmlFor="adoption-health">Zdravotné poznámky</label><AdminLexicalTextField id="adoption-health" name="healthNotes" rows={4} defaultValue={item?.healthNotes ?? ""} /></div>
+      <div className="admin-field"><label htmlFor="adoption-special">Špeciálne potreby</label><AdminLexicalTextField id="adoption-special" name="specialNeeds" rows={3} defaultValue={item?.specialNeeds ?? ""} /></div>
+      <div className="admin-field"><label htmlFor="adoption-requirements">Podmienky adopcie</label><AdminLexicalTextField id="adoption-requirements" name="adoptionRequirements" rows={4} defaultValue={item?.adoptionRequirements ?? ""} /></div>
     </section>
 
     <section className="admin-form-card">
