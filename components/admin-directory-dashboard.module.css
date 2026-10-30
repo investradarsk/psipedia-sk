@@ -177,3 +177,6 @@
     width: 100%;
   }
 }
+
+.tableActions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; }
+.tableActions button { background: transparent; color: #8d392b; border: 0; padding: 0; text-decoration: underline; }
