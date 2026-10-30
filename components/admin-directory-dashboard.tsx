@@ -151,10 +151,11 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                   onChange={() => bulkSelection.toggleRow(profile.id)}
                 /> },
                 { id: "name", label: "Profil", width: 250, sortValue: (profile) => profile.name, cell: (profile) => <Link href={`/admin/adresar/${profile.id}`}><strong>{profile.name}</strong></Link> },
-                { id: "category", label: "Kategória", width: 158, sortValue: (profile) => getDirectoryCategory(profile.category)?.label ?? profile.category, cell: (profile) => <span>{getDirectoryCategory(profile.category)?.label ?? profile.category}</span> },
+                { id: "category", label: "Typ profilu", width: 158, sortValue: (profile) => getDirectoryCategory(profile.category)?.label ?? profile.category, cell: (profile) => <span>{getDirectoryCategory(profile.category)?.label ?? profile.category}</span> },
                 { id: "city", label: "Mesto", width: 150, sortValue: (profile) => profile.city || "", cell: (profile) => profile.city || "—" },
                 { id: "status", label: "Publikácia", width: 125, sortValue: (profile) => profile.status, cell: (profile) => <span className={"admin-status admin-status--" + profile.status}>{profile.status === "published" ? "Publikované" : profile.status === "archived" ? "Archivované" : "Koncept"}</span> },
                 { id: "verified", label: "Overenie", width: 115, sortValue: (profile) => profile.verified ? 1 : 0, cell: (profile) => profile.verified ? "Overené ✓" : "Neoverené" },
+                { id: "media", label: "Obrázok profilu", width: 140, sortValue: (profile) => profile.imageUrl ? 1 : 0, cell: (profile) => profile.imageUrl ? "Obrázok ✓" : "Bez obrázka" },
                 { id: "updated", label: "Aktualizované", width: 140, sortValue: (profile) => profile.updatedAt, cell: (profile) => formatUpdatedAt(profile.updatedAt) },
                 { id: "services", label: "Služby", width: 210, initiallyHidden: true, cell: (profile) => profile.services.slice(0, 2).join(", ") || "—" },
                 { id: "reviewed", label: "AI kontrola", width: 142, cell: (profile) => <label className={styles.reviewToggle}>
@@ -165,7 +166,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                   <span>Odkontrolované</span>
                 </label> },
                 { id: "actions", label: "Akcie", width: 230, cell: (profile) => <div className={styles.tableActions}>
-                  <Link href={`/admin/adresar/${profile.id}`}>Upraviť</Link>
+                  <Link className="admin-row-edit" href={`/admin/adresar/${profile.id}`}>Upraviť</Link>
                   {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Web ↗</Link>}
                   {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
                 </div> },
