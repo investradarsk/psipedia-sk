@@ -353,6 +353,54 @@ test("signed webhook only acknowledges a committed D1 receipt", async () => {
   assert.ok(sql.includes("CREATE INDEX notion_webhook_inbox_page"));
 });
 
+test("all enabled Notion data agendas use the existing minute webhook queue", async () => {
+  const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
+  const minute = worker.slice(
+    worker.indexOf('if (controller.cron === "* * * * *") {'),
+    worker.indexOf("// Existing five-minute Cron:"),
+  );
+  assert.match(minute, /runNotionWebhookInboxSweep\(\{/);
+  assert.match(minute, /process: event => dispatchNotionPageChange\(event, env\)/);
+  assert.match(minute, /limit: 8/);
+  assert.match(minute, /_ctx\.waitUntil\(/);
+  assert.match(minute, /runFacebookImagePublishSweep\(/);
+  assert.ok(minute.indexOf("runNotionWebhookInboxSweep(") < minute.indexOf("runFacebookImagePublishSweep("));
+  assert.equal(worker.match(/runNotionWebhookInboxSweep\(\{/g)?.length, 1,
+    "do not consume the same inbox from both minute and five-minute crons");
+  assert.match(worker, /if \(isFullHourlyScheduledSweep\(controller\)\)/,
+    "preserve hourly reconciliation as a loss-of-webhook safety net");
+
+  const dispatch = await readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
+  for (const runner of [
+    "runNotionDirectorySyncSweep", "runNotionBreedSyncSweep",
+    "runNotionArticleSyncSweep", "runNotionEshopSyncSweep",
+    "runNotionEventsHelpSyncSweep", "runNotionFacebookImagesSync",
+  ]) assert.ok(dispatch.includes(runner+"("), runner+" missing from targeted dispatcher");
+  assert.match(dispatch, /sameSource\(sourceId, NOTION_FACEBOOK_IMAGES_SOURCE_ID\)/);
+  assert.match(dispatch, /notionPageBelongsToDataSource\(page, NOTION_FACEBOOK_IMAGES_SOURCE_ID\)/);
+  assert.match(dispatch, /targetPageId: id/);
+  assert.match(dispatch, /if \(result\.conflicts \|\| result\.invalid\) return "review-required"/);
+  assert.match(dispatch, /Services V3 is intentionally canonical Admin -> Notion/,
+    "the canonical catalog must never import Notion options back to D1");
+});
+
+test("Facebook Notion webhook targets one owned page and keeps full-sweep fallback", async () => {
+  const code = await readFile(new URL("../lib/notion-facebook-images-sync.ts", import.meta.url), "utf8");
+  assert.match(code, /targetPageId\?:string/);
+  assert.match(code, /if\(targetPageId!==undefined\) \{/);
+  assert.match(code, /FACEBOOK_TARGET_PAGE_INVALID/);
+  assert.match(code, /FACEBOOK_TARGET_PAGE_OWNER_MISMATCH/);
+  assert.match(code, /page\.archived \|\| page\.in_trash/);
+  assert.match(code, /"\/pages\/"\+encodeURIComponent\(targetPageId\)/);
+  assert.match(code, /if\(!targetPageId&&policy\.enabled\)/);
+  assert.match(code, /if\(!targetPageId&&!policy\.enabled\)/);
+  assert.match(code, /if\(current&&\(current\.status==="published"/);
+  assert.match(code, /AND status IN \('draft','scheduled'\)/);
+  // No new path grants owner publication consent or bypasses existing approval.
+  const dispatched = await readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(dispatched, /direct_publish_consent\s*=/);
+});
+
 test("durable Notion receipts deduplicate by event ID and store no values", async () => {
   const statements = [];
   const db = { prepare: sql => ({
