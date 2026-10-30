@@ -41,9 +41,9 @@ export function AdminAdoptionEditorDetails({
         <div className="admin-field"><label htmlFor="adoption-vaccination">Očkovanie</label><select id="adoption-vaccination" name="vaccinationStatus" defaultValue={item?.vaccinationStatus ?? "UNKNOWN"}>{adoptionVaccinationStatuses.map((value) => <option key={value} value={value}>{vaccinationLabels[value]}</option>)}</select></div>
         {[ ["chipped","Čip",item?.chipped], ["neutered","Kastrácia",item?.neutered] ].map(([key,label,value]) => <div className="admin-field" key={String(key)}><label htmlFor={`adoption-${key}`}>{label}</label><select id={`adoption-${key}`} name={String(key)} defaultValue={triState(value as boolean | null | undefined)}><option value="">Neuvedené</option><option value="true">Áno</option><option value="false">Nie</option></select></div>)}
       </div>
-      <div className="admin-field"><label htmlFor="adoption-health">Zdravotné poznámky</label><AdminLexicalTextField id="adoption-health" name="healthNotes" rows={4} defaultValue={item?.healthNotes ?? ""} onChange={onContentChange} /></div>
-      <div className="admin-field"><label htmlFor="adoption-special">Špeciálne potreby</label><AdminLexicalTextField id="adoption-special" name="specialNeeds" rows={3} defaultValue={item?.specialNeeds ?? ""} onChange={onContentChange} /></div>
-      <div className="admin-field"><label htmlFor="adoption-requirements">Podmienky adopcie</label><AdminLexicalTextField id="adoption-requirements" name="adoptionRequirements" rows={4} defaultValue={item?.adoptionRequirements ?? ""} onChange={onContentChange} /></div>
+      <div className="admin-field"><label htmlFor="adoption-health">Zdravotné poznámky</label><AdminLexicalTextField id="adoption-health" name="healthNotes" rows={4} defaultValue={item?.healthNotes ?? ""} onChange={onContentChange} ariaLabel="Zdravotné poznámky" /></div>
+      <div className="admin-field"><label htmlFor="adoption-special">Špeciálne potreby</label><AdminLexicalTextField id="adoption-special" name="specialNeeds" rows={3} defaultValue={item?.specialNeeds ?? ""} onChange={onContentChange} ariaLabel="Špeciálne potreby" /></div>
+      <div className="admin-field"><label htmlFor="adoption-requirements">Podmienky adopcie</label><AdminLexicalTextField id="adoption-requirements" name="adoptionRequirements" rows={4} defaultValue={item?.adoptionRequirements ?? ""} onChange={onContentChange} ariaLabel="Podmienky adopcie" /></div>
     </section>
 
     <section className="admin-form-card">
