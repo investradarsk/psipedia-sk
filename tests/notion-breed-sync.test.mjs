@@ -13,13 +13,25 @@ const wranglerSource = await readFile(new URL("../wrangler.jsonc", import.meta.u
 test("Ready Notion breeds flow into Psipedia as draft only", () => {
   assert.match(syncSource, /notionSelectProperty\(page, "Stav"\) !== "Ready"/);
   assert.match(syncSource, /status: "draft"/);
-  assert.match(syncSource, /existing\.status !== "draft"/);
+  assert.match(syncSource, /existing\.status === "published"/);
   assert.doesNotMatch(syncSource, /status: "published"/);
+});
+
+test("published breeds can receive approved Notion editorial updates without changing public status", () => {
+  assert.match(syncSource, /Profil skvalitnený/);
+  assert.match(syncSource, /listEditableNotionBreeds/);
+  assert.match(syncSource, /findUnmappedCanonicalBreed/);
+  assert.match(syncSource, /Number\(rows\.results\[0\]\.fci_number\) !== fciNumber/);
+  assert.match(syncSource, /BREED_MAPPING_REVIEW_REQUIRED/);
+  assert.match(syncSource, /existing\.status === "published"/);
+  assert.match(syncSource, /status: existing\.status/);
+  assert.match(syncSource, /image: existing\.image/);
+  assert.match(syncSource, /BREED_CREATE_REQUIRES_READY/);
 });
 
 test("breed sync uses the exact configured Notion data source and hourly worker", () => {
   assert.match(syncSource, /NOTION_BREEDS_DATA_SOURCE_ID/);
-  assert.match(syncSource, /listReadyNotionPages\(args\.bindings, dataSourceId/);
+  assert.match(syncSource, /listEditableNotionBreeds\(args\.bindings, dataSourceId/);
   assert.match(workerSource, /runNotionBreedSyncSweep/);
   assert.match(workerSource, /event: "notion_breed_sync_sweep"/);
   assert.match(wranglerSource, /"NOTION_BREED_SYNC_ENABLED": "true"/);
