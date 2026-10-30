@@ -2563,3 +2563,37 @@
   .homeV2 :global(.home-independent-events .home-magazine-sidebar-block) { padding: 14px; }
   .homeV2 :global(.home-independent-events .home-side-unified-row) { grid-template-columns: 70px minmax(0,1fr) 16px; }
 }
+
+/* Desktop magazine rhythm: proportionate feature photos and reflow when only one
+   help item exists. Leave the already-approved mobile layout unchanged. */
+@media (min-width: 901px) {
+  .homeV2 :global(.home-news-section .home-latest-lead .article-card--featured:has(.article-card-media)) { min-height: 0; }
+  .homeV2 :global(.home-news-section .home-latest-lead .article-card--featured .article-card-media) {
+    height: clamp(300px, 29vw, 430px);
+    max-height: 430px;
+    aspect-ratio: auto;
+  }
+  .homeV2 :global(.home-news-section .home-latest-lead .article-card--featured .article-card-media img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-grid:has(> .home-help-item:only-child)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-item:only-child > a) {
+    grid-template-columns: minmax(260px, .42fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 225px;
+    align-items: stretch;
+  }
+  .homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-item:only-child .home-help-media) {
+    width: 100%;
+    height: 100%;
+    max-height: 260px;
+    aspect-ratio: auto;
+  }
+  .homeV2 :global(.home-magazine-grid--wide .home-magazine-main .home-help-item:only-child .home-help-copy) {
+    display: grid; align-content: center; padding: 20px 24px;
+  }
+}
