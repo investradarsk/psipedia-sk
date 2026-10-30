@@ -60,8 +60,6 @@ export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }
             <AdminHelpSourceQuickActions entityType={item.entity_type}
               entityId={item.entity_id} checkedAt={item.last_checked_at} />
           )}
-          <div className={styles.hiddenEnd}
-          </div>
         </article>
       );
     });
