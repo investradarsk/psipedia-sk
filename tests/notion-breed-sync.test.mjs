@@ -172,7 +172,7 @@ test("hourly breed sweep replays unacknowledged Admin-only text changes safely",
   const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
   const replay = mapped.indexOf("const lastCommonText = { ...existing }");
-  const acknowledged = mapped.indexOf("if (mapping.content_hash === contentHash) {");
+  const acknowledged = mapped.indexOf("if (mapping && mapping.content_hash === contentHash) {");
   assert.ok(replay >= 0 && acknowledged > replay);
   assert.match(mapped, /mapping.content_hash === contentHash && canonicalTextDiffers/);
   assert.match(mapped, /await writeBackDraftBreedEditorialToNotion\(/);
