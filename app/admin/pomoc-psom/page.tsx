@@ -1,3 +1,4 @@
+import { AdminDirectoryModuleNav } from "@/components/admin-directory-module-nav";
 import { AdminSectionHub, type AdminSectionHubItem } from "@/components/admin-section-hub";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -32,6 +33,7 @@ export default async function AdminDogHelpPage() {
       title="Pomoc psom"
       description="Všetky agendy Pomoci psom na jednom mieste, usporiadané rovnako ako na verejnom webe."
     >
+      <AdminDirectoryModuleNav active="help" />
       <AdminSectionHub items={items} />
     </AdminShell>
   );
