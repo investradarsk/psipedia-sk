@@ -560,7 +560,7 @@ export function SiteHeader({
                 )}
               </div>
             ))}
-            <div className={styles.mobileUtilityLinks}><Link href="/o-nas#kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link><Link href={partnerHref} className="mobile-contact-link" data-partner-login-entry onClick={() => setMenuOpen(false)}>{partnerLabel}</Link></div>
+            <div className={styles.mobileUtilityLinks}><Link href="/kontakt" className="mobile-contact-link" onClick={() => setMenuOpen(false)}>Kontakt</Link><Link href={partnerHref} className="mobile-contact-link" data-partner-login-entry onClick={() => setMenuOpen(false)}>{partnerLabel}</Link></div>
             <button type="button" onClick={(event) => openSearch(event.currentTarget)}><SearchIcon /> Hľadať na Psipedii</button>
           </nav>
         </div>
