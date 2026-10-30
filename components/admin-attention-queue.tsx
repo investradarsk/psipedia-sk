@@ -220,7 +220,7 @@ export function AdminAttentionQueue({
                   />
                 </div>
               )}
-              {isAdminAttentionActive(item) && <AdminAttentionActions item={item} />
+              {isAdminAttentionActive(item) && <AdminAttentionActions item={item} />}
             </article>
           ))}
         </section>
