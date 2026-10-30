@@ -175,7 +175,10 @@ async function findUnmappedCanonicalBreed(database: D1Database, page: NotionPage
   if (occupied && occupied.notion_page_id !== page.id) {
     throw new Error("BREED_MAPPING_REVIEW_REQUIRED: profil už patrí inej Notion stránke.");
   }
-  return getManagedBreed(id);
+  const canonical = await getManagedBreed(id);
+  // Never silently adopt an independently edited Admin draft. Backfill only
+  // already public records whose identity is fully established.
+  return canonical?.status === "published" ? canonical : null;
 }
 
 async function listEditableNotionBreeds(bindings: NotionBreedSyncBindings, dataSourceId: string) {
