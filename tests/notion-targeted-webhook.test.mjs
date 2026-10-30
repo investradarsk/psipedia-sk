@@ -379,7 +379,8 @@ test("all enabled Notion data agendas use the existing minute webhook queue", as
   assert.match(dispatch, /sameSource\(sourceId, NOTION_FACEBOOK_IMAGES_SOURCE_ID\)/);
   assert.match(dispatch, /notionPageBelongsToDataSource\(page, NOTION_FACEBOOK_IMAGES_SOURCE_ID\)/);
   assert.match(dispatch, /targetPageId: id/);
-  assert.match(dispatch, /if \(result\.conflicts \|\| result\.invalid\) return "review-required"/);
+  assert.match(dispatch, /if \(result\.invalid\) return "review-required"/);
+  assert.match(dispatch, /if \(result\.conflicts\) return "deferred"/);
   assert.match(dispatch, /Services V3 is intentionally canonical Admin -> Notion/,
     "the canonical catalog must never import Notion options back to D1");
 });
