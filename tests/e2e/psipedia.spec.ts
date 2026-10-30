@@ -529,7 +529,7 @@ test("@production reviewer auth renders content in repeated fresh contexts and i
 
     expect(response, `reviewer auth attempt ${attempt + 1} has no response`).not.toBeNull();
     expect(response?.status(), `reviewer auth attempt ${attempt + 1}`).toBe(200);
-    await expect(freshPage.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+    await expect(freshPage.getByRole("heading", { name: "Overenie e-mailu" })).toBeVisible();
     await expect(freshPage.getByLabel("E-mail")).toBeVisible();
     await expect(freshPage.locator("form.review-auth-form")).toBeVisible();
 
