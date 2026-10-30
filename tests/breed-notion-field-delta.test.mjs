@@ -100,3 +100,16 @@ test("no schema migration needed; legacy hashes establish baseline; immutable ID
   assert.match(backfill,/const approved=true/);
   assert.doesNotMatch(sync,/SELECT .*notion_fields_json/);
 });
+
+test("signed Notion property IDs survive the webhook path to first-edit legacy breed patch", async () => {
+  const dispatch = await readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
+  const sync = await readFile(new URL("../lib/notion-breed-sync.ts", import.meta.url), "utf8");
+  const inbox = await readFile(new URL("../lib/notion-webhook-inbox.ts", import.meta.url), "utf8");
+  assert.match(dispatch, /changedPropertyIds: event\.data\?\.updated_properties \?\? \[\]/);
+  assert.match(inbox, /changed_properties_json/);
+  assert.match(sync, /function signedBreedChangedFields/);
+  assert.match(sync, /previousNotion\[field\] = previousAdmin\[field\]/);
+  assert.match(sync, /BREED_LEGACY_CONCURRENT_ADMIN_EDIT/);
+  assert.match(sync, /BREED_WEBHOOK_FIELDS_UNRESOLVED/);
+  assert.match(sync, /notion: plan\.latest, admin: breedFieldSnapshot\(updated\)/);
+});

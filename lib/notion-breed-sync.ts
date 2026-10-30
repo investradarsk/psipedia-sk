@@ -497,10 +497,47 @@ export async function writeBackDraftBreedEditorialToNotion(args: {
   return { linked: true, updated: true, notionPageId: page.id };
 }
 
+
+/** Notion webhook reports property IDs, never trusted field names from HTTP.
+ * Resolve IDs only against the authenticated, owner-verified page properties.
+ * Canonical identity, publishing, media and Google-owned fields are excluded.
+ */
+const BREED_WEBHOOK_PROPERTIES = {
+  name: "Názov", fciGroup: "FCI skupina", fciSection: "FCI sekcia",
+  fciSectionNumber: "FCI sekcia číslo", officialFciName: "Oficiálny FCI názov",
+  validStandardDate: "Platnosť FCI štandardu", workingTrial: "Pracovná skúška",
+  origin: "Krajina pôvodu", group: "Skupina", size: "Veľkosť",
+  weight: "Hmotnosť", height: "Výška", lifespan: "Dĺžka života",
+  coat: "Srsť", energy: "Energia", trainability: "Trénovateľnosť",
+  family: "Rodina", children: "Deti", otherDogs: "Iné psy",
+  apartment: "Byt", grooming: "Starostlivosť o srsť",
+  shedding: "Pĺznutie", preyDrive: "Lovecký pud", intro: "Intro",
+  character: "Charakter", needs: "Potreby", history: "História",
+  exercise: "Pohyb", training: "Výcvik", health: "Zdravie",
+  healthRisks: "Zdravotné riziká", goodFor: "Vhodné pre",
+  consider: "Zvážiť", sources: "Zdroje", "seo.title": "SEO title",
+  "seo.description": "Meta description",
+} as const;
+
+/** Signed event IDs are evidence of an explicit Notion edit, not a blanket
+ * permission to overwrite a legacy row whose independent Admin edits are unknown.
+ */
+function signedBreedChangedFields(page: NotionPage, changedPropertyIds: readonly string[]) {
+  const ids = new Set(changedPropertyIds);
+  return Object.entries(BREED_WEBHOOK_PROPERTIES)
+    .filter(([, label]) => {
+      const property = notionPropertyRecord(page, label);
+      const id = typeof property?.id === "string" ? property.id : "";
+      return ids.has(id) || ids.has(label);
+    })
+    .map(([field]) => field as keyof typeof BREED_WEBHOOK_PROPERTIES);
+}
+
 async function syncOneBreed(
   database: D1Database,
   bindings: NotionBreedSyncBindings,
   page: NotionPage,
+  changedPropertyIds: readonly string[] = [],
 ): Promise<"created" | "updated" | "unchanged"> {
   const basePayload = notionPageToManagedBreedInput(page);
   const contentHash = await notionBreedSourceHash(page);
@@ -606,10 +643,44 @@ async function syncOneBreed(
       return "updated";
     }
 
-    // A legacy linked row has only a whole-page SHA; establish a baseline
-    // rather than guessing which fields changed before this upgrade.
+    // Legacy SHA receipts lack a per-field baseline. The SIGNED webhook event
+    // supplies exact changed property IDs. Never silently consume a first edit
+    // by treating the already-edited page as the common baseline.
     if (mapping && !fieldReceipt
       && !mapping.content_hash.startsWith("identity-pending-editorial:")) {
+      if (changedPropertyIds.length) {
+        const touched = signedBreedChangedFields(page, changedPropertyIds);
+        if (!touched.length) throw new Error("BREED_WEBHOOK_FIELDS_UNRESOLVED");
+        // On legacy rows we cannot tell which Admin fields changed since the
+        // last receipt. Reject any unacknowledged Admin revision instead of
+        // silently overriding it (even if the edit was to another field).
+        if (!Number.isFinite(lastAck) || !Number.isFinite(adminEdit) || adminEdit > lastAck) {
+          throw new Error("BREED_LEGACY_CONCURRENT_ADMIN_EDIT");
+        }
+        const previousNotion = breedFieldSnapshot(basePayload);
+        const previousAdmin = breedFieldSnapshot(existing);
+        for (const field of touched) previousNotion[field] = previousAdmin[field];
+        const plan = planBreedNotionFieldDelta(existing, basePayload, previousNotion, previousAdmin);
+        if (plan.conflicts.length) throw new Error("BREED_LEGACY_FIELD_CONFLICT");
+        const merged = { ...existing, ...plan.patch,
+          seo: { ...existing.seo, ...(plan.patch.seo ?? {}) },
+          status: existing.status, image: existing.image, imageKey: existing.imageKey,
+          gallery: existing.gallery, accent: existing.accent,
+          editorialComplete: existing.editorialComplete } satisfies ManagedBreedInput;
+        const updated = Object.keys(plan.patch).length
+          ? await updateManagedBreed(existing.id, merged, SYNC_ACTOR, existing.updatedAt)
+          : existing;
+        if (!updated) throw new Error("BREED_LEGACY_FIELD_UPDATE_FAILED");
+        await upsertMapping(database, page, updated.id, contentHash, now, {
+          notion: plan.latest, admin: breedFieldSnapshot(updated),
+        });
+        await updateNotionSyncState(bindings, page.id, {
+          state: "Synchronizované", psipediaId: updated.id, syncedAt: now,
+        });
+        return plan.accepted.length && Object.keys(plan.patch).length ? "updated" : "unchanged";
+      }
+      // Hourly scans can initialize an unchanged common baseline, but must
+      // not claim that a signed first edit was transferred when no IDs arrived.
       await upsertMapping(database, page, existing.id, contentHash, now, {
         notion: breedFieldSnapshot(basePayload),
         admin: breedFieldSnapshot(existing),
@@ -705,6 +776,7 @@ export async function runNotionBreedSyncSweep(args: {
   database: D1Database;
   bindings: NotionBreedSyncBindings;
   targetPageId?: string;
+  changedPropertyIds?: readonly string[];
 }): Promise<NotionBreedSyncSummary> {
   const summary: NotionBreedSyncSummary = {
     enabled: notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED),
@@ -734,7 +806,7 @@ export async function runNotionBreedSyncSweep(args: {
     if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
     summary.scanned += 1;
     try {
-      const result = await syncOneBreed(args.database, args.bindings, page);
+      const result = await syncOneBreed(args.database, args.bindings, page, args.changedPropertyIds ?? []);
       summary[result] += 1;
     } catch (error) {
       summary.failed += 1;
