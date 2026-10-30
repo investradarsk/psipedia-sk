@@ -195,8 +195,11 @@ test("ARTICLE-PROMO admin/public integration exposes add, target, variant, previ
 
   assert.match(renderer, /block\.type === "psipedia-promo"/);
   assert.match(renderer, /ArticlePromo/);
-  assert.match(promoComponent, /aria-label=/);
-  assert.match(promoComponent, /aria-hidden="true"/);
+  assert.match(promoComponent, /<PublicMagazineBanner/);
+  assert.match(promoComponent, /href=\{target.href\}/);
+  const sharedBanner = readFileSync("components/public-visual-system/public-magazine-banner.tsx", "utf8");
+  assert.match(sharedBanner, /aria-label=/);
+  assert.match(sharedBanner, /aria-hidden="true"/);
   // Promo CTA uses the shared PublicActionLink focus ring; no competing local style.
   const sharedActionCss = readFileSync("components/public-visual-system/public-visual-system.module.css", "utf8");
   assert.match(sharedActionCss, /\.action:focus-visible/);
