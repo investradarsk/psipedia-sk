@@ -120,7 +120,8 @@ test("SERVICES-V2 category grid keyboard interaction and 200% text do not clip",
   const track = nav.locator("[data-public-subcategory-track]");
   const links = nav.locator("[data-public-subcategory-item]");
   await expect(track).toBeVisible();
-  await expect(links).toHaveCount(10);
+  // Directory root includes the overview shortcut plus ten service categories.
+  await expect(links).toHaveCount(11);
   await expect(links.first()).toBeVisible();
   await expect(links.last()).toBeVisible();
   await expect(nav.locator("button[aria-controls]")).toHaveCount(0);
