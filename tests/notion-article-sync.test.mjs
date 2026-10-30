@@ -106,7 +106,7 @@ test("markerless Editorial Hub articles keep complete prose without importing ad
 });
 
 test("Notion retry cannot overwrite a manually edited or concurrently updated Admin draft", () => {
-  assert.match(syncSource, /if \(existing\.updatedBy !== SYNC_ACTOR\)/);
+  assert.match(syncSource, /if \(mapping && existing\.updatedBy !== SYNC_ACTOR\)/);
   assert.match(syncSource, /Prepojený koncept bol upravený v administrácii/);
   assert.match(syncSource, /updateManagedArticle\(existing\.id, prepared\.payload, SYNC_ACTOR, existing, \{ updatedAt: existing\.updatedAt, status: "draft" \}\)/);
   assert.match(articleStoreSource, /WHERE id = \?/);
