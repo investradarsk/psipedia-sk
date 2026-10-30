@@ -186,7 +186,7 @@ test("admin and Notion call-sites must use the read version and return an action
   assert.match(editor, /breed\?\{expectedUpdatedAt\}/);
   assert.match(editor, /setExpectedUpdatedAt\(data\.breed\.updatedAt\)/);
   assert.match(notion, /updateManagedBreed\(existing\.id, payload, SYNC_ACTOR, existing\.updatedAt\)/);
-  assert.match(notion, /if \(mapping && mapping\.content_hash === contentHash\)/);
+  assert.match(notion, /if \(mapping && receipt\.hash === contentHash\)/);
   assert.match(notion, /return "unchanged"/);
   assert.match(store, /new Date\(Math\.max\(Date\.now\(\), previous \+ 1\)\)\.toISOString\(\)/);
   assert.match(store, /breeds\.map\(\(breed\) => Date\.parse\(breed\.updatedAt\) \+ 1\)/);

@@ -414,7 +414,7 @@ function clean(input:ManagedBreedInput){
   const ids=(value:unknown)=>Array.isArray(value)?[...new Set(value.map(Number).filter((item)=>Number.isSafeInteger(item)&&item>0))].slice(0,100):[];
   const slug=text(input.slug,90).toLowerCase().replace(/[^a-z0-9-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");const name=text(input.name,120);
   if(!slug||!name)throw new Error("Názov a adresa plemena sú povinné.");
-  const children=score(input.children??input.family);
+  const children=score(input.children??input.family);const family=score(input.family);
   const gallery=Array.isArray(input.gallery)?input.gallery.slice(0,30).map((item)=>({imageUrl:text(item.imageUrl,700),imageKey:item.imageKey?text(item.imageKey,700):null,alt:text(item.alt,240),caption:text(item.caption,500),credit:text(item.credit,300)})).filter((item)=>item.imageUrl):[];
   const sources=Array.isArray(input.sources)?input.sources.slice(0,30).map((item)=>({label:text(item.label,300),url:text(item.url,700)})).filter((item)=>item.label&&/^https?:\/\//i.test(item.url)):[];
   const officialFciName=text(input.officialFciName,200);const fciStandard=cleanFciStandard(input.fciStandard);
@@ -450,7 +450,7 @@ function clean(input:ManagedBreedInput){
     importKey:input.importKey?text(input.importKey,120):null,fciStandard,editorial,sports,relatedBreedIds:ids(input.relatedBreedIds),relatedArticleIds:ids(input.relatedArticleIds),directoryProfileIds:ids(input.directoryProfileIds),editorialComplete:input.editorialComplete!==false,
     origin:text(input.origin,160),group:text(input.group,160),
     size:text(input.size,160),weight:text(input.weight,100),height:text(input.height,100),lifespan:text(input.lifespan,100),coat:text(input.coat,200),
-    energy:score(input.energy),trainability:score(input.trainability),family:children,children,otherDogs:score(input.otherDogs),apartment:score(input.apartment),
+    energy:score(input.energy),trainability:score(input.trainability),family,children,otherDogs:score(input.otherDogs),apartment:score(input.apartment),
     grooming:score(input.grooming),shedding:score(input.shedding),preyDrive:score(input.preyDrive),intro:text(input.intro,1200),character:text(input.character,8000),
     needs:text(input.needs,8000),history:text(input.history,8000),exercise:text(input.exercise,8000),training:text(input.training,8000),health:text(input.health,8000),
     healthRisks:strings(input.healthRisks),goodFor:strings(input.goodFor),consider:strings(input.consider),sources,
