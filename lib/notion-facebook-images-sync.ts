@@ -143,9 +143,9 @@ async function imageForPage(bindings:FacebookImagesSyncBindings,
   return {key,url:"/media/"+key};
 }
 export async function runNotionFacebookImagesSync({
-  database:db,bindings,now=new Date(),
+  database:db,bindings,now=new Date(),targetPageId,
 }:{
-  database:D1Database;bindings:FacebookImagesSyncBindings;now?:Date;
+  database:D1Database;bindings:FacebookImagesSyncBindings;now?:Date;targetPageId?:string;
 }):Promise<FacebookImagesSyncSummary> {
   const out:FacebookImagesSyncSummary={enabled:notionFlagEnabled(bindings.NOTION_FACEBOOK_IMAGES_SYNC_ENABLED),
     scanned:0,created:0,updated:0,unchanged:0,conflicts:0,failed:0,invalid:0,writtenBack:0,hasMore:false};
@@ -164,7 +164,9 @@ export async function runNotionFacebookImagesSync({
   await db.prepare("SELECT post_id,state FROM facebook_image_publish_attempts LIMIT 0").all();
   // Legacy behavior is unchanged while V2 is disabled. V2 ingests newer
   // Notion edits first, before the admin export could overwrite them.
-  if(!policy.enabled)out.adminExport=await exportFacebookAdminChanges({db,bindings,now});
+  // A targeted Notion event must never kick off an unrelated Admin export.
+  if(!targetPageId&&!policy.enabled)
+    out.adminExport=await exportFacebookAdminChanges({db,bindings,now});
   let consentReady=false;
   try{await db.prepare("SELECT direct_publish_consent FROM facebook_image_posts LIMIT 0").all();consentReady=true;}
   catch(error){if(!(error instanceof Error&&/no such column:\s*direct_publish_consent/i.test(error.message)))throw error;}
@@ -173,18 +175,30 @@ export async function runNotionFacebookImagesSync({
   catch(error){if(!(error instanceof Error && /no such column:\s*deleted_at/i.test(error.message)))throw error;}
   const pages:Page[]=[];
   let cursor:string|null=null;
-  do {
-    const response=await notionRequest<Query>(bindings,
-      "/data_sources/"+NOTION_FACEBOOK_IMAGES_SOURCE_ID+"/query",{
-        method:"POST",body:JSON.stringify({
-          page_size:Math.min(50,100-pages.length),
-          sorts:[{timestamp:"last_edited_time",direction:"descending"}],
-          ...(cursor?{start_cursor:cursor}:{}),
-        }),
-      });
-    pages.push(...(response.results??[]));
-    cursor=response.has_more&&response.next_cursor?response.next_cursor:null;
-  }while(cursor&&pages.length<100);
+  if(targetPageId!==undefined) {
+    if(!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(targetPageId))
+      throw new Error("FACEBOOK_TARGET_PAGE_INVALID");
+    const page=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(targetPageId));
+    const parent=page.parent?.data_source_id??"";
+    if(page.id!==targetPageId || page.archived || page.in_trash ||
+      parent.replaceAll("-","").toLowerCase()!==NOTION_FACEBOOK_IMAGES_SOURCE_ID.replaceAll("-","")) {
+      throw new Error("FACEBOOK_TARGET_PAGE_OWNER_MISMATCH");
+    }
+    pages.push(page);
+  } else {
+    do {
+      const response=await notionRequest<Query>(bindings,
+        "/data_sources/"+NOTION_FACEBOOK_IMAGES_SOURCE_ID+"/query",{
+          method:"POST",body:JSON.stringify({
+            page_size:Math.min(50,100-pages.length),
+            sorts:[{timestamp:"last_edited_time",direction:"descending"}],
+            ...(cursor?{start_cursor:cursor}:{}),
+          }),
+        });
+      pages.push(...(response.results??[]));
+      cursor=response.has_more&&response.next_cursor?response.next_cursor:null;
+    }while(cursor&&pages.length<100);
+  }
   out.hasMore=Boolean(cursor);
   for(const page of pages) {
     out.scanned++;
@@ -318,6 +332,7 @@ export async function runNotionFacebookImagesSync({
       out.failed++;
     }
   }
-  if(policy.enabled)out.adminExport=await exportFacebookAdminChanges({db,bindings,now});
+  if(!targetPageId&&policy.enabled)
+    out.adminExport=await exportFacebookAdminChanges({db,bindings,now});
   return out;
 }
