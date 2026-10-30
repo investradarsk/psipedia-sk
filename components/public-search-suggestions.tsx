@@ -41,23 +41,24 @@ export function PublicSearchSuggestions({
     total: 0,
     status: "idle",
   });
-  const [selected, setSelected] = useState(-1);
-  const [dismissed, setDismissed] = useState(false);
+  const [selection, setSelection] = useState({ query: "", index: -1 });
+  const [dismissedFor, setDismissedFor] = useState("");
+  const selected = selection.query === normalizedQuery ? selection.index : -1;
   const cacheRef = useRef(new Map<string, SearchResponse>());
 
   useEffect(() => {
-    setDismissed(false);
-    setSelected(-1);
     if (!enabled || normalizedQuery.length < 2) return;
     const cached = cacheRef.current.get(normalizedQuery);
     if (cached) {
-      setState({ query: normalizedQuery, groups: cached.groups ?? [], total: cached.total ?? 0, status: "ready" });
-      return;
+      const timer = window.setTimeout(() => {
+        setState({ query: normalizedQuery, groups: cached.groups ?? [], total: cached.total ?? 0, status: "ready" });
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
 
     const controller = new AbortController();
-    setState({ query: normalizedQuery, groups: [], total: 0, status: "loading" });
     const timer = window.setTimeout(async () => {
+      setState({ query: normalizedQuery, groups: [], total: 0, status: "loading" });
       try {
         const response = await fetch(
           `/api/public/search/suggestions?q=${encodeURIComponent(normalizedQuery)}`,
@@ -88,7 +89,7 @@ export function PublicSearchSuggestions({
   const status = state.query === normalizedQuery ? state.status : "loading";
   const suggestions = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   const listId = `ps-search-${componentId}`;
-  const isOpen = enabled && normalizedQuery.length >= 2 && !dismissed;
+  const isOpen = enabled && normalizedQuery.length >= 2 && dismissedFor !== normalizedQuery;
 
   useEffect(() => {
     const input = inputRef.current;
@@ -113,15 +114,18 @@ export function PublicSearchSuggestions({
     if (!input || !enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && mode === "home") {
-        setDismissed(true);
+        setDismissedFor(normalizedQuery);
         return;
       }
       if (!isOpen || status !== "ready" || !suggestions.length) return;
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
-        setSelected((current) => event.key === "ArrowDown"
-          ? (current + 1) % suggestions.length
-          : (current - 1 + suggestions.length) % suggestions.length);
+        setSelection((current) => {
+          const index = current.query === normalizedQuery ? current.index : -1;
+          return { query: normalizedQuery, index: event.key === "ArrowDown"
+            ? (index + 1) % suggestions.length
+            : (index - 1 + suggestions.length) % suggestions.length };
+        });
       } else if (event.key === "Enter" && selected >= 0 && suggestions[selected]) {
         event.preventDefault();
         const destination = suggestions[selected].href;
@@ -133,7 +137,7 @@ export function PublicSearchSuggestions({
     };
     input.addEventListener("keydown", onKeyDown);
     return () => input.removeEventListener("keydown", onKeyDown);
-  }, [inputRef, enabled, isOpen, status, suggestions, selected, router, mode, onNavigate]);
+  }, [inputRef, enabled, isOpen, status, suggestions, selected, router, mode, onNavigate, normalizedQuery]);
 
   if (!enabled) return null;
   if (normalizedQuery.length < 2) {
@@ -154,7 +158,7 @@ export function PublicSearchSuggestions({
       </div>
     );
   }
-  if (dismissed) return null;
+  if (dismissedFor === normalizedQuery) return null;
 
   let cursor = 0;
   return (
@@ -180,7 +184,7 @@ export function PublicSearchSuggestions({
                     className={styles.option}
                     data-active={selected === index}
                     href={item.href}
-                    onMouseEnter={() => setSelected(index)}
+                    onMouseEnter={() => setSelection({ query: normalizedQuery, index })}
                     onClick={onNavigate}
                   >
                     <span className={styles.optionIcon}><SearchIcon size={15} /></span>
