@@ -183,6 +183,16 @@ function psipediaFbSafe_(pageId,note,reason) {
  * Script lock protects races between this SAME script's triggers; external
  * Notion/Admin writers require separate D1-side coordination.
  */
+/** Record an uploader failure without creating a second page or granting consent. */
+function psipediaFbMarkUploadFailed_(message,pageId) {
+  var page=psipediaFbNotion_("get","/pages/"+encodeURIComponent(pageId));
+  var state=psipediaFbStatus_(page);
+  if(state!=="Koncept"&&state!=="Na kontrolu")return {unchanged:true};
+  var id=psipediaFbId_(message);
+  var note=psipediaFbPlainNote_(page);
+  if(note.indexOf(id)<0)throw Error("Notion page missing expected bridge ID");
+  return psipediaFbSafe_(pageId,note,"Import PNG/JPEG obrázka do Notion zlyhal; import možno zopakovať.");
+}
 function psipediaFbFinalizeSchedule_(message,pageId,receipt) {
   var lock=LockService.getScriptLock();
   if(!lock.tryLock(30000))throw Error("Gmail bridge busy: retry");
@@ -190,7 +200,7 @@ function psipediaFbFinalizeSchedule_(message,pageId,receipt) {
     var id=psipediaFbId_(message);
     var page=psipediaFbNotion_("get","/pages/"+encodeURIComponent(pageId));
     var state=psipediaFbStatus_(page);
-    if(state==="Publikované"||state==="Naplánované")
+    if(state!=="Koncept"&&state!=="Na kontrolu")
       return {scheduled:state==="Naplánované",unchanged:true};
     if(psipediaFbPlainNote_(page).indexOf(id)<0)
       throw Error("Notion page missing expected bridge ID");
@@ -204,6 +214,11 @@ function psipediaFbFinalizeSchedule_(message,pageId,receipt) {
     if(typeof payload.title!=="string"||!payload.title.trim()||
        typeof payload.caption!=="string"||!payload.caption.trim())
       return psipediaFbSafe_(pageId,note,"Chýba názov alebo Facebook popis.");
+    var importedTitle=psipediaFbText_(page,"Názov","title").trim();
+    var importedCaption=psipediaFbText_(page,"Text na Facebook","rich_text").trim();
+    if(!importedTitle||!importedCaption||importedTitle!==payload.title.trim()||
+       importedCaption!==payload.caption.trim())
+      return psipediaFbSafe_(pageId,note,"Názov alebo Facebook popis v Notione chýba alebo nesúhlasí s e-mailom.");
     var image=psipediaFbImage_(message);
     if(!image)return psipediaFbSafe_(pageId,note,"Chýba platná jediná PNG/JPEG príloha.");
     if(!psipediaFbAttachedFileVerified_(page,receipt))
