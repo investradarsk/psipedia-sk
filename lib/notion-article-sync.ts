@@ -1781,7 +1781,8 @@ async function syncOneNotionPage(
       // relations, author and moderation state. Only Notion editorial fields
       // (body, intro, title, excerpt, SEO and social caption) flow inbound.
       if (mapping && existing.updatedBy !== SYNC_ACTOR
-        && Date.parse(existing.updatedAt) > Date.parse(mapping.last_synced_at) + 2_000) {
+        && (!Number.isFinite(Date.parse(mapping.last_synced_at))
+          || Date.parse(existing.updatedAt) > Date.parse(mapping.last_synced_at) + 2_000)) {
         throw new Error("ARTICLE_ADMIN_REVISION_NOT_SYNCED");
       }
       const publishedPayload: ManagedArticleInput = {
