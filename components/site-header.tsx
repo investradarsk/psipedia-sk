@@ -463,7 +463,7 @@ export function SiteHeader({
           ) : null}
 
           <div className="header-actions">
-            <Link href="/o-nas#kontakt" className="header-contact-link">Kontakt</Link>
+            <Link href="/kontakt" className="header-contact-link">Kontakt</Link>
             <Link href={partnerHref} className="header-contact-link" data-partner-login-entry>{partnerLabel}</Link>
             <button ref={searchTriggerRef} className="icon-button search-trigger" type="button" onClick={(event) => openSearch(event.currentTarget)} aria-label="Otvoriť vyhľadávanie" data-search-ready="false">
               <SearchIcon />
