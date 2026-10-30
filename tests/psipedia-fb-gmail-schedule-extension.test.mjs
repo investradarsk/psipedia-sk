@@ -189,3 +189,21 @@ test("duplicate bridge marker found in two Notion rows throws, no new page",()=>
   assert.throws(()=>f.scope.psipediaFbFindByGmailId_(mailId),/Duplicate/);
   assert.equal(f.state.calls.some(x=>x.method==="post"&&x.path==="/pages"),false);
 });
+
+
+test("missing or mismatched imported title/caption cannot be scheduled",()=>{
+  const f=fixture();
+  f.state.pages[0].properties["Text na Facebook"].rich_text=[{plain_text:"Iný obsah"}];
+  assert.equal(f.run().scheduled,false);
+  assertDraft(f,/nesúhlasí/);
+});
+test("failure to upload image records a safe and retryable Notion draft",()=>{
+  const f=fixture({uploaded:false});
+  f.scope.psipediaFbMarkUploadFailed_(f.message,"notion-page-1");
+  assertDraft(f,/Import PNG\/JPEG obrázka do Notion zlyhal/);
+});
+test("existing approved page is not overwritten by bridge retry",()=>{
+  const f=fixture({status:"Schválené"});
+  assert.equal(f.run().unchanged,true);
+  assert.equal(f.state.calls.some(x=>x.method==="patch"),false);
+});
