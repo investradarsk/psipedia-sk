@@ -333,8 +333,22 @@ const worker = {
       }).then((summary) => console.info(JSON.stringify({ event: "quality_missing_hourly", ...summary })))
         .catch(() => console.error(JSON.stringify({ event: "quality_missing_hourly", result: "failed" }))));
     }
-    // The dedicated per-minute trigger is strictly isolated from the legacy five-minute/hourly sweeps.
+    // Notion's signed page events are reconciled on the EXISTING minute cron.
+    // Independent waitUntil means Facebook publication cannot delay or cancel
+    // one-record Notion imports. The hourly scan remains a safety net.
     if (controller.cron === "* * * * *") {
+      if (pushTaskEnabled(env.NOTION_WEBHOOK_SYNC_ENABLED) && pushTaskEnabled(env.NOTION_WEBHOOK_INBOX_ENABLED)) {
+        _ctx.waitUntil(runNotionWebhookInboxSweep({
+          database: env.DB,
+          process: event => dispatchNotionPageChange(event, env),
+          limit: 8,
+        }).then(summary => {
+          console.info(JSON.stringify({ event: "notion_webhook_inbox_sweep", ...summary }));
+        }).catch(() => {
+          // Never log tokens, incoming Notion values or signed image URLs.
+          console.error(JSON.stringify({ event: "notion_webhook_inbox_sweep", result: "failed" }));
+        }));
+      }
       try {
         const summary=await runFacebookImagePublishSweep({db:env.DB,bindings:env,now:new Date(controller.scheduledTime??Date.now())});
         console.info(JSON.stringify({event:"facebook_image_publish_sweep",...summary}));
@@ -343,19 +357,6 @@ const worker = {
         console.error(JSON.stringify({event:"facebook_image_publish_sweep",result:"failed"}));
       }
       return;
-    }
-    // Every five minutes, consume a bounded batch of durable signed Notion
-    // receipts. This is independent of FB images, hourly sweeps and Gemini.
-    if (controller.cron === ADMIN_PUSH_CRON && pushTaskEnabled(env.NOTION_WEBHOOK_SYNC_ENABLED) && pushTaskEnabled(env.NOTION_WEBHOOK_INBOX_ENABLED)) {
-      _ctx.waitUntil(runNotionWebhookInboxSweep({
-        database: env.DB,
-        process: event => dispatchNotionPageChange(event, env),
-      }).then(summary => {
-        console.info(JSON.stringify({ event: "notion_webhook_inbox_sweep", ...summary }));
-      }).catch(() => {
-        // No payloads, secret material or personal data in logs.
-        console.error(JSON.stringify({ event: "notion_webhook_inbox_sweep", result: "failed" }));
-      }));
     }
     // Existing five-minute Cron: standalone Notion image import + published result writeback.
     // Strict feature gate is OFF unless explicitly enabled; this is never a new Cron.
