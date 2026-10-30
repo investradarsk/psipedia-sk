@@ -104,15 +104,18 @@ function psipediaFbSenderVerified_(message) {
   if (Session.getEffectiveUser().getEmail().toLowerCase()!==PSIPEDIA_FB_OWNER) return false;
   var addresses=String(message.getFrom()).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig)||[];
   if (addresses.length!==1||addresses[0].toLowerCase()!==PSIPEDIA_FB_OWNER) return false;
-  // From: alone is spoofable. Require the *same Gmail ID* in this account's SENT.
-  var threads=GmailApp.search('in:sent from:'+PSIPEDIA_FB_OWNER+' "'+PSIPEDIA_FB_MARKER+'"',0,100);
-  for(var i=0;i<threads.length;i++){
-    var messages=threads[i].getMessages();
-    for(var j=0;j<messages.length;j++){
-      if(messages[j].getId()===message.getId()) return true;
-    }
-  }
-  return false; // Too old / unavailable search? Fail closed.
+  // Gmail search returns THREADS, so it cannot prove that this specific
+  // message is SENT. Use the authenticated Gmail API to read exact labelIds.
+  var url="https://gmail.googleapis.com/gmail/v1/users/me/messages/"+
+    encodeURIComponent(message.getId())+"?format=minimal";
+  var res=UrlFetchApp.fetch(url,{
+    method:"get",headers:{Authorization:"Bearer "+ScriptApp.getOAuthToken()},
+    muteHttpExceptions:true
+  });
+  if(res.getResponseCode()!==200)return false;
+  var data=JSON.parse(res.getContentText());
+  return data.id===message.getId()&&Array.isArray(data.labelIds)
+    &&data.labelIds.indexOf("SENT")>=0;
 }
 function psipediaFbImage_(message) {
   var attachments=message.getAttachments({includeInlineImages:false,includeAttachments:true});
