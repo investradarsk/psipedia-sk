@@ -82,11 +82,13 @@ test("admin list/store and calendar all consume one effective lifecycle contract
   assert.match(editor, /readOnly=\{displayedStatus === "published"\}/);
 });
 
-test("Notion import always creates drafts and never promotes or schedules by itself", () => {
+test("Notion creates new articles only as drafts and keeps existing published articles published", () => {
   const notion = read("lib/notion-article-sync.ts");
   const worker = read("worker/index.ts");
   assert.match(notion, /status: "draft",/);
-  assert.match(notion, /if \(existing.status !== "draft"\)/);
+  assert.match(notion, /existing\.status !== "draft" && existing\.status !== "published"/);
+  assert.match(notion, /status: existing\.status/);
+  assert.match(notion, /ARTICLE_CREATE_REQUIRES_READY/);
   assert.match(notion, /updatedAt: existing.updatedAt, status: "draft"/);
   assert.doesNotMatch(notion, /status: "scheduled",/);
   assert.match(worker, /runNotionArticleSyncSweep/);
