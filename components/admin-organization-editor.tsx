@@ -230,8 +230,8 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
 
       <AdminEditorSection id="organization-content" className="admin-form-card">
         <div className="admin-card-heading"><div><span>02</span><div><h2>Verejný obsah</h2><p>Spoločný Lexical editor; popisy zostávajú v existujúcom dátovom formáte.</p></div></div></div>
-        <div className="admin-field"><label htmlFor="organization-short-description">Krátky popis</label><AdminLexicalTextField id="organization-short-description" rows={3} value={draft.shortDescription} disabled={editingDisabled} onChange={(next) => patch({ shortDescription: next })} /></div>
-        <div className="admin-field"><label htmlFor="organization-description">Verejný popis</label><AdminLexicalTextField id="organization-description" rows={10} value={draft.description} disabled={editingDisabled} onChange={(next) => patch({ description: next })} /><AdminLexicalAppendButton disabled={editingDisabled} onAppend={text=>patch({description:appendLexicalPlainText(draft.description,text)})}/></div>
+        <div className="admin-field"><label htmlFor="organization-short-description">Krátky popis</label><AdminLexicalTextField id="organization-short-description" rows={3} value={draft.shortDescription} disabled={editingDisabled} onChange={(next) => patch({ shortDescription: next })} ariaLabel="Krátky popis" /></div>
+        <div className="admin-field"><label htmlFor="organization-description">Verejný popis</label><AdminLexicalTextField id="organization-description" rows={10} value={draft.description} disabled={editingDisabled} onChange={(next) => patch({ description: next })} ariaLabel="Verejný popis" /><AdminLexicalAppendButton disabled={editingDisabled} onAppend={text=>patch({description:appendLexicalPlainText(draft.description,text)})}/></div>
         <AdminHelpText term="Storage contract">Lexical rešpektuje pôvodné textové polia a obojsmernú synchronizáciu.</AdminHelpText>
       </AdminEditorSection>
 
