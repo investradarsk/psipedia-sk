@@ -1,0 +1,7 @@
+.wrapper { display: grid; gap: .35rem; }
+.actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.actions button { min-height: 44px; flex: 1 1 150px; border: 1px solid #dae4dd; border-radius: .7rem; padding: .5rem .75rem; background: #f4f8f4; color: #1d4a35; font: inherit; font-size: .9rem; font-weight: 650; cursor: pointer; }
+.actions button:disabled { opacity: .65; cursor: default; }
+.actions button:focus-visible { outline: 3px solid #d18c43; outline-offset: 2px; }
+.error { color: #a3332b; font-size: .85rem; }
+@media (max-width: 640px) { .actions button { flex: 1 1 100%; } }

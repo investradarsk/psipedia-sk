@@ -4,6 +4,7 @@ import {
   adminAttentionQueueSourceTypes,
   isAdminAttentionQueueSourceType,
   mapAdoptionStaleAttention,
+  mapHelpSourceReviewAttention,
   mapAutomationActionAttention,
   mapArticleFeedbackAttention,
   mapDirectoryChangeRequestAttention,
@@ -40,6 +41,7 @@ import {
   type PartnerProfileChangeAttentionRow,
   type PartnerVerificationAttentionRow,
   type ProfileReviewAttentionRow,
+  type HelpSourceReviewAttentionRow,
 } from "./admin-attention-queue.ts";
 
 export type AdminAttentionD1Database = Pick<D1Database, "prepare">;
@@ -461,7 +463,7 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
   `,
   ADOPTION_STALE: `
     SELECT 'ADOPTION_STALE' AS sourceType, CAST(id AS TEXT) AS sourceId,
-      0 AS activeRank, 'IN_PROGRESS' AS attentionState,
+      0 AS activeRank, 'NEW' AS attentionState,
       CASE WHEN last_verified_at IS NULL OR last_verified_at < (SELECT adoptionHighAt FROM params) THEN 'HIGH' ELSE 'MEDIUM' END AS priority,
       CASE WHEN last_verified_at IS NULL OR last_verified_at < (SELECT adoptionHighAt FROM params) THEN 0 ELSE 1 END AS priorityRank,
       COALESCE(last_verified_at,created_at) AS relevantAt,
@@ -469,6 +471,36 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
     FROM adoption_dogs
     WHERE status IN ('ACTIVE','RESERVED')
       AND (last_verified_at IS NULL OR last_verified_at < (SELECT staleAdoptionAt FROM params))
+      -- Avoid duplicate alerts once the dedicated inspection has been recorded.
+      AND NOT EXISTS (SELECT 1 FROM help_source_checks checked
+        WHERE checked.entity_type='ADOPTION' AND checked.entity_id=adoption_dogs.id)
+  `,
+  HELP_SOURCE_REVIEW: `
+    SELECT 'HELP_SOURCE_REVIEW' AS sourceType,
+      (c.entity_type || ':' || c.entity_id) AS sourceId,
+      0 AS activeRank, 'NEW' AS attentionState,
+      CASE WHEN c.source_state='POSSIBLE_CHANGE' THEN 'HIGH' ELSE 'MEDIUM' END AS priority,
+      CASE WHEN c.source_state='POSSIBLE_CHANGE' THEN 0 ELSE 1 END AS priorityRank,
+      CASE WHEN c.last_reviewed_at IS NOT NULL AND c.last_reviewed_state=c.source_state
+        AND julianday((SELECT nowIso FROM params))>=julianday(c.last_reviewed_at)+7
+        THEN datetime(c.last_reviewed_at,'+7 days')
+        ELSE COALESCE(c.state_changed_at,c.last_checked_at,c.created_at) END AS relevantAt,
+      json_object('id',c.entity_id,'entityType',c.entity_type,
+        'name',COALESCE(a.name,l.dog_name,l.breed,'Pes'),
+        'state',c.source_state,'evidence',c.evidence,
+        'lastCheckedAt',CASE WHEN c.last_reviewed_at IS NOT NULL AND c.last_reviewed_state=c.source_state
+          AND julianday((SELECT nowIso FROM params))>=julianday(c.last_reviewed_at)+7
+          THEN datetime(c.last_reviewed_at,'+7 days')
+          ELSE COALESCE(c.state_changed_at,c.last_checked_at,c.created_at) END) AS payload
+    FROM help_source_checks c
+    LEFT JOIN adoption_dogs a ON c.entity_type='ADOPTION' AND a.id=c.entity_id
+      AND a.status IN ('ACTIVE','RESERVED')
+    LEFT JOIN lost_found_dog_reports l ON c.entity_type='LOST_FOUND' AND l.id=c.entity_id
+      AND l.status='ACTIVE' AND l.published_at IS NOT NULL
+    WHERE (a.id IS NOT NULL OR l.id IS NOT NULL)
+      AND c.source_state IN ('POSSIBLE_CHANGE','UNCERTAIN','UNAVAILABLE','NO_SOURCE')
+      AND (c.last_reviewed_at IS NULL OR c.last_reviewed_state<>c.source_state
+        OR julianday((SELECT nowIso FROM params))>=julianday(c.last_reviewed_at)+7)
   `,
   AUTOMATION_ACTION: AUTOMATION_ACTION_SELECT,
   PARTNER_CLAIM_REVIEW: `
@@ -860,8 +892,12 @@ type AttentionActiveCountRow = { sourceType: AdminAttentionQueueSourceType; acti
 function summaryGroupSql(sources: readonly AdminAttentionQueueSourceType[]) {
   const queries = sources.map((sourceType) => `
     SELECT '${sourceType}' AS sourceType,
-      COALESCE(SUM(CASE WHEN activeRank=0 THEN 1 ELSE 0 END),0) AS activeCount
-    FROM (${ATTENTION_SOURCE_SELECTS[sourceType]})
+      COALESCE(SUM(CASE WHEN base.activeRank=0 AND
+        (ack.relevant_at IS NULL OR ack.relevant_at<>base.relevantAt
+          OR (ack.read_at IS NULL AND (ack.snoozed_until IS NULL OR ack.snoozed_until<=(SELECT nowIso FROM params))))
+        THEN 1 ELSE 0 END),0) AS activeCount
+    FROM (${ATTENTION_SOURCE_SELECTS[sourceType]}) base
+    LEFT JOIN admin_attention_ack ack ON ack.source_type=base.sourceType AND ack.source_id=base.sourceId
   `);
   return `${paramsCte()}\n${queries.join("\nUNION ALL\n")}`;
 }
@@ -1144,6 +1180,7 @@ function mapGenericRow(row: AttentionGenericRow, now: Date): AdminAttentionItem 
     case "DIRECTORY_INQUIRY": return mapDirectoryInquiryAttention(payload as DirectoryInquiryAttentionRow, now);
     case "ARTICLE_FEEDBACK": return mapArticleFeedbackAttention(payload as ArticleFeedbackAttentionRow, now);
     case "ADOPTION_STALE": return mapAdoptionStaleAttention(payload as AdoptionStaleAttentionRow, now);
+    case "HELP_SOURCE_REVIEW": return mapHelpSourceReviewAttention(payload as HelpSourceReviewAttentionRow, now);
     case "AUTOMATION_ACTION": return mapAutomationActionAttention(payload as AutomationActionAttentionRow, now);
     case "PARTNER_CLAIM_REVIEW": return mapPartnerClaimAttention(payload as PartnerClaimAttentionRow, now);
     case "PARTNER_PROFILE_CHANGE_REVIEW": return mapPartnerProfileChangeAttention(payload as PartnerProfileChangeAttentionRow, now);
@@ -1259,6 +1296,26 @@ export async function loadAdminAttentionPage(
     .sort(compareAttentionRows);
   const visibleRows = rows.slice(0, pageSize);
   const items = visibleRows.map((row) => mapGenericRow(row, now));
+  // Read/snooze is user-facing inbox state, NOT canonical domain resolution.
+  // Attach it only to the visible page; source probes remain exact domain counts.
+  if (items.length) {
+    const predicates = items.map(() => "(source_type=? AND source_id=?)").join(" OR ");
+    const params = items.flatMap((item) => [item.sourceType, item.sourceId]);
+    try {
+      const response = await db.prepare(
+        "SELECT source_type,source_id,relevant_at,read_at,snoozed_until FROM admin_attention_ack WHERE " + predicates,
+      ).bind(...params).all<{ source_type: string; source_id: string; relevant_at: string; read_at: string | null; snoozed_until: string | null }>();
+      const acknowledgements = new Map((response.results ?? []).map((entry) => [entry.source_type + ':' + entry.source_id, entry]));
+      for (const item of items) {
+        const ack = acknowledgements.get(item.sourceType + ':' + item.sourceId);
+        if (!ack || ack.relevant_at !== item.relevantAt) continue;
+        item.readAt = ack.read_at;
+        item.snoozedUntil = ack.snoozed_until && Date.parse(ack.snoozed_until) > now.getTime() ? ack.snoozed_until : null;
+      }
+    } catch {
+      // This is a supplementary overlay. Never hide the canonical queue.
+    }
+  }
   const nextCursor = rows.length > pageSize && visibleRows.length
     ? encodeAdminAttentionCursor(visibleRows[visibleRows.length - 1], filters)
     : null;

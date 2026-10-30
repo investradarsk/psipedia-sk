@@ -1,7 +1,7 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
-export const ADMIN_ATTENTION_QUERY_COUNT = 14; // Legacy automation tasks are owned by newer workflows.
+export const ADMIN_ATTENTION_QUERY_COUNT = 15; // Legacy automation tasks are owned by newer workflows.
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -11,6 +11,7 @@ export const adminAttentionSourceTypes = [
   "DIRECTORY_INQUIRY",
   "ARTICLE_FEEDBACK",
   "ADOPTION_STALE",
+  "HELP_SOURCE_REVIEW",
   "AUTOMATION_ACTION",
   "AUTOMATION_FINDING",
   "PARTNER_CLAIM_REVIEW",
@@ -53,6 +54,8 @@ export type AdminAttentionItem = {
   ageDays: number;
   targetHref: string;
   actionLabel?: string;
+  readAt?: string | null;
+  snoozedUntil?: string | null;
   contextLabel?: string;
   metadata?: AdminAttentionMetadata[];
 };
@@ -71,6 +74,7 @@ export const adminAttentionSourceLabels: Record<AdminAttentionSourceType, string
   DIRECTORY_INQUIRY: "Dopyty",
   ARTICLE_FEEDBACK: "Hodnotenia článkov",
   ADOPTION_STALE: "Adopcie",
+  HELP_SOURCE_REVIEW: "Overovanie zdrojov",
   AUTOMATION_ACTION: "Automatizácie",
   AUTOMATION_FINDING: "Automation finding (legacy)",
   PARTNER_CLAIM_REVIEW: "Žiadosti o správu profilu",
@@ -980,11 +984,38 @@ export function mapAdoptionStaleAttention(row: AdoptionStaleAttentionRow, now = 
     reason,
     priority: markedlyStale ? "HIGH" : "MEDIUM",
     status: row.status,
-    attentionState: "IN_PROGRESS",
+    attentionState: "NEW",
     createdAt: row.createdAt,
     relevantAt,
     ageDays: ageDays(relevantAt, now),
     targetHref: `/admin/adopcie/${row.id}`,
+  };
+}
+
+export type HelpSourceReviewAttentionRow = {
+  id: number;
+  entityType: "ADOPTION" | "LOST_FOUND";
+  name: string;
+  state: string;
+  evidence: string;
+  lastCheckedAt: string;
+};
+
+export function mapHelpSourceReviewAttention(row: HelpSourceReviewAttentionRow, now = new Date()): AdminAttentionItem {
+  return {
+    key: "help-source:" + row.entityType + ":" + row.id,
+    sourceType: "HELP_SOURCE_REVIEW",
+    sourceId: row.entityType + ":" + row.id,
+    title: "Overiť zdroj: " + row.name,
+    reason: row.evidence,
+    priority: row.state === "POSSIBLE_CHANGE" ? "HIGH" : "MEDIUM",
+    status: row.state,
+    attentionState: "NEW",
+    createdAt: row.lastCheckedAt,
+    relevantAt: row.lastCheckedAt,
+    ageDays: ageDays(row.lastCheckedAt, now),
+    targetHref: "/admin/operations/overovanie-zdrojov",
+    actionLabel: "Skontrolovať",
   };
 }
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { AdminAttentionQueue } from "@/components/admin-attention-queue";
 import { AdminAttentionHistorySync } from "@/components/admin-attention-history-sync";
@@ -9,25 +10,13 @@ import {
   isAdminAttentionView,
   type AdminAttentionFilters,
 } from "@/lib/admin-attention-queue";
-import { loadAdminAttentionPage, type AdminAttentionExactSummary, type AdminAttentionPage } from "@/lib/admin-attention-queue-store";
+import { loadAdminAttentionPage, loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] ?? "" : value ?? "";
-
-function toNotificationSummary(page: AdminAttentionPage): AdminAttentionExactSummary {
-  return {
-    active: page.summary.active,
-    bySource: page.summary.bySource,
-    availability: page.availability === "PARTIAL" || page.availability === "UNAVAILABLE"
-      ? page.availability : "OK",
-    unavailableSources: page.sourceAvailability
-      .filter((source) => source.state === "UNAVAILABLE")
-      .map((source) => source.sourceType),
-  };
-}
 
 async function AdminOperationsContent({
   attentionPromise,
@@ -57,6 +46,8 @@ async function AdminOperationsContent({
 
       </section>
 
+      <p className="admin-panel"><Link href="/admin/operations/overovanie-zdrojov">Overovanie zdrojov psov – výsledky denných automatických kontrol →</Link></p>
+
       <AdminAttentionHistorySync cursor={cursor ?? ""} />
       <div id="centrum-pozornosti">
         <AdminAttentionQueue
@@ -85,7 +76,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
 
   // One canonical read for both the bell and page; stream the shell before D1 finishes.
   const attentionPromise = loadAdminAttentionPage({ filters, cursor });
-  const attentionSummaryPromise = attentionPromise.then(toNotificationSummary);
+  const attentionSummaryPromise = loadExactAdminAttentionSummary();
 
   return (
     <AdminShell
