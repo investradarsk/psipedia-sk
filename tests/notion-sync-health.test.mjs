@@ -15,6 +15,13 @@ test("catalog states never confuse blocked, quarantined and successful claims", 
   );
   assert.equal(notionSyncHealth("service-catalog", { state: "PAGE_READY" }).created, 1);
   assert.equal(notionSyncHealth("service-catalog", { state: "UNKNOWN" }).state, "ERROR");
+  assert.deepEqual(notionSyncHealth("service-catalog", {
+    state:"SYNCED",created:2,updated:3,verified:5,conflicts:0
+  }), {event:"notion_sync_health",area:"service-catalog",state:"SYNCED",
+    checked:5,created:2,updated:3,conflicts:0,failed:0});
+  assert.equal(notionSyncHealth("service-catalog", {
+    state:"REVIEW",created:1,conflicts:1
+  }).state,"PARTIAL");
 });
 
 test("events and help distinguish conflicts from failures and report partial writes", () => {
@@ -73,7 +80,7 @@ test("existing scheduled Worker logs shared health for all four areas without ex
   ];
   for (const pattern of expected) assert.match(worker, pattern);
   assert.match(worker, /replacedByBidirectionalSync: true/);
-  assert.doesNotMatch(worker, /runSimpleServiceCatalogSync/);
+  assert.match(worker, /runSimpleServiceCatalogSync/);
 });
 
 test("all five Events/Help agendas have bounded, value-free per-agenda health", () => {
