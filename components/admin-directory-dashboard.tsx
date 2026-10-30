@@ -6,7 +6,6 @@ import { useState } from "react";
 import {
   AdminBulkSelectionControls,
   BulkSelectionCheckbox,
-  adminBulkSelectionStyles,
   useAdminBulkSelection,
 } from "@/components/admin-bulk-selection";
 import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
