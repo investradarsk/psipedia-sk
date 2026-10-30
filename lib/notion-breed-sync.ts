@@ -526,6 +526,7 @@ async function syncOneBreed(
         ...mergedPayload,
         status: existing.status,
         editorialComplete: existing.editorialComplete,
+        accent: existing.accent,
         image: existing.image,
         imageKey: existing.imageKey,
         gallery: existing.gallery,
