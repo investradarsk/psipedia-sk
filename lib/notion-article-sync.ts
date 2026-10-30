@@ -1703,10 +1703,12 @@ async function syncOneNotionPage(
   }
   const blocks = await getPageBlocks(bindings, page.id);
   const mapping = await loadMapping(database, page.id);
-  const proposed = notionPageToManagedArticleInput(page, blocks);
-  let existing: ManagedArticle | null = mapping
-    ? await getManagedArticleById(Number(mapping.article_id))
-    : await findUnmappedCanonicalArticle(database, page, proposed);
+  const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
+  // Legacy article placements require the canonical mapped article for a
+  // correct fallback; do not parse a mapped page without that context.
+  const proposed = notionPageToManagedArticleInput(page, blocks, mappedExisting ?? undefined);
+  let existing: ManagedArticle | null = mappedExisting
+    ?? (mapping ? null : await findUnmappedCanonicalArticle(database, page, proposed));
   if (mapping && !existing) {
     throw new Error("Notion záznam je prepojený na chýbajúci článok v Psipedii.");
   }
