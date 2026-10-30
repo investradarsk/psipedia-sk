@@ -316,7 +316,7 @@ test.describe("admin directory v2", () => {
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
     const profileLink = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true });
     const editorHref = await profileLink.getAttribute("href");
-    expect(editorHref).toMatch(/^\\/admin\\/adresar\\/\\d+$/);
+    expect(editorHref).toMatch(/^\/admin\/adresar\/\d+$/);
     // The Vite-backed local E2E server can reload the list while the first
     // mobile click is in flight. Retry the real link click, not the assertion
     // or a direct page.goto(), so a genuinely broken editor link still fails.
