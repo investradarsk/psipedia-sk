@@ -21,11 +21,13 @@ function writePlainText(value: string) {
   }
 }
 
-function LexicalPlainTextBridge({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function LexicalPlainTextBridge({ value, onChange, disabled }: { value: string; onChange: (value: string) => void; disabled: boolean }) {
   const [editor] = useLexicalComposerContext();
   const lastEmitted = useRef(value);
   const currentValue = useRef(value);
   const onChangeRef = useRef(onChange);
+
+  useEffect(() => { editor.setEditable(!disabled); }, [editor, disabled]);
 
   currentValue.current = value;
   onChangeRef.current = onChange;
@@ -81,6 +83,7 @@ export function AdminLexicalTextField({
 
   const initialConfig = {
     namespace: "PsipediaAdminPlainText",
+    editable: !disabled,
     theme: {},
     onError: (error: Error) => console.error("Lexical editor:", error),
     editorState: () => writePlainText(current),
@@ -94,7 +97,7 @@ export function AdminLexicalTextField({
             contentEditable={
               <LexicalContentEditable
                 id={id}
-                aria-label={ariaLabel}
+                aria-label={ariaLabel ?? "Editor textu"}
                 aria-required={required}
                 aria-multiline="true"
                 contentEditable={!disabled}
@@ -105,7 +108,7 @@ export function AdminLexicalTextField({
             ErrorBoundary={LexicalErrorBoundary}
           />
           <HistoryPlugin />
-          <LexicalPlainTextBridge value={current} onChange={handleChange} />
+          <LexicalPlainTextBridge value={current} onChange={handleChange} disabled={disabled} />
         </div>
       </LexicalComposer>
       {name && (
