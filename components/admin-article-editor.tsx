@@ -547,7 +547,7 @@ export function AdminArticleEditor({
           </div>
           <div className="admin-field">
             <label htmlFor="article-excerpt">Krátky úvod na karte</label>
-            <AdminLexicalTextField id="article-excerpt" rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setEditorDirty(true); }} placeholder="Jednou až dvomi vetami vysvetli, čo čitateľ v článku nájde." required />
+            <AdminLexicalTextField id="article-excerpt" rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setEditorDirty(true); }} placeholder="Jednou až dvomi vetami vysvetli, čo čitateľ v článku nájde." required ariaLabel="Krátky úvod na karte" />
             <small>{excerpt.length} znakov · odporúčame 90–180</small>
           </div>
         </section>
