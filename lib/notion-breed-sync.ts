@@ -7,6 +7,7 @@ import {
 } from "@/lib/breed-store";
 import { SITE_URL } from "@/config/public-site";
 import { mergeNotionBreedInput } from "@/lib/breed-sync-preservation";
+import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
 import {
   advanceBreedAdminReceipt, breedFieldSnapshot, parseBreedFieldSnapshot,
   planBreedNotionFieldDelta, type BreedFieldSnapshot,
@@ -538,6 +539,7 @@ async function syncOneBreed(
   bindings: NotionBreedSyncBindings,
   page: NotionPage,
   changedPropertyIds: readonly string[] = [],
+  authority: Readonly<Record<string, NotionFieldMode>> = {},
 ): Promise<"created" | "updated" | "unchanged"> {
   const basePayload = notionPageToManagedBreedInput(page);
   const contentHash = await notionBreedSourceHash(page);
@@ -603,7 +605,7 @@ async function syncOneBreed(
     // same-column conflicts and the D1 CAS handles concurrent saves.
 
     if (mapping && fieldReceipt) {
-      const plan = planBreedNotionFieldDelta(existing, basePayload, fieldReceipt.notion, fieldReceipt.admin);
+      const plan = planBreedNotionFieldDelta(existing, basePayload, fieldReceipt.notion, fieldReceipt.admin, authority);
       if (plan.conflicts.length)
         throw new Error("BREED_SAME_FIELD_CONFLICT: " + plan.conflicts.join(", "));
       if (!plan.changed.length || !Object.keys(plan.patch).length) {
@@ -660,7 +662,7 @@ async function syncOneBreed(
         const previousNotion = breedFieldSnapshot(basePayload);
         const previousAdmin = breedFieldSnapshot(existing);
         for (const field of touched) previousNotion[field] = previousAdmin[field];
-        const plan = planBreedNotionFieldDelta(existing, basePayload, previousNotion, previousAdmin);
+        const plan = planBreedNotionFieldDelta(existing, basePayload, previousNotion, previousAdmin, authority);
         if (plan.conflicts.length) throw new Error("BREED_LEGACY_FIELD_CONFLICT");
         const merged = { ...existing, ...plan.patch,
           seo: { ...existing.seo, ...(plan.patch.seo ?? {}) },
@@ -791,6 +793,7 @@ export async function runNotionBreedSyncSweep(args: {
   const dataSourceId = args.bindings.NOTION_BREEDS_DATA_SOURCE_ID?.trim();
   if (!dataSourceId) throw new Error("NOTION_BREEDS_DATA_SOURCE_ID nie je nakonfigurovaný.");
 
+  const authority = await readNotionFieldAuthorities(args.database, "breeds");
   let pages: NotionPage[];
   if (args.targetPageId !== undefined) {
     if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(args.targetPageId))
@@ -806,7 +809,7 @@ export async function runNotionBreedSyncSweep(args: {
     if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
     summary.scanned += 1;
     try {
-      const result = await syncOneBreed(args.database, args.bindings, page, args.changedPropertyIds ?? []);
+      const result = await syncOneBreed(args.database, args.bindings, page, args.changedPropertyIds ?? [], authority);
       summary[result] += 1;
     } catch (error) {
       summary.failed += 1;
