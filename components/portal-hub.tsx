@@ -194,14 +194,7 @@ export async function PortalHub({
                     : "Čerstvé články a sprievodcovia"}
             </h2>
           </div>
-          {!isReviews && (
-            <Link
-              href={hasEventCalendar ? "/podujatia/kalendar" : "/clanky"}
-              className="text-link text-link--large"
-            >
-              {hasEventCalendar ? "Celý kalendár" : "Všetky články"} <ArrowIcon />
-            </Link>
-          )}
+
         </div>
         {hasEventCalendar && events.length ? (
           <div className="event-grid">
@@ -293,6 +286,13 @@ export async function PortalHub({
               </p>
             </div>
           </PublicEmptyState>
+        )}
+        {!isReviews && (
+          <div className="home-section-cta" data-portal-more-cta>
+            <Link href={hasEventCalendar ? "/podujatia/kalendar" : "/clanky"} className="text-link text-link--large">
+              {hasEventCalendar ? "Celý kalendár" : "Všetky články"} <ArrowIcon />
+            </Link>
+          </div>
         )}
       </PageContainer>
     </section>
