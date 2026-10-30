@@ -198,3 +198,18 @@
 .link:hover { border-color: var(--forest); background: #fff; }
 .link:focus-visible { outline: 3px solid var(--coral-dark); outline-offset: 2px; }
 .link svg { flex: none; }
+
+/* Article sidebar and standard promos both use the one shared banner shell. */
+.magazine:global(.home-magazine-banner).compact {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px;
+}
+.magazine:global(.home-magazine-banner).compact :global(.button) {
+  align-self: stretch;
+  justify-content: center;
+  white-space: normal;
+  text-align: center;
+}
