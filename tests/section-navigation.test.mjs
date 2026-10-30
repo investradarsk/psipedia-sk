@@ -123,7 +123,8 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.match(section, /buildCollectionPageJsonLd/);
   assert.doesNotMatch(section, /<SectionHero\b/);
   // The primary guide is now an article card, while the rest remains a content list.
-  assert.match(section, /limit=\{5\}/);
+  // Puppy topic groups intentionally show 2 articles; care and activities show 5.
+  assert.match(section, /limit=\{sectionSlug === "steniatka" \? 2 : 5\}/);
   assert.match(section, /articles=\{topicArticles\}/);
   assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
   assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
@@ -152,7 +153,10 @@ test("PUBLIC-HUBS-UX-1 keeps one local search on article and breed landings", ()
   assert.doesNotMatch(breeds, /SectionHeroSearch/);
   assert.match(breeds, /<BreedBrowser/);
   assert.match(breeds, /initialFilters=\{initialFilters\}/);
-  assert.match(breeds, /<BreedCrawlIndex/);
+  // Atlas no longer renders duplicate crawl cards; canonical breed URLs stay in JSON-LD.
+  assert.match(breeds, /buildCollectionPageJsonLd/);
+  assert.match(breeds, /items: breeds\.map\(\(breed\) => \(\{ name: breed\.name, path:/);
+  assert.doesNotMatch(breeds, /<BreedCrawlIndex/);
   assert.doesNotMatch(breeds, /<PublicSubcategoryNavigator/);
 });
 
