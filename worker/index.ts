@@ -20,7 +20,7 @@ import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runArticlePublishNotionReconciliation } from "../lib/article-publish-notion-reconciliation";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
-import { runServicesV3CatalogAutoSweep } from "../lib/service-catalog-notion-auto-sweep.ts";
+import { runSimpleServiceCatalogSync } from "../lib/service-catalog-simple-sync.ts";
 import { notionSyncHealth, notionAgendaHealth } from "../lib/notion-sync-health.ts";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
 import { dispatchNotionPageChange } from "../lib/notion-webhook-dispatch";
@@ -383,25 +383,17 @@ const worker = {
       }).catch(() => ({ dispatched: 0, reason: "SWEEP_ERROR" }));
       console.info(JSON.stringify({ event: "gemini_external_dispatch", ...result }));
     }
+    // Services V3: one-way Admin/D1 -> Notion, no separate approval step.
+    // Reuse the existing five-minute cron; only new/changed options are written.
+    if (controller.cron === ADMIN_PUSH_CRON && env.SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true") {
+      _ctx.waitUntil(runSimpleServiceCatalogSync({
+        db:env.DB,env,maxWrites:8,now:new Date(controller.scheduledTime??Date.now()),
+      }).then(summary=>{
+        console.info(JSON.stringify({event:"services_v3_notion_auto",...summary}));
+        console.info(JSON.stringify(notionSyncHealth("service-catalog",summary)));
+      }).catch(()=>console.error(JSON.stringify({event:"services_v3_notion_auto",state:"BLOCKED",reason:"SWEEP_ERROR"}))));
+    }
     if (isFullHourlyScheduledSweep(controller)) {
-      // Services V3: use the EXISTING hourly cron; default OFF.
-      // Durable 0139 intent is claimed before any Notion operation.
-      // This task is isolated from article and other Notion sweeps.
-      if(env.SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true"){
-        _ctx.waitUntil(
-          runServicesV3CatalogAutoSweep({
-            db: env.DB,
-            bindings: env,
-            now: new Date(controller.scheduledTime ?? Date.now()),
-          }).then(summary=>{
-            // Never log provider bodies or credentials.
-            console.info(JSON.stringify({event:"services_v3_notion_auto",...summary}));
-    console.info(JSON.stringify(notionSyncHealth("service-catalog", summary)));
-          }).catch(()=>{
-            console.error(JSON.stringify({event:"services_v3_notion_auto",state:"BLOCKED",reason:"SWEEP_ERROR"}));
-          })
-        );
-      }
       // Keep Notion article sync alive independently from unrelated hourly sweeps.
       // A rejection in Promise.all below must not cancel an article import in flight.
       // The task remains part of this same hourly Cron; it is not another trigger.

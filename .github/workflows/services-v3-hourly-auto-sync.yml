@@ -34,6 +34,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Durable intent, source D1 authority and cron safety
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-notion-auto-sweep.test.mjs
+      - name: Simple Admin-to-Notion catalog sync regression
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-simple-sync.test.mjs
       - name: Protected migration preflight contract
         run: node --test tests/production-d1-0139-rollout.test.mjs
       - name: Live read-only verifier offline fail-closed contract
