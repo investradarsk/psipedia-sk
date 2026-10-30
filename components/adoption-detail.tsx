@@ -85,17 +85,16 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
 
     <PublicHelpProfileDetailLayout>
       <article className={styles.detailContent}>
-        {sections.story && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>O psovi</span><h2>Príbeh a informácie</h2><p className={styles.preline}>{dog.description}</p></section>}
-        {sections.temperament && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Povaha</span><h2>Charakter</h2><p className={styles.preline}>{dog.temperament}</p></section>}
-        {sections.compatibility && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Domácnosť</span><h2>Kompatibilita</h2><Facts items={compatibilityFacts} /></section>}
-        {sections.health && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Zdravie</span><h2>Zdravotné informácie</h2><Facts items={healthFacts} />{dog.healthNotes.trim() && <p className={styles.preline}>{dog.healthNotes}</p>}{dog.specialNeeds.trim() && <><h3>Špeciálne potreby</h3><p className={styles.preline}>{dog.specialNeeds}</p></>}</section>}
-        {sections.requirements && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Nový domov</span><h2>Podmienky adopcie</h2><p className={styles.preline}>{dog.adoptionRequirements}</p></section>}
-        {sections.gallery && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Fotografie</span><h2>Galéria</h2><PublicPhotoGallery label={`Fotografie psa ${dog.name}`} images={dog.gallery.filter(Boolean).slice(0, 6).map((image, index) => ({ src: image, alt: `${dog.name} – fotografia ${index + 2}` }))} /></section>}
+        {sections.story && <section className={styles.detailPanel}><h2>Príbeh a informácie</h2><p className={styles.preline}>{dog.description}</p></section>}
+        {sections.temperament && <section className={styles.detailPanel}><h2>Charakter</h2><p className={styles.preline}>{dog.temperament}</p></section>}
+        {sections.compatibility && <section className={styles.detailPanel}><h2>Kompatibilita</h2><Facts items={compatibilityFacts} /></section>}
+        {sections.health && <section className={styles.detailPanel}><h2>Zdravotné informácie</h2><Facts items={healthFacts} />{dog.healthNotes.trim() && <p className={styles.preline}>{dog.healthNotes}</p>}{dog.specialNeeds.trim() && <><h3>Špeciálne potreby</h3><p className={styles.preline}>{dog.specialNeeds}</p></>}</section>}
+        {sections.requirements && <section className={styles.detailPanel}><h2>Podmienky adopcie</h2><p className={styles.preline}>{dog.adoptionRequirements}</p></section>}
+        {sections.gallery && <section className={styles.detailPanel}><h2>Galéria</h2><PublicPhotoGallery label={`Fotografie psa ${dog.name}`} images={dog.gallery.filter(Boolean).slice(0, 6).map((image, index) => ({ src: image, alt: `${dog.name} – fotografia ${index + 2}` }))} /></section>}
       </article>
 
       <aside className={styles.detailAside} aria-label="Kontakt a aktuálnosť profilu">
         {sections.contact && <section className={styles.contactCard} id="adoption-contact">
-          <span className={styles.detailEyebrow}>Kontakt</span>
           <h2>{organization ? <Link className={styles.organizationLink} href={`/organizacie/${organization.slug}`}>{organization.name}</Link> : dog.organizationName || "Kontakt k adopcii"}</h2>
           {dog.status === "ACTIVE" ? <p>O dostupnosti a podmienkach adopcie rozhoduje uvedená organizácia alebo zodpovedná osoba.</p> : <p>Profil je rezervovaný. Aktuálny stav si overte priamo u uvedeného kontaktu.</p>}
           <div className={styles.contactLinks}>

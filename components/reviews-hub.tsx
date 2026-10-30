@@ -12,7 +12,6 @@ import {
   PublicDataCard,
   PublicFoundation,
   PublicLandingSectionHeading,
-  PublicSubcategoryNavigator,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
@@ -166,7 +165,7 @@ export async function ReviewsHub({
             <PublicLandingSectionHeading
               eyebrow="Vyber si, čo chceš pozrieť"
               title="Tri hlavné vstupy do recenzií"
-              description="Najprv si vyber typ obsahu. Produktové kategórie zobrazujeme až v produktovej vetve, aby sa hierarchia nemiešala."
+              description="Vyber si redakčné testy produktov, skúsenosti so službami alebo hodnotenia e-shopov."
               id="reviews-mode-heading"
             />
             <PublicCategoryTiles
@@ -265,44 +264,13 @@ export async function ReviewsHub({
                   <PublicEmptyState variant="context" className={styles.emptyState}>
                     <strong>Prvé redakčné testy pripravujeme.</strong>
                     <p>
-                      Kategórie sú hotové; po publikovaní sa test zobrazí automaticky tu aj vo
-                      svojej kategórii.
+                      Po publikovaní sa nový test zobrazí automaticky medzi článkami a v príslušnej téme.
                     </p>
                   </PublicEmptyState>
                 )}
               </PageContainer>
             </section>
 
-            <section className={styles.sectionAlt}>
-              <PageContainer>
-                <PublicLandingSectionHeading
-                  eyebrow="Kategórie produktov"
-                  title="Čo chceš porovnať?"
-                  description="Vyber si oblasť, ktorá ťa zaujíma, a pozri si dostupné testy."
-                />
-                <PublicSubcategoryNavigator
-                  mode="landing"
-                  label="Kategórie produktových recenzií"
-                  items={subpages.map((subpage) => {
-                    const count = reviewArticles.filter(
-                      (article) => article.portalSubpage === subpage.slug,
-                    ).length;
-                    return {
-                      href: portalSubpageHref(section, subpage),
-                      title: subpage.label,
-                      description: subpage.description,
-                      image: subpage.imageUrl
-                        ? { src: subpage.imageUrl, alt: subpage.imageAlt ?? "" }
-                        : undefined,
-                      icon: subpage.icon ? (
-                        <span aria-hidden="true">{subpage.icon}</span>
-                      ) : undefined,
-                      meta: `${count} ${count === 1 ? "test" : count > 1 && count < 5 ? "testy" : "testov"}`,
-                    };
-                  })}
-                />
-              </PageContainer>
-            </section>
           </>
         ) : null}
 

@@ -63,7 +63,7 @@ export function EventDetail({
         breadcrumbs={<Breadcrumbs className={styles.breadcrumbs}>
             <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span>{category && <><Link href={category.href}>{category.label}</Link><span>/</span></>}<span>{event.title}</span>
           </Breadcrumbs>}
-        media={<EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} context="detail" config={event.detailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 980px) 640px, 480px" alt={event.title} loading="eager" fetchPriority="high" decoding="async" />}
+        media={<EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} context="detail" config={event.detailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 980px) 640px, 480px" alt="Fotografia podujatia" loading="eager" fetchPriority="high" decoding="async" />}
         copy={<>
           <div className={detailStyles.tags}>
             {typeHref ? <Link href={typeHref}>{event.eventType}</Link> : <span>{event.eventType}</span>}
@@ -100,7 +100,6 @@ export function EventDetail({
             {event.websiteUrl && <PublicActionLink className={detailStyles.secondaryAction} href={event.websiteUrl} variant="secondary" target="_blank" rel="noreferrer" icon={<ArrowIcon size={17} />}>Oficiálna stránka</PublicActionLink>}
           </nav>}
         </>} />
-      <div className={styles.returnBar}><EventsBackLink fallbackHref={typeHref ?? "/podujatia"} /></div>
       <PublicDetailLayout
         aside={hasMap && publicMap ? (
           <PublicLocationMap
@@ -118,9 +117,10 @@ export function EventDetail({
       >
         <article className={detailStyles.body}>
           {event.description && <DetailSection title="O podujatí"><EventMarkdown value={event.description} /></DetailSection>}
-          {event.practicalInfo && <DetailSection eyebrow="Pred návštevou" title="Praktické informácie"><EventMarkdown value={event.practicalInfo} /></DetailSection>}
+          {event.practicalInfo && <DetailSection title="Praktické informácie"><EventMarkdown value={event.practicalInfo} /></DetailSection>}
         </article>
       </PublicDetailLayout>
+      <div className={styles.returnBar}><EventsBackLink fallbackHref={typeHref ?? "/podujatia"} /></div>
 
       {related.length > 0 && (
         <section className={styles.relatedSection} aria-labelledby="event-related-title">

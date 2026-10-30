@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { StructuredData } from "@/components/structured-data";
+import { PublicHelpPhotoBanner, lostFoundSubmitPromo } from "@/components/public-visual-system/public-help-banner";
 import { listPublicDogReports } from "@/lib/lost-found-dog-store";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { buildPageMetadata } from "@/lib/seo";
@@ -61,6 +62,8 @@ export default async function LostFoundHubPage() {
               metaSlot={<span><strong>{lost.total + found.total}</strong> aktívnych hlásení</span>}
             />
           </UnifiedSectionHeroShell>
+
+          <PublicHelpPhotoBanner promo={lostFoundSubmitPromo} />
 
           <PublicContentShell variant="listing" className="page-body">
             <div className="article-grid">

@@ -55,3 +55,11 @@
 @media (max-width: 360px) {
   .heroActions { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Adoption actions and every card must remain readable on narrow phones. */
+@media (max-width: 620px) {
+  .heroActions { grid-template-columns: minmax(0, 1fr); }
+  .heroActions > a { min-width: 0; width: 100%; }
+  .detailContent, .detailAside { width: 100%; min-width: 0; overflow-wrap: anywhere; }
+  .contactLinks a, .organizationLink { overflow-wrap: anywhere; word-break: normal; }
+}

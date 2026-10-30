@@ -114,9 +114,9 @@ export default async function Home() {
               <SparkIcon size={17} /> Slovenský portál pre psí život
             </span>
             <h1>
-              Rozumej svojmu psovi.
+              Všetko dôležité
               <br />
-              <em>Každý deň o trochu viac.</em>
+              pre život so psom.
             </h1>
             <p>
               Psipedia.sk je slovenský portál o psoch – rady, služby, podujatia a pomoc na jednom

@@ -236,7 +236,7 @@ test("renders the portal homepage", async () => {
   // The externally hosted Cloudflare build intentionally has no Sites-only
   // development preview marker.
   assert.doesNotMatch(html, developmentPreviewMeta);
-  assert.match(html, /Rozumej svojmu psovi/);
+  assert.match(visibleText, /Všetko dôležité\s+pre život so psom\./);
   assert.match(html, /Novinky zo sveta psov/);
   assert.match(html, /Najbližšie podujatia/);
   assert.match(html, /<h2 id="home-steniatka-title">Šteniatka<\/h2>/);

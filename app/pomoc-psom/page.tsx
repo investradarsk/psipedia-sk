@@ -51,7 +51,11 @@ function genericPreview(item: HelpLandingGenericItem): HelpOverviewItem {
     imageUrl: item.imageUrl,
     thumbnailImageDisplay: item.thumbnailImageDisplay,
     eyebrow: category?.singular ?? "Pomoc psom",
-    meta: placeMeta(item.organization, item.city, item.region),
+    meta: placeMeta(
+      item.category === "utulky" && item.organization.trim().toLocaleLowerCase("sk") === item.title.trim().toLocaleLowerCase("sk")
+        ? "" : item.organization,
+      item.city, item.region,
+    ),
     excerpt: item.excerpt,
     badge: item.urgent ? "Urgentné" : null,
     urgent: item.urgent,

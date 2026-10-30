@@ -276,3 +276,31 @@
   .foundation :global(.fci-group-list) { gap: 24px; }
   .foundation :global(.breed-crawl-index-groups) { padding: 10px; }
 }
+
+/* Breed atlas: one compact comparison action and the SAME shared photographic
+   banner as other public landing sections. No duplicate action directory. */
+.atlasActions { display: grid; gap: 14px; padding-block: 6px 12px; }
+.compareAction {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 17px;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius-control);
+  background: var(--white);
+  color: var(--forest-dark);
+  font-weight: 800;
+  text-decoration: none;
+}
+.compareAction:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
+.atlasActions :global([data-home-banner="breed-clubs"]) {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+@media (max-width: 620px) {
+  .atlasActions { gap: 12px; }
+  .compareAction { width: 100%; justify-content: center; }
+}

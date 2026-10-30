@@ -485,13 +485,13 @@ test.describe("MAP-1D mobile", () => {
     await page.getByRole("button", { name: "Výsledky" }).click();
     await expect(results).toHaveAttribute("data-sheet-state", "expanded");
 
-    await page.getByRole("button", { name: /Ďalšie filtre/ }).click();
+    await page.getByRole("button", { name: /^Filtre/ }).click();
     const dialog = page.getByTestId("map-filter-dialog");
     await expect(dialog).toBeVisible();
     await page.screenshot({ path: ".e2e-artifacts/map-1d/mobile-filters.png", fullPage: true });
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Ďalšie filtre/ })).toBeFocused();
+    await expect(page.getByRole("button", { name: /^Filtre/ })).toBeFocused();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("");
     await expect(page.getByTestId("marker-service:1")).toBeVisible();

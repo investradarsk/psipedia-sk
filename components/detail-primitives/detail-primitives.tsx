@@ -9,7 +9,7 @@ function hasContent(value: ReactNode) {
 }
 
 export function DetailSection({
-  eyebrow, title, children, compactHeading = false,
+  title, children, compactHeading = false,
 }: {
   eyebrow?: string; title: string; children: ReactNode; compactHeading?: boolean;
 }) {
@@ -17,7 +17,7 @@ export function DetailSection({
     <section className={styles.section}>
       {compactHeading
         ? <h2 className={styles.compactHeading}>{title}</h2>
-        : <>{eyebrow && <span className={styles.eyebrow}>{eyebrow}</span>}<h2>{title}</h2></>}
+        : <h2>{title}</h2>}
       {children}
     </section>
   );

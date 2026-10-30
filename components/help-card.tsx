@@ -18,7 +18,8 @@ export function HelpCard({ item }: { item: PublicHelpCard }) {
   const category = getHelpCategory(item.category);
   const progress = helpProgress(item);
   const detailHref = helpCaseHref(item);
-  const displayDate = item.reportedDate ?? item.updatedAt.slice(0, 10);
+  const displayDate = item.category === "utulky" ? null : item.reportedDate ?? item.updatedAt.slice(0, 10);
+  const showOrganization = Boolean(item.organization?.trim() && item.organization.trim().toLocaleLowerCase("sk") !== item.title.trim().toLocaleLowerCase("sk"));
   const location = publicLocationLabel([publicLocationValue(item.city, "city"), publicLocationValue(item.region, "region")]);
   return (
     <PublicHelpProfileCard
@@ -40,7 +41,7 @@ export function HelpCard({ item }: { item: PublicHelpCard }) {
           : <PublicMediaFallback appearance="context" decorative />}
       </Link>}
       meta={<>
-        {item.organization ? <p className={styles.organization}>{item.organization}</p> : null}
+        {showOrganization ? <p className={styles.organization}>{item.organization}</p> : null}
         {location ? <p><LocationIcon size={14} /> {location}</p> : null}
         {displayDate ? <p><CalendarIcon size={14} /> Aktualizované {formatHelpDate(displayDate)}</p> : null}
       </>}

@@ -1178,3 +1178,27 @@
 .mapStatusPill {
   composes: mapStatusPill from "../public-visual-system/public-result-variants.module.css";
 }
+
+/* MAP UX: discoverable search submit + mobile filter label.
+ * Query already filters on input; submitting confirms and dismisses
+ * the mobile keyboard without reloading the map or losing its state. */
+.mapSearchForm { display: flex; align-items: stretch; min-width: 0; gap: 8px; }
+.mapSearchForm .searchField { flex: 1 1 auto; }
+.mapSearchSubmit {
+  flex: none; min-height: 44px; padding: 9px 17px;
+  border: 1px solid var(--forest, #174b38);
+  border-radius: var(--ps-radius-control, 12px);
+  color: #fff; background: var(--forest, #174b38);
+  font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer;
+}
+.mapSearchSubmit:focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .mapSearchForm { grid-column: 1 / -1; grid-row: 1; }
+  .mapSearchSubmit { padding-inline: 13px; }
+  .categoryChips { grid-column: 1; grid-row: 2; }
+  .filterButton { grid-column: 2; grid-row: 2; min-width: 90px; padding: 8px 11px; }
+  .filterButton > span:first-child {
+    position: static; width: auto; height: auto;
+    overflow: visible; clip-path: none; white-space: nowrap;
+  }
+}

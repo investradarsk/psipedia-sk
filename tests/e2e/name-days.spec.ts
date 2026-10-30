@@ -76,19 +76,13 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   expect(publicPayload.names).toContain(uniqueName);
 
   await publicPage.reload();
-  if (testInfo.project.name === "desktop-chromium") {
-    await expect(publicPage.locator("[data-header-secondary]")).toBeVisible();
-    await expect(publicPage.locator("[data-header-secondary]")).toContainText(uniqueName);
-    await expect(publicPage.locator("[data-mobile-name-day]")).toBeHidden();
-  } else {
-    await expect(publicPage.locator("[data-mobile-name-day]")).toBeVisible();
-    await expect(publicPage.locator("[data-mobile-name-day]")).toContainText(uniqueName);
-  }
+  // The approved full-width name-day strip is reused on desktop >=1200px.
+  // The older compact desktop-only link is deliberately hidden there.
+  await expect(publicPage.locator("[data-mobile-name-day]")).toBeVisible();
+  await expect(publicPage.locator("[data-mobile-name-day]")).toContainText(uniqueName);
   await expectAxeClean(publicPage);
 
-  const dayLink = testInfo.project.name === "desktop-chromium"
-    ? publicPage.locator("[data-header-secondary]")
-    : publicPage.locator("[data-mobile-name-day]");
+  const dayLink = publicPage.locator("[data-mobile-name-day]");
   await expect(dayLink).toHaveAttribute("href", "/psie-meniny");
   await dayLink.click();
   await expect(publicPage).toHaveURL(/\/psie-meniny/);

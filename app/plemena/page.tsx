@@ -4,18 +4,18 @@ import { BreedBrowser } from "@/components/breed-browser";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { BreedCrawlIndex } from "@/components/breed-crawl-index";
 import { ArrowIcon } from "@/components/icons";
+import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContentShell,
   PublicFoundation,
-  PublicLandingSectionHeading,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
 import { StructuredData } from "@/components/structured-data";
 import { fciGroups } from "@/lib/content";
 import { breedAtlasHref, parseBreedAtlasFilters } from "@/lib/breed-atlas";
-import { portalSections, portalSubpageHref } from "@/lib/portal";
+import { portalSections } from "@/lib/portal";
 import { listPublishedCanonicalBreedAtlasCards } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
@@ -94,23 +94,19 @@ export default async function BreedsPage({ searchParams }: Props) {
           <section className="page-body">
             <PublicContentShell variant="listing">
             <BreedBrowser key={breedAtlasHref(initialFilters)} breeds={breeds} groups={fciGroups} initialFilters={initialFilters} hidePrimarySearch actions={breedSection ? (
-              <section className={styles.atlasActions} aria-labelledby="breed-actions-heading" data-breed-primary-actions>
-                <PublicLandingSectionHeading
-                  eyebrow="Plemená podľa cieľa"
-                  title="Čo chceš urobiť?"
-                  description="Atlas zostáva hlavný pracovný nástroj. Vyber si inú cestu, ak chceš plemeno nájsť podľa potrieb, porovnať alebo otvoriť kluby."
-                  id="breed-actions-heading"
+              <section className={styles.atlasActions} aria-label="Porovnanie plemien a kluby" data-breed-primary-actions>
+                <Link href="/porovnat-plemena" className={styles.compareAction}>
+                  Porovnať plemená <ArrowIcon size={17} />
+                </Link>
+                <PublicMagazineBanner
+                  eyebrow="Kluby plemien"
+                  title="Nájdi klub svojho plemena"
+                  description="Zisti, ktoré kluby zastrešujú jednotlivé plemená a kde ich môžeš kontaktovať."
+                  label="Zobraziť kluby plemien"
+                  href="/adresar/chovatelske-kluby"
+                  testId="breed-clubs"
+                  photoTone="volunteer"
                 />
-                <nav aria-label="Hlavné možnosti v sekcii Plemená" className={styles.quickActions}>
-                  {breedSection.subpages
-                    .filter((subpage) => subpage.slug !== "atlas")
-                    .map((subpage) => (
-                      <Link key={subpage.slug} href={portalSubpageHref(breedSection, subpage)} className={styles.quickAction}>
-                        <strong>{subpage.label}</strong>
-                        <span aria-hidden="true">→</span>
-                      </Link>
-                    ))}
-                </nav>
               </section>
             ) : null} />
             {policy.kind === "clean" && <BreedCrawlIndex breeds={breeds} groups={fciGroups} />}

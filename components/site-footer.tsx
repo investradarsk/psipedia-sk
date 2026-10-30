@@ -46,7 +46,6 @@ export function SiteFooter() {
             <a href={`mailto:${EDITORIAL_EMAIL_ADDRESS}`}>{EDITORIAL_EMAIL_ADDRESS}</a>
             <Link href="/pravne-informacie">Prevádzkovateľ</Link>
             <Link href="/sukromie">Ochrana osobných údajov</Link>
-            <Link href="/cookies">Cookies a lokálne úložisko</Link>
             <CookieSettingsButton />
             <Link href="/podmienky-pouzivania">Podmienky používania</Link>
             <Link href="/opravy-a-podnety">Opravy a podnety</Link>

@@ -1057,16 +1057,25 @@ export function MapExperience({
       <section className={`shell public-shell ${styles.experience}`} aria-label="Interaktívna mapa Psipedie">
         <div className={styles.toolbar}>
           <div className={styles.primaryRow}>
-            <label className={styles.searchField}>
-              <SearchIcon size={19} />
-              <PublicTextInput
-                appearance="context"
-                value={filters.search}
-                onChange={(event) => updateFilters({ ...filters, search: event.target.value })}
-                placeholder="Hľadať názov, službu alebo lokalitu"
-                aria-label="Vyhľadávanie v mape"
-              />
-            </label>
+            <form className={styles.mapSearchForm} role="search" aria-label="Hľadať na mape"
+              onSubmit={(event) => {
+                event.preventDefault();
+                event.currentTarget.querySelector("input")?.blur();
+              }}>
+              <label className={styles.searchField}>
+                <SearchIcon size={19} />
+                <PublicTextInput
+                  appearance="context"
+                  name="q"
+                  value={filters.search}
+                  onChange={(event) => updateFilters({ ...filters, search: event.target.value })}
+                  placeholder="Hľadať názov, službu alebo lokalitu"
+                  aria-label="Vyhľadávanie v mape"
+                  enterKeyHint="search"
+                />
+              </label>
+              <button className={styles.mapSearchSubmit} type="submit">Hľadať</button>
+            </form>
 
             <div className={styles.categoryChips} aria-label="Typ obsahu">
               {[
@@ -1097,7 +1106,7 @@ export function MapExperience({
               aria-haspopup="dialog"
               aria-expanded={mobileFiltersOpen}
             >
-              <span>Ďalšie filtre</span>
+              <span>Filtre</span>
               {filterCount ? <span className={styles.filterCount}>{filterCount}</span> : null}
             </button>
           </div>
