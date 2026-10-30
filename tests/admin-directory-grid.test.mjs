@@ -21,8 +21,8 @@ test("directory, help and events all use the same read-first TanStack grid", () 
   assert.match(grid, /getToggleVisibilityHandler/);
   assert.match(grid, /getResizeHandler/);
   assert.doesNotMatch(grid, /contentEditable|fetch\(|method=["'](?:PUT|POST|PATCH|DELETE)/);
-  for (const module of ["admin-directory-dashboard", "admin-help-dashboard", "admin-event-dashboard"]) {
-    const ui = read("components/" + module + ".tsx");
+  for (const dashboardName of ["admin-directory-dashboard", "admin-help-dashboard", "admin-event-dashboard"]) {
+    const ui = read("components/" + dashboardName + ".tsx");
     assert.match(ui, /<AdminRecordTable/);
   }
 });
