@@ -56,10 +56,8 @@ export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }
             {href && <a href={href} target="_blank" rel="noopener noreferrer nofollow">Otvoriť zdroj</a>}
             <Link href={editor}>Otvoriť profil</Link>
           </div>
-          {isReviewDue(item) && (
-            <AdminHelpSourceQuickActions entityType={item.entity_type}
-              entityId={item.entity_id} checkedAt={item.last_checked_at} />
-          )}
+          <AdminHelpSourceQuickActions entityType={item.entity_type}
+            entityId={item.entity_id} checkedAt={item.last_checked_at} />
         </article>
       );
     });
