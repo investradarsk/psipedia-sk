@@ -156,14 +156,14 @@ test("breed draft write-back checks Notion identity, source and unchanged remote
   assert.match(draft, /committed.meta.changes !== 1/);
 });
 
-test("pending Admin breed edits block stale Notion sync and false success", () => {
+test("only conflicting Admin and Notion edits to the SAME breed field are blocked", () => {
   const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
-  const guard = mapped.indexOf("BREED_ADMIN_REVISION_NOT_SYNCED");
-  const original = mapped.indexOf("if (mapping && mapping.content_hash === contentHash)");
-  assert.ok(guard >= 0 && original > guard);
-  assert.match(mapped, /canonicalTextDiffers/);
-  assert.match(mapped, /mapping.content_hash === contentHash && canonicalTextDiffers/);
+  assert.match(mapped, /planBreedNotionFieldDelta\(existing, basePayload/);
+  assert.match(mapped, /BREED_SAME_FIELD_CONFLICT/);
+  assert.match(mapped, /BREED_PSID_CONFLICT/);
+  assert.match(mapped, /receipt.hash === contentHash && canonicalTextDiffers/);
+  assert.doesNotMatch(mapped, /BREED_ADMIN_REVISION_NOT_SYNCED/);
   assert.match(breedRouteSource, /notion_breed_draft_writeback_failed/);
   assert.match(breedRouteSource, /notionEditorialWriteback/);
   assert.match(breedRouteSource, /REMOTE_WRITEBACK_FAILED/);
@@ -173,9 +173,9 @@ test("hourly breed sweep replays unacknowledged Admin-only text changes safely",
   const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
   const replay = mapped.indexOf("const lastCommonText = { ...existing }");
-  const acknowledged = mapped.indexOf("if (mapping && mapping.content_hash === contentHash) {");
+  const acknowledged = mapped.indexOf("if (mapping && receipt.hash === contentHash) {");
   assert.ok(replay >= 0 && acknowledged > replay);
-  assert.match(mapped, /mapping.content_hash === contentHash && canonicalTextDiffers/);
+  assert.match(mapped, /receipt.hash === contentHash && canonicalTextDiffers/);
   assert.match(mapped, /await writeBackDraftBreedEditorialToNotion\(/);
   assert.match(mapped, /if \(!result.updated\) throw new Error\("BREED_ADMIN_WRITEBACK_NOT_ACKNOWLEDGED"\)/);
   assert.match(mapped, /lastCommonText\[key\] = notionBreedTextValue\(page, property\)/);
