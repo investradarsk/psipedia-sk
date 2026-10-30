@@ -57,6 +57,7 @@ function fixture(opts={}) {
   const scope={
     Date,Number,String,Array,Object,JSON,Error,Math,RegExp,encodeURIComponent,
     Session:{getEffectiveUser:()=>({getEmail:()=>opts.sessionEmail||"psipedia.sk@gmail.com"})},
+    ScriptApp:{getOAuthToken:()=>"test-oauth-token"},
     GmailApp:{search:(q,offset,max)=>{
       state.sentSearchCalls++;
       return opts.notSent?[]:[{getMessages:()=>[message]}];
@@ -69,6 +70,12 @@ function fixture(opts={}) {
     },
     LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})},
     UrlFetchApp:{fetch:(url,req)=>{
+      if(url.startsWith("https://gmail.googleapis.com/gmail/v1/users/me/messages/")){
+        assert.equal(req.headers.Authorization,"Bearer test-oauth-token");
+        assert.ok(url.endsWith("/"+mailId+"?format=minimal"));
+        const response={id:mailId,labelIds:opts.notSent?["INBOX"]:["SENT","INBOX"]};
+        return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(response)};
+      }
       assert.match(url,/^https:\/\/api\.notion\.com\/v1/);
       assert.equal(req.headers["Notion-Version"],"2025-09-03");
       const path=url.replace("https://api.notion.com/v1","");
@@ -140,7 +147,7 @@ test("6: absent/mismatched PNG/JPEG attachment fails closed",()=>{
     const f=fixture(opt);assert.equal(f.run().scheduled,false);assertDraft(f,/PNG\/JPEG/);
   }
 });
-test("7: spoof sender and message missing in authenticated SENT fail closed",()=>{
+test("7: spoof sender and missing exact-message SENT label fail closed",()=>{
   for(const opt of [{from:"attacker@example.com"},{notSent:true},{sessionEmail:"other@example.com"}]){
     const f=fixture(opt);assert.equal(f.run().scheduled,false);assertDraft(f,/Odosielateľ/);
   }
