@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { notFound } from "next/navigation";
 import { BreedPhoto } from "@/components/breed-photo";
 import { PublicMediaFallback } from "@/components/public-visual-system";
@@ -508,20 +509,20 @@ export default async function BreedDetailPage({ params }: Props) {
           </section>
         ) : null}
         </div>
-          <aside id="uzitocne" className={`${styles.utilitySidebar} ${styles.anchorSection}`} aria-labelledby="breed-utility-heading" data-testid="breed-utility-sidebar">
-            <h2 id="breed-utility-heading">Užitočné odkazy</h2>
-            <nav aria-label="Adresár pre plemeno" className={styles.utilityLinks}>
-              {[
-                { href: "/adresar/chovatelske-kluby", title: "Chovateľské kluby" },
-                { href: relations.breedingStationLanding?.href ?? "/adresar/chovatelske-stanice", title: relations.breedingStationLanding?.label ?? "Chovateľské stanice" },
-                { href: "/adresar/treneri", title: "Psí tréneri" },
-                { href: "/adresar/kynologicke-kluby", title: "Kynologické kluby" },
-              ].map((item) => (
-                <Link key={item.href} href={item.href} className={styles.utilityLink}>
-                  <strong>{item.title}</strong><span aria-hidden="true">→</span>
-                </Link>
-              ))}
-            </nav>
+          <aside id="uzitocne" className={`${styles.utilitySidebar} ${styles.anchorSection}`} aria-label="Užitočné odkazy" data-testid="breed-utility-sidebar">
+            <PublicMagazineBanner
+              compact
+              eyebrow="Adresár Psipedia"
+              title="Užitočné odkazy"
+              description="Kluby, chovatelia a tréneri na jednom mieste."
+              testId="breed-utility"
+              links={[
+                { href: "/adresar/chovatelske-kluby", label: "Chovateľské kluby" },
+                { href: relations.breedingStationLanding?.href ?? "/adresar/chovatelske-stanice", label: relations.breedingStationLanding?.label ?? "Chovateľské stanice" },
+                { href: "/adresar/treneri", label: "Psí tréneri" },
+                { href: "/adresar/kynologicke-kluby", label: "Kynologické kluby" },
+              ]}
+            />
           </aside>
       </div>
 
