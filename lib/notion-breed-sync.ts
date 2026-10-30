@@ -383,8 +383,8 @@ export async function writeBackDraftBreedEditorialToNotion(args: {
   if (!edits.length) return { linked: false, updated: false, reason: "no-mirrored-field-change" as const };
 
   const mapping = await args.database.prepare(
-    "SELECT notion_page_id, content_hash FROM breed_notion_sync WHERE breed_id = ? LIMIT 1",
-  ).bind(args.breed.id).first<{ notion_page_id: string; content_hash: string }>();
+    "SELECT notion_page_id, content_hash, notion_fields_json, admin_fields_json FROM breed_notion_sync WHERE breed_id = ? LIMIT 1",
+  ).bind(args.breed.id).first<{ notion_page_id: string; content_hash: string; notion_fields_json: string | null; admin_fields_json: string | null }>();
   if (!mapping) return { linked: false, updated: false, reason: "not-linked" as const };
 
   const dataSourceId = args.bindings.NOTION_BREEDS_DATA_SOURCE_ID?.trim() ?? "";
@@ -447,10 +447,18 @@ export async function writeBackDraftBreedEditorialToNotion(args: {
 
   const hash = await notionBreedSourceHash(written);
   const at = new Date().toISOString();
+  const oldAdmin = parseBreedFieldSnapshot(mapping.admin_fields_json)
+    ?? breedFieldSnapshot(args.before);
+  const nextAdmin = advanceBreedAdminReceipt(
+    oldAdmin, args.breed, edits.map(edit => edit.key),
+  );
   const committed = await args.database.prepare(
     "UPDATE breed_notion_sync SET content_hash=?, notion_last_edited_time=?, " +
-    "last_synced_at=?,updated_at=? WHERE notion_page_id=? AND breed_id=? AND content_hash=?",
+    "last_synced_at=?,updated_at=?,notion_fields_json=?,admin_fields_json=? " +
+    "WHERE notion_page_id=? AND breed_id=? AND content_hash=?",
   ).bind(hash, written.last_edited_time ?? at, at, at,
+    JSON.stringify(breedFieldSnapshot(notionPageToManagedBreedInput(written))),
+    JSON.stringify(nextAdmin),
     page.id, args.breed.id, mapping.content_hash).run();
   if (committed.meta.changes !== 1) throw new Error("BREED_NOTION_MAPPING_VERSION_CHANGED");
 
@@ -516,11 +524,9 @@ async function syncOneBreed(
       if (!result.updated) throw new Error("BREED_ADMIN_WRITEBACK_NOT_ACKNOWLEDGED");
       return "updated";
     }
-    if (mapping && !fieldReceipt && !mapping.content_hash.startsWith("identity-pending-editorial:")
-      && Number.isFinite(lastAck) && Number.isFinite(adminEdit)
-      && adminEdit > lastAck + 2_000) {
-      throw new Error("BREED_ADMIN_REVISION_NOT_SYNCED");
-    }
+    // No global updatedAt gate: unrelated Admin changes must never block an
+    // independently edited Notion column. The per-field receipt handles
+    // same-column conflicts and the D1 CAS handles concurrent saves.
 
     if (mapping && fieldReceipt) {
       const plan = planBreedNotionFieldDelta(existing, basePayload, fieldReceipt.notion, fieldReceipt.admin);
