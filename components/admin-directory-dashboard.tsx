@@ -154,8 +154,8 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                 { id: "category", label: "Typ profilu", width: 158, sortValue: (profile) => getDirectoryCategory(profile.category)?.label ?? profile.category, cell: (profile) => <span>{getDirectoryCategory(profile.category)?.label ?? profile.category}</span> },
                 { id: "city", label: "Mesto", width: 150, sortValue: (profile) => profile.city || "", cell: (profile) => profile.city || "—" },
                 { id: "status", label: "Publikácia", width: 125, sortValue: (profile) => profile.status, cell: (profile) => <span className={"admin-status admin-status--" + profile.status}>{profile.status === "published" ? "Publikované" : profile.status === "archived" ? "Archivované" : "Koncept"}</span> },
-                { id: "verified", label: "Overenie", width: 115, sortValue: (profile) => profile.verified ? 1 : 0, cell: (profile) => profile.verified ? "Overené ✓" : "Neoverené" },
-                { id: "media", label: "Obrázok profilu", width: 140, sortValue: (profile) => profile.imageUrl ? 1 : 0, cell: (profile) => profile.imageUrl ? "Obrázok ✓" : "Bez obrázka" },
+                { id: "verified", label: "Dôveryhodnosť", width: 115, sortValue: (profile) => profile.verified ? 1 : 0, cell: (profile) => profile.verified ? "Overené ✓" : "Neoverené" },
+                { id: "media", label: "Fotografia", width: 140, sortValue: (profile) => profile.imageUrl ? 1 : 0, cell: (profile) => profile.imageUrl ? "Obrázok ✓" : "Bez obrázka" },
                 { id: "updated", label: "Aktualizované", width: 140, sortValue: (profile) => profile.updatedAt, cell: (profile) => formatUpdatedAt(profile.updatedAt) },
                 { id: "services", label: "Služby", width: 210, initiallyHidden: true, cell: (profile) => profile.services.slice(0, 2).join(", ") || "—" },
                 { id: "reviewed", label: "AI kontrola", width: 142, cell: (profile) => <label className={styles.reviewToggle}>
