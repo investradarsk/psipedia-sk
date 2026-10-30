@@ -11,6 +11,12 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import styles from "./admin-lexical-text-field.module.css";
 
+function readPlainText() {
+  // Lexical joins paragraphs with two newlines; our existing D1/Notion string
+  // fields use one newline per entered line. Preserve the exact legacy value.
+  return $getRoot().getChildren().map((node) => node.getTextContent()).join("\n");
+}
+
 function writePlainText(value: string) {
   const root = $getRoot();
   root.clear();
@@ -37,7 +43,7 @@ function LexicalPlainTextBridge({ value, onChange, disabled }: { value: string; 
   useEffect(() => {
     // Reconcile changes from Notion/automation, not keystrokes echoed by React.
     if (lastEmitted.current === value) return;
-    const current = editor.getEditorState().read(() => $getRoot().getTextContent());
+    const current = editor.getEditorState().read(() => readPlainText());
     if (current !== value) editor.update(() => writePlainText(value), { tag: "external" });
     lastEmitted.current = value;
   }, [editor, value]);
