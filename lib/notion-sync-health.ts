@@ -159,6 +159,15 @@ export function notionSyncHealth(area: NotionSyncArea, raw: unknown): NotionSync
         state = "SYNCED";
         created = 1;
       } else if (stateValue === "IDLE") state = "IDLE";
+      else if (stateValue === "SYNCED" || stateValue === "REVIEW") {
+        created = count(result.created);
+        updated = count(result.updated);
+        checked = count(result.verified);
+        conflicts = count(result.conflicts);
+        state = stateValue === "REVIEW"
+          ? (created + updated > 0 ? "PARTIAL" : "CONFLICT")
+          : "SYNCED";
+      }
       else {
         // Unknown runner state must not be reported as a successful sweep.
         state = "ERROR";

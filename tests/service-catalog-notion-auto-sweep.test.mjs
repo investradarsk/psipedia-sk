@@ -156,9 +156,9 @@ test("cron wiring is hourly only, owner-approved Wrangler flags, never an HTTP w
  assert.match(worker,/if \(isFullHourlyScheduledSweep\(controller\)\) \{/);
  assert.match(worker,/SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true"/);
  assert.match(worker,/_ctx\.waitUntil\(/);
- assert.match(worker,/import\s*\{\s*runServicesV3CatalogAutoSweep\s*\}\s*from\s*["']\.\.\/lib\/service-catalog-notion-auto-sweep\.ts["']/);
- assert.match(worker,/runServicesV3CatalogAutoSweep\(\{\s*db:\s*env\.DB,\s*bindings:\s*env,\s*now:/);
- assert.doesNotMatch(worker,/runSimpleServiceCatalogSync/);
+ assert.match(worker,/runSimpleServiceCatalogSync/);
+ assert.match(worker,/controller\.cron === ADMIN_PUSH_CRON/);
+ assert.doesNotMatch(worker,/runServicesV3CatalogAutoSweep\(\{/);
  assert.match(runner,/ON CONFLICT\(option_id,option_version,action\) DO NOTHING/);
  assert.match(runner,/state:"QUARANTINED"/);
  assert.match(route,/strictProvenance:true/);
