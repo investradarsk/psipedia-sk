@@ -1,4 +1,5 @@
-import { verifyWebhookSignature } from "@notionhq/client";
+import notionSdk from "@notionhq/client";
+const { verifyWebhookSignature } = notionSdk;
 
 /** Official Notion SDK raw-body HMAC, event scope and metadata echo detection. */
 export type NotionWebhookEvent = {
