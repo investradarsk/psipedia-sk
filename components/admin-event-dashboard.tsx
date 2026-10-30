@@ -354,7 +354,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
               type="checkbox" aria-label={"Vybrať " + event.title}
               checked={selected.has(event.id)} disabled={!hydrated || busy || loading}
               onChange={() => toggle(event.id)} /> },
-            { id: "title", label: "Podujatie", width: 270, sortValue: (event) => event.title, cell: (event) => <Link href={"/admin/podujatia/" + event.id}><strong>{event.title}</strong></Link> },
+            { id: "title", label: "Podujatie", width: 270, sortValue: (event) => event.title, cell: (event) => <Link href={`/admin/podujatia/${event.id}`}><strong>{event.title}</strong></Link> },
             { id: "date", label: "Termín", width: 170, sortValue: (event) => event.startDate + event.startTime, cell: (event) => formatEventDate(event) + (event.startTime ? " · " + event.startTime : "") },
             { id: "city", label: "Mesto", width: 145, sortValue: (event) => event.city || "", cell: (event) => event.city || "—" },
             { id: "type", label: "Typ", width: 160, sortValue: (event) => event.eventType, cell: (event) => event.eventType },
