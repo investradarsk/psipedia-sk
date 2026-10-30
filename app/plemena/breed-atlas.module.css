@@ -304,3 +304,33 @@
   .atlasActions { gap: 12px; }
   .compareAction { width: 100%; justify-content: center; }
 }
+
+/* Atlas filter chips: no hidden sideways scroll, consistent with public categories. */
+.foundation :global(.fci-filter-row) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+  overflow: visible;
+  scroll-snap-type: none;
+  padding: 8px 0;
+}
+.foundation :global(.fci-filter-row button) {
+  min-width: 0; max-width: 100%; min-height: 48px; white-space: normal;
+  overflow-wrap: anywhere; text-align: left; border-radius: var(--ps-radius-control, 12px);
+}
+.foundation :global(.breed-group-cta) { display: flex; justify-content: flex-start; margin-top: 16px; }
+.foundation :global(.breed-group-cta a),
+.foundation :global(.breed-group-cta button) {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 44px;
+  border: 1px solid var(--ps-border-strong); border-radius: var(--ps-radius-control, 12px);
+  padding: 10px 15px; background: var(--white); color: var(--forest-dark);
+  text-decoration: none; font: inherit; font-weight: 800; cursor: pointer;
+}
+.foundation :global(.breed-group-cta a:hover),
+.foundation :global(.breed-group-cta button:hover) { background: var(--sage-light); }
+.foundation :global(.breed-group-cta :is(a,button):focus-visible) { outline: 3px solid var(--coral-dark); outline-offset: 3px; }
+@media (max-width: 900px) { .foundation :global(.fci-filter-row) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .foundation :global(.fci-filter-row) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 360px) { .foundation :global(.fci-filter-row) { grid-template-columns: minmax(0, 1fr); } }
