@@ -49,7 +49,7 @@ test("run is admin-only, bounded, changes no editorial or publication columns",a
   const sync=await readFile(new URL("../lib/notion-breed-identity-backfill.ts",import.meta.url),"utf8");
   const ui=await readFile(new URL("../components/admin-breed-identity-backfill.tsx",import.meta.url),"utf8");
   assert.match(api,/requireAdminMutation\(request,\{strictProvenance:true\}\)/);
-  assert.match(api,/body\?\.mode==="apply"/);
+  assert.match(api,/apply:body\.mode==="apply"/);
   assert.match(api,/maxWrites:20/);
   assert.match(sync,/notionPageBelongsToDataSource\(page,sourceId\)/);
   assert.match(sync,/INSERT OR IGNORE INTO breed_notion_sync/);
