@@ -83,9 +83,13 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     summary = await runNotionEshopSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
     });
-  } else if (sameSource(sourceId, NOTION_FACEBOOK_IMAGES_SOURCE_ID)
-      && sameSource(sourceId, bindings.NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID)
-      && notionPageBelongsToDataSource(page, NOTION_FACEBOOK_IMAGES_SOURCE_ID)) {
+  } else if (sameSource(sourceId, NOTION_FACEBOOK_IMAGES_SOURCE_ID)) {
+    // An incorrectly configured Facebook source must remain queued for
+    // operator attention, not be falsely acknowledged as out-of-scope.
+    if (!sameSource(sourceId, bindings.NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID))
+      return "disabled";
+    if (!notionPageBelongsToDataSource(page, NOTION_FACEBOOK_IMAGES_SOURCE_ID))
+      return "out-of-scope";
     // Reuse the EXISTING Facebook scheduling, approval and published-post
     // protections, but fetch only this verified changed Notion page.
     const result = await runNotionFacebookImagesSync({
