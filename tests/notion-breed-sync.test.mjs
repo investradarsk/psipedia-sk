@@ -159,7 +159,7 @@ test("pending Admin breed edits block stale Notion sync and false success", () =
   const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
   const guard = mapped.indexOf("BREED_ADMIN_REVISION_NOT_SYNCED");
-  const original = mapped.indexOf("if (mapping.content_hash === contentHash)");
+  const original = mapped.indexOf("if (mapping && mapping.content_hash === contentHash)");
   assert.ok(guard >= 0 && original > guard);
   assert.match(mapped, /canonicalTextDiffers/);
   assert.match(mapped, /mapping.content_hash === contentHash && canonicalTextDiffers/);
