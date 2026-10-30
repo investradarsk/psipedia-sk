@@ -1,7 +1,7 @@
 import { HISTORICAL_FCI_BY_SLUG } from "./breed-fci-historical-reference.ts";
 import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import {
-  notionRequest, notionRichTextProperty, notionTitleProperty, notionNumberProperty,
+  notionRequest, notionRichTextProperty, notionNumberProperty,
   notionSelectProperty, notionPropertyRecord,
   type NotionPage, type NotionSyncBindings,
 } from "./notion-sync-shared.ts";
@@ -100,6 +100,22 @@ export async function runBreedIdentityBackfill(input:{
     slugCount.set(slug,(slugCount.get(slug)??0)+1);
     if(fci!=null)fciCount.set(fci,(fciCount.get(fci)??0)+1);
   }
+  // One D1 snapshot rather than 3-4 individual D1 requests for each of the
+  // 344 breeds. Besides cost this avoids hitting the per-invocation query cap.
+  // All subsequent writes still use their own CAS/unique-constraint guard.
+  const [stored,links]=await Promise.all([
+    db.prepare("SELECT id,slug,name,fci_number,status,updated_at FROM managed_breeds").all<DbBreed>(),
+    db.prepare("SELECT notion_page_id,breed_id FROM breed_notion_sync").all<LinkRow>(),
+  ]);
+  const bySlug=new Map<string,DbBreed[]>();
+  const byFci=new Map<number,DbBreed[]>();
+  for(const row of stored.results){
+    bySlug.set(row.slug,[...(bySlug.get(row.slug)??[]),row]);
+    if(row.fci_number!=null && row.fci_number>0)
+      byFci.set(row.fci_number,[...(byFci.get(row.fci_number)??[]),row]);
+  }
+  const linkByPage=new Map(links.results.map(row=>[row.notion_page_id,row]));
+  const linkByBreed=new Map(links.results.map(row=>[row.breed_id,row]));
   const cap=Math.min(MAX_WRITES,Math.max(1,Math.trunc(input.maxWrites??MAX_WRITES)));
   let applied=0;
   for(const page of pages){
@@ -114,14 +130,10 @@ export async function runBreedIdentityBackfill(input:{
       continue;
     }
     try{
-      const canonical=await db.prepare(
-        "SELECT id,slug,name,fci_number,status,updated_at FROM managed_breeds WHERE slug=? LIMIT 2",
-      ).bind(slug).all<DbBreed>();
-      const breed=canonical.results.length===1?canonical.results[0]:null;
-      const [byBreed,byPage]=await Promise.all([
-        breed?db.prepare("SELECT notion_page_id,breed_id FROM breed_notion_sync WHERE breed_id=?").bind(breed.id).first<LinkRow>():Promise.resolve(null),
-        db.prepare("SELECT notion_page_id,breed_id FROM breed_notion_sync WHERE notion_page_id=?").bind(page.id).first<LinkRow>(),
-      ]);
+      const matches=bySlug.get(slug)??[];
+      const breed=matches.length===1?matches[0]:null;
+      const byBreed=breed?linkByBreed.get(breed.id)??null:null;
+      const byPage=linkByPage.get(page.id)??null;
       const outcome=evaluateBreedIdentity({
         notionSlug:slug,notionFci:fci,notionId,canonical:breed,
         countBySlug:slugCount.get(slug)??0,
@@ -144,9 +156,7 @@ export async function runBreedIdentityBackfill(input:{
         result.conflicts++;if(result.review.length<20)result.review.push({slug,reason:"INVALID_FCI"});
         continue;
       }
-      const fciOwner=await db.prepare(
-        "SELECT id FROM managed_breeds WHERE fci_number=? AND id<>? LIMIT 1",
-      ).bind(desiredFci,breed.id).first<{id:number}>();
+      const fciOwner=(byFci.get(desiredFci)??[]).find(owner=>owner.id!==breed.id);
       if(fciOwner){
         result.conflicts++;if(result.review.length<20)result.review.push({slug,reason:"FCI_OWNED_BY_OTHER_BREED"});
         continue;
@@ -188,6 +198,8 @@ export async function runBreedIdentityBackfill(input:{
           (created.meta.changes!==1 && !byBreed))
           throw new Error("BREED_LINK_CAS_CONFLICT");
         result.mappingsCreated++;
+        linkByPage.set(page.id,{notion_page_id:page.id,breed_id:breed.id});
+        linkByBreed.set(breed.id,{notion_page_id:page.id,breed_id:breed.id});
       }
       const properties:Record<string,unknown>={};
       if(idMissing)properties["Psipedia ID"]={rich_text:[{text:{content:String(breed.id)}}]};
