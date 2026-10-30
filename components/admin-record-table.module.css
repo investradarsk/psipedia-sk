@@ -15,10 +15,10 @@
 .columnPickerMenu input { accent-color: #245541; }
 .scroll { width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
 .scroll:focus-visible { outline: 3px solid #9a3d29; outline-offset: -3px; }
-.table { width: 100%; min-width: 820px; table-layout: auto; border-collapse: separate; border-spacing: 0; color: #1c3e33; font-size: .84rem; }
+.table { width: 100%; min-width: 820px; table-layout: fixed; border-collapse: separate; border-spacing: 0; color: #1c3e33; font-size: .84rem; }
 .table th { position: sticky; top: 0; z-index: 1; background: #f0f5f0; font-size: .76rem; letter-spacing: .015em; text-align: left; font-weight: 750; color: #426353; border-bottom: 1px solid #d9e3da; }
 .table th, .table td { position: relative; padding: 9px 12px; vertical-align: middle; border-right: 1px solid #eef1ed; }
-.table td { border-bottom: 1px solid #e9eee8; line-height: 1.4; overflow-wrap: anywhere; }
+.table td { border-bottom: 1px solid #e9eee8; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table tr:last-child td { border-bottom: 0; }
 .table tbody tr:nth-child(even) { background: #fafcf9; }
 .table tbody tr:hover { background: #edf5ef; }
