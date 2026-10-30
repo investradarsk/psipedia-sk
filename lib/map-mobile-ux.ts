@@ -4,7 +4,7 @@ export type MapSheetState = "peek" | "preview" | "expanded";
 export const MAP_RETURN_KEY = "psipedia-map-return-v3";
 
 export function sheetStateAfterDrag(state: MapSheetState, delta: number, velocity: number, travel: number): MapSheetState {
-  const threshold = Math.min(104, Math.max(52, travel * 0.19));
+  const threshold = Math.min(96, Math.max(40, travel * 0.16));
   // Preserve the established full-swipe gesture (120 px in existing map E2E)
   // while reserving shorter intentional drags for the intermediate preview.
   const fullSwipe = Math.min(112, Math.max(84, travel * 0.21));
