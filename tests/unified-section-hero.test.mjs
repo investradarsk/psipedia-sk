@@ -112,10 +112,11 @@ test("Plemena uses one homepage-style search with BreedBrowser FCI filters", () 
   assert.match(breeds, /hidePrimarySearch/);
   assert.match(breeds, /<BreedBrowser/);
   assert.match(breeds, /initialFilters=\{initialFilters\}/);
-  // BREEDS-PUBLIC-UX-V2 deliberately replaced category tiles with
-  // compact primary-action links while retaining BreedBrowser and crawl index.
-  assert.match(breeds, /<nav aria-label="Hlavné možnosti v sekcii Plemená"/);
-  assert.match(breeds, /breedSection\.subpages/);
+  // The approved atlas has one compare action and the shared club photo banner.
+  assert.match(breeds, /<Link href="\/porovnat-plemena" className=\{styles\.compareAction\}/);
+  assert.match(breeds, /<PublicMagazineBanner/);
+  assert.match(breeds, /testId="breed-clubs"/);
+  assert.doesNotMatch(breeds, /Čo chceš urobiť\?/);
   assert.match(breeds, /<BreedCrawlIndex/);
 });
 
