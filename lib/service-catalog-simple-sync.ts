@@ -80,7 +80,7 @@ export async function runSimpleServiceCatalogSync(input:{
   const client=input.fetcher??fetch;
   const headers={"Authorization":"Bearer "+env.NOTION_API_TOKEN.trim(),
     "Notion-Version":"2025-09-03","Content-Type":"application/json"};
-  async function request(path:string,method:"GET"|"POST"|"PATCH",body?:unknown):Promise<any>{
+  async function request(path:string,method:"GET"|"POST"|"PATCH",body?:unknown):Promise<unknown>{
     const response=await client("https://api.notion.com/v1/"+path,{
       method,headers,...(body===undefined?{}:{body:JSON.stringify(body)})
     });
