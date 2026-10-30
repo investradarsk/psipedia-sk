@@ -15,16 +15,28 @@ const articleStoreSource = await readFile(new URL("../lib/article-store.ts", imp
 test("Ready Notion articles auto-flow into Psipedia as draft only", () => {
   assert.match(syncSource, /selectProperty\(page, "Stav"\) !== "Ready"/);
   assert.match(syncSource, /status: "draft"/);
-  assert.match(syncSource, /existing\.status !== "draft"/);
-  assert.doesNotMatch(syncSource, /status: "published"/);
+  assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"/);
+  assert.match(syncSource, /status: existing\.status/);
   assert.match(syncSource, /checkboxProperty\(page, "Odoslať na Psipedia"\)/);
   assert.doesNotMatch(syncSource, /Zdroje overené/);
   assert.doesNotMatch(syncSource, /Obsah skontrolovaný/);
   assert.doesNotMatch(syncSource, /SEO skontrolované/);
 });
 
+test("published articles keep public state, canonical URL, media and one-to-one identity", () => {
+  assert.match(syncSource, /findUnmappedCanonicalArticle/);
+  assert.match(syncSource, /ARTICLE_MAPPING_REVIEW_REQUIRED/);
+  assert.match(syncSource, /selectProperty\(page, "Stav"\) === "Publikované"/);
+  assert.match(syncSource, /ARTICLE_CREATE_REQUIRES_READY/);
+  assert.match(syncSource, /status: existing\.status/);
+  assert.match(syncSource, /publishedAt: existing\.publishedAt/);
+  assert.match(syncSource, /imageUrl: existing\.image/);
+  assert.match(syncSource, /canonicalUrl: existing\.canonicalUrl/);
+  assert.match(syncSource, /ARTICLE_ADMIN_REVISION_NOT_SYNCED/);
+});
+
 test("Notion query automatically scans Ready articles in the exact data source", () => {
-  assert.match(syncSource, /filter:\s*\{\s*and:\s*\[/);
+  assert.match(syncSource, /filter:\s*\{\s*or:\s*\[/);
   assert.match(syncSource, /\{ property: "Stav", select: \{ equals: "Ready" \} \}/);
   assert.match(syncSource, /\{ property: "Odoslať na Psipedia", checkbox: \{ equals: true \} \}/);
   assert.match(syncSource, /last_edited_time/);
@@ -55,7 +67,7 @@ test("retry is idempotent, protects non-drafts and preserves Admin-owned promo b
   assert.match(syncSource, /if \(mapping\.content_hash === contentHash\)/);
   assert.match(syncSource, /return "unchanged"/);
   assert.match(syncSource, /ON CONFLICT\(notion_page_id\) DO UPDATE SET/);
-  assert.match(syncSource, /if \(existing\.status !== "draft"\)/);
+  assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"/);
   assert.match(syncSource, /Automatická synchronizácia ho nebude prepisovať ani odpublikovávať/);
   assert.match(syncSource, /preserveArticlePromoBlocks\(existing\.blocks \?\? \[\], basePayload\.blocks \?\? \[\]\)/);
   assert.match(syncSource, /catch \(error\) \{[\s\S]*?isArticleSlugConflict\(error\)/);
@@ -220,7 +232,7 @@ test("hourly article sync survives unrelated Promise.all rejections and logs run
 
 test("article sync keeps the original no-publish, no-duplicate and status writeback protections", () => {
   assert.match(syncSource, /status: "draft"/);
-  assert.match(syncSource, /if \(existing\.status !== "draft"\)/);
+  assert.match(syncSource, /existing\.status !== "draft" && existing\.status !== "published"/);
   assert.match(syncSource, /article_id = excluded\.article_id/);
   assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(migrationSource, /article_id INTEGER NOT NULL UNIQUE/);
