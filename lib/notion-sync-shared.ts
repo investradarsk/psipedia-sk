@@ -1,3 +1,5 @@
+import notionSdk from "@notionhq/client";
+const { Client, LogLevel, isHTTPResponseError } = notionSdk;
 import type { ImagesBindingLike } from "@/lib/private-media";
 
 export type NotionSyncBindings = {
@@ -18,7 +20,7 @@ type NotionQueryResponse = {
   next_cursor?: string | null;
 };
 
-const NOTION_API_BASE = "https://api.notion.com/v1";
+const NOTION_API_BASE = "https://api.notion.com/v1/";
 const NOTION_VERSION = "2025-09-03";
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_REMOTE_IMAGE_REDIRECTS = 3;
@@ -115,6 +117,11 @@ function wait(ms: number) {
   return ms > 0 ? new Promise<void>((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
 }
 
+/** One SDK-backed transport for all adapters that use notionRequest.
+ * Keep the existing bounded retry policy for now, so adoption does not
+ * change the behavior of historical article/directory/help writebacks.
+ * The SDK itself does not retry here; otherwise retries would multiply.
+ */
 export async function notionRequest<T>(
   bindings: NotionSyncBindings,
   path: string,
@@ -124,32 +131,70 @@ export async function notionRequest<T>(
   const token = bindings.NOTION_API_TOKEN?.trim();
   if (!token) throw new Error("NOTION_API_TOKEN nie je nakonfigurovaný.");
 
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
-  headers.set("Notion-Version", NOTION_VERSION);
-  headers.set("Content-Type", "application/json");
-
-  for (let attempt = 0; attempt <= NOTION_MAX_RETRIES; attempt += 1) {
-    const response = await fetch(`${NOTION_API_BASE}${path}`, { ...init, headers });
-    const text = await response.text();
-    if (response.ok) return text ? JSON.parse(text) as T : {} as T;
-
-    let message = text.slice(0, 500);
-    try {
-      const parsed = JSON.parse(text) as { message?: string };
-      if (parsed.message) message = parsed.message;
-    } catch {
-      // Keep the plain response body.
+  // Only relative Notion API paths are accepted. Never forward absolute URLs,
+  // caller-controlled hosts, user tokens or arbitrary request methods.
+  if (!path.startsWith("/") || path.startsWith("//") || path.includes("#")) {
+    throw new Error("NOTION_SDK_UNSAFE_API_PATH");
+  }
+  const url = new URL(NOTION_API_BASE + path.slice(1));
+  if (url.origin !== "https://api.notion.com" || !url.pathname.startsWith("/v1/")) {
+    // Callers use /pages, /blocks and /data_sources, not /v1/... prefixes.
+    // The base path below is set to https://api.notion.com/v1/.
+    throw new Error("NOTION_SDK_UNSAFE_API_PATH");
+  }
+  const method = (init.method ?? "GET").toLowerCase();
+  if (method !== "get" && method !== "post" && method !== "patch" && method !== "delete") {
+    throw new Error("NOTION_SDK_UNSUPPORTED_METHOD");
+  }
+  if (init.body !== undefined && typeof init.body !== "string") {
+    throw new Error("NOTION_SDK_JSON_BODY_REQUIRED");
+  }
+  let body: Record<string, unknown> | undefined;
+  if (typeof init.body === "string") {
+    const parsed: unknown = JSON.parse(init.body);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("NOTION_SDK_JSON_OBJECT_REQUIRED");
     }
-
-    if (options.retryTransient !== false && attempt < NOTION_MAX_RETRIES && notionRetryableStatus(response.status)) {
-      await wait(notionRetryDelayMs(attempt, response.headers.get("retry-after")));
-      continue;
-    }
-
-    throw new Error(`Notion API ${response.status}: ${message}`);
+    body = parsed as Record<string, unknown>;
   }
 
+  const client = new Client({
+    auth: token,
+    notionVersion: NOTION_VERSION,
+    retry: false,
+    logLevel: LogLevel.ERROR,
+    logger: () => { /* do not log provider data, tokens or HTTP bodies */ },
+  });
+  const query: Record<string, string | string[]> = {};
+  for (const [key, value] of url.searchParams) {
+    const prior = query[key];
+    query[key] = prior === undefined ? value
+      : Array.isArray(prior) ? [...prior, value] : [prior, value];
+  }
+  const headers = Object.fromEntries(new Headers(init.headers).entries());
+  // Authentication and Notion-Version remain owned by SDK runtime secrets.
+  for (const key of Object.keys(headers)) {
+    if (key === "authorization" || key === "notion-version") delete headers[key];
+  }
+  for (let attempt = 0; attempt <= NOTION_MAX_RETRIES; attempt += 1) {
+    try {
+      return await client.request<Record<string, unknown>>({
+        path: url.pathname.slice("/v1/".length),
+        method,
+        ...(url.search ? { query } : {}),
+        ...(body ? { body } : {}),
+        headers,
+      }) as unknown as T;
+    } catch (error) {
+      if (!isHTTPResponseError(error)) throw error;
+      if (options.retryTransient !== false && attempt < NOTION_MAX_RETRIES && notionRetryableStatus(error.status)) {
+        await wait(notionRetryDelayMs(attempt, error.headers.get("retry-after")));
+        continue;
+      }
+      // Retain the existing error contract without exposing raw provider data.
+      throw new Error(`Notion API ${error.status}: ${error.message.slice(0, 500)}`);
+    }
+  }
   throw new Error("Notion API retry limit bol vyčerpaný.");
 }
 
