@@ -1,4 +1,5 @@
-import { Client, LogLevel, isHTTPResponseError } from "@notionhq/client";
+import notionSdk from "@notionhq/client";
+const { Client, LogLevel, isHTTPResponseError } = notionSdk;
 import type { ImagesBindingLike } from "@/lib/private-media";
 
 export type NotionSyncBindings = {
