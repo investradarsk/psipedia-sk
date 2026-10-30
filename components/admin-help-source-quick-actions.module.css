@@ -1,0 +1,16 @@
+.wrapper { display: grid; gap: .4rem; min-width: 0; }
+.buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+.buttons button {
+  min-height: 44px; padding: .55rem .6rem; border-radius: .75rem;
+  border: 1px solid #15573b; background: #15573b; color: #fff;
+  font: inherit; font-size: .87rem; font-weight: 750;
+  line-height: 1.3; cursor: pointer; overflow-wrap: anywhere;
+}
+.buttons .ended { background: #fffaf4; color: #6e3a17; border-color: #d5b8a0; }
+.buttons button:disabled { opacity: .55; cursor: wait; }
+.buttons button:focus-visible { outline: 3px solid #d18c43; outline-offset: 2px; }
+.error, .success, .hint { margin: 0; font-size: .85rem; line-height: 1.35; }
+.error { color: #a12626; }
+.success { color: #15573b; }
+.hint { color: #637568; }
+@media (max-width: 340px) { .buttons { grid-template-columns: minmax(0, 1fr); } }

@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { AdminHelpSourceQuickActions } from "./admin-help-source-quick-actions";
 import type { HelpSourceCheckRow, HelpSourceState } from "@/lib/help-source-daily-check";
 import styles from "./admin-help-source-review.module.css";
 
@@ -25,33 +24,9 @@ function sourceHref(url: string) {
 }
 
 export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }) {
-  const router = useRouter();
-  const [pending, setPending] = useState("");
-  const [error, setError] = useState("");
   const isReviewDue = (item: HelpSourceCheckRow) => item.source_state !== "ACTIVE_SIGNAL" && Boolean(item.review_due);
   const urgent = items.filter(isReviewDue);
   const done = items.filter((item) => !isReviewDue(item));
-
-  async function confirmCurrent(item: HelpSourceCheckRow) {
-    const key = item.entity_type + ":" + item.entity_id;
-    setPending(key);
-    setError("");
-    try {
-      const response = await fetch(
-        "/api/admin/help-source-checks/" + item.entity_type + "/" + item.entity_id,
-        { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "CONFIRM_ACTIVE" }), cache: "no-store" },
-      );
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(payload.error || "Overenie sa nepodarilo uložiť.");
-      }
-      router.refresh();
-    } catch (problem) {
-      setError(problem instanceof Error ? problem.message : "Overenie sa nepodarilo uložiť.");
-    } finally {
-      setPending("");
-    }
-  }
 
   function cards(values: HelpSourceCheckRow[]) {
     return values.map((item) => {
@@ -80,13 +55,9 @@ export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }
           <div className={styles.actions}>
             {href && <a href={href} target="_blank" rel="noopener noreferrer nofollow">Otvoriť zdroj</a>}
             <Link href={editor}>Otvoriť profil</Link>
-            {item.source_state !== "ACTIVE_SIGNAL" && (
-              <button type="button" disabled={pending === key}
-                onClick={() => void confirmCurrent(item)}>
-                {pending === key ? "Ukladám…" : "Potvrdzujem, že je stále aktuálny"}
-              </button>
-            )}
           </div>
+          <AdminHelpSourceQuickActions entityType={item.entity_type}
+            entityId={item.entity_id} checkedAt={item.last_checked_at} />
         </article>
       );
     });
@@ -102,7 +73,6 @@ export function AdminHelpSourceReview({ items }: { items: HelpSourceCheckRow[] }
         Automatická kontrola nikdy nemení stav adopcie ani pátrania. Potvrdenie používaj až po
         skutočnom overení pôvodného zdroja; pri adopcii sa uloží aj dátum posledného overenia.
       </p>
-      {error && <p className="admin-flash" role="alert">{error}</p>}
       <section aria-label="Potrebuje overenie">
         <h2>Na ručnú kontrolu ({urgent.length})</h2>
         {urgent.length ? <div className={styles.cards}>{cards(urgent)}</div> : <p>V načítanej dávke nie je žiadny nevybavený prípad.</p>}
