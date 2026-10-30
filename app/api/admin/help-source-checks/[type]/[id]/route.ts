@@ -34,9 +34,19 @@ export async function PATCH(request: Request, { params }: RouteProps) {
 
   try {
     const check = await db.prepare(
-      "SELECT last_checked_at FROM help_source_checks WHERE entity_type=? AND entity_id=?",
-    ).bind(type, id).first<{ last_checked_at: string | null }>();
-    if (!check || check.last_checked_at !== checkedAt) throw new HelpSourceDecisionConflict();
+      "SELECT c.last_checked_at,c.source_url,"
+      + " CASE WHEN c.entity_type='ADOPTION' THEN a.external_source_url ELSE l.source_url END AS canonical_url"
+      + " FROM help_source_checks c"
+      + " LEFT JOIN adoption_dogs a ON c.entity_type='ADOPTION' AND a.id=c.entity_id"
+      + " LEFT JOIN lost_found_dog_reports l ON c.entity_type='LOST_FOUND' AND l.id=c.entity_id"
+      + " WHERE c.entity_type=? AND c.entity_id=?",
+    ).bind(type, id).first<{
+      last_checked_at: string | null; source_url: string; canonical_url: string | null;
+    }>();
+    if (!check || check.last_checked_at !== checkedAt
+      || check.source_url !== (check.canonical_url ?? "").trim()) {
+      throw new HelpSourceDecisionConflict();
+    }
 
     if (body.action === "CONFIRM_ACTIVE") {
       const confirmed = await confirmHelpSourceManually(db, type as HelpSourceEntityType, id);
