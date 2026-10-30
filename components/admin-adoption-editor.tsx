@@ -89,6 +89,9 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
         else control.value = value === null || value === undefined ? "" : String(value);
       } else if (control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement) {
         control.value = value === null || value === undefined ? "" : String(value);
+        if (control instanceof HTMLTextAreaElement && control.hasAttribute("data-lexical-value")) {
+          control.dispatchEvent(new Event("input", { bubbles: true }));
+        }
       }
     }
     setVersion(updatedAt);
