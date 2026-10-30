@@ -181,9 +181,12 @@ test("lost/found report route keeps shared header CSS and help overview exposes 
 
   assert.match(page, /site-header\.module\.css/);
   assert.match(page, /routeCssAnchor/);
-  assert.match(overview, /Stratil sa vám pes alebo ste psa našli\?/);
-  assert.match(overview, /\/pomoc-psom\/stratene-a-najdene\/nahlasit/);
-  assert.match(overview, /Nahlásiť psa/);
+  const banner = readFileSync(new URL("../components/public-visual-system/public-help-banner.tsx", import.meta.url), "utf8");
+  assert.match(overview, /lostFoundSubmitPromo/);
+  assert.match(overview, /<Promo promo=\{lostFoundSubmitPromo\} \/>/);
+  assert.match(banner, /Stratil sa vám pes alebo ste psa našli\?/);
+  assert.match(banner, /\/pomoc-psom\/stratene-a-najdene\/nahlasit/);
+  assert.match(banner, /Nahlásiť psa/);
 });
 
 test("framework request body limit matches LOST/FOUND upload contract", () => {
