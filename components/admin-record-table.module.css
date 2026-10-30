@@ -2,7 +2,7 @@
   min-width: 0;
   border: 1px solid #d9e3da;
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
   background: #fffdf9;
 }
 .toolbar { display: flex; gap: 12px; justify-content: space-between; align-items: center; padding: 12px 14px; background: #f7faf6; border-bottom: 1px solid #e0e7e1; }
