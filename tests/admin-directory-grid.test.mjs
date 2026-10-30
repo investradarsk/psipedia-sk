@@ -33,7 +33,10 @@ test("all canonical actions and versioned mutation endpoints stay owned by exist
   const events = read("components/admin-event-dashboard.tsx");
   assert.match(directory, /changeReviewed\(profile/);
   assert.match(directory, /removeProfile\(profile/);
-  assert.match(directory, /\/admin\/adresar\/\$\{profile.id\}/);
+  const editorLink = read("components/admin-directory-editor-link.tsx");
+  assert.match(directory, /<AdminDirectoryEditorLink profileId=\{profile.id\}/);
+  assert.match(editorLink, /\/admin\/adresar\/\$\{profileId\}/);
+  assert.match(editorLink, /window\.location\.assign\(href\)/);
   assert.match(help, /prepareBulk\("published"\)/);
   assert.match(help, /\/api\/admin\/help\/bulk/);
   assert.match(events, /fetchAdminEventPage\(filters, page/);
