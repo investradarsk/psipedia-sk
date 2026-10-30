@@ -18,6 +18,7 @@ function localFormat(date,pattern){
     minute:"2-digit",second:"2-digit",hourCycle:"h23"});
   const obj=Object.fromEntries(fmt.formatToParts(date).map(x=>[x.type,x.value]));
   const local=obj.year+"-"+obj.month+"-"+obj.day+"T"+obj.hour+":"+obj.minute+":"+obj.second;
+  if(pattern==="yyyy-MM-dd")return local.slice(0,10);
   if(pattern!=="Z")return local;
   const naive=Date.parse(local+"Z"),delta=Math.round((naive-date.getTime())/60000);
   const sign=delta>=0?"+":"-";
