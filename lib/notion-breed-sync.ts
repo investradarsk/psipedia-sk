@@ -50,6 +50,7 @@ export type NotionBreedSyncSummary = {
 const SYNC_ACTOR = "notion-breed-sync@psipedia.sk";
 // Includes approved editorial updates for already published canonical breeds.
 const MAX_SYNC_ITEMS = 500;
+const MAX_EDITORIAL_UPDATES_PER_SWEEP = 25;
 
 function checkboxProperty(page: NotionPage, name: string) {
   return notionPropertyRecord(page, name)?.checkbox === true;
@@ -496,6 +497,10 @@ async function syncOneBreed(
     }
 
     if (mapping && mapping.content_hash === contentHash) {
+      if (notionSelectProperty(page, "Sync stav") === "Synchronizované"
+        && notionRichTextProperty(page, "Psipedia ID") === String(existing.id)) {
+        return "unchanged"; // Do not PATCH unchanged receipts and retrigger webhooks.
+      }
       await upsertMapping(database, page, existing.id, contentHash, now);
       await updateNotionSyncState(bindings, page.id, {
         state: "Synchronizované",
@@ -592,9 +597,9 @@ export async function runNotionBreedSyncSweep(args: {
   } else {
     pages = await listEditableNotionBreeds(args.bindings, dataSourceId);
   }
-  summary.scanned = pages.length;
-
   for (const page of pages) {
+    if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
+    summary.scanned += 1;
     try {
       const result = await syncOneBreed(args.database, args.bindings, page);
       summary[result] += 1;
