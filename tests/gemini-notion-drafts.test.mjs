@@ -54,6 +54,12 @@ const json = (data) => new Response(JSON.stringify(data), {
   status: 200, headers: { "content-type": "application/json" },
 });
 
+// The official Notion SDK passes fetch a HeadersInit object and may keep
+// request methods lowercase. Normalize the mock's view, not the provider client.
+function normalizeNotionMockInit(init = {}) {
+  return { ...init, method: String(init.method || "GET").toUpperCase(), headers: new Headers(init.headers) };
+}
+
 test("admin category list queries Notion directly, not D1, and excludes unrelated drafts", async () => {
   const originalFetch = globalThis.fetch;
   let count = 0;
