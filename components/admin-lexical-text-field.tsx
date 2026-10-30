@@ -29,8 +29,10 @@ function LexicalPlainTextBridge({ value, onChange, disabled }: { value: string; 
 
   useEffect(() => { editor.setEditable(!disabled); }, [editor, disabled]);
 
-  currentValue.current = value;
-  onChangeRef.current = onChange;
+  useEffect(() => {
+    currentValue.current = value;
+    onChangeRef.current = onChange;
+  }, [value, onChange]);
 
   useEffect(() => {
     // Reconcile changes from Notion/automation, not keystrokes echoed by React.
