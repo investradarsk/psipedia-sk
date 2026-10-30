@@ -35,7 +35,8 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
     invariant(!targetApplied,"0139 already applied; refusing repeated production APPLY");
 }
 // Migration 0142 remains owner-dispatched through the existing protected production workflow.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0146_help_source_daily_checks.sql"]);
+// 0146 remains owner-dispatched only: PR merge does not run the protected migration.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
@@ -276,6 +277,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0143_quality_missing_manual_attempts.sql",
   "0144_facebook_articles_shared_calendar.sql",
   "0145_notion_webhook_inbox.sql",
+  "0146_help_source_daily_checks.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1495,6 +1497,9 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: ["notion_webhook_inbox", "notion_webhook_inbox_pending",
       "notion_webhook_inbox_page"].some(name => names.has(name)) };
   }
+  if (targetMigration === "0146_help_source_daily_checks.sql") {
+    return { partial: HELP_SOURCE_0146_OBJECTS.some(name => names.has(name)) };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1553,6 +1558,68 @@ export function assertQualityManual0143Schema(schema) {
     "0143 manual history statuses are not constrained");
   invariant(/ON\s+quality_missing_manual_attempts\s*\(\s*created_at\s+DESC\s*\)/i.test(String(index.sql??"")),
     "0143 recent history index drift");
+}
+
+/** Canonical, additive-only tables for daily help-source inspection and independent notification receipts. */
+export const HELP_SOURCE_0146_OBJECTS = Object.freeze([
+  "help_source_checks", "idx_help_source_checks_due", "idx_help_source_checks_review",
+  "admin_attention_ack", "idx_admin_attention_ack_snooze",
+]);
+
+export function assertHelpSource0146Schema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const sources = objects.get("help_source_checks");
+  const receipts = objects.get("admin_attention_ack");
+  invariant(sources?.type === "table", "0146 source-check table missing");
+  invariant(receipts?.type === "table", "0146 attention acknowledgement table missing");
+
+  const sourceSql = String(sources.sql ?? "").replace(/\s+/g, " ");
+  const receiptSql = String(receipts.sql ?? "").replace(/\s+/g, " ");
+  invariant(/entity_type TEXT NOT NULL CHECK \(entity_type IN \('ADOPTION','LOST_FOUND'\)\)/i.test(sourceSql),
+    "0146 source-check entity type constraint drift");
+  invariant(/entity_id INTEGER NOT NULL CHECK \(entity_id > 0\)/i.test(sourceSql),
+    "0146 source-check positive entity id constraint drift");
+  invariant(/PRIMARY KEY \(entity_type, entity_id\)/i.test(sourceSql),
+    "0146 source-check primary key missing");
+  invariant(/source_state TEXT NOT NULL DEFAULT 'UNCHECKED'/i.test(sourceSql) &&
+    /CHECK \(source_state IN \('UNCHECKED','ACTIVE_SIGNAL','POSSIBLE_CHANGE','UNCERTAIN','UNAVAILABLE','NO_SOURCE'\)\)/i.test(sourceSql),
+    "0146 source-check state constraints drift");
+  invariant(/source_url TEXT NOT NULL DEFAULT ''/i.test(sourceSql) &&
+    /evidence TEXT NOT NULL DEFAULT ''/i.test(sourceSql),
+    "0146 source-check text defaults drift");
+  for (const column of ["last_checked_at", "state_changed_at", "last_success_at",
+    "last_http_status", "error_code", "last_reviewed_at", "last_reviewed_state",
+    "created_at", "updated_at"]) {
+    invariant(new RegExp("\\b" + column + "\\s+(?:TEXT|INTEGER)\\b", "i").test(sourceSql),
+      "0146 source-check missing column: " + column);
+  }
+  invariant(/PRIMARY KEY \(source_type, source_id\)/i.test(receiptSql) &&
+    /source_type TEXT NOT NULL/i.test(receiptSql) &&
+    /source_id TEXT NOT NULL/i.test(receiptSql),
+    "0146 attention receipt composite identity drift");
+  for (const column of ["relevant_at", "updated_at"]) {
+    invariant(new RegExp("\\b" + column + "\\s+TEXT NOT NULL\\b", "i").test(receiptSql),
+      "0146 attention receipt required timestamp missing: " + column);
+  }
+  for (const column of ["read_at", "snoozed_until"]) {
+    invariant(new RegExp("\\b" + column + "\\s+TEXT\\b", "i").test(receiptSql),
+      "0146 attention receipt optional timestamp missing: " + column);
+  }
+  const indexes = [
+    ["idx_help_source_checks_due", "help_source_checks",
+      /ON help_source_checks\(last_checked_at, entity_type\)/i],
+    ["idx_help_source_checks_review", "help_source_checks",
+      /ON help_source_checks\(source_state, last_reviewed_at\)/i],
+    ["idx_admin_attention_ack_snooze", "admin_attention_ack",
+      /ON admin_attention_ack\(snoozed_until\)/i],
+  ];
+  for (const [name, table, pattern] of indexes) {
+    const index = objects.get(name);
+    invariant(index?.type === "index" && index.tbl_name === table &&
+      pattern.test(String(index.sql ?? "").replace(/\s+/g, " ")),
+      "0146 missing/modified index: " + name);
+  }
+  return true;
 }
 
 /** 0145: exact additive-only Notion webhook inbox, without public content. */
@@ -2797,6 +2864,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 143) assertQualityManual0143Schema(schema);
   if (migrationIndex(targetMigration) >= 144) assertFacebookArticles0144Schema(schema);
   if (migrationIndex(targetMigration) >= 145) assertNotionWebhookInbox0145Schema(schema);
+  if (migrationIndex(targetMigration) >= 146) assertHelpSource0146Schema(schema);
 }
 
 /** Exact 0139 Services V3 journal, including append-only no-delete/rewrite guarantees. */
