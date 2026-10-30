@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 const syncSource = await readFile(new URL("../lib/notion-breed-sync.ts", import.meta.url), "utf8");
 const sharedSource = await readFile(new URL("../lib/notion-sync-shared.ts", import.meta.url), "utf8");
@@ -27,6 +28,20 @@ test("published breeds can receive approved Notion editorial updates without cha
   assert.match(syncSource, /status: existing\.status/);
   assert.match(syncSource, /image: existing\.image/);
   assert.match(syncSource, /BREED_CREATE_REQUIRES_READY/);
+});
+
+test("published canonical breeds ignore an obsolete Notion review state, but new drafts do not", () => {
+  const start = syncSource.indexOf("function validateReady(");
+  const end = syncSource.indexOf("\n/** A missing mapping", start);
+  assert.ok(start >= 0 && end > start);
+  const source = syncSource.slice(start, end).replace("page: NotionPage", "page").replace("existingPublished: boolean", "existingPublished");
+  const validate = runInNewContext(`(${source})`, {
+    notionSelectProperty: (page) => page.state,
+    checkboxProperty: (page) => page.checked === true,
+  }, { timeout: 500 });
+  assert.doesNotThrow(() => validate({ state: "Na kontrolu", checked: false }, true));
+  assert.doesNotThrow(() => validate({ state: "Ready", checked: false }, false));
+  assert.throws(() => validate({ state: "Na kontrolu", checked: false }, false), /schválenú/);
 });
 
 test("breed sync uses the exact configured Notion data source and hourly worker", () => {
