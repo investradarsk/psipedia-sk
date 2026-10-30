@@ -488,6 +488,7 @@ const ATTENTION_SOURCE_SELECTS: Record<AdminAttentionQueueSourceType, string> = 
       json_object('id',c.entity_id,'entityType',c.entity_type,
         'name',COALESCE(a.name,l.dog_name,l.breed,'Pes'),
         'state',c.source_state,'evidence',c.evidence,
+        'sourceUrl',c.source_url,'sourceCheckedAt',c.last_checked_at,
         'lastCheckedAt',CASE WHEN c.last_reviewed_at IS NOT NULL AND c.last_reviewed_state=c.source_state
           AND julianday((SELECT nowIso FROM params))>=julianday(c.last_reviewed_at)+7
           THEN datetime(c.last_reviewed_at,'+7 days')
