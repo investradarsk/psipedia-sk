@@ -2,7 +2,6 @@ import { HISTORICAL_FCI_BY_SLUG } from "./breed-fci-historical-reference.ts";
 import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import {
   notionRequest, notionRichTextProperty, notionNumberProperty,
-  notionSelectProperty, notionPropertyRecord,
   type NotionPage, type NotionSyncBindings,
 } from "./notion-sync-shared.ts";
 
@@ -29,7 +28,6 @@ export type BreedIdentityBackfillSummary = {
   review: Array<{ slug: string; reason: string }>;
 };
 const VALID_UUID=/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
-const APPROVED=new Set(["Ready","Publikované"]);
 const MAX_WRITES=20;
 const MAX_NOTION_PAGES=500;
 
@@ -123,8 +121,9 @@ export async function runBreedIdentityBackfill(input:{
     const slug=notionRichTextProperty(page,"Slug");
     const fci=notionNumberProperty(page,"FCI číslo");
     const notionId=notionRichTextProperty(page,"Psipedia ID").trim();
-    const approved=APPROVED.has(notionSelectProperty(page,"Stav"))
-      || notionPropertyRecord(page,"Profil skvalitnený")?.checkbox===true;
+    // Metadata identity is not publication approval: a draft/Research page
+    // still needs its immutable Psipedia ID. Only CONTENT sync is gated.
+    const approved=true;
     if(!slug || !/^[a-z0-9-]{2,90}$/.test(slug)) {
       result.conflicts++;if(result.review.length<20)result.review.push({slug:slug||"?",reason:"INVALID_SLUG"});
       continue;
