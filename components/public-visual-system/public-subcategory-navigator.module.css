@@ -389,3 +389,32 @@
   .compactGridMobile .compactItem { gap: 4px; padding-inline: 7px; font-size: .72rem; }
   .compactGridMobile .compactItem small { font-size: .66rem; }
 }
+
+/* PUBLIC NAV: no hidden horizontal rails, regardless of breakpoint.
+   Use one responsive grid for all compact category navigation instances. */
+.compactTrack {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  overflow: visible;
+  flex-wrap: wrap;
+  scroll-snap-type: none;
+  align-items: stretch;
+  padding-block: 8px;
+}
+.compactItem {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 48px;
+  border-radius: var(--ps-radius-control, 12px);
+  white-space: normal;
+  text-align: left;
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
+  padding-inline: 13px;
+}
+.compactItemCurrent { text-decoration: none; box-shadow: 0 2px 7px rgba(23, 75, 56, .13); }
+@media (max-width: 900px) { .compactTrack { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .compactTrack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 380px) { .compactTrack { grid-template-columns: minmax(0, 1fr); } }

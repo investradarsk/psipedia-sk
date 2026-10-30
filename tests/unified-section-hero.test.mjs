@@ -117,7 +117,9 @@ test("Plemena uses one homepage-style search with BreedBrowser FCI filters", () 
   assert.match(breeds, /<PublicMagazineBanner/);
   assert.match(breeds, /testId="breed-clubs"/);
   assert.doesNotMatch(breeds, /Čo chceš urobiť\?/);
-  assert.match(breeds, /<BreedCrawlIndex/);
+  assert.doesNotMatch(breeds, /<BreedCrawlIndex/);
+  assert.match(breeds, /buildCollectionPageJsonLd/);
+  assert.match(read("components/breed-browser.tsx"), /INITIAL_PER_GROUP = 3/);
 });
 
 test("directory root and categories resolve only section visual keys", () => {

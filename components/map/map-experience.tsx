@@ -463,6 +463,7 @@ function MapResults({
   const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>) => {
     if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.pointerType === "touch" && !event.isPrimary) return;
     // The header is the drag handle. Result cards and links must remain clickable,
     // while touch/mouse gestures on the list retain native scroll behavior.
     if (isInteractiveSheetTarget(event.target)) return;
@@ -572,6 +573,18 @@ function MapResults({
             </button>
           </div>
         </div>
+        <nav className={styles.sheetSnapControls} aria-label="Zobrazenie výsledkov na mobile" data-testid="map-sheet-snap-controls">
+          {([
+            ["peek", "Mapa"],
+            ["preview", "Náhľad"],
+            ["expanded", "Zoznam"],
+          ] as const).map(([state, label]) => (
+            <button key={state} type="button" onClick={() => onSheetStateChange(state)}
+              aria-pressed={sheetState === state} data-sheet-snap={state}>
+              {label}
+            </button>
+          ))}
+        </nav>
         <p aria-live="polite" data-testid="map-results-guidance">
           {resultsGuidance}
         </p>

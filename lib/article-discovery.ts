@@ -17,6 +17,7 @@ export type ArticleDiscoveryPopularItem = {
   title: string;
   href: string;
   label: string;
+  image?: string;
 };
 
 export type ArticleDiscoveryData = {
@@ -43,6 +44,7 @@ function toPopularItem(article: PopularArticleSummary): ArticleDiscoveryPopularI
     title: article.title,
     href: articleHref(article),
     label: popularityLabel(article),
+    image: article.image,
   };
 }
 

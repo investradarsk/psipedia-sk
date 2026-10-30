@@ -355,6 +355,17 @@ export async function EditorialSectionHub({
   const sectionSlug = section.slug;
   if (!isEditorialSectionSlug(sectionSlug)) return null;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
+  // Four clear life-stage groups replace the 11 consecutive undifferentiated
+  // puppy topic sections. Canonical topic URLs and all content stay intact.
+  const puppyStages = [
+    { title: "Pred príchodom psa", description: "Rozhodnutie, plemeno a zodpovedný chov.", slugs: ["pred-kupou-psa", "vyber-plemena", "vyber-chovatela"] },
+    { title: "Prvé mesiace doma", description: "Bezpečné prostredie, výživa a základné návyky.", slugs: ["prve-dni", "hygiena", "krmenie"] },
+    { title: "Zdravie a rast", description: "Prevencia a primeraný telesný vývoj.", slugs: ["ockovanie-a-zdravie", "rast-a-vyvoj"] },
+    { title: "Výchova a dospievanie", description: "Socializácia, tréning a pokojná puberta.", slugs: ["socializacia", "vycvik-steniatka", "puberta"] },
+  ];
+  const topicStages = sectionSlug === "steniatka"
+    ? puppyStages
+    : [{ title: "", description: "", slugs: subpages.map((page) => page.slug) }];
   const nextCards = nextSteps(sectionSlug);
   const hasScrollableServices = nextCards.length > 3;
   const heroVisual = await getSectionHeroVisual(`section.${sectionSlug}`);
@@ -401,34 +412,48 @@ export async function EditorialSectionHub({
 
         <div className={styles.topicGroups} data-section-subcategories data-section-topic-groups>
           <PageContainer>
-            {subpages.map((subpage) => {
-              const related = orderedArticles(section, articles, subpage);
-              const href = portalSubpageHref(section, subpage);
-              return (
-                <section className={styles.topicGroup} key={subpage.slug}
-                  aria-labelledby={`area-${sectionSlug}-${subpage.slug}`} data-section-article-group>
-                  <h2 className={styles.topicGroupTitle} id={`area-${sectionSlug}-${subpage.slug}`}>
-                    <Link href={href}>{subpage.label}</Link>
-                  </h2>
-                  <div data-section-content-list>
-                    {related.length > 0 ? (
-                      <SectionContentList
-                        articles={related}
-                        label={`Články z oblasti ${subpage.label}`}
-                        limit={5}
-                      />
-                    ) : (
-                      <p className={styles.topicGroupEmpty}>Články z tejto oblasti pripravujeme.</p>
-                    )}
-                  </div>
-                  <div className={styles.topicGroupFooter}>
-                    <PublicActionLink href={href} variant="tertiary" icon={<ArrowIcon />}>
-                      Všetky články z oblasti
-                    </PublicActionLink>
-                  </div>
-                </section>
-              );
-            })}
+            {topicStages.map((stage) => (
+              <section className={sectionSlug === "steniatka" ? styles.puppyStage : styles.standardStage}
+                key={stage.title || "all"} data-puppy-stage={stage.title || undefined}>
+                {sectionSlug === "steniatka" ? (
+                  <header className={styles.puppyStageHeading}>
+                    <h2>{stage.title}</h2>
+                    <p>{stage.description}</p>
+                  </header>
+                ) : null}
+                <div className={sectionSlug === "steniatka" ? styles.puppyStageGrid : styles.standardStageGrid}>
+                  {subpages.filter((subpage) => stage.slugs.includes(subpage.slug)).map((subpage) => {
+                    const related = orderedArticles(section, articles, subpage);
+                    const href = portalSubpageHref(section, subpage);
+                    const headingId = `area-${sectionSlug}-${subpage.slug}`;
+                    return (
+                      <section className={styles.topicGroup} key={subpage.slug}
+                        aria-labelledby={headingId} data-section-article-group>
+                        {sectionSlug === "steniatka" ? (
+                          <h3 className={styles.topicGroupTitle} id={headingId}><Link href={href}>{subpage.label}</Link></h3>
+                        ) : (
+                          <h2 className={styles.topicGroupTitle} id={headingId}><Link href={href}>{subpage.label}</Link></h2>
+                        )}
+                        <div data-section-content-list>
+                          {related.length > 0 ? (
+                            <SectionContentList articles={related}
+                              label={`Články z oblasti ${subpage.label}`}
+                              limit={sectionSlug === "steniatka" ? 2 : 5} />
+                          ) : (
+                            <p className={styles.topicGroupEmpty}>Články z tejto oblasti pripravujeme.</p>
+                          )}
+                        </div>
+                        <div className={styles.topicGroupFooter}>
+                          <PublicActionLink href={href} variant="tertiary" icon={<ArrowIcon />}>
+                            Všetky články z oblasti
+                          </PublicActionLink>
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </PageContainer>
         </div>
 

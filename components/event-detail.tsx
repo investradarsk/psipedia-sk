@@ -130,11 +130,11 @@ export function EventDetail({
                 <span className="eyebrow">Z kalendára</span>
                 <h2 id="event-related-title">{dateStatus === "past" ? "Najbližšie podujatia" : "Ďalšie podujatia"}</h2>
               </div>
-              <Link href="/podujatia" className={styles.officialLink}>Všetky podujatia <ArrowIcon size={18} /></Link>
             </div>
             <div className={`${styles.relatedList} ${styles.cardGrid}`} data-event-related-grid>
               {related.map((item) => <EventCard key={item.id} event={item} variant="grid" />)}
             </div>
+            <div className={styles.relatedFooter}><Link href="/podujatia" className={styles.officialLink}>Všetky podujatia <ArrowIcon size={18} /></Link></div>
           </PageContainer>
         </section>
       )}

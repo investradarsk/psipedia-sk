@@ -22,8 +22,11 @@ test("breed FCI detail, article promo and editorial continuation use shared sema
   assert.match(breedCss, /\.primaryLink \{ width: fit-content; margin-top: 4px; \}/);
   assert.doesNotMatch(breedCss, /\.primaryLink:hover/);
   const promo = read("components/article-promo.tsx");
-  assert.match(promo, /<PublicActionLink className=\{styles.cta\} variant="secondary" href=\{target.href\} aria-label=/);
-  assert.match(promo, /icon=\{<ArrowIcon size=\{16\} \/>\}/);
+  assert.match(promo, /<PublicMagazineBanner/);
+  assert.match(promo, /href=\{target.href\}/);
+  assert.match(promo, /promoKey=\{promoKey\}/);
+  const shared = read("components/public-visual-system/public-magazine-banner.tsx");
+  assert.match(shared, /<Link href=\{href\} className="button button--dark">/);
   const continuation = read("components/article-continuation.tsx");
   assert.match(continuation, /<PublicActionLink href=\{next.href\} variant="tertiary"/);
   assert.match(continuation, /\{next.label\}/);

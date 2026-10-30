@@ -5,6 +5,8 @@ import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
 import { getReviewAuthorSession } from "@/lib/review-author-auth";
 import { REVIEW_AUTHOR_SESSION_COOKIE } from "@/lib/review-author-auth-store";
 import { normalizeReviewAuthorReturnTo } from "@/lib/review-author-return-to";
+import { getPublishedEshopBySlug } from "@/lib/eshop-ratings";
+import styles from "./review-login.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,8 @@ export default async function ReviewAuthorLoginPage({
 }) {
   const raw = await searchParams;
   const returnTo = normalizeReviewAuthorReturnTo(typeof raw.returnTo === "string" ? raw.returnTo : null);
+  const shopSlug = returnTo?.match(/^\/recenzie\/eshopy\/([a-z0-9-]+)\/hodnotit$/)?.[1];
+  const shop = shopSlug ? await getPublishedEshopBySlug(shopSlug).catch(() => null) : null;
   const siteKey = getPartnerTurnstileSiteKey();
   const jar = await cookies();
   const sessionToken = jar.get(REVIEW_AUTHOR_SESSION_COOKIE)?.value;
@@ -49,22 +53,21 @@ export default async function ReviewAuthorLoginPage({
   }
 
   return (
-    <main id="obsah" className="review-auth-shell">
-      <section className="review-auth-layout">
+    <main id="obsah" className={`review-auth-shell ${styles.shell}`}>
+      <section className={`review-auth-layout ${styles.layout}`}>
         <div className="review-auth-copy">
           <span className="eyebrow">Recenzie Psipedia</span>
-          <h1>Najprv overíme váš e-mail</h1>
+          <h1>Overenie e-mailu</h1>
           <p className="review-auth-lead">
-            Na napísanie profilovej recenzie používame jednorazový overovací odkaz.
-            Nepotrebujete heslo ani Partner účet.
+            {shop ? `Pred hodnotením e-shopu ${shop.name} potrebujeme overiť váš e-mail.` : "Pred napísaním recenzie potrebujeme overiť váš e-mail."}
+            {" "}Bez hesla a bez registrácie.
           </p>
           <p className="review-auth-privacy">
-            Reviewer identita je oddelená od Partner účtu aj vtedy, ak používate rovnakú e-mailovú adresu.
+            Autor recenzie je oddelený od Partner účtu. E-mail slúži na bezpečný prístup k hodnoteniu.
           </p>
         </div>
         <div className="review-auth-card">
-          <h2>Poslať overovací odkaz</h2>
-          <p>Po overení vás bezpečne vrátime na profil, z ktorého ste začali.</p>
+          <p>{shop ? `Odkaz vám umožní pokračovať v hodnotení ${shop.name}.` : "Po overení sa bezpečne vrátite k hodnoteniu, kde ste začali."}</p>
           <ReviewAuthorAuthForm siteKey={siteKey} returnTo={returnTo} />
         </div>
       </section>

@@ -90,9 +90,7 @@ export function HomeMagazineSidebar({
     <section className="home-magazine-sidebar-block">
       <div className="home-magazine-sidebar-heading">
         <h3>{title}</h3>
-        <Link href={href} aria-label={`Otvoriť: ${title}`}>
-          <ArrowIcon size={18} />
-        </Link>
+
       </div>
       {children}
       <Link href={href} className="home-magazine-sidebar-action">

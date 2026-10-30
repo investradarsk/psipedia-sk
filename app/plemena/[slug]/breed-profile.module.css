@@ -310,3 +310,6 @@
   .utilitySidebar { margin-top: 2px; }
   .fciSection { padding: 16px; }
 }
+
+/* Utility cards now reuse PublicMagazineBanner's genuine shared link-list variant. */
+.utilitySidebar { margin-top: 28px; }
