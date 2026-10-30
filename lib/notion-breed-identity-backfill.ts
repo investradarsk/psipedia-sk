@@ -36,7 +36,7 @@ const MAX_NOTION_PAGES=500;
 export function evaluateBreedIdentity(input:{
   notionSlug:string;notionFci:number|null;notionId:string;
   canonical:DbBreed|null;countBySlug:number;countByFci:number;
-  mappedPageId?:string|null;mappedBreedId?:number|null;
+  mappedPageId?:string|null;expectedPageId:string;mappedBreedId?:number|null;
   approved:boolean;
 }):"ok"|"not-approved"|"missing"|"duplicate-notion"|"conflict-id"|"conflict-mapping"|"conflict-fci"|"missing-fci" {
   const p=input;
@@ -45,7 +45,7 @@ export function evaluateBreedIdentity(input:{
   if(p.countBySlug!==1 || (p.notionFci!==null && p.countByFci!==1))
     return "duplicate-notion";
   if(p.notionId && p.notionId!==String(p.canonical.id))return "conflict-id";
-  if((p.mappedPageId && p.mappedPageId!==p.notionSlug) ||
+  if((p.mappedPageId && p.mappedPageId!==p.expectedPageId) ||
      (p.mappedBreedId!=null && p.mappedBreedId!==p.canonical.id))
     return "conflict-mapping";
   if(p.notionFci===null && !(p.canonical.fci_number && p.canonical.fci_number>0))
@@ -101,6 +101,7 @@ export async function runBreedIdentityBackfill(input:{
     if(fci!=null)fciCount.set(fci,(fciCount.get(fci)??0)+1);
   }
   const cap=Math.min(MAX_WRITES,Math.max(1,Math.trunc(input.maxWrites??MAX_WRITES)));
+  let applied=0;
   for(const page of pages){
     result.scanned++;
     const slug=notionRichTextProperty(page,"Slug");
@@ -125,8 +126,7 @@ export async function runBreedIdentityBackfill(input:{
         notionSlug:slug,notionFci:fci,notionId,canonical:breed,
         countBySlug:slugCount.get(slug)??0,
         countByFci:fci==null?0:fciCount.get(fci)??0,
-        mappedPageId:byBreed?.notion_page_id&&byBreed.notion_page_id!==page.id
-          ?slug:undefined,
+        mappedPageId:byBreed?.notion_page_id,expectedPageId:page.id,
         mappedBreedId:byPage?.breed_id,
         approved,
       });
@@ -160,7 +160,7 @@ export async function runBreedIdentityBackfill(input:{
         result.alreadyLinked++;continue;
       }
       result.remaining++;
-      if(!input.apply || result.linked+result.mappingsCreated>=cap)continue;
+      if(!input.apply || applied>=cap)continue;
       const now=new Date().toISOString();
       if(d1FciMissing){
         // Only a 343-row historical GitHub audit + current Notion agreement
@@ -201,13 +201,13 @@ export async function runBreedIdentityBackfill(input:{
         if(idMissing)result.linked++;
         if(fciMissing)result.fciNotionFilled++;
       }
+      applied++;
     }catch {
       // Never print raw Notion data, provider tokens or PII in logs.
       result.failed++;
       if(result.review.length<20)result.review.push({slug,reason:"BACKFILL_RETRY_REQUIRED"});
     }
   }
-  result.canContinue=input.apply && result.remaining>result.linked+result.mappingsCreated
-    && (result.linked+result.mappingsCreated)>0;
+  result.canContinue=input.apply && result.remaining>applied && applied>0;
   return result;
 }
