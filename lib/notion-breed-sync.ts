@@ -464,7 +464,7 @@ async function syncOneBreed(
   const recovered = mapping ? null : await findUnmappedCanonicalBreed(database, page, basePayload);
   const current = mapping ? await getManagedBreed(Number(mapping.breed_id)) : recovered;
   // Do not turn unapproved, unmapped Notion concepts into canonical records.
-  if (!current && notionSelectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
+  if (!mapping && !current && notionSelectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
   validateReady(page, current?.status === "published");
 
   if (mapping || recovered) {
