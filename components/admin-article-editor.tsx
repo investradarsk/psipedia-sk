@@ -5,6 +5,7 @@ import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
+import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
 import { preservedEditorArticleMetadata } from "@/components/admin-article-editor-preserve";
@@ -546,7 +547,7 @@ export function AdminArticleEditor({
           </div>
           <div className="admin-field">
             <label htmlFor="article-excerpt">Krátky úvod na karte</label>
-            <textarea id="article-excerpt" rows={3} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Jednou až dvomi vetami vysvetli, čo čitateľ v článku nájde." required />
+            <AdminLexicalTextField id="article-excerpt" rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setEditorDirty(true); }} placeholder="Jednou až dvomi vetami vysvetli, čo čitateľ v článku nájde." required />
             <small>{excerpt.length} znakov · odporúčame 90–180</small>
           </div>
         </section>
