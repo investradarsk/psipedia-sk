@@ -54,6 +54,9 @@ export type AdminAttentionItem = {
   ageDays: number;
   targetHref: string;
   actionLabel?: string;
+  /** Present only for daily source-review actions, never public content. */
+  sourceUrl?: string;
+  sourceCheckedAt?: string | null;
   readAt?: string | null;
   snoozedUntil?: string | null;
   contextLabel?: string;
@@ -999,6 +1002,8 @@ export type HelpSourceReviewAttentionRow = {
   state: string;
   evidence: string;
   lastCheckedAt: string;
+  sourceUrl?: string;
+  sourceCheckedAt?: string | null;
 };
 
 export function mapHelpSourceReviewAttention(row: HelpSourceReviewAttentionRow, now = new Date()): AdminAttentionItem {
@@ -1016,6 +1021,8 @@ export function mapHelpSourceReviewAttention(row: HelpSourceReviewAttentionRow, 
     ageDays: ageDays(row.lastCheckedAt, now),
     targetHref: "/admin/operations/overovanie-zdrojov",
     actionLabel: "Skontrolovať",
+    sourceUrl: row.sourceUrl,
+    sourceCheckedAt: row.sourceCheckedAt ?? null,
   };
 }
 
