@@ -150,7 +150,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                   label={"Vybrať profil " + profile.name}
                   onChange={() => bulkSelection.toggleRow(profile.id)}
                 /> },
-                { id: "name", label: "Profil", width: 250, sortValue: (profile) => profile.name, cell: (profile) => <Link href={"/admin/adresar/" + profile.id}><strong>{profile.name}</strong></Link> },
+                { id: "name", label: "Profil", width: 250, sortValue: (profile) => profile.name, cell: (profile) => <Link href={`/admin/adresar/${profile.id}`}><strong>{profile.name}</strong></Link> },
                 { id: "category", label: "Kategória", width: 158, sortValue: (profile) => getDirectoryCategory(profile.category)?.label ?? profile.category, cell: (profile) => <span>{getDirectoryCategory(profile.category)?.label ?? profile.category}</span> },
                 { id: "city", label: "Mesto", width: 150, sortValue: (profile) => profile.city || "", cell: (profile) => profile.city || "—" },
                 { id: "status", label: "Publikácia", width: 125, sortValue: (profile) => profile.status, cell: (profile) => <span className={"admin-status admin-status--" + profile.status}>{profile.status === "published" ? "Publikované" : profile.status === "archived" ? "Archivované" : "Koncept"}</span> },
@@ -165,7 +165,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                   <span>Odkontrolované</span>
                 </label> },
                 { id: "actions", label: "Akcie", width: 230, cell: (profile) => <div className={styles.tableActions}>
-                  <Link href={"/admin/adresar/" + profile.id}>Upraviť</Link>
+                  <Link href={`/admin/adresar/${profile.id}`}>Upraviť</Link>
                   {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Web ↗</Link>}
                   {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
                 </div> },
