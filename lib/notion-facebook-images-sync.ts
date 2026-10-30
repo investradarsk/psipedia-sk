@@ -15,7 +15,10 @@ export type FacebookImagesSyncBindings=NotionSyncBindings & {
   NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT?:string;
   FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?:string;
 };
-type Page=NotionFacebookImagePage;
+type Page=NotionFacebookImagePage & {
+  parent?: { type?:string; data_source_id?:string };
+  archived?:boolean;in_trash?:boolean;
+};
 type Query={results?:Page[];has_more?:boolean;next_cursor?:string|null};
 type Linked={id:string;status:string;title:string;caption:string;scheduled_at:string|null;
   updated_at:string;version:number;image_url:string;image_key:string;updated_by:string;
