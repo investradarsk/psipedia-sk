@@ -56,6 +56,9 @@ test("Ready sync requires an explicit send opt-in, even for a page returned by a
   }, { timeout: 500 });
 
   assert.doesNotThrow(() => validate({ state: "Ready", send: true }));
+  assert.doesNotThrow(() => validate({ state: "Publikované", send: false }));
+  assert.doesNotThrow(() => validate({ state: "Na kontrolu", send: false }, true));
+  assert.throws(() => validate({ state: "Na kontrolu", send: false }), /nie je v stave Ready/);
   assert.throws(() => validate({ state: "Ready", send: false }), /Odoslať na Psipedia/);
   assert.throws(() => validate({ state: "Ready" }), /Odoslať na Psipedia/);
   assert.throws(() => validate({ state: "Draft", send: true }), /nie je v stave Ready/);
