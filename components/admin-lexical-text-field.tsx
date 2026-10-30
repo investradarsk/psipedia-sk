@@ -111,6 +111,7 @@ export function AdminLexicalTextField({
       {name && (
         <textarea
           name={name}
+          data-lexical-value
           aria-hidden="true"
           tabIndex={-1}
           style={{ display: "none" }}
