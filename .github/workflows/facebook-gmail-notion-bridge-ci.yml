@@ -1,0 +1,20 @@
+name: Gmail Notion FB scheduling extension (offline)
+on:
+  pull_request:
+    paths:
+      - 'scripts/apps-script/psipedia-fb-gmail-schedule-extension.gs'
+      - 'tests/psipedia-fb-gmail-schedule-extension.test.mjs'
+      - '.github/workflows/facebook-gmail-notion-bridge-ci.yml'
+  workflow_dispatch:
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline Gmail Notion scheduling tests (no external writes)
+        run: node --test tests/psipedia-fb-gmail-schedule-extension.test.mjs
