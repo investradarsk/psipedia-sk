@@ -135,7 +135,7 @@ export async function notionRequest<T>(
   if (!path.startsWith("/") || path.startsWith("//") || path.includes("#")) {
     throw new Error("NOTION_SDK_UNSAFE_API_PATH");
   }
-  const url = new URL(path, NOTION_API_BASE);
+  const url = new URL(NOTION_API_BASE + path.slice(1));
   if (url.origin !== "https://api.notion.com" || !url.pathname.startsWith("/v1/")) {
     // Callers use /pages, /blocks and /data_sources, not /v1/... prefixes.
     // The base path below is set to https://api.notion.com/v1/.
