@@ -5,6 +5,7 @@ import { ArticleBlocks } from "@/components/article-blocks";
 import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { ArticlePromo } from "@/components/article-promo";
 import { AdminRichTextEditor } from "@/components/admin-rich-text-editor";
+import { AdminLexicalRichTextEditor } from "@/components/admin-lexical-rich-text-editor";
 import {AdminGalleryDropzone} from "@/components/admin-gallery-dropzone";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -91,16 +92,29 @@ export function RichTextInput({
   const documentValue = normalizeEditorialRichText(richText) ?? legacyRichTextToDocument(value);
   return (
     <div className="admin-rich-text">
-      <AdminRichTextEditor
-        id={id}
-        value={documentValue}
-        onChange={(nextDocument) => onChange(editorialRichTextPlainText(nextDocument), nextDocument)}
-        placeholder={placeholder}
-        ariaLabel={required ? "Povinný editor textu" : "Editor textu"}
-        allowHeadings={allowHeadings}
-        allowCallouts={allowHeadings}
-        minHeight={Math.max(120, rows * 28)}
-      />
+      {documentValue.content.some((block) => block.type === "callout") ? (
+        <AdminRichTextEditor
+          id={id}
+          value={documentValue}
+          onChange={(nextDocument) => onChange(editorialRichTextPlainText(nextDocument), nextDocument)}
+          placeholder={placeholder}
+          ariaLabel={required ? "Povinný editor textu" : "Editor textu"}
+          allowHeadings={allowHeadings}
+          allowCallouts={allowHeadings}
+          minHeight={Math.max(120, rows * 28)}
+        />
+      ) : (
+        <AdminLexicalRichTextEditor
+          id={id}
+          value={documentValue}
+          onChange={(nextDocument) => onChange(editorialRichTextPlainText(nextDocument), nextDocument)}
+          placeholder={placeholder}
+          ariaLabel={required ? "Povinný editor textu" : "Editor textu"}
+          allowHeadings={allowHeadings}
+          allowCallouts={allowHeadings}
+          minHeight={Math.max(120, rows * 28)}
+        />
+      )}
       {onAlignmentChange && (
         <div className="admin-rich-toolbar" role="toolbar" aria-label="Zarovnanie textu">
           {([
