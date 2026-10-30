@@ -261,11 +261,11 @@ export function AdminSectionEditor({
                     </div>
                     <label>
                       <span>Popis pre karty a vyhľadávače</span>
-                      <AdminLexicalTextField rows={2} value={section.description} onChange={(next) => update(section.slug, { description: next })} ariaLabel="description" />
+                      <AdminLexicalTextField rows={2} value={section.description} onChange={(next) => update(section.slug, { description: next })} ariaLabel="Popis" />
                     </label>
                     <label>
                       <span>Úvodný text sekcie</span>
-                      <AdminLexicalTextField rows={4} value={section.intro} onChange={(next) => update(section.slug, { intro: next })} ariaLabel="intro" />
+                      <AdminLexicalTextField rows={4} value={section.intro} onChange={(next) => update(section.slug, { intro: next })} ariaLabel="Úvodný text" />
                     </label>
                     <AdminHelpText term="Editor">
                       Spoločný Lexical editor upravuje pôvodné plain text polia. Štruktúrované zoznamy a SEO zostávajú bez zmeny.
@@ -328,11 +328,11 @@ export function AdminSectionEditor({
                           </div>
                           <label>
                             <span>Popis na karte</span>
-                            <AdminLexicalTextField rows={2} value={subpage.description} onChange={(next) => updateSubpage(section.slug, subIndex, { description: next })} ariaLabel="description" />
+                            <AdminLexicalTextField rows={2} value={subpage.description} onChange={(next) => updateSubpage(section.slug, subIndex, { description: next })} ariaLabel="Popis" />
                           </label>
                           <label>
                             <span>Úvod podstránky</span>
-                            <AdminLexicalTextField rows={3} value={subpage.intro ?? ""} onChange={(next) => updateSubpage(section.slug, subIndex, { intro: next })} ariaLabel="intro" />
+                            <AdminLexicalTextField rows={3} value={subpage.intro ?? ""} onChange={(next) => updateSubpage(section.slug, subIndex, { intro: next })} ariaLabel="Úvodný text" />
                           </label>
 
                           {isStructuredSection && (
@@ -360,7 +360,7 @@ export function AdminSectionEditor({
                                 </label>
                                 <label className={styles.fullField}>
                                   <span>{isReviewSection ? "Metodika testovania a redakčný kontext" : isActivitySection ? "Čo zvážiť pri výbere" : isPuppySection ? "Dôležité pre túto fázu" : "Kedy vyhľadať odborníka"}</span>
-                                  <AdminLexicalTextField rows={3} value={subpage.expertAdvice ?? ""} onChange={(next) => updateSubpage(section.slug, subIndex, { expertAdvice: next })} ariaLabel="expertAdvice" />
+                                  <AdminLexicalTextField rows={3} value={subpage.expertAdvice ?? ""} onChange={(next) => updateSubpage(section.slug, subIndex, { expertAdvice: next })} ariaLabel="Odborná rada" />
                                 </label>
                                 <label>
                                   <span>{isReviewSection ? "Súvisiace odkazy a služby" : isActivitySection || isPuppySection ? "Kontakty a súvisiace služby" : "Užitočné kontakty"}</span>
