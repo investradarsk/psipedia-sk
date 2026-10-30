@@ -1,5 +1,6 @@
 "use client";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import Link from "next/link";
@@ -228,10 +229,10 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
       </AdminEditorSection>
 
       <AdminEditorSection id="organization-content" className="admin-form-card">
-        <div className="admin-card-heading"><div><span>02</span><div><h2>Verejný obsah</h2><p>Aktuálny organization contract ukladá popis ako plain text, preto sa tu zámerne nepoužíva druhý rich-text editor.</p></div></div></div>
-        <div className="admin-field"><label htmlFor="organization-short-description">Krátky popis</label><textarea id="organization-short-description" rows={3} value={draft.shortDescription} disabled={editingDisabled} onChange={(event) => patch({ shortDescription: event.target.value })} /></div>
-        <div className="admin-field"><label htmlFor="organization-description">Verejný popis</label><textarea id="organization-description" rows={10} value={draft.description} disabled={editingDisabled} onChange={(event) => patch({ description: event.target.value })} /><AdminLexicalAppendButton disabled={editingDisabled} onAppend={text=>patch({description:appendLexicalPlainText(draft.description,text)})}/></div>
-        <AdminHelpText term="Storage contract">Plain text zostáva zachovaný. Rich-text AST je samostatný follow-up, nie schema zmena v tomto workstreame.</AdminHelpText>
+        <div className="admin-card-heading"><div><span>02</span><div><h2>Verejný obsah</h2><p>Spoločný Lexical editor; popisy zostávajú v existujúcom dátovom formáte.</p></div></div></div>
+        <div className="admin-field"><label htmlFor="organization-short-description">Krátky popis</label><AdminLexicalTextField id="organization-short-description" rows={3} value={draft.shortDescription} disabled={editingDisabled} onChange={(next) => patch({ shortDescription: next })} /></div>
+        <div className="admin-field"><label htmlFor="organization-description">Verejný popis</label><AdminLexicalTextField id="organization-description" rows={10} value={draft.description} disabled={editingDisabled} onChange={(next) => patch({ description: next })} /><AdminLexicalAppendButton disabled={editingDisabled} onAppend={text=>patch({description:appendLexicalPlainText(draft.description,text)})}/></div>
+        <AdminHelpText term="Storage contract">Lexical rešpektuje pôvodné textové polia a obojsmernú synchronizáciu.</AdminHelpText>
       </AdminEditorSection>
 
       <AdminEditorSection id="organization-contacts" className="admin-form-card">
