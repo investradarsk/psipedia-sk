@@ -9,9 +9,11 @@ import { SITE_URL } from "@/config/public-site";
 import { mergeNotionBreedInput } from "@/lib/breed-sync-preservation";
 import {
   advanceBreedAdminReceipt, breedFieldSnapshot, parseBreedFieldSnapshot,
-  planBreedNotionFieldDelta, type BreedFieldSnapshot,
+  planBreedNotionFieldDelta, explicitBreedFieldPatch,
+  type BreedFieldSnapshot, type BreedNotionField,
 } from "@/lib/notion-breed-field-delta";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.ts";
+import { breedFieldsFromNotionEvent } from "@/lib/notion-breed-event-fields";
 import {
   cleanupNotionImageKeys,
   notionDateStartProperty,
@@ -501,6 +503,7 @@ async function syncOneBreed(
   database: D1Database,
   bindings: NotionBreedSyncBindings,
   page: NotionPage,
+  options: { changedPropertyIds?: readonly string[]; forceFields?: readonly BreedNotionField[] } = {},
 ): Promise<"created" | "updated" | "unchanged"> {
   const basePayload = notionPageToManagedBreedInput(page);
   const contentHash = await notionBreedSourceHash(page);
@@ -564,6 +567,52 @@ async function syncOneBreed(
     // No global updatedAt gate: unrelated Admin changes must never block an
     // independently edited Notion column. The per-field receipt handles
     // same-column conflicts and the D1 CAS handles concurrent saves.
+
+    // Legacy SHA-only receipts cannot prove a page-wide delta. On the first
+    // signed webhook use ONLY the editorial property IDs included by Notion.
+    // A deliberately clicked Admin retry may explicitly select one field.
+    const explicitlyChanged = options.forceFields?.length
+      ? [...options.forceFields]
+      : !fieldReceipt && mapping && !mapping.content_hash.startsWith("identity-pending-editorial:")
+        ? breedFieldsFromNotionEvent(page, options.changedPropertyIds)
+        : [];
+    if (mapping && explicitlyChanged.length) {
+      const isOwnerRetry=Boolean(options.forceFields?.length);
+      const {patch,accepted,conflicts}=explicitBreedFieldPatch(basePayload,explicitlyChanged);
+      if (conflicts.length) throw new Error("BREED_FIELD_VALUE_INVALID: "+conflicts.join(","));
+      const currentFields=breedFieldSnapshot(existing);
+      const wantedFields=breedFieldSnapshot({...existing,...patch,
+        seo:{...existing.seo,...(patch.seo??{})}});
+      const reallyDifferent=accepted.some(key=>JSON.stringify(currentFields[key])!==JSON.stringify(wantedFields[key]));
+      // For an OLD mapping without field receipts we cannot distinguish a
+      // concurrent Admin edit in the same field: refuse an automatic write
+      // when the Admin record is newer than the last confirmed sync.
+      if (!isOwnerRetry && reallyDifferent && Number.isFinite(lastAck)
+        && Number.isFinite(adminEdit) && adminEdit>lastAck+2_000)
+        throw new Error("BREED_LEGACY_FIELD_OWNER_REVIEW_REQUIRED");
+      let updated=existing;
+      if (reallyDifferent) {
+        const merged={...existing,...patch,
+          seo:{...existing.seo,...(patch.seo??{})},
+          status:existing.status,editorialComplete:existing.editorialComplete,
+          image:existing.image,imageKey:existing.imageKey,
+          gallery:existing.gallery,accent:existing.accent} satisfies ManagedBreedInput;
+        updated=await updateManagedBreed(existing.id,merged,SYNC_ACTOR,existing.updatedAt);
+        if(!updated)throw new Error("BREED_EXPLICIT_FIELD_UPDATE_FAILED");
+      }
+      const latest=breedFieldSnapshot(basePayload);
+      const notionReceipt=fieldReceipt?{...fieldReceipt.notion}:latest;
+      const adminReceipt=fieldReceipt?{...fieldReceipt.admin}:breedFieldSnapshot(updated);
+      const applied=breedFieldSnapshot(updated);
+      for(const key of accepted){notionReceipt[key]=latest[key];adminReceipt[key]=applied[key];}
+      await upsertMapping(database,page,updated.id,contentHash,new Date().toISOString(),{
+        notion:notionReceipt,admin:adminReceipt,
+      });
+      await updateNotionSyncState(bindings,page.id,{
+        state:"Synchronizované",psipediaId:updated.id,syncedAt:now,
+      });
+      return reallyDifferent?"updated":"unchanged";
+    }
 
     if (mapping && fieldReceipt) {
       const plan = planBreedNotionFieldDelta(existing, basePayload, fieldReceipt.notion, fieldReceipt.admin);
@@ -705,6 +754,8 @@ export async function runNotionBreedSyncSweep(args: {
   database: D1Database;
   bindings: NotionBreedSyncBindings;
   targetPageId?: string;
+  changedPropertyIds?: readonly string[];
+  forceFields?: readonly BreedNotionField[];
 }): Promise<NotionBreedSyncSummary> {
   const summary: NotionBreedSyncSummary = {
     enabled: notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED),
@@ -734,7 +785,10 @@ export async function runNotionBreedSyncSweep(args: {
     if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
     summary.scanned += 1;
     try {
-      const result = await syncOneBreed(args.database, args.bindings, page);
+      const result = await syncOneBreed(args.database, args.bindings, page, {
+        changedPropertyIds:args.changedPropertyIds,
+        forceFields:args.forceFields,
+      });
       summary[result] += 1;
     } catch (error) {
       summary.failed += 1;
