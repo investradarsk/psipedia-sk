@@ -142,7 +142,8 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
   };
 }
 
-function validateReady(page: NotionPage) {
+function validateReady(page: NotionPage, existingPublished: boolean) {
+  if (existingPublished) return; // Publication is a canonical D1 fact, not a Notion editorial state.
   const state = notionSelectProperty(page, "Stav");
   if (state !== "Ready" && state !== "Publikované" && !checkboxProperty(page, "Profil skvalitnený")) {
     throw new Error("Plemeno nemá schválenú odbornú úpravu na synchronizáciu.");
@@ -189,6 +190,7 @@ async function listEditableNotionBreeds(bindings: NotionBreedSyncBindings, dataS
         filter: { or: [
           { property: "Stav", select: { equals: "Ready" } },
           { property: "Stav", select: { equals: "Publikované" } },
+          { property: "Stav", select: { equals: "Na kontrolu" } },
           { property: "Profil skvalitnený", checkbox: { equals: true } },
         ] },
         sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
@@ -452,15 +454,18 @@ async function syncOneBreed(
   bindings: NotionBreedSyncBindings,
   page: NotionPage,
 ): Promise<"created" | "updated" | "unchanged"> {
-  validateReady(page);
   const basePayload = notionPageToManagedBreedInput(page);
   const contentHash = await notionBreedSourceHash(page);
   const mapping = await loadMapping(database, page.id);
   const now = new Date().toISOString();
   const recovered = mapping ? null : await findUnmappedCanonicalBreed(database, page, basePayload);
+  const current = mapping ? await getManagedBreed(Number(mapping.breed_id)) : recovered;
+  // Do not turn unapproved, unmapped Notion concepts into canonical records.
+  if (!current && notionSelectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
+  validateReady(page, current?.status === "published");
 
   if (mapping || recovered) {
-    const existing = mapping ? await getManagedBreed(Number(mapping.breed_id)) : recovered;
+    const existing = current;
     if (!existing) {
       throw new Error("Notion záznam je prepojený na chýbajúce plemeno v Psipedii.");
     }
