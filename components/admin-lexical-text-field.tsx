@@ -118,9 +118,8 @@ export function AdminLexicalTextField({
           aria-hidden="true"
           tabIndex={-1}
           style={{ display: "none" }}
-          readOnly={false}
+          readOnly
           value={current}
-          onChange={() => {}}
           onInput={(event) => {
             // Programmatic changes in adoption/automation forms update the editor.
             const next = event.currentTarget.value;
