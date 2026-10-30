@@ -150,6 +150,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                   disabled={!bulkSelection.ready}
                   label={"Vybrať profil " + profile.name}
                   onChange={() => bulkSelection.toggleRow(profile.id)}
+                  className={styles.tableRowCheckbox}
                 /> },
                 { id: "name", label: "Profil", width: 250, sortValue: (profile) => profile.name, cell: (profile) => <AdminDirectoryEditorLink profileId={profile.id}><strong>{profile.name}</strong></AdminDirectoryEditorLink> },
                 { id: "category", label: "Typ profilu", width: 158, sortValue: (profile) => getDirectoryCategory(profile.category)?.label ?? profile.category, cell: (profile) => <span>{getDirectoryCategory(profile.category)?.label ?? profile.category}</span> },
