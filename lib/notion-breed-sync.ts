@@ -517,6 +517,13 @@ async function syncOneBreed(
   // Do not turn unapproved, unmapped Notion concepts into canonical records.
   if (!mapping && !current && notionSelectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
   validateReady(page, current?.status === "published");
+  // Backfill can safely link Research / Na kontrolu identities, but must not
+  // treat that act of pairing as editorial approval. Hold the one-time initial
+  // content import until this existing profile is explicitly Ready.
+  const approvedForFirstImport = ["Ready", "Publikované"].includes(notionSelectProperty(page, "Stav"))
+    || checkboxProperty(page, "Profil skvalitnený");
+  if ((mapping?.content_hash.startsWith("identity-pending-editorial:") || recovered)
+    && !approvedForFirstImport) return "unchanged";
 
   if (mapping || recovered) {
     const existing = current;
