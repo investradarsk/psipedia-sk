@@ -10,7 +10,6 @@ import { mergeNotionBreedInput } from "@/lib/breed-sync-preservation";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.ts";
 import {
   cleanupNotionImageKeys,
-  listReadyNotionPages,
   notionDateStartProperty,
   notionFlagEnabled,
   notionNumberProperty,
@@ -49,7 +48,8 @@ export type NotionBreedSyncSummary = {
 };
 
 const SYNC_ACTOR = "notion-breed-sync@psipedia.sk";
-const MAX_SYNC_ITEMS = 100;
+// Includes approved editorial updates for already published canonical breeds.
+const MAX_SYNC_ITEMS = 500;
 
 function checkboxProperty(page: NotionPage, name: string) {
   return notionPropertyRecord(page, name)?.checkbox === true;
@@ -142,9 +142,63 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
 }
 
 function validateReady(page: NotionPage) {
-  if (notionSelectProperty(page, "Stav") !== "Ready") {
-    throw new Error("Plemeno nie je v stave Ready na automatický prenos do adminu.");
+  const state = notionSelectProperty(page, "Stav");
+  if (state !== "Ready" && state !== "Publikované" && !checkboxProperty(page, "Profil skvalitnený")) {
+    throw new Error("Plemeno nemá schválenú odbornú úpravu na synchronizáciu.");
   }
+}
+
+/** A missing mapping must never create a second copy of an existing breed. */
+async function findUnmappedCanonicalBreed(database: D1Database, page: NotionPage, payload: ManagedBreedInput) {
+  const slug = String(payload.slug ?? "");
+  const fciNumber = payload.fciNumber;
+  if (!slug || !Number.isSafeInteger(fciNumber) || Number(fciNumber) < 1) {
+    return null; // No provable two-key identity; do not guess.
+  }
+  const rows = await database.prepare(
+    "SELECT id, fci_number FROM managed_breeds WHERE slug = ? LIMIT 2",
+  ).bind(slug).all<{ id: number; fci_number: number | null }>();
+  if (!rows.results.length) return null;
+  if (rows.results.length !== 1 || Number(rows.results[0].fci_number) !== fciNumber) {
+    throw new Error("BREED_IDENTITY_REVIEW_REQUIRED: slug alebo FCI číslo sa nezhoduje.");
+  }
+  const id = rows.results[0].id;
+  const claimedId = notionRichTextProperty(page, "Psipedia ID").trim();
+  if (claimedId && claimedId !== String(id)) {
+    throw new Error("BREED_IDENTITY_REVIEW_REQUIRED: Psipedia ID sa nezhoduje.");
+  }
+  const occupied = await database.prepare(
+    "SELECT notion_page_id FROM breed_notion_sync WHERE breed_id = ? LIMIT 1",
+  ).bind(id).first<{ notion_page_id: string }>();
+  if (occupied && occupied.notion_page_id !== page.id) {
+    throw new Error("BREED_MAPPING_REVIEW_REQUIRED: profil už patrí inej Notion stránke.");
+  }
+  return getManagedBreed(id);
+}
+
+async function listEditableNotionBreeds(bindings: NotionBreedSyncBindings, dataSourceId: string) {
+  const pages: NotionPage[] = [];
+  let cursor: string | null = null;
+  do {
+    const response = await notionRequest<{
+      results?: NotionPage[]; has_more?: boolean; next_cursor?: string | null;
+    }>(bindings, `/data_sources/${encodeURIComponent(dataSourceId)}/query`, {
+      method: "POST",
+      body: JSON.stringify({
+        filter: { or: [
+          { property: "Stav", select: { equals: "Ready" } },
+          { property: "Stav", select: { equals: "Publikované" } },
+          { property: "Profil skvalitnený", checkbox: { equals: true } },
+        ] },
+        sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
+        page_size: Math.min(100, MAX_SYNC_ITEMS - pages.length),
+        ...(cursor ? { start_cursor: cursor } : {}),
+      }),
+    });
+    pages.push(...(response.results ?? []));
+    cursor = response.has_more ? response.next_cursor ?? null : null;
+  } while (cursor && pages.length < MAX_SYNC_ITEMS);
+  return pages;
 }
 
 async function loadMapping(database: D1Database, pageId: string) {
@@ -402,20 +456,21 @@ async function syncOneBreed(
   const contentHash = await notionBreedSourceHash(page);
   const mapping = await loadMapping(database, page.id);
   const now = new Date().toISOString();
+  const recovered = mapping ? null : await findUnmappedCanonicalBreed(database, page, basePayload);
 
-  if (mapping) {
-    const existing = await getManagedBreed(Number(mapping.breed_id));
+  if (mapping || recovered) {
+    const existing = mapping ? await getManagedBreed(Number(mapping.breed_id)) : recovered;
     if (!existing) {
       throw new Error("Notion záznam je prepojený na chýbajúce plemeno v Psipedii.");
     }
-    if (existing.status !== "draft") {
-      throw new Error("Prepojené plemeno už nie je Draft. Automatický sync ho nebude prepisovať ani odpublikovávať.");
+    if (existing.slug !== basePayload.slug || (basePayload.fciNumber != null
+      && existing.fciNumber != null && basePayload.fciNumber !== existing.fciNumber)) {
+      throw new Error("BREED_IDENTITY_REVIEW_REQUIRED");
     }
-
     // A later Admin edit is not an acknowledgement from Notion. Never
     // mark its old snapshot "synchronized" or pull an older remote version
     // on top of the unacknowledged D1 revision.
-    const lastAck = Date.parse(mapping.last_synced_at ?? "");
+    const lastAck = Date.parse(mapping?.last_synced_at ?? "");
     const adminEdit = Date.parse(existing.updatedAt);
     const canonicalTextDiffers = BREED_DRAFT_TEXT_FIELDS.some(([key, property]) =>
       normalizedBreedText(existing[key]) !== notionBreedTextValue(page, property));
@@ -424,7 +479,7 @@ async function syncOneBreed(
     // existing hourly sweep, without picking a winner from page timestamps.
     // The writer re-fetches and verifies ownership, each changed field and
     // PATCH echo before updating any mapping receipt.
-    if (mapping.content_hash === contentHash && canonicalTextDiffers) {
+    if (mapping && existing.status === "draft" && mapping.content_hash === contentHash && canonicalTextDiffers) {
       const lastCommonText = { ...existing };
       for (const [key, property] of BREED_DRAFT_TEXT_FIELDS) {
         lastCommonText[key] = notionBreedTextValue(page, property);
@@ -435,12 +490,12 @@ async function syncOneBreed(
       if (!result.updated) throw new Error("BREED_ADMIN_WRITEBACK_NOT_ACKNOWLEDGED");
       return "updated";
     }
-    if (Number.isFinite(lastAck) && Number.isFinite(adminEdit)
+    if (mapping && Number.isFinite(lastAck) && Number.isFinite(adminEdit)
       && adminEdit > lastAck + 2_000) {
       throw new Error("BREED_ADMIN_REVISION_NOT_SYNCED");
     }
 
-    if (mapping.content_hash === contentHash) {
+    if (mapping && mapping.content_hash === contentHash) {
       await upsertMapping(database, page, existing.id, contentHash, now);
       await updateNotionSyncState(bindings, page.id, {
         state: "Synchronizované",
@@ -451,6 +506,24 @@ async function syncOneBreed(
     }
 
     const mergedPayload = mergeNotionBreedInput(existing, basePayload);
+    // Publication, canonical identity, related media and admin-owned editorial
+    // enrichments stay intact. Notion owns only the supplied editorial fields.
+    if (existing.status === "published") {
+      const updated = await updateManagedBreed(existing.id, {
+        ...mergedPayload,
+        status: existing.status,
+        editorialComplete: existing.editorialComplete,
+        image: existing.image,
+        imageKey: existing.imageKey,
+        gallery: existing.gallery,
+      }, SYNC_ACTOR, existing.updatedAt);
+      if (!updated) throw new Error("BREED_PUBLISHED_UPDATE_FAILED");
+      await upsertMapping(database, page, updated.id, contentHash, new Date().toISOString());
+      await updateNotionSyncState(bindings, page.id, {
+        state: "Synchronizované", psipediaId: updated.id, syncedAt: now,
+      });
+      return "updated";
+    }
     const { payload, prepared } = await preparePayloadWithImage(bindings, page, mergedPayload, existing);
     try {
       const updated = await updateManagedBreed(existing.id, payload, SYNC_ACTOR, existing.updatedAt);
@@ -469,6 +542,9 @@ async function syncOneBreed(
     }
   }
 
+  if (notionSelectProperty(page, "Stav") !== "Ready") {
+    throw new Error("BREED_CREATE_REQUIRES_READY: nové plemeno sa nepublikuje z Notion.");
+  }
   await assertNoUnmappedDuplicate(database, basePayload);
   const { payload, prepared } = await preparePayloadWithImage(bindings, page, basePayload);
   try {
@@ -512,9 +588,9 @@ export async function runNotionBreedSyncSweep(args: {
     const page = await notionRequest<NotionPage>(args.bindings, "/pages/" + encodeURIComponent(args.targetPageId));
     if (page.id !== args.targetPageId || !notionPageBelongsToDataSource(page, dataSourceId))
       throw new Error("BREED_NOTION_TARGET_UNSAFE");
-    pages = notionSelectProperty(page, "Stav") === "Ready" ? [page] : [];
+    pages = [page];
   } else {
-    pages = await listReadyNotionPages(args.bindings, dataSourceId, MAX_SYNC_ITEMS);
+    pages = await listEditableNotionBreeds(args.bindings, dataSourceId);
   }
   summary.scanned = pages.length;
 
