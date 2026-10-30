@@ -1683,7 +1683,9 @@ async function findUnmappedCanonicalArticle(
   if (occupied && occupied.notion_page_id !== page.id) {
     throw new Error("ARTICLE_MAPPING_REVIEW_REQUIRED");
   }
-  return getManagedArticleById(id);
+  const canonical = await getManagedArticleById(id);
+  // Existing drafts are not evidence of an approved public pairing.
+  return canonical?.status === "published" ? canonical : null;
 }
 
 async function syncOneNotionPage(
