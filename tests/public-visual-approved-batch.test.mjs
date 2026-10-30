@@ -53,14 +53,14 @@ test("S04 canonical topic destinations replace legacy archives in all entry poin
   assert.match(editorial, /healthUrgent/);
 });
 
-test("S05 24-card atlas load-more and accessible full index", () => {
+test("S05 FCI atlas uses three cards per group without a redundant crawl index", () => {
   const browser = read("components/breed-browser.tsx");
+  const page = read("app/plemena/page.tsx");
   const card = read("components/breed-card.tsx");
-  const index = read("components/breed-crawl-index.tsx");
-  assert.match(browser, /INITIAL_BREED_COUNT = 24/);
-  assert.match(browser, /MORE_BREED_COUNT = 24/);
-  assert.match(browser, /Zobraziť ďalšie plemená/);
+  assert.match(browser, /INITIAL_PER_GROUP = 3/);
+  assert.match(browser, /expandedGroups/);
+  assert.match(browser, /fciGroup: String\(group\.number\)/);
+  assert.match(page, /buildCollectionPageJsonLd/);
+  assert.doesNotMatch(page, /<BreedCrawlIndex/);
   assert.doesNotMatch(card, /FCI \{breed\.fciGroup\}\{breed\.fciSection/);
-  assert.match(index, /breed\.slug/);
-  assert.doesNotMatch(index, /<details/);
 });

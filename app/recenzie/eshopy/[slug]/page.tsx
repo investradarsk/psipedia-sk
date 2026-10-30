@@ -26,6 +26,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: `${shop.name} – hodnotenia e-shopu`, description: `Skúsenosti používateľov Psipedia.sk s e-shopom ${shop.name}. Hodnotenie doručenia, komunikácie, sortimentu, cien a celkovej skúsenosti.` };
 }
 
+function profileExcerpt(description: string) {
+  const sentences = description.trim().split(/(?<=[.!?])\s+/u);
+  const intro = sentences.slice(0, 2).join(" ");
+  if (intro.length <= 250) return intro;
+  const prefix = intro.slice(0, 247).trimEnd();
+  return prefix.slice(0, prefix.lastIndexOf(" ") > 150 ? prefix.lastIndexOf(" ") : prefix.length) + "…";
+}
+
 export default async function EshopProfilePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const shop = await getPublishedEshopBySlug(slug).catch(() => null);
@@ -40,7 +48,7 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
             <div>
             <span className="eyebrow">E-shop · hodnotenia Psipedia</span>
             <h1>{shop.name}</h1>
-            <p>{shop.description}</p>
+            <p>{profileExcerpt(shop.description)}</p>
             {shop.focusTags.length ? <div className={styles.focusTags}>{shop.focusTags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
             </div>
           </div>
@@ -71,6 +79,11 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
             <p>Buďte prvý, kto ohodnotí doručenie, komunikáciu, sortiment, ceny a celkovú skúsenosť.</p>
           </section>
         )}
+
+        <section className={styles.about} aria-labelledby="shop-about-heading">
+          <h2 id="shop-about-heading">O e-shope</h2>
+          <p>{shop.description}</p>
+        </section>
 
         <section className={styles.info}>
           <strong>Bez registrácie a bez importovaných hviezdičiek</strong>

@@ -55,7 +55,7 @@ test("new reviewer starts from profile, sees generic success, consumes magic lin
   await expect(page).toHaveURL(/\/recenzia\/prihlasenie\?returnTo=/);
   const authReturnTo = new URL(page.url()).searchParams.get("returnTo");
   expect(authReturnTo).toMatch(/^\/recenzia\/napisat\?resourceId=/);
-  await expect(page.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overenie e-mailu" })).toBeVisible();
   const submitButton = page.getByRole("button", { name: "Poslať overovací odkaz" });
   await expect(submitButton).toBeEnabled();
 
@@ -136,7 +136,7 @@ test("reviewer logout revokes session cookie independently of Partner auth", asy
   expect(result.ok).toBe(true);
 
   await page.goto("/recenzia/prihlasenie?returnTo=" + encodeURIComponent(RETURN_TO));
-  await expect(page.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overenie e-mailu" })).toBeVisible();
 });
 
 test("fresh anonymous reviewer login renders deterministically with and without returnTo", async ({ browser }, testInfo) => {
@@ -160,7 +160,7 @@ test("fresh anonymous reviewer login renders deterministically with and without 
 
       const response = await freshPage.goto(path, { waitUntil: "domcontentloaded" });
       expect(response?.status(), `${path} attempt ${attempt + 1}`).toBe(200);
-      await expect(freshPage.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+      await expect(freshPage.getByRole("heading", { name: "Overenie e-mailu" })).toBeVisible();
       await expect(freshPage.getByLabel("E-mail")).toBeVisible();
       await expect(freshPage.locator("form.review-auth-form")).toBeVisible();
       await expect(freshPage.locator(".partner-turnstile")).toBeVisible();
@@ -204,7 +204,7 @@ test("fresh RSC navigation to reviewer auth never produces a blank shell", async
 
     expect(navigationResult).toBe("started");
     await expect(freshPage).toHaveURL(new RegExp("/recenzia/prihlasenie\\?returnTo="));
-    await expect(freshPage.getByRole("heading", { name: "Najprv overíme váš e-mail" })).toBeVisible();
+    await expect(freshPage.getByRole("heading", { name: "Overenie e-mailu" })).toBeVisible();
     await expect(freshPage.locator("form.review-auth-form")).toBeVisible();
     await expect(freshPage.getByLabel("E-mail")).toBeVisible();
 

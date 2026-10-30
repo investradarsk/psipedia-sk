@@ -252,7 +252,8 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Najbližšie podujatia/);
   assert.match(html, /Objav možnosti pomoci psom/);
   assert.doesNotMatch(html, /Nové podujatia práve dopĺňame|Momentálne tu nie je otvorená výzva/);
-  assert.match(html, /href="\/o-nas#kontakt"/);
+  assert.match(html, /href="\/kontakt"/);
+  assert.doesNotMatch(html, /href="\/o-nas#kontakt"/);
   assert.match(html, /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert=""/);
   // Homepage alternates editorial and profile categories; banners live between
   // their current neighbouring sections rather than in the old V2 positions.

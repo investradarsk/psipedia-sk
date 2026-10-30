@@ -90,7 +90,7 @@ export function ReviewAuthorAuthForm({
       )}
 
       <button
-        className="button button--coral review-auth-submit"
+        className="button button--dark review-auth-submit"
         type="submit"
         disabled={sending || !turnstileToken || !siteKey}
         aria-busy={sending}

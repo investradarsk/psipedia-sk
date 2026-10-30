@@ -21,21 +21,31 @@ export function PublicMagazineBanner({
   eyebrow = "Psipedia spája ľudí so psami",
   headingId,
   photoTone,
+  links,
+  compact = false,
+  promoKey,
+  promoVariant,
 }: {
   title: string;
   description: string;
-  label: string;
-  href: string;
+  label?: string;
+  href?: string;
   testId: string;
   eyebrow?: string;
   headingId?: string;
   photoTone?: PublicMagazineBannerPhotoTone;
+  links?: Array<{ href: string; label: string }>;
+  compact?: boolean;
+  promoKey?: string;
+  promoVariant?: string;
 }) {
   const photo = photoTone ? publicBannerPhotos[photoTone] : null;
   return (
     <section
-      className={["shell home-magazine-banner", styles.magazine, "ps-public-banner-frame", photo && styles.withPhoto].filter(Boolean).join(" ")}
+      className={[compact ? "home-magazine-banner" : "shell home-magazine-banner", styles.magazine, "ps-public-banner-frame", photo && styles.withPhoto, compact && styles.compact, links?.length && styles.withLinks].filter(Boolean).join(" ")}
       data-home-banner={testId}
+      data-promo-key={promoKey}
+      data-promo-variant={promoVariant}
       data-public-photo-callout={photoTone}
       aria-label={headingId ? undefined : title}
       aria-labelledby={headingId}
@@ -51,9 +61,19 @@ export function PublicMagazineBanner({
         <h2 id={headingId}>{title}</h2>
         <p>{description}</p>
       </div>
-      <Link href={href} className="button button--dark">
-        {label} <ArrowIcon size={18} />
-      </Link>
+      {links?.length ? (
+        <nav className={styles.links} aria-label={title}>
+          {links.map((link) => (
+            <Link key={link.href} href={link.href} className={styles.link}>
+              <span>{link.label}</span><ArrowIcon size={16} />
+            </Link>
+          ))}
+        </nav>
+      ) : href && label ? (
+        <Link href={href} className="button button--dark">
+          {label} <ArrowIcon size={18} />
+        </Link>
+      ) : null}
     </section>
   );
 }

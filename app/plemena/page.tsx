@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
 import { HomePortalSearch } from "@/components/home-portal-search";
-import { BreedCrawlIndex } from "@/components/breed-crawl-index";
 import { ArrowIcon } from "@/components/icons";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { Breadcrumbs } from "@/components/page-system";
@@ -109,7 +108,6 @@ export default async function BreedsPage({ searchParams }: Props) {
                 />
               </section>
             ) : null} />
-            {policy.kind === "clean" && <BreedCrawlIndex breeds={breeds} groups={fciGroups} />}
             <div className="breed-atlas-footer">
             <aside className="fci-source-note">
               <strong>Čo znamená FCI skupina?</strong>

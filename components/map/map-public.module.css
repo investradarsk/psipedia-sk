@@ -1202,3 +1202,34 @@
     overflow: visible; clip-path: none; white-space: nowrap;
   }
 }
+
+/* Mobile map V4: an explicit three-position non-modal results dock.
+   The map remains pannable/pinch-zoomable; the header is the only gesture drag zone. */
+.sheetSnapControls { display: none; }
+@media (max-width: 760px) {
+  .resultsPanel { transform: translateY(calc(100% - 158px + var(--map-sheet-drag-y,0px))); }
+  .resultsPanel[data-sheet-state="peek"] {
+    transform: translateY(calc(100% - 158px + var(--map-sheet-drag-y,0px)));
+  }
+  .resultsHead { padding: 9px 13px 10px; touch-action: none; }
+  .sheetHandle {
+    width: 62px; height: 6px; margin: 2px auto 11px;
+    background: rgba(23, 75, 56, .43);
+  }
+  .sheetSnapControls {
+    display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 4px; padding: 4px; margin-top: 7px;
+    border: 1px solid var(--ps-border-soft);
+    border-radius: var(--ps-radius-control, 12px);
+    background: var(--sage-light);
+  }
+  .sheetSnapControls button {
+    min-width: 0; min-height: 39px; padding: 6px;
+    border: 0; border-radius: 9px; background: transparent; color: var(--forest-dark);
+    font: inherit; font-size: .73rem; font-weight: 800; cursor: pointer;
+  }
+  .sheetSnapControls button[aria-pressed="true"] { color: #fff; background: var(--forest); }
+  .sheetSnapControls button:focus-visible { outline: 3px solid var(--coral-dark); outline-offset: 2px; }
+  .resultsPanel[data-sheet-state="peek"] .resultsHead > p { display: none; }
+  .resultsScroll { touch-action: pan-y; overscroll-behavior-y: contain; }
+}

@@ -8,13 +8,14 @@ const page = readFileSync("app/plemena/page.tsx", "utf8");
 const browser = readFileSync("components/breed-browser.tsx", "utf8");
 const crawlIndex = readFileSync("components/breed-crawl-index.tsx", "utf8");
 
-test("clean breed landing exposes every canonical breed through ordinary server-rendered links", () => {
-  assert.match(page, /policy\.kind === "clean" && <BreedCrawlIndex breeds=\{breeds\} groups=\{fciGroups\} \/>/);
-  assert.match(crawlIndex, /import Link from "next\/link"/);
+test("canonical breed cards remain reachable through SSR group URLs and the JSON-LD collection", () => {
+  assert.doesNotMatch(page, /<BreedCrawlIndex/);
+  assert.match(page, /items: breeds\.map\(\(breed\) => \(\{ name: breed\.name, path:/);
+  assert.match(page, /buildCollectionPageJsonLd/);
+  assert.match(browser, /fciGroup: String\(group\.number\)/);
+  assert.match(browser, /<Link href=\{breedAtlasHref/);
+  assert.match(browser, /selectedGroup === String\(number\)/);
   assert.match(crawlIndex, /for \(const breed of breeds\)/);
-  assert.match(crawlIndex, /<Link href=\{\`\/plemena\/\$\{breed\.slug\}\`\}>\{breed\.name\}<\/Link>/);
-  assert.doesNotMatch(crawlIndex, /\.slice\(/);
-  assert.doesNotMatch(crawlIndex, /onClick=/);
 });
 
 test("breed crawl hierarchy does not create indexable pagination or filter variants", () => {
@@ -24,13 +25,14 @@ test("breed crawl hierarchy does not create indexable pagination or filter varia
   assert.match(page, /const policy = resolveListingIndexPolicy\("\/plemena", rawSearchParams\)/);
 });
 
-test("interactive breed browser starts with 24 cards and preserves load-more and canonical crawl index", () => {
-  assert.match(browser, /INITIAL_BREED_COUNT = 24/);
-  assert.match(browser, /useState\(INITIAL_BREED_COUNT\)/);
-  assert.match(browser, /visible\.slice\(0,shown\)/);
-  assert.match(browser, /Zobraziť ďalšie plemená/);
-  assert.match(browser, /MORE_BREED_COUNT = 24/);
-  assert.match(browser, /setShown\(\(value\) => value \+ MORE_BREED_COUNT\)/);
+test("each FCI group previews three real cards and can be expanded independently", () => {
+  assert.match(browser, /INITIAL_PER_GROUP = 3/);
+  assert.match(browser, /expandedGroups/);
+  assert.match(browser, /setExpandedGroups\(\(current\) =>/);
+  assert.match(browser, /toggleGroup\(group\.number\)/);
+  assert.match(browser, /groupBreeds\.slice\(0, isGroupExpanded/);
+  assert.match(browser, /Všetky plemená skupiny/);
+  assert.doesNotMatch(browser, /setShown/);
 });
 
 
