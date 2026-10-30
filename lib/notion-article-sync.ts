@@ -89,6 +89,7 @@ const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_VERSION = "2025-09-03";
 const SYNC_ACTOR = "notion-sync@psipedia.sk";
 const MAX_SYNC_ITEMS = 100;
+const MAX_EDITORIAL_UPDATES_PER_SWEEP = 20;
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_REMOTE_IMAGE_REDIRECTS = 3;
 const REMOTE_IMAGE_ACCEPT = "image/avif,image/webp,image/png,image/jpeg";
@@ -1756,6 +1757,10 @@ async function syncOneNotionPage(
         (!Number.isFinite(receiptTime) || !Number.isFinite(adminTime) || adminTime > receiptTime)) {
         throw new Error("ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION");
       }
+      if (selectProperty(page, "Sync stav") === "Synchronizované"
+        && richTextProperty(page, "Psipedia ID") === String(existing.id)) {
+        return "unchanged"; // No metadata-only writeback loop.
+      }
       await upsertMapping(database, page, existing.id, contentHash, now);
       await updateNotionSyncState(bindings, page.id, {
         state: "Synchronizované",
@@ -1903,9 +1908,9 @@ export async function runNotionArticleSyncSweep(args: {
   } else {
     pages = await listReadyNotionPages(args.bindings);
   }
-  summary.scanned = pages.length;
-
   for (const page of pages) {
+    if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
+    summary.scanned += 1;
     try {
       const result = await syncOneNotionPage(args.database, args.bindings, page);
       summary[result] += 1;
