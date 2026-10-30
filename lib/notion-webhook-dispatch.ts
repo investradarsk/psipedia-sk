@@ -5,6 +5,7 @@ import { runNotionBreedSyncSweep } from "@/lib/notion-breed-sync";
 import { runNotionArticleSyncSweep } from "@/lib/notion-article-sync";
 import { runNotionEshopSyncSweep } from "@/lib/notion-eshop-sync";
 import { runNotionEventsHelpSyncSweep } from "@/lib/notion-events-help-sync";
+import { runNotionFacebookImagesSync, NOTION_FACEBOOK_IMAGES_SOURCE_ID } from "@/lib/notion-facebook-images-sync";
 import { notionRequest, type NotionPage, type NotionSyncBindings } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
 
@@ -25,6 +26,12 @@ export type WebhookBindings = NotionSyncBindings & {
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_ESHOP_SYNC_ENABLED?: string;
   NOTION_ESHOPS_DATA_SOURCE_ID?: string;
+  NOTION_FACEBOOK_IMAGES_SYNC_ENABLED?: string;
+  NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID?: string;
+  NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED?: string;
+  NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED?: string;
+  NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT?: string;
+  FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?: string;
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
 };
@@ -76,6 +83,16 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     summary = await runNotionEshopSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
     });
+  } else if (sameSource(sourceId, NOTION_FACEBOOK_IMAGES_SOURCE_ID)
+      && sameSource(sourceId, bindings.NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID)
+      && notionPageBelongsToDataSource(page, NOTION_FACEBOOK_IMAGES_SOURCE_ID)) {
+    // Reuse the EXISTING Facebook scheduling, approval and published-post
+    // protections, but fetch only this verified changed Notion page.
+    const result = await runNotionFacebookImagesSync({
+      database: bindings.DB, bindings, targetPageId: id,
+    });
+    if (result.conflicts || result.invalid) return "review-required";
+    summary = { enabled: result.enabled, failed: result.failed, scanned: result.scanned };
   } else if (bindings.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED === "true") {
     // Dynamic event/help targets come from canonical D1 agenda configuration,
     // never from a page title or a Notion-editable category. Unmapped pages
@@ -111,7 +128,8 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       failed: result.totals.failed, scanned: result.totals.scanned,
     };
   } else {
-    // Includes Facebook image source, Services V3 and unsupported pages.
+    // Services V3 is intentionally canonical Admin -> Notion (no inbound
+    // webhook writes), as are other unrecognized sources.
     return "out-of-scope";
   }
   if (!summary) throw new Error("NOTION_TARGETED_NO_RESULT");
