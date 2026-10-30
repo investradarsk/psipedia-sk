@@ -597,8 +597,9 @@ async function syncOneBreed(
           status:existing.status,editorialComplete:existing.editorialComplete,
           image:existing.image,imageKey:existing.imageKey,
           gallery:existing.gallery,accent:existing.accent} satisfies ManagedBreedInput;
-        updated=await updateManagedBreed(existing.id,merged,SYNC_ACTOR,existing.updatedAt);
-        if(!updated)throw new Error("BREED_EXPLICIT_FIELD_UPDATE_FAILED");
+        const next=await updateManagedBreed(existing.id,merged,SYNC_ACTOR,existing.updatedAt);
+        if(!next)throw new Error("BREED_EXPLICIT_FIELD_UPDATE_FAILED");
+        updated=next;
       }
       const latest=breedFieldSnapshot(basePayload);
       const notionReceipt=fieldReceipt?{...fieldReceipt.notion}:latest;
