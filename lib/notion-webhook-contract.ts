@@ -1,4 +1,6 @@
-/** Raw-body Notion HMAC, event scope and metadata echo detection. */
+import { verifyWebhookSignature } from "@notionhq/client";
+
+/** Official Notion SDK raw-body HMAC, event scope and metadata echo detection. */
 export type NotionWebhookEvent = {
   id?: string;
   type?: string;
@@ -15,15 +17,10 @@ const SYNC_ONLY = new Set([
   "Psipedia ID", "URL Psipedia",
 ]);
 
-/** Verify the raw body with WebCrypto; no secret is ever sent to the browser. */
+/** Preserve the existing app-facing API and strict missing-token rejection. */
 export async function verifyNotionWebhook(body: string, signature: string | null, secret: string): Promise<boolean> {
-  const matched = /^sha256=([0-9a-f]{64})$/i.exec(signature ?? "");
-  if (!matched || !secret) return false;
-  const digest = new Uint8Array(matched[1].match(/../g)!.map(value => parseInt(value, 16)));
-  const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"],
-  );
-  return crypto.subtle.verify("HMAC", key, digest, new TextEncoder().encode(body));
+  if (!secret) return false;
+  return verifyWebhookSignature({ body, signature, verificationToken: secret });
 }
 
 export function sameSource(left: string | undefined, right: string | undefined) {
