@@ -7,6 +7,10 @@ import {
 } from "@/lib/breed-store";
 import { SITE_URL } from "@/config/public-site";
 import { mergeNotionBreedInput } from "@/lib/breed-sync-preservation";
+import {
+  advanceBreedAdminReceipt, breedFieldSnapshot, parseBreedFieldSnapshot,
+  planBreedNotionFieldDelta, type BreedFieldSnapshot,
+} from "@/lib/notion-breed-field-delta";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.ts";
 import {
   cleanupNotionImageKeys,
@@ -37,6 +41,39 @@ type BreedMappingRow = {
   content_hash: string;
   last_synced_at: string;
 };
+
+/**
+ * Backward-compatible receipt stored in the existing TEXT content_hash column.
+ * No D1 migration, schema write or new cron is necessary. Legacy SHA receipts
+ * are recognized and safely baselined before per-field delta sync begins.
+ */
+const RECEIPT_PREFIX = "breed-field-v1:";
+function decodeBreedReceipt(contentHash: string | null | undefined) {
+  const raw = contentHash ?? "";
+  if (!raw.startsWith(RECEIPT_PREFIX))
+    return { hash: raw, notion: null, admin: null };
+  try {
+    const encoded = JSON.parse(raw.slice(RECEIPT_PREFIX.length)) as {
+      hash?: string; notion?: string; admin?: string;
+    };
+    if (typeof encoded.hash !== "string" || !/^[a-f0-9]{64}$/i.test(encoded.hash))
+      throw new Error("BAD_RECEIPT_HASH");
+    return {
+      hash: encoded.hash,
+      notion: parseBreedFieldSnapshot(encoded.notion ?? null),
+      admin: parseBreedFieldSnapshot(encoded.admin ?? null),
+    };
+  } catch {
+    throw new Error("BREED_FIELD_RECEIPT_REVIEW_REQUIRED");
+  }
+}
+function encodeBreedReceipt(hash: string, receipt?: {
+  notion: BreedFieldSnapshot; admin: BreedFieldSnapshot;
+}) {
+  return receipt ? RECEIPT_PREFIX + JSON.stringify({
+    hash, notion: JSON.stringify(receipt.notion), admin: JSON.stringify(receipt.admin),
+  }) : hash;
+}
 
 export type NotionBreedSyncSummary = {
   enabled: boolean;
@@ -219,26 +256,25 @@ async function upsertMapping(
   breedId: number,
   contentHash: string,
   now: string,
+  receipt?: { notion: BreedFieldSnapshot; admin: BreedFieldSnapshot },
 ) {
-  await database.prepare(`
+  // Never reassign an existing page to a different D1 ID.
+  const committed = await database.prepare(`
     INSERT INTO breed_notion_sync (
-      notion_page_id, breed_id, notion_last_edited_time, content_hash, last_synced_at, created_at, updated_at
+      notion_page_id, breed_id, notion_last_edited_time, content_hash,
+      last_synced_at, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(notion_page_id) DO UPDATE SET
-      breed_id = excluded.breed_id,
       notion_last_edited_time = excluded.notion_last_edited_time,
       content_hash = excluded.content_hash,
       last_synced_at = excluded.last_synced_at,
       updated_at = excluded.updated_at
+    WHERE breed_notion_sync.breed_id = excluded.breed_id
   `).bind(
-    page.id,
-    breedId,
-    page.last_edited_time ?? null,
-    contentHash,
-    now,
-    now,
-    now,
+    page.id, breedId, page.last_edited_time ?? null,
+    encodeBreedReceipt(contentHash, receipt), now, now, now,
   ).run();
+  if (committed.meta.changes !== 1) throw new Error("BREED_MAPPING_ID_CONFLICT");
 }
 
 async function assertNoUnmappedDuplicate(
@@ -389,7 +425,7 @@ export async function writeBackDraftBreedEditorialToNotion(args: {
     || notionRichTextProperty(page, "Psipedia ID") !== String(args.breed.id)) {
     throw new Error("BREED_NOTION_WRITEBACK_UNSAFE_TARGET");
   }
-  if (await notionBreedSourceHash(page) !== mapping.content_hash) {
+  if (await notionBreedSourceHash(page) !== decodeBreedReceipt(mapping.content_hash).hash) {
     throw new Error("BREED_NOTION_REMOTE_EDITORIAL_CHANGED");
   }
 
@@ -439,10 +475,19 @@ export async function writeBackDraftBreedEditorialToNotion(args: {
 
   const hash = await notionBreedSourceHash(written);
   const at = new Date().toISOString();
+  const oldAdmin = decodeBreedReceipt(mapping.content_hash).admin
+    ?? breedFieldSnapshot(args.before);
+  const nextAdmin = advanceBreedAdminReceipt(
+    oldAdmin, args.breed, edits.map(edit => edit.key),
+  );
   const committed = await args.database.prepare(
     "UPDATE breed_notion_sync SET content_hash=?, notion_last_edited_time=?, " +
-    "last_synced_at=?,updated_at=? WHERE notion_page_id=? AND breed_id=? AND content_hash=?",
-  ).bind(hash, written.last_edited_time ?? at, at, at,
+    "last_synced_at=?,updated_at=? " +
+    "WHERE notion_page_id=? AND breed_id=? AND content_hash=?",
+  ).bind(encodeBreedReceipt(hash, {
+      notion: breedFieldSnapshot(notionPageToManagedBreedInput(written)),
+      admin: nextAdmin,
+    }), written.last_edited_time ?? at, at, at,
     page.id, args.breed.id, mapping.content_hash).run();
   if (committed.meta.changes !== 1) throw new Error("BREED_NOTION_MAPPING_VERSION_CHANGED");
 
@@ -463,19 +508,36 @@ async function syncOneBreed(
   const now = new Date().toISOString();
   const recovered = mapping ? null : await findUnmappedCanonicalBreed(database, page, basePayload);
   const current = mapping ? await getManagedBreed(Number(mapping.breed_id)) : recovered;
+  // D1 breed_id is the stable join key after the one-time identity check.
+  if (mapping) {
+    const claimed = notionRichTextProperty(page, "Psipedia ID").trim();
+    if (claimed && claimed !== String(mapping.breed_id))
+      throw new Error("BREED_PSID_CONFLICT");
+  }
   // Do not turn unapproved, unmapped Notion concepts into canonical records.
   if (!mapping && !current && notionSelectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
   validateReady(page, current?.status === "published");
+  // Backfill can safely link Research / Na kontrolu identities, but must not
+  // treat that act of pairing as editorial approval. Hold the one-time initial
+  // content import until this existing profile is explicitly Ready.
+  const approvedForFirstImport = ["Ready", "Publikované"].includes(notionSelectProperty(page, "Stav"))
+    || checkboxProperty(page, "Profil skvalitnený");
+  if ((mapping?.content_hash.startsWith("identity-pending-editorial:") || recovered)
+    && !approvedForFirstImport) return "unchanged";
 
   if (mapping || recovered) {
     const existing = current;
     if (!existing) {
       throw new Error("Notion záznam je prepojený na chýbajúce plemeno v Psipedii.");
     }
-    if (existing.slug !== basePayload.slug || (basePayload.fciNumber != null
-      && existing.fciNumber != null && basePayload.fciNumber !== existing.fciNumber)) {
+    if (!mapping && (existing.slug !== basePayload.slug || (basePayload.fciNumber != null
+      && existing.fciNumber != null && basePayload.fciNumber !== existing.fciNumber))) {
       throw new Error("BREED_IDENTITY_REVIEW_REQUIRED");
     }
+    const receipt = decodeBreedReceipt(mapping?.content_hash);
+    const oldNotion = receipt.notion;
+    const oldAdmin = receipt.admin;
+    const fieldReceipt = oldNotion && oldAdmin ? { notion: oldNotion, admin: oldAdmin } : null;
     // A later Admin edit is not an acknowledgement from Notion. Never
     // mark its old snapshot "synchronized" or pull an older remote version
     // on top of the unacknowledged D1 revision.
@@ -488,7 +550,7 @@ async function syncOneBreed(
     // existing hourly sweep, without picking a winner from page timestamps.
     // The writer re-fetches and verifies ownership, each changed field and
     // PATCH echo before updating any mapping receipt.
-    if (mapping && existing.status === "draft" && mapping.content_hash === contentHash && canonicalTextDiffers) {
+    if (mapping && existing.status === "draft" && receipt.hash === contentHash && canonicalTextDiffers) {
       const lastCommonText = { ...existing };
       for (const [key, property] of BREED_DRAFT_TEXT_FIELDS) {
         lastCommonText[key] = notionBreedTextValue(page, property);
@@ -499,17 +561,73 @@ async function syncOneBreed(
       if (!result.updated) throw new Error("BREED_ADMIN_WRITEBACK_NOT_ACKNOWLEDGED");
       return "updated";
     }
-    if (mapping && Number.isFinite(lastAck) && Number.isFinite(adminEdit)
-      && adminEdit > lastAck + 2_000) {
-      throw new Error("BREED_ADMIN_REVISION_NOT_SYNCED");
+    // No global updatedAt gate: unrelated Admin changes must never block an
+    // independently edited Notion column. The per-field receipt handles
+    // same-column conflicts and the D1 CAS handles concurrent saves.
+
+    if (mapping && fieldReceipt) {
+      const plan = planBreedNotionFieldDelta(existing, basePayload, fieldReceipt.notion, fieldReceipt.admin);
+      if (plan.conflicts.length)
+        throw new Error("BREED_SAME_FIELD_CONFLICT: " + plan.conflicts.join(", "));
+      if (!plan.changed.length || !Object.keys(plan.patch).length) {
+        if (receipt.hash !== contentHash
+          || notionSelectProperty(page, "Sync stav") !== "Synchronizované"
+          || notionRichTextProperty(page, "Psipedia ID") !== String(existing.id)) {
+          await upsertMapping(database, page, existing.id, contentHash, now, {
+            notion: plan.latest,
+            admin: advanceBreedAdminReceipt(fieldReceipt.admin, existing, plan.accepted),
+          });
+          await updateNotionSyncState(bindings, page.id, {
+            state: "Synchronizované", psipediaId: existing.id, syncedAt: now,
+          });
+        }
+        return "unchanged";
+      }
+      const merged = {
+        ...existing,
+        ...plan.patch,
+        seo: { ...existing.seo, ...(plan.patch.seo ?? {}) },
+        status: existing.status,
+        image: existing.image,
+        imageKey: existing.imageKey,
+        gallery: existing.gallery,
+        accent: existing.accent,
+        editorialComplete: existing.editorialComplete,
+      } satisfies ManagedBreedInput;
+      const updated = await updateManagedBreed(existing.id, merged, SYNC_ACTOR, existing.updatedAt);
+      if (!updated) throw new Error("BREED_FIELD_UPDATE_FAILED");
+      await upsertMapping(database, page, updated.id, contentHash, new Date().toISOString(), {
+        notion: plan.latest,
+        admin: advanceBreedAdminReceipt(fieldReceipt.admin, updated, plan.accepted),
+      });
+      await updateNotionSyncState(bindings, page.id, {
+        state: "Synchronizované", psipediaId: updated.id, syncedAt: now,
+      });
+      return "updated";
     }
 
-    if (mapping && mapping.content_hash === contentHash) {
+    // A legacy linked row has only a whole-page SHA; establish a baseline
+    // rather than guessing which fields changed before this upgrade.
+    if (mapping && !fieldReceipt
+      && !mapping.content_hash.startsWith("identity-pending-editorial:")) {
+      await upsertMapping(database, page, existing.id, contentHash, now, {
+        notion: breedFieldSnapshot(basePayload),
+        admin: breedFieldSnapshot(existing),
+      });
+      await updateNotionSyncState(bindings, page.id, {
+        state: "Synchronizované", psipediaId: existing.id, syncedAt: now,
+      });
+      return "unchanged";
+    }
+
+    if (mapping && receipt.hash === contentHash) {
       if (notionSelectProperty(page, "Sync stav") === "Synchronizované"
         && notionRichTextProperty(page, "Psipedia ID") === String(existing.id)) {
         return "unchanged"; // Do not PATCH unchanged receipts and retrigger webhooks.
       }
-      await upsertMapping(database, page, existing.id, contentHash, now);
+      await upsertMapping(database, page, existing.id, contentHash, now, {
+        notion: breedFieldSnapshot(basePayload), admin: breedFieldSnapshot(existing),
+      });
       await updateNotionSyncState(bindings, page.id, {
         state: "Synchronizované",
         psipediaId: existing.id,
@@ -532,7 +650,9 @@ async function syncOneBreed(
         gallery: existing.gallery,
       }, SYNC_ACTOR, existing.updatedAt);
       if (!updated) throw new Error("BREED_PUBLISHED_UPDATE_FAILED");
-      await upsertMapping(database, page, updated.id, contentHash, new Date().toISOString());
+      await upsertMapping(database, page, updated.id, contentHash, new Date().toISOString(), {
+        notion: breedFieldSnapshot(basePayload), admin: breedFieldSnapshot(updated),
+      });
       await updateNotionSyncState(bindings, page.id, {
         state: "Synchronizované", psipediaId: updated.id, syncedAt: now,
       });
@@ -543,7 +663,9 @@ async function syncOneBreed(
       const updated = await updateManagedBreed(existing.id, payload, SYNC_ACTOR, existing.updatedAt);
       if (!updated) throw new Error("Prepojené plemeno sa nepodarilo aktualizovať.");
       await cleanupNotionImageKeys(bindings.BUCKET, prepared.replacedKeys);
-      await upsertMapping(database, page, updated.id, contentHash, new Date().toISOString());
+      await upsertMapping(database, page, updated.id, contentHash, new Date().toISOString(), {
+        notion: breedFieldSnapshot(basePayload), admin: breedFieldSnapshot(updated),
+      });
       await updateNotionSyncState(bindings, page.id, {
         state: "Synchronizované",
         psipediaId: updated.id,
@@ -564,7 +686,9 @@ async function syncOneBreed(
   try {
     const created = await createManagedBreed(payload, SYNC_ACTOR);
     if (!created) throw new Error("Plemeno sa nepodarilo vytvoriť.");
-    await upsertMapping(database, page, created.id, contentHash, new Date().toISOString());
+    await upsertMapping(database, page, created.id, contentHash, new Date().toISOString(), {
+      notion: breedFieldSnapshot(basePayload), admin: breedFieldSnapshot(created),
+    });
     await updateNotionSyncState(bindings, page.id, {
       state: "Synchronizované",
       psipediaId: created.id,
