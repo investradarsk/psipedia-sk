@@ -11,7 +11,7 @@
 .homePanel {
   position: absolute;
   z-index: 40;
-  top: calc(100% - 1px);
+  top: 60px;
   right: 0;
   left: 0;
   display: grid;
