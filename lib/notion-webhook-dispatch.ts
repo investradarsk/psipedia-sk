@@ -72,6 +72,7 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       && notionPageBelongsToDataSource(page, bindings.NOTION_BREEDS_DATA_SOURCE_ID!)) {
     summary = await runNotionBreedSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
+      changedPropertyIds: event.data?.updated_properties,
     });
   } else if (sameSource(sourceId, bindings.NOTION_ARTICLES_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_ARTICLES_DATA_SOURCE_ID!)) {
