@@ -1,13 +1,20 @@
 import { articlePromoKeys, articlePromoRegistry, type ArticlePromoKey, type ArticlePromoTarget } from "@/lib/article-promo";
 import type { PublicMagazineBannerPhotoTone } from "@/components/public-visual-system/public-magazine-banner";
-import { ARTICLE_LISTING_PROMO_ANCHOR, HOME_PROFILE_BANNER_ANCHOR, BREED_CLUBS_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
+import {
+  ARTICLE_LISTING_PROMO_ANCHOR,
+  HOME_PROFILE_BANNER_ANCHOR,
+  BREED_CLUBS_BANNER_ANCHOR,
+  HELP_LOST_FOUND_BANNER_ANCHOR,
+  HELP_CLOSING_BANNER_ANCHOR,
+  helpOverviewBannerAnchor,
+} from "@/lib/visual-library-anchors";
+import { helpOverviewPromos, helpClosingPromo, lostFoundSubmitPromo, type HelpBannerPreset } from "@/lib/help-banner-presets";
 
 /**
- * Stage 1: an owner-facing catalogue of REAL, existing banners.
+ * Owner-facing catalogue of REAL existing public banners.
  *
  * Confirmed URL = manually audited concrete route in the current source.
- * Conditional article promotions cannot claim concrete article URLs until a
- * read-only, publication-aware runtime inventory is implemented in stage 2.
+ * Conditional article promos are enumerated from published data at request time.
  * Never turn '/clanky/[slug]' into an invented public URL.
  */
 export type VisualBannerUse = {
@@ -57,7 +64,7 @@ const editorialBanners: VisualBanner[] = articlePromoKeys.map((key: ArticlePromo
       evidence: "verified-in-code",
       anchorId: ARTICLE_LISTING_PROMO_ANCHOR,
     }] : [],
-    dynamicNote: "Banner sa v článkoch môže zobrazovať automaticky podľa obsahu a času, alebo ako vložený blok. Presné URL jednotlivých publikovaných článkov zatiaľ nie sú overené. Zobrazíme ich po doplnení kontroly reálneho obsahu.",
+    dynamicNote: "Banner v článkoch môže byť vložený ručne alebo vybraný automaticky. Presné URL publikovaných článkov sa načítavajú pri otvorení administrácie.",
   };
 });
 
@@ -87,4 +94,52 @@ const pageBanners: VisualBanner[] = [
   },
 ];
 
-export const visualLibraryBanners: readonly VisualBanner[] = [...editorialBanners, ...pageBanners];
+function publicHelpBanner(
+  id: string, label: string, promo: HelpBannerPreset, placement: string, anchorId: string,
+): VisualBanner {
+  return {
+    id,
+    label,
+    group: "stranky",
+    eyebrow: promo.eyebrow,
+    title: promo.title,
+    description: promo.text,
+    ctaLabel: promo.action,
+    ctaHref: promo.href,
+    photoTone: promo.tone,
+    uses: [{
+      url: "https://psipedia.sk/pomoc-psom",
+      label: "Pomoc psom – úvod",
+      placement,
+      evidence: "verified-in-code",
+      anchorId,
+    }],
+  };
+}
+
+const helpBanners: VisualBanner[] = [
+  publicHelpBanner(
+    "help:lost-found", "Banner – Nahlásiť strateného alebo nájdeného psa",
+    lostFoundSubmitPromo, "Pod navigáciou kategórií Pomoc psom", HELP_LOST_FOUND_BANNER_ANCHOR,
+  ),
+  ...([
+    { index: 0, label: "Banner – Príprava na adopciu", placement: "Po sekcii Psy na adopciu" },
+    { index: 2, label: "Banner – Pes v núdzi", placement: "Po sekcii Dočasná opatera" },
+    { index: 4, label: "Banner – Pomoc dobrovoľníkov", placement: "Po sekcii Stratené a nájdené psy" },
+  ] as const).flatMap(({ index, label, placement }) => {
+    const promo = helpOverviewPromos[index];
+    return promo ? [publicHelpBanner(
+      `help:overview:${index}`, label, promo, placement, helpOverviewBannerAnchor(index),
+    )] : [];
+  }),
+  publicHelpBanner(
+    "help:closing", "Banner – Pomáhajme spolu",
+    helpClosingPromo, "Na konci stránky Pomoc psom", HELP_CLOSING_BANNER_ANCHOR,
+  ),
+];
+
+export const visualLibraryBanners: readonly VisualBanner[] = [
+  ...editorialBanners,
+  ...pageBanners,
+  ...helpBanners,
+];
