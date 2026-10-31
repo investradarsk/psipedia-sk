@@ -15,11 +15,13 @@ export function ArticleListItem({
   topicLabel,
   className,
   listItem = true,
+  anchorId,
 }: {
   article: ArticleListingCard;
   topicLabel?: string;
   className?: string;
   listItem?: boolean;
+  anchorId?: string;
 }) {
   const date = article.date?.trim() || undefined;
   const dateTime = date && article.dateIso?.trim() ? article.dateIso.trim() : undefined;
@@ -27,6 +29,7 @@ export function ArticleListItem({
 
   return (
     <PublicArticleListItem
+      anchorId={anchorId}
       href={articleHref(article)}
       title={article.title}
       topic={topicLabel ?? articleTopicLabel(article)}
