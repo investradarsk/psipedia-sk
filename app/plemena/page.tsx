@@ -4,6 +4,7 @@ import { BreedBrowser } from "@/components/breed-browser";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon } from "@/components/icons";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { BREED_CLUBS_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
 import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContentShell,
@@ -98,6 +99,7 @@ export default async function BreedsPage({ searchParams }: Props) {
                   Porovnať plemená <ArrowIcon size={17} />
                 </Link>
                 <PublicMagazineBanner
+                  anchorId={BREED_CLUBS_BANNER_ANCHOR}
                   eyebrow="Kluby plemien"
                   title="Nájdi klub svojho plemena"
                   description="Zisti, ktoré kluby zastrešujú jednotlivé plemená a kde ich môžeš kontaktovať."
