@@ -40,12 +40,23 @@ Poznámka: obsahové bannery sa môžu meniť podľa dňa alebo dát. Výpis zac
 - Žiadne nové verejné CSS, presuny vizuálu, prepisy obsahu ani migrácie; mobil zostáva nezmenený. Rovnako starý technický register zostáva pod rozbalením.
 - Nejde zatiaľ o úplnú evidenciu každého použitia daného typu: položky pribúdajú postupne podľa overenia. Konkrétne URL sú vždy odkazmi na skutočné stránky.
 
+## Etapa 5 – možné duplicity a porovnávanie
+
+- V admin vizuálnej knižnici pribudla záložka **Možné duplicity**.
+- Konzervatívne porovnanie už evidovaných bannerov ponúka kandidátov iba pri rovnakom kanonickom cieli odkazu, úplne rovnakom obsahu alebo výrazne podobnom názve. Samotné zdieľanie CSS, komponentu alebo jednej bežnej frázy **nie je** považované za duplicitu.
+- Skutočný príklad na preskúmanie: článkový banner „Chovateľské kluby“ a banner „Kluby plemien“ z atlasu smerujú do rovnakého adresára. Nie je to potvrdená chyba ani pokyn na automatické zlúčenie.
+- Majiteľ môže vybrať ľubovoľné dva evidované prvky (aj Hero/CTA/karty), vidieť ich reálny komponent vedľa seba a otvoriť všetky overené URL.
+- Funkčné tlačidlo **Kopírovať zadanie na zjednotenie** skopíruje názvy, ID a URL oboch prvkov. Žiadna zmena ani publikovanie sa pri porovnávaní nevykoná.
+- Je to výslovne **preverenie kandidátov**, nie úplný audit všetkých komponentov celého webu. Rozšírenie pokrytia je stále otvorené.
+- Nové testy overujú silné a slabé podobnosti, unikátnosť dvojíc, limitovanie výstupov, UX porovnávania a nepovolenie automatického zlúčenia.
+- Opravený aj starší regresný test `lost-found-public-submission.test.mjs`, ktorý po zdieľaní textov a pridaní kotvy hľadal pôvodný statický text vo nesprávnom súbore.
+
 ## Plán pokračovania v tomto jedinom PR
 
 1. **Hotovo pre články:** aktuálne publikované URL, pevne vložené a automatické dnešné promo; ďalšia úloha je história/alternatívne rotujúce varianty a URL dynamických profilov.
 2. **Polohy a opakovania:** rozlíšiť na tej istej URL viac výskytov, umiestnenia (obsah/sidebar/koniec), a explicitné označenia jednotlivých bannerov.
 3. **Hero, CTA a karty začaté v etape 4;** rozšíriť pokrytie ďalších podstránok, navigácie, filtrov a kalendárov.
-4. **Detekcia duplicít:** zoskupiť podobné bannerové varianty a nechať majiteľa potvrdiť, čo je naozaj duplicita.
+4. **Možné duplicity – etapa 5 hotová v kóde:** kandidáti v existujúcom katalógu a ručné porovnanie dvoch prvkov; treba doplniť automatické pokrytie zvyšných typov stránok a komponentov.
 5. **Bezpečný editor:** jednoduché zmeny farby/textu len pre tie komponenty, ktoré to bezpečne podporujú. Náhľad pred uložením, jasné „jedno miesto vs. všetky“ a schválenie pred publikovaním. Samostatne ochrániť mobilný vzhľad.
 
 **Dôležité:** nezaraďovať hotové označenie „všetky URL“, kým enumerácia pokrytia nie je otestovaná na živých publikovaných záznamoch. Skladanie URL pomocou odhadovaných slugov nie je akceptovateľné.
