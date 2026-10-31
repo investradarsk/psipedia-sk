@@ -39,6 +39,10 @@ test.describe("ADMIN-2E article bulk execution", () => {
   async function findArticleRowAcrossPages(page: import("@playwright/test").Page, title: string) {
     await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
     for (let pageNumber = 1; pageNumber <= 20; pageNumber += 1) {
+      // The page streams the article table inside Suspense. DOMContentLoaded
+      // fires before the server-rendered rows and pagination necessarily arrive.
+      // Await the streamed table before deciding a record or next link is absent.
+      await expect(page.locator(".admin-article-row").first()).toBeVisible();
       const row = rowFor(page, title);
       if ((await row.count()) > 0) return row;
       const next = page.getByRole("link", { name: "Ďalšia →" });

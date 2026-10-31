@@ -1,5 +1,6 @@
 import { Fragment, type HTMLAttributes, type ReactNode } from "react";
 import styles from "./public-photo-gallery.module.css";
+import { PublicPhotoSwipeEnhancer } from "./public-photoswipe-enhancer";
 
 export type PublicPhotoGalleryImage = {
   src: string;
@@ -32,7 +33,7 @@ export function PublicPhotoGallery({
     ? images.filter((image) => image.src.trim()).slice(0, Math.max(0, maxImages))
     : images.slice(0, Math.max(0, maxImages));
   if (!visible.length) return null;
-  return (
+  const gallery = (
     <Tag
       {...props}
       className={[variant === "linked" ? styles.gallery : styles[variant], className].filter(Boolean).join(" ")}
@@ -72,6 +73,9 @@ export function PublicPhotoGallery({
           <a
             key={image.src + "-" + index}
             href={href}
+            data-pswp-gallery-item
+            data-pswp-width="1280"
+            data-pswp-height="960"
             target="_blank"
             rel="noopener noreferrer"
             aria-label={image.alt ? `Otvoriť fotografiu: ${image.alt} (nové okno)` : `Otvoriť fotografiu ${index + 1} (nové okno)`}
@@ -82,4 +86,5 @@ export function PublicPhotoGallery({
       })}
     </Tag>
   );
+  return variant === "linked" ? <PublicPhotoSwipeEnhancer>{gallery}</PublicPhotoSwipeEnhancer> : gallery;
 }

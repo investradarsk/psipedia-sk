@@ -38,12 +38,16 @@ test("one Radix/Lexical draft control is reused by canonical profile editors",()
   assert.doesNotMatch(adoption,/id="adoption-description"[^>]*defaultValue=/);
 });
 
-test("canonical URL-only galleries and structured galleries share one Dropzone",()=>{
+test("canonical URL-only galleries use Uppy while structured galleries retain the original Dropzone",()=>{
   const dropzone=read("components/admin-gallery-dropzone.tsx");
   assert.match(dropzone,/useDropzone/);
   assert.match(dropzone,/image\/jpeg/);
   assert.match(dropzone,/disabled:disabled\|\|busy/);
-  for(const p of ["components/admin-photo-gallery.tsx","components/admin-breed-editor.tsx","components/admin-article-block-editor.tsx"]){
+  // The URL-only profile gallery now uses Uppy Dashboard as the new shared
+  // uploader while the breed and structured editorial galleries retain Dropzone.
+  assert.match(read("components/admin-photo-gallery.tsx"),/AdminUppyGalleryUpload/);
+  assert.match(read("components/admin-uppy-gallery-upload.tsx"),/uploadAdminImage/);
+  for(const p of ["components/admin-breed-editor.tsx","components/admin-article-block-editor.tsx"]){
     assert.match(read(p),/AdminGalleryDropzone/,p);
   }
   assert.match(read("components/admin-breed-editor.tsx"),/if \(!Array\.isArray\(event\)\) event\.target\.value = ""/);
