@@ -1,6 +1,7 @@
 "use client";
 
 import { EventListingResults } from './event-listing-results';
+import { DesktopEventFullCalendar } from "./desktop-event-fullcalendar";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { eventListingParams, parseEventListing, type EventListingFilters } from '@/lib/event-listing';
 import Link from "next/link";
@@ -261,6 +262,14 @@ export function EventCalendar({
           </nav>
         </div>
 
+        <DesktopEventFullCalendar
+          month={visibleMonth}
+          today={today}
+          selectedDay={selectedDay}
+          summaries={Array.from(daySummaries.values())}
+          hrefForDay={date=>calendarHref(visibleMonth,date)}
+          onDayLinkClick={(event,date)=>clickNavigate(event,calendarHref(visibleMonth,date)+"#vybrany-den",{...view,day:date})}
+        />
         <div className={styles.monthGrid} role="group" aria-label={"Dni kalendára " + calendarMonthLabel(visibleMonth)}>
           {calendarWeekdays.map((name) => <span className={styles.weekday} key={name}>{name}</span>)}
           {days.map((day) => {
