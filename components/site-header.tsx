@@ -603,6 +603,7 @@ export function SiteHeader({
                 <span className="public-search-icon" aria-hidden="true"><SearchIcon size={21} /></span>
                 <PublicTextInput appearance="context"
                 ref={inputRef}
+                role="combobox"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 maxLength={120}
