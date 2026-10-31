@@ -49,6 +49,7 @@ import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/not
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
 import { readNotionFieldAuthorities } from "@/lib/notion-field-authority";
+import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -830,7 +831,49 @@ async function createProfileFromNotion(input: {
   trustedGemini?: boolean;
 }) {
   const desired = notionSnapshot(input.page);
+  const importWarnings: string[] = [];
   if (input.trustedGemini) {
+    const validUrl = (value: string) => {
+      if (!value) return true;
+      try {
+        const parsed = new URL(value);
+        return (parsed.protocol === "https:" || parsed.protocol === "http:")
+          && !parsed.username && !parsed.password;
+      } catch { return false; }
+    };
+    for (const field of ["websiteUrl", "facebookUrl", "instagramUrl"] as const) {
+      if (desired[field] && !validUrl(desired[field])) {
+        desired[field] = "";
+        importWarnings.push("Skontroluj neplatný odkaz: " + field + ".");
+      }
+    }
+    for (const field of ["publicEmail", "internalEmail"] as const) {
+      if (desired[field] && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(desired[field])) {
+        desired[field] = "";
+        importWarnings.push("Skontroluj e-mail: " + field + ".");
+      }
+    }
+    if (desired.publicPhone && !/^[+0-9() .\\/-]{1,50}$/.test(desired.publicPhone)) {
+      desired.publicPhone = "";
+      importWarnings.push("Skontroluj telefónne číslo.");
+    }
+    if (desired.postalCode && !/^\\d{3}\\s?\\d{2}$/.test(desired.postalCode)) {
+      desired.postalCode = "";
+      importWarnings.push("Skontroluj PSČ.");
+    }
+    if (desired.addressFormat && !["STREET", "MUNICIPALITY_NUMBER"].includes(desired.addressFormat)) {
+      desired.addressFormat = "";
+      importWarnings.push("Skontroluj formát adresy.");
+    }
+    if (desired.confirmedServiceLocation) {
+      desired.confirmedServiceLocation = false;
+      importWarnings.push("Potvrď prevádzku a adresu v administrácii.");
+    }
+    if (desired.services.length) importWarnings.push("Služby skontroluj a priraď v katalógu Admin/D1.");
+    desired.services = [];
+    if (!desired.region) importWarnings.push("Doplň kraj.");
+    if (!desired.city) importWarnings.push("Doplň mesto/obec.");
+    if (!desired.description) importWarnings.push("Doplň popis profilu.");
     desired.slug = await resolveGeminiPublicSlug(input.database, "directory", {
       requestedSlug: desired.slug, name: desired.name, city: desired.city, notionPageId: input.page.id,
     });
@@ -895,6 +938,7 @@ async function createProfileFromNotion(input: {
       sourceImageUrl,
       sourcePageUrl,
       imageWarning,
+      importWarnings,
     };
   } catch (error) {
     if (prepared?.uploadedKey) {
@@ -1732,6 +1776,8 @@ export async function runNotionDirectorySyncSweep(input: {
           warnings.push("Katalóg služieb: " +
             (error instanceof Error ? error.message : String(error)));
         }
+        await recordGeminiImportReviewNotes(input.database, "directory",
+          created.id, page.id, [...warnings, ...creation.importWarnings]).catch(() => undefined);
         if (warnings.length) {
           // Best effort only: a Notion 429 must not block the verified D1 draft.
           await markPageError(input.bindings, page.id,
