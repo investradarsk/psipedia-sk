@@ -43,7 +43,7 @@ import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirr
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
-import { readNotionFieldAuthorities } from "./notion-field-authority.ts";
+import { readNotionFieldAuthorities, fixedNotionAgendaFields } from "./notion-field-authority.ts";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 import {
@@ -1120,22 +1120,10 @@ await requireVerifiedMappedNotionWriteback({
           recorded: storedBaseline, notion: notionSnapshot, psipedia: sourceSnapshot,
           mappingHash: mapping.content_hash, notionHash, psipediaHash: canonicalHash,
         });
-        const protectedFields = new Set([
-          "Slug", "Stav", "Psipedia stav", "Kategória", "Typ",
-          "Typ podujatia", "Organizácia", "Vyriešené", "Urgentné",
-          "Latitude", "Longitude", "Presnosť lokality", "Verejný kontakt",
-          "Zdroj", "Zdroj URL", "Zdroj dát",
-          // Publication-adjacent moderator decisions and contact notes are
-          // edited via the canonical Admin flow, not inferred from Notion.
-          "Zrušené", "Kontakt",
-          // Physical address values are edited in the canonical Admin.
-          // Notion may update independent editorial fields of the same item.
-          "Adresa", "Mesto", "Okres", "Kraj",
-        ]);
-        if (agenda === "lost-found") {
-          protectedFields.add("Miesto");
-          protectedFields.add("Naposledy videný");
-        }
+        // One shared field contract for UI and reconciliation. Safe Notion
+        // edits may control event classification and unconfirmed addresses,
+        // but never bypass canonical publication, identity or privacy locks.
+        const protectedFields = fixedNotionAgendaFields(agenda);
         const currentGooglePlace = agenda === "events"
           ? await hasCurrentGooglePlace(input.database, "MANAGED_EVENT", entityId)
           : agenda === "organizations"
