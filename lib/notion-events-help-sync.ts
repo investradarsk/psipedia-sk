@@ -1,5 +1,7 @@
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
+import { prepareGeminiDraftFields } from "./gemini-draft-import-fields.ts";
+import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes.ts";
 import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import { geminiImportAgenda } from "./gemini-notion-provenance.ts";
 import { resolveGeminiPublicSlug, type GeminiSlugAgenda } from "./gemini-public-slug.ts";
@@ -1622,7 +1624,7 @@ await requireVerifiedMappedNotionWriteback({
         continue;
       }
     }
-    if ((trustedGemini || input.reviewedLegacy) && input.definition.key === "lost-found" && (
+    if (!trustedGemini && input.reviewedLegacy && input.definition.key === "lost-found" && (
       values["Latitude"] != null && values["Latitude"] !== "" ||
       values["Longitude"] != null && values["Longitude"] !== "" ||
       clean(values["Verejný kontakt"]) ||
@@ -1714,8 +1716,11 @@ await requireVerifiedMappedNotionWriteback({
           continue;
         }
       }
+      const preparedFields = trustedGemini
+        ? prepareGeminiDraftFields(input.definition.key, values)
+        : { values, warnings: [] as string[] };
       const draftValues = trustedGemini
-        ? { ...values, "Slug": await resolveGeminiPublicSlug(input.database, input.definition.key as GeminiSlugAgenda, {
+        ? { ...preparedFields.values, "Slug": await resolveGeminiPublicSlug(input.database, input.definition.key as GeminiSlugAgenda, {
           requestedSlug: clean(values["Slug"]),
           name: clean(values[input.definition.key === "adoptions" ? "Meno" : "Názov"]),
           city: clean(values["Mesto"]), notionPageId: page.id,
@@ -1745,35 +1750,54 @@ await requireVerifiedMappedNotionWriteback({
         psipediaUpdatedAt: await canonicalUpdatedAt(input.definition.key, entityId, input.database),
         syncedAt: preWriteAt,
       });
-      const written = await writeSourceToNotion({
-        bindings: input.bindings,
-        dataSourceId: target.dataSourceId,
-        source,
-        schema,
-        pageId: page.id,
-      });
-await requireVerifiedMappedNotionWriteback({
-  written, expectedPageId: page.id, agenda: input.definition.key,
-  schema, expectedHash: hash,
-});
-      const syncedAt = new Date().toISOString();
-      const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
-      await saveMapping({
-        database: input.database,
-        agenda: input.definition.key,
-        pageId: page.id,
-        entityId,
-        hash,
-        notionLastEditedTime: written.last_edited_time ?? syncedAt,
-        psipediaUpdatedAt: updatedAt,
-        syncedAt,
-      });
+      // The canonical INSERT and its one-to-one D1 mapping are now committed.
+      // Signed Gemini provenance and review notes must be durable before any
+      // optional Notion writeback, otherwise a 429 would leave a usable D1 draft
+      // incorrectly labelled "waiting" and a retry could create duplicates.
       if (trustedGemini) {
         const marked = await input.database.prepare(
           "UPDATE gemini_notion_created_pages SET canonical_entity_id=?,imported_at=? " +
           "WHERE notion_page_id=? AND import_agenda=? AND canonical_entity_id IS NULL"
-        ).bind(entityId, syncedAt, page.id, input.definition.key).run();
+        ).bind(entityId, preWriteAt, page.id, input.definition.key).run();
         if (marked.meta.changes !== 1) throw Error("GEMINI_PROVENANCE_IMPORT_CONFLICT");
+        await recordGeminiImportReviewNotes(input.database, input.definition.key,
+          entityId, page.id, preparedFields.warnings).catch(() => undefined);
+      }
+      try {
+        const written = await writeSourceToNotion({
+          bindings: input.bindings,
+          dataSourceId: target.dataSourceId,
+          source,
+          schema,
+          pageId: page.id,
+        });
+        await requireVerifiedMappedNotionWriteback({
+          written, expectedPageId: page.id, agenda: input.definition.key,
+          schema, expectedHash: hash,
+        });
+        const syncedAt = new Date().toISOString();
+        const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
+        await saveMapping({
+          database: input.database,
+          agenda: input.definition.key,
+          pageId: page.id,
+          entityId,
+          hash,
+          notionLastEditedTime: written.last_edited_time ?? syncedAt,
+          psipediaUpdatedAt: updatedAt,
+          syncedAt,
+        });
+      } catch (error) {
+        if (!trustedGemini) throw error;
+        // Recover Notion mirror later; canonical D1 draft remains editable.
+        // Never retry the INSERT or pretend the remote PATCH was successful.
+        logFailure(summary, { notionPageId: page.id, entityId,
+          operation: "gemini_post_import_notion_mirror", error });
+        await patchPage(input.bindings, page.id, encodeProperties({
+          "Sync stav": "Chyba",
+          "Sync chyba": "Koncept je v administrácii. Notion sync: " +
+            (error instanceof Error ? error.message : String(error)).slice(0, 1500),
+        }, schema)).catch(() => undefined);
       }
       summary.createdFromNotion += 1;
       importWriteStarted = false;

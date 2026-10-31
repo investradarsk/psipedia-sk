@@ -1,4 +1,10 @@
-.container { display: flex; align-items: center; margin: 0 0 12px; }
+.container { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; margin: 0 0 12px; }
 .badge { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #bad9c7;
   border-radius: 999px; padding: 5px 10px; color: #17573c; background: #e9f6ed;
   font-size: .78rem; font-weight: 700; line-height: 1.25; }
+
+.review { width: 100%; padding: 10px 14px; border: 1px solid #e2c88c; border-radius: 10px; background: #fff8e8; color: #583f17; font-size: .88rem; }
+.review strong { display: block; font-weight: 700; }
+.review p { margin: 5px 0; }
+.review ul { margin: 5px 0 0 18px; padding: 0; }
+.review li + li { margin-top: 3px; }

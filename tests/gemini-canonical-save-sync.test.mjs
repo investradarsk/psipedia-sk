@@ -1,4 +1,5 @@
 import test from "node:test";
+import "./gemini-draft-import-fields.test.mjs";
 import { requireNotionWritebackEvidence } from "../lib/notion-sync-writeback-evidence.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -73,7 +74,7 @@ test("all 22 saves target one signed page/revision and return only verified priv
   }
 });
 
-test("missing provenance, missing saved revision, concurrent edits and existing mappings never invoke import", async () => {
+test("missing provenance/revision and concurrent edits never import; verified D1 drafts reopen directly", async () => {
   for (const item of geminiAutomationCatalog) {
     for (const options of [
       { signed: false }, { before: { lastEditedAt: "human-v3" } },
@@ -83,7 +84,13 @@ test("missing provenance, missing saved revision, concurrent edits and existing 
       { before: { psipediaId: "77", canonicalVerified: false } },
     ]) {
       const h = harness(item, options);
-      assert.notEqual((await h.run()).state, "CANONICAL_DRAFT_READY", item.stableKey);
+      const result = await h.run();
+      if (options.before?.reviewState === "IMPORTED") {
+        assert.equal(result.state, "CANONICAL_DRAFT_READY", item.stableKey);
+        assert.match(result.editorUrl, /^\/admin\//);
+      } else {
+        assert.notEqual(result.state, "CANONICAL_DRAFT_READY", item.stableKey);
+      }
       assert.equal(h.calls.length, 0);
     }
     const h = harness(item);
@@ -92,24 +99,39 @@ test("missing provenance, missing saved revision, concurrent edits and existing 
   }
 });
 
-test("disabled/incomplete/error/conflict/uncertain import never claims success or retries", async () => {
+test("sync warnings do not block verified private D1 drafts across all 22 Gemini categories", async () => {
   for (const item of geminiAutomationCatalog) {
-    const failures = [{ enabled: false }, { schemaReady: false }, { failed: 1, totals: { failed: 1 } },
-      { createdFromNotion: 0, totals: { createdFromNotion: 0 } }];
-    if (geminiImportAgenda(item.stableKey) !== "directory") failures.push(
-      { agendas: [{ targetMissing: true }] }, { totals: { conflicts: 1 } });
-    for (const summary of failures) {
+    for (const summary of [
+      { failed: 1, totals: { failed: 1 } },
+      { createdFromNotion: 0, totals: { createdFromNotion: 0 } },
+      { totals: { conflicts: 1, failed: 1, createdFromNotion: 0 } },
+    ]) {
+      const verified = harness(item, { summary });
+      assert.equal((await verified.run()).state, "CANONICAL_DRAFT_READY", item.stableKey);
+      const missing = harness(item, {
+        summary, after: { psipediaId: "", canonicalVerified: false, reviewState: "NEW" },
+      });
+      assert.equal((await missing.run()).state, "NEEDS_REVIEW", item.stableKey);
+    }
+    for (const summary of [{ enabled: false }, { schemaReady: false }]) {
       const h = harness(item, { summary });
       assert.equal((await h.run()).state, "NEEDS_REVIEW", item.stableKey);
-      assert.equal(h.calls.length, 1);
     }
-    for (const after of [{ psipediaId: "", canonicalVerified: false },
-      { reviewState: "PUBLISHED" }, { reviewState: "REJECTED" }]) {
+    for (const after of [
+      { psipediaId: "", canonicalVerified: false },
+      { psipediaId: "77", canonicalVerified: false },
+      { reviewState: "PUBLISHED" }, { reviewState: "REJECTED" },
+    ]) {
       assert.equal((await harness(item, { after }).run()).state, "NEEDS_REVIEW");
     }
-    const h = harness(item, { failure: true });
-    await assert.rejects(h.run(), /uncertain/);
-    assert.equal(h.calls.length, 1);
+    const uncertainButMapped = harness(item, { failure: true });
+    assert.equal((await uncertainButMapped.run()).state, "CANONICAL_DRAFT_READY");
+    assert.equal(uncertainButMapped.calls.length, 1);
+    const uncertainWithoutMapping = harness(item, {
+      failure: true, after: { psipediaId: "", canonicalVerified: false },
+    });
+    assert.equal((await uncertainWithoutMapping.run()).state, "NEEDS_REVIEW");
+    assert.equal(uncertainWithoutMapping.calls.length, 1);
   }
 });
 
@@ -140,6 +162,8 @@ function importHarness(options = {}) {
     notionRequest: async () => options.changed ? { ...page, last_edited_time: "human-v3" } : page,
     sourceDuplicateCandidate: () => options.duplicate ? 77 : null,
     clean: v => String(v ?? ""), resolveGeminiPublicSlug: async () => "offline",
+    prepareGeminiDraftFields: (_agenda, values) => ({ values, warnings: [] }),
+    recordGeminiImportReviewNotes: async () => undefined,
     createCanonicalFromNotion: async () => { operations.push("create"); if (options.failCreate) throw Error("timeout"); return { id: 77 }; },
     sourceById: rows => new Map(rows.map(row => [row.id, row])),
     snapshotHash: async () => "hash", editableSnapshot: () => ({}), canonicalUpdatedAt: async () => "canonical-v1",
@@ -177,8 +201,8 @@ test("scheduler and targeted imports serialize page and agenda identity checks b
   assert.equal(h.held.size, 0);
 });
 
-test("ambiguous insert, mapping or Notion acknowledgement retains shared import/page locks", async () => {
-  for (const options of [{ failCreate: true }, { failMapping: true }, { failNotion: true }, { partialNotionEcho: true }]) {
+test("ambiguous canonical INSERT or first D1 mapping retains import locks", async () => {
+  for (const options of [{ failCreate: true }, { failMapping: true }]) {
     const h = importHarness(options);
     await h.run();
     assert.equal(h.summary.failed, 1);
@@ -186,6 +210,18 @@ test("ambiguous insert, mapping or Notion acknowledgement retains shared import/
     assert.deepEqual([...h.held], ["gemini-canonical-import-events", pageId]);
     assert.equal(h.operations.filter(v => v === "create").length, 1);
     assert.equal(h.released.length, 0);
+  }
+});
+
+test("after a durable Gemini D1 mapping, Notion 429 or bad echo is warning-only", async () => {
+  for (const options of [{ failNotion: true }, { partialNotionEcho: true }]) {
+    const h = importHarness(options);
+    await h.run();
+    assert.equal(h.summary.failed, 1);
+    assert.equal(h.summary.createdFromNotion, 1);
+    assert.equal(h.held.size, 0, "Do not retain locks on verified canonical draft");
+    assert.equal(h.operations.filter(v => v === "create").length, 1);
+    assert.equal(h.operations.filter(v => v === "mapping").length, 1);
   }
 });
 
