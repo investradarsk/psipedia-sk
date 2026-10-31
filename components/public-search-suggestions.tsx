@@ -93,17 +93,19 @@ export function PublicSearchSuggestions({
   const suggestions = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   const listId = `ps-search-${componentId}`;
   const isOpen = enabled && normalizedQuery.length >= 2 && dismissedFor !== normalizedQuery;
+  // A combobox is expanded only while its controlled listbox actually exists.
+  const hasListbox = isOpen && status === "ready" && suggestions.length > 0;
 
   useEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    // Attach to the existing forms instead of replacing their native submit behavior.
-    // Keep the native textbox role: existing header keyboard and accessibility
-    // contracts locate this control as a textbox, not a combobox.
+    // Preserve native GET submission and keyboard behavior while exposing the
+    // listbox through the real combobox role (aria-expanded is invalid on textbox).
     input.setAttribute("aria-autocomplete", "list");
-    input.setAttribute("aria-controls", listId);
-    input.setAttribute("aria-expanded", String(isOpen));
-    if (isOpen && selected >= 0 && selected < suggestions.length) {
+    if (hasListbox) input.setAttribute("aria-controls", listId);
+    else input.removeAttribute("aria-controls");
+    input.setAttribute("aria-expanded", String(hasListbox));
+    if (hasListbox && selected >= 0 && selected < suggestions.length) {
       input.setAttribute("aria-activedescendant", `${listId}-item-${selected}`);
     } else {
       input.removeAttribute("aria-activedescendant");
@@ -111,7 +113,7 @@ export function PublicSearchSuggestions({
     return () => {
       input.removeAttribute("aria-activedescendant");
     };
-  }, [inputRef, listId, isOpen, selected, suggestions.length]);
+  }, [inputRef, listId, hasListbox, selected, suggestions.length]);
 
   useEffect(() => {
     const input = inputRef.current;
