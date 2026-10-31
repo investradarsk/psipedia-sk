@@ -304,12 +304,12 @@ export function EventCalendar({
                 aria-current={todayFlag ? "date" : undefined}
                 aria-label={(active ? "Vybraný deň " : "") + dayName + (count ? ", " + count + " podujatí, " + types.map((type) => eventTypePresentation[type].label).join(", ") : ", bez podujatí")}
               >
-                <span className={styles.dayHeading}>
-                <span className={styles.monthDayNumber}>{day.day}</span>
-                {count > 0 ? <span className={styles.monthDayCount} aria-hidden="true">{count}</span> : null}
+                <span className={styles.dayHeading} data-event-day-heading>
+                <span className={styles.monthDayNumber} data-event-day-number>{day.day}</span>
+                {count > 0 ? <span className={styles.monthDayCount} data-event-day-count aria-hidden="true">{count}</span> : null}
                 </span>
                 {types.length ? (
-                  <span className={styles.dayIndicators} aria-hidden="true">
+                  <span className={styles.dayIndicators} data-event-day-dots aria-hidden="true">
                     {types.slice(0, 4).map((type) => <span key={type} className={styles.typeDot} data-event-type={type} style={{ "--event-type-color": eventTypePresentation[type].color } as CSSProperties} />)}
                     {types.length > 4 ? <span className={styles.moreTypes}>+{types.length - 4}</span> : null}
                   </span>
