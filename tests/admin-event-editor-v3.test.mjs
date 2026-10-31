@@ -38,7 +38,7 @@ test("action bar keeps one guarded back navigation and full meaning of buttons",
   assert.match(editor, /status === "draft" \? <AdminActionButton type="submit" form="event-editor-v3-form"/);
   assert.match(editor, /onSubmit=\{\(submitEvent\)[\s\S]*save\(status\)/);
   assert.match(editor, /onClick=\{\(\) => setConfirmUnpublish\(true\)\}/);
-  assert.match(editor, /onClick=\{\(\) => \{ setConfirmUnpublish\(false\); void save\("draft"\); \}\}/);
+  assert.match(editor, /onConfirm=\{\(\) => \{ setConfirmUnpublish\(false\); void save\("draft"\); \}\}/);
   for (const label of ["Uložiť koncept", "Publikovať podujatie", "Uložiť zmeny", "Stiahnuť z kalendára"]) {
     assert.ok(editor.includes(label), label);
   }
@@ -62,7 +62,7 @@ test("event payload, markdown, maps, SEO, uploads and media behavior remain cano
   assert.match(editor, /<EditorUnsavedChangesGuard[\s\S]*open=\{confirmNavigation\}/);
   assert.match(editor, /document\.addEventListener\("click", onDocumentClick, true\)/);
   assert.match(editor, /navigationApi\?\.addEventListener\("navigate", onNativeNavigate\)/);
-  assert.match(editor, /<AdminModalDialog[\s\S]*title="Stiahnuť podujatie z kalendára\?"/);
+  assert.match(editor, /<AdminDestructiveConfirmDialog[\s\S]*title="Stiahnuť podujatie z kalendára\?"/);
   assert.match(editor, /dirty=\{dirty\}/);
 });
 
