@@ -12,6 +12,7 @@ on:
           - 0148_notion_transfer_audit.sql
           - 0149_services_builtin_admin_overrides.sql
           - 0150_gemini_import_review_notes.sql
+          - 0151_visual_library_banner_edits.sql
           - 0147_notion_field_authority.sql
           - 0062_profile_reviews_foundation.sql
           - 0063_partner_claims_verification.sql
@@ -216,6 +217,7 @@ jobs:
             0148_notion_transfer_audit.sql) expected_confirmation="APPLY-0148-psipedia-sk-db" ;;
             0149_services_builtin_admin_overrides.sql) expected_confirmation="APPLY-0149-psipedia-sk-db" ;;
             0150_gemini_import_review_notes.sql) expected_confirmation="APPLY-0150-psipedia-sk-db" ;;
+            0151_visual_library_banner_edits.sql) expected_confirmation="APPLY-0151-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
