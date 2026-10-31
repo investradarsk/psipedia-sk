@@ -72,7 +72,7 @@ function fromRow(row: EditRow): StoredVisualDraft {
 }
 function serviceUnavailable(error: unknown): never {
   if (error instanceof Error && /no such table:\s*visual_library_banner_edits/i.test(error.message)) {
-    throw new Error("Úložisko vizuálnych návrhov ešte nie je pripravené. Vyžaduje schválenú migráciu D1 0148.");
+    throw new Error("Úložisko vizuálnych návrhov ešte nie je pripravené. Vyžaduje schválenú migráciu D1 0151.");
   }
   throw error;
 }
