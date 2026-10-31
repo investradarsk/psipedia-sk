@@ -82,6 +82,8 @@ export function AdminLexicalTextField({
   id, name, value, defaultValue = "", onChange, onInput, rows = 5,
   required = false, disabled = false, placeholder, ariaLabel,
 }: Props) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const [internalValue, setInternalValue] = useState(defaultValue);
   const current = value === undefined ? internalValue : value;
   const handleChange = useCallback((next: string) => {
@@ -99,7 +101,7 @@ export function AdminLexicalTextField({
 
   return (
     <div className={styles.field} data-admin-lexical-text>
-      <LexicalComposer initialConfig={initialConfig}>
+      {mounted ? <LexicalComposer initialConfig={initialConfig}>
         <div className={styles.surface} style={{ minHeight: `${Math.max(3, Math.min(rows, 14)) * 1.45}rem` }}>
           <PlainTextPlugin
             contentEditable={
@@ -118,7 +120,9 @@ export function AdminLexicalTextField({
           <HistoryPlugin />
           <LexicalPlainTextBridge value={current} onChange={handleChange} disabled={disabled} />
         </div>
-      </LexicalComposer>
+      </LexicalComposer> : (
+        <div className={styles.surface} style={{ minHeight: `${Math.max(3, Math.min(rows, 14)) * 1.45}rem` }} aria-hidden="true" />
+      )}
       {name && (
         <textarea
           name={name}
