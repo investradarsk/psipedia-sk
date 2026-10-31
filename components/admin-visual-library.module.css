@@ -66,3 +66,9 @@
 .heroPreview :global([data-unified-section-hero-shell]){width:100%;max-width:none;margin:0;padding:0}
 .heroPreview :global([data-unified-section-hero]){max-width:100%}
 @media(max-width:940px){.heroPreview{overflow-x:auto}}
+
+.wideWorkspace{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.wideWorkspace .catalog{max-height:none}
+.wideWorkspace .catalogItems{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.wideWorkspace .heroPreview{max-width:100%}
+@media(max-width:620px){.wideWorkspace .catalogItems{grid-template-columns:1fr}}
