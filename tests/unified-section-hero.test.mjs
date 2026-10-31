@@ -166,7 +166,7 @@ test("legacy PortalHub no longer chooses first article as hero", () => {
 });
 
 test("homepage uses the canonical section hero renderer", () => {
-  assert.match(home, /getSectionHeroVisual\\("home\\.hero"\\)/);
+  assert.match(home, /getSectionHeroVisual\("home\.hero"\)/);
   assert.match(home, /<UnifiedSectionHeroShell/);
   assert.match(home, /<UnifiedSectionHero/);
   assert.match(home, /portalSearchSlot=/);
