@@ -110,6 +110,28 @@ export function AdminNotionFieldSettings(){
       setError(e instanceof Error?e.message:"Uloženie sa nepodarilo.");
     }finally{setBusy("")}
   }
+  const [bulkMode,setBulkMode]=useState<Mode>("notion");
+  async function saveAll(){
+    if(!group?.active||!result?.ready||busy)return;
+    const editable=group.fields.filter(f=>!f.locked);
+    if(!editable.length)return;
+    if(!window.confirm("Nastaviť „"+labels[bulkMode]+"“ pre všetkých "+editable.length+
+      " nastaviteľných polí kategórie „"+group.title+"“? Ostatné kategórie sa nezmenia."))return;
+    setBusy("bulk");setError("");setMessage("");
+    try{
+      const r=await fetch("/api/admin/notion-field-authority",{
+        method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({scope:group.scope,mode:bulkMode,all:true}),
+      });
+      const value=await r.json() as {ok?:boolean;error?:string;count?:number};
+      if(!r.ok||!value.ok)throw Error(value.error??"Hromadné uloženie zlyhalo.");
+      const rules={...result.rules};
+      for(const field of editable)rules[group.scope+":"+field.id]=bulkMode;
+      setResult({...result,rules});
+      setMessage("Hotovo: "+value.count+" polí kategórie „"+group.title+"“ má prioritu „"+labels[bulkMode]+"“.");
+    }catch(e){setError(e instanceof Error?e.message:"Hromadné uloženie zlyhalo.");}
+    finally{setBusy("")}
+  }
   const families=[...new Set(result?.groups.map(g=>g.family)??[])];
   return <section className={styles.root}>
     <div className={styles.explainer}>
@@ -136,6 +158,20 @@ export function AdminNotionFieldSettings(){
       </nav>
       {group?<div className={styles.details}>
         <header><h2>{group.title}</h2><p>{group.active?"Nastaviteľné polia existujúcej synchronizácie.":"Prehľad pevne určených pravidiel (zatiaľ bez editácie)."}</p></header>
+        {group.active?<div className={styles.bulkControls}>
+          <label htmlFor="notion-category-mode">Nastaviť rovnakú prioritu pre celú kategóriu</label>
+          <div className={styles.bulkRow}>
+            <select id="notion-category-mode" value={bulkMode} disabled={!result.ready||Boolean(busy)}
+              onChange={event=>setBulkMode(event.target.value as Mode)}>
+              {(Object.entries(labels) as [Mode,string][]).map(([mode,label])=>
+                <option key={mode} value={mode}>{label}</option>)}
+            </select>
+            <button type="button" disabled={!result.ready||Boolean(busy)} onClick={()=>void saveAll()}>
+              {busy==="bulk"?"Ukladám…":"Použiť na všetky polia tejto kategórie"}
+            </button>
+          </div>
+          <p>Platí len pre {group.title}. Chránené polia sa nemenia. Zmeny platia pri ďalšom prenose.</p>
+        </div>:null}
         <AdminNotionConnectionDiagnostic key={group.scope} scope={group.scope}/>
         <div className={styles.tableWrap}><table className={styles.table}>
           <thead><tr><th>Pole v Admine</th><th>Prepojenie v Notione</th><th>Priorita</th></tr></thead>

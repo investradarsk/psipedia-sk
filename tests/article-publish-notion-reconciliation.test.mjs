@@ -22,6 +22,7 @@ async function compiledModule(path, services, globals = {}) {
 }
 
 const syncDependencies = {
+  "@/lib/notion-field-authority": {readNotionFieldAuthorities:async()=>({})},
   "@/lib/notion-transfer-audit": { recordNotionTransfer: async () => {} },
   "@/lib/article-store": {},
   "@/lib/article-blocks": {},

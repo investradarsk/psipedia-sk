@@ -109,7 +109,7 @@ test("markerless Editorial Hub articles keep complete prose without importing ad
 });
 
 test("Notion retry cannot overwrite a manually edited or concurrently updated Admin draft", () => {
-  assert.match(syncSource, /if \(mapping && existing\.updatedBy !== SYNC_ACTOR\)/);
+  assert.match(syncSource, /if \(mapping && existing\.updatedBy !== SYNC_ACTOR[\s\S]{0,170}articleAuthorityCoversDifferences/);
   assert.match(syncSource, /Prepojený koncept bol upravený v administrácii/);
   assert.match(syncSource, /updateManagedArticle\(existing\.id, prepared\.payload, SYNC_ACTOR, existing, \{ updatedAt: existing\.updatedAt, status: "draft" \}\)/);
   assert.match(articleStoreSource, /WHERE id = \?/);
@@ -293,7 +293,7 @@ test("Notion image sync is idempotent and cleans up failed or replaced R2 object
   assert.match(syncSource, /currentObject\?\.customMetadata\?\.notionSourceHash === sourceFingerprint/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, \[prepared\.uploadedKey\]\)/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, prepared\.replacedKeys\)/);
-  assert.match(syncSource, /JSON\.stringify\(\{[\s\S]*payload: basePayload,[\s\S]*notionImageSourceUrl,[\s\S]*notionImageAlt,[\s\S]*notionImageCreditUrl/);
+  assert.match(syncSource, /JSON\.stringify\(\{[\s\S]*payload: sourcePayload,[\s\S]*notionImageSourceUrl,[\s\S]*notionImageAlt,[\s\S]*notionImageCreditUrl/);
 });
 
 

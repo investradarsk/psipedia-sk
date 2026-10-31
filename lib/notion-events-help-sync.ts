@@ -43,6 +43,7 @@ import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirr
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
+import { readNotionFieldAuthorities } from "./notion-field-authority.ts";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 import {
@@ -676,6 +677,10 @@ async function syncAgenda(input: {
   summary.duplicateTargetDataSourceIds = target.duplicateDataSourceIds;
   if (!target.dataSourceId) return summary;
 
+  // The selected per-field modes supersede legacy all-or-nothing agenda priority.
+  // With no saved settings, preserve the previous sync behavior unchanged.
+  const fieldAuthorities = await readNotionFieldAuthorities(input.database,input.definition.key);
+  const hasExplicitAuthority = Object.keys(fieldAuthorities).length > 0;
   const dataSource = await fetchDataSource(input.bindings, target.dataSourceId);
   const schema = dataSource.properties ?? {};
   const required = [input.definition.titleProperty, "Psipedia ID", "URL Psipedia"];
@@ -1099,8 +1104,8 @@ await requireVerifiedMappedNotionWriteback({
       // Keep the existing separately owner-approved priority modes usable;
       // the default path uses fail-closed per-field reconciliation instead.
       const legacyPriorityEnabled = input.definition.key === "events"
-        ? notionEventPriorityAEnabled(input.bindings.NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED)
-        : gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED);
+        ? notionEventPriorityAEnabled(input.bindings.NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED) && !hasExplicitAuthority
+        : gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED) && !hasExplicitAuthority;
       if (decision.decision !== "UNCHANGED" && !legacyPriorityEnabled) {
         const agenda = input.definition.key;
         const storedBaseline = await readProfileFieldBaseline({
@@ -1141,7 +1146,7 @@ await requireVerifiedMappedNotionWriteback({
         }
         const resolution = reconcileProfileFields({
           baseline, notion: notionSnapshot, psipedia: sourceSnapshot, protectedFields,
-          canonicalFieldsWin: true,
+          canonicalFieldsWin: true, authorities: fieldAuthorities,
           // Existing Events/Help hash comparison already trims strings and
           // normalizes timezone-aware lost/found instants. Apply the same
           // semantics to field-level change detection, not just record hashes.
@@ -1217,6 +1222,7 @@ await requireVerifiedMappedNotionWriteback({
       // Retain identity/publication authority and the current Google Places lock.
       if (input.definition.key === "events"
         && decision.decision !== "UNCHANGED"
+        && !hasExplicitAuthority
         && notionEventPriorityAEnabled(input.bindings.NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED)) {
         const confirmedGooglePlace = await hasCurrentGooglePlace(
           input.database, "MANAGED_EVENT", entityId,
@@ -1291,6 +1297,7 @@ await requireVerifiedMappedNotionWriteback({
       // Four Help adapters cover all six Gemini Help category routes.
       if (input.definition.key !== "events"
         && decision.decision !== "UNCHANGED"
+        && !hasExplicitAuthority
         && gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED)) {
         const agenda = input.definition.key;
         const confirmedGooglePlace = agenda === "organizations"
