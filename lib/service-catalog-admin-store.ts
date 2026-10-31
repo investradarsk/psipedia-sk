@@ -77,7 +77,7 @@ export async function createAdminCatalogOption(db:DB,raw:unknown,actorRaw:string
       "SELECT option_id FROM service_catalog_builtin_overrides WHERE normalized_label=?1 LIMIT 1"
     ).bind(input.normalizedLabel).first<{option_id:string}>();
   }catch(error){
-    // Old production schema stays available while migration 0148 is pending.
+    // Old production schema stays available while migration 0149 is pending.
     if(!/no such table: service_catalog_builtin_overrides/i.test(String(error)))throw error;
   }
   if(builtinDuplicate)throw new ServiceCatalogConflictError("Option already exists; reuse the canonical ID.");
@@ -105,7 +105,7 @@ async function allowedCategories(db:DB,id:string):Promise<readonly string[]|null
         "SELECT categories_json FROM service_catalog_builtin_overrides WHERE option_id=?1 LIMIT 1"
       ).bind(id).first<{categories_json:string}>();
     }catch(error){
-      // Built-in choices already worked before 0148; preserve them through a
+      // Built-in choices already worked before 0149; preserve them through a
       // code-first deploy, then start applying Admin overrides after migration.
       if(!/no such table: service_catalog_builtin_overrides/i.test(String(error)))throw error;
     }

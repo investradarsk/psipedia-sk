@@ -1022,7 +1022,7 @@ export async function listPublishedDirectoryProfiles(options: {
   baseClauses.push(...publicFacets.clauses);
   baseBindings.push(...publicFacets.bindings);
   // Cloudflare Workers Builds may deploy before the explicitly authorized
-  // production D1 migration. Keep legacy read behavior until 0148 exists.
+  // production D1 migration. Keep legacy read behavior until 0149 exists.
   const builtinOverridesReady=canonicalPublicEnabled&&Boolean(await database.prepare(
     "SELECT name FROM sqlite_schema WHERE type='table' AND name='service_catalog_builtin_overrides' LIMIT 1"
   ).first<{name:string}>());

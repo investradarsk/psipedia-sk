@@ -45,7 +45,7 @@ function mapRow(row:Row):BuiltinCatalogOverride{
 function failSchema(error:unknown):never{
   const message = error instanceof Error?error.message:String(error);
   if(/no such table|no such column/i.test(message))
-    throw new ServiceCatalogSchemaError("Built-in catalog overrides migration 0148 is missing.");
+    throw new ServiceCatalogSchemaError("Built-in catalog overrides migration 0149 is missing.");
   if(/UNIQUE constraint|constraint failed/i.test(message))
     throw new ServiceCatalogConflictError("This option name is already used.");
   throw error;

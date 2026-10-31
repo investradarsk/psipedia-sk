@@ -10,7 +10,7 @@ import {serviceCatalog} from "../lib/service-catalog-contract.ts";
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const migration=read("drizzle/0133_services_canonical_admin_foundation.sql");
 const auditMigration=read("drizzle/0134_services_admin_change_audit.sql");
-const builtinMigration=read("drizzle/0148_services_builtin_admin_overrides.sql");
+const builtinMigration=read("drizzle/0149_services_builtin_admin_overrides.sql");
 class Statement{
   constructor(sqlite,sql){
     this.sql=sql;

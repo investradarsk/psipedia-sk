@@ -116,7 +116,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,buil
   return <section className={styles.stack} aria-label="Katalóg služieb a vlastností">
     {loadError&&<p role="alert" className={styles.error}>{loadError}</p>}
     {!builtinOverridesEnabled&&!loadError&&
-      <p className={styles.notice}>Pôvodné služby sa budú dať upravovať po bezpečnom použití migrácie 0148. Nové služby zostávajú upraviteľné.</p>}
+      <p className={styles.notice}>Pôvodné služby sa budú dať upravovať po bezpečnom použití migrácie 0149. Nové služby zostávajú upraviteľné.</p>}
     <div className={styles.filterBar}>
       <label className={styles.searchField}>Vyhľadávanie
         <input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Hľadať službu"/>

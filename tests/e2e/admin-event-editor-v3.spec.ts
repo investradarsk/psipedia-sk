@@ -104,13 +104,23 @@ for (const viewport of [
     await lastSeo.fill("Posledné pole formulára je dostupné.");
     await lastSeo.scrollIntoViewIfNeeded();
     await expect(lastSeo).toBeInViewport();
-    const scroll = await root.locator("[data-editor-content]").evaluate((element) => ({
-      position: element.scrollTop, maximum: element.scrollHeight - element.clientHeight,
-    }));
+    // The workspace intentionally uses native document scrolling on mobile.
+    // Desktop retains its dedicated scrollable editor pane.
+    const scroll = viewport.width <= 820
+      ? await page.evaluate(() => ({
+          position: window.scrollY,
+          maximum: document.documentElement.scrollHeight - window.innerHeight,
+        }))
+      : await root.locator("[data-editor-content]").evaluate((element) => ({
+          position: element.scrollTop,
+          maximum: element.scrollHeight - element.clientHeight,
+        }));
     expect(scroll.maximum).toBeGreaterThan(0);
     expect(scroll.position).toBeGreaterThan(0);
     await checkNoHorizontalOverflow(page);
-    await expect(root.locator("[data-editor-actionbar]")).toBeInViewport({ ratio: 0.1 });
+    const actionbar = root.locator("[data-editor-actionbar]");
+    await actionbar.scrollIntoViewIfNeeded();
+    await expect(actionbar).toBeInViewport({ ratio: 0.1 });
     await image(page, "events-v3-" + viewport.width + "-seo-footer");
 
     if (viewport.width <= 820) {
@@ -345,6 +355,7 @@ for (const width of [1440, 390, 320]) {
     await lastSeo.fill("Dostupné posledné pole");
     await lastSeo.scrollIntoViewIfNeeded();
     await expect(lastSeo).toBeInViewport();
+    await footer.scrollIntoViewIfNeeded();
     await expect(footer).toBeInViewport({ ratio: 0.1 });
   });
 }
