@@ -53,6 +53,9 @@ export function validatePublication(
   }
   const { banner } = validatedBannerKey(id, variantIndex);
   const original = defaultBannerDraft(banner, variantIndex);
+  if (banner.photoTone && draft.background !== "original") {
+    throw new Error("Fotografický banner nesmie meniť pozadie pri publikovaní.");
+  }
   if (draft.eyebrow !== original.eyebrow || draft.title !== original.title ||
     draft.description !== original.description || draft.ctaLabel !== original.ctaLabel) {
     throw new Error("Textové zmeny ešte nie je možné publikovať bez zmeny mobilu. Ulož ich ako návrh.");
