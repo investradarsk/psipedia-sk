@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { resolveContextualArticlePromo } from "@/lib/article-promo-context";
 import { articlePromoUtcDay, isArticlePromoKey, type ArticlePromoKey } from "@/lib/article-promo";
 import { articleHref } from "@/lib/portal";
+import { articlePromoBlockAnchor, AUTOMATIC_ARTICLE_PROMO_ANCHOR } from "@/lib/visual-library-anchors";
 import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 
 export type ArticleBannerUse = {
@@ -10,6 +11,7 @@ export type ArticleBannerUse = {
   placement: string;
   evidence: "published-manual" | "published-auto-today";
   blockId?: string;
+  anchorId?: string;
 };
 export type ArticleBannerUsageResult = {
   status: "complete" | "partial" | "unavailable";
@@ -77,7 +79,7 @@ export function collectPublishedArticleBannerUses(
       manualKeys.add(block.promoKey);
       add(block.promoKey, {
         url, label: row.title, placement: `V obsahu článku · blok ${index + 1}`,
-        evidence: "published-manual", blockId: block.id,
+        evidence: "published-manual", blockId: block.id, anchorId: articlePromoBlockAnchor(block.id),
       });
     }
     // Use exactly the same contextual selection routine as the public article.
@@ -94,6 +96,7 @@ export function collectPublishedArticleBannerUses(
       add(automatic.promoKey, {
         url, label: row.title, placement: "Bočný panel článku · automaticky dnes",
         evidence: "published-auto-today",
+        anchorId: AUTOMATIC_ARTICLE_PROMO_ANCHOR,
       });
     }
   }
