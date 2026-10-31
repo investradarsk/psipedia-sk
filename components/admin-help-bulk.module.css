@@ -37,3 +37,6 @@
 .editor :global(.admin-help-preview .admin-eyebrow){color:#963b28}
 .editor :global(.admin-help-preview dt){color:#4b6056}
 .editor :global(.admin-publish){color:#fff!important;background:#943823!important;border-color:#943823!important}
+
+.tableActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tableActions a { white-space: nowrap; }

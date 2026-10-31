@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { AdminDirectoryModuleNav, AdminDirectoryCategoryNav } from "@/components/admin-directory-module-nav";
 import { AdminDirectoryDashboard } from "@/components/admin-directory-dashboard";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminShell } from "@/components/admin-shell";
@@ -42,6 +43,8 @@ export default async function AdminDirectoryPage({ searchParams }: { searchParam
       description="Pridávaj veterinárov, trénerov, školy, kluby a ďalšie služby. Verejné sú iba publikované profily."
       actions={<><Link className="admin-secondary-action" href="/admin/adresar/navrhy">Návrhy úprav</Link><Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/adresar/novy">+ Nový profil</Link></>}
     >
+      <AdminDirectoryModuleNav active="services" />
+      <AdminDirectoryCategoryNav selected={filters.category} />
       <Suspense fallback={<AdminDataLoading label="Profily a služby" />}>
         <DirectoryList dataPromise={dataPromise} filters={filters} />
       </Suspense>

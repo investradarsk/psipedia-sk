@@ -6,11 +6,12 @@ import { useState } from "react";
 import {
   AdminBulkSelectionControls,
   BulkSelectionCheckbox,
-  adminBulkSelectionStyles,
   useAdminBulkSelection,
 } from "@/components/admin-bulk-selection";
 import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
 import { AdminPagination } from "@/components/admin-pagination";
+import { AdminDirectoryEditorLink } from "@/components/admin-directory-editor-link";
+import { AdminRecordTable } from "@/components/admin-record-table";
 import { SearchIcon } from "@/components/icons";
 import { allDirectoryCategories, directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
 import {
@@ -30,9 +31,10 @@ function formatUpdatedAt(value: string) {
     : new Intl.DateTimeFormat("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
-export function AdminDirectoryDashboard({ data, filters }: {
+export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adresar" }: {
   data: ManagedDirectoryAdminPage;
   filters: DirectoryAdminFilters;
+  basePath?: "/admin/adresar" | "/admin/sluzby-pre-psov";
 }) {
   const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<ManagedDirectoryProfileSummary | null>(null);
@@ -98,7 +100,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
       </section>
 
       <section className="admin-panel">
-        <form className={`admin-directory-category-filter ${styles.filters}`} action="/admin/adresar" method="get" role="search">
+        <form className={`admin-directory-category-filter ${styles.filters}`} action={basePath} method="get" role="search">
           <label className={`admin-search ${styles.search}`}>
             <SearchIcon size={19} />
             <span>Hľadať</span>
@@ -113,7 +115,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
           <label className="admin-select-filter"><span>Obrázok</span><select name="media" defaultValue={filters.media}><option value="all">Všetky</option><option value="with-image">S obrázkom</option><option value="without-image">Bez obrázka</option></select></label>
           <div className={styles.filterActions}>
             <AdminActionButton variant="primary" type="submit">Použiť filtre</AdminActionButton>
-            <Link className={styles.clearFilters} href="/admin/adresar">Vyčistiť</Link>
+            <Link className={styles.clearFilters} href={basePath}>Vyčistiť</Link>
           </div>
         </form>
 
@@ -139,54 +141,42 @@ export function AdminDirectoryDashboard({ data, filters }: {
               clear={bulkSelection.clear}
               supportsAllMatching={false}
             />
-            <div className="admin-article-list">
-              {profiles.map((profile) => {
-                const category = getDirectoryCategory(profile.category);
-                const location = [profile.city, profile.district, profile.region].filter(Boolean).join(" · ");
-                return (
-                  <article className={`admin-article-row admin-directory-row ${styles.row}`} key={profile.id}>
-                    <BulkSelectionCheckbox
-                      checked={bulkSelection.isSelected(profile.id)}
-                      disabled={!bulkSelection.ready}
-                      label={`Vybrať profil ${profile.name}`}
-                      onChange={() => bulkSelection.toggleRow(profile.id)}
-                      className={`${adminBulkSelectionStyles.rowCheck} ${styles.rowCheck}`}
-                    />
-                    <div className={`admin-directory-thumb ${styles.thumb}`}>{profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
-                    <div className={`admin-article-main ${styles.main}`}>
-                      <div className="admin-article-tags">
-                        <span className={`admin-status admin-status--${profile.status}`}>{profile.status === "published" ? "Publikované" : profile.status === "archived" ? "Archivované" : "Koncept"}</span>
-                        <span>{category?.label ?? profile.category}</span>
-                        <span>{profile.verified ? "Overené" : "Neoverené"}</span>
-                        <span>{profile.imageUrl ? "Obrázok ✓" : "Bez obrázka"}</span>
-                        <span>{(reviewedOverrides[profile.id] ?? profile.reviewed) ? "Odkontrolované ✓" : "Neodkontrolované"}</span>
-                        {profile.featured && <span>Odporúčané</span>}
-                      </div>
-                      <h2><Link href={`/admin/adresar/${profile.id}`}>{profile.name}</Link></h2>
-                      <p>{location || "Bez lokality"}</p>
-                      <p className={styles.meta}>Aktualizované {formatUpdatedAt(profile.updatedAt)} · {profile.services.slice(0, 2).join(" · ") || "Bez uvedených služieb"}</p>
-                    </div>
-                    <div className={`admin-row-actions ${styles.actions}`}>
-                      <label className={styles.reviewToggle}>
-                        <input
-                          type="checkbox"
-                          checked={reviewedOverrides[profile.id] ?? profile.reviewed}
-                          disabled={reviewingId === profile.id}
-                          onChange={(event) => void changeReviewed(profile, event.target.checked)}
-                        />
-                        <span>Odkontrolované</span>
-                      </label>
-                      {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
-                      <Link className="admin-row-edit" href={`/admin/adresar/${profile.id}`}>Upraviť</Link>
-                      {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+            <AdminRecordTable
+              rows={profiles}
+              label="Profily služieb"
+              columns={[
+                { id: "selected", label: "Výber", width: 76, cell: (profile) => <BulkSelectionCheckbox
+                  checked={bulkSelection.isSelected(profile.id)}
+                  disabled={!bulkSelection.ready}
+                  label={"Vybrať profil " + profile.name}
+                  onChange={() => bulkSelection.toggleRow(profile.id)}
+                  className={styles.tableRowCheckbox}
+                /> },
+                { id: "name", label: "Profil", width: 250, sortValue: (profile) => profile.name, cell: (profile) => <AdminDirectoryEditorLink profileId={profile.id}><strong>{profile.name}</strong></AdminDirectoryEditorLink> },
+                { id: "category", label: "Typ profilu", width: 158, sortValue: (profile) => getDirectoryCategory(profile.category)?.label ?? profile.category, cell: (profile) => <span>{getDirectoryCategory(profile.category)?.label ?? profile.category}</span> },
+                { id: "city", label: "Mesto", width: 150, sortValue: (profile) => profile.city || "", cell: (profile) => profile.city || "—" },
+                { id: "status", label: "Publikácia", width: 125, sortValue: (profile) => profile.status, cell: (profile) => <span className={"admin-status admin-status--" + profile.status}>{profile.status === "published" ? "Publikované" : profile.status === "archived" ? "Archivované" : "Koncept"}</span> },
+                { id: "verified", label: "Dôveryhodnosť", width: 115, sortValue: (profile) => profile.verified ? 1 : 0, cell: (profile) => profile.verified ? "Overené ✓" : "Neoverené" },
+                { id: "media", label: "Fotografia", width: 140, sortValue: (profile) => profile.imageUrl ? 1 : 0, cell: (profile) => profile.imageUrl ? "Obrázok ✓" : "Bez obrázka" },
+                { id: "updated", label: "Aktualizované", width: 140, sortValue: (profile) => profile.updatedAt, cell: (profile) => formatUpdatedAt(profile.updatedAt) },
+                { id: "services", label: "Služby", width: 210, initiallyHidden: true, cell: (profile) => profile.services.slice(0, 2).join(", ") || "—" },
+                { id: "reviewed", label: "AI kontrola", width: 142, cell: (profile) => <label className={styles.reviewToggle}>
+                  <input type="checkbox" aria-label={"Odkontrolované: " + profile.name}
+                    checked={reviewedOverrides[profile.id] ?? profile.reviewed}
+                    disabled={reviewingId === profile.id}
+                    onChange={(event) => void changeReviewed(profile, event.target.checked)} />
+                  <span>Odkontrolované</span>
+                </label> },
+                { id: "actions", label: "Akcie", width: 230, cell: (profile) => <div className={styles.tableActions}>
+                  <AdminDirectoryEditorLink className="admin-row-edit" profileId={profile.id}>Upraviť</AdminDirectoryEditorLink>
+                  {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Web ↗</Link>}
+                  {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
+                </div> },
+              ]}
+            />
           </>
         ) : <div className="admin-empty"><span>📍</span><h2>Žiadne profily</h2><p>Zmeň filtre alebo pridaj nový profil.</p></div>}
-        <AdminPagination pagination={pagination} basePath={directoryAdminHref({ ...filters, page: 1 })} />
+        <AdminPagination pagination={pagination} basePath={directoryAdminHref({ ...filters, page: 1 }).replace("/admin/adresar", basePath)} />
       </section>
 
       <AdminDestructiveConfirmDialog

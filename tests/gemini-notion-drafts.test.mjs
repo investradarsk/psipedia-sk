@@ -54,21 +54,14 @@ const json = (data) => new Response(JSON.stringify(data), {
   status: 200, headers: { "content-type": "application/json" },
 });
 
-// The official Notion SDK passes fetch a HeadersInit object and may keep
-// request methods lowercase. Normalize the mock's view, not the provider client.
-function normalizeNotionMockInit(init = {}) {
-  return { ...init, method: String(init.method || "GET").toUpperCase(), headers: new Headers(init.headers) };
-}
-
 test("admin category list queries Notion directly, not D1, and excludes unrelated drafts", async () => {
   const originalFetch = globalThis.fetch;
   let count = 0;
   globalThis.fetch = async (url, init) => {
-    init = normalizeNotionMockInit(init);
     count++;
     assert.match(String(url), /\/data_sources\/.*\/query/);
     assert.equal(init.method, "POST");
-    assert.equal(init.headers.get("Authorization"), "Bearer test-token");
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer test-token");
     const q = JSON.parse(init.body);
     assert.deepEqual(q.filter.and, [
       { property: "Vytvoril", rich_text: { equals: GEMINI_NOTION_CREATOR } },
@@ -92,10 +85,9 @@ test("explicit publication only changes editorial fields after reviewing an attr
   const originalFetch = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url, init) => {
-    init = normalizeNotionMockInit(init);
     if (isSchema(url)) return json(schema);
     calls.push({ url, init });
-    if (init.method === "GET") return json(page());
+    if (!init.method || init.method.toUpperCase() === "GET") return json(page());
     if (init.method === "PATCH") return json(page({
       "Stav": select("Publikované"), "Psipedia stav": select("Publikované"),
     }));
@@ -122,7 +114,6 @@ test("review rejects non-agent, already synced, or already published records", a
   ]) {
     let post = 0;
     globalThis.fetch = async (url, init) => {
-    init = normalizeNotionMockInit(init);
       if (init.method === "PATCH") post++;
       return json(page(properties));
     };
@@ -178,7 +169,6 @@ test("full directory editor saves Notion-only draft without changing publication
   const calls = [];
   let lastEditedTime = "2026-10-12T20:44:28Z";
   globalThis.fetch = async (url, init = {}) => {
-    init = normalizeNotionMockInit(init);
     if (isSchema(url)) return json(schema);
     calls.push({ url: String(url), init });
     if (init.method === "PATCH") {
@@ -215,7 +205,6 @@ test("incomplete Gemini directory concept saves without optional website, contac
     "Telefón": { type: "phone_number", phone_number: null },
     "E-mail": { type: "email", email: null } });
   globalThis.fetch = async (url, init = {}) => {
-    init = normalizeNotionMockInit(init);
     if (isSchema(url)) return json(schema);
     if (init.method === "PATCH") {
       const patch = JSON.parse(init.body).properties;
@@ -252,7 +241,6 @@ test("stale Notion drafts and foreign records cannot be modified", async () => {
   ]) {
     let patches = 0;
     globalThis.fetch = async (_url, init = {}) => {
-    init = normalizeNotionMockInit(init);
       if (init.method === "PATCH") patches++;
       return json(page(props));
     };
@@ -264,7 +252,6 @@ test("stale Notion drafts and foreign records cannot be modified", async () => {
   }
   let patches = 0;
   globalThis.fetch = async (_url, init = {}) => {
-    init = normalizeNotionMockInit(init);
     if (init.method === "PATCH") patches++;
     return json({ ...page(), last_edited_time: "2026-10-12T23:30:00Z" });
   };
@@ -291,7 +278,6 @@ test("reject/restore lifecycle preserves notes and original identity; repeat rej
   let current = page({ "Poznámky": text("Pôvodná poznámka") });
   let writes = 0;
   globalThis.fetch = async (url, init = {}) => {
-    init = normalizeNotionMockInit(init);
     if (isSchema(url)) return json(schema);
     if (init.method === "PATCH") {
       writes++;
@@ -331,7 +317,6 @@ test("simultaneous review writes serialize across requests; stale revision canno
   const started = new Promise(resolve => { entered = resolve; });
   const gate = new Promise(resolve => { unblock = resolve; });
   globalThis.fetch = async (url, init = {}) => {
-    init = normalizeNotionMockInit(init);
     if (isSchema(url)) return json(schema);
     if (init.method === "PATCH") { entered(); await gate; }
     return json(page());
@@ -349,7 +334,6 @@ test("unknown schema refuses writes and uncertain PATCH retains durable exclusio
   const previous = globalThis.fetch;
   let writes = 0;
   globalThis.fetch = async (url, init = {}) => {
-    init = normalizeNotionMockInit(init);
     if (isSchema(url)) return json({ properties: {} });
     if (init.method === "PATCH") writes++;
     return json(page());
@@ -358,7 +342,6 @@ test("unknown schema refuses writes and uncertain PATCH retains durable exclusio
     await assert.rejects(reviewGeminiDirectoryDraft(env, id, { action: "reject", lastEditedAt: fullDraftInput.lastEditedAt }, "admin@test.sk"), { code: "CONFIG" });
     assert.equal(writes, 0); assert.equal(locks.size, 0);
     globalThis.fetch = async (url, init = {}) => {
-    init = normalizeNotionMockInit(init);
       if (isSchema(url)) return json(schema);
       if (init.method === "PATCH") { writes++; throw Error("lost response"); }
       return json(page());
@@ -372,7 +355,6 @@ test("pending approval can be rejected under the page lock; mapped published pro
   const previous = globalThis.fetch;
   let patches = 0;
   globalThis.fetch = async (url, init = {}) => {
-    init = normalizeNotionMockInit(init);
     if (isSchema(url)) return json(schema);
     if (init.method === "PATCH") patches++;
     return json(page({ "Stav": select("Publikované"), "Psipedia stav": select("Publikované") }));
