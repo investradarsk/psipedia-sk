@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { AdminDirectoryModuleNav } from "@/components/admin-directory-module-nav";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminEventDashboard } from "@/components/admin-event-dashboard";
 import styles from "@/components/admin-event-dashboard.module.css";
@@ -35,6 +36,7 @@ export default async function AdminEventsPage() {
       description="Pridávaj výstavy, preteky, semináre a tréningy. Zverejnené podujatia sa okamžite ukážu v kalendári."
       actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/podujatia/nove">+ Nové podujatie</Link>}
     >
+      <AdminDirectoryModuleNav active="events" />
       <Suspense fallback={<AdminDataLoading label="Podujatia" />}>
         <EventsContent promise={overviewPromise} />
       </Suspense>

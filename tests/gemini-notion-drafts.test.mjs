@@ -61,7 +61,7 @@ test("admin category list queries Notion directly, not D1, and excludes unrelate
     count++;
     assert.match(String(url), /\/data_sources\/.*\/query/);
     assert.equal(init.method, "POST");
-    assert.equal(init.headers.get("Authorization"), "Bearer test-token");
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer test-token");
     const q = JSON.parse(init.body);
     assert.deepEqual(q.filter.and, [
       { property: "Vytvoril", rich_text: { equals: GEMINI_NOTION_CREATOR } },
@@ -87,7 +87,7 @@ test("explicit publication only changes editorial fields after reviewing an attr
   globalThis.fetch = async (url, init) => {
     if (isSchema(url)) return json(schema);
     calls.push({ url, init });
-    if (!init.method) return json(page());
+    if (!init.method || init.method.toUpperCase() === "GET") return json(page());
     if (init.method === "PATCH") return json(page({
       "Stav": select("Publikované"), "Psipedia stav": select("Publikované"),
     }));

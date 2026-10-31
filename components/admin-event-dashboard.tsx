@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { BulkSelectionCheckbox } from "@/components/admin-bulk-selection";
 import {
@@ -344,41 +345,31 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
         <p className="admin-event-result-count" role="status">Nájdené: {data.total} z {counts.all} · Zobrazené: {rows.length}. Časové filtre nezahŕňajú zrušené podujatia.</p>
         {message && <p className="admin-flash" role="status">{message}</p>}
 
-        <div className="admin-article-list" aria-busy={busy || loading}>
-          {rows.map((event) => {
-            const dateStatus = eventDateStatus(event, today);
-            return (
-              <article className={`admin-article-row admin-event-row admin-event-row-v2 ${dateStatus === "past" ? "is-past" : ""} ${styles.row}`} key={event.id}>
-                <input aria-label={`Vybrať ${event.title}`} type="checkbox" checked={selected.has(event.id)} disabled={!hydrated || busy || loading} onChange={() => toggle(event.id)} />
-                <div className={styles.dateBlock}>
-                  <strong>{event.startDate.slice(8, 10)}.{event.startDate.slice(5, 7)}.</strong>
-                  <span>{event.startDate.slice(0, 4)}</span>
-                  <small>{event.startTime || "čas neuvedený"}</small>
-                </div>
-                <div className={styles.thumbnail} aria-hidden="true">
-                  {event.imageUrl ? <img src={event.imageUrl} alt="" loading="lazy" decoding="async" /> : <div className={styles.thumbnailFallback}>Bez obrázka</div>}
-                </div>
-                <div className={`admin-article-main ${styles.main}`}>
-                  <div className="admin-article-tags">
-                    <span className={`admin-status admin-status--${event.status}`}>{event.status === "published" ? "Publikované" : "Koncept"}</span>
-                    <span className={`admin-event-chip is-${event.cancelled ? "cancelled" : dateStatus}`}>{event.cancelled ? "Zrušené" : timeLabels[dateStatus]}</span>
-                    <span>{event.eventType}</span>
-                  </div>
-                  <h2><Link href={`/admin/podujatia/${event.id}`}>{event.title}</Link></h2>
-                  <p className={styles.primaryMeta}>{formatEventDate(event)}{event.startTime ? ` · ${event.startTime}` : ""} · {event.city} · {event.region}</p>
-                  <p className={styles.secondaryMeta}>{[event.venue, event.organizer].filter(Boolean).join(" · ")}</p>
-                </div>
-                <div className={`admin-row-actions ${styles.actions}`}>
-                  <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={reviewed.has(event.id)} compact />
-                  {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
-                  <AdminActionButton variant="neutral" disabled={!hydrated || busy || loading} onClick={() => openQuickEdit(event)}>Rýchla úprava</AdminActionButton>
-                  <Link className="admin-row-edit" href={`/admin/podujatia/${event.id}`}>Upraviť</Link>
-                  <AdminActionButton variant="destructive" disabled={!hydrated || busy || loading} onClick={() => setDeleteTarget(event)}>Odstrániť</AdminActionButton>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+        {rows.length > 0 && <AdminRecordTable
+          rows={rows}
+          label="Zoznam podujatí"
+          busy={busy || loading}
+          columns={[
+            { id: "select", label: "Výber", width: 70, cell: (event) => <input
+              type="checkbox" aria-label={"Vybrať " + event.title}
+              checked={selected.has(event.id)} disabled={!hydrated || busy || loading}
+              onChange={() => toggle(event.id)} /> },
+            { id: "title", label: "Podujatie", width: 270, sortValue: (event) => event.title, cell: (event) => <Link href={`/admin/podujatia/${event.id}`}><strong>{event.title}</strong></Link> },
+            { id: "date", label: "Termín", width: 170, sortValue: (event) => event.startDate + event.startTime, cell: (event) => formatEventDate(event) + (event.startTime ? " · " + event.startTime : "") },
+            { id: "city", label: "Mesto", width: 145, sortValue: (event) => event.city || "", cell: (event) => event.city || "—" },
+            { id: "type", label: "Typ", width: 160, sortValue: (event) => event.eventType, cell: (event) => event.eventType },
+            { id: "status", label: "Publikácia", width: 130, sortValue: (event) => event.status, cell: (event) => <span className={"admin-status admin-status--" + event.status}>{event.status === "published" ? "Publikované" : "Koncept"}</span> },
+            { id: "timeState", label: "Časový stav", width: 125, cell: (event) => event.cancelled ? "Zrušené" : timeLabels[eventDateStatus(event, today)] },
+            { id: "organizer", label: "Organizátor", width: 180, initiallyHidden: true, sortValue: (event) => event.organizer || "", cell: (event) => event.organizer || "—" },
+            { id: "reviewed", label: "AI kontrola", width: 145, cell: (event) => <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={reviewed.has(event.id)} compact /> },
+            { id: "actions", label: "Akcie", width: 260, cell: (event) => <div className={styles.tableActions}>
+              <Link href={"/admin/podujatia/" + event.id}>Upraviť</Link>
+              {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Web ↗</Link>}
+              <AdminActionButton variant="neutral" disabled={!hydrated || busy || loading} onClick={() => openQuickEdit(event)}>Rýchla úprava</AdminActionButton>
+              <AdminActionButton variant="destructive" disabled={!hydrated || busy || loading} onClick={() => setDeleteTarget(event)}>Odstrániť</AdminActionButton>
+            </div> },
+          ]}
+        />}
 
         {!rows.length && <div className="admin-empty"><h2>Žiadne podujatia</h2><p>Skús zmeniť vyhľadávanie alebo filtre.</p></div>}
         <nav className="admin-event-pagination" aria-label="Stránky podujatí">

@@ -22,9 +22,9 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
   { label: "Plemená", href: "/admin/plemena" },
   { label: "Sekcie", href: "/admin/sekcie" },
   { label: "Psie meniny", href: "/admin/meniny" },
-  { label: "Podujatia", href: "/admin/podujatia" },
  ] },
  { label: "Adresár", items: [
+  { label: "Podujatia", href: "/admin/podujatia" },
   { label: "Služby pre psov", href: "/admin/sluzby-pre-psov", matches: ["/admin/adresar"] },
   { label: "Pomoc psom", href: "/admin/pomoc-psom", matches: ["/admin/pomoc", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie"] },
  ] },

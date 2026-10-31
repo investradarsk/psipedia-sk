@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminDirectoryModuleNav } from "@/components/admin-directory-module-nav";
 import { AdminHelpDashboard } from "@/components/admin-help-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -23,6 +24,7 @@ export default async function AdminHelpPage({ searchParams }: { searchParams: Pr
     description="Spravuj dočasnú opateru, zbierky, dobrovoľnícke výzvy a existujúce urgentné Help záznamy. Adopcie, stratené a nájdené psy aj organizácie majú vlastné canonical moduly."
     actions={<Link className={`admin-primary-action ${styles.primaryAction}`} href="/admin/pomoc/novy">+ Nový Help záznam</Link>}
   >
+    <AdminDirectoryModuleNav active="help" />
     <AdminHelpDashboard key={selectionKey} data={data} filters={filters} reviewedIds={reviewedIds} />
   </AdminShell>;
 }
