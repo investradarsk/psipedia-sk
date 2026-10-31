@@ -5,6 +5,7 @@ import {
   $createLineBreakNode, $createParagraphNode, $createTextNode, $getRoot,
   $getSelection, $isLineBreakNode, $isParagraphNode, $isRangeSelection,
   $isTextNode, $applyNodeReplacement, ElementNode, FORMAT_TEXT_COMMAND, UNDO_COMMAND, REDO_COMMAND,
+  PASTE_COMMAND, COMMAND_PRIORITY_HIGH,
   type EditorConfig, type EditorState, type LexicalEditor, type LexicalNode, type SerializedElementNode,
 } from "lexical";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
@@ -170,6 +171,22 @@ function RichTextBridge({ value, onChange }: { value: EditorialRichTextDocument;
   return <OnChangePlugin onChange={handle} ignoreSelectionChange />;
 }
 
+/** Paste only clipboard text. Browser HTML never enters the editorial AST. */
+function SafePastePlugin() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => editor.registerCommand(PASTE_COMMAND, (event) => {
+    event.preventDefault();
+    const text = event.clipboardData?.getData("text/plain")?.replace(/\r\n?/g, "\n") ?? "";
+    if (!text) return true;
+    editor.update(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) selection.insertRawText(text);
+    });
+    return true;
+  }, COMMAND_PRIORITY_HIGH), [editor]);
+  return null;
+}
+
 function Toolbar({ id, allowHeadings, allowCallouts }: { id: string; allowHeadings: boolean; allowCallouts: boolean }) {
   const [editor] = useLexicalComposerContext();
   const [showLink, setShowLink] = useState(false);
@@ -302,6 +319,7 @@ export function AdminLexicalRichTextEditor({
           <ListPlugin />
           <LinkPlugin />
           <HistoryPlugin />
+          <SafePastePlugin />
           <RichTextBridge value={normalized} onChange={onChange} />
           <p className={styles.help}>Píš priamo ako v textovom editore. Podporované sú nadpisy, zoznamy, citácie, odkazy aj zvýraznenia.</p>
         </div>
