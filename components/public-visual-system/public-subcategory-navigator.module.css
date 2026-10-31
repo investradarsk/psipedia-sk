@@ -394,5 +394,16 @@
 
 /* One canonical desktop category grid; existing mobile overrides preserved. */
 @media (max-width: 900px) { .compactTrack { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .compactTrack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) {
+  /* These values were formerly re-applied by the final desktop override.
+   * Preserve them explicitly so moving that override does not change mobile. */
+  .compactTrack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    align-items: stretch;
+    padding-block: 8px;
+  }
+  .compactItem { text-align: left; }
+}
 @media (max-width: 380px) { .compactTrack { grid-template-columns: minmax(0, 1fr); } }
