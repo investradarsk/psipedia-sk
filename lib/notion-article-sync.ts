@@ -1,4 +1,5 @@
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
+import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
 import {
   createManagedArticle,
   deleteManagedArticle,
@@ -1689,6 +1690,55 @@ async function findUnmappedCanonicalArticle(
   return canonical?.status === "published" ? canonical : null;
 }
 
+const ARTICLE_EDITABLE_AUTHORITY_FIELDS = [
+  "title","excerpt","intro","blocks","seoTitle","metaDescription","socialCaption","focusKeyword",
+] as const;
+type ArticleAuthorityKey=(typeof ARTICLE_EDITABLE_AUTHORITY_FIELDS)[number];
+function articleCurrentField(existing:ManagedArticle,key:ArticleAuthorityKey):unknown{
+  switch(key){
+    case "seoTitle": return existing.seo?.title??"";
+    case "metaDescription": return existing.seo?.description??"";
+    case "focusKeyword": return existing.seo?.focusKeyword??"";
+    case "socialCaption": return existing.socialCaption??"";
+    default: return existing[key];
+  }
+}
+/** Preserve canonical content for explicit Admin-owned editorial fields.
+ * Publication, slug, placement, author, relations and image protections live elsewhere.
+ */
+function applyArticleAuthority(
+  incoming:ManagedArticleInput,existing:ManagedArticle,
+  modes:Readonly<Record<string,NotionFieldMode>>,
+):ManagedArticleInput{
+  const next={...incoming};
+  for(const key of ARTICLE_EDITABLE_AUTHORITY_FIELDS){
+    if(modes[key]!=="admin")continue;
+    if(key==="intro"){
+      next.intro=existing.intro;next.introRichText=existing.introRichText;
+    }else if(key==="blocks"){
+      next.blocks=existing.blocks;next.readingMinutes=existing.readingMinutes;
+    }else{
+      (next as Record<string,unknown>)[key]=articleCurrentField(existing,key);
+    }
+  }
+  return next;
+}
+/** Never treat an article-wide updatedAt as proof of a field-level winner.
+ * A locally changed field may be overwritten only by an explicit Notion decision;
+ * Admin ownership preserves the local value. Other differing fields fail closed.
+ */
+function articleAuthorityCoversDifferences(
+  incoming:ManagedArticleInput,existing:ManagedArticle,
+  modes:Readonly<Record<string,NotionFieldMode>>,
+):boolean{
+  if(!Object.keys(modes).length)return false;
+  return ARTICLE_EDITABLE_AUTHORITY_FIELDS.every(key=>{
+    if(modes[key]==="admin"||modes[key]==="notion")return true;
+    return JSON.stringify(articleCurrentField(existing,key)??null)===
+      JSON.stringify(incoming[key]??null);
+  });
+}
+
 async function syncOneNotionPage(
   database: D1Database,
   bindings: NotionSyncBindings,
@@ -1738,7 +1788,11 @@ async function syncOneNotionPage(
   if (!existing && selectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
   validateSyncGate(page, existing?.status === "published");
 
-  const basePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined);
+  const sourcePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined);
+  const articleModes = existing && mapping
+    ? await readNotionFieldAuthorities(database,"articles") : {};
+  const basePayload = existing && mapping
+    ? applyArticleAuthority(sourcePayload,existing,articleModes) : sourcePayload;
   // Notion manifests bypass the Admin's published-article-only picker.
   // Resolve related article blocks against the currently public canonical URL.
   await assertPublishedRelatedBlocks(
@@ -1755,7 +1809,7 @@ async function syncOneNotionPage(
   const notionImageAlt = richTextProperty(page, "Alt text obrázka");
   const notionImageCreditUrl = urlProperty(page, "Zdroj obrázka");
   const contentHash = await sha256(JSON.stringify({
-    payload: basePayload,
+    payload: sourcePayload,
     notionImageSourceUrl,
     ...(notionImageFileIdentity ? { notionImageFileIdentity } : {}),
     notionImageAlt,
@@ -1796,7 +1850,8 @@ async function syncOneNotionPage(
       // (body, intro, title, excerpt, SEO and social caption) flow inbound.
       if (mapping && existing.updatedBy !== SYNC_ACTOR
         && (!Number.isFinite(Date.parse(mapping.last_synced_at))
-          || Date.parse(existing.updatedAt) > Date.parse(mapping.last_synced_at) + 2_000)) {
+          || Date.parse(existing.updatedAt) > Date.parse(mapping.last_synced_at) + 2_000)
+        && !articleAuthorityCoversDifferences(sourcePayload,existing,articleModes)) {
         throw new Error("ARTICLE_ADMIN_REVISION_NOT_SYNCED");
       }
       const publishedPayload: ManagedArticleInput = {
@@ -1838,7 +1893,8 @@ async function syncOneNotionPage(
       return "updated";
     }
     // Drafts retain the existing Admin-authority conflict contract.
-    if (mapping && existing.updatedBy !== SYNC_ACTOR) {
+    if (mapping && existing.updatedBy !== SYNC_ACTOR
+      && !articleAuthorityCoversDifferences(sourcePayload,existing,articleModes)) {
       throw new Error("Prepojený koncept bol upravený v administrácii. Automatický sync ho neprepíše; zmeny treba zosúladiť ručne.");
     }
     const preservedPayload: ManagedArticleInput = {

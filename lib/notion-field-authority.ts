@@ -50,6 +50,27 @@ const lockedDirectoryFields = [
   {id:"services",label:"Katalóg poskytovaných služieb V3",locked:true,note:"Výhradne Admin/D1"},
   {id:"googlePlaceId",label:"Potvrdený Google Place ID",locked:true,note:"Google Maps má prednosť"},
 ] as const;
+/**
+ * True sync invariants. Editorial, classification and unconfirmed location
+ * fields are intentionally NOT on this list: their priority must be configurable.
+ * Keep this policy shared by UI and reconciler so a selector is never cosmetic.
+ */
+export const NOTION_AGENDA_FIXED_FIELDS = {
+  events: ["Slug", "Stav", "Zrušené"],
+  organizations: ["Slug", "Stav", "Adresa", "Zdroj dát"],
+  adoptions: ["Slug", "Stav", "Organizácia", "Zdroj dát"],
+  "help-cases": ["Slug", "Kategória", "Psipedia stav", "Organizácia", "Vyriešené", "Kontakt"],
+  "lost-found": ["Slug", "Typ", "Psipedia stav", "Latitude", "Longitude",
+    "Presnosť lokality", "Verejný kontakt", "Zdroj", "Zdroj URL", "Miesto", "Naposledy videný"],
+} satisfies Record<keyof typeof agendaEditableFields, readonly string[]>;
+
+export function fixedNotionAgendaField(agenda: keyof typeof agendaEditableFields, field: string) {
+  return (NOTION_AGENDA_FIXED_FIELDS[agenda] as readonly string[]).includes(field);
+}
+export function fixedNotionAgendaFields(agenda: keyof typeof agendaEditableFields): Set<string> {
+  return new Set(NOTION_AGENDA_FIXED_FIELDS[agenda]);
+}
+
 export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
   {scope:"breeds",title:"Plemená",family:"Obsah",active:true,
     fields:BREED_NOTION_EDITABLE_FIELDS.map(id=>({id,label:breedLabels[id]??id,
@@ -61,22 +82,40 @@ export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
   {scope:"service-catalog",title:"Katalóg služieb V3",family:"Služby pre psov",active:false,
     fields:["Option ID","Verzia","Typ","Názov","Skupina","Význam","Hlavná kategória","Kategórie","Druh hodnoty"]
       .map(name=>({id:name,label:name,notionLabel:name,locked:true,note:"Jednosmerné Admin/D1 → Notion"}))},
-  ...([
-    ["articles","Články","Obsah",["Názov","Slug","Kategória","Podsekcia","Typ obsahu","Stav",
-      "Odoslať na Psipedia","Obsah (bloky stránky)","SEO title","Meta description",
-      "Hlavné kľúčové slovo","Popis na sociálne siete","Titulný obrázok","Hlavný obrázok URL",
-      "Psipedia ID","Sync stav","Sync chyba"]],
-    ["eshops","E-shopy","Recenzie a testy",["Názov","Slug","Psipedia stav","Web","Popis",
-      "Zdroj","Logo URL","Psipedia ID","Počet hodnotení","Sync stav","Sync chyba"]],
-    ["facebook-images","Facebook obrázky","Facebook",["Názov","Text na Facebook","Obrázok",
-      "Stav","Povoliť publikovanie","Súhlas majiteľa – priame publikovanie",
-      "Dátum a čas publikovania","Publikované o","Facebook Post ID","Facebook URL",
-      "Chyba publikovania"]],
-  ] as const).map(([scope,title,family,names])=>({
-    scope,title,family,active:false,
-    fields:names.map(name=>({id:name,label:name,notionLabel:name,locked:true,
-      note:scope==="articles"&&name==="Obsah (bloky stránky)"?"Obsah tvoria samostatné Notion bloky":undefined})),
-  })),
+  {
+    scope:"articles",title:"Články",family:"Obsah",active:true,
+    fields:[
+      ["title","Názov","Názov"],["excerpt","Krátky popis","Meta description"],
+      ["intro","Úvod","Obsah (bloky stránky)"],["blocks","Obsah článku","Obsah (bloky stránky)"],
+      ["seoTitle","SEO titulok","SEO title"],["metaDescription","Meta popis","Meta description"],
+      ["socialCaption","Popis na sociálne siete","Popis na sociálne siete"],
+      ["focusKeyword","Hlavné kľúčové slovo","Hlavné kľúčové slovo"],
+    ].map(([id,label,notionLabel])=>({id,label,notionLabel})).concat([
+      "Slug","Kategória","Podsekcia","Typ obsahu","Stav","Odoslať na Psipedia",
+      "Titulný obrázok","Psipedia ID","Sync stav","Sync chyba",
+    ].map(name=>({id:name,label:name,notionLabel:name,locked:true,
+      note:"Identita, publikovanie alebo systémový stav – pevné pravidlo"}))),
+  },
+  {
+    scope:"eshops",title:"E-shopy",family:"Recenzie a testy",active:true,
+    fields:[
+      ["name","Názov","Názov"],["websiteUrl","Web","Web"],
+      ["description","Popis","Popis"],["sourceUrl","Zdroj","Zdroj"],
+      ["focusTags","Zameranie","Zameranie"],["logoUrl","Logo URL","Logo URL"],
+    ].map(([id,label,notionLabel])=>({id,label,notionLabel})).concat([
+      "Slug","Psipedia stav","Psipedia ID","Počet hodnotení","Celkové hodnotenie",
+      "Sync stav","Sync chyba",
+    ].map(name=>({id:name,label:name,notionLabel:name,locked:true,
+      note:"Identita, publikovanie, hodnotenia alebo systémový stav"}))),
+  },
+  {
+    scope:"facebook-images",title:"Facebook obrázky",family:"Facebook",active:false,
+    fields:["Názov","Text na Facebook","Obrázok","Stav","Povoliť publikovanie",
+      "Súhlas majiteľa – priame publikovanie","Dátum a čas publikovania",
+      "Publikované o","Facebook Post ID","Facebook URL","Chyba publikovania"]
+      .map(name=>({id:name,label:name,notionLabel:name,locked:true,
+        note:"Facebook má vlastný schvaľovací a publikačný režim"})),
+  },
   ...([
     ["events","Podujatia","Podujatia"],
     ["organizations","Organizácie","Pomoc psom"],
@@ -84,10 +123,20 @@ export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
     ["help-cases","Pomoc psom – prípady","Pomoc psom"],
     ["lost-found","Stratené a nájdené","Pomoc psom"],
   ] as const).map(([scope,title,family])=>({
-    scope,title,family,active:false,
+    scope,title,family,active:true,
     fields:agendaEditableFields[scope].map(name=>({
-      id:name,label:name,notionLabel:name,locked:true,
-      note:"Mapované pole; pravidlá synchronizácie určuje existujúci synchronizátor",
+      id:name,label:name,notionLabel:name,
+      locked:fixedNotionAgendaField(scope,name),
+      note:fixedNotionAgendaField(scope,name)
+        ? name==="Stav" || name==="Psipedia stav" || name==="Zrušené" || name==="Vyriešené"
+          ? "Publikovanie a stav prípadu riadi Admin – zmena vyžaduje schvaľovací postup"
+          : name==="Slug" || name==="Kategória" || name==="Typ"
+            ? "Identita alebo typ prípadu – zmena patrí do kanonického editora"
+            : "Chránené zdrojové, kontaktné alebo lokalizačné údaje"
+        : ["Miesto","Mesto","Okres","Kraj","Adresa"].includes(name)
+          ? "Notion môže mať prednosť; potvrdené Google miesto ostáva chránené"
+          : undefined,
+
     })),
   })),
 ];
