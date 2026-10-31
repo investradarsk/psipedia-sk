@@ -73,7 +73,7 @@ test("all 22 saves target one signed page/revision and return only verified priv
   }
 });
 
-test("missing provenance, missing saved revision, concurrent edits and existing mappings never invoke import", async () => {
+test("missing provenance/revision and concurrent edits never import; verified D1 drafts reopen directly", async () => {
   for (const item of geminiAutomationCatalog) {
     for (const options of [
       { signed: false }, { before: { lastEditedAt: "human-v3" } },
@@ -83,7 +83,13 @@ test("missing provenance, missing saved revision, concurrent edits and existing 
       { before: { psipediaId: "77", canonicalVerified: false } },
     ]) {
       const h = harness(item, options);
-      assert.notEqual((await h.run()).state, "CANONICAL_DRAFT_READY", item.stableKey);
+      const result = await h.run();
+      if (options.before?.reviewState === "IMPORTED") {
+        assert.equal(result.state, "CANONICAL_DRAFT_READY", item.stableKey);
+        assert.match(result.editorUrl, /^\\/admin\\//);
+      } else {
+        assert.notEqual(result.state, "CANONICAL_DRAFT_READY", item.stableKey);
+      }
       assert.equal(h.calls.length, 0);
     }
     const h = harness(item);
@@ -92,24 +98,39 @@ test("missing provenance, missing saved revision, concurrent edits and existing 
   }
 });
 
-test("disabled/incomplete/error/conflict/uncertain import never claims success or retries", async () => {
+test("sync warnings do not block verified private D1 drafts across all 22 Gemini categories", async () => {
   for (const item of geminiAutomationCatalog) {
-    const failures = [{ enabled: false }, { schemaReady: false }, { failed: 1, totals: { failed: 1 } },
-      { createdFromNotion: 0, totals: { createdFromNotion: 0 } }];
-    if (geminiImportAgenda(item.stableKey) !== "directory") failures.push(
-      { agendas: [{ targetMissing: true }] }, { totals: { conflicts: 1 } });
-    for (const summary of failures) {
+    for (const summary of [
+      { failed: 1, totals: { failed: 1 } },
+      { createdFromNotion: 0, totals: { createdFromNotion: 0 } },
+      { totals: { conflicts: 1, failed: 1, createdFromNotion: 0 } },
+    ]) {
+      const verified = harness(item, { summary });
+      assert.equal((await verified.run()).state, "CANONICAL_DRAFT_READY", item.stableKey);
+      const missing = harness(item, {
+        summary, after: { psipediaId: "", canonicalVerified: false, reviewState: "NEW" },
+      });
+      assert.equal((await missing.run()).state, "NEEDS_REVIEW", item.stableKey);
+    }
+    for (const summary of [{ enabled: false }, { schemaReady: false }]) {
       const h = harness(item, { summary });
       assert.equal((await h.run()).state, "NEEDS_REVIEW", item.stableKey);
-      assert.equal(h.calls.length, 1);
     }
-    for (const after of [{ psipediaId: "", canonicalVerified: false },
-      { reviewState: "PUBLISHED" }, { reviewState: "REJECTED" }]) {
+    for (const after of [
+      { psipediaId: "", canonicalVerified: false },
+      { psipediaId: "77", canonicalVerified: false },
+      { reviewState: "PUBLISHED" }, { reviewState: "REJECTED" },
+    ]) {
       assert.equal((await harness(item, { after }).run()).state, "NEEDS_REVIEW");
     }
-    const h = harness(item, { failure: true });
-    await assert.rejects(h.run(), /uncertain/);
-    assert.equal(h.calls.length, 1);
+    const uncertainButMapped = harness(item, { failure: true });
+    assert.equal((await uncertainButMapped.run()).state, "CANONICAL_DRAFT_READY");
+    assert.equal(uncertainButMapped.calls.length, 1);
+    const uncertainWithoutMapping = harness(item, {
+      failure: true, after: { psipediaId: "", canonicalVerified: false },
+    });
+    assert.equal((await uncertainWithoutMapping.run()).state, "NEEDS_REVIEW");
+    assert.equal(uncertainWithoutMapping.calls.length, 1);
   }
 });
 
