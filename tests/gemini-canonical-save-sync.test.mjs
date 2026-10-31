@@ -86,7 +86,7 @@ test("missing provenance/revision and concurrent edits never import; verified D1
       const result = await h.run();
       if (options.before?.reviewState === "IMPORTED") {
         assert.equal(result.state, "CANONICAL_DRAFT_READY", item.stableKey);
-        assert.match(result.editorUrl, /^\\/admin\\//);
+        assert.match(result.editorUrl, /^\/admin\//);
       } else {
         assert.notEqual(result.state, "CANONICAL_DRAFT_READY", item.stableKey);
       }
