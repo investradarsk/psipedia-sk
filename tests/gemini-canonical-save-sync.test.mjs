@@ -375,4 +375,8 @@ test("legacy imports never run from unscoped scheduled or unauthenticated public
   assert.match(route, /getGeminiDirectoryDraft/);
   assert.match(route, /ownerConfirmedLegacy: true/);
   assert.doesNotMatch(route, /status: "published"/);
+  const adapters = readFileSync(new URL("../lib/notion-events-help-adapters.ts", import.meta.url), "utf8");
+  assert.match(adapters, /SELECT notion_page_id FROM gemini_import_review_notes/);
+  assert.match(adapters, /if \(origin \|\| ownerReviewed\)/);
+  assert.match(adapters, /GEMINI_LOST_FOUND_PRIVACY_REVIEW_REQUIRED/);
 });
