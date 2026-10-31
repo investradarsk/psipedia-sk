@@ -2,6 +2,12 @@ name: Playwright E2E and production smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      full_regression:
+        description: "Spustiť aj rozsiahlu E2E regresiu (plemená, podujatia, adresár, pomoc psom; trvá dlhšie)"
+        type: boolean
+        required: false
+        default: false
   pull_request:
     branches: [main]
   push:
@@ -283,7 +289,7 @@ jobs:
     if: >-
       always() &&
       needs.validate.result == 'success' &&
-      (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') &&
+      (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full_regression == true)) &&
       needs.validate.outputs.full_core == 'true'
     needs: validate
     runs-on: ubuntu-latest
