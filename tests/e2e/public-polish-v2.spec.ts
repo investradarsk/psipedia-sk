@@ -38,14 +38,10 @@ test("homepage section CTAs follow their content and photo surfaces stay square"
   await page.setViewportSize({ width: 1440, height: 900 });
   await gotoPublic(page, "/");
 
-  for (const key of ["latest", "steniatka", "veterinari", "starostlivost", "aktivity", "pomoc"]) {
+  for (const key of ["latest", "steniatka", "starostlivost", "aktivity", "help"]) {
     const section = key === "latest"
       ? page.locator("[data-home-latest]")
-      : key === "veterinari"
-        ? page.locator("[data-home-veterinarians]")
-        : key === "pomoc"
-          ? page.locator("[data-home-help]")
-          : page.locator(`[data-home-editorial="${key}"]`);
+      : page.locator(`[data-home-editorial="${key}"]`);
     const cta = section.locator(`[data-home-section-cta="${key}"]`);
     await expect(cta).toBeVisible();
     expect(await section.evaluate((node, ctaKey) => {
@@ -55,6 +51,12 @@ test("homepage section CTAs follow their content and photo surfaces stay square"
       return Boolean(content && ctaNode && (content.compareDocumentPosition(ctaNode) & Node.DOCUMENT_POSITION_FOLLOWING));
     }, key)).toBe(true);
   }
+
+  // Veterinarians are now a right-column sidebar with its own action below the rows.
+  const vetSidebar = page.locator(".home-magazine-sidebar-block")
+    .filter({ has: page.getByRole("heading", { name: "Veterinári", exact: true }) });
+  await expect(vetSidebar.locator("[data-home-veterinarians], [data-home-veterinarians-empty]")).toBeVisible();
+  await expect(vetSidebar.locator('a.home-magazine-sidebar-action[href="/adresar/veterinari"]')).toBeVisible();
 
   const hero = page.locator("[data-home-hero] .hero-card");
   await expect(hero.locator("img.hero-image")).toBeVisible();
@@ -75,8 +77,11 @@ test("editorial landing polish is responsive at 1440, 1920 and 390", async ({ pa
     await expectNoHorizontalOverflow(page, `/steniatka at ${viewport.width}px`);
     const groupedTopics = page.locator("[data-section-article-group]");
     expect(await groupedTopics.count()).toBeGreaterThan(1);
-    await expect(groupedTopics.first().locator("img")).toBeVisible();
-    expect(await groupedTopics.first().locator("[data-article-list-item]").count()).toBeLessThanOrEqual(5);
+    // Topic groups may legitimately have no image or published articles; the
+    // heading and category link must still be available to every visitor.
+    await expect(groupedTopics.first().locator("h3 a")).toBeVisible();
+    await expect(groupedTopics.first().locator("[data-section-content-list]")).toBeVisible();
+    expect(await groupedTopics.first().locator("[data-article-list-item]").count()).toBeLessThanOrEqual(2);
     const carousel = page.locator("[data-section-next-carousel]");
     await expect(carousel).toBeVisible();
     expect(await carousel.locator("[data-section-next-card]").count()).toBe(3);

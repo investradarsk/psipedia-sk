@@ -69,7 +69,11 @@ test("shared Help cards have identical compact media-left anatomy on listings", 
       expect(media?.width ?? 0).toBeGreaterThan(90);
       expect(media?.width ?? 0).toBeLessThanOrEqual(164);
       expect((media?.x ?? 0) + (media?.width ?? 0)).toBeLessThanOrEqual((copy?.x ?? 0) + 2);
-      await expect(card.getByRole("link", { name: /(?:Zobraziť detail|Zobraziť profil|Otvoriť detail)/ })).toBeVisible();
+      // The media and the visible CTA can both link to the profile. Match only
+      // the visible action label, never the accessible name of the media link.
+      await expect(card.getByRole("link", {
+        name: /^(?:Zobraziť detail|Zobraziť profil|Otvoriť detail|Pozrieť výsledok)$/,
+      })).toBeVisible();
       await expectNoHorizontalOverflow(page);
     }
   }
@@ -101,19 +105,22 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 Help category search is URL-backed, singular and 
 
     const form = page.locator('[data-public-search-form="help"]');
     await expect(form).toHaveCount(1);
-    await expect(page.locator("[data-unified-section-hero] input")).toHaveCount(0);
+    // The ONE primary search now lives inside the shared hero, not below it.
+    await expect(page.locator('[data-unified-section-hero] [data-public-search-form="help"]')).toHaveCount(1);
+    await expect(page.locator('[data-unified-section-hero] input:not([type="hidden"])')).toHaveCount(1);
     await expect(form.getByRole("textbox")).toHaveValue("E2E dočasná opatera");
     await expect(page.getByRole("heading", { name: "E2E dočasná opatera", exact: true })).toBeVisible();
 
-    const toggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    const secondaryFilters = page.locator("[data-help-secondary-filters]");
+    const toggle = secondaryFilters.getByRole("button", { name: /^Ďalšie filtre/ });
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(form.getByLabel("Kraj")).not.toBeVisible();
+    await expect(secondaryFilters.getByLabel("Kraj")).not.toBeVisible();
     await toggle.focus();
     await page.keyboard.press("Enter");
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await expect(form.getByLabel("Kraj")).toBeVisible();
-    await expect(form.getByLabel("Stav")).toBeVisible();
+    await expect(secondaryFilters.getByLabel("Kraj")).toBeVisible();
+    await expect(secondaryFilters.getByLabel("Stav")).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
   }
@@ -139,7 +146,16 @@ test("canonical adoption cards expose organization context without changing life
   await expect(page.getByRole("heading", { level: 1, name: "Psy na adopciu" })).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Rex", exact: true })).toBeVisible();
   await expect(page.getByText(/E2E útulok Nitra/).first()).toBeVisible();
-  await expect(page.getByLabel("Stav")).toBeVisible();
+  // On narrow screens the adoption filters are behind an explicit disclosure.
+  // Verify that the status filter remains keyboard/touch accessible after opening it.
+  const statusFilter = page.getByLabel("Stav");
+  if (!(await statusFilter.isVisible())) {
+    const filterToggle = page.getByRole("button", { name: /^Filtrovať psy/ });
+    await expect(filterToggle).toBeVisible();
+    await filterToggle.click();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
+  }
+  await expect(statusFilter).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await expectNoAxeViolations(page);
 });
@@ -214,7 +230,7 @@ test("Help Admin create, edit, publish and unpublish lifecycle stays inside gene
   // Persist the content edit first, then exercise publication separately. This
   // verifies both edit persistence and the DRAFT -> published lifecycle.
   await page.getByRole("button",{name:"Uložiť koncept"}).click();
-  await expect(page.getByRole("status")).toContainText("Koncept");
+  await expect(page.getByRole("status").filter({ hasText: "Koncept" })).toBeVisible();
   await expect.poll(async () => {
     api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
     return {status:item.status,urgent:item.urgent,title:item.title};
@@ -225,14 +241,14 @@ test("Help Admin create, edit, publish and unpublish lifecycle stays inside gene
   });
 
   await page.getByRole("button",{name:"Publikovať prípad"}).click();
-  await expect(page.getByRole("status")).toContainText("publikovaný");
+  await expect(page.getByRole("status").filter({ hasText: "publikovaný" })).toBeVisible();
   api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
   expect(item.status).toBe("published");expect(item.urgent).toBe(true);expect(item.title).toContain("upravený");
 
   // Both explicit save and Enter must preserve publication.
   await titleInput.fill("E2E Help Admin Created – publikovaný upravený");
   await page.getByRole("button", {name:"Uložiť zmeny",exact:true}).click();
-  await expect(page.getByRole("status")).toContainText("publikovaný");
+  await expect(page.getByRole("status").filter({ hasText: "publikovaný" })).toBeVisible();
   await titleInput.fill("E2E Help Admin Created – Enter");
   await titleInput.press("Enter");
   await expect.poll(async () => {
@@ -244,7 +260,7 @@ test("Help Admin create, edit, publish and unpublish lifecycle stays inside gene
   expect((await (await page.request.get(`/api/admin/help/${id}`)).json()).item.status).toBe("published");
   await page.getByRole("button",{name:"Stiahnuť z webu",exact:true}).click();
   await page.getByRole("button",{name:"Potvrdiť stiahnutie"}).click();
-  await expect(page.getByRole("status")).toContainText("Koncept");
+  await expect(page.getByRole("status").filter({ hasText: "Koncept" })).toBeVisible();
   api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
   expect(item.status).toBe("draft");
   const cleanup=await page.request.delete(`/api/admin/help/${id}`);expect(cleanup.ok()).toBeTruthy();
