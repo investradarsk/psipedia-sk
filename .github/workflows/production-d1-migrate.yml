@@ -7,8 +7,9 @@ on:
         description: Canonical migration to apply
         required: true
         type: choice
-        default: 0147_notion_field_authority.sql
+        default: 0148_notion_transfer_audit.sql
         options:
+          - 0148_notion_transfer_audit.sql
           - 0147_notion_field_authority.sql
           - 0062_profile_reviews_foundation.sql
           - 0063_partner_claims_verification.sql
@@ -210,6 +211,7 @@ jobs:
             0145_notion_webhook_inbox.sql) expected_confirmation="APPLY-0145-psipedia-sk-db" ;;
             0146_help_source_daily_checks.sql) expected_confirmation="APPLY-0146-psipedia-sk-db" ;;
             0147_notion_field_authority.sql) expected_confirmation="APPLY-0147-psipedia-sk-db" ;;
+            0148_notion_transfer_audit.sql) expected_confirmation="APPLY-0148-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"

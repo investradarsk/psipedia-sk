@@ -2871,6 +2871,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 145) assertNotionWebhookInbox0145Schema(schema);
   if (migrationIndex(targetMigration) >= 146) assertHelpSource0146Schema(schema);
   if (migrationIndex(targetMigration) >= 147) assertNotionFieldAuthority0147Schema(schema);
+  if (migrationIndex(targetMigration) >= 148) assertNotionTransferAudit0148Schema(schema);
 }
 
 /** 0147 must remain a small, additive-only configuration table.
@@ -2892,6 +2893,23 @@ export function assertNotionFieldAuthority0147Schema(schema) {
   return true;
 }
 
+
+/** D1 0148 stores only scope, direction, count and timestamp, without profile content. */
+export function assertNotionTransferAudit0148Schema(schema){
+  const objects=objectMap(schema.objects??[]);
+  const table=objects.get("notion_transfer_audit");
+  const index=objects.get("idx_notion_transfer_audit_scope_time");
+  invariant(table?.type==="table","0148 transfer audit table missing");
+  invariant(index?.type==="index","0148 scope/time index missing");
+  const sql=String(table.sql??"").replace(/\\s+/g," ");
+  invariant(/scope TEXT NOT NULL/i.test(sql)&&/record_count INTEGER NOT NULL/i.test(sql),
+    "0148 required transfer identity/count missing");
+  invariant(/direction TEXT NOT NULL CHECK/i.test(sql)&&
+    /'NOTION_TO_ADMIN'/.test(sql)&&/'ADMIN_TO_NOTION'/.test(sql),
+    "0148 exact transfer direction allowlist missing");
+  invariant(/created_at TEXT NOT NULL/i.test(sql),"0148 created time missing");
+  return true;
+}
 
 /** Exact 0139 Services V3 journal, including append-only no-delete/rewrite guarantees. */
 export function assertServicesV3Auto0139Schema(schema){
