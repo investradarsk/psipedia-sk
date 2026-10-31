@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { env } from "cloudflare:workers";
+import { articlePromoBlockAnchor, AUTOMATIC_ARTICLE_PROMO_ANCHOR } from "../lib/visual-library-anchors.ts";
 import {
   collectPublishedArticleBannerUses,
   loadPublishedArticleBannerUses,
@@ -27,6 +28,8 @@ test("stage 2: real canonical URL, manual occurrences and contextual promo are d
   const vets = byKey.veterinari;
   assert.equal(vets.length, 3);
   assert.deepEqual(vets.filter((item) => item.evidence === "published-manual").map((item) => item.blockId), ["one", "two"]);
+  assert.deepEqual(vets.filter((item) => item.evidence === "published-manual").map((item) => item.anchorId), [articlePromoBlockAnchor("one"), articlePromoBlockAnchor("two")]);
+  assert.equal(vets.find((item) => item.evidence === "published-auto-today").anchorId, AUTOMATIC_ARTICLE_PROMO_ANCHOR);
   assert.equal(vets.filter((item) => item.evidence === "published-auto-today").length, 1);
   assert.deepEqual(new Set(vets.map((item) => item.url)), new Set([
     "https://psipedia.sk/starostlivost/zdrave-labky",
