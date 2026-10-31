@@ -8,7 +8,7 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
 import styles from "./admin-quick-navigation.module.css";
 
-type Destination = { label: string; category: string; href: string; keywords: string };
+type Destination = { label: string; category: string; href: string; keywords: string; subtitle?: string };
 
 // Keep the regular sidebar as the single authority for main destinations.
 // Only deeper, verified admin routes are added below for fast access.
@@ -51,6 +51,39 @@ export function AdminQuickNavigation() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [records, setRecords] = useState<Destination[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [incomplete, setIncomplete] = useState(false);
+  const [searchError, setSearchError] = useState("");
+
+  useEffect(() => {
+    if (!open || query.trim().length < 2) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/admin/global-search?q=" + encodeURIComponent(query.trim()), {
+          credentials: "same-origin", cache: "no-store", signal: controller.signal,
+        });
+        const data = await response.json() as { results?: Array<{ title: string; subtitle: string; href: string; category: string }>; incomplete?: boolean; error?: string };
+        if (!response.ok) throw new Error(data.error ?? "Vyhľadávanie nie je dostupné.");
+        if (!controller.signal.aborted) {
+          setRecords((data.results ?? []).map(record => ({
+            label: record.title, subtitle: record.subtitle, category: record.category, href: record.href, keywords: "",
+          })));
+          setIncomplete(Boolean(data.incomplete));
+          setSearchError("");
+          setLoading(false);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setSearchError(error instanceof Error ? error.message : "Vyhľadávanie nie je dostupné.");
+          setLoading(false);
+        }
+      }
+    }, 260);
+    return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [open, query]);
+
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -63,14 +96,18 @@ export function AdminQuickNavigation() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const results = query.trim()
+  const sectionResults = query.trim()
     ? search.search(query.trim(), { limit: 12 }).map(match => match.item)
     : destinations.filter(item => suggestedHrefs.has(item.href));
+  // Exact section destinations and backend records share one listbox, but the
+  // endpoint only searches stored data after two characters.
+  const results = [...sectionResults, ...(query.trim().length >= 2 ? records : [])]
+    .filter((item, index, all) => all.findIndex(candidate => candidate.href === item.href) === index);
   const selected = Math.min(active, Math.max(0, results.length - 1));
 
   function changeOpen(value: boolean) {
     setOpen(value);
-    if (!value) { setQuery(""); setActive(0); }
+    if (!value) { setQuery(""); setActive(0); setRecords([]); setLoading(false); setSearchError(""); setIncomplete(false); }
   }
   function go(href: string) {
     changeOpen(false);
@@ -92,9 +129,9 @@ export function AdminQuickNavigation() {
   return (
     <Dialog.Root open={open} onOpenChange={changeOpen}>
       <Dialog.Trigger asChild>
-        <button type="button" className={styles.trigger} aria-label="Nájsť sekciu administrácie" data-admin-quick-nav-trigger>
+        <button type="button" className={styles.trigger} aria-label="Hľadať v celej administrácii" data-admin-quick-nav-trigger>
           <Search size={16} aria-hidden="true" />
-          <span>Nájsť sekciu</span>
+          <span>Hľadať v admine</span>
           <kbd>Ctrl K</kbd>
         </button>
       </Dialog.Trigger>
@@ -103,8 +140,8 @@ export function AdminQuickNavigation() {
         <Dialog.Content className={styles.dialog} data-admin-quick-navigation>
           <div className={styles.header}>
             <div>
-              <Dialog.Title>Nájsť sekciu v administrácii</Dialog.Title>
-              <Dialog.Description>Napíš názov alebo tému. Otvoríme priamo vybranú sekciu.</Dialog.Description>
+              <Dialog.Title>Hľadať v celej administrácii</Dialog.Title>
+              <Dialog.Description>Vyhľadávaj profily, podujatia, články, plemená aj funkcie administrácie.</Dialog.Description>
             </div>
             <Dialog.Close className={styles.close} aria-label="Zavrieť vyhľadávanie"><X size={18} /></Dialog.Close>
           </div>
@@ -113,15 +150,15 @@ export function AdminQuickNavigation() {
             <input
               autoFocus
               role="combobox"
-              aria-label="Hľadať sekciu"
+              aria-label="Vyhľadať profil, obsah alebo funkciu"
               aria-expanded="true"
               aria-autocomplete="list"
               aria-controls="admin-quick-navigation-results"
               aria-activedescendant={results.length ? "admin-quick-nav-option-" + selected : undefined}
               value={query}
-              onChange={event => { setQuery(event.target.value); setActive(0); }}
+              onChange={event => { setQuery(event.target.value); setActive(0); setRecords([]); setLoading(event.target.value.trim().length >= 2); setSearchError(""); setIncomplete(false); }}
               onKeyDown={handleKeys}
-              placeholder="Napr. veterinári, adopcie, Notion…"
+              placeholder="Profil, veterinár, článok, podujatie, Notion…"
             />
           </div>
           <div className={styles.results} id="admin-quick-navigation-results" role="listbox" aria-label="Dostupné sekcie">
@@ -137,11 +174,14 @@ export function AdminQuickNavigation() {
                 onMouseEnter={() => setActive(index)}
                 onClick={() => go(item.href)}
               >
-                <span><strong>{item.label}</strong><small>{item.category}</small></span>
+                <span><strong>{item.label}</strong><small>{item.category}{item.subtitle ? " · " + item.subtitle : ""}</small></span>
                 <span className={styles.arrow} aria-hidden="true">↗</span>
               </button>
             )) : <p className={styles.empty}>Takúto sekciu som nenašiel. Skús iné slovo.</p>}
           </div>
+          {loading && <p className={styles.searchFeedback} role="status">Hľadám záznamy…</p>}
+          {searchError && <p className={styles.searchFeedback} role="alert">{searchError}</p>}
+          {incomplete && <p className={styles.searchFeedback} role="status">Niektoré zdroje sú dočasne nedostupné.</p>}
           <div className={styles.footer}>↑ ↓ výber · Enter otvoriť · Esc zavrieť</div>
         </Dialog.Content>
       </Dialog.Portal>
