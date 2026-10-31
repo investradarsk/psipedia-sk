@@ -403,8 +403,10 @@ test("real Events/Help adapter uses canonical equality, strict ID parsing and pr
   assert.ok(sync.includes('if (!/^[1-9]\\d*$/.test(source.id)) return null;'));
   assert.ok(sync.includes("equalField: (path, left, right) =>"));
   assert.ok(sync.includes("stableAgendaSnapshotJson(agenda, { [path]: left })"));
-  assert.ok(sync.includes('"Zrušené", "Kontakt"'));
-  assert.ok(sync.includes('"Zdroj", "Zdroj URL", "Zdroj dát"'));
+  const locks = await readFile(new URL("../lib/notion-field-authority.ts", import.meta.url), "utf8");
+  assert.ok(locks.includes('events: ["Slug", "Stav", "Zrušené"]'));
+  assert.ok(locks.includes('"Vyriešené", "Kontakt"'));
+  assert.ok(locks.includes('"Zdroj", "Zdroj URL", "Miesto"'));
   assert.ok(sync.includes("pageIdentity.psipediaId && pageIdentity.psipediaId !== source.id"));
 });
 
@@ -471,5 +473,9 @@ test("directory sync exports canonical address through a scoped and echo-verifie
 test("events and all help agendas use canonical authority through shared reconciliation", async () => {
   const source = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
   assert.match(source, /canonicalFieldsWin: true/);
-  assert.match(source, /"Adresa", "Mesto", "Okres", "Kraj"/);
+  assert.match(source, /const protectedFields = fixedNotionAgendaFields\(agenda\)/);
+  assert.match(source, /if \(currentGooglePlace\)/);
+  assert.match(source, /"Adresa", "Miesto", "Mesto", "Okres", "Kraj"/);
+  const registry = await readFile(new URL("../lib/notion-field-authority.ts", import.meta.url), "utf8");
+  assert.match(registry,/events: \["Slug", "Stav", "Zrušené"\]/);
 });
