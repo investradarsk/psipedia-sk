@@ -102,6 +102,7 @@ export function HomeMagazineSidebar({
 
 export function HomeMagazineBanner({
   anchorId,
+  desktopColors,
   title,
   description,
   label,
@@ -114,10 +115,12 @@ export function HomeMagazineBanner({
   href: string;
   testId: string;
   anchorId?: string;
+  desktopColors?: { background: "original" | "sage" | "cream" | "white"; button: "original" | "green" | "red" } | null;
 }) {
   return (
     <PublicMagazineBanner
       anchorId={anchorId}
+      desktopColors={desktopColors}
       title={title}
       description={description}
       label={label}
