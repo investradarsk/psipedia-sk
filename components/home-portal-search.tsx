@@ -64,7 +64,8 @@ export function HomePortalSearch({
             placeholder={placeholder}
             defaultValue={defaultValue}
             ref={inputRef}
-            onChange={(event) => setLiveQuery(event.target.value)}
+            role={enableSuggestions ? "combobox" : undefined}
+            onChange={(event) => setLiveQuery(event.target.value)
             autoComplete="off"
             minLength={allowEmpty ? undefined : 2}
             maxLength={120}
