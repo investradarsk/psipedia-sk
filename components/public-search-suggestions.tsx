@@ -102,7 +102,10 @@ export function PublicSearchSuggestions({
     // contracts locate this control as a textbox, not a combobox.
     input.setAttribute("aria-autocomplete", "list");
     input.setAttribute("aria-controls", listId);
-    input.setAttribute("aria-expanded", String(isOpen));
+    // Native textbox inputs do not support aria-expanded (axe aria-allowed-attr).
+    // Keep textbox semantics for the existing search forms and expose the
+    // listbox via aria-controls + aria-activedescendant instead.
+    input.removeAttribute("aria-expanded");
     if (isOpen && selected >= 0 && selected < suggestions.length) {
       input.setAttribute("aria-activedescendant", `${listId}-item-${selected}`);
     } else {
