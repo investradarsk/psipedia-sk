@@ -22,7 +22,7 @@ test("admin events query keeps canonical write APIs and uses cancellable filter 
   assert.match(ui, /fetchAdminEventPage\(effectiveFilters, page, signal\)/);
   assert.match(ui, /placeholderData:\s*keepPreviousData/);
   assert.match(ui, /setSettledSearch\(filters\.query\), 250/);
-  assert.match(ui, /initialData: requestKey === initialRequestKey\.current/);
+  assert.match(ui, /initialData: requestKey === initialRequestKey/);
   assert.match(ui, /invalidateQueries\(\{ queryKey: \["admin", "events"\], refetchType: "none" \}\)/);
   assert.match(ui, /eventQuery\.refetch\(\)/);
   assert.match(ui, /\/api\/admin\/events\/bulk/);
