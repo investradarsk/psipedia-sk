@@ -31,13 +31,25 @@ function builtIn(id:string){
  * The outer query remains category-scoped and published-only.
  */
 export function canonicalPublicServiceWhere(
-  category:string,raw:string,enabled:boolean,profileAlias:"directory_profiles"|"d"="directory_profiles"
+  category:string,raw:string,enabled:boolean,profileAlias:"directory_profiles"|"d"="directory_profiles",
+  builtinOverridesReady=true,
 ):{clauses:string[];bindings:string[]}{
   const profileId=profileAlias==="d"?"d.id":"directory_profiles.id";
   if(!raw)return {clauses:[],bindings:[]};
   if(!enabled||!isAllowedCategory(category)||raw.length>100)
     return {clauses:["1=0"],bindings:[]};
   const option=builtIn(raw);
+  if(option&&!builtinOverridesReady){
+    // Safe during a code-first deploy: retain the original behavior until the
+    // additive override table exists in production D1.
+    if(!option.categories.includes(category as typeof serviceFilterCategories[number]))
+      return {clauses:["1=0"],bindings:[]};
+    return {
+      clauses:[`EXISTS (SELECT 1 FROM service_profile_option_choices AS svc_choice
+        WHERE svc_choice.profile_id=${profileId} AND svc_choice.option_id=? AND svc_choice.choice='yes')`],
+      bindings:[raw],
+    };
+  }
   if(option)return {
     clauses:[`EXISTS (
       SELECT 1 FROM service_profile_option_choices AS svc_choice
