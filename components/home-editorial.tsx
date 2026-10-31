@@ -101,6 +101,7 @@ export function HomeMagazineSidebar({
 }
 
 export function HomeMagazineBanner({
+  anchorId,
   title,
   description,
   label,
@@ -112,9 +113,11 @@ export function HomeMagazineBanner({
   label: string;
   href: string;
   testId: string;
+  anchorId?: string;
 }) {
   return (
     <PublicMagazineBanner
+      anchorId={anchorId}
       title={title}
       description={description}
       label={label}
