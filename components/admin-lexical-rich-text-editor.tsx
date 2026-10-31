@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   $createLineBreakNode, $createParagraphNode, $createTextNode, $getRoot,
   $getSelection, $isLineBreakNode, $isParagraphNode, $isRangeSelection,
-  $isTextNode, $applyNodeReplacement, ElementNode, FORMAT_TEXT_COMMAND,
+  $isTextNode, $applyNodeReplacement, ElementNode, FORMAT_TEXT_COMMAND, UNDO_COMMAND, REDO_COMMAND,
   type EditorConfig, type EditorState, type LexicalEditor, type LexicalNode, type SerializedElementNode,
 } from "lexical";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
@@ -254,6 +254,8 @@ function Toolbar({ id, allowHeadings, allowCallouts }: { id: string; allowHeadin
       {action("1. Zoznam", () => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined), "Číslovaný zoznam", active.ordered)}
       {action("Citácia", () => setBlock("quote"), "Citácia", active.quote)}
       {allowCallouts && action("Tip", () => setBlock("tip"), "Tip alebo zvýraznenie", active.callout)}
+      {action("↶", () => editor.dispatchCommand(UNDO_COMMAND, undefined), "Späť")}
+      {action("↷", () => editor.dispatchCommand(REDO_COMMAND, undefined), "Znova")}
       {showLink && (
         <div className={styles.link}>
           <label htmlFor={`${id}-link`}>Odkaz</label>
