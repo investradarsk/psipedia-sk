@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import styles from "./admin-notion-field-settings.module.css";
 type Direction="NOTION_TO_ADMIN"|"ADMIN_TO_NOTION";
 type Receipt={scope:string;direction:Direction;recordCount:number;createdAt:string};
@@ -19,32 +19,36 @@ const formatDate=(value:string|null)=>{
     new Intl.DateTimeFormat("sk-SK",{dateStyle:"short",timeStyle:"medium",timeZone:"Europe/Bratislava"}).format(date):
     "Neznámy čas";
 };
-async function load(scope:string,live:boolean):Promise<Diagnostic>{
+async function load(scope:string,live:boolean,signal?:AbortSignal):Promise<Diagnostic>{
   const params=new URLSearchParams({scope});
   if(live)params.set("test","1");
   const result=await fetch("/api/admin/notion-connection-diagnostics?"+params.toString(),{
-    credentials:"same-origin",cache:"no-store",
+    credentials:"same-origin",cache:"no-store",signal,
   });
   const payload=await result.json() as Diagnostic & {error?:string};
   if(!result.ok)throw Error(payload.error??"Kontrola nie je dostupná.");
   return payload;
 }
 export function AdminNotionConnectionDiagnostic({scope}:{scope:string}){
-  const [data,setData]=useState<Diagnostic|null>(null);
-  const [error,setError]=useState("");
-  const [busy,setBusy]=useState(false);
-  useEffect(()=>{
-    let active=true;
-    void load(scope,false).then(next=>{if(active)setData(next)})
-      .catch(e=>{if(active)setError(e instanceof Error?e.message:"Diagnostika nie je dostupná.")});
-    return ()=>{active=false};
-  },[scope]);
-  async function test(){
-    setBusy(true);setError("");
-    try{setData(await load(scope,true))}
-    catch(e){setError(e instanceof Error?e.message:"Test zlyhal.")}
-    finally{setBusy(false)}
-  }
+  const queryClient=useQueryClient();
+  const queryKey=["admin","notion-connection",scope] as const;
+  // Keep the passive diagnostics in a short-lived, scope-specific memory cache.
+  // Aborting stale requests avoids showing data for a previously chosen category.
+  const query=useQuery({
+    queryKey,
+    queryFn:({signal})=>load(scope,false,signal),
+    staleTime:20_000,
+  });
+  // A live Notion API test is expensive and must only run on explicit click.
+  const liveTest=useMutation({
+    mutationFn:()=>load(scope,true),
+    onSuccess:fresh=>queryClient.setQueryData(queryKey,fresh),
+  });
+  const data=query.data??null;
+  const busy=liveTest.isPending;
+  const failure=liveTest.error??query.error;
+  const error=failure instanceof Error?failure.message:failure?"Diagnostika nie je dostupná.":"";
+  function test(){liveTest.mutate();}
   return <section className={styles.connection} aria-label="Diagnostika prepojenia Notion">
     <div className={styles.connectionTop}>
       <div>
@@ -55,7 +59,7 @@ export function AdminNotionConnectionDiagnostic({scope}:{scope:string}){
         {busy?"Testujem…":"Otestovať prepojenie"}
       </button>
     </div>
-    {error?<p className={styles.error} role="alert">{error}</p>:null}
+    {error?<p className={styles.error} role="alert">{error} {!data?<button type="button" onClick={()=>void query.refetch()}>Skúsiť znova</button>:null}</p>:null}
     {!data?<p>Načítavam prevádzkové údaje…</p>:<>
       <div className={styles.connectionSummary}>
         <div><small>Konfigurácia</small><strong>{!data.enabled?"Vypnutá":data.configured?"Pripravená":"Neúplná"}</strong></div>
