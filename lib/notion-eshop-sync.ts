@@ -1,3 +1,4 @@
+import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { selectiveNotionProperties } from "./notion-selective-property-patch.ts";
 import { SITE_URL } from "@/config/public-site";
 import {
@@ -752,6 +753,8 @@ export async function runNotionEshopSyncSweep(input: {
       // Admin save is already committed. The scheduled sweep will retry.
       summary.failed++;
     }
+    await recordNotionTransfer(input.database,"eshops","NOTION_TO_ADMIN",summary.pulledFromNotion);
+    await recordNotionTransfer(input.database,"eshops","ADMIN_TO_NOTION",summary.pushedToNotion);
     return summary;
   }
 
@@ -827,5 +830,7 @@ export async function runNotionEshopSyncSweep(input: {
     }
   }
 
+  await recordNotionTransfer(input.database,"eshops","NOTION_TO_ADMIN",summary.createdFromNotion+summary.pulledFromNotion);
+  await recordNotionTransfer(input.database,"eshops","ADMIN_TO_NOTION",summary.bootstrapped+summary.pushedToNotion);
   return summary;
 }

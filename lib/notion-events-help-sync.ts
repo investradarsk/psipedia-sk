@@ -1,3 +1,4 @@
+import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
 import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import { geminiImportAgenda } from "./gemini-notion-provenance.ts";
@@ -1947,6 +1948,12 @@ export async function runNotionEventsHelpSyncSweep(input: {
     }
   }
 
+  if(mode==="sync" && isEnabled && ready){
+    for(const agenda of agendas){
+      await recordNotionTransfer(input.database,agenda.agenda,"NOTION_TO_ADMIN",agenda.createdFromNotion+agenda.pulledFromNotion);
+      await recordNotionTransfer(input.database,agenda.agenda,"ADMIN_TO_NOTION",agenda.createdInNotion+agenda.pushedToNotion);
+    }
+  }
   return {
     enabled: isEnabled,
     mode,
