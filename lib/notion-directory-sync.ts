@@ -848,16 +848,16 @@ async function createProfileFromNotion(input: {
       }
     }
     for (const field of ["publicEmail", "internalEmail"] as const) {
-      if (desired[field] && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(desired[field])) {
+      if (desired[field] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(desired[field])) {
         desired[field] = "";
         importWarnings.push("Skontroluj e-mail: " + field + ".");
       }
     }
-    if (desired.publicPhone && !/^[+0-9() .\\/-]{1,50}$/.test(desired.publicPhone)) {
+    if (desired.publicPhone && !/^[+0-9() .\/-]{1,50}$/.test(desired.publicPhone)) {
       desired.publicPhone = "";
       importWarnings.push("Skontroluj telefónne číslo.");
     }
-    if (desired.postalCode && !/^\\d{3}\\s?\\d{2}$/.test(desired.postalCode)) {
+    if (desired.postalCode && !/^\d{3}\s?\d{2}$/.test(desired.postalCode)) {
       desired.postalCode = "";
       importWarnings.push("Skontroluj PSČ.");
     }
