@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   $createLineBreakNode, $createParagraphNode, $createTextNode, $getRoot,
   $getSelection, $isLineBreakNode, $isParagraphNode, $isRangeSelection,
@@ -63,6 +63,11 @@ class EditorialCalloutNode extends ElementNode {
   }
   getTone(): CalloutTone { return this.getLatest().__tone; }
 }
+// Keep the server shell identical during hydration, then mount Lexical on the client.
+const subscribeHydration = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 function $createCalloutNode(tone: CalloutTone = "tip") {
   return $applyNodeReplacement(new EditorialCalloutNode(tone));
 }
@@ -312,8 +317,7 @@ export function AdminLexicalRichTextEditor({
 }) {
   // Lexical's DOM/editor state is browser-owned. Mount the composer after
   // React has hydrated the server shell to avoid SSR/client HTML mismatches.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  const mounted = useSyncExternalStore(subscribeHydration, getClientSnapshot, getServerSnapshot);
   const normalized = normalizeEditorialRichText(value) ?? empty;
   const initialConfig = {
     namespace: "PsipediaArticleLexical",
