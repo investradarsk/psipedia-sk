@@ -50,7 +50,7 @@ function LexicalPlainTextBridge({ value, onChange, disabled }: { value: string; 
 
   const handleChange = useCallback((state: EditorState, _editor: LexicalEditor, tags: Set<string>) => {
     if (tags.has("external")) return;
-    const next = state.read(() => $getRoot().getTextContent());
+    const next = state.read(readPlainText);
     if (next === currentValue.current) return;
     lastEmitted.current = next;
     onChangeRef.current(next);
