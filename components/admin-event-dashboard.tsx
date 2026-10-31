@@ -58,15 +58,13 @@ function matchesBulkValue(event: AdminEventSummary, field: BulkEventField, value
 }
 
 export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedIds = [] }: { initialPage: AdminEventPageResult; reviewedIds?: number[] }) {
-  const [reviewedIds, setReviewedIds] = useState(initialReviewedIds);
-  const reviewed = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState(defaultEventFilters);
   const [settledSearch, setSettledSearch] = useState(defaultEventFilters.query);
   const [today, setToday] = useState(bratislavaDateKey);
   const [page, setPage] = useState(1);
-  const initialRequestKey = useRef(JSON.stringify([defaultEventFilters, 1, bratislavaDateKey()]));
+  const [initialRequestKey] = useState(() => JSON.stringify([defaultEventFilters, 1, bratislavaDateKey()]));
   const effectiveFilters = useMemo(() => ({ ...filters, query: settledSearch }), [filters, settledSearch]);
   const requestKey = JSON.stringify([effectiveFilters, page, today]);
   // Server-rendered first page is available immediately; later pages use a
@@ -74,12 +72,14 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   const eventQuery = useQuery({
     queryKey: ["admin", "events", effectiveFilters, page, today],
     queryFn: ({ signal }) => fetchAdminEventPage(effectiveFilters, page, signal),
-    initialData: requestKey === initialRequestKey.current
+    initialData: requestKey === initialRequestKey
       ? { ...initialPage, reviewedIds: initialReviewedIds } : undefined,
     placeholderData: keepPreviousData,
     staleTime: 20_000,
   });
   const data = eventQuery.data ?? initialPage;
+  const reviewedIds = eventQuery.data?.reviewedIds ?? initialReviewedIds;
+  const reviewed = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const events = data.events;
   const loading = eventQuery.isFetching || eventQuery.isPlaceholderData || filters.query !== settledSearch;
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -107,12 +107,6 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
     const timer = window.setTimeout(() => setSettledSearch(filters.query), 250);
     return () => window.clearTimeout(timer);
   }, [filters.query]);
-
-  useEffect(() => {
-    if (eventQuery.data && !eventQuery.isPlaceholderData) {
-      setReviewedIds(eventQuery.data.reviewedIds);
-    }
-  }, [eventQuery.data, eventQuery.isPlaceholderData]);
 
   const counts = data.counts;
   const pages = data.pages;
@@ -153,7 +147,6 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
     await queryClient.invalidateQueries({ queryKey: ["admin", "events"], refetchType: "none" });
     const fresh = await eventQuery.refetch();
     if (fresh.error) throw fresh.error;
-    if (fresh.data) setReviewedIds(fresh.data.reviewedIds);
     setSelected(new Set());
     setBulkEditOpen(false);
   }
