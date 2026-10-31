@@ -40,8 +40,13 @@ test("every supported editorial category has per-field modes; Facebook and servi
   for(const key of agendas){
     assert.equal(exported.editableNotionField(key,"Popis"),true,key);
     assert.equal(exported.editableNotionField(key,"Slug"),false,key);
-    assert.equal(exported.editableNotionField(key,"Adresa"),false,key);
+    assert.equal(exported.editableNotionField(key,"Mesto"),true,key);
+    assert.equal(exported.editableNotionField(key,"Adresa"),key==="events"?true:false,key);
   }
+  assert.equal(exported.editableNotionField("events","Typ podujatia"),true);
+  assert.equal(exported.editableNotionField("help-cases","Urgentné"),true);
+  assert.equal(exported.editableNotionField("organizations","Typ"),true);
+  assert.equal(exported.editableNotionField("events","Stav"),false);
   assert.equal(exported.editableNotionField("directory:veterinari","services"),false);
   assert.equal(exported.editableNotionField("articles","Stav"),false);
 });

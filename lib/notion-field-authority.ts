@@ -50,6 +50,27 @@ const lockedDirectoryFields = [
   {id:"services",label:"Katalóg poskytovaných služieb V3",locked:true,note:"Výhradne Admin/D1"},
   {id:"googlePlaceId",label:"Potvrdený Google Place ID",locked:true,note:"Google Maps má prednosť"},
 ] as const;
+/**
+ * True sync invariants. Editorial, classification and unconfirmed location
+ * fields are intentionally NOT on this list: their priority must be configurable.
+ * Keep this policy shared by UI and reconciler so a selector is never cosmetic.
+ */
+export const NOTION_AGENDA_FIXED_FIELDS = {
+  events: ["Slug", "Stav", "Zrušené"],
+  organizations: ["Slug", "Stav", "Adresa", "Zdroj dát"],
+  adoptions: ["Slug", "Stav", "Organizácia", "Zdroj dát"],
+  "help-cases": ["Slug", "Kategória", "Psipedia stav", "Organizácia", "Vyriešené", "Kontakt"],
+  "lost-found": ["Slug", "Typ", "Psipedia stav", "Latitude", "Longitude",
+    "Presnosť lokality", "Verejný kontakt", "Zdroj", "Zdroj URL", "Miesto", "Naposledy videný"],
+} satisfies Record<keyof typeof agendaEditableFields, readonly string[]>;
+
+export function fixedNotionAgendaField(agenda: keyof typeof agendaEditableFields, field: string) {
+  return (NOTION_AGENDA_FIXED_FIELDS[agenda] as readonly string[]).includes(field);
+}
+export function fixedNotionAgendaFields(agenda: keyof typeof agendaEditableFields): Set<string> {
+  return new Set(NOTION_AGENDA_FIXED_FIELDS[agenda]);
+}
+
 export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
   {scope:"breeds",title:"Plemená",family:"Obsah",active:true,
     fields:BREED_NOTION_EDITABLE_FIELDS.map(id=>({id,label:breedLabels[id]??id,
@@ -105,15 +126,17 @@ export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
     scope,title,family,active:true,
     fields:agendaEditableFields[scope].map(name=>({
       id:name,label:name,notionLabel:name,
-      locked:[
-        "Slug","Stav","Psipedia stav","Kategória","Typ","Typ podujatia",
-        "Organizácia","Vyriešené","Urgentné","Latitude","Longitude",
-        "Presnosť lokality","Verejný kontakt","Zdroj","Zdroj URL","Zdroj dát",
-        "Zrušené","Kontakt","Adresa","Mesto","Okres","Kraj",
-        ...(scope==="lost-found"?["Miesto","Naposledy videný"]:[]),
-      ].includes(name),
-      note: ["Slug","Stav","Psipedia stav","Kategória","Typ","Typ podujatia","Organizácia","Vyriešené","Urgentné","Latitude","Longitude","Presnosť lokality","Verejný kontakt","Zdroj","Zdroj URL","Zdroj dát","Zrušené","Kontakt","Adresa","Mesto","Okres","Kraj",...(scope==="lost-found"?["Miesto","Naposledy videný"]:[])].includes(name)
-        ? "Chránené identifikačné, schvaľovacie alebo adresné pole" : undefined,
+      locked:fixedNotionAgendaField(scope,name),
+      note:fixedNotionAgendaField(scope,name)
+        ? name==="Stav" || name==="Psipedia stav" || name==="Zrušené" || name==="Vyriešené"
+          ? "Publikovanie a stav prípadu riadi Admin – zmena vyžaduje schvaľovací postup"
+          : name==="Slug" || name==="Kategória" || name==="Typ"
+            ? "Identita alebo typ prípadu – zmena patrí do kanonického editora"
+            : "Chránené zdrojové, kontaktné alebo lokalizačné údaje"
+        : ["Miesto","Mesto","Okres","Kraj","Adresa"].includes(name)
+          ? "Notion môže mať prednosť; potvrdené Google miesto ostáva chránené"
+          : undefined,
+
     })),
   })),
 ];
