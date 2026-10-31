@@ -283,7 +283,7 @@ export function EventCalendar({
           hrefForDay={date=>calendarHref(visibleMonth,date)}
           onSelectDay={date=>void navigate(calendarHref(visibleMonth,date)+"#vybrany-den",{...view,day:date})}
         /> : <div className={styles.desktopCalendarPending} aria-hidden="true">Načítavam kalendár…</div>}
-        <div className={styles.monthGrid} role="group" aria-label={"Dni kalendára " + calendarMonthLabel(visibleMonth)}>
+        {!isDesktopCalendar && <div className={styles.monthGrid} role="group" aria-label={"Dni kalendára " + calendarMonthLabel(visibleMonth)}>
           {calendarWeekdays.map((name) => <span className={styles.weekday} key={name}>{name}</span>)}
           {days.map((day) => {
             const { count = 0, types = [] } = daySummaries.get(day.date) ?? {};
@@ -317,7 +317,7 @@ export function EventCalendar({
               </Link>
             );
           })}
-        </div>
+        </div>}
 
         {selectedDay ? (
           <section className={styles.dayDetail} id="vybrany-den" tabIndex={-1} aria-labelledby="selected-day-title" data-selected-day={selectedDay}>
