@@ -36,8 +36,8 @@ function fixture(){
   opt.run(attrId,"A property","attribute","ACTIVE","SYNCED",'["veterinari"]');
   return {db,close:()=>db.close()};
 }
-function ids(db,raw,category=c,enabled=true){
-  const where=canonicalPublicServiceWhere(category,raw,enabled);
+function ids(db,raw,category=c,enabled=true,builtinOverridesReady=true){
+  const where=canonicalPublicServiceWhere(category,raw,enabled,"directory_profiles",builtinOverridesReady);
   return db.prepare("SELECT id FROM directory_profiles WHERE status='published' AND category=? AND "+
     (where.clauses.length?where.clauses.join(" AND "):"1=1")+" ORDER BY id")
     .all(category,...where.bindings).map(x=>x.id);
