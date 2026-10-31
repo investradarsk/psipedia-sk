@@ -15,3 +15,8 @@
 .editor ol { list-style: decimal; }
 .editor blockquote { border-left: 3px solid #c0654f; padding-left: 0.8rem; }
 .placeholder { position: absolute; left: 0.85rem; top: 0.75rem; pointer-events: none; color: #75817b; }
+
+.toolbar button[aria-pressed="true"] { background: #dceee5; border-color: #679b82; }
+.link label { font-size: 0.82rem; font-weight: 600; color: #17392e; }
+.help { padding: 0 0.85rem 0.65rem; margin: 0; font-size: 0.78rem; color: #62756c; }
+:global(.admin-lexical-callout) { display: block; padding: 0.7rem; margin: 0.6rem 0; border-left: 3px solid #bc7058; background: #fff4eb; border-radius: 0.25rem; }
