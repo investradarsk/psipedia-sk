@@ -176,7 +176,8 @@ function SafePastePlugin() {
   const [editor] = useLexicalComposerContext();
   useEffect(() => editor.registerCommand(PASTE_COMMAND, (event) => {
     event.preventDefault();
-    const text = event.clipboardData?.getData("text/plain")?.replace(/\r\n?/g, "\n") ?? "";
+    const clipboard = "clipboardData" in event ? event.clipboardData : null;
+    const text = clipboard?.getData("text/plain")?.replace(/\r\n?/g, "\n") ?? "";
     if (!text) return true;
     editor.update(() => {
       const selection = $getSelection();
