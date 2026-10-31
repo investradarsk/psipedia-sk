@@ -3,6 +3,7 @@ import test from "node:test";
 import fs from "node:fs";
 const read=p=>fs.readFileSync(new URL("../"+p,import.meta.url),"utf8");
 import {catalogEditorItems,eligibleProfileServiceItems} from "../lib/service-catalog-admin-editor-view.ts";
+import {serviceCatalog} from "../lib/service-catalog-contract.ts";
 const view=read("lib/service-catalog-admin-editor-view.ts");
 const page=read("app/admin/sluzby-pre-psov/katalog/page.tsx");
 const profile=read("components/admin-service-profile-values.tsx");
@@ -100,4 +101,21 @@ test("Services V3 catalog sync runs without routine Notion controls",()=>{
  assert.match(scheduler,/runServicesV3CatalogAutoSweep\(\{[\s\S]*?db: env\.DB/);
  assert.doesNotMatch(catalog,/Skontrolovať Notion/);
  assert.doesNotMatch(catalog,/>Schváliť<\/AdminActionButton>/);
+});
+
+test("all catalog entries are editable while original IDs and kinds stay stable",()=>{
+  const original=serviceCatalog[0];
+  const overlay={id:original.id,label:"Upravený názov služby",categories:["veterinari","fyzioterapia"],
+    group:original.group,meaning:original.meaning,version:3};
+  const [item]=catalogEditorItems([], [overlay]).filter(x=>x.id===original.id);
+  assert.equal(item.id,original.id);
+  assert.equal(item.label,overlay.label);
+  assert.deepEqual(item.categories,overlay.categories);
+  assert.equal(item.version,3);
+  assert.equal(item.source,"built_in");
+  assert.ok(eligibleProfileServiceItems([item],"fyzioterapia").some(x=>x.id===original.id));
+  assert.match(catalog,/item.source==="built_in"\|\|item.status!=="RETIRED"/);
+  assert.match(catalog,/const body=isEdit[\s\S]*?action:"edit",expectedVersion:editing!\.version/);
+  assert.match(catalog,/: \{\.\.\.fields,kind:draft\.kind\}/);
+  assert.match(catalog,/selected.source==="admin"&&\s*<AdminActionButton variant="destructive"/);
 });
