@@ -48,3 +48,11 @@
 .empty{padding:18px;background:#fff;border:1px dashed #cbd7cb;border-radius:12px}
 @media(max-width:940px){.workspace{grid-template-columns:1fr}.catalog{max-height:260px}.catalogItems{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.intro{align-items:flex-start;flex-direction:column}.controls{grid-template-columns:1fr}.catalogItems{grid-template-columns:1fr}.usages li{align-items:start;flex-direction:column}.detailHead{align-items:start;flex-direction:column}}
+
+/* Read-only evidence of where a banner actually renders, stage 2 */
+.scanState{margin:0;padding:10px 12px;border-radius:9px;background:#eef4ee;border:1px solid #d7e5da;color:#315645;font-size:.82rem;line-height:1.55}
+.usageSearch{display:grid;gap:5px;font-size:.82rem;font-weight:700}
+.usageSearch input{padding:10px 11px;width:100%;min-width:0;border:1px solid #b7cebe;border-radius:9px;background:white;color:#244b38;font:inherit}
+.usageSearch input:focus-visible,.moreButton:focus-visible{outline:3px solid #b44939;outline-offset:2px}
+.moreButton{padding:10px 12px;border:1px solid #cbd9cd;background:#f1f6f1;border-radius:9px;color:#26583e;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+.moreButton:hover{background:#e4f0e5}
