@@ -133,7 +133,10 @@
     "react-dom": "19.2.6",
     "react-dropzone": "14.3.8",
     "react-hook-form": "7.91.0",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "@uppy/core": "6.2.0",
+    "@uppy/dashboard": "6.0.1",
+    "@uppy/react": "6.0.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
