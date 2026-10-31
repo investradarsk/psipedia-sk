@@ -145,8 +145,11 @@ async function verifyPublicRoutes(baseUrl) {
   const hub = await request(baseUrl, "/recenzie");
   if (hub.response.status !== 200) fail(`/recenzie returned ${hub.response.status}.`);
   assertContains(hub.body, "Recenzie a testy", "/recenzie H1");
-  for (const subpage of reviewSubpages) {
-    assertContains(hub.body, `/recenzie/${subpage.slug}`, `/recenzie managed tabs`);
+  // The redesigned review hub presents three review types instead of the
+  // old eight-link managed tab strip. The subpages are still persisted above.
+  assertContains(hub.body, "Tri hlavné vstupy do recenzií", "/recenzie review type navigation");
+  for (const type of ["Produkty", "Služby", "E-shopy"]) {
+    assertContains(hub.body, type, `/recenzie review type ${type}`);
   }
   assertContains(hub.body, REVIEW_TITLE, "/recenzie review card");
   assertContains(hub.body, `/recenzie/${REVIEW_SLUG}`, "/recenzie review card link");
@@ -159,7 +162,7 @@ async function verifyPublicRoutes(baseUrl) {
   if (detail.response.status !== 200) fail(`/recenzie/${REVIEW_SLUG} returned ${detail.response.status}.`);
   assertContains(detail.body, REVIEW_TITLE, "seeded review detail H1");
 
-  console.log(`[phase5-e2e-bootstrap] HTTP smoke PASS: /recenzie 200, 8 managed review tabs, seeded review card, /recenzie/krmiva 200, /recenzie/${REVIEW_SLUG} 200.`);
+  console.log(`[phase5-e2e-bootstrap] HTTP smoke PASS: /recenzie 200, 3 review type entries, seeded review card, /recenzie/krmiva 200, /recenzie/${REVIEW_SLUG} 200.`);
 }
 
 const mode = process.argv[2] || "full";
