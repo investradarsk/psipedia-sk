@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { ArrowIcon } from "@/components/icons";
 import styles from "./public-magazine-banner.module.css";
 
@@ -26,6 +27,7 @@ export function PublicMagazineBanner({
   promoKey,
   promoVariant,
   anchorId,
+  desktopColors,
 }: {
   title: string;
   description: string;
@@ -41,11 +43,17 @@ export function PublicMagazineBanner({
   promoVariant?: string;
   /** Optional stable link target for read-only visual-library usage navigation. */
   anchorId?: string;
+  desktopColors?: { background: "original" | "sage" | "cream" | "white"; button: "original" | "green" | "red" } | null;
 }) {
   const photo = photoTone ? publicBannerPhotos[photoTone] : null;
+  const bg = desktopColors?.background === "sage" ? "#e1ebdf" : desktopColors?.background === "cream" ? "#f9f1e5" : desktopColors?.background === "white" ? "#ffffff" : undefined;
+  const buttonBg = desktopColors?.button === "green" ? "#20543e" : desktopColors?.button === "red" ? "#b44939" : undefined;
+  const desktopStyle = { "--ps-visual-desktop-bg": bg, "--ps-visual-desktop-button": buttonBg } as CSSProperties;
   return (
     <section
       id={anchorId}
+      style={desktopColors ? desktopStyle : undefined}
+      data-visual-library-desktop-published={desktopColors ? "true" : undefined}
       className={[compact ? "home-magazine-banner" : "shell home-magazine-banner", styles.magazine, "ps-public-banner-frame", photo && styles.withPhoto, compact && styles.compact, links?.length && styles.withLinks].filter(Boolean).join(" ")}
       data-home-banner={testId}
       data-promo-key={promoKey}
