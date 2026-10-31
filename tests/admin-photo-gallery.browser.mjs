@@ -42,7 +42,7 @@ try {
   // action and the actual standard (non-folder) picker in its modal.
   const openUppy=async()=>{
     await page.getByRole('button',{name:'Nahrať fotografie',exact:true}).click();
-    await page.locator('.uppy-Dashboard-input:not([webkitdirectory])').waitFor();
+    await page.locator('.uppy-Dashboard-input:not([webkitdirectory])').waitFor({state:'attached'});
   };
   const chooseFiles=async(files)=>{
     await page.locator('.uppy-Dashboard-input:not([webkitdirectory])').setInputFiles(files);
