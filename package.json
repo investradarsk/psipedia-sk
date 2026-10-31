@@ -137,7 +137,10 @@
     "@uppy/core": "6.2.0",
     "@uppy/dashboard": "6.0.1",
     "@uppy/react": "6.0.0",
-    "photoswipe": "5.4.4"
+    "photoswipe": "5.4.4",
+    "@fullcalendar/core": "6.1.19",
+    "@fullcalendar/daygrid": "6.1.19",
+    "@fullcalendar/react": "6.1.19"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
