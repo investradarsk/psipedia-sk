@@ -65,10 +65,10 @@ test("editor persists on authenticated server and never publishes without confir
   assert.match(editor, /confirmed/);
   assert.match(editor, /Publikovať texty a farby na desktope/);
   assert.doesNotMatch(editor, /localStorage/);
-  assert.match(api, /requireAdminMutation\\(request, \\{ strictProvenance: true \\}\\)/);
+  assert.match(api, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(api, /acknowledged !== true/);
   assert.match(listing, /<AdminVisualLibraryEditor/);
   assert.match(listing, /editorOpen/);
-  assert.match(css, /\\.editorPreview/);
-  assert.match(css, /var\\(--visual-library-bg/);
+  assert.match(css, /\.editorPreview/);
+  assert.match(css, /var\(--visual-library-bg/);
 });
