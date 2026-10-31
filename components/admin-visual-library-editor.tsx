@@ -44,10 +44,8 @@ export function AdminVisualLibraryEditor({
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setConfirmed(false);
-    setDirty(false);
-    setDraft(original);
+    // The parent keys this editor by banner and variant, so initial state already
+    // matches. Avoid cascading synchronous state updates in an effect.
     const url = BASE + "?id=" + encodeURIComponent(banner.id) + "&variant=" + variantIndex;
     fetch(url, { method: "GET", cache: "no-store", credentials: "same-origin", signal: controller.signal })
       .then(async (response) => {
@@ -84,12 +82,10 @@ export function AdminVisualLibraryEditor({
   };
 
   const valid = Boolean(validateBannerDraft(draft, original));
-  const originalTexts = draft.eyebrow === original.eyebrow &&
-    draft.title === original.title && draft.description === original.description &&
-    draft.ctaLabel === original.ctaLabel;
-  const publishAllowed = publishTarget !== null && originalTexts &&
+  const publishAllowed = publishTarget !== null &&
     draft.scope === "one" && canConfirmAllUses &&
-    knownUses === 1 && !dirty && server !== null && valid;
+    knownUses === 1 && !dirty && server !== null && valid &&
+    (!banner.photoTone || draft.background === "original");
 
   const previewStyle = {
     "--visual-library-bg": banner.photoTone ? undefined : backgroundValues[draft.background],
@@ -138,8 +134,8 @@ export function AdminVisualLibraryEditor({
       setServer(result.draft);
       setConfirmed(false);
       setStatus(action === "publish"
-        ? "Desktopové farby boli publikované pre potvrdenú URL. Mobilné farby a texty zostali pôvodné."
-        : "Publikované desktopové farby boli vrátené na pôvodné.");
+        ? "Desktopové texty a farby boli publikované pre potvrdenú URL. Mobilné farby a texty zostali pôvodné."
+         : "Publikované desktopové texty a farby boli vrátené na pôvodné.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Akcia zlyhala.");
     } finally { setBusy(false); }
@@ -163,7 +159,7 @@ export function AdminVisualLibraryEditor({
       "Popis: " + draft.description, "Text tlačidla: " + draft.ctaLabel,
       "Pozadie: " + BACKGROUND_OPTIONS[draft.background],
       "Farba tlačidla: " + BUTTON_OPTIONS[draft.button],
-      "Zachovať nezmenený mobil; texty nasadiť až po vyriešení desktop-only variantu.",
+      "Mobilné texty a farby zostávajú pôvodné. Zmeny platia iba na desktope.",
     ].join("\n");
     try {
       await navigator.clipboard.writeText(instructions);
@@ -178,7 +174,7 @@ export function AdminVisualLibraryEditor({
           <h4>Jednoduchá úprava</h4>
           <p>Texty a farby si najprv pozri v náhľade. Návrh možno bezpečne uložiť na server.</p>
         </div>
-        <span className={styles.readOnly}>{server?.published ? "Desktopové farby publikované" : "Návrh"}</span>
+        <span className={styles.readOnly}>{server?.published ? "Desktopové zmeny publikované" : "Návrh"}</span>
       </div>
       <div className={styles.editorFields}>
         <label>Malý nadpis
@@ -217,7 +213,7 @@ export function AdminVisualLibraryEditor({
 
       <p className={styles.editorScope}>
         Evidovaných výskytov: {knownUses}{canConfirmAllUses ? "." : " (neúplný zoznam)."}
-        {" "}Priame publikovanie je povolené iba pre overený samostatný banner, keď sa nemenia jeho texty a rozsah je „Len tento banner“.
+        {" "}Priame publikovanie je povolené iba pre overený samostatný banner a rozsah „Len tento banner“. Desktopové texty môžeš zmeniť, mobil zostane pôvodný.
       </p>
       <strong className={styles.editorPreviewTitle}>Náhľad zmien – desktop</strong>
       <div className={styles.editorPreview} style={previewStyle}>
@@ -247,19 +243,19 @@ export function AdminVisualLibraryEditor({
         {publishTarget ? (
           <>
             <p>Overené umiestnenie: <a target="_blank" rel="noopener noreferrer" href={publishTarget}>{publishTarget}</a></p>
-            <p>Publikujeme iba <strong>desktopové farby</strong>. Mobilné farby a všetky pôvodné texty ostávajú nezmenené.</p>
-            {!originalTexts && <p className={styles.pending}>Zmenil si texty. Ulož návrh, ale farby možno publikovať až po vrátení textov do pôvodného stavu.</p>}
+            <p>Publikujeme iba <strong>desktopové texty a farby</strong>. Mobilné texty aj farby ostanú pôvodné.</p>
+            {banner.photoTone && draft.background !== "original" && <p className={styles.pending}>Fotografickému banneru nie je možné meniť pozadie. Vyber pôvodné pozadie.</p>}
             <label className={styles.publishConfirm}>
               <input type="checkbox" checked={confirmed} disabled={busy || loading}
                 onChange={(event) => setConfirmed(event.target.checked)}/>
-              Potvrdzujem zmenu iba na uvedenej URL a iba pre desktop.
+              Potvrdzujem textové a farebné zmeny iba na uvedenej URL a iba pre desktop.
             </label>
             <div className={styles.editorActions}>
               <button type="button" className={styles.editorSave} disabled={busy || loading || !confirmed || !publishAllowed}
-                onClick={() => void release("publish")}>Publikovať desktopové farby</button>
+                onClick={() => void release("publish")}>Publikovať texty a farby na desktope</button>
               {server?.published && (
                 <button type="button" className={styles.moreButton} disabled={busy || loading || !confirmed}
-                  onClick={() => void release("revert")}>Vrátiť publikované farby</button>
+                  onClick={() => void release("revert")}>Vrátiť publikované texty a farby</button>
               )}
             </div>
           </>
