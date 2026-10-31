@@ -95,7 +95,7 @@ test("explicit publication only changes editorial fields after reviewing an attr
     init = normalizeNotionMockInit(init);
     if (isSchema(url)) return json(schema);
     calls.push({ url, init });
-    if (!init.method) return json(page());
+    if (init.method === "GET") return json(page());
     if (init.method === "PATCH") return json(page({
       "Stav": select("Publikované"), "Psipedia stav": select("Publikované"),
     }));
