@@ -2,7 +2,7 @@ import { AlertCircleIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
 import { PublicActionLink } from "./public-visual-system";
 import { PublicPhotoCallout, type PublicPhotoCalloutData } from "./public-photo-callout";
-import { helpClosingPromo, lostFoundSubmitPromo } from "@/lib/help-banner-presets";
+import { helpClosingPromo } from "@/lib/help-banner-presets";
 import { HELP_CLOSING_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
 export { lostFoundSubmitPromo } from "@/lib/help-banner-presets";
 import styles from "./public-help-banner.module.css";
