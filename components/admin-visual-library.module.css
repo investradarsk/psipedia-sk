@@ -108,3 +108,29 @@
 .suggestion:focus-visible,.compareControls select:focus-visible,.compareAction button:focus-visible{outline:3px solid #b44939;outline-offset:2px}
 @media(max-width:820px){.comparisonGrid{grid-template-columns:1fr}}
 @media(max-width:620px){.compareControls{grid-template-columns:1fr}.suggestionList{grid-template-columns:1fr}}
+
+/* Stage 6: safe desktop-only draft editor; no public CSS or mobile changes. */
+.editor{display:grid;gap:13px;padding:16px;background:#f9fbf7;border:1px solid #cdddcf;border-radius:12px}
+.editorHeading{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.editorHeading h4{margin:0 0 5px;font-size:1.02rem}
+.editorHeading p{margin:0;font-size:.82rem;line-height:1.5;color:#556b5a}
+.editorFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.editorFields label{display:grid;gap:5px;min-width:0;color:#31503e;font-size:.81rem;font-weight:750}
+.editorFields input,.editorFields textarea,.editorFields select{width:100%;min-width:0;box-sizing:border-box;padding:9px 11px;border:1px solid #b8cbb9;border-radius:9px;color:#294d36;background:#fff;font:inherit}
+.editorFields textarea{resize:vertical}
+.editorFields input:focus-visible,.editorFields textarea:focus-visible,.editorFields select:focus-visible,.editorActions button:focus-visible{outline:3px solid #b44939;outline-offset:2px}
+.editorFields select:disabled{color:#8b9890;background:#f1f1ef;cursor:not-allowed}
+.editorFields small{color:#617266;font-size:.74rem;line-height:1.5;font-weight:400}
+.editorWide{grid-column:1/-1}
+.editorScope{margin:0;color:#6b532e;background:#fff9ed;border:1px solid #f0e1bb;padding:11px 12px;border-radius:9px;font-size:.81rem;line-height:1.55}
+.editorPreviewTitle{font-size:.9rem}
+.editorPreview{border:1px dashed #afc3b0;border-radius:10px;background:#f1f5ed;overflow:hidden;padding:12px}
+.editorPreview :global(.home-magazine-banner:not([data-public-photo-callout="care"]):not([data-public-photo-callout="rescue"]):not([data-public-photo-callout="volunteer"]):not([data-public-photo-callout="closing"])){background:var(--visual-library-bg,linear-gradient(110deg,var(--sage-light),var(--paper)))}
+.editorPreview :global(.home-magazine-banner .button.button--dark){background:var(--visual-library-button,var(--forest-dark));border-color:var(--visual-library-button,var(--forest-dark));color:#fff}
+.editorPreview :global(.home-magazine-banner[data-public-photo-callout] .button.button--dark){background:var(--visual-library-button,#fff);border-color:var(--visual-library-button,#fff);color:var(--visual-library-button,#174b38)}
+.editorActions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.editorActions button{min-height:40px;cursor:pointer}
+.editorActions button:disabled{cursor:not-allowed;opacity:.65}
+.editorSave{background:#22543c;color:#fff;border:1px solid #22543c;border-radius:9px;font:inherit;font-size:.84rem;font-weight:750;padding:10px 14px}
+.editorMessage{margin:0;color:#4e6c58;font-size:.8rem;line-height:1.5}
+@media(max-width:620px){.editorFields{grid-template-columns:1fr}.editorHeading{flex-direction:column}}
