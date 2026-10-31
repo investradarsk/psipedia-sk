@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   $createLineBreakNode, $createParagraphNode, $createTextNode, $getRoot,
   $getSelection, $isLineBreakNode, $isParagraphNode, $isRangeSelection,
-  $isTextNode, FORMAT_TEXT_COMMAND, type EditorState, type LexicalEditor,
-  type LexicalNode, type ElementNode,
+  $isTextNode, $applyNodeReplacement, ElementNode, FORMAT_TEXT_COMMAND,
+  type EditorConfig, type EditorState, type LexicalEditor, type LexicalNode, type SerializedElementNode,
 } from "lexical";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -31,6 +31,45 @@ import styles from "./admin-lexical-rich-text-editor.module.css";
 
 const empty: EditorialRichTextDocument = { version: EDITORIAL_RICH_TEXT_VERSION, type: "doc", content: [] };
 
+type CalloutTone = "info" | "tip" | "warning";
+
+/** The existing editorial callout is preserved in the Lexical model and AST. */
+class EditorialCalloutNode extends ElementNode {
+  __tone: CalloutTone;
+  constructor(tone: CalloutTone = "tip", key?: string) {
+    super(key);
+    this.__tone = tone;
+  }
+  static getType(): string { return "editorial-callout"; }
+  static clone(node: EditorialCalloutNode): EditorialCalloutNode {
+    return new EditorialCalloutNode(node.__tone, node.__key);
+  }
+  createDOM(_config: EditorConfig): HTMLElement {
+    const element = document.createElement("div");
+    element.dataset.editorialCallout = this.__tone;
+    element.className = "admin-lexical-callout";
+    return element;
+  }
+  updateDOM(prev: EditorialCalloutNode, element: HTMLElement): boolean {
+    if (prev.__tone !== this.__tone) element.dataset.editorialCallout = this.__tone;
+    return false;
+  }
+  exportJSON(): SerializedElementNode & { tone: CalloutTone } {
+    return { ...super.exportJSON(), type: "editorial-callout", version: 1, tone: this.__tone };
+  }
+  static importJSON(data: SerializedElementNode & { tone?: CalloutTone }): EditorialCalloutNode {
+    return new EditorialCalloutNode(data.tone === "info" || data.tone === "warning" ? data.tone : "tip");
+  }
+  getTone(): CalloutTone { return this.getLatest().__tone; }
+}
+function $createCalloutNode(tone: CalloutTone = "tip") {
+  return $applyNodeReplacement(new EditorialCalloutNode(tone));
+}
+function $isCalloutNode(node: LexicalNode | null | undefined): node is EditorialCalloutNode {
+  return node instanceof EditorialCalloutNode;
+}
+
+
 function appendInline(parent: ElementNode, inline: EditorialRichTextInline[]) {
   for (const node of inline) {
     if (node.type === "hardBreak") { parent.append($createLineBreakNode()); continue; }
@@ -48,7 +87,6 @@ function loadDocument(documentValue: EditorialRichTextDocument) {
   const root = $getRoot();
   root.clear();
   for (const block of documentValue.content) {
-    if (block.type === "callout") continue; // Unsupported AST uses original editor.
     if (block.type === "bulletList" || block.type === "orderedList") {
       const list = $createListNode(block.type === "bulletList" ? "bullet" : "number");
       for (const inline of block.items) { const item = $createListItemNode(); appendInline(item, inline); list.append(item); }
@@ -56,7 +94,8 @@ function loadDocument(documentValue: EditorialRichTextDocument) {
       continue;
     }
     const element = block.type === "heading" ? $createHeadingNode(block.level === 3 ? "h3" : "h2")
-      : block.type === "blockquote" ? $createQuoteNode() : $createParagraphNode();
+      : block.type === "blockquote" ? $createQuoteNode()
+      : block.type === "callout" ? $createCalloutNode(block.tone) : $createParagraphNode();
     appendInline(element, block.content);
     root.append(element);
   }
@@ -94,6 +133,9 @@ function readDocument(): EditorialRichTextDocument {
     } else if ($isQuoteNode(node)) {
       const contentInline = readInline(node.getChildren());
       if (contentInline.length) content.push({ type: "blockquote", content: contentInline });
+    } else if ($isCalloutNode(node)) {
+      const inline = readInline(node.getChildren());
+      if (inline.length) content.push({ type: "callout", tone: node.getTone(), content: inline });
     } else if ($isParagraphNode(node)) {
       const contentInline = readInline(node.getChildren());
       if (contentInline.length) content.push({ type: "paragraph", content: contentInline });
@@ -184,7 +226,7 @@ export function AdminLexicalRichTextEditor({
   const initialConfig = {
     namespace: "PsipediaArticleLexical",
     theme: {},
-    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode],
+    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, EditorialCalloutNode],
     onError: (error: Error) => console.error("Lexical rich-text:", error),
     editorState: () => loadDocument(normalized),
   };
