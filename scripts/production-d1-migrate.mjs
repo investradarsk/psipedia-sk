@@ -36,6 +36,7 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 }
 // Migration 0142 remains owner-dispatched through the existing protected production workflow.
 // 0146 remains owner-dispatched only: PR merge does not run the protected migration.
+// 0147 Notion field authority also requires a separate owner-dispatched protected D1 migration.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
@@ -278,6 +279,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0144_facebook_articles_shared_calendar.sql",
   "0145_notion_webhook_inbox.sql",
   "0146_help_source_daily_checks.sql",
+  "0147_notion_field_authority.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1499,6 +1501,9 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0146_help_source_daily_checks.sql") {
     return { partial: HELP_SOURCE_0146_OBJECTS.some(name => names.has(name)) };
+  }
+  if (targetMigration === "0147_notion_field_authority.sql") {
+    return { partial: names.has("notion_field_authority") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2865,7 +2870,28 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 144) assertFacebookArticles0144Schema(schema);
   if (migrationIndex(targetMigration) >= 145) assertNotionWebhookInbox0145Schema(schema);
   if (migrationIndex(targetMigration) >= 146) assertHelpSource0146Schema(schema);
+  if (migrationIndex(targetMigration) >= 147) assertNotionFieldAuthority0147Schema(schema);
 }
+
+/** 0147 must remain a small, additive-only configuration table.
+ * Settings are read by the two selected adapters; no canonical content moves.
+ */
+export function assertNotionFieldAuthority0147Schema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const table = objects.get("notion_field_authority");
+  invariant(table?.type === "table", "0147 authority table missing");
+  const sql = String(table.sql ?? "").replace(/\s+/g, " ");
+  invariant(/scope TEXT NOT NULL/i.test(sql) && /field_key TEXT NOT NULL/i.test(sql),
+    "0147 field identity columns missing");
+  invariant(/mode TEXT NOT NULL CHECK\s*\(\s*mode IN\s*\(\s*'safe'\s*,\s*'notion'\s*,\s*'admin'\s*,\s*'latest'\s*\)\s*\)/i.test(sql),
+    "0147 authority mode whitelist drift");
+  invariant(/PRIMARY KEY\s*\(\s*scope\s*,\s*field_key\s*\)/i.test(sql),
+    "0147 authority composite identity missing");
+  invariant(/updated_by TEXT NOT NULL/i.test(sql) && /updated_at TEXT NOT NULL/i.test(sql),
+    "0147 authority audit columns missing");
+  return true;
+}
+
 
 /** Exact 0139 Services V3 journal, including append-only no-delete/rewrite guarantees. */
 export function assertServicesV3Auto0139Schema(schema){

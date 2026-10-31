@@ -68,10 +68,14 @@ test("contact actions and help options remain operable; absent data creates no e
 test("Admin Help keeps bulk selection page-scoped and publishes only the current view without writing local D1", async ({ page }) => {
   await page.goto("/admin/pomoc?q=E2E+bulk&status=draft", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
-  await expect(page.locator(".admin-help-row")).toHaveCount(50);
+  // AdminHelpDashboard now renders the shared AdminRecordTable instead of
+  // legacy .admin-help-row elements. Scope row assertions to the Help table.
+  const table = page.getByRole("region", { name: "Prípady Pomoci psom – tabuľka" });
+  const rows = table.locator('[data-testid="admin-record-row"]');
+  await expect(rows).toHaveCount(50);
   await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 65");
 
-  const rowChecks = page.locator(".admin-help-row [data-help-row-select]");
+  const rowChecks = rows.locator("[data-help-row-select]");
   await rowChecks.nth(0).check();
   await expect(page.getByText("Označené: 1", { exact: true })).toBeVisible();
   await rowChecks.nth(1).check();
@@ -86,7 +90,7 @@ test("Admin Help keeps bulk selection page-scoped and publishes only the current
   await expect(page.getByText("Výber patrí iba aktuálnej filtrovanej strane.", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Ďalšia →", exact: true }).click();
-  await expect(page.locator(".admin-help-row")).toHaveCount(15);
+  await expect(rows).toHaveCount(15);
   await expect(page.getByText("Označené: 0", { exact: true })).toBeVisible();
 
   await page.getByLabel("Označiť všetky na tejto strane", { exact: true }).check();

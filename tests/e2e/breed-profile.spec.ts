@@ -66,6 +66,11 @@ test("breed atlas: compact header, legacy energy normalization, filters and comp
   await expect(page.getByRole("button", { name: "Aktívne" })).toHaveCount(0);
 
   const search = page.getByPlaceholder("Hľadať plemeno, krajinu alebo FCI skupinu");
+  // Breed search uses a native GET textbox without autocomplete suggestions.
+  // It must not inherit combobox ARIA attributes from the shared search widget.
+  await expect(search).not.toHaveAttribute("aria-expanded");
+  await expect(search).not.toHaveAttribute("aria-autocomplete");
+  await expect(search).not.toHaveAttribute("aria-controls");
   await search.fill("labrador");
   await expect(page.locator(".breed-card")).toHaveCount(1);
   await expect(page).toHaveURL(/q=labrador/);

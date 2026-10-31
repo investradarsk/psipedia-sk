@@ -97,13 +97,25 @@ export function PublicSearchSuggestions({
   useEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    // Attach to the existing forms instead of replacing their native submit behavior.
-    // Keep the native textbox role: existing header keyboard and accessibility
-    // contracts locate this control as a textbox, not a combobox.
+    // Section-scoped search forms do not render suggestions; leave their native
+    // textboxes free of references to a nonexistent suggestions list.
+    if (!enabled) {
+      input.removeAttribute("aria-autocomplete");
+      input.removeAttribute("aria-controls");
+      input.removeAttribute("aria-expanded");
+      input.removeAttribute("aria-activedescendant");
+      return;
+    }
+    // Preserve the native textbox role used by existing search forms. A textbox
+    // supports aria-autocomplete, but aria-expanded is only valid for comboboxes.
     input.setAttribute("aria-autocomplete", "list");
-    input.setAttribute("aria-controls", listId);
-    input.setAttribute("aria-expanded", String(isOpen));
-    if (isOpen && selected >= 0 && selected < suggestions.length) {
+    input.removeAttribute("aria-expanded");
+    if (isOpen && status === "ready" && suggestions.length > 0) {
+      input.setAttribute("aria-controls", listId);
+    } else {
+      input.removeAttribute("aria-controls");
+    }
+    if (isOpen && status === "ready" && selected >= 0 && selected < suggestions.length) {
       input.setAttribute("aria-activedescendant", `${listId}-item-${selected}`);
     } else {
       input.removeAttribute("aria-activedescendant");
@@ -111,7 +123,7 @@ export function PublicSearchSuggestions({
     return () => {
       input.removeAttribute("aria-activedescendant");
     };
-  }, [inputRef, listId, isOpen, selected, suggestions.length]);
+  }, [inputRef, enabled, listId, isOpen, status, selected, suggestions.length]);
 
   useEffect(() => {
     const input = inputRef.current;

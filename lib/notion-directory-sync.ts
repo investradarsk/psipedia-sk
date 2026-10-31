@@ -47,6 +47,7 @@ import { canRecoverNotionDirectoryMapping, directorySyncErrorMetadataNeedsWrite,
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
+import { readNotionFieldAuthorities } from "@/lib/notion-field-authority";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -1223,9 +1224,14 @@ async function syncMappedPage(input: {
     for (const field of ["region", "district", "city", "address", "postalCode",
       "street", "houseNumber", "addressFormat"]) protectedFields.add(field);
   }
+  // User-configured authority is scoped to the canonical category, never
+  // the Notion-editable title/category. All hard protected fields still win.
+  const fieldAuthorities = await readNotionFieldAuthorities(
+    input.database, "directory:" + profile.category,
+  );
   const resolution = reconcileProfileFields({
     baseline, notion: notionEditorial, psipedia: canonicalSnapshot, protectedFields,
-    canonicalFieldsWin: true,
+    canonicalFieldsWin: true, authorities: fieldAuthorities,
   });
   if (resolution.kind === "CONFLICT") {
     throw new Error("CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (" +

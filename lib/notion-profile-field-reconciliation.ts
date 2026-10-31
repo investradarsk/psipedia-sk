@@ -86,6 +86,8 @@ export function reconcileProfileFields(input: {
   verifiedDeletes?: ReadonlySet<string>;
   /** Optional agenda-specific canonical value equality; does not rewrite data. */
   equalField?: (path: string, left: unknown, right: unknown) => boolean;
+  /** Per-field operator authority; never overrides protectedFields or baseline checks. */
+  authorities?: Readonly<Record<string, "safe" | "notion" | "admin" | "latest">>;
 }): FieldResolution {
   const merged = structuredClone(input.psipedia);
   if (!input.baseline) return {
@@ -116,16 +118,22 @@ export function reconcileProfileFields(input: {
       }
       continue;
     }
+    const authority = input.authorities?.[path] ?? "safe";
+    // Explicit user decisions apply only to non-protected, baseline-verified
+    // fields. Admin priority keeps the canonical value on both sides.
+    if (authority === "admin") continue;
     if ((n && !blank(base[path]) && blank(remote[path]) && !input.verifiedDeletes?.has(`notion:${path}`))
       || (p && !blank(base[path]) && blank(local[path]) && !input.verifiedDeletes?.has(`psipedia:${path}`))) {
       conflicts.push({ field: path, reason: "UNVERIFIED_DELETE" });
       continue;
     }
-    if (n && p && !equal(path, remote[path], local[path])) {
+    // 'latest' deliberately refuses to guess from record-level timestamps:
+    // if both sides edited the same field, there is no verified field revision.
+    if (n && p && !equal(path, remote[path], local[path]) && authority !== "notion") {
       conflicts.push({ field: path, reason: "AMBIGUOUS_SAME_FIELD" });
       continue;
     }
-    if (n) setLeaf(merged, path, remote[path]);
+    if (n || (authority === "notion" && p)) setLeaf(merged, path, remote[path]);
   }
   return {
     kind: conflicts.length ? "CONFLICT" : notionFields.length || psipediaFields.length ? "MERGE" : "UNCHANGED",
