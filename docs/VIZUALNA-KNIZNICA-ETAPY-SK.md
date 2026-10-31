@@ -18,6 +18,18 @@
 - Ak D1, témy alebo niektoré záznamy zlyhajú, systém to označí ako nedostupný/neúplný výsledok. Pri viac ako 2 000 článkoch tiež uvedie, že ide o čiastočný výsledok.
 - Používanie na homepage a v atlase zostáva zatiaľ ručne overené v kóde. Detekcia dynamických profilov zostáva ďalšou úlohou.
 
+## Etapa 3 – presné pozície + Pomoc psom
+
+- Všetky už evidované bannery dostávajú stabilné HTML ukotvenia (anchor ID) na verejnej stránke. Kliknutie „Otvoriť umiestnenie“ otvorí **konkrétnu pozíciu** podľa URL s `#...`, nie iba začiatok stránky.
+- Každý ručne vložený článkový promo blok dostane odkaz odvodený od svojho existujúceho ID. Presúvanie bloku v článku neporuší odkaz. Rovnaký banner vložený dvakrát má dva samostatné odkazy.
+- Automatické promo v detaile článku a v prehľade `/clanky` má oddelené ukotvenie. Zoznam naďalej rozlišuje pevné a dnešné automatické použitia.
+- Na `/pomoc-psom` pribudlo 5 reálnych promo bannerov (nahlásenie strateného/nájdeného psa, príprava na adopciu, pomoc psovi v núdzi, dobrovoľníctvo, záverečná výzva). Všetky sa dajú otvoriť priamo na konkrétnej pozícii.
+- Texty bannerov Pomoc psom boli presunuté do jedného zdieľaného súboru `lib/help-banner-presets.ts`, ktorý číta verejná stránka aj admin; tým sa predchádza rozdielom medzi náhľadom a produkciou.
+- Existujúce CSS, farby, rozloženie aj mobil zostávajú bez zásahu. Iba read-only evidencia a HTML ukotvenia.
+- Testy kontrolujú zhodu ID v galérii aj verejných komponentoch.
+
+Poznámka: obsahové bannery sa môžu meniť podľa dňa alebo dát. Výpis zachytáva aktuálne pravidlá a publikované záznamy v čase skenovania, nie historické zobrazenia. Ďalšia etapa doplní širší katalóg (Hero, CTA, karty) a presné URL ďalších dynamických stránok.
+
 ## Plán pokračovania v tomto jedinom PR
 
 1. **Hotovo pre články:** aktuálne publikované URL, pevne vložené a automatické dnešné promo; ďalšia úloha je história/alternatívne rotujúce varianty a URL dynamických profilov.
