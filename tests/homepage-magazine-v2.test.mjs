@@ -73,7 +73,7 @@ test("banners point to protected existing partner paths, hero stays high priorit
   // Homepage now uses the canonical shared hero; the same high-priority
   // image loading guarantee belongs to its renderer rather than app/page.tsx.
   assert.match(home, /<UnifiedSectionHero/);
-  assert.match(unifiedHero, /fetchPriority=\\{variant === "homepage-style" \\? "high" : undefined\\}/);
+  assert.ok(unifiedHero.includes('fetchPriority={variant === "homepage-style" ? "high" : undefined}'));
   assert.match(
     css,
     /@media \(max-width: 620px\)[\s\S]*\.hero-section\.shell\)[\s\S]*width: 100vw;/,
