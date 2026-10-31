@@ -86,7 +86,8 @@ test("help no longer owns a second horizontal shell system", () => {
   // The photographic Help CTA now delegates to the homepage's one shared banner
   // instead of shipping its own page container and banner CSS.
   assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /<PublicMagazineBanner/);
-  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /ps-public-banner-frame/);
+  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /<PublicBannerFrame as="section"/);
+  assert.match(read("components/public-visual-system/public-banner-frame.tsx"), /ps-public-banner-frame/);
   assert.match(helpBrowser, /<PageContainer className=\{styles\.results\}>/);
   // Help category data feeds the canonical public subcategory navigator.
   const category = read("components/public-visual-system/public-help-category-nav.tsx");
