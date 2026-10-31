@@ -2,7 +2,7 @@
 import { useCallback,useEffect,useMemo,useState } from "react";
 import styles from "./admin-notion-field-settings.module.css";
 type Mode="safe"|"notion"|"admin"|"latest";
-type Field={id:string;label:string;locked?:boolean;note?:string};
+type Field={id:string;label:string;notionLabel?:string;locked?:boolean;note?:string};
 type Group={scope:string;title:string;family:string;active:boolean;fields:Field[]};
 type Result={ready:boolean;groups:Group[];rules:Record<string,Mode>;note:string};
 const labels:Record<Mode,string>={
@@ -132,9 +132,10 @@ export function AdminNotionFieldSettings(){
       {group?<div className={styles.details}>
         <header><h2>{group.title}</h2><p>{group.active?"Nastaviteľné polia existujúcej synchronizácie.":"Prehľad pevne určených pravidiel (zatiaľ bez editácie)."}</p></header>
         <div className={styles.tableWrap}><table className={styles.table}>
-          <thead><tr><th>Pole</th><th>Priorita</th></tr></thead>
+          <thead><tr><th>Pole v Admine</th><th>Prepojenie v Notione</th><th>Priorita</th></tr></thead>
           <tbody>{group.fields.map(field=><tr key={field.id}>
             <td><strong>{field.label}</strong>{field.note?<small>{field.note}</small>:null}</td>
+            <td>{field.notionLabel??(field.locked?'Pevné systémové pravidlo':field.label)}</td>
             <td>{field.locked||!group.active?
               <span className={styles.fixed}>Chránené / pevné pravidlo</span>:
               <select aria-label={"Priorita: "+field.label}

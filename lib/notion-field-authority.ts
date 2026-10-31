@@ -6,7 +6,7 @@ export const NOTION_FIELD_MODES = ["safe", "notion", "admin", "latest"] as const
 export type NotionFieldMode = (typeof NOTION_FIELD_MODES)[number];
 export type NotionAuthorityGroup = {
   scope: string; title: string; family: string; active: boolean;
-  fields: ReadonlyArray<{ id: string; label: string; locked?: boolean; note?: string }>;
+  fields: ReadonlyArray<{ id: string; label: string; notionLabel?: string; locked?: boolean; note?: string }>;
 };
 
 const breedLabels: Record<string, string> = {
@@ -34,6 +34,15 @@ const directoryLabels: Record<string, string> = {
   facebookUrl:"Facebook", instagramUrl:"Instagram",
   "seo.title":"SEO title", "seo.description":"Meta description",
 };
+const directoryNotionNames: Record<string,string> = {
+  name:"Názov",excerpt:"Perex",description:"Popis",
+  qualifications:"Kvalifikácie",region:"Kraj",district:"Okres",
+  city:"Mesto",address:"Adresa",postalCode:"PSČ",street:"Ulica",
+  houseNumber:"Číslo domu",addressFormat:"Formát adresy",
+  priceNote:"Cena / poznámka",websiteUrl:"Web",
+  publicPhone:"Telefón",publicEmail:"E-mail",facebookUrl:"Facebook",
+  instagramUrl:"Instagram","seo.title":"SEO title","seo.description":"SEO popis",
+};
 const lockedDirectoryFields = [
   {id:"slug", label:"Slug a identita",locked:true,note:"Nemenná identita profilu"},
   {id:"status",label:"Publikovanie",locked:true,note:"Výhradne Admin"},
@@ -42,10 +51,11 @@ const lockedDirectoryFields = [
 ] as const;
 export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
   {scope:"breeds",title:"Plemená",family:"Obsah",active:true,
-    fields:BREED_NOTION_EDITABLE_FIELDS.map(id=>({id,label:breedLabels[id]??id}))},
+    fields:BREED_NOTION_EDITABLE_FIELDS.map(id=>({id,label:breedLabels[id]??id,
+      notionLabel:id==='intro'?'Intro':breedLabels[id]??id}))},
   ...directoryCategories.map(category=>({
     scope:"directory:"+category.slug,title:category.label,family:"Služby pre psov",active:true,
-    fields:[...Object.entries(directoryLabels).map(([id,label])=>({id,label})), ...lockedDirectoryFields],
+    fields:[...Object.entries(directoryLabels).map(([id,label])=>({id,label,notionLabel:directoryNotionNames[id]??label})), ...lockedDirectoryFields],
   })),
   {scope:"service-catalog",title:"Katalóg služieb V3",family:"Služby pre psov",active:false,
     fields:[{id:"canonical-services",label:"Kanonické služby",locked:true,note:"Admin/D1 zostáva nadradený; Notion je iba mirror"}]},
