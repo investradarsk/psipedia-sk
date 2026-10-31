@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+// Shared public UI regressions run with the existing required hero test suite.
+import "./public-design-system-v1.test.mjs";
+import "./public-component-css-unification.test.mjs";
 import test from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
