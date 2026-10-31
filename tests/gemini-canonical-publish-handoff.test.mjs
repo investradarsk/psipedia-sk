@@ -279,8 +279,8 @@ test("Events and Help native publication uses D1-led writeback only after verifi
   const map = branch.indexOf("await saveMapping({");
   assert.ok(write >= 0 && echo > write && map > echo,
     "Never acknowledge a Notion mirror state before checking the actual written editorial payload");
-  assert.match(branch,/const protectedFields = new Set\(\[/);
-  assert.match(branch,/"Stav", "Psipedia stav"/);
+  assert.match(branch,/const protectedFields = fixedNotionAgendaFields\(agenda\)/);
+  assert.match(source,/import \{ readNotionFieldAuthorities, fixedNotionAgendaFields \}/);
   assert.match(branch,/await applyNotionToCanonical\(agenda, entityId, merged, input.database\)/);
   for (const item of geminiAutomationCatalog.filter(item => item.section !== "directory")) {
     assert.ok(geminiAgendaForKey(item.stableKey), item.stableKey);
