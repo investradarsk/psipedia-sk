@@ -5,6 +5,7 @@ import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon } from "@/components/icons";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { BREED_CLUBS_BANNER_ANCHOR, HERO_BREEDS_ANCHOR } from "@/lib/visual-library-anchors";
+import { getPublishedDesktopBannerColors } from "@/lib/visual-library-edit-store";
 import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContentShell,
@@ -37,10 +38,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export const dynamic = "force-dynamic";
 
 export default async function BreedsPage({ searchParams }: Props) {
-  const [portalSection, breeds, heroVisual] = await Promise.all([
+  const [portalSection, breeds, heroVisual, breedClubBannerColors] = await Promise.all([
     getManagedPortalSection("plemena"),
     listPublishedCanonicalBreedAtlasCards(),
     getSectionHeroVisual("section.plemena"),
+    getPublishedDesktopBannerColors("plemena:kluby"),
   ]);
   const rawSearchParams = await searchParams;
   const breedSection = portalSection ?? portalSections.find((section) => section.slug === "plemena") ?? null;
@@ -99,6 +101,7 @@ export default async function BreedsPage({ searchParams }: Props) {
                   Porovnať plemená <ArrowIcon size={17} />
                 </Link>
                 <PublicMagazineBanner
+                  desktopColors={breedClubBannerColors}
                   anchorId={BREED_CLUBS_BANNER_ANCHOR}
                   eyebrow="Kluby plemien"
                   title="Nájdi klub svojho plemena"
