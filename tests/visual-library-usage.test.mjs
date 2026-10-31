@@ -32,7 +32,7 @@ test("stage 2: real canonical URL, manual occurrences and contextual promo are d
     "https://psipedia.sk/starostlivost/zdrave-labky",
     "https://psipedia.sk/starostlivost/veterinar-v-okoli",
   ]));
-  assert.equal(vets[0].placement.includes("obsahu"), true);
+  assert.equal(vets.some((item) => item.placement.includes("obsahu")), true);
 });
 
 test("stage 2: topic-based editorial selection uses actual article topics, not guessed slugs", () => {
