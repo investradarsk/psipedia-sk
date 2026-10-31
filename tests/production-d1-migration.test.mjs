@@ -168,6 +168,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0145_notion_webhook_inbox.sql",
     "0146_help_source_daily_checks.sql",
     "0147_notion_field_authority.sql",
+    "0148_services_builtin_admin_overrides.sql",
   ]);
 });
 
