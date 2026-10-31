@@ -170,7 +170,7 @@ function RichTextBridge({ value, onChange }: { value: EditorialRichTextDocument;
   return <OnChangePlugin onChange={handle} ignoreSelectionChange />;
 }
 
-function Toolbar({ allowHeadings, allowCallouts }: { allowHeadings: boolean; allowCallouts: boolean }) {
+function Toolbar({ id, allowHeadings, allowCallouts }: { id: string; allowHeadings: boolean; allowCallouts: boolean }) {
   const [editor] = useLexicalComposerContext();
   const [showLink, setShowLink] = useState(false);
   const [linkUrl, setLinkUrl] = useState("https://");
@@ -256,8 +256,8 @@ function Toolbar({ allowHeadings, allowCallouts }: { allowHeadings: boolean; all
       {allowCallouts && action("Tip", () => setBlock("tip"), "Tip alebo zvýraznenie", active.callout)}
       {showLink && (
         <div className={styles.link}>
-          <label htmlFor="lexical-editor-link">Odkaz</label>
-          <input id="lexical-editor-link" value={linkUrl} placeholder="https://… alebo /interny-odkaz"
+          <label htmlFor={`${id}-link`}>Odkaz</label>
+          <input id={`${id}-link`} value={linkUrl} placeholder="https://… alebo /interny-odkaz"
             onChange={(event) => { setLinkUrl(event.target.value); setLinkError(""); }}
             onKeyDown={(event) => {
               if (event.key === "Enter") { event.preventDefault(); applyLink(); }
@@ -291,7 +291,7 @@ export function AdminLexicalRichTextEditor({
     <div className={styles.wrapper} data-admin-lexical-rich-text data-admin-rich-text-editor>
       <LexicalComposer initialConfig={initialConfig}>
         <div className={styles.surface} style={{ minHeight }}>
-          <Toolbar allowHeadings={allowHeadings} allowCallouts={allowCallouts} />
+          <Toolbar id={id} allowHeadings={allowHeadings} allowCallouts={allowCallouts} />
           <RichTextPlugin
             contentEditable={<ContentEditable id={id} data-editor-ready="true" className={styles.editor} aria-label={ariaLabel} />}
             placeholder={<span className={styles.placeholder}>{placeholder}</span>}
