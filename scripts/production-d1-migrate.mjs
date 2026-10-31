@@ -2887,11 +2887,11 @@ export function assertBuiltinCatalogOverrides0148Schema(schema) {
   const objects=objectMap(schema.objects??[]);
   const table=objects.get("service_catalog_builtin_overrides");
   invariant(table?.type==="table","0148 built-in override table missing");
-  const sql=String(table.sql??"").replace(/\\s+/g," ");
+  const sql=String(table.sql??"").replace(/\s+/g," ");
   invariant(/option_id TEXT PRIMARY KEY NOT NULL/i.test(sql),"0148 immutable option identity missing");
   invariant(/normalized_label TEXT NOT NULL UNIQUE/i.test(sql),"0148 duplicate label guard missing");
-  invariant(/json_valid\\(categories_json\\)/i.test(sql),"0148 category JSON guard missing");
-  invariant(/version INTEGER NOT NULL CHECK\\(version>=1\\)/i.test(sql),"0148 CAS version guard missing");
+  invariant(/json_valid\(categories_json\)/i.test(sql),"0148 category JSON guard missing");
+  invariant(/version INTEGER NOT NULL CHECK\(version>=1\)/i.test(sql),"0148 CAS version guard missing");
   const expected={
     service_catalog_builtin_overrides_updated_idx:"index",
     service_catalog_builtin_override_audit_insert:"trigger",
