@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Uppy from "@uppy/core";
 import DashboardModal from "@uppy/react/dashboard-modal";
+import sk_SK from "@uppy/locales/lib/sk_SK";
 import { uploadAdminImage, MAX_ADMIN_IMAGE_BYTES, type AdminImageFolder, type AdminImageUpload } from "@/lib/admin-image-upload";
 
 /**
@@ -25,6 +26,7 @@ export function AdminUppyGalleryUpload({
   const [uppy] = useState(() => new Uppy({
     id: "psipedia-gallery-upload",
     autoProceed: false,
+    locale: sk_SK,
     restrictions: {
       maxFileSize: MAX_ADMIN_IMAGE_BYTES,
       allowedFileTypes: ["image/jpeg", "image/png", "image/webp", "image/avif"],
