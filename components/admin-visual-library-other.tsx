@@ -39,7 +39,7 @@ export function AdminVisualLibraryOther({
             <span className={styles.readOnly}>Iba na čítanie</span>
           </div>
           <div className={category === "hero" ? styles.heroPreview : styles.preview}>
-            <div className={styles.previewComponent}>{chosen.preview}</div>
+            <div className={styles.previewComponent} inert>{chosen.preview}</div>
           </div>
           <p className={styles.explanation}>{chosen.explanation}</p>
           <div className={styles.usageHead}>
