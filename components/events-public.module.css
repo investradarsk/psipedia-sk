@@ -2695,3 +2695,42 @@
     margin-top: 16px;
   }
 }
+
+/* Keep dense days (including 3-digit counts) within the narrow left grid.
+   A stable two-track heading avoids badge/date overlap on 768px desktops. */
+@media (min-width: 761px) {
+  .desktopFullCalendar .fullCalendarDayContent {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 52px;
+    padding: 3px;
+  }
+  .desktopFullCalendar .fullCalendarDayHeading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+    gap: 1px;
+  }
+  .desktopFullCalendar .fullCalendarCount {
+    min-width: 15px;
+    height: 16px;
+    padding: 1px 2px;
+    font-size: .55rem;
+    white-space: nowrap;
+    letter-spacing: -.02em;
+  }
+  .desktopFullCalendar .fullCalendarIndicators {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    gap: 1px;
+  }
+  .desktopFullCalendar .fullCalendarIndicators > span {
+    width: 5px;
+    height: 5px;
+    flex: 0 0 5px;
+  }
+  .desktopFullCalendar .fullCalendarIndicators small {
+    font-size: .57rem;
+  }
+}
