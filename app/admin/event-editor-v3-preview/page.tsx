@@ -35,6 +35,14 @@ const publishedFixture: DogEvent = {
   seo: {},
 };
 
+// A real-world legacy case deliberately uses unsupported source spellings.
+// The Lexical adapter must not change these fields on unrelated saves.
+const legacyFixture: DogEvent = {
+  ...publishedFixture,
+  description: "* Starý zoznam\\n3. Netradičné číslovanie".replace("\\n", "\n"),
+  practicalInfo: "[Kontakt](mailto:klub@example.org)",
+};
+
 export default async function EventEditorV3PreviewPage({
   searchParams,
 }: {
@@ -44,7 +52,7 @@ export default async function EventEditorV3PreviewPage({
   const { fixture } = await searchParams;
   return (
     <main style={{ maxWidth: 1440, margin: "0 auto", padding: "0.5rem" }}>
-      <AdminEventEditor event={fixture === "published" ? publishedFixture : undefined} />
+      <AdminEventEditor event={fixture === "published" ? publishedFixture : fixture === "legacy" ? legacyFixture : undefined} />
     </main>
   );
 }
