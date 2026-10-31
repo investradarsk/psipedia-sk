@@ -7,6 +7,7 @@ import {
 } from "@/lib/breed-store";
 import { SITE_URL } from "@/config/public-site";
 import { mergeNotionBreedInput } from "@/lib/breed-sync-preservation";
+import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
 import {
   advanceBreedAdminReceipt, breedFieldSnapshot, parseBreedFieldSnapshot,
@@ -878,6 +879,7 @@ export async function runNotionBreedSyncSweep(args: {
     }
   }
 
+  await recordNotionTransfer(args.database,"breeds","NOTION_TO_ADMIN",summary.created+summary.updated);
   return summary;
 }
 

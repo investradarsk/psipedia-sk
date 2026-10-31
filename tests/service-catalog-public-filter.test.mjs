@@ -16,6 +16,7 @@ function fixture(){
   db.exec("CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,category TEXT,status TEXT,services_json TEXT,source_data_json TEXT)");
   db.exec("CREATE TABLE service_profile_option_choices(profile_id INTEGER,option_id TEXT,choice TEXT)");
   db.exec("CREATE TABLE service_catalog_admin_options(id TEXT PRIMARY KEY,label TEXT,kind TEXT,status TEXT,notion_mirror_status TEXT,categories_json TEXT)");
+  db.exec("CREATE TABLE service_catalog_builtin_overrides(option_id TEXT PRIMARY KEY,label TEXT,categories_json TEXT)");
   const p=db.prepare("INSERT INTO directory_profiles VALUES (?,?,?,?,?)");
   const choice=db.prepare("INSERT INTO service_profile_option_choices VALUES (?,?,?)");
   const opt=db.prepare("INSERT INTO service_catalog_admin_options VALUES (?,?,?,?,?,?)");
@@ -35,8 +36,8 @@ function fixture(){
   opt.run(attrId,"A property","attribute","ACTIVE","SYNCED",'["veterinari"]');
   return {db,close:()=>db.close()};
 }
-function ids(db,raw,category=c,enabled=true){
-  const where=canonicalPublicServiceWhere(category,raw,enabled);
+function ids(db,raw,category=c,enabled=true,builtinOverridesReady=true){
+  const where=canonicalPublicServiceWhere(category,raw,enabled,"directory_profiles",builtinOverridesReady);
   return db.prepare("SELECT id FROM directory_profiles WHERE status='published' AND category=? AND "+
     (where.clauses.length?where.clauses.join(" AND "):"1=1")+" ORDER BY id")
     .all(category,...where.bindings).map(x=>x.id);
@@ -69,10 +70,12 @@ test("available dropdown options only come from published profile explicit YES; 
   const f=fixture();try{
     const rows=f.db.prepare(`
       SELECT DISTINCT choice.option_id AS optionId,opt.label AS label,opt.kind AS kind,opt.status AS status,
-        opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson
+        opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson,
+        builtin.label AS builtinLabel,builtin.categories_json AS builtinCategoriesJson
       FROM service_profile_option_choices AS choice
       JOIN directory_profiles AS profile ON profile.id=choice.profile_id
       LEFT JOIN service_catalog_admin_options AS opt ON opt.id=choice.option_id
+      LEFT JOIN service_catalog_builtin_overrides AS builtin ON builtin.option_id=choice.option_id
       WHERE profile.status='published' AND profile.category=? AND choice.choice='yes' ORDER BY choice.option_id
     `).all(c);
     const result=canonicalPublicServiceOptions(c,rows);
@@ -110,4 +113,30 @@ test("actual public list uses opt-in read-only SQL adapter and never writes to D
  assert.doesNotMatch(adapter,/UPDATE |INSERT |DELETE |NOTION_API_TOKEN/);
  const wrangler=read("wrangler.jsonc");
  assert.equal(JSON.parse(wrangler).vars.SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED,"true");
+});
+
+test("edited original category membership and labels govern public filters without new IDs",()=>{
+ const f=fixture();
+ try{
+   const oldLabel=serviceCatalog.find(s=>s.id===staticId).label;
+   f.db.prepare("INSERT INTO service_profile_option_choices VALUES (?,?,?)").run(7,staticId,"yes");
+   f.db.prepare("INSERT INTO service_catalog_builtin_overrides VALUES (?,?,?)")
+     .run(staticId,"Nový názov pôvodnej služby",'["treneri"]');
+   assert.notEqual(oldLabel,"Nový názov pôvodnej služby");
+   assert.deepEqual(ids(f.db,staticId,c),[]);
+   assert.deepEqual(ids(f.db,staticId,"treneri"),[7]);
+   const rows=f.db.prepare(`
+     SELECT choice.option_id AS optionId,opt.label AS label,opt.kind AS kind,opt.status AS status,
+       opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson,
+       builtin.label AS builtinLabel,builtin.categories_json AS builtinCategoriesJson
+     FROM service_profile_option_choices AS choice
+     JOIN directory_profiles AS profile ON profile.id=choice.profile_id
+     LEFT JOIN service_catalog_admin_options AS opt ON opt.id=choice.option_id
+     LEFT JOIN service_catalog_builtin_overrides AS builtin ON builtin.option_id=choice.option_id
+     WHERE profile.status='published' AND profile.category=? AND choice.choice='yes'
+   `).all("treneri");
+   assert.ok(canonicalPublicServiceOptions("treneri",rows).some(x=>
+     x.id===staticId&&x.label==="Nový názov pôvodnej služby"));
+   assert.ok(!canonicalPublicServiceOptions(c,rows).some(x=>x.id===staticId));
+ }finally{f.close();}
 });

@@ -3,7 +3,8 @@ import Link from "next/link";
 import {AdminShell} from "@/components/admin-shell";
 import {AdminServiceCatalogWorkspace} from "@/components/admin-service-catalog-workspace";
 import {requireAdminPageUser} from "@/lib/admin-auth";
-import {listAdminCatalogOptions} from "@/lib/service-catalog-admin-store";
+import {listAdminCatalogOptions,ServiceCatalogSchemaError} from "@/lib/service-catalog-admin-store";
+import {listBuiltinCatalogOverrides} from "@/lib/service-catalog-builtin-overrides";
 import {catalogEditorItems} from "@/lib/service-catalog-admin-editor-view";
 import {directoryCategories} from "@/lib/directory";
 
@@ -25,18 +26,28 @@ export default async function ServiceCatalogAdminPage(){
     && Boolean(cfg.NOTION_API_TOKEN?.trim());
   const pageCreationEnabled=mirrorEnabled && cfg.SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED==="true";
   let records:Awaited<ReturnType<typeof listAdminCatalogOptions>>=[];
+  let overrides:Awaited<ReturnType<typeof listBuiltinCatalogOverrides>>=[];
+  let overridesReady=false;
   let error:string|null=null;
   if(!cfg.DB)error="Databáza D1 nie je dostupná. Dynamické možnosti neboli načítané.";
   else {
     try{records=await listAdminCatalogOptions(cfg.DB);}
-    catch{error="Dynamické možnosti sa nepodarilo načítať. Katalóg je neúplný.";}
+    catch{error="Dynamické možnosti sa nepodarilo načítať. Skontroluj D1.";}
+    try{
+      overrides=await listBuiltinCatalogOverrides(cfg.DB);
+      overridesReady=true;
+    }catch(cause){
+      // Preserve edits of dynamic options during the schema deployment window.
+      if(!(cause instanceof ServiceCatalogSchemaError))error="Úpravy pôvodných služieb sa nepodarilo načítať.";
+    }
   }
   return <AdminShell user={user} eyebrow="Services V3 · Katalóg" title="Katalóg služieb a vlastností"
     description="Globálne možnosti sú oddelené od ich hodnôt na jednotlivých profiloch."
     actions={<Link href="/admin/sluzby-pre-psov">← Služby pre psov</Link>}>
-    <AdminServiceCatalogWorkspace items={catalogEditorItems(records)}
+    <AdminServiceCatalogWorkspace items={catalogEditorItems(records,overrides)}
       categories={directoryCategories.map(c=>({id:c.slug,label:c.label}))}
-      writeEnabled={writeEnabled && !error} mirrorEnabled={mirrorEnabled && !error}
+      writeEnabled={writeEnabled && !error} builtinOverridesEnabled={overridesReady && !error}
+      mirrorEnabled={mirrorEnabled && !error}
       pageCreationEnabled={pageCreationEnabled && !error} loadError={error}/>
   </AdminShell>;
 }

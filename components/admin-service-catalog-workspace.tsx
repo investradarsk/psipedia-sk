@@ -14,9 +14,9 @@ type Category={id:string;label:string};
 type Draft={name:string;categories:string[];kind:"service"|"attribute";group:string;meaning:string};
 const empty=():Draft=>({name:"",categories:[],kind:"service",group:"",meaning:""});
 type ErrorResponse={error?:string;option?:{id:string;version:number}};
-export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,loadError}:{
+export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,builtinOverridesEnabled=true,loadError}:{
   items:readonly CatalogEditorItem[];categories:readonly Category[];writeEnabled:boolean;
-  mirrorEnabled?:boolean;pageCreationEnabled?:boolean;loadError:string|null;
+  builtinOverridesEnabled?:boolean;mirrorEnabled?:boolean;pageCreationEnabled?:boolean;loadError:string|null;
 }){
   const router=useRouter();
   const [query,setQuery]=useState("");
@@ -59,18 +59,22 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       JSON.stringify([...draft.categories].sort())!==JSON.stringify([...editing.categories].sort()):
     draft.name.length>0||draft.categories.length>0||draft.group.length>0||draft.meaning.length>0||draft.kind!=="service";
   const draftValid=writeEnabled&&!loadError&&draft.name.trim().length>=3&&draft.categories.length>0;
-  const mayEdit=(item:CatalogEditorItem)=>writeEnabled&&!loadError&&item.source==="admin"&&item.status!=="RETIRED";
+  const mayEdit=(item:CatalogEditorItem)=>writeEnabled&&!loadError&&
+    (item.source==="built_in"?builtinOverridesEnabled:item.status!=="RETIRED");
   const close=()=>{setEditing(null);setCreating(false);setDraft(empty());};
   async function persist(){
     if(busy||!draftValid||!dirty&&editing)return;
     setBusy(true);setMessage("");setMessageIsError(false);
     try{
       const isEdit=Boolean(editing);
-      const body={
-        name:draft.name,kind:draft.kind,categories:draft.categories,
+      const fields={
+        name:draft.name,categories:draft.categories,
         group:draft.group||undefined,meaning:draft.meaning||undefined,
-        ...(isEdit?{action:"edit",expectedVersion:editing!.version}:{}),
       };
+      // Kind is immutable for every saved entry. Include it only on POST.
+      const body=isEdit
+        ? {...fields,action:"edit",expectedVersion:editing!.version}
+        : {...fields,kind:draft.kind};
       const res=await fetch(isEdit?
         "/api/admin/service-catalog/options/"+encodeURIComponent(editing!.id):
         "/api/admin/service-catalog/options",{
@@ -81,7 +85,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       if(!res.ok||!data.option?.id)throw new Error(data.error??"Uloženie služby nebolo potvrdené.");
       setSelectedId(data.option.id);
       close();
-      setMessage("Služba je uložená a dostupná v príslušných kategóriách. Notion sa synchronizuje automaticky.");
+      setMessage("Úprava katalógu bola uložená. Existujúce identifikátory a väzby na profily zostali zachované.");
       router.refresh();
     }catch(e){
       setMessageIsError(true);
@@ -111,6 +115,8 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
   const openEditor=creating||Boolean(editing);
   return <section className={styles.stack} aria-label="Katalóg služieb a vlastností">
     {loadError&&<p role="alert" className={styles.error}>{loadError}</p>}
+    {!builtinOverridesEnabled&&!loadError&&
+      <p className={styles.notice}>Pôvodné služby sa budú dať upravovať po bezpečnom použití migrácie 0149. Nové služby zostávajú upraviteľné.</p>}
     <div className={styles.filterBar}>
       <label className={styles.searchField}>Vyhľadávanie
         <input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Hľadať službu"/>
@@ -157,12 +163,11 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
             <dt>Popis</dt><dd>{selected.meaning}</dd>
           </dl>
           <div className={styles.actions}>
-            {selected.source==="admin"&&<>
-              <AdminActionButton disabled={!mayEdit(selected)||busy} onClick={()=>beginEdit(selected)}>Upraviť</AdminActionButton>
+            <AdminActionButton disabled={!mayEdit(selected)||busy} onClick={()=>beginEdit(selected)}>Upraviť</AdminActionButton>
+            {selected.source==="admin"&&
               <AdminActionButton variant="destructive" disabled={!mayEdit(selected)||busy}
-                onClick={()=>setArchiveCandidate(selected)}>Archivovať</AdminActionButton>
-            </>}
-            {selected.source==="built_in"&&<p className={styles.muted}>Súčasť existujúceho katalógu.</p>}
+                onClick={()=>setArchiveCandidate(selected)}>Archivovať</AdminActionButton>}
+            {selected.source==="built_in"&&<p className={styles.muted}>Pôvodná služba. ID a typ zostanú zachované.</p>}
           </div>
         </>:<p>Vyber službu zo zoznamu.</p>}
       </div>

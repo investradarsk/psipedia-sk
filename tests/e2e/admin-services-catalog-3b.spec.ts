@@ -207,7 +207,10 @@ test("Services V3 simple catalog — desktop and mobile visual QA",async({page},
    await expect(first).toHaveAttribute("aria-pressed","true");
    await expect(detail.locator("h2")).toBeVisible();
    await expect(detail.getByRole("button",{name:"Schváliť"})).toHaveCount(0);
-   await expect(detail.getByRole("button",{name:"Upraviť"})).toHaveCount(0);
+   // Existing built-in options are editable after the Services V3 override migration.
+   const edit=detail.getByRole("button",{name:"Upraviť"});
+   if(writesEnabled)await expect(edit).toBeVisible();
+   else await expect(edit).toHaveCount(0);
    const l=await list.boundingBox(),d=await detail.boundingBox();
    expect(l).not.toBeNull();expect(d).not.toBeNull();
    if(viewport.width<=800){
@@ -250,7 +253,14 @@ test("Services V3 explicit Unknown profile editor — desktop/mobile screenshots
  await page.setViewportSize(viewport);
  const r=await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture",{waitUntil:"domcontentloaded"});
  expect(r?.status()).toBe(200);
- await page.getByRole("link",{name:"Directory Admin Editor Fixture"}).click();
+ const fixtureLink=page.getByRole("link",{name:"Directory Admin Editor Fixture"});
+ await expect(fixtureLink).toHaveAttribute("href",/\/admin\/adresar\/\d+$/);
+ // This visual/profile-values test needs a deterministic detail page load.
+ // Navigate to the exact link target to avoid hydration races in local vinext.
+ const profileHref=await fixtureLink.getAttribute("href");
+ expect(profileHref).toBeTruthy();
+ const detailResponse=await page.goto(profileHref!,{waitUntil:"domcontentloaded"});
+ expect(detailResponse?.status()).toBe(200);
  const card=page.getByRole("region",{name:"Services V3 — služby a vlastnosti na profile"});
  await expect(card).toBeVisible();
  await expect(card.getByRole("heading",{name:"Služby profilu"})).toBeVisible();

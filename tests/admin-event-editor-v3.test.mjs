@@ -7,6 +7,8 @@ const editor = read("components/admin-event-editor.tsx");
 const shell = read("components/admin-editor-workspace.tsx");
 const eventPage = read("app/admin/podujatia/[id]/page.tsx");
 const css = read("components/admin-event-editor.module.css");
+const markdownBridge = read("components/admin-event-markdown-editor.tsx");
+const markdownAdapter = read("lib/event-lexical-markdown.ts");
 
 test("events V3 integrates the existing canonical editor, not a new form engine", () => {
   assert.match(editor, /<EditorWorkspace[\s\S]*mode="page"/);
@@ -36,7 +38,7 @@ test("action bar keeps one guarded back navigation and full meaning of buttons",
   assert.match(editor, /status === "draft" \? <AdminActionButton type="submit" form="event-editor-v3-form"/);
   assert.match(editor, /onSubmit=\{\(submitEvent\)[\s\S]*save\(status\)/);
   assert.match(editor, /onClick=\{\(\) => setConfirmUnpublish\(true\)\}/);
-  assert.match(editor, /onClick=\{\(\) => \{ setConfirmUnpublish\(false\); void save\("draft"\); \}\}/);
+  assert.match(editor, /onConfirm=\{\(\) => \{ setConfirmUnpublish\(false\); void save\("draft"\); \}\}/);
   for (const label of ["Uložiť koncept", "Publikovať podujatie", "Uložiť zmeny", "Stiahnuť z kalendára"]) {
     assert.ok(editor.includes(label), label);
   }
@@ -60,7 +62,7 @@ test("event payload, markdown, maps, SEO, uploads and media behavior remain cano
   assert.match(editor, /<EditorUnsavedChangesGuard[\s\S]*open=\{confirmNavigation\}/);
   assert.match(editor, /document\.addEventListener\("click", onDocumentClick, true\)/);
   assert.match(editor, /navigationApi\?\.addEventListener\("navigate", onNativeNavigate\)/);
-  assert.match(editor, /<AdminModalDialog[\s\S]*title="Stiahnuť podujatie z kalendára\?"/);
+  assert.match(editor, /<AdminDestructiveConfirmDialog[\s\S]*title="Stiahnuť podujatie z kalendára\?"/);
   assert.match(editor, /dirty=\{dirty\}/);
 });
 
@@ -74,4 +76,15 @@ test("pilot confines responsive styling and provides development-only preview fi
   assert.match(preview, /process\.env\.NODE_ENV !== "development"/);
   assert.match(preview, /notFound\(\)/);
   assert.doesNotMatch(preview, /fetch\(|db\.prepare|D1|notion\.pages|migrations/i);
+});
+
+
+test("event description and practical info use Lexical with lossless Markdown source fallback", () => {
+  assert.equal((editor.match(/<AdminEventMarkdownEditor\b/g) ?? []).length, 2);
+  assert.match(markdownBridge, /<AdminLexicalRichTextEditor/);
+  assert.match(markdownBridge, /eventMarkdownToEditorial\(value\)/);
+  assert.match(markdownBridge, /editorialToEventMarkdown\(next\)/);
+  assert.match(markdownBridge, /documentValue === null/);
+  assert.match(markdownBridge, /<textarea/);
+  assert.match(markdownAdapter, /editorialToEventMarkdown\(doc\) !== source/);
 });

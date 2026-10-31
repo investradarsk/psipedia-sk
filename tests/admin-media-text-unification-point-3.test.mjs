@@ -60,5 +60,10 @@ test("Domain-specific upload and rich-text persistence formats remain intentiona
   assert.match(lexical, /readDocument/);
   assert.match(lexical, /type: "callout"/);
   assert.match(markdown, /appendLexicalPlainTextToMarkdown/);
-  assert.match(markdown, /safeEventLink/);
+  // The event Markdown editor delegates link validation to the lossless adapter.
+  assert.match(markdown, /eventMarkdownToEditorial/);
+  const adapter = read("lib/event-lexical-markdown.ts");
+  assert.match(adapter, /import \{ safeEventLink \} from "\.\/event-markdown"/);
+  assert.match(adapter, /safeEventLink\(href\) !== href/);
+  assert.match(adapter, /sanitizeEditorialHref\(href\) !== href/);
 });

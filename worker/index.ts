@@ -1,3 +1,4 @@
+import { recordNotionTransfer } from "../lib/notion-transfer-audit.ts";
 import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
 import { runFacebookImagePublishSweep } from "../lib/facebook-image-publisher.ts";
 import { runNotionFacebookImagesSync } from "../lib/notion-facebook-images-sync.ts";
@@ -362,7 +363,9 @@ const worker = {
     // Strict feature gate is OFF unless explicitly enabled; this is never a new Cron.
     if (controller.cron === "*/5 * * * *" && pushTaskEnabled(env.NOTION_FACEBOOK_IMAGES_SYNC_ENABLED)) {
       const notionFacebookImagesTask = runNotionFacebookImagesSync({database:env.DB,bindings:env})
-        .then((summary) => {
+        .then(async (summary) => {
+          await recordNotionTransfer(env.DB,"facebook-images","NOTION_TO_ADMIN",summary.created+summary.updated);
+          await recordNotionTransfer(env.DB,"facebook-images","ADMIN_TO_NOTION",summary.writtenBack);
           console.info(JSON.stringify({event:"notion_facebook_images_sync",...summary}));
     console.info(JSON.stringify(notionSyncHealth("facebook-images", summary)));
         }).catch(() => {
@@ -389,7 +392,8 @@ const worker = {
     if (controller.cron === ADMIN_PUSH_CRON && env.SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true") {
       _ctx.waitUntil(runSimpleServiceCatalogSync({
         db:env.DB,env,maxWrites:8,now:new Date(controller.scheduledTime??Date.now()),
-      }).then(summary=>{
+      }).then(async summary=>{
+        await recordNotionTransfer(env.DB,"service-catalog","ADMIN_TO_NOTION",summary.created+summary.updated);
         console.info(JSON.stringify({event:"services_v3_notion_auto",...summary}));
         console.info(JSON.stringify(notionSyncHealth("service-catalog",summary)));
       }).catch(()=>console.error(JSON.stringify({event:"services_v3_notion_auto",state:"BLOCKED",reason:"SWEEP_ERROR"}))));
