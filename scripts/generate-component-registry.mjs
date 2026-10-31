@@ -36,7 +36,7 @@ function resolveImport(root, from, specifier, paths) {
 }
 
 function publicRoute(file) {
-  const parts = file.replace(/^app\//, "").replace(/\/page\.[jt]sx?$/, "").split("/");
+  const parts = file.replace(/^app\//, "").replace(/(^|\/)page\.[jt]sx?$/, "").split("/");
   const useful = parts.filter((part) => part && !part.startsWith("(") && !part.startsWith("@"));
   return "/" + useful.join("/");
 }
