@@ -60,11 +60,9 @@ try {
   assert.equal(await page.locator('#save').isEnabled(),true);
   await page.locator('.uppy-Dashboard-close').click();
   await openUppy();
-  await chooseFiles([
-    {name:'overflow1.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
-    {name:'overflow2.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
-  ]);
-  await page.getByRole('alert').filter({hasText:/1/}).waitFor();
+  // With one remaining slot Uppy switches to a native single-file picker,
+  // so the browser prevents selecting two files in the first place.
+  assert.equal(await page.locator('.uppy-Dashboard-input:not([webkitdirectory])').getAttribute('multiple'), null);
   assert.equal(uploads.length,2);
   await page.locator('.uppy-Dashboard-close').click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
