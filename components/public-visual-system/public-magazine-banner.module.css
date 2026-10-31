@@ -233,3 +233,13 @@
     color: #fff;
   }
 }
+
+/* Owner-approved text is rendered in the same semantic heading, paragraph and CTA.
+   The mobile original is never overwritten; only one version is visible or
+   exposed to assistive technology at the active media breakpoint. */
+.mobileCopy{display:inline}
+.desktopCopy{display:none}
+@media (min-width: 621px){
+  .magazine[data-visual-library-desktop-published="true"] .mobileCopy{display:none}
+  .magazine[data-visual-library-desktop-published="true"] .desktopCopy{display:inline}
+}
