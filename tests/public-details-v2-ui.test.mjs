@@ -92,9 +92,19 @@ test('unified public details: responsive layout, honest media/data, actions and 
  if(name==='help-zbierky') assert.equal(await hero.locator('a[href="https://example.test/support"]').count(),0,'unverified fundraising gate preserved');
  const axe=await new AxeBuilder({page}).include('main#obsah').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
  assert.deepEqual(axe.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],`${name} ${width} accessibility`);
+ // Capture before keyboard-focus actions: focusing the hero CTA scrolls the
+ // page and can expose the offscreen skip-link during a sticky-header frame.
+ // Baseline and PR snapshots execute this exact same fixture. Never mask
+ // the header or loosen pixel-difference thresholds to get a green check.
+ if(shots&&(width === 1440 || width === 320)) {
+  await page.evaluate(async () => {
+   window.scrollTo({top:0,left:0,behavior:'instant'});
+   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  });
+  await page.screenshot({path:join(shots,`${name}-${width}.png`),fullPage:true,animations:'disabled'});
+ }
  const action=hero.locator('a').last();await action.focus();assert.equal(await action.evaluate(n=>document.activeElement===n),true,'keyboard focus');
  await action.blur();
- if(shots&&(width === 1440 || width === 320)) await page.screenshot({path:join(shots,`${name}-${width}.png`),fullPage:true});
  if(name==='directory'&&width===390) {
  assert.equal(writes.length,0,'view is read only');
  const primary=hero.locator('[data-profile-primary-action]'); await primary.focus();await page.keyboard.press('Enter');

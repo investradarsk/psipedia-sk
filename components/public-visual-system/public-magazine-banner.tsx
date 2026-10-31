@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import styles from "./public-magazine-banner.module.css";
+import { PublicBannerFrame } from "./public-banner-frame";
 
 export type PublicMagazineBannerPhotoTone = "care" | "rescue" | "volunteer" | "closing";
 
@@ -41,8 +42,8 @@ export function PublicMagazineBanner({
 }) {
   const photo = photoTone ? publicBannerPhotos[photoTone] : null;
   return (
-    <section
-      className={[compact ? "home-magazine-banner" : "shell home-magazine-banner", styles.magazine, "ps-public-banner-frame", photo && styles.withPhoto, compact && styles.compact, links?.length && styles.withLinks].filter(Boolean).join(" ")}
+    <PublicBannerFrame as="section"
+      className={[compact ? "home-magazine-banner" : "shell home-magazine-banner", styles.magazine, photo && styles.withPhoto, compact && styles.compact, links?.length && styles.withLinks].filter(Boolean).join(" ")}
       data-home-banner={testId}
       data-promo-key={promoKey}
       data-promo-variant={promoVariant}
@@ -74,6 +75,6 @@ export function PublicMagazineBanner({
           {label} <ArrowIcon size={18} />
         </Link>
       ) : null}
-    </section>
+    </PublicBannerFrame>
   );
 }

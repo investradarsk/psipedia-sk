@@ -19,6 +19,7 @@ function load(path) {
   if(name==='./public-visual-system')return {PublicActionLink:anchor};
   if(name==='./public-magazine-banner')return load('components/public-visual-system/public-magazine-banner.tsx');
   if(name==='./public-photo-callout')return load('components/public-visual-system/public-photo-callout.tsx');
+  if(name==='./public-banner-frame')return load('components/public-visual-system/public-banner-frame.tsx');
   throw new Error(name);
  },exports);
  return exports;
@@ -48,4 +49,23 @@ test('help banner variants retain destinations, photo tones, inherited colors an
  for(const image of ['zdravie-veterinar','hero-labrador','trening-pri-nohe'])assert.ok(media.includes('/images/'+image+'.webp'));
  assert.match(css,/max-width: 620px/);assert.match(css,/min-height: 44px/);
  assert.doesNotMatch(read('components/help-public.module.css'),/\.(?:reportBanner|closingCta|overviewPromo)\b/);
+});
+
+test('promotional and contextual banners use one semantic frame without changing native landmarks',()=>{
+ const {PublicMagazineBanner}=load('components/public-visual-system/public-magazine-banner.tsx');
+ const markup=renderToStaticMarkup(React.createElement(PublicMagazineBanner,{title:'Banner',description:'Popis',label:'Zobraziť',href:'/adresar',testId:'check'}));
+ assert.match(markup,/^<section/);
+ assert.match(markup,/ps-public-banner-frame/);
+ assert.match(markup,/data-public-banner-frame="true"|data-public-banner-frame=""/);
+ assert.match(markup,/href="\/adresar"/);
+ const files=[
+  'components/public-visual-system/public-context-banner.tsx',
+  'components/public-visual-system/public-help-banner.tsx',
+  'components/public-visual-system/public-article-callout.tsx',
+  'components/content-hub-cta.tsx',
+ ];
+ for (const file of files) {
+  assert.match(read(file),/PublicBannerFrame/);
+  assert.doesNotMatch(read(file),/className=\{[^\n]*ps-public-banner-frame/);
+ }
 });

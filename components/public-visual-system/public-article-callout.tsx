@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { PublicBannerFrame } from "./public-banner-frame";
 
 /** Existing editorial CTA variant; global article selectors retain its approved presentation. */
 export function PublicArticleCallout({
@@ -21,8 +22,8 @@ export function PublicArticleCallout({
       ? "noreferrer"
       : undefined;
   return (
-    <aside
-      className={`ps-public-banner-frame article-block-cta ${sponsored ? "is-sponsored" : ""}`}
+    <PublicBannerFrame
+      className={`article-block-cta ${sponsored ? "is-sponsored" : ""}`}
       data-public-article-callout
     >
       {(text || sponsored) && (
@@ -41,6 +42,6 @@ export function PublicArticleCallout({
         <span aria-hidden="true">→</span>
         {newTab && <span className="sr-only"> (otvorí sa v novom okne)</span>}
       </Link>
-    </aside>
+    </PublicBannerFrame>
   );
 }

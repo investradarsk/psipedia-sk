@@ -20,7 +20,9 @@ test("SEO-SERP homepage has a brand-level title, distinct metadata and an explan
   assert.match(source, /description: homepageSearchDescription/);
   assert.match(source, /Psipedia\.sk je slovenský portál o psoch/);
   assert.match(source, /path: "\/"/);
-  assert.match(source, /<h1>\s*Všetko dôležité/);
+  // Homepage delegates the semantic H1 to the shared managed hero renderer.
+  assert.match(source, /<UnifiedSectionHero[\s\S]*?title=\{<>Všetko dôležité/);
+  assert.match(read("components/public-visual-system/unified-section-hero.tsx"), /<h1 data-section-hero-title>\{managedTitle\}<\/h1>/);
   assert.match(source, /pre život so psom\./);
   assert.doesNotMatch(source, /data-nosnippet|noindex/i);
   // The root layout already emits one site identity graph.

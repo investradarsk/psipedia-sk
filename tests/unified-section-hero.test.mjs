@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+// Shared public UI regressions run with the existing required hero test suite.
+import "./public-design-system-v1.test.mjs";
+import "./public-component-css-unification.test.mjs";
 import test from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
@@ -165,9 +168,12 @@ test("legacy PortalHub no longer chooses first article as hero", () => {
   assert.match(portalHub, /getSectionHeroVisual/);
 });
 
-test("homepage remains separate but keeps home.hero visual store", () => {
-  assert.match(home, /getResolvedSectionVisual\("home\.hero"\)/);
-  assert.doesNotMatch(home, /UnifiedSectionHero/);
+test("homepage uses the canonical section hero renderer", () => {
+  assert.match(home, /getSectionHeroVisual\("home\.hero"\)/);
+  assert.match(home, /<UnifiedSectionHeroShell/);
+  assert.match(home, /<UnifiedSectionHero/);
+  assert.match(home, /portalSearchSlot=/);
+  assert.doesNotMatch(home, /className="hero-card"/);
 });
 
 test("detail page routing remains intact and out of section hero scope", () => {

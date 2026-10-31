@@ -59,17 +59,21 @@ test("homepage reuses bounded parallel published reads, never invented sidebar i
 });
 
 test("banners point to protected existing partner paths, hero stays high priority and mobile full bleed", async () => {
-  const [home, css, profiles, events] = await Promise.all([
+  const [home, css, profiles, events, unifiedHero] = await Promise.all([
     source("app/page.tsx"),
     source("app/home-v2.module.css"),
     source("app/partner/profily/novy/page.tsx"),
     source("app/partner/podujatia/nove/page.tsx"),
+    source("components/public-visual-system/unified-section-hero.tsx"),
   ]);
   assert.match(home, /href="\/partner\/profily\/novy"/);
   assert.match(home, /href="\/partner\/podujatia\/nove"/);
   assert.match(profiles, /requirePartnerPageIdentity\(\)/);
   assert.match(events, /requirePartnerPageIdentity\(\)/);
-  assert.match(home, /fetchPriority="high"/);
+  // Homepage now uses the canonical shared hero; the same high-priority
+  // image loading guarantee belongs to its renderer rather than app/page.tsx.
+  assert.match(home, /<UnifiedSectionHero/);
+  assert.ok(unifiedHero.includes('fetchPriority={variant === "homepage-style" ? "high" : undefined}'));
   assert.match(
     css,
     /@media \(max-width: 620px\)[\s\S]*\.hero-section\.shell\)[\s\S]*width: 100vw;/,
