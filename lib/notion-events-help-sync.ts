@@ -1104,9 +1104,9 @@ await requireVerifiedMappedNotionWriteback({
       // Keep the existing separately owner-approved priority modes usable;
       // the default path uses fail-closed per-field reconciliation instead.
       const legacyPriorityEnabled = input.definition.key === "events"
-        ? notionEventPriorityAEnabled(input.bindings.NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED)
-        : gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED);
-      if (decision.decision !== "UNCHANGED" && (!legacyPriorityEnabled || hasExplicitAuthority)) {
+        ? notionEventPriorityAEnabled(input.bindings.NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED) && !hasExplicitAuthority
+        : gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED) && !hasExplicitAuthority;
+      if (decision.decision !== "UNCHANGED" && !legacyPriorityEnabled) {
         const agenda = input.definition.key;
         const storedBaseline = await readProfileFieldBaseline({
           database: input.database, agenda, entityId, pageId: page.id,
