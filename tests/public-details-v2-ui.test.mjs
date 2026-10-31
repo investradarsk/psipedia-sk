@@ -94,7 +94,16 @@ test('unified public details: responsive layout, honest media/data, actions and 
  assert.deepEqual(axe.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],`${name} ${width} accessibility`);
  const action=hero.locator('a').last();await action.focus();assert.equal(await action.evaluate(n=>document.activeElement===n),true,'keyboard focus');
  await action.blur();
- if(shots&&(width === 1440 || width === 320)) await page.screenshot({path:join(shots,`${name}-${width}.png`),fullPage:true});
+ // The preceding keyboard-focus check can scroll the mobile viewport.
+ // Return to the top and settle sticky navigation identically for both
+ // common-ancestor and PR snapshots, rather than relaxing visual thresholds.
+ if(shots&&(width === 1440 || width === 320)) {
+  await page.evaluate(async () => {
+   window.scrollTo({top:0,left:0,behavior:'instant'});
+   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  });
+  await page.screenshot({path:join(shots,`${name}-${width}.png`),fullPage:true,animations:'disabled'});
+ }
  if(name==='directory'&&width===390) {
  assert.equal(writes.length,0,'view is read only');
  const primary=hero.locator('[data-profile-primary-action]'); await primary.focus();await page.keyboard.press('Enter');
