@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { $createParagraphNode, $createTextNode, $getRoot, type EditorState, type LexicalEditor } from "lexical";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { PlainTextPlugin } from "@lexical/react/LexicalPlainTextPlugin";
@@ -10,6 +10,11 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import styles from "./admin-lexical-text-field.module.css";
+
+// Keep the server shell identical during hydration, then mount Lexical on the client.
+const subscribeHydration = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 function readPlainText() {
   // Lexical joins paragraphs with two newlines; our existing D1/Notion string
@@ -82,8 +87,7 @@ export function AdminLexicalTextField({
   id, name, value, defaultValue = "", onChange, onInput, rows = 5,
   required = false, disabled = false, placeholder, ariaLabel,
 }: Props) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  const mounted = useSyncExternalStore(subscribeHydration, getClientSnapshot, getServerSnapshot);
   const [internalValue, setInternalValue] = useState(defaultValue);
   const current = value === undefined ? internalValue : value;
   const handleChange = useCallback((next: string) => {
