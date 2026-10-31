@@ -3,54 +3,8 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import type { VisualBanner } from "@/lib/visual-library-banners";
+import { BANNER_DRAFT_STORAGE_PREFIX, defaultBannerDraft, validateBannerDraft, type BannerDraft } from "@/lib/visual-library-drafts";
 import styles from "./admin-visual-library.module.css";
-
-export type BannerDraft = {
-  eyebrow: string;
-  title: string;
-  description: string;
-  ctaLabel: string;
-  background: "original" | "sage" | "cream" | "white";
-  button: "original" | "green" | "red";
-  scope: "one" | "template";
-};
-
-const STORAGE_PREFIX = "psipedia:visual-library:draft:v1:";
-
-function baseDraft(banner: VisualBanner, variantIndex: number): BannerDraft {
-  const variant = banner.variants?.[variantIndex];
-  return {
-    eyebrow: variant?.eyebrow ?? banner.eyebrow,
-    title: variant?.title ?? banner.title,
-    description: variant?.description ?? banner.description,
-    ctaLabel: variant?.ctaLabel ?? banner.ctaLabel,
-    background: "original",
-    button: "original",
-    scope: "one",
-  };
-}
-
-function safeDraft(raw: unknown, fallback: BannerDraft): BannerDraft | null {
-  if (!raw || typeof raw !== "object") return null;
-  const input = raw as Record<string, unknown>;
-  const read = (name: keyof BannerDraft, limit: number) =>
-    typeof input[name] === "string" && (input[name] as string).trim().length > 0 &&
-    (input[name] as string).length <= limit && !/[\u0000-\u001f\u007f]/.test(input[name] as string)
-      ? (input[name] as string).trim() : null;
-  const eyebrow = read("eyebrow", 100);
-  const title = read("title", 140);
-  const description = read("description", 360);
-  const ctaLabel = read("ctaLabel", 80);
-  if (!eyebrow || !title || !description || !ctaLabel) return null;
-  return {
-    eyebrow, title, description, ctaLabel,
-    background: ["original", "sage", "cream", "white"].includes(String(input.background))
-      ? input.background as BannerDraft["background"] : fallback.background,
-    button: ["original", "green", "red"].includes(String(input.button))
-      ? input.button as BannerDraft["button"] : fallback.button,
-    scope: input.scope === "template" ? "template" : "one",
-  };
-}
 
 const BACKGROUND_OPTIONS = {
   original: "Pôvodné pozadie",
@@ -87,8 +41,8 @@ export function AdminVisualLibraryEditor({
   knownUses: number;
   canConfirmAllUses: boolean;
 }) {
-  const key = STORAGE_PREFIX + banner.id + ":" + variantIndex;
-  const initial = useMemo(() => baseDraft(banner, variantIndex), [banner, variantIndex]);
+  const key = BANNER_DRAFT_STORAGE_PREFIX + banner.id + ":" + variantIndex;
+  const initial = useMemo(() => defaultBannerDraft(banner, variantIndex), [banner, variantIndex]);
   const [draft, setDraft] = useState<BannerDraft>(initial);
   const [saved, setSaved] = useState(false);
   const [status, setStatus] = useState("");
@@ -101,7 +55,7 @@ export function AdminVisualLibraryEditor({
     try {
       const stored = window.localStorage.getItem(key);
       if (stored) {
-        const parsed = safeDraft(JSON.parse(stored), initial);
+        const parsed = validateBannerDraft(JSON.parse(stored), initial);
         if (parsed) {
           setDraft(parsed);
           setSaved(true);
@@ -120,14 +74,15 @@ export function AdminVisualLibraryEditor({
     setStatus("");
   };
 
-  const valid = Boolean(safeDraft(draft, initial));
+  const valid = Boolean(validateBannerDraft(draft, initial));
   const previewStyle = {
     "--visual-library-bg": banner.photoTone ? undefined : backgroundValues[draft.background],
     "--visual-library-button": buttonValues[draft.button],
+    "--visual-library-button-text": banner.photoTone && draft.button === "original" ? "#174b38" : "#ffffff",
   } as CSSProperties;
 
   const save = () => {
-    const normalized = safeDraft(draft, initial);
+    const normalized = validateBannerDraft(draft, initial);
     if (!normalized) {
       setStatus("Vyplň všetky texty a dodrž povolenú dĺžku.");
       return;
