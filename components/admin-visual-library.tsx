@@ -124,7 +124,7 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
             )}
 
             <div className={styles.preview} aria-label={`Skutočný vizuálny náhľad: ${preview.title}`}>
-              <div className={styles.previewComponent}>
+              <div className={styles.previewComponent} inert>
                 <PublicMagazineBanner compact={chosen.group === "clanky"}
                   photoTone={chosen.photoTone}
                   testId={`library-${chosen.id}`}
