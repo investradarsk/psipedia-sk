@@ -11,7 +11,7 @@ test("visual gallery reuses actual production banner and article usage, not a dr
   assert.match(gallery, /import \{ PublicMagazineBanner \} from "@\/components\/public-visual-system\/public-magazine-banner"/);
   assert.match(gallery, /<PublicMagazineBanner compact/);
   assert.match(gallery, /visibleUses\.slice/);
-  assert.match(gallery, /href=\{use\.url\}/);
+  assert.match(gallery, /href=\{use\.anchorId \?/);
 });
 
 test("verified page banner references stay tied to existing public route components", () => {
