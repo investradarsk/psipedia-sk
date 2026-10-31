@@ -23,5 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install dependencies for shared official Notion SDK
+        run: npm ci --ignore-scripts
       - name: Offline per-field merge and mapping tests
         run: node --experimental-strip-types --test tests/notion-profile-field-reconciliation.test.mjs

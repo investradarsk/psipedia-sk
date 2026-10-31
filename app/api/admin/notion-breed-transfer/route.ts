@@ -30,7 +30,7 @@ async function lookup(id:number,field:string){
   const local=breedFieldSnapshot(breed);
   const remoteValue=snapshot[field as keyof typeof snapshot];
   const localValue=local[field as keyof typeof local];
-  const hash=await sha256Text(JSON.stringify(remoteValue));
+  const hash=await sha256Text(JSON.stringify(remoteValue) ?? "null");
   let inbox:null|{status:string;attempts:number;outcome:string|null;last_error_code:string|null}=null;
   try{
     inbox=await bindings.DB.prepare("SELECT status,attempts,outcome,last_error_code FROM notion_webhook_inbox "+

@@ -614,7 +614,7 @@ async function syncOneBreed(
       if (!expectedNotionHash || !/^[a-f0-9]{64}$/i.test(expectedNotionHash))
         throw new Error("BREED_EXPLICIT_HASH_REQUIRED");
       if (authority[explicitField] === "admin") throw new Error("BREED_FIELD_ADMIN_AUTHORITY");
-      const actualHash = await sha256Text(JSON.stringify(breedFieldSnapshot(basePayload)[explicitField]));
+      const actualHash = await sha256Text(JSON.stringify(breedFieldSnapshot(basePayload)[explicitField]) ?? "null");
       if (actualHash !== expectedNotionHash) throw new Error("BREED_EXPLICIT_REMOTE_CHANGED");
       if (!Number.isFinite(lastAck) || !Number.isFinite(adminEdit) || adminEdit > lastAck)
         throw new Error("BREED_EXPLICIT_ADMIN_CHANGED");
