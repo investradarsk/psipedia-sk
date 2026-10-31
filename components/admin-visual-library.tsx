@@ -3,10 +3,16 @@
 import { useMemo, useState } from "react";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
+import { AdminVisualLibraryOther } from "@/components/admin-visual-library-other";
+import type { VisualLibraryExample, VisualExampleCategory } from "@/lib/visual-library-example-types";
 import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store";
 import styles from "./admin-visual-library.module.css";
 
-export function AdminVisualLibrary({ articleUsage }: { articleUsage: ArticleBannerUsageResult }) {
+export function AdminVisualLibrary({ articleUsage, examples }: {
+  articleUsage: ArticleBannerUsageResult;
+  examples: readonly VisualLibraryExample[];
+}) {
+  const [category, setCategory] = useState<"bannery" | VisualExampleCategory>("bannery");
   const [filter, setFilter] = useState("");
   const [group, setGroup] = useState<"all" | "clanky" | "stranky">("all");
   const [selectedId, setSelectedId] = useState("clanky:veterinari");
@@ -45,20 +51,27 @@ export function AdminVisualLibrary({ articleUsage }: { articleUsage: ArticleBann
     <section className={styles.library} aria-label="Vizuálna knižnica Psipedie">
       <header className={styles.intro}>
         <div>
-          <p className={styles.kicker}>Vizuálna knižnica · 2. etapa</p>
+          <p className={styles.kicker}>Vizuálna knižnica · 4. etapa</p>
           <h2>Čo používame na webe</h2>
-          <p>Vyber banner, pozri si jeho reálny vzhľad a otvor konkrétne stránky, kde sa používa.</p>
+          <p>Vyber banner, hero, tlačidlo alebo kartu. Uvidíš skutočný komponent a konkrétne overené stránky, kde sa používa.</p>
         </div>
-        <div className={styles.count}><strong>{visualLibraryBanners.length}</strong><span>nájdených druhov bannerov</span></div>
+        <div className={styles.count}><strong>{visualLibraryBanners.length + examples.length}</strong><span>evidovaných vizuálnych prvkov</span></div>
       </header>
 
       <nav className={styles.types} aria-label="Kategórie knižnice">
-        <span className={styles.activeType}>Bannery</span>
-        <span title="Nasledujúca etapa">Hero · pripravujeme</span>
-        <span title="Nasledujúca etapa">CTA tlačidlá · pripravujeme</span>
-        <span title="Nasledujúca etapa">Karty · pripravujeme</span>
+        {([
+          ["bannery", "Bannery"],
+          ["hero", "Hero sekcie"],
+          ["cta", "CTA tlačidlá"],
+          ["karty", "Karty"],
+        ] as const).map(([id, label]) => (
+          <button type="button" key={id} aria-pressed={category === id}
+            onClick={() => setCategory(id)}>{label}</button>
+        ))}
       </nav>
 
+      {category === "bannery" ? (
+      <>
       <div className={styles.controls}>
         <label>
           <span>Hľadať banner</span>
@@ -197,6 +210,10 @@ export function AdminVisualLibrary({ articleUsage }: { articleUsage: ArticleBann
           </div>
         ) : <p className={styles.empty}>Vyber iný filter alebo hľadaný výraz.</p>}
       </div>
+      </>
+      ) : (
+        <AdminVisualLibraryOther key={category} category={category} examples={examples} />
+      )}
     </section>
   );
 }
