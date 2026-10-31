@@ -32,8 +32,25 @@ export async function PUT(request:Request){
   let value:unknown;
   try{value=await request.json()}catch{return response({error:"Neplatné JSON."},400)}
   if(!value||typeof value!=="object"||Array.isArray(value))return response({error:"Neplatný vstup."},400);
-  const {scope,field,mode}=value as Record<string,unknown>;
-  if(typeof scope!=="string"||typeof field!=="string"||!editableNotionField(scope,field)||!validNotionMode(mode))
+  const {scope,field,mode,all}=value as Record<string,unknown>;
+  if(typeof scope!=="string"||!validNotionMode(mode))
+    return response({error:"Pole alebo priorita nie sú povolené."},400);
+  if(all===true){
+    const group=NOTION_AUTHORITY_GROUPS.find(g=>g.scope===scope && g.active);
+    if(!group)return response({error:"Táto agenda nepodporuje nastavenie priorít."},400);
+    const editable=group.fields.filter(f=>editableNotionField(scope,f.id));
+    if(!editable.length)return response({error:"Kategória nemá nastaviteľné polia."},400);
+    if(mode==="safe"){
+      await db.prepare("DELETE FROM notion_field_authority WHERE scope=?").bind(scope).run();
+    }else{
+      // D1 batch runs atomically: either every editable field is saved, or none.
+      const sql="INSERT INTO notion_field_authority(scope,field_key,mode,updated_by) VALUES(?,?,?,?) "+
+        "ON CONFLICT(scope,field_key) DO UPDATE SET mode=excluded.mode,updated_at=datetime('now'),updated_by=excluded.updated_by";
+      await db.batch(editable.map(item=>db.prepare(sql).bind(scope,item.id,mode,auth.user.email)));
+    }
+    return response({ok:true,scope,mode,all:true,count:editable.length});
+  }
+  if(all!==undefined || typeof field!=="string"||!editableNotionField(scope,field))
     return response({error:"Pole alebo priorita nie sú povolené."},400);
   if(mode==="safe"){
     await db.prepare("DELETE FROM notion_field_authority WHERE scope=? AND field_key=?").bind(scope,field).run();

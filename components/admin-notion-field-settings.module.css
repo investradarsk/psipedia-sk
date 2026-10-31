@@ -18,3 +18,11 @@
 .transferTable th,.transferTable td{text-align:left;padding:.55rem;border-bottom:1px solid #e1e9e4}
 .transferTable th{background:#f7faf8}
 @media(max-width:650px){.connectionTop{flex-direction:column}.connectionSummary{grid-template-columns:1fr}}
+
+.bulkControls{margin:0;padding:.85rem 1rem;border-bottom:1px solid #e1eae4;background:#f5f9f6}
+.bulkControls label{display:block;font-weight:700;color:#244b38;font-size:.85rem;margin-bottom:.4rem}
+.bulkRow{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center}
+.bulkRow select{flex:1;min-width:180px;padding:.58rem;border:1px solid #c9d8ce;border-radius:8px;background:white;color:#244b38}
+.bulkRow button{border:0;background:#1c6245;color:white;padding:.65rem .85rem;border-radius:8px;cursor:pointer;font:inherit;font-size:.85rem}
+.bulkRow button:disabled{opacity:.5;cursor:not-allowed}
+.bulkControls p{font-size:.78rem;color:#526d5f}
