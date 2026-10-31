@@ -17,3 +17,8 @@ export const AUTOMATIC_ARTICLE_PROMO_ANCHOR = "psipedia-article-promo-auto";
 export const ARTICLE_LISTING_PROMO_ANCHOR = "psipedia-article-listing-promo";
 export const HOME_PROFILE_BANNER_ANCHOR = "psipedia-banner-home-profile";
 export const BREED_CLUBS_BANNER_ANCHOR = "psipedia-banner-breed-clubs";
+export const HELP_LOST_FOUND_BANNER_ANCHOR = "psipedia-banner-help-lost-found";
+export const HELP_CLOSING_BANNER_ANCHOR = "psipedia-banner-help-closing";
+export function helpOverviewBannerAnchor(index: number): string {
+  return `psipedia-banner-help-section-${index}`;
+}
