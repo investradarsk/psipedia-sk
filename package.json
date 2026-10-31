@@ -136,7 +136,8 @@
     "zod": "4.4.3",
     "@uppy/core": "6.2.0",
     "@uppy/dashboard": "6.0.1",
-    "@uppy/react": "6.0.0"
+    "@uppy/react": "6.0.0",
+    "photoswipe": "5.4.4"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
