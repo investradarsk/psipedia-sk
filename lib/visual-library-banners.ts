@@ -1,4 +1,6 @@
 import { articlePromoKeys, articlePromoRegistry, type ArticlePromoKey, type ArticlePromoTarget } from "@/lib/article-promo";
+import type { PublicMagazineBannerPhotoTone } from "@/components/public-visual-system/public-magazine-banner";
+import { ARTICLE_LISTING_PROMO_ANCHOR, HOME_PROFILE_BANNER_ANCHOR, BREED_CLUBS_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
 
 /**
  * Stage 1: an owner-facing catalogue of REAL, existing banners.
@@ -13,6 +15,7 @@ export type VisualBannerUse = {
   label: string;
   placement: string;
   evidence: "verified-in-code";
+  anchorId?: string;
 };
 
 export type VisualBanner = {
@@ -24,6 +27,7 @@ export type VisualBanner = {
   description: string;
   ctaLabel: string;
   ctaHref: string;
+  photoTone?: PublicMagazineBannerPhotoTone;
   variants?: readonly { eyebrow: string; title: string; description: string; ctaLabel: string }[];
   uses: readonly VisualBannerUse[];
   dynamicNote?: string;
@@ -46,7 +50,13 @@ const editorialBanners: VisualBanner[] = articlePromoKeys.map((key: ArticlePromo
       description: variant.body,
       ctaLabel: variant.ctaLabel ?? target.ctaLabel,
     })),
-    uses: [],
+    uses: key === "mapa" ? [{
+      url: "https://psipedia.sk/clanky",
+      label: "Novinky – všetky články",
+      placement: "Bočný panel výpisu článkov · automatický banner",
+      evidence: "verified-in-code",
+      anchorId: ARTICLE_LISTING_PROMO_ANCHOR,
+    }] : [],
     dynamicNote: "Banner sa v článkoch môže zobrazovať automaticky podľa obsahu a času, alebo ako vložený blok. Presné URL jednotlivých publikovaných článkov zatiaľ nie sú overené. Zobrazíme ich po doplnení kontroly reálneho obsahu.",
   };
 });
@@ -61,7 +71,7 @@ const pageBanners: VisualBanner[] = [
     description: "Prevádzkujete službu pre psov? Nech vás majitelia ľahšie nájdu v adresári.",
     ctaLabel: "Pridať profil",
     ctaHref: "/partner/profily/novy",
-    uses: [{ url: "https://psipedia.sk/", label: "Úvodná stránka", placement: "V hlavnom obsahu homepage", evidence: "verified-in-code" }],
+    uses: [{ url: "https://psipedia.sk/", label: "Úvodná stránka", placement: "Hlavný obsah homepage · banner Pridajte svoj profil", evidence: "verified-in-code", anchorId: HOME_PROFILE_BANNER_ANCHOR }],
   },
   {
     id: "plemena:kluby",
@@ -72,7 +82,8 @@ const pageBanners: VisualBanner[] = [
     description: "Zisti, ktoré kluby zastrešujú jednotlivé plemená a kde ich môžeš kontaktovať.",
     ctaLabel: "Zobraziť kluby plemien",
     ctaHref: "/adresar/chovatelske-kluby",
-    uses: [{ url: "https://psipedia.sk/plemena", label: "Atlas plemien", placement: "Pri možnostiach atlasu plemien", evidence: "verified-in-code" }],
+    photoTone: "volunteer",
+    uses: [{ url: "https://psipedia.sk/plemena", label: "Atlas plemien", placement: "Atlas plemien · pri možnostiach porovnania a klubov", evidence: "verified-in-code", anchorId: BREED_CLUBS_BANNER_ANCHOR }],
   },
 ];
 
