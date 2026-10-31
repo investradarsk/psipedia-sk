@@ -360,7 +360,7 @@ test("an explicitly confirmed unsigned legacy import persists mapping and skips 
   assert.deepEqual(h.operations, ["create", "mapping"]);
   assert.equal(h.summary.createdFromNotion, 1);
   assert.equal(h.held.size, 0);
-  assert.deepEqual(h.released, ["gemini-canonical-import-events", pageId]);
+  assert.deepEqual(h.released, [pageId, "gemini-canonical-import-events"]);
 });
 
 test("legacy imports never run from unscoped scheduled or unauthenticated public endpoints", () => {
