@@ -131,7 +131,7 @@ export function AdminQuickNavigation() {
       <Dialog.Trigger asChild>
         <button type="button" className={styles.trigger} aria-label="Hľadať v celej administrácii" data-admin-quick-nav-trigger>
           <Search size={16} aria-hidden="true" />
-          <span>Hľadať v admine</span>
+          <span>Hľadať profil, článok, funkciu…</span>
           <kbd>Ctrl K</kbd>
         </button>
       </Dialog.Trigger>
