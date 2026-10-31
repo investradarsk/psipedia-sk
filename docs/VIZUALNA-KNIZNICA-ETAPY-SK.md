@@ -9,9 +9,18 @@
 - Starý technický register zostáva k dispozícii v rozbaliteľnej časti pre programátora.
 - Náhľady sú iba na čítanie. Nič sa automaticky neupravuje a nepublikuje; neboli upravené žiadne existujúce verejné bannery.
 
+## Etapa 2 – publikované URL článkov
+
+- Pri otvorení admin knižnice sa po úspešnom prihlásení načíta zoznam publikovaných článkov priamo z D1 (vrátane už aktívnych naplánovaných článkov). Nepublikované koncepty sú vylúčené.
+- Vložené promo bloky sa evidujú jednotlivo, aj keď sa rovnaký banner nachádza v jednom článku dvakrát.
+- Automatické promo sa vyhodnocuje cez pôvodné pravidlá `resolveContextualArticlePromo`, so skutočnými témami článku a aktuálnym UTC dňom. Je označené ako „automaticky dnes“; pri ďalšom dni sa môže zmeniť.
+- Zobrazujú sa kanonické URL vytvorené pôvodnou funkciou `articleHref`, s vyhľadávaním a postupným zobrazením väčších zoznamov.
+- Ak D1, témy alebo niektoré záznamy zlyhajú, systém to označí ako nedostupný/neúplný výsledok. Pri viac ako 2 000 článkoch tiež uvedie, že ide o čiastočný výsledok.
+- Používanie na homepage a v atlase zostáva zatiaľ ručne overené v kóde. Detekcia dynamických profilov zostáva ďalšou úlohou.
+
 ## Plán pokračovania v tomto jedinom PR
 
-1. **Presné publikované URL:** doplniť read-only zistenie konkrétnych článkov a dynamických profilov s rozlíšením „použité teraz“, „možné/rotujúce“ a „neoverené“. Neuvádzať len názov šablóny ako konkrétny článok.
+1. **Hotovo pre články:** aktuálne publikované URL, pevne vložené a automatické dnešné promo; ďalšia úloha je história/alternatívne rotujúce varianty a URL dynamických profilov.
 2. **Polohy a opakovania:** rozlíšiť na tej istej URL viac výskytov, umiestnenia (obsah/sidebar/koniec), a explicitné označenia jednotlivých bannerov.
 3. **Ďalšie kategórie:** Hero, CTA tlačidlá, karty, navigácia, filtre, kalendáre; všade reálny náhľad a použitá URL.
 4. **Detekcia duplicít:** zoskupiť podobné bannerové varianty a nechať majiteľa potvrdiť, čo je naozaj duplicita.
@@ -21,7 +30,7 @@
 
 ## Príkazy
 
-- `npm run test:visual-library` – zdrojové bezpečnostné kontrakty etapy 1.
+- `npm run test:visual-library` – kontrakty etáp 1 a 2 vrátane mapovania reálnych URL a fallbackov.
 - Existujúce `npm run test:component-registry` – testy technického registra.
 
 ## Rozsah
