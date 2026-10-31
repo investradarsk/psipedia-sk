@@ -10,9 +10,8 @@ test("stage 7 uses an allowlisted persisted draft and explicit reviewed single U
   assert.match(store, /"plemena:kluby": \{ url: "https:\/\/psipedia\.sk\/plemena", variant: 0 \}/);
   assert.match(store, /draft\.scope !== "one"/);
   assert.match(store, /acknowledgedUrl !== target\.url/);
-  assert.match(store, /draft\.title !== original\.title/);
-  assert.match(store, /draft\.description !== original\.description/);
-  assert.match(store, /draft\.ctaLabel !== original\.ctaLabel/);
+  assert.match(store, /published text is desktop-only/);
+  assert.match(store, /return stored.published/);
   assert.match(store, /published_revision IS \?/);
   assert.match(store, /ON CONFLICT\(banner_id,variant_index\) DO NOTHING/);
   assert.match(store, /revision=revision\+1/);
@@ -36,14 +35,21 @@ test("stage 7 affects CSS only on approved desktop banners, not mobile layouts o
   const editor=read("components/admin-visual-library-editor.tsx");
   assert.match(banner, /data-visual-library-desktop-published/);
   assert.match(banner, /desktopColors/);
+  assert.match(banner, /desktopCopy/);
+  assert.match(banner, /styles\.mobileCopy/);
+  assert.match(banner, /styles\.desktopCopy/);
   assert.match(css, /@media \(min-width: 621px\)/);
+  assert.match(css, /\.mobileCopy\{display:none\}/);
+  assert.match(css, /\.desktopCopy\{display:inline\}/);
+  assert.match(home, /desktopCopy=\{homeProfileBannerColors\}/);
+  assert.match(atlas, /desktopCopy=\{breedClubBannerColors\}/);
   assert.match(css, /var\(--ps-visual-desktop-button/);
   assert.match(home, /getPublishedDesktopBannerColors\("homepage:profil"\)/);
   assert.match(atlas, /getPublishedDesktopBannerColors\("plemena:kluby"\)/);
   assert.match(home, /desktopColors=\{homeProfileBannerColors\}/);
   assert.match(atlas, /desktopColors=\{breedClubBannerColors\}/);
-  assert.match(editor, /Publikovať desktopové farby/);
-  assert.match(editor, /Vrátiť publikované farby/);
+  assert.match(editor, /Publikovať texty a farby na desktope/);
+  assert.match(editor, /Vrátiť publikované texty a farby/);
   assert.doesNotMatch(editor, /window\.localStorage/);
 });
 
