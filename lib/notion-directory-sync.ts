@@ -862,8 +862,14 @@ async function createProfileFromNotion(input: {
   }
 
   normalizeManagedDirectoryProfileInput(payload);
-  const prepared = sourceImageUrl
-    ? await prepareNotionMainImage({
+  // A remote image may return 403 or time out. For signed Gemini drafts,
+  // the image is optional: import the PRIVATE profile and let the owner add
+  // a photo later. Ordinary Notion imports retain their existing error policy.
+  let prepared: Awaited<ReturnType<typeof prepareNotionMainImage>> = null;
+  let imageWarning = "";
+  if (sourceImageUrl) {
+    try {
+      prepared = await prepareNotionMainImage({
         bindings: input.bindings,
         sourceUrl: sourceImageUrl,
         sourcePageUrl,
@@ -871,8 +877,12 @@ async function createProfileFromNotion(input: {
         folder: "directory",
         existingImageUrl: null,
         existingImageKey: null,
-      })
-    : null;
+      });
+    } catch (error) {
+      if (!input.trustedGemini) throw error;
+      imageWarning = error instanceof Error ? error.message : String(error);
+    }
+  }
 
   try {
     if (prepared) payload = { ...payload, imageUrl: prepared.imageUrl, imageKey: prepared.imageKey };
@@ -884,6 +894,7 @@ async function createProfileFromNotion(input: {
       prepared,
       sourceImageUrl,
       sourcePageUrl,
+      imageWarning,
     };
   } catch (error) {
     if (prepared?.uploadedKey) {
@@ -1210,7 +1221,7 @@ async function syncMappedPage(input: {
     mappingHash: lastHash, notionHash: pageHash, psipediaHash: profileHash,
   });
   const protectedFields = new Set([
-    "slug", "category", "status", "confirmedServiceLocation",
+    "slug", "category", "status", "services", "confirmedServiceLocation",
     "verified", "featured", "internalEmail", "qualityCheckedAt",
     "qualityResolutions.phone", "qualityResolutions.email",
     "qualityResolutions.website", "qualityResolutions.image",
@@ -1696,14 +1707,36 @@ export async function runNotionDirectorySyncSweep(input: {
         });
         created = await getManagedDirectoryProfileById(created.id, input.database) ?? created;
 
-        await writeProfileToNotion({
-          database: input.database,
-          bindings: input.bindings,
-          dataSourceId,
-          profile: created,
-          pageId: page.id,
-        });
-        await syncRelation(page.id,created.id);
+        // The signed D1 draft + one-to-one mapping are already durable.
+        // Optional Notion write-back/catalog mirroring cannot revoke that
+        // private editor. Keep any error visible for later troubleshooting.
+        const warnings = creation.imageWarning
+          ? ["Hlavný obrázok: " + creation.imageWarning] : [];
+        try {
+          await writeProfileToNotion({
+            database: input.database,
+            bindings: input.bindings,
+            dataSourceId,
+            profile: created,
+            pageId: page.id,
+          });
+        } catch (error) {
+          if (!trustedGemini) throw error;
+          warnings.push("Spätná synchronizácia Notion: " +
+            (error instanceof Error ? error.message : String(error)));
+        }
+        try {
+          await syncRelation(page.id,created.id);
+        } catch (error) {
+          if (!trustedGemini) throw error;
+          warnings.push("Katalóg služieb: " +
+            (error instanceof Error ? error.message : String(error)));
+        }
+        if (warnings.length) {
+          // Best effort only: a Notion 429 must not block the verified D1 draft.
+          await markPageError(input.bindings, page.id,
+            new Error("Koncept je dostupný v administrácii. " + warnings.join(" | ")));
+        }
         summary.createdFromNotion += 1;
         await recordNotionTransfer(input.database,"directory:"+created.category,"NOTION_TO_ADMIN",1);
         continue;
