@@ -2570,3 +2570,128 @@
 @media (max-width: 760px) {
   .desktopFullCalendar { display: none; }
 }
+
+
+/* EVENTS-CALENDAR-DESKTOP-SPLIT: compact month navigation at left, a real
+   selected-day event list at right. The mobile hierarchy stays unchanged. */
+.desktopCalendarColumns,
+.calendarMonthColumn,
+.calendarDetailColumn {
+  display: contents;
+}
+.dayPanelPlaceholder {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 12px;
+  min-height: 240px;
+  color: var(--ink-2);
+}
+.dayPanelPlaceholder h3 {
+  margin: 0;
+  color: var(--forest-dark);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.4rem;
+  font-weight: 650;
+}
+.dayPanelPlaceholder p {
+  margin: 0;
+  max-width: 43ch;
+  font-size: .9rem;
+  line-height: 1.65;
+}
+@media (min-width: 761px) {
+  .calendarLayout .desktopCalendarColumns {
+    display: grid;
+    grid-template-columns: minmax(0, 42%) minmax(0, 1fr);
+    gap: clamp(14px, 2.5vw, 28px);
+    align-items: stretch;
+    min-width: 0;
+  }
+  .calendarLayout .calendarMonthColumn,
+  .calendarLayout .calendarDetailColumn {
+    display: block;
+    min-width: 0;
+  }
+  .calendarLayout .calendarMonthColumn .monthHeading {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .calendarLayout .calendarMonthColumn .monthHeading h2 {
+    font-size: clamp(1.16rem, 1.6vw, 1.4rem);
+  }
+  .calendarLayout .calendarMonthColumn .monthNavigation {
+    gap: 3px;
+  }
+  .calendarLayout .calendarMonthColumn .monthNavigation a {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 5px 7px;
+  }
+  .calendarLayout .calendarDetailColumn {
+    padding: 12px 0 10px clamp(14px, 2vw, 24px);
+    border-left: 1px solid var(--ps-border-soft);
+  }
+  .calendarLayout .calendarDetailColumn .dayDetail {
+    margin-top: 0;
+    border: 0;
+    padding-top: 0;
+  }
+  .calendarLayout .calendarDetailColumn .dayDetailHeading h3 {
+    font-size: clamp(1.1rem, 1.55vw, 1.35rem);
+  }
+  .calendarLayout .calendarDetailColumn .dayEvents {
+    max-height: 330px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 5px;
+  }
+  .calendarLayout .calendarDetailColumn .dayEvent {
+    grid-template-columns: 62px minmax(0, 1fr);
+    min-height: 74px;
+    padding: 8px;
+    gap: 10px;
+  }
+  .calendarLayout .calendarDetailColumn .dayEventMedia {
+    width: 62px;
+  }
+  .calendarLayout .calendarDetailColumn .dayEvent > div > a {
+    font-size: .88rem;
+  }
+  .desktopFullCalendar :global(.fc-col-header-cell-cushion) {
+    padding-block: 6px;
+    font-size: .71rem;
+  }
+  .desktopFullCalendar :global(.fc-daygrid-day-frame) {
+    min-height: 52px;
+  }
+  .desktopFullCalendar .fullCalendarDayLink,
+  .desktopFullCalendar .fullCalendarDayContent {
+    min-height: 50px;
+  }
+  .desktopFullCalendar .fullCalendarDayContent {
+    gap: 2px;
+    padding: 4px;
+  }
+  .desktopFullCalendar .fullCalendarDayHeading {
+    gap: 1px;
+    font-size: .72rem;
+  }
+  .desktopFullCalendar .fullCalendarCount {
+    min-width: 18px;
+    height: 17px;
+    padding: 1px 3px;
+    border-radius: 5px;
+    font-size: .6rem;
+  }
+  .desktopFullCalendar .fullCalendarIndicators {
+    gap: 2px;
+  }
+  .desktopFullCalendar .fullCalendarIndicators > span {
+    width: 6px;
+    height: 6px;
+  }
+  .calendarLayout .calendarLegend {
+    margin-top: 16px;
+  }
+}
