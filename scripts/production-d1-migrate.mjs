@@ -282,6 +282,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0147_notion_field_authority.sql",
   "0148_notion_transfer_audit.sql",
   "0149_services_builtin_admin_overrides.sql",
+  "0150_gemini_import_review_notes.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1514,6 +1515,9 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: ["service_catalog_builtin_overrides", "service_catalog_builtin_overrides_updated_idx",
       "service_catalog_builtin_override_audit_insert", "service_catalog_builtin_override_audit_update",
       "service_catalog_builtin_override_identity_guard", "service_catalog_builtin_override_no_delete"].some(name => names.has(name)) };
+  }
+  if (targetMigration === "0150_gemini_import_review_notes.sql") {
+    return { partial: names.has("gemini_import_review_notes") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
