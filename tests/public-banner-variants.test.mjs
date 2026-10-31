@@ -19,6 +19,8 @@ function load(path) {
   if(name==='./public-visual-system')return {PublicActionLink:anchor};
   if(name==='./public-magazine-banner')return load('components/public-visual-system/public-magazine-banner.tsx');
   if(name==='./public-photo-callout')return load('components/public-visual-system/public-photo-callout.tsx');
+  if(name==='@/lib/help-banner-presets')return load('lib/help-banner-presets.ts');
+  if(name==='@/lib/visual-library-anchors')return load('lib/visual-library-anchors.ts');
   throw new Error(name);
  },exports);
  return exports;
