@@ -719,8 +719,11 @@ async function syncOneBreed(
         });
         return plan.accepted.length && Object.keys(plan.patch).length ? "updated" : "unchanged";
       }
-      // Hourly scans can initialize an unchanged common baseline, but must
-      // not claim that a signed first edit was transferred when no IDs arrived.
+      // A pending first Notion edit may be waiting in the inbox when an hourly
+      // sweep runs first. Never acknowledge a changed historical SHA without
+      // signed field IDs: that would permanently lose the pending edit.
+      if (receipt.hash !== contentHash) return "unchanged";
+      // A truly unchanged hourly page may initialize its common baseline.
       await upsertMapping(database, page, existing.id, contentHash, now, {
         notion: breedFieldSnapshot(basePayload),
         admin: breedFieldSnapshot(existing),
