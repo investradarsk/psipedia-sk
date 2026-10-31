@@ -21,10 +21,14 @@ Tento dokument sleduje **jeden Draft PR**. Každá ďalšia časť sa doplní na
 
 ## 2. Uppy – schválený zámer, **zatiaľ neimplementované**
 
-- [ ] Audit súčasného `react-dropzone`, nahrávania Cloudflare Images a existujúcich editorov.
-- [ ] Jeden opakovane použiteľný uploader pre články, plemená, služby, Pomoc psom a podujatia; hromadný výber, bezpečný preview, poradie a chyby.
+- [x] Audit existujúcich uploaderov: jedna centrálna optimalizačná funkcia `uploadAdminImage` + `/api/admin/uploads` a `react-dropzone` vo zdieľanom výbere; galéria URL zostáva v kanonickom editore.
+- [x] Uppy Core + DashboardModal + React pre viacobrázkové galérie; dodržiava pôvodný 8 MB limit, podporované formáty, sekvenčné uploady, náhľady, chyby a ručné uloženie galérie v editore.
+- [ ] Rozšíriť Uppy aj na jednoobrázkové polia, kde sa dnes používa `AdminSingleImageUpload`, bez regresií editorov a dostupnosti.
+- [ ] Pridať dôkaz vizuálu na desktope/mobile a potvrdiť galériu s viacerými obrázkami.
 - [ ] Bez zásahu do existujúcich identifikátorov médií, ukladaných URL či publikovania; žiadna druhá media pipeline.
-- [ ] Doplniť príslušné balíky/lockfile a E2E len po audite kompatibility.
+- [x] Balíky `@uppy/core@6.2.0`, `@uppy/dashboard@6.0.1`, `@uppy/react@6.0.0` plus závislosti uzamknuté v package-lock so SHA512.
+- [x] Kontraktové testy na zachovanie pôvodnej upload API a galérie.
+- [ ] Overiť CI build, E2E a bezpečné chovanie pri čiastočných chybách.
 
 ## 3. PhotoSwipe – schválený zámer, **zatiaľ neimplementované**
 
