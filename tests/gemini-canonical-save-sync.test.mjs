@@ -150,7 +150,8 @@ function importHarness(options = {}) {
   const summary = { conflicts: 0, unchanged: 0, createdFromNotion: 0, failed: 0 };
   const source = { id: 77, properties: {} };
   const page = { id: pageId, last_edited_time: "saved-v2" };
-  const input = { page, definition: { key: "events", load: async () => [source] },
+  const input = { page, mode: "sync", reviewedLegacy: Boolean(options.ownerLegacy),
+    definition: { key: "events", load: async () => [source] },
     database: { prepare: () => ({ bind: () => ({ run: async () => ({ meta: { changes: 1 } }) }) }) }, bindings: {} };
   const context = { input, summary, sources: [], sourcesById: new Map(), schema: {},
     trustedGemini: !options.ownerLegacy, operatorLegacy: Boolean(options.ownerLegacy),
@@ -359,6 +360,7 @@ test("an explicitly confirmed unsigned legacy import persists mapping and skips 
   assert.deepEqual(h.operations, ["create", "mapping"]);
   assert.equal(h.summary.createdFromNotion, 1);
   assert.equal(h.held.size, 0);
+  assert.deepEqual(h.released, ["gemini-canonical-import-events", pageId]);
 });
 
 test("legacy imports never run from unscoped scheduled or unauthenticated public endpoints", () => {
