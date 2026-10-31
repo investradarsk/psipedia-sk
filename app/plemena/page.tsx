@@ -102,6 +102,7 @@ export default async function BreedsPage({ searchParams }: Props) {
                 </Link>
                 <PublicMagazineBanner
                   desktopColors={breedClubBannerColors}
+                  desktopCopy={breedClubBannerColors}
                   anchorId={BREED_CLUBS_BANNER_ANCHOR}
                   eyebrow="Kluby plemien"
                   title="Nájdi klub svojho plemena"
