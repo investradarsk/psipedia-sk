@@ -40,7 +40,8 @@ test("all canonical actions and versioned mutation endpoints stay owned by exist
   assert.doesNotMatch(editorLink, /onClick|window\.location\.assign/);
   assert.match(help, /prepareBulk\("published"\)/);
   assert.match(help, /\/api\/admin\/help\/bulk/);
-  assert.match(events, /fetchAdminEventPage\(filters, page/);
+  assert.match(events, /fetchAdminEventPage\(effectiveFilters, page, signal\)/);
+  assert.match(events, /queryKey: \["admin", "events", effectiveFilters, page, today\]/);
   assert.match(events, /\/api\/admin\/events\/bulk/);
   assert.match(events, /\/admin\/podujatia\/\$\{event.id\}/);
 });
