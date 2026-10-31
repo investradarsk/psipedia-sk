@@ -17,11 +17,13 @@ export type CanonicalPublicServiceRow={
   status:string|null;
   mirrorStatus:string|null;
   categoriesJson:string|null;
+  builtinLabel?:string|null;
+  builtinCategoriesJson?:string|null;
 };
 
 function isAllowedCategory(category:string):boolean{return categories.has(category);}
-function builtIn(id:string,category:string){
-  return serviceCatalog.find(s=>s.id===id&&s.categories.includes(category as typeof serviceFilterCategories[number]));
+function builtIn(id:string){
+  return serviceCatalog.find(s=>s.id===id);
 }
 
 /**
@@ -35,10 +37,25 @@ export function canonicalPublicServiceWhere(
   if(!raw)return {clauses:[],bindings:[]};
   if(!enabled||!isAllowedCategory(category)||raw.length>100)
     return {clauses:["1=0"],bindings:[]};
-  const option=builtIn(raw,category);
+  const option=builtIn(raw);
   if(option)return {
-    clauses:[`EXISTS (SELECT 1 FROM service_profile_option_choices AS svc_choice WHERE svc_choice.profile_id=${profileId} AND svc_choice.option_id=? AND svc_choice.choice='yes')`],
-    bindings:[raw]
+    clauses:[`EXISTS (
+      SELECT 1 FROM service_profile_option_choices AS svc_choice
+      WHERE svc_choice.profile_id=${profileId} AND svc_choice.option_id=?
+        AND svc_choice.choice='yes'
+        AND (
+          EXISTS (
+            SELECT 1 FROM service_catalog_builtin_overrides AS builtin
+            WHERE builtin.option_id=?
+              AND EXISTS (SELECT 1 FROM json_each(builtin.categories_json) WHERE value=?)
+          )
+          OR (
+            NOT EXISTS (SELECT 1 FROM service_catalog_builtin_overrides AS builtin WHERE builtin.option_id=?)
+            AND ?='1'
+          )
+        )
+    )`],
+    bindings:[raw,raw,category,raw,option.categories.includes(category as typeof serviceFilterCategories[number])?"1":"0"]
   };
   if(!dynamicId.test(raw))return {clauses:["1=0"],bindings:[]};
   return {
@@ -63,8 +80,17 @@ export function canonicalPublicServiceOptions(
   const out=new Map<string,string>();
   for(const row of rows){
     const id=row.optionId;
-    const staticOption=builtIn(id,category);
-    if(staticOption){out.set(id,staticOption.label);continue;}
+    const staticOption=builtIn(id);
+    if(staticOption){
+      let selectedCategories:unknown=staticOption.categories;
+      if(row.builtinCategoriesJson){
+        try{selectedCategories=JSON.parse(row.builtinCategoriesJson);}catch{continue;}
+      }
+      if(!Array.isArray(selectedCategories)||!selectedCategories.includes(category))continue;
+      const label=row.builtinLabel?.trim()||staticOption.label;
+      out.set(id,label);
+      continue;
+    }
     if(!dynamicId.test(id)||row.kind!=="service"||row.status!=="ACTIVE"||
        typeof row.label!=="string"||
        row.label.trim().length<3)continue;
