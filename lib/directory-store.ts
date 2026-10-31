@@ -1060,10 +1060,12 @@ export async function listPublishedDirectoryProfiles(options: {
     const canonicalRows = await database.prepare(`
       SELECT DISTINCT choice.option_id AS optionId,
         opt.label AS label,opt.kind AS kind,opt.status AS status,
-        opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson
+        opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson,
+        builtin.label AS builtinLabel,builtin.categories_json AS builtinCategoriesJson
       FROM service_profile_option_choices AS choice
       JOIN directory_profiles AS profile ON profile.id=choice.profile_id
       LEFT JOIN service_catalog_admin_options AS opt ON opt.id=choice.option_id
+      LEFT JOIN service_catalog_builtin_overrides AS builtin ON builtin.option_id=choice.option_id
       WHERE profile.status='published' AND profile.category=? AND choice.choice='yes'
       ORDER BY choice.option_id
     `).bind(category).all<CanonicalPublicServiceRow>();
