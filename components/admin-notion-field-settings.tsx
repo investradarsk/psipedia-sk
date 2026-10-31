@@ -1,5 +1,5 @@
 "use client";
-import { useCallback,useEffect,useMemo,useState } from "react";
+import { useEffect,useMemo,useState } from "react";
 import styles from "./admin-notion-field-settings.module.css";
 type Mode="safe"|"notion"|"admin"|"latest";
 type Field={id:string;label:string;notionLabel?:string;locked?:boolean;note?:string};
@@ -79,12 +79,17 @@ export function AdminNotionFieldSettings(){
   const [error,setError]=useState("");
   const [message,setMessage]=useState("");
   const [busy,setBusy]=useState("");
-  const refresh=useCallback(async()=>{
-    const r=await fetch("/api/admin/notion-field-authority",{cache:"no-store",credentials:"same-origin"});
-    if(!r.ok)throw Error("Nedá sa načítať konfigurácia Notion.");
-    setResult(await r.json() as Result);
+  useEffect(()=>{
+    let active=true;
+    void fetch("/api/admin/notion-field-authority",{cache:"no-store",credentials:"same-origin"})
+      .then(async r=>{
+        if(!r.ok)throw Error("Nedá sa načítať konfigurácia Notion.");
+        return r.json() as Promise<Result>;
+      })
+      .then(data=>{if(active)setResult(data)})
+      .catch(e=>{if(active)setError(String(e))});
+    return ()=>{active=false};
   },[]);
-  useEffect(()=>{void refresh().catch(e=>setError(String(e)))},[refresh]);
   const group=useMemo(()=>result?.groups.find(g=>g.scope===scope)??result?.groups[0],[result,scope]);
   async function save(field:string,mode:Mode){
     if(!group||!result?.ready||busy)return;

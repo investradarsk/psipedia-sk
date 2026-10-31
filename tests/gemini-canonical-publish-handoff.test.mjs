@@ -221,6 +221,7 @@ test("mapped Directory native publication pushes verified D1 status to the same 
         websiteUrl: "", updatedAt: "2026-10-21T20:00:00Z"};
       const context = {
         exports, structuredClone, reconcileProfileFields, trustedProfileBaselineFromHashes,
+        readNotionFieldAuthorities: async () => ({}),
         gemini22PriorityEnabled: () => false,
         notionDirectoryPageBelongsToSource,
         NotionDirectoryUnsafeTargetError,

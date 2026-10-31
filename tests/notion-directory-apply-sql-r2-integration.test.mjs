@@ -166,6 +166,9 @@ function fixture(options = {}) {
     async loadGeoMirror() { return null; },
     trustedProfileBaselineFromHashes,
     reconcileProfileFields,
+    // The extracted production worker now reads optional owner-configured field modes.
+    // Migration 0147 is absent in this isolated fixture, so default-safe rules apply.
+    readNotionFieldAuthorities: async () => ({}),
     notionDirectoryPageBelongsToSource,
     NotionDirectoryUnsafeTargetError,
     profileSnapshot(profile) {
