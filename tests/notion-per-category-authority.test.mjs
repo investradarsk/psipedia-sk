@@ -86,3 +86,35 @@ test("per-field Notion resolution preserves protected fields and refuses unsafe 
   assert.equal(del.kind,"CONFLICT");
   assert.ok(del.conflicts.some(x=>x.reason==="UNVERIFIED_DELETE"));
 });
+
+test("event classification and non-Google location obey Notion per-field authority",()=>{
+  const base={"Typ podujatia":"Výstava","Mesto":"Nitra","Kraj":"Nitriansky","Adresa":"Pôvodná",
+    "Stav":"Koncept","Slug":"povodny"};
+  const notion={...base,"Typ podujatia":"Preteky","Mesto":"Trnava","Kraj":"Trnavský",
+    "Adresa":"Nová adresa","Stav":"Publikované","Slug":"novy"};
+  const authorities={"Typ podujatia":"notion","Mesto":"notion","Kraj":"notion",
+    "Adresa":"notion","Stav":"notion","Slug":"notion"};
+  const free=reconcileProfileFields({
+    baseline:base,notion,psipedia:base,authorities,
+    protectedFields:exported.fixedNotionAgendaFields("events"),
+    canonicalFieldsWin:true,
+  });
+  assert.equal(free.kind,"MERGE");
+  for(const name of ["Typ podujatia","Mesto","Kraj","Adresa"]){
+    assert.equal(free.merged[name],notion[name],name);
+  }
+  assert.equal(free.merged.Stav,"Koncept");
+  assert.equal(free.merged.Slug,"povodny");
+  const google=reconcileProfileFields({
+    baseline:base,notion,psipedia:base,authorities,
+    protectedFields:new Set([...exported.fixedNotionAgendaFields("events"),
+      "Mesto","Kraj","Adresa"]),
+    canonicalFieldsWin:true,
+  });
+  assert.equal(google.kind,"MERGE");
+  assert.equal(google.merged["Typ podujatia"],"Preteky");
+  assert.equal(google.merged.Mesto,"Nitra");
+  assert.equal(google.merged.Kraj,"Nitriansky");
+  assert.equal(google.merged.Adresa,"Pôvodná");
+  assert.equal(google.merged.Stav,"Koncept");
+});
