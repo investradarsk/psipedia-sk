@@ -22,6 +22,7 @@ import { directoryQueryFields } from "@/lib/directory-query";
 import { getDirectoryCategoryPreviews, type DirectoryFilters, type PublicDirectoryProfilePage } from "@/lib/directory-store";
 import { EMPTY_MAP_FILTERS, serializeMapUiFilters } from "@/lib/map-public-ui";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { CTA_DIRECTORY_MAP_ANCHOR } from "@/lib/visual-library-anchors";
 import styles from "./directory-public.module.css";
 
 function profileCountLabel(count: number) {
@@ -170,7 +171,7 @@ export async function DirectoryPage({
                   <h2>Nájdi služby na mape</h2>
                   <p>Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality.</p>
                   {filters.canonicalService&&<p>Mapa používa rovnaký filter potvrdenej služby ako zoznam.</p>}
-                  <PublicActionLink variant="primary" href={mapHref(filters, active?.slug)}>Zobraziť na mape →</PublicActionLink>
+                  <PublicActionLink id={CTA_DIRECTORY_MAP_ANCHOR} variant="primary" href={mapHref(filters, active?.slug)}>Zobraziť na mape →</PublicActionLink>
                 </section>
 
                 <section className={`ps-public-banner-frame ${styles.sidebarCard}`} data-directory-provider-cta>
