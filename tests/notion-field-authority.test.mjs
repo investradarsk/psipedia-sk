@@ -72,7 +72,7 @@ test("settings API allowlists both scope and field, requires admin, writes D1 on
   ].map(p=>readFile(new URL(p,import.meta.url),"utf8")));
   assert.match(registry,/directoryCategories\.map/);
   assert.match(registry,/lockedDirectoryFields/);
-  assert.match(registry,/editableNotionField\(scope,field\)/);
+  assert.match(registry,/function editableNotionField\(scope:string,field:string\)/);
   assert.match(route,/requireAdminMutation\(request,\{strictProvenance:true\}\)/);
   assert.match(route,/editableNotionField\(scope,field\)/);
   assert.match(route,/notion_field_authority/);
@@ -92,6 +92,6 @@ test("signed webhook IDs are passed to breed targeted runner and do not mutate u
   assert.match(breedSync,/signedBreedChangedFields\(page, changedPropertyIds\)/);
   assert.match(breedSync,/BREED_LEGACY_CONCURRENT_ADMIN_EDIT/);
   assert.match(breedSync,/BREED_EXPLICIT_REMOTE_CHANGED/);
-  assert.match(breedSync,/targetPageId: id/);
+  assert.match(breedSync,/args\.targetPageId/);
   assert.match(inbox,/changed_properties_json/);
 });
