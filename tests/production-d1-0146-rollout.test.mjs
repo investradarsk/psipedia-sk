@@ -15,8 +15,8 @@ const schema = db => ({ objects: db.prepare(
   "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE type IN ('table','index','trigger')").all() });
 
 test("0146 is a protected, owner-dispatched target and never starts on PR merge", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), "0145_notion_webhook_inbox.sql");
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-4), "0145_notion_webhook_inbox.sql");
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(HELP_SOURCE_0146_OBJECTS.length, 5);
   assert.match(workflow, /- 0146_help_source_daily_checks\.sql/);
