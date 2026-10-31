@@ -16,7 +16,7 @@ export function AdminVisualLibraryOther({
   const chosen = choices.find((item) => item.id === selectedId) ?? choices[0];
 
   return (
-    <div className={styles.workspace}>
+    <div className={category === "hero" ? styles.wideWorkspace : styles.workspace}>
       <div className={styles.catalog} aria-label="Zoznam vizuálnych komponentov">
         <strong>Vyber prvok</strong>
         <div className={styles.catalogItems}>
