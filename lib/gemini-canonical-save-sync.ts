@@ -32,7 +32,7 @@ export async function reconcileGeminiSavedDraft(input: {
     "SELECT notion_page_id FROM gemini_notion_created_pages " +
     "WHERE notion_page_id=? AND stable_key=? AND import_agenda=? LIMIT 1"
   ).bind(notionPageId, key, agenda).first<{ notion_page_id: string }>();
-  if (!signed && !ownerConfirmedLegacy) return notionOnly();
+  if (!signed && agenda === "directory" && !ownerConfirmedLegacy) return notionOnly();
 
   // Exclusion belongs to the original sync pipelines so scheduled and manual
   // imports contend for the same locks, not independent caller-only locks.
