@@ -280,6 +280,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0145_notion_webhook_inbox.sql",
   "0146_help_source_daily_checks.sql",
   "0147_notion_field_authority.sql",
+  "0148_notion_transfer_audit.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1504,6 +1505,9 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0147_notion_field_authority.sql") {
     return { partial: names.has("notion_field_authority") };
+  }
+  if (targetMigration === "0148_notion_transfer_audit.sql") {
+    return { partial: names.has("notion_transfer_audit") || names.has("idx_notion_transfer_audit_scope_time") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
