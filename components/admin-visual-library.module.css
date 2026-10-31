@@ -56,3 +56,13 @@
 .usageSearch input:focus-visible,.moreButton:focus-visible{outline:3px solid #b44939;outline-offset:2px}
 .moreButton{padding:10px 12px;border:1px solid #cbd9cd;background:#f1f6f1;border-radius:9px;color:#26583e;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
 .moreButton:hover{background:#e4f0e5}
+
+/* Stage 4: owner-facing category tabs and read-only real-component previews. */
+.types button{padding:8px 12px;background:#f5f6f3;color:#4d6656;border-radius:9px;border:1px solid #d6e0d7;font:inherit;font-size:.85rem;font-weight:650;cursor:pointer}
+.types button[aria-pressed="true"]{background:#20543e;color:#fff;border-color:#20543e}
+.types button:hover:not([aria-pressed="true"]){background:#e7f0e7}
+.types button:focus-visible{outline:3px solid #b44939;outline-offset:2px}
+.heroPreview{background:#f1f5ed;border:1px solid #e2e8df;border-radius:12px;overflow:hidden;padding:8px;min-width:0}
+.heroPreview :global([data-unified-section-hero-shell]){width:100%;max-width:none;margin:0;padding:0}
+.heroPreview :global([data-unified-section-hero]){max-width:100%}
+@media(max-width:940px){.heroPreview{overflow-x:auto}}
