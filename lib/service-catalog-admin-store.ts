@@ -71,9 +71,15 @@ export async function createAdminCatalogOption(db:DB,raw:unknown,actorRaw:string
   catch(e){return handleDbError(e);}
   if(duplicate)throw new ServiceCatalogConflictError("Option already exists; reuse the canonical ID.");
   // Edited original labels also reserve their names for the same immutable ID.
-  const builtinDuplicate=await db.prepare(
-    "SELECT option_id FROM service_catalog_builtin_overrides WHERE normalized_label=?1 LIMIT 1"
-  ).bind(input.normalizedLabel).first<{option_id:string}>();
+  let builtinDuplicate:{option_id:string}|null=null;
+  try{
+    builtinDuplicate=await db.prepare(
+      "SELECT option_id FROM service_catalog_builtin_overrides WHERE normalized_label=?1 LIMIT 1"
+    ).bind(input.normalizedLabel).first<{option_id:string}>();
+  }catch(error){
+    // Old production schema stays available while migration 0148 is pending.
+    if(!/no such table: service_catalog_builtin_overrides/i.test(String(error)))throw error;
+  }
   if(builtinDuplicate)throw new ServiceCatalogConflictError("Option already exists; reuse the canonical ID.");
   const id=(input.kind==="service"?"svc.admin.":"attr.admin.")+crypto.randomUUID().replace(/-/g,"");
   const time=now.toISOString();
@@ -93,9 +99,16 @@ async function allowedCategories(db:DB,id:string):Promise<readonly string[]|null
   const item=serviceCatalog.find(x=>x.id===id);
   const attribute=attributeCatalog.find(x=>x.id===id&&x.valueKind==="tri_state");
   if(item||attribute){
-    const override=await db.prepare(
-      "SELECT categories_json FROM service_catalog_builtin_overrides WHERE option_id=?1 LIMIT 1"
-    ).bind(id).first<{categories_json:string}>();
+    let override:{categories_json:string}|null=null;
+    try{
+      override=await db.prepare(
+        "SELECT categories_json FROM service_catalog_builtin_overrides WHERE option_id=?1 LIMIT 1"
+      ).bind(id).first<{categories_json:string}>();
+    }catch(error){
+      // Built-in choices already worked before 0148; preserve them through a
+      // code-first deploy, then start applying Admin overrides after migration.
+      if(!/no such table: service_catalog_builtin_overrides/i.test(String(error)))throw error;
+    }
     return override?categories(override.categories_json):(item??attribute)!.categories;
   }
   const row=await db.prepare("SELECT kind,status,notion_mirror_status,categories_json FROM service_catalog_admin_options WHERE id=?1 LIMIT 1")
