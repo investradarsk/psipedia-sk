@@ -7,6 +7,8 @@ const editor = read("components/admin-event-editor.tsx");
 const shell = read("components/admin-editor-workspace.tsx");
 const eventPage = read("app/admin/podujatia/[id]/page.tsx");
 const css = read("components/admin-event-editor.module.css");
+const markdownBridge = read("components/admin-event-markdown-editor.tsx");
+const markdownAdapter = read("lib/event-lexical-markdown.ts");
 
 test("events V3 integrates the existing canonical editor, not a new form engine", () => {
   assert.match(editor, /<EditorWorkspace[\s\S]*mode="page"/);
@@ -74,4 +76,15 @@ test("pilot confines responsive styling and provides development-only preview fi
   assert.match(preview, /process\.env\.NODE_ENV !== "development"/);
   assert.match(preview, /notFound\(\)/);
   assert.doesNotMatch(preview, /fetch\(|db\.prepare|D1|notion\.pages|migrations/i);
+});
+
+
+test("event description and practical info use Lexical with lossless Markdown source fallback", () => {
+  assert.equal((editor.match(/<AdminEventMarkdownEditor\\b/g) ?? []).length, 2);
+  assert.match(markdownBridge, /<AdminLexicalRichTextEditor/);
+  assert.match(markdownBridge, /eventMarkdownToEditorial\(value\)/);
+  assert.match(markdownBridge, /editorialToEventMarkdown\(next\)/);
+  assert.match(markdownBridge, /documentValue === null/);
+  assert.match(markdownBridge, /<textarea/);
+  assert.match(markdownAdapter, /editorialToEventMarkdown\(doc\) !== source/);
 });
