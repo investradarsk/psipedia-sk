@@ -96,9 +96,10 @@ test("runtime dynamic attribute eligibility is fail-closed until ACTIVE and SYNC
 
 test("Services V3 catalog sync runs without routine Notion controls",()=>{
  const scheduler=read("worker/index.ts");
- assert.match(scheduler,/if\(env\.SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true"\)/);
- assert.match(scheduler,/runServicesV3CatalogAutoSweep/);
- assert.match(scheduler,/runServicesV3CatalogAutoSweep\(\{[\s\S]*?db: env\.DB/);
+ assert.match(scheduler,/controller\.cron === ADMIN_PUSH_CRON && env\.SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true"/);
+ assert.match(scheduler,/runSimpleServiceCatalogSync\(\{/);
+ assert.match(scheduler,/db:env\.DB,env,maxWrites:8/);
+ assert.doesNotMatch(scheduler,/runServicesV3CatalogAutoSweep\(\{/);
  assert.doesNotMatch(catalog,/Skontrolovať Notion/);
  assert.doesNotMatch(catalog,/>Schváliť<\/AdminActionButton>/);
 });
