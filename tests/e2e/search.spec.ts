@@ -121,7 +121,7 @@ test("header search restores focus after Escape and submits the shared query con
   await expect(trigger).toHaveAttribute("data-search-ready", "true");
   await trigger.focus();
   await trigger.press("Enter");
-  const input = page.getByRole("textbox", { name: "Hľadaný výraz" });
+  const input = page.getByRole("combobox", { name: "Hľadaný výraz" });
   await expect(input).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
