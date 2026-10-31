@@ -199,6 +199,7 @@ export default async function Home() {
 
       <HomeMagazineBanner
         desktopColors={homeProfileBannerColors}
+        desktopCopy={homeProfileBannerColors}
         anchorId={HOME_PROFILE_BANNER_ANCHOR}
         testId="profil"
         title="Pridajte svoj profil"
