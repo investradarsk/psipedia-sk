@@ -540,6 +540,8 @@ async function syncOneBreed(
   page: NotionPage,
   changedPropertyIds: readonly string[] = [],
   authority: Readonly<Record<string, NotionFieldMode>> = {},
+  explicitField?: keyof typeof BREED_WEBHOOK_PROPERTIES,
+  expectedNotionHash?: string,
 ): Promise<"created" | "updated" | "unchanged"> {
   const basePayload = notionPageToManagedBreedInput(page);
   const contentHash = await notionBreedSourceHash(page);
@@ -603,6 +605,42 @@ async function syncOneBreed(
     // No global updatedAt gate: unrelated Admin changes must never block an
     // independently edited Notion column. The per-field receipt handles
     // same-column conflicts and the D1 CAS handles concurrent saves.
+
+
+    // An admin-confirmed, one-field recovery is required for historical events
+    // already acknowledged as a legacy baseline by the old implementation.
+    // Require the exact viewed Notion value hash and no newer Admin revision.
+    if (mapping && explicitField) {
+      if (!expectedNotionHash || !/^[a-f0-9]{64}$/i.test(expectedNotionHash))
+        throw new Error("BREED_EXPLICIT_HASH_REQUIRED");
+      if (authority[explicitField] === "admin") throw new Error("BREED_FIELD_ADMIN_AUTHORITY");
+      const actualHash = await sha256Text(JSON.stringify(breedFieldSnapshot(basePayload)[explicitField]));
+      if (actualHash !== expectedNotionHash) throw new Error("BREED_EXPLICIT_REMOTE_CHANGED");
+      if (!Number.isFinite(lastAck) || !Number.isFinite(adminEdit) || adminEdit > lastAck)
+        throw new Error("BREED_EXPLICIT_ADMIN_CHANGED");
+      const oldNotionSnapshot = breedFieldSnapshot(basePayload);
+      const oldAdminSnapshot = breedFieldSnapshot(existing);
+      oldNotionSnapshot[explicitField] = oldAdminSnapshot[explicitField];
+      const plan = planBreedNotionFieldDelta(existing, basePayload,
+        oldNotionSnapshot, oldAdminSnapshot, authority);
+      if (plan.conflicts.length) throw new Error("BREED_EXPLICIT_FIELD_CONFLICT");
+      const patch = plan.patch;
+      const merged = { ...existing, ...patch, seo:{...existing.seo,...(patch.seo??{})},
+        status:existing.status, image:existing.image,imageKey:existing.imageKey,
+        gallery:existing.gallery,accent:existing.accent,
+        editorialComplete:existing.editorialComplete } satisfies ManagedBreedInput;
+      const updated = Object.keys(patch).length
+        ? await updateManagedBreed(existing.id,merged,SYNC_ACTOR,existing.updatedAt)
+        : existing;
+      if (!updated) throw new Error("BREED_EXPLICIT_UPDATE_FAILED");
+      await upsertMapping(database,page,updated.id,contentHash,new Date().toISOString(),{
+        notion:plan.latest,admin:breedFieldSnapshot(updated),
+      });
+      await updateNotionSyncState(bindings,page.id,{
+        state:"Synchronizované",psipediaId:updated.id,syncedAt:now,
+      });
+      return Object.keys(patch).length ? "updated" : "unchanged";
+    }
 
     if (mapping && fieldReceipt) {
       const plan = planBreedNotionFieldDelta(existing, basePayload, fieldReceipt.notion, fieldReceipt.admin, authority);
@@ -779,6 +817,8 @@ export async function runNotionBreedSyncSweep(args: {
   bindings: NotionBreedSyncBindings;
   targetPageId?: string;
   changedPropertyIds?: readonly string[];
+  explicitField?: keyof typeof BREED_WEBHOOK_PROPERTIES;
+  expectedNotionHash?: string;
 }): Promise<NotionBreedSyncSummary> {
   const summary: NotionBreedSyncSummary = {
     enabled: notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED),
@@ -809,7 +849,8 @@ export async function runNotionBreedSyncSweep(args: {
     if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
     summary.scanned += 1;
     try {
-      const result = await syncOneBreed(args.database, args.bindings, page, args.changedPropertyIds ?? [], authority);
+      const result = await syncOneBreed(args.database, args.bindings, page,
+        args.changedPropertyIds ?? [], authority, args.explicitField, args.expectedNotionHash);
       summary[result] += 1;
     } catch (error) {
       summary.failed += 1;

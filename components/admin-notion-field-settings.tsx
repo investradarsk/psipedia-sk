@@ -11,6 +11,68 @@ const labels:Record<Mode,string>={
   admin:"Admin má prednosť",
   latest:"Najnovšia overená zmena",
 };
+type BreedDiagnostic={breedId:number;name:string;field:string;notionValue:unknown;adminValue:unknown;same:boolean;expectedNotionHash:string;lastSyncedAt:string;adminUpdatedAt:string;inbox:{status:string;attempts:number;outcome:string|null;last_error_code:string|null}|null};
+function BreedTransferDiagnostic(){
+  const [id,setId]=useState("");
+  const [field,setField]=useState("intro");
+  const [result,setResult]=useState<BreedDiagnostic|null>(null);
+  const [status,setStatus]=useState("");
+  const [busy,setBusy]=useState(false);
+  async function inspect(){
+    setBusy(true);setStatus("");setResult(null);
+    try{
+      const r=await fetch("/api/admin/notion-breed-transfer?id="+encodeURIComponent(id)+"&field="+encodeURIComponent(field),{cache:"no-store"});
+      const data=await r.json() as BreedDiagnostic & {error?:string};
+      if(!r.ok)throw Error(data.error??"Kontrola zlyhala.");
+      setResult(data);
+    }catch(e){setStatus(e instanceof Error?e.message:"Kontrola zlyhala.")}finally{setBusy(false)}
+  }
+  async function transfer(){
+    if(!result||result.same||busy)return;
+    setBusy(true);setStatus("");
+    try{
+      const r=await fetch("/api/admin/notion-breed-transfer",{method:"POST",credentials:"same-origin",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id:result.breedId,field:result.field,
+          expectedNotionHash:result.expectedNotionHash,confirm:true})});
+      const data=await r.json() as {ok?:boolean;error?:string};
+      if(!r.ok||!data.ok)throw Error(data.error??"Prenos vyžaduje kontrolu.");
+      setStatus("Pole prenesené. Obnovujem porovnanie…");
+      await inspect();
+    }catch(e){setStatus(e instanceof Error?e.message:"Prenos zlyhal.")}finally{setBusy(false)}
+  }
+  return <section className={styles.explainer}>
+    <h2>Kontrola prenosu konkrétneho plemena</h2>
+    <p>Diagnostika porovná aktuálne hodnoty priamo v D1 a Notione.
+      Ručné prenesenie je obmedzené na potvrdené jedno pole a odmietne novšiu úpravu Adminu.</p>
+    <div className={styles.diagnosticControls}>
+      <label>Psipedia ID <input type="number" min="1" value={id}
+        onChange={e=>{setId(e.target.value);setResult(null)}} placeholder="napr. 3129"/></label>
+      <label>Pole <select value={field} onChange={e=>{setField(e.target.value);setResult(null)}}>
+        <option value="intro">Úvod</option><option value="children">Deti</option>
+        <option value="character">Charakter</option><option value="health">Zdravie</option>
+        <option value="training">Výcvik</option><option value="needs">Potreby</option>
+      </select></label>
+      <button type="button" disabled={busy||!id} onClick={()=>void inspect()}>
+        Skontrolovať prenos
+      </button>
+    </div>
+    {status?<p role="status">{status}</p>:null}
+    {result?<div className={styles.diagnosticResult}>
+      <p><strong>{result.name}</strong> · {result.same?"Hodnoty sa zhodujú":"Hodnoty sa líšia"} ·
+        posledný potvrdený sync {result.lastSyncedAt||"nie je evidovaný"}</p>
+      <p>Posledná udalosť: {result.inbox?.status??"Neoverená"} ·
+        pokusy {result.inbox?.attempts??"?"} · {result.inbox?.last_error_code??""}</p>
+      <div className={styles.values}><div><strong>Notion</strong>
+        <p>{JSON.stringify(result.notionValue)?.slice(0,1200)}</p></div>
+        <div><strong>Admin</strong><p>{JSON.stringify(result.adminValue)?.slice(0,1200)}</p></div></div>
+      {!result.same?<button type="button" disabled={busy} onClick={()=>void transfer()}>
+        Preniesť len toto pole z Notionu do Adminu
+      </button>:null}
+    </div>:null}
+  </section>;
+}
+
 export function AdminNotionFieldSettings(){
   const [result,setResult]=useState<Result|null>(null);
   const [scope,setScope]=useState("directory:veterinari");
@@ -44,6 +106,7 @@ export function AdminNotionFieldSettings(){
   }
   const families=[...new Set(result?.groups.map(g=>g.family)??[])];
   return <section className={styles.root}>
+    <BreedTransferDiagnostic/>
     <div className={styles.explainer}>
       <strong>Priorita údajov podľa kategórie a poľa</strong>
       <p>Predvolené bezpečné porovnanie prenáša samostatné úpravy. „Admin“ chráni jeho hodnotu;
