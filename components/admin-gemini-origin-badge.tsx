@@ -21,8 +21,8 @@ export async function AdminGeminiOriginBadge({ agenda, entityId }: {
   return <div className={styles.container}>
     <span className={styles.badge}><span aria-hidden="true">✦</span> Vytvorené cez Gemini</span>
     {review?.warnings.length ? <div className={styles.review} role="note">
-      <strong>Na kontrolu – neblokuje úpravu ani publikovanie</strong>
-      <p>Profil bol prenesený ako koncept. Pôvodné údaje ostávajú v Notione.</p>
+      <strong>Na kontrolu – upozornenia neblokujú import</strong>
+      <p>Profil je otvorený na úpravu. Chýbajúce údaje doplň pred zverejnením; originál zostáva v Notione.</p>
       <ul>{review.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>
     </div> : null}
   </div>;
