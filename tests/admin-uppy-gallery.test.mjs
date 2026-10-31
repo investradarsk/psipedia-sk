@@ -10,6 +10,12 @@ test("Uppy gallery uses only the canonical admin API, with sequential bounded im
   assert.match(uploader, /from "@uppy\/core"/);
   assert.match(uploader, /from "@uppy\/react\/dashboard-modal"/);
   assert.match(uploader, /uppy\.addUploader\(upload\)/);
+  assert.match(uploader, /uppy\.emit\("upload-start", files\)/);
+  assert.match(uploader, /uppy\.emit\("upload-progress", item/);
+  assert.match(uploader, /uppy\.emit\("upload-success", item/);
+  assert.match(uploader, /uppy\.emit\("upload-error", item/);
+  assert.match(uploader, /failures\.length === 0\) setOpen\(false\)/);
+  assert.match(uploader, /uppy\.info\("Niektoré fotografie/);
   assert.match(uploader, /await uploadAdminImage\(file, props\.current\.folder\)/);
   assert.match(uploader, /for \(const id of fileIds\)/);
   assert.match(uploader, /MAX_ADMIN_IMAGE_BYTES/);
