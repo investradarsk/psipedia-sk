@@ -285,3 +285,6 @@
     text-decoration: none;
   }
 }
+
+.tableActions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 10px; }
+.tableActions :is(a, button) { white-space: nowrap; }

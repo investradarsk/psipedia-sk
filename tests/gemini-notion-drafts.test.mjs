@@ -87,7 +87,7 @@ test("explicit publication only changes editorial fields after reviewing an attr
   globalThis.fetch = async (url, init) => {
     if (isSchema(url)) return json(schema);
     calls.push({ url, init });
-    if ((init.method ?? "GET").toUpperCase() === "GET") return json(page());
+    if (!init.method || init.method.toUpperCase() === "GET") return json(page());
     if (init.method === "PATCH") return json(page({
       "Stav": select("Publikované"), "Psipedia stav": select("Publikované"),
     }));

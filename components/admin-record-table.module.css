@@ -1,0 +1,39 @@
+.workspace {
+  min-width: 0;
+  border: 1px solid #d9e3da;
+  border-radius: 14px;
+  overflow: visible;
+  background: #fffdf9;
+}
+.toolbar { display: flex; gap: 12px; justify-content: space-between; align-items: center; padding: 12px 14px; background: #f7faf6; border-bottom: 1px solid #e0e7e1; }
+.tableIntro { display: grid; gap: 3px; color: #1c4436; font-size: .87rem; }
+.tableIntro span { font-size: .73rem; color: #64766c; }
+.columnPicker { position: relative; color: #234639; font-size: .83rem; }
+.columnPicker summary { cursor: pointer; border: 1px solid #cedbd1; background: white; border-radius: 8px; padding: 8px 12px; font-weight: 650; }
+.columnPickerMenu { position: absolute; z-index: 5; top: calc(100% + 5px); right: 0; min-width: 190px; max-height: 280px; overflow: auto; display: grid; gap: 8px; padding: 12px; border-radius: 10px; border: 1px solid #cbd7cd; box-shadow: 0 12px 28px #17352b23; background: white; }
+.columnPickerMenu label { display: flex; align-items: center; gap: 8px; white-space: nowrap; cursor: pointer; }
+.columnPickerMenu input { accent-color: #245541; }
+.scroll { width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.scroll:focus-visible { outline: 3px solid #9a3d29; outline-offset: -3px; }
+.table { width: 100%; min-width: 820px; table-layout: fixed; border-collapse: separate; border-spacing: 0; color: #1c3e33; font-size: .84rem; }
+.table th { position: sticky; top: 0; z-index: 1; background: #f0f5f0; font-size: .76rem; letter-spacing: .015em; text-align: left; font-weight: 750; color: #426353; border-bottom: 1px solid #d9e3da; }
+.table th, .table td { position: relative; padding: 9px 12px; vertical-align: middle; border-right: 1px solid #eef1ed; }
+.table td { border-bottom: 1px solid #e9eee8; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table tr:last-child td { border-bottom: 0; }
+.table tbody tr:nth-child(even) { background: #fafcf9; }
+.table tbody tr:hover { background: #edf5ef; }
+.table a { color: #245541; font-weight: 650; text-underline-offset: 3px; }
+.table a:hover { color: #9a3d29; }
+.table td :is(button, a) { font-size: .8rem; }
+.table td button { cursor: pointer; }
+.table td :is(input[type="checkbox"]) { accent-color: #265b43; width: 16px; height: 16px; }
+.heading { min-width: 0; }
+.heading button { padding: 0; background: none; border: 0; color: inherit; cursor: pointer; font: inherit; text-align: left; }
+.heading button:hover { color: #9a3d29; }
+.resizeHandle { position: absolute; z-index: 2; top: 0; bottom: 0; right: -3px; width: 7px; cursor: col-resize; touch-action: none; }
+.resizeHandle:hover { background: #b7cec1; }
+@media (max-width: 700px) {
+ .toolbar { align-items: flex-start; flex-wrap: wrap; }
+ .table { min-width: 760px; }
+ .table th, .table td { padding: 10px; }
+}
