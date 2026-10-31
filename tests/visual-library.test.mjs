@@ -34,7 +34,7 @@ test("editorial promotions never invent article URLs", () => {
 
 test("technical registry remains available but is not the main owner view", () => {
   const page = read("app/admin/komponenty/page.tsx");
-  assert.match(page, /<AdminVisualLibrary \/>/);
+  assert.match(page, /<AdminVisualLibrary articleUsage=\{articleUsage\} \/>/);
   assert.match(page, /<details/);
   assert.match(page, /<AdminComponentRegistry/);
 });
