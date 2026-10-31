@@ -70,19 +70,27 @@ Poznámka: obsahové bannery sa môžu meniť podľa dňa alebo dát. Výpis zac
 - Admin `GET/PUT/POST /api/admin/visual-library/banners` vyžaduje oprávnenia a pri zmene prísnu kontrolu pôvodu požiadavky. Nové uloženie návrhu, zverejnenie a návrat pôvodných farieb majú verziovanie a odmietajú konfliktné zmeny.
 - Návrhy sa ukladajú na **server do D1**, a nie už iba v lokálnom prehliadači. Pri neaplikovanej migrácii sa zobrazí jasná chyba, nič sa ticho neuloží.
 - Publikovanie je zámerne umožnené len pre dve presne identifikované samostatné umiestnenia: **`homepage:profil` na `https://psipedia.sk/`** a **`plemena:kluby` na `https://psipedia.sk/plemena`**. Každé publikovanie vyžaduje uložený návrh, jediný overený výskyt, `scope=one`, pôvodné texty, potvrdenie presnej URL a explicitné zaškrtnutie súhlasu.
-- Priame publikovanie mení **len desktopové farby**. Verejný komponent `PublicMagazineBanner` dostáva allowlistovaný schválený záznam; CSS sa uplatní iba nad 620 px. Mobilná šablóna, titulky a obsahové CTA zostávajú bez zmeny.
-- Textové zmeny a hromadné zmeny spoločnej šablóny možno na serveri uložiť ako **návrh**, ale nie publikovať, kým nevznikne bezpečná oddelená desktopová prezentácia a úplný audit všetkých výskytov.
-- Publikované farby možno vrátiť kliknutím **Vrátiť publikované farby** po potvrdení tej istej URL. D1 čítanie na verejnom webe zlyháva bezpečne na pôvodný štýl, keď je úložisko nedostupné.
+- Priame publikovanie mení **desktopové texty aj farby**. Verejný komponent `PublicMagazineBanner` dostáva allowlistovaný schválený záznam; CSS sa uplatní iba nad 620 px. Mobilná šablóna, titulky a obsahové CTA zostávajú bez zmeny.
+- Textové zmeny samostatných povolených bannerov možno bezpečne publikovať iba na desktope: pôvodný mobilný text zostáva v tom istom sémantickom prvku a viditeľný na mobilnom breakpoint-e. Zmeny spoločnej šablóny a ostatných bannerov zostávajú len návrhom do úplného auditu použitia.
+- Publikované desktopové texty aj farby možno vrátiť kliknutím **Vrátiť publikované texty a farby** po potvrdení tej istej URL. D1 čítanie na verejnom webe zlyháva bezpečne na pôvodný štýl, keď je úložisko nedostupné.
 - **Migrácia nie je automatická:** v chránenom GitHub workflow Production D1 Migrate bol sprístupnený cieľ `0151_visual_library_banner_edits.sql` a potvrdzovací text `APPLY-0151-psipedia-sk-db`. Spustenie výlučne vlastník po merge a po aplikovaní všetkých predchádzajúcich migrácií až po **0150**. Do tej doby serverový editor zobrazí oznámenie o nedostupnej tabuľke a žiadne farby nepublikuje.
 - Testy pokrývajú základné kontrakty autorizácie, potvrdenia URL, desktop CSS, ochrany textov, verzovania a chráneného SQL schématu. **Živé UI a reálne D1 správanie musí potvrdiť CI/staging** pred merge.
 
 ### Stále otvorené
 
-1. Publikovanie textov bez zásahu do mobilu – vyžaduje oddelené desktopové a mobilné textové varianty.
+1. **Desktop-only publikovanie textov pre dva overené bannery implementované**; otestovať živé zobrazenie na desktopovom i mobilnom breakpointe. Ostatné bannery až po overení URL.
 2. Bezpečné publikovanie väčšiny ďalších bannerov, hero, CTA, kariet až po úplnej evidencii ich URL.
 3. Overenie cache invalidácie/vypršania verejnej HTML cache po publikovaní; pri kešovanej stránke sa zmena nemusí zobraziť okamžite.
 4. Overenie integrácie na testovacom alebo produkčnom prostredí po schválenej migrácii.
 5. Audit prípadných ďalších migrácií, ak sa hlavná vetva medzičasom posunie.
+
+### Doplnenie: texty len na desktope bez zmeny mobilu
+
+- `PublicMagazineBanner` vie prijať `desktopCopy` so samostatným malým nadpisom, hlavným nadpisom, popisom a textom CTA. Existujúce props zostávajú jediným pôvodným zdrojom textov pre mobil.
+- Pôvodné aj schválené desktopové texty sú vo vnútri **toho istého** nadpisu, odstavca alebo odkazu; v CSS media query pri `min-width: 621px` sa zobrazí desktop text, pod hranicou pôvodný mobilný text. Nevytvárame dve tlačidlá, dva nadpisy h2 ani dva CTA odkazy.
+- Admin editor umožňuje po serverovom uložení a explicitnom potvrdení URL publikovať aj desktop texty, nielen farby. Nová databázová migrácia nad rámec 0151 nie je potrebná. Server stále nepovolí spoločnú šablónu, nepovolenú URL ani iné než dva overené bannery.
+- Na mobiloch s viewportom do 620 CSS px sa neprepisuje nijaký text ani farba existujúcich bannerov. Skutočné rozloženie a čítačky obrazovky treba overiť v CI/E2E pred merge.
+- Upozornenie: to, že sú texty oddelené vizuálne, nie je ekvivalent rozdielneho SEO obsahu (oba varianty sú v HTML). Táto funkcia slúži na vizuálne prispôsobenie desktopu.
 
 ## Plán pokračovania v tomto jedinom PR
 
