@@ -3,7 +3,7 @@
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import skLocale from "@fullcalendar/core/locales/sk";
-import { type MouseEvent } from "react";
+import { useEffect, useRef } from "react";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
 import type { EventType } from "@/lib/events";
 import styles from "./events-public.module.css";
@@ -15,17 +15,43 @@ type Summary = { date: string; count: number; types: EventType[] };
  * Dates remain navigational links to the canonical calendar/day URLs.
  */
 export function DesktopEventFullCalendar({
-  month, today, selectedDay, summaries, hrefForDay, onDayLinkClick,
+  month, today, selectedDay, summaries, hrefForDay, onSelectDay,
 }: {
   month: string;
   today: string;
   selectedDay: string;
   summaries: Summary[];
   hrefForDay: (date: string) => string;
-  onDayLinkClick: (event: MouseEvent<HTMLAnchorElement>, date: string) => void;
+  onSelectDay: (date: string) => void;
 }) {
   const byDate = new Map(summaries.map(item => [item.date, item]));
-  return <div className={styles.desktopFullCalendar} data-fullcalendar-desktop>
+  const host = useRef<HTMLDivElement>(null);
+  // FullCalendar already renders an anchor around dayCellContent. Enhance that
+  // anchor instead of nesting a second link (which breaks keyboard/HTML semantics).
+  useEffect(() => {
+    const container = host.current;
+    if (!container) return;
+    for (const marker of container.querySelectorAll<HTMLElement>("[data-calendar-date]")) {
+      const day = marker.dataset.calendarDate;
+      const anchor = marker.closest<HTMLAnchorElement>("a.fc-daygrid-day-number");
+      if (!anchor || !day) continue;
+      anchor.href = hrefForDay(day) + "#vybrany-den";
+      anchor.dataset.calendarDate = day;
+      anchor.classList.add(styles.fullCalendarDayLink);
+      anchor.setAttribute("aria-label", marker.getAttribute("aria-label") ?? day);
+    }
+    const handleClick = (event: globalThis.MouseEvent) => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      if (!(event.target instanceof Element)) return;
+      const anchor = event.target.closest<HTMLAnchorElement>("a.fc-daygrid-day-number[data-calendar-date]");
+      if (!anchor || !container.contains(anchor) || !anchor.dataset.calendarDate) return;
+      event.preventDefault();
+      onSelectDay(anchor.dataset.calendarDate);
+    };
+    container.addEventListener("click", handleClick);
+    return () => container.removeEventListener("click", handleClick);
+  }, [hrefForDay, onSelectDay, month, summaries, selectedDay]);
+  return <div ref={host} className={styles.desktopFullCalendar} data-fullcalendar-desktop>
     <FullCalendar
       key={month}
       plugins={[dayGridPlugin]}
@@ -49,16 +75,14 @@ export function DesktopEventFullCalendar({
         const types = summary?.types ?? [];
         const active = day === selectedDay;
         const todayFlag = day === today;
-        return <a
-          href={hrefForDay(day)+"#vybrany-den"}
-          onClick={event => onDayLinkClick(event,day)}
+        return <span
           data-calendar-date={day}
           data-selected={active ? "true" : undefined}
           data-today={todayFlag ? "true" : undefined}
           data-count={count}
           aria-current={todayFlag ? "date" : undefined}
           aria-label={day + (count ? ", "+count+" podujatí" : ", bez podujatí")}
-          className={styles.fullCalendarDayLink}
+          className={styles.fullCalendarDayContent}
         >
           <span className={styles.fullCalendarDayHeading}>
             <span>{arg.date.getDate()}</span>
@@ -70,7 +94,7 @@ export function DesktopEventFullCalendar({
                 style={{backgroundColor:eventTypePresentation[type].color}} />)}
             {types.length > 4 ? <small>+{types.length-4}</small> : null}
           </span>}
-        </a>;
+        </span>;
       }}
     />
   </div>;
