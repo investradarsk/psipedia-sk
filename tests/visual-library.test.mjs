@@ -27,7 +27,7 @@ test("verified page banner references stay tied to existing public route compone
 test("editorial promotions never invent article URLs", () => {
   const catalog = read("lib/visual-library-banners.ts");
   assert.match(catalog, /articlePromoKeys\.map/);
-  assert.match(catalog, /uses: \[\]/);
+  assert.match(catalog, /uses: key === "mapa"/);
   assert.match(catalog, /dynamicNote:/);
   assert.doesNotMatch(catalog, /url: "https:\/\/psipedia\.sk\/clanky\/\[slug\]"/);
 });
