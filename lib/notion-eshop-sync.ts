@@ -25,6 +25,7 @@ import {
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
+import { readNotionFieldAuthorities } from "./notion-field-authority.ts";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 
 export type NotionEshopSyncBindings = NotionSyncBindings & {
@@ -643,6 +644,7 @@ async function syncMapped(input: {
     baseline, notion, psipedia: canonical,
     protectedFields: new Set(["slug", "status"]),
     canonicalFieldsWin: true,
+    authorities: await readNotionFieldAuthorities(input.database,"eshops"),
   });
   if (resolution.kind === "CONFLICT") {
     throw new Error("ESHOP_FIELD_REVIEW_REQUIRED (" +
