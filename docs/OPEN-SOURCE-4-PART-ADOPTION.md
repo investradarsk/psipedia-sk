@@ -32,17 +32,21 @@ Tento dokument sleduje **jeden Draft PR**. Každá ďalšia časť sa doplní na
 
 ## 3. PhotoSwipe – schválený zámer, **zatiaľ neimplementované**
 
-- [ ] Audit existujúcich lightboxov a verejného zobrazovania obrázkov.
-- [ ] Jednotný prístupný gallery/lightbox komponent pre profily a články, s mobilnými gestami.
-- [ ] Zachovať SEO obrazové údaje, alt text, SSR náhľady a fallback fotografií.
+- [x] Audit: zdieľaná `PublicPhotoGallery` má štyri prezentačné varianty; PhotoSwipe bezpečne rozširuje iba `linked`, ostatné zostávajú nedotknuté.
+- [x] Zdieľaný PhotoSwipe lightbox v `PublicPhotoGallery` pre odkazy adopcií a ďalšie prepojené galérie; pôvodné odkazy fungujú aj bez JavaScriptu.
+- [ ] Po vizuálnom audite voliteľne rozšíriť galérie `breed`/`editorial`/`report` (ich existujúce crop/caption/alt šablóny sa teraz nemenia).
+- [x] Zachované SSR `<img>` a `<a>` prvky, alt, zdroj a fallback bez zmeny dátového modelu.
+- [ ] Overiť skutočný lightbox, klávesnicu a gestá na mobile cez E2E.
 
 ## 4. FullCalendar – schválený zámer, **zatiaľ neimplementované**
 
-- [ ] Audit aktuálneho verejného kalendára a admin plánovania.
-- [ ] Zaviesť modernejší kalendár Podujatí so zachovaním existujúcich typov, filtrov, URL a údajov; schválený vzhľad Psipedie.
-- [ ] Zmena mesiaca a výber dňa bez full page reload, prístupnosť klávesnice a mobil.
-- [ ] Voliteľné spoločné zobrazenie publikačných plánov FB článkov a obrázkov bez zásahu do publikátora.
-- [ ] Overiť licenčné limity free MIT pluginov; nepoužívať platené resource/timeline views bez súhlasu.
+- [x] Audit verejného kalendára: vlastné SPA filtre, /api/public/events/calendar, typy, história prehliadača; mobilný kalendár ponechaný.
+- [x] FullCalendar Standard (MIT) mesačná mriežka na desktope, slovensky, s rovnakými farebnými indikátormi typov a existujúcimi deň/mesiac odkazmi.
+- [ ] Vizuálne vyladiť nový kalendár podľa desktop smoke screenshotov.
+- [x] Navigácia a výber dňa používajú pôvodné klientské volanie a URL (popstate); mobilný kalendár sa nezmenil. FullCalendar používa vlastný natívny day link.
+- [ ] Overiť klávesnicu, desktop/mobil a bez-full-reload v Playwright.
+- [ ] Samostatná budúca možnosť: spoločné zobrazenie FB publikačných plánov, bez zásahu do existujúceho publikátora; nie súčasť prvého verejného kalendárneho rozsahu.
+- [x] Použité iba MIT balíky FullCalendar core + daygrid + React; žiadne platené Resource/Timeline pluginy.
 
 ## Merge politika
 
