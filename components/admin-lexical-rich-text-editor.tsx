@@ -310,6 +310,10 @@ export function AdminLexicalRichTextEditor({
   id: string; value: EditorialRichTextDocument; onChange: (value: EditorialRichTextDocument) => void;
   placeholder?: string; ariaLabel?: string; allowHeadings?: boolean; allowCallouts?: boolean; minHeight?: number;
 }) {
+  // Lexical's DOM/editor state is browser-owned. Mount the composer after
+  // React has hydrated the server shell to avoid SSR/client HTML mismatches.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const normalized = normalizeEditorialRichText(value) ?? empty;
   const initialConfig = {
     namespace: "PsipediaArticleLexical",
@@ -320,7 +324,7 @@ export function AdminLexicalRichTextEditor({
   };
   return (
     <div className={styles.wrapper} data-admin-lexical-rich-text data-admin-rich-text-editor>
-      <LexicalComposer initialConfig={initialConfig}>
+      {mounted ? <LexicalComposer initialConfig={initialConfig}>
         <div className={styles.surface} style={{ minHeight }}>
           <Toolbar id={id} allowHeadings={allowHeadings} allowCallouts={allowCallouts} />
           <RichTextPlugin
@@ -336,7 +340,11 @@ export function AdminLexicalRichTextEditor({
           <EditorReadyPlugin id={id} />
           <p className={styles.help}>Píš priamo ako v textovom editore. Podporované sú nadpisy, zoznamy, citácie, odkazy aj zvýraznenia.</p>
         </div>
-      </LexicalComposer>
+      </LexicalComposer> : (
+        <div className={styles.surface} style={{ minHeight }} aria-hidden="true">
+          <div className={styles.editor} />
+        </div>
+      )}
     </div>
   );
 }
