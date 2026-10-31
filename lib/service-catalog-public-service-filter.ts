@@ -32,7 +32,7 @@ function builtIn(id:string){
  */
 export function canonicalPublicServiceWhere(
   category:string,raw:string,enabled:boolean,profileAlias:"directory_profiles"|"d"="directory_profiles",
-  builtinOverridesReady=true,
+  builtinOverridesReady=false,
 ):{clauses:string[];bindings:string[]}{
   const profileId=profileAlias==="d"?"d.id":"directory_profiles.id";
   if(!raw)return {clauses:[],bindings:[]};
