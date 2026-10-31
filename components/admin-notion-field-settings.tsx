@@ -1,6 +1,7 @@
 "use client";
 import { useEffect,useMemo,useState } from "react";
 import styles from "./admin-notion-field-settings.module.css";
+import { AdminNotionConnectionDiagnostic } from "./admin-notion-connection-diagnostic";
 type Mode="safe"|"notion"|"admin"|"latest";
 type Field={id:string;label:string;notionLabel?:string;locked?:boolean;note?:string};
 type Group={scope:string;title:string;family:string;active:boolean;fields:Field[]};
@@ -111,7 +112,6 @@ export function AdminNotionFieldSettings(){
   }
   const families=[...new Set(result?.groups.map(g=>g.family)??[])];
   return <section className={styles.root}>
-    <BreedTransferDiagnostic/>
     <div className={styles.explainer}>
       <strong>Priorita údajov podľa kategórie a poľa</strong>
       <p>Predvolené bezpečné porovnanie prenáša samostatné úpravy. „Admin“ chráni jeho hodnotu;
@@ -136,6 +136,7 @@ export function AdminNotionFieldSettings(){
       </nav>
       {group?<div className={styles.details}>
         <header><h2>{group.title}</h2><p>{group.active?"Nastaviteľné polia existujúcej synchronizácie.":"Prehľad pevne určených pravidiel (zatiaľ bez editácie)."}</p></header>
+        <AdminNotionConnectionDiagnostic key={group.scope} scope={group.scope}/>
         <div className={styles.tableWrap}><table className={styles.table}>
           <thead><tr><th>Pole v Admine</th><th>Prepojenie v Notione</th><th>Priorita</th></tr></thead>
           <tbody>{group.fields.map(field=><tr key={field.id}>
@@ -152,6 +153,7 @@ export function AdminNotionFieldSettings(){
               </select>}</td>
           </tr>)}</tbody>
         </table></div>
+        {group.scope==="breeds"?<BreedTransferDiagnostic/>:null}
       </div>:null}
     </div>:null}
   </section>;
