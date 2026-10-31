@@ -865,7 +865,7 @@ async function createProfileFromNotion(input: {
   // A remote image may return 403 or time out. For signed Gemini drafts,
   // the image is optional: import the PRIVATE profile and let the owner add
   // a photo later. Ordinary Notion imports retain their existing error policy.
-  let prepared: Awaited<ReturnType<typeof prepareNotionMainImage>> = null;
+  let prepared: Awaited<ReturnType<typeof prepareNotionMainImage>> | null = null;
   let imageWarning = "";
   if (sourceImageUrl) {
     try {
