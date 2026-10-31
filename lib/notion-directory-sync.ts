@@ -1723,39 +1723,52 @@ export async function runNotionDirectorySyncSweep(input: {
           ).bind(created.id, syncedAt, page.id).run();
           if (marked.meta.changes !== 1) throw Error("GEMINI_PROVENANCE_IMPORT_CONFLICT");
         }
-        if (creation.prepared && creation.sourceImageUrl) {
-          await upsertMediaSourceMonitor({
-            database: input.database,
-            entityType: "DIRECTORY_PROFILE",
-            entityId: created.id,
-            sourcePageUrl: creation.sourcePageUrl,
-            sourceImageUrl: creation.sourceImageUrl,
-            sourceContentHash: creation.prepared.sourceContentHash,
-            activeImageKey: creation.prepared.imageKey,
-          });
-          await cleanupNotionImageKeys(input.bindings.BUCKET, creation.prepared.replacedKeys);
-        }
-
-        if (creation.verified) {
-          await applyVerifiedDirectoryAddressGeo({
-            profileId: created.id,
-            verified: creation.verified,
-            actorRef: SYSTEM_ACTOR,
-            database: input.database,
-          });
-        }
-
-        await autoAssignGooglePlaceForDirectoryProfile({
-          targetId: created.id,
-          database: input.database,
-        });
-        created = await getManagedDirectoryProfileById(created.id, input.database) ?? created;
-
-        // The signed D1 draft + one-to-one mapping are already durable.
-        // Optional Notion write-back/catalog mirroring cannot revoke that
-        // private editor. Keep any error visible for later troubleshooting.
+        // Signed provenance and review notes are recorded before ancillary
+        // media/GEO/Notion operations: the native D1 concept is already usable.
         const warnings = creation.imageWarning
           ? ["Hlavný obrázok: " + creation.imageWarning] : [];
+        if (trustedGemini) await recordGeminiImportReviewNotes(input.database, "directory",
+          created.id, page.id, [...warnings, ...creation.importWarnings]).catch(() => undefined);
+
+        try {
+          if (creation.prepared && creation.sourceImageUrl) {
+            await upsertMediaSourceMonitor({
+              database: input.database,
+              entityType: "DIRECTORY_PROFILE",
+              entityId: created.id,
+              sourcePageUrl: creation.sourcePageUrl,
+              sourceImageUrl: creation.sourceImageUrl,
+              sourceContentHash: creation.prepared.sourceContentHash,
+              activeImageKey: creation.prepared.imageKey,
+            });
+            await cleanupNotionImageKeys(input.bindings.BUCKET, creation.prepared.replacedKeys);
+          }
+        } catch (error) {
+          if (!trustedGemini) throw error;
+          warnings.push("Doplnkové údaje obrázka: " +
+            (error instanceof Error ? error.message : String(error)));
+        }
+
+        try {
+          if (creation.verified) {
+            await applyVerifiedDirectoryAddressGeo({
+              profileId: created.id,
+              verified: creation.verified,
+              actorRef: SYSTEM_ACTOR,
+              database: input.database,
+            });
+          }
+          await autoAssignGooglePlaceForDirectoryProfile({
+            targetId: created.id,
+            database: input.database,
+          });
+        } catch (error) {
+          if (!trustedGemini) throw error;
+          warnings.push("Google Maps: " + (error instanceof Error ? error.message : String(error)));
+        }
+        created = await getManagedDirectoryProfileById(created.id, input.database) ?? created;
+
+        // Optional Notion write-back/catalog mirroring cannot revoke the private editor.
         try {
           await writeProfileToNotion({
             database: input.database,
