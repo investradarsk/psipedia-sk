@@ -16,12 +16,15 @@ export type PublicPhotoCalloutData = {
 export function PublicPhotoCallout({
   promo,
   headingId,
+  anchorId,
 }: {
   promo: PublicPhotoCalloutData;
   headingId?: string;
+  anchorId?: string;
 }) {
   return (
     <PublicMagazineBanner
+      anchorId={anchorId}
       eyebrow={promo.eyebrow}
       title={promo.title}
       description={promo.text}
