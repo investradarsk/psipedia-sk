@@ -85,6 +85,7 @@ test("real mapped Notion transport refuses wrong, stale and uncertain echoes acr
 test("production sweep dispatcher isolates broken agendas, dry-run and Gemini-targeted scope", async () => {
   const code = fragment("function totals(", "export async function runNotionEventsHelpBootstrapSweep(");
   const visited = [];
+  const receipts = [];
   const definitions = agendas.map(key=>({key,label:key}));
   const empty = (d,enabled=true,schemaReady=true)=>({
     agenda:d.key,label:d.label,enabled,schemaReady,scanned:0,bootstrapped:0,
@@ -94,6 +95,7 @@ test("production sweep dispatcher isolates broken agendas, dry-run and Gemini-ta
   });
   const ctx = vmSection(code,{
     definitions,enabled:()=>true,schemaReady:async()=>true,emptyAgenda:empty,
+    recordNotionTransfer:async(_db,scope,direction,count)=>{if(count>0)receipts.push({scope,direction,count});},
     logFailure:record=>{record.failed++;},
     syncAgenda:async input=>{
       visited.push([input.definition.key,input.mode,input.targetPageId]);
@@ -107,6 +109,8 @@ test("production sweep dispatcher isolates broken agendas, dry-run and Gemini-ta
   assert.deepEqual(Array.from(all.agendas,a=>a.agenda),agendas);
   assert.equal(all.totals.failed,1);
   assert.equal(all.totals.pushedToNotion,4);
+  assert.deepEqual(receipts.map(x=>x.scope),["events","organizations","help-cases","lost-found"]);
+  assert.ok(receipts.every(x=>x.direction==="ADMIN_TO_NOTION"&&x.count===1));
   assert.equal(visited.length,5);
   visited.length=0;
   const dry=await run({database:{},bindings:{},mode:"dry-run",agendas:["events"]});
