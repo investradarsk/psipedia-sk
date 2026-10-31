@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { BulkSelectionCheckbox } from "@/components/admin-bulk-selection";
@@ -57,17 +58,30 @@ function matchesBulkValue(event: AdminEventSummary, field: BulkEventField, value
 }
 
 export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedIds = [] }: { initialPage: AdminEventPageResult; reviewedIds?: number[] }) {
-  const [reviewedIds, setReviewedIds] = useState(initialReviewedIds);
-  const reviewed = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
-  const [data, setData] = useState(initialPage);
-  const events = data.events;
-  const initialRequest = useRef(true);
-  const pendingRequest = useRef<AbortController | null>(null);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState(defaultEventFilters);
+  const [settledSearch, setSettledSearch] = useState(defaultEventFilters.query);
   const [today, setToday] = useState(bratislavaDateKey);
   const [page, setPage] = useState(1);
+  const [initialRequestKey] = useState(() => JSON.stringify([defaultEventFilters, 1, bratislavaDateKey()]));
+  const effectiveFilters = useMemo(() => ({ ...filters, query: settledSearch }), [filters, settledSearch]);
+  const requestKey = JSON.stringify([effectiveFilters, page, today]);
+  // Server-rendered first page is available immediately; later pages use a
+  // cancellable, filter/page/day-specific query cache.
+  const eventQuery = useQuery({
+    queryKey: ["admin", "events", effectiveFilters, page, today],
+    queryFn: ({ signal }) => fetchAdminEventPage(effectiveFilters, page, signal),
+    initialData: requestKey === initialRequestKey
+      ? { ...initialPage, reviewedIds: initialReviewedIds } : undefined,
+    placeholderData: keepPreviousData,
+    staleTime: 20_000,
+  });
+  const data = eventQuery.data ?? initialPage;
+  const reviewedIds = eventQuery.data?.reviewedIds ?? initialReviewedIds;
+  const reviewed = useMemo(() => new Set(reviewedIds), [reviewedIds]);
+  const events = data.events;
+  const loading = eventQuery.isFetching || eventQuery.isPlaceholderData || filters.query !== settledSearch;
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -90,24 +104,9 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   }, []);
 
   useEffect(() => {
-    if (initialRequest.current) { initialRequest.current = false; return; }
-    const controller = new AbortController();
-    pendingRequest.current?.abort();
-    pendingRequest.current = controller;
-    setLoading(true);
-    const timer = window.setTimeout(() => {
-      void fetchAdminEventPage(filters, page, controller.signal).then((snapshot) => {
-        if (controller.signal.aborted) return;
-        setData(snapshot);
-        setReviewedIds(snapshot.reviewedIds);
-      }).catch((error) => {
-        if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : "Načítanie zlyhalo.");
-      }).finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    }, filters.query ? 250 : 0);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [filters, page, today]);
+    const timer = window.setTimeout(() => setSettledSearch(filters.query), 250);
+    return () => window.clearTimeout(timer);
+  }, [filters.query]);
 
   const counts = data.counts;
   const pages = data.pages;
@@ -143,13 +142,13 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   }
 
   async function reload() {
-    pendingRequest.current?.abort();
-    const snapshot = await fetchAdminEventPage(filters, page);
-    setData(snapshot);
-    setReviewedIds(snapshot.reviewedIds);
+    // Invalidate cached pages only after a confirmed write. Existing server
+    // mutation endpoints and their concurrency checks remain authoritative.
+    await queryClient.invalidateQueries({ queryKey: ["admin", "events"], refetchType: "none" });
+    const fresh = await eventQuery.refetch();
+    if (fresh.error) throw fresh.error;
     setSelected(new Set());
     setBulkEditOpen(false);
-    setLoading(false);
   }
 
   async function applyBulk(field: BulkEventField, value: BulkValue) {
@@ -344,6 +343,10 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
 
         <p className="admin-event-result-count" role="status">Nájdené: {data.total} z {counts.all} · Zobrazené: {rows.length}. Časové filtre nezahŕňajú zrušené podujatia.</p>
         {message && <p className="admin-flash" role="status">{message}</p>}
+        {eventQuery.error && <p className="admin-flash" role="alert">
+          {eventQuery.error instanceof Error ? eventQuery.error.message : "Načítanie podujatí zlyhalo."}
+          {" "}<button type="button" onClick={() => void eventQuery.refetch()}>Skúsiť znova</button>
+        </p>}
 
         {rows.length > 0 && <AdminRecordTable
           rows={rows}

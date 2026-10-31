@@ -1,10 +1,11 @@
 "use client";
 
 import { EventListingResults } from './event-listing-results';
+import dynamic from "next/dynamic";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { eventListingParams, parseEventListing, type EventListingFilters } from '@/lib/event-listing';
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type MouseEvent } from "react";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
 import {
   calendarMonthDays,
@@ -32,6 +33,18 @@ import {
 } from "@/lib/events";
 import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
+
+const DesktopEventFullCalendar = dynamic(
+  () => import("./desktop-event-fullcalendar").then(mod => mod.DesktopEventFullCalendar),
+  { ssr: false },
+);
+const subscribeDesktopCalendar = (notify: () => void) => {
+  const media = window.matchMedia("(min-width: 761px)");
+  media.addEventListener("change", notify);
+  return () => media.removeEventListener("change", notify);
+};
+const desktopCalendarSnapshot = () => window.matchMedia("(min-width: 761px)").matches;
+const serverDesktopCalendarSnapshot = () => false;
 
 function dateLabel(day: string) {
   return new Intl.DateTimeFormat("sk-SK", {
@@ -70,6 +83,7 @@ export function EventCalendar({
   initialDay?: string;
   afterCalendar?: ReactNode;
 }) {
+  const isDesktopCalendar = useSyncExternalStore(subscribeDesktopCalendar, desktopCalendarSnapshot, serverDesktopCalendarSnapshot);
   const initialFilters = filters ?? parseEventListing({q:initialQuery,region:initialRegion,mesiac:initialMonth,termin:eventTimeFilterParam(initialTime)},initialType);
   type View = { month: string; day: string; filterMonth: string; time: EventTimeFilter; type: EventType | "Všetky" };
   type CalendarData = {
@@ -261,7 +275,15 @@ export function EventCalendar({
           </nav>
         </div>
 
-        <div className={styles.monthGrid} role="group" aria-label={"Dni kalendára " + calendarMonthLabel(visibleMonth)}>
+        {isDesktopCalendar ? <DesktopEventFullCalendar
+          month={visibleMonth}
+          today={today}
+          selectedDay={selectedDay}
+          summaries={Array.from(daySummaries.values())}
+          hrefForDay={date=>calendarHref(visibleMonth,date)}
+          onSelectDay={date=>void navigate(calendarHref(visibleMonth,date)+"#vybrany-den",{...view,day:date})}
+        /> : <div className={styles.desktopCalendarPending} aria-hidden="true">Načítavam kalendár…</div>}
+        {!isDesktopCalendar && <div className={styles.monthGrid} role="group" aria-label={"Dni kalendára " + calendarMonthLabel(visibleMonth)}>
           {calendarWeekdays.map((name) => <span className={styles.weekday} key={name}>{name}</span>)}
           {days.map((day) => {
             const { count = 0, types = [] } = daySummaries.get(day.date) ?? {};
@@ -282,12 +304,12 @@ export function EventCalendar({
                 aria-current={todayFlag ? "date" : undefined}
                 aria-label={(active ? "Vybraný deň " : "") + dayName + (count ? ", " + count + " podujatí, " + types.map((type) => eventTypePresentation[type].label).join(", ") : ", bez podujatí")}
               >
-                <span className={styles.dayHeading}>
-                <span className={styles.monthDayNumber}>{day.day}</span>
-                {count > 0 ? <span className={styles.monthDayCount} aria-hidden="true">{count}</span> : null}
+                <span className={styles.dayHeading} data-event-day-heading>
+                <span className={styles.monthDayNumber} data-event-day-number>{day.day}</span>
+                {count > 0 ? <span className={styles.monthDayCount} data-event-day-count aria-hidden="true">{count}</span> : null}
                 </span>
                 {types.length ? (
-                  <span className={styles.dayIndicators} aria-hidden="true">
+                  <span className={styles.dayIndicators} data-event-day-dots aria-hidden="true">
                     {types.slice(0, 4).map((type) => <span key={type} className={styles.typeDot} data-event-type={type} style={{ "--event-type-color": eventTypePresentation[type].color } as CSSProperties} />)}
                     {types.length > 4 ? <span className={styles.moreTypes}>+{types.length - 4}</span> : null}
                   </span>
@@ -295,7 +317,7 @@ export function EventCalendar({
               </Link>
             );
           })}
-        </div>
+        </div>}
 
         {selectedDay ? (
           <section className={styles.dayDetail} id="vybrany-den" tabIndex={-1} aria-labelledby="selected-day-title" data-selected-day={selectedDay}>

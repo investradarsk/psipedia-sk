@@ -134,10 +134,15 @@ test.describe('final events acceptance', () => {
       // The default list order depends on today's Bratislava date, not viewport.
       // Inspect specific image fixtures after the viewport loop using stable names.
       await expect(page.locator('[data-event-card] img[data-event-image-source]')).toHaveCount(12);
-      const indicators=await page.locator('[data-calendar-date="2026-10-11"]').evaluate(element=>{
-        const box=element.getBoundingClientRect(),spans=element.firstElementChild!.children;
-        const first=spans[0].getBoundingClientRect(),count=spans[1].getBoundingClientRect();
-        const dots=element.lastElementChild!.getBoundingClientRect();
+      const dayCell=page.locator('[data-calendar-date="2026-10-11"]');
+      await expect(dayCell).toBeVisible();
+      // Both the FullCalendar desktop and the compact mobile month grid expose
+      // the same semantic day parts, regardless of their internal DOM structure.
+      const indicators=await dayCell.evaluate(element=>{
+        const box=element.getBoundingClientRect();
+        const first=element.querySelector('[data-event-day-number]')!.getBoundingClientRect();
+        const count=element.querySelector('[data-event-day-count]')!.getBoundingClientRect();
+        const dots=element.querySelector('[data-event-day-dots]')!.getBoundingClientRect();
         return {overlap:first.right>count.left,outside:count.right>box.right||dots.bottom>box.bottom,width:box.width,height:box.height};
       });
       expect(indicators.overlap).toBe(false);expect(indicators.outside).toBe(false);expect(indicators.width).toBeGreaterThanOrEqual(24);expect(indicators.height).toBeGreaterThanOrEqual(44);

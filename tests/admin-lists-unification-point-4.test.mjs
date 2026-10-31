@@ -84,7 +84,8 @@ test("event stays client-filtered while GET list forms keep their query paramete
   const lost = read("components/admin-lost-found-dashboard.tsx");
   assert.match(event, /setFilters\(\(current\) => \(\{ \.\.\.current, \[key\]: value \}\)\)/);
   assert.match(event, /setPage\(1\)/);
-  assert.match(event, /fetchAdminEventPage\(filters, page/);
+  assert.match(event, /fetchAdminEventPage\(effectiveFilters, page, signal\)/);
+  assert.match(event, /queryKey: \["admin", "events", effectiveFilters, page, today\]/);
   assert.match(adoption, /\["status", next\.status\]/);
   assert.match(lost, /\["type", filters\.type\]/);
 });
