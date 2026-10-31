@@ -144,13 +144,13 @@ export async function publishVisualDraft(input: {
     const result = await db.prepare(`
       UPDATE visual_library_banner_edits
       SET published_json=?, published_revision=?, published_at=?, published_by=?
-      WHERE banner_id=? AND variant_index=? AND revision=?
+      WHERE banner_id=? AND variant_index=? AND revision=? AND published_revision IS ?
     `).bind(
       input.action === "publish" ? JSON.stringify(current.draft) : null,
       input.action === "publish" ? current.revision : null,
       input.action === "publish" ? now : null,
       input.action === "publish" ? input.publishedBy : null,
-      input.id, input.variantIndex, input.revision,
+      input.id, input.variantIndex, input.revision, current.publishedRevision,
     ).run();
     if (!result.meta?.changes) throw new Error("KONFLIKT_VERZIE");
     const updated = await getVisualDraft(input.id, input.variantIndex);
