@@ -49,25 +49,35 @@ export async function reconcileGeminiSavedDraft(input: {
     return { state: "NEEDS_REVIEW" };
   const already = planGeminiPublishHandoff(key, before);
   if (already.kind === "NATIVE_EDITOR_REQUIRED")
-    return { state: "NEEDS_REVIEW", editorUrl: already.editorUrl }; // Import raced this save; inspect canonical content.
+    // The one-to-one D1 mapping is already verified. A failed Notion mirror
+    // must not hide an existing private canonical draft from its owner.
+    return { state: "CANONICAL_DRAFT_READY", editorUrl: already.editorUrl };
   if (already.kind === "INVALID") return { state: "NEEDS_REVIEW" };
 
-  if (agenda === "directory") {
-    const result = await runNotionDirectorySyncSweep({
-      database, bindings, targetPageId: notionPageId, expectedNotionRevision: savedRevision,
-    });
-    if (!result.enabled || !result.schemaReady || result.failed > 0 || result.createdFromNotion !== 1)
-      return { state: "NEEDS_REVIEW" };
-  } else {
-    const result = await runNotionEventsHelpSyncSweep({
-      database, bindings, mode: "sync",
-      agendas: [agenda], targetPageId: notionPageId, expectedNotionRevision: savedRevision,
-      reviewedLegacy,
-    });
-    if (!result.enabled || !result.schemaReady || result.agendas.some(item => item.targetMissing) || result.totals.failed > 0 || result.totals.conflicts > 0 || result.totals.createdFromNotion !== 1)
-      return { state: "NEEDS_REVIEW" };
+  try {
+    if (agenda === "directory") {
+      const result = await runNotionDirectorySyncSweep({
+        database, bindings, targetPageId: notionPageId, expectedNotionRevision: savedRevision,
+      });
+      if (!result.enabled || !result.schemaReady) return { state: "NEEDS_REVIEW" };
+    } else {
+      const result = await runNotionEventsHelpSyncSweep({
+        database, bindings, mode: "sync",
+        agendas: [agenda], targetPageId: notionPageId, expectedNotionRevision: savedRevision,
+        reviewedLegacy,
+      });
+      if (!result.enabled || !result.schemaReady) return { state: "NEEDS_REVIEW" };
+    }
+  } catch {
+    // A network/Notion/write-back failure can happen AFTER the canonical D1
+    // INSERT and identity mapping. Never infer success from the exception;
+    // independently verify that the draft exists in D1 below.
   }
-  const after = await readDraft();
+  // A sync receipt (failed/conflicted/created count) is not the publication
+  // gate. Only an independently verified, private D1 mapping grants editing.
+  // If no mapped draft exists, remain in review and never fabricate an editor.
+  const after = await readDraft().catch(() => null);
+  if (!after) return { state: "NEEDS_REVIEW" };
   // A concurrent Notion publication/rejection is not evidence of a private
   // canonical draft. Require manual D1 verification instead of reporting READY.
   if (after.reviewState === "PUBLISHED" || after.reviewState === "REJECTED")

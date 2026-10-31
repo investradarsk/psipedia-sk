@@ -118,7 +118,10 @@ export function AdminGeminiCanonicalDrafts({ stableKey, deepLinkDraftId }: {
                 Upravené {geminiConceptDate(row.lastEditedAt)}</span>
               <span className={styles.status + " " + (styles["status_" + row.reviewState.toLowerCase()] ?? "")}>
                 {geminiReviewLabels[row.reviewState]}</span>
-              {row.syncError && <span className={styles.error}>Synchronizácia: {row.syncError}</span>}
+              {row.syncError && <span className={styles.error}>
+                {nativeUrl ? "Upozornenie k synchronizácii (neblokuje úpravu): " : "Prenos ešte nie je dokončený: "}
+                {row.syncError}
+              </span>}
             </div>
             <div className={styles.actions}>
               {nativeUrl ? <a className={styles.primary} href={nativeUrl}>Otvoriť editor →</a>
