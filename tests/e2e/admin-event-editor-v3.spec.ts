@@ -239,6 +239,31 @@ test("Existing published event: PUT preserves payload, save changes and unpublis
 });
 
 
+test("Legacy event Markdown is untouched when saving unrelated fields", async ({ page }) => {
+  const requests: Record<string, unknown>[] = [];
+  await page.route("**/api/admin/events/99990", async (route) => {
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    requests.push(payload);
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ event: { id: 99990, status: payload.status } }),
+    });
+  });
+  const root = await openEditor(page, "legacy");
+  const source = root.getByRole("textbox", { name: "Podrobný popis", exact: true });
+  await expect(source).toHaveValue("* Starý zoznam\n3. Netradičné číslovanie");
+  await expect(root.getByRole("textbox", { name: "Praktické informácie", exact: true }))
+    .toHaveValue("[Kontakt](mailto:klub@example.org)");
+  await root.getByLabel("Názov podujatia").fill("Zmenený iba názov");
+  await root.getByRole("button", { name: "Uložiť zmeny" }).click();
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0]).toMatchObject({
+    title: "Zmenený iba názov",
+    description: "* Starý zoznam\n3. Netradičné číslovanie",
+    practicalInfo: "[Kontakt](mailto:klub@example.org)",
+  });
+});
+
 test("Published event: Enter submits published status and clears dirty guard after successful save", async ({ page }) => {
   const requests: Record<string, unknown>[] = [];
   await page.route("**/api/admin/events/99990", async (route) => {
