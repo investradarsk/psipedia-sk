@@ -10,7 +10,7 @@ const mappings:Record<string,ScopeConfig>={
   breeds:{sourceKey:"NOTION_BREEDS_DATA_SOURCE_ID",enabledKey:"NOTION_BREED_SYNC_ENABLED"},
   articles:{sourceKey:"NOTION_ARTICLES_DATA_SOURCE_ID",enabledKey:"NOTION_ARTICLE_SYNC_ENABLED"},
   eshops:{sourceKey:"NOTION_ESHOPS_DATA_SOURCE_ID",enabledKey:"NOTION_ESHOP_SYNC_ENABLED"},
-  events:{sourceKey:"NOTION_EVENTS_DATA_SOURCE_ID",enabledKey:"NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED"},
+  events:{enabledKey:"NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED"},
   organizations:{enabledKey:"NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED"},
   adoptions:{enabledKey:"NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED"},
   "help-cases":{enabledKey:"NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED"},
@@ -32,7 +32,7 @@ export async function readNotionConnectionDiagnostic(
   const enabled=active(env[config.enabledKey]);
   let sourceId=config.sourceKey ? String(env[config.sourceKey]??"") : "";
   if(scope==="service-catalog")sourceId=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
-  if(["organizations","adoptions","help-cases","lost-found"].includes(scope)){
+  if(["events","organizations","adoptions","help-cases","lost-found"].includes(scope)){
     try{
       const row=await db.prepare("SELECT data_source_id AS id FROM notion_agenda_targets WHERE agenda=? LIMIT 1")
         .bind(scope).first<{id:string}>();
