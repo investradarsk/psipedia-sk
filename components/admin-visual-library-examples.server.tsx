@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system/unified-section-hero";
 import { PublicActionLink } from "@/components/public-visual-system";
 import { HomePortalSearch } from "@/components/home-portal-search";
