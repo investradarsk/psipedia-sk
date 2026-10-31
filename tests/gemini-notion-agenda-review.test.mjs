@@ -87,7 +87,7 @@ function fixture(key, signed = false) {
     NOTION_HELP_DATA_SOURCE_ID: sources["help-cases"] };
   const request = async (resource, init = {}) => {
     const path = String(resource).replace("https://api.notion.com/v1", "");
-    assert.equal(init.headers.get("Authorization"), "Bearer mock-only");
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer mock-only");
     if (path.startsWith("/data_sources/") && path.endsWith("/query")) {
       assert.equal(init.method, "POST");
       return json({ results: [value], has_more: false });
