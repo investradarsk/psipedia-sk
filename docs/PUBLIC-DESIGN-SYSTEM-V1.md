@@ -31,6 +31,6 @@ VISUAL_REVIEW_ROUTES: /,/clanky,/plemena,/podujatia
 
 ## CSS de-duplication batch 1
 
-- **Category navigation:** the approved 4-column desktop grid, active state and spacing now live in the first canonical compact navigation rules. Removed trailing duplicated desktop declarations. Existing 900/620/380px breakpoints and special Help grid rules retained.
+- **Category navigation:** reverted to `main` after the exact 320px event fixture exceeded the visual-difference threshold. Desktop cleanup is deferred until mobile visual parity is demonstrated.
 - **Search:** homepage's duplicate desktop search panel sizes were identical to the shared hero's styles; removed the local declarations while preserving all existing mobile overrides.
 - Never remove mobile variants without screenshot comparison. Notion, SEO and detail pages are not part of this batch.

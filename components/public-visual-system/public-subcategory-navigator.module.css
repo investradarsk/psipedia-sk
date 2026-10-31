@@ -151,39 +151,37 @@
 }
 
 .compactTrack {
-  display: grid;
+  display: flex;
   min-width: 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  align-items: stretch;
-  overflow: visible;
-  flex-wrap: wrap;
-  scroll-snap-type: none;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding-block: 8px;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
 }
 
 .compactItem {
   display: inline-flex;
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  min-height: 48px;
+  min-height: 44px;
   flex: 0 0 auto;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 7px;
-  padding: 8px 13px;
+  padding: 8px 12px;
   border: 1px solid rgba(23, 75, 56, .12);
-  border-radius: var(--ps-radius-control, 12px);
+  border-radius: 999px;
   color: var(--forest-dark, #17352b);
   background: rgba(255, 253, 248, .9);
   font-size: .78rem;
   font-weight: 800;
   line-height: 1.15;
-  text-align: left;
   text-decoration: none;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
   scroll-snap-align: start;
 }
 
@@ -196,8 +194,8 @@
   border-color: var(--forest, #174b38);
   color: #fff;
   background: var(--forest, #174b38);
-  text-decoration: none;
-  box-shadow: 0 2px 7px rgba(23, 75, 56, .13);
+  text-decoration: underline;
+  text-underline-offset: .2em;
 }
 
 .compactItemCurrent:hover {
@@ -392,18 +390,31 @@
   .compactGridMobile .compactItem small { font-size: .66rem; }
 }
 
-/* One canonical desktop category grid; existing mobile overrides preserved. */
-@media (max-width: 900px) { .compactTrack { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 620px) {
-  /* These values were formerly re-applied by the final desktop override.
-   * Preserve them explicitly so moving that override does not change mobile. */
-  .compactTrack {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    align-items: stretch;
-    padding-block: 8px;
-  }
-  .compactItem { text-align: left; }
+/* PUBLIC NAV: no hidden horizontal rails, regardless of breakpoint.
+   Use one responsive grid for all compact category navigation instances. */
+.compactTrack {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  overflow: visible;
+  flex-wrap: wrap;
+  scroll-snap-type: none;
+  align-items: stretch;
+  padding-block: 8px;
 }
+.compactItem {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 48px;
+  border-radius: var(--ps-radius-control, 12px);
+  white-space: normal;
+  text-align: left;
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
+  padding-inline: 13px;
+}
+.compactItemCurrent { text-decoration: none; box-shadow: 0 2px 7px rgba(23, 75, 56, .13); }
+@media (max-width: 900px) { .compactTrack { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .compactTrack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 380px) { .compactTrack { grid-template-columns: minmax(0, 1fr); } }
