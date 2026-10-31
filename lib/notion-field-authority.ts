@@ -112,7 +112,8 @@ export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
         "Zrušené","Kontakt","Adresa","Mesto","Okres","Kraj",
         ...(scope==="lost-found"?["Miesto","Naposledy videný"]:[]),
       ].includes(name),
-      note:"Chránené identifikačné, schvaľovacie a adresné údaje majú existujúce pravidlá",
+      note: ["Slug","Stav","Psipedia stav","Kategória","Typ","Typ podujatia","Organizácia","Vyriešené","Urgentné","Latitude","Longitude","Presnosť lokality","Verejný kontakt","Zdroj","Zdroj URL","Zdroj dát","Zrušené","Kontakt","Adresa","Mesto","Okres","Kraj",...(scope==="lost-found"?["Miesto","Naposledy videný"]:[])].includes(name)
+        ? "Chránené identifikačné, schvaľovacie alebo adresné pole" : undefined,
     })),
   })),
 ];

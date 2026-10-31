@@ -1809,7 +1809,7 @@ async function syncOneNotionPage(
   const notionImageAlt = richTextProperty(page, "Alt text obrázka");
   const notionImageCreditUrl = urlProperty(page, "Zdroj obrázka");
   const contentHash = await sha256(JSON.stringify({
-    payload: basePayload,
+    payload: sourcePayload,
     notionImageSourceUrl,
     ...(notionImageFileIdentity ? { notionImageFileIdentity } : {}),
     notionImageAlt,
