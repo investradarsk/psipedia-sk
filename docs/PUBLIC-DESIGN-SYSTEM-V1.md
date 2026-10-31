@@ -28,3 +28,9 @@ Do not visually change any <=767px public route. The homepage retains its approv
 **Pending inventory:** Some legacy topic/task pages use `SectionHero` or special-purpose headers. They are not automatically changed in this first migration, because it could silently alter the approved mobile designs. Their compliance must be reviewed and explicitly verified before describing the whole public site as fully migrated.
 
 VISUAL_REVIEW_ROUTES: /,/clanky,/plemena,/podujatia
+
+## CSS de-duplication batch 1
+
+- **Category navigation:** the approved 4-column desktop grid, active state and spacing now live in the first canonical compact navigation rules. Removed trailing duplicated desktop declarations. Existing 900/620/380px breakpoints and special Help grid rules retained.
+- **Search:** homepage's duplicate desktop search panel sizes were identical to the shared hero's styles; removed the local declarations while preserving all existing mobile overrides.
+- Never remove mobile variants without screenshot comparison. Notion, SEO and detail pages are not part of this batch.

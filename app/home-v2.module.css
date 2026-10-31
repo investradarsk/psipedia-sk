@@ -48,23 +48,8 @@
   margin-top: -25px;
 }
 
-.homeV2 :global(.home-search-panel) {
-  gap: 20px;
-  padding: 17px 19px;
-  border-radius: 18px;
-}
-
-.homeV2 :global(.home-search-copy strong) {
-  font-size: 1.04rem;
-}
-
-.homeV2 :global(.home-search-form) {
-  min-height: 50px;
-}
-
-.homeV2 :global(.home-search-shortcuts) {
-  padding-top: 6px;
-}
+/* Search desktop geometry now comes from the shared UnifiedSectionHero.
+ * Leave homepage's existing mobile overrides unchanged. */
 
 .homeV2 :global(.home-services-entry) {
   display: flex;
