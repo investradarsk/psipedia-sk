@@ -39,7 +39,7 @@ const publishedFixture: DogEvent = {
 // The Lexical adapter must not change these fields on unrelated saves.
 const legacyFixture: DogEvent = {
   ...publishedFixture,
-  description: "* Starý zoznam\\n3. Netradičné číslovanie".replace("\\n", "\n"),
+  description: "* Starý zoznam\n3. Netradičné číslovanie",
   practicalInfo: "[Kontakt](mailto:klub@example.org)",
 };
 
