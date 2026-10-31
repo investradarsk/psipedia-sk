@@ -44,7 +44,7 @@ test("stage 7 affects CSS only on approved desktop banners, not mobile layouts o
   assert.match(atlas, /desktopColors=\{breedClubBannerColors\}/);
   assert.match(editor, /Publikovať desktopové farby/);
   assert.match(editor, /Vrátiť publikované farby/);
-  assert.match(editor, /window\.localStorage/) === false; // avoid per-browser persistence
+  assert.doesNotMatch(editor, /window\.localStorage/);
 });
 
 test("0151 only additive draft table, protected manual workflow", () => {
