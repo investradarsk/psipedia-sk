@@ -2461,3 +2461,96 @@
   font-size: .76rem;
   line-height: 1.45;
 }
+
+
+/* FullCalendar enhances only the desktop month view. Existing tested mobile
+   calendar markup remains unchanged and visible below this breakpoint. */
+.desktopFullCalendar {
+  display: block;
+  min-width: 0;
+  --fc-border-color: var(--ps-border-soft);
+  --fc-today-bg-color: transparent;
+  --fc-page-bg-color: var(--ps-surface-raised);
+}
+.desktopFullCalendar :global(.fc) {
+  color: var(--forest-dark);
+  font-family: inherit;
+  font-size: .84rem;
+}
+.desktopFullCalendar :global(.fc-scrollgrid),
+.desktopFullCalendar :global(.fc-scrollgrid td),
+.desktopFullCalendar :global(.fc-scrollgrid th) {
+  border-color: var(--ps-border-soft);
+}
+.desktopFullCalendar :global(.fc-col-header-cell-cushion) {
+  padding: 8px 2px;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: .78rem;
+  font-weight: 800;
+}
+.desktopFullCalendar :global(.fc-daygrid-day-number) {
+  display: block;
+  padding: 0;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+.desktopFullCalendar :global(.fc-daygrid-day-frame) { min-height: 74px; }
+.desktopFullCalendar :global(.fc-day-other) { background: var(--ps-surface); }
+.fullCalendarDayLink {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 70px;
+  gap: 8px;
+  padding: 8px;
+  color: var(--forest-dark);
+  text-decoration: none;
+}
+.fullCalendarDayLink[data-selected="true"] {
+  background: var(--sage-light);
+  box-shadow: inset 0 0 0 2px var(--forest-dark);
+}
+.fullCalendarDayLink:hover,
+.fullCalendarDayLink:focus-visible {
+  background: var(--sage-light);
+  outline: 2px solid var(--forest);
+  outline-offset: -2px;
+}
+.fullCalendarDayHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  font-weight: 750;
+}
+.fullCalendarCount {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 2px 5px;
+  border-radius: 7px;
+  background: var(--forest);
+  color: #fff;
+  font-size: .74rem;
+}
+.fullCalendarDayLink[data-today="true"] .fullCalendarDayHeading > span:first-child {
+  display: inline-grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: var(--forest);
+  color: #fff;
+}
+.fullCalendarIndicators { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.fullCalendarIndicators > span { display: block; width: 7px; height: 7px; border-radius: 50%; }
+.fullCalendarIndicators small { font-size: .65rem; }
+@media (min-width: 761px) {
+  .calendarLayout .monthGrid { display: none; }
+}
+@media (max-width: 760px) {
+  .desktopFullCalendar { display: none; }
+}
