@@ -1,4 +1,5 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
+import { HOME_PROFILE_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
 import { BreedPhoto } from "@/components/breed-photo";
 import {
   HomeEditorialSection,
@@ -194,6 +195,7 @@ export default async function Home() {
       />
 
       <HomeMagazineBanner
+        anchorId={HOME_PROFILE_BANNER_ANCHOR}
         testId="profil"
         title="Pridajte svoj profil"
         description="Prevádzkujete službu pre psov? Nech vás majitelia ľahšie nájdu v adresári."
