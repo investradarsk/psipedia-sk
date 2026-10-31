@@ -114,7 +114,7 @@ test("all catalog entries are editable while original IDs and kinds stay stable"
   assert.equal(item.version,3);
   assert.equal(item.source,"built_in");
   assert.ok(eligibleProfileServiceItems([item],"fyzioterapia").some(x=>x.id===original.id));
-  assert.match(catalog,/item.source==="built_in"\|\|item.status!=="RETIRED"/);
+  assert.match(catalog,/item.source==="built_in"\?builtinOverridesEnabled:item.status!=="RETIRED"/);
   assert.match(catalog,/const body=isEdit[\s\S]*?action:"edit",expectedVersion:editing!\.version/);
   assert.match(catalog,/: \{\.\.\.fields,kind:draft\.kind\}/);
   assert.match(catalog,/selected.source==="admin"&&\s*<AdminActionButton variant="destructive"/);
