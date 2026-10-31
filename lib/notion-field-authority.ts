@@ -63,7 +63,7 @@ export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
       .map(name=>({id:name,label:name,notionLabel:name,locked:true,note:"Jednosmerné Admin/D1 → Notion"}))},
   ...([
     ["articles","Články","Obsah",["Názov","Slug","Kategória","Podsekcia","Typ obsahu","Stav",
-      "Odoslať na Psipedia","Obsah (bloky stránky)","Intro","SEO title","Meta description",
+      "Odoslať na Psipedia","Obsah (bloky stránky)","SEO title","Meta description",
       "Hlavné kľúčové slovo","Popis na sociálne siete","Titulný obrázok","Hlavný obrázok URL",
       "Psipedia ID","Sync stav","Sync chyba"]],
     ["eshops","E-shopy","Recenzie a testy",["Názov","Slug","Psipedia stav","Web","Popis",

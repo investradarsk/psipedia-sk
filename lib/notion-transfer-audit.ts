@@ -18,7 +18,7 @@ export async function recordNotionTransfer(
       .bind(scope,direction,recordCount).run();
   }catch{
     // Protected D1 0148 may not have been applied. Never block the real importer.
-    console.warn("notion_transfer_audit_write_unavailable");
+    // This schema may not be deployed yet; the result stays unknown until 0148.
   }
 }
 export async function readNotionTransferAudit(

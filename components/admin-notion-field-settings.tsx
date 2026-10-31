@@ -143,7 +143,7 @@ export function AdminNotionFieldSettings(){
             <td><strong>{field.label}</strong>{field.note?<small>{field.note}</small>:null}</td>
             <td>{field.notionLabel??(field.locked?'Pevné systémové pravidlo':field.label)}</td>
             <td>{field.locked||!group.active?
-              <span className={styles.fixed}>Chránené / pevné pravidlo</span>:
+              <span className={styles.fixed}>{group.active?"Chránené / pevné pravidlo":"Existujúce pravidlo agendy"}</span>:
               <select aria-label={"Priorita: "+field.label}
                 disabled={!result.ready||Boolean(busy)}
                 value={result.rules[group.scope+":"+field.id]??"safe"}
