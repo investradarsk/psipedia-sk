@@ -25,6 +25,7 @@ export function PublicMagazineBanner({
   compact = false,
   promoKey,
   promoVariant,
+  anchorId,
 }: {
   title: string;
   description: string;
@@ -38,10 +39,13 @@ export function PublicMagazineBanner({
   compact?: boolean;
   promoKey?: string;
   promoVariant?: string;
+  /** Optional stable link target for read-only visual-library usage navigation. */
+  anchorId?: string;
 }) {
   const photo = photoTone ? publicBannerPhotos[photoTone] : null;
   return (
     <section
+      id={anchorId}
       className={[compact ? "home-magazine-banner" : "shell home-magazine-banner", styles.magazine, "ps-public-banner-frame", photo && styles.withPhoto, compact && styles.compact, links?.length && styles.withLinks].filter(Boolean).join(" ")}
       data-home-banner={testId}
       data-promo-key={promoKey}
