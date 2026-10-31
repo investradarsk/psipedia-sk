@@ -51,13 +51,24 @@ Poznámka: obsahové bannery sa môžu meniť podľa dňa alebo dát. Výpis zac
 - Nové testy overujú silné a slabé podobnosti, unikátnosť dvojíc, limitovanie výstupov, UX porovnávania a nepovolenie automatického zlúčenia.
 - Opravený aj starší regresný test `lost-found-public-submission.test.mjs`, ktorý po zdieľaní textov a pridaní kotvy hľadal pôvodný statický text vo nesprávnom súbore.
 
+## Etapa 6 – jednoduchý editor návrhu (bez priameho publikovania)
+
+- V detaile každého už evidovaného **banneru** pribudlo tlačidlo **Upraviť vzhľad**.
+- Editor ponúka: malý nadpis, hlavný nadpis, popis, text tlačidla, bezpečné predvolené farby pozadia a tlačidla a voľbu plánovaného dosahu (`len tento banner` / `spoločná šablóna – po kontrole`).
+- **Skutočný komponent** sa prekreslí okamžite vo vizuálnom náhľade s desktopovým rozložením. Fotobannery si zachovajú nepriehľadnú fotografickú vrstvu, preto pri nich meníme len farbu tlačidla.
+- Tlačidlo **Uložiť návrh** uloží hodnoty do `localStorage` tohto prehliadača, osobitne pre každý banner a textový variant. Nie je to zmena produkcie, databázy, ani nové pravidlo dizajnu pre všetky stránky. Návrh sa pri ďalšom otvorení v rovnakom prehliadači načíta. Nie je synchronizovaný medzi zariadeniami.
+- **Obnoviť pôvodné** odstráni uložený návrh. **Skopírovať na implementáciu** vytvorí konkrétne zadanie aj so zamýšľaným rozsahom a počtom známych použití; pred zmenou spoločnej šablóny je nutný ďalší audit a schválenie.
+- Priamo v editore je jasné upozornenie **Bez publikovania**. Nevytvárame falošný dojem, že uloženie návrhu mení web.
+- Voliteľné hodnoty farieb sú z pevného zoznamu, texty majú dĺžkové obmedzenia a pri pokuse o vloženie neplatných hodnot sa návrh odmietne. Do verejných CSS ani databázy sa nezasahovalo.
+- Skutočné bezpečné publikovanie návrhov a ich zdieľanie medzi zariadeniami vyžadujú samostatnú backendovú implementáciu so schvaľovaním a presným rozsahom, ktorá v tomto PR zatiaľ **nie je dokončená**.
+
 ## Plán pokračovania v tomto jedinom PR
 
 1. **Hotovo pre články:** aktuálne publikované URL, pevne vložené a automatické dnešné promo; ďalšia úloha je história/alternatívne rotujúce varianty a URL dynamických profilov.
 2. **Polohy a opakovania:** rozlíšiť na tej istej URL viac výskytov, umiestnenia (obsah/sidebar/koniec), a explicitné označenia jednotlivých bannerov.
 3. **Hero, CTA a karty začaté v etape 4;** rozšíriť pokrytie ďalších podstránok, navigácie, filtrov a kalendárov.
 4. **Možné duplicity – etapa 5 hotová v kóde:** kandidáti v existujúcom katalógu a ručné porovnanie dvoch prvkov; treba doplniť automatické pokrytie zvyšných typov stránok a komponentov.
-5. **Bezpečný editor:** jednoduché zmeny farby/textu len pre tie komponenty, ktoré to bezpečne podporujú. Náhľad pred uložením, jasné „jedno miesto vs. všetky“ a schválenie pred publikovaním. Samostatne ochrániť mobilný vzhľad.
+5. **Editor pracovného návrhu dokončený v etape 6:** texty, predvolené farby, okamžitý náhľad, uloženie do prehliadača; samostatne zostáva serverové zdieľanie návrhov a schválené publikovanie.
 
 **Dôležité:** nezaraďovať hotové označenie „všetky URL“, kým enumerácia pokrytia nie je otestovaná na živých publikovaných záznamoch. Skladanie URL pomocou odhadovaných slugov nie je akceptovateľné.
 
