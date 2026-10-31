@@ -5,6 +5,7 @@ import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-stor
 import { AdminBreadcrumbs, AdminNavigation } from "./admin-navigation";
 import { AdminStickyMetrics } from "./admin-sticky-metrics";
 import { AdminHomeBrandLink } from "./admin-home-brand-link";
+import { AdminQuickNavigation } from "./admin-quick-navigation";
 import { PawMark } from "./icons";
 import styles from "./admin-shell.module.css";
 
@@ -115,6 +116,7 @@ export function AdminShell({
               </AdminHomeBrandLink>
               <span className={styles.topbarCaption}>Psipedia · Administrácia</span>
               <div className={styles.topbarActions}>
+                <AdminQuickNavigation />
                 <Link href="/" className={styles.backToWeb} aria-label="Návrat na Psipedia.sk">↗ <span>Späť na web</span></Link>
                 <Suspense fallback={<AdminNotificationBellPending />}>
                   <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} summaryPromise={attentionSummaryPromise} />
