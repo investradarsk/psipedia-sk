@@ -114,7 +114,10 @@ export function AdminGeminiAllConcepts() {
         <span className={styles.status + " " + (styles["status_" + draft.reviewState.toLowerCase()] ?? "")}>
           {geminiReviewLabels[draft.reviewState]}
         </span>
-        {draft.syncError && <span role="status" className={styles.warning}>Sync: {draft.syncError}</span>}
+        {draft.syncError && <span role="status" className={styles.warning}>
+          {canonicalUrl ? "Upozornenie k synchronizácii (neblokuje úpravu): " : "Prenos ešte nie je dokončený: "}
+          {draft.syncError}
+        </span>}
         {canonicalUrl || categoryUrl ? (
           <Link className={styles.open} href={canonicalUrl ?? categoryUrl!}>
             {canonicalUrl ? "Otvoriť editor →" : "Čaká na D1 · zobraziť stav →"}

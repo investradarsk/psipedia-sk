@@ -34,7 +34,8 @@ test("URL-only gallery shares one sortable implementation while preserving order
   assert.match(sorter, /gallerySortableIds\(urls\)/);
   assert.match(sorter, /KeyboardSensor/);
   assert.doesNotMatch(photo, /SortableGalleryPhoto|useSortable|DndContext|gallerySortableIds/);
-  assert.match(photo, /uploadAdminImage\(file, folder\)/);
+  assert.match(photo, /<AdminUppyGalleryUpload/);
+  assert.match(read("components/admin-uppy-gallery-upload.tsx"), /await uploadAdminImage\(file, props\.current\.folder\)/);
   assert.match(photo, /validateAdminPhotoGalleryUrl\(url\)/);
 });
 

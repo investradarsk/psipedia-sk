@@ -49,6 +49,7 @@ import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/not
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
 import { readNotionFieldAuthorities } from "@/lib/notion-field-authority";
+import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -830,7 +831,49 @@ async function createProfileFromNotion(input: {
   trustedGemini?: boolean;
 }) {
   const desired = notionSnapshot(input.page);
+  const importWarnings: string[] = [];
   if (input.trustedGemini) {
+    const validUrl = (value: string) => {
+      if (!value) return true;
+      try {
+        const parsed = new URL(value);
+        return (parsed.protocol === "https:" || parsed.protocol === "http:")
+          && !parsed.username && !parsed.password;
+      } catch { return false; }
+    };
+    for (const field of ["websiteUrl", "facebookUrl", "instagramUrl"] as const) {
+      if (desired[field] && !validUrl(desired[field])) {
+        desired[field] = "";
+        importWarnings.push("Skontroluj neplatný odkaz: " + field + ".");
+      }
+    }
+    for (const field of ["publicEmail", "internalEmail"] as const) {
+      if (desired[field] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(desired[field])) {
+        desired[field] = "";
+        importWarnings.push("Skontroluj e-mail: " + field + ".");
+      }
+    }
+    if (desired.publicPhone && !/^[+0-9() .\/-]{1,50}$/.test(desired.publicPhone)) {
+      desired.publicPhone = "";
+      importWarnings.push("Skontroluj telefónne číslo.");
+    }
+    if (desired.postalCode && !/^\d{3}\s?\d{2}$/.test(desired.postalCode)) {
+      desired.postalCode = "";
+      importWarnings.push("Skontroluj PSČ.");
+    }
+    if (desired.addressFormat && !["STREET", "MUNICIPALITY_NUMBER"].includes(desired.addressFormat)) {
+      desired.addressFormat = "";
+      importWarnings.push("Skontroluj formát adresy.");
+    }
+    if (desired.confirmedServiceLocation) {
+      desired.confirmedServiceLocation = false;
+      importWarnings.push("Potvrď prevádzku a adresu v administrácii.");
+    }
+    if (desired.services.length) importWarnings.push("Služby skontroluj a priraď v katalógu Admin/D1.");
+    desired.services = [];
+    if (!desired.region) importWarnings.push("Doplň kraj.");
+    if (!desired.city) importWarnings.push("Doplň mesto/obec.");
+    if (!desired.description) importWarnings.push("Doplň popis profilu.");
     desired.slug = await resolveGeminiPublicSlug(input.database, "directory", {
       requestedSlug: desired.slug, name: desired.name, city: desired.city, notionPageId: input.page.id,
     });
@@ -862,8 +905,14 @@ async function createProfileFromNotion(input: {
   }
 
   normalizeManagedDirectoryProfileInput(payload);
-  const prepared = sourceImageUrl
-    ? await prepareNotionMainImage({
+  // A remote image may return 403 or time out. For signed Gemini drafts,
+  // the image is optional: import the PRIVATE profile and let the owner add
+  // a photo later. Ordinary Notion imports retain their existing error policy.
+  let prepared: Awaited<ReturnType<typeof prepareNotionMainImage>> | null = null;
+  let imageWarning = "";
+  if (sourceImageUrl) {
+    try {
+      prepared = await prepareNotionMainImage({
         bindings: input.bindings,
         sourceUrl: sourceImageUrl,
         sourcePageUrl,
@@ -871,8 +920,12 @@ async function createProfileFromNotion(input: {
         folder: "directory",
         existingImageUrl: null,
         existingImageKey: null,
-      })
-    : null;
+      });
+    } catch (error) {
+      if (!input.trustedGemini) throw error;
+      imageWarning = error instanceof Error ? error.message : String(error);
+    }
+  }
 
   try {
     if (prepared) payload = { ...payload, imageUrl: prepared.imageUrl, imageKey: prepared.imageKey };
@@ -884,6 +937,8 @@ async function createProfileFromNotion(input: {
       prepared,
       sourceImageUrl,
       sourcePageUrl,
+      imageWarning,
+      importWarnings,
     };
   } catch (error) {
     if (prepared?.uploadedKey) {
@@ -1210,7 +1265,7 @@ async function syncMappedPage(input: {
     mappingHash: lastHash, notionHash: pageHash, psipediaHash: profileHash,
   });
   const protectedFields = new Set([
-    "slug", "category", "status", "confirmedServiceLocation",
+    "slug", "category", "status", "services", "confirmedServiceLocation",
     "verified", "featured", "internalEmail", "qualityCheckedAt",
     "qualityResolutions.phone", "qualityResolutions.email",
     "qualityResolutions.website", "qualityResolutions.image",
@@ -1668,42 +1723,79 @@ export async function runNotionDirectorySyncSweep(input: {
           ).bind(created.id, syncedAt, page.id).run();
           if (marked.meta.changes !== 1) throw Error("GEMINI_PROVENANCE_IMPORT_CONFLICT");
         }
-        if (creation.prepared && creation.sourceImageUrl) {
-          await upsertMediaSourceMonitor({
-            database: input.database,
-            entityType: "DIRECTORY_PROFILE",
-            entityId: created.id,
-            sourcePageUrl: creation.sourcePageUrl,
-            sourceImageUrl: creation.sourceImageUrl,
-            sourceContentHash: creation.prepared.sourceContentHash,
-            activeImageKey: creation.prepared.imageKey,
-          });
-          await cleanupNotionImageKeys(input.bindings.BUCKET, creation.prepared.replacedKeys);
+        // Signed provenance and review notes are recorded before ancillary
+        // media/GEO/Notion operations: the native D1 concept is already usable.
+        const warnings = creation.imageWarning
+          ? ["Hlavný obrázok: " + creation.imageWarning] : [];
+        if (trustedGemini) await recordGeminiImportReviewNotes(input.database, "directory",
+          created.id, page.id, [...warnings, ...creation.importWarnings]).catch(() => undefined);
+
+        try {
+          if (creation.prepared && creation.sourceImageUrl) {
+            await upsertMediaSourceMonitor({
+              database: input.database,
+              entityType: "DIRECTORY_PROFILE",
+              entityId: created.id,
+              sourcePageUrl: creation.sourcePageUrl,
+              sourceImageUrl: creation.sourceImageUrl,
+              sourceContentHash: creation.prepared.sourceContentHash,
+              activeImageKey: creation.prepared.imageKey,
+            });
+            await cleanupNotionImageKeys(input.bindings.BUCKET, creation.prepared.replacedKeys);
+          }
+        } catch (error) {
+          if (!trustedGemini) throw error;
+          warnings.push("Doplnkové údaje obrázka: " +
+            (error instanceof Error ? error.message : String(error)));
         }
 
-        if (creation.verified) {
-          await applyVerifiedDirectoryAddressGeo({
-            profileId: created.id,
-            verified: creation.verified,
-            actorRef: SYSTEM_ACTOR,
+        try {
+          if (creation.verified) {
+            await applyVerifiedDirectoryAddressGeo({
+              profileId: created.id,
+              verified: creation.verified,
+              actorRef: SYSTEM_ACTOR,
+              database: input.database,
+            });
+          }
+          await autoAssignGooglePlaceForDirectoryProfile({
+            targetId: created.id,
             database: input.database,
           });
+        } catch (error) {
+          if (!trustedGemini) throw error;
+          warnings.push("Google Maps: " + (error instanceof Error ? error.message : String(error)));
         }
-
-        await autoAssignGooglePlaceForDirectoryProfile({
-          targetId: created.id,
-          database: input.database,
-        });
         created = await getManagedDirectoryProfileById(created.id, input.database) ?? created;
 
-        await writeProfileToNotion({
-          database: input.database,
-          bindings: input.bindings,
-          dataSourceId,
-          profile: created,
-          pageId: page.id,
-        });
-        await syncRelation(page.id,created.id);
+        // Optional Notion write-back/catalog mirroring cannot revoke the private editor.
+        try {
+          await writeProfileToNotion({
+            database: input.database,
+            bindings: input.bindings,
+            dataSourceId,
+            profile: created,
+            pageId: page.id,
+          });
+        } catch (error) {
+          if (!trustedGemini) throw error;
+          warnings.push("Spätná synchronizácia Notion: " +
+            (error instanceof Error ? error.message : String(error)));
+        }
+        try {
+          await syncRelation(page.id,created.id);
+        } catch (error) {
+          if (!trustedGemini) throw error;
+          warnings.push("Katalóg služieb: " +
+            (error instanceof Error ? error.message : String(error)));
+        }
+        await recordGeminiImportReviewNotes(input.database, "directory",
+          created.id, page.id, [...warnings, ...creation.importWarnings]).catch(() => undefined);
+        if (warnings.length) {
+          // Best effort only: a Notion 429 must not block the verified D1 draft.
+          await markPageError(input.bindings, page.id,
+            new Error("Koncept je dostupný v administrácii. " + warnings.join(" | ")));
+        }
         summary.createdFromNotion += 1;
         await recordNotionTransfer(input.database,"directory:"+created.category,"NOTION_TO_ADMIN",1);
         continue;

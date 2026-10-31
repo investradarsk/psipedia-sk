@@ -61,13 +61,16 @@ test("TanStack Table/Virtual remove the silent 200-row service catalogue truncat
   assert.ok(!source.includes("visible.slice(0,200)"));
   assert.ok(source.includes("aria-pressed={selected?.id===item.id}"));
 });
-test("React Dropzone preserves canonical gallery upload sequencing and E2E file input", () => {
-  const source = read("components/admin-photo-gallery.tsx");
-  assert.ok(read("components/admin-gallery-dropzone.tsx").includes('from "react-dropzone"'));
-  const common=read("components/admin-gallery-dropzone.tsx");
-  assert.ok(source.includes("<AdminGalleryDropzone"));
-  assert.ok(common.includes("getInputProps({"), "the named file input is exposed by the shared Dropzone");
-  assert.ok(source.includes("async function upload(files: File[])"));
-  assert.ok(source.includes("for (const file of files)"));
-  assert.ok(source.includes("onBusyChange(false)"));
+test("Uppy gallery retains canonical upload sequencing while single-image Dropzone remains accessible", () => {
+  const gallery = read("components/admin-photo-gallery.tsx");
+  const uppy = read("components/admin-uppy-gallery-upload.tsx");
+  const common = read("components/admin-gallery-dropzone.tsx");
+  assert.ok(gallery.includes("<AdminUppyGalleryUpload"));
+  assert.ok(uppy.includes("from \"@uppy/core\""));
+  assert.ok(uppy.includes("from \"@uppy/react/dashboard-modal\""));
+  assert.ok(uppy.includes("await uploadAdminImage(file, props.current.folder)"));
+  assert.ok(uppy.includes("for (const id of fileIds)"));
+  assert.ok(uppy.includes("onBusyChange(false)"));
+  assert.ok(common.includes('from "react-dropzone"'));
+  assert.ok(common.includes("getInputProps({"), "the named single-image file input stays accessible");
 });

@@ -95,11 +95,24 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
     expect(legend.y).toBeGreaterThanOrEqual(calendar.y - 2);
     expect(legend.x + legend.width).toBeLessThanOrEqual(calendar.x + calendar.width + 2);
     expect(legend.y + legend.height).toBeLessThanOrEqual(calendar.y + calendar.height + 2);
-    const full = await page.locator('[data-calendar-date="2026-10-15"]').boundingBox();
-    const empty = await page.locator('[data-calendar-date="2026-10-17"]').boundingBox();
-    expect(full!.height).toBe(empty!.height);
-    expect(full!.height).toBeLessThanOrEqual(60);
-    expect(full!.height).toBeGreaterThanOrEqual(44);
+    const fullDay = page.locator('[data-calendar-date="2026-10-15"]');
+    const emptyDay = page.locator('[data-calendar-date="2026-10-17"]');
+    await expect(fullDay).toBeVisible();
+    await expect(emptyDay).toBeVisible();
+    const full = await fullDay.boundingBox();
+    const empty = await emptyDay.boundingBox();
+    expect(full).not.toBeNull();
+    expect(empty).not.toBeNull();
+    // FullCalendar uses a taller desktop touch target while the legacy
+    // compact mobile calendar deliberately keeps its existing cell geometry.
+    expect(Math.abs(full!.height - empty!.height)).toBeLessThanOrEqual(2);
+    if (width > 760) {
+      expect(full!.height).toBeGreaterThanOrEqual(70);
+      expect(full!.height).toBeLessThanOrEqual(120);
+    } else {
+      expect(full!.height).toBeLessThanOrEqual(60);
+      expect(full!.height).toBeGreaterThanOrEqual(44);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await page.setViewportSize({ width: 320, height: 1000 });

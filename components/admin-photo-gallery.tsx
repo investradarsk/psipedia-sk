@@ -1,13 +1,13 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { arrayMove } from "@dnd-kit/sortable";
-import { AdminGalleryDropzone } from "@/components/admin-gallery-dropzone";
+import { AdminUppyGalleryUpload } from "@/components/admin-uppy-gallery-upload";
 import { AdminSortableGallery } from "@/components/admin-sortable-gallery";
 import { useForm } from "react-hook-form";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { validateAdminPhotoGalleryUrl } from "@/lib/admin-photo-gallery-url";
-import { uploadAdminImage, type AdminImageFolder } from "@/lib/admin-image-upload";
+import { type AdminImageFolder, type AdminImageUpload } from "@/lib/admin-image-upload";
 import styles from "./admin-photo-gallery.module.css";
 
 /** Edits the existing gallery URL array. Removing a reference never deletes shared media. */
@@ -20,7 +20,6 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
   onBusyChange: (busy: boolean) => void;
 }) {
   const id = useId();
-  const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -30,7 +29,7 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
   const locked = disabled || busy;
 
   function addUrl() {
-    if (locked || pending.current) return;
+    if (locked) return;
     const candidate = validateAdminPhotoGalleryUrl(url);
     if (!candidate) { setError("Zadaj platnú HTTP/HTTPS alebo internú /media/ adresu fotografie."); return; }
     if (value.includes(candidate)) { setError("Táto fotografia už je v galérii."); return; }
@@ -38,27 +37,17 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
     onChange([...value, candidate]); setValue("photoUrl", ""); setError(""); setMessage("Fotografia bola pridaná. Ulož zmeny profilu.");
   }
 
-  async function upload(files: File[]) {
-    if (!files.length || locked || pending.current) return;
-    const remaining = Math.max(0, limit - value.length);
-    if (files.length > remaining) { setError(`Vyber najviac ${remaining} ďalších fotografií.`); return; }
-    pending.current = true; setBusy(true); onBusyChange(true); setError(""); setMessage("");
+  function acceptUploaded(files: AdminImageUpload[]) {
+    // Canonical URLs are committed only by the owning editor's Save action.
     const next = [...value];
-    let added = 0;
-    const failures: string[] = [];
-    try {
-      // Bounded, sequential uploads avoid overwhelming the existing upload endpoint.
-      for (const file of files) {
-        try {
-          const result = await uploadAdminImage(file, folder);
-          if (!next.includes(result.imageUrl)) { next.push(result.imageUrl); added++; onChange([...next]); }
-        } catch (caught) {
-          failures.push(`${file.name}: ${caught instanceof Error ? caught.message : "Nahratie zlyhalo."}`);
-        }
-      }
-      setMessage(added ? `Pridané fotografie: ${added}. Ulož zmeny profilu.` : "Nebola pridaná žiadna fotografia.");
-      setError(failures.join(" "));
-    } finally { pending.current = false; setBusy(false); onBusyChange(false); }
+    for (const file of files) {
+      if (next.length >= limit) break;
+      if (!next.includes(file.imageUrl)) next.push(file.imageUrl);
+    }
+    const added = next.length - value.length;
+    if (added) onChange(next);
+    setMessage(added ? `Pridané fotografie: ${added}. Ulož zmeny profilu.` : "Nebola pridaná žiadna nová fotografia.");
+    setError("");
   }
 
   function move(index: number, offset: number) {
@@ -73,8 +62,14 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
   return <section className={styles.gallery} aria-labelledby={`${id}-title`} aria-busy={busy}>
     <h3 id={`${id}-title`}>Galéria fotografií ({value.length}/{limit})</h3>
     <p>Poradie môžeš zmeniť šípkami. Odstránenie vyradí fotografiu z galérie tohto profilu. Zmeny potvrď uložením profilu.</p>
-    <AdminGalleryDropzone label="Nahrať fotografie" onFiles={upload} disabled={locked||value.length>=limit} busy={busy}
-      onRejected={setError} />
+    <AdminUppyGalleryUpload
+      folder={folder}
+      remaining={limit-value.length}
+      disabled={locked}
+      onUploaded={acceptUploaded}
+      onRejected={setError}
+      onBusyChange={nextBusy => { setBusy(nextBusy); onBusyChange(nextBusy); }}
+    />
     <div className="admin-field"><label htmlFor={`${id}-url`}>Pridať fotografiu z URL</label><input id={`${id}-url`} type="text" inputMode="url" {...register("photoUrl")} disabled={locked || value.length >= limit} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addUrl(); } }} placeholder="/media/… alebo https://…" /><button type="button" disabled={locked || !url.trim() || value.length >= limit} onClick={addUrl}><Plus size={16} aria-hidden="true" /> Pridať do galérie</button></div>
     <AdminSortableGallery urls={value} as="li" containerAs="ol" className={styles.items}
       disabled={locked} onReorder={(from,to)=>onChange(arrayMove(value,from,to))}
