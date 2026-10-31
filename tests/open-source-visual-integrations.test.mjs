@@ -30,6 +30,9 @@ test("FullCalendar replaces the desktop month grid, not mobile or canonical filt
   assert.match(desktop, /onSelectDay\(anchor\.dataset\.calendarDate\)/);
   assert.doesNotMatch(desktop, /return <a\b/);
   assert.match(page, /<DesktopEventFullCalendar/);
+  assert.match(page, /isDesktopCalendar \? <DesktopEventFullCalendar/);
+  assert.match(page, /import\("\.\/desktop-event-fullcalendar"\)/);
+  assert.match(page, /useSyncExternalStore\(subscribeDesktopCalendar/);
   assert.match(page, /<div className=\{styles\.monthGrid\}/);
   assert.match(page, /\/api\/public\/events\/calendar/);
   assert.match(page, /window\.history\.pushState/);
