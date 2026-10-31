@@ -80,7 +80,7 @@ test("pilot confines responsive styling and provides development-only preview fi
 
 
 test("event description and practical info use Lexical with lossless Markdown source fallback", () => {
-  assert.equal((editor.match(/<AdminEventMarkdownEditor\\b/g) ?? []).length, 2);
+  assert.equal((editor.match(/<AdminEventMarkdownEditor\b/g) ?? []).length, 2);
   assert.match(markdownBridge, /<AdminLexicalRichTextEditor/);
   assert.match(markdownBridge, /eventMarkdownToEditorial\(value\)/);
   assert.match(markdownBridge, /editorialToEventMarkdown\(next\)/);
