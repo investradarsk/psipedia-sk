@@ -1,6 +1,7 @@
 "use client";
 
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
+import { PublicSearchSuggestions } from "./public-search-suggestions";
 import Link from "next/link";
 import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -66,6 +67,19 @@ export function SiteHeader({
       };
     });
   }, [navigationItems]);
+
+  useEffect(() => {
+    function openWithKeyboard(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchReturnFocusRef.current = searchTriggerRef.current;
+        setMenuOpen(false);
+        setSearchOpen((current) => !current);
+      }
+    }
+    window.addEventListener("keydown", openWithKeyboard);
+    return () => window.removeEventListener("keydown", openWithKeyboard);
+  }, []);
 
   useEffect(() => {
     const trigger = searchTriggerRef.current;
@@ -598,11 +612,13 @@ export function SiteHeader({
               </span>
               <button type="submit">Hľadať</button>
             </form>
-            <div className="search-results" aria-live="polite">
-              <p className="search-hint">
-                Prehľadávame články, novinky, plemená, podujatia, odborníkov aj pomoc psom. Napíš výraz a stlač Hľadať.
-              </p>
-            </div>
+            <PublicSearchSuggestions
+              query={query}
+              enabled={searchOpen}
+              mode="modal"
+              inputRef={inputRef}
+              onNavigate={() => setSearchOpen(false)}
+            />
           </div>
         </div>
       )}

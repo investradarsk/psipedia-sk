@@ -1,3 +1,7 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { PublicSearchSuggestions } from "./public-search-suggestions";
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import { SearchIcon } from "@/components/icons";
@@ -38,6 +42,10 @@ export function HomePortalSearch({
   shortcuts?: Array<{ href: string; label: string }>;
   searchScope?: string;
 } = {}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [liveQuery, setLiveQuery] = useState(defaultValue);
+  // Do not change section-scoped GET search (services, help, events, reviews).
+  const enableSuggestions = action === "/hladat" && !searchScope && inputName === "q" && hidden.length === 0;
   return (
     <section className="home-search-panel" aria-label={panelLabel}>
       <div className="home-search-copy">
@@ -55,6 +63,8 @@ export function HomePortalSearch({
             name={inputName}
             placeholder={placeholder}
             defaultValue={defaultValue}
+            ref={inputRef}
+            onChange={(event) => setLiveQuery(event.target.value)}
             autoComplete="off"
             minLength={allowEmpty ? undefined : 2}
             maxLength={120}
@@ -63,6 +73,12 @@ export function HomePortalSearch({
           </span>
           <button type="submit">{buttonLabel}</button>
         </form>
+        <PublicSearchSuggestions
+          query={liveQuery}
+          enabled={enableSuggestions}
+          mode="home"
+          inputRef={inputRef}
+        />
         {shortcuts.length > 0 && (
           <div className="home-search-shortcuts" aria-label="Rýchle vstupy">
             <span>Rýchlo:</span>
