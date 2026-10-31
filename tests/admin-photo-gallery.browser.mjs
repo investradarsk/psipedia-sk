@@ -17,6 +17,7 @@ try {
       uploads.push(request.headers()['x-upload-folder']);
       const name=decodeURIComponent(request.headers()['x-file-name']);
       if(name==='fail.png')return route.fulfill({status:400,json:{error:'Testované zlyhanie'}});
+      if(name==='last.png')await new Promise(resolve=>setTimeout(resolve,500));
       return route.fulfill({status:200,json:{imageUrl:'/media/'+name,imageKey:name}});
     }
     if(request.resourceType()==='document') return route.fulfill({contentType:'text/html',body:'<div id="root"></div>'});
@@ -64,7 +65,17 @@ try {
   // so the browser prevents selecting two files in the first place.
   assert.equal(await page.locator('.uppy-Dashboard-input:not([webkitdirectory])').getAttribute('multiple'), null);
   assert.equal(uploads.length,2);
-  await page.locator('.uppy-Dashboard-close').click();
+  // Exercise the real Dashboard upload click after retry/error state.
+  // The authenticated request is delayed so the visible busy state can be
+  // inspected; a successful batch must close the modal and update the owner.
+  await chooseFiles([{name:'last.png',mimeType:'image/png',buffer:Buffer.from('fixture')}]);
+  await page.locator('.uppy-StatusBar-actionBtn--upload').click();
+  await page.waitForFunction(()=>document.querySelector('#save')?.hasAttribute('disabled'));
+  await page.waitForFunction(()=>JSON.parse(document.querySelector('#value').textContent).includes('/media/last.png'));
+  await page.locator('.uppy-Dashboard-Modal').waitFor({state:'hidden'});
+  assert.deepEqual(await values(),['/media/one.webp','/media/three.webp','/media/ok.png','/media/last.png']);
+  assert.deepEqual(uploads,['lost-found','lost-found','lost-found']);
+  assert.equal(await page.locator('#save').isEnabled(),true);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
-  console.log('PASS Uppy gallery: reorder, URL validation, preview, partial upload failure, capacity, folder, busy reset, 320px');
+  console.log('PASS Uppy gallery: reorder, URL validation, preview, partial failure, upload click, visible busy, modal close, capacity, folder, 320px');
 } finally { await browser.close(); }
