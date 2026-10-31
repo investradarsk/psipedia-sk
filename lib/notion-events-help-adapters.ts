@@ -622,7 +622,14 @@ export async function applyNotionToCanonical(
     "SELECT notion_page_id FROM gemini_notion_created_pages " +
     "WHERE import_agenda=? AND canonical_entity_id=?"
   ).bind(agenda, entityId).first<{ notion_page_id: string }>();
-  if (origin) {
+  // Older owner-confirmed Gemini rows have no signed callback record.
+  // Their D1 review-note receipt is the durable Admin authorization and
+  // must enforce the same no-publication/no-private-location protections.
+  const ownerReviewed = !origin ? await database.prepare(
+    "SELECT notion_page_id FROM gemini_import_review_notes " +
+    "WHERE import_agenda=? AND canonical_entity_id=? LIMIT 1"
+  ).bind(agenda, entityId).first<{ notion_page_id: string }>() : null;
+  if (origin || ownerReviewed) {
     const table = ({
       events: "managed_events", organizations: "help_organizations",
       adoptions: "adoption_dogs", "help-cases": "help_cases",
