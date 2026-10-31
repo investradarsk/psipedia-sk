@@ -50,8 +50,8 @@ test("stage 5: ordinary shared style, generic title or shared generic word are n
 
 test("stage 5: strongly similar meaningful titles with different destinations are suggestions only", () => {
   const hits = findSimilarityCandidates([
-    make("a", "Klinika veterinárna pohotovosť blízko vás", "/a"),
-    make("b", "Klinika veterinárna pohotovosť vo vašom meste", "/b"),
+    make("a", "Klinika veterinárna pohotovosť liečba diagnostika rehabilitácia Nitra", "/a"),
+    make("b", "Klinika veterinárna pohotovosť liečba diagnostika rehabilitácia Bratislava", "/b"),
   ]);
   assert.equal(hits[0]?.reason, "similar-title");
   assert.ok(hits[0]?.score < 85);
