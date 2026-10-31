@@ -15,8 +15,8 @@ const schema = db => ({ objects: db.prepare(
   "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE type IN ('table','index','trigger')").all() });
 
 test("0146 is a protected, owner-dispatched target and never starts on PR merge", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), "0145_notion_webhook_inbox.sql");
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), "0145_notion_webhook_inbox.sql");
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(HELP_SOURCE_0146_OBJECTS.length, 5);
   assert.match(workflow, /- 0146_help_source_daily_checks\.sql/);
@@ -32,7 +32,7 @@ test("0146 is a protected, owner-dispatched target and never starts on PR merge"
 test("0146 history permits exactly 0145 as predecessor and detects unexpected gaps", () => {
   const expected = [
     ...Array.from({length: 62}, (_,i) => String(i).padStart(4,"0") + "_fixture.sql"),
-    ...SUPPORTED_PRODUCTION_TARGETS,
+    ...SUPPORTED_PRODUCTION_TARGETS.filter(item => Number(item.slice(0,4)) <= 146),
   ];
   assert.deepEqual(validateProductionTargetHistory(expected.slice(0,-1), expected, target),
     {latestIndex:145,targetApplied:false});

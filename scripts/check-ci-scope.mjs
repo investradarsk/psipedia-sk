@@ -96,10 +96,8 @@ assert.match(required, /full_core:\s*\$\{\{\s*steps\.required-scope\.outputs\.fu
 assert.match(required, /bounded_core:\s*\$\{\{\s*steps\.required-scope\.outputs\.bounded_core\s*\}\}/);
 assert.match(required, /steps\.required-scope\.outputs\.full_core == 'true'/);
 assert.match(required, /steps\.required-scope\.outputs\.bounded_core == 'true'/);
-assert.match(required, /github\.event_name == 'workflow_dispatch'/, "full E2E must remain manually opt-in");
+assert.match(required, /github\.event_name == 'workflow_dispatch'/, "full E2E must remain manual");
 assert.match(required, /github\.event_name == 'schedule'/, "full E2E must remain nightly");
-assert.match(onBlock(required), /full_regression:[\s\S]*?type: boolean[\s\S]*?default: false/, "Manual smoke must default to fast mode");
-assert.match(required, /inputs\.full_regression == true/, "Full browser suite must remain manually selectable");
 assert.match(required, /name:\s*Directory PR E2E — desktop and mobile/);
 assert.match(required, /needs\.validate\.outputs\.directory == 'true'/);
 for (const spec of ["admin-directory-filters.spec.ts", "services-detail-shell.spec.ts", "services-search-layout.spec.ts"]) {
@@ -477,7 +475,6 @@ function simulation(files, eventName = "pull_request", options = {}) {
   };
   const context = {
     github: {event_name: eventName, ref: "refs/heads/main", head_ref: "test/fixture"},
-    inputs: {full_regression: options.fullRegression === true},
     vars: {CLOUDFLARE_PREVIEW_BUILDS_ENABLED: options.previewBuildsEnabled ? "true" : ""},
     steps: {"required-scope": {outputs}, scope: {outputs}},
     needs: {validate: {result: options.validateResult || "success", outputs}, scope: {outputs}},
@@ -534,16 +531,11 @@ for (const event of ["schedule", "workflow_dispatch"]) {
   const resolved = resolveChangedFiles({eventName:event});
   const item = simulation(resolved.files, event);
   assert.equal(item.stepRuns("Full unit and integration regression"), true);
-  assert.equal(item.runs("pull-request-e2e"), event === "schedule",
-    "Scheduled regression stays comprehensive; normal manual smoke skips slow browser suite");
-  assert.equal(item.runs("production-smoke"), true, "Desktop/mobile production smoke must always run");
+  assert.equal(item.runs("pull-request-e2e"), true);
+  assert.equal(item.runs("production-smoke"), true);
   assert.equal(item.update, true);
   assert.equal(item.eventRoutes, event === "workflow_dispatch");
 }
-const manualFull = simulation(resolveChangedFiles({eventName:"workflow_dispatch"}).files,
-  "workflow_dispatch", {fullRegression:true});
-assert.equal(manualFull.runs("pull-request-e2e"), true, "Full manual regression must remain available");
-assert.equal(manualFull.runs("production-smoke"), true);
 assert.equal(productionSmokeRequired(classifyChangedFiles(["components/event-card.tsx"]), {eventName:"push",ref:"refs/heads/topic"}), false);
 
 // Actual disposable Git histories cover squash, merge commit, multi-commit push,

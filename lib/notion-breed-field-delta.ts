@@ -1,4 +1,5 @@
 import type { ManagedBreed, ManagedBreedInput } from "./breed-store";
+import type { NotionFieldMode } from "./notion-field-authority";
 
 /**
  * Notion is the editorial source for these fields ONLY. Never use Notion to
@@ -67,6 +68,7 @@ export function planBreedNotionFieldDelta(
   incoming: ManagedBreedInput,
   oldNotion: BreedFieldSnapshot,
   oldAdmin: BreedFieldSnapshot,
+  authority: Readonly<Record<string, NotionFieldMode>> = {},
 ) {
   const latest = breedFieldSnapshot(incoming);
   const current = breedFieldSnapshot(existing);
@@ -77,13 +79,17 @@ export function planBreedNotionFieldDelta(
   for (const key of BREED_NOTION_EDITABLE_FIELDS) {
     if (same(oldNotion[key], latest[key])) continue;
     changed.push(key);
+    // Explicit Admin authority ignores Notion imports for this field.
+    // The receipt still records the new Notion snapshot, preventing loops.
+    if (authority[key] === "admin") continue;
     let desired: unknown = latest[key];
     if (numeric.has(key) && desired === null) desired = key === "fciGroup" ? 1 : 3;
     if (key === "name" && (typeof desired !== "string" || !desired.trim())) {
       conflicts.push(key);
       continue;
     }
-    if (!same(current[key], oldAdmin[key]) && !same(current[key], desired)) {
+    if (!same(current[key], oldAdmin[key]) && !same(current[key], desired)
+        && authority[key] !== "notion") {
       conflicts.push(key);
       continue;
     }

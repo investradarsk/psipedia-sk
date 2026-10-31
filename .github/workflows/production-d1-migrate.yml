@@ -94,6 +94,7 @@ on:
           - 0144_facebook_articles_shared_calendar.sql
           - 0145_notion_webhook_inbox.sql
           - 0146_help_source_daily_checks.sql
+          - 0147_notion_field_authority.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -208,6 +209,7 @@ jobs:
             0144_facebook_articles_shared_calendar.sql) expected_confirmation="APPLY-0144-psipedia-sk-db" ;;
             0145_notion_webhook_inbox.sql) expected_confirmation="APPLY-0145-psipedia-sk-db" ;;
             0146_help_source_daily_checks.sql) expected_confirmation="APPLY-0146-psipedia-sk-db" ;;
+            0147_notion_field_authority.sql) expected_confirmation="APPLY-0147-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"

@@ -97,30 +97,33 @@ export function PublicSearchSuggestions({
   useEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    // Attach to the existing forms instead of replacing their native submit behavior.
-    // Keep the native textbox role: existing header keyboard and accessibility
-    // contracts locate this control as a textbox, not a combobox.
-    // Only reference a listbox once it is actually rendered. A dangling
-    // aria-controls id fails axe accessibility checks on empty search inputs.
-    const hasListbox = isOpen && status === "ready" && suggestions.length > 0;
+    // Section-scoped search forms do not render suggestions; leave their native
+    // textboxes free of references to a nonexistent suggestions list.
+    if (!enabled) {
+      input.removeAttribute("aria-autocomplete");
+      input.removeAttribute("aria-controls");
+      input.removeAttribute("aria-expanded");
+      input.removeAttribute("aria-activedescendant");
+      return;
+    }
+    // Preserve the native textbox role used by existing search forms. A textbox
+    // supports aria-autocomplete, but aria-expanded is only valid for comboboxes.
     input.setAttribute("aria-autocomplete", "list");
-    input.removeAttribute("aria-expanded"); // Preserve the native textbox role.
-    if (hasListbox) {
+    input.removeAttribute("aria-expanded");
+    if (isOpen && status === "ready" && suggestions.length > 0) {
       input.setAttribute("aria-controls", listId);
     } else {
       input.removeAttribute("aria-controls");
     }
-    if (hasListbox && selected >= 0 && selected < suggestions.length) {
+    if (isOpen && status === "ready" && selected >= 0 && selected < suggestions.length) {
       input.setAttribute("aria-activedescendant", `${listId}-item-${selected}`);
     } else {
       input.removeAttribute("aria-activedescendant");
     }
     return () => {
-      if (input.getAttribute("aria-controls") === listId) input.removeAttribute("aria-controls");
       input.removeAttribute("aria-activedescendant");
-      input.removeAttribute("aria-autocomplete");
     };
-  }, [inputRef, listId, isOpen, status, selected, suggestions.length]);
+  }, [inputRef, enabled, listId, isOpen, status, selected, suggestions.length]);
 
   useEffect(() => {
     const input = inputRef.current;
