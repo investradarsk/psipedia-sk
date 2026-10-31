@@ -127,7 +127,7 @@
 .editorPreview{border:1px dashed #afc3b0;border-radius:10px;background:#f1f5ed;overflow:hidden;padding:12px}
 .editorPreview :global(.home-magazine-banner:not([data-public-photo-callout="care"]):not([data-public-photo-callout="rescue"]):not([data-public-photo-callout="volunteer"]):not([data-public-photo-callout="closing"])){background:var(--visual-library-bg,linear-gradient(110deg,var(--sage-light),var(--paper)))}
 .editorPreview :global(.home-magazine-banner .button.button--dark){background:var(--visual-library-button,var(--forest-dark));border-color:var(--visual-library-button,var(--forest-dark));color:#fff}
-.editorPreview :global(.home-magazine-banner[data-public-photo-callout] .button.button--dark){background:var(--visual-library-button,#fff);border-color:var(--visual-library-button,#fff);color:var(--visual-library-button,#174b38)}
+.editorPreview :global(.home-magazine-banner[data-public-photo-callout] .button.button--dark){background:var(--visual-library-button,#fff);border-color:var(--visual-library-button,#fff);color:var(--visual-library-button-text,#174b38)}
 .editorActions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
 .editorActions button{min-height:40px;cursor:pointer}
 .editorActions button:disabled{cursor:not-allowed;opacity:.65}
