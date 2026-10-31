@@ -129,7 +129,7 @@ test.describe("PUBLIC-UX-FOUNDATION-V3 shared public shell", () => {
     await search.click();
     const dialog = page.getByRole("dialog", { name: "Vyhľadávanie" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("textbox", { name: "Hľadaný výraz" })).toBeFocused();
+    await expect(dialog.getByRole("combobox", { name: "Hľadaný výraz" })).toBeFocused();
     const accessibility = await new AxeBuilder({ page })
       .include(".search-modal")
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
