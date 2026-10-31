@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - "components/admin-event-editor.tsx"
+      - "components/admin-event-markdown-editor.tsx"
+      - "components/admin-lexical-rich-text-editor.tsx"
+      - "lib/event-lexical-markdown.ts"
+      - "tests/event-lexical-markdown.test.mjs"
       - "components/admin-event-editor.module.css"
       - "components/admin-editor-workspace.tsx"
       - "app/admin/event-editor-v3-preview/**"
@@ -22,8 +26,6 @@ concurrency:
 
 jobs:
   events-pilot-only:
-    # Run on the approved #909 baseline and the isolated Events UX safety fix #952.
-    if: github.event.pull_request.number == 909 || github.event.pull_request.number == 952
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -47,9 +49,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Pilot contracts
-        run: node --test tests/admin-event-editor-v3.test.mjs
+        run: node --test tests/admin-event-editor-v3.test.mjs && node --experimental-loader ./tests/admin-events-loader.mjs --test tests/event-lexical-markdown.test.mjs
       - name: Pilot-only lint
-        run: npx eslint components/admin-event-editor.tsx components/admin-editor-workspace.tsx app/admin/event-editor-v3-preview/page.tsx tests/e2e/admin-event-editor-v3.spec.ts
+        run: npx eslint components/admin-event-editor.tsx components/admin-event-markdown-editor.tsx components/admin-lexical-rich-text-editor.tsx lib/event-lexical-markdown.ts components/admin-editor-workspace.tsx app/admin/event-editor-v3-preview/page.tsx tests/e2e/admin-event-editor-v3.spec.ts
       - name: Build isolated app
         run: npm run build
       - name: Install Chromium
