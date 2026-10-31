@@ -220,6 +220,7 @@ async function loadWriter(h) {
   }).outputText;
   const exports = {};
   const dependencies = {
+    "@/lib/notion-transfer-audit": {recordNotionTransfer:async()=>{}},
     "@/lib/article-store": {},
     "@/lib/article-blocks": {},
     "@/lib/article-promo": {},
