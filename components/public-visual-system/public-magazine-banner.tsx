@@ -28,6 +28,7 @@ export function PublicMagazineBanner({
   promoVariant,
   anchorId,
   desktopColors,
+  desktopCopy,
 }: {
   title: string;
   description: string;
@@ -44,6 +45,8 @@ export function PublicMagazineBanner({
   /** Optional stable link target for read-only visual-library usage navigation. */
   anchorId?: string;
   desktopColors?: { background: "original" | "sage" | "cream" | "white"; button: "original" | "green" | "red" } | null;
+  /** Owner-approved copy for desktop only, original props are the mobile source of truth. */
+  desktopCopy?: { eyebrow: string; title: string; description: string; ctaLabel: string } | null;
 }) {
   const photo = photoTone ? publicBannerPhotos[photoTone] : null;
   const bg = desktopColors?.background === "sage" ? "#e1ebdf" : desktopColors?.background === "cream" ? "#f9f1e5" : desktopColors?.background === "white" ? "#ffffff" : undefined;
@@ -59,8 +62,8 @@ export function PublicMagazineBanner({
       data-promo-key={promoKey}
       data-promo-variant={promoVariant}
       data-public-photo-callout={photoTone}
-      aria-label={headingId ? undefined : title}
-      aria-labelledby={headingId}
+      aria-label={headingId || desktopCopy ? undefined : title}
+      aria-labelledby={headingId ?? (desktopCopy && anchorId ? `${anchorId}-heading` : undefined)}
     >
       {photo ? (
         <span className={styles.photoMedia} aria-hidden="true">
@@ -69,9 +72,30 @@ export function PublicMagazineBanner({
         </span>
       ) : null}
       <div>
-        <span className="eyebrow">{eyebrow}</span>
-        <h2 id={headingId}>{title}</h2>
-        <p>{description}</p>
+        <span className="eyebrow">
+          {desktopCopy ? (
+            <>
+              <span className={styles.mobileCopy}>{eyebrow}</span>
+              <span className={styles.desktopCopy}>{desktopCopy.eyebrow}</span>
+            </>
+          ) : eyebrow}
+        </span>
+        <h2 id={headingId ?? (desktopCopy && anchorId ? `${anchorId}-heading` : undefined)}>
+          {desktopCopy ? (
+            <>
+              <span className={styles.mobileCopy}>{title}</span>
+              <span className={styles.desktopCopy}>{desktopCopy.title}</span>
+            </>
+          ) : title}
+        </h2>
+        <p>
+          {desktopCopy ? (
+            <>
+              <span className={styles.mobileCopy}>{description}</span>
+              <span className={styles.desktopCopy}>{desktopCopy.description}</span>
+            </>
+          ) : description}
+        </p>
       </div>
       {links?.length ? (
         <nav className={styles.links} aria-label={title}>
@@ -83,7 +107,12 @@ export function PublicMagazineBanner({
         </nav>
       ) : href && label ? (
         <Link href={href} className="button button--dark">
-          {label} <ArrowIcon size={18} />
+          {desktopCopy ? (
+            <>
+              <span className={styles.mobileCopy}>{label}</span>
+              <span className={styles.desktopCopy}>{desktopCopy.ctaLabel}</span>
+            </>
+          ) : label} <ArrowIcon size={18} />
         </Link>
       ) : null}
     </section>
