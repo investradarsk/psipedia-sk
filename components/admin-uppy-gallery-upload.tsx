@@ -52,8 +52,13 @@ export function AdminUppyGalleryUpload({
     let active = true;
     const upload = async (fileIds: string[]) => {
       if (!active) return;
+      const files = fileIds.map(id => uppy.getFile(id)).filter(file => file != null);
+      if (!files.length) return;
       setBusy(true);
       props.current.onBusyChange(true);
+      // A custom Uppy uploader must announce upload-start. Without this event
+      // Dashboard keeps showing the file picker and appears to ignore "Nahrať".
+      uppy.emit("upload-start", files);
       const uploaded: AdminImageUpload[] = [];
       const failures: string[] = [];
       try {
@@ -68,6 +73,13 @@ export function AdminUppyGalleryUpload({
             const file = blob instanceof File ? blob : new File([blob], item.name, { type: item.type ?? "" });
             const result = await uploadAdminImage(file, props.current.folder);
             uploaded.push(result);
+            // The existing fetch uploader does not expose intermediate progress.
+            // Report completion only after the authenticated API has succeeded.
+            uppy.emit("upload-progress", item, {
+              uploader: uppy,
+              bytesUploaded: file.size,
+              bytesTotal: file.size,
+            });
             uppy.emit("upload-success", item, { status: 200, body: result, uploadURL: result.imageUrl });
           } catch (cause) {
             const error = cause instanceof Error ? cause : new Error("Nahratie sa nepodarilo.");
@@ -76,7 +88,13 @@ export function AdminUppyGalleryUpload({
           }
         }
         if (active && uploaded.length) props.current.onUploaded(uploaded);
-        if (active && failures.length) props.current.onRejected?.(failures.join(" "));
+        if (active && failures.length) {
+          props.current.onRejected?.(failures.join(" "));
+          uppy.info("Niektoré fotografie sa nepodarilo nahrať. Skontroluj označené súbory.", "error", 8000);
+        }
+        // Make success unmistakable. The user must still save the parent form;
+        // a failed/partial batch stays open with per-file errors for retry.
+        if (active && uploaded.length === files.length && failures.length === 0) setOpen(false);
       } finally {
         if (active) {
           setBusy(false);
