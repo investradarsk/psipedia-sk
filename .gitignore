@@ -56,3 +56,7 @@ next-env.d.ts
 
 # Local admin benchmark outputs (never publish authenticated traces/reports)
 /reports/admin-perf/
+
+# Local open-source graph reports
+/reactgraph.json
+/component-dependencies.json

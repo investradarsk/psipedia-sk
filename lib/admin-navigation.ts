@@ -47,6 +47,7 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
  ] },
  { label: "Nastavenia", items: [
   { label: "Aplikácia", href: "/admin/nastavenia" },
+  { label: "Komponenty a šablóny", href: "/admin/komponenty" },
   { label: "Navigácia", href: "/admin/navigacia" },
   { label: "Monetizácia", href: "/admin/monetizacia" },
   { label: "Právne", href: "/admin/pravne" },

@@ -1,0 +1,9 @@
+{
+  "sharedPatterns": [
+    "components/**"
+  ],
+  "pagePatterns": [
+    "app/**/page.tsx",
+    "app/page.tsx"
+  ]
+}
