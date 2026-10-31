@@ -87,7 +87,7 @@
     "test:partner-commercial-v1": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-commercial-agreements.test.mjs",
     "test:reviews-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/profile-review-admin.test.mjs tests/admin-attention-queue.test.mjs tests/admin-attention-header-performance.test.mjs tests/admin-attention-zero-skip.test.mjs tests/admin-attention-grouped-probes.test.mjs tests/reviews-admin-hub.test.mjs tests/notion-eshop-sync.test.mjs",
     "test:partner-h3": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-multimethod-auth.test.mjs",
-    "test:search": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/portal-search.test.mjs",
+    "test:search": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/portal-search.test.mjs tests/public-live-search.test.mjs",
     "test:canonical-draft-delete": "node --experimental-strip-types --test tests/canonical-draft-delete.test.mjs",
     "test:automation-schedule": "node --experimental-strip-types --test tests/automation-schedule.test.mjs tests/automation-schedule-integration.test.mjs",
     "test:automation-operations": "node --experimental-strip-types --test tests/automation-operations.test.mjs tests/automation-operations-scheduling.test.mjs tests/legacy-automation-retirement.test.mjs tests/quality-manual-search-contract.test.mjs tests/quality-tavily-query.test.mjs tests/admin-missing-quality-overview.test.mjs",
