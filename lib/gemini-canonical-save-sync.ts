@@ -20,8 +20,10 @@ const notionOnly = (): GeminiCanonicalSaveResult => ({ state: "NOTION_ONLY" });
  */
 export async function reconcileGeminiSavedDraft(input: {
   database: D1Database; bindings: Bindings; key: string; notionPageId: string; savedRevision: string;
+  /** Explicit authenticated Admin action only: accept one exact legacy Gemini evidence page. */
+  ownerConfirmedLegacy?: boolean;
 }): Promise<GeminiCanonicalSaveResult> {
-  const { database, bindings, key, notionPageId, savedRevision } = input;
+  const { database, bindings, key, notionPageId, savedRevision, ownerConfirmedLegacy = false } = input;
   const agenda = geminiImportAgenda(key);
   if (!agenda || !savedRevision || !getGeminiCatalogItem(key) || !geminiValidNotionDraftId(notionPageId))
     return notionOnly();
@@ -30,7 +32,7 @@ export async function reconcileGeminiSavedDraft(input: {
     "SELECT notion_page_id FROM gemini_notion_created_pages " +
     "WHERE notion_page_id=? AND stable_key=? AND import_agenda=? LIMIT 1"
   ).bind(notionPageId, key, agenda).first<{ notion_page_id: string }>();
-  if (!signed && agenda === "directory") return notionOnly();
+  if (!signed && !ownerConfirmedLegacy) return notionOnly();
 
   // Exclusion belongs to the original sync pipelines so scheduled and manual
   // imports contend for the same locks, not independent caller-only locks.
@@ -41,8 +43,11 @@ export async function reconcileGeminiSavedDraft(input: {
   // A pre-signature Notion concept can enter canonical D1 only after a
   // human has explicitly approved it in the authenticated Gemini editor.
   // Signed callback provenance is never fabricated for legacy pages.
-  const reviewedLegacy = !signed && before.reviewState === "APPROVED" &&
-    "attribution" in before && before.attribution === "EVIDENCE_SIGNATURE_ONLY";
+  const reviewedLegacy = !signed &&
+    ((ownerConfirmedLegacy && (agenda === "directory" ||
+      ("attribution" in before && before.attribution === "EVIDENCE_SIGNATURE_ONLY"))) ||
+      (before.reviewState === "APPROVED" && "attribution" in before &&
+        before.attribution === "EVIDENCE_SIGNATURE_ONLY"));
   if (!signed && !reviewedLegacy) return notionOnly();
   if (before.lastEditedAt !== savedRevision) return { state: "NEEDS_REVIEW" };
   if (before.reviewState === "REJECTED" || before.reviewState === "PUBLISHED")
@@ -58,6 +63,7 @@ export async function reconcileGeminiSavedDraft(input: {
     if (agenda === "directory") {
       const result = await runNotionDirectorySyncSweep({
         database, bindings, targetPageId: notionPageId, expectedNotionRevision: savedRevision,
+        reviewedLegacy,
       });
       if (!result.enabled || !result.schemaReady) return { state: "NEEDS_REVIEW" };
     } else {
