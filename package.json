@@ -146,7 +146,8 @@
     "@fullcalendar/core": "6.1.19",
     "@fullcalendar/daygrid": "6.1.19",
     "@fullcalendar/react": "6.1.19",
-    "@uppy/locales": "5.3.1"
+    "@uppy/locales": "5.3.1",
+    "driver.js": "1.10.2"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
