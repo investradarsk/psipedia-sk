@@ -8,7 +8,7 @@
   "scripts": {
     "install:ci": "bash scripts/install-ci.sh",
     "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
-    "prebuild": "npm run config:check",
+    "prebuild": "npm run config:check && npm run components:generate",
     "build": "bash scripts/build-verified.sh",
     "deploy:cloudflare": "node scripts/deploy-cloudflare-safe.mjs",
     "deploy:staging": "npm run build && wrangler deploy",
@@ -107,7 +107,12 @@
     "test:facebook-admin-v2": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-admin-v2.test.mjs",
     "test:notion-facebook-images": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-facebook-images-sync.test.mjs tests/notion-facebook-images-integration.test.mjs tests/notion-facebook-images-admin-export.test.mjs",
     "test:facebook-images-ui": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-ui.test.mjs tests/facebook-image-destructive-v4-contract.test.mjs",
-    "test:notion-data-quality-audit": "node --experimental-strip-types --test tests/notion-data-quality-audit-v2.test.mjs"
+    "test:notion-data-quality-audit": "node --experimental-strip-types --test tests/notion-data-quality-audit-v2.test.mjs",
+    "predev": "npm run components:generate",
+    "components:generate": "node scripts/generate-component-registry.mjs",
+    "test:component-registry": "node --test tests/component-registry.test.mjs",
+    "graph:react": "npm exec --yes --package=@reactgraph-ui/core@0.1.9 -- reactgraph analyze .",
+    "graph:dependencies": "npm exec --yes --package=dependency-cruiser@18.7.0 -- depcruise --no-config --ts-config tsconfig.json --output-type json app components lib"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
