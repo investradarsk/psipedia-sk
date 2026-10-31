@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { resolveContextualArticlePromo } from "@/lib/article-promo-context";
 import { articlePromoUtcDay, isArticlePromoKey, type ArticlePromoKey } from "@/lib/article-promo";
 import { articleHref } from "@/lib/portal";
-import type { ArticleBlock } from "@/lib/article-blocks";
+import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 
 export type ArticleBannerUse = {
   url: string;
@@ -64,7 +64,7 @@ export function collectPublishedArticleBannerUses(
     try {
       const raw = JSON.parse(row.blocks_json || "[]") as unknown;
       if (!Array.isArray(raw)) { malformed++; continue; }
-      blocks = raw as ArticleBlock[];
+      blocks = normalizeArticleBlocks(raw);
     } catch { malformed++; continue; }
     const href = articleHref({ slug: row.slug, portalSection: row.portal_section as Parameters<typeof articleHref>[0]["portalSection"] });
     const url = `https://psipedia.sk${href}`;
