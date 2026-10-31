@@ -46,5 +46,9 @@ test("header keeps existing keyboard dialog and autocomplete while homepage GET 
   assert.match(live, /AbortController/);
   assert.match(live, /ArrowDown/);
   assert.match(live, /aria-selected/);
+  assert.match(home, /role=\{enableSuggestions \? "combobox" : undefined\}/);
+  assert.match(header, /role="combobox"/);
+  assert.match(live, /aria-expanded", String\(hasListbox\)/);
+  assert.match(live, /if \(hasListbox\) input\.setAttribute\("aria-controls", listId\)/);
   assert.match(live, /Zobraziť všetky výsledky/);
 });
