@@ -162,6 +162,8 @@ function importHarness(options = {}) {
     notionRequest: async () => options.changed ? { ...page, last_edited_time: "human-v3" } : page,
     sourceDuplicateCandidate: () => options.duplicate ? 77 : null,
     clean: v => String(v ?? ""), resolveGeminiPublicSlug: async () => "offline",
+    prepareGeminiDraftFields: (_agenda, values) => ({ values, warnings: [] }),
+    recordGeminiImportReviewNotes: async () => undefined,
     createCanonicalFromNotion: async () => { operations.push("create"); if (options.failCreate) throw Error("timeout"); return { id: 77 }; },
     sourceById: rows => new Map(rows.map(row => [row.id, row])),
     snapshotHash: async () => "hash", editableSnapshot: () => ({}), canonicalUpdatedAt: async () => "canonical-v1",
@@ -199,8 +201,8 @@ test("scheduler and targeted imports serialize page and agenda identity checks b
   assert.equal(h.held.size, 0);
 });
 
-test("ambiguous insert, mapping or Notion acknowledgement retains shared import/page locks", async () => {
-  for (const options of [{ failCreate: true }, { failMapping: true }, { failNotion: true }, { partialNotionEcho: true }]) {
+test("ambiguous canonical INSERT or first D1 mapping retains import locks", async () => {
+  for (const options of [{ failCreate: true }, { failMapping: true }]) {
     const h = importHarness(options);
     await h.run();
     assert.equal(h.summary.failed, 1);
@@ -208,6 +210,18 @@ test("ambiguous insert, mapping or Notion acknowledgement retains shared import/
     assert.deepEqual([...h.held], ["gemini-canonical-import-events", pageId]);
     assert.equal(h.operations.filter(v => v === "create").length, 1);
     assert.equal(h.released.length, 0);
+  }
+});
+
+test("after a durable Gemini D1 mapping, Notion 429 or bad echo is warning-only", async () => {
+  for (const options of [{ failNotion: true }, { partialNotionEcho: true }]) {
+    const h = importHarness(options);
+    await h.run();
+    assert.equal(h.summary.failed, 1);
+    assert.equal(h.summary.createdFromNotion, 1);
+    assert.equal(h.held.size, 0, "Do not retain locks on verified canonical draft");
+    assert.equal(h.operations.filter(v => v === "create").length, 1);
+    assert.equal(h.operations.filter(v => v === "mapping").length, 1);
   }
 });
 
