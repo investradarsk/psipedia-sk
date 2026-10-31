@@ -215,13 +215,13 @@ export function EventCalendar({
   }
 
   useEffect(()=>{
-    if (pending || !selectedDay || loadError) return;
+    if (isDesktopCalendar || pending || !selectedDay || loadError) return;
     const target=document.getElementById("vybrany-den");
     if (!target) return;
     const motion=window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
     const id=window.requestAnimationFrame(()=>target.scrollIntoView({behavior:motion,block:"start"}));
     return ()=>window.cancelAnimationFrame(id);
-  },[selectedDay,pending,loadError]);
+  },[selectedDay,pending,loadError,isDesktopCalendar]);
 
   const windowSafeQuery = (state:View)=> {
     const params=eventListingParams({...initialFilters,time:state.time,month:state.filterMonth,type:state.type});
@@ -257,6 +257,8 @@ export function EventCalendar({
 
       <div className={styles.calendarLayout} data-events-calendar-layout>
       <section className={styles.monthCalendar} id="events-calendar" data-events-month-calendar aria-labelledby="events-calendar-title">
+        <div className={styles.desktopCalendarColumns} data-calendar-desktop-columns>
+          <div className={styles.calendarMonthColumn}>
         <div className={styles.monthHeading}>
           <div>
             <p className={styles.monthEyebrow}>Vyberte si deň</p>
@@ -318,6 +320,8 @@ export function EventCalendar({
             );
           })}
         </div>}
+          </div>
+          <div className={styles.calendarDetailColumn} data-calendar-day-panel>
 
         {selectedDay ? (
           <section className={styles.dayDetail} id="vybrany-den" tabIndex={-1} aria-labelledby="selected-day-title" data-selected-day={selectedDay}>
@@ -347,9 +351,17 @@ export function EventCalendar({
               <p className={styles.dayEmpty}>V tento deň nie sú podujatia, ktoré zodpovedajú zvoleným filtrom. Skúste iný deň alebo upravte filtre.</p>
             )}
           </section>
+        ) : isDesktopCalendar ? (
+          <div className={styles.dayPanelPlaceholder} data-calendar-day-placeholder>
+            <span className={styles.selectedDayEyebrow}>Program na vybraný deň</span>
+            <h3>Vyberte si dátum</h3>
+            <p>{pending ? "Načítavajú sa podujatia…" : daySummaries.size === 0 ? "V tomto mesiaci nie sú podujatia zodpovedajúce aktuálnym filtrom. Zmeňte mesiac alebo upravte vyhľadávanie." : "Kliknite na deň v kalendári vľavo. Tu sa zobrazia konkrétne podujatia, ich čas, miesto a odkaz na detail."}</p>
+          </div>
         ) : (
           <p className={styles.monthHint}>{pending ? "Načítavajú sa podujatia…" : daySummaries.size === 0 ? "V tomto mesiaci nie sú podujatia zodpovedajúce aktuálnym filtrom. Zmeňte mesiac alebo upravte vyhľadávanie." : "Vyberte deň a zobrazia sa podujatia s odkazmi na ich detail."}</p>
         )}
+          </div>
+        </div>
         <nav className={styles.calendarLegend} aria-label="Kategórie podujatí" data-events-legend>
         {eventTypes.map((type) => {
           const presentation = eventTypePresentation[type];
