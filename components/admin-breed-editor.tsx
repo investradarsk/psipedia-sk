@@ -1,6 +1,7 @@
 "use client";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
+import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
@@ -222,9 +223,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     <AdminEditorSection id="breed-overview" className={styles.sectionCard}>
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>Prehľad</h2><p>Úvod a redakčný kontext verejného profilu.</p></div></div>
-        <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><textarea required rows={4} value={form.intro} onChange={(e)=>change("intro",e.target.value)}/></label>
-        <label className="admin-field"><span>Prehľad plemena</span><textarea rows={6} value={form.editorial.overview??""} onChange={(e)=>updateEditorial("overview",e.target.value)}/></label>
-        <label className="admin-field"><span>História</span><textarea rows={6} value={form.history} onChange={(e)=>change("history",e.target.value)}/></label><AdminLexicalAppendButton disabled={saving} onAppend={text=>change("history",appendLexicalPlainText(form.history,text))}/>
+        <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><AdminLexicalTextField required rows={4} value={form.intro} onChange={(next)=>change("intro",next)} ariaLabel="Krátky úvod v hero (2–4 vety)" /></label>
+        <label className="admin-field"><span>Prehľad plemena</span><AdminLexicalTextField rows={6} value={form.editorial.overview??""} onChange={(next)=>updateEditorial("overview",next)} ariaLabel="Prehľad plemena" /></label>
+        <label className="admin-field"><span>História</span><AdminLexicalTextField rows={6} value={form.history} onChange={(next)=>change("history",next)} ariaLabel="História" /></label><AdminLexicalAppendButton disabled={saving} onAppend={text=>change("history",appendLexicalPlainText(form.history,text))}/>
         <h3>Tri hlavné vlastnosti v hero</h3>
         <AdminHelpText>Prázdne vlastnosti sa verejne nezobrazia.</AdminHelpText>
         <div className="admin-field-grid">{Array.from({length:3},(_,index)=>{const trait=form.editorial.heroTraits?.[index];return <div className="admin-field-grid" key={index}><label className="admin-field"><span>Vlastnosť {index+1}</span><input value={trait?.label??""} onChange={(e)=>updateHeroTrait(index,{label:e.target.value})}/></label><label className="admin-field"><span>Hodnotenie 1–5</span><input type="number" min="1" max="5" value={trait?.rating??3} onChange={(e)=>updateHeroTrait(index,{rating:Number(e.target.value)})}/></label></div>})}</div>
@@ -234,7 +235,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     <AdminEditorSection id="breed-character" className={styles.sectionCard}>
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>Charakter</h2><p>Povaha a redakčne potvrdené škály 1–5.</p></div></div>
-        <label className="admin-field"><span>Povaha</span><textarea rows={7} value={form.character} onChange={(e)=>change("character",e.target.value)}/></label>
+        <label className="admin-field"><span>Povaha</span><AdminLexicalTextField rows={7} value={form.character} onChange={(next)=>change("character",next)} ariaLabel="Povaha" /></label>
         <label className="admin-check"><input type="checkbox" checked={form.editorialComplete} onChange={(e)=>change("editorialComplete",e.target.checked)}/><span>Praktický redakčný profil je skontrolovaný a môže sa verejne zobrazovať</span></label>
         <div className="admin-breed-score-grid">{scoreFields.map(([key,label])=><label className="admin-field" key={key}><span>{label}</span><input type="number" min="1" max="5" value={form[key]} onChange={(e)=>change(key,Number(e.target.value))}/></label>)}</div>
       </div>
@@ -243,30 +244,30 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     <AdminEditorSection id="breed-practical" className={styles.sectionCard}>
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>Praktický obsah, výcvik a starostlivosť</h2><p>Každodenné potreby, pohyb, výcvik, srsť a život v domácnosti.</p></div></div>
-        <label className="admin-field"><span>Každodenné potreby</span><textarea rows={5} value={form.needs} onChange={(e)=>change("needs",e.target.value)}/></label>
-        <label className="admin-field"><span>Potreba pohybu</span><textarea rows={6} value={form.exercise} onChange={(e)=>change("exercise",e.target.value)}/></label>
-        <label className="admin-field"><span>Výcvik</span><textarea rows={6} value={form.training} onChange={(e)=>change("training",e.target.value)}/></label>
+        <label className="admin-field"><span>Každodenné potreby</span><AdminLexicalTextField rows={5} value={form.needs} onChange={(next)=>change("needs",next)} ariaLabel="Každodenné potreby" /></label>
+        <label className="admin-field"><span>Potreba pohybu</span><AdminLexicalTextField rows={6} value={form.exercise} onChange={(next)=>change("exercise",next)} ariaLabel="Potreba pohybu" /></label>
+        <label className="admin-field"><span>Výcvik</span><AdminLexicalTextField rows={6} value={form.training} onChange={(next)=>change("training",next)} ariaLabel="Výcvik" /></label>
         <div className="admin-field-grid">
-          <label className="admin-field"><span>Odporúčanie k pohybu</span><textarea rows={3} value={form.editorial.exerciseTip??""} onChange={(e)=>updateEditorial("exerciseTip",e.target.value)}/></label>
-          <label className="admin-field"><span>Odporúčanie k výcviku</span><textarea rows={3} value={form.editorial.trainingTip??""} onChange={(e)=>updateEditorial("trainingTip",e.target.value)}/></label>
-          <label className="admin-field"><span>Srsť a údržba</span><textarea rows={4} value={form.editorial.coatCare??""} onChange={(e)=>updateEditorial("coatCare",e.target.value)}/></label>
-          <label className="admin-field"><span>Odporúčanie k srsti</span><textarea rows={3} value={form.editorial.coatTip??""} onChange={(e)=>updateEditorial("coatTip",e.target.value)}/></label>
-          <label className="admin-field"><span>Život s rodinou a deťmi</span><textarea rows={4} value={form.editorial.familyLife??""} onChange={(e)=>updateEditorial("familyLife",e.target.value)}/></label>
-          <label className="admin-field"><span>Vzťah k iným psom</span><textarea rows={4} value={form.editorial.otherDogsLife??""} onChange={(e)=>updateEditorial("otherDogsLife",e.target.value)}/></label>
+          <label className="admin-field"><span>Odporúčanie k pohybu</span><AdminLexicalTextField rows={3} value={form.editorial.exerciseTip??""} onChange={(next)=>updateEditorial("exerciseTip",next)} ariaLabel="Odporúčanie k pohybu" /></label>
+          <label className="admin-field"><span>Odporúčanie k výcviku</span><AdminLexicalTextField rows={3} value={form.editorial.trainingTip??""} onChange={(next)=>updateEditorial("trainingTip",next)} ariaLabel="Odporúčanie k výcviku" /></label>
+          <label className="admin-field"><span>Srsť a údržba</span><AdminLexicalTextField rows={4} value={form.editorial.coatCare??""} onChange={(next)=>updateEditorial("coatCare",next)} ariaLabel="Srsť a údržba" /></label>
+          <label className="admin-field"><span>Odporúčanie k srsti</span><AdminLexicalTextField rows={3} value={form.editorial.coatTip??""} onChange={(next)=>updateEditorial("coatTip",next)} ariaLabel="Odporúčanie k srsti" /></label>
+          <label className="admin-field"><span>Život s rodinou a deťmi</span><AdminLexicalTextField rows={4} value={form.editorial.familyLife??""} onChange={(next)=>updateEditorial("familyLife",next)} ariaLabel="Život s rodinou a deťmi" /></label>
+          <label className="admin-field"><span>Vzťah k iným psom</span><AdminLexicalTextField rows={4} value={form.editorial.otherDogsLife??""} onChange={(next)=>updateEditorial("otherDogsLife",next)} ariaLabel="Vzťah k iným psom" /></label>
         </div>
-        <label className="admin-field"><span>Pre koho sa hodí — jedna položka na riadok</span><textarea rows={4} value={form.goodFor} onChange={(e)=>change("goodFor",e.target.value)}/></label>
-        <label className="admin-field"><span>Na čo si dať pozor — jedna položka na riadok</span><textarea rows={4} value={form.consider} onChange={(e)=>change("consider",e.target.value)}/></label>
-        <label className="admin-field"><span>Zaujímavosti</span><textarea rows={4} value={form.editorial.curiosities??""} onChange={(e)=>updateEditorial("curiosities",e.target.value)}/></label>
-        <label className="admin-field"><span>Časté chyby majiteľov</span><textarea rows={4} value={form.editorial.commonOwnerMistakes??""} onChange={(e)=>updateEditorial("commonOwnerMistakes",e.target.value)}/></label>
+        <label className="admin-field"><span>Pre koho sa hodí — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.goodFor} onChange={(next)=>change("goodFor",next)} ariaLabel="Pre koho sa hodí — jedna položka na riadok" /></label>
+        <label className="admin-field"><span>Na čo si dať pozor — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.consider} onChange={(next)=>change("consider",next)} ariaLabel="Na čo si dať pozor — jedna položka na riadok" /></label>
+        <label className="admin-field"><span>Zaujímavosti</span><AdminLexicalTextField rows={4} value={form.editorial.curiosities??""} onChange={(next)=>updateEditorial("curiosities",next)} ariaLabel="Zaujímavosti" /></label>
+        <label className="admin-field"><span>Časté chyby majiteľov</span><AdminLexicalTextField rows={4} value={form.editorial.commonOwnerMistakes??""} onChange={(next)=>updateEditorial("commonOwnerMistakes",next)} ariaLabel="Časté chyby majiteľov" /></label>
       </div>
     </AdminEditorSection>
 
     <AdminEditorSection id="breed-health" className={styles.sectionCard}>
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>Zdravie</h2><p>Zverejňuj iba odborne overený obsah; editor nepridáva žiadne odvodené zdravotné tvrdenia.</p></div></div>
-        <label className="admin-field"><span>Zdravie</span><textarea rows={7} value={form.health} onChange={(e)=>change("health",e.target.value)}/></label>
-        <label className="admin-field"><span>Typické zdravotné riziká — jedna položka na riadok</span><textarea rows={5} value={form.healthRisks} onChange={(e)=>change("healthRisks",e.target.value)}/></label>
-        <label className="admin-field"><span>Zdravotná poznámka</span><textarea rows={3} value={form.editorial.healthTip??""} onChange={(e)=>updateEditorial("healthTip",e.target.value)}/></label>
+        <label className="admin-field"><span>Zdravie</span><AdminLexicalTextField rows={7} value={form.health} onChange={(next)=>change("health",next)} ariaLabel="Zdravie" /></label>
+        <label className="admin-field"><span>Typické zdravotné riziká — jedna položka na riadok</span><AdminLexicalTextField rows={5} value={form.healthRisks} onChange={(next)=>change("healthRisks",next)} ariaLabel="Typické zdravotné riziká — jedna položka na riadok" /></label>
+        <label className="admin-field"><span>Zdravotná poznámka</span><AdminLexicalTextField rows={3} value={form.editorial.healthTip??""} onChange={(next)=>updateEditorial("healthTip",next)} ariaLabel="Zdravotná poznámka" /></label>
       </div>
     </AdminEditorSection>
 

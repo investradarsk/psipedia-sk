@@ -54,7 +54,11 @@ test("Domain-specific upload and rich-text persistence formats remain intentiona
   assert.match(fb, /uploadAdminImage\(file,"facebook-images"\)/);
   assert.match(fb, /"image\/jpeg","image\/png","image\/webp"/);
   assert.match(fb, /accept="image\/jpeg,image\/png,image\/webp"/);
-  assert.match(article, /<AdminRichTextEditor/);
+  assert.match(article, /<AdminLexicalRichTextEditor/);
+  const lexical = read("components/admin-lexical-rich-text-editor.tsx");
+  assert.match(lexical, /normalizeEditorialRichText/);
+  assert.match(lexical, /readDocument/);
+  assert.match(lexical, /type: "callout"/);
   assert.match(markdown, /appendLexicalPlainTextToMarkdown/);
   assert.match(markdown, /safeEventLink/);
 });

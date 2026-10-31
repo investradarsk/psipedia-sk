@@ -134,8 +134,8 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(page.getByText("Koncept je uložený.")).toBeVisible();
     await page.reload();
     await waitForBreedEditor(page);
-    await expect(page.getByLabel("Prehľad plemena")).toHaveValue("Overený lokálny prehľad používaný iba v izolovanom CI.");
-    await expect(page.getByLabel("Každodenné potreby")).toHaveValue("Lokálny test praktického obsahu.");
+    await expect(page.getByLabel("Prehľad plemena")).toContainText("Overený lokálny prehľad používaný iba v izolovanom CI.");
+    await expect(page.getByLabel("Každodenné potreby")).toContainText("Lokálny test praktického obsahu.");
   });
 
   test("sports drawer, long navigation and canonical article/station/club relations persist", async ({ page }, testInfo) => {

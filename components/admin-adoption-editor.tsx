@@ -89,6 +89,9 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
         else control.value = value === null || value === undefined ? "" : String(value);
       } else if (control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement) {
         control.value = value === null || value === undefined ? "" : String(value);
+        if (control instanceof HTMLTextAreaElement && control.hasAttribute("data-lexical-value")) {
+          control.dispatchEvent(new Event("input", { bubbles: true }));
+        }
       }
     }
     setVersion(updatedAt);
@@ -147,7 +150,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
         {publishing && <p className="admin-help">Pri ACTIVE/RESERVED server vyžaduje všetky publikačné údaje vrátane canonical organization_id a znovu ich validuje.</p>}
       </section>
       <AdminAdoptionEditorProfile item={item} breeds={breeds} publishing={publishing} onProgrammaticChange={navigation.markDirty}/>
-      <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading || saving} gallery={gallery} onGalleryChange={nextGallery => { navigation.markDirty(); setGallery(nextGallery); }} onGalleryBusyChange={setGalleryUploading} onMainImageChange={replaceMainImage} onUpload={uploadImage} onEditDisplay={() => setImageEditorOpen(true)}/>
+      <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading || saving} gallery={gallery} onGalleryChange={nextGallery => { navigation.markDirty(); setGallery(nextGallery); }} onGalleryBusyChange={setGalleryUploading} onMainImageChange={replaceMainImage} onUpload={uploadImage} onEditDisplay={() => setImageEditorOpen(true)} onContentChange={navigation.markDirty}/>
     </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný stav – server vyžaduje kompletné publikačné údaje." : "Koncept môže zostať neúplný."}</p><Link href="/admin/adopcie">← Späť na adopcie</Link></aside></div>
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
     {navigation.dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
