@@ -3,6 +3,8 @@ import { AdminPwaRegistration } from "@/components/admin-pwa-registration";
 import { AdminQueryProvider } from "@/components/admin-query-provider";
 import "./admin-legacy-scoped.css";
 import "./admin-workspace.css";
+import "@uppy/core/css/style.min.css";
+import "@uppy/dashboard/css/style.min.css";
 
 export const viewport: Viewport = { themeColor: "#174b38" };
 
