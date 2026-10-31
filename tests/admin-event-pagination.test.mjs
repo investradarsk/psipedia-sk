@@ -116,11 +116,10 @@ test("admin API and SSR page use the bounded loader; review and edits stay scope
   assert.match(store, /LIMIT \? OFFSET \?/);
   assert.doesNotMatch(dashboard, /filterAdminEvents\(/);
   assert.match(dashboard, /fetchAdminEventPage\(effectiveFilters, page, signal\)/);
+  assert.match(dashboard, /const reviewedIds = eventQuery\.data\?\.reviewedIds \?\? initialReviewedIds/);
   assert.match(dashboard, /selectionPayload\(targets\)/);
   assert.match(dashboard, /\/api\/admin\/events\/bulk/);
   assert.match(dashboard, /\/admin\/podujatia\/\$\{event.id\}/);
-  assert.match(dashboard, /setReviewedIds\(eventQuery.data.reviewedIds\)/);
-  assert.match(dashboard, /setReviewedIds\(fresh.data.reviewedIds\)/);
 });
 
 
