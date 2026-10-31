@@ -1,4 +1,4 @@
-import { articlePromoKeys, articlePromoRegistry, type ArticlePromoKey } from "@/lib/article-promo";
+import { articlePromoKeys, articlePromoRegistry, type ArticlePromoKey, type ArticlePromoTarget } from "@/lib/article-promo";
 
 /**
  * Stage 1: an owner-facing catalogue of REAL, existing banners.
@@ -30,7 +30,7 @@ export type VisualBanner = {
 };
 
 const editorialBanners: VisualBanner[] = articlePromoKeys.map((key: ArticlePromoKey) => {
-  const target = articlePromoRegistry[key];
+  const target: ArticlePromoTarget = articlePromoRegistry[key];
   return {
     id: `clanky:${key}`,
     label: `Banner – ${target.label}`,
