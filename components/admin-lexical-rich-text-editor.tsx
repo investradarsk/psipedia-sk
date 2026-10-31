@@ -292,6 +292,17 @@ function Toolbar({ id, allowHeadings, allowCallouts }: { id: string; allowHeadin
   );
 }
 
+/** Gate form E2E and user input on real client hydration, not SSR markup. */
+function EditorReadyPlugin({ id }: { id: string }) {
+  useEffect(() => {
+    const element = document.getElementById(id);
+    if (!element) return;
+    element.dataset.editorReady = "true";
+    return () => { delete element.dataset.editorReady; };
+  }, [id]);
+  return null;
+}
+
 export function AdminLexicalRichTextEditor({
   id, value, onChange, placeholder = "Začni písať…", ariaLabel = "Editor textu",
   allowHeadings = true, allowCallouts = true, minHeight = 180,
@@ -313,7 +324,7 @@ export function AdminLexicalRichTextEditor({
         <div className={styles.surface} style={{ minHeight }}>
           <Toolbar id={id} allowHeadings={allowHeadings} allowCallouts={allowCallouts} />
           <RichTextPlugin
-            contentEditable={<ContentEditable id={id} data-editor-ready="true" className={styles.editor} aria-label={ariaLabel} />}
+            contentEditable={<ContentEditable id={id} className={styles.editor} aria-label={ariaLabel} />}
             placeholder={<span className={styles.placeholder}>{placeholder}</span>}
             ErrorBoundary={LexicalErrorBoundary}
           />
@@ -322,6 +333,7 @@ export function AdminLexicalRichTextEditor({
           <HistoryPlugin />
           <SafePastePlugin />
           <RichTextBridge value={normalized} onChange={onChange} />
+          <EditorReadyPlugin id={id} />
           <p className={styles.help}>Píš priamo ako v textovom editore. Podporované sú nadpisy, zoznamy, citácie, odkazy aj zvýraznenia.</p>
         </div>
       </LexicalComposer>
