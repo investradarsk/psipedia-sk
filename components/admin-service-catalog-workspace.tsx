@@ -14,9 +14,9 @@ type Category={id:string;label:string};
 type Draft={name:string;categories:string[];kind:"service"|"attribute";group:string;meaning:string};
 const empty=():Draft=>({name:"",categories:[],kind:"service",group:"",meaning:""});
 type ErrorResponse={error?:string;option?:{id:string;version:number}};
-export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,loadError}:{
+export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,builtinOverridesEnabled=true,loadError}:{
   items:readonly CatalogEditorItem[];categories:readonly Category[];writeEnabled:boolean;
-  mirrorEnabled?:boolean;pageCreationEnabled?:boolean;loadError:string|null;
+  builtinOverridesEnabled?:boolean;mirrorEnabled?:boolean;pageCreationEnabled?:boolean;loadError:string|null;
 }){
   const router=useRouter();
   const [query,setQuery]=useState("");
@@ -60,7 +60,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
     draft.name.length>0||draft.categories.length>0||draft.group.length>0||draft.meaning.length>0||draft.kind!=="service";
   const draftValid=writeEnabled&&!loadError&&draft.name.trim().length>=3&&draft.categories.length>0;
   const mayEdit=(item:CatalogEditorItem)=>writeEnabled&&!loadError&&
-    (item.source==="built_in"||item.status!=="RETIRED");
+    (item.source==="built_in"?builtinOverridesEnabled:item.status!=="RETIRED");
   const close=()=>{setEditing(null);setCreating(false);setDraft(empty());};
   async function persist(){
     if(busy||!draftValid||!dirty&&editing)return;
@@ -115,6 +115,8 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
   const openEditor=creating||Boolean(editing);
   return <section className={styles.stack} aria-label="Katalóg služieb a vlastností">
     {loadError&&<p role="alert" className={styles.error}>{loadError}</p>}
+    {!builtinOverridesEnabled&&!loadError&&
+      <p className={styles.notice}>Pôvodné služby sa budú dať upravovať po bezpečnom použití migrácie 0148. Nové služby zostávajú upraviteľné.</p>}
     <div className={styles.filterBar}>
       <label className={styles.searchField}>Vyhľadávanie
         <input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Hľadať službu"/>
