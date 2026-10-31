@@ -1,5 +1,6 @@
 import { directoryCategories } from "@/lib/directory";
 import { BREED_NOTION_EDITABLE_FIELDS } from "@/lib/notion-breed-field-delta";
+import { agendaEditableFields } from "@/lib/notion-events-help-adapters";
 
 /** Hardcoded allowlist. Values are NEVER untrusted database field names. */
 export const NOTION_FIELD_MODES = ["safe", "notion", "admin", "latest"] as const;
@@ -58,15 +59,36 @@ export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
     fields:[...Object.entries(directoryLabels).map(([id,label])=>({id,label,notionLabel:directoryNotionNames[id]??label})), ...lockedDirectoryFields],
   })),
   {scope:"service-catalog",title:"Katalóg služieb V3",family:"Služby pre psov",active:false,
-    fields:[{id:"canonical-services",label:"Kanonické služby",locked:true,note:"Admin/D1 zostáva nadradený; Notion je iba mirror"}]},
+    fields:["Option ID","Verzia","Typ","Názov","Skupina","Význam","Hlavná kategória","Kategórie","Druh hodnoty"]
+      .map(name=>({id:name,label:name,notionLabel:name,locked:true,note:"Jednosmerné Admin/D1 → Notion"}))},
   ...([
-    ["articles","Články"],["eshops","E-shopy"],["events","Podujatia"],
-    ["organizations","Organizácie"],["adoptions","Adopcie"],["help-cases","Pomoc psom"],
-    ["lost-found","Stratené a nájdené"],["facebook-images","Facebook obrázky"],
-  ] as const).map(([scope,title])=>({
-    scope,title,family: scope==="facebook-images"?"Facebook":"Ostatné prepojenia",active:false,
-    fields:[{id:"existing-rules",label:"Existujúce pravidlá prepojenia",locked:true,
-      note:"Zatiaľ iba prehľad. Nastaviteľné pravidlá sa pripoja až po kontraktných testoch tejto agendy."}],
+    ["articles","Články","Obsah",["Názov","Slug","Kategória","Podsekcia","Typ obsahu","Stav",
+      "Odoslať na Psipedia","Obsah (bloky stránky)","Intro","SEO title","Meta description",
+      "Hlavné kľúčové slovo","Popis na sociálne siete","Titulný obrázok","Hlavný obrázok URL",
+      "Psipedia ID","Sync stav","Sync chyba"]],
+    ["eshops","E-shopy","Recenzie a testy",["Názov","Slug","Psipedia stav","Web","Popis",
+      "Zdroj","Logo URL","Psipedia ID","Počet hodnotení","Sync stav","Sync chyba"]],
+    ["facebook-images","Facebook obrázky","Facebook",["Názov","Text na Facebook","Obrázok",
+      "Stav","Povoliť publikovanie","Súhlas majiteľa – priame publikovanie",
+      "Dátum a čas publikovania","Publikované o","Facebook Post ID","Facebook URL",
+      "Chyba publikovania"]],
+  ] as const).map(([scope,title,family,names])=>({
+    scope,title,family,active:false,
+    fields:names.map(name=>({id:name,label:name,notionLabel:name,locked:true,
+      note:scope==="articles"&&name==="Obsah (bloky stránky)"?"Obsah tvoria samostatné Notion bloky":undefined})),
+  })),
+  ...([
+    ["events","Podujatia","Podujatia"],
+    ["organizations","Organizácie","Pomoc psom"],
+    ["adoptions","Adopcie","Pomoc psom"],
+    ["help-cases","Pomoc psom – prípady","Pomoc psom"],
+    ["lost-found","Stratené a nájdené","Pomoc psom"],
+  ] as const).map(([scope,title,family])=>({
+    scope,title,family,active:false,
+    fields:agendaEditableFields[scope].map(name=>({
+      id:name,label:name,notionLabel:name,locked:true,
+      note:"Mapované pole; pravidlá synchronizácie určuje existujúci synchronizátor",
+    })),
   })),
 ];
 
