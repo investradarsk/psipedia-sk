@@ -22,7 +22,11 @@ function parseInline(value: string, inherited: EditorialRichTextMark[] = []): Ed
   for (const match of value.matchAll(pattern)) {
     add(value.slice(cursor, match.index));
     if (match[1] !== undefined) {
-      add(match[1], [...inherited, { type: "bold" }]);
+      // The public renderer recursively parses links inside bold text.
+      // Preserve that structure or refuse the visual conversion.
+      const inside = parseInline(match[1], [...inherited, { type: "bold" }]);
+      if (!inside) return null;
+      nodes.push(...inside);
     } else if (match[2] !== undefined) {
       add(match[2], [...inherited, { type: "italic" }]);
     } else {
@@ -108,6 +112,11 @@ export function eventMarkdownToEditorial(source: string): EditorialRichTextDocum
     content.push({ type: "paragraph", content: inline });
     if (content.length > 250) return null;
   }
+  if (content.length > 250 || content.some((block) => (
+    "items" in block
+      ? block.items.length > 100 || block.items.some((item) => item.length > 500)
+      : block.content.length > 500
+  ))) return null;
   const doc: EditorialRichTextDocument = { version: EDITORIAL_RICH_TEXT_VERSION, type: "doc", content };
   // The only safe way to move old Markdown to a WYSIWYG editor is a
   // lossless source round trip. Other spellings/structures remain editable
