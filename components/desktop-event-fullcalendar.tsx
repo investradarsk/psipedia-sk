@@ -110,11 +110,11 @@ export function DesktopEventFullCalendar({
           aria-label={day + (count ? ", "+count+" podujatí" : ", bez podujatí")}
           className={styles.fullCalendarDayContent}
         >
-          <span className={styles.fullCalendarDayHeading}>
-            <span>{arg.date.getDate()}</span>
-            {count > 0 && <span className={styles.fullCalendarCount}>{count}</span>}
+          <span className={styles.fullCalendarDayHeading} data-event-day-heading>
+            <span data-event-day-number>{arg.date.getDate()}</span>
+            {count > 0 && <span className={styles.fullCalendarCount} data-event-day-count>{count}</span>}
           </span>
-          {types.length > 0 && <span className={styles.fullCalendarIndicators} aria-hidden="true">
+          {types.length > 0 && <span className={styles.fullCalendarIndicators} data-event-day-dots aria-hidden="true">
             {types.slice(0,4).map(type =>
               <span key={type} data-event-type={type} title={eventTypePresentation[type].label}
                 style={{backgroundColor:eventTypePresentation[type].color}} />)}
