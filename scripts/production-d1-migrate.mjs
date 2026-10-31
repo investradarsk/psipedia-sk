@@ -2898,17 +2898,17 @@ export function assertVisualLibrary0151Schema(schema) {
   const objects = objectMap(schema.objects ?? []);
   const table = objects.get("visual_library_banner_edits");
   invariant(table?.type === "table", "0151 visual banner table missing");
-  const sql = String(table.sql ?? "").replace(/\\s+/g, " ");
+  const sql = String(table.sql ?? "").replace(/\s+/g, " ");
   for (const column of ["banner_id TEXT NOT NULL","variant_index INTEGER NOT NULL",
     "draft_json TEXT NOT NULL","revision INTEGER NOT NULL","updated_at TEXT NOT NULL",
     "updated_by TEXT NOT NULL","published_json TEXT","published_revision INTEGER"]) {
     invariant(sql.includes(column), "0151 visual banner field missing: " + column);
   }
-  invariant(/PRIMARY KEY\\s*\\(\\s*banner_id\\s*,\\s*variant_index\\s*\\)/i.test(sql),
+  invariant(/PRIMARY KEY\s*\\(\s*banner_id\s*,\s*variant_index\s*\\)/i.test(sql),
     "0151 banner identity must remain per variant");
-  invariant(/CHECK\\s*\\(\\s*variant_index BETWEEN 0 AND 2\\s*\\)/i.test(sql),
+  invariant(/CHECK\s*\\(\s*variant_index BETWEEN 0 AND 2\s*\\)/i.test(sql),
     "0151 variant guard missing");
-  invariant(/CHECK\\s*\\(\\s*revision > 0\\s*\\)/i.test(sql),
+  invariant(/CHECK\s*\\(\s*revision > 0\s*\\)/i.test(sql),
     "0151 revision guard missing");
   return true;
 }
