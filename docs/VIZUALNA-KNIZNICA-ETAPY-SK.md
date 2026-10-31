@@ -62,6 +62,28 @@ Poznámka: obsahové bannery sa môžu meniť podľa dňa alebo dát. Výpis zac
 - Voliteľné hodnoty farieb sú z pevného zoznamu, texty majú dĺžkové obmedzenia a pri pokuse o vloženie neplatných hodnot sa návrh odmietne. Do verejných CSS ani databázy sa nezasahovalo.
 - Skutočné bezpečné publikovanie návrhov a ich zdieľanie medzi zariadeniami vyžadujú samostatnú backendovú implementáciu so schvaľovaním a presným rozsahom, ktorá v tomto PR zatiaľ **nie je dokončená**.
 
+## Etapa 7 – serverové návrhy a opatrné desktopové publikovanie
+
+**PR obsahuje funkčnú implementáciu, ale NIE je ešte nasadená ani overená na produkcii.**
+
+- Nová izolovaná D1 tabuľka `visual_library_banner_edits` v migrácii **0151** ukladá návrh, verziu, publikované desktopové farby, čas a identitu správcu. Nezasahuje do existujúcich profilov, článkov, Notion ani spracovania služieb.
+- Admin `GET/PUT/POST /api/admin/visual-library/banners` vyžaduje oprávnenia a pri zmene prísnu kontrolu pôvodu požiadavky. Nové uloženie návrhu, zverejnenie a návrat pôvodných farieb majú verziovanie a odmietajú konfliktné zmeny.
+- Návrhy sa ukladajú na **server do D1**, a nie už iba v lokálnom prehliadači. Pri neaplikovanej migrácii sa zobrazí jasná chyba, nič sa ticho neuloží.
+- Publikovanie je zámerne umožnené len pre dve presne identifikované samostatné umiestnenia: **`homepage:profil` na `https://psipedia.sk/`** a **`plemena:kluby` na `https://psipedia.sk/plemena`**. Každé publikovanie vyžaduje uložený návrh, jediný overený výskyt, `scope=one`, pôvodné texty, potvrdenie presnej URL a explicitné zaškrtnutie súhlasu.
+- Priame publikovanie mení **len desktopové farby**. Verejný komponent `PublicMagazineBanner` dostáva allowlistovaný schválený záznam; CSS sa uplatní iba nad 620 px. Mobilná šablóna, titulky a obsahové CTA zostávajú bez zmeny.
+- Textové zmeny a hromadné zmeny spoločnej šablóny možno na serveri uložiť ako **návrh**, ale nie publikovať, kým nevznikne bezpečná oddelená desktopová prezentácia a úplný audit všetkých výskytov.
+- Publikované farby možno vrátiť kliknutím **Vrátiť publikované farby** po potvrdení tej istej URL. D1 čítanie na verejnom webe zlyháva bezpečne na pôvodný štýl, keď je úložisko nedostupné.
+- **Migrácia nie je automatická:** v chránenom GitHub workflow Production D1 Migrate bol sprístupnený cieľ `0151_visual_library_banner_edits.sql` a potvrdzovací text `APPLY-0151-psipedia-sk-db`. Spustenie výlučne vlastník po merge a po aplikovaní všetkých predchádzajúcich migrácií až po **0150**. Do tej doby serverový editor zobrazí oznámenie o nedostupnej tabuľke a žiadne farby nepublikuje.
+- Testy pokrývajú základné kontrakty autorizácie, potvrdenia URL, desktop CSS, ochrany textov, verzovania a chráneného SQL schématu. **Živé UI a reálne D1 správanie musí potvrdiť CI/staging** pred merge.
+
+### Stále otvorené
+
+1. Publikovanie textov bez zásahu do mobilu – vyžaduje oddelené desktopové a mobilné textové varianty.
+2. Bezpečné publikovanie väčšiny ďalších bannerov, hero, CTA, kariet až po úplnej evidencii ich URL.
+3. Overenie cache invalidácie/vypršania verejnej HTML cache po publikovaní; pri kešovanej stránke sa zmena nemusí zobraziť okamžite.
+4. Overenie integrácie na testovacom alebo produkčnom prostredí po schválenej migrácii.
+5. Audit prípadných ďalších migrácií, ak sa hlavná vetva medzičasom posunie.
+
 ## Plán pokračovania v tomto jedinom PR
 
 1. **Hotovo pre články:** aktuálne publikované URL, pevne vložené a automatické dnešné promo; ďalšia úloha je história/alternatívne rotujúce varianty a URL dynamických profilov.
