@@ -53,19 +53,22 @@ test("editor normalizes persisted colors and supports intended one/template scop
   assert.equal(validateBannerDraft({ ...draft, background: "cream", button: "red", scope: "template" }, draft).scope, "template");
 });
 
-test("editor uses an isolated local draft, never an admin mutation or public publication", () => {
+test("editor persists on authenticated server and never publishes without confirmation", () => {
   const editor = read("components/admin-visual-library-editor.tsx");
   const listing = read("components/admin-visual-library.tsx");
   const css = read("components/admin-visual-library.module.css");
-  assert.match(editor, /window\.localStorage\.setItem\(key, JSON\.stringify\(normalized\)\)/);
-  assert.match(editor, /window\.localStorage\.removeItem\(key\)/);
-  assert.match(editor, /<PublicMagazineBanner/);
-  assert.match(editor, /scope === "one"/);
-  assert.match(editor, /navigator\.clipboard\.writeText/);
-  assert.match(editor, /Verejný web sa nezmenil/);
-  assert.doesNotMatch(editor, /fetch\(/);
+  const api = read("app/api/admin/visual-library/banners/route.ts");
+  assert.match(editor, /method: "PUT"/);
+  assert.match(editor, /method: "POST"/);
+  assert.match(editor, /method: "GET"/);
+  assert.match(editor, /Verejný web sa zatiaľ nezmenil/);
+  assert.match(editor, /confirmed/);
+  assert.match(editor, /Publikovať desktopové farby/);
+  assert.doesNotMatch(editor, /localStorage/);
+  assert.match(api, /requireAdminMutation\\(request, \\{ strictProvenance: true \\}\\)/);
+  assert.match(api, /acknowledged !== true/);
   assert.match(listing, /<AdminVisualLibraryEditor/);
   assert.match(listing, /editorOpen/);
-  assert.match(css, /\.editorPreview/);
-  assert.match(css, /var\(--visual-library-bg/);
+  assert.match(css, /\\.editorPreview/);
+  assert.match(css, /var\\(--visual-library-bg/);
 });
