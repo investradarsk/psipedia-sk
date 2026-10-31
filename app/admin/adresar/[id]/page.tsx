@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {env} from "cloudflare:workers";
 import {AdminServiceProfileValues} from "@/components/admin-service-profile-values";
-import {listAdminCatalogOptions} from "@/lib/service-catalog-admin-store";
+import {listAdminCatalogOptions,ServiceCatalogSchemaError} from "@/lib/service-catalog-admin-store";
 import {listBuiltinCatalogOverrides} from "@/lib/service-catalog-builtin-overrides";
 import {catalogEditorItems,eligibleProfileServiceItems} from "@/lib/service-catalog-admin-editor-view";
 import {serviceFilterCategories,type ServiceFilterCategory} from "@/lib/directory-filter-contract";
@@ -48,7 +48,10 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
       try {
         const [dynamic, overrides, stored] = await Promise.all([
           listAdminCatalogOptions(bindings.DB),
-          listBuiltinCatalogOverrides(bindings.DB),
+          listBuiltinCatalogOverrides(bindings.DB).catch(cause=>{
+            if(cause instanceof ServiceCatalogSchemaError)return [];
+            throw cause;
+          }),
           bindings.DB.prepare("SELECT option_id AS optionId,choice,version FROM service_profile_option_choices WHERE profile_id=?1")
             .bind(profile.id).all<{optionId:string;choice:"yes"|"no";version:number}>(),
         ]);
