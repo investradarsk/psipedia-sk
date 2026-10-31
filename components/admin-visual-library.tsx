@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
 import { AdminVisualLibraryOther } from "@/components/admin-visual-library-other";
+import { AdminVisualLibraryDuplicates } from "@/components/admin-visual-library-duplicates";
 import type { VisualLibraryExample, VisualExampleCategory } from "@/lib/visual-library-example-types";
 import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store";
 import styles from "./admin-visual-library.module.css";
@@ -12,7 +13,7 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
   articleUsage: ArticleBannerUsageResult;
   examples: readonly VisualLibraryExample[];
 }) {
-  const [category, setCategory] = useState<"bannery" | VisualExampleCategory>("bannery");
+  const [category, setCategory] = useState<"bannery" | "podobne" | VisualExampleCategory>("bannery");
   const [filter, setFilter] = useState("");
   const [group, setGroup] = useState<"all" | "clanky" | "stranky">("all");
   const [selectedId, setSelectedId] = useState("clanky:veterinari");
@@ -51,7 +52,7 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
     <section className={styles.library} aria-label="Vizuálna knižnica Psipedie">
       <header className={styles.intro}>
         <div>
-          <p className={styles.kicker}>Vizuálna knižnica · 4. etapa</p>
+          <p className={styles.kicker}>Vizuálna knižnica · 5. etapa</p>
           <h2>Čo používame na webe</h2>
           <p>Vyber banner, hero, tlačidlo alebo kartu. Uvidíš skutočný komponent a konkrétne overené stránky, kde sa používa.</p>
         </div>
@@ -64,6 +65,7 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
           ["hero", "Hero sekcie"],
           ["cta", "CTA tlačidlá"],
           ["karty", "Karty"],
+          ["podobne", "Možné duplicity"],
         ] as const).map(([id, label]) => (
           <button type="button" key={id} aria-pressed={category === id}
             onClick={() => setCategory(id)}>{label}</button>
@@ -211,6 +213,8 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
         ) : <p className={styles.empty}>Vyber iný filter alebo hľadaný výraz.</p>}
       </div>
       </>
+      ) : category === "podobne" ? (
+        <AdminVisualLibraryDuplicates articleUsage={articleUsage} examples={examples} />
       ) : (
         <AdminVisualLibraryOther key={category} category={category} examples={examples} />
       )}
