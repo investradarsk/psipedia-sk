@@ -195,7 +195,7 @@ test("signed Gemini imports keep a private D1 profile despite optional media or 
   const ready = sweep.indexOf("summary.createdFromNotion += 1", nonBlocking);
   assert.ok(mapping >= 0 && nonBlocking > mapping && ready > nonBlocking,
     "a durable private D1 mapping precedes optional warning-only post-create work");
-  assert.match(sweep.slice(nonBlocking, ready), /if \(!trustedGemini\) throw error/g);
+  assert.match(sweep.slice(nonBlocking, ready), /if \(!privateImport\) throw error/g);
   assert.match(sweep.slice(nonBlocking, ready), /markPageError/);
 });
 
