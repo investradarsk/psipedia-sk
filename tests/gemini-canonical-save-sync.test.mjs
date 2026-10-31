@@ -1,4 +1,5 @@
 import test from "node:test";
+import "./gemini-draft-import-fields.test.mjs";
 import { requireNotionWritebackEvidence } from "../lib/notion-sync-writeback-evidence.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
