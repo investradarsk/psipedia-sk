@@ -38,21 +38,35 @@ try {
   assert.deepEqual(await values(),['/media/one.webp']);
   await input.fill('/media/three.webp');await input.press('Enter');
   assert.deepEqual(await values(),['/media/one.webp','/media/three.webp']);
+  // Uppy Dashboard replaces the old single file input. Use the visible
+  // action and the actual standard (non-folder) picker in its modal.
+  const openUppy=async()=>{
+    await page.getByRole('button',{name:'Nahrať fotografie',exact:true}).click();
+    await page.locator('.uppy-Dashboard-input:not([webkitdirectory])').waitFor();
+  };
+  const chooseFiles=async(files)=>{
+    await page.locator('.uppy-Dashboard-input:not([webkitdirectory])').setInputFiles(files);
+  };
+  await openUppy();
   // One successful upload must survive a later failure in the same batch.
-  await page.locator('input[type=file]').setInputFiles([
+  await chooseFiles([
     {name:'ok.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
     {name:'fail.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
   ]);
+  await page.locator('.uppy-StatusBar-actionBtn--upload').click();
   await page.getByRole('alert').filter({hasText:'Testované zlyhanie'}).waitFor();
   assert.deepEqual(await values(),['/media/one.webp','/media/three.webp','/media/ok.png']);
   assert.deepEqual(uploads,['lost-found','lost-found']);
   assert.equal(await page.locator('#save').isEnabled(),true);
-  await page.locator('input[type=file]').setInputFiles([
+  await page.locator('.uppy-Dashboard-close').click();
+  await openUppy();
+  await chooseFiles([
     {name:'overflow1.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
     {name:'overflow2.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
   ]);
-  await page.getByRole('alert').filter({hasText:'najviac 1'}).waitFor();
+  await page.getByRole('alert').filter({hasText:/1/}).waitFor();
   assert.equal(uploads.length,2);
+  await page.locator('.uppy-Dashboard-close').click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
-  console.log('PASS gallery: reorder, remove, URL validation, Enter, partial upload failure, capacity, folder, busy reset, 320px');
+  console.log('PASS Uppy gallery: reorder, URL validation, preview, partial upload failure, capacity, folder, busy reset, 320px');
 } finally { await browser.close(); }
