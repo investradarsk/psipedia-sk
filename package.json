@@ -134,13 +134,14 @@
     "react-dropzone": "14.3.8",
     "react-hook-form": "7.91.0",
     "zod": "4.4.3",
-    "@uppy/core": "6.2.0",
+    "@uppy/core": "6.3.0",
     "@uppy/dashboard": "6.0.1",
     "@uppy/react": "6.0.0",
     "photoswipe": "5.4.4",
     "@fullcalendar/core": "6.1.19",
     "@fullcalendar/daygrid": "6.1.19",
-    "@fullcalendar/react": "6.1.19"
+    "@fullcalendar/react": "6.1.19",
+    "@uppy/locales": "5.3.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
