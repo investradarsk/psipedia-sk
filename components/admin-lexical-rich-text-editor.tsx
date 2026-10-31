@@ -173,43 +173,100 @@ function RichTextBridge({ value, onChange }: { value: EditorialRichTextDocument;
 function Toolbar({ allowHeadings, allowCallouts }: { allowHeadings: boolean; allowCallouts: boolean }) {
   const [editor] = useLexicalComposerContext();
   const [showLink, setShowLink] = useState(false);
-  const [link, setLink] = useState("");
-  const setBlock = (kind: "p" | "h2" | "h3" | "quote") => {
+  const [linkUrl, setLinkUrl] = useState("https://");
+  const [linkError, setLinkError] = useState("");
+  const [active, setActive] = useState({
+    bold: false, italic: false, link: false, paragraph: false,
+    h2: false, h3: false, quote: false, callout: false, bullet: false, ordered: false,
+  });
+
+  useEffect(() => editor.registerUpdateListener(({ editorState }) => {
+    editorState.read(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+      const selected = selection.anchor.getNode();
+      let block: LexicalNode | null = selected;
+      let linked = $isLinkNode(block);
+      while (block && !$isParagraphNode(block) && !$isHeadingNode(block) &&
+        !$isQuoteNode(block) && !$isCalloutNode(block) && !$isListNode(block)) {
+        if ($isLinkNode(block)) linked = true;
+        block = block.getParent();
+      }
+      if (block) {
+        setActive({
+          bold: selection.hasFormat("bold"), italic: selection.hasFormat("italic"), link: linked,
+          paragraph: $isParagraphNode(block),
+          h2: $isHeadingNode(block) && block.getTag() === "h2",
+          h3: $isHeadingNode(block) && block.getTag() === "h3",
+          quote: $isQuoteNode(block), callout: $isCalloutNode(block),
+          bullet: $isListNode(block) && block.getListType() === "bullet",
+          ordered: $isListNode(block) && block.getListType() === "number",
+        });
+      }
+    });
+  }), [editor]);
+
+  function setBlock(kind: "p" | "h2" | "h3" | "quote" | "tip") {
     editor.update(() => {
       const selection = $getSelection();
       if (!$isRangeSelection(selection)) return;
       $setBlocksType(selection, () => kind === "p" ? $createParagraphNode()
-        : kind === "quote" ? $createQuoteNode() : $createHeadingNode(kind));
+        : kind === "quote" ? $createQuoteNode()
+        : kind === "tip" ? $createCalloutNode("tip") : $createHeadingNode(kind));
     });
-  };
-  const applyLink = () => {
-    const href = sanitizeEditorialHref(link);
-    if (!href) return;
+    editor.focus();
+  }
+
+  function openLink() {
+    editor.focus();
+    setShowLink(true);
+    setLinkError("");
+  }
+  function applyLink() {
+    const href = sanitizeEditorialHref(linkUrl, true);
+    if (!href) { setLinkError("Použi bezpečný odkaz začínajúci https://, http:// alebo internou cestou /."); return; }
     editor.dispatchCommand(TOGGLE_LINK_COMMAND, href);
     setShowLink(false);
-    setLink("");
+    setLinkUrl("https://");
+    setLinkError("");
     editor.focus();
-  };
-  const action = (label: string, run: () => void, title?: string) => (
-    <button type="button" title={title ?? label} onMouseDown={(event) => event.preventDefault()} onClick={run}>{label}</button>
+  }
+  function cancelLink() {
+    setShowLink(false);
+    setLinkError("");
+    editor.focus();
+  }
+
+  const action = (label: string, run: () => void, ariaLabel: string, pressed = false) => (
+    <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={run}
+      aria-label={ariaLabel} title={ariaLabel} aria-pressed={pressed}>{label}</button>
   );
+
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Formátovanie textu">
-      {action("B", () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold"), "Tučné")}
-      {action("I", () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic"), "Kurzíva")}
-      {action("P", () => setBlock("p"), "Odsek")}
-      {allowHeadings && action("H2", () => setBlock("h2"), "Nadpis H2")}
-      {allowHeadings && action("H3", () => setBlock("h3"), "Nadpis H3")}
-      {action("•", () => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined), "Odrážky")}
-      {action("1.", () => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined), "Číslovaný zoznam")}
-      {allowCallouts && action("❞", () => setBlock("quote"), "Citácia")}
-      {action("Odkaz", () => setShowLink((open) => !open))}
+      {action("B", () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold"), "Tučné (Ctrl alebo Cmd + B)", active.bold)}
+      {action("I", () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic"), "Kurzíva (Ctrl alebo Cmd + I)", active.italic)}
+      {action("Odkaz", openLink, "Vložiť odkaz", active.link)}
+      {action("P", () => setBlock("p"), "Odsek", active.paragraph)}
+      {allowHeadings && action("H2", () => setBlock("h2"), "Nadpis úrovne 2", active.h2)}
+      {allowHeadings && action("H3", () => setBlock("h3"), "Nadpis úrovne 3", active.h3)}
+      {action("• Zoznam", () => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined), "Odrážkový zoznam", active.bullet)}
+      {action("1. Zoznam", () => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined), "Číslovaný zoznam", active.ordered)}
+      {action("Citácia", () => setBlock("quote"), "Citácia", active.quote)}
+      {allowCallouts && action("Tip", () => setBlock("tip"), "Tip alebo zvýraznenie", active.callout)}
       {showLink && (
-        <span className={styles.link}>
-          <input aria-label="URL odkazu" type="url" value={link} placeholder="https://…" onChange={(event) => setLink(event.target.value)} />
-          <button type="button" onClick={applyLink} disabled={!sanitizeEditorialHref(link)}>Použiť</button>
-          <button type="button" onClick={() => setShowLink(false)}>Zrušiť</button>
-        </span>
+        <div className={styles.link}>
+          <label htmlFor="lexical-editor-link">Odkaz</label>
+          <input id="lexical-editor-link" value={linkUrl} placeholder="https://… alebo /interny-odkaz"
+            onChange={(event) => { setLinkUrl(event.target.value); setLinkError(""); }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") { event.preventDefault(); applyLink(); }
+              if (event.key === "Escape") { event.preventDefault(); cancelLink(); }
+            }} />
+          <button type="button" onClick={applyLink}>Použiť</button>
+          <button type="button" onClick={cancelLink}>Zrušiť</button>
+          {linkError && <span role="alert">{linkError}</span>}
+        </div>
       )}
     </div>
   );
@@ -231,12 +288,12 @@ export function AdminLexicalRichTextEditor({
     editorState: () => loadDocument(normalized),
   };
   return (
-    <div className={styles.wrapper} data-admin-lexical-rich-text>
+    <div className={styles.wrapper} data-admin-lexical-rich-text data-admin-rich-text-editor>
       <LexicalComposer initialConfig={initialConfig}>
-        <Toolbar allowHeadings={allowHeadings} allowCallouts={allowCallouts} />
         <div className={styles.surface} style={{ minHeight }}>
+          <Toolbar allowHeadings={allowHeadings} allowCallouts={allowCallouts} />
           <RichTextPlugin
-            contentEditable={<ContentEditable id={id} className={styles.editor} aria-label={ariaLabel} />}
+            contentEditable={<ContentEditable id={id} data-editor-ready="true" className={styles.editor} aria-label={ariaLabel} />}
             placeholder={<span className={styles.placeholder}>{placeholder}</span>}
             ErrorBoundary={LexicalErrorBoundary}
           />
@@ -244,6 +301,7 @@ export function AdminLexicalRichTextEditor({
           <LinkPlugin />
           <HistoryPlugin />
           <RichTextBridge value={normalized} onChange={onChange} />
+          <p className={styles.help}>Píš priamo ako v textovom editore. Podporované sú nadpisy, zoznamy, citácie, odkazy aj zvýraznenia.</p>
         </div>
       </LexicalComposer>
     </div>
