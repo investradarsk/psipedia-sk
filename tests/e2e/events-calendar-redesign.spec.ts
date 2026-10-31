@@ -48,6 +48,34 @@ test("compact calendar uses six canonical legend links and real unique day indic
   await expect(page.locator('[data-calendar-date="2026-10-15"]')).toHaveAttribute("data-selected", "true");
 });
 
+test("desktop calendar is compact on the left and selected-day events appear on the right; mobile stays single-column", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(target);
+  const calendar = page.locator("[data-fullcalendar-desktop]");
+  const dayPanel = page.locator("[data-calendar-day-panel]");
+  await expect(calendar).toBeVisible();
+  await expect(page.locator("[data-calendar-day-placeholder]")).toBeVisible();
+  const columns = await page.locator("[data-calendar-desktop-columns]").evaluate(element => {
+    const first = element.querySelector('[class*="calendarMonthColumn"]')!.getBoundingClientRect();
+    const second = element.querySelector('[data-calendar-day-panel]')!.getBoundingClientRect();
+    return { left: first.left, right: first.right, panelLeft: second.left, panelRight: second.right };
+  });
+  expect(columns.right).toBeLessThan(columns.panelLeft);
+  expect(columns.panelRight).toBeGreaterThan(columns.panelLeft);
+  await page.locator('[data-calendar-date="2026-10-15"]').click();
+  const detail = page.locator('[data-selected-day="2026-10-15"]');
+  await expect(detail).toBeVisible();
+  await expect(detail.locator("li")).toHaveCount(7);
+  await expect(detail.getByRole("link").filter({ hasText: /.+/ }).first()).toBeVisible();
+  await expect(page.locator("[data-calendar-day-placeholder]")).toHaveCount(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(target);
+  await expect(page.locator('[data-events-month-calendar] [data-calendar-date="2026-10-15"]')).toBeVisible();
+  await expect(calendar).toHaveCount(0);
+  await expect(page.locator("[data-calendar-day-placeholder]")).toHaveCount(0);
+});
+
 test("DOM order is calendar, selected-day detail, one banner, then the unchanged listing", async ({ page }) => {
   await page.locator('[data-calendar-date="2026-10-15"]').click();
   // Calendar days are real navigation links. Wait for the server-rendered selected day,
@@ -107,8 +135,8 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
     // compact mobile calendar deliberately keeps its existing cell geometry.
     expect(Math.abs(full!.height - empty!.height)).toBeLessThanOrEqual(2);
     if (width > 760) {
-      expect(full!.height).toBeGreaterThanOrEqual(70);
-      expect(full!.height).toBeLessThanOrEqual(120);
+      expect(full!.height).toBeGreaterThanOrEqual(44);
+      expect(full!.height).toBeLessThanOrEqual(70);
     } else {
       expect(full!.height).toBeLessThanOrEqual(60);
       expect(full!.height).toBeGreaterThanOrEqual(44);
