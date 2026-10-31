@@ -28,7 +28,7 @@ export function AdminVisualLibrary({ articleUsage }: { articleUsage: ArticleBann
 
   const chosen = filtered.find((banner) => banner.id === selectedId) ?? filtered[0];
   const variant = chosen?.variants?.[Math.min(variantIndex, chosen.variants.length - 1)];
-  const uses: Array<{ url: string; label: string; placement: string; evidence: string }> = chosen
+  const uses: Array<{ url: string; label: string; placement: string; evidence: string; anchorId?: string }> = chosen
     ? [...chosen.uses, ...articleUsesFor(chosen.id)] : [];
   const visibleUses = uses.filter((use) =>
     [use.url, use.label, use.placement].join(" ").toLocaleLowerCase("sk")
@@ -112,7 +112,8 @@ export function AdminVisualLibrary({ articleUsage }: { articleUsage: ArticleBann
 
             <div className={styles.preview} aria-label={`Skutočný vizuálny náhľad: ${preview.title}`}>
               <div className={styles.previewComponent}>
-                <PublicMagazineBanner compact
+                <PublicMagazineBanner compact={chosen.group === "clanky"}
+                  photoTone={chosen.photoTone}
                   testId={`library-${chosen.id}`}
                   eyebrow={preview.eyebrow}
                   title={preview.title}
@@ -165,9 +166,11 @@ export function AdminVisualLibrary({ articleUsage }: { articleUsage: ArticleBann
                     <div>
                       <strong>{use.label}</strong>
                       <small>{use.placement}</small>
-                      <code>{use.url}</code>
+                      <code>{use.url}{use.anchorId ? `#${use.anchorId}` : ""}</code>
                     </div>
-                    <a href={use.url} target="_blank" rel="noopener noreferrer">Otvoriť stránku ↗</a>
+                    <a href={use.anchorId ? `${use.url}#${use.anchorId}` : use.url} target="_blank" rel="noopener noreferrer">
+                      Otvoriť umiestnenie ↗
+                    </a>
                   </li>
                 ))}
               </ul>
