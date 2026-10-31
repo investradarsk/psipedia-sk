@@ -69,6 +69,7 @@ async function galleryRenderer() {
   new Function("require", "exports", compiled)((name) => {
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsx;
+    if (name === "./public-photoswipe-enhancer") return { PublicPhotoSwipeEnhancer: ({ children }) => children };
     if (name.endsWith(".module.css")) return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
     throw new Error("Unexpected import " + name);
   }, exports);
