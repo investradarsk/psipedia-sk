@@ -1,11 +1,11 @@
 "use client";
 
 import { EventListingResults } from './event-listing-results';
-import { DesktopEventFullCalendar } from "./desktop-event-fullcalendar";
+import dynamic from "next/dynamic";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { eventListingParams, parseEventListing, type EventListingFilters } from '@/lib/event-listing';
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type MouseEvent } from "react";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
 import {
   calendarMonthDays,
@@ -33,6 +33,18 @@ import {
 } from "@/lib/events";
 import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
+
+const DesktopEventFullCalendar = dynamic(
+  () => import("./desktop-event-fullcalendar").then(mod => mod.DesktopEventFullCalendar),
+  { ssr: false },
+);
+const subscribeDesktopCalendar = (notify: () => void) => {
+  const media = window.matchMedia("(min-width: 761px)");
+  media.addEventListener("change", notify);
+  return () => media.removeEventListener("change", notify);
+};
+const desktopCalendarSnapshot = () => window.matchMedia("(min-width: 761px)").matches;
+const serverDesktopCalendarSnapshot = () => false;
 
 function dateLabel(day: string) {
   return new Intl.DateTimeFormat("sk-SK", {
@@ -71,6 +83,7 @@ export function EventCalendar({
   initialDay?: string;
   afterCalendar?: ReactNode;
 }) {
+  const isDesktopCalendar = useSyncExternalStore(subscribeDesktopCalendar, desktopCalendarSnapshot, serverDesktopCalendarSnapshot);
   const initialFilters = filters ?? parseEventListing({q:initialQuery,region:initialRegion,mesiac:initialMonth,termin:eventTimeFilterParam(initialTime)},initialType);
   type View = { month: string; day: string; filterMonth: string; time: EventTimeFilter; type: EventType | "Všetky" };
   type CalendarData = {
@@ -262,14 +275,14 @@ export function EventCalendar({
           </nav>
         </div>
 
-        <DesktopEventFullCalendar
+        {isDesktopCalendar ? <DesktopEventFullCalendar
           month={visibleMonth}
           today={today}
           selectedDay={selectedDay}
           summaries={Array.from(daySummaries.values())}
           hrefForDay={date=>calendarHref(visibleMonth,date)}
           onSelectDay={date=>void navigate(calendarHref(visibleMonth,date)+"#vybrany-den",{...view,day:date})}
-        />
+        /> : <div className={styles.desktopCalendarPending} aria-hidden="true">Načítavam kalendár…</div>}
         <div className={styles.monthGrid} role="group" aria-label={"Dni kalendára " + calendarMonthLabel(visibleMonth)}>
           {calendarWeekdays.map((name) => <span className={styles.weekday} key={name}>{name}</span>)}
           {days.map((day) => {
