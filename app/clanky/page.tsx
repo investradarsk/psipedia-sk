@@ -4,6 +4,7 @@ import { ArticleBrowser } from "@/components/article-browser";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
 import { ArticlePromo } from "@/components/article-promo";
+import { ARTICLE_LISTING_PROMO_ANCHOR } from "@/lib/visual-library-anchors";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
 import styles from "./article-listing.module.css";
 import { Breadcrumbs } from "@/components/page-system";
@@ -106,7 +107,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
                   <ArticlePopularitySidebar popularity={discovery.popularity} initialWindow="24h" />
                   {discovery.promo ? (
                     <div className={styles.promo} data-automatic-article-promo>
-                      <ArticlePromo promoKey={discovery.promo.promoKey} variant="auto"
+                      <ArticlePromo anchorId={ARTICLE_LISTING_PROMO_ANCHOR} promoKey={discovery.promo.promoKey} variant="auto"
                         seed={discovery.promo.seed} utcDay={discovery.utcDay} compact />
                     </div>
                   ) : null}
