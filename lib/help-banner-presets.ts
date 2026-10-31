@@ -8,7 +8,9 @@ export type HelpBannerPreset = {
   tone: "care" | "rescue" | "volunteer" | "closing";
 };
 
-export const helpOverviewPromos: Partial<Record<number, HelpBannerPreset>> = {
+export type HelpOverviewBannerPreset = Omit<HelpBannerPreset, "tone"> & { tone: "care" | "rescue" | "volunteer" };
+
+export const helpOverviewPromos: Partial<Record<number, HelpOverviewBannerPreset>> = {
   0: {
     eyebrow: "Praktické rady",
     title: "Dobrý nový domov začína prípravou",
@@ -35,7 +37,7 @@ export const helpOverviewPromos: Partial<Record<number, HelpBannerPreset>> = {
   },
 };
 
-export const lostFoundSubmitPromo: HelpBannerPreset = {
+export const lostFoundSubmitPromo: HelpOverviewBannerPreset = {
   eyebrow: "Stratený alebo nájdený pes",
   title: "Stratil sa vám pes alebo ste psa našli?",
   text: "Pošlite hlásenie cez krátky formulár. Kontaktné údaje zostanú súkromné a záznam sa zobrazí až po kontrole.",
