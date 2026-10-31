@@ -7,8 +7,9 @@ on:
         description: Canonical migration to apply
         required: true
         type: choice
-        default: 0062_profile_reviews_foundation.sql
+        default: 0147_notion_field_authority.sql
         options:
+          - 0147_notion_field_authority.sql
           - 0062_profile_reviews_foundation.sql
           - 0063_partner_claims_verification.sql
           - 0064_geo_foundation.sql
@@ -94,7 +95,6 @@ on:
           - 0144_facebook_articles_shared_calendar.sql
           - 0145_notion_webhook_inbox.sql
           - 0146_help_source_daily_checks.sql
-          - 0147_notion_field_authority.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
