@@ -4,10 +4,13 @@ import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {createAdminCatalogOption,saveAdminServiceChoice,resetAdminServiceChoice,requireServiceCatalogAuditSchema,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError} from "../lib/service-catalog-admin-store.ts";
 import {mutateAdminCatalogOption,recordCatalogMirrorOutcome} from "../lib/service-catalog-admin-lifecycle.ts";
+import {listBuiltinCatalogOverrides,updateBuiltinCatalogOption} from "../lib/service-catalog-builtin-overrides.ts";
+import {serviceCatalog} from "../lib/service-catalog-contract.ts";
 
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const migration=read("drizzle/0133_services_canonical_admin_foundation.sql");
 const auditMigration=read("drizzle/0134_services_admin_change_audit.sql");
+const builtinMigration=read("drizzle/0148_services_builtin_admin_overrides.sql");
 class Statement{
   constructor(sqlite,sql){
     this.sql=sql;
@@ -27,6 +30,7 @@ function fixture(){
   sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT NOT NULL, status TEXT NOT NULL)");
   sqlite.exec(migration);
   sqlite.exec(auditMigration);
+  sqlite.exec(builtinMigration);
   sqlite.exec("INSERT INTO directory_profiles (id,category,status) VALUES (1,'veterinari','published'),(2,'treneri','published'),(3,'veterinari','archived')");
   return {sqlite,db:{
     prepare(sql){return new Statement(sqlite,sql);},
@@ -212,4 +216,45 @@ test("no migration 0133 replay, live Notion writer or public feature-flag activa
  const wrangler=read("wrangler.jsonc");
  assert.match(wrangler,/"SERVICE_CATALOG_ADMIN_WRITES_ENABLED"/);
  assert.match(wrangler,/"SERVICE_CATALOG_NOTION_MIRROR_READY"/);
+});
+
+test("original built-in service edits use stable IDs, CAS, audit and expanded categories",async()=>{
+  const {sqlite,db}=fixture();
+  try{
+    const builtin=serviceCatalog.find(item=>item.categories.includes("veterinari")&&!item.categories.includes("treneri"));
+    assert.ok(builtin);
+    const payload={
+      action:"edit",expectedVersion:0,name:builtin.label,
+      categories:[...builtin.categories,"treneri"],group:builtin.group,meaning:builtin.meaning,
+    };
+    const first=await updateBuiltinCatalogOption(db,builtin.id,payload,actor);
+    assert.equal(first.id,builtin.id);
+    assert.equal(first.version,1);
+    const rows=await listBuiltinCatalogOverrides(db);
+    const edited=rows.find(item=>item.id===builtin.id);
+    assert.equal(edited.label,builtin.label);
+    assert.ok(edited.categories.includes("treneri"));
+    // A pre-existing built-in ID can now be selected by a profile of a newly eligible category.
+    const choice=await saveAdminServiceChoice(db,{
+      profileId:2,optionId:builtin.id,choice:"yes",expectedVersion:0,
+    },actor);
+    assert.equal(choice.optionId,builtin.id);
+    await assert.rejects(()=>updateBuiltinCatalogOption(db,builtin.id,payload,actor),ServiceCatalogConflictError);
+    const second=await updateBuiltinCatalogOption(db,builtin.id,{
+      ...payload,expectedVersion:1,meaning:"Administrátorom upravené odborné vysvetlenie služby.",
+    },actor);
+    assert.equal(second.version,2);
+    assert.equal(sqlite.prepare(
+      "SELECT COUNT(*) AS total FROM service_catalog_admin_change_audit WHERE option_id=? AND entity_type='option'"
+    ).get(builtin.id).total,2);
+    await assert.rejects(()=>updateBuiltinCatalogOption(db,builtin.id,{
+      ...payload,expectedVersion:2,kind:"attribute",
+    },actor),ServiceCatalogInputError);
+    await assert.rejects(()=>updateBuiltinCatalogOption(db,builtin.id,{
+      ...payload,expectedVersion:2,name:serviceCatalog.find(item=>item.id!==builtin.id).label,
+    },actor),ServiceCatalogConflictError);
+    assert.throws(()=>sqlite.prepare(
+      "UPDATE service_catalog_builtin_overrides SET option_id='svc.vet.forged' WHERE option_id=?"
+    ).run(builtin.id),/immutable/);
+  }finally{sqlite.close();}
 });

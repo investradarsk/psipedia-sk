@@ -281,6 +281,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0146_help_source_daily_checks.sql",
   "0147_notion_field_authority.sql",
   "0148_notion_transfer_audit.sql",
+  "0149_services_builtin_admin_overrides.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1508,6 +1509,11 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0148_notion_transfer_audit.sql") {
     return { partial: names.has("notion_transfer_audit") || names.has("idx_notion_transfer_audit_scope_time") };
+  }
+  if (targetMigration === "0149_services_builtin_admin_overrides.sql") {
+    return { partial: ["service_catalog_builtin_overrides", "service_catalog_builtin_overrides_updated_idx",
+      "service_catalog_builtin_override_audit_insert", "service_catalog_builtin_override_audit_update",
+      "service_catalog_builtin_override_identity_guard", "service_catalog_builtin_override_no_delete"].some(name => names.has(name)) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2876,6 +2882,33 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 146) assertHelpSource0146Schema(schema);
   if (migrationIndex(targetMigration) >= 147) assertNotionFieldAuthority0147Schema(schema);
   if (migrationIndex(targetMigration) >= 148) assertNotionTransferAudit0148Schema(schema);
+  if (migrationIndex(targetMigration) >= 149) assertBuiltinCatalogOverrides0149Schema(schema);
+}
+
+/** 0149: original option IDs remain stable and updates must be audited. */
+export function assertBuiltinCatalogOverrides0149Schema(schema) {
+  const objects=objectMap(schema.objects??[]);
+  const table=objects.get("service_catalog_builtin_overrides");
+  invariant(table?.type==="table","0149 built-in override table missing");
+  const sql=String(table.sql??"").replace(/\s+/g," ");
+  invariant(/option_id TEXT PRIMARY KEY NOT NULL/i.test(sql),"0149 immutable option identity missing");
+  invariant(/normalized_label TEXT NOT NULL UNIQUE/i.test(sql),"0149 duplicate label guard missing");
+  invariant(/json_valid\(categories_json\)/i.test(sql),"0149 category JSON guard missing");
+  invariant(/version INTEGER NOT NULL CHECK\(version>=1\)/i.test(sql),"0149 CAS version guard missing");
+  const expected={
+    service_catalog_builtin_overrides_updated_idx:"index",
+    service_catalog_builtin_override_audit_insert:"trigger",
+    service_catalog_builtin_override_audit_update:"trigger",
+    service_catalog_builtin_override_identity_guard:"trigger",
+    service_catalog_builtin_override_no_delete:"trigger",
+  };
+  for(const [name,type] of Object.entries(expected))
+    invariant(objects.get(name)?.type===type,"0149 missing audit/index/identity object: "+name);
+  for(const name of ["service_catalog_builtin_override_audit_insert","service_catalog_builtin_override_audit_update"]){
+    invariant(/service_catalog_admin_change_audit/i.test(String(objects.get(name)?.sql??"")),
+      "0149 override edit lacks the immutable Services V3 audit ledger");
+  }
+  return true;
 }
 
 /** 0147 must remain a small, additive-only configuration table.

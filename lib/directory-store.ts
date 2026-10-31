@@ -1021,8 +1021,13 @@ export async function listPublishedDirectoryProfiles(options: {
   const publicFacets = directoryPublicFacetSql(category ?? "", options.filters.facets);
   baseClauses.push(...publicFacets.clauses);
   baseBindings.push(...publicFacets.bindings);
+  // Cloudflare Workers Builds may deploy before the explicitly authorized
+  // production D1 migration. Keep legacy read behavior until 0148 exists.
+  const builtinOverridesReady=canonicalPublicEnabled&&Boolean(await database.prepare(
+    "SELECT name FROM sqlite_schema WHERE type='table' AND name='service_catalog_builtin_overrides' LIMIT 1"
+  ).first<{name:string}>());
   const canonicalService=canonicalPublicServiceWhere(category??"",
-    options.filters.canonicalService??"",canonicalPublicEnabled);
+    options.filters.canonicalService??"",canonicalPublicEnabled,"directory_profiles",builtinOverridesReady);
   baseClauses.push(...canonicalService.clauses);
   baseBindings.push(...canonicalService.bindings);
 
@@ -1057,13 +1062,21 @@ export async function listPublishedDirectoryProfiles(options: {
     && (serviceFilterCategories as readonly string[]).includes(category ?? "");
   const loadCanonicalServices = async (): Promise<CanonicalPublicServiceOption[]> => {
     if (!canonicalServicesEnabled || !category) return [];
+    const builtinFields=builtinOverridesReady
+      ? "builtin.label AS builtinLabel,builtin.categories_json AS builtinCategoriesJson"
+      : "NULL AS builtinLabel,NULL AS builtinCategoriesJson";
+    const builtinJoin=builtinOverridesReady
+      ? "LEFT JOIN service_catalog_builtin_overrides AS builtin ON builtin.option_id=choice.option_id"
+      : "";
     const canonicalRows = await database.prepare(`
       SELECT DISTINCT choice.option_id AS optionId,
         opt.label AS label,opt.kind AS kind,opt.status AS status,
-        opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson
+        opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson,
+        ${builtinFields}
       FROM service_profile_option_choices AS choice
       JOIN directory_profiles AS profile ON profile.id=choice.profile_id
       LEFT JOIN service_catalog_admin_options AS opt ON opt.id=choice.option_id
+      ${builtinJoin}
       WHERE profile.status='published' AND profile.category=? AND choice.choice='yes'
       ORDER BY choice.option_id
     `).bind(category).all<CanonicalPublicServiceRow>();

@@ -84,6 +84,14 @@ export async function mutateAdminCatalogOption(db:DB,idRaw:unknown,raw:unknown,a
     if(row.status==="RETIRED")
       throw new ServiceCatalogConflictError("Edit is limited to non-conflicted DRAFT options.");
     const draft=editPayload(body,row.kind);
+    try{
+      const duplicate=await db.prepare(
+        "SELECT option_id FROM service_catalog_builtin_overrides WHERE normalized_label=?1 LIMIT 1"
+      ).bind(draft.normalized).first<{option_id:string}>();
+      if(duplicate)throw new ServiceCatalogConflictError("A catalog option with this name already exists.");
+    }catch(error){
+      if(!/no such table: service_catalog_builtin_overrides/i.test(String(error)))throw error;
+    }
     if(draft.name===row.label&&draft.group===row.group_name&&draft.meaning===row.meaning&&draft.category===row.primary_category&&JSON.stringify(draft.categories)===row.categories_json)
       throw new ServiceCatalogInputError("No actual changes to save.");
     if(!canTransitionMirrorStatus(row.notion_mirror_status,"PENDING"))
