@@ -179,6 +179,35 @@ test("Notion Ready creates canonical drafts; publication requires explicit Psipe
   assert.match(syncSource, /await writeProfileToNotion\(\{/);
 });
 
+
+test("signed Gemini imports keep a private D1 profile despite optional media or mirror errors", () => {
+  const createBody = syncSource.slice(
+    syncSource.indexOf("async function createProfileFromNotion("),
+    syncSource.indexOf("async function applyNotionToProfile("),
+  );
+  assert.match(createBody, /if \(!input\.trustedGemini\) throw error/);
+  assert.match(createBody, /imageWarning = error instanceof Error/);
+  assert.match(createBody, /status: "draft"/);
+
+  const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  const mapping = sweep.indexOf("await saveMapping({", sweep.indexOf("const creation = await createProfileFromNotion"));
+  const nonBlocking = sweep.indexOf("const warnings = creation.imageWarning", mapping);
+  const ready = sweep.indexOf("summary.createdFromNotion += 1", nonBlocking);
+  assert.ok(mapping >= 0 && nonBlocking > mapping && ready > nonBlocking,
+    "a durable private D1 mapping precedes optional warning-only post-create work");
+  assert.match(sweep.slice(nonBlocking, ready), /if \(!trustedGemini\) throw error/g);
+  assert.match(sweep.slice(nonBlocking, ready), /markPageError/);
+});
+
+test("Admin-owned service choices cannot cause a Notion delete conflict", () => {
+  const mapped = syncSource.slice(
+    syncSource.indexOf("async function syncMappedPage("),
+    syncSource.indexOf("async function recoverMappingFromPage("),
+  );
+  assert.match(mapped, /"slug", "category", "status", "services", "confirmedServiceLocation"/);
+  assert.match(mapped, /canonicalFieldsWin: true/);
+});
+
 test("Notion-first creation uses the durable R2 image pipeline from MEDIA-SOURCE-QUALITY-1", () => {
   assert.match(syncSource, /prepareNotionMainImage\(\{/);
   assert.match(syncSource, /folder: "directory"/);
