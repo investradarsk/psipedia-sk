@@ -165,9 +165,12 @@ test("legacy PortalHub no longer chooses first article as hero", () => {
   assert.match(portalHub, /getSectionHeroVisual/);
 });
 
-test("homepage remains separate but keeps home.hero visual store", () => {
-  assert.match(home, /getResolvedSectionVisual\("home\.hero"\)/);
-  assert.doesNotMatch(home, /UnifiedSectionHero/);
+test("homepage uses the canonical section hero renderer", () => {
+  assert.match(home, /getSectionHeroVisual\\("home\\.hero"\\)/);
+  assert.match(home, /<UnifiedSectionHeroShell/);
+  assert.match(home, /<UnifiedSectionHero/);
+  assert.match(home, /portalSearchSlot=/);
+  assert.doesNotMatch(home, /className="hero-card"/);
 });
 
 test("detail page routing remains intact and out of section hero scope", () => {
