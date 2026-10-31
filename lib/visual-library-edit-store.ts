@@ -52,14 +52,10 @@ export function validatePublication(
     throw new Error("Pred publikovaním potvrď presnú URL stránky, ktorú meníš.");
   }
   const { banner } = validatedBannerKey(id, variantIndex);
-  const original = defaultBannerDraft(banner, variantIndex);
   if (banner.photoTone && draft.background !== "original") {
     throw new Error("Fotografický banner nesmie meniť pozadie pri publikovaní.");
   }
-  if (draft.eyebrow !== original.eyebrow || draft.title !== original.title ||
-    draft.description !== original.description || draft.ctaLabel !== original.ctaLabel) {
-    throw new Error("Textové zmeny ešte nie je možné publikovať bez zmeny mobilu. Ulož ich ako návrh.");
-  }
+  // Both copies are retained by PublicMagazineBanner; published text is desktop-only.
   return target;
 }
 function fromRow(row: EditRow): StoredVisualDraft {
@@ -163,13 +159,13 @@ export async function publishVisualDraft(input: {
 }
 
 /** Public side: allowlisted IDs only; a failure returns original static style. */
-export async function getPublishedDesktopBannerColors(id: string): Promise<Pick<BannerDraft, "background" | "button"> | null> {
+export async function getPublishedDesktopBannerColors(id: string): Promise<BannerDraft | null> {
   if (!ALLOWED_PUBLICATIONS[id]) return null;
   try {
     const stored = await getVisualDraft(id, ALLOWED_PUBLICATIONS[id].variant);
     if (!stored?.published) return null;
     validatePublication(id, ALLOWED_PUBLICATIONS[id].variant, stored.published, ALLOWED_PUBLICATIONS[id].url);
-    return { background: stored.published.background, button: stored.published.button };
+    return stored.published;
   } catch (error) {
     console.error("visual_library_public_colors_unavailable", id, error);
     return null;
