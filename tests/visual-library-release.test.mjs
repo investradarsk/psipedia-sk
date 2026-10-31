@@ -62,3 +62,26 @@ test("0151 only additive draft table, protected manual workflow", () => {
   assert.match(wf, /0151_visual_library_banner_edits\.sql/);
   assert.match(migrate, /assertVisualLibrary0151Schema/);
 });
+
+test("desktop-only text is responsive inside the original semantic heading and CTA", () => {
+  const component=read("components/public-visual-system/public-magazine-banner.tsx");
+  const css=read("components/public-visual-system/public-magazine-banner.module.css");
+  const home=read("components/home-editorial.tsx");
+  const editor=read("components/admin-visual-library-editor.tsx");
+  const store=read("lib/visual-library-edit-store.ts");
+  // One heading and one CTA link, with viewport-specific text descendants.
+  assert.equal((component.match(/<h2\b/g)||[]).length, 1);
+  assert.equal((component.match(/<Link href=\{href\} className="button button--dark">/g)||[]).length, 1);
+  assert.match(component, /<span className=\{styles\.mobileCopy\}>\{title\}<\/span>/);
+  assert.match(component, /<span className=\{styles\.desktopCopy\}>\{desktopCopy\.title\}<\/span>/);
+  assert.match(component, /<span className=\{styles\.mobileCopy\}>\{description\}<\/span>/);
+  assert.match(component, /<span className=\{styles\.desktopCopy\}>\{desktopCopy\.description\}<\/span>/);
+  assert.match(component, /<span className=\{styles\.mobileCopy\}>\{label\}<\/span>/);
+  assert.match(component, /<span className=\{styles\.desktopCopy\}>\{desktopCopy\.ctaLabel\}<\/span>/);
+  assert.match(css, /\.mobileCopy\{display:inline\}/);
+  assert.match(css, /\.desktopCopy\{display:none\}/);
+  assert.match(css, /@media \(min-width: 621px\)\{/);
+  assert.match(home, /desktopCopy=\{desktopCopy\}/);
+  assert.match(store, /return stored\.published/);
+  assert.match(editor, /draft\.scope === "one"/);
+});
