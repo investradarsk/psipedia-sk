@@ -100,21 +100,27 @@ export function PublicSearchSuggestions({
     // Attach to the existing forms instead of replacing their native submit behavior.
     // Keep the native textbox role: existing header keyboard and accessibility
     // contracts locate this control as a textbox, not a combobox.
+    // Only reference a listbox once it is actually rendered. A dangling
+    // aria-controls id fails axe accessibility checks on empty search inputs.
+    const hasListbox = isOpen && status === "ready" && suggestions.length > 0;
     input.setAttribute("aria-autocomplete", "list");
-    input.setAttribute("aria-controls", listId);
-    // Native textbox inputs do not support aria-expanded (axe aria-allowed-attr).
-    // Keep textbox semantics for the existing search forms and expose the
-    // listbox via aria-controls + aria-activedescendant instead.
-    input.removeAttribute("aria-expanded");
-    if (isOpen && selected >= 0 && selected < suggestions.length) {
+    input.removeAttribute("aria-expanded"); // Preserve the native textbox role.
+    if (hasListbox) {
+      input.setAttribute("aria-controls", listId);
+    } else {
+      input.removeAttribute("aria-controls");
+    }
+    if (hasListbox && selected >= 0 && selected < suggestions.length) {
       input.setAttribute("aria-activedescendant", `${listId}-item-${selected}`);
     } else {
       input.removeAttribute("aria-activedescendant");
     }
     return () => {
+      if (input.getAttribute("aria-controls") === listId) input.removeAttribute("aria-controls");
       input.removeAttribute("aria-activedescendant");
+      input.removeAttribute("aria-autocomplete");
     };
-  }, [inputRef, listId, isOpen, selected, suggestions.length]);
+  }, [inputRef, listId, isOpen, status, selected, suggestions.length]);
 
   useEffect(() => {
     const input = inputRef.current;
