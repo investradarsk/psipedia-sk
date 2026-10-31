@@ -30,6 +30,9 @@ export function AdminGeminiAllConcepts() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("ALL");
   const [status, setStatus] = useState<GeminiReviewState | "ACTIVE" | "ALL">("ACTIVE");
+  const [importing, setImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState("");
+  const [importErrors, setImportErrors] = useState<string[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -95,6 +98,57 @@ export function AdminGeminiAllConcepts() {
     setLoaded({});
     setErrors({});
     setRevision(current => current + 1);
+  }
+
+  // A single owner click confirms the import of legacy Gemini evidence rows.
+  // Each request checks current Notion revision, source ownership and D1 identity.
+  // One at a time protects Notion rate limits (429); nothing is ever published.
+  async function importPending() {
+    if (importing || !complete || Object.keys(errors).length) return;
+    const pending = all.filter(({ draft }) =>
+      !geminiCanonicalEditorUrl(draft) && Boolean(draft.lastEditedAt) &&
+      draft.reviewState !== "REJECTED" && draft.reviewState !== "PUBLISHED");
+    if (!pending.length) {
+      setImportSummary("Nie sú žiadne čakajúce koncepty na prenos.");
+      return;
+    }
+    setImporting(true);
+    setImportErrors([]);
+    let done = 0;
+    const failed: string[] = [];
+    try {
+      for (const { item, draft } of pending) {
+        setImportSummary(`Prenášam ${done + failed.length + 1} z ${pending.length}… (${draft.name || item.label})`);
+        try {
+          const response = await fetch("/api/admin/gemini-automation/import-pending", {
+            method: "POST", credentials: "same-origin", cache: "no-store",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              stableKey: item.stableKey, pageId: draft.id, revision: draft.lastEditedAt,
+              confirm: "IMPORT_PRIVATE_GEMINI_DRAFT",
+            }),
+          });
+          const result = await response.json() as {
+            imported?: boolean; error?: string; state?: string;
+          };
+          if (!response.ok || !result.imported) {
+            failed.push((draft.name || item.label) + ": " +
+              (result.error || (result.state === "NOTION_ONLY"
+                ? "Chýba bezpečne overiteľný Gemini pôvod."
+                : "Import nie je potvrdený; skontroluj stav v kategórii.")));
+          } else done += 1;
+        } catch {
+          failed.push((draft.name || item.label) + ": Spojenie zlyhalo. Skontroluj stav.");
+        }
+        // No parallel 22-category writes; retry later from refreshed D1 truth.
+        if (pending.length > 1) await new Promise(resolve => setTimeout(resolve, 850));
+      }
+    } finally {
+      setImporting(false);
+      setImportSummary(`Hotovo: ${done} importovaných, ${failed.length} treba skontrolovať.`);
+      setImportErrors(failed);
+      reload();
+    }
   }
 
   function renderRow({ item, draft }: Entry) {
@@ -170,10 +224,20 @@ export function AdminGeminiAllConcepts() {
             ))}
           </select>
         </label>
+        <button type="button" className={styles.reload} onClick={() => void importPending()}
+          disabled={!complete || Object.keys(errors).length > 0 || importing}>
+          {importing ? "Prenášam koncepty…" : "Preniesť čakajúce do Adminu"}
+        </button>
         <button type="button" className={styles.reload} onClick={reload}
-          disabled={!complete}>↻ Obnoviť</button>
+          disabled={!complete || importing}>↻ Obnoviť</button>
       </div>
 
+      {importSummary && <div className={styles.progress} role="status" aria-live="polite">
+        {importSummary}
+        {importErrors.length > 0 && <details><summary>Neprenesené koncepty ({importErrors.length})</summary>
+          <ul>{importErrors.map((error, index) => <li key={index}>{error}</li>)}</ul>
+        </details>}
+      </div>}
       <p className={styles.progress} role="status" aria-live="polite">
         {complete
           ? Object.keys(errors).length
@@ -205,7 +269,7 @@ export function AdminGeminiAllConcepts() {
           </section>
         );
       })}
-      <p className={styles.footnote}>Koncepty a ich stavy sa iba čítajú. Úpravy prebiehajú v existujúcich editoroch kategórií alebo kanonických profilov; táto stránka nič nepublikuje.</p>
+      <p className={styles.footnote}>Import len vytvorí neverejné koncepty. Staršie záznamy sa po tvojom kliknutí overia v Notione a D1; pri neistote zostanú v zozname na kontrolu. Nič sa automaticky nepublikuje.</p>
     </div>
   );
 }
