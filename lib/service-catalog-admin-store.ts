@@ -70,6 +70,11 @@ export async function createAdminCatalogOption(db:DB,raw:unknown,actorRaw:string
     .bind(input.normalizedLabel).first<{id:string}>();}
   catch(e){return handleDbError(e);}
   if(duplicate)throw new ServiceCatalogConflictError("Option already exists; reuse the canonical ID.");
+  // Edited original labels also reserve their names for the same immutable ID.
+  const builtinDuplicate=await db.prepare(
+    "SELECT option_id FROM service_catalog_builtin_overrides WHERE normalized_label=?1 LIMIT 1"
+  ).bind(input.normalizedLabel).first<{option_id:string}>();
+  if(builtinDuplicate)throw new ServiceCatalogConflictError("Option already exists; reuse the canonical ID.");
   const id=(input.kind==="service"?"svc.admin.":"attr.admin.")+crypto.randomUUID().replace(/-/g,"");
   const time=now.toISOString();
   try{
@@ -86,9 +91,13 @@ export async function createAdminCatalogOption(db:DB,raw:unknown,actorRaw:string
 }
 async function allowedCategories(db:DB,id:string):Promise<readonly string[]|null>{
   const item=serviceCatalog.find(x=>x.id===id);
-  if(item)return item.categories;
   const attribute=attributeCatalog.find(x=>x.id===id&&x.valueKind==="tri_state");
-  if(attribute)return attribute.categories;
+  if(item||attribute){
+    const override=await db.prepare(
+      "SELECT categories_json FROM service_catalog_builtin_overrides WHERE option_id=?1 LIMIT 1"
+    ).bind(id).first<{categories_json:string}>();
+    return override?categories(override.categories_json):(item??attribute)!.categories;
+  }
   const row=await db.prepare("SELECT kind,status,notion_mirror_status,categories_json FROM service_catalog_admin_options WHERE id=?1 LIMIT 1")
     .bind(id).first<{kind:string;status:string;notion_mirror_status:string;categories_json:string}>();
   return (row?.kind==="service"||row?.kind==="attribute")&&row.status==="ACTIVE"?categories(row.categories_json):null;
