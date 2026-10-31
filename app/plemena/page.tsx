@@ -4,7 +4,7 @@ import { BreedBrowser } from "@/components/breed-browser";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon } from "@/components/icons";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
-import { BREED_CLUBS_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
+import { BREED_CLUBS_BANNER_ANCHOR, HERO_BREEDS_ANCHOR } from "@/lib/visual-library-anchors";
 import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContentShell,
@@ -61,7 +61,7 @@ export default async function BreedsPage({ searchParams }: Props) {
       {schema && <StructuredData value={schema} />}
       <main id="obsah">
         <PublicFoundation className={styles.foundation}>
-          <UnifiedSectionHeroShell>
+          <UnifiedSectionHeroShell id={HERO_BREEDS_ANCHOR}>
             <UnifiedSectionHero
               breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Plemená</span></Breadcrumbs>}
               eyebrow={breedSection?.eyebrow ?? "Atlas plemien"}
