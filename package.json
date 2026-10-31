@@ -113,7 +113,7 @@
     "test:component-registry": "node --test tests/component-registry.test.mjs",
     "graph:react": "npm exec --yes --package=@reactgraph-ui/core@0.1.9 -- reactgraph analyze .",
     "graph:dependencies": "npm exec --yes --package=dependency-cruiser@18.7.0 -- depcruise --no-config --ts-config tsconfig.json --output-type json app components lib",
-    "test:visual-library": "node --test tests/visual-library.test.mjs"
+    "test:visual-library": "node --test tests/visual-library.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/visual-library-usage.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
