@@ -2499,16 +2499,21 @@
 .desktopFullCalendar :global(.fc-daygrid-day-frame) { min-height: 74px; }
 .desktopFullCalendar :global(.fc-day-other) { background: var(--ps-surface); }
 .fullCalendarDayLink {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 70px;
-  gap: 8px;
-  padding: 8px;
+  display: block;
+  min-height: 72px;
   color: var(--forest-dark);
   text-decoration: none;
 }
-.fullCalendarDayLink[data-selected="true"] {
+.fullCalendarDayContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 72px;
+  gap: 8px;
+  padding: 8px;
+  color: var(--forest-dark);
+}
+.fullCalendarDayContent[data-selected="true"] {
   background: var(--sage-light);
   box-shadow: inset 0 0 0 2px var(--forest-dark);
 }
@@ -2536,7 +2541,7 @@
   color: #fff;
   font-size: .74rem;
 }
-.fullCalendarDayLink[data-today="true"] .fullCalendarDayHeading > span:first-child {
+.fullCalendarDayContent[data-today="true"] .fullCalendarDayHeading > span:first-child {
   display: inline-grid;
   place-items: center;
   width: 25px;
