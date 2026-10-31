@@ -63,7 +63,7 @@ test("editor persists on authenticated server and never publishes without confir
   assert.match(editor, /method: "GET"/);
   assert.match(editor, /Verejný web sa zatiaľ nezmenil/);
   assert.match(editor, /confirmed/);
-  assert.match(editor, /Publikovať desktopové farby/);
+  assert.match(editor, /Publikovať texty a farby na desktope/);
   assert.doesNotMatch(editor, /localStorage/);
   assert.match(api, /requireAdminMutation\\(request, \\{ strictProvenance: true \\}\\)/);
   assert.match(api, /acknowledged !== true/);
