@@ -22,3 +22,10 @@ export const HELP_CLOSING_BANNER_ANCHOR = "psipedia-banner-help-closing";
 export function helpOverviewBannerAnchor(index: number): string {
   return `psipedia-banner-help-section-${index}`;
 }
+export const HERO_BREEDS_ANCHOR = "psipedia-hero-breeds";
+export const HERO_ARTICLES_ANCHOR = "psipedia-hero-articles";
+export const CTA_DIRECTORY_MAP_ANCHOR = "psipedia-cta-directory-map";
+export const CTA_HELP_ORGANIZATIONS_ANCHOR = "psipedia-cta-help-organizations";
+export function articleListCardAnchor(slug: string) {
+  return articlePromoBlockAnchor(`article-list:${slug}`);
+}
