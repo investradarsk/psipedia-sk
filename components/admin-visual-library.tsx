@@ -5,6 +5,7 @@ import { PublicMagazineBanner } from "@/components/public-visual-system/public-m
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
 import { AdminVisualLibraryOther } from "@/components/admin-visual-library-other";
 import { AdminVisualLibraryDuplicates } from "@/components/admin-visual-library-duplicates";
+import { AdminVisualLibraryEditor } from "@/components/admin-visual-library-editor";
 import type { VisualLibraryExample, VisualExampleCategory } from "@/lib/visual-library-example-types";
 import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store";
 import styles from "./admin-visual-library.module.css";
@@ -14,6 +15,7 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
   examples: readonly VisualLibraryExample[];
 }) {
   const [category, setCategory] = useState<"bannery" | "podobne" | VisualExampleCategory>("bannery");
+  const [editorOpen, setEditorOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [group, setGroup] = useState<"all" | "clanky" | "stranky">("all");
   const [selectedId, setSelectedId] = useState("clanky:veterinari");
@@ -52,7 +54,7 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
     <section className={styles.library} aria-label="Vizuálna knižnica Psipedie">
       <header className={styles.intro}>
         <div>
-          <p className={styles.kicker}>Vizuálna knižnica · 5. etapa</p>
+          <p className={styles.kicker}>Vizuálna knižnica · 6. etapa</p>
           <h2>Čo používame na webe</h2>
           <p>Vyber banner, hero, tlačidlo alebo kartu. Uvidíš skutočný komponent a konkrétne overené stránky, kde sa používa.</p>
         </div>
@@ -97,7 +99,7 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
             {filtered.map((banner) => (
               <button type="button" className={styles.catalogItem}
                 aria-pressed={chosen?.id === banner.id} key={banner.id}
-                onClick={() => {setSelectedId(banner.id);setVariantIndex(0);setUsageFilter("");setUsageLimit(30);}}>
+                onClick={() => {setSelectedId(banner.id);setVariantIndex(0);setUsageFilter("");setUsageLimit(30);setEditorOpen(false);}}>
                 <span>{banner.label}</span>
                 <small>{usageCountFor(banner.id) > 0
                   ? `${usageCountFor(banner.id)} výskytov na stránkach`
@@ -113,7 +115,10 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
           <div className={styles.details} key={chosen.id}>
             <div className={styles.detailHead}>
               <div><span>Náhľad existujúceho komponentu</span><h3>{chosen.label}</h3></div>
-              <span className={styles.readOnly}>Iba na čítanie</span>
+              <button className={styles.moreButton} type="button" aria-expanded={editorOpen}
+                onClick={() => setEditorOpen((current) => !current)}>
+                {editorOpen ? "Skryť editor návrhu" : "Upraviť vzhľad"}
+              </button>
             </div>
             {chosen.variants && (
               <div className={styles.variants} aria-label="Verzie textu banneru">
@@ -144,6 +149,14 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
               {chosen.variants ? " Pri článkoch sa môže zobraziť ktorýkoľvek z troch textových variantov." : ""}
             </p>
 
+            {editorOpen && (
+              <AdminVisualLibraryEditor key={chosen.id + ":" + variantIndex}
+                banner={chosen}
+                variantIndex={variantIndex}
+                knownUses={uses.length}
+                canConfirmAllUses={chosen.group !== "clanky" && chosen.uses.length > 0}
+              />
+            )}
             <div className={styles.usageHead}>
               <div>
                 <h4>Kde sa používa</h4>
@@ -208,7 +221,7 @@ export function AdminVisualLibrary({ articleUsage, examples }: {
             {chosen.group !== "clanky" && uses.length === 0 && (
               <p className={styles.pending}>Konkrétne URL zatiaľ nie sú overené.</p>
             )}
-            <p className={styles.nextStep}>Úpravy farieb, textu a zjednocovanie duplicitných bannerov doplníme až v ďalších etapách. Teraz sa nič na verejnom webe nemení.</p>
+            <p className={styles.nextStep}>Text a základné farby môžeš skúšať a uložiť ako pracovný návrh. Priame publikovanie na webe zatiaľ nie je zapnuté, aby nevznikli neúmyselné zmeny.</p>
           </div>
         ) : <p className={styles.empty}>Vyber iný filter alebo hľadaný výraz.</p>}
       </div>
