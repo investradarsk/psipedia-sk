@@ -1,6 +1,7 @@
 import {serviceCatalog,attributeCatalog} from "./service-catalog-contract.ts";
 import type {AdminCatalogOptionDto,CatalogMirrorStatus,CatalogOptionStatus} from "./service-catalog-admin-api-contract.ts";
 import type {ServiceFilterCategory} from "./directory-filter-contract.ts";
+import type {BuiltinCatalogOverride} from "./service-catalog-builtin-overrides.ts";
 
 export type CatalogEditorItem=Readonly<{
   id:string; label:string;kind:"service"|"attribute";valueKind:"tri_state"|"single_select"|"multi_select"|"text_list";group:string;meaning:string;
@@ -9,19 +10,38 @@ export type CatalogEditorItem=Readonly<{
   version:number|null;
 }>;
 
-/** Static definitions are read-only; D1 is the authority for newly approved options. */
-export function catalogEditorItems(dynamic:readonly AdminCatalogOptionDto[]):CatalogEditorItem[]{
+/**
+ * Override only the human-editable metadata of built-in options.
+ * Preserve original IDs, kind/value-kind and canonical relationship identity.
+ */
+export function catalogEditorItems(
+  dynamic:readonly AdminCatalogOptionDto[],
+  overrides:readonly BuiltinCatalogOverride[] = [],
+):CatalogEditorItem[]{
+  const byId=new Map(overrides.map(item=>[item.id,item]));
   const builtIn:CatalogEditorItem[]=[
-    ...serviceCatalog.map(option=>({
-      id:option.id,label:option.label,kind:"service" as const,valueKind:"tri_state" as const,group:option.group,meaning:option.meaning,
-      categories:option.categories,source:"built_in" as const,status:"BUILT_IN" as const,
-      mirror:"NOT_REQUIRED" as const,version:null,
-    })),
-    ...attributeCatalog.map(option=>({
-      id:option.id,label:option.label,kind:"attribute" as const,valueKind:option.valueKind,group:"Vlastnosti",meaning:option.meaning,
-      categories:option.categories,source:"built_in" as const,status:"BUILT_IN" as const,
-      mirror:"NOT_REQUIRED" as const,version:null,
-    })),
+    ...serviceCatalog.map(option=>{
+      const current=byId.get(option.id);
+      return {
+        id:option.id,label:current?.label??option.label,kind:"service" as const,
+        valueKind:"tri_state" as const,group:current?.group??option.group,
+        meaning:current?.meaning??option.meaning,
+        categories:current?.categories??option.categories,source:"built_in" as const,
+        status:"BUILT_IN" as const,mirror:"NOT_REQUIRED" as const,
+        version:current?.version??0,
+      };
+    }),
+    ...attributeCatalog.map(option=>{
+      const current=byId.get(option.id);
+      return {
+        id:option.id,label:current?.label??option.label,kind:"attribute" as const,
+        valueKind:option.valueKind,group:current?.group??"Vlastnosti",
+        meaning:current?.meaning??option.meaning,
+        categories:current?.categories??option.categories,source:"built_in" as const,
+        status:"BUILT_IN" as const,mirror:"NOT_REQUIRED" as const,
+        version:current?.version??0,
+      };
+    }),
   ];
   return [...builtIn,...dynamic.map(item=>({
     id:item.id,label:item.label,kind:item.kind,valueKind:"tri_state" as const,group:item.group,meaning:item.meaning,

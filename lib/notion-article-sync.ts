@@ -1,3 +1,4 @@
+import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import {
   createManagedArticle,
   deleteManagedArticle,
@@ -1957,5 +1958,6 @@ export async function runNotionArticleSyncSweep(args: {
       }
     }
   }
+  await recordNotionTransfer(args.database,"articles","NOTION_TO_ADMIN",summary.created+summary.updated);
   return summary;
 }

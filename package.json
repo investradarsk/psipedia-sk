@@ -54,7 +54,7 @@
     "e2e:install": "playwright install chromium",
     "e2e": "playwright test",
     "e2e:production": "node --experimental-strip-types scripts/run-production-e2e.mjs",
-    "test:admin-events": "node --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-events.test.mjs tests/admin-event-pagination.test.mjs",
+    "test:admin-events": "node --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-events.test.mjs tests/admin-event-pagination.test.mjs tests/event-lexical-markdown.test.mjs",
     "test:org-fundraising-public": "node --experimental-strip-types --test tests/organization-fundraising-public.test.mjs",
     "test:org-locations-admin": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/organization-location-admin.test.mjs",
     "test:editorial-foundation": "node --experimental-strip-types --test tests/editorial-content-foundation.test.mjs tests/notion-article-sync.test.mjs tests/article-notion-publish-writeback.test.mjs tests/article-publish-notion-reconciliation.test.mjs tests/article-effective-status.test.mjs",

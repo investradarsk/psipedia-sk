@@ -1,3 +1,4 @@
+import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
 import {importNotionServiceChoices} from "./service-profile-notion-bridge.ts";
 import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
@@ -1446,6 +1447,7 @@ export async function runNotionDirectoryBootstrapSweep(input: {
         profile,
       });
       summary.bootstrapped += 1;
+      await recordNotionTransfer(input.database,"directory:"+profile.category,"ADMIN_TO_NOTION",1);
     } catch {
       summary.failed += 1;
     }
@@ -1453,6 +1455,15 @@ export async function runNotionDirectoryBootstrapSweep(input: {
 
   summary.hasMore = (await bootstrapProfileIds(input.database)).length > 0;
   return summary;
+}
+
+async function recordDirectoryTransfer(database:D1Database,profileId:number,direction:"NOTION_TO_ADMIN"|"ADMIN_TO_NOTION"){
+  try{
+    const profile=await getManagedDirectoryProfileById(profileId,database);
+    if(profile)await recordNotionTransfer(database,"directory:"+profile.category,direction,1);
+  }catch{
+    // Observation must never mark an already committed sync as failed.
+  }
 }
 
 export async function runNotionDirectorySyncSweep(input: {
@@ -1529,6 +1540,9 @@ export async function runNotionDirectorySyncSweep(input: {
       if (action === "pulled") summary.pulledFromNotion++;
       else if (action === "pushed") summary.pushedToNotion++;
       else summary.unchanged++;
+      if(action==="pulled"||action==="pushed")
+        await recordDirectoryTransfer(input.database,input.targetProfileId,
+          action==="pulled"?"NOTION_TO_ADMIN":"ADMIN_TO_NOTION");
       // Only an explicit service-choice save enables this additional targeted
       // relation. A skipped relation does NOT count as successfully mirrored.
       if (input.syncServiceRelations) {
@@ -1691,6 +1705,7 @@ export async function runNotionDirectorySyncSweep(input: {
         });
         await syncRelation(page.id,created.id);
         summary.createdFromNotion += 1;
+        await recordNotionTransfer(input.database,"directory:"+created.category,"NOTION_TO_ADMIN",1);
         continue;
       }
 
@@ -1733,6 +1748,9 @@ export async function runNotionDirectorySyncSweep(input: {
       if (result === "pulled") summary.pulledFromNotion += 1;
       else if (result === "pushed") summary.pushedToNotion += 1;
       else summary.unchanged += 1;
+      if(result==="pulled"||result==="pushed")
+        await recordDirectoryTransfer(input.database,mapping.directory_profile_id,
+          result==="pulled"?"NOTION_TO_ADMIN":"ADMIN_TO_NOTION");
     } catch (error) {
       summary.failed += 1;
       // Even a diagnostic PATCH must not mutate an unrelated/moved Notion page.
@@ -1772,6 +1790,9 @@ export async function runNotionDirectorySyncSweep(input: {
       if (result === "pulled") summary.pulledFromNotion += 1;
       else if (result === "pushed") summary.pushedToNotion += 1;
       else summary.unchanged += 1;
+      if(result==="pulled"||result==="pushed")
+        await recordDirectoryTransfer(input.database,mapping.directory_profile_id,
+          result==="pulled"?"NOTION_TO_ADMIN":"ADMIN_TO_NOTION");
     } catch (error) {
       summary.failed += 1;
       if (!(error instanceof NotionDirectoryUnsafeTargetError)) {
@@ -1794,6 +1815,7 @@ export async function runNotionDirectorySyncSweep(input: {
         profile,
       });
       summary.bootstrapped += 1;
+      await recordNotionTransfer(input.database,"directory:"+profile.category,"ADMIN_TO_NOTION",1);
     } catch {
       summary.failed += 1;
     }

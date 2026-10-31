@@ -193,7 +193,7 @@ function SafePastePlugin() {
   return null;
 }
 
-function Toolbar({ id, allowHeadings, allowCallouts }: { id: string; allowHeadings: boolean; allowCallouts: boolean }) {
+function Toolbar({ id, allowHeadings, allowCallouts, allowQuotes }: { id: string; allowHeadings: boolean; allowCallouts: boolean; allowQuotes: boolean }) {
   const [editor] = useLexicalComposerContext();
   const [showLink, setShowLink] = useState(false);
   const [linkUrl, setLinkUrl] = useState("https://");
@@ -275,7 +275,7 @@ function Toolbar({ id, allowHeadings, allowCallouts }: { id: string; allowHeadin
       {allowHeadings && action("H3", () => setBlock("h3"), "Nadpis úrovne 3", active.h3)}
       {action("• Zoznam", () => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined), "Odrážkový zoznam", active.bullet)}
       {action("1. Zoznam", () => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined), "Číslovaný zoznam", active.ordered)}
-      {action("Citácia", () => setBlock("quote"), "Citácia", active.quote)}
+      {allowQuotes && action("Citácia", () => setBlock("quote"), "Citácia", active.quote)}
       {allowCallouts && action("Tip", () => setBlock("tip"), "Tip alebo zvýraznenie", active.callout)}
       {action("↶", () => editor.dispatchCommand(UNDO_COMMAND, undefined), "Späť")}
       {action("↷", () => editor.dispatchCommand(REDO_COMMAND, undefined), "Znova")}
@@ -310,10 +310,10 @@ function EditorReadyPlugin({ id }: { id: string }) {
 
 export function AdminLexicalRichTextEditor({
   id, value, onChange, placeholder = "Začni písať…", ariaLabel = "Editor textu",
-  allowHeadings = true, allowCallouts = true, minHeight = 180,
+  allowHeadings = true, allowCallouts = true, allowQuotes = true, minHeight = 180,
 }: {
   id: string; value: EditorialRichTextDocument; onChange: (value: EditorialRichTextDocument) => void;
-  placeholder?: string; ariaLabel?: string; allowHeadings?: boolean; allowCallouts?: boolean; minHeight?: number;
+  placeholder?: string; ariaLabel?: string; allowHeadings?: boolean; allowCallouts?: boolean; allowQuotes?: boolean; minHeight?: number;
 }) {
   // Lexical's DOM/editor state is browser-owned. Mount the composer after
   // React has hydrated the server shell to avoid SSR/client HTML mismatches.
@@ -330,7 +330,7 @@ export function AdminLexicalRichTextEditor({
     <div className={styles.wrapper} data-admin-lexical-rich-text data-admin-rich-text-editor>
       {mounted ? <LexicalComposer initialConfig={initialConfig}>
         <div className={styles.surface} style={{ minHeight }}>
-          <Toolbar id={id} allowHeadings={allowHeadings} allowCallouts={allowCallouts} />
+          <Toolbar id={id} allowHeadings={allowHeadings} allowCallouts={allowCallouts} allowQuotes={allowQuotes} />
           <RichTextPlugin
             contentEditable={<ContentEditable id={id} className={styles.editor} aria-label={ariaLabel} />}
             placeholder={<span className={styles.placeholder}>{placeholder}</span>}

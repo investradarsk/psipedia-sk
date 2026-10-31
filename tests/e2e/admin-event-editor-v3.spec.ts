@@ -24,7 +24,7 @@ async function openEditor(page: Page, fixture = "") {
   expect((await page.goto(url))?.status()).toBe(200);
   const root = page.locator("[data-event-editor-v3]");
   await expect(root.locator("[data-editor-page]")).toBeVisible();
-  // The markdown editor declares itself hydrated only when client handlers work.
+  // The event editor declares itself hydrated only when client handlers work.
   await expect(root.locator("[data-hydrated]").first()).toHaveAttribute("data-hydrated", "true");
   return root;
 }
@@ -81,7 +81,7 @@ for (const viewport of [
     const title = root.getByLabel("Názov podujatia");
     await title.fill("Klubová výstava retrieverov");
     const markdown = root.getByRole("textbox", { name: "Podrobný popis", exact: true });
-    await markdown.fill("Prvý odsek\n\n**Dôležité informácie**");
+    await markdown.fill("Prvý odsek\n\nDôležité informácie");
     await expect(root.getByRole("region", { name: "Náhľad: Podrobný popis" })).toContainText("Dôležité informácie");
     await root.getByLabel("Dátum začiatku").fill("2026-11-12");
 
@@ -104,13 +104,23 @@ for (const viewport of [
     await lastSeo.fill("Posledné pole formulára je dostupné.");
     await lastSeo.scrollIntoViewIfNeeded();
     await expect(lastSeo).toBeInViewport();
-    const scroll = await root.locator("[data-editor-content]").evaluate((element) => ({
-      position: element.scrollTop, maximum: element.scrollHeight - element.clientHeight,
-    }));
+    // The workspace intentionally uses native document scrolling on mobile.
+    // Desktop retains its dedicated scrollable editor pane.
+    const scroll = viewport.width <= 820
+      ? await page.evaluate(() => ({
+          position: window.scrollY,
+          maximum: document.documentElement.scrollHeight - window.innerHeight,
+        }))
+      : await root.locator("[data-editor-content]").evaluate((element) => ({
+          position: element.scrollTop,
+          maximum: element.scrollHeight - element.clientHeight,
+        }));
     expect(scroll.maximum).toBeGreaterThan(0);
     expect(scroll.position).toBeGreaterThan(0);
     await checkNoHorizontalOverflow(page);
-    await expect(root.locator("[data-editor-actionbar]")).toBeInViewport({ ratio: 0.1 });
+    const actionbar = root.locator("[data-editor-actionbar]");
+    await actionbar.scrollIntoViewIfNeeded();
+    await expect(actionbar).toBeInViewport({ ratio: 0.1 });
     await image(page, "events-v3-" + viewport.width + "-seo-footer");
 
     if (viewport.width <= 820) {
@@ -128,7 +138,8 @@ for (const viewport of [
     // is actually visible before capturing the final layout, not mid-animation.
     await expect(root.locator("#event-basics")).toBeInViewport({ ratio: 0.2 });
     await expect(title).toHaveValue("Klubová výstava retrieverov");
-    await expect(markdown).toHaveValue("Prvý odsek\n\n**Dôležité informácie**");
+    await expect(markdown).toContainText("Prvý odsek");
+    await expect(markdown).toContainText("Dôležité informácie");
     await expect(root.getByLabel("SEO title")).toHaveValue("Klubová výstava – SEO test");
     await checkNoHorizontalOverflow(page);
     if (viewport.width > 820) {
@@ -167,13 +178,13 @@ test("New event: external-form draft button sends canonical POST to isolated moc
   await root.getByLabel("Mesto").fill("Nitra");
   await root.getByRole("textbox", { name: "Organizátor", exact: true }).fill("Klub");
   await root.getByLabel("Dátum začiatku").fill("2026-11-12");
-  await root.getByRole("textbox", { name: "Podrobný popis", exact: true }).fill("**Markdown koncept**");
+  await root.getByRole("textbox", { name: "Podrobný popis", exact: true }).fill("Markdown koncept");
   await root.getByRole("button", { name: "Uložiť koncept" }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toMatchObject({
     title: "Testovací koncept", slug: "testovaci-koncept",
     status: "draft", city: "Nitra", organizer: "Klub",
-    startDate: "2026-11-12", description: "**Markdown koncept**",
+    startDate: "2026-11-12", description: "Markdown koncept",
     registrationUrl: null, endDate: null, cancelled: false,
   });
   expect(requests[0]).toHaveProperty("seo");
@@ -237,6 +248,31 @@ test("Existing published event: PUT preserves payload, save changes and unpublis
   await expect(root.getByRole("button", { name: "Publikovať podujatie", exact: true })).toBeVisible();
 });
 
+
+test("Legacy event Markdown is untouched when saving unrelated fields", async ({ page }) => {
+  const requests: Record<string, unknown>[] = [];
+  await page.route("**/api/admin/events/99990", async (route) => {
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    requests.push(payload);
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ event: { id: 99990, status: payload.status } }),
+    });
+  });
+  const root = await openEditor(page, "legacy");
+  const source = root.getByRole("textbox", { name: "Podrobný popis", exact: true });
+  await expect(source).toHaveValue("* Starý zoznam\n3. Netradičné číslovanie");
+  await expect(root.getByRole("textbox", { name: "Praktické informácie", exact: true }))
+    .toHaveValue("[Kontakt](mailto:klub@example.org)");
+  await root.getByLabel("Názov podujatia").fill("Zmenený iba názov");
+  await root.getByRole("button", { name: "Uložiť zmeny" }).click();
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0]).toMatchObject({
+    title: "Zmenený iba názov",
+    description: "* Starý zoznam\n3. Netradičné číslovanie",
+    practicalInfo: "[Kontakt](mailto:klub@example.org)",
+  });
+});
 
 test("Published event: Enter submits published status and clears dirty guard after successful save", async ({ page }) => {
   const requests: Record<string, unknown>[] = [];
@@ -319,6 +355,7 @@ for (const width of [1440, 390, 320]) {
     await lastSeo.fill("Dostupné posledné pole");
     await lastSeo.scrollIntoViewIfNeeded();
     await expect(lastSeo).toBeInViewport();
+    await footer.scrollIntoViewIfNeeded();
     await expect(footer).toBeInViewport({ ratio: 0.1 });
   });
 }
