@@ -34,3 +34,10 @@ VISUAL_REVIEW_ROUTES: /,/clanky,/plemena,/podujatia
 - **Category navigation:** reverted to `main` after the exact 320px event fixture exceeded the visual-difference threshold. Desktop cleanup is deferred until mobile visual parity is demonstrated.
 - **Search:** homepage's duplicate desktop search panel sizes were identical to the shared hero's styles; removed the local declarations while preserving all existing mobile overrides.
 - Never remove mobile variants without screenshot comparison. Notion, SEO and detail pages are not part of this batch.
+
+## De-duplication batch 2 — shared banner frame
+
+- `PublicBannerFrame` owns the common `ps-public-banner-frame` root across homepage/photo promos, contextual banners, urgent Help notices, article CTAs and content-hub CTAs.
+- Native markup stays `<section>` for promotional magazine banners and `<aside>` for contextual variants. The existing CSS module classes, photos, links, CTA destinations, sponsorship labels and mobile breakpoints remain unchanged.
+- The frame uses no new layout CSS. Appearance remains owned by the approved shared banner tokens and the existing purposeful variants.
+- Source-level checks and server-rendered banner tests prevent separate future banner roots.

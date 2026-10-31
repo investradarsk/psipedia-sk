@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { ContentHubCtaDecision } from "@/lib/content-hub-context-cta";
 import styles from "./content-hub-cta.module.css";
+import { PublicBannerFrame } from "./public-visual-system/public-banner-frame";
 
 // Navigational CTA only: article promo semantics and health disclaimers are unchanged.
 export function ContentHubCta({ cta }: { cta: ContentHubCtaDecision }) {
   return (
-    <aside
-      className={`ps-public-banner-frame ${styles.card}`}
+    <PublicBannerFrame
+      className={styles.card}
       aria-label={cta.headline}
       data-contextual-hub-cta
       data-cta-key={cta.key}
@@ -26,6 +27,6 @@ export function ContentHubCta({ cta }: { cta: ContentHubCtaDecision }) {
           </Link>
         ))}
       </div>
-    </aside>
+    </PublicBannerFrame>
   );
 }
