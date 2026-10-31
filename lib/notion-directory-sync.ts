@@ -1683,18 +1683,18 @@ export async function runNotionDirectorySyncSweep(input: {
       if (privateImport || propertyText(page, "Vytvoril") === "Gemini automatizácia") {
         // Rejected/not-yet-approved Notion-only records cannot recover a mapping
         // or create/modify a canonical profile.
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, privateImport)) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini) && !operatorLegacy) continue;
         release = await acquireGeminiNotionLock(input.database, page.id);
         if (!release) continue;
         page = await fetchNotionPage(input.bindings, page.id);
         if (input.targetPageId && input.expectedNotionRevision && page.last_edited_time !== input.expectedNotionRevision)
           throw new Error("GEMINI_SAVED_REVISION_CHANGED");
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, privateImport)) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini) && !operatorLegacy) continue;
       }
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
-      if (!mapping && notionProfileReadyForCreate(page, privateImport)) {
+      if (!mapping && (notionProfileReadyForCreate(page, trustedGemini) || operatorLegacy)) {
         if (privateImport) {
           // Serialize canonical duplicate-check + INSERT across different Notion IDs.
           releaseImport = await acquireGeminiNotionLock(input.database, "directory-import");
