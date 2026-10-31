@@ -2,6 +2,7 @@ import Link from "next/link";
 import {env} from "cloudflare:workers";
 import {AdminServiceProfileValues} from "@/components/admin-service-profile-values";
 import {listAdminCatalogOptions} from "@/lib/service-catalog-admin-store";
+import {listBuiltinCatalogOverrides} from "@/lib/service-catalog-builtin-overrides";
 import {catalogEditorItems,eligibleProfileServiceItems} from "@/lib/service-catalog-admin-editor-view";
 import {serviceFilterCategories,type ServiceFilterCategory} from "@/lib/directory-filter-contract";
 import { notFound } from "next/navigation";
@@ -45,12 +46,13 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
     if(!bindings.DB) serviceError="D1 nie je dostupná. Hodnoty Services V3 sa nenačítali.";
     else {
       try {
-        const [dynamic, stored] = await Promise.all([
+        const [dynamic, overrides, stored] = await Promise.all([
           listAdminCatalogOptions(bindings.DB),
+          listBuiltinCatalogOverrides(bindings.DB),
           bindings.DB.prepare("SELECT option_id AS optionId,choice,version FROM service_profile_option_choices WHERE profile_id=?1")
             .bind(profile.id).all<{optionId:string;choice:"yes"|"no";version:number}>(),
         ]);
-        serviceEntries=eligibleProfileServiceItems(catalogEditorItems(dynamic),profile.category as ServiceFilterCategory);
+        serviceEntries=eligibleProfileServiceItems(catalogEditorItems(dynamic,overrides),profile.category as ServiceFilterCategory);
         serviceChoices=stored.results;
       } catch {
         serviceError="Kanonické hodnoty Services V3 sa nepodarilo načítať. Nič sa automaticky nenastavilo na Nie.";
