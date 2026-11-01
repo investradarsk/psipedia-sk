@@ -37,3 +37,10 @@ Oba externé CLI sú voliteľné a pri prvom spustení vyžadujú prístup k npm
 - Nevzniká žiadny verejný JSON endpoint ani D1 migrácia.
 - Sken prebieha počas buildu, nie pri každej návšteve.
 - Zmeny zdieľaných komponentov posudzuj aj z pohľadu mobilu; používanie v konkrétnej route neodlišuje CSS breakpointy.
+
+## Rodiny a kandidáti podobnosti – V2
+- Hero, bannery, CTA, filtre, karty a podkategórie sú zoskupené podľa pomenovania a účelu komponentov.
+- Kandidáti sú určení **na kontrolu**, nie na automatické mazanie alebo spájanie. Nepredstavujú dôkaz vizuálnej duplicity.
+- Pri statických verejných stránkach register ponúkne skutočný klikateľný odkaz na cestu, ktorá existuje v zdrojových stránkach. Pri `/[slug]` uvádza len vzor, pretože bez databázy nepozná konkrétne profily a články.
+- Technické súbory a importéri sú schované pod „Technické informácie“.
+- Zostáva iba na čítanie, bez D1 migrácie a bez zásahu do mobilného dizajnu verejného webu.
