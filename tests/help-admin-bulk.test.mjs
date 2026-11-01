@@ -127,3 +127,29 @@ test("dedicated canonical rows cannot enter explicit or atomic Help bulk mutatio
     assert.equal(sqlite.prepare("SELECT status FROM help_cases WHERE id=?").get(id).status, "draft");
   }
 });
+
+
+test("unified table preflight is constrained to its own canonical Help category", async () => {
+  const { db } = fixture();
+  const valid = await resolveHelpBulkSelection(db, {
+    expectedCategory: "dobrovolnictvo",
+    targetStatus: "published",
+    selection: { mode: "ids", ids: [1, 2] },
+  });
+  assert.equal(valid.selectedCount, 2);
+  await assert.rejects(() => resolveHelpBulkSelection(db, {
+    expectedCategory: "dobrovolnictvo",
+    targetStatus: "published",
+    selection: { mode: "ids", ids: [1, 103] },
+  }), /mimo aktuálnej kategórie/);
+  await assert.rejects(() => resolveHelpBulkSelection(db, {
+    expectedCategory: "adopcia",
+    targetStatus: "published",
+    selection: { mode: "ids", ids: [1] },
+  }), /nie je pre túto kategóriu dostupná/);
+  await assert.rejects(() => resolveHelpBulkSelection(db, {
+    expectedCategory: "nespravna",
+    targetStatus: "draft",
+    selection: { mode: "ids", ids: [1] },
+  }), /nie je pre túto kategóriu dostupná/);
+});

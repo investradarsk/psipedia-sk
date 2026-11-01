@@ -1,4 +1,4 @@
-import { buildHelpAdminWhere, helpAdminDomainSql, parseHelpAdminFilters, type HelpAdminFilters } from "./help-admin-query";
+import { buildHelpAdminWhere, helpAdminDomainSql, isHelpAdminCreateCategory, parseHelpAdminFilters, type HelpAdminFilters } from "./help-admin-query";
 
 export const HELP_BULK_LIMIT = 500;
 export type HelpBulkStatus = "draft" | "published";
@@ -44,7 +44,7 @@ function publishable(row: BulkRow) {
 }
 
 export async function resolveHelpBulkSelection(database: HelpBulkDatabase, value: unknown) {
-  const input = value as { targetStatus?: unknown; selection?: HelpBulkSelection } | null;
+  const input = value as { targetStatus?: unknown; selection?: HelpBulkSelection; expectedCategory?: unknown } | null;
   const status = targetStatus(input?.targetStatus);
   const selection = input?.selection;
   if (!selection || (selection.mode !== "ids" && selection.mode !== "filter")) throw new Error("Chýba platný výber záznamov.");
@@ -67,6 +67,17 @@ export async function resolveHelpBulkSelection(database: HelpBulkDatabase, value
     if (rows.length !== selection.expectedCount) throw new Error("Výsledky filtra sa medzičasom zmenili. Obnov zoznam a potvrď nový počet.");
   }
 
+  // The unified directory table supports publication changes only for the
+  // native Help categories. A dedicated domain (adoptions/organizations/lost
+  // dogs) must never be mutated through this generic Help endpoint.
+  if (input?.expectedCategory !== undefined) {
+    if (typeof input.expectedCategory !== "string" || !isHelpAdminCreateCategory(input.expectedCategory)) {
+      throw new Error("Hromadná úprava nie je pre túto kategóriu dostupná.");
+    }
+    if (rows.some(row => row.category !== input.expectedCategory)) {
+      throw new Error("Výber obsahuje záznam mimo aktuálnej kategórie. Obnov zoznam.");
+    }
+  }
   const candidates = rows.filter((row) => row.status !== status);
   if (candidates.some((row) => row.status !== "draft" && row.status !== "published")) throw new Error("Výber obsahuje neplatný publikačný stav.");
   if (status === "published" && candidates.some((row) => !publishable(row))) {

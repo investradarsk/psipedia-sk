@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, edited]
-    # Cheap path guard first; expensive steps run only with an explicit PR-body marker.
+    # Changed visual files trigger automatic route selection; unrelated edits are skipped.
     paths:
       - "app/**"
       - "components/**"
@@ -16,6 +16,9 @@ on:
       - "AGENTS.md"
       - "docs/PR-VISUAL-REVIEW.md"
       - "scripts/pr-visual-screenshots.mjs"
+      - "scripts/pr-visual-route-selection.mjs"
+      - "scripts/pr-visual-capture-base.sh"
+      - "tests/pr-visual-route-selection.test.mjs"
       - "scripts/bootstrap-phase5-e2e.mjs"
       - "tests/pr-visual-screenshots.test.mjs"
       - "tests/public-page-template-contracts.test.mjs"
@@ -33,9 +36,9 @@ permissions:
 
 jobs:
   capture:
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.body, 'VISUAL_REVIEW_ROUTES:') }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     env:
       PR_BODY: ${{ github.event.pull_request.body }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -57,13 +60,21 @@ jobs:
           cache: npm
       - name: Install application dependencies
         run: npm ci
+      - name: Select changed visual routes
+        id: routes
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/pr-visual-route-selection.mjs
       - name: Validate screenshot contract
-        run: node --test tests/pr-visual-screenshots.test.mjs
+        run: node --test tests/pr-visual-screenshots.test.mjs tests/pr-visual-route-selection.test.mjs
       - name: Build local PR revision
+        if: steps.routes.outputs.enabled == 'true'
         run: npm run build
       - name: Install browser
+        if: steps.routes.outputs.enabled == 'true'
         run: npx playwright install --with-deps chromium
       - name: Capture common-ancestor template baseline
+        if: steps.routes.outputs.enabled == 'true'
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -86,17 +97,21 @@ jobs:
             node --test tests/public-details-v2-ui.test.mjs
           )
       - name: Test and capture isolated public template fixtures
+        if: steps.routes.outputs.enabled == 'true'
         env:
           DETAIL_TEST_SCREENSHOTS: .e2e-artifacts/pr-visual/template-fixtures
         run: node --test tests/public-page-template-contracts.test.mjs tests/public-details-v2-ui.test.mjs
       - name: Apply disposable local D1 migrations
+        if: steps.routes.outputs.enabled == 'true'
         run: |
           mv drizzle/0038_adoption_staging_data.sql "$RUNNER_TEMP/0038_adoption_staging_data.sql"
           mv drizzle/0039_activate_canonical_adoptions.sql "$RUNNER_TEMP/0039_activate_canonical_adoptions.sql"
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
       - name: Prepare isolated canonical breed fixture
+        if: steps.routes.outputs.enabled == 'true'
         run: node scripts/bootstrap-breed-e2e.mjs prepare
       - name: Disable outbound automations in preview
+        if: steps.routes.outputs.enabled == 'true'
         run: |
           {
             echo 'WEB_PUSH_ENABLED=false'
@@ -109,9 +124,10 @@ jobs:
             echo 'GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED=false'
           } > .dev.vars
       - name: Start isolated local app
+        if: steps.routes.outputs.enabled == 'true'
         run: |
           mkdir -p .e2e-artifacts/pr-visual
-          nohup npm run dev > .e2e-artifacts/pr-visual/server.log 2>&1 &
+          nohup ./node_modules/.bin/vite --host 127.0.0.1 --port 5173 --strictPort > .e2e-artifacts/pr-visual/server.log 2>&1 &
           echo $! > .e2e-artifacts/pr-visual/server.pid
           ready=0
           for attempt in $(seq 1 90); do
@@ -123,24 +139,60 @@ jobs:
             exit 1
           fi
       - name: Initialize local managed sections
+        if: steps.routes.outputs.enabled == 'true'
         env:
           E2E_BASE_URL: http://localhost:5173
         run: node scripts/bootstrap-phase5-e2e.mjs sections-only
       - name: Seed real breed detail in isolated D1
+        if: steps.routes.outputs.enabled == 'true'
         run: node scripts/bootstrap-breed-e2e.mjs seed
       - name: Seed review article detail in isolated D1
+        if: steps.routes.outputs.enabled == 'true'
         run: node scripts/bootstrap-phase5-e2e.mjs full
       - name: Capture exact PR code screenshots
+        if: steps.routes.outputs.enabled == 'true'
+        env:
+          VISUAL_OUTPUT_DIR: .e2e-artifacts/pr-visual/site-after
         run: node scripts/pr-visual-screenshots.mjs
+      - name: Stop PR preview before running ancestor preview
+        if: steps.routes.outputs.enabled == 'true'
+        run: |
+          if test -f .e2e-artifacts/pr-visual/server.pid; then
+            kill "$(cat .e2e-artifacts/pr-visual/server.pid)" 2>/dev/null || true
+          fi
+          for attempt in $(seq 1 30); do
+            if ! curl --silent --fail http://localhost:5173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          if curl --silent --fail http://localhost:5173/ > /dev/null; then
+            echo "Previous PR preview still owns port 5173; refusing to capture a false baseline."
+            exit 1
+          fi
+      - name: Capture matching real pages on the Git ancestor
+        if: steps.routes.outputs.enabled == 'true'
+        run: bash scripts/pr-visual-capture-base.sh
+      - name: Compare site screenshots before and after (review required)
+        if: steps.routes.outputs.enabled == 'true'
+        env:
+          VISUAL_BASELINE_DIR: .e2e-artifacts/pr-visual/site-before
+          VISUAL_CURRENT_DIR: .e2e-artifacts/pr-visual/site-after
+          VISUAL_DIFF_OUTPUT_DIR: .e2e-artifacts/pr-visual/site-diff
+          VISUAL_DIFF_REVIEW_ONLY: "1"
+        run: node scripts/pr-visual-baseline-compare.mjs
       - name: Verify and compare fixture screenshots against Git ancestor
+        if: steps.routes.outputs.enabled == 'true'
         run: |
           node --test tests/pr-visual-baseline-compare.test.mjs
           node scripts/pr-visual-baseline-compare.mjs
       - name: GitHub run summary
         if: always()
         run: |
-          if test -f .e2e-artifacts/pr-visual/summary.md; then
-            cat .e2e-artifacts/pr-visual/summary.md >> "$GITHUB_STEP_SUMMARY"
+          if test -f .e2e-artifacts/pr-visual/site-after/summary.md; then
+            cat .e2e-artifacts/pr-visual/site-after/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if test -f .e2e-artifacts/pr-visual/site-diff/summary.md; then
+            printf '\n---\n\n' >> "$GITHUB_STEP_SUMMARY"
+            cat .e2e-artifacts/pr-visual/site-diff/summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
           if test -f .e2e-artifacts/pr-visual/template-diff/summary.md; then
             printf '\n---\n\n' >> "$GITHUB_STEP_SUMMARY"
