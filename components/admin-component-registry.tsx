@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import styles from "./admin-component-registry.module.css";
 
 type RegistryComponent = {
@@ -24,11 +25,6 @@ type Registry = {
   relatedGroups?: {id:string;title:string;description:string;paths:string[]}[];
   components: RegistryComponent[];
 };
-
-/** No fabricated URLs: dynamic route patterns are not individual profile URLs. */
-function concreteRoute(route: string) {
-  return new RegExp("^/[A-Za-z0-9/_-]*$").test(route) && !route.startsWith("/admin");
-}
 
 export function AdminComponentRegistry({ registry }: { registry: Registry }) {
   const [query, setQuery] = useState("");
@@ -153,7 +149,7 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
               <h3>Na ktorých stránkach môže byť použitý</h3>
               {component.routes.length ? (
                 <ul>{component.routes.map((route) => (
-                  <li key={route}>{concreteRoute(route)
+                  <li key={route}>{publicRegistryRouteHref(route)
                     ? <a href={route} target="_blank" rel="noopener noreferrer">{route} – otvoriť stránku</a>
                     : <span><code>{route}</code> <small>Šablóna / dynamická adresa – konkrétna URL nie je známa</small></span>}
                   </li>

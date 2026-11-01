@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { buildRegistry } from "../scripts/generate-component-registry.mjs";
+import { publicRegistryRouteHref } from "../lib/component-registry-route.ts";
 
 function fixture(root, file, value) {
   const dest = path.join(root, file);
@@ -70,4 +71,13 @@ test("visual families are review candidates, never automatic merge decisions", (
   assert.deepEqual(registry.relatedGroups.find(x => x.id === "banner").paths, [
     "components/public-magazine-banner.tsx", "components/public-context-banner.tsx"
   ]);
+});
+
+test("only static, known public route patterns become clickable links", () => {
+  for (const route of ["/", "/clanky", "/plemena", "/pomoc-psom/adopcia"]) {
+    assert.equal(publicRegistryRouteHref(route), route);
+  }
+  for (const route of ["/plemena/[slug]", "/adresar/[category]", "/admin", "/admin/komponenty", "//example.com", "/x?redirect=y", "/x/../admin"]) {
+    assert.equal(publicRegistryRouteHref(route), null);
+  }
 });
