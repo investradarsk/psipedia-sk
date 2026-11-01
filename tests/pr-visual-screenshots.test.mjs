@@ -73,7 +73,7 @@ test("workflow checks out the PR head with local-only data and uploads artifacts
   assert.match(workflow, /pull_request:/);
   assert.match(workflow, /\n    paths:/);
   assert.match(workflow, /Select changed visual routes/);
-  assert.match(workflow, /pr-visual-route-selection\\.mjs/);
+  assert.match(workflow, /pr-visual-route-selection\.mjs/);
   assert.match(workflow, /head\.repo\.full_name == github\.repository/);
   assert.match(workflow, /pull_request\.head\.sha/);
   assert.match(workflow, /VISUAL_SELECTED_ROUTES/);
