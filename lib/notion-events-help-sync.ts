@@ -715,8 +715,13 @@ async function syncAgenda(input: {
   }
   const webhookNewPage = input.webhookMappedOnly && input.webhookImportUnmapped
     && targetEntityId === undefined && input.targetPageId !== undefined;
+  // The authenticated owner explicitly selected ONE legacy Gemini page.
+  // Do not scan an entire Notion data source for each click: a full query
+  // was exhausting the Notion request budget (429) before import could begin.
+  const ownerTargetedImport = Boolean(input.reviewedLegacy && input.targetPageId &&
+    input.expectedNotionRevision && input.mode === "sync");
   let pages: NotionPage[];
-  if (input.webhookMappedOnly && input.targetPageId) {
+  if ((input.webhookMappedOnly || ownerTargetedImport) && input.targetPageId) {
     const page = await notionRequest<NotionPage>(input.bindings, "/pages/" + encodeURIComponent(input.targetPageId));
     if (page.id !== input.targetPageId || !notionPageBelongsToDataSource(page, target.dataSourceId))
       throw new Error("NOTION_WEBHOOK_TARGET_UNSAFE");
@@ -795,7 +800,7 @@ async function syncAgenda(input: {
   for (const source of sources) {
     // For a new webhook page, only the inbound page may be imported.
     // Never bootstrap, attach or PATCH unrelated canonical D1 profiles.
-    if (webhookNewPage) break;
+    if (webhookNewPage || ownerTargetedImport) break;
     const entityId = sourceId(source);
     if (entityId === null) continue;
     let mapping = mappingByEntity.get(entityId) ?? null;
