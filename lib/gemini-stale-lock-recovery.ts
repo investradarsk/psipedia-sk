@@ -51,7 +51,9 @@ export async function recoverOwnerConfirmedLegacyLocks(
       const possibleOrphan = await database.prepare(
         `SELECT 1 AS found FROM ${ref.table} d
          LEFT JOIN ${ref.join} m ON m.${ref.key}=d.id${agendaClause}
-         WHERE d.created_at>=? AND m.${ref.key} IS NULL LIMIT 1`
+         WHERE (julianday(d.created_at) IS NULL OR
+                julianday(d.created_at)>=julianday(?))
+           AND m.${ref.key} IS NULL LIMIT 1`
       ).bind(lock.created_at).first<{ found: number }>();
       if (possibleOrphan) return { state: "UNMAPPED_CANONICAL", recovered: 0 };
     }
