@@ -27,7 +27,7 @@ type Registry = {
 
 /** No fabricated URLs: dynamic route patterns are not individual profile URLs. */
 function concreteRoute(route: string) {
-  return /^\/[A-Za-z0-9/_-]*$/.test(route) && !route.startsWith("/admin");
+  return new RegExp("^/[A-Za-z0-9/_-]*$").test(route) && !route.startsWith("/admin");
 }
 
 export function AdminComponentRegistry({ registry }: { registry: Registry }) {
