@@ -45,6 +45,56 @@ function componentName(file) {
   return path.basename(file).replace(/\.[jt]sx?$/, "");
 }
 
+// Heuristic display groups: related purpose, never proof of visual duplication.
+const VISUAL_FAMILIES = [
+  { id: "hero", label: "Hero a hlavičky", match: /hero|masthead|section-header|page-header|heading/i },
+  { id: "banner", label: "Bannery", match: /banner|promo|callout|content-hub-cta/i },
+  { id: "cta", label: "Tlačidlá a akcie", match: /action|button|cta|favorite|bookmark|share/i },
+  { id: "filter", label: "Vyhľadávanie a filtre", match: /search|filter|form-control|input|select|query/i },
+  { id: "card", label: "Karty a zoznamy", match: /card|tile|list-item|list-row|preview/i },
+  { id: "category", label: "Podkategórie a navigácia", match: /categor|subcategory|nav|tabs|breadcrumb/i },
+];
+const FRIENDLY_NAMES = {
+  "unified-section-hero": "Spoločný hero",
+  "section-hero": "Starší hero",
+  "public-magazine-banner": "Fotografický a promo banner",
+  "public-banner-frame": "Spoločný základ bannerov",
+  "public-context-banner": "Informačný banner",
+  "public-help-banner": "Bannery Pomoc psom",
+  "public-article-callout": "Výzva v článku",
+  "content-hub-cta": "Odporúčací banner",
+  "public-subcategory-navigator": "Navigácia podkategórií",
+  "portal-section-tabs": "Prepínač kategórií",
+  "article-card": "Karta článku",
+  "article-list-item": "Malá karta článku",
+  "public-form-controls": "Spoločné formulárové polia",
+  "home-portal-search": "Vyhľadávanie na homepage",
+  "section-hero-search": "Vyhľadávanie v sekciách",
+};
+const RELATED = [
+  { id: "hero", title: "Hlavičky stránok", description: "Overiť zhodu hlavných hero; detaily môžu mať iné rozloženie.", names: ["unified-section-hero", "section-hero", "public-visual-system"] },
+  { id: "banner", title: "Bannery a promo bloky", description: "Overiť spoločný základ a zámerné varianty fotografií či upozornení.", names: ["public-banner-frame", "public-magazine-banner", "public-context-banner", "public-help-banner", "public-photo-callout", "public-article-callout", "content-hub-cta"] },
+  { id: "cta", title: "Výzvy na akciu", description: "Overiť vizuálnu jednotnosť CTA pri zachovaní funkcie.", names: ["public-visual-system", "content-hub-cta", "public-article-callout", "public-magazine-banner"] },
+  { id: "filter", title: "Vyhľadávanie a filtre", description: "Overiť dizajn, zachovať rozdielne parametre vyhľadávania.", names: ["public-form-controls", "home-portal-search", "section-hero-search", "directory-filter-form", "article-browser"] },
+  { id: "card", title: "Karty a výpisy", description: "Overiť rozmery a typografiu; obsah kariet môže byť iný.", names: ["article-card", "article-list-item", "public-visual-system", "home-editorial", "event-card"] },
+  { id: "category", title: "Podkategórie", description: "Overiť desktopové varianty bez úpravy mobilu.", names: ["public-subcategory-navigator", "portal-section-tabs", "portal-mobile-category-select", "public-help-category-nav", "directory-category-navigation"] },
+];
+export function componentFamily(file) {
+  const name = componentName(file);
+  return VISUAL_FAMILIES.find(f => f.match.test(name))?.id ?? "other";
+}
+function relatedGroupsFor(components) {
+  const byName = new Map();
+  for (const c of components) {
+    if (!byName.has(c.name)) byName.set(c.name, []);
+    byName.get(c.name).push(c.path);
+  }
+  return RELATED.map(g => ({
+    id: g.id, title: g.title, description: g.description,
+    paths: g.names.flatMap(name => byName.get(name) || []),
+  })).filter(g => g.paths.length > 1);
+}
+
 function isComponent(file) {
   return file.endsWith(".tsx") || file.endsWith(".jsx")
     ? file.startsWith("components/") || /^app\/.*\/(?:_?components)\/.+\.[jt]sx?$/.test(file)
@@ -102,6 +152,8 @@ export function buildRegistry(root) {
     const consumers = [...(importers.get(file) || [])].sort();
     return {
       name: componentName(file),
+      label: FRIENDLY_NAMES[componentName(file)] ?? componentName(file).replace(/-/g, " "),
+      family: componentFamily(file),
       path: file,
       routes: pages,
       consumers,
@@ -120,7 +172,7 @@ export function buildRegistry(root) {
     sameName.get(key).push(item.path);
   }
   return {
-    version: 1,
+    version: 2,
     generatedAt: new Date().toISOString(),
     totals: {
       components: components.length,
@@ -130,6 +182,8 @@ export function buildRegistry(root) {
     },
     sameNameCandidates: [...sameName.entries()].filter(([, paths]) => paths.length > 1)
       .map(([name, paths]) => ({ name, paths })).sort((a, b) => a.name.localeCompare(b.name)),
+    families: VISUAL_FAMILIES.map(({ id, label }) => ({ id, label })),
+    relatedGroups: relatedGroupsFor(components),
     components,
   };
 }
