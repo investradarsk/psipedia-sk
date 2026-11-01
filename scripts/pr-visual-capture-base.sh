@@ -57,12 +57,12 @@ GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED=false
 PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1
 VARS
 mkdir -p "$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/site-before"
-nohup npm exec vite -- --host 127.0.0.1 --port 5174 --strictPort > "$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/site-before-server.log" 2>&1 &
+nohup npm exec vite -- --host 127.0.0.1 --port 5173 --strictPort > "$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/site-before-server.log" 2>&1 &
 server_pid=$!
 ready=0
 for attempt in $(seq 1 120); do
   if ! kill -0 "$server_pid" 2>/dev/null; then break; fi
-  if curl --silent --fail http://localhost:5174/ >/dev/null; then ready=1; break; fi
+  if curl --silent --fail http://localhost:5173/ >/dev/null; then ready=1; break; fi
   sleep 1
 done
 if [[ "$ready" != "1" ]]; then
@@ -70,13 +70,13 @@ if [[ "$ready" != "1" ]]; then
   exit 1
 fi
 
-E2E_BASE_URL=http://localhost:5174 node scripts/bootstrap-phase5-e2e.mjs sections-only
+E2E_BASE_URL=http://localhost:5173 node scripts/bootstrap-phase5-e2e.mjs sections-only
 node scripts/bootstrap-breed-e2e.mjs seed
-E2E_BASE_URL=http://localhost:5174 node scripts/bootstrap-phase5-e2e.mjs full
+E2E_BASE_URL=http://localhost:5173 node scripts/bootstrap-phase5-e2e.mjs full
 
 # The capture script is from the PR revision so before/after uses exactly the
 # same Chromium configuration, selected routes and screenshot naming.
-VISUAL_BASE_URL=http://localhost:5174 \
+VISUAL_BASE_URL=http://localhost:5173 \
 VISUAL_OUTPUT_DIR="$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/site-before" \
 PR_HEAD_SHA="$VISUAL_BASELINE_SHA" \
 node "$GITHUB_WORKSPACE/scripts/pr-visual-screenshots.mjs"
