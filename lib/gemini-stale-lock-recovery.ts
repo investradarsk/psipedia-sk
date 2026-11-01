@@ -64,6 +64,9 @@ export async function recoverOwnerConfirmedLegacyLocks(
       ).bind(lock.id, lock.owner, lock.created_at).run();
       recovered += deleted.meta.changes;
     }
+    // A lock may have been replaced between SELECT and conditional DELETE.
+    // Do not report recovery if any lock changed ownership meanwhile.
+    if (recovered !== locks.length) return { state: "ACTIVE_LOCK", recovered: 0 };
     return { state: "RECOVERED", recovered };
   } catch {
     return { state: "LOCK_CHECK_FAILED", recovered: 0 };
