@@ -1,10 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import styles from "./admin-component-registry.module.css";
 
 type RegistryComponent = {
   name: string;
+  label?: string;
+  family?: string;
   path: string;
   routes: string[];
   consumers: string[];
@@ -18,6 +21,8 @@ type Registry = {
   generatedAt: string | null;
   totals: { components: number; pages: number; shared: number; unreferenced: number };
   sameNameCandidates: { name: string; paths: string[] }[];
+  families?: {id:string;label:string}[];
+  relatedGroups?: {id:string;title:string;description:string;paths:string[]}[];
   components: RegistryComponent[];
 };
 
@@ -25,17 +30,23 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState("all");
   const [area, setArea] = useState("all");
+  const [family, setFamily] = useState("all");
+  const families = registry.families ?? [];
+  const groups = registry.relatedGroups ?? [];
+  const familyNames = Object.fromEntries(families.map(x=>[x.id,x.label]));
   const items = useMemo(() => registry.components.filter((component) => {
-    const searched = (component.name + " " + component.path + " " +
-      component.routes.join(" ")).toLocaleLowerCase("sk");
+    const searched = ((component.label ?? component.name) + " " + component.name + " " + component.path + " " +
+      (familyNames[component.family ?? ""] ?? "") + " " + component.routes.join(" ")).toLocaleLowerCase("sk");
     if (!searched.includes(query.trim().toLocaleLowerCase("sk"))) return false;
+    if (family !== "all" && component.family !== family &&
+      !groups.some(group => group.id === family && group.paths.includes(component.path))) return false;
     if (scope === "shared" && !component.shared) return false;
     if (scope === "unreferenced" && !component.unreferenced) return false;
     if (scope === "single" && component.routeCount !== 1) return false;
     if (area === "public" && component.area === "admin") return false;
     if (area === "admin" && component.area === "public") return false;
     return true;
-  }), [registry.components, query, scope, area]);
+  }), [registry.components, query, scope, area, family, familyNames, groups]);
   const limited = items.slice(0, 100);
 
   return (
@@ -50,13 +61,42 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
         Údaje sú odvodené zo statických importov zdrojového kódu počas zostavenia.
         Počet stránok znamená počet ciest k šablóne, nie počet jej zobrazení.
         Dynamické importy, runtime mapovanie a vizuálne podobné kópie sa nemusia zachytiť.
+        Pri dynamických profiloch ide len o vzor trasy, nie o konkrétnu overenú URL.
         {registry.generatedAt ? " Posledné generovanie: " + new Date(registry.generatedAt).toLocaleString("sk-SK") + "." : " Register sa naplní pri ďalšom zostavení webu."}
       </p>
+      {groups.length > 0 && (
+        <section className={styles.familySection} aria-label="Podobné komponenty na kontrolu">
+          <div className={styles.familyIntro}>
+            <strong>Čo môže byť podobné?</strong>
+            <span>Vyber skupinu. Toto sú kandidáti na kontrolu, nie automaticky potvrdené duplicity.</span>
+          </div>
+          <div className={styles.familyGrid}>
+            {groups.map(group => (
+              <button key={group.id} type="button"
+                className={family === group.id ? styles.familySelected : styles.familyButton}
+                aria-pressed={family === group.id}
+                onClick={() => { setFamily(current=>current === group.id ? "all" : group.id); setQuery(""); }}>
+                <strong>{group.title}</strong><span>{group.paths.length} príbuzných súborov</span>
+              </button>
+            ))}
+          </div>
+          {family !== "all" && groups.some(g=>g.id===family) &&
+            <p className={styles.familyExplanation}>{groups.find(g=>g.id===family)?.description}</p>}
+        </section>
+      )}
       <div className={styles.filters}>
         <label>
           <span>Hľadať komponent, súbor alebo stránku</span>
           <input type="search" value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Napr. banner, /plemena, karta" />
+        </label>
+        <label>
+          <span>Typ komponentu</span>
+          <select value={family} onChange={(e) => setFamily(e.target.value)}>
+            <option value="all">Všetky typy</option>
+            {families.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+            <option value="other">Ostatné</option>
+          </select>
         </label>
         <label>
           <span>Použitie</span>
@@ -85,7 +125,7 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
           <details key={component.path} className={styles.item}>
             <summary>
               <span className={styles.title}>
-                <strong>{component.name}</strong>
+                <strong>{component.label ?? component.name}</strong>
                 <small>{component.path}</small>
               </span>
               <span className={styles.meta}>
@@ -95,20 +135,26 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
               </span>
             </summary>
             <div className={styles.detail}>
-              <a href={"https://github.com/investradarsk/psipedia-sk/blob/main/" + component.path}
-                target="_blank" rel="noopener noreferrer">Otvoriť zdrojový súbor na GitHube ↗</a>
-              <h3>Stránky, ktoré ho staticky používajú</h3>
+              <details className={styles.technical}>
+                <summary>Technické informácie</summary>
+                <a href={"https://github.com/investradarsk/psipedia-sk/blob/main/" + component.path}
+                  target="_blank" rel="noopener noreferrer">Otvoriť zdrojový súbor na GitHube</a>
+                <h3>Priami importéri ({component.consumers.length})</h3>
+                {component.consumers.length ? (
+                  <ul>{component.consumers.map((consumer) => (
+                    <li key={consumer}><code>{consumer}</code></li>
+                  ))}</ul>
+                ) : <p>Bez priameho statického importéra.</p>}
+              </details>
+              <h3>Na ktorých stránkach môže byť použitý</h3>
               {component.routes.length ? (
                 <ul>{component.routes.map((route) => (
-                  <li key={route}><code>{route}</code></li>
+                  <li key={route}>{publicRegistryRouteHref(route)
+                    ? <a href={route} target="_blank" rel="noopener noreferrer">{route} – otvoriť stránku</a>
+                    : <span><code>{route}</code> <small>Šablóna / dynamická adresa – konkrétna URL nie je známa</small></span>}
+                  </li>
                 ))}</ul>
               ) : <p>Nenašla sa cesta zo stránkového vstupu. Môže ísť o nevyužitý alebo dynamicky načítavaný komponent.</p>}
-              <h3>Priami importéri ({component.consumers.length})</h3>
-              {component.consumers.length ? (
-                <ul>{component.consumers.map((consumer) => (
-                  <li key={consumer}><code>{consumer}</code></li>
-                ))}</ul>
-              ) : <p>Bez priameho statického importéra.</p>}
             </div>
           </details>
         ))}

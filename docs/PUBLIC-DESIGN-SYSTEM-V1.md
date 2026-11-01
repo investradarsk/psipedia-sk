@@ -41,3 +41,12 @@ VISUAL_REVIEW_ROUTES: /,/clanky,/plemena,/podujatia
 - Native markup stays `<section>` for promotional magazine banners and `<aside>` for contextual variants. The existing CSS module classes, photos, links, CTA destinations, sponsorship labels and mobile breakpoints remain unchanged.
 - The frame uses no new layout CSS. Appearance remains owned by the approved shared banner tokens and the existing purposeful variants.
 - Source-level checks and server-rendered banner tests prevent separate future banner roots.
+
+## V2 – pokračovanie zjednocovania (PR #1164, Draft)
+
+- Existujúce **karty** už používajú spoločný kontrakt `data-public-card` s tokenmi pre okraje a stav hover/focus. `ArticleCard` v kompaktnom režime už deleguje na `ArticleListItem`, ten používa `PublicArticleListItem`. Zachovávame tým odlišný obsah plemien, podujatí a služieb.
+- Existujúce **filtre** už používajú `PublicTextInput`, `PublicSelect` a súvisiace primitivy. Zjednocovanie vzhľadu musí rešpektovať odlišné GET parametre a mobil.
+- **CTA**: `PublicActionLink` umožňuje `appearance="context"`, aby vlastné schválené CSS zostalo nezmenené počas migrácie. `ContentHubCta` používa tento spoločný základ.
+- **Podkategórie**: neúčinné skoršie CSS prepísané finálnym gridom bolo odstránené, bez presunu finálnych selektorov či mobilných breakpointov.
+- **Register**: tematické rodiny, zrozumiteľné názvy a odkazy len na existujúce statické cesty. Vizuálne duplicity nemožno potvrdiť len podľa názvov súborov.
+- **Ďalšia fáza**: vizuálne ukážky konkrétnych inštancií bannerov a dátové URL profilov (vyžadujú samostatný spoľahlivý zdroj používateľských profilov).

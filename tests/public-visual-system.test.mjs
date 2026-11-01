@@ -418,3 +418,12 @@ test("DS-4 promotional, image and safety banners preserve distinct content with 
   assert.match(hubCss, /DS-4:[\s\S]*\.primary, \.secondary[\s\S]*min-height: 48px/);
   assert.match(hubCss, /\.card\[data-health-urgent\][\s\S]*border-left: 4px solid/);
 });
+
+test("context CTA reuses semantic PublicActionLink without changing its existing local style", () => {
+  const hub = read("components/content-hub-cta.tsx");
+  const sourceLink = source.split("export function PublicActionLink(")[1].split("export function PublicActionButton(")[0];
+  assert.match(hub, /<PublicActionLink href=\{action\.href\} appearance="context"/);
+  assert.match(sourceLink, /appearance === "context" \? className : cx\(styles\.action/);
+  assert.match(sourceLink, /appearance === "context" \? children : <span>\{children\}<\/span>/);
+  assert.match(sourceLink, /data-public-action=\{variant\}/);
+});
