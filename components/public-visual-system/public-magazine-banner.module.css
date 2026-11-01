@@ -213,3 +213,33 @@
   white-space: normal;
   text-align: center;
 }
+
+/* Owner-approved visual changes are DESKTOP ONLY. Mobile remains untouched. */
+@media (min-width: 621px) {
+  .magazine[data-visual-library-desktop-published="true"]:not(.withPhoto) {
+    background: var(--ps-visual-desktop-bg,linear-gradient(110deg,var(--sage-light),var(--paper)));
+  }
+  .magazine[data-visual-library-desktop-published="true"] :global(.button.button--dark) {
+    background: var(--ps-visual-desktop-button,var(--forest-dark));
+    border-color: var(--ps-visual-desktop-button,var(--forest-dark));
+    color: #fff;
+  }
+  .magazine[data-visual-library-desktop-published="true"].withPhoto :global(.button.button--dark) {
+    background: var(--ps-visual-desktop-button,#fff);
+    border-color: var(--ps-visual-desktop-button,#fff);
+    color: #174b38;
+  }
+  .magazine[data-visual-library-desktop-published="true"].withPhoto[style*="--ps-visual-desktop-button"] :global(.button.button--dark) {
+    color: #fff;
+  }
+}
+
+/* Owner-approved text is rendered in the same semantic heading, paragraph and CTA.
+   The mobile original is never overwritten; only one version is visible or
+   exposed to assistive technology at the active media breakpoint. */
+.mobileCopy{display:inline}
+.desktopCopy{display:none}
+@media (min-width: 621px){
+  .magazine[data-visual-library-desktop-published="true"] .mobileCopy{display:none}
+  .magazine[data-visual-library-desktop-published="true"] .desktopCopy{display:inline}
+}

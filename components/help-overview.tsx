@@ -9,6 +9,8 @@ import {
   type PublicHelpPhotoBannerData,
 } from "@/components/public-visual-system/public-help-banner";
 import { ImageDisplay } from "@/components/image-display";
+import { helpOverviewPromos } from "@/lib/help-banner-presets";
+import { HELP_LOST_FOUND_BANNER_ANCHOR, CTA_HELP_ORGANIZATIONS_ANCHOR, helpOverviewBannerAnchor } from "@/lib/visual-library-anchors";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
@@ -51,33 +53,6 @@ export type HelpOverviewSection = {
 type PromoBanner = PublicHelpPhotoBannerData;
 
 
-const promos: Record<number, PromoBanner> = {
-  0: {
-    eyebrow: "Praktické rady",
-    title: "Dobrý nový domov začína prípravou",
-    text: "Starostlivosť, zdravie, prvé dni aj každodenné fungovanie so psom nájdete v našich praktických témach.",
-    href: "/starostlivost",
-    action: "Prejsť na starostlivosť",
-    tone: "care",
-  },
-  2: {
-    eyebrow: "Rýchla pomoc",
-    title: "Našli ste psa v núdzi?",
-    text: "Pozrite si jednoduchý postup: čo urobiť na mieste, koho kontaktovať a ktoré informácie si hneď zaznamenať.",
-    href: "/pomoc-psom/nahlasit-psa-v-nudzi",
-    action: "Postup krok za krokom",
-    tone: "rescue",
-  },
-  4: {
-    eyebrow: "Zapojte sa",
-    title: "Pomoc nemusí byť iba finančná",
-    text: "Venčenie, prevoz, dočasná opatera, fotografovanie alebo zdieľanie môžu organizáciám výrazne pomôcť.",
-    href: "/pomoc-psom/dobrovolnictvo",
-    action: "Ako môžem pomôcť",
-    tone: "volunteer",
-  },
-};
-
 function OverviewCard({ item }: { item: HelpOverviewItem }) {
   return (
     <PublicHelpProfileCard
@@ -115,8 +90,8 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
   );
 }
 
-function Promo({ promo }: { promo: PromoBanner }) {
-  return <PublicHelpPhotoBanner promo={promo} />;
+function Promo({ promo, anchorId }: { promo: PromoBanner; anchorId: string }) {
+  return <PublicHelpPhotoBanner promo={promo} anchorId={anchorId} />;
 }
 
 export async function HelpOverview({
@@ -160,6 +135,7 @@ export async function HelpOverview({
             }
             ctaSlot={
               <PublicActionLink
+                id={CTA_HELP_ORGANIZATIONS_ANCHOR}
                 href="/organizacie"
                 variant="secondary"
                 icon={<ArrowIcon size={16} />}
@@ -195,11 +171,11 @@ export async function HelpOverview({
           </PublicContentShell>
         </section>
 
-        <Promo promo={lostFoundSubmitPromo} />
+        <Promo promo={lostFoundSubmitPromo} anchorId={HELP_LOST_FOUND_BANNER_ANCHOR} />
 
         <div className={styles.overviewFlow}>
           {sections.map((section, index) => {
-            const promo = promos[index];
+            const promo = helpOverviewPromos[index];
             return (
               <div key={section.slug}>
                 <section
@@ -238,7 +214,7 @@ export async function HelpOverview({
                     )}
                   </PageContainer>
                 </section>
-                {promo ? <Promo promo={promo} /> : null}
+                {promo ? <Promo promo={promo} anchorId={helpOverviewBannerAnchor(index)} /> : null}
               </div>
             );
           })}

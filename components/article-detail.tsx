@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { articleCategoryHref } from "@/lib/article-category-routes";
 import { ArticleBlocks } from "@/components/article-blocks";
+import { AUTOMATIC_ARTICLE_PROMO_ANCHOR } from "@/lib/visual-library-anchors";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
 import { ArticleReadTracker } from "@/components/article-read-tracker";
@@ -271,6 +272,7 @@ export function ArticleDetail({
                 {discovery.promo ? (
                   <div className={styles.sidebarPromo} data-automatic-article-promo>
                     <ArticlePromo
+                      anchorId={AUTOMATIC_ARTICLE_PROMO_ANCHOR}
                       promoKey={discovery.promo.promoKey}
                       variant="auto"
                       seed={discovery.promo.seed}

@@ -272,6 +272,7 @@ export function PublicArticleListItem({
   image,
   className,
   listItem = true,
+  anchorId,
 }: {
   href: string;
   title: ReactNode;
@@ -281,9 +282,10 @@ export function PublicArticleListItem({
   image?: { src: string; alt: string; mode?: SmartImageMode; focusX?: number | null; focusY?: number | null; config?: ImageDisplayConfig | null };
   className?: string;
   listItem?: boolean;
+  anchorId?: string;
 }) {
   return (
-    <Link className={cx(styles.articleListItem, styles.articleListItemWithImage, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
+    <Link id={anchorId} className={cx(styles.articleListItem, styles.articleListItemWithImage, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
       <span className={styles.articleListMedia} data-article-image>
         {image ? (
           <ImageDisplay fallbackOnError context="thumbnail" config={image.config} legacyMode={image.mode} legacyFocusX={image.focusX} legacyFocusY={image.focusY} src={image.src} srcSet={responsiveMediaSrcSet(image.src, [160, 320, 480])} sizes="(max-width: 620px) 90px, 112px" alt={image.alt} loading="lazy" decoding="async" />
