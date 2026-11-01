@@ -42,14 +42,15 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
     const searched = ((component.label ?? component.name) + " " + component.name + " " + component.path + " " +
       (familyNames[component.family ?? ""] ?? "") + " " + component.routes.join(" ")).toLocaleLowerCase("sk");
     if (!searched.includes(query.trim().toLocaleLowerCase("sk"))) return false;
-    if (family !== "all" && component.family !== family) return false;
+    if (family !== "all" && component.family !== family &&
+      !groups.some(group => group.id === family && group.paths.includes(component.path))) return false;
     if (scope === "shared" && !component.shared) return false;
     if (scope === "unreferenced" && !component.unreferenced) return false;
     if (scope === "single" && component.routeCount !== 1) return false;
     if (area === "public" && component.area === "admin") return false;
     if (area === "admin" && component.area === "public") return false;
     return true;
-  }), [registry.components, query, scope, area, family, familyNames]);
+  }), [registry.components, query, scope, area, family, familyNames, groups]);
   const limited = items.slice(0, 100);
 
   return (
