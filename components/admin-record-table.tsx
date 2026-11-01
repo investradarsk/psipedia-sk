@@ -9,7 +9,9 @@ import {
   type ColumnDef,
   type SortingState,
   type VisibilityState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
+import { BulkSelectionCheckbox } from "./admin-bulk-selection";
 import styles from "./admin-record-table.module.css";
 
 export type AdminRecordColumn<T> = {
@@ -21,24 +23,67 @@ export type AdminRecordColumn<T> = {
   initiallyHidden?: boolean;
 };
 
-/** Read-first grid for existing admin data sources. All writes stay in canonical editors/actions. */
+export type AdminRecordTableSelection<T> = {
+  /** Only IDs visible on this page are selectable. Never imply cross-page selection. */
+  selectedIds: readonly number[];
+  onChange: (ids: number[]) => void;
+  labelForRow?: (record: T) => string;
+  disabled?: boolean;
+};
+
+/** Read-first grid; optional selection delegates writes to the domain's existing bulk API. */
 export function AdminRecordTable<T extends { id: number }>({
   rows,
   columns,
   label,
   busy = false,
+  selection,
 }: {
   rows: T[];
   columns: AdminRecordColumn<T>[];
   label: string;
   busy?: boolean;
+  selection?: AdminRecordTableSelection<T>;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [visibility, setVisibility] = useState<VisibilityState>(() =>
     Object.fromEntries(columns.filter((column) => column.initiallyHidden).map((column) => [column.id, false])),
   );
 
-  const definitions = useMemo<ColumnDef<T>[]>(() => columns.map((column) => ({
+  const selectedIds = selection?.selectedIds;
+  const rowSelection = useMemo<RowSelectionState>(() => {
+    const visibleIds = new Set(rows.map(row => row.id));
+    return Object.fromEntries((selectedIds ?? []).filter(id => visibleIds.has(id)).map(id => [String(id), true]));
+  }, [rows, selectedIds]);
+
+  const definitions = useMemo<ColumnDef<T>[]>(() => [
+    ...(selection ? [{
+      id: "__select",
+      header: ({ table }: { table: ReturnType<typeof useReactTable<T>> }) => (
+        <BulkSelectionCheckbox
+          className={styles.selectionCheck}
+          label={"Označiť všetky záznamy na tejto strane: " + label}
+          checked={table.getIsAllPageRowsSelected()}
+          indeterminate={table.getIsSomePageRowsSelected()}
+          disabled={busy || selection.disabled || !rows.length}
+          onChange={checked => table.toggleAllPageRowsSelected(checked)}
+        />
+      ),
+      cell: ({ row }: { row: { original: T; getIsSelected(): boolean; toggleSelected(value: boolean): void } }) => (
+        <BulkSelectionCheckbox
+          className={styles.selectionCheck}
+          label={selection.labelForRow?.(row.original) ?? ("Označiť záznam " + row.original.id)}
+          checked={row.getIsSelected()}
+          disabled={busy || selection.disabled}
+          onChange={checked => row.toggleSelected(checked)}
+        />
+      ),
+      enableSorting: false,
+      enableResizing: false,
+      size: 64,
+      minSize: 64,
+    } as ColumnDef<T>] : []),
+    ...columns.map((column) => ({
     id: column.id,
     header: column.label,
     accessorFn: (record) => column.sortValue ? column.sortValue(record) : "",
@@ -46,14 +91,21 @@ export function AdminRecordTable<T extends { id: number }>({
     enableSorting: Boolean(column.sortValue),
     size: column.width ?? 165,
     minSize: 85,
-  })), [columns]);
+  })),
+  ], [columns, selection, label, busy, rows.length]);
 
   const table = useReactTable({
     data: rows,
     columns: definitions,
-    state: { sorting, columnVisibility: visibility },
+    state: { sorting, columnVisibility: visibility, rowSelection },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setVisibility,
+    enableRowSelection: Boolean(selection) && !busy && !selection?.disabled,
+    onRowSelectionChange: updater => {
+      if (!selection || busy || selection.disabled) return;
+      const next = typeof updater === "function" ? updater(rowSelection) : updater;
+      selection.onChange(rows.filter(record => next[String(record.id)]).map(record => record.id));
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getRowId: (record) => String(record.id),
