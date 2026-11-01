@@ -120,10 +120,13 @@ test("directory hero uses the canonical UnifiedSectionHeroShell gutter", () => {
   assert.equal(directoryPage.includes("className={`shell ${styles.headerShell}`} data-directory-public-header"), false);
 });
 
-test("homepage remains its own design and only keeps the existing home.hero visual source", () => {
-  assert.match(home, /getResolvedSectionVisual\("home\.hero"\)/);
-  assert.doesNotMatch(home, /UnifiedSectionHero/);
+test("homepage uses the managed shared hero while retaining its home.hero image source", () => {
+  assert.match(home, /getSectionHeroVisual\("home\.hero"\)/);
+  assert.match(home, /<UnifiedSectionHeroShell/);
+  assert.match(home, /<UnifiedSectionHero/);
+  assert.match(home, /portalSearchSlot=\{<HomePortalSearch \/>\}/);
   assert.match(home, /data-home-hero/);
+  assert.doesNotMatch(home, /className="hero-card"/);
 });
 
 test("detail pages remain outside SECTION-HERO-V2", () => {

@@ -25,6 +25,8 @@ function load(file) {
       return { PawMark: ({ size }) => React.createElement("svg", { width: size, height: size }) };
     if (name.endsWith(".module.css"))
       return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
+    if (name === "./public-banner-frame")
+      return load("components/public-visual-system/public-banner-frame.tsx");
     throw new Error("Unexpected dependency " + name);
   }, exports);
   return exports;
