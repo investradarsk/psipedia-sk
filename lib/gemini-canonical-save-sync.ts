@@ -7,6 +7,7 @@ import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from 
 import { geminiValidNotionDraftId } from "./gemini-concept-manager";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog";
 import { verifiedPrivateGeminiEditor } from "./gemini-import-d1-verification";
+import { recoverOwnerConfirmedLegacyLocks } from "./gemini-stale-lock-recovery";
 
 type Bindings = NotionDirectorySyncBindings & NotionEventsHelpSyncBindings & { DB?: D1Database };
 export type GeminiCanonicalSaveResult = {
@@ -88,6 +89,18 @@ export async function reconcileGeminiSavedDraft(input: {
     return { state: "CANONICAL_DRAFT_READY", editorUrl: already.editorUrl };
   if (already.kind === "INVALID") return { state: "NEEDS_REVIEW" };
 
+  // Legacy imports could have been blocked by permanent locks left by a
+  // previous failed pre-insert operation. Only the authenticated owner path
+  // is allowed to attempt recovery, after checking D1 for orphaned drafts.
+  if (ownerConfirmedLegacy) {
+    const existing = await verifiedPrivateGeminiEditor(database, agenda, notionPageId)
+      .catch(() => null);
+    if (existing) return { state: "CANONICAL_DRAFT_READY", editorUrl: existing };
+    const recovery = await recoverOwnerConfirmedLegacyLocks(database, agenda, notionPageId);
+    if (recovery.state === "ACTIVE_LOCK") return { state: "NEEDS_REVIEW", issue: "IMPORT_LOCK_BUSY" };
+    if (recovery.state === "UNMAPPED_CANONICAL") return { state: "NEEDS_REVIEW", issue: "POSSIBLE_ORPHAN" };
+    if (recovery.state === "LOCK_CHECK_FAILED") return { state: "NEEDS_REVIEW", issue: "IMPORT_LOCK_CHECK" };
+  }
   let issue = "D1_NOT_CONFIRMED";
   let syncUnavailable = false;
   try {
