@@ -14,7 +14,7 @@ on:
       - "lib/gemini-import-d1-verification.ts"
       - "lib/gemini-stale-lock-recovery.ts"
       - "tests/gemini-stale-lock-recovery.test.mjs"
-      - "tests/gemini-import-d1-verification.test.mjs tests/gemini-stale-lock-recovery.test.mjs"
+      - "tests/gemini-import-d1-verification.test.mjs"
       - "tests/gemini-canonical-*.test.mjs"
       - "lib/gemini-automation-*.ts"
       - "lib/gemini-external-agent.ts"
