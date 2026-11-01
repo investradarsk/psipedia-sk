@@ -1,25 +1,54 @@
-# Psipedia — screenshoty z PR pred merge
+# Psipedia – automatická vizuálna kontrola každého vizuálneho PR
 
-## Povinný postup pri vizuálnych zmenách
+Cieľ: pred zlúčením vidieť **skutočný výsledok pracovnej verzie** a porovnať ho
+s rovnakou stránkou zo spoločného Git predka. Automatická kontrola neznamená
+automatické schválenie vzhľadu.
 
-Každá zmena viditeľná používateľovi (verejný web alebo Admin, farby, typografia, karty, formuláre, rozloženie, mobil) má obsahovať dôkaz, ako vyzerá **konkrétna pracovná verzia kódu pred merge**.
+## Ako to funguje
 
-1. Agent vytvorí tematický PR a do jeho opisu uvedie samostatný riadok:
-   `VISUAL_REVIEW_ROUTES: /,/admin/nastavenia`
-   Uveď iba 1 až 4 skutočne dotknuté cesty. Používaj lokálne URL cesty bez query parametrov.
-2. Workflow `PR Visual Evidence` sa spustí pre PR z nášho repozitára s týmto riadkom. Ak nie je prítomný, zostane preskočený, aby sa neplytvalo GitHub Actions minútami.
-3. Checkoutne presný `head.sha` PR, pripraví lokálny build, oddelenú lokálnu D1/R2, Chromium a otvorí lokálny Vite server. Nikam sa nenasadzuje.
-4. Vytvorí PNG pre desktop 1440×900 a mobil 390×844, vo variante viditeľná obrazovka aj celá stránka. Súbory, manifest a sumár uloží do `Artifacts` na stránke GitHub Actions behu.
-5. Agent pripojí odkaz na tento beh do PR a uvedie jeho SHA, zobrazené cesty a prípadné obmedzenia. Vizuálnu zmenu schvaľuje vlastník až po pozretí obrázkov a relevantnom CI.
+1. Keď PR zmení súbory verejného vzhľadu alebo administrácie, workflow
+   `PR Visual Evidence` sám vyberie najviac **4 relevantné stránky**
+   (napríklad homepage, Podujatia, Adresár, Pomoc psom alebo Admin).
+   Nemeniteľné backendové a dokumentačné úpravy nevyvolajú nákladný prehliadač.
+2. Ak chce autor presné stránky, v popise PR môže uviesť
+   `VISUAL_REVIEW_ROUTES: /,/podujatia,/adresar,/pomoc-psom`.
+   To má prednosť pred automatickým výberom. Voliteľný riadok
+   `VISUAL_ACCEPTANCE_ROUTES:` doplní ďalšie cesty, spolu najviac štyri.
+3. Na GitHub Actions sa pripraví lokálna PR verzia aj lokálna verzia
+   spoločného Git predka. Použije sa **oddelená lokálna databáza D1**,
+   rovnaké testovacie príklady a Chromium. Bez produkčných údajov,
+   vzdialených zápisov alebo nasadenia webu.
+4. Každá vybraná stránka sa odfotí v šírkach **1440, 390 a 320 px**.
+   Pre každú vznikne obrázok viditeľnej časti aj celej stránky.
+5. Porovnanie vytvorí prehľad **Pred / Po / Rozdiel**:
+   `site-before/<stranka>/<viewport>-viewport.png`,
+   `site-after/<stranka>/<viewport>-viewport.png` a pri rozdiele
+   `site-diff/<stranka>/<viewport>-viewport.png`.
+   Rovnaké súbory vznikajú aj pre plnú stránku.
+   Červená v rozdielovom obrázku ukazuje zmenené pixely.
+6. Odkaz na výsledné obrázky je v **GitHub Actions → Artifacts**
+   príslušného PR. Číselný prehľad je v **Summary** toho istého behu.
 
-**Pozor:** Pôvodný `PSIPEDIA — Public Visual Screenshots` číta ostrú `https://psipedia.sk`. Nie je to screenshot novej zmeny. Je vhodný len ako porovnávací produkčný obraz *pred* zmenou.
+## Vyhodnotenie
 
-## Bezpečnosť a náklady
-- Nepoužívajú sa produkčné tajomstvá ani vzdialené D1/R2; Chrome blokuje externé požiadavky aj zápisy. Lokálna aplikácia má iba dispozičné testovacie údaje.
-- Z tohto dôvodu nemusia byť viditeľné niektoré reálne profily, obrázky či údaje závislé od produkcie. **Chýbajúci obsah nezakrývaj predstieraným screenshotom**; pre také stránky najskôr pridaj lokálne testovacie fixtures.
-- Workflow beží len na explicitne označených vizuálnych PR, maximálne štyri stránky × dva viewporty. Staršie behy rovnakého PR sa rušia.
-- Ide o GitHub Actions spotrebu, nie o samostatný Cloudflare deployment. Bezplatnosť závisí od GitHub plánu a kvót.
-- Screenshot v artefakte neznamená, že PR je hotový, alebo že sa má automaticky mergnúť.
+- Zmena vzhľadu je pri plánovanom PR prirodzená. Preto samotný rozdiel
+  stránok znamená **potrebuje vizuálnu kontrolu**, nie automatickú chybu CI.
+- Chýbajúce porovnávacie obrázky, neplatné URL alebo neúspešné načítanie
+  kontrolovanej stránky sú chyby, ktoré kontrola nesmie zamlčať.
+- Existujúce **deterministické testy šablón** zostávajú prísne: nečakaný
+  rozdiel vo fixných testovacích obrázkoch naďalej zlyhá v CI.
+- Niektoré produkčné obrázky a záznamy nemusia byť dostupné v izolovanom
+  prostredí. Také stránky vyžadujú aj manuálnu kontrolu naživo.
+- Náklady predstavujú minúty GitHub Actions. Workflow je obmedzený na
+  štyri stránky a PR z rovnakého repozitára, nie na externé forky.
 
-## Pre autora PR
-Ak workflow zlyhá, najprv skontroluj, či cieľová stránka beží s lokálnou D1. Neodstraňuj testy a nepovoľuj produkčné prístupy len kvôli obrázkom. Ak zmeníš screenshotovaný vizuál, obnov screenshot pre nové SHA.
+## Dôležité obmedzenia
+
+Pred vytvorením PDF/screenshotov sa nikdy nečítajú súkromné dáta z produkcie
+a prehliadač blokuje externé požiadavky aj zápisové HTTP metódy.
+Screenshoty sa neuverejňujú na verejnej Psipedii. Vizuálna kontrola
+nikdy sama nezlúči PR a nemení existujúce publikovanie, Notion ani SEO.
+
+Ak potrebuješ overiť konkrétnu produkčnú stránku s reálnymi údajmi, použi
+samostatné čisto čítacie produkčné screenshoty alebo ju skontroluj ručne;
+nepripájaj produkčné tajomstvá k PR workflow.
