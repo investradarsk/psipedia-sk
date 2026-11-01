@@ -72,7 +72,8 @@ test("workflow checks out the PR head with local-only data and uploads artifacts
   const agents = readFileSync(new URL("../AGENTS.md", import.meta.url), "utf8");
   assert.match(workflow, /pull_request:/);
   assert.match(workflow, /\n    paths:/);
-  assert.match(workflow, /contains\(github\.event\.pull_request\.body, .VISUAL_REVIEW_ROUTES:/);
+  assert.match(workflow, /Select changed visual routes/);
+  assert.match(workflow, /pr-visual-route-selection\\.mjs/);
   assert.match(workflow, /head\.repo\.full_name == github\.repository/);
   assert.match(workflow, /pull_request\.head\.sha/);
   assert.match(workflow, /VISUAL_REVIEW_ROUTES:/);
