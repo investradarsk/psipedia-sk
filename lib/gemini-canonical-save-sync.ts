@@ -40,6 +40,9 @@ export async function reconcileGeminiSavedDraft(input: {
   database: D1Database; bindings: Bindings; key: string; notionPageId: string; savedRevision: string;
   /** Explicit authenticated Admin action only: accept one exact legacy Gemini evidence page. */
   ownerConfirmedLegacy?: boolean;
+  /** Server-only Notion evidence already fetched and revision-validated by the authenticated owner route. */
+  validatedDraft?: Awaited<ReturnType<typeof getGeminiDirectoryDraft>> |
+    Awaited<ReturnType<typeof getGeminiAgendaDraft>>["draft"];
 }): Promise<GeminiCanonicalSaveResult> {
   const { database, bindings, key, notionPageId, savedRevision, ownerConfirmedLegacy = false } = input;
   const agenda = geminiImportAgenda(key);
@@ -57,7 +60,7 @@ export async function reconcileGeminiSavedDraft(input: {
   const readDraft = async () => agenda === "directory"
     ? getGeminiDirectoryDraft(bindings, notionPageId)
     : (await getGeminiAgendaDraft(bindings, key, notionPageId)).draft;
-  const before = await readDraft();
+  const before = input.validatedDraft ?? await readDraft();
   // A pre-signature Notion concept can enter canonical D1 only after a
   // human has explicitly approved it in the authenticated Gemini editor.
   // Signed callback provenance is never fabricated for legacy pages.
@@ -67,7 +70,15 @@ export async function reconcileGeminiSavedDraft(input: {
       (before.reviewState === "APPROVED" && "attribution" in before &&
         before.attribution === "EVIDENCE_SIGNATURE_ONLY"));
   if (!signed && !reviewedLegacy) return notionOnly();
-  if (before.lastEditedAt !== savedRevision) return { state: "NEEDS_REVIEW" };
+  // A server-supplied snapshot is not a bypass: it must be the same Notion
+  // page and category already validated by the owner API.
+  if (before.id !== notionPageId ||
+      (agenda === "directory" ? !("category" in before) ||
+          before.category !== getGeminiCatalogItem(key)?.subcategory
+        : !("agenda" in before) || before.agenda !== agenda ||
+          !("stableKey" in before) || before.stableKey !== key))
+    return { state: "NEEDS_REVIEW", issue: "ORIGIN_NOT_VERIFIED" };
+  if (before.lastEditedAt !== savedRevision) return { state: "NEEDS_REVIEW", issue: "NOTION_REVISION_CHANGED" };
   if (before.reviewState === "REJECTED" || before.reviewState === "PUBLISHED")
     return { state: "NEEDS_REVIEW" };
   const already = planGeminiPublishHandoff(key, before);
