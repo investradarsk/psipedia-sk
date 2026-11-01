@@ -89,14 +89,15 @@ export async function reconcileGeminiSavedDraft(input: {
   if (already.kind === "INVALID") return { state: "NEEDS_REVIEW" };
 
   let issue = "D1_NOT_CONFIRMED";
+  let syncUnavailable = false;
   try {
     if (agenda === "directory") {
       const result = await runNotionDirectorySyncSweep({
         database, bindings, targetPageId: notionPageId, expectedNotionRevision: savedRevision,
         reviewedLegacy,
       });
-      if (!result.enabled) issue = "SYNC_DISABLED";
-      else if (!result.schemaReady) issue = "SYNC_SCHEMA";
+      if (!result.enabled) { issue = "SYNC_DISABLED"; syncUnavailable = true; }
+      else if (!result.schemaReady) { issue = "SYNC_SCHEMA"; syncUnavailable = true; }
       else if (result.failed) issue = "SYNC_FAILED";
     } else {
       const result = await runNotionEventsHelpSyncSweep({
@@ -104,8 +105,8 @@ export async function reconcileGeminiSavedDraft(input: {
         agendas: [agenda], targetPageId: notionPageId, expectedNotionRevision: savedRevision,
         reviewedLegacy,
       });
-      if (!result.enabled) issue = "SYNC_DISABLED";
-      else if (!result.schemaReady) issue = "SYNC_SCHEMA";
+      if (!result.enabled) { issue = "SYNC_DISABLED"; syncUnavailable = true; }
+      else if (!result.schemaReady) { issue = "SYNC_SCHEMA"; syncUnavailable = true; }
       else {
         const item = result.agendas.find(entry => entry.agenda === agenda);
         if (item?.targetMissing) issue = "SYNC_TARGET_MISSING";
@@ -124,6 +125,9 @@ export async function reconcileGeminiSavedDraft(input: {
     .catch(() => null);
   if (verifiedEditor)
     return { state: "CANONICAL_DRAFT_READY", editorUrl: verifiedEditor };
+  // A disabled sync or missing D1 schema cannot bootstrap a new identity.
+  // Do not confuse a stale Notion marker with a successful import.
+  if (syncUnavailable) return { state: "NEEDS_REVIEW", issue };
   // Fallback keeps existing verified Notion/legacy mapping behavior, but
   // provider rate limits must no longer hide a confirmed D1 draft.
   const after = await readDraft().catch(() => null);
