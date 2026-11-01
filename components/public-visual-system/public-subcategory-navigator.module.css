@@ -151,15 +151,8 @@
 }
 
 .compactTrack {
-  display: flex;
   min-width: 0;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-block: 8px;
-  scroll-snap-type: x proximity;
+  /* Grid geometry is owned by the final PUBLIC NAV contract below. */
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
@@ -167,21 +160,17 @@
 
 .compactItem {
   display: inline-flex;
-  min-height: 44px;
   flex: 0 0 auto;
   align-items: center;
-  justify-content: center;
   gap: 7px;
-  padding: 8px 12px;
+  padding-block: 8px;
   border: 1px solid rgba(23, 75, 56, .12);
-  border-radius: 999px;
   color: var(--forest-dark, #17352b);
   background: rgba(255, 253, 248, .9);
   font-size: .78rem;
   font-weight: 800;
   line-height: 1.15;
   text-decoration: none;
-  white-space: nowrap;
   scroll-snap-align: start;
 }
 
@@ -194,8 +183,7 @@
   border-color: var(--forest, #174b38);
   color: #fff;
   background: var(--forest, #174b38);
-  text-decoration: underline;
-  text-underline-offset: .2em;
+  /* Selected state geometry and decoration live in the final override. */
 }
 
 .compactItemCurrent:hover {

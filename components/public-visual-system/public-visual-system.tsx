@@ -190,6 +190,7 @@ export function PublicCategoryTiles({
 export function PublicActionLink({
   href,
   variant = "primary",
+  appearance = "default",
   children,
   icon,
   className,
@@ -199,6 +200,8 @@ export function PublicActionLink({
 }: Omit<ComponentProps<typeof Link>, "href" | "children" | "icon" | "variant" | "target" | "rel"> & {
   href: string;
   variant?: PublicActionVariant;
+  /** Existing local styling; useful while migrating context CTA links. */
+  appearance?: "default" | "context";
   children: ReactNode;
   icon?: ReactElement;
   target?: "_blank" | "_self";
@@ -206,8 +209,8 @@ export function PublicActionLink({
   "data-testid"?: string;
 }) {
   return (
-    <Link {...linkProps} className={cx(styles.action, actionVariantClass[variant], className)} data-public-action={variant} href={href} target={target} rel={rel}>
-      <span>{children}</span>
+    <Link {...linkProps} className={appearance === "context" ? className : cx(styles.action, actionVariantClass[variant], className)} data-public-action={variant} href={href} target={target} rel={rel}>
+      {appearance === "context" ? children : <span>{children}</span>}
       {icon ? <PublicIcon icon={icon} size="sm" /> : null}
     </Link>
   );
