@@ -121,6 +121,18 @@ test("mapped canonical entities are not mistaken for orphaned creates",async()=>
   }
 });
 
+test("unknown canonical timestamps also block a potentially unsafe retry",async()=>{
+  const h=harness();
+  try{
+    h.insertLock(h.keyFor("adoptions"));
+    h.sqlite.prepare("INSERT INTO adoption_dogs(id,created_at) VALUES (?,?)")
+      .run(78,"not-a-date");
+    assert.deepEqual(await recoverOwnerConfirmedLegacyLocks(h.db,"adoptions",pageId),
+      {state:"UNMAPPED_CANONICAL",recovered:0});
+    assert.equal(h.countLocks(),1);
+  }finally{h.close();}
+});
+
 test("failed D1 checks leave every lock untouched",async()=>{
   const h=harness();
   try{
