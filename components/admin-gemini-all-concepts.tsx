@@ -13,6 +13,27 @@ import styles from "./admin-gemini-all-concepts.module.css";
 type Draft = GeminiDirectoryDraft | GeminiAgendaDraft;
 type Entry = { item: GeminiCatalogItem; draft: Draft };
 const keys = geminiAutomationCatalog.map((item) => item.stableKey);
+/** User-facing, allowlisted reasons; no sensitive Notion/provider details. */
+const importIssueText: Record<string, string> = {
+  NOTION_RATE_LIMIT: "Notion obmedzil počet požiadaviek (429). Skús import neskôr.",
+  NOTION_PERMISSION: "Notion alebo zdroj odmietol prístup (403).",
+  NOTION_NETWORK: "Notion momentálne neodpovedá.",
+  SYNC_DISABLED: "Synchronizácia tejto kategórie je vypnutá.",
+  SYNC_SCHEMA: "Chýba nastavenie alebo tabuľka synchronizácie.",
+  SYNC_TARGET_MISSING: "Databáza Notion pre túto kategóriu nie je pripojená.",
+  SYNC_FAILED: "Synchronizácia zlyhala; D1 koncept ešte nie je potvrdený.",
+  DUPLICATE: "Možný duplicitný profil. Treba overiť existujúci záznam.",
+  PRIVATE_STATUS_REQUIRED: "Zdrojový záznam nemá povolený stav súkromného konceptu.",
+  CATEGORY_MISMATCH: "Kategória profilu nezodpovedá zdroju.",
+  NOTION_REVISION_CHANGED: "Záznam v Notione sa medzitým zmenil. Obnov zoznam.",
+  REQUIRED_IDENTITY: "Chýba identita profilu potrebná na vytvorenie konceptu.",
+  REQUIRED_CATEGORY: "Chýba typ alebo kategória profilu.",
+  IMPORT_BUSY: "Iný import práve spracúva tento záznam.",
+  INVALID_DATA: "Záznam má neplatné údaje, ktoré zatiaľ odmietol editor.",
+  D1_NOT_CONFIRMED: "D1 nepotvrdila vytvorenie profilu.",
+  ORIGIN_NOT_VERIFIED: "Nie je bezpečne overený pôvod Gemini záznamu.",
+};
+
 
 /**
  * Read only, using exactly the same authenticated source as the existing
@@ -129,19 +150,20 @@ export function AdminGeminiAllConcepts() {
             }),
           });
           const result = await response.json() as {
-            imported?: boolean; error?: string; state?: string;
+            imported?: boolean; error?: string; state?: string; issue?: string;
           };
           if (!response.ok || !result.imported) {
             failed.push((draft.name || item.label) + ": " +
-              (result.error || (result.state === "NOTION_ONLY"
-                ? "Chýba bezpečne overiteľný Gemini pôvod."
-                : "Import nie je potvrdený; skontroluj stav v kategórii.")));
+              (result.error || importIssueText[result.issue ?? ""] ||
+                (result.state === "NOTION_ONLY"
+                  ? "Chýba bezpečne overiteľný Gemini pôvod."
+                  : "D1 nepotvrdila import. Skontroluj stav v kategórii.")));
           } else done += 1;
         } catch {
           failed.push((draft.name || item.label) + ": Spojenie zlyhalo. Skontroluj stav.");
         }
         // No parallel 22-category writes; retry later from refreshed D1 truth.
-        if (pending.length > 1) await new Promise(resolve => setTimeout(resolve, 850));
+        if (pending.length > 1) await new Promise(resolve => setTimeout(resolve, 2000));
       }
     } finally {
       setImporting(false);
