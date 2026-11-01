@@ -65,6 +65,17 @@ test("identical PNGs pass; modified pixels and missing baselines fail with artif
     result = await compareSnapshotDirectories({ baselineDir: before, currentDir: after, outputDir: output });
     assert.equal(result.failed, true);
     assert.match(result.summary, /MISSING BASELINE/);
+
+    // Actual page capture folders are nested by canonical route; preserve
+    // their relative names and write reviewable diff PNGs in matching folders.
+    await mkdir(join(before, "podujatia"));
+    await mkdir(join(after, "podujatia"));
+    await writeFile(join(before, "podujatia", "mobile-390-viewport.png"), red);
+    await writeFile(join(after, "podujatia", "mobile-390-viewport.png"), blue);
+    result = await compareSnapshotDirectories({ baselineDir: before, currentDir: after, outputDir: output });
+    const nested = result.manifest.comparisons.find(item => item.name === "podujatia/mobile-390-viewport.png");
+    assert.equal(nested?.status, "DIFFERENT — review");
+    assert.ok((await readFile(join(output, "podujatia", "mobile-390-viewport.png"))).length > 24);
   } finally {
     await browser?.close();
     await rm(root, { recursive: true, force: true });
