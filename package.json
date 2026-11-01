@@ -65,7 +65,7 @@
     "test:monetization": "node --experimental-strip-types --test tests/monetization-foundation.test.mjs tests/internal-traffic.test.mjs",
     "test:help-source": "node --test tests/help-source-daily.test.mjs tests/help-source-quick-actions.test.mjs",
     "test:admin-pwa": "node --experimental-strip-types --test tests/admin-pwa.test.mjs tests/admin-universal-push.test.mjs tests/admin-automation-push.test.mjs tests/admin-automation-history-detail.test.mjs tests/admin-workspace-notifications-v2.test.mjs tests/admin-quality-pending-summary.test.mjs tests/admin-operations-streaming.test.mjs tests/help-source-daily.test.mjs tests/help-source-quick-actions.test.mjs",
-    "test:admin-buttons": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-button-system.test.mjs tests/admin-seo-quality.test.mjs",
+    "test:admin-buttons": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-button-system.test.mjs tests/admin-seo-quality.test.mjs && node --experimental-strip-types --test tests/admin-global-search.test.mjs",
     "audit:public-integrity": "node scripts/check-public-integrity.mjs",
     "test:public-integrity": "node --experimental-strip-types --test tests/public-integrity.test.mjs && npm run audit:public-integrity",
     "test:partner-auth": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-auth-foundation.test.mjs tests/partner-auth-onboarding-hardening.test.mjs tests/partner-memberships-admin.test.mjs tests/partner-commercial-interest.test.mjs tests/partner-claims-verification.test.mjs && npm run test:partner-profile-changes && npm run test:partner-new-profile && npm run test:partner-events && npm run test:partner-media && npm run test:partner-commercial-v1 && npm run test:partner-h2 && npm run test:partner-h3 && npm run test:partner-h4",
@@ -147,7 +147,8 @@
     "@fullcalendar/core": "6.1.19",
     "@fullcalendar/daygrid": "6.1.19",
     "@fullcalendar/react": "6.1.19",
-    "@uppy/locales": "5.3.1"
+    "@uppy/locales": "5.3.1",
+    "driver.js": "1.10.2"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

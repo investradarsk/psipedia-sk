@@ -6,13 +6,31 @@ import { runNotionDirectorySyncSweep, type NotionDirectorySyncBindings } from ".
 import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync";
 import { geminiValidNotionDraftId } from "./gemini-concept-manager";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog";
+import { verifiedPrivateGeminiEditor } from "./gemini-import-d1-verification";
 
 type Bindings = NotionDirectorySyncBindings & NotionEventsHelpSyncBindings & { DB?: D1Database };
 export type GeminiCanonicalSaveResult = {
   state: "CANONICAL_DRAFT_READY" | "NOTION_ONLY" | "NEEDS_REVIEW";
   editorUrl?: string;
+  issue?: string;
 };
-const notionOnly = (): GeminiCanonicalSaveResult => ({ state: "NOTION_ONLY" });
+const notionOnly = (): GeminiCanonicalSaveResult => ({ state: "NOTION_ONLY", issue: "ORIGIN_NOT_VERIFIED" });
+/** Classify safely; never return provider error bodies or private Notion fields. */
+function safeImportIssue(input: string): string {
+  if (/429|rate.limit|too many requests/i.test(input)) return "NOTION_RATE_LIMIT";
+  if (/403|forbidden|unauthoriz/i.test(input)) return "NOTION_PERMISSION";
+  if (/notion.*(timeout|fetch|network)|network_error/i.test(input)) return "NOTION_NETWORK";
+  if (/DUPLICATE_CONFLICT|DUPLICATE/i.test(input)) return "DUPLICATE";
+  if (/GEMINI_PRIVATE_DRAFT_REQUIRED/i.test(input)) return "PRIVATE_STATUS_REQUIRED";
+  if (/GEMINI_CATEGORY_MISMATCH/i.test(input)) return "CATEGORY_MISMATCH";
+  if (/GEMINI_SAVED_REVISION_CHANGED/i.test(input)) return "NOTION_REVISION_CHANGED";
+  if (/GEMINI_CANONICAL_DRAFT_INCOMPLETE/i.test(input)) return "REQUIRED_IDENTITY";
+  if (/GEMINI_LOST_FOUND_TYPE_REQUIRED|GEMINI_HELP_CATEGORY_REQUIRED/i.test(input)) return "REQUIRED_CATEGORY";
+  if (/LOCKED|LOCK/i.test(input)) return "IMPORT_BUSY";
+  if (/schema|target_missing|SCHEMA/i.test(input)) return "SYNC_SCHEMA";
+  if (/Neplatn|neplatn|VALIDAT|invalid/i.test(input)) return "INVALID_DATA";
+  return "D1_NOT_CONFIRMED";
+}
 
 /** Reconcile exactly one signed Gemini-origin Notion save, never publish.
  * Reuses the original Directory/Events/Help sync and native D1 editors.
@@ -22,6 +40,9 @@ export async function reconcileGeminiSavedDraft(input: {
   database: D1Database; bindings: Bindings; key: string; notionPageId: string; savedRevision: string;
   /** Explicit authenticated Admin action only: accept one exact legacy Gemini evidence page. */
   ownerConfirmedLegacy?: boolean;
+  /** Server-only Notion evidence already fetched and revision-validated by the authenticated owner route. */
+  validatedDraft?: Awaited<ReturnType<typeof getGeminiDirectoryDraft>> |
+    Awaited<ReturnType<typeof getGeminiAgendaDraft>>["draft"];
 }): Promise<GeminiCanonicalSaveResult> {
   const { database, bindings, key, notionPageId, savedRevision, ownerConfirmedLegacy = false } = input;
   const agenda = geminiImportAgenda(key);
@@ -39,7 +60,7 @@ export async function reconcileGeminiSavedDraft(input: {
   const readDraft = async () => agenda === "directory"
     ? getGeminiDirectoryDraft(bindings, notionPageId)
     : (await getGeminiAgendaDraft(bindings, key, notionPageId)).draft;
-  const before = await readDraft();
+  const before = input.validatedDraft ?? await readDraft();
   // A pre-signature Notion concept can enter canonical D1 only after a
   // human has explicitly approved it in the authenticated Gemini editor.
   // Signed callback provenance is never fabricated for legacy pages.
@@ -49,7 +70,15 @@ export async function reconcileGeminiSavedDraft(input: {
       (before.reviewState === "APPROVED" && "attribution" in before &&
         before.attribution === "EVIDENCE_SIGNATURE_ONLY"));
   if (!signed && !reviewedLegacy) return notionOnly();
-  if (before.lastEditedAt !== savedRevision) return { state: "NEEDS_REVIEW" };
+  // A server-supplied snapshot is not a bypass: it must be the same Notion
+  // page and category already validated by the owner API.
+  if (before.id !== notionPageId ||
+      (agenda === "directory" ? !("category" in before) ||
+          before.category !== getGeminiCatalogItem(key)?.subcategory
+        : !("agenda" in before) || before.agenda !== agenda ||
+          !("stableKey" in before) || before.stableKey !== key))
+    return { state: "NEEDS_REVIEW", issue: "ORIGIN_NOT_VERIFIED" };
+  if (before.lastEditedAt !== savedRevision) return { state: "NEEDS_REVIEW", issue: "NOTION_REVISION_CHANGED" };
   if (before.reviewState === "REJECTED" || before.reviewState === "PUBLISHED")
     return { state: "NEEDS_REVIEW" };
   const already = planGeminiPublishHandoff(key, before);
@@ -59,31 +88,50 @@ export async function reconcileGeminiSavedDraft(input: {
     return { state: "CANONICAL_DRAFT_READY", editorUrl: already.editorUrl };
   if (already.kind === "INVALID") return { state: "NEEDS_REVIEW" };
 
+  let issue = "D1_NOT_CONFIRMED";
+  let syncUnavailable = false;
   try {
     if (agenda === "directory") {
       const result = await runNotionDirectorySyncSweep({
         database, bindings, targetPageId: notionPageId, expectedNotionRevision: savedRevision,
         reviewedLegacy,
       });
-      if (!result.enabled || !result.schemaReady) return { state: "NEEDS_REVIEW" };
+      if (!result.enabled) { issue = "SYNC_DISABLED"; syncUnavailable = true; }
+      else if (!result.schemaReady) { issue = "SYNC_SCHEMA"; syncUnavailable = true; }
+      else if (result.failed) issue = "SYNC_FAILED";
     } else {
       const result = await runNotionEventsHelpSyncSweep({
         database, bindings, mode: "sync",
         agendas: [agenda], targetPageId: notionPageId, expectedNotionRevision: savedRevision,
         reviewedLegacy,
       });
-      if (!result.enabled || !result.schemaReady) return { state: "NEEDS_REVIEW" };
+      if (!result.enabled) { issue = "SYNC_DISABLED"; syncUnavailable = true; }
+      else if (!result.schemaReady) { issue = "SYNC_SCHEMA"; syncUnavailable = true; }
+      else {
+        const item = result.agendas.find(entry => entry.agenda === agenda);
+        if (item?.targetMissing) issue = "SYNC_TARGET_MISSING";
+        else if (item?.errors?.length) issue = safeImportIssue(item.errors[0].message);
+        else if (item?.conflictDetails?.length) issue = safeImportIssue(item.conflictDetails[0].reason);
+      }
     }
-  } catch {
-    // A network/Notion/write-back failure can happen AFTER the canonical D1
-    // INSERT and identity mapping. Never infer success from the exception;
-    // independently verify that the draft exists in D1 below.
+  } catch (error) {
+    // A Notion timeout can occur AFTER the canonical INSERT. Never guess
+    // from the exception whether D1 created the record.
+    issue = safeImportIssue(error instanceof Error ? error.message : String(error));
   }
-  // A sync receipt (failed/conflicted/created count) is not the publication
-  // gate. Only an independently verified, private D1 mapping grants editing.
-  // If no mapped draft exists, remain in review and never fabricate an editor.
+  // Canonical D1 mapping + real private row, not Notion's eventually updated
+  // Psipedia ID, is the authoritative import acknowledgement.
+  const verifiedEditor = await verifiedPrivateGeminiEditor(database, agenda, notionPageId)
+    .catch(() => null);
+  if (verifiedEditor)
+    return { state: "CANONICAL_DRAFT_READY", editorUrl: verifiedEditor };
+  // A disabled sync or missing D1 schema cannot bootstrap a new identity.
+  // Do not confuse a stale Notion marker with a successful import.
+  if (syncUnavailable) return { state: "NEEDS_REVIEW", issue };
+  // Fallback keeps existing verified Notion/legacy mapping behavior, but
+  // provider rate limits must no longer hide a confirmed D1 draft.
   const after = await readDraft().catch(() => null);
-  if (!after) return { state: "NEEDS_REVIEW" };
+  if (!after) return { state: "NEEDS_REVIEW", issue };
   // A concurrent Notion publication/rejection is not evidence of a private
   // canonical draft. Require manual D1 verification instead of reporting READY.
   if (after.reviewState === "PUBLISHED" || after.reviewState === "REJECTED")
@@ -91,5 +139,5 @@ export async function reconcileGeminiSavedDraft(input: {
   const handoff = planGeminiPublishHandoff(key, after);
   return handoff.kind === "NATIVE_EDITOR_REQUIRED"
     ? { state: "CANONICAL_DRAFT_READY", editorUrl: handoff.editorUrl }
-    : { state: "NEEDS_REVIEW" };
+    : { state: "NEEDS_REVIEW", issue };
 }
