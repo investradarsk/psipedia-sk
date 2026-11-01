@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PublicActionLink } from "./public-visual-system/public-visual-system";
 import type { ContentHubCtaDecision } from "@/lib/content-hub-context-cta";
 import styles from "./content-hub-cta.module.css";
 import { PublicBannerFrame } from "./public-visual-system/public-banner-frame";
@@ -20,11 +20,12 @@ export function ContentHubCta({ cta }: { cta: ContentHubCtaDecision }) {
       </div>
       <div className={styles.actions}>
         {cta.actions.map((action) => (
-          <Link href={action.href}
+          <PublicActionLink href={action.href} appearance="context"
+            variant={action.role === "primary" ? "primary" : "secondary"}
             className={action.role === "primary" ? styles.primary : styles.secondary}
             data-promo-key={action.promoKey} key={action.href}>
             {action.label}
-          </Link>
+          </PublicActionLink>
         ))}
       </div>
     </PublicBannerFrame>
