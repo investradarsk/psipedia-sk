@@ -1589,7 +1589,10 @@ await requireVerifiedMappedNotionWriteback({
       continue;
     }
     const trustedGemini = Boolean(provenance);
-    if (trustedGemini && !trustedGeminiSourceIsPrivateDraft(input.definition.key, values)) {
+    const operatorLegacy = Boolean(!trustedGemini && input.reviewedLegacy &&
+      input.targetPageId === page.id);
+    const privateImport = trustedGemini || operatorLegacy;
+    if (privateImport && !trustedGeminiSourceIsPrivateDraft(input.definition.key, values)) {
       summary.conflicts += 1;
       appendNotionReview(summary.reviewQueue, {
         entityId: null, notionPageId: page.id, reason: "GEMINI_PRIVATE_DRAFT_REQUIRED",
@@ -1624,7 +1627,7 @@ await requireVerifiedMappedNotionWriteback({
         continue;
       }
     }
-    if (!trustedGemini && input.reviewedLegacy && input.definition.key === "lost-found" && (
+    if (!privateImport && input.reviewedLegacy && input.definition.key === "lost-found" && (
       values["Latitude"] != null && values["Latitude"] !== "" ||
       values["Longitude"] != null && values["Longitude"] !== "" ||
       clean(values["Verejný kontakt"]) ||
@@ -1644,13 +1647,13 @@ await requireVerifiedMappedNotionWriteback({
     // Internal Gemini moderation is separate from public draft/published.
     // Never auto-import an unapproved/rejected source-evidenced Help concept.
     // Keep unmarked, pre-existing manual Notion imports compatible.
-    if (!trustedGemini && input.definition.key === "help-cases" &&
+    if (!privateImport && input.definition.key === "help-cases" &&
         !helpCaseMayEnterCanonicalSync(
           pageProperty(page, GEMINI_HELP_REVIEW_PROPERTY), values["Popis"])) {
       summary.unchanged += 1;
       continue;
     }
-    if (!trustedGemini && !readyForCreate(input.definition.key, values)) {
+    if (!privateImport && !readyForCreate(input.definition.key, values)) {
       summary.unchanged += 1;
       continue;
     }
@@ -1716,17 +1719,17 @@ await requireVerifiedMappedNotionWriteback({
           continue;
         }
       }
-      const preparedFields = trustedGemini
+      const preparedFields = privateImport
         ? prepareGeminiDraftFields(input.definition.key, values)
         : { values, warnings: [] as string[] };
-      const draftValues = trustedGemini
+      const draftValues = privateImport
         ? { ...preparedFields.values, "Slug": await resolveGeminiPublicSlug(input.database, input.definition.key as GeminiSlugAgenda, {
           requestedSlug: clean(values["Slug"]),
           name: clean(values[input.definition.key === "adoptions" ? "Meno" : "Názov"]),
           city: clean(values["Mesto"]), notionPageId: page.id,
         }) } : values;
       importWriteStarted = true;
-      const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, trustedGemini) as { id?: number } | null;
+      const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, privateImport) as { id?: number } | null;
       const entityId = Number(created?.id ?? 0);
       if (!Number.isSafeInteger(entityId) || entityId <= 0) {
         throw new Error("Canonical create nevrátil platné ID.");
@@ -1762,6 +1765,17 @@ await requireVerifiedMappedNotionWriteback({
         if (marked.meta.changes !== 1) throw Error("GEMINI_PROVENANCE_IMPORT_CONFLICT");
         await recordGeminiImportReviewNotes(input.database, input.definition.key,
           entityId, page.id, preparedFields.warnings).catch(() => undefined);
+      }
+      if (operatorLegacy) {
+        // The editor owns publication. Never overwrite legacy evidence,
+        // private contacts, or precise dog locations back into Notion.
+        await recordGeminiImportReviewNotes(input.database, input.definition.key,
+          entityId, page.id, [...preparedFields.warnings,
+            "Starší Gemini koncept prevzatý ako neverejný koncept. Údaje v Notione ostali nezmenené."
+          ]).catch(() => undefined);
+        summary.createdFromNotion += 1;
+        importWriteStarted = false;
+        continue;
       }
       try {
         const written = await writeSourceToNotion({

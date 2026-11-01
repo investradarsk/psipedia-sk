@@ -17,5 +17,13 @@ export async function hasGeminiCanonicalOrigin(
     "SELECT notion_page_id FROM gemini_notion_created_pages " +
     "WHERE import_agenda=? AND canonical_entity_id=? AND imported_at IS NOT NULL LIMIT 1"
   ).bind(agenda, entityId).first<{ notion_page_id: string }>();
-  return Boolean(receipt?.notion_page_id);
+  if (receipt?.notion_page_id) return true;
+  // An explicit authenticated owner import of a pre-signature Gemini concept
+  // is recorded in the separate canonical review notes table, never forged
+  // as a signed external callback or published automatically.
+  const legacy = await db.prepare(
+    "SELECT notion_page_id FROM gemini_import_review_notes " +
+    "WHERE import_agenda=? AND canonical_entity_id=? LIMIT 1"
+  ).bind(agenda, entityId).first<{ notion_page_id: string }>().catch(() => null);
+  return Boolean(legacy?.notion_page_id);
 }

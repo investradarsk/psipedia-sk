@@ -1532,12 +1532,16 @@ export async function runNotionDirectorySyncSweep(input: {
   /** Explicit Services V3 choice save only: also reconcile its Notion relation. */
   syncServiceRelations?: boolean;
   expectedNotionRevision?: string;
+  /** Authenticated owner confirmed this exact older Gemini page, never scheduled. */
+  reviewedLegacy?: boolean;
 }): Promise<NotionDirectorySyncSummary> {
   // One operation may target a Notion page OR a canonical Admin profile, never both.
   // This check belongs to the targeted reconciler, not the unscoped bootstrap job.
   if (input.targetPageId !== undefined && input.targetProfileId !== undefined) {
     throw new Error("NOTION_TARGET_SCOPE_AMBIGUOUS");
   }
+  if (input.reviewedLegacy && (!input.targetPageId || !input.expectedNotionRevision ||
+      input.targetProfileId !== undefined)) throw Error("GEMINI_LEGACY_DIRECTORY_SCOPE_INVALID");
   const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
   const summary: NotionDirectorySyncSummary = {
     enabled,
@@ -1672,22 +1676,26 @@ export async function runNotionDirectorySyncSweep(input: {
       ).bind(page.id, "directory." + propertyText(page, "Kategória"), dataSourceId)
         .first<{ notion_page_id: string }>();
       const trustedGemini = Boolean(registered);
-      if (trustedGemini || propertyText(page, "Vytvoril") === "Gemini automatizácia") {
+      const operatorLegacy = Boolean(input.reviewedLegacy && input.targetPageId === page.id &&
+        !trustedGemini && propertyText(page, "Vytvoril") === "Gemini automatizácia" &&
+        !propertyText(page, "Psipedia ID"));
+      const privateImport = trustedGemini || operatorLegacy;
+      if (privateImport || propertyText(page, "Vytvoril") === "Gemini automatizácia") {
         // Rejected/not-yet-approved Notion-only records cannot recover a mapping
         // or create/modify a canonical profile.
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini)) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini) && !operatorLegacy) continue;
         release = await acquireGeminiNotionLock(input.database, page.id);
         if (!release) continue;
         page = await fetchNotionPage(input.bindings, page.id);
         if (input.targetPageId && input.expectedNotionRevision && page.last_edited_time !== input.expectedNotionRevision)
           throw new Error("GEMINI_SAVED_REVISION_CHANGED");
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini)) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini) && !operatorLegacy) continue;
       }
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
-      if (!mapping && notionProfileReadyForCreate(page, trustedGemini)) {
-        if (trustedGemini) {
+      if (!mapping && (notionProfileReadyForCreate(page, trustedGemini) || operatorLegacy)) {
+        if (privateImport) {
           // Serialize canonical duplicate-check + INSERT across different Notion IDs.
           releaseImport = await acquireGeminiNotionLock(input.database, "directory-import");
           if (!releaseImport) continue;
@@ -1696,7 +1704,7 @@ export async function runNotionDirectorySyncSweep(input: {
           database: input.database,
           bindings: input.bindings,
           page,
-          trustedGemini,
+          trustedGemini: privateImport,
         });
         let created = creation.profile;
         const syncedAt = new Date().toISOString();
@@ -1727,7 +1735,7 @@ export async function runNotionDirectorySyncSweep(input: {
         // media/GEO/Notion operations: the native D1 concept is already usable.
         const warnings = creation.imageWarning
           ? ["Hlavný obrázok: " + creation.imageWarning] : [];
-        if (trustedGemini) await recordGeminiImportReviewNotes(input.database, "directory",
+        if (privateImport) await recordGeminiImportReviewNotes(input.database, "directory",
           created.id, page.id, [...warnings, ...creation.importWarnings]).catch(() => undefined);
 
         try {
@@ -1744,7 +1752,7 @@ export async function runNotionDirectorySyncSweep(input: {
             await cleanupNotionImageKeys(input.bindings.BUCKET, creation.prepared.replacedKeys);
           }
         } catch (error) {
-          if (!trustedGemini) throw error;
+          if (!privateImport) throw error;
           warnings.push("Doplnkové údaje obrázka: " +
             (error instanceof Error ? error.message : String(error)));
         }
@@ -1763,11 +1771,22 @@ export async function runNotionDirectorySyncSweep(input: {
             database: input.database,
           });
         } catch (error) {
-          if (!trustedGemini) throw error;
+          if (!privateImport) throw error;
           warnings.push("Google Maps: " + (error instanceof Error ? error.message : String(error)));
         }
         created = await getManagedDirectoryProfileById(created.id, input.database) ?? created;
 
+        // A human-confirmed legacy import is intentionally one-way: the
+        // original evidence and private fields in Notion must not be rewritten.
+        if (operatorLegacy) {
+          await recordGeminiImportReviewNotes(input.database, "directory",
+            created.id, page.id, [...warnings, ...creation.importWarnings,
+              "Starší Gemini koncept prevzatý do Adminu. Zdrojové údaje v Notione zostali nezmenené."
+            ]).catch(() => undefined);
+          summary.createdFromNotion += 1;
+          await recordDirectoryTransfer(input.database, created.id, "NOTION_TO_ADMIN");
+          continue;
+        }
         // Optional Notion write-back/catalog mirroring cannot revoke the private editor.
         try {
           await writeProfileToNotion({
@@ -1778,14 +1797,14 @@ export async function runNotionDirectorySyncSweep(input: {
             pageId: page.id,
           });
         } catch (error) {
-          if (!trustedGemini) throw error;
+          if (!privateImport) throw error;
           warnings.push("Spätná synchronizácia Notion: " +
             (error instanceof Error ? error.message : String(error)));
         }
         try {
           await syncRelation(page.id,created.id);
         } catch (error) {
-          if (!trustedGemini) throw error;
+          if (!privateImport) throw error;
           warnings.push("Katalóg služieb: " +
             (error instanceof Error ? error.message : String(error)));
         }
