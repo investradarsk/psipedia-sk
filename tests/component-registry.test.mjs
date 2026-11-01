@@ -28,6 +28,8 @@ test("registry tracks transitive imports, shared usage, and admin/public areas",
   const shared = data.components.find((item) => item.name === "shared");
   assert.deepEqual(shared.routes, ["/", "/adresar"]);
   assert.equal(shared.shared, true);
+  assert.equal(shared.family, "other");
+  assert.equal(shared.label, "shared");
   assert.deepEqual(shared.consumers, ["app/page.tsx", "components/outer.tsx"]);
   const admin = data.components.find((item) => item.name === "admin-panel");
   assert.equal(admin.area, "admin");
@@ -48,4 +50,24 @@ test("cycles in import graph are bounded", (t) => {
   fixture(root, "components/b.tsx", 'import A from "./a"; export default function B(){ return <div /> }');
   const registry = buildRegistry(root);
   assert.deepEqual(registry.components.find((item) => item.name === "b").routes, ["/"]);
+});
+
+test("visual families are review candidates, never automatic merge decisions", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "psipedia-visual-families-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fixture(root, "app/page.tsx", 'import Hero from "@/components/unified-section-hero"; export default Hero;');
+  fixture(root, "components/unified-section-hero.tsx", 'export default function Hero(){ return <div/> }');
+  fixture(root, "components/section-hero.tsx", 'export function OldHero(){ return <header/> }');
+  fixture(root, "components/public-magazine-banner.tsx", 'export function Banner(){ return <aside/> }');
+  fixture(root, "components/public-context-banner.tsx", 'export function Info(){ return <aside/> }');
+  const registry = buildRegistry(root);
+  assert.equal(registry.version, 2);
+  assert.equal(registry.components.find(x => x.name === "unified-section-hero").family, "hero");
+  assert.equal(registry.components.find(x => x.name === "public-magazine-banner").label, "Fotografický a promo banner");
+  assert.deepEqual(registry.relatedGroups.find(x => x.id === "hero").paths, [
+    "components/unified-section-hero.tsx", "components/section-hero.tsx"
+  ]);
+  assert.deepEqual(registry.relatedGroups.find(x => x.id === "banner").paths, [
+    "components/public-magazine-banner.tsx", "components/public-context-banner.tsx"
+  ]);
 });
