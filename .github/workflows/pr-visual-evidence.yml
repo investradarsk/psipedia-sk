@@ -127,7 +127,7 @@ jobs:
         if: steps.routes.outputs.enabled == 'true'
         run: |
           mkdir -p .e2e-artifacts/pr-visual
-          nohup npm run dev > .e2e-artifacts/pr-visual/server.log 2>&1 &
+          nohup ./node_modules/.bin/vite --host 127.0.0.1 --port 5173 --strictPort > .e2e-artifacts/pr-visual/server.log 2>&1 &
           echo $! > .e2e-artifacts/pr-visual/server.pid
           ready=0
           for attempt in $(seq 1 90); do
@@ -154,6 +154,20 @@ jobs:
         env:
           VISUAL_OUTPUT_DIR: .e2e-artifacts/pr-visual/site-after
         run: node scripts/pr-visual-screenshots.mjs
+      - name: Stop PR preview before running ancestor preview
+        if: steps.routes.outputs.enabled == 'true'
+        run: |
+          if test -f .e2e-artifacts/pr-visual/server.pid; then
+            kill "$(cat .e2e-artifacts/pr-visual/server.pid)" 2>/dev/null || true
+          fi
+          for attempt in $(seq 1 30); do
+            if ! curl --silent --fail http://localhost:5173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          if curl --silent --fail http://localhost:5173/ > /dev/null; then
+            echo "Previous PR preview still owns port 5173; refusing to capture a false baseline."
+            exit 1
+          fi
       - name: Capture matching real pages on the Git ancestor
         if: steps.routes.outputs.enabled == 'true'
         run: bash scripts/pr-visual-capture-base.sh
