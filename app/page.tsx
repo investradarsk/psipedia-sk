@@ -10,6 +10,7 @@ import {
   HomeSidebarRow,
 } from "@/components/home-editorial";
 import { HomePortalSearch } from "@/components/home-portal-search";
+import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { ArrowIcon, PawMark, SparkIcon } from "@/components/icons";
 import { DogAgeCalculator } from "@/components/dog-age-calculator";
 import { AdSlot } from "@/components/ad-slot";
@@ -23,8 +24,7 @@ import { publicLocationValue } from "@/lib/public-location";
 import { getHomepageHighlightedHelpCasesWithImages } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { selectHomepageArticles } from "@/lib/homepage-content";
-import { sectionVisualPositionPercent } from "@/lib/section-visual-contract";
-import { getResolvedSectionVisual } from "@/lib/section-visual-store";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { ImageDisplay } from "@/components/image-display";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
@@ -33,7 +33,6 @@ import { AD_PLACEMENTS } from "@/lib/monetization";
 import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import styles from "./home-v2.module.css";
 
 // Site-level positioning: the homepage is a portal, not the landing for individual services.
@@ -67,27 +66,14 @@ export default async function Home() {
     getHomepageHighlightedHelpCasesWithImages(3),
     getHomepageDirectoryProfilesWithImages("veterinari", 3),
     getHomepageDirectoryProfilesWithImages("treneri", 3),
-    getResolvedSectionVisual("home.hero"),
+    getSectionHeroVisual("home.hero"),
     listHomepageFeaturedBreeds(5).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
     }),
     getPublishedDesktopBannerColors("homepage:profil"),
   ]);
-  const homeHero = homeHeroVisual ?? {
-    imageUrl: "/images/hero-labrador.webp",
-    altText: "Čierny labrador beží po rannej lúke",
-    desktopCrop: { x: 0.5, y: 0.5, zoom: 1 },
-    mobileCrop: { x: 0.64, y: 0.5, zoom: 1 },
-  };
-  const homeHeroStyle = {
-    "--section-visual-desktop-x": sectionVisualPositionPercent(homeHero.desktopCrop.x),
-    "--section-visual-desktop-y": sectionVisualPositionPercent(homeHero.desktopCrop.y),
-    "--section-visual-desktop-zoom": homeHero.desktopCrop.zoom,
-    "--section-visual-mobile-x": sectionVisualPositionPercent(homeHero.mobileCrop.x),
-    "--section-visual-mobile-y": sectionVisualPositionPercent(homeHero.mobileCrop.y),
-    "--section-visual-mobile-zoom": homeHero.mobileCrop.zoom,
-  } as CSSProperties & Record<string, string | number>;
+  const homeHero = homeHeroVisual;
   const articleSelection = selectHomepageArticles(publishedArticles, {
     latestLimit: 5,
     sectionLimit: 5,
@@ -100,39 +86,16 @@ export default async function Home() {
 
   return (
     <main id="obsah" className={styles.homeV2}>
-      <section className="hero-section shell" data-home-hero>
-        <div className="hero-card">
-          <img
-            className="hero-image"
-            src={homeHero.imageUrl}
-            srcSet={responsiveMediaSrcSet(homeHero.imageUrl, [640, 960, 1280, 1600, 1920])}
-            sizes="100vw"
-            alt={homeHero.altText}
-            style={homeHeroStyle}
-            fetchPriority="high"
-            decoding="async"
-          />
-          <div className="hero-shade" />
-          <div className="hero-copy">
-            <span className="hero-kicker">
-              <SparkIcon size={17} /> Slovenský portál pre psí život
-            </span>
-            <h1>
-              Všetko dôležité
-              <br />
-              pre život so psom.
-            </h1>
-            <p>
-              Psipedia.sk je slovenský portál o psoch – rady, služby, podujatia a pomoc na jednom
-              mieste.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div className="shell home-search-shell" data-home-search>
-        <HomePortalSearch />
-      </div>
+      <UnifiedSectionHeroShell className="hero-section" data-home-hero>
+        <UnifiedSectionHero
+          variant="homepage-style"
+          eyebrow={<><SparkIcon size={17} /> Slovenský portál pre psí život</>}
+          title={<>Všetko dôležité<br />pre život so psom.</>}
+          intro="Psipedia.sk je slovenský portál o psoch – rady, služby, podujatia a pomoc na jednom mieste."
+          visual={homeHero}
+          portalSearchSlot={<HomePortalSearch />}
+        />
+      </UnifiedSectionHeroShell>
 
       <HomeLatestArticles articles={articleSelection.latest} />
 
@@ -198,9 +161,9 @@ export default async function Home() {
       />
 
       <HomeMagazineBanner
+        anchorId={HOME_PROFILE_BANNER_ANCHOR}
         desktopColors={homeProfileBannerColors}
         desktopCopy={homeProfileBannerColors}
-        anchorId={HOME_PROFILE_BANNER_ANCHOR}
         testId="profil"
         title="Pridajte svoj profil"
         description="Prevádzkujete službu pre psov? Nech vás majitelia ľahšie nájdu v adresári."

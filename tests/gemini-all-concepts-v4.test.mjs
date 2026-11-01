@@ -19,7 +19,17 @@ test("Gemini V4 central list uses existing canonical catalog (10/6/6) and only c
   assert.match(overview, /Promise\.all\(\[loadNext\(\), loadNext\(\)\]\)/);
   assert.match(overview, /credentials: "same-origin", cache: "no-store"/);
   assert.doesNotMatch(overview, /\/api\/admin\/gemini-automation\/run/);
-  assert.doesNotMatch(overview, /method: "(?:POST|PUT|PATCH|DELETE)"/);
+  // The list remains read-only except for the explicit, owner-authenticated
+  // one-page PRIVATE import endpoint introduced by the legacy backlog flow.
+  assert.match(overview, /fetch\("\/api\/admin\/gemini-automation\/import-pending"/);
+  const writes = [...overview.matchAll(/method: "(POST|PUT|PATCH|DELETE)"/g)].map(match => match[1]);
+  assert.deepEqual(writes, ["POST"], "No generic mutations, publication or destructive endpoints");
+  const importRoute = source("app/api/admin/gemini-automation/import-pending/route.ts");
+  assert.match(importRoute, /requireAdminMutation\(request\)/);
+  assert.match(importRoute, /confirm !== "IMPORT_PRIVATE_GEMINI_DRAFT"/);
+  assert.match(importRoute, /ownerConfirmedLegacy: true/);
+  assert.doesNotMatch(importRoute, /status: "(?:published|active)"/);
+  assert.doesNotMatch(overview, /\/api\/admin\/gemini-automation\/notion-drafts[^"]*"[^\n]*method: "(?:POST|PUT|PATCH|DELETE)"/);
   assert.doesNotMatch(overviewPage, /listPendingGeminiDirectoryConcepts|listPendingGeminiEventConcepts/);
   assert.match(overviewPage, /requireAdminPageUser/);
 });

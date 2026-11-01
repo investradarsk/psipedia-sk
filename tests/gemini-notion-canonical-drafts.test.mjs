@@ -359,7 +359,7 @@ test("all 12 trusted Events/Help categories refuse public, archived or rejected 
     }
   }
   const sync = readFileSync(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
-  assert.match(sync, /trustedGemini && !trustedGeminiSourceIsPrivateDraft/);
+  assert.match(sync, /privateImport && !trustedGeminiSourceIsPrivateDraft/);
   assert.match(sync, /GEMINI_PRIVATE_DRAFT_REQUIRED/);
 });
 

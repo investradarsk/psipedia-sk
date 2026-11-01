@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { PublicActionLink, PublicIcon } from "./public-visual-system";
 import styles from "./public-context-banner.module.css";
+import { PublicBannerFrame } from "./public-banner-frame";
 
 function cx(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -44,8 +45,8 @@ export function PublicContextBanner({
   const hasImage = Boolean(image?.src.trim());
 
   return (
-    <aside
-      className={cx("ps-public-banner-frame", styles.banner, styles[`tone_${tone}`], hasImage && styles.hasImage, inline && styles.inline, className)}
+    <PublicBannerFrame
+      className={cx(styles.banner, styles[`tone_${tone}`], hasImage && styles.hasImage, inline && styles.inline, className)}
       data-public-context-banner
       data-public-context-banner-tone={tone}
       data-public-context-banner-layout={inline ? "inline" : "stacked"}
@@ -70,6 +71,6 @@ export function PublicContextBanner({
           />
         </div>
       ) : null}
-    </aside>
+    </PublicBannerFrame>
   );
 }

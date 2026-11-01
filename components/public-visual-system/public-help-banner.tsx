@@ -6,6 +6,7 @@ import { helpClosingPromo } from "@/lib/help-banner-presets";
 import { HELP_CLOSING_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
 export { lostFoundSubmitPromo } from "@/lib/help-banner-presets";
 import styles from "./public-help-banner.module.css";
+import { PublicBannerFrame } from "./public-banner-frame";
 
 export type PublicHelpPhotoBannerData = Omit<PublicPhotoCalloutData, "tone"> & {
   tone: "care" | "rescue" | "volunteer";
@@ -17,7 +18,7 @@ export function PublicHelpPhotoBanner({ promo, anchorId }: { promo: PublicHelpPh
 
 export function PublicHelpReportBanner() {
   return (
-    <aside className={`ps-public-banner-frame ${styles.reportBanner}`} aria-label="Rýchla pomoc pri nájdenom psovi">
+    <PublicBannerFrame className={styles.reportBanner} aria-label="Rýchla pomoc pri nájdenom psovi">
       <div className={styles.reportCopy}>
         <span className={styles.reportIcon}><AlertCircleIcon size={22} /></span>
         <div>
@@ -29,7 +30,7 @@ export function PublicHelpReportBanner() {
       <PublicActionLink href="/pomoc-psom/nahlasit-psa-v-nudzi" variant="secondary" icon={<ArrowIcon size={16} />}>
         Postup krok za krokom
       </PublicActionLink>
-    </aside>
+    </PublicBannerFrame>
   );
 }
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { ArrowIcon } from "@/components/icons";
 import styles from "./public-magazine-banner.module.css";
+import { PublicBannerFrame } from "./public-banner-frame";
 
 export type PublicMagazineBannerPhotoTone = "care" | "rescue" | "volunteer" | "closing";
 
@@ -53,11 +54,11 @@ export function PublicMagazineBanner({
   const buttonBg = desktopColors?.button === "green" ? "#20543e" : desktopColors?.button === "red" ? "#b44939" : undefined;
   const desktopStyle = { "--ps-visual-desktop-bg": bg, "--ps-visual-desktop-button": buttonBg } as CSSProperties;
   return (
-    <section
+    <PublicBannerFrame as="section"
       id={anchorId}
       style={desktopColors ? desktopStyle : undefined}
       data-visual-library-desktop-published={desktopColors ? "true" : undefined}
-      className={[compact ? "home-magazine-banner" : "shell home-magazine-banner", styles.magazine, "ps-public-banner-frame", photo && styles.withPhoto, compact && styles.compact, links?.length && styles.withLinks].filter(Boolean).join(" ")}
+      className={[compact ? "home-magazine-banner" : "shell home-magazine-banner", styles.magazine, photo && styles.withPhoto, compact && styles.compact, links?.length && styles.withLinks].filter(Boolean).join(" ")}
       data-home-banner={testId}
       data-promo-key={promoKey}
       data-promo-variant={promoVariant}
@@ -115,6 +116,6 @@ export function PublicMagazineBanner({
           ) : label} <ArrowIcon size={18} />
         </Link>
       ) : null}
-    </section>
+    </PublicBannerFrame>
   );
 }
