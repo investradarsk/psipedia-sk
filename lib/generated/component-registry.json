@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "generatedAt": null,
   "totals": {
     "components": 0,
@@ -8,5 +8,7 @@
     "unreferenced": 0
   },
   "sameNameCandidates": [],
-  "components": []
+  "components": [],
+  "families": [],
+  "relatedGroups": []
 }
