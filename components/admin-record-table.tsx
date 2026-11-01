@@ -10,6 +10,9 @@ import {
   type SortingState,
   type VisibilityState,
   type RowSelectionState,
+  type Table,
+  type Row,
+  type CellContext,
 } from "@tanstack/react-table";
 import { BulkSelectionCheckbox } from "./admin-bulk-selection";
 import styles from "./admin-record-table.module.css";
@@ -59,7 +62,7 @@ export function AdminRecordTable<T extends { id: number }>({
   const definitions = useMemo<ColumnDef<T>[]>(() => [
     ...(selection ? [{
       id: "__select",
-      header: ({ table }: { table: ReturnType<typeof useReactTable<T>> }) => (
+      header: ({ table }: { table: Table<T> }) => (
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
           label={"Označiť všetky záznamy na tejto strane: " + label}
@@ -69,7 +72,7 @@ export function AdminRecordTable<T extends { id: number }>({
           onChange={checked => table.toggleAllPageRowsSelected(checked)}
         />
       ),
-      cell: ({ row }: { row: { original: T; getIsSelected(): boolean; toggleSelected(value: boolean): void } }) => (
+      cell: ({ row }: { row: Row<T> }) => (
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
           label={selection.labelForRow?.(row.original) ?? ("Označiť záznam " + row.original.id)}
@@ -86,8 +89,8 @@ export function AdminRecordTable<T extends { id: number }>({
     ...columns.map((column) => ({
     id: column.id,
     header: column.label,
-    accessorFn: (record) => column.sortValue ? column.sortValue(record) : "",
-    cell: ({ row }) => column.cell(row.original),
+    accessorFn: (record: T) => column.sortValue ? column.sortValue(record) : "",
+    cell: ({ row }: CellContext<T, unknown>) => column.cell(row.original),
     enableSorting: Boolean(column.sortValue),
     size: column.width ?? 165,
     minSize: 85,
