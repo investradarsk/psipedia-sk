@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     }
     const result = await reconcileGeminiSavedDraft({
       database, bindings, key, notionPageId: pageId,
-      savedRevision: revision, ownerConfirmedLegacy: true,
+      savedRevision: revision, ownerConfirmedLegacy: true, validatedDraft: draft,
     });
     // Every failed import returns one safe reason code to the admin UI.
     // A 200 response means the request was handled, NOT that D1 was created.
