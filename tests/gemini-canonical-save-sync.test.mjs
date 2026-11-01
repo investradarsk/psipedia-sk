@@ -150,10 +150,12 @@ function importHarness(options = {}) {
   const summary = { conflicts: 0, unchanged: 0, createdFromNotion: 0, failed: 0 };
   const source = { id: 77, properties: {} };
   const page = { id: pageId, last_edited_time: "saved-v2" };
-  const input = { page, definition: { key: "events", load: async () => [source] },
+  const input = { page, mode: "sync", reviewedLegacy: Boolean(options.ownerLegacy),
+    definition: { key: "events", load: async () => [source] },
     database: { prepare: () => ({ bind: () => ({ run: async () => ({ meta: { changes: 1 } }) }) }) }, bindings: {} };
   const context = { input, summary, sources: [], sourcesById: new Map(), schema: {},
-    trustedGemini: true, values: { "Názov": "Offline", "Slug": "offline" }, target: { dataSourceId: "ds" },
+    trustedGemini: !options.ownerLegacy, operatorLegacy: Boolean(options.ownerLegacy),
+    privateImport: true, values: { "Názov": "Offline", "Slug": "offline" }, target: { dataSourceId: "ds" },
     acquireGeminiNotionLock: async (_db, id) => {
       if (held.has(id)) return null;
       held.add(id); return async () => { held.delete(id); released.push(id); };
@@ -318,4 +320,63 @@ test("unapproved legacy pages and unsigned directory pages cannot use legacy han
       assert.equal(approved.calls.length, 0);
     }
   }
+});
+
+
+test("authenticated owner confirmation imports legacy evidence to private D1 for all 22 categories", async () => {
+  for (const item of geminiAutomationCatalog) {
+    const h = harness(item, { signed: false, before: {
+      reviewState: "NEW",
+      ...(item.section !== "directory" ? { attribution: "EVIDENCE_SIGNATURE_ONLY" } : {}),
+    }});
+    const result = await h.run({ ownerConfirmedLegacy: true });
+    assert.equal(result.state, "CANONICAL_DRAFT_READY", item.stableKey);
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.calls[0].reviewedLegacy, true);
+    assert.equal(h.calls[0].targetPageId, pageId);
+    assert.equal(h.calls[0].expectedNotionRevision, "saved-v2");
+    assert.ok(!h.calls[0].force, "No forced sync enablement");
+  }
+});
+
+test("owner confirmation never bypasses stale versions, rejection or unverified canonical identity", async () => {
+  for (const item of geminiAutomationCatalog) {
+    const opts = { signed: false };
+    for (const before of [
+      { reviewState: "REJECTED" }, { reviewState: "PUBLISHED" },
+      { lastEditedAt: "changed-on-notion" }, { psipediaId: "42", canonicalVerified: false },
+    ]) {
+      const h = harness(item, { ...opts, before });
+      assert.notEqual((await h.run({ ownerConfirmedLegacy: true })).state,
+        "CANONICAL_DRAFT_READY", item.stableKey);
+      assert.equal(h.calls.length, 0);
+    }
+  }
+});
+
+test("an explicitly confirmed unsigned legacy import persists mapping and skips Notion writeback", async () => {
+  const h = importHarness({ ownerLegacy: true });
+  await h.run();
+  assert.deepEqual(h.operations, ["create", "mapping"]);
+  assert.equal(h.summary.createdFromNotion, 1);
+  assert.equal(h.held.size, 0);
+  assert.deepEqual(h.released, [pageId, "gemini-canonical-import-events"]);
+});
+
+test("legacy imports never run from unscoped scheduled or unauthenticated public endpoints", () => {
+  const directory = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const agenda = readFileSync(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/admin/gemini-automation/import-pending/route.ts", import.meta.url), "utf8");
+  assert.match(directory, /GEMINI_LEGACY_DIRECTORY_SCOPE_INVALID/);
+  assert.match(agenda, /GEMINI_LEGACY_REVIEW_SCOPE_INVALID/);
+  assert.match(route, /requireAdminMutation\(request\)/);
+  assert.match(route, /IMPORT_PRIVATE_GEMINI_DRAFT/);
+  assert.match(route, /getGeminiAgendaDraft/);
+  assert.match(route, /getGeminiDirectoryDraft/);
+  assert.match(route, /ownerConfirmedLegacy: true/);
+  assert.doesNotMatch(route, /status: "published"/);
+  const adapters = readFileSync(new URL("../lib/notion-events-help-adapters.ts", import.meta.url), "utf8");
+  assert.match(adapters, /SELECT notion_page_id FROM gemini_import_review_notes/);
+  assert.match(adapters, /if \(origin \|\| ownerReviewed\)/);
+  assert.match(adapters, /GEMINI_LOST_FOUND_PRIVACY_REVIEW_REQUIRED/);
 });
