@@ -39,6 +39,9 @@ function harness(item, options = {}) {
     "./notion-events-help-sync": { runNotionEventsHelpSyncSweep: sync },
     "./gemini-concept-manager": { geminiValidNotionDraftId },
     "./gemini-automation-catalog": { getGeminiCatalogItem },
+    "./gemini-import-d1-verification": {
+      verifiedPrivateGeminiEditor: async () => options.verifiedEditor ?? null,
+    },
   };
   const exports = {};
   runInNewContext(js, { exports, require: id => {
@@ -72,6 +75,44 @@ test("all 22 saves target one signed page/revision and return only verified priv
     if (geminiImportAgenda(item.stableKey) !== "directory")
       assert.deepEqual(Array.from(call.agendas), [geminiImportAgenda(item.stableKey)]);
   }
+});
+
+
+test("canonical D1 mapping confirms private import even when Notion post-read is unreliable", async () => {
+  for (const item of geminiAutomationCatalog) {
+    const h = harness(item, {
+      failure: true,
+      verifiedEditor: "/admin/" + (geminiImportAgenda(item.stableKey) === "directory" ? "adresar" : "adopcie") + "/77",
+      after: { psipediaId: "", canonicalVerified: false },
+    });
+    const result = await h.run();
+    assert.equal(result.state, "CANONICAL_DRAFT_READY", item.stableKey);
+    assert.equal(h.calls.length, 1);
+  }
+});
+
+test("owner-validated snapshot avoids duplicate Notion read and requires exact identity", async () => {
+  const item = geminiAutomationCatalog.find(entry => entry.section === "directory");
+  const h = harness(item, { signed: false, verifiedEditor: "/admin/adresar/77" });
+  const result = await h.run({
+    ownerConfirmedLegacy: true,
+    validatedDraft: {
+      id: pageId, category: item.subcategory, psipediaId: "",
+      canonicalVerified: false, reviewState: "NEW", lastEditedAt: "saved-v2",
+    },
+  });
+  assert.equal(result.state, "CANONICAL_DRAFT_READY");
+  assert.equal(h.calls.length, 1);
+  const incorrect = harness(item, { signed: false });
+  const rejected = await incorrect.run({
+    ownerConfirmedLegacy: true,
+    validatedDraft: {
+      id: pageId, category: "wrong", psipediaId: "",
+      canonicalVerified: false, reviewState: "NEW", lastEditedAt: "saved-v2",
+    },
+  });
+  assert.equal(rejected.state, "NEEDS_REVIEW");
+  assert.equal(incorrect.calls.length, 0);
 });
 
 test("missing provenance/revision and concurrent edits never import; verified D1 drafts reopen directly", async () => {
