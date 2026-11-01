@@ -76,7 +76,7 @@ test("workflow checks out the PR head with local-only data and uploads artifacts
   assert.match(workflow, /pr-visual-route-selection\\.mjs/);
   assert.match(workflow, /head\.repo\.full_name == github\.repository/);
   assert.match(workflow, /pull_request\.head\.sha/);
-  assert.match(workflow, /VISUAL_REVIEW_ROUTES:/);
+  assert.match(workflow, /VISUAL_SELECTED_ROUTES/);
   assert.match(workflow, /PSIPEDIA_E2E_LOCAL_BOOTSTRAP/);
   assert.match(workflow, /--local/);
   assert.match(workflow, /node scripts\/bootstrap-breed-e2e\.mjs prepare/);
