@@ -251,10 +251,12 @@ async function loadCount(page: Page) {
   return page.evaluate(() => Number(sessionStorage.getItem("psipedia:e2e:document-loads") ?? "0"));
 }
 
+// Use the always-rendered calendar action in the new homepage events section;
+// the former [data-home-search] wrapper no longer exists after UnifiedSectionHero.
 test("sitewide Chrome iPhone: homepage → events → contact → back twice stays on Psipedia", async ({ page }) => {
   await emulateChromeOnIphone(page);
   const homepageCount = await loadCount(page);
-  await page.locator('[data-home-search] a[href="/podujatia"]').click();
+  await page.locator('[data-home-events-section] a[href="/podujatia"]').click();
   await expect(page).toHaveURL(/\/podujatia$/);
   expect(await loadCount(page)).toBeGreaterThan(homepageCount);
 
@@ -269,7 +271,7 @@ test("sitewide Chrome iPhone: homepage → events → contact → back twice sta
   await expect(page).toHaveURL(/\/podujatia$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.locator("[data-home-search]")).toBeVisible();
+  await expect(page.locator(".home-search-panel")).toBeVisible();
 });
 
 test("sitewide Chrome iPhone: homepage → magazine → article → two browser backs", async ({ page }) => {
@@ -292,7 +294,7 @@ test("sitewide Chrome iPhone: homepage → magazine → article → two browser 
 
 test("sitewide Chrome iPhone: calendar month changes stay client-side", async ({ page }) => {
   await emulateChromeOnIphone(page);
-  await page.locator('[data-home-search] a[href="/podujatia"]').click();
+  await page.locator('[data-home-events-section] a[href="/podujatia"]').click();
   await expect(page).toHaveURL(/\/podujatia$/);
   const loads = await loadCount(page);
   const month = page.getByRole("link", { name: "Nasledujúci mesiac" });
@@ -305,6 +307,6 @@ test("sitewide Chrome iPhone: calendar month changes stay client-side", async ({
 
 test("other browsers retain normal client-side navigation policy", async ({ page }) => {
   await expect(page.locator("html")).not.toHaveAttribute("data-native-history-navigation", "chrome-ios");
-  await page.locator('[data-home-search] a[href="/podujatia"]').click();
+  await page.locator('[data-home-events-section] a[href="/podujatia"]').click();
   await expect(page).toHaveURL(/\/podujatia$/);
 });
