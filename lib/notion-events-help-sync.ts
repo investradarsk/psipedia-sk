@@ -800,7 +800,8 @@ async function syncAgenda(input: {
   for (const source of sources) {
     // For a new webhook page, only the inbound page may be imported.
     // Never bootstrap, attach or PATCH unrelated canonical D1 profiles.
-    if (webhookNewPage || ownerTargetedImport) break;
+    if (webhookNewPage) break;
+    if (ownerTargetedImport) break;
     const entityId = sourceId(source);
     if (entityId === null) continue;
     let mapping = mappingByEntity.get(entityId) ?? null;
