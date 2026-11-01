@@ -48,7 +48,7 @@ test("media route transforms only approved raster widths and preserves original 
 
 test("homepage, editorial cards, listing thumbs and section heroes use responsive R2 srcsets", () => {
   for (const [path, token] of [
-    ["app/page.tsx", "homeHero.imageUrl"],
+    // The homepage now delegates the responsive hero image to UnifiedSectionHero.
     ["components/article-card.tsx", "article.image"],
     ["components/public-visual-system/public-visual-system.tsx", "image.src"],
     ["components/public-visual-system/unified-section-hero.tsx", "visual.imageUrl"],
@@ -59,7 +59,12 @@ test("homepage, editorial cards, listing thumbs and section heroes use responsiv
     assert.match(source, /sizes=/, path);
   }
   const homepage = read("app/page.tsx");
-  assert.match(homepage, /fetchPriority="high"/);
+  const hero = read("components/public-visual-system/unified-section-hero.tsx");
+  assert.match(homepage, /<UnifiedSectionHero/);
+  assert.match(homepage, /visual=\{homeHero\}/);
+  assert.match(hero, /src=\{visual\.imageUrl\}/);
+  assert.match(hero, /srcSet=\{responsiveMediaSrcSet\(visual\.imageUrl/);
+  assert.match(hero, /sizes=/);
+  assert.match(hero, /fetchPriority=\{variant === "homepage-style" \? "high"/);
   assert.match(homepage, /loading="lazy"/);
-  assert.match(homepage, /style=\{homeHeroStyle\}/);
 });
