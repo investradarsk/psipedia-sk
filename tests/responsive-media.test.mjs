@@ -50,18 +50,18 @@ test("homepage uses the shared responsive hero and cards use R2 srcsets", () => 
   const homepage = read("app/page.tsx");
   const unifiedHero = read("components/public-visual-system/unified-section-hero.tsx");
   // The homepage now delegates its hero image, crop and priority to this shared component.
-  assert.match(homepage, /<UnifiedSectionHero\\s+[\\s\\S]*?visual=\\{homeHero\\}/);
-  assert.match(unifiedHero, /responsiveMediaSrcSet\\(visual\\.imageUrl/);
+  assert.match(homepage, /<UnifiedSectionHero\s+[\s\S]*?visual=\{homeHero\}/);
+  assert.match(unifiedHero, /responsiveMediaSrcSet\(visual\.imageUrl/);
   assert.match(unifiedHero, /sizes=/);
-  assert.match(unifiedHero, /fetchPriority=\\{variant === "homepage-style" \\? "high" : undefined\\}/);
-  assert.match(unifiedHero, /style=\\{visualStyle\\(visual\\)\\}/);
+  assert.match(unifiedHero, /fetchPriority=\{variant === "homepage-style" \? "high" : undefined\}/);
+  assert.match(unifiedHero, /style=\{visualStyle\(visual\)\}/);
   for (const [path, token] of [
     ["components/article-card.tsx", "article.image"],
     ["components/public-visual-system/public-visual-system.tsx", "image.src"],
     ["components/breed-photo.tsx", "props.src"],
   ]) {
     const source = read(path);
-    assert.match(source, new RegExp(`responsiveMediaSrcSet\\\\(${token.replaceAll(".", "\\\\.")}`), path);
+    assert.match(source, new RegExp(`responsiveMediaSrcSet\\(${token.replaceAll(".", "\\.")}`), path);
     assert.match(source, /sizes=/, path);
   }
   assert.match(homepage, /loading="lazy"/);
