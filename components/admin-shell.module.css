@@ -299,3 +299,11 @@
   .workspaceMain { padding: 9px 10px 0; }
   .topbarSticky { padding: 8px 60px 8px 10px; }
 }
+
+/* On 320px admin screens, the long brand name crowded the search, tour,
+   back link and bell into the fixed menu trigger. Keep the paw/logo link
+   accessible (AdminHomeBrandLink supplies its aria-label) and preserve
+   all 44px touch targets rather than shrinking or overlapping them. */
+@media (max-width: 360px) {
+  .mobileBrand > span { display: none; }
+}

@@ -1,0 +1,51 @@
+.workspace { display: grid; gap: 14px; min-width: 0; margin-top: 18px; }
+.intro {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 14px; flex-wrap: wrap; color: #1a4534;
+}
+.intro strong { font-size: 1.15rem; }
+.intro p { margin: 4px 0 0; color: #64756a; font-size: .83rem; }
+.categories {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 5px 0; border-bottom: 1px solid #dce6dc;
+}
+.categories a {
+  display: inline-flex; align-items: center; min-height: 38px;
+  gap: 5px; border: 1px solid #d6e3d7; border-radius: 9px;
+  background: #fff; color: #1b4b34;
+  text-decoration: none; padding: 8px 10px; font-size: .78rem; font-weight: 700;
+}
+.categories a[aria-current="page"] { background: #174b38; border-color: #174b38; color: #fff; }
+.categoryAction, .action {
+  display: inline-flex; align-items: center; border-radius: 8px;
+  padding: 8px 10px; background: #e9f3e9; color: #174b38;
+  border: 1px solid #d3e2d6; text-decoration: none; font-size: .79rem; font-weight: 750;
+}
+.search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.search label { font-size: .82rem; font-weight: 750; color: #2d5940; }
+.search input {
+  min-width: min(100%, 240px); max-width: 430px; flex: 1;
+  border: 1px solid #ccdacf; border-radius: 9px; min-height: 40px; padding: 8px 10px;
+  font: inherit; font-size: .86rem;
+}
+.search button {
+  min-height: 40px; padding: 8px 14px; border: none; border-radius: 9px;
+  background: #174b38; color: white; font-weight: 750; cursor: pointer;
+}
+.search > a { color: #35634c; font-size: .83rem; }
+.primary { color: #174b38; font-weight: 800; }
+.count { margin: 0; color: #5f7466; font-size: .82rem; }
+.pagination {
+  display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 12px;
+}
+.pagination a, .pagination span {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #d8e3d9; border-radius: 8px; min-height: 38px; padding: 6px 12px;
+  color: #174b38; font-size: .81rem; text-decoration: none;
+}
+.empty { padding: 20px; border: 1px solid #dae5da; border-radius: 12px; }
+.mobileHub { display: none; }
+@media (max-width: 760px) {
+  .workspace { display: none; }
+  .mobileHub { display: block; }
+}

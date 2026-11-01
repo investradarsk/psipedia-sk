@@ -1,0 +1,15 @@
+.button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid #d5dfd8; border-radius: 9px; background: #f8fbf7;
+  color: #174b38; min-height: 36px; padding: 7px 10px;
+  font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer;
+}
+.button:hover { background: #edf5ea; }
+.button:focus-visible { outline: 3px solid #b94832; outline-offset: 2px; }
+.button:disabled { opacity: .6; cursor: progress; }
+@media (max-width: 1100px) {
+  .button { padding-inline: 8px; }
+}
+@media (max-width: 820px) {
+  .button span { display: none; }
+}
