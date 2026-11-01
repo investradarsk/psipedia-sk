@@ -42,6 +42,10 @@ function harness(item, options = {}) {
     "./gemini-import-d1-verification": {
       verifiedPrivateGeminiEditor: async () => options.verifiedEditor ?? null,
     },
+    "./gemini-stale-lock-recovery": {
+      recoverOwnerConfirmedLegacyLocks: async () => options.lockRecovery ??
+        { state: "CLEAR", recovered: 0 },
+    },
   };
   const exports = {};
   runInNewContext(js, { exports, require: id => {
@@ -113,6 +117,22 @@ test("owner-validated snapshot avoids duplicate Notion read and requires exact i
   });
   assert.equal(rejected.state, "NEEDS_REVIEW");
   assert.equal(incorrect.calls.length, 0);
+});
+
+
+test("a legacy owner import refuses recovery when an unsafe D1 lock cannot be reconciled",async()=>{
+  const item = geminiAutomationCatalog.find(x => x.section === "directory");
+  for(const [state,issue] of [
+    ["ACTIVE_LOCK","IMPORT_LOCK_BUSY"],
+    ["UNMAPPED_CANONICAL","POSSIBLE_ORPHAN"],
+    ["LOCK_CHECK_FAILED","IMPORT_LOCK_CHECK"],
+  ]){
+    const h = harness(item,{signed:false,lockRecovery:{state,recovered:0}});
+    const result = await h.run({ownerConfirmedLegacy:true});
+    assert.equal(result.state,"NEEDS_REVIEW");
+    assert.equal(result.issue,issue);
+    assert.equal(h.calls.length,0);
+  }
 });
 
 test("missing provenance/revision and concurrent edits never import; verified D1 drafts reopen directly", async () => {
