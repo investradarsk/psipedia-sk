@@ -106,7 +106,7 @@ test("owner-validated snapshot avoids duplicate Notion read and requires exact i
     },
   });
   assert.equal(result.state, "CANONICAL_DRAFT_READY");
-  assert.equal(h.calls.length, 1);
+  assert.equal(h.calls.length, 0, "Existing verified private D1 drafts must not be re-imported");
   const incorrect = harness(item, { signed: false });
   const rejected = await incorrect.run({
     ownerConfirmedLegacy: true,
