@@ -73,6 +73,8 @@ export const adminComponentPreviewSamples = [
   { id: "help-card", path: "components/help-card.tsx", family: "card", title: "Pomoc psom – aktívny prípad", description: "Verejná karta pomoci s ilustračným priebehom zbierky." },
   { id: "help-resolved", path: "components/help-card.tsx", family: "card", title: "Pomoc psom – ukončený prípad", description: "Rovnaký komponent s označením vyriešeného prípadu." },
   { id: "related-breed-list", path: "components/related-entity-list.tsx", family: "card", title: "Súvisiace plemená", description: "Skutočné karty súvisiacich plemien s náhradnými obrázkami." },
+  { id: "directory-category-navigation", path: "components/directory-category-navigation.tsx", family: "category", title: "Navigácia kategórií služieb", description: "Skutočný prepínač kategórií adresára s ukážkovým výberom." },
+  { id: "site-footer", path: "components/site-footer.tsx", family: "other", title: "Pätička a právne odkazy", description: "Skutočná spoločná pätička webu s odkazmi a nastaveniami cookies." },
 ] as const;
 
 export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[number]["id"];
@@ -93,6 +95,10 @@ export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewI
       return <AdminProfileComponentPreview id="help-resolved" />;
     case "related-breed-list":
       return <AdminProfileComponentPreview id="related-breed-list" />;
+    case "directory-category-navigation":
+      return <AdminProfileComponentPreview id="directory-category-navigation" />;
+    case "site-footer":
+      return <AdminProfileComponentPreview id="site-footer" />;
     case "magazine":
       return <PublicMagazineBanner testId="admin-preview-magazine" title="Objavte služby pre svojho psa"
         description="Nájdite veterinárov, trénerov a ďalších odborníkov." label="Prejsť do adresára" href="/adresar" />;
