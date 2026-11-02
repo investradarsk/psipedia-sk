@@ -37,8 +37,11 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // Migration 0142 remains owner-dispatched through the existing protected production workflow.
 // 0146 remains owner-dispatched only: PR merge does not run the protected migration.
 // 0147 Notion field authority also requires a separate owner-dispatched protected D1 migration.
-// 0151 is a protected, manually dispatched production target, never a PR-triggered apply.
+// 0151 is not an authorized production target; no PR or manual rollout may apply it yet.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+// 0151 has NOT been separately approved for any production apply path.
+// Keep it inventoried without expanding existing immutable owner-dispatch allowlists.
+export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze(["0151_admin_content_revision_history.sql"]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
@@ -284,7 +287,6 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0148_notion_transfer_audit.sql",
   "0149_services_builtin_admin_overrides.sql",
   "0150_gemini_import_review_notes.sql",
-  "0151_admin_content_revision_history.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
