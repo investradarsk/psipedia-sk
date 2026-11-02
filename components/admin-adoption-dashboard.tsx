@@ -10,12 +10,12 @@ import { AdminDataTableRegion } from "@/components/admin-data-table-region";
 import { adminFilteredListHref } from "@/lib/admin-list-query";
 import { adoptionRegions, adoptionStatusLabels, adoptionStatuses } from "@/lib/adoption";
 import {
-  adoptionAdminSorts,
   type AdoptionAdminListFilters,
   type AdoptionAdminListResult,
   type AdoptionAdminSort,
   type AdoptionAdminSummary,
 } from "@/lib/adoption-admin-store";
+import { adoptionAdminSorts } from "@/lib/adoption-admin-sorts";
 import styles from "./admin-lost-found.module.css";
 
 function formatDate(value: string | null) {
