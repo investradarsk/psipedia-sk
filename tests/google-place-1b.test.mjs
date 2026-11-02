@@ -206,10 +206,11 @@ test("GOOGLE-PLACE-1B provider failures happen before any write batch", async ()
 
 
 test("GOOGLE-PLACE auto-match reuses strict MATCH rules and fails closed on ambiguous or stale targets", async () => {
-  const [source, adminRoute, notionSync] = await Promise.all([
+  const [source, adminRoute, notionSync, geoRoute] = await Promise.all([
     read("lib/google-place-canary.ts"),
     read("app/api/admin/directory/[id]/route.ts"),
     read("lib/notion-directory-sync.ts"),
+    read("app/api/admin/geo/[targetType]/[id]/route.ts"),
   ]);
   const auto = source.slice(
     source.indexOf("export async function autoAssignGooglePlaceForDirectoryProfile"),
@@ -226,6 +227,7 @@ test("GOOGLE-PLACE auto-match reuses strict MATCH rules and fails closed on ambi
   assert.match(auto, /result: "ERROR"/);
   assert.doesNotMatch(adminRoute, /autoAssignGooglePlaceForDirectoryProfile/);
   assert.doesNotMatch(notionSync, /autoAssignGooglePlaceForDirectoryProfile/);
+  assert.doesNotMatch(geoRoute, /autoAssignGooglePlaceForDirectoryProfile/);
 });
 
 test("GOOGLE-PLACE-1B admin is operator-first, max 5, MATCH-only and explicit confirmation", async () => {
