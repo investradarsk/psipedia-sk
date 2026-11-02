@@ -19,11 +19,21 @@ test("Gemini V4 central list uses existing canonical catalog (10/6/6) and only c
   assert.match(overview, /Promise\.all\(\[loadNext\(\), loadNext\(\)\]\)/);
   assert.match(overview, /credentials: "same-origin", cache: "no-store"/);
   assert.doesNotMatch(overview, /\/api\/admin\/gemini-automation\/run/);
-  // The list remains read-only except for the explicit, owner-authenticated
-  // one-page PRIVATE import endpoint introduced by the legacy backlog flow.
+  // Owner-initiated import, inline revision-guarded Notion saves and safe
+  // trash are now the three explicitly permitted mutations.
   assert.match(overview, /fetch\("\/api\/admin\/gemini-automation\/import-pending"/);
   const writes = [...overview.matchAll(/method: "(POST|PUT|PATCH|DELETE)"/g)].map(match => match[1]);
-  assert.deepEqual(writes, ["POST"], "No generic mutations, publication or destructive endpoints");
+  assert.deepEqual(writes, ["POST", "PUT", "DELETE"]);
+  assert.match(overview, /TRASH_NOTION_ONLY_GEMINI_CONCEPT/);
+  assert.match(overview, /lastEditedAt: draft.lastEditedAt/);
+  assert.match(overview, /setPage/);
+  assert.match(overview, /maxPage/);
+  const trash = source("app/api/admin/gemini-automation/trash-concept/route.ts");
+  assert.match(trash, /requireAdminMutation\(request\)/);
+  assert.match(trash, /SELECT entity_id AS id FROM notion_agenda_sync/);
+  assert.match(trash, /SELECT canonical_entity_id FROM gemini_notion_created_pages/);
+  assert.match(trash, /in_trash: true/);
+  assert.doesNotMatch(trash, /DELETE FROM (?:adoption_dogs|directory_profiles)/);
   const importRoute = source("app/api/admin/gemini-automation/import-pending/route.ts");
   assert.match(importRoute, /requireAdminMutation\(request\)/);
   assert.match(importRoute, /confirm !== "IMPORT_PRIVATE_GEMINI_DRAFT"/);
@@ -34,17 +44,17 @@ test("Gemini V4 central list uses existing canonical catalog (10/6/6) and only c
   assert.match(overviewPage, /requireAdminPageUser/);
 });
 
-test("approved B presentation uses three compact sections and responsive rows", () => {
-  assert.match(overview, /geminiAutomationSections\.map\(section/);
-  assert.match(overview, /visible\.filter\(entry => entry\.item\.section === section\.key\)/);
-  assert.match(overview, /styles\.rows/);
-  assert.match(overview, /styles\.row/);
-  assert.match(overview, /<input type="search"/);
-  assert.match(overview, /<select value=\{category\}/);
-  assert.match(overview, /<select value=\{status\}/);
-  assert.match(css, /\.row \{ display: grid;/);
-  assert.match(css, /@media \(max-width: 700px\)/);
-  assert.match(css, /@media \(max-width: 360px\)/);
+test("Gemini compact table supports sorting, paging and safe inline edits", () => {
+  assert.match(overview, /className=\{styles\.tableScroll\}/);
+  assert.match(overview, /<table className=\{styles\.table\}>/);
+  assert.match(overview, /displayed\.map\(renderTableRow\)/);
+  assert.match(overview, /const PAGE_SIZE = 25/);
+  assert.match(overview, /setSortBy/);
+  assert.match(overview, /setEditing/);
+  assert.match(overview, /method: "PUT"/);
+  assert.match(overview, /role="dialog" aria-modal="true"/);
+  assert.match(css, /\.table \{/);
+  assert.match(css, /@media\(max-width:700px\)/);
   assert.match(dashboard, /className=\{styles\.allConceptsCta\}/);
   assert.match(dashboard, /<strong>Všetky koncepty<\/strong>/);
 });
