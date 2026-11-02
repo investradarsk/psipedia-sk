@@ -110,7 +110,7 @@
     "test:notion-data-quality-audit": "node --experimental-strip-types --test tests/notion-data-quality-audit-v2.test.mjs",
     "predev": "npm run components:generate",
     "components:generate": "node scripts/generate-component-registry.mjs",
-    "test:component-registry": "node --test tests/component-registry.test.mjs",
+    "test:component-registry": "node --test tests/component-registry.test.mjs tests/admin-component-visual-preview.test.mjs tests/admin-component-registry-coverage.test.mjs",
     "graph:react": "npm exec --yes --package=@reactgraph-ui/core@0.1.9 -- reactgraph analyze .",
     "graph:dependencies": "npm exec --yes --package=dependency-cruiser@18.7.0 -- depcruise --no-config --ts-config tsconfig.json --output-type json app components lib"
   },

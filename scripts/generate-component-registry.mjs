@@ -49,7 +49,7 @@ function componentName(file) {
 const VISUAL_FAMILIES = [
   { id: "hero", label: "Hero a hlavičky", match: /hero|masthead|section-header|page-header|heading/i },
   { id: "banner", label: "Bannery", match: /banner|promo|callout|content-hub-cta/i },
-  { id: "cta", label: "Tlačidlá a akcie", match: /action|button|cta|favorite|bookmark|(?:^|-)share(?:-|$)/i },
+  { id: "cta", label: "Tlačidlá a akcie", match: /action|button|cta|favorite|bookmark|(?:^|[-_])share(?:[-_]|$)/i },
   { id: "filter", label: "Vyhľadávanie a filtre", match: /search|filter|form-control|input|select|query/i },
   { id: "card", label: "Karty a zoznamy", match: /card|tile|list-item|list-row|preview/i },
   { id: "category", label: "Podkategórie a navigácia", match: /categor|subcategory|nav|tabs|breadcrumb/i },
