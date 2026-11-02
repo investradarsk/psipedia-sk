@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SearchIcon } from "@/components/icons";
 import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
+import rowStyles from "./admin-inline-card-actions.module.css";
 import {
   newsTipStatusOptions,
   newsTipTopicIcon,
@@ -117,8 +118,9 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
                   <div className="admin-tip-story"><h3>Informácie od čitateľa</h3><p>{tip.summary}</p><dl>{tip.location && <><dt>Miesto</dt><dd>{tip.location}</dd></>}{tip.eventDate && <><dt>Dátum udalosti</dt><dd>{formatEventDate(tip.eventDate)}</dd></>}</dl>{tip.sourceUrl && <a href={tip.sourceUrl} target="_blank" rel="noreferrer">Otvoriť zaslaný zdroj ↗</a>}</div>
                   <aside><h3>Kontakt</h3>{tip.contactName || tip.contactEmail ? <>{tip.contactName && <strong>{tip.contactName}</strong>}{tip.contactEmail && <a href={`mailto:${tip.contactEmail}`}>{tip.contactEmail}</a>}<small>Potvrdenie informovania: {tip.consent ? "áno" : "nie"}</small></> : <p>Tip bol poslaný bez kontaktu.</p>}<Link href="/admin/novy">Vytvoriť novinku →</Link></aside>
                 </div>
-                <label className="admin-tip-note"><span>Interná poznámka</span><textarea value={notes[tip.id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [tip.id]: event.target.value }))} maxLength={2000} rows={3} disabled={busyId !== null || rowDraft?.id !== tip.id} placeholder="Čo treba overiť, koho kontaktovať alebo prečo tip odkladáme…" /></label>
+                <label className="admin-tip-note"><span>Interná poznámka</span><textarea value={notes[tip.id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [tip.id]: event.target.value }))} maxLength={2000} rows={3} disabled={busyId === tip.id} placeholder="Čo treba overiť, koho kontaktovať alebo prečo tip odkladáme…" /></label>
                 <footer>
+                  <span className={rowStyles.desktop}>
                   {rowDraft?.id === tip.id && <AdminInlineCellSelect
                     label={"Stav tipu " + tip.title} value={rowDraft.status}
                     disabled={busyId !== null}
@@ -135,6 +137,14 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
                       setRowDraft(null);
                     }}
                   />
+                  </span>
+                  <span className={rowStyles.mobile}>
+                    <button type="button" disabled={busyId === tip.id} onClick={() => void saveTip(tip,tip.status)}>Uložiť poznámku</button>
+                    {newsTipStatusOptions.filter(option => option.value !== tip.status).map(option =>
+                      <button type="button" className={option.value === "used" ? "is-primary" : ""}
+                        disabled={busyId === tip.id} key={option.value}
+                        onClick={() => void saveTip(tip,option.value)}>{option.label}</button>)}
+                  </span>
                   <button className="is-danger" type="button" disabled={busyId !== null || rowDraft?.id === tip.id} onClick={() => void removeTip(tip)}>Vymazať</button>
                 </footer>
               </article>
