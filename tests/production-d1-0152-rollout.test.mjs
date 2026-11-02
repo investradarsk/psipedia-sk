@@ -28,12 +28,12 @@ test("0152 is an owner-dispatched protected migration, only after completed 0151
   assert.throws(() => assertApproved0152Target("other", APPROVED_0152_SHA256), /canonical/);
   assert.throws(() => assertApproved0152Target("psipedia-sk-db", "changed"), /SHA256/);
   assert.match(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /- 0152_visual_library_banner_edits\\.sql/);
+  assert.match(workflow, /- 0152_visual_library_banner_edits\.sql/);
   assert.match(workflow, /APPLY-0152-psipedia-sk-db/);
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /group: production-d1-migration/);
-  assert.doesNotMatch(workflow, /^\\s*(?:push|pull_request|schedule):/m);
-  assert.doesNotMatch(sql.replace(/^--[^\\n]*/gm, ""), /\\b(?:DROP|ALTER|DELETE|UPDATE)\\s+(?:TABLE|INDEX|FROM|SET)\\b/i);
+  assert.doesNotMatch(workflow, /^\s*(?:push|pull_request|schedule):/m);
+  assert.doesNotMatch(sql.replace(/^--[^\n]*/gm, ""), /\b(?:DROP|ALTER|DELETE|UPDATE)\s+(?:TABLE|INDEX|FROM|SET)\b/i);
 
   const history = ["0150_gemini_import_review_notes.sql",
     "0151_admin_content_revision_history.sql", migration];
