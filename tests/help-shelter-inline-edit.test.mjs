@@ -33,11 +33,10 @@ test("shelter grid only permits five public text fields and preserves canonical 
   assert.equal(result.publicPhone, changes.publicPhone);
   assert.equal(result.publicEmail, changes.publicEmail);
   assert.equal(result.websiteUrl, changes.websiteUrl + "/");
-  assert.equal(result.slug, item.slug);
-  assert.equal(result.type, "SHELTER");
-  assert.equal(result.description, item.description);
-  assert.equal(result.imageUrl, item.imageUrl);
-  assert.equal(result.legalName, item.legalName);
+  assert.deepEqual(Object.keys(result).sort(), [...SHELTER_INLINE_FIELDS].sort());
+  assert.equal("slug" in result, false);
+  assert.equal("imageUrl" in result, false);
+  assert.equal("type" in result, false);
 });
 
 test("shelter grid rejects lifecycle, type, slug, address, media, unknown or partial changes", () => {
@@ -51,7 +50,7 @@ test("shelter grid rejects lifecycle, type, slug, address, media, unknown or par
   assert.throws(() => organizationInputWithShelterInlineChanges({ ...item, archivedAt: "2026-11-02" }, changes), /nie je upraviteľný/);
 });
 
-test("canonical full-input validation rejects bad contact fields, URLs and oversized text", () => {
+test("canonical per-field validation rejects bad contacts and oversized text without touching legacy data", () => {
   assert.throws(() => organizationInputWithShelterInlineChanges(item, { ...changes, name: "" }), /povinný údaj/);
   assert.throws(() => organizationInputWithShelterInlineChanges(item, { ...changes, publicEmail: "bad@" }), /platný formát/);
   assert.throws(() => organizationInputWithShelterInlineChanges(item, { ...changes, websiteUrl: "javascript:alert(1)" }), /http alebo https/);
@@ -70,11 +69,14 @@ test("inline PATCH uses server-side canonical organization writer and protects c
   assert.match(route, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(route, /organizationInputWithShelterInlineChanges\(before, body\.changes\)/);
   assert.match(route, /before\.updatedAt !== expectedUpdatedAt/);
-  assert.match(route, /updateOrganizationFromAdmin\(id, payload, auth\.user\.email, expectedUpdatedAt\)/);
+  assert.match(route, /updateShelterInlineFieldsFromAdmin\(id, payload, auth\.user\.email, expectedUpdatedAt\)/);
   assert.match(route, /syncSavedNotionRecord\(/);
   assert.match(route, /agenda: "organizations"/);
   assert.match(route, /invalidateVersionedPublicHtmlCacheUrl/);
-  assert.match(writer, /WHERE id = \? AND updated_at = \? AND archived_at IS NULL/);
+  assert.match(writer, /updateShelterInlineFieldsFromAdmin\(/);
+  assert.match(writer, /SET name=\?, short_description=\?, public_email=\?, public_phone=\?, website_url=\?/);
+  assert.match(writer, /WHERE id=\? AND updated_at=\? AND type='SHELTER'/);
+  assert.match(writer, /status IN \('DRAFT','PUBLISHED'\) AND archived_at IS NULL/);
 });
 
 test("only the shelters grid shows inline controls, full editor remains available", () => {
