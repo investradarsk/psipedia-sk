@@ -14,8 +14,9 @@ import {
 } from "./adoption.ts";
 import { getAdoptionLifecycleCounts, type AdoptionD1Database } from "./adoption-store.ts";
 
-export const adoptionAdminSorts = ["updated-desc", "updated-asc", "verified-desc", "name-asc"] as const;
-export type AdoptionAdminSort = (typeof adoptionAdminSorts)[number];
+import { adoptionAdminSorts, type AdoptionAdminSort } from "./adoption-admin-sorts.ts";
+export { adoptionAdminSorts };
+export type { AdoptionAdminSort };
 
 export type AdoptionAdminListFilters = {
   q?: string;
