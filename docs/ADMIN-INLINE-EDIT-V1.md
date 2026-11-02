@@ -69,3 +69,17 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 - Testy: `tests/admin-inline-edit-facebook-catalog.test.mjs` vrátane čistej klientsky bezpečnej konfigurácie triedenia adopcií `lib/adoption-admin-sorts.ts`.
 
 - `/admin/pomoc-psom`: adopcie a stratené/nájdené používajú rovnaké rýchle upravovanie mena psa ako samostatné kanonické moduly; test `tests/admin-help-unified-dog-inline-edit.test.mjs`.
+
+## Operačné zoznamy – aktuálna etapa
+
+- **Dopyty** (`/admin/dopyty`): desktop má jeden editovací riadok pre stav `new/read/resolved` s `Uložiť/Zrušiť`; používa existujúce `PUT /api/admin/inquiries/:id`. Prijatá správa, kontakty a súhlasy sú nemenné. Mobil si zachováva pôvodné rýchle stavové tlačidlá.
+- **Tipy** (`/admin/tipy`): desktop upravuje stav + *internú* poznámku cez existujúci `PUT /api/admin/news-tips/:id`. Uloženie nepresadí stav lokálne, ak server vráti chybu; Zrušiť obnoví začiatok interného textu. Pôvodný čitateľský text, kontakty a mobilné tlačidlá zostávajú nezmenené.
+- **Hodnotenia článkov** (`/admin/hodnotenia`): desktop mení len moderačný stav `new/reviewing/resolved/dismissed`; pôvodné hodnotenie, text a väzba na článok sa nemenia. Server už kontroluje pôvod mutácie. Na mobile zostávajú pôvodné stavové akcie.
+- **Podnety na úpravu profilov**: bez voľnej inline úpravy navrhnutého textu, pretože ide o dôkazné podanie používateľa. Zachované sú existujúce schvaľovanie a zamietanie s potvrdzovaním, bez skrytej zmeny dôkazného obsahu.
+- Regresie `tests/admin-inline-edit-ops-queues.test.mjs` zahrnuté vo foundation teste.
+
+### Čo zostáva
+
+1. Admin tabuľky pre automatizácie a Kvalita dát: doménové práva, dávkové akcie a odlišné serverové kontrakty; nemajú podporovať generický zápis do polí.
+2. Zvyšné pomocné a technické zoznamy (partneri, e-shopy, recenzie profilov, importy, auditné logy): skontrolovať ktoré obsahujú reálne redakčne editovateľné údaje, ktoré sú iba read-only či podliehajú schvaľovaniu.
+3. CI: prejsť všetky zelené/červené checks po zmenách a odstrániť zostávajúce regresie. Tento PR sa nemerguje pred týmto krokom.
