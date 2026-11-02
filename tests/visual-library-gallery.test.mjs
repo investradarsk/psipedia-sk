@@ -60,3 +60,28 @@ test("route audit enumerates all public page entries without fabricating dynamic
   assert.match(audit, /Samotný import|Tranzitívna závislosť/);
   assert.doesNotMatch(audit, /fetch\(|method: "PUT"|method: "POST"/);
 });
+
+
+test("main owner gallery lists missing previews from the real public source registry", () => {
+  const gallery = source("components/admin-visual-library-gallery.tsx");
+  const missing = source("components/admin-visual-library-missing-previews.tsx");
+  const coverage = source("components/admin-visual-library-coverage.tsx");
+  assert.match(gallery, /<AdminVisualLibraryMissingPreviews registry=\{registry\}/);
+  assert.match(missing, /item\.area !== "admin"/);
+  assert.match(missing, /!withPreview\.has\(item\.path\)/);
+  assert.match(missing, /item\.family \?\? "other"/);
+  assert.match(missing, /Verejn|verejn|šablón|šablóny/);
+  assert.match(missing, /publicRegistryRouteHref\(route\)/);
+  assert.match(coverage, /family\?: "banner" \| "hero"/);
+  assert.doesNotMatch(missing, /fetch\(|method: "PUT"|method: "POST"/);
+});
+
+test("route audit integrates authoritative pinned URL evidence without matching dynamic slugs", () => {
+  const route = source("components/admin-visual-library-route-audit.tsx");
+  const coverage = source("components/admin-visual-library-coverage.tsx");
+  assert.match(route, /collectPinnedStaticRoutePlacements/);
+  assert.match(route, /route\.pinned\.length === 0/);
+  assert.match(route, /selected\.pinned\.map/);
+  assert.match(route, /use\.anchorId \? "#" \+ use\.anchorId/);
+  assert.match(coverage, /<AdminVisualLibraryRouteAudit registry=\{registry\} examples=\{examples\}/);
+});
