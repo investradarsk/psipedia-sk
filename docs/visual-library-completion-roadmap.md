@@ -22,12 +22,13 @@
 
 ## Etapa 2: Úplný inventár viditeľných prvkov a URL
 
-- [ ] Spísať všetky verejné sekcie a šablóny (homepage; novinky a články; šteniatka; plemená; zdravie; výcvik; služby; podujatia; pomoc psom; mapa; recenzie; kontakt; partneri; cookies a právne stránky).
-- [ ] Rozlíšiť typ šablóny od individuálneho profilu. Nevyvodzovať render zo samotného importu.
+- [x] Generovať kompletný inventár všetkých verejných stránkových súborov z kódu vrátane kontaktu, partnerských a právnych stránok; nezamieňať tento zoznam za audit skutočného renderu.
+- [x] Rozlíšiť statické stránky a dynamické šablóny, oddeliť kandidátov podľa importov od potvrdených výskytov.
 - [ ] Zmapovať viditeľné prvky ku konkrétnym URL a umiestneniam, vrátane dynamických profilov tam, kde máme dokazateľné priradenie.
-- [ ] Označiť overený / kandidát / neznámy / nedostupný stav a jasne evidovať chýbajúce pokrytie.
+- [ ] Pri každom konkrétnom vykreslení doplniť explicitný stav overený / kandidát / neznámy / nedostupný; súčasná etapa zobrazuje kandidátov podľa kódu a počet dostupných demo náhľadov.
 - [ ] Zachovať stránkovanie a limity D1 dopytov; nepreviesť celý adresár do SSR pamäte.
-- [ ] Doplniť auditné testy pre reálne URL a ochranu súkromných záznamov.
+- [x] Otestovať úplný zdrojový register stránok vrátane šablón bez komponentových importov.
+- [ ] Doplniť auditné testy pre reálne vykreslené URL a ochranu súkromných záznamov.
 
 ## Etapa 3: Úplné vizuálne pokrytie
 
