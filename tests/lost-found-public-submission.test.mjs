@@ -184,7 +184,7 @@ test("lost/found report route keeps shared header CSS and help overview exposes 
   const banner = readFileSync(new URL("../components/public-visual-system/public-help-banner.tsx", import.meta.url), "utf8");
   const presets = readFileSync(new URL("../lib/help-banner-presets.ts", import.meta.url), "utf8");
   assert.match(overview, /lostFoundSubmitPromo/);
-  assert.match(overview, /<Promo promo=\{lostFoundSubmitPromo\} anchorId=\{HELP_LOST_FOUND_BANNER_ANCHOR\} \/>/);
+  assert.match(overview, /<Promo promo=\{lostFoundSubmitPromo\} anchorId=\{HELP_LOST_FOUND_BANNER_ANCHOR\} published=\{publishedHelp\["help:lost-found"\]\} \/>/);
   assert.match(presets, /Stratil sa vám pes alebo ste psa našli\?/);
   assert.match(presets, /\/pomoc-psom\/stratene-a-najdene\/nahlasit/);
   assert.match(presets, /Nahlásiť psa/);
