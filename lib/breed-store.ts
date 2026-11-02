@@ -41,7 +41,7 @@ export type ManagedBreed = Breed & {
   workingTrial: string; importKey: string | null; fciStandard: FciStandard; searchText: string; editorialComplete: boolean;
   editorial: BreedEditorial; sports: BreedSport[]; relatedBreedIds: number[]; relatedArticleIds: number[]; directoryProfileIds: number[];
 };
-export type ManagedBreedSummary = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" | "origin" | "group" | "accent" | "fciNumber" | "officialFciName" | "updatedAt"> & {
+export type ManagedBreedSummary = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" | "origin" | "group" | "accent" | "fciNumber" | "officialFciName" | "intro" | "updatedAt"> & {
   articleRelationCount: number;
   directoryRelationCount: number;
   completenessIssues: BreedCompletenessIssue[];
@@ -76,7 +76,7 @@ type Row = {
 };
 type SummaryRow = {
   id:number;slug:string;name:string;status:string;image_url:string;fci_number:number|null;fci_group:number;fci_section:string;fci_section_number:string;
-  origin:string;group_name:string;official_fci_name:string;accent:string;updated_at:string;editorial_overview:string;sports_json:string;fci_standard_pdf:string;fci_nomenklatura_url:string;
+  origin:string;group_name:string;official_fci_name:string;accent:string;intro:string;updated_at:string;editorial_overview:string;sports_json:string;fci_standard_pdf:string;fci_nomenklatura_url:string;
   needs:string;exercise:string;training:string;health:string;article_relation_count:number;directory_relation_count:number;
 };
 type IndexRow = {
@@ -144,7 +144,7 @@ function fromSummaryRow(row:SummaryRow):ManagedBreedSummary {
     id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,
     fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),
     fciSectionNumber:row.fci_section_number,origin:row.origin,group:row.group_name,officialFciName:row.official_fci_name,
-    accent:row.accent as Breed["accent"],updatedAt:row.updated_at,articleRelationCount,directoryRelationCount,
+    accent:row.accent as Breed["accent"],intro:row.intro,updatedAt:row.updated_at,articleRelationCount,directoryRelationCount,
     completenessIssues:breedCompletenessIssues({
       image:row.image_url,overview:row.editorial_overview??"",needs:row.needs,exercise:row.exercise,training:row.training,health:row.health,
       fciNumber:row.fci_number,hasFciReference:Boolean(row.fci_standard_pdf?.trim()||row.fci_nomenklatura_url?.trim()),
@@ -166,7 +166,7 @@ const select=`SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_nu
 valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
-export async function listManagedBreedSummaries(limit=500){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(500,Math.trunc(limit)));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,updated_at,sports_json,needs,exercise,training,health,
+export async function listManagedBreedSummaries(limit=500){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(500,Math.trunc(limit)));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,intro,updated_at,sports_json,needs,exercise,training,health,
 CASE WHEN json_valid(editorial_json) THEN
   CASE WHEN json_type(editorial_json, '$.overview') = 'text' THEN json_extract(editorial_json, '$.overview') ELSE '' END
 ELSE '' END AS editorial_overview,
@@ -488,6 +488,25 @@ export function buildManagedBreedUpdateStatements(
     database.prepare("SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id").bind(id),
     database.prepare("SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id").bind(id),
   ];
+}
+
+/** Intro-only quick edit; preserves FCI identity, relations, SEO and rich fields. */
+export async function updateManagedBreedInlineIntro(
+  id: number, input: string, editorEmail: string, expectedUpdatedAt: string,
+) {
+  if (!Number.isSafeInteger(id) || id < 1 || typeof input !== "string" ||
+      !expectedUpdatedAt?.trim()) throw new Error("Neplatná verzia alebo úvod plemena.");
+  const intro = input.trim();
+  if (intro.length > 1000) throw new Error("Úvod plemena môže mať najviac 1000 znakov.");
+  const database = requireDb();
+  await ensure(database);
+  const updatedAt = nextBreedVersion(expectedUpdatedAt);
+  const result = await database.prepare(`UPDATE managed_breeds
+    SET intro=?, updated_at=?
+    WHERE id=? AND updated_at=? RETURNING id`)
+    .bind(intro, updatedAt, id, expectedUpdatedAt).first<{ id: number }>();
+  if (!result) throw new BreedUpdateConflictError();
+  return getManagedBreed(result.id);
 }
 
 export async function updateManagedBreed(
