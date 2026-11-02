@@ -121,11 +121,15 @@ function fixture(options = {}) {
       return {
         blocksConfirmedAddressDowngrade: !!options.downgrade,
         preserveUnchangedCanonicalPhone: false,
-        verifyExactAddress: !!options.invalidAddress,
+        verifyExactAddress: !!options.invalidAddress || !!options.verifyExactAddress,
       };
     },
     readDirectoryPublicContacts() { return { phone: "" }; },
-    async verifyDirectoryCanonicalAddress() { calls.push("address-validation"); throw Error("INVALID_ADDRESS"); },
+    async verifyDirectoryCanonicalAddress() {
+      calls.push("address-validation");
+      if (options.invalidAddress) throw Error("INVALID_ADDRESS");
+      return { latitude: 48.3, longitude: 18.1, formattedAddress: "Hlavná 1, Nitra" };
+    },
     withVerifiedDirectoryAddress(input) { return input; },
     normalizeManagedDirectoryProfileInput,
     async prepareNotionMainImage() {
@@ -151,11 +155,11 @@ function fixture(options = {}) {
     },
     async upsertMediaSourceMonitor() { if (options.mediaFailure) throw Error("MEDIA_FAILED"); calls.push("media-saved"); },
     cleanupUnreferencedNotionUpload,
-    async applyVerifiedDirectoryAddressGeo() { if (options.geoFailure === "verified") throw Error("GEO_FAILED"); },
-    async autoAssignGooglePlaceForDirectoryProfile() {
+    async applyVerifiedDirectoryAddressGeo() {
       calls.push("geo-after-commit");
-      if (options.geoFailure === "google") throw Error("GEO_FAILED");
+      if (options.geoFailure === "verified") throw Error("GEO_FAILED");
     },
+
     async getManagedDirectoryProfileById() { return profileRow(read()); },
     async fetchNotionPage() { throw Error("UNEXPECTED_REMOTE_FETCH"); },
     async getMediaSourceMonitorForEntity() { return null; },
@@ -302,7 +306,7 @@ test("R2 PUT failure leaves D1 and original image untouched", async () => {
 });
 
 test("GEO failure after successful D1 update retains the referenced R2 object", async () => {
-  const f = fixture({ geoFailure: "google" });
+  const f = fixture({ verifyExactAddress: true, geoFailure: "verified" });
   await assert.rejects(f.run, /GEO_FAILED/);
   assert.equal(f.read().image_key, "directory/new.webp");
   assert.equal(f.objects.has("directory/new.webp"), true);
@@ -358,8 +362,8 @@ test("stale retry cannot add another profile or overwrite the committed row", as
   closes(f);
 });
 
-test("mapped Notion worker pulls through canonical SQL, R2, GEO and Notion writeback in order", async () => {
-  const f = fixture();
+test("mapped Notion worker pulls canonical SQL, R2, verified GEO and Notion writeback in order", async () => {
+  const f = fixture({ verifyExactAddress: true });
   const result = await f.runMappedWorker();
   assert.equal(result, "pulled");
   assert.equal(f.read().image_key, "directory/new.webp");
@@ -371,7 +375,7 @@ test("mapped Notion worker pulls through canonical SQL, R2, GEO and Notion write
 });
 
 test("mapped Notion worker does not write success metadata after GEO postcommit failure", async () => {
-  const f = fixture({ geoFailure: "google" });
+  const f = fixture({ verifyExactAddress: true, geoFailure: "verified" });
   await assert.rejects(f.runMappedWorker, /GEO_FAILED/);
   assert.equal(f.read().image_key, "directory/new.webp");
   assert.equal(f.objects.has("directory/new.webp"), true);

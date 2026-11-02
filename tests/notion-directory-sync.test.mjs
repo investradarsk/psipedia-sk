@@ -153,16 +153,12 @@ test("bidirectional conflict resolution protects simultaneous editor and Notion 
   assert.match(syncSource, /forcePsipediaPush/);
 });
 
-test("Notion address edits use canonical verification and exact GEO lifecycle", () => {
+test("Notion address edits use exact GEO without automatically searching Google Places", () => {
   assert.match(syncSource, /directoryPhysicalAddressChanged/);
   assert.match(syncSource, /verifyDirectoryCanonicalAddress/);
   assert.match(syncSource, /withVerifiedDirectoryAddress/);
   assert.match(syncSource, /applyVerifiedDirectoryAddressGeo/);
-  assert.match(syncSource, /autoAssignGooglePlaceForDirectoryProfile/);
-  assert.ok(
-    syncSource.indexOf("applyVerifiedDirectoryAddressGeo") < syncSource.lastIndexOf("autoAssignGooglePlaceForDirectoryProfile"),
-    "Google Place auto-match must run after verified exact GEO is applied",
-  );
+  assert.doesNotMatch(syncSource, /autoAssignGooglePlaceForDirectoryProfile/);
   assert.match(addressSaveSource, /applyGeocoderResolution/);
   assert.match(addressSaveSource, /setGeoVisibility/);
   assert.match(storeSource, /reconcileGeoAfterSourceMutation/);
@@ -225,8 +221,8 @@ test("Notion-first creation persists mapping before post-create GEO work and can
     syncSource.indexOf("export async function runNotionDirectorySyncSweep"),
   );
   assert.ok(
-    sweepBody.indexOf("await saveMapping({") < sweepBody.indexOf("await autoAssignGooglePlaceForDirectoryProfile({"),
-    "mapping must exist before post-create Google Place work",
+    sweepBody.indexOf("await saveMapping({") < sweepBody.indexOf("await applyVerifiedDirectoryAddressGeo({"),
+    "mapping must exist before optional post-create GEO work",
   );
   assert.match(syncSource, /propertyText\(page, "Psipedia ID"\) !== String\(profile\.id\)/);
   assert.match(syncSource, /return "pushed" as const/);

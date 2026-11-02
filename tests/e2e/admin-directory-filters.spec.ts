@@ -33,7 +33,7 @@ test.describe("admin directory v2", () => {
 
     response = await page.goto("/admin/adresar?category=veterinari&status=draft&q=E2E&page=2", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
-    await page.getByLabel("Hľadať").fill("E2E");
+    await page.locator('input[name="q"]').fill("E2E");
     await page.getByLabel("Kategória").selectOption("treneri");
     await page.getByRole("button", { name: "Použiť filtre" }).click();
     await page.waitForURL((url) =>
@@ -299,7 +299,7 @@ test.describe("admin directory v2", () => {
     expect(overflow.filter).toBeLessThanOrEqual(1);
 
     for (const control of [
-      page.getByLabel("Hľadať"),
+      page.locator('input[name="q"]'),
       page.getByLabel("Kategória"),
       page.getByLabel("Stav publikácie"),
       page.getByLabel("Kraj"),
