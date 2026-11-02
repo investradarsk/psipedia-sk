@@ -52,3 +52,13 @@ Oba externé CLI sú voliteľné a pri prvom spustení vyžadujú prístup k npm
 - Interakcie vo vnútri ukážky sú vypnuté pomocou \`inert\`, \`aria-hidden\` a \`pointer-events: none\`. Odkazy sa nedajú aktivovať myšou ani klávesnicou; ide výhradne o čítanie.
 - Ukážka používa skutočnú šírku dostupnej oblasti; nie je simulátor mobilného breakpointu. Na overenie mobilného layoutu treba otvoriť admin na mobilnom zariadení.
 - Žiadne nové verejné route, databázové úpravy, Notion, publikovanie ani závislosti. Zmena je iba v existujúcom autentifikovanom admin registri.
+
+## Vizuálne náhľady a pokrytie – V4 (nadväznosť na PR #1169)
+- Náhľady sa rozšírili o skutočné zdieľané hlavičky, karty, podkategórie, navigáciu, vyhľadávanie, CTA tlačidlá, stránkovanie, prázdne stavy a upozornenia.
+- Dva odlišné počty: **počet ukážok** (niekoľko variantov na súbor) a **počet súborov s náhľadom** (prienik s aktuálnym generovaným registrom).
+- Filter **Živý náhľad** rozlišuje súbory s reálnym náhľadom a bez neho. Pri každom súbore s ukážkami možno prezerať jeho varianty, pri ostatných sú k dispozícii skutočné statické stránky použitia alebo vzor dynamickej trasy.
+- Načítanie skutočného React komponentu prebehne až po rozbalení ukážky. Neaktívne ukážky nespúšťajú nákladné komponenty.
+- Zoznam komponentov už nie je obmedzený iba na prvých 100: možno ho rozbaliť na úplný výsledok filtra.
+- **Nie je to automatický renderer ľubovoľného React súboru.** Mnohé komponenty vyžadujú produkčné údaje, serverové závislosti alebo klientské kontexty. Pri nich register pravdivo ukazuje stav „bez bezpečného náhľadu“ a stránky použitia, nie falošný vizuál.
+- Nie je to 100 % pokrytie živými náhľadmi všetkých súborov. Stav pokrytia sa priebežne počíta z registra, takže chýbajúce súbory sú viditeľné.
+- Žiadne zmeny verejného webu, publikovania, mobilného CSS, D1 ani Notion.
