@@ -1,4 +1,6 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
+import { HOME_PROFILE_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
+import { getPublishedDesktopBannerColors } from "@/lib/visual-library-edit-store";
 import { BreedPhoto } from "@/components/breed-photo";
 import {
   HomeEditorialSection,
@@ -57,6 +59,7 @@ export default async function Home() {
     trainers,
     homeHeroVisual,
     featuredBreeds,
+    homeProfileBannerColors,
   ] = await Promise.all([
     getPublishedArticleSummaries({ limit: 120 }),
     getHomepageUpcomingEventsWithImages(3),
@@ -68,6 +71,7 @@ export default async function Home() {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
     }),
+    getPublishedDesktopBannerColors("homepage:profil"),
   ]);
   const homeHero = homeHeroVisual;
   const articleSelection = selectHomepageArticles(publishedArticles, {
@@ -157,6 +161,9 @@ export default async function Home() {
       />
 
       <HomeMagazineBanner
+        anchorId={HOME_PROFILE_BANNER_ANCHOR}
+        desktopColors={homeProfileBannerColors}
+        desktopCopy={homeProfileBannerColors}
         testId="profil"
         title="Pridajte svoj profil"
         description="Prevádzkujete službu pre psov? Nech vás majitelia ľahšie nájdu v adresári."

@@ -20,6 +20,8 @@ function load(path) {
   if(name==='./public-magazine-banner')return load('components/public-visual-system/public-magazine-banner.tsx');
   if(name==='./public-photo-callout')return load('components/public-visual-system/public-photo-callout.tsx');
   if(name==='./public-banner-frame')return load('components/public-visual-system/public-banner-frame.tsx');
+  if(name==='@/lib/help-banner-presets')return load('lib/help-banner-presets.ts');
+  if(name==='@/lib/visual-library-anchors')return load('lib/visual-library-anchors.ts');
   throw new Error(name);
  },exports);
  return exports;

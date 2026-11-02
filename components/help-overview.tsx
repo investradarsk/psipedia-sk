@@ -9,6 +9,8 @@ import {
   type PublicHelpPhotoBannerData,
 } from "@/components/public-visual-system/public-help-banner";
 import { ImageDisplay } from "@/components/image-display";
+import { helpOverviewPromos } from "@/lib/help-banner-presets";
+import { HELP_LOST_FOUND_BANNER_ANCHOR, CTA_HELP_ORGANIZATIONS_ANCHOR, helpOverviewBannerAnchor } from "@/lib/visual-library-anchors";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
@@ -24,6 +26,8 @@ import {
 import { HomePortalSearch } from "@/components/home-portal-search";
 import type { HelpCategorySlug } from "@/lib/help";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { getPublishedDesktopBannerColors } from "@/lib/visual-library-edit-store";
+import type { BannerDraft } from "@/lib/visual-library-drafts";
 import styles from "./help-public.module.css";
 
 export type HelpOverviewItem = {
@@ -50,33 +54,6 @@ export type HelpOverviewSection = {
 
 type PromoBanner = PublicHelpPhotoBannerData;
 
-
-const promos: Record<number, PromoBanner> = {
-  0: {
-    eyebrow: "Praktické rady",
-    title: "Dobrý nový domov začína prípravou",
-    text: "Starostlivosť, zdravie, prvé dni aj každodenné fungovanie so psom nájdete v našich praktických témach.",
-    href: "/starostlivost",
-    action: "Prejsť na starostlivosť",
-    tone: "care",
-  },
-  2: {
-    eyebrow: "Rýchla pomoc",
-    title: "Našli ste psa v núdzi?",
-    text: "Pozrite si jednoduchý postup: čo urobiť na mieste, koho kontaktovať a ktoré informácie si hneď zaznamenať.",
-    href: "/pomoc-psom/nahlasit-psa-v-nudzi",
-    action: "Postup krok za krokom",
-    tone: "rescue",
-  },
-  4: {
-    eyebrow: "Zapojte sa",
-    title: "Pomoc nemusí byť iba finančná",
-    text: "Venčenie, prevoz, dočasná opatera, fotografovanie alebo zdieľanie môžu organizáciám výrazne pomôcť.",
-    href: "/pomoc-psom/dobrovolnictvo",
-    action: "Ako môžem pomôcť",
-    tone: "volunteer",
-  },
-};
 
 function OverviewCard({ item }: { item: HelpOverviewItem }) {
   return (
@@ -115,8 +92,8 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
   );
 }
 
-function Promo({ promo }: { promo: PromoBanner }) {
-  return <PublicHelpPhotoBanner promo={promo} />;
+function Promo({ promo, anchorId, published }: { promo: PromoBanner; anchorId: string; published?: BannerDraft | null }) {
+  return <PublicHelpPhotoBanner promo={promo} anchorId={anchorId} desktopColors={published} desktopCopy={published} />;
 }
 
 export async function HelpOverview({
@@ -126,6 +103,12 @@ export async function HelpOverview({
   totalActive: number;
 }) {
   const heroVisual = await getSectionHeroVisual("section.pomoc-psom");
+  // Each individually anchored Help banner can have a separate desktop-only
+  // publication. Mobile continues rendering its original shared preset.
+  const helpBannerIds = ["help:lost-found", "help:overview:0", "help:overview:2", "help:overview:4", "help:closing"] as const;
+  const publishedHelp = Object.fromEntries(await Promise.all(helpBannerIds.map(async (id) =>
+    [id, await getPublishedDesktopBannerColors(id)] as const
+  ))) as Record<string, BannerDraft | null>;
   return (
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
@@ -160,6 +143,7 @@ export async function HelpOverview({
             }
             ctaSlot={
               <PublicActionLink
+                id={CTA_HELP_ORGANIZATIONS_ANCHOR}
                 href="/organizacie"
                 variant="secondary"
                 icon={<ArrowIcon size={16} />}
@@ -195,11 +179,11 @@ export async function HelpOverview({
           </PublicContentShell>
         </section>
 
-        <Promo promo={lostFoundSubmitPromo} />
+        <Promo promo={lostFoundSubmitPromo} anchorId={HELP_LOST_FOUND_BANNER_ANCHOR} published={publishedHelp["help:lost-found"]} />
 
         <div className={styles.overviewFlow}>
           {sections.map((section, index) => {
-            const promo = promos[index];
+            const promo = helpOverviewPromos[index];
             return (
               <div key={section.slug}>
                 <section
@@ -238,13 +222,13 @@ export async function HelpOverview({
                     )}
                   </PageContainer>
                 </section>
-                {promo ? <Promo promo={promo} /> : null}
+                {promo ? <Promo promo={promo} anchorId={helpOverviewBannerAnchor(index)} published={publishedHelp[`help:overview:${index}`]} /> : null}
               </div>
             );
           })}
         </div>
 
-        <PublicHelpClosingBanner />
+        <PublicHelpClosingBanner desktopColors={publishedHelp["help:closing"]} desktopCopy={publishedHelp["help:closing"]} />
       </PublicFoundation>
     </main>
   );

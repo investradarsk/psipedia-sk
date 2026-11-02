@@ -42,7 +42,7 @@ test("directory, help, events and breeds use shared visible actions", () => {
   const breeds = read("components/breed-browser.tsx");
   assert.match(directory, /<PublicActionButton className=\{styles.submit\} type="submit">Použiť filtre<\/PublicActionButton>/);
   assert.match(directory, /<PublicActionButton type="button" className=\{styles.modalTrigger\}/);
-  assert.match(directoryPage, /<PublicActionLink variant="primary" href=\{mapHref/);
+  assert.match(directoryPage, /<PublicActionLink id=\{CTA_DIRECTORY_MAP_ANCHOR\} variant="primary" href=\{mapHref/);
   assert.match(directoryPage, /<PublicActionLink variant="secondary" href="\/o-nas#kontakt">/);
   assert.match(help, /<PublicActionButton className=\{styles.searchSubmit\} type="submit">/);
   assert.match(help, /<PublicActionLink className=\{styles.resetFilters\} variant="tertiary"/);

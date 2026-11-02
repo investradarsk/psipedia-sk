@@ -6,6 +6,7 @@ import { articleBlockLabels } from "@/lib/article-blocks";
 import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticlePromo } from "@/components/article-promo";
+import { articlePromoBlockAnchor } from "@/lib/visual-library-anchors";
 import { articleBlockHeadings, type ArticleBlock } from "@/lib/article-blocks";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
@@ -345,6 +346,7 @@ export function ArticleBlocks({
             return (
               <ArticlePromo
                 key={block.id}
+                anchorId={articlePromoBlockAnchor(block.id)}
                 promoKey={block.promoKey}
                 variant={block.variant}
                 seed={block.id}

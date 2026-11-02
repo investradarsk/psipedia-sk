@@ -43,6 +43,7 @@ test("the compact/foto banner variants keep their own responsive layouts and des
   const context = read("components/public-visual-system/public-context-banner.tsx");
   const css = read("components/public-visual-system/public-context-banner.module.css");
   const help = read("components/public-visual-system/public-help-banner.tsx");
+  const helpPresets = read("lib/help-banner-presets.ts");
   assert.match(context, /hasImage && styles\.hasImage/);
   assert.match(context, /data-public-context-banner-layout=\{inline \? "inline" : "stacked"\}/);
   assert.match(context, /<PublicActionLink href=\{ctaHref!\}/);
@@ -51,7 +52,8 @@ test("the compact/foto banner variants keep their own responsive layouts and des
   assert.match(css, /\.inline > \.copy \{/);
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(help, /href="\/pomoc-psom\/nahlasit-psa-v-nudzi"/);
-  assert.match(help, /href: "\/pomoc-psom\/dobrovolnictvo"/);
+  assert.match(helpPresets, /href: "\/pomoc-psom\/dobrovolnictvo"/);
+  assert.match(help, /promo=\{helpClosingPromo\}/);
   assert.match(help, /<PublicPhotoCallout/);
   assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /<PublicMagazineBanner/);
 });

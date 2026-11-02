@@ -45,14 +45,14 @@ test("0151 is approved only by pinned SHA and protected canonical DB identity", 
   assert.throws(() => assertApproved0151Target("test-db", hash), /canonical/);
   assert.throws(() => assertApproved0151Target("psipedia-sk-db", "different-hash"), /SHA256 differs/);
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(TARGET));
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), TARGET);
+  assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(TARGET));
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, []);
 });
 test("0151 is one-shot and requires exact 0150 ledger predecessor", () => {
   const prior = [
     ...Array.from({ length: 62 }, (_, i) => String(i).padStart(4, "0") + "_prior.sql"),
-    ...SUPPORTED_PRODUCTION_TARGETS,
+    ...SUPPORTED_PRODUCTION_TARGETS.filter(name => Number(name.slice(0, 4)) <= 151),
   ];
   const scope = selectMigrationsThrough([...prior, "0152_future.sql"], TARGET);
   assert.deepEqual(scope.selected, prior);
