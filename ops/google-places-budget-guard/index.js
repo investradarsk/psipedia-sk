@@ -1,9 +1,9 @@
 'use strict';
 
-const functions = require('@google-cloud/functions-framework');
-const { GoogleAuth } = require('google-auth-library');
-const { evaluateNotification } = require('./policy');
-const { disablePlacesApi } = require('./service-usage');
+import functions from '@google-cloud/functions-framework';
+import { GoogleAuth } from 'google-auth-library';
+import { evaluateNotification } from './policy.js';
+import { disablePlacesApi } from './service-usage.js';
 
 functions.cloudEvent('psipediaPlacesBudgetGuard', async event => {
   const decision = evaluateNotification(event, { budgetId: process.env.PSIPEDIA_BUDGET_ID });
