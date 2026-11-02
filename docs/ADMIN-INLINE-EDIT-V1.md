@@ -96,3 +96,14 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 - **Recenzie profilov** (`/admin/recenzie-profilov`): pri recenzii v stave `PENDING_REVIEW` pribudla desktopová akcia **Upraviť stav → Schváliť/Zrušiť** s explicitným potvrdením. Používa kanonický `PATCH /api/admin/profile-reviews/:id` so stavovým CAS. Akcie `REJECT`, `HIDE`, `REMOVE` a `RESTORE` zostávajú len v pôvodnom moderátorskom detaile, ktorý vyžaduje dôvod, kde je potrebný. Text a hodnotenie používateľa sa nikdy neprepisujú.
 
 **Naďalej nedokončené:** ďalšie administračné moduly (partneri, e-shopy, importy), samostatný Facebook publikačný workflow, technické/auditné zoznamy a finálna kontrola.
+
+
+## Záverečný doplnok – E-shopy a bezpečnostné hranice
+
+- **E-shopy** (`/admin/recenzie/eshopy`): v desktopovej karte sa dá zmeniť názov a web e-shopu cez explicitné Uložiť/Zrušiť. Nový `PATCH /api/admin/eshops/:id` prijíma **iba** `name`, `websiteUrl`, `expectedUpdatedAt`, používa pôvodné admin oprávnenia a synchronizáciu e-shopu po uložení. Úzka D1 aktualizácia `UPDATE managed_eshops SET name=?,website_url=?,updated_at=?,updated_by=? WHERE id=? AND updated_at=?` chráni proti súbežným zmenám. Popis je v Lexical editore a nesmie sa upravovať naivným vstupným poľom; slug, logo, štítky, ratingy, publikovanie a archív ostávajú nezmenené. Mobilné karty ponechané.
+- **Partneri**: zmeny vlastníctva, overenia, obchodné dohody a schvaľovanie profilov sa robia pôvodnými cielenými formulármi, ktoré vyžadujú potvrdzovanie a audit. Nie sú všeobecným inline setterom.
+- **Importy**: validačný náhľad, dry-run, potvrdenie importu a identita záznamov zostávajú samostatným procesom. Import nie je editovateľný zoznam profilov.
+- **Facebook publikovanie**: termín, schválenie, výslovný súhlas a Meta publikovanie ostávajú mimo inline editora; na zmenu týchto údajov slúži pôvodný workflow.
+- **Technické/auditné prehľady**: údaje iba na čítanie sa nezmenili na zapisovateľné. Nastavenia sa menia výhradne v účelových ovládacích prvkoch.
+- **Regresie**: `tests/admin-inline-edit-gemini-quality.test.mjs` obsahujú aj SQLite test presne dvoch e-shop polí, atómovej verzie a zachovania ostatných údajov. Gemini E2E `tests/e2e/admin-gemini-all-concepts-v4.spec.ts` je zosúladený s existujúcou jednotnou tabuľkou a kontroluje desktop aj mobil.
+- **Pred merge**: CI pre najnovší HEAD musí byť zelené. Zvlášť preveriť, že nepribudli zlyhania v build/typecheck a v testoch e-shopu, Gemini, profilových recenzií a kvality údajov. Ak by sa `main` posunul, skontrolovať konflikty.
