@@ -51,3 +51,22 @@ test("Quality direct correction is limited to reviewed public link and contact f
   assert.match(css, /max-width:899px/);
   assert.match(css, /display:none!important/);
 });
+
+test("Profile reviews allow approval directly on desktop but preserve mandatory reason workflow for negative actions", () => {
+  const ui = read("components/admin-profile-review-inline-approval.tsx");
+  const page = read("app/admin/recenzie-profilov/page.tsx");
+  const full = read("components/admin-profile-review-actions.tsx");
+  const route = read("app/api/admin/profile-reviews/[id]/route.ts");
+  const css = read("components/admin-profile-review-inline-approval.module.css");
+  assert.match(ui, /currentStatus !== "PENDING_REVIEW"/);
+  assert.match(ui, /window\.confirm/);
+  assert.match(ui, /action: "APPROVE"/);
+  assert.match(ui, /expectedStatus: "PENDING_REVIEW"/);
+  assert.match(ui, /router\.refresh\(\)/);
+  assert.doesNotMatch(ui, /action: "(?:REJECT|REMOVE|HIDE|RESTORE)"/);
+  assert.match(page, /<AdminProfileReviewInlineApproval/);
+  assert.match(full, /requiresReason\(action\)/);
+  assert.match(route, /moderateProfileReviewAdmin/);
+  assert.match(css, /max-width: 899px/);
+  assert.match(css, /display: none/);
+});
