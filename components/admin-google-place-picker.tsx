@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { GeoTargetType } from "@/lib/geo";
+import { AdminGooglePlacesApiLink } from "@/components/admin-google-places-api-link";
 
 export type AdminGooglePlaceCandidate = {
   id: string;
@@ -120,9 +121,10 @@ export function AdminGooglePlacePicker({
 
   if (!available) {
     return (
-      <p className="admin-help" data-google-place-unavailable>
-        {unavailableReason || "Google Maps potvrdenie pre túto položku nie je dostupné."}
-      </p>
+      <div data-google-place-unavailable>
+        <p className="admin-help">{unavailableReason || "Google Maps potvrdenie pre túto položku nie je dostupné."}</p>
+        <AdminGooglePlacesApiLink compact />
+      </div>
     );
   }
 
@@ -132,6 +134,7 @@ export function AdminGooglePlacePicker({
         <button type="button" disabled={busy || !configured} onClick={() => void discover()}>
           {busy ? "Hľadám…" : buttonLabel ?? (compact ? "Nájsť v Google Maps" : "Nájsť profil v Google Maps")}
         </button>
+        <AdminGooglePlacesApiLink compact />
       </div>
       {!configured ? <p className="admin-help">Google Places momentálne nie je dostupné.</p> : null}
       {candidates.length ? (
