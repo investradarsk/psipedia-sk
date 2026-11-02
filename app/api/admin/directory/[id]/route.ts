@@ -3,7 +3,6 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceF
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -135,7 +134,7 @@ export async function PUT(request: Request, { params }: Props) {
     if (verified) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
     }
-    await autoAssignGooglePlaceForDirectoryProfile({ targetId: id });
+    // Saving a profile never triggers a paid Google Places search.
     // Only the just-saved linked profile is reconciled. This does not run an
     // entire directory scan, trigger Services V3 or affect Facebook images.
     // The canonical Admin save is not rolled back if Notion is unavailable;

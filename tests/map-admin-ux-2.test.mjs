@@ -64,10 +64,11 @@ test("Google Maps address claim is backed by existing Places API matching", () =
   assert.match(route, /googlePlacesApiKey/);
 });
 
-test("confirmation reuses existing geo_points and Google Place contracts", () => {
+test("confirmation reuses GEO contracts without silently querying paid Places", () => {
   assert.match(route, /initializeGeoPointForTarget/);
   assert.match(route, /applyGeocoderResolution/);
-  assert.match(route, /autoAssignGooglePlaceForDirectoryProfile/);
+  assert.doesNotMatch(route, /autoAssignGooglePlaceForDirectoryProfile/);
+  assert.match(route, /action === "discover-google-place"/);
   assert.doesNotMatch(route, /CREATE TABLE|ALTER TABLE|migration/i);
 });
 
