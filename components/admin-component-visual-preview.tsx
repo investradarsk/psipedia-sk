@@ -1,4 +1,5 @@
 import { ContentHubCta } from "./content-hub-cta";
+import { AdminProfileComponentPreview } from "./admin-visual-library-profile-previews";
 import { PublicActionLink } from "./public-visual-system/public-visual-system";
 import { PublicArticleCallout } from "./public-visual-system/public-article-callout";
 import { PublicContextBanner } from "./public-visual-system/public-context-banner";
@@ -65,12 +66,33 @@ export const adminComponentPreviewSamples = [
   { id: "filter-tag", path: "components/public-visual-system/public-result-states.tsx", family: "filter", title: "Štítok filtra", description: "Spoločný vizuálny prvok aktívneho filtra." },
   { id: "loading", path: "components/public-visual-system/public-result-states.tsx", family: "other", title: "Načítavanie", description: "Spoločný stav pri načítaní obsahu." },
   { id: "fallback", path: "components/public-visual-system/public-media-fallback.tsx", family: "card", title: "Chýbajúca fotografia", description: "Skutočná náhrada za chýbajúci obrázok." },
+  { id: "breed-card", path: "components/breed-card.tsx", family: "card", title: "Karta plemena – atlas", description: "Verejná karta plemena s FCI údajmi a hodnotením. Iba ukážkové údaje." },
+  { id: "directory-card", path: "components/directory-card.tsx", family: "card", title: "Karta veterinárnej služby", description: "Skutočná karta adresára s ukážkovou prevádzkou a službami." },
+  { id: "event-list", path: "components/event-card.tsx", family: "card", title: "Podujatie – zoznam", description: "Riadkový variant verejného podujatia s ukážkovým dátumom a miestom." },
+  { id: "event-grid", path: "components/event-card.tsx", family: "card", title: "Podujatie – mriežka", description: "Kartový variant verejného podujatia s tým istým ukážkovým obsahom." },
+  { id: "help-card", path: "components/help-card.tsx", family: "card", title: "Pomoc psom – aktívny prípad", description: "Verejná karta pomoci s ilustračným priebehom zbierky." },
+  { id: "help-resolved", path: "components/help-card.tsx", family: "card", title: "Pomoc psom – ukončený prípad", description: "Rovnaký komponent s označením vyriešeného prípadu." },
+  { id: "related-breed-list", path: "components/related-entity-list.tsx", family: "card", title: "Súvisiace plemená", description: "Skutočné karty súvisiacich plemien s náhradnými obrázkami." },
 ] as const;
 
 export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[number]["id"];
 
 export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewId }) {
   switch (id) {
+    case "breed-card":
+      return <AdminProfileComponentPreview id="breed-card" />;
+    case "directory-card":
+      return <AdminProfileComponentPreview id="directory-card" />;
+    case "event-list":
+      return <AdminProfileComponentPreview id="event-list" />;
+    case "event-grid":
+      return <AdminProfileComponentPreview id="event-grid" />;
+    case "help-card":
+      return <AdminProfileComponentPreview id="help-card" />;
+    case "help-resolved":
+      return <AdminProfileComponentPreview id="help-resolved" />;
+    case "related-breed-list":
+      return <AdminProfileComponentPreview id="related-breed-list" />;
     case "magazine":
       return <PublicMagazineBanner testId="admin-preview-magazine" title="Objavte služby pre svojho psa"
         description="Nájdite veterinárov, trénerov a ďalších odborníkov." label="Prejsť do adresára" href="/adresar" />;
