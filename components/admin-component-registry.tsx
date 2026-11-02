@@ -33,27 +33,39 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
   const [scope, setScope] = useState("all");
   const [area, setArea] = useState("all");
   const [family, setFamily] = useState("all");
+  const [previewStatus, setPreviewStatus] = useState("all");
+  const [showAll, setShowAll] = useState(false);
   const families = registry.families ?? [];
   const groups = registry.relatedGroups ?? [];
   const familyNames = Object.fromEntries(families.map(x=>[x.id,x.label]));
+  const previewPaths = useMemo(() => new Set(adminComponentPreviewSamples.map(sample => sample.path)), []);
+  const previewCount = registry.components.filter(component => previewPaths.has(component.path)).length;
   const items = useMemo(() => registry.components.filter((component) => {
     const searched = ((component.label ?? component.name) + " " + component.name + " " + component.path + " " +
       (familyNames[component.family ?? ""] ?? "") + " " + component.routes.join(" ")).toLocaleLowerCase("sk");
     if (!searched.includes(query.trim().toLocaleLowerCase("sk"))) return false;
     if (family !== "all" && component.family !== family &&
       !groups.some(group => group.id === family && group.paths.includes(component.path))) return false;
+    if (previewStatus === "available" && !previewPaths.has(component.path)) return false;
+    if (previewStatus === "missing" && previewPaths.has(component.path)) return false;
     if (scope === "shared" && !component.shared) return false;
     if (scope === "unreferenced" && !component.unreferenced) return false;
     if (scope === "single" && component.routeCount !== 1) return false;
     if (area === "public" && component.area === "admin") return false;
     if (area === "admin" && component.area === "public") return false;
     return true;
-  }), [registry.components, query, scope, area, family, familyNames, groups]);
-  const limited = items.slice(0, 100);
-  // Render actual components with safe sample props; hidden inside a private registry.
-  const previewSamples = adminComponentPreviewSamples.filter((sample) =>
-    family === "all" ? sample.featured : sample.family === family
-  );
+  }), [registry.components, query, scope, area, family, familyNames, groups, previewStatus, previewPaths]);
+  const limited = showAll ? items : items.slice(0, 100);
+  const previewSamples = adminComponentPreviewSamples.filter((sample) => {
+    if (previewStatus === "missing") return false;
+    if (family === "all" && !query.trim()) return sample.featured;
+    if (family !== "all" && sample.family !== family &&
+      !groups.some(group => group.id === family && group.paths.includes(sample.path))) return false;
+    if (!query.trim()) return true;
+    const search = query.trim().toLocaleLowerCase("sk");
+    return (sample.title + " " + sample.description + " " + sample.path).toLocaleLowerCase("sk").includes(search)
+      || items.some(component => component.path === sample.path);
+  });
 
   return (
     <section className={styles.root} aria-label="Register komponentov a šablón">
@@ -70,6 +82,11 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
         Pri dynamických profiloch ide len o vzor trasy, nie o konkrétnu overenú URL.
         {registry.generatedAt ? " Posledné generovanie: " + new Date(registry.generatedAt).toLocaleString("sk-SK") + "." : " Register sa naplní pri ďalšom zostavení webu."}
       </p>
+      <section className={styles.previewCoverage} aria-label="Pokrytie vizuálnymi náhľadmi">
+        <strong>Vizuálny náhľad: {previewCount} z {registry.components.length} súborov</strong>
+        <span>V galérii je {adminComponentPreviewSamples.length} bezpečných ukážok, pretože jeden komponent môže mať viac variantov.
+          Zvyšné komponenty zostávajú evidované, ale bez samostatného živého náhľadu. Môžeš si otvoriť ich stránky použitia.</span>
+      </section>
       {groups.length > 0 && (
         <section className={styles.familySection} aria-label="Podobné komponenty na kontrolu">
           <div className={styles.familyIntro}>
@@ -94,25 +111,15 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
         <header className={previewStyles.visualHeading}>
           <div>
             <strong>Vizuálne náhľady</strong>
-            <p>Skutočné komponenty so vzorovým obsahom. Na ukážky sa nedá kliknúť a nemenia žiadne dáta.
-              Vyber „Bannery“ vyššie a zobrazia sa všetky ich pripravené varianty.</p>
+            <p>Skutočné komponenty so vzorovým obsahom; žiadne dáta nemenia.
+              Vyber typ komponentu alebo použi vyhľadávanie. Ukážky sa vykreslia až po rozbalení.</p>
           </div>
         </header>
         {previewSamples.length ? (
           <div className={previewStyles.visualList}>
             {previewSamples.map((sample, index) => (
-              <details key={sample.id} className={previewStyles.visualSample} open={index === 0 && family === "all"}>
-                <summary>
-                  <span className={previewStyles.visualSampleTitle}>
-                    <strong>{sample.title}</strong>
-                    <small>{sample.description}</small>
-                  </span>
-                </summary>
-                <div className={previewStyles.visualStage} inert aria-hidden="true">
-                  <AdminComponentVisualPreview id={sample.id} />
-                </div>
-                <div className={previewStyles.visualCaption}>Vzorový obsah · skutočný komponent · bez aktívnych odkazov</div>
-              </details>
+              <VisualPreviewDisclosure key={sample.id} sample={sample}
+                initiallyOpen={index === 0 && family === "all" && !query.trim()} />
             ))}
           </div>
         ) : (
@@ -143,6 +150,14 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
           </select>
         </label>
         <label>
+          <span>Živý náhľad</span>
+          <select value={previewStatus} onChange={(e) => setPreviewStatus(e.target.value)}>
+            <option value="all">Všetky komponenty</option>
+            <option value="available">S náhľadom</option>
+            <option value="missing">Bez náhľadu</option>
+          </select>
+        </label>
+        <label>
           <span>Oblasť</span>
           <select value={area} onChange={(e) => setArea(e.target.value)}>
             <option value="all">Verejný web aj admin</option>
@@ -153,7 +168,7 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
       </div>
       <div className={styles.headline}>
         <strong>Nájdené: {items.length}</strong>
-        {items.length > limited.length && <span>Zobrazených prvých {limited.length}. Spresni filter.</span>}
+        {items.length > limited.length && <span>Zobrazených prvých {limited.length} z {items.length}.</span>}
       </div>
       <div className={styles.results}>
         {limited.map((component) => (
@@ -170,16 +185,16 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
               </span>
             </summary>
             <div className={styles.detail}>
-              {adminComponentPreviewSamples.some(sample => sample.path === component.path) && (
-                <details className={styles.inlinePreview}>
-                  <summary>Otvoriť vizuálnu ukážku komponentu</summary>
-                  <div className={previewStyles.visualStage} inert aria-hidden="true">
-                    <AdminComponentVisualPreview
-                      id={adminComponentPreviewSamples.find(sample => sample.path === component.path)!.id}
-                    />
-                  </div>
-                  <p>Vzorový obsah · skutočný komponent · bez aktívnych odkazov. Ďalšie varianty nájdeš vyššie v galérii.</p>
-                </details>
+              {previewPaths.has(component.path) ? (
+                <div className={styles.inlinePreview}>
+                  <strong>Vizuálne varianty ({adminComponentPreviewSamples.filter(sample => sample.path === component.path).length})</strong>
+                  {adminComponentPreviewSamples.filter(sample => sample.path === component.path).map(sample => (
+                    <VisualPreviewDisclosure key={sample.id} sample={sample} />
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.noPreview}>Tento komponent zatiaľ nemá bezpečný samostatný náhľad.
+                  Nižšie sú stránky, na ktorých môžeš vidieť jeho použitie.</p>
               )}
               <details className={styles.technical}>
                 <summary>Technické informácie</summary>
@@ -206,6 +221,16 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
         ))}
         {items.length === 0 && <p className={styles.empty}>Pre zadané filtre sa nenašli komponenty.</p>}
       </div>
+      {items.length > limited.length && (
+        <button type="button" className={styles.loadMore} onClick={() => setShowAll(true)}>
+          Zobraziť všetkých {items.length} komponentov
+        </button>
+      )}
+      {showAll && items.length > 100 && (
+        <button type="button" className={styles.loadMore} onClick={() => setShowAll(false)}>
+          Zobraziť iba prvých 100
+        </button>
+      )}
       {registry.sameNameCandidates.length > 0 && (
         <section className={styles.duplicates}>
           <h2>Kandidáti na kontrolu duplicitných názvov</h2>
@@ -219,5 +244,34 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
         </section>
       )}
     </section>
+  );
+}
+
+/** Render complex public components only after explicit expansion to keep admin responsive. */
+function VisualPreviewDisclosure({ sample, initiallyOpen = false }: {
+  sample: (typeof adminComponentPreviewSamples)[number];
+  initiallyOpen?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(initiallyOpen);
+  return (
+    <details className={previewStyles.visualSample} open={expanded}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}>
+      <summary>
+        <span className={previewStyles.visualSampleTitle}>
+          <strong>{sample.title}</strong>
+          <small>{sample.description}</small>
+        </span>
+      </summary>
+      {expanded && (
+        <>
+          <div className={previewStyles.visualStage} inert aria-hidden="true">
+            <AdminComponentVisualPreview id={sample.id} />
+          </div>
+          <div className={previewStyles.visualCaption}>
+            Vzorový obsah · skutočný komponent · bez aktívnych odkazov
+          </div>
+        </>
+      )}
+    </details>
   );
 }

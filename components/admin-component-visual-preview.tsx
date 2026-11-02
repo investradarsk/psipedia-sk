@@ -11,6 +11,18 @@ import {
 import { PublicMagazineBanner } from "./public-visual-system/public-magazine-banner";
 import { PublicPhotoCallout } from "./public-visual-system/public-photo-callout";
 import { PublicTextInput, PublicSelect } from "./public-visual-system/public-form-controls";
+import { HomePortalSearch } from "./home-portal-search";
+import { SectionHeroSearch } from "./section-hero-search";
+import {
+  PublicActionButton, PublicArticleListItem, PublicCategoryTiles, PublicContentListItem,
+  PublicDataCard, PublicLandingHero, PublicSectionHeader,
+} from "./public-visual-system/public-visual-system";
+import { PublicSubcategoryNavigator } from "./public-visual-system/public-subcategory-navigator";
+import {
+  PublicEmptyState, PublicFilterTag, PublicLoadingState, PublicNotice, PublicPagination,
+} from "./public-visual-system/public-result-states";
+import { PublicContentShell, PublicLandingSectionHeading } from "./public-visual-system/public-landing-layout";
+import { PublicMediaFallback } from "./public-visual-system/public-media-fallback";
 
 /**
  * Render the REAL existing public components with hardcoded demo text.
@@ -32,6 +44,27 @@ export const adminComponentPreviewSamples = [
   { id: "banner-frame", path: "components/public-visual-system/public-banner-frame.tsx", family: "banner", title: "Základ bannerov", description: "Spoločný obal nemá samostatný vzhľad; ukážka je jeho použitie." },
   { id: "actions", path: "components/public-visual-system/public-visual-system.tsx", family: "cta", title: "Spoločné CTA odkazy", description: "Primárny, sekundárny a textový variant." },
   { id: "controls", path: "components/public-visual-system/public-form-controls.tsx", family: "filter", title: "Formulárové ovládanie", description: "Spoločný vstup a výber bez odoslania formulára." },
+  { id: "section-header", path: "components/public-visual-system/public-visual-system.tsx", family: "hero", title: "Hlavička sekcie", description: "Reálna spoločná hlavička s titulkom a úvodom." },
+  { id: "section-header-image", path: "components/public-visual-system/public-visual-system.tsx", family: "hero", title: "Fotografická hlavička", description: "Skutočný variant spoločnej hlavičky s fotografiou." },
+  { id: "landing-hero", path: "components/public-visual-system/public-visual-system.tsx", family: "hero", title: "Úvodný blok sekcie", description: "Spoločný úvodný blok v sekcii služieb." },
+  { id: "landing-hero-events", path: "components/public-visual-system/public-visual-system.tsx", family: "hero", title: "Úvodný blok podujatí", description: "Samostatný farebný variant spoločného úvodného bloku." },
+  { id: "category-tiles", path: "components/public-visual-system/public-visual-system.tsx", family: "category", title: "Karty kategórií", description: "Spoločný prehľad kategórií a podkategórií." },
+  { id: "subcategory-landing", path: "components/public-visual-system/public-subcategory-navigator.tsx", family: "category", title: "Podkategórie s fotografiami", description: "Veľké karty navigácie medzi témami." },
+  { id: "subcategory-compact", path: "components/public-visual-system/public-subcategory-navigator.tsx", family: "category", title: "Kompaktná navigácia", description: "Riadok prepínania podkategórií." },
+  { id: "data-card", path: "components/public-visual-system/public-visual-system.tsx", family: "card", title: "Dátová karta služby", description: "Spoločná informačná karta bez produkčných údajov." },
+  { id: "content-card", path: "components/public-visual-system/public-visual-system.tsx", family: "card", title: "Obsahová karta", description: "Prehľadový prvok s úvodom a odkazom." },
+  { id: "article-list", path: "components/public-visual-system/public-visual-system.tsx", family: "card", title: "Riadok článku", description: "Kompaktný zoznam článkov s náhradou fotografie." },
+  { id: "section-search", path: "components/section-hero-search.tsx", family: "filter", title: "Vyhľadávanie sekcie", description: "Vyhľadávacie pole a tlačidlo v hlavičke sekcie." },
+  { id: "home-search", path: "components/home-portal-search.tsx", family: "filter", title: "Hlavné vyhľadávanie", description: "Skutočné spoločné vyhľadávanie s prázdnym vzorovým dopytom." },
+  { id: "action-button", path: "components/public-visual-system/public-visual-system.tsx", family: "cta", title: "Tlačidlá akcie", description: "Tri varianty spoločného akčného tlačidla." },
+  { id: "landing-heading", path: "components/public-visual-system/public-landing-layout.tsx", family: "hero", title: "Nadpis obsahovej sekcie", description: "Zdieľaná hlavička blokov na stránke." },
+  { id: "content-shell", path: "components/public-visual-system/public-landing-layout.tsx", family: "other", title: "Obsahový kontajner", description: "Ukážka zdieľaného rozloženia s vzorovým obsahom." },
+  { id: "empty-state", path: "components/public-visual-system/public-result-states.tsx", family: "other", title: "Prázdny zoznam", description: "Stav, keď sa nenašli žiadne výsledky." },
+  { id: "notice", path: "components/public-visual-system/public-result-states.tsx", family: "other", title: "Informačné upozornenie", description: "Skutočná správa používaná vo verejnom rozhraní." },
+  { id: "pagination", path: "components/public-visual-system/public-result-states.tsx", family: "other", title: "Stránkovanie", description: "Prechádzanie medzi stranami výsledkov." },
+  { id: "filter-tag", path: "components/public-visual-system/public-result-states.tsx", family: "filter", title: "Štítok filtra", description: "Spoločný vizuálny prvok aktívneho filtra." },
+  { id: "loading", path: "components/public-visual-system/public-result-states.tsx", family: "other", title: "Načítavanie", description: "Spoločný stav pri načítaní obsahu." },
+  { id: "fallback", path: "components/public-visual-system/public-media-fallback.tsx", family: "card", title: "Chýbajúca fotografia", description: "Skutočná náhrada za chýbajúci obrázok." },
 ] as const;
 
 export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[number]["id"];
@@ -82,6 +115,75 @@ export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewI
     case "banner-frame":
       return <PublicMagazineBanner testId="admin-preview-frame" compact
         title="Jeden spoločný obal bannerov" description="Konkrétny vzhľad určujú varianty, nie samotný obal." />;
+    case "section-header":
+      return <PublicSectionHeader eyebrow="Starostlivosť" title="Ako sa starať o psa" intro="Odborné rady a užitočné informácie pre majiteľov psov." />;
+    case "section-header-image":
+      return <PublicSectionHeader variant="image" eyebrow="Pre majiteľov psov" title="Zdravie psa"
+        intro="Prevencia, výživa a každodenná starostlivosť." image={{ src: "/images/zdravie-veterinar.webp", alt: "" }} />;
+    case "landing-hero":
+      return <PublicLandingHero tone="services" eyebrow="Služby pre psov" title="Nájdite odborníka"
+        intro="Veterinári, salóny a tréneri pre vášho psa." />;
+    case "landing-hero-events":
+      return <PublicLandingHero tone="events" eyebrow="Podujatia" title="Čo sa deje vo vašom okolí"
+        intro="Výstavy, športové podujatia a ďalšie stretnutia." />;
+    case "category-tiles":
+      return <PublicCategoryTiles label="Ukážka kategórií" items={[
+        { href: "/adresar/veterinari", title: "Veterinári", description: "Zdravie a prevencia" },
+        { href: "/adresar", title: "Psie salóny", description: "Starostlivosť o srsť" },
+        { href: "/aktivity", title: "Výcvik", description: "Tréneri a kurzy" },
+      ]} />;
+    case "subcategory-landing":
+      return <PublicSubcategoryNavigator label="Ukážka podkategórií" items={[
+        { href: "/starostlivost", title: "Zdravie", description: "Starostlivosť o psa" },
+        { href: "/aktivity", title: "Výcvik", description: "Tréning a aktivity" },
+        { href: "/plemena", title: "Plemená", description: "Atlas plemien" },
+      ]} />;
+    case "subcategory-compact":
+      return <PublicSubcategoryNavigator mode="compact" label="Ukážka prepínača" items={[
+        { href: "/adresar", title: "Všetky", current: true },
+        { href: "/adresar/veterinari", title: "Veterinári" },
+        { href: "/podujatia", title: "Podujatia" },
+      ]} />;
+    case "data-card":
+      return <PublicDataCard href="/adresar" eyebrow="Služby" title="Veterinárne služby"
+        description="Ukážkový profil odborníka." meta="Slovensko" actionLabel="Pozrieť profil" />;
+    case "content-card":
+      return <PublicContentListItem href="/clanky" eyebrow="Odborný článok" title="Starostlivosť o šteňa"
+        excerpt="Praktický sprievodca prvými týždňami." meta="Psipedia" actionLabel="Čítať" />;
+    case "article-list":
+      return <PublicArticleListItem href="/clanky" title="Ako naučiť psa privolanie"
+        topic="Výcvik" date="Ukážka" listItem={false} />;
+    case "section-search":
+      return <SectionHeroSearch action="/hladat" id="component-preview-section-search"
+        label="Ukážkové vyhľadávanie" placeholder="Hľadať..." buttonLabel="Hľadať" />;
+    case "home-search":
+      return <HomePortalSearch id="component-preview-home-search" />;
+    case "action-button":
+      return <div style={{ display: "flex", flexWrap: "wrap", gap: 12, padding: 12 }}>
+        <PublicActionButton>Primárne</PublicActionButton>
+        <PublicActionButton variant="secondary">Sekundárne</PublicActionButton>
+        <PublicActionButton variant="tertiary">Textové</PublicActionButton>
+      </div>;
+    case "landing-heading":
+      return <PublicLandingSectionHeading eyebrow="Prehľad" title="Odporúčané články"
+        description="Výber zaujímavých tém pre majiteľov psov." />;
+    case "content-shell":
+      return <PublicContentShell variant="landing">
+        <p style={{ margin: 0, padding: 12 }}>Ukážkový obsah v spoločnom kontajneri.</p>
+      </PublicContentShell>;
+    case "empty-state":
+      return <PublicEmptyState title="Nenašli sa žiadne výsledky"
+        description="Skúste upraviť filtre alebo zmeniť hľadaný výraz." />;
+    case "notice":
+      return <PublicNotice tone="info" as="div">Toto je vzorové informačné upozornenie.</PublicNotice>;
+    case "pagination":
+      return <PublicPagination currentPage={2} totalPages={5} previousHref="/clanky" nextHref="/clanky" />;
+    case "filter-tag":
+      return <div style={{ padding: 16 }}><PublicFilterTag>Veterinári</PublicFilterTag></div>;
+    case "loading":
+      return <PublicLoadingState label="Načítavam výsledky..." />;
+    case "fallback":
+      return <PublicMediaFallback size="detail" />;
     case "actions":
       return <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "24px 14px" }}>
         <PublicActionLink href="/adresar" variant="primary">Primárna akcia</PublicActionLink>
