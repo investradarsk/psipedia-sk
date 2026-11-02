@@ -1,5 +1,6 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { isDynamicUrlKind, listDynamicPublicUrls } from "@/lib/visual-library-dynamic-urls";
+import { listDynamicPublicUrls } from "@/lib/visual-library-dynamic-urls";
+import { isDynamicUrlKind } from "@/lib/visual-library-dynamic-urls-contract";
 
 export const dynamic = "force-dynamic";
 
