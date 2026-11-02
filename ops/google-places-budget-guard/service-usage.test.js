@@ -1,7 +1,7 @@
 'use strict';
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { disablePlacesApi, TARGET_PROJECT, TARGET_SERVICE } = require('./service-usage');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { disablePlacesApi, TARGET_PROJECT, TARGET_SERVICE } from './service-usage.js';
 const projectUrl = 'https://serviceusage.googleapis.com/v1/projects/' + TARGET_PROJECT + '/services/' + TARGET_SERVICE;
 
 test('only specific Places API is disabled; not Cloud Billing, Gemini or Maps', async () => {
