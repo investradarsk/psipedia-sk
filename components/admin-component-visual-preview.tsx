@@ -78,9 +78,9 @@ export const adminComponentPreviewSamples = [
   { id: "site-footer", path: "components/site-footer.tsx", family: "other", title: "Pätička a právne odkazy", description: "Skutočná spoločná pätička webu s odkazmi a nastaveniami cookies." },
   { id: "directory-services-short", path: "components/directory-services-list.tsx", family: "other", title: "Detail služby – poskytované služby", description: "Skutočný dvojstĺpcový zoznam služieb v profile s fiktívnym obsahom." },
   { id: "directory-services-expanded", path: "components/directory-services-list.tsx", family: "other", title: "Detail služby – dlhý zoznam", description: "Skutočný zoznam nad limitom 10 položiek s tlačidlom na rozbalenie; v náhľade neaktívnym." },
-  { id: "profile-reviews-empty", path: "components/profile-review-section.tsx", family: "other", title: "Recenzie – profil bez hodnotení", description: "Prázdny stav skutočnej sekcie recenzií." },
-  { id: "profile-reviews-populated", path: "components/profile-review-section.tsx", family: "other", title: "Recenzie – hodnotenia a odpoveď", description: "Skutočné rozloženie recenzií, hodnotení a odpovede na základe fiktívnych údajov." },
-  { id: "profile-reviews-error", path: "components/profile-review-section.tsx", family: "other", title: "Recenzie – chyba načítania", description: "Skutočný stav pri nedostupnosti recenzií, bez databázového dopytu." },
+  { id: "breed-section-nav", path: "components/breed-section-nav.tsx", family: "category", title: "Detail plemena – navigácia sekcií", description: "Reálne sekciové záložky plemena s ilustračnými názvami." },
+  { id: "help-urgent", path: "components/help-card.tsx", family: "card", title: "Pomoc psom – urgentný prípad", description: "Skutočná karta so zvýraznením urgentnej pomoci, bez skutočnej výzvy." },
+  { id: "event-cancelled", path: "components/event-card.tsx", family: "card", title: "Podujatia – zrušený termín", description: "Skutočná mriežková karta zrušeného ilustračného podujatia." },
   { id: "event-listing-filtered", path: "components/event-listing-results.tsx", family: "filter", title: "Podujatia – formulár filtrov a výsledky", description: "Celé skutočné rozloženie filtrov a výsledkov podujatí s fiktívnou kartou." },
   { id: "event-listing-empty", path: "components/event-listing-results.tsx", family: "filter", title: "Podujatia – filtre bez výsledkov", description: "Skutočná prázdna výsledková sekcia po použití filtrov." },
 ] as const;
@@ -111,12 +111,12 @@ export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewI
       return <AdminDetailComponentPreview id="directory-services-short" />;
     case "directory-services-expanded":
       return <AdminDetailComponentPreview id="directory-services-expanded" />;
-    case "profile-reviews-empty":
-      return <AdminDetailComponentPreview id="profile-reviews-empty" />;
-    case "profile-reviews-populated":
-      return <AdminDetailComponentPreview id="profile-reviews-populated" />;
-    case "profile-reviews-error":
-      return <AdminDetailComponentPreview id="profile-reviews-error" />;
+    case "breed-section-nav":
+      return <AdminProfileComponentPreview id="breed-section-nav" />;
+    case "help-urgent":
+      return <AdminProfileComponentPreview id="help-urgent" />;
+    case "event-cancelled":
+      return <AdminProfileComponentPreview id="event-cancelled" />;
     case "event-listing-filtered":
       return <AdminDetailComponentPreview id="event-listing-filtered" />;
     case "event-listing-empty":
