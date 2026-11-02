@@ -3,6 +3,8 @@ import { DirectoryCard } from "@/components/directory-card";
 import { EventCard } from "@/components/event-card";
 import { HelpCard } from "@/components/help-card";
 import { RelatedBreedList } from "@/components/related-entity-list";
+import { DirectoryCategoryNavigation } from "@/components/directory-category-navigation";
+import { SiteFooter } from "@/components/site-footer";
 import type { BreedAtlasCard } from "@/lib/breed-store";
 import type { PublicDirectoryProfile } from "@/lib/directory";
 import type { PublicEventCard } from "@/lib/events";
@@ -106,10 +108,21 @@ export type AdminProfilePreviewId =
   | "event-grid"
   | "help-card"
   | "help-resolved"
-  | "related-breed-list";
+  | "related-breed-list"
+  | "directory-category-navigation"
+  | "site-footer";
 
 export function AdminProfileComponentPreview({ id }: { id: AdminProfilePreviewId }) {
   switch (id) {
+    case "directory-category-navigation":
+      return <DirectoryCategoryNavigation items={[
+        { href: "/adresar", title: "Všetky služby" },
+        { href: "/adresar/veterinari", title: "Veterinári", current: true },
+        { href: "/adresar/treneri", title: "Tréneri" },
+        { href: "/adresar/salony-a-sluzby", title: "Psie salóny" },
+      ]} />;
+    case "site-footer":
+      return <SiteFooter />;
     case "breed-card":
       return <BreedCard breed={breedExample} />;
     case "directory-card":
