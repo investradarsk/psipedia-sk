@@ -36,7 +36,6 @@ import {
   discoverGoogleTargetPlaces,
   googlePlaceActionForSource,
 } from "@/lib/google-place-target-discovery";
-import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { confirmAdminGooglePlace } from "@/lib/admin-google-place-confirmation";
 
 export const dynamic = "force-dynamic";
@@ -464,8 +463,8 @@ export async function POST(request: Request, { params }: Props) {
         result: preview.result,
         method: "GEOCODER",
       });
-      const google = await autoAssignGooglePlaceForDirectoryProfile({ targetId: target.id });
-      return Response.json({ point, google });
+      // Geocoding confirmation must not also start a paid Google Places search.
+      return Response.json({ point });
     }
 
     if (action === "initialize") {
