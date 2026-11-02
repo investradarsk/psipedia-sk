@@ -9,6 +9,7 @@ import {
 } from "@/lib/article-feedback-store";
 import styles from "./admin-article-feedback-dashboard.module.css";
 import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
+import rowStyles from "./admin-inline-card-actions.module.css";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("sk-SK", {
@@ -109,6 +110,7 @@ export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { f
                 <Link href={item.articlePath} target="_blank" rel="noreferrer">Otvoriť článok ↗</Link>
                 {!item.helpful && (
                   <footer className={styles.actions}>
+                    <span className={rowStyles.desktop}>
                     {rowDraft?.id === item.id && <AdminInlineCellSelect
                       label={"Stav hodnotenia článku " + item.articleTitle}
                       value={rowDraft.status} disabled={busyId !== null}
@@ -121,6 +123,13 @@ export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { f
                       onSave={() => void saveRow(item)}
                       onCancel={() => { if (busyId === null) setRowDraft(null); }}
                     />
+                    </span>
+                    <span className={rowStyles.mobile}>
+                      {item.status !== "new" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "new")}>Nové</button>}
+                      {item.status !== "reviewing" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "reviewing")}>Rieši sa</button>}
+                      {item.status !== "resolved" && <button className={styles.primary} type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "resolved")}>Vyriešené</button>}
+                      {item.status !== "dismissed" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "dismissed")}>Ignorovať</button>}
+                    </span>
                   </footer>
                 )}
               </article>
