@@ -170,6 +170,17 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
               </span>
             </summary>
             <div className={styles.detail}>
+              {adminComponentPreviewSamples.some(sample => sample.path === component.path) && (
+                <details className={styles.inlinePreview}>
+                  <summary>Otvoriť vizuálnu ukážku komponentu</summary>
+                  <div className={previewStyles.visualStage} inert aria-hidden="true">
+                    <AdminComponentVisualPreview
+                      id={adminComponentPreviewSamples.find(sample => sample.path === component.path)!.id}
+                    />
+                  </div>
+                  <p>Vzorový obsah · skutočný komponent · bez aktívnych odkazov. Ďalšie varianty nájdeš vyššie v galérii.</p>
+                </details>
+              )}
               <details className={styles.technical}>
                 <summary>Technické informácie</summary>
                 <a href={"https://github.com/investradarsk/psipedia-sk/blob/main/" + component.path}
