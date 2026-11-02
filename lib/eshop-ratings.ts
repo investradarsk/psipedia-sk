@@ -304,8 +304,12 @@ export async function updateManagedEshopInline(
   }
   const name = normalizedText(input.name, "Názov", 160);
   const websiteUrl = normalizedUrl(input.websiteUrl, "Web e-shopu");
+  // Unlike a logo, a shop website must be an external HTTP(S) destination.
+  if (!/^https?:\\/\\//i.test(websiteUrl)) {
+    throw new EshopRatingError("Web e-shopu musí byť adresa HTTP(S).", 400, "INVALID_ESHOP_PROFILE");
+  }
   if (typeof input.expectedUpdatedAt !== "string" ||
-    !/^\\d{4}-\\d{2}-\\d{2}T/.test(input.expectedUpdatedAt) ||
+    !/^\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}/.test(input.expectedUpdatedAt) ||
     input.expectedUpdatedAt.length > 40) {
     throw new EshopRatingError("Chýba platná verzia e-shopu.", 400, "INVALID_VERSION");
   }
