@@ -295,10 +295,11 @@ test("numberless canonical address participates in the exact source fingerprint 
   assert.match(geoSource, /sourceAddress: includeStreet[\s\S]*directoryCanonicalPublicAddress/);
 });
 
-test("existing numbered address flow remains Geoapify-first and Google-place-enriched", () => {
+test("existing numbered address flow stays Geoapify-first without implicit paid Google Places", () => {
   assert.match(routeSource, /const preview = await previewGeoSource\(\{ source, visibility: "EXACT_PUBLIC", precision: "EXACT" \}\)/);
   assert.match(routeSource, /point = await applyGeocoderResolution/);
-  assert.match(routeSource, /autoAssignGooglePlaceForDirectoryProfile/);
+  assert.doesNotMatch(routeSource, /autoAssignGooglePlaceForDirectoryProfile/);
+  assert.match(routeSource, /action === "discover-google-place"/);
 });
 
 test("numberless UI displays street even when houseNumber is empty", () => {
