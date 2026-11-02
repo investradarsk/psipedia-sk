@@ -1,0 +1,26 @@
+.root { display: grid; gap: 10px; padding: 14px; border: 1px solid #d8e5dc; border-radius: 12px; background: #f9fbf9; color: #1e4734; min-width: 0; }
+.heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.heading div { display: grid; gap: 5px; min-width: 0; }
+.heading strong { font-size: .92rem; }
+.heading p,.body p { margin: 0; font-size: .82rem; line-height: 1.5; }
+.heading button,.body > button,.revision button,.restore button { padding: 8px 12px; min-height: 40px; border: 1px solid #c2d4c7; border-radius: 8px; background: #fff; color: #285540; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.heading button:disabled,.body button:disabled { opacity: .45; cursor: not-allowed; }
+.heading button:focus-visible,.body button:focus-visible { outline: 3px solid #cb7a54; outline-offset: 2px; }
+.body { display: grid; gap: 10px; }
+.note { font-size: .78rem!important; color: #647367; }
+.error { color: #8c342a; }
+.timeline { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.timeline li { display: grid; gap: 10px; border: 1px solid #dbe6dc; background: #fff; border-radius: 9px; padding: 10px; }
+.revision { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.revision > span { display: grid; gap: 4px; }
+.revision strong { font-size: .81rem; }
+.revision small,.restore small,.diff small { color: #697970; overflow-wrap: anywhere; font-size: .74rem; }
+.diff { display: grid; gap: 8px; }
+.change { display: grid; gap: 6px; background: #f4f8f4; border-radius: 8px; padding: 10px; }
+.change > strong { font-size: .8rem; }
+.change > div { min-width: 0; overflow-wrap: anywhere; }
+.change > div span { color: #6c776d; font-size: .73rem; }
+.change > div p { background: #fff; border-radius: 6px; padding: 5px 8px; max-height: 140px; overflow: auto; white-space: pre-wrap; }
+.restore { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.restore button { color: #8a3b2e; border-color: #deb6ab; background: #fff7f4; }
+@media (max-width: 600px) { .heading,.revision { align-items: stretch; flex-direction: column; } .heading button,.revision button,.restore button { width: 100%; } }

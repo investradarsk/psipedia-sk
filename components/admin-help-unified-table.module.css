@@ -49,3 +49,22 @@
   .workspace { display: none; }
   .mobileHub { display: block; }
 }
+
+
+/* Page-scoped bulk edit controls only for canonical generic Help categories. */
+.bulkPanel { display: grid; gap: 9px; min-width: 0; }
+.bulkPanel p, .bulkHint {
+  margin: 0;
+  font-size: .81rem;
+  line-height: 1.5;
+  color: #4d695a;
+}
+.bulkMessage {
+  margin: 0;
+  padding: 11px 14px;
+  color: #174b38;
+  border: 1px solid #c9e0ce;
+  border-radius: 10px;
+  background: #f2f8f1;
+  font-size: .85rem;
+}

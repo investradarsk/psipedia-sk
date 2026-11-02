@@ -190,15 +190,17 @@ test("SECTION-PUBLIC keeps puppies, care and activities on one shared visual con
   assert.match(css, /var\(--section-accent-soft\)/);
 });
 
-test("SECTION-PUBLIC navigation scopes mobile overflow to the canonical navigation component", () => {
+test("SECTION-PUBLIC keeps all compact categories visible in a responsive grid", () => {
   const tabs = read("components/portal-section-tabs.tsx");
   const css = read("components/public-visual-system/public-subcategory-navigator.module.css");
   assert.match(tabs, /styles\.nav/);
   assert.match(tabs, /PortalMobileCategorySelect/);
-  assert.match(css, /min-height:\s*44px/);
-  assert.match(css, /flex-wrap:\s*nowrap/);
-  assert.match(css, /overflow-x:\s*auto/);
-  assert.match(css, /overscroll-behavior-x:\s*contain/);
+  assert.match(css, /\/\* PUBLIC NAV: no hidden horizontal rails/);
+  assert.match(css, /\.compactTrack \{\s*display: grid;/);
+  assert.match(css, /scroll-snap-type:\s*none/);
+  assert.match(css, /\.compactItem \{[\s\S]*?min-height:\s*48px/);
+  assert.match(css, /@media \(max-width: 620px\) \{ \.compactTrack \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@media \(max-width: 380px\) \{ \.compactTrack \{ grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(css, /\.compactItemCurrent/);
 });
 

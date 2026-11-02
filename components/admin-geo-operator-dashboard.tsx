@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AdminGooglePlacePicker } from "@/components/admin-google-place-picker";
+import { AdminGooglePlacesApiLink } from "@/components/admin-google-places-api-link";
 import type {
   GeoAdminOperatorData,
   GeoAdminOperatorGroupFilter,
@@ -378,6 +379,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
             <p className="admin-help">Dávka sa vyberá zo serverového unresolved inboxu, nie iba z aktuálnej stránky.</p>
           </div>
         </div>
+        <AdminGooglePlacesApiLink />
         <div className="admin-editor-actions" style={{ alignItems: "end", flexWrap: "wrap" }}>
           <div className="admin-field" style={{ maxWidth: 160 }}>
             <label htmlFor="google-bulk-count">Počet</label>
