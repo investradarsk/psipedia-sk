@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminEshopNotionSyncButton } from "@/components/admin-eshop-notion-sync-button";
+import { AdminEshopListInline } from "@/components/admin-eshop-list-inline";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import { listManagedEshops } from "@/lib/eshop-ratings";
@@ -33,7 +34,7 @@ export default async function AdminEshopsPage() {
                 <span data-status={shop.status}>{shop.status === "published" ? "Publikovaný" : shop.status === "archived" ? "Archivovaný" : "Koncept"}</span>
                 <small>ID {shop.id}</small>
               </div>
-              <h2>{shop.name}</h2>
+              <AdminEshopListInline shop={shop} />
               <p>{shop.description}</p>
               {shop.focusTags.length ? <div className={styles.tags}>{shop.focusTags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
               <div className={styles.links}>
