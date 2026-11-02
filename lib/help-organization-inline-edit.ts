@@ -1,7 +1,6 @@
 import {
   OrganizationAdminValidationError,
-  parseOrganizationAdminInput,
-  organizationAdminInputFromCandidate,
+  parseShelterInlineTextInput,
   type OrganizationAdminInput,
 } from "./help-organization-admin-input.ts";
 import type { OrganizationPublicationAdminItem } from "./help-organization-admin-store.ts";
@@ -28,7 +27,7 @@ export function shelterInlineValues(item: OrganizationPublicationAdminItem): She
 export function organizationInputWithShelterInlineChanges(
   item: OrganizationPublicationAdminItem,
   value: unknown,
-): OrganizationAdminInput {
+): ShelterInlineValues {
   if (item.type !== "SHELTER" || item.status === "ARCHIVED" || item.archivedAt) {
     throw new OrganizationAdminValidationError("Tento záznam nie je upraviteľný v tabuľke útulkov.");
   }
@@ -46,14 +45,7 @@ export function organizationInputWithShelterInlineChanges(
       throw new OrganizationAdminValidationError("Neplatný údaj: " + key);
     }
   }
-  const base = organizationAdminInputFromCandidate(item);
-  const changes: ShelterInlineValues = {
-    name: data.name as string,
-    shortDescription: data.shortDescription as string,
-    publicEmail: (data.publicEmail as string | null) || null,
-    publicPhone: (data.publicPhone as string | null) || null,
-    websiteUrl: (data.websiteUrl as string | null) || null,
-  };
-  // Reuse the canonical editor's validation and avoid writing unrelated fields.
-  return parseOrganizationAdminInput({ ...base, ...changes });
+  // Validate the edited values only; legacy imported media/slug fields are not
+  // resubmitted or normalized by a quick edit.
+  return parseShelterInlineTextInput(data);
 }
