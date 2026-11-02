@@ -52,6 +52,23 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const queryKey=`${month}|${status}|${source}|${page}|${refresh}`;
   const[settledQuery,setSettledQuery]=useState(queryKey);
   const initialQueryHandled=useRef(false);
+  const incomingDraftHandled=useRef(false);
+  useEffect(()=>{
+    if(!ready||incomingDraftHandled.current)return;
+    incomingDraftHandled.current=true;
+    const id=new URLSearchParams(window.location.search).get("openDraft");
+    if(!id||!/^[a-f0-9-]{36}$/.test(id))return;
+    const controller=new AbortController();
+    fetch("/api/admin/facebook-images/"+encodeURIComponent(id),{cache:"no-store",signal:controller.signal})
+      .then(async response=>{
+        const data=await response.json() as {post?:FacebookImagePost;error?:string};
+        if(!response.ok||!data.post)throw Error(data.error||"Príspevok nebol nájdený.");
+        if(data.post.articleId){window.location.assign("/admin/clanky/"+data.post.articleId);return;}
+        const next=formFor(data.post);
+        setForm(next);setBaseline(JSON.stringify(next));setEditor({post:data.post});
+      }).catch(error=>{if(!controller.signal.aborted)setError(error instanceof Error?error.message:"Načítanie zlyhalo.");});
+    return()=>controller.abort();
+  },[ready]);
   const loading=opening||settledQuery!==queryKey;
   const dirty=!!editor && JSON.stringify(form)!==baseline;
   useEffect(()=>{
