@@ -256,7 +256,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
               ? <AdminInlineCellInput label={"Úvod plemena " + breed.name} value={activeInline.intro}
                   maxLength={1000} disabled={busy}
                   onChange={intro => setInlineDraft(current => current ? { ...current, intro } : null)} />
-              : <p>{breed.intro || "Úvod nie je vyplnený."}</p>}
+              : <p className={styles.inlineDesktop}>{breed.intro || "Úvod nie je vyplnený."}</p>}
           </div>
           <div className={styles.meta}><strong>FCI {breed.fciGroup} · {breed.fciSection || "Sekcia neuvedená"}</strong><span>{breed.origin || "Pôvod neuvedený"}</span></div>
           <div className={styles.issueList}>{breed.completenessIssues.length ? breed.completenessIssues.map((issue) => <span className={styles.issue} data-breed-completeness key={issue}>{issue}</span>) : <span className={styles.complete}>Bez detegovaných medzier</span>}</div>
