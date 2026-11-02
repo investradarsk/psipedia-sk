@@ -16,7 +16,8 @@ test("shared inline controls expose accessible save, cancel, text, and select in
   assert.match(component, /onSave: \(\) => void/);
   assert.match(component, /onCancel: \(\) => void/);
   assert.match(component, /aria-label=\{label\}/);
-  assert.doesNotMatch(component, /fetch\(|\/" + "api\//);
+  assert.doesNotMatch(component, /fetch\(/);
+  assert.doesNotMatch(component, /\/api\//);
 });
 
 test("directory quick edit exposes only name and excerpt and requires same-origin authenticated CAS", () => {
