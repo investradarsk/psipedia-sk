@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { arrayMove } from "@dnd-kit/sortable";
+import { AdminSortableOrderPreview } from "@/components/admin-sortable-order-preview";
+import { AdminContentHistory } from "@/components/admin-content-history";
 import {
   SECTION_VISUAL_ZOOM_MAX,
   SECTION_VISUAL_ZOOM_MIN,
@@ -41,6 +44,7 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
   const [activeKey, setActiveKey] = useState(initialVisuals[0]?.definition.visualKey ?? "");
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  const [draftChanged, setDraftChanged] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -69,6 +73,7 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
 
   function patchVisual(patch: Partial<ResolvedSectionVisual>) {
     if (!active) return;
+    setDraftChanged(true);
     setItems((current) => updatedItem(current, active.definition.visualKey, (item) => ({
       ...item,
       visual: { ...item.visual, ...patch },
@@ -81,12 +86,14 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
 
   function patchSection(patch: Partial<ManagedPortalSection>) {
     if (!activeSection) return;
+    setDraftChanged(true);
     setSections((current) => current.map((section) => section.slug === activeSection.slug ? { ...section, ...patch } : section));
     clearFeedback();
   }
 
   function patchSubpage(patch: Partial<PortalSubpage>) {
     if (!activeSection || !activeSubpage) return;
+    setDraftChanged(true);
     setSections((current) => current.map((section) => section.slug !== activeSection.slug ? section : ({
       ...section,
       subpages: section.subpages.map((subpage) => subpage.slug === activeSubpage.slug ? { ...subpage, ...patch } : subpage),
@@ -115,6 +122,12 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
 
   function removeQuickLink(index: number) {
     patchHeroConfig({ quickLinks: (heroConfig.quickLinks ?? []).filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function reorderQuickLinks(from: number, to: number) {
+    const links = heroConfig.quickLinks ?? [];
+    if (from < 0 || to < 0 || from >= links.length || to >= links.length || from === to) return;
+    patchHeroConfig({ quickLinks: arrayMove(links, from, to) });
   }
 
   function safeHref(value: string) { return value.startsWith("/") || /^https:\/\//i.test(value); }
@@ -216,6 +229,7 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
       const data = await response.json() as { visual?: ResolvedSectionVisual; error?: string };
       if (!response.ok || !data.visual) throw new Error(data.error || "Vizuál sa nepodarilo uložiť.");
       setItems((current) => updatedItem(current, active.definition.visualKey, (item) => ({ ...item, visual: data.visual! })));
+      setDraftChanged(false);
       setMessage(active.definition.sectionSlug ? "Hlavička sekcie je uložená." : "Vizuál je uložený.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Hlavičku sa nepodarilo uložiť.");
@@ -444,6 +458,20 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
 
             <section className={styles.configGroup} aria-labelledby="hero-links-heading">
               <div className={styles.groupHeading}><div><span>Quick links</span><h3 id="hero-links-heading">Rýchle odkazy</h3></div><button type="button" className={styles.smallButton} disabled={(heroConfig.quickLinks?.length ?? 0) >= 6} onClick={addQuickLink}>+ Pridať odkaz</button></div>
+              {(heroConfig.quickLinks?.length ?? 0) > 1 && (
+                <AdminSortableOrderPreview
+                  title="Náhľad poradia rýchlych odkazov"
+                  description="Potiahni odkazy do poradia, v akom sa zobrazia v hlavičke. Ulož ich tlačidlom Uložiť hlavičku."
+                  items={(heroConfig.quickLinks ?? []).map((link, index) => ({
+                    id: String(index),
+                    label: link.label || "Nový rýchly odkaz",
+                    detail: link.href || "Adresa zatiaľ nevyplnená",
+                    visible: link.visible !== false,
+                  }))}
+                  onReorder={reorderQuickLinks}
+                  disabled={saving || uploading}
+                />
+              )}
               <div className={styles.quickLinkEditor}>
                 {(heroConfig.quickLinks ?? []).map((link, index) => (
                   <div className={styles.quickLinkRow} key={index}>
@@ -459,6 +487,22 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
           </>
         ) : null}
 
+        <AdminContentHistory
+          key={"visual-history-" + definition.visualKey}
+          entityType="section_visual"
+          entityKey={definition.visualKey}
+          label={"Obrázok a výrez: " + definition.name}
+          disabled={saving || uploading || draftChanged}
+        />
+        {activeSection && (
+          <AdminContentHistory
+            key={"section-history-" + activeSection.slug}
+            entityType="section"
+            entityKey={activeSection.slug}
+            label={"Texty a odkazy: " + activeSection.label}
+            disabled={saving || uploading || draftChanged}
+          />
+        )}
         {message ? <p className={styles.success} role="status">{message}</p> : null}
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
 

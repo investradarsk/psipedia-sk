@@ -1,6 +1,6 @@
 import { chromium } from "@playwright/test";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 // Compare only the same locally generated fixture names, viewports and Chromium
@@ -18,10 +18,19 @@ export function classifyDifference({ changedPixels, totalPixels, baselineWidth, 
   return { dimensionsMatch, fraction, failed: !dimensionsMatch || fraction > maxFraction };
 }
 
-async function snapshotNames(directory) {
+async function snapshotNames(directory, prefix = "") {
   const entries = await readdir(directory, { withFileTypes: true });
-  return entries.filter((entry) => entry.isFile() && /^[A-Za-z0-9][A-Za-z0-9_.-]*\.png$/.test(entry.name))
-    .map((entry) => entry.name).sort();
+  const names = [];
+  for (const entry of entries) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(entry.name)) continue;
+    const name = prefix ? prefix + "/" + entry.name : entry.name;
+    if (entry.isDirectory()) {
+      names.push(...await snapshotNames(join(directory, entry.name), name));
+    } else if (entry.isFile() && entry.name.endsWith(".png")) {
+      names.push(name);
+    }
+  }
+  return names.sort();
 }
 
 export async function comparePngBuffers(page, baselinePng, currentPng, tolerance = DEFAULT_CHANNEL_TOLERANCE) {
@@ -139,7 +148,10 @@ export async function compareSnapshotDirectories({
       const comparison = await comparePngBuffers(page, baselinePng, currentPng, channelTolerance);
       const { diffPng, ...metrics } = comparison;
       const assessment = classifyDifference(metrics, maxDifference);
-      if (assessment.failed) await writeFile(join(outputDir, name), Buffer.from(diffPng, "base64"));
+      if (assessment.failed) {
+        await mkdir(dirname(join(outputDir, name)), { recursive: true });
+        await writeFile(join(outputDir, name), Buffer.from(diffPng, "base64"));
+      }
       manifest.comparisons.push({
         name, baselineWidth: metrics.baselineWidth, baselineHeight: metrics.baselineHeight,
         currentWidth: metrics.currentWidth, currentHeight: metrics.currentHeight,
@@ -168,7 +180,10 @@ async function main() {
   console.log(result.summary);
   if (result.failed) {
     console.error("Visual differences need explicit review. See paired screenshots and red diff PNGs in the PR artifact.");
-    process.exitCode = 1;
+    // Intentional UI edits must be reviewed, not treated as CI failures.
+    // Missing screenshots are different: never silently accept lost evidence.
+    const missing = result.manifest.comparisons.some(item => item.status.startsWith("MISSING"));
+    if (missing || process.env.VISUAL_DIFF_REVIEW_ONLY !== "1") process.exitCode = 1;
   }
 }
 

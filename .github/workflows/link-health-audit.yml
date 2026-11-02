@@ -1,0 +1,68 @@
+name: Link health – bounded weekly check
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psipedia-link-health-weekly
+  cancel-in-progress: false
+
+jobs:
+  links:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout report scripts only (no write access)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node for report normalization
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - name: Validate public-only scan policy and report contract
+        run: node --experimental-strip-types --test tests/link-health.test.mjs
+      - name: Select maximum 12 public pages from sitemap
+        run: node scripts/link-health-weekly.mjs select
+      - name: Install already approved checksum-pinned Linkinator v8.1.0 (MIT)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bin reports/link-health
+          curl -fLsS --retry 2 --max-time 120 \
+            'https://github.com/JustinBeckwith/linkinator/releases/download/linkinator-v8.1.0/linkinator-linux' \
+            -o bin/linkinator
+          echo '324650c72664cf7b3e511858179ceecd2b4432c54e20edf45fc59c3fa08b81c6  bin/linkinator' | sha256sum -c -
+          chmod +x bin/linkinator
+      - name: Read-only, no recursion, internal links only, concurrency 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t PAGES < reports/link-health/urls.txt
+          test "${#PAGES[@]}" -gt 0
+          test "${#PAGES[@]}" -le 12
+          set +e
+          ./bin/linkinator "${PAGES[@]}" --concurrency 1 --timeout 8000 \
+            --format json --skip '^(?!https?://psipedia[.]sk(?:/|$))' \
+            > reports/link-health/linkinator.json \
+            2> reports/link-health/linkinator-stderr.log
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > reports/link-health/exit-code.txt
+          # Broken links are review findings, not a reason to stop artifact creation.
+          echo "Linkinator exit code: $rc"
+      - name: Generate readable source → target report
+        run: node scripts/link-health-weekly.mjs report
+      - name: Upload diagnostics including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psipedia-link-health-${{ github.run_id }}
+          path: reports/link-health/
+          if-no-files-found: warn
+          retention-days: 30
