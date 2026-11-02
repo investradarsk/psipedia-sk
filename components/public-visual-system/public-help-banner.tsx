@@ -2,6 +2,7 @@ import { AlertCircleIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
 import { PublicActionLink } from "./public-visual-system";
 import { PublicPhotoCallout, type PublicPhotoCalloutData } from "./public-photo-callout";
+import type { ComponentProps } from "react";
 import { helpClosingPromo } from "@/lib/help-banner-presets";
 import { HELP_CLOSING_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
 export { lostFoundSubmitPromo } from "@/lib/help-banner-presets";
@@ -12,8 +13,16 @@ export type PublicHelpPhotoBannerData = Omit<PublicPhotoCalloutData, "tone"> & {
   tone: "care" | "rescue" | "volunteer";
 };
 
-export function PublicHelpPhotoBanner({ promo, anchorId }: { promo: PublicHelpPhotoBannerData; anchorId?: string }) {
-  return <PublicPhotoCallout promo={promo} anchorId={anchorId} />;
+type DesktopHelpBannerProps = {
+  desktopColors?: ComponentProps<typeof PublicPhotoCallout>["desktopColors"];
+  desktopCopy?: ComponentProps<typeof PublicPhotoCallout>["desktopCopy"];
+};
+
+export function PublicHelpPhotoBanner({ promo, anchorId, desktopColors, desktopCopy }: {
+  promo: PublicHelpPhotoBannerData;
+  anchorId?: string;
+} & DesktopHelpBannerProps) {
+  return <PublicPhotoCallout promo={promo} anchorId={anchorId} desktopColors={desktopColors} desktopCopy={desktopCopy} />;
 }
 
 export function PublicHelpReportBanner() {
@@ -34,10 +43,12 @@ export function PublicHelpReportBanner() {
   );
 }
 
-export function PublicHelpClosingBanner() {
+export function PublicHelpClosingBanner({ desktopColors, desktopCopy }: DesktopHelpBannerProps = {}) {
   return <PublicPhotoCallout
     headingId="help-closing-cta-heading"
     anchorId={HELP_CLOSING_BANNER_ANCHOR}
+    desktopColors={desktopColors}
+    desktopCopy={desktopCopy}
     promo={helpClosingPromo}
   />;
 }
