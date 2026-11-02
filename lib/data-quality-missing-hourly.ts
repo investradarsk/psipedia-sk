@@ -606,8 +606,16 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
       throw new Error("Upravený odkaz nie je bezpečná platná adresa.");
     if(f.group==="email" && (corrected.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrected)))
       throw new Error("Zadaj platný e-mail.");
-    if(f.group==="phone" && !/^[+0-9][0-9+\s().-]{5,30}$/.test(corrected))
+    if(f.group==="phone" && (!/^\+?[0-9\s().-]+$/.test(corrected) ||
+      corrected.replace(/\D/g,"").length<6 || corrected.replace(/\D/g,"").length>15))
       throw new Error("Zadaj platný verejný telefón.");
+    if(f.group==="social") {
+      const hostname=new URL(corrected).hostname.toLowerCase();
+      if(f.key==="facebookUrl" && !(/(^|\.)facebook\.com$/.test(hostname)||hostname==="fb.me"))
+        throw new Error("Facebook odkaz musí viesť na Facebook.");
+      if(f.key==="instagramUrl" && !(/(^|\.)instagram\.com$/.test(hostname)||hostname==="instagr.am"))
+        throw new Error("Instagram odkaz musí viesť na Instagram.");
+    }
     approvedValue=corrected;
   }
   const stagedKey=f.group==="image"?qualityMissingCandidateKey(p.value):null;
