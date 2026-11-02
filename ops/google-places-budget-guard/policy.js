@@ -5,7 +5,7 @@ const BUDGET_NAME = 'Psipedia Google Maps';
 const AMOUNT_EUR = 5;
 const TIME_ZONE = 'America/Los_Angeles';
 
-function monthKey(value) {
+export function monthKey(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -16,7 +16,7 @@ function monthKey(value) {
   return year && month ? year + '-' + month : null;
 }
 
-function evaluateNotification(cloudEvent, { budgetId, now = new Date() } = {}) {
+export function evaluateNotification(cloudEvent, { budgetId, now = new Date() } = {}) {
   if (!budgetId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(budgetId)) {
     return { disable: false, reason: 'budget-id-unconfigured' };
   }
@@ -49,4 +49,3 @@ function evaluateNotification(cloudEvent, { budgetId, now = new Date() } = {}) {
   return { disable: true, reason: 'monthly-actual-spend-at-least-5-eur', actualCost: body.costAmount };
 }
 
-module.exports = { evaluateNotification, monthKey };
