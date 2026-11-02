@@ -68,6 +68,9 @@ test("user-facing duplicate tab includes cross-component comparison, impact and 
   assert.match(ui, /chosen\.affectedRoutes/);
   assert.match(ui, /chosen\.sharedRoutes/);
   assert.match(ui, /chosen\.leftStyleModules/);
+  assert.match(ui, /<AdminComponentVisualPreview id=\{selectedPreview\.id\}/);
+  assert.match(ui, /adminComponentPreviewSamples\.filter/);
+  assert.match(ui, /previews\.length > 1/);
   assert.match(ui, /publicRegistryRouteHref\(route\)/);
   assert.match(ui, /Žiadne automatické zlučovanie/);
   assert.match(parent, /<AdminVisualLibrarySourceSimilarity registry=\{registry\}/);
