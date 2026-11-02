@@ -70,3 +70,53 @@ test("Profile reviews allow approval directly on desktop but preserve mandatory 
   assert.match(css, /max-width: 899px/);
   assert.match(css, /display: none/);
 });
+
+test("e-shop inline API is a narrow CAS mutation; slug, Lexical description, status and media survive", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const store = read("lib/eshop-ratings.ts");
+  const route = read("app/api/admin/eshops/[id]/route.ts");
+  const ui = read("components/admin-eshop-list-inline.tsx");
+  const page = read("app/admin/recenzie/eshopy/page.tsx");
+  const css = read("components/admin-eshop-list-inline.module.css");
+  const sql = store.match(/UPDATE managed_eshops\s+SET name=\?,website_url=\?,updated_at=\?,updated_by=\?\s+WHERE id=\? AND updated_at=\?/);
+  assert.ok(sql, "inline mutation must update only two public fields and compare exact timestamp");
+  assert.match(store, /export async function updateManagedEshopInline/);
+  assert.match(store, /normalizedText\(input\.name, "Názov", 160\)/);
+  assert.match(store, /normalizedUrl\(input\.websiteUrl, "Web e-shopu"\)/);
+  assert.match(route, /export async function PATCH/);
+  assert.match(route, /requireAdminMutation\(request\)/);
+  assert.match(route, /keys\.join\(","\) !== "expectedUpdatedAt,name,websiteUrl"/);
+  assert.match(route, /updateManagedEshopInline\(id,/);
+  assert.match(route, /syncSavedNotionRecord/);
+  assert.doesNotMatch(route.slice(route.indexOf("export async function PATCH")), /updateManagedEshop\(id,/);
+  assert.match(ui, /<AdminInlineRowActions/);
+  assert.match(ui, /method: "PATCH"/);
+  assert.match(ui, /expectedUpdatedAt: saved\.updatedAt/);
+  assert.match(page, /<AdminEshopListInline shop=\{shop\} \/>/);
+  assert.match(css, /max-width:899px/);
+
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    sqlite.exec(`CREATE TABLE managed_eshops (
+      id INTEGER PRIMARY KEY,slug TEXT,name TEXT,website_url TEXT,description TEXT,
+      status TEXT,logo_key TEXT,updated_at TEXT,updated_by TEXT)`);
+    const oldVersion = "2026-11-02T08:30:00.000Z";
+    sqlite.prepare("INSERT INTO managed_eshops VALUES (1,?,?,?,?,?,?,?,?)")
+      .run("zoo-shop","Pôvodný e-shop","https://old.example","{\"lexical\":true}",
+        "published","images/old.webp",oldVersion,"admin");
+    const mutation = sqlite.prepare(sql[0]);
+    const update = mutation.run("Opravený e-shop","https://new.example","2026-11-02T08:31:00.000Z","admin-2",1,oldVersion);
+    assert.equal(update.changes, 1);
+    const stale = mutation.run("Stará zmena","https://stale.example","2026-11-02T08:32:00.000Z","admin-3",1,oldVersion);
+    assert.equal(stale.changes, 0, "concurrent stale editor must be rejected");
+    const row = sqlite.prepare("SELECT * FROM managed_eshops WHERE id=1").get();
+    assert.equal(row.name,"Opravený e-shop");
+    assert.equal(row.website_url,"https://new.example");
+    assert.equal(row.slug,"zoo-shop");
+    assert.equal(row.description,'{"lexical":true}');
+    assert.equal(row.logo_key,"images/old.webp");
+    assert.equal(row.status,"published");
+  } finally {
+    sqlite.close();
+  }
+});
