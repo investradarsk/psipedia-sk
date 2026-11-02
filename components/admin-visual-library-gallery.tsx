@@ -57,7 +57,8 @@ export function AdminVisualLibraryGallery({
   const staticRoutes = routes
     .map((route) => ({ route, href: publicRegistryRouteHref(route) }))
     .filter((item): item is { route: string; href: string } => item.href !== null);
-  const dynamicRoutes = routes.filter((route) => publicRegistryRouteHref(route) === null);
+  const dynamicRoutes = routes.filter((route) =>
+    route.includes("[") && !route.startsWith("/admin/") && publicRegistryRouteHref(route) === null);
 
   return (
     <section className={styles.dynamicCoverage} aria-label="Galéria reálnych komponentov">
