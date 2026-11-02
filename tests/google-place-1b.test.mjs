@@ -224,8 +224,8 @@ test("GOOGLE-PLACE auto-match reuses strict MATCH rules and fails closed on ambi
   assert.match(auto, /public_precision = 'EXACT'/);
   assert.match(auto, /source_fingerprint = \?/);
   assert.match(auto, /result: "ERROR"/);
-  assert.match(adminRoute, /autoAssignGooglePlaceForDirectoryProfile\(\{ targetId: id \}\)/);
-  assert.match(notionSync, /autoAssignGooglePlaceForDirectoryProfile/);
+  assert.doesNotMatch(adminRoute, /autoAssignGooglePlaceForDirectoryProfile/);
+  assert.doesNotMatch(notionSync, /autoAssignGooglePlaceForDirectoryProfile/);
 });
 
 test("GOOGLE-PLACE-1B admin is operator-first, max 5, MATCH-only and explicit confirmation", async () => {
