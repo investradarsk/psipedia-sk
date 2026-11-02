@@ -16,7 +16,8 @@
 - **Hlavné sekcie** (`portal_section_settings`): názov, popisy, podsekcie, ich poradie, viditeľnosť, hero konfigurácia.
 - **Hlavičkové vizuály** (`section_visuals`): obrázok, ALT, desktop/mobile výrez, reset.
 - História je zapnutá **od aplikovania migrácie `0151_admin_content_revision_history.sql`**; staršie udalosti sa nevymýšľajú ani spätne nedopočítavajú.
-- Ochranné D1 triggery zapisujú nové revízie automaticky pri skutočných zmenách aj mimo tohto rozhrania. Auditný záznam sa nedá zmeniť ani vymazať pomocou štandardného SQL `UPDATE` či `DELETE`.
+- Ochranné D1 triggery zapisujú nové revízie automaticky pri skutočných zmenách aj mimo tohto rozhrania.
+- **Zmena poradia viacerých hlavných sekcií** sa dá v histórii pozrieť, ale nevracia sa jednotlivo, aby sa nevytvorili kolidujúce pozície. Návrat poradia sa robí v pôvodnom editore celého zoznamu. Auditný záznam sa nedá zmeniť ani vymazať pomocou štandardného SQL `UPDATE` či `DELETE`.
 - Ak po resete už fyzicky neexistuje súbor v R2, história sama nevie obnoviť vymazaný súbor; obnovuje databázové nastavenie, nie bajty odstránenej fotografie.
 
 ### Zámerne nepodporujeme
