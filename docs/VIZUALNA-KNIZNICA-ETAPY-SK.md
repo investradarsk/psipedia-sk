@@ -110,3 +110,14 @@ Poznámka: obsahové bannery sa môžu meniť podľa dňa alebo dát. Výpis zac
 ## Rozsah
 
 Iba admin zobrazenie a sprievodná dátová evidencia; bez databázovej migrácie, bez zásahov do existujúceho verejného vzhľadu a mobilného zobrazenia.
+
+
+## Etapa 8 – rozšírenie evidencie, publikovania a reakcia cache (rozpracované)
+
+- Vizuálna knižnica má záložku **Kde všade sa používa**. Prehľadáva všetky verejné komponenty, ktoré sa dajú identifikovať zo statických importov v zostavení, aj konkrétne potvrdené výskyty bannerov a publikovaných článkov. Pre komponent so známym náhľadom zobrazuje originálny React komponent.
+- Potvrdené konkrétne URL sú **oddelené** od možných statických použití. Dynamické cesty ako `/adresar/[slug]` sa nemenia na vymyslené klikateľné URL. Bez dostatočného dôkazu sa hovorí „možné použitie“, nie „potvrdený výskyt“.
+- **Úplná evidencia všetkých skutočne vykreslených dynamických profilov a všetkých ich vizuálnych variantov ešte nie je hotová.** Bude vyžadovať overenú enumeráciu publikovaných profilov/služieb/podujatí/udalostí, nie iba statický import graf.
+- K bezpečnému desktop-only publikovaniu samostatných bannerov sa po dvoch existujúcich pridalo ďalších päť: Pomoc psom (stratený pes, tri tematické bannery a záverečný banner). Všetkých päť má vlastnú kotvu a rozlišuje sa podľa banner ID; mobilný text ostáva v pôvodnom HTML. Spoločné šablóny, článkové rotácie a ďalšie nepokryté varianty sa **nesmú** publikovať hromadne.
+- Po potvrdenom publikovaní alebo vrátení zmeny admin API vykoná **best-effort** odstránenie konkrétneho verzovaného HTML kľúča z Cloudflare Cache API (iba ak je daná verejná stránka povolená v cache). Admin zobrazí skutočný výsledok. Cloudflare má viac POPov; lokálne vymazanie **nie je globálny purge** a ostatné uzly môžu zobrazovať predchádzajúcu verziu do vypršania krátkej cache (v existujúcom workeri 45 s). Pomoc psom nie je v explicitnej HTML cache.
+- Nové regresné testy kontrolujú identitu všetkých piatich bannerov, desktopové vs. mobilné props, bezpečné potvrdenie rozsahu, pravdivé cache hlásenie a rozlíšenie statických vs. overených URL.
+- **Pred merge:** všetky CI kontroly musia prejsť, statickú inventarizáciu treba vizuálne overiť, live účinnosť cache a DB overiť po ručnej migrácii 0151. Pred nasadením migrácie zostáva editor správne nedostupný.
