@@ -33,7 +33,7 @@ async function requestStatus(url: string, method: "HEAD" | "GET", signal: AbortS
     if (new URL(response.url).origin !== window.location.origin) return null;
     return response.status;
   } catch {
-    if (signal.aborted) throw new Error("Kontrola bola prerušená.");
+    // A single request timeout is an unverified target, not a failed whole scan.
     return null;
   }
 }
@@ -105,7 +105,8 @@ export function AdminLinkHealthChecker() {
         } catch { /* shown as unverified below */ }
         sourcePagesChecked.add(source);
         const state = classifyPublicLink(response?.status ?? null);
-        if (state !== "ok" || !response?.headers.get("content-type")?.includes("text/html")) {
+        const returnedPublic = response && internalPublicUrl(response.url, origin);
+        if (state !== "ok" || !returnedPublic || !response?.headers.get("content-type")?.includes("text/html")) {
           findings.push({ source, target: source, label: "Načítanie stránky", status: response?.status ?? null, state: state === "ok" ? "unverified" : state });
           continue;
         }
