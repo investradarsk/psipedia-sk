@@ -65,7 +65,7 @@ export function prepareGeminiDraftFields(
     warnings.push(`Skontroluj neplatný odkaz v poli „${field}“.`);
   }
   const sexes = {
-    "pes": "MALE", "samec": "MALE", "samcek": "MALE", "male": "MALE", "m": "MALE",
+    "pes": "MALE", "psik": "MALE", "samec": "MALE", "samcek": "MALE", "male": "MALE", "m": "MALE",
     "suka": "FEMALE", "sucka": "FEMALE", "fenka": "FEMALE", "samica": "FEMALE",
     "female": "FEMALE", "f": "FEMALE", "nezname": "UNKNOWN", "neurcene": "UNKNOWN",
     "unknown": "UNKNOWN",
@@ -82,6 +82,15 @@ export function prepareGeminiDraftFields(
       ? { ...sizes, "obrovsky": "GIANT", "giant": "GIANT" } : sizes, "UNKNOWN");
   }
   if (agenda === "adoptions") {
+    // Notion often stores narrative activity descriptions, while the native
+    // adoption editor requires an enum. Keep unsupported prose in Notion.
+    choice("Aktivita", {
+      "low": "LOW", "nizka": "LOW", "nizka aktivita": "LOW",
+      "medium": "MEDIUM", "stredna": "MEDIUM", "stredne aktivny": "MEDIUM",
+      "high": "HIGH", "vysoka": "HIGH", "aktivny": "HIGH",
+      "very_high": "VERY_HIGH", "velmi vysoka": "VERY_HIGH",
+      "unknown": "UNKNOWN", "nezname": "UNKNOWN",
+    }, "UNKNOWN");
     optionalDate("Dátum narodenia");
     optionalNumber("Vek mesiace", 360, true);
     optionalNumber("Hmotnosť", 500);

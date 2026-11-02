@@ -31,6 +31,7 @@ import {
   hasCurrentGooglePlace,
   hasCurrentOrganizationGooglePlace,
   createCanonicalFromNotion,
+  preflightAdoptionDraft,
   GEMINI_HELP_REVIEW_PROPERTY,
   helpCaseMayEnterCanonicalSync,
   readyForCreate,
@@ -1734,6 +1735,11 @@ await requireVerifiedMappedNotionWriteback({
           name: clean(values[input.definition.key === "adoptions" ? "Meno" : "Názov"]),
           city: clean(values["Mesto"]), notionPageId: page.id,
         }) } : values;
+      // Pure validation happens BEFORE the uncertain D1 INSERT window.
+      // If it fails, finally releases both the page and category locks.
+      if (privateImport && input.definition.key === "adoptions") {
+        preflightAdoptionDraft(draftValues);
+      }
       importWriteStarted = true;
       const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, privateImport) as { id?: number } | null;
       const entityId = Number(created?.id ?? 0);

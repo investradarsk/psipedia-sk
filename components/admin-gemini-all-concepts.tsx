@@ -57,6 +57,13 @@ export function AdminGeminiAllConcepts() {
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState("");
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<"date" | "name" | "category">("date");
+  const [page, setPage] = useState(1);
+  const [editing, setEditing] = useState<{ id: string; key: string; name: string; city: string } | null>(null);
+  const [rowBusy, setRowBusy] = useState("");
+  const [rowError, setRowError] = useState("");
+  const [trashTarget, setTrashTarget] = useState<Entry | null>(null);
+  const PAGE_SIZE = 25;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -113,10 +120,14 @@ export function AdminGeminiAllConcepts() {
       (status === "ALL" || (status === "ACTIVE" ? geminiActiveReviewState(draft.reviewState) : draft.reviewState === status))
     );
     return filterGeminiConcepts(eligible, search).sort((left, right) =>
+      sortBy === "name" ? left.draft.name.localeCompare(right.draft.name, "sk") :
+      sortBy === "category" ? left.item.label.localeCompare(right.item.label, "sk") :
       (Date.parse(right.draft.lastEditedAt) || 0) -
       (Date.parse(left.draft.lastEditedAt) || 0)
     );
-  }, [all, category, status, search]);
+  }, [all, category, status, search, sortBy]);
+  const maxPage = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const displayed = visible.slice((Math.min(page, maxPage) - 1) * PAGE_SIZE, Math.min(page, maxPage) * PAGE_SIZE);
 
   function reload() {
     setLoaded({});
@@ -176,34 +187,102 @@ export function AdminGeminiAllConcepts() {
     }
   }
 
-  function renderRow({ item, draft }: Entry) {
-    // A canonical editor link is only possible after the existing D1 mapping
-    // confirms the identity. Others must go through their existing Gemini
-    // category manager instead of an unverified or guessed admin URL.
+  function startEdit({ item, draft }: Entry) {
+    setRowError("");
+    setEditing({ id: draft.id, key: item.stableKey, name: draft.name, city: draft.city });
+  }
+
+  async function saveInline({ item, draft }: Entry) {
+    if (!editing || rowBusy || !("fields" in draft) || editing.id !== draft.id) return;
+    const titleField = draft.agenda === "adoptions" ? "Meno" : "Názov";
+    const fieldNames = draft.fields.filter(field => field.editable).map(field => field.name);
+    const changed: Record<string, string> = {};
+    if (editing.name.trim() !== draft.name && fieldNames.includes(titleField))
+      changed[titleField] = editing.name.trim();
+    if (editing.city.trim() !== draft.city && fieldNames.includes("Mesto"))
+      changed["Mesto"] = editing.city.trim();
+    if (!editing.name.trim()) { setRowError("Názov nesmie byť prázdny."); return; }
+    if (!Object.keys(changed).length) { setEditing(null); return; }
+    setRowBusy(draft.id);
+    setRowError("");
+    try {
+      const response = await fetch("/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(draft.id)
+        + "?stable_key=" + encodeURIComponent(item.stableKey), {
+        method: "PUT", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "save", lastEditedAt: draft.lastEditedAt, fields: changed }),
+      });
+      const result = await response.json() as { draft?: Draft; error?: string };
+      if (!response.ok || !result.draft)
+        throw new Error(result.error || "Úprava sa nepotvrdila.");
+      setEditing(null);
+      reload();
+    } catch (error) {
+      setRowError(error instanceof Error ? error.message : "Úprava zlyhala.");
+    } finally { setRowBusy(""); }
+  }
+
+  async function trashConcept() {
+    if (!trashTarget || rowBusy) return;
+    const { item, draft } = trashTarget;
+    setRowBusy(draft.id);
+    setRowError("");
+    try {
+      const response = await fetch("/api/admin/gemini-automation/trash-concept", {
+        method: "DELETE", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ stableKey: item.stableKey, pageId: draft.id,
+          revision: draft.lastEditedAt, confirm: "TRASH_NOTION_ONLY_GEMINI_CONCEPT" }),
+      });
+      const result = await response.json() as { trashed?: boolean; error?: string };
+      if (!response.ok || !result.trashed)
+        throw new Error(result.error || "Odstránenie nebolo potvrdené.");
+      setTrashTarget(null);
+      setImportSummary("Koncept bol presunutý do koša v Notione. D1 profily zostali nezmenené.");
+      reload();
+    } catch (error) {
+      setRowError(error instanceof Error ? error.message : "Odstránenie zlyhalo.");
+    } finally { setRowBusy(""); }
+  }
+
+  function renderTableRow({ item, draft }: Entry) {
     const canonicalUrl = geminiCanonicalEditorUrl(draft);
     const categoryUrl = geminiDraftDeepLink(item.stableKey, draft.id);
-    return (
-      <li className={styles.row} key={item.stableKey + ":" + draft.id}>
-        <div className={styles.identity}>
-          <strong>{draft.name || "Nepomenovaný koncept"}</strong>
-          <span className={styles.metadata}>
-            {item.label}{draft.city ? " · " + draft.city : ""} · Upravené {geminiConceptDate(draft.lastEditedAt)}
-          </span>
-        </div>
-        <span className={styles.status + " " + (styles["status_" + draft.reviewState.toLowerCase()] ?? "")}>
-          {geminiReviewLabels[draft.reviewState]}
-        </span>
-        {draft.syncError && <span role="status" className={styles.warning}>
-          {canonicalUrl ? "Upozornenie k synchronizácii (neblokuje úpravu): " : "Prenos ešte nie je dokončený: "}
-          {draft.syncError}
-        </span>}
-        {canonicalUrl || categoryUrl ? (
-          <Link className={styles.open} href={canonicalUrl ?? categoryUrl!}>
-            {canonicalUrl ? "Otvoriť editor →" : "Čaká na D1 · zobraziť stav →"}
-          </Link>
-        ) : <span className={styles.open}>Otvoriť v kategórii →</span>}
-      </li>
-    );
+    const canDelete = !draft.canonicalVerified && !draft.psipediaId &&
+      draft.reviewState !== "PUBLISHED";
+    const titleField = "fields" in draft ? (draft.agenda === "adoptions" ? "Meno" : "Názov") : "";
+    const canEdit = !canonicalUrl && "fields" in draft &&
+      (draft.reviewState === "NEW" || draft.reviewState === "IN_PROGRESS") &&
+      draft.fields.some(field => field.name === titleField && field.editable);
+    const activeEdit = editing?.id === draft.id && editing.key === item.stableKey;
+    return <tr key={item.stableKey + ":" + draft.id}>
+      <td>
+        {activeEdit ? <div className={styles.inlineEditor}>
+          <label> Názov <input value={editing.name} maxLength={200}
+            onChange={event => setEditing(previous => previous ? { ...previous, name: event.target.value } : null)} /></label>
+          <label> Mesto <input value={editing.city} maxLength={150}
+            onChange={event => setEditing(previous => previous ? { ...previous, city: event.target.value } : null)} /></label>
+          <button type="button" disabled={!!rowBusy} onClick={() => void saveInline({ item, draft })}>Uložiť</button>
+          <button type="button" disabled={!!rowBusy} onClick={() => setEditing(null)}>Zrušiť</button>
+        </div> : <strong className={styles.name}>{draft.name || "Nepomenovaný koncept"}</strong>}
+      </td>
+      <td>{item.label}</td>
+      <td>{draft.city || "—"}</td>
+      <td><span className={styles.status + " " + (styles["status_" + draft.reviewState.toLowerCase()] ?? "")}>
+        {geminiReviewLabels[draft.reviewState]}</span></td>
+      <td><time dateTime={draft.lastEditedAt}>{geminiConceptDate(draft.lastEditedAt)}</time></td>
+      <td>{draft.syncError ? <details className={styles.syncWarning}>
+        <summary>{canonicalUrl ? "Upozornenie" : "Chyba prenosu"}</summary>
+        <span>{draft.syncError}</span></details> : <span className={styles.ok}>—</span>}</td>
+      <td><div className={styles.actions}>
+        {canonicalUrl || categoryUrl
+          ? <Link className={styles.open} href={canonicalUrl ?? categoryUrl!}>Editor</Link>
+          : <span>—</span>}
+        {canEdit && <button type="button" className={styles.smallButton} onClick={() => startEdit({ item, draft })}>Rýchla úprava</button>}
+        {canDelete && <button type="button" className={styles.danger} disabled={!!rowBusy}
+          onClick={() => { setRowError(""); setTrashTarget({ item, draft }); }}>Vymazať</button>}
+      </div></td>
+    </tr>;
   }
 
   return (
@@ -224,11 +303,11 @@ export function AdminGeminiAllConcepts() {
         <label>
           Hľadať koncept
           <input type="search" autoComplete="off" placeholder="Názov, lokalita alebo kategória"
-            value={search} onChange={event => setSearch(event.target.value)} />
+            value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} />
         </label>
         <label>
           Kategória
-          <select value={category} onChange={event => setCategory(event.target.value)}>
+          <select value={category} onChange={event => { setCategory(event.target.value); setPage(1); }}>
             <option value="ALL">Všetkých 22 kategórií</option>
             {geminiAutomationSections.map(section => (
               <optgroup key={section.key} label={section.label}>
@@ -241,7 +320,7 @@ export function AdminGeminiAllConcepts() {
         </label>
         <label>
           Stav
-          <select value={status} onChange={event => setStatus(event.target.value as typeof status)}>
+          <select value={status} onChange={event => { setStatus(event.target.value as typeof status); setPage(1); }}>
             <option value="ACTIVE">Aktívne koncepty</option>
             <option value="ALL">Všetky stavy</option>
             {Object.entries(geminiReviewLabels).map(([value, label]) => (
@@ -281,19 +360,40 @@ export function AdminGeminiAllConcepts() {
         </div>
       )}
 
-      {geminiAutomationSections.map(section => {
-        const rows = visible.filter(entry => entry.item.section === section.key);
-        return (
-          <section className={styles.group} key={section.key} aria-labelledby={"gemini-all-" + section.key}>
-            <div className={styles.groupTitle}>
-              <h2 id={"gemini-all-" + section.key}>{section.label}</h2>
-              <span>{rows.length} konceptov</span>
-            </div>
-            {rows.length ? <ul className={styles.rows}>{rows.map(renderRow)}</ul> :
-              <p className={styles.empty}>{complete ? "Žiadne koncepty nezodpovedajú filtrom." : "Zatiaľ žiadne načítané koncepty v tejto sekcii."}</p>}
-          </section>
-        );
-      })}
+      <div className={styles.tableToolbar}>
+        <strong>Koncepty</strong>
+        <label>Zoradiť podľa <select value={sortBy} onChange={event => {setSortBy(event.target.value as typeof sortBy);setPage(1);}}>
+          <option value="date">Posledná úprava</option>
+          <option value="name">Názov A–Z</option>
+          <option value="category">Kategória A–Z</option>
+        </select></label>
+        <span>{visible.length} výsledkov · Strana {Math.min(page, maxPage)} z {maxPage}</span>
+      </div>
+      <div className={styles.tableScroll}>
+        <table className={styles.table}>
+          <thead><tr><th>Názov</th><th>Kategória</th><th>Mesto</th><th>Stav</th><th>Upravené</th><th>Synchronizácia</th><th>Akcie</th></tr></thead>
+          <tbody>{displayed.map(renderTableRow)}</tbody>
+        </table>
+        {!displayed.length && <p className={styles.empty}>Žiadne koncepty nezodpovedajú filtrom.</p>}
+      </div>
+      <div className={styles.pager}>
+        <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Predchádzajúca</button>
+        <span>Strana {Math.min(page, maxPage)} / {maxPage}</span>
+        <button type="button" disabled={page >= maxPage} onClick={() => setPage(p => Math.min(maxPage, p + 1))}>Ďalšia</button>
+      </div>
+      {rowError && <p className={styles.warning} role="alert">{rowError}</p>}
+      {trashTarget && <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="gemini-trash-heading">
+        <div className={styles.confirmCard}>
+          <h3 id="gemini-trash-heading">Presunúť Gemini koncept do koša Notionu?</h3>
+          <p><strong>{trashTarget.draft.name}</strong> · {trashTarget.item.label}</p>
+          <p>Toto je iba pre koncept, ktorý ešte nemá D1 profil. V Notione bude v koši a možno ho obnoviť.
+            Už importované profily musíš spravovať v ich natívnom editore.</p>
+          <div className={styles.actions}>
+            <button type="button" className={styles.smallButton} onClick={() => setTrashTarget(null)} disabled={!!rowBusy}>Zrušiť</button>
+            <button type="button" className={styles.danger} onClick={() => void trashConcept()} disabled={!!rowBusy}>Potvrdzujem presun do koša</button>
+          </div>
+        </div>
+      </div>}
       <p className={styles.footnote}>Import len vytvorí neverejné koncepty. Staršie záznamy sa po tvojom kliknutí overia v Notione a D1; pri neistote zostanú v zozname na kontrolu. Nič sa automaticky nepublikuje.</p>
     </div>
   );
