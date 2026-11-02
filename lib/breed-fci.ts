@@ -126,7 +126,7 @@ export function inspectBreedMeasurement(value:unknown,kind:BreedMeasurementKind,
   // Editorial descriptions can contain FCI numbers, publication years and sample sizes.
   // Only interpret numbers attached to the measurement unit when one is present.
   const unit=kind==="height"?"cm":kind==="weight"?"kg":"(?:rokov|roky|roka|rok|r\\.)";
-  const measured=new RegExp(`(\\\\d+(?:[.,]\\\\d+)?)(?:\\\\s*(?:[–—-]|až)\\\\s*(\\\\d+(?:[.,]\\\\d+)?))?\\\\s*${unit}(?![a-zA-Z])`,"gi");
+  const measured=new RegExp(`(\d+(?:[.,]\d+)?)(?:\s*(?:[–—-]|až)\s*(\d+(?:[.,]\d+)?))?\s*${unit}(?![a-zA-Z])`,"gi");
   const spans=[...text.matchAll(measured)];
   const number=(raw:string)=>Number(raw.replace(",","."));
   const parsed=spans.length
