@@ -37,7 +37,8 @@
 ## Etapa 3: Úplné vizuálne pokrytie
 
 - [x] Prvá vlna nových náhľadov: **9 živých variantov** z BreedCard, DirectoryCard, EventCard, HelpCard, RelatedBreedList, DirectoryCategoryNavigation a SiteFooter. Všetky dátovo viazané ukážky používajú iba fiktívne údaje. Celkový súpis teraz obsahuje **44 ukážok**.
-- [x] Druhá vlna: **7 ďalších živých ukážok** – detailový zoznam poskytovaných služieb (6/12 položiek), recenzie (prázdne, hodnotenia a odpoveď, chyba načítania), filtre podujatí (výsledky/prázdny zoznam). Celkový súpis má **51** náhľadov.
+- [x] Druhá vlna: **7 ďalších živých ukážok** – detailový zoznam poskytovaných služieb (2), filtre podujatí (2), navigácia sekcií plemena (1), urgentná karta Pomoc psom (1), zrušené podujatie (1). Celkom **51** náhľadov.
+- [x] Opraviť chybu zostavenia: náhľady recenzií nebolo možné bez úpravy serverového kontraktu vložiť do klienta (`cloudflare:workers`). Tri problematické náhľady boli nahradené uvedenými bezpečnými komponentmi. Recenzie ostávajú medzi budúcimi úlohami.
 - [ ] Doplniť ďalšie reálne typy s bezpečnými dátovými kontraktmi (špecifické filtre služieb, ďalšie detailové bloky, modálne stavy a ostatné navigácie).
 - [x] Hlavná galéria zobrazuje aj všetky verejné komponenty bez existujúceho náhľadu (vyhľadávanie, rodiny, súbory a kandidátske stránky). Pri podporných moduloch nesľubuje samostatný vizuálny vzhľad.
 - [ ] Samostatne kontrolovať desktopové varianty hero, karty, CTA, navigáciu, formuláre, zoznamy, modálne stavy, pätičku a bannerové varianty.
@@ -55,10 +56,12 @@
 
 ## Etapa 5: Bezpečný editor
 
-- [ ] Po jednotlivých auditoch rozšíriť upraviteľnosť na ďalšie samostatne overené prvky.
-- [ ] Pred uložením ukázať náhľad a všetky dotknuté stránky; koncept a publikovanie oddeliť.
+- [x] Zaviesť prvú bezpečnú úroveň editovania návrhov pre 4 reálne komponenty (spoločné CTA, sekciová hlavička, dátová karta, hero podujatí). Návrhy sa serverovo ukladajú, nie publikujú.
+- [ ] Po individuálnom audite doplniť ďalšie upraviteľné typy a povoliť publikovanie len pre overené konkrétne umiestnenia.
+- [x] Pred uložením návrhu zobraziť živý komponent s upravenými textmi a zaručiť, že návrh sa nepublikuje. API obsahuje iba GET a PUT.
+- [ ] Pred povolením publikovania zobraziť skutočne overené a úplné dotknuté stránky.
 - [ ] Rozlišovať zmenu jedného použitia a globálnej šablóny. Globálnu zmenu nemožno povoliť bez úplnej impact analýzy.
 - [ ] Podporovať návrat publikovanej zmeny a jasnú správu o cache.
 - [ ] Jednotlivé verejné desktopové zmeny až po schválení; mobil bez zásahu, pokiaľ vlastník výslovne nerozhodne inak.
 
-**Pravidlo publikovania:** Táto etapa nepridáva nové publikovateľné umiestnenia, nepridáva databázové migrácie a nemení verejný dizajn. Každá nasledujúca etapa patrí do toho istého Draft PR, kým používateľ nepovolí jeho dokončenie.
+**Pravidlo publikovania:** Návrhy z nového editora používajú výhradne oddelený namespacovaný kľúč `component-proposal:*` v už nasadenej tabuľke `visual_library_banner_edits` (D1 0152), revízie sú optimisticky zamykané. Všetky riadky sú nepublikovateľné a neprejdú pôvodným bannerovým allowlistom. Táto etapa nepridáva nové publikovateľné umiestnenia, nepridáva databázové migrácie a nemení verejný dizajn. Každá nasledujúca etapa patrí do toho istého Draft PR, kým používateľ nepovolí jeho dokončenie.
