@@ -25,8 +25,8 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 | `/admin/adopcie` | tento PR | meno psa so zachovaním slugu, statusu, vzťahu na organizáciu a prepočítaním `search_text`; mobilné karty bez zmeny |
 | `/admin/stratene-najdene` | tento PR | meno psa, aktualizácia `search_text`, záznam bez súkromných údajov a bez zásahu do moderovania |
 | `/admin/pomoc` | nasledujúci adaptér | názov/stručný text podľa Help Cases API |
-| `/admin/clanky`, `/admin/steniatka` | nasledujúci adaptér | titulok/krátky popis až po bezstratovom zachovaní editorial body/SEO |
-| `/admin/plemena` | nasledujúci adaptér | vybrané redakčné textové polia s Notion konfliktmi |
+| `/admin/clanky`, `/admin/steniatka` | tento PR | krátky popis s atómovou CAS kontrolou; Lexical, titulok, slug, SEO, väzby a médiá zostávajú nezmenené |
+| `/admin/plemena` | tento PR | úvodný text so zachovaním FCI identity, SEO a väzieb; draft Notion writeback |
 | `/admin/facebook-obrazky` | nasledujúci adaptér | text, plánovanie a súhlas iba cez kalendár publikovania |
 | Podporné administračné tabuľky (kontrola údajov, katalóg služieb, podnety, automatizácie, partneri) | samostatné doménové adaptéry | iba polia, ktoré už ich existujúce API bezpečne povoľuje |
 
@@ -47,3 +47,17 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 - Testy `tests/admin-inline-edit-organizations-lost-found.test.mjs` vrátane SQLite ochrany súbežného zápisu.
 
 - `/admin/adopcie`: meno psa sa upravuje v desktopovej tabuľke, s atómovou kontrolou `updated_at`. Mení sa len `name`, `search_text`, `updated_at`, `updated_by`; publikovanie, organizácie a súkromné údaje sa nemenia. Test `tests/admin-inline-edit-adoptions.test.mjs`.
+
+### Redakčné sekcie (ďalšie dokončené adaptéry)
+
+- `/admin/clanky`, `/admin/steniatka`: používajú jeden admin zoznam a jedno API `managed_articles`. Rýchla úprava má striktne jediný vstup `excerpt` a používa atomický `updated_at` compare-and-set, prednastavené redakčné dáta a Lexical JSON vôbec nezapisuje. Draft content writeback z pôvodného článkového API zostáva dostupný.
+- `/admin/plemena`: rýchlo meniteľné len `intro` v `managed_breeds`, poradie/editácia FCI, názov, slug, fotografie a SEO bez zmien. Pri draft zázname sa zachováva existujúci Notion editorial writeback.
+- Regresné testy `tests/admin-inline-edit-articles-breeds.test.mjs` preverujú, že editácia nemôže omylom prepisovať ďalšie polia a rešpektuje konflikty verzie.
+
+### Zostáva po tejto etape
+
+1. Facebook obrázky – text, schválenie a plánovanie cez existujúci publikovací workflow s pravidlami súhlasu.
+2. Katalóg služieb V3 – inline edit iba po synchronizácii s nadradeným D1 katalógom a validáciou synonym; nové typy služieb sa nepridávajú generickým textovým editorom.
+3. Agregovaný zoznam `/admin/pomoc-psom` pre adopcie a stratené/nájdené – samotné canonical podmoduly už majú rýchlu editáciu, spoločná tabuľka ešte nie.
+4. Ďalšie špecializované administračné tabuľky: Podnety, Dopyty, Tipy, Hodnotenia, automatizácie a údaje kvality. Ich doménové pravidlá a API sa musia posúdiť individuálne.
+5. Pred merge: kompletná oprava zlyhaných CI na PR #1176 a manuálne otestovanie ukladania / konfliktov. 
