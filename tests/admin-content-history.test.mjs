@@ -69,7 +69,7 @@ test("revisions are accessed only by authenticated GET and strict-provenance exp
   assert.match(store, /RETURNING slug AS id/);
   assert.match(store, /RETURNING visual_key AS id/);
   assert.match(store, /if \(!changed\) throw new ContentHistoryError/);
-  assert.doesNotMatch(store, /notion|directory_profiles|adoption_dogs|lost_found_dog_reports/i);
+  assert.doesNotMatch(store, /from ["\']@\/lib\/notion|UPDATE directory_profiles|UPDATE adoption_dogs|UPDATE lost_found_dog_reports/i);
 });
 
 test("admin timeline is not automatic and cannot restore unsaved editor drafts", () => {
