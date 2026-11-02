@@ -36,8 +36,9 @@
 ## Etapa 3: Úplné vizuálne pokrytie
 
 - [ ] Doplniť dôveryhodné náhľady chýbajúcich reálnych typov komponentov.
-- [ ] Hlavná galéria má vypísať a filtrovať všetky zistené komponenty; pri chýbajúcom náhľade musí uviesť pravdivý dôvod.
+- [x] Hlavná galéria zobrazuje aj všetky verejné komponenty bez existujúceho náhľadu (vyhľadávanie, rodiny, súbory a kandidátske stránky). Pri podporných moduloch nesľubuje samostatný vizuálny vzhľad.
 - [ ] Samostatne kontrolovať desktopové varianty hero, karty, CTA, navigáciu, formuláre, zoznamy, modálne stavy, pätičku a bannerové varianty.
+- [x] Merateľné zdrojové pokrytie: počet konkrétnych ukážok, počet zdrojových komponentov bez náhľadu, počet stránok s auditovanými kotvami.
 - [ ] Merateľné pokrytie: počet celkových viditeľných komponentov / s náhľadom / s overenými URL.
 
 ## Etapa 4: Duplicity a jednotnosť
