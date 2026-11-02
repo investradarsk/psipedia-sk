@@ -38,6 +38,7 @@ async function loadTable(category: (typeof helpCategories)[number]["slug"], q: s
     rows = data.items.map(item => ({
       id: item.id, title: item.name, detail: [item.breedName, item.organizationName].filter(Boolean).join(" · "),
       category, status: adoptionStatusLabels[item.status], city: item.city, updatedAt: item.updatedAt, href: "/admin/adopcie/" + item.id,
+      inlineDog: { name: item.name, editable: item.status !== "ARCHIVED", kind: "adopcia" },
     }));
   } else if (category === "stratene-a-najdene") {
     const data = await listAdminDogReports({ q, page, pageSize: 50 });
@@ -46,6 +47,8 @@ async function loadTable(category: (typeof helpCategories)[number]["slug"], q: s
       id: item.id, title: item.dogName || item.breed || "Hlásenie #" + item.id,
       detail: dogReportTypeShortLabel(item.type), category, status: dogReportStatusLabel[item.status],
       city: item.city, updatedAt: item.updatedAt, href: "/admin/stratene-najdene/" + item.id,
+      inlineDog: { name: item.dogName ?? "", editable: item.status !== "ARCHIVED" && item.duplicateOfId === null,
+        kind: "stratene-a-najdene" },
     }));
   } else if (category === "utulky") {
     const data = await getOrganizationAdminPage(parseOrganizationAdminFilters({ get: key =>
