@@ -59,7 +59,10 @@ test("0152 only additive draft table, protected manual workflow", () => {
   const migrate=read("scripts/production-d1-migrate.mjs");
   assert.match(sql, /CREATE TABLE visual_library_banner_edits/);
   assert.doesNotMatch(sql, /\bDROP\b|\bALTER\b/i);
-  assert.doesNotMatch(wf, /0152_visual_library_banner_edits\.sql/);
+  assert.match(wf, /0152_visual_library_banner_edits\.sql/);
+  assert.match(wf, /APPLY-0152-psipedia-sk-db/);
+  assert.match(wf, /environment: production/);
+  assert.doesNotMatch(wf, /^\s*(?:push|pull_request|schedule):/m);
   assert.match(migrate, /assertVisualLibrary0152Schema/);
 });
 
