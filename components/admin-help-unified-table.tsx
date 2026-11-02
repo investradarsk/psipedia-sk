@@ -360,7 +360,7 @@ export function AdminHelpUnifiedTable({
         } : undefined}
         columns={tableColumns}
       /> : <p className={styles.empty}>Pre tento výber nie sú záznamy. Skús vyhľadávať iné slovo alebo zmeniť kategóriu.</p>}
-      {!canBulkEdit && !canInlineEditShelters && rows.length > 0 && (
+      {!canBulkEdit && rows.length > 0 && !canInlineEditShelters && (
         <p className={styles.bulkHint}>Táto kategória má vlastné pravidlá zmien. Hromadné úpravy sa vykonávajú iba v príslušnom module, nie cez spoločnú tabuľku.</p>
       )}
       {pages > 1 && <nav className={styles.pagination} aria-label="Stránkovanie Pomoci psom">
