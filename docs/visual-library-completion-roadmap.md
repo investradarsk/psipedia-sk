@@ -18,6 +18,7 @@
 - [x] Rozlíšiť ukážku reálneho komponentu s demo textom od overeného umiestnenia na verejnej URL.
 - [x] Zobraziť možné statické trasy zo zdrojového kódu, nikdy nevymýšľať odkazy dynamických profilov.
 - [x] Pridať regresný test zapojený do test:visual-library.
+- [x] Pridať aj testy pre skutočné dátovo viazané karty s čisto fiktívnymi fixture objektmi.
 - [ ] Prejsť výslednú obrazovku prihláseným administrátorom, vrátane desktopového náhľadu.
 
 ## Etapa 2: Úplný inventár viditeľných prvkov a URL
@@ -35,7 +36,8 @@
 
 ## Etapa 3: Úplné vizuálne pokrytie
 
-- [ ] Doplniť dôveryhodné náhľady chýbajúcich reálnych typov komponentov.
+- [x] Prvá vlna nových náhľadov: **7 živých variantov** z BreedCard, DirectoryCard, EventCard, HelpCard a RelatedBreedList, s čisto ilustračnými údajmi. Celkový súpis teraz obsahuje 42 ukážok.
+- [ ] Doplniť ďalšie chýbajúce reálne typy (napr. detailové bloky, navigácia, pätička, špecifické filtre a modálne stavy), po individuálnom prečítaní ich komponentových kontraktov.
 - [x] Hlavná galéria zobrazuje aj všetky verejné komponenty bez existujúceho náhľadu (vyhľadávanie, rodiny, súbory a kandidátske stránky). Pri podporných moduloch nesľubuje samostatný vizuálny vzhľad.
 - [ ] Samostatne kontrolovať desktopové varianty hero, karty, CTA, navigáciu, formuláre, zoznamy, modálne stavy, pätičku a bannerové varianty.
 - [x] Merateľné zdrojové pokrytie: počet konkrétnych ukážok, počet zdrojových komponentov bez náhľadu, počet stránok s auditovanými kotvami.
