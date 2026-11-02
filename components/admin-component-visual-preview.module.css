@@ -1,0 +1,21 @@
+.visualGallery { display: grid; gap: .8rem; padding: 1rem; border: 1px solid #dce8e1; border-radius: 12px; background: #f8faf8; }
+.visualHeading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.visualHeading strong { font-size: 1rem; color: #193b31; }
+.visualHeading p { margin: .3rem 0 0; font-size: .83rem; color: #50665e; line-height: 1.45; }
+.visualList { display: grid; gap: .65rem; }
+.visualSample { border: 1px solid #dce8e1; border-radius: 10px; background: white; overflow: hidden; }
+.visualSample > summary { display: flex; flex-wrap: wrap; gap: .45rem 1rem; align-items: center; justify-content: space-between; padding: .75rem 1rem; cursor: pointer; list-style: none; }
+.visualSample > summary::-webkit-details-marker { display: none; }
+.visualSample > summary::after { content: "Rozbaliť náhľad"; color: #9f3d2e; font-size: .78rem; font-weight: 750; }
+.visualSample[open] > summary::after { content: "Zavrieť náhľad"; }
+.visualSample > summary:focus-visible { outline: 2px solid #b54937; outline-offset: -2px; }
+.visualSampleTitle { display: grid; gap: .18rem; min-width: 0; }
+.visualSampleTitle strong { font-size: .88rem; }
+.visualSampleTitle small { color: #62756b; font-size: .78rem; }
+.visualStage { border-top: 1px solid #e8eee9; padding: 16px; background: #fffdf8; min-width: 0; overflow: hidden; isolation: isolate; pointer-events: none; user-select: none; }
+.visualStage :global(.shell) { max-width: 100%; width: 100%; }
+.visualStage :global(.home-magazine-banner) { max-width: 100%; }
+.visualStage :global([data-public-banner-frame]) { max-width: 100%; }
+.visualCaption { border-top: 1px solid #e8eee9; padding: .55rem 1rem; color: #65776d; font-size: .74rem; }
+.visualEmpty { margin: 0; color: #65776d; font-size: .85rem; }
+@media(max-width: 700px) { .visualStage { padding: 10px; } }
