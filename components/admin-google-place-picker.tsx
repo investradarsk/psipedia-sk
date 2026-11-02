@@ -121,10 +121,10 @@ export function AdminGooglePlacePicker({
 
   if (!available) {
     return (
-      <div data-google-place-unavailable>
-        <p className="admin-help">{unavailableReason || "Google Maps potvrdenie pre túto položku nie je dostupné."}</p>
+      <>
+        <p className="admin-help" data-google-place-unavailable>{unavailableReason || "Google Maps potvrdenie pre túto položku nie je dostupné."}</p>
         <AdminGooglePlacesApiLink compact />
-      </div>
+      </>
     );
   }
 
