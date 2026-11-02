@@ -26,6 +26,8 @@ import {
 import { HomePortalSearch } from "@/components/home-portal-search";
 import type { HelpCategorySlug } from "@/lib/help";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { getPublishedDesktopBannerColors } from "@/lib/visual-library-edit-store";
+import type { BannerDraft } from "@/lib/visual-library-drafts";
 import styles from "./help-public.module.css";
 
 export type HelpOverviewItem = {
@@ -90,8 +92,8 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
   );
 }
 
-function Promo({ promo, anchorId }: { promo: PromoBanner; anchorId: string }) {
-  return <PublicHelpPhotoBanner promo={promo} anchorId={anchorId} />;
+function Promo({ promo, anchorId, published }: { promo: PromoBanner; anchorId: string; published?: BannerDraft | null }) {
+  return <PublicHelpPhotoBanner promo={promo} anchorId={anchorId} desktopColors={published} desktopCopy={published} />;
 }
 
 export async function HelpOverview({
@@ -101,6 +103,12 @@ export async function HelpOverview({
   totalActive: number;
 }) {
   const heroVisual = await getSectionHeroVisual("section.pomoc-psom");
+  // Each individually anchored Help banner can have a separate desktop-only
+  // publication. Mobile continues rendering its original shared preset.
+  const helpBannerIds = ["help:lost-found", "help:overview:0", "help:overview:2", "help:overview:4", "help:closing"] as const;
+  const publishedHelp = Object.fromEntries(await Promise.all(helpBannerIds.map(async (id) =>
+    [id, await getPublishedDesktopBannerColors(id)] as const
+  ))) as Record<string, BannerDraft | null>;
   return (
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
@@ -171,7 +179,7 @@ export async function HelpOverview({
           </PublicContentShell>
         </section>
 
-        <Promo promo={lostFoundSubmitPromo} anchorId={HELP_LOST_FOUND_BANNER_ANCHOR} />
+        <Promo promo={lostFoundSubmitPromo} anchorId={HELP_LOST_FOUND_BANNER_ANCHOR} published={publishedHelp["help:lost-found"]} />
 
         <div className={styles.overviewFlow}>
           {sections.map((section, index) => {
@@ -214,13 +222,13 @@ export async function HelpOverview({
                     )}
                   </PageContainer>
                 </section>
-                {promo ? <Promo promo={promo} anchorId={helpOverviewBannerAnchor(index)} /> : null}
+                {promo ? <Promo promo={promo} anchorId={helpOverviewBannerAnchor(index)} published={publishedHelp[`help:overview:${index}`]} /> : null}
               </div>
             );
           })}
         </div>
 
-        <PublicHelpClosingBanner />
+        <PublicHelpClosingBanner desktopColors={publishedHelp["help:closing"]} desktopCopy={publishedHelp["help:closing"]} />
       </PublicFoundation>
     </main>
   );
