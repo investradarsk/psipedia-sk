@@ -92,4 +92,7 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 - Mobil: nová úprava je skrytá pri šírke najviac 899 px; existujúce mobilné rozhodnutia a editor zostávajú.
 - Regresie: `tests/admin-inline-edit-gemini-quality.test.mjs` sú zahrnuté do `test:foundation`. Pri merge ešte treba potvrdiť aktuálny stav CI, prípadné súbežné zmeny a manuálne otestovať uloženie i konflikt.
 
-**Naďalej nedokončené:** ďalšie administračné moduly (partneri, e-shopy, recenzie profilov, importy), samostatný Facebook publikačný workflow, technické/auditné zoznamy a finálna kontrola.
+
+- **Recenzie profilov** (`/admin/recenzie-profilov`): pri recenzii v stave `PENDING_REVIEW` pribudla desktopová akcia **Upraviť stav → Schváliť/Zrušiť** s explicitným potvrdením. Používa kanonický `PATCH /api/admin/profile-reviews/:id` so stavovým CAS. Akcie `REJECT`, `HIDE`, `REMOVE` a `RESTORE` zostávajú len v pôvodnom moderátorskom detaile, ktorý vyžaduje dôvod, kde je potrebný. Text a hodnotenie používateľa sa nikdy neprepisujú.
+
+**Naďalej nedokončené:** ďalšie administračné moduly (partneri, e-shopy, importy), samostatný Facebook publikačný workflow, technické/auditné zoznamy a finálna kontrola.
