@@ -66,16 +66,31 @@ function headlineLines(ctx: CanvasRenderingContext2D, title: string, emphasis: s
 }
 
 function brand(ctx: CanvasRenderingContext2D, width: number) {
-  const left = width * 0.065;
-  const top = 58;
-  ctx.font = "bold 37px Arial, sans-serif";
+  // Paw geometry follows the public/favicon.svg Psipedia mark.
+  const left = width * .065;
+  const top = 34;
+  ctx.font = "bold 39px Arial, sans-serif";
   const wordWidth = ctx.measureText("psipedia").width;
-  ctx.fillStyle = "rgba(5, 52, 37, .9)";
-  roundedRect(ctx, left - 20, top - 38, wordWidth + 105, 63, 28);
-  ctx.fillStyle = CREAM;
-  ctx.fillText("psipedia", left, top + 5);
-  ctx.fillStyle = "#ef6956";
-  ctx.fillText(".sk", left + wordWidth, top + 5);
+  ctx.fillStyle = "rgba(255, 249, 235, .96)";
+  roundedRect(ctx, left - 15, top - 12, wordWidth + 183, 82, 24);
+  ctx.save();
+  ctx.translate(left, top);
+  ctx.fillStyle = "#174b38";
+  roundedRect(ctx, 0, 0, 64, 64, 20);
+  ctx.fillStyle = "#fffdf8";
+  const pads: [number, number, number, number, number][] = [
+    [19, 25, 6, 8, -26], [28, 17, 6, 8, -8],
+    [40, 18, 6, 8, 10], [48, 27, 6, 8, 28],
+  ];
+  pads.forEach(([cx, cy, rx, ry, deg]) => {
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, deg * Math.PI / 180, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.fill(new Path2D("M33.5 29c-9 0-16 8.6-16 16 0 5.4 4 8.5 9 8.5 2.7 0 4.6-1.7 7-1.7s4.3 1.7 7 1.7c5 0 9-3.1 9-8.5 0-7.4-7-16-16-16Z"));
+  ctx.restore();
+  ctx.fillStyle = GREEN;
+  ctx.fillText("psipedia", left + 79, top + 47);
+  ctx.fillStyle = RED;
+  ctx.fillText(".sk", left + 79 + wordWidth, top + 47);
 }
 
 function paintBackground(ctx: CanvasRenderingContext2D, bitmap: ImageBitmap | null, settings: Settings, width: number, height: number) {
