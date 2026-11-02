@@ -55,6 +55,7 @@ function rowToSummary(row: DirectoryAdminRow, reviewedAt = ""): ManagedDirectory
     id: row.id,
     slug: row.slug,
     name: row.name,
+    excerpt: row.excerpt ?? "",
     category: isDirectoryCategory(row.category) ? row.category : "dalsie-sluzby",
     status: row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
     services: safeServices(row.services_json),
