@@ -160,6 +160,7 @@ test("Google Places manual on/off console link is shared by Mapy, profiles, even
   assert.match(shortcut, /target="_blank" rel="noopener noreferrer"/);
   assert.match(shortcut, /Places API \(New\)/);
   assert.match(shortcut, /opäť vypni/);
+  assert.match(page, /actions=\{<AdminGooglePlacesApiLink compact \/>\}/);
   assert.doesNotMatch(shortcut, /fetch\(|googleapis\.com\/v1\/|\.enable\(|\.disable\(/);
   assert.match(picker, /<AdminGooglePlacesApiLink/);
   assert.match(dashboard, /<AdminGooglePlacesApiLink/);
