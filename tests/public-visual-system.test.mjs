@@ -340,7 +340,11 @@ test("PUBLIC-UX-FOUNDATION-1 provides one two-mode crawlable subcategory navigat
   assert.match(navigatorCss, /grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(navigatorCss, /@media \(max-width: 620px\)[\s\S]*grid-auto-columns:\s*minmax\(228px, 79%\)/);
   assert.match(navigatorCss, /scroll-snap-type:\s*x mandatory/);
-  assert.match(navigatorCss, /min-height:\s*44px/);
+  // The current compact links deliberately use 48px targets (44px minimum
+  // accessibility contract), without changing the approved public/mobile CSS.
+  const compactTargets = [...navigatorCss.matchAll(/\.compactItem\s*\{[^}]*min-height:\s*(\d+)px/g)]
+    .map((match) => Number(match[1]));
+  assert.ok(compactTargets.some((height) => height >= 44), "compact links must provide a 44px-or-larger touch target");
   assert.match(navigatorCss, /-webkit-line-clamp:\s*2/);
   assert.match(navigatorCss, /prefers-reduced-motion:\s*reduce/);
   assert.match(portalTabs, /<PublicSubcategoryNavigator/);
