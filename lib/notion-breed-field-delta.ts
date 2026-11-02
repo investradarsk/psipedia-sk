@@ -47,8 +47,17 @@ export function parseBreedFieldSnapshot(value: string | null): BreedFieldSnapsho
     const parsed: unknown = JSON.parse(value);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const record = parsed as Record<string, unknown>;
-    if (!BREED_NOTION_EDITABLE_FIELDS.every(key => Object.prototype.hasOwnProperty.call(record, key)))
+    // Old receipts predate the opt-in structured columns. Keep their old
+    // baseline authoritative and initialise only newly introduced keys as
+    // absent. Never force hundreds of legacy profiles through a full resync.
+    for (const key of BREED_NOTION_EDITABLE_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(record, key)) continue;
+      if (key === "fciStandard" || key === "editorial" || key === "sports") {
+        record[key] = null;
+        continue;
+      }
       return null;
+    }
     return record as BreedFieldSnapshot;
   } catch {
     return null;
