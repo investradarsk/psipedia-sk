@@ -12,7 +12,7 @@ const item = {
   shortDescription: "Starostlivosť o psy", description: "Verejný popis",
   publicEmail: "kontakt@example.sk", publicPhone: null, websiteUrl: null,
   facebookUrl: null, instagramUrl: null, city: "Zlaté Moravce", district: "Zlaté Moravce",
-  region: "Nitriansky", countryCode: "SK", imageUrl: "/images/hero-labrador.webp",
+  region: "Nitriansky", countryCode: "SK", imageUrl: null,
   imageKey: null, sourceUrl: null, publishedAt: null, lastVerifiedAt: null,
   archivedAt: null, updatedAt: "2026-11-02T09:00:00.000Z",
   thumbnailImageDisplay: null, detailImageDisplay: null,
