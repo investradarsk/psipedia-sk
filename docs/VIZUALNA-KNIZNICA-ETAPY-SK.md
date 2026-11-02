@@ -73,7 +73,7 @@ Poznámka: obsahové bannery sa môžu meniť podľa dňa alebo dát. Výpis zac
 - Priame publikovanie mení **desktopové texty aj farby**. Verejný komponent `PublicMagazineBanner` dostáva allowlistovaný schválený záznam; CSS sa uplatní iba nad 620 px. Mobilná šablóna, titulky a obsahové CTA zostávajú bez zmeny.
 - Textové zmeny samostatných povolených bannerov možno bezpečne publikovať iba na desktope: pôvodný mobilný text zostáva v tom istom sémantickom prvku a viditeľný na mobilnom breakpoint-e. Zmeny spoločnej šablóny a ostatných bannerov zostávajú len návrhom do úplného auditu použitia.
 - Publikované desktopové texty aj farby možno vrátiť kliknutím **Vrátiť publikované texty a farby** po potvrdení tej istej URL. D1 čítanie na verejnom webe zlyháva bezpečne na pôvodný štýl, keď je úložisko nedostupné.
-- **Migrácia nie je automatická:** v chránenom GitHub workflow Production D1 Migrate bol sprístupnený cieľ `0152_visual_library_banner_edits.sql` a potvrdzovací text `APPLY-0152-psipedia-sk-db`. Spustenie výlučne vlastník po merge a po aplikovaní všetkých predchádzajúcich migrácií až po **0150**. Do tej doby serverový editor zobrazí oznámenie o nedostupnej tabuľke a žiadne farby nepublikuje.
+- **Migrácia nie je automatická:** v chránenom GitHub workflow Production D1 Migrate bol sprístupnený cieľ `0152_visual_library_banner_edits.sql` a potvrdzovací text `APPLY-0152-psipedia-sk-db`. Spustenie výlučne vlastník po merge a po osobitne autorizovanej a fyzicky overenej migrácii **0151**. Do tej doby serverový editor zobrazí oznámenie o nedostupnej tabuľke a žiadne farby nepublikuje.
 - Testy pokrývajú základné kontrakty autorizácie, potvrdenia URL, desktop CSS, ochrany textov, verzovania a chráneného SQL schématu. **Živé UI a reálne D1 správanie musí potvrdiť CI/staging** pred merge.
 
 ### Stále otvorené
@@ -133,7 +133,19 @@ Iba admin zobrazenie a sprievodná dátová evidencia; bez databázovej migráci
 - **Pred merge:** zelené CI a kontrola serverového build-u. Po chránenom nasadení migrácie 0152 urobiť na živom admin rozhraní kontrolný test všetkých deviatich zdrojov vrátane posledných stránok, vyhľadávania a klikateľných URL. Bez živého testu sa nevyhlasuje plná prevádzková úplnosť.
 
 
-### Stav po zistení kolízie s novším main
-- `main` už rezervoval `0151_admin_content_revision_history.sql`, ktorý **nie je aktivovaný na produkčné spustenie**.
-- Vizuálna knižnica preto používa `0152_visual_library_banner_edits.sql` a zostáva tiež **UNACTIVATED**. Nič sa nesmie aplikovať z PR ani automaticky pri merge.
-- Staršie tvrdenia v tomto dokumente o už dostupnom ručnom spustení vizuálnej migrácie sú týmto prekonané. Najprv treba samostatne autorizovať a aplikovať 0151 a až následne schváliť 0152; až potom bude možné publikovanie v administračnom editore.
+### Bezpečný produkčný rollout migrácie 0152 (pripravené v PR, nespustené)
+
+- `main` má súbor `0151_admin_content_revision_history.sql`, ale jeho **produkčné spustenie stále nie je autorizované** týmto PR. Neaplikujeme ho ani neobchádzame.
+- `0152_visual_library_banner_edits.sql` je v štandardnom chránenom workflow `Production D1 Migrate` dostupný **iba ako manuálne zvolený cieľ**; `workflow_dispatch`, prostredie `production`, spoločný migračný zámok a presný potvrdzovací reťazec sú povinné. Merge ani build migráciu nespustia.
+- Postup po schválení: (1) nezávisle autorizovať a v produkcii aplikovať `0151` cez jej vlastný schválený postup; (2) overiť v databáze `d1_migrations` presnú postupnosť vrátane 0151 a všetkých 8 tabuliek/indexov/triggerov schémy 0151; (3) na **main** v GitHub Actions vybrať `Production D1 Migrate`, `0152_visual_library_banner_edits.sql` a presný text `APPLY-0152-psipedia-sk-db`; (4) vlastník explicitne spustí chránený workflow.
+- Pred akoukoľvek zmenou sa automaticky overí identita účtu a databázy `psipedia-sk-db`, SHA-256 kanonického SQL, úplná postupnosť migrácií, schéma 0151, absencia čiastočne vytvorenej schémy 0152 a dostupný D1 Time Travel bookmark. Pri nesúlade postup odmietne vykonať zmenu.
+- Workflow používa existujúce oddelené fázy preflight → apply → postflight, načítanie presnej revízie `main`, opätovnú kontrolu histórie medzi preflightom a zápisom a verifikáciu novej tabuľky. Nepovoľuje automatický restore ani deploy Workerov.
+- Po úspešnom schválenom spustení manuálne otestovať v admin rozhraní uloženie, publikovanie a vrátenie desktopových zmien, mobilnú nezmenenosť a vymazanie HTML cache. Produkčnú funkčnosť nevykazovať ako overenú bez tohto testu.
+
+### Stále otvorené v pôvodnom zadaní registra komponentov
+
+- **Vzťah komponent ↔ konkrétna URL dynamického profilu** nie je zatiaľ overený pri každom profile. Výpis verejných URL z D1 je kompletný v rozsahu 9 zdrojov, ale sám o sebe nie je dôkazom ich konkrétnych vizuálnych komponentov.
+- **Náhľady celého registra** sú dostupné pre vybrané bannery/Hero/CTA/karty, nie pre každý zdrojový React komponent.
+- **Publikovanie zostáva konzervatívne** obmedzené na 7 identifikovaných samostatných bannerov, nie na všetky podobné prvky alebo zdieľané šablóny.
+- **Prevádzková verifikácia** publikovaných URL, zobrazenia textov a cache po migrácii 0152 zostáva na živom prostredí. Bez nej nie je korektné označiť celé pôvodné zadanie za 100 % dokončené.
+
