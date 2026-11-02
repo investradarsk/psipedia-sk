@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { arrayMove } from "@dnd-kit/sortable";
 import { AdminSortableOrderPreview } from "@/components/admin-sortable-order-preview";
+import { AdminContentHistory } from "@/components/admin-content-history";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import {
   AdminActionButton,
@@ -309,6 +310,13 @@ export function AdminSectionEditor({
                       Spoločný Lexical editor upravuje pôvodné plain text polia. Štruktúrované zoznamy a SEO zostávajú bez zmeny.
                     </AdminHelpText>
                   </section>
+
+                  <AdminContentHistory
+                    entityType="section"
+                    entityKey={section.slug}
+                    label={section.label}
+                    disabled={saving || dirty}
+                  />
 
                   <div className={styles.subsectionHeading}>
                     <div>
