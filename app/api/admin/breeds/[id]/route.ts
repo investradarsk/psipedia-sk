@@ -111,7 +111,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   try {
     const before = await getManagedBreed(id);
     if (!before) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
-    const breed = await updateManagedBreedInlineIntro(id, body.intro, auth.user.email, body.expectedUpdatedAt);
+    const breed = await updateManagedBreedInlineIntro(id, body.intro, body.expectedUpdatedAt);
     if (!breed) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
     let notionEditorialWriteback: { status: string; code?: string } | undefined;
     const bindings = env as unknown as BreedRouteBindings;
