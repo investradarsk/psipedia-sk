@@ -20,6 +20,7 @@ export type CoverageRegistry = {
   components: Array<{
     name: string;
     label?: string;
+    family?: "banner" | "hero" | "cta" | "filter" | "card" | "category" | "other";
     path: string;
     routes: string[];
     area: "public" | "admin" | "mixed";
