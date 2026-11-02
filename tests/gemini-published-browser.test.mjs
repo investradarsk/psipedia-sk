@@ -78,16 +78,26 @@ test("Gemini real React UI: 22 categories on desktop/mobile, publication, histor
       await page.goto("https://fixture.test/"); await complete();
       assert.equal(new Set(calls).size,22);
       assert.equal(await counter.innerText(),"66");
-      assert.equal(await page.locator("li").count(),66);
-      await page.getByRole("combobox",{name:"Stav"}).selectOption("PUBLISHED");
-      assert.equal(await page.locator("li").count(),22);
-      await page.getByRole("combobox",{name:"Stav"}).selectOption("ACTIVE");
+      // Data grid is paginated (25/page) instead of the legacy 66 <li> list.
+      const rows=page.locator("table tbody tr");
+      assert.equal(await rows.count(),25);
+      await page.getByRole("button",{name:"Ďalšia"}).click();
+      assert.equal(await rows.count(),25);
+      await page.getByRole("button",{name:"Ďalšia"}).click();
+      assert.equal(await rows.count(),16);
+      await page.getByRole("combobox",{name:"Stav",exact:true}).selectOption("PUBLISHED");
+      assert.equal(await rows.count(),22);
+      await page.getByRole("combobox",{name:"Stav",exact:true}).selectOption("ACTIVE");
       phase="published";
       await page.getByRole("button",{name:/Obnoviť/}).click(); await complete();
       assert.equal(await counter.innerText(),"44", "confirmed publications leave active count");
-      assert.equal(await page.locator("li").count(),44);
-      await page.getByRole("combobox",{name:"Stav"}).selectOption("PUBLISHED");
-      assert.equal(await page.locator("li").count(),44,"published history retained");
+      assert.equal(await rows.count(),25);
+      await page.getByRole("button",{name:"Ďalšia"}).click();
+      assert.equal(await rows.count(),19);
+      await page.getByRole("combobox",{name:"Stav",exact:true}).selectOption("PUBLISHED");
+      assert.equal(await rows.count(),25,"published history retained on first page");
+      await page.getByRole("button",{name:"Ďalšia"}).click();
+      assert.equal(await rows.count(),19,"published history has a second page");
       await page.getByRole("combobox",{name:"Stav"}).selectOption("ACTIVE");
       phase="draft"; // stale response after an earlier confirmed publication
       await page.getByRole("button",{name:/Obnoviť/}).click(); await complete();
