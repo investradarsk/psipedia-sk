@@ -9,11 +9,15 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
     return Response.json({error:"Požadovaný je JSON."},{status:415});
   const {id}=await params;
   if(!/^\d+$/.test(id)||Number(id)<1)return Response.json({error:"Neplatný návrh."},{status:400});
-  let body:{action?:unknown};
-  try{body=await request.json() as {action?:unknown}}catch{return Response.json({error:"Neplatné JSON."},{status:400})}
+  let body:{action?:unknown;value?:unknown};
+  try{body=await request.json() as {action?:unknown;value?:unknown}}catch{return Response.json({error:"Neplatné JSON."},{status:400})}
+  if(!body || typeof body!=="object" || Array.isArray(body) || Object.keys(body).some(key=>key!=="action"&&key!=="value"))
+    return Response.json({error:"Neplatné údaje."},{status:400});
   if(body.action!=="accept"&&body.action!=="reject")return Response.json({error:"Neplatná akcia."},{status:400});
+  if(body.action==="reject"&&Object.hasOwn(body,"value"))
+    return Response.json({error:"Pri zamietnutí sa hodnota nesmie meniť."},{status:400});
   try{
-    await reviewMissingQualityProposal(getQualityMissingDatabase(),Number(id),body.action,auth.user.email);
+    await reviewMissingQualityProposal(getQualityMissingDatabase(),Number(id),body.action,auth.user.email,body.value);
     return Response.json({ok:true});
   }catch(error){
     const message=error instanceof Error?error.message:"Návrh sa nepodarilo spracovať.";
