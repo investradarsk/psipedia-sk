@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import {
   PublicActionLink, PublicDataCard, PublicLandingHero, PublicSectionHeader,
 } from "@/components/public-visual-system/public-visual-system";
@@ -47,12 +48,14 @@ function ProposalPreview({
   }
 }
 
-export function AdminVisualLibraryComponentEditor({sampleId}: {sampleId:string}) {
+export function AdminVisualLibraryComponentEditor({sampleId, candidateRoutes = []}: {
+  sampleId:string; candidateRoutes?: readonly string[];
+}) {
   if (!isVisualComponentProposalId(sampleId)) return null;
-  return <ComponentProposalEditor key={sampleId} id={sampleId} />;
+  return <ComponentProposalEditor key={sampleId} id={sampleId} candidateRoutes={candidateRoutes} />;
 }
 
-function ComponentProposalEditor({id}: {id:VisualComponentProposalId}) {
+function ComponentProposalEditor({id,candidateRoutes}: {id:VisualComponentProposalId; candidateRoutes:readonly string[]}) {
   const preset = visualComponentProposalPresets[id];
   const [draft, setDraft] = useState<VisualComponentProposal>({...preset.original});
   const [saved, setSaved] = useState<SavedDraft | null>(null);
@@ -122,6 +125,7 @@ function ComponentProposalEditor({id}: {id:VisualComponentProposalId}) {
       "Psipedia – návrh úpravy spoločného komponentu",
       "Ukážka: " + preset.label + " (" + id + ")",
       ...preset.fields.map((field) => FIELD_LABELS[field] + ": " + draft[field]),
+      "Možné dotknuté šablóny (neoverené): " + candidateRoutes.join(", "),
       "Verejné umiestnenia zatiaľ nie sú úplne overené.",
       "Zostáva len návrh; nič sa nepublikuje. Mobil bez zásahu.",
     ].join("\n");
@@ -172,6 +176,21 @@ function ComponentProposalEditor({id}: {id:VisualComponentProposalId}) {
         onClick={() => void copy()}>Skopírovať návrh</button>
     </div>
     <div className={styles.publishPanel}>
+      <h5>Možné dotknuté stránky</h5>
+      <p>Toto sú iba kandidáti podľa statických importov kódu.
+        Neznamená to, že sa komponent na každej stránke naozaj vykreslí.</p>
+      <p>Kandidátskych šablón: {candidateRoutes.length}</p>
+      {candidateRoutes.length ? <ul className={styles.usages}>
+        {candidateRoutes.slice(0,30).map((route) => {
+          const href = publicRegistryRouteHref(route);
+          return <li key={route}>
+            <code>{route}</code>
+            {href ? <a href={href} target="_blank" rel="noopener noreferrer">Otvoriť stránku</a> :
+              <small>Dynamická šablóna – konkrétny profil neoverený</small>}
+          </li>;
+        })}
+      </ul> : <p>Register nemá priradenú možnú stránku. Umiestnenia treba dohľadať ručne.</p>}
+      {candidateRoutes.length > 30 && <p>Zobrazených prvých 30 z {candidateRoutes.length} šablón.</p>}
       <h5>Publikovanie spoločnej šablóny</h5>
       <p>
         Zatiaľ nie je povolené. Na server sa ukladá iba pracovný návrh.
