@@ -6,6 +6,7 @@ import {
   adminComponentPreviewSamples,
 } from "@/components/admin-component-visual-preview";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
+import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-library-missing-previews";
 import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
 import styles from "./admin-visual-library.module.css";
 
@@ -177,6 +178,7 @@ export function AdminVisualLibraryGallery({
           </p>
         </article> : <p className={styles.empty}>Skús iné hľadanie alebo kategóriu.</p>}
       </div>
+      <AdminVisualLibraryMissingPreviews registry={registry} fixedFamily={fixedFamily} />
     </section>
   );
 }
