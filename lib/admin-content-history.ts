@@ -85,7 +85,7 @@ export async function previewContentHistory(type: ContentHistoryType, key: strin
   const canRestore = latest.before !== null || type === "section_visual" && latest.operation === "INSERT";
   return {
     revisions,
-    canRestore: Boolean(canRestore && (snapshot?.snapshot ?? null) === (latest.after ? JSON.stringify(latest.after) : null)),
+    canRestore: Boolean(canRestore && (snapshot?.snapshot ? JSON.stringify(JSON.parse(snapshot.snapshot)) : null) === (latest.after ? JSON.stringify(latest.after) : null)),
   };
 }
 
