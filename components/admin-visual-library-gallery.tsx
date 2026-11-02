@@ -6,6 +6,7 @@ import {
   adminComponentPreviewSamples,
 } from "@/components/admin-component-visual-preview";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
+import { AdminVisualLibraryComponentEditor } from "@/components/admin-visual-library-component-editor";
 import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-library-missing-previews";
 import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
 import styles from "./admin-visual-library.module.css";
@@ -172,9 +173,11 @@ export function AdminVisualLibraryGallery({
             Statický register sa v tejto zostave nenačítal. Náhľady fungujú,
             ale možnosť priradiť komponent k stránkam zatiaľ nie je potvrdená.
           </p>}
+          <AdminVisualLibraryComponentEditor sampleId={chosen.sample.id} />
           <p className={styles.nextStep}>
-            Galéria nič neupravuje ani nepublikuje. Bezpečný editor je samostatne
-            pri overených banneroch. Mobilný verejný dizajn sa nemení.
+            Galéria zobrazuje skutočné komponenty. Pri štyroch overených typoch
+            možno uložiť návrh textov na server, ale nepublikuje sa na verejnom webe.
+            Mobilný verejný dizajn sa nemení.
           </p>
         </article> : <p className={styles.empty}>Skús iné hľadanie alebo kategóriu.</p>}
       </div>
