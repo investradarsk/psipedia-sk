@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import {
+  AdminComponentVisualPreview, adminComponentPreviewSamples,
+} from "@/components/admin-component-visual-preview";
+import {
   findVisualSourceCandidates, type VisualSourceCandidate,
 } from "@/lib/visual-library-source-comparison";
 import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
@@ -23,6 +26,8 @@ export function AdminVisualLibrarySourceSimilarity({
   const [selection, setSelection] = useState("");
   const [showRoutes, setShowRoutes] = useState(ROUTES_PAGE);
   const [copied, setCopied] = useState<"idle" | "yes" | "error">("idle");
+  const [leftVariant, setLeftVariant] = useState("");
+  const [rightVariant, setRightVariant] = useState("");
 
   const searched = query.trim().toLocaleLowerCase("sk");
   const filtered = candidates.filter((candidate) =>
@@ -37,6 +42,8 @@ export function AdminVisualLibrarySourceSimilarity({
     setSelection(candidate.id);
     setShowRoutes(ROUTES_PAGE);
     setCopied("idle");
+    setLeftVariant("");
+    setRightVariant("");
   };
 
   const copyReview = () => {
@@ -109,9 +116,35 @@ export function AdminVisualLibrarySourceSimilarity({
             {([chosen.leftPath, chosen.rightPath] as const).map((path, index) => {
               const component = components.get(path);
               const modules = index === 0 ? chosen.leftStyleModules : chosen.rightStyleModules;
+              const variantId = index === 0 ? leftVariant : rightVariant;
+              const setVariant = index === 0 ? setLeftVariant : setRightVariant;
+              const previews = adminComponentPreviewSamples.filter((sample) => sample.path === path);
+              const selectedPreview = previews.find((sample) => sample.id === variantId) ?? previews[0];
               return <section className={styles.comparisonSide} key={path}>
                 <h4>{component?.label ?? component?.name ?? path}</h4>
                 <code>{path}</code>
+                {selectedPreview ? <>
+                  {previews.length > 1 && <label className={styles.usageSearch}>
+                    <span>Vizuálny variant</span>
+                    <select value={selectedPreview.id}
+                      onChange={(event) => setVariant(event.target.value)}>
+                      {previews.map((preview) =>
+                        <option key={preview.id} value={preview.id}>{preview.title}</option>)}
+                    </select>
+                  </label>}
+                  <div className={styles.comparisonPreview}>
+                    <div className={styles.previewComponent} inert>
+                      <AdminComponentVisualPreview id={selectedPreview.id} />
+                    </div>
+                  </div>
+                  <p className={styles.explanation}>
+                    Skutočný React komponent s ukážkovým obsahom;
+                    nie potvrdený vzhľad na každej kandidátskej URL.
+                  </p>
+                </> : <p className={styles.pending}>
+                  Tento zdroj zatiaľ nemá samostatný živý náhľad.
+                  Porovnaj reálne verejné stránky pred úpravou.
+                </p>}
                 <strong>Priamo importované CSS moduly ({modules.length})</strong>
                 {modules.length
                   ? <ul className={styles.usages}>{modules.map((file) =>
