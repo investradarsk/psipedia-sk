@@ -15,6 +15,8 @@ const route = read("app/api/admin/geo/[targetType]/[id]/route.ts");
 const confirmation = read("lib/admin-google-place-confirmation.ts");
 const bulk = read("lib/google-place-bulk.ts");
 const directoryPage = read("app/admin/adresar/[id]/page.tsx");
+const apiConsoleLink = read("components/admin-google-places-api-link.tsx");
+const canary = read("components/admin-google-places-canary.tsx");
 
 test("MAP-ADMIN-UNIFIED loader covers services, one HELP organization row, and events", () => {
   assert.match(loader, /DIRECTORY_PROFILE/);
@@ -149,4 +151,25 @@ test("MAP-ADMIN-UNIFIED adds no schema migration or manual-marker default", () =
   const changedRuntime = [loader, state, dashboard, geoEditor, profileGoogle, picker, discovery, route, confirmation, bulk].join("\n");
   assert.doesNotMatch(changedRuntime, /CREATE TABLE|ALTER TABLE/);
   assert.doesNotMatch(picker, /manual marker|setManualGeoCoordinates/i);
+});
+
+test("all manual Google Places search entry points link to the correct Cloud console", () => {
+  assert.ok(apiConsoleLink.includes(
+    "https://console.cloud.google.com/google/maps-apis/api-list?project=psipedia-production&authuser=1",
+  ));
+  assert.match(apiConsoleLink, /target="_blank"/);
+  assert.match(apiConsoleLink, /rel="noopener noreferrer"/);
+  assert.match(apiConsoleLink, /V Google Cloud vyber Places API \(New\)/);
+  assert.match(apiConsoleLink, /po dokončení opäť vypni/);
+
+  // The shared picker appears in directory, event and organization editors.
+  assert.match(profileGoogle, /<AdminGooglePlacePicker/);
+  assert.match(geoEditor, /<AdminProfileGoogleMaps/);
+  assert.equal((picker.match(/<AdminGooglePlacesApiLink compact \/>/g) ?? []).length, 2);
+  assert.match(dashboard, /data-google-bulk>[\s\S]*?<AdminGooglePlacesApiLink \/>/);
+  assert.match(page, /actions=\{<AdminGooglePlacesApiLink compact \/>\}/);
+  assert.match(canary, /<AdminGooglePlacesApiLink \/>/);
+
+  // The console link is only a hyperlink; never toggles the API or launches a paid search.
+  assert.doesNotMatch(apiConsoleLink, /fetch\(|serviceusage|discover-google-place|onClick|gcloud/);
 });
