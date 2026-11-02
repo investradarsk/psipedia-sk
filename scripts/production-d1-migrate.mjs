@@ -37,7 +37,9 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // Migration 0142 remains owner-dispatched through the existing protected production workflow.
 // 0146 remains owner-dispatched only: PR merge does not run the protected migration.
 // 0147 Notion field authority also requires a separate owner-dispatched protected D1 migration.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+// 0151 audit history requires separate review and production migration approval.
+// Its presence in a PR or main must never authorize a remote migration apply.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0151_admin_content_revision_history.sql"]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
