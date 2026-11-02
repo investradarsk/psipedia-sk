@@ -44,3 +44,11 @@ Oba externé CLI sú voliteľné a pri prvom spustení vyžadujú prístup k npm
 - Pri statických verejných stránkach register ponúkne skutočný klikateľný odkaz na cestu, ktorá existuje v zdrojových stránkach. Pri `/[slug]` uvádza len vzor, pretože bez databázy nepozná konkrétne profily a články.
 - Technické súbory a importéri sú schované pod „Technické informácie“.
 - Zostáva iba na čítanie, bez D1 migrácie a bez zásahu do mobilného dizajnu verejného webu.
+
+## Vizuálne náhľady existujúcich komponentov (V3)
+- V **Nastavenia → Komponenty a šablóny** sa na vrchu registra zobrazujú rozbaľovacie **živé náhľady**. Ide o vykreslenie pôvodných React komponentov so schváleným CSS, nie o ilustračný obrázok ani napodobeninu.
+- Prvé náhľady: promo, fotografický, informačný, kontextový s fotografiou, nahlásenie psa, rýchla pomoc, záverečná výzva, článková a partnerská CTA, odporúčací banner, spoločný obal, tlačidlá a formulárové prvky.
+- Každá ukážka má explicitne označený **vzorový obsah**. Nie sú to údaje žiadneho reálneho profilu.
+- Interakcie vo vnútri ukážky sú vypnuté pomocou \`inert\`, \`aria-hidden\` a \`pointer-events: none\`. Odkazy sa nedajú aktivovať myšou ani klávesnicou; ide výhradne o čítanie.
+- Ukážka používa skutočnú šírku dostupnej oblasti; nie je simulátor mobilného breakpointu. Na overenie mobilného layoutu treba otvoriť admin na mobilnom zariadení.
+- Žiadne nové verejné route, databázové úpravy, Notion, publikovanie ani závislosti. Zmena je iba v existujúcom autentifikovanom admin registri.

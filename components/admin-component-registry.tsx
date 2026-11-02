@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
+import { AdminComponentVisualPreview, adminComponentPreviewSamples } from "./admin-component-visual-preview";
+import previewStyles from "./admin-component-visual-preview.module.css";
 import styles from "./admin-component-registry.module.css";
 
 type RegistryComponent = {
@@ -48,6 +50,10 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
     return true;
   }), [registry.components, query, scope, area, family, familyNames, groups]);
   const limited = items.slice(0, 100);
+  // Render actual components with safe sample props; hidden inside a private registry.
+  const previewSamples = adminComponentPreviewSamples.filter((sample) =>
+    family === "all" ? sample.featured : sample.family === family
+  );
 
   return (
     <section className={styles.root} aria-label="Register komponentov a šablón">
@@ -84,6 +90,35 @@ export function AdminComponentRegistry({ registry }: { registry: Registry }) {
             <p className={styles.familyExplanation}>{groups.find(g=>g.id===family)?.description}</p>}
         </section>
       )}
+      <section className={previewStyles.visualGallery} aria-label="Vizuálne náhľady komponentov" id="komponenty-nahlady">
+        <header className={previewStyles.visualHeading}>
+          <div>
+            <strong>Vizuálne náhľady</strong>
+            <p>Skutočné komponenty so vzorovým obsahom. Na ukážky sa nedá kliknúť a nemenia žiadne dáta.
+              Vyber „Bannery“ vyššie a zobrazia sa všetky ich pripravené varianty.</p>
+          </div>
+        </header>
+        {previewSamples.length ? (
+          <div className={previewStyles.visualList}>
+            {previewSamples.map((sample, index) => (
+              <details key={sample.id} className={previewStyles.visualSample} open={index === 0 && family === "all"}>
+                <summary>
+                  <span className={previewStyles.visualSampleTitle}>
+                    <strong>{sample.title}</strong>
+                    <small>{sample.description}</small>
+                  </span>
+                </summary>
+                <div className={previewStyles.visualStage} inert aria-hidden="true">
+                  <AdminComponentVisualPreview id={sample.id} />
+                </div>
+                <div className={previewStyles.visualCaption}>Vzorový obsah · skutočný komponent · bez aktívnych odkazov</div>
+              </details>
+            ))}
+          </div>
+        ) : (
+          <p className={previewStyles.visualEmpty}>Pre túto skupinu zatiaľ nemáme bezpečnú vizuálnu ukážku. V zozname nižšie zostávajú technické súvislosti a stránky použitia.</p>
+        )}
+      </section>
       <div className={styles.filters}>
         <label>
           <span>Hľadať komponent, súbor alebo stránku</span>
