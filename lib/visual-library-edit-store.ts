@@ -21,6 +21,12 @@ type EditRow = {
 const ALLOWED_PUBLICATIONS: Record<string, { url: string; variant: number }> = {
   "homepage:profil": { url: "https://psipedia.sk/", variant: 0 },
   "plemena:kluby": { url: "https://psipedia.sk/plemena", variant: 0 },
+  // Each help banner has one separately anchored, verified placement on the help landing.
+  "help:lost-found": { url: "https://psipedia.sk/pomoc-psom", variant: 0 },
+  "help:overview:0": { url: "https://psipedia.sk/pomoc-psom", variant: 0 },
+  "help:overview:2": { url: "https://psipedia.sk/pomoc-psom", variant: 0 },
+  "help:overview:4": { url: "https://psipedia.sk/pomoc-psom", variant: 0 },
+  "help:closing": { url: "https://psipedia.sk/pomoc-psom", variant: 0 },
 };
 
 export const allowedVisualPublishTargets = ALLOWED_PUBLICATIONS;
