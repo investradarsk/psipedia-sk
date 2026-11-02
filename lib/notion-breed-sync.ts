@@ -122,6 +122,22 @@ function parseSources(value: string) {
   });
 }
 
+function optionalStructuredBreedField(
+  page: NotionPage,
+  property: string,
+  kind: "object" | "array",
+): Record<string, unknown> | unknown[] | undefined {
+  const raw = notionRichTextProperty(page, property);
+  if (!raw) return undefined; // Absent staging columns never clear canonical D1.
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); }
+  catch { throw new Error(`BREED_NOTION_INVALID_JSON: ${property}`); }
+  if (kind === "array" ? !Array.isArray(parsed) : !parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`BREED_NOTION_INVALID_JSON_SHAPE: ${property}`);
+  }
+  return parsed as Record<string, unknown> | unknown[];
+}
+
 export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInput {
   const name = notionTitleProperty(page, "Názov");
   const slug = notionRichTextProperty(page, "Slug");
@@ -143,6 +159,11 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     validStandardDate: notionDateStartProperty(page, "Platnosť FCI štandardu") || null,
     workingTrial: notionRichTextProperty(page, "Pracovná skúška"),
     importKey: notionRichTextProperty(page, "Import kľúč") || null,
+    // Opt-in structured fields: existing empty Notion properties do not erase
+    // already reviewed D1 details. Validate in breed-store before writes.
+    fciStandard: optionalStructuredBreedField(page, "FCI štandard JSON", "object") as ManagedBreedInput["fciStandard"],
+    editorial: optionalStructuredBreedField(page, "Redakčné sekcie JSON", "object") as ManagedBreedInput["editorial"],
+    sports: optionalStructuredBreedField(page, "Športy JSON", "array") as ManagedBreedInput["sports"],
     editorialComplete: notionPropertyRecord(page, "Editorial complete") ? checkboxProperty(page, "Editorial complete") : undefined,
     origin: notionRichTextProperty(page, "Krajina pôvodu"),
     group: notionRichTextProperty(page, "Skupina"),
