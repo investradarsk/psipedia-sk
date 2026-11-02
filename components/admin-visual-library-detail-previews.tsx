@@ -1,8 +1,6 @@
 import { DirectoryServicesList } from "@/components/directory-services-list";
-import { ProfileReviewSection } from "@/components/profile-review-section";
 import { EventListingResults } from "@/components/event-listing-results";
 import { parseEventListing } from "@/lib/event-listing";
-import type { PublicProfileReviewData } from "@/lib/profile-review-read";
 import type { PublicEventCard } from "@/lib/events";
 
 /**
@@ -16,56 +14,6 @@ const services = [
   "Röntgen", "Dermatológia", "Poradenstvo vo výžive",
   "Dentálna starostlivosť", "Fyzioterapia", "Kontrola hmotnosti",
 ];
-
-const emptyReviews: PublicProfileReviewData = {
-  resourceId: "ukazka-bez-zapisov",
-  summary: {
-    count: 0, average: null,
-    distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-    dimensions: [],
-  },
-  reviews: [],
-  pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
-};
-
-const populatedReviews: PublicProfileReviewData = {
-  resourceId: "ukazka-recenzie",
-  summary: {
-    count: 2, average: 4.5,
-    distribution: { 1: 0, 2: 0, 3: 0, 4: 1, 5: 1 },
-    dimensions: [{ key: "care", label: "Starostlivosť", average: 4.5 }],
-  },
-  reviews: [
-    {
-      id: "ukazka-recenzia-1",
-      displayName: "Ukážkový zákazník",
-      overallRating: 5,
-      body: "Fiktívna recenzia používaná iba na kontrolu grafického rozloženia.",
-      serviceMonth: "2026-10",
-      serviceTypeLabel: "Veterinárna starostlivosť",
-      publishedAt: "2026-11-01T12:00:00Z",
-      dimensions: [{ key: "care", label: "Starostlivosť", value: 5 }],
-      providerReply: {
-        body: "Ukážková odpoveď prevádzkovateľa.",
-        publishedAt: "2026-11-02T12:00:00Z",
-      },
-      helpfulCount: 1,
-    },
-    {
-      id: "ukazka-recenzia-2",
-      displayName: "Anonymná ukážka",
-      overallRating: 4,
-      body: "Ďalší výhradne ukážkový komentár.",
-      serviceMonth: null,
-      serviceTypeLabel: null,
-      publishedAt: "2026-10-30T12:00:00Z",
-      dimensions: [],
-      providerReply: null,
-      helpfulCount: 0,
-    },
-  ],
-  pagination: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
-};
 
 const sampleEvent: PublicEventCard = {
   id: 0,
@@ -86,9 +34,6 @@ const sampleEvent: PublicEventCard = {
 export type AdminDetailPreviewId =
   | "directory-services-short"
   | "directory-services-expanded"
-  | "profile-reviews-empty"
-  | "profile-reviews-populated"
-  | "profile-reviews-error"
   | "event-listing-filtered"
   | "event-listing-empty";
 
@@ -98,12 +43,6 @@ export function AdminDetailComponentPreview({ id }: { id: AdminDetailPreviewId }
       return <DirectoryServicesList services={services.slice(0, 6)} />;
     case "directory-services-expanded":
       return <DirectoryServicesList services={services} />;
-    case "profile-reviews-empty":
-      return <ProfileReviewSection data={emptyReviews} baseHref="/adresar/veterinari/ukazka" />;
-    case "profile-reviews-populated":
-      return <ProfileReviewSection data={populatedReviews} baseHref="/adresar/veterinari/ukazka" />;
-    case "profile-reviews-error":
-      return <ProfileReviewSection readError data={null} baseHref="/adresar/veterinari/ukazka" />;
     case "event-listing-filtered":
       return <EventListingResults
         events={[sampleEvent]}
