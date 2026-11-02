@@ -152,6 +152,8 @@ type HelpCaseSummaryRow = {
   id: number;
   slug: string;
   title: string;
+  excerpt: string;
+  updated_at: string;
   category: string;
   status: string;
   organization: string;
