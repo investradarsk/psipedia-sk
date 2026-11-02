@@ -73,7 +73,8 @@ async function loadTable(category: (typeof helpCategories)[number]["slug"], q: s
     rows = data.items.map(item => ({
       id: item.id, title: item.title, detail: item.organization || item.dogName || "",
       category, status: item.resolved ? "Vybavené" : item.status === "published" ? "Publikované" : "Koncept",
-      city: item.city, updatedAt: "", href: "/admin/pomoc/" + item.id,
+      city: item.city, updatedAt: item.updatedAt, href: "/admin/pomoc/" + item.id,
+      inlineHelp: { title: item.title, excerpt: item.excerpt, editable: true },
     }));
   }
   return { rows, total, pages, page: currentPage };
