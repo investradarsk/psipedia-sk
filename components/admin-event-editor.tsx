@@ -1,6 +1,7 @@
 "use client";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
+import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { useRouter } from "next/navigation";
@@ -310,6 +311,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
               <div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); }}>Odstrániť fotku</button>}<small>Odporúčaný pomer 16 : 9, najviac 8 MB.</small></div>
             </div>
             {imageUrl && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
+            {event && <AdminShareToFacebook title={title} imageUrl={imageUrl} publicPath={"/podujatia/" + event.slug} />}
              <label className="admin-event-cancelled"><input type="checkbox" checked={cancelled} onChange={(input) => setCancelled(input.target.checked)} /><span><strong>Podujatie je zrušené</strong><small>Na verejnej stránke sa zobrazí výrazné upozornenie.</small></span></label>
           </EditorSection>
           <EditorSection id="event-seo" className={styles.seoSection}>
