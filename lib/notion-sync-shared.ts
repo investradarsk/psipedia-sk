@@ -88,6 +88,7 @@ export function notionTextValue(value: string) {
 const NOTION_MAX_RETRIES = 4;
 const NOTION_RETRY_BASE_MS = 250;
 const NOTION_RETRY_MAX_MS = 8_000;
+const NOTION_RETRY_AFTER_MAX_MS = 60_000;
 const NOTION_MIN_REQUEST_GAP_MS = 350;
 let nextNotionRequestSlot = 0;
 
@@ -110,11 +111,11 @@ export function notionRetryDelayMs(
   if (clean) {
     const seconds = Number(clean);
     if (Number.isFinite(seconds) && seconds >= 0) {
-      return Math.min(NOTION_RETRY_MAX_MS, Math.max(0, Math.round(seconds * 1_000)));
+      return Math.min(NOTION_RETRY_AFTER_MAX_MS, Math.max(0, Math.round(seconds * 1_000)));
     }
     const timestamp = Date.parse(clean);
     if (Number.isFinite(timestamp)) {
-      return Math.min(NOTION_RETRY_MAX_MS, Math.max(0, timestamp - now));
+      return Math.min(NOTION_RETRY_AFTER_MAX_MS, Math.max(0, timestamp - now));
     }
   }
   const exponent = Math.max(0, Math.trunc(attempt));
