@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminGeoOperatorDashboard } from "@/components/admin-geo-operator-dashboard";
+import { AdminGooglePlacesApiLink } from "@/components/admin-google-places-api-link";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { loadGeoAdminOperatorProfiles } from "@/lib/geo-admin-operator";
@@ -53,6 +54,7 @@ export default async function AdminMapsPage({
       eyebrow="Admin · Mapy"
       title="Mapy"
       description="Profily s neúplnou alebo nejednoznačnou adresou či polohou. Tu môžeš overiť správne miesto v Google Maps; vyriešené záznamy zo zoznamu zmiznú."
+      actions={<AdminGooglePlacesApiLink compact />}
     >
       <Suspense fallback={<AdminDataLoading label="Mapy" />}>
         <MapContent promise={dataPromise} />
