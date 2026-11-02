@@ -411,13 +411,19 @@ function adoptionPayload(
   const breedName = s(values["Plemeno"]);
   const organizationName = s(values["Organizácia"]);
   const imageUrl = localAsset(values["Hlavný obrázok URL"]);
+  const birthDate=s(values["Dátum narodenia"]) || null;
+  const enteredAge=n(values["Vek mesiace"]);
+  // Notion number columns commonly default to 0. When a real birth date is
+  // supplied, 0 means "not independently estimated", not a competing age.
+  // Positive conflicting ages retain the existing validation error.
+  const approximateAgeMonths=birthDate&&enteredAge===0?null:enteredAge;
   return {
     name: s(values["Meno"]),
     slug: s(values["Slug"]),
     status: forceDraft ? "DRAFT" : adoptionStatusFromNotion(s(values["Stav"]), existing?.status),
     sex: s(values["Pohlavie"]),
-    birthDate: s(values["Dátum narodenia"]) || null,
-    approximateAgeMonths: n(values["Vek mesiace"]),
+    birthDate,
+    approximateAgeMonths,
     size: s(values["Veľkosť"]),
     weight: n(values["Hmotnosť"]),
     breedId: existing && existing.breedName === breedName ? existing.breedId : null,
