@@ -3,6 +3,7 @@ import {useEffect,useRef,useState,useSyncExternalStore} from "react";
 import {calendarMonthDays,calendarMonthLabel,calendarWeekdays,moveCalendarMonth} from "@/lib/event-calendar-view";
 import {facebookWallTime,facebookPostsForDay,type FacebookImagePost} from "@/lib/facebook-image-post";
 import {uploadAdminImage} from "@/lib/admin-image-upload";
+import {AdminFacebookGraphicEditor} from "@/components/admin-facebook-graphic-editor";
 import {AdminActionButton,AdminModalDialog} from "@/components/admin-interaction-system";
 import shared from "./admin-editorial-calendar.module.css";
 import styles from "./admin-facebook-images.module.css";
@@ -48,6 +49,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const[notionBusy,setNotionBusy]=useState(false);
   const[editor,setEditor]=useState<{post:FacebookImagePost|null}|null>(null),[form,setForm]=useState<Form>(blank()),[baseline,setBaseline]=useState(""),[editorError,setEditorError]=useState(""),[busy,setBusy]=useState(false);
   const[deleteTarget,setDeleteTarget]=useState<FacebookImagePost|null>(null),[deleteError,setDeleteError]=useState("");
+  const[graphicOpen,setGraphicOpen]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
   const queryKey=`${month}|${status}|${source}|${page}|${refresh}`;
   const[settledQuery,setSettledQuery]=useState(queryKey);
@@ -163,17 +165,17 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   useEffect(()=>{if(editor&&!dialog.current?.open)dialog.current?.showModal();},[editor]);
   useEffect(()=>{if(!dirty)return;const prevent=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue="";};window.addEventListener("beforeunload",prevent);return()=>window.removeEventListener("beforeunload",prevent);},[dirty]);
   useEffect(()=>()=>openRequest.current?.abort(),[]);
-  function close(){if(lock.current||busy)return;if(dirty&&!window.confirm("Zahodiť neuložené zmeny?"))return;dialog.current?.close();setEditor(null);origin.current?.focus();}
+  function close(){if(lock.current||busy)return;if(graphicOpen){setGraphicOpen(false);return;}if(dirty&&!window.confirm("Zahodiť neuložené zmeny?"))return;dialog.current?.close();setEditor(null);origin.current?.focus();}
   function edit(post:FacebookImagePost|null,date=""){
     if(post?.articleId){window.location.assign(`/admin/clanky/${post.articleId}`);return;}
-    origin.current=document.activeElement as HTMLElement;setEditorError("");setNotice("");openRequest.current?.abort();
+    origin.current=document.activeElement as HTMLElement;setEditorError("");setNotice("");setGraphicOpen(false);openRequest.current?.abort();
     if(!post){const next=blank(date);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:null});return;}
     const abort=new AbortController();openRequest.current=abort;setOpening(true);
     fetch(`/api/admin/facebook-images/${post.id}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as {post:FacebookImagePost;error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");if(abort.signal.aborted)return;const next=formFor(body.post);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:body.post});}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setOpening(false);});
   }
-  async function upload(file:File){if(lock.current)return;lock.current=true;setBusy(true);setEditorError("");
-    try{if(!["image/jpeg","image/png","image/webp"].includes(file.type))throw new Error("Použi JPG, PNG alebo WebP.");const image=await uploadAdminImage(file,"facebook-images");setForm(old=>({...old,imageUrl:image.imageUrl,imageKey:image.imageKey}));}
-    catch(e){setEditorError(e instanceof Error?e.message:"Upload zlyhal.");}finally{lock.current=false;setBusy(false);}
+  async function upload(file:File):Promise<boolean>{if(lock.current)return false;lock.current=true;setBusy(true);setEditorError("");
+    try{if(!["image/jpeg","image/png","image/webp"].includes(file.type))throw new Error("Použi JPG, PNG alebo WebP.");const image=await uploadAdminImage(file,"facebook-images");setForm(old=>({...old,imageUrl:image.imageUrl,imageKey:image.imageKey}));return true;}
+    catch(e){setEditorError(e instanceof Error?e.message:"Upload zlyhal.");return false;}finally{lock.current=false;setBusy(false);}
   }
   async function save(target:"draft"|"scheduled",cancel=false){if(lock.current||!editor)return;lock.current=true;setBusy(true);setEditorError("");
     try{
@@ -344,7 +346,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         </div>
       </section>
     </div>
-    <dialog ref={dialog} className={styles.dialog} onCancel={e=>{e.preventDefault();close();}} onClick={e=>{if(e.target===e.currentTarget){const b=e.currentTarget.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)close();}}} aria-labelledby="facebook-editor-heading">
+    <dialog ref={dialog} className={[styles.dialog,graphicOpen?styles.graphicDialog:""].join(" ")} onCancel={e=>{e.preventDefault();close();}} onClick={e=>{if(e.target===e.currentTarget){const b=e.currentTarget.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)close();}}} aria-labelledby="facebook-editor-heading">
       {editor&&<><header className={styles.dialogHeader}><h2 id="facebook-editor-heading">{editor.post?"Upraviť príspevok":"Nový Facebook obrázok"}</h2><AdminActionButton type="button" variant="secondary" disabled={busy} onClick={close}>Zavrieť</AdminActionButton></header>
         <p>ID: {editor.post?.id??"Vytvorí sa pri uložení"}{editor.post?` · verzia ${editor.post.version}`:""}</p>
         {editorError&&<p role="alert" className="admin-message admin-message--error">{editorError}</p>}
@@ -353,7 +355,13 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <span>Zdroj: {editor.post.source==="notion"?"Notion":"Ručne"}</span>
           {link&&<a href={link} target="_blank" rel="noopener noreferrer">Otvoriť na Facebooku ↗</a>}
         </div>}
-        <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked} className={styles.fields}>
+        {graphicOpen?
+          <AdminFacebookGraphicEditor initialTitle={form.title}
+            onUse={async(file,title)=>{const success=await upload(file);if(success){setForm(old=>({...old,title}));setGraphicOpen(false);}return success;}}
+            onCancel={()=>setGraphicOpen(false)} />:
+          <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked} className={styles.fields}>
+          <div className={styles.graphicIntro}><div><strong>Grafické šablóny Psipedia</strong><p>Vytvor obrázok z vlastnej fotografie a uprav nadpis podľa seba.</p></div>
+            <AdminActionButton type="button" variant="secondary" onClick={()=>setGraphicOpen(true)}>Otvoriť editor grafiky</AdminActionButton></div>
           <label>Názov<input autoFocus required maxLength={200} value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label>
           <label>Obrázok (JPG, PNG, WebP, max. 8 MB)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.target.value="";}}/></label>
           {form.imageUrl&&<img className={styles.preview} src={form.imageUrl} alt="Náhľad Facebook obrázka" decoding="async"/>}
@@ -362,7 +370,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <label>Ak sa hodina pri zmene zimného času opakuje<select value={form.repeatedHour} onChange={e=>setForm({...form,repeatedHour:e.target.value})}><option value="">Vybrať pri opakovanej hodine</option><option value="earlier">Prvý výskyt (letný čas)</option><option value="later">Druhý výskyt (zimný čas)</option></select></label>
           <p>Stav: {editor.post?labels[editor.post.status]:"Koncept"}. Uloženie naplánovania samo o sebe okamžite nepublikuje obrázok.</p>
           <div className={styles.actions}><AdminActionButton type="submit" variant="secondary">Uložiť koncept</AdminActionButton><AdminActionButton type="button" variant="primary" onClick={()=>void save("scheduled")}>Uložiť naplánovanie</AdminActionButton>{editor.post?.status==="scheduled"&&<AdminActionButton type="button" variant="secondary" onClick={()=>void save("draft",true)}>Zrušiť naplánovanie</AdminActionButton>}</div>
-        </fieldset></form>
+        </fieldset></form>}
         {editor.post&&!locked&&<div className={styles.actions}>
           {editor.post.status==="scheduled"&&<>
             <p>Povoliť publikovanie: <strong>{editor.post.approvalStatus==="APPROVED"?"Áno":"Nie"}</strong>. Platí pre naplánovaný termín.</p>
