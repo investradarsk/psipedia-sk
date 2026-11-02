@@ -334,7 +334,7 @@ export function AdminDashboard({
                       ? <AdminInlineCellInput label={"Krátky popis článku " + article.title}
                           value={activeInline.excerpt} maxLength={700} disabled={inlineBusy}
                           onChange={excerpt => setInlineDraft(current => current ? { ...current, excerpt } : null)} />
-                      : <p>{article.excerpt || "Bez krátkeho popisu"}</p>}
+                      : <p className={styles.inlineDesktop}>{article.excerpt || "Bez krátkeho popisu"}</p>}
                     <p>Naposledy upravené {formattedDate(article.updatedAt)}</p>
                   </div>
                   <div className={`admin-row-actions ${styles.actions}`}>
