@@ -1,10 +1,32 @@
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { env } from "cloudflare:workers";
+import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
+import { isExplicitAnonymousHtmlRoute } from "@/lib/public-anonymous-html-cache";
 import {
   getVisualDraft, publishVisualDraft, saveVisualDraft, validatedBannerKey,
   allowedVisualPublishTargets,
 } from "@/lib/visual-library-edit-store";
 
 export const dynamic = "force-dynamic";
+
+/** Best-effort invalidation at the current POP. Other Cloudflare POPs retain
+ * at most their existing short HTML TTL; never claim global purge succeeded. */
+async function refreshVisualPublicationCache(publicUrl: string): Promise<string> {
+  const url = new URL(publicUrl);
+  // /pomoc-psom is deliberately not part of the anonymous shared HTML cache.
+  if (!isExplicitAnonymousHtmlRoute(url.pathname)) return "Stránka nepoužíva zdieľanú verejnú HTML cache.";
+  const workerVersion = (env as unknown as { CF_VERSION_METADATA?: { id?: string } }).CF_VERSION_METADATA?.id;
+  try {
+    const deleted = await invalidateVersionedPublicHtmlCacheUrl(url, workerVersion);
+    return deleted
+      ? "Lokálna HTML cache bola obnovená. V iných regiónoch sa zmena môže prejaviť až po uplynutí krátkej cache."
+      : "Záznam v lokálnej cache sa nenašiel alebo vymazanie nie je dostupné. V iných regiónoch sa zmena môže prejaviť s krátkym oneskorením.";
+  } catch (error) {
+    console.warn("visual_library_cache_invalidation_failed", url.pathname, error);
+    return "Zmena je uložená, ale cache sa teraz nepodarilo vymazať. Na ostatných uzloch sa obnoví po uplynutí jej platnosti.";
+  }
+}
+
 
 function parseVariant(value: string | null): number {
   if (value === null || !/^[0-2]$/.test(value)) throw new Error("Neplatný variant banneru.");
@@ -65,6 +87,10 @@ export async function POST(request: Request) {
       publishedBy: auth.user!.email,
       action: body.action,
     });
-    return Response.json({ draft: input }, { headers: { "Cache-Control": "private, no-store" } });
+    const publishTarget = allowedVisualPublishTargets[body.id as string];
+    const cacheNotice = publishTarget
+      ? await refreshVisualPublicationCache(publishTarget.url)
+      : "Verejná cache sa nemení.";
+    return Response.json({ draft: input, cacheNotice }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return errorResponse(error); }
 }
