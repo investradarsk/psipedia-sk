@@ -17,12 +17,16 @@ export type CoverageRegistry = {
     area: "public" | "admin";
     dynamic: boolean;
   }>;
+  relatedGroups?: Array<{
+    id: string; title: string; description: string; paths: string[];
+  }>;
   components: Array<{
     name: string;
     label?: string;
     family?: "banner" | "hero" | "cta" | "filter" | "card" | "category" | "other";
     path: string;
     routes: string[];
+    styleModules?: string[];
     area: "public" | "admin" | "mixed";
   }>;
 };
