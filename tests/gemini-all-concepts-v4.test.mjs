@@ -71,3 +71,27 @@ test("overview never invents D1 editor IDs and communicates incomplete sources",
   assert.match(dashboard, /useState\(initialSelectedKey \?\? settings\[0\]\?\.stableKey/);
   assert.match(dashboard, /<AdminGeminiNotionDrafts key=\{selected\.stableKey\} stableKey=\{selected\.stableKey\}/);
 });
+
+test("Gemini adoption validation happens before ambiguous D1 insert and Facebook handoff stays private", () => {
+  const sync = source("lib/notion-events-help-sync.ts");
+  const validation = sync.indexOf("preflightAdoptionDraft(draftValues)");
+  const write = sync.indexOf("importWriteStarted = true;", validation);
+  assert.ok(validation > 0 && write > validation, "Pre-insert validation must allow lock cleanup");
+  const normalize = source("lib/gemini-draft-import-fields.ts");
+  assert.match(normalize, /"psik": "MALE"/);
+  assert.match(normalize, /choice\("Aktivita"/);
+  const fb = source("app/api/admin/facebook-images/from-profile/route.ts");
+  assert.match(fb, /requireAdminMutation\(request\)/);
+  assert.match(fb, /downloadRemoteImage/);
+  assert.match(fb, /saveFacebookImagePost\(null/);
+  assert.match(fb, /status: "draft"/);
+  assert.doesNotMatch(fb, /setIndividualApproval|publishFacebook/);
+  const button = source("components/admin-share-to-facebook.tsx");
+  assert.match(button, /\/api\/admin\/facebook-images\/from-profile/);
+  assert.match(button, /openDraft=/);
+  for (const editor of ["directory", "adoption", "event", "help", "lost-found"]) {
+    assert.match(source("components/admin-" + editor + "-editor.tsx"), /AdminShareToFacebook/);
+  }
+  assert.match(source("components/admin-article-editor.tsx"), /stageFacebookArticleDraft/);
+  assert.match(source("lib/facebook-article-scheduler.ts"), /prepareFacebookArticleDraft/);
+});
