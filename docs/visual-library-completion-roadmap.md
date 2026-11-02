@@ -36,8 +36,8 @@
 
 ## Etapa 3: Úplné vizuálne pokrytie
 
-- [x] Prvá vlna nových náhľadov: **7 živých variantov** z BreedCard, DirectoryCard, EventCard, HelpCard a RelatedBreedList, s čisto ilustračnými údajmi. Celkový súpis teraz obsahuje 42 ukážok.
-- [ ] Doplniť ďalšie chýbajúce reálne typy (napr. detailové bloky, navigácia, pätička, špecifické filtre a modálne stavy), po individuálnom prečítaní ich komponentových kontraktov.
+- [x] Prvá vlna nových náhľadov: **9 živých variantov** z BreedCard, DirectoryCard, EventCard, HelpCard, RelatedBreedList, DirectoryCategoryNavigation a SiteFooter. Všetky dátovo viazané ukážky používajú iba fiktívne údaje. Celkový súpis teraz obsahuje **44 ukážok**.
+- [ ] Doplniť ďalšie chýbajúce reálne typy (detailové bloky, špecifické filtre, modálne stavy a ostatné typy navigácie), po individuálnom prečítaní ich komponentových kontraktov.
 - [x] Hlavná galéria zobrazuje aj všetky verejné komponenty bez existujúceho náhľadu (vyhľadávanie, rodiny, súbory a kandidátske stránky). Pri podporných moduloch nesľubuje samostatný vizuálny vzhľad.
 - [ ] Samostatne kontrolovať desktopové varianty hero, karty, CTA, navigáciu, formuláre, zoznamy, modálne stavy, pätičku a bannerové varianty.
 - [x] Merateľné zdrojové pokrytie: počet konkrétnych ukážok, počet zdrojových komponentov bez náhľadu, počet stránok s auditovanými kotvami.
