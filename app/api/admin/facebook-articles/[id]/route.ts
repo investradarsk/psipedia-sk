@@ -1,5 +1,5 @@
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { linkedFacebookArticlePost, saveFacebookArticleSchedule } from "@/lib/facebook-article-scheduler";
+import { linkedFacebookArticlePost, saveFacebookArticleSchedule, prepareFacebookArticleDraft } from "@/lib/facebook-article-scheduler";
 
 export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ id: string }> };
@@ -36,5 +36,20 @@ export async function PUT(request: Request, { params }: Params) {
     return Response.json({ error: unavailable ? "Chýba D1 migrácia 0144 pre Facebook články." : message }, {
       status: unavailable ? 503 : conflict ? 409 : 400,
     });
+  }
+}
+
+/** Create an unscheduled Facebook Images draft for this saved article. */
+export async function POST(request: Request, { params }: Params) {
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const id = await articleId(params);
+  if (!id) return Response.json({ error: "Neplatné ID článku." }, { status: 400 });
+  try {
+    const post = await prepareFacebookArticleDraft(id, auth.user.email);
+    return Response.json({ post }, { status: 201, headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "Príprava konceptu zlyhala." },
+      { status: 400, headers: { "cache-control": "no-store" } });
   }
 }

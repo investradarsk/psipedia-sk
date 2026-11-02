@@ -139,6 +139,23 @@ export function AdminArticleEditor({
   const [fbPost,setFbPost] = useState<FacebookImagePost|null>(null);
   const [fbLoaded,setFbLoaded] = useState(!article);
   const [fbError,setFbError] = useState("");
+  const [fbDraftBusy,setFbDraftBusy] = useState(false);
+  async function stageFacebookArticleDraft() {
+    if (!article || fbDraftBusy) return;
+    setFbDraftBusy(true); setFbError("");
+    try {
+      const response = await fetch("/api/admin/facebook-articles/" + article.id, {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+      });
+      const result = await response.json() as { post?: FacebookImagePost; error?: string };
+      if (!response.ok || !result.post)
+        throw new Error(result.error || "Koncept Facebook článku sa nepodarilo vytvoriť.");
+      setFbPost(result.post); setFbLoaded(true);
+      setMessage("Facebook koncept je pripravený v sekcii Facebook obrázky. Text a termín môžeš upraviť nižšie v editore článku.");
+    } catch (error) {
+      setFbError(error instanceof Error ? error.message : "Príprava zlyhala.");
+    } finally { setFbDraftBusy(false); }
+  }
   const [fbEnabled,setFbEnabled] = useState(false);
   const [fbDateTime,setFbDateTime] = useState("");
   const [fbRepeatedHour,setFbRepeatedHour] = useState("");
@@ -595,6 +612,11 @@ export function AdminArticleEditor({
             <div className="admin-field"><label htmlFor="article-updated-at">Dátum aktualizácie</label><input id="article-updated-at" type="date" value={contentUpdatedAt} onChange={(event) => setContentUpdatedAt(event.target.value)} /></div>
           </div>
           <div className="admin-field" data-facebook-article-controls>
+            {article && !fbPost && <button type="button" className="admin-secondary-button"
+              disabled={fbDraftBusy || !fbLoaded} onClick={() => void stageFacebookArticleDraft()}>
+              {fbDraftBusy ? "Pripravujem Facebook koncept…" : "Pripraviť článok do Facebook obrázkov"}
+            </button>}
+            {article && <small>Fotografia a odkaz článku sa prevezmú do existujúceho Facebook kalendára ako neverejný koncept.</small>}
             <label htmlFor="article-facebook-at">Dátum a čas publikovania na Facebooku</label>
             <input id="article-facebook-at" type="datetime-local" value={fbDateTime}
               disabled={!fbLoaded||fbPost?.status==="published"}

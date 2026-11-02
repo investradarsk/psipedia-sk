@@ -81,3 +81,18 @@ test("read-only native Gemini import warnings keep their identity and no-publica
   assert.match(sync,/if \(!trustedGemini\) throw error/);
   assert.match(editor,/getGeminiImportReviewNotes/);
 });
+
+test("Monty Miles Dalton free-form adoption fields never block native draft validation", () => {
+  for (const [name, sex, activity] of [
+    ["Monty", "Pes", "Stredne aktívny, vhodný na prechádzky"],
+    ["Miles", "Pes", "Aktívny, energický a hravý"],
+    ["Dalton", "psík", "Energický, vyžaduje rehabilitáciu"],
+  ]) {
+    const prepared = prepareGeminiDraftFields("adoptions", {
+      "Meno": name, "Pohlavie": sex, "Veľkosť": "Malý pes", "Aktivita": activity,
+    });
+    assert.equal(prepared.values["Pohlavie"], "MALE");
+    assert.equal(prepared.values["Aktivita"], "UNKNOWN");
+    assert.ok(prepared.warnings.some(w => w.includes("Aktivita")));
+  }
+});

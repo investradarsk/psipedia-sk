@@ -144,3 +144,18 @@ export async function saveFacebookArticleSchedule(articleId: number, raw: unknow
   }
   return post;
 }
+
+/** Explicit handoff to Facebook Images, with the existing article_id and zero publishing consent. */
+export async function prepareFacebookArticleDraft(articleId: number, actor: string, db: D1Database = facebookImageDb()) {
+  const article = await getManagedArticleById(articleId);
+  if (!article) throw new Error("Článok sa nenašiel.");
+  const existing = await linkedFacebookArticlePost(articleId, db);
+  if (existing) return existing;
+  let photo = { imageKey: "", imageUrl: "" };
+  if (article.imageKey) photo = await copyArticlePhoto(article, null);
+  return saveFacebookImagePost(null, {
+    title: article.title.slice(0, 200), ...photo,
+    caption: facebookArticleCaption(article, true),
+    date: "", time: "", status: "draft",
+  }, actor, db, articleId, { imageMode: "photo", includeLink: true });
+}
