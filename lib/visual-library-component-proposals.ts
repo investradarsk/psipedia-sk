@@ -74,7 +74,7 @@ export function validateVisualComponentProposal(
   for (const field of fields) {
     if (typeof record[field] !== "string") throw new Error("Neplatné textové pole: " + field);
     const trimmed = record[field].trim();
-    if (trimmed.length > limits[field] || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(trimmed)) {
+    if (trimmed.length > limits[field] || /[\u0000-\u001f\u007f]/.test(trimmed)) {
       throw new Error("Prekročená dĺžka alebo nepovolené znaky v poli: " + field);
     }
     draft[field] = trimmed;
