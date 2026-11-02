@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library-dynamic-urls";
+import { AdminVisualLibraryRouteAudit } from "@/components/admin-visual-library-route-audit";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
 import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
@@ -10,6 +11,12 @@ import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store"
 import styles from "./admin-visual-library.module.css";
 
 export type CoverageRegistry = {
+  routeEntries?: Array<{
+    route: string;
+    source: string;
+    area: "public" | "admin";
+    dynamic: boolean;
+  }>;
   components: Array<{
     name: string;
     label?: string;
@@ -71,6 +78,7 @@ export function AdminVisualLibraryCoverage({
 
   return (
     <div className={styles.dynamicCoverage}>
+      <AdminVisualLibraryRouteAudit registry={registry} />
       <AdminVisualLibraryDynamicUrls />
       <section aria-label="Vyhľadávanie všetkých známych komponentov" className={styles.workspace}>
       <aside className={styles.catalog}>
