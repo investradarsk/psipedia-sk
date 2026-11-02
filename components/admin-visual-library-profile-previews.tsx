@@ -5,6 +5,7 @@ import { HelpCard } from "@/components/help-card";
 import { RelatedBreedList } from "@/components/related-entity-list";
 import { DirectoryCategoryNavigation } from "@/components/directory-category-navigation";
 import { SiteFooter } from "@/components/site-footer";
+import { BreedSectionNav } from "@/components/breed-section-nav";
 import type { BreedAtlasCard } from "@/lib/breed-store";
 import type { PublicDirectoryProfile } from "@/lib/directory";
 import type { PublicEventCard } from "@/lib/events";
@@ -110,10 +111,24 @@ export type AdminProfilePreviewId =
   | "help-resolved"
   | "related-breed-list"
   | "directory-category-navigation"
-  | "site-footer";
+  | "site-footer"
+  | "breed-section-nav"
+  | "help-urgent"
+  | "event-cancelled";
 
 export function AdminProfileComponentPreview({ id }: { id: AdminProfilePreviewId }) {
   switch (id) {
+    case "breed-section-nav":
+      return <BreedSectionNav items={[
+        { id: "ukazka-povaha", label: "Povaha" },
+        { id: "ukazka-starostlivost", label: "Starostlivosť" },
+        { id: "ukazka-vycvik", label: "Výcvik" },
+        { id: "ukazka-zdravie", label: "Zdravie" },
+      ]} />;
+    case "help-urgent":
+      return <HelpCard item={{ ...helpExample, title: "Ukážka urgentnej pomoci", urgent: true }} />;
+    case "event-cancelled":
+      return <EventCard event={{ ...eventExample, title: "Ukážka zrušeného podujatia", cancelled: true }} today="2027-06-01" variant="grid" />;
     case "directory-category-navigation":
       return <DirectoryCategoryNavigation items={[
         { href: "/adresar", title: "Všetky služby" },
