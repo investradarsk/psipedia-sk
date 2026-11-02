@@ -46,7 +46,7 @@ jobs:
           test "${#PAGES[@]}" -le 12
           set +e
           ./bin/linkinator "${PAGES[@]}" --concurrency 1 --timeout 8000 \
-            --format json --skip '^(?!https?://psipedia[.]sk)' \
+            --format json --skip '^(?!https?://psipedia[.]sk(?:/|$))' \
             > reports/link-health/linkinator.json \
             2> reports/link-health/linkinator-stderr.log
           rc=$?
