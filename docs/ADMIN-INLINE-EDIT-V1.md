@@ -20,7 +20,8 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 | `/admin/adresar` | tento PR | názov, krátky popis, používa rovnaký komponent ako Služby |
 | `/admin/podujatia` | tento PR | typ podujatia, označenie zrušenia |
 | `/admin/organizacie` | nasledujúci adaptér | opakovane použiť doménový PATCH útulkov pre povolené organizácie, nie lifecycle |
-| `/admin/pomoc-psom` ostatné kategórie | nasledujúci adaptér | iba povolené polia jednotlivých domén adopcií, hlásení a pomocných prípadov |
+| `/admin/pomoc-psom` – dočasná opatera, zbierky, dobrovoľníctvo | tento PR | názov a krátky popis cez doménový Help Cases CAS; bulk publikovanie ostáva oddelené |
+| `/admin/pomoc-psom` – adopcia a stratené/nájdené | nasledujúci adaptér | len canonical Adoption/Lost & Found API, nie generická Help tabuľka |
 | `/admin/adopcie` | nasledujúci adaptér | názov/stručný text podľa canonical Adoption API; status iba cez lifecycle |
 | `/admin/stratene-najdene` | nasledujúci adaptér | názov/lokalita podľa Lost & Found API |
 | `/admin/pomoc` | nasledujúci adaptér | názov/stručný text podľa Help Cases API |
@@ -34,6 +35,7 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 ## Kód a testy
 
 - `components/admin-inline-edit-controls.tsx` – vizuálny štandard pre riadok
-- `components/admin-directory-dashboard.tsx`, `components/admin-event-dashboard.tsx` – prvé dva nové adaptéry
+- `components/admin-directory-dashboard.tsx`, `components/admin-event-dashboard.tsx` a `components/admin-help-unified-table.tsx` – adaptéry služieb, podujatí a natívnej Pomoci psom
 - `app/api/admin/directory/[id]/route.ts` – presný dvojstĺpcový serverový CAS
-- `tests/admin-inline-edit-cross-modules.test.mjs` – bezpečnostné regresie vrátane reálneho SQLite CAS a zachovania cudzích dát
+- `app/api/admin/help/[id]/route.ts` – dvojpoľový CAS len pre natívne Help kategórie
+- `tests/admin-inline-edit-cross-modules.test.mjs`, `tests/admin-help-inline-edit.test.mjs` – bezpečnostné regresie vrátane SQLite CAS a zachovania ostatných dát
