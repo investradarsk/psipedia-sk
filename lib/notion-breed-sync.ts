@@ -200,21 +200,20 @@ function structuredBreedColumns(
 }
 
 function breedFciNotionDetails(page: NotionPage): ManagedBreedInput["fciStandard"] {
-  const merged=structuredBreedColumns(page,"FCI štandard JSON",FCI_NOTION_DETAIL_COLUMNS);
-  if(!merged)return undefined;
+  const merged=structuredBreedColumns(page,"FCI štandard JSON",FCI_NOTION_DETAIL_COLUMNS) ?? {};
   for(const [key,column] of FCI_NOTION_DETAIL_COLUMNS){
     if(key!=="fci_nomenklatura_url"&&key!=="fci_standard_pdf")continue;
     const url=notionUrlProperty(page,column);
     if(url)merged[key]=url;
   }
-  return merged as ManagedBreedInput["fciStandard"];
+  return Object.keys(merged).length ? merged as unknown as ManagedBreedInput["fciStandard"] : undefined;
 }
 
 function breedEditorialNotionDetails(page: NotionPage): ManagedBreedInput["editorial"] {
   const merged=structuredBreedColumns(page,"Redakčné sekcie JSON",BREED_NOTION_EDITORIAL_COLUMNS) ?? {};
   const traits=optionalStructuredBreedField(page,"Redakcia hlavné vlastnosti JSON","array");
   if(traits)merged.heroTraits=traits;
-  return Object.keys(merged).length ? merged as ManagedBreedInput["editorial"] : undefined;
+  return Object.keys(merged).length ? merged as unknown as ManagedBreedInput["editorial"] : undefined;
 }
 
 export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInput {
@@ -242,7 +241,7 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     // already reviewed D1 details. Validate in breed-store before writes.
     fciStandard: breedFciNotionDetails(page),
     editorial: breedEditorialNotionDetails(page),
-    sports: optionalStructuredBreedField(page, "Športy JSON", "array") as ManagedBreedInput["sports"],
+    sports: optionalStructuredBreedField(page, "Športy JSON", "array") as unknown as ManagedBreedInput["sports"],
     editorialComplete: notionPropertyRecord(page, "Editorial complete") ? checkboxProperty(page, "Editorial complete") : undefined,
     origin: notionRichTextProperty(page, "Krajina pôvodu"),
     group: notionRichTextProperty(page, "Skupina"),
