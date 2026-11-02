@@ -21,8 +21,10 @@ function snapshot(db) {
 }
 
 test("0142 is a protected owner-only production target and follows 0141", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), "0141_quality_missing_hourly.sql");
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
+  // Later protected migrations must not invalidate 0142's predecessor contract.
+  const index = SUPPORTED_PRODUCTION_TARGETS.indexOf(target);
+  assert.ok(index > 0);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS[index - 1], "0141_quality_missing_hourly.sql");
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.match(workflow, /- 0142_quality_missing_scan_outcomes\.sql/);
   assert.match(workflow, /0142_quality_missing_scan_outcomes\.sql\) expected_confirmation="APPLY-0142-psipedia-sk-db"/);
