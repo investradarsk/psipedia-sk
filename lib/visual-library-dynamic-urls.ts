@@ -13,7 +13,7 @@ import { DYNAMIC_URL_PAGE_SIZE, isDynamicUrlKind, type DynamicUrlKind, type Dyna
  */
 type PublicRow = { id: number | string; slug: string; name: string; category?: string | null; section?: string | null };
 type D1Read = Pick<D1Database, "prepare">;
-const VALID_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const VALID_SLUG = /^[a-z0-9-]+$/;
 function validSlug(value: string): boolean { return VALID_SLUG.test(value); }
 function localHref(kind: DynamicUrlKind, row: PublicRow): string | null {
   if (!validSlug(row.slug)) return null;
