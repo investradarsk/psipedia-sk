@@ -6,10 +6,13 @@ import {
   AdminComponentVisualPreview,
 } from "@/components/admin-component-visual-preview";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
+import { visualLibraryBanners } from "@/lib/visual-library-banners";
+import { collectPinnedStaticRoutePlacements } from "@/lib/visual-library-route-evidence";
+import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
 import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
 import styles from "./admin-visual-library.module.css";
 
-type RouteFilter = "all" | "static" | "dynamic" | "missing-preview";
+type RouteFilter = "all" | "static" | "dynamic" | "missing-preview" | "pinned" | "needs-audit";
 
 const PAGE_SIZE = 45;
 
@@ -18,7 +21,10 @@ const PAGE_SIZE = 45;
  * NOT proof that a visual node is visible on a particular public page.
  * Concrete published profile URLs live in the separate D1-based inventory.
  */
-export function AdminVisualLibraryRouteAudit({ registry }: { registry: CoverageRegistry }) {
+export function AdminVisualLibraryRouteAudit({ registry, examples }: {
+  registry: CoverageRegistry;
+  examples: readonly VisualLibraryExample[];
+}) {
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<RouteFilter>("all");
   const [selectedSource, setSelectedSource] = useState("");
@@ -40,16 +46,21 @@ export function AdminVisualLibraryRouteAudit({ registry }: { registry: CoverageR
         );
         const sampleCount = candidates.reduce((total, component) =>
           total + (previews.get(component.path)?.length ?? 0), 0);
-        return { ...route, candidates, sampleCount };
+        const pinned = collectPinnedStaticRoutePlacements(
+          route.route, visualLibraryBanners, examples,
+        );
+        return { ...route, candidates, sampleCount, pinned };
       });
-  }, [registry]);
+  }, [registry, examples]);
 
   const normalized = search.trim().toLocaleLowerCase("sk");
   const matching = inventory.filter((route) =>
     (kind === "all" ||
       (kind === "static" && !route.dynamic) ||
       (kind === "dynamic" && route.dynamic) ||
-      (kind === "missing-preview" && route.sampleCount === 0)) &&
+      (kind === "missing-preview" && route.sampleCount === 0) ||
+      (kind === "pinned" && route.pinned.length > 0) ||
+      (kind === "needs-audit" && route.pinned.length === 0)) &&
     (!normalized || [
       route.route, route.source,
       ...route.candidates.flatMap((c) => [c.name, c.label ?? "", c.path]),
@@ -62,6 +73,8 @@ export function AdminVisualLibraryRouteAudit({ registry }: { registry: CoverageR
       selected.candidates.some((component) => component.path === sample.path))
     : [];
   const preview = samples.find((sample) => sample.id === selectedPreview) ?? samples[0];
+  const pinnedRoutes = inventory.filter((route) => route.pinned.length > 0).length;
+  const pinnedPlacements = inventory.reduce((total, route) => total + route.pinned.length, 0);
 
   return (
     <section className={styles.dynamicCoverage} aria-label="Pokrytie všetkých verejných stránok">
@@ -77,6 +90,12 @@ export function AdminVisualLibraryRouteAudit({ registry }: { registry: CoverageR
         <strong>{inventory.length} šablón</strong>
       </div>
 
+      <p className={styles.scanState}>
+        Presne evidované umiestnenia: {pinnedPlacements} na {pinnedRoutes} statických
+        stránkach. Ostatné trasy sú bez samostatne potvrdených umiestnení
+        v katalógu. Toto nie je automatická kontrola živého DOM ani garancia,
+        že sa prvok aktuálne zobrazuje každému návštevníkovi.
+      </p>
       {registry.routeEntries === undefined && <p className={styles.pending}>
         Táto zostava registra ešte neobsahuje úplný zoznam stránkových súborov.
         Over obnovu registra pri zostavení; nič neoznačujeme za kompletné.
@@ -98,6 +117,8 @@ export function AdminVisualLibraryRouteAudit({ registry }: { registry: CoverageR
             <option value="static">Priamo otvoriteľné stránky</option>
             <option value="dynamic">Dynamické šablóny profilov</option>
             <option value="missing-preview">Bez dostupného náhľadu</option>
+            <option value="pinned">S presne evidovaným umiestnením</option>
+            <option value="needs-audit">Bez potvrdeného umiestnenia</option>
           </select>
         </label>
       </div>
@@ -114,7 +135,8 @@ export function AdminVisualLibraryRouteAudit({ registry }: { registry: CoverageR
                 <small>
                   {route.dynamic ? "Dynamická šablóna" : "Statická stránka"} ·
                   {" "}{route.candidates.length} možných komponentov ·
-                  {" "}{route.sampleCount} ukážok
+                  {" "}{route.sampleCount} ukážok ·
+                  {" "}{route.pinned.length} evidovaných umiestnení
                 </small>
               </button>
             ))}
@@ -148,6 +170,30 @@ export function AdminVisualLibraryRouteAudit({ registry }: { registry: CoverageR
                 Ide o vzor URL, nie o konkrétny profil. Skutočné publikované URL
                 sú nižšie v samostatnom databázovom zozname.
               </p>}
+          <div className={styles.usageHead}>
+            <div>
+              <h4>Presné umiestnenia z auditovaného katalógu</h4>
+              <p>Samostatne evidované URL a kotvy z bannerov a vizuálnych ukážok. Nejde o živý DOM test.</p>
+            </div>
+            <strong>{selected.pinned.length}</strong>
+          </div>
+          {selected.pinned.length ? <ul className={styles.usages}>
+            {selected.pinned.map((use) => (
+              <li key={use.id + ":" + use.placement + ":" + (use.anchorId ?? "")}>
+                <div>
+                  <strong>{use.visualLabel}</strong>
+                  <small>{use.placement} · {use.source === "banner-catalogue"
+                    ? "Audítorský katalóg bannerov" : "Overená ukážka komponentu"}</small>
+                  <code>{use.url}{use.anchorId ? "#" + use.anchorId : ""}</code>
+                </div>
+                <a href={use.url + (use.anchorId ? "#" + use.anchorId : "")}
+                  target="_blank" rel="noopener noreferrer">Otvoriť miesto</a>
+              </li>
+            ))}
+          </ul> : <p className={styles.pending}>
+            Na tejto šablóne zatiaľ nemáme presne evidované umiestnenie
+            konkrétneho vizuálneho prvku. Môže existovať aj napriek prázdnemu zoznamu.
+          </p>}
           <div className={styles.usageHead}>
             <div><h4>Možné vizuálne komponenty</h4>
               <p>Tranzitívna závislosť v kóde môže byť podmienená dátami alebo typom profilu.</p>
