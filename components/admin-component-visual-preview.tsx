@@ -1,5 +1,6 @@
 import { ContentHubCta } from "./content-hub-cta";
 import { AdminProfileComponentPreview } from "./admin-visual-library-profile-previews";
+import { AdminDetailComponentPreview } from "./admin-visual-library-detail-previews";
 import { PublicActionLink } from "./public-visual-system/public-visual-system";
 import { PublicArticleCallout } from "./public-visual-system/public-article-callout";
 import { PublicContextBanner } from "./public-visual-system/public-context-banner";
@@ -75,6 +76,13 @@ export const adminComponentPreviewSamples = [
   { id: "related-breed-list", path: "components/related-entity-list.tsx", family: "card", title: "Súvisiace plemená", description: "Skutočné karty súvisiacich plemien s náhradnými obrázkami." },
   { id: "directory-category-navigation", path: "components/directory-category-navigation.tsx", family: "category", title: "Navigácia kategórií služieb", description: "Skutočný prepínač kategórií adresára s ukážkovým výberom." },
   { id: "site-footer", path: "components/site-footer.tsx", family: "other", title: "Pätička a právne odkazy", description: "Skutočná spoločná pätička webu s odkazmi a nastaveniami cookies." },
+  { id: "directory-services-short", path: "components/directory-services-list.tsx", family: "other", title: "Detail služby – poskytované služby", description: "Skutočný dvojstĺpcový zoznam služieb v profile s fiktívnym obsahom." },
+  { id: "directory-services-expanded", path: "components/directory-services-list.tsx", family: "other", title: "Detail služby – dlhý zoznam", description: "Skutočný zoznam nad limitom 10 položiek s tlačidlom na rozbalenie; v náhľade neaktívnym." },
+  { id: "profile-reviews-empty", path: "components/profile-review-section.tsx", family: "other", title: "Recenzie – profil bez hodnotení", description: "Prázdny stav skutočnej sekcie recenzií." },
+  { id: "profile-reviews-populated", path: "components/profile-review-section.tsx", family: "other", title: "Recenzie – hodnotenia a odpoveď", description: "Skutočné rozloženie recenzií, hodnotení a odpovede na základe fiktívnych údajov." },
+  { id: "profile-reviews-error", path: "components/profile-review-section.tsx", family: "other", title: "Recenzie – chyba načítania", description: "Skutočný stav pri nedostupnosti recenzií, bez databázového dopytu." },
+  { id: "event-listing-filtered", path: "components/event-listing-results.tsx", family: "filter", title: "Podujatia – formulár filtrov a výsledky", description: "Celé skutočné rozloženie filtrov a výsledkov podujatí s fiktívnou kartou." },
+  { id: "event-listing-empty", path: "components/event-listing-results.tsx", family: "filter", title: "Podujatia – filtre bez výsledkov", description: "Skutočná prázdna výsledková sekcia po použití filtrov." },
 ] as const;
 
 export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[number]["id"];
@@ -99,6 +107,20 @@ export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewI
       return <AdminProfileComponentPreview id="directory-category-navigation" />;
     case "site-footer":
       return <AdminProfileComponentPreview id="site-footer" />;
+    case "directory-services-short":
+      return <AdminDetailComponentPreview id="directory-services-short" />;
+    case "directory-services-expanded":
+      return <AdminDetailComponentPreview id="directory-services-expanded" />;
+    case "profile-reviews-empty":
+      return <AdminDetailComponentPreview id="profile-reviews-empty" />;
+    case "profile-reviews-populated":
+      return <AdminDetailComponentPreview id="profile-reviews-populated" />;
+    case "profile-reviews-error":
+      return <AdminDetailComponentPreview id="profile-reviews-error" />;
+    case "event-listing-filtered":
+      return <AdminDetailComponentPreview id="event-listing-filtered" />;
+    case "event-listing-empty":
+      return <AdminDetailComponentPreview id="event-listing-empty" />;
     case "magazine":
       return <PublicMagazineBanner testId="admin-preview-magazine" title="Objavte služby pre svojho psa"
         description="Nájdite veterinárov, trénerov a ďalších odborníkov." label="Prejsť do adresára" href="/adresar" />;
