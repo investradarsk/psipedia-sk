@@ -37,11 +37,16 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // Migration 0142 remains owner-dispatched through the existing protected production workflow.
 // 0146 remains owner-dispatched only: PR merge does not run the protected migration.
 // 0147 Notion field authority also requires a separate owner-dispatched protected D1 migration.
-// 0151 is not an authorized production target; no PR or manual rollout may apply it yet.
+// 0151 is NOT authorized here: it must be separately approved and applied first.
+// 0152 is owner-dispatched ONLY, gated on exact 0151 ledger + physical schema.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
-// 0151 has NOT been separately approved for any production apply path.
-// Keep it inventoried without expanding existing immutable owner-dispatch allowlists.
-export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze(["0151_admin_content_revision_history.sql", "0152_visual_library_banner_edits.sql"]);
+export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze(["0151_admin_content_revision_history.sql"]);
+export const APPROVED_0152_SHA256 = "398cd051ff7fed3216115e0d6e4292803cb3d935c3b0b8cfe19afc83ec3e3af5";
+export function assertApproved0152Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0152 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0152_SHA256, "0152 SQL SHA256 differs from approved rollout bytes");
+}
+// 0152 is additive and never authorizes the separate 0151 audit migration.
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
@@ -287,6 +292,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0148_notion_transfer_audit.sql",
   "0149_services_builtin_admin_overrides.sql",
   "0150_gemini_import_review_notes.sql",
+  "0152_visual_library_banner_edits.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -816,6 +822,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0138Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === PROPOSED_SERVICES_V3_SQL)
     assertApproved0139Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0152_visual_library_banner_edits.sql")
+    assertApproved0152Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -3339,8 +3347,27 @@ export function assertPendingTargetSchemaClean(targetMigration, targetObjects) {
   );
 }
 
+export function assertRevisionHistory0151Prerequisite(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const signatures = {
+    admin_content_revision_history: "table",
+    admin_content_revision_entity_idx: "index",
+    admin_section_revision_update: "trigger",
+    admin_visual_revision_insert: "trigger",
+    admin_visual_revision_update: "trigger",
+    admin_visual_revision_delete: "trigger",
+    admin_content_revision_no_update: "trigger",
+    admin_content_revision_no_delete: "trigger",
+  };
+  for (const [name, type] of Object.entries(signatures)) {
+    invariant(objects.get(name)?.type === type, "0152 requires deployed 0151 schema object: " + name);
+  }
+  return true;
+}
+
 function targetState(history, schema, targetMigration, expectedHistory) {
   const targetIndex = migrationIndex(targetMigration);
+  if (targetIndex >= 152) assertRevisionHistory0151Prerequisite(schema);
   const historyNames = history.map((row) => String(row.name));
   const historyState = validateProductionTargetHistory(historyNames, expectedHistory, targetMigration);
   const targetObjects = targetSchemaObjects(schema, targetMigration);
