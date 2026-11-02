@@ -52,8 +52,10 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
       setTips((current) => current.map((item) => item.id === tip.id ? data.tip as NewsTip : item));
       setNotes((current) => ({ ...current, [tip.id]: data.tip?.internalNote ?? "" }));
       setMessage(nextStatus === tip.status ? "Poznámka bola uložená." : `Tip je označený ako „${statusLabels[nextStatus]}“.`);
+      return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Tip sa nepodarilo uložiť.");
+      return false;
     } finally { setBusyId(null); }
   }
 
@@ -70,8 +72,7 @@ export function AdminNewsTipDashboard({ initialTips }: { initialTips: NewsTip[] 
       setMessage("Tip sa medzitým zmenil. Obnov zoznam.");
       return;
     }
-    await saveTip(tip, draft.status);
-    setRowDraft(null);
+    if (await saveTip(tip, draft.status)) setRowDraft(null);
   }
 
   async function removeTip(tip: NewsTip) {
