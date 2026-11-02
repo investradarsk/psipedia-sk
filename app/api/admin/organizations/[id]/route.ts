@@ -7,6 +7,7 @@ import { getOrganizationPublicationAdminById } from "@/lib/help-organization-adm
 import {
   isOrganizationAdminWriteConflict,
   updateOrganizationFromAdmin,
+  updateShelterInlineFieldsFromAdmin,
 } from "@/lib/help-organization-admin-write";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 
@@ -96,7 +97,7 @@ export async function PATCH(request: Request, { params }: Props) {
       return Response.json({ error: "Záznam sa medzitým zmenil. Obnov tabuľku." }, { status: 409 });
     }
     const payload = organizationInputWithShelterInlineChanges(before, body.changes);
-    const item = await updateOrganizationFromAdmin(id, payload, auth.user.email, expectedUpdatedAt);
+    const item = await updateShelterInlineFieldsFromAdmin(id, payload, auth.user.email, expectedUpdatedAt);
     if (!item) return Response.json({ error: "Útulok už neexistuje." }, { status: 404 });
 
     const notionFieldSync = await syncSavedNotionRecord({
