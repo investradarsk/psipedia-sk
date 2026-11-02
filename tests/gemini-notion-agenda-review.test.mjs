@@ -493,7 +493,7 @@ test("merged #837 scheduler controls and #838 review panel coexist for 22 catego
     "exactly one canonical review panel is mounted for the selected category");
   assert.match(settings, /\{\(externalEnabled \|\| Boolean\(pendingDeepLinkId\)\) && selected \? \(/);
   assert.match(settings, /<AdminGeminiNotionDrafts key=\{selected\.stableKey\} stableKey=\{selected\.stableKey\}/);
-  assert.match(settings, /<GeminiSettingsCard key=\{selected\.stableKey\}/);
+  assert.match(settings, /<GeminiSettingsCard key=\{selected\.stableKey(?: \+ ":" \+ cardRevision)?\}/);
   assert.doesNotMatch(settings, /<GeminiConceptLookup/);
   assert.doesNotMatch(settings, /Editor konceptov Podujatí a Pomoci psom doplní/);
   assert.match(settings, /geminiSchedulerOptions/);
