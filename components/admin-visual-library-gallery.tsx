@@ -173,7 +173,7 @@ export function AdminVisualLibraryGallery({
             Statický register sa v tejto zostave nenačítal. Náhľady fungujú,
             ale možnosť priradiť komponent k stránkam zatiaľ nie je potvrdená.
           </p>}
-          <AdminVisualLibraryComponentEditor sampleId={chosen.sample.id} />
+          <AdminVisualLibraryComponentEditor sampleId={chosen.sample.id} candidateRoutes={routes} />
           <p className={styles.nextStep}>
             Galéria zobrazuje skutočné komponenty. Pri štyroch overených typoch
             možno uložiť návrh textov na server, ale nepublikuje sa na verejnom webe.
