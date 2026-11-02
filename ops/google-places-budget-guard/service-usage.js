@@ -1,11 +1,11 @@
 'use strict';
 
-const TARGET_PROJECT = 'psipedia-production';
-const TARGET_SERVICE = 'places.googleapis.com';
+export const TARGET_PROJECT = 'psipedia-production';
+export const TARGET_SERVICE = 'places.googleapis.com';
 const SERVICE_URL = 'https://serviceusage.googleapis.com/v1/projects/' + TARGET_PROJECT + '/services/' + TARGET_SERVICE;
 const OPERATIONS_URL = 'https://serviceusage.googleapis.com/v1/';
 
-async function disablePlacesApi(request, { sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
+export async function disablePlacesApi(request, { sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
   const existing = await request('GET', SERVICE_URL);
   if (existing?.state === 'DISABLED') return 'already-disabled';
   if (existing?.state !== 'ENABLED') throw new Error('Unable to verify Places API state');
@@ -27,4 +27,3 @@ async function disablePlacesApi(request, { sleep = ms => new Promise(resolve => 
   return 'disabled';
 }
 
-module.exports = { disablePlacesApi, TARGET_PROJECT, TARGET_SERVICE };
