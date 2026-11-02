@@ -118,8 +118,7 @@ test("every legacy mutator has centralized guard before request parsing; GET rem
     for (let i=0; i<methods.length; i++) {
       const method = methods[i][1];
       const section = source.slice(methods[i].index, i+1 < methods.length ? methods[i+1].index : undefined);
-      const preExistingGuard = (relativePath === "articles/[id]/route.ts" && method === "PATCH")
-        || (relativePath === "directory/[id]/service-options/route.ts" && method === "PATCH");
+      const preExistingGuard = (relativePath === "directory/[id]/service-options/route.ts" && method === "PATCH");
       const guard = section.indexOf(preExistingGuard
         ? "requireAdminMutation(request)"
         : "requireAdminMutation(request, { strictProvenance: true })");
