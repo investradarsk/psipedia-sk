@@ -121,3 +121,13 @@ Iba admin zobrazenie a sprievodná dátová evidencia; bez databázovej migráci
 - Po potvrdenom publikovaní alebo vrátení zmeny admin API vykoná **best-effort** odstránenie konkrétneho verzovaného HTML kľúča z Cloudflare Cache API (iba ak je daná verejná stránka povolená v cache). Admin zobrazí skutočný výsledok. Cloudflare má viac POPov; lokálne vymazanie **nie je globálny purge** a ostatné uzly môžu zobrazovať predchádzajúcu verziu do vypršania krátkej cache (v existujúcom workeri 45 s). Pomoc psom nie je v explicitnej HTML cache.
 - Nové regresné testy kontrolujú identitu všetkých piatich bannerov, desktopové vs. mobilné props, bezpečné potvrdenie rozsahu, pravdivé cache hlásenie a rozlíšenie statických vs. overených URL.
 - **Pred merge:** všetky CI kontroly musia prejsť, statickú inventarizáciu treba vizuálne overiť, live účinnosť cache a DB overiť po ručnej migrácii 0151. Pred nasadením migrácie zostáva editor správne nedostupný.
+
+
+### Etapa 9 – úplný paginovaný zoznam verejných URL dynamických detailov
+
+- Pod „Kde všade sa používa“ je nový vyhľadávateľný **Dynamické URL** zoznam nad autentifikovaným read-only admin API. Nenačítava všetky profily do jednej HTML odpovede; D1 vracia celkový počet a stránku po **75 záznamoch** bez umelej hranice 500/2 000.
+- Pokrýva 9 skutočných zdrojov detailových verejných URL: **Služby/adresár, Organizácie, Adopcie, Pomoc psom – prípady, Stratené a nájdené psy, Podujatia, Plemená, Články, E-shopy**. Zohľadňuje konkrétne verejné stavy, pri plemenách kanonických víťazov, pri článkoch aktívne naplánované publikácie, pri stratách aj dostupné vyriešené/archivované detaily.
+- V admin rozhraní možno vybrať oblasť, hľadať naprieč všetkými jej záznamami a prejsť na ľubovoľnú stránku výsledkov vrátane poslednej. Zobrazuje sa presná URL (bez domýšľania slugu), názov a čas kontroly.
+- Rozhranie **nesmie** zamieňať nájdenú verejnú URL s dôkazom, že na danej URL je skutočne vykreslený konkrétny komponent. Pri komponente ostávajú staticky odvodené trasy označené ako „možné“, kým ich niekto neoverí. FCI štandardné prílohy, formuláre a filtrované listingové URL nie sú detailové profily a nepatria do týchto deviatich skupín.
+- D1 neprístupná, neplatná kategória alebo chybné publikované údaje nesmú skončiť ako predstieraný prázdny alebo úplný zoznam. API vracia chybu; koncepty, PII ani súkromné kontakty nevracia.
+- **Pred merge:** zelené CI a kontrola serverového build-u. Po chránenom nasadení migrácie 0151 urobiť na živom admin rozhraní kontrolný test všetkých deviatich zdrojov vrátane posledných stránok, vyhľadávania a klikateľných URL. Bez živého testu sa nevyhlasuje plná prevádzková úplnosť.
