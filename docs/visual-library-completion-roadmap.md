@@ -24,10 +24,13 @@
 
 - [x] Generovať kompletný inventár všetkých verejných stránkových súborov z kódu vrátane kontaktu, partnerských a právnych stránok; nezamieňať tento zoznam za audit skutočného renderu.
 - [x] Rozlíšiť statické stránky a dynamické šablóny, oddeliť kandidátov podľa importov od potvrdených výskytov.
-- [ ] Zmapovať viditeľné prvky ku konkrétnym URL a umiestneniam, vrátane dynamických profilov tam, kde máme dokazateľné priradenie.
+- [x] Na statické stránky pripojiť presné auditované umiestnenia z existujúceho katalógu bannerov a vizuálnych ukážok (URL + bezpečná kotva); výslovne označiť, že nejde o kontrolu živého DOM.
+- [x] Umožniť filtrovať stránky s takouto evidenciou a bez nej, a uvádzať skutočné počty.
+- [ ] Zmapovať ďalšie viditeľné prvky ku konkrétnym URL a umiestneniam na základe runtime renderu; zvlášť dynamické profily, kde máme dokazateľné priradenie.
 - [ ] Pri každom konkrétnom vykreslení doplniť explicitný stav overený / kandidát / neznámy / nedostupný; súčasná etapa zobrazuje kandidátov podľa kódu a počet dostupných demo náhľadov.
 - [ ] Zachovať stránkovanie a limity D1 dopytov; nepreviesť celý adresár do SSR pamäte.
 - [x] Otestovať úplný zdrojový register stránok vrátane šablón bez komponentových importov.
+- [x] Otestovať presné porovnávanie publikovaných URL bez zamieňania podobných stránok, iných domén alebo dynamických slugov.
 - [ ] Doplniť auditné testy pre reálne vykreslené URL a ochranu súkromných záznamov.
 
 ## Etapa 3: Úplné vizuálne pokrytie
