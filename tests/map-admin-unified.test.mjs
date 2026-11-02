@@ -166,5 +166,7 @@ test("Google Places manual on/off console link is shared by Mapy, profiles, even
   assert.match(canary, /<AdminGooglePlacesApiLink/);
   assert.match(profileGoogle, /<AdminGooglePlacePicker/);
   assert.match(geoEditor, /<AdminProfileGoogleMaps/);
+  assert.match(geoEditor, /<AdminGooglePlacesApiLink/);
+  assert.match(geoEditor, /Overenie podľa adresy môže tiež použiť Google Places/);
   assert.match(eventEditor, /<AdminProfileGoogleMaps/);
 });
