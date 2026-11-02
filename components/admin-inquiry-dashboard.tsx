@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { SearchIcon } from "@/components/icons";
+import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
 import { directoryCategoryLabel, type DirectoryInquiry, type DirectoryInquiryStatus } from "@/lib/directory";
 
 type StatusFilter = "all" | DirectoryInquiryStatus;
@@ -21,6 +22,7 @@ export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: 
   const [status, setStatus] = useState<StatusFilter>("all");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
+  const [rowDraft, setRowDraft] = useState<{ id: number; status: DirectoryInquiryStatus; initialStatus: DirectoryInquiryStatus } | null>(null);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
@@ -38,6 +40,21 @@ export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: 
       router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Stav sa nepodarilo zmeniť."); }
     finally { setBusyId(null); }
+  }
+
+  function beginRow(inquiry: DirectoryInquiry) {
+    if (busyId !== null) return;
+    setMessage("");
+    setRowDraft({ id: inquiry.id, status: inquiry.status, initialStatus: inquiry.status });
+  }
+  async function saveRow(inquiry: DirectoryInquiry) {
+    if (!rowDraft || rowDraft.id !== inquiry.id || busyId !== null) return;
+    if (inquiry.status !== rowDraft.initialStatus) {
+      setMessage("Dopyt sa medzitým zmenil. Obnov zoznam.");
+      return;
+    }
+    if (rowDraft.status !== inquiry.status) await updateStatus(inquiry, rowDraft.status);
+    setRowDraft(null);
   }
 
   async function removeInquiry(inquiry: DirectoryInquiry) {
@@ -64,7 +81,21 @@ export function AdminInquiryDashboard({ initialInquiries }: { initialInquiries: 
         {visible.length ? <div className="admin-inquiry-list">{visible.map((inquiry) => <article id={`dopyt-${inquiry.id}`} className={`admin-inquiry-card is-${inquiry.status}`} key={inquiry.id}>
           <header><div><span className={`admin-inquiry-status is-${inquiry.status}`}>{statusLabels[inquiry.status]}</span><span>{formatDate(inquiry.createdAt)}</span></div><strong>{inquiry.senderName}</strong><p>Dopyt pre <Link href={`/adresar/${inquiry.profileCategory}/${inquiry.profileSlug}`} target="_blank">{inquiry.profileName} ↗</Link> · {directoryCategoryLabel(inquiry.profileCategory)}</p></header>
           <div className="admin-inquiry-body"><div><h3>Správa</h3><p>{inquiry.message}</p>{inquiry.dogInfo && <p className="admin-inquiry-dog"><strong>Pes:</strong> {inquiry.dogInfo}</p>}</div><aside><h3>Kontakt na záujemcu</h3><a href={`mailto:${inquiry.senderEmail}`}>{inquiry.senderEmail}</a>{inquiry.senderPhone && <a href={`tel:${inquiry.senderPhone}`}>{inquiry.senderPhone}</a>}{inquiry.recipientEmail && <><h3 className="admin-inquiry-recipient-heading">Interný kontakt profilu</h3><a href={`mailto:${inquiry.recipientEmail}`}>{inquiry.recipientEmail}</a></>}<small>Potvrdenie informovania: {inquiry.consent ? "áno" : "nie"}</small></aside></div>
-          <footer>{inquiry.status !== "new" && <button type="button" disabled={busyId === inquiry.id} onClick={() => void updateStatus(inquiry, "new")}>Označiť ako nový</button>}{inquiry.status !== "read" && <button type="button" disabled={busyId === inquiry.id} onClick={() => void updateStatus(inquiry, "read")}>Prečítané</button>}{inquiry.status !== "resolved" && <button className="is-primary" type="button" disabled={busyId === inquiry.id} onClick={() => void updateStatus(inquiry, "resolved")}>Vybavené</button>}<button className="is-danger" type="button" disabled={busyId === inquiry.id} onClick={() => void removeInquiry(inquiry)}>Vymazať</button></footer>
+          <footer>
+            {rowDraft?.id === inquiry.id && <AdminInlineCellSelect
+              label={"Stav dopytu od " + inquiry.senderName}
+              value={rowDraft.status} disabled={busyId !== null}
+              options={Object.entries(statusLabels).map(([value,label]) => ({ value, label }))}
+              onChange={status => setRowDraft(previous => previous ? {...previous, status: status as DirectoryInquiryStatus} : null)}
+            />}
+            <AdminInlineRowActions editing={rowDraft?.id === inquiry.id}
+              busy={busyId === inquiry.id} disabled={busyId !== null || Boolean(rowDraft && rowDraft.id !== inquiry.id)}
+              onEdit={() => beginRow(inquiry)}
+              onSave={() => void saveRow(inquiry)}
+              onCancel={() => { if (busyId === null) setRowDraft(null); }}
+            />
+            <button className="is-danger" type="button" disabled={busyId !== null || Boolean(rowDraft && rowDraft.id === inquiry.id)} onClick={() => void removeInquiry(inquiry)}>Vymazať</button>
+          </footer>
         </article>)}</div> : <div className="admin-empty"><span>✉️</span><h2>Žiadne dopyty</h2><p>Nové správy z profilov sa zobrazia práve tu.</p></div>}
       </section>
     </>
