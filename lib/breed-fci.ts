@@ -120,7 +120,7 @@ const BREED_MEASUREMENT_RULES: Record<BreedMeasurementKind,{minimum:number;maxim
 };
 
 export function inspectBreedMeasurement(value:unknown,kind:BreedMeasurementKind,{requireUnit=true}:{requireUnit?:boolean}={}):BreedMeasurementIssue[]{
-  const text=typeof value==="number"&&Number.isFinite(value)?String(value):typeof value==="string"?value.replace(/\\s+/g," ").trim():"";
+  const text=typeof value==="number"&&Number.isFinite(value)?String(value):typeof value==="string"?value.replace(/\s+/g," ").trim():"";
   if(!text)return [];
   const rule=BREED_MEASUREMENT_RULES[kind];
   // Editorial descriptions can contain FCI numbers, publication years and sample sizes.
@@ -133,13 +133,13 @@ export function inspectBreedMeasurement(value:unknown,kind:BreedMeasurementKind,
   const number=(raw:string)=>Number(raw.replace(",","."));
   const parsed=spans.length
     ? spans.flatMap(match=>[number(match[1]),...(match[2]?[number(match[2])]:[])])
-    : [...text.matchAll(/\\d+(?:[.,]\\d+)?/g)].map(match=>number(match[0]));
+    : [...text.matchAll(/\d+(?:[.,]\d+)?/g)].map(match=>number(match[0]));
   const issues:BreedMeasurementIssue[]=[];
   if(!parsed.length)issues.push({code:"missing-number",severity:"error",message:"Hodnota neobsahuje použiteľné číslo."});
   if(parsed.some(value=>!Number.isFinite(value)||value<rule.minimum||value>rule.maximum))
     issues.push({code:"out-of-range",severity:"error",message:`Hodnota je mimo bezpečného rozsahu ${rule.minimum}–${rule.maximum} ${rule.unitLabel}.`});
   const reversed=spans.length?spans.some(match=>match[2]&&number(match[1])>number(match[2]))
-    : parsed.length>=2&&/\\d\\s*[–—-]\\s*\\d/.test(text)&&parsed[0]>parsed[1];
+    : parsed.length>=2&&/\d\s*[–—-]\s*\d/.test(text)&&parsed[0]>parsed[1];
   if(reversed)issues.push({code:"reversed-range",severity:"error",message:"Minimum rozsahu nesmie byť vyššie než maximum."});
   if(parsed.some(value=>Math.trunc(Math.abs(value)).toString().length>=4))
     issues.push({code:"glued-number",severity:"error",message:"Hodnota vyzerá ako zlepené alebo opakované čísla."});
