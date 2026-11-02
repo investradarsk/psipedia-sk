@@ -4,6 +4,7 @@ import {
   deleteManagedBreed,
   getManagedBreed,
   updateManagedBreed,
+  updateManagedBreedInlineIntro,
   BreedUpdateConflictError,
   type ManagedBreedInput,
 } from "@/lib/breed-store";
@@ -87,6 +88,53 @@ export async function PUT(request: Request, { params }: RouteProps) {
       { error: error instanceof Error ? error.message : "Plemeno sa nepodarilo uložiť." },
       { status: 400 },
     );
+  }
+}
+
+export async function PATCH(request: Request, { params }: RouteProps) {
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const id = await parsedId(params);
+  if (!id) return Response.json({ error: "Neplatné ID plemena." }, { status: 400 });
+  if (request.headers.get("origin") !== new URL(request.url).origin ||
+      !request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+    return Response.json({ error: "Neplatný pôvod požiadavky." }, { status: 403 });
+  }
+  let body: { action?: unknown; intro?: unknown; expectedUpdatedAt?: unknown };
+  try { body = await request.json() as typeof body; }
+  catch { return Response.json({ error: "Neplatné JSON dáta." }, { status: 400 }); }
+  if (!body || Object.keys(body).length !== 3 || body.action !== "set-inline-intro" ||
+      typeof body.intro !== "string" || body.intro.trim().length > 1000 ||
+      typeof body.expectedUpdatedAt !== "string" || !body.expectedUpdatedAt.trim()) {
+    return Response.json({ error: "Meniť možno iba úvod plemena a vyžaduje sa verzia záznamu." }, { status: 400 });
+  }
+  try {
+    const before = await getManagedBreed(id);
+    if (!before) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
+    const breed = await updateManagedBreedInlineIntro(id, body.intro, auth.user.email, body.expectedUpdatedAt);
+    if (!breed) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
+    let notionEditorialWriteback: { status: string; code?: string } | undefined;
+    const bindings = env as unknown as BreedRouteBindings;
+    if (bindings.DB && before.status === "draft" && breed.status === "draft") {
+      try {
+        const result = await writeBackDraftBreedEditorialToNotion({
+          database: bindings.DB, bindings, before, breed,
+        });
+        notionEditorialWriteback = { status: result.updated ? "synced" : (result.reason ?? "unchanged") };
+      } catch (error) {
+        const raw = error instanceof Error ? error.message : "";
+        const code = /^BREED_[A-Z0-9_]+$/.test(raw) ? raw : "REMOTE_WRITEBACK_FAILED";
+        notionEditorialWriteback = { status: "blocked", code };
+        console.error("notion_breed_inline_writeback_failed", { breedId: breed.id, code });
+      }
+    }
+    return Response.json({ breed, ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}) },
+      { headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    if (error instanceof BreedUpdateConflictError) {
+      return Response.json({ error: error.message }, { status: 409 });
+    }
+    return Response.json({ error: error instanceof Error ? error.message : "Rýchla úprava zlyhala." }, { status: 400 });
   }
 }
 
