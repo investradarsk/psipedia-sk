@@ -436,7 +436,13 @@ function clean(input:ManagedBreedInput){
     const next={key,label,rating,note:text(item.note,500)};
     const previous=sportKeys.get(key);
     if(previous){
-      if(previous.label===next.label&&previous.rating===next.rating&&previous.note===next.note)continue;
+      if(previous.label===next.label&&previous.rating===next.rating){
+        if(previous.note===next.note || !next.note)continue;
+        if(!previous.note){ previous.note=next.note; continue; }
+        // Keep both distinct notes when they fit; never truncate conflicting data.
+        const combined=`${previous.note} / ${next.note}`;
+        if(combined.length<=500){ previous.note=combined; continue; }
+      }
       throw new Error(`Šport „${label}“ obsahuje rozdielne duplicitné údaje; skontroluj hodnotenia a poznámky.`);
     }
     sportKeys.set(key,next);
