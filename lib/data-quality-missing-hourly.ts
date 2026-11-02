@@ -600,13 +600,13 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     if(!["web","social","phone","email"].includes(f.group) || typeof correctedValue!=="string")
       throw new Error("Tento typ nálezu sa nedá upraviť priamo.");
     const corrected=correctedValue.trim();
-    if(!corrected || corrected.length>2048 || /[\\x00-\\x1f\\x7f]/.test(corrected))
+    if(!corrected || corrected.length>2048 || /[\x00-\x1f\x7f]/.test(corrected))
       throw new Error("Upravený údaj má neplatný formát.");
     if(["web","social"].includes(f.group) && !allowedPage(corrected))
       throw new Error("Upravený odkaz nie je bezpečná platná adresa.");
-    if(f.group==="email" && (corrected.length>254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(corrected)))
+    if(f.group==="email" && (corrected.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrected)))
       throw new Error("Zadaj platný e-mail.");
-    if(f.group==="phone" && !/^[+0-9][0-9+\\s().-]{5,30}$/.test(corrected))
+    if(f.group==="phone" && !/^[+0-9][0-9+\s().-]{5,30}$/.test(corrected))
       throw new Error("Zadaj platný verejný telefón.");
     approvedValue=corrected;
   }
