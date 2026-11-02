@@ -67,6 +67,13 @@ jobs:
         run: node scripts/pr-visual-route-selection.mjs
       - name: Validate screenshot contract
         run: node --test tests/pr-visual-screenshots.test.mjs tests/pr-visual-route-selection.test.mjs
+      - name: Validate all five admin quality stage contracts
+        run: |
+          node --experimental-strip-types --test \
+            tests/admin-record-table-selection.test.mjs \
+            tests/admin-sortable-order-preview.test.mjs \
+            tests/admin-content-history.test.mjs \
+            tests/link-health.test.mjs
       - name: Build local PR revision
         if: steps.routes.outputs.enabled == 'true'
         run: npm run build
