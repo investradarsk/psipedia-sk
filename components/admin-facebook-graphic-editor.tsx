@@ -209,7 +209,8 @@ export function AdminFacebookGraphicEditor({
     showBrand: true,
   });
   const [photo, setPhoto] = useState<File | null>(null);
-  const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
+  const [loaded, setLoaded] = useState<{ file: File; bitmap: ImageBitmap } | null>(null);
+  const bitmap = loaded?.file === photo ? loaded.bitmap : null;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const previewRef = useRef<HTMLCanvasElement>(null);
@@ -230,13 +231,12 @@ export function AdminFacebookGraphicEditor({
   });
 
   useEffect(() => {
-    if (!photo) { setBitmap(null); return; }
+    if (!photo) return;
     let active = true;
     let opened: ImageBitmap | null = null;
-    setBitmap(null);
     createImageBitmap(photo).then(image => {
       opened = image;
-      if (active) setBitmap(image);
+      if (active) setLoaded({ file: photo, bitmap: image });
       else image.close();
     }).catch(() => { if (active) setError("Fotografia sa nedá otvoriť."); });
     return () => { active = false; opened?.close(); };
@@ -257,7 +257,7 @@ export function AdminFacebookGraphicEditor({
     return new File([blob], "psipedia-facebook-grafika.png", { type: "image/png", lastModified: Date.now() });
   }
 
-  async function useGraphic() {
+  async function applyGraphic() {
     if (busy) return;
     setError(""); setBusy(true);
     try {
@@ -335,7 +335,7 @@ export function AdminFacebookGraphicEditor({
         {error && <p role="alert" className={styles.error}>{error}</p>}
         <div className={styles.actions}>
           <button type="button" disabled={busy || !bitmap} onClick={() => void download()}>Stiahnuť PNG</button>
-          <button className={styles.primary} type="button" disabled={busy || !bitmap} onClick={() => void useGraphic()}>{busy ? "Pripravujem…" : "Použiť v príspevku"}</button>
+          <button className={styles.primary} type="button" disabled={busy || !bitmap} onClick={() => void applyGraphic()}>{busy ? "Pripravujem…" : "Použiť v príspevku"}</button>
         </div>
       </div>
     </div>
