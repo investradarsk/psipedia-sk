@@ -24,7 +24,7 @@ import {
   updateAdoptionFromAdmin,
 } from "./adoption-admin-write.ts";
 import { getAdoptionById } from "./adoption-store.ts";
-import type { ManagedAdoptionInput } from "./adoption.ts";
+import { normalizeAdoptionInput, type ManagedAdoptionInput } from "./adoption.ts";
 import {
   createManagedHelpCase,
   getManagedHelpCaseById,
@@ -439,6 +439,11 @@ function adoptionPayload(
     specialNeeds: s(values["Špeciálne potreby"]),
     externalSourceUrl: s(values["Zdroj dát"]) || null,
   };
+}
+
+/** Validate before marking an uncertain INSERT; a bad enum must not strand a D1 lock. */
+export function preflightAdoptionDraft(values: Record<string, ReconciliationValue>): void {
+  normalizeAdoptionInput(adoptionPayload(values, null, null, true));
 }
 
 function helpPayload(
