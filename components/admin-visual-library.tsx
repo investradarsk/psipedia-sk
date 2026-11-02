@@ -236,7 +236,7 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
       ) : category === "vsetko" ? (
         <AdminVisualLibraryCoverage registry={registry} articleUsage={articleUsage} examples={examples} />
       ) : category === "podobne" ? (
-        <AdminVisualLibraryDuplicates articleUsage={articleUsage} examples={examples} />
+        <AdminVisualLibraryDuplicates articleUsage={articleUsage} examples={examples} registry={registry} />
       ) : category === "galeria" ? (
         <AdminVisualLibraryGallery registry={registry} />
       ) : (
