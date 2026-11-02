@@ -12,6 +12,7 @@ import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/a
 import { AdminPagination } from "@/components/admin-pagination";
 import { AdminDirectoryEditorLink } from "@/components/admin-directory-editor-link";
 import { AdminRecordTable } from "@/components/admin-record-table";
+import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { SearchIcon } from "@/components/icons";
 import { allDirectoryCategories, directoryProfileHref, getDirectoryCategory } from "@/lib/directory";
 import {
@@ -42,10 +43,49 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
   const [reviewingId, setReviewingId] = useState<number | null>(null);
   const [reviewedOverrides, setReviewedOverrides] = useState<Record<number, boolean>>({});
   const [message, setMessage] = useState("");
+  const [inline, setInline] = useState<{ id: number; key: string; updatedAt: string; name: string; excerpt: string } | null>(null);
+  const [inlineBusy, setInlineBusy] = useState(false);
   const { profiles, counts, resultCount, pagination, options } = data;
   const membershipFilter = directoryAdminMembershipFilters(filters);
   const membershipFingerprint = directoryAdminMembershipFingerprint(membershipFilter);
   const pageIds = profiles.map((profile) => profile.id);
+  const editViewKey = membershipFingerprint + "|" + pagination.page + "|" + pageIds.join(",");
+  const activeInline = inline?.key === editViewKey && profiles.some(profile => profile.id === inline.id && profile.updatedAt === inline.updatedAt)
+    ? inline : null;
+
+  function beginInline(profile: ManagedDirectoryProfileSummary) {
+    if (inlineBusy || profile.status === "archived") return;
+    setMessage("");
+    setInline({ id: profile.id, key: editViewKey, updatedAt: profile.updatedAt, name: profile.name, excerpt: profile.excerpt || "" });
+  }
+  async function saveInline() {
+    const draft = activeInline;
+    if (!draft || inlineBusy || !draft.name.trim()) return;
+    setInlineBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/directory/${draft.id}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "set-inline-editorial",
+          expectedUpdatedAt: draft.updatedAt,
+          changes: { name: draft.name, excerpt: draft.excerpt },
+        }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Rýchlu úpravu sa nepodarilo uložiť.");
+      setInline(null);
+      setMessage("Názov a krátky popis profilu boli uložené.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Rýchla úprava sa nepodarila.");
+    } finally {
+      setInlineBusy(false);
+    }
+  }
   const bulkSelection = useAdminBulkSelection({
     module: "directory",
     membershipFingerprint,
@@ -120,6 +160,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
         </form>
 
         {message && <p className="admin-flash" role="status">{message}</p>}
+        <p className="admin-help-results">V tabuľke môžeš priamo upraviť názov a krátky popis profilu. Ostatné údaje zostávajú v editore.</p>
         <p className="admin-help-results admin-directory-results">Nájdené: <strong>{resultCount}</strong> · Strana {pagination.page} z {pagination.totalPages}</p>
 
         {profiles.length ? (
@@ -144,6 +185,8 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
             <AdminRecordTable
               rows={profiles}
               label="Profily služieb"
+              busy={inlineBusy}
+              stretch
               columns={[
                 { id: "selected", label: "Výber", width: 76, cell: (profile) => <BulkSelectionCheckbox
                   checked={bulkSelection.isSelected(profile.id)}
@@ -152,7 +195,16 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                   onChange={() => bulkSelection.toggleRow(profile.id)}
                   className={styles.tableRowCheckbox}
                 /> },
-                { id: "name", label: "Profil", width: 250, sortValue: (profile) => profile.name, cell: (profile) => <AdminDirectoryEditorLink profileId={profile.id}><strong>{profile.name}</strong></AdminDirectoryEditorLink> },
+                { id: "name", label: "Profil", width: 250, sortValue: (profile) => profile.name,
+                  cell: (profile) => activeInline?.id === profile.id
+                    ? <AdminInlineCellInput label={"Názov profilu " + profile.name} value={activeInline.name} maxLength={180}
+                        required disabled={inlineBusy} onChange={name => setInline(current => current ? { ...current, name } : null)} />
+                    : <AdminDirectoryEditorLink profileId={profile.id}><strong>{profile.name}</strong></AdminDirectoryEditorLink> },
+                { id: "excerpt", label: "Krátky popis", width: 230, sortValue: (profile) => profile.excerpt || "",
+                  cell: (profile) => activeInline?.id === profile.id
+                    ? <AdminInlineCellInput label={"Krátky popis " + profile.name} value={activeInline.excerpt} maxLength={700}
+                        disabled={inlineBusy} onChange={excerpt => setInline(current => current ? { ...current, excerpt } : null)} />
+                    : <span title={profile.excerpt || ""}>{profile.excerpt || "—"}</span> },
                 { id: "category", label: "Typ profilu", width: 158, sortValue: (profile) => getDirectoryCategory(profile.category)?.label ?? profile.category, cell: (profile) => <span>{getDirectoryCategory(profile.category)?.label ?? profile.category}</span> },
                 { id: "city", label: "Mesto", width: 150, sortValue: (profile) => profile.city || "", cell: (profile) => profile.city || "—" },
                 { id: "status", label: "Publikácia", width: 125, sortValue: (profile) => profile.status, cell: (profile) => <span className={"admin-status admin-status--" + profile.status}>{profile.status === "published" ? "Publikované" : profile.status === "archived" ? "Archivované" : "Koncept"}</span> },
@@ -168,7 +220,15 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
                   <span>Odkontrolované</span>
                 </label> },
                 { id: "actions", label: "Akcie", width: 230, cell: (profile) => <div className={styles.tableActions}>
-                  <AdminDirectoryEditorLink className="admin-row-edit" profileId={profile.id}>Upraviť</AdminDirectoryEditorLink>
+                  {profile.status !== "archived" && <AdminInlineRowActions
+                    editing={activeInline?.id === profile.id}
+                    busy={inlineBusy} disabled={Boolean(activeInline && activeInline.id !== profile.id) ||
+                      (activeInline?.id === profile.id && !activeInline.name.trim())}
+                    onEdit={() => beginInline(profile)}
+                    onSave={() => void saveInline()}
+                    onCancel={() => { if (!inlineBusy) setInline(null); }}
+                  />}
+                  <AdminDirectoryEditorLink className="admin-row-edit" profileId={profile.id}>Detail</AdminDirectoryEditorLink>
                   {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Web ↗</Link>}
                   {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
                 </div> },
