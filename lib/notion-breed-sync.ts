@@ -618,6 +618,7 @@ const BREED_WEBHOOK_PROPERTIES = {
   healthRisks: "Zdravotné riziká", goodFor: "Vhodné pre",
   consider: "Zvážiť", sources: "Zdroje", "seo.title": "SEO title",
   "seo.description": "Meta description",
+  fciStandard: "FCI štandard JSON", editorial: "Redakčné sekcie JSON", sports: "Športy JSON",
 } as const;
 
 /** Signed event IDs are evidence of an explicit Notion edit, not a blanket
@@ -625,13 +626,20 @@ const BREED_WEBHOOK_PROPERTIES = {
  */
 function signedBreedChangedFields(page: NotionPage, changedPropertyIds: readonly string[]) {
   const ids = new Set(changedPropertyIds);
-  return Object.entries(BREED_WEBHOOK_PROPERTIES)
-    .filter(([, label]) => {
-      const property = notionPropertyRecord(page, label);
-      const id = typeof property?.id === "string" ? property.id : "";
-      return ids.has(id) || ids.has(label);
-    })
+  const matches = (label: string) => {
+    const property = notionPropertyRecord(page, label);
+    const id = typeof property?.id === "string" ? property.id : "";
+    return ids.has(id) || ids.has(label);
+  };
+  const direct = Object.entries(BREED_WEBHOOK_PROPERTIES)
+    .filter(([, label]) => matches(label))
     .map(([field]) => field as keyof typeof BREED_WEBHOOK_PROPERTIES);
+  // Dozens of explicit FCI/editorial columns map to one protected structured
+  // field. A signed edit to any of them must be recognized, not dropped.
+  if (FCI_NOTION_DETAIL_COLUMNS.some(([, column]) => matches(column))) direct.push("fciStandard");
+  if (BREED_NOTION_EDITORIAL_COLUMNS.some(([, column]) => matches(column))
+    || matches("Redakcia hlavné vlastnosti JSON")) direct.push("editorial");
+  return [...new Set(direct)];
 }
 
 async function syncOneBreed(
