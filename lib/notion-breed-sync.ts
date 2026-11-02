@@ -138,6 +138,85 @@ function optionalStructuredBreedField(
   return parsed as Record<string, unknown> | unknown[];
 }
 
+const FCI_NOTION_DETAIL_COLUMNS = [
+  ["status_fci", "FCI status"],
+  ["historicky_suhrn", "FCI historický súhrn"],
+  ["celkovy_vzhlad", "FCI celkový vzhľad"],
+  ["dolezite_proporcie", "FCI proporcie"],
+  ["povaha_temperament", "FCI povaha a temperament"],
+  ["hlava_lebecna_cast", "FCI lebka"],
+  ["hlava_tvarova_cast", "FCI tvár"],
+  ["oci", "FCI oči"],
+  ["usi", "FCI uši"],
+  ["krk", "FCI krk"],
+  ["telo", "FCI telo"],
+  ["chvost", "FCI chvost"],
+  ["predne_koncatiny", "FCI predné končatiny"],
+  ["zadne_koncatiny", "FCI zadné končatiny"],
+  ["pohyb", "FCI pohyb"],
+  ["koza", "FCI koža"],
+  ["srst", "FCI srsť"],
+  ["farba", "FCI farba"],
+  ["vyska_pes_cm", "FCI výška pes cm"],
+  ["vyska_suka_cm", "FCI výška suka cm"],
+  ["hmotnost_pes_kg", "FCI hmotnosť pes kg"],
+  ["hmotnost_suka_kg", "FCI hmotnosť suka kg"],
+  ["velkost_hmotnost_poznamka", "FCI veľkosť a hmotnosť poznámka"],
+  ["chyby", "FCI chyby"],
+  ["zavazne_chyby", "FCI závažné chyby"],
+  ["diskvalifikacne_chyby", "FCI diskvalifikačné chyby"],
+  ["poznamka_chov", "FCI chov poznámka"],
+  ["vyuzitie", "FCI využitie"],
+  ["fci_skupina_nazov", "FCI skupina názov"],
+  ["fci_sekcia_nazov", "FCI sekcia názov"],
+  ["zdroj_poznamka", "FCI zdroj poznámka"],
+  ["fci_nomenklatura_url", "FCI nomenklatúra URL"],
+  ["fci_standard_pdf", "FCI štandard PDF"],
+] as const;
+const BREED_NOTION_EDITORIAL_COLUMNS = [
+  ["overview", "Redakcia prehľad"],
+  ["coatCare", "Redakcia starostlivosť o srsť"],
+  ["familyLife", "Redakcia život v rodine"],
+  ["otherDogsLife", "Redakcia spolužitie so psami"],
+  ["curiosities", "Redakcia zaujímavosti"],
+  ["commonOwnerMistakes", "Redakcia chyby majiteľov"],
+  ["exerciseTip", "Redakcia tip pohyb"],
+  ["trainingTip", "Redakcia tip výcvik"],
+  ["healthTip", "Redakcia tip zdravie"],
+  ["coatTip", "Redakcia tip srsť"],
+] as const;
+
+function structuredBreedColumns(
+  page: NotionPage, jsonProperty: string,
+  columns: readonly (readonly [string, string])[],
+): Record<string, unknown> | undefined {
+  const raw=optionalStructuredBreedField(page,jsonProperty,"object") as Record<string,unknown>|undefined;
+  const merged:Record<string,unknown>={...(raw??{})};
+  for(const [key,column] of columns){
+    const value=notionRichTextProperty(page,column);
+    if(value)merged[key]=value;
+  }
+  return Object.keys(merged).length ? merged : undefined;
+}
+
+function breedFciNotionDetails(page: NotionPage): ManagedBreedInput["fciStandard"] {
+  const merged=structuredBreedColumns(page,"FCI štandard JSON",FCI_NOTION_DETAIL_COLUMNS);
+  if(!merged)return undefined;
+  for(const [key,column] of FCI_NOTION_DETAIL_COLUMNS){
+    if(key!=="fci_nomenklatura_url"&&key!=="fci_standard_pdf")continue;
+    const url=notionUrlProperty(page,column);
+    if(url)merged[key]=url;
+  }
+  return merged as ManagedBreedInput["fciStandard"];
+}
+
+function breedEditorialNotionDetails(page: NotionPage): ManagedBreedInput["editorial"] {
+  const merged=structuredBreedColumns(page,"Redakčné sekcie JSON",BREED_NOTION_EDITORIAL_COLUMNS) ?? {};
+  const traits=optionalStructuredBreedField(page,"Redakcia hlavné vlastnosti JSON","array");
+  if(traits)merged.heroTraits=traits;
+  return Object.keys(merged).length ? merged as ManagedBreedInput["editorial"] : undefined;
+}
+
 export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInput {
   const name = notionTitleProperty(page, "Názov");
   const slug = notionRichTextProperty(page, "Slug");
@@ -161,8 +240,8 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     importKey: notionRichTextProperty(page, "Import kľúč") || null,
     // Opt-in structured fields: existing empty Notion properties do not erase
     // already reviewed D1 details. Validate in breed-store before writes.
-    fciStandard: optionalStructuredBreedField(page, "FCI štandard JSON", "object") as ManagedBreedInput["fciStandard"],
-    editorial: optionalStructuredBreedField(page, "Redakčné sekcie JSON", "object") as ManagedBreedInput["editorial"],
+    fciStandard: breedFciNotionDetails(page),
+    editorial: breedEditorialNotionDetails(page),
     sports: optionalStructuredBreedField(page, "Športy JSON", "array") as ManagedBreedInput["sports"],
     editorialComplete: notionPropertyRecord(page, "Editorial complete") ? checkboxProperty(page, "Editorial complete") : undefined,
     origin: notionRichTextProperty(page, "Krajina pôvodu"),
