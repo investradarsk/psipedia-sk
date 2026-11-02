@@ -149,3 +149,12 @@
 .dynamicInventoryPager { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; }
 .dynamicInventoryPager strong { min-width:66px; text-align:center; }
 @media(max-width:620px) { .dynamicInventory {padding:12px;} .dynamicInventoryControls {display:grid;} .dynamicInventoryControls label {min-width:0;} .dynamicInventoryControls form {display:grid;} }
+
+/* Owner-facing source coverage: the numerator counts distinct previewed source files,
+   not the number of runtime placements or unique visual components. */
+.coverageSummary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.coverageSummary>div{display:grid;gap:5px;padding:12px 14px;background:#fff;border:1px solid #dce8de;border-radius:11px;min-width:0}
+.coverageSummary strong{font-size:1.25rem;line-height:1.1;color:#215039;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.coverageSummary span{font-size:.76rem;color:#5e7364;line-height:1.3}
+@media(max-width:840px){.coverageSummary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.coverageSummary>div{padding:10px}.coverageSummary strong{font-size:1.08rem}}
