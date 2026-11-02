@@ -25,6 +25,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.19.0'
+      - name: Validate public-only scan policy and report contract
+        run: node --experimental-strip-types --test tests/link-health.test.mjs
       - name: Select maximum 12 public pages from sitemap
         run: node scripts/link-health-weekly.mjs select
       - name: Install already approved checksum-pinned Linkinator v8.1.0 (MIT)
