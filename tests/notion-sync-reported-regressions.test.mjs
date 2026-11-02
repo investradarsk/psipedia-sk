@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { inspectBreedMeasurement } from "../lib/breed-fci.ts";
+import { breedFieldSnapshot, planBreedNotionFieldDelta, parseBreedFieldSnapshot } from "../lib/notion-breed-field-delta.ts";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -41,4 +42,33 @@ test("article Notion writeback uses bounded retry shared with other modules", as
   assert.match(source,/return notionSharedRequest<T>\(bindings, path, init\)/);
   const shared=await read("../lib/notion-sync-shared.ts");
   assert.match(shared,/error\.headers\.get\("retry-after"\)/);
+});
+
+test("existing breed receipts remain compatible after structured columns are added",()=>{
+  const baseline={name:"Wetterhoun",seo:{title:"A",description:"B"},energy:3};
+  const legacy=breedFieldSnapshot(baseline);
+  delete legacy.fciStandard;
+  delete legacy.editorial;
+  delete legacy.sports;
+  const parsed=parseBreedFieldSnapshot(JSON.stringify(legacy));
+  assert.ok(parsed);
+  assert.equal(parsed.sports,null);
+  assert.equal(parsed.editorial,null);
+  assert.equal(parsed.fciStandard,null);
+});
+
+test("new Notion fields preserve unrelated canonical structured content",()=>{
+  const base={name:"Wetterhoun",sports:[{key:"swim",label:"Plávanie",rating:4,note:"Voda"}],
+    fciStandard:{oci:"Hnedé",usi:"Klasické"},editorial:{overview:"Starý",healthTip:"Kontrola"},seo:{title:"A",description:"B"}};
+  const before={...base,sports:undefined,fciStandard:undefined,editorial:undefined};
+  const incoming={...before,
+    sports:[{key:"swim",label:"Plávanie",rating:4,note:"Voda"}],
+    fciStandard:{oci:"Tmavohnedé"},editorial:{overview:"Nový"}};
+  const plan=planBreedNotionFieldDelta(base,incoming,breedFieldSnapshot(before),breedFieldSnapshot(base));
+  assert.deepEqual(plan.conflicts,[]);
+  assert.equal(plan.patch.fciStandard.usi,"Klasické");
+  assert.equal(plan.patch.fciStandard.oci,"Tmavohnedé");
+  assert.equal(plan.patch.editorial.healthTip,"Kontrola");
+  assert.equal(plan.patch.editorial.overview,"Nový");
+  assert.equal(plan.patch.image,undefined);
 });
