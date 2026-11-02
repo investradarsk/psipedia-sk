@@ -236,3 +236,10 @@
   /* Calendar cells remain at least the original 49px mobile height. */
   .calendarDayButton { min-height: 49px; }
 }
+
+/* Full-width creative editor, still scoped to the existing Facebook modal. */
+.graphicDialog{width:min(1140px,calc(100% - 24px))}
+.graphicIntro{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:12px;border:1px solid #d2e2d5;background:#f5faf6;border-radius:10px}
+.graphicIntro strong{font-size:.9rem;color:#164431}
+.graphicIntro p{font-size:.78rem;color:#587164;margin:3px 0 0}
+@media(max-width:600px){.graphicDialog{width:calc(100% - 12px)}.graphicIntro button{width:100%}}
