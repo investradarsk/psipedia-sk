@@ -190,16 +190,27 @@ test("SECTION-PUBLIC keeps puppies, care and activities on one shared visual con
   assert.match(css, /var\(--section-accent-soft\)/);
 });
 
-test("SECTION-PUBLIC navigation scopes mobile overflow to the canonical navigation component", () => {
+test("SECTION-PUBLIC navigation keeps accessible compact links without hidden mobile horizontal rails", () => {
   const tabs = read("components/portal-section-tabs.tsx");
   const css = read("components/public-visual-system/public-subcategory-navigator.module.css");
   assert.match(tabs, /styles\.nav/);
   assert.match(tabs, /PortalMobileCategorySelect/);
-  assert.match(css, /min-height:\s*44px/);
-  assert.match(css, /flex-wrap:\s*nowrap/);
-  assert.match(css, /overflow-x:\s*auto/);
-  assert.match(css, /overscroll-behavior-x:\s*contain/);
-  assert.match(css, /\.compactItemCurrent/);
+
+  // Final PUBLIC NAV overrides obsolete scroll-strip styles: four columns
+  // on desktop, two on most mobiles, then one on the narrowest screens.
+  const finalNav = css.slice(css.lastIndexOf("/* PUBLIC NAV:"));
+  assert.ok(finalNav.startsWith("/* PUBLIC NAV:"), "canonical final nav styles exist");
+  assert.match(finalNav, /\.compactTrack\s*\{[^}]*display:\s*grid/);
+  assert.match(finalNav, /grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(finalNav, /overflow:\s*visible/);
+  assert.match(finalNav, /scroll-snap-type:\s*none/);
+  assert.match(finalNav, /@media \(max-width: 620px\)\s*\{\s*\.compactTrack\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(finalNav, /@media \(max-width: 380px\)\s*\{\s*\.compactTrack\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+
+  const compactItem = finalNav.match(/\.compactItem\s*\{([^}]*)\}/)?.[1] ?? "";
+  const minHeight = compactItem.match(/min-height:\s*(\d+)px/)?.[1];
+  assert.ok(minHeight && Number(minHeight) >= 44, "minimum accessible tap height is 44px");
+  assert.match(finalNav, /\.compactItemCurrent/);
 });
 
 test("SECTION-PUBLIC keeps canonical training taxonomy and legacy redirect compatibility", () => {
