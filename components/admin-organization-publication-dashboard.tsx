@@ -302,7 +302,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
             <div className={styles.actions}>
               <AdminReviewCheckbox entityType="ORGANIZATION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
               {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
-              {item.status !== "ARCHIVED" && <AdminInlineRowActions
+              {item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
                 editing={activeInline?.id === item.id}
                 busy={inlineBusy}
                 disabled={busyId !== null || bulkBusy || (activeInline !== null && activeInline.id !== item.id) ||
@@ -310,7 +310,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
                 onEdit={() => editInline(item)}
                 onSave={() => void saveInline()}
                 onCancel={() => { if (!inlineBusy) setInlineDraft(null); }}
-              />}
+              /></span>}
               <Link className="admin-row-edit" href={"/admin/organizacie/" + item.id}>Spravovať</Link>
               <Link href={`/admin/organizacie/${item.id}#fundraising`}>Fundraising</Link>
               {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!hydrated || !item.preflight.ready || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "publish")}>Publikovať</AdminActionButton>}
