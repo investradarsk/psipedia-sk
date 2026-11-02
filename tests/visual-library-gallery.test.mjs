@@ -112,5 +112,5 @@ test("seven additional public domain card previews are real components with admi
   assert.match(fixtures, /PublicEventCard/);
   assert.match(fixtures, /PublicHelpCard/);
   assert.match(fixtures, /BreedAtlasCard/);
-  assert.doesNotMatch(fixtures, /fetch\\(|getPublished|listPublished|\\.prepare\\(|useEffect\\(/);
+  assert.doesNotMatch(fixtures, /fetch\(|getPublished|listPublished|\.prepare\(|useEffect\(/);
 });
