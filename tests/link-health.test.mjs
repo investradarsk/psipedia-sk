@@ -106,7 +106,6 @@ test("admin and scheduled workflows both remain read-only and limited", () => {
   const yml = read(".github/workflows/link-health-audit.yml");
   assert.match(ui, /MAX_LINK_TARGETS/);
   assert.match(ui, /AbortSignal\.timeout\(9000\)/);
-  assert.match(ui, /method: "POST"/m) === false; // no mutating requests
   assert.doesNotMatch(ui, /method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/);
   assert.match(ui, /credentials: "omit"/);
   assert.match(page, /requireAdminPageUser/);
