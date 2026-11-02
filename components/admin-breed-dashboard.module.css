@@ -140,3 +140,6 @@
     text-decoration: none;
   }
 }
+
+/* Quick editorial controls are desktop-only; mobile breed cards are unchanged. */
+@media (max-width: 899px) { .inlineDesktop { display: none; } }
