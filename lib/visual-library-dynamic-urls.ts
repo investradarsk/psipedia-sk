@@ -5,7 +5,7 @@ import { eventHref } from "@/lib/events";
 import { helpCaseHref, isHelpCategory } from "@/lib/help";
 import { dogReportHref } from "@/lib/lost-found-dogs";
 import { articleHref } from "@/lib/portal";
-import { DYNAMIC_URL_PAGE_SIZE, dynamicUrlKinds, isDynamicUrlKind, type DynamicUrlKind, type DynamicUrlRecord, type DynamicUrlPage } from "@/lib/visual-library-dynamic-urls-contract";
+import { DYNAMIC_URL_PAGE_SIZE, isDynamicUrlKind, type DynamicUrlKind, type DynamicUrlRecord, type DynamicUrlPage } from "@/lib/visual-library-dynamic-urls-contract";
 
 /**
  * Owner-only, paginated inventory. Queries follow the public read-side
