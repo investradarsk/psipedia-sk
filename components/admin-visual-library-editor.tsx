@@ -129,13 +129,14 @@ export function AdminVisualLibraryEditor({
           action, acknowledged: true, confirmedUrl: publishTarget,
         }),
       });
-      const result = await response.json() as { draft?: ServerRecord; error?: string };
+      const result = await response.json() as { draft?: ServerRecord; cacheNotice?: string; error?: string };
       if (!response.ok || !result.draft) throw new Error(result.error ?? "Akcia zlyhala.");
       setServer(result.draft);
       setConfirmed(false);
-      setStatus(action === "publish"
+      const releaseMessage = action === "publish"
         ? "Desktopové texty a farby boli publikované pre potvrdenú URL. Mobilné farby a texty zostali pôvodné."
-         : "Publikované desktopové texty a farby boli vrátené na pôvodné.");
+        : "Publikované desktopové texty a farby boli vrátené na pôvodné.";
+      setStatus(releaseMessage + (result.cacheNotice ? " " + result.cacheNotice : ""));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Akcia zlyhala.");
     } finally { setBusy(false); }
