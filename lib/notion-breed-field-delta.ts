@@ -14,6 +14,7 @@ export const BREED_NOTION_EDITABLE_FIELDS = [
   "apartment", "grooming", "shedding", "preyDrive",
   "intro", "character", "needs", "history", "exercise", "training",
   "health", "healthRisks", "goodFor", "consider", "sources",
+  "fciStandard", "editorial", "sports",
   "seo.title", "seo.description",
 ] as const;
 
@@ -96,6 +97,13 @@ export function planBreedNotionFieldDelta(
     accepted.push(key);
     if (key === "seo.title" || key === "seo.description") {
       patch.seo = { ...patch.seo, [key.slice(4)]: desired };
+    } else if (key === "editorial") {
+      patch.editorial = { ...existing.editorial, ...(desired && typeof desired === "object" && !Array.isArray(desired) ? desired : {}) };
+    } else if (key === "fciStandard") {
+      patch.fciStandard = { ...existing.fciStandard, ...(desired && typeof desired === "object" && !Array.isArray(desired) ? desired : {}) };
+    } else if (key === "sports") {
+      // Only a complete explicit array replaces the corresponding sport list.
+      if (Array.isArray(desired)) patch.sports = desired as ManagedBreedInput["sports"];
     } else {
       (patch as Record<string, unknown>)[key] = desired;
     }
