@@ -419,3 +419,6 @@
     text-decoration: none;
   }
 }
+
+/* Inline editing is desktop-only; keep the established mobile list actions. */
+@media (max-width: 899px) { .inlineDesktop { display: none; } }
