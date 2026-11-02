@@ -29,7 +29,7 @@ test("projection agrees with the original JSON parsing for complete, sparse and 
     db.exec("CREATE TABLE managed_breeds (id INTEGER PRIMARY KEY, slug TEXT, name TEXT, status TEXT, image_url TEXT, fci_number INTEGER, fci_group INTEGER, fci_section TEXT, fci_section_number TEXT, origin TEXT, group_name TEXT, official_fci_name TEXT, accent TEXT, updated_at TEXT, editorial_json TEXT, sports_json TEXT, fci_standard_json TEXT, needs TEXT, exercise TEXT, training TEXT, health TEXT, intro TEXT)");
     db.exec("CREATE TABLE breed_article_relations(breed_id INTEGER)");
     db.exec("CREATE TABLE breed_directory_relations(breed_id INTEGER)");
-    const add = db.prepare("INSERT INTO managed_breeds VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    const add = db.prepare("INSERT INTO managed_breeds VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
     const samples = [
       [1,"breed-1","Complete","published","/media/a.png",347,1,"","","Švajčiarsko","FCI","FCI Name","gold","2026-10-25",
        JSON.stringify({overview:"Overený text",coatCare:"x".repeat(11000)}),
@@ -44,7 +44,7 @@ test("projection agrees with the original JSON parsing for complete, sparse and 
        JSON.stringify({fci_nomenklatura_url:"https://example.test/list",otherField:"x".repeat(3300)}),
        "", "", "", ""],
     ];
-    for (const row of samples) add.run(...row);
+    for (const row of samples) add.run(...row, "Úvod plemena");
     db.prepare("INSERT INTO breed_article_relations(breed_id) VALUES (?)").run(1);
     db.prepare("INSERT INTO breed_directory_relations(breed_id) VALUES (?)").run(1);
 
