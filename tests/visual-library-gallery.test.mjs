@@ -100,7 +100,7 @@ test("seven additional public domain card previews are real components with admi
     ["related-breed-list", "components/related-entity-list.tsx", "RelatedBreedList"],
   ];
   const defs = [...previews.matchAll(/^\s*\{ id: "([^"]+)", path: "([^"]+)", family: "([^"]+)"/gm)];
-  assert.ok(defs.length >= 42, "Existing 35 samples plus seven new real card variants");
+  assert.ok(defs.length >= 44, "Existing 35 samples plus nine new real component variants");
   for (const [id, path, component] of additions) {
     assert.ok(defs.some((match) => match[1] === id && match[2] === path && match[3] === "card"));
     assert.ok(previews.includes('case "' + id + '":'));
@@ -113,4 +113,20 @@ test("seven additional public domain card previews are real components with admi
   assert.match(fixtures, /PublicHelpCard/);
   assert.match(fixtures, /BreedAtlasCard/);
   assert.doesNotMatch(fixtures, /fetch\(|getPublished|listPublished|\.prepare\(|useEffect\(/);
+});
+
+
+test("shared footer and directory category navigation have actual inert admin previews", () => {
+  const previews = source("components/admin-component-visual-preview.tsx");
+  const fixtures = source("components/admin-visual-library-profile-previews.tsx");
+  for (const [id, file, component] of [
+    ["directory-category-navigation", "components/directory-category-navigation.tsx", "DirectoryCategoryNavigation"],
+    ["site-footer", "components/site-footer.tsx", "SiteFooter"],
+  ]) {
+    assert.ok(previews.includes('id: "' + id + '", path: "' + file + '"'));
+    assert.ok(previews.includes('case "' + id + '":'));
+    assert.ok(fixtures.includes("<" + component));
+  }
+  assert.match(fixtures, /SiteFooter/);
+  assert.match(fixtures, /DirectoryCategoryNavigation/);
 });
