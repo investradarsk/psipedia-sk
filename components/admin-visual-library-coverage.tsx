@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library-dynamic-urls";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
 import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
@@ -69,7 +70,9 @@ export function AdminVisualLibraryCoverage({
   const listedStatic = clickableStatic.filter(item => item.href && !knownUrls.has(item.href));
 
   return (
-    <section aria-label="Vyhľadávanie všetkých známych komponentov" className={styles.workspace}>
+    <div className={styles.dynamicCoverage}>
+      <AdminVisualLibraryDynamicUrls />
+      <section aria-label="Vyhľadávanie všetkých známych komponentov" className={styles.workspace}>
       <aside className={styles.catalog}>
         <strong>Hľadať na celom webe</strong>
         <label className={styles.usageSearch}>
@@ -140,9 +143,10 @@ export function AdminVisualLibraryCoverage({
           {chosen.candidates.length === 0 && <p className={styles.pending}>
             Automatická analýza nenašla použitie; komponent môže byť načítaný dynamicky.</p>}
         </>}
-        <p className={styles.nextStep}>Úplná evidencia dynamických profilov a všetkých vizuálnych
-          variantov vyžaduje ďalšie overenie. Tento zoznam nezamieňa možné použitie s potvrdeným výskytom.</p>
+        <p className={styles.nextStep}>Konkrétne publikované URL dynamických profilov sú uvedené v evidencii vyššie.
+          Statické prepojenie komponentu s trasou stále neznamená overené vykreslenie na každom profile.</p>
       </article> : null}
-    </section>
+      </section>
+    </div>
   );
 }
