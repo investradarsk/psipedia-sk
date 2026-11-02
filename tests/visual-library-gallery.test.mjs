@@ -85,3 +85,32 @@ test("route audit integrates authoritative pinned URL evidence without matching 
   assert.match(route, /use\.anchorId \? "#" \+ use\.anchorId/);
   assert.match(coverage, /<AdminVisualLibraryRouteAudit registry=\{registry\} examples=\{examples\}/);
 });
+
+
+test("seven additional public domain card previews are real components with admin-only fictional fixtures", () => {
+  const previews = source("components/admin-component-visual-preview.tsx");
+  const fixtures = source("components/admin-visual-library-profile-previews.tsx");
+  const additions = [
+    ["breed-card", "components/breed-card.tsx", "BreedCard"],
+    ["directory-card", "components/directory-card.tsx", "DirectoryCard"],
+    ["event-list", "components/event-card.tsx", "EventCard"],
+    ["event-grid", "components/event-card.tsx", "EventCard"],
+    ["help-card", "components/help-card.tsx", "HelpCard"],
+    ["help-resolved", "components/help-card.tsx", "HelpCard"],
+    ["related-breed-list", "components/related-entity-list.tsx", "RelatedBreedList"],
+  ];
+  const defs = [...previews.matchAll(/^\s*\{ id: "([^"]+)", path: "([^"]+)", family: "([^"]+)"/gm)];
+  assert.ok(defs.length >= 42, "Existing 35 samples plus seven new real card variants");
+  for (const [id, path, component] of additions) {
+    assert.ok(defs.some((match) => match[1] === id && match[2] === path && match[3] === "card"));
+    assert.ok(previews.includes('case "' + id + '":'));
+    assert.match(fixtures, new RegExp("<" + component + "\\b"));
+  }
+  assert.match(fixtures, /AdminProfileComponentPreview/);
+  assert.match(fixtures, /Ukážkové/);
+  assert.match(fixtures, /PublicDirectoryProfile/);
+  assert.match(fixtures, /PublicEventCard/);
+  assert.match(fixtures, /PublicHelpCard/);
+  assert.match(fixtures, /BreedAtlasCard/);
+  assert.doesNotMatch(fixtures, /fetch\\(|getPublished|listPublished|\\.prepare\\(|useEffect\\(/);
+});
