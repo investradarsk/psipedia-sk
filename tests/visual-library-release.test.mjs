@@ -85,3 +85,52 @@ test("desktop-only text is responsive inside the original semantic heading and C
   assert.match(store, /return stored\.published/);
   assert.match(editor, /draft\.scope === "one"/);
 });
+
+test("five independently anchored Help banners publish only desktop copy, never shared/mobile CSS", () => {
+  const store = read("lib/visual-library-edit-store.ts");
+  const overview = read("components/help-overview.tsx");
+  const help = read("components/public-visual-system/public-help-banner.tsx");
+  const photo = read("components/public-visual-system/public-photo-callout.tsx");
+  for (const id of ["help:lost-found", "help:overview:0", "help:overview:2", "help:overview:4", "help:closing"]) {
+    assert.ok(store.includes('"' + id + '": { url: "https://psipedia.sk/pomoc-psom", variant: 0 }'), id);
+    assert.ok(overview.includes(id), id);
+  }
+  assert.match(overview, /getPublishedDesktopBannerColors\(id\)/);
+  assert.match(overview, /desktopColors=\{published\} desktopCopy=\{published\}/);
+  assert.match(help, /desktopColors=\{desktopColors\}/);
+  assert.match(help, /desktopCopy=\{desktopCopy\}/);
+  assert.match(photo, /desktopColors=\{desktopColors\}/);
+  assert.match(photo, /desktopCopy=\{desktopCopy\}/);
+  assert.match(store, /draft\.scope !== "one"/);
+  assert.match(store, /acknowledgedUrl !== target\.url/);
+});
+
+test("publication or revert invalidates current POP cache without implying global purge", () => {
+  const api = read("app/api/admin/visual-library/banners/route.ts");
+  const cache = read("lib/public-html-cache.ts");
+  const worker = read("worker/index.ts");
+  const editor = read("components/admin-visual-library-editor.tsx");
+  assert.match(api, /invalidateVersionedPublicHtmlCacheUrl\(url, workerVersion\)/);
+  assert.match(api, /isExplicitAnonymousHtmlRoute\(url\.pathname\)/);
+  assert.match(api, /refreshVisualPublicationCache\(publishTarget\.url\)/);
+  assert.match(api, /cacheNotice/);
+  assert.match(api, /V iných regiónoch/);
+  assert.match(cache, /versionedPublicHtmlCacheUrl\(publicUrl, workerVersionId\)/);
+  assert.match(worker, /PUBLIC_HTML_CACHE_TTL_SECONDS/);
+  assert.match(editor, /result\.cacheNotice/);
+  assert.equal((api.match(/requireAdminMutation\(request, \{ strictProvenance: true \}\)/g) || []).length, 2);
+});
+
+test("cross-site visual library includes source inventory but does not invent dynamic URLs", () => {
+  const page = read("app/admin/komponenty/page.tsx");
+  const library = read("components/admin-visual-library.tsx");
+  const coverage = read("components/admin-visual-library-coverage.tsx");
+  assert.match(page, /registry=\{registry/);
+  assert.match(library, /Kde všade sa používa/);
+  assert.match(library, /<AdminVisualLibraryCoverage/);
+  assert.match(coverage, /registry\.components\.filter\(component => component\.area !== "admin"\)/);
+  assert.match(coverage, /publicRegistryRouteHref\(route\)/);
+  assert.match(coverage, /articleUsage\.byKey/);
+  assert.match(coverage, /Konkrétne URL z nich nevymýšľame/);
+  assert.match(coverage, /Statické prepojenie ešte neznamená/);
+});
