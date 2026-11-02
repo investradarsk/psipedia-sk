@@ -4,6 +4,7 @@ import {
   getManagedArticleById,
   isArticleSlugConflict,
   updateManagedArticle,
+  updateManagedArticleInlineExcerpt,
   rescheduleManagedArticle,
   ArticleRescheduleConflictError,
   ArticleUpdateConflictError,
@@ -169,7 +170,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
  * scheduling backend or altering the publication lifecycle.
  */
 export async function PATCH(request: Request, { params }: RouteProps) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const id = await parsedId(params);
   if (!id) return Response.json({ error: "Neplatné ID článku." }, { status: 400 });
@@ -177,6 +178,41 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     const body: unknown = await request.json();
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       return Response.json({ error: "Neplatná požiadavka." }, { status: 400 });
+    }
+    if ((body as Record<string, unknown>).action === "set-inline-excerpt") {
+      const values = body as Record<string, unknown>;
+      if (Object.keys(values).length !== 3 ||
+          typeof values.excerpt !== "string" ||
+          typeof values.expectedUpdatedAt !== "string" || !values.expectedUpdatedAt.trim() ||
+          values.excerpt.trim().length > 700) {
+        return Response.json({ error: "Možno meniť iba krátky popis a vyžaduje sa verzia záznamu." }, { status: 400 });
+      }
+      const before = await getManagedArticleById(id);
+      if (!before) return Response.json({ error: "Článok neexistuje." }, { status: 404 });
+      const article = await updateManagedArticleInlineExcerpt(
+        id, values.excerpt, values.expectedUpdatedAt, auth.user.email,
+      );
+      if (!article) return Response.json({ error: "Článok neexistuje." }, { status: 404 });
+      let notionEditorialWriteback: { status: string; code?: string } | undefined;
+      if (before.status === "draft" && article.status === "draft") {
+        try {
+          const bindings = env as unknown as ArticleRouteBindings;
+          if (bindings.DB) {
+            const result = await writeBackDraftArticleContentToNotion({
+              database: bindings.DB, bindings, article,
+            });
+            notionEditorialWriteback = { status: result.updated ? "synced" : (result.reason ?? "unchanged") };
+          }
+        } catch (error) {
+          const raw = error instanceof Error ? error.message : "";
+          const code = /^(?:NOTION_|ADMIN_|UNSUPPORTED_|MISSING_NOTION_PROPERTY_)[A-Z0-9_]+$/.test(raw)
+            ? raw : "REMOTE_WRITEBACK_FAILED";
+          notionEditorialWriteback = { status: "blocked", code };
+          console.error("notion_article_inline_writeback_failed", { articleId: id, code });
+        }
+      }
+      return Response.json({ article, ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}) },
+        { headers: { "cache-control": "no-store" } });
     }
     const { publishedAt, expectedUpdatedAt } = body as Record<string, unknown>;
     if (typeof publishedAt !== "string" ||
