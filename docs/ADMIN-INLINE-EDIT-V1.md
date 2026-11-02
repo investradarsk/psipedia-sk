@@ -83,3 +83,13 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 1. Admin tabuľky pre automatizácie a Kvalita dát: doménové práva, dávkové akcie a odlišné serverové kontrakty; nemajú podporovať generický zápis do polí.
 2. Zvyšné pomocné a technické zoznamy (partneri, e-shopy, recenzie profilov, importy, auditné logy): skontrolovať ktoré obsahujú reálne redakčne editovateľné údaje, ktoré sú iba read-only či podliehajú schvaľovaniu.
 3. CI: prejsť všetky zelené/červené checks po zmenách a odstrániť zostávajúce regresie. Tento PR sa nemerguje pred týmto krokom.
+
+
+## Gemini a Kvalita údajov – desktopové adaptéry (PR #1176)
+
+- **Gemini** (`/admin/automatizacie-gemini`): nový kompaktný prehľad 22 kategórií umožňuje pri každej upraviť `enabled`, frekvenciu v minútach (5–43 200), prípadný deň týždenného cyklu a limit konceptov (0–100). Každý riadok používa explicitné `Uložiť/Zrušiť` a existujúci `PUT /api/admin/gemini-automation` s doménovou serverovou allowlist. Žiadny automatický beh, manuálne spustenie, STOP ani platený prepínač sa tým nevolá. Hlavný STOP a externé bezpečnostné prepínače zostávajú nadradené. Pôvodný editor kategórie a mobilné ovládanie sú zachované; súbežne rozpracovanú detailnú kartu treba pred úpravou v tabuľke uložiť alebo zrušiť.
+- **Kvalita údajov** (`/admin/kvalita`): otvorený nález možno priamo pred schválením opraviť len pre verejné polia kategórie `web`, `social`, `phone` a `email`. Zmena sa zapíše až tlačidlom **Schváliť upravený údaj**, nie pri opustení vstupu. Používa pôvodný `POST /api/admin/data-quality/missing/:id`, ale prijíma presne `action` a voliteľnú `value`. Server validuje hodnotu, kontroluje, či profil stále nemá dané pole, a ponecháva atómový `updated_at` CAS aj otvorený stav návrhu. Manuálne opravená hodnota aktualizuje evidenciu rozhodnutia; pôvodný zdrojový odkaz sa pri odlišnej hodnote neprisvojuje. Obrázky, adresy, registrácie, dátumy, statusy a súkromné kontakty nie sú editovateľné cez tento adaptér; ich pôvodné schvaľovanie zostáva.
+- Mobil: nová úprava je skrytá pri šírke najviac 899 px; existujúce mobilné rozhodnutia a editor zostávajú.
+- Regresie: `tests/admin-inline-edit-gemini-quality.test.mjs` sú zahrnuté do `test:foundation`. Pri merge ešte treba potvrdiť aktuálny stav CI, prípadné súbežné zmeny a manuálne otestovať uloženie i konflikt.
+
+**Naďalej nedokončené:** ďalšie administračné moduly (partneri, e-shopy, recenzie profilov, importy), samostatný Facebook publikačný workflow, technické/auditné zoznamy a finálna kontrola.
