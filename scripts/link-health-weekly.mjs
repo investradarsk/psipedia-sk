@@ -23,7 +23,7 @@ export function allowedPage(raw, origin = LINK_HEALTH_BASE_URL) {
   try { url = new URL(raw, origin); } catch { return null; }
   if (url.origin !== origin || url.username || url.password) return null;
   const path = url.pathname;
-  if (!path.startsWith("/") || path.startsWith("//") || path.length > 320 ||
+  if (!path.startsWith("/") || path.startsWith("//") || path.length > 320 || path.includes("%") ||
       /\/(?:admin|api|_next|cdn-cgi|auth|login|logout|hladat|oblubene)(\/|$)/i.test(path) ||
       /\/\./.test(path) || /\.(?:pdf|jpg|png|svg|webp|txt|xml|json|mp4)$/i.test(path)) return null;
   url.hash = ""; url.search = "";
@@ -115,7 +115,8 @@ export function markdownLinkHealthReport(report, scannedPages) {
     "- Iné nepotvrdené chyby: " + report.counts.unverified,
     "", "## Čo preveriť", "",
   ];
-  if (!report.findings.length) lines.push("V tejto vzorke nie sú potvrdené chybné interné odkazy.");
+  if (report.counts.checkedLinks === 0) lines.push("Nepodarilo sa overiť žiadny odkaz – výsledok nie je dôkazom funkčnosti webu.");
+  else if (!report.findings.length) lines.push("V tejto vzorke nie sú potvrdené chybné interné odkazy.");
   else {
     lines.push("| Zdrojová stránka | Nefunkčný cieľ | HTTP / stav |", "|---|---|---|");
     for (const f of report.findings.slice(0, 80)) {
