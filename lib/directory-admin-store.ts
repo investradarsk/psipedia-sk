@@ -11,6 +11,7 @@ type DirectoryAdminRow = {
   id: number;
   slug: string;
   name: string;
+  excerpt: string;
   category: string;
   status: string;
   services_json: string;
