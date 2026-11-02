@@ -340,7 +340,13 @@ test("PUBLIC-UX-FOUNDATION-1 provides one two-mode crawlable subcategory navigat
   assert.match(navigatorCss, /grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(navigatorCss, /@media \(max-width: 620px\)[\s\S]*grid-auto-columns:\s*minmax\(228px, 79%\)/);
   assert.match(navigatorCss, /scroll-snap-type:\s*x mandatory/);
-  assert.match(navigatorCss, /min-height:\s*44px/);
+  // Current PUBLIC NAV uses 48px compact links (52px in the optional mobile grid).
+  // The accessibility contract is at least 44px, not exactly 44px.
+  const compactRules = [...navigatorCss.matchAll(/\\.compactItem\\s*\\{([^}]*)\\}/g)];
+  assert.ok(compactRules.some(([, rule]) => {
+    const minimum = rule.match(/min-height:\\s*(\\d+)px/);
+    return minimum && Number(minimum[1]) >= 44;
+  }), "compact subcategory links keep a touch target of at least 44px");
   assert.match(navigatorCss, /-webkit-line-clamp:\s*2/);
   assert.match(navigatorCss, /prefers-reduced-motion:\s*reduce/);
   assert.match(portalTabs, /<PublicSubcategoryNavigator/);
