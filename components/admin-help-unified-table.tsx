@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminRecordTable, type AdminRecordColumn } from "@/components/admin-record-table";
+import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
@@ -29,6 +30,7 @@ export type HelpDirectoryRow = {
     websiteUrl: string | null;
     editable: boolean;
   };
+  inlineHelp?: { title: string; excerpt: string; editable: boolean };
 };
 export type HelpDirectoryCategory = { slug: string; label: string; icon: string; href: string };
 
@@ -52,6 +54,7 @@ type ShelterDraft = {
   websiteUrl: string;
 };
 type ShelterEditableField = "name" | "shortDescription" | "publicEmail" | "publicPhone" | "websiteUrl";
+type HelpDraft = { key: string; id: number; updatedAt: string; title: string; excerpt: string };
 
 export function AdminHelpUnifiedTable({
   category, categories, rows, query, page, pages, total,
@@ -71,6 +74,8 @@ export function AdminHelpUnifiedTable({
   const [message, setMessage] = useState("");
   const [shelterDraft, setShelterDraft] = useState<ShelterDraft | null>(null);
   const [shelterBusy, setShelterBusy] = useState(false);
+  const [helpDraft, setHelpDraft] = useState<HelpDraft | null>(null);
+  const [helpBusy, setHelpBusy] = useState(false);
 
   // A category, search, page or row change invalidates selection immediately,
   // including the preflight preview. Nothing can leak to another page/filter.
@@ -82,8 +87,11 @@ export function AdminHelpUnifiedTable({
   const activeReview = bulkReview?.key === viewKey ? bulkReview : null;
   const canBulkEdit = isHelpAdminCreateCategory(category);
   const canInlineEditShelters = category === "utulky";
+  const canInlineEditHelp = canBulkEdit;
   const activeShelterDraft = canInlineEditShelters && shelterDraft?.key === viewKey &&
     visibleIds.has(shelterDraft.id) ? shelterDraft : null;
+  const activeHelpDraft = canInlineEditHelp && helpDraft?.key === viewKey &&
+    rows.some(row => row.id === helpDraft.id && row.updatedAt === helpDraft.updatedAt) ? helpDraft : null;
 
   const categoryHref = (slug: string, nextPage = 1) => {
     const params = new URLSearchParams();
@@ -156,6 +164,46 @@ export function AdminHelpUnifiedTable({
     }
   }
 
+  function beginHelpEdit(item: HelpDirectoryRow) {
+    if (!canInlineEditHelp || !item.inlineHelp?.editable || helpBusy) return;
+    setMessage("");
+    setBulkReview(null);
+    setHelpDraft({
+      key: viewKey, id: item.id, updatedAt: item.updatedAt,
+      title: item.inlineHelp.title, excerpt: item.inlineHelp.excerpt,
+    });
+  }
+
+  async function saveHelpEdit() {
+    const draft = activeHelpDraft;
+    if (!draft || helpBusy || !draft.title.trim()) return;
+    setHelpBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/help/" + draft.id, {
+        method: "PATCH",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "set-inline-editorial",
+          expectedCategory: category,
+          expectedUpdatedAt: draft.updatedAt,
+          changes: { title: draft.title, excerpt: draft.excerpt },
+        }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Rýchlu úpravu sa nepodarilo uložiť.");
+      setHelpDraft(null);
+      setMessage("Názov a krátky popis boli uložené.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Úpravu sa nepodarilo uložiť.");
+    } finally {
+      setHelpBusy(false);
+    }
+  }
+
   const tableColumns: AdminRecordColumn<HelpDirectoryRow>[] = [
     {
       id: "title", label: "Názov / pes", width: canInlineEditShelters ? 240 : 265,
@@ -166,7 +214,11 @@ export function AdminHelpUnifiedTable({
           value={activeShelterDraft.name} maxLength={180} required disabled={shelterBusy}
           onChange={event => changeShelterField("name", event.target.value)}
         />
-        : <Link className={styles.primary} href={item.href}>{item.title}</Link>,
+        : activeHelpDraft?.id === item.id
+          ? <AdminInlineCellInput label={"Názov záznamu " + item.title}
+              value={activeHelpDraft.title} maxLength={180} required disabled={helpBusy}
+              onChange={title => setHelpDraft(current => current ? { ...current, title } : null)} />
+          : <Link className={styles.primary} href={item.href}>{item.title}</Link>,
     },
     { id: "detail", label: "Typ / doplnenie", width: canInlineEditShelters ? 140 : 205, sortValue: item => item.detail, cell: item => item.detail || "—" },
     { id: "city", label: "Lokalita", width: canInlineEditShelters ? 130 : 160, sortValue: item => item.city, cell: item => item.city || "—" },
@@ -202,13 +254,22 @@ export function AdminHelpUnifiedTable({
           </span>,
       },
     ] : []),
+    ...(canInlineEditHelp ? [{
+      id: "helpExcerpt", label: "Krátky popis", width: 255,
+      sortValue: (item: HelpDirectoryRow) => item.inlineHelp?.excerpt || "",
+      cell: (item: HelpDirectoryRow) => activeHelpDraft?.id === item.id
+        ? <AdminInlineCellInput label={"Krátky popis " + item.title}
+            value={activeHelpDraft.excerpt} maxLength={700} disabled={helpBusy}
+            onChange={excerpt => setHelpDraft(current => current ? { ...current, excerpt } : null)} />
+        : <span title={item.inlineHelp?.excerpt || ""}>{item.inlineHelp?.excerpt || "—"}</span>,
+    }] : []),
     {
       id: "updated", label: "Aktualizované", width: canInlineEditShelters ? 123 : 145,
       sortValue: item => item.updatedAt,
       cell: item => item.updatedAt ? new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "short", year: "numeric" }).format(new Date(item.updatedAt)) : "—",
     },
     {
-      id: "actions", label: "Akcia", width: canInlineEditShelters ? 180 : 125,
+      id: "actions", label: "Akcia", width: canInlineEditShelters || canInlineEditHelp ? 180 : 125,
       cell: item => canInlineEditShelters
         ? activeShelterDraft?.id === item.id
           ? <span className={styles.inlineActions}>
@@ -222,7 +283,19 @@ export function AdminHelpUnifiedTable({
               onClick={() => beginShelterEdit(item)}>Upraviť v tabuľke</button>}
             <Link className={styles.action} href={item.href}>Detail →</Link>
           </span>
-        : <Link className={styles.action} href={item.href}>Upraviť →</Link>,
+        : canInlineEditHelp && item.inlineHelp?.editable
+          ? <span className={styles.inlineActions}>
+              <AdminInlineRowActions
+                editing={activeHelpDraft?.id === item.id} busy={helpBusy}
+                disabled={Boolean(activeHelpDraft && activeHelpDraft.id !== item.id) ||
+                  (activeHelpDraft?.id === item.id && !activeHelpDraft.title.trim())}
+                onEdit={() => beginHelpEdit(item)}
+                onSave={() => void saveHelpEdit()}
+                onCancel={() => { if (!helpBusy) setHelpDraft(null); }}
+              />
+              <Link className={styles.action} href={item.href}>Detail →</Link>
+            </span>
+          : <Link className={styles.action} href={item.href}>Upraviť →</Link>,
     },
   ];
 
@@ -297,7 +370,7 @@ export function AdminHelpUnifiedTable({
       <div className={styles.intro}>
         <div>
           <strong>Profily a prípady</strong>
-          <p>Vyber kategóriu a pracuj s prehľadnou tabuľkou. Úpravy sa otvárajú v existujúcom editore.</p>
+          <p>Vyber kategóriu, uprav povolené údaje priamo v tabuľke alebo otvor kompletný editor.</p>
         </div>
         <Link className={styles.categoryAction} href={active.href}>Pokročilá správa kategórie</Link>
       </div>
@@ -345,13 +418,16 @@ export function AdminHelpUnifiedTable({
           Stav publikovania, typ organizácie a adresy zostávajú v editore Detail.
         </p>
       )}
+      {canInlineEditHelp && rows.length > 0 && (
+        <p className={styles.bulkHint}>Rýchlo uprav názov a krátky popis prípadu priamo v tabuľke. Publikovanie a ostatné polia spravuj existujúcimi akciami.</p>
+      )}
       {message && <p className={styles.bulkMessage} role="status">{message}</p>}
 
       {rows.length ? <AdminRecordTable
         rows={rows}
         label={active.label}
-        busy={bulkBusy || shelterBusy}
-        stretch={canInlineEditShelters}
+        busy={bulkBusy || shelterBusy || helpBusy}
+        stretch={canInlineEditShelters || canInlineEditHelp}
         selection={canBulkEdit ? {
           selectedIds,
           disabled: bulkBusy,
