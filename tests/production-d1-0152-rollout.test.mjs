@@ -19,8 +19,8 @@ function objects(db) {
 
 test("0152 is an owner-dispatched protected migration, only after completed 0151", () => {
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(migration));
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes("0151_admin_content_revision_history.sql"), false);
-  assert.equal(UNACTIVATED_PRODUCTION_TARGETS.includes("0151_admin_content_revision_history.sql"), true);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes("0151_admin_content_revision_history.sql"), true);
+  assert.equal(UNACTIVATED_PRODUCTION_TARGETS.includes("0151_admin_content_revision_history.sql"), false);
   assert.equal(UNACTIVATED_PRODUCTION_TARGETS.includes(migration), false);
   assert.equal(PREPARED_PRODUCTION_TARGETS.includes(migration), false);
   assert.equal(createHash("sha256").update(sql).digest("hex"), APPROVED_0152_SHA256);

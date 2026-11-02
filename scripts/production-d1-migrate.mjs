@@ -12,6 +12,11 @@ import { PINNED_SHA256_0137, OBJECTS_0137, COLUMNS_0137, assertMediaReview0137Sc
 import { PINNED_SHA256_0138, OBJECTS_0138, assertArticleOutbox0138Prerequisites, assertArticleOutbox0138Schema as assert0138SchemaExact } from "./production-d1-0138-schema.mjs";
 import { PINNED_SHA256_0139, OBJECTS_0139, assertServicesV3Auto0139Prerequisites, assertServicesV3Auto0139Schema as assert0139SchemaExact } from "./production-d1-0139-schema.mjs";
 
+import {
+  PINNED_SHA256_0151, OBJECTS_0151, assertContentHistory0151Prerequisites,
+  assertContentHistory0151Schema, assertContentHistory0151NotApplied,
+} from "./production-d1-0151-schema.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
@@ -37,10 +42,15 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // Migration 0142 remains owner-dispatched through the existing protected production workflow.
 // 0146 remains owner-dispatched only: PR merge does not run the protected migration.
 // 0147 Notion field authority also requires a separate owner-dispatched protected D1 migration.
-// 0151 is NOT authorized here: it must be separately approved and applied first.
-// 0152 is owner-dispatched ONLY, gated on exact 0151 ledger + physical schema.
+// 0151 and 0152 are owner-dispatched ONLY through the protected workflow.
+// 0152 requires an applied 0151 with a validated physical schema.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
-export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze(["0151_admin_content_revision_history.sql"]);
+export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([]);
+export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
+export function assertApproved0151Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0151 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0151_SHA256, "0151 SQL SHA256 differs from approved migration bytes");
+}
 export const APPROVED_0152_SHA256 = "398cd051ff7fed3216115e0d6e4292803cb3d935c3b0b8cfe19afc83ec3e3af5";
 export function assertApproved0152Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0152 requires canonical psipedia-sk-db");
@@ -292,6 +302,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0148_notion_transfer_audit.sql",
   "0149_services_builtin_admin_overrides.sql",
   "0150_gemini_import_review_notes.sql",
+  "0151_admin_content_revision_history.sql",
   "0152_visual_library_banner_edits.sql",
 ]);
 
@@ -822,6 +833,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0138Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === PROPOSED_SERVICES_V3_SQL)
     assertApproved0139Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0151_admin_content_revision_history.sql")
+    assertApproved0151Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0152_visual_library_banner_edits.sql")
     assertApproved0152Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
@@ -926,6 +939,7 @@ function schemaState(databaseName, configPath) {
   const geoPointColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('geo_points')");
   const managedEshopColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('managed_eshops')");
   const portalSectionSettingsColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('portal_section_settings')");
+  const sectionVisualColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('section_visuals')");
   const automationDiscoveryRootColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_roots')");
   const automationDiscoveryRunColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_runs')");
   const automationSourceColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_sources')");
@@ -972,6 +986,7 @@ function schemaState(databaseName, configPath) {
     geoPointColumns,
     managedEshopColumns,
     portalSectionSettingsColumns,
+    sectionVisualColumns,
     automationDiscoveryRootColumns,
     automationDiscoveryRunColumns,
     automationSourceColumns,
@@ -1530,6 +1545,9 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0150_gemini_import_review_notes.sql") {
     return { partial: names.has("gemini_import_review_notes") };
+  }
+  if (targetMigration === "0151_admin_content_revision_history.sql") {
+    return { partial: OBJECTS_0151.some(name => names.has(name)) };
   }
   if (targetMigration === "0152_visual_library_banner_edits.sql") {
     return { partial: names.has("visual_library_banner_edits") };
@@ -2902,6 +2920,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 147) assertNotionFieldAuthority0147Schema(schema);
   if (migrationIndex(targetMigration) >= 148) assertNotionTransferAudit0148Schema(schema);
   if (migrationIndex(targetMigration) >= 149) assertBuiltinCatalogOverrides0149Schema(schema);
+  if (migrationIndex(targetMigration) >= 151) assertContentHistory0151Schema(schema);
   if (migrationIndex(targetMigration) >= 152) assertVisualLibrary0152Schema(schema);
 }
 
@@ -3385,6 +3404,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   if (targetIndex >= 141) assertDirectoryServiceNotionRelations0140Schema(schema);
   if (targetIndex >= 142) assertQualityMissingHourly0141Schema(schema);
   if (targetIndex >= 144) assertQualityManual0143Schema(schema);
+  if (targetIndex >= 151) assertContentHistory0151Prerequisites(schema);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -3488,6 +3508,7 @@ async function preflight(targetMigration) {
   assert0137NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0138NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0139NotAlreadyApplied(targetMigration, state.targetApplied);
+  assertContentHistory0151NotApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -3675,6 +3696,7 @@ async function apply(targetMigration) {
   assert0137NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0138NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0139NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assertContentHistory0151NotApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   if (prepared.selection.targetIndex === 135) {
     invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
       "SELECT COUNT(*) AS count FROM facebook_image_publish_attempts WHERE state='SENDING'") === 0,
