@@ -78,7 +78,7 @@ export function AdminVisualLibraryCoverage({
 
   return (
     <div className={styles.dynamicCoverage}>
-      <AdminVisualLibraryRouteAudit registry={registry} />
+      <AdminVisualLibraryRouteAudit registry={registry} examples={examples} />
       <AdminVisualLibraryDynamicUrls />
       <section aria-label="Vyhľadávanie všetkých známych komponentov" className={styles.workspace}>
       <aside className={styles.catalog}>
