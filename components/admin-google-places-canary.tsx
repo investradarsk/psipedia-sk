@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { GooglePlaceCanaryPreviewItem } from "@/lib/google-place-canary";
+import { AdminGooglePlacesApiLink } from "@/components/admin-google-places-api-link";
 
 type PreviewReport = {
   requested: number;
@@ -94,6 +95,7 @@ export function AdminGooglePlacesCanary({ configured }: { configured: boolean })
         <p className={configured ? "admin-message" : "admin-message admin-message--error"}>
           Server-side secret <strong>GOOGLE_PLACES_API_KEY</strong>: {configured ? "nakonfigurovaný" : "chýba"}.
         </p>
+        <AdminGooglePlacesApiLink />
         <div className="admin-field-grid">
           <div className="admin-field">
             <label htmlFor="google-place-limit">Automatic canary size</label>
