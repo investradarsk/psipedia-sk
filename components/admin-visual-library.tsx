@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
 import { AdminVisualLibraryOther } from "@/components/admin-visual-library-other";
+import { AdminVisualLibraryGallery } from "@/components/admin-visual-library-gallery";
+import { adminComponentPreviewSamples } from "@/components/admin-component-visual-preview";
 import { AdminVisualLibraryDuplicates } from "@/components/admin-visual-library-duplicates";
 import { AdminVisualLibraryEditor } from "@/components/admin-visual-library-editor";
 import { AdminVisualLibraryCoverage, type CoverageRegistry } from "@/components/admin-visual-library-coverage";
@@ -16,7 +18,7 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
   examples: readonly VisualLibraryExample[];
   registry: CoverageRegistry;
 }) {
-  const [category, setCategory] = useState<"bannery" | "podobne" | "vsetko" | VisualExampleCategory>("bannery");
+  const [category, setCategory] = useState<"bannery" | "podobne" | "vsetko" | "galeria" | "filtre" | "navigacia" | "ostatne" | VisualExampleCategory>("bannery");
   const [editorOpen, setEditorOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [group, setGroup] = useState<"all" | "clanky" | "stranky">("all");
@@ -24,6 +26,14 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
   const [variantIndex, setVariantIndex] = useState(0);
   const [usageFilter, setUsageFilter] = useState("");
   const [usageLimit, setUsageLimit] = useState(30);
+  const previewPaths = useMemo(
+    () => new Set(adminComponentPreviewSamples.map((sample) => sample.path)), [],
+  );
+  const publicSourceComponents = registry.components.filter((item) => item.area !== "admin");
+  const publicSourceWithPreview = publicSourceComponents.filter((item) => previewPaths.has(item.path)).length;
+  const publicRouteTemplates = registry.routeEntries?.filter((item) => item.area === "public").length;
+  const unavailableRegistry = registry.components.length === 0;
+
   const articleUsesFor = (id: string) => id.startsWith("clanky:")
     ? (articleUsage.byKey[id.slice(7)] ?? []) : [];
   const usageCountFor = (id: string) => {
@@ -58,17 +68,32 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
         <div>
           <p className={styles.kicker}>Vizuálna knižnica · priebežné pokrytie</p>
           <h2>Čo používame na webe</h2>
-          <p>Vyber banner, hero, tlačidlo alebo kartu. Uvidíš skutočný komponent a konkrétne overené stránky, kde sa používa.</p>
+          <p>Vyber banner, hero, tlačidlo, kartu alebo filter. Uvidíš živý náhľad, možnosti úpravy aj rozlíšenie overených a iba predpokladaných použití.</p>
         </div>
-        <div className={styles.count}><strong>{visualLibraryBanners.length + examples.length}</strong><span>evidovaných vizuálnych prvkov</span></div>
+        <div className={styles.count}><strong>{adminComponentPreviewSamples.length}</strong><span>živých variantov v galérii</span></div>
       </header>
 
+      <div className={styles.coverageSummary} aria-label="Stav pokrytia vizuálnej knižnice">
+        <div><strong>{adminComponentPreviewSamples.length}</strong><span>Živých náhľadov</span></div>
+        <div><strong>{unavailableRegistry ? "—" : publicSourceWithPreview + " / " + publicSourceComponents.length}</strong><span>Verejných súborov s náhľadom</span></div>
+        <div><strong>{publicRouteTemplates ?? "—"}</strong><span>Verejných šablón v registri</span></div>
+        <div><strong>4</strong><span>Typy s editorom návrhov</span></div>
+      </div>
+      <p className={styles.explanation}>
+        Náhľad je ukážka komponentu, nie potvrdený výskyt na všetkých verejných URL.
+        Priame publikovanie na desktope zostáva obmedzené na samostatne overené bannery.
+        Ostatné editory ukladajú iba návrhy. {unavailableRegistry ? "Zdrojový register sa v tejto zostave nenačítal." : ""}
+      </p>
       <nav className={styles.types} aria-label="Kategórie knižnice">
         {([
           ["bannery", "Bannery"],
           ["hero", "Hero sekcie"],
           ["cta", "CTA tlačidlá"],
           ["karty", "Karty"],
+          ["filtre", "Filtre a formuláre"],
+          ["navigacia", "Navigácia"],
+          ["ostatne", "Ostatné prvky"],
+          ["galeria", "Všetky náhľady"],
           ["vsetko", "Kde všade sa používa"],
           ["podobne", "Možné duplicity"],
         ] as const).map(([id, label]) => (
@@ -228,13 +253,26 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
           </div>
         ) : <p className={styles.empty}>Vyber iný filter alebo hľadaný výraz.</p>}
       </div>
+      <AdminVisualLibraryGallery registry={registry} fixedFamily="banner" />
       </>
       ) : category === "vsetko" ? (
         <AdminVisualLibraryCoverage registry={registry} articleUsage={articleUsage} examples={examples} />
       ) : category === "podobne" ? (
-        <AdminVisualLibraryDuplicates articleUsage={articleUsage} examples={examples} />
+        <AdminVisualLibraryDuplicates articleUsage={articleUsage} examples={examples} registry={registry} />
+      ) : category === "galeria" ? (
+        <AdminVisualLibraryGallery registry={registry} />
+      ) : category === "filtre" ? (
+        <AdminVisualLibraryGallery registry={registry} fixedFamily="filter" />
+      ) : category === "navigacia" ? (
+        <AdminVisualLibraryGallery registry={registry} fixedFamily="category" />
+      ) : category === "ostatne" ? (
+        <AdminVisualLibraryGallery registry={registry} fixedFamily="other" />
       ) : (
-        <AdminVisualLibraryOther key={category} category={category} examples={examples} />
+        <>
+          <AdminVisualLibraryOther key={category} category={category} examples={examples} />
+          <AdminVisualLibraryGallery key={category + "-gallery"} registry={registry}
+            fixedFamily={category === "karty" ? "card" : category} />
+        </>
       )}
     </section>
   );

@@ -83,3 +83,49 @@ test("only static, known public route patterns become clickable links", () => {
     assert.equal(publicRegistryRouteHref(route), null);
   }
 });
+
+
+test("route audit includes every page source, even when it imports no visual component", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "psipedia-routes-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fixture(root, "app/page.tsx", "export default function Home(){return null}");
+  fixture(root, "app/kontakt/page.tsx", "export default function Contact(){return null}");
+  fixture(root, "app/(site)/pravne/podmienky/page.tsx", "export default function Legal(){return null}");
+  fixture(root, "app/plemena/[slug]/page.tsx", "export default function Profile(){return null}");
+  fixture(root, "app/admin/komponenty/page.tsx", "export default function Admin(){return null}");
+
+  const entries = buildRegistry(root).routeEntries;
+  assert.deepEqual(entries.map((item) => item.route).sort(), [
+    "/", "/admin/komponenty", "/kontakt", "/plemena/[slug]", "/pravne/podmienky",
+  ]);
+  assert.deepEqual(entries.find((item) => item.route === "/plemena/[slug]"), {
+    route: "/plemena/[slug]",
+    source: "app/plemena/[slug]/page.tsx",
+    area: "public",
+    dynamic: true,
+  });
+  assert.equal(entries.find((item) => item.route === "/kontakt").dynamic, false);
+  assert.equal(entries.find((item) => item.route === "/admin/komponenty").area, "admin");
+  assert.ok(entries.some((item) => item.source === "app/(site)/pravne/podmienky/page.tsx"));
+  assert.equal(entries.length, 5);
+});
+
+
+test("registry captures direct CSS modules but never invents a rendered duplicate", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "psipedia-css-module-audit-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fixture(root, "app/page.tsx",
+    'import Hero from "@/components/hero"; export default function Page(){return <Hero/>}');
+  fixture(root, "components/hero.tsx",
+    'import styles from "./hero.module.css"; export default function Hero(){return <div className={styles.hero}/>;}');
+  fixture(root, "components/hero.module.css", ".hero{display:block}");
+  fixture(root, "components/unreferenced.tsx",
+    'import styles from "@/components/unreferenced.module.css"; export default function X(){return <div/>;}');
+  fixture(root, "components/unreferenced.module.css", ".thing{display:grid}");
+  const registry = buildRegistry(root);
+  assert.deepEqual(registry.components.find(c => c.name === "hero").styleModules,
+    ["components/hero.module.css"]);
+  assert.deepEqual(registry.components.find(c => c.name === "unreferenced").styleModules,
+    ["components/unreferenced.module.css"]);
+  assert.deepEqual(registry.components.find(c => c.name === "hero").routes, ["/"]);
+});
