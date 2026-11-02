@@ -42,7 +42,6 @@ import {
   getMediaSourceMonitorForEntity,
   upsertMediaSourceMonitor,
 } from "@/lib/media-source-monitor";
-import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { SITE_URL } from "@/config/public-site";
 import { canRecoverNotionDirectoryMapping, directorySyncErrorMetadataNeedsWrite, NotionDirectoryUnsafeTargetError, notionDirectoryPageBelongsToSource, notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
@@ -1070,10 +1069,7 @@ async function applyNotionToProfile(input: {
       });
     }
 
-    await autoAssignGooglePlaceForDirectoryProfile({
-      targetId: updated.id,
-      database: input.database,
-    });
+    // Paid Google Places search must only run after an explicit admin action.
 
     if(JSON.stringify(desired.services)!==JSON.stringify(current.services)){
       // Only a Notion-side "Služby" edit maps to canonical choices. The existing
@@ -1766,13 +1762,10 @@ export async function runNotionDirectorySyncSweep(input: {
               database: input.database,
             });
           }
-          await autoAssignGooglePlaceForDirectoryProfile({
-            targetId: created.id,
-            database: input.database,
-          });
+          // Gemini/Notion imports never trigger a paid Google Places lookup.
         } catch (error) {
           if (!privateImport) throw error;
-          warnings.push("Google Maps: " + (error instanceof Error ? error.message : String(error)));
+          warnings.push("GEO: " + (error instanceof Error ? error.message : String(error)));
         }
         created = await getManagedDirectoryProfileById(created.id, input.database) ?? created;
 

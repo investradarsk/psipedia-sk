@@ -1,0 +1,18 @@
+{
+  "name": "psipedia-google-places-budget-guard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloud Run function: disable only Places API (New) after 5 EUR monthly budget notification",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "test": "node --test *.test.js",
+    "check": "node --check index.js && node --check policy.js && node --check service-usage.js"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.4.0",
+    "google-auth-library": "^9.15.0"
+  },
+  "type": "module"
+}
