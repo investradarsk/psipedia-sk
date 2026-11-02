@@ -19,7 +19,7 @@ function cleanPath(path: string) {
 }
 export function isAllowedPublicPath(pathname: string): boolean {
   if (!pathname || !pathname.startsWith("/") || pathname.startsWith("//")) return false;
-  if (pathname.length > 340 || /[\u0000-\u001f\u007f\\]/.test(pathname)) return false;
+  if (pathname.length > 340 || /[\u0000-\u001f\u007f\\%]/.test(pathname)) return false;
   const path = cleanPath(pathname).toLowerCase();
   if (/(^|\/)\.{1,2}(\/|$)/.test(path) || path.startsWith("/.")) return false;
   if (/\.(?:pdf|zip|csv|xlsx?|docx?|mp4|mov|png|jpe?g|webp|gif|svg|woff2?|css|js|json|xml|txt)$/i.test(path)) return false;
@@ -52,6 +52,7 @@ export function classifyPublicLink(status: number | null): LinkCheckState {
 export function uniquePublicLinks(hrefs: readonly string[], origin: string, limit = MAX_LINK_TARGETS): string[] {
   if (!Number.isSafeInteger(limit) || limit < 0 || limit > MAX_LINK_TARGETS) throw new Error("Invalid link budget.");
   const urls = new Set<string>();
+  if (limit === 0) return [];
   for (const href of hrefs) {
     const url = internalPublicUrl(href, origin);
     if (url) urls.add(url);
