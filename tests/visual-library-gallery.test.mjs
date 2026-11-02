@@ -45,3 +45,18 @@ test("the editor and publication authorization remain separate from the read-onl
   assert.match(editor, /knownUses === 1/);
   assert.match(editor, /Mobilné texty aj farby ostanú pôvodné/);
 });
+
+
+test("route audit enumerates all public page entries without fabricating dynamic profile URLs", () => {
+  const generator = source("scripts/generate-component-registry.mjs");
+  const coverage = source("components/admin-visual-library-coverage.tsx");
+  const audit = source("components/admin-visual-library-route-audit.tsx");
+  assert.match(generator, /routeEntries: routes\.map/);
+  assert.match(generator, /source: file/);
+  assert.match(generator, /dynamic: \/\\\[/);
+  assert.match(coverage, /<AdminVisualLibraryRouteAudit registry=\{registry\}/);
+  assert.match(audit, /publicRegistryRouteHref\(selected\.route\)/);
+  assert.match(audit, /route\.area === "public"/);
+  assert.match(audit, /Samotný import|Tranzitívna závislosť/);
+  assert.doesNotMatch(audit, /fetch\(|method: "PUT"|method: "POST"/);
+});
