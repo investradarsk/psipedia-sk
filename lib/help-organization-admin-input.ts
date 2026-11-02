@@ -135,6 +135,19 @@ export function parseOrganizationAdminInput(value: unknown): OrganizationAdminIn
   };
 }
 
+/** Validate only the public text/contact fields that a shelter grid row owns.
+ * Does not inspect unrelated old media, slug or source values, which may be
+ * incomplete on an imported DRAFT. */
+export function parseShelterInlineTextInput(object: Record<string, unknown>) {
+  return {
+    name: requiredString(object, "name", "Názov", 180),
+    shortDescription: stringValue(object, "shortDescription", "Krátky popis", 700),
+    publicEmail: nullableEmail(object),
+    publicPhone: nullableString(object, "publicPhone", "Verejný telefón", 100),
+    websiteUrl: nullableUrl(object, "websiteUrl", "Web"),
+  };
+}
+
 export function organizationAdminInputFromCandidate(
   organization: OrganizationPublicationCandidate & { imageKey?: string | null; thumbnailImageDisplay?: ImageDisplayConfig | null; detailImageDisplay?: ImageDisplayConfig | null },
 ): OrganizationAdminInput {

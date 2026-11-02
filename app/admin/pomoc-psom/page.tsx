@@ -56,6 +56,14 @@ async function loadTable(category: (typeof helpCategories)[number]["slug"], q: s
       id: item.id, title: item.name, detail: item.type, category,
       status: item.status === "PUBLISHED" ? "Publikované" : item.status === "DRAFT" ? "Koncept" : "Archivované",
       city: item.primaryCity || item.city, updatedAt: item.updatedAt, href: "/admin/organizacie/" + item.id,
+      inline: {
+        name: item.name,
+        shortDescription: item.shortDescription,
+        publicEmail: item.publicEmail,
+        publicPhone: item.publicPhone,
+        websiteUrl: item.websiteUrl,
+        editable: item.status !== "ARCHIVED" && !item.archivedAt,
+      },
     }));
   } else {
     const data = await getManagedHelpDashboard(parseHelpAdminFilters({ get: key =>

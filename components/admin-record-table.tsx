@@ -41,12 +41,15 @@ export function AdminRecordTable<T extends { id: number }>({
   label,
   busy = false,
   selection,
+  stretch = false,
 }: {
   rows: T[];
   columns: AdminRecordColumn<T>[];
   label: string;
   busy?: boolean;
   selection?: AdminRecordTableSelection<T>;
+  /** Opt in to filling available desktop width, while preserving horizontal scrolling. */
+  stretch?: boolean;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [visibility, setVisibility] = useState<VisibilityState>(() =>
@@ -139,7 +142,7 @@ export function AdminRecordTable<T extends { id: number }>({
         </details>
       </div>
       <div className={styles.scroll} role="region" aria-label={label + " – tabuľka"} tabIndex={0}>
-        <table className={styles.table} style={{ width: Math.max(table.getTotalSize(), 820) }}>
+        <table className={styles.table} style={{ width: stretch ? `max(100%, ${Math.max(table.getTotalSize(), 820)}px)` : Math.max(table.getTotalSize(), 820) }}>
           <colgroup>
             {table.getVisibleLeafColumns().map((column) => (
               <col key={column.id} style={{ width: column.getSize() }} />

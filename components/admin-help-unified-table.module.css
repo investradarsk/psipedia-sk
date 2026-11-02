@@ -68,3 +68,41 @@
   background: #f2f8f1;
   font-size: .85rem;
 }
+
+/* Desktop-only inline edit of canonical shelter text/contact fields. */
+.inlineInput, .inlineTextarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid #bdd1c4;
+  border-radius: 7px;
+  background: #fff;
+  color: #173e2f;
+  font: inherit;
+  font-size: .82rem;
+}
+.inlineInput:focus, .inlineTextarea:focus {
+  outline: 2px solid #9bbaa9;
+  outline-offset: 1px;
+}
+.inlineTextarea { resize: vertical; line-height: 1.35; min-height: 76px; }
+.inlineContacts { display: grid; gap: 6px; min-width: 0; }
+.inlineContactPreview { display: block; overflow: hidden; text-overflow: ellipsis; }
+.inlineActions { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.inlineSave, .inlineCancel, .inlineTrigger {
+  border-radius: 7px;
+  border: 1px solid #c6d9cc;
+  padding: 7px 9px;
+  font-size: .76rem;
+  font-weight: 750;
+  cursor: pointer;
+  white-space: normal;
+  text-align: center;
+}
+.inlineSave, .inlineTrigger { background: #174b38; color: #fff; border-color: #174b38; }
+.inlineCancel { background: #f8faf6; color: #234c38; }
+.inlineSave:disabled, .inlineCancel:disabled, .inlineTrigger:disabled {
+  cursor: not-allowed; opacity: .55;
+}

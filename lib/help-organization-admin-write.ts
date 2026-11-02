@@ -5,6 +5,7 @@ import { getOrganizationPublicationAdminById } from "./help-organization-admin-s
 import type { OrganizationPublicationPreflight } from "./help-organization-publication.ts";
 import { ensureResourceForHelpOrganization } from "./canonical-resource.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
+import type { ShelterInlineValues } from "./help-organization-inline-edit.ts";
 
 type RuntimeBindings = { DB?: AdoptionD1Database };
 type RunResult = { meta?: { changes?: number; last_row_id?: number }; changes?: number };
@@ -185,6 +186,41 @@ export async function updateOrganizationFromAdmin(
     if (isUniqueSlugError(error)) throw new OrganizationSlugConflictError();
     throw error;
   }
+}
+
+/** Atomic narrow update for the shelter grid. No slug, type, address, media,
+ * publication state or other legacy fields are rewritten or revalidated. */
+export async function updateShelterInlineFieldsFromAdmin(
+  id: number,
+  changes: ShelterInlineValues,
+  editorEmail: string,
+  expectedUpdatedAt: string,
+  database?: AdoptionD1Database,
+  now = new Date(),
+) {
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
+  if (!expectedUpdatedAt?.trim()) throw new OrganizationConcurrentEditError();
+  const db = requireD1Binding(database);
+  const current = await getOrganizationPublicationAdminById(id, db);
+  if (!current) return null;
+  if (current.updatedAt !== expectedUpdatedAt) throw new OrganizationConcurrentEditError();
+  if (current.type !== "SHELTER" || current.status === "ARCHIVED" || current.archivedAt) {
+    throw new OrganizationPublicationTransitionError("Tento záznam nie je upraviteľný v tabuľke útulkov.");
+  }
+  const result = await db.prepare(`
+    UPDATE help_organizations
+    SET name=?, short_description=?, public_email=?, public_phone=?, website_url=?,
+      updated_at=?, updated_by=?
+    WHERE id=? AND updated_at=? AND type='SHELTER'
+      AND status IN ('DRAFT','PUBLISHED') AND archived_at IS NULL
+  `).bind(
+    changes.name, changes.shortDescription, changes.publicEmail, changes.publicPhone, changes.websiteUrl,
+    now.toISOString(), editorEmail, id, expectedUpdatedAt,
+  ).run() as RunResult;
+  if (Number(result.meta?.changes ?? result.changes ?? 0) !== 1) {
+    throw new OrganizationConcurrentEditError();
+  }
+  return getOrganizationPublicationAdminById(id, db);
 }
 
 export async function changeOrganizationPublicationFromAdmin(

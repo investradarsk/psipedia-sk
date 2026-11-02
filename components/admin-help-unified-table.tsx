@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AdminRecordTable } from "@/components/admin-record-table";
+import { AdminRecordTable, type AdminRecordColumn } from "@/components/admin-record-table";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
@@ -21,6 +21,14 @@ export type HelpDirectoryRow = {
   city: string;
   updatedAt: string;
   href: string;
+  inline?: {
+    name: string;
+    shortDescription: string;
+    publicEmail: string | null;
+    publicPhone: string | null;
+    websiteUrl: string | null;
+    editable: boolean;
+  };
 };
 export type HelpDirectoryCategory = { slug: string; label: string; icon: string; href: string };
 
@@ -33,6 +41,17 @@ type BulkPreflight = {
   error?: string;
 };
 type BulkReview = { key: string; targetStatus: BulkStatus; preview: BulkPreflight };
+type ShelterDraft = {
+  key: string;
+  id: number;
+  expectedUpdatedAt: string;
+  name: string;
+  shortDescription: string;
+  publicEmail: string;
+  publicPhone: string;
+  websiteUrl: string;
+};
+type ShelterEditableField = "name" | "shortDescription" | "publicEmail" | "publicPhone" | "websiteUrl";
 
 export function AdminHelpUnifiedTable({
   category, categories, rows, query, page, pages, total,
@@ -50,6 +69,8 @@ export function AdminHelpUnifiedTable({
   const [bulkReview, setBulkReview] = useState<BulkReview | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [shelterDraft, setShelterDraft] = useState<ShelterDraft | null>(null);
+  const [shelterBusy, setShelterBusy] = useState(false);
 
   // A category, search, page or row change invalidates selection immediately,
   // including the preflight preview. Nothing can leak to another page/filter.
@@ -60,6 +81,9 @@ export function AdminHelpUnifiedTable({
     : [];
   const activeReview = bulkReview?.key === viewKey ? bulkReview : null;
   const canBulkEdit = isHelpAdminCreateCategory(category);
+  const canInlineEditShelters = category === "utulky";
+  const activeShelterDraft = canInlineEditShelters && shelterDraft?.key === viewKey &&
+    visibleIds.has(shelterDraft.id) ? shelterDraft : null;
 
   const categoryHref = (slug: string, nextPage = 1) => {
     const params = new URLSearchParams();
@@ -76,6 +100,131 @@ export function AdminHelpUnifiedTable({
     setBulkReview(null);
     setMessage("");
   }
+
+  function beginShelterEdit(item: HelpDirectoryRow) {
+    if (shelterBusy || !canInlineEditShelters || !item.inline?.editable) return;
+    setBulkReview(null);
+    setMessage("");
+    setShelterDraft({
+      key: viewKey,
+      id: item.id,
+      expectedUpdatedAt: item.updatedAt,
+      name: item.inline.name,
+      shortDescription: item.inline.shortDescription,
+      publicEmail: item.inline.publicEmail || "",
+      publicPhone: item.inline.publicPhone || "",
+      websiteUrl: item.inline.websiteUrl || "",
+    });
+  }
+
+  function changeShelterField(field: ShelterEditableField, value: string) {
+    setShelterDraft(previous => previous && previous.key === viewKey
+      ? { ...previous, [field]: value } : previous);
+  }
+
+  async function saveShelterEdit() {
+    const draft = activeShelterDraft;
+    if (!draft || shelterBusy) return;
+    setShelterBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/organizations/" + draft.id, {
+        method: "PATCH",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          expectedUpdatedAt: draft.expectedUpdatedAt,
+          changes: {
+            name: draft.name,
+            shortDescription: draft.shortDescription,
+            publicEmail: draft.publicEmail,
+            publicPhone: draft.publicPhone,
+            websiteUrl: draft.websiteUrl,
+          },
+        }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Rýchlu úpravu sa nepodarilo uložiť.");
+      setShelterDraft(null);
+      setMessage("Zmeny útulku boli uložené. Aktualizujem tabuľku.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Úprava zlyhala. Obnov tabuľku a skús znova.");
+    } finally {
+      setShelterBusy(false);
+    }
+  }
+
+  const tableColumns: AdminRecordColumn<HelpDirectoryRow>[] = [
+    {
+      id: "title", label: "Názov / pes", width: canInlineEditShelters ? 240 : 265,
+      sortValue: item => item.title,
+      cell: item => activeShelterDraft?.id === item.id
+        ? <input
+          className={styles.inlineInput} aria-label={"Názov útulku " + item.title}
+          value={activeShelterDraft.name} maxLength={180} required disabled={shelterBusy}
+          onChange={event => changeShelterField("name", event.target.value)}
+        />
+        : <Link className={styles.primary} href={item.href}>{item.title}</Link>,
+    },
+    { id: "detail", label: "Typ / doplnenie", width: canInlineEditShelters ? 140 : 205, sortValue: item => item.detail, cell: item => item.detail || "—" },
+    { id: "city", label: "Lokalita", width: canInlineEditShelters ? 130 : 160, sortValue: item => item.city, cell: item => item.city || "—" },
+    { id: "status", label: "Stav", width: canInlineEditShelters ? 115 : 150, sortValue: item => item.status, cell: item => item.status },
+    ...(canInlineEditShelters ? [
+      {
+        id: "description", label: "Krátky popis", width: 220,
+        sortValue: (item: HelpDirectoryRow) => item.inline?.shortDescription || "",
+        cell: (item: HelpDirectoryRow) => activeShelterDraft?.id === item.id
+          ? <textarea
+            className={styles.inlineTextarea} aria-label={"Krátky popis útulku " + item.title}
+            value={activeShelterDraft.shortDescription} maxLength={700} rows={3} disabled={shelterBusy}
+            onChange={event => changeShelterField("shortDescription", event.target.value)}
+          />
+          : <span title={item.inline?.shortDescription}>{item.inline?.shortDescription || "—"}</span>,
+      },
+      {
+        id: "contact", label: "Verejný kontakt", width: 245,
+        cell: (item: HelpDirectoryRow) => activeShelterDraft?.id === item.id
+          ? <div className={styles.inlineContacts}>
+            <input className={styles.inlineInput} type="email" aria-label={"Verejný e-mail " + item.title}
+              placeholder="E-mail" value={activeShelterDraft.publicEmail} maxLength={320} disabled={shelterBusy}
+              onChange={event => changeShelterField("publicEmail", event.target.value)} />
+            <input className={styles.inlineInput} type="tel" aria-label={"Verejný telefón " + item.title}
+              placeholder="Telefón" value={activeShelterDraft.publicPhone} maxLength={100} disabled={shelterBusy}
+              onChange={event => changeShelterField("publicPhone", event.target.value)} />
+            <input className={styles.inlineInput} type="url" aria-label={"Webstránka " + item.title}
+              placeholder="https://…" value={activeShelterDraft.websiteUrl} maxLength={1200} disabled={shelterBusy}
+              onChange={event => changeShelterField("websiteUrl", event.target.value)} />
+          </div>
+          : <span className={styles.inlineContactPreview}>
+            {item.inline?.publicEmail || item.inline?.publicPhone || item.inline?.websiteUrl || "—"}
+          </span>,
+      },
+    ] : []),
+    {
+      id: "updated", label: "Aktualizované", width: canInlineEditShelters ? 123 : 145,
+      sortValue: item => item.updatedAt,
+      cell: item => item.updatedAt ? new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "short", year: "numeric" }).format(new Date(item.updatedAt)) : "—",
+    },
+    {
+      id: "actions", label: "Akcia", width: canInlineEditShelters ? 180 : 125,
+      cell: item => canInlineEditShelters
+        ? activeShelterDraft?.id === item.id
+          ? <span className={styles.inlineActions}>
+            <button type="button" className={styles.inlineSave} disabled={shelterBusy || !activeShelterDraft.name.trim()}
+              onClick={() => void saveShelterEdit()}>{shelterBusy ? "Ukladám…" : "Uložiť"}</button>
+            <button type="button" className={styles.inlineCancel} disabled={shelterBusy}
+              onClick={() => { setShelterDraft(null); setMessage(""); }}>Zrušiť</button>
+          </span>
+          : <span className={styles.inlineActions}>
+            {item.inline?.editable && <button type="button" className={styles.inlineTrigger} disabled={shelterBusy}
+              onClick={() => beginShelterEdit(item)}>Upraviť v tabuľke</button>}
+            <Link className={styles.action} href={item.href}>Detail →</Link>
+          </span>
+        : <Link className={styles.action} href={item.href}>Upraviť →</Link>,
+    },
+  ];
 
   async function prepareBulk(targetStatus: BulkStatus) {
     if (!canBulkEdit || bulkBusy || !selectedIds.length) return;
@@ -190,28 +339,28 @@ export function AdminHelpUnifiedTable({
           )}
         </div>
       )}
+      {canInlineEditShelters && rows.length > 0 && (
+        <p className={styles.bulkHint}>
+          Klikni na <strong>Upraviť v tabuľke</strong> a ulož názov, krátky popis či verejný kontakt priamo v riadku.
+          Stav publikovania, typ organizácie a adresy zostávajú v editore Detail.
+        </p>
+      )}
       {message && <p className={styles.bulkMessage} role="status">{message}</p>}
 
       {rows.length ? <AdminRecordTable
         rows={rows}
         label={active.label}
-        busy={bulkBusy}
+        busy={bulkBusy || shelterBusy}
+        stretch={canInlineEditShelters}
         selection={canBulkEdit ? {
           selectedIds,
           disabled: bulkBusy,
           labelForRow: item => "Označiť " + item.title,
           onChange: changeSelection,
         } : undefined}
-        columns={[
-          { id: "title", label: "Názov / pes", width: 265, sortValue: item => item.title, cell: item => <Link className={styles.primary} href={item.href}>{item.title}</Link> },
-          { id: "detail", label: "Typ / doplnenie", width: 205, sortValue: item => item.detail, cell: item => item.detail || "—" },
-          { id: "city", label: "Lokalita", width: 160, sortValue: item => item.city, cell: item => item.city || "—" },
-          { id: "status", label: "Stav", width: 150, sortValue: item => item.status, cell: item => item.status },
-          { id: "updated", label: "Aktualizované", width: 145, sortValue: item => item.updatedAt, cell: item => item.updatedAt ? new Intl.DateTimeFormat("sk-SK", {day: "numeric",month: "short",year: "numeric"}).format(new Date(item.updatedAt)) : "—" },
-          { id: "actions", label: "Akcia", width: 125, cell: item => <Link className={styles.action} href={item.href}>Upraviť →</Link> },
-        ]}
+        columns={tableColumns}
       /> : <p className={styles.empty}>Pre tento výber nie sú záznamy. Skús vyhľadávať iné slovo alebo zmeniť kategóriu.</p>}
-      {!canBulkEdit && rows.length > 0 && (
+      {!canBulkEdit && rows.length > 0 && !canInlineEditShelters && (
         <p className={styles.bulkHint}>Táto kategória má vlastné pravidlá zmien. Hromadné úpravy sa vykonávajú iba v príslušnom module, nie cez spoločnú tabuľku.</p>
       )}
       {pages > 1 && <nav className={styles.pagination} aria-label="Stránkovanie Pomoci psom">
