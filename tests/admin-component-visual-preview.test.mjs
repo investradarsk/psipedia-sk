@@ -39,5 +39,5 @@ test("preview route does not expose a public endpoint or change existing front e
   assert.match(preview, /preview-only/);
   assert.match(preview, /href="\/adresar"/);
   assert.match(preview, /href="\/plemena"/);
-  assert.match(read("components/admin-component-registry.module.css"), /pointer-events: none;/);
+  assert.match(read("components/admin-component-visual-preview.module.css"), /pointer-events: none;/);
 });
