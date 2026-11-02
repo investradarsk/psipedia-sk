@@ -72,3 +72,12 @@ test("new Notion fields preserve unrelated canonical structured content",()=>{
   assert.equal(plan.patch.editorial.overview,"Nový");
   assert.equal(plan.patch.image,undefined);
 });
+
+test("individual FCI and editorial Notion columns are included in signed webhook field mapping",async()=>{
+  const source=await read("../lib/notion-breed-sync.ts");
+  assert.match(source,/FCI_NOTION_DETAIL_COLUMNS\.some/);
+  assert.match(source,/BREED_NOTION_EDITORIAL_COLUMNS\.some/);
+  assert.match(source,/matches\("Redakcia hlavné vlastnosti JSON"\)/);
+  assert.match(source,/fciStandard: "FCI štandard JSON"/);
+  assert.match(source,/sports: "Športy JSON"/);
+});
