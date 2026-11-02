@@ -83,3 +83,29 @@ test("only static, known public route patterns become clickable links", () => {
     assert.equal(publicRegistryRouteHref(route), null);
   }
 });
+
+
+test("route audit includes every page source, even when it imports no visual component", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "psipedia-routes-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fixture(root, "app/page.tsx", "export default function Home(){return null}");
+  fixture(root, "app/kontakt/page.tsx", "export default function Contact(){return null}");
+  fixture(root, "app/(site)/pravne/podmienky/page.tsx", "export default function Legal(){return null}");
+  fixture(root, "app/plemena/[slug]/page.tsx", "export default function Profile(){return null}");
+  fixture(root, "app/admin/komponenty/page.tsx", "export default function Admin(){return null}");
+
+  const entries = buildRegistry(root).routeEntries;
+  assert.deepEqual(entries.map((item) => item.route).sort(), [
+    "/", "/admin/komponenty", "/kontakt", "/plemena/[slug]", "/pravne/podmienky",
+  ]);
+  assert.deepEqual(entries.find((item) => item.route === "/plemena/[slug]"), {
+    route: "/plemena/[slug]",
+    source: "app/plemena/[slug]/page.tsx",
+    area: "public",
+    dynamic: true,
+  });
+  assert.equal(entries.find((item) => item.route === "/kontakt").dynamic, false);
+  assert.equal(entries.find((item) => item.route === "/admin/komponenty").area, "admin");
+  assert.ok(entries.some((item) => item.source === "app/(site)/pravne/podmienky/page.tsx"));
+  assert.equal(entries.length, 5);
+});
