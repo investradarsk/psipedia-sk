@@ -19,11 +19,11 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 | `/admin/sluzby-pre-psov` | tento PR | názov, krátky popis |
 | `/admin/adresar` | tento PR | názov, krátky popis, používa rovnaký komponent ako Služby |
 | `/admin/podujatia` | tento PR | typ podujatia, označenie zrušenia |
-| `/admin/organizacie` | nasledujúci adaptér | opakovane použiť doménový PATCH útulkov pre povolené organizácie, nie lifecycle |
+| `/admin/organizacie` | tento PR | názov a krátky popis na karte organizácie s CAS a Notion sync, bez lifecycle |
 | `/admin/pomoc-psom` – dočasná opatera, zbierky, dobrovoľníctvo | tento PR | názov a krátky popis cez doménový Help Cases CAS; bulk publikovanie ostáva oddelené |
-| `/admin/pomoc-psom` – adopcia a stratené/nájdené | nasledujúci adaptér | len canonical Adoption/Lost & Found API, nie generická Help tabuľka |
+| `/admin/pomoc-psom` – adopcia a stratené/nájdené | nasledujúci adaptér | len canonical Adoption/Lost & Found API, nie generická Help tabuľka; samostatný zoznam stratené/nájdené už má meno |
 | `/admin/adopcie` | nasledujúci adaptér | názov/stručný text podľa canonical Adoption API; status iba cez lifecycle |
-| `/admin/stratene-najdene` | nasledujúci adaptér | názov/lokalita podľa Lost & Found API |
+| `/admin/stratene-najdene` | tento PR | meno psa, aktualizácia `search_text`, záznam bez súkromných údajov a bez zásahu do moderovania |
 | `/admin/pomoc` | nasledujúci adaptér | názov/stručný text podľa Help Cases API |
 | `/admin/clanky`, `/admin/steniatka` | nasledujúci adaptér | titulok/krátky popis až po bezstratovom zachovaní editorial body/SEO |
 | `/admin/plemena` | nasledujúci adaptér | vybrané redakčné textové polia s Notion konfliktmi |
@@ -39,3 +39,9 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 - `app/api/admin/directory/[id]/route.ts` – presný dvojstĺpcový serverový CAS
 - `app/api/admin/help/[id]/route.ts` – dvojpoľový CAS len pre natívne Help kategórie
 - `tests/admin-inline-edit-cross-modules.test.mjs`, `tests/admin-help-inline-edit.test.mjs` – bezpečnostné regresie vrátane SQLite CAS a zachovania ostatných dát
+
+### Doplnené v tejto iterácii
+
+- `/admin/organizacie`: dva textové vstupy priamo v karte; doménový úzky CAS setter zapisuje výlučne `name` a `short_description`. Publikačný preflight, adresy a médiá zostávajú samostatné.
+- `/admin/stratene-najdene`: meno psa priamo v riadku; CAS zachováva slug, typ, stav aj šifrované súkromné údaje, pri zmene prepočíta vyhľadávacie pole `search_text`. Archív a duplicity nie je možné meniť rýchlou úpravou.
+- Testy `tests/admin-inline-edit-organizations-lost-found.test.mjs` vrátane SQLite ochrany súbežného zápisu.
