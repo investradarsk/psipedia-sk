@@ -174,7 +174,7 @@ test("final owner dashboard displays truthful registry coverage and direct navig
     ["filtre", "filter"], ["navigacia", "category"], ["ostatne", "other"]
   ]){
     assert.match(ui,new RegExp('\\["'+tab+'",'));
-    assert.match(ui,new RegExp('category === "'+tab+'" \\\\? \\\\('));
+    assert.ok(ui.includes('category === "'+tab+'" ? ('), "Category branch "+tab);
     assert.match(ui,new RegExp('fixedFamily="'+family+'"'));
   }
   assert.match(css,/\.coverageSummary\{/);
