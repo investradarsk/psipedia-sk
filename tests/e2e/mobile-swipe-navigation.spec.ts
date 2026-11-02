@@ -296,6 +296,11 @@ test("sitewide Chrome iPhone: calendar month changes stay client-side", async ({
   await emulateChromeOnIphone(page);
   await page.locator('[data-home-events-section] a[href="/podujatia"]').click();
   await expect(page).toHaveURL(/\/podujatia$/);
+  // Chrome iOS intentionally performs a native cross-page navigation.
+  // Wait for the NEW document's React hydration before exercising the
+  // calendar's client-only month switch; pre-hydration links are SSR fallbacks.
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await expect(page.locator("[data-public-calendar]")).toBeVisible();
   const loads = await loadCount(page);
   const month = page.getByRole("link", { name: "Nasledujúci mesiac" });
   await expect(month).toBeVisible();
