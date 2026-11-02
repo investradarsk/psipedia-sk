@@ -22,6 +22,7 @@ test("registry tracks transitive imports, shared usage, and admin/public areas",
   fixture(root, "components/outer.tsx", 'export { default } from "./shared";');
   fixture(root, "components/shared.tsx", 'export default function Shared(){ return <div>shared</div> }');
   fixture(root, "components/admin-panel.tsx", 'export default function Admin(){ return <div>admin</div> }');
+  fixture(root, "components/share-button.tsx", 'export function ShareButton(){ return <button>Share</button> }');
   fixture(root, "components/unused.tsx", 'export default function Unused(){ return <div /> }');
   fixture(root, "components/unused.jsx", 'export default function Other(){ return <div /> }');
 
@@ -30,6 +31,7 @@ test("registry tracks transitive imports, shared usage, and admin/public areas",
   assert.deepEqual(shared.routes, ["/", "/adresar"]);
   assert.equal(shared.shared, true);
   assert.equal(shared.family, "other");
+  assert.equal(data.components.find((item) => item.name === "share-button").family, "cta");
   assert.equal(shared.label, "shared");
   assert.deepEqual(shared.consumers, ["app/page.tsx", "components/outer.tsx"]);
   const admin = data.components.find((item) => item.name === "admin-panel");

@@ -4,6 +4,7 @@ import { PublicEmptyState } from "@/components/public-visual-system/public-resul
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import { PublicActionButton } from "@/components/public-visual-system";
 import { ArticleListItem } from "@/components/article-list-item";
+import { articleListCardAnchor } from "@/lib/visual-library-anchors";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ArticleListingCard } from "@/lib/content";
 import { SearchIcon } from "./icons";
@@ -21,7 +22,7 @@ function matchesCategory(article: ArticleListingCard, category: string) {
 
 function ArchiveArticleRow({ article }: { article: ArticleListingCard }) {
   // Use the same article preview as the homepage and editorial section lists.
-  return <ArticleListItem article={article} />;
+  return <ArticleListItem article={article} anchorId={articleListCardAnchor(article.slug)} />;
 }
 
 /** First three articles share a row with discovery, the rest use the full available width. */

@@ -16,16 +16,19 @@ export function ArticlePromo({
   seed,
   utcDay,
   compact = false,
+  anchorId,
 }: {
   promoKey: ArticlePromoKey;
   variant: ArticlePromoVariant;
   seed: string;
   utcDay?: string;
   compact?: boolean;
+  anchorId?: string;
 }) {
   const { target, copy, variantKey } = resolveArticlePromo(promoKey, variant, seed, utcDay);
   return (
     <PublicMagazineBanner
+      anchorId={anchorId}
       compact={compact}
       testId={`article-${promoKey}`}
       eyebrow={copy.kicker}

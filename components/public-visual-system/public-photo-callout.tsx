@@ -1,4 +1,5 @@
 import { PublicMagazineBanner } from "./public-magazine-banner";
+import type { ComponentProps } from "react";
 
 /**
  * Help photo CTAs use the exact homepage banner layout, spacing and action.
@@ -16,12 +17,21 @@ export type PublicPhotoCalloutData = {
 export function PublicPhotoCallout({
   promo,
   headingId,
+  anchorId,
+  desktopColors,
+  desktopCopy,
 }: {
   promo: PublicPhotoCalloutData;
   headingId?: string;
+  anchorId?: string;
+  desktopColors?: ComponentProps<typeof PublicMagazineBanner>["desktopColors"];
+  desktopCopy?: ComponentProps<typeof PublicMagazineBanner>["desktopCopy"];
 }) {
   return (
     <PublicMagazineBanner
+      anchorId={anchorId}
+      desktopColors={desktopColors}
+      desktopCopy={desktopCopy}
       eyebrow={promo.eyebrow}
       title={promo.title}
       description={promo.text}

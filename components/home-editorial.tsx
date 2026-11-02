@@ -101,6 +101,9 @@ export function HomeMagazineSidebar({
 }
 
 export function HomeMagazineBanner({
+  anchorId,
+  desktopColors,
+  desktopCopy,
   title,
   description,
   label,
@@ -112,9 +115,15 @@ export function HomeMagazineBanner({
   label: string;
   href: string;
   testId: string;
+  anchorId?: string;
+  desktopColors?: { background: "original" | "sage" | "cream" | "white"; button: "original" | "green" | "red" } | null;
+  desktopCopy?: { eyebrow: string; title: string; description: string; ctaLabel: string } | null;
 }) {
   return (
     <PublicMagazineBanner
+      anchorId={anchorId}
+      desktopColors={desktopColors}
+      desktopCopy={desktopCopy}
       title={title}
       description={description}
       label={label}

@@ -11,6 +11,7 @@ import { PINNED_SHA256_0136, OBJECTS_0136, assertGeminiStop0136Schema as assert0
 import { PINNED_SHA256_0137, OBJECTS_0137, COLUMNS_0137, assertMediaReview0137Schema as assert0137SchemaExact } from "./production-d1-0137-schema.mjs";
 import { PINNED_SHA256_0138, OBJECTS_0138, assertArticleOutbox0138Prerequisites, assertArticleOutbox0138Schema as assert0138SchemaExact } from "./production-d1-0138-schema.mjs";
 import { PINNED_SHA256_0139, OBJECTS_0139, assertServicesV3Auto0139Prerequisites, assertServicesV3Auto0139Schema as assert0139SchemaExact } from "./production-d1-0139-schema.mjs";
+
 import {
   PINNED_SHA256_0151, OBJECTS_0151, assertContentHistory0151Prerequisites,
   assertContentHistory0151Schema, assertContentHistory0151NotApplied,
@@ -41,8 +42,8 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // Migration 0142 remains owner-dispatched through the existing protected production workflow.
 // 0146 remains owner-dispatched only: PR merge does not run the protected migration.
 // 0147 Notion field authority also requires a separate owner-dispatched protected D1 migration.
-// 0151 is enabled only in the owner-dispatched protected production workflow.
-// No PR merge or automatic job may apply remote migrations.
+// 0151 and 0152 are owner-dispatched ONLY through the protected workflow.
+// 0152 requires an applied 0151 with a validated physical schema.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
@@ -50,6 +51,12 @@ export function assertApproved0151Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0151 requires canonical psipedia-sk-db");
   invariant(sha256 === APPROVED_0151_SHA256, "0151 SQL SHA256 differs from approved migration bytes");
 }
+export const APPROVED_0152_SHA256 = "398cd051ff7fed3216115e0d6e4292803cb3d935c3b0b8cfe19afc83ec3e3af5";
+export function assertApproved0152Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0152 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0152_SHA256, "0152 SQL SHA256 differs from approved rollout bytes");
+}
+// 0152 is additive and never authorizes the separate 0151 audit migration.
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
@@ -296,6 +303,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0149_services_builtin_admin_overrides.sql",
   "0150_gemini_import_review_notes.sql",
   "0151_admin_content_revision_history.sql",
+  "0152_visual_library_banner_edits.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -827,6 +835,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0139Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0151_admin_content_revision_history.sql")
     assertApproved0151Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0152_visual_library_banner_edits.sql")
+    assertApproved0152Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1538,6 +1548,9 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0151_admin_content_revision_history.sql") {
     return { partial: OBJECTS_0151.some(name => names.has(name)) };
+  }
+  if (targetMigration === "0152_visual_library_banner_edits.sql") {
+    return { partial: names.has("visual_library_banner_edits") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2908,6 +2921,26 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 148) assertNotionTransferAudit0148Schema(schema);
   if (migrationIndex(targetMigration) >= 149) assertBuiltinCatalogOverrides0149Schema(schema);
   if (migrationIndex(targetMigration) >= 151) assertContentHistory0151Schema(schema);
+  if (migrationIndex(targetMigration) >= 152) assertVisualLibrary0152Schema(schema);
+}
+
+export function assertVisualLibrary0152Schema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const table = objects.get("visual_library_banner_edits");
+  invariant(table?.type === "table", "0152 visual banner table missing");
+  const sql = String(table.sql ?? "").replace(/\s+/g, " ");
+  for (const column of ["banner_id TEXT NOT NULL","variant_index INTEGER NOT NULL",
+    "draft_json TEXT NOT NULL","revision INTEGER NOT NULL","updated_at TEXT NOT NULL",
+    "updated_by TEXT NOT NULL","published_json TEXT","published_revision INTEGER"]) {
+    invariant(sql.includes(column), "0152 visual banner field missing: " + column);
+  }
+  invariant(/PRIMARY KEY\s*\(\s*banner_id\s*,\s*variant_index\s*\)/i.test(sql),
+    "0152 banner identity must remain per variant");
+  invariant(/CHECK\s*\(\s*variant_index BETWEEN 0 AND 2\s*\)/i.test(sql),
+    "0152 variant guard missing");
+  invariant(/CHECK\s*\(\s*revision > 0\s*\)/i.test(sql),
+    "0152 revision guard missing");
+  return true;
 }
 
 /** 0149: original option IDs remain stable and updates must be audited. */
@@ -3333,8 +3366,27 @@ export function assertPendingTargetSchemaClean(targetMigration, targetObjects) {
   );
 }
 
+export function assertRevisionHistory0151Prerequisite(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const signatures = {
+    admin_content_revision_history: "table",
+    admin_content_revision_entity_idx: "index",
+    admin_section_revision_update: "trigger",
+    admin_visual_revision_insert: "trigger",
+    admin_visual_revision_update: "trigger",
+    admin_visual_revision_delete: "trigger",
+    admin_content_revision_no_update: "trigger",
+    admin_content_revision_no_delete: "trigger",
+  };
+  for (const [name, type] of Object.entries(signatures)) {
+    invariant(objects.get(name)?.type === type, "0152 requires deployed 0151 schema object: " + name);
+  }
+  return true;
+}
+
 function targetState(history, schema, targetMigration, expectedHistory) {
   const targetIndex = migrationIndex(targetMigration);
+  if (targetIndex >= 152) assertRevisionHistory0151Prerequisite(schema);
   const historyNames = history.map((row) => String(row.name));
   const historyState = validateProductionTargetHistory(historyNames, expectedHistory, targetMigration);
   const targetObjects = targetSchemaObjects(schema, targetMigration);
