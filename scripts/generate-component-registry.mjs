@@ -184,6 +184,15 @@ export function buildRegistry(root) {
       .map(([name, paths]) => ({ name, paths })).sort((a, b) => a.name.localeCompare(b.name)),
     families: VISUAL_FAMILIES.map(({ id, label }) => ({ id, label })),
     relatedGroups: relatedGroupsFor(components),
+    routeEntries: routes.map((file) => {
+      const route = publicRoute(file);
+      return {
+        route,
+        source: file,
+        area: route === "/admin" || route.startsWith("/admin/") ? "admin" : "public",
+        dynamic: /\[[^/]+\]/.test(route),
+      };
+    }),
     components,
   };
 }
