@@ -1,7 +1,7 @@
 'use strict';
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { evaluateNotification, monthKey } = require('./policy');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { evaluateNotification, monthKey } from './policy.js';
 
 const id = '11111111-2222-4333-8444-555555555555';
 const now = new Date('2026-11-02T09:00:00Z');
