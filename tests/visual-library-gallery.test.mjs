@@ -159,3 +159,25 @@ test("seven safe new preview variants never import server-only feature flags int
   assert.doesNotMatch(registry, /ProfileReviewSection|submission-feature-flags|cloudflare:workers/);
   assert.doesNotMatch(detail, /fetch\(|getPublished|listPublished|\.prepare\(/);
 });
+
+
+test("final owner dashboard displays truthful registry coverage and direct navigation", () => {
+  const ui = source("components/admin-visual-library.tsx");
+  const css = source("components/admin-visual-library.module.css");
+  assert.match(ui, /className=\{styles\.coverageSummary\}/);
+  assert.match(ui, /adminComponentPreviewSamples\.length/);
+  assert.match(ui, /publicSourceComponents\.filter\(\(item\) => previewPaths\.has\(item\.path\)\)/);
+  assert.match(ui, /registry\.routeEntries\?\.filter\(\(item\) => item\.area === "public"\)/);
+  assert.match(ui, /unavailableRegistry \? "—"/);
+  assert.match(ui, /Ukážka|Náhľad je ukážka/);
+  for(const [tab, family] of [
+    ["filtre", "filter"], ["navigacia", "category"], ["ostatne", "other"]
+  ]){
+    assert.match(ui,new RegExp('\\["'+tab+'",'));
+    assert.match(ui,new RegExp('category === "'+tab+'" \\\\? \\\\('));
+    assert.match(ui,new RegExp('fixedFamily="'+family+'"'));
+  }
+  assert.match(css,/\.coverageSummary\{/);
+  assert.match(css,/@media\(max-width:840px\)/);
+  assert.doesNotMatch(ui,/updateVisual|publishVisualDraft|method: "POST"/);
+});
