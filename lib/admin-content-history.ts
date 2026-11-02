@@ -83,9 +83,13 @@ export async function previewContentHistory(type: ContentHistoryType, key: strin
   const snapshot = await db.prepare(`SELECT ${historySnapshotSql(type)} AS snapshot FROM ${table} WHERE ${keyCol}=? LIMIT 1`)
     .bind(key).first<{ snapshot: string }>();
   const canRestore = latest.before !== null || type === "section_visual" && latest.operation === "INSERT";
+  // Reordering main sections changes several D1 rows. Reverting one old
+  // position in isolation would create duplicate slots; keep it view-only.
+  const sectionOrderChanged = type === "section" && latest.before !== null && latest.after !== null &&
+    latest.before.position !== latest.after.position;
   return {
     revisions,
-    canRestore: Boolean(canRestore && (snapshot?.snapshot ? JSON.stringify(JSON.parse(snapshot.snapshot)) : null) === (latest.after ? JSON.stringify(latest.after) : null)),
+    canRestore: Boolean(canRestore && !sectionOrderChanged && (snapshot?.snapshot ? JSON.stringify(JSON.parse(snapshot.snapshot)) : null) === (latest.after ? JSON.stringify(latest.after) : null)),
   };
 }
 
@@ -106,6 +110,10 @@ export async function restoreContentRevision(
     LIMIT 1`).bind(revisionId, type, key, type, key).first<RevisionRow>();
   if (!row) throw new ContentHistoryError("Toto už nie je posledná zmena. Obnov históriu.");
   const revision = toHistoryRevision(row);
+  if (type === "section" && revision.before && revision.after &&
+      revision.before.position !== revision.after.position) {
+    throw new ContentHistoryError("Poradie viacerých sekcií nemožno bezpečne vrátiť po jednej. Použi editor poradia a ulož celé poradie.");
+  }
   const now = new Date().toISOString();
   const currentSql = historySnapshotSql(type);
   const latestGuard = `(SELECT MAX(id) FROM admin_content_revision_history WHERE entity_type=? AND entity_key=?)=?`;
