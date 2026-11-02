@@ -43,9 +43,11 @@
 
 ## Etapa 4: Duplicity a jednotnosť
 
-- [ ] Rozšíriť návrhy na podobnosti aj nad rámec známych bannerov.
+- [x] Rozšíriť návrhy na podobnosti aj mimo bannerov: rovnaké názvy rôznych súborov a ručne zoskupené príbuzné komponenty.
+- [x] Ukázať skutočné dostupné React náhľady vedľa seba (vrátane variantov), priamo importované CSS moduly a kandidátske verejné trasy.
 - [ ] Oddeliť rovnaký zdrojový komponent, vizuálny variant a skutočný duplicitný lokálny CSS override.
-- [ ] V prehľade pri každom kandidátovi ukázať dôkaz, všetky dotknuté URL a návrh nápravy.
+- [x] Pri každej zdrojovej dvojici ukázať dôvod podobnosti, porovnávané súbory a všetky kandidátske stránkové vzory s rozbalením; možnosť skopírovať auditné zadanie.
+- [ ] Overiť skutočné vykreslenie a **konkrétne URL** profilov; až potom označiť skutočné duplicity a pripraviť návrh nápravy.
 - [ ] Žiadne automatické mazanie, zlučovanie alebo publikovanie z dôvodu podobnosti.
 
 ## Etapa 5: Bezpečný editor
