@@ -492,7 +492,7 @@ export function buildManagedBreedUpdateStatements(
 
 /** Intro-only quick edit; preserves FCI identity, relations, SEO and rich fields. */
 export async function updateManagedBreedInlineIntro(
-  id: number, input: string, editorEmail: string, expectedUpdatedAt: string,
+  id: number, input: string, expectedUpdatedAt: string,
 ) {
   if (!Number.isSafeInteger(id) || id < 1 || typeof input !== "string" ||
       !expectedUpdatedAt?.trim()) throw new Error("Neplatná verzia alebo úvod plemena.");
