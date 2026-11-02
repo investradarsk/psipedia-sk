@@ -130,3 +130,31 @@ test("shared footer and directory category navigation have actual inert admin pr
   assert.match(fixtures, /SiteFooter/);
   assert.match(fixtures, /DirectoryCategoryNavigation/);
 });
+
+
+test("seven new real detail, review and event filter previews use only static demo data", () => {
+  const registry = source("components/admin-component-visual-preview.tsx");
+  const detail = source("components/admin-visual-library-detail-previews.tsx");
+  const cases = [
+    ["directory-services-short", "components/directory-services-list.tsx", "other"],
+    ["directory-services-expanded", "components/directory-services-list.tsx", "other"],
+    ["profile-reviews-empty", "components/profile-review-section.tsx", "other"],
+    ["profile-reviews-populated", "components/profile-review-section.tsx", "other"],
+    ["profile-reviews-error", "components/profile-review-section.tsx", "other"],
+    ["event-listing-filtered", "components/event-listing-results.tsx", "filter"],
+    ["event-listing-empty", "components/event-listing-results.tsx", "filter"],
+  ];
+  const defs = [...registry.matchAll(/^\s*\{ id: "([^"]+)", path: "([^"]+)", family: "([^"]+)"/gm)];
+  assert.equal(defs.length, 51, "Previously 44, now seven more live variants");
+  for (const [id, path, family] of cases) {
+    assert.ok(defs.some((entry) => entry[1] === id && entry[2] === path && entry[3] === family));
+    assert.ok(registry.includes('case "' + id + '":'));
+    assert.ok(detail.includes('case "' + id + '":'));
+  }
+  assert.match(detail, /<DirectoryServicesList services=/);
+  assert.match(detail, /<ProfileReviewSection/);
+  assert.match(detail, /<EventListingResults/);
+  assert.match(detail, /parseEventListing/);
+  assert.match(detail, /Ukážkov/);
+  assert.doesNotMatch(detail, /fetch\(|getPublished|listPublished|\.prepare\(|useEffect\(/);
+});
