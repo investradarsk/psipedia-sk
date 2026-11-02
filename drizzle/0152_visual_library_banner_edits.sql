@@ -1,4 +1,4 @@
--- 0151: Visual Library owner-reviewed banner drafts and desktop-only releases.
+-- 0152: Visual Library owner-reviewed banner drafts and desktop-only releases.
 -- Explicit protected production migration required; PR merge NEVER applies it.
 -- Existing published banners remain unchanged until an authenticated owner action.
 CREATE TABLE visual_library_banner_edits (

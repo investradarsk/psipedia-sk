@@ -150,3 +150,24 @@ test("MAP-ADMIN-UNIFIED adds no schema migration or manual-marker default", () =
   assert.doesNotMatch(changedRuntime, /CREATE TABLE|ALTER TABLE/);
   assert.doesNotMatch(picker, /manual marker|setManualGeoCoordinates/i);
 });
+
+test("Google Places manual on/off console link is shared by Mapy, profiles, events and canary", () => {
+  const shortcut = read("components/admin-google-places-api-link.tsx");
+  const canary = read("components/admin-google-places-canary.tsx");
+  const eventEditor = read("components/admin-event-editor.tsx");
+
+  assert.ok(shortcut.includes("https://console.cloud.google.com/google/maps-apis/api-list?project=psipedia-production&authuser=1"));
+  assert.match(shortcut, /target="_blank" rel="noopener noreferrer"/);
+  assert.match(shortcut, /Places API \(New\)/);
+  assert.match(shortcut, /opäť vypni/);
+  assert.match(page, /actions=\{<AdminGooglePlacesApiLink compact \/>\}/);
+  assert.doesNotMatch(shortcut, /fetch\(|googleapis\.com\/v1\/|\.enable\(|\.disable\(/);
+  assert.match(picker, /<AdminGooglePlacesApiLink/);
+  assert.match(dashboard, /<AdminGooglePlacesApiLink/);
+  assert.match(canary, /<AdminGooglePlacesApiLink/);
+  assert.match(profileGoogle, /<AdminGooglePlacePicker/);
+  assert.match(geoEditor, /<AdminProfileGoogleMaps/);
+  assert.match(geoEditor, /<AdminGooglePlacesApiLink/);
+  assert.match(geoEditor, /Overenie podľa adresy môže tiež použiť Google Places/);
+  assert.match(eventEditor, /<AdminProfileGoogleMaps/);
+});

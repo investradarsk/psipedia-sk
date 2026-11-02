@@ -42,6 +42,7 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
  ] },
  { label: "Kvalita dát", items: [
   { label: "Kvalita údajov", href: "/admin/kvalita" },
+  { label: "Nefunkčné odkazy", href: "/admin/kontrola-odkazov" },
   { label: "Mapy", href: "/admin/mapy", matches: ["/admin/operations/geo"] },
   { label: "Nástroje", href: "/admin/nastroje", matches: ["/admin/import", "/admin/operations/outreach", "/admin/operations/possible-matches"] },
  ] },

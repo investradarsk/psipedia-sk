@@ -13,6 +13,7 @@ import {
   PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
   PREPARED_PRODUCTION_TARGETS,
+  UNACTIVATED_PRODUCTION_TARGETS,
   PROPOSED_SERVICES_V3_SQL,
   prepareScopedMigration,
   assertAutomationGovernanceSchema,
@@ -171,7 +172,6 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0148_notion_transfer_audit.sql",
     "0149_services_builtin_admin_overrides.sql",
   "0150_gemini_import_review_notes.sql",
-  "0151_visual_library_banner_edits.sql",
   ]);
 });
 
@@ -696,7 +696,13 @@ test("production D1 targets account for every canonical migration, including una
   const canonicalTargets = (await readdir(path.join(repoRoot, "drizzle")))
     .filter((name) => /^\d{4}_.+\.sql$/.test(name) && Number(name.slice(0, 4)) >= 62)
     .sort();
-  assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS].sort(), canonicalTargets);
+  assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS, ...UNACTIVATED_PRODUCTION_TARGETS].sort(), canonicalTargets);
+  assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, ["0151_admin_content_revision_history.sql", "0152_visual_library_banner_edits.sql"]);
+  for (const target of UNACTIVATED_PRODUCTION_TARGETS) {
+    assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes(target), false);
+    assert.equal(PREPARED_PRODUCTION_TARGETS.includes(target), false);
+    await assert.rejects(prepareScopedMigration({ targetMigration: target }), /Unsupported production migration target/);
+  }
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(PROPOSED_SERVICES_V3_SQL));
   assert.ok(!PREPARED_PRODUCTION_TARGETS.includes(PROPOSED_SERVICES_V3_SQL));
   for (const target of PREPARED_PRODUCTION_TARGETS) {
@@ -709,7 +715,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0152_future_migration.sql",
+    "0151_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -737,14 +743,14 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0152_future_migration.sql",
+    "0151_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
     ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
-    "0152_future_migration.sql",
+    "0151_future_migration.sql",
   ]);
 });
 

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { GoogleMapRenderer, type MapRendererCommand, type MapRendererStatus } from "@/components/map/google-map-renderer";
 import { AdminProfileGoogleMaps } from "@/components/admin-profile-google-maps";
+import { AdminGooglePlacesApiLink } from "@/components/admin-google-places-api-link";
 import type { MapItem } from "@/lib/map-contract";
 import { MAP_DEFAULT_BBOX, type MapViewport } from "@/lib/map-public-ui";
 import type { GeoPointRecord } from "@/lib/geo-store";
@@ -353,6 +354,8 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false, show
                 </div>
               )}
 
+              <AdminGooglePlacesApiLink compact />
+              <p className="admin-help">Overenie podľa adresy môže tiež použiť Google Places. Pred hľadaním môžeš API ručne zapnúť a po skončení vypnúť.</p>
               {!snapshot.provider.configured ? <p className="admin-help">Vyhľadanie polohy momentálne nie je dostupné.</p> : null}
 
               {preview ? (

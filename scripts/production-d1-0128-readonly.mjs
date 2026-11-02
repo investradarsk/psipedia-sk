@@ -10,7 +10,7 @@ import path from "node:path";
 import {
   APPROVED_0128_SHA256, assertApproved0128Target,
   assertFacebookImagePostsSchema, assertGeminiNotionCreatedPagesSchema,
-  targetSchemaObjects, validateProductionTargetHistory, PREPARED_PRODUCTION_TARGETS, SUPPORTED_PRODUCTION_TARGETS, PROPOSED_SERVICES_V3_SQL,
+  targetSchemaObjects, validateProductionTargetHistory, PREPARED_PRODUCTION_TARGETS, UNACTIVATED_PRODUCTION_TARGETS, SUPPORTED_PRODUCTION_TARGETS, PROPOSED_SERVICES_V3_SQL,
 } from "./production-d1-migrate.mjs";
 
 export const TARGET_0128 = "0128_facebook_image_posts.sql";
@@ -32,10 +32,10 @@ export function classify0128(mode, ledger, objects, canonicalNames) {
     throw Error("0128_AUDIT_INVALID_INPUT");
   const targetIndex = canonicalNames.indexOf(TARGET_0128);
   // A later canonical migration must not invalidate the historical 0128 audit.
-  // Require the future list to contain only recognized supported/prepared migrations.
+  // Require the future list to contain only recognized supported, prepared or explicitly unactivated migrations.
   if (targetIndex < 0 ||
       canonicalNames.slice(targetIndex + 1).some(name =>
-        !SUPPORTED_PRODUCTION_TARGETS.includes(name) && !PREPARED_PRODUCTION_TARGETS.includes(name) && name!==PROPOSED_SERVICES_V3_SQL) ||
+        !SUPPORTED_PRODUCTION_TARGETS.includes(name) && !PREPARED_PRODUCTION_TARGETS.includes(name) && !UNACTIVATED_PRODUCTION_TARGETS.includes(name) && name!==PROPOSED_SERVICES_V3_SQL) ||
       new Set(objects.map(row => row.name)).size !== objects.length)
     throw Error("0128_AUDIT_INVALID_CANONICAL_STATE");
   const history = ledger.map(row => row.name);

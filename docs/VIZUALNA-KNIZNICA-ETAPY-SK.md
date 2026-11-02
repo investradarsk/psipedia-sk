@@ -66,14 +66,14 @@ Poznámka: obsahové bannery sa môžu meniť podľa dňa alebo dát. Výpis zac
 
 **PR obsahuje funkčnú implementáciu, ale NIE je ešte nasadená ani overená na produkcii.**
 
-- Nová izolovaná D1 tabuľka `visual_library_banner_edits` v migrácii **0151** ukladá návrh, verziu, publikované desktopové farby, čas a identitu správcu. Nezasahuje do existujúcich profilov, článkov, Notion ani spracovania služieb.
+- Nová izolovaná D1 tabuľka `visual_library_banner_edits` v migrácii **0152** ukladá návrh, verziu, publikované desktopové farby, čas a identitu správcu. Nezasahuje do existujúcich profilov, článkov, Notion ani spracovania služieb.
 - Admin `GET/PUT/POST /api/admin/visual-library/banners` vyžaduje oprávnenia a pri zmene prísnu kontrolu pôvodu požiadavky. Nové uloženie návrhu, zverejnenie a návrat pôvodných farieb majú verziovanie a odmietajú konfliktné zmeny.
 - Návrhy sa ukladajú na **server do D1**, a nie už iba v lokálnom prehliadači. Pri neaplikovanej migrácii sa zobrazí jasná chyba, nič sa ticho neuloží.
 - Publikovanie je zámerne umožnené len pre dve presne identifikované samostatné umiestnenia: **`homepage:profil` na `https://psipedia.sk/`** a **`plemena:kluby` na `https://psipedia.sk/plemena`**. Každé publikovanie vyžaduje uložený návrh, jediný overený výskyt, `scope=one`, pôvodné texty, potvrdenie presnej URL a explicitné zaškrtnutie súhlasu.
 - Priame publikovanie mení **desktopové texty aj farby**. Verejný komponent `PublicMagazineBanner` dostáva allowlistovaný schválený záznam; CSS sa uplatní iba nad 620 px. Mobilná šablóna, titulky a obsahové CTA zostávajú bez zmeny.
 - Textové zmeny samostatných povolených bannerov možno bezpečne publikovať iba na desktope: pôvodný mobilný text zostáva v tom istom sémantickom prvku a viditeľný na mobilnom breakpoint-e. Zmeny spoločnej šablóny a ostatných bannerov zostávajú len návrhom do úplného auditu použitia.
 - Publikované desktopové texty aj farby možno vrátiť kliknutím **Vrátiť publikované texty a farby** po potvrdení tej istej URL. D1 čítanie na verejnom webe zlyháva bezpečne na pôvodný štýl, keď je úložisko nedostupné.
-- **Migrácia nie je automatická:** v chránenom GitHub workflow Production D1 Migrate bol sprístupnený cieľ `0151_visual_library_banner_edits.sql` a potvrdzovací text `APPLY-0151-psipedia-sk-db`. Spustenie výlučne vlastník po merge a po aplikovaní všetkých predchádzajúcich migrácií až po **0150**. Do tej doby serverový editor zobrazí oznámenie o nedostupnej tabuľke a žiadne farby nepublikuje.
+- **Migrácia nie je automatická:** v chránenom GitHub workflow Production D1 Migrate bol sprístupnený cieľ `0152_visual_library_banner_edits.sql` a potvrdzovací text `APPLY-0152-psipedia-sk-db`. Spustenie výlučne vlastník po merge a po aplikovaní všetkých predchádzajúcich migrácií až po **0150**. Do tej doby serverový editor zobrazí oznámenie o nedostupnej tabuľke a žiadne farby nepublikuje.
 - Testy pokrývajú základné kontrakty autorizácie, potvrdenia URL, desktop CSS, ochrany textov, verzovania a chráneného SQL schématu. **Živé UI a reálne D1 správanie musí potvrdiť CI/staging** pred merge.
 
 ### Stále otvorené
@@ -88,7 +88,7 @@ Poznámka: obsahové bannery sa môžu meniť podľa dňa alebo dát. Výpis zac
 
 - `PublicMagazineBanner` vie prijať `desktopCopy` so samostatným malým nadpisom, hlavným nadpisom, popisom a textom CTA. Existujúce props zostávajú jediným pôvodným zdrojom textov pre mobil.
 - Pôvodné aj schválené desktopové texty sú vo vnútri **toho istého** nadpisu, odstavca alebo odkazu; v CSS media query pri `min-width: 621px` sa zobrazí desktop text, pod hranicou pôvodný mobilný text. Nevytvárame dve tlačidlá, dva nadpisy h2 ani dva CTA odkazy.
-- Admin editor umožňuje po serverovom uložení a explicitnom potvrdení URL publikovať aj desktop texty, nielen farby. Nová databázová migrácia nad rámec 0151 nie je potrebná. Server stále nepovolí spoločnú šablónu, nepovolenú URL ani iné než dva overené bannery.
+- Admin editor umožňuje po serverovom uložení a explicitnom potvrdení URL publikovať aj desktop texty, nielen farby. Nová databázová migrácia nad rámec 0152 nie je potrebná. Server stále nepovolí spoločnú šablónu, nepovolenú URL ani iné než dva overené bannery.
 - Na mobiloch s viewportom do 620 CSS px sa neprepisuje nijaký text ani farba existujúcich bannerov. Skutočné rozloženie a čítačky obrazovky treba overiť v CI/E2E pred merge.
 - Upozornenie: to, že sú texty oddelené vizuálne, nie je ekvivalent rozdielneho SEO obsahu (oba varianty sú v HTML). Táto funkcia slúži na vizuálne prispôsobenie desktopu.
 
@@ -120,7 +120,7 @@ Iba admin zobrazenie a sprievodná dátová evidencia; bez databázovej migráci
 - K bezpečnému desktop-only publikovaniu samostatných bannerov sa po dvoch existujúcich pridalo ďalších päť: Pomoc psom (stratený pes, tri tematické bannery a záverečný banner). Všetkých päť má vlastnú kotvu a rozlišuje sa podľa banner ID; mobilný text ostáva v pôvodnom HTML. Spoločné šablóny, článkové rotácie a ďalšie nepokryté varianty sa **nesmú** publikovať hromadne.
 - Po potvrdenom publikovaní alebo vrátení zmeny admin API vykoná **best-effort** odstránenie konkrétneho verzovaného HTML kľúča z Cloudflare Cache API (iba ak je daná verejná stránka povolená v cache). Admin zobrazí skutočný výsledok. Cloudflare má viac POPov; lokálne vymazanie **nie je globálny purge** a ostatné uzly môžu zobrazovať predchádzajúcu verziu do vypršania krátkej cache (v existujúcom workeri 45 s). Pomoc psom nie je v explicitnej HTML cache.
 - Nové regresné testy kontrolujú identitu všetkých piatich bannerov, desktopové vs. mobilné props, bezpečné potvrdenie rozsahu, pravdivé cache hlásenie a rozlíšenie statických vs. overených URL.
-- **Pred merge:** všetky CI kontroly musia prejsť, statickú inventarizáciu treba vizuálne overiť, live účinnosť cache a DB overiť po ručnej migrácii 0151. Pred nasadením migrácie zostáva editor správne nedostupný.
+- **Pred merge:** všetky CI kontroly musia prejsť, statickú inventarizáciu treba vizuálne overiť, live účinnosť cache a DB overiť po ručnej migrácii 0152. Pred nasadením migrácie zostáva editor správne nedostupný.
 
 
 ### Etapa 9 – úplný paginovaný zoznam verejných URL dynamických detailov
@@ -130,4 +130,10 @@ Iba admin zobrazenie a sprievodná dátová evidencia; bez databázovej migráci
 - V admin rozhraní možno vybrať oblasť, hľadať naprieč všetkými jej záznamami a prejsť na ľubovoľnú stránku výsledkov vrátane poslednej. Zobrazuje sa presná URL (bez domýšľania slugu), názov a čas kontroly.
 - Rozhranie **nesmie** zamieňať nájdenú verejnú URL s dôkazom, že na danej URL je skutočne vykreslený konkrétny komponent. Pri komponente ostávajú staticky odvodené trasy označené ako „možné“, kým ich niekto neoverí. FCI štandardné prílohy, formuláre a filtrované listingové URL nie sú detailové profily a nepatria do týchto deviatich skupín.
 - D1 neprístupná, neplatná kategória alebo chybné publikované údaje nesmú skončiť ako predstieraný prázdny alebo úplný zoznam. API vracia chybu; koncepty, PII ani súkromné kontakty nevracia.
-- **Pred merge:** zelené CI a kontrola serverového build-u. Po chránenom nasadení migrácie 0151 urobiť na živom admin rozhraní kontrolný test všetkých deviatich zdrojov vrátane posledných stránok, vyhľadávania a klikateľných URL. Bez živého testu sa nevyhlasuje plná prevádzková úplnosť.
+- **Pred merge:** zelené CI a kontrola serverového build-u. Po chránenom nasadení migrácie 0152 urobiť na živom admin rozhraní kontrolný test všetkých deviatich zdrojov vrátane posledných stránok, vyhľadávania a klikateľných URL. Bez živého testu sa nevyhlasuje plná prevádzková úplnosť.
+
+
+### Stav po zistení kolízie s novším main
+- `main` už rezervoval `0151_admin_content_revision_history.sql`, ktorý **nie je aktivovaný na produkčné spustenie**.
+- Vizuálna knižnica preto používa `0152_visual_library_banner_edits.sql` a zostáva tiež **UNACTIVATED**. Nič sa nesmie aplikovať z PR ani automaticky pri merge.
+- Staršie tvrdenia v tomto dokumente o už dostupnom ručnom spustení vizuálnej migrácie sú týmto prekonané. Najprv treba samostatne autorizovať a aplikovať 0151 a až následne schváliť 0152; až potom bude možné publikovanie v administračnom editore.

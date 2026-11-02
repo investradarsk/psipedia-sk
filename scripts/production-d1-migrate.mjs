@@ -37,7 +37,11 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // Migration 0142 remains owner-dispatched through the existing protected production workflow.
 // 0146 remains owner-dispatched only: PR merge does not run the protected migration.
 // 0147 Notion field authority also requires a separate owner-dispatched protected D1 migration.
+// 0151 is not an authorized production target; no PR or manual rollout may apply it yet.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+// 0151 has NOT been separately approved for any production apply path.
+// Keep it inventoried without expanding existing immutable owner-dispatch allowlists.
+export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze(["0151_admin_content_revision_history.sql", "0152_visual_library_banner_edits.sql"]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
@@ -283,7 +287,6 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0148_notion_transfer_audit.sql",
   "0149_services_builtin_admin_overrides.sql",
   "0150_gemini_import_review_notes.sql",
-  "0151_visual_library_banner_edits.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1520,7 +1523,7 @@ export function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0150_gemini_import_review_notes.sql") {
     return { partial: names.has("gemini_import_review_notes") };
   }
-  if (targetMigration === "0151_visual_library_banner_edits.sql") {
+  if (targetMigration === "0152_visual_library_banner_edits.sql") {
     return { partial: names.has("visual_library_banner_edits") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
@@ -2891,25 +2894,25 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 147) assertNotionFieldAuthority0147Schema(schema);
   if (migrationIndex(targetMigration) >= 148) assertNotionTransferAudit0148Schema(schema);
   if (migrationIndex(targetMigration) >= 149) assertBuiltinCatalogOverrides0149Schema(schema);
-  if (migrationIndex(targetMigration) >= 151) assertVisualLibrary0151Schema(schema);
+  if (migrationIndex(targetMigration) >= 152) assertVisualLibrary0152Schema(schema);
 }
 
-export function assertVisualLibrary0151Schema(schema) {
+export function assertVisualLibrary0152Schema(schema) {
   const objects = objectMap(schema.objects ?? []);
   const table = objects.get("visual_library_banner_edits");
-  invariant(table?.type === "table", "0151 visual banner table missing");
+  invariant(table?.type === "table", "0152 visual banner table missing");
   const sql = String(table.sql ?? "").replace(/\s+/g, " ");
   for (const column of ["banner_id TEXT NOT NULL","variant_index INTEGER NOT NULL",
     "draft_json TEXT NOT NULL","revision INTEGER NOT NULL","updated_at TEXT NOT NULL",
     "updated_by TEXT NOT NULL","published_json TEXT","published_revision INTEGER"]) {
-    invariant(sql.includes(column), "0151 visual banner field missing: " + column);
+    invariant(sql.includes(column), "0152 visual banner field missing: " + column);
   }
   invariant(/PRIMARY KEY\s*\(\s*banner_id\s*,\s*variant_index\s*\)/i.test(sql),
-    "0151 banner identity must remain per variant");
+    "0152 banner identity must remain per variant");
   invariant(/CHECK\s*\(\s*variant_index BETWEEN 0 AND 2\s*\)/i.test(sql),
-    "0151 variant guard missing");
+    "0152 variant guard missing");
   invariant(/CHECK\s*\(\s*revision > 0\s*\)/i.test(sql),
-    "0151 revision guard missing");
+    "0152 revision guard missing");
   return true;
 }
 

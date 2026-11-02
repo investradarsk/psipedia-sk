@@ -53,14 +53,14 @@ test("stage 7 affects CSS only on approved desktop banners, not mobile layouts o
   assert.doesNotMatch(editor, /window\.localStorage/);
 });
 
-test("0151 only additive draft table, protected manual workflow", () => {
-  const sql=read("drizzle/0151_visual_library_banner_edits.sql");
+test("0152 only additive draft table, protected manual workflow", () => {
+  const sql=read("drizzle/0152_visual_library_banner_edits.sql");
   const wf=read(".github/workflows/production-d1-migrate.yml");
   const migrate=read("scripts/production-d1-migrate.mjs");
   assert.match(sql, /CREATE TABLE visual_library_banner_edits/);
   assert.doesNotMatch(sql, /\bDROP\b|\bALTER\b/i);
-  assert.match(wf, /0151_visual_library_banner_edits\.sql/);
-  assert.match(migrate, /assertVisualLibrary0151Schema/);
+  assert.doesNotMatch(wf, /0152_visual_library_banner_edits\.sql/);
+  assert.match(migrate, /assertVisualLibrary0152Schema/);
 });
 
 test("desktop-only text is responsive inside the original semantic heading and CTA", () => {

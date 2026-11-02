@@ -68,7 +68,12 @@ function markdownSummary(manifest) {
 
 async function run() {
   const body = process.env.PR_BODY ?? "";
-  const routes = [...parseVisualReviewRoutes(body), ...parseVisualAcceptanceRoutes(body)];
+  const selected = process.env.VISUAL_SELECTED_ROUTES?.trim();
+  // Automated PR route selection has priority; explicit PR markers are
+  // validated by the selector and passed through the same path-only contract.
+  const routes = selected
+    ? parseVisualReviewRoutes("VISUAL_REVIEW_ROUTES: " + selected)
+    : [...parseVisualReviewRoutes(body), ...parseVisualAcceptanceRoutes(body)];
   if (new Set(routes).size !== routes.length) throw new Error("A route cannot be captured twice across review and acceptance groups.");
   const baseUrl = validatePreviewBase(process.env.VISUAL_BASE_URL ?? "http://localhost:5173");
   const output = resolve(process.env.VISUAL_OUTPUT_DIR ?? ".e2e-artifacts/pr-visual");
