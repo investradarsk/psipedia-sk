@@ -21,7 +21,7 @@ export default async function AdminComponentsPage() {
       title="Vizuálna knižnica"
       description="Pozri si skutočný vzhľad bannerov a presné URL ich overeného použitia. Ďalšie prvky budeme pridávať postupne."
     >
-      <AdminVisualLibrary articleUsage={articleUsage} examples={examples} />
+      <AdminVisualLibrary articleUsage={articleUsage} examples={examples} registry={registry as unknown as Parameters<typeof AdminVisualLibrary>[0]["registry"]} />
       <details style={{marginTop: 20, border: "1px solid #dce8df", borderRadius: 12, padding: 16, background: "#fff"}}>
         <summary style={{cursor:"pointer", fontWeight:700}}>Technický register (pre programátora)</summary>
         <p style={{fontSize:".83rem", color:"#617266"}}>Podrobná mapa súborov a importov zostáva zachovaná. Pre bežné používanie stačí vizuálna knižnica vyššie.</p>
