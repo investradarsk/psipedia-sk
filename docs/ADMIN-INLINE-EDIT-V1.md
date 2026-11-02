@@ -27,8 +27,8 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 | `/admin/pomoc` | nasledujúci adaptér | názov/stručný text podľa Help Cases API |
 | `/admin/clanky`, `/admin/steniatka` | tento PR | krátky popis s atómovou CAS kontrolou; Lexical, titulok, slug, SEO, väzby a médiá zostávajú nezmenené |
 | `/admin/plemena` | tento PR | úvodný text so zachovaním FCI identity, SEO a väzieb; draft Notion writeback |
-| `/admin/facebook-obrazky` | nasledujúci adaptér | text, plánovanie a súhlas iba cez kalendár publikovania |
-| Podporné administračné tabuľky (kontrola údajov, katalóg služieb, podnety, automatizácie, partneri) | samostatné doménové adaptéry | iba polia, ktoré už ich existujúce API bezpečne povoľuje |
+| `/admin/facebook-obrazky` | tento PR (len ručný koncept) | názov a text neschváleného ručného konceptu, bez zmeny schvaľovania či dátumu; ostatné príspevky v plnom editore |
+| Katalóg služieb V3 | tento PR | názov a význam neaktivovaných DRAFT položiek a povolených vstavaných služieb, cez kanonické CAS API bez zmeny kategórií, ID a synonym |\n| Podporné administračné tabuľky (kontrola údajov, podnety, automatizácie, partneri) | samostatné doménové adaptéry | iba polia, ktoré už ich existujúce API bezpečne povoľuje |
 
 **Zámerne nerozšíriť práva cez všeobecný PATCH.** Základ V1 a prvé dve domény sú priamo v tomto PR. Zvyšné adaptéry majú ísť po jednej oblasti s vlastnými integračnými testami, až potom ako hotové.
 
@@ -56,8 +56,14 @@ Cieľ: rovnaký spôsob práce v celej administrácii na desktope. Kliknúť „
 
 ### Zostáva po tejto etape
 
-1. Facebook obrázky – text, schválenie a plánovanie cez existujúci publikovací workflow s pravidlami súhlasu.
-2. Katalóg služieb V3 – inline edit iba po synchronizácii s nadradeným D1 katalógom a validáciou synonym; nové typy služieb sa nepridávajú generickým textovým editorom.
+1. Facebook obrázky – inline text je hotový len pre ručné, neschválené koncepty; Notion a článkové príspevky a všetky pokusy o publikovanie zostávajú v plnom editore. Plánovanie a schvaľovanie zostáva v kalendári publikovania.
+2. Katalóg služieb V3 – inline názov a popis je hotový iba v povolených DRAFT a built-in položkách. Aktívne/konfliktné možnosti zostávajú pod doménovým lifecycle schvaľovaním.
 3. Agregovaný zoznam `/admin/pomoc-psom` pre adopcie a stratené/nájdené – samotné canonical podmoduly už majú rýchlu editáciu, spoločná tabuľka ešte nie.
 4. Ďalšie špecializované administračné tabuľky: Podnety, Dopyty, Tipy, Hodnotenia, automatizácie a údaje kvality. Ich doménové pravidlá a API sa musia posúdiť individuálne.
 5. Pred merge: kompletná oprava zlyhaných CI na PR #1176 a manuálne otestovanie ukladania / konfliktov. 
+
+### Facebook obrázky a katalóg V3 (nové adaptéry)
+
+- FB: `PATCH /api/admin/facebook-images/:id` používa `requireAdminMutation` s prísnou kontrolou pôvodu a iba `title` a `caption`; striktný `version` CAS. Neschválený ručný koncept, bez `article_id`, `notion_page_id`, súhlasu a bez odoslania: neovplyvňuje `scheduled_at`, status, schválenie, obrázok ani publikačné pokusy.
+- V3: existujúci `PATCH /api/admin/service-catalog/options/:id` validuje názov, popis, synonymá a duplicity; in-row editor posiela nemenné `categories` a `group` spolu s `expectedVersion`. Žiadne generické SQL ani nový D1 kontrakt.
+- Testy: `tests/admin-inline-edit-facebook-catalog.test.mjs` vrátane čistej klientsky bezpečnej konfigurácie triedenia adopcií `lib/adoption-admin-sorts.ts`.
