@@ -24,18 +24,27 @@ type ScanReport = {
 };
 
 async function requestStatus(url: string, method: "HEAD" | "GET", signal: AbortSignal): Promise<number | null> {
-  try {
-    const response = await fetch(url, {
-      method, signal, redirect: "follow", credentials: "omit", cache: "default",
-    });
-    if (response.body) void response.body.cancel().catch(() => undefined);
-    // A 3xx to another origin is not a verified internal target.
-    if (new URL(response.url).origin !== window.location.origin) return null;
-    return response.status;
-  } catch {
-    // A single request timeout is an unverified target, not a failed whole scan.
-    return null;
+  let next = url;
+  for (let redirects = 0; redirects <= 2; redirects++) {
+    try {
+      const response = await fetch(next, {
+        method, signal, redirect: "manual", credentials: "omit", cache: "default",
+      });
+      if (response.body) void response.body.cancel().catch(() => undefined);
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        const destination = location ? internalPublicUrl(location, next) : null;
+        if (!destination || new URL(destination).origin !== window.location.origin) return null;
+        next = destination;
+        continue;
+      }
+      return response.status;
+    } catch {
+      // A timeout or blocked request is unverified, not evidence of 404.
+      return null;
+    }
   }
+  return null;
 }
 async function checkTarget(url: string, signal: AbortSignal) {
   const head = await requestStatus(url, "HEAD", signal);
@@ -101,8 +110,17 @@ export function AdminLinkHealthChecker() {
         setProgress("Načítavam verejnú stránku " + (sourcePagesChecked.size + 1) + " z " + sources.length);
         let response: Response | null = null;
         try {
-          response = await fetch(source, { signal: AbortSignal.any([abort.signal, AbortSignal.timeout(9000)]), credentials: "omit", redirect: "follow", cache: "default" });
-        } catch { /* shown as unverified below */ }
+          const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(9000)]);
+          let target = source;
+          for (let redirects = 0; redirects <= 2; redirects++) {
+            response = await fetch(target, { signal, credentials: "omit", redirect: "manual", cache: "default" });
+            if (response.status < 300 || response.status >= 400) break;
+            const location = response.headers.get("location");
+            const destination = location ? internalPublicUrl(location, target) : null;
+            if (!destination || new URL(destination).origin !== origin) { response = null; break; }
+            target = destination;
+          }
+        } catch { response = null; /* shown as unverified below */ }
         sourcePagesChecked.add(source);
         const state = classifyPublicLink(response?.status ?? null);
         const returnedPublic = response && internalPublicUrl(response.url, origin);
