@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { arrayMove } from "@dnd-kit/sortable";
+import { AdminSortableOrderPreview } from "@/components/admin-sortable-order-preview";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import {
   AdminActionButton,
@@ -112,6 +114,26 @@ export function AdminSectionEditor({
     });
   }
 
+  function reorderSections(from: number, to: number) {
+    if (from === to || from < 0 || to < 0) return;
+    updateSections((current) => {
+      if (from >= current.length || to >= current.length) return current;
+      return arrayMove(current, from, to).map((section, position) => ({ ...section, position }));
+    });
+    setMessage("");
+    setError("");
+  }
+
+  function reorderSubpages(slug: string, from: number, to: number) {
+    if (from === to || from < 0 || to < 0) return;
+    updateSections((current) => current.map((section) => section.slug === slug &&
+      from < section.subpages.length && to < section.subpages.length
+      ? { ...section, subpages: arrayMove(section.subpages, from, to) }
+      : section));
+    setMessage("");
+    setError("");
+  }
+
   function addSubpage(slug: string) {
     updateSections((current) => current.map((section) => section.slug === slug
       ? { ...section, subpages: [...section.subpages, { slug: "nova-podsekcia", label: "Nová podsekcia", description: "" }] }
@@ -197,6 +219,22 @@ export function AdminSectionEditor({
         </div>
       </div>
 
+      {!query.trim() && (
+        <AdminSortableOrderPreview
+          title="Hlavné sekcie – pracovné poradie"
+          description="Potiahni kartu na nové miesto. Rovnaké poradie sa zobrazí na verejnom webe až po kliknutí na Uložiť sekcie."
+          items={sections.map((section) => ({
+            id: section.slug,
+            label: section.label,
+            detail: "/" + section.slug + " · " + section.subpages.length + " podsekcií",
+            icon: section.icon,
+            visible: section.visible,
+          }))}
+          onReorder={reorderSections}
+          disabled={saving}
+        />
+      )}
+
       <div className={styles.list}>
         {visibleSections.map((section) => {
           const index = sections.findIndex((item) => item.slug === section.slug);
@@ -280,6 +318,21 @@ export function AdminSectionEditor({
                     <AdminActionButton variant="secondary" onClick={() => addSubpage(section.slug)}>+ Pridať podsekciu</AdminActionButton>
                   </div>
 
+                  {section.subpages.length > 1 && (
+                    <AdminSortableOrderPreview
+                      title={"Karty podsekcií – " + section.label}
+                      description="Usporiadaj karty vo výslednom poradí. Pri presúvaní sa nemení ich obsah ani adresa. Uloženie zostáva spoločné pre celú sekciu."
+                      items={section.subpages.map((subpage, subIndex) => ({
+                        id: String(subIndex),
+                        label: subpage.label,
+                        detail: "/" + section.slug + "/" + subpage.slug,
+                        icon: subpage.icon,
+                        visible: subpage.visible,
+                      }))}
+                      onReorder={(from, to) => reorderSubpages(section.slug, from, to)}
+                      disabled={saving}
+                    />
+                  )}
                   <div className={styles.subsectionList}>
                     {section.subpages.map((subpage, subIndex) => {
                       const completeness = [
