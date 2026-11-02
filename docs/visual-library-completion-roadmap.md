@@ -10,6 +10,16 @@
 - Statický register importov a návrhy podobností. Import nie je dôkaz vykreslenia.
 - Technická galéria existujúcich React komponentov.
 
+## Finálna etapa pred prvou používateľskou kontrolou
+
+- [x] Zrozumiteľný prehľad pokrytia: počet živých ukážok, jedinečných verejných zdrojových súborov s náhľadom, počet verejných stránkových šablón a 4 editovateľné typy návrhov.
+- [x] Priame karty Filtre a formuláre, Navigácia a Ostatné prvky popri existujúcich banneroch, hero, CTA a kartách.
+- [x] Jasne odlišovať 51 variantov od počtu rôznych komponentových súborov a od runtime overených umiestnení.
+- [x] Bez zásahu do verejného CSS a bez rozšírenia práv na publikovanie.
+- [ ] Potvrdiť nové CI po poslednom commite a prihlásenú administráciu vizuálne skontrolovať.
+
+**Rozsah prvého merge:** knižnica/inventár/porovnania a bezpečné návrhy. Nejde o dokončený pixelový audit každého verejného profilu ani o rozšírené automatické publikovanie.
+
 ## Etapa 1: Vlastnícka galéria skutočných náhľadov (tento PR, priebežne)
 
 - [x] Sprístupniť všetkých 35 už existujúcich ukážok aj mimo technického registra.
