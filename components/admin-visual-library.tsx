@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
 import { AdminVisualLibraryOther } from "@/components/admin-visual-library-other";
+import { AdminVisualLibraryGallery } from "@/components/admin-visual-library-gallery";
+import { adminComponentPreviewSamples } from "@/components/admin-component-visual-preview";
 import { AdminVisualLibraryDuplicates } from "@/components/admin-visual-library-duplicates";
 import { AdminVisualLibraryEditor } from "@/components/admin-visual-library-editor";
 import { AdminVisualLibraryCoverage, type CoverageRegistry } from "@/components/admin-visual-library-coverage";
@@ -16,7 +18,7 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
   examples: readonly VisualLibraryExample[];
   registry: CoverageRegistry;
 }) {
-  const [category, setCategory] = useState<"bannery" | "podobne" | "vsetko" | VisualExampleCategory>("bannery");
+  const [category, setCategory] = useState<"bannery" | "podobne" | "vsetko" | "galeria" | VisualExampleCategory>("bannery");
   const [editorOpen, setEditorOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [group, setGroup] = useState<"all" | "clanky" | "stranky">("all");
@@ -60,7 +62,7 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
           <h2>Čo používame na webe</h2>
           <p>Vyber banner, hero, tlačidlo alebo kartu. Uvidíš skutočný komponent a konkrétne overené stránky, kde sa používa.</p>
         </div>
-        <div className={styles.count}><strong>{visualLibraryBanners.length + examples.length}</strong><span>evidovaných vizuálnych prvkov</span></div>
+        <div className={styles.count}><strong>{visualLibraryBanners.length + examples.length + adminComponentPreviewSamples.length}</strong><span>evidovaných náhľadov vrátane variantov</span></div>
       </header>
 
       <nav className={styles.types} aria-label="Kategórie knižnice">
@@ -69,6 +71,7 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
           ["hero", "Hero sekcie"],
           ["cta", "CTA tlačidlá"],
           ["karty", "Karty"],
+          ["galeria", "Všetky náhľady"],
           ["vsetko", "Kde všade sa používa"],
           ["podobne", "Možné duplicity"],
         ] as const).map(([id, label]) => (
@@ -228,13 +231,20 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
           </div>
         ) : <p className={styles.empty}>Vyber iný filter alebo hľadaný výraz.</p>}
       </div>
+      <AdminVisualLibraryGallery registry={registry} fixedFamily="banner" />
       </>
       ) : category === "vsetko" ? (
         <AdminVisualLibraryCoverage registry={registry} articleUsage={articleUsage} examples={examples} />
       ) : category === "podobne" ? (
         <AdminVisualLibraryDuplicates articleUsage={articleUsage} examples={examples} />
+      ) : category === "galeria" ? (
+        <AdminVisualLibraryGallery registry={registry} />
       ) : (
-        <AdminVisualLibraryOther key={category} category={category} examples={examples} />
+        <>
+          <AdminVisualLibraryOther key={category} category={category} examples={examples} />
+          <AdminVisualLibraryGallery key={category + "-gallery"} registry={registry}
+            fixedFamily={category === "karty" ? "card" : category} />
+        </>
       )}
     </section>
   );
