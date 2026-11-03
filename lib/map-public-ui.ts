@@ -1,5 +1,10 @@
+import { mapClusterGridSize } from "./map-grid.js";
 import { directoryFilterRegistry } from "./directory-filter-contract.ts";
-import { directoryPublicFacetQueryFields, parsePublicDirectoryFacets, type DirectoryPublicFacets } from "./directory-public-filters.ts";
+import {
+  directoryPublicFacetQueryFields,
+  parsePublicDirectoryFacets,
+  type DirectoryPublicFacets,
+} from "./directory-public-filters.ts";
 import type {
   MapBbox,
   MapCategory,
@@ -64,7 +69,7 @@ const shareableKeys = [
 ] as const;
 
 function first(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
 
 function validCategory(value: string): MapUiFilters["category"] {
@@ -81,15 +86,22 @@ export function parseMapUiFilters(
   return {
     category: validCategory(first(params.category)),
     subcategory: first(params.subcategory).slice(0, 80),
-    canonicalService: validCategory(first(params.category))==="services" && first(params.subcategory)
-      ? (Array.isArray(params.svc)?"__invalid__":first(params.svc).slice(0,101)) : "",
+    canonicalService:
+      validCategory(first(params.category)) === "services" && first(params.subcategory)
+        ? Array.isArray(params.svc)
+          ? "__invalid__"
+          : first(params.svc).slice(0, 101)
+        : "",
     region: first(params.region).slice(0, 80),
     district: first(params.district).slice(0, 100),
     city: first(params.city).slice(0, 100),
     search: first(params.search).slice(0, 80),
     eventType: first(params.eventType).slice(0, 80),
     eventTiming: validTiming(first(params.eventTiming)),
-    facets: parsePublicDirectoryFacets(params, validCategory(first(params.category)) === "services" ? first(params.subcategory) : ""),
+    facets: parsePublicDirectoryFacets(
+      params,
+      validCategory(first(params.category)) === "services" ? first(params.subcategory) : "",
+    ),
   };
 }
 
@@ -101,9 +113,10 @@ export function serializeMapUiFilters(filters: MapUiFilters) {
     if (key === "eventTiming" && value === "active") continue;
     params.set(key, value);
   }
-  if(filters.category==="services"&&filters.subcategory&&filters.canonicalService)
-    params.set("svc",filters.canonicalService);
-  for (const field of directoryPublicFacetQueryFields(filters.facets)) params.set(field.name, field.value);
+  if (filters.category === "services" && filters.subcategory && filters.canonicalService)
+    params.set("svc", filters.canonicalService);
+  for (const field of directoryPublicFacetQueryFields(filters.facets))
+    params.set(field.name, field.value);
   return params;
 }
 
@@ -113,8 +126,8 @@ export function mapFiltersFromSearchParams(searchParams: URLSearchParams) {
     const value = searchParams.get(key);
     if (value) raw[key] = value;
   }
-  const svc=searchParams.getAll("svc");
-  if(svc.length)raw.svc=svc.length===1?svc[0]:"__invalid__";
+  const svc = searchParams.getAll("svc");
+  if (svc.length) raw.svc = svc.length === 1 ? svc[0] : "__invalid__";
   for (const definition of directoryFilterRegistry) {
     const key = "f." + definition.id;
     const values = searchParams.getAll(key);
@@ -143,7 +156,10 @@ export function mapFiltersForDistrict(filters: MapUiFilters, district: string) {
   return { ...filters, district, city: "" };
 }
 
-export function buildMapApiUrl(viewport: Pick<MapViewport, "bbox" | "zoom">, filters: MapUiFilters) {
+export function buildMapApiUrl(
+  viewport: Pick<MapViewport, "bbox" | "zoom">,
+  filters: MapUiFilters,
+) {
   const params = new URLSearchParams({
     north: String(viewport.bbox.north),
     south: String(viewport.bbox.south),
@@ -153,26 +169,30 @@ export function buildMapApiUrl(viewport: Pick<MapViewport, "bbox" | "zoom">, fil
   });
   if (filters.category) params.set("category", filters.category);
   if (filters.subcategory) params.set("subcategory", filters.subcategory);
-  if(filters.category==="services"&&filters.subcategory&&filters.canonicalService) params.set("svc",filters.canonicalService);
+  if (filters.category === "services" && filters.subcategory && filters.canonicalService)
+    params.set("svc", filters.canonicalService);
   if (filters.region) params.set("region", filters.region);
   if (filters.district) params.set("district", filters.district);
   if (filters.city) params.set("city", filters.city);
   if (filters.search.trim().length >= 2) params.set("search", filters.search.trim());
   if (filters.eventType) params.set("eventType", filters.eventType);
   if (filters.eventTiming !== "active") params.set("eventTiming", filters.eventTiming);
-  for (const field of directoryPublicFacetQueryFields(filters.facets)) params.set(field.name, field.value);
+  for (const field of directoryPublicFacetQueryFields(filters.facets))
+    params.set(field.name, field.value);
   return `/api/map?${params.toString()}`;
 }
 
 export type PublicMapType = "roadmap" | "hybrid";
 
 function validGoogleMapsCoordinate(latitude: number, longitude: number) {
-  return Number.isFinite(latitude)
-    && Number.isFinite(longitude)
-    && latitude >= -90
-    && latitude <= 90
-    && longitude >= -180
-    && longitude <= 180;
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
 }
 
 function googleMapsCoordinateQuery(latitude: number, longitude: number) {
@@ -180,7 +200,11 @@ function googleMapsCoordinateQuery(latitude: number, longitude: number) {
   return `${latitude},${longitude}`;
 }
 
-export function buildGoogleMapsPlaceUrl(latitude: number, longitude: number, googlePlaceId?: string) {
+export function buildGoogleMapsPlaceUrl(
+  latitude: number,
+  longitude: number,
+  googlePlaceId?: string,
+) {
   const query = googleMapsCoordinateQuery(latitude, longitude);
   if (!query) return null;
   const params = new URLSearchParams({ api: "1", query });
@@ -189,7 +213,11 @@ export function buildGoogleMapsPlaceUrl(latitude: number, longitude: number, goo
   return `https://www.google.com/maps/search/?${params.toString()}`;
 }
 
-export function buildGoogleMapsDirectionsUrl(latitude: number, longitude: number, googlePlaceId?: string) {
+export function buildGoogleMapsDirectionsUrl(
+  latitude: number,
+  longitude: number,
+  googlePlaceId?: string,
+) {
   const destination = googleMapsCoordinateQuery(latitude, longitude);
   if (!destination) return null;
   const params = new URLSearchParams({ api: "1", destination });
@@ -202,7 +230,10 @@ export function isApproximateMapItem(item: Pick<MapItem, "precision">) {
   return item.precision !== "EXACT";
 }
 
-export function detailMapCommandForItems(items: Pick<MapItem, "id" | "latitude" | "longitude">[], key: number) {
+export function detailMapCommandForItems(
+  items: Pick<MapItem, "id" | "latitude" | "longitude">[],
+  key: number,
+) {
   if (!items.length) return null;
   if (items.length === 1) {
     const item = items[0];
@@ -244,21 +275,32 @@ export function mapResultLabel(count: number) {
 }
 
 export function normalizeMapViewport(input: Partial<MapViewport>): MapViewport {
-  const zoom = Number.isFinite(input.zoom) ? Math.max(3, Math.min(20, Math.round(input.zoom!))) : MAP_DEFAULT_ZOOM;
-  const center = input.center && Number.isFinite(input.center.lat) && Number.isFinite(input.center.lng)
-    ? input.center
-    : MAP_DEFAULT_CENTER;
-  const bbox = input.bbox && [input.bbox.north, input.bbox.south, input.bbox.east, input.bbox.west].every(Number.isFinite)
-    ? input.bbox
-    : MAP_DEFAULT_BBOX;
+  const zoom = Number.isFinite(input.zoom)
+    ? Math.max(3, Math.min(20, Math.round(input.zoom!)))
+    : MAP_DEFAULT_ZOOM;
+  const center =
+    input.center && Number.isFinite(input.center.lat) && Number.isFinite(input.center.lng)
+      ? input.center
+      : MAP_DEFAULT_CENTER;
+  const bbox =
+    input.bbox &&
+    [input.bbox.north, input.bbox.south, input.bbox.east, input.bbox.west].every(Number.isFinite)
+      ? input.bbox
+      : MAP_DEFAULT_BBOX;
   return { zoom, center, bbox };
 }
 
-export function mapRequestSignature(viewport: Pick<MapViewport, "bbox" | "zoom">, filters: MapUiFilters) {
+export function mapRequestSignature(
+  viewport: Pick<MapViewport, "bbox" | "zoom">,
+  filters: MapUiFilters,
+) {
   return buildMapApiUrl(viewport, filters);
 }
 
-export function mapQueryInputPreview(viewport: Pick<MapViewport, "bbox" | "zoom">, filters: MapUiFilters): Partial<MapQueryInput> {
+export function mapQueryInputPreview(
+  viewport: Pick<MapViewport, "bbox" | "zoom">,
+  filters: MapUiFilters,
+): Partial<MapQueryInput> {
   return {
     bbox: viewport.bbox,
     zoom: viewport.zoom,
@@ -269,14 +311,11 @@ export function mapQueryInputPreview(viewport: Pick<MapViewport, "bbox" | "zoom"
     district: filters.district || undefined,
     city: filters.city || undefined,
     search: filters.search.trim().length >= 2 ? filters.search.trim() : undefined,
-    eventType: filters.eventType
-      ? filters.eventType as MapQueryInput["eventType"]
-      : undefined,
+    eventType: filters.eventType ? (filters.eventType as MapQueryInput["eventType"]) : undefined,
     eventTiming: filters.eventTiming,
     facets: filters.facets,
   };
 }
-
 
 export class MapRequestGate {
   private sequence = 0;
@@ -313,10 +352,28 @@ export function selectedMapItemAfterResponse(current: string | null, response: M
   return response.items.some((item) => item.id === current) ? current : null;
 }
 
-export function mapClusterTarget(cluster: Pick<MapCluster, "latitude" | "longitude">, currentZoom: number) {
+export function mapClusterTarget(
+  cluster: Pick<MapCluster, "latitude" | "longitude">,
+  currentZoom: number,
+) {
   return {
     latitude: cluster.latitude,
     longitude: cluster.longitude,
     zoom: Math.min(20, Math.max(currentZoom + 2, 9)),
+  };
+}
+
+/** Drill into the same server grid cell without depending on Google map events. */
+export function mapClusterTextViewport(
+  cluster: Pick<MapCluster, "latitude" | "longitude">,
+  currentZoom: number,
+): MapViewport {
+  const grid = mapClusterGridSize(currentZoom);
+  const south = Math.floor((cluster.latitude + 90) / grid) * grid - 90;
+  const west = Math.floor((cluster.longitude + 180) / grid) * grid - 180;
+  return {
+    center: { lat: cluster.latitude, lng: cluster.longitude },
+    bbox: { north: Math.min(90, south + grid), south, east: Math.min(180, west + grid), west },
+    zoom: Math.min(20, Math.max(11, currentZoom + 2)),
   };
 }

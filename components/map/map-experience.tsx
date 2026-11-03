@@ -48,6 +48,7 @@ import {
   mapFiltersForRegion,
   mapFiltersFromSearchParams,
   mapClusterTarget,
+  mapClusterTextViewport,
   mapItemTypeLabel,
   mapResultLabel,
   scheduleMapRequest,
@@ -367,6 +368,8 @@ function MapResults({
   onRetry,
   onClearFilters,
   viewportZoom,
+  onSelectArea,
+  onResetArea,
   sheetState,
   onToggleSheet,
   onSheetStateChange,
@@ -382,6 +385,8 @@ function MapResults({
   onRetry: () => void;
   onClearFilters: () => void;
   viewportZoom: number;
+  onSelectArea: (cluster: MapCluster) => void;
+  onResetArea: () => void;
   sheetState: MapSheetState;
   onToggleSheet: () => void;
   onSheetStateChange: (state: MapSheetState) => void;
@@ -405,7 +410,7 @@ function MapResults({
     : hasGroupedClusters
       ? viewportZoom >= 20
         ? "Na tomto priblížení zostávajú husté zhluky. Spresni filtre alebo vyhľadávanie."
-        : "Priblíž mapu alebo vyber zhluk, aby sa zobrazili jednotlivé miesta."
+        : "Vyber oblasť v zozname alebo na mape, aby sa zobrazili jednotlivé miesta."
       : items.length > 0
         ? "Vyber výsledok na mape alebo v zozname."
         : "Výsledky sa zobrazia podľa aktuálnej oblasti a filtrov.";
@@ -573,14 +578,25 @@ function MapResults({
             </button>
           </div>
         </div>
-        <nav className={styles.sheetSnapControls} aria-label="Zobrazenie výsledkov na mobile" data-testid="map-sheet-snap-controls">
-          {([
-            ["peek", "Mapa"],
-            ["preview", "Náhľad"],
-            ["expanded", "Zoznam"],
-          ] as const).map(([state, label]) => (
-            <button key={state} type="button" onClick={() => onSheetStateChange(state)}
-              aria-pressed={sheetState === state} data-sheet-snap={state}>
+        <nav
+          className={styles.sheetSnapControls}
+          aria-label="Zobrazenie výsledkov na mobile"
+          data-testid="map-sheet-snap-controls"
+        >
+          {(
+            [
+              ["peek", "Mapa"],
+              ["preview", "Náhľad"],
+              ["expanded", "Zoznam"],
+            ] as const
+          ).map(([state, label]) => (
+            <button
+              key={state}
+              type="button"
+              onClick={() => onSheetStateChange(state)}
+              aria-pressed={sheetState === state}
+              data-sheet-snap={state}
+            >
               {label}
             </button>
           ))}
@@ -663,9 +679,43 @@ function MapResults({
             <strong>Mapa je zatiaľ v súhrnnom pohľade.</strong>
             <span>
               {mapResultLabel(response.meta.matched)} je zoskupených do {response.meta.count}{" "}
-              oblastí. Vyber zhluk na mape alebo mapu priblíž.
+              oblastí. Vyber oblasť nižšie; Google mapu nemusíš povoliť.
             </span>
           </PublicNotice>
+        ) : null}
+
+        {!error &&
+        response?.mode === "clusters" &&
+        clusters.some((cluster) => cluster.count > 1) ? (
+          <div
+            className={styles.resultList}
+            role="group"
+            aria-label="Výber oblasti bez mapy"
+            data-testid="map-text-areas"
+          >
+            {clusters
+              .filter((cluster) => cluster.count > 1)
+              .map((cluster, index) => (
+                <button
+                  className={styles.areaSelect}
+                  type="button"
+                  key={cluster.id}
+                  disabled={loading}
+                  onClick={() => onSelectArea(cluster)}
+                >
+                  <strong>
+                    {cluster.label ||
+                      `Oblasť ${index + 1} (${cluster.latitude.toFixed(2)}°, ${cluster.longitude.toFixed(2)}°)`}
+                  </strong>
+                  <span>{mapResultLabel(cluster.count)} · Zobraziť zoznam</span>
+                </button>
+              ))}
+          </div>
+        ) : null}
+        {viewportZoom > MAP_DEFAULT_ZOOM ? (
+          <button type="button" className={styles.statusAction} onClick={onResetArea}>
+            Všetky oblasti Slovenska
+          </button>
         ) : null}
 
         {!error && items.length > 0 ? (
@@ -1011,6 +1061,38 @@ export function MapExperience({
     [viewport.zoom],
   );
 
+  const selectTextArea = useCallback(
+    (cluster: MapCluster) => {
+      const next = mapClusterTextViewport(cluster, response?.meta.zoom ?? viewport.zoom);
+      setViewport(next);
+      setSelectedItemId(null);
+      setSheetState("expanded");
+      setRendererCommand((current) => ({
+        key: (current?.key ?? 0) + 1,
+        type: "cluster",
+        id: cluster.id,
+        latitude: next.center.lat,
+        longitude: next.center.lng,
+        zoom: next.zoom,
+      }));
+    },
+    [response, viewport.zoom],
+  );
+
+  const resetTextArea = useCallback(() => {
+    setViewport({ center: MAP_DEFAULT_CENTER, bbox: MAP_DEFAULT_BBOX, zoom: MAP_DEFAULT_ZOOM });
+    setSelectedItemId(null);
+    setSheetState("expanded");
+    setRendererCommand((current) => ({
+      key: (current?.key ?? 0) + 1,
+      type: "cluster",
+      id: "all-areas",
+      latitude: MAP_DEFAULT_CENTER.lat,
+      longitude: MAP_DEFAULT_CENTER.lng,
+      zoom: MAP_DEFAULT_ZOOM,
+    }));
+  }, []);
+
   const saveMapReturnContext = useCallback(
     (itemId: string) => {
       try {
@@ -1067,14 +1149,21 @@ export function MapExperience({
 
   return (
     <>
-      <section className={`shell public-shell ${styles.experience}`} aria-label="Interaktívna mapa Psipedie">
+      <section
+        className={`shell public-shell ${styles.experience}`}
+        aria-label="Interaktívna mapa Psipedie"
+      >
         <div className={styles.toolbar}>
           <div className={styles.primaryRow}>
-            <form className={styles.mapSearchForm} role="search" aria-label="Hľadať na mape"
+            <form
+              className={styles.mapSearchForm}
+              role="search"
+              aria-label="Hľadať na mape"
               onSubmit={(event) => {
                 event.preventDefault();
                 event.currentTarget.querySelector("input")?.blur();
-              }}>
+              }}
+            >
               <label className={styles.searchField}>
                 <SearchIcon size={19} />
                 <PublicTextInput
@@ -1087,7 +1176,9 @@ export function MapExperience({
                   enterKeyHint="search"
                 />
               </label>
-              <button className={styles.mapSearchSubmit} type="submit">Hľadať</button>
+              <button className={styles.mapSearchSubmit} type="submit">
+                Hľadať
+              </button>
             </form>
 
             <div className={styles.categoryChips} aria-label="Typ obsahu">
@@ -1160,6 +1251,8 @@ export function MapExperience({
             onRetry={() => setRetryNonce((value) => value + 1)}
             onClearFilters={clearFilters}
             viewportZoom={viewport.zoom}
+            onSelectArea={selectTextArea}
+            onResetArea={resetTextArea}
             sheetState={sheetState}
             onToggleSheet={() =>
               setSheetState((value) => (value === "expanded" ? "preview" : "expanded"))

@@ -648,7 +648,7 @@
 }
 
 .providerDisclosure {
-    margin: -30px auto 48px;
+  margin: -30px auto 48px;
   padding: 14px 16px;
   border: 1px solid rgba(23, 53, 43, 0.1);
   border-radius: var(--ps-radius-control, 12px);
@@ -1182,54 +1182,147 @@
 /* MAP UX: discoverable search submit + mobile filter label.
  * Query already filters on input; submitting confirms and dismisses
  * the mobile keyboard without reloading the map or losing its state. */
-.mapSearchForm { display: flex; align-items: stretch; min-width: 0; gap: 8px; }
-.mapSearchForm .searchField { flex: 1 1 auto; }
+.mapSearchForm {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  gap: 8px;
+}
+.mapSearchForm .searchField {
+  flex: 1 1 auto;
+}
 .mapSearchSubmit {
-  flex: none; min-height: 44px; padding: 9px 17px;
+  flex: none;
+  min-height: 44px;
+  padding: 9px 17px;
   border: 1px solid var(--forest, #174b38);
   border-radius: var(--ps-radius-control, 12px);
-  color: #fff; background: var(--forest, #174b38);
-  font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer;
+  color: #fff;
+  background: var(--forest, #174b38);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
 }
-.mapSearchSubmit:focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
+.mapSearchSubmit:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 2px;
+}
 @media (max-width: 760px) {
-  .mapSearchForm { grid-column: 1 / -1; grid-row: 1; }
-  .mapSearchSubmit { padding-inline: 13px; }
-  .categoryChips { grid-column: 1; grid-row: 2; }
-  .filterButton { grid-column: 2; grid-row: 2; min-width: 90px; padding: 8px 11px; }
+  .mapSearchForm {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .mapSearchSubmit {
+    padding-inline: 13px;
+  }
+  .categoryChips {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .filterButton {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 90px;
+    padding: 8px 11px;
+  }
   .filterButton > span:first-child {
-    position: static; width: auto; height: auto;
-    overflow: visible; clip-path: none; white-space: nowrap;
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: nowrap;
   }
 }
 
 /* Mobile map V4: an explicit three-position non-modal results dock.
    The map remains pannable/pinch-zoomable; the header is the only gesture drag zone. */
-.sheetSnapControls { display: none; }
+.sheetSnapControls {
+  display: none;
+}
 @media (max-width: 760px) {
-  .resultsPanel { transform: translateY(calc(100% - 158px + var(--map-sheet-drag-y,0px))); }
-  .resultsPanel[data-sheet-state="peek"] {
-    transform: translateY(calc(100% - 158px + var(--map-sheet-drag-y,0px)));
+  .resultsPanel {
+    transform: translateY(calc(100% - 158px + var(--map-sheet-drag-y, 0px)));
   }
-  .resultsHead { padding: 9px 13px 10px; touch-action: none; }
+  .resultsPanel[data-sheet-state="peek"] {
+    transform: translateY(calc(100% - 158px + var(--map-sheet-drag-y, 0px)));
+  }
+  .resultsHead {
+    padding: 9px 13px 10px;
+    touch-action: none;
+  }
   .sheetHandle {
-    width: 62px; height: 6px; margin: 2px auto 11px;
-    background: rgba(23, 75, 56, .43);
+    width: 62px;
+    height: 6px;
+    margin: 2px auto 11px;
+    background: rgba(23, 75, 56, 0.43);
   }
   .sheetSnapControls {
-    display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
-    gap: 4px; padding: 4px; margin-top: 7px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    margin-top: 7px;
     border: 1px solid var(--ps-border-soft);
     border-radius: var(--ps-radius-control, 12px);
     background: var(--sage-light);
   }
   .sheetSnapControls button {
-    min-width: 0; min-height: 39px; padding: 6px;
-    border: 0; border-radius: 9px; background: transparent; color: var(--forest-dark);
-    font: inherit; font-size: .73rem; font-weight: 800; cursor: pointer;
+    min-width: 0;
+    min-height: 39px;
+    padding: 6px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--forest-dark);
+    font: inherit;
+    font-size: 0.73rem;
+    font-weight: 800;
+    cursor: pointer;
   }
-  .sheetSnapControls button[aria-pressed="true"] { color: #fff; background: var(--forest); }
-  .sheetSnapControls button:focus-visible { outline: 3px solid var(--coral-dark); outline-offset: 2px; }
-  .resultsPanel[data-sheet-state="peek"] .resultsHead > p { display: none; }
-  .resultsScroll { touch-action: pan-y; overscroll-behavior-y: contain; }
+  .sheetSnapControls button[aria-pressed="true"] {
+    color: #fff;
+    background: var(--forest);
+  }
+  .sheetSnapControls button:focus-visible {
+    outline: 3px solid var(--coral-dark);
+    outline-offset: 2px;
+  }
+  .resultsPanel[data-sheet-state="peek"] .resultsHead > p {
+    display: none;
+  }
+  .resultsScroll {
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+  }
+}
+
+.areaSelect {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  min-height: 64px;
+  padding: 14px;
+  border: 1px solid #d9e4dc;
+  border-radius: 14px;
+  background: #fffdf8;
+  color: #173e2d;
+  text-align: left;
+  cursor: pointer;
+}
+.areaSelect span {
+  color: #52645b;
+  font-size: 0.8rem;
+}
+.areaSelect:hover {
+  border-color: #527466;
+}
+.areaSelect:focus-visible {
+  outline: 3px solid #174b38;
+  outline-offset: 2px;
+}
+.areaSelect:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }

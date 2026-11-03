@@ -5,12 +5,21 @@ import { inferSmartImageFit, normalizeSmartImageMode } from "../lib/smart-image.
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
 test("photos fill cards and logos/posters remain fully visible", () => {
-  assert.equal(inferSmartImageFit({width:1600,height:900,src:"/media/dog.webp"}), "cover");
-  assert.equal(inferSmartImageFit({width:3000,height:700}), "contain");
-  assert.equal(inferSmartImageFit({width:700,height:1200}), "contain");
-  assert.equal(inferSmartImageFit({width:1600,height:900,src:"/media/club-logo.webp"}), "contain");
-  assert.equal(inferSmartImageFit({width:1600,height:900,lightBackgroundShare:.6}), "contain");
-  assert.equal(inferSmartImageFit({width:1600,height:900,lightBackgroundShare:.1}), "cover");
+  assert.equal(inferSmartImageFit({ width: 1600, height: 900, src: "/media/dog.webp" }), "cover");
+  assert.equal(inferSmartImageFit({ width: 3000, height: 700 }), "contain");
+  assert.equal(inferSmartImageFit({ width: 700, height: 1200 }), "contain");
+  assert.equal(
+    inferSmartImageFit({ width: 1600, height: 900, src: "/media/club-logo.webp" }),
+    "contain",
+  );
+  assert.equal(
+    inferSmartImageFit({ width: 1600, height: 900, lightBackgroundShare: 0.6 }),
+    "contain",
+  );
+  assert.equal(
+    inferSmartImageFit({ width: 1600, height: 900, lightBackgroundShare: 0.1 }),
+    "cover",
+  );
 });
 test("admin can persist only supported fitting modes", () => {
   assert.equal(normalizeSmartImageMode(undefined), "auto");
@@ -30,7 +39,7 @@ test("homepage and entity cards use the shared smart image renderer", () => {
   assert.match(renderer, /<SmartCardImage/);
   assert.match(renderer, /legacyMode/);
   const eventImage = read("components/event-image.tsx");
-  assert.match(eventImage, /real \? <ImageDisplay/);
+  assert.match(eventImage, /real \?\s*\(?\s*<ImageDisplay/);
   assert.match(eventImage, /legacyMode=\{mode\}/);
   assert.match(eventImage, /getEventFallbackImage\(eventType\)/);
   for (const path of ["components/event-card.tsx", "components/event-detail.tsx"]) {
@@ -61,7 +70,8 @@ test("all article image surfaces use shared non-destructive rendering with legac
     "components/article-card.tsx",
     "components/article-detail.tsx",
     "components/public-visual-system/public-visual-system.tsx",
-  ]) assert.match(read(path), /<ImageDisplay/, path);
+  ])
+    assert.match(read(path), /<ImageDisplay/, path);
   assert.match(read("components/smart-card-image.tsx"), /avoidSevereArticleCrop/);
   assert.match(read("components/smart-card-image.tsx"), /objectPosition/);
   assert.match(read("components/admin-article-editor.tsx"), /<ImageDisplayEditor/);
@@ -69,7 +79,11 @@ test("all article image surfaces use shared non-destructive rendering with legac
 });
 
 test("IMAGE-EDITOR-1 renders article thumbnails and detail using independently saved configurations", () => {
-  for (const path of ["components/article-card.tsx", "components/article-detail.tsx", "components/public-visual-system/public-visual-system.tsx"]) {
+  for (const path of [
+    "components/article-card.tsx",
+    "components/article-detail.tsx",
+    "components/public-visual-system/public-visual-system.tsx",
+  ]) {
     assert.match(read(path), /<ImageDisplay/, path);
   }
   assert.match(read("components/article-card.tsx"), /config=\{article\.thumbnailImageDisplay\}/);
