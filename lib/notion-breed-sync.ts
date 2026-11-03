@@ -829,44 +829,18 @@ async function syncOneBreed(
     }
 
     if (mapping && fieldReceipt) {
-      const plan = planBreedNotionFieldDelta(existing, basePayload, fieldReceipt.notion, fieldReceipt.admin, authority);
-      if (plan.conflicts.length)
-        throw new Error("BREED_SAME_FIELD_CONFLICT: " + plan.conflicts.join(", "));
-      if (!plan.changed.length || !Object.keys(plan.patch).length) {
-        if (receipt.hash !== contentHash
-          || notionSelectProperty(page, "Sync stav") !== "Synchronizované"
-          || notionRichTextProperty(page, "Psipedia ID") !== String(existing.id)) {
-          await upsertMapping(database, page, existing.id, contentHash, now, {
-            notion: plan.latest,
-            admin: advanceBreedAdminReceipt(fieldReceipt.admin, existing, plan.accepted),
-          });
-          await updateNotionSyncState(bindings, page.id, {
-            state: "Synchronizované", psipediaId: existing.id, syncedAt: now,
-          });
-        }
-        return "unchanged";
-      }
-      const merged = {
-        ...existing,
-        ...plan.patch,
-        seo: { ...existing.seo, ...(plan.patch.seo ?? {}) },
-        status: existing.status,
-        image: existing.image,
-        imageKey: existing.imageKey,
-        gallery: existing.gallery,
-        accent: existing.accent,
-        editorialComplete: existing.editorialComplete,
-      } satisfies ManagedBreedInput;
-      const updated = await updateManagedBreed(existing.id, merged, SYNC_ACTOR, existing.updatedAt);
-      if (!updated) throw new Error("BREED_FIELD_UPDATE_FAILED");
-      await upsertMapping(database, page, updated.id, contentHash, new Date().toISOString(), {
-        notion: plan.latest,
-        admin: advanceBreedAdminReceipt(fieldReceipt.admin, updated, plan.accepted),
-      });
-      await updateNotionSyncState(bindings, page.id, {
-        state: "Synchronizované", psipediaId: updated.id, syncedAt: now,
-      });
-      return "updated";
+      const plan=planBreedNotionFieldDelta(existing,basePayload,
+        fieldReceipt.notion,fieldReceipt.admin,authority);
+      const invalid=invalidStructuredBreedFields(page);
+      // Even if just one source field is invalid or contested, valid Notion
+      // editorial edits are committed together. Skipped fields remain pending.
+      if(!plan.changed.length&&!invalid.size
+        && receipt.hash===contentHash
+        && notionSelectProperty(page,"Sync stav")==="Synchronizované"
+        && !notionRichTextProperty(page,"Sync chyba")
+        && notionRichTextProperty(page,"Psipedia ID")===String(existing.id))return "unchanged";
+      return applySafeBreedSync(database,bindings,page,existing,plan,
+        fieldReceipt.notion,fieldReceipt.admin,plan.latest,authority,contentHash,invalid);
     }
 
     // Legacy SHA receipts lack a per-field baseline. The SIGNED webhook event
