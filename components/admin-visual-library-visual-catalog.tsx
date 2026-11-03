@@ -7,6 +7,8 @@ import {
 } from "@/components/admin-component-visual-preview";
 import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-library-missing-previews";
 import { AdminVisualLibraryOwnerCompare } from "@/components/admin-visual-library-owner-compare";
+import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library-dynamic-urls";
+import { relatedDynamicUrlKindForPreview } from "@/lib/visual-library-preview-related-urls";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
@@ -137,6 +139,7 @@ export function AdminVisualLibraryVisualCatalog({
   const [knownLimit, setKnownLimit] = useState(12);
   const [showComparison, setShowComparison] = useState(false);
   const [compareStart, setCompareStart] = useState("");
+  const [showRelatedProfiles, setShowRelatedProfiles] = useState(false);
 
   const lower = query.trim().toLocaleLowerCase("sk");
   const matches = groups.filter((item) =>
@@ -157,6 +160,7 @@ export function AdminVisualLibraryVisualCatalog({
   const staticUrls = (chosen?.routes ?? []).map((route) => ({
     route, href: publicRegistryRouteHref(route),
   })).filter((item): item is { route: string; href: string } => item.href !== null);
+  const relatedKind = chosen ? relatedDynamicUrlKindForPreview(chosen.id) : null;
   const dynamicRoutes = (chosen?.routes ?? []).filter((route) =>
     route.includes("[") && publicRegistryRouteHref(route) === null);
 
@@ -171,6 +175,7 @@ export function AdminVisualLibraryVisualCatalog({
     setVariantId("");
     setRoutesLimit(12);
     setKnownLimit(12);
+    setShowRelatedProfiles(false);
   };
 
   return (
@@ -235,7 +240,7 @@ export function AdminVisualLibraryVisualCatalog({
                 Porovnať s iným prvkom
               </button>
               <button type="button" aria-pressed={chosen?.id === item.id}
-                onClick={() => { setSelectedId(item.id); setVariantId(""); setRoutesLimit(12); setKnownLimit(12); }}>
+                onClick={() => { setSelectedId(item.id); setVariantId(""); setRoutesLimit(12); setKnownLimit(12); setShowRelatedProfiles(false); }}>
                 Pozrieť detail a použitie
               </button>
             </div>
@@ -342,6 +347,21 @@ export function AdminVisualLibraryVisualCatalog({
             na webe nepoužíva.
           </p>}
         </div>
+        {relatedKind && <section className={styles.visualCatalogRelatedProfiles}
+          aria-label="Publikované profily súvisiace s komponentom">
+          <div>
+            <h4>Konkrétne publikované profily súvisiace s týmto typom</h4>
+            <p>Profilové URL pochádzajú z databázy publikovaných záznamov.
+              Sú to stránky na preverenie, <strong>nie dôkaz, že sa tento komponent
+              na každej z nich vykresľuje.</strong> Overenie HTML je možné po jednej URL.</p>
+            <button type="button" aria-expanded={showRelatedProfiles}
+              onClick={() => setShowRelatedProfiles((value) => !value)}>
+              {showRelatedProfiles ? "Skryť publikované profily" : "Zobraziť konkrétne publikované profily"}
+            </button>
+          </div>
+          {showRelatedProfiles && <AdminVisualLibraryDynamicUrls
+            key={chosen.id + ":" + relatedKind} initialKind={relatedKind} />}
+        </section>}
         <details className={styles.visualCatalogTechnical}>
           <summary>Technické informácie (voliteľné)</summary>
           {chosen.paths.map((path) => <code key={path}>{path}</code>)}
