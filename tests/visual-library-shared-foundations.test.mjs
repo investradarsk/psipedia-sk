@@ -23,13 +23,13 @@ test("article cards are a real shared grid/featured React component with two dis
   assert.match(extra, /variant="featured" showFavorite=\{false\}/);
   assert.match(extra, /<PortalSectionTabs section=\{sampleSection\}/);
   assert.match(catalog, /"article-card-featured": "article-card-grid"/);
-  assert.match(catalog, /"subcategory-compact": "subcategory-landing"/);
+  assert.doesNotMatch(catalog, /"subcategory-compact": "subcategory-landing"/);
   assert.match(tabs, /<PublicSubcategoryNavigator/);
 });
 
 test("only source-verified shared navigation foundations are linked, wrappers keep their own behavior", () => {
   const groups = [
-    "subcategory-landing","help-category-nav","directory-category-navigation","portal-section-tabs",
+    "subcategory-landing","subcategory-compact","help-category-nav","directory-category-navigation","portal-section-tabs",
   ];
   for (const id of groups) {
     const item = verifiedSharedFoundationForGroup(id);
@@ -38,10 +38,12 @@ test("only source-verified shared navigation foundations are linked, wrappers ke
     assert.ok(read(item.sourcePath).includes("PublicSubcategoryNavigator"));
   }
   assert.equal(verifiedSharedFoundationForGroup("subcategory-landing").relation, "direct-renderer");
-  for (const id of groups.slice(1)) {
+  assert.equal(verifiedSharedFoundationForGroup("subcategory-compact").relation, "direct-renderer");
+  for (const id of groups.slice(2)) {
     assert.equal(verifiedSharedFoundationForGroup(id).relation,"purpose-specific-wrapper");
     assert.ok(verifiedSharedFoundationForGroup(id).distinction.length > 20);
   }
+  assert.equal(ownerGroupsShareFoundation("subcategory-landing","subcategory-compact"),true);
   assert.equal(ownerGroupsShareFoundation("help-category-nav","portal-section-tabs"),true);
   assert.equal(ownerGroupsShareFoundation("directory-category-navigation","subcategory-landing"),true);
   assert.equal(ownerGroupsShareFoundation("help-category-nav","event-list"),false);
