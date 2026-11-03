@@ -89,13 +89,19 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
     if(byId)bind.push(request.profileId);
     // A bounded single read per scope. Fail closed instead of reporting a
     // partial all-record queue as a completed whole-area transfer.
-    const q=await db.prepare(sql+" ORDER BY profile_id LIMIT ?").bind(...bind,MAX_LINKS+1)
-      .all<{profile_id:number;notion_page_id:string}>();
-    for(const row of q.results??[]){
-      if(!Number.isSafeInteger(row.profile_id)||row.profile_id<=0
-        ||!pageValid(row.notion_page_id))throw Error("TRANSFER_MAPPING_INVALID");
-      output.push({scope,profile_id:row.profile_id,notion_page_id:row.notion_page_id});
-      if(output.length>MAX_LINKS)throw Error("TRANSFER_TOO_MANY_PROFILES");
+    const pageSize=250;
+    for(let offset=0;;offset+=pageSize){
+      const q=await db.prepare(sql+" ORDER BY profile_id LIMIT ? OFFSET ?")
+        .bind(...bind,pageSize,offset)
+        .all<{profile_id:number;notion_page_id:string}>();
+      const rows=q.results??[];
+      for(const row of rows){
+        if(!Number.isSafeInteger(row.profile_id)||row.profile_id<=0
+          ||!pageValid(row.notion_page_id))throw Error("TRANSFER_MAPPING_INVALID");
+        output.push({scope,profile_id:row.profile_id,notion_page_id:row.notion_page_id});
+        if(output.length>MAX_LINKS)throw Error("TRANSFER_TOO_MANY_PROFILES");
+      }
+      if(rows.length<pageSize)break;
     }
   }
   if(!output.length)throw Error("TRANSFER_NO_LINKED_PROFILES");
