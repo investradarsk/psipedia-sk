@@ -108,7 +108,7 @@ test("events keep the safe managed CTA default while the public listing uses one
 });
 
 test("missing hero config falls back to route copy and static canonical defaults", () => {
-  assert.match(hero, /const managedTitle = visual\.heroContent\?\.title \|\| title/);
+  assert.match(hero, /const managedTitle = contentSource === "route" \? title : visual\.heroContent\?\.title \|\| title/);
   assert.match(hero, /const config: SectionHeroConfig = visual\.heroContent\?\.config \?\? \{\}/);
   assert.match(read("lib/section-visual-store.ts"), /heroContent: subpage/);
   assert.match(sectionStore, /heroConfig: \{ \.\.\.\(base\.heroConfig \?\? \{\}\), \.\.\.cleanHeroConfig/);
