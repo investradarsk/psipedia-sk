@@ -1,5 +1,6 @@
 import { AdminShell } from "@/components/admin-shell";
 import { AdminNotionFieldSettings } from "@/components/admin-notion-field-settings";
+import { AdminNotionManualTransfer } from "@/components/admin-notion-manual-transfer";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 export const dynamic="force-dynamic";
 export default async function NotionFieldSettingsPage(){
@@ -8,5 +9,6 @@ export default async function NotionFieldSettingsPage(){
     title="Notion – prepojenia a priority polí"
     description="Vyber oblasť, kategóriu a konkrétne pole. Identita, publikovanie, služby V3 a potvrdené údaje Google Maps ostávajú chránené.">
     <AdminNotionFieldSettings/>
+    <AdminNotionManualTransfer/>
   </AdminShell>;
 }
