@@ -59,6 +59,12 @@ export function parseBreedFieldSnapshot(value: string | null): BreedFieldSnapsho
         record[key] = null;
         continue;
       }
+      // Receipts created before SEO field coverage had no such keys. Treat
+      // their historical empty/default values as an ordinary baseline.
+      if (key.startsWith("seo.") && key !== "seo.title" && key !== "seo.description") {
+        record[key] = key === "seo.noindex" ? false : "";
+        continue;
+      }
       return null;
     }
     return record as BreedFieldSnapshot;
@@ -86,7 +92,6 @@ export function planBreedNotionFieldDelta(
   authority: Readonly<Record<string, NotionFieldMode>> = {},
 ) {
   const latest = breedFieldSnapshot(incoming);
-  const current = breedFieldSnapshot(existing);
   const changed: BreedNotionField[] = [];
   const conflicts: BreedNotionField[] = [];
   const accepted: BreedNotionField[] = [];
@@ -103,12 +108,8 @@ export function planBreedNotionFieldDelta(
       conflicts.push(key);
       continue;
     }
-    // Previous receipts may not include individual edit timestamps. Treat a
-    // two-sided editorial difference as an ordinary priority decision, not a
-    // permanent review lock. This is intentionally breeds-only behavior.
-    // Explicit Admin mode was handled above; other modes fall back to Notion.
-    void current;
-    void oldAdmin;
+    // This is intentionally breeds-only: the editor priority chooses the
+    // winner instead of sending a normal content difference to review.
     accepted.push(key);
     if (key.startsWith("seo.")) {
       patch.seo = { ...patch.seo, [key.slice(4)]: desired };
