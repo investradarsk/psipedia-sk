@@ -25,6 +25,23 @@ Každá karta vizuálneho prvku:
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
 
+## Priebežný stav implementácie (prvá vlna)
+
+- [x] Nová predvolená karta **Vizuálny prehľad** namiesto technického registra.
+- [x] Dlaždice s reálne vykreslenými komponentmi a stránkovaním po 12 skupinách.
+- [x] Variácie jedného potvrdeného komponentu pod jednou kartou (nezamieňať spoločný súbor s jedným komponentom).
+- [x] Hľadanie podľa názvu, účelu, zdrojového súboru a kandidátskej trasy.
+- [x] Detail vybraného prvku: zväčšený živý náhľad, prepínač variantov, kandidátske verejné trasy a skryté technické detaily.
+- [x] Samostatná karta technického registra a prechod na existujúce porovnávanie.
+- [x] Zoznam nehotových náhľadov zachovaný, no nezahlcuje hlavnú galériu.
+- [x] Pridané regresné kontraktové testy ku komponentovej galérii.
+- [ ] CI: zatiaľ nepotvrdené finálne zelené výsledky po poslednom commite.
+- [ ] Vizuálne overenie prihlásenej administrácie na desktope.
+- [ ] Rozšírenie z 51 náhľadov na úplné pokrytie skutočne vykresliteľných typov.
+- [ ] Presné potvrdené výskyty na reálnych URL vrátane dynamických profilov.
+- [ ] Jednoduché rozhodovanie „zjednotiť podľa A/B“ s frontom úloh.
+- [ ] Prvé reálne zlúčenie bannera Veterinári (samostatný schválený PR).
+
 ## Implementačné etapy
 
 ### 1. Usporiadať existujúci základ PR #1181
