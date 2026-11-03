@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AdminVisualLibrarySourceSimilarity } from "@/components/admin-visual-library-source-similarity";
+import { AdminVisualLibraryDeepAudit } from "@/components/admin-visual-library-deep-audit";
 import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
@@ -150,6 +151,7 @@ export function AdminVisualLibraryDuplicates({
         <p>Porovnaj vzhľad a miesta použitia vedľa seba. Systém upozorňuje na spoločný cieľ alebo veľmi podobný text,
           no <strong>rovnaký vzhľad alebo odkaz automaticky neznamená chybu.</strong> Nič sa samo nezlučuje ani nemení.</p>
       </div>
+      <AdminVisualLibraryDeepAudit registry={registry} initialView="css" />
       <div className={styles.similaritySuggestions}>
         <h4>Návrhy na preverenie ({suggested.length})</h4>
         {suggested.length ? (
