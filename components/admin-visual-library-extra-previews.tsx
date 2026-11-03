@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { ArticleCard } from "@/components/article-card";
+import { PortalSectionTabs } from "@/components/portal-section-tabs";
+import type { ArticleListingCard } from "@/lib/content";
+import type { PortalSection } from "@/lib/portal";
 import { PublicHelpCategoryNav } from "@/components/public-visual-system/public-help-category-nav";
 import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
@@ -15,10 +19,53 @@ export type AdminExtraPreviewId =
   | "help-profile-urgent"
   | "help-category-nav"
   | "breadcrumbs"
-  | "section-tabs";
+  | "section-tabs"
+  | "portal-section-tabs"
+  | "article-card-grid"
+  | "article-card-featured";
+
+const sampleArticle: ArticleListingCard = {
+  slug: "ukazkovy-clanok",
+  title: "Ako pripraviť šteňa na prvé dni doma",
+  excerpt: "Ilustračná ukážka redakčnej karty s fotografickým zástupným obsahom.",
+  category: "Život so psom",
+  date: "Ukážkový dátum",
+  dateIso: "2026-11-03",
+  accent: "forest",
+  portalSection: "steniatka",
+};
+
+const sampleSection: PortalSection = {
+  slug: "steniatka",
+  label: "Šteniatka",
+  icon: "🐾",
+  accent: "forest",
+  eyebrow: "Príručka",
+  description: "Ukážka",
+  intro: "Ilustračná navigácia sekcie",
+  articleEnabled: true,
+  subpages: [
+    { slug: "prve-dni", label: "Prvé dni doma", description: "Základy starostlivosti" },
+    { slug: "rast-a-vyvoj", label: "Rast a vývoj", description: "Od šteniatka po dospelého psa" },
+    { slug: "vychova", label: "Výchova", description: "Základy výcviku" },
+  ],
+};
 
 export function AdminExtraComponentPreview({ id }: { id: AdminExtraPreviewId }) {
   switch (id) {
+    case "article-card-grid":
+      return <div style={{maxWidth: 360, padding: 8}}>
+        <ArticleCard article={sampleArticle} variant="grid" showFavorite={false} />
+      </div>;
+    case "article-card-featured":
+      return <div style={{maxWidth: 560, padding: 8}}>
+        <ArticleCard article={{...sampleArticle, title: "Ukážka odporúčaného článku"}}
+          variant="featured" showFavorite={false} />
+      </div>;
+    case "portal-section-tabs":
+      return <div style={{padding: 12}}>
+        <PortalSectionTabs section={sampleSection} activeSlug="prve-dni" />
+      </div>;
     case "help-profile":
     case "help-profile-urgent": {
       const urgent = id === "help-profile-urgent";
