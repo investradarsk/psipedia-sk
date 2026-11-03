@@ -4,6 +4,7 @@ import { AdminDetailComponentPreview } from "./admin-visual-library-detail-previ
 import { AdminExtraComponentPreview } from "./admin-visual-library-extra-previews";
 import { AdminMoreComponentPreview } from "./admin-visual-library-more-previews";
 import { AdminUtilityComponentPreview } from "./admin-visual-library-utility-previews";
+import { AdminAdditionalComponentPreview } from "./admin-visual-library-additional-previews";
 import { PublicActionLink } from "./public-visual-system/public-visual-system";
 import { PublicArticleCallout } from "./public-visual-system/public-article-callout";
 import { PublicContextBanner } from "./public-visual-system/public-context-banner";
@@ -113,6 +114,12 @@ export const adminComponentPreviewSamples = [
   { id: "share-button", path: "components/share-button.tsx", family: "cta", title: "Zdieľanie článku", description: "Reálne tlačidlo zdieľania bez spustenia akcií." },
   { id: "smart-card-image", path: "components/smart-card-image.tsx", family: "card", title: "Inteligentný obrázok karty", description: "Skutočný smart image prvok s ilustračnou fotografiou." },
   { id: "slovakia-location-selector", path: "components/slovakia-location-selector.tsx", family: "filter", title: "Výber lokality Slovenska", description: "Originálny regionálny formulárový ovládač." },
+
+  { id: "adoption-card-media", path: "components/adoption-card-media.tsx", family: "card", title: "Adopcia – fotografia a stav", description: "Originálny obrázkový blok adopčnej karty so stavom." },
+  { id: "article-promo", path: "components/article-promo.tsx", family: "banner", title: "Článok – automatický promo banner", description: "Skutočný redakčný promo obal, používa spoločný PublicMagazineBanner." },
+  { id: "image-display", path: "components/image-display.tsx", family: "card", title: "Zobrazenie obrázka", description: "Verejné nastavenie orezania a náhľadu obrázka." },
+  { id: "icons", path: "components/icons.tsx", family: "other", title: "Spoločné ikony", description: "Skutočné SVG ikony navigácie a akcií." },
+  { id: "partner-password-field", path: "components/partner-password-field.tsx", family: "filter", title: "Partner – pole hesla", description: "Reálny ovládač bez účtu, údajov ani odoslania." },
   { id: "breadcrumbs", path: "components/page-system.tsx", family: "category", title: "Drobečková navigácia", description: "Spoločná navigácia používaná v detailoch a sekciách, ilustračné odkazy." },
   { id: "section-tabs", path: "components/page-system.tsx", family: "category", title: "Záložky sekcie", description: "Skutočný kontajner pre sekciové záložky s ukážkovými odkazmi." },
 ] as const;
@@ -121,6 +128,12 @@ export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[numb
 
 export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewId }) {
   switch (id) {
+    case "adoption-card-media":
+    case "article-promo":
+    case "image-display":
+    case "icons":
+    case "partner-password-field":
+      return <AdminAdditionalComponentPreview id={id} />;
     case "article-continuation":
     case "event-markdown":
     case "help-public-icons":
