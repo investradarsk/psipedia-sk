@@ -9,7 +9,7 @@ export type DirectorySourceFacetExpressions = {
   breeds: string;
   fciGroups: string;
   organizations: string;
-  profileTypes: string;
+  profileTypes?: string;
 };
 
 const districtExpression = `COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '')`;
@@ -36,15 +36,13 @@ export function directoryLocationFacetStatement(
     `  json_group_array(DISTINCT CASE WHEN ${regionWhere} AND ${districtWhere} AND city <> '' THEN city END) AS cities`,
     `FROM directory_profiles WHERE ${baseWhere}`,
   ].join("\n");
-  return database.prepare(sql).bind(
-    ...regionBindings, ...regionBindings,
-    ...(district ? [district] : []),
-    ...baseBindings,
-  );
+  return database
+    .prepare(sql)
+    .bind(...regionBindings, ...regionBindings, ...(district ? [district] : []), ...baseBindings);
 }
 
 /**
- * Four JSON metadata facets share one category-scoped table scan. Unlike
+ * Selected JSON metadata facets share one category-scoped table scan. Unlike
  * locations, these must not narrow when q, service or location is selected.
  */
 export function directorySourceFacetStatement(
@@ -53,10 +51,14 @@ export function directorySourceFacetStatement(
   categoryBindings: unknown[],
   expressions: DirectorySourceFacetExpressions,
 ) {
-  const columns = (Object.entries(expressions) as Array<[keyof DirectorySourceFacetExpressions, string]>)
-    .map(([alias, expression]) =>
-      `json_group_array(DISTINCT trim(CAST(${expression} AS TEXT))) AS ${alias}`);
-  return database.prepare(`SELECT ${columns.join(", ")} FROM directory_profiles WHERE ${categoryWhere}`)
+  const columns = (
+    Object.entries(expressions) as Array<[keyof DirectorySourceFacetExpressions, string]>
+  ).map(
+    ([alias, expression]) =>
+      `json_group_array(DISTINCT trim(CAST(${expression} AS TEXT))) AS ${alias}`,
+  );
+  return database
+    .prepare(`SELECT ${columns.join(", ")} FROM directory_profiles WHERE ${categoryWhere}`)
     .bind(...categoryBindings);
 }
 

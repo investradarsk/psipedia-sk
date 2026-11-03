@@ -1,3 +1,4 @@
+import { getDirectoryCategory } from "./directory.ts";
 import { mapClusterGridSize } from "./map-grid.js";
 import { directoryFilterRegistry } from "./directory-filter-contract.ts";
 import {
@@ -265,7 +266,7 @@ export function detailMapCommandForItems(
 export function mapItemTypeLabel(item: Pick<MapItem, "entityType" | "subcategory">) {
   if (item.entityType === "event") return item.subcategory || "Podujatie";
   if (item.entityType === "organization") return "Organizácia";
-  return item.subcategory || "Služba";
+  return (item.subcategory ? getDirectoryCategory(item.subcategory)?.label : undefined) || "Služba";
 }
 
 export function mapResultLabel(count: number) {

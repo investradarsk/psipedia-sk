@@ -1,4 +1,5 @@
 "use client";
+import { breedComparisonValue } from "@/lib/breed-comparison-values";
 import { PublicSelect } from "@/components/public-visual-system/public-form-controls";
 import { BreedPhoto } from "@/components/breed-photo";
 
@@ -11,9 +12,35 @@ function CompareRating({ value, label }: { value: number; label: string }) {
   return (
     <div className="compare-rating" aria-label={`${label}: ${value} z 5`}>
       <span aria-hidden="true">
-        {[1, 2, 3, 4, 5].map((dot) => <i key={dot} className={dot <= value ? "is-on" : ""} />)}
+        {[1, 2, 3, 4, 5].map((dot) => (
+          <i key={dot} className={dot <= value ? "is-on" : ""} />
+        ))}
       </span>
       <strong>{value}/5</strong>
+    </div>
+  );
+}
+
+function ComparisonValue({
+  value,
+  kind,
+  slug,
+}: {
+  value: string;
+  kind?: "weight" | "lifespan";
+  slug: string;
+}) {
+  const display = breedComparisonValue(value, kind);
+  return (
+    <div className="comparison-value">
+      <span>{display.summary}</span>
+      {display.explanation ? (
+        <details key={slug + value}>
+          <summary>Zobraziť poznámku</summary>
+          <p>{display.explanation}</p>
+          <Link href={`/plemena/${slug}`}>Profil a zdroje plemena</Link>
+        </details>
+      ) : null}
     </div>
   );
 }
@@ -21,11 +48,19 @@ function CompareRating({ value, label }: { value: number; label: string }) {
 function BreedHeading({ breed }: { breed: BreedComparisonItem }) {
   return (
     <div className={`compare-breed-heading compare-breed-heading--${breed.accent}`}>
-      <BreedPhoto className="compare-breed-image" src={breed.image} alt={`${breed.name} – fotografia plemena`} />
-      <span>FCI {breed.fciGroup} · {breed.fciSection}</span>
+      <BreedPhoto
+        className="compare-breed-image"
+        src={breed.image}
+        alt={`${breed.name} – fotografia plemena`}
+      />
+      <span>
+        FCI {breed.fciGroup} · {breed.fciSection}
+      </span>
       <h2>{breed.name}</h2>
       <small>{breed.origin}</small>
-      <Link href={`/plemena/${breed.slug}`}>Celý profil <ArrowIcon size={17} /></Link>
+      <Link href={`/plemena/${breed.slug}`}>
+        Celý profil <ArrowIcon size={17} />
+      </Link>
     </div>
   );
 }
@@ -34,16 +69,31 @@ export function BreedComparison({ breeds }: { breeds: BreedComparisonItem[] }) {
   const [firstSlug, setFirstSlug] = useState(breeds[0]?.slug ?? "");
   const [secondSlug, setSecondSlug] = useState(breeds[2]?.slug ?? breeds[1]?.slug ?? "");
 
-  const first = useMemo(() => breeds.find((breed) => breed.slug === firstSlug) ?? breeds[0], [breeds, firstSlug]);
-  const second = useMemo(() => breeds.find((breed) => breed.slug === secondSlug) ?? breeds[1] ?? breeds[0], [breeds, secondSlug]);
+  const first = useMemo(
+    () => breeds.find((breed) => breed.slug === firstSlug) ?? breeds[0],
+    [breeds, firstSlug],
+  );
+  const second = useMemo(
+    () => breeds.find((breed) => breed.slug === secondSlug) ?? breeds[1] ?? breeds[0],
+    [breeds, secondSlug],
+  );
 
   if (!first || !second) return null;
 
   const facts = [
-    { label: "FCI skupina", first: `${first.fciGroup} – ${first.fciSection}`, second: `${second.fciGroup} – ${second.fciSection}` },
+    {
+      label: "FCI skupina",
+      first: `${first.fciGroup} – ${first.fciSection}`,
+      second: `${second.fciGroup} – ${second.fciSection}`,
+    },
     { label: "Veľkosť", first: first.size, second: second.size },
-    { label: "Hmotnosť", first: first.weight, second: second.weight },
-    { label: "Dĺžka života", first: first.lifespan, second: second.lifespan },
+    { label: "Hmotnosť", kind: "weight" as const, first: first.weight, second: second.weight },
+    {
+      label: "Dĺžka života",
+      kind: "lifespan" as const,
+      first: first.lifespan,
+      second: second.lifespan,
+    },
     { label: "Srsť", first: first.coat, second: second.coat },
   ];
 
@@ -57,17 +107,39 @@ export function BreedComparison({ breeds }: { breeds: BreedComparisonItem[] }) {
       <div className="compare-picker" aria-label="Výber plemien na porovnanie">
         <label>
           <span>Prvé plemeno</span>
-          <PublicSelect appearance="context" value={firstSlug} onChange={(event) => setFirstSlug(event.target.value)}>
-            {breeds.map((breed) => <option key={breed.slug} value={breed.slug} disabled={breed.slug === secondSlug}>{breed.name}</option>)}
+          <PublicSelect
+            appearance="context"
+            value={firstSlug}
+            onChange={(event) => setFirstSlug(event.target.value)}
+          >
+            {breeds.map((breed) => (
+              <option key={breed.slug} value={breed.slug} disabled={breed.slug === secondSlug}>
+                {breed.name}
+              </option>
+            ))}
           </PublicSelect>
         </label>
-        <button type="button" className="compare-swap" onClick={swapBreeds} aria-label="Vymeniť poradie plemien" title="Vymeniť poradie">
+        <button
+          type="button"
+          className="compare-swap"
+          onClick={swapBreeds}
+          aria-label="Vymeniť poradie plemien"
+          title="Vymeniť poradie"
+        >
           <span aria-hidden="true">⇄</span>
         </button>
         <label>
           <span>Druhé plemeno</span>
-          <PublicSelect appearance="context" value={secondSlug} onChange={(event) => setSecondSlug(event.target.value)}>
-            {breeds.map((breed) => <option key={breed.slug} value={breed.slug} disabled={breed.slug === firstSlug}>{breed.name}</option>)}
+          <PublicSelect
+            appearance="context"
+            value={secondSlug}
+            onChange={(event) => setSecondSlug(event.target.value)}
+          >
+            {breeds.map((breed) => (
+              <option key={breed.slug} value={breed.slug} disabled={breed.slug === firstSlug}>
+                {breed.name}
+              </option>
+            ))}
           </PublicSelect>
         </label>
       </div>
@@ -82,8 +154,16 @@ export function BreedComparison({ breeds }: { breeds: BreedComparisonItem[] }) {
         {facts.map((fact) => (
           <div className="comparison-row" key={fact.label}>
             <div className="comparison-label">{fact.label}</div>
-            <div>{fact.first}</div>
-            <div>{fact.second}</div>
+            <ComparisonValue
+              value={fact.first}
+              kind={"kind" in fact ? fact.kind : undefined}
+              slug={first.slug}
+            />
+            <ComparisonValue
+              value={fact.second}
+              kind={"kind" in fact ? fact.kind : undefined}
+              slug={second.slug}
+            />
           </div>
         ))}
 
@@ -110,15 +190,24 @@ export function BreedComparison({ breeds }: { breeds: BreedComparisonItem[] }) {
             <span className="eyebrow">{breed.name} v skratke</span>
             <p className="comparison-intro">{breed.intro}</p>
             <h3>Môže dobre sedieť pre</h3>
-            <ul className="comparison-good">{breed.goodFor.map((item) => <li key={item}>{item}</li>)}</ul>
+            <ul className="comparison-good">
+              {breed.goodFor.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
             <h3>Pred rozhodnutím zváž</h3>
-            <ul className="comparison-consider">{breed.consider.map((item) => <li key={item}>{item}</li>)}</ul>
+            <ul className="comparison-consider">
+              {breed.consider.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
           </article>
         ))}
       </div>
 
       <p className="compare-note">
-        Hodnotenie opisuje typické vlohy plemena, nie záruku povahy konkrétneho psa. Rozhoduje aj línia, zdravie, skoré skúsenosti a každodenné vedenie.
+        Hodnotenie opisuje typické vlohy plemena, nie záruku povahy konkrétneho psa. Rozhoduje aj
+        línia, zdravie, skoré skúsenosti a každodenné vedenie.
       </p>
     </div>
   );

@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { PublicHelpClosingBanner, PublicHelpReportBanner } from "@/components/public-visual-system/public-help-banner";
+import {
+  PublicHelpClosingBanner,
+  PublicHelpReportBanner,
+} from "@/components/public-visual-system/public-help-banner";
 import { HelpBrowser } from "@/components/help-browser";
 import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { PublicHelpCategoryNav } from "@/components/public-visual-system/public-help-category-nav";
@@ -36,21 +39,30 @@ export async function HelpPage({
   initialQuery = "",
   initialActiveOnly = true,
   initialRegion = "all",
+  initialPage = 1,
 }: {
   items: PublicHelpCard[];
   initialCategory?: "all" | HelpCategorySlug;
   categoryCounts?: HelpCategoryCounts;
   initialQuery?: string;
+  initialPage?: number;
   initialActiveOnly?: boolean;
   initialRegion?: "all" | import("@/lib/events").SlovakRegion;
 }) {
   const active = initialCategory === "all" ? null : getHelpCategory(initialCategory);
   const activeCount = active
-    ? categoryCounts[active.slug] ?? items.filter((item) => item.category === active.slug && !item.resolved).length
+    ? (categoryCounts[active.slug] ??
+      items.filter((item) => item.category === active.slug && !item.resolved).length)
     : null;
-  const heroVisual = await getSectionHeroVisual(active ? `help.${active.slug}` : "section.pomoc-psom");
-  const countValues = Object.values(categoryCounts).filter((value): value is number => typeof value === "number");
-  const totalActive = countValues.length ? countValues.reduce((sum, value) => sum + value, 0) : null;
+  const heroVisual = await getSectionHeroVisual(
+    active ? `help.${active.slug}` : "section.pomoc-psom",
+  );
+  const countValues = Object.values(categoryCounts).filter(
+    (value): value is number => typeof value === "number",
+  );
+  const totalActive = countValues.length
+    ? countValues.reduce((sum, value) => sum + value, 0)
+    : null;
   const browserItems = items.filter((item) => item.category !== "stratene-a-najdene");
 
   return (
@@ -58,13 +70,27 @@ export async function HelpPage({
       <PublicFoundation className={styles.foundation}>
         <UnifiedSectionHeroShell>
           <UnifiedSectionHero
-            breadcrumbs={<nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
-              <Link href="/">Domov</Link><span aria-hidden="true">/</span>
-              {active ? <><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><span aria-current="page">{active.label}</span></> : <span aria-current="page">Pomoc psom</span>}
-            </nav>}
+            breadcrumbs={
+              <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
+                <Link href="/">Domov</Link>
+                <span aria-hidden="true">/</span>
+                {active ? (
+                  <>
+                    <Link href="/pomoc-psom">Pomoc psom</Link>
+                    <span aria-hidden="true">/</span>
+                    <span aria-current="page">{active.label}</span>
+                  </>
+                ) : (
+                  <span aria-current="page">Pomoc psom</span>
+                )}
+              </nav>
+            }
             eyebrow={active ? "Pomoc psom · aktuálny prehľad" : "Pomoc psom · tam, kde ju treba"}
             title={active?.label ?? "Pomoc psom"}
-            intro={active?.description ?? "Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Nájdite konkrétnu pomoc alebo spôsob, ako sa zapojiť."}
+            intro={
+              active?.description ??
+              "Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Nájdite konkrétnu pomoc alebo spôsob, ako sa zapojiť."
+            }
             visual={heroVisual}
             portalSearchSlot={
               <HomePortalSearch
@@ -88,9 +114,19 @@ export async function HelpPage({
             }
             metaSlot={
               <div className={styles.headerMeta}>
-                {activeCount !== null ? <span><strong>{activeCount}</strong> aktívnych záznamov</span> : null}
-                {!active && totalActive !== null ? <span><strong>{totalActive}</strong> aktívnych záznamov</span> : null}
-                <span><ShieldCheckIcon size={17} /> Zobrazujeme iba publikované údaje</span>
+                {activeCount !== null ? (
+                  <span>
+                    <strong>{activeCount}</strong> aktívnych záznamov
+                  </span>
+                ) : null}
+                {!active && totalActive !== null ? (
+                  <span>
+                    <strong>{totalActive}</strong> aktívnych záznamov
+                  </span>
+                ) : null}
+                <span>
+                  <ShieldCheckIcon size={17} /> Zobrazujeme iba publikované údaje
+                </span>
               </div>
             }
           />
@@ -102,6 +138,7 @@ export async function HelpPage({
           initialQuery={initialQuery}
           initialActiveOnly={initialActiveOnly}
           initialRegion={initialRegion}
+          initialPage={initialPage}
         >
           {!active && (
             <section className={styles.categoryBlock} aria-labelledby="help-categories-heading">
@@ -110,27 +147,34 @@ export async function HelpPage({
                   <span className={styles.sectionEyebrow}>Kategórie pomoci</span>
                   <h2 id="help-categories-heading">Vyberte, čo chcete riešiť</h2>
                 </div>
-                <p>Vyberte oblasť a prejdite priamo na adopcie, organizácie, dočasnú opateru, zbierky alebo hlásenia.</p>
+                <p>
+                  Vyberte oblasť a prejdite priamo na adopcie, organizácie, dočasnú opateru, zbierky
+                  alebo hlásenia.
+                </p>
               </div>
 
-              <PublicHelpCategoryNav items={helpCategories.map((category) => ({
-                slug: category.slug,
-                label: category.label,
-                href: categoryDestination(category.slug),
-                count: categoryCounts[category.slug],
-                current: category.slug === initialCategory,
-              }))} />
+              <PublicHelpCategoryNav
+                items={helpCategories.map((category) => ({
+                  slug: category.slug,
+                  label: category.label,
+                  href: categoryDestination(category.slug),
+                  count: categoryCounts[category.slug],
+                  current: category.slug === initialCategory,
+                }))}
+              />
             </section>
           )}
           {active && (
             <section className={styles.categoryBlock} aria-label="Ďalšie kategórie pomoci">
-              <PublicHelpCategoryNav items={helpCategories.map((category) => ({
-                slug: category.slug,
-                label: category.label,
-                href: categoryDestination(category.slug),
-                count: categoryCounts[category.slug],
-                current: category.slug === initialCategory,
-              }))} />
+              <PublicHelpCategoryNav
+                items={helpCategories.map((category) => ({
+                  slug: category.slug,
+                  label: category.label,
+                  href: categoryDestination(category.slug),
+                  count: categoryCounts[category.slug],
+                  current: category.slug === initialCategory,
+                }))}
+              />
             </section>
           )}
 

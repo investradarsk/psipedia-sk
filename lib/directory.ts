@@ -205,6 +205,7 @@ export type PublicDirectoryProfile = {
   description: string;
   services: string[];
   qualifications: string[];
+  sources?: string[];
   city: string;
   district: string;
   region: string;

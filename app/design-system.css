@@ -1203,3 +1203,27 @@
     margin-top: 24px;
   }
 }
+
+.comparison-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.comparison-value details {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+.comparison-value summary {
+  color: var(--forest);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.comparison-value details p {
+  margin-block: 8px;
+  line-height: 1.55;
+  white-space: normal;
+}
+.comparison-value details a {
+  color: var(--forest);
+}

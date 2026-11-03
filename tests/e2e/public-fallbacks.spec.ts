@@ -103,6 +103,7 @@ test("text area reaches real profile links without Google consent or requests", 
       cacheTtlSeconds: 30,
     };
     const item = {
+      subcategory: "veterinari",
       id: "service:1",
       entityType: "service",
       entityId: 1,
@@ -139,6 +140,9 @@ test("text area reaches real profile links without Google consent or requests", 
   });
   await page.goto(fixture + "?view=map");
   await expect(page.getByTestId("map-consent-gate")).toBeVisible();
+  await expect(page.locator("[data-public-map-consent]")).toHaveCount(1);
+  await expect(page.getByTestId("map-renderer-status")).toHaveCount(0);
+  await expect(page.getByTestId("map-provider-disclosure")).toHaveCount(0);
   await page.getByRole("button", { name: "Nitra 5 výsledkov · Zobraziť zoznam" }).click();
   await expect(
     page.getByTestId("map-card-service:1").getByRole("link", { name: "Zobraziť profil" }),
@@ -251,3 +255,204 @@ for (const view of ["adoption", "directory"]) {
     if (await button.isVisible()) await button.click();
   });
 }
+
+test("article variants share recovered media and row adapters; callouts have one label", async ({
+  page,
+}) => {
+  await page.goto(fixture + "?view=articles");
+  await expect(page.locator('[data-article-variant="featured"]')).toBeVisible();
+  await expect(
+    page.locator('[data-article-variant="grid"] [data-public-media-fallback]'),
+  ).toBeVisible();
+  await expect(page.locator('[data-article-variant="row"]')).toHaveCount(3);
+  const pair = page.locator('[data-row-adapters] > [data-article-variant="row"]');
+  const dimensions = await pair.evaluateAll((els) =>
+    els.map((el) => ({
+      height: el.getBoundingClientRect().height,
+      columns: getComputedStyle(el).gridTemplateColumns,
+    })),
+  );
+  expect(dimensions[0]).toEqual(dimensions[1]);
+  const feature = page.locator('[data-article-variant="featured"]');
+  const frames = await feature.evaluate((el) => {
+    const img = el.querySelector(".article-card-media")!.getBoundingClientRect();
+    const copy = el.querySelector(".article-card-body")!.getBoundingClientRect();
+    return { imgLeft: img.left, imgRight: img.right, copyLeft: copy.left, copyRight: copy.right };
+  });
+  expect(Math.abs(frames.imgLeft - frames.copyLeft)).toBeLessThanOrEqual(1);
+  expect(Math.abs(frames.imgRight - frames.copyRight)).toBeLessThanOrEqual(1);
+  for (const label of ["Tip z praxe", "Dôležité upozornenie"]) {
+    const callout = page.locator(".article-block-callout").filter({ hasText: label });
+    const text = await callout.innerText();
+    expect(text.split(label).length - 1).toBe(1);
+  }
+  await page.screenshot({
+    path: "test-results/public-fallbacks/article-variants.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("help pagination renders twelve records, preserves filters and browser back/forward", async ({
+  page,
+}) => {
+  await page.route("**/pomoc-psom/dobrovolnictvo?**", async (route) => {
+    const url = new URL(route.request().url());
+    url.pathname = fixture;
+    url.searchParams.set("view", "help-pages");
+    await route.fulfill({ status: 302, headers: { location: url.toString() }, body: "" });
+  });
+  await page.goto(fixture + "?view=help-pages");
+  const cards = page.locator("[data-help-card]");
+  await expect(cards).toHaveCount(12);
+  const next = page.getByRole("link", { name: "Ďalšia →", exact: true });
+  const href = await next.getAttribute("href");
+  expect(href).toContain("page=2");
+  expect(href).toContain("region=Nitriansky");
+  expect(href).toContain("q=Pomoc");
+  await next.click();
+  await expect(page.locator("[data-public-pagination]")).toContainText("Strana 2 z 3");
+  await expect(cards.first()).toContainText("Pomoc 13");
+  await page.goBack();
+  await expect(cards.first()).toContainText("Pomoc 1");
+  await page.goForward();
+  await expect(cards.first()).toContainText("Pomoc 13");
+  await page.screenshot({
+    path: "test-results/public-fallbacks/help-pagination.png",
+    fullPage: true,
+  });
+});
+
+test("directory offers only one catalogue selector with readable options; old URL restrictions remain removable", async ({
+  page,
+}) => {
+  await page.goto(fixture + "?view=directory&service=Legacy&type=Grooming");
+  const sidebar = page.locator("[data-directory-filter-disclosure]");
+  await expect(sidebar.locator('select[name="service"],select[name="type"]')).toHaveCount(0);
+  const select = sidebar.locator('select[name="svc"]');
+  await expect(select).toHaveCount(1);
+  await select.selectOption("svc.physio.hydrotherapy");
+  await expect(select.locator("option:checked")).toHaveText("Hydroterapia");
+  for (const name of ["service", "type"])
+    await expect(sidebar.locator(`input[name="${name}"]`)).toHaveValue("");
+  const colors = await select.evaluate((el) => ({
+    color: getComputedStyle(el).color,
+    background: getComputedStyle(el).backgroundColor,
+    fill: getComputedStyle(el).getPropertyValue("-webkit-text-fill-color"),
+  }));
+  expect(colors.color).not.toBe(colors.background);
+  expect(colors.fill).not.toBe("rgba(0, 0, 0, 0)");
+  await select.focus();
+  await select.press("ArrowUp");
+  await page.screenshot({
+    path: "test-results/public-fallbacks/directory-single-service.png",
+    fullPage: true,
+  });
+});
+
+test("detail map has one consent prompt with address and external alternative", async ({
+  page,
+}) => {
+  const googleRequests: string[] = [];
+  page.on("request", (r) => {
+    if (/maps\.googleapis|maps\.gstatic/.test(r.url())) googleRequests.push(r.url());
+  });
+  await page.goto(fixture + "?view=detail-map");
+  await expect(page.locator("[data-public-map-consent]")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Povoliť Google Maps" })).toHaveCount(1);
+  await expect(page.getByText("Nitra", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Otvoriť v Google Maps", exact: true }),
+  ).toBeVisible();
+  expect(googleRequests).toEqual([]);
+  await page.screenshot({
+    path: "test-results/public-fallbacks/detail-map-consent.png",
+    fullPage: true,
+  });
+});
+
+test("comparison exposes source explanation and does not show a mid-word summary", async ({
+  page,
+}) => {
+  await page.goto(fixture + "?view=comparison");
+  const row = page.locator(".comparison-row").filter({ hasText: "Dĺžka života" });
+  await expect(row).toContainText("Orientačne 12–16 rokov");
+  const details = row.locator("details");
+  await expect(details).not.toHaveAttribute("open", "");
+  await details.locator("summary").click();
+  await expect(details.locator("p")).toContainText("viacerých okolností.");
+  await expect(details.getByRole("link")).toHaveAttribute("href", "/plemena/plemeno-b");
+  await page.screenshot({
+    path: "test-results/public-fallbacks/comparison-explanation.png",
+    fullPage: true,
+  });
+});
+
+test("partner login aligns its copy to the top through error, pending and e-mail success states", async ({
+  page,
+}) => {
+  let release: () => void = () => {};
+  const pending = new Promise<void>((r) => {
+    release = r;
+  });
+  const blocked: string[] = [];
+  await page.route("**/api/partner/**", async (route) => {
+    if (route.request().url().endsWith("/request-link")) {
+      await route.fulfill({ status: 200, json: { message: "Izolovaný test: odkaz pripravený." } });
+    } else {
+      await pending;
+      await route.fulfill({
+        status: 401,
+        json: { error: "Izolovaný test: nesprávne prihlasovacie údaje." },
+      });
+    }
+  });
+  page.on("request", (r) => {
+    if (r.url().startsWith("https://") && r.isNavigationRequest()) blocked.push(r.url());
+  });
+  await page.goto(fixture + "?view=partner&google=unlinked");
+  const copy = await page.locator(".partner-auth-copy").boundingBox();
+  const card = await page.locator(".partner-auth-card").boundingBox();
+  expect(Math.abs(copy!.y - card!.y)).toBeLessThanOrEqual(2);
+  await expect(
+    page.getByText("Google účet zatiaľ nie je prepojený", { exact: false }),
+  ).toBeVisible();
+  await page.getByLabel("E-mail", { exact: true }).fill("fixture@example.invalid");
+  await page.getByLabel("Heslo", { exact: true }).fill("isolated-fixture-password");
+  await page.getByRole("button", { name: "Prihlásiť sa", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Spracúvam…" })).toBeDisabled();
+  release();
+  await expect(page.getByText("Izolovaný test: nesprávne prihlasovacie údaje.")).toBeVisible();
+  await page.getByLabel("Pracovný e-mail").fill("fixture@example.invalid");
+  await page.locator('.partner-auth-alternative button[type="submit"]').click();
+  await expect(page.getByText("Izolovaný test: odkaz pripravený.")).toBeVisible();
+  expect(blocked).toEqual([]);
+  await page.screenshot({
+    path: "test-results/public-fallbacks/partner-login.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("homepage consumes canonical featured media frame with five row cards", async ({ page }) => {
+  await page.goto(fixture + "?view=home-articles");
+  await expect(page.locator('[data-article-variant="row"]')).toHaveCount(5);
+  const frame = await page.locator('[data-article-variant="featured"]').evaluate((el) => {
+    const card = el.getBoundingClientRect(),
+      media = el.querySelector(".article-card-media")!.getBoundingClientRect();
+    return {
+      width: card.width,
+      mediaWidth: media.width,
+      height: card.height,
+      mediaHeight: media.height,
+    };
+  });
+  expect(Math.abs(frame.width - frame.mediaWidth)).toBeLessThanOrEqual(2);
+  expect(Math.abs(frame.height - frame.mediaHeight)).toBeLessThanOrEqual(2);
+  await page.screenshot({
+    path: "test-results/public-fallbacks/home-article-family.png",
+    fullPage: true,
+  });
+});

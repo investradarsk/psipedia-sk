@@ -1,3 +1,4 @@
+import { legacyFacetMappings } from "./service-catalog-contract.ts";
 import type { DirectoryFilters } from "@/lib/directory-store";
 import { directoryPublicFacetQueryFields } from "./directory-public-filters.ts";
 
@@ -44,9 +45,27 @@ export function directoryEmptyQueryRedirect(
   parsed: DirectoryFilters,
 ): string | null {
   if (params.q === undefined) return null;
-  const query = Array.isArray(params.q) ? params.q[0] ?? "" : params.q;
+  const query = Array.isArray(params.q) ? (params.q[0] ?? "") : params.q;
   if (query.trim()) return null;
   const search = new URLSearchParams();
   for (const field of directoryQueryFields(parsed, ["q"])) search.set(field.name, field.value);
   return path + (search.size ? "?" + search.toString() : "");
+}
+
+/** A catalogue selection replaces historical service/type fields even for native GET forms without JS. */
+export function directoryCatalogFilters(filters: DirectoryFilters): DirectoryFilters {
+  if (!filters.canonicalService) return filters;
+  const legacyServiceIds = new Set(
+    legacyFacetMappings
+      .filter((mapping) => mapping.targetKind === "service")
+      .map((mapping) => mapping.legacyId),
+  );
+  return {
+    ...filters,
+    service: "",
+    profileType: "",
+    facets: Object.fromEntries(
+      Object.entries(filters.facets ?? {}).filter(([id]) => !legacyServiceIds.has(id)),
+    ),
+  };
 }

@@ -138,7 +138,7 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
   assert.match(upcoming, /ORDER BY start_date ASC, start_time ASC, id ASC LIMIT \?/);
   assert.doesNotMatch(upcoming, /HOMEPAGE_REAL_IMAGE_SQL/);
   assert.match(page, /getHomepageUpcomingEventsWithImages\(8\)/);
-  assert.match(help, /getHomepageHighlightedHelpCasesWithImages[\s\S]*resolved = 0/);
+  assert.match(help, /getHomepageHighlightedHelpCasesWithImages[\s\S]*activeHelpSql/);
   assert.match(help, /getHomepageHighlightedHelpCasesWithImages[\s\S]*category NOT IN/);
   assert.match(page, /directoryProfileHref\(profile\)/);
   assert.match(page, /eventHref\(event\)/);
@@ -158,7 +158,7 @@ test("homepage breed cards read only presentation fields, not the editor's full 
   assert.match(fn, /WHERE id IN \(\$\{canonicalBreedIdsSql\}\)/);
   // Homepage deliberately rotates its image-backed breed picks; projection stays small.
   assert.match(fn, /ORDER BY RANDOM\(\) LIMIT \?/);
-  assert.match(fn, /image:ownedBreedImage\(row\.image_url\)/);
+  assert.match(fn, /image:\s*ownedBreedImage\(row\.image_url\)/);
   assert.doesNotMatch(fn, /withAvailableBreedImages|availableBreedImage\(/);
   assert.match(fn, /SELECT slug,name,image_url,intro/);
   const breedPhoto = await repoFile("components/breed-photo.tsx");

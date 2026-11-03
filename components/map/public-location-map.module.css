@@ -48,7 +48,6 @@
 }
 
 .mapTypeControl button,
-.consent button,
 .locationButton {
   font: inherit;
   cursor: pointer;
@@ -68,40 +67,6 @@
 .mapTypeControl button[aria-pressed="true"] {
   color: #fff;
   background: var(--forest, #174b38);
-}
-
-.consent {
-  position: absolute;
-  z-index: 5;
-  inset: 50% auto auto 50%;
-  display: grid;
-  width: min(calc(100% - 28px), 430px);
-  gap: 10px;
-  padding: 20px;
-  border: 1px solid rgba(23, 53, 43, 0.16);
-  border-radius: 18px;
-  color: var(--forest-dark, #123d2f);
-  background: rgba(255, 253, 248, 0.97);
-  box-shadow: 0 18px 45px rgba(13, 34, 27, 0.18);
-  transform: translate(-50%, -50%);
-  text-align: center;
-}
-
-.consent span {
-  color: var(--ink-2);
-  font-size: 0.84rem;
-  line-height: 1.5;
-}
-
-.consent button {
-  min-height: 44px;
-  justify-self: center;
-  padding: 9px 15px;
-  border: 1px solid var(--forest, #174b38);
-  border-radius: 999px;
-  color: #fff;
-  background: var(--forest, #174b38);
-  font-weight: 850;
 }
 
 .locations {
@@ -241,14 +206,38 @@
 /* Public entity maps share one compact mobile presentation. Map controls,
    consent prompt, approximate-position warning and provider credit stay intact. */
 @media (max-width: 620px) {
-  .section { margin-block: 16px; }
-  .heading { margin-bottom: 10px; }
-  .heading h2 { font-size: clamp(1.24rem, 5vw, 1.55rem); }
-  .mapWrap { height: 245px; min-height: 245px; }
-  .locations { padding: 10px 12px; gap: 6px; }
-  .actions { display: flex; padding: 10px 12px; gap: 8px; }
-  .actions a { flex: 1 1 auto; width: auto; min-height: 44px; padding: 9px 11px; font-size: .79rem; }
-  .attribution { padding: 0 12px 10px; }
+  .section {
+    margin-block: 16px;
+  }
+  .heading {
+    margin-bottom: 10px;
+  }
+  .heading h2 {
+    font-size: clamp(1.24rem, 5vw, 1.55rem);
+  }
+  .mapWrap {
+    height: 245px;
+    min-height: 245px;
+  }
+  .locations {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  .actions {
+    display: flex;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .actions a {
+    flex: 1 1 auto;
+    width: auto;
+    min-height: 44px;
+    padding: 9px 11px;
+    font-size: 0.79rem;
+  }
+  .attribution {
+    padding: 0 12px 10px;
+  }
 }
 
 /* Shared detail-map option: one rust-red heading, not two duplicated titles. */
@@ -256,12 +245,14 @@
   margin: 0;
   color: var(--brand-accent-strong, #b94732);
   font-family: inherit;
-  font-size: .78rem;
+  font-size: 0.78rem;
   font-weight: 850;
-  letter-spacing: .085em;
+  letter-spacing: 0.085em;
   line-height: 1.45;
   text-transform: uppercase;
 }
 @media (max-width: 620px) {
-  .heading h2.compactHeading { font-size: .78rem; }
+  .heading h2.compactHeading {
+    font-size: 0.78rem;
+  }
 }

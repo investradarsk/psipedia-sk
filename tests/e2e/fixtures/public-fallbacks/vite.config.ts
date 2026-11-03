@@ -7,15 +7,26 @@ export default defineConfig({
   root: process.cwd(),
   resolve: {
     alias: [
-      ...["@/lib/section-visual-store", "@/lib/article-discovery", "@/lib/directory-store"].map(
-        (find) => ({
-          find,
-          replacement: path.resolve(
-            process.cwd(),
-            "tests/e2e/fixtures/public-fallbacks/data-stubs.ts",
-          ),
-        }),
-      ),
+      ...[
+        "@/lib/section-visual-store",
+        "@/lib/article-discovery",
+        "@/lib/directory-store",
+        "@/lib/partner-google-auth",
+        "@/lib/partner-public-config",
+      ].map((find) => ({
+        find,
+        replacement: path.resolve(
+          process.cwd(),
+          "tests/e2e/fixtures/public-fallbacks/data-stubs.ts",
+        ),
+      })),
+      {
+        find: "@/components/partner-turnstile",
+        replacement: path.resolve(
+          process.cwd(),
+          "tests/e2e/fixtures/public-fallbacks/turnstile-stub.tsx",
+        ),
+      },
       { find: /^@\//, replacement: path.resolve(process.cwd()) + "/" },
     ],
   },

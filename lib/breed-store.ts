@@ -1,6 +1,17 @@
-import { breedProfileHref, canonicalBreedIdsSql, canonicalBreedWinnerSql, rotateBreeds } from "./breed-canonical";
-import { BREEDING_STATION_LANDING_INDEX_THRESHOLD, breedingStationBreedLandingPath } from "./breeding-station-landings";
-import { publicArticleRelationTargetSql, publicDirectoryRelationTargetSql } from "./content-relations";
+import {
+  breedProfileHref,
+  canonicalBreedIdsSql,
+  canonicalBreedWinnerSql,
+  rotateBreeds,
+} from "./breed-canonical";
+import {
+  BREEDING_STATION_LANDING_INDEX_THRESHOLD,
+  breedingStationBreedLandingPath,
+} from "./breeding-station-landings";
+import {
+  publicArticleRelationTargetSql,
+  publicDirectoryRelationTargetSql,
+} from "./content-relations";
 import { articleHref, type ArticlePortalSection } from "./portal";
 import { directoryProfileHref } from "./directory";
 import { ownedBreedImage, withAvailableBreedImages } from "./breed-image";
@@ -8,15 +19,30 @@ import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } from "@/lib/content";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
-import { cleanFciStandard, combinedFciMeasurement, inspectBreedMeasurement, normalizeBreedSearchText, publicBreedMeasurement, publicBreedSize, publicFciSectionName, type FciStandard } from "@/lib/breed-fci";
-import { breedCompletenessIssues, validateBulkBreedStatus, type BreedCompletenessIssue } from "./admin-breeds";
+import {
+  cleanFciStandard,
+  combinedFciMeasurement,
+  inspectBreedMeasurement,
+  normalizeBreedSearchText,
+  publicBreedMeasurement,
+  publicBreedSize,
+  publicFciSectionName,
+  type FciStandard,
+} from "@/lib/breed-fci";
+import {
+  breedCompletenessIssues,
+  validateBulkBreedStatus,
+  type BreedCompletenessIssue,
+} from "./admin-breeds";
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 
 export type BreedStatus = "draft" | "published";
 
 export class BreedUpdateConflictError extends Error {
   constructor() {
-    super("Plemeno sa medzičasom zmenilo. Obnov editor, skontroluj novšie údaje a až potom úpravy zopakuj.");
+    super(
+      "Plemeno sa medzičasom zmenilo. Obnov editor, skontroluj novšie údaje a až potom úpravy zopakuj.",
+    );
     this.name = "BreedUpdateConflictError";
   }
 }
@@ -36,137 +62,619 @@ export type BreedEditorial = {
 export type BreedHeroTrait = { label: string; rating: number };
 export type BreedSport = { key: string; label: string; rating: number; note?: string };
 export type ManagedBreed = Breed & {
-  id: number; status: BreedStatus; imageKey: string | null; createdAt: string; updatedAt: string; publishedAt: string | null;
-  fciNumber: number | null; fciSectionNumber: string; officialFciName: string; validStandardDate: string | null;
-  workingTrial: string; importKey: string | null; fciStandard: FciStandard; searchText: string; editorialComplete: boolean;
-  editorial: BreedEditorial; sports: BreedSport[]; relatedBreedIds: number[]; relatedArticleIds: number[]; directoryProfileIds: number[];
+  id: number;
+  status: BreedStatus;
+  imageKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  fciNumber: number | null;
+  fciSectionNumber: string;
+  officialFciName: string;
+  validStandardDate: string | null;
+  workingTrial: string;
+  importKey: string | null;
+  fciStandard: FciStandard;
+  searchText: string;
+  editorialComplete: boolean;
+  editorial: BreedEditorial;
+  sports: BreedSport[];
+  relatedBreedIds: number[];
+  relatedArticleIds: number[];
+  directoryProfileIds: number[];
 };
-export type ManagedBreedSummary = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" | "origin" | "group" | "accent" | "fciNumber" | "officialFciName" | "intro" | "updatedAt"> & {
+export type ManagedBreedSummary = Pick<
+  ManagedBreed,
+  | "id"
+  | "slug"
+  | "name"
+  | "status"
+  | "image"
+  | "fciGroup"
+  | "fciSection"
+  | "fciSectionNumber"
+  | "origin"
+  | "group"
+  | "accent"
+  | "fciNumber"
+  | "officialFciName"
+  | "intro"
+  | "updatedAt"
+> & {
   articleRelationCount: number;
   directoryRelationCount: number;
   completenessIssues: BreedCompletenessIssue[];
 };
-export type ManagedBreedIndexItem = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" | "origin" | "group" | "accent" | "height" | "weight" | "intro" | "energy" | "trainability" | "family" | "officialFciName" | "searchText" | "editorialComplete" | "seo" | "updatedAt">;
+export type ManagedBreedIndexItem = Pick<
+  ManagedBreed,
+  | "id"
+  | "slug"
+  | "name"
+  | "status"
+  | "image"
+  | "fciGroup"
+  | "fciSection"
+  | "fciSectionNumber"
+  | "origin"
+  | "group"
+  | "accent"
+  | "height"
+  | "weight"
+  | "intro"
+  | "energy"
+  | "trainability"
+  | "family"
+  | "officialFciName"
+  | "searchText"
+  | "editorialComplete"
+  | "seo"
+  | "updatedAt"
+>;
 /** Public atlas card/search payload; never serialize editor/SEO/FCI document blobs to the browser. */
-export type BreedAtlasCard = Pick<ManagedBreedIndexItem,
-  "slug" | "name" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" |
-  "origin" | "group" | "accent" | "height" | "weight" | "intro" |
-  "energy" | "trainability" | "family" | "officialFciName" |
-  "searchText" | "editorialComplete">;
+export type BreedAtlasCard = Pick<
+  ManagedBreedIndexItem,
+  | "slug"
+  | "name"
+  | "image"
+  | "fciGroup"
+  | "fciSection"
+  | "fciSectionNumber"
+  | "origin"
+  | "group"
+  | "accent"
+  | "height"
+  | "weight"
+  | "intro"
+  | "energy"
+  | "trainability"
+  | "family"
+  | "officialFciName"
+  | "searchText"
+  | "editorialComplete"
+>;
 type BreedAtlasCardRow = {
-  slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string;
-  origin:string;group_name:string;official_fci_name:string;accent:string;height:string;weight:string;
-  intro:string;energy:number;trainability:number;family:number;search_text:string;editorial_complete:number;
-  standard_dog_height:string|null;standard_bitch_height:string|null;
-  standard_dog_weight:string|null;standard_bitch_weight:string|null;
+  slug: string;
+  name: string;
+  image_url: string;
+  fci_group: number;
+  fci_section: string;
+  fci_section_number: string;
+  origin: string;
+  group_name: string;
+  official_fci_name: string;
+  accent: string;
+  height: string;
+  weight: string;
+  intro: string;
+  energy: number;
+  trainability: number;
+  family: number;
+  search_text: string;
+  editorial_complete: number;
+  standard_dog_height: string | null;
+  standard_bitch_height: string | null;
+  standard_dog_weight: string | null;
+  standard_bitch_weight: string | null;
 };
 
-export type BreedComparisonItem = Pick<ManagedBreed,"slug"|"name"|"image"|"fciGroup"|"fciSection"|"origin"|"accent"|"size"|"weight"|"lifespan"|"coat"|"energy"|"trainability"|"family"|"intro"|"goodFor"|"consider">;
-export type BreedOfTheDayItem = Pick<ManagedBreed,"slug"|"name"|"image"|"fciGroup"|"fciSection"|"size"|"energy"|"trainability"|"intro">;
-export type ManagedBreedInput = Partial<Breed> & Partial<Pick<ManagedBreed, "fciNumber" | "fciSectionNumber" | "officialFciName" | "validStandardDate" | "workingTrial" | "importKey" | "fciStandard" | "editorialComplete" | "editorial" | "sports" | "relatedBreedIds" | "relatedArticleIds" | "directoryProfileIds">> & { status?: string; imageKey?: string | null };
+export type BreedComparisonItem = Pick<
+  ManagedBreed,
+  | "slug"
+  | "name"
+  | "image"
+  | "fciGroup"
+  | "fciSection"
+  | "origin"
+  | "accent"
+  | "size"
+  | "weight"
+  | "lifespan"
+  | "coat"
+  | "energy"
+  | "trainability"
+  | "family"
+  | "intro"
+  | "goodFor"
+  | "consider"
+>;
+export type BreedOfTheDayItem = Pick<
+  ManagedBreed,
+  | "slug"
+  | "name"
+  | "image"
+  | "fciGroup"
+  | "fciSection"
+  | "size"
+  | "energy"
+  | "trainability"
+  | "intro"
+>;
+export type ManagedBreedInput = Partial<Breed> &
+  Partial<
+    Pick<
+      ManagedBreed,
+      | "fciNumber"
+      | "fciSectionNumber"
+      | "officialFciName"
+      | "validStandardDate"
+      | "workingTrial"
+      | "importKey"
+      | "fciStandard"
+      | "editorialComplete"
+      | "editorial"
+      | "sports"
+      | "relatedBreedIds"
+      | "relatedArticleIds"
+      | "directoryProfileIds"
+    >
+  > & { status?: string; imageKey?: string | null };
 type Row = {
-  id:number;slug:string;name:string;status:string;image_url:string;image_key:string|null;gallery_json:string;
-  fci_number:number|null;fci_group:number;fci_section:string;fci_section_number:string;official_fci_name:string;valid_standard_date:string|null;
-  working_trial:string;import_key:string|null;fci_standard_json:string;editorial_json:string;sports_json:string;related_breeds_json:string;search_text:string;editorial_complete:number;
-  origin:string;group_name:string;size:string;weight:string;height:string;lifespan:string;coat:string;
-  energy:number;trainability:number;family:number;children:number;other_dogs:number;apartment:number;grooming:number;shedding:number;prey_drive:number;
-  intro:string;character:string;needs:string;history:string;exercise:string;training:string;health:string;health_risks_json:string;
-  good_for_json:string;consider_json:string;sources_json:string;accent:string;created_at:string;updated_at:string;published_at:string|null;
-  seo_json:string;
+  id: number;
+  slug: string;
+  name: string;
+  status: string;
+  image_url: string;
+  image_key: string | null;
+  gallery_json: string;
+  fci_number: number | null;
+  fci_group: number;
+  fci_section: string;
+  fci_section_number: string;
+  official_fci_name: string;
+  valid_standard_date: string | null;
+  working_trial: string;
+  import_key: string | null;
+  fci_standard_json: string;
+  editorial_json: string;
+  sports_json: string;
+  related_breeds_json: string;
+  search_text: string;
+  editorial_complete: number;
+  origin: string;
+  group_name: string;
+  size: string;
+  weight: string;
+  height: string;
+  lifespan: string;
+  coat: string;
+  energy: number;
+  trainability: number;
+  family: number;
+  children: number;
+  other_dogs: number;
+  apartment: number;
+  grooming: number;
+  shedding: number;
+  prey_drive: number;
+  intro: string;
+  character: string;
+  needs: string;
+  history: string;
+  exercise: string;
+  training: string;
+  health: string;
+  health_risks_json: string;
+  good_for_json: string;
+  consider_json: string;
+  sources_json: string;
+  accent: string;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  seo_json: string;
 };
 type SummaryRow = {
-  id:number;slug:string;name:string;status:string;image_url:string;fci_number:number|null;fci_group:number;fci_section:string;fci_section_number:string;
-  origin:string;group_name:string;official_fci_name:string;accent:string;intro:string;updated_at:string;editorial_overview:string;sports_json:string;fci_standard_pdf:string;fci_nomenklatura_url:string;
-  needs:string;exercise:string;training:string;health:string;article_relation_count:number;directory_relation_count:number;
+  id: number;
+  slug: string;
+  name: string;
+  status: string;
+  image_url: string;
+  fci_number: number | null;
+  fci_group: number;
+  fci_section: string;
+  fci_section_number: string;
+  origin: string;
+  group_name: string;
+  official_fci_name: string;
+  accent: string;
+  intro: string;
+  updated_at: string;
+  editorial_overview: string;
+  sports_json: string;
+  fci_standard_pdf: string;
+  fci_nomenklatura_url: string;
+  needs: string;
+  exercise: string;
+  training: string;
+  health: string;
+  article_relation_count: number;
+  directory_relation_count: number;
 };
 type IndexRow = {
-  id:number;slug:string;name:string;status:string;image_url:string;fci_number:number|null;fci_group:number;fci_section:string;fci_section_number:string;
-  origin:string;group_name:string;official_fci_name:string;accent:string;fci_standard_json:string;height:string;weight:string;intro:string;
-  energy:number;trainability:number;family:number;search_text:string;editorial_complete:number;seo_json:string;updated_at:string;
+  id: number;
+  slug: string;
+  name: string;
+  status: string;
+  image_url: string;
+  fci_number: number | null;
+  fci_group: number;
+  fci_section: string;
+  fci_section_number: string;
+  origin: string;
+  group_name: string;
+  official_fci_name: string;
+  accent: string;
+  fci_standard_json: string;
+  height: string;
+  weight: string;
+  intro: string;
+  energy: number;
+  trainability: number;
+  family: number;
+  search_text: string;
+  editorial_complete: number;
+  seo_json: string;
+  updated_at: string;
 };
-type ComparisonRow = {slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string;fci_standard_json:string;origin:string;accent:string;size:string;weight:string;lifespan:string;coat:string;energy:number;trainability:number;family:number;intro:string;good_for_json:string;consider_json:string};
-type BreedOfTheDayRow = {slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string;size:string;energy:number;trainability:number;intro:string};
-type RelationIdRow = { id:number };
+type ComparisonRow = {
+  slug: string;
+  name: string;
+  image_url: string;
+  fci_group: number;
+  fci_section: string;
+  fci_section_number: string;
+  fci_standard_json: string;
+  origin: string;
+  accent: string;
+  size: string;
+  weight: string;
+  lifespan: string;
+  coat: string;
+  energy: number;
+  trainability: number;
+  family: number;
+  intro: string;
+  good_for_json: string;
+  consider_json: string;
+};
+type BreedOfTheDayRow = {
+  slug: string;
+  name: string;
+  image_url: string;
+  fci_group: number;
+  fci_section: string;
+  fci_section_number: string;
+  size: string;
+  energy: number;
+  trainability: number;
+  intro: string;
+};
+type RelationIdRow = { id: number };
 export type BreedEditorOptions = {
-  breeds:Array<{id:number;name:string;fciNumber:number|null}>;
-  articles:Array<{id:number;title:string;status:string}>;
-  directoryProfiles:Array<{id:number;name:string;category:string;city:string;region:string}>;
+  breeds: Array<{ id: number; name: string; fciNumber: number | null }>;
+  articles: Array<{ id: number; title: string; status: string }>;
+  directoryProfiles: Array<{
+    id: number;
+    name: string;
+    category: string;
+    city: string;
+    region: string;
+  }>;
 };
 export type BreedDetailRelations = {
-  articles:Array<{id:number;slug:string;title:string;excerpt:string;portalSection:ArticlePortalSection;href:string;image:string|null;accent:string}>;
-  breedingStations:Array<{id:number;slug:string;name:string;href:string;excerpt:string;city:string;region:string;image:string|null}>;
-  breedingStationLanding:{href:string;label:string}|null;
-  breedClubs:Array<{id:number;slug:string;name:string;href:string;excerpt:string;city:string;region:string;image:string|null}>;
-  similarBreeds:Array<{id:number;slug:string;name:string;href:string;image:string;fciGroup:number;fciSection:string}>;
+  articles: Array<{
+    id: number;
+    slug: string;
+    title: string;
+    excerpt: string;
+    portalSection: ArticlePortalSection;
+    href: string;
+    image: string | null;
+    accent: string;
+  }>;
+  breedingStations: Array<{
+    id: number;
+    slug: string;
+    name: string;
+    href: string;
+    excerpt: string;
+    city: string;
+    region: string;
+    image: string | null;
+  }>;
+  breedingStationLanding: { href: string; label: string } | null;
+  breedClubs: Array<{
+    id: number;
+    slug: string;
+    name: string;
+    href: string;
+    excerpt: string;
+    city: string;
+    region: string;
+    image: string | null;
+  }>;
+  similarBreeds: Array<{
+    id: number;
+    slug: string;
+    name: string;
+    href: string;
+    image: string;
+    fciGroup: number;
+    fciSection: string;
+  }>;
 };
 type RuntimeBindings = { DB?: D1Database };
 
-function db() { const value = (env as unknown as RuntimeBindings).DB; return value && typeof value.prepare === "function" ? value : null; }
-function requireDb() { const value = db(); if (!value) throw new Error("Databáza plemien nie je pripojená."); return value; }
-function parseArray<T>(value:string, guard:(item:unknown)=>item is T):T[] { try { const parsed:unknown=JSON.parse(value); return Array.isArray(parsed)?parsed.filter(guard):[]; } catch { return []; } }
-function stringArray(value:string) { return parseArray(value,(item):item is string=>typeof item==="string"); }
-function isBreedImage(value:unknown):value is BreedImage { return Boolean(value&&typeof value==="object"&&typeof (value as BreedImage).imageUrl==="string"); }
-function isBreedSource(value:unknown):value is BreedSource { return Boolean(value&&typeof value==="object"&&typeof (value as BreedSource).label==="string"&&typeof (value as BreedSource).url==="string"); }
-function isBreedSport(value:unknown):value is BreedSport { const item=value as BreedSport;return Boolean(item&&typeof item==="object"&&typeof item.key==="string"&&typeof item.label==="string"&&Number.isFinite(item.rating)); }
-function isBreedHeroTrait(value:unknown):value is BreedHeroTrait { const item=value as BreedHeroTrait;return Boolean(item&&typeof item==="object"&&typeof item.label==="string"&&item.label.trim()&&Number.isFinite(item.rating)&&item.rating>=1&&item.rating<=5); }
-function parseObject<T extends object>(value:string):T { try { const parsed:unknown=JSON.parse(value); return parsed && typeof parsed==="object" && !Array.isArray(parsed) ? parsed as T : {} as T; } catch { return {} as T; } }
+function db() {
+  const value = (env as unknown as RuntimeBindings).DB;
+  return value && typeof value.prepare === "function" ? value : null;
+}
+function requireDb() {
+  const value = db();
+  if (!value) throw new Error("Databáza plemien nie je pripojená.");
+  return value;
+}
+function parseArray<T>(value: string, guard: (item: unknown) => item is T): T[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(guard) : [];
+  } catch {
+    return [];
+  }
+}
+function stringArray(value: string) {
+  return parseArray(value, (item): item is string => typeof item === "string");
+}
+function isBreedImage(value: unknown): value is BreedImage {
+  return Boolean(
+    value && typeof value === "object" && typeof (value as BreedImage).imageUrl === "string",
+  );
+}
+function isBreedSource(value: unknown): value is BreedSource {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      typeof (value as BreedSource).label === "string" &&
+      typeof (value as BreedSource).url === "string",
+  );
+}
+function isBreedSport(value: unknown): value is BreedSport {
+  const item = value as BreedSport;
+  return Boolean(
+    item &&
+      typeof item === "object" &&
+      typeof item.key === "string" &&
+      typeof item.label === "string" &&
+      Number.isFinite(item.rating),
+  );
+}
+function isBreedHeroTrait(value: unknown): value is BreedHeroTrait {
+  const item = value as BreedHeroTrait;
+  return Boolean(
+    item &&
+      typeof item === "object" &&
+      typeof item.label === "string" &&
+      item.label.trim() &&
+      Number.isFinite(item.rating) &&
+      item.rating >= 1 &&
+      item.rating <= 5,
+  );
+}
+function parseObject<T extends object>(value: string): T {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as T)
+      : ({} as T);
+  } catch {
+    return {} as T;
+  }
+}
 
-async function ensure(database:D1Database) {
+async function ensure(database: D1Database) {
   void database;
   // Schema and seed data are installed by deployment migrations.
 }
 
-function fromRow(row:Row,relations:{articles?:number[];directory?:number[];public?:boolean}={}):ManagedBreed { const editorial=parseObject<BreedEditorial>(row.editorial_json);editorial.heroTraits=Array.isArray(editorial.heroTraits)?editorial.heroTraits.filter(isBreedHeroTrait).slice(0,3):[];const fciStandard=parseObject<FciStandard>(row.fci_standard_json);return {
-  id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,imageKey:row.image_key,
-  gallery:parseArray(row.gallery_json,isBreedImage),fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),
-  fciSectionNumber:row.fci_section_number,officialFciName:row.official_fci_name,validStandardDate:row.valid_standard_date,
-  workingTrial:row.working_trial,importKey:row.import_key,fciStandard,editorial,
-  sports:parseArray(row.sports_json,isBreedSport),relatedBreedIds:parseArray(row.related_breeds_json,(item):item is number=>Number.isSafeInteger(item)&&Number(item)>0),relatedArticleIds:relations.articles??[],directoryProfileIds:relations.directory??[],searchText:row.search_text,
-  editorialComplete:row.editorial_complete===1,origin:row.origin,group:row.group_name,
-  size:relations.public?publicBreedSize(row.size):row.size,weight:relations.public?publicBreedMeasurement(row.weight,"weight",combinedFciMeasurement([fciStandard.hmotnost_pes_kg,fciStandard.hmotnost_suka_kg],"kg")):row.weight,height:relations.public?publicBreedMeasurement(row.height,"height",combinedFciMeasurement([fciStandard.vyska_pes_cm,fciStandard.vyska_suka_cm],"cm")):row.height,lifespan:relations.public?publicBreedMeasurement(row.lifespan,"lifespan"):row.lifespan,coat:row.coat,energy:row.energy,trainability:row.trainability,
-  family:row.family,children:row.children,otherDogs:row.other_dogs,apartment:row.apartment,grooming:row.grooming,shedding:row.shedding,
-  preyDrive:row.prey_drive,intro:row.intro,character:row.character,needs:row.needs,history:row.history,exercise:row.exercise,
-  training:row.training,health:row.health,healthRisks:stringArray(row.health_risks_json),goodFor:stringArray(row.good_for_json),
-  consider:stringArray(row.consider_json),sources:parseArray(row.sources_json,isBreedSource),accent:row.accent as Breed["accent"],
-  createdAt:row.created_at,updatedAt:row.updated_at,publishedAt:row.published_at,
-  seo:parseSeo(row.seo_json),
-}; }
+function fromRow(
+  row: Row,
+  relations: { articles?: number[]; directory?: number[]; public?: boolean } = {},
+): ManagedBreed {
+  const editorial = parseObject<BreedEditorial>(row.editorial_json);
+  editorial.heroTraits = Array.isArray(editorial.heroTraits)
+    ? editorial.heroTraits.filter(isBreedHeroTrait).slice(0, 3)
+    : [];
+  const fciStandard = parseObject<FciStandard>(row.fci_standard_json);
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    status: row.status === "published" ? "published" : "draft",
+    image: row.image_url,
+    imageKey: row.image_key,
+    gallery: parseArray(row.gallery_json, isBreedImage),
+    fciNumber: row.fci_number,
+    fciGroup: row.fci_group,
+    fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
+    fciSectionNumber: row.fci_section_number,
+    officialFciName: row.official_fci_name,
+    validStandardDate: row.valid_standard_date,
+    workingTrial: row.working_trial,
+    importKey: row.import_key,
+    fciStandard,
+    editorial,
+    sports: parseArray(row.sports_json, isBreedSport),
+    relatedBreedIds: parseArray(
+      row.related_breeds_json,
+      (item): item is number => Number.isSafeInteger(item) && Number(item) > 0,
+    ),
+    relatedArticleIds: relations.articles ?? [],
+    directoryProfileIds: relations.directory ?? [],
+    searchText: row.search_text,
+    editorialComplete: row.editorial_complete === 1,
+    origin: row.origin,
+    group: row.group_name,
+    size: relations.public ? publicBreedSize(row.size) : row.size,
+    weight: relations.public
+      ? publicBreedMeasurement(
+          row.weight,
+          "weight",
+          combinedFciMeasurement([fciStandard.hmotnost_pes_kg, fciStandard.hmotnost_suka_kg], "kg"),
+        )
+      : row.weight,
+    height: relations.public
+      ? publicBreedMeasurement(
+          row.height,
+          "height",
+          combinedFciMeasurement([fciStandard.vyska_pes_cm, fciStandard.vyska_suka_cm], "cm"),
+        )
+      : row.height,
+    lifespan: relations.public ? publicBreedMeasurement(row.lifespan, "lifespan") : row.lifespan,
+    coat: row.coat,
+    energy: row.energy,
+    trainability: row.trainability,
+    family: row.family,
+    children: row.children,
+    otherDogs: row.other_dogs,
+    apartment: row.apartment,
+    grooming: row.grooming,
+    shedding: row.shedding,
+    preyDrive: row.prey_drive,
+    intro: row.intro,
+    character: row.character,
+    needs: row.needs,
+    history: row.history,
+    exercise: row.exercise,
+    training: row.training,
+    health: row.health,
+    healthRisks: stringArray(row.health_risks_json),
+    goodFor: stringArray(row.good_for_json),
+    consider: stringArray(row.consider_json),
+    sources: parseArray(row.sources_json, isBreedSource),
+    accent: row.accent as Breed["accent"],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    publishedAt: row.published_at,
+    seo: parseSeo(row.seo_json),
+  };
+}
 
-function parseSeo(value:string):EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
+function parseSeo(value: string): EditableSeo {
+  try {
+    return cleanEditableSeo(JSON.parse(value) as EditableSeo);
+  } catch {
+    return {};
+  }
+}
 
-function fromSummaryRow(row:SummaryRow):ManagedBreedSummary {
+function fromSummaryRow(row: SummaryRow): ManagedBreedSummary {
   // List rows contain only the editorial/FCI scalar fields required for
   // completeness badges; full source JSON belongs to the detail editor.
-  const sports=parseArray(row.sports_json,isBreedSport);
-  const articleRelationCount=Number(row.article_relation_count)||0;
-  const directoryRelationCount=Number(row.directory_relation_count)||0;
+  const sports = parseArray(row.sports_json, isBreedSport);
+  const articleRelationCount = Number(row.article_relation_count) || 0;
+  const directoryRelationCount = Number(row.directory_relation_count) || 0;
   return {
-    id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,
-    fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),
-    fciSectionNumber:row.fci_section_number,origin:row.origin,group:row.group_name,officialFciName:row.official_fci_name,
-    accent:row.accent as Breed["accent"],intro:row.intro,updatedAt:row.updated_at,articleRelationCount,directoryRelationCount,
-    completenessIssues:breedCompletenessIssues({
-      image:row.image_url,overview:row.editorial_overview??"",needs:row.needs,exercise:row.exercise,training:row.training,health:row.health,
-      fciNumber:row.fci_number,hasFciReference:Boolean(row.fci_standard_pdf?.trim()||row.fci_nomenklatura_url?.trim()),
-      sportsCount:sports.length,articleRelationCount,directoryRelationCount,
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    status: row.status === "published" ? "published" : "draft",
+    image: row.image_url,
+    fciNumber: row.fci_number,
+    fciGroup: row.fci_group,
+    fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
+    fciSectionNumber: row.fci_section_number,
+    origin: row.origin,
+    group: row.group_name,
+    officialFciName: row.official_fci_name,
+    accent: row.accent as Breed["accent"],
+    intro: row.intro,
+    updatedAt: row.updated_at,
+    articleRelationCount,
+    directoryRelationCount,
+    completenessIssues: breedCompletenessIssues({
+      image: row.image_url,
+      overview: row.editorial_overview ?? "",
+      needs: row.needs,
+      exercise: row.exercise,
+      training: row.training,
+      health: row.health,
+      fciNumber: row.fci_number,
+      hasFciReference: Boolean(row.fci_standard_pdf?.trim() || row.fci_nomenklatura_url?.trim()),
+      sportsCount: sports.length,
+      articleRelationCount,
+      directoryRelationCount,
     }),
   };
 }
 
-function fromIndexRow(row:IndexRow):ManagedBreedIndexItem { const standard=parseObject<FciStandard>(row.fci_standard_json);return {
-  id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,
-  fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),fciSectionNumber:row.fci_section_number,
-  origin:row.origin,group:row.group_name,officialFciName:row.official_fci_name,accent:row.accent as Breed["accent"],
-  height:publicBreedMeasurement(row.height,"height",combinedFciMeasurement([standard.vyska_pes_cm,standard.vyska_suka_cm],"cm")),
-  weight:publicBreedMeasurement(row.weight,"weight",combinedFciMeasurement([standard.hmotnost_pes_kg,standard.hmotnost_suka_kg],"kg")),intro:row.intro,energy:row.energy,trainability:row.trainability,family:row.family,
-  searchText:row.search_text,editorialComplete:row.editorial_complete===1,seo:parseSeo(row.seo_json),updatedAt:row.updated_at,
-}; }
+function fromIndexRow(row: IndexRow): ManagedBreedIndexItem {
+  const standard = parseObject<FciStandard>(row.fci_standard_json);
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    status: row.status === "published" ? "published" : "draft",
+    image: row.image_url,
+    fciNumber: row.fci_number,
+    fciGroup: row.fci_group,
+    fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
+    fciSectionNumber: row.fci_section_number,
+    origin: row.origin,
+    group: row.group_name,
+    officialFciName: row.official_fci_name,
+    accent: row.accent as Breed["accent"],
+    height: publicBreedMeasurement(
+      row.height,
+      "height",
+      combinedFciMeasurement([standard.vyska_pes_cm, standard.vyska_suka_cm], "cm"),
+    ),
+    weight: publicBreedMeasurement(
+      row.weight,
+      "weight",
+      combinedFciMeasurement([standard.hmotnost_pes_kg, standard.hmotnost_suka_kg], "kg"),
+    ),
+    intro: row.intro,
+    energy: row.energy,
+    trainability: row.trainability,
+    family: row.family,
+    searchText: row.search_text,
+    editorialComplete: row.editorial_complete === 1,
+    seo: parseSeo(row.seo_json),
+    updatedAt: row.updated_at,
+  };
+}
 
-const select=`SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,
+const select = `SELECT id,slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,
 valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,
 lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,
 history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,created_at,updated_at,published_at,seo_json FROM managed_breeds`;
-export async function listManagedBreedSummaries(limit=500){const database=requireDb();await ensure(database);const safeLimit=Math.max(1,Math.min(500,Math.trunc(limit)));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,intro,updated_at,sports_json,needs,exercise,training,health,
+export async function listManagedBreedSummaries(limit = 500) {
+  const database = requireDb();
+  await ensure(database);
+  const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
+  const result = await database
+    .prepare(
+      `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,origin,group_name,official_fci_name,accent,intro,updated_at,sports_json,needs,exercise,training,health,
 CASE WHEN json_valid(editorial_json) THEN
   CASE WHEN json_type(editorial_json, '$.overview') = 'text' THEN json_extract(editorial_json, '$.overview') ELSE '' END
 ELSE '' END AS editorial_overview,
@@ -178,30 +686,68 @@ CASE WHEN json_valid(fci_standard_json) THEN
 ELSE '' END AS fci_nomenklatura_url,
 (SELECT COUNT(*) FROM breed_article_relations r WHERE r.breed_id=managed_breeds.id) AS article_relation_count,
 (SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
-FROM managed_breeds ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}
+FROM managed_breeds ORDER BY fci_group,name LIMIT ?`,
+    )
+    .bind(safeLimit)
+    .all<SummaryRow>();
+  return result.results.map(fromSummaryRow);
+}
 // Article relations need only identifiers and FCI labels, not all the
 // completeness, image, editorial JSON and relation-count fields required by
 // the breed administration dashboard. Keep the same 500-row order/limit.
 export type AdminArticleBreedOption = { id: number; name: string; fciNumber: number | null };
-export async function listAdminArticleBreedOptions(limit=500): Promise<AdminArticleBreedOption[]> {
+export async function listAdminArticleBreedOptions(
+  limit = 500,
+): Promise<AdminArticleBreedOption[]> {
   const database = requireDb();
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
-  const result = await database.prepare(
-    "SELECT id,name,fci_number AS fciNumber FROM managed_breeds ORDER BY fci_group,name LIMIT ?"
-  ).bind(safeLimit).all<AdminArticleBreedOption>();
+  const result = await database
+    .prepare(
+      "SELECT id,name,fci_number AS fciNumber FROM managed_breeds ORDER BY fci_group,name LIMIT ?",
+    )
+    .bind(safeLimit)
+    .all<AdminArticleBreedOption>();
   return result.results;
 }
 
-export async function listPublishedBreedIndex(){const database=db();if(!database)return seedBreeds.map((breed,index)=>({id:-(index+1),status:"published" as const,officialFciName:"",fciSectionNumber:"",searchText:normalizeBreedSearchText(`${breed.name} ${breed.group} ${breed.fciSection} ${breed.intro}`),editorialComplete:true,seo:breed.seo??{},updatedAt:"2026-08-17",...breed}));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();return withAvailableBreedImages(result.results.map(fromIndexRow),env);}
-export async function listPublishedCanonicalBreedIndex(){
-  const database=db();
-  if(!database)return listPublishedBreedIndex();
-  const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();
+export async function listPublishedBreedIndex() {
+  const database = db();
+  if (!database)
+    return seedBreeds.map((breed, index) => ({
+      id: -(index + 1),
+      status: "published" as const,
+      officialFciName: "",
+      fciSectionNumber: "",
+      searchText: normalizeBreedSearchText(
+        `${breed.name} ${breed.group} ${breed.fciSection} ${breed.intro}`,
+      ),
+      editorialComplete: true,
+      seo: breed.seo ?? {},
+      updatedAt: "2026-08-17",
+      ...breed,
+    }));
+  const result = await database
+    .prepare(
+      `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`,
+    )
+    .all<IndexRow>();
+  return withAvailableBreedImages(result.results.map(fromIndexRow), env);
+}
+export async function listPublishedCanonicalBreedIndex() {
+  const database = db();
+  if (!database) return listPublishedBreedIndex();
+  const result = await database
+    .prepare(
+      `SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`,
+    )
+    .all<IndexRow>();
   // The public atlas displays hundreds of breeds. Waiting for R2 listings and
   // per-image HEAD checks can stall the entire HTML response on Workers.
   // Retain only trusted local image paths: BreedPhoto handles missing files
   // with its existing placeholder on the client.
-  return result.results.map(fromIndexRow).map((breed)=>({...breed,image:ownedBreedImage(breed.image)}));
+  return result.results
+    .map(fromIndexRow)
+    .map((breed) => ({ ...breed, image: ownedBreedImage(breed.image) }));
 }
 
 /** Public FCI atlas: fetch only scalar card fields and four dimension fallbacks.
@@ -209,17 +755,55 @@ export async function listPublishedCanonicalBreedIndex(){
  * Preserve canonical filtering and order without R2 HEAD/LIST probes on the HTML path.
  * BreedPhoto provides a client-side placeholder when a trusted local asset is missing.
  */
-export async function listPublishedCanonicalBreedAtlasCards():Promise<BreedAtlasCard[]> {
-  const database=db();
-  if(!database) {
-    const breeds=await listPublishedCanonicalBreedIndex();
-    return breeds.map(({slug,name,image,fciGroup,fciSection,fciSectionNumber,origin,group,accent,
-      height,weight,intro,energy,trainability,family,officialFciName,searchText,editorialComplete})=>({
-      slug,name,image,fciGroup,fciSection,fciSectionNumber,origin,group,accent,
-      height,weight,intro,energy,trainability,family,officialFciName,searchText,editorialComplete,
-    }));
+export async function listPublishedCanonicalBreedAtlasCards(): Promise<BreedAtlasCard[]> {
+  const database = db();
+  if (!database) {
+    const breeds = await listPublishedCanonicalBreedIndex();
+    return breeds.map(
+      ({
+        slug,
+        name,
+        image,
+        fciGroup,
+        fciSection,
+        fciSectionNumber,
+        origin,
+        group,
+        accent,
+        height,
+        weight,
+        intro,
+        energy,
+        trainability,
+        family,
+        officialFciName,
+        searchText,
+        editorialComplete,
+      }) => ({
+        slug,
+        name,
+        image,
+        fciGroup,
+        fciSection,
+        fciSectionNumber,
+        origin,
+        group,
+        accent,
+        height,
+        weight,
+        intro,
+        energy,
+        trainability,
+        family,
+        officialFciName,
+        searchText,
+        editorialComplete,
+      }),
+    );
   }
-  const result=await database.prepare(`
+  const result = await database
+    .prepare(
+      `
     SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,origin,group_name,
       official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,
       CASE WHEN json_valid(fci_standard_json) THEN
@@ -231,19 +815,45 @@ export async function listPublishedCanonicalBreedAtlasCards():Promise<BreedAtlas
       CASE WHEN json_valid(fci_standard_json) THEN
         CAST(json_extract(fci_standard_json, '$.hmotnost_suka_kg') AS TEXT) ELSE NULL END AS standard_bitch_weight
     FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name
-  `).all<BreedAtlasCardRow>();
-  return result.results.map((row):BreedAtlasCard=>({
-    slug:row.slug,name:row.name,image:ownedBreedImage(row.image_url),fciGroup:row.fci_group,
-    fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),
-    fciSectionNumber:row.fci_section_number,origin:row.origin,group:row.group_name,
-    officialFciName:row.official_fci_name,accent:row.accent as Breed["accent"],
-    height:publicBreedMeasurement(row.height,"height",combinedFciMeasurement([
-      row.standard_dog_height??undefined,row.standard_bitch_height??undefined],"cm")),
-    weight:publicBreedMeasurement(row.weight,"weight",combinedFciMeasurement([
-      row.standard_dog_weight??undefined,row.standard_bitch_weight??undefined],"kg")),
-    intro:row.intro,energy:row.energy,trainability:row.trainability,family:row.family,
-    searchText:row.search_text,editorialComplete:row.editorial_complete===1,
-  }));
+  `,
+    )
+    .all<BreedAtlasCardRow>();
+  return result.results.map(
+    (row): BreedAtlasCard => ({
+      slug: row.slug,
+      name: row.name,
+      image: ownedBreedImage(row.image_url),
+      fciGroup: row.fci_group,
+      fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
+      fciSectionNumber: row.fci_section_number,
+      origin: row.origin,
+      group: row.group_name,
+      officialFciName: row.official_fci_name,
+      accent: row.accent as Breed["accent"],
+      height: publicBreedMeasurement(
+        row.height,
+        "height",
+        combinedFciMeasurement(
+          [row.standard_dog_height ?? undefined, row.standard_bitch_height ?? undefined],
+          "cm",
+        ),
+      ),
+      weight: publicBreedMeasurement(
+        row.weight,
+        "weight",
+        combinedFciMeasurement(
+          [row.standard_dog_weight ?? undefined, row.standard_bitch_weight ?? undefined],
+          "kg",
+        ),
+      ),
+      intro: row.intro,
+      energy: row.energy,
+      trainability: row.trainability,
+      family: row.family,
+      searchText: row.search_text,
+      editorialComplete: row.editorial_complete === 1,
+    }),
+  );
 }
 
 export type BreedSitemapIndexItem = {
@@ -278,12 +888,14 @@ export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSi
       updatedAt: "2026-08-17",
     }));
   }
-  const result = await database.prepare(
-    `SELECT slug,image_url,seo_json,updated_at
+  const result = await database
+    .prepare(
+      `SELECT slug,image_url,seo_json,updated_at
      FROM managed_breeds
      WHERE id IN (${canonicalBreedIdsSql})
      ORDER BY fci_group,name`,
-  ).all<BreedSitemapIndexRow>();
+    )
+    .all<BreedSitemapIndexRow>();
   return result.results.map((row) => ({
     slug: row.slug,
     image: ownedBreedImage(row.image_url),
@@ -291,42 +903,135 @@ export async function listPublishedCanonicalBreedSitemapIndex(): Promise<BreedSi
     updatedAt: row.updated_at,
   }));
 }
-export async function listPublishedBreedsForComparison():Promise<BreedComparisonItem[]>{const database=db();if(!database)return seedBreeds;const result=await database.prepare(`SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,fci_standard_json,origin,accent,size,weight,lifespan,coat,energy,trainability,family,intro,good_for_json,consider_json FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<ComparisonRow>();return withAvailableBreedImages(result.results.map((row:ComparisonRow)=>{const standard=parseObject<FciStandard>(row.fci_standard_json);return {slug:row.slug,name:row.name,image:row.image_url,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),origin:row.origin,accent:row.accent as Breed['accent'],size:publicBreedSize(row.size),weight:publicBreedMeasurement(row.weight,"weight",combinedFciMeasurement([standard.hmotnost_pes_kg,standard.hmotnost_suka_kg],"kg")),lifespan:publicBreedMeasurement(row.lifespan,"lifespan"),coat:row.coat,energy:row.energy,trainability:row.trainability,family:row.family,intro:row.intro,goodFor:stringArray(row.good_for_json),consider:stringArray(row.consider_json)};} ),env);}
-export async function getBreedOfTheDay(dayOfYear:number):Promise<BreedOfTheDayItem|null>{
+export async function listPublishedBreedsForComparison(): Promise<BreedComparisonItem[]> {
+  const database = db();
+  if (!database) return seedBreeds;
+  const result = await database
+    .prepare(
+      `SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,fci_standard_json,origin,accent,size,weight,lifespan,coat,energy,trainability,family,intro,good_for_json,consider_json FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`,
+    )
+    .all<ComparisonRow>();
+  return withAvailableBreedImages(
+    result.results.map((row: ComparisonRow) => {
+      const standard = parseObject<FciStandard>(row.fci_standard_json);
+      return {
+        slug: row.slug,
+        name: row.name,
+        image: row.image_url,
+        fciGroup: row.fci_group,
+        fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
+        origin: row.origin,
+        accent: row.accent as Breed["accent"],
+        size: publicBreedSize(row.size),
+        weight: publicBreedMeasurement(
+          row.weight,
+          "weight",
+          combinedFciMeasurement([standard.hmotnost_pes_kg, standard.hmotnost_suka_kg], "kg"),
+        ),
+        lifespan: publicBreedMeasurement(row.lifespan, "lifespan"),
+        coat: row.coat,
+        energy: row.energy,
+        trainability: row.trainability,
+        family: row.family,
+        intro: row.intro,
+        goodFor: stringArray(row.good_for_json),
+        consider: stringArray(row.consider_json),
+      };
+    }),
+    env,
+  );
+}
+export async function getBreedOfTheDay(dayOfYear: number): Promise<BreedOfTheDayItem | null> {
   try {
-    const database=db();
-    if(!database){const candidates=rotateBreeds(seedBreeds,dayOfYear);return candidates.find(breed=>breed.image.trim())??candidates[0]??null;}
+    const database = db();
+    if (!database) {
+      const candidates = rotateBreeds(seedBreeds, dayOfYear);
+      return candidates.find((breed) => breed.image.trim()) ?? candidates[0] ?? null;
+    }
     // This small projection avoids loading the FCI standard for the homepage.
-    const result=await database.prepare(`SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,size,energy,trainability,intro FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name,id`).all<BreedOfTheDayRow>();
-    const candidates=rotateBreeds<BreedOfTheDayRow>(result.results,dayOfYear);
+    const result = await database
+      .prepare(
+        `SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,size,energy,trainability,intro FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name,id`,
+      )
+      .all<BreedOfTheDayRow>();
+    const candidates = rotateBreeds<BreedOfTheDayRow>(result.results, dayOfYear);
     // The first image-backed candidate wins. Check only bounded batches instead of
     // inspecting every breed's image on every homepage render.
-    let fallback: (BreedOfTheDayRow & {image:string})|undefined;
-    let selected: (BreedOfTheDayRow & {image:string})|undefined;
-    for (let offset=0;offset<candidates.length;offset+=8){
-      const batch=candidates.slice(offset,offset+8).map(row=>({...row,image:row.image_url}));
-      const checked=await withAvailableBreedImages(batch,env);
-      fallback??=checked[0];
-      selected=checked.find(candidate=>candidate.image);
-      if(selected)break;
+    let fallback: (BreedOfTheDayRow & { image: string }) | undefined;
+    let selected: (BreedOfTheDayRow & { image: string }) | undefined;
+    for (let offset = 0; offset < candidates.length; offset += 8) {
+      const batch = candidates
+        .slice(offset, offset + 8)
+        .map((row) => ({ ...row, image: row.image_url }));
+      const checked = await withAvailableBreedImages(batch, env);
+      fallback ??= checked[0];
+      selected = checked.find((candidate) => candidate.image);
+      if (selected) break;
     }
     // Preserve the established no-image fallback contract if every asset is missing.
-    const row=selected??fallback;
-    return row?{slug:row.slug,name:row.name,image:row.image,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),size:publicBreedSize(row.size),energy:row.energy,trainability:row.trainability,intro:row.intro}:null;
-  }catch(error){console.error('breed_of_the_day_unavailable',error);return null;}
+    const row = selected ?? fallback;
+    return row
+      ? {
+          slug: row.slug,
+          name: row.name,
+          image: row.image,
+          fciGroup: row.fci_group,
+          fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
+          size: publicBreedSize(row.size),
+          energy: row.energy,
+          trainability: row.trainability,
+          intro: row.intro,
+        }
+      : null;
+  } catch (error) {
+    console.error("breed_of_the_day_unavailable", error);
+    return null;
+  }
 }
-export async function listPublishedBreeds(){const database=db();if(!database)return seedBreeds;const result=await database.prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<Row>();return withAvailableBreedImages(result.results.map(row=>fromRow(row,{public:true})),env);}
-export async function listFeaturedBreeds(limit=3){const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));const database=db();if(!database)return seedBreeds.slice(0,safeLimit);const result=await database.prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<Row>();return withAvailableBreedImages(result.results.map(row=>fromRow(row,{public:true})),env);}
+export async function listPublishedBreeds() {
+  const database = db();
+  if (!database) return seedBreeds;
+  const result = await database
+    .prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`)
+    .all<Row>();
+  return withAvailableBreedImages(
+    result.results.map((row) => fromRow(row, { public: true })),
+    env,
+  );
+}
+export async function listFeaturedBreeds(limit = 3) {
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const database = db();
+  if (!database) return seedBreeds.slice(0, safeLimit);
+  const result = await database
+    .prepare(`${select} WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name LIMIT ?`)
+    .bind(safeLimit)
+    .all<Row>();
+  return withAvailableBreedImages(
+    result.results.map((row) => fromRow(row, { public: true })),
+    env,
+  );
+}
 /** Homepage only needs four fields; avoid decoding complete breed editors/FCI JSON.
  * A failed image request is handled by the client BreedPhoto fallback, so
  * speculative R2 HEAD checks for every featured card must not block HTML SSR.
  * Breed of the day keeps its existing bounded verified-image selection.
  */
-export async function listHomepageFeaturedBreeds(limit=6):Promise<Array<Pick<Breed,"slug"|"name"|"image"|"intro">>> {
-  const safeLimit=Math.max(1,Math.min(12,Math.trunc(limit)));
-  const database=db();
-  if(!database)return seedBreeds.slice(0,safeLimit).map(({slug,name,image,intro})=>({slug,name,image:ownedBreedImage(image),intro}));
-  const result=await database.prepare(`SELECT slug,name,image_url,intro
+export async function listHomepageFeaturedBreeds(
+  limit = 6,
+): Promise<Array<Pick<Breed, "slug" | "name" | "image" | "intro">>> {
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const database = db();
+  if (!database)
+    return seedBreeds.slice(0, safeLimit).map(({ slug, name, image, intro }) => ({
+      slug,
+      name,
+      image: ownedBreedImage(image),
+      intro,
+    }));
+  const result = await database
+    .prepare(
+      `SELECT slug,name,image_url,intro
     FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql})
     AND (
       image_url LIKE '/images/%' OR image_url LIKE '/media/%'
@@ -335,33 +1040,104 @@ export async function listHomepageFeaturedBreeds(limit=6):Promise<Array<Pick<Bre
       OR image_url LIKE 'https://psipedia.sk/media/%'
       OR image_url LIKE 'https://psipedia.sk/migrated-media/%'
     )
-    ORDER BY RANDOM() LIMIT ?`).bind(safeLimit).all<{slug:string;name:string;image_url:string;intro:string}>();
-  return result.results.map(row=>({
-    slug:row.slug,name:row.name,image:ownedBreedImage(row.image_url),intro:row.intro,
+    ORDER BY RANDOM() LIMIT ?`,
+    )
+    .bind(safeLimit)
+    .all<{ slug: string; name: string; image_url: string; intro: string }>();
+  return result.results.map((row) => ({
+    slug: row.slug,
+    name: row.name,
+    image: ownedBreedImage(row.image_url),
+    intro: row.intro,
   }));
 }
-export async function getManagedBreed(id:number){const database=requireDb();await ensure(database);const [breedResult,articleResult,directoryResult]=await database.batch([database.prepare(`${select} WHERE id=?`).bind(id),database.prepare("SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id").bind(id),database.prepare("SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id").bind(id)]);const row=(breedResult.results?.[0]??null) as unknown as Row|null;return row?fromRow(row,{articles:(articleResult.results as RelationIdRow[]).map((item)=>item.id),directory:(directoryResult.results as RelationIdRow[]).map((item)=>item.id)}):null;}
-const getPublishedBreedUncached=async(slug:string)=>{const database=db();if(!database)return seedBreeds.find((breed)=>breed.slug===slug)??null;const row=await database.prepare(`${select} WHERE slug=? AND ${canonicalBreedWinnerSql('managed_breeds')} LIMIT 1`).bind(slug).first<Row>();if(!row)return null;const breed=fromRow(row,{public:true});breed.image=ownedBreedImage(breed.image);breed.gallery=(breed.gallery??[]).map(item=>({...item,imageUrl:ownedBreedImage(item.imageUrl)})).filter(item=>item.imageUrl);return breed;};
-export const getPublishedBreed=cache(getPublishedBreedUncached);
+export async function getManagedBreed(id: number) {
+  const database = requireDb();
+  await ensure(database);
+  const [breedResult, articleResult, directoryResult] = await database.batch([
+    database.prepare(`${select} WHERE id=?`).bind(id),
+    database
+      .prepare(
+        "SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id",
+      )
+      .bind(id),
+    database
+      .prepare(
+        "SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id",
+      )
+      .bind(id),
+  ]);
+  const row = (breedResult.results?.[0] ?? null) as unknown as Row | null;
+  return row
+    ? fromRow(row, {
+        articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
+        directory: (directoryResult.results as RelationIdRow[]).map((item) => item.id),
+      })
+    : null;
+}
+const getPublishedBreedUncached = async (slug: string) => {
+  const database = db();
+  if (!database) return seedBreeds.find((breed) => breed.slug === slug) ?? null;
+  const row = await database
+    .prepare(`${select} WHERE slug=? AND ${canonicalBreedWinnerSql("managed_breeds")} LIMIT 1`)
+    .bind(slug)
+    .first<Row>();
+  if (!row) return null;
+  const breed = fromRow(row, { public: true });
+  breed.image = ownedBreedImage(breed.image);
+  breed.gallery = (breed.gallery ?? [])
+    .map((item) => ({ ...item, imageUrl: ownedBreedImage(item.imageUrl) }))
+    .filter((item) => item.imageUrl);
+  return breed;
+};
+export const getPublishedBreed = cache(getPublishedBreedUncached);
 
+export async function getBreedEditorOptions(): Promise<BreedEditorOptions> {
+  const database = requireDb();
+  const [breedsResult, articlesResult, directoryResult] = await database.batch([
+    database.prepare(
+      "SELECT id,name,fci_number FROM managed_breeds ORDER BY fci_group,name LIMIT 500",
+    ),
+    database.prepare(
+      "SELECT id,title,status FROM managed_articles ORDER BY updated_at DESC,id DESC LIMIT 500",
+    ),
+    database.prepare(
+      "SELECT id,name,category,city,region FROM directory_profiles WHERE category IN ('chovatelske-stanice','chovatelske-kluby') ORDER BY category,name LIMIT 500",
+    ),
+  ]);
+  return {
+    breeds: breedsResult.results as BreedEditorOptions["breeds"],
+    articles: articlesResult.results as BreedEditorOptions["articles"],
+    directoryProfiles: directoryResult.results as BreedEditorOptions["directoryProfiles"],
+  };
+}
 
-export async function getBreedEditorOptions():Promise<BreedEditorOptions>{const database=requireDb();const [breedsResult,articlesResult,directoryResult]=await database.batch([
-  database.prepare("SELECT id,name,fci_number FROM managed_breeds ORDER BY fci_group,name LIMIT 500"),
-  database.prepare("SELECT id,title,status FROM managed_articles ORDER BY updated_at DESC,id DESC LIMIT 500"),
-  database.prepare("SELECT id,name,category,city,region FROM directory_profiles WHERE category IN ('chovatelske-stanice','chovatelske-kluby') ORDER BY category,name LIMIT 500"),
-]);return {breeds:breedsResult.results as BreedEditorOptions["breeds"],articles:articlesResult.results as BreedEditorOptions["articles"],directoryProfiles:directoryResult.results as BreedEditorOptions["directoryProfiles"]};}
-
-export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"slug"|"name"|"relatedBreedIds">):Promise<BreedDetailRelations>{
-  const database=db();
-  if(!database)return {articles:[],breedingStations:[],breedingStationLanding:null,breedClubs:[],similarBreeds:[]};
-  const now=new Date().toISOString();
-  const articleQuery=database.prepare(`SELECT DISTINCT a.id,a.slug,a.title,a.excerpt,a.portal_section,a.image_url,a.accent
+export async function getBreedDetailRelations(
+  breed: Pick<ManagedBreed, "id" | "slug" | "name" | "relatedBreedIds">,
+): Promise<BreedDetailRelations> {
+  const database = db();
+  if (!database)
+    return {
+      articles: [],
+      breedingStations: [],
+      breedingStationLanding: null,
+      breedClubs: [],
+      similarBreeds: [],
+    };
+  const now = new Date().toISOString();
+  const articleQuery = database
+    .prepare(
+      `SELECT DISTINCT a.id,a.slug,a.title,a.excerpt,a.portal_section,a.image_url,a.accent
     FROM breed_article_relations r
     JOIN managed_articles a ON a.id=r.article_id
     WHERE r.breed_id=? AND ${publicArticleRelationTargetSql("a")}
     ORDER BY a.published_at DESC,a.id DESC
-    LIMIT 5`).bind(breed.id,now);
-  const stationsQuery=database.prepare(`WITH station_matches AS (
+    LIMIT 5`,
+    )
+    .bind(breed.id, now);
+  const stationsQuery = database
+    .prepare(
+      `WITH station_matches AS (
       SELECT DISTINCT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url
       FROM breed_directory_relations r
       JOIN directory_profiles d ON d.id=r.profile_id
@@ -370,134 +1146,456 @@ export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"slug
     SELECT station_matches.*, COUNT(*) OVER() AS relation_total
     FROM station_matches
     ORDER BY name COLLATE NOCASE ASC,id ASC
-    LIMIT 4`).bind(breed.id);
-  const clubsQuery=database.prepare(`SELECT DISTINCT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url
+    LIMIT 4`,
+    )
+    .bind(breed.id);
+  const clubsQuery = database
+    .prepare(
+      `SELECT DISTINCT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url
     FROM breed_directory_relations r
     JOIN directory_profiles d ON d.id=r.profile_id
     WHERE r.breed_id=? AND ${publicDirectoryRelationTargetSql("d")} AND d.category='chovatelske-kluby'
     ORDER BY d.name COLLATE NOCASE ASC,d.id ASC
-    LIMIT 3`).bind(breed.id);
-  const similarQuery=breed.relatedBreedIds.length
-    ? database.prepare(`SELECT b.id,b.slug,b.name,b.image_url,b.fci_group,b.fci_section,b.fci_section_number
+    LIMIT 3`,
+    )
+    .bind(breed.id);
+  const similarQuery = breed.relatedBreedIds.length
+    ? database
+        .prepare(
+          `SELECT b.id,b.slug,b.name,b.image_url,b.fci_group,b.fci_section,b.fci_section_number
         FROM json_each(?) chosen
         JOIN managed_breeds b ON b.id=CAST(chosen.value AS INTEGER)
         WHERE b.id IN (${canonicalBreedIdsSql}) AND b.id<>?
         GROUP BY b.id
         ORDER BY MIN(CAST(chosen.key AS INTEGER)) ASC,b.id ASC
-        LIMIT 4`).bind(JSON.stringify(breed.relatedBreedIds),breed.id)
-    : database.prepare("SELECT id,slug,name,image_url,fci_group,fci_section,fci_section_number FROM managed_breeds WHERE 0=1 LIMIT 4");
-  const [articlesResult,stationsResult,clubsResult,similarResult]=await database.batch([articleQuery,stationsQuery,clubsQuery,similarQuery]);
-  const articles=(articlesResult.results as Array<{id:number;slug:string;title:string;excerpt:string;portal_section:string;image_url:string|null;accent:string}>).map((row)=>{
-    const portalSection=row.portal_section as ArticlePortalSection;
-    return {id:row.id,slug:row.slug,title:row.title,excerpt:row.excerpt,portalSection,href:articleHref({slug:row.slug,portalSection}),image:row.image_url,accent:row.accent};
+        LIMIT 4`,
+        )
+        .bind(JSON.stringify(breed.relatedBreedIds), breed.id)
+    : database.prepare(
+        "SELECT id,slug,name,image_url,fci_group,fci_section,fci_section_number FROM managed_breeds WHERE 0=1 LIMIT 4",
+      );
+  const [articlesResult, stationsResult, clubsResult, similarResult] = await database.batch([
+    articleQuery,
+    stationsQuery,
+    clubsQuery,
+    similarQuery,
+  ]);
+  const articles = (
+    articlesResult.results as Array<{
+      id: number;
+      slug: string;
+      title: string;
+      excerpt: string;
+      portal_section: string;
+      image_url: string | null;
+      accent: string;
+    }>
+  ).map((row) => {
+    const portalSection = row.portal_section as ArticlePortalSection;
+    return {
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      excerpt: row.excerpt,
+      portalSection,
+      href: articleHref({ slug: row.slug, portalSection }),
+      image: row.image_url,
+      accent: row.accent,
+    };
   });
-  const stationTotal=Number((stationsResult.results[0] as {relation_total?:number|string}|undefined)?.relation_total??0);
-  const breedingStationLanding=stationTotal>=BREEDING_STATION_LANDING_INDEX_THRESHOLD
-    ? {href:breedingStationBreedLandingPath(breed.slug),label:`Chovateľské stanice pre plemeno ${breed.name}`}
-    : null;
-  const directory=[...stationsResult.results,...clubsResult.results]
-    .map((row)=>row as {id:number;slug:string;name:string;category:"chovatelske-stanice"|"chovatelske-kluby";excerpt:string;city:string;region:string;image_url:string|null})
-    .map((row)=>({id:row.id,slug:row.slug,name:row.name,href:directoryProfileHref({category:row.category,slug:row.slug}),category:row.category,excerpt:row.excerpt,city:row.city,region:row.region,image:row.image_url}));
-  const similarBreeds=(similarResult.results as Array<{id:number;slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string}>).map((row)=>({id:row.id,slug:row.slug,name:row.name,href:breedProfileHref(row.slug),image:row.image_url,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section)}));
+  const stationTotal = Number(
+    (stationsResult.results[0] as { relation_total?: number | string } | undefined)
+      ?.relation_total ?? 0,
+  );
+  const breedingStationLanding =
+    stationTotal >= BREEDING_STATION_LANDING_INDEX_THRESHOLD
+      ? {
+          href: breedingStationBreedLandingPath(breed.slug),
+          label: `Chovateľské stanice pre plemeno ${breed.name}`,
+        }
+      : null;
+  const directory = [...stationsResult.results, ...clubsResult.results]
+    .map(
+      (row) =>
+        row as {
+          id: number;
+          slug: string;
+          name: string;
+          category: "chovatelske-stanice" | "chovatelske-kluby";
+          excerpt: string;
+          city: string;
+          region: string;
+          image_url: string | null;
+        },
+    )
+    .map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      href: directoryProfileHref({ category: row.category, slug: row.slug }),
+      category: row.category,
+      excerpt: row.excerpt,
+      city: row.city,
+      region: row.region,
+      image: row.image_url,
+    }));
+  const similarBreeds = (
+    similarResult.results as Array<{
+      id: number;
+      slug: string;
+      name: string;
+      image_url: string;
+      fci_group: number;
+      fci_section: string;
+      fci_section_number: string;
+    }>
+  ).map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    href: breedProfileHref(row.slug),
+    image: row.image_url,
+    fciGroup: row.fci_group,
+    fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
+  }));
   return {
     articles,
-    breedingStations:directory.filter((item)=>item.category==='chovatelske-stanice'),
+    breedingStations: directory.filter((item) => item.category === "chovatelske-stanice"),
     breedingStationLanding,
-    breedClubs:directory.filter((item)=>item.category==='chovatelske-kluby'),
-    similarBreeds:similarBreeds.map(item=>({...item,image:ownedBreedImage(item.image)})),
+    breedClubs: directory.filter((item) => item.category === "chovatelske-kluby"),
+    similarBreeds: similarBreeds.map((item) => ({ ...item, image: ownedBreedImage(item.image) })),
   };
 }
 
-function clean(input:ManagedBreedInput, preserved?:ManagedBreed){
-  const text=(value:unknown,max=1000)=>String(value??"").trim().slice(0,max);const score=(value:unknown)=>Math.min(5,Math.max(1,Number(value)||3));
-  const strings=(value:unknown)=>Array.isArray(value)?value.map((item)=>text(item,240)).filter(Boolean).slice(0,30):[];
-  const ids=(value:unknown)=>Array.isArray(value)?[...new Set(value.map(Number).filter((item)=>Number.isSafeInteger(item)&&item>0))].slice(0,100):[];
-  const slug=text(input.slug,90).toLowerCase().replace(/[^a-z0-9-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");const name=text(input.name,120);
-  if(!slug||!name)throw new Error("Názov a adresa plemena sú povinné.");
-  const children=score(input.children??input.family);const family=score(input.family);
-  const gallery=Array.isArray(input.gallery)?input.gallery.slice(0,30).map((item)=>({imageUrl:text(item.imageUrl,700),imageKey:item.imageKey?text(item.imageKey,700):null,alt:text(item.alt,240),caption:text(item.caption,500),credit:text(item.credit,300)})).filter((item)=>item.imageUrl):[];
-  const sources=Array.isArray(input.sources)?input.sources.slice(0,30).map((item)=>({label:text(item.label,300),url:text(item.url,700)})).filter((item)=>item.label&&/^https?:\/\//i.test(item.url)):[];
-  const officialFciName=text(input.officialFciName,200);const fciStandard=cleanFciStandard(input.fciStandard);
-  for(const [label,value,kind,requireUnit] of [
-    ["Výška v kohútiku",input.height,"height",true],["Hmotnosť",input.weight,"weight",true],["Dĺžka života",input.lifespan,"lifespan",true],
-    ["FCI výška – pes",fciStandard.vyska_pes_cm,"height",false],["FCI výška – suka",fciStandard.vyska_suka_cm,"height",false],
-    ["FCI hmotnosť – pes",fciStandard.hmotnost_pes_kg,"weight",false],["FCI hmotnosť – suka",fciStandard.hmotnost_suka_kg,"weight",false],
-   ] as const){
-    const issue=inspectBreedMeasurement(value,kind,{requireUnit}).find(item=>item.severity==="error");
-    if(!issue)continue;
+function clean(input: ManagedBreedInput, preserved?: ManagedBreed) {
+  const text = (value: unknown, max = 1000) =>
+    String(value ?? "")
+      .trim()
+      .slice(0, max);
+  const score = (value: unknown) => Math.min(5, Math.max(1, Number(value) || 3));
+  const strings = (value: unknown) =>
+    Array.isArray(value)
+      ? value
+          .map((item) => text(item, 240))
+          .filter(Boolean)
+          .slice(0, 30)
+      : [];
+  const ids = (value: unknown) =>
+    Array.isArray(value)
+      ? [
+          ...new Set(value.map(Number).filter((item) => Number.isSafeInteger(item) && item > 0)),
+        ].slice(0, 100)
+      : [];
+  const slug = text(input.slug, 90)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  const name = text(input.name, 120);
+  if (!slug || !name) throw new Error("Názov a adresa plemena sú povinné.");
+  const children = score(input.children ?? input.family);
+  const family = score(input.family);
+  const gallery = Array.isArray(input.gallery)
+    ? input.gallery
+        .slice(0, 30)
+        .map((item) => ({
+          imageUrl: text(item.imageUrl, 700),
+          imageKey: item.imageKey ? text(item.imageKey, 700) : null,
+          alt: text(item.alt, 240),
+          caption: text(item.caption, 500),
+          credit: text(item.credit, 300),
+        }))
+        .filter((item) => item.imageUrl)
+    : [];
+  const sources = Array.isArray(input.sources)
+    ? input.sources
+        .slice(0, 30)
+        .map((item) => ({ label: text(item.label, 300), url: text(item.url, 700) }))
+        .filter((item) => item.label && /^https?:\/\//i.test(item.url))
+    : [];
+  const officialFciName = text(input.officialFciName, 200);
+  const fciStandard = cleanFciStandard(input.fciStandard);
+  for (const [label, value, kind, requireUnit] of [
+    ["Výška v kohútiku", input.height, "height", true],
+    ["Hmotnosť", input.weight, "weight", true],
+    ["Dĺžka života", input.lifespan, "lifespan", true],
+    ["FCI výška – pes", fciStandard.vyska_pes_cm, "height", false],
+    ["FCI výška – suka", fciStandard.vyska_suka_cm, "height", false],
+    ["FCI hmotnosť – pes", fciStandard.hmotnost_pes_kg, "weight", false],
+    ["FCI hmotnosť – suka", fciStandard.hmotnost_suka_kg, "weight", false],
+  ] as const) {
+    const issue = inspectBreedMeasurement(value, kind, { requireUnit }).find(
+      (item) => item.severity === "error",
+    );
+    if (!issue) continue;
     // A previously stored invalid value cannot block independent Notion
     // content updates; edited invalid values still fail strict validation.
-    const old=label==="Výška v kohútiku"?preserved?.height
-      :label==="Hmotnosť"?preserved?.weight
-      :label==="Dĺžka života"?preserved?.lifespan
-      :label==="FCI výška – pes"?preserved?.fciStandard?.vyska_pes_cm
-      :label==="FCI výška – suka"?preserved?.fciStandard?.vyska_suka_cm
-      :label==="FCI hmotnosť – pes"?preserved?.fciStandard?.hmotnost_pes_kg
-      :preserved?.fciStandard?.hmotnost_suka_kg;
-    if(preserved&&value===old)continue;
+    const old =
+      label === "Výška v kohútiku"
+        ? preserved?.height
+        : label === "Hmotnosť"
+          ? preserved?.weight
+          : label === "Dĺžka života"
+            ? preserved?.lifespan
+            : label === "FCI výška – pes"
+              ? preserved?.fciStandard?.vyska_pes_cm
+              : label === "FCI výška – suka"
+                ? preserved?.fciStandard?.vyska_suka_cm
+                : label === "FCI hmotnosť – pes"
+                  ? preserved?.fciStandard?.hmotnost_pes_kg
+                  : preserved?.fciStandard?.hmotnost_suka_kg;
+    if (preserved && value === old) continue;
     throw new Error(`${label}: ${issue.message}`);
   }
-  const rawEditorial=input.editorial??{};const editorial:BreedEditorial={overview:text(rawEditorial.overview,8000),coatCare:text(rawEditorial.coatCare,8000),familyLife:text(rawEditorial.familyLife,8000),otherDogsLife:text(rawEditorial.otherDogsLife,8000),curiosities:text(rawEditorial.curiosities,8000),commonOwnerMistakes:text(rawEditorial.commonOwnerMistakes,8000),exerciseTip:text(rawEditorial.exerciseTip,500),trainingTip:text(rawEditorial.trainingTip,500),healthTip:text(rawEditorial.healthTip,500),coatTip:text(rawEditorial.coatTip,500),heroTraits:Array.isArray(rawEditorial.heroTraits)?rawEditorial.heroTraits.slice(0,3).map((item)=>({label:text(item.label,80),rating:Math.min(5,Math.max(1,Number(item.rating)||1))})).filter((item)=>item.label):[]};
+  const rawEditorial = input.editorial ?? {};
+  const editorial: BreedEditorial = {
+    overview: text(rawEditorial.overview, 8000),
+    coatCare: text(rawEditorial.coatCare, 8000),
+    familyLife: text(rawEditorial.familyLife, 8000),
+    otherDogsLife: text(rawEditorial.otherDogsLife, 8000),
+    curiosities: text(rawEditorial.curiosities, 8000),
+    commonOwnerMistakes: text(rawEditorial.commonOwnerMistakes, 8000),
+    exerciseTip: text(rawEditorial.exerciseTip, 500),
+    trainingTip: text(rawEditorial.trainingTip, 500),
+    healthTip: text(rawEditorial.healthTip, 500),
+    coatTip: text(rawEditorial.coatTip, 500),
+    heroTraits: Array.isArray(rawEditorial.heroTraits)
+      ? rawEditorial.heroTraits
+          .slice(0, 3)
+          .map((item) => ({
+            label: text(item.label, 80),
+            rating: Math.min(5, Math.max(1, Number(item.rating) || 1)),
+          }))
+          .filter((item) => item.label)
+      : [],
+  };
   // During Notion sync, carry forward an unedited historical sports list
   // byte-for-byte, even if earlier imports contained invalid duplicates.
   // Manual edits and new Notion sports continue through strict validation.
-  const unchangedLegacySports=Boolean(preserved && JSON.stringify(input.sports)===JSON.stringify(preserved.sports));
-  const rawSports=Array.isArray(input.sports)?input.sports.slice(0,30):[];
-  const sportKeys=new Map<string,BreedSport>();
-  const sports:BreedSport[]=unchangedLegacySports ? [...(preserved?.sports??[])] : [];
-  for(const item of unchangedLegacySports ? [] : rawSports){
-    const key=text(item.key,80);const label=text(item.label,120);const rating=Number(item.rating);
-    if(!key||!label)throw new Error("Každý šport musí mať interný kľúč a názov.");
-    if(!Number.isFinite(rating)||rating<1||rating>5)throw new Error(`Šport „${label}“ musí mať vhodnosť od 1 do 5.`);
-    const next={key,label,rating,note:text(item.note,500)};
-    const previous=sportKeys.get(key);
-    if(previous){
-      if(previous.label===next.label&&previous.rating===next.rating){
-        if(previous.note===next.note || !next.note)continue;
-        if(!previous.note){ previous.note=next.note; continue; }
+  const unchangedLegacySports = Boolean(
+    preserved && JSON.stringify(input.sports) === JSON.stringify(preserved.sports),
+  );
+  const rawSports = Array.isArray(input.sports) ? input.sports.slice(0, 30) : [];
+  const sportKeys = new Map<string, BreedSport>();
+  const sports: BreedSport[] = unchangedLegacySports ? [...(preserved?.sports ?? [])] : [];
+  for (const item of unchangedLegacySports ? [] : rawSports) {
+    const key = text(item.key, 80);
+    const label = text(item.label, 120);
+    const rating = Number(item.rating);
+    if (!key || !label) throw new Error("Každý šport musí mať interný kľúč a názov.");
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5)
+      throw new Error(`Šport „${label}“ musí mať vhodnosť od 1 do 5.`);
+    const next = { key, label, rating, note: text(item.note, 500) };
+    const previous = sportKeys.get(key);
+    if (previous) {
+      if (previous.label === next.label && previous.rating === next.rating) {
+        if (previous.note === next.note || !next.note) continue;
+        if (!previous.note) {
+          previous.note = next.note;
+          continue;
+        }
         // Keep both distinct notes when they fit; never truncate conflicting data.
-        const combined=`${previous.note} / ${next.note}`;
-        if(combined.length<=500){ previous.note=combined; continue; }
+        const combined = `${previous.note} / ${next.note}`;
+        if (combined.length <= 500) {
+          previous.note = combined;
+          continue;
+        }
       }
-      throw new Error(`Šport „${label}“ obsahuje rozdielne duplicitné údaje; skontroluj hodnotenia a poznámky.`);
+      throw new Error(
+        `Šport „${label}“ obsahuje rozdielne duplicitné údaje; skontroluj hodnotenia a poznámky.`,
+      );
     }
-    sportKeys.set(key,next);
+    sportKeys.set(key, next);
     sports.push(next);
   }
-  const fciNumber=Number.isSafeInteger(input.fciNumber)&&Number(input.fciNumber)>0?Number(input.fciNumber):null;
-  if(input.status==="published"){
-    const publicSize=text(input.size,160);
-    const publicCoat=text(input.coat,200);
-    if(isSuspiciousNumericText(publicSize)||isSuspiciousPlaceholderText(publicSize))throw new Error("Veľkosť plemena vyzerá ako testovacia alebo poškodená hodnota.");
-    if(isSuspiciousPlaceholderText(publicCoat))throw new Error("Srsť plemena vyzerá ako testovacia alebo poškodená hodnota.");
-    if(!fciNumber||!input.importKey?.trim())throw new Error("Publikované plemeno musí mať FCI číslo a importný kľúč.");
-    const canonical=cleanEditableSeo(input.seo).canonicalUrl;
-    if(canonical&&canonical!==`https://psipedia.sk/plemena/${slug}`)throw new Error("Kanonický profil plemena musí odkazovať na vlastnú URL.");
+  const fciNumber =
+    Number.isSafeInteger(input.fciNumber) && Number(input.fciNumber) > 0
+      ? Number(input.fciNumber)
+      : null;
+  if (input.status === "published") {
+    const publicSize = text(input.size, 160);
+    const publicCoat = text(input.coat, 200);
+    if (isSuspiciousNumericText(publicSize) || isSuspiciousPlaceholderText(publicSize))
+      throw new Error("Veľkosť plemena vyzerá ako testovacia alebo poškodená hodnota.");
+    if (isSuspiciousPlaceholderText(publicCoat))
+      throw new Error("Srsť plemena vyzerá ako testovacia alebo poškodená hodnota.");
+    if (!fciNumber || !input.importKey?.trim())
+      throw new Error("Publikované plemeno musí mať FCI číslo a importný kľúč.");
+    const canonical = cleanEditableSeo(input.seo).canonicalUrl;
+    if (canonical && canonical !== `https://psipedia.sk/plemena/${slug}`)
+      throw new Error("Kanonický profil plemena musí odkazovať na vlastnú URL.");
   }
-  return {slug,name,status:input.status==="published"?"published":"draft",image:text(input.image,700),imageKey:input.imageKey?text(input.imageKey,700):null,gallery,
-    fciNumber,fciGroup:Math.min(10,Math.max(1,Number(input.fciGroup)||1)),fciSection:text(input.fciSection,160),fciSectionNumber:text(input.fciSectionNumber,80),
-    officialFciName,validStandardDate:input.validStandardDate?text(input.validStandardDate,40):null,workingTrial:text(input.workingTrial,160),
-    importKey:input.importKey?text(input.importKey,120):null,fciStandard,editorial,sports,relatedBreedIds:ids(input.relatedBreedIds),relatedArticleIds:ids(input.relatedArticleIds),directoryProfileIds:ids(input.directoryProfileIds),editorialComplete:input.editorialComplete!==false,
-    origin:text(input.origin,160),group:text(input.group,160),
-    size:text(input.size,160),weight:text(input.weight,100),height:text(input.height,100),lifespan:text(input.lifespan,100),coat:text(input.coat,200),
-    energy:score(input.energy),trainability:score(input.trainability),family,children,otherDogs:score(input.otherDogs),apartment:score(input.apartment),
-    grooming:score(input.grooming),shedding:score(input.shedding),preyDrive:score(input.preyDrive),intro:text(input.intro,1200),character:text(input.character,8000),
-    needs:text(input.needs,8000),history:text(input.history,8000),exercise:text(input.exercise,8000),training:text(input.training,8000),health:text(input.health,8000),
-    healthRisks:strings(input.healthRisks),goodFor:strings(input.goodFor),consider:strings(input.consider),sources,
-    accent:["forest","coral","gold","blue"].includes(String(input.accent))?input.accent as Breed["accent"]:"forest",seo:cleanEditableSeo(input.seo),
-    searchText:normalizeBreedSearchText(`${name} ${officialFciName} ${text(input.origin,160)} ${text(input.group,160)} ${text(input.fciSection,160)}`)};
+  return {
+    slug,
+    name,
+    status: input.status === "published" ? "published" : "draft",
+    image: text(input.image, 700),
+    imageKey: input.imageKey ? text(input.imageKey, 700) : null,
+    gallery,
+    fciNumber,
+    fciGroup: Math.min(10, Math.max(1, Number(input.fciGroup) || 1)),
+    fciSection: text(input.fciSection, 160),
+    fciSectionNumber: text(input.fciSectionNumber, 80),
+    officialFciName,
+    validStandardDate: input.validStandardDate ? text(input.validStandardDate, 40) : null,
+    workingTrial: text(input.workingTrial, 160),
+    importKey: input.importKey ? text(input.importKey, 120) : null,
+    fciStandard,
+    editorial,
+    sports,
+    relatedBreedIds: ids(input.relatedBreedIds),
+    relatedArticleIds: ids(input.relatedArticleIds),
+    directoryProfileIds: ids(input.directoryProfileIds),
+    editorialComplete: input.editorialComplete !== false,
+    origin: text(input.origin, 160),
+    group: text(input.group, 160),
+    size: text(input.size, 160),
+    weight: text(input.weight, 1000),
+    height: text(input.height, 1000),
+    lifespan: text(input.lifespan, 1000),
+    coat: text(input.coat, 200),
+    energy: score(input.energy),
+    trainability: score(input.trainability),
+    family,
+    children,
+    otherDogs: score(input.otherDogs),
+    apartment: score(input.apartment),
+    grooming: score(input.grooming),
+    shedding: score(input.shedding),
+    preyDrive: score(input.preyDrive),
+    intro: text(input.intro, 1200),
+    character: text(input.character, 8000),
+    needs: text(input.needs, 8000),
+    history: text(input.history, 8000),
+    exercise: text(input.exercise, 8000),
+    training: text(input.training, 8000),
+    health: text(input.health, 8000),
+    healthRisks: strings(input.healthRisks),
+    goodFor: strings(input.goodFor),
+    consider: strings(input.consider),
+    sources,
+    accent: ["forest", "coral", "gold", "blue"].includes(String(input.accent))
+      ? (input.accent as Breed["accent"])
+      : "forest",
+    seo: cleanEditableSeo(input.seo),
+    searchText: normalizeBreedSearchText(
+      `${name} ${officialFciName} ${text(input.origin, 160)} ${text(input.group, 160)} ${text(input.fciSection, 160)}`,
+    ),
+  };
 }
 /** Validate a Notion editorial update without performing any D1 mutations. */
-export function validateNotionBreedCandidate(input:ManagedBreedInput, existing:ManagedBreed) {
-  clean(input,existing);
+export function validateNotionBreedCandidate(input: ManagedBreedInput, existing: ManagedBreed) {
+  clean(input, existing);
 }
 
-function values(value:ReturnType<typeof clean>){return [value.slug,value.name,value.status,value.image,value.imageKey,JSON.stringify(value.gallery),value.fciNumber,value.fciGroup,value.fciSection,value.fciSectionNumber,value.officialFciName,value.validStandardDate,value.workingTrial,value.importKey,JSON.stringify(value.fciStandard),JSON.stringify(value.editorial),JSON.stringify(value.sports),JSON.stringify(value.relatedBreedIds),value.searchText,value.editorialComplete?1:0,value.origin,value.group,value.size,value.weight,value.height,value.lifespan,value.coat,value.energy,value.trainability,value.family,value.children,value.otherDogs,value.apartment,value.grooming,value.shedding,value.preyDrive,value.intro,value.character,value.needs,value.history,value.exercise,value.training,value.health,JSON.stringify(value.healthRisks),JSON.stringify(value.goodFor),JSON.stringify(value.consider),JSON.stringify(value.sources),value.accent,JSON.stringify(value.seo)];}
+function values(value: ReturnType<typeof clean>) {
+  return [
+    value.slug,
+    value.name,
+    value.status,
+    value.image,
+    value.imageKey,
+    JSON.stringify(value.gallery),
+    value.fciNumber,
+    value.fciGroup,
+    value.fciSection,
+    value.fciSectionNumber,
+    value.officialFciName,
+    value.validStandardDate,
+    value.workingTrial,
+    value.importKey,
+    JSON.stringify(value.fciStandard),
+    JSON.stringify(value.editorial),
+    JSON.stringify(value.sports),
+    JSON.stringify(value.relatedBreedIds),
+    value.searchText,
+    value.editorialComplete ? 1 : 0,
+    value.origin,
+    value.group,
+    value.size,
+    value.weight,
+    value.height,
+    value.lifespan,
+    value.coat,
+    value.energy,
+    value.trainability,
+    value.family,
+    value.children,
+    value.otherDogs,
+    value.apartment,
+    value.grooming,
+    value.shedding,
+    value.preyDrive,
+    value.intro,
+    value.character,
+    value.needs,
+    value.history,
+    value.exercise,
+    value.training,
+    value.health,
+    JSON.stringify(value.healthRisks),
+    JSON.stringify(value.goodFor),
+    JSON.stringify(value.consider),
+    JSON.stringify(value.sources),
+    value.accent,
+    JSON.stringify(value.seo),
+  ];
+}
 
-function breedRelationStatements(database:D1Database,breedId:number,value:ReturnType<typeof clean>,user:string){const now=new Date().toISOString();const statements=[database.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(breedId),database.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(breedId)];for(const articleId of value.relatedArticleIds)statements.push(database.prepare("INSERT OR IGNORE INTO breed_article_relations (breed_id,article_id,created_at,created_by) SELECT ?,id,?,? FROM managed_articles WHERE id=?").bind(breedId,now,user,articleId));for(const profileId of value.directoryProfileIds)statements.push(database.prepare("INSERT OR IGNORE INTO breed_directory_relations (breed_id,profile_id,relation_type,source,created_at,created_by) SELECT ?,id,CASE WHEN category='chovatelske-stanice' THEN 'breeding-station' ELSE 'breed-club' END,'manual',?,? FROM directory_profiles WHERE id=? AND category IN ('chovatelske-stanice','chovatelske-kluby')").bind(breedId,now,user,profileId));return statements;}
-async function syncRelations(database:D1Database,breedId:number,value:ReturnType<typeof clean>,user:string){await database.batch(breedRelationStatements(database,breedId,value,user));}
-export async function createManagedBreed(input:ManagedBreedInput,user:string){const database=requireDb();await ensure(database);const value=clean(input);const now=new Date().toISOString();const placeholders=Array.from({length:54},()=>"?").join(",");const result=await database.prepare(`INSERT INTO managed_breeds (slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json,created_at,updated_at,published_at,created_by,updated_by) VALUES (${placeholders})`).bind(...values(value),now,now,value.status==="published"?now:null,user,user).run();const id=Number(result.meta.last_row_id);await syncRelations(database,id,value,user);return getManagedBreed(id);}
-function nextBreedVersion(expectedUpdatedAt:string) {
+function breedRelationStatements(
+  database: D1Database,
+  breedId: number,
+  value: ReturnType<typeof clean>,
+  user: string,
+) {
+  const now = new Date().toISOString();
+  const statements = [
+    database.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(breedId),
+    database.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(breedId),
+  ];
+  for (const articleId of value.relatedArticleIds)
+    statements.push(
+      database
+        .prepare(
+          "INSERT OR IGNORE INTO breed_article_relations (breed_id,article_id,created_at,created_by) SELECT ?,id,?,? FROM managed_articles WHERE id=?",
+        )
+        .bind(breedId, now, user, articleId),
+    );
+  for (const profileId of value.directoryProfileIds)
+    statements.push(
+      database
+        .prepare(
+          "INSERT OR IGNORE INTO breed_directory_relations (breed_id,profile_id,relation_type,source,created_at,created_by) SELECT ?,id,CASE WHEN category='chovatelske-stanice' THEN 'breeding-station' ELSE 'breed-club' END,'manual',?,? FROM directory_profiles WHERE id=? AND category IN ('chovatelske-stanice','chovatelske-kluby')",
+        )
+        .bind(breedId, now, user, profileId),
+    );
+  return statements;
+}
+async function syncRelations(
+  database: D1Database,
+  breedId: number,
+  value: ReturnType<typeof clean>,
+  user: string,
+) {
+  await database.batch(breedRelationStatements(database, breedId, value, user));
+}
+export async function createManagedBreed(input: ManagedBreedInput, user: string) {
+  const database = requireDb();
+  await ensure(database);
+  const value = clean(input);
+  const now = new Date().toISOString();
+  const placeholders = Array.from({ length: 54 }, () => "?").join(",");
+  const result = await database
+    .prepare(
+      `INSERT INTO managed_breeds (slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json,created_at,updated_at,published_at,created_by,updated_by) VALUES (${placeholders})`,
+    )
+    .bind(...values(value), now, now, value.status === "published" ? now : null, user, user)
+    .run();
+  const id = Number(result.meta.last_row_id);
+  await syncRelations(database, id, value, user);
+  return getManagedBreed(id);
+}
+function nextBreedVersion(expectedUpdatedAt: string) {
   const previous = Date.parse(expectedUpdatedAt);
   if (!Number.isFinite(previous)) throw new BreedUpdateConflictError();
   return new Date(Math.max(Date.now(), previous + 1)).toISOString();
@@ -509,52 +1607,103 @@ function nextBreedVersion(expectedUpdatedAt:string) {
  * and rolls back the entire batch, so stale requests cannot rewrite relations.
  */
 export function buildManagedBreedUpdateStatements(
-  database:D1Database,id:number,input:ManagedBreedInput,user:string,
-  expectedUpdatedAt:string,nextUpdatedAt:string,preserved?:ManagedBreed,
+  database: D1Database,
+  id: number,
+  input: ManagedBreedInput,
+  user: string,
+  expectedUpdatedAt: string,
+  nextUpdatedAt: string,
+  preserved?: ManagedBreed,
 ) {
   // Only the trusted Notion sync actor may preserve unchanged historical
   // invalid values. All Admin edits continue to use strict validation.
-  const value=clean(input,user==="notion-breed-sync@psipedia.sk"?preserved:undefined);
+  const value = clean(input, user === "notion-breed-sync@psipedia.sk" ? preserved : undefined);
   return [
-    database.prepare(`UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_number=?,fci_group=?,fci_section=?,fci_section_number=?,official_fci_name=?,valid_standard_date=?,working_trial=?,import_key=?,fci_standard_json=?,editorial_json=?,sports_json=?,related_breeds_json=?,search_text=?,editorial_complete=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=? AND updated_at=? RETURNING id`).bind(...values(value),nextUpdatedAt,value.status,nextUpdatedAt,user,id,expectedUpdatedAt),
-    database.prepare("SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('BREED_UPDATE_CONFLICT', '$') END AS breed_update_guard"),
-    ...breedRelationStatements(database,id,value,user),
+    database
+      .prepare(
+        `UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_number=?,fci_group=?,fci_section=?,fci_section_number=?,official_fci_name=?,valid_standard_date=?,working_trial=?,import_key=?,fci_standard_json=?,editorial_json=?,sports_json=?,related_breeds_json=?,search_text=?,editorial_complete=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=? AND updated_at=? RETURNING id`,
+      )
+      .bind(
+        ...values(value),
+        nextUpdatedAt,
+        value.status,
+        nextUpdatedAt,
+        user,
+        id,
+        expectedUpdatedAt,
+      ),
+    database.prepare(
+      "SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('BREED_UPDATE_CONFLICT', '$') END AS breed_update_guard",
+    ),
+    ...breedRelationStatements(database, id, value, user),
     // Read the exact committed version and relations before the batch commits.
     // A later writer must not leak its version into this caller's editor.
     database.prepare(`${select} WHERE id=?`).bind(id),
-    database.prepare("SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id").bind(id),
-    database.prepare("SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id").bind(id),
+    database
+      .prepare(
+        "SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id",
+      )
+      .bind(id),
+    database
+      .prepare(
+        "SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id",
+      )
+      .bind(id),
   ];
 }
 
 /** Intro-only quick edit; preserves FCI identity, relations, SEO and rich fields. */
 export async function updateManagedBreedInlineIntro(
-  id: number, input: string, expectedUpdatedAt: string,
+  id: number,
+  input: string,
+  expectedUpdatedAt: string,
 ) {
-  if (!Number.isSafeInteger(id) || id < 1 || typeof input !== "string" ||
-      !expectedUpdatedAt?.trim()) throw new Error("Neplatná verzia alebo úvod plemena.");
+  if (
+    !Number.isSafeInteger(id) ||
+    id < 1 ||
+    typeof input !== "string" ||
+    !expectedUpdatedAt?.trim()
+  )
+    throw new Error("Neplatná verzia alebo úvod plemena.");
   const intro = input.trim();
   if (intro.length > 1000) throw new Error("Úvod plemena môže mať najviac 1000 znakov.");
   const database = requireDb();
   await ensure(database);
   const updatedAt = nextBreedVersion(expectedUpdatedAt);
-  const result = await database.prepare(`UPDATE managed_breeds
+  const result = await database
+    .prepare(
+      `UPDATE managed_breeds
     SET intro=?, updated_at=?
-    WHERE id=? AND updated_at=? RETURNING id`)
-    .bind(intro, updatedAt, id, expectedUpdatedAt).first<{ id: number }>();
+    WHERE id=? AND updated_at=? RETURNING id`,
+    )
+    .bind(intro, updatedAt, id, expectedUpdatedAt)
+    .first<{ id: number }>();
   if (!result) throw new BreedUpdateConflictError();
   return getManagedBreed(result.id);
 }
 
 export async function updateManagedBreed(
-  id:number,input:ManagedBreedInput,user:string,expectedUpdatedAt:string,
-  options: { preserveUnchangedInvalid?:ManagedBreed } = {},
+  id: number,
+  input: ManagedBreedInput,
+  user: string,
+  expectedUpdatedAt: string,
+  options: { preserveUnchangedInvalid?: ManagedBreed } = {},
 ) {
-  const database=requireDb();await ensure(database);
-  const now=nextBreedVersion(expectedUpdatedAt);
+  const database = requireDb();
+  await ensure(database);
+  const now = nextBreedVersion(expectedUpdatedAt);
   try {
-    const results=await database.batch(buildManagedBreedUpdateStatements(database,id,input,user,expectedUpdatedAt,now,
-      user==="notion-breed-sync@psipedia.sk" ? options.preserveUnchangedInvalid : undefined));
+    const results = await database.batch(
+      buildManagedBreedUpdateStatements(
+        database,
+        id,
+        input,
+        user,
+        expectedUpdatedAt,
+        now,
+        user === "notion-breed-sync@psipedia.sk" ? options.preserveUnchangedInvalid : undefined,
+      ),
+    );
     if (results[0]?.results?.length !== 1) throw new BreedUpdateConflictError();
     const [breedResult, articleResult, directoryResult] = results.slice(-3);
     const row = (breedResult.results?.[0] ?? null) as unknown as Row | null;
@@ -566,21 +1715,35 @@ export async function updateManagedBreed(
   } catch (error) {
     // A CAS miss leaves the old row and all its links intact.
     // Genuine validation/foreign-key errors on a current row still propagate.
-    const current=await database.prepare("SELECT updated_at FROM managed_breeds WHERE id=?").bind(id).first<{updated_at:string}>();
+    const current = await database
+      .prepare("SELECT updated_at FROM managed_breeds WHERE id=?")
+      .bind(id)
+      .first<{ updated_at: string }>();
     if (!current || current.updated_at !== expectedUpdatedAt) throw new BreedUpdateConflictError();
     throw error;
   }
   // All successful paths returned the snapshot read inside the transaction.
 }
-export async function deleteManagedBreed(id:number){const database=requireDb();await ensure(database);await database.batch([database.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(id),database.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(id),database.prepare("DELETE FROM managed_breeds WHERE id=?").bind(id)]);}
-
+export async function deleteManagedBreed(id: number) {
+  const database = requireDb();
+  await ensure(database);
+  await database.batch([
+    database.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(id),
+    database.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(id),
+    database.prepare("DELETE FROM managed_breeds WHERE id=?").bind(id),
+  ]);
+}
 
 export async function bulkUpdateManagedBreedStatus(input: unknown, user: string) {
   const { breeds, status } = validateBulkBreedStatus(input);
   const database = requireDb();
   await ensure(database);
-  const now = new Date(Math.max(Date.now(), ...breeds.map((breed) => Date.parse(breed.updatedAt) + 1))).toISOString();
-  const result = await database.prepare(`
+  const now = new Date(
+    Math.max(Date.now(), ...breeds.map((breed) => Date.parse(breed.updatedAt) + 1)),
+  ).toISOString();
+  const result = await database
+    .prepare(
+      `
     WITH requested AS (
       SELECT
         CAST(json_extract(value, '$.id') AS INTEGER) AS id,
@@ -608,11 +1771,16 @@ export async function bulkUpdateManagedBreedStatus(input: unknown, user: string)
           OR COALESCE(TRIM(b.import_key), '') = ''
       ))
     RETURNING id
-  `).bind(JSON.stringify(breeds),status,now,user,status,now,breeds.length,status).all<{id:number}>();
+  `,
+    )
+    .bind(JSON.stringify(breeds), status, now, user, status, now, breeds.length, status)
+    .all<{ id: number }>();
   if (result.results.length !== breeds.length) {
-    throw new Error(status === "published"
-      ? "Niektoré plemeno sa medzičasom zmenilo alebo nemá FCI číslo/importný kľúč. Žiadny publikačný stav nebol zmenený."
-      : "Niektoré plemeno sa medzičasom zmenilo alebo bolo odstránené. Žiadny publikačný stav nebol zmenený.");
+    throw new Error(
+      status === "published"
+        ? "Niektoré plemeno sa medzičasom zmenilo alebo nemá FCI číslo/importný kľúč. Žiadny publikačný stav nebol zmenený."
+        : "Niektoré plemeno sa medzičasom zmenilo alebo bolo odstránené. Žiadny publikačný stav nebol zmenený.",
+    );
   }
   return { changed: result.results.length, status, updatedAt: now };
 }

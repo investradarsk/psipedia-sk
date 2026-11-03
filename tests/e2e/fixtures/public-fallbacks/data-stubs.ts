@@ -16,3 +16,10 @@ export async function getArticleDiscoveryData() {
 export async function getDirectoryCategoryPreviews() {
   return {};
 }
+
+export function isPartnerGoogleOAuthEnabled() {
+  return true;
+}
+export function getPartnerTurnstileSiteKey() {
+  return "isolated-fixture-key";
+}

@@ -100,7 +100,12 @@ function normalizeListItems(value: unknown) {
 export function normalizeEditorialRichText(value: unknown): EditorialRichTextDocument | null {
   if (!value || typeof value !== "object") return null;
   const doc = value as Record<string, unknown>;
-  if (doc.type !== "doc" || doc.version !== EDITORIAL_RICH_TEXT_VERSION || !Array.isArray(doc.content)) return null;
+  if (
+    doc.type !== "doc" ||
+    doc.version !== EDITORIAL_RICH_TEXT_VERSION ||
+    !Array.isArray(doc.content)
+  )
+    return null;
 
   const content = doc.content.slice(0, MAX_BLOCKS).flatMap((raw): EditorialRichTextBlock[] => {
     if (!raw || typeof raw !== "object") return [];
@@ -151,9 +156,11 @@ function parseInlineMarkdown(value: string): EditorialRichTextInline[] {
     const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (link) {
       const href = sanitizeEditorialHref(link[2], true);
-      nodes.push(href
-        ? { type: "text", text: link[1], marks: [{ type: "link", href }] }
-        : { type: "text", text: link[1] });
+      nodes.push(
+        href
+          ? { type: "text", text: link[1], marks: [{ type: "link", href }] }
+          : { type: "text", text: link[1] },
+      );
       continue;
     }
     nodes.push({ type: "text", text: part });
@@ -191,7 +198,9 @@ export function legacyRichTextToDocument(value: string): EditorialRichTextDocume
   };
   const flushList = () => {
     if (!listType || !listItems.length) return;
-    const items = listItems.map((item) => parseInlineMarkdown(item)).filter((item) => item.length > 0);
+    const items = listItems
+      .map((item) => parseInlineMarkdown(item))
+      .filter((item) => item.length > 0);
     if (items.length) content.push({ type: listType, items });
     listType = null;
     listItems = [];
@@ -248,19 +257,58 @@ export function legacyRichTextToDocument(value: string): EditorialRichTextDocume
   flushQuote();
   flushList();
 
-  return { version: EDITORIAL_RICH_TEXT_VERSION, type: "doc", content: content.slice(0, MAX_BLOCKS) };
+  return {
+    version: EDITORIAL_RICH_TEXT_VERSION,
+    type: "doc",
+    content: content.slice(0, MAX_BLOCKS),
+  };
 }
 
 export function editorialRichTextPlainText(value: EditorialRichTextDocument | null | undefined) {
   const doc = normalizeEditorialRichText(value);
   if (!doc) return "";
-  return doc.content.flatMap((block) => {
-    if (block.type === "bulletList" || block.type === "orderedList") return block.items;
-    return [block.content];
-  }).flatMap((inline) => inline)
-    .filter((node): node is Extract<EditorialRichTextInline, { type: "text" }> => node.type === "text")
+  return doc.content
+    .flatMap((block) => {
+      if (block.type === "bulletList" || block.type === "orderedList") return block.items;
+      return [block.content];
+    })
+    .flatMap((inline) => inline)
+    .filter(
+      (node): node is Extract<EditorialRichTextInline, { type: "text" }> => node.type === "text",
+    )
     .map((node) => node.text)
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Strip a renderer-owned label only at the start of its callout, never elsewhere in the prose. */
+export function withoutLeadingEditorialLabel(
+  document: EditorialRichTextDocument,
+  label: string,
+): EditorialRichTextDocument {
+  const first = document.content[0];
+  if (!first || (first.type !== "paragraph" && first.type !== "heading")) return document;
+  const text = first.content.map((node) => (node.type === "text" ? node.text : "\n")).join("");
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = text.match(
+    new RegExp(String.raw`^\s*${escaped}(?:\s*[:–—-]\s*|\s*\n\s*|\s*$)`, "iu"),
+  );
+  if (!match) return document;
+  let remaining = match[0].length;
+  const content = first.content.flatMap((node) => {
+    if (!remaining) return [node];
+    const length = node.type === "text" ? node.text.length : 1;
+    if (remaining >= length) {
+      remaining -= length;
+      return [];
+    }
+    const offset = remaining;
+    remaining = 0;
+    return node.type === "text" ? [{ ...node, text: node.text.slice(offset) }] : [];
+  });
+  return {
+    ...document,
+    content: [...(content.length ? [{ ...first, content }] : []), ...document.content.slice(1)],
+  };
 }

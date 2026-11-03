@@ -1,3 +1,15 @@
+import { HomeLatestArticles } from "../../../../components/home-editorial";
+import homeStyles from "../../../../app/home-v2.module.css";
+import { ArticleCard } from "../../../../components/article-card";
+import { ArticleListItem } from "../../../../components/article-list-item";
+import { PublicArticleListItem } from "../../../../components/public-visual-system";
+import { ArticleBlocks } from "../../../../components/article-blocks";
+import { BreedComparison } from "../../../../components/breed-comparison";
+import { PublicLocationMap } from "../../../../components/map/public-location-map";
+import PartnerLoginPage from "../../../../app/partner/prihlasenie/page";
+import type { ArticleListingCard } from "../../../../lib/content";
+import type { BreedComparisonItem } from "../../../../lib/breed-store";
+import "../../../../app/partner/partner.css";
 import { AdoptionCatalog } from "../../../../components/adoption-catalog";
 import { DirectoryPage } from "../../../../components/directory-page";
 import { HomePortalSearch } from "../../../../components/home-portal-search";
@@ -159,14 +171,176 @@ async function resolveServerTree(node: ReactNode): Promise<ReactNode> {
     return resolveServerTree(
       await (element.type as (props: unknown) => Promise<ReactNode>)(element.props),
     );
-  if (element.props.children)
-    return cloneElement(element, undefined, await resolveServerTree(element.props.children));
+  if (element.props.children) {
+    const children = await resolveServerTree(element.props.children);
+    return cloneElement(element, undefined, ...(Array.isArray(children) ? children : [children]));
+  }
   return element;
 }
 async function renderServerTree(node: ReactNode) {
   createRoot(root).render(await resolveServerTree(node));
 }
-if (view === "adoption")
+const article = {
+  slug: "fixture-clanok",
+  title: "Ako pripraviť psa na spoločné výlety a každodenné objavovanie sveta",
+  category: "Výcvik",
+  portalSection: "aktivity",
+  excerpt: "Praktické rady pre spoločný čas so psom.",
+  date: "3. novembra 2026",
+  dateIso: "2026-11-03",
+  image: "/images/events/defaults/preteky.webp",
+  accent: "forest",
+} as ArticleListingCard;
+const mapItem = {
+  id: "service:1",
+  entityType: "service",
+  name: "Veterinár v Nitre",
+  subcategory: "veterinari",
+  latitude: 48.31,
+  longitude: 18.08,
+  displayLocation: "Nitra",
+  publicUrl: "/adresar/veterinari/fixture",
+  precision: "EXACT",
+} as unknown as import("../../../../lib/map-contract").MapItem;
+if (view === "home-articles")
+  createRoot(root).render(
+    <main className={homeStyles.homeV2}>
+      <HomeLatestArticles
+        articles={
+          Array.from({ length: 6 }, (_, i) => ({
+            ...article,
+            slug: `clanok-${i}`,
+            title: i ? `Menší článok ${i}` : article.title,
+          })) as import("../../../../lib/content").Article[]
+        }
+        sidebar={<div>Podujatia</div>}
+      />
+    </main>,
+  );
+else if (view === "articles")
+  createRoot(root).render(
+    <main className="shell">
+      <div className="fixture-article-variants">
+        <ArticleCard article={article} variant="featured" />
+        <ArticleCard
+          article={{ ...article, image: "/missing-fixture-article.webp" }}
+          variant="grid"
+        />
+        <ArticleCard article={{ ...article, image: "" }} variant="row" listItem={false} />
+      </div>
+      <div data-row-adapters>
+        <ArticleListItem article={article} listItem={false} />
+        <PublicArticleListItem
+          href="/fixture-clanok"
+          title={article.title}
+          topic="Výcvik"
+          date={article.date}
+          dateTime={article.dateIso}
+          image={{ src: article.image || "", alt: "Výlet so psom" }}
+          listItem={false}
+        />
+      </div>
+      <ArticleBlocks
+        blocks={[
+          { id: "tip", type: "tip", content: "Tip z praxe: Začnite krátkou trasou." },
+          {
+            id: "warning",
+            type: "warning",
+            content: "Dôležité upozornenie: Vezmite dostatok vody.",
+          },
+        ]}
+      />
+    </main>,
+  );
+else if (view === "comparison")
+  createRoot(root).render(
+    <main className="shell">
+      <BreedComparison
+        breeds={
+          [
+            {
+              slug: "plemeno-a",
+              name: "Plemeno A",
+              image: "/images/events/defaults/preteky.webp",
+              fciGroup: 1,
+              fciSection: "Pastierske psy",
+              origin: "Slovensko",
+              accent: "forest",
+              size: "Stredné",
+              weight: "25–30 kg",
+              lifespan: "12–14 rokov",
+              coat: "Srsť podľa zdroja",
+              energy: 3,
+              trainability: 3,
+              family: 3,
+              intro: "Profil A.",
+              goodFor: [],
+              consider: [],
+            },
+            {
+              slug: "plemeno-b",
+              name: "Plemeno B",
+              image: "/images/events/defaults/preteky.webp",
+              fciGroup: 1,
+              fciSection: "Pastierske psy",
+              origin: "Austrália",
+              accent: "forest",
+              size: "Stredné",
+              weight:
+                "Štandard FCI neurčuje záväzné hmotnostné rozpätie. Orientačne 16–23 kg podľa zdroja v profile.",
+              lifespan:
+                "Orientačne 12–16 rokov podľa veterinárneho zdroja; individuálna dĺžka života závisí od viacerých okolností.",
+              coat: "Krátka srsť",
+              energy: 4,
+              trainability: 4,
+              family: 4,
+              intro: "Profil B.",
+              goodFor: [],
+              consider: [],
+            },
+          ] as BreedComparisonItem[]
+        }
+      />
+    </main>,
+  );
+else if (view === "help-pages")
+  createRoot(root).render(
+    <main>
+      <HelpBrowser
+        items={Array.from({ length: 35 }, (_, i) => ({
+          ...help,
+          id: i + 1,
+          slug: `pomoc-${i + 1}`,
+          title: `Pomoc ${i + 1}`,
+        }))}
+        initialCategory="dobrovolnictvo"
+        initialRegion="Nitriansky kraj"
+        initialQuery="Pomoc"
+        initialPage={Number(new URLSearchParams(location.search).get("page")) || 1}
+      />
+    </main>,
+  );
+else if (view === "detail-map")
+  createRoot(root).render(
+    <main className="shell">
+      <PublicLocationMap
+        title="Poloha"
+        items={[mapItem]}
+        googleApiKey="fixture-key"
+        googleMapId="fixture-id"
+        rendererEnabled
+      />
+    </main>,
+  );
+else if (view === "partner")
+  await renderServerTree(
+    await PartnerLoginPage({
+      searchParams: Promise.resolve({
+        google: new URLSearchParams(location.search).get("google") || undefined,
+      }),
+    }),
+  );
+else if (view === "adoption")
   await renderServerTree(
     await AdoptionCatalog({
       result: {
@@ -201,12 +375,12 @@ else if (view === "directory")
           regions: [],
           districts: [],
           cities: [],
-          services: [],
+          services: ["Legacy 1", "Legacy 2"],
           breeds: [],
           fciGroups: [],
           organizations: [],
-          profileTypes: [],
-          canonicalServices: [],
+          profileTypes: ["Psí salón / grooming"],
+          canonicalServices: [{ id: "svc.physio.hydrotherapy", label: "Hydroterapia" }],
         },
       } as unknown as Parameters<typeof DirectoryPage>[0]["result"],
       filters: {
@@ -215,11 +389,11 @@ else if (view === "directory")
         region: "",
         district: "",
         city: "",
-        service: "",
+        service: new URLSearchParams(location.search).get("service") ?? "",
         breed: "",
         fciGroup: "",
         organization: "",
-        profileType: "",
+        profileType: new URLSearchParams(location.search).get("type") ?? "",
         canonicalService: "",
         facets: {},
         page: 1,

@@ -1,5 +1,6 @@
 import { PublicHeading } from "@/components/public-heading";
-import { applyHelpLifecycle } from "@/lib/help-lifecycle";
+import { helpListing, helpListingHref } from "@/lib/help-listing";
+import { PublicPagination } from "@/components/public-visual-system/public-result-states";
 import {
   PublicFilterLayout,
   PublicFilterPanel,
@@ -25,14 +26,6 @@ import styles from "./help-public.module.css";
 type CategoryFilter = "all" | HelpCategorySlug;
 type RegionFilter = "all" | SlovakRegion;
 
-function normalizeSearch(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("sk")
-    .trim();
-}
-
 export function HelpBrowser({
   items,
   initialCategory = "all",
@@ -40,6 +33,7 @@ export function HelpBrowser({
   initialQuery = "",
   initialActiveOnly = true,
   initialRegion = "all",
+  initialPage = 1,
 }: {
   items: PublicHelpCard[];
   initialCategory?: CategoryFilter;
@@ -47,31 +41,20 @@ export function HelpBrowser({
   initialQuery?: string;
   initialActiveOnly?: boolean;
   initialRegion?: RegionFilter;
+  initialPage?: number;
 }) {
   const query = initialQuery.trim().slice(0, 120);
   const region = initialRegion;
   const activeOnly = initialActiveOnly;
-  const needle = normalizeSearch(query);
   const basePath = initialCategory === "all" ? "/pomoc-psom" : `/pomoc-psom/${initialCategory}`;
-  const filtered = items.map(applyHelpLifecycle).filter((item) => {
-    const searchable = normalizeSearch(
-      [
-        item.title,
-        item.excerpt,
-        item.organization,
-        item.dogName,
-        item.breed,
-        item.city,
-        item.region,
-      ].join(" "),
-    );
-    return (
-      (initialCategory === "all" || item.category === initialCategory) &&
-      (region === "all" || item.region === region) &&
-      (!activeOnly || !item.resolved) &&
-      (!needle || searchable.includes(needle))
-    );
+  const listing = helpListing(items, {
+    category: initialCategory,
+    query,
+    region,
+    activeOnly,
+    page: initialPage,
   });
+  const pageHref = (page: number) => helpListingHref(basePath, { query, region, activeOnly, page });
   const activeSecondaryCount = Number(region !== "all") + Number(!activeOnly);
   const activeSelections = [
     { key: "q", label: "Hľadanie", value: query },
@@ -179,18 +162,18 @@ export function HelpBrowser({
                 </p>
               </div>
               <strong className={styles.resultCount}>
-                {filtered.length}{" "}
-                {filtered.length === 1
+                {listing.total}{" "}
+                {listing.total === 1
                   ? "záznam"
-                  : filtered.length > 1 && filtered.length < 5
+                  : listing.total > 1 && listing.total < 5
                     ? "záznamy"
                     : "záznamov"}
               </strong>
             </PublicResultsToolbar>
 
-            {filtered.length ? (
+            {listing.total ? (
               <div className={styles.grid}>
-                {filtered.map((item) => (
+                {listing.items.map((item) => (
                   <HelpCard item={item} key={item.category + ":" + item.id} />
                 ))}
               </div>
@@ -205,6 +188,13 @@ export function HelpBrowser({
                 </Link>
               </PublicEmptyState>
             )}
+            <PublicPagination
+              currentPage={listing.page}
+              totalPages={listing.totalPages}
+              previousHref={listing.page > 1 ? pageHref(listing.page - 1) : undefined}
+              nextHref={listing.page < listing.totalPages ? pageHref(listing.page + 1) : undefined}
+              label="Stránkovanie Pomoci psom"
+            />
           </div>
         </PublicFilterLayout>
       </PublicContentShell>

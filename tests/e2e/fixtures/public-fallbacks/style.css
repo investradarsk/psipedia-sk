@@ -41,3 +41,22 @@ button {
     padding: 12px;
   }
 }
+
+.fixture-article-variants {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.2fr;
+  gap: 16px;
+  margin-block: 20px;
+  align-items: start;
+}
+[data-row-adapters] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .fixture-article-variants,
+  [data-row-adapters] {
+    grid-template-columns: 1fr;
+  }
+}

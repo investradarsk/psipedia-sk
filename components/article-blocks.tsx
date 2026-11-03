@@ -8,7 +8,7 @@ import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticlePromo } from "@/components/article-promo";
 import { articlePromoBlockAnchor } from "@/lib/visual-library-anchors";
 import { articleBlockHeadings, type ArticleBlock } from "@/lib/article-blocks";
-import { legacyRichTextToDocument } from "@/lib/editorial-content";
+import { withoutLeadingEditorialLabel, legacyRichTextToDocument } from "@/lib/editorial-content";
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 
 function safeHref(value: string, allowInternal = false) {
@@ -228,7 +228,10 @@ export function ArticleBlocks({
                 <strong>Tip z praxe</strong>
                 <EditorialRichText
                   className="article-block-rich-content"
-                  document={block.richText ?? legacyRichTextToDocument(block.content)}
+                  document={withoutLeadingEditorialLabel(
+                    block.richText ?? legacyRichTextToDocument(block.content),
+                    "Tip z praxe",
+                  )}
                   keyPrefix={block.id}
                 />
               </aside>
@@ -242,7 +245,10 @@ export function ArticleBlocks({
                 <strong>Dôležité upozornenie</strong>
                 <EditorialRichText
                   className="article-block-rich-content"
-                  document={block.richText ?? legacyRichTextToDocument(block.content)}
+                  document={withoutLeadingEditorialLabel(
+                    block.richText ?? legacyRichTextToDocument(block.content),
+                    "Dôležité upozornenie",
+                  )}
                   keyPrefix={block.id}
                 />
               </aside>

@@ -5,11 +5,20 @@ import {
   parseDirectoryFacetValues,
 } from "@/lib/directory-read-facets";
 import { cache } from "react";
+import { directoryCatalogFilters } from "./directory-query.ts";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
-import { parsePublicDirectoryFacets, directoryPublicFacetSql, type DirectoryPublicFacets } from "@/lib/directory-public-filters";
-import {serviceFilterCategories} from "@/lib/directory-filter-contract";
-import {canonicalPublicServiceWhere,canonicalPublicServiceOptions,
-  type CanonicalPublicServiceRow,type CanonicalPublicServiceOption} from "@/lib/service-catalog-public-service-filter";
+import {
+  parsePublicDirectoryFacets,
+  directoryPublicFacetSql,
+  type DirectoryPublicFacets,
+} from "@/lib/directory-public-filters";
+import { serviceFilterCategories } from "@/lib/directory-filter-contract";
+import {
+  canonicalPublicServiceWhere,
+  canonicalPublicServiceOptions,
+  type CanonicalPublicServiceRow,
+  type CanonicalPublicServiceOption,
+} from "@/lib/service-catalog-public-service-filter";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import {
   allDirectoryCategories,
@@ -25,7 +34,10 @@ import {
   type ManagedDirectoryProfile,
   type PublicDirectoryProfile,
 } from "@/lib/directory";
-import { editableDirectoryProfileData, specializedChangeRequestFields } from "@/lib/directory-change-request";
+import {
+  editableDirectoryProfileData,
+  specializedChangeRequestFields,
+} from "@/lib/directory-change-request";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import {
   getSlovakDistricts,
@@ -45,10 +57,18 @@ import {
   readDirectoryQualityMetadata,
   type DirectoryQualityResolutionInput,
 } from "@/lib/directory-profile-metadata";
+import { directoryQualificationSections } from "./directory-public-copy.ts";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
-import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
-import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
+import {
+  normalizeImageDisplayConfig,
+  readImageDisplayConfig,
+  type ImageDisplayConfig,
+} from "@/lib/image-display";
+import {
+  prepareGoogleSourceGeoInvalidation,
+  reconcileGeoAfterSourceMutation,
+} from "@/lib/geo-store";
 import {
   directoryAddressFormats,
   evaluateDirectoryServiceAddress,
@@ -250,12 +270,14 @@ type DirectoryProfileSummaryRow = {
 };
 
 /** Read-model for homepage veterinarian cards; do not load complete profiles. */
-type HomepageDirectoryRow = Pick<DirectoryProfileRow,
-  "id" | "slug" | "name" | "category" | "city" | "district" |
-  "image_url" | "thumbnail_display_json"> & { fallback_district: string | null };
-export type HomepageDirectoryCard = Pick<PublicDirectoryProfile,
-  "id" | "slug" | "name" | "category" | "city" | "district" |
-  "imageUrl" | "thumbnailImageDisplay">;
+type HomepageDirectoryRow = Pick<
+  DirectoryProfileRow,
+  "id" | "slug" | "name" | "category" | "city" | "district" | "image_url" | "thumbnail_display_json"
+> & { fallback_district: string | null };
+export type HomepageDirectoryCard = Pick<
+  PublicDirectoryProfile,
+  "id" | "slug" | "name" | "category" | "city" | "district" | "imageUrl" | "thumbnailImageDisplay"
+>;
 
 type DirectoryProfileCountRow = {
   total: number;
@@ -308,27 +330,42 @@ function firstParam(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
 }
 
-export function parseDirectoryFilters(params: DirectorySearchParams, pathCategory?: DirectoryCategorySlug): DirectoryFilters {
+export function parseDirectoryFilters(
+  params: DirectorySearchParams,
+  pathCategory?: DirectoryCategorySlug,
+): DirectoryFilters {
   const rawSort = firstParam(params.sort);
   const rawCategory = firstParam(params.category);
-  const sort: DirectorySort = ["recommended", "name-asc", "name-desc", "newest"].includes(rawSort) ? rawSort as DirectorySort : "recommended";
-  return {
+  const sort: DirectorySort = ["recommended", "name-asc", "name-desc", "newest"].includes(rawSort)
+    ? (rawSort as DirectorySort)
+    : "recommended";
+  return directoryCatalogFilters({
     query: firstParam(params.q).slice(0, 100),
-    category: isDirectoryCategory(rawCategory) && rawCategory !== "psie-skoly" && rawCategory !== "utulky-a-zachrana" ? rawCategory : "",
+    category:
+      isDirectoryCategory(rawCategory) &&
+      rawCategory !== "psie-skoly" &&
+      rawCategory !== "utulky-a-zachrana"
+        ? rawCategory
+        : "",
     region: normalizeDirectoryRegion(firstParam(params.region)) ?? "",
     district: firstParam(params.district).slice(0, 100),
     city: firstParam(params.city).slice(0, 120),
     service: firstParam(params.service).slice(0, 160),
     // Repeated canonical filter parameters must fail closed, not silently select one.
-    canonicalService: Array.isArray(params.svc) ? "__invalid__" : firstParam(params.svc).slice(0, 101),
+    canonicalService: Array.isArray(params.svc)
+      ? "__invalid__"
+      : firstParam(params.svc).slice(0, 101),
     breed: firstParam(params.breed).slice(0, 160),
     fciGroup: firstParam(params.fci).slice(0, 80),
     organization: firstParam(params.organization).slice(0, 160),
     profileType: firstParam(params.type).slice(0, 160),
-    facets: parsePublicDirectoryFacets(params, pathCategory ?? (isDirectoryCategory(rawCategory) ? rawCategory : "")),
+    facets: parsePublicDirectoryFacets(
+      params,
+      pathCategory ?? (isDirectoryCategory(rawCategory) ? rawCategory : ""),
+    ),
     sort,
     page: Math.max(1, Number.parseInt(firstParam(params.page) || "1", 10) || 1),
-  };
+  });
 }
 
 type RuntimeBindings = { DB?: D1Database };
@@ -353,24 +390,37 @@ async function ensureDirectoryStore(database: D1Database) {
 function safeList(value: string) {
   try {
     const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim()).slice(0, 20) : [];
+    return Array.isArray(parsed)
+      ? parsed
+          .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+          .map((item) => item.trim())
+          .slice(0, 20)
+      : [];
   } catch {
     return [];
   }
 }
 
 function safePublicList(value: string) {
-  return safeList(value).filter((item) => !/^(?:stav overenia|(?:čiastočne\s+)?overené(?:\s+psipediou)?|neoverené|overenie údajov|zdroj(?: overenia)?|dátum (?:kontroly|overenia)|import[_ ]?key|source_data_json)\s*:?/i.test(item));
+  return safeList(value).filter(
+    (item) =>
+      !/^(?:stav overenia|(?:čiastočne\s+)?overené(?:\s+psipediou)?|neoverené|overenie údajov|zdroj(?: overenia)?|dátum (?:kontroly|overenia)|import[_ ]?key|source_data_json)\s*:?/i.test(
+        item,
+      ),
+  );
 }
 
 function safeImportData(value: string, includeInternal = false) {
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    return Object.fromEntries(Object.entries(parsed).filter(([key, item]) => (
-      (includeInternal || !isDirectoryInternalMetadataKey(key))
-      && (item === null || typeof item === "string" || typeof item === "number")
-    )));
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([key, item]) =>
+          (includeInternal || !isDirectoryInternalMetadataKey(key)) &&
+          (item === null || typeof item === "string" || typeof item === "number"),
+      ),
+    );
   } catch {
     return null;
   }
@@ -390,7 +440,9 @@ export function normalizeDirectoryRegion(value: string | null | undefined): Slov
   const clean = value?.trim() ?? "";
   if (!clean) return null;
   const withSuffix = clean.endsWith(" kraj") ? clean : `${clean} kraj`;
-  return (slovakRegions as readonly string[]).includes(withSuffix) ? withSuffix as SlovakRegion : null;
+  return (slovakRegions as readonly string[]).includes(withSuffix)
+    ? (withSuffix as SlovakRegion)
+    : null;
 }
 
 function runtimeDirectoryLocationText(value: string | null | undefined) {
@@ -398,7 +450,10 @@ function runtimeDirectoryLocationText(value: string | null | undefined) {
   return /^(?:online|slovensko|slovenská republika)$/iu.test(clean) ? "" : clean;
 }
 
-function googlePlaceDirectoryLocation(existing: ManagedDirectoryProfile, place: GooglePlaceCandidate) {
+function googlePlaceDirectoryLocation(
+  existing: ManagedDirectoryProfile,
+  place: GooglePlaceCandidate,
+) {
   const current = resolveSlovakLocation({
     region: existing.region,
     district: existing.district,
@@ -412,7 +467,9 @@ function googlePlaceDirectoryLocation(existing: ManagedDirectoryProfile, place: 
     locality && sublocality ? `${locality} - ${sublocality}` : "",
     sublocality,
     locality,
-  ].map((value) => value.trim()).filter(Boolean);
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean);
 
   // A confirmed Google locality wins even if the old canonical locality was
   // valid. Only fall back to the original locality when Google supplies none.
@@ -424,18 +481,23 @@ function googlePlaceDirectoryLocation(existing: ManagedDirectoryProfile, place: 
   for (const district of getSlovakDistricts(region)) {
     for (const municipality of getSlovakMunicipalities(district)) {
       const normalized = normalizeSlovakLocationSearch(municipality);
-      if (needles.some((needle) => (
-        normalized === needle
-        || normalized.endsWith(` ${needle}`)
-        || normalized.endsWith(`-${needle}`)
-      ))) {
+      if (
+        needles.some(
+          (needle) =>
+            normalized === needle ||
+            normalized.endsWith(` ${needle}`) ||
+            normalized.endsWith(`-${needle}`),
+        )
+      ) {
         matches.push({ region, district, city: municipality });
       }
     }
   }
 
-  const unique = matches.filter((item, index, list) =>
-    list.findIndex((other) => other.district === item.district && other.city === item.city) === index,
+  const unique = matches.filter(
+    (item, index, list) =>
+      list.findIndex((other) => other.district === item.district && other.city === item.city) ===
+      index,
   );
   if (unique.length === 1) return unique[0];
 
@@ -460,11 +522,22 @@ function directorySearchText(input: {
   street?: string;
   houseNumber?: string;
 }) {
-  return normalizeDirectorySearchText([
-    input.name, input.excerpt, input.description, input.services.join(" "),
-    input.qualifications.join(" "), input.city, input.district, input.region, input.address,
-    input.postalCode ?? "", input.street ?? "", input.houseNumber ?? "",
-  ].join(" "));
+  return normalizeDirectorySearchText(
+    [
+      input.name,
+      input.excerpt,
+      input.description,
+      input.services.join(" "),
+      input.qualifications.join(" "),
+      input.city,
+      input.district,
+      input.region,
+      input.address,
+      input.postalCode ?? "",
+      input.street ?? "",
+      input.houseNumber ?? "",
+    ].join(" "),
+  );
 }
 
 const DIRECTORY_PROFILE_COLUMNS = `
@@ -492,14 +565,45 @@ const DIRECTORY_SOURCE_FACETS = {
 
 export function sqlNormalizedExpression(columnExpression: string) {
   const replacements: Array<[string, string]> = [
-    ["á", "a"], ["ä", "a"], ["č", "c"], ["ď", "d"], ["é", "e"], ["í", "i"],
-    ["ĺ", "l"], ["ľ", "l"], ["ň", "n"], ["ó", "o"], ["ô", "o"], ["ŕ", "r"],
-    ["š", "s"], ["ť", "t"], ["ú", "u"], ["ý", "y"], ["ž", "z"],
-    ["Á", "a"], ["Ä", "a"], ["Č", "c"], ["Ď", "d"], ["É", "e"], ["Í", "i"],
-    ["Ĺ", "l"], ["Ľ", "l"], ["Ň", "n"], ["Ó", "o"], ["Ô", "o"], ["Ŕ", "r"],
-    ["Š", "s"], ["Ť", "t"], ["Ú", "u"], ["Ý", "y"], ["Ž", "z"],
+    ["á", "a"],
+    ["ä", "a"],
+    ["č", "c"],
+    ["ď", "d"],
+    ["é", "e"],
+    ["í", "i"],
+    ["ĺ", "l"],
+    ["ľ", "l"],
+    ["ň", "n"],
+    ["ó", "o"],
+    ["ô", "o"],
+    ["ŕ", "r"],
+    ["š", "s"],
+    ["ť", "t"],
+    ["ú", "u"],
+    ["ý", "y"],
+    ["ž", "z"],
+    ["Á", "a"],
+    ["Ä", "a"],
+    ["Č", "c"],
+    ["Ď", "d"],
+    ["É", "e"],
+    ["Í", "i"],
+    ["Ĺ", "l"],
+    ["Ľ", "l"],
+    ["Ň", "n"],
+    ["Ó", "o"],
+    ["Ô", "o"],
+    ["Ŕ", "r"],
+    ["Š", "s"],
+    ["Ť", "t"],
+    ["Ú", "u"],
+    ["Ý", "y"],
+    ["Ž", "z"],
   ];
-  return replacements.reduce((expression, [from, to]) => `replace(${expression}, '${from}', '${to}')`, `lower(${columnExpression})`);
+  return replacements.reduce(
+    (expression, [from, to]) => `replace(${expression}, '${from}', '${to}')`,
+    `lower(${columnExpression})`,
+  );
 }
 
 const LEGACY_DIRECTORY_SEARCH = sqlNormalizedExpression(`
@@ -515,12 +619,15 @@ const DIRECTORY_PUBLIC_FACET_SEARCH = sqlNormalizedExpression(`
 `);
 
 function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
-  const addressFormat = directoryAddressFormats.includes(row.address_format as DirectoryAddressFormat)
-    ? row.address_format as DirectoryAddressFormat
+  const addressFormat = directoryAddressFormats.includes(
+    row.address_format as DirectoryAddressFormat,
+  )
+    ? (row.address_format as DirectoryAddressFormat)
     : "";
-  const serviceAddressConfirmation: DirectoryServiceAddressConfirmation = row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
-    ? "CONFIRMED_SERVICE_LOCATION"
-    : "LEGACY_UNCONFIRMED";
+  const serviceAddressConfirmation: DirectoryServiceAddressConfirmation =
+    row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
+      ? "CONFIRMED_SERVICE_LOCATION"
+      : "LEGACY_UNCONFIRMED";
   const city = runtimeDirectoryLocationText(row.city);
   const district = runtimeDirectoryLocationText(row.district);
   const region = runtimeDirectoryLocationText(row.region);
@@ -542,9 +649,11 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     excerpt: row.excerpt,
     description: row.description,
     services: safePublicList(row.services_json),
-    qualifications: safePublicList(row.qualifications_json),
+    ...directoryQualificationSections(safeList(row.qualifications_json)),
     city,
-    district: district || runtimeDirectoryLocationText(String(safeImportData(row.source_data_json)?.["Okres"] ?? "")),
+    district:
+      district ||
+      runtimeDirectoryLocationText(String(safeImportData(row.source_data_json)?.["Okres"] ?? "")),
     region: normalizeDirectoryRegion(region) ?? region,
     address: row.address,
     postalCode: row.postal_code ?? "",
@@ -552,7 +661,8 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     houseNumber: row.house_number ?? "",
     addressFormat,
     serviceAddressConfirmation,
-    formattedServiceAddress: serviceAddress.state === "COMPLETE" ? serviceAddress.formattedAddress : null,
+    formattedServiceAddress:
+      serviceAddress.state === "COMPLETE" ? serviceAddress.formattedAddress : null,
     priceNote: row.price_note,
     websiteUrl: row.website_url,
     imageUrl: row.image_url,
@@ -566,7 +676,13 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
   };
 }
 
-function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
+function parseSeo(value: string): EditableSeo {
+  try {
+    return cleanEditableSeo(JSON.parse(value) as EditableSeo);
+  } catch {
+    return {};
+  }
+}
 
 function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile {
   const importData = safeImportData(row.source_data_json, true);
@@ -580,7 +696,8 @@ function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile 
     reviewedBy: reviewMetadata.reviewedBy,
     services: safeList(row.services_json),
     qualifications: safeList(row.qualifications_json),
-    status: row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
+    status:
+      row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
     internalEmail: row.internal_email,
     imageKey: row.image_key,
     createdAt: row.created_at,
@@ -591,13 +708,17 @@ function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile 
   };
 }
 
-function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow, reviewedAt = ""): ManagedDirectoryProfileSummary {
+function rowToManagedProfileSummary(
+  row: DirectoryProfileSummaryRow,
+  reviewedAt = "",
+): ManagedDirectoryProfileSummary {
   return {
     id: row.id,
     slug: row.slug,
     name: row.name,
     category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
-    status: row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
+    status:
+      row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
     services: safeList(row.services_json),
     city: runtimeDirectoryLocationText(row.city),
     district: runtimeDirectoryLocationText(row.district),
@@ -617,7 +738,9 @@ function rowToInquiry(row: DirectoryInquiryRow): DirectoryInquiry {
     profileId: row.profile_id,
     profileName: row.profile_name,
     profileSlug: row.profile_slug,
-    profileCategory: isDirectoryCategory(row.profile_category) ? row.profile_category : "salony-a-sluzby",
+    profileCategory: isDirectoryCategory(row.profile_category)
+      ? row.profile_category
+      : "salony-a-sluzby",
     recipientEmail: row.recipient_email,
     senderName: row.sender_name,
     senderEmail: row.sender_email,
@@ -638,19 +761,38 @@ function parseProposedData(value: string): DirectoryProfileEditableData {
     return data as DirectoryProfileEditableData;
   } catch {
     return {
-      name: "", serviceType: "", city: "", district: "", region: "", address: "", phone: "", email: "",
-      website: "", facebook: "", instagram: "", description: "", services: [], priceNote: "", coverage: "", specialized: {},
+      name: "",
+      serviceType: "",
+      city: "",
+      district: "",
+      region: "",
+      address: "",
+      phone: "",
+      email: "",
+      website: "",
+      facebook: "",
+      instagram: "",
+      description: "",
+      services: [],
+      priceNote: "",
+      coverage: "",
+      specialized: {},
     };
   }
 }
 
-function rowToChangeRequest(row: DirectoryProfileChangeRequestRow, currentData: DirectoryProfileEditableData | null = null): DirectoryProfileChangeRequest {
+function rowToChangeRequest(
+  row: DirectoryProfileChangeRequestRow,
+  currentData: DirectoryProfileEditableData | null = null,
+): DirectoryProfileChangeRequest {
   return {
     id: row.id,
     profileId: row.profile_id,
     profileName: row.profile_name,
     profileSlug: row.profile_slug,
-    profileCategory: isDirectoryCategory(row.profile_category) ? row.profile_category : "salony-a-sluzby",
+    profileCategory: isDirectoryCategory(row.profile_category)
+      ? row.profile_category
+      : "salony-a-sluzby",
     requesterName: row.requester_name,
     requesterEmail: row.requester_email,
     requesterPhone: row.requester_phone,
@@ -672,21 +814,31 @@ function normalizeUrl(value: string | null | undefined) {
   const clean = value?.trim() || null;
   if (!clean) return null;
   let parsed: URL;
-  try { parsed = new URL(clean); } catch { throw new Error("Webová adresa nie je platná."); }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error("Webová adresa musí začínať http:// alebo https://.");
+  try {
+    parsed = new URL(clean);
+  } catch {
+    throw new Error("Webová adresa nie je platná.");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+    throw new Error("Webová adresa musí začínať http:// alebo https://.");
   return clean;
 }
 
 function normalizeEmail(value: string | null | undefined, required = false) {
   const clean = value?.trim().toLowerCase() || null;
   if (!clean && !required) return null;
-  if (!clean || clean.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new Error("E-mailová adresa nie je platná.");
+  if (!clean || clean.length > 180 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean))
+    throw new Error("E-mailová adresa nie je platná.");
   return clean;
 }
 
 function cleanText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return "";
-  return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\r\n?/g, "\n").trim().slice(0, maxLength);
+  return value
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/\r\n?/g, "\n")
+    .trim()
+    .slice(0, maxLength);
 }
 
 function safeDirectoryAddressText(value: unknown, maxLength: number, label: string) {
@@ -715,7 +867,8 @@ function normalizeOptionalUrl(value: unknown, label: string) {
 function normalizePublicPhone(value: string | null | undefined) {
   const clean = value?.trim() ?? "";
   if (!clean) return "";
-  if (clean.length > 50 || !/^[+0-9() .\/-]+$/.test(clean)) throw new Error("Telefónne číslo nie je platné.");
+  if (clean.length > 50 || !/^[+0-9() .\/-]+$/.test(clean))
+    throw new Error("Telefónne číslo nie je platné.");
   return clean;
 }
 
@@ -728,7 +881,10 @@ function normalizeQualityCheckedAt(value: string | undefined) {
   return new Date(Math.min(timestamp, Date.now())).toISOString();
 }
 
-function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData> | undefined, category: DirectoryCategorySlug) {
+function normalizeChangeRequestData(
+  value: Partial<DirectoryProfileEditableData> | undefined,
+  category: DirectoryCategorySlug,
+) {
   if (value && Object.prototype.hasOwnProperty.call(value as object, "online")) {
     throw new Error("Pole online už nie je podporované pre profily služieb.");
   }
@@ -737,12 +893,20 @@ function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData>
   const email = normalizeEmail(cleanText(value?.email, 180)) ?? "";
   if (name.length < 2) throw new Error("Doplň názov služby alebo firmy.");
   if (!region) throw new Error("Vyber platný kraj.");
-  const services = normalizeStringList(value?.services).map((item) => cleanText(item, 160)).filter(Boolean).slice(0, 30);
+  const services = normalizeStringList(value?.services)
+    .map((item) => cleanText(item, 160))
+    .filter(Boolean)
+    .slice(0, 30);
   const allowedSpecialized = new Set(specializedChangeRequestFields[category] ?? []);
-  const rawSpecialized = value?.specialized && typeof value.specialized === "object" && !Array.isArray(value.specialized) ? value.specialized : {};
-  const specialized = Object.fromEntries(Object.entries(rawSpecialized)
-    .filter(([key]) => allowedSpecialized.has(key))
-    .map(([key, item]) => [key, cleanText(item, 500)]));
+  const rawSpecialized =
+    value?.specialized && typeof value.specialized === "object" && !Array.isArray(value.specialized)
+      ? value.specialized
+      : {};
+  const specialized = Object.fromEntries(
+    Object.entries(rawSpecialized)
+      .filter(([key]) => allowedSpecialized.has(key))
+      .map(([key, item]) => [key, cleanText(item, 500)]),
+  );
   return {
     name,
     serviceType: cleanText(value?.serviceType, 160),
@@ -765,7 +929,14 @@ function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData>
 
 function normalizeStringList(value: unknown) {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))].slice(0, 20);
+  return [
+    ...new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, 20);
 }
 
 export function normalizeManagedDirectoryProfileInput(
@@ -779,7 +950,8 @@ export function normalizeManagedDirectoryProfileInput(
 ) {
   const name = payload.name?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || name);
-  const category = payload.category && isDirectoryCategory(payload.category) ? payload.category : null;
+  const category =
+    payload.category && isDirectoryCategory(payload.category) ? payload.category : null;
   const status: DirectoryProfileStatus = payload.status === "published" ? "published" : "draft";
   const excerpt = payload.excerpt?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
@@ -790,26 +962,39 @@ export function normalizeManagedDirectoryProfileInput(
   const imageUrl = payload.imageUrl?.trim() || null;
 
   if (!name) throw new Error("Doplň názov profilu.");
-  if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa profilu nie je platná.");
+  if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))
+    throw new Error("Adresa profilu nie je platná.");
   if (!category) throw new Error("Vyber kategóriu adresára.");
-  if (allDirectoryCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu profilu.");
-   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka nie je platná.");
+  if (allDirectoryCategories.some((item) => item.slug === slug))
+    throw new Error("Túto adresu používa kategória. Uprav adresu profilu.");
+  if (
+    imageUrl &&
+    !imageUrl.startsWith("/media/") &&
+    !imageUrl.startsWith("/images/") &&
+    !/^https:\/\//i.test(imageUrl)
+  )
+    throw new Error("Adresa obrázka nie je platná.");
 
-  const addressFormat = directoryAddressFormats.includes(payload.addressFormat as DirectoryAddressFormat)
-    ? payload.addressFormat as DirectoryAddressFormat
+  const addressFormat = directoryAddressFormats.includes(
+    payload.addressFormat as DirectoryAddressFormat,
+  )
+    ? (payload.addressFormat as DirectoryAddressFormat)
     : "";
   if (payload.addressFormat && !addressFormat) throw new Error("Neplatný formát adresy prevádzky.");
 
-  const postalCode = normalizeSlovakPostalCode(safeDirectoryAddressText(payload.postalCode, 20, "PSČ"));
+  const postalCode = normalizeSlovakPostalCode(
+    safeDirectoryAddressText(payload.postalCode, 20, "PSČ"),
+  );
   const street = safeDirectoryAddressText(payload.street, 180, "Ulica");
   const houseNumber = safeDirectoryAddressText(payload.houseNumber, 40, "Číslo domu");
-  const serviceAddressConfirmation: DirectoryServiceAddressConfirmation = payload.confirmServiceAddress === true
-    ? "CONFIRMED_SERVICE_LOCATION"
-    : payload.clearServiceAddressConfirmation === true
-      ? "LEGACY_UNCONFIRMED"
-      : options.currentServiceAddressConfirmation ?? "LEGACY_UNCONFIRMED";
+  const serviceAddressConfirmation: DirectoryServiceAddressConfirmation =
+    payload.confirmServiceAddress === true
+      ? "CONFIRMED_SERVICE_LOCATION"
+      : payload.clearServiceAddressConfirmation === true
+        ? "LEGACY_UNCONFIRMED"
+        : (options.currentServiceAddressConfirmation ?? "LEGACY_UNCONFIRMED");
   const publicAddress = safeDirectoryAddressText(
-    payload.address === undefined ? options.legacyAddress ?? "" : payload.address,
+    payload.address === undefined ? (options.legacyAddress ?? "") : payload.address,
     500,
     "Verejná adresa",
   );
@@ -831,10 +1016,14 @@ export function normalizeManagedDirectoryProfileInput(
   const services = normalizeStringList(payload.services);
   const qualifications = normalizeStringList(payload.qualifications);
   const websiteUrl = normalizeUrl(payload.websiteUrl);
-  const publicPhone = payload.publicPhone === undefined ? undefined : normalizePublicPhone(payload.publicPhone);
-  const publicEmail = payload.publicEmail === undefined ? undefined : normalizeEmail(payload.publicEmail) ?? "";
-  const facebookUrl = payload.facebookUrl === undefined ? undefined : normalizeUrl(payload.facebookUrl) ?? "";
-  const instagramUrl = payload.instagramUrl === undefined ? undefined : normalizeUrl(payload.instagramUrl) ?? "";
+  const publicPhone =
+    payload.publicPhone === undefined ? undefined : normalizePublicPhone(payload.publicPhone);
+  const publicEmail =
+    payload.publicEmail === undefined ? undefined : (normalizeEmail(payload.publicEmail) ?? "");
+  const facebookUrl =
+    payload.facebookUrl === undefined ? undefined : (normalizeUrl(payload.facebookUrl) ?? "");
+  const instagramUrl =
+    payload.instagramUrl === undefined ? undefined : (normalizeUrl(payload.instagramUrl) ?? "");
   const contactSourceData = mergeDirectoryPublicContactData(currentImportData, {
     publicPhone,
     publicEmail,
@@ -852,7 +1041,9 @@ export function normalizeManagedDirectoryProfileInput(
       email: Boolean(publicContacts.email),
       website: Boolean(publicContacts.website),
       image: Boolean(imageUrl),
-      address: serviceAddress.state === "COMPLETE" || (serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" && Boolean(publicAddress)),
+      address:
+        serviceAddress.state === "COMPLETE" ||
+        (serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" && Boolean(publicAddress)),
     },
     qualityCheckedAt ?? undefined,
     { refreshCheckedAt: Boolean(qualityCheckedAt) },
@@ -893,8 +1084,18 @@ export function normalizeManagedDirectoryProfileInput(
     featured: Boolean(payload.featured),
     seo: cleanEditableSeo(payload.seo),
     searchText: directorySearchText({
-      name, excerpt, description, services, qualifications, city, district, region: region ?? rawRegion,
-      address: authoritativeAddressText, postalCode, street, houseNumber,
+      name,
+      excerpt,
+      description,
+      services,
+      qualifications,
+      city,
+      district,
+      region: region ?? rawRegion,
+      address: authoritativeAddressText,
+      postalCode,
+      street,
+      houseNumber,
     }),
   };
 }
@@ -911,38 +1112,103 @@ export function buildManagedDirectoryProfileCreateStatement(
     online, price_note, website_url, internal_email, image_url, image_key, thumbnail_display_json, detail_display_json,
     source_data_json, verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by`;
   const commonValues = [
-    input.slug, input.name, input.category, input.excerpt, input.description,
-    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
-    input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
-    0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null, input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
-    JSON.stringify(input.seo), input.searchText,
+    input.slug,
+    input.name,
+    input.category,
+    input.excerpt,
+    input.description,
+    JSON.stringify(input.services),
+    JSON.stringify(input.qualifications),
+    input.city,
+    input.district,
+    input.region,
+    input.address,
+    input.postalCode,
+    input.street,
+    input.houseNumber,
+    input.addressFormat,
+    input.serviceAddressConfirmation,
+    0,
+    input.priceNote,
+    input.websiteUrl,
+    input.internalEmail,
+    input.imageUrl,
+    input.imageKey,
+    input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
+    input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
+    JSON.stringify(input.sourceData),
+    input.verified ? 1 : 0,
+    input.featured ? 1 : 0,
+    JSON.stringify(input.seo),
+    input.searchText,
   ];
   if (!guard) {
     const values = [
-      input.slug, input.name, input.category, input.status, input.excerpt, input.description,
-      JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
-      input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
-      0, input.priceNote, input.websiteUrl, input.internalEmail,
-      input.imageUrl, input.imageKey, input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null, input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
-      JSON.stringify(input.seo), input.searchText, nowIso, nowIso, input.status === "published" ? nowIso : null, editorEmail, editorEmail,
+      input.slug,
+      input.name,
+      input.category,
+      input.status,
+      input.excerpt,
+      input.description,
+      JSON.stringify(input.services),
+      JSON.stringify(input.qualifications),
+      input.city,
+      input.district,
+      input.region,
+      input.address,
+      input.postalCode,
+      input.street,
+      input.houseNumber,
+      input.addressFormat,
+      input.serviceAddressConfirmation,
+      0,
+      input.priceNote,
+      input.websiteUrl,
+      input.internalEmail,
+      input.imageUrl,
+      input.imageKey,
+      input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
+      input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
+      JSON.stringify(input.sourceData),
+      input.verified ? 1 : 0,
+      input.featured ? 1 : 0,
+      JSON.stringify(input.seo),
+      input.searchText,
+      nowIso,
+      nowIso,
+      input.status === "published" ? nowIso : null,
+      editorEmail,
+      editorEmail,
     ];
-    return database.prepare(`INSERT INTO directory_profiles (${columns})
-      VALUES (${values.map(() => "?").join(",")}) RETURNING *`).bind(...values);
+    return database
+      .prepare(
+        `INSERT INTO directory_profiles (${columns})
+      VALUES (${values.map(() => "?").join(",")}) RETURNING *`,
+      )
+      .bind(...values);
   }
   const guardedValues = [...commonValues, nowIso, nowIso, editorEmail, editorEmail];
   const guardedSelectValues = [
-    "?", "?", "?", "'draft'",
+    "?",
+    "?",
+    "?",
+    "'draft'",
     ...Array.from({ length: 28 }, () => "?"),
-    "NULL", "?", "?",
+    "NULL",
+    "?",
+    "?",
   ].join(", ");
-  return database.prepare(`INSERT INTO directory_profiles (${columns})
+  return database
+    .prepare(
+      `INSERT INTO directory_profiles (${columns})
     SELECT ${guardedSelectValues}
     WHERE EXISTS(
       SELECT 1 FROM moderation_submissions
       WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?
     )
-    RETURNING *`).bind(...guardedValues, guard.submissionId, nowIso, guard.actorRef);
+    RETURNING *`,
+    )
+    .bind(...guardedValues, guard.submissionId, nowIso, guard.actorRef);
 }
 
 export async function getPublishedDirectoryProfiles(category?: DirectoryCategorySlug, limit = 500) {
@@ -950,8 +1216,18 @@ export async function getPublishedDirectoryProfiles(category?: DirectoryCategory
   if (!database) return [] as PublicDirectoryProfile[];
   const safeLimit = Math.max(1, Math.min(1000, Math.trunc(limit)));
   const result = category
-    ? await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, name ASC LIMIT ?`).bind(category, safeLimit).all<DirectoryProfileRow>()
-    : await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`).bind(safeLimit).all<DirectoryProfileRow>();
+    ? await database
+        .prepare(
+          `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, name ASC LIMIT ?`,
+        )
+        .bind(category, safeLimit)
+        .all<DirectoryProfileRow>()
+    : await database
+        .prepare(
+          `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`,
+        )
+        .bind(safeLimit)
+        .all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
 }
 
@@ -963,7 +1239,9 @@ export async function getHomepageDirectoryProfilesWithImages(
   const database = getD1Binding();
   if (!database) return [];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
-  const result = await database.prepare(`
+  const result = await database
+    .prepare(
+      `
     SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
       CASE WHEN json_valid(source_data_json)
         AND json_type(source_data_json, '$."Okres"') IN ('text', 'integer', 'real')
@@ -972,17 +1250,24 @@ export async function getHomepageDirectoryProfilesWithImages(
     FROM directory_profiles
     WHERE status = 'published' AND category = ? AND ${HOMEPAGE_REAL_IMAGE_SQL}
     ORDER BY featured DESC, name ASC, id ASC LIMIT ?
-  `).bind(category, safeLimit).all<HomepageDirectoryRow>();
-  return result.results.map((row): HomepageDirectoryCard => ({
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
-    city: runtimeDirectoryLocationText(row.city),
-    district: runtimeDirectoryLocationText(row.district) || runtimeDirectoryLocationText(row.fallback_district),
-    imageUrl: row.image_url,
-    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
-  }));
+  `,
+    )
+    .bind(category, safeLimit)
+    .all<HomepageDirectoryRow>();
+  return result.results.map(
+    (row): HomepageDirectoryCard => ({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
+      city: runtimeDirectoryLocationText(row.city),
+      district:
+        runtimeDirectoryLocationText(row.district) ||
+        runtimeDirectoryLocationText(row.fallback_district),
+      imageUrl: row.image_url,
+      thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    }),
+  );
 }
 
 export async function listPublishedDirectoryProfiles(options: {
@@ -992,22 +1277,41 @@ export async function listPublishedDirectoryProfiles(options: {
 }): Promise<PublicDirectoryProfilePage> {
   const database = getD1Binding();
   const pageSize = Math.max(1, Math.min(48, Math.trunc(options.pageSize ?? 24)));
-  const emptyOptions = { regions: [], districts: [], cities: [], services: [], canonicalServices: [], breeds: [], fciGroups: [], organizations: [], profileTypes: [] };
-  if (!database) return { profiles: [], total: 0, page: 1, pageSize, totalPages: 1, options: emptyOptions };
+  const emptyOptions = {
+    regions: [],
+    districts: [],
+    cities: [],
+    services: [],
+    canonicalServices: [],
+    breeds: [],
+    fciGroups: [],
+    organizations: [],
+    profileTypes: [],
+  };
+  if (!database)
+    return { profiles: [], total: 0, page: 1, pageSize, totalPages: 1, options: emptyOptions };
 
   const category = (options.category ?? options.filters.category) || undefined;
-  const canonicalPublicEnabled=(env as unknown as {SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?:string})
-    .SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED==="true";
+  const canonicalPublicEnabled =
+    (env as unknown as { SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?: string })
+      .SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED === "true";
   const baseClauses = ["status = 'published'"];
   const baseBindings: unknown[] = [];
-  if (category) { baseClauses.push("category = ?"); baseBindings.push(category); }
+  if (category) {
+    baseClauses.push("category = ?");
+    baseBindings.push(category);
+  }
   if (options.filters.query) {
     const needle = `%${normalizeDirectorySearchText(options.filters.query)}%`;
-    baseClauses.push(`(search_text LIKE ? OR ${DIRECTORY_PUBLIC_FACET_SEARCH} LIKE ? OR (search_text = '' AND ${LEGACY_DIRECTORY_SEARCH} LIKE ?))`);
+    baseClauses.push(
+      `(search_text LIKE ? OR ${DIRECTORY_PUBLIC_FACET_SEARCH} LIKE ? OR (search_text = '' AND ${LEGACY_DIRECTORY_SEARCH} LIKE ?))`,
+    );
     baseBindings.push(needle, needle, needle);
   }
   if (options.filters.service) {
-    baseClauses.push("EXISTS (SELECT 1 FROM json_each(directory_profiles.services_json) service_item WHERE trim(CAST(service_item.value AS TEXT)) = ?)");
+    baseClauses.push(
+      "EXISTS (SELECT 1 FROM json_each(directory_profiles.services_json) service_item WHERE trim(CAST(service_item.value AS TEXT)) = ?)",
+    );
     baseBindings.push(options.filters.service);
   }
   const addSourceFacet = (value: string, expression: string) => {
@@ -1024,52 +1328,61 @@ export async function listPublishedDirectoryProfiles(options: {
   baseBindings.push(...publicFacets.bindings);
   // Cloudflare Workers Builds may deploy before the explicitly authorized
   // production D1 migration. Keep legacy read behavior until 0149 exists.
-  const builtinOverridesReady=canonicalPublicEnabled&&Boolean(await database.prepare(
-    "SELECT name FROM sqlite_schema WHERE type='table' AND name='service_catalog_builtin_overrides' LIMIT 1"
-  ).first<{name:string}>());
-  const canonicalService=canonicalPublicServiceWhere(category??"",
-    options.filters.canonicalService??"",canonicalPublicEnabled,"directory_profiles",builtinOverridesReady);
+  const builtinOverridesReady =
+    canonicalPublicEnabled &&
+    Boolean(
+      await database
+        .prepare(
+          "SELECT name FROM sqlite_schema WHERE type='table' AND name='service_catalog_builtin_overrides' LIMIT 1",
+        )
+        .first<{ name: string }>(),
+    );
+  const canonicalService = canonicalPublicServiceWhere(
+    category ?? "",
+    options.filters.canonicalService ?? "",
+    canonicalPublicEnabled,
+    "directory_profiles",
+    builtinOverridesReady,
+  );
   baseClauses.push(...canonicalService.clauses);
   baseBindings.push(...canonicalService.bindings);
 
   // The three location options share the active non-location WHERE, but
   // their cascading region/district scopes remain independent.
   const locationStatement = directoryLocationFacetStatement(
-    database, baseClauses.join(" AND "), baseBindings,
-    options.filters.region, options.filters.district,
+    database,
+    baseClauses.join(" AND "),
+    baseBindings,
+    options.filters.region,
+    options.filters.district,
   );
   const facetWhere = category ? "status = 'published' AND category = ?" : "status = 'published'";
   const facetBindings = category ? [category] : [];
-  const serviceStatement = database.prepare(`
-    SELECT DISTINCT trim(CAST(service_item.value AS TEXT)) AS value
-    FROM directory_profiles, json_each(directory_profiles.services_json) service_item
-    WHERE ${facetWhere} AND trim(CAST(service_item.value AS TEXT)) <> ''
-    ORDER BY value
-  `).bind(...facetBindings);
-  const sourceStatement = directorySourceFacetStatement(
-    database, facetWhere, facetBindings, {
-      breeds: DIRECTORY_SOURCE_FACETS.breed,
-      fciGroups: DIRECTORY_SOURCE_FACETS.fciGroup,
-      organizations: DIRECTORY_SOURCE_FACETS.organization,
-      profileTypes: DIRECTORY_SOURCE_FACETS.profileType,
-    },
-  );
+  const sourceStatement = directorySourceFacetStatement(database, facetWhere, facetBindings, {
+    breeds: DIRECTORY_SOURCE_FACETS.breed,
+    fciGroups: DIRECTORY_SOURCE_FACETS.fciGroup,
+    organizations: DIRECTORY_SOURCE_FACETS.organization,
+  });
 
-  // Keep the three location/source/service facet reads in one D1 batch.
+  // Keep the location/source facet reads in one D1 batch; legacy service/type option scans are no longer needed.
   // The canonical service-option lookup is independent: start it in parallel
   // instead of serializing a separate network roundtrip after the batch.
   // Never reference canonical tables when the feature flag is disabled.
-  const canonicalServicesEnabled = canonicalPublicEnabled && Boolean(category)
-    && (serviceFilterCategories as readonly string[]).includes(category ?? "");
+  const canonicalServicesEnabled =
+    canonicalPublicEnabled &&
+    Boolean(category) &&
+    (serviceFilterCategories as readonly string[]).includes(category ?? "");
   const loadCanonicalServices = async (): Promise<CanonicalPublicServiceOption[]> => {
     if (!canonicalServicesEnabled || !category) return [];
-    const builtinFields=builtinOverridesReady
+    const builtinFields = builtinOverridesReady
       ? "builtin.label AS builtinLabel,builtin.categories_json AS builtinCategoriesJson"
       : "NULL AS builtinLabel,NULL AS builtinCategoriesJson";
-    const builtinJoin=builtinOverridesReady
+    const builtinJoin = builtinOverridesReady
       ? "LEFT JOIN service_catalog_builtin_overrides AS builtin ON builtin.option_id=choice.option_id"
       : "";
-    const canonicalRows = await database.prepare(`
+    const canonicalRows = await database
+      .prepare(
+        `
       SELECT DISTINCT choice.option_id AS optionId,
         opt.label AS label,opt.kind AS kind,opt.status AS status,
         opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson,
@@ -1080,74 +1393,130 @@ export async function listPublishedDirectoryProfiles(options: {
       ${builtinJoin}
       WHERE profile.status='published' AND profile.category=? AND choice.choice='yes'
       ORDER BY choice.option_id
-    `).bind(category).all<CanonicalPublicServiceRow>();
+    `,
+      )
+      .bind(category)
+      .all<CanonicalPublicServiceRow>();
     return canonicalPublicServiceOptions(category, canonicalRows.results);
   };
   // When no location filter is active, the COUNT uses exactly baseClauses:
   // start it together with the facet batch instead of waiting for the options
   // round-trip. Location-filtered requests still validate facets first.
   // This does not add a SQL statement or change page clamping.
-  const canCountWithFacets = !options.filters.region && !options.filters.district && !options.filters.city;
+  const canCountWithFacets =
+    !options.filters.region && !options.filters.district && !options.filters.city;
   const earlyCount = canCountWithFacets
-    ? database.prepare(`SELECT COUNT(*) AS total FROM directory_profiles WHERE ${baseClauses.join(" AND ")}`)
-      .bind(...baseBindings).first<{ total: number }>()
+    ? database
+        .prepare(
+          `SELECT COUNT(*) AS total FROM directory_profiles WHERE ${baseClauses.join(" AND ")}`,
+        )
+        .bind(...baseBindings)
+        .first<{ total: number }>()
     : Promise.resolve(null);
   const [optionResults, canonicalServices, preloadedCount] = await Promise.all([
-    database.batch([locationStatement, serviceStatement, sourceStatement]),
+    database.batch([locationStatement, sourceStatement]),
     loadCanonicalServices(),
     earlyCount,
   ]);
-  const locationFacets = (optionResults[0].results as Array<{
-    regions: string; districts: string; cities: string;
-  }>)[0];
-  const sourceFacets = (optionResults[2].results as Array<{
-    breeds: string; fciGroups: string; organizations: string; profileTypes: string;
-  }>)[0];
-  const values = (result: D1Result<unknown>) => (result.results as Array<{ value?: string }>).map((row) => row.value?.trim() ?? "").filter(Boolean);
-  const regions = [...new Set(parseDirectoryFacetValues(locationFacets?.regions).map((region) => normalizeDirectoryRegion(region)).filter((region): region is SlovakRegion => Boolean(region)))];
+  const locationFacets = (
+    optionResults[0].results as Array<{
+      regions: string;
+      districts: string;
+      cities: string;
+    }>
+  )[0];
+  const sourceFacets = (
+    optionResults[1].results as Array<{
+      breeds: string;
+      fciGroups: string;
+      organizations: string;
+      profileTypes: string;
+    }>
+  )[0];
+  const regions = [
+    ...new Set(
+      parseDirectoryFacetValues(locationFacets?.regions)
+        .map((region) => normalizeDirectoryRegion(region))
+        .filter((region): region is SlovakRegion => Boolean(region)),
+    ),
+  ];
   const districts = parseDirectoryFacetValues(locationFacets?.districts);
   const cities = parseDirectoryFacetValues(locationFacets?.cities);
-  const region = regions.includes(options.filters.region as SlovakRegion) ? options.filters.region : "";
-  const district = (!options.filters.region || region) && districts.includes(options.filters.district) ? options.filters.district : "";
-  const city = (!options.filters.district || district) && cities.includes(options.filters.city) ? options.filters.city : "";
+  const region = regions.includes(options.filters.region as SlovakRegion)
+    ? options.filters.region
+    : "";
+  const district =
+    (!options.filters.region || region) && districts.includes(options.filters.district)
+      ? options.filters.district
+      : "";
+  const city =
+    (!options.filters.district || district) && cities.includes(options.filters.city)
+      ? options.filters.city
+      : "";
 
   const clauses = [...baseClauses];
   const bindings = [...baseBindings];
-  if (region) { clauses.push("(region = ? OR region = ?)"); bindings.push(region, region.replace(/ kraj$/, "")); }
-  if (district) { clauses.push(`COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') = ?`); bindings.push(district); }
-  if (city) { clauses.push("city = ?"); bindings.push(city); }
+  if (region) {
+    clauses.push("(region = ? OR region = ?)");
+    bindings.push(region, region.replace(/ kraj$/, ""));
+  }
+  if (district) {
+    clauses.push(
+      `COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') = ?`,
+    );
+    bindings.push(district);
+  }
+  if (city) {
+    clauses.push("city = ?");
+    bindings.push(city);
+  }
   const where = clauses.join(" AND ");
-  const orderBy = options.filters.sort === "name-desc" ? "name DESC, id DESC"
-    : options.filters.sort === "newest" ? "published_at DESC, id DESC"
-      : options.filters.sort === "name-asc" ? "name ASC, id ASC"
-        : "featured DESC, name ASC, id ASC";
+  const orderBy =
+    options.filters.sort === "name-desc"
+      ? "name DESC, id DESC"
+      : options.filters.sort === "newest"
+        ? "published_at DESC, id DESC"
+        : options.filters.sort === "name-asc"
+          ? "name ASC, id ASC"
+          : "featured DESC, name ASC, id ASC";
   const requestedPage = Math.max(1, Math.trunc(options.filters.page));
-  const countStatement = database.prepare(`SELECT COUNT(*) AS total FROM directory_profiles WHERE ${where}`).bind(...bindings);
-  const count = preloadedCount ?? await countStatement.first<{ total: number }>();
+  const countStatement = database
+    .prepare(`SELECT COUNT(*) AS total FROM directory_profiles WHERE ${where}`)
+    .bind(...bindings);
+  const count = preloadedCount ?? (await countStatement.first<{ total: number }>());
   const total = Number(count?.total ?? 0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(requestedPage, totalPages);
-  const listStatement = database.prepare(`
+  const listStatement = database
+    .prepare(
+      `
     SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
     FROM directory_profiles WHERE ${where}
     ORDER BY ${orderBy} LIMIT ? OFFSET ?
-  `).bind(...bindings, pageSize, (page - 1) * pageSize);
+  `,
+    )
+    .bind(...bindings, pageSize, (page - 1) * pageSize);
 
   // A verified zero-count listing has no rows: avoid an unnecessary D1 page read.
-  const listResult = await readNonemptyD1Page(total, () => listStatement.all<DirectoryProfileRow>());
+  const listResult = await readNonemptyD1Page(total, () =>
+    listStatement.all<DirectoryProfileRow>(),
+  );
   return {
     profiles: (listResult.results as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
-    total, page, pageSize, totalPages,
+    total,
+    page,
+    pageSize,
+    totalPages,
     options: {
       regions,
       districts,
       cities,
-      services: values(optionResults[1]),
+      services: [],
       canonicalServices,
       breeds: parseDirectoryFacetValues(sourceFacets?.breeds),
       fciGroups: parseDirectoryFacetValues(sourceFacets?.fciGroups),
       organizations: parseDirectoryFacetValues(sourceFacets?.organizations),
-      profileTypes: parseDirectoryFacetValues(sourceFacets?.profileTypes),
+      profileTypes: [],
     },
   };
 }
@@ -1155,8 +1524,14 @@ export async function listPublishedDirectoryProfiles(options: {
 export async function getDirectoryCategoryCounts() {
   const database = getD1Binding();
   if (!database) return {} as Partial<Record<DirectoryCategorySlug, number>>;
-  const result = await database.prepare("SELECT category, COUNT(*) AS total FROM directory_profiles WHERE status = 'published' GROUP BY category").all<{ category: string; total: number }>();
-  const counts = Object.fromEntries(directoryCategories.map((category) => [category.slug, 0])) as Partial<Record<DirectoryCategorySlug, number>>;
+  const result = await database
+    .prepare(
+      "SELECT category, COUNT(*) AS total FROM directory_profiles WHERE status = 'published' GROUP BY category",
+    )
+    .all<{ category: string; total: number }>();
+  const counts = Object.fromEntries(
+    directoryCategories.map((category) => [category.slug, 0]),
+  ) as Partial<Record<DirectoryCategorySlug, number>>;
   for (const row of result.results) {
     if (isDirectoryCategory(row.category)) counts[row.category] = Number(row.total);
   }
@@ -1167,18 +1542,26 @@ export async function getDirectoryCategoryPreviews(limit = 3) {
   const database = getD1Binding();
   if (!database) return {} as Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
   const safeLimit = Math.max(1, Math.min(7, Math.trunc(limit)));
-  const statements = directoryCategories.map((category) => database.prepare(`
+  const statements = directoryCategories.map((category) =>
+    database
+      .prepare(
+        `
     SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
     FROM directory_profiles
     WHERE status = 'published' AND category = ?
     ORDER BY featured DESC, name ASC, id ASC
     LIMIT ?
-  `).bind(category.slug, safeLimit));
+  `,
+      )
+      .bind(category.slug, safeLimit),
+  );
   const results = await database.batch(statements);
-  return Object.fromEntries(directoryCategories.map((category, index) => [
-    category.slug,
-    ((results[index]?.results ?? []) as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
-  ])) as Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
+  return Object.fromEntries(
+    directoryCategories.map((category, index) => [
+      category.slug,
+      ((results[index]?.results ?? []) as unknown as DirectoryProfileRow[]).map(rowToPublicProfile),
+    ]),
+  ) as Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
 }
 
 export async function getFeaturedDirectoryProfiles(limit = 2) {
@@ -1186,7 +1569,9 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
   if (!database) return [] as PublicDirectoryProfile[];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const result = await database
-    .prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`)
+    .prepare(
+      `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`,
+    )
     .bind(safeLimit)
     .all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
@@ -1195,30 +1580,48 @@ export async function getFeaturedDirectoryProfiles(limit = 2) {
 const getPublishedDirectoryProfileUncached = async (category: string, slug: string) => {
   const database = getD1Binding();
   if (!database || !isDirectoryCategory(category)) return null;
-  const row = await database.prepare("SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1").bind(category, slug).first<DirectoryProfileRow>();
+  const row = await database
+    .prepare(
+      "SELECT * FROM directory_profiles WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1",
+    )
+    .bind(category, slug)
+    .first<DirectoryProfileRow>();
   return row ? rowToPublicProfile(row) : null;
 };
 export const getPublishedDirectoryProfile = cache(getPublishedDirectoryProfileUncached);
 
-export async function listManagedDirectoryProfileSummaries(options: {
-  page?: number;
-  pageSize?: number;
-  category?: DirectoryCategorySlug;
-} = {}): Promise<ManagedDirectoryProfileSummaryPage> {
+export async function listManagedDirectoryProfileSummaries(
+  options: {
+    page?: number;
+    pageSize?: number;
+    category?: DirectoryCategorySlug;
+  } = {},
+): Promise<ManagedDirectoryProfileSummaryPage> {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
   const page = Math.max(1, Math.trunc(options.page ?? 1));
   const pageSize = Math.max(1, Math.min(100, Math.trunc(options.pageSize ?? 50)));
-  const category = options.category && isDirectoryCategory(options.category) ? options.category : null;
+  const category =
+    options.category && isDirectoryCategory(options.category) ? options.category : null;
   const where = category ? "WHERE category = ?" : "";
-  const listStatement = database.prepare(`
+  const listStatement = database
+    .prepare(
+      `
     SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at
     FROM directory_profiles
     ${where}
     ORDER BY updated_at DESC, id DESC
     LIMIT ? OFFSET ?
-  `).bind(...(category ? [category, pageSize, (page - 1) * pageSize] : [pageSize, (page - 1) * pageSize]));
-  const countStatement = database.prepare(`
+  `,
+    )
+    .bind(
+      ...(category
+        ? [category, pageSize, (page - 1) * pageSize]
+        : [pageSize, (page - 1) * pageSize]),
+    );
+  const countStatement = database
+    .prepare(
+      `
     SELECT
       COUNT(*) AS total,
       COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
@@ -1226,21 +1629,29 @@ export async function listManagedDirectoryProfileSummaries(options: {
       COALESCE(SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END), 0) AS archived
     FROM directory_profiles
     ${where}
-  `).bind(...(category ? [category] : []));
+  `,
+    )
+    .bind(...(category ? [category] : []));
   const [listResult, countResult] = await database.batch([listStatement, countStatement]);
   const rows = (listResult.results ?? []) as unknown as DirectoryProfileSummaryRow[];
   const reviewedAtById = new Map<number, string>();
   if (rows.length) {
     const placeholders = rows.map(() => "?").join(",");
-    const reviewRows = await database.prepare(`
+    const reviewRows = await database
+      .prepare(
+        `
       SELECT id,
         COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
       FROM directory_profiles
       WHERE id IN (${placeholders})
-    `).bind(...rows.map((row) => row.id)).all<{ id: number; reviewed_at: string }>();
+    `,
+      )
+      .bind(...rows.map((row) => row.id))
+      .all<{ id: number; reviewed_at: string }>();
     for (const row of reviewRows.results) reviewedAtById.set(row.id, row.reviewed_at?.trim() ?? "");
   }
-  const rawCounts = (countResult.results?.[0] ?? null) as unknown as DirectoryProfileCountRow | null;
+  const rawCounts = (countResult.results?.[0] ??
+    null) as unknown as DirectoryProfileCountRow | null;
   const counts = {
     total: Number(rawCounts?.total ?? 0),
     published: Number(rawCounts?.published ?? 0),
@@ -1261,11 +1672,17 @@ export async function listManagedDirectoryProfileSummaries(options: {
 export async function getManagedDirectoryProfileById(id: number, databaseInput?: D1Database) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
-  const row = await database.prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1").bind(id).first<DirectoryProfileRow>();
+  const row = await database
+    .prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1")
+    .bind(id)
+    .first<DirectoryProfileRow>();
   return row ? rowToManagedProfile(row) : null;
 }
 
-export async function getManagedDirectoryProfileByCategorySlug(category: DirectoryCategorySlug, slug: string) {
+export async function getManagedDirectoryProfileByCategorySlug(
+  category: DirectoryCategorySlug,
+  slug: string,
+) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
   const row = await database
@@ -1284,12 +1701,23 @@ export async function createManagedDirectoryProfile(
   await ensureDirectoryStore(database);
   const input = normalizeManagedDirectoryProfileInput(payload);
   const now = new Date().toISOString();
-  const row = await buildManagedDirectoryProfileCreateStatement(database, input, editorEmail, now).first<DirectoryProfileRow>();
+  const row = await buildManagedDirectoryProfileCreateStatement(
+    database,
+    input,
+    editorEmail,
+    now,
+  ).first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo vytvoriť.");
   await ensureResourceForDirectoryProfile(row.id, database, new Date(now));
-  await reconcileGeoAfterSourceMutation({
-    targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
-  }, database);
+  await reconcileGeoAfterSourceMutation(
+    {
+      targetType: "DIRECTORY_PROFILE",
+      targetId: row.id,
+      actorRef: editorEmail,
+      actorType: "ADMIN",
+    },
+    database,
+  );
   return rowToManagedProfile(row);
 }
 
@@ -1306,39 +1734,79 @@ export function buildManagedDirectoryProfileUpdateStatement(
     restoreArchived?: boolean;
   },
 ) {
-  if (existing.status === "archived" && !guard?.restoreArchived) throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
+  if (existing.status === "archived" && !guard?.restoreArchived)
+    throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
   const input = normalizeManagedDirectoryProfileInput(payload, existing.importData, {
     currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
     legacyAddress: existing.address,
   });
-  const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
+  const publishedAt =
+    input.status === "published" ? (existing.publishedAt ?? now) : existing.publishedAt;
   const updatedAtGuard = guard?.expectedUpdatedAt ? " AND updated_at = ?" : "";
   const reviewGuard = guard?.automationAddressReview
     ? " AND EXISTS (SELECT 1 FROM automation_address_review_cases WHERE id=? AND status='OPEN' AND fingerprint=?) AND NOT EXISTS (SELECT 1 FROM geo_points WHERE directory_profile_id=directory_profiles.id AND manual_override=1)"
     : "";
   const bindings = [
-    input.slug, input.name, input.category, input.status, input.excerpt, input.description,
-    JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
-    input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
-    0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey,
-    JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
-    JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
-    JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
-    now, publishedAt, guard?.restoreArchived ? 1 : 0, editorEmail, id,
+    input.slug,
+    input.name,
+    input.category,
+    input.status,
+    input.excerpt,
+    input.description,
+    JSON.stringify(input.services),
+    JSON.stringify(input.qualifications),
+    input.city,
+    input.district,
+    input.region,
+    input.address,
+    input.postalCode,
+    input.street,
+    input.houseNumber,
+    input.addressFormat,
+    input.serviceAddressConfirmation,
+    0,
+    input.priceNote,
+    input.websiteUrl,
+    input.internalEmail,
+    input.imageUrl,
+    input.imageKey,
+    JSON.stringify(
+      payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl
+        ? (existing.thumbnailImageDisplay ?? null)
+        : (input.thumbnailImageDisplay ?? null),
+    ),
+    JSON.stringify(
+      payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl
+        ? (existing.detailImageDisplay ?? null)
+        : (input.detailImageDisplay ?? null),
+    ),
+    JSON.stringify(input.sourceData),
+    input.verified ? 1 : 0,
+    input.featured ? 1 : 0,
+    JSON.stringify(input.seo),
+    input.searchText,
+    now,
+    publishedAt,
+    guard?.restoreArchived ? 1 : 0,
+    editorEmail,
+    id,
     ...(guard?.expectedUpdatedAt ? [guard.expectedUpdatedAt] : []),
     ...(guard?.automationAddressReview
       ? [guard.automationAddressReview.id, guard.automationAddressReview.fingerprint]
       : []),
   ];
-  return database.prepare(`
+  return database
+    .prepare(
+      `
     UPDATE directory_profiles SET
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
       qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = ?, online = ?, price_note = ?, website_url = ?,
       internal_email = ?, image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, archived_at = CASE WHEN ?=1 THEN NULL ELSE archived_at END, updated_by = ?
     WHERE id = ?${updatedAtGuard}${reviewGuard} RETURNING *
-  `).bind(...bindings);
+  `,
+    )
+    .bind(...bindings);
 }
 
 export async function updateManagedDirectoryProfile(
@@ -1351,7 +1819,7 @@ export async function updateManagedDirectoryProfile(
 ) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
-  const existing = existingProfile ?? await getManagedDirectoryProfileById(id, database);
+  const existing = existingProfile ?? (await getManagedDirectoryProfileById(id, database));
   if (!existing) return null;
   const now = new Date().toISOString();
   const row = await buildManagedDirectoryProfileUpdateStatement(
@@ -1364,9 +1832,15 @@ export async function updateManagedDirectoryProfile(
     guard,
   ).first<DirectoryProfileRow>();
   if (!row) return null;
-  await reconcileGeoAfterSourceMutation({
-    targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
-  }, database);
+  await reconcileGeoAfterSourceMutation(
+    {
+      targetType: "DIRECTORY_PROFILE",
+      targetId: row.id,
+      actorRef: editorEmail,
+      actorType: "ADMIN",
+    },
+    database,
+  );
   return rowToManagedProfile(row);
 }
 
@@ -1382,7 +1856,8 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
   const existing = await getManagedDirectoryProfileById(id, database);
   if (!existing) return null;
 
-  if (expectedUpdatedAt !== undefined && existing.updatedAt !== expectedUpdatedAt) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  if (expectedUpdatedAt !== undefined && existing.updatedAt !== expectedUpdatedAt)
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   const location = googlePlaceDirectoryLocation(existing, place);
   // An explicit Google selection replaces the *location* fields. Do not mix
   // an old street, house number or postcode with a different Google place.
@@ -1390,7 +1865,11 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
   const street = place.address?.street?.trim() ?? "";
   const houseNumber = place.address?.houseNumber?.trim() ?? "";
   const postalCode = normalizeSlovakPostalCode(place.address?.postalCode?.trim() ?? "");
-  const addressFormat: DirectoryAddressFormat | "" = street ? "STREET" : houseNumber ? "MUNICIPALITY_NUMBER" : "";
+  const addressFormat: DirectoryAddressFormat | "" = street
+    ? "STREET"
+    : houseNumber
+      ? "MUNICIPALITY_NUMBER"
+      : "";
   const formattedAddress = place.formattedAddress.trim() || existing.address;
   const searchText = directorySearchText({
     name: existing.name,
@@ -1411,46 +1890,68 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
   // Location-only Google write contract. Contact, website, social, content,
   // pricing, media and SEO fields are intentionally absent from this UPDATE.
   const geo = await prepareGoogleSourceGeoInvalidation(
-    "DIRECTORY_PROFILE", id, database, expectedGeoRevision,
+    "DIRECTORY_PROFILE",
+    id,
+    database,
+    expectedGeoRevision,
     { sql: "SELECT 1 FROM directory_profiles WHERE id=? AND updated_at=?", args: [id, now] },
   );
-  const sourceStatement = database.prepare(`
+  const sourceStatement = database
+    .prepare(
+      `
     UPDATE directory_profiles
     SET region = ?, district = ?, city = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION',
       search_text = ?, updated_at = ?, updated_by = ?
     WHERE id = ? AND updated_at = ? AND ${geo.sourceGuard}
     RETURNING *
-  `).bind(
-    location.region,
-    location.district,
-    location.city,
-    formattedAddress,
-    postalCode,
-    street,
-    houseNumber,
-    addressFormat,
-    searchText,
-    now,
-    editorEmail,
-    id,
-    expectedUpdatedAt ?? existing.updatedAt,
-    ...geo.sourceGuardArgs,
-  );
-  const results = await database.batch([sourceStatement, ...(geo.invalidation ? [geo.invalidation] : [])]);
+  `,
+    )
+    .bind(
+      location.region,
+      location.district,
+      location.city,
+      formattedAddress,
+      postalCode,
+      street,
+      houseNumber,
+      addressFormat,
+      searchText,
+      now,
+      editorEmail,
+      id,
+      expectedUpdatedAt ?? existing.updatedAt,
+      ...geo.sourceGuardArgs,
+    );
+  const results = await database.batch([
+    sourceStatement,
+    ...(geo.invalidation ? [geo.invalidation] : []),
+  ]);
   const row = results[0]?.results?.[0] as DirectoryProfileRow | undefined;
   if (!row) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
-  if (geo.invalidation && results[1]?.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
+  if (geo.invalidation && results[1]?.meta?.changes !== 1)
+    throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
 
   try {
-    const geoReconciliation = await reconcileGeoAfterSourceMutation({
-      targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN", expectedGeoRevision: geo.current ? geo.now : null,
-    }, database);
-    return { ...rowToManagedProfile(row), googleConfirmationGeoRevision: geoReconciliation.point?.updatedAt ?? null };
+    const geoReconciliation = await reconcileGeoAfterSourceMutation(
+      {
+        targetType: "DIRECTORY_PROFILE",
+        targetId: row.id,
+        actorRef: editorEmail,
+        actorType: "ADMIN",
+        expectedGeoRevision: geo.current ? geo.now : null,
+      },
+      database,
+    );
+    return {
+      ...rowToManagedProfile(row),
+      googleConfirmationGeoRevision: geoReconciliation.point?.updatedAt ?? null,
+    };
   } catch (cause) {
-    throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED", { cause }), { sourceCommitted: true });
+    throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED", { cause }), {
+      sourceCommitted: true,
+    });
   }
-
 }
 
 export async function setManagedDirectoryProfileReviewed(
@@ -1462,15 +1963,22 @@ export async function setManagedDirectoryProfileReviewed(
 ) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
-  const row = await database.prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1")
+  const row = await database
+    .prepare("SELECT * FROM directory_profiles WHERE id = ? LIMIT 1")
     .bind(id)
     .first<DirectoryProfileRow>();
   if (!row) return null;
   const importData = safeImportData(row.source_data_json, true);
-  const sourceData = mergeDirectoryProfileReviewMetadata(importData, reviewed, editorEmail, now.toISOString());
-  const updated = await database.prepare(
-    "UPDATE directory_profiles SET source_data_json = ? WHERE id = ? RETURNING *",
-  ).bind(JSON.stringify(sourceData), id).first<DirectoryProfileRow>();
+  const sourceData = mergeDirectoryProfileReviewMetadata(
+    importData,
+    reviewed,
+    editorEmail,
+    now.toISOString(),
+  );
+  const updated = await database
+    .prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = ? RETURNING *")
+    .bind(JSON.stringify(sourceData), id)
+    .first<DirectoryProfileRow>();
   return updated ? rowToManagedProfile(updated) : null;
 }
 
@@ -1486,19 +1994,34 @@ export async function archiveManagedDirectoryProfile(
   const existing = await getManagedDirectoryProfileById(id, database);
   if (!existing) return null;
   if (existing.status === "archived") return existing;
-  if (options.draftOnly && existing.status !== "draft") throw new Error("GEMINI_DIRECTORY_DRAFT_ONLY");
+  if (options.draftOnly && existing.status !== "draft")
+    throw new Error("GEMINI_DIRECTORY_DRAFT_ONLY");
   await ensureResourceForDirectoryProfile(id, database, now);
   const timestamp = now.toISOString();
-  const row = await database.prepare(`
+  const row = await database
+    .prepare(
+      `
     UPDATE directory_profiles
     SET status='archived', published_at=NULL, archived_at=?, updated_at=?, updated_by=?
     WHERE id=? AND status IN ('draft','published') AND (?=0 OR status='draft')
     RETURNING *
-  `).bind(timestamp, timestamp, editorEmail, id, options.draftOnly ? 1 : 0).first<DirectoryProfileRow>();
-  if (!row) throw new Error(options.draftOnly ? "GEMINI_DIRECTORY_DRAFT_ONLY" : "Profil sa nepodarilo archivovať.");
-  await reconcileGeoAfterSourceMutation({
-    targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
-  }, database);
+  `,
+    )
+    .bind(timestamp, timestamp, editorEmail, id, options.draftOnly ? 1 : 0)
+    .first<DirectoryProfileRow>();
+  if (!row)
+    throw new Error(
+      options.draftOnly ? "GEMINI_DIRECTORY_DRAFT_ONLY" : "Profil sa nepodarilo archivovať.",
+    );
+  await reconcileGeoAfterSourceMutation(
+    {
+      targetType: "DIRECTORY_PROFILE",
+      targetId: row.id,
+      actorRef: editorEmail,
+      actorType: "ADMIN",
+    },
+    database,
+  );
   return rowToManagedProfile(row);
 }
 
@@ -1515,22 +2038,36 @@ export async function restoreManagedDirectoryProfile(
   if (existing.status !== "archived") throw new Error("Obnoviť možno iba archivovaný profil.");
   await ensureResourceForDirectoryProfile(id, database, now);
   const timestamp = now.toISOString();
-  const row = await database.prepare(`
+  const row = await database
+    .prepare(
+      `
     UPDATE directory_profiles
     SET status='draft', published_at=NULL, archived_at=NULL, updated_at=?, updated_by=?
     WHERE id=? AND status='archived'
     RETURNING *
-  `).bind(timestamp, editorEmail, id).first<DirectoryProfileRow>();
+  `,
+    )
+    .bind(timestamp, editorEmail, id)
+    .first<DirectoryProfileRow>();
   if (!row) throw new Error("Profil sa nepodarilo obnoviť.");
-  await reconcileGeoAfterSourceMutation({
-    targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
-  }, database);
+  await reconcileGeoAfterSourceMutation(
+    {
+      targetType: "DIRECTORY_PROFILE",
+      targetId: row.id,
+      actorRef: editorEmail,
+      actorType: "ADMIN",
+    },
+    database,
+  );
   return rowToManagedProfile(row);
 }
 
 export function isDirectoryProfileConflict(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes("UNIQUE constraint failed") || message.includes("directory_profiles.category, directory_profiles.slug");
+  return (
+    message.includes("UNIQUE constraint failed") ||
+    message.includes("directory_profiles.category, directory_profiles.slug")
+  );
 }
 
 export class DirectoryRateLimitError extends Error {}
@@ -1538,8 +2075,12 @@ export class DirectoryRateLimitError extends Error {}
 async function purgeExpiredDirectoryInquiries(database: D1Database) {
   const resolvedBefore = new Date(Date.now() - 180 * 24 * 60 * 60 * 1_000).toISOString();
   const absoluteBefore = new Date(Date.now() - 365 * 24 * 60 * 60 * 1_000).toISOString();
-  await database.prepare("DELETE FROM directory_inquiries WHERE (status = 'resolved' AND updated_at < ?) OR created_at < ?")
-    .bind(resolvedBefore, absoluteBefore).run();
+  await database
+    .prepare(
+      "DELETE FROM directory_inquiries WHERE (status = 'resolved' AND updated_at < ?) OR created_at < ?",
+    )
+    .bind(resolvedBefore, absoluteBefore)
+    .run();
 }
 
 export async function createDirectoryInquiry(payload: DirectoryInquiryInput) {
@@ -1548,7 +2089,12 @@ export async function createDirectoryInquiry(payload: DirectoryInquiryInput) {
   await purgeExpiredDirectoryInquiries(database);
   const profileId = Number(payload.profileId);
   if (!Number.isSafeInteger(profileId) || profileId < 1) throw new Error("Profil sa nenašiel.");
-  const profile = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`).bind(profileId).first<DirectoryProfileRow>();
+  const profile = await database
+    .prepare(
+      `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`,
+    )
+    .bind(profileId)
+    .first<DirectoryProfileRow>();
   if (!profile) throw new Error("Profil sa nenašiel alebo už nie je verejný.");
 
   const senderName = payload.senderName?.trim() ?? "";
@@ -1559,23 +2105,48 @@ export async function createDirectoryInquiry(payload: DirectoryInquiryInput) {
   if (senderName.length < 2 || senderName.length > 100) throw new Error("Doplň svoje meno.");
   if (senderPhone.length > 40) throw new Error("Telefónne číslo je príliš dlhé.");
   if (dogInfo.length > 300) throw new Error("Informácie o psovi sú príliš dlhé.");
-  if (message.length < 20 || message.length > 3000) throw new Error("Správa musí mať 20 až 3 000 znakov.");
-  if (!payload.consent) throw new Error("Pred odoslaním potvrď oboznámenie sa so spracúvaním údajov.");
+  if (message.length < 20 || message.length > 3000)
+    throw new Error("Správa musí mať 20 až 3 000 znakov.");
+  if (!payload.consent)
+    throw new Error("Pred odoslaním potvrď oboznámenie sa so spracúvaním údajov.");
 
   const limitSince = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  const recent = await database.prepare("SELECT COUNT(*) AS count FROM directory_inquiries WHERE sender_email = ? AND created_at >= ?").bind(senderEmail, limitSince).first<{ count: number }>();
-  if ((recent?.count ?? 0) >= 3) throw new DirectoryRateLimitError("Za krátky čas bolo odoslaných príliš veľa správ. Skús to neskôr.");
+  const recent = await database
+    .prepare(
+      "SELECT COUNT(*) AS count FROM directory_inquiries WHERE sender_email = ? AND created_at >= ?",
+    )
+    .bind(senderEmail, limitSince)
+    .first<{ count: number }>();
+  if ((recent?.count ?? 0) >= 3)
+    throw new DirectoryRateLimitError(
+      "Za krátky čas bolo odoslaných príliš veľa správ. Skús to neskôr.",
+    );
 
   const now = new Date().toISOString();
-  const row = await database.prepare(`
+  const row = await database
+    .prepare(
+      `
     INSERT INTO directory_inquiries (
       profile_id, profile_name, profile_slug, profile_category, recipient_email, sender_name, sender_email,
       sender_phone, dog_info, message, status, consent, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', 1, ?, ?) RETURNING *
-  `).bind(
-    profile.id, profile.name, profile.slug, profile.category, profile.internal_email, senderName, senderEmail,
-    senderPhone, dogInfo, message, now, now,
-  ).first<DirectoryInquiryRow>();
+  `,
+    )
+    .bind(
+      profile.id,
+      profile.name,
+      profile.slug,
+      profile.category,
+      profile.internal_email,
+      senderName,
+      senderEmail,
+      senderPhone,
+      dogInfo,
+      message,
+      now,
+      now,
+    )
+    .first<DirectoryInquiryRow>();
   if (!row) throw new Error("Dopyt sa nepodarilo uložiť.");
   return rowToInquiry(row);
 }
@@ -1583,13 +2154,17 @@ export async function createDirectoryInquiry(payload: DirectoryInquiryInput) {
 export async function listDirectoryInquiries() {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const result = await database.prepare(`
+  const result = await database
+    .prepare(
+      `
     SELECT id, profile_id, profile_name, profile_slug, profile_category, recipient_email,
       sender_name, sender_email, sender_phone, dog_info, message, status, consent, created_at, updated_at
     FROM directory_inquiries
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'read' THEN 1 ELSE 2 END, created_at DESC
     LIMIT 200
-  `).all<DirectoryInquiryRow>();
+  `,
+    )
+    .all<DirectoryInquiryRow>();
   return result.results.map(rowToInquiry);
 }
 
@@ -1597,14 +2172,20 @@ export async function updateDirectoryInquiryStatus(id: number, status: Directory
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
   const now = new Date().toISOString();
-  const row = await database.prepare("UPDATE directory_inquiries SET status = ?, updated_at = ? WHERE id = ? RETURNING *").bind(status, now, id).first<DirectoryInquiryRow>();
+  const row = await database
+    .prepare("UPDATE directory_inquiries SET status = ?, updated_at = ? WHERE id = ? RETURNING *")
+    .bind(status, now, id)
+    .first<DirectoryInquiryRow>();
   return row ? rowToInquiry(row) : null;
 }
 
 export async function deleteDirectoryInquiry(id: number) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const row = await database.prepare("DELETE FROM directory_inquiries WHERE id = ? RETURNING *").bind(id).first<DirectoryInquiryRow>();
+  const row = await database
+    .prepare("DELETE FROM directory_inquiries WHERE id = ? RETURNING *")
+    .bind(id)
+    .first<DirectoryInquiryRow>();
   return row ? rowToInquiry(row) : null;
 }
 
@@ -1614,12 +2195,19 @@ const DIRECTORY_CHANGE_REQUEST_COLUMNS = `
   created_at, updated_at, reviewed_at, reviewed_by
 `;
 
-export async function createDirectoryProfileChangeRequest(payload: DirectoryProfileChangeRequestInput) {
+export async function createDirectoryProfileChangeRequest(
+  payload: DirectoryProfileChangeRequestInput,
+) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
   const profileId = Number(payload.profileId);
   if (!Number.isSafeInteger(profileId) || profileId < 1) throw new Error("Profil sa nenašiel.");
-  const profileRow = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`).bind(profileId).first<DirectoryProfileRow>();
+  const profileRow = await database
+    .prepare(
+      `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? AND status = 'published' LIMIT 1`,
+    )
+    .bind(profileId)
+    .first<DirectoryProfileRow>();
   if (!profileRow) throw new Error("Profil sa nenašiel alebo už nie je verejný.");
   const profile = rowToPublicProfile(profileRow);
 
@@ -1634,24 +2222,47 @@ export async function createDirectoryProfileChangeRequest(payload: DirectoryProf
   const proposedData = normalizeChangeRequestData(payload.proposedData, profile.category);
 
   const limitSince = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const recent = await database.prepare(`
+  const recent = await database
+    .prepare(
+      `
     SELECT COUNT(*) AS count FROM directory_profile_change_requests
     WHERE requester_email = ? AND created_at >= ?
-  `).bind(requesterEmail, limitSince).first<{ count: number }>();
-  if ((recent?.count ?? 0) >= 3) throw new DirectoryRateLimitError("Za krátky čas bolo odoslaných príliš veľa návrhov. Skús to neskôr.");
+  `,
+    )
+    .bind(requesterEmail, limitSince)
+    .first<{ count: number }>();
+  if ((recent?.count ?? 0) >= 3)
+    throw new DirectoryRateLimitError(
+      "Za krátky čas bolo odoslaných príliš veľa návrhov. Skús to neskôr.",
+    );
 
   const now = new Date().toISOString();
-  const row = await database.prepare(`
+  const row = await database
+    .prepare(
+      `
     INSERT INTO directory_profile_change_requests (
       profile_id, profile_name, profile_slug, profile_category, requester_name, requester_email,
       requester_phone, requester_role, proposed_data_json, note, authorized, consent, status,
       created_at, updated_at, reviewed_at, reviewed_by
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 'new', ?, ?, NULL, NULL)
     RETURNING ${DIRECTORY_CHANGE_REQUEST_COLUMNS}
-  `).bind(
-    profile.id, profile.name, profile.slug, profile.category, requesterName, requesterEmail,
-    requesterPhone, requesterRole, JSON.stringify(proposedData), note, now, now,
-  ).first<DirectoryProfileChangeRequestRow>();
+  `,
+    )
+    .bind(
+      profile.id,
+      profile.name,
+      profile.slug,
+      profile.category,
+      requesterName,
+      requesterEmail,
+      requesterPhone,
+      requesterRole,
+      JSON.stringify(proposedData),
+      note,
+      now,
+      now,
+    )
+    .first<DirectoryProfileChangeRequestRow>();
   if (!row) throw new Error("Návrh úpravy sa nepodarilo uložiť.");
   return rowToChangeRequest(row, editableDirectoryProfileData(profile));
 }
@@ -1659,34 +2270,59 @@ export async function createDirectoryProfileChangeRequest(payload: DirectoryProf
 export async function listDirectoryProfileChangeRequests() {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
-  const result = await database.prepare(`
+  const result = await database
+    .prepare(
+      `
     SELECT ${DIRECTORY_CHANGE_REQUEST_COLUMNS}
     FROM directory_profile_change_requests
     ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, created_at DESC
     LIMIT 200
-  `).all<DirectoryProfileChangeRequestRow>();
+  `,
+    )
+    .all<DirectoryProfileChangeRequestRow>();
   const rows = result.results;
   const ids = [...new Set(rows.map((row) => row.profile_id))];
   const currentById = new Map<number, DirectoryProfileEditableData>();
   if (ids.length > 0) {
     const placeholders = ids.map(() => "?").join(", ");
-    const profiles = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id IN (${placeholders})`).bind(...ids).all<DirectoryProfileRow>();
-    for (const row of profiles.results) currentById.set(row.id, editableDirectoryProfileData(rowToPublicProfile(row)));
+    const profiles = await database
+      .prepare(
+        `SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id IN (${placeholders})`,
+      )
+      .bind(...ids)
+      .all<DirectoryProfileRow>();
+    for (const row of profiles.results)
+      currentById.set(row.id, editableDirectoryProfileData(rowToPublicProfile(row)));
   }
   return rows.map((row) => rowToChangeRequest(row, currentById.get(row.profile_id) ?? null));
 }
 
-export async function reviewDirectoryProfileChangeRequest(id: number, status: Exclude<DirectoryProfileChangeRequestStatus, "new">, reviewerEmail: string) {
+export async function reviewDirectoryProfileChangeRequest(
+  id: number,
+  status: Exclude<DirectoryProfileChangeRequestStatus, "new">,
+  reviewerEmail: string,
+) {
   const database = requireD1Binding();
   await ensureDirectoryStore(database);
   const now = new Date().toISOString();
-  const row = await database.prepare(`
+  const row = await database
+    .prepare(
+      `
     UPDATE directory_profile_change_requests
     SET status = ?, updated_at = ?, reviewed_at = ?, reviewed_by = ?
     WHERE id = ? AND status = 'new'
     RETURNING ${DIRECTORY_CHANGE_REQUEST_COLUMNS}
-  `).bind(status, now, now, reviewerEmail, id).first<DirectoryProfileChangeRequestRow>();
+  `,
+    )
+    .bind(status, now, now, reviewerEmail, id)
+    .first<DirectoryProfileChangeRequestRow>();
   if (!row) return null;
-  const profile = await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? LIMIT 1`).bind(row.profile_id).first<DirectoryProfileRow>();
-  return rowToChangeRequest(row, profile ? editableDirectoryProfileData(rowToPublicProfile(profile)) : null);
+  const profile = await database
+    .prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE id = ? LIMIT 1`)
+    .bind(row.profile_id)
+    .first<DirectoryProfileRow>();
+  return rowToChangeRequest(
+    row,
+    profile ? editableDirectoryProfileData(rowToPublicProfile(profile)) : null,
+  );
 }

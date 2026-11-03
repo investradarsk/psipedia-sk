@@ -357,6 +357,19 @@ export function DirectoryProfileDetail({
       ) : null,
     },
     {
+      key: "sources",
+      column: "main" as const,
+      content: presentation.sources?.length ? (
+        <DetailSection compactHeading title="Zdroje informácií">
+          <ul>
+            {presentation.sources.map((source) => (
+              <li key={source}>{source}</li>
+            ))}
+          </ul>
+        </DetailSection>
+      ) : null,
+    },
+    {
       key: "reviews",
       column: "main" as const,
       content: (

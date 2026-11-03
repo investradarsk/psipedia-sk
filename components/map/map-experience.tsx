@@ -1,4 +1,5 @@
 "use client";
+import { MapConsentState } from "./map-consent-state";
 import { PublicFilterPanel } from "@/components/public-filters";
 import {
   PublicLoadingState,
@@ -1146,7 +1147,7 @@ export function MapExperience({
             : rendererStatus === "missing-config"
               ? "Google Maps nie je nakonfigurovaný"
               : "Mapový podklad nie je dostupný";
-  const showProviderDisclosure = !(googleMapsConsent && rendererStatus === "ready");
+  const showProviderDisclosure = googleMapsConsent && rendererStatus !== "ready";
 
   return (
     <>
@@ -1320,26 +1321,23 @@ export function MapExperience({
               </div>
             ) : null}
             {effectiveRendererEnabled && !googleMapsConsent && !testRenderer ? (
-              <div className={styles.mapConsentGate} data-testid="map-consent-gate">
-                <strong>Načítať interaktívnu Google mapu?</strong>
-                <span>
-                  Textové výsledky fungujú aj bez nej. Google mapový podklad sa načíta až po tvojom
-                  výslovnom povolení.
-                </span>
-                <button type="button" onClick={() => setGoogleMapsConsent(true)}>
-                  Povoliť Google Maps
-                </button>
-              </div>
+              <MapConsentState
+                testId="map-consent-gate"
+                alternative="Textové výsledky a výber oblastí fungujú aj bez nej."
+                onGrant={() => setGoogleMapsConsent(true)}
+              />
             ) : null}
-            <PublicNotice
-              as="div"
-              appearance="context"
-              className={styles.mapStatusPill}
-              role="status"
-              data-testid="map-renderer-status"
-            >
-              <span>{rendererStatusLabel}</span>
-            </PublicNotice>
+            {googleMapsConsent || testRenderer || !effectiveRendererEnabled ? (
+              <PublicNotice
+                as="div"
+                appearance="context"
+                className={styles.mapStatusPill}
+                role="status"
+                data-testid="map-renderer-status"
+              >
+                <span>{rendererStatusLabel}</span>
+              </PublicNotice>
+            ) : null}
           </div>
         </div>
 
@@ -1418,8 +1416,7 @@ export function MapExperience({
           aria-label="Informácie o mapovom podklade"
           data-testid="map-provider-disclosure"
         >
-          Interaktívny mapový podklad poskytuje Google Maps a načíta sa až po tvojom výslovnom
-          povolení. Používanie Google Maps podlieha{" "}
+          Mapový podklad poskytuje Google Maps. Jeho používanie podlieha{" "}
           <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noreferrer">
             podmienkam Google Maps
           </a>{" "}
@@ -1427,7 +1424,7 @@ export function MapExperience({
           <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
             zásadám ochrany súkromia Google
           </a>
-          . Lokalizačné údaje Psipedie a rozhodnutia o ich verejnosti zostávajú v databáze Psipedie.
+          .
         </aside>
       ) : null}
     </>

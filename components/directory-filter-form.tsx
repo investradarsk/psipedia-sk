@@ -9,6 +9,7 @@ import { PublicFilterTag } from "@/components/public-visual-system/public-result
 import { PublicActionButton, PublicActionLink } from "@/components/public-visual-system";
 import { useEffect, useRef, useSyncExternalStore, type ChangeEvent } from "react";
 import type { DirectoryCategorySlug } from "@/lib/directory";
+import { legacyFacetMappings } from "@/lib/service-catalog-contract";
 import { serviceFiltersForCategory } from "@/lib/directory-filter-contract";
 import {
   publicDirectoryFacetKey,
@@ -19,19 +20,6 @@ import { directoryQueryFields } from "@/lib/directory-query";
 import { publicLocationValue } from "@/lib/public-location";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 import styles from "./directory-filter-form.module.css";
-
-const serviceLabels: Partial<Record<DirectoryCategorySlug, string>> = {
-  veterinari: "Služba / špecializácia",
-  treneri: "Zameranie / služba",
-  "kynologicke-kluby": "Disciplína / služba",
-  "chovatelske-kluby": "Zameranie",
-  "chovatelske-stanice": "Zameranie",
-  "salony-a-sluzby": "Služba",
-  "hotely-a-opatrovanie": "Typ starostlivosti",
-  vencenie: "Typ venčenia / služba",
-  fyzioterapia: "Terapia / zameranie",
-  "dalsie-sluzby": "Služba",
-};
 
 type Props = {
   filters: DirectoryFilters;
@@ -61,8 +49,14 @@ function FilterFields({
   modal = false,
 }: Props & { modal?: boolean }) {
   const activeCategory = category ?? filters.category;
-  const serviceCategory = activeCategory || "dalsie-sluzby";
-  const facets = serviceFiltersForCategory(activeCategory);
+  const serviceFacetIds = new Set(
+    legacyFacetMappings
+      .filter((mapping) => mapping.targetKind === "service")
+      .map((mapping) => mapping.legacyId),
+  );
+  const facets = serviceFiltersForCategory(activeCategory).filter(
+    (facet) => !serviceFacetIds.has(facet.id),
+  );
   const totalActive = [
     filters.query,
     filters.region,
@@ -91,15 +85,13 @@ function FilterFields({
         "region",
         "district",
         "city",
-        "service",
         "svc",
         "breed",
         "fci",
         "organization",
-        "type",
         "sort",
         "page",
-        "facets",
+        ...facets.map((facet) => publicDirectoryFacetKey(facet.id)),
       ]).map((field) => (
         <input type="hidden" name={field.name} value={field.value} key={field.name} />
       ))}
@@ -159,26 +151,11 @@ function FilterFields({
           </PublicSelect>
         </label>
       </fieldset>
-      {(options.services.length > 0 ||
-        options.breeds.length > 0 ||
+      {(options.breeds.length > 0 ||
         options.fciGroups.length > 0 ||
-        options.organizations.length > 0 ||
-        options.profileTypes.length > 0) && (
+        options.organizations.length > 0) && (
         <fieldset className={styles.group}>
           <legend>Ďalšie možnosti</legend>
-          {options.services.length > 0 && (
-            <label>
-              <span>{serviceLabels[serviceCategory] ?? "Služba / zameranie"}</span>
-              <PublicSelect appearance="context" name="service" defaultValue={filters.service}>
-                <option value="">Všetky služby</option>
-                {options.services.map((item) => (
-                  <option value={item} key={item}>
-                    {item}
-                  </option>
-                ))}
-              </PublicSelect>
-            </label>
-          )}
           {options.breeds.length > 0 && (
             <label>
               <span>Plemeno</span>
@@ -222,36 +199,33 @@ function FilterFields({
               </PublicSelect>
             </label>
           )}
-          {options.profileTypes.length > 0 && (
-            <label>
-              <span>Typ služby / poskytovateľa</span>
-              <PublicSelect appearance="context" name="type" defaultValue={filters.profileType}>
-                <option value="">Všetky typy</option>
-                {options.profileTypes.map((item) => (
-                  <option value={item} key={item}>
-                    {item}
-                  </option>
-                ))}
-              </PublicSelect>
-            </label>
-          )}
         </fieldset>
       )}
       {(options.canonicalServices?.length ?? 0) > 0 && (
         <fieldset className={styles.group} data-services-v3-canonical-filter>
-          <legend>Potvrdené služby (Services V3)</legend>
+          <legend>Služby</legend>
           <p className={styles.facetsHelp}>
-            Iba služby výslovne označené Áno pri publikovanom profile. Chýbajúce údaje
-            nezapočítavame.
+            Vyberte službu, ktorú poskytovateľ uvádza vo svojom profile.
           </p>
           <label>
-            <span>Služba z kanonického katalógu</span>
+            <span>Poskytovaná služba</span>
             <PublicSelect
               appearance="context"
               name="svc"
               defaultValue={filters.canonicalService ?? ""}
+              onChange={(event) => {
+                // Selecting the current catalogue replaces historical service/type restrictions.
+                for (const name of [
+                  "service",
+                  "type",
+                  ...[...serviceFacetIds].map(publicDirectoryFacetKey),
+                ]) {
+                  const old = event.currentTarget.form?.elements.namedItem(name);
+                  if (old instanceof HTMLInputElement) old.value = "";
+                }
+              }}
             >
-              <option value="">Všetky potvrdené služby</option>
+              <option value="">Všetky služby</option>
               {(options.canonicalServices ?? []).map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label}
@@ -263,10 +237,9 @@ function FilterFields({
       )}
       {facets.length > 0 && (
         <fieldset className={styles.group} data-directory-public-facets>
-          <legend>Služby a vlastnosti</legend>
+          <legend>Vlastnosti poskytovateľa</legend>
           <p className={styles.facetsHelp}>
-            Zobrazujeme iba výslovne potvrdené hodnoty. Neznáme údaje sa ako „Áno“ ani „Nie“
-            nezapočítajú.
+            Vyberte vlastnosti, ktoré potrebujete. Ak údaj v profile chýba, do výberu sa nezapočíta.
           </p>
           {facets.map((facet) =>
             facet.valueType === "tri_state" ? (
@@ -368,10 +341,10 @@ export function DirectoryFilterForm(props: Props) {
     { key: "region", label: "Kraj", value: filters.region },
     { key: "district", label: "Okres", value: filters.district },
     { key: "city", label: "Mesto", value: filters.city },
-    { key: "service", label: "Služba (starší filter)", value: filters.service },
+    { key: "service", label: "Zameranie", value: filters.service },
     {
       key: "svc",
-      label: "Potvrdená služba",
+      label: "Služba",
       value:
         (options.canonicalServices ?? []).find((s) => s.id === filters.canonicalService)?.label ??
         filters.canonicalService ??

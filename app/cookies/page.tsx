@@ -21,7 +21,7 @@ export default function CookiesPage() {
       <p className="lead">
         Psipedia.sk používa nevyhnutné technické údaje a lokálne úložisko. Google Analytics 4 sa
         spustí iba vtedy, keď návštevník analytiku výslovne povolí. Prípadné reklamné technológie
-        tretích strán majú samostatný technický consent gate.
+        tretích strán sa spustia až po príslušnom súhlase.
       </p>
 
       <PublicHeading role="section" as="h2">

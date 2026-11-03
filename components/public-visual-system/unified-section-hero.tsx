@@ -176,6 +176,7 @@ export async function UnifiedSectionHero({
   hideQuickLinks = false,
   className,
   variant = "homepage-style",
+  contentSource = "managed",
 }: {
   breadcrumbs?: ReactNode;
   eyebrow?: ReactNode;
@@ -190,10 +191,15 @@ export async function UnifiedSectionHero({
   hideQuickLinks?: boolean;
   className?: string;
   variant?: UnifiedSectionHeroVariant;
+  /** Route-specific category names must not be replaced by a parent landing title. */
+  contentSource?: "managed" | "route";
 }) {
-  const managedTitle = visual.heroContent?.title || title;
-  const managedEyebrow = visual.heroContent?.eyebrow || eyebrow;
-  const managedIntro = conciseHeroIntro(visual.heroContent?.intro || intro);
+  const managedTitle = contentSource === "route" ? title : visual.heroContent?.title || title;
+  const managedEyebrow =
+    contentSource === "route" ? eyebrow : visual.heroContent?.eyebrow || eyebrow;
+  const managedIntro = conciseHeroIntro(
+    contentSource === "route" ? intro : visual.heroContent?.intro || intro,
+  );
   const config: SectionHeroConfig = visual.heroContent?.config ?? {};
 
   const configuredLinks = (config.quickLinks ?? [])

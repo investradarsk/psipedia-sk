@@ -1,5 +1,12 @@
 import Link from "next/link";
-import type { ButtonHTMLAttributes, ComponentProps, HTMLAttributes, ReactElement, ReactNode } from "react";
+import { PublicArticleCard } from "./public-article-card";
+import type {
+  ButtonHTMLAttributes,
+  ComponentProps,
+  HTMLAttributes,
+  ReactElement,
+  ReactNode,
+} from "react";
 import { ArrowIcon } from "@/components/icons";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { ImageDisplay } from "@/components/image-display";
@@ -68,7 +75,11 @@ export function PublicIcon({
   size?: PublicIconSize;
   className?: string;
 }) {
-  return <span className={cx(styles.icon, iconSizeClass[size], className)} aria-hidden="true">{icon}</span>;
+  return (
+    <span className={cx(styles.icon, iconSizeClass[size], className)} aria-hidden="true">
+      {icon}
+    </span>
+  );
 }
 
 export function PublicSectionHeader({
@@ -94,14 +105,27 @@ export function PublicSectionHeader({
 }) {
   const sideVisual = image ? (
     <div className={cx(styles.headerVisual, styles.photoVisual)}>
-      <img src={image.src} srcSet={responsiveMediaSrcSet(image.src, [320, 640, 960, 1280])} sizes="(max-width: 620px) 100vw, 45vw" alt={image.alt} decoding="async" />
+      <img
+        src={image.src}
+        srcSet={responsiveMediaSrcSet(image.src, [320, 640, 960, 1280])}
+        sizes="(max-width: 620px) 100vw, 45vw"
+        alt={image.alt}
+        decoding="async"
+      />
     </div>
   ) : visual ? (
     <div className={styles.headerVisual}>{visual}</div>
   ) : null;
 
   return (
-    <header className={cx(styles.sectionHeader, headerVariantClass[variant], sideVisual && styles.hasVisual, className)}>
+    <header
+      className={cx(
+        styles.sectionHeader,
+        headerVariantClass[variant],
+        sideVisual && styles.hasVisual,
+        className,
+      )}
+    >
       <div className={styles.headerCopy}>
         {eyebrow ? <div className={styles.eyebrow}>{eyebrow}</div> : null}
         <h1>{title}</h1>
@@ -113,7 +137,6 @@ export function PublicSectionHeader({
     </header>
   );
 }
-
 
 export function PublicLandingHero({
   tone,
@@ -137,7 +160,10 @@ export function PublicLandingHero({
   className?: string;
 }) {
   return (
-    <section className={cx(styles.landingHero, styles[`landingHero_${tone}`], className)} data-public-landing-hero={tone}>
+    <section
+      className={cx(styles.landingHero, styles[`landingHero_${tone}`], className)}
+      data-public-landing-hero={tone}
+    >
       <div className={styles.landingHeroBody}>
         {eyebrow ? <div className={styles.landingHeroEyebrow}>{eyebrow}</div> : null}
         <h1>{title}</h1>
@@ -164,7 +190,11 @@ export function PublicCategoryTiles({
   className?: string;
 }) {
   return (
-    <nav className={cx(styles.categoryTiles, className)} aria-label={label} data-public-category-tiles>
+    <nav
+      className={cx(styles.categoryTiles, className)}
+      aria-label={label}
+      data-public-category-tiles
+    >
       {items.map((item, index) => (
         <Link
           className={cx(styles.categoryTile, item.current && styles.categoryTileCurrent)}
@@ -174,13 +204,17 @@ export function PublicCategoryTiles({
           rel={item.rel}
           prefetch={item.prefetch}
         >
-          {item.icon ? <PublicIcon icon={item.icon} size="lg" className={styles.categoryTileIcon} /> : null}
+          {item.icon ? (
+            <PublicIcon icon={item.icon} size="lg" className={styles.categoryTileIcon} />
+          ) : null}
           <span className={styles.categoryTileCopy}>
             <strong>{item.title}</strong>
             {item.description ? <span>{item.description}</span> : null}
             {item.meta ? <small>{item.meta}</small> : null}
           </span>
-          <span className={styles.categoryTileArrow} aria-hidden="true"><ArrowIcon size={18} /></span>
+          <span className={styles.categoryTileArrow} aria-hidden="true">
+            <ArrowIcon size={18} />
+          </span>
         </Link>
       ))}
     </nav>
@@ -197,7 +231,10 @@ export function PublicActionLink({
   target,
   rel,
   ...linkProps
-}: Omit<ComponentProps<typeof Link>, "href" | "children" | "icon" | "variant" | "target" | "rel"> & {
+}: Omit<
+  ComponentProps<typeof Link>,
+  "href" | "children" | "icon" | "variant" | "target" | "rel"
+> & {
   href: string;
   variant?: PublicActionVariant;
   /** Existing local styling; useful while migrating context CTA links. */
@@ -209,7 +246,18 @@ export function PublicActionLink({
   "data-testid"?: string;
 }) {
   return (
-    <Link {...linkProps} className={appearance === "context" ? className : cx(styles.action, actionVariantClass[variant], className)} data-public-action={variant} href={href} target={target} rel={rel}>
+    <Link
+      {...linkProps}
+      className={
+        appearance === "context"
+          ? className
+          : cx(styles.action, actionVariantClass[variant], className)
+      }
+      data-public-action={variant}
+      href={href}
+      target={target}
+      rel={rel}
+    >
       {appearance === "context" ? children : <span>{children}</span>}
       {icon ? <PublicIcon icon={icon} size="sm" /> : null}
     </Link>
@@ -241,12 +289,21 @@ export function PublicActionButton({
       aria-busy={loading ? true : ariaBusy}
       aria-label={loading ? loadingLabel : props["aria-label"]}
       data-public-action={variant}
-      className={cx(styles.action, actionVariantClass[variant], loading && styles.actionLoading, className)}
+      className={cx(
+        styles.action,
+        actionVariantClass[variant],
+        loading && styles.actionLoading,
+        className,
+      )}
     >
       <span role={loading ? "status" : undefined} aria-live={loading ? "polite" : undefined}>
         {loading ? loadingLabel : children}
       </span>
-      {loading ? <span className={styles.loadingIndicator} aria-hidden="true" /> : icon ? <PublicIcon icon={icon} size="sm" /> : null}
+      {loading ? (
+        <span className={styles.loadingIndicator} aria-hidden="true" />
+      ) : icon ? (
+        <PublicIcon icon={icon} size="sm" />
+      ) : null}
     </button>
   );
 }
@@ -260,7 +317,11 @@ export function PublicContentList({
   label?: string;
   className?: string;
 }) {
-  return <div className={cx(styles.contentList, className)} role="list" aria-label={label}>{children}</div>;
+  return (
+    <div className={cx(styles.contentList, className)} role="list" aria-label={label}>
+      {children}
+    </div>
+  );
 }
 
 export function PublicArticleListItem({
@@ -279,27 +340,31 @@ export function PublicArticleListItem({
   topic: ReactNode;
   date?: ReactNode;
   dateTime?: string;
-  image?: { src: string; alt: string; mode?: SmartImageMode; focusX?: number | null; focusY?: number | null; config?: ImageDisplayConfig | null };
+  image?: {
+    src: string;
+    alt: string;
+    mode?: SmartImageMode;
+    focusX?: number | null;
+    focusY?: number | null;
+    config?: ImageDisplayConfig | null;
+  };
   className?: string;
   listItem?: boolean;
   anchorId?: string;
 }) {
   return (
-    <Link id={anchorId} className={cx(styles.articleListItem, styles.articleListItemWithImage, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
-      <span className={styles.articleListMedia} data-article-image>
-        {image ? (
-          <ImageDisplay fallbackOnError context="thumbnail" config={image.config} legacyMode={image.mode} legacyFocusX={image.focusX} legacyFocusY={image.focusY} src={image.src} srcSet={responsiveMediaSrcSet(image.src, [160, 320, 480])} sizes="(max-width: 620px) 90px, 112px" alt={image.alt} loading="lazy" decoding="async" />
-        ) : <PublicMediaFallback label="Článok zatiaľ nemá fotografiu" />}
-      </span>
-      <span className={styles.articleListCopy}>
-        <strong className={styles.articleListTitle} data-article-title>{title}</strong>
-        <span className={styles.articleListMeta}>
-          <span className={styles.articleListTopic} data-article-topic>{topic}</span>
-          {date ? <span aria-hidden="true">·</span> : null}
-          {date ? (dateTime ? <time dateTime={dateTime} data-article-date>{date}</time> : <span data-article-date>{date}</span>) : null}
-        </span>
-      </span>
-    </Link>
+    <PublicArticleCard
+      variant="row"
+      href={href}
+      title={title}
+      topic={topic}
+      date={date}
+      dateTime={dateTime}
+      image={image}
+      className={className}
+      listItem={listItem}
+      anchorId={anchorId}
+    />
   );
 }
 
@@ -318,14 +383,42 @@ export function PublicContentListItem({
   eyebrow?: ReactNode;
   excerpt?: ReactNode;
   meta?: ReactNode;
-  image?: { src: string; alt: string; mode?: SmartImageMode; focusX?: number | null; focusY?: number | null; config?: ImageDisplayConfig | null };
+  image?: {
+    src: string;
+    alt: string;
+    mode?: SmartImageMode;
+    focusX?: number | null;
+    focusY?: number | null;
+    config?: ImageDisplayConfig | null;
+  };
   actionLabel?: string;
   className?: string;
 }) {
   return (
-    <Link className={cx(styles.contentItem, styles.contentItemWithImage, className)} href={href} role="listitem">
+    <Link
+      className={cx(styles.contentItem, styles.contentItemWithImage, className)}
+      href={href}
+      role="listitem"
+    >
       <span className={styles.contentMedia}>
-        {image ? <ImageDisplay fallbackOnError context="thumbnail" config={image.config} legacyMode={image.mode} legacyFocusX={image.focusX} legacyFocusY={image.focusY} src={image.src} srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, 33vw" alt={image.alt} loading="lazy" decoding="async" /> : <PublicMediaFallback label="Fotografia zatiaľ nie je pridaná" />}
+        {image ? (
+          <ImageDisplay
+            fallbackOnError
+            context="thumbnail"
+            config={image.config}
+            legacyMode={image.mode}
+            legacyFocusX={image.focusX}
+            legacyFocusY={image.focusY}
+            src={image.src}
+            srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960])}
+            sizes="(max-width: 620px) 100vw, 33vw"
+            alt={image.alt}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <PublicMediaFallback label="Fotografia zatiaľ nie je pridaná" />
+        )}
       </span>
       <span className={styles.contentCopy}>
         {eyebrow ? <span className={styles.itemEyebrow}>{eyebrow}</span> : null}
@@ -333,7 +426,10 @@ export function PublicContentListItem({
         {excerpt ? <span className={styles.contentExcerpt}>{excerpt}</span> : null}
         <span className={styles.contentFooter}>
           {meta ? <span className={styles.contentMeta}>{meta}</span> : <span />}
-          <span className={styles.actionCue}>{actionLabel}<ArrowIcon size={16} /></span>
+          <span className={styles.actionCue}>
+            {actionLabel}
+            <ArrowIcon size={16} />
+          </span>
         </span>
       </span>
     </Link>
@@ -368,7 +464,10 @@ export function PublicDataCard({
         {description ? <span className={styles.dataCardDescription}>{description}</span> : null}
         {meta ? <span className={styles.dataCardMeta}>{meta}</span> : null}
       </span>
-      <span className={styles.dataCardAction}>{actionLabel}<ArrowIcon size={17} /></span>
+      <span className={styles.dataCardAction}>
+        {actionLabel}
+        <ArrowIcon size={17} />
+      </span>
     </Link>
   );
 }
