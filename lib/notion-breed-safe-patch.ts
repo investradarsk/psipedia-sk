@@ -1,5 +1,5 @@
-import type { ManagedBreed, ManagedBreedInput } from "./breed-store";
-import { type BreedNotionField, type BreedFieldSnapshot, type planBreedNotionFieldDelta } from "./notion-breed-field-delta";
+import type { ManagedBreed, ManagedBreedInput } from "./breed-store.ts";
+import { type BreedNotionField, type BreedFieldSnapshot, type planBreedNotionFieldDelta } from "./notion-breed-field-delta.ts";
 
 type BreedFieldPlan = ReturnType<typeof planBreedNotionFieldDelta>;
 export type BreedSyncSkipped = { field: BreedNotionField; error: string };
