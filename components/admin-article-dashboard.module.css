@@ -100,3 +100,6 @@
     text-decoration: none;
   }
 }
+
+/* Inline editorial editing is opt-in on desktop; preserve mobile article cards. */
+@media (max-width: 899px) { .inlineDesktop { display: none; } }

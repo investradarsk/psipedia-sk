@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminPagination } from "@/components/admin-pagination";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminProfileReviewInlineApproval } from "@/components/admin-profile-review-inline-approval";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import {
   listProfileReviewsAdmin,
@@ -127,6 +128,7 @@ export default async function AdminProfileReviewsPage({
                 <span>Vytvorené: {formatDate(item.createdAt)}</span>
               </div>
             </div>
+            {item.status === "PENDING_REVIEW" && <AdminProfileReviewInlineApproval reviewId={item.id} currentStatus={item.status} />}
             <Link className="admin-review-open" href={`/admin/recenzie-profilov/${item.id}`}>
               Detail →
             </Link>

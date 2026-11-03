@@ -287,6 +287,48 @@ export async function updateManagedEshop(
 }
 
 
+/**
+ * Narrow desktop list mutation: public identity name and the verified shop URL only.
+ * Atomic timestamp compare-and-set avoids overwriting a concurrent editor,
+ * Notion mirror or bulk import. Slug, Lexical description, images, publication
+ * lifecycle, ratings and all partner relations remain untouched.
+ */
+export async function updateManagedEshopInline(
+  id: number,
+  input: { name: string; websiteUrl: string; expectedUpdatedAt: string },
+  actor: string,
+  database?: D1Database,
+): Promise<ManagedEshop> {
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new EshopRatingError("Neplatné ID e-shopu.", 400, "INVALID_ESHOP");
+  }
+  const name = normalizedText(input.name, "Názov", 160);
+  const websiteUrl = normalizedUrl(input.websiteUrl, "Web e-shopu");
+  // Unlike a logo, a shop website must be an external HTTP(S) destination.
+  if (!/^https?:\/\//i.test(websiteUrl)) {
+    throw new EshopRatingError("Web e-shopu musí byť adresa HTTP(S).", 400, "INVALID_ESHOP_PROFILE");
+  }
+  if (typeof input.expectedUpdatedAt !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/.test(input.expectedUpdatedAt) ||
+    input.expectedUpdatedAt.length > 40) {
+    throw new EshopRatingError("Chýba platná verzia e-shopu.", 400, "INVALID_VERSION");
+  }
+  const db = getEshopDatabase(database);
+  const now = new Date().toISOString();
+  const result = await db.prepare(`
+    UPDATE managed_eshops
+    SET name=?,website_url=?,updated_at=?,updated_by=?
+    WHERE id=? AND updated_at=?
+  `).bind(name, websiteUrl, now, actor, id, input.expectedUpdatedAt).run();
+  if (!result.meta.changes) {
+    throw new EshopRatingError("E-shop sa medzičasom zmenil. Obnov stránku.", 409, "ESHOP_CONFLICT");
+  }
+  const saved = await getManagedEshopById(id, db);
+  if (!saved) throw new EshopRatingError("E-shop sa nenašiel.", 404, "ESHOP_NOT_FOUND");
+  return saved;
+}
+
+
 export async function createManagedEshop(
   input: ManagedEshopUpdateInput,
   actor: string,

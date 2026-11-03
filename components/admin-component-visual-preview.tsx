@@ -1,4 +1,6 @@
 import { ContentHubCta } from "./content-hub-cta";
+import { AdminProfileComponentPreview } from "./admin-visual-library-profile-previews";
+import { AdminDetailComponentPreview } from "./admin-visual-library-detail-previews";
 import { PublicActionLink } from "./public-visual-system/public-visual-system";
 import { PublicArticleCallout } from "./public-visual-system/public-article-callout";
 import { PublicContextBanner } from "./public-visual-system/public-context-banner";
@@ -65,12 +67,60 @@ export const adminComponentPreviewSamples = [
   { id: "filter-tag", path: "components/public-visual-system/public-result-states.tsx", family: "filter", title: "Štítok filtra", description: "Spoločný vizuálny prvok aktívneho filtra." },
   { id: "loading", path: "components/public-visual-system/public-result-states.tsx", family: "other", title: "Načítavanie", description: "Spoločný stav pri načítaní obsahu." },
   { id: "fallback", path: "components/public-visual-system/public-media-fallback.tsx", family: "card", title: "Chýbajúca fotografia", description: "Skutočná náhrada za chýbajúci obrázok." },
+  { id: "breed-card", path: "components/breed-card.tsx", family: "card", title: "Karta plemena – atlas", description: "Verejná karta plemena s FCI údajmi a hodnotením. Iba ukážkové údaje." },
+  { id: "directory-card", path: "components/directory-card.tsx", family: "card", title: "Karta veterinárnej služby", description: "Skutočná karta adresára s ukážkovou prevádzkou a službami." },
+  { id: "event-list", path: "components/event-card.tsx", family: "card", title: "Podujatie – zoznam", description: "Riadkový variant verejného podujatia s ukážkovým dátumom a miestom." },
+  { id: "event-grid", path: "components/event-card.tsx", family: "card", title: "Podujatie – mriežka", description: "Kartový variant verejného podujatia s tým istým ukážkovým obsahom." },
+  { id: "help-card", path: "components/help-card.tsx", family: "card", title: "Pomoc psom – aktívny prípad", description: "Verejná karta pomoci s ilustračným priebehom zbierky." },
+  { id: "help-resolved", path: "components/help-card.tsx", family: "card", title: "Pomoc psom – ukončený prípad", description: "Rovnaký komponent s označením vyriešeného prípadu." },
+  { id: "related-breed-list", path: "components/related-entity-list.tsx", family: "card", title: "Súvisiace plemená", description: "Skutočné karty súvisiacich plemien s náhradnými obrázkami." },
+  { id: "directory-category-navigation", path: "components/directory-category-navigation.tsx", family: "category", title: "Navigácia kategórií služieb", description: "Skutočný prepínač kategórií adresára s ukážkovým výberom." },
+  { id: "site-footer", path: "components/site-footer.tsx", family: "other", title: "Pätička a právne odkazy", description: "Skutočná spoločná pätička webu s odkazmi a nastaveniami cookies." },
+  { id: "directory-services-short", path: "components/directory-services-list.tsx", family: "other", title: "Detail služby – poskytované služby", description: "Skutočný dvojstĺpcový zoznam služieb v profile s fiktívnym obsahom." },
+  { id: "directory-services-expanded", path: "components/directory-services-list.tsx", family: "other", title: "Detail služby – dlhý zoznam", description: "Skutočný zoznam nad limitom 10 položiek s tlačidlom na rozbalenie; v náhľade neaktívnym." },
+  { id: "breed-section-nav", path: "components/breed-section-nav.tsx", family: "category", title: "Detail plemena – navigácia sekcií", description: "Reálne sekciové záložky plemena s ilustračnými názvami." },
+  { id: "help-urgent", path: "components/help-card.tsx", family: "card", title: "Pomoc psom – urgentný prípad", description: "Skutočná karta so zvýraznením urgentnej pomoci, bez skutočnej výzvy." },
+  { id: "event-cancelled", path: "components/event-card.tsx", family: "card", title: "Podujatia – zrušený termín", description: "Skutočná mriežková karta zrušeného ilustračného podujatia." },
+  { id: "event-listing-filtered", path: "components/event-listing-results.tsx", family: "filter", title: "Podujatia – formulár filtrov a výsledky", description: "Celé skutočné rozloženie filtrov a výsledkov podujatí s fiktívnou kartou." },
+  { id: "event-listing-empty", path: "components/event-listing-results.tsx", family: "filter", title: "Podujatia – filtre bez výsledkov", description: "Skutočná prázdna výsledková sekcia po použití filtrov." },
 ] as const;
 
 export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[number]["id"];
 
 export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewId }) {
   switch (id) {
+    case "breed-card":
+      return <AdminProfileComponentPreview id="breed-card" />;
+    case "directory-card":
+      return <AdminProfileComponentPreview id="directory-card" />;
+    case "event-list":
+      return <AdminProfileComponentPreview id="event-list" />;
+    case "event-grid":
+      return <AdminProfileComponentPreview id="event-grid" />;
+    case "help-card":
+      return <AdminProfileComponentPreview id="help-card" />;
+    case "help-resolved":
+      return <AdminProfileComponentPreview id="help-resolved" />;
+    case "related-breed-list":
+      return <AdminProfileComponentPreview id="related-breed-list" />;
+    case "directory-category-navigation":
+      return <AdminProfileComponentPreview id="directory-category-navigation" />;
+    case "site-footer":
+      return <AdminProfileComponentPreview id="site-footer" />;
+    case "directory-services-short":
+      return <AdminDetailComponentPreview id="directory-services-short" />;
+    case "directory-services-expanded":
+      return <AdminDetailComponentPreview id="directory-services-expanded" />;
+    case "breed-section-nav":
+      return <AdminProfileComponentPreview id="breed-section-nav" />;
+    case "help-urgent":
+      return <AdminProfileComponentPreview id="help-urgent" />;
+    case "event-cancelled":
+      return <AdminProfileComponentPreview id="event-cancelled" />;
+    case "event-listing-filtered":
+      return <AdminDetailComponentPreview id="event-listing-filtered" />;
+    case "event-listing-empty":
+      return <AdminDetailComponentPreview id="event-listing-empty" />;
     case "magazine":
       return <PublicMagazineBanner testId="admin-preview-magazine" title="Objavte služby pre svojho psa"
         description="Nájdite veterinárov, trénerov a ďalších odborníkov." label="Prejsť do adresára" href="/adresar" />;

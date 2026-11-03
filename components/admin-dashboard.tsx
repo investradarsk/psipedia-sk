@@ -21,6 +21,7 @@ import {
   type ArticleAdminListFilters,
 } from "@/lib/article-admin-query";
 import type { ManagedArticleSummary, ManagedArticleSummaryPage } from "@/lib/article-store";
+import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import type { ArticleTopic } from "@/lib/article-topics";
 import type { AdminModuleCounts } from "@/lib/admin-dashboard-store";
 import { getNewsCategory } from "@/lib/news";
@@ -87,6 +88,8 @@ export function AdminDashboard({
   const [resultCount, setResultCount] = useState(initialResultCount);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
+  const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; excerpt: string } | null>(null);
+  const [inlineBusy, setInlineBusy] = useState(false);
 
   const membershipFilter = useMemo(() => normalizeArticleAdminBulkFilter({
     portalSection: fixedPortalSection ?? (filters.portalSection === "all" ? "" : filters.portalSection),
@@ -106,6 +109,48 @@ export function AdminDashboard({
   const filterFormRef = useRef<HTMLFormElement>(null);
   const routePath = fixedPortalSection ? "/admin/steniatka" : listPath;
   const paginationBase = articleAdminListHref(routePath, { ...filters, page: 1 });
+  const inlineKey = JSON.stringify([routePath, filters, pagination.page, articles.map(item => item.id)]);
+  const activeInline = inlineDraft?.key === inlineKey &&
+    articles.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.updatedAt)
+      ? inlineDraft : null;
+
+  function beginInline(article: ManagedArticleSummary) {
+    if (inlineBusy || deletingId !== null) return;
+    setInlineDraft({ id: article.id, key: inlineKey, updatedAt: article.updatedAt, excerpt: article.excerpt || "" });
+    setMessage("");
+  }
+
+  async function saveInline() {
+    const draft = activeInline;
+    if (!draft || inlineBusy) return;
+    setInlineBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/articles/${draft.id}`, {
+        method: "PATCH", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "set-inline-excerpt", excerpt: draft.excerpt,
+          expectedUpdatedAt: draft.updatedAt,
+        }),
+      });
+      const answer = await response.json() as {
+        error?: string; article?: { updatedAt: string; excerpt: string };
+        notionEditorialWriteback?: { status: string; code?: string };
+      };
+      if (!response.ok || !answer.article) throw new Error(answer.error || "Krátky popis sa nepodarilo uložiť.");
+      setArticles(current => current.map(item => item.id === draft.id
+        ? { ...item, excerpt: answer.article!.excerpt, updatedAt: answer.article!.updatedAt } : item));
+      setInlineDraft(null);
+      setMessage(answer.notionEditorialWriteback?.status === "blocked"
+        ? "Popis uložený. Synchronizácia s Notion potrebuje kontrolu."
+        : "Krátky popis bol uložený.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Rýchla úprava zlyhala.");
+    } finally {
+      setInlineBusy(false);
+    }
+  }
   function applyFilter(overrides: Partial<ArticleAdminListFilters>) {
     // Preserve unsent search/sort changes before an immediate select navigation.
     const form = filterFormRef.current;
@@ -285,10 +330,22 @@ export function AdminDashboard({
                       {article.newsCategory && <span>{getNewsCategory(article.newsCategory)?.shortLabel}</span>}
                     </div>
                     <h2><Link href={`/admin/clanky/${article.id}`}>{article.title}</Link></h2>
+                    {activeInline?.id === article.id
+                      ? <AdminInlineCellInput label={"Krátky popis článku " + article.title}
+                          value={activeInline.excerpt} maxLength={700} disabled={inlineBusy}
+                          onChange={excerpt => setInlineDraft(current => current ? { ...current, excerpt } : null)} />
+                      : <p className={styles.inlineDesktop}>{article.excerpt || "Bez krátkeho popisu"}</p>}
                     <p>Naposledy upravené {formattedDate(article.updatedAt)}</p>
                   </div>
                   <div className={`admin-row-actions ${styles.actions}`}>
                     {article.status === "published" && <Link href={articleHref(article)} target="_blank">Pozrieť ↗</Link>}
+                    <span className={styles.inlineDesktop}><AdminInlineRowActions
+                      editing={activeInline?.id === article.id} busy={inlineBusy}
+                      disabled={Boolean(activeInline && activeInline.id !== article.id) || deletingId !== null}
+                      onEdit={() => beginInline(article)}
+                      onSave={() => void saveInline()}
+                      onCancel={() => { if (!inlineBusy) setInlineDraft(null); }}
+                    /></span>
                     <Link className="admin-row-edit" href={`/admin/clanky/${article.id}`}>Upraviť</Link>
                     <button type="button" disabled={deletingId === article.id} onClick={() => removeArticle(article)}>
                       {deletingId === article.id ? "Odstraňujem…" : "Odstrániť"}

@@ -17,6 +17,7 @@ import {
 } from "@/components/admin-interaction-system";
 import { AdminPagination } from "@/components/admin-pagination";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { SearchIcon } from "@/components/icons";
 import { organizationAdminHref, type OrganizationAdminFilters } from "@/lib/help-organization-admin-query";
 import type { OrganizationAdminPage, OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
@@ -67,6 +68,8 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
   const [pendingPublication, setPendingPublication] = useState<{ item: OrganizationPublicationAdminItem; action: OrganizationPublicationAction } | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [inlineDraft, setInlineDraft] = useState<{ key: string; id: number; updatedAt: string; name: string; shortDescription: string } | null>(null);
+  const [inlineBusy, setInlineBusy] = useState(false);
 
   const pageIds = data.items.map((item) => item.id);
   const viewFingerprint = JSON.stringify({
@@ -80,6 +83,48 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
     incomplete: filters.incomplete,
     page: data.pagination.page,
   });
+  const activeInline = inlineDraft?.key === viewFingerprint &&
+    data.items.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.updatedAt)
+      ? inlineDraft : null;
+
+  function editInline(item: OrganizationPublicationAdminItem) {
+    if (inlineBusy || busyId !== null || bulkBusy || item.status === "ARCHIVED") return;
+    setError("");
+    setMessage("");
+    setInlineDraft({
+      key: viewFingerprint, id: item.id, updatedAt: item.updatedAt,
+      name: item.name, shortDescription: item.shortDescription,
+    });
+  }
+
+  async function saveInline() {
+    const draft = activeInline;
+    if (!draft || inlineBusy || !draft.name.trim()) return;
+    setInlineBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/organizations/" + draft.id, {
+        method: "PATCH",
+        credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "set-inline-summary",
+          expectedUpdatedAt: draft.updatedAt,
+          changes: { name: draft.name, shortDescription: draft.shortDescription },
+        }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Organizáciu sa nepodarilo upraviť.");
+      setInlineDraft(null);
+      setMessage("Názov a krátky popis organizácie boli uložené.");
+      router.refresh();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Rýchla úprava zlyhala.");
+    } finally {
+      setInlineBusy(false);
+    }
+  }
+
   const bulkSelection = useAdminBulkSelection({
     module: "organizations",
     membershipFingerprint: viewFingerprint,
@@ -239,8 +284,17 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
                 <span>{isPublic ? "Verejný profil" : "Neverejný profil"}</span>
                 <span>{item.preflight.ready ? "Publication READY" : "Publication BLOCKED"}</span>
               </div>
-              <h2><Link href={`/admin/organizacie/${item.id}`}>{item.name || "Bez názvu"}</Link></h2>
-              <p>{item.shortDescription || item.description || "Bez verejného popisu"}</p>
+              {activeInline?.id === item.id ? <>
+                <AdminInlineCellInput label={"Názov organizácie " + item.name} value={activeInline.name}
+                  maxLength={180} required disabled={inlineBusy}
+                  onChange={name => setInlineDraft(current => current ? { ...current, name } : null)} />
+                <AdminInlineCellInput label={"Krátky popis organizácie " + item.name} value={activeInline.shortDescription}
+                  maxLength={700} disabled={inlineBusy}
+                  onChange={shortDescription => setInlineDraft(current => current ? { ...current, shortDescription } : null)} />
+              </> : <>
+                <h2><Link href={`/admin/organizacie/${item.id}`}>{item.name || "Bez názvu"}</Link></h2>
+                <p>{item.shortDescription || item.description || "Bez verejného popisu"}</p>
+              </>}
               <p className={styles.meta}>#{item.id} · /organizacie/{item.slug || "—"} · lokality {item.locationCount} · fundraising {item.fundraisingCount} · adresár {item.directoryProfileId ? "#" + item.directoryProfileId : "—"} · aktualizované {formatDate(item.updatedAt)}</p>
               {item.completenessHints.length ? <div className={styles.hints} aria-label="Chýbajúce údaje">{item.completenessHints.map((hint) => <span key={hint}>{hint}</span>)}</div> : <div className={styles.hints}><span>Profil bez deterministických medzier</span></div>}
               {!item.preflight.ready && <p className={styles.preflight}><strong>Publication BLOCKED:</strong> {item.preflight.blockers.map((blocker) => blocker.message).join(" ")}</p>}
@@ -248,6 +302,15 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
             <div className={styles.actions}>
               <AdminReviewCheckbox entityType="ORGANIZATION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
               {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
+              {item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
+                editing={activeInline?.id === item.id}
+                busy={inlineBusy}
+                disabled={busyId !== null || bulkBusy || (activeInline !== null && activeInline.id !== item.id) ||
+                  (activeInline?.id === item.id && !activeInline.name.trim())}
+                onEdit={() => editInline(item)}
+                onSave={() => void saveInline()}
+                onCancel={() => { if (!inlineBusy) setInlineDraft(null); }}
+              /></span>}
               <Link className="admin-row-edit" href={"/admin/organizacie/" + item.id}>Spravovať</Link>
               <Link href={`/admin/organizacie/${item.id}#fundraising`}>Fundraising</Link>
               {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!hydrated || !item.preflight.ready || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "publish")}>Publikovať</AdminActionButton>}

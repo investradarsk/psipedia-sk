@@ -8,6 +8,8 @@ import {
   type ArticleFeedbackStatus,
 } from "@/lib/article-feedback-store";
 import styles from "./admin-article-feedback-dashboard.module.css";
+import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
+import rowStyles from "./admin-inline-card-actions.module.css";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("sk-SK", {
@@ -36,6 +38,7 @@ export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { f
   const [feedback, setFeedback] = useState(initialFeedback);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
+  const [rowDraft, setRowDraft] = useState<{ id: number; status: ArticleFeedbackStatus; initialStatus: ArticleFeedbackStatus } | null>(null);
 
   const helpful = feedback.filter((item) => item.helpful).length;
   const notHelpful = feedback.length - helpful;
@@ -59,11 +62,27 @@ export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { f
       setFeedback((current) => current.map((entry) => entry.id === item.id ? payload.feedback as ArticleFeedback : entry));
       setMessage(`Hodnotenie je označené ako „${statusLabels[status]}“.`);
       router.refresh();
+      return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Stav hodnotenia sa nepodarilo zmeniť.");
+      return false;
     } finally {
       setBusyId(null);
     }
+  }
+
+  function beginRow(item: ArticleFeedback) {
+    if (busyId !== null || item.helpful) return;
+    setRowDraft({ id: item.id, status: item.status, initialStatus: item.status });
+  }
+  async function saveRow(item: ArticleFeedback) {
+    const draft = rowDraft;
+    if (!draft || draft.id !== item.id || busyId !== null) return;
+    if (item.status !== draft.initialStatus) {
+      setMessage("Hodnotenie sa medzičasom zmenilo. Obnov zoznam.");
+      return;
+    }
+    if (draft.status === item.status || await updateStatus(item, draft.status)) setRowDraft(null);
   }
 
   return (
@@ -91,10 +110,26 @@ export function AdminArticleFeedbackDashboard({ feedback: initialFeedback }: { f
                 <Link href={item.articlePath} target="_blank" rel="noreferrer">Otvoriť článok ↗</Link>
                 {!item.helpful && (
                   <footer className={styles.actions}>
-                    {item.status !== "new" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "new")}>Nové</button>}
-                    {item.status !== "reviewing" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "reviewing")}>Rieši sa</button>}
-                    {item.status !== "resolved" && <button className={styles.primary} type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "resolved")}>Vyriešené</button>}
-                    {item.status !== "dismissed" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "dismissed")}>Ignorovať</button>}
+                    <span className={rowStyles.desktop}>
+                    {rowDraft?.id === item.id && <AdminInlineCellSelect
+                      label={"Stav hodnotenia článku " + item.articleTitle}
+                      value={rowDraft.status} disabled={busyId !== null}
+                      options={Object.entries(statusLabels).map(([value,label]) => ({ value, label }))}
+                      onChange={status => setRowDraft(prev => prev ? {...prev, status: status as ArticleFeedbackStatus} : null)}
+                    />}
+                    <AdminInlineRowActions editing={rowDraft?.id === item.id}
+                      busy={busyId === item.id} disabled={busyId !== null || Boolean(rowDraft && rowDraft.id !== item.id)}
+                      onEdit={() => beginRow(item)}
+                      onSave={() => void saveRow(item)}
+                      onCancel={() => { if (busyId === null) setRowDraft(null); }}
+                    />
+                    </span>
+                    <span className={rowStyles.mobile}>
+                      {item.status !== "new" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "new")}>Nové</button>}
+                      {item.status !== "reviewing" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "reviewing")}>Rieši sa</button>}
+                      {item.status !== "resolved" && <button className={styles.primary} type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "resolved")}>Vyriešené</button>}
+                      {item.status !== "dismissed" && <button type="button" disabled={busyId === item.id} onClick={() => void updateStatus(item, "dismissed")}>Ignorovať</button>}
+                    </span>
                   </footer>
                 )}
               </article>

@@ -1,15 +1,21 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminNumberedPagination } from "@/components/admin-pagination";
 import { AdminDataTableRegion } from "@/components/admin-data-table-region";
 import { adminFilteredListHref } from "@/lib/admin-list-query";
 import { adoptionRegions, adoptionStatusLabels, adoptionStatuses } from "@/lib/adoption";
 import {
-  adoptionAdminSorts,
   type AdoptionAdminListFilters,
   type AdoptionAdminListResult,
   type AdoptionAdminSort,
+  type AdoptionAdminSummary,
 } from "@/lib/adoption-admin-store";
+import { adoptionAdminSorts } from "@/lib/adoption-admin-sorts";
 import styles from "./admin-lost-found.module.css";
 
 function formatDate(value: string | null) {
@@ -41,7 +47,41 @@ const sortLabels: Record<AdoptionAdminSort, string> = {
 };
 
 export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] }) {
+  const router = useRouter();
   const reviewed = new Set(reviewedIds);
+  const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; name: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const viewKey = JSON.stringify([filters, result.pagination.page, result.items.map(item => item.id)]);
+  const activeInline = inlineDraft?.key === viewKey && result.items.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.updatedAt)
+    ? inlineDraft : null;
+  function beginInline(item: AdoptionAdminSummary) {
+    if (busy || item.status === "ARCHIVED") return;
+    setMessage("");
+    setInlineDraft({ id: item.id, updatedAt: item.updatedAt, key: viewKey, name: item.name });
+  }
+  async function saveInline() {
+    const draft = activeInline;
+    if (!draft || busy || !draft.name.trim()) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/adoptions/" + draft.id, {
+        method: "PATCH", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "set-inline-name", name: draft.name, expectedUpdatedAt: draft.updatedAt }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Meno psa sa nepodarilo uložiť.");
+      setInlineDraft(null);
+      setMessage("Meno psa bolo uložené.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Rýchla úprava zlyhala.");
+    } finally {
+      setBusy(false);
+    }
+  }
   const stats = [
     { key: "all", label: "Všetky", count: result.counts.total, href: adminHref(filters, { status: "", freshness: "all", page: 1 }), active: !filters.status && (filters.freshness ?? "all") === "all" },
     ...adoptionStatuses.map((status) => ({ key: status, label: adoptionStatusLabels[status], count: result.counts[status], href: adminHref(filters, { status, freshness: "all", page: 1 }), active: filters.status === status && (filters.freshness ?? "all") === "all" })),
@@ -60,8 +100,23 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
       <select name="sort" defaultValue={filters.sort ?? "updated-desc"} aria-label="Radenie">{adoptionAdminSorts.map((sort)=><option key={sort} value={sort}>{sortLabels[sort]}</option>)}</select>
       <button type="submit">Filtrovať</button>
     </form>
+    {message && <p role="status">{message}</p>}
     <AdminDataTableRegion className={`${styles.tableWrap} ${styles.adoptionTableRegion}`} label="Zoznam adopcií – tabuľka"><table className={styles.table}><thead><tr><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
-      {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><div className={styles.rowTitle}><strong>{item.name}</strong><small>#{item.id} · /{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact /><Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link></div></td></tr>})}
+      {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><div className={styles.rowTitle}>{activeInline?.id === item.id
+    ? <AdminInlineCellInput label={"Meno psa " + item.name} value={activeInline.name}
+        maxLength={180} required disabled={busy}
+        onChange={name => setInlineDraft(previous => previous ? { ...previous, name } : null)} />
+    : <strong>{item.name}</strong>}
+    <small>#{item.id} · /{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />{item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
+    editing={activeInline?.id === item.id}
+    busy={busy}
+    disabled={Boolean(activeInline && activeInline.id !== item.id) ||
+      (activeInline?.id === item.id && !activeInline.name.trim())}
+    onEdit={() => beginInline(item)}
+    onSave={() => void saveInline()}
+    onCancel={() => { if (!busy) setInlineDraft(null); }}
+  /></span>}
+  <Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link></div></td></tr>})}
       {!result.items.length&&<tr><td colSpan={7}>Žiadne adopcie pre zvolené filtre.</td></tr>}
     </tbody></table></AdminDataTableRegion>
     <section className={styles.adoptionCards} aria-label="Zoznam adopcií – mobilné karty">

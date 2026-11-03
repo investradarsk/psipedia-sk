@@ -83,3 +83,13 @@ a.value {color:#145ca5;}
 .overviewLink{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border-radius:10px;border:1px solid #265f3d;background:#265f3d;color:#fff;font-size:13px;font-weight:800;text-decoration:none}
 .overviewLink:hover{background:#19482d;color:#fff}
 .overviewLink:focus-visible{outline:3px solid #7fb494;outline-offset:2px}
+
+
+/* Safe inline correction of public text proposals. No changes to the original mobile review. */
+.inlineCorrection {display:grid;gap:6px;min-width:0;max-width:560px}
+.inlineCorrection label {font-size:12px;font-weight:800;color:#244f35}
+.inlineCorrection input {width:100%;min-width:0;min-height:44px;padding:8px 10px;font:inherit;border:1px solid #a8c8b2;border-radius:9px;background:#fff}
+.inlineCorrection small {font-size:12px;color:#587160;overflow-wrap:anywhere}
+.inlineCorrection input:focus-visible,.desktopEdit:focus-visible {outline:3px solid #7db493;outline-offset:2px}
+.actions .desktopEdit {min-height:44px;border:1px solid #9bc6a9;background:#f3faf5;color:#1b5638;border-radius:9px;padding:9px 12px;font-weight:750}
+@media(max-width:899px){.desktopEdit{display:none!important}}

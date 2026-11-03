@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AdminVisualLibrarySourceSimilarity } from "@/components/admin-visual-library-source-similarity";
+import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
 import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store";
@@ -20,10 +22,11 @@ type ComparedItem = {
 
 export function AdminVisualLibraryDuplicates({
   articleUsage,
-  examples,
+  examples, registry,
 }: {
   articleUsage: ArticleBannerUsageResult;
   examples: readonly VisualLibraryExample[];
+  registry: CoverageRegistry;
 }) {
   const allItems = useMemo<ComparedItem[]>(() => [
     ...visualLibraryBanners.map((banner) => ({
@@ -208,6 +211,7 @@ export function AdminVisualLibraryDuplicates({
       <p className={styles.nextStep}>
         Toto je kontrola možných podobností evidovaných komponentov, nie automatický vizuálny audit každej URL. Zlúčenie bude vždy samostatná schválená úprava.
       </p>
+      <AdminVisualLibrarySourceSimilarity registry={registry} />
     </section>
   );
 }

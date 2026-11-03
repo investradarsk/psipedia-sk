@@ -243,3 +243,8 @@
 .graphicIntro strong{font-size:.9rem;color:#164431}
 .graphicIntro p{font-size:.78rem;color:#587164;margin:3px 0 0}
 @media(max-width:600px){.graphicDialog{width:calc(100% - 12px)}.graphicIntro button{width:100%}}
+
+/* Quick text editing is visible only on desktop; original mobile cards remain. */
+.inlineCaption{display:block;width:100%;box-sizing:border-box;min-height:74px;padding:8px;border:1px solid #bdd1c4;border-radius:7px;font:inherit;font-size:.82rem;background:#fff;color:#173e2f;resize:vertical}
+.inlineCaption:focus-visible{outline:2px solid #ac4e38;outline-offset:2px}
+@media (max-width: 899px){.inlineDesktop{display:none}}

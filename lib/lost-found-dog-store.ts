@@ -456,6 +456,49 @@ export async function transitionAdminDogReportStatus(
   return { id: Number(row.id), status: nextStatus, updatedAt: now };
 }
 
+/** Name-only quick edit. Keep the public search index in sync without
+ * rewriting moderation, public-submission media, or encrypted private data. */
+export async function updateAdminDogReportInlineName(
+  id: number, dogName: string | null, expectedUpdatedAt: string,
+  databaseInput?: D1Database,
+) {
+  if (!Number.isSafeInteger(id) || id < 1 || !expectedUpdatedAt?.trim()) {
+    throw new Error("Neplatné ID alebo verzia hlásenia.");
+  }
+  if (dogName !== null && (typeof dogName !== "string" || dogName.trim().length > 120)) {
+    throw new Error("Meno psa môže mať najviac 120 znakov.");
+  }
+  const name = dogName?.trim() || null;
+  const database = requireD1Binding(databaseInput);
+  const before = await database.prepare(`SELECT id,type,status,dog_name,breed,color,description,
+    distinguishing_marks,region,district,city,location_description,source,
+    updated_at,duplicate_of_id FROM lost_found_dog_reports WHERE id=? LIMIT 1`)
+    .bind(id).first<{
+      id: number; type: string; status: string; dog_name: string | null;
+      breed: string; color: string; description: string; distinguishing_marks: string;
+      region: string; district: string; city: string; location_description: string;
+      source: string; updated_at: string; duplicate_of_id: number | null;
+    }>();
+  if (!before) return null;
+  if (before.updated_at !== expectedUpdatedAt || before.status === "ARCHIVED" ||
+      before.duplicate_of_id !== null) {
+    throw new Error("Hlásenie sa medzičasom zmenilo alebo ho nemožno upraviť. Obnov tabuľku.");
+  }
+  const searchText = normalizeSearch([
+    before.type, name, before.breed, before.color, before.description,
+    before.distinguishing_marks, before.region, before.district, before.city,
+    before.location_description, before.source,
+  ].filter(Boolean).join(" "));
+  const result = await database.prepare(`UPDATE lost_found_dog_reports
+    SET dog_name=?,search_text=?,updated_at=?
+    WHERE id=? AND updated_at=? AND status <> 'ARCHIVED'
+      AND duplicate_of_id IS NULL RETURNING id`)
+    .bind(name, searchText, new Date().toISOString(), id, expectedUpdatedAt)
+    .first<{ id: number }>();
+  if (!result) throw new Error("Hlásenie sa medzitým zmenilo. Obnov tabuľku.");
+  return result.id;
+}
+
 export async function updateAdminDogReport(id: number, input: ManagedDogReportInput, actor: string) {
   const database = requireD1Binding();
   const existing = await getAdminDogReport(id);

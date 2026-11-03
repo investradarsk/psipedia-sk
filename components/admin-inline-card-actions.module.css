@@ -1,0 +1,4 @@
+/* Shared desktop-only inline status editors; original mobile actions stay visible. */
+.desktop{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+.mobile{display:none;align-items:center;flex-wrap:wrap;gap:8px}
+@media(max-width:899px){.desktop{display:none}.mobile{display:flex}}

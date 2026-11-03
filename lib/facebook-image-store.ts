@@ -174,6 +174,43 @@ async function verifyImage(input:FacebookImageInput) {
   const object=await bucket.head(input.imageKey);
   if (!object || !["image/jpeg","image/png","image/webp"].includes(object.httpMetadata?.contentType??"")) throw new Error("Uložený obrázok sa v úložisku nenašiel.");
 }
+/** Text-only quick edit for manual, unapproved DRAFT image posts.
+ * Preserves scheduling, publication state, approvals, image keys and Notion
+ * authority. A publish attempt or direct consent always blocks the edit. */
+export async function updateFacebookImageDraftInlineText(
+  id: string, raw: unknown, expectedVersion: number, actor: string,
+  db = facebookImageDb(),
+) {
+  await requireFacebookImageSchema(db);
+  if (typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id) ||
+      !Number.isSafeInteger(expectedVersion) || expectedVersion < 1 ||
+      !raw || typeof raw !== "object" || Array.isArray(raw)) throw new FacebookImageConflict();
+  const values = raw as Record<string, unknown>;
+  if (Object.keys(values).length !== 2 ||
+      typeof values.title !== "string" || typeof values.caption !== "string" ||
+      values.title.length > 200 || values.caption.length > 15000) {
+    throw new Error("Rýchlo možno zmeniť iba titulok a text príspevku.");
+  }
+  const title = values.title.trim() || "Facebook obrázok";
+  const caption = values.caption.trim();
+  const publisher = await hasPublisherSchema(db);
+  const consent = await hasDirectConsentSchema(db);
+  const trash = await hasTrashSchema(db);
+  const now = new Date().toISOString();
+  const row = await db.prepare(`UPDATE facebook_image_posts
+    SET title=?,caption=?,version=version+1,updated_at=?,updated_by=?
+    WHERE id=? AND version=? AND status='draft'
+      AND article_id IS NULL AND notion_page_id IS NULL
+      AND approval_status='UNREVIEWED'
+      ${trash ? "AND deleted_at IS NULL" : ""}
+      ${consent ? "AND (direct_publish_consent IS NULL OR direct_publish_consent=0)" : ""}
+      ${publisher ? "AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)" : ""}
+    RETURNING id`)
+    .bind(title, caption, now, actor, id, expectedVersion).first<{id:string}>();
+  if (!row) throw new FacebookImageConflict();
+  return getFacebookImagePost(row.id, db);
+}
+
 export async function saveFacebookImagePost(
   id:string|null,raw:unknown,actor:string,db=facebookImageDb(),
   articleId:number|null=null,articleOptions?:{imageMode:"photo"|"graphic";includeLink:boolean},

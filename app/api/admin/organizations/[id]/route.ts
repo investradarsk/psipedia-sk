@@ -8,6 +8,7 @@ import {
   isOrganizationAdminWriteConflict,
   updateOrganizationFromAdmin,
   updateShelterInlineFieldsFromAdmin,
+  updateOrganizationInlineSummaryFromAdmin,
 } from "@/lib/help-organization-admin-write";
 import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 
@@ -81,8 +82,8 @@ export async function PATCH(request: Request, { params }: Props) {
   if (!id) return Response.json({ error: "Neplatné ID útulku." }, { status: 400 });
   if (!expectsJson(request)) return Response.json({ error: "Očakáva sa JSON požiadavka." }, { status: 415 });
 
-  let body: { expectedUpdatedAt?: unknown; changes?: unknown };
-  try { body = await request.json() as { expectedUpdatedAt?: unknown; changes?: unknown }; }
+  let body: { expectedUpdatedAt?: unknown; changes?: unknown; action?: unknown };
+  try { body = await request.json() as { expectedUpdatedAt?: unknown; changes?: unknown; action?: unknown }; }
   catch { return Response.json({ error: "Neplatné JSON dáta." }, { status: 400 }); }
   const expectedUpdatedAt = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : "";
   if (!expectedUpdatedAt.trim()) {
@@ -95,6 +96,38 @@ export async function PATCH(request: Request, { params }: Props) {
     // The writer re-reads and uses an atomic updated_at compare-and-set.
     if (before.updatedAt !== expectedUpdatedAt) {
       return Response.json({ error: "Záznam sa medzitým zmenil. Obnov tabuľku." }, { status: 409 });
+    }
+    if (body.action === "set-inline-summary") {
+      if (!body.changes || typeof body.changes !== "object" || Array.isArray(body.changes)) {
+        return Response.json({ error: "Chýbajú údaje organizácie." }, { status: 400 });
+      }
+      const fields = body.changes as Record<string, unknown>;
+      if (Object.keys(fields).length !== 2 ||
+        !Object.keys(fields).every(key => ["name", "shortDescription"].includes(key)) ||
+        typeof fields.name !== "string" || typeof fields.shortDescription !== "string") {
+        return Response.json({ error: "Rýchla úprava umožňuje iba názov a krátky popis." }, { status: 400 });
+      }
+      const name = fields.name.trim();
+      const shortDescription = fields.shortDescription.trim();
+      if (!name || name.length > 180 || shortDescription.length > 700) {
+        return Response.json({ error: "Neplatná dĺžka názvu alebo krátkeho popisu." }, { status: 400 });
+      }
+      const item = await updateOrganizationInlineSummaryFromAdmin(
+        id, { name, shortDescription }, auth.user.email, expectedUpdatedAt,
+      );
+      if (!item) return Response.json({ error: "Organizácia už neexistuje." }, { status: 404 });
+      const notionFieldSync = await syncSavedNotionRecord({
+        bindings: env as unknown as TargetedNotionSaveBindings,
+        agenda: "organizations", entityId: id,
+      });
+      if (before.status === "PUBLISHED" || item.status === "PUBLISHED") {
+        const version = (env as unknown as UploadBindings).CF_VERSION_METADATA?.id;
+        await invalidateVersionedPublicHtmlCacheUrl(new URL(`/organizacie/${item.slug}`, request.url), version);
+      }
+      return Response.json({ item, notionFieldSync }, { headers: { "cache-control": "no-store" } });
+    }
+    if (body.action !== undefined) {
+      return Response.json({ error: "Nepodporovaná akcia." }, { status: 400 });
     }
     const payload = organizationInputWithShelterInlineChanges(before, body.changes);
     const item = await updateShelterInlineFieldsFromAdmin(id, payload, auth.user.email, expectedUpdatedAt);

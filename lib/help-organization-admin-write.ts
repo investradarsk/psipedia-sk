@@ -223,6 +223,36 @@ export async function updateShelterInlineFieldsFromAdmin(
   return getOrganizationPublicationAdminById(id, db);
 }
 
+/** Narrow summary update used by the organization admin list, without
+ * rewriting contact fields, media, locality, type, slug or lifecycle. */
+export async function updateOrganizationInlineSummaryFromAdmin(
+  id: number,
+  changes: { name: string; shortDescription: string },
+  editorEmail: string,
+  expectedUpdatedAt: string,
+  database?: AdoptionD1Database,
+) {
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
+  if (!expectedUpdatedAt?.trim()) throw new OrganizationConcurrentEditError();
+  const db = requireD1Binding(database);
+  const current = await getOrganizationPublicationAdminById(id, db);
+  if (!current) return null;
+  if (current.updatedAt !== expectedUpdatedAt) throw new OrganizationConcurrentEditError();
+  if (current.status === "ARCHIVED" || current.archivedAt) {
+    throw new OrganizationPublicationTransitionError("Archivovanú organizáciu nemožno upravovať.");
+  }
+  const result = await db.prepare(`UPDATE help_organizations
+    SET name=?, short_description=?, updated_at=?, updated_by=?
+    WHERE id=? AND updated_at=? AND status IN ('DRAFT','PUBLISHED')
+      AND archived_at IS NULL`
+  ).bind(changes.name, changes.shortDescription, new Date().toISOString(),
+    editorEmail, id, expectedUpdatedAt).run() as RunResult;
+  if (Number(result.meta?.changes ?? result.changes ?? 0) !== 1) {
+    throw new OrganizationConcurrentEditError();
+  }
+  return getOrganizationPublicationAdminById(id, db);
+}
+
 export async function changeOrganizationPublicationFromAdmin(
   id: number,
   action: OrganizationPublicationAction,

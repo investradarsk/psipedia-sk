@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
+import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import {
   adminBreedCounts,
   defaultAdminBreedFilters,
@@ -39,6 +40,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
   const [busy, setBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ManagedBreedSummary | null>(null);
   const [bulkStatus, setBulkStatus] = useState<BulkStatus | null>(null);
+  const [inlineDraft, setInlineDraft] = useState<{ id: number; updatedAt: string; intro: string } | null>(null);
 
   // E2E and assistive integrations can wait for interactive readiness before
   // changing controlled filters; SSR markup alone does not attach handlers.
@@ -65,6 +67,46 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
   // “Select visible” means the current rendered page; selected breeds on
   // other pages remain selected for the existing guarded bulk action.
   const visibleIds = pageData.items.map((breed) => breed.id);
+  const activeInline = inlineDraft && pageData.items.some(item =>
+    item.id === inlineDraft.id && item.updatedAt === inlineDraft.updatedAt) ? inlineDraft : null;
+
+  function beginInline(breed: ManagedBreedSummary) {
+    if (busy) return;
+    setMessage("");
+    setInlineDraft({ id: breed.id, updatedAt: breed.updatedAt, intro: breed.intro ?? "" });
+  }
+
+  async function saveInline() {
+    const draft = activeInline;
+    if (!draft || busy) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/breeds/${draft.id}`, {
+        method: "PATCH", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "set-inline-intro", intro: draft.intro,
+          expectedUpdatedAt: draft.updatedAt,
+        }),
+      });
+      const answer = await response.json() as {
+        error?: string; breed?: { intro: string; updatedAt: string };
+        notionEditorialWriteback?: { status: string };
+      };
+      if (!response.ok || !answer.breed) throw new Error(answer.error || "Úvod sa nepodarilo uložiť.");
+      setBreeds(current => current.map(item => item.id === draft.id
+        ? { ...item, intro: answer.breed!.intro, updatedAt: answer.breed!.updatedAt } : item));
+      setInlineDraft(null);
+      setMessage(answer.notionEditorialWriteback?.status === "blocked"
+        ? "Úvod bol uložený. Synchronizácia s Notion si vyžaduje kontrolu."
+        : "Úvod plemena bol uložený.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Rýchlu úpravu sa nepodarilo uložiť.");
+    } finally {
+      setBusy(false);
+    }
+  }
   const selectedBreeds = breeds.filter((breed) => selected.has(breed.id));
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
   const someVisibleSelected = visibleIds.some((id) => selected.has(id)) && !allVisibleSelected;
@@ -210,12 +252,24 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
             <div className={styles.statusLine}><span className={`admin-status admin-status--${breed.status}`}>{breed.status === "published" ? "Publikované" : "Koncept"}</span>{breed.fciNumber && <span>FCI {breed.fciNumber}</span>}</div>
             <h2><Link href={`/admin/plemena/${breed.id}`}>{breed.name}</Link></h2>
             <p>/{breed.slug}</p>
+            {activeInline?.id === breed.id
+              ? <AdminInlineCellInput label={"Úvod plemena " + breed.name} value={activeInline.intro}
+                  maxLength={1000} disabled={busy}
+                  onChange={intro => setInlineDraft(current => current ? { ...current, intro } : null)} />
+              : <p className={styles.inlineDesktop}>{breed.intro || "Úvod nie je vyplnený."}</p>}
           </div>
           <div className={styles.meta}><strong>FCI {breed.fciGroup} · {breed.fciSection || "Sekcia neuvedená"}</strong><span>{breed.origin || "Pôvod neuvedený"}</span></div>
           <div className={styles.issueList}>{breed.completenessIssues.length ? breed.completenessIssues.map((issue) => <span className={styles.issue} data-breed-completeness key={issue}>{issue}</span>) : <span className={styles.complete}>Bez detegovaných medzier</span>}</div>
           <div className={styles.updated}><strong>Upravené</strong><br/>{formatUpdatedAt(breed.updatedAt)}</div>
           <div className={styles.actions}>
             {breed.status === "published" && <Link href={`/plemena/${breed.slug}`} target="_blank">Pozrieť ↗</Link>}
+            <span className={styles.inlineDesktop}><AdminInlineRowActions
+              editing={activeInline?.id === breed.id} busy={busy}
+              disabled={Boolean(activeInline && activeInline.id !== breed.id)}
+              onEdit={() => beginInline(breed)}
+              onSave={() => void saveInline()}
+              onCancel={() => { if (!busy) setInlineDraft(null); }}
+            /></span>
             <Link className="admin-row-edit" href={`/admin/plemena/${breed.id}`}>Upraviť</Link>
             <AdminActionButton variant="destructive" disabled={busy} onClick={() => setDeleteTarget(breed)}>Odstrániť</AdminActionButton>
           </div>

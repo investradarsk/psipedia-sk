@@ -51,13 +51,20 @@ test("Gemini V4 all concepts: 22 categories, 3 sections and compact mobile rows"
     expect(new Set(calls).size).toBe(22);
     expect(writes).toBe(0);
 
-    await expect(page.getByRole("heading", { name: "Služby pre psov" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Podujatia" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Pomoc psom" })).toBeVisible();
+    // V4 uses one compact table rather than three section headings.
+    // All three domain groups remain accessible through the category filter.
+    await expect(page.getByRole("heading", { name: "Všetky koncepty Gemini" })).toBeVisible();
+    const categoryFilter = page.getByRole("combobox", { name: "Kategória" });
+    for (const group of ["Služby pre psov", "Podujatia", "Pomoc psom"]) {
+      await expect(categoryFilter.locator(`optgroup[label="${group}"]`)).toHaveCount(1);
+    }
+    await expect(categoryFilter.locator("optgroup")).toHaveCount(3);
+    await expect(page.getByRole("table").getByRole("columnheader", { name: "Kategória" })).toBeVisible();
     await expect(page.getByText("E2E veterinárna ambulancia")).toBeVisible();
     await expect(page.getByText("E2E výstava psov")).toBeVisible();
     await expect(page.getByText("E2E útulok")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Otvoriť editor →" }))
+    await expect(page.getByRole("row", { name: /E2E výstava psov/ })
+      .getByRole("link", { name: "Editor" }))
       .toHaveAttribute("href", "/admin/podujatia/321");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
       .toBe(true);
@@ -79,7 +86,9 @@ test("Gemini V4 all concepts: 22 categories, 3 sections and compact mobile rows"
     await expect(page.getByText("E2E útulok")).toBeVisible();
     await expect(page.getByText("E2E výstava psov")).toHaveCount(0);
     // A Notion-only concept does not open another Gemini editor.
-    await expect(page.getByRole("link", { name: "Čaká na D1 · zobraziť stav →" })).toBeVisible();
+    await expect(page.getByRole("row", { name: /E2E útulok/ })
+      .getByRole("link", { name: "Editor" }))
+      .toHaveAttribute("href", /\/admin\/automatizacie-gemini\?stable_key=help\.utulky/);
     await expect(page.getByRole("combobox", { name: "Kategória" })).toHaveValue("help.utulky");
     expect(writes).toBe(0);
   }
