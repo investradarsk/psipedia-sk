@@ -12,6 +12,14 @@ export type SourceMatchGroup = {
   files: string[];
   count: number;
 };
+export type NearJsxCandidate = {
+  leftPath: string;
+  rightPath: string;
+  score: number;
+  sharedTags: number;
+  leftElements: number;
+  rightElements: number;
+};
 export type ExactCssGroup = {
   id: string;
   propertyCount: number;
@@ -31,10 +39,12 @@ export type VisualDeepAudit = {
     exactCssGroups: number;
     exactSourceGroups: number;
     matchingJsxStructureGroups: number;
+    nearJsxCandidatePairs: number;
   };
   modules: DeepVisualModule[];
   cssFiles: Array<{path:string;rules:number}>;
   identicalSourceGroups: SourceMatchGroup[];
   similarStructureGroups: SourceMatchGroup[];
+  nearJsxCandidates: NearJsxCandidate[];
   exactCssDeclarationGroups: ExactCssGroup[];
 };
