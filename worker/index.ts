@@ -26,6 +26,7 @@ import { notionSyncHealth, notionAgendaHealth } from "../lib/notion-sync-health.
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
 import { dispatchNotionPageChange } from "../lib/notion-webhook-dispatch";
 import { runNotionWebhookInboxSweep } from "../lib/notion-webhook-inbox";
+import { runManualTransferQueueBatch } from "../lib/notion-manual-transfer-queue";
 import {
   runNotionDirectoryBootstrapSweep,
   runNotionDirectorySyncSweep,
@@ -67,6 +68,7 @@ interface Env {
   VAPID_SUBJECT?: string;
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_BREED_SYNC_ENABLED?: string;
+  NOTION_MANUAL_TRANSFER_ENABLED?: string;
   NOTION_EVENT_SYNC_ENABLED?: string;
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED?: string;
@@ -338,6 +340,17 @@ const worker = {
     // Independent waitUntil means Facebook publication cannot delay or cancel
     // one-record Notion imports. The hourly scan remains a safety net.
     if (controller.cron === "* * * * *") {
+      // Owner-confirmed one-shot queue. OFF by default until part 3,
+      // protected migration 0156 and explicit production activation.
+      if(pushTaskEnabled(env.NOTION_MANUAL_TRANSFER_ENABLED)){
+        _ctx.waitUntil(runManualTransferQueueBatch({
+          database:env.DB,bindings:env,limit:2,
+        }).then(summary=>console.info(JSON.stringify({
+          event:"notion_manual_transfer_sweep",...summary,
+        }))).catch(()=>console.error(JSON.stringify({
+          event:"notion_manual_transfer_sweep",result:"failed",
+        }))));
+      }
       if (pushTaskEnabled(env.NOTION_WEBHOOK_SYNC_ENABLED) && pushTaskEnabled(env.NOTION_WEBHOOK_INBOX_ENABLED)) {
         _ctx.waitUntil(runNotionWebhookInboxSweep({
           database: env.DB,

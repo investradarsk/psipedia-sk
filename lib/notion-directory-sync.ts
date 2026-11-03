@@ -47,7 +47,8 @@ import { canRecoverNotionDirectoryMapping, directorySyncErrorMetadataNeedsWrite,
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
 import { reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
-import { readNotionFieldAuthorities } from "@/lib/notion-field-authority";
+import { readNotionFieldAuthorities, NOTION_AUTHORITY_GROUPS } from "@/lib/notion-field-authority";
+import { planOwnerDirectedFields, type ManualFieldDirection } from "@/lib/notion-manual-transfer-plan";
 import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
@@ -1143,6 +1144,8 @@ async function syncMappedPage(input: {
   mapping: DirectoryNotionMapping;
   page?: NotionPage;
   forcePsipediaPush?: boolean;
+  /** Explicit owner request only; NEVER used by hourly/webhook sync. */
+  manualDirection?: ManualFieldDirection;
 }) {
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile) return "unchanged" as const;
@@ -1214,6 +1217,49 @@ async function syncMappedPage(input: {
   const currentSourceImageUrl = existingMonitor?.sourceImageUrl || externalSourceImageUrl(profile.imageUrl);
   const profileHash = await snapshotHash(profileSnapshot(profile, currentSourceImageUrl));
   const pageHash = await snapshotHash(notionSnapshot(page));
+  // One-shot recovery must reconcile CURRENT values, including differences
+  // previously acknowledged by a legacy mapping receipt. Never infer changes
+  // from timestamps or mutate the normal saved field-authority rules.
+  if(input.manualDirection){
+    if(profile.status==="archived")throw Error("TRANSFER_DIRECTORY_ARCHIVED");
+    const group=NOTION_AUTHORITY_GROUPS.find(g=>g.scope==="directory:"+profile.category);
+    if(!group)throw Error("TRANSFER_DIRECTORY_CATEGORY_UNSUPPORTED");
+    const protectedPaths=new Set([
+      "slug","category","status","services","confirmedServiceLocation",
+      "verified","featured","internalEmail","qualityCheckedAt",
+      "qualityResolutions","seo.noindex","imageUrl","imageKey",
+    ]);
+    if(confirmedPlace || profile.serviceAddressConfirmation==="CONFIRMED_SERVICE_LOCATION")
+      for(const key of ["region","district","city","address","postalCode","street","houseNumber","addressFormat"])
+        protectedPaths.add(key);
+    const plan=planOwnerDirectedFields({
+      notion:notionSnapshot(page) as Record<string,unknown>,
+      admin:profileSnapshot(profile,currentSourceImageUrl) as Record<string,unknown>,
+      direction:input.manualDirection,
+      editablePaths:group.fields.filter(f=>!f.locked).map(f=>f.id),
+      protectedPaths,
+    });
+    if(!plan.changes.length)return "unchanged" as const;
+    let updated=profile;
+    if(input.manualDirection==="NOTION_TO_ADMIN"){
+      const latest=await fetchNotionPage(input.bindings,page.id);
+      if(latest.id!==page.id||!notionDirectoryPageBelongsToSource(latest,input.dataSourceId)
+        ||await snapshotHash(notionSnapshot(latest))!==pageHash)
+        throw Error("TRANSFER_DIRECTORY_SOURCE_CHANGED");
+      const current=await getManagedDirectoryProfileById(profile.id,input.database);
+      if(!current||current.updatedAt!==profile.updatedAt)
+        throw Error("TRANSFER_DIRECTORY_ADMIN_CHANGED");
+      updated=await applyNotionToProfile({
+        database:input.database,bindings:input.bindings,page:latest,
+        profile:current,desiredOverride:plan.desired as EditableDirectorySnapshot,
+      });
+    }
+    await writeProfileToNotion({
+      database:input.database,bindings:input.bindings,dataSourceId:input.dataSourceId,
+      profile:updated,pageId:page.id,
+    });
+    return input.manualDirection==="NOTION_TO_ADMIN"?"pulled" as const:"pushed" as const;
+  }
   const lastHash = input.mapping.content_hash;
   const profileChanged = profileHash !== lastHash;
   const notionChanged = pageHash !== lastHash;
@@ -1629,6 +1675,8 @@ export async function runNotionDirectorySyncSweep(input: {
   targetPageId?: string;
   /** Direct Admin save: reconcile only an already linked canonical profile. */
   targetProfileId?: number;
+  /** Confirmed one-off direction for an already linked profile. */
+  manualDirection?: ManualFieldDirection;
   /** Explicit Services V3 choice save only: also reconcile its Notion relation. */
   syncServiceRelations?: boolean;
   expectedNotionRevision?: string;
@@ -1640,6 +1688,8 @@ export async function runNotionDirectorySyncSweep(input: {
   if (input.targetPageId !== undefined && input.targetProfileId !== undefined) {
     throw new Error("NOTION_TARGET_SCOPE_AMBIGUOUS");
   }
+  if(input.manualDirection && (input.targetProfileId === undefined || input.targetPageId !== undefined))
+    throw Error("TRANSFER_DIRECTORY_SCOPE_INVALID");
   if (input.reviewedLegacy && (!input.targetPageId || !input.expectedNotionRevision ||
       input.targetProfileId !== undefined)) throw Error("GEMINI_LEGACY_DIRECTORY_SCOPE_INVALID");
   const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
@@ -1695,6 +1745,7 @@ export async function runNotionDirectorySyncSweep(input: {
     try {
       const action = await syncMappedPage({
         database: input.database, bindings: input.bindings, dataSourceId, mapping,
+        manualDirection:input.manualDirection,
       });
       if (action === "pulled") summary.pulledFromNotion++;
       else if (action === "pushed") summary.pushedToNotion++;
@@ -2030,4 +2081,38 @@ export async function runNotionDirectorySyncSweep(input: {
   }
 
   return summary;
+}
+
+
+/** Live values only. No write/side effects; used for one-shot per-field checks. */
+export async function inspectManualDirectoryProfile(input:{
+  database:D1Database;bindings:NotionDirectorySyncBindings;
+  profileId:number;pageId:string;scope:string;
+}):Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}>{
+  const profile=await getManagedDirectoryProfileById(input.profileId,input.database);
+  if(!profile||"directory:"+profile.category!==input.scope)
+    throw Error("TRANSFER_DIRECTORY_IDENTITY_MISMATCH");
+  const mapping=await loadMappingByProfile(input.database,input.profileId);
+  if(mapping?.notion_page_id!==input.pageId)throw Error("TRANSFER_IDENTITY_CHANGED");
+  const page=await fetchNotionPage(input.bindings,input.pageId);
+  if(page.id!==input.pageId||!notionDirectoryPageBelongsToSource(
+    page,input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID??"")
+    ||propertyText(page,"Psipedia ID")!==String(input.profileId))
+    throw Error("TRANSFER_DIRECTORY_IDENTITY_MISMATCH");
+  const geo=await loadGeoMirror(input.database,input.profileId);
+  const confirmed=profile.serviceAddressConfirmation==="CONFIRMED_SERVICE_LOCATION"
+    ||Boolean(geo?.google_place_id&&geo.google_place_source_fingerprint
+      &&geo.source_fingerprint
+      &&geo.google_place_source_fingerprint===geo.source_fingerprint);
+  const media=await getMediaSourceMonitorForEntity(
+    input.database,"DIRECTORY_PROFILE",input.profileId);
+  return {notion:notionSnapshot(page) as unknown as Record<string,unknown>,
+    admin:profileSnapshot(profile,media?.sourceImageUrl||
+      externalSourceImageUrl(profile.imageUrl)) as unknown as Record<string,unknown>,
+    excluded:["imageUrl","imageKey","status","slug","category","services",
+      "confirmedServiceLocation","verified","featured","internalEmail",
+      "qualityResolutions","qualityCheckedAt","seo.noindex",
+      ...(confirmed?["region","district","city","address","postalCode",
+        "street","houseNumber","addressFormat"]:[])],
+  };
 }
