@@ -45,6 +45,7 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // 0151 and 0152 are owner-dispatched ONLY through the protected workflow.
 // 0152 requires an applied 0151 with a validated physical schema.
 // 0153 is eligible ONLY for a protected owner-dispatched D1 migration.
+// 0154 is an additive manual Facebook checklist and requires the same owner-dispatched protected process.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
@@ -61,6 +62,11 @@ export const APPROVED_0153_SHA256 = "bfabb9daa6a0569b3e3188e4ed4e7658945c8c92a90
 export function assertApproved0153Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0153 requires canonical psipedia-sk-db");
   invariant(sha256 === APPROVED_0153_SHA256, "0153 SQL SHA256 differs from approved rollout bytes");
+}
+export const APPROVED_0154_SHA256 = "6fb869427058d6e74cbc47e0f0f718c8de21306eacf9eebab8a737cc291d2864";
+export function assertApproved0154Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0154 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0154_SHA256, "0154 SQL SHA256 differs from approved rollout bytes");
 }
 // 0152 is additive and never authorizes the separate 0151 audit migration.
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
@@ -311,6 +317,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0151_admin_content_revision_history.sql",
   "0152_visual_library_banner_edits.sql",
   "0153_notion_profile_field_baselines.sql",
+  "0154_facebook_content_share_markers.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -846,6 +853,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0152Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0153_notion_profile_field_baselines.sql")
     assertApproved0153Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0154_facebook_content_share_markers.sql")
+    assertApproved0154Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1563,6 +1572,9 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0153_notion_profile_field_baselines.sql") {
     return { partial: names.has("notion_profile_field_baselines") };
+  }
+  if (targetMigration === "0154_facebook_content_share_markers.sql") {
+    return { partial: names.has("facebook_content_share_markers") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
