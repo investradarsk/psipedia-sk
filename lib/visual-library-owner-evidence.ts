@@ -37,6 +37,32 @@ export type OwnerKnownUse = {
 };
 
 /**
+ * Concrete public locations reviewed in HelpOverview's JSX. This does not
+ * claim all category/detail pages render these elements; only the root page
+ * is proven here. No client-side database queries or invented profile slugs.
+ */
+export const OWNER_STATIC_PREVIEW_USES: Readonly<Record<string, readonly OwnerKnownUse[]>> = {
+  "help-profile": [{
+    url: "https://psipedia.sk/pomoc-psom",
+    label: "Pomoc psom",
+    placement: "Prehľadové karty v kategóriách na úvodnej stránke",
+    evidence: "verified-in-code",
+  }],
+  "help-category-nav": [{
+    url: "https://psipedia.sk/pomoc-psom",
+    label: "Pomoc psom",
+    placement: "Navigácia kategórií v hornej časti prehľadu",
+    evidence: "verified-in-code",
+  }],
+  "breadcrumbs": [{
+    url: "https://psipedia.sk/pomoc-psom",
+    label: "Pomoc psom",
+    placement: "Drobečková navigácia v úvodnej hlavičke",
+    evidence: "verified-in-code",
+  }],
+};
+
+/**
  * The returned URL is a concrete URL from a documented component placement or
  * published-article scan; no /[slug] URL is inferred.
  * "verified-in-code" means reviewed source, not screenshot/DOM confirmation.
@@ -49,6 +75,7 @@ export function ownerKnownUsesForGroup(
 ): { uses: OwnerKnownUse[]; matchingLabels: string[] } {
   const uses: OwnerKnownUse[] = [];
   const matchingLabels: string[] = [];
+  uses.push(...(OWNER_STATIC_PREVIEW_USES[groupId] ?? []));
   for (const banner of banners) {
     if (ownerGroupForBanner(banner) !== groupId) continue;
     matchingLabels.push(banner.label, banner.title, banner.ctaHref);
