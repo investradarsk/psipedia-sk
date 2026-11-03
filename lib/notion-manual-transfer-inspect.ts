@@ -111,6 +111,10 @@ export function verifyManualTransferFields(
       return {field:f.field,status:final?.status==="SAME"?"SAME" as const:"FAILED" as const,
         reason_code:final?.status==="SAME"?null:"TRANSFER_CHANGED_DURING_RUN"};
     }
+    if(JSON.stringify(stable(at(before.source,f.field)))!==
+      JSON.stringify(stable(at(after.source,f.field))))
+      return {field:f.field,status:"FAILED" as const,
+        reason_code:"TRANSFER_SOURCE_CHANGED_DURING_RUN"};
     if(final?.status!=="SAME")return {field:f.field,status:"FAILED" as const,
       reason_code:"TRANSFER_FIELD_NOT_MATCHED"};
     // The target equals the source at readback, even when the adapter
