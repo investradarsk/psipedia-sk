@@ -64,7 +64,7 @@ test("visual families are review candidates, never automatic merge decisions", (
   fixture(root, "components/public-magazine-banner.tsx", 'export function Banner(){ return <aside/> }');
   fixture(root, "components/public-context-banner.tsx", 'export function Info(){ return <aside/> }');
   const registry = buildRegistry(root);
-  assert.equal(registry.version, 2);
+  assert.equal(registry.version, 3);
   assert.equal(registry.components.find(x => x.name === "unified-section-hero").family, "hero");
   assert.equal(registry.components.find(x => x.name === "public-magazine-banner").label, "Fotografický a promo banner");
   assert.deepEqual(registry.relatedGroups.find(x => x.id === "hero").paths, [
