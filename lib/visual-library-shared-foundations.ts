@@ -17,6 +17,14 @@ export type VerifiedSharedFoundation = {
 const BASE = "components/public-visual-system/public-subcategory-navigator.tsx";
 
 export const VERIFIED_NAVIGATION_FOUNDATIONS: Readonly<Record<string, VerifiedSharedFoundation>> = {
+  "subcategory-compact": {
+    base: "PublicSubcategoryNavigator",
+    basePath: BASE,
+    sourcePath: BASE,
+    relation: "direct-renderer",
+    chain: ["PublicSubcategoryNavigator (compact)"],
+    distinction: "Kompaktný režim toho istého komponentu; pôvodný identifikátor ostáva zachovaný pre uložené rozhodnutia A/B.",
+  },
   "subcategory-landing": {
     base: "PublicSubcategoryNavigator",
     basePath: BASE,
