@@ -119,7 +119,7 @@ test("password controls are accessible and preserve password-manager semantics",
   assert.match(passwordAuthForm, /Heslo musí mať aspoň 12 znakov\./);
   assert.match(passwordResetForm, /Heslo musí mať aspoň 12 znakov\./);
   assert.match(securitySettings, /Heslo musí mať aspoň 12 znakov\./);
-  assert.match(partnerCss, /\.partner-password-toggle\{[\s\S]*min-width:48px;[\s\S]*min-height:48px;/);
+  assert.match(partnerCss, /\.partner-password-toggle\s*\{[^}]*min-width:\s*48px\s*;[^}]*min-height:\s*48px\s*;/);
 });
 
 test("logout is discoverable in the Partner shell and keeps the secure backend flow", () => {
@@ -210,6 +210,6 @@ test("Slovakia location selector is dependent, searchable and keyboard/screen-re
   assert.match(locationSelector, /Obec \/ mesto/);
   assert.match(newProfileForm, /countryCode\.trim\(\)\.toUpperCase\(\) === "SK"/);
   assert.match(newProfileForm, /Kraj \/ región/);
-  assert.match(partnerCss, /\.partner-location-selector\{grid-column:1\/-1;display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(partnerCss, /@media\(max-width:760px\)\{\.partner-location-selector\{grid-template-columns:minmax\(0,1fr\)\}/);
+  assert.match(partnerCss, /\.partner-location-selector\s*\{[^}]*grid-column:\s*1\s*\/\s*-1\s*;[^}]*display:\s*grid\s*;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*;/);
+  assert.match(partnerCss, /@media\s*\(max-width:\s*760px\)\s*\{\s*\.partner-location-selector\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*;/);
 });
