@@ -7,6 +7,10 @@ import {
 } from "@/components/admin-component-visual-preview";
 import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-library-missing-previews";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
+import { visualLibraryBanners } from "@/lib/visual-library-banners";
+import { OWNER_EXAMPLE_GROUPS, ownerKnownUsesForGroup, type OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
+import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store";
+import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
 import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
 import styles from "./admin-visual-library.module.css";
 
@@ -17,8 +21,11 @@ type Group = {
   family: Family;
   title: string;
   samples: Sample[];
+  examples: VisualLibraryExample[];
   paths: string[];
   routes: string[];
+  knownUses: OwnerKnownUse[];
+  matchingLabels: string[];
 };
 
 const PAGE_SIZE = 12;
@@ -51,9 +58,11 @@ const VARIANT_OF: Readonly<Record<string, string>> = {
 };
 
 export function AdminVisualLibraryVisualCatalog({
-  registry, onCompare,
+  registry, onCompare, examples, articleUsage,
 }: {
   registry: CoverageRegistry;
+  examples: readonly VisualLibraryExample[];
+  articleUsage: ArticleBannerUsageResult;
   onCompare: () => void;
 }) {
   const groups = useMemo(() => {
@@ -64,7 +73,7 @@ export function AdminVisualLibraryVisualCatalog({
       const id = VARIANT_OF[sample.id] ?? sample.id;
       let group = result.get(id);
       if (!group) {
-        group = { id, family: sample.family, title: sample.title, samples: [], paths: [], routes: [] };
+        group = { id, family: sample.family, title: sample.title, samples: [], examples: [], paths: [], routes: [], knownUses: [], matchingLabels: [] };
         result.set(id, group);
       }
       group.samples.push(sample);
@@ -73,8 +82,32 @@ export function AdminVisualLibraryVisualCatalog({
         if (!group.routes.includes(route)) group.routes.push(route);
       }
     }
-    return [...result.values()];
-  }, [registry.components]);
+    // Existing server-rendered examples are also real components; display them
+    // in the owner's gallery rather than hiding them in separate legacy tabs.
+    // Only known source identities are joined, not arbitrary similar filenames.
+    for (const example of examples) {
+      const spec = OWNER_EXAMPLE_GROUPS[example.id];
+      const id = spec?.root ?? "example:" + example.id;
+      let group = result.get(id);
+      if (!group) {
+        const family = spec?.family ?? (example.category === "karty" ? "card" : example.category);
+        group = {
+          id, family, title: id === "unified-section-hero" ? "Spoločná hero sekcia" : example.label,
+          samples: [], examples: [], paths: [], routes: [], knownUses: [], matchingLabels: [],
+        };
+        result.set(id, group);
+      }
+      group.examples.push(example);
+      if (spec && !group.paths.includes(spec.path)) group.paths.push(spec.path);
+      for (const route of spec ? sources.get(spec.path)?.routes ?? [] : []) {
+        if (!group.routes.includes(route)) group.routes.push(route);
+      }
+    }
+    return [...result.values()].map((group) => ({
+      ...group,
+      ...ownerKnownUsesForGroup(group.id, visualLibraryBanners, examples, articleUsage),
+    }));
+  }, [registry.components, examples, articleUsage]);
 
   const [query, setQuery] = useState("");
   const [family, setFamily] = useState<Family | "all">("all");
@@ -82,17 +115,22 @@ export function AdminVisualLibraryVisualCatalog({
   const [selectedId, setSelectedId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [routesLimit, setRoutesLimit] = useState(12);
+  const [knownLimit, setKnownLimit] = useState(12);
 
   const lower = query.trim().toLocaleLowerCase("sk");
   const matches = groups.filter((item) =>
     (family === "all" || item.family === family) &&
     (!lower || [
-      item.title, item.id, ...item.paths, ...item.routes,
+      item.title, item.id, ...item.paths, ...item.routes, ...item.matchingLabels,
+      ...item.knownUses.flatMap((use) => [use.label, use.placement, use.url]),
       ...item.samples.flatMap((sample) => [sample.title, sample.description]),
     ].join(" ").toLocaleLowerCase("sk").includes(lower))
   );
   const chosen = matches.find((item) => item.id === selectedId) ?? matches[0];
-  const variant = chosen?.samples.find((item) => item.id === variantId) ?? chosen?.samples[0];
+  const variant = chosen?.samples.find((item) => item.id === variantId)
+    ?? (!chosen?.examples.some((item) => item.id === variantId) ? chosen?.samples[0] : undefined);
+  const chosenExample = chosen?.examples.find((item) => item.id === variantId)
+    ?? (variant ? undefined : chosen?.examples[0]);
   const staticUrls = (chosen?.routes ?? []).map((route) => ({
     route, href: publicRegistryRouteHref(route),
   })).filter((item): item is { route: string; href: string } => item.href !== null);
@@ -104,6 +142,7 @@ export function AdminVisualLibraryVisualCatalog({
     setSelectedId("");
     setVariantId("");
     setRoutesLimit(12);
+    setKnownLimit(12);
   };
 
   return (
@@ -111,12 +150,12 @@ export function AdminVisualLibraryVisualCatalog({
       <header className={styles.visualCatalogIntro}>
         <div>
           <h3>Všetky dostupné grafické náhľady na jednom mieste</h3>
-          <p>Najprv si prezri, ako prvky naozaj vyzerajú. Varianty jedného komponentu
-            sú pod spoločnou kartou. Technické podobnosti nájdeš v samostatnej karte.</p>
+          <p>Prezri si reálne komponenty, ich varianty a zdokumentované konkrétne URL.
+            Kandidáti iba podľa importov sú oddelení od doložených umiestnení.</p>
         </div>
         <div className={styles.visualCatalogStat}>
           <strong>{groups.length}</strong>
-          <span>skupín s náhľadom · {adminComponentPreviewSamples.length} variantov</span>
+          <span>skupín s náhľadom · {adminComponentPreviewSamples.length} demo variantov + {examples.length} existujúcich serverových ukážok</span>
         </div>
       </header>
 
@@ -146,21 +185,23 @@ export function AdminVisualLibraryVisualCatalog({
       <div className={styles.visualCatalogGrid}>
         {matches.slice(0, limit).map((item) => {
           const sample = item.samples[0];
+          const example = item.examples[0];
           return <article key={item.id} className={styles.visualCatalogCard}
             data-selected={chosen?.id === item.id}>
             <div className={styles.visualCatalogCardPreview} inert>
-              <div><AdminComponentVisualPreview id={sample.id} /></div>
+              <div>{sample ? <AdminComponentVisualPreview id={sample.id} /> : example?.preview}</div>
             </div>
             <div className={styles.visualCatalogCardBody}>
               <span className={styles.visualCatalogTag}>
                 {FAMILY_LABELS.find((f) => f.id === item.family)?.label ?? "Komponent"}
               </span>
               <h4>{item.title}</h4>
-              <p>{item.samples.length > 1
-                ? String(item.samples.length) + " varianty jedného prvku"
-                : "Jeden dostupný náhľad"}</p>
+              <p>{item.samples.length + item.examples.length > 1
+                ? String(item.samples.length + item.examples.length) + " ukážky / varianty"
+                : "Jeden dostupný náhľad"}
+                {item.knownUses.length > 0 ? " · " + item.knownUses.length + " konkrétnych umiestnení" : ""}</p>
               <button type="button" aria-pressed={chosen?.id === item.id}
-                onClick={() => { setSelectedId(item.id); setVariantId(""); setRoutesLimit(12); }}>
+                onClick={() => { setSelectedId(item.id); setVariantId(""); setRoutesLimit(12); setKnownLimit(12); }}>
                 Pozrieť detail a použitie
               </button>
             </div>
@@ -176,28 +217,61 @@ export function AdminVisualLibraryVisualCatalog({
         Zobraziť ďalšie ({matches.length - limit})
       </button>}
 
-      {chosen && variant && <section className={styles.visualCatalogDetail} aria-label="Detail vybraného komponentu">
+      {chosen && (variant || chosenExample) && <section className={styles.visualCatalogDetail} aria-label="Detail vybraného komponentu">
         <div className={styles.visualCatalogDetailHead}>
           <div>
-            <span>Vybraný komponent · skutočné vykreslenie s demo údajmi</span>
+            <span>Vybraný komponent · originálne vykreslenie s demo alebo zdrojovými údajmi</span>
             <h3>{chosen.title}</h3>
           </div>
           <button type="button" onClick={onCompare}>Prejsť na porovnávanie</button>
         </div>
-        {chosen.samples.length > 1 && <div className={styles.visualCatalogVariants}>
+        {chosen.samples.length + chosen.examples.length > 1 && <div className={styles.visualCatalogVariants}>
           <strong>Varianty toho istého komponentu</strong>
           <div>
             {chosen.samples.map((sample) => <button key={sample.id} type="button"
-              aria-pressed={variant.id === sample.id}
+              aria-pressed={variant?.id === sample.id}
               onClick={() => setVariantId(sample.id)}>{sample.title}</button>)}
+            {chosen.examples.map((example) => <button key={example.id} type="button"
+              aria-pressed={chosenExample?.id === example.id}
+              onClick={() => setVariantId(example.id)}>{example.label}</button>)}
           </div>
         </div>}
         <div className={styles.visualCatalogLargePreview} inert>
-          <AdminComponentVisualPreview id={variant.id} />
+          {variant ? <AdminComponentVisualPreview id={variant.id} /> : chosenExample?.preview}
         </div>
-        <p className={styles.explanation}>{variant.description}</p>
+        <p className={styles.explanation}>{variant?.description ?? chosenExample?.explanation}</p>
         <div className={styles.visualCatalogUses}>
-          <h4>Kde by sa mohol používať</h4>
+          <h4>Zdokumentované konkrétne stránky ({chosen.knownUses.length})</h4>
+          <p>Presné URL sú doložené zdrojovým kódom alebo aktuálnym zoznamom
+            publikovaných článkov. Nie sú automatickým dôkazom viditeľnosti v prehliadači.
+            {articleUsage.status !== "complete" && chosen.id === "magazine" &&
+              " Zoznam článkov môže byť neúplný: " + articleUsage.status + "."}</p>
+          {chosen.knownUses.length > 0 && <ul className={styles.usages}>
+            {chosen.knownUses.slice(0,knownLimit).map((use, index) => <li key={use.url + use.placement + index}>
+              <div>
+                <strong>{use.label}</strong>
+                <small>{use.placement}</small>
+                <small>{use.evidence === "published-auto-today"
+                  ? "Automatický článkový banner – platí pre dnešný UTC deň"
+                  : use.evidence === "published-manual"
+                    ? "Publikovaný článok – ručne vložený banner"
+                    : "Doložené v zdrojovom kóde"}</small>
+                <code>{use.url}{use.anchorId ? "#" + use.anchorId : ""}</code>
+              </div>
+              <a href={use.url + (use.anchorId ? "#" + use.anchorId : "")}
+                target="_blank" rel="noopener noreferrer">Otvoriť miesto</a>
+            </li>)}
+          </ul>}
+          {chosen.knownUses.length > knownLimit && <button className={styles.moreButton}
+            type="button" onClick={() => setKnownLimit((count) => count + 30)}>
+            Ďalšie umiestnenia ({chosen.knownUses.length - knownLimit})
+          </button>}
+          {chosen.knownUses.length === 0 && <p className={styles.pending}>
+            Pre tento prvok ešte nemáme konkrétnu doloženú URL. Neznamená to, že sa nepoužíva.
+          </p>}
+        </div>
+        <div className={styles.visualCatalogUses}>
+          <h4>Ďalšie možné použitia podľa kódu</h4>
           <p>Nasledujúce trasy pochádzajú z importov v kóde. <strong>Nie sú potvrdenými
             výskytmi na každej stránke.</strong> Konkrétne URL a živé overenie
             sú dostupné v karte „Kde všade sa používa“.</p>
