@@ -47,10 +47,11 @@ test("Deti 2 to 4 transfers only children, unrelated Admin text and family stay"
   assert.equal(p.patch.fciNumber,undefined);
   assert.equal(p.patch.slug,undefined);
 });
-test("same-field Admin edit conflicts but unrelated edits don't",()=>{
+test("different values use Notion for normal editorial fields; no review lock",()=>{
   const p=plan({admin:{children:5},after:{children:4}});
-  assert.deepEqual(p.conflicts,["children"]);
-  assert.equal(p.patch.children,undefined);
+  assert.deepEqual(p.conflicts,[]);
+  assert.deepEqual(p.accepted,["children"]);
+  assert.equal(p.patch.children,4);
   const same=plan({admin:{children:4},after:{children:4}});
   assert.deepEqual(same.conflicts,[]);
 });
@@ -83,6 +84,32 @@ test("next Admin receipt tracks accepted fields but not unrelated Admin changes"
   assert.equal(parseBreedFieldSnapshot('{"children":2}'),null);
   assert.ok(BREED_NOTION_EDITABLE_FIELDS.length>=30);
 });
+test("every SEO property uses independent field-level priority",()=>{
+  const old=breedFieldSnapshot(breed());
+  const next=source({seo:{...breed().seo,focusKeyword:"pes",ogTitle:"Nový OG",
+    ogDescription:"Nový popis",canonicalUrl:"https://psipedia.sk/plemena/test",noindex:true}});
+  const result=planBreedNotionFieldDelta(breed(),next,old,old);
+  assert.deepEqual(result.conflicts,[]);
+  assert.deepEqual(result.accepted,["seo.focusKeyword","seo.ogTitle","seo.ogDescription",
+    "seo.canonicalUrl","seo.noindex"]);
+  assert.equal(result.patch.seo.focusKeyword,"pes");
+  assert.equal(result.patch.seo.noindex,true);
+  assert.equal(result.patch.seo.title,undefined);
+  const admin=planBreedNotionFieldDelta(breed(),next,old,old,{"seo.noindex":"admin"});
+  assert.equal(admin.patch.seo.noindex,undefined);
+  assert.equal(admin.patch.seo.ogTitle,"Nový OG");
+});
+
+test("old field receipts gain new SEO keys without invalidating every breed",()=>{
+  const old=breedFieldSnapshot(breed());
+  for(const key of ["seo.focusKeyword","seo.ogTitle","seo.ogDescription",
+    "seo.canonicalUrl","seo.noindex"])delete old[key];
+  const parsed=parseBreedFieldSnapshot(JSON.stringify(old));
+  assert.ok(parsed);
+  assert.equal(parsed["seo.noindex"],false);
+  assert.equal(parsed["seo.focusKeyword"],"");
+});
+
 test("no schema migration needed; legacy hashes establish baseline; immutable ID",async()=>{
   const sync=await readFile(new URL("../lib/notion-breed-sync.ts",import.meta.url),"utf8");
   const store=await readFile(new URL("../lib/breed-store.ts",import.meta.url),"utf8");
@@ -109,7 +136,8 @@ test("signed Notion property IDs survive the webhook path to first-edit legacy b
   assert.match(inbox, /changed_properties_json/);
   assert.match(sync, /function signedBreedChangedFields/);
   assert.match(sync, /previousNotion\[field\] = previousAdmin\[field\]/);
-  assert.match(sync, /BREED_LEGACY_CONCURRENT_ADMIN_EDIT/);
-  assert.match(sync, /BREED_WEBHOOK_FIELDS_UNRESOLVED/);
+  assert.doesNotMatch(sync, /throw new Error\("BREED_LEGACY_CONCURRENT_ADMIN_EDIT"/);
+  assert.doesNotMatch(sync, /throw new Error\("BREED_WEBHOOK_FIELDS_UNRESOLVED"/);
+  assert.match(sync, /fields = touched.length/);
   assert.match(sync, /partialBreedNotionReceipt\(/);
 });
