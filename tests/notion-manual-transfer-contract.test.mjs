@@ -141,10 +141,34 @@ test("proposed manual journal is isolated and has per-field retry/error metadata
   }finally{db.close()}
 });
 
-test("initial capabilities route is admin-only, read-only and deliberately non-executable",()=>{
+test("capabilities route is admin-only, read-only and truthfully feature-gated",()=>{
   const route=readFileSync(new URL("../app/api/admin/notion-manual-transfer/capabilities/route.ts",import.meta.url),"utf8");
   assert.match(route,/getAdminApiUser\(\)/);
-  assert.match(route,/executable: false/);
+  assert.match(route,/executable:active/);
+  assert.match(route,/manualTransferSchemaReady/);
   assert.doesNotMatch(route,/export async function POST/);
   assert.doesNotMatch(route,/runNotion.*Sweep/);
+});
+
+test("one-shot journal cannot execute until PREVIEW_READY is explicitly confirmed",()=>{
+  const sql=readFileSync(new URL("../docs/proposals/notion_manual_transfer_jobs_UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+  const db=new DatabaseSync(":memory:");
+  try{
+    db.exec(sql);
+    db.prepare("INSERT INTO notion_manual_transfer_runs "+
+      "(id,area,direction,selection,requested_by) VALUES (?,?,?,?,?)")
+      .run("preview-1","breeds","NOTION_TO_ADMIN","ALL","owner");
+    db.prepare("INSERT INTO notion_manual_transfer_items "+
+      "(run_id,scope,profile_id,notion_page_id) VALUES (?,?,?,?)")
+      .run("preview-1","breeds",3214,pageId);
+    const run=db.prepare("SELECT status FROM notion_manual_transfer_runs").get();
+    const item=db.prepare("SELECT status FROM notion_manual_transfer_items").get();
+    assert.equal(run.status,"PREVIEW");
+    assert.equal(item.status,"PENDING");
+    assert.throws(()=>db.prepare("UPDATE notion_manual_transfer_runs SET status='UNKNOWN' WHERE id='preview-1'").run());
+    db.prepare("UPDATE notion_manual_transfer_runs SET status='PREVIEW_READY' WHERE id='preview-1'").run();
+    db.prepare("UPDATE notion_manual_transfer_items SET status='PREVIEWED',preview_hash=? WHERE run_id='preview-1'").run("a".repeat(64));
+    assert.equal(db.prepare("SELECT preview_hash FROM notion_manual_transfer_items").get().preview_hash.length,64);
+    assert.throws(()=>db.prepare("UPDATE notion_manual_transfer_field_results SET status='NOT_REAL'").run());
+  }finally{db.close()}
 });
