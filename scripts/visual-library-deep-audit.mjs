@@ -40,28 +40,48 @@ function jsxInformation(file, source) {
     file.endsWith(".jsx")?ts.ScriptKind.JSX:ts.ScriptKind.TSX);
   const tokens = [];
   const featureCounts = new Map();
-  let jsxElements=0;
+  let jsxElements=0,truncated=false;
   const add = (name) => featureCounts.set(name,(featureCounts.get(name)??0)+1);
+  const note = (tag,open) => {
+    const name=tag.tagName.getText(tree).toLowerCase();
+    const attrs=tag.attributes.properties.filter(ts.isJsxAttribute)
+      .map(p=>p.name.getText(tree).toLowerCase()).sort();
+    tokens.push(open+":"+name,...attrs.map(a=>"A:"+a));
+    add("T:"+name);
+    for(const a of attrs)add("A:"+a);
+    jsxElements++;
+    return name;
+  };
   const scan = (node) => {
-    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-      const open = ts.isJsxElement(node)?node.openingElement:node;
-      const tag = open.tagName.getText(tree).toLowerCase();
-      const attrs = open.attributes.properties
-        .filter(ts.isJsxAttribute)
-        .map(p=>p.name.getText(tree).toLowerCase()).sort();
-      // stable order of actual tags; ignore mutable text and attributes' values
-      tokens.push("T:"+tag, ...attrs.map(a=>"A:"+a));
-      add("T:"+tag);
-      for (const a of attrs) add("A:"+a);
-      jsxElements++;
-    } else if (ts.isJsxFragment(node)) {
-      tokens.push("F:fragment");
-      add("F:fragment");
+    // Keep counting JSX even for very large modules; only the fingerprint is
+    // truncated. No partial fingerprint can ever become an "exact match".
+    if(ts.isJsxElement(node)){
+      const name=note(node.openingElement,"OPEN");
+      if(tokens.length>MAX_JSX_TOKENS)truncated=true;
+      ts.forEachChild(node,scan);
+      if(!truncated)tokens.push("CLOSE:"+name);
+      return;
     }
-    if (tokens.length < MAX_JSX_TOKENS) ts.forEachChild(node,scan);
+    if(ts.isJsxSelfClosingElement(node)){
+      note(node,"SELF");
+      if(tokens.length>MAX_JSX_TOKENS)truncated=true;
+      ts.forEachChild(node,scan);
+      return;
+    }
+    if(ts.isJsxFragment(node)){
+      if(!truncated)tokens.push("OPEN:fragment");
+      ts.forEachChild(node,scan);
+      if(!truncated)tokens.push("CLOSE:fragment");
+      return;
+    }
+    ts.forEachChild(node,scan);
   };
   scan(tree);
-  return {jsxElements, shape:tokens.join("|"),features:[...featureCounts.entries()].sort(([a],[b])=>a.localeCompare(b))};
+  return {
+    jsxElements,
+    shape:truncated?null:tokens.join("|"),
+    features:[...featureCounts.entries()].sort(([a],[b])=>a.localeCompare(b)),
+  };
 }
 function moduleKind(file) {
   if (/^app\/.*\/page\.[jt]sx$|^app\/page\.[jt]sx$/.test(file)) return "page";
@@ -254,10 +274,10 @@ export function auditVisualSources(root, absoluteFiles, registeredComponents, us
       jsxElements:meta.jsxElements,routes,
     };
     modules.push(item);
-    featured.push({...item,features:meta.features,shapeHash:sha(meta.shape)});
+    if(meta.shape !== null) featured.push({...item,features:meta.features,shapeHash:sha(meta.shape)});
     const rawId=sha(source);
     byRaw.set(rawId,[...(byRaw.get(rawId)??[]),file]);
-    if(meta.jsxElements>=8 && meta.shape.length>=60){
+    if(meta.jsxElements>=8 && meta.shape !== null && meta.shape.length>=60){
       const shapeId=sha(meta.shape);
       byShape.set(shapeId,[...(byShape.get(shapeId)??[]),file]);
     }
