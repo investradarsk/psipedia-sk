@@ -14,7 +14,7 @@ type Data={items:FacebookImagePost[];calendar:FacebookImagePost[];page:number;pa
   trashAvailable?:boolean};
 type Form={title:string;imageUrl:string;imageKey:string;caption:string;date:string;time:string;repeatedHour:string};
 type PickerKind = "none" | "article" | "profile";
-type PickerItem = {id:number;title:string;detail?:string;imageUrl:string;url:string};
+type PickerItem = {id:number;title:string;detail?:string;imageUrl:string;url:string;sharedToFacebook?:boolean};
 type PickerGroup = {id:string;label:string;categories:Array<{slug:string;label:string}>};
 const blank=(date=""):Form=>({title:"Nový príspevok",imageUrl:"",imageKey:"",caption:"",date,time:date?"09:00":"",repeatedHour:""});
 function formFor(post:FacebookImagePost):Form {
@@ -65,6 +65,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const[pickerGroups,setPickerGroups]=useState<PickerGroup[]>([]);
   const[pickerBusy,setPickerBusy]=useState(false);
   const[pickerError,setPickerError]=useState("");
+  const[pickerMarkingAvailable,setPickerMarkingAvailable]=useState(true);
+  const[pickerMarkerBusy,setPickerMarkerBusy]=useState<number|null>(null);
   const[selectionBusy,setSelectionBusy]=useState(false);
   const[selectedContentUrl,setSelectedContentUrl]=useState("");
   const[inlineDraft,setInlineDraft]=useState<{id:string;version:number;key:string;title:string;caption:string}|null>(null);
@@ -94,10 +96,11 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       setPickerError("");
       fetch("/api/admin/facebook-images/"+endpoint+"?"+params,{cache:"no-store",signal:abort.signal})
         .then(async response=>{
-          const result=await response.json() as {articles?:PickerItem[];items?:PickerItem[];totalPages?:number;total?:number;error?:string};
+          const result=await response.json() as {articles?:PickerItem[];items?:PickerItem[];totalPages?:number;total?:number;markingAvailable?:boolean;error?:string};
           if(!response.ok)throw Error(result.error||"Zoznam sa nepodarilo načítať.");
           if(abort.signal.aborted)return;
           setPickerItems(result.articles||result.items||[]);
+          setPickerMarkingAvailable(result.markingAvailable!==false);
           setPickerPages(result.totalPages||1);
           setPickerTotal(result.total||0);
         }).catch(error=>{if(!abort.signal.aborted)setPickerError(error instanceof Error?error.message:"Načítanie zlyhalo.");})
@@ -105,6 +108,22 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     },pickerQuery?250:0);
     return()=>{window.clearTimeout(timer);abort.abort();};
   },[editor,graphicOpen,pickerKind,pickerGroup,pickerCategory,pickerQuery,pickerPage]);
+  async function markAlreadyShared(item:PickerItem, sharedToFacebook:boolean){
+    if(pickerMarkerBusy!==null||selectionBusy||busy)return;
+    setPickerMarkerBusy(item.id);setPickerError("");
+    try{
+      const response=await fetch("/api/admin/facebook-images/content-share-marker",{
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({group:pickerKind==="article"?"article":pickerGroup,
+          category:pickerKind==="article"?"":pickerCategory,entityId:item.id,sharedToFacebook}),
+      });
+      const result=await response.json() as {error?:string;sharedToFacebook?:boolean};
+      if(!response.ok)throw Error(result.error||"Označenie sa nepodarilo uložiť.");
+      setPickerItems(old=>old.map(row=>row.id===item.id?{...row,sharedToFacebook}:row));
+    }catch(error){setPickerError(error instanceof Error?error.message:"Označenie sa nepodarilo uložiť.");}
+    finally{setPickerMarkerBusy(null);}
+  }
   async function selectContent(item:PickerItem){
     if(selectionBusy||busy||lock.current)return;
     setSelectionBusy(true);setPickerError("");setEditorError("");
@@ -519,7 +538,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <AdminFacebookGraphicEditor initialTitle={form.title} initialPhotoUrl={form.imageUrl}
             onUse={async(file,title)=>{const success=await upload(file);if(success){setForm(old=>({...old,title}));setGraphicOpen(false);}return success;}}
             onCancel={()=>setGraphicOpen(false)} />:
-          <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked||selectionBusy} className={styles.fields}>
+          <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked||selectionBusy||pickerMarkerBusy!==null} className={styles.fields}>
           <div className={styles.graphicIntro}><div><strong>Grafické šablóny Psipedia</strong><p>Použi fotografiu z článku alebo profilu, prípadne nahraj vlastnú. Nadpis môžeš upraviť.</p></div>
             <AdminActionButton type="button" variant="secondary" onClick={()=>setGraphicOpen(true)}>Otvoriť editor grafiky</AdminActionButton></div>
           <section className={styles.contentPicker} aria-label="Výber obsahu z Psipedia">
@@ -545,18 +564,29 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
               </label>
             </>}
             {pickerKind!=="none"&&(pickerKind==="article"||pickerCategory)&&<>
+              <p className={styles.pickerMarkHint}>Fajkou označ, čo si už zverejnil na Facebooku. Výber obsahu nič automaticky neoznačí ani nepublikuje.</p>
               <label>Vyhľadať {pickerKind==="article"?"článok":"profil"}
                 <input value={pickerQuery} placeholder="Názov alebo kľúčové slovo"
                   onChange={e=>{setPickerQuery(e.target.value);setPickerPage(1);}}/>
               </label>
               {pickerBusy&&<p role="status">Načítavam publikovaný obsah…</p>}
+              {!pickerBusy&&!pickerMarkingAvailable&&pickerItems.length>0&&<p role="status" className={styles.pickerMarkHint}>Evidencia zaškrtnutí ešte čaká na databázovú migráciu 0154. Výber obsahu môžeš ďalej používať.</p>}
               {!pickerBusy&&<div className={styles.pickerResults}>
-                {pickerItems.map(item=><button type="button" key={item.id} className={styles.pickerResult}
-                  disabled={selectionBusy} onClick={()=>void selectContent(item)}>
-                  {item.imageUrl?<img src={item.imageUrl} alt="" loading="lazy" width={48} height={48}/>:<span className={styles.pickerEmpty}>Bez foto</span>}
-                  <span><strong>{item.title}</strong>{item.detail&&<small>{item.detail}</small>}</span>
-                  <span aria-hidden="true">Vybrať</span>
-                </button>)}
+                {pickerItems.map(item=><div key={item.id} className={styles.pickerResultRow}>
+                  <button type="button" className={styles.pickerResult}
+                    disabled={selectionBusy||pickerMarkerBusy!==null} onClick={()=>void selectContent(item)}>
+                    {item.imageUrl?<img src={item.imageUrl} alt="" loading="lazy" width={48} height={48}/>:<span className={styles.pickerEmpty}>Bez foto</span>}
+                    <span><strong>{item.title}</strong>{item.detail&&<small>{item.detail}</small>}</span>
+                    <span aria-hidden="true">Vybrať</span>
+                  </button>
+                  <label className={styles.pickerMark}>
+                    <input type="checkbox" checked={Boolean(item.sharedToFacebook)}
+                      disabled={!pickerMarkingAvailable||pickerMarkerBusy!==null||selectionBusy}
+                      onChange={e=>void markAlreadyShared(item,e.target.checked)}
+                      aria-label={`Už na Facebooku: ${item.title}`} />
+                    <span>{pickerMarkerBusy===item.id?"Ukladám…":"Už na FB"}</span>
+                  </label>
+                </div>)}
                 {!pickerItems.length&&<p>Žiadne publikované záznamy podľa výberu.</p>}
               </div>}
               {pickerPages>1&&<div className={styles.pickerPagination}>
