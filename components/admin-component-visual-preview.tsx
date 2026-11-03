@@ -3,6 +3,7 @@ import { AdminProfileComponentPreview } from "./admin-visual-library-profile-pre
 import { AdminDetailComponentPreview } from "./admin-visual-library-detail-previews";
 import { AdminExtraComponentPreview } from "./admin-visual-library-extra-previews";
 import { AdminMoreComponentPreview } from "./admin-visual-library-more-previews";
+import { AdminUtilityComponentPreview } from "./admin-visual-library-utility-previews";
 import { PublicActionLink } from "./public-visual-system/public-visual-system";
 import { PublicArticleCallout } from "./public-visual-system/public-article-callout";
 import { PublicContextBanner } from "./public-visual-system/public-context-banner";
@@ -102,6 +103,16 @@ export const adminComponentPreviewSamples = [
   { id: "public-filter-disclosure", path: "components/public-filter-disclosure.tsx", family: "filter", title: "Rozbaľovacie filtre", description: "Skutočný ovládač filtrov s dvomi aktívnymi položkami." },
   { id: "public-profile-hero", path: "components/public-profile/public-profile-hero.tsx", family: "hero", title: "Profil – spoločná hlavička", description: "Skutočná hlavička profilu s ukážkovými údajmi." },
   { id: "related-entity-links", path: "components/related-entity-links.tsx", family: "category", title: "Súvisiace odkazy", description: "Skutočný komponent pre interné prepojenia obsahu." },
+
+  { id: "article-continuation", path: "components/article-continuation.tsx", family: "cta", title: "Článok – pokračovanie v téme", description: "Skutočný CTA navigačný blok za článkom." },
+  { id: "event-markdown", path: "components/event-markdown.tsx", family: "other", title: "Podujatie – formátovaný opis", description: "Skutočné zobrazenie programu a Markdown textu." },
+  { id: "help-public-icons", path: "components/help-public-icons.tsx", family: "other", title: "Pomoc psom – ikony", description: "Originálne ikony pre kategórie pomoci." },
+  { id: "portal-mobile-category-select", path: "components/portal-mobile-category-select.tsx", family: "category", title: "Sekcia – mobilný výber témy", description: "Skutočný selektor kategórie. Náhľad bez navigačnej akcie." },
+  { id: "public-help-card-surface", path: "components/public-visual-system/public-help-card-surface.tsx", family: "card", title: "Pomoc psom – základ karty", description: "Reálne základné vizuálne rozloženie pre spoločné karty." },
+  { id: "public-photo-gallery", path: "components/public-visual-system/public-photo-gallery.tsx", family: "card", title: "Galéria fotografií", description: "Skutočná verejná galéria v redakčnom variante." },
+  { id: "share-button", path: "components/share-button.tsx", family: "cta", title: "Zdieľanie článku", description: "Reálne tlačidlo zdieľania bez spustenia akcií." },
+  { id: "smart-card-image", path: "components/smart-card-image.tsx", family: "card", title: "Inteligentný obrázok karty", description: "Skutočný smart image prvok s ilustračnou fotografiou." },
+  { id: "slovakia-location-selector", path: "components/slovakia-location-selector.tsx", family: "filter", title: "Výber lokality Slovenska", description: "Originálny regionálny formulárový ovládač." },
   { id: "breadcrumbs", path: "components/page-system.tsx", family: "category", title: "Drobečková navigácia", description: "Spoločná navigácia používaná v detailoch a sekciách, ilustračné odkazy." },
   { id: "section-tabs", path: "components/page-system.tsx", family: "category", title: "Záložky sekcie", description: "Skutočný kontajner pre sekciové záložky s ukážkovými odkazmi." },
 ] as const;
@@ -110,6 +121,16 @@ export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[numb
 
 export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewId }) {
   switch (id) {
+    case "article-continuation":
+    case "event-markdown":
+    case "help-public-icons":
+    case "portal-mobile-category-select":
+    case "public-help-card-surface":
+    case "public-photo-gallery":
+    case "share-button":
+    case "smart-card-image":
+    case "slovakia-location-selector":
+      return <AdminUtilityComponentPreview id={id} />;
     case "breed-fci-disclosure":
     case "breed-photo-fallback":
     case "directory-opening-hours":
