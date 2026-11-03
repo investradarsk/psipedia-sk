@@ -71,3 +71,57 @@ test("manual reconciliation paths are explicit and normal cron paths remain unfo
   assert.match(endpoint,/strictProvenance:true/);
   assert.match(endpoint,/CONFIRM_NOTION_MANUAL_TRANSFER/);
 });
+
+
+test("readonly breed JSON aggregate does not lock separately editable FCI and editorial leaves",()=>{
+  const notion={
+    "fciStandard.oci":"Tmavé oči",
+    "editorial.coatCare":"Nová redakčná starostlivosť",
+    "system.Psipedia ID":"9999",
+    "status":"draft",
+  };
+  const admin={
+    "fciStandard.oci":"Hnedé oči",
+    "editorial.coatCare":"Starší redakčný text",
+    "system.Psipedia ID":"3214",
+    "status":"published",
+  };
+  const input={
+    notion,admin,direction:"NOTION_TO_ADMIN",
+    editablePaths:["fciStandard","fciStandard.oci","editorial",
+      "editorial.coatCare","system.Psipedia ID","status"],
+    protectedPaths:new Set(["fciStandard","editorial",
+      "system.Psipedia ID","status"]),
+    aggregateOnlyPaths:new Set(["fciStandard","editorial"]),
+  };
+  const plan=planOwnerDirectedFields(input);
+  assert.deepEqual(plan.changes,["fciStandard.oci","editorial.coatCare"]);
+  assert.equal(plan.desired["fciStandard.oci"],notion["fciStandard.oci"]);
+  assert.equal(plan.desired["editorial.coatCare"],notion["editorial.coatCare"]);
+  assert.equal(plan.desired["system.Psipedia ID"],"3214");
+  assert.equal(plan.desired.status,"published");
+  assert.equal(Object.hasOwn(plan.desired,"fciStandard"),false);
+  assert.equal(Object.hasOwn(plan.desired,"editorial"),false);
+  for(const path of ["fciStandard","editorial","system.Psipedia ID","status"]){
+    const field=plan.results.find(item=>item.field===path);
+    assert.equal(field.state,"SKIPPED");
+    assert.equal(field.reason,"PROTECTED_FIELD");
+  }
+  const reverse=planOwnerDirectedFields({...input,direction:"ADMIN_TO_NOTION"});
+  assert.deepEqual(reverse.changes,["fciStandard.oci","editorial.coatCare"]);
+  assert.equal(reverse.desired["fciStandard.oci"],admin["fciStandard.oci"]);
+  assert.equal(reverse.desired["editorial.coatCare"],admin["editorial.coatCare"]);
+});
+
+test("only explicitly declared readonly aggregates allow their children",()=>{
+  const result=planOwnerDirectedFields({
+    notion:{"fciStandard.oci":"N","seo.noindex":true},
+    admin:{"fciStandard.oci":"A","seo.noindex":false},
+    direction:"NOTION_TO_ADMIN",
+    editablePaths:["fciStandard.oci","seo.noindex"],
+    protectedPaths:new Set(["fciStandard","seo"]),
+    aggregateOnlyPaths:new Set(["fciStandard"]),
+  });
+  assert.equal(result.results.find(x=>x.field==="fciStandard.oci").state,"CHANGE");
+  assert.equal(result.results.find(x=>x.field==="seo.noindex").reason,"PROTECTED_FIELD");
+});
