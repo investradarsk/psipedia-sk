@@ -874,3 +874,23 @@ export async function runNotionEshopSyncSweep(input: {
   await recordNotionTransfer(input.database,"eshops","ADMIN_TO_NOTION",summary.bootstrapped+summary.pushedToNotion);
   return summary;
 }
+
+
+/** Current mapped e-shop editorial values for independent field verification. */
+export async function inspectManualEshopProfile(input:{
+  database:D1Database;bindings:NotionEshopSyncBindings;
+  profileId:number;pageId:string;
+}):Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}>{
+  const mapping=await loadMappingByShop(input.database,input.profileId);
+  const shop=await getManagedEshopById(input.profileId,input.database);
+  if(!shop||mapping?.notion_page_id!==input.pageId)
+    throw Error("TRANSFER_ESHOP_IDENTITY_MISMATCH");
+  const page=await fetchPage(input.bindings,input.pageId);
+  if(page.id!==input.pageId
+    ||!notionPageBelongsToDataSource(page,input.bindings.NOTION_ESHOPS_DATA_SOURCE_ID??"")
+    ||notionRichTextProperty(page,"Psipedia ID")!==String(input.profileId))
+    throw Error("TRANSFER_ESHOP_IDENTITY_MISMATCH");
+  return {notion:notionSnapshot(page) as unknown as Record<string,unknown>,
+    admin:profileSnapshot(shop) as unknown as Record<string,unknown>,
+    excluded:["slug","status","logoUrl"]};
+}
