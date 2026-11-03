@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { downloadRemoteImage, optimizeRemoteImageForStorage } from "@/lib/notion-sync-shared";
 
 const MAX_BYTES = 8 * 1024 * 1024;
-const validMedia = /^\\/media\\/([a-z0-9][a-z0-9/_.-]{1,390})$/i;
+const validMedia = /^\/media\/([a-z0-9][a-z0-9/_.-]{1,390})$/i;
 
 /** Copy an existing profile's image into the Facebook Images namespace. */
 export async function copyFacebookProfileImage(imageUrl: string) {
