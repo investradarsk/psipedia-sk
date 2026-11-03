@@ -40,7 +40,7 @@ test("renderer identity is proven by real production import and call chains, not
   assert.match(banners, /id: "homepage:profil"/);
   assert.match(banners, /id: "plemena:kluby"/);
   assert.match(banners, /id: "help:lost-found"/);
-  assert.match(banners, /"clanky:"/);
+  assert.match(banners, /articlePromoKeys\.map/);
 });
 
 test("all six admin views use one real-banner adapter rather than copying its JSX", () => {
