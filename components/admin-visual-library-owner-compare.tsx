@@ -76,6 +76,8 @@ export function AdminVisualLibraryOwnerCompare({
   const [copied, setCopied] = useState<"idle" | "ok" | "error">("idle");
   const [stored, setStored] = useState<SavedOwnerDecision | null>(null);
   const [loadingPair, setLoadingPair] = useState(true);
+  const [pairError, setPairError] = useState(false);
+  const [pairRefresh, setPairRefresh] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [queue, setQueue] = useState<SavedOwnerDecision[]>([]);
@@ -127,6 +129,7 @@ export function AdminVisualLibraryOwnerCompare({
     const controller = new AbortController();
     setStored(null);
     setSaveMessage("");
+    setPairError(false);
     if (!leftId || !rightId || leftId === rightId) {
       setLoadingPair(false);
       return () => controller.abort();
@@ -150,16 +153,17 @@ export function AdminVisualLibraryOwnerCompare({
         setNotes(oriented?.notes ?? "");
       }).catch((error) => {
         if (!controller.signal.aborted) {
+          setPairError(true);
           setSaveMessage(error instanceof Error ? error.message : "Rozhodnutie nie je dostupné.");
         }
       }).finally(() => {
         if (!controller.signal.aborted) setLoadingPair(false);
       });
     return () => controller.abort();
-  }, [leftId, rightId]);
+  }, [leftId, rightId, pairRefresh]);
 
   const saveDecision = async () => {
-    if (!left || !right || !decision || saving || loadingPair) return;
+    if (!left || !right || !decision || saving || loadingPair || pairError) return;
     const draft: OwnerDecisionDraft = {
       leftId: left.id, rightId: right.id,
       leftTitle: left.title, rightTitle: right.title,
@@ -289,8 +293,8 @@ export function AdminVisualLibraryOwnerCompare({
         </button>
       </div>
       <div className={styles.ownerCompareQueueStats}>
-        <span>Na zjednotenie: {queue.filter((item) => isMergeRequest(item.draft.decision)).length}</span>
-        <span>Ponechať / už spoločné: {queue.filter((item) => !isMergeRequest(item.draft.decision)).length}</span>
+        <span>Na zjednotenie (načítané): {queue.filter((item) => isMergeRequest(item.draft.decision)).length}</span>
+        <span>Ponechať / už spoločné (načítané): {queue.filter((item) => !isMergeRequest(item.draft.decision)).length}</span>
       </div>
       {queueMessage && <p role="status">{queueMessage}</p>}
       {queue.length > 0 && <div className={styles.ownerCompareQueueList}>
@@ -343,11 +347,15 @@ export function AdminVisualLibraryOwnerCompare({
             placeholder="Napr. zachovať obrázok z A, ale tlačidlo z B..."
             onChange={(event) => { setNotes(event.target.value); setCopied("idle"); }} />
         </label>
-        <button type="button" disabled={loadingPair || saving || !task}
+        <button type="button" disabled={loadingPair || saving || pairError || !task}
           onClick={() => void saveDecision()}>
           {saving ? "Ukladám rozhodnutie…" : stored ? "Aktualizovať uložené rozhodnutie" : "Uložiť rozhodnutie do administrácie"}
         </button>
         {saveMessage && <p role="status">{saveMessage}</p>}
+        <button type="button" disabled={loadingPair || saving}
+          onClick={() => setPairRefresh((value) => value + 1)}>
+          Načítať poslednú uloženú verziu
+        </button>
         <button type="button" onClick={() => {
           try {
             if (!navigator.clipboard?.writeText || !task) {
