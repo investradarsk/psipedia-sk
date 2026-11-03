@@ -1,8 +1,9 @@
 import { BREED_NOTION_SCHEMA } from "./notion-breed-property-registry.ts";
 import {
-  notionPropertyRecord, notionRichTextProperty, notionUrlProperty,
+  notionPropertyRecord, notionUrlProperty,
   notionRequest, type NotionPage, type NotionSyncBindings,
 } from "./notion-sync-shared.ts";
+import { notionBreedRichTextProperty as notionRichTextProperty } from "./notion-breed-text.ts";
 import type { NotionFieldMode } from "./notion-field-authority";
 
 /** Notion-only metadata also has an editable Admin representation. */
