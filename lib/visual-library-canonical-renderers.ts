@@ -42,6 +42,16 @@ export const VERIFIED_CANONICAL_RENDERERS: Readonly<Record<string, VerifiedCanon
     ...MAGAZINE,
     chain: ["PublicPhotoCallout", "PublicMagazineBanner"],
   },
+  "subcategory-landing": {
+    name: "PublicSubcategoryNavigator",
+    path: "components/public-visual-system/public-subcategory-navigator.tsx",
+    chain: ["PublicSubcategoryNavigator (landing)"],
+  },
+  "subcategory-compact": {
+    name: "PublicSubcategoryNavigator",
+    path: "components/public-visual-system/public-subcategory-navigator.tsx",
+    chain: ["PublicSubcategoryNavigator (compact)"],
+  },
 };
 
 export function verifiedCanonicalRendererForGroup(
