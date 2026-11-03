@@ -56,7 +56,7 @@ Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch
 - [x] Jedna kanonická položka na dvojicu bez ohľadu na poradie A/B, automatické obnovenie uložených poznámok a prehľad stránkovaných rozhodnutí.
 - [x] Optimistická kontrola revízie, explicitná možnosť načítať poslednú uloženú verziu pri konfliktoch.
 - [x] Rozhodnutia „ponechať rozdielne“ / „už spoločné“ sú v prehľade oddelené od čakajúcich návrhov na zlúčenie.
-- [x] Regresné kontraktové testy ukladania, validácie, orientácie A/B, ochrany návrhu a chráneného endpointu.
+- [x] Regresné testy ukladania, validácie, orientácie A/B, ochrany návrhu a chráneného endpointu, plus integračný test D1 zápisu/čítania/konfliktu na izolovanom mocku.
 - [ ] CI, prihlásený vizuálny smoke test a test skutočného produkčného uloženia ostávajú neoverené.
 - [ ] Po prevádzkovom overení pridať stav spracovania PR a odkaz na súvisiacu implementáciu; aktuálny front iba ukladá rozhodnutia, nie ich realizáciu.
 - [ ] Prvé reálne zlúčenie bannera Veterinári (samostatný schválený PR).
