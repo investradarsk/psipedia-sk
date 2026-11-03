@@ -6,6 +6,7 @@ import {useVirtualizer} from "@tanstack/react-virtual";
 import {useRouter} from "next/navigation";
 import {AdminActionButton, AdminDestructiveConfirmDialog} from "@/components/admin-interaction-system";
 import {AdminFormFeedback} from "@/components/admin-form-feedback";
+import {AdminInlineRowActions,AdminInlineCellInput} from "@/components/admin-inline-edit-controls";
 import {EditorActionBar,EditorWorkspace} from "@/components/admin-editor-workspace";
 import type {CatalogEditorItem} from "@/lib/service-catalog-admin-editor-view";
 import styles from "./admin-service-catalog.module.css";
@@ -31,6 +32,8 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,buil
   const [message,setMessage]=useState("");
   const [messageIsError,setMessageIsError]=useState(false);
   const [archiveCandidate,setArchiveCandidate]=useState<CatalogEditorItem|null>(null);
+  const [inlineDraft,setInlineDraft]=useState<{id:string;version:number|null;label:string;meaning:string}|null>(null);
+  const [inlineBusy,setInlineBusy]=useState(false);
   const visible=useMemo(()=>items.filter(item=>{
     const q=query.trim().toLocaleLowerCase("sk");
     return (!q||[item.label,item.group,item.meaning].some(s=>s.toLocaleLowerCase("sk").includes(q)))
@@ -61,6 +64,39 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,buil
   const draftValid=writeEnabled&&!loadError&&draft.name.trim().length>=3&&draft.categories.length>0;
   const mayEdit=(item:CatalogEditorItem)=>writeEnabled&&!loadError&&
     (item.source==="built_in"?builtinOverridesEnabled:item.status!=="RETIRED");
+  const mayInlineEdit=(item:CatalogEditorItem)=>mayEdit(item)&&
+    (item.source==="built_in"||item.status==="DRAFT")&&item.version!==null;
+  const activeInline=inlineDraft&&visible.some(item=>
+    item.id===inlineDraft.id&&item.version===inlineDraft.version)?inlineDraft:null;
+
+  function beginInline(item:CatalogEditorItem) {
+    if(!mayInlineEdit(item)||busy||inlineBusy)return;
+    setInlineDraft({id:item.id,version:item.version,label:item.label,meaning:item.meaning});
+    setMessage("");setMessageIsError(false);
+  }
+  async function saveInline(){
+    const draft=activeInline;
+    const item=visible.find(row=>row.id===draft?.id);
+    if(!draft||!item||inlineBusy||busy||!draft.label.trim())return;
+    setInlineBusy(true);setMessage("");setMessageIsError(false);
+    try{
+      const response=await fetch("/api/admin/service-catalog/options/"+encodeURIComponent(item.id),{
+        method:"PATCH",credentials:"same-origin",cache:"no-store",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({
+          action:"edit",expectedVersion:draft.version,name:draft.label,
+          meaning:draft.meaning,categories:[...item.categories],group:item.group,
+        }),
+      });
+      const result=await response.json() as ErrorResponse;
+      if(!response.ok||!result.option?.id)throw new Error(result.error||"Úpravu katalógu sa nepodarilo uložiť.");
+      setInlineDraft(null);
+      setMessage("Zmena uložená v kanonickom katalógu. Synchronizáciu do Notion spravuje katalóg V3.");
+      router.refresh();
+    }catch(error){
+      setMessageIsError(true);setMessage(error instanceof Error?error.message:"Uloženie zlyhalo.");
+    }finally{setInlineBusy(false);}
+  }
   const close=()=>{setEditing(null);setCreating(false);setDraft(empty());};
   async function persist(){
     if(busy||!draftValid||!dirty&&editing)return;
@@ -145,11 +181,28 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,buil
               return <div key={row.id} data-index={virtualRow.index}
                 ref={virtualizer.measureElement} className={styles.virtualRow}
                 style={{transform:`translateY(${virtualRow.start}px)`}}>
-                <button type="button" className={styles.listItem}
-                  aria-pressed={selected?.id===item.id} onClick={()=>setSelectedId(item.id)}>
-                  <strong>{item.label}</strong>
-                  <small>{item.kind==="service"?"Služba":"Vlastnosť"} · {item.group}</small>
-                </button>
+                {activeInline?.id===item.id
+                  ? <div className={styles.inlineEditor}>
+                      <AdminInlineCellInput label={"Názov služby "+item.label}
+                        value={activeInline.label} maxLength={100} required disabled={inlineBusy}
+                        onChange={label=>setInlineDraft(current=>current?{...current,label}:null)}/>
+                      <textarea className={styles.inlineMeaning} aria-label={"Popis služby "+item.label}
+                        value={activeInline.meaning} maxLength={500} rows={2} disabled={inlineBusy}
+                        onChange={event=>setInlineDraft(current=>current?{...current,meaning:event.target.value}:null)}/>
+                    </div>
+                  : <button type="button" className={styles.listItem}
+                      aria-pressed={selected?.id===item.id} onClick={()=>setSelectedId(item.id)}>
+                      <strong>{item.label}</strong>
+                      <small>{item.kind==="service"?"Služba":"Vlastnosť"} · {item.group}</small>
+                    </button>}
+                {mayInlineEdit(item)&&<span className={styles.inlineActions}><AdminInlineRowActions
+                  editing={activeInline?.id===item.id} busy={inlineBusy}
+                  disabled={busy||Boolean(activeInline&&activeInline.id!==item.id)||
+                    (activeInline?.id===item.id&&(!activeInline.label.trim()||activeInline.meaning.trim().length<10))}
+                  onEdit={()=>beginInline(item)}
+                  onSave={()=>void saveInline()}
+                  onCancel={()=>{if(!inlineBusy)setInlineDraft(null);}}
+                /></span>}
               </div>;
             })}
           </div>

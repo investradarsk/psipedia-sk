@@ -1158,6 +1158,35 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
   return rowToManagedArticle(result, input.relatedBreedIds, topics);
 }
 
+/** Narrow row edit for both Articles and Puppies (both use managed_articles).
+ * Preserve title/slug, lexical rich content, hero media, publication, SEO,
+ * topic and breed relations, and reject concurrent edits with updated_at CAS. */
+export async function updateManagedArticleInlineExcerpt(
+  id: number, excerptInput: string, expectedUpdatedAt: string, editorEmail: string,
+) {
+  if (!Number.isSafeInteger(id) || id < 1 || typeof expectedUpdatedAt !== "string" ||
+      !expectedUpdatedAt.trim() || typeof excerptInput !== "string") {
+    throw new Error("Neplatná verzia alebo popis článku.");
+  }
+  const excerpt = excerptInput.trim();
+  if (excerpt.length > 700) throw new Error("Krátky popis môže mať najviac 700 znakov.");
+  const database = requireD1Binding();
+  await ensureArticleStore(database);
+  const current = await database.prepare("SELECT id, status, updated_at FROM managed_articles WHERE id=? LIMIT 1")
+    .bind(id).first<{ id: number; status: string; updated_at: string }>();
+  if (!current) return null;
+  if (current.updated_at !== expectedUpdatedAt) throw new ArticleUpdateConflictError();
+  const previousMillis = Date.parse(current.updated_at);
+  const updatedAt = new Date(Math.max(Date.now(), Number.isFinite(previousMillis) ? previousMillis + 1 : 0)).toISOString();
+  const result = await database.prepare(`UPDATE managed_articles
+    SET excerpt=?, updated_at=?, updated_by=?
+    WHERE id=? AND updated_at=? AND status=? RETURNING id`)
+    .bind(excerpt, updatedAt, editorEmail, id, expectedUpdatedAt, current.status)
+    .first<{ id: number }>();
+  if (!result) throw new ArticleUpdateConflictError();
+  return getManagedArticleById(result.id);
+}
+
 export async function updateManagedArticle(
   id: number,
   payload: ManagedArticleInput,

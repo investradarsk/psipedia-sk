@@ -1,0 +1,9 @@
+/* Only desktop list moderation. Canonical review detail remains unchanged on mobile. */
+.desktopOnly { display: grid; gap: 6px; align-content: center; margin-left: auto; }
+.controls { display: flex; gap: 7px; flex-wrap: wrap; }
+.desktopOnly button { min-height: 40px; padding: 8px 10px; border-radius: 8px; border: 1px solid #cbdccc; background: #f2f8f4; color: #184831; font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
+.desktopOnly .save { background: #215c3a; color: white; border-color: #215c3a; }
+.desktopOnly button:disabled { opacity: .5; cursor: wait; }
+.desktopOnly small { max-width: 240px; font-size: .75rem; color: #8e3d25; }
+.desktopOnly button:focus-visible { outline: 3px solid #e5ad32; outline-offset: 2px; }
+@media (max-width: 899px) { .desktopOnly { display: none; } }

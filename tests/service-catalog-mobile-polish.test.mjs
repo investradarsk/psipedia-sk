@@ -33,6 +33,10 @@ const fakeRequire=(id)=>{
     AdminActionButton:({children,disabled})=>createElement("button",{disabled},children),
     AdminDestructiveConfirmDialog:()=>null
   };
+  if(id==="@/components/admin-inline-edit-controls")return {
+    AdminInlineRowActions:()=>null,
+    AdminInlineCellInput:()=>null,
+  };
   if(id==="@/components/admin-form-feedback")return {
     AdminFormFeedback:({message,error})=>error
       ? createElement("p",{role:"alert"},error)

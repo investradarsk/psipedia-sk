@@ -108,3 +108,10 @@
 .virtualList{position:relative;min-width:0}
 .virtualRow{position:absolute;top:0;left:0;width:100%;min-width:0}
 .virtualRow .listItem{width:100%;box-sizing:border-box}
+
+/* Desktop quick-edit rows reuse the canonical catalog API; retain original mobile layout. */
+.inlineEditor{padding:8px 10px;display:grid;gap:6px;min-width:0;background:#f7faf7;border-radius:9px}
+.inlineMeaning{display:block;box-sizing:border-box;width:100%;min-width:0;padding:7px 9px;resize:vertical;min-height:55px;max-height:160px;font:inherit;font-size:.82rem;border:1px solid #bed4c4;border-radius:7px;color:#153e30;background:#fff}
+.inlineMeaning:focus-visible{outline:2px solid #b34631;outline-offset:2px}
+.inlineActions{display:flex;padding:2px 9px 9px;min-width:0}
+@media (max-width: 899px){.inlineActions{display:none}}

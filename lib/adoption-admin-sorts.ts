@@ -1,0 +1,3 @@
+/** Runtime-safe sort options shared by the client and Cloudflare D1 listing. */
+export const adoptionAdminSorts = ["updated-desc", "updated-asc", "verified-desc", "name-asc"] as const;
+export type AdoptionAdminSort = (typeof adoptionAdminSorts)[number];

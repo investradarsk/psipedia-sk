@@ -478,6 +478,42 @@ async function writeAdoption(database: AdoptionD1Database, payload: ManagedAdopt
   return getAdoptionById(existing.id, database);
 }
 
+/** Name-only admin grid update with search-index refresh. Never invokes
+ * publication transitions, address validation, media, or relation changes. */
+export async function updateAdoptionInlineName(
+  id: number, nameInput: string, expectedUpdatedAt: string, editorEmail: string,
+  databaseInput?: AdoptionD1Database,
+) {
+  if (!Number.isSafeInteger(id) || id < 1 || typeof expectedUpdatedAt !== "string" ||
+      !expectedUpdatedAt.trim()) throw new Error("Neplatné ID alebo verzia adopcie.");
+  const name = normalizeAdoptionText(nameInput);
+  if (!name || name.length > 180) throw new Error("Meno psa musí mať 1–180 znakov.");
+  const database = requireD1Binding(databaseInput);
+  const before = await database.prepare(`SELECT id,name,status,updated_at,breed_name,color,
+    region,district,city,organization_name,short_description,temperament
+    FROM adoption_dogs WHERE id=? LIMIT 1`).bind(id).first<{
+      id: number; name: string; status: string; updated_at: string;
+      breed_name: string; color: string; region: string; district: string; city: string;
+      organization_name: string; short_description: string; temperament: string;
+    }>();
+  if (!before) return null;
+  if (before.updated_at !== expectedUpdatedAt || before.status === "ARCHIVED") {
+    throw new Error("Adopcia sa zmenila alebo je archivovaná. Obnov tabuľku.");
+  }
+  const searchText = buildAdoptionSearchText({
+    name, breedName: before.breed_name, color: before.color, region: before.region,
+    district: before.district, city: before.city, organizationName: before.organization_name,
+    shortDescription: before.short_description, temperament: before.temperament,
+  });
+  const updated = await database.prepare(`UPDATE adoption_dogs
+    SET name=?,search_text=?,updated_at=?,updated_by=?
+    WHERE id=? AND updated_at=? AND status <> 'ARCHIVED' RETURNING id`)
+    .bind(name, searchText, new Date().toISOString(), normalizeAdoptionText(editorEmail).toLowerCase(),
+      id, expectedUpdatedAt).first<{ id: number }>();
+  if (!updated) throw new Error("Adopcia sa medzitým zmenila. Obnov tabuľku.");
+  return updated.id;
+}
+
 export async function createManagedAdoption(payload: ManagedAdoptionInput, editorEmail: string, database?: AdoptionD1Database) {
   return writeAdoption(requireD1Binding(database), payload, editorEmail, null);
 }

@@ -100,6 +100,7 @@ export type ManagedDirectoryProfileSummary = Pick<
   | "id"
   | "slug"
   | "name"
+  | "excerpt"
   | "category"
   | "status"
   | "services"

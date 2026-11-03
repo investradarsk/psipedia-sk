@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminRecordTable, type AdminRecordColumn } from "@/components/admin-record-table";
+import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
@@ -29,6 +30,8 @@ export type HelpDirectoryRow = {
     websiteUrl: string | null;
     editable: boolean;
   };
+  inlineHelp?: { title: string; excerpt: string; editable: boolean };
+  inlineDog?: { kind: "adopcia" | "stratene-a-najdene"; name: string; editable: boolean };
 };
 export type HelpDirectoryCategory = { slug: string; label: string; icon: string; href: string };
 
@@ -52,6 +55,8 @@ type ShelterDraft = {
   websiteUrl: string;
 };
 type ShelterEditableField = "name" | "shortDescription" | "publicEmail" | "publicPhone" | "websiteUrl";
+type HelpDraft = { key: string; id: number; updatedAt: string; title: string; excerpt: string };
+type DogDraft = { key: string; id: number; updatedAt: string; name: string; kind: "adopcia" | "stratene-a-najdene" };
 
 export function AdminHelpUnifiedTable({
   category, categories, rows, query, page, pages, total,
@@ -71,6 +76,10 @@ export function AdminHelpUnifiedTable({
   const [message, setMessage] = useState("");
   const [shelterDraft, setShelterDraft] = useState<ShelterDraft | null>(null);
   const [shelterBusy, setShelterBusy] = useState(false);
+  const [helpDraft, setHelpDraft] = useState<HelpDraft | null>(null);
+  const [helpBusy, setHelpBusy] = useState(false);
+  const [dogDraft, setDogDraft] = useState<DogDraft | null>(null);
+  const [dogBusy, setDogBusy] = useState(false);
 
   // A category, search, page or row change invalidates selection immediately,
   // including the preflight preview. Nothing can leak to another page/filter.
@@ -82,8 +91,14 @@ export function AdminHelpUnifiedTable({
   const activeReview = bulkReview?.key === viewKey ? bulkReview : null;
   const canBulkEdit = isHelpAdminCreateCategory(category);
   const canInlineEditShelters = category === "utulky";
+  const canInlineEditHelp = canBulkEdit;
+  const canInlineEditDogs = category === "adopcia" || category === "stratene-a-najdene";
   const activeShelterDraft = canInlineEditShelters && shelterDraft?.key === viewKey &&
     visibleIds.has(shelterDraft.id) ? shelterDraft : null;
+  const activeHelpDraft = canInlineEditHelp && helpDraft?.key === viewKey &&
+    rows.some(row => row.id === helpDraft.id && row.updatedAt === helpDraft.updatedAt) ? helpDraft : null;
+  const activeDogDraft = canInlineEditDogs && dogDraft?.key === viewKey &&
+    rows.some(row => row.id === dogDraft.id && row.updatedAt === dogDraft.updatedAt) ? dogDraft : null;
 
   const categoryHref = (slug: string, nextPage = 1) => {
     const params = new URLSearchParams();
@@ -156,6 +171,79 @@ export function AdminHelpUnifiedTable({
     }
   }
 
+  function beginHelpEdit(item: HelpDirectoryRow) {
+    if (!canInlineEditHelp || !item.inlineHelp?.editable || helpBusy) return;
+    setMessage("");
+    setBulkReview(null);
+    setHelpDraft({
+      key: viewKey, id: item.id, updatedAt: item.updatedAt,
+      title: item.inlineHelp.title, excerpt: item.inlineHelp.excerpt,
+    });
+  }
+
+  async function saveHelpEdit() {
+    const draft = activeHelpDraft;
+    if (!draft || helpBusy || !draft.title.trim()) return;
+    setHelpBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/help/" + draft.id, {
+        method: "PATCH",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "set-inline-editorial",
+          expectedCategory: category,
+          expectedUpdatedAt: draft.updatedAt,
+          changes: { title: draft.title, excerpt: draft.excerpt },
+        }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Rýchlu úpravu sa nepodarilo uložiť.");
+      setHelpDraft(null);
+      setMessage("Názov a krátky popis boli uložené.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Úpravu sa nepodarilo uložiť.");
+    } finally {
+      setHelpBusy(false);
+    }
+  }
+
+  function beginDogEdit(item: HelpDirectoryRow) {
+    if (!canInlineEditDogs || !item.inlineDog?.editable || dogBusy) return;
+    setMessage("");
+    setDogDraft({
+      key: viewKey, id: item.id, updatedAt: item.updatedAt,
+      kind: item.inlineDog.kind, name: item.inlineDog.name,
+    });
+  }
+  async function saveDogEdit() {
+    const draft = activeDogDraft;
+    if (!draft || dogBusy || (draft.kind === "adopcia" && !draft.name.trim())) return;
+    setDogBusy(true); setMessage("");
+    try {
+      const isAdoption = draft.kind === "adopcia";
+      const response = await fetch(isAdoption
+        ? "/api/admin/adoptions/" + draft.id
+        : "/api/admin/lost-found/" + draft.id, {
+        method: "PATCH", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(isAdoption
+          ? { action: "set-inline-name", name: draft.name, expectedUpdatedAt: draft.updatedAt }
+          : { action: "set-inline-dog-name", dogName: draft.name || null, expectedUpdatedAt: draft.updatedAt }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Meno psa sa nepodarilo uložiť.");
+      setDogDraft(null);
+      setMessage("Meno psa bolo uložené v kanonickom profile.");
+      router.refresh();
+    } catch(error) {
+      setMessage(error instanceof Error ? error.message : "Rýchlu úpravu sa nepodarilo uložiť.");
+    } finally { setDogBusy(false); }
+  }
+
   const tableColumns: AdminRecordColumn<HelpDirectoryRow>[] = [
     {
       id: "title", label: "Názov / pes", width: canInlineEditShelters ? 240 : 265,
@@ -166,7 +254,16 @@ export function AdminHelpUnifiedTable({
           value={activeShelterDraft.name} maxLength={180} required disabled={shelterBusy}
           onChange={event => changeShelterField("name", event.target.value)}
         />
-        : <Link className={styles.primary} href={item.href}>{item.title}</Link>,
+        : activeDogDraft?.id === item.id
+          ? <AdminInlineCellInput label={"Meno psa " + item.title}
+              value={activeDogDraft.name} maxLength={activeDogDraft.kind === "adopcia" ? 180 : 120}
+              required={activeDogDraft.kind === "adopcia"} disabled={dogBusy}
+              onChange={name => setDogDraft(current => current ? { ...current, name } : null)} />
+        : activeHelpDraft?.id === item.id
+          ? <AdminInlineCellInput label={"Názov záznamu " + item.title}
+              value={activeHelpDraft.title} maxLength={180} required disabled={helpBusy}
+              onChange={title => setHelpDraft(current => current ? { ...current, title } : null)} />
+          : <Link className={styles.primary} href={item.href}>{item.title}</Link>,
     },
     { id: "detail", label: "Typ / doplnenie", width: canInlineEditShelters ? 140 : 205, sortValue: item => item.detail, cell: item => item.detail || "—" },
     { id: "city", label: "Lokalita", width: canInlineEditShelters ? 130 : 160, sortValue: item => item.city, cell: item => item.city || "—" },
@@ -202,13 +299,22 @@ export function AdminHelpUnifiedTable({
           </span>,
       },
     ] : []),
+    ...(canInlineEditHelp ? [{
+      id: "helpExcerpt", label: "Krátky popis", width: 255,
+      sortValue: (item: HelpDirectoryRow) => item.inlineHelp?.excerpt || "",
+      cell: (item: HelpDirectoryRow) => activeHelpDraft?.id === item.id
+        ? <AdminInlineCellInput label={"Krátky popis " + item.title}
+            value={activeHelpDraft.excerpt} maxLength={700} disabled={helpBusy}
+            onChange={excerpt => setHelpDraft(current => current ? { ...current, excerpt } : null)} />
+        : <span title={item.inlineHelp?.excerpt || ""}>{item.inlineHelp?.excerpt || "—"}</span>,
+    }] : []),
     {
       id: "updated", label: "Aktualizované", width: canInlineEditShelters ? 123 : 145,
       sortValue: item => item.updatedAt,
       cell: item => item.updatedAt ? new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "short", year: "numeric" }).format(new Date(item.updatedAt)) : "—",
     },
     {
-      id: "actions", label: "Akcia", width: canInlineEditShelters ? 180 : 125,
+      id: "actions", label: "Akcia", width: canInlineEditShelters || canInlineEditHelp || canInlineEditDogs ? 180 : 125,
       cell: item => canInlineEditShelters
         ? activeShelterDraft?.id === item.id
           ? <span className={styles.inlineActions}>
@@ -222,7 +328,31 @@ export function AdminHelpUnifiedTable({
               onClick={() => beginShelterEdit(item)}>Upraviť v tabuľke</button>}
             <Link className={styles.action} href={item.href}>Detail →</Link>
           </span>
-        : <Link className={styles.action} href={item.href}>Upraviť →</Link>,
+        : canInlineEditDogs && item.inlineDog?.editable
+          ? <span className={styles.inlineActions}>
+            <AdminInlineRowActions
+              editing={activeDogDraft?.id === item.id} busy={dogBusy}
+              disabled={Boolean(activeDogDraft && activeDogDraft.id !== item.id) ||
+                (activeDogDraft?.id === item.id && activeDogDraft.kind === "adopcia" && !activeDogDraft.name.trim())}
+              onEdit={() => beginDogEdit(item)}
+              onSave={() => void saveDogEdit()}
+              onCancel={() => { if (!dogBusy) setDogDraft(null); }}
+            />
+            <Link className={styles.action} href={item.href}>Detail →</Link>
+          </span>
+        : canInlineEditHelp && item.inlineHelp?.editable
+          ? <span className={styles.inlineActions}>
+              <AdminInlineRowActions
+                editing={activeHelpDraft?.id === item.id} busy={helpBusy}
+                disabled={Boolean(activeHelpDraft && activeHelpDraft.id !== item.id) ||
+                  (activeHelpDraft?.id === item.id && !activeHelpDraft.title.trim())}
+                onEdit={() => beginHelpEdit(item)}
+                onSave={() => void saveHelpEdit()}
+                onCancel={() => { if (!helpBusy) setHelpDraft(null); }}
+              />
+              <Link className={styles.action} href={item.href}>Detail →</Link>
+            </span>
+          : <Link className={styles.action} href={item.href}>Upraviť →</Link>,
     },
   ];
 
@@ -297,7 +427,7 @@ export function AdminHelpUnifiedTable({
       <div className={styles.intro}>
         <div>
           <strong>Profily a prípady</strong>
-          <p>Vyber kategóriu a pracuj s prehľadnou tabuľkou. Úpravy sa otvárajú v existujúcom editore.</p>
+          <p>Vyber kategóriu, uprav povolené údaje priamo v tabuľke alebo otvor kompletný editor.</p>
         </div>
         <Link className={styles.categoryAction} href={active.href}>Pokročilá správa kategórie</Link>
       </div>
@@ -345,13 +475,19 @@ export function AdminHelpUnifiedTable({
           Stav publikovania, typ organizácie a adresy zostávajú v editore Detail.
         </p>
       )}
+      {canInlineEditHelp && rows.length > 0 && (
+        <p className={styles.bulkHint}>Rýchlo uprav názov a krátky popis prípadu priamo v tabuľke. Publikovanie a ostatné polia spravuj existujúcimi akciami.</p>
+      )}
+      {canInlineEditDogs && rows.length > 0 && <p className={styles.bulkHint}>
+        Priamo uprav meno psa. Stavy adopcií, moderovanie hlásení a kontakty ostávajú v plných editoroch.
+      </p>}
       {message && <p className={styles.bulkMessage} role="status">{message}</p>}
 
       {rows.length ? <AdminRecordTable
         rows={rows}
         label={active.label}
-        busy={bulkBusy || shelterBusy}
-        stretch={canInlineEditShelters}
+        busy={bulkBusy || shelterBusy || helpBusy || dogBusy}
+        stretch={canInlineEditShelters || canInlineEditHelp || canInlineEditDogs}
         selection={canBulkEdit ? {
           selectedIds,
           disabled: bulkBusy,
@@ -360,7 +496,7 @@ export function AdminHelpUnifiedTable({
         } : undefined}
         columns={tableColumns}
       /> : <p className={styles.empty}>Pre tento výber nie sú záznamy. Skús vyhľadávať iné slovo alebo zmeniť kategóriu.</p>}
-      {!canBulkEdit && rows.length > 0 && !canInlineEditShelters && (
+      {!canBulkEdit && rows.length > 0 && !canInlineEditShelters && !canInlineEditDogs && (
         <p className={styles.bulkHint}>Táto kategória má vlastné pravidlá zmien. Hromadné úpravy sa vykonávajú iba v príslušnom module, nie cez spoločnú tabuľku.</p>
       )}
       {pages > 1 && <nav className={styles.pagination} aria-label="Stránkovanie Pomoci psom">

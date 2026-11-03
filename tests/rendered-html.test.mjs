@@ -151,7 +151,7 @@ function createAdminMockDatabase() {
         updated_at: articleRow.updated_at,
       }];
     }
-    if (/SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,\s+COALESCE\(json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\), ''\) AS reviewed_at\s+FROM directory_profiles/i.test(normalized)) {
+    if (/SELECT id, slug, name, excerpt, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,\s+COALESCE\(json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\), ''\) AS reviewed_at\s+FROM directory_profiles/i.test(normalized)) {
       return [{
         id: profileRow.id,
         slug: profileRow.slug,

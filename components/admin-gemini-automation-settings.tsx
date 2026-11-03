@@ -11,6 +11,7 @@ import type { GeminiRecentRun } from "@/lib/gemini-automation-admin-store";
 import type { GeminiGlobalControl } from "@/lib/gemini-global-control";
 import styles from "./admin-gemini-automation.module.css";
 import { AdminGeminiNotionDrafts } from "./admin-gemini-notion-drafts";
+import { AdminGeminiQuickSettings } from "./admin-gemini-quick-settings";
 import { geminiSchedulePresentation, nextVisibleGeminiSchedule } from "@/lib/gemini-schedule-presentation";
 
 function formatDate(value: string | null) {
@@ -482,6 +483,7 @@ export function AdminGeminiAutomationSettings({
   const [selectedKey, setSelectedKey] = useState(initialSelectedKey ?? settings[0]?.stableKey ?? "");
   const [pendingDeepLinkId, setPendingDeepLinkId] = useState(initialDraftId);
   const [dirty, setDirty] = useState(false);
+  const [cardRevision, setCardRevision] = useState(0);
   const onDirtyChange = useCallback((value: boolean) => setDirty(value), []);
   const onSaved = useCallback((next: GeminiSettingView) => {
     setRemote((previous) => ({
@@ -492,6 +494,12 @@ export function AdminGeminiAutomationSettings({
       control: previous?.control ?? control,
     }));
   }, [settings, initialJobs, recentRuns, control]);
+  const onQuickSaved = useCallback((next: GeminiSettingView) => {
+    onSaved(next);
+    // Refresh the selected detail form from persisted values after an inline edit.
+    // Inline editing is disabled while that detail form has unsaved changes.
+    setCardRevision((revision) => revision + 1);
+  }, [onSaved]);
 
   useEffect(() => {
     if (!available) return;
@@ -636,6 +644,10 @@ export function AdminGeminiAutomationSettings({
         </div>
       </div>
 
+      <AdminGeminiQuickSettings settings={liveSettings} available={available}
+        globalRunning={globalRunning} scheduledEnabled={scheduledEnabled}
+        hasUnsavedCategory={dirty} onSaved={onQuickSaved} />
+
       <Link href="/admin/automatizacie-gemini/koncepty" className={styles.allConceptsCta}>
         <span className={styles.allConceptsCtaCopy}>
           <small>CENTRÁLNY PREHĽAD · 22 KATEGÓRIÍ</small>
@@ -665,7 +677,7 @@ export function AdminGeminiAutomationSettings({
                 ))}
               </select>
             </label>
-            {selected && <GeminiSettingsCard key={selected.stableKey} initial={selected}
+            {selected && <GeminiSettingsCard key={selected.stableKey + ":" + cardRevision} initial={selected}
               available={available} externalEnabled={externalEnabled} scheduledEnabled={scheduledEnabled}
               globalRunning={globalRunning} currentTime={currentTime}
               latestRun={liveRuns.find((run) => run.stableKey === selected.stableKey) ?? null}

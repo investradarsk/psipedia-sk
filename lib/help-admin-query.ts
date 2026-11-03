@@ -120,7 +120,7 @@ export async function queryHelpAdmin<T>(database: ReadDatabase, filters: HelpAdm
   const resultCount = count?.count ?? 0;
   const pages = Math.max(1, Math.ceil(resultCount / HELP_ADMIN_PAGE_SIZE));
   const page = Math.min(filters.page, pages);
-  const result = await database.prepare(`SELECT id, slug, title, category, status, organization, dog_name, city, image_url, verified, urgent, resolved
+  const result = await database.prepare(`SELECT id, slug, title, excerpt, category, status, organization, dog_name, city, image_url, verified, urgent, resolved, updated_at
     FROM help_cases${where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
     .bind(...args, HELP_ADMIN_PAGE_SIZE, (page - 1) * HELP_ADMIN_PAGE_SIZE).all<T>();
   return {

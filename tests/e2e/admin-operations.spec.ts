@@ -159,7 +159,15 @@ test("Attention pagination reaches items beyond the former source cap and distin
   const tipHash = new URL(page.url()).hash;
   const canonicalTip = page.locator(tipHash);
   await canonicalTip.scrollIntoViewIfNeeded();
-  await canonicalTip.getByRole("button", { name: "Spracovaný", exact: true }).click();
+  if (testInfo.project.name === "mobile-chromium") {
+    // The original quick-status action is deliberately retained on mobile.
+    await canonicalTip.getByRole("button", { name: "Spracovaný", exact: true }).click();
+  } else {
+    // On desktop the shared inline editor replaces the old direct status buttons.
+    await canonicalTip.getByRole("button", { name: "Upraviť v tabuľke" }).click();
+    await canonicalTip.getByRole("combobox", { name: /^Stav tipu / }).selectOption("used");
+    await canonicalTip.getByRole("button", { name: "Uložiť", exact: true }).click();
+  }
   await expect(page.getByRole("status").filter({ hasText: "Tip je označený" })).toContainText("Spracovaný");
 
   response = await page.goto("/admin/operations?source=NEWS_TIP", { waitUntil: "domcontentloaded" });

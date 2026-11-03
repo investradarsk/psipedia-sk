@@ -58,6 +58,8 @@ export type ManagedHelpCaseSummary = Pick<
   | "id"
   | "slug"
   | "title"
+  | "excerpt"
+  | "updatedAt"
   | "category"
   | "status"
   | "organization"
@@ -152,6 +154,8 @@ type HelpCaseSummaryRow = {
   id: number;
   slug: string;
   title: string;
+  excerpt: string;
+  updated_at: string;
   category: string;
   status: string;
   organization: string;
@@ -277,6 +281,8 @@ function rowToHelpCaseSummary(row: HelpCaseSummaryRow): ManagedHelpCaseSummary {
     id: row.id,
     slug: row.slug,
     title: row.title,
+    excerpt: row.excerpt ?? "",
+    updatedAt: row.updated_at ?? "",
     category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
     status: row.status === "published" ? "published" : "draft",
     organization: row.organization,

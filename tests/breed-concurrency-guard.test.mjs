@@ -23,7 +23,7 @@ function section(src, first, after) {
 }
 const factories = section(store, "function values(", "export async function createManagedBreed(")
   + "\n" + section(store, "const select=", "export async function listManagedBreedSummaries(")
-  + "\n" + section(store, "export function buildManagedBreedUpdateStatements(", "export async function updateManagedBreed(").replace(/^export /, "");
+  + "\n" + section(store, "export function buildManagedBreedUpdateStatements(", "export async function updateManagedBreedInlineIntro(").replace(/^export /, "");
 const { buildManagedBreedUpdateStatements } = vm.runInNewContext(
   stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements})"),
   { JSON, Date, clean: value => value },

@@ -1,0 +1,24 @@
+/* Compact settings table is additive; the original mobile editor stays unchanged. */
+.desktopOnly { display: grid; gap: 12px; min-width: 0; background: #fff; border: 1px solid #e4eae6; border-radius: 15px; padding: 16px; }
+.heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 10px; }
+.heading h2 { margin: 0; font: inherit; font-weight: 750; font-size: 1rem; color: #173729; }
+.heading p { margin: 4px 0 0; font-size: .82rem; color: #52675a; }
+.heading span { font-size: .78rem; color: #52675a; }
+.scroll { max-width: 100%; overflow-x: auto; border: 1px solid #e0e9e3; border-radius: 10px; }
+.table { width: 100%; min-width: 740px; border-collapse: collapse; font-size: .83rem; }
+.table th, .table td { padding: 9px 12px; text-align: left; border-bottom: 1px solid #e7ede9; vertical-align: middle; }
+.table thead th { background: #f4f8f5; font-weight: 750; }
+.table tbody th { font-weight: 650; }
+.table tbody tr:last-child th, .table tbody tr:last-child td { border-bottom: 0; }
+.table input[type=number], .table select { width: 90px; max-width: 100%; padding: 7px; border: 1px solid #b6d0be; border-radius: 7px; font: inherit; }
+.table select { width: 85px; }
+.inlineControls, .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.check { white-space: nowrap; display: flex; align-items: center; gap: 7px; }
+.check input { accent-color: #174b38; }
+.actions button, .table td > button { border: 1px solid #cbdccc; background: #f6faf7; border-radius: 7px; padding: 7px 9px; font: inherit; font-weight: 650; color: #164d33; cursor: pointer; }
+.actions .save { background: #174b38; border-color: #174b38; color: #fff; }
+.table button:disabled { opacity: .5; cursor: not-allowed; }
+.table :is(button, input, select):focus-visible { outline: 3px solid #e5ad32; outline-offset: 2px; }
+.stopNotice, .success, .error { margin: 0; font-size: .8rem; line-height: 1.5; }
+.stopNotice { color: #77571f; } .success { color: #1d6c43; } .error { color: #ad2c2c; }
+@media (max-width: 899px) { .desktopOnly { display: none; } }

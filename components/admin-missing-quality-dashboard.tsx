@@ -87,6 +87,8 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   const [profileFilter,setProfileFilter]=useState("");
   const [preview,setPreview]=useState<string|null>(null);
   const [brokenImages,setBrokenImages]=useState<number[]>([]);
+  const [editingProposalId,setEditingProposalId]=useState<number|null>(null);
+  const [correctedValue,setCorrectedValue]=useState("");
   const stopManual=useRef(false);
 
   const total=Math.max(0,data.total-data.pending.filter(p=>removed.has(p.id)).length);
@@ -145,16 +147,17 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
     } catch(error){setManualProgress(error instanceof Error?error.message:"Hľadanie zlyhalo.");}
     finally{setManualBusy(false);}
   }
-  async function decide(item:MissingQualityProposal,action:"accept"|"reject") {
+  async function decide(item:MissingQualityProposal,action:"accept"|"reject",value?:string) {
     if(busy!==null||bulkBusy||manualBusy)return;
     setBusy(item.id);setNotice("");setNoticeError(false);
     try{
       const response=await fetch(`/api/admin/data-quality/missing/${item.id}`,{
-        method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action}),
+        method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,...(action==="accept"&&value!==undefined?{value}:{})}),
       });
       const body=await response.json() as {error?:string};
       if(!response.ok)throw new Error(body.error??"Údaj sa nepodarilo spracovať.");
       setRemovedIds(prev=>[...prev,item.id]);
+      if(editingProposalId===item.id){setEditingProposalId(null);setCorrectedValue("");}
       setNotice(action==="accept"?"Údaj bol doplnený do profilu.":"Návrh bol zamietnutý.");
       router.refresh();
     }catch(error){setNoticeError(true);setNotice(error instanceof Error?error.message:"Návrh sa nepodarilo spracovať.");}
@@ -327,7 +330,15 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
               <div className={styles.itemContent}>
                 <div className={styles.profile}>{p.profile_label} <a className={styles.profileLink} href={adminProfileHref(p)} target="_blank" rel="noopener noreferrer">Otvoriť profil ↗</a></div>
                 <div className={styles.field}>{p.field_label}</div>
-                {p.field_group==="image"?
+                {editingProposalId===p.id?
+                  <div className={styles.inlineCorrection}>
+                    <label htmlFor={"quality-correction-"+p.id}>Upravená verejná hodnota</label>
+                    <input id={"quality-correction-"+p.id} type={p.field_group==="email"?"email":p.field_group==="phone"?"tel":"url"}
+                      value={correctedValue} maxLength={2048} disabled={busy!==null||bulkBusy||manualBusy}
+                      onChange={event=>setCorrectedValue(event.target.value)} />
+                    <small>Uloženie zároveň schváli nález a doplní údaj do profilu. Pôvodný nález: {p.value}</small>
+                  </div>:
+                p.field_group==="image"?
                   <QualityCandidateImage
                     url={p.value.startsWith("quality-missing-candidate:")
                       ? "/api/admin/data-quality/missing/"+p.id+"/image" : p.value}
@@ -344,10 +355,19 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
                 {p.source_url&&p.source_url!==p.value?<a className={styles.source} href={p.source_url} rel="noopener noreferrer" target="_blank">Otvoriť zdroj ↗</a>:null}
               </div>
               <div className={styles.actions}>
-                {p.field_group==="image"?<button type="button" className={styles.reject} disabled={manualBusy||!data.manualReady||busy!==null||bulkBusy}
-                  onClick={()=>void findOtherImage(p)}>Hľadať iný obrázok</button>:null}
-                <AdminActionButton variant="destructive" className={styles.reject} disabled={busy!==null||bulkBusy||manualBusy} onClick={()=>void decide(p,"reject")}>Zamietnuť</AdminActionButton>
-                <AdminActionButton variant="primary" className={styles.accept} disabled={busy!==null||bulkBusy||manualBusy||brokenImages.includes(p.id)} onClick={()=>void decide(p,"accept")}>{busy===p.id?"Ukladám…":"Schváliť"}</AdminActionButton>
+                {editingProposalId===p.id?<>
+                  <AdminActionButton variant="primary" className={styles.accept} disabled={busy!==null||bulkBusy||manualBusy||!correctedValue.trim()}
+                    onClick={()=>void decide(p,"accept",correctedValue)}>Schváliť upravený údaj</AdminActionButton>
+                  <button type="button" className={styles.reject} disabled={busy!==null}
+                    onClick={()=>{setEditingProposalId(null);setCorrectedValue("");}}>Zrušiť</button>
+                </>:<>
+                  {["web","social","phone","email"].includes(p.field_group)&&<button type="button" className={styles.desktopEdit} disabled={busy!==null||bulkBusy||manualBusy||editingProposalId!==null}
+                    onClick={()=>{setEditingProposalId(p.id);setCorrectedValue(p.value);}}>Upraviť v tabuľke</button>}
+                  {p.field_group==="image"?<button type="button" className={styles.reject} disabled={manualBusy||!data.manualReady||busy!==null||bulkBusy}
+                    onClick={()=>void findOtherImage(p)}>Hľadať iný obrázok</button>:null}
+                  <AdminActionButton variant="destructive" className={styles.reject} disabled={busy!==null||bulkBusy||manualBusy||editingProposalId!==null} onClick={()=>void decide(p,"reject")}>Zamietnuť</AdminActionButton>
+                  <AdminActionButton variant="primary" className={styles.accept} disabled={busy!==null||bulkBusy||manualBusy||editingProposalId!==null||brokenImages.includes(p.id)} onClick={()=>void decide(p,"accept")}>{busy===p.id?"Ukladám…":"Schváliť"}</AdminActionButton>
+                </>}
               </div>
             </article>)}
           </div>

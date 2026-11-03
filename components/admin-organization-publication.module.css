@@ -326,3 +326,6 @@
   color: #6a4d0d;
   background: #f7ecd0;
 }
+
+/* New quick editing is desktop-only; retain established mobile organization controls. */
+@media (max-width: 899px) { .inlineDesktop { display: none; } }

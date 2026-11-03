@@ -577,7 +577,7 @@ export async function loadMissingQualityDashboard(db: Database): Promise<Missing
     truncated: total > rows.results.length, schemaReady: true };
 }
 
-export async function reviewMissingQualityProposal(db:Database,id:number,action:"accept"|"reject",actor:string) {
+export async function reviewMissingQualityProposal(db:Database,id:number,action:"accept"|"reject",actor:string,correctedValue?:unknown) {
   const p=await db.prepare("SELECT * FROM quality_missing_proposals WHERE id=? AND status='OPEN'")
     .bind(id).first<MissingQualityProposal>();
   if(!p) throw new Error("Návrh už bol spracovaný. Obnov stránku.");
@@ -592,8 +592,34 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
   }
   const config=SPECS[p.entity_type],f=config.fields.find(x=>x.key===p.field_key);
   if(!f)throw new Error("Tento údaj sa nedá automaticky prevziať.");
+  // Manual corrections are allowed only for public, plain-text contact/link
+  // proposals. Addresses, pictures, private contact fields and lifecycle
+  // statuses keep their separate canonical approval workflows.
+  let approvedValue=p.value;
+  if(correctedValue!==undefined) {
+    if(!["web","social","phone","email"].includes(f.group) || typeof correctedValue!=="string")
+      throw new Error("Tento typ nálezu sa nedá upraviť priamo.");
+    const corrected=correctedValue.trim();
+    if(!corrected || corrected.length>2048 || /[\x00-\x1f\x7f]/.test(corrected))
+      throw new Error("Upravený údaj má neplatný formát.");
+    if(["web","social"].includes(f.group) && !allowedPage(corrected))
+      throw new Error("Upravený odkaz nie je bezpečná platná adresa.");
+    if(f.group==="email" && (corrected.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrected)))
+      throw new Error("Zadaj platný e-mail.");
+    if(f.group==="phone" && (!/^\+?[0-9\s().-]+$/.test(corrected) ||
+      corrected.replace(/\D/g,"").length<6 || corrected.replace(/\D/g,"").length>15))
+      throw new Error("Zadaj platný verejný telefón.");
+    if(f.group==="social") {
+      const hostname=new URL(corrected).hostname.toLowerCase();
+      if(f.key==="facebookUrl" && !(/(^|\.)facebook\.com$/.test(hostname)||hostname==="fb.me"))
+        throw new Error("Facebook odkaz musí viesť na Facebook.");
+      if(f.key==="instagramUrl" && !(/(^|\.)instagram\.com$/.test(hostname)||hostname==="instagr.am"))
+        throw new Error("Instagram odkaz musí viesť na Instagram.");
+    }
+    approvedValue=corrected;
+  }
   const stagedKey=f.group==="image"?qualityMissingCandidateKey(p.value):null;
-  if(["web","image","social","registration"].includes(f.group)&&!stagedKey&&!allowedPage(p.value))
+  if(["web","image","social","registration"].includes(f.group)&&!stagedKey&&!allowedPage(approvedValue))
     throw new Error("Neplatný externý odkaz.");
   const row=await db.prepare(`SELECT * FROM ${config.table} WHERE id=?`).bind(p.entity_id).first<Row>();
   if(!row||!missing(fieldValue(p.entity_type,row,f)))throw new Error("Údaj už bol medzičasom vyplnený.");
@@ -639,10 +665,10 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
   let update:D1PreparedStatement;
   if(p.entity_type==="DIRECTORY"&&f.contact){
     const patch:Parameters<typeof mergeDirectoryPublicContactData>[1]={};
-    if(f.contact==="phone")patch.publicPhone=p.value;
-    if(f.contact==="email")patch.publicEmail=p.value;
-    if(f.contact==="facebook")patch.facebookUrl=p.value;
-    if(f.contact==="instagram")patch.instagramUrl=p.value;
+    if(f.contact==="phone")patch.publicPhone=approvedValue;
+    if(f.contact==="email")patch.publicEmail=approvedValue;
+    if(f.contact==="facebook")patch.facebookUrl=approvedValue;
+    if(f.contact==="instagram")patch.instagramUrl=approvedValue;
     const data=mergeDirectoryPublicContactData(sourceData(row.source_data_json),patch);
     update=db.prepare(`UPDATE directory_profiles SET source_data_json=?,updated_at=?,updated_by=?
       WHERE id=? AND updated_at=? AND EXISTS (SELECT 1 FROM quality_missing_proposals WHERE id=? AND status='OPEN')`)
@@ -653,7 +679,7 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     const by=p.entity_type==="LOST_FOUND"?"":",updated_by=?";
     const imageKeyColumn=reviewedImage?
       ("image_key" in row?"image_key":"main_image_key" in row?"main_image_key":null):null;
-    const value=reviewedImage?.url??p.value;
+    const value=reviewedImage?.url??approvedValue;
     const keyClause=imageKeyColumn?", "+imageKeyColumn+"=?":"";
     const sql="UPDATE "+config.table+" SET "+f.column+"=?,updated_at=?"+by+keyClause+
       " WHERE id=? AND updated_at=? AND ("+f.column+" IS NULL OR TRIM("+f.column+")='')"+
@@ -663,10 +689,11 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     update=db.prepare(sql).bind(...values,p.entity_id,updatedAt,p.id);
   }
   const decision=db.prepare(`UPDATE quality_missing_proposals
-    SET status='ACCEPTED',decided_by=?,decided_at=?
+    SET status='ACCEPTED',value=?,source_url=?,decided_by=?,decided_at=?
     WHERE id=? AND status='OPEN'
       AND EXISTS (SELECT 1 FROM ${config.table} WHERE id=? AND updated_at=?)`)
-    .bind(actor,at,p.id,p.entity_id,at);
+    // A manually corrected value must not inherit evidence for the original guess.
+    .bind(approvedValue,approvedValue===p.value?p.source_url:null,actor,at,p.id,p.entity_id,at);
   let canonicalUpdated=false;
   try{
     const [result,decisionResult]=await db.batch([update,decision]);

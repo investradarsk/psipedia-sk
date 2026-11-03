@@ -1,0 +1,7 @@
+.actions{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:100%}
+.actions button{font:inherit;font-size:.77rem;border-radius:7px;padding:7px 9px;cursor:pointer;border:1px solid #cad9cc;white-space:normal}
+.actions button:disabled{opacity:.55;cursor:not-allowed}
+.edit,.save{background:#174b38;color:#fff;border-color:#174b38!important}
+.cancel{background:#fff;color:#184332}
+.input{display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;padding:7px 9px;border:1px solid #bad0c2;border-radius:7px;background:#fff;color:#153e30;font:inherit;font-size:.82rem}
+.input:focus-visible,.actions button:focus-visible{outline:2px solid #b34631;outline-offset:2px}

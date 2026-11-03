@@ -5,6 +5,7 @@ import {facebookWallTime,facebookPostsForDay,type FacebookImagePost} from "@/lib
 import {uploadAdminImage} from "@/lib/admin-image-upload";
 import {AdminFacebookGraphicEditor} from "@/components/admin-facebook-graphic-editor";
 import {AdminActionButton,AdminModalDialog} from "@/components/admin-interaction-system";
+import {AdminInlineRowActions,AdminInlineCellInput} from "@/components/admin-inline-edit-controls";
 import shared from "./admin-editorial-calendar.module.css";
 import styles from "./admin-facebook-images.module.css";
 
@@ -50,8 +51,42 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const[editor,setEditor]=useState<{post:FacebookImagePost|null}|null>(null),[form,setForm]=useState<Form>(blank()),[baseline,setBaseline]=useState(""),[editorError,setEditorError]=useState(""),[busy,setBusy]=useState(false);
   const[deleteTarget,setDeleteTarget]=useState<FacebookImagePost|null>(null),[deleteError,setDeleteError]=useState("");
   const[graphicOpen,setGraphicOpen]=useState(false);
+  const[inlineDraft,setInlineDraft]=useState<{id:string;version:number;key:string;title:string;caption:string}|null>(null);
+  const[inlineBusy,setInlineBusy]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
   const queryKey=`${month}|${status}|${source}|${page}|${refresh}`;
+  const activeInline=inlineDraft?.key===queryKey&&data.items.some(item=>
+    item.id===inlineDraft.id&&item.version===inlineDraft.version)?inlineDraft:null;
+  function editableDraft(post:FacebookImagePost){
+    return post.status==="draft"&&post.source==="manual"&&post.approvalStatus==="UNREVIEWED"&&
+      !post.deletedAt&&!post.articleId&&!post.directPublishConsent&&
+      (!post.publicationState||post.publicationState==="PENDING")&&!post.attemptStartedAt;
+  }
+  function beginInline(post:FacebookImagePost){
+    if(!editableDraft(post)||inlineBusy||busy)return;
+    setNotice("");setError("");
+    setInlineDraft({id:post.id,version:post.version,key:queryKey,title:post.title,caption:post.caption});
+  }
+  async function saveInline(){
+    const draft=activeInline;
+    if(!draft||inlineBusy||busy)return;
+    setInlineBusy(true);setError("");
+    try{
+      const response=await fetch("/api/admin/facebook-images/"+encodeURIComponent(draft.id),{
+        method:"PATCH",credentials:"same-origin",cache:"no-store",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({action:"set-inline-text",expectedVersion:draft.version,
+          title:draft.title,caption:draft.caption}),
+      });
+      const result=await response.json() as {error?:string;post?:FacebookImagePost};
+      if(!response.ok||!result.post)throw new Error(result.error||"Text konceptu sa nepodarilo uložiť.");
+      setData(current=>({...current,items:current.items.map(item=>
+        item.id===draft.id?result.post!:item)}));
+      setInlineDraft(null);
+      setNotice("Text konceptu bol uložený bez schválenia alebo publikovania.");
+    }catch(error){setError(error instanceof Error?error.message:"Rýchla úprava zlyhala.");}
+    finally{setInlineBusy(false);}
+  }
   const[settledQuery,setSettledQuery]=useState(queryKey);
   const initialQueryHandled=useRef(false);
   const incomingDraftHandled=useRef(false);
@@ -340,7 +375,17 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           {post.imageUrl?<img src={post.imageUrl} alt="" width={72} height={72} loading="lazy" decoding="async"/>:
             <span className={styles.imageFallback} aria-hidden="true">FB</span>}
           <div className={styles.listText}>
-            <div className={styles.listTitle}>{entry(post)}</div>
+            <div className={styles.listTitle}>{activeInline?.id===post.id
+              ? <AdminInlineCellInput label={"Titulok Facebook príspevku "+post.title}
+                  value={activeInline.title} maxLength={200} disabled={inlineBusy}
+                  onChange={title=>setInlineDraft(current=>current?{...current,title}:null)}/>
+              : entry(post)}</div>
+            {activeInline?.id===post.id
+              ? <textarea className={styles.inlineCaption} rows={3} maxLength={15000}
+                  aria-label={"Text Facebook príspevku "+post.title}
+                  value={activeInline.caption} disabled={inlineBusy}
+                  onChange={e=>setInlineDraft(current=>current?{...current,caption:e.target.value}:null)}/>
+              : <p className={styles.inlineDesktop}>{post.caption||"Bez textu"}</p>}
             <p>{post.source==="article"?"Facebook článok":post.source==="notion"?"Notion obrázok":"Ručne"} · {post.scheduledAt?
               facebookWallTime(post.scheduledAt).date+" "+facebookWallTime(post.scheduledAt).time+" · Bratislava":"Bez dátumu"}
               {post.approvalStatus==="APPROVED"?" · Povolené plánované publikovanie":""}
@@ -349,6 +394,14 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
               {post.publicationState==="RETRY_PENDING"?" · Opakovať po "+shownAt(post.retryNotBefore):""}
               {post.publicationState==="RETRY_EXHAUSTED"?" · Vyčerpané bezpečné pokusy, zmeň termín alebo zruš":""}</p>
             <div className={styles.itemActions}>
+              {editableDraft(post)&&<span className={styles.inlineDesktop}><AdminInlineRowActions
+                editing={activeInline?.id===post.id}
+                busy={inlineBusy}
+                disabled={loading||busy||Boolean(activeInline&&activeInline.id!==post.id)}
+                onEdit={()=>beginInline(post)}
+                onSave={()=>void saveInline()}
+                onCancel={()=>{if(!inlineBusy)setInlineDraft(null);}}
+              /></span>}
               {facebookUrl(post.facebookPostId)&&<a href={facebookUrl(post.facebookPostId)??"#"} target="_blank" rel="noopener noreferrer">Otvoriť na Facebooku ↗</a>}
               {data.trashAvailable&&post.publicationState!=="SENDING"&&<AdminActionButton type="button" variant="destructive"
                 className={styles.deleteListAction} disabled={busy||notionBusy} aria-label={`Natrvalo odstrániť z Psipedie: ${post.title}`}

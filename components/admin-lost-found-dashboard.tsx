@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminNumberedPagination } from "@/components/admin-pagination";
 import { AdminDataTableRegion } from "@/components/admin-data-table-region";
@@ -26,11 +31,58 @@ function href(filters: Filters, page = 1, status = filters.status) {
   ], page);
 }
 export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds = [] }: { result: Result; counts: Counts; filters: Filters; reviewedIds?: number[] }) {
+  const router = useRouter();
   const reviewed = new Set(reviewedIds);
+  const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; expectedUpdatedAt: string; dogName: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const viewKey = JSON.stringify([filters, result.page, result.items.map(item => item.id)]);
+  const activeInline = inlineDraft?.key === viewKey && result.items.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.expectedUpdatedAt)
+    ? inlineDraft : null;
+  function beginInline(item: AdminDogReport) {
+    if (busy || item.status === "ARCHIVED" || item.duplicateOfId !== null) return;
+    setMessage("");
+    setInlineDraft({ id: item.id, key: viewKey, expectedUpdatedAt: item.updatedAt, dogName: item.dogName || "" });
+  }
+  async function saveInline() {
+    const draft = activeInline;
+    if (!draft || busy) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/lost-found/" + draft.id, {
+        method: "PATCH", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "set-inline-dog-name", dogName: draft.dogName || null,
+          expectedUpdatedAt: draft.expectedUpdatedAt }),
+      });
+      const answer = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(answer.error || "Meno psa sa nepodarilo uložiť.");
+      setInlineDraft(null);
+      setMessage("Meno psa bolo aktualizované.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Rýchlu úpravu sa nepodarilo uložiť.");
+    } finally {
+      setBusy(false);
+    }
+  }
   return <>
     <nav className={styles.tabs} aria-label="Stavy hlásení">{tabs.map((tab)=><Link key={tab.key||"all"} data-active={filters.status===tab.key} href={href(filters,1,tab.key)}>{tab.label} <strong>{tab.count(counts)}</strong></Link>)}</nav>
     <form className={styles.filters} method="get"><input name="q" defaultValue={filters.q} aria-label="Fulltext" placeholder="Meno, obec, farba, popis…"/><select name="type" defaultValue={filters.type} aria-label="Typ"><option value="">LOST + FOUND</option><option value="LOST">Stratené</option><option value="FOUND">Nájdené</option></select><input name="region" defaultValue={filters.region} aria-label="Kraj" placeholder="Kraj"/><input name="locality" defaultValue={filters.locality} aria-label="Okres alebo lokalita" placeholder="Okres / lokalita"/>{filters.status&&<input type="hidden" name="status" value={filters.status}/>}<button type="submit">Filtrovať</button></form>
-    <AdminDataTableRegion className={styles.tableWrap} label="Zoznam hlásení"><table className={styles.table}><thead><tr><th scope="col">Hlásenie</th><th scope="col">Typ</th><th scope="col">Stav</th><th scope="col">Lokalita</th><th scope="col">Dátum</th><th scope="col">Aktualizované</th><th scope="col">Akcie</th></tr></thead><tbody>{result.items.map((report)=><tr key={report.id}><td><div className={styles.rowTitle}><strong>{report.dogName||report.breed||`Hlásenie #${report.id}`}</strong><small>#{report.id} · /{report.slug}</small>{report.duplicateOfId&&<small>Duplicita hlásenia #{report.duplicateOfId}</small>}</div></td><td><span className={styles.type}>{dogReportTypeShortLabel(report.type)}</span></td><td className={styles.status}>{dogReportStatusLabel[report.status]}</td><td>{report.city}{report.district?` · ${report.district}`:""}</td><td>{report.eventDate||"—"}</td><td>{new Date(report.updatedAt).toLocaleDateString("sk-SK")}</td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="LOST_FOUND" entityId={report.id} initialReviewed={reviewed.has(report.id)} compact /><Link className={styles.edit} href={`/admin/stratene-najdene/${report.id}`}>Upraviť →</Link></div></td></tr>)}{!result.items.length&&<tr><td colSpan={7}>Žiadne hlásenia pre zvolené filtre.</td></tr>}</tbody></table></AdminDataTableRegion>
+    {message && <p role="status">{message}</p>}
+    <AdminDataTableRegion className={styles.tableWrap} label="Zoznam hlásení"><table className={styles.table}><thead><tr><th scope="col">Hlásenie</th><th scope="col">Typ</th><th scope="col">Stav</th><th scope="col">Lokalita</th><th scope="col">Dátum</th><th scope="col">Aktualizované</th><th scope="col">Akcie</th></tr></thead><tbody>{result.items.map((report)=><tr key={report.id}><td><div className={styles.rowTitle}>{activeInline?.id === report.id
+      ? <AdminInlineCellInput label={"Meno psa v hlásení " + report.id}
+          value={activeInline.dogName} maxLength={120} disabled={busy}
+          onChange={dogName => setInlineDraft(prev => prev ? { ...prev, dogName } : null)} />
+      : <strong>{report.dogName||report.breed||`Hlásenie #${report.id}`}</strong>}<small>#{report.id} · /{report.slug}</small>{report.duplicateOfId&&<small>Duplicita hlásenia #{report.duplicateOfId}</small>}</div></td><td><span className={styles.type}>{dogReportTypeShortLabel(report.type)}</span></td><td className={styles.status}>{dogReportStatusLabel[report.status]}</td><td>{report.city}{report.district?` · ${report.district}`:""}</td><td>{report.eventDate||"—"}</td><td>{new Date(report.updatedAt).toLocaleDateString("sk-SK")}</td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="LOST_FOUND" entityId={report.id} initialReviewed={reviewed.has(report.id)} compact />{report.status !== "ARCHIVED" && report.duplicateOfId === null && <span className={styles.inlineDesktop}><AdminInlineRowActions
+        editing={activeInline?.id === report.id} busy={busy}
+        disabled={Boolean(activeInline && activeInline.id !== report.id)}
+        onEdit={() => beginInline(report)}
+        onSave={() => void saveInline()}
+        onCancel={() => { if (!busy) setInlineDraft(null); }}
+      /></span>}
+      <Link className={styles.edit} href={`/admin/stratene-najdene/${report.id}`}>Upraviť →</Link></div></td></tr>)}{!result.items.length&&<tr><td colSpan={7}>Žiadne hlásenia pre zvolené filtre.</td></tr>}</tbody></table></AdminDataTableRegion>
     <AdminNumberedPagination page={result.page} totalPages={result.pages}
       hrefForPage={(page)=>href(filters,page)} className={styles.pagination} ariaLabel="Stránkovanie" />
   </>;

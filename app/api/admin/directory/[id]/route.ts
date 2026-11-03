@@ -185,6 +185,64 @@ export async function PATCH(request: Request, { params }: Props) {
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
   try {
     const body = await request.json() as { action?: unknown; reviewed?: unknown };
+    if (body.action === "set-inline-editorial") {
+      // Quick edit is deliberately NOT the full PUT payload: it may change
+      // only two text columns and never contacts, address, status, filters,
+      // images, slug, canonical services or source_data_json.
+      const typed = body as {
+        action: string;
+        expectedUpdatedAt?: unknown;
+        changes?: unknown;
+      };
+      if (request.headers.get("origin") !== new URL(request.url).origin ||
+          !request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+        return Response.json({ error: "Neplatný pôvod alebo typ požiadavky." }, { status: 403 });
+      }
+      if (typeof typed.expectedUpdatedAt !== "string" || !typed.expectedUpdatedAt.trim() ||
+          !typed.changes || typeof typed.changes !== "object" || Array.isArray(typed.changes)) {
+        return Response.json({ error: "Chýbajú editované údaje alebo verzia záznamu." }, { status: 400 });
+      }
+      const data = typed.changes as Record<string, unknown>;
+      if (Object.keys(data).length !== 2 || !Object.keys(data).every(key => ["name", "excerpt"].includes(key)) ||
+          typeof data.name !== "string" || typeof data.excerpt !== "string") {
+        return Response.json({ error: "Upravovať možno iba názov a krátky popis." }, { status: 400 });
+      }
+      const name = data.name.trim();
+      const excerpt = data.excerpt.trim();
+      if (!name || name.length > 180 || excerpt.length > 700) {
+        return Response.json({ error: "Názov musí mať 1–180 znakov a popis najviac 700 znakov." }, { status: 400 });
+      }
+      const db = (env as unknown as { DB?: D1Database }).DB;
+      if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+      const updated = await db.prepare(`UPDATE directory_profiles
+        SET name=?1,excerpt=?2,updated_at=?3,updated_by=?4
+        WHERE id=?5 AND updated_at=?6 AND status IN ('draft','published')
+        RETURNING id`)
+        .bind(name, excerpt, new Date().toISOString(), user.email, id, typed.expectedUpdatedAt)
+        .first<{ id: number }>();
+      if (!updated) {
+        return Response.json({ error: "Profil sa zmenil alebo je archivovaný. Obnov tabuľku." }, { status: 409 });
+      }
+      const profile = await getManagedDirectoryProfileById(id);
+      // Match the existing domain PUT's targeted, failure-tolerant Notion sync.
+      let notionFieldSync: "synced" | "unchanged" | "pending" | "disabled" | "unlinked" = "disabled";
+      const notionEnv = env as unknown as { DB?: D1Database; NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string };
+      if (notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true") {
+        try {
+          const result = await runNotionDirectorySyncSweep({
+            database: db,
+            bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
+            targetProfileId: id,
+          });
+          notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
+            : result.pushedToNotion || result.pulledFromNotion ? "synced"
+            : result.unchanged ? "unchanged" : "unlinked";
+        } catch {
+          notionFieldSync = "pending";
+        }
+      }
+      return Response.json({ profile, notionFieldSync }, { headers: { "cache-control": "no-store" } });
+    }
     if (body.action === "set-category-filters") {
       const patch = (body as { filterPatch?: unknown }).filterPatch;
       if (!patch || typeof patch !== "object" || Array.isArray(patch)) {

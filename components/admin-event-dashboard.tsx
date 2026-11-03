@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminRecordTable } from "@/components/admin-record-table";
+import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { BulkSelectionCheckbox } from "@/components/admin-bulk-selection";
 import {
@@ -92,6 +93,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   const [bulkType, setBulkType] = useState<EventType>("Výstava");
   const [bulkCancelled, setBulkCancelled] = useState(false);
   const [quickEvent, setQuickEvent] = useState<AdminEventSummary | null>(null);
+  const [inlineEventId, setInlineEventId] = useState<number | null>(null);
   const [quickType, setQuickType] = useState<EventType>("Výstava");
   const [quickCancelled, setQuickCancelled] = useState(false);
 
@@ -112,6 +114,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   const pages = data.pages;
   const currentPage = data.page;
   const rows = events;
+  const visibleInlineId = inlineEventId !== null && rows.some(event => event.id === inlineEventId) ? inlineEventId : null;
   const years = data.years;
   const selectedEvents = events.filter((event) => selected.has(event.id));
   const pageAllSelected = rows.length > 0 && rows.every((event) => selected.has(event.id));
@@ -183,9 +186,24 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   }
 
   function openQuickEdit(event: AdminEventSummary) {
+    setInlineEventId(null);
     setQuickEvent(event);
     setQuickType(event.eventType);
     setQuickCancelled(event.cancelled);
+  }
+
+  function beginInlineEdit(event: AdminEventSummary) {
+    setInlineEventId(event.id);
+    setQuickEvent(event);
+    setQuickType(event.eventType);
+    setQuickCancelled(event.cancelled);
+    setMessage("");
+  }
+
+  function cancelInlineEdit() {
+    if (busy) return;
+    setInlineEventId(null);
+    setQuickEvent(null);
   }
 
   async function saveQuickEdit() {
@@ -202,7 +220,8 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
       if (!response.ok) throw new Error(data.error || "Rýchla úprava zlyhala.");
       await reload();
       setQuickEvent(null);
-      setMessage("Sekundárne nastavenia podujatia boli uložené.");
+      setInlineEventId(null);
+      setMessage("Rýchla úprava podujatia bola uložená.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Rýchla úprava zlyhala.");
     } finally {
@@ -360,15 +379,33 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
             { id: "title", label: "Podujatie", width: 270, sortValue: (event) => event.title, cell: (event) => <Link href={`/admin/podujatia/${event.id}`}><strong>{event.title}</strong></Link> },
             { id: "date", label: "Termín", width: 170, sortValue: (event) => event.startDate + event.startTime, cell: (event) => formatEventDate(event) + (event.startTime ? " · " + event.startTime : "") },
             { id: "city", label: "Mesto", width: 145, sortValue: (event) => event.city || "", cell: (event) => event.city || "—" },
-            { id: "type", label: "Typ", width: 160, sortValue: (event) => event.eventType, cell: (event) => event.eventType },
+            { id: "type", label: "Typ", width: 160, sortValue: (event) => event.eventType,
+              cell: (event) => visibleInlineId === event.id
+                ? <AdminInlineCellSelect label={"Typ podujatia " + event.title}
+                    value={quickType} onChange={value => setQuickType(value as EventType)}
+                    disabled={busy || loading}
+                    options={eventTypes.map(value => ({ value, label: value }))} />
+                : event.eventType },
             { id: "status", label: "Publikácia", width: 130, sortValue: (event) => event.status, cell: (event) => <span className={"admin-status admin-status--" + event.status}>{event.status === "published" ? "Publikované" : "Koncept"}</span> },
-            { id: "timeState", label: "Časový stav", width: 125, cell: (event) => event.cancelled ? "Zrušené" : timeLabels[eventDateStatus(event, today)] },
+            { id: "timeState", label: "Časový stav", width: 135,
+              cell: (event) => visibleInlineId === event.id
+                ? <label><input type="checkbox" aria-label={"Zrušené podujatie " + event.title}
+                    checked={quickCancelled} disabled={busy || loading}
+                    onChange={change => setQuickCancelled(change.target.checked)} /> Zrušené</label>
+                : event.cancelled ? "Zrušené" : timeLabels[eventDateStatus(event, today)] },
             { id: "organizer", label: "Organizátor", width: 180, initiallyHidden: true, sortValue: (event) => event.organizer || "", cell: (event) => event.organizer || "—" },
             { id: "reviewed", label: "AI kontrola", width: 145, cell: (event) => <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={reviewed.has(event.id)} compact /> },
             { id: "actions", label: "Akcie", width: 260, cell: (event) => <div className={styles.tableActions}>
               <Link href={"/admin/podujatia/" + event.id}>Upraviť</Link>
               {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Web ↗</Link>}
-              <AdminActionButton variant="neutral" disabled={!hydrated || busy || loading} onClick={() => openQuickEdit(event)}>Rýchla úprava</AdminActionButton>
+              <AdminInlineRowActions
+                editing={visibleInlineId === event.id}
+                busy={busy} disabled={!hydrated || loading || (visibleInlineId !== null && visibleInlineId !== event.id)}
+                onEdit={() => beginInlineEdit(event)}
+                onSave={() => void saveQuickEdit()}
+                onCancel={cancelInlineEdit}
+              />
+              <AdminActionButton variant="neutral" disabled={!hydrated || busy || loading || inlineEventId !== null} onClick={() => openQuickEdit(event)}>Rýchla úprava</AdminActionButton>
               <AdminActionButton variant="destructive" disabled={!hydrated || busy || loading} onClick={() => setDeleteTarget(event)}>Odstrániť</AdminActionButton>
             </div> },
           ]}
@@ -407,7 +444,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
       </AdminModalDialog>
 
       <AdminDrawer
-        open={quickEvent !== null}
+        open={quickEvent !== null && inlineEventId === null}
         title="Rýchla úprava"
         description={quickEvent ? quickEvent.title : undefined}
         onClose={() => setQuickEvent(null)}

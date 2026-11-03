@@ -203,7 +203,7 @@ export async function queryDirectoryAdmin<T>(
   // Launch the bounded page together with counters and location facets:
   // only out-of-range URLs need a second read for the clamped last page.
   const requestedPage = Math.max(1, Math.trunc(filters.page || 1));
-  const loadPage = (page: number) => database.prepare(`SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,
+  const loadPage = (page: number) => database.prepare(`SELECT id, slug, name, excerpt, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,
       COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
     FROM directory_profiles${membershipQuery.where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
     .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();

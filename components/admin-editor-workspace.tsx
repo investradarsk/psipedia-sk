@@ -261,8 +261,12 @@ export function EditorWorkspace({
     setActiveSection(id);
     const target = Array.from(contentRef.current?.querySelectorAll<HTMLElement>("[data-admin-editor-section]") ?? [])
       .find((section) => section.id === id);
-    if (target) {
-      target.scrollIntoView({ block: "start", behavior: "smooth" });
+    if (target && contentRef.current) {
+      // Scroll only the internal editor pane. scrollIntoView() also scrolls
+      // document ancestors, pushing page-mode navigation outside the viewport.
+      const pane = contentRef.current;
+      const relativeTop = target.getBoundingClientRect().top - pane.getBoundingClientRect().top;
+      pane.scrollTo({ top: pane.scrollTop + relativeTop - 12, behavior: "smooth" });
       target.focus({ preventScroll: true });
     }
   };
