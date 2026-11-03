@@ -120,21 +120,16 @@ export function AdminVisualLibraryOwnerCompare({
   };
 
   useEffect(() => {
-    void loadQueue(0);
-    // Load the saved review list once when the comparison panel opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Defer the fetch-state transition until after the effect. This is
+    // intentionally not a synchronous state update during React render.
+    void Promise.resolve().then(() => loadQueue(0));
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    setStored(null);
-    setSaveMessage("");
-    setPairError(false);
     if (!leftId || !rightId || leftId === rightId) {
-      setLoadingPair(false);
       return () => controller.abort();
     }
-    setLoadingPair(true);
     fetch(DECISIONS_API + "?leftId=" + encodeURIComponent(leftId) +
       "&rightId=" + encodeURIComponent(rightId), {
         credentials: "same-origin", cache: "no-store", signal: controller.signal,
@@ -216,6 +211,10 @@ export function AdminVisualLibraryOwnerCompare({
     }) : "";
 
   const reset = () => {
+    setStored(null);
+    setLoadingPair(true);
+    setPairError(false);
+    setSaveMessage("");
     setDecision("");
     setNotes("");
     setCopied("idle");
@@ -353,7 +352,12 @@ export function AdminVisualLibraryOwnerCompare({
         </button>
         {saveMessage && <p role="status">{saveMessage}</p>}
         <button type="button" disabled={loadingPair || saving}
-          onClick={() => setPairRefresh((value) => value + 1)}>
+          onClick={() => {
+            setLoadingPair(true);
+            setPairError(false);
+            setStored(null);
+            setPairRefresh((value) => value + 1);
+          }}>
           Načítať poslednú uloženú verziu
         </button>
         <button type="button" onClick={() => {
