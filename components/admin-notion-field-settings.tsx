@@ -12,6 +12,12 @@ const labels:Record<Mode,string>={
   admin:"Admin má prednosť",
   latest:"Najnovšia overená zmena",
 };
+const breedLabels:Record<Mode,string>={
+  safe:"Automaticky – pri nejasnosti Notion",
+  notion:"Notion má prednosť",
+  admin:"Admin má prednosť",
+  latest:"Najnovšia, ak je overiteľná – inak Notion",
+};
 type BreedDiagnostic={breedId:number;name:string;field:string;notionValue:unknown;adminValue:unknown;same:boolean;expectedNotionHash:string;lastSyncedAt:string;adminUpdatedAt:string;inbox:{status:string;attempts:number;outcome:string|null;last_error_code:string|null}|null};
 function BreedTransferDiagnostic(){
   const [id,setId]=useState("");
@@ -141,6 +147,7 @@ export function AdminNotionFieldSettings(){
       „Najnovšia overená zmena“ nevyberá víťaza podľa času celej stránky: keď nevieme overiť
       čas konkrétneho poľa, konflikt zostane na kontrolu.</p>
       <p>Pravidlá sa uplatnia na nasledujúce synchronizácie. Nespúšťajú hromadný prepis existujúcich záznamov.</p>
+      <p>Pre Plemená rozhoduje o bežných rozdieloch priority, nie ručné konflikty. Bez časovej histórie jednotlivého poľa sa pri režimoch Automaticky/Najnovšia uprednostní Notion.</p>
     </div>
     {error?<p role="alert" className={styles.error}>{error}</p>:null}
     {message?<p role="status" className={styles.success}>{message}</p>:null}
@@ -158,12 +165,13 @@ export function AdminNotionFieldSettings(){
       </nav>
       {group?<div className={styles.details}>
         <header><h2>{group.title}</h2><p>{group.active?"Nastaviteľné polia existujúcej synchronizácie.":"Prehľad pevne určených pravidiel (zatiaľ bez editácie)."}</p></header>
+        {group.scope==="breeds"?<p>Bežné rozdiely redakčných polí sa rozhodnú automaticky podľa priority. Identita a publikovanie zostávajú samostatné systémové údaje.</p>:null}
         {group.active?<div className={styles.bulkControls}>
           <label htmlFor="notion-category-mode">Nastaviť rovnakú prioritu pre celú kategóriu</label>
           <div className={styles.bulkRow}>
             <select id="notion-category-mode" value={bulkMode} disabled={!result.ready||Boolean(busy)}
               onChange={event=>setBulkMode(event.target.value as Mode)}>
-              {(Object.entries(labels) as [Mode,string][]).map(([mode,label])=>
+              {(Object.entries(group.scope==="breeds"?breedLabels:labels) as [Mode,string][]).map(([mode,label])=>
                 <option key={mode} value={mode}>{label}</option>)}
             </select>
             <button type="button" disabled={!result.ready||Boolean(busy)} onClick={()=>void saveAll()}>
@@ -184,7 +192,7 @@ export function AdminNotionFieldSettings(){
                 disabled={!result.ready||Boolean(busy)}
                 value={result.rules[group.scope+":"+field.id]??"safe"}
                 onChange={event=>void save(field.id,event.target.value as Mode)}>
-                {(Object.entries(labels) as [Mode,string][]).map(([value,label])=>
+                {(Object.entries(group.scope==="breeds"?breedLabels:labels) as [Mode,string][]).map(([value,label])=>
                   <option key={value} value={value}>{label}</option>)}
               </select>}</td>
           </tr>)}</tbody>
