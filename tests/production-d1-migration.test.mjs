@@ -700,7 +700,7 @@ test("production D1 targets account for every canonical migration, including una
     .sort();
   assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS, ...UNACTIVATED_PRODUCTION_TARGETS].sort(), canonicalTargets);
   assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, []);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0152_visual_library_banner_edits.sql");
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0153_notion_profile_field_baselines.sql");
   for (const target of UNACTIVATED_PRODUCTION_TARGETS) {
     assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes(target), false);
     assert.equal(PREPARED_PRODUCTION_TARGETS.includes(target), false);
