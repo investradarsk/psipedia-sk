@@ -87,6 +87,9 @@ export const adminComponentPreviewSamples = [
   { id: "help-profile", path: "components/public-visual-system/public-help-profile-card.tsx", family: "card", title: "Pomoc psom – karta profilu", description: "Spoločná karta profilov Pomoc psom s fiktívnymi údajmi. Rovnaký komponent v prehľadoch a kategóriách." },
   { id: "help-profile-urgent", path: "components/public-visual-system/public-help-profile-card.tsx", family: "card", title: "Pomoc psom – urgentné označenie", description: "Rovnaká karta profilu s vloženým urgentným štítkom. Nejde o samostatnú implementáciu." },
   { id: "help-category-nav", path: "components/public-visual-system/public-help-category-nav.tsx", family: "category", title: "Pomoc psom – navigácia kategórií", description: "Skutočné navigačné karty pre adopcie, útulky a stratené psy s ilustračnými počtami." },
+  { id: "portal-section-tabs", path: "components/portal-section-tabs.tsx", family: "category", title: "Sekciová navigácia Šteniatka", description: "Skutočný prepínač podkategórií v sekcii s ilustračnými odkazmi, postavený na spoločnom navigátore." },
+  { id: "article-card-grid", path: "components/article-card.tsx", family: "card", title: "Článok – štandardná karta", description: "Skutočný verejný ArticleCard vo výpise článkov, iba vzorový obsah." },
+  { id: "article-card-featured", path: "components/article-card.tsx", family: "card", title: "Článok – zvýraznená karta", description: "Rovnaký ArticleCard vo variante featured s vlastným demo obsahom." },
   { id: "breadcrumbs", path: "components/page-system.tsx", family: "category", title: "Drobečková navigácia", description: "Spoločná navigácia používaná v detailoch a sekciách, ilustračné odkazy." },
   { id: "section-tabs", path: "components/page-system.tsx", family: "category", title: "Záložky sekcie", description: "Skutočný kontajner pre sekciové záložky s ukážkovými odkazmi." },
 ] as const;
@@ -100,6 +103,9 @@ export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewI
     case "help-category-nav":
     case "breadcrumbs":
     case "section-tabs":
+    case "portal-section-tabs":
+    case "article-card-grid":
+    case "article-card-featured":
       return <AdminExtraComponentPreview id={id} />;
     case "breed-card":
       return <AdminProfileComponentPreview id="breed-card" />;
