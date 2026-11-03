@@ -861,23 +861,9 @@ async function syncOneBreed(
         const previousAdmin = breedFieldSnapshot(existing);
         for (const field of touched) previousNotion[field] = previousAdmin[field];
         const plan = planBreedNotionFieldDelta(existing, basePayload, previousNotion, previousAdmin, authority);
-        if (plan.conflicts.length) throw new Error("BREED_LEGACY_FIELD_CONFLICT");
-        const merged = { ...existing, ...plan.patch,
-          seo: { ...existing.seo, ...(plan.patch.seo ?? {}) },
-          status: existing.status, image: existing.image, imageKey: existing.imageKey,
-          gallery: existing.gallery, accent: existing.accent,
-          editorialComplete: existing.editorialComplete } satisfies ManagedBreedInput;
-        const updated = Object.keys(plan.patch).length
-          ? await updateManagedBreed(existing.id, merged, SYNC_ACTOR, existing.updatedAt)
-          : existing;
-        if (!updated) throw new Error("BREED_LEGACY_FIELD_UPDATE_FAILED");
-        await upsertMapping(database, page, updated.id, contentHash, now, {
-          notion: plan.latest, admin: breedFieldSnapshot(updated),
-        });
-        await updateNotionSyncState(bindings, page.id, {
-          state: "Synchronizované", psipediaId: updated.id, syncedAt: now,
-        });
-        return plan.accepted.length && Object.keys(plan.patch).length ? "updated" : "unchanged";
+        return applySafeBreedSync(database,bindings,page,existing,plan,
+          previousNotion,previousAdmin,plan.latest,authority,contentHash,
+          invalidStructuredBreedFields(page));
       }
       // A pending first Notion edit may be waiting in the inbox when an hourly
       // sweep runs first. Never acknowledge a changed historical SHA without
