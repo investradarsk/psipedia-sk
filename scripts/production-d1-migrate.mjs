@@ -44,10 +44,8 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // 0147 Notion field authority also requires a separate owner-dispatched protected D1 migration.
 // 0151 and 0152 are owner-dispatched ONLY through the protected workflow.
 // 0152 requires an applied 0151 with a validated physical schema.
-// 0153 is reviewed source SQL only. It is NOT an approved production target.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
-  "0153_notion_profile_field_baselines.sql",
-]);
+// 0153 is eligible ONLY for a protected owner-dispatched D1 migration.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {
@@ -58,6 +56,11 @@ export const APPROVED_0152_SHA256 = "398cd051ff7fed3216115e0d6e4292803cb3d935c3b
 export function assertApproved0152Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0152 requires canonical psipedia-sk-db");
   invariant(sha256 === APPROVED_0152_SHA256, "0152 SQL SHA256 differs from approved rollout bytes");
+}
+export const APPROVED_0153_SHA256 = "bfabb9daa6a0569b3e3188e4ed4e7658945c8c92a909339949dc6642d3d372ce";
+export function assertApproved0153Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0153 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0153_SHA256, "0153 SQL SHA256 differs from approved rollout bytes");
 }
 // 0152 is additive and never authorizes the separate 0151 audit migration.
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
@@ -307,6 +310,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0150_gemini_import_review_notes.sql",
   "0151_admin_content_revision_history.sql",
   "0152_visual_library_banner_edits.sql",
+  "0153_notion_profile_field_baselines.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -840,6 +844,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0151Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0152_visual_library_banner_edits.sql")
     assertApproved0152Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0153_notion_profile_field_baselines.sql")
+    assertApproved0153Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1554,6 +1560,9 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0152_visual_library_banner_edits.sql") {
     return { partial: names.has("visual_library_banner_edits") };
+  }
+  if (targetMigration === "0153_notion_profile_field_baselines.sql") {
+    return { partial: names.has("notion_profile_field_baselines") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
