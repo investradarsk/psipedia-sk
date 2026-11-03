@@ -25,6 +25,19 @@ Každá karta vizuálneho prvku:
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
 
+## Deviaty priechod – úplný zdrojový inventár a reálne pokrytie (#1186)
+
+- [x] Prvýkrát zozbieraných **všetkých 161 TSX súborov** v `components/` mimo názvov začínajúcich `admin-`, podľa úplného stromu PR. Nie všetky sú čisto verejné; v administrácii sa dopĺňa označenie `admin`/`mixed` zo skutočného buildového registra.
+- [x] Nezamieňať počet ukážkových **variantov** s počtom pokrytých **zdrojových súborov**. Aktuálne **84 demo variantov** a dve ďalšie existujúce serverové zdrojové implementácie.
+- [x] **55 zdrojových súborov s priamym živým renderom + 2 so serverovým náhľadom**; samostatne **33 stránkových zostáv**, **6 skontrolovaných technických bez vlastného vzhľadu**, **65 súborov čakajúcich na vlastný náhľad**. Súčet 161.
+- [x] Zoznam 161 položiek je odteraz zobrazený v administračnom katalógu aj pri prázdnom verzovanom registri. Má presný stav, vyhľadávanie, filter, kandidátske URL z registra, zdroj a otvorenie hotového náhľadu.
+- [x] Pridaných **25 živých náhľadov** oproti 59 v predchádzajúcej etape: základné profilové prvky, formuláre, adopcia, fotografie, zdieľanie, navigácie, adresár, psie meniny, promo a partner pole hesla.
+- [x] Opravené nesprávne zaradenie tlačidiel Google Maps medzi neviditeľné moduly; bez bezpečného náhľadu zostávajú čestne vedené ako chýbajúce.
+- [x] Test porovnáva inventár priamo so všetkými TSX súbormi a zastaví CI, ak sa pridá súbor bez záznamu. Overuje 84 reálnych preview ID a 55 rozdielnych zdrojových ciest.
+- [ ] Všetkých **65 doteraz nevykreslených súborov** potrebuje priamy, bezpečný náhľad alebo overený screenshot konkrétnej stránky. Niektoré sú chránené partner/prístupové formuláre s vlastnými akciami; nebudeme ich slepo spúšťať s ukážkovými údajmi.
+- [ ] Samostatne dodať vizuálne dôkazy pre **33 stránkových zostáv**. Kandidátske trasy podľa importov nie sú dôkazom viditeľnosti daného React komponentu.
+- [ ] CI poslednej revízie a reálne desktopové overenie po nasadení.
+
 ## Ôsmy priechod – spoločná navigácia a redakčné karty (#1186)
 
 - [x] Preverený spoločný základ kategórií `PublicSubcategoryNavigator` v sekciách Pomoc psom, Služby a tematických článkoch. Zdieľanie základného komponentu **nie je** dôvodom vymazať samostatné obaly: každý má vlastné ikony, počítadlá, prepínače alebo mobilnú navigáciu.
