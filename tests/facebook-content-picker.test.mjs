@@ -85,5 +85,28 @@ test("Category changes clear previous results and send the canonical group to th
   const editor = read("components/admin-facebook-images.tsx");
   assert.match(editor, /params\.set\("group",pickerGroup\)/);
   assert.match(editor, /profileId:item\.id,group:pickerGroup,category:pickerCategory/);
-  assert.match(editor, /setPickerGroup\(e\.target\.value\);setPickerCategory\(""\);setPickerItems\(\[\]\)/);
+  assert.match(editor, /setPickerGroup\(e\.target\.value\);setPickerCategory\(e\.target\.value==="breeds"\?"all":""\);setPickerItems\(\[\]\)/);
+});
+
+test("Breed picker offers all canonical published FCI winners and deep links", () => {
+  const route = read("app/api/admin/facebook-images/profile-picker/route.ts");
+  assert.match(route, /id: "breeds", label: "Plemená"/);
+  assert.match(route, /"Všetky plemená"/);
+  assert.match(route, /fciGroups\.map/);
+  assert.match(route, /canonicalBreedIdsSql/);
+  assert.match(route, /fci_group = \?/);
+  assert.match(route, /breedProfileHref\(row\.slug\)/);
+  assert.match(route, /ownedBreedImage\(profile\.image_url\)/);
+  assert.match(route, /scope\.group === "breeds"/);
+  const client = read("components/admin-facebook-images.tsx");
+  assert.match(client, /pickerGroup==="breeds"\?"Skupina FCI":"Kategória"/);
+});
+
+test("Facebook photo copier supports local Psipedia breed images without public network fetches", () => {
+  const helper = read("lib/facebook-profile-image.ts");
+  assert.match(helper, /validPublicAsset/);
+  assert.match(helper, /ASSETS\?:/);
+  assert.match(helper, /bindings\.ASSETS\.fetch/);
+  assert.match(helper, /bytes = data/);
+  assert.match(helper, /MAX_BYTES/);
 });
