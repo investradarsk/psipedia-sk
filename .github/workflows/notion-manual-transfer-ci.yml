@@ -5,7 +5,7 @@ on:
     paths:
       - "lib/notion-manual-transfer-*.ts"
       - "app/api/admin/notion-manual-transfer/**"
-      - "drizzle/0156_notion_manual_transfer_jobs.sql"
+      - "docs/proposals/notion_manual_transfer_jobs_UNNUMBERED_PROPOSAL.sql"
       - "tests/notion-manual-transfer-*.test.mjs"
       - "docs/notion-manual-transfer-unified.md"
       - ".github/workflows/notion-manual-transfer-ci.yml"
