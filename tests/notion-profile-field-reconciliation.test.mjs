@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "../lib/notion-profile-field-reconciliation.ts";
+import { reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedProfileBaselineFromHashes } from "../lib/notion-profile-field-reconciliation.ts";
 import {
   readProfileFieldBaseline, recordProfileFieldBaseline, profileFieldBaselineTableReady,
   profileFieldSnapshotHash,
@@ -133,7 +133,7 @@ test("D1 migration stores isolated agenda/page-bound baselines and rejects ID co
   assert.equal(await readProfileFieldBaseline({
     database, agenda: "events", entityId: 1, pageId: "a", expectedHash: "hash",
   }), null);
-  db.exec(await readFile(new URL("../docs/proposals/notion-profile-field-baselines-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
+  db.exec(await readFile(new URL("../drizzle/0153_notion_profile_field_baselines.sql", import.meta.url), "utf8"));
   assert.equal(await profileFieldBaselineTableReady(database), true);
   const arg = {
     database, agenda: "events", entityId: 1, pageId: "notion-a",
@@ -478,4 +478,107 @@ test("events and all help agendas use canonical authority through shared reconci
   assert.match(source, /"Adresa", "Miesto", "Mesto", "Okres", "Kraj"/);
   const registry = await readFile(new URL("../lib/notion-field-authority.ts", import.meta.url), "utf8");
   assert.match(registry,/events: \["Slug", "Stav", "Zrušené"\]/);
+});
+
+
+test("missing-baseline reconciliation never guesses safe/latest concurrent edits", () => {
+  const input = {
+    notion: { name: "Notion title", seo: { title: "Same" }, status: "draft" },
+    psipedia: { name: "Admin title", seo: { title: "Same" }, status: "published" },
+    protectedFields: new Set(["status"]),
+    canonicalFieldsWin: true,
+  };
+  const result = reconcileProfileFieldsWithoutBaseline(input);
+  assert.equal(result.kind, "CONFLICT");
+  assert.deepEqual(result.conflicts, [
+    { field: "name", reason: "BASELINE_UNAVAILABLE" },
+    { field: "status", reason: "PROTECTED_FIELD" },
+  ]);
+  assert.deepEqual(result.psipediaFields, []);
+  assert.equal(result.merged.name, "Admin title");
+  assert.equal(result.merged.status, "published");
+  assert.equal(reconcileProfileFieldsWithoutBaseline({
+    ...input, authorities: { name: "latest" },
+  }).conflicts[0].reason, "BASELINE_UNAVAILABLE");
+});
+
+test("missing baseline can safely heal owner-selected nonempty field values", () => {
+  const state = { name: "Old admin", excerpt: "Canonical excerpt", status: "published" };
+  const notion = { name: "Editorial approved", excerpt: "Old notion", status: "published" };
+  const result = reconcileProfileFieldsWithoutBaseline({
+    notion, psipedia: state, protectedFields: new Set(["status"]),
+    canonicalFieldsWin: true, authorities: { name: "notion", excerpt: "admin" },
+  });
+  assert.equal(result.kind, "MERGE");
+  assert.deepEqual(result.conflicts, []);
+  assert.deepEqual(result.notionFields, ["name"]);
+  assert.deepEqual(result.psipediaFields, ["excerpt"]);
+  assert.deepEqual(result.merged, { ...state, name: "Editorial approved" });
+});
+
+test("missing baseline never infers deletes, identity overrides or absent fields", () => {
+  const canonical = { name: "Keep this title", services: ["a"], email: "owner@example.sk" };
+  const notion = { name: "", services: [], email: "owner@example.sk" };
+  const result = reconcileProfileFieldsWithoutBaseline({
+    notion, psipedia: canonical,
+    protectedFields: new Set(["services"]),
+    canonicalFieldsWin: true, authorities: { name: "notion" },
+  });
+  assert.equal(result.kind, "CONFLICT");
+  assert.ok(result.conflicts.some(x => x.field === "name" && x.reason === "UNVERIFIED_DELETE"));
+  assert.deepEqual(result.psipediaFields, ["services"]);
+  assert.deepEqual(result.merged, canonical);
+  assert.equal(reconcileProfileFieldsWithoutBaseline({
+    notion: { name: "notion", services: ["a"] },
+    psipedia: { name: "admin", services: ["a"] },
+    protectedFields: new Set(["name"]),
+  }).conflicts[0].reason, "PROTECTED_FIELD");
+  assert.equal(reconcileProfileFieldsWithoutBaseline({
+    notion: { name: "Notion" }, psipedia: { name: "Admin", website: "" },
+    protectedFields: new Set(), authorities: { name: "notion" },
+  }).conflicts[0].reason, "MISSING_FIELD");
+});
+
+test("baseline-free reconciliation is idempotent for identical snapshots", () => {
+  const a = { title: "same", seo: { title: "same", description: "" } };
+  const b = { seo: { description: "", title: "same" }, title: "same" };
+  const result = reconcileProfileFieldsWithoutBaseline({
+    notion: b, psipedia: a, protectedFields: new Set(),
+  });
+  assert.equal(result.kind, "UNCHANGED");
+  assert.deepEqual(result.conflicts, []);
+  assert.deepEqual(result.notionFields, []);
+  assert.deepEqual(result.psipediaFields, []);
+});
+
+test("Directory baseline-free recovery never advances a mapping on partial conflict", async () => {
+  const sync = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const start = sync.indexOf("const resolution = baseline\n");
+  const end = sync.indexOf("const desired = resolution.merged as EditableDirectorySnapshot", start);
+  assert.ok(start > 0 && end > start);
+  const section = sync.slice(start, end);
+  assert.match(section, /reconcileProfileFieldsWithoutBaseline/);
+  assert.match(section, /resolution\.psipediaFields\.length/);
+  assert.match(section, /NOTION_DIRECTORY_PARTIAL_RECOVERY_REVISION_CHANGED/);
+  assert.match(section, /NOTION_DIRECTORY_PARTIAL_RECOVERY_ECHO_MISMATCH/);
+  assert.match(section, /LOSSLESS_FIELD_REVIEW_REQUIRED/);
+  assert.doesNotMatch(section, /saveMapping\(/);
+  assert.doesNotMatch(section, /recordProfileFieldBaseline\(/);
+});
+
+test("unverified identity and publication differences never auto-push under canonical priority", () => {
+  const notion = { status: "archived", slug: "foreign-slug", category: "salony-a-sluzby" };
+  const psipedia = { status: "published", slug: "canonical-slug", category: "veterinari" };
+  const result = reconcileProfileFieldsWithoutBaseline({
+    notion, psipedia, protectedFields: new Set(["status", "slug", "category"]),
+    canonicalFieldsWin: true,
+  });
+  assert.equal(result.kind, "CONFLICT");
+  assert.deepEqual(result.conflicts, [
+    { field: "status", reason: "PROTECTED_FIELD" },
+    { field: "slug", reason: "PROTECTED_FIELD" },
+    { field: "category", reason: "PROTECTED_FIELD" },
+  ]);
+  assert.deepEqual(result.psipediaFields, []);
+  assert.deepEqual(result.merged, psipedia);
 });

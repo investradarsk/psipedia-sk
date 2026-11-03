@@ -82,7 +82,12 @@ test("Gemini adoption validation happens before ambiguous D1 insert and Facebook
   assert.match(normalize, /choice\("Aktivita"/);
   const fb = source("app/api/admin/facebook-images/from-profile/route.ts");
   assert.match(fb, /requireAdminMutation\(request\)/);
-  assert.match(fb, /downloadRemoteImage/);
+  assert.match(fb, /copyFacebookProfileImage\(image\)/);
+  const facebookImage = source("lib/facebook-profile-image.ts");
+  assert.match(facebookImage, /downloadRemoteImage/);
+  assert.match(facebookImage, /optimizeRemoteImageForStorage/);
+  assert.match(facebookImage, /validMedia/);
+  assert.match(facebookImage, /bucket\.put/);
   assert.match(fb, /saveFacebookImagePost\(null/);
   assert.match(fb, /status: "draft"/);
   assert.doesNotMatch(fb, /setIndividualApproval|publishFacebook/);

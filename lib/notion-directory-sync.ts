@@ -46,7 +46,7 @@ import { SITE_URL } from "@/config/public-site";
 import { canRecoverNotionDirectoryMapping, directorySyncErrorMetadataNeedsWrite, NotionDirectoryUnsafeTargetError, notionDirectoryPageBelongsToSource, notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
-import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
+import { reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
 import { readNotionFieldAuthorities } from "@/lib/notion-field-authority";
 import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes";
 
@@ -1281,11 +1281,115 @@ async function syncMappedPage(input: {
   const fieldAuthorities = await readNotionFieldAuthorities(
     input.database, "directory:" + profile.category,
   );
-  const resolution = reconcileProfileFields({
-    baseline, notion: notionEditorial, psipedia: canonicalSnapshot, protectedFields,
-    canonicalFieldsWin: true, authorities: fieldAuthorities,
-  });
+  const resolution = baseline
+    ? reconcileProfileFields({
+        baseline, notion: notionEditorial, psipedia: canonicalSnapshot, protectedFields,
+        canonicalFieldsWin: true, authorities: fieldAuthorities,
+      })
+    : reconcileProfileFieldsWithoutBaseline({
+        notion: notionEditorial, psipedia: canonicalSnapshot, protectedFields,
+        canonicalFieldsWin: true, authorities: fieldAuthorities,
+      });
   if (resolution.kind === "CONFLICT") {
+    // A missing historical baseline does NOT justify replacing the whole page.
+    // Canonical-owned fields may still be independently mirrored when an
+    // unrelated editorial field needs manual review. Never advance mapping
+    // or baseline for this partial write; a retry only touches outstanding
+    // canonically owned differences.
+    if (!baseline && resolution.psipediaFields.length) {
+      const directoryFieldToNotion: Record<string, readonly string[]> = {
+        name: ["Názov"], excerpt: ["Perex"], description: ["Popis"],
+        qualifications: ["Kvalifikácie"],
+        region: ["Kraj"], district: ["Okres"], city: ["Mesto"],
+        address: ["Adresa"], postalCode: ["PSČ"], street: ["Ulica"],
+        houseNumber: ["Číslo domu"], addressFormat: ["Formát adresy"],
+        priceNote: ["Cena / poznámka"], websiteUrl: ["Web"],
+        publicPhone: ["Telefón"], publicEmail: ["E-mail"],
+        facebookUrl: ["Facebook"], instagramUrl: ["Instagram"],
+        "seo.title": ["SEO title"], "seo.description": ["SEO popis"],
+        slug: ["Slug"], category: ["Kategória"],
+        status: ["Psipedia stav", "Stav"],
+        services: ["Služby"],
+        confirmedServiceLocation: ["Potvrdená prevádzka"],
+        verified: ["Overené"], featured: ["Odporúčané"],
+        internalEmail: ["Interný e-mail"],
+        qualityCheckedAt: ["Kvalita skontrolované"],
+        "qualityResolutions.phone": ["Kvalita · Telefón"],
+        "qualityResolutions.email": ["Kvalita · E-mail"],
+        "qualityResolutions.website": ["Kvalita · Web"],
+        "qualityResolutions.image": ["Kvalita · Obrázok"],
+        "qualityResolutions.address": ["Kvalita · Adresa"],
+        "seo.noindex": ["Noindex"],
+      };
+      // Only declared, fixed canonical-owned fields are eligible here.
+      const eligible = resolution.psipediaFields
+        .filter(path => Object.hasOwn(directoryFieldToNotion, path));
+      if (eligible.length) {
+        const latest = await fetchNotionPage(input.bindings, page.id);
+        const current = await getManagedDirectoryProfileById(profile.id, input.database);
+        if (!current || current.updatedAt !== profile.updatedAt
+            || latest.id !== page.id
+            || !notionDirectoryPageBelongsToSource(latest, input.dataSourceId)
+            || await snapshotHash(notionSnapshot(latest)) !== pageHash) {
+          throw new Error("NOTION_DIRECTORY_PARTIAL_RECOVERY_REVISION_CHANGED");
+        }
+        const expected = notionProfileProperties(
+          profile, currentGeo, "", new Date().toISOString(), currentSourceImageUrl,
+        );
+        const patch: Record<string, unknown> = {};
+        for (const path of eligible) {
+          for (const name of directoryFieldToNotion[path]) {
+            if (!Object.hasOwn(latest.properties ?? {}, name)) {
+              throw new Error("NOTION_DIRECTORY_PARTIAL_RECOVERY_PROPERTY_MISSING");
+            }
+            patch[name] = expected[name as keyof typeof expected];
+          }
+        }
+        const written = await patchNotionPage(input.bindings, page.id, patch);
+        if (written.id !== page.id || !written.properties
+            || eligible.some(path => {
+              const expectedSnapshot = profileSnapshot(profile, currentSourceImageUrl);
+              const actual = notionSnapshot(written);
+              const get = (obj: Record<string, unknown>, p: string) =>
+                p.split(".").reduce<unknown>((value, key) =>
+                  value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined, obj);
+              return JSON.stringify(get(actual, path)) !== JSON.stringify(get(expectedSnapshot, path));
+            })) {
+          throw new Error("NOTION_DIRECTORY_PARTIAL_RECOVERY_ECHO_MISMATCH");
+        }
+      }
+    }
+    if (!baseline && resolution.notionFields.length) {
+      // An owner-selected Notion field can be committed to D1 without
+      // adjudicating unrelated fields. Recheck identity/revisions and apply
+      // an override built from the canonical profile, not a full Notion import.
+      // Leave the shared mapping hash untouched until all fields converge.
+      const latest = await fetchNotionPage(input.bindings, page.id);
+      const current = await getManagedDirectoryProfileById(profile.id, input.database);
+      if (!current || current.updatedAt !== profile.updatedAt
+          || latest.id !== page.id
+          || !notionDirectoryPageBelongsToSource(latest, input.dataSourceId)) {
+        throw new Error("NOTION_DIRECTORY_PARTIAL_PULL_REVISION_CHANGED");
+      }
+      const get = (obj: Record<string, unknown>, path: string) =>
+        path.split(".").reduce<unknown>((value, key) =>
+          value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined, obj);
+      const actual = notionSnapshot(latest);
+      if (resolution.notionFields.some(path =>
+        JSON.stringify(get(actual, path)) !== JSON.stringify(get(notionEditorial, path)))) {
+        throw new Error("NOTION_DIRECTORY_PARTIAL_PULL_REVISION_CHANGED");
+      }
+      const desiredPartial = resolution.merged as EditableDirectorySnapshot;
+      const saved = await applyNotionToProfile({
+        database: input.database, bindings: input.bindings, page: latest,
+        profile: current, desiredOverride: desiredPartial,
+      });
+      const savedSnapshot = profileSnapshot(saved, currentSourceImageUrl);
+      if (resolution.notionFields.some(path =>
+        JSON.stringify(get(savedSnapshot, path)) !== JSON.stringify(get(desiredPartial, path)))) {
+        throw new Error("NOTION_DIRECTORY_PARTIAL_PULL_VERIFY_FAILED");
+      }
+    }
     throw new Error("CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (" +
       resolution.conflicts.map((c) => c.field + ":" + c.reason).join(", ").slice(0, 1000) + ")");
   }
