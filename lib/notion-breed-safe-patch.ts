@@ -84,10 +84,11 @@ export function partialBreedNotionReceipt(
   previous: BreedFieldSnapshot,
   latest: BreedFieldSnapshot,
   accepted: readonly BreedNotionField[],
-  ignoredByAdmin: readonly BreedNotionField[] = [],
 ): BreedFieldSnapshot {
   const next = { ...previous };
-  for (const key of [...accepted, ...ignoredByAdmin]) next[key] = latest[key];
+  // Admin-owned fields are NOT acknowledged here: only a confirmed outbound
+  // Notion PATCH may advance their receipt. If it fails, the next sweep retries.
+  for (const key of accepted) next[key] = latest[key];
   // Skipped fields keep the old Notion snapshot, so a later cron or webhook
   // can safely retry without falsely acknowledging rejected input.
   return next;
