@@ -594,8 +594,18 @@ export async function writeBackBreedEditorialToNotion(args:{
       // on the next inbound sweep. Do not turn it into a manual profile lock.
       pending.push(field);continue;
     }
-    Object.assign(patch,breedNotionContentPatch(field,after[field]));
-    acknowledged.push(field);
+    try {
+      Object.assign(patch,breedNotionContentPatch(field,after[field]));
+      acknowledged.push(field);
+    } catch (error) {
+      // A malformed or oversized source cell must not block unrelated Admin
+      // edits; keep this cell pending for a later retry.
+      pending.push(field);
+      console.warn("notion_breed_field_writeback_pending", {
+        breedId: args.breed.id, field,
+        code: error instanceof Error ? error.message : "INVALID_FIELD",
+      });
+    }
   }
   let written=page;
   if(Object.keys(patch).length){
