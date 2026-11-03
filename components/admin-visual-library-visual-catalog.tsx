@@ -7,8 +7,9 @@ import {
 } from "@/components/admin-component-visual-preview";
 import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-library-missing-previews";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
-import { visualLibraryBanners } from "@/lib/visual-library-banners";
-import { OWNER_EXAMPLE_GROUPS, ownerKnownUsesForGroup, type OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
+import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
+import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { OWNER_EXAMPLE_GROUPS, ownerGroupForBanner, ownerKnownUsesForGroup, type OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
 import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store";
 import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
 import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
@@ -22,6 +23,7 @@ type Group = {
   title: string;
   samples: Sample[];
   examples: VisualLibraryExample[];
+  banners: VisualBanner[];
   paths: string[];
   routes: string[];
   knownUses: OwnerKnownUse[];
@@ -73,7 +75,7 @@ export function AdminVisualLibraryVisualCatalog({
       const id = VARIANT_OF[sample.id] ?? sample.id;
       let group = result.get(id);
       if (!group) {
-        group = { id, family: sample.family, title: sample.title, samples: [], examples: [], paths: [], routes: [], knownUses: [], matchingLabels: [] };
+        group = { id, family: sample.family, title: sample.title, samples: [], examples: [], banners: [], paths: [], routes: [], knownUses: [], matchingLabels: [] };
         result.set(id, group);
       }
       group.samples.push(sample);
@@ -103,6 +105,12 @@ export function AdminVisualLibraryVisualCatalog({
         if (!group.routes.includes(route)) group.routes.push(route);
       }
     }
+    // A magazine banner exists once in code but has multiple real content presets.
+    // Expose those presets as variants of the SAME component, never as duplicates.
+    for (const banner of visualLibraryBanners) {
+      const root = ownerGroupForBanner(banner);
+      if (root === "magazine") result.get(root)?.banners.push(banner);
+    }
     return [...result.values()].map((group) => {
       const evidence = ownerKnownUsesForGroup(group.id, visualLibraryBanners, examples, articleUsage);
       return { ...group, knownUses: evidence.uses, matchingLabels: evidence.matchingLabels };
@@ -127,10 +135,12 @@ export function AdminVisualLibraryVisualCatalog({
     ].join(" ").toLocaleLowerCase("sk").includes(lower))
   );
   const chosen = matches.find((item) => item.id === selectedId) ?? matches[0];
-  const variant = chosen?.samples.find((item) => item.id === variantId)
-    ?? (!chosen?.examples.some((item) => item.id === variantId) ? chosen?.samples[0] : undefined);
-  const chosenExample = chosen?.examples.find((item) => item.id === variantId)
-    ?? (variant ? undefined : chosen?.examples[0]);
+  const exactSample = chosen?.samples.find((item) => item.id === variantId);
+  const exactExample = chosen?.examples.find((item) => item.id === variantId);
+  const exactBanner = chosen?.banners.find((item) => item.id === variantId);
+  const variant = exactSample ?? (!exactExample && !exactBanner ? chosen?.samples[0] : undefined);
+  const chosenExample = exactExample ?? (!variant && !exactBanner ? chosen?.examples[0] : undefined);
+  const chosenBanner = exactBanner ?? (!variant && !chosenExample ? chosen?.banners[0] : undefined);
   const staticUrls = (chosen?.routes ?? []).map((route) => ({
     route, href: publicRegistryRouteHref(route),
   })).filter((item): item is { route: string; href: string } => item.href !== null);
@@ -196,8 +206,8 @@ export function AdminVisualLibraryVisualCatalog({
                 {FAMILY_LABELS.find((f) => f.id === item.family)?.label ?? "Komponent"}
               </span>
               <h4>{item.title}</h4>
-              <p>{item.samples.length + item.examples.length > 1
-                ? String(item.samples.length + item.examples.length) + " ukážky / varianty"
+              <p>{item.samples.length + item.examples.length + item.banners.length > 1
+                ? String(item.samples.length + item.examples.length + item.banners.length) + " ukážok a obsahových variantov"
                 : "Jeden dostupný náhľad"}
                 {item.knownUses.length > 0 ? " · " + item.knownUses.length + " konkrétnych umiestnení" : ""}</p>
               <button type="button" aria-pressed={chosen?.id === item.id}
@@ -217,7 +227,7 @@ export function AdminVisualLibraryVisualCatalog({
         Zobraziť ďalšie ({matches.length - limit})
       </button>}
 
-      {chosen && (variant || chosenExample) && <section className={styles.visualCatalogDetail} aria-label="Detail vybraného komponentu">
+      {chosen && (variant || chosenExample || chosenBanner) && <section className={styles.visualCatalogDetail} aria-label="Detail vybraného komponentu">
         <div className={styles.visualCatalogDetailHead}>
           <div>
             <span>Vybraný komponent · originálne vykreslenie s demo alebo zdrojovými údajmi</span>
@@ -225,7 +235,7 @@ export function AdminVisualLibraryVisualCatalog({
           </div>
           <button type="button" onClick={onCompare}>Prejsť na porovnávanie</button>
         </div>
-        {chosen.samples.length + chosen.examples.length > 1 && <div className={styles.visualCatalogVariants}>
+        {chosen.samples.length + chosen.examples.length + chosen.banners.length > 1 && <div className={styles.visualCatalogVariants}>
           <strong>Varianty toho istého komponentu</strong>
           <div>
             {chosen.samples.map((sample) => <button key={sample.id} type="button"
@@ -234,12 +244,25 @@ export function AdminVisualLibraryVisualCatalog({
             {chosen.examples.map((example) => <button key={example.id} type="button"
               aria-pressed={chosenExample?.id === example.id}
               onClick={() => setVariantId(example.id)}>{example.label}</button>)}
+            {chosen.banners.map((banner) => <button key={banner.id} type="button"
+              aria-pressed={chosenBanner?.id === banner.id}
+              onClick={() => setVariantId(banner.id)}>{banner.label}</button>)}
           </div>
         </div>}
         <div className={styles.visualCatalogLargePreview} inert>
-          {variant ? <AdminComponentVisualPreview id={variant.id} /> : chosenExample?.preview}
+          {variant ? <AdminComponentVisualPreview id={variant.id} />
+            : chosenExample?.preview ?? (chosenBanner ? <PublicMagazineBanner
+              testId={"owner-catalog-" + chosenBanner.id.replaceAll(":", "-")}
+              compact={chosenBanner.group === "clanky"}
+              eyebrow={chosenBanner.eyebrow}
+              title={chosenBanner.title}
+              description={chosenBanner.description}
+              label={chosenBanner.ctaLabel}
+              href={chosenBanner.ctaHref}
+              photoTone={chosenBanner.photoTone}
+            /> : null)}
         </div>
-        <p className={styles.explanation}>{variant?.description ?? chosenExample?.explanation}</p>
+        <p className={styles.explanation}>{variant?.description ?? chosenExample?.explanation ?? (chosenBanner ? "Skutočný spoločný banner s obsahom z evidencie Psipedie. Ide o variant textu, nie nový komponent." : "")}</p>
         <div className={styles.visualCatalogUses}>
           <h4>Zdokumentované konkrétne stránky ({chosen.knownUses.length})</h4>
           <p>Presné URL sú doložené zdrojovým kódom alebo aktuálnym zoznamom
