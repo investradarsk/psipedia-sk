@@ -46,9 +46,7 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // 0152 requires an applied 0151 with a validated physical schema.
 // 0153 is eligible ONLY for a protected owner-dispatched D1 migration.
 // 0154 is an additive manual Facebook checklist and requires the same owner-dispatched protected process.
-// 0156 is prepared for PR tests, NOT approved for production APPLY.
-// Do not add to SUPPORTED_PRODUCTION_TARGETS or owner-dispatch workflow before part 3.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0156_notion_manual_transfer_jobs.sql"]);
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {
