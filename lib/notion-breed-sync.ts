@@ -16,7 +16,7 @@ import {
 } from "@/lib/notion-breed-field-delta";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.ts";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
-import { notionBreedRichTextProperty as notionRichTextProperty } from "@/lib/notion-breed-text";
+import { notionBreedRichTextProperty as notionRichTextProperty, sameBreedSyncValue as sameBreedField } from "@/lib/notion-breed-text";
 import { reconcileBreedExtraFields } from "@/lib/notion-breed-extras";
 import {
   planSafeBreedFields, partialBreedNotionReceipt, breedPartialError,
@@ -506,10 +506,7 @@ async function notionBreedSourceHash(page: NotionPage) {
 }
 
 
-function sameBreedField(a:unknown,b:unknown){
-  const normalized=(value:unknown)=>typeof value==="string" ? value.replace(/\s+/g," ").trim() : value;
-  return JSON.stringify(normalized(a))===JSON.stringify(normalized(b));
-}
+
 
 /** Build one Notion PATCH cell for an individual Admin field; never PATCH siblings. */
 function breedNotionContentPatch(field:string,value:unknown):Record<string,unknown>{
