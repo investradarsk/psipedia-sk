@@ -286,7 +286,11 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     relatedBreedIds: notionRelationIds(page,"Súvisiace plemená ID"),
     relatedArticleIds: notionRelationIds(page,"Súvisiace články ID"),
     directoryProfileIds: notionRelationIds(page,"Súvisiace profily služieb ID"),
-    image: notionUrlProperty(page,"Hlavný obrázok URL"),
+    // Notion stores absolute URLs; D1 stores local /media or /images paths.
+    image: notionUrlProperty(page,"Hlavný obrázok URL").startsWith(SITE_URL+"/media/")
+      || notionUrlProperty(page,"Hlavný obrázok URL").startsWith(SITE_URL+"/images/")
+      ? notionUrlProperty(page,"Hlavný obrázok URL").slice(SITE_URL.length)
+      : notionUrlProperty(page,"Hlavný obrázok URL"),
     accent: (["forest","coral","gold","blue"].includes(notionSelectProperty(page,"Farba akcentu"))
       ? notionSelectProperty(page,"Farba akcentu") : "forest") as ManagedBreedInput["accent"],
     editorialComplete: notionPropertyRecord(page, "Editorial complete") ? checkboxProperty(page, "Editorial complete") : undefined,
