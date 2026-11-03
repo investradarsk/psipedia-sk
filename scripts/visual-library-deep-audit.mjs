@@ -61,7 +61,7 @@ function jsxInformation(file, source) {
     if (tokens.length < MAX_JSX_TOKENS) ts.forEachChild(node,scan);
   };
   scan(tree);
-  return {jsxElements, shape:tokens.join("|"),features:[...featureCounts.keys()].sort()};
+  return {jsxElements, shape:tokens.join("|"),features:[...featureCounts.entries()].sort(([a],[b])=>a.localeCompare(b))};
 }
 function moduleKind(file) {
   if (/^app\/.*\/page\.[jt]sx$|^app\/page\.[jt]sx$/.test(file)) return "page";
@@ -187,10 +187,46 @@ function pairsFromGroupMap(groups,kind) {
   }
   return result.filter(g=>g.count>1).sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id));
 }
+
+function findNearJsxCandidates(featured) {
+  const matches=[];
+  // Multiset Dice similarity of actual tag/attribute occurrences. Ignore
+  // tiny skeletons and near matches with very different element counts.
+  for(let i=0;i<featured.length;i++){
+    const a=featured[i];
+    if(a.jsxElements<8)continue;
+    for(let j=i+1;j<featured.length;j++){
+      const b=featured[j];
+      if(b.jsxElements<8 || a.shapeHash===b.shapeHash)continue;
+      const ratio=Math.min(a.jsxElements,b.jsxElements)/Math.max(a.jsxElements,b.jsxElements);
+      if(ratio<0.72)continue;
+      const weights=(features)=>features.reduce((total,[key,n])=>
+        total+n*(key.startsWith("T:")?2:1),0);
+      const aFeatures=new Map(a.features),bFeatures=new Map(b.features);
+      let shared=0,sharedTags=0;
+      for(const [key,n] of aFeatures){
+        const found=Math.min(n,bFeatures.get(key)??0);
+        if(key.startsWith("T:"))sharedTags+=found;
+        shared+=found*(key.startsWith("T:")?2:1);
+      }
+      if(sharedTags<7)continue;
+      const similarity=Math.round(100*2*shared/(weights(a.features)+weights(b.features)));
+      if(similarity<88)continue;
+      matches.push({
+        leftPath:a.path,rightPath:b.path,score:similarity,
+        sharedTags, leftElements:a.jsxElements,rightElements:b.jsxElements,
+      });
+    }
+  }
+  return matches.sort((a,b)=>b.score-a.score||a.leftPath.localeCompare(b.leftPath)||
+    a.rightPath.localeCompare(b.rightPath));
+}
+
 /** Detect shared JSX structure without claiming rendered equality. */
 export function auditVisualSources(root, absoluteFiles, registeredComponents, usedBy) {
   const modules=[];
   const byRaw=new Map(),byShape=new Map();
+  const featured=[];
   const registered=new Set(registeredComponents.map(c=>c.path));
   for(const absolute of absoluteFiles){
     if(!VISUAL_EXT.test(absolute))continue;
@@ -204,6 +240,7 @@ export function auditVisualSources(root, absoluteFiles, registeredComponents, us
       jsxElements:meta.jsxElements,routes,
     };
     modules.push(item);
+    featured.push({...item,features:meta.features,shapeHash:sha(meta.shape)});
     const rawId=sha(source);
     byRaw.set(rawId,[...(byRaw.get(rawId)??[]),file]);
     if(meta.jsxElements>=8 && meta.shape.length>=60){
@@ -215,6 +252,7 @@ export function auditVisualSources(root, absoluteFiles, registeredComponents, us
   const sourceExact=pairsFromGroupMap(byRaw,"identical-file");
   const jsxShapes=pairsFromGroupMap(byShape,"identical-jsx-shape");
   const css=auditCss(root);
+  const nearCandidates=findNearJsxCandidates(featured);
   return {
     version:1,
     totals:{
@@ -226,10 +264,12 @@ export function auditVisualSources(root, absoluteFiles, registeredComponents, us
       exactCssGroups:css.exactDeclarationGroups.length,
       exactSourceGroups:sourceExact.length,
       matchingJsxStructureGroups:jsxShapes.length,
+      nearJsxCandidatePairs:nearCandidates.length,
     },
     modules,cssFiles:css.files,
     identicalSourceGroups:sourceExact,
     similarStructureGroups:jsxShapes,
+    nearJsxCandidates:nearCandidates,
     exactCssDeclarationGroups:css.exactDeclarationGroups,
   };
 }
