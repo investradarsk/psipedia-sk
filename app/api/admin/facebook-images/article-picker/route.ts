@@ -4,6 +4,7 @@ import { effectiveArticleStatus } from "@/lib/article-effective-status";
 import { articleHref } from "@/lib/portal";
 import { copyArticlePhoto } from "@/lib/facebook-article-scheduler";
 import { copyFacebookProfileImage } from "@/lib/facebook-profile-image";
+import { readFacebookShareMarkers } from "@/lib/facebook-content-share-marker";
 
 export const dynamic = "force-dynamic";
 const NO_STORE = { "cache-control": "no-store" };
@@ -19,8 +20,10 @@ export async function GET(request: Request) {
     const result = await listManagedArticleSummaries({
       status: "published", query, page, pageSize: 12,
     });
+    const markers = await readFacebookShareMarkers("article", result.articles.map(article => article.id));
     return Response.json({
       articles: result.articles.map(article => ({
+        sharedToFacebook: markers.marked.has(article.id),
         id: article.id,
         title: article.title,
         category: article.category,
@@ -30,6 +33,7 @@ export async function GET(request: Request) {
       page: result.pagination.page,
       totalPages: result.pagination.totalPages,
       total: result.pagination.total,
+      markingAvailable: markers.available,
     }, { headers: NO_STORE });
   } catch {
     return Response.json({ error: "Publikované články sa nepodarilo načítať." },
