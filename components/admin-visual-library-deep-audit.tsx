@@ -3,17 +3,18 @@
 import { useMemo, useState } from "react";
 import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
 import type {
-  DeepVisualModule, ExactCssGroup, SourceMatchGroup,
+  DeepVisualModule, ExactCssGroup, SourceMatchGroup, NearJsxCandidate,
 } from "@/lib/visual-library-deep-audit-types";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import styles from "./admin-visual-library.module.css";
 
-type AuditView = "sources" | "code" | "structure" | "css" | "styles";
+type AuditView = "sources" | "code" | "structure" | "near" | "css" | "styles";
 const PAGE_SIZE = 35;
 const VIEWS: Array<{id:AuditView;label:string}> = [
   {id:"sources",label:"Všetky JSX zdroje"},
   {id:"code",label:"Totožné zdrojové súbory"},
   {id:"structure",label:"Rovnaká JSX štruktúra"},
+  {id:"near",label:"Veľmi podobné JSX"},
   {id:"css",label:"Opakované CSS deklarácie"},
   {id:"styles",label:"Všetky CSS súbory"},
 ];
@@ -57,6 +58,26 @@ function SourceGroup({group, modules}: {
         : "Poradie JSX značiek a názvov atribútov je rovnaké (hodnoty textov a props nie sú porovnané). Je to kandidát na vizuálne preverenie, nie potvrdená duplicita."}
       </p>
       <SourceFiles files={group.files} modules={modules}/>
+    </div>
+  </details>;
+}
+
+
+function NearGroup({pair,modules}:{
+  pair:NearJsxCandidate;modules:ReadonlyMap<string,DeepVisualModule>;
+}){
+  const paths=[pair.leftPath,pair.rightPath];
+  return <details className={styles.deepAuditFinding}>
+    <summary>
+      <strong>{pair.score} % podobnosť JSX značiek a atribútov</strong>
+      <span>{pair.sharedTags} spoločných značiek</span>
+      <small>{paths.map(p=>p.split("/").pop()).join(" × ")}</small>
+    </summary>
+    <div className={styles.deepAuditDetail}>
+      <p>Veľmi podobné počty a názvy JSX značiek či atribútov podľa AST.
+        Poradie vnorenia, hodnoty textov, CSS a viditeľný výsledok môžu byť
+        odlišné. Vyžaduje ručné porovnanie, nie automatické zlúčenie.</p>
+      <SourceFiles files={paths} modules={modules}/>
     </div>
   </details>;
 }
@@ -116,11 +137,14 @@ export function AdminVisualLibraryDeepAudit({
     filter(g.files.join(" ")));
   const structureRows=audit.similarStructureGroups.filter(g=>
     filter(g.files.join(" ")));
+  const nearRows=audit.nearJsxCandidates.filter(pair=>
+    filter([pair.leftPath,pair.rightPath,String(pair.score)].join(" ")));
   const cssRows=audit.exactCssDeclarationGroups.filter(g=>
     filter([g.context,...g.declarations,...g.members.flatMap(m=>[m.file,m.selector])].join(" ")));
   const styleRows=audit.cssFiles.filter(s=>filter(s.path));
   const count = view==="sources"?sourceRows.length:
     view==="code"?sameRows.length:view==="structure"?structureRows.length:
+      view==="near"?nearRows.length:
       view==="css"?cssRows.length:styleRows.length;
   const visibleCount=Math.min(limit,count);
 
@@ -152,6 +176,7 @@ export function AdminVisualLibraryDeepAudit({
         {item.label} <small>{item.id==="sources"?audit.modules.length:
           item.id==="code"?audit.identicalSourceGroups.length:
             item.id==="structure"?audit.similarStructureGroups.length:
+            item.id==="near"?audit.nearJsxCandidates.length:
               item.id==="css"?audit.exactCssDeclarationGroups.length:audit.cssFiles.length}</small>
       </button>)}
     </nav>
@@ -199,6 +224,8 @@ export function AdminVisualLibraryDeepAudit({
         <SourceGroup key={g.id} group={g} modules={modules}/>)}
       {view==="structure"&&structureRows.slice(0,limit).map(g=>
         <SourceGroup key={g.id} group={g} modules={modules}/>)}
+      {view==="near"&&nearRows.slice(0,limit).map(pair=>
+        <NearGroup key={pair.leftPath+"|"+pair.rightPath} pair={pair} modules={modules}/>)}
       {view==="css"&&cssRows.slice(0,limit).map(g=>
         <CssGroup key={g.id} group={g}/>)}
       {view==="styles"&&styleRows.slice(0,limit).map(item=>
