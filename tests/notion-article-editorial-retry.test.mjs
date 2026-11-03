@@ -232,6 +232,16 @@ async function loadWriter(h) {
     "@/lib/article-subsection-taxonomy": {},
     "@/config/public-site": { SITE_URL: "https://psipedia.sk" },
     "@/lib/notion-article-content-plan": h.planner,
+    // The article module now uses the shared transport for retries. Keep
+    // this behavioral test's mocked Notion HTTP state machine unchanged.
+    "@/lib/notion-sync-shared": {
+      notionRequest: async (_bindings, path, init = {}) => {
+        const response = await h.fetchMock("https://api.notion.com/v1" + path, init);
+        const body = await response.text();
+        if (!response.ok) throw Error("Notion API " + response.status + ": " + body);
+        return body ? JSON.parse(body) : {};
+      },
+    },
   };
   runInNewContext(compiled, {
     exports, module: { exports },
