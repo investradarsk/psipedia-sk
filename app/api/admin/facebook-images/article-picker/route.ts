@@ -3,6 +3,7 @@ import { getManagedArticleById, listManagedArticleSummaries } from "@/lib/articl
 import { effectiveArticleStatus } from "@/lib/article-effective-status";
 import { articleHref } from "@/lib/portal";
 import { copyArticlePhoto } from "@/lib/facebook-article-scheduler";
+import { copyFacebookProfileImage } from "@/lib/facebook-profile-image";
 
 export const dynamic = "force-dynamic";
 const NO_STORE = { "cache-control": "no-store" };
@@ -56,9 +57,15 @@ export async function POST(request: Request) {
     let image = { imageKey: "", imageUrl: "" };
     let imageWarning = "";
     try {
-      image = await copyArticlePhoto(article, null);
+      image = article.imageKey
+        ? await copyArticlePhoto(article, null)
+        : await copyFacebookProfileImage(article.image || "");
     } catch {
-      imageWarning = "Titulný obrázok článku sa nepodarilo prevziať. Môžeš ho nahrať ručne.";
+      // Older published articles may have a usable URL but no R2 image key.
+      try { if (article.image) image = await copyFacebookProfileImage(article.image); }
+      catch { /* Keep the article link even without a usable photograph. */ }
+      if (!image.imageKey)
+        imageWarning = "Titulný obrázok článku sa nepodarilo prevziať. Môžeš ho nahrať ručne.";
     }
     return Response.json({
       article: {
