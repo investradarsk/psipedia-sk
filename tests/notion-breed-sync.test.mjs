@@ -11,6 +11,20 @@ const workerSource = await readFile(new URL("../worker/index.ts", import.meta.ur
 const migrationSource = await readFile(new URL("../drizzle/0045_notion_breed_sync.sql", import.meta.url), "utf8");
 const wranglerSource = await readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 
+test("linked breed content is not blocked by Notion editorial approval, and SEO is mapped", () => {
+  assert.match(syncSource,/validateReady\(page, Boolean\(mapping \|\| current\?\.status === "published"\)\)/);
+  for (const property of ["SEO focus keyword","SEO OG title","SEO OG description",
+    "SEO canonical URL","SEO noindex"]) {
+    assert.ok(syncSource.includes(JSON.stringify(property)), "missing mapped field "+property);
+  }
+});
+
+test("legacy breed sync has a no-webhook comparison path instead of a manual blocker",()=>{
+  assert.match(syncSource,/fields = touched\.length \? touched : BREED_NOTION_EDITABLE_FIELDS/);
+  assert.doesNotMatch(syncSource,/throw new Error\("BREED_WEBHOOK_FIELDS_UNRESOLVED"/);
+  assert.doesNotMatch(syncSource,/throw new Error\("BREED_LEGACY_CONCURRENT_ADMIN_EDIT"/);
+});
+
 test("Ready Notion breeds flow into Psipedia as draft only", () => {
   assert.match(syncSource, /notionSelectProperty\(page, "Stav"\) !== "Ready"/);
   assert.match(syncSource, /status: "draft"/);
