@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect } from "react";
 
 /**
@@ -30,8 +32,8 @@ export default function AdminError({
               Obnoviť stránku
             </button>
             <button type="button" onClick={reset}>Skúsiť znova</button>
-            <a href="/admin">Pracovný prehľad</a>
-            <a href="/admin/clanky">Články</a>
+            <Link href="/admin" prefetch={false}>Pracovný prehľad</Link>
+            <Link href="/admin/clanky" prefetch={false}>Články</Link>
           </div>
         </section>
       </div>
