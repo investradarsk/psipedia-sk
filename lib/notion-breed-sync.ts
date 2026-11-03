@@ -15,6 +15,8 @@ import {
   planBreedNotionFieldDelta, BREED_NOTION_EDITABLE_FIELDS, type BreedFieldSnapshot, type BreedNotionField,
 } from "@/lib/notion-breed-field-delta";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.ts";
+import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
+import { reconcileBreedExtraFields } from "@/lib/notion-breed-extras";
 import {
   planSafeBreedFields, partialBreedNotionReceipt, breedPartialError,
 } from "@/lib/notion-breed-safe-patch";
@@ -542,107 +544,139 @@ async function notionBreedSourceHash(page: NotionPage) {
   return sha256Text(JSON.stringify({ basePayload, sourceUrl, sourcePageUrl, altText }));
 }
 
-export async function writeBackDraftBreedEditorialToNotion(args: {
-  database: D1Database;
-  bindings: NotionBreedSyncBindings;
-  before: ManagedBreed;
-  breed: ManagedBreed;
-}) {
-  if (!notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED)) {
-    return { linked: false, updated: false, reason: "disabled" as const };
-  }
-  if (args.before.id !== args.breed.id || args.before.slug !== args.breed.slug
-    || args.before.status !== "draft" || args.breed.status !== "draft") {
-    return { linked: false, updated: false, reason: "unsupported-status" as const };
-  }
-  const { edits, patch } = breedDraftTextChanges(args.before, args.breed);
-  if (!edits.length) return { linked: false, updated: false, reason: "no-mirrored-field-change" as const };
 
-  const mapping = await args.database.prepare(
-    "SELECT notion_page_id, content_hash FROM breed_notion_sync WHERE breed_id = ? LIMIT 1",
-  ).bind(args.breed.id).first<{ notion_page_id: string; content_hash: string }>();
-  if (!mapping) return { linked: false, updated: false, reason: "not-linked" as const };
+function sameBreedField(a:unknown,b:unknown){
+  const normalized=(value:unknown)=>typeof value==="string" ? value.replace(/\s+/g," ").trim() : value;
+  return JSON.stringify(normalized(a))===JSON.stringify(normalized(b));
+}
 
-  const dataSourceId = args.bindings.NOTION_BREEDS_DATA_SOURCE_ID?.trim() ?? "";
-  const page = await notionRequest<NotionPage>(
-    args.bindings, "/pages/" + encodeURIComponent(mapping.notion_page_id),
-  );
-  if (page.id !== mapping.notion_page_id
-    || !notionPageBelongsToDataSource(page, dataSourceId)
-    || notionSelectProperty(page, "Stav") !== "Ready"
-    || notionRichTextProperty(page, "Psipedia ID") !== String(args.breed.id)) {
-    throw new Error("BREED_NOTION_WRITEBACK_UNSAFE_TARGET");
+/** Build one Notion PATCH cell for an individual Admin field; never PATCH siblings. */
+function breedNotionContentPatch(field:string,value:unknown):Record<string,unknown>{
+  const spec=BREED_NOTION_SCHEMA.find(e=>e.id===field&&e.mode==="content");
+  if(!spec)throw new Error("BREED_NOTION_FIELD_UNSUPPORTED");
+  if(spec.type==="number")return {[spec.notion]:{number:typeof value==="number"?value:null}};
+  if(spec.type==="checkbox")return {[spec.notion]:{checkbox:Boolean(value)}};
+  if(spec.type==="select"){
+    const selected=String(value??"").trim();
+    return {[spec.notion]:{select:selected?{name:selected}:null}};
   }
-  if (await notionBreedSourceHash(page) !== decodeBreedReceipt(mapping.content_hash).hash) {
-    throw new Error("BREED_NOTION_REMOTE_EDITORIAL_CHANGED");
+  if(spec.type==="date"){
+    const selected=String(value??"").trim();
+    return {[spec.notion]:{date:selected?{start:selected}:null}};
   }
+  if(spec.type==="url"){
+    let url=String(value??"").trim();
+    if(field==="image"&&url.startsWith("/"))url=SITE_URL+url;
+    return {[spec.notion]:{url:url||null}};
+  }
+  let stringValue:string;
+  if(["sports","gallery","editorial.heroTraits"].includes(field)){
+    stringValue=JSON.stringify(value??[]);
+  }else if(["relatedBreedIds","relatedArticleIds","directoryProfileIds"].includes(field)){
+    stringValue=Array.isArray(value)?value.join("; "):"";
+  }else if(["healthRisks","goodFor","consider"].includes(field)){
+    stringValue=Array.isArray(value)?value.join("; "):"";
+  }else if(field==="sources"){
+    stringValue=Array.isArray(value)?value.map(item=>{
+      const entry=item as {label?:string;url?:string};
+      return String(entry.label??"")+"|"+String(entry.url??"");
+    }).join("; "):"";
+  }else{
+    stringValue=String(value??"");
+  }
+  return {[spec.notion]:richTextNotionValue(stringValue,spec.type==="title"?"title":"rich_text")};
+}
 
-  // If the Notion field was not identical to the pre-edit Admin value,
-  // its ownership is ambiguous; do not override it based on a page timestamp.
-  for (const edit of edits) {
-    if (notionBreedTextValue(page, edit.notionProperty)
-      !== normalizedBreedText(args.before[edit.key])) {
-      throw new Error("BREED_NOTION_FIELD_REVIEW_REQUIRED");
+/**
+ * Fully mapped Admin -> Notion editorial writeback. Writes only fields edited
+ * in Admin, on both published and draft profiles. Concurrent independent
+ * Notion edits are not blocked by a whole-page hash: explicit Admin wins,
+ * otherwise remote Notion wins *only for the particular contested field*.
+ */
+export async function writeBackBreedEditorialToNotion(args:{
+  database:D1Database;bindings:NotionBreedSyncBindings;
+  before:ManagedBreed;breed:ManagedBreed;
+  changedFieldKeys?:readonly string[];
+}){
+  if(!notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED))
+    return {linked:false,updated:false,reason:"disabled" as const};
+  if(args.before.id!==args.breed.id||args.before.slug!==args.breed.slug)
+    throw new Error("BREED_NOTION_WRITEBACK_IDENTITY_MISMATCH");
+  const mapping=await args.database.prepare(
+    "SELECT notion_page_id,content_hash FROM breed_notion_sync WHERE breed_id=? LIMIT 1"
+  ).bind(args.breed.id).first<{notion_page_id:string;content_hash:string}>();
+  if(!mapping)return {linked:false,updated:false,reason:"not-linked" as const};
+  const sourceId=args.bindings.NOTION_BREEDS_DATA_SOURCE_ID?.trim()??"";
+  const page=await notionRequest<NotionPage>(args.bindings,
+    "/pages/"+encodeURIComponent(mapping.notion_page_id));
+  if(page.id!==mapping.notion_page_id ||
+    !notionPageBelongsToDataSource(page,sourceId)||
+    notionRichTextProperty(page,"Psipedia ID")!==String(args.breed.id))
+    throw new Error("BREED_NOTION_WRITEBACK_IDENTITY_MISMATCH");
+  const authorities=await readNotionFieldAuthorities(args.database,"breeds");
+  const before=breedFieldSnapshot(args.before);
+  const after=breedFieldSnapshot(args.breed);
+  const remote=breedFieldSnapshot(notionPageToManagedBreedInput(page));
+  const historical=decodeBreedReceipt(mapping.content_hash);
+  const oldNotion=historical.notion??before;
+  const oldAdmin=historical.admin??before;
+  const changed=(args.changedFieldKeys??BREED_NOTION_EDITABLE_FIELDS)
+    .filter(key=>!sameBreedField(before[key],after[key]));
+  if(!changed.length)return {linked:true,updated:false,reason:"no-mirrored-field-change" as const};
+  const patch:Record<string,unknown>={};
+  const acknowledged:string[]=[];
+  const pending:string[]=[];
+  for(const field of changed){
+    const remoteChanged=!sameBreedField(remote[field],oldNotion[field])
+      &&!sameBreedField(remote[field],after[field]);
+    if(remoteChanged&&authorities[field]!=="admin"){
+      // The owner's Notion priority (or the documented fallback) is resolved
+      // on the next inbound sweep. Do not turn it into a manual profile lock.
+      pending.push(field);continue;
+    }
+    Object.assign(patch,breedNotionContentPatch(field,after[field]));
+    acknowledged.push(field);
+  }
+  let written=page;
+  if(Object.keys(patch).length){
+    written=await notionRequest<NotionPage>(args.bindings,
+      "/pages/"+encodeURIComponent(page.id),{
+        method:"PATCH",body:JSON.stringify({properties:patch}),
+      });
+    if(written.id!==page.id||!written.properties)
+      throw new Error("BREED_NOTION_WRITEBACK_UNCONFIRMED");
+    const confirmed=breedFieldSnapshot(notionPageToManagedBreedInput(written));
+    for(const field of acknowledged){
+      if(!sameBreedField(confirmed[field],after[field]))
+        throw new Error("BREED_NOTION_WRITEBACK_UNCONFIRMED");
     }
   }
-  const written = await notionRequest<NotionPage>(
-    args.bindings, "/pages/" + encodeURIComponent(page.id), {
-      method: "PATCH", body: JSON.stringify({ properties: patch }),
-    },
-  );
-  if (!written.properties || written.id !== page.id
-    || !notionPageBelongsToDataSource(written, dataSourceId)
-    || notionRichTextProperty(written, "Psipedia ID") !== String(args.breed.id)) {
-    throw new Error("BREED_NOTION_WRITEBACK_ECHO_UNVERIFIED");
+  // Remember only successfully acknowledged fields; rejected fields are
+  // still visible to the next retry and cannot disappear in the receipt.
+  const now=new Date().toISOString();
+  const newRemote=breedFieldSnapshot(notionPageToManagedBreedInput(written));
+  const nextNotion={...oldNotion};
+  const nextAdmin={...oldAdmin};
+  for(const field of acknowledged){
+    nextNotion[field]=newRemote[field];
+    nextAdmin[field]=after[field];
   }
-  const changedProperties = new Set(edits.map(e => e.notionProperty));
-  for (const [, property] of BREED_DRAFT_TEXT_FIELDS) {
-    const expected = changedProperties.has(property)
-      ? edits.find(e => e.notionProperty === property)?.expected
-      : notionBreedTextValue(page, property);
-    if (notionBreedTextValue(written, property) !== expected) {
-      throw new Error("BREED_NOTION_WRITEBACK_ECHO_UNVERIFIED");
-    }
-  }
-  // A concurrent edit in a different (non-text) Notion property is not an
-  // acknowledged common state. Keep the mapping unchanged for later review.
-  const untouchedBefore = notionPageToManagedBreedInput(page);
-  const untouchedAfter = notionPageToManagedBreedInput(written);
-  for (const [key] of Object.entries(untouchedBefore)) {
-    if (key === "seo") {
-      if (JSON.stringify(untouchedBefore.seo) !== JSON.stringify(untouchedAfter.seo))
-        throw new Error("BREED_NOTION_WRITEBACK_ECHO_UNVERIFIED");
-      continue;
-    }
-    if (BREED_DRAFT_TEXT_FIELDS.some(([name]) => name === key)) continue;
-    if (JSON.stringify(untouchedBefore[key as keyof ManagedBreedInput])
-      !== JSON.stringify(untouchedAfter[key as keyof ManagedBreedInput])) {
-      throw new Error("BREED_NOTION_WRITEBACK_ECHO_UNVERIFIED");
-    }
-  }
-
-  const hash = await notionBreedSourceHash(written);
-  const at = new Date().toISOString();
-  const oldAdmin = decodeBreedReceipt(mapping.content_hash).admin
-    ?? breedFieldSnapshot(args.before);
-  const nextAdmin = advanceBreedAdminReceipt(
-    oldAdmin, args.breed, edits.map(edit => edit.key),
-  );
-  const committed = await args.database.prepare(
-    "UPDATE breed_notion_sync SET content_hash=?, notion_last_edited_time=?, " +
-    "last_synced_at=?,updated_at=? " +
-    "WHERE notion_page_id=? AND breed_id=? AND content_hash=?",
-  ).bind(encodeBreedReceipt(hash, {
-      notion: breedFieldSnapshot(notionPageToManagedBreedInput(written)),
-      admin: nextAdmin,
-    }), written.last_edited_time ?? at, at, at,
-    page.id, args.breed.id, mapping.content_hash).run();
-  if (committed.meta.changes !== 1) throw new Error("BREED_NOTION_MAPPING_VERSION_CHANGED");
-
-  await updateNotionSyncState(args.bindings, page.id, {
-    state: "Synchronizované", psipediaId: args.breed.id, syncedAt: at,
+  await upsertMapping(args.database,written,args.breed.id,
+    await notionBreedSourceHash(written),now,{notion:nextNotion,admin:nextAdmin});
+  await updateNotionSyncState(args.bindings,page.id,{
+    state:pending.length?"Čaká na sync":"Synchronizované",
+    error:"",psipediaId:args.breed.id,...(!pending.length?{syncedAt:now}:{}),
   });
-  return { linked: true, updated: true, notionPageId: page.id };
+  return {linked:true,updated:acknowledged.length>0,reason:pending.length?"pending":undefined,
+    pendingFields:pending};
+}
+
+/** Kept as a public alias for the existing editor and API integrations. */
+export async function writeBackDraftBreedEditorialToNotion(args:{
+  database:D1Database;bindings:NotionBreedSyncBindings;
+  before:ManagedBreed;breed:ManagedBreed;
+}){
+  return writeBackBreedEditorialToNotion(args);
 }
 
 
