@@ -900,23 +900,18 @@ async function syncOneBreed(
     // Publication, canonical identity, related media and admin-owned editorial
     // enrichments stay intact. Notion owns only the supplied editorial fields.
     if (existing.status === "published") {
-      const updated = await updateManagedBreed(existing.id, {
-        ...mergedPayload,
-        status: existing.status,
-        editorialComplete: existing.editorialComplete,
-        accent: existing.accent,
-        image: existing.image,
-        imageKey: existing.imageKey,
-        gallery: existing.gallery,
-      }, SYNC_ACTOR, existing.updatedAt);
-      if (!updated) throw new Error("BREED_PUBLISHED_UPDATE_FAILED");
-      await upsertMapping(database, page, updated.id, contentHash, new Date().toISOString(), {
-        notion: breedFieldSnapshot(basePayload), admin: breedFieldSnapshot(updated),
-      });
-      await updateNotionSyncState(bindings, page.id, {
-        state: "Synchronizované", psipediaId: updated.id, syncedAt: now,
-      });
-      return "updated";
+      // Legacy/first approved import has no trustworthy field receipt yet.
+      // Use the existing canonical values as a validation baseline; a bad
+      // source field must not prevent a valid unrelated editorial update.
+      const previousAdmin=breedFieldSnapshot(existing);
+      const actualNotion=breedFieldSnapshot(basePayload);
+      const plan=planBreedNotionFieldDelta(existing,mergedPayload,
+        previousAdmin,previousAdmin,authority);
+      const previousNotion={...actualNotion};
+      for(const field of plan.changed)previousNotion[field]=previousAdmin[field];
+      return applySafeBreedSync(database,bindings,page,existing,plan,
+        previousNotion,previousAdmin,actualNotion,authority,contentHash,
+        invalidStructuredBreedFields(page));
     }
     const { payload, prepared } = await preparePayloadWithImage(bindings, page, mergedPayload, existing);
     try {
