@@ -713,17 +713,44 @@ async function applySafeBreedSync(
 ):Promise<"updated"|"unchanged">{
   const safe=planSafeBreedFields(existing,plan,invalidFields,validateNotionBreedCandidate);
   const now=new Date().toISOString();
-  const actuallyChanged=JSON.stringify(breedFieldSnapshot(safe.candidate))
-    !== JSON.stringify(breedFieldSnapshot(existing));
+  // Images are an ordinary independent field. A broken remote image must
+  // not prevent accepted health, FCI, SEO or any other field from transferring.
+  let imageUrl=existing.image;
+  let imageKey=existing.imageKey;
+  let replacedImageKeys:string[]=[];
+  if(safe.accepted.includes("image")){
+    const source=notionUrlProperty(page,"Hlavný obrázok URL");
+    try{
+      if(!source){
+        imageUrl="";imageKey=null;
+      }else if(source===existing.image || source===SITE_URL+existing.image){
+        imageUrl=existing.image;imageKey=existing.imageKey;
+      }else{
+        const prepared=await prepareNotionMainImage({
+          bindings,sourceUrl:source,
+          sourcePageUrl:notionUrlProperty(page,"Zdroj obrázka"),
+          altText:notionRichTextProperty(page,"Alt text obrázka"),
+          folder:"breeds",existingImageUrl:existing.image,existingImageKey:existing.imageKey,
+        });
+        imageUrl=prepared.imageUrl??"";imageKey=prepared.imageKey??null;
+        replacedImageKeys=prepared.replacedKeys;
+      }
+    }catch(error){
+      safe.accepted.splice(safe.accepted.indexOf("image"),1);
+      safe.skipped.push({field:"image",error:error instanceof Error?error.message:"Obrázok sa nepodarilo načítať"});
+    }
+  }
+  const candidate={...safe.candidate,status:existing.status,image:imageUrl,imageKey};
+  const actuallyChanged=JSON.stringify(breedFieldSnapshot(candidate))
+    !==JSON.stringify(breedFieldSnapshot(existing))
+    ||imageKey!==existing.imageKey;
   const updated=actuallyChanged
-    ? await updateManagedBreed(existing.id,{
-        ...safe.candidate,
-        status:existing.status,image:existing.image,imageKey:existing.imageKey,
-        gallery:existing.gallery,accent:existing.accent,
-        editorialComplete:existing.editorialComplete,
-      },SYNC_ACTOR,existing.updatedAt,{preserveUnchangedInvalid:existing})
+    ? await updateManagedBreed(existing.id,candidate,SYNC_ACTOR,existing.updatedAt,
+        {preserveUnchangedInvalid:existing})
     : existing;
   if(!updated)throw new Error("BREED_PARTIAL_UPDATE_FAILED");
+  if(actuallyChanged&&replacedImageKeys.length)
+    await cleanupNotionImageKeys(bindings.BUCKET,replacedImageKeys);
   const ignored=plan.changed.filter(key=>authority[key]==="admin");
   const notionReceipt=partialBreedNotionReceipt(previousNotion,latestNotion,safe.accepted,ignored);
   await upsertMapping(database,page,updated.id,contentHash,now,{
