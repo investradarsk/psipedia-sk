@@ -35,6 +35,13 @@ Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch
 - [x] Samostatná karta technického registra a prechod na existujúce porovnávanie.
 - [x] Zoznam nehotových náhľadov zachovaný, no nezahlcuje hlavnú galériu.
 - [x] Pridané regresné kontraktové testy ku komponentovej galérii.
+- [x] Druhá vlna: do hlavnej galérie zapojené existujúce serverovo vykreslené hero, CTA a článková karta (až 5 ukážok podľa dostupnosti verejných dát); pravé komponenty s reálnymi štýlmi.
+- [x] Explicitne mapovať známu identitu vykresľovacieho komponentu (napr. dve hero sekcie z jedného UnifiedSectionHero), nie spájať podľa rovnakého súboru/CSS.
+- [x] Ku kanonickým rodinám ukázať presné URL doložené pôvodným zdrojovým katalógom a aktuálnym čítaním publikovaných článkov.
+- [x] Doložené konkrétne URL oddeliť od kandidátskych trás podľa statických importov; nevymýšľať dynamické slugs.
+- [x] Jeden hlavný promo banner, ale všetky jeho skutočné obsahové nastavenia (vrátane veterinárov) možno prepínať ako varianty jedného zdroja.
+- [x] Pri neúplnom alebo nedostupnom skenovaní článkov neuvádzať zoznam za úplný.
+- [x] Testy pre identitu zdroja, deduplikáciu URL a zobrazenie bannerových variantov pridané do test:visual-library.
 - [ ] CI: zatiaľ nepotvrdené finálne zelené výsledky po poslednom commite.
 - [ ] Vizuálne overenie prihlásenej administrácie na desktope.
 - [ ] Rozšírenie z 51 náhľadov na úplné pokrytie skutočne vykresliteľných typov.
