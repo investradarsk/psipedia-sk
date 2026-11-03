@@ -90,8 +90,8 @@ test("every SEO property uses independent field-level priority",()=>{
     ogDescription:"Nový popis",canonicalUrl:"https://psipedia.sk/plemena/test",noindex:true}});
   const result=planBreedNotionFieldDelta(breed(),next,old,old);
   assert.deepEqual(result.conflicts,[]);
-  assert.deepEqual(result.accepted,["seo.focusKeyword","seo.ogTitle","seo.ogDescription",
-    "seo.canonicalUrl","seo.noindex"]);
+  assert.deepEqual(new Set(result.accepted),new Set(["seo.focusKeyword","seo.ogTitle","seo.ogDescription",
+    "seo.canonicalUrl","seo.noindex"]));
   assert.equal(result.patch.seo.focusKeyword,"pes");
   assert.equal(result.patch.seo.noindex,true);
   assert.equal(result.patch.seo.title,undefined);
@@ -110,7 +110,7 @@ test("old field receipts gain new SEO keys without invalidating every breed",()=
   assert.equal(parsed["seo.focusKeyword"],"");
 });
 
-test("no schema migration needed; legacy hashes establish baseline; immutable ID",async()=>{
+test("legacy hashes establish baseline and immutable IDs",async()=>{
   const sync=await readFile(new URL("../lib/notion-breed-sync.ts",import.meta.url),"utf8");
   const store=await readFile(new URL("../lib/breed-store.ts",import.meta.url),"utf8");
   const backfill=await readFile(new URL("../lib/notion-breed-identity-backfill.ts",import.meta.url),"utf8");
@@ -135,9 +135,33 @@ test("signed Notion property IDs survive the webhook path to first-edit legacy b
   assert.match(dispatch, /changedPropertyIds: event\.data\?\.updated_properties \?\? \[\]/);
   assert.match(inbox, /changed_properties_json/);
   assert.match(sync, /function signedBreedChangedFields/);
-  assert.match(sync, /previousNotion\[field\] = previousAdmin\[field\]/);
+  assert.match(sync, /previousNotion\[field\]=previousAdmin\[field\]/);
   assert.doesNotMatch(sync, /throw new Error\("BREED_LEGACY_CONCURRENT_ADMIN_EDIT"/);
   assert.doesNotMatch(sync, /throw new Error\("BREED_WEBHOOK_FIELDS_UNRESOLVED"/);
   assert.match(sync, /fields = touched.length/);
   assert.match(sync, /partialBreedNotionReceipt\(/);
 });
+
+test("93 independent content fields are listed; no identity is in the editable set",()=>{
+  assert.equal(BREED_NOTION_EDITABLE_FIELDS.length,93);
+  assert.ok(BREED_NOTION_EDITABLE_FIELDS.includes("fciStandard.oci"));
+  assert.ok(BREED_NOTION_EDITABLE_FIELDS.includes("editorial.healthTip"));
+  assert.ok(BREED_NOTION_EDITABLE_FIELDS.includes("gallery"));
+  assert.ok(BREED_NOTION_EDITABLE_FIELDS.includes("relatedBreedIds"));
+  assert.ok(!BREED_NOTION_EDITABLE_FIELDS.includes("slug"));
+  assert.ok(!BREED_NOTION_EDITABLE_FIELDS.includes("fciNumber"));
+  assert.ok(!BREED_NOTION_EDITABLE_FIELDS.includes("status"));
+});
+
+test("different FCI/editorial cells do not overwrite their siblings",()=>{
+  const base=breed({fciStandard:{oci:"Hnedé",usi:"Vzpriamené"},
+    editorial:{overview:"Pôvodné",healthTip:"Overené"}});
+  const prev=breedFieldSnapshot(base);
+  const incoming=source({fciStandard:{...base.fciStandard,oci:"Tmavé"},
+    editorial:{...base.editorial,overview:"Nové"}});
+  const delta=planBreedNotionFieldDelta(base,incoming,prev,prev);
+  assert.deepEqual(new Set(delta.accepted),new Set(["fciStandard.oci","editorial.overview"]));
+  assert.equal(delta.patch.fciStandard.usi,undefined);
+  assert.equal(delta.patch.editorial.healthTip,undefined);
+});
+
