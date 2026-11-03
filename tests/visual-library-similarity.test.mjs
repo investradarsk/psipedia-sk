@@ -73,7 +73,7 @@ test("stage 5: admin supports suggested and manual comparison with real previews
   const parent = read("components/admin-visual-library.tsx");
   const ui = read("components/admin-visual-library-duplicates.tsx");
   const banners = read("lib/visual-library-banners.ts");
-  assert.match(parent, /"podobne", "Možné duplicity"/);
+  assert.match(parent, /"podobne", "Podobnosti a duplicity"/);
   assert.match(parent, /<AdminVisualLibraryDuplicates articleUsage=\{articleUsage\} examples=\{examples\}/);
   assert.match(ui, /findSimilarityCandidates/);
   assert.match(ui, /<PublicMagazineBanner/);

@@ -12,6 +12,7 @@ import type { CoverageRegistry } from "@/components/admin-visual-library-coverag
 import styles from "./admin-visual-library.module.css";
 
 const ROUTES_PAGE = 30;
+const CANDIDATES_PAGE = 40;
 
 export function AdminVisualLibrarySourceSimilarity({
   registry,
@@ -25,6 +26,7 @@ export function AdminVisualLibrarySourceSimilarity({
   const [query, setQuery] = useState("");
   const [selection, setSelection] = useState("");
   const [showRoutes, setShowRoutes] = useState(ROUTES_PAGE);
+  const [showCandidates, setShowCandidates] = useState(CANDIDATES_PAGE);
   const [copied, setCopied] = useState<"idle" | "yes" | "error">("idle");
   const [leftVariant, setLeftVariant] = useState("");
   const [rightVariant, setRightVariant] = useState("");
@@ -83,6 +85,7 @@ export function AdminVisualLibrarySourceSimilarity({
         <span>Hľadať komponent, CSS alebo stránku</span>
         <input value={query} type="search" onChange={(event) => {
           setQuery(event.target.value); setSelection(""); setShowRoutes(ROUTES_PAGE);
+          setShowCandidates(CANDIDATES_PAGE);
         }} placeholder="Napr. hero, banner, karta, /adresar" />
       </label>
       {registry.relatedGroups === undefined && <p className={styles.pending}>
@@ -93,7 +96,7 @@ export function AdminVisualLibrarySourceSimilarity({
         <aside className={styles.catalog} aria-label="Zdrojové dvojice na audit">
           <strong>Nájdené: {filtered.length}</strong>
           <div className={styles.catalogItems}>
-            {filtered.map((candidate) => (
+            {filtered.slice(0, showCandidates).map((candidate) => (
               <button key={candidate.id} type="button" className={styles.catalogItem}
                 aria-pressed={chosen?.id === candidate.id}
                 onClick={() => select(candidate)}>
@@ -104,6 +107,10 @@ export function AdminVisualLibrarySourceSimilarity({
               </button>
             ))}
             {filtered.length === 0 && <p>Žiadna dvojica nevyhovuje hľadaniu.</p>}
+            {filtered.length > showCandidates && <button type="button"
+              className={styles.moreButton} onClick={() => setShowCandidates(n => n + CANDIDATES_PAGE)}>
+              Zobraziť ďalšie ({filtered.length - showCandidates})
+            </button>}
           </div>
         </aside>
         {chosen ? <article className={styles.details} key={chosen.id}>

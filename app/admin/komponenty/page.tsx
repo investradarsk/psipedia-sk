@@ -19,7 +19,7 @@ export default async function AdminComponentsPage() {
       user={user}
       eyebrow="Vizuál webu"
       title="Vizuálna knižnica"
-      description="Pozri si skutočný vzhľad bannerov a presné URL ich overeného použitia. Ďalšie prvky budeme pridávať postupne."
+      description="Prehliadaj skutočné grafické náhľady, varianty spoločných komponentov a doložené miesta ich použitia. Technický register je voliteľný."
     >
       <AdminVisualLibrary articleUsage={articleUsage} examples={examples} registry={registry as unknown as Parameters<typeof AdminVisualLibrary>[0]["registry"]} />
       <details style={{marginTop: 20, border: "1px solid #dce8df", borderRadius: 12, padding: 16, background: "#fff"}}>

@@ -1,6 +1,7 @@
 import { ContentHubCta } from "./content-hub-cta";
 import { AdminProfileComponentPreview } from "./admin-visual-library-profile-previews";
 import { AdminDetailComponentPreview } from "./admin-visual-library-detail-previews";
+import { AdminExtraComponentPreview } from "./admin-visual-library-extra-previews";
 import { PublicActionLink } from "./public-visual-system/public-visual-system";
 import { PublicArticleCallout } from "./public-visual-system/public-article-callout";
 import { PublicContextBanner } from "./public-visual-system/public-context-banner";
@@ -83,12 +84,23 @@ export const adminComponentPreviewSamples = [
   { id: "event-cancelled", path: "components/event-card.tsx", family: "card", title: "Podujatia – zrušený termín", description: "Skutočná mriežková karta zrušeného ilustračného podujatia." },
   { id: "event-listing-filtered", path: "components/event-listing-results.tsx", family: "filter", title: "Podujatia – formulár filtrov a výsledky", description: "Celé skutočné rozloženie filtrov a výsledkov podujatí s fiktívnou kartou." },
   { id: "event-listing-empty", path: "components/event-listing-results.tsx", family: "filter", title: "Podujatia – filtre bez výsledkov", description: "Skutočná prázdna výsledková sekcia po použití filtrov." },
+  { id: "help-profile", path: "components/public-visual-system/public-help-profile-card.tsx", family: "card", title: "Pomoc psom – karta profilu", description: "Spoločná karta profilov Pomoc psom s fiktívnymi údajmi. Rovnaký komponent v prehľadoch a kategóriách." },
+  { id: "help-profile-urgent", path: "components/public-visual-system/public-help-profile-card.tsx", family: "card", title: "Pomoc psom – urgentné označenie", description: "Rovnaká karta profilu s vloženým urgentným štítkom. Nejde o samostatnú implementáciu." },
+  { id: "help-category-nav", path: "components/public-visual-system/public-help-category-nav.tsx", family: "category", title: "Pomoc psom – navigácia kategórií", description: "Skutočné navigačné karty pre adopcie, útulky a stratené psy s ilustračnými počtami." },
+  { id: "breadcrumbs", path: "components/page-system.tsx", family: "category", title: "Drobečková navigácia", description: "Spoločná navigácia používaná v detailoch a sekciách, ilustračné odkazy." },
+  { id: "section-tabs", path: "components/page-system.tsx", family: "category", title: "Záložky sekcie", description: "Skutočný kontajner pre sekciové záložky s ukážkovými odkazmi." },
 ] as const;
 
 export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[number]["id"];
 
 export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewId }) {
   switch (id) {
+    case "help-profile":
+    case "help-profile-urgent":
+    case "help-category-nav":
+    case "breadcrumbs":
+    case "section-tabs":
+      return <AdminExtraComponentPreview id={id} />;
     case "breed-card":
       return <AdminProfileComponentPreview id="breed-card" />;
     case "directory-card":

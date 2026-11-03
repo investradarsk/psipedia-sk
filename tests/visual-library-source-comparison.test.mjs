@@ -76,3 +76,17 @@ test("user-facing duplicate tab includes cross-component comparison, impact and 
   assert.match(parent, /<AdminVisualLibrarySourceSimilarity registry=\{registry\}/);
   assert.match(registry, /styleModules: styleImports\.get\(file\)/);
 });
+
+
+test("complete similarity candidates are not silently truncated to 80 entries", () => {
+  const entries=Array.from({length:15},(_,i)=>
+    component("variant"+i,"components/variant-"+i+".tsx",["/clanky","/adresar"]));
+  const groups=[{
+    id:"variants",title:"Variants",description:"All similar for review",
+    paths:entries.map(e=>e.path),
+  }];
+  const all=findVisualSourceCandidates(entries,groups);
+  assert.equal(all.length,105);
+  assert.equal(new Set(all.map(v=>v.id)).size,105);
+  assert.equal(findVisualSourceCandidates(entries,groups,80).length,80);
+});

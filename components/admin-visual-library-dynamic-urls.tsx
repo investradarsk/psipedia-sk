@@ -8,8 +8,10 @@ import { AdminVisualLibraryHtmlCheck } from "@/components/admin-visual-library-h
 const ENDPOINT = "/api/admin/visual-library/urls";
 type Request = { kind: DynamicUrlKind; q: string; page: number };
 
-export function AdminVisualLibraryDynamicUrls() {
-  const [request, setRequest] = useState<Request>({kind:"directory",q:"",page:1});
+export function AdminVisualLibraryDynamicUrls({
+  initialKind = "directory",
+}: { initialKind?: DynamicUrlKind } = {}) {
+  const [request, setRequest] = useState<Request>({kind:initialKind,q:"",page:1});
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<DynamicUrlPage | null>(null);
   const [error, setError] = useState("");

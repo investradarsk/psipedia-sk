@@ -11,21 +11,22 @@ const PAGE = 30;
 
 /** Expose missing preview coverage without pretending an import is a render. */
 export function AdminVisualLibraryMissingPreviews({
-  registry, fixedFamily,
+  registry, fixedFamily, extraPreviewPaths = [],
 }: {
   registry: CoverageRegistry;
   fixedFamily?: Family;
+  extraPreviewPaths?: readonly string[];
 }) {
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
   const [expanded, setExpanded] = useState(false);
   const records = useMemo(() => {
-    const withPreview = new Set(adminComponentPreviewSamples.map((sample) => sample.path));
+    const withPreview = new Set([...adminComponentPreviewSamples.map((sample) => sample.path), ...extraPreviewPaths]);
     return registry.components
       .filter((item) => item.area !== "admin" && !withPreview.has(item.path))
       .filter((item) => !fixedFamily || (item.family ?? "other") === fixedFamily)
       .sort((a, b) => (a.label ?? a.name).localeCompare(b.label ?? b.name, "sk"));
-  }, [registry.components, fixedFamily]);
+  }, [registry.components, fixedFamily, extraPreviewPaths]);
 
   const normalized = query.trim().toLocaleLowerCase("sk");
   const found = records.filter((item) =>
