@@ -516,7 +516,9 @@ export function buildManagedBreedUpdateStatements(
   database:D1Database,id:number,input:ManagedBreedInput,user:string,
   expectedUpdatedAt:string,nextUpdatedAt:string,preserved?:ManagedBreed,
 ) {
-  const value=clean(input,preserved);
+  // Only the trusted Notion sync actor may preserve unchanged historical
+  // invalid values. All Admin edits continue to use strict validation.
+  const value=clean(input,user==="notion-breed-sync@psipedia.sk"?preserved:undefined);
   return [
     database.prepare(`UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_number=?,fci_group=?,fci_section=?,fci_section_number=?,official_fci_name=?,valid_standard_date=?,working_trial=?,import_key=?,fci_standard_json=?,editorial_json=?,sports_json=?,related_breeds_json=?,search_text=?,editorial_complete=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=? AND updated_at=? RETURNING id`).bind(...values(value),nextUpdatedAt,value.status,nextUpdatedAt,user,id,expectedUpdatedAt),
     database.prepare("SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('BREED_UPDATE_CONFLICT', '$') END AS breed_update_guard"),
