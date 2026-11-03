@@ -37,8 +37,13 @@ function extractSQL(content, start, marker, occurrence = 0) {
   let first = -1;
   for (let i = 0; i <= occurrence; i++) first = body.indexOf(marker, first + 1);
   if (first < 0) throw new Error("Missing runtime SQL for " + start + " / " + marker);
-  // Extract the SQL template itself; formatting between .prepare() and .bind() varies.
-  const end = body.indexOf(tick, first);
+  // Find the SQL template closing delimiter immediately before statement.bind().
+  // A SQL template can include nested template literals (e.g. the GEO
+  // post-commit guard), so the first backtick after the UPDATE is not safe.
+  // Allow prettier whitespace and the optional multiline prepare() close.
+  const bindingEnd = /`[\s,)]*\.bind\(/g;
+  bindingEnd.lastIndex = first;
+  const end = bindingEnd.exec(body)?.index ?? -1;
   if (end < 0) throw new Error("Missing SQL ending for " + start);
   return body.slice(first, end);
 }
