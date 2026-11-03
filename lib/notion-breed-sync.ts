@@ -16,6 +16,7 @@ import {
 } from "@/lib/notion-breed-field-delta";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.ts";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
+import { notionBreedRichTextProperty as notionRichTextProperty } from "@/lib/notion-breed-text";
 import { reconcileBreedExtraFields } from "@/lib/notion-breed-extras";
 import {
   planSafeBreedFields, partialBreedNotionReceipt, breedPartialError,
@@ -27,7 +28,6 @@ import {
   notionNumberProperty,
   notionPropertyRecord,
   notionRequest,
-  notionRichTextProperty,
   notionSelectProperty,
   notionTextValue,
   notionTitleProperty,
