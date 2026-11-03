@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import { BREED_NOTION_SCHEMA, BREED_NOTION_PRIORITY_FIELDS } from "../lib/notion-breed-property-registry.ts";
+
 import {
   breedFieldSnapshot, planBreedNotionFieldDelta,
   advanceBreedAdminReceipt, parseBreedFieldSnapshot,
@@ -165,3 +167,40 @@ test("different FCI/editorial cells do not overwrite their siblings",()=>{
   assert.equal(delta.patch.editorial.healthTip,undefined);
 });
 
+
+
+test("all 109 Notion Plemená properties have an explicit and unique mapping",()=>{
+  assert.equal(BREED_NOTION_SCHEMA.length,109);
+  assert.equal(new Set(BREED_NOTION_SCHEMA.map(entry=>entry.notion)).size,109);
+  assert.equal(new Set(BREED_NOTION_SCHEMA.map(entry=>entry.id)).size,109);
+  assert.equal(BREED_NOTION_SCHEMA.filter(entry=>entry.mode==="content").length,93);
+  assert.equal(BREED_NOTION_SCHEMA.filter(entry=>entry.mode==="extra").length,5);
+  assert.equal(BREED_NOTION_SCHEMA.filter(entry=>entry.mode==="system").length,9);
+  assert.equal(BREED_NOTION_SCHEMA.filter(entry=>entry.mode==="aggregate").length,2);
+  assert.equal(BREED_NOTION_PRIORITY_FIELDS.length,98);
+  assert.ok(BREED_NOTION_SCHEMA.some(entry=>entry.id==="fciStandard.oci"&&entry.notion==="FCI oči"));
+  assert.ok(BREED_NOTION_SCHEMA.some(entry=>entry.id==="editorial.healthTip"&&entry.notion==="Redakcia tip zdravie"));
+  assert.ok(BREED_NOTION_SCHEMA.some(entry=>entry.id==="extra.odbornyReaudit"&&entry.notion==="Odborný reaudit 2026"));
+  for(const system of ["Psipedia ID","Sync stav","Sync chyba","Posledný sync","Slug","Stav"]){
+    assert.equal(BREED_NOTION_SCHEMA.find(entry=>entry.notion===system)?.mode,"system");
+  }
+});
+
+test("per-field Admin writeback handles every schema datatype without whole-page locks",async()=>{
+  const sync=await readFile(new URL("../lib/notion-breed-sync.ts",import.meta.url),"utf8");
+  const extras=await readFile(new URL("../lib/notion-breed-extras.ts",import.meta.url),"utf8");
+  const route=await readFile(new URL("../app/api/admin/breeds/[id]/route.ts",import.meta.url),"utf8");
+  assert.match(sync,/function breedNotionContentPatch/);
+  assert.match(sync,/spec.type==="number"/);
+  assert.match(sync,/spec.type==="checkbox"/);
+  assert.match(sync,/spec.type==="select"/);
+  assert.match(sync,/spec.type==="date"/);
+  assert.match(sync,/spec.type==="url"/);
+  assert.match(sync,/richTextNotionValue/);
+  assert.match(sync,/changedFieldKeys\?\?BREED_NOTION_EDITABLE_FIELDS/);
+  assert.match(sync,/baselineSnapshot:fieldReceipt.admin/);
+  assert.match(extras,/export async function reconcileBreedExtraFields/);
+  assert.match(extras,/export async function writeBreedExtraField/);
+  assert.match(route,/writeBackBreedEditorialToNotion/);
+  assert.match(route,/if \(bindings.DB\)/);
+});
