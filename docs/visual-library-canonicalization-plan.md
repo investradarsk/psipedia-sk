@@ -25,6 +25,17 @@ Každá karta vizuálneho prvku:
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
 
+## Aktuálne doplnenie po hlásení X (3. 11. 2026)
+
+- [x] Presne identifikované X v `Playwright E2E and production smoke`: starý test `tests/visual-library-gallery.test.mjs` očakával 51 ukážok namiesto 56. Pred týmto testom build/lint prešli.
+- [x] Regresný test aktualizovaný na 56 ukážok vrátane kontroly jedinečných ID.
+- [x] Z detailu vizuálnej rodiny možno otvoriť publikované profily príslušného typu (služby, plemená, podujatia, pomoc, články) cez existujúcu chránenú a stránkovanú evidenciu.
+- [x] Publikované profilové URL sa **neoznačujú** ako overené výskyty komponentu, pokiaľ neexistuje samostatný dôkaz.
+- [x] K dispozícii zostáva presný HTML check jednej publikovanej stránky.
+- [x] Nové testy mapovania komponent → súvisiaca kategória URL a bezpečnostného oddelenia.
+- [ ] Nové CI po poslednom commite a desktopový smoke test; merge zatiaľ nie.
+- [ ] Doplniť ďalšie renderovateľné komponenty, overené umiestnenia na dynamických profiloch a front reálneho zlučovania.
+
 ## Priebežný stav implementácie (prvé štyri vlny + rozšírenie náhľadov)
 
 **Piaty priechod (3. 11. 2026):**
