@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminComponentVisualPreview, adminComponentPreviewSamples } from "@/components/admin-component-visual-preview";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
@@ -8,6 +8,10 @@ import type { VisualBanner } from "@/lib/visual-library-banners";
 import type { OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { buildOwnerDecisionRequest, OWNER_DECISION_OPTIONS, type OwnerDecisionKind } from "@/lib/visual-library-owner-decision";
+import {
+  isMergeRequest, orientSavedDecision, ownerDecisionLabel,
+  type OwnerDecisionDraft, type SavedOwnerDecision,
+} from "@/lib/visual-library-owner-decision-queue";
 import styles from "./admin-visual-library.module.css";
 
 type Sample = (typeof adminComponentPreviewSamples)[number];
@@ -24,6 +28,7 @@ export type OwnerCompareGroup = {
 
 type OwnerDecision = OwnerDecisionKind | "";
 const DECISIONS = OWNER_DECISION_OPTIONS;
+const DECISIONS_API = "/api/admin/visual-library/owner-decisions";
 
 function variants(group: OwnerCompareGroup) {
   return [
@@ -69,6 +74,14 @@ export function AdminVisualLibraryOwnerCompare({
   const [showLeft, setShowLeft] = useState(8);
   const [showRight, setShowRight] = useState(8);
   const [copied, setCopied] = useState<"idle" | "ok" | "error">("idle");
+  const [stored, setStored] = useState<SavedOwnerDecision | null>(null);
+  const [loadingPair, setLoadingPair] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [queue, setQueue] = useState<SavedOwnerDecision[]>([]);
+  const [queueNext, setQueueNext] = useState<number | null>(null);
+  const [queueLoading, setQueueLoading] = useState(true);
+  const [queueMessage, setQueueMessage] = useState("");
 
   const left = groups.find((item) => item.id === leftId);
   const right = groups.find((item) => item.id === rightId);
@@ -81,6 +94,114 @@ export function AdminVisualLibraryOwnerCompare({
     ?? right?.banners.find((s) => s.id === rightVariant)?.id
     ?? (right && variants(right)[0]?.id) ?? "";
   const valid = Boolean(left && right && left.id !== right.id);
+
+  const loadQueue = async (offset: number) => {
+    setQueueLoading(true);
+    try {
+      const response = await fetch(DECISIONS_API + "?offset=" + offset + "&limit=25", {
+        credentials: "same-origin", cache: "no-store",
+      });
+      const data = await response.json() as {
+        items?: SavedOwnerDecision[]; nextOffset?: number | null; error?: string;
+      };
+      if (!response.ok || !data.items) throw new Error(data.error ?? "Nepodarilo sa načítať uložené rozhodnutia.");
+      setQueue((current) => offset === 0
+        ? data.items!
+        : [...current, ...data.items!.filter((item) => !current.some((record) => record.key === item.key))]);
+      setQueueNext(data.nextOffset ?? null);
+      setQueueMessage("");
+    } catch (error) {
+      setQueueMessage(error instanceof Error ? error.message : "Načítanie rozhodnutí sa nepodarilo.");
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadQueue(0);
+    // Load the saved review list once when the comparison panel opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStored(null);
+    setSaveMessage("");
+    if (!leftId || !rightId || leftId === rightId) {
+      setLoadingPair(false);
+      return () => controller.abort();
+    }
+    setLoadingPair(true);
+    fetch(DECISIONS_API + "?leftId=" + encodeURIComponent(leftId) +
+      "&rightId=" + encodeURIComponent(rightId), {
+        credentials: "same-origin", cache: "no-store", signal: controller.signal,
+      }).then(async (response) => {
+        const data = await response.json() as { decision?: SavedOwnerDecision | null; error?: string };
+        if (!response.ok) throw new Error(data.error ?? "Nepodarilo sa načítať existujúce rozhodnutie.");
+        return data;
+      }).then((data) => {
+        if (controller.signal.aborted) return;
+        const record = data.decision ?? null;
+        setStored(record);
+        const oriented = record ? orientSavedDecision(record, leftId, rightId) : null;
+        setDecision(oriented?.decision ?? "");
+        setLeftVariant(oriented?.leftVariantId ?? "");
+        setRightVariant(oriented?.rightVariantId ?? "");
+        setNotes(oriented?.notes ?? "");
+      }).catch((error) => {
+        if (!controller.signal.aborted) {
+          setSaveMessage(error instanceof Error ? error.message : "Rozhodnutie nie je dostupné.");
+        }
+      }).finally(() => {
+        if (!controller.signal.aborted) setLoadingPair(false);
+      });
+    return () => controller.abort();
+  }, [leftId, rightId]);
+
+  const saveDecision = async () => {
+    if (!left || !right || !decision || saving || loadingPair) return;
+    const draft: OwnerDecisionDraft = {
+      leftId: left.id, rightId: right.id,
+      leftTitle: left.title, rightTitle: right.title,
+      leftVariantId: selectedLeftVariant,
+      rightVariantId: selectedRightVariant,
+      decision, notes,
+    };
+    setSaving(true);
+    setSaveMessage("");
+    try {
+      const response = await fetch(DECISIONS_API, {
+        method: "PUT", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: stored?.revision ?? 0, draft }),
+      });
+      const data = await response.json() as { decision?: SavedOwnerDecision; error?: string };
+      if (!response.ok || !data.decision) throw new Error(
+        data.error === "KONFLIKT_VERZIE"
+          ? "Medzitým bolo rozhodnutie upravené. Obnov porovnanie a skontroluj poslednú verziu."
+          : (data.error ?? "Rozhodnutie sa nepodarilo uložiť."),
+      );
+      setStored(data.decision);
+      setSaveMessage("Rozhodnutie je uložené v administrácii. Verejný web zostal nezmenený.");
+      void loadQueue(0);
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Uloženie zlyhalo.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openSaved = (record: SavedOwnerDecision) => {
+    setLeftId(record.draft.leftId);
+    setRightId(record.draft.rightId);
+    setLeftVariant(record.draft.leftVariantId);
+    setRightVariant(record.draft.rightVariantId);
+    setDecision(record.draft.decision);
+    setNotes(record.draft.notes);
+    setStored(record);
+    setSaveMessage("");
+    setCopied("idle");
+  };
 
   const task = valid && left && right && decision
     ? buildOwnerDecisionRequest({
@@ -157,6 +278,37 @@ export function AdminVisualLibraryOwnerCompare({
       </div>
       <button type="button" onClick={onAdvanced}>Pozrieť aj technické podobnosti</button>
     </div>
+    <section className={styles.ownerCompareQueue} aria-label="Uložené rozhodnutia o komponentoch">
+      <div className={styles.ownerCompareQueueHeading}>
+        <div>
+          <h4>Uložené rozhodnutia</h4>
+          <p>Rozhodnutia zostanú v administrácii aj po zatvorení stránky. Žiadne nespúšťa automatické úpravy.</p>
+        </div>
+        <button type="button" disabled={queueLoading} onClick={() => void loadQueue(0)}>
+          Obnoviť zoznam
+        </button>
+      </div>
+      <div className={styles.ownerCompareQueueStats}>
+        <span>Na zjednotenie: {queue.filter((item) => isMergeRequest(item.draft.decision)).length}</span>
+        <span>Ponechať / už spoločné: {queue.filter((item) => !isMergeRequest(item.draft.decision)).length}</span>
+      </div>
+      {queueMessage && <p role="status">{queueMessage}</p>}
+      {queue.length > 0 && <div className={styles.ownerCompareQueueList}>
+        {queue.map((item) => <article key={item.key}>
+          <div>
+            <strong>{item.draft.leftTitle} × {item.draft.rightTitle}</strong>
+            <small>{ownerDecisionLabel(item.draft.decision)}
+              {" · "}Uložené {new Date(item.updatedAt).toLocaleString("sk-SK", {timeZone:"Europe/Bratislava"})}
+              {" · "}Verzia {item.revision}</small>
+          </div>
+          <button type="button" onClick={() => openSaved(item)}>Otvoriť</button>
+        </article>)}
+      </div>}
+      {!queueLoading && queue.length === 0 && !queueMessage &&
+        <p className={styles.explanation}>Zatiaľ nemáš uložené žiadne rozhodnutie.</p>}
+      {queueNext !== null && <button type="button" disabled={queueLoading}
+        onClick={() => void loadQueue(queueNext)}>Zobraziť ďalšie uložené rozhodnutia</button>}
+    </section>
     <div className={styles.ownerCompareSelectors}>
       <label>Komponent A
         <select value={leftId} onChange={(event) => { setLeftId(event.target.value); setLeftVariant(""); reset(); }}>
@@ -187,10 +339,15 @@ export function AdminVisualLibraryOwnerCompare({
       </fieldset>
       {decision && <div className={styles.ownerCompareDraft}>
         <label>Dodatočné pokyny (nepovinné)
-          <textarea value={notes} rows={3}
+          <textarea value={notes} rows={3} maxLength={1200}
             placeholder="Napr. zachovať obrázok z A, ale tlačidlo z B..."
             onChange={(event) => { setNotes(event.target.value); setCopied("idle"); }} />
         </label>
+        <button type="button" disabled={loadingPair || saving || !task}
+          onClick={() => void saveDecision()}>
+          {saving ? "Ukladám rozhodnutie…" : stored ? "Aktualizovať uložené rozhodnutie" : "Uložiť rozhodnutie do administrácie"}
+        </button>
+        {saveMessage && <p role="status">{saveMessage}</p>}
         <button type="button" onClick={() => {
           try {
             if (!navigator.clipboard?.writeText || !task) {
@@ -205,8 +362,8 @@ export function AdminVisualLibraryOwnerCompare({
         }}>Skopírovať rozhodnutie pre ChatGPT</button>
         {copied === "ok" && <p role="status">Skopírované. Vlož zadanie do nášho chatu, aby sme podľa neho pripravili úpravu.</p>}
         {copied === "error" && <p role="status">Nepodarilo sa skopírovať. Skús kopírovanie znova.</p>}
-        <p>Rozhodnutie je zatiaľ len na tejto obrazovke. Neukladá sa do databázy
-          a nespúšťa zmeny na webe. Na trvalé spracovanie skopíruj zadanie do chatu.</p>
+        <p>Uloženie zachová výber na serveri, ale nevytvorí GitHub PR, nič nezlučuje
+          ani nepublikuje. Skopírovanie zadania do chatu zostáva voliteľné.</p>
       </div>}
     </> : <p className={styles.pending}>Vyber dva odlišné komponenty. Dva varianty jedného spoločného
       komponentu si môžeš porovnať prepnutím variantu v jeho detaile.</p>}
