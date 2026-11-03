@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { inspectBreedMeasurement } from "../lib/breed-fci.ts";
-import { breedFieldSnapshot, planBreedNotionFieldDelta, parseBreedFieldSnapshot } from "../lib/notion-breed-field-delta.ts";
+import { breedFieldSnapshot, planBreedNotionFieldDelta, parseBreedFieldSnapshot, advanceBreedAdminReceipt } from "../lib/notion-breed-field-delta.ts";
+import { planSafeBreedFields, partialBreedNotionReceipt, breedPartialError } from "../lib/notion-breed-safe-patch.ts";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -80,4 +81,63 @@ test("individual FCI and editorial Notion columns are included in signed webhook
   assert.match(source,/matches\("Redakcia hlavné vlastnosti JSON"\)/);
   assert.match(source,/fciStandard: "FCI štandard JSON"/);
   assert.match(source,/sports: "Športy JSON"/);
+});
+
+test("Wetterhoun: invalid sport list does not block healthy intro/health and is retried", () => {
+  const oldSport={key:"swim",label:"Plávanie",rating:4,note:""};
+  const existing={
+    name:"Wetterhoun",slug:"wetterhoun",status:"published",
+    intro:"Starý úvod",health:"Staré zdravie",height:"55–59 cm",
+    sports:[oldSport,oldSport],seo:{title:"Wetterhoun",description:"Opis"},
+  };
+  const incoming={
+    ...existing,intro:"Novší odborný úvod",health:"Informácie o SCID",
+    sports:[{...oldSport,rating:5},{...oldSport,rating:2}],
+  };
+  const old=breedFieldSnapshot(existing);
+  const plan=planBreedNotionFieldDelta(existing,incoming,old,old);
+  const validate=(candidate,baseline)=>{
+    if(JSON.stringify(candidate.sports)!==JSON.stringify(baseline.sports))
+      throw new Error("Šport Plávanie má konfliktné hodnotenia");
+  };
+  const safe=planSafeBreedFields(existing,plan,new Set(),validate);
+  assert.deepEqual(safe.accepted,["intro","health"]);
+  assert.deepEqual(safe.skipped.map(item=>item.field),["sports"]);
+  assert.equal(safe.candidate.intro,"Novší odborný úvod");
+  assert.equal(safe.candidate.health,"Informácie o SCID");
+  assert.deepEqual(safe.candidate.sports,existing.sports);
+  assert.match(breedPartialError(safe.skipped),/sports/);
+
+  const receipt=partialBreedNotionReceipt(old,plan.latest,safe.accepted);
+  assert.equal(receipt.intro,incoming.intro);
+  assert.deepEqual(receipt.sports,old.sports);
+  const admin=advanceBreedAdminReceipt(old,safe.candidate,safe.accepted);
+  const retry=planBreedNotionFieldDelta(safe.candidate,incoming,receipt,admin);
+  assert.deepEqual(retry.conflicts,[]);
+  assert.deepEqual(retry.changed,["sports"]);
+});
+
+test("invalid lifespan skips just that field and leaves successful fields acknowledged",()=>{
+  const existing={name:"Kaukazský ovčiak",intro:"Pôvodný",lifespan:"10–12 rokov",seo:{title:"",description:""}};
+  const incoming={...existing,intro:"Overený nový úvod",lifespan:"2024 rokov"};
+  const old=breedFieldSnapshot(existing);
+  const plan=planBreedNotionFieldDelta(existing,incoming,old,old);
+  const safe=planSafeBreedFields(existing,plan,new Set(),candidate=>{
+    if(candidate.lifespan==="2024 rokov")throw new Error("Vek mimo rozsahu 3–30 rokov");
+  });
+  assert.deepEqual(safe.accepted,["intro"]);
+  assert.deepEqual(safe.skipped.map(item=>item.field),["lifespan"]);
+  assert.equal(safe.candidate.intro,incoming.intro);
+  assert.equal(safe.candidate.lifespan,existing.lifespan);
+});
+
+test("malformed structured JSON field is reported but does not prevent good text",()=>{
+  const existing={name:"Wetterhoun",intro:"Old",sports:[],seo:{title:"",description:""}};
+  const incoming={...existing,intro:"New"};
+  const old=breedFieldSnapshot(existing);
+  const plan=planBreedNotionFieldDelta(existing,incoming,old,old);
+  const safe=planSafeBreedFields(existing,plan,new Set(["fciStandard"]),()=>{});
+  assert.deepEqual(safe.accepted,["intro"]);
+  assert.deepEqual(safe.skipped.map(item=>item.field),["fciStandard"]);
+  assert.equal(safe.candidate.intro,"New");
 });
