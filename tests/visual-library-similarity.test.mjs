@@ -76,7 +76,7 @@ test("stage 5: admin supports suggested and manual comparison with real previews
   assert.match(parent, /"podobne", "Podobnosti a duplicity"/);
   assert.match(parent, /<AdminVisualLibraryDuplicates articleUsage=\{articleUsage\} examples=\{examples\}/);
   assert.match(ui, /findSimilarityCandidates/);
-  assert.match(ui, /<PublicMagazineBanner/);
+  assert.match(ui, /<AdminVisualLibraryBannerPreview banner=\{item.banner\}/);
   assert.match(ui, /item\.example\?\.preview/);
   assert.match(ui, /item\.uses\.slice\(0, showCount\)/);
   assert.match(ui, /Otvoriť umiestnenie/);
