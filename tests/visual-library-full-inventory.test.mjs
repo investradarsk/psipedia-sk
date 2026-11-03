@@ -41,10 +41,11 @@ test("real visual previews and server examples are accounted for without mislabe
   assert.equal(byPath.get("components/public-visual-system/unified-section-hero.tsx").coverage,"server-preview");
   assert.equal(byPath.get("components/article-list-item.tsx").coverage,"server-preview");
   assert.equal(byPath.get("components/structured-data.tsx").coverage,"nonvisual");
+  assert.equal(byPath.get("components/google-maps-consent-controls.tsx").coverage,"needs-preview");
   assert.equal(byPath.get("components/directory-profile-detail.tsx").coverage,"page-composite");
   assert.equal(byPath.get("components/article-feedback.tsx").coverage,"needs-preview");
-  assert.equal(previewMatches.length,70);
-  assert.equal(previewPaths.size,41);
+  assert.equal(previewMatches.length,79);
+  assert.equal(previewPaths.size,50);
 });
 
 test("owner can inspect every status, and missing previews cannot disappear from UI", () => {
