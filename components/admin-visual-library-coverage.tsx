@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
 import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library-dynamic-urls";
 import { AdminVisualLibraryRouteAudit } from "@/components/admin-visual-library-route-audit";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
@@ -120,11 +120,8 @@ export function AdminVisualLibraryCoverage({
         </div><span className={styles.readOnly}>Len na kontrolu</span></div>
 
         {visualBanner ? <div className={styles.preview}><div className={styles.previewComponent} inert>
-          <PublicMagazineBanner testId={"coverage-" + visualBanner.id}
-            photoTone={visualBanner.photoTone} compact={visualBanner.group === "clanky"}
-            eyebrow={visualBanner.eyebrow} title={visualBanner.title}
-            description={visualBanner.description} label={visualBanner.ctaLabel}
-            href={visualBanner.ctaHref} />
+          <AdminVisualLibraryBannerPreview banner={visualBanner}
+            testId={"coverage-" + visualBanner.id} />
         </div></div> : visualExample ? <div className={styles.preview}>
           <div className={styles.previewComponent} inert>{visualExample.preview}</div>
         </div> : <p className={styles.pending}>Pre tento komponent zatiaľ nie je overený vizuálny náhľad.

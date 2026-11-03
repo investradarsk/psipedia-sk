@@ -4,19 +4,21 @@ import { useEffect, useState } from "react";
 import { dynamicUrlKinds, type DynamicUrlKind, type DynamicUrlPage } from "@/lib/visual-library-dynamic-urls-contract";
 import styles from "./admin-visual-library.module.css";
 import { AdminVisualLibraryHtmlCheck } from "@/components/admin-visual-library-html-check";
+import type { ComponentHtmlId } from "@/lib/visual-library-html-evidence";
 
 const ENDPOINT = "/api/admin/visual-library/urls";
 type Request = { kind: DynamicUrlKind; q: string; page: number };
 
 export function AdminVisualLibraryDynamicUrls({
-  initialKind = "directory",
-}: { initialKind?: DynamicUrlKind } = {}) {
+  initialKind = "directory", componentId,
+}: { initialKind?: DynamicUrlKind; componentId?: ComponentHtmlId } = {}) {
   const [request, setRequest] = useState<Request>({kind:initialKind,q:"",page:1});
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<DynamicUrlPage | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const kindInfo = dynamicUrlKinds.find(item => item.id === request.kind)!;
+  const inspectingComponent = request.kind === initialKind ? componentId : undefined;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -75,6 +77,9 @@ export function AdminVisualLibraryDynamicUrls({
       <p className={styles.explanation}>
         Šablóna: <code>{kindInfo.template}</code>. Publikované URL sú v tomto zozname konkrétne,
         ale použitie určitého React komponentu na nich je iba možné, kým ho neoveríme.
+        {inspectingComponent && <> Pri vybranom type profilu tlačidlo nižšie kontroluje
+          konkrétnu značku komponentu <code>{inspectingComponent}</code> priamo v HTML.
+          Kontrola sa vykoná až po kliknutí, nikdy hromadne.</>}
       </p>
       {loading ? <p role="status">Načítavam publikované adresy…</p> : error ? (
         <p role="alert" className={styles.pending}>{error} Zoznam preto neoznačujeme ako kompletný.</p>
@@ -90,7 +95,7 @@ export function AdminVisualLibraryDynamicUrls({
               {item.detail && <small>{item.detail}</small>}
               <code>{item.url}</code>
               <AdminVisualLibraryHtmlCheck key={item.kind + ":" + item.id + ":" + item.url}
-                url={item.url} profileKind={item.kind} />
+                url={item.url} profileKind={item.kind} componentId={inspectingComponent} />
             </div>
             <a href={item.url} target="_blank" rel="noopener noreferrer">Otvoriť profil</a>
           </li>)}

@@ -88,7 +88,7 @@ test("visual owner screen shows exact URL evidence, and technical candidates rem
   assert.match(catalog, /Otvoriť miesto/);
   assert.match(catalog, /Doložené v zdrojovom kóde/);
   assert.match(catalog, /Nie sú automatickým dôkazom/);
-  assert.match(catalog, /chosenBanner\.title/);
+  assert.match(catalog, /banner=\{chosenBanner\}/);
   assert.match(catalog, /chosen\.banners\.map/);
   assert.match(catalog, /Ďalšie možné použitia podľa kódu/);
   assert.doesNotMatch(catalog, /method:\s*"(POST|PUT|DELETE)"|DB\.prepare/);

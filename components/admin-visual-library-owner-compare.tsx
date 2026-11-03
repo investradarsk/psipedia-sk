@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { AdminComponentVisualPreview, adminComponentPreviewSamples } from "@/components/admin-component-visual-preview";
-import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
 import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
 import type { VisualBanner } from "@/lib/visual-library-banners";
 import type { OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { suggestOwnerVisualPairs } from "@/lib/visual-library-owner-suggestions";
+import { ownerGroupsAlreadyShareRenderer } from "@/lib/visual-library-canonical-renderers";
 import { buildOwnerDecisionRequest, OWNER_DECISION_OPTIONS, type OwnerDecisionKind } from "@/lib/visual-library-owner-decision";
 import {
   isMergeRequest, orientSavedDecision, ownerDecisionLabel,
@@ -46,16 +47,8 @@ function GroupPreview({group, selectedId}: {group: OwnerCompareGroup; selectedId
   const example = group.examples.find((item) => item.id === selectedId);
   if (example) return <>{example.preview}</>;
   const banner = group.banners.find((item) => item.id === selectedId);
-  if (banner) return <PublicMagazineBanner
-    compact={banner.group === "clanky"}
-    photoTone={banner.photoTone}
-    testId={"owner-compare-" + banner.id.replaceAll(":", "-")}
-    eyebrow={banner.eyebrow}
-    title={banner.title}
-    description={banner.description}
-    label={banner.ctaLabel}
-    href={banner.ctaHref}
-  />;
+  if (banner) return <AdminVisualLibraryBannerPreview
+    banner={banner} testId={"owner-compare-" + banner.id.replaceAll(":", "-")} />;
   return <p>Pre vybraný variant nie je k dispozícii náhľad.</p>;
 }
 
@@ -382,6 +375,14 @@ export function AdminVisualLibraryOwnerCompare({
       </label>
     </div>
     {valid && left && right ? <>
+      {ownerGroupsAlreadyShareRenderer(left.id, right.id) &&
+        <p className={styles.ownerSameRendererInfo}>
+          <strong>Táto dvojica už používa jeden spoločný verejný React komponent.</strong>
+          Odlišný text alebo fotografia neznamenajú duplicitný zdrojový kód.
+          Na zjednotenie implementácie tu netreba nič mazať.
+          Môžeš označiť „Už je to spoločný komponent“.
+          Historické uložené rozhodnutia zostávajú zachované.
+        </p>}
       <div className={styles.ownerCompareGrid}>
         {renderSide(left, "A", "left")}
         {renderSide(right, "B", "right")}

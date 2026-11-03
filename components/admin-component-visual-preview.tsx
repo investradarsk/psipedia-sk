@@ -2,6 +2,9 @@ import { ContentHubCta } from "./content-hub-cta";
 import { AdminProfileComponentPreview } from "./admin-visual-library-profile-previews";
 import { AdminDetailComponentPreview } from "./admin-visual-library-detail-previews";
 import { AdminExtraComponentPreview } from "./admin-visual-library-extra-previews";
+import { AdminMoreComponentPreview } from "./admin-visual-library-more-previews";
+import { AdminUtilityComponentPreview } from "./admin-visual-library-utility-previews";
+import { AdminAdditionalComponentPreview } from "./admin-visual-library-additional-previews";
 import { PublicActionLink } from "./public-visual-system/public-visual-system";
 import { PublicArticleCallout } from "./public-visual-system/public-article-callout";
 import { PublicContextBanner } from "./public-visual-system/public-context-banner";
@@ -87,6 +90,36 @@ export const adminComponentPreviewSamples = [
   { id: "help-profile", path: "components/public-visual-system/public-help-profile-card.tsx", family: "card", title: "Pomoc psom – karta profilu", description: "Spoločná karta profilov Pomoc psom s fiktívnymi údajmi. Rovnaký komponent v prehľadoch a kategóriách." },
   { id: "help-profile-urgent", path: "components/public-visual-system/public-help-profile-card.tsx", family: "card", title: "Pomoc psom – urgentné označenie", description: "Rovnaká karta profilu s vloženým urgentným štítkom. Nejde o samostatnú implementáciu." },
   { id: "help-category-nav", path: "components/public-visual-system/public-help-category-nav.tsx", family: "category", title: "Pomoc psom – navigácia kategórií", description: "Skutočné navigačné karty pre adopcie, útulky a stratené psy s ilustračnými počtami." },
+  { id: "portal-section-tabs", path: "components/portal-section-tabs.tsx", family: "category", title: "Sekciová navigácia Šteniatka", description: "Skutočný prepínač podkategórií v sekcii s ilustračnými odkazmi, postavený na spoločnom navigátore." },
+  { id: "article-card-grid", path: "components/article-card.tsx", family: "card", title: "Článok – štandardná karta", description: "Skutočný verejný ArticleCard vo výpise článkov, iba vzorový obsah." },
+  { id: "article-card-featured", path: "components/article-card.tsx", family: "card", title: "Článok – zvýraznená karta", description: "Rovnaký ArticleCard vo variante featured s vlastným demo obsahom." },
+  { id: "breed-fci-disclosure", path: "components/breed-fci-disclosure.tsx", family: "other", title: "Plemeno – rozbalenie FCI štandardu", description: "Skutočný interaktívny ovládač z detailu plemena." },
+  { id: "breed-photo-fallback", path: "components/breed-photo.tsx", family: "card", title: "Plemeno – náhradná fotografia", description: "Skutočný BreedPhoto pri nezadanej fotografii." },
+  { id: "directory-opening-hours", path: "components/directory-opening-hours.tsx", family: "other", title: "Služba – otváracie hodiny", description: "Spoločná prezentácia hodín na detailoch služieb." },
+  { id: "dog-age-calculator", path: "components/dog-age-calculator.tsx", family: "other", title: "Kalkulačka veku psa", description: "Reálny interaktívny prepočet veku bez zápisu dát." },
+  { id: "event-image-fallback", path: "components/event-image.tsx", family: "card", title: "Podujatie – náhradný obrázok", description: "Skutočný obrázkový komponent pri chýbajúcej fotke." },
+  { id: "events-back-link", path: "components/events-return-link.tsx", family: "cta", title: "Podujatie – späť na výsledky", description: "Skutočný spätný odkaz bez aktivácie histórie v ukážke." },
+  { id: "help-report-guide", path: "components/help-report-guide.tsx", family: "other", title: "Pomoc psom – návod na nahlásenie", description: "Reálna návodová stránka, výrez celej sekcie." },
+  { id: "horizontal-carousel-controls", path: "components/horizontal-carousel-controls.tsx", family: "cta", title: "Carousel – ovládacie šípky", description: "Skutočné ovládacie šípky horizontálneho zoznamu." },
+  { id: "public-filter-disclosure", path: "components/public-filter-disclosure.tsx", family: "filter", title: "Rozbaľovacie filtre", description: "Skutočný ovládač filtrov s dvomi aktívnymi položkami." },
+  { id: "public-profile-hero", path: "components/public-profile/public-profile-hero.tsx", family: "hero", title: "Profil – spoločná hlavička", description: "Skutočná hlavička profilu s ukážkovými údajmi." },
+  { id: "related-entity-links", path: "components/related-entity-links.tsx", family: "category", title: "Súvisiace odkazy", description: "Skutočný komponent pre interné prepojenia obsahu." },
+
+  { id: "article-continuation", path: "components/article-continuation.tsx", family: "cta", title: "Článok – pokračovanie v téme", description: "Skutočný CTA navigačný blok za článkom." },
+  { id: "event-markdown", path: "components/event-markdown.tsx", family: "other", title: "Podujatie – formátovaný opis", description: "Skutočné zobrazenie programu a Markdown textu." },
+  { id: "help-public-icons", path: "components/help-public-icons.tsx", family: "other", title: "Pomoc psom – ikony", description: "Originálne ikony pre kategórie pomoci." },
+  { id: "portal-mobile-category-select", path: "components/portal-mobile-category-select.tsx", family: "category", title: "Sekcia – mobilný výber témy", description: "Skutočný selektor kategórie. Náhľad bez navigačnej akcie." },
+  { id: "public-help-card-surface", path: "components/public-visual-system/public-help-card-surface.tsx", family: "card", title: "Pomoc psom – základ karty", description: "Reálne základné vizuálne rozloženie pre spoločné karty." },
+  { id: "public-photo-gallery", path: "components/public-visual-system/public-photo-gallery.tsx", family: "card", title: "Galéria fotografií", description: "Skutočná verejná galéria v redakčnom variante." },
+  { id: "share-button", path: "components/share-button.tsx", family: "cta", title: "Zdieľanie článku", description: "Reálne tlačidlo zdieľania bez spustenia akcií." },
+  { id: "smart-card-image", path: "components/smart-card-image.tsx", family: "card", title: "Inteligentný obrázok karty", description: "Skutočný smart image prvok s ilustračnou fotografiou." },
+  { id: "slovakia-location-selector", path: "components/slovakia-location-selector.tsx", family: "filter", title: "Výber lokality Slovenska", description: "Originálny regionálny formulárový ovládač." },
+
+  { id: "adoption-card-media", path: "components/adoption-card-media.tsx", family: "card", title: "Adopcia – fotografia a stav", description: "Originálny obrázkový blok adopčnej karty so stavom." },
+  { id: "article-promo", path: "components/article-promo.tsx", family: "banner", title: "Článok – automatický promo banner", description: "Skutočný redakčný promo obal, používa spoločný PublicMagazineBanner." },
+  { id: "image-display", path: "components/image-display.tsx", family: "card", title: "Zobrazenie obrázka", description: "Verejné nastavenie orezania a náhľadu obrázka." },
+  { id: "icons", path: "components/icons.tsx", family: "other", title: "Spoločné ikony", description: "Skutočné SVG ikony navigácie a akcií." },
+  { id: "partner-password-field", path: "components/partner-password-field.tsx", family: "filter", title: "Partner – pole hesla", description: "Reálny ovládač bez účtu, údajov ani odoslania." },
   { id: "breadcrumbs", path: "components/page-system.tsx", family: "category", title: "Drobečková navigácia", description: "Spoločná navigácia používaná v detailoch a sekciách, ilustračné odkazy." },
   { id: "section-tabs", path: "components/page-system.tsx", family: "category", title: "Záložky sekcie", description: "Skutočný kontajner pre sekciové záložky s ukážkovými odkazmi." },
 ] as const;
@@ -95,11 +128,42 @@ export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[numb
 
 export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewId }) {
   switch (id) {
+    case "adoption-card-media":
+    case "article-promo":
+    case "image-display":
+    case "icons":
+    case "partner-password-field":
+      return <AdminAdditionalComponentPreview id={id} />;
+    case "article-continuation":
+    case "event-markdown":
+    case "help-public-icons":
+    case "portal-mobile-category-select":
+    case "public-help-card-surface":
+    case "public-photo-gallery":
+    case "share-button":
+    case "smart-card-image":
+    case "slovakia-location-selector":
+      return <AdminUtilityComponentPreview id={id} />;
+    case "breed-fci-disclosure":
+    case "breed-photo-fallback":
+    case "directory-opening-hours":
+    case "dog-age-calculator":
+    case "event-image-fallback":
+    case "events-back-link":
+    case "help-report-guide":
+    case "horizontal-carousel-controls":
+    case "public-filter-disclosure":
+    case "public-profile-hero":
+    case "related-entity-links":
+      return <AdminMoreComponentPreview id={id} />;
     case "help-profile":
     case "help-profile-urgent":
     case "help-category-nav":
     case "breadcrumbs":
     case "section-tabs":
+    case "portal-section-tabs":
+    case "article-card-grid":
+    case "article-card-featured":
       return <AdminExtraComponentPreview id={id} />;
     case "breed-card":
       return <AdminProfileComponentPreview id="breed-card" />;

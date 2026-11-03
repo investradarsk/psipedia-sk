@@ -1,7 +1,7 @@
 # Psipedia.sk – vizuálna knižnica a zjednotenie komponentov
 
-**Stav:** implementovaná majiteľská galéria, technický audit, porovnávanie A/B a serverový front rozhodnutí. Skutočné zlúčenie komponentov ešte neprebehlo.  
-**Východiskový PR:** #1181 (Draft, zdrojový JSX/CSS inventár).  
+**Stav:** PR #1181 je zlúčený; majiteľská galéria, technický audit, porovnávanie A/B a serverový front rozhodnutí sú implementované. PR #1186 pokračuje auditom skutočných zdrojov, odstránením duplicitných admin náhľadov a overovaním konkrétnych HTML značiek. Úplné pokrytie všetkých vizuálnych typov zostáva otvorené.  
+**Východiskový PR:** #1181 (zlúčený 3. 11. 2026). **Pokračovanie:** #1186 (nový PR).  
 **Primárny používateľ:** majiteľ projektu bez potreby pracovať s kódom.  
 **Primárny rozsah:** verejný web (desktop); inventár neskôr aj pre administráciu. Mobilné zobrazenie zachovať bez nevyžiadaných úprav.  
 **Základné pravidlo:** jeden logický vizuálny prvok = jedna kanonická implementácia; stránka používa tú istú implementáciu a mení len explicitne povolený obsah/variant.
@@ -24,6 +24,43 @@ Každá karta vizuálneho prvku:
 - odkaz „Porovnať“ a zobrazenie ďalších podobných prvkov.
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
+
+## Deviaty priechod – úplný zdrojový inventár a reálne pokrytie (#1186)
+
+- [x] Prvýkrát zozbieraných **všetkých 161 TSX súborov** v `components/` mimo názvov začínajúcich `admin-`, podľa úplného stromu PR. Nie všetky sú čisto verejné; v administrácii sa dopĺňa označenie `admin`/`mixed` zo skutočného buildového registra.
+- [x] Nezamieňať počet ukážkových **variantov** s počtom pokrytých **zdrojových súborov**. Aktuálne **84 demo variantov** a dve ďalšie existujúce serverové zdrojové implementácie.
+- [x] **55 zdrojových súborov s priamym živým renderom + 2 so serverovým náhľadom**; samostatne **33 stránkových zostáv**, **6 skontrolovaných technických bez vlastného vzhľadu**, **65 súborov čakajúcich na vlastný náhľad**. Súčet 161.
+- [x] Zoznam 161 položiek je odteraz zobrazený v administračnom katalógu aj pri prázdnom verzovanom registri. Má presný stav, vyhľadávanie, filter, kandidátske URL z registra, zdroj a otvorenie hotového náhľadu.
+- [x] Pridaných **25 živých náhľadov** oproti 59 v predchádzajúcej etape: základné profilové prvky, formuláre, adopcia, fotografie, zdieľanie, navigácie, adresár, kalkulačka veku psa, promo a partner pole hesla.
+- [x] Opravené nesprávne zaradenie tlačidiel Google Maps medzi neviditeľné moduly; bez bezpečného náhľadu zostávajú čestne vedené ako chýbajúce.
+- [x] Test porovnáva inventár priamo so všetkými TSX súbormi a zastaví CI, ak sa pridá súbor bez záznamu. Overuje 84 reálnych preview ID a 55 rozdielnych zdrojových ciest.
+- [ ] Všetkých **65 doteraz nevykreslených súborov** potrebuje priamy, bezpečný náhľad alebo overený screenshot konkrétnej stránky. Niektoré sú chránené partner/prístupové formuláre s vlastnými akciami; nebudeme ich slepo spúšťať s ukážkovými údajmi.
+- [ ] Samostatne dodať vizuálne dôkazy pre **33 stránkových zostáv**. Kandidátske trasy podľa importov nie sú dôkazom viditeľnosti daného React komponentu.
+- [ ] CI poslednej revízie a reálne desktopové overenie po nasadení.
+
+## Ôsmy priechod – spoločná navigácia a redakčné karty (#1186)
+
+- [x] Preverený spoločný základ kategórií `PublicSubcategoryNavigator` v sekciách Pomoc psom, Služby a tematických článkoch. Zdieľanie základného komponentu **nie je** dôvodom vymazať samostatné obaly: každý má vlastné ikony, počítadlá, prepínače alebo mobilnú navigáciu.
+- [x] Kompaktné a veľké podkategórie overené ako dva režimy jedného `PublicSubcategoryNavigator`. Pôvodné ID zostávajú zachované kvôli už uloženým rozhodnutiam A/B; v náhľade sa explicitne označia za spoločný renderer, nie dva zdroje.
+- [x] Implementované tri ďalšie živé náhľady originálnych React komponentov: `ArticleCard` (grid a featured) a `PortalSectionTabs` (tematická navigácia). **Aktuálne 59 demo variantov**, plus samostatné serverové náhľady.
+- [x] Dve prezentácie `ArticleCard` v majiteľskej galérii tvoria jednu rodinu. Údaje v náhľadoch sú umelé, bez čítania D1.
+- [x] Zobrazuje sa zdrojovo potvrdený spoločný základ každej navigácie aj jej jedinečné správanie. Nezamieňa sa spoločný základ so zdrojovou duplicitou.
+- [x] Testy pre varianty, call chain navigácie a odmietnutie nepovolených/prototypových identifikátorov v registri.
+- [ ] Overiť CI po aktualizácii na 59 variantov a prípadný vizuálny desktopový screenshot.
+- [ ] Ďalej dopĺňať skutočne nepokryté viditeľné komponenty a potvrdzovať ich výskyt na presných URL.
+
+## Siedmy priechod – zdrojové zjednotenie a overené komponenty (#1186)
+
+- [x] Pilot „Banner Veterinári“ preverený na úrovni zdrojového kódu: verejný `PublicMagazineBanner` už reprezentuje editorial, homepage a plemená; cez `PublicPhotoCallout` ten istý renderer slúži aj bannerom Pomoc psom. Nová verejná implementácia by bola duplicitou, preto sa **nepridáva**.
+- [x] Skutočná duplicita v administrácii: šesť samostatných JSX volaní bannera nahradených spoločným `AdminVisualLibraryBannerPreview`, ktorý zachováva kompaktnosť, fotografiu, nadpis, popis a CTA.
+- [x] Verejná identita zdroja pre vierohodné skupiny evidovaná explicitne. Skupiny majú stabilné ID, aby sa neodpojili existujúce uložené vlastnícke rozhodnutia.
+- [x] Pri výbere dvoch skupín s tým istým rendererom sa zobrazí „už je spoločný“ a heuristika ich neponúka ako zdrojové duplicity.
+- [x] V detaile možno zobraziť ďalšie doložené URL iných variantov toho istého React renderera, oddelene od kandidátskych trás.
+- [x] HTML audit používa osem **allowlistovaných** markerov skutočných komponentov na konkrétnych zdrojovo doložených URL; na dynamických detailoch skúša komponentový marker iba pre potvrdený typ detailu (`DirectoryServicesList`). Karty a filtre výpisov sa zámerne netestujú na nesúvisiacich detailových URL. Spúšťa sa iba ručne po jednom profile a nevydáva úspešný HTTP za dôkaz vnoreného komponentu.
+- [x] Regresné testy zdrojového reťazca, jednotného náhľadového adaptéra a bezpečného SSR komponentového probe.
+- [ ] Aktuálne CI, prihlásený desktopový smoke a porovnanie pred/po mergi.
+- [ ] Pokrytie zostávajúcich skutočne viditeľných komponentov a presný dôkaz na ďalších dynamických URL.
+- [ ] Ďalšie skutočné zdrojové zlúčenia iba pri preukázanej duplicite a po výbere kanonického vzhľadu vlastníkom; ostatné „podobné“ nevydávať za automatickú povinnosť mazať.
 
 ## Šiesty priechod – výber podobných dvojíc a oprava CI (3. 11. 2026)
 

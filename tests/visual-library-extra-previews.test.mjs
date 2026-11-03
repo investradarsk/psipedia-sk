@@ -16,13 +16,16 @@ test("Help, breadcrumb and tab previews use actual public components with no pro
     "help-category-nav",
     "breadcrumbs",
     "section-tabs",
+    "portal-section-tabs",
+    "article-card-grid",
+    "article-card-featured",
   ]) {
     assert.match(previews, new RegExp('id: "' + id + '"'));
     assert.match(extra, new RegExp('case "' + id + '"'));
   }
   for (const symbol of [
     "PublicHelpProfileCard", "PublicHelpCategoryNav", "PublicMediaFallback",
-    "Breadcrumbs", "SectionTabs",
+    "Breadcrumbs", "SectionTabs", "PortalSectionTabs", "ArticleCard",
   ]) {
     assert.match(extra, new RegExp('<' + symbol));
   }

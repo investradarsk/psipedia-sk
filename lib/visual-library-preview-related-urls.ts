@@ -1,4 +1,5 @@
 import type { DynamicUrlKind } from "@/lib/visual-library-dynamic-urls-contract";
+import type { ComponentHtmlId } from "@/lib/visual-library-html-evidence";
 
 /**
  * A loose domain association for navigating published records from a preview.
@@ -23,4 +24,17 @@ const GROUP_KINDS: Readonly<Record<string, DynamicUrlKind>> = {
 
 export function relatedDynamicUrlKindForPreview(id: string): DynamicUrlKind | null {
   return GROUP_KINDS[id] ?? null;
+}
+
+/**
+ * Only source-confirmed markers for published DETAIL URLs.
+ * DirectoryServicesList is rendered by DirectoryProfileDetail, which is
+ * mounted by app/adresar/[category]/[slug]/page.tsx. By contrast, cards and
+ * listing filters belong to listing pages, NOT every individual profile.
+ */
+export function detailComponentProbeForGroup(
+  groupId: string, kind: DynamicUrlKind,
+): ComponentHtmlId | null {
+  return kind === "directory" && groupId === "directory-services-short"
+    ? "directory-services-short" : null;
 }

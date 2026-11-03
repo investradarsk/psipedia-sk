@@ -1,3 +1,5 @@
+import { ownerGroupsAlreadyShareRenderer } from "@/lib/visual-library-canonical-renderers";
+
 /**
  * Conservative, read-only shortlist for human visual inspection.
  * It matches intent/category/source/route evidence, NOT screenshot pixels.
@@ -56,6 +58,10 @@ export function suggestOwnerVisualPairs(
     for (let j = i + 1; j < groups.length; j++) {
       const b = groups[j];
       if (a.id === b.id || a.family !== b.family) continue;
+      // The Help photo wrappers and editorial banners already share one
+      // PublicMagazineBanner implementation. Flagging them as potential
+      // *source* duplicates would encourage an unnecessary destructive merge.
+      if (ownerGroupsAlreadyShareRenderer(a.id, b.id)) continue;
 
       // A family identifies a comparable visual purpose, not proof of similarity.
       let score = 10;

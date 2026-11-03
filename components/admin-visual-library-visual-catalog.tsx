@@ -5,13 +5,17 @@ import {
   AdminComponentVisualPreview,
   adminComponentPreviewSamples,
 } from "@/components/admin-component-visual-preview";
-import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-library-missing-previews";
+import { AdminVisualLibraryFullInventory } from "@/components/admin-visual-library-full-inventory";
 import { AdminVisualLibraryOwnerCompare } from "@/components/admin-visual-library-owner-compare";
 import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library-dynamic-urls";
-import { relatedDynamicUrlKindForPreview } from "@/lib/visual-library-preview-related-urls";
+import { AdminVisualLibraryHtmlCheck } from "@/components/admin-visual-library-html-check";
+import { relatedDynamicUrlKindForPreview, detailComponentProbeForGroup } from "@/lib/visual-library-preview-related-urls";
+import { componentHtmlProbeIdForOwnerGroup } from "@/lib/visual-library-html-evidence";
+import { verifiedCanonicalRendererForGroup } from "@/lib/visual-library-canonical-renderers";
+import { verifiedSharedFoundationForGroup } from "@/lib/visual-library-shared-foundations";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
-import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
 import { OWNER_EXAMPLE_GROUPS, ownerGroupForBanner, ownerKnownUsesForGroup, type OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
 import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store";
 import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
@@ -51,6 +55,7 @@ const FAMILY_LABELS: readonly { id: Family; label: string }[] = [
  */
 const VARIANT_OF: Readonly<Record<string, string>> = {
   "magazine-photo": "magazine",
+  "article-card-featured": "article-card-grid",
   "context-photo": "context",
   "sponsored": "article",
   "section-header-image": "section-header",
@@ -151,6 +156,19 @@ export function AdminVisualLibraryVisualCatalog({
     ].join(" ").toLocaleLowerCase("sk").includes(lower))
   );
   const chosen = matches.find((item) => item.id === selectedId) ?? matches[0];
+  const canonicalRenderer = chosen ? verifiedCanonicalRendererForGroup(chosen.id) : null;
+  const navigationFoundation = chosen ? verifiedSharedFoundationForGroup(chosen.id) : null;
+  const relatedNavigation = navigationFoundation
+    ? groups.filter((item) => item.id !== chosen?.id &&
+      verifiedSharedFoundationForGroup(item.id)?.basePath === navigationFoundation.basePath)
+    : [];
+  const sharedRendererGroups = canonicalRenderer
+    ? groups.filter((item) => item.id !== chosen?.id &&
+      verifiedCanonicalRendererForGroup(item.id)?.path === canonicalRenderer.path)
+    : [];
+  const sharedRendererUses = sharedRendererGroups.flatMap((item) =>
+    item.knownUses.map((use) => ({ ...use, groupTitle: item.title }))
+  );
   const exactSample = chosen?.samples.find((item) => item.id === variantId);
   const exactExample = chosen?.examples.find((item) => item.id === variantId);
   const exactBanner = chosen?.banners.find((item) => item.id === variantId);
@@ -163,6 +181,16 @@ export function AdminVisualLibraryVisualCatalog({
   const relatedKind = chosen ? relatedDynamicUrlKindForPreview(chosen.id) : null;
   const dynamicRoutes = (chosen?.routes ?? []).filter((route) =>
     route.includes("[") && publicRegistryRouteHref(route) === null);
+
+  const openSourcePreview = (path: string) => {
+    const match = groups.find((group) => group.paths.includes(path));
+    if (!match) return;
+    setQuery("");
+    setFamily("all");
+    setSelectedId(match.id);
+    setVariantId("");
+    setLimit(PAGE_SIZE);
+  };
 
   const openCompare = (id: string) => {
     setCompareStart(id);
@@ -282,18 +310,48 @@ export function AdminVisualLibraryVisualCatalog({
         </div>}
         <div className={styles.visualCatalogLargePreview} inert>
           {variant ? <AdminComponentVisualPreview id={variant.id} />
-            : chosenExample?.preview ?? (chosenBanner ? <PublicMagazineBanner
-              testId={"owner-catalog-" + chosenBanner.id.replaceAll(":", "-")}
-              compact={chosenBanner.group === "clanky"}
-              eyebrow={chosenBanner.eyebrow}
-              title={chosenBanner.title}
-              description={chosenBanner.description}
-              label={chosenBanner.ctaLabel}
-              href={chosenBanner.ctaHref}
-              photoTone={chosenBanner.photoTone}
-            /> : null)}
+            : chosenExample?.preview ?? (chosenBanner ? <AdminVisualLibraryBannerPreview
+              banner={chosenBanner}
+              testId={"owner-catalog-" + chosenBanner.id.replaceAll(":", "-")} /> : null)}
         </div>
         <p className={styles.explanation}>{variant?.description ?? chosenExample?.explanation ?? (chosenBanner ? "Skutočný spoločný banner s obsahom z evidencie Psipedie. Ide o variant textu, nie nový komponent." : "")}</p>
+        {canonicalRenderer && <section className={styles.ownerSameRendererInfo}>
+          <strong>Zdrojový komponent je už spoločný: {canonicalRenderer.name}</strong>
+          <p>Preverený reťazec vykreslenia: {canonicalRenderer.chain.join(" → ")}.
+            Ide o jeden existujúci verejný React komponent, nie nové kópie pre každú stránku.
+            Jeho varianty sa môžu líšiť obsahom. Overenie je zo zdrojového kódu,
+            nie zo screenshotu každého profilu.</p>
+          {sharedRendererGroups.length > 0 && <p>
+            Ďalšie použitia rovnakej implementácie sú evidované pod:
+            {" "}{sharedRendererGroups.map((item) => item.title).join(", ")}.
+          </p>}
+        </section>}
+        {navigationFoundation && <section className={styles.ownerSameRendererInfo}>
+          <strong>Spoločný základ navigácie: {navigationFoundation.base}</strong>
+          <p>Preverené zdrojové zloženie: {navigationFoundation.chain.join(" → ")}.</p>
+          <p>{navigationFoundation.distinction}</p>
+          {relatedNavigation.length > 0 && <p>
+            Príbuzné súčasti na porovnanie: {relatedNavigation.map((item) => item.title).join(", ")}.
+            Spoločný základ neznamená, že možno zmazať ich vlastné funkcionality.
+          </p>}
+        </section>}
+        {sharedRendererUses.length > 0 && <div className={styles.visualCatalogUses}>
+          <h4>Ďalšie doložené umiestnenia spoločného zdroja ({sharedRendererUses.length})</h4>
+          <ul className={styles.usages}>
+            {sharedRendererUses.map((use, index) =>
+              <li key={use.groupTitle + use.url + (use.anchorId ?? "") + index}>
+                <div><strong>{use.label}</strong>
+                  <small>{use.groupTitle} · {use.placement}</small>
+                  <code>{use.url}{use.anchorId ? "#" + use.anchorId : ""}</code>
+                  {use.anchorId && <AdminVisualLibraryHtmlCheck
+                    url={use.url} anchorId={use.anchorId} />}
+                </div>
+                <a href={use.url + (use.anchorId ? "#" + use.anchorId : "")}
+                  target="_blank" rel="noopener noreferrer">Otvoriť miesto</a>
+              </li>
+            )}
+          </ul>
+        </div>}
         <div className={styles.visualCatalogUses}>
           <h4>Zdokumentované konkrétne stránky ({chosen.knownUses.length})</h4>
           <p>Presné URL sú doložené zdrojovým kódom alebo aktuálnym zoznamom
@@ -311,6 +369,10 @@ export function AdminVisualLibraryVisualCatalog({
                     ? "Publikovaný článok – ručne vložený banner"
                     : "Doložené v zdrojovom kóde"}</small>
                 <code>{use.url}{use.anchorId ? "#" + use.anchorId : ""}</code>
+                {(use.anchorId || componentHtmlProbeIdForOwnerGroup(chosen.id)) &&
+                  <AdminVisualLibraryHtmlCheck url={use.url}
+                    anchorId={use.anchorId}
+                    componentId={componentHtmlProbeIdForOwnerGroup(chosen.id) ?? undefined} />}
               </div>
               <a href={use.url + (use.anchorId ? "#" + use.anchorId : "")}
                 target="_blank" rel="noopener noreferrer">Otvoriť miesto</a>
@@ -360,7 +422,8 @@ export function AdminVisualLibraryVisualCatalog({
             </button>
           </div>
           {showRelatedProfiles && <AdminVisualLibraryDynamicUrls
-            key={chosen.id + ":" + relatedKind} initialKind={relatedKind} />}
+            key={chosen.id + ":" + relatedKind} initialKind={relatedKind}
+            componentId={detailComponentProbeForGroup(chosen.id, relatedKind) ?? undefined} />}
         </section>}
         <details className={styles.visualCatalogTechnical}>
           <summary>Technické informácie (voliteľné)</summary>
@@ -368,7 +431,7 @@ export function AdminVisualLibraryVisualCatalog({
         </details>
       </section>}
 
-      <AdminVisualLibraryMissingPreviews registry={registry} extraPreviewPaths={coveredSourcePaths} />
+      <AdminVisualLibraryFullInventory registry={registry} onOpenPreview={openSourcePreview} />
       <p className={styles.nextStep}>Toto je prvá etapa vizuálneho katalógu.
         Zatiaľ sa nič automaticky nespája, nemaže ani nepublikuje.
         Reálne zlúčenie do jedného spoločného komponentu príde až po výbere a overení výskytov.</p>

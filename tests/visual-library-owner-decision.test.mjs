@@ -77,7 +77,7 @@ test("visual comparison uses real component previews and local decision only", (
   const compare = readFileSync("components/admin-visual-library-owner-compare.tsx", "utf8");
   const catalog = readFileSync("components/admin-visual-library-visual-catalog.tsx", "utf8");
   assert.match(compare, /<AdminComponentVisualPreview id=\{sample\.id\}/);
-  assert.match(compare, /<PublicMagazineBanner/);
+  assert.match(compare, /<AdminVisualLibraryBannerPreview/);
   assert.match(compare, /example\.preview/);
   assert.match(compare, /buildOwnerDecisionRequest/);
   assert.match(compare, /OWNER_DECISION_OPTIONS/);
