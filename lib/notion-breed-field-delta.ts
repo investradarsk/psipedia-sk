@@ -4,7 +4,7 @@ import type { NotionFieldMode } from "./notion-field-authority";
 /**
  * Notion is the editorial source for these fields ONLY. Never use Notion to
  * overwrite canonical identity (ID/slug/FCI number/import key), publication,
- * image, gallery, relations, admin-only editorial, or SEO OG metadata.
+ * images, gallery, or relations. SEO editorial metadata is a normal editable field.
  */
 export const BREED_NOTION_EDITABLE_FIELDS = [
   "name", "fciGroup", "fciSection", "fciSectionNumber",
@@ -15,7 +15,8 @@ export const BREED_NOTION_EDITABLE_FIELDS = [
   "intro", "character", "needs", "history", "exercise", "training",
   "health", "healthRisks", "goodFor", "consider", "sources",
   "fciStandard", "editorial", "sports",
-  "seo.title", "seo.description",
+  "seo.title", "seo.description", "seo.focusKeyword",
+  "seo.ogTitle", "seo.ogDescription", "seo.canonicalUrl", "seo.noindex",
 ] as const;
 
 export type BreedNotionField = (typeof BREED_NOTION_EDITABLE_FIELDS)[number];
@@ -26,8 +27,10 @@ const numeric = new Set<string>([
 ]);
 
 function valueAt(input: ManagedBreed | ManagedBreedInput, key: BreedNotionField) {
-  if (key === "seo.title") return input.seo?.title ?? "";
-  if (key === "seo.description") return input.seo?.description ?? "";
+  if (key.startsWith("seo.")) {
+    const prop = key.slice(4) as keyof NonNullable<ManagedBreedInput["seo"]>;
+    return input.seo?.[prop] ?? (prop === "noindex" ? false : "");
+  }
   return (input as Record<string, unknown>)[key] ?? null;
 }
 
@@ -65,9 +68,11 @@ export function parseBreedFieldSnapshot(value: string | null): BreedFieldSnapsho
 }
 
 /**
- * Only changed Notion columns produce a patch. An unrelated Admin edit cannot
- * block this update. A simultaneous edit to the SAME field is flagged instead
- * of silently choosing a winner.
+ * Only changed Notion columns produce a patch; unrelated Admin edits survive.
+ * Content differences are not an error. When the owner selects Admin, Admin
+ * wins; with Notion, safe or latest the Notion value is the deterministic
+ * fallback if field-level change timestamps do not exist. Identity and
+ * publication are excluded from this allowlist.
  *
  * Canonical score columns are currently required 1..5. Clearing such a Notion
  * value resets it to the existing neutral 3 (not SQL NULL). Text/list clears
@@ -98,13 +103,14 @@ export function planBreedNotionFieldDelta(
       conflicts.push(key);
       continue;
     }
-    if (!same(current[key], oldAdmin[key]) && !same(current[key], desired)
-        && authority[key] !== "notion") {
-      conflicts.push(key);
-      continue;
-    }
+    // Previous receipts may not include individual edit timestamps. Treat a
+    // two-sided editorial difference as an ordinary priority decision, not a
+    // permanent review lock. This is intentionally breeds-only behavior.
+    // Explicit Admin mode was handled above; other modes fall back to Notion.
+    void current;
+    void oldAdmin;
     accepted.push(key);
-    if (key === "seo.title" || key === "seo.description") {
+    if (key.startsWith("seo.")) {
       patch.seo = { ...patch.seo, [key.slice(4)]: desired };
     } else if (key === "editorial") {
       patch.editorial = { ...existing.editorial, ...(desired && typeof desired === "object" && !Array.isArray(desired) ? desired : {}) };
