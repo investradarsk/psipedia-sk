@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { BREED_NOTION_SCHEMA, BREED_NOTION_PRIORITY_FIELDS } from "../lib/notion-breed-property-registry.ts";
 import { partialBreedNotionReceipt } from "../lib/notion-breed-safe-patch.ts";
+import { breedNotionPresentFieldIds } from "../lib/notion-breed-presence.ts";
 
 import {
   breedFieldSnapshot, planBreedNotionFieldDelta,
@@ -212,4 +213,36 @@ test("Admin-owned Notion field remains pending until outbound PATCH succeeds",()
   const next=partialBreedNotionReceipt(before,remote,["health"]);
   assert.equal(next.health,"Nové zdravie");
   assert.equal(next.intro,"V Notione staré");
+});
+
+test("an absent Notion property never deletes Admin data; an empty present cell does",()=>{
+  const present=breedNotionPresentFieldIds({properties:{
+    "Charakter":{rich_text:[]},
+    "FCI oči":{rich_text:[]},
+  }});
+  assert.equal(present.has("character"),true);
+  assert.equal(present.has("fciStandard.oci"),true);
+  assert.equal(present.has("health"),false);
+  const old=breedFieldSnapshot(breed({character:"Starý charakter",health:"Zdravie zostáva"}));
+  const incoming=source({character:"",health:""});
+  const actual=planBreedNotionFieldDelta(breed({character:"Starý charakter",health:"Zdravie zostáva"}),
+    incoming,old,old,{},present);
+  assert.ok(actual.accepted.includes("character"));
+  assert.ok(!actual.accepted.includes("health"));
+  assert.equal(actual.patch.health,undefined);
+});
+
+test("old FCI JSON can supply missing leaf properties, but malformed JSON cannot",()=>{
+  const page={properties:{
+    "FCI štandard JSON":{rich_text:[{plain_text:'{"oci":"Tmavé oči","pohyb":"Plynulý"}'}]},
+    "Redakčné sekcie JSON":{rich_text:[{plain_text:'{"healthTip":"Dôležitý tip"}'}]},
+  }};
+  const present=breedNotionPresentFieldIds(page);
+  assert.equal(present.has("fciStandard.oci"),true);
+  assert.equal(present.has("fciStandard.pohyb"),true);
+  assert.equal(present.has("editorial.healthTip"),true);
+  assert.equal(present.has("editorial.exerciseTip"),false);
+  assert.equal(breedNotionPresentFieldIds({properties:{
+    "FCI štandard JSON":{rich_text:[{plain_text:"neplatný JSON"}]},
+  }}).has("fciStandard.oci"),false);
 });
