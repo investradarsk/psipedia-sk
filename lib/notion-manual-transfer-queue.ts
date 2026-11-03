@@ -10,6 +10,7 @@ import { runNotionDirectorySyncSweep, type NotionDirectorySyncBindings } from ".
 import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync";
 import { runNotionEshopSyncSweep, type NotionEshopSyncBindings } from "./notion-eshop-sync";
 import type { BidirectionalAgendaKey } from "./notion-events-help-adapters";
+import { inspectManualTransferRecord, verifyManualTransferFields } from "./notion-manual-transfer-inspect";
 
 export type ManualTransferBindings = NotionBreedSyncBindings &
   NotionDirectorySyncBindings & NotionEventsHelpSyncBindings &
@@ -19,7 +20,7 @@ export type ManualTransferBindings = NotionBreedSyncBindings &
 
 type LinkRow = {scope:string;profile_id:number;notion_page_id:string};
 type Job = LinkRow & {
-  id:number;run_id:string;attempts:number;
+  id:number;run_id:string;attempts:number;preview_hash:string|null;
   direction:NotionManualTransferDirection;area:string;
 };
 const MAX_LINKS=10000;
@@ -119,7 +120,7 @@ export async function prepareManualTransferRun(input:{
   database:D1Database;
   request:unknown;
   actor:string;
-}):Promise<{runId:string;items:number;status:"QUEUED"}>{
+}):Promise<{runId:string;items:number;status:"PREVIEW"}>{
   const request=validateManualTransferRequest(input.request,NOTION_AUTHORITY_GROUPS);
   if(!input.actor.trim())throw Error("TRANSFER_ACTOR_REQUIRED");
   if(!await manualTransferSchemaReady(input.database))
@@ -140,15 +141,14 @@ export async function prepareManualTransferRun(input:{
           "(run_id,scope,profile_id,notion_page_id) VALUES (?,?,?,?)")
           .bind(runId,link.scope,link.profile_id,link.notion_page_id)));
     }
-    await input.database.prepare("UPDATE notion_manual_transfer_runs SET status='QUEUED',updated_at=? " +
-      "WHERE id=? AND status='PREVIEW'").bind(new Date().toISOString(),runId).run();
+    // Preview-only run. No content write until a separate owner confirmation.
   }catch(error){
     await input.database.prepare("UPDATE notion_manual_transfer_runs " +
       "SET status='FAILED',updated_at=?,finished_at=? WHERE id=? AND status='PREVIEW'")
       .bind(new Date().toISOString(),new Date().toISOString(),runId).run();
     throw error;
   }
-  return {runId,items:links.length,status:"QUEUED"};
+  return {runId,items:links.length,status:"PREVIEW"};
 }
 
 async function mappingStillLinked(db:D1Database,link:LinkRow):Promise<boolean>{
