@@ -30,7 +30,10 @@ const DECISIONS = new Set<string>(OWNER_DECISION_OPTIONS.map((item) => item.valu
 function field(value: unknown, label: string, limit: number, required = true): string {
   if (typeof value !== "string") throw new Error("Neplatné pole rozhodnutia: " + label);
   const trimmed = value.trim();
-  if ((required && !trimmed) || trimmed.length > limit || CONTROL.test(trimmed)) {
+  const invalidControls = label === "poznámka"
+    ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(trimmed)
+    : CONTROL.test(trimmed);
+  if ((required && !trimmed) || trimmed.length > limit || invalidControls) {
     throw new Error("Neplatný obsah alebo dĺžka: " + label);
   }
   return trimmed;
