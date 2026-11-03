@@ -2934,6 +2934,27 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 149) assertBuiltinCatalogOverrides0149Schema(schema);
   if (migrationIndex(targetMigration) >= 151) assertContentHistory0151Schema(schema);
   if (migrationIndex(targetMigration) >= 152) assertVisualLibrary0152Schema(schema);
+  if (migrationIndex(targetMigration) >= 153) assertProfileFieldBaseline0153Schema(schema);
+}
+
+/** D1 0153: isolated, hash-verified common editorial snapshots only. */
+export function assertProfileFieldBaseline0153Schema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const table = objects.get("notion_profile_field_baselines");
+  invariant(table?.type === "table", "0153 field baseline table missing");
+  const sql = String(table.sql ?? "").replace(/\s+/g, " ");
+  for (const fragment of [
+    "agenda TEXT NOT NULL", "entity_id INTEGER NOT NULL",
+    "notion_page_id TEXT NOT NULL", "snapshot_hash TEXT NOT NULL",
+    "snapshot_json TEXT NOT NULL", "recorded_at TEXT NOT NULL",
+  ]) invariant(sql.includes(fragment), "0153 baseline field missing: " + fragment);
+  invariant(/PRIMARY KEY\s*\(\s*agenda\s*,\s*entity_id\s*\)/i.test(sql),
+    "0153 baseline profile identity missing");
+  invariant(/UNIQUE\s*\(\s*agenda\s*,\s*notion_page_id\s*\)/i.test(sql),
+    "0153 notion page identity must be unique per agenda");
+  invariant(/CHECK\s*\(\s*json_valid\s*\(\s*snapshot_json\s*\)\s*\)/i.test(sql),
+    "0153 snapshots must be valid JSON");
+  return true;
 }
 
 export function assertVisualLibrary0152Schema(schema) {
