@@ -82,8 +82,10 @@ test("visual comparison uses real component previews and local decision only", (
   assert.match(compare, /buildOwnerDecisionRequest/);
   assert.match(compare, /OWNER_DECISION_OPTIONS/);
   assert.match(compare, /Skopírovať rozhodnutie pre ChatGPT/);
-  assert.match(compare, /Neukladá sa do databázy/);
+  assert.match(compare, /Uložiť rozhodnutie do administrácie/);
+  assert.match(compare, /Uložené rozhodnutia/);
   assert.match(catalog, /AdminVisualLibraryOwnerCompare/);
   assert.match(catalog, /openCompare\(item\.id\)/);
-  assert.doesNotMatch(compare, /method:\s*"(POST|PUT|PATCH|DELETE)"|DB\.prepare|cloudflare:workers/);
+  assert.match(compare, /method: "PUT"/);
+  assert.doesNotMatch(compare, /method:\s*"(POST|PATCH|DELETE)"|DB\.prepare|cloudflare:workers/);
 });
