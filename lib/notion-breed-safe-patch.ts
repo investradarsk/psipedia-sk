@@ -8,6 +8,12 @@ function valueForField(patch: ManagedBreedInput, field: BreedNotionField): unkno
   if (field.startsWith("seo.")) {
     return patch.seo?.[field.slice(4) as keyof NonNullable<ManagedBreedInput["seo"]>];
   }
+  if (field.startsWith("fciStandard.")) {
+    return (patch.fciStandard as Record<string, unknown> | undefined)?.[field.slice("fciStandard.".length)];
+  }
+  if (field.startsWith("editorial.")) {
+    return (patch.editorial as Record<string, unknown> | undefined)?.[field.slice("editorial.".length)];
+  }
   return (patch as Record<string, unknown>)[field];
 }
 
@@ -16,6 +22,14 @@ function applyOneField(current: ManagedBreedInput, patch: ManagedBreedInput, fie
   if (value === undefined) return current; // Absent optional source data is not a clear.
   if (field.startsWith("seo.")) {
     return { ...current, seo: { ...current.seo, [field.slice(4)]: value } };
+  }
+  if (field.startsWith("fciStandard.")) {
+    return { ...current, fciStandard: { ...current.fciStandard,
+      [field.slice("fciStandard.".length)]: value } };
+  }
+  if (field.startsWith("editorial.")) {
+    return { ...current, editorial: { ...current.editorial,
+      [field.slice("editorial.".length)]: value } };
   }
   if (field === "fciStandard" || field === "editorial") {
     const before = current[field] ?? {};
