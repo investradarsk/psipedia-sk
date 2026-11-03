@@ -6,18 +6,11 @@ import type { NotionFieldMode } from "./notion-field-authority";
  * overwrite canonical identity (ID/slug/FCI number/import key), publication,
  * images, gallery, or relations. SEO editorial metadata is a normal editable field.
  */
-export const BREED_NOTION_EDITABLE_FIELDS = [
-  "name", "fciGroup", "fciSection", "fciSectionNumber",
-  "officialFciName", "validStandardDate", "workingTrial",
-  "origin", "group", "size", "weight", "height", "lifespan", "coat",
-  "energy", "trainability", "family", "children", "otherDogs",
-  "apartment", "grooming", "shedding", "preyDrive",
-  "intro", "character", "needs", "history", "exercise", "training",
-  "health", "healthRisks", "goodFor", "consider", "sources",
-  "fciStandard", "editorial", "sports",
-  "seo.title", "seo.description", "seo.focusKeyword",
-  "seo.ogTitle", "seo.ogDescription", "seo.canonicalUrl", "seo.noindex",
-] as const;
+import { BREED_NOTION_PRIORITY_FIELDS } from "./notion-breed-property-registry";
+
+/** Every content field has its own priority, including FCI subfields and media. */
+export const BREED_NOTION_EDITABLE_FIELDS = BREED_NOTION_PRIORITY_FIELDS
+  .filter(e=>e.mode==="content").map(e=>e.id);
 
 export type BreedNotionField = (typeof BREED_NOTION_EDITABLE_FIELDS)[number];
 export type BreedFieldSnapshot = Record<BreedNotionField, unknown>;
@@ -29,8 +22,22 @@ const numeric = new Set<string>([
 function valueAt(input: ManagedBreed | ManagedBreedInput, key: BreedNotionField) {
   if (key.startsWith("seo.")) {
     const prop = key.slice(4) as keyof NonNullable<ManagedBreedInput["seo"]>;
-    return input.seo?.[prop] ?? (prop === "noindex" ? false : "");
+    return input.seo?.[prop] ?? (prop==="noindex" ? false : "");
   }
+  if (key.startsWith("fciStandard.")) {
+    const name = key.slice("fciStandard.".length);
+    return (input.fciStandard as Record<string, unknown> | undefined)?.[name] ?? "";
+  }
+  if (key.startsWith("editorial.")) {
+    const name = key.slice("editorial.".length);
+    return (input.editorial as Record<string, unknown> | undefined)?.[name]
+      ?? (name==="heroTraits" ? [] : "");
+  }
+  if (key==="gallery" || key==="relatedBreedIds" || key==="relatedArticleIds" ||
+      key==="directoryProfileIds" || key==="sports") {
+    return (input as Record<string, unknown>)[key] ?? [];
+  }
+  if (key==="editorialComplete") return input.editorialComplete ?? false;
   return (input as Record<string, unknown>)[key] ?? null;
 }
 
@@ -55,14 +62,31 @@ export function parseBreedFieldSnapshot(value: string | null): BreedFieldSnapsho
     // absent. Never force hundreds of legacy profiles through a full resync.
     for (const key of BREED_NOTION_EDITABLE_FIELDS) {
       if (Object.prototype.hasOwnProperty.call(record, key)) continue;
-      if (key === "fciStandard" || key === "editorial" || key === "sports") {
+      // Older receipts held the FCI and editorial sections as one JSON object.
+      // Preserve their last acknowledged subfield values when migrating to the
+      // new per-column model; no historical content is overwritten.
+      if (key.startsWith("fciStandard.") || key.startsWith("editorial.")) {
+        const [root,subfield] = key.split(".",2);
+        const rootValue = record[root];
+        const fromOld = rootValue && typeof rootValue==="object" && !Array.isArray(rootValue)
+          ? (rootValue as Record<string, unknown>)[subfield] : undefined;
+        record[key] = fromOld ?? (key==="editorial.heroTraits" ? [] : "");
+        continue;
+      }
+      if (key==="gallery" || key==="relatedBreedIds" ||
+          key==="relatedArticleIds" || key==="directoryProfileIds") {
+        record[key] = [];
+        continue;
+      }
+      if (key==="editorialComplete") { record[key]=false; continue; }
+      if (key==="accent") { record[key]="forest"; continue; }
+      if (key==="image") { record[key]=""; continue; }
+      if (key==="fciStandard" || key==="editorial" || key==="sports") {
         record[key] = null;
         continue;
       }
-      // Receipts created before SEO field coverage had no such keys. Treat
-      // their historical empty/default values as an ordinary baseline.
       if (key.startsWith("seo.") && key !== "seo.title" && key !== "seo.description") {
-        record[key] = key === "seo.noindex" ? false : "";
+        record[key] = key==="seo.noindex" ? false : "";
         continue;
       }
       return null;
@@ -113,6 +137,10 @@ export function planBreedNotionFieldDelta(
     accepted.push(key);
     if (key.startsWith("seo.")) {
       patch.seo = { ...patch.seo, [key.slice(4)]: desired };
+    } else if (key.startsWith("fciStandard.")) {
+      patch.fciStandard = { ...patch.fciStandard, [key.slice("fciStandard.".length)]: desired };
+    } else if (key.startsWith("editorial.")) {
+      patch.editorial = { ...patch.editorial, [key.slice("editorial.".length)]: desired };
     } else if (key === "editorial") {
       patch.editorial = { ...existing.editorial, ...(desired && typeof desired === "object" && !Array.isArray(desired) ? desired : {}) };
     } else if (key === "fciStandard") {
