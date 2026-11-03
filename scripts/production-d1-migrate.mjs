@@ -44,7 +44,10 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // 0147 Notion field authority also requires a separate owner-dispatched protected D1 migration.
 // 0151 and 0152 are owner-dispatched ONLY through the protected workflow.
 // 0152 requires an applied 0151 with a validated physical schema.
-// 0153 is reviewed source SQL only. It is NOT an approved production target.\nexport const PREPARED_PRODUCTION_TARGETS = Object.freeze([\n  "0153_notion_profile_field_baselines.sql",\n]);
+// 0153 is reviewed source SQL only. It is NOT an approved production target.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
+  "0153_notion_profile_field_baselines.sql",
+]);
 export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {
