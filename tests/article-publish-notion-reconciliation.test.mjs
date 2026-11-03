@@ -9,6 +9,18 @@ async function compiledModule(path, services, globals = {}) {
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
+  // Mock the shared Notion transport; its retries and headers are covered
+  // separately by tests/notion-official-sdk.test.mjs.
+  const notionMock = {
+    notionRequest: async (_bindings, path, init = {}) => {
+      const requestFetch = globals.fetch ?? globalThis.fetch;
+      const response = await requestFetch("https://api.notion.com/v1" + path, init);
+      const body = await response.text();
+      if (!response.ok) throw new Error("Notion API " + response.status + ": " + body);
+      return body ? JSON.parse(body) : {};
+    },
+  };
+  services = { ...services, "@/lib/notion-sync-shared": notionMock };
   const cjsModule = { exports: {} };
   runInNewContext(compiled, {
     module: cjsModule, exports: cjsModule.exports,
