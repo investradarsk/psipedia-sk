@@ -28,7 +28,7 @@ Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch
 ## Ôsmy priechod – spoločná navigácia a redakčné karty (#1186)
 
 - [x] Preverený spoločný základ kategórií `PublicSubcategoryNavigator` v sekciách Pomoc psom, Služby a tematických článkoch. Zdieľanie základného komponentu **nie je** dôvodom vymazať samostatné obaly: každý má vlastné ikony, počítadlá, prepínače alebo mobilnú navigáciu.
-- [x] Kompaktné a veľké podkategórie zoskupené pod jeden skutočný `PublicSubcategoryNavigator` s dvoma prezentáciami, namiesto dvoch falošných zdrojových komponentov.
+- [x] Kompaktné a veľké podkategórie overené ako dva režimy jedného `PublicSubcategoryNavigator`. Pôvodné ID zostávajú zachované kvôli už uloženým rozhodnutiam A/B; v náhľade sa explicitne označia za spoločný renderer, nie dva zdroje.
 - [x] Implementované tri ďalšie živé náhľady originálnych React komponentov: `ArticleCard` (grid a featured) a `PortalSectionTabs` (tematická navigácia). **Aktuálne 59 demo variantov**, plus samostatné serverové náhľady.
 - [x] Dve prezentácie `ArticleCard` v majiteľskej galérii tvoria jednu rodinu. Údaje v náhľadoch sú umelé, bez čítania D1.
 - [x] Zobrazuje sa zdrojovo potvrdený spoločný základ každej navigácie aj jej jedinečné správanie. Nezamieňa sa spoločný základ so zdrojovou duplicitou.
