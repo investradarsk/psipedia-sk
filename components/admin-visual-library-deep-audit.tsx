@@ -28,13 +28,13 @@ function SourceFiles({files, modules}: {
 }) {
   return <ul className={styles.deepAuditFiles}>
     {files.map(file => {
-      const module = modules.get(file);
-      const routes = module?.routes ?? [];
+      const sourceEntry = modules.get(file);
+      const routes = sourceEntry?.routes ?? [];
       return <li key={file}>
         <a href={githubFile(file)} target="_blank" rel="noopener noreferrer">
           <code>{file}</code>
         </a>
-        {module && <small>{module.jsxElements} JSX prvkov · {routes.length}
+        {sourceEntry && <small>{sourceEntry.jsxElements} JSX prvkov · {routes.length}
           {" "}možných stránkových šablón</small>}
         {routes.length > 0 && <small>{routes.slice(0,5).join(", ")}
           {routes.length > 5 ? " …" : ""}</small>}
