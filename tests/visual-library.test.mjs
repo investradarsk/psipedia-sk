@@ -8,8 +8,8 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 test("visual gallery reuses actual production banner and article usage, not a drawn imitation", () => {
   const gallery = read("components/admin-visual-library.tsx");
-  assert.match(gallery, /import \{ PublicMagazineBanner \} from "@\/components\/public-visual-system\/public-magazine-banner"/);
-  assert.match(gallery, /<PublicMagazineBanner compact/);
+  assert.match(gallery, /import \{ AdminVisualLibraryBannerPreview \} from "@\/components\/admin-visual-library-banner-preview"/);
+  assert.match(gallery, /<AdminVisualLibraryBannerPreview banner=\{chosen\}/);
   assert.match(gallery, /visibleUses\.slice/);
   assert.match(gallery, /href=\{use\.anchorId \?/);
 });
