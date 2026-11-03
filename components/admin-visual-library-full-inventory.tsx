@@ -47,6 +47,7 @@ export function AdminVisualLibraryFullInventory({
       path: entry.path,
       coverage: (live.has(entry.path) ? "live-preview" : entry.coverage) as Coverage,
       routes: fromRegistry.get(entry.path)?.routes ?? [],
+      area: fromRegistry.get(entry.path)?.area ?? null,
     }));
     // Never silently drop a newly added TSX source before the snapshot is refreshed.
     const additional = registry.components
@@ -57,6 +58,7 @@ export function AdminVisualLibraryFullInventory({
         path: entry.path,
         coverage: (live.has(entry.path) ? "live-preview" : "needs-preview") as Coverage,
         routes: entry.routes,
+        area: entry.area,
       }));
     return [...known, ...additional].sort((a,b) => a.path.localeCompare(b.path, "sk"));
   }, [registry.components]);
@@ -78,10 +80,13 @@ export function AdminVisualLibraryFullInventory({
     <section className={styles.fullCoverageInventory} aria-label="Úplný inventár verejných zdrojových komponentov">
       <div className={styles.fullCoverageHeader}>
         <div>
-          <h4>Kompletný inventár verejných komponentov</h4>
+          <h4>Kompletný inventár webových a zdieľaných komponentov</h4>
           <p>Jednoznačný stav pre každý súbor. Počet grafických variantov nie je
             počet pokrytých komponentov; pomocné moduly ani celé stránky
-            nevydávame za hotové živé náhľady.</p>
+            nevydávame za hotové živé náhľady. Zoznam zahŕňa aj súbory
+            používané v partnerskej či administrátorskej časti, pokiaľ
+            nemajú názov začínajúci admin-. Ich presné použitie určuje
+            až buildový register.</p>
         </div>
         <strong>{entries.length} súborov</strong>
       </div>
@@ -127,6 +132,8 @@ export function AdminVisualLibraryFullInventory({
                 <strong>{entry.path.split("/").pop()?.replace(/\.tsx$/, "").replace(/-/g," ")}</strong>
                 <code>{entry.path}</code>
                 <small><b>{NAMES[entry.coverage]}</b> – {DETAILS[entry.coverage]}</small>
+                {entry.area === "admin" && <small>Len administrácia podľa buildového registra</small>}
+                {entry.area === "mixed" && <small>Verejná aj administrátorská časť podľa registra</small>}
                 {entry.routes.length > 0 && <small>Možné šablóny podľa importov:
                   {" "}{entry.routes.slice(0,3).join(", ")}{entry.routes.length > 3 ? "…" : ""}
                 </small>}
