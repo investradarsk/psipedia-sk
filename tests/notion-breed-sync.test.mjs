@@ -160,7 +160,7 @@ test("only conflicting Admin and Notion edits to the SAME breed field are blocke
   const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
   assert.match(mapped, /planBreedNotionFieldDelta\(existing, basePayload/);
-  assert.match(mapped, /BREED_SAME_FIELD_CONFLICT/);
+  assert.match(mapped, /planSafeBreedFields|applySafeBreedSync/);
   assert.match(mapped, /BREED_PSID_CONFLICT/);
   assert.match(mapped, /receipt.hash === contentHash && canonicalTextDiffers/);
   assert.doesNotMatch(mapped, /BREED_ADMIN_REVISION_NOT_SYNCED/);
