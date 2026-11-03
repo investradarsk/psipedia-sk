@@ -8,7 +8,8 @@ import {
 import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-library-missing-previews";
 import { AdminVisualLibraryOwnerCompare } from "@/components/admin-visual-library-owner-compare";
 import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library-dynamic-urls";
-import { relatedDynamicUrlKindForPreview } from "@/lib/visual-library-preview-related-urls";
+import { AdminVisualLibraryHtmlCheck } from "@/components/admin-visual-library-html-check";
+import { relatedDynamicUrlKindForPreview, detailComponentProbeForGroup } from "@/lib/visual-library-preview-related-urls";
 import { componentHtmlProbeIdForOwnerGroup } from "@/lib/visual-library-html-evidence";
 import { verifiedCanonicalRendererForGroup } from "@/lib/visual-library-canonical-renderers";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
@@ -316,6 +317,8 @@ export function AdminVisualLibraryVisualCatalog({
                 <div><strong>{use.label}</strong>
                   <small>{use.groupTitle} · {use.placement}</small>
                   <code>{use.url}{use.anchorId ? "#" + use.anchorId : ""}</code>
+                  {use.anchorId && <AdminVisualLibraryHtmlCheck
+                    url={use.url} anchorId={use.anchorId} />}
                 </div>
                 <a href={use.url + (use.anchorId ? "#" + use.anchorId : "")}
                   target="_blank" rel="noopener noreferrer">Otvoriť miesto</a>
@@ -340,6 +343,10 @@ export function AdminVisualLibraryVisualCatalog({
                     ? "Publikovaný článok – ručne vložený banner"
                     : "Doložené v zdrojovom kóde"}</small>
                 <code>{use.url}{use.anchorId ? "#" + use.anchorId : ""}</code>
+                {(use.anchorId || componentHtmlProbeIdForOwnerGroup(chosen.id)) &&
+                  <AdminVisualLibraryHtmlCheck url={use.url}
+                    anchorId={use.anchorId}
+                    componentId={componentHtmlProbeIdForOwnerGroup(chosen.id) ?? undefined} />}
               </div>
               <a href={use.url + (use.anchorId ? "#" + use.anchorId : "")}
                 target="_blank" rel="noopener noreferrer">Otvoriť miesto</a>
@@ -390,7 +397,7 @@ export function AdminVisualLibraryVisualCatalog({
           </div>
           {showRelatedProfiles && <AdminVisualLibraryDynamicUrls
             key={chosen.id + ":" + relatedKind} initialKind={relatedKind}
-            componentId={componentHtmlProbeIdForOwnerGroup(chosen.id) ?? undefined} />}
+            componentId={detailComponentProbeForGroup(chosen.id, relatedKind) ?? undefined} />}
         </section>}
         <details className={styles.visualCatalogTechnical}>
           <summary>Technické informácie (voliteľné)</summary>
