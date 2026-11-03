@@ -22,3 +22,8 @@ export function notionBreedRichTextProperty(page: {
     return "";
   }).join("").trim();
 }
+
+/** Compare actual field data; line breaks and intentional spacing are content. */
+export function sameBreedSyncValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
