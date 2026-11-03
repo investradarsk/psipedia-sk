@@ -16,6 +16,7 @@ import {
 } from "@/lib/notion-breed-field-delta";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.ts";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
+import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
 import { notionBreedRichTextProperty as notionRichTextProperty, sameBreedSyncValue as sameBreedField } from "@/lib/notion-breed-text";
 import { reconcileBreedExtraFields } from "@/lib/notion-breed-extras";
 import {
@@ -802,6 +803,7 @@ async function syncOneBreed(
   expectedNotionHash?: string,
 ): Promise<"created" | "updated" | "unchanged"> {
   const basePayload = notionPageToManagedBreedInput(page);
+  const presentBreedFields = breedNotionPresentFieldIds(page);
   const contentHash = await notionBreedSourceHash(page);
   const mapping = await loadMapping(database, page.id);
   const now = new Date().toISOString();
@@ -887,7 +889,7 @@ async function syncOneBreed(
       const oldAdminSnapshot = breedFieldSnapshot(existing);
       oldNotionSnapshot[explicitField] = oldAdminSnapshot[explicitField];
       const plan = planBreedNotionFieldDelta(existing, basePayload,
-        oldNotionSnapshot, oldAdminSnapshot, authority);
+        oldNotionSnapshot, oldAdminSnapshot, authority, presentBreedFields);
       if (plan.conflicts.length) throw new Error("BREED_EXPLICIT_FIELD_CONFLICT");
       const patch = plan.patch;
       const merged = { ...existing, ...patch, seo:{...existing.seo,...(patch.seo??{})},
@@ -911,7 +913,7 @@ async function syncOneBreed(
 
     if (mapping && fieldReceipt) {
       const plan=planBreedNotionFieldDelta(existing,basePayload,
-        fieldReceipt.notion,fieldReceipt.admin,authority);
+        fieldReceipt.notion,fieldReceipt.admin,authority,presentBreedFields);
       const invalid=invalidStructuredBreedFields(page);
       // Even if just one source field is invalid or contested, valid Notion
       // editorial edits are committed together. Skipped fields remain pending.
@@ -951,6 +953,7 @@ async function syncOneBreed(
       // No verified old baseline exists, so differing values are ordinary
       // first-reconciliation candidates resolved by field priority.
       const fields = touched.length ? touched : BREED_NOTION_EDITABLE_FIELDS.filter(field=>{
+        if (!presentBreedFields.has(field)) return false;
         const remote=latestNotion[field];
         // First replay of a legacy receipt has no proof that a blank Notion
         // value represents a recent deletion. Baseline it as-is rather than
@@ -962,7 +965,7 @@ async function syncOneBreed(
       });
       for (const field of fields) previousNotion[field] = previousAdmin[field];
       const plan = planBreedNotionFieldDelta(
-        existing, basePayload, previousNotion, previousAdmin, authority,
+        existing, basePayload, previousNotion, previousAdmin, authority, presentBreedFields,
       );
       return applySafeBreedSync(
         database, bindings, page, existing, plan, previousNotion,
@@ -997,7 +1000,7 @@ async function syncOneBreed(
       const previousAdmin=breedFieldSnapshot(existing);
       const actualNotion=breedFieldSnapshot(basePayload);
       const plan=planBreedNotionFieldDelta(existing,mergedPayload,
-        previousAdmin,previousAdmin,authority);
+        previousAdmin,previousAdmin,authority,presentBreedFields);
       const previousNotion={...actualNotion};
       for(const field of plan.changed)previousNotion[field]=previousAdmin[field];
       return applySafeBreedSync(database,bindings,page,existing,plan,
