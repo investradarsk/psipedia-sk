@@ -1,7 +1,7 @@
 # Psipedia.sk – vizuálna knižnica a zjednotenie komponentov
 
-**Stav:** implementovaná majiteľská galéria, technický audit, porovnávanie A/B a serverový front rozhodnutí. Skutočné zlúčenie komponentov ešte neprebehlo.  
-**Východiskový PR:** #1181 (Draft, zdrojový JSX/CSS inventár).  
+**Stav:** PR #1181 je zlúčený; majiteľská galéria, technický audit, porovnávanie A/B a serverový front rozhodnutí sú implementované. PR #1186 pokračuje auditom skutočných zdrojov, odstránením duplicitných admin náhľadov a overovaním konkrétnych HTML značiek. Úplné pokrytie všetkých vizuálnych typov zostáva otvorené.  
+**Východiskový PR:** #1181 (zlúčený 3. 11. 2026). **Pokračovanie:** #1186 (nový PR).  
 **Primárny používateľ:** majiteľ projektu bez potreby pracovať s kódom.  
 **Primárny rozsah:** verejný web (desktop); inventár neskôr aj pre administráciu. Mobilné zobrazenie zachovať bez nevyžiadaných úprav.  
 **Základné pravidlo:** jeden logický vizuálny prvok = jedna kanonická implementácia; stránka používa tú istú implementáciu a mení len explicitne povolený obsah/variant.
@@ -24,6 +24,19 @@ Každá karta vizuálneho prvku:
 - odkaz „Porovnať“ a zobrazenie ďalších podobných prvkov.
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
+
+## Siedmy priechod – zdrojové zjednotenie a overené komponenty (#1186)
+
+- [x] Pilot „Banner Veterinári“ preverený na úrovni zdrojového kódu: verejný `PublicMagazineBanner` už reprezentuje editorial, homepage a plemená; cez `PublicPhotoCallout` ten istý renderer slúži aj bannerom Pomoc psom. Nová verejná implementácia by bola duplicitou, preto sa **nepridáva**.
+- [x] Skutočná duplicita v administrácii: šesť samostatných JSX volaní bannera nahradených spoločným `AdminVisualLibraryBannerPreview`, ktorý zachováva kompaktnosť, fotografiu, nadpis, popis a CTA.
+- [x] Verejná identita zdroja pre vierohodné skupiny evidovaná explicitne. Skupiny majú stabilné ID, aby sa neodpojili existujúce uložené vlastnícke rozhodnutia.
+- [x] Pri výbere dvoch skupín s tým istým rendererom sa zobrazí „už je spoločný“ a heuristika ich neponúka ako zdrojové duplicity.
+- [x] V detaile možno zobraziť ďalšie doložené URL iných variantov toho istého React renderera, oddelene od kandidátskych trás.
+- [x] HTML audit konkrétnych publikovaných profilov overuje aj jeden z ôsmich **allowlistovaných** markerov skutočných komponentov, pokiaľ je dostupný. Spúšťa sa iba ručne po jednom profile a nevydáva úspešný HTTP za dôkaz vnoreného komponentu.
+- [x] Regresné testy zdrojového reťazca, jednotného náhľadového adaptéra a bezpečného SSR komponentového probe.
+- [ ] Aktuálne CI, prihlásený desktopový smoke a porovnanie pred/po mergi.
+- [ ] Pokrytie zostávajúcich skutočne viditeľných komponentov a presný dôkaz na ďalších dynamických URL.
+- [ ] Ďalšie skutočné zdrojové zlúčenia iba pri preukázanej duplicite a po výbere kanonického vzhľadu vlastníkom; ostatné „podobné“ nevydávať za automatickú povinnosť mazať.
 
 ## Šiesty priechod – výber podobných dvojíc a oprava CI (3. 11. 2026)
 
