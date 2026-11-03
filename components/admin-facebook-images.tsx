@@ -87,7 +87,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     }
     const abort=new AbortController();
     const params=new URLSearchParams({page:String(pickerPage),query:pickerQuery});
-    if(pickerKind==="profile")params.set("category",pickerCategory);
+    if(pickerKind==="profile") {params.set("category",pickerCategory);params.set("group",pickerGroup);}
     const endpoint=pickerKind==="article"?"article-picker":"profile-picker";
     const timer=window.setTimeout(()=>{
       setPickerBusy(true);
@@ -104,7 +104,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         .finally(()=>{if(!abort.signal.aborted)setPickerBusy(false);});
     },pickerQuery?250:0);
     return()=>{window.clearTimeout(timer);abort.abort();};
-  },[editor,graphicOpen,pickerKind,pickerCategory,pickerQuery,pickerPage]);
+  },[editor,graphicOpen,pickerKind,pickerGroup,pickerCategory,pickerQuery,pickerPage]);
   async function selectContent(item:PickerItem){
     if(selectionBusy||busy||lock.current)return;
     setSelectionBusy(true);setPickerError("");setEditorError("");
@@ -113,7 +113,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       const response=await fetch("/api/admin/facebook-images/"+endpoint,{
         method:"POST",credentials:"same-origin",cache:"no-store",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify(pickerKind==="article"?{articleId:item.id}:{profileId:item.id}),
+        body:JSON.stringify(pickerKind==="article"?{articleId:item.id}:{profileId:item.id,group:pickerGroup,category:pickerCategory}),
       });
       const result=await response.json() as {
         article?:{id:number;title:string;url:string};
@@ -524,20 +524,20 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
             <AdminActionButton type="button" variant="secondary" onClick={()=>setGraphicOpen(true)}>Otvoriť editor grafiky</AdminActionButton></div>
           <section className={styles.contentPicker} aria-label="Výber obsahu z Psipedia">
             <strong>Prevziať obsah z Psipedia.sk</strong>
-            <p>Vyber publikovaný článok alebo profil. Doplníme jeho odkaz a titulnú fotografiu, text môžeš ďalej upraviť.</p>
+            <p>Vyber publikovaný článok, službu, plemeno, pomoc psom alebo podujatie. Doplníme odkaz a fotografiu, text môžeš ďalej upraviť.</p>
             <div className={styles.pickerTabs}>
               <button type="button" aria-pressed={pickerKind==="article"} onClick={()=>{setPickerKind(pickerKind==="article"?"none":"article");setPickerPage(1);setPickerQuery("");setPickerError("");}} disabled={selectionBusy}>Články</button>
               <button type="button" aria-pressed={pickerKind==="profile"} onClick={()=>{setPickerKind(pickerKind==="profile"?"none":"profile");setPickerPage(1);setPickerQuery("");setPickerError("");}} disabled={selectionBusy}>Profily</button>
             </div>
             {pickerKind==="profile"&&<>
               <label>Sekcia
-                <select value={pickerGroup} onChange={e=>{setPickerGroup(e.target.value);setPickerCategory("");setPickerPage(1);}}>
+                <select value={pickerGroup} onChange={e=>{setPickerGroup(e.target.value);setPickerCategory(e.target.value==="breeds"?"all":"");setPickerItems([]);setPickerTotal(0);setPickerPages(1);setPickerPage(1);setPickerQuery("");}}>
                   {(pickerGroups.length?pickerGroups:[{id:"directory",label:"Služby pre psov",categories:[]}]).map(group=>
                     <option key={group.id} value={group.id}>{group.label}</option>)}
                 </select>
               </label>
-              <label>Kategória
-                <select value={pickerCategory} onChange={e=>{setPickerCategory(e.target.value);setPickerPage(1);}}>
+              <label>{pickerGroup==="breeds"?"Skupina FCI":"Kategória"}
+                <select value={pickerCategory} onChange={e=>{setPickerCategory(e.target.value);setPickerItems([]);setPickerTotal(0);setPickerPages(1);setPickerPage(1);}}>
                   <option value="">Vyber kategóriu</option>
                   {pickerGroups.find(group=>group.id===pickerGroup)?.categories.map(category=>
                     <option key={category.slug} value={category.slug}>{category.label}</option>)}

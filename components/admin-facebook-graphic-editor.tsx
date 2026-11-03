@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useDropzone } from "react-dropzone";
 import styles from "./admin-facebook-graphic-editor.module.css";
 
 type Template = "gradient" | "panel" | "editorial";
 type Format = "portrait" | "square";
+type LogoStyle = "pill" | "wordmark" | "mark";
 type Line = { text: string; accent: boolean };
 type Settings = {
   template: Template;
@@ -18,6 +19,10 @@ type Settings = {
   photoX: number;
   photoY: number;
   showBrand: boolean;
+  logoStyle: LogoStyle;
+  logoX: number;
+  logoY: number;
+  logoScale: number;
 };
 
 const TEMPLATES: { id: Template; name: string; description: string }[] = [
@@ -65,19 +70,43 @@ function headlineLines(ctx: CanvasRenderingContext2D, title: string, emphasis: s
     .map(text => ({ text, accent: part.accent })) : []);
 }
 
-function brand(ctx: CanvasRenderingContext2D, width: number) {
-  // Paw geometry follows the public/favicon.svg Psipedia mark.
-  const left = width * .065;
-  const top = 34;
-  ctx.font = "bold 39px Arial, sans-serif";
-  const wordWidth = ctx.measureText("psipedia").width;
-  ctx.fillStyle = "rgba(255, 249, 235, .96)";
-  roundedRect(ctx, left - 15, top - 12, wordWidth + 183, 82, 24);
+/** Three layouts of the same Psipedia brand mark, never three competing logos. */
+function logoBounds(ctx: CanvasRenderingContext2D, settings: Settings, width: number, height: number) {
   ctx.save();
-  ctx.translate(left, top);
+  ctx.font = "bold 39px Arial, sans-serif";
+  const textWidth = ctx.measureText("psipedia").width + ctx.measureText(".sk").width;
+  ctx.restore();
+  const scale = settings.logoScale / 100;
+  const baseWidth = settings.logoStyle === "mark" ? 72
+    : 64 + 17 + textWidth + (settings.logoStyle === "pill" ? 30 : 0);
+  const w = baseWidth * scale;
+  const h = 82 * scale;
+  const margin = 24;
+  const spaceX = Math.max(0, width - 2 * margin - w);
+  const spaceY = Math.max(0, height - 2 * margin - h);
+  return {x: margin + spaceX * settings.logoX / 100, y: margin + spaceY * settings.logoY / 100,
+    w, h, scale, margin, spaceX, spaceY, baseWidth};
+}
+function brand(ctx: CanvasRenderingContext2D, width: number, height: number, settings: Settings) {
+  const bounds = logoBounds(ctx, settings, width, height);
+  ctx.save();
+  ctx.translate(bounds.x, bounds.y);
+  ctx.scale(bounds.scale, bounds.scale);
+  if (settings.logoStyle === "pill") {
+    ctx.fillStyle = "rgba(255, 249, 235, .97)";
+    roundedRect(ctx, 0, 0, bounds.baseWidth, 82, 24);
+  } else if (settings.logoStyle === "wordmark") {
+    ctx.shadowColor = "rgba(0,0,0,.38)";
+    ctx.shadowBlur = 14;
+  }
+  const markX = settings.logoStyle === "pill" ? 14 : 0;
   ctx.fillStyle = "#174b38";
-  roundedRect(ctx, 0, 0, 64, 64, 20);
+  roundedRect(ctx, markX, 9, 64, 64, 18);
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
   ctx.fillStyle = "#fffdf8";
+  ctx.save();
+  ctx.translate(markX, 9);
   const pads: [number, number, number, number, number][] = [
     [19, 25, 6, 8, -26], [28, 17, 6, 8, -8],
     [40, 18, 6, 8, 10], [48, 27, 6, 8, 28],
@@ -87,10 +116,16 @@ function brand(ctx: CanvasRenderingContext2D, width: number) {
   });
   ctx.fill(new Path2D("M33.5 29c-9 0-16 8.6-16 16 0 5.4 4 8.5 9 8.5 2.7 0 4.6-1.7 7-1.7s4.3 1.7 7 1.7c5 0 9-3.1 9-8.5 0-7.4-7-16-16-16Z"));
   ctx.restore();
-  ctx.fillStyle = GREEN;
-  ctx.fillText("psipedia", left + 79, top + 47);
-  ctx.fillStyle = RED;
-  ctx.fillText(".sk", left + 79 + wordWidth, top + 47);
+  if (settings.logoStyle !== "mark") {
+    const textX = markX + 81;
+    ctx.font = "bold 39px Arial, sans-serif";
+    ctx.fillStyle = settings.logoStyle === "wordmark" ? "#fffdf8" : GREEN;
+    ctx.fillText("psipedia", textX, 56);
+    const widthOfName = ctx.measureText("psipedia").width;
+    ctx.fillStyle = settings.logoStyle === "wordmark" ? "#f8a38f" : RED;
+    ctx.fillText(".sk", textX + widthOfName, 56);
+  }
+  ctx.restore();
 }
 
 function paintBackground(ctx: CanvasRenderingContext2D, bitmap: ImageBitmap | null, settings: Settings, width: number, height: number) {
@@ -123,7 +158,7 @@ function renderGraphic(canvas: HTMLCanvasElement, bitmap: ImageBitmap | null, se
   ctx.clearRect(0, 0, width, height);
   paintBackground(ctx, bitmap, settings, width, height);
 
-  const inset = 72;
+  const inset = 76;
   const maxWidth = width - inset * 2;
   let fontSize = settings.fontSize;
   let lines: Line[] = [];
@@ -144,8 +179,8 @@ function renderGraphic(canvas: HTMLCanvasElement, bitmap: ImageBitmap | null, se
   if (settings.template === "gradient") {
     const gradient = ctx.createLinearGradient(0, height * .36, 0, height);
     gradient.addColorStop(0, "rgba(2, 35, 26, 0)");
-    gradient.addColorStop(.5, "rgba(2, 35, 26, .66)");
-    gradient.addColorStop(1, "rgba(2, 35, 26, .96)");
+    gradient.addColorStop(.5, "rgba(2, 35, 26, .58)");
+    gradient.addColorStop(1, "rgba(2, 35, 26, .91)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, height * .36, width, height * .64);
   } else if (settings.template === "panel") {
@@ -177,7 +212,7 @@ function renderGraphic(canvas: HTMLCanvasElement, bitmap: ImageBitmap | null, se
     ctx.fillStyle = RED;
     roundedRect(ctx, inset, Math.min(height - 44, top + blockHeight + 17), 186, 9, 4);
   }
-  if (settings.showBrand) brand(ctx, width);
+  if (settings.showBrand) brand(ctx, width, height, settings);
   return null;
 }
 
@@ -203,12 +238,16 @@ export function AdminFacebookGraphicEditor({
     format: "portrait",
     title: initialTitle && initialTitle !== "Nový príspevok" ? initialTitle : "5 tipov, ako lepšie porozumieť svojmu psovi",
     emphasis: "",
-    fontSize: 78,
+    fontSize: 74,
     vertical: 0,
     zoom: 100,
     photoX: 0,
     photoY: 0,
     showBrand: true,
+    logoStyle: "pill",
+    logoX: 0,
+    logoY: 0,
+    logoScale: 100,
   });
   const [photo, setPhoto] = useState<File | null>(null);
   const [loaded, setLoaded] = useState<{ file: File; bitmap: ImageBitmap } | null>(null);
@@ -236,6 +275,51 @@ export function AdminFacebookGraphicEditor({
     return () => controller.abort();
   }, [initialPhotoUrl]);
   const previewRef = useRef<HTMLCanvasElement>(null);
+  const logoDrag = useRef<{pointerId:number;offsetX:number;offsetY:number}|null>(null);
+  const canvasPoint = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = event.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    // The preview uses object-fit: contain at small widths: account for letterboxing.
+    const scale = Math.min(rect.width / canvas.width, rect.height / canvas.height);
+    const contentWidth = canvas.width * scale;
+    const contentHeight = canvas.height * scale;
+    return {
+      x: (event.clientX - rect.left - (rect.width - contentWidth) / 2) / scale,
+      y: (event.clientY - rect.top - (rect.height - contentHeight) / 2) / scale,
+    };
+  };
+  const startLogoDrag = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!settings.showBrand || busy) return;
+    const canvas = event.currentTarget;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const box = logoBounds(ctx, settings, canvas.width, canvas.height);
+    const position = canvasPoint(event);
+    if (position.x < box.x || position.x > box.x + box.w ||
+        position.y < box.y || position.y > box.y + box.h) return;
+    logoDrag.current = {pointerId:event.pointerId,offsetX:position.x-box.x,offsetY:position.y-box.y};
+    canvas.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+  const moveLogoDrag = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const drag = logoDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const canvas = event.currentTarget;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const box = logoBounds(ctx, settings, canvas.width, canvas.height);
+    const point = canvasPoint(event);
+    const clamp = (value:number) => Math.max(0,Math.min(100,value));
+    setSettings(old => ({
+      ...old,
+      logoX: box.spaceX ? clamp(100*(point.x-drag.offsetX-box.margin)/box.spaceX) : 0,
+      logoY: box.spaceY ? clamp(100*(point.y-drag.offsetY-box.margin)/box.spaceY) : 0,
+    }));
+    event.preventDefault();
+  };
+  const endLogoDrag = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (logoDrag.current?.pointerId === event.pointerId) logoDrag.current = null;
+  };
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings(old => ({ ...old, [key]: value }));
   };
@@ -345,13 +429,46 @@ export function AdminFacebookGraphicEditor({
               <option value="portrait">Facebook príspevok 4:5 (1080 × 1350)</option>
               <option value="square">Štvorec 1:1 (1080 × 1080)</option>
             </select></label>
-            <label className={styles.check}><input type="checkbox" checked={settings.showBrand} onChange={e => set("showBrand", e.target.checked)} />Malé označenie psipedia.sk</label>
+            <label className={styles.check}><input type="checkbox" checked={settings.showBrand} onChange={e => set("showBrand", e.target.checked)} />Zobraziť logo Psipedia</label>
           </div>
+        </fieldset>
+        <fieldset disabled={busy}>
+          <legend>4. Logo Psipedia · voľná pozícia</legend>
+          <p className={styles.hint}>Vyber jeden z troch variantov rovnakého loga. Potiahni ho priamo v náhľade prstom alebo myšou na ľubovoľné miesto.</p>
+          <div className={styles.logoStyles}>
+            {([
+              ["pill", "01 · Logo na krémovom podklade"],
+              ["wordmark", "02 · Logo bez podkladu"],
+              ["mark", "03 · Len symbol labky"],
+            ] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={settings.logoStyle===value}
+              className={settings.logoStyle===value?styles.selected:""} onClick={()=>set("logoStyle",value)}>
+              <span className={styles.logoThumb + " " + (value==="wordmark"?styles.logoThumbDark:"")}>
+                <img className={styles.logoThumbMark} src="/favicon.svg" alt="" aria-hidden="true" />
+                {value!=="mark"&&<span className={styles.logoThumbName}>psipedia<span>.sk</span></span>}
+              </span>
+              <small>{label}</small>
+            </button>)}
+          </div>
+          <div className={styles.logoPositions} aria-label="Rýchle umiestnenie loga">
+            {([
+              ["Vľavo hore",0,0],["V strede hore",50,0],["Vpravo hore",100,0],
+              ["Vľavo dole",0,100],["V strede dole",50,100],["Vpravo dole",100,100],
+            ] as const).map(([label,x,y]) => <button key={label} type="button" onClick={()=>setSettings(old=>({...old,logoX:x,logoY:y}))}>{label}</button>)}
+          </div>
+          <div className={styles.dual}>
+            <label>Veľkosť loga · {settings.logoScale}% <input type="range" min="65" max="160" step="5"
+              value={settings.logoScale} onChange={e=>set("logoScale",Number(e.target.value))}/></label>
+            <label>Vodorovná pozícia · {Math.round(settings.logoX)}% <input type="range" min="0" max="100"
+              value={settings.logoX} onChange={e=>set("logoX",Number(e.target.value))}/></label>
+            <label>Zvislá pozícia · {Math.round(settings.logoY)}% <input type="range" min="0" max="100"
+              value={settings.logoY} onChange={e=>set("logoY",Number(e.target.value))}/></label>
+          </div>
+          <p className={styles.hint}>Logo ostáva v bezpečných okrajoch. Môžeš ho tiež úplne vypnúť v nastaveniach nadpisu.</p>
         </fieldset>
       </div>
       <div className={styles.previewSide}>
         <div className={styles.previewFrame}>
-          <canvas ref={previewRef} className={styles.canvas} role="img" aria-label="Živý náhľad Facebook grafiky" />
+          <canvas ref={previewRef} className={styles.canvas} role="img" aria-label="Živý náhľad Facebook grafiky · potiahni logo prstom alebo myšou" onPointerDown={startLogoDrag} onPointerMove={moveLogoDrag} onPointerUp={endLogoDrag} onPointerCancel={endLogoDrag} />
         </div>
         <p className={styles.note}>{bitmap ? "Náhľad zodpovedá výslednému PNG." : "Náhľad šablóny bez psa. Nahraj vlastnú fotografiu, aby si mohol vytvoriť výsledný obrázok."}</p>
         {error && <p role="alert" className={styles.error}>{error}</p>}
