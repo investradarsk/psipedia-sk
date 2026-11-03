@@ -126,9 +126,10 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       setForm(old=>{
         const previous=selectedContentUrl;
         let caption=old.caption;
-        if(previous){
-          caption=caption.split("\n").filter(line=>!line.includes(previous)).join("\n").trim();
-        }
+        caption=caption.split("\n").filter(line=>
+          !(previous&&line.includes(previous)) &&
+          !/^(?:Celý článok|Viac informácií): https:\/\/psipedia\.sk\//.test(line.trim())
+        ).join("\n").trim();
         const link=linkLabel+": "+selected.url;
         if(!caption.includes(selected.url))caption=[caption,link].filter(Boolean).join("\n\n");
         return {...old,title:selected.title.slice(0,200),caption,
@@ -517,8 +518,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <AdminFacebookGraphicEditor initialTitle={form.title} initialPhotoUrl={form.imageUrl}
             onUse={async(file,title)=>{const success=await upload(file);if(success){setForm(old=>({...old,title}));setGraphicOpen(false);}return success;}}
             onCancel={()=>setGraphicOpen(false)} />:
-          <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked} className={styles.fields}>
-          <div className={styles.graphicIntro}><div><strong>Grafické šablóny Psipedia</strong><p>Vytvor obrázok z vlastnej fotografie a uprav nadpis podľa seba.</p></div>
+          <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked||selectionBusy} className={styles.fields}>
+          <div className={styles.graphicIntro}><div><strong>Grafické šablóny Psipedia</strong><p>Použi fotografiu z článku alebo profilu, prípadne nahraj vlastnú. Nadpis môžeš upraviť.</p></div>
             <AdminActionButton type="button" variant="secondary" onClick={()=>setGraphicOpen(true)}>Otvoriť editor grafiky</AdminActionButton></div>
           <section className={styles.contentPicker} aria-label="Výber obsahu z Psipedia">
             <strong>Prevziať obsah z Psipedia.sk</strong>
