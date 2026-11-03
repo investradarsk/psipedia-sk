@@ -47,7 +47,8 @@ export const VERIFIED_CANONICAL_RENDERERS: Readonly<Record<string, VerifiedCanon
 export function verifiedCanonicalRendererForGroup(
   id: string,
 ): VerifiedCanonicalRenderer | null {
-  return VERIFIED_CANONICAL_RENDERERS[id] ?? null;
+  return Object.prototype.hasOwnProperty.call(VERIFIED_CANONICAL_RENDERERS, id)
+    ? VERIFIED_CANONICAL_RENDERERS[id] : null;
 }
 
 export function ownerGroupsAlreadyShareRenderer(leftId: string, rightId: string): boolean {
