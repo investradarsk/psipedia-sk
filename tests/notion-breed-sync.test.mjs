@@ -25,24 +25,18 @@ test("legacy breed sync has a no-webhook comparison path instead of a manual blo
   assert.doesNotMatch(syncSource,/throw new Error\("BREED_LEGACY_CONCURRENT_ADMIN_EDIT"/);
 });
 
-test("Ready Notion breeds flow into Psipedia as draft only", () => {
-  assert.match(syncSource, /notionSelectProperty\(page, "Stav"\) !== "Ready"/);
-  assert.match(syncSource, /status: "draft"/);
-  assert.match(syncSource, /existing\.status === "published"/);
-  assert.doesNotMatch(syncSource, /status: "published"/);
+test("new breeds are created as drafts; no Notion edit publishes a profile",()=>{
+  assert.match(syncSource,/status: "draft"/);
+  assert.match(syncSource,/BREED_CREATE_REQUIRES_READY/);
+  assert.doesNotMatch(syncSource,/status: "published"/);
 });
 
-test("published breeds can receive approved Notion editorial updates without changing public status", () => {
-  assert.match(syncSource, /Profil skvalitnený/);
-  assert.match(syncSource, /listEditableNotionBreeds/);
-  assert.match(syncSource, /findUnmappedCanonicalBreed/);
-  assert.match(syncSource, /Number\(rows\.results\[0\]\.fci_number\) !== fciNumber/);
-  assert.match(syncSource, /BREED_MAPPING_REVIEW_REQUIRED/);
-  assert.match(syncSource, /existing\.status === "published"/);
-  assert.match(syncSource, /status:\s*existing\.status/);
-  assert.match(syncSource, /accent:\s*existing\.accent/);
-  assert.match(syncSource, /image:\s*existing\.image/);
-  assert.match(syncSource, /BREED_CREATE_REQUIRES_READY/);
+test("already linked published breeds update content and preserve publication state",()=>{
+  assert.match(syncSource,/validateReady\(page, Boolean\(mapping \|\| current\?\.status === "published"\)\)/);
+  assert.match(syncSource,/status:existing.status/);
+  assert.match(syncSource,/prepareNotionMainImage/);
+  assert.match(syncSource,/findUnmappedCanonicalBreed/);
+  assert.match(syncSource,/BREED_MAPPING_REVIEW_REQUIRED/);
 });
 
 test("published canonical breeds ignore an obsolete Notion review state, but new drafts do not", () => {
@@ -122,16 +116,14 @@ test("manual breed sync trigger is protected by existing admin authentication", 
   assert.match(routeSource, /runNotionBreedSyncSweep/);
 });
 
-test("publishing a Notion-linked breed writes public state back to Notion", () => {
-  assert.match(syncSource, /writeBackPublishedBreedToNotion/);
-  assert.match(syncSource, /SELECT notion_page_id FROM breed_notion_sync WHERE breed_id = \?/);
-  assert.match(syncSource, /"Stav": \{ select: \{ name: "Publikované" \} \}/);
-  assert.match(syncSource, /"URL Psipedia": \{ url: publicUrl \}/);
-  assert.match(breedRouteSource, /before\.status !== "published" && breed\.status === "published"/);
-  assert.match(breedRouteSource, /writeBackPublishedBreedToNotion/);
-  assert.match(breedRouteSource, /notion_breed_publish_writeback_failed/);
+test("publishing writes canonical status back to Notion, without confusing editorial sync",()=>{
+  assert.match(syncSource,/writeBackPublishedBreedToNotion/);
+  assert.match(syncSource,/SELECT notion_page_id FROM breed_notion_sync WHERE breed_id = \?/);
+  assert.match(syncSource,/"Stav": \{ select: \{ name: "Publikované" \} \}/);
+  assert.match(syncSource,/"URL Psipedia": \{ url: publicUrl \}/);
+  assert.match(breedRouteSource,/before.status!=="published" && breed.status==="published"/);
+  assert.match(breedRouteSource,/writeBackPublishedBreedToNotion/);
 });
-
 
 test("Notion resync merges sparse updates before full D1 upsert and preserves OG media", () => {
   assert.match(syncSource, /mergeNotionBreedInput\(existing, basePayload\)/);
@@ -140,57 +132,45 @@ test("Notion resync merges sparse updates before full D1 upsert and preserves OG
   assert.match(syncSource, /notionPropertyRecord\(page, "Editorial complete"\) \? checkboxProperty/);
 });
 
-test("draft breed Admin saves mirror only explicitly edited Notion text fields", () => {
-  assert.match(syncSource, /export async function writeBackDraftBreedEditorialToNotion/);
-  assert.match(syncSource, /breedDraftTextChanges\(args.before, args.breed\)/);
-  assert.match(syncSource, /"Intro", "rich_text"/);
-  assert.match(syncSource, /"Charakter", "rich_text"/);
-  assert.match(syncSource, /"Výcvik", "rich_text"/);
-  assert.match(syncSource, /"Zdravie", "rich_text"/);
-  assert.match(syncSource, /"Názov", "title"/);
-  const draft = syncSource.slice(syncSource.indexOf("export async function writeBackDraftBreedEditorialToNotion("),
-    syncSource.indexOf("async function syncOneBreed("));
-  assert.doesNotMatch(draft, /"Stav":|slug: args.breed.slug|status: args.breed.status/);
-  assert.match(breedRouteSource, /writeBackDraftBreedEditorialToNotion\(/);
-  assert.match(breedRouteSource, /before.status === "draft" && breed.status === "draft"/);
+test("Admin writes every changed supported field independently, including published breeds",()=>{
+  assert.match(syncSource,/export async function writeBackBreedEditorialToNotion/);
+  assert.match(syncSource,/changedFieldKeys\?\?BREED_NOTION_EDITABLE_FIELDS/);
+  assert.match(syncSource,/breedNotionContentPatch\(field,after\[field\]\)/);
+  assert.match(syncSource,/BREED_NOTION_WRITEBACK_UNCONFIRMED/);
+  assert.match(breedRouteSource,/writeBackBreedEditorialToNotion\(/);
+  assert.match(breedRouteSource,/if \(bindings.DB\)/);
+  assert.match(syncSource,/richTextNotionValue\(stringValue/);
 });
 
-test("breed draft write-back checks Notion identity, source and unchanged remote revision", () => {
-  const draft = syncSource.slice(syncSource.indexOf("export async function writeBackDraftBreedEditorialToNotion("),
-    syncSource.indexOf("async function syncOneBreed("));
-  assert.match(draft, /notionPageBelongsToDataSource\(page, dataSourceId\)/);
-  assert.match(draft, /notionRichTextProperty\(page, "Psipedia ID"\)/);
-  assert.match(draft, /BREED_NOTION_REMOTE_EDITORIAL_CHANGED/);
-  assert.match(draft, /BREED_NOTION_FIELD_REVIEW_REQUIRED/);
-  assert.match(draft, /BREED_NOTION_WRITEBACK_ECHO_UNVERIFIED/);
-  const evidence = draft.indexOf("BREED_NOTION_WRITEBACK_ECHO_UNVERIFIED");
-  const mapping = draft.indexOf("UPDATE breed_notion_sync SET content_hash");
-  assert.ok(evidence >= 0 && mapping > evidence, "Mapping must follow verified Notion echo");
-  assert.match(draft, /WHERE notion_page_id=\? AND breed_id=\? AND content_hash=\?/);
-  assert.match(draft, /committed.meta.changes !== 1/);
+test("outbound writeback protects identity but not whole-page content revisions",()=>{
+  const writer=syncSource.slice(syncSource.indexOf("export async function writeBackBreedEditorialToNotion("),
+    syncSource.indexOf("/** Kept as a public alias"));
+  assert.match(writer,/notionPageBelongsToDataSource\(page,sourceId\)/);
+  assert.match(writer,/notionRichTextProperty\(page,"Psipedia ID"\)/);
+  assert.match(writer,/sameBreedField\(remote\[field\],oldNotion\[field\]\)/);
+  assert.match(writer,/acknowledged/);
+  assert.match(writer,/await upsertMapping/);
+  assert.doesNotMatch(writer,/BREED_NOTION_REMOTE_EDITORIAL_CHANGED/);
+  assert.doesNotMatch(writer,/BREED_NOTION_FIELD_REVIEW_REQUIRED/);
 });
 
-test("only conflicting Admin and Notion edits to the SAME breed field are blocked", () => {
-  const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
+test("normal editorial differences resolve by priority and never cause global locks",()=>{
+  const mapped=syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
-  assert.match(mapped, /planBreedNotionFieldDelta\(existing, basePayload/);
-  assert.match(mapped, /planSafeBreedFields|applySafeBreedSync/);
-  assert.match(mapped, /BREED_PSID_CONFLICT/);
-  assert.match(mapped, /receipt.hash === contentHash && canonicalTextDiffers/);
-  assert.doesNotMatch(mapped, /BREED_ADMIN_REVISION_NOT_SYNCED/);
-  assert.match(breedRouteSource, /notion_breed_draft_writeback_failed/);
-  assert.match(breedRouteSource, /notionEditorialWriteback/);
-  assert.match(breedRouteSource, /REMOTE_WRITEBACK_FAILED/);
+  assert.match(mapped,/planBreedNotionFieldDelta\(existing,basePayload/);
+  assert.match(mapped,/applySafeBreedSync/);
+  assert.match(mapped,/BREED_PSID_CONFLICT/);
+  assert.match(mapped,/unsent=BREED_NOTION_EDITABLE_FIELDS.filter/);
+  assert.match(mapped,/writeBackBreedEditorialToNotion/);
+  assert.doesNotMatch(mapped,/BREED_ADMIN_REVISION_NOT_SYNCED/);
+  assert.match(breedRouteSource,/notion_breed_writeback_retry_needed/);
 });
 
-test("hourly breed sweep replays unacknowledged Admin-only text changes safely", () => {
-  const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
+test("hourly sweep retries unacknowledged edits to all 93 content fields",()=>{
+  const mapped=syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
-  const replay = mapped.indexOf("const lastCommonText = { ...existing }");
-  const acknowledged = mapped.indexOf("if (mapping && receipt.hash === contentHash) {");
-  assert.ok(replay >= 0 && acknowledged > replay);
-  assert.match(mapped, /receipt.hash === contentHash && canonicalTextDiffers/);
-  assert.match(mapped, /await writeBackDraftBreedEditorialToNotion\(/);
-  assert.match(mapped, /if \(!result.updated\) throw new Error\("BREED_ADMIN_WRITEBACK_NOT_ACKNOWLEDGED"\)/);
-  assert.match(mapped, /lastCommonText\[key\] = notionBreedTextValue\(page, property\)/);
+  assert.match(mapped,/const unsent=BREED_NOTION_EDITABLE_FIELDS.filter/);
+  assert.match(mapped,/baselineSnapshot:fieldReceipt.admin/);
+  assert.match(mapped,/changedFieldKeys:unsent/);
+  assert.doesNotMatch(mapped,/canonicalTextDiffers/);
 });
