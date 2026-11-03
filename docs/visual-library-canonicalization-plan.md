@@ -1,6 +1,6 @@
 # Psipedia.sk – vizuálna knižnica a zjednotenie komponentov
 
-**Stav:** odsúhlasený cieľ vlastníka, implementácia jednotlivých etáp sa ešte nezačala.  
+**Stav:** implementované prvé tri vlny majiteľskej galérie, technického registra a lokálneho porovnávania. Trvalé rozhodnutia ani reálne zlučovanie ešte nie sú hotové.  
 **Východiskový PR:** #1181 (Draft, zdrojový JSX/CSS inventár).  
 **Primárny používateľ:** majiteľ projektu bez potreby pracovať s kódom.  
 **Primárny rozsah:** verejný web (desktop); inventár neskôr aj pre administráciu. Mobilné zobrazenie zachovať bez nevyžiadaných úprav.  
@@ -25,7 +25,7 @@ Každá karta vizuálneho prvku:
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
 
-## Priebežný stav implementácie (prvá vlna)
+## Priebežný stav implementácie (prvé tri vlny)
 
 - [x] Nová predvolená karta **Vizuálny prehľad** namiesto technického registra.
 - [x] Dlaždice s reálne vykreslenými komponentmi a stránkovaním po 12 skupinách.
@@ -46,7 +46,12 @@ Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch
 - [ ] Vizuálne overenie prihlásenej administrácie na desktope.
 - [ ] Rozšírenie z 51 náhľadov na úplné pokrytie skutočne vykresliteľných typov.
 - [ ] Presné potvrdené výskyty na reálnych URL vrátane dynamických profilov.
-- [ ] Jednoduché rozhodovanie „zjednotiť podľa A/B“ s frontom úloh.
+- [x] Tretia vlna: pri každej karte majiteľ klikne „Porovnať s iným prvkom“, zvolí dva ľubovoľné náhľady zo spoločnej galérie a zobrazí ich vedľa seba vrátane doložených URL.
+- [x] Päť rozhodnutí: zjednotiť podľa A, podľa B, nový spoločný vzhľad, už existujúca spoločná implementácia, ponechať rozdielne.
+- [x] Doplnkové poznámky, bezpečné kopírovanie zadania do chatu; žiadne priame publikovanie, zapisovanie do databázy ani mazanie kódu.
+- [x] Rozhodovací text stavia čistá testovateľná funkcia, ktorá rozlišuje konkrétne URL od kandidátskych šablón a pri voľbe ponechať/už spoločné nežiada mazanie.
+- [x] Kontrolné testy pre všetkých päť volieb sú zapojené do test:visual-library.
+- [ ] Trvalý front schválených rozhodnutí (samostatná etapa; zatiaľ iba kopírovateľný návrh).
 - [ ] Prvé reálne zlúčenie bannera Veterinári (samostatný schválený PR).
 
 ## Implementačné etapy
