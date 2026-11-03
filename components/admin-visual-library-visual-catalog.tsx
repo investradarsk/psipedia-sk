@@ -9,6 +9,7 @@ import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-lib
 import { AdminVisualLibraryOwnerCompare } from "@/components/admin-visual-library-owner-compare";
 import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library-dynamic-urls";
 import { relatedDynamicUrlKindForPreview } from "@/lib/visual-library-preview-related-urls";
+import { componentHtmlProbeIdForOwnerGroup } from "@/lib/visual-library-html-evidence";
 import { verifiedCanonicalRendererForGroup } from "@/lib/visual-library-canonical-renderers";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
@@ -388,7 +389,8 @@ export function AdminVisualLibraryVisualCatalog({
             </button>
           </div>
           {showRelatedProfiles && <AdminVisualLibraryDynamicUrls
-            key={chosen.id + ":" + relatedKind} initialKind={relatedKind} />}
+            key={chosen.id + ":" + relatedKind} initialKind={relatedKind}
+            componentId={componentHtmlProbeIdForOwnerGroup(chosen.id) ?? undefined} />}
         </section>}
         <details className={styles.visualCatalogTechnical}>
           <summary>Technické informácie (voliteľné)</summary>
