@@ -25,9 +25,9 @@ test("published breeds can receive approved Notion editorial updates without cha
   assert.match(syncSource, /Number\(rows\.results\[0\]\.fci_number\) !== fciNumber/);
   assert.match(syncSource, /BREED_MAPPING_REVIEW_REQUIRED/);
   assert.match(syncSource, /existing\.status === "published"/);
-  assert.match(syncSource, /status: existing\.status/);
-  assert.match(syncSource, /accent: existing\.accent/);
-  assert.match(syncSource, /image: existing\.image/);
+  assert.match(syncSource, /status:\s*existing\.status/);
+  assert.match(syncSource, /accent:\s*existing\.accent/);
+  assert.match(syncSource, /image:\s*existing\.image/);
   assert.match(syncSource, /BREED_CREATE_REQUIRES_READY/);
 });
 
