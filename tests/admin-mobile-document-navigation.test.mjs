@@ -29,7 +29,7 @@ test("admin route failure renders retry and safe full-document escape links inst
   assert.match(boundary, /Administrácia sa nenačítala/);
   assert.match(boundary, /window\.location\.reload\(\)/);
   assert.match(boundary, /onClick=\{reset\}/);
-  assert.match(boundary, /<a href="\/admin">Pracovný prehľad<\/a>/);
-  assert.match(boundary, /<a href="\/admin\/clanky">Články<\/a>/);
+  assert.match(boundary, /<Link href="\/admin" prefetch=\{false\}>Pracovný prehľad<\/Link>/);
+  assert.match(boundary, /<Link href="\/admin\/clanky" prefetch=\{false\}>Články<\/Link>/);
   assert.doesNotMatch(boundary, /error\.message/);
 });
