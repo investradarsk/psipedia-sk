@@ -119,7 +119,7 @@ export function AdminVisualLibraryDeepAudit({
   const [limit,setLimit] = useState(PAGE_SIZE);
   const audit = registry.deepAudit;
   const modules = useMemo(
-    ()=>new Map((audit?.modules??[]).map(item=>[item.path,item])),
+    ()=>new Map<string,DeepVisualModule>((audit?.modules??[]).map(item=>[item.path,item] as const)),
     [audit],
   );
   if(!audit)return <section className={styles.deepAudit} aria-label="Úplný inventár">
