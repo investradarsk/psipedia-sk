@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { detailComponentProbeForGroup } from "../lib/visual-library-preview-related-urls.ts";
 import {
   componentHtmlSelectors, componentHtmlProbeIdForOwnerGroup,
   validHtmlProbe, classifyHtmlInspection,
@@ -38,6 +39,27 @@ test("only audited, literal public DOM markers can prove a component is in serve
   assert.equal(componentHtmlProbeIdForOwnerGroup("__proto__"), null);
   assert.equal(validHtmlProbe({kind:"component",componentId:"h1, body"}), false);
   assert.equal(validHtmlProbe({kind:"component",componentId:"magazine"}), false);
+});
+
+test("only confirmed detail-page components receive component-level probes on published profiles", () => {
+  assert.equal(detailComponentProbeForGroup("directory-services-short","directory"),"directory-services-short");
+  for (const [group,kind] of [
+    ["directory-card","directory"],
+    ["breed-card","breeds"],
+    ["event-list","events"],
+    ["help-card","help"],
+    ["help-profile","help"],
+    ["directory-category-navigation","directory"],
+    ["event-listing-filtered","events"],
+  ]) assert.equal(detailComponentProbeForGroup(group,kind),null);
+
+  const detail = read("components/directory-profile-detail.tsx");
+  const page = read("app/adresar/[category]/[slug]/page.tsx");
+  const catalog = read("components/admin-visual-library-visual-catalog.tsx");
+  assert.match(detail, /<DirectoryServicesList services=\{presentation\.services\}/);
+  assert.match(page, /<DirectoryProfileDetail/);
+  assert.match(catalog, /componentId=\{detailComponentProbeForGroup\(chosen\.id, relatedKind\)/);
+  assert.match(catalog, /<AdminVisualLibraryHtmlCheck url=\{use\.url\}/);
 });
 
 test("component checks are click-only, page-bound, and do not claim hydration or mobile evidence", () => {
