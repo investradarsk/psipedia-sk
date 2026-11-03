@@ -172,7 +172,10 @@ export function reconcileProfileFieldsWithoutBaseline(input: {
     }
     if (same(remote[path], local[path])) continue;
     if (protectedPath(path, input.protectedFields)) {
-      if (!input.canonicalFieldsWin) {
+      // Without a verified common snapshot we cannot prove a publication or
+      // identity change was canonical-only. Never silently overwrite a
+      // simultaneously edited Notion status, slug or category.
+      if (!input.canonicalFieldsWin || ["status", "slug", "category"].includes(path)) {
         conflicts.push({ field: path, reason: "PROTECTED_FIELD" });
       } else if (blank(local[path]) && !blank(remote[path])
           && !input.verifiedDeletes?.has(`psipedia:${path}`)) {
