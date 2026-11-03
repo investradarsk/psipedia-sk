@@ -90,8 +90,8 @@ export function validateManualTransferRequest(
     || areaOfManualTransferScope(input.scope) !== input.area
     || !groups.some((group) => group.scope === input.scope && group.active)))
     throw new Error("TRANSFER_SCOPE_UNSUPPORTED");
-  if (input.selection === "ONE" && (!Number.isSafeInteger(input.profileId)
-    || (input.profileId as number) < 1))
+  if (input.selection === "ONE" && (typeof input.profileId !== "number"
+    || !Number.isSafeInteger(input.profileId) || input.profileId < 1))
     throw new Error("TRANSFER_PROFILE_ID_INVALID");
   if (input.selection === "ALL" && input.profileId !== undefined)
     throw new Error("TRANSFER_PROFILE_ID_UNEXPECTED");
@@ -156,6 +156,8 @@ export function previewManualTransferRecord(args: {
 } {
   if (!args.group.active || areaOfManualTransferScope(args.group.scope) === null)
     throw new Error("TRANSFER_SCOPE_UNSUPPORTED");
+  if (args.direction !== "NOTION_TO_ADMIN" && args.direction !== "ADMIN_TO_NOTION")
+    throw new Error("TRANSFER_DIRECTION_INVALID");
   const matched = Number.isSafeInteger(args.canonicalId)
     && args.canonicalId > 0
     && args.linkedCanonicalId === args.canonicalId
