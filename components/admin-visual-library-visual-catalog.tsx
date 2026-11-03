@@ -54,6 +54,7 @@ const FAMILY_LABELS: readonly { id: Family; label: string }[] = [
  */
 const VARIANT_OF: Readonly<Record<string, string>> = {
   "magazine-photo": "magazine",
+  "subcategory-compact": "subcategory-landing",
   "context-photo": "context",
   "sponsored": "article",
   "section-header-image": "section-header",
