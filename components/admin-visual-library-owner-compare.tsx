@@ -7,6 +7,7 @@ import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
 import type { VisualBanner } from "@/lib/visual-library-banners";
 import type { OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
+import { suggestOwnerVisualPairs } from "@/lib/visual-library-owner-suggestions";
 import { buildOwnerDecisionRequest, OWNER_DECISION_OPTIONS, type OwnerDecisionKind } from "@/lib/visual-library-owner-decision";
 import {
   isMergeRequest, orientSavedDecision, ownerDecisionLabel,
@@ -18,6 +19,7 @@ type Sample = (typeof adminComponentPreviewSamples)[number];
 export type OwnerCompareGroup = {
   id: string;
   title: string;
+  family: string;
   samples: Sample[];
   examples: VisualLibraryExample[];
   banners: VisualBanner[];
@@ -96,6 +98,7 @@ export function AdminVisualLibraryOwnerCompare({
     ?? right?.banners.find((s) => s.id === rightVariant)?.id
     ?? (right && variants(right)[0]?.id) ?? "";
   const valid = Boolean(left && right && left.id !== right.id);
+  const suggestions = suggestOwnerVisualPairs(groups, 10);
 
   const loadQueue = async (offset: number) => {
     setQueueLoading(true);
@@ -211,6 +214,14 @@ export function AdminVisualLibraryOwnerCompare({
     } finally {
       setSaving(false);
     }
+  };
+
+  const selectSuggested = (a: string, b: string) => {
+    setLeftId(a);
+    setRightId(b);
+    setLeftVariant("");
+    setRightVariant("");
+    reset();
   };
 
   const openSaved = (record: SavedOwnerDecision) => {
@@ -335,6 +346,29 @@ export function AdminVisualLibraryOwnerCompare({
       {queueNext !== null && <button type="button" disabled={queueLoading}
         onClick={() => void loadQueue(queueNext)}>Zobraziť ďalšie uložené rozhodnutia</button>}
     </section>
+    {suggestions.length > 0 && <section className={styles.ownerCompareSuggestions}
+      aria-label="Navrhované podobné prvky na vizuálnu kontrolu">
+      <div>
+        <h4>Podobné prvky na porovnanie ({suggestions.length})</h4>
+        <p>Návrhy vznikajú podľa kategórie, účelu a doložených či kandidátskych stránok.
+          Nejde o potvrdené grafické ani kódové duplicity; over ich vzhľad A/B.</p>
+      </div>
+      <div className={styles.ownerCompareSuggestionsList}>
+        {suggestions.map((candidate) => {
+          const a = groups.find((item) => item.id === candidate.leftId);
+          const b = groups.find((item) => item.id === candidate.rightId);
+          if (!a || !b) return null;
+          return <button type="button" key={candidate.leftId + "|" + candidate.rightId}
+            aria-pressed={(leftId === a.id && rightId === b.id) ||
+              (leftId === b.id && rightId === a.id)}
+            onClick={() => selectSuggested(a.id, b.id)}>
+            <strong>{a.title} × {b.title}</strong>
+            <small>{candidate.reasons.join(" · ")}</small>
+            <span>Porovnať dvojicu</span>
+          </button>;
+        })}
+      </div>
+    </section>}
     <div className={styles.ownerCompareSelectors}>
       <label>Komponent A
         <select value={leftId} onChange={(event) => { setLeftId(event.target.value); setLeftVariant(""); reset(); }}>
