@@ -2,6 +2,7 @@ import { ContentHubCta } from "./content-hub-cta";
 import { AdminProfileComponentPreview } from "./admin-visual-library-profile-previews";
 import { AdminDetailComponentPreview } from "./admin-visual-library-detail-previews";
 import { AdminExtraComponentPreview } from "./admin-visual-library-extra-previews";
+import { AdminMoreComponentPreview } from "./admin-visual-library-more-previews";
 import { PublicActionLink } from "./public-visual-system/public-visual-system";
 import { PublicArticleCallout } from "./public-visual-system/public-article-callout";
 import { PublicContextBanner } from "./public-visual-system/public-context-banner";
@@ -90,6 +91,17 @@ export const adminComponentPreviewSamples = [
   { id: "portal-section-tabs", path: "components/portal-section-tabs.tsx", family: "category", title: "Sekciová navigácia Šteniatka", description: "Skutočný prepínač podkategórií v sekcii s ilustračnými odkazmi, postavený na spoločnom navigátore." },
   { id: "article-card-grid", path: "components/article-card.tsx", family: "card", title: "Článok – štandardná karta", description: "Skutočný verejný ArticleCard vo výpise článkov, iba vzorový obsah." },
   { id: "article-card-featured", path: "components/article-card.tsx", family: "card", title: "Článok – zvýraznená karta", description: "Rovnaký ArticleCard vo variante featured s vlastným demo obsahom." },
+  { id: "breed-fci-disclosure", path: "components/breed-fci-disclosure.tsx", family: "other", title: "Plemeno – rozbalenie FCI štandardu", description: "Skutočný interaktívny ovládač z detailu plemena." },
+  { id: "breed-photo-fallback", path: "components/breed-photo.tsx", family: "card", title: "Plemeno – náhradná fotografia", description: "Skutočný BreedPhoto pri nezadanej fotografii." },
+  { id: "directory-opening-hours", path: "components/directory-opening-hours.tsx", family: "other", title: "Služba – otváracie hodiny", description: "Spoločná prezentácia hodín na detailoch služieb." },
+  { id: "dog-age-calculator", path: "components/dog-age-calculator.tsx", family: "other", title: "Kalkulačka veku psa", description: "Reálny interaktívny prepočet veku bez zápisu dát." },
+  { id: "event-image-fallback", path: "components/event-image.tsx", family: "card", title: "Podujatie – náhradný obrázok", description: "Skutočný obrázkový komponent pri chýbajúcej fotke." },
+  { id: "events-back-link", path: "components/events-return-link.tsx", family: "cta", title: "Podujatie – späť na výsledky", description: "Skutočný spätný odkaz bez aktivácie histórie v ukážke." },
+  { id: "help-report-guide", path: "components/help-report-guide.tsx", family: "other", title: "Pomoc psom – návod na nahlásenie", description: "Reálna návodová stránka, výrez celej sekcie." },
+  { id: "horizontal-carousel-controls", path: "components/horizontal-carousel-controls.tsx", family: "cta", title: "Carousel – ovládacie šípky", description: "Skutočné ovládacie šípky horizontálneho zoznamu." },
+  { id: "public-filter-disclosure", path: "components/public-filter-disclosure.tsx", family: "filter", title: "Rozbaľovacie filtre", description: "Skutočný ovládač filtrov s dvomi aktívnymi položkami." },
+  { id: "public-profile-hero", path: "components/public-profile/public-profile-hero.tsx", family: "hero", title: "Profil – spoločná hlavička", description: "Skutočná hlavička profilu s ukážkovými údajmi." },
+  { id: "related-entity-links", path: "components/related-entity-links.tsx", family: "category", title: "Súvisiace odkazy", description: "Skutočný komponent pre interné prepojenia obsahu." },
   { id: "breadcrumbs", path: "components/page-system.tsx", family: "category", title: "Drobečková navigácia", description: "Spoločná navigácia používaná v detailoch a sekciách, ilustračné odkazy." },
   { id: "section-tabs", path: "components/page-system.tsx", family: "category", title: "Záložky sekcie", description: "Skutočný kontajner pre sekciové záložky s ukážkovými odkazmi." },
 ] as const;
@@ -98,6 +110,18 @@ export type AdminComponentPreviewId = (typeof adminComponentPreviewSamples)[numb
 
 export function AdminComponentVisualPreview({ id }: { id: AdminComponentPreviewId }) {
   switch (id) {
+    case "breed-fci-disclosure":
+    case "breed-photo-fallback":
+    case "directory-opening-hours":
+    case "dog-age-calculator":
+    case "event-image-fallback":
+    case "events-back-link":
+    case "help-report-guide":
+    case "horizontal-carousel-controls":
+    case "public-filter-disclosure":
+    case "public-profile-hero":
+    case "related-entity-links":
+      return <AdminMoreComponentPreview id={id} />;
     case "help-profile":
     case "help-profile-urgent":
     case "help-category-nav":
