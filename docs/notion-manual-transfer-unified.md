@@ -1,9 +1,9 @@
-# Psipedia — spoločný jednorazový prenos Notion ↔ Admin (1/3)
+# Psipedia — jednotný jednorazový prenos Notion ↔ Admin (3/3)
 
 ## Schválený rozsah
 
 Jeden spoločný PR, tri samostatné nadväzujúce časti. V tejto vetve sa
-nemerguje ani nespúšťajú produkčné zápisy, kým nebude hotová časť 3.
+nemerguje bez zelených kontrol. Produkčné zápisy sa nespúšťajú pri merge.
 
 | Oblasť | Skutočné synchronizačné scope |
 | --- | --- |
@@ -29,12 +29,12 @@ nemerguje ani nespúšťajú produkčné zápisy, kým nebude hotová časť 3.
 - Výslovná výnimka pre hlavnú fotografiu/galériu/vzťahy plemien,
   kým nebude napojený bezpečný adaptér. Systém ich nemá predstierať ako
   úspešne prenesené ani ich nahradiť jednoduchým textovým PATCH.
-- Pripravené tri samostatné D1 tabuľky v návrhu databázovej migrácie (zatiaľ bez čísla): beh,
+- Pripravené tri samostatné D1 tabuľky v chránenej migrácii `0156`: beh,
   spracovávaný profil a výsledok konkrétneho poľa. Nepersistujú obsahové
   hodnoty profilov, iba ID, stavy a kódy chýb.
 - Nový autorizovaný, len čítací endpoint
   `GET /api/admin/notion-manual-transfer/capabilities`.
-  Výslovne hlási `executable: false`: žiadne nefunkčné tlačidlá.
+  V časti 1 hlásil `executable: false`; finálne rozhranie sa sprístupní až po samostatnej aktivácii.
 - Offline testy kontraktu a SQLite schémy + vlastný PR CI workflow.
 
 **Poznámka:** toto ešte nemení správanie existujúcich automatických
@@ -58,13 +58,12 @@ starých/nesprávne potvrdených hodnôt nie je implementované v časti 1.
   v existujúcom minútovom crone. Má atomický claim, opakovanie
   do 8 pokusov, oneskorenie medzi pokusmi, trvalé ID úlohy
   a výsledný stav na úrovni profilu.
-- `POST /api/admin/notion-manual-transfer` vytvorí prenos až
-  po striktnej serverovej validácii a potvrdení
-  `CONFIRM_NOTION_MANUAL_TRANSFER`. Existuje aj read-only
+- `POST /api/admin/notion-manual-transfer` najprv vytvára len čítací
+  náhľad. Samotné zápisy vyžadujú druhú požiadavku
+  `CONFIRM_NOTION_MANUAL_TRANSFER` pre úplne preskúmaný beh. Existuje aj read-only
   `GET` na zistenie stavu behu.
 - Feature flag `NOTION_MANUAL_TRANSFER_ENABLED` je **OFF**,
-  kým vlastník nenasadí budúcu očíslovanú a schválenú databázovú migráciu, nedokončí
-  časť 3, neoverí E2E výsledok a výslovne ho nezapne.
+  kým vlastník nenasadí schválenú migráciu `0156`, neoverí výsledok a výslovne ho nezapne.
   Žiadna produkčná migrácia ani jednorazový prenos nie sú vykonané.
 - Pri starom historicky potvrdenom rozdiele v Plemenách môže
   vynútený smer opraviť obsah bez novej zmeny v Notione.
@@ -73,30 +72,47 @@ starých/nesprávne potvrdených hodnôt nie je implementované v časti 1.
 - Kód má samostatné offline testy smeru, výslovných prázdnych
   hodnôt, ochrany systémových polí a izolácie od bežného cronu.
 
-**Neuzavreté v časti 2:** doteraz žiadny systém nepreukazuje
-zhodu každého individuálneho poľa **po** ručnom prenose pre všetky
-agendy. Pripravené `notion_manual_transfer_field_results` zatiaľ
-neobsahujú overené položky. Samostatne treba implementovať
-bezpečné adaptéry pre špeciálne médiá, galérie a vzťahy plemien
-(teraz sú zámerne mimo vynúteného všeobecného prepisu).
-Týmto neoznačovať plnú funkčnosť „všetky stĺpce“ za hotovú.
+## Časť 3 — implementovaná; aktivácia len po manuálnom schválení
 
-## Časť 3 — po pokyne „Pokračuj 3“
+- V Admin → Nastavenia → Notion je jeden formulár pre všetkých päť oblastí.
+  Umožňuje smer, rozsah jeden profil / všetky profily, kategóriu a Psipedia ID.
+- Vytvorenie behu je **len návrh náhľadu** (stav `PREVIEW`).
+  Cron po dvoch profiloch číta skutočné hodnoty Notion a D1, eviduje každý
+  rozdiel (`CHANGE`), zhodu (`SAME`) a preskočené polia (`SKIPPED`).
+  Načítané hodnoty sa neukladajú do reportu; do D1 ide len ich fingerprint.
+- Keď sú všetky profily preskúmané (`PREVIEW_READY`), Admin vyžaduje
+  samostatné potvrdenie. Až potom sa beh zmení na `QUEUED`.
+- Pri vykonávaní sa pred prvým zápisom porovnajú aktuálne údaje s uloženým
+  fingerprintom náhľadu. Ak medzitým prišla zmena, prenos je označený
+  `TRANSFER_PREVIEW_STALE` a bez prepísania končí chybou.
+- Po zápise sa znovu načítajú Notion aj Admin. Každé pole samostatne
+  dostane `SAME`, `UPDATED`, `SKIPPED` alebo `FAILED` a kód dôvodu.
+  Report nezamieňa `DONE` webhooku za potvrdenú dátovú zhodu.
+- UI obsahuje progres, posledných 15 behov, filtrovanie chybných profilov,
+  stránkovaný detail polí a opakovaný **nový náhľad iba neúspešných profilov**.
+- Migrácia `drizzle/0156_notion_manual_transfer_jobs.sql` je dostupná iba
+  v existujúcom chránenom produkčnom workflow po potvrdení majiteľom.
+  Žiadna migrácia sa nespustí pri merge.
+- Funkcia je predvolene vypnutá cez `NOTION_MANUAL_TRANSFER_ENABLED`.
+  Zapnutie tohto prepínača je samostatné vedomé rozhodnutie po schválení
+  migrácie. Pred aktiváciou Admin jasne ukazuje, že prenos nie je dostupný.
 
-- Rozhranie v Admin → Nastavenia → Notion: oblasť, podkategória/profil,
-  smer, náhľad rozdielov, potvrdenie, stav priebehu.
-- Skutočná nezávislá verifikácia všetkých podporovaných polí po prenose,
-  záznam jednotlivých `notion_manual_transfer_field_results` a hlásenie
-  vynechaných mediálnych/reláciových adaptérov bez falošného úspechu.
-- Úspešné/preskočené/neúspešné polia s konkrétnym profilom a dôvodom;
-  história a opakovať len neúspešné. Report ukazuje aj rozdiel
-  medzi transportne úspešnou udalosťou a overenou rovnosťou po zápise.
-- Testy naprieč skutočnými adaptérmi všetkých 5 oblastí a produkčný
-  preflight pred merge. Žiadny automatický hromadný prepis pri merge.
+### Známe obmedzenia (neprezentovať ako úspech)
+
+- Vynútený hromadný prenos neprepisuje kanonický Services V3,
+  publikovanie, identitu ani potvrdené Google údaje.
+- Fotografie, galérie a vzťahy plemien, logo e-shopu a obrazové súbory
+  ďalších oblastí potrebujú vlastné adaptéry. V reporte sú zreteľne
+  `SKIPPED – SPECIAL_ADAPTER_REQUIRED` (alebo pevne chránené), nie `UPDATED`.
+- Čiastočná chyba poskytovateľa môže spôsobiť úspešný zápis niekoľkých polí
+  a chybné iné polia. Prvý beh sa preto nereprezentuje ako atomický prepis profilu.
+- Pripravený testovací balík je offline; reálne Notion API a D1 sa musia
+  overiť na jednom kontrolnom profile **po** manuálnej produkčnej aktivácii.
+  Samotné zelené CI nepreukazuje kvalitu všetkých historických údajov.
 
 ## Invarianty
 
-1. Správny profily a prepojené Notion page ID musia byť overené pred zápisom.
+1. Správny profil a prepojené Notion page ID musia byť overené pred zápisom.
 2. Prázdny existujúci údaj (výslovné vymazanie) a chýbajúci stĺpec nie sú to isté.
 3. Čiastočné zlyhanie jedného poľa nesmie byť nahlásené ako úspech celého profilu.
 4. Trvalé priority polí sa jednorazovým prenosom **nemenia**.
