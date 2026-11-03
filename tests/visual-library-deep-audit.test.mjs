@@ -23,14 +23,15 @@ test("full audit includes inline JSX from pages, layouts and components missed b
   add(root,"components/one.tsx",jsxText);
   add(root,"components/two.tsx",jsxText);
   add(root,"components/third.tsx",jsxText.replace("Titulok","Iný titulok"));
+  add(root,"components/fourth.tsx",jsxText.replace("<footer>","<aside>").replace("</footer>","</aside>"));
   add(root,"lib/server-only.tsx",'export function Icon(){return <svg><path d="x"/></svg>}');
   add(root,"components/not-visual.tsx",'export const number=3');
   const reg=buildRegistry(root);
   const audit=reg.deepAudit;
   assert.equal(reg.version,3);
   assert.equal(audit.version,1);
-  assert.equal(audit.totals.jsxFiles,7);
-  assert.equal(audit.modules.length,7);
+  assert.equal(audit.totals.jsxFiles,8);
+  assert.equal(audit.modules.length,8);
   assert.equal(audit.totals.otherJsxFiles,4);
   assert.equal(audit.modules.find(m=>m.path==="app/page.tsx").role,"page");
   assert.equal(audit.modules.find(m=>m.path==="app/(site)/layout.tsx").role,"layout");
@@ -39,6 +40,10 @@ test("full audit includes inline JSX from pages, layouts and components missed b
   assert.ok(audit.similarStructureGroups.some(group=>
     group.files.includes("components/third.tsx")&&group.files.includes("components/one.tsx")));
   assert.ok(!audit.modules.some(m=>m.path==="components/not-visual.tsx"));
+  assert.ok(audit.nearJsxCandidates.some(pair=>
+    [pair.leftPath,pair.rightPath].includes("components/fourth.tsx")&&
+    pair.score>=88&&pair.sharedTags>=7));
+  assert.equal(audit.totals.nearJsxCandidatePairs,audit.nearJsxCandidates.length);
 });
 
 test("CSS scanning matches equal declaration sets across files while preserving at-rule context", t=>{
@@ -75,6 +80,7 @@ test("audit UI is searchable, paginated, honest and never mutates public CSS or 
   assert.match(ui,/Totožné zdrojové súbory/);
   assert.match(ui,/Rovnaká JSX štruktúra/);
   assert.match(ui,/Opakované CSS deklarácie/);
+  assert.match(ui,/Veľmi podobné JSX/);
   assert.match(ui,/Nič sa automaticky nezlučuje ani nemaže/);
   assert.match(parent,/useState<"register"/);
   assert.match(parent,/AdminVisualLibraryDeepAudit registry=\{registry\}/);
