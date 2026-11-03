@@ -143,6 +143,71 @@ export function reconcileProfileFields(input: {
 
 
 /**
+ * A missing historical baseline is not evidence of a last edit. Only
+ * explicitly configured per-field authority (or immutable canonical
+ * ownership) can resolve different current values without guessing.
+ *
+ * Unresolved fields remain conflicts. The caller may independently persist
+ * authorized, non-destructive fields using targeted writes, but MUST NOT
+ * advance a full-record mapping hash while any conflict remains.
+ */
+export function reconcileProfileFieldsWithoutBaseline(input: {
+  notion: FieldSnapshot;
+  psipedia: FieldSnapshot;
+  protectedFields: ReadonlySet<string>;
+  canonicalFieldsWin?: boolean;
+  verifiedDeletes?: ReadonlySet<string>;
+  authorities?: Readonly<Record<string, "safe" | "notion" | "admin" | "latest">>;
+}): FieldResolution {
+  const merged = structuredClone(input.psipedia);
+  const remote = leaves(input.notion);
+  const local = leaves(input.psipedia);
+  const conflicts: FieldConflict[] = [];
+  const notionFields: string[] = [];
+  const psipediaFields: string[] = [];
+  for (const path of new Set([...Object.keys(remote), ...Object.keys(local)])) {
+    if (!Object.hasOwn(remote, path) || !Object.hasOwn(local, path)) {
+      conflicts.push({ field: path, reason: "MISSING_FIELD" });
+      continue;
+    }
+    if (same(remote[path], local[path])) continue;
+    if (protectedPath(path, input.protectedFields)) {
+      if (!input.canonicalFieldsWin) {
+        conflicts.push({ field: path, reason: "PROTECTED_FIELD" });
+      } else if (blank(local[path]) && !blank(remote[path])
+          && !input.verifiedDeletes?.has(`psipedia:${path}`)) {
+        conflicts.push({ field: path, reason: "UNVERIFIED_DELETE" });
+      } else psipediaFields.push(path);
+      continue;
+    }
+    const authority = input.authorities?.[path] ?? "safe";
+    if (authority === "notion") {
+      if (blank(remote[path]) && !blank(local[path])
+          && !input.verifiedDeletes?.has(`notion:${path}`)) {
+        conflicts.push({ field: path, reason: "UNVERIFIED_DELETE" });
+      } else {
+        setLeaf(merged, path, remote[path]);
+        notionFields.push(path);
+      }
+    } else if (authority === "admin") {
+      if (blank(local[path]) && !blank(remote[path])
+          && !input.verifiedDeletes?.has(`psipedia:${path}`)) {
+        conflicts.push({ field: path, reason: "UNVERIFIED_DELETE" });
+      } else psipediaFields.push(path);
+    } else {
+      // 'latest' cannot be established from record-level timestamps.
+      conflicts.push({ field: path, reason: "BASELINE_UNAVAILABLE" });
+    }
+  }
+  return {
+    kind: conflicts.length ? "CONFLICT"
+      : notionFields.length || psipediaFields.length ? "MERGE" : "UNCHANGED",
+    merged, conflicts, notionFields, psipediaFields,
+  };
+}
+
+
+/**
  * An unchanged side (matching the last acknowledged mapping hash) is a
  * cryptographically verified copy of the prior common editorial state.
  * Reconstruct that baseline without requiring a new D1 table. When both
