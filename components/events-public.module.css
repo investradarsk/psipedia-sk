@@ -2817,6 +2817,7 @@
   .calendar[data-event-workspace] {
     display: grid;
     grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     gap: 16px 20px;
     align-items: start;
   }

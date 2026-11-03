@@ -258,6 +258,18 @@ test.describe("final events acceptance", () => {
       expect(indicators.outside).toBe(false);
       expect(indicators.width).toBeGreaterThanOrEqual(24);
       expect(indicators.height).toBeGreaterThanOrEqual(44);
+      if (width > 820) {
+        const calendar = await page
+          .locator("[data-event-workspace] > [data-events-calendar-layout]")
+          .boundingBox();
+        const filters = await page
+          .locator("[data-event-workspace] [data-public-filter-panel]")
+          .boundingBox();
+        expect(calendar).not.toBeNull();
+        expect(filters).not.toBeNull();
+        expect(filters!.y - (calendar!.y + calendar!.height)).toBeGreaterThanOrEqual(0);
+        expect(filters!.y - (calendar!.y + calendar!.height)).toBeLessThanOrEqual(24);
+      }
       const banner = await page.locator("[data-public-context-banner]").boundingBox();
       expect(banner!.height).toBeLessThanOrEqual(width > 820 ? 171 : 260);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
