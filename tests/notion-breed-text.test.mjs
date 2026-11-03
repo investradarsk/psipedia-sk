@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { notionBreedRichTextProperty } from "../lib/notion-breed-text.ts";
+import { notionBreedRichTextProperty, sameBreedSyncValue } from "../lib/notion-breed-text.ts";
 
 test("breed Notion text preserves paragraphs across API rich_text parts", () => {
   const page = { properties: { "Zdravie": { rich_text: [
@@ -17,4 +17,9 @@ test("breed Notion text reads mocked text.content and ignores absent data", () =
   ] } } };
   assert.equal(notionBreedRichTextProperty(page, "FCI pohyb"), "Plynulý,  \npružný pohyb.");
   assert.equal(notionBreedRichTextProperty(page, "Nenájdené"), "");
+});
+
+test("breeds treat paragraph-only edits as real changes, avoiding lost Admin formatting", () => {
+  assert.equal(sameBreedSyncValue("Odsek A\n\nOdsek B", "Odsek A Odsek B"), false);
+  assert.equal(sameBreedSyncValue("Rovnaké\ntexty", "Rovnaké\ntexty"), true);
 });
