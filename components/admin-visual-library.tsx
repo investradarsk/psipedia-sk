@@ -5,6 +5,7 @@ import { PublicMagazineBanner } from "@/components/public-visual-system/public-m
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
 import { AdminVisualLibraryOther } from "@/components/admin-visual-library-other";
 import { AdminVisualLibraryGallery } from "@/components/admin-visual-library-gallery";
+import { AdminVisualLibraryVisualCatalog } from "@/components/admin-visual-library-visual-catalog";
 import { AdminVisualLibraryDeepAudit } from "@/components/admin-visual-library-deep-audit";
 import { adminComponentPreviewSamples } from "@/components/admin-component-visual-preview";
 import { AdminVisualLibraryDuplicates } from "@/components/admin-visual-library-duplicates";
@@ -19,7 +20,7 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
   examples: readonly VisualLibraryExample[];
   registry: CoverageRegistry;
 }) {
-  const [category, setCategory] = useState<"register" | "bannery" | "podobne" | "vsetko" | "galeria" | "filtre" | "navigacia" | "ostatne" | VisualExampleCategory>("register");
+  const [category, setCategory] = useState<"prehlad" | "register" | "bannery" | "podobne" | "vsetko" | "galeria" | "filtre" | "navigacia" | "ostatne" | VisualExampleCategory>("prehlad");
   const [editorOpen, setEditorOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [group, setGroup] = useState<"all" | "clanky" | "stranky">("all");
@@ -69,7 +70,7 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
         <div>
           <p className={styles.kicker}>Vizuálna knižnica · priebežné pokrytie</p>
           <h2>Čo používame na webe</h2>
-          <p>Celý zdrojový inventár a podobnosti máš na prvých dvoch kartách. Ostatné zobrazujú náhľady a overené použitia jednotlivých prvkov.</p>
+          <p>Ako prvé si pozri skutočné grafické náhľady. Podobné prvky môžeš porovnať, technický register je dostupný samostatne.</p>
         </div>
         <div className={styles.count}><strong>{adminComponentPreviewSamples.length}</strong><span>živých variantov v galérii</span></div>
       </header>
@@ -87,8 +88,9 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
       </p>
       <nav className={styles.types} aria-label="Kategórie knižnice">
         {([
-          ["register", "Úplný register"],
+          ["prehlad", "Vizuálny prehľad"],
           ["podobne", "Podobnosti a duplicity"],
+          ["register", "Technický register"],
           ["bannery", "Bannery"],
           ["hero", "Hero sekcie"],
           ["cta", "CTA tlačidlá"],
@@ -104,7 +106,9 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
         ))}
       </nav>
 
-      {category === "register" ? (
+      {category === "prehlad" ? (
+        <AdminVisualLibraryVisualCatalog registry={registry} onCompare={() => setCategory("podobne")} />
+      ) : category === "register" ? (
         <AdminVisualLibraryDeepAudit registry={registry} />
       ) : category === "bannery" ? (
       <>
