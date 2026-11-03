@@ -5,7 +5,7 @@ import {
   AdminComponentVisualPreview,
   adminComponentPreviewSamples,
 } from "@/components/admin-component-visual-preview";
-import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-library-missing-previews";
+import { AdminVisualLibraryFullInventory } from "@/components/admin-visual-library-full-inventory";
 import { AdminVisualLibraryOwnerCompare } from "@/components/admin-visual-library-owner-compare";
 import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library-dynamic-urls";
 import { AdminVisualLibraryHtmlCheck } from "@/components/admin-visual-library-html-check";
@@ -181,6 +181,16 @@ export function AdminVisualLibraryVisualCatalog({
   const relatedKind = chosen ? relatedDynamicUrlKindForPreview(chosen.id) : null;
   const dynamicRoutes = (chosen?.routes ?? []).filter((route) =>
     route.includes("[") && publicRegistryRouteHref(route) === null);
+
+  const openSourcePreview = (path: string) => {
+    const match = groups.find((group) => group.paths.includes(path));
+    if (!match) return;
+    setQuery("");
+    setFamily("all");
+    setSelectedId(match.id);
+    setVariantId("");
+    setLimit(PAGE_SIZE);
+  };
 
   const openCompare = (id: string) => {
     setCompareStart(id);
@@ -421,7 +431,7 @@ export function AdminVisualLibraryVisualCatalog({
         </details>
       </section>}
 
-      <AdminVisualLibraryMissingPreviews registry={registry} extraPreviewPaths={coveredSourcePaths} />
+      <AdminVisualLibraryFullInventory registry={registry} onOpenPreview={openSourcePreview} />
       <p className={styles.nextStep}>Toto je prvá etapa vizuálneho katalógu.
         Zatiaľ sa nič automaticky nespája, nemaže ani nepublikuje.
         Reálne zlúčenie do jedného spoločného komponentu príde až po výbere a overení výskytov.</p>
