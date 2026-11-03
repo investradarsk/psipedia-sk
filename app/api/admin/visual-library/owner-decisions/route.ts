@@ -4,6 +4,7 @@ import {
   unauthorizedAdminResponse,
 } from "@/lib/admin-auth";
 import {
+  getOwnerDecision,
   listOwnerDecisions,
   saveOwnerDecision,
 } from "@/lib/visual-library-owner-decision-store";
@@ -24,6 +25,13 @@ export async function GET(request: Request) {
   if (!await getAdminApiUser()) return unauthorizedAdminResponse();
   try {
     const url = new URL(request.url);
+    const leftId = url.searchParams.get("leftId");
+    const rightId = url.searchParams.get("rightId");
+    if (leftId !== null || rightId !== null) {
+      if (!leftId || !rightId) throw new Error("Vyber dva rozdielne komponenty.");
+      const decision = await getOwnerDecision(leftId, rightId);
+      return Response.json({ decision }, { headers: PRIVATE_HEADERS });
+    }
     const offsetValue = url.searchParams.get("offset");
     const limitValue = url.searchParams.get("limit");
     const offset = offsetValue === null ? 0 : Number(offsetValue);
