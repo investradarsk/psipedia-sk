@@ -21,7 +21,7 @@ function relative(root, target) {
   return path.relative(root,target).split(path.sep).join("/");
 }
 function sha(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
-function walkStyles(root, dirs = ["app", "components", "styles", "lib"]) {
+function walkStyles(root, dirs = ["app", "components", "styles", "lib", "hooks"]) {
   const found = [];
   const visit = (dir) => {
     if (!fs.existsSync(dir)) return;
@@ -228,15 +228,29 @@ export function auditVisualSources(root, absoluteFiles, registeredComponents, us
   const byRaw=new Map(),byShape=new Map();
   const featured=[];
   const registered=new Set(registeredComponents.map(c=>c.path));
+  const pages=absoluteFiles.map(file=>relative(root,file))
+    .filter(file=>/^app\/(?:.*\/)?page\.[jt]sx?$/.test(file));
   for(const absolute of absoluteFiles){
     if(!VISUAL_EXT.test(absolute))continue;
     const file=relative(root,absolute);
     const source=fs.readFileSync(absolute,"utf8");
     const meta=jsxInformation(file,source);
     if(!meta.jsxElements)continue;
-    const routes=[...(usedBy.get(file)??[])].sort();
+    const role=moduleKind(file);
+    const routeCandidates=new Set(usedBy.get(file)??[]);
+    // Next.js layout/error/template files are mounted implicitly, not always
+    // imported from a page. Infer possible descendant page templates, never
+    // claim these are verified visual DOM placements.
+    if(role==="layout" || role==="route-shell"){
+      const prefix=path.posix.dirname(file)+"/";
+      for(const page of pages){
+        if(!page.startsWith(prefix))continue;
+        for(const route of usedBy.get(page)??[])routeCandidates.add(route);
+      }
+    }
+    const routes=[...routeCandidates].sort();
     const item={
-      path:file,role:moduleKind(file),registered:registered.has(file),
+      path:file,role,registered:registered.has(file),
       jsxElements:meta.jsxElements,routes,
     };
     modules.push(item);
