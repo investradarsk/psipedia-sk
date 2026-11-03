@@ -2082,3 +2082,37 @@ export async function runNotionDirectorySyncSweep(input: {
 
   return summary;
 }
+
+
+/** Live values only. No write/side effects; used for one-shot per-field checks. */
+export async function inspectManualDirectoryProfile(input:{
+  database:D1Database;bindings:NotionDirectorySyncBindings;
+  profileId:number;pageId:string;scope:string;
+}):Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}>{
+  const profile=await getManagedDirectoryProfileById(input.profileId,input.database);
+  if(!profile||"directory:"+profile.category!==input.scope)
+    throw Error("TRANSFER_DIRECTORY_IDENTITY_MISMATCH");
+  const mapping=await loadMappingByProfile(input.database,input.profileId);
+  if(mapping?.notion_page_id!==input.pageId)throw Error("TRANSFER_IDENTITY_CHANGED");
+  const page=await fetchNotionPage(input.bindings,input.pageId);
+  if(page.id!==input.pageId||!notionDirectoryPageBelongsToSource(
+    page,input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID??"")
+    ||propertyText(page,"Psipedia ID")!==String(input.profileId))
+    throw Error("TRANSFER_DIRECTORY_IDENTITY_MISMATCH");
+  const geo=await loadGeoMirror(input.database,input.profileId);
+  const confirmed=profile.serviceAddressConfirmation==="CONFIRMED_SERVICE_LOCATION"
+    ||Boolean(geo?.google_place_id&&geo.google_place_source_fingerprint
+      &&geo.source_fingerprint
+      &&geo.google_place_source_fingerprint===geo.source_fingerprint);
+  const media=await getMediaSourceMonitorForEntity(
+    input.database,"DIRECTORY_PROFILE",input.profileId);
+  return {notion:notionSnapshot(page) as unknown as Record<string,unknown>,
+    admin:profileSnapshot(profile,media?.sourceImageUrl||
+      externalSourceImageUrl(profile.imageUrl)) as unknown as Record<string,unknown>,
+    excluded:["imageUrl","imageKey","status","slug","category","services",
+      "confirmedServiceLocation","verified","featured","internalEmail",
+      "qualityResolutions","qualityCheckedAt","seo.noindex",
+      ...(confirmed?["region","district","city","address","postalCode",
+        "street","houseNumber","addressFormat"]:[])],
+  };
+}
