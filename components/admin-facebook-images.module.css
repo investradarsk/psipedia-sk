@@ -278,3 +278,22 @@
   .pickerResult img,.pickerEmpty{width:42px;height:42px}
   .pickerResult span:last-child{display:none}
 }
+
+
+/* Independent manual FB ledger: ticking never selects or publishes the source item. */
+.pickerResultRow{display:grid;grid-template-columns:minmax(0,1fr) 101px;gap:6px;align-items:stretch}
+.pickerResultRow .pickerResult{width:100%;min-width:0}
+.pickerMark{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  border:1px solid #cddfd0;border-radius:8px;background:#fff;cursor:pointer;
+  padding:5px 6px;min-height:60px;text-align:center;color:#2a5740;font-size:.7rem;font-weight:700}
+.pickerMark:has(input:checked){border-color:#237451;background:#e6f3e9;color:#174d36}
+.pickerMark:has(input:disabled){cursor:default;opacity:.65}
+.pickerMark input{width:20px;height:20px;min-width:20px;min-height:20px;margin:0;accent-color:#18714d;cursor:pointer}
+.pickerMark input:focus-visible{outline:3px solid #247958;outline-offset:3px}
+.pickerMark span{font-size:.69rem;white-space:normal;line-height:1.15}
+.contentPicker .pickerMarkHint{font-size:.76rem;color:#526b5c;line-height:1.35;margin:0}
+@media(max-width:500px){
+  .pickerResultRow{grid-template-columns:minmax(0,1fr) 77px;gap:5px}
+  .pickerMark{min-height:55px;padding:4px}
+  .pickerMark span{font-size:.65rem}
+}

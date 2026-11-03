@@ -175,6 +175,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0151_admin_content_revision_history.sql",
     "0152_visual_library_banner_edits.sql",
     "0153_notion_profile_field_baselines.sql",
+    "0154_facebook_content_share_markers.sql",
   ]);
 });
 
@@ -701,7 +702,7 @@ test("production D1 targets account for every canonical migration, including una
     .sort();
   assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS, ...UNACTIVATED_PRODUCTION_TARGETS].sort(), canonicalTargets);
   assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, []);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0153_notion_profile_field_baselines.sql");
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0154_facebook_content_share_markers.sql");
   for (const target of UNACTIVATED_PRODUCTION_TARGETS) {
     assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes(target), false);
     assert.equal(PREPARED_PRODUCTION_TARGETS.includes(target), false);
@@ -719,7 +720,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0154_future_migration.sql",
+    "0155_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -747,14 +748,14 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0154_future_migration.sql",
+    "0155_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
     ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
-    "0154_future_migration.sql",
+    "0155_future_migration.sql",
   ]);
 });
 
