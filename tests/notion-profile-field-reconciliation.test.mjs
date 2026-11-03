@@ -490,8 +490,11 @@ test("missing-baseline reconciliation never guesses safe/latest concurrent edits
   };
   const result = reconcileProfileFieldsWithoutBaseline(input);
   assert.equal(result.kind, "CONFLICT");
-  assert.deepEqual(result.conflicts, [{ field: "name", reason: "BASELINE_UNAVAILABLE" }]);
-  assert.deepEqual(result.psipediaFields, ["status"]);
+  assert.deepEqual(result.conflicts, [
+    { field: "name", reason: "BASELINE_UNAVAILABLE" },
+    { field: "status", reason: "PROTECTED_FIELD" },
+  ]);
+  assert.deepEqual(result.psipediaFields, []);
   assert.equal(result.merged.name, "Admin title");
   assert.equal(result.merged.status, "published");
   assert.equal(reconcileProfileFieldsWithoutBaseline({
@@ -501,7 +504,7 @@ test("missing-baseline reconciliation never guesses safe/latest concurrent edits
 
 test("missing baseline can safely heal owner-selected nonempty field values", () => {
   const state = { name: "Old admin", excerpt: "Canonical excerpt", status: "published" };
-  const notion = { name: "Editorial approved", excerpt: "Old notion", status: "draft" };
+  const notion = { name: "Editorial approved", excerpt: "Old notion", status: "published" };
   const result = reconcileProfileFieldsWithoutBaseline({
     notion, psipedia: state, protectedFields: new Set(["status"]),
     canonicalFieldsWin: true, authorities: { name: "notion", excerpt: "admin" },
@@ -509,7 +512,7 @@ test("missing baseline can safely heal owner-selected nonempty field values", ()
   assert.equal(result.kind, "MERGE");
   assert.deepEqual(result.conflicts, []);
   assert.deepEqual(result.notionFields, ["name"]);
-  assert.deepEqual(result.psipediaFields, ["excerpt", "status"]);
+  assert.deepEqual(result.psipediaFields, ["excerpt"]);
   assert.deepEqual(result.merged, { ...state, name: "Editorial approved" });
 });
 
@@ -561,4 +564,21 @@ test("Directory baseline-free recovery never advances a mapping on partial confl
   assert.match(section, /LOSSLESS_FIELD_REVIEW_REQUIRED/);
   assert.doesNotMatch(section, /saveMapping\(/);
   assert.doesNotMatch(section, /recordProfileFieldBaseline\(/);
+});
+
+test("unverified identity and publication differences never auto-push under canonical priority", () => {
+  const notion = { status: "archived", slug: "foreign-slug", category: "salony-a-sluzby" };
+  const psipedia = { status: "published", slug: "canonical-slug", category: "veterinari" };
+  const result = reconcileProfileFieldsWithoutBaseline({
+    notion, psipedia, protectedFields: new Set(["status", "slug", "category"]),
+    canonicalFieldsWin: true,
+  });
+  assert.equal(result.kind, "CONFLICT");
+  assert.deepEqual(result.conflicts, [
+    { field: "status", reason: "PROTECTED_FIELD" },
+    { field: "slug", reason: "PROTECTED_FIELD" },
+    { field: "category", reason: "PROTECTED_FIELD" },
+  ]);
+  assert.deepEqual(result.psipediaFields, []);
+  assert.deepEqual(result.merged, psipedia);
 });
