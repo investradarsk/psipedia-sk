@@ -81,7 +81,11 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
       sql="SELECT entity_id AS profile_id,notion_page_id FROM notion_agenda_sync WHERE agenda=?";
       bind.push(scope);
     }
-    sql+=(bind.length?" AND ":" WHERE ")+(byId?"profile_id=?":"1=1");
+    const idColumn=scope==="breeds"?"breed_id"
+      :scope==="events"?"event_id"
+      :scope==="eshops"?"eshop_id"
+      :scope.startsWith("directory:")?"m.directory_profile_id":"entity_id";
+    sql+=(bind.length?" AND ":" WHERE ")+(byId?idColumn+"=?":"1=1");
     if(byId)bind.push(request.profileId);
     // A bounded single read per scope. Fail closed instead of reporting a
     // partial all-record queue as a completed whole-area transfer.
