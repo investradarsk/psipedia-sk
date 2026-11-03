@@ -1,0 +1,651 @@
+{
+  "version": 1,
+  "scope": "Public and shared components/**/*.tsx, excluding components/admin-*.tsx",
+  "baselineCommit": "03919824db9e11d269214c097f19a83489c79b52",
+  "files": [
+    {
+      "path": "components/ad-exposure-tracker.tsx",
+      "coverage": "nonvisual"
+    },
+    {
+      "path": "components/ad-slot.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/adoption-card-media.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/adoption-catalog.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/adoption-detail.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/article-blocks.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/article-browser.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/article-card.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/article-continuation.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/article-detail.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/article-editor-calendar.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/article-feedback.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/article-list-item.tsx",
+      "coverage": "server-preview"
+    },
+    {
+      "path": "components/article-popularity-sidebar.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/article-promo.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/article-read-tracker.tsx",
+      "coverage": "nonvisual"
+    },
+    {
+      "path": "components/article-reading-progress.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/back-to-top.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/breed-browser.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/breed-card.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/breed-comparison.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/breed-crawl-index.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/breed-fci-disclosure.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/breed-photo.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/breed-section-nav.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/breeding-station-landing.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/calendar-draft-planner.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/content-hub-cta.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/cookie-consent.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/desktop-event-fullcalendar.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/detail-primitives/detail-primitives.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/directory-address-autocomplete.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/directory-card.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/directory-category-filter-fields.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/directory-category-navigation.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/directory-category-overview.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/directory-club-filters.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/directory-club-results.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/directory-contact-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/directory-filter-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/directory-location-landing.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/directory-opening-hours.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/directory-page.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/directory-profile-change-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/directory-profile-detail.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/directory-results.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/directory-services-list.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/dog-age-calculator.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/dog-name-day-calendar.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/editorial-rich-text.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/editorial-section.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/eshop-rating-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/event-calendar.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/event-card.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/event-detail.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/event-image.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/event-listing-results.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/event-markdown.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/events-page.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/events-return-link.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/favorite-button.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/favorites-list.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/google-maps-consent-controls.tsx",
+      "coverage": "nonvisual"
+    },
+    {
+      "path": "components/help-browser.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/help-card.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/help-detail.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/help-details/help-detail-shell.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/help-details/help-detail-types.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/help-overview.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/help-page.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/help-public-icons.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/help-report-guide.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/home-dog-name-day-entry.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/home-editorial.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/home-portal-search.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/horizontal-carousel-controls.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/icons.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/image-display-editor.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/image-display.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/lost-found-dog-detail.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/lost-found-dogs-page.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/lost-found-submission-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/map/google-map-renderer.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/map/map-experience.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/map/public-location-map.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/native-history-navigation.tsx",
+      "coverage": "nonvisual"
+    },
+    {
+      "path": "components/navigation-progress.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/news-hub.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/news-tip-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/organization-profile-detail.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/outreach-unsubscribe-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/outreach-verification-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/page-system.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/partner-auth-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-claim-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-commercial-panel.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-contact-profile-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-event-actions.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-event-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-forgot-password-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-google-link-confirm.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-google-return-navigation.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-logout-button.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-media-field.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-new-profile-actions.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-new-profile-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-password-auth-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-password-field.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-password-reset-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-profile-change-actions.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-profile-edit-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-public-ownership.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-request-actions.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-security-settings.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-settings-actions.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-shell.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/partner-turnstile.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/partner-verification.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/portal-hub.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/portal-mobile-category-select.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/portal-section-tabs.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/portal-topic.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/privacy-controls.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/profile-review-section.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/profile-review-submission-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/programmatic-ad-loader.tsx",
+      "coverage": "nonvisual"
+    },
+    {
+      "path": "components/public-filter-disclosure.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-profile/public-profile-hero.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-search-suggestions.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-article-callout.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-banner-frame.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-context-banner.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-form-controls.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-help-banner.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-help-card-surface.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-help-category-nav.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-help-profile-card.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-help-profile-detail-layout.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-landing-layout.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-magazine-banner.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-media-fallback.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-photo-callout.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-photo-gallery.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-photoswipe-enhancer.tsx",
+      "coverage": "nonvisual"
+    },
+    {
+      "path": "components/public-visual-system/public-result-states.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-subcategory-navigator.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-visual-system.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/unified-section-hero.tsx",
+      "coverage": "server-preview"
+    },
+    {
+      "path": "components/related-entity-links.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/related-entity-list.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/review-author-auth-form.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/review-author-verification.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/reviews-hub.tsx",
+      "coverage": "page-composite"
+    },
+    {
+      "path": "components/section-hero-search.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/share-button.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/site-footer.tsx",
+      "coverage": "live-preview"
+    },
+    {
+      "path": "components/site-header.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/slovakia-location-selector.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/smart-card-image.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/structured-data.tsx",
+      "coverage": "nonvisual"
+    },
+    {
+      "path": "components/tracked-ad-link.tsx",
+      "coverage": "needs-preview"
+    }
+  ]
+}
