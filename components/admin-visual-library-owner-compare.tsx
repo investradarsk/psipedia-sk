@@ -8,6 +8,7 @@ import type { VisualBanner } from "@/lib/visual-library-banners";
 import type { OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { suggestOwnerVisualPairs } from "@/lib/visual-library-owner-suggestions";
+import { ownerGroupsAlreadyShareRenderer } from "@/lib/visual-library-canonical-renderers";
 import { buildOwnerDecisionRequest, OWNER_DECISION_OPTIONS, type OwnerDecisionKind } from "@/lib/visual-library-owner-decision";
 import {
   isMergeRequest, orientSavedDecision, ownerDecisionLabel,
@@ -374,6 +375,14 @@ export function AdminVisualLibraryOwnerCompare({
       </label>
     </div>
     {valid && left && right ? <>
+      {ownerGroupsAlreadyShareRenderer(left.id, right.id) &&
+        <p className={styles.ownerSameRendererInfo}>
+          <strong>Táto dvojica už používa jeden spoločný verejný React komponent.</strong>
+          Odlišný text alebo fotografia neznamenajú duplicitný zdrojový kód.
+          Na zjednotenie implementácie tu netreba nič mazať.
+          Môžeš označiť „Už je to spoločný komponent“.
+          Historické uložené rozhodnutia zostávajú zachované.
+        </p>}
       <div className={styles.ownerCompareGrid}>
         {renderSide(left, "A", "left")}
         {renderSide(right, "B", "right")}
