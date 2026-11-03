@@ -597,6 +597,8 @@ export async function writeBackBreedEditorialToNotion(args:{
   database:D1Database;bindings:NotionBreedSyncBindings;
   before:ManagedBreed;breed:ManagedBreed;
   changedFieldKeys?:readonly string[];
+  baselineSnapshot?:BreedFieldSnapshot;
+  forceFieldKeys?:readonly string[];
 }){
   if(!notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED))
     return {linked:false,updated:false,reason:"disabled" as const};
@@ -614,14 +616,14 @@ export async function writeBackBreedEditorialToNotion(args:{
     notionRichTextProperty(page,"Psipedia ID")!==String(args.breed.id))
     throw new Error("BREED_NOTION_WRITEBACK_IDENTITY_MISMATCH");
   const authorities=await readNotionFieldAuthorities(args.database,"breeds");
-  const before=breedFieldSnapshot(args.before);
+  const before=args.baselineSnapshot??breedFieldSnapshot(args.before);
   const after=breedFieldSnapshot(args.breed);
   const remote=breedFieldSnapshot(notionPageToManagedBreedInput(page));
   const historical=decodeBreedReceipt(mapping.content_hash);
   const oldNotion=historical.notion??before;
   const oldAdmin=historical.admin??before;
   const changed=(args.changedFieldKeys??BREED_NOTION_EDITABLE_FIELDS)
-    .filter(key=>!sameBreedField(before[key],after[key]));
+    .filter(key=>args.forceFieldKeys?.includes(key)||!sameBreedField(before[key],after[key]));
   if(!changed.length)return {linked:true,updated:false,reason:"no-mirrored-field-change" as const};
   const patch:Record<string,unknown>={};
   const acknowledged:string[]=[];
@@ -800,6 +802,21 @@ async function applySafeBreedSync(
       ...(actuallyChanged||!error?{syncedAt:now}:{}),
     });
   }
+  // A selected Admin winner must be mirrored to Notion, not merely
+  // ignored on inbound. Failure is automatically retried by later sweeps.
+  if(ignored.length){
+    try {
+      await writeBackBreedEditorialToNotion({
+        database,bindings,before:updated,breed:updated,
+        changedFieldKeys:ignored,forceFieldKeys:ignored,
+      });
+    }catch(e){
+      console.warn("notion_breed_admin_authority_writeback_retry",{
+        notionPageId:page.id,breedId:updated.id,
+        code:e instanceof Error?e.message:"REMOTE_WRITEBACK_FAILED",
+      });
+    }
+  }
   if(error)console.warn(JSON.stringify({
     event:"notion_breed_partial_sync",notionPageId:page.id,breedId:updated.id,
     accepted:safe.accepted,skipped:safe.skipped,
@@ -822,6 +839,17 @@ async function syncOneBreed(
   const now = new Date().toISOString();
   const recovered = mapping ? null : await findUnmappedCanonicalBreed(database, page, basePayload);
   const current = mapping ? await getManagedBreed(Number(mapping.breed_id)) : recovered;
+  // These five Notion-only fields are mirrored into D1 without blocking
+  // independent content changes.
+  if(current && mapping){
+    try {
+      await reconcileBreedExtraFields({db:database,bindings,page,breedId:current.id,priority:authority});
+    }catch(e){
+      console.warn("notion_breed_extras_retry_needed",{
+        breedId:current.id,code:e instanceof Error?e.message:"EXTRA_FIELDS_RETRY",
+      });
+    }
+  }
   // D1 breed_id is the stable join key after the one-time identity check.
   if (mapping) {
     const claimed = notionRichTextProperty(page, "Psipedia ID").trim();
@@ -859,23 +887,19 @@ async function syncOneBreed(
     // on top of the unacknowledged D1 revision.
     const lastAck = Date.parse(mapping?.last_synced_at ?? "");
     const adminEdit = Date.parse(existing.updatedAt);
-    const canonicalTextDiffers = BREED_DRAFT_TEXT_FIELDS.some(([key, property]) =>
-      normalizedBreedText(existing[key]) !== notionBreedTextValue(page, property));
-    // Notion still equals the previous acknowledged source snapshot. This
-    // allows a failed Admin -> Notion writeback to retry automatically on the
-    // existing hourly sweep, without picking a winner from page timestamps.
-    // The writer re-fetches and verifies ownership, each changed field and
-    // PATCH echo before updating any mapping receipt.
-    if (mapping && existing.status === "draft" && receipt.hash === contentHash && canonicalTextDiffers) {
-      const lastCommonText = { ...existing };
-      for (const [key, property] of BREED_DRAFT_TEXT_FIELDS) {
-        lastCommonText[key] = notionBreedTextValue(page, property);
+    // Automatically retry unsent Admin changes for every mapped content field,
+    // not only the old draft text subset.
+    if(mapping && fieldReceipt && receipt.hash===contentHash){
+      const liveAdmin=breedFieldSnapshot(existing);
+      const unsent=BREED_NOTION_EDITABLE_FIELDS.filter(field=>
+        !sameBreedField(liveAdmin[field],fieldReceipt.admin[field]));
+      if(unsent.length){
+        const result=await writeBackBreedEditorialToNotion({
+          database,bindings,before:existing,breed:existing,
+          baselineSnapshot:fieldReceipt.admin,changedFieldKeys:unsent,
+        });
+        if(result.updated)return "updated";
       }
-      const result = await writeBackDraftBreedEditorialToNotion({
-        database, bindings, before: lastCommonText, breed: existing,
-      });
-      if (!result.updated) throw new Error("BREED_ADMIN_WRITEBACK_NOT_ACKNOWLEDGED");
-      return "updated";
     }
     // No global updatedAt gate: unrelated Admin changes must never block an
     // independently edited Notion column. The per-field receipt handles
