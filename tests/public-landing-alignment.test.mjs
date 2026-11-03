@@ -86,7 +86,7 @@ test("help no longer owns a second horizontal shell system", () => {
   // The photographic Help CTA now delegates to the homepage's one shared banner
   // instead of shipping its own page container and banner CSS.
   assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /<PublicMagazineBanner/);
-  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /<PublicBannerFrame as="section"/);
+  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /<PublicBannerFrame\s+as="section"/);
   assert.match(read("components/public-visual-system/public-banner-frame.tsx"), /ps-public-banner-frame/);
   assert.match(helpBrowser, /<PageContainer className=\{styles\.results\}>/);
   // Help category data feeds the canonical public subcategory navigator.
@@ -151,7 +151,7 @@ test("SERVICES-V2 keeps one GET search while only the clean root shows five per 
   assert.match(root, /listPublishedDirectoryProfiles\(\{ filters \}\)/);
   // A clean root has the approved category -> five profiles -> all navigation.
   // No preview data path is allowed in root route, category route or filtered results.
-  assert.match(directory, /!active && filters\.page === 1/);
+  assert.match(directory, /!active\s*&&\s*filters\.page === 1/);
   assert.match(directory, /Object\.keys\(filters\.facets \?\? \{\}\)\.length === 0/);
   assert.match(directory, /isOverview \? await getDirectoryCategoryPreviews\(5\) : null/);
   assert.match(directory, /data-directory-category-previews/);
@@ -207,8 +207,8 @@ test("SERVICES-V2 renders search, categories, filters, cards and sidebar in appr
 test("SERVICES-V2 keeps cards and URLs while preventing narrow three-column thumbnails", () => {
   const cards = read("components/directory-card.tsx");
   const results = read("components/directory-results.tsx");
-  assert.match(directoryCss, /grid-template-columns: 220px minmax\(0,1fr\) 255px/);
-  assert.match(directoryCss, /@media \(max-width: 820px\)[\s\S]*grid-template-columns: minmax\(0,1fr\)/);
+  assert.match(directoryCss, /grid-template-columns:\s*220px\s+minmax\(0,\s*1fr\)\s+255px/);
+  assert.match(directoryCss, /@media \(max-width: 820px\)[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(directoryCss, /\.directoryColumns \.listGrid:global\(\.directory-grid\)/);
   assert.match(cards, /directoryProfileHref\(profile\)/);
   assert.match(cards, /profile\.imageUrl \? <ImageDisplay/);
@@ -225,7 +225,7 @@ test("SERVICES-V2 root renders bounded category previews and preserves filtered 
   assert.match(root, /<DirectoryPage result=\{result\} filters=\{filters\} \/>/);
   assert.match(cat, /<DirectoryPage result=\{result\} filters=\{filters\} initialCategory=\{category.slug\}/);
   assert.match(directory, /getDirectoryCategoryPreviews\(5\)/);
-  assert.match(directory, /profiles\.map\(\(profile\) => <DirectoryCard profile=\{profile\}/);
+  assert.match(directory, /profiles\.map\(\(profile\) => \(\s*<DirectoryCard profile=\{profile\}/);
   assert.match(directory, /isOverview && categoryPreviews \? \(/);
   assert.match(directory, /<DirectoryResults/);
 });
