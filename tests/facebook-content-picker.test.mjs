@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
@@ -110,3 +111,58 @@ test("Facebook photo copier supports local Psipedia breed images without public 
   assert.match(helper, /bytes = data/);
   assert.match(helper, /MAX_BYTES/);
 });
+
+test("All Facebook picker lists include durable manual already-posted markers", () => {
+  const articles = read("app/api/admin/facebook-images/article-picker/route.ts");
+  const profiles = read("app/api/admin/facebook-images/profile-picker/route.ts");
+  for (const route of [articles, profiles]) {
+    assert.match(route, /readFacebookShareMarkers/);
+    assert.match(route, /sharedToFacebook: markers\.marked\.has/);
+    assert.match(route, /markingAvailable: markers\.available/);
+  }
+  assert.match(profiles, /facebookShareMarkerType\(scope\.group, scope\.category\)/);
+});
+
+test("Facebook shared checkboxes remain separate from content selection and do not auto publish", () => {
+  const ui = read("components/admin-facebook-images.tsx");
+  assert.match(ui, /<div key=\{item\.id\} className=\{styles\.pickerResultRow\}>/);
+  assert.match(ui, /type="checkbox" checked=\{Boolean\(item\.sharedToFacebook\)\}/);
+  assert.match(ui, /onChange=\{e=>void markAlreadyShared\(item,e\.target\.checked\)\}/);
+  assert.match(ui, /\/api\/admin\/facebook-images\/content-share-marker/);
+  assert.match(ui, /setPickerItems\(old=>old\.map\(row=>row\.id===item\.id\?\{\.\.\.row,sharedToFacebook\}:row\)\)/);
+  assert.doesNotMatch(read("app/api/admin/facebook-images/content-share-marker/route.ts"), /saveFacebookImagePost|facebookImagePublish|publishToFacebook|directPublishConsent/);
+});
+
+test("Manual FB ledger is scoped, authenticated and independent of Notion", () => {
+  const route = read("app/api/admin/facebook-images/content-share-marker/route.ts");
+  const storage = read("lib/facebook-content-share-marker.ts");
+  const migration = read("drizzle/0154_facebook_content_share_markers.sql");
+  assert.match(route, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
+  assert.match(route, /setFacebookShareMarker\(type, Number\(body\.entityId\), body\.sharedToFacebook, auth\.user\.email\)/);
+  assert.match(storage, /if \(group === "article"\) return "article"/);
+  assert.match(storage, /if \(group === "breeds"\) return "breeds"/);
+  assert.match(storage, /if \(category === "utulky"\) return "organization"/);
+  assert.match(storage, /if \(category === "adopcia"\) return "adoption"/);
+  assert.match(storage, /return "lost_found"/);
+  assert.match(storage, /PRIMARY KEY\(content_type, entity_id\)/);
+  assert.match(storage, /DELETE FROM facebook_content_share_markers/);
+  assert.match(storage, /ON CONFLICT\(content_type,entity_id\) DO UPDATE/);
+  assert.match(storage, /no such table:/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS facebook_content_share_markers/);
+  assert.doesNotMatch(route+storage, /notion/i);
+});
+
+test("Manual Facebook ledger migration accepts same-id records across different sources", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(read("drizzle/0154_facebook_content_share_markers.sql"));
+    db.prepare("INSERT INTO facebook_content_share_markers(content_type,entity_id,marked_at,marked_by) VALUES(?,?,?,?)")
+      .run("article",7,"2026-11-03T12:00:00Z","admin@example.test");
+    db.prepare("INSERT INTO facebook_content_share_markers(content_type,entity_id,marked_at,marked_by) VALUES(?,?,?,?)")
+      .run("breeds",7,"2026-11-03T12:01:00Z","admin@example.test");
+    assert.equal(db.prepare("SELECT COUNT(*) AS total FROM facebook_content_share_markers").get().total,2);
+    db.prepare("DELETE FROM facebook_content_share_markers WHERE content_type=? AND entity_id=?").run("article",7);
+    assert.equal(db.prepare("SELECT COUNT(*) AS total FROM facebook_content_share_markers").get().total,1);
+  } finally { db.close(); }
+});
+
