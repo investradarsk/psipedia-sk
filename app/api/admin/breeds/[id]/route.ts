@@ -11,6 +11,7 @@ import {
 import { mergeManagedBreedEdit } from "@/lib/breed-sync-preservation";
 import {
   writeBackDraftBreedEditorialToNotion,
+  writeBackBreedEditorialToNotion,
   writeBackPublishedBreedToNotion,
   type NotionBreedSyncBindings,
 } from "@/lib/notion-breed-sync";
@@ -47,33 +48,28 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const bindings = env as unknown as BreedRouteBindings;
     let notionEditorialWriteback: { status: string; code?: string } | undefined;
     if (bindings.DB) {
-      if (before.status === "draft" && breed.status === "draft") {
-        try {
-          const result = await writeBackDraftBreedEditorialToNotion({
-            database: bindings.DB, bindings, before, breed,
-          });
-          notionEditorialWriteback = {
-            status: result.updated ? "synced" : (result.reason ?? "unchanged"),
-          };
-        } catch (error) {
-          // Admin save remains canonical. Never expose raw provider messages,
-          // titles, Notion pages or credentials to the browser or logs.
-          const raw = error instanceof Error ? error.message : "";
-          const code = /^BREED_[A-Z0-9_]+$/.test(raw)
-            ? raw : "REMOTE_WRITEBACK_FAILED";
-          notionEditorialWriteback = { status: "blocked", code };
-          console.error("notion_breed_draft_writeback_failed", { breedId: breed.id, code });
-        }
-      } else if (before.status !== "published" && breed.status === "published") {
+      // All ordinary Admin field edits, including published breeds, mirror
+      // immediately through the same per-field priority engine.
+      try {
+        const result = await writeBackBreedEditorialToNotion({
+          database:bindings.DB,bindings,before,breed,
+        });
+        notionEditorialWriteback={status:result.updated?"synced":(result.reason??"unchanged")};
+      } catch(error) {
+        const raw=error instanceof Error?error.message:"";
+        const code=/^BREED_[A-Z0-9_]+$/.test(raw)?raw:"REMOTE_WRITEBACK_FAILED";
+        notionEditorialWriteback={status:"pending",code};
+        console.error("notion_breed_writeback_retry_needed",{breedId:breed.id,code});
+      }
+      if (before.status!=="published" && breed.status==="published") {
         try {
           await writeBackPublishedBreedToNotion({
-            database: bindings.DB, bindings, breed,
+            database:bindings.DB,bindings,breed,
           });
-        } catch (error) {
+        } catch(error) {
           console.error(JSON.stringify({
-            event: "notion_breed_publish_writeback_failed",
-            breedId: breed.id,
-            error: error instanceof Error ? error.message : String(error),
+            event:"notion_breed_publish_writeback_failed",breedId:breed.id,
+            error:error instanceof Error?error.message:String(error),
           }));
         }
       }
@@ -115,16 +111,16 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     if (!breed) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
     let notionEditorialWriteback: { status: string; code?: string } | undefined;
     const bindings = env as unknown as BreedRouteBindings;
-    if (bindings.DB && before.status === "draft" && breed.status === "draft") {
+    if (bindings.DB) {
       try {
-        const result = await writeBackDraftBreedEditorialToNotion({
+        const result = await writeBackBreedEditorialToNotion({
           database: bindings.DB, bindings, before, breed,
         });
         notionEditorialWriteback = { status: result.updated ? "synced" : (result.reason ?? "unchanged") };
       } catch (error) {
         const raw = error instanceof Error ? error.message : "";
         const code = /^BREED_[A-Z0-9_]+$/.test(raw) ? raw : "REMOTE_WRITEBACK_FAILED";
-        notionEditorialWriteback = { status: "blocked", code };
+        notionEditorialWriteback = { status: "pending", code };
         console.error("notion_breed_inline_writeback_failed", { breedId: breed.id, code });
       }
     }
