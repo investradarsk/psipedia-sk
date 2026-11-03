@@ -169,6 +169,8 @@ test("one-shot journal cannot execute until PREVIEW_READY is explicitly confirme
     db.prepare("UPDATE notion_manual_transfer_runs SET status='PREVIEW_READY' WHERE id='preview-1'").run();
     db.prepare("UPDATE notion_manual_transfer_items SET status='PREVIEWED',preview_hash=? WHERE run_id='preview-1'").run("a".repeat(64));
     assert.equal(db.prepare("SELECT preview_hash FROM notion_manual_transfer_items").get().preview_hash.length,64);
-    assert.throws(()=>db.prepare("UPDATE notion_manual_transfer_field_results SET status='NOT_REAL'").run());
+    const itemId=db.prepare("SELECT id FROM notion_manual_transfer_items WHERE run_id='preview-1'").get().id;
+    assert.throws(()=>db.prepare("INSERT INTO notion_manual_transfer_field_results (item_id,field_key,status) VALUES (?,?,?)")
+      .run(itemId,"character","NOT_REAL"));
   }finally{db.close()}
 });
