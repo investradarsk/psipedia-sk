@@ -2892,16 +2892,25 @@
     padding: 2px;
   }
   .calendar[data-event-workspace] .desktopFullCalendar .fullCalendarDayHeading {
-    display: block;
-    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+    gap: 1px;
     font-size: 0.68rem;
   }
+  .calendar[data-event-workspace]
+    .desktopFullCalendar
+    .fullCalendarDayContent[data-today="true"]
+    .fullCalendarDayHeading
+    > span:first-child {
+    width: 14px;
+    height: 14px;
+  }
   .calendar[data-event-workspace] .desktopFullCalendar .fullCalendarCount {
-    position: absolute;
-    top: 0;
-    right: 0;
+    position: static;
+    justify-self: end;
     min-width: 11px;
-    width: 11px;
+    width: auto;
     height: 11px;
     padding: 0;
     border-radius: 3px;

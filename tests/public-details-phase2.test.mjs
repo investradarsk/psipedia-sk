@@ -13,16 +13,31 @@ test("five public detail families share one controlled type and facts hierarchy"
   for (const name of ["heading-size", "fact-label-size", "fact-value-size", "photo-radius"]) {
     assert.match(base, new RegExp("--ps-detail-" + name + ":"));
   }
-  assert.match(detail, /\.section h2 \{[^}]*var\(--ps-detail-heading-size\)/);
-  assert.match(detail, /\.factTiles dt \{[^}]*var\(--ps-detail-fact-label-size\)/);
-  assert.match(detail, /\.factTiles dd \{[^}]*var\(--ps-detail-fact-value-size\)/);
-  assert.match(breed, /\.readingSection h2, \.sectionIntro h2[^}]*var\(--ps-detail-heading-size\)/);
-  assert.match(breed, /\.factGrid dt, \.fciFacts dt[^}]*var\(--ps-detail-fact-label-size\)/);
-  assert.match(breed, /\.factGrid dd, \.fciFacts dd[^}]*var\(--ps-detail-fact-value-size\)/);
-  assert.match(event, /\.detailCopy section > h2 \{[^}]*var\(--ps-detail-heading-size\)/);
-  assert.match(event, /\.detailFacts dt \{[^}]*var\(--ps-detail-fact-label-size\)/);
-  assert.match(event, /\.detailFacts dd \{[^}]*var\(--ps-detail-fact-value-size\)/);
-  assert.match(article, /\.readingShell :global\(\.article-blocks h2\) \{[^}]*var\(--ps-detail-heading-size\)/);
+  assert.match(detail, /\s*\.section\s*h2\s*\{\s*[^}]*var\(\s*--ps-detail-heading-size\s*\)/);
+  assert.match(detail, /\s*\.factTiles\s*dt\s*\{\s*[^}]*var\(\s*--ps-detail-fact-label-size\s*\)/);
+  assert.match(detail, /\s*\.factTiles\s*dd\s*\{\s*[^}]*var\(\s*--ps-detail-fact-value-size\s*\)/);
+  assert.match(
+    breed,
+    /\s*\.readingSection\s*h2,\s*\.sectionIntro\s*h2[^}]*var\(\s*--ps-detail-heading-size\s*\)/,
+  );
+  assert.match(
+    breed,
+    /\s*\.factGrid\s*dt,\s*\.fciFacts\s*dt[^}]*var\(\s*--ps-detail-fact-label-size\s*\)/,
+  );
+  assert.match(
+    breed,
+    /\s*\.factGrid\s*dd,\s*\.fciFacts\s*dd[^}]*var\(\s*--ps-detail-fact-value-size\s*\)/,
+  );
+  assert.match(
+    event,
+    /\s*\.detailCopy\s*section\s*>\s*h2\s*\{\s*[^}]*var\(\s*--ps-detail-heading-size\s*\)/,
+  );
+  assert.match(event, /\s*\.detailFacts\s*dt\s*\{\s*[^}]*var\(\s*--ps-detail-fact-label-size\s*\)/);
+  assert.match(event, /\s*\.detailFacts\s*dd\s*\{\s*[^}]*var\(\s*--ps-detail-fact-value-size\s*\)/);
+  assert.match(
+    article,
+    /\s*\.readingShell\s*:global\(\s*\.article-blocks\s*h2\s*\)\s*\{\s*[^}]*var\(\s*--ps-detail-heading-size\s*\)/,
+  );
 });
 
 test("article and breed retain intrinsic/contained photos, help safety styling is not modified", () => {
@@ -30,11 +45,24 @@ test("article and breed retain intrinsic/contained photos, help safety styling i
   const detail = read("components/detail-primitives/detail-primitives.module.css");
   const breed = read("app/plemena/[slug]/breed-profile.module.css");
   const article = read("components/article-detail.module.css");
-  assert.match(base, /--ps-detail-photo-radius: var\(--ps-radius-media\)/);
-  assert.match(detail, /\.heroMedia \{ border: 1px solid var\(--detail-border\); border-radius: var\(--ps-detail-photo-radius\)/);
-  assert.match(breed, /\.heroPhoto \{ border-radius: var\(--ps-detail-photo-radius\); \}/);
-  assert.match(breed, /object-fit: contain/);
-  assert.match(article, /\.modernArticle \.heroMedia\.heroNatural \{ aspect-ratio: auto/);
-  assert.match(article, /object-fit: contain/);
-  assert.doesNotMatch(read("components/help-details/help-detail.module.css"), /--ps-detail-heading-size/, "safety panels keep own emphasis");
+  assert.match(base, /--ps-detail-photo-radius:\s*var\(\s*--ps-radius-media\s*\)/);
+  assert.match(
+    detail,
+    /\s*\.heroMedia\s*\{\s*border:\s*1px\s*solid\s*var\(\s*--detail-border\s*\);\s*border-radius:\s*var\(\s*--ps-detail-photo-radius\s*\)/,
+  );
+  assert.match(
+    breed,
+    /\s*\.heroPhoto\s*\{\s*border-radius:\s*var\(\s*--ps-detail-photo-radius\s*\);\s*\}/,
+  );
+  assert.match(breed, /object-fit:\s*contain/);
+  assert.match(
+    article,
+    /\s*\.modernArticle\s*\.heroMedia\s*\.heroNatural\s*\{\s*aspect-ratio:\s*auto/,
+  );
+  assert.match(article, /object-fit:\s*contain/);
+  assert.doesNotMatch(
+    read("components/help-details/help-detail.module.css"),
+    /--ps-detail-heading-size/,
+    "safety panels keep own emphasis",
+  );
 });

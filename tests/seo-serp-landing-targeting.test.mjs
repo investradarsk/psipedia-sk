@@ -16,17 +16,26 @@ const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf
 
 test("SEO-SERP homepage has a brand-level title, distinct metadata and an explanatory SSR lead", () => {
   const source = read("app/page.tsx");
-  assert.match(source, /title: \{ absolute: "Psipedia\.sk – rozumej svojmu psovi" \}/);
-  assert.match(source, /description: homepageSearchDescription/);
-  assert.match(source, /Psipedia\.sk je slovenský portál o psoch/);
-  assert.match(source, /path: "\/"/);
+  assert.match(
+    source,
+    /title:\s*\{\s*absolute:\s*"Psipedia\s*\.sk\s*–\s*rozumej\s*svojmu\s*psovi"\s*\}/,
+  );
+  assert.match(source, /description:\s*homepageSearchDescription/);
+  assert.match(source, /Psipedia\s*\.sk\s*je\s*slovenský\s*portál\s*o\s*psoch/);
+  assert.match(source, /path:\s*"\/"/);
   // Homepage delegates the semantic H1 to the shared managed hero renderer.
-  assert.match(source, /<UnifiedSectionHero[\s\S]*?title=\{<>Všetko dôležité/);
-  assert.match(read("components/public-visual-system/unified-section-hero.tsx"), /<h1 data-section-hero-title>\{managedTitle\}<\/h1>/);
-  assert.match(source, /pre život so psom\./);
+  assert.match(source, /<UnifiedSectionHero[\s\S]*?title=\{\s*<>\s*Všetko\s*dôležité/);
+  assert.match(
+    read("components/public-visual-system/unified-section-hero.tsx"),
+    /<PublicHeading[^>]*as="h1"[^>]*data-section-hero-title>\s*\{managedTitle\}\s*<\/PublicHeading>/,
+  );
+  assert.match(source, /pre\s*život\s*so\s*psom\s*\./);
   assert.doesNotMatch(source, /data-nosnippet|noindex/i);
   // The root layout already emits one site identity graph.
-  assert.match(read("app/layout.tsx"), /<StructuredData value=\{buildSiteIdentityJsonLd\(\)\}/);
+  assert.match(
+    read("app/layout.tsx"),
+    /<StructuredData\s*value=\{\s*buildSiteIdentityJsonLd\(\s*\)\s*\}/,
+  );
   assert.doesNotMatch(source, /buildSiteIdentityJsonLd|serializeJsonLd/);
 });
 
@@ -34,9 +43,9 @@ test("SEO-SERP homepage links directly to contextual directory categories withou
   const source = read("app/page.tsx");
   assert.match(source, /title="Veterinári"/);
   assert.match(source, /href="\/adresar\/veterinari"/);
-  assert.match(source, /title="Tréneri a psie školy"/);
+  assert.match(source, /title="Tréneri\s*a\s*psie\s*školy"/);
   assert.match(source, /href="\/adresar\/treneri"/);
-  assert.match(source, /directoryProfileHref\(profile\)/);
+  assert.match(source, /directoryProfileHref\(\s*profile\s*\)/);
   assert.match(source, /testId="starostlivost"/);
   assert.match(source, /testId="aktivity"/);
   assert.doesNotMatch(source, /HomeProfileCategoryBand|home-service-card-icon/);
@@ -89,28 +98,28 @@ test("SEO-SERP help category mapping uses real existing URLs", () => {
     const href = helpCategoryHref(category);
     assert.equal(href, "/pomoc-psom/" + category.slug);
   }
-  assert.match(read("app/pomoc-psom/page.tsx"), /categoryDestination\(category\.slug\)/);
+  assert.match(read("app/pomoc-psom/page.tsx"), /categoryDestination\(\s*category\s*\.slug\s*\)/);
   assert.match(
     read("app/pomoc-psom/stratene-a-najdene/page.tsx"),
-    /path: "\/pomoc-psom\/stratene-a-najdene"/,
+    /path:\s*"\/pomoc-psom\/stratene-a-najdene"/,
   );
-  assert.match(read("app/pomoc-psom/adopcia/page.tsx"), /path: "\/pomoc-psom\/adopcia"/);
+  assert.match(read("app/pomoc-psom/adopcia/page.tsx"), /path:\s*"\/pomoc-psom\/adopcia"/);
 });
 
 test("SEO-SERP SSR listing H1 remains route-specific even if managed hero text changes", () => {
   const source = read("components/directory-page.tsx");
-  assert.match(source, /const seoHeroVisual = active/);
-  assert.match(source, /title: active\.heroTitle, intro: active\.intro/);
-  assert.match(source, /visual=\{seoHeroVisual\}/);
+  assert.match(source, /const\s*seoHeroVisual\s*=\s*active/);
+  assert.match(source, /title:\s*active\s*\.heroTitle,\s*intro:\s*active\s*\.intro/);
+  assert.match(source, /visual=\{\s*seoHeroVisual\s*\}/);
   assert.match(source, /<UnifiedSectionHero/);
   const overview = read("components/directory-category-overview.tsx");
   assert.match(
     overview,
-    /<Link href=\{directoryCategoryHref\(category\)\}>\{category\.heroTitle\}<\/Link>/,
+    /<Link\s*href=\{\s*directoryCategoryHref\(\s*category\s*\)\s*\}>\{\s*category\s*\.heroTitle\s*\}<\/Link>/,
   );
   const route = read("app/adresar/[category]/page.tsx");
-  assert.match(route, /directoryCategoryListingMetadata\(category, policy\.page\)/);
-  assert.match(route, /<StructuredData value=\{schema\}/);
+  assert.match(route, /directoryCategoryListingMetadata\(\s*category,\s*policy\s*\.page\s*\)/);
+  assert.match(route, /<StructuredData\s*value=\{\s*schema\s*\}/);
 });
 
 test("SEO-SERP breadcrumbs/CollectionPage schema point at the canonical category and preserve existing query policy", () => {

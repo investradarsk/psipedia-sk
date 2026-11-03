@@ -11,7 +11,7 @@ const compiled = ts.transpileModule(
   readFileSync("components/detail-primitives/detail-primitives.tsx", "utf8"),
   { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } },
 ).outputText;
-const module = { exports: {} };
+const compiledModule = { exports: {} };
 new Function("require", "exports", compiled)(
   (name) =>
     name === "@/components/public-heading"
@@ -19,9 +19,9 @@ new Function("require", "exports", compiled)(
       : name.endsWith(".css")
         ? { default: new Proxy({}, { get: (_, key) => String(key) }) }
         : require(name),
-  module.exports,
+  compiledModule.exports,
 );
-const { PublicDetailFlow } = module.exports;
+const { PublicDetailFlow } = compiledModule.exports;
 
 test("long main text cannot create sidebar rows; blocks render once and retain their narrow-screen order", () => {
   const html = renderToStaticMarkup(
@@ -49,6 +49,6 @@ test("long main text cannot create sidebar rows; blocks render once and retain t
   assert.match(html, /--detail-mobile-order:2[^>]*data-detail-block="services"/);
   assert.match(
     html,
-    /data-detail-block="intro"[\s\S]*data-detail-block="services"[\s\S]*<div class="flowColumn">[\s\S]*data-detail-block="contact"[\s\S]*data-detail-block="map"/,
+    /data-detail-block="intro"[\s\S]*data-detail-block="services"[\s\S]*<div\s*class="flowColumn">[\s\S]*data-detail-block="contact"[\s\S]*data-detail-block="map"/,
   );
 });
