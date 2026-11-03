@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { BREED_NOTION_SCHEMA, BREED_NOTION_PRIORITY_FIELDS } from "../lib/notion-breed-property-registry.ts";
+import { partialBreedNotionReceipt } from "../lib/notion-breed-safe-patch.ts";
 
 import {
   breedFieldSnapshot, planBreedNotionFieldDelta,
@@ -203,4 +204,12 @@ test("per-field Admin writeback handles every schema datatype without whole-page
   assert.match(extras,/export async function writeBreedExtraField/);
   assert.match(route,/writeBackBreedEditorialToNotion/);
   assert.match(route,/if \(bindings.DB\)/);
+});
+
+test("Admin-owned Notion field remains pending until outbound PATCH succeeds",()=>{
+  const before=breedFieldSnapshot(breed({intro:"V Notione staré",health:"Staré zdravie"}));
+  const remote=breedFieldSnapshot(breed({intro:"Notion prepísané",health:"Nové zdravie"}));
+  const next=partialBreedNotionReceipt(before,remote,["health"]);
+  assert.equal(next.health,"Nové zdravie");
+  assert.equal(next.intro,"V Notione staré");
 });
