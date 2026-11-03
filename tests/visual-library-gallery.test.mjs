@@ -137,8 +137,8 @@ test("seven safe new preview variants never import server-only feature flags int
   const detail = source("components/admin-visual-library-detail-previews.tsx");
   const profiles = source("components/admin-visual-library-profile-previews.tsx");
   const samples = [...registry.matchAll(/^\s*\{ id: "([^"]+)", path: "([^"]+)", family: "([^"]+)"/gm)];
-  assert.equal(samples.length, 70,
-    "59 earlier previews plus 11 additional real standalone public component examples");
+  assert.equal(samples.length, 79,
+    "70 earlier previews plus 9 additional real public control examples");
   assert.equal(new Set(samples.map((s) => s[1])).size, samples.length,
     "Every visual sample requires a unique stable identifier");
   for(const [id,path] of [
