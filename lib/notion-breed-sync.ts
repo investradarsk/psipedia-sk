@@ -19,7 +19,7 @@ import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
 import { notionBreedRichTextProperty as notionRichTextProperty, sameBreedSyncValue as sameBreedField } from "@/lib/notion-breed-text";
-import { reconcileBreedExtraFields, BREED_EXTRA_FIELDS } from "@/lib/notion-breed-extras";
+import { reconcileBreedExtraFields, BREED_EXTRA_FIELDS, readBreedExtraFields, extraValueFromNotion } from "@/lib/notion-breed-extras";
 import {
   planSafeBreedFields, partialBreedNotionReceipt, breedPartialError,
 } from "@/lib/notion-breed-safe-patch";
@@ -1203,4 +1203,41 @@ export async function writeBackPublishedBreedToNotion(args: {
   ).bind(now, now, mapping.notion_page_id).run();
 
   return { linked: true, updated: true, notionPageId: mapping.notion_page_id, publicUrl };
+}
+
+
+/** Read-only current-value inspection for owner-confirmed one-shot transfers. */
+export async function inspectManualBreedProfile(input:{
+  database:D1Database;bindings:NotionBreedSyncBindings;profileId:number;pageId:string;
+}):Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}>{
+  const expected=await input.database.prepare(
+    "SELECT notion_page_id FROM breed_notion_sync WHERE breed_id=? LIMIT 1"
+  ).bind(input.profileId).first<{notion_page_id:string}>();
+  if(expected?.notion_page_id!==input.pageId)throw Error("TRANSFER_IDENTITY_CHANGED");
+  const adminBreed=await getManagedBreed(input.profileId);
+  if(!adminBreed)throw Error("TRANSFER_BREED_NOT_FOUND");
+  const page=await notionRequest<NotionPage>(
+    input.bindings,"/pages/"+encodeURIComponent(input.pageId));
+  if(page.id!==input.pageId||!notionPageBelongsToDataSource(
+    page,input.bindings.NOTION_BREEDS_DATA_SOURCE_ID??"")
+    ||notionRichTextProperty(page,"Psipedia ID")!==String(input.profileId))
+    throw Error("TRANSFER_BREED_IDENTITY_MISMATCH");
+  const parsed=notionPageToManagedBreedInput(page);
+  if(parsed.slug!==adminBreed.slug
+    ||(parsed.fciNumber!=null&&adminBreed.fciNumber!=null
+      &&parsed.fciNumber!==adminBreed.fciNumber))
+    throw Error("TRANSFER_BREED_IDENTITY_MISMATCH");
+  const present=breedNotionPresentFieldIds(page);
+  const remote=breedFieldSnapshot(parsed);
+  const notion:Record<string,unknown>={};
+  for(const id of present)if(Object.prototype.hasOwnProperty.call(remote,id))
+    notion[id]=remote[id as keyof typeof remote];
+  const admin:Record<string,unknown>={...breedFieldSnapshot(adminBreed),
+    ...await readBreedExtraFields(input.database,input.profileId)};
+  for(const spec of BREED_EXTRA_FIELDS)
+    if(Object.prototype.hasOwnProperty.call(page.properties??{},spec.notion))
+      notion[spec.id]=extraValueFromNotion(page,spec.id);
+  return {notion,admin,excluded:[
+    "image","gallery","relatedBreedIds","relatedArticleIds","directoryProfileIds",
+  ]};
 }
