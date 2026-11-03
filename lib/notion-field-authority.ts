@@ -25,6 +25,9 @@ const breedLabels: Record<string, string> = {
   goodFor:"Vhodné pre", consider:"Zvážiť", sources:"Zdroje",
   fciStandard:"FCI štandard (podrobné polia)", editorial:"Redakčné sekcie (rozšírené)", sports:"Športy a vhodnosť",
   "seo.title":"SEO title", "seo.description":"Meta description",
+  "seo.focusKeyword":"SEO focus keyword", "seo.ogTitle":"SEO OG title",
+  "seo.ogDescription":"SEO OG description", "seo.canonicalUrl":"SEO canonical URL",
+  "seo.noindex":"SEO noindex",
 };
 const directoryLabels: Record<string, string> = {
   name:"Názov", excerpt:"Krátky popis", description:"O službe",
