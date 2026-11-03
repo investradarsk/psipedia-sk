@@ -37,9 +37,10 @@ function extractSQL(content, start, marker, occurrence = 0) {
   let first = -1;
   for (let i = 0; i <= occurrence; i++) first = body.indexOf(marker, first + 1);
   if (first < 0) throw new Error("Missing runtime SQL for " + start + " / " + marker);
-  const end = body.indexOf(tick + ").bind(",first);
+  // Extract the SQL template itself; formatting between .prepare() and .bind() varies.
+  const end = body.indexOf(tick, first);
   if (end < 0) throw new Error("Missing SQL ending for " + start);
-  return body.slice(first,end);
+  return body.slice(first, end);
 }
 const visibilitySql = extractSQL(geoSource,"setGeoVisibility","UPDATE geo_points SET",2);
 const googleResolutionSql = extractSQL(geoSource,"applyGooglePlaceResolution","UPDATE geo_points SET",1);
