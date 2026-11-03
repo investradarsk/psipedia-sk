@@ -756,7 +756,7 @@ async function applySafeBreedSync(
   if(actuallyChanged&&replacedImageKeys.length)
     await cleanupNotionImageKeys(bindings.BUCKET,replacedImageKeys);
   const ignored=plan.changed.filter(key=>authority[key]==="admin");
-  const notionReceipt=partialBreedNotionReceipt(previousNotion,latestNotion,safe.accepted,ignored);
+  const notionReceipt=partialBreedNotionReceipt(previousNotion,latestNotion,safe.accepted);
   await upsertMapping(database,page,updated.id,contentHash,now,{
     notion:notionReceipt,
     admin:advanceBreedAdminReceipt(previousAdmin,updated,safe.accepted),
