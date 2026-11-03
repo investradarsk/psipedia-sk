@@ -42,24 +42,52 @@ synchronizácií. Tie sa môžu medzi agendami líšiť. Reálne zosúladenie
 starých/nesprávne potvrdených hodnôt nie je implementované v časti 1.
 Časť 1 je základ pre jednotné správanie a bezpečnú implementáciu.
 
-## Časť 2 — po pokyne „Pokračuj 2“
+## Časť 2 — implementovaná, ešte bez produkčnej aktivácie
 
-- Reálne, iba na vyžiadanie vykonávané porovnanie Notion a Admin pre
-  podporované polia každého scope, s možnosťou výberu jedného profilu,
-  podkategórie alebo všetkých profilov.
-- Obojstranný jednorazový prenos podľa potvrdeného smeru **aj pri starých
-  rozdieloch**, nezávislý od toho, či má pole nový webhook alebo staré
-  synchronizačné potvrdenie.
-- Chránené systémové údaje, ID, publikovanie, Services V3 a overené
-  Google Place ID sa neprepisujú; špeciálne mediálne a vzťahové
-  adaptére musia reportovať nepodporovaný field, kým nie sú hotové.
-- Nevyužiť jeden HTTP request na synchronizáciu celej databázy.
-  Trvalá fronta po malých dávkach, idempotencia a kontrola súbehu.
+- Zavedený `manualDirection` pre **všetkých päť podporovaných oblastí**
+  cez existujúce synchronizačné adaptéry: Plemená, Služby,
+  Podujatia, Pomoc psom (4 agendy) a E-shopy.
+- Režim vychádza z **aktuálnych hodnôt**, nie iba z historického
+  hash/receiptu. Majiteľ môže zvoliť Notion → Admin alebo Admin → Notion.
+  Bežné cron/webhook behy `manualDirection` nepoužívajú.
+- Pre jeden už prepojený profil sa overuje kanonické Psipedia ID,
+  Notion page ID a parent/data source; existujúce adaptéry zachovávajú
+  ochranu publikovania, príslušnosti, potvrdených Google adries
+  a kanonického Services V3.
+- Postupný D1 job runner pracuje po **najviac dvoch profiloch**
+  v existujúcom minútovom crone. Má atomický claim, opakovanie
+  do 8 pokusov, oneskorenie medzi pokusmi, trvalé ID úlohy
+  a výsledný stav na úrovni profilu.
+- `POST /api/admin/notion-manual-transfer` vytvorí prenos až
+  po striktnej serverovej validácii a potvrdení
+  `CONFIRM_NOTION_MANUAL_TRANSFER`. Existuje aj read-only
+  `GET` na zistenie stavu behu.
+- Feature flag `NOTION_MANUAL_TRANSFER_ENABLED` je **OFF**,
+  kým vlastník nenasadí schválenú migráciu 0156, nedokončí
+  časť 3, neoverí E2E výsledok a výslovne ho nezapne.
+  Žiadna produkčná migrácia ani jednorazový prenos nie sú vykonané.
+- Pri starom historicky potvrdenom rozdiele v Plemenách môže
+  vynútený smer opraviť obsah bez novej zmeny v Notione.
+  Pri neplatnom poli prenos hlási čiastočné zlyhanie; netvári
+  sa ako plný úspech.
+- Kód má samostatné offline testy smeru, výslovných prázdnych
+  hodnôt, ochrany systémových polí a izolácie od bežného cronu.
+
+**Neuzavreté v časti 2:** doteraz žiadny systém nepreukazuje
+zhodu každého individuálneho poľa **po** ručnom prenose pre všetky
+agendy. Pripravené `notion_manual_transfer_field_results` zatiaľ
+neobsahujú overené položky. Samostatne treba implementovať
+bezpečné adaptéry pre špeciálne médiá, galérie a vzťahy plemien
+(teraz sú zámerne mimo vynúteného všeobecného prepisu).
+Týmto neoznačovať plnú funkčnosť „všetky stĺpce“ za hotovú.
 
 ## Časť 3 — po pokyne „Pokračuj 3“
 
 - Rozhranie v Admin → Nastavenia → Notion: oblasť, podkategória/profil,
   smer, náhľad rozdielov, potvrdenie, stav priebehu.
+- Skutočná nezávislá verifikácia všetkých podporovaných polí po prenose,
+  záznam jednotlivých `notion_manual_transfer_field_results` a hlásenie
+  vynechaných mediálnych/reláciových adaptérov bez falošného úspechu.
 - Úspešné/preskočené/neúspešné polia s konkrétnym profilom a dôvodom;
   história a opakovať len neúspešné. Report ukazuje aj rozdiel
   medzi transportne úspešnou udalosťou a overenou rovnosťou po zápise.
