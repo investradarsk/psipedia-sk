@@ -1581,7 +1581,58 @@ export function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0155_breed_notion_extra_fields.sql") {
     return { partial: names.has("breed_notion_extra_fields") || names.has("idx_breed_notion_extra_breed") };
   }
+  if (targetMigration === "0156_notion_manual_transfer_jobs.sql") {
+    return { partial: OBJECTS_0156.some(name => names.has(name)) };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
+}
+
+/** 0156 has three isolated queue tables and four explicit indexes. */
+export const OBJECTS_0156 = Object.freeze([
+  "notion_manual_transfer_runs",
+  "notion_manual_transfer_items",
+  "notion_manual_transfer_field_results",
+  "idx_notion_manual_transfer_runs_created",
+  "idx_notion_manual_transfer_runs_status",
+  "idx_notion_manual_transfer_items_run",
+  "idx_notion_manual_transfer_field_results_item",
+]);
+
+/** Verify physical 0156 schema after protected D1 APPLY, not merely the ledger. */
+export function assertManualTransfer0156Schema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const tables = OBJECTS_0156.slice(0, 3);
+  const indexes = OBJECTS_0156.slice(3);
+  for (const name of tables)
+    invariant(objects.get(name)?.type === "table", "0156 missing manual transfer table: " + name);
+  for (const name of indexes)
+    invariant(objects.get(name)?.type === "index", "0156 missing manual transfer index: " + name);
+
+  const runs = String(objects.get(tables[0])?.sql ?? "").replace(/\s+/g, " ").toLowerCase();
+  const items = String(objects.get(tables[1])?.sql ?? "").replace(/\s+/g, " ").toLowerCase();
+  const fields = String(objects.get(tables[2])?.sql ?? "").replace(/\s+/g, " ").toLowerCase();
+  for (const fragment of [
+    "id text primary key not null", "requested_by text not null",
+    "status text not null default 'preview'",
+    "total_profiles integer not null default 0",
+  ]) invariant(runs.includes(fragment), "0156 run contract drift: " + fragment);
+  for (const fragment of [
+    "run_id text not null references notion_manual_transfer_runs(id) on delete cascade",
+    "profile_id integer not null", "notion_page_id text not null",
+    "preview_hash text", "next_attempt_at text not null default",
+    "unique(run_id,scope,profile_id)",
+  ]) invariant(items.includes(fragment), "0156 item contract drift: " + fragment);
+  for (const fragment of [
+    "item_id integer not null references notion_manual_transfer_items(id) on delete cascade",
+    "field_key text not null", "reason_code text", "unique(item_id,field_key)",
+  ]) invariant(fields.includes(fragment), "0156 per-field report contract drift: " + fragment);
+  invariant(runs.includes("'preview_ready'") && runs.includes("'cancelled'"),
+    "0156 preview-confirm job states missing");
+  invariant(items.includes("'previewed'") && items.includes("'partial'"),
+    "0156 preview and partial item states missing");
+  invariant(fields.includes("'updated'") && fields.includes("'failed'"),
+    "0156 field-result states missing");
+  return true;
 }
 
 /** Production 0140: one-way Notion relation receipt, distinct from editorial content. */
@@ -2952,6 +3003,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 151) assertContentHistory0151Schema(schema);
   if (migrationIndex(targetMigration) >= 152) assertVisualLibrary0152Schema(schema);
   if (migrationIndex(targetMigration) >= 153) assertProfileFieldBaseline0153Schema(schema);
+  if (migrationIndex(targetMigration) >= 156) assertManualTransfer0156Schema(schema);
 }
 
 /** D1 0153: isolated, hash-verified common editorial snapshots only. */

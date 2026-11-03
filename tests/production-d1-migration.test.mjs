@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -30,6 +32,8 @@ import {
   buildScopedWranglerConfig,
   selectMigrationsThrough,
   targetSchemaObjects,
+  assertManualTransfer0156Schema,
+  OBJECTS_0156,
   validateProductionTargetHistory,
 } from "../scripts/production-d1-migrate.mjs";
 
@@ -1583,4 +1587,48 @@ test("IMAGE-EDITOR-2 0122 SQL migration is additive and covers all entity tables
     }
   }
   assert.doesNotMatch(sql, /DROP TABLE|DELETE FROM|UPDATE\s+/i);
+});
+
+
+test("0156 protected preflight recognizes pending journal and rejects partial drift", () => {
+  const target = "0156_notion_manual_transfer_jobs.sql";
+  const sql = readFileSync(path.join(repoRoot,"drizzle",target),"utf8");
+  const db = new DatabaseSync(":memory:");
+  const objects = () => db.prepare(
+    "SELECT name,type,sql,tbl_name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+  ).all();
+  try {
+    assert.deepEqual(targetSchemaObjects({objects:objects()},target),{partial:false});
+    assert.equal(OBJECTS_0156.length,7);
+    db.exec(sql);
+    assert.deepEqual(targetSchemaObjects({objects:objects()},target),{partial:true});
+    assert.throws(
+      () => assertPendingTargetSchemaClean(target,targetSchemaObjects({objects:objects()},target)),
+      /not recorded, but target schema objects already exist/,
+    );
+    assert.equal(assertManualTransfer0156Schema({objects:objects()}),true);
+    db.exec("DROP INDEX idx_notion_manual_transfer_items_run");
+    assert.throws(
+      () => assertManualTransfer0156Schema({objects:objects()}),
+      /0156 missing manual transfer index/,
+    );
+  } finally { db.close(); }
+});
+
+test("0156 schema guard rejects a damaged report contract without bypassing other migrations", () => {
+  const target = "0156_notion_manual_transfer_jobs.sql";
+  const sql = readFileSync(path.join(repoRoot,"drizzle",target),"utf8");
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(sql);
+    const objects = db.prepare(
+      "SELECT name,type,sql,tbl_name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+    ).all().map(row => row.name === "notion_manual_transfer_field_results"
+      ? {...row, sql: String(row.sql).replace("reason_code TEXT", "unexpected TEXT")}
+      : row);
+    assert.throws(
+      () => assertManualTransfer0156Schema({objects}),
+      /0156 per-field report contract drift/,
+    );
+  } finally { db.close(); }
 });
