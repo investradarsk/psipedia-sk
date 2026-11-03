@@ -25,6 +25,8 @@ function same(a: unknown, b: unknown): boolean {
   return keys.length===Object.keys(right).length&&keys.every(k=>Object.hasOwn(right,k)&&same(left[k],right[k]));
 }
 function getAt(record: Record<string,unknown>,path:string): {present:boolean;value:unknown} {
+  if(Object.prototype.hasOwnProperty.call(record,path))
+    return {present:record[path]!==undefined,value:record[path]};
   let cursor: unknown=record;
   for(const part of path.split(".")){
     if (!cursor || typeof cursor!=="object" || Array.isArray(cursor)
