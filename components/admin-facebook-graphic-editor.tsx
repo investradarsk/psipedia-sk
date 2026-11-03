@@ -443,7 +443,7 @@ export function AdminFacebookGraphicEditor({
             ] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={settings.logoStyle===value}
               className={settings.logoStyle===value?styles.selected:""} onClick={()=>set("logoStyle",value)}>
               <span className={styles.logoThumb + " " + (value==="wordmark"?styles.logoThumbDark:"")}>
-                <span className={styles.logoThumbMark} aria-hidden="true" />
+                <img className={styles.logoThumbMark} src="/favicon.svg" alt="" aria-hidden="true" />
                 {value!=="mark"&&<span className={styles.logoThumbName}>psipedia<span>.sk</span></span>}
               </span>
               <small>{label}</small>
