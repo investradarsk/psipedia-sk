@@ -239,15 +239,16 @@ async function updateRun(db:D1Database,runId:string){
     :(complete?(totals.failed||totals.partial?"PARTIAL":"COMPLETED"):"RUNNING");
   const fields=await db.prepare("SELECT "+
     "SUM(CASE WHEN f.status='UPDATED' THEN 1 ELSE 0 END) AS updated,"+
+    "SUM(CASE WHEN f.status='CHANGE' THEN 1 ELSE 0 END) AS preview_changed,"+
     "SUM(CASE WHEN f.status='FAILED' THEN 1 ELSE 0 END) AS failed "+
     "FROM notion_manual_transfer_field_results f "+
     "JOIN notion_manual_transfer_items i ON i.id=f.item_id WHERE i.run_id=?")
-    .bind(runId).first<{updated:number|null;failed:number|null}>();
+    .bind(runId).first<{updated:number|null;preview_changed:number|null;failed:number|null}>();
   const now=new Date().toISOString();
   await db.prepare("UPDATE notion_manual_transfer_runs SET status=?,processed_profiles=?,"+
     "changed_fields=?,failed_fields=?,updated_at=?,finished_at=? "+
-    "WHERE id=? AND status=?").bind(status,preview?0:totals.settled,
-      fields?.updated??0,fields?.failed??0,now,
+    "WHERE id=? AND status=?").bind(status,totals.settled,
+      preview?(fields?.preview_changed??0):(fields?.updated??0),fields?.failed??0,now,
       !preview&&complete?now:null,runId,head.status).run();
 }
 
@@ -392,7 +393,7 @@ export async function confirmManualTransferRun(db:D1Database,runId:string,actor:
   if(validated?.n!==head.total_profiles)throw Error("TRANSFER_PREVIEW_INCOMPLETE");
   const now=new Date().toISOString();
   const claimed=await db.prepare("UPDATE notion_manual_transfer_runs SET "+
-    "status='QUEUED',updated_at=? WHERE id=? AND status='PREVIEW_READY'")
+    "status='QUEUED',processed_profiles=0,changed_fields=0,updated_at=? WHERE id=? AND status='PREVIEW_READY'")
     .bind(now,runId).run();
   if(claimed.meta.changes!==1)throw Error("TRANSFER_PREVIEW_CHANGED");
   await db.prepare("UPDATE notion_manual_transfer_items SET status='PENDING',"+
