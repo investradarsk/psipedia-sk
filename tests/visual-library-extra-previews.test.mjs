@@ -10,13 +10,13 @@ const catalog = read("components/admin-visual-library-visual-catalog.tsx");
 const mockArticleUsage = { status: "unavailable", scannedArticles: 0, byKey: {} };
 
 test("Help, breadcrumb and tab previews use actual public components with no production records", () => {
-  for (const [,id] of [
-    ["profile", "help-profile"],
-    ["profile-urgent", "help-profile-urgent"],
-    ["category", "help-category-nav"],
-    ["breadcrumb", "breadcrumbs"],
-    ["tabs", "section-tabs"],
-  ].entries()) {
+  for (const id of [
+    "help-profile",
+    "help-profile-urgent",
+    "help-category-nav",
+    "breadcrumbs",
+    "section-tabs",
+  ]) {
     assert.match(previews, new RegExp('id: "' + id + '"'));
     assert.match(extra, new RegExp('case "' + id + '"'));
   }
