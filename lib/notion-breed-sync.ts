@@ -12,7 +12,7 @@ import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
 import {
   advanceBreedAdminReceipt, breedFieldSnapshot, parseBreedFieldSnapshot,
-  planBreedNotionFieldDelta, type BreedFieldSnapshot, type BreedNotionField,
+  planBreedNotionFieldDelta, BREED_NOTION_EDITABLE_FIELDS, type BreedFieldSnapshot, type BreedNotionField,
 } from "@/lib/notion-breed-field-delta";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.ts";
 import {
@@ -301,8 +301,11 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     seo: {
       title: seoTitle,
       description: metaDescription,
-      ogTitle: seoTitle,
-      ogDescription: metaDescription,
+      focusKeyword: notionRichTextProperty(page, "SEO focus keyword"),
+      ogTitle: notionRichTextProperty(page, "SEO OG title"),
+      ogDescription: notionRichTextProperty(page, "SEO OG description"),
+      canonicalUrl: notionUrlProperty(page, "SEO canonical URL"),
+      noindex: checkboxProperty(page, "SEO noindex"),
     },
   };
 }
@@ -645,6 +648,11 @@ const BREED_WEBHOOK_PROPERTIES = {
   healthRisks: "Zdravotné riziká", goodFor: "Vhodné pre",
   consider: "Zvážiť", sources: "Zdroje", "seo.title": "SEO title",
   "seo.description": "Meta description",
+  "seo.focusKeyword": "SEO focus keyword",
+  "seo.ogTitle": "SEO OG title",
+  "seo.ogDescription": "SEO OG description",
+  "seo.canonicalUrl": "SEO canonical URL",
+  "seo.noindex": "SEO noindex",
   fciStandard: "FCI štandard JSON", editorial: "Redakčné sekcie JSON", sports: "Športy JSON",
 } as const;
 
@@ -744,7 +752,9 @@ async function syncOneBreed(
   }
   // Do not turn unapproved, unmapped Notion concepts into canonical records.
   if (!mapping && !current && notionSelectProperty(page, "Stav") === "Na kontrolu") return "unchanged";
-  validateReady(page, current?.status === "published");
+  // Already linked profiles always accept normal editorial changes. Notion
+  // approval is only a creation/first-import concern, never a text lock.
+  validateReady(page, Boolean(mapping || current?.status === "published"));
   // Backfill can safely link Research / Na kontrolu identities, but must not
   // treat that act of pairing as editorial approval. Hold the one-time initial
   // content import until this existing profile is explicitly Ready.
@@ -844,41 +854,42 @@ async function syncOneBreed(
         fieldReceipt.notion,fieldReceipt.admin,plan.latest,authority,contentHash,invalid);
     }
 
-    // Legacy SHA receipts lack a per-field baseline. The SIGNED webhook event
-    // supplies exact changed property IDs. Never silently consume a first edit
-    // by treating the already-edited page as the common baseline.
+    // Legacy SHA receipts have no field history. Do not block a whole breed
+    // awaiting a signed property event or a manual historical baseline.
+    // A matching hash means Notion did not change: initialise the receipt.
+    // On a changed hash, use signed property IDs when available; otherwise
+    // compare the current Notion and Admin values and apply the owner's
+    // configured per-field priorities. Identity is checked above.
     if (mapping && !fieldReceipt
       && !mapping.content_hash.startsWith("identity-pending-editorial:")) {
-      if (changedPropertyIds.length) {
-        const touched = signedBreedChangedFields(page, changedPropertyIds);
-        if (!touched.length) throw new Error("BREED_WEBHOOK_FIELDS_UNRESOLVED");
-        // On legacy rows we cannot tell which Admin fields changed since the
-        // last receipt. Reject any unacknowledged Admin revision instead of
-        // silently overriding it (even if the edit was to another field).
-        if (!Number.isFinite(lastAck) || !Number.isFinite(adminEdit) || adminEdit > lastAck) {
-          throw new Error("BREED_LEGACY_CONCURRENT_ADMIN_EDIT");
-        }
-        const previousNotion = breedFieldSnapshot(basePayload);
-        const previousAdmin = breedFieldSnapshot(existing);
-        for (const field of touched) previousNotion[field] = previousAdmin[field];
-        const plan = planBreedNotionFieldDelta(existing, basePayload, previousNotion, previousAdmin, authority);
-        return applySafeBreedSync(database,bindings,page,existing,plan,
-          previousNotion,previousAdmin,plan.latest,authority,contentHash,
-          invalidStructuredBreedFields(page));
+      if (receipt.hash === contentHash) {
+        await upsertMapping(database, page, existing.id, contentHash, now, {
+          notion: breedFieldSnapshot(basePayload),
+          admin: breedFieldSnapshot(existing),
+        });
+        await updateNotionSyncState(bindings, page.id, {
+          state: "Synchronizované", psipediaId: existing.id, syncedAt: now,
+        });
+        return "unchanged";
       }
-      // A pending first Notion edit may be waiting in the inbox when an hourly
-      // sweep runs first. Never acknowledge a changed historical SHA without
-      // signed field IDs: that would permanently lose the pending edit.
-      if (receipt.hash !== contentHash) return "unchanged";
-      // A truly unchanged hourly page may initialize its common baseline.
-      await upsertMapping(database, page, existing.id, contentHash, now, {
-        notion: breedFieldSnapshot(basePayload),
-        admin: breedFieldSnapshot(existing),
-      });
-      await updateNotionSyncState(bindings, page.id, {
-        state: "Synchronizované", psipediaId: existing.id, syncedAt: now,
-      });
-      return "unchanged";
+      const previousAdmin = breedFieldSnapshot(existing);
+      const latestNotion = breedFieldSnapshot(basePayload);
+      const previousNotion = { ...latestNotion };
+      const touched = changedPropertyIds.length
+        ? signedBreedChangedFields(page, changedPropertyIds) : [];
+      // No webhook IDs is a normal hourly replay, not a conflict.
+      // No verified old baseline exists, so differing values are ordinary
+      // first-reconciliation candidates resolved by field priority.
+      const fields = touched.length ? touched : BREED_NOTION_EDITABLE_FIELDS;
+      for (const field of fields) previousNotion[field] = previousAdmin[field];
+      const plan = planBreedNotionFieldDelta(
+        existing, basePayload, previousNotion, previousAdmin, authority,
+      );
+      return applySafeBreedSync(
+        database, bindings, page, existing, plan, previousNotion,
+        previousAdmin, plan.latest, authority, contentHash,
+        invalidStructuredBreedFields(page),
+      );
     }
 
     if (mapping && receipt.hash === contentHash) {
