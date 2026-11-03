@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   const page = Math.max(1, Math.min(5000, Number.parseInt(params.get("page") || "1", 10) || 1));
   const search = (params.get("query") || "").trim().slice(0, 100);
   const escaped = search.replace(/[\\%_]/g, "\\$&");
-  const condition = search ? " AND LOWER(name) LIKE LOWER(?) ESCAPE '\\\\'" : "";
+  const condition = search ? " AND LOWER(name) LIKE LOWER(?) ESCAPE '\\'" : "";
   const args: Array<string | number> = search ? [category, "%" + escaped + "%"] : [category];
   const db = database();
   try {
