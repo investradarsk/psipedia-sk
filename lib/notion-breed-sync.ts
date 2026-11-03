@@ -481,30 +481,6 @@ async function preparePayloadWithImage(
  * text. It deliberately excludes publication, slug, images, FCI identity and
  * fields without a one-to-one Notion property.
  */
-const BREED_DRAFT_TEXT_FIELDS = [
-  ["name", "Názov", "title"],
-  ["origin", "Krajina pôvodu", "rich_text"],
-  ["group", "Skupina", "rich_text"],
-  ["size", "Veľkosť", "rich_text"],
-  ["weight", "Hmotnosť", "rich_text"],
-  ["height", "Výška", "rich_text"],
-  ["lifespan", "Dĺžka života", "rich_text"],
-  ["coat", "Srsť", "rich_text"],
-  ["intro", "Intro", "rich_text"],
-  ["character", "Charakter", "rich_text"],
-  ["needs", "Potreby", "rich_text"],
-  ["history", "História", "rich_text"],
-  ["exercise", "Pohyb", "rich_text"],
-  ["training", "Výcvik", "rich_text"],
-  ["health", "Zdravie", "rich_text"],
-  ["officialFciName", "Oficiálny FCI názov", "rich_text"],
-  ["workingTrial", "Pracovná skúška", "rich_text"],
-] as const;
-
-function normalizedBreedText(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
 function richTextNotionValue(text: string, kind: "title" | "rich_text") {
   const characters = Array.from(text);
   if (characters.length > 180_000) {
@@ -515,25 +491,6 @@ function richTextNotionValue(text: string, kind: "title" | "rich_text") {
     parts.push({ type: "text", text: { content: characters.slice(i, i + 1800).join("") } });
   }
   return { [kind]: parts };
-}
-
-function breedDraftTextChanges(before: ManagedBreed, after: ManagedBreed) {
-  const edits: Array<{ key: (typeof BREED_DRAFT_TEXT_FIELDS)[number][0]; notionProperty: string; expected: string }> = [];
-  const patch: Record<string, unknown> = {};
-  for (const [key, notionProperty, kind] of BREED_DRAFT_TEXT_FIELDS) {
-    const oldValue = normalizedBreedText(before[key]);
-    const newValue = normalizedBreedText(after[key]);
-    if (oldValue === newValue) continue;
-    edits.push({ key, notionProperty, expected: newValue });
-    patch[notionProperty] = richTextNotionValue(after[key], kind);
-  }
-  return { edits, patch };
-}
-
-function notionBreedTextValue(page: NotionPage, property: string) {
-  return normalizedBreedText(property === "Názov"
-    ? notionTitleProperty(page, property)
-    : notionRichTextProperty(page, property));
 }
 
 async function notionBreedSourceHash(page: NotionPage) {
