@@ -31,7 +31,7 @@ export async function GET(request:Request){
 /**
  * Only the owner-confirmed action can create a queued run; server-side
  * category and ID allowlists are enforced against the real D1 mappings.
- * This endpoint is disabled until owner deploys the approved 0156 migration
+ * This endpoint is disabled until owner deploys an owner-approved numbered migration of the proposed D1 journal
  * and sets NOTION_MANUAL_TRANSFER_ENABLED=true.
  *
  * Part 3 will add preflight preview and render the explicit confirmation UI.
