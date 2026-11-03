@@ -108,6 +108,13 @@ function splitList(value: string) {
   return value.split(";").map((item) => item.trim()).filter(Boolean).slice(0, 30);
 }
 
+function notionRelationIds(page:NotionPage,field:string) {
+  const text=notionRichTextProperty(page,field).trim();
+  if(!text)return [];
+  return [...new Set(text.split(/[;,\s]+/).map(Number)
+    .filter(value=>Number.isSafeInteger(value)&&value>0))].slice(0,100);
+}
+
 function parseSources(value: string) {
   return splitList(value).flatMap((item) => {
     const separator = item.lastIndexOf("|");
@@ -197,8 +204,9 @@ function structuredBreedColumns(
   const raw=optionalStructuredBreedField(page,jsonProperty,"object") as Record<string,unknown>|undefined;
   const merged:Record<string,unknown>={...(raw??{})};
   for(const [key,column] of columns){
-    const value=notionRichTextProperty(page,column);
-    if(value)merged[key]=value;
+    // An existing empty Notion cell is an explicit clear; an absent property
+    // is not. Individual FCI/editorial columns win over the aggregate JSON.
+    if (notionPropertyRecord(page,column)) merged[key]=notionRichTextProperty(page,column);
   }
   return Object.keys(merged).length ? merged : undefined;
 }
@@ -217,6 +225,8 @@ function breedEditorialNotionDetails(page: NotionPage): ManagedBreedInput["edito
   const merged=structuredBreedColumns(page,"Redakčné sekcie JSON",BREED_NOTION_EDITORIAL_COLUMNS) ?? {};
   const traits=optionalStructuredBreedField(page,"Redakcia hlavné vlastnosti JSON","array");
   if(traits)merged.heroTraits=traits;
+  else if(notionPropertyRecord(page,"Redakcia hlavné vlastnosti JSON")
+       && !notionRichTextProperty(page,"Redakcia hlavné vlastnosti JSON"))merged.heroTraits=[];
   return Object.keys(merged).length ? merged as unknown as ManagedBreedInput["editorial"] : undefined;
 }
 
@@ -231,6 +241,7 @@ function invalidStructuredBreedFields(page: NotionPage): Set<BreedNotionField> {
     ["Redakčné sekcie JSON","object","editorial"],
     ["Redakcia hlavné vlastnosti JSON","array","editorial"],
     ["Športy JSON","array","sports"],
+    ["Galéria JSON","array","gallery"],
   ] as const){
     const text=notionRichTextProperty(page,property);
     if(!text)continue;
@@ -269,6 +280,13 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     fciStandard: breedFciNotionDetails(page),
     editorial: breedEditorialNotionDetails(page),
     sports: optionalStructuredBreedField(page, "Športy JSON", "array") as unknown as ManagedBreedInput["sports"],
+    gallery: optionalStructuredBreedField(page, "Galéria JSON", "array") as ManagedBreedInput["gallery"],
+    relatedBreedIds: notionRelationIds(page,"Súvisiace plemená ID"),
+    relatedArticleIds: notionRelationIds(page,"Súvisiace články ID"),
+    directoryProfileIds: notionRelationIds(page,"Súvisiace profily služieb ID"),
+    image: notionUrlProperty(page,"Hlavný obrázok URL"),
+    accent: (["forest","coral","gold","blue"].includes(notionSelectProperty(page,"Farba akcentu"))
+      ? notionSelectProperty(page,"Farba akcentu") : "forest") as ManagedBreedInput["accent"],
     editorialComplete: notionPropertyRecord(page, "Editorial complete") ? checkboxProperty(page, "Editorial complete") : undefined,
     origin: notionRichTextProperty(page, "Krajina pôvodu"),
     group: notionRichTextProperty(page, "Skupina"),
@@ -297,7 +315,6 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     goodFor: splitList(notionRichTextProperty(page, "Vhodné pre")),
     consider: splitList(notionRichTextProperty(page, "Zvážiť")),
     sources: parseSources(notionRichTextProperty(page, "Zdroje")),
-    accent: "forest",
     seo: {
       title: seoTitle,
       description: metaDescription,
