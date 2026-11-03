@@ -4,6 +4,9 @@ import {
   manualTransferSchemaReady,
   prepareManualTransferRun,
   readManualTransferRun,
+  listManualTransferRuns,
+  confirmManualTransferRun,
+  retryManualTransferFailed,
 } from "@/lib/notion-manual-transfer-queue";
 
 export const dynamic="force-dynamic";
@@ -23,8 +26,11 @@ export async function GET(request:Request){
   if(!bindings.DB)return json({error:"TRANSFER_DB_UNAVAILABLE"},503);
   try{
     const url=new URL(request.url);
-    const runId=url.searchParams.get("runId")??"";
-    return json(await readManualTransferRun(bindings.DB,runId));
+    const runId=url.searchParams.get("runId");
+    if(!runId)return json({runs:await listManualTransferRuns(bindings.DB)});
+    const offset=Number(url.searchParams.get("offset")??"0");
+    const onlyErrors=url.searchParams.get("errors")==="1";
+    return json(await readManualTransferRun(bindings.DB,runId,offset,onlyErrors));
   }catch(error){return json({error:code(error)},400)}
 }
 
@@ -49,14 +55,27 @@ export async function POST(request:Request){
   try{payload=await request.json()}catch{return json({error:"TRANSFER_JSON_INVALID"},400)}
   if(!payload||typeof payload!=="object"||Array.isArray(payload))
     return json({error:"TRANSFER_JSON_INVALID"},400);
-  const {confirm, ...requested}=payload as Record<string,unknown>;
-  if(confirm!=="CONFIRM_NOTION_MANUAL_TRANSFER")
-    return json({error:"TRANSFER_CONFIRMATION_REQUIRED"},409);
+  const {action,confirm,runId,...requested}=payload as Record<string,unknown>;
+  const actor=auth.user.email;
   try{
-    return json(await prepareManualTransferRun({
-      database:bindings.DB,
-      request:requested,
-      actor:auth.user.email,
-    }),202);
+    if(action==="preview"){
+      if(confirm!==undefined||runId!==undefined)
+        return json({error:"TRANSFER_PREVIEW_REQUEST_INVALID"},400);
+      return json(await prepareManualTransferRun({
+        database:bindings.DB,request:requested,actor,
+      }),202);
+    }
+    if(typeof runId!=="string")return json({error:"TRANSFER_RUN_ID_INVALID"},400);
+    if(action==="confirm"){
+      if(confirm!=="CONFIRM_NOTION_MANUAL_TRANSFER")
+        return json({error:"TRANSFER_CONFIRMATION_REQUIRED"},409);
+      return json(await confirmManualTransferRun(bindings.DB,runId,actor),202);
+    }
+    if(action==="retry"){
+      if(confirm!=="RETRY_ONLY_FAILED")
+        return json({error:"TRANSFER_RETRY_CONFIRMATION_REQUIRED"},409);
+      return json(await retryManualTransferFailed(bindings.DB,runId,actor),202);
+    }
+    return json({error:"TRANSFER_ACTION_INVALID"},400);
   }catch(error){return json({error:code(error)},409)}
 }
