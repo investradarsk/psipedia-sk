@@ -1,0 +1,34 @@
+name: NOTION-MANUAL-TRANSFER contract
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/notion-manual-transfer-*.ts"
+      - "app/api/admin/notion-manual-transfer/**"
+      - "drizzle/0156_notion_manual_transfer_jobs.sql"
+      - "tests/notion-manual-transfer-*.test.mjs"
+      - "docs/notion-manual-transfer-unified.md"
+      - ".github/workflows/notion-manual-transfer-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notion-manual-transfer-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: One-shot contract, D1 journal and guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Read-only field planning and SQLite journal tests
+        run: node --experimental-strip-types --test tests/notion-manual-transfer-contract.test.mjs tests/notion-manual-transfer-plan.test.mjs
+      - name: GitHub revision evidence
+        run: echo "validated_head=$(git rev-parse HEAD)"

@@ -319,6 +319,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0153_notion_profile_field_baselines.sql",
   "0154_facebook_content_share_markers.sql",
   "0155_breed_notion_extra_fields.sql",
+  "0156_notion_manual_transfer_jobs.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
