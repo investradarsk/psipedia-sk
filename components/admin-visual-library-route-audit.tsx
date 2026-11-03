@@ -6,6 +6,7 @@ import {
   AdminComponentVisualPreview,
 } from "@/components/admin-component-visual-preview";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
+import { AdminVisualLibraryHtmlCheck } from "@/components/admin-visual-library-html-check";
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
 import { collectPinnedStaticRoutePlacements } from "@/lib/visual-library-route-evidence";
 import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
@@ -185,6 +186,10 @@ export function AdminVisualLibraryRouteAudit({ registry, examples }: {
                   <small>{use.placement} · {use.source === "banner-catalogue"
                     ? "Audítorský katalóg bannerov" : "Overená ukážka komponentu"}</small>
                   <code>{use.url}{use.anchorId ? "#" + use.anchorId : ""}</code>
+                  {use.anchorId ? (
+                    <AdminVisualLibraryHtmlCheck key={use.url + ":" + use.anchorId}
+                      url={use.url} anchorId={use.anchorId} />
+                  ) : <small>Bez unikátnej HTML kotvy – živý výskyt komponentu zatiaľ nepotvrdený.</small>}
                 </div>
                 <a href={use.url + (use.anchorId ? "#" + use.anchorId : "")}
                   target="_blank" rel="noopener noreferrer">Otvoriť miesto</a>
@@ -243,8 +248,10 @@ export function AdminVisualLibraryRouteAudit({ registry, examples }: {
             </div>}
           </div>}
           <p className={styles.nextStep}>
-            Tu sa nič neupravuje. Presné umiestnenie komponentu musí najprv
-            potvrdiť individuálna kontrola konkrétnej URL alebo jej renderu.
+            Tu sa nič neupravuje. Kontrola HTML sa spúšťa len kliknutím;
+            nájdená kotva potvrdzuje serverové HTML v čase kontroly, nie
+            skutočnú viditeľnosť po hydratácii. Kandidátov podľa importov
+            naďalej neoznačujeme za overené.
           </p>
         </article> : <p className={styles.empty}>Vyber stránku z inventára.</p>}
       </div>
