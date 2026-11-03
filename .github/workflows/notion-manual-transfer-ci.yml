@@ -29,6 +29,6 @@ jobs:
         with:
           node-version: '24'
       - name: Read-only field planning and SQLite journal tests
-        run: node --experimental-strip-types --test tests/notion-manual-transfer-contract.test.mjs
+        run: node --experimental-strip-types --test tests/notion-manual-transfer-contract.test.mjs tests/notion-manual-transfer-plan.test.mjs
       - name: GitHub revision evidence
         run: echo "validated_head=$(git rev-parse HEAD)"
