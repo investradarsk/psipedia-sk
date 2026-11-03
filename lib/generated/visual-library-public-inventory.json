@@ -37,7 +37,7 @@
     },
     {
       "path": "components/article-continuation.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/article-detail.tsx",
@@ -233,7 +233,7 @@
     },
     {
       "path": "components/event-markdown.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/events-page.tsx",
@@ -253,7 +253,7 @@
     },
     {
       "path": "components/google-maps-consent-controls.tsx",
-      "coverage": "nonvisual"
+      "coverage": "needs-preview"
     },
     {
       "path": "components/help-browser.tsx",
@@ -285,7 +285,7 @@
     },
     {
       "path": "components/help-public-icons.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/help-report-guide.tsx",
@@ -481,7 +481,7 @@
     },
     {
       "path": "components/portal-mobile-category-select.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/portal-section-tabs.tsx",
@@ -541,7 +541,7 @@
     },
     {
       "path": "components/public-visual-system/public-help-card-surface.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/public-visual-system/public-help-category-nav.tsx",
@@ -573,7 +573,7 @@
     },
     {
       "path": "components/public-visual-system/public-photo-gallery.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/public-visual-system/public-photoswipe-enhancer.tsx",
@@ -621,7 +621,7 @@
     },
     {
       "path": "components/share-button.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/site-footer.tsx",
@@ -633,11 +633,11 @@
     },
     {
       "path": "components/slovakia-location-selector.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/smart-card-image.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/structured-data.tsx",
