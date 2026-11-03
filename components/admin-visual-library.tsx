@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
 import { visualLibraryBanners } from "@/lib/visual-library-banners";
 import { AdminVisualLibraryOther } from "@/components/admin-visual-library-other";
 import { AdminVisualLibraryGallery } from "@/components/admin-visual-library-gallery";
@@ -169,15 +169,8 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
 
             <div className={styles.preview} aria-label={`Skutočný vizuálny náhľad: ${preview.title}`}>
               <div className={styles.previewComponent} inert>
-                <PublicMagazineBanner compact={chosen.group === "clanky"}
-                  photoTone={chosen.photoTone}
-                  testId={`library-${chosen.id}`}
-                  eyebrow={preview.eyebrow}
-                  title={preview.title}
-                  description={preview.description}
-                  label={preview.label}
-                  href={chosen.ctaHref}
-                />
+                <AdminVisualLibraryBannerPreview banner={chosen}
+                  testId={`library-${chosen.id}`} copy={preview} />
               </div>
             </div>
             <p className={styles.explanation}>
