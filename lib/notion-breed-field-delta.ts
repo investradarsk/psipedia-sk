@@ -14,6 +14,7 @@ export const BREED_NOTION_EDITABLE_FIELDS = [
   "apartment", "grooming", "shedding", "preyDrive",
   "intro", "character", "needs", "history", "exercise", "training",
   "health", "healthRisks", "goodFor", "consider", "sources",
+  "fciStandard", "editorial", "sports",
   "seo.title", "seo.description",
 ] as const;
 
@@ -46,8 +47,17 @@ export function parseBreedFieldSnapshot(value: string | null): BreedFieldSnapsho
     const parsed: unknown = JSON.parse(value);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const record = parsed as Record<string, unknown>;
-    if (!BREED_NOTION_EDITABLE_FIELDS.every(key => Object.prototype.hasOwnProperty.call(record, key)))
+    // Old receipts predate the opt-in structured columns. Keep their old
+    // baseline authoritative and initialise only newly introduced keys as
+    // absent. Never force hundreds of legacy profiles through a full resync.
+    for (const key of BREED_NOTION_EDITABLE_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(record, key)) continue;
+      if (key === "fciStandard" || key === "editorial" || key === "sports") {
+        record[key] = null;
+        continue;
+      }
       return null;
+    }
     return record as BreedFieldSnapshot;
   } catch {
     return null;
@@ -96,6 +106,13 @@ export function planBreedNotionFieldDelta(
     accepted.push(key);
     if (key === "seo.title" || key === "seo.description") {
       patch.seo = { ...patch.seo, [key.slice(4)]: desired };
+    } else if (key === "editorial") {
+      patch.editorial = { ...existing.editorial, ...(desired && typeof desired === "object" && !Array.isArray(desired) ? desired : {}) };
+    } else if (key === "fciStandard") {
+      patch.fciStandard = { ...existing.fciStandard, ...(desired && typeof desired === "object" && !Array.isArray(desired) ? desired : {}) };
+    } else if (key === "sports") {
+      // Only a complete explicit array replaces the corresponding sport list.
+      if (Array.isArray(desired)) patch.sports = desired as ManagedBreedInput["sports"];
     } else {
       (patch as Record<string, unknown>)[key] = desired;
     }

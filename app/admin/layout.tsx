@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AdminPwaRegistration } from "@/components/admin-pwa-registration";
+import { AdminMobileDocumentNavigation } from "@/components/admin-mobile-document-navigation";
 import { AdminQueryProvider } from "@/components/admin-query-provider";
 import "./admin-legacy-scoped.css";
 import "./admin-workspace.css";
@@ -31,6 +32,7 @@ export default function AdminLayout({ children }: Readonly<{ children: React.Rea
         <a className="admin-skip-link" href="#obsah">Preskočiť na obsah</a>
       </nav>
       <AdminQueryProvider>{children}</AdminQueryProvider>
+      <AdminMobileDocumentNavigation />
       <AdminPwaRegistration />
     </div>
   );

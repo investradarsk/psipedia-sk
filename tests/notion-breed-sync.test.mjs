@@ -25,9 +25,9 @@ test("published breeds can receive approved Notion editorial updates without cha
   assert.match(syncSource, /Number\(rows\.results\[0\]\.fci_number\) !== fciNumber/);
   assert.match(syncSource, /BREED_MAPPING_REVIEW_REQUIRED/);
   assert.match(syncSource, /existing\.status === "published"/);
-  assert.match(syncSource, /status: existing\.status/);
-  assert.match(syncSource, /accent: existing\.accent/);
-  assert.match(syncSource, /image: existing\.image/);
+  assert.match(syncSource, /status:\s*existing\.status/);
+  assert.match(syncSource, /accent:\s*existing\.accent/);
+  assert.match(syncSource, /image:\s*existing\.image/);
   assert.match(syncSource, /BREED_CREATE_REQUIRES_READY/);
 });
 
@@ -160,7 +160,7 @@ test("only conflicting Admin and Notion edits to the SAME breed field are blocke
   const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
     syncSource.indexOf("export async function runNotionBreedSyncSweep("));
   assert.match(mapped, /planBreedNotionFieldDelta\(existing, basePayload/);
-  assert.match(mapped, /BREED_SAME_FIELD_CONFLICT/);
+  assert.match(mapped, /planSafeBreedFields|applySafeBreedSync/);
   assert.match(mapped, /BREED_PSID_CONFLICT/);
   assert.match(mapped, /receipt.hash === contentHash && canonicalTextDiffers/);
   assert.doesNotMatch(mapped, /BREED_ADMIN_REVISION_NOT_SYNCED/);
