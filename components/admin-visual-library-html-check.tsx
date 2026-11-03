@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   MAX_VISUAL_AUDIT_HTML_BYTES, classifyHtmlInspection,
   safePublicHtmlAuditPath, validHtmlProbe,
-  type HtmlEvidenceResult, type HtmlProbe,
+  type HtmlEvidenceResult, type HtmlProbe, type ComponentHtmlId,
 } from "@/lib/visual-library-html-evidence";
 import type { DynamicUrlKind } from "@/lib/visual-library-dynamic-urls-contract";
 import styles from "./admin-visual-library.module.css";
@@ -15,6 +15,7 @@ type Props = {
   url: string;
   anchorId?: string;
   profileKind?: DynamicUrlKind;
+  componentId?: ComponentHtmlId;
 };
 
 /**
@@ -23,13 +24,14 @@ type Props = {
  * only proves the marker occurs in server HTML at inspection time, not in a
  * hydrated/visible browser viewport.
  */
-export function AdminVisualLibraryHtmlCheck({url,anchorId,profileKind}: Props) {
+export function AdminVisualLibraryHtmlCheck({url,anchorId,profileKind,componentId}: Props) {
   const [loading,setLoading] = useState(false);
   const [result,setResult] = useState<HtmlEvidenceResult | null>(null);
   const controller = useRef<AbortController | null>(null);
   const path = safePublicHtmlAuditPath(url);
   const probe: HtmlProbe | null = anchorId
     ? {kind:"anchor",anchorId}
+    : componentId ? {kind:"component",componentId}
     : profileKind ? {kind:"profile",profileKind} : null;
   const eligible = path !== null && probe !== null && validHtmlProbe(probe);
 
@@ -116,7 +118,9 @@ export function AdminVisualLibraryHtmlCheck({url,anchorId,profileKind}: Props) {
   return <div className={styles.htmlAudit} data-html-audit>
     <button type="button" className={styles.moreButton}
       disabled={!eligible || loading} onClick={() => void inspect()}>
-      {loading ? "Overujem HTML…" : "Overiť HTML stránky"}
+      {loading ? "Overujem HTML…" : componentId && !anchorId
+        ? "Overiť prítomnosť komponentu v HTML"
+        : "Overiť HTML stránky"}
     </button>
     {!eligible && <small>Bez bezpečnej presnej URL a značky nemožno potvrdiť výskyt.</small>}
     {result && <div className={styles.htmlAuditResult} role="status" aria-live="polite"
