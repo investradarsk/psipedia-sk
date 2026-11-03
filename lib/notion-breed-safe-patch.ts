@@ -5,15 +5,16 @@ type BreedFieldPlan = ReturnType<typeof planBreedNotionFieldDelta>;
 export type BreedSyncSkipped = { field: BreedNotionField; error: string };
 
 function valueForField(patch: ManagedBreedInput, field: BreedNotionField): unknown {
-  if (field === "seo.title") return patch.seo?.title;
-  if (field === "seo.description") return patch.seo?.description;
+  if (field.startsWith("seo.")) {
+    return patch.seo?.[field.slice(4) as keyof NonNullable<ManagedBreedInput["seo"]>];
+  }
   return (patch as Record<string, unknown>)[field];
 }
 
 function applyOneField(current: ManagedBreedInput, patch: ManagedBreedInput, field: BreedNotionField): ManagedBreedInput {
   const value = valueForField(patch, field);
   if (value === undefined) return current; // Absent optional source data is not a clear.
-  if (field === "seo.title" || field === "seo.description") {
+  if (field.startsWith("seo.")) {
     return { ...current, seo: { ...current.seo, [field.slice(4)]: value } };
   }
   if (field === "fciStandard" || field === "editorial") {
