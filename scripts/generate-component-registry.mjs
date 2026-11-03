@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { auditVisualSources } from "./visual-library-deep-audit.mjs";
 
 const SOURCE_ROOTS = ["app", "components", "lib", "hooks"];
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js", ".mts", ".mjs"];
@@ -187,7 +188,8 @@ export function buildRegistry(root) {
     sameName.get(key).push(item.path);
   }
   return {
-    version: 2,
+    version: 3,
+    deepAudit: auditVisualSources(absoluteRoot, absoluteFiles, components, usedBy),
     generatedAt: new Date().toISOString(),
     totals: {
       components: components.length,
@@ -219,5 +221,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.writeFileSync(output, JSON.stringify(data, null, 2) + "\n");
   console.log("Component registry: " + data.totals.components + " components, " +
-    data.totals.pages + " routes, " + data.totals.shared + " shared.");
+    data.totals.pages + " routes, " + data.totals.shared + " shared; " +
+    data.deepAudit.totals.jsxFiles + " JSX sources and " +
+    data.deepAudit.totals.exactCssGroups + " exact CSS declaration groups.");
 }
