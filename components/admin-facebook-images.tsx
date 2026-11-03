@@ -83,14 +83,15 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   },[pickerKind,pickerGroups.length]);
   useEffect(()=>{
     if(!editor||graphicOpen||pickerKind==="none"||(pickerKind==="profile"&&!pickerCategory)){
-      setPickerItems([]);setPickerTotal(0);return;
+      return;
     }
     const abort=new AbortController();
-    setPickerBusy(true);setPickerError("");
     const params=new URLSearchParams({page:String(pickerPage),query:pickerQuery});
     if(pickerKind==="profile")params.set("category",pickerCategory);
     const endpoint=pickerKind==="article"?"article-picker":"profile-picker";
     const timer=window.setTimeout(()=>{
+      setPickerBusy(true);
+      setPickerError("");
       fetch("/api/admin/facebook-images/"+endpoint+"?"+params,{cache:"no-store",signal:abort.signal})
         .then(async response=>{
           const result=await response.json() as {articles?:PickerItem[];items?:PickerItem[];totalPages?:number;total?:number;error?:string};
