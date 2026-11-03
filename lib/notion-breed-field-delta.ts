@@ -6,7 +6,7 @@ import type { NotionFieldMode } from "./notion-field-authority";
  * overwrite canonical identity (ID/slug/FCI number/import key), publication,
  * images, gallery, or relations. SEO editorial metadata is a normal editable field.
  */
-import { BREED_NOTION_PRIORITY_FIELDS } from "./notion-breed-property-registry";
+import { BREED_NOTION_PRIORITY_FIELDS } from "./notion-breed-property-registry.ts";
 
 /** Every content field has its own priority, including FCI subfields and media. */
 export const BREED_NOTION_EDITABLE_FIELDS = BREED_NOTION_PRIORITY_FIELDS
