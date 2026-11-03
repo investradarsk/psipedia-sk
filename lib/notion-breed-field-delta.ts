@@ -114,6 +114,7 @@ export function planBreedNotionFieldDelta(
   oldNotion: BreedFieldSnapshot,
   oldAdmin: BreedFieldSnapshot,
   authority: Readonly<Record<string, NotionFieldMode>> = {},
+  presentFields?: ReadonlySet<string>,
 ) {
   const latest = breedFieldSnapshot(incoming);
   const changed: BreedNotionField[] = [];
@@ -121,6 +122,7 @@ export function planBreedNotionFieldDelta(
   const accepted: BreedNotionField[] = [];
   const patch: ManagedBreedInput = {};
   for (const key of BREED_NOTION_EDITABLE_FIELDS) {
+    if (presentFields && !presentFields.has(key)) continue;
     if (same(oldNotion[key], latest[key])) continue;
     changed.push(key);
     // Explicit Admin authority ignores Notion imports for this field.
