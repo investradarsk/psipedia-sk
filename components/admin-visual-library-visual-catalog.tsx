@@ -11,7 +11,7 @@ import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library
 import { relatedDynamicUrlKindForPreview } from "@/lib/visual-library-preview-related-urls";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
-import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
 import { OWNER_EXAMPLE_GROUPS, ownerGroupForBanner, ownerKnownUsesForGroup, type OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
 import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store";
 import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
@@ -282,16 +282,9 @@ export function AdminVisualLibraryVisualCatalog({
         </div>}
         <div className={styles.visualCatalogLargePreview} inert>
           {variant ? <AdminComponentVisualPreview id={variant.id} />
-            : chosenExample?.preview ?? (chosenBanner ? <PublicMagazineBanner
-              testId={"owner-catalog-" + chosenBanner.id.replaceAll(":", "-")}
-              compact={chosenBanner.group === "clanky"}
-              eyebrow={chosenBanner.eyebrow}
-              title={chosenBanner.title}
-              description={chosenBanner.description}
-              label={chosenBanner.ctaLabel}
-              href={chosenBanner.ctaHref}
-              photoTone={chosenBanner.photoTone}
-            /> : null)}
+            : chosenExample?.preview ?? (chosenBanner ? <AdminVisualLibraryBannerPreview
+              banner={chosenBanner}
+              testId={"owner-catalog-" + chosenBanner.id.replaceAll(":", "-")} /> : null)}
         </div>
         <p className={styles.explanation}>{variant?.description ?? chosenExample?.explanation ?? (chosenBanner ? "Skutočný spoločný banner s obsahom z evidencie Psipedie. Ide o variant textu, nie nový komponent." : "")}</p>
         <div className={styles.visualCatalogUses}>
