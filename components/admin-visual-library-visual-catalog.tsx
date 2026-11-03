@@ -9,6 +9,7 @@ import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-lib
 import { AdminVisualLibraryOwnerCompare } from "@/components/admin-visual-library-owner-compare";
 import { AdminVisualLibraryDynamicUrls } from "@/components/admin-visual-library-dynamic-urls";
 import { relatedDynamicUrlKindForPreview } from "@/lib/visual-library-preview-related-urls";
+import { verifiedCanonicalRendererForGroup } from "@/lib/visual-library-canonical-renderers";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
 import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
@@ -151,6 +152,14 @@ export function AdminVisualLibraryVisualCatalog({
     ].join(" ").toLocaleLowerCase("sk").includes(lower))
   );
   const chosen = matches.find((item) => item.id === selectedId) ?? matches[0];
+  const canonicalRenderer = chosen ? verifiedCanonicalRendererForGroup(chosen.id) : null;
+  const sharedRendererGroups = canonicalRenderer
+    ? groups.filter((item) => item.id !== chosen?.id &&
+      verifiedCanonicalRendererForGroup(item.id)?.path === canonicalRenderer.path)
+    : [];
+  const sharedRendererUses = sharedRendererGroups.flatMap((item) =>
+    item.knownUses.map((use) => ({ ...use, groupTitle: item.title }))
+  );
   const exactSample = chosen?.samples.find((item) => item.id === variantId);
   const exactExample = chosen?.examples.find((item) => item.id === variantId);
   const exactBanner = chosen?.banners.find((item) => item.id === variantId);
@@ -287,6 +296,32 @@ export function AdminVisualLibraryVisualCatalog({
               testId={"owner-catalog-" + chosenBanner.id.replaceAll(":", "-")} /> : null)}
         </div>
         <p className={styles.explanation}>{variant?.description ?? chosenExample?.explanation ?? (chosenBanner ? "Skutočný spoločný banner s obsahom z evidencie Psipedie. Ide o variant textu, nie nový komponent." : "")}</p>
+        {canonicalRenderer && <section className={styles.ownerSameRendererInfo}>
+          <strong>Zdrojový komponent je už spoločný: {canonicalRenderer.name}</strong>
+          <p>Preverený reťazec vykreslenia: {canonicalRenderer.chain.join(" → ")}.
+            Ide o jeden existujúci verejný React komponent, nie nové kópie pre každú stránku.
+            Jeho varianty sa môžu líšiť obsahom. Overenie je zo zdrojového kódu,
+            nie zo screenshotu každého profilu.</p>
+          {sharedRendererGroups.length > 0 && <p>
+            Ďalšie použitia rovnakej implementácie sú evidované pod:
+            {" "}{sharedRendererGroups.map((item) => item.title).join(", ")}.
+          </p>}
+        </section>}
+        {sharedRendererUses.length > 0 && <div className={styles.visualCatalogUses}>
+          <h4>Ďalšie doložené umiestnenia spoločného zdroja ({sharedRendererUses.length})</h4>
+          <ul className={styles.usages}>
+            {sharedRendererUses.map((use, index) =>
+              <li key={use.groupTitle + use.url + (use.anchorId ?? "") + index}>
+                <div><strong>{use.label}</strong>
+                  <small>{use.groupTitle} · {use.placement}</small>
+                  <code>{use.url}{use.anchorId ? "#" + use.anchorId : ""}</code>
+                </div>
+                <a href={use.url + (use.anchorId ? "#" + use.anchorId : "")}
+                  target="_blank" rel="noopener noreferrer">Otvoriť miesto</a>
+              </li>
+            )}
+          </ul>
+        </div>}
         <div className={styles.visualCatalogUses}>
           <h4>Zdokumentované konkrétne stránky ({chosen.knownUses.length})</h4>
           <p>Presné URL sú doložené zdrojovým kódom alebo aktuálnym zoznamom
