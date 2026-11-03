@@ -25,7 +25,8 @@ import {
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
-import { readNotionFieldAuthorities } from "./notion-field-authority.ts";
+import { readNotionFieldAuthorities, NOTION_AUTHORITY_GROUPS } from "./notion-field-authority.ts";
+import { planOwnerDirectedFields, type ManualFieldDirection } from "./notion-manual-transfer-plan.ts";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 
 export type NotionEshopSyncBindings = NotionSyncBindings & {
@@ -591,6 +592,7 @@ async function syncMapped(input: {
   mapping: EshopNotionMapping;
   page?: NotionPage;
   forcePush?: boolean;
+  manualDirection?: ManualFieldDirection;
 }) {
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) throw new Error("ESHOP_CANONICAL_MAPPING_ORPHAN");
@@ -610,6 +612,37 @@ async function syncMapped(input: {
 
   const profileHash = await snapshotHash(profileSnapshot(shop));
   const pageHash = await snapshotHash(notionSnapshot(page));
+  if(input.manualDirection){
+    const group=NOTION_AUTHORITY_GROUPS.find(g=>g.scope==="eshops");
+    if(!group)throw Error("TRANSFER_ESHOP_FIELDS_MISSING");
+    const plan=planOwnerDirectedFields({
+      notion:notionSnapshot(page) as Record<string,unknown>,
+      admin:profileSnapshot(shop) as Record<string,unknown>,
+      direction:input.manualDirection,
+      editablePaths:group.fields.filter(f=>!f.locked).map(f=>f.id),
+      protectedPaths:new Set(["slug","status"]),
+    });
+    if(!plan.changes.length)return "unchanged" as const;
+    let updated=shop;
+    if(input.manualDirection==="NOTION_TO_ADMIN"){
+      const latest=await fetchPage(input.bindings,page.id);
+      if(latest.id!==page.id||!notionPageBelongsToDataSource(latest,input.dataSourceId)
+        ||await snapshotHash(notionSnapshot(latest))!==pageHash)
+        throw Error("TRANSFER_ESHOP_SOURCE_CHANGED");
+      const current=await getManagedEshopById(shop.id,input.database);
+      if(!current||current.updatedAt!==shop.updatedAt)
+        throw Error("TRANSFER_ESHOP_ADMIN_CHANGED");
+      updated=await applyNotionToShop({
+        database:input.database,bindings:input.bindings,page:latest,shop:current,
+        desiredOverride:plan.desired as EditableSnapshot,
+      });
+    }
+    await writeShopToNotion({
+      database:input.database,bindings:input.bindings,
+      dataSourceId:input.dataSourceId,shop:updated,pageId:page.id,
+    });
+    return input.manualDirection==="NOTION_TO_ADMIN"?"pulled" as const:"pushed" as const;
+  }
   const lastHash = input.mapping.content_hash;
   const profileChanged = profileHash !== lastHash;
   const notionChanged = pageHash !== lastHash;
@@ -717,9 +750,13 @@ export async function runNotionEshopSyncSweep(input: {
   targetPageId?: string;
   /** Immediate Admin save: reconcile ONLY an existing mapped e-shop. */
   targetShopId?: number;
+  /** Explicit, confirmed single linked profile transfer only. */
+  manualDirection?: ManualFieldDirection;
 }): Promise<NotionEshopSyncSummary> {
   if (input.targetPageId !== undefined && input.targetShopId !== undefined)
     throw new Error("NOTION_ESHOP_TARGET_SCOPE_AMBIGUOUS");
+  if(input.manualDirection && (input.targetShopId===undefined || input.targetPageId!==undefined))
+    throw Error("TRANSFER_ESHOP_SCOPE_INVALID");
   if (input.targetShopId !== undefined && (!Number.isSafeInteger(input.targetShopId) || input.targetShopId <= 0))
     throw new Error("NOTION_ESHOP_TARGET_SHOP_INVALID");
   const summary: NotionEshopSyncSummary = {
@@ -747,6 +784,7 @@ export async function runNotionEshopSyncSweep(input: {
     try {
       const action = await syncMapped({
         database: input.database, bindings: input.bindings, dataSourceId, mapping,
+        manualDirection:input.manualDirection,
       });
       if (action === "pulled") summary.pulledFromNotion++;
       else if (action === "pushed") summary.pushedToNotion++;
