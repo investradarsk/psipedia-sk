@@ -1,6 +1,6 @@
 # Psipedia.sk – vizuálna knižnica a zjednotenie komponentov
 
-**Stav:** implementované prvé tri vlny majiteľskej galérie, technického registra a lokálneho porovnávania. Trvalé rozhodnutia ani reálne zlučovanie ešte nie sú hotové.  
+**Stav:** implementovaná majiteľská galéria, technický audit, porovnávanie A/B a serverový front rozhodnutí. Skutočné zlúčenie komponentov ešte neprebehlo.  
 **Východiskový PR:** #1181 (Draft, zdrojový JSX/CSS inventár).  
 **Primárny používateľ:** majiteľ projektu bez potreby pracovať s kódom.  
 **Primárny rozsah:** verejný web (desktop); inventár neskôr aj pre administráciu. Mobilné zobrazenie zachovať bez nevyžiadaných úprav.  
@@ -25,7 +25,7 @@ Každá karta vizuálneho prvku:
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
 
-## Priebežný stav implementácie (prvé tri vlny)
+## Priebežný stav implementácie (prvé štyri vlny)
 
 - [x] Nová predvolená karta **Vizuálny prehľad** namiesto technického registra.
 - [x] Dlaždice s reálne vykreslenými komponentmi a stránkovaním po 12 skupinách.
@@ -51,7 +51,14 @@ Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch
 - [x] Doplnkové poznámky, bezpečné kopírovanie zadania do chatu; žiadne priame publikovanie, zapisovanie do databázy ani mazanie kódu.
 - [x] Rozhodovací text stavia čistá testovateľná funkcia, ktorá rozlišuje konkrétne URL od kandidátskych šablón a pri voľbe ponechať/už spoločné nežiada mazanie.
 - [x] Kontrolné testy pre všetkých päť volieb sú zapojené do test:visual-library.
-- [ ] Trvalý front schválených rozhodnutí (samostatná etapa; zatiaľ iba kopírovateľný návrh).
+- [x] Štvrtá vlna: rozhodnutia sa ukladajú do existujúcej D1 tabuľky z migrácie 0152 s osobitným prefixom `owner-decision:`; **bez novej migrácie a bez zásahu do publikačných dát**.
+- [x] Serverový chránený endpoint GET/PUT, strict-origin admin kontrola; neveľkoobchoduje s verejnou cache, nepublikuje a nemaže komponenty.
+- [x] Jedna kanonická položka na dvojicu bez ohľadu na poradie A/B, automatické obnovenie uložených poznámok a prehľad stránkovaných rozhodnutí.
+- [x] Optimistická kontrola revízie, explicitná možnosť načítať poslednú uloženú verziu pri konfliktoch.
+- [x] Rozhodnutia „ponechať rozdielne“ / „už spoločné“ sú v prehľade oddelené od čakajúcich návrhov na zlúčenie.
+- [x] Regresné kontraktové testy ukladania, validácie, orientácie A/B, ochrany návrhu a chráneného endpointu.
+- [ ] CI, prihlásený vizuálny smoke test a test skutočného produkčného uloženia ostávajú neoverené.
+- [ ] Po prevádzkovom overení pridať stav spracovania PR a odkaz na súvisiacu implementáciu; aktuálny front iba ukladá rozhodnutia, nie ich realizáciu.
 - [ ] Prvé reálne zlúčenie bannera Veterinári (samostatný schválený PR).
 
 ## Implementačné etapy
