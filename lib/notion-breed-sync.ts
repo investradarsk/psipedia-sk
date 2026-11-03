@@ -718,6 +718,7 @@ async function applySafeBreedSync(
   authority:Readonly<Record<string,NotionFieldMode>>,
   contentHash:string,
   invalidFields:ReadonlySet<BreedNotionField>,
+  requireComplete=false,
 ):Promise<"updated"|"unchanged">{
   const safe=planSafeBreedFields(existing,plan,invalidFields,validateNotionBreedCandidate);
   const now=new Date().toISOString();
@@ -793,6 +794,8 @@ async function applySafeBreedSync(
     event:"notion_breed_partial_sync",notionPageId:page.id,breedId:updated.id,
     accepted:safe.accepted,skipped:safe.skipped,
   }));
+  if(requireComplete && safe.skipped.length)
+    throw Error("TRANSFER_BREED_PARTIAL_FIELDS");
   return actuallyChanged?"updated":"unchanged";
 }
 
@@ -885,7 +888,7 @@ async function syncOneBreed(
       for(const key of selected)forced[key]=admin[key];
       const plan=planBreedNotionFieldDelta(existing,basePayload,forced,admin,{},new Set(selected));
       return applySafeBreedSync(database,bindings,page,existing,plan,
-        forced,admin,remote,{},contentHash,invalidStructuredBreedFields(page));
+        forced,admin,remote,{},contentHash,invalidStructuredBreedFields(page),true);
     }
     // A later Admin edit is not an acknowledgement from Notion. Never
     // mark its old snapshot "synchronized" or pull an older remote version
