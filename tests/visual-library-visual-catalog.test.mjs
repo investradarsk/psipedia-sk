@@ -15,7 +15,7 @@ test("owner sees live component thumbnails first, not JSX/CSS technical files", 
   assert.match(catalog, /visualCatalogGrid/);
   assert.match(catalog, /matches\.slice\(0, limit\)/);
   assert.match(catalog, /AdminComponentVisualPreview id=\{sample\.id\}/);
-  assert.match(catalog, /AdminVisualLibraryMissingPreviews/);
+  assert.match(catalog, /AdminVisualLibraryFullInventory/);
   assert.match(catalog, /onCompare/);
 });
 
