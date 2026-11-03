@@ -48,7 +48,7 @@ test.describe("PUBLIC-MAPS-1 canonical detail maps", () => {
     // Shared directory profiles use one small rust-red heading, not a duplicate H2.
     await expect(map.getByRole("heading", { name: "Poloha", exact: true })).toBeVisible();
     await expect(page.getByTestId("detail-map-consent-gate")).toBeVisible();
-    await expect(map.getByText("Google Maps čaká na tvoje povolenie", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("detail-map-consent-gate")).toContainText("Mapu načítame až po vašom povolení.");
     await expect(map).not.toContainText("Interaktívna mapa momentálne nie je dostupná");
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
     await expect(map).toHaveAttribute("data-hydrated", "true");
