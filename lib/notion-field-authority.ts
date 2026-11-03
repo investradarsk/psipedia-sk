@@ -23,6 +23,7 @@ const breedLabels: Record<string, string> = {
   needs:"Potreby", history:"História", exercise:"Pohyb", training:"Výcvik",
   health:"Zdravie", healthRisks:"Zdravotné riziká",
   goodFor:"Vhodné pre", consider:"Zvážiť", sources:"Zdroje",
+  fciStandard:"FCI štandard (podrobné polia)", editorial:"Redakčné sekcie (rozšírené)", sports:"Športy a vhodnosť",
   "seo.title":"SEO title", "seo.description":"Meta description",
 };
 const directoryLabels: Record<string, string> = {

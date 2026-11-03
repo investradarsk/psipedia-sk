@@ -111,5 +111,5 @@ test("signed Notion property IDs survive the webhook path to first-edit legacy b
   assert.match(sync, /previousNotion\[field\] = previousAdmin\[field\]/);
   assert.match(sync, /BREED_LEGACY_CONCURRENT_ADMIN_EDIT/);
   assert.match(sync, /BREED_WEBHOOK_FIELDS_UNRESOLVED/);
-  assert.match(sync, /notion: plan\.latest, admin: breedFieldSnapshot\(updated\)/);
+  assert.match(sync, /partialBreedNotionReceipt\(/);
 });

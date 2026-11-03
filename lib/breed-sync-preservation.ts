@@ -21,6 +21,14 @@ export function mergeNotionBreedInput(existing: ManagedBreed, incoming: ManagedB
   for (const [key, value] of Object.entries(incoming)) {
     if (key === "seo" || key === "status" || key === "slug" || key === "importKey") continue;
     if (value == null || (typeof value === "string" && !value.trim()) || (Array.isArray(value) && !value.length)) continue;
+    if (key === "editorial" && typeof value === "object" && !Array.isArray(value)) {
+      merged.editorial = { ...existing.editorial, ...value };
+      continue;
+    }
+    if (key === "fciStandard" && typeof value === "object" && !Array.isArray(value)) {
+      merged.fciStandard = { ...existing.fciStandard, ...value };
+      continue;
+    }
     target[key] = value;
   }
   // The mapping row and canonical slug identify the same D1 record throughout sync.

@@ -1,3 +1,4 @@
+import { notionRequest as notionSharedRequest } from "@/lib/notion-sync-shared";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
 import {
@@ -87,8 +88,6 @@ export type NotionArticleSyncSummary = {
   failed: number;
 };
 
-const NOTION_API_BASE = "https://api.notion.com/v1";
-const NOTION_VERSION = "2025-09-03";
 const SYNC_ACTOR = "notion-sync@psipedia.sk";
 const MAX_SYNC_ITEMS = 100;
 const MAX_EDITORIAL_UPDATES_PER_SWEEP = 20;
@@ -1028,25 +1027,10 @@ async function notionRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const token = bindings.NOTION_API_TOKEN?.trim();
-  if (!token) throw new Error("NOTION_API_TOKEN nie je nakonfigurovaný.");
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
-  headers.set("Notion-Version", NOTION_VERSION);
-  headers.set("Content-Type", "application/json");
-  const response = await fetch(`${NOTION_API_BASE}${path}`, { ...init, headers });
-  const text = await response.text();
-  if (!response.ok) {
-    let message = text.slice(0, 500);
-    try {
-      const parsed = JSON.parse(text) as { message?: string };
-      if (parsed.message) message = parsed.message;
-    } catch {
-      // Preserve the plain response body.
-    }
-    throw new Error(`Notion API ${response.status}: ${message}`);
-  }
-  return text ? JSON.parse(text) as T : {} as T;
+  // Use the same SDK transport, Retry-After and bounded 429/5xx retries
+  // already used by other Notion sync adapters. Never retry an entire
+  // content-writeback transaction by itself.
+  return notionSharedRequest<T>(bindings, path, init);
 }
 
 async function listReadyNotionPages(bindings: NotionSyncBindings) {
