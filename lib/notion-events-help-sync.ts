@@ -46,7 +46,8 @@ import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirr
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
-import { readNotionFieldAuthorities, fixedNotionAgendaFields } from "./notion-field-authority.ts";
+import { readNotionFieldAuthorities, fixedNotionAgendaFields, NOTION_AUTHORITY_GROUPS } from "./notion-field-authority.ts";
+import { planOwnerDirectedFields, type ManualFieldDirection } from "./notion-manual-transfer-plan.ts";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 import {
@@ -664,6 +665,7 @@ async function syncAgenda(input: {
   webhookImportUnmapped?: boolean;
   expectedNotionRevision?: string;
   reviewedLegacy?: boolean;
+  manualDirection?: ManualFieldDirection;
 }) {
   const summary = emptyAgenda(input.definition, input.isEnabled, input.ready);
   if (!input.isEnabled || !input.ready) return summary;
@@ -1010,6 +1012,67 @@ async function syncAgenda(input: {
 
       const notionSnapshot = pageSnapshot(input.definition.key, page, schema);
       const notionHash = await snapshotHash(input.definition.key, notionSnapshot);
+      if(input.manualDirection){
+        if(!input.webhookMappedOnly||!input.targetPageId||input.mode!=="sync")
+          throw Error("TRANSFER_EVENTS_HELP_SCOPE_INVALID");
+        const agenda=input.definition.key;
+        const group=NOTION_AUTHORITY_GROUPS.find(g=>g.scope===agenda);
+        if(!group)throw Error("TRANSFER_EVENTS_HELP_FIELD_CATALOG_MISSING");
+        const protectedFields=fixedNotionAgendaFields(agenda);
+        const confirmedPlace=agenda==="events"
+          ? await hasCurrentGooglePlace(input.database,"MANAGED_EVENT",entityId)
+          : agenda==="organizations"
+            ? await hasCurrentOrganizationGooglePlace(input.database,entityId)
+            : false;
+        if(confirmedPlace)for(const field of ["Adresa","Miesto","Mesto","Okres","Kraj"])
+          protectedFields.add(field);
+        const plan=planOwnerDirectedFields({
+          notion:notionSnapshot as Record<string,unknown>,
+          admin:sourceSnapshot as Record<string,unknown>,
+          direction:input.manualDirection,
+          editablePaths:group.fields.filter(f=>!f.locked).map(f=>f.id),
+          protectedPaths:protectedFields,
+        });
+        if(!plan.changes.length){summary.unchanged+=1;continue}
+        // Recheck the page snapshot before mutating canonical D1. A scheduled
+        // webhook may have changed the source since we planned the one-shot.
+        const latest=await notionRequest<NotionPage>(
+          input.bindings,"/pages/"+encodeURIComponent(page.id));
+        if(latest.id!==page.id||!notionPageBelongsToDataSource(latest,target.dataSourceId)
+          ||await snapshotHash(agenda,pageSnapshot(agenda,latest,schema))!==notionHash)
+          throw Error("TRANSFER_EVENTS_HELP_SOURCE_CHANGED");
+        let resolvedSource=source;
+        if(input.manualDirection==="NOTION_TO_ADMIN"){
+          await applyNotionToCanonical(
+            agenda,entityId,plan.desired as Record<string,ReconciliationValue>,input.database,
+          );
+          sources=await input.definition.load(input.database,targetEntityId);
+          sourcesById=sourceById(sources);
+          const reloaded=sourcesById.get(entityId);
+          if(!reloaded)throw Error("TRANSFER_EVENTS_HELP_RELOAD_MISSING");
+          resolvedSource=reloaded;
+        }
+        const verifiedSnapshot=editableSnapshot(agenda,resolvedSource.properties,schema);
+        const verifiedHash=await snapshotHash(agenda,verifiedSnapshot);
+        const written=await writeSourceToNotion({
+          bindings:input.bindings,dataSourceId:target.dataSourceId,
+          source:resolvedSource,schema,pageId:page.id,
+        });
+        await requireVerifiedMappedNotionWriteback({
+          written,expectedPageId:page.id,agenda,schema,expectedHash:verifiedHash,
+        });
+        const syncedAt=new Date().toISOString();
+        await saveMapping({
+          database:input.database,agenda,pageId:page.id,entityId,
+          hash:verifiedHash,snapshot:verifiedSnapshot,
+          notionLastEditedTime:written.last_edited_time??syncedAt,
+          psipediaUpdatedAt:await canonicalUpdatedAt(agenda,entityId,input.database),
+          syncedAt,
+        });
+        if(input.manualDirection==="NOTION_TO_ADMIN")summary.pulledFromNotion++;
+        else summary.pushedToNotion++;
+        continue;
+      }
       const extensionFields = notionSeoSchemaExtensionFields(input.definition.key);
 
       if (
@@ -1949,6 +2012,8 @@ export async function runNotionEventsHelpSyncSweep(input: {
   webhookImportUnmapped?: boolean;
   expectedNotionRevision?: string;
   reviewedLegacy?: boolean;
+  /** Owner-confirmed, mapped one-page repair only. Not used by regular sweeps. */
+  manualDirection?: ManualFieldDirection;
 }): Promise<NotionEventsHelpSyncSummary> {
   if (input.webhookImportUnmapped && (!input.webhookMappedOnly || !input.targetPageId ||
       input.agendas?.length !== 1 || input.mode !== "sync" || input.reviewedLegacy))
@@ -1959,6 +2024,9 @@ export async function runNotionEventsHelpSyncSweep(input: {
   )) throw new Error("GEMINI_TARGETED_NOTION_SCOPE_INVALID");
   if (input.webhookMappedOnly && (!input.targetPageId || input.agendas?.length !== 1))
     throw new Error("NOTION_WEBHOOK_TARGET_SCOPE_REQUIRED");
+  if(input.manualDirection && (!input.webhookMappedOnly || !input.targetPageId
+    || input.agendas?.length!==1 || input.mode!=="sync" || input.reviewedLegacy
+    || input.webhookImportUnmapped))throw Error("TRANSFER_EVENTS_HELP_SCOPE_INVALID");
   // Legacy review is limited to one explicit admin-confirmed Notion revision;
   // never an unattended full sweep or an unapproved source page.
   if (input.reviewedLegacy && (!input.targetPageId || !input.expectedNotionRevision ||
@@ -1985,6 +2053,7 @@ export async function runNotionEventsHelpSyncSweep(input: {
         webhookImportUnmapped: input.webhookImportUnmapped,
         expectedNotionRevision: input.expectedNotionRevision,
         reviewedLegacy: input.reviewedLegacy,
+        manualDirection: input.manualDirection,
       }));
     } catch (error) {
       const summary = emptyAgenda(definition, isEnabled, ready);
