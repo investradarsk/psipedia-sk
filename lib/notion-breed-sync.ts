@@ -877,7 +877,8 @@ async function syncOneBreed(
           ownerConfirmedOverwrite:true,
         });
         if(!output.linked)throw Error("TRANSFER_BREED_NOT_LINKED");
-        if(output.pendingFields?.length)throw Error("TRANSFER_BREED_PENDING_FIELDS");
+        if("pendingFields" in output && output.pendingFields?.length)
+          throw Error("TRANSFER_BREED_PENDING_FIELDS");
         return output.updated?"updated":"unchanged";
       }
       const forced={...remote};
