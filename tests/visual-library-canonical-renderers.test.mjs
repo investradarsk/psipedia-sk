@@ -25,6 +25,9 @@ test("the veterinary/article, homepage, breed and Help photo banners already sha
   assert.equal(ownerGroupsAlreadyShareRenderer("rescue", "magazine"), true);
   assert.equal(ownerGroupsAlreadyShareRenderer("closing", "photo-callout"), true);
   assert.equal(ownerGroupsAlreadyShareRenderer("magazine", "context"), false);
+  assert.equal(ownerGroupsAlreadyShareRenderer("subcategory-landing", "subcategory-compact"), true);
+  assert.equal(ownerGroupsAlreadyShareRenderer("subcategory-compact", "help-category-nav"), false);
+  assert.equal(verifiedCanonicalRendererForGroup("__proto__"), null);
 });
 
 test("renderer identity is proven by real production import and call chains, not assumed from styles", () => {
