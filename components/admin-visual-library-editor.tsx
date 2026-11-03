@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
 import type { VisualBanner } from "@/lib/visual-library-banners";
 import { defaultBannerDraft, validateBannerDraft, type BannerDraft } from "@/lib/visual-library-drafts";
 import styles from "./admin-visual-library.module.css";
@@ -219,11 +219,10 @@ export function AdminVisualLibraryEditor({
       <strong className={styles.editorPreviewTitle}>Náhľad zmien – desktop</strong>
       <div className={styles.editorPreview} style={previewStyle}>
         <div className={styles.previewComponent} inert>
-          <PublicMagazineBanner
-            compact={banner.group === "clanky"} photoTone={banner.photoTone}
-            testId={"editor-preview-" + banner.id} eyebrow={draft.eyebrow}
-            title={draft.title} description={draft.description}
-            label={draft.ctaLabel} href={banner.ctaHref}
+          <AdminVisualLibraryBannerPreview
+            banner={banner} testId={"editor-preview-" + banner.id}
+            copy={{ eyebrow: draft.eyebrow, title: draft.title,
+              description: draft.description, label: draft.ctaLabel }}
           />
         </div>
       </div>
