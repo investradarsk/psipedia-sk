@@ -52,7 +52,8 @@ export const VERIFIED_NAVIGATION_FOUNDATIONS: Readonly<Record<string, VerifiedSh
 };
 
 export function verifiedSharedFoundationForGroup(id: string): VerifiedSharedFoundation | null {
-  return VERIFIED_NAVIGATION_FOUNDATIONS[id] ?? null;
+  return Object.prototype.hasOwnProperty.call(VERIFIED_NAVIGATION_FOUNDATIONS, id)
+    ? VERIFIED_NAVIGATION_FOUNDATIONS[id] : null;
 }
 
 export function ownerGroupsShareFoundation(leftId: string, rightId: string): boolean {
