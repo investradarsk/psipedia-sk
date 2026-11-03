@@ -7,6 +7,7 @@ import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
 import type { VisualBanner } from "@/lib/visual-library-banners";
 import type { OwnerKnownUse } from "@/lib/visual-library-owner-evidence";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
+import { buildOwnerDecisionRequest, OWNER_DECISION_OPTIONS, type OwnerDecisionKind } from "@/lib/visual-library-owner-decision";
 import styles from "./admin-visual-library.module.css";
 
 type Sample = (typeof adminComponentPreviewSamples)[number];
@@ -21,14 +22,8 @@ export type OwnerCompareGroup = {
   knownUses: OwnerKnownUse[];
 };
 
-type OwnerDecision = "keep-separate" | "already-shared" | "use-left" | "use-right" | "new-shared" | "";
-const DECISIONS: readonly { value: Exclude<OwnerDecision, "">; label: string; description: string }[] = [
-  { value: "use-left", label: "Zjednotiť podľa A", description: "Zachovať vzhľad A a nahradiť odlišnú implementáciu B" },
-  { value: "use-right", label: "Zjednotiť podľa B", description: "Zachovať vzhľad B a nahradiť odlišnú implementáciu A" },
-  { value: "new-shared", label: "Nový spoločný vzhľad", description: "Vytvoriť jeden spoločný komponent podľa ďalších pokynov" },
-  { value: "already-shared", label: "Už je to spoločný komponent", description: "Overiť, či ide iba o dva obsahové varianty bez duplicitnej implementácie" },
-  { value: "keep-separate", label: "Ponechať rozdielne", description: "Oba prvky majú odlišný účel a netreba ich spájať" },
-];
+type OwnerDecision = OwnerDecisionKind | "";
+const DECISIONS = OWNER_DECISION_OPTIONS;
 
 function variants(group: OwnerCompareGroup) {
   return [
@@ -57,18 +52,6 @@ function GroupPreview({group, selectedId}: {group: OwnerCompareGroup; selectedId
   return <p>Pre vybraný variant nie je k dispozícii náhľad.</p>;
 }
 
-function linesForGroup(prefix: string, group: OwnerCompareGroup, selectedId: string) {
-  const chosenVariant = variants(group).find((item) => item.id === selectedId);
-  return [
-    prefix + ": " + group.title + " (" + group.id + ")",
-    prefix + " – zobrazený variant: " + (chosenVariant?.label ?? "bez výberu"),
-    ...group.knownUses.map((item) =>
-      prefix + " – doložená URL: " + item.url + (item.anchorId ? "#" + item.anchorId : "") +
-        " | " + item.placement + " | " + item.evidence),
-    ...group.routes.map((route) => prefix + " – kandidátska šablóna (nie overená URL): " + route),
-    ...group.paths.map((path) => prefix + " – zdroj na kontrolu: " + path),
-  ];
-}
 
 export function AdminVisualLibraryOwnerCompare({
   groups, initialLeftId, onAdvanced,
@@ -98,27 +81,14 @@ export function AdminVisualLibraryOwnerCompare({
     ?? right?.banners.find((s) => s.id === rightVariant)?.id
     ?? (right && variants(right)[0]?.id) ?? "";
   const valid = Boolean(left && right && left.id !== right.id);
-  const chosenDecision = DECISIONS.find((item) => item.value === decision);
 
-  const task = valid && left && right && chosenDecision
-    ? [
-      "PSIPEDIA.SK – rozhodnutie vlastníka z vizuálnej knižnice (návrh na spracovanie)",
-      "Rozhodnutie: " + chosenDecision.label,
-      "Význam: " + chosenDecision.description,
-      ...linesForGroup("A", left, selectedLeftVariant),
-      ...linesForGroup("B", right, selectedRightVariant),
-      "Doplnkové pokyny: " + (notes.trim() || "bez doplnkových pokynov"),
-      "Pred akýmkoľvek zlučovaním over identitu skutočných komponentov, všetky používané URL a ich vzhľad na desktope.",
-      "Statický import nie je dôkaz renderu; chýbajúce profily a neznáme URL nevymýšľaj.",
-      decision === "keep-separate"
-        ? "Nemeníme zdrojové komponenty. Iba rešpektujeme rozhodnutie ponechať rozdielne."
-        : decision === "already-shared"
-          ? "Najprv over, či už ide o jednu implementáciu. Ak áno, nemaž nič a nevytváraj nový komponent."
-          : "Ak ide o skutočne duplicitné implementácie, priprav samostatný PR s jedným zdieľaným zdrojom a odstráň zbytočné kópie až po regresných testoch.",
-      "Verejný mobilný dizajn bez nevyžiadaných zmien. Nezasahovať do Notion, D1 ani produkčných dát.",
-      "Toto kopírované zadanie nie je automatické schválenie merge ani publikovania na produkcii.",
-    ].join("\n")
-    : "";
+  const task = valid && left && right && decision
+    ? buildOwnerDecisionRequest({
+      left, right,
+      leftVariant: variants(left).find((item) => item.id === selectedLeftVariant)?.label ?? "",
+      rightVariant: variants(right).find((item) => item.id === selectedRightVariant)?.label ?? "",
+      decision, notes,
+    }) : "";
 
   const reset = () => {
     setDecision("");
@@ -222,8 +192,16 @@ export function AdminVisualLibraryOwnerCompare({
             onChange={(event) => { setNotes(event.target.value); setCopied("idle"); }} />
         </label>
         <button type="button" onClick={() => {
-          navigator.clipboard.writeText(task)
-            .then(() => setCopied("ok"), () => setCopied("error"));
+          try {
+            if (!navigator.clipboard?.writeText || !task) {
+              setCopied("error");
+              return;
+            }
+            void navigator.clipboard.writeText(task)
+              .then(() => setCopied("ok"), () => setCopied("error"));
+          } catch {
+            setCopied("error");
+          }
         }}>Skopírovať rozhodnutie pre ChatGPT</button>
         {copied === "ok" && <p role="status">Skopírované. Vlož zadanie do nášho chatu, aby sme podľa neho pripravili úpravu.</p>}
         {copied === "error" && <p role="status">Nepodarilo sa skopírovať. Skús kopírovanie znova.</p>}
