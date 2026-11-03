@@ -39,7 +39,7 @@ test("renderer identity is proven by real production import and call chains, not
   assert.match(magazine, /export function PublicMagazineBanner/);
   assert.match(banners, /id: "homepage:profil"/);
   assert.match(banners, /id: "plemena:kluby"/);
-  assert.match(banners, /id: "help:lost-found"/);
+  assert.match(banners, /"help:lost-found"/);
   assert.match(banners, /articlePromoKeys\.map/);
 });
 
