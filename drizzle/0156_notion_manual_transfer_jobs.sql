@@ -38,13 +38,14 @@ CREATE TABLE notion_manual_transfer_items (
   changed_fields INTEGER NOT NULL DEFAULT 0 CHECK (changed_fields >= 0),
   failed_fields INTEGER NOT NULL DEFAULT 0 CHECK (failed_fields >= 0),
   last_error_code TEXT,
+  next_attempt_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   started_at TEXT,
   finished_at TEXT,
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE(run_id,scope,profile_id)
 );
 CREATE INDEX idx_notion_manual_transfer_items_run
-  ON notion_manual_transfer_items(run_id,status,id);
+  ON notion_manual_transfer_items(run_id,status,next_attempt_at,id);
 
 CREATE TABLE notion_manual_transfer_field_results (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
