@@ -13,7 +13,7 @@
     },
     {
       "path": "components/adoption-card-media.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/adoption-catalog.tsx",
@@ -61,7 +61,7 @@
     },
     {
       "path": "components/article-promo.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/article-read-tracker.tsx",
@@ -309,7 +309,7 @@
     },
     {
       "path": "components/icons.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/image-display-editor.tsx",
@@ -317,7 +317,7 @@
     },
     {
       "path": "components/image-display.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/lost-found-dog-detail.tsx",
@@ -433,7 +433,7 @@
     },
     {
       "path": "components/partner-password-field.tsx",
-      "coverage": "needs-preview"
+      "coverage": "live-preview"
     },
     {
       "path": "components/partner-password-reset-form.tsx",
