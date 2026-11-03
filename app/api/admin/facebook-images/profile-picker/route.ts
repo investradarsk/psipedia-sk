@@ -7,6 +7,7 @@ import { copyFacebookProfileImage } from "@/lib/facebook-profile-image";
 import { breedProfileHref, canonicalBreedIdsSql } from "@/lib/breed-canonical";
 import { fciGroups } from "@/lib/content";
 import { ownedBreedImage } from "@/lib/breed-image";
+import { facebookShareMarkerType, readFacebookShareMarkers } from "@/lib/facebook-content-share-marker";
 
 export const dynamic = "force-dynamic";
 const NO_STORE = { "cache-control": "no-store" };
@@ -167,13 +168,18 @@ export async function GET(request: Request) {
     ]);
     const rows = (items.results || []) as PickerRow[];
     const total = Number((count.results?.[0] as {total?:number}|undefined)?.total || 0);
+    const markerType = facebookShareMarkerType(scope.group, scope.category);
+    if (!markerType) throw new Error("Neplatná sekcia evidencie.");
+    const markers = await readFacebookShareMarkers(markerType, rows.map(row => row.id), db);
     return Response.json({
       items: rows.map(row => ({
         id: row.id, title: displayTitle(scope, row), detail: row.detail || "",
+        sharedToFacebook: markers.marked.has(row.id),
         imageUrl: scope.group === "breeds" ? ownedBreedImage(row.image_url) : row.image_url || "",
         url: "https://psipedia.sk" + profileUrl(scope,row),
       })),
       page, total, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+      markingAvailable: markers.available,
     }, { headers: NO_STORE });
   } catch {
     return Response.json({ error: "Profily sa nepodarilo načítať." }, {status: 503, headers: NO_STORE});
