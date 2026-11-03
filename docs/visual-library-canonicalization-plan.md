@@ -25,6 +25,16 @@ Každá karta vizuálneho prvku:
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
 
+## Šiesty priechod – výber podobných dvojíc a oprava CI (3. 11. 2026)
+
+- [x] Zistená presná príčina posledného červeného CI: test pre päť nových renderov nesprávne iteroval `.entries()` nad dvojicami `[label, id]`, takže hľadal neexistujúci identifikátor. Opravený test iteruje skutočné ID.
+- [x] V A/B porovnávači pribudol návrh maximálne 10 podobných dvojíc: spoločný typ vizuálneho prvku, účel podľa názvu, spoločná stránka doložená v kóde alebo spoločná kandidátska trasa.
+- [x] Jedno kliknutie na návrh vyberie dvojicu na skutočné vizuálne porovnanie; nezlučuje a nemaže komponenty.
+- [x] Návrhy sú iba indikátory na kontrolu, nie potvrdené vizuálne ani kódové duplicity; jeden komponent s viacerými variantmi sa neporovnáva sám so sebou.
+- [x] Regresné testy pre podobnosť, stabilné radenie, odlišné typy a zákaz automatického publikovania.
+- [ ] Finálne zelené CI po poslednom commite, prihlásený desktopový vizuálny smoke test.
+- [ ] Po používateľskom výbere kanonického vzhľadu vykonať skutočné zlúčenie jedného komponentu vrátane testu všetkých reálnych URL.
+
 ## Aktuálne doplnenie po hlásení X (3. 11. 2026)
 
 - [x] Presne identifikované X v `Playwright E2E and production smoke`: starý test `tests/visual-library-gallery.test.mjs` očakával 51 ukážok namiesto 56. Pred týmto testom build/lint prešli.
