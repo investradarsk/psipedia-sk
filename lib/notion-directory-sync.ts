@@ -1298,6 +1298,15 @@ async function syncMappedPage(input: {
     // canonically owned differences.
     if (!baseline && resolution.psipediaFields.length) {
       const directoryFieldToNotion: Record<string, readonly string[]> = {
+        name: ["Názov"], excerpt: ["Perex"], description: ["Popis"],
+        qualifications: ["Kvalifikácie"],
+        region: ["Kraj"], district: ["Okres"], city: ["Mesto"],
+        address: ["Adresa"], postalCode: ["PSČ"], street: ["Ulica"],
+        houseNumber: ["Číslo domu"], addressFormat: ["Formát adresy"],
+        priceNote: ["Cena / poznámka"], websiteUrl: ["Web"],
+        publicPhone: ["Telefón"], publicEmail: ["E-mail"],
+        facebookUrl: ["Facebook"], instagramUrl: ["Instagram"],
+        "seo.title": ["SEO title"], "seo.description": ["SEO popis"],
         slug: ["Slug"], category: ["Kategória"],
         status: ["Psipedia stav", "Stav"],
         services: ["Služby"],
