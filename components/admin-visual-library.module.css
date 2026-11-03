@@ -208,3 +208,48 @@
 .deepAudit button:focus-visible,.deepAudit input:focus-visible,.deepAudit select:focus-visible,.deepAudit a:focus-visible,.deepAudit summary:focus-visible{outline:3px solid #b44939;outline-offset:2px}
 @media(max-width:840px){.deepAuditStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.deepAudit{padding:12px}.deepAuditFilters{grid-template-columns:1fr}.deepAuditSource{align-items:start;flex-direction:column}}
+
+
+/* Visual-first owner's catalogue. The technical JSX/CSS audit stays separate. */
+.visualCatalog{display:grid;gap:18px;min-width:0}
+.visualCatalogIntro{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;background:#f8faf6;border:1px solid #e2ebe1;border-radius:14px}
+.visualCatalogIntro h3{font-size:1.16rem;line-height:1.3;color:#254b36;margin:0 0 6px}
+.visualCatalogIntro p{margin:0;max-width:760px;font-size:.86rem;line-height:1.55;color:#68776a}
+.visualCatalogStat{display:grid;gap:4px;min-width:165px;justify-items:center;text-align:center;padding:10px 13px;background:white;border:1px solid #dfe9dd;border-radius:12px}
+.visualCatalogStat strong{font-size:1.65rem;color:#234b35;font-variant-numeric:tabular-nums}
+.visualCatalogStat span{font-size:.75rem;color:#617366}
+.visualCatalogToolbar{display:grid;grid-template-columns:minmax(0,2fr) minmax(190px,1fr);gap:12px;align-items:end}
+.visualCatalogToolbar label{display:grid;gap:6px;font-size:.82rem;font-weight:700;color:#365b43}
+.visualCatalogToolbar input,.visualCatalogToolbar select{min-width:0;width:100%;padding:11px 12px;border:1px solid #cbdacb;border-radius:9px;color:#264934;background:#fff;font:inherit}
+.visualCatalogCount{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:.82rem;color:#64766a}
+.visualCatalogCount button,.visualCatalogDetailHead button{padding:10px 13px;border:1px solid #a5483b;border-radius:9px;background:#fff7f5;color:#993e32;cursor:pointer;font-weight:700}
+.visualCatalogGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;min-width:0}
+.visualCatalogCard{display:flex;flex-direction:column;min-width:0;overflow:hidden;background:#fff;border:1px solid #dae5d9;border-radius:13px;box-shadow:0 2px 7px #16351a0a}
+.visualCatalogCard[data-selected=true]{border-color:#44835e;box-shadow:0 0 0 2px #44835e22}
+.visualCatalogCardPreview{height:185px;overflow:hidden;background:#f6f8f4;border-bottom:1px solid #e5eae1;pointer-events:none}
+.visualCatalogCardPreview>div{width:182%;transform:scale(.55);transform-origin:top left}
+.visualCatalogCardBody{display:flex;flex:1;flex-direction:column;align-items:start;gap:7px;padding:13px}
+.visualCatalogTag{color:#386549;background:#eaf3e9;border-radius:6px;padding:4px 7px;font-size:.72rem;font-weight:700}
+.visualCatalogCardBody h4{font-size:.97rem;line-height:1.4;color:#253b2e;margin:0}
+.visualCatalogCardBody p{font-size:.78rem;color:#6b7a6d;margin:0 0 5px}
+.visualCatalogCardBody button{margin-top:auto;width:100%;padding:10px;border:1px solid #c3d6c4;border-radius:8px;background:#f8faf7;color:#2e5941;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer}
+.visualCatalogCardBody button[aria-pressed=true]{background:#23543b;color:white;border-color:#23543b}
+.visualCatalogDetail{display:grid;gap:12px;border:1px solid #cddfce;border-radius:14px;background:#fff;padding:16px;min-width:0}
+.visualCatalogDetailHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.visualCatalogDetailHead span{font-size:.77rem;color:#6a786c}
+.visualCatalogDetailHead h3{font-size:1.25rem;color:#264a34;margin:5px 0 0}
+.visualCatalogVariants{display:grid;gap:7px}
+.visualCatalogVariants>strong{font-size:.82rem;color:#37543d}
+.visualCatalogVariants>div{display:flex;flex-wrap:wrap;gap:7px}
+.visualCatalogVariants button{border:1px solid #c6dac7;background:#f8fbf8;color:#2b573e;border-radius:8px;padding:8px 10px;font:inherit;font-size:.78rem;cursor:pointer}
+.visualCatalogVariants button[aria-pressed=true]{background:#24563c;border-color:#24563c;color:white}
+.visualCatalogLargePreview{overflow:hidden;min-width:0;padding:12px;background:#f8faf6;border:1px solid #e8ede5;border-radius:10px;pointer-events:none}
+.visualCatalogUses{display:grid;gap:9px}
+.visualCatalogUses h4{font-size:1rem;color:#294c36;margin:0}
+.visualCatalogUses>p{font-size:.82rem;line-height:1.55;color:#647669;margin:0}
+.visualCatalogTechnical{border-top:1px solid #e2ebe2;padding-top:10px;color:#48624b;font-size:.8rem}
+.visualCatalogTechnical summary{font-weight:700;cursor:pointer}
+.visualCatalogTechnical code{display:block;margin:7px 0;overflow-wrap:anywhere}
+.visualCatalog button:focus-visible,.visualCatalog input:focus-visible,.visualCatalog select:focus-visible,.visualCatalog a:focus-visible,.visualCatalog summary:focus-visible{outline:3px solid #b44939;outline-offset:2px}
+@media(max-width:1100px){.visualCatalogGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.visualCatalogIntro,.visualCatalogDetailHead{align-items:start;flex-direction:column}.visualCatalogToolbar{grid-template-columns:minmax(0,1fr)}.visualCatalogGrid{grid-template-columns:minmax(0,1fr)}.visualCatalogCardPreview{height:200px}.visualCatalogStat{width:100%}.visualCatalogDetail{padding:11px}}
