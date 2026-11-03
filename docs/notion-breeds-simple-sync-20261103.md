@@ -8,9 +8,15 @@
 
 ## Stav pracovného PR
 
-Prvá implementačná časť, nie potvrdenie úplnej obojsmernej synchronizácie 109/109 polí. Dopĺňa SEO, jednoduché priority, legacy replay a testy. NEMERGEovať pred doplnením ostatných polí, opačného smeru a CI.
+Implementácia v pracovnej vetve už eviduje všetkých 109 Notion vlastností:
+- **93 obsahových polí** s individuálnou prioritou a oboma smermi synchronizácie.
+- **5 pomocných polí** zobrazených a upraviteľných v Admin editore so samostatným D1 zrkadlom.
+- **9 systémových polí** spravovaných v určenom smere, bez nebezpečného ručného prepisovania identity a stavov.
+- **2 súhrnné JSON polia** ako pohľady; prioritu majú jednotlivé FCI/redakčné podpolia.
 
-Admin → Notion v pôvodnom kóde zrkadlí len vybrané textové polia konceptov. FCI/editorial Notion detailné stĺpce sú importované ako zoskupená štruktúra a nemajú ešte individuálnu prioritu.
+Pridané sú stratégie priority, spätný zápis aj pre publikované plemená, odosielanie len zmenených polí, priebežné potvrdenia, obnova po výpadku API a nezávislé spracovanie chybného obsahového poľa. Pri čítaní FCI/redakčných textov sa zachovávajú odseky. Admin-prioritné polia ostávajú v stave na opakovanie, až kým ich nepotvrdí skutočný zápis do Notionu.
+
+**Pozor:** plné end-to-end overenie na vybranom plemene ešte neprebehlo. Toto nie je potvrdenie pripravenosti na produkčné zlúčenie. PR ponechať ako Draft, nemergovať pred dokončením CI a izolovanou skúškou.
 
 ## Jednoduchý kontrakt
 
