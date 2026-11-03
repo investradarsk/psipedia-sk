@@ -438,24 +438,20 @@ function clean(input:ManagedBreedInput, preserved?:ManagedBreed){
     throw new Error(`${label}: ${issue.message}`);
   }
   const rawEditorial=input.editorial??{};const editorial:BreedEditorial={overview:text(rawEditorial.overview,8000),coatCare:text(rawEditorial.coatCare,8000),familyLife:text(rawEditorial.familyLife,8000),otherDogsLife:text(rawEditorial.otherDogsLife,8000),curiosities:text(rawEditorial.curiosities,8000),commonOwnerMistakes:text(rawEditorial.commonOwnerMistakes,8000),exerciseTip:text(rawEditorial.exerciseTip,500),trainingTip:text(rawEditorial.trainingTip,500),healthTip:text(rawEditorial.healthTip,500),coatTip:text(rawEditorial.coatTip,500),heroTraits:Array.isArray(rawEditorial.heroTraits)?rawEditorial.heroTraits.slice(0,3).map((item)=>({label:text(item.label,80),rating:Math.min(5,Math.max(1,Number(item.rating)||1))})).filter((item)=>item.label):[]};
+  // During Notion sync, carry forward an unedited historical sports list
+  // byte-for-byte, even if earlier imports contained invalid duplicates.
+  // Manual edits and new Notion sports continue through strict validation.
+  const unchangedLegacySports=Boolean(preserved && JSON.stringify(input.sports)===JSON.stringify(preserved.sports));
   const rawSports=Array.isArray(input.sports)?input.sports.slice(0,30):[];
-  // Historical D1 imports may contain byte-identical sport entries. Ignore only
-  // exact duplicates: conflicting ratings/notes must never be silently lost.
   const sportKeys=new Map<string,BreedSport>();
-  const sports:BreedSport[]=[];
-  for(const item of rawSports){
+  const sports:BreedSport[]=unchangedLegacySports ? [...(preserved?.sports??[])] : [];
+  for(const item of unchangedLegacySports ? [] : rawSports){
     const key=text(item.key,80);const label=text(item.label,120);const rating=Number(item.rating);
     if(!key||!label)throw new Error("Každý šport musí mať interný kľúč a názov.");
     if(!Number.isFinite(rating)||rating<1||rating>5)throw new Error(`Šport „${label}“ musí mať vhodnosť od 1 do 5.`);
     const next={key,label,rating,note:text(item.note,500)};
     const previous=sportKeys.get(key);
     if(previous){
-      // Preserve unchanged historical duplicates exactly on Notion-only
-      // updates, even when their ratings differ; do not change sports.
-      if(preserved && JSON.stringify(input.sports)===JSON.stringify(preserved.sports)){
-        sports.push(next);
-        continue;
-      }
       if(previous.label===next.label&&previous.rating===next.rating){
         if(previous.note===next.note || !next.note)continue;
         if(!previous.note){ previous.note=next.note; continue; }
