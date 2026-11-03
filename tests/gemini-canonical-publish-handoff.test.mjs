@@ -8,7 +8,7 @@ import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
 import { geminiAgendaForKey } from "../lib/gemini-notion-agenda-review.ts";
 import { planGeminiPublishHandoff } from "../lib/gemini-canonical-publish-handoff.ts";
 import { geminiActiveReviewState, geminiCanonicalPublished } from "../lib/gemini-notion-review-state.ts";
-import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "../lib/notion-profile-field-reconciliation.ts";
+import { reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedProfileBaselineFromHashes } from "../lib/notion-profile-field-reconciliation.ts";
 import { decideBidirectionalChange } from "../lib/notion-bidirectional-reconciliation.ts";
 
 test("all 22 categories require matching canonical D1 identity for a publication handoff", () => {
@@ -220,7 +220,7 @@ test("mapped Directory native publication pushes verified D1 status to the same 
       const profile = {id: 77, category: item.subcategory, status: "published", imageUrl: "",
         websiteUrl: "", updatedAt: "2026-10-21T20:00:00Z"};
       const context = {
-        exports, structuredClone, reconcileProfileFields, trustedProfileBaselineFromHashes,
+        exports, structuredClone, reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedProfileBaselineFromHashes,
         readNotionFieldAuthorities: async () => ({}),
         gemini22PriorityEnabled: () => false,
         notionDirectoryPageBelongsToSource,

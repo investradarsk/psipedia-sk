@@ -55,7 +55,9 @@ test("image approval downloads and stores a validated copy in R2 rather than a h
   assert.match(reviewer,/downloadRemoteImage\(p\.value\)/);
   assert.match(reviewer,/optimizeRemoteImageForStorage/);
   assert.match(reviewer,/BUCKET\.put/);
-  assert.match(reviewer,/reviewedImage\?\.url\?\?p\.value/);
+  assert.match(reviewer,/const value=reviewedImage\?\.url\?\?approvedValue/);
+  assert.match(reviewer,/if\(correctedValue!==undefined\)/);
+  assert.match(reviewer,/!\["web","social","phone","email"\]\.includes\(f\.group\)/);
   assert.match(reviewer,/status='ACCEPTED'/);
   assert.match(reviewer,/BUCKET\?\.delete/);
 });
