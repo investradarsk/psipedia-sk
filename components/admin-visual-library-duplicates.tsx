@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { AdminVisualLibrarySourceSimilarity } from "@/components/admin-visual-library-source-similarity";
 import { AdminVisualLibraryDeepAudit } from "@/components/admin-visual-library-deep-audit";
 import type { CoverageRegistry } from "@/components/admin-visual-library-coverage";
-import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
+import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
 import type { ArticleBannerUsageResult } from "@/lib/visual-library-usage-store";
 import type { VisualLibraryExample } from "@/lib/visual-library-example-types";
@@ -103,16 +103,8 @@ export function AdminVisualLibraryDuplicates({
         <div className={styles.comparisonPreview}>
           <div className={styles.previewComponent} inert>
             {item.banner ? (
-              <PublicMagazineBanner
-                compact={item.banner.group === "clanky"}
-                photoTone={item.banner.photoTone}
-                testId={"compare-" + side + "-" + item.id}
-                eyebrow={item.banner.eyebrow}
-                title={item.banner.title}
-                description={item.banner.description}
-                label={item.banner.ctaLabel}
-                href={item.banner.ctaHref}
-              />
+              <AdminVisualLibraryBannerPreview banner={item.banner}
+                testId={"compare-" + side + "-" + item.id} />
             ) : item.example?.preview}
           </div>
         </div>
