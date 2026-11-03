@@ -30,7 +30,7 @@ const filters = (overrides = {}) => ({
 function fixture() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(`CREATE TABLE directory_profiles (
-    id INTEGER PRIMARY KEY, slug TEXT, name TEXT, category TEXT, status TEXT, services_json TEXT,
+    id INTEGER PRIMARY KEY, slug TEXT, name TEXT, excerpt TEXT, category TEXT, status TEXT, services_json TEXT,
     city TEXT, district TEXT, region TEXT, image_url TEXT, verified INTEGER, featured INTEGER,
     updated_at TEXT, source_data_json TEXT
   )`);
