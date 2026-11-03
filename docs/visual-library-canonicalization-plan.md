@@ -25,6 +25,18 @@ Každá karta vizuálneho prvku:
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
 
+## Priebežný stav implementácie (prvé štyri vlny + rozšírenie náhľadov)
+
+**Piaty priechod (3. 11. 2026):**
+- [x] Na predchádzajúcej revízii CI zlyhalo v Lint na `react-hooks/set-state-in-effect` v obrazovke porovnávania. Synchronous state aktualizácie odstránené z efektov a počiatočné načítanie rozhodnutí používa asynchrónny fetch.
+- [x] Pridaných **5 ďalších živých ukážok** pôvodných verejných komponentov: karta profilu Pomoc psom, jej urgentný variant, navigácia kategórií pomoci, drobečková navigácia a sekciové záložky.
+- [x] Urgentná karta používa ten istý `PublicHelpProfileCard`; v katalógu patrí k hlavnej karte ako variant.
+- [x] Nové konkrétne miesta z explicitného verejného JSX: `https://psipedia.sk/pomoc-psom` pre kartu profilu, kategórie aj drobečkovú navigáciu. Neoverené dynamické profilové URL sa nevymýšľajú.
+- [x] Chýbajúce náhľady teraz vylučujú aj komponenty pokryté serverovo vykreslenými ukážkami; počty sa nemýlia s počtom jednotlivých JSX súborov.
+- [x] Testy pre nové náhľady, dôkaz URL a zdrojovú identitu.
+- [ ] CI a prihlásený desktopový vizuálny test po najnovšej revízii.
+- [ ] Zvyšné nepokryté viditeľné prvky, dynamické URL a identifikácia skutočných duplicít.
+
 ## Priebežný stav implementácie (prvé štyri vlny)
 
 - [x] Nová predvolená karta **Vizuálny prehľad** namiesto technického registra.
