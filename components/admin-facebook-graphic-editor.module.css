@@ -29,3 +29,13 @@
 .actions button:disabled,.top button:disabled{opacity:.55;cursor:not-allowed}
 .editor :is(button,input,textarea,select):focus-visible{outline:3px solid #126d4a;outline-offset:2px}
 @media(max-width:850px){.layout{grid-template-columns:1fr}.previewSide{position:static;grid-row:1}.canvas{max-height:54vh}.dual{grid-template-columns:1fr}.top{flex-direction:column}}
+
+
+.hint{font-size:.78rem;color:#5a705f;line-height:1.55;margin:0}
+.logoStyles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.logoStyles button,.logoPositions button{min-height:44px;padding:9px 7px;border:1px solid #c4d6c9;background:#fff;color:#164232;border-radius:9px;cursor:pointer;font-size:.76rem;font-weight:750}
+.logoStyles button.selected{border:2px solid #b73725;background:#fff9f5}
+.logoPositions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.canvas{cursor:grab;touch-action:none}
+.canvas:active{cursor:grabbing}
+@media(max-width:480px){.logoStyles{grid-template-columns:1fr}.logoPositions button{font-size:.7rem}}
