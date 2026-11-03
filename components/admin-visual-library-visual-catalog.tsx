@@ -6,6 +6,7 @@ import {
   adminComponentPreviewSamples,
 } from "@/components/admin-component-visual-preview";
 import { AdminVisualLibraryMissingPreviews } from "@/components/admin-visual-library-missing-previews";
+import { AdminVisualLibraryOwnerCompare } from "@/components/admin-visual-library-owner-compare";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
@@ -125,6 +126,8 @@ export function AdminVisualLibraryVisualCatalog({
   const [variantId, setVariantId] = useState("");
   const [routesLimit, setRoutesLimit] = useState(12);
   const [knownLimit, setKnownLimit] = useState(12);
+  const [showComparison, setShowComparison] = useState(false);
+  const [compareStart, setCompareStart] = useState("");
 
   const lower = query.trim().toLocaleLowerCase("sk");
   const matches = groups.filter((item) =>
@@ -147,6 +150,11 @@ export function AdminVisualLibraryVisualCatalog({
   })).filter((item): item is { route: string; href: string } => item.href !== null);
   const dynamicRoutes = (chosen?.routes ?? []).filter((route) =>
     route.includes("[") && publicRegistryRouteHref(route) === null);
+
+  const openCompare = (id: string) => {
+    setCompareStart(id);
+    setShowComparison(true);
+  };
 
   const resetFilter = () => {
     setLimit(PAGE_SIZE);
@@ -190,7 +198,7 @@ export function AdminVisualLibraryVisualCatalog({
 
       <div className={styles.visualCatalogCount}>
         <span>Nájdených {matches.length} skupín · zobrazených {Math.min(matches.length,limit)}</span>
-        <button type="button" onClick={onCompare}>Porovnať podobné prvky</button>
+        <button type="button" onClick={() => openCompare(chosen?.id ?? groups[0]?.id ?? "")}>Porovnať graficky dva prvky</button>
       </div>
 
       <div className={styles.visualCatalogGrid}>
@@ -211,6 +219,9 @@ export function AdminVisualLibraryVisualCatalog({
                 ? String(item.samples.length + item.examples.length + item.banners.length) + " ukážok a obsahových variantov"
                 : "Jeden dostupný náhľad"}
                 {item.knownUses.length > 0 ? " · " + item.knownUses.length + " konkrétnych umiestnení" : ""}</p>
+              <button type="button" onClick={() => openCompare(item.id)}>
+                Porovnať s iným prvkom
+              </button>
               <button type="button" aria-pressed={chosen?.id === item.id}
                 onClick={() => { setSelectedId(item.id); setVariantId(""); setRoutesLimit(12); setKnownLimit(12); }}>
                 Pozrieť detail a použitie
@@ -228,6 +239,8 @@ export function AdminVisualLibraryVisualCatalog({
         Zobraziť ďalšie ({matches.length - limit})
       </button>}
 
+      {showComparison && <AdminVisualLibraryOwnerCompare
+        key={compareStart} groups={groups} initialLeftId={compareStart} onAdvanced={onCompare} />}
       {chosen && (variant || chosenExample || chosenBanner) && <section className={styles.visualCatalogDetail} aria-label="Detail vybraného komponentu">
         <div className={styles.visualCatalogDetailHead}>
           <div>
