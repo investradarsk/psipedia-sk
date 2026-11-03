@@ -1,7 +1,5 @@
 .nav {
-  position: sticky;
-  z-index: 40;
-  top: 76px;
+  position: static;
   box-shadow: 0 10px 26px rgba(23, 53, 43, 0.06);
 }
 
@@ -30,7 +28,7 @@
 
 @media (max-width: 820px) {
   .nav {
-    top: 68px;
+    position: static;
   }
 
   .nav :global(.section-tabs-inner) {
