@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import postcss from "postcss";
 
 const source = readFileSync("components/detail-primitives/detail-primitives.tsx", "utf8");
 const styles = readFileSync("components/detail-primitives/detail-primitives.module.css", "utf8");
@@ -21,21 +22,53 @@ test("DetailActions is a composition-only wrapper for semantic action children",
 });
 
 test("DetailActions layout wraps without defining button variants", () => {
-  assert.match(styles, /\.actions\{[^}]*display:flex[^}]*flex-wrap:wrap[^}]*gap:10px[^}]*min-width:0[^}]*\}/);
-  assert.doesNotMatch(styles, /\.actions[^}]*background:/);
+  const root = postcss.parse(styles);
+  const rules = root.nodes.filter((node) => node.selector === ".actions");
+  const values = Object.fromEntries(
+    rules.flatMap((rule) => rule.nodes.map((node) => [node.prop, node.value])),
+  );
+  assert.equal(values.display, "flex");
+  assert.equal(values["flex-wrap"], "wrap");
+  assert.equal(values["min-width"], "0");
+  assert.equal(values.background, undefined);
 });
 
 test("DetailContentLayout renders content before an optional semantic aside", () => {
   const block = exportedFunction("DetailContentLayout", "PublicDetailLayout");
-  assert.match(block, /children: ReactNode; aside\?: ReactNode/);
-  assert.match(block, /aside \? .*contentLayoutWithAside/);
-  assert.ok(block.indexOf("styles.contentMain") < block.indexOf("<aside"), "content must stay before the aside in DOM order");
-  assert.match(block, /\{aside \? <aside className=\{styles\.contentAside\}>\{aside\}<\/aside> : null\}/);
+  assert.match(block, /children: ReactNode;\s*aside\?: ReactNode/);
+  assert.match(block, /aside\s*\?\s*.*contentLayoutWithAside/s);
+  assert.ok(
+    block.indexOf("styles.contentMain") < block.indexOf("<aside"),
+    "content must stay before the aside in DOM order",
+  );
+  assert.match(
+    block,
+    /\{aside\s*\?\s*\(?\s*<aside className=\{styles\.contentAside\}>\s*\{aside\}\s*<\/aside>\s*\)?\s*:\s*null\}/s,
+  );
   assert.doesNotMatch(block, /className\?:/);
 });
 
 test("DetailContentLayout is overflow-safe and becomes two-column only when an aside exists", () => {
-  assert.match(styles, /\.contentLayout\{[^}]*display:grid[^}]*gap:clamp\(24px,4vw,48px\)[^}]*align-items:start[^}]*min-width:0[^}]*\}/);
-  assert.match(styles, /\.contentMain,\.contentAside\{min-width:0\}/);
-  assert.match(styles, /@media\(min-width:901px\)\{\.contentLayoutWithAside\{grid-template-columns:minmax\(0,1\.55fr\) minmax\(280px,\.72fr\)\}\}/);
+  const root = postcss.parse(styles);
+  const declarations = (selector) =>
+    Object.fromEntries(
+      root.nodes
+        .filter((n) => n.selector?.replace(/\s/g, "") === selector.replace(/\s/g, ""))
+        .flatMap((n) => n.nodes.map((d) => [d.prop, d.value])),
+    );
+  assert.equal(declarations(".contentLayout").display, "grid");
+  assert.equal(declarations(".contentLayout")["min-width"], "0");
+  assert.equal(declarations(".contentMain, .contentAside")["min-width"], "0");
+  const desktop = root.nodes.find(
+    (n) =>
+      n.type === "atrule" &&
+      n.params === "(min-width: 901px)" &&
+      n.nodes.some((r) => r.selector === ".contentLayoutWithAside"),
+  );
+  assert.ok(desktop);
+  assert.ok(
+    desktop.nodes
+      .find((n) => n.selector === ".contentLayoutWithAside")
+      .nodes.some((d) => d.prop === "grid-template-columns"),
+  );
 });

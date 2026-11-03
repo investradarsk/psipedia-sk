@@ -13,9 +13,19 @@ import { PublicLocationMap } from "@/components/map/public-location-map";
 import { buildGoogleMapsDirectionsUrl, isApproximateMapItem } from "@/lib/map-public-ui";
 import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
-import { DetailHero, DetailOptionGrid, DetailParagraphs, DetailSection, PublicDetailLayout } from "@/components/detail-primitives/detail-primitives";
+import {
+  DetailHero,
+  DetailOptionGrid,
+  DetailParagraphs,
+  DetailSection,
+  PublicDetailLayout,
+  PublicDetailFlow,
+} from "@/components/detail-primitives/detail-primitives";
 import { getDirectoryCategory } from "@/lib/directory";
-import { formatDirectoryUpdatedAt, type DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
+import {
+  formatDirectoryUpdatedAt,
+  type DirectoryDetailPresentation,
+} from "@/lib/directory-detail-presentation";
 import type { PublicProfileReviewData } from "@/lib/profile-review-read";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 import type { InternalDiscoveryLink } from "@/lib/internal-discovery";
@@ -37,30 +47,64 @@ function DirectoryProfileHero({
   showExcerpt: boolean;
 }) {
   const hasLocation = Boolean(presentation.city || presentation.district || presentation.region);
-  return <DetailHero kind="directory" mediaPresentation="compact" breadcrumbs={<Breadcrumbs label="Drobečková navigácia">
-          <Link href="/">Domov</Link><span aria-hidden="true">/</span>
-          <Link href="/adresar">Služby pre psov</Link><span aria-hidden="true">/</span>
-          <Link href={"/adresar/" + presentation.category}>{getDirectoryCategory(presentation.category)?.label}</Link>
-          <span aria-hidden="true">/</span><span aria-current="page">{presentation.name}</span>
-        </Breadcrumbs>}
-    media={presentation.imageUrl ? <ImageDisplay fallbackOnError
-              context="detail"
-              roleHint="generic"
-              config={presentation.detailImageDisplay}
-              src={presentation.imageUrl}
-              alt={"Fotografia služby " + presentation.name}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-            /> : <PublicMediaFallback size="detail" label={`Fotografia služby ${presentation.name} zatiaľ nie je pridaná`} />}
-    copy={<>
+  return (
+    <DetailHero
+      kind="directory"
+      mediaPresentation="compact"
+      breadcrumbs={
+        <Breadcrumbs label="Drobečková navigácia">
+          <Link href="/">Domov</Link>
+          <span aria-hidden="true">/</span>
+          <Link href="/adresar">Služby pre psov</Link>
+          <span aria-hidden="true">/</span>
+          <Link href={"/adresar/" + presentation.category}>
+            {getDirectoryCategory(presentation.category)?.label}
+          </Link>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{presentation.name}</span>
+        </Breadcrumbs>
+      }
+      media={
+        presentation.imageUrl ? (
+          <ImageDisplay
+            fallbackOnError
+            context="detail"
+            roleHint="generic"
+            config={presentation.detailImageDisplay}
+            src={presentation.imageUrl}
+            alt={"Fotografia služby " + presentation.name}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+          />
+        ) : (
+          <PublicMediaFallback
+            size="detail"
+            label={`Fotografia služby ${presentation.name} zatiaľ nie je pridaná`}
+          />
+        )
+      }
+      copy={
+        <>
           <div className={styles.badges}>
             <span className={styles.categoryBadge}>{categoryLabel}</span>
-            {presentation.featured ? <span className={styles.featuredBadge}>Odporúčame</span> : null}
-            {commercial?.premium ? <span className={styles.premiumBadge} title="Platené rozšírenie profilu.">Premium profil</span> : null}
-            {commercial?.promoted ? <span className={styles.sponsoredBadge}>{commercial.sponsoredLabel ?? "Sponzorované"}</span> : null}
+            {presentation.featured ? (
+              <span className={styles.featuredBadge}>Odporúčame</span>
+            ) : null}
+            {commercial?.premium ? (
+              <span className={styles.premiumBadge} title="Platené rozšírenie profilu.">
+                Premium profil
+              </span>
+            ) : null}
+            {commercial?.promoted ? (
+              <span className={styles.sponsoredBadge}>
+                {commercial.sponsoredLabel ?? "Sponzorované"}
+              </span>
+            ) : null}
           </div>
-          <h1 data-long-title={presentation.name.length >= 70 ? "" : undefined}>{presentation.name}</h1>
+          <h1 data-long-title={presentation.name.length >= 70 ? "" : undefined}>
+            {presentation.name}
+          </h1>
           {hasLocation ? (
             <p className={styles.heroLocation}>
               {presentation.city ? <strong>{presentation.city}</strong> : null}
@@ -68,14 +112,33 @@ function DirectoryProfileHero({
               {presentation.region ? <span>{presentation.region}</span> : null}
             </p>
           ) : null}
-          {showExcerpt && presentation.excerpt ? <p className={styles.heroLead}>{presentation.excerpt}</p> : null}
+          {showExcerpt && presentation.excerpt ? (
+            <p className={styles.heroLead}>{presentation.excerpt}</p>
+          ) : null}
           <nav className={styles.heroActions} aria-label="Akcie profilu">
-            <a className={styles.primaryAction} data-profile-primary-action href="#kontakt">Poslať dopyt</a>
-            {presentation.phone ? <a className={styles.secondaryAction} href={presentation.phone.href}>Zavolať</a> : null}
-            {navigationHref ? <a className={styles.secondaryAction} href={navigationHref} target="_blank" rel="noreferrer">Navigovať</a> : null}
+            <a className={styles.primaryAction} data-profile-primary-action href="#kontakt">
+              Poslať dopyt
+            </a>
+            {presentation.phone ? (
+              <a className={styles.secondaryAction} href={presentation.phone.href}>
+                Zavolať
+              </a>
+            ) : null}
+            {navigationHref ? (
+              <a
+                className={styles.secondaryAction}
+                href={navigationHref}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Navigovať
+              </a>
+            ) : null}
           </nav>
-</>} />;
-
+        </>
+      }
+    />
+  );
 }
 
 export function DirectoryProfileDetail({
@@ -86,6 +149,7 @@ export function DirectoryProfileDetail({
   publicMap,
   relatedBreeds = [],
   locationDiscoveryLinks = [],
+  management,
 }: {
   presentation: DirectoryDetailPresentation;
   reviews: PublicProfileReviewData | null;
@@ -94,13 +158,15 @@ export function DirectoryProfileDetail({
   publicMap?: PublicEntityMapResult & PublicMapRuntime;
   relatedBreeds?: PublicRelatedBreed[];
   locationDiscoveryLinks?: InternalDiscoveryLink[];
+  management?: ReactNode;
 }) {
   const category = getDirectoryCategory(presentation.category);
   const mapItem = publicMap?.items[0];
   // Exactly the same GEO gate as PublicLocationMap: no directions for approximate points.
-  const navigationHref = mapItem && !isApproximateMapItem(mapItem)
-    ? buildGoogleMapsDirectionsUrl(mapItem.latitude, mapItem.longitude, mapItem.googlePlaceId)
-    : null;
+  const navigationHref =
+    mapItem && !isApproximateMapItem(mapItem)
+      ? buildGoogleMapsDirectionsUrl(mapItem.latitude, mapItem.longitude, mapItem.googlePlaceId)
+      : null;
 
   const practicalRows: DetailRow[] = [
     ...(presentation.address ? [{ label: "Adresa", value: presentation.address }] : []),
@@ -108,100 +174,175 @@ export function DirectoryProfileDetail({
     ...(presentation.district ? [{ label: "Okres", value: presentation.district }] : []),
     ...(presentation.region ? [{ label: "Kraj", value: presentation.region }] : []),
     ...(presentation.coverage ? [{ label: "Oblasť pôsobenia", value: presentation.coverage }] : []),
-    ...(presentation.phone ? [{ label: "Telefón", value: <a href={presentation.phone.href}>{presentation.phone.value}</a> }] : []),
-    ...(presentation.emails.length ? [{
-      label: "E-mail",
-      value: <span className={styles.contactValues}>
-        {presentation.emails.map((email) => <a href={email.href} key={email.value}>{email.value}</a>)}
-      </span>,
-    }] : []),
-    ...(presentation.websiteUrl ? [{
-      label: "Web", value: <a href={presentation.websiteUrl} target="_blank" rel="noreferrer">Otvoriť web ↗</a>,
-    }] : []),
-    ...(presentation.facebookUrl ? [{
-      label: "Facebook", value: <a href={presentation.facebookUrl} target="_blank" rel="noreferrer">Facebook ↗</a>,
-    }] : []),
-    ...(presentation.instagramUrl ? [{
-      label: "Instagram", value: <a href={presentation.instagramUrl} target="_blank" rel="noreferrer">Instagram ↗</a>,
-    }] : []),
+    ...(presentation.phone
+      ? [
+          {
+            label: "Telefón",
+            value: <a href={presentation.phone.href}>{presentation.phone.value}</a>,
+          },
+        ]
+      : []),
+    ...(presentation.emails.length
+      ? [
+          {
+            label: "E-mail",
+            value: (
+              <span className={styles.contactValues}>
+                {presentation.emails.map((email) => (
+                  <a href={email.href} key={email.value}>
+                    {email.value}
+                  </a>
+                ))}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    ...(presentation.websiteUrl
+      ? [
+          {
+            label: "Web",
+            value: (
+              <a href={presentation.websiteUrl} target="_blank" rel="noreferrer">
+                Otvoriť web ↗
+              </a>
+            ),
+          },
+        ]
+      : []),
+    ...(presentation.facebookUrl
+      ? [
+          {
+            label: "Facebook",
+            value: (
+              <a href={presentation.facebookUrl} target="_blank" rel="noreferrer">
+                Facebook ↗
+              </a>
+            ),
+          },
+        ]
+      : []),
+    ...(presentation.instagramUrl
+      ? [
+          {
+            label: "Instagram",
+            value: (
+              <a href={presentation.instagramUrl} target="_blank" rel="noreferrer">
+                Instagram ↗
+              </a>
+            ),
+          },
+        ]
+      : []),
   ];
   const updatedAt = formatDirectoryUpdatedAt(presentation.updatedAt);
   // Keep factual specialties in their structured rows; suppress an identical
   // qualification label rather than repeating it in the same section.
-  const factValues = new Set(presentation.facts.map((fact) => fact.value.trim().toLocaleLowerCase("sk")));
+  const factValues = new Set(
+    presentation.facts.map((fact) => fact.value.trim().toLocaleLowerCase("sk")),
+  );
   const visibleQualifications = presentation.qualifications.filter(
     (qualification) => !factValues.has(qualification.trim().toLocaleLowerCase("sk")),
   );
-  const hasExpertise = presentation.facts.length > 0 || visibleQualifications.length > 0 || Boolean(presentation.priceNote);
+  const hasExpertise =
+    presentation.facts.length > 0 ||
+    visibleQualifications.length > 0 ||
+    Boolean(presentation.priceNote);
   const hasExtendedDescription = Boolean(
-    presentation.description?.trim() && presentation.description.trim() !== presentation.excerpt.trim(),
+    presentation.description?.trim() &&
+      presentation.description.trim() !== presentation.excerpt.trim(),
   );
 
-  return (
-    <main id="obsah" className={styles.page}>
-      <DirectoryProfileHero
-        presentation={presentation}
-        categoryLabel={category?.singular ?? category?.label ?? "Profil služby"}
-        commercial={commercial}
-        navigationHref={navigationHref}
-        showExcerpt={!hasExtendedDescription}
-      />
-      <PublicDetailLayout mode="inline" className={styles.layout}>
-      <article className={styles.content} data-public-profile-body>
-        {hasExtendedDescription ? (
-          <DetailSection compactHeading eyebrow="Predstavenie" title="O službe">
-            <DetailParagraphs value={presentation.description} />
-          </DetailSection>
-        ) : null}
-
-
-
-        {practicalRows.length ? (
-          <section className={`${styles.practical} ${styles.contactPosition}`} aria-labelledby="directory-profile-contact" data-public-profile-sidebar>
-            <h2 className={styles.singleHeading} id="directory-profile-contact">Adresa a kontakt</h2>
-            <dl className={styles.practicalGrid}>
-              {practicalRows.map((row) => (
-                <div className={styles.practicalItem} key={row.label}>
-                  <dt>{row.label}</dt><dd>{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-            {updatedAt ? <p className={styles.updatedAt}><time dateTime={presentation.updatedAt}>{updatedAt}</time></p> : null}
-          </section>
-        ) : null}
-
-        {presentation.services.length > 0 ? (
+  const blocks = [
+    {
+      key: "intro",
+      column: "main" as const,
+      content: hasExtendedDescription ? (
+        <DetailSection compactHeading eyebrow="Predstavenie" title="O službe">
+          <DetailParagraphs value={presentation.description} />
+        </DetailSection>
+      ) : null,
+    },
+    {
+      key: "contact",
+      column: "aside" as const,
+      content: practicalRows.length ? (
+        <section
+          className={`${styles.practical} ${styles.contactPosition}`}
+          aria-labelledby="directory-profile-contact"
+          data-public-profile-sidebar
+        >
+          <h2 className={styles.singleHeading} id="directory-profile-contact">
+            Adresa a kontakt
+          </h2>
+          <dl className={styles.practicalGrid}>
+            {practicalRows.map((row) => (
+              <div className={styles.practicalItem} key={row.label}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+          {updatedAt ? (
+            <p className={styles.updatedAt}>
+              <time dateTime={presentation.updatedAt}>{updatedAt}</time>
+            </p>
+          ) : null}
+        </section>
+      ) : null,
+    },
+    {
+      key: "services",
+      column: "main" as const,
+      content:
+        presentation.services.length > 0 ? (
           <DetailSection compactHeading eyebrow="Ponuka" title="Poskytované služby">
             <DirectoryServicesList services={presentation.services} />
           </DetailSection>
-        ) : null}
-
-        {hasExpertise ? (
-          <DetailSection compactHeading eyebrow="Zameranie" title={presentation.health?.title ?? "Odborné informácie"}>
-            {presentation.facts.length > 0 ? <DetailOptionGrid options={presentation.facts} /> : null}
-            {visibleQualifications.length > 0 ? (
-              <div className={styles.qualifications}>
-                <h3>Skúsenosti a kvalifikácie</h3>
-                <ul className={styles.qualificationsList}>
-                  {visibleQualifications.map((qualification) => <li key={qualification}>{qualification}</li>)}
-                </ul>
-              </div>
-            ) : null}
-            {presentation.priceNote ? (
-              <div className={styles.priceNote}>
-                <strong>Cena / cenník</strong>
-                <p>{presentation.priceNote}</p>
-              </div>
-            ) : null}
-          </DetailSection>
-        ) : null}
-
-
-
-        {presentation.openingHours ? <DirectoryOpeningHours value={presentation.openingHours} /> : null}
-
-        {publicMap?.items.length ? (
-          <div className={styles.mapPosition}><PublicLocationMap
+        ) : null,
+    },
+    {
+      key: "expertise",
+      column: "main" as const,
+      content: hasExpertise ? (
+        <DetailSection
+          compactHeading
+          eyebrow="Zameranie"
+          title={presentation.health?.title ?? "Odborné informácie"}
+        >
+          {presentation.facts.length > 0 ? <DetailOptionGrid options={presentation.facts} /> : null}
+          {visibleQualifications.length > 0 ? (
+            <div className={styles.qualifications}>
+              <h3>Skúsenosti a kvalifikácie</h3>
+              <ul className={styles.qualificationsList}>
+                {visibleQualifications.map((qualification) => (
+                  <li key={qualification}>{qualification}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {presentation.priceNote ? (
+            <div className={styles.priceNote}>
+              <strong>Cena / cenník</strong>
+              <p>{presentation.priceNote}</p>
+            </div>
+          ) : null}
+        </DetailSection>
+      ) : null,
+    },
+    {
+      key: "hours",
+      column: "aside" as const,
+      content: presentation.openingHours ? (
+        <DirectoryOpeningHours value={presentation.openingHours} />
+      ) : null,
+    },
+    {
+      key: "map",
+      column: "aside" as const,
+      content: publicMap?.items.length ? (
+        <div className={styles.mapPosition}>
+          <PublicLocationMap
             compactHeading
             title="Kde nás nájdete"
             items={publicMap.items}
@@ -210,36 +351,68 @@ export function DirectoryProfileDetail({
             googleMapId={publicMap.googleMapId}
             rendererEnabled={publicMap.rendererEnabled}
             testRendererEnvironment={publicMap.testRendererEnvironment}
-          /></div>
-        ) : null}
-
+          />
+        </div>
+      ) : null,
+    },
+    {
+      key: "reviews",
+      column: "main" as const,
+      content: (
         <ProfileReviewSection
           compactHeading
           data={reviews}
           baseHref={"/adresar/" + presentation.category + "/" + presentation.slug}
           readError={reviewReadError}
         />
-
-        {locationDiscoveryLinks.length > 0 ? (
+      ),
+    },
+    {
+      key: "nearby",
+      column: "main" as const,
+      content:
+        locationDiscoveryLinks.length > 0 ? (
           <DetailSection compactHeading eyebrow="Ďalšie v okolí" title="Ďalšie profily v lokalite">
             <RelatedEntityLinks links={locationDiscoveryLinks} label="Ďalšie profily v lokalite" />
           </DetailSection>
-        ) : null}
-
-        {relatedBreeds.length > 0 ? (
-          <DetailSection compactHeading eyebrow="Súvisiace plemená" title="Plemená prepojené s týmto profilom">
+        ) : null,
+    },
+    {
+      key: "breeds",
+      column: "main" as const,
+      content:
+        relatedBreeds.length > 0 ? (
+          <DetailSection
+            compactHeading
+            eyebrow="Súvisiace plemená"
+            title="Plemená prepojené s týmto profilom"
+          >
             <RelatedBreedList breeds={relatedBreeds} label="Plemená prepojené s týmto profilom" />
           </DetailSection>
-        ) : null}
-      </article>
+        ) : null,
+    },
+  ];
 
-      </PublicDetailLayout>
+  return (
+    <main id="obsah" className={styles.page}>
+      <DirectoryProfileHero
+        presentation={presentation}
+        categoryLabel={category?.singular ?? "Profil služby"}
+        commercial={commercial}
+        navigationHref={navigationHref}
+        showExcerpt={!hasExtendedDescription}
+      />
+      <PublicDetailFlow blocks={blocks} className={styles.layout} />
 
-      <section className={styles.contactSection} id="kontakt">
-        <div className={"shell " + styles.contactShell}>
+      <PublicDetailLayout
+        className={styles.enquiryLayout}
+        aside={management}
+        asideLabel="Správa a oprava profilu"
+      >
+        <section className={styles.enquiry} id="kontakt">
           <DirectoryContactForm profileId={presentation.id} profileName={presentation.name} />
-        </div>
-      </section>
+        </section>
+      </PublicDetailLayout>
     </main>
   );
 }
