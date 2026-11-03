@@ -119,8 +119,8 @@ test("incorrect identity skips the record, even with mismatched editorial values
   assert.equal(result.fields.find(x=>x.field==="character").reason,"IDENTITY_MISMATCH");
 });
 
-test("proposed manual journal is isolated and has per-field retry/error metadata",()=>{
-  const sql=readFileSync(new URL("../docs/proposals/notion_manual_transfer_jobs_UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+test("0156 manual journal is isolated and has per-field retry/error metadata",()=>{
+  const sql=readFileSync(new URL("../drizzle/0156_notion_manual_transfer_jobs.sql",import.meta.url),"utf8");
   const db=new DatabaseSync(":memory:");
   try{
     db.exec("PRAGMA foreign_keys=ON;");
@@ -151,7 +151,7 @@ test("capabilities route is admin-only, read-only and truthfully feature-gated",
 });
 
 test("one-shot journal cannot execute until PREVIEW_READY is explicitly confirmed",()=>{
-  const sql=readFileSync(new URL("../docs/proposals/notion_manual_transfer_jobs_UNNUMBERED_PROPOSAL.sql",import.meta.url),"utf8");
+  const sql=readFileSync(new URL("../drizzle/0156_notion_manual_transfer_jobs.sql",import.meta.url),"utf8");
   const db=new DatabaseSync(":memory:");
   try{
     db.exec(sql);
