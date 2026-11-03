@@ -30,7 +30,7 @@ const ALLOWED_SCOPES=new Set(NOTION_AUTHORITY_GROUPS
   .map(group=>group.scope));
 
 function uuid(value:string) {
-  return /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
+  return /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 }
 function enabled(value:unknown) {return value==="true" || value==="1";}
 function errorCode(error:unknown) {
@@ -66,7 +66,7 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
   for(const scope of requestedScopes(request)){
     if(!ALLOWED_SCOPES.has(scope))throw Error("TRANSFER_SCOPE_UNSUPPORTED");
     const byId=request.selection==="ONE";
-    let sql:string,bind:unknown[]=[];
+    let sql:string;const bind:unknown[]=[];
     if(scope==="breeds"){
       sql="SELECT breed_id AS profile_id,notion_page_id FROM breed_notion_sync";
     }else if(scope.startsWith("directory:")){
