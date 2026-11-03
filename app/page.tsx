@@ -1,6 +1,8 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { HOME_PROFILE_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
 import { getPublishedDesktopBannerColors } from "@/lib/visual-library-edit-store";
+import { PublicHelpPhotoBanner } from "@/components/public-visual-system/public-help-banner";
+import { lostFoundSubmitPromo, helpOverviewPromos } from "@/lib/help-banner-presets";
 import { BreedPhoto } from "@/components/breed-photo";
 import {
   HomeEditorialSection,
@@ -11,7 +13,7 @@ import {
 } from "@/components/home-editorial";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
-import { ArrowIcon, PawMark, SparkIcon } from "@/components/icons";
+import { PawMark, SparkIcon } from "@/components/icons";
 import { DogAgeCalculator } from "@/components/dog-age-calculator";
 import { AdSlot } from "@/components/ad-slot";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
@@ -60,83 +62,107 @@ export default async function Home() {
     homeHeroVisual,
     featuredBreeds,
     homeProfileBannerColors,
+    lostFoundBannerColors,
   ] = await Promise.all([
     getPublishedArticleSummaries({ limit: 120 }),
-    getHomepageUpcomingEventsWithImages(3),
+    getHomepageUpcomingEventsWithImages(8),
     getHomepageHighlightedHelpCasesWithImages(3),
-    getHomepageDirectoryProfilesWithImages("veterinari", 3),
-    getHomepageDirectoryProfilesWithImages("treneri", 3),
+    getHomepageDirectoryProfilesWithImages("veterinari", 8),
+    getHomepageDirectoryProfilesWithImages("treneri", 8),
     getSectionHeroVisual("home.hero"),
-    listHomepageFeaturedBreeds(5).catch((error) => {
+    listHomepageFeaturedBreeds(8).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
     }),
     getPublishedDesktopBannerColors("homepage:profil"),
+    getPublishedDesktopBannerColors("help:lost-found"),
   ]);
   const homeHero = homeHeroVisual;
   const articleSelection = selectHomepageArticles(publishedArticles, {
-    latestLimit: 5,
-    sectionLimit: 5,
+    latestLimit: 6,
+    sectionLimit: 6,
     backfillSectionsFromLatest: true,
   });
   const featuredBreedCards = featuredBreeds
     .filter((breed) => Boolean(breed.image?.trim()))
     .filter((breed, index, all) => all.findIndex((item) => item.slug === breed.slug) === index)
-    .slice(0, 3);
+    .slice(0, 8);
 
   return (
     <main id="obsah" className={styles.homeV2}>
       <UnifiedSectionHeroShell className="hero-section" data-home-hero>
         <UnifiedSectionHero
           variant="homepage-style"
-          eyebrow={<><SparkIcon size={17} /> Slovenský portál pre psí život</>}
-          title={<>Všetko dôležité<br />pre život so psom.</>}
+          eyebrow={
+            <>
+              <SparkIcon size={17} /> Slovenský portál pre psí život
+            </>
+          }
+          title={
+            <>
+              Všetko dôležité
+              <br />
+              pre život so psom.
+            </>
+          }
           intro="Psipedia.sk je slovenský portál o psoch – rady, služby, podujatia a pomoc na jednom mieste."
           visual={homeHero}
           portalSearchSlot={<HomePortalSearch />}
         />
       </UnifiedSectionHeroShell>
 
-      <HomeLatestArticles articles={articleSelection.latest} />
-
-      {/* The article archive link belongs to the article section above,
-          not below the following events panel. */}
-      <section className="section shell home-independent-events" data-home-events-section aria-label="Najbližšie podujatia">
-        <div className="home-magazine-side home-independent-events-inner">
+      <HomeLatestArticles
+        articles={articleSelection.latest}
+        sidebar={
           <HomeMagazineSidebar
-              title="Najbližšie podujatia"
-              href="/podujatia"
-              actionLabel="Celý kalendár"
-            >
-              {nextEvents.length ? (
-                <div className="home-event-list home-side-list" data-home-events>
-                  {nextEvents.map((event) => (
-                    <article className="home-event-item" key={event.id} data-home-event>
-                      <HomeSidebarRow
-                        href={eventHref(event)}
-                        media={<EventImage imageUrl={event.imageUrl} eventType={event.eventType}
-                          mode={event.imageDisplay} config={event.thumbnailImageDisplay}
-                          alt={`Obrázok k podujatiu ${event.title}`} loading="lazy" decoding="async" />}
-                        eyebrow={<time dateTime={event.startDate}>{formatEventDate(event)}</time>}
-                        title={event.title}
-                        description={publicLocationValue(event.city, "city")}
-                      />
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <PublicEmptyState
-                  variant="context"
-                  className="home-editorial-empty"
-                  data-home-events-empty
-                >
-                  <strong>Pozri si kalendár podujatí</strong>
-                  <p>Aktuálne termíny a všetky kategórie nájdeš v kalendári.</p>
-                </PublicEmptyState>
-              )}
-            </HomeMagazineSidebar>
-        </div>
-      </section>
+            title="Najbližšie podujatia"
+            href="/podujatia"
+            actionLabel="Celý kalendár"
+          >
+            {nextEvents.length ? (
+              <div className="home-event-list home-side-list" data-home-events>
+                {nextEvents.map((event) => (
+                  <article className="home-event-item" key={event.id} data-home-event>
+                    <HomeSidebarRow
+                      href={eventHref(event)}
+                      media={
+                        <EventImage
+                          imageUrl={event.imageUrl}
+                          eventType={event.eventType}
+                          mode={event.imageDisplay}
+                          config={event.thumbnailImageDisplay}
+                          alt={`Obrázok k podujatiu ${event.title}`}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      }
+                      eyebrow={<time dateTime={event.startDate}>{formatEventDate(event)}</time>}
+                      title={event.title}
+                      description={publicLocationValue(event.city, "city")}
+                    />
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <PublicEmptyState
+                variant="context"
+                className="home-editorial-empty"
+                data-home-events-empty
+              >
+                <strong>Pozri si kalendár podujatí</strong>
+                <p>Aktuálne termíny a všetky kategórie nájdeš v kalendári.</p>
+              </PublicEmptyState>
+            )}
+          </HomeMagazineSidebar>
+        }
+      />
+      <div className="home-desktop-interlude">
+        <PublicHelpPhotoBanner
+          promo={lostFoundSubmitPromo}
+          desktopColors={lostFoundBannerColors}
+          desktopCopy={lostFoundBannerColors}
+        />
+      </div>
 
       <HomeEditorialSection
         eyebrow="Od prvých dní"
@@ -150,9 +176,20 @@ export default async function Home() {
           <HomeMagazineSidebar title="Objav plemená" href="/plemena" actionLabel="Všetky plemená">
             <div className="home-side-breed-list" data-home-featured-breeds>
               {featuredBreedCards.map((breed) => (
-                <HomeSidebarRow key={breed.slug} href={`/plemena/${breed.slug}`}
-                  media={<BreedPhoto src={breed.image!} alt={breed.name} sizes="76px" loading="lazy" decoding="async" />}
-                  title={breed.name} description={breed.intro?.trim() || undefined}
+                <HomeSidebarRow
+                  key={breed.slug}
+                  href={`/plemena/${breed.slug}`}
+                  media={
+                    <BreedPhoto
+                      src={breed.image!}
+                      alt={breed.name}
+                      sizes="76px"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  }
+                  title={breed.name}
+                  description={breed.intro?.trim() || undefined}
                 />
               ))}
             </div>
@@ -180,42 +217,65 @@ export default async function Home() {
         actionLabel="Všetko o zdraví"
         testId="starostlivost"
         sidebar={
-            <HomeMagazineSidebar
-              title="Veterinári"
-              href="/adresar/veterinari"
-              actionLabel="Nájsť veterinára"
-            >
-              {veterinarians.length ? (
-                <div className="home-vet-list" data-home-veterinarians>
-                  {veterinarians.map((profile) => (
-                    <article className="home-vet-item" key={profile.id}>
-                      <HomeSidebarRow href={directoryProfileHref(profile)}
-                        media={profile.imageUrl
-                          ? <ImageDisplay fallbackOnError roleHint="generic" context="thumbnail"
-                              config={profile.thumbnailImageDisplay} src={profile.imageUrl}
-                              srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="76px"
-                              alt={`Obrázok profilu ${profile.name}`} loading="lazy" decoding="async" />
-                          : <PublicMediaFallback />}
-                        title={profile.name}
-                        description={[profile.city, profile.district && profile.district !== profile.city ? profile.district : ""].filter(Boolean).join(" · ")}
-                      />
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <PublicEmptyState
-                  variant="context"
-                  className="home-editorial-empty"
-                  data-home-veterinarians-empty
-                >
-                  <strong>Veterinárov nájdeš v adresári</strong>
-                  <p>Vyhľadaj ambulanciu podľa mesta alebo kraja.</p>
-                </PublicEmptyState>
-              )}
-            </HomeMagazineSidebar>
+          <HomeMagazineSidebar
+            title="Veterinári"
+            href="/adresar/veterinari"
+            actionLabel="Nájsť veterinára"
+          >
+            {veterinarians.length ? (
+              <div className="home-vet-list" data-home-veterinarians>
+                {veterinarians.map((profile) => (
+                  <article className="home-vet-item" key={profile.id}>
+                    <HomeSidebarRow
+                      href={directoryProfileHref(profile)}
+                      media={
+                        profile.imageUrl ? (
+                          <ImageDisplay
+                            fallbackOnError
+                            roleHint="generic"
+                            context="thumbnail"
+                            config={profile.thumbnailImageDisplay}
+                            src={profile.imageUrl}
+                            srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])}
+                            sizes="76px"
+                            alt={`Obrázok profilu ${profile.name}`}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <PublicMediaFallback />
+                        )
+                      }
+                      title={profile.name}
+                      description={[
+                        profile.city,
+                        profile.district && profile.district !== profile.city
+                          ? profile.district
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    />
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <PublicEmptyState
+                variant="context"
+                className="home-editorial-empty"
+                data-home-veterinarians-empty
+              >
+                <strong>Veterinárov nájdeš v adresári</strong>
+                <p>Vyhľadaj ambulanciu podľa mesta alebo kraja.</p>
+              </PublicEmptyState>
+            )}
+          </HomeMagazineSidebar>
         }
       />
 
+      <div className="home-desktop-interlude">
+        <PublicHelpPhotoBanner promo={helpOverviewPromos[4]!} />
+      </div>
 
       <div data-home-help>
         <HomeEditorialSection
@@ -237,7 +297,8 @@ export default async function Home() {
                     <Link href={helpCaseHref(item)}>
                       <span className="home-help-media">
                         {item.imageUrl ? (
-                          <ImageDisplay fallbackOnError
+                          <ImageDisplay
+                            fallbackOnError
                             roleHint="generic"
                             context="thumbnail"
                             config={item.thumbnailImageDisplay}
@@ -248,7 +309,9 @@ export default async function Home() {
                             loading="lazy"
                             decoding="async"
                           />
-                        ) : <PublicMediaFallback />}
+                        ) : (
+                          <PublicMediaFallback />
+                        )}
                       </span>
                       <span className="home-help-copy">
                         <span className="home-help-meta">
@@ -290,24 +353,46 @@ export default async function Home() {
         actionLabel="Výcvik a aktivity"
         testId="aktivity"
         sidebar={
-          <HomeMagazineSidebar title="Tréneri a psie školy" href="/adresar/treneri" actionLabel="Všetci tréneri">
+          <HomeMagazineSidebar
+            title="Tréneri a psie školy"
+            href="/adresar/treneri"
+            actionLabel="Všetci tréneri"
+          >
             {trainers.length ? (
               <div className="home-vet-list" data-home-trainers>
                 {trainers.map((profile) => (
                   <article className="home-vet-item" key={profile.id}>
-                    <HomeSidebarRow href={directoryProfileHref(profile)}
-                      media={profile.imageUrl
-                        ? <ImageDisplay fallbackOnError roleHint="generic" context="thumbnail"
-                            config={profile.thumbnailImageDisplay} src={profile.imageUrl}
-                            srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="76px"
-                            alt={`Fotografia profilu ${profile.name}`} loading="lazy" decoding="async" />
-                        : <PublicMediaFallback />}
-                      title={profile.name} description={profile.city}
+                    <HomeSidebarRow
+                      href={directoryProfileHref(profile)}
+                      media={
+                        profile.imageUrl ? (
+                          <ImageDisplay
+                            fallbackOnError
+                            roleHint="generic"
+                            context="thumbnail"
+                            config={profile.thumbnailImageDisplay}
+                            src={profile.imageUrl}
+                            srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])}
+                            sizes="76px"
+                            alt={`Fotografia profilu ${profile.name}`}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <PublicMediaFallback />
+                        )
+                      }
+                      title={profile.name}
+                      description={profile.city}
                     />
                   </article>
                 ))}
               </div>
-            ) : <p className="home-side-muted">Trénerov a psie školy nájdeš v adresári podľa lokality.</p>}
+            ) : (
+              <p className="home-side-muted">
+                Trénerov a psie školy nájdeš v adresári podľa lokality.
+              </p>
+            )}
           </HomeMagazineSidebar>
         }
       />
