@@ -53,6 +53,7 @@ const VARIANT_OF: Readonly<Record<string, string>> = {
   "section-header-image": "section-header",
   "landing-hero-events": "landing-hero",
   "event-grid": "event-list",
+  "event-cancelled": "event-list",
   "help-resolved": "help-card",
   "help-urgent": "help-card",
   "directory-services-expanded": "directory-services-short",
