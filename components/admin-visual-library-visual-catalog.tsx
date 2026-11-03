@@ -198,7 +198,7 @@ export function AdminVisualLibraryVisualCatalog({
 
       <div className={styles.visualCatalogCount}>
         <span>Nájdených {matches.length} skupín · zobrazených {Math.min(matches.length,limit)}</span>
-        <button type="button" onClick={() => openCompare(chosen?.id ?? groups[0]?.id ?? "")}>Porovnať graficky dva prvky</button>
+        <button type="button" onClick={() => openCompare(chosen?.id ?? groups[0]?.id ?? "")}>Porovnávanie a uložené rozhodnutia</button>
       </div>
 
       <div className={styles.visualCatalogGrid}>
