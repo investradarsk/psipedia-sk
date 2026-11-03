@@ -4,11 +4,14 @@ import { directoryCategories, directoryProfileHref, isDirectoryCategory, type Di
 import { helpCategories } from "@/lib/help";
 import { eventTypes, eventPortalCategory, eventHref, bratislavaDateKey, type EventType } from "@/lib/events";
 import { copyFacebookProfileImage } from "@/lib/facebook-profile-image";
+import { breedProfileHref, canonicalBreedIdsSql } from "@/lib/breed-canonical";
+import { fciGroups } from "@/lib/content";
+import { ownedBreedImage } from "@/lib/breed-image";
 
 export const dynamic = "force-dynamic";
 const NO_STORE = { "cache-control": "no-store" };
 const PAGE_SIZE = 12;
-type Group = "directory" | "help" | "events";
+type Group = "directory" | "help" | "events" | "breeds";
 type ScopedCategory = { group: Group; category: string };
 type PickerRow = {
   id: number; title: string; slug: string; detail: string | null; image_url: string | null;
@@ -44,6 +47,10 @@ const GROUPS = [
   { id: "directory", label: "Služby pre psov", categories: directoryCategories.map(({ slug, label }) => ({ slug, label })) },
   { id: "help", label: "Pomoc psom", categories: HELP_PICKER_CATEGORIES },
   { id: "events", label: "Podujatia", categories: EVENT_PICKER_CATEGORIES.map(({slug,label}) => ({slug,label})) },
+  { id: "breeds", label: "Plemená", categories: [
+    { slug: "all", label: "Všetky plemená" },
+    ...fciGroups.map(group => ({ slug: "fci-" + group.number, label: "FCI " + group.number + " · " + group.label })),
+  ] },
 ] as const;
 
 function scopeFrom(input: { get(name: string): string | null }): ScopedCategory | null {
@@ -57,6 +64,17 @@ function eventTypeFor(category: string): EventType | null {
 }
 
 function pickerSql(scope: ScopedCategory): PickerSql {
+  if (scope.group === "breeds") {
+    const group = scope.category === "all" ? null : Number(scope.category.slice(4));
+    return {
+      select: "id, name AS title, slug, ('FCI ' || fci_group || ' · ' || COALESCE(NULLIF(origin,''), 'Pôvod neuvedený')) AS detail, image_url",
+      table: "managed_breeds",
+      where: "id IN (" + canonicalBreedIdsSql + ")" + (group === null ? "" : " AND fci_group = ?"),
+      bindings: group === null ? [] : [group],
+      searchExpression: "(name || ' ' || COALESCE(official_fci_name,''))",
+      order: "name COLLATE NOCASE ASC, id ASC",
+    };
+  }
   if (scope.group === "directory") {
     // Keep historical schools discoverable under the canonical Trainers category.
     const schools = scope.category === "treneri";
@@ -109,6 +127,7 @@ function pickerSql(scope: ScopedCategory): PickerSql {
 }
 
 function profileUrl(scope: ScopedCategory, row: PickerRow): string {
+  if (scope.group === "breeds") return breedProfileHref(row.slug);
   if (scope.group === "directory") {
     const category = row.source_category || scope.category;
     if (!isDirectoryCategory(category)) throw Error("Neznáma kategória profilu.");
@@ -151,7 +170,8 @@ export async function GET(request: Request) {
     return Response.json({
       items: rows.map(row => ({
         id: row.id, title: displayTitle(scope, row), detail: row.detail || "",
-        imageUrl: row.image_url || "", url: "https://psipedia.sk" + profileUrl(scope,row),
+        imageUrl: scope.group === "breeds" ? ownedBreedImage(row.image_url) : row.image_url || "",
+        url: "https://psipedia.sk" + profileUrl(scope,row),
       })),
       page, total, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     }, { headers: NO_STORE });
@@ -184,8 +204,9 @@ export async function POST(request: Request) {
       {status:409, headers:NO_STORE});
     let image = { imageKey: "", imageUrl: "" };
     let imageWarning = "";
-    if (profile.image_url) {
-      try { image = await copyFacebookProfileImage(profile.image_url); }
+    const sourceImage = scope.group === "breeds" ? ownedBreedImage(profile.image_url) : profile.image_url;
+    if (sourceImage) {
+      try { image = await copyFacebookProfileImage(sourceImage); }
       catch { imageWarning = "Fotografia profilu sa nepodarila prevziať. Nahraj ju ručne."; }
     } else imageWarning = "Profil nemá fotografiu. Nahraj ju ručne.";
     return Response.json({
