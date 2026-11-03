@@ -29,7 +29,7 @@ nemerguje ani nespúšťajú produkčné zápisy, kým nebude hotová časť 3.
 - Výslovná výnimka pre hlavnú fotografiu/galériu/vzťahy plemien,
   kým nebude napojený bezpečný adaptér. Systém ich nemá predstierať ako
   úspešne prenesené ani ich nahradiť jednoduchým textovým PATCH.
-- Pripravené tri samostatné D1 tabuľky v migrácii `0156`: beh,
+- Pripravené tri samostatné D1 tabuľky v návrhu databázovej migrácie (zatiaľ bez čísla): beh,
   spracovávaný profil a výsledok konkrétneho poľa. Nepersistujú obsahové
   hodnoty profilov, iba ID, stavy a kódy chýb.
 - Nový autorizovaný, len čítací endpoint
@@ -63,7 +63,7 @@ starých/nesprávne potvrdených hodnôt nie je implementované v časti 1.
   `CONFIRM_NOTION_MANUAL_TRANSFER`. Existuje aj read-only
   `GET` na zistenie stavu behu.
 - Feature flag `NOTION_MANUAL_TRANSFER_ENABLED` je **OFF**,
-  kým vlastník nenasadí schválenú migráciu 0156, nedokončí
+  kým vlastník nenasadí schválenú očíslenú a schválenú databázovú migráciu, nedokončí
   časť 3, neoverí E2E výsledok a výslovne ho nezapne.
   Žiadna produkčná migrácia ani jednorazový prenos nie sú vykonané.
 - Pri starom historicky potvrdenom rozdiele v Plemenách môže
