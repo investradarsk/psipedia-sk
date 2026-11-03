@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { dynamicUrlKinds, type DynamicUrlKind, type DynamicUrlPage } from "@/lib/visual-library-dynamic-urls-contract";
 import styles from "./admin-visual-library.module.css";
+import { AdminVisualLibraryHtmlCheck } from "@/components/admin-visual-library-html-check";
 
 const ENDPOINT = "/api/admin/visual-library/urls";
 type Request = { kind: DynamicUrlKind; q: string; page: number };
@@ -86,6 +87,8 @@ export function AdminVisualLibraryDynamicUrls() {
             <div><strong>{item.label}</strong>
               {item.detail && <small>{item.detail}</small>}
               <code>{item.url}</code>
+              <AdminVisualLibraryHtmlCheck key={item.kind + ":" + item.id + ":" + item.url}
+                url={item.url} profileKind={item.kind} />
             </div>
             <a href={item.url} target="_blank" rel="noopener noreferrer">Otvoriť profil</a>
           </li>)}
@@ -102,6 +105,13 @@ export function AdminVisualLibraryDynamicUrls() {
             onClick={() => requestPage({...request,page:result.pages})}>Posledná</button>
         </div>}
       </> : null}
+      <p className={styles.scanState}>
+        „Overiť HTML stránky“ kontroluje vždy iba jednu presnú publikovanú URL
+        a jej serverové HTML. Pri dostupnej unikátnej značke profilu potvrdí
+        vykreslenie detailovej šablóny; pri ostatných profiloch iba načítanie
+        stránky, nie použitie konkrétneho komponentu. Nekontroluje mobilný
+        viewport ani komponenty vykreslené až JavaScriptom.
+      </p>
       <p className={styles.nextStep}>Nie sú tu koncepty, súkromné kontakty ani odhadnuté slugy.
         Pri nedostupnej databáze alebo neplatnom publikovanom zázname sa zobrazí chyba,
         nie falošný úplný zoznam.</p>
