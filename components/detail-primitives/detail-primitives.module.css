@@ -1148,3 +1148,15 @@
     order: var(--detail-mobile-order);
   }
 }
+
+@media (min-width: 821px) {
+  [data-public-contact-panel] .note {
+    margin: 10px 0 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted, #52645b);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+}

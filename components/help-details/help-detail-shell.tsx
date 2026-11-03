@@ -1,3 +1,5 @@
+import { applyHelpLifecycle } from "@/lib/help-lifecycle";
+import { PublicHeading } from "@/components/public-heading";
 import { HelpFinancialProgress } from "@/components/help-financial-progress";
 import { ImageDisplay } from "@/components/image-display";
 import { PublicMediaFallback } from "@/components/public-visual-system";
@@ -31,11 +33,15 @@ export type HelpFact = DetailFact;
 
 function externalAction(item: HelpCase) {
   return Boolean(
-    item.actionUrl && (item.category !== "zbierky" || item.verified) && !item.resolved,
+    item.actionUrl &&
+      (item.category !== "zbierky" || item.verified) &&
+      (!item.resolved || item.category === "zbierky"),
   );
 }
 
 function safetyCopy(item: HelpCase) {
+  if (item.resolved && item.category === "zbierky")
+    return "Táto výzva je ukončená. Odkaz slúži na zobrazenie pôvodnej zbierky; nejde o aktuálnu žiadosť o príspevok.";
   switch (item.category) {
     case "zbierky":
       return "Finančnú pomoc posielajte iba cez uvedený dôveryhodný odkaz a pred platbou si skontrolujte organizátora aj účel zbierky.";
@@ -50,7 +56,7 @@ function safetyCopy(item: HelpCase) {
 }
 
 export function HelpDetailShell({
-  item,
+  item: rawItem,
   title,
   contextTitle,
   children,
@@ -62,6 +68,7 @@ export function HelpDetailShell({
   children: ReactNode;
   sidebar: ReactNode;
 }) {
+  const item = applyHelpLifecycle(rawItem);
   const category = getHelpCategory(item.category);
   const presentation = getHelpPresentation(item);
   const updatedLabel = formatHelpUpdatedDate(item.updatedAt);
@@ -95,7 +102,13 @@ export function HelpDetailShell({
               {item.urgent && !item.resolved && <span className={styles.urgent}>Urgentné</span>}
               {item.resolved && <span className={styles.resolved}>Ukončené / vyriešené</span>}
             </div>
-            <h1 data-long-title={heroTitle.length >= 70 ? "" : undefined}>{heroTitle}</h1>
+            <PublicHeading
+              role="page"
+              as="h1"
+              data-long-title={heroTitle.length >= 70 ? "" : undefined}
+            >
+              {heroTitle}
+            </PublicHeading>
             {contextTitle && contextTitle !== heroTitle && (
               <p className={styles.contextTitle}>{contextTitle}</p>
             )}
@@ -155,7 +168,9 @@ export function HelpDetailShell({
                 <ShieldCheckIcon size={18} />
               </span>
               <div>
-                <h2 id={`help-trust-${item.id}`}>Aktuálnosť a zdroje</h2>
+                <PublicHeading role="panel" as="h2" id={`help-trust-${item.id}`}>
+                  Aktuálnosť a zdroje
+                </PublicHeading>
                 <p>
                   Uvádzame verejné údaje a zdroje uložené pri tomto zázname. Informácie sa môžu
                   časom meniť.
@@ -195,7 +210,9 @@ export function HelpDetailShell({
             !
           </span>
           <div>
-            <h2 id={`help-safety-${item.id}`}>Pomáhajte bezpečne</h2>
+            <PublicHeading role="panel" as="h2" id={`help-safety-${item.id}`}>
+              Pomáhajte bezpečne
+            </PublicHeading>
             <p>{safetyCopy(item)}</p>
           </div>
           <Link href="/zasady-obsahu">Ako overujeme obsah →</Link>
@@ -255,7 +272,9 @@ export function HelpProgressCard({ item }: { item: HelpCase }) {
   if (!helpFinancials(item)) return null;
   return (
     <section className={detailStyles.card}>
-      <h2>Stav zbierky</h2>
+      <PublicHeading role="panel" as="h2">
+        Stav zbierky
+      </PublicHeading>
       <HelpFinancialProgress item={item} />
     </section>
   );

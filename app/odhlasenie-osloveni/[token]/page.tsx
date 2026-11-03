@@ -1,3 +1,4 @@
+import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { OutreachUnsubscribeForm } from "@/components/outreach-unsubscribe-form";
@@ -17,15 +18,23 @@ export default async function OutreachUnsubscribePage({ params }: Props) {
   return (
     <main id="obsah" className="prose-page legal-page">
       <span className="eyebrow">Profilový outreach</span>
-      <h1>Odhlásenie z ďalších oslovení</h1>
+      <PublicHeading role="page" as="h1">
+        Odhlásenie z ďalších oslovení
+      </PublicHeading>
       {context ? (
         <>
           <p className="lead">Odhlásenie sa týka kontaktu {context.maskedEmail}.</p>
-          <p>Po potvrdení Psipedia tento e-mail nebude používať na ďalší profilový verification/data-quality outreach.</p>
+          <p>
+            Po potvrdení Psipedia tento e-mail nebude používať na ďalší profilový
+            verification/data-quality outreach.
+          </p>
           <OutreachUnsubscribeForm token={token} />
         </>
       ) : (
-        <p>Odhlasovací odkaz už nie je platný alebo bol použitý. Ak potrebujete pomoc, použite stránku <Link href="/opravy-a-podnety">Opravy a podnety</Link>.</p>
+        <p>
+          Odhlasovací odkaz už nie je platný alebo bol použitý. Ak potrebujete pomoc, použite
+          stránku <Link href="/opravy-a-podnety">Opravy a podnety</Link>.
+        </p>
       )}
     </main>
   );

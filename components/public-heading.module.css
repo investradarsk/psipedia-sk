@@ -1,0 +1,35 @@
+@media (min-width: 821px) {
+  .heading[data-public-heading][data-heading-role] {
+    min-width: 0;
+    margin: 0 0 12px;
+    color: inherit;
+    font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-weight: 750;
+    letter-spacing: -0.025em;
+    text-transform: none;
+    overflow-wrap: anywhere;
+  }
+  .heading[data-public-heading][data-heading-role="page"] {
+    font-size: var(--ps-heading-page);
+    line-height: 1.12;
+  }
+  .heading[data-public-heading][data-heading-role="section"] {
+    font-size: var(--ps-heading-content-section);
+    line-height: 1.25;
+  }
+  .heading[data-public-heading][data-heading-role="panel"] {
+    font-size: var(--ps-heading-panel);
+    line-height: 1.4;
+    font-weight: 850;
+    color: var(--coral-dark, #b94732);
+    letter-spacing: 0.065em;
+    text-transform: uppercase;
+  }
+  .heading[data-public-heading][data-heading-role="eyebrow"] {
+    font-size: var(--ps-heading-eyebrow);
+    line-height: 1.4;
+    color: var(--coral-dark, #b94732);
+    letter-spacing: 0.075em;
+    text-transform: uppercase;
+  }
+}

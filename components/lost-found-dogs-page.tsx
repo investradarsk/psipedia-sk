@@ -1,5 +1,15 @@
+import { PublicHeading } from "@/components/public-heading";
+import {
+  PublicFilterLayout,
+  PublicFilterPanel,
+  PublicResultsToolbar,
+  PublicActiveFilters,
+} from "@/components/public-filters";
 import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
-import { PublicHelpCategoryNav, publicHelpCategoryItems } from "@/components/public-visual-system/public-help-category-nav";
+import {
+  PublicHelpCategoryNav,
+  publicHelpCategoryItems,
+} from "@/components/public-visual-system/public-help-category-nav";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
@@ -15,6 +25,7 @@ import {
   PublicContentShell,
   PublicFoundation,
   PublicPagination,
+  PublicFilterTag,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
@@ -103,6 +114,27 @@ export async function LostFoundDogsPage({
     breed: breedId ? String(breedId) : "",
   }))
     if (value) params.set(key, value);
+  const selectedFilters = [...params].map(([key, value]) => ({
+    key,
+    value,
+    label:
+      (
+        {
+          q: "Hľadanie",
+          region: "Kraj",
+          locality: "Lokalita",
+          date: "Dátum",
+          sex: "Pohlavie",
+          size: "Veľkosť",
+          breed: "Plemeno",
+        } as Record<string, string>
+      )[key] ?? key,
+  }));
+  const removeFilterHref = (key: string) => {
+    const next = new URLSearchParams(params);
+    next.delete(key);
+    return basePath + (next.size ? "?" + next.toString() : "");
+  };
   const label = dogReportTypeShortLabel(type).toLowerCase();
   const title = type === "LOST" ? "Stratené psy" : "Nájdené psy";
   const intro =
@@ -152,7 +184,7 @@ export async function LostFoundDogsPage({
                   action={basePath}
                   panelLabel={`Vyhľadávanie: ${title}`}
                   eyebrow="ČO HĽADÁŠ?"
-                  title={`Nájdi ${label} psa`}
+                  title={`Nájdi ${type === "FOUND" ? "nájdeného" : "strateného"} psa`}
                   shortcuts={[]}
                   searchScope="lost-found"
                   buttonLabel="Hľadať"
@@ -166,7 +198,7 @@ export async function LostFoundDogsPage({
                     { name: "breed", value: breedId ? String(breedId) : "" },
                   ].filter((field) => Boolean(field.value))}
                   id={`lost-found-hero-${type.toLowerCase()}`}
-                  label={`Hľadať medzi ${label} psami`}
+                  label={`Hľadať medzi ${type === "FOUND" ? "nájdenými" : "stratenými"} psami`}
                   placeholder="Hľadať psa, plemeno alebo mesto…"
                   defaultValue={q}
                 />
@@ -209,158 +241,256 @@ export async function LostFoundDogsPage({
             <div className={styles.categoryNavShell}>
               <PublicHelpCategoryNav items={publicHelpCategoryItems("stratene-a-najdene")} />
             </div>
-            <PublicFilterDisclosure
-              label="Filtrovať hlásenia"
-              activeCount={[region, locality, date, sex, size, breedId].filter(Boolean).length}
-              buttonClassName={styles.filterToggle}
-              contentClassName={styles.filterDisclosure}
-              openContentClassName={styles.filterDisclosureOpen}
-            >
-            <form
-              className={styles.filters}
-              method="get"
-              aria-label={"Filtrovať " + label + " psy"}
-            >
-              <input type="hidden" name="q" value={q} />
-              <div className={styles.field}>
-                <label htmlFor="lf-region">Kraj</label>
-                <PublicSelect
-                  appearance="context"
-                  id="lf-region"
-                  name="region"
-                  defaultValue={region}
+            <PublicFilterLayout>
+              <PublicFilterPanel title="Filtrovať hlásenia" resetHref={basePath}>
+                <PublicFilterDisclosure
+                  label="Filtrovať hlásenia"
+                  activeCount={[region, locality, date, sex, size, breedId].filter(Boolean).length}
+                  buttonClassName={styles.filterToggle}
+                  contentClassName={styles.filterDisclosure}
+                  openContentClassName={styles.filterDisclosureOpen}
                 >
-                  <option value="">Všetky kraje</option>
-                  {slovakRegions
-                    .filter((item) => item !== "Online")
-                    .map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
+                  <form
+                    className={styles.filters}
+                    method="get"
+                    aria-label={"Filtrovať " + label + " psy"}
+                  >
+                    <input type="hidden" name="q" value={q} />
+                    <div className={styles.field}>
+                      <label htmlFor="lf-region">Kraj</label>
+                      <PublicSelect
+                        appearance="context"
+                        id="lf-region"
+                        name="region"
+                        defaultValue={region}
+                      >
+                        <option value="">Všetky kraje</option>
+                        {slovakRegions
+                          .filter((item) => item !== "Online")
+                          .map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                      </PublicSelect>
+                    </div>
+                    <div className={styles.field}>
+                      <label htmlFor="lf-locality">Okres alebo lokalita</label>
+                      <PublicTextInput
+                        appearance="context"
+                        id="lf-locality"
+                        name="locality"
+                        defaultValue={locality}
+                        placeholder="napr. Nitra"
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label htmlFor="lf-date">Dátum udalosti</label>
+                      <PublicTextInput
+                        appearance="context"
+                        id="lf-date"
+                        name="date"
+                        type="date"
+                        defaultValue={date}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label htmlFor="lf-sex">Pohlavie</label>
+                      <PublicSelect appearance="context" id="lf-sex" name="sex" defaultValue={sex}>
+                        <option value="">Všetky</option>
+                        <option value="MALE">Pes</option>
+                        <option value="FEMALE">Sučka</option>
+                        <option value="UNKNOWN">Neznáme</option>
+                      </PublicSelect>
+                    </div>
+                    <div className={styles.field}>
+                      <label htmlFor="lf-size">Veľkosť</label>
+                      <PublicSelect
+                        appearance="context"
+                        id="lf-size"
+                        name="size"
+                        defaultValue={size}
+                      >
+                        <option value="">Všetky</option>
+                        <option value="SMALL">Malý</option>
+                        <option value="MEDIUM">Stredný</option>
+                        <option value="LARGE">Veľký</option>
+                        <option value="UNKNOWN">Neznáma</option>
+                      </PublicSelect>
+                    </div>
+                    <div className={styles.field}>
+                      <label htmlFor="lf-breed">Plemeno</label>
+                      <PublicSelect
+                        appearance="context"
+                        id="lf-breed"
+                        name="breed"
+                        defaultValue={breedId ? String(breedId) : ""}
+                      >
+                        <option value="">Všetky plemená</option>
+                        {breeds.map((breed) => (
+                          <option key={breed.id} value={breed.id}>
+                            {breed.name}
+                          </option>
+                        ))}
+                      </PublicSelect>
+                    </div>
+                    <div className={styles.actions}>
+                      <button type="submit">Filtrovať</button>
+                      <Link href={dogReportBasePath(type)}>Vyčistiť</Link>
+                    </div>
+                  </form>
+                </PublicFilterDisclosure>
+                {selectedFilters.length ? (
+                  <PublicActiveFilters>
+                    {selectedFilters.map((entry) => (
+                      <PublicFilterTag
+                        key={entry.key}
+                        href={removeFilterHref(entry.key)}
+                        removeLabel={`Odstrániť filter ${entry.label}`}
+                      >
+                        {entry.label}:{" "}
+                        {entry.key === "sex"
+                          ? (
+                              { MALE: "Pes", FEMALE: "Sučka", UNKNOWN: "Neznáme" } as Record<
+                                string,
+                                string
+                              >
+                            )[entry.value]
+                          : entry.key === "size"
+                            ? (
+                                {
+                                  SMALL: "Malý",
+                                  MEDIUM: "Stredný",
+                                  LARGE: "Veľký",
+                                  UNKNOWN: "Neznáma",
+                                } as Record<string, string>
+                              )[entry.value]
+                            : entry.key === "breed"
+                              ? (breeds.find((b) => String(b.id) === entry.value)?.name ??
+                                "Vybrané plemeno")
+                              : entry.value}{" "}
+                        ×
+                      </PublicFilterTag>
                     ))}
-                </PublicSelect>
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="lf-locality">Okres alebo lokalita</label>
-                <PublicTextInput
-                  appearance="context"
-                  id="lf-locality"
-                  name="locality"
-                  defaultValue={locality}
-                  placeholder="napr. Nitra"
+                  </PublicActiveFilters>
+                ) : null}
+              </PublicFilterPanel>
+              <div data-public-filter-results>
+                <PublicResultsToolbar className={styles.summary}>
+                  <PublicHeading role="section" as="h2">
+                    {dogReportTypeLabel(type)}
+                  </PublicHeading>
+                  <p>{result.total} aktívnych hlásení</p>
+                </PublicResultsToolbar>
+                {result.items.length ? (
+                  <div className={styles.grid}>
+                    {result.items.map((report) => (
+                      <PublicHelpProfileCard
+                        key={report.id}
+                        data-dog-report-card={report.id}
+                        href={dogReportHref(report)}
+                        title={report.dogName || report.breed || "Pes bez známeho mena"}
+                        category={dogReportTypeLabel(type)}
+                        actionLabel="Zobraziť hlásenie"
+                        badge={
+                          <>
+                            <span
+                              className={[
+                                styles.badge,
+                                type === "LOST" ? styles.lost : styles.found,
+                              ].join(" ")}
+                            >
+                              {dogReportTypeLabel(type)}
+                            </span>
+                          </>
+                        }
+                        media={
+                          <Link
+                            href={dogReportHref(report)}
+                            aria-label={
+                              "Otvoriť hlásenie: " + (report.dogName || report.breed || "Pes")
+                            }
+                          >
+                            {report.mainImage ? (
+                              <ImageDisplay
+                                roleHint="generic"
+                                context="thumbnail"
+                                fallbackOnError
+                                config={report.thumbnailImageDisplay}
+                                src={report.mainImage}
+                                alt={
+                                  report.dogName
+                                    ? dogReportTypeShortLabel(type) + " pes " + report.dogName
+                                    : dogReportTypeLabel(type)
+                                }
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : (
+                              <PublicMediaFallback appearance="context" decorative />
+                            )}
+                          </Link>
+                        }
+                        meta={
+                          <>
+                            <p>
+                              <LocationIcon size={14} /> {report.city}
+                              {report.district ? " · " + report.district : ""}
+                            </p>
+                            <p>
+                              <CalendarIcon size={14} /> {formatDogReportDate(report.eventDate)}
+                            </p>
+                          </>
+                        }
+                        excerpt={
+                          report.description.length > 150
+                            ? report.description.slice(0, 147) + "…"
+                            : report.description
+                        }
+                        extras={
+                          <p>
+                            {[report.breed, dogSexLabel[report.sex], dogSizeLabel[report.size]]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <PublicEmptyState variant="context" className={styles.empty}>
+                    <PublicHeading role="section" as="h2">
+                      Momentálne nemáme publikovaný prípad pre tieto filtre.
+                    </PublicHeading>
+                    <p>Skúste zmeniť lokalitu, dátum alebo ďalšie filtre.</p>
+                  </PublicEmptyState>
+                )}
+
+                <PublicPagination
+                  variant="reports"
+                  label="Stránkovanie hlásení"
+                  currentPage={result.page}
+                  totalPages={result.pages}
+                  previousHref={
+                    result.page > 1 ? pageHref(type, params, result.page - 1) : undefined
+                  }
+                  nextHref={
+                    result.page < result.pages ? pageHref(type, params, result.page + 1) : undefined
+                  }
+                  previousLabel="←"
+                  nextLabel="→"
+                  previousAriaLabel="Predchádzajúca strana"
+                  nextAriaLabel="Ďalšia strana"
+                  numberedPages={Array.from(
+                    { length: Math.min(result.pages, 7) },
+                    (_, index) => Math.max(1, Math.min(result.page - 3, result.pages - 6)) + index,
+                  )}
+                  pageHref={(page) => pageHref(type, params, page)}
+                  currentPageAsText
+                  showDisabledControls={false}
                 />
               </div>
-              <div className={styles.field}>
-                <label htmlFor="lf-date">Dátum udalosti</label>
-                <PublicTextInput
-                  appearance="context"
-                  id="lf-date"
-                  name="date"
-                  type="date"
-                  defaultValue={date}
-                />
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="lf-sex">Pohlavie</label>
-                <PublicSelect appearance="context" id="lf-sex" name="sex" defaultValue={sex}>
-                  <option value="">Všetky</option>
-                  <option value="MALE">Pes</option>
-                  <option value="FEMALE">Sučka</option>
-                  <option value="UNKNOWN">Neznáme</option>
-                </PublicSelect>
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="lf-size">Veľkosť</label>
-                <PublicSelect appearance="context" id="lf-size" name="size" defaultValue={size}>
-                  <option value="">Všetky</option>
-                  <option value="SMALL">Malý</option>
-                  <option value="MEDIUM">Stredný</option>
-                  <option value="LARGE">Veľký</option>
-                  <option value="UNKNOWN">Neznáma</option>
-                </PublicSelect>
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="lf-breed">Plemeno</label>
-                <PublicSelect
-                  appearance="context"
-                  id="lf-breed"
-                  name="breed"
-                  defaultValue={breedId ? String(breedId) : ""}
-                >
-                  <option value="">Všetky plemená</option>
-                  {breeds.map((breed) => (
-                    <option key={breed.id} value={breed.id}>
-                      {breed.name}
-                    </option>
-                  ))}
-                </PublicSelect>
-              </div>
-              <div className={styles.actions}>
-                <button type="submit">Filtrovať</button>
-                <Link href={dogReportBasePath(type)}>Vyčistiť</Link>
-              </div>
-            </form>
-            </PublicFilterDisclosure>
-
-            <div className={styles.summary}>
-              <h2>{dogReportTypeLabel(type)}</h2>
-              <p>{result.total} aktívnych hlásení</p>
-            </div>
-            {result.items.length ? (
-              <div className={styles.grid}>
-                {result.items.map((report) => (
-                  <PublicHelpProfileCard
-                    key={report.id}
-                    data-dog-report-card={report.id}
-                    href={dogReportHref(report)}
-                    title={report.dogName || report.breed || "Pes bez známeho mena"}
-                    category={dogReportTypeLabel(type)}
-                    actionLabel="Zobraziť hlásenie"
-                    badge={<>
-                      <span className={[styles.badge, type === "LOST" ? styles.lost : styles.found].join(" ")}>{dogReportTypeLabel(type)}</span>
-                    </>}
-                    media={<Link href={dogReportHref(report)} aria-label={"Otvoriť hlásenie: " + (report.dogName || report.breed || "Pes")}>
-                      {report.mainImage
-                        ? <ImageDisplay roleHint="generic" context="thumbnail" fallbackOnError config={report.thumbnailImageDisplay} src={report.mainImage} alt={report.dogName ? dogReportTypeShortLabel(type) + " pes " + report.dogName : dogReportTypeLabel(type)} loading="lazy" decoding="async" />
-                        : <PublicMediaFallback appearance="context" decorative />}
-                    </Link>}
-                    meta={<>
-                      <p><LocationIcon size={14} /> {report.city}{report.district ? " · " + report.district : ""}</p>
-                      <p><CalendarIcon size={14} /> {formatDogReportDate(report.eventDate)}</p>
-                    </>}
-                    excerpt={report.description.length > 150 ? report.description.slice(0, 147) + "…" : report.description}
-                    extras={<p>{[report.breed, dogSexLabel[report.sex], dogSizeLabel[report.size]].filter(Boolean).join(" · ")}</p>}
-                  />
-                ))}
-              </div>
-            ) : (
-              <PublicEmptyState variant="context" className={styles.empty}>
-                <h2>Momentálne nemáme publikovaný prípad pre tieto filtre.</h2>
-                <p>Skúste zmeniť lokalitu, dátum alebo ďalšie filtre.</p>
-              </PublicEmptyState>
-            )}
-
-            <PublicPagination
-              variant="reports"
-              label="Stránkovanie hlásení"
-              currentPage={result.page}
-              totalPages={result.pages}
-              previousHref={result.page > 1 ? pageHref(type, params, result.page - 1) : undefined}
-              nextHref={
-                result.page < result.pages ? pageHref(type, params, result.page + 1) : undefined
-              }
-              previousLabel="←"
-              nextLabel="→"
-              previousAriaLabel="Predchádzajúca strana"
-              nextAriaLabel="Ďalšia strana"
-              numberedPages={Array.from(
-                { length: Math.min(result.pages, 7) },
-                (_, index) => Math.max(1, Math.min(result.page - 3, result.pages - 6)) + index,
-              )}
-              pageHref={(page) => pageHref(type, params, page)}
-              currentPageAsText
-              showDisabledControls={false}
-            />
+            </PublicFilterLayout>
           </PublicContentShell>
         </PublicFoundation>
       </main>

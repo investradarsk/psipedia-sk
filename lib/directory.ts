@@ -1,115 +1,139 @@
 import type { ArticleSeo } from "@/lib/content";
-import type { DirectoryAddressFormat, DirectoryServiceAddressConfirmation } from "@/lib/directory-service-address";
+import type {
+  DirectoryAddressFormat,
+  DirectoryServiceAddressConfirmation,
+} from "@/lib/directory-service-address";
 import type { DirectoryQualityMetadata } from "@/lib/directory-profile-metadata";
 
 export const directoryCategories = [
   {
     slug: "veterinari",
+    searchObject: "veterinára",
     label: "Veterinári",
     singular: "Veterinárne pracovisko",
     heroTitle: "Veterinári a veterinárne ambulancie",
     seoTitle: "Veterinári a veterinárne ambulancie",
     description: "Ambulancie, kliniky, pohotovosti a špecializovaná starostlivosť.",
-    intro: "Nájdi veterinárov, ambulancie a kliniky pre starostlivosť o psy na Slovensku. Profily môžeš filtrovať podľa lokality a dostupných služieb.",
+    intro:
+      "Nájdi veterinárov, ambulancie a kliniky pre starostlivosť o psy na Slovensku. Profily môžeš filtrovať podľa lokality a dostupných služieb.",
     resultsTitle: "Zoznam veterinárov a veterinárnych ambulancií",
     icon: "🩺",
   },
   {
     slug: "treneri",
+    searchObject: "trénera alebo psiu školu",
     label: "Psí tréneri a psie školy",
     singular: "Tréner / psia škola",
     heroTitle: "Tréneri psov a psie školy",
     seoTitle: "Tréneri psov a psie školy – adresár",
-    description: "Individuálny aj skupinový výcvik, socializácia, poslušnosť, riešenie správania a tréningové programy.",
-    intro: "Nájdi trénerov psov a psie školy pre výcvik, socializáciu, poslušnosť či riešenie správania. Profily môžeš filtrovať podľa lokality a služieb.",
+    description:
+      "Individuálny aj skupinový výcvik, socializácia, poslušnosť, riešenie správania a tréningové programy.",
+    intro:
+      "Nájdi trénerov psov a psie školy pre výcvik, socializáciu, poslušnosť či riešenie správania. Profily môžeš filtrovať podľa lokality a služieb.",
     resultsTitle: "Zoznam trénerov psov a psích škôl",
     icon: "🎯",
   },
   {
     slug: "kynologicke-kluby",
+    searchObject: "kynologický klub",
     label: "Kynologické kluby",
     singular: "Kynologický klub",
     heroTitle: "Kynologické kluby",
     seoTitle: "Kynologické kluby – adresár",
     description: "Miestne cvičiská, športové kluby, skúšky a kynologické organizácie.",
-    intro: "Nájdi kynologické kluby, cvičiská a športové organizácie pre výcvik, skúšky a aktivity so psom. Profily môžeš filtrovať podľa lokality a služieb.",
+    intro:
+      "Nájdi kynologické kluby, cvičiská a športové organizácie pre výcvik, skúšky a aktivity so psom. Profily môžeš filtrovať podľa lokality a služieb.",
     resultsTitle: "Zoznam kynologických klubov",
     icon: "🏅",
   },
   {
     slug: "chovatelske-kluby",
+    searchObject: "chovateľský klub",
     label: "Chovateľské kluby",
     singular: "Chovateľský klub",
     heroTitle: "Chovateľské kluby",
     seoTitle: "Chovateľské kluby – adresár",
     description: "Kluby zastrešujúce plemená, ich chov, podmienky a členské aktivity.",
-    intro: "Nájdi chovateľské kluby so zameraním na plemená, chov a členské aktivity. Profily môžeš filtrovať podľa lokality a dostupných údajov.",
+    intro:
+      "Nájdi chovateľské kluby so zameraním na plemená, chov a členské aktivity. Profily môžeš filtrovať podľa lokality a dostupných údajov.",
     resultsTitle: "Zoznam chovateľských klubov",
     icon: "🐕",
   },
   {
     slug: "chovatelske-stanice",
+    searchObject: "chovateľskú stanicu",
     label: "Chovateľské stanice",
     singular: "Chovateľská stanica",
     heroTitle: "Chovateľské stanice",
     seoTitle: "Chovateľské stanice – adresár",
     description: "Chovateľské stanice s dostupnými údajmi o plemene, zameraní a chove.",
-    intro: "Nájdi chovateľské stanice s údajmi o plemene, zameraní a chove. Profily môžeš filtrovať podľa lokality a dostupných údajov.",
+    intro:
+      "Nájdi chovateľské stanice s údajmi o plemene, zameraní a chove. Profily môžeš filtrovať podľa lokality a dostupných údajov.",
     resultsTitle: "Zoznam chovateľských staníc",
     icon: "🏡",
   },
   {
     slug: "salony-a-sluzby",
+    searchObject: "psí salón",
     label: "Salóny",
     singular: "Psí salón",
     heroTitle: "Psie salóny",
     seoTitle: "Psie salóny na Slovensku – adresár",
     description: "Úprava srsti, kúpanie a ďalšia pravidelná starostlivosť.",
-    intro: "Nájdi psie salóny a grooming služby na Slovensku. Profily môžu uvádzať strihanie, kúpanie, trimovanie či vyčesávanie a môžeš ich filtrovať podľa lokality.",
+    intro:
+      "Nájdi psie salóny a grooming služby na Slovensku. Profily môžu uvádzať strihanie, kúpanie, trimovanie či vyčesávanie a môžeš ich filtrovať podľa lokality.",
     resultsTitle: "Zoznam psích salónov",
     icon: "✂️",
   },
   {
     slug: "hotely-a-opatrovanie",
+    searchObject: "hotel alebo opatrovanie",
     label: "Hotely a opatrovanie",
     singular: "Hotel alebo opatrovanie",
     heroTitle: "Hotely pre psov a opatrovanie",
     seoTitle: "Hotely pre psov a opatrovanie",
     description: "Ubytovanie a starostlivosť o psa počas tvojej neprítomnosti.",
-    intro: "Nájdi hotely pre psov a služby opatrovania počas tvojej neprítomnosti. Profily môžeš filtrovať podľa lokality a dostupných služieb.",
+    intro:
+      "Nájdi hotely pre psov a služby opatrovania počas tvojej neprítomnosti. Profily môžeš filtrovať podľa lokality a dostupných služieb.",
     resultsTitle: "Zoznam hotelov pre psov a opatrovania",
     icon: "🛏️",
   },
   {
     slug: "vencenie",
+    searchObject: "venčenie",
     label: "Venčenie",
     singular: "Venčenie psov",
     heroTitle: "Venčenie psov",
     seoTitle: "Venčenie psov – adresár",
     description: "Pravidelné aj jednorazové venčenie podľa potrieb psa.",
-    intro: "Nájdi pravidelné aj jednorazové venčenie psov podľa potrieb psa. Profily môžeš filtrovať podľa lokality a dostupných služieb.",
+    intro:
+      "Nájdi pravidelné aj jednorazové venčenie psov podľa potrieb psa. Profily môžeš filtrovať podľa lokality a dostupných služieb.",
     resultsTitle: "Zoznam služieb venčenia psov",
     icon: "🦮",
   },
   {
     slug: "fyzioterapia",
+    searchObject: "fyzioterapiu",
     label: "Fyzioterapia",
     singular: "Psia fyzioterapia",
     heroTitle: "Fyzioterapia pre psov",
     seoTitle: "Fyzioterapia pre psov – adresár",
     description: "Rehabilitácia, regenerácia a podpora zdravého pohybu.",
-    intro: "Nájdi fyzioterapiu a rehabilitáciu pre psov na podporu pohybu, regenerácie a návratu do kondície. Profily môžeš filtrovať podľa lokality.",
+    intro:
+      "Nájdi fyzioterapiu a rehabilitáciu pre psov na podporu pohybu, regenerácie a návratu do kondície. Profily môžeš filtrovať podľa lokality.",
     resultsTitle: "Zoznam fyzioterapie pre psov",
     icon: "🐾",
   },
   {
     slug: "dalsie-sluzby",
+    searchObject: "službu pre psa",
     label: "Ďalšie služby",
     singular: "Služba pre psov",
     heroTitle: "Ďalšie služby pre psov",
     seoTitle: "Ďalšie služby pre psov – adresár",
     description: "Ďalšie praktické služby pre psov a ich ľudí.",
-    intro: "Nájdi ďalšie praktické služby pre psov, ktoré nepatria do hlavných kategórií adresára. Profily môžeš filtrovať podľa lokality a dostupných služieb.",
+    intro:
+      "Nájdi ďalšie praktické služby pre psov, ktoré nepatria do hlavných kategórií adresára. Profily môžeš filtrovať podľa lokality a dostupných služieb.",
     resultsTitle: "Zoznam ďalších služieb pre psov",
     icon: "➕",
   },
@@ -118,6 +142,7 @@ export const directoryCategories = [
 const legacyDirectoryCategories = [
   {
     slug: "psie-skoly",
+    searchObject: "psiu školu",
     label: "Psie školy",
     singular: "Psia škola",
     heroTitle: "Psie školy",
@@ -129,6 +154,7 @@ const legacyDirectoryCategories = [
   },
   {
     slug: "utulky-a-zachrana",
+    searchObject: "útulok alebo organizáciu",
     label: "Útulky a záchrana",
     singular: "Útulok alebo organizácia",
     heroTitle: "Útulky a záchrana",
@@ -140,7 +166,10 @@ const legacyDirectoryCategories = [
   },
 ] as const;
 
-export const allDirectoryCategories = [...directoryCategories, ...legacyDirectoryCategories] as const;
+export const allDirectoryCategories = [
+  ...directoryCategories,
+  ...legacyDirectoryCategories,
+] as const;
 export type DirectoryCategorySlug = (typeof allDirectoryCategories)[number]["slug"];
 import type { ImageDisplayConfig } from "./image-display.ts";
 
@@ -325,7 +354,9 @@ export function directoryProfileHref(profile: Pick<PublicDirectoryProfile, "cate
   return `/adresar/${profile.category}/${profile.slug}`;
 }
 
-export function directoryCategoryHref(category: Pick<(typeof directoryCategories)[number], "slug">) {
+export function directoryCategoryHref(
+  category: Pick<(typeof directoryCategories)[number], "slug">,
+) {
   return `/adresar/${category.slug}`;
 }
 

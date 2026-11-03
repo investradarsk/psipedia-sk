@@ -1,3 +1,4 @@
+import { PublicHeading } from "@/components/public-heading";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
@@ -18,6 +19,7 @@ import {
   DetailOptionGrid,
   DetailParagraphs,
   DetailSection,
+  DetailContactsCard,
   PublicDetailLayout,
   PublicDetailFlow,
 } from "@/components/detail-primitives/detail-primitives";
@@ -102,9 +104,13 @@ function DirectoryProfileHero({
               </span>
             ) : null}
           </div>
-          <h1 data-long-title={presentation.name.length >= 70 ? "" : undefined}>
+          <PublicHeading
+            role="page"
+            as="h1"
+            data-long-title={presentation.name.length >= 70 ? "" : undefined}
+          >
             {presentation.name}
-          </h1>
+          </PublicHeading>
           {hasLocation ? (
             <p className={styles.heroLocation}>
               {presentation.city ? <strong>{presentation.city}</strong> : null}
@@ -266,30 +272,25 @@ export function DirectoryProfileDetail({
     {
       key: "contact",
       column: "aside" as const,
-      content: practicalRows.length ? (
-        <section
-          className={`${styles.practical} ${styles.contactPosition}`}
-          aria-labelledby="directory-profile-contact"
-          data-public-profile-sidebar
-        >
-          <h2 className={styles.singleHeading} id="directory-profile-contact">
-            Adresa a kontakt
-          </h2>
-          <dl className={styles.practicalGrid}>
-            {practicalRows.map((row) => (
-              <div className={styles.practicalItem} key={row.label}>
-                <dt>{row.label}</dt>
-                <dd>{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-          {updatedAt ? (
-            <p className={styles.updatedAt}>
-              <time dateTime={presentation.updatedAt}>{updatedAt}</time>
-            </p>
-          ) : null}
-        </section>
-      ) : null,
+      content: (
+        <DetailContactsCard
+          id="directory-profile-contact"
+          title="Adresa a kontakt"
+          contacts={practicalRows}
+          note={
+            <>
+              {!presentation.phone && !presentation.emails.length && !presentation.websiteUrl ? (
+                <span data-public-contact-empty>Priamy kontakt zatiaľ nie je uvedený. </span>
+              ) : null}
+              {updatedAt ? (
+                <span>
+                  Aktualizované <time dateTime={presentation.updatedAt}>{updatedAt}</time>
+                </span>
+              ) : null}
+            </>
+          }
+        />
+      ),
     },
     {
       key: "services",

@@ -13,7 +13,7 @@
 }
 
 .hasImage {
-  grid-template-columns: minmax(0, 1.25fr) minmax(220px, .75fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.75fr);
 }
 
 .copy {
@@ -32,7 +32,7 @@
   margin-bottom: 2px;
   border-radius: 12px;
   color: currentColor;
-  background: rgba(255, 255, 255, .68);
+  background: rgba(255, 255, 255, 0.68);
 }
 
 .icon > svg {
@@ -42,9 +42,9 @@
 
 .eyebrow {
   color: var(--context-banner-eyebrow, var(--forest, #174b38));
-  font-size: .68rem;
+  font-size: 0.68rem;
   font-weight: 900;
-  letter-spacing: .095em;
+  letter-spacing: 0.095em;
   line-height: 1.25;
   text-transform: uppercase;
 }
@@ -56,14 +56,14 @@
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(1.75rem, 3vw, 2.7rem);
   font-weight: 500;
-  letter-spacing: -.03em;
+  letter-spacing: -0.03em;
   line-height: 1.04;
 }
 
 .text {
   max-width: 640px;
   color: var(--context-banner-muted);
-  font-size: .86rem;
+  font-size: 0.86rem;
   line-height: 1.55;
 }
 
@@ -95,9 +95,9 @@
 
 .tone_forest {
   --context-banner-ink: #fff;
-  --context-banner-muted: rgba(255, 255, 255, .84);
+  --context-banner-muted: rgba(255, 255, 255, 0.84);
   --context-banner-eyebrow: #f4c6b5;
-  border-color: rgba(23, 53, 43, .18);
+  border-color: rgba(23, 53, 43, 0.18);
   background: linear-gradient(135deg, #17352b, #24503b);
 }
 
@@ -129,7 +129,7 @@
   }
 
   .text {
-    font-size: .8rem;
+    font-size: 0.8rem;
   }
 
   .copy > a {
@@ -142,7 +142,6 @@
     aspect-ratio: 16 / 7;
   }
 }
-
 
 /* DS-4: one owned compact layout for the events organizer banner. */
 /* Do not duplicate grid rules in the consuming page stylesheet. */
@@ -191,5 +190,29 @@
   .copy > a {
     min-height: 48px;
     justify-content: center;
+  }
+}
+
+@media (min-width: 821px) {
+  .banner > .copy {
+    max-width: none;
+    width: 100%;
+    gap: 18px;
+    padding: 18px clamp(18px, 2.4vw, 28px);
+  }
+  .hasImage > .copy {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .inline > .copy > :not(a),
+  .inline > .copy > a {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .tone_forest :global([data-public-heading]),
+  .tone_forest :global([data-public-banner-content]) {
+    color: #fff;
+  }
+  .tone_forest :global([data-public-banner-content]) > div > div {
+    color: #e3eee5;
   }
 }

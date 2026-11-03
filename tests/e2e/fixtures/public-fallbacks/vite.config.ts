@@ -5,7 +5,20 @@ import path from "node:path";
 // It never starts the application's Cloudflare/D1 runtime.
 export default defineConfig({
   root: process.cwd(),
-  resolve: { alias: [{ find: /^@\//, replacement: path.resolve(process.cwd()) + "/" }] },
+  resolve: {
+    alias: [
+      ...["@/lib/section-visual-store", "@/lib/article-discovery", "@/lib/directory-store"].map(
+        (find) => ({
+          find,
+          replacement: path.resolve(
+            process.cwd(),
+            "tests/e2e/fixtures/public-fallbacks/data-stubs.ts",
+          ),
+        }),
+      ),
+      { find: /^@\//, replacement: path.resolve(process.cwd()) + "/" },
+    ],
+  },
   plugins: [
     {
       name: "isolated-next-router-stubs",

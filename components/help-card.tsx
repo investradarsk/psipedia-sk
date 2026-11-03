@@ -1,3 +1,4 @@
+import { applyHelpLifecycle } from "@/lib/help-lifecycle";
 import Link from "next/link";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { PublicMediaFallback } from "@/components/public-visual-system";
@@ -8,7 +9,8 @@ import { formatHelpDate, getHelpCategory, helpCaseHref, type PublicHelpCard } fr
 import styles from "./help-public.module.css";
 import { HelpFinancialProgress } from "./help-financial-progress";
 
-export function HelpCard({ item }: { item: PublicHelpCard }) {
+export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
+  const item = applyHelpLifecycle(rawItem);
   const category = getHelpCategory(item.category);
   const detailHref = helpCaseHref(item);
   const displayDate =

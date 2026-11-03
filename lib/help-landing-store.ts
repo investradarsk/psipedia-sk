@@ -1,3 +1,4 @@
+import { activeHelpSql } from "./help-lifecycle";
 import type { AdoptionDog } from "./adoption.ts";
 import { adoptionRegions, normalizeAdoptionText } from "./adoption.ts";
 import type { HelpCase } from "./help.ts";
@@ -16,18 +17,44 @@ import type { PublicDogReport } from "./lost-found-dogs.ts";
  */
 export type HelpLandingGenericItem = Pick<
   HelpCase,
-  "id" | "slug" | "title" | "category" | "excerpt" | "organization" | "city" | "region" |
-  "imageUrl" | "thumbnailImageDisplay" | "urgent"
+  | "id"
+  | "slug"
+  | "title"
+  | "category"
+  | "excerpt"
+  | "organization"
+  | "city"
+  | "region"
+  | "imageUrl"
+  | "thumbnailImageDisplay"
+  | "urgent"
 >;
 export type HelpLandingAdoptionItem = Pick<
   AdoptionDog,
-  "id" | "slug" | "name" | "status" | "mainImage" | "thumbnailImageDisplay" |
-  "organizationName" | "city" | "region" | "shortDescription"
+  | "id"
+  | "slug"
+  | "name"
+  | "status"
+  | "mainImage"
+  | "thumbnailImageDisplay"
+  | "organizationName"
+  | "city"
+  | "region"
+  | "shortDescription"
 >;
 export type HelpLandingReportItem = Pick<
   PublicDogReport,
-  "id" | "type" | "slug" | "dogName" | "breed" | "city" | "region" | "description" |
-  "mainImage" | "thumbnailImageDisplay" | "eventDate"
+  | "id"
+  | "type"
+  | "slug"
+  | "dogName"
+  | "breed"
+  | "city"
+  | "region"
+  | "description"
+  | "mainImage"
+  | "thumbnailImageDisplay"
+  | "eventDate"
 >;
 
 type GenericCategory = "docasna-opatera" | "zbierky" | "dobrovolnictvo";
@@ -41,29 +68,61 @@ export type HelpLandingSnapshot = {
 };
 
 type GenericRow = {
-  id: number; slug: string; title: string; category: GenericCategory;
-  excerpt: string; organization: string; city: string; region: string;
-  image_url: string | null; thumbnail_display_json: string | null; urgent: number;
-  category_total: number; preview_rank: number;
+  id: number;
+  slug: string;
+  title: string;
+  category: GenericCategory;
+  excerpt: string;
+  organization: string;
+  city: string;
+  region: string;
+  image_url: string | null;
+  thumbnail_display_json: string | null;
+  urgent: number;
+  category_total: number;
+  preview_rank: number;
 };
 type OrganizationRow = {
-  id: number; slug: string; name: string; short_description: string;
-  city: string; region: string; image_url: string | null;
-  category_total: number; preview_rank: number;
+  id: number;
+  slug: string;
+  name: string;
+  short_description: string;
+  city: string;
+  region: string;
+  image_url: string | null;
+  category_total: number;
+  preview_rank: number;
 };
 type AdoptionRow = {
-  id: number; slug: string; name: string; status: "ACTIVE" | "RESERVED";
-  main_image: string | null; thumbnail_display_json: string | null;
-  organization_id: number | null; organization_name: string;
+  id: number;
+  slug: string;
+  name: string;
+  status: "ACTIVE" | "RESERVED";
+  main_image: string | null;
+  thumbnail_display_json: string | null;
+  organization_id: number | null;
+  organization_name: string;
   canonical_organization_name: string | null;
-  city: string; region: string; short_description: string;
-  category_total: number; preview_rank: number;
+  city: string;
+  region: string;
+  short_description: string;
+  category_total: number;
+  preview_rank: number;
 };
 type ReportRow = {
-  id: number; type: ReportType; slug: string; dog_name: string | null;
-  breed: string; city: string; region: string; description: string;
-  main_image: string | null; thumbnail_display_json: string | null;
-  event_date: string; category_total: number; preview_rank: number;
+  id: number;
+  type: ReportType;
+  slug: string;
+  dog_name: string | null;
+  breed: string;
+  city: string;
+  region: string;
+  description: string;
+  main_image: string | null;
+  thumbnail_display_json: string | null;
+  event_date: string;
+  category_total: number;
+  preview_rank: number;
 };
 
 const PREVIEW_SIZE = 6;
@@ -78,7 +137,7 @@ export const HELP_LANDING_GENERIC_SQL = [
   "    ROW_NUMBER() OVER (PARTITION BY h.category",
   "      ORDER BY h.urgent DESC, h.verified DESC, h.updated_at DESC, h.id DESC) AS preview_rank",
   "  FROM help_cases h",
-  "  WHERE h.status = 'published' AND h.resolved = 0",
+  `  WHERE h.status = 'published' AND ${activeHelpSql("h.")}`,
   "    AND h.category IN ('docasna-opatera', 'zbierky', 'dobrovolnictvo')",
   ")",
   "SELECT * FROM ranked WHERE preview_rank <= ? ORDER BY category ASC, preview_rank ASC",
@@ -167,10 +226,17 @@ export async function getHelpLandingSnapshot(
     if (!(row.category in empty.generic.counts)) continue;
     empty.generic.counts[row.category] = Number(row.category_total);
     empty.generic.items.push({
-      id: row.id, slug: row.slug, title: row.title, category: row.category,
-      excerpt: row.excerpt, organization: row.organization, city: row.city,
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      category: row.category,
+      excerpt: row.excerpt,
+      organization: row.organization,
+      city: row.city,
       region: (slovakRegions as readonly string[]).includes(row.region)
-        ? row.region as HelpCase["region"] : "Online", imageUrl: row.image_url,
+        ? (row.region as HelpCase["region"])
+        : "Online",
+      imageUrl: row.image_url,
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
       urgent: Boolean(row.urgent),
     });
@@ -178,33 +244,51 @@ export async function getHelpLandingSnapshot(
   for (const row of organizations.results ?? []) {
     empty.organizations.count = Number(row.category_total);
     empty.organizations.items.push({
-      id: row.id, slug: row.slug, title: row.name, category: "utulky",
+      id: row.id,
+      slug: row.slug,
+      title: row.name,
+      category: "utulky",
       excerpt: cleanPublicOrganizationCopy(row.short_description),
-      organization: row.name, city: row.city || "Online",
+      organization: row.name,
+      city: row.city || "Online",
       region: (slovakRegions as readonly string[]).includes(row.region)
-        ? row.region as HelpCase["region"] : "Online", imageUrl: row.image_url,
+        ? (row.region as HelpCase["region"])
+        : "Online",
+      imageUrl: row.image_url,
       urgent: false,
     });
   }
   for (const row of adoptions.results ?? []) {
     empty.adoptions.count = Number(row.category_total);
     empty.adoptions.items.push({
-      id: row.id, slug: row.slug, name: row.name, status: row.status,
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      status: row.status,
       mainImage: row.main_image,
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
-      organizationName: row.organization_id === null
-        ? row.organization_name : normalizeAdoptionText(row.canonical_organization_name),
-      city: row.city, region: (adoptionRegions as readonly string[]).includes(row.region)
-        ? row.region as AdoptionDog["region"] : "",
+      organizationName:
+        row.organization_id === null
+          ? row.organization_name
+          : normalizeAdoptionText(row.canonical_organization_name),
+      city: row.city,
+      region: (adoptionRegions as readonly string[]).includes(row.region)
+        ? (row.region as AdoptionDog["region"])
+        : "",
       shortDescription: row.short_description,
     });
   }
   for (const row of reports.results ?? []) {
     empty.reports.counts[row.type] = Number(row.category_total);
     empty.reports.items.push({
-      id: row.id, type: row.type, slug: row.slug,
-      dogName: row.dog_name, breed: row.breed, city: row.city,
-      region: row.region, description: row.description,
+      id: row.id,
+      type: row.type,
+      slug: row.slug,
+      dogName: row.dog_name,
+      breed: row.breed,
+      city: row.city,
+      region: row.region,
+      description: row.description,
       mainImage: row.main_image,
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
       eventDate: row.event_date,

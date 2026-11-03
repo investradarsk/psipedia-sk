@@ -56,12 +56,10 @@ test("runtime errors, shared help media and genuine monetary progress", async ({
       background: getComputedStyle(el).background,
       color: getComputedStyle(el).color,
     }));
-  const failedStyle = await broken
-    .locator("[data-public-media-fallback]")
-    .evaluate((el) => ({
-      background: getComputedStyle(el).background,
-      color: getComputedStyle(el).color,
-    }));
+  const failedStyle = await broken.locator("[data-public-media-fallback]").evaluate((el) => ({
+    background: getComputedStyle(el).background,
+    color: getComputedStyle(el).color,
+  }));
   expect(failedStyle).toEqual(missingStyle);
   await expect(
     cards.filter({ hasText: "Platná fotografia" }).locator("[data-public-media-fallback]"),
@@ -165,3 +163,91 @@ test("event return link shares the content container", async ({ page }) => {
   await expect(page.locator('[data-event-image-source="fallback"]')).toHaveCount(2);
   await page.screenshot({ path: "test-results/public-fallbacks/event-detail.png", fullPage: true });
 });
+
+test("compact event calendar stays left and results begin alongside it", async ({ page }) => {
+  await page.goto(fixture + "?view=calendar");
+  await expect(page.locator("[data-events-month-calendar]")).toBeVisible();
+  await expect(page.locator("[data-public-filter-panel]")).toBeVisible();
+
+  const calendar = await page.locator("[data-events-month-calendar]").boundingBox();
+  const results = await page.locator("#events-list").boundingBox();
+  expect(results!.x).toBeGreaterThan(calendar!.x + calendar!.width);
+  expect(results!.y).toBeLessThan(700);
+  await expect(page.locator("#events-list")).toContainText("1 podujatie");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({
+    path: "test-results/public-fallbacks/compact-calendar.png",
+    fullPage: true,
+  });
+});
+test("banners share text and CTA structure; missing direct contact is explicit", async ({
+  page,
+}) => {
+  await page.goto(fixture + "?view=banners");
+  await expect(page.locator("[data-public-banner-content]")).toHaveCount(3);
+  await expect(page.locator("[data-public-contact-empty]")).toHaveText(
+    "Priamy kontakt zatiaľ nie je uvedený.",
+  );
+  await expect(page.locator("[data-public-fact-list] a")).toHaveAttribute(
+    "href",
+    "tel:+421900000000",
+  );
+  for (const heading of await page.locator("[data-public-banner-content] h2").all())
+    expect(
+      await heading.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+    ).toBeLessThanOrEqual(26);
+  await page.screenshot({
+    path: "test-results/public-fallbacks/shared-banners.png",
+    fullPage: true,
+  });
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  }
+});
+test("closed fundraiser cannot be urgent or invite a new donation", async ({ page }) => {
+  await page.goto(fixture + "?view=closed");
+  await expect(page.getByText("Urgentné", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Ukončené / vyriešené", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Pozrieť ukončenú výzvu/ })).toHaveAttribute(
+    "href",
+    "https://example.org/archive",
+  );
+  await page.goto(fixture + "?view=help-filters");
+  const panel = await page.locator("[data-public-filter-panel]").boundingBox();
+  const results = await page.locator("[data-public-filter-results]").boundingBox();
+  expect(results!.x).toBeGreaterThan(panel!.x + panel!.width);
+  await expect(page.locator("[data-help-profile-card]")).toHaveCount(1);
+});
+
+for (const view of ["adoption", "directory"]) {
+  test(`${view}: real listing uses left filter, compact hero and operable mobile disclosure`, async ({
+    page,
+  }) => {
+    await page.goto(fixture + "?view=" + view);
+    const panel = await page.locator("[data-public-filter-panel]").boundingBox();
+    const results = await page
+      .locator(view === "adoption" ? "[data-public-filter-results]" : "[data-directory-results]")
+      .boundingBox();
+    expect(results!.x).toBeGreaterThan(panel!.x + panel!.width);
+    expect(results!.y).toBeLessThan(700);
+    if (view === "directory")
+      await expect(
+        page.getByText("Nájdi fyzioterapiu vo svojom okolí", { exact: true }),
+      ).toBeVisible();
+    await page.screenshot({
+      path: `test-results/public-fallbacks/${view}-sidebar.png`,
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    const button = page
+      .getByRole("button", { name: view === "adoption" ? /Filtrovať psy/ : /^Filtre/ })
+      .first();
+    if (await button.isVisible()) await button.click();
+  });
+}

@@ -1,3 +1,4 @@
+import { PublicHeading } from "@/components/public-heading";
 import type { ReactNode } from "react";
 import styles from "./detail-primitives.module.css";
 
@@ -25,7 +26,15 @@ export function DetailSection({
 }) {
   return (
     <section className={styles.section}>
-      {compactHeading ? <h2 className={styles.compactHeading}>{title}</h2> : <h2>{title}</h2>}
+      {compactHeading ? (
+        <PublicHeading role="panel" as="h2" className={styles.compactHeading}>
+          {title}
+        </PublicHeading>
+      ) : (
+        <PublicHeading role="panel" as="h2">
+          {title}
+        </PublicHeading>
+      )}
       {children}
     </section>
   );
@@ -59,15 +68,10 @@ export function DetailFactsCard({
   if (!visible.length) return null;
   return (
     <section className={styles.card}>
-      <h2>{title}</h2>
-      <dl className={styles.facts}>
-        {visible.map((fact) => (
-          <div key={fact.label}>
-            <dt>{fact.label}</dt>
-            <dd>{fact.value}</dd>
-          </div>
-        ))}
-      </dl>
+      <PublicHeading role="panel" as="h2">
+        {title}
+      </PublicHeading>
+      <DetailFactList facts={visible} />
     </section>
   );
 }
@@ -76,25 +80,28 @@ export function DetailContactsCard({
   title,
   contacts,
   note,
+  emptyMessage = "Priamy kontakt zatiaľ nie je uvedený.",
+  id,
 }: {
   title: string;
   contacts: DetailContact[];
   note?: ReactNode;
+  emptyMessage?: string;
+  id?: string;
 }) {
   const visible = contacts.filter((contact) => hasContent(contact.value));
-  if (!visible.length && !hasContent(note)) return null;
+
   return (
-    <section className={styles.card}>
-      <h2>{title}</h2>
-      {visible.length > 0 && (
-        <div className={styles.contacts}>
-          {visible.map((contact) => (
-            <div className={styles.contact} key={contact.id ?? contact.label}>
-              <span>{contact.label}</span>
-              {contact.value}
-            </div>
-          ))}
-        </div>
+    <section className={styles.card} id={id} data-public-contact-panel>
+      <PublicHeading role="panel" as="h2">
+        {title}
+      </PublicHeading>
+      {visible.length ? (
+        <DetailFactList
+          facts={visible.map((contact) => ({ label: contact.label, value: contact.value }))}
+        />
+      ) : (
+        <p data-public-contact-empty>{emptyMessage}</p>
       )}
       {hasContent(note) && <p className={styles.note}>{note}</p>}
     </section>
@@ -292,5 +299,20 @@ export function PublicDetailFlow({
         ))}
       </div>
     </PublicDetailLayout>
+  );
+}
+
+export function DetailFactList({ facts }: { facts: DetailFact[] }) {
+  return (
+    <dl className={styles.facts} data-public-fact-list>
+      {facts
+        .filter((fact) => hasContent(fact.value))
+        .map((fact) => (
+          <div key={fact.label}>
+            <dt>{fact.label}</dt>
+            <dd>{fact.value}</dd>
+          </div>
+        ))}
+    </dl>
   );
 }

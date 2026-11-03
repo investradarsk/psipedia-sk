@@ -1,5 +1,6 @@
+import { PublicBannerContent } from "./public-magazine-banner";
 import type { ReactElement, ReactNode } from "react";
-import { PublicActionLink, PublicIcon } from "./public-visual-system";
+import { PublicIcon } from "./public-visual-system";
 import styles from "./public-context-banner.module.css";
 import { PublicBannerFrame } from "./public-banner-frame";
 
@@ -46,19 +47,28 @@ export function PublicContextBanner({
 
   return (
     <PublicBannerFrame
-      className={cx(styles.banner, styles[`tone_${tone}`], hasImage && styles.hasImage, inline && styles.inline, className)}
+      className={cx(
+        styles.banner,
+        styles[`tone_${tone}`],
+        hasImage && styles.hasImage,
+        inline && styles.inline,
+        className,
+      )}
       data-public-context-banner
       data-public-context-banner-tone={tone}
       data-public-context-banner-layout={inline ? "inline" : "stacked"}
       data-public-context-banner-media={hasImage ? "image" : "text"}
     >
-      <div className={styles.copy}>
-        {icon ? <PublicIcon icon={icon} size="lg" className={styles.icon} /> : null}
-        {eyebrow ? <span className={styles.eyebrow}>{eyebrow}</span> : null}
-        <h2>{title}</h2>
-        {text ? <div className={styles.text}>{text}</div> : null}
-        {hasCta ? <PublicActionLink href={ctaHref!} variant={tone === "forest" ? "secondary" : "primary"}>{ctaLabel}</PublicActionLink> : null}
-      </div>
+      <PublicBannerContent
+        className={styles.copy}
+        eyebrow={eyebrow}
+        title={title}
+        description={text}
+        href={hasCta ? ctaHref : undefined}
+        label={ctaLabel}
+        actionVariant={tone === "forest" ? "secondary" : "primary"}
+        icon={icon ? <PublicIcon icon={icon} size="lg" className={styles.icon} /> : null}
+      />
       {hasImage && image ? (
         <div className={styles.media}>
           <img

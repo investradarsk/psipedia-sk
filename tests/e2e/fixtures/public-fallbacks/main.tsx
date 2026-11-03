@@ -1,10 +1,23 @@
+import { AdoptionCatalog } from "../../../../components/adoption-catalog";
+import { DirectoryPage } from "../../../../components/directory-page";
+import { HomePortalSearch } from "../../../../components/home-portal-search";
+import eventStyles from "../../../../components/events-public.module.css";
+import { EventCalendar } from "../../../../components/event-calendar";
+import { UnifiedSectionHero } from "../../../../components/public-visual-system/unified-section-hero";
+import { PublicContextBanner } from "../../../../components/public-visual-system/public-context-banner";
+import { PublicMagazineBanner } from "../../../../components/public-visual-system/public-magazine-banner";
+import { DetailContactsCard } from "../../../../components/detail-primitives/detail-primitives";
+import { HelpDetail } from "../../../../components/help-detail";
+import { HelpBrowser } from "../../../../components/help-browser";
+import type { HelpCase } from "../../../../lib/help";
+import type { ResolvedSectionVisual } from "../../../../lib/section-visual-contract";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { EventImage } from "../../../../components/event-image";
 import { EventDetail } from "../../../../components/event-detail";
 import { HelpCard } from "../../../../components/help-card";
 import { MapExperience } from "../../../../components/map/map-experience";
-import { useState } from "react";
+import { useState, isValidElement, cloneElement, type ReactNode, type ReactElement } from "react";
 import type { DogEvent } from "../../../../lib/events";
 import type { PublicHelpCard } from "../../../../lib/help";
 import "../../../../app/globals.css";
@@ -105,7 +118,192 @@ function Examples() {
 }
 const root = document.getElementById("root")!;
 const view = new URLSearchParams(location.search).get("view");
-if (view === "hydrate") {
+const visual = {
+  visualKey: "section.podujatia",
+  source: "fixture",
+  imageUrl: "/images/events/defaults/preteky.webp",
+  altText: "Ilustračný obrázok",
+  desktopCrop: { x: 50, y: 50, zoom: 1 },
+  mobileCrop: { x: 50, y: 50, zoom: 1 },
+} as unknown as ResolvedSectionVisual;
+const closedCase = {
+  ...help,
+  category: "zbierky",
+  title: "Reina – ukončená výzva",
+  excerpt: "Ukončená zbierka na operáciu Reiny.",
+  description: "Výzva je ukončená a nejde o aktuálnu žiadosť o príspevky.",
+  contactNote: "Organizátor uvádza verejný zdroj.",
+  actionLabel: "Podporiť",
+  actionUrl: "https://example.org/archive",
+  verified: true,
+  urgent: true,
+  resolved: false,
+  reportedDate: null,
+  deadlineDate: null,
+  locationNote: "",
+  imageKey: null,
+  dogName: "",
+  breed: "",
+  ageNote: "",
+  createdAt: help.updatedAt,
+  publishedAt: help.updatedAt,
+  createdBy: "fixture",
+  updatedBy: "fixture",
+  seo: {},
+} as HelpCase;
+async function resolveServerTree(node: ReactNode): Promise<ReactNode> {
+  if (Array.isArray(node)) return Promise.all(node.map(resolveServerTree));
+  if (!isValidElement(node)) return node;
+  const element = node as ReactElement<{ children?: ReactNode }>;
+  if (typeof element.type === "function" && element.type.constructor.name === "AsyncFunction")
+    return resolveServerTree(
+      await (element.type as (props: unknown) => Promise<ReactNode>)(element.props),
+    );
+  if (element.props.children)
+    return cloneElement(element, undefined, await resolveServerTree(element.props.children));
+  return element;
+}
+async function renderServerTree(node: ReactNode) {
+  createRoot(root).render(await resolveServerTree(node));
+}
+if (view === "adoption")
+  await renderServerTree(
+    await AdoptionCatalog({
+      result: {
+        items: [],
+        pagination: { page: 1, pageSize: 24, total: 0, totalPages: 1 },
+      } as unknown as Parameters<typeof AdoptionCatalog>[0]["result"],
+      filters: {
+        q: "",
+        region: "",
+        sex: "",
+        age: "",
+        size: "",
+        status: "",
+        children: false,
+        dogs: false,
+        cats: false,
+        sort: "newest",
+      } as Parameters<typeof AdoptionCatalog>[0]["filters"],
+      breeds: { available: true, options: [] },
+    }),
+  );
+else if (view === "directory")
+  await renderServerTree(
+    await DirectoryPage({
+      result: {
+        profiles: [],
+        total: 0,
+        page: 1,
+        totalPages: 1,
+        pageSize: 24,
+        options: {
+          regions: [],
+          districts: [],
+          cities: [],
+          services: [],
+          breeds: [],
+          fciGroups: [],
+          organizations: [],
+          profileTypes: [],
+          canonicalServices: [],
+        },
+      } as unknown as Parameters<typeof DirectoryPage>[0]["result"],
+      filters: {
+        query: "",
+        category: "fyzioterapia",
+        region: "",
+        district: "",
+        city: "",
+        service: "",
+        breed: "",
+        fciGroup: "",
+        organization: "",
+        profileType: "",
+        canonicalService: "",
+        facets: {},
+        page: 1,
+        sort: "recommended",
+      },
+      initialCategory: "fyzioterapia",
+    }),
+  );
+else if (view === "calendar")
+  createRoot(root).render(
+    <main className="shell">
+      {await UnifiedSectionHero({
+        title: "Podujatia",
+        intro: "Vyber si termín a miesto podujatia.",
+        visual,
+        portalSearchSlot: (
+          <HomePortalSearch
+            action="/podujatia"
+            id="fixture-event-search"
+            title="Nájdi podujatie"
+            shortcuts={[]}
+          />
+        ),
+      })}
+      <EventCalendar
+        events={[event]}
+        today="2030-11-03"
+        initialCalendarMonth="2030-11"
+        calendarSummaries={[{ date: "2030-11-06", count: 1, types: ["Preteky"] }]}
+        listing={{ total: 1, page: 1, pages: 1 }}
+        afterCalendar={
+          <section className={eventStyles.calendarOrganizer}>
+            <PublicContextBanner
+              title="Organizuješ podujatie?"
+              ctaHref="/podujatia/pridat-podujatie"
+              ctaLabel="Pridať podujatie"
+              inline
+            />
+          </section>
+        }
+      />
+    </main>,
+  );
+else if (view === "banners")
+  createRoot(root).render(
+    <main className="shell">
+      <h1>Spoločné bannery a kontakty</h1>
+      <PublicMagazineBanner
+        title="Veterinári pre tvojho psa"
+        description="Vyhľadaj služby vo svojom okolí."
+        label="Zobraziť veterinárov"
+        href="/adresar/veterinari"
+        testId="fixture"
+      />
+      <PublicContextBanner
+        title="Veterinári pre tvojho psa"
+        text="Vyhľadaj služby vo svojom okolí."
+        ctaLabel="Zobraziť veterinárov"
+        ctaHref="/adresar/veterinari"
+        tone="sage"
+        inline
+      />
+      <PublicContextBanner
+        title="Pomoc psom"
+        text="Každá pomoc sa počíta."
+        ctaLabel="Ako pomôcť"
+        ctaHref="/pomoc-psom"
+        tone="forest"
+      />
+      <DetailContactsCard title="Kontakty" contacts={[]} note="Poznámka bez priameho kontaktu." />
+      <DetailContactsCard
+        title="Kontakty služby"
+        contacts={[{ label: "Telefón", value: <a href="tel:+421900000000">+421 900 000 000</a> }]}
+      />
+    </main>,
+  );
+else if (view === "closed") createRoot(root).render(<HelpDetail item={closedCase} />);
+else if (view === "help-filters")
+  createRoot(root).render(
+    <main>
+      <HelpBrowser items={[help, closedCase]} initialCategory="all" />
+    </main>,
+  );
+else if (view === "hydrate") {
   root.innerHTML = renderToString(<HydrationImages />);
   const button = document.createElement("button");
   button.textContent = "Hydratovať";

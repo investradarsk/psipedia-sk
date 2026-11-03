@@ -1,4 +1,5 @@
 "use client";
+import { PublicFilterPanel } from "@/components/public-filters";
 import {
   PublicLoadingState,
   PublicNotice,
@@ -1153,7 +1154,7 @@ export function MapExperience({
         className={`shell public-shell ${styles.experience}`}
         aria-label="Interaktívna mapa Psipedie"
       >
-        <div className={styles.toolbar}>
+        <PublicFilterPanel title="Filtrovať mapu" className={styles.toolbar}>
           <div className={styles.primaryRow}>
             <form
               className={styles.mapSearchForm}
@@ -1239,7 +1240,7 @@ export function MapExperience({
               </div>
             ) : null}
           </div>
-        </div>
+        </PublicFilterPanel>
 
         <div className={styles.workspace}>
           <MapResults

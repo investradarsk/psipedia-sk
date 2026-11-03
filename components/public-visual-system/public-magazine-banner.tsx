@@ -1,5 +1,7 @@
+import { PublicHeading } from "@/components/public-heading";
+import { PublicActionLink } from "./public-visual-system";
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { ArrowIcon } from "@/components/icons";
 import styles from "./public-magazine-banner.module.css";
 import { PublicBannerFrame } from "./public-banner-frame";
@@ -45,20 +47,47 @@ export function PublicMagazineBanner({
   promoVariant?: string;
   /** Optional stable link target for read-only visual-library usage navigation. */
   anchorId?: string;
-  desktopColors?: { background: "original" | "sage" | "cream" | "white"; button: "original" | "green" | "red" } | null;
+  desktopColors?: {
+    background: "original" | "sage" | "cream" | "white";
+    button: "original" | "green" | "red";
+  } | null;
   /** Owner-approved copy for desktop only, original props are the mobile source of truth. */
   desktopCopy?: { eyebrow: string; title: string; description: string; ctaLabel: string } | null;
 }) {
   const photo = photoTone ? publicBannerPhotos[photoTone] : null;
-  const bg = desktopColors?.background === "sage" ? "#e1ebdf" : desktopColors?.background === "cream" ? "#f9f1e5" : desktopColors?.background === "white" ? "#ffffff" : undefined;
-  const buttonBg = desktopColors?.button === "green" ? "#20543e" : desktopColors?.button === "red" ? "#b44939" : undefined;
-  const desktopStyle = { "--ps-visual-desktop-bg": bg, "--ps-visual-desktop-button": buttonBg } as CSSProperties;
+  const bg =
+    desktopColors?.background === "sage"
+      ? "#e1ebdf"
+      : desktopColors?.background === "cream"
+        ? "#f9f1e5"
+        : desktopColors?.background === "white"
+          ? "#ffffff"
+          : undefined;
+  const buttonBg =
+    desktopColors?.button === "green"
+      ? "#20543e"
+      : desktopColors?.button === "red"
+        ? "#b44939"
+        : undefined;
+  const desktopStyle = {
+    "--ps-visual-desktop-bg": bg,
+    "--ps-visual-desktop-button": buttonBg,
+  } as CSSProperties;
   return (
-    <PublicBannerFrame as="section"
+    <PublicBannerFrame
+      as="section"
       id={anchorId}
       style={desktopColors ? desktopStyle : undefined}
       data-visual-library-desktop-published={desktopColors ? "true" : undefined}
-      className={[compact ? "home-magazine-banner" : "shell home-magazine-banner", styles.magazine, photo && styles.withPhoto, compact && styles.compact, links?.length && styles.withLinks].filter(Boolean).join(" ")}
+      className={[
+        compact ? "home-magazine-banner" : "shell home-magazine-banner",
+        styles.magazine,
+        photo && styles.withPhoto,
+        compact && styles.compact,
+        links?.length && styles.withLinks,
+      ]
+        .filter(Boolean)
+        .join(" ")}
       data-home-banner={testId}
       data-promo-key={promoKey}
       data-promo-variant={promoVariant}
@@ -68,54 +97,131 @@ export function PublicMagazineBanner({
     >
       {photo ? (
         <span className={styles.photoMedia} aria-hidden="true">
-          <img className={styles.photoBlur} src={photo} alt="" width={1200} height={800} loading="lazy" decoding="async" />
-          <img className={styles.photoFull} src={photo} alt="" width={1200} height={800} loading="lazy" decoding="async" />
+          <img
+            className={styles.photoBlur}
+            src={photo}
+            alt=""
+            width={1200}
+            height={800}
+            loading="lazy"
+            decoding="async"
+          />
+          <img
+            className={styles.photoFull}
+            src={photo}
+            alt=""
+            width={1200}
+            height={800}
+            loading="lazy"
+            decoding="async"
+          />
         </span>
       ) : null}
-      <div>
-        <span className="eyebrow">
-          {desktopCopy ? (
+      <PublicBannerContent
+        eyebrow={
+          desktopCopy ? (
             <>
               <span className={styles.mobileCopy}>{eyebrow}</span>
               <span className={styles.desktopCopy}>{desktopCopy.eyebrow}</span>
             </>
-          ) : eyebrow}
-        </span>
-        <h2 id={headingId ?? (desktopCopy && anchorId ? `${anchorId}-heading` : undefined)}>
-          {desktopCopy ? (
+          ) : (
+            eyebrow
+          )
+        }
+        title={
+          desktopCopy ? (
             <>
               <span className={styles.mobileCopy}>{title}</span>
               <span className={styles.desktopCopy}>{desktopCopy.title}</span>
             </>
-          ) : title}
-        </h2>
-        <p>
-          {desktopCopy ? (
+          ) : (
+            title
+          )
+        }
+        description={
+          desktopCopy ? (
             <>
               <span className={styles.mobileCopy}>{description}</span>
               <span className={styles.desktopCopy}>{desktopCopy.description}</span>
             </>
-          ) : description}
-        </p>
-      </div>
-      {links?.length ? (
-        <nav className={styles.links} aria-label={title}>
-          {links.map((link) => (
-            <Link key={link.href} href={link.href} className={styles.link}>
-              <span>{link.label}</span><ArrowIcon size={16} />
-            </Link>
-          ))}
-        </nav>
-      ) : href && label ? (
-        <Link href={href} className="button button--dark">
-          {desktopCopy ? (
+          ) : (
+            description
+          )
+        }
+        headingId={headingId ?? (desktopCopy && anchorId ? `${anchorId}-heading` : undefined)}
+        href={href}
+        label={
+          desktopCopy ? (
             <>
               <span className={styles.mobileCopy}>{label}</span>
               <span className={styles.desktopCopy}>{desktopCopy.ctaLabel}</span>
             </>
-          ) : label} <ArrowIcon size={18} />
-        </Link>
-      ) : null}
+          ) : (
+            label
+          )
+        }
+        links={links}
+      />
     </PublicBannerFrame>
+  );
+}
+
+/** The shared text, CTA and spacing contract for magazine and context banners. */
+export function PublicBannerContent({
+  eyebrow,
+  title,
+  description,
+  headingId,
+  href,
+  label,
+  links,
+  icon,
+  className,
+  actionVariant = "primary",
+}: {
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  headingId?: string;
+  href?: string;
+  label?: ReactNode;
+  links?: Array<{ href: string; label: string }>;
+  icon?: ReactNode;
+  className?: string;
+  actionVariant?: "primary" | "secondary";
+}) {
+  return (
+    <div
+      className={[styles.bannerContent, className].filter(Boolean).join(" ")}
+      data-public-banner-content
+    >
+      <div className={styles.bannerCopy}>
+        {icon}
+        {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
+        <PublicHeading role="section" as="h2" id={headingId}>
+          {title}
+        </PublicHeading>
+        {description ? <div className={styles.bannerDescription}>{description}</div> : null}
+      </div>
+      {links?.length ? (
+        <nav className={styles.links} aria-label="Užitočné odkazy">
+          {links.map((link) => (
+            <Link className={styles.link} key={link.href} href={link.href}>
+              <span>{link.label}</span>
+              <ArrowIcon size={16} />
+            </Link>
+          ))}
+        </nav>
+      ) : href && label ? (
+        <PublicActionLink
+          href={href}
+          variant={actionVariant}
+          className="button button--dark"
+          icon={<ArrowIcon size={18} />}
+        >
+          {label}
+        </PublicActionLink>
+      ) : null}
+    </div>
   );
 }

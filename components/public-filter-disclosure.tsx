@@ -3,7 +3,11 @@
 import { useId, useState, type ReactNode } from "react";
 
 function activeFilterLabel(count: number) {
-  return count === 1 ? "1 aktívny" : count > 1 && count < 5 ? `${count} aktívne` : `${count} aktívnych`;
+  return count === 1
+    ? "1 aktívny"
+    : count > 1 && count < 5
+      ? `${count} aktívne`
+      : `${count} aktívnych`;
 }
 
 export function PublicFilterDisclosure({
@@ -27,6 +31,7 @@ export function PublicFilterDisclosure({
   return (
     <>
       <button
+        data-public-filter-toggle
         className={buttonClassName}
         type="button"
         aria-expanded={open}
@@ -34,11 +39,16 @@ export function PublicFilterDisclosure({
         onClick={() => setOpen((value) => !value)}
       >
         <span>{label}</span>
-        {activeCount > 0 ? <span data-public-filter-count>{activeFilterLabel(activeCount)}</span> : null}
-        <span data-public-filter-hint aria-hidden="true">{open ? "Skryť" : "Zobraziť"}</span>
+        {activeCount > 0 ? (
+          <span data-public-filter-count>{activeFilterLabel(activeCount)}</span>
+        ) : null}
+        <span data-public-filter-hint aria-hidden="true">
+          {open ? "Skryť" : "Zobraziť"}
+        </span>
       </button>
       <div
         id={contentId}
+        data-public-filter-disclosure
         className={[contentClassName, open ? openContentClassName : ""].filter(Boolean).join(" ")}
       >
         {children}

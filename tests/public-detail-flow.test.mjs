@@ -14,9 +14,11 @@ const compiled = ts.transpileModule(
 const module = { exports: {} };
 new Function("require", "exports", compiled)(
   (name) =>
-    name.endsWith(".css")
-      ? { default: new Proxy({}, { get: (_, key) => String(key) }) }
-      : require(name),
+    name === "@/components/public-heading"
+      ? { PublicHeading: ({ as = "h2", role, ...props }) => React.createElement(as, props) }
+      : name.endsWith(".css")
+        ? { default: new Proxy({}, { get: (_, key) => String(key) }) }
+        : require(name),
   module.exports,
 );
 const { PublicDetailFlow } = module.exports;

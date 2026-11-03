@@ -1,3 +1,5 @@
+import { PublicResultsToolbar } from "@/components/public-filters";
+import { PublicHeading } from "@/components/public-heading";
 import Link from "next/link";
 import { DirectoryCard } from "@/components/directory-card";
 import { PublicEmptyState, PublicPagination } from "@/components/public-visual-system";
@@ -10,7 +12,10 @@ function profileCountLabel(count: number) {
 }
 
 export function DirectoryResults({
-  result, filters, basePath, title,
+  result,
+  filters,
+  basePath,
+  title,
 }: {
   result: PublicDirectoryProfilePage;
   filters: DirectoryFilters;
@@ -18,19 +23,29 @@ export function DirectoryResults({
   title: string;
 }) {
   return (
-    <section className={`directory-results ${styles.resultsLayout} ${styles.resultsColumn}`}
-      data-directory-search-first data-directory-results aria-labelledby="directory-results-heading">
-      <div className={styles.resultsHeading}>
+    <section
+      className={`directory-results ${styles.resultsLayout} ${styles.resultsColumn}`}
+      data-directory-search-first
+      data-directory-results
+      aria-labelledby="directory-results-heading"
+    >
+      <PublicResultsToolbar className={styles.resultsHeading}>
         <div>
           <span className="eyebrow">Výsledky</span>
-          <h2 id="directory-results-heading">{title}</h2>
+          <PublicHeading role="section" as="h2" id="directory-results-heading">
+            {title}
+          </PublicHeading>
         </div>
-        <strong>{result.total} {profileCountLabel(result.total)}</strong>
-      </div>
+        <strong>
+          {result.total} {profileCountLabel(result.total)}
+        </strong>
+      </PublicResultsToolbar>
 
       {result.profiles.length ? (
         <div className={`directory-grid ${styles.listGrid}`} data-directory-list>
-          {result.profiles.map((profile) => <DirectoryCard profile={profile} key={profile.id} />)}
+          {result.profiles.map((profile) => (
+            <DirectoryCard profile={profile} key={profile.id} />
+          ))}
         </div>
       ) : (
         <PublicEmptyState
@@ -48,8 +63,14 @@ export function DirectoryResults({
           className="directory-pagination"
           currentPage={result.page}
           totalPages={result.totalPages}
-          previousHref={result.page > 1 ? directoryPageHref(basePath, filters, result.page - 1) : undefined}
-          nextHref={result.page < result.totalPages ? directoryPageHref(basePath, filters, result.page + 1) : undefined}
+          previousHref={
+            result.page > 1 ? directoryPageHref(basePath, filters, result.page - 1) : undefined
+          }
+          nextHref={
+            result.page < result.totalPages
+              ? directoryPageHref(basePath, filters, result.page + 1)
+              : undefined
+          }
         />
       )}
     </section>
