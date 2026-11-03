@@ -13,6 +13,9 @@ type Data={items:FacebookImagePost[];calendar:FacebookImagePost[];page:number;pa
   counts?:{draft:number;scheduled:number;published:number;sending:number;review:number;trash:number};
   trashAvailable?:boolean};
 type Form={title:string;imageUrl:string;imageKey:string;caption:string;date:string;time:string;repeatedHour:string};
+type PickerKind = "none" | "article" | "profile";
+type PickerItem = {id:number;title:string;detail?:string;imageUrl:string;url:string};
+type PickerGroup = {id:string;label:string;categories:Array<{slug:string;label:string}>};
 const blank=(date=""):Form=>({title:"Nový príspevok",imageUrl:"",imageKey:"",caption:"",date,time:date?"09:00":"",repeatedHour:""});
 function formFor(post:FacebookImagePost):Form {
   const wall=post.scheduledAt?facebookWallTime(post.scheduledAt):{date:"",time:""};
@@ -51,9 +54,93 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const[editor,setEditor]=useState<{post:FacebookImagePost|null}|null>(null),[form,setForm]=useState<Form>(blank()),[baseline,setBaseline]=useState(""),[editorError,setEditorError]=useState(""),[busy,setBusy]=useState(false);
   const[deleteTarget,setDeleteTarget]=useState<FacebookImagePost|null>(null),[deleteError,setDeleteError]=useState("");
   const[graphicOpen,setGraphicOpen]=useState(false);
+  const[pickerKind,setPickerKind]=useState<PickerKind>("none");
+  const[pickerGroup,setPickerGroup]=useState("directory");
+  const[pickerCategory,setPickerCategory]=useState("");
+  const[pickerQuery,setPickerQuery]=useState("");
+  const[pickerPage,setPickerPage]=useState(1);
+  const[pickerItems,setPickerItems]=useState<PickerItem[]>([]);
+  const[pickerPages,setPickerPages]=useState(1);
+  const[pickerTotal,setPickerTotal]=useState(0);
+  const[pickerGroups,setPickerGroups]=useState<PickerGroup[]>([]);
+  const[pickerBusy,setPickerBusy]=useState(false);
+  const[pickerError,setPickerError]=useState("");
+  const[selectionBusy,setSelectionBusy]=useState(false);
+  const[selectedContentUrl,setSelectedContentUrl]=useState("");
   const[inlineDraft,setInlineDraft]=useState<{id:string;version:number;key:string;title:string;caption:string}|null>(null);
   const[inlineBusy,setInlineBusy]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
+  useEffect(()=>{
+    if(pickerKind!=="profile"||pickerGroups.length)return;
+    const abort=new AbortController();
+    fetch("/api/admin/facebook-images/profile-picker?catalog=1",{cache:"no-store",signal:abort.signal})
+      .then(async response=>{
+        const result=await response.json() as {groups?:PickerGroup[];error?:string};
+        if(!response.ok||!result.groups)throw Error(result.error||"Kategórie sa nepodarilo načítať.");
+        if(!abort.signal.aborted)setPickerGroups(result.groups);
+      }).catch(error=>{if(!abort.signal.aborted)setPickerError(error instanceof Error?error.message:"Načítanie kategórií zlyhalo.");});
+    return()=>abort.abort();
+  },[pickerKind,pickerGroups.length]);
+  useEffect(()=>{
+    if(!editor||graphicOpen||pickerKind==="none"||(pickerKind==="profile"&&!pickerCategory)){
+      setPickerItems([]);setPickerTotal(0);return;
+    }
+    const abort=new AbortController();
+    setPickerBusy(true);setPickerError("");
+    const params=new URLSearchParams({page:String(pickerPage),query:pickerQuery});
+    if(pickerKind==="profile")params.set("category",pickerCategory);
+    const endpoint=pickerKind==="article"?"article-picker":"profile-picker";
+    const timer=window.setTimeout(()=>{
+      fetch("/api/admin/facebook-images/"+endpoint+"?"+params,{cache:"no-store",signal:abort.signal})
+        .then(async response=>{
+          const result=await response.json() as {articles?:PickerItem[];items?:PickerItem[];totalPages?:number;total?:number;error?:string};
+          if(!response.ok)throw Error(result.error||"Zoznam sa nepodarilo načítať.");
+          if(abort.signal.aborted)return;
+          setPickerItems(result.articles||result.items||[]);
+          setPickerPages(result.totalPages||1);
+          setPickerTotal(result.total||0);
+        }).catch(error=>{if(!abort.signal.aborted)setPickerError(error instanceof Error?error.message:"Načítanie zlyhalo.");})
+        .finally(()=>{if(!abort.signal.aborted)setPickerBusy(false);});
+    },pickerQuery?250:0);
+    return()=>{window.clearTimeout(timer);abort.abort();};
+  },[editor,graphicOpen,pickerKind,pickerCategory,pickerQuery,pickerPage]);
+  async function selectContent(item:PickerItem){
+    if(selectionBusy||busy||lock.current)return;
+    setSelectionBusy(true);setPickerError("");setEditorError("");
+    const endpoint=pickerKind==="article"?"article-picker":"profile-picker";
+    try{
+      const response=await fetch("/api/admin/facebook-images/"+endpoint,{
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify(pickerKind==="article"?{articleId:item.id}:{profileId:item.id}),
+      });
+      const result=await response.json() as {
+        article?:{id:number;title:string;url:string};
+        profile?:{id:number;title:string;url:string};
+        image?:{imageUrl:string;imageKey:string};imageWarning?:string;error?:string;
+      };
+      if(!response.ok)throw Error(result.error||"Obsah sa nepodarilo prevziať.");
+      const selected=result.article||result.profile;
+      if(!selected)throw Error("Neúplná odpoveď pri výbere obsahu.");
+      const linkLabel=pickerKind==="article"?"Celý článok":"Viac informácií";
+      setForm(old=>{
+        const previous=selectedContentUrl;
+        let caption=old.caption;
+        if(previous){
+          caption=caption.split("\n").filter(line=>!line.includes(previous)).join("\n").trim();
+        }
+        const link=linkLabel+": "+selected.url;
+        if(!caption.includes(selected.url))caption=[caption,link].filter(Boolean).join("\n\n");
+        return {...old,title:selected.title.slice(0,200),caption,
+          imageUrl:result.image?.imageUrl||"",imageKey:result.image?.imageKey||""};
+      });
+      setSelectedContentUrl(selected.url);
+      setPickerError(result.imageWarning||"");
+      setNotice("Obsah bol predvyplnený. Uprav text a obrázok a následne ulož koncept.");
+      setPickerKind("none");
+    }catch(error){setPickerError(error instanceof Error?error.message:"Výber obsahu zlyhal.");}
+    finally{setSelectionBusy(false);}
+  }
   const queryKey=`${month}|${status}|${source}|${page}|${refresh}`;
   const activeInline=inlineDraft?.key===queryKey&&data.items.some(item=>
     item.id===inlineDraft.id&&item.version===inlineDraft.version)?inlineDraft:null;
@@ -221,6 +308,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   function edit(post:FacebookImagePost|null,date=""){
     if(post?.articleId){window.location.assign(`/admin/clanky/${post.articleId}`);return;}
     origin.current=document.activeElement as HTMLElement;setEditorError("");setNotice("");setGraphicOpen(false);openRequest.current?.abort();
+    setPickerKind("none");setPickerQuery("");setPickerPage(1);setPickerCategory("");setPickerError("");setSelectedContentUrl("");
     if(!post){const next=blank(date);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:null});return;}
     const abort=new AbortController();openRequest.current=abort;setOpening(true);
     fetch(`/api/admin/facebook-images/${post.id}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as {post:FacebookImagePost;error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");if(abort.signal.aborted)return;const next=formFor(body.post);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:body.post});}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setOpening(false);});
@@ -426,12 +514,57 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           {link&&<a href={link} target="_blank" rel="noopener noreferrer">Otvoriť na Facebooku ↗</a>}
         </div>}
         {graphicOpen?
-          <AdminFacebookGraphicEditor initialTitle={form.title}
+          <AdminFacebookGraphicEditor initialTitle={form.title} initialPhotoUrl={form.imageUrl}
             onUse={async(file,title)=>{const success=await upload(file);if(success){setForm(old=>({...old,title}));setGraphicOpen(false);}return success;}}
             onCancel={()=>setGraphicOpen(false)} />:
           <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked} className={styles.fields}>
           <div className={styles.graphicIntro}><div><strong>Grafické šablóny Psipedia</strong><p>Vytvor obrázok z vlastnej fotografie a uprav nadpis podľa seba.</p></div>
             <AdminActionButton type="button" variant="secondary" onClick={()=>setGraphicOpen(true)}>Otvoriť editor grafiky</AdminActionButton></div>
+          <section className={styles.contentPicker} aria-label="Výber obsahu z Psipedia">
+            <strong>Prevziať obsah z Psipedia.sk</strong>
+            <p>Vyber publikovaný článok alebo profil. Doplníme jeho odkaz a titulnú fotografiu, text môžeš ďalej upraviť.</p>
+            <div className={styles.pickerTabs}>
+              <button type="button" aria-pressed={pickerKind==="article"} onClick={()=>{setPickerKind(pickerKind==="article"?"none":"article");setPickerPage(1);setPickerQuery("");setPickerError("");}} disabled={selectionBusy}>Články</button>
+              <button type="button" aria-pressed={pickerKind==="profile"} onClick={()=>{setPickerKind(pickerKind==="profile"?"none":"profile");setPickerPage(1);setPickerQuery("");setPickerError("");}} disabled={selectionBusy}>Profily</button>
+            </div>
+            {pickerKind==="profile"&&<>
+              <label>Sekcia
+                <select value={pickerGroup} onChange={e=>{setPickerGroup(e.target.value);setPickerCategory("");setPickerPage(1);}}>
+                  {(pickerGroups.length?pickerGroups:[{id:"directory",label:"Služby pre psov",categories:[]}]).map(group=>
+                    <option key={group.id} value={group.id}>{group.label}</option>)}
+                </select>
+              </label>
+              <label>Kategória
+                <select value={pickerCategory} onChange={e=>{setPickerCategory(e.target.value);setPickerPage(1);}}>
+                  <option value="">Vyber kategóriu</option>
+                  {pickerGroups.find(group=>group.id===pickerGroup)?.categories.map(category=>
+                    <option key={category.slug} value={category.slug}>{category.label}</option>)}
+                </select>
+              </label>
+            </>}
+            {pickerKind!=="none"&&(pickerKind==="article"||pickerCategory)&&<>
+              <label>Vyhľadať {pickerKind==="article"?"článok":"profil"}
+                <input value={pickerQuery} placeholder="Názov alebo kľúčové slovo"
+                  onChange={e=>{setPickerQuery(e.target.value);setPickerPage(1);}}/>
+              </label>
+              {pickerBusy&&<p role="status">Načítavam publikovaný obsah…</p>}
+              {!pickerBusy&&<div className={styles.pickerResults}>
+                {pickerItems.map(item=><button type="button" key={item.id} className={styles.pickerResult}
+                  disabled={selectionBusy} onClick={()=>void selectContent(item)}>
+                  {item.imageUrl?<img src={item.imageUrl} alt="" loading="lazy" width={48} height={48}/>:<span className={styles.pickerEmpty}>Bez foto</span>}
+                  <span><strong>{item.title}</strong>{item.detail&&<small>{item.detail}</small>}</span>
+                  <span aria-hidden="true">Vybrať</span>
+                </button>)}
+                {!pickerItems.length&&<p>Žiadne publikované záznamy podľa výberu.</p>}
+              </div>}
+              {pickerPages>1&&<div className={styles.pickerPagination}>
+                <button type="button" disabled={pickerPage<=1||pickerBusy||selectionBusy} onClick={()=>setPickerPage(p=>p-1)}>Predchádzajúce</button>
+                <span>{pickerPage} / {pickerPages} · {pickerTotal} záznamov</span>
+                <button type="button" disabled={pickerPage>=pickerPages||pickerBusy||selectionBusy} onClick={()=>setPickerPage(p=>p+1)}>Ďalšie</button>
+              </div>}
+            </>}
+            {pickerError&&<p role="alert" className="admin-message admin-message--error">{pickerError}</p>}
+          </section>
           <label>Názov<input autoFocus required maxLength={200} value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label>
           <label>Obrázok (JPG, PNG, WebP, max. 8 MB)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.target.value="";}}/></label>
           {form.imageUrl&&<img className={styles.preview} src={form.imageUrl} alt="Náhľad Facebook obrázka" decoding="async"/>}
