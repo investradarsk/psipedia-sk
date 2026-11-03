@@ -46,7 +46,8 @@ import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirr
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
-import { readNotionFieldAuthorities, fixedNotionAgendaFields, NOTION_AUTHORITY_GROUPS } from "./notion-field-authority.ts";
+import { readNotionFieldAuthorities, fixedNotionAgendaFields } from "./notion-field-authority.ts";
+import { NOTION_AUTHORITY_GROUPS } from "./notion-field-authority.ts";
 import { planOwnerDirectedFields, type ManualFieldDirection } from "./notion-manual-transfer-plan.ts";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
