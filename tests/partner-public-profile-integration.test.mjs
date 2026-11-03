@@ -175,7 +175,7 @@ test("Directory and Help Organization profiles share the same server-side state 
     assert.match(page, /PARTNER_SESSION_COOKIE/);
     assert.match(page, /getPartnerSession/);
     assert.match(page, /getPublicPartnerProfileManagementState/);
-    assert.match(page, /PartnerPublicOwnership state=\{partnerState\}/);
+    assert.match(page, /<PartnerPublicOwnership\b[^>]*state=\{partnerState\}/);
   }
   assert.match(directoryPage, /entityType: "DIRECTORY_PROFILE"/);
   assert.match(directoryPage, /correctionHref=\{correctionHref\}/);
