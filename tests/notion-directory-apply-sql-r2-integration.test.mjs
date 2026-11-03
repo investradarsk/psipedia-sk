@@ -8,6 +8,7 @@ import { buildManagedDirectoryProfileUpdateStatement, normalizeManagedDirectoryP
 import { cleanupUnreferencedNotionUpload } from "../lib/notion-sync-shared.ts";
 import {
   reconcileProfileFields,
+  reconcileProfileFieldsWithoutBaseline,
   trustedProfileBaselineFromHashes,
 } from "../lib/notion-profile-field-reconciliation.ts";
 import {
@@ -170,6 +171,7 @@ function fixture(options = {}) {
     async loadGeoMirror() { return null; },
     trustedProfileBaselineFromHashes,
     reconcileProfileFields,
+    reconcileProfileFieldsWithoutBaseline,
     // The extracted production worker now reads optional owner-configured field modes.
     // Migration 0147 is absent in this isolated fixture, so default-safe rules apply.
     readNotionFieldAuthorities: async () => ({}),
