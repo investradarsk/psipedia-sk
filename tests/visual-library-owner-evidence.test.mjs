@@ -83,9 +83,13 @@ test("visual owner screen shows exact URL evidence, and technical candidates rem
   assert.match(parent, /examples=\{examples\} articleUsage=\{articleUsage\}/);
   assert.match(catalog, /ownerKnownUsesForGroup/);
   assert.match(catalog, /chosen\.knownUses/);
+  assert.match(catalog, /knownUses: evidence\.uses/);
+  assert.match(catalog, /matchingLabels: evidence\.matchingLabels/);
   assert.match(catalog, /Otvoriť miesto/);
   assert.match(catalog, /Doložené v zdrojovom kóde/);
-  assert.match(catalog, /nie sú automatickým dôkazom/i.test(catalog) ? /Nie sú automatickým dôkazom/ : /Nie sú automatickým dôkazom/);
+  assert.match(catalog, /Nie sú automatickým dôkazom/);
+  assert.match(catalog, /chosenBanner\.title/);
+  assert.match(catalog, /chosen\.banners\.map/);
   assert.match(catalog, /Ďalšie možné použitia podľa kódu/);
   assert.doesNotMatch(catalog, /method:\s*"(POST|PUT|DELETE)"|DB\.prepare/);
 });
