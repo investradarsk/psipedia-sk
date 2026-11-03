@@ -248,15 +248,13 @@ test("breed profile: suitability, permanently visible expert sections and normal
   expect(new Set(sportKeys).size, `Duplicate normalized sport keys: ${sportKeys.join(", ")}`).toBe(sportKeys.length);
 });
 
-test("breed profile: sticky section navigation, no-crop media, useful cards and accessibility work", async ({ page }) => {
+test("breed profile: static anchor navigation, no-crop media, useful cards and accessibility work", async ({ page }) => {
   await page.goto("/plemena/biely-svajciarsky-ovciak");
   const nav = page.getByRole("navigation", { name: "Navigácia v profile plemena" });
   await expect(nav).toBeVisible();
 
   const position = await nav.evaluate((element) => getComputedStyle(element).position);
-  expect(position).toBe("sticky");
-  const expectedTop = (page.viewportSize()?.width ?? 0) <= 820 ? "68px" : "76px";
-  expect(await nav.evaluate((element) => getComputedStyle(element).top)).toBe(expectedTop);
+  expect(position).toBe("static");
 
   const image = page.getByTestId("breed-hero-image");
   await expect(image).toBeVisible();
@@ -269,19 +267,15 @@ test("breed profile: sticky section navigation, no-crop media, useful cards and 
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#fci$/);
   await expect(page.locator("#fci")).toBeVisible();
-  await expect(fciLink).toHaveAttribute("aria-current", "location");
+  await expect(fciLink).not.toHaveAttribute("aria-current", "location");
 
   const sportsLink = nav.getByRole("link", { name: "Športy", exact: true });
   if (await sportsLink.count()) {
-    // Exercise the section link rather than scrollIntoViewIfNeeded(), which
-    // can be a no-op when the target is partly visible and leaves scrollspy
-    // state unchanged. A real anchor navigation must update hash/current.
+    // Plain anchors must still navigate to the correct section without scrollspy.
     await sportsLink.click();
     await expect(page).toHaveURL(/#sporty$/);
-    await expect(sportsLink).toHaveAttribute("aria-current", "location");
-    // Transitioning white text and green background together briefly drops
-    // below 4.5:1 on mobile; keep the active tab WCAG-AA contrast stable.
-    expect(await sportsLink.evaluate((node) => getComputedStyle(node).transitionProperty)).toBe("none");
+    await expect(page.locator("#sporty")).toBeVisible();
+    await expect(sportsLink).not.toHaveAttribute("aria-current", "location");
   }
 
   for (const href of [
@@ -293,7 +287,7 @@ test("breed profile: sticky section navigation, no-crop media, useful cards and 
   }
   await expect(page.locator('a[href="/adresar/treneri"]')).toBeVisible();
   await expect(page.locator('a[href^="/adresar/treneri?breed="]')).toHaveCount(0);
-  await expectNoHorizontalOverflow(page, "Breed profile sticky navigation");
+  await expectNoHorizontalOverflow(page, "Breed profile section navigation");
   await expectAxeClean(page, "Breed profile");
 
   await page.goto("/plemena/nova-scotia-duck-tolling-retriever");
