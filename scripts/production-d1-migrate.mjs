@@ -318,6 +318,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0152_visual_library_banner_edits.sql",
   "0153_notion_profile_field_baselines.sql",
   "0154_facebook_content_share_markers.sql",
+  "0155_breed_notion_extra_fields.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1575,6 +1576,9 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0154_facebook_content_share_markers.sql") {
     return { partial: names.has("facebook_content_share_markers") };
+  }
+  if (targetMigration === "0155_breed_notion_extra_fields.sql") {
+    return { partial: names.has("breed_notion_extra_fields") || names.has("idx_breed_notion_extra_breed") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }

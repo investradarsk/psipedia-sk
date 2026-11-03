@@ -45,7 +45,8 @@ test("breed field authority blocks inbound Admin fields and allows explicit Noti
   assert.equal(protectedMode.patch.intro,undefined);
   assert.deepEqual(protectedMode.conflicts,[]);
   const safe=planBreedNotionFieldDelta(admin,incoming,old,old,{intro:"latest"});
-  assert.deepEqual(safe.conflicts,["intro"]);
+  assert.deepEqual(safe.conflicts,[]);
+  assert.equal(safe.patch.intro,"Notion");
   const notion=planBreedNotionFieldDelta(admin,incoming,old,old,{intro:"notion"});
   assert.equal(notion.patch.intro,"Notion");
   assert.equal(notion.patch.status,undefined);
@@ -90,7 +91,7 @@ test("signed webhook IDs are passed to breed targeted runner and do not mutate u
   ].map(p=>readFile(new URL(p,import.meta.url),"utf8")));
   assert.match(dispatch,/changedPropertyIds: event\.data\?\.updated_properties \?\? \[\]/);
   assert.match(breedSync,/signedBreedChangedFields\(page, changedPropertyIds\)/);
-  assert.match(breedSync,/BREED_LEGACY_CONCURRENT_ADMIN_EDIT/);
+  assert.doesNotMatch(breedSync,/throw new Error\("BREED_LEGACY_CONCURRENT_ADMIN_EDIT"/);
   assert.match(breedSync,/BREED_EXPLICIT_REMOTE_CHANGED/);
   assert.match(breedSync,/args\.targetPageId/);
   assert.match(inbox,/changed_properties_json/);
