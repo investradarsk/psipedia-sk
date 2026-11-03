@@ -300,3 +300,22 @@
 .ownerCompareSelectors,.ownerCompareGrid,.ownerCompareDecisions>div{grid-template-columns:minmax(0,1fr)}
 .ownerComparePanel{padding:11px}
 }
+
+
+/* Persistent owner decisions inside the admin-only visual comparison panel. */
+.ownerCompareQueue{display:grid;gap:11px;background:white;border:1px solid #d6e3d6;border-radius:12px;padding:13px;min-width:0}
+.ownerCompareQueueHeading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ownerCompareQueueHeading h4{color:#244f37;font-size:1.05rem;margin:0 0 4px}
+.ownerCompareQueueHeading p{margin:0;color:#68796b;font-size:.8rem;line-height:1.5}
+.ownerCompareQueueHeading button,.ownerCompareQueue>button{flex-shrink:0;border:1px solid #c6d9c8;background:#f6f9f5;border-radius:8px;padding:9px 11px;color:#315b40;font:inherit;font-size:.81rem;font-weight:700;cursor:pointer}
+.ownerCompareQueue button:disabled{opacity:.55;cursor:default}
+.ownerCompareQueueStats{display:flex;flex-wrap:wrap;gap:7px}
+.ownerCompareQueueStats span{color:#37573e;background:#eef4ed;padding:6px 9px;border-radius:7px;font-size:.77rem}
+.ownerCompareQueueList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.ownerCompareQueueList article{min-width:0;display:flex;gap:9px;align-items:center;justify-content:space-between;padding:11px;border:1px solid #e3eae0;border-radius:9px}
+.ownerCompareQueueList article>div{display:grid;gap:5px;min-width:0}
+.ownerCompareQueueList strong{font-size:.81rem;color:#2f543a;line-height:1.45}
+.ownerCompareQueueList small{font-size:.74rem;color:#607669;line-height:1.5}
+.ownerCompareQueueList button{flex-shrink:0;border:1px solid #b9d0bd;border-radius:8px;background:#fff;color:#2a553c;font:inherit;font-size:.77rem;font-weight:700;padding:8px;cursor:pointer}
+.ownerCompareQueue>p[role=status]{margin:0;font-size:.8rem;color:#9a4a37}
+@media(max-width:820px){.ownerCompareQueueHeading{flex-direction:column;align-items:start}.ownerCompareQueueList{grid-template-columns:minmax(0,1fr)}}
