@@ -10,6 +10,17 @@
 - Statický register importov a návrhy podobností. Import nie je dôkaz vykreslenia.
 - Technická galéria existujúcich React komponentov.
 
+## PR – ručné overenie HTML konkrétnych verejných URL
+
+- [x] Pri presných statických URL s auditovanou kotvou pridať jedno-klikové overenie výskytu kotvy v aktuálnom serverovom HTML.
+- [x] Rovnaké jedno-klikové overenie umožniť aj pri publikovaných dynamických URL z existujúceho stránkovaného D1 zoznamu. Pri štyroch druhoch detailu sú overované reálne DOM značky (`directory`, `adoptions`, `events`, `breeds`); pri ostatných iba načítanie dokumentu s nadpisom, bez tvrdenia o overení komponentu.
+- [x] Výsledky rozlišujú „potvrdené v HTML“ / „stránka načítaná, komponent nepotvrdený“ / „v HTML nenájdené“ / „kontrola nedostupná“. Pred kliknutím zostáva len kandidát podľa kódu.
+- [x] Čisto klientské `GET` s vynechanými cookies, na aktuálnom hostiteľovi, bez presmerovaní, externých URL, hromadného skenu, perzistencie, zápisov a D1 mutácií. Max. 9 sekúnd a 1,5 MB na odpoveď.
+- [x] Testy URL allowlistu, markerov a neautomatického správania pridané do `test:visual-library`.
+- [ ] Overiť novú admin obrazovku na konkrétnych URL v produkcii; po tomto PR bude stále chýbať plnohodnotný browser audit vrátane hydratácie/viewportu a kompletnej mapy všetkých profilových komponentov.
+
+**Pozor:** „Potvrdené v HTML“ znamená, že kotva alebo značka sa našla v serverovej odpovedi v čase kontroly. Nie je to dôkaz viditeľnosti na konkrétnom zariadení, ani trvalá garancia. Kontroly sa nepersistujú.
+
 ## Finálna etapa pred prvou používateľskou kontrolou
 
 - [x] Zrozumiteľný prehľad pokrytia: počet živých ukážok, jedinečných verejných zdrojových súborov s náhľadom, počet verejných stránkových šablón a 4 editovateľné typy návrhov.
