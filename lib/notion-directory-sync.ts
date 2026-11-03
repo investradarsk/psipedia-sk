@@ -1359,6 +1359,37 @@ async function syncMappedPage(input: {
         }
       }
     }
+    if (!baseline && resolution.notionFields.length) {
+      // An owner-selected Notion field can be committed to D1 without
+      // adjudicating unrelated fields. Recheck identity/revisions and apply
+      // an override built from the canonical profile, not a full Notion import.
+      // Leave the shared mapping hash untouched until all fields converge.
+      const latest = await fetchNotionPage(input.bindings, page.id);
+      const current = await getManagedDirectoryProfileById(profile.id, input.database);
+      if (!current || current.updatedAt !== profile.updatedAt
+          || latest.id !== page.id
+          || !notionDirectoryPageBelongsToSource(latest, input.dataSourceId)) {
+        throw new Error("NOTION_DIRECTORY_PARTIAL_PULL_REVISION_CHANGED");
+      }
+      const get = (obj: Record<string, unknown>, path: string) =>
+        path.split(".").reduce<unknown>((value, key) =>
+          value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined, obj);
+      const actual = notionSnapshot(latest);
+      if (resolution.notionFields.some(path =>
+        JSON.stringify(get(actual, path)) !== JSON.stringify(get(notionEditorial, path)))) {
+        throw new Error("NOTION_DIRECTORY_PARTIAL_PULL_REVISION_CHANGED");
+      }
+      const desiredPartial = resolution.merged as EditableDirectorySnapshot;
+      const saved = await applyNotionToProfile({
+        database: input.database, bindings: input.bindings, page: latest,
+        profile: current, desiredOverride: desiredPartial,
+      });
+      const savedSnapshot = profileSnapshot(saved, currentSourceImageUrl);
+      if (resolution.notionFields.some(path =>
+        JSON.stringify(get(savedSnapshot, path)) !== JSON.stringify(get(desiredPartial, path)))) {
+        throw new Error("NOTION_DIRECTORY_PARTIAL_PULL_VERIFY_FAILED");
+      }
+    }
     throw new Error("CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (" +
       resolution.conflicts.map((c) => c.field + ":" + c.reason).join(", ").slice(0, 1000) + ")");
   }
