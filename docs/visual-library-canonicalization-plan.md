@@ -25,6 +25,17 @@ Každá karta vizuálneho prvku:
 
 Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch pre vývojára. Vyhľadávanie musí nájsť názov, účel, rodinu, URL aj používaný text.
 
+## Ôsmy priechod – spoločná navigácia a redakčné karty (#1186)
+
+- [x] Preverený spoločný základ kategórií `PublicSubcategoryNavigator` v sekciách Pomoc psom, Služby a tematických článkoch. Zdieľanie základného komponentu **nie je** dôvodom vymazať samostatné obaly: každý má vlastné ikony, počítadlá, prepínače alebo mobilnú navigáciu.
+- [x] Kompaktné a veľké podkategórie zoskupené pod jeden skutočný `PublicSubcategoryNavigator` s dvoma prezentáciami, namiesto dvoch falošných zdrojových komponentov.
+- [x] Implementované tri ďalšie živé náhľady originálnych React komponentov: `ArticleCard` (grid a featured) a `PortalSectionTabs` (tematická navigácia). **Aktuálne 59 demo variantov**, plus samostatné serverové náhľady.
+- [x] Dve prezentácie `ArticleCard` v majiteľskej galérii tvoria jednu rodinu. Údaje v náhľadoch sú umelé, bez čítania D1.
+- [x] Zobrazuje sa zdrojovo potvrdený spoločný základ každej navigácie aj jej jedinečné správanie. Nezamieňa sa spoločný základ so zdrojovou duplicitou.
+- [x] Testy pre varianty, call chain navigácie a odmietnutie nepovolených/prototypových identifikátorov v registri.
+- [ ] Overiť CI po aktualizácii na 59 variantov a prípadný vizuálny desktopový screenshot.
+- [ ] Ďalej dopĺňať skutočne nepokryté viditeľné komponenty a potvrdzovať ich výskyt na presných URL.
+
 ## Siedmy priechod – zdrojové zjednotenie a overené komponenty (#1186)
 
 - [x] Pilot „Banner Veterinári“ preverený na úrovni zdrojového kódu: verejný `PublicMagazineBanner` už reprezentuje editorial, homepage a plemená; cez `PublicPhotoCallout` ten istý renderer slúži aj bannerom Pomoc psom. Nová verejná implementácia by bola duplicitou, preto sa **nepridáva**.
