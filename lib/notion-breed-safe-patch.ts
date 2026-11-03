@@ -1,4 +1,4 @@
-import { validateNotionBreedCandidate, type ManagedBreed, type ManagedBreedInput } from "./breed-store";
+import type { ManagedBreed, ManagedBreedInput } from "./breed-store";
 import { type BreedNotionField, type BreedFieldSnapshot, type planBreedNotionFieldDelta } from "./notion-breed-field-delta";
 
 type BreedFieldPlan = ReturnType<typeof planBreedNotionFieldDelta>;
@@ -36,6 +36,7 @@ export function planSafeBreedFields(
   existing: ManagedBreed,
   plan: BreedFieldPlan,
   invalidSourceFields: ReadonlySet<BreedNotionField> = new Set(),
+  validate: (candidate:ManagedBreedInput, existing:ManagedBreed)=>void,
 ) {
   let candidate: ManagedBreedInput = { ...existing };
   const accepted: BreedNotionField[] = [];
@@ -49,7 +50,7 @@ export function planSafeBreedFields(
     }
     const next = applyOneField(candidate, plan.patch, field);
     try {
-      validateNotionBreedCandidate(next, existing);
+      validate(next, existing);
       candidate = next;
       accepted.push(field);
     } catch (error) {
