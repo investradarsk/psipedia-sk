@@ -107,7 +107,8 @@ export function AdminVisualLibrary({ articleUsage, examples, registry }: {
       </nav>
 
       {category === "prehlad" ? (
-        <AdminVisualLibraryVisualCatalog registry={registry} onCompare={() => setCategory("podobne")} />
+        <AdminVisualLibraryVisualCatalog registry={registry} examples={examples} articleUsage={articleUsage}
+          onCompare={() => setCategory("podobne")} />
       ) : category === "register" ? (
         <AdminVisualLibraryDeepAudit registry={registry} />
       ) : category === "bannery" ? (
