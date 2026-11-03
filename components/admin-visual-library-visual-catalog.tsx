@@ -120,6 +120,14 @@ export function AdminVisualLibraryVisualCatalog({
     });
   }, [registry.components, examples, articleUsage]);
 
+  const coveredSourcePaths = useMemo(
+    () => [...new Set(groups.flatMap((group) => group.paths))],
+    [groups],
+  );
+  const pendingSourceFiles = registry.components.filter(
+    (item) => item.area !== "admin" && !coveredSourcePaths.includes(item.path)
+  ).length;
+
   const [query, setQuery] = useState("");
   const [family, setFamily] = useState<Family | "all">("all");
   const [limit, setLimit] = useState(PAGE_SIZE);
@@ -175,7 +183,10 @@ export function AdminVisualLibraryVisualCatalog({
         </div>
         <div className={styles.visualCatalogStat}>
           <strong>{groups.length}</strong>
-          <span>skupín s náhľadom · {adminComponentPreviewSamples.length} demo variantov + {examples.length} existujúcich serverových ukážok</span>
+          <span>skupín s náhľadom · {adminComponentPreviewSamples.length} demo variantov + {examples.length} serverových ukážok</span>
+          {registry.components.length > 0 && <span>
+            {pendingSourceFiles} verejných zdrojových súborov bez ukážky (vrátane pomocných modulov)
+          </span>}
         </div>
       </header>
 
@@ -337,7 +348,7 @@ export function AdminVisualLibraryVisualCatalog({
         </details>
       </section>}
 
-      <AdminVisualLibraryMissingPreviews registry={registry} />
+      <AdminVisualLibraryMissingPreviews registry={registry} extraPreviewPaths={coveredSourcePaths} />
       <p className={styles.nextStep}>Toto je prvá etapa vizuálneho katalógu.
         Zatiaľ sa nič automaticky nespája, nemaže ani nepublikuje.
         Reálne zlúčenie do jedného spoločného komponentu príde až po výbere a overení výskytov.</p>
