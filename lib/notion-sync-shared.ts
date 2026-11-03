@@ -248,7 +248,7 @@ export async function updateNotionSyncState(
   bindings: NotionSyncBindings,
   pageId: string,
   values: {
-    state: "Synchronizované" | "Chyba";
+    state: "Synchronizované" | "Chyba" | "Čaká na sync";
     psipediaId?: number;
     error?: string;
     syncedAt?: string;

@@ -5,16 +5,31 @@ type BreedFieldPlan = ReturnType<typeof planBreedNotionFieldDelta>;
 export type BreedSyncSkipped = { field: BreedNotionField; error: string };
 
 function valueForField(patch: ManagedBreedInput, field: BreedNotionField): unknown {
-  if (field === "seo.title") return patch.seo?.title;
-  if (field === "seo.description") return patch.seo?.description;
+  if (field.startsWith("seo.")) {
+    return patch.seo?.[field.slice(4) as keyof NonNullable<ManagedBreedInput["seo"]>];
+  }
+  if (field.startsWith("fciStandard.")) {
+    return (patch.fciStandard as Record<string, unknown> | undefined)?.[field.slice("fciStandard.".length)];
+  }
+  if (field.startsWith("editorial.")) {
+    return (patch.editorial as Record<string, unknown> | undefined)?.[field.slice("editorial.".length)];
+  }
   return (patch as Record<string, unknown>)[field];
 }
 
 function applyOneField(current: ManagedBreedInput, patch: ManagedBreedInput, field: BreedNotionField): ManagedBreedInput {
   const value = valueForField(patch, field);
   if (value === undefined) return current; // Absent optional source data is not a clear.
-  if (field === "seo.title" || field === "seo.description") {
+  if (field.startsWith("seo.")) {
     return { ...current, seo: { ...current.seo, [field.slice(4)]: value } };
+  }
+  if (field.startsWith("fciStandard.")) {
+    return { ...current, fciStandard: { ...current.fciStandard,
+      [field.slice("fciStandard.".length)]: value } };
+  }
+  if (field.startsWith("editorial.")) {
+    return { ...current, editorial: { ...current.editorial,
+      [field.slice("editorial.".length)]: value } };
   }
   if (field === "fciStandard" || field === "editorial") {
     const before = current[field] ?? {};
@@ -69,10 +84,11 @@ export function partialBreedNotionReceipt(
   previous: BreedFieldSnapshot,
   latest: BreedFieldSnapshot,
   accepted: readonly BreedNotionField[],
-  ignoredByAdmin: readonly BreedNotionField[] = [],
 ): BreedFieldSnapshot {
   const next = { ...previous };
-  for (const key of [...accepted, ...ignoredByAdmin]) next[key] = latest[key];
+  // Admin-owned fields are NOT acknowledged here: only a confirmed outbound
+  // Notion PATCH may advance their receipt. If it fails, the next sweep retries.
+  for (const key of accepted) next[key] = latest[key];
   // Skipped fields keep the old Notion snapshot, so a later cron or webhook
   // can safely retry without falsely acknowledging rejected input.
   return next;

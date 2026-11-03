@@ -48,14 +48,17 @@ test("article Notion writeback uses bounded retry shared with other modules", as
 test("existing breed receipts remain compatible after structured columns are added",()=>{
   const baseline={name:"Wetterhoun",seo:{title:"A",description:"B"},energy:3};
   const legacy=breedFieldSnapshot(baseline);
-  delete legacy.fciStandard;
-  delete legacy.editorial;
+  for(const key of Object.keys(legacy)){
+    if(key.startsWith("fciStandard.")||key.startsWith("editorial."))delete legacy[key];
+  }
+  legacy.fciStandard={oci:"Hnedé"};
+  legacy.editorial={overview:"Pôvodné"};
   delete legacy.sports;
   const parsed=parseBreedFieldSnapshot(JSON.stringify(legacy));
   assert.ok(parsed);
   assert.equal(parsed.sports,null);
-  assert.equal(parsed.editorial,null);
-  assert.equal(parsed.fciStandard,null);
+  assert.equal(parsed["fciStandard.oci"],"Hnedé");
+  assert.equal(parsed["editorial.overview"],"Pôvodné");
 });
 
 test("new Notion fields preserve unrelated canonical structured content",()=>{
@@ -67,11 +70,16 @@ test("new Notion fields preserve unrelated canonical structured content",()=>{
     fciStandard:{oci:"Tmavohnedé"},editorial:{overview:"Nový"}};
   const plan=planBreedNotionFieldDelta(base,incoming,breedFieldSnapshot(before),breedFieldSnapshot(base));
   assert.deepEqual(plan.conflicts,[]);
-  assert.equal(plan.patch.fciStandard.usi,"Klasické");
+  assert.equal(plan.patch.fciStandard.usi,undefined);
   assert.equal(plan.patch.fciStandard.oci,"Tmavohnedé");
-  assert.equal(plan.patch.editorial.healthTip,"Kontrola");
+  assert.equal(plan.patch.editorial.healthTip,undefined);
   assert.equal(plan.patch.editorial.overview,"Nový");
   assert.equal(plan.patch.image,undefined);
+  // Sparse field patch is merged into the existing canonical object, preserving
+  // every untouched sibling despite the independent per-field priorities.
+  const applied=planSafeBreedFields(base,plan,new Set(),()=>{});
+  assert.equal(applied.candidate.fciStandard.usi,"Klasické");
+  assert.equal(applied.candidate.editorial.healthTip,"Kontrola");
 });
 
 test("individual FCI and editorial Notion columns are included in signed webhook field mapping",async()=>{
