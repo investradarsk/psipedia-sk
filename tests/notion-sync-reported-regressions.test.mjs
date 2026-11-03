@@ -24,9 +24,9 @@ test("literal measurements without unit still report missing unit warning", () =
   assert.ok(inspectBreedMeasurement("63–70","height").some(i=>i.code==="missing-unit"));
 });
 
-test("Wetterhoun: only byte-identical duplicate sports are skipped, conflicts are reported", async () => {
+test("Wetterhoun: duplicate sports retain historical data and conflicting edits are rejected", async () => {
   const source=await read("../lib/breed-store.ts");
-  assert.match(source,/previous\.label===next\.label&&previous\.rating===next\.rating&&previous\.note===next\.note/);
+  assert.match(source,/preserved && JSON\.stringify\(input\.sports\)===JSON\.stringify\(preserved\.sports\)/);
   assert.match(source,/rozdielne duplicitné údaje/);
 });
 
