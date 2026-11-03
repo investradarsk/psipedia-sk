@@ -982,7 +982,16 @@ async function syncOneBreed(
       // No webhook IDs is a normal hourly replay, not a conflict.
       // No verified old baseline exists, so differing values are ordinary
       // first-reconciliation candidates resolved by field priority.
-      const fields = touched.length ? touched : BREED_NOTION_EDITABLE_FIELDS;
+      const fields = touched.length ? touched : BREED_NOTION_EDITABLE_FIELDS.filter(field=>{
+        const remote=latestNotion[field];
+        // First replay of a legacy receipt has no proof that a blank Notion
+        // value represents a recent deletion. Baseline it as-is rather than
+        // erasing existing photos, relations or editorial text on every breed.
+        // Once baselined, explicit future clears are ordinary field changes.
+        if(authority[field]==="notion")return true;
+        return remote!==null && remote!==undefined && remote!==""
+          && !(Array.isArray(remote)&&remote.length===0);
+      });
       for (const field of fields) previousNotion[field] = previousAdmin[field];
       const plan = planBreedNotionFieldDelta(
         existing, basePayload, previousNotion, previousAdmin, authority,
