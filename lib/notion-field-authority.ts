@@ -1,5 +1,5 @@
 import { directoryCategories } from "@/lib/directory";
-import { BREED_NOTION_EDITABLE_FIELDS } from "@/lib/notion-breed-field-delta";
+import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { agendaEditableFields } from "@/lib/notion-events-help-adapters";
 
 /** Hardcoded allowlist. Values are NEVER untrusted database field names. */
@@ -77,8 +77,16 @@ export function fixedNotionAgendaFields(agenda: keyof typeof agendaEditableField
 
 export const NOTION_AUTHORITY_GROUPS: readonly NotionAuthorityGroup[] = [
   {scope:"breeds",title:"Plemená",family:"Obsah",active:true,
-    fields:BREED_NOTION_EDITABLE_FIELDS.map(id=>({id,label:breedLabels[id]??id,
-      notionLabel:id==='intro'?'Intro':breedLabels[id]??id}))},
+    fields:BREED_NOTION_SCHEMA.map(item=>({
+      id:item.id,
+      label:breedLabels[item.id]??item.notion,
+      notionLabel:item.notion,
+      locked:item.mode==="system"||item.mode==="aggregate",
+      note:item.mode==="system" ? "Automatické systémové pole – bez redakčného prepisu"
+        : item.mode==="aggregate" ? "Súhrnný JSON pohľad; prioritu majú jednotlivé podpolia"
+        : item.mode==="extra" ? "Pomocné pole dostupné aj z editora Plemena"
+        : undefined,
+    }))},
   ...directoryCategories.map(category=>({
     scope:"directory:"+category.slug,title:category.label,family:"Služby pre psov",active:true,
     fields:[...Object.entries(directoryLabels).map(([id,label])=>({id,label,notionLabel:directoryNotionNames[id]??label})), ...lockedDirectoryFields],
