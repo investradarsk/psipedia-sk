@@ -2,6 +2,7 @@ import {
   createManagedBreed,
   getManagedBreed,
   updateManagedBreed,
+  validateNotionBreedCandidate,
   type ManagedBreed,
   type ManagedBreedInput,
 } from "@/lib/breed-store";
@@ -685,7 +686,7 @@ async function applySafeBreedSync(
   contentHash:string,
   invalidFields:ReadonlySet<BreedNotionField>,
 ):Promise<"updated"|"unchanged">{
-  const safe=planSafeBreedFields(existing,plan,invalidFields);
+  const safe=planSafeBreedFields(existing,plan,invalidFields,validateNotionBreedCandidate);
   const now=new Date().toISOString();
   const actuallyChanged=JSON.stringify(breedFieldSnapshot(safe.candidate))
     !== JSON.stringify(breedFieldSnapshot(existing));
