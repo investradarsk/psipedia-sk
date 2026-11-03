@@ -10,6 +10,18 @@
 - Statický register importov a návrhy podobností. Import nie je dôkaz vykreslenia.
 - Technická galéria existujúcich React komponentov.
 
+## Priorita vlastníka: všetky komponenty a skutočné zdrojové duplicity – nová etapa
+
+- [x] Rozšíriť *zdrojový* inventár aj na JSX priamo v stránkach, layoutoch, chybových šablónach, knižničných a aplikačných súboroch, nie iba na `components/`.
+- [x] Skenovať všetky CSS súbory v sledovaných zdrojových priečinkoch, nielen priame `.module.css` importy.
+- [x] Oddeľovať presne rovnaké zdrojové texty, rovnaké JSX kostry a presné skupiny CSS deklarácií. Vždy uviesť jednotlivé súbory a pri CSS aj selektor a riadok.
+- [x] Zobraziť kompletné výsledky s filtrom, vyhľadávaním a stránkovaním (nie iba fixných prvých 80 podobností).
+- [x] Uprednostniť v navigácii administrácie „Úplný register“ a „Podobnosti a duplicity“ pred úpravami a bannermi.
+- [x] Zabezpečiť read-only prevádzku a regresné testy; žiadne automatické zlúčenie ani úpravu produkčného CSS.
+- [ ] Po CI manuálne skontrolovať rozšírený register na veľkej zostave a potvrdiť reálne vizuálne duplicity až porovnaním konkrétnych stránok.
+
+**Význam pojmu všetky:** všetky staticky zistiteľné JSX zdrojové súbory a CSS súbory v `app/`, `components/`, `lib/`, `hooks/` a `styles/` podľa typu. **Nie** automaticky všetky runtime DOM uzly, jednotlivé CSS utility z externých knižníc, dynamicky generované komponenty či 100 % samostatných živých náhľadov. Pravidlá CSS sa porovnávajú len pri najmenej štyroch rôznych deklaráciách bez duplicít vlastností a v zhodnom kontexte `@media`; identické deklarácie nemusia byť totožne vykreslené.
+
 ## PR – ručné overenie HTML konkrétnych verejných URL
 
 - [x] Pri presných statických URL s auditovanou kotvou pridať jedno-klikové overenie výskytu kotvy v aktuálnom serverovom HTML.
