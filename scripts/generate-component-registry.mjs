@@ -108,6 +108,7 @@ export function buildRegistry(root) {
   const allPaths = new Set(absoluteFiles.map((file) => relative(absoluteRoot, file)));
   const imports = new Map();
   const importers = new Map();
+  const styleImports = new Map();
 
   for (const absolute of absoluteFiles) {
     const file = relative(absoluteRoot, absolute);
@@ -115,14 +116,27 @@ export function buildRegistry(root) {
     const scriptKind = absolute.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
     const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, scriptKind);
     const dependencies = new Set();
+    const styles = new Set();
     for (const statement of tree.statements) {
       const moduleSpecifier = (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement))
         ? statement.moduleSpecifier : undefined;
       if (!moduleSpecifier || !ts.isStringLiteral(moduleSpecifier)) continue;
+      if (ts.isImportDeclaration(statement) && moduleSpecifier.text.endsWith(".module.css")) {
+        const spec = moduleSpecifier.text;
+        const cssFile = spec.startsWith("@/")
+          ? spec.slice(2)
+          : spec.startsWith(".")
+            ? relative(absoluteRoot, path.resolve(path.dirname(absolute), spec))
+            : null;
+        if (cssFile && !cssFile.startsWith("../") && !path.isAbsolute(cssFile)) {
+          styles.add(cssFile);
+        }
+      }
       const resolved = resolveImport(absoluteRoot, absolute, moduleSpecifier.text, allPaths);
       if (resolved) dependencies.add(resolved);
     }
     imports.set(file, [...dependencies].sort());
+    styleImports.set(file, [...styles].sort());
     for (const dependency of dependencies) {
       if (!importers.has(dependency)) importers.set(dependency, new Set());
       importers.get(dependency).add(file);
@@ -155,6 +169,7 @@ export function buildRegistry(root) {
       label: FRIENDLY_NAMES[componentName(file)] ?? componentName(file).replace(/-/g, " "),
       family: componentFamily(file),
       path: file,
+      styleModules: styleImports.get(file) ?? [],
       routes: pages,
       consumers,
       routeCount: pages.length,
@@ -184,6 +199,15 @@ export function buildRegistry(root) {
       .map(([name, paths]) => ({ name, paths })).sort((a, b) => a.name.localeCompare(b.name)),
     families: VISUAL_FAMILIES.map(({ id, label }) => ({ id, label })),
     relatedGroups: relatedGroupsFor(components),
+    routeEntries: routes.map((file) => {
+      const route = publicRoute(file);
+      return {
+        route,
+        source: file,
+        area: route === "/admin" || route.startsWith("/admin/") ? "admin" : "public",
+        dynamic: /\[[^/]+\]/.test(route),
+      };
+    }),
     components,
   };
 }
