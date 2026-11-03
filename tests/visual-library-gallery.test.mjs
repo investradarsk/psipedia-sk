@@ -66,7 +66,7 @@ test("main owner gallery lists missing previews from the real public source regi
   const gallery = source("components/admin-visual-library-gallery.tsx");
   const missing = source("components/admin-visual-library-missing-previews.tsx");
   const coverage = source("components/admin-visual-library-coverage.tsx");
-  assert.match(gallery, /<AdminVisualLibraryFullInventory registry=\{registry\}/);
+  assert.match(gallery, /<AdminVisualLibraryMissingPreviews registry=\{registry\}/);
   assert.match(missing, /item\.area !== "admin"/);
   assert.match(missing, /!withPreview\.has\(item\.path\)/);
   assert.match(missing, /item\.family \?\? "other"/);
