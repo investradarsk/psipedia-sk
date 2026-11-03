@@ -12,6 +12,7 @@ import { AdminVisualLibraryHtmlCheck } from "@/components/admin-visual-library-h
 import { relatedDynamicUrlKindForPreview, detailComponentProbeForGroup } from "@/lib/visual-library-preview-related-urls";
 import { componentHtmlProbeIdForOwnerGroup } from "@/lib/visual-library-html-evidence";
 import { verifiedCanonicalRendererForGroup } from "@/lib/visual-library-canonical-renderers";
+import { verifiedSharedFoundationForGroup } from "@/lib/visual-library-shared-foundations";
 import { publicRegistryRouteHref } from "@/lib/component-registry-route";
 import { visualLibraryBanners, type VisualBanner } from "@/lib/visual-library-banners";
 import { AdminVisualLibraryBannerPreview } from "@/components/admin-visual-library-banner-preview";
@@ -157,6 +158,11 @@ export function AdminVisualLibraryVisualCatalog({
   );
   const chosen = matches.find((item) => item.id === selectedId) ?? matches[0];
   const canonicalRenderer = chosen ? verifiedCanonicalRendererForGroup(chosen.id) : null;
+  const navigationFoundation = chosen ? verifiedSharedFoundationForGroup(chosen.id) : null;
+  const relatedNavigation = navigationFoundation
+    ? groups.filter((item) => item.id !== chosen?.id &&
+      verifiedSharedFoundationForGroup(item.id)?.basePath === navigationFoundation.basePath)
+    : [];
   const sharedRendererGroups = canonicalRenderer
     ? groups.filter((item) => item.id !== chosen?.id &&
       verifiedCanonicalRendererForGroup(item.id)?.path === canonicalRenderer.path)
@@ -309,6 +315,15 @@ export function AdminVisualLibraryVisualCatalog({
           {sharedRendererGroups.length > 0 && <p>
             Ďalšie použitia rovnakej implementácie sú evidované pod:
             {" "}{sharedRendererGroups.map((item) => item.title).join(", ")}.
+          </p>}
+        </section>}
+        {navigationFoundation && <section className={styles.ownerSameRendererInfo}>
+          <strong>Spoločný základ navigácie: {navigationFoundation.base}</strong>
+          <p>Preverené zdrojové zloženie: {navigationFoundation.chain.join(" → ")}.</p>
+          <p>{navigationFoundation.distinction}</p>
+          {relatedNavigation.length > 0 && <p>
+            Príbuzné súčasti na porovnanie: {relatedNavigation.map((item) => item.title).join(", ")}.
+            Spoločný základ neznamená, že možno zmazať ich vlastné funkcionality.
           </p>}
         </section>}
         {sharedRendererUses.length > 0 && <div className={styles.visualCatalogUses}>
