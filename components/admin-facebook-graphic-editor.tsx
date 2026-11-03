@@ -441,7 +441,13 @@ export function AdminFacebookGraphicEditor({
               ["wordmark", "02 · Logo bez podkladu"],
               ["mark", "03 · Len symbol labky"],
             ] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={settings.logoStyle===value}
-              className={settings.logoStyle===value?styles.selected:""} onClick={()=>set("logoStyle",value)}>{label}</button>)}
+              className={settings.logoStyle===value?styles.selected:""} onClick={()=>set("logoStyle",value)}>
+              <span className={styles.logoThumb + " " + (value==="wordmark"?styles.logoThumbDark:"")}>
+                <span className={styles.logoThumbMark} aria-hidden="true" />
+                {value!=="mark"&&<span className={styles.logoThumbName}>psipedia<span>.sk</span></span>}
+              </span>
+              <small>{label}</small>
+            </button>)}
           </div>
           <div className={styles.logoPositions} aria-label="Rýchle umiestnenie loga">
             {([
