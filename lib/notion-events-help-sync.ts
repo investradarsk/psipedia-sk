@@ -2146,3 +2146,52 @@ export async function ensureManagedEventInNotion(input: {
     psipediaUpdatedAt:await canonicalUpdatedAt("events",input.eventId,input.database),syncedAt:now});
   return {notionPageId:page.id};
 }
+
+
+/** One linked agenda record, current Notion + canonical values, no provider writes. */
+export async function inspectManualEventsHelpProfile(input:{
+  database:D1Database;bindings:NotionEventsHelpSyncBindings;
+  profileId:number;pageId:string;agenda:BidirectionalAgendaKey;
+}):Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}>{
+  const definition=definitions.find(item=>item.key===input.agenda);
+  if(!definition)throw Error("TRANSFER_AGENDA_INVALID");
+  const mapping=input.agenda==="events"
+    ? await input.database.prepare(
+      "SELECT notion_page_id FROM event_notion_sync WHERE event_id=?"
+    ).bind(input.profileId).first<{notion_page_id:string}>()
+    : await input.database.prepare(
+      "SELECT notion_page_id FROM notion_agenda_sync WHERE agenda=? AND entity_id=?"
+    ).bind(input.agenda,input.profileId).first<{notion_page_id:string}>();
+  if(mapping?.notion_page_id!==input.pageId)
+    throw Error("TRANSFER_EVENTS_HELP_IDENTITY_MISMATCH");
+  const target=await resolveNotionCanonicalTarget({
+    database:input.database,
+    bindings:input.bindings as NotionEventsHelpSyncBindings & Record<string,unknown>,
+    definition:canonicalTargetDefinition(definition),
+    allowCreate:false,persist:false,
+  });
+  if(!target.dataSourceId)throw Error("TRANSFER_EVENTS_HELP_TARGET_MISSING");
+  const page=await notionRequest<NotionPage>(
+    input.bindings,"/pages/"+encodeURIComponent(input.pageId));
+  const sources=await definition.load(input.database,input.profileId);
+  const source=sources.find(candidate=>sourceId(candidate)===input.profileId);
+  if(!source||page.id!==input.pageId
+    ||!notionPageBelongsToDataSource(page,target.dataSourceId))
+    throw Error("TRANSFER_EVENTS_HELP_IDENTITY_MISMATCH");
+  const claimed=identityPage(page);
+  if(claimed.psipediaId!==String(input.profileId)
+    ||(claimed.url&&claimed.url!==source.url))
+    throw Error("TRANSFER_EVENTS_HELP_IDENTITY_MISMATCH");
+  const dataSource=await fetchDataSource(input.bindings,target.dataSourceId);
+  const schema=dataSource.properties??{};
+  const confirmed=input.agenda==="events"
+    ? await hasCurrentGooglePlace(input.database,"MANAGED_EVENT",input.profileId)
+    : input.agenda==="organizations"
+      ? await hasCurrentOrganizationGooglePlace(input.database,input.profileId)
+      : false;
+  return {notion:pageSnapshot(input.agenda,page,schema),
+    admin:editableSnapshot(input.agenda,source.properties,schema),
+    excluded:[...fixedNotionAgendaFields(input.agenda),
+      ...(confirmed?["Adresa","Miesto","Mesto","Okres","Kraj"]:[])],
+  };
+}
