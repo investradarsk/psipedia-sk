@@ -885,8 +885,6 @@ async function syncOneBreed(
     // A later Admin edit is not an acknowledgement from Notion. Never
     // mark its old snapshot "synchronized" or pull an older remote version
     // on top of the unacknowledged D1 revision.
-    const lastAck = Date.parse(mapping?.last_synced_at ?? "");
-    const adminEdit = Date.parse(existing.updatedAt);
     // Automatically retry unsent Admin changes for every mapped content field,
     // not only the old draft text subset.
     if(mapping && fieldReceipt && receipt.hash===contentHash){
@@ -915,8 +913,8 @@ async function syncOneBreed(
       if (authority[explicitField] === "admin") throw new Error("BREED_FIELD_ADMIN_AUTHORITY");
       const actualHash = await sha256Text(JSON.stringify(breedFieldSnapshot(basePayload)[explicitField]) ?? "null");
       if (actualHash !== expectedNotionHash) throw new Error("BREED_EXPLICIT_REMOTE_CHANGED");
-      if (!Number.isFinite(lastAck) || !Number.isFinite(adminEdit) || adminEdit > lastAck)
-        throw new Error("BREED_EXPLICIT_ADMIN_CHANGED");
+      // The manually confirmed Notion value and correct breed ID are enough;
+      // a newer unrelated Admin edit is not a reason to block this field.
       const oldNotionSnapshot = breedFieldSnapshot(basePayload);
       const oldAdminSnapshot = breedFieldSnapshot(existing);
       oldNotionSnapshot[explicitField] = oldAdminSnapshot[explicitField];
@@ -925,6 +923,8 @@ async function syncOneBreed(
       if (plan.conflicts.length) throw new Error("BREED_EXPLICIT_FIELD_CONFLICT");
       const patch = plan.patch;
       const merged = { ...existing, ...patch, seo:{...existing.seo,...(patch.seo??{})},
+        fciStandard:{...existing.fciStandard,...(patch.fciStandard??{})},
+        editorial:{...existing.editorial,...(patch.editorial??{})},
         status:existing.status, image:existing.image,imageKey:existing.imageKey,
         gallery:existing.gallery,accent:existing.accent,
         editorialComplete:existing.editorialComplete } satisfies ManagedBreedInput;
