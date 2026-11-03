@@ -337,7 +337,7 @@ test.describe("MAP-1D desktop", () => {
 
     await page.getByLabel("Vyhľadávanie v mape").fill("cluster");
     await expect(page.getByRole("heading", { level: 2, name: "4 oblasti · 7 výsledkov" })).toBeVisible();
-    await expect(page.getByTestId("map-results-guidance")).toContainText("Priblíž mapu alebo vyber zhluk");
+    await expect(page.getByTestId("map-results-guidance")).toContainText("Vyber oblasť v zozname alebo na mape");
     await expect(page.getByTestId("map-cluster-summary")).toContainText("Mapa je zatiaľ v súhrnnom pohľade.");
     await expect(page.getByTestId("map-cluster-summary")).toContainText("7 výsledkov je zoskupených do 4 oblastí");
     const groupedCluster = page.getByRole("button", { name: "Priblížiť oblasť s 2 záznamami" }).first();
@@ -420,8 +420,10 @@ test.describe("MAP-1D desktop", () => {
     await page.goto("/mapa?__mapRenderer=real");
 
     await expect(page.getByTestId("map-consent-gate")).toContainText("Načítať interaktívnu Google mapu?");
-    await expect(page.getByTestId("map-provider-disclosure")).toContainText("načíta sa až po tvojom výslovnom povolení");
-    await expect(page.getByTestId("map-provider-disclosure").getByRole("link", { name: "podmienkam Google Maps" })).toBeVisible();
+    const consentGate = page.getByTestId("map-consent-gate");
+    await expect(consentGate).toContainText("Mapu načítame až po vašom povolení.");
+    await expect(consentGate.getByRole("link", { name: "podmienkami Google Maps" })).toBeVisible();
+    await expect(page.getByTestId("map-provider-disclosure")).toHaveCount(0);
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
     await expect(page.locator("script[data-psipedia-google-maps]")).toHaveCount(0);
 
