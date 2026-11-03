@@ -63,7 +63,7 @@ function parseInput(value: unknown): ArticleScheduleInput {
 
 type SocialR2 = { BUCKET?: R2Bucket };
 
-async function copyArticlePhoto(article: ManagedArticle, previous: FacebookImagePost | null) {
+export async function copyArticlePhoto(article: ManagedArticle, previous: FacebookImagePost | null) {
   const bucket = (env as unknown as SocialR2).BUCKET;
   if (!bucket || !article.imageKey) throw new Error("Na Facebook treba titulný obrázok uložený v Psipedii.");
   if (previous?.articleImageMode === "photo" && previous.imageKey) {

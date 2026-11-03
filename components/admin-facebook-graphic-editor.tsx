@@ -189,10 +189,12 @@ function exportBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 
 export function AdminFacebookGraphicEditor({
   initialTitle,
+  initialPhotoUrl,
   onUse,
   onCancel,
 }: {
   initialTitle: string;
+  initialPhotoUrl?: string;
   onUse: (file: File, title: string) => Promise<boolean>;
   onCancel: () => void;
 }) {
@@ -213,6 +215,26 @@ export function AdminFacebookGraphicEditor({
   const bitmap = loaded?.file === photo ? loaded.bitmap : null;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Reuse the copy of a selected article/profile image already staged in R2.
+  useEffect(() => {
+    if (!initialPhotoUrl || !/^\/media\/facebook-images\/[a-z0-9/_.-]+$/i.test(initialPhotoUrl)) return;
+    const controller = new AbortController();
+    fetch(initialPhotoUrl, { credentials: "same-origin", signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw Error("Titulný obrázok sa nepodarilo načítať.");
+        const blob = await response.blob();
+        if (blob.size > MAX_BYTES || !["image/jpeg", "image/png", "image/webp"].includes(blob.type))
+          throw Error("Titulný obrázok musí byť JPG, PNG alebo WebP do 8 MB.");
+        if (!controller.signal.aborted) {
+          const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+          setPhoto(new File([blob], "vybrany-obsah." + ext, { type: blob.type }));
+        }
+      }).catch(failure => {
+        if (!controller.signal.aborted)
+          setError(failure instanceof Error ? failure.message : "Obrázok sa nepodarilo načítať.");
+      });
+    return () => controller.abort();
+  }, [initialPhotoUrl]);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings(old => ({ ...old, [key]: value }));
@@ -296,11 +318,11 @@ export function AdminFacebookGraphicEditor({
             </button>)}</div>
         </fieldset>
         <fieldset disabled={busy}>
-          <legend>2. Nahraj svoju fotografiu</legend>
+          <legend>2. Fotografia z článku/profilu alebo vlastná</legend>
           <div {...getRootProps({ className: styles.dropzone })}>
             <input {...getInputProps()} aria-label="Fotografia do grafiky" />
             <strong>{photo ? photo.name : isDragActive ? "Pusti fotografiu sem" : "Klikni alebo presuň fotografiu"}</strong>
-            <small>JPG, PNG, WebP · max. 8 MB · fotka sa oreže na zvolený formát</small>
+            <small>Vybraná fotografia sa načíta automaticky. Môžeš ju nahradiť (JPG, PNG, WebP · max. 8 MB).</small>
           </div>
           <div className={styles.dual}>
             <label>Priblíženie fotografie <input type="range" min="100" max="200" step="5" value={settings.zoom} onChange={e => set("zoom", Number(e.target.value))} /></label>
