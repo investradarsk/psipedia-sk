@@ -48,13 +48,16 @@ function sortedRoutes(values: readonly string[]): string[] {
 export function findVisualSourceCandidates(
   components: readonly VisualSource[],
   groups: readonly RelatedVisualGroup[],
-  limit = 80,
+  limit = Number.POSITIVE_INFINITY,
 ): VisualSourceCandidate[] {
   const visible = [...new Map(components.filter((item) => item.area !== "admin")
     .map((item) => [item.path, item])).values()];
   const byPath = new Map(visible.map((item) => [item.path, item]));
   const results = new Map<string, VisualSourceCandidate>();
-  const bounded = Math.max(0, Math.min(150, Math.floor(limit)));
+  // No silent 80-row truncation: default returns every candidate.
+  // Explicit callers may still request a deterministic bounded result.
+  const bounded = Number.isFinite(limit)
+    ? Math.max(0, Math.floor(limit)) : Number.POSITIVE_INFINITY;
 
   const evaluate = (left: VisualSource, right: VisualSource, group: string, description: string) => {
     if (left.path === right.path) return;
