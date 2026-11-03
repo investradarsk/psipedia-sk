@@ -63,7 +63,7 @@ starých/nesprávne potvrdených hodnôt nie je implementované v časti 1.
   `CONFIRM_NOTION_MANUAL_TRANSFER`. Existuje aj read-only
   `GET` na zistenie stavu behu.
 - Feature flag `NOTION_MANUAL_TRANSFER_ENABLED` je **OFF**,
-  kým vlastník nenasadí schválenú očíslenú a schválenú databázovú migráciu, nedokončí
+  kým vlastník nenasadí budúcu očíslovanú a schválenú databázovú migráciu, nedokončí
   časť 3, neoverí E2E výsledok a výslovne ho nezapne.
   Žiadna produkčná migrácia ani jednorazový prenos nie sú vykonané.
 - Pri starom historicky potvrdenom rozdiele v Plemenách môže
