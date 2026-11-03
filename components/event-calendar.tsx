@@ -223,6 +223,8 @@ export function EventCalendar({
       if (!controller.signal.aborted) setPending(false);
     }
   }
+  // Calendar controls use native anchors: the handler owns history + data
+  // updates; a framework Link would also attempt route navigation.
   function clickNavigate(event: MouseEvent<HTMLAnchorElement>, href: string, next: View) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
       return;
@@ -333,7 +335,7 @@ export function EventCalendar({
               ["all", "Všetky"],
             ] as const
           ).map(([value, label]) => (
-            <Link
+            <a
               href={timeHref(value)}
               onClick={(event) => clickNavigate(event, timeHref(value), { ...view, time: value })}
               className={view.time === value ? styles.activeTimeChip : styles.timeChip}
@@ -341,7 +343,7 @@ export function EventCalendar({
               key={value}
             >
               {label}
-            </Link>
+            </a>
           ))}
         </div>
       </div>
@@ -361,7 +363,7 @@ export function EventCalendar({
                   <h2 id="events-calendar-title">{calendarMonthLabel(visibleMonth)}</h2>
                 </div>
                 <nav className={styles.monthNavigation} aria-label="Navigácia kalendára">
-                  <Link
+                  <a
                     href={calendarHref(moveCalendarMonth(visibleMonth, -1))}
                     onClick={(event) => {
                       const target = moveCalendarMonth(visibleMonth, -1);
@@ -376,8 +378,8 @@ export function EventCalendar({
                     rel="prev"
                   >
                     ←
-                  </Link>
-                  <Link
+                  </a>
+                  <a
                     href={calendarHref(todayMonth)}
                     onClick={(event) =>
                       clickNavigate(event, calendarHref(todayMonth), {
@@ -390,8 +392,8 @@ export function EventCalendar({
                     aria-label="Prejsť na aktuálny mesiac"
                   >
                     Dnes
-                  </Link>
-                  <Link
+                  </a>
+                  <a
                     href={calendarHref(moveCalendarMonth(visibleMonth, 1))}
                     onClick={(event) => {
                       const target = moveCalendarMonth(visibleMonth, 1);
@@ -406,7 +408,7 @@ export function EventCalendar({
                     rel="next"
                   >
                     →
-                  </Link>
+                  </a>
                 </nav>
               </div>
 
@@ -450,7 +452,7 @@ export function EventCalendar({
                         <span className={styles.outsideDay} aria-hidden="true" key={day.date} />
                       );
                     return (
-                      <Link
+                      <a
                         key={day.date}
                         href={calendarHref(visibleMonth, day.date) + "#vybrany-den"}
                         onClick={(event) =>
@@ -518,7 +520,7 @@ export function EventCalendar({
                             ) : null}
                           </span>
                         ) : null}
-                      </Link>
+                      </a>
                     );
                   })}
                 </div>
@@ -538,7 +540,7 @@ export function EventCalendar({
                       <p className={styles.selectedDayEyebrow}>Vybraný dátum</p>
                       <h3 id="selected-day-title">{dateLabel(selectedDay)}</h3>
                     </div>
-                    <Link
+                    <a
                       href={calendarHref(visibleMonth)}
                       onClick={(event) =>
                         clickNavigate(event, calendarHref(visibleMonth), { ...view, day: "" })
@@ -546,7 +548,7 @@ export function EventCalendar({
                       aria-label="Zrušiť výber dňa"
                     >
                       Zavrieť výber
-                    </Link>
+                    </a>
                   </div>
                   {!pending && (daySummaries.get(selectedDay)?.count ?? 0) > dailyEvents.length ? (
                     <p>
@@ -653,7 +655,7 @@ export function EventCalendar({
               const href = eventTypePortalHref(type);
               if (!href) return null;
               return (
-                <Link
+                <a
                   key={type}
                   href={href + timeHref(view.time).slice(typePathname.length)}
                   onClick={(event) => {
@@ -669,7 +671,7 @@ export function EventCalendar({
                     style={{ "--event-type-color": presentation.color } as CSSProperties}
                   />
                   {presentation.label}
-                </Link>
+                </a>
               );
             })}
           </nav>
