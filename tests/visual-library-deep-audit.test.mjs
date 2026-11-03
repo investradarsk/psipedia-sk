@@ -82,7 +82,8 @@ test("audit UI is searchable, paginated, honest and never mutates public CSS or 
   assert.match(ui,/Opakované CSS deklarácie/);
   assert.match(ui,/Veľmi podobné JSX/);
   assert.match(ui,/Nič sa automaticky nezlučuje ani nemaže/);
-  assert.match(parent,/useState<"register"/);
+  assert.match(parent,/useState<"prehlad"/);
+  assert.match(parent,/AdminVisualLibraryVisualCatalog registry=\{registry\}/);
   assert.match(parent,/AdminVisualLibraryDeepAudit registry=\{registry\}/);
   assert.match(duplicate,/initialView="css"/);
   assert.doesNotMatch(ui,/method:\s*"(POST|PUT|DELETE)"|cloudflare:workers|fetch\(|DB\.prepare/);
