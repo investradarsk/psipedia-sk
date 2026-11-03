@@ -103,10 +103,10 @@ export function AdminVisualLibraryVisualCatalog({
         if (!group.routes.includes(route)) group.routes.push(route);
       }
     }
-    return [...result.values()].map((group) => ({
-      ...group,
-      ...ownerKnownUsesForGroup(group.id, visualLibraryBanners, examples, articleUsage),
-    }));
+    return [...result.values()].map((group) => {
+      const evidence = ownerKnownUsesForGroup(group.id, visualLibraryBanners, examples, articleUsage);
+      return { ...group, knownUses: evidence.uses, matchingLabels: evidence.matchingLabels };
+    });
   }, [registry.components, examples, articleUsage]);
 
   const [query, setQuery] = useState("");
