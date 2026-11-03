@@ -32,7 +32,7 @@ Technické údaje (súbory, CSS, podobnosť AST) iba v rozbaľovacích detailoch
 - [x] Verejná identita zdroja pre vierohodné skupiny evidovaná explicitne. Skupiny majú stabilné ID, aby sa neodpojili existujúce uložené vlastnícke rozhodnutia.
 - [x] Pri výbere dvoch skupín s tým istým rendererom sa zobrazí „už je spoločný“ a heuristika ich neponúka ako zdrojové duplicity.
 - [x] V detaile možno zobraziť ďalšie doložené URL iných variantov toho istého React renderera, oddelene od kandidátskych trás.
-- [x] HTML audit konkrétnych publikovaných profilov overuje aj jeden z ôsmich **allowlistovaných** markerov skutočných komponentov, pokiaľ je dostupný. Spúšťa sa iba ručne po jednom profile a nevydáva úspešný HTTP za dôkaz vnoreného komponentu.
+- [x] HTML audit používa osem **allowlistovaných** markerov skutočných komponentov na konkrétnych zdrojovo doložených URL; na dynamických detailoch skúša komponentový marker iba pre potvrdený typ detailu (`DirectoryServicesList`). Karty a filtre výpisov sa zámerne netestujú na nesúvisiacich detailových URL. Spúšťa sa iba ručne po jednom profile a nevydáva úspešný HTTP za dôkaz vnoreného komponentu.
 - [x] Regresné testy zdrojového reťazca, jednotného náhľadového adaptéra a bezpečného SSR komponentového probe.
 - [ ] Aktuálne CI, prihlásený desktopový smoke a porovnanie pred/po mergi.
 - [ ] Pokrytie zostávajúcich skutočne viditeľných komponentov a presný dôkaz na ďalších dynamických URL.
