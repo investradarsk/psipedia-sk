@@ -144,7 +144,7 @@ test("Manual FB ledger is scoped, authenticated and independent of Notion", () =
   assert.match(storage, /if \(category === "utulky"\) return "organization"/);
   assert.match(storage, /if \(category === "adopcia"\) return "adoption"/);
   assert.match(storage, /return "lost_found"/);
-  assert.match(storage, /PRIMARY KEY\(content_type, entity_id\)/);
+  assert.match(migration, /PRIMARY KEY\(content_type, entity_id\)/);
   assert.match(storage, /DELETE FROM facebook_content_share_markers/);
   assert.match(storage, /ON CONFLICT\(content_type,entity_id\) DO UPDATE/);
   assert.match(storage, /no such table:/);
