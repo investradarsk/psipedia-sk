@@ -26,6 +26,10 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const router = useRouter();
   const prefetched = useRef(new Set<string>());
   const prefetchOnIntent = (href: string) => {
+    // Mobile workspace/article routes intentionally use a fresh document.
+    // Do not prefetch an RSC payload which will never be used on iOS.
+    if ((href === "/admin" || href === "/admin/clanky") &&
+      window.matchMedia("(max-width: 820px)").matches) return;
     // Prefetch only with user intent, not automatically for every visible
     // link to a dynamic, D1-backed admin page.
     if (prefetched.current.has(href)) return;
