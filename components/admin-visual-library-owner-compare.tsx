@@ -120,9 +120,32 @@ export function AdminVisualLibraryOwnerCompare({
   };
 
   useEffect(() => {
-    // Defer the fetch-state transition until after the effect. This is
-    // intentionally not a synchronous state update during React render.
-    void Promise.resolve().then(() => loadQueue(0));
+    // The initial server read happens asynchronously. No synchronous
+    // React state transitions are started inside an effect.
+    const controller = new AbortController();
+    fetch(DECISIONS_API + "?offset=0&limit=25", {
+      credentials: "same-origin", cache: "no-store", signal: controller.signal,
+    }).then(async (response) => {
+      const data = await response.json() as {
+        items?: SavedOwnerDecision[]; nextOffset?: number | null; error?: string;
+      };
+      if (!response.ok || !data.items) {
+        throw new Error(data.error ?? "Nepodarilo sa načítať uložené rozhodnutia.");
+      }
+      return data;
+    }).then((data) => {
+      if (controller.signal.aborted) return;
+      setQueue(data.items ?? []);
+      setQueueNext(data.nextOffset ?? null);
+      setQueueMessage("");
+    }).catch((error) => {
+      if (!controller.signal.aborted) {
+        setQueueMessage(error instanceof Error ? error.message : "Načítanie rozhodnutí sa nepodarilo.");
+      }
+    }).finally(() => {
+      if (!controller.signal.aborted) setQueueLoading(false);
+    });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
