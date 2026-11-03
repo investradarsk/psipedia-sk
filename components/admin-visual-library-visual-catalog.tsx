@@ -57,6 +57,7 @@ const VARIANT_OF: Readonly<Record<string, string>> = {
   "event-cancelled": "event-list",
   "help-resolved": "help-card",
   "help-urgent": "help-card",
+  "help-profile-urgent": "help-profile",
   "directory-services-expanded": "directory-services-short",
   "event-listing-empty": "event-listing-filtered",
 };
