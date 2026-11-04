@@ -56,12 +56,14 @@ test("only current and next week accept valid dates and known categories", () =>
 test("admin route and migration remain owner-only manual planning, not publishing", () => {
   const route = readFileSync("app/api/admin/facebook-weekly-plan/route.ts", "utf8");
   const migration = readFileSync("drizzle/0157_facebook_weekly_plan_marks.sql", "utf8");
+  const rollout = readFileSync("scripts/production-d1-migrate.mjs", "utf8");
   const planner = readFileSync("components/admin-facebook-weekly-planner.tsx", "utf8");
   assert.match(route, /getAdminApiUser/);
   assert.match(route, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(route, /isFacebookPlanDate\(values.date\)/);
   assert.match(route, /isFacebookPlanKey\(values.slotKey\)/);
   assert.match(migration, /PRIMARY KEY \(slot_date, slot_key\)/);
+  assert.match(rollout, /assertFacebookWeeklyPlan0157Schema/);
   assert.match(planner, /aria-pressed=\{planned\}/);
   assert.doesNotMatch(route, /publishFacebook|sendToFacebook|notionSync/i);
 });
