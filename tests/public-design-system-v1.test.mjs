@@ -12,12 +12,28 @@ test("public design V1: homepage uses managed section hero and its image crop", 
   assert.doesNotMatch(home, /className="hero-card"/);
 });
 
-test("public design V1: existing mobile home geometry is scoped to home.hero", () => {
+test("public design: desktop and mobile hero geometry is shared by every route", () => {
   const css = read("components/public-visual-system/unified-section-hero.module.css");
-  assert.match(css, /data-section-visual-key="home\.hero"/);
-  assert.match(css, /min-height: 318px/);
-  assert.match(css, /justify-content: flex-end/);
-  assert.match(css, /width: calc\(100% - 24px\)/);
+  assert.match(css, /\.hero\[data-unified-section-hero\] \.visual/);
+  assert.match(css, /\.hero\[data-unified-section-hero\] \.copy/);
+  assert.match(css, /min-height:\s*330px/);
+  assert.match(css, /min-height:\s*318px/);
+  assert.match(css, /justify-content:\s*flex-end/);
+  assert.match(css, /width:\s*calc\(100% - 24px\)/);
+  assert.doesNotMatch(css, /\.hero:not\(\[data-section-visual-key="home\.hero"\]\)/);
+});
+
+test("public detail and article surfaces reuse the homepage renderer instead of cloning it", () => {
+  const universal = read("components/public-visual-system/universal-page-hero.tsx");
+  const detail = read("components/detail-primitives/detail-primitives.tsx");
+  const article = read("components/article-detail.tsx");
+  assert.match(universal, /<UnifiedSectionHero/);
+  assert.match(universal, /<UnifiedSectionHeroShell/);
+  assert.match(universal, /<HomePortalSearch/);
+  assert.match(detail, /<UniversalPageHero/);
+  assert.match(article, /<UniversalPageHero/);
+  assert.match(article, /title=\{article\.title\}/);
+  assert.match(article, /imageUrl=\{article\.image\}/);
 });
 
 test("public design V1: canonical search retains route-scoped GET parameters", () => {
