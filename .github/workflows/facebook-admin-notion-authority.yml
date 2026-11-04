@@ -18,7 +18,6 @@ on:
       - "components/admin-facebook-images.module.css"
       - "tests/facebook-image-ui.test.mjs"
       - "tests/notion-facebook-images-admin-export.test.mjs"
-      - "package.json"
       - ".github/workflows/facebook-admin-notion-authority.yml"
   workflow_dispatch:
 concurrency:

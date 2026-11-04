@@ -14,7 +14,6 @@ on:
       - "tests/production-d1-0132-rollout.test.mjs"
       - "tests/production-d1-0133-rollout.test.mjs"
       - "tests/production-d1-0123-0125-rollout.test.mjs"
-      - "package.json"
       - ".github/workflows/production-d1-migrate.yml"
       - "package-lock.json"
       - "migration-safety.baseline.json"
