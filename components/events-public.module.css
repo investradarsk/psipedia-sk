@@ -1,7 +1,7 @@
 .pageHeader {
   padding: 24px 0 22px;
   border-bottom: 1px solid var(--ps-border-soft);
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 
 .breadcrumbs {
@@ -865,7 +865,7 @@
 .pageHeader {
   padding: 20px 0 0;
   border-bottom: 0;
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 
 .breadcrumbs {
