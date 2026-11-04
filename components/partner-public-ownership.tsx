@@ -106,10 +106,11 @@ export function PartnerPublicOwnership({
   correctionHref: string;
   embedded?: boolean;
 }) {
+  const Wrapper = embedded ? "div" : "aside";
   return (
-    <aside
+    <Wrapper
       className={[styles.wrap, embedded && styles.embedded].filter(Boolean).join(" ")}
-      aria-label="Správa a oprava profilu"
+      aria-label={embedded ? undefined : "Správa a oprava profilu"}
     >
       <div className={styles.inner}>
         <section className={styles.management} aria-labelledby="partner-profile-management-heading">
@@ -138,6 +139,6 @@ export function PartnerPublicOwnership({
           </Link>
         </section>
       </div>
-    </aside>
+    </Wrapper>
   );
 }

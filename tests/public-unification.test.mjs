@@ -110,3 +110,57 @@ test("SQLite and presentation agree for Slovak capitals and absent summaries", (
   );
   db.close();
 });
+
+test("closure SQL executes under actual D1 pattern limits and preserves lifecycle parity", async () => {
+  const { Miniflare } = await import("miniflare");
+  const worker = new Miniflare({
+    modules: true,
+    script: 'export default { fetch() { return new Response("local test"); } }',
+    compatibilityDate: "2026-05-01",
+    d1Databases: ["DB"],
+  });
+  try {
+    const db = await worker.getD1Database("DB");
+    await db.exec(
+      "CREATE TABLE help_cases(id INTEGER, category TEXT, excerpt TEXT, action_label TEXT, resolved INTEGER)",
+    );
+    const rows = [
+      ["zbierky", "UKONČENÁ ZBIERKA. Pomohli ste.", "", false],
+      ["zbierky", "ZbIeRkA BoLa UkOnČeNá: ďakujeme", "", false],
+      ["zbierky", "Operácia", "POZRIEŤ UKONČENÚ VÝZVU", false],
+      ["zbierky", "Ukončená zbierkami nie je platný prefix", "", false],
+      ["zbierky", "Predošlá zbierka bola ukončená", "Prispieť", false],
+      ["dobrovolnictvo", "Ukončená zbierka", "", false],
+      ["zbierky", null, null, false],
+      ["zbierky", "Aktuálna zbierka", "", true],
+    ];
+    await db.batch(
+      rows.map(([category, excerpt, actionLabel, resolved], id) =>
+        db
+          .prepare("INSERT INTO help_cases VALUES(?,?,?,?,?)")
+          .bind(id, category, excerpt, actionLabel, Number(resolved)),
+      ),
+    );
+    const result = await db
+      .prepare(`SELECT id FROM help_cases h WHERE ${activeHelpSql("h.")} ORDER BY id`)
+      .all();
+    const expected = rows.flatMap(([category, excerpt, actionLabel, resolved], id) =>
+      applyHelpLifecycle({
+        category,
+        excerpt: excerpt ?? undefined,
+        actionLabel: actionLabel ?? undefined,
+        resolved,
+        urgent: true,
+      }).resolved
+        ? []
+        : [id],
+    );
+    assert.deepEqual(
+      result.results.map((row) => row.id),
+      expected,
+    );
+    assert.deepEqual(expected, [3, 4, 5, 6]);
+  } finally {
+    await worker.dispose();
+  }
+});

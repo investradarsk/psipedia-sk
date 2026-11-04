@@ -18,18 +18,20 @@ const [
   platform,
   worker,
   adminClaimActions,
-] = await Promise.all([
-  "lib/partner-public-profile.ts",
-  "components/partner-public-ownership.tsx",
-  "app/adresar/[category]/[slug]/page.tsx",
-  "app/organizacie/[slug]/page.tsx",
-  "components/directory-profile-detail.tsx",
-  "lib/partner-claims.ts",
-  "app/partner/ziadosti/page.tsx",
-  "lib/partner-platform.ts",
-  "worker/index.ts",
-  "components/admin-partner-claim-actions.tsx",
-].map(read));
+] = await Promise.all(
+  [
+    "lib/partner-public-profile.ts",
+    "components/partner-public-ownership.tsx",
+    "app/adresar/[category]/[slug]/page.tsx",
+    "app/organizacie/[slug]/page.tsx",
+    "components/directory-profile-detail.tsx",
+    "lib/partner-claims.ts",
+    "app/partner/ziadosti/page.tsx",
+    "lib/partner-platform.ts",
+    "worker/index.ts",
+    "components/admin-partner-claim-actions.tsx",
+  ].map(read),
+);
 
 function stateDatabase(row) {
   return {
@@ -48,7 +50,9 @@ function stateDatabase(row) {
 }
 
 test("public Partner state model resolves anonymous, eligible, pending, rejected and every active profile role", async () => {
-  const { getPublicPartnerProfileManagementState } = await importTs("lib/partner-public-profile.ts");
+  const { getPublicPartnerProfileManagementState } = await importTs(
+    "lib/partner-public-profile.ts",
+  );
 
   const anonymous = await getPublicPartnerProfileManagementState({
     accountId: null,
@@ -59,7 +63,8 @@ test("public Partner state model resolves anonymous, eligible, pending, rejected
   assert.deepEqual(anonymous, {
     kind: "anonymous",
     verified: false,
-    managementHref: "/partner/prihlasenie?returnTo=%2Fpartner%2Fprevziat-profil%2FDIRECTORY_PROFILE%2F42",
+    managementHref:
+      "/partner/prihlasenie?returnTo=%2Fpartner%2Fprevziat-profil%2FDIRECTORY_PROFILE%2F42",
   });
 
   const eligible = await getPublicPartnerProfileManagementState({
@@ -124,7 +129,7 @@ test("public Partner state model resolves anonymous, eligible, pending, rejected
         membershipRole: role,
         pendingClaimId: "stale-pending-must-not-win",
         rejectedClaimId: "stale-rejected-must-not-win",
-          verified: 1,
+        verified: 1,
       }),
     });
     assert.deepEqual(member, {
@@ -160,9 +165,11 @@ test("public UI has one coherent management and correction block with state-depe
     "Otvoriť Partner účet",
     "Našli ste nesprávny údaj?",
     "Navrhnúť opravu údajov",
-  ]) assert.ok(publicOwnership.includes(copy), copy);
+  ])
+    assert.ok(publicOwnership.includes(copy), copy);
 
-  assert.match(publicOwnership, /aria-label="Správa a oprava profilu"/);
+  assert.match(publicOwnership, /const Wrapper = embedded \? "div" : "aside"/);
+  assert.match(publicOwnership, /aria-label=\{embedded \? undefined : "Správa a oprava profilu"\}/);
   assert.match(publicOwnership, /partner-profile-management-heading/);
   assert.match(publicOwnership, /partner-profile-correction-heading/);
   assert.doesNotMatch(directoryDetail, /Ste majiteľom tohto profilu\?/);
@@ -191,16 +198,28 @@ test("anonymous management flow preserves the exact profile through the existing
 
 test("backend rejects a new ownership request for every active membership role", () => {
   assert.match(claims, /const membership = await activeMembership/);
-  assert.match(claims, /if \(membership\) throw new PartnerClaimError\("Tento profil už spravujete cez Partner účet\.", 409\)/);
+  assert.match(
+    claims,
+    /if \(membership\) throw new PartnerClaimError\("Tento profil už spravujete cez Partner účet\.", 409\)/,
+  );
   assert.doesNotMatch(claims, /membership\?\.role === "OWNER"/);
   for (const role of ["OWNER", "MANAGER", "EDITOR"]) assert.ok(platform.includes(role));
-  assert.match(platform, /EDITOR: new Set\(\["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE"/);
-  assert.match(platform, /MANAGER: new Set\(\["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE"/);
+  assert.match(
+    platform,
+    /EDITOR: new Set\(\["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE"/,
+  );
+  assert.match(
+    platform,
+    /MANAGER: new Set\(\["RESOURCE_VIEW", "MEMBERSHIP_VIEW", "PROFILE_SUBMIT_CHANGE"/,
+  );
 });
 
 test("rejected state does not leak the admin-only decision note", () => {
   assert.match(adminClaimActions, /Interná poznámka k rozhodnutiu/);
-  assert.match(adminClaimActions, /Poznámka zostáva v administrácii a neposiela sa Partnerovi e-mailom\./);
+  assert.match(
+    adminClaimActions,
+    /Poznámka zostáva v administrácii a neposiela sa Partnerovi e-mailom\./,
+  );
   assert.doesNotMatch(publicStateSource, /decision_note|rejectedDecisionNote/);
   assert.doesNotMatch(requestsPage, /claim\.decisionNote/);
   assert.doesNotMatch(publicOwnership, /Pozrieť dôvod|decisionNote|decision_note/);

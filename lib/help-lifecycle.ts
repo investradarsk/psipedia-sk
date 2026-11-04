@@ -44,16 +44,19 @@ export function applyHelpLifecycle<
 /** The exact same prefix policy must filter counts and highlights before LIMIT. */
 export function activeHelpSql(alias = "") {
   if (alias && !/^[a-z_]+\.$/.test(alias)) throw new Error("Invalid internal SQL alias");
-  // SQLite NOCASE folds ASCII only. GLOB letter pairs also cover Slovak capitals.
-  const patterns = (field: string, prefixes: string[]) =>
-    prefixes.map((prefix) => {
-      const folded = [...prefix]
-        .map((char) =>
-          char.toLocaleUpperCase("sk") === char ? char : `[${char}${char.toLocaleUpperCase("sk")}]`,
-        )
-        .join("");
-      const value = `trim(COALESCE(${alias}${field},''))`;
-      return `(${["", " *", ".*", ":*"].map((suffix) => `${value} GLOB '${folded}${suffix}'`).join(" OR ")})`;
-    });
-  return `${alias}resolved = 0 AND NOT (${alias}category = 'zbierky' AND (${[...patterns("excerpt", closedSummaryPrefixes), ...patterns("action_label", closedActionPrefixes)].join(" OR ")}))`;
+  // SQLite lower() folds ASCII only. Fold the accented capitals used by the
+  // closure vocabulary explicitly, then compare prefixes without GLOB patterns.
+  // D1 limits pattern complexity more strictly than standalone SQLite.
+  const matches = (field: string, prefixes: string[]) => {
+    let value = `trim(COALESCE(${alias}${field},''))`;
+    const accented = new Set([...prefixes.join("")].filter((char) => char.charCodeAt(0) > 127));
+    for (const char of accented)
+      value = `replace(${value},'${char.toLocaleUpperCase("sk")}','${char}')`;
+    value = `lower(${value})`;
+    return prefixes.map(
+      (prefix) =>
+        `(substr(${value},1,${prefix.length}) = '${prefix}' AND substr(${value},${prefix.length + 1},1) IN ('',' ','.',':'))`,
+    );
+  };
+  return `${alias}resolved = 0 AND NOT (${alias}category = 'zbierky' AND (${[...matches("excerpt", closedSummaryPrefixes), ...matches("action_label", closedActionPrefixes)].join(" OR ")}))`;
 }

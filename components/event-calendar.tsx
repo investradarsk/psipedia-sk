@@ -143,7 +143,13 @@ export function EventCalendar({
   }));
   const [pending, setPending] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const calendarRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const calendar = calendarRef.current;
+    calendar?.setAttribute("data-calendar-ready", "true");
+    return () => calendar?.removeAttribute("data-calendar-ready");
+  }, []);
   const cacheRef = useRef(new Map<string, CalendarData>());
   const f = { ...initialFilters, month: view.filterMonth, time: view.time, type: view.type };
   const query = initialQuery.trim().slice(0, 120);
@@ -324,7 +330,13 @@ export function EventCalendar({
           : "Nadchádzajúce podujatia";
 
   return (
-    <div className={styles.calendar} data-public-calendar data-event-workspace aria-busy={pending}>
+    <div
+      ref={calendarRef}
+      className={styles.calendar}
+      data-public-calendar
+      data-event-workspace
+      aria-busy={pending}
+    >
       <div className={styles.resultBar}>
         <div className={styles.timeBar} role="group" aria-label="Obdobie podujatia">
           {(

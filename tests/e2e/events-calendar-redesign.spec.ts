@@ -147,8 +147,9 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
     await page.goto(target);
     // Avoid measuring before hydration/fonts settle, and read both boxes in the
     // same layout snapshot so a concurrent reflow cannot create false overlap.
-    await page.waitForFunction(() =>
-      Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT),
+    await expect(page.locator("[data-public-calendar]")).toHaveAttribute(
+      "data-calendar-ready",
+      "true",
     );
     const { calendar, legend } = await page.evaluate(async () => {
       await document.fonts.ready;
@@ -199,9 +200,11 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
 });
 
 test("month, day, period and legend change without reloading the document", async ({ page }) => {
-  // A native link clicked before client hydration cannot be intercepted.
-  await page.waitForFunction(() =>
-    Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT),
+  // The framework marker is set when hydrateRoot starts, before this island
+  // necessarily attaches handlers. Wait for this calendar to commit hydration.
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute(
+    "data-calendar-ready",
+    "true",
   );
   await page.evaluate(() => {
     (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker =
@@ -237,8 +240,9 @@ test("month, day, period and legend change without reloading the document", asyn
 test("month, date and event type update in place without reloading the public document", async ({
   page,
 }) => {
-  await page.waitForFunction(() =>
-    Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT),
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute(
+    "data-calendar-ready",
+    "true",
   );
   await page.evaluate(() =>
     document.documentElement.setAttribute("data-calendar-no-reload-marker", "retained"),
