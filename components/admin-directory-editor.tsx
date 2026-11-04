@@ -204,6 +204,7 @@ export function AdminDirectoryEditor({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
+  const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -288,11 +289,12 @@ export function AdminDirectoryEditor({
   }
 
   async function save(nextStatus: DirectoryProfileStatus) {
-    if (saving || notionReadOnly) return;
+    if (saving || savePendingRef.current || notionReadOnly) return;
     if (notionDraft && nextStatus === "published") {
       setError("Najprv bezpečne importuj koncept do D1 a publikuj v natívnom editore.");
       return;
     }
+    savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
       if (notionDraft) {
@@ -387,6 +389,7 @@ export function AdminDirectoryEditor({
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
     } finally {
+      savePendingRef.current = false;
       setSaving(false);
     }
   }
