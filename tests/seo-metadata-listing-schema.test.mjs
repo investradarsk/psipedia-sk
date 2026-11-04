@@ -307,8 +307,8 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
 
   assert.match(directoryPage, /title=\{active\?\.heroTitle \?\? "Služby pre psov"\}/);
   assert.match(directoryPage, /intro=\{\s*active\?\.intro\s*\?\?/);
-  assert.match(directoryPage, /title=\{active \? active\.resultsTitle : filters\.query \|\| filters\.category/);
-  assert.match(directoryPage, /\? "Výsledky vyhľadávania" : "Všetky služby pre psov"\}/);
+  assert.match(directoryPage, /title=\{\s*active\s*\?\s*active\.resultsTitle\s*:\s*filters\.query\s*\|\|\s*filters\.category/);
+  assert.match(directoryPage, /\?\s*"Výsledky vyhľadávania"\s*:\s*"Všetky služby pre psov"\s*\}/);
 
   assert.match(categoryPage, /directoryCategoryListingMetadata\(category, policy\.page\)/);
   assert.match(categoryPage, /name: category\.heroTitle/);
