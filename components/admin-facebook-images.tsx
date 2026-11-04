@@ -4,6 +4,7 @@ import {calendarMonthDays,calendarMonthLabel,calendarWeekdays,moveCalendarMonth}
 import {facebookWallTime,facebookPostsForDay,type FacebookImagePost} from "@/lib/facebook-image-post";
 import {uploadAdminImage} from "@/lib/admin-image-upload";
 import {AdminFacebookGraphicEditor} from "@/components/admin-facebook-graphic-editor";
+import { AdminFacebookWeeklyPlanner } from "@/components/admin-facebook-weekly-planner";
 import {AdminActionButton,AdminModalDialog} from "@/components/admin-interaction-system";
 import {AdminInlineRowActions,AdminInlineCellInput} from "@/components/admin-inline-edit-controls";
 import shared from "./admin-editorial-calendar.module.css";
@@ -368,6 +369,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     .sort((a,b)=>(a.scheduledAt??"").localeCompare(b.scheduledAt??"")).slice(0,4);
   const publisherReady=Boolean(publisher?.connected&&publisher.technicallyEnabled);
   return <div className={styles.root} data-interactive={ready?"true":"false"}>
+    <AdminFacebookWeeklyPlanner />
     <div className={styles.dashboard}>
       <header className={styles.heading}>
         <div>
