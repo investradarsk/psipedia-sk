@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { cookies } from "next/headers";
 import { ReviewAuthorAuthForm } from "@/components/review-author-auth-form";
 import { getPartnerTurnstileSiteKey } from "@/lib/partner-public-config";
@@ -38,9 +39,10 @@ export default async function ReviewAuthorLoginPage({
   if (identity) {
     return (
       <main id="obsah" className="review-auth-shell review-auth-shell--centered">
+        <UniversalPageHero eyebrow="Recenzie Psipedia" title="E-mail je overený" intro="Môžeš pokračovať k hodnoteniu." />
         <section className="review-auth-verification-card">
           <span className="eyebrow">Recenzie Psipedia</span>
-          <h1>E-mail je overený</h1>
+          <h2>E-mail je overený</h2>
           <p>
             Vaša reviewer identita je pripravená. Môžete pokračovať tam, kde ste začali.
           </p>
@@ -54,10 +56,11 @@ export default async function ReviewAuthorLoginPage({
 
   return (
     <main id="obsah" className={`review-auth-shell ${styles.shell}`}>
+      <UniversalPageHero eyebrow="Recenzie Psipedia" title="Overenie e-mailu" intro="Pred napísaním recenzie potrebujeme overiť tvoj e-mail. Bez hesla a registrácie." />
       <section className={`review-auth-layout ${styles.layout}`}>
         <div className="review-auth-copy">
           <span className="eyebrow">Recenzie Psipedia</span>
-          <h1>Overenie e-mailu</h1>
+          <h2>Overenie e-mailu</h2>
           <p className="review-auth-lead">
             {shop ? `Pred hodnotením e-shopu ${shop.name} potrebujeme overiť váš e-mail.` : "Pred napísaním recenzie potrebujeme overiť váš e-mail."}
             {" "}Bez hesla a bez registrácie.
