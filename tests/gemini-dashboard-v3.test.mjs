@@ -67,11 +67,11 @@ test("Gemini admin initial queue read runs in parallel with settings, recent run
 });
 
 test("Gemini does not duplicate a full D1 GET at hydration, but retains polling and visibility refresh", () => {
-  assert.match(workspace, /const id = window\.setInterval\(\(\) => void refresh\(\), 10000\)/);
+  assert.match(workspace, /const id = window\.setInterval\(\(\) => void refresh\(\), hasActiveWork \? 10000 : 30000\)/);
   assert.match(workspace, /document\.addEventListener\("visibilitychange", onVisible\)/);
   assert.match(workspace, /document\.removeEventListener\("visibilitychange", onVisible\)/);
   assert.match(workspace, /if \(cancelled \|\| inFlight \|\| document\.visibilityState === "hidden"\) return/);
-  const effect = workspace.match(/const onVisible = \(\) => \{[\s\S]*?\}, \[available, settings, initialJobs, recentRuns, control\]\);/)?.[0];
+  const effect = workspace.match(/const onVisible = \(\) => \{[\s\S]*?\}, \[available, settings, initialJobs, recentRuns, control, hasActiveWork\]\);/)?.[0];
   assert.ok(effect, "polling effect missing");
   assert.doesNotMatch(effect, /\n\s*void refresh\(\);\s*\n/);
   assert.match(workspace, /if \(!response\.ok\) return/);
@@ -86,4 +86,19 @@ test("dashboard is responsive with accessible compact panels, no 960px grid requ
   assert.match(css, /min-width: 0/);
   assert.match(workspace, /aria-labelledby="gemini-history-title"/);
   assert.match(workspace, /aria-labelledby="gemini-drafts-title"/);
+});
+
+test("Gemini idle mode avoids eager heavy editor bundles and excessive polling", () => {
+  const lazy = source("components/admin-gemini-canonical-drafts-lazy.tsx");
+  const canonical = source("components/admin-gemini-canonical-drafts.tsx");
+  assert.match(workspace, /admin-gemini-canonical-drafts-lazy/);
+  assert.doesNotMatch(workspace, /from "\.\/admin-gemini-notion-drafts"/);
+  assert.match(workspace, /showCategoryDrafts &&/);
+  assert.match(workspace, /setShowCategoryDrafts\(false\)/);
+  assert.match(workspace, /useState\(Boolean\(initialDraftId\)\)/);
+  assert.match(lazy, /dynamic\(/);
+  assert.match(lazy, /ssr: false/);
+  assert.match(lazy, /initiallyExpanded/);
+  assert.match(canonical, /initiallyExpanded = false/);
+  assert.match(workspace, /hasActiveWork \? 10000 : 30000/);
 });
