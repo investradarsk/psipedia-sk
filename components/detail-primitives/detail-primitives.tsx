@@ -340,6 +340,7 @@ export function DetailHero({
           data-media-presentation={mediaPresentation}
         >
           <div className={styles.heroCopy}>{detailContext}</div>
+          {!imageUrl ? <p className={styles.missingPhoto}>Fotografia sa pripravuje.</p> : null}
         </div>
       </div>
     </header>
