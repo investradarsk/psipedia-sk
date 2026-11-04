@@ -11,7 +11,7 @@ test("long Notion coat description survives without 200-character clipping",()=>
   const full="Hrubá krycia srsť a hustá podsada. ".repeat(18);
   assert.ok(full.length>400);
   assert.equal(cleanBreedCoatDescription(full),full.trim());
-  assert.equal(cleanBreedCoatDescription(full).length,full.length);
+  assert.equal(cleanBreedCoatDescription(full).length,full.trim().length);
 });
 
 test("health-risk and consideration paragraphs survive full length beyond 240 characters",()=>{
