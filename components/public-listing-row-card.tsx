@@ -29,15 +29,15 @@ export function PublicListingRowCard({
   hasImage?: boolean;
 }) {
   const contents = (
-    <span className={`${styles.cardInner} ${styles.cardWithImage}`}>
-      <span className={styles.cardImage} aria-hidden="true">
+    <div className={`${styles.cardInner} ${styles.cardWithImage}`}>
+      <div className={styles.cardImage} aria-hidden="true">
         {media}
-      </span>
-      <span className={styles.cardCopy}>
-        <span className={styles.cardTopline} data-public-card-meta>
+      </div>
+      <div className={styles.cardCopy}>
+        <div className={styles.cardTopline} data-public-card-meta>
           <span className={styles.cardType}>{typeLabel}</span>
           {badge}
-        </span>
+        </div>
         {kind === "event" ? (
           <h3 className={styles.cardTitle} data-public-card-title>{title}</h3>
         ) : (
@@ -45,12 +45,12 @@ export function PublicListingRowCard({
         )}
         {location && <span className={styles.cardLocation}>{location}</span>}
         {meta && (
-          <span className={styles.cardMeta} data-public-card-meta>
+          <div className={styles.cardMeta} data-public-card-meta>
             {meta}
-          </span>
+          </div>
         )}
-      </span>
-    </span>
+      </div>
+    </div>
   );
 
   if (kind === "event") {
