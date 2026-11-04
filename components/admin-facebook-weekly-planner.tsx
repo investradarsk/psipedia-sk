@@ -119,7 +119,7 @@ export function AdminFacebookWeeklyPlanner() {
   const start = facebookPlanAddDays(weekStart, week * 7);
   const dates = Array.from({ length: 7 }, (_, index) => facebookPlanAddDays(start, index));
   const done = dates.reduce((total, date) => {
-    return total + facebookPlanSlotsForDay(dates.indexOf(date)).filter((slot) =>
+    return total + facebookPlanSlotsForDay(dates.indexOf(date), date).filter((slot) =>
       marks.has(markId(date, slot.key))).length;
   }, 0);
 
@@ -182,7 +182,7 @@ export function AdminFacebookWeeklyPlanner() {
           <div className={styles.grid}>
             {dates.map((date, index) => {
               const past = date < today;
-              const slots = facebookPlanSlotsForDay(index);
+              const slots = facebookPlanSlotsForDay(index, date);
               return (
                 <section
                   key={date}

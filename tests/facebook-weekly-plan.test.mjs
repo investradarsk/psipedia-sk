@@ -15,19 +15,21 @@ test("all seven days include exactly eight distinct categories with varying orde
   const keys = new Set(FACEBOOK_PLAN_KEYS);
   const firstTimes = new Set();
   for (let day = 0; day < 7; day++) {
-    const slots = facebookPlanSlotsForDay(day);
+    const slots = facebookPlanSlotsForDay(day, facebookPlanAddDays("2026-11-02", day));
     assert.equal(slots.length, 8);
     assert.deepEqual(new Set(slots.map((slot) => slot.key)), keys);
     assert.deepEqual(new Set(slots.map((slot) => slot.time)).size, 8);
     firstTimes.add(slots[0].key);
   }
   assert.ok(firstTimes.size >= 5, "weekly categories must be shuffled");
-  assert.equal(facebookPlanSlotsForDay(0).find((item) => item.key === "article")?.label,
+  assert.equal(facebookPlanSlotsForDay(0, "2026-11-02").find((item) => item.key === "article")?.label,
     "Článok · Výcvik");
-  assert.equal(facebookPlanSlotsForDay(1).find((item) => item.key === "article")?.label,
+  assert.equal(facebookPlanSlotsForDay(1, "2026-11-03").find((item) => item.key === "article")?.label,
     "Článok · Šteniatka");
-  assert.equal(facebookPlanSlotsForDay(2).find((item) => item.key === "article")?.label,
+  assert.equal(facebookPlanSlotsForDay(2, "2026-11-04").find((item) => item.key === "article")?.label,
     "Článok · Zdravie");
+  assert.equal(facebookPlanSlotsForDay(0, "2026-11-09").find((item) => item.key === "article")?.label,
+    "Článok · Šteniatka", "the rotation must continue after Sunday");
   assert.throws(() => facebookPlanSlotsForDay(7));
 });
 

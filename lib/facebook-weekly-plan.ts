@@ -25,15 +25,9 @@ const LABELS: Record<FacebookPlanKey, string> = {
   event: "Podujatie",
 };
 
-const ARTICLE_TOPICS = [
-  "Výcvik",
-  "Šteniatka",
-  "Zdravie",
-  "Výcvik",
-  "Šteniatka",
-  "Zdravie",
-  "Výcvik",
-] as const;
+const ARTICLE_TOPICS = ["Výcvik", "Šteniatka", "Zdravie"] as const;
+// A stable Monday anchor makes the topic rotate continuously, including on
+// the transition from Sunday to Monday and as the 2-week window rolls on.
 
 // Repeatable weekly template. Every weekday uses all eight categories in a
 // different order so no category occupies one fixed publishing time every day.
@@ -120,15 +114,19 @@ export const FACEBOOK_PLAN_WEEKDAYS = [
   "Nedeľa",
 ] as const;
 
-export function facebookPlanSlotsForDay(dayIndex: number): DisplaySlot[] {
+export function facebookPlanSlotsForDay(dayIndex: number, date?: string): DisplaySlot[] {
   if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex > 6) {
     throw new Error("Neplatný deň v týždni.");
   }
+  const calendarDate = date ?? facebookPlanAddDays(facebookPlanWeekStart(), dayIndex);
+  const ordinal = Math.floor(Date.parse(calendarDate + "T12:00:00Z") / 86400000);
+  const anchor = Math.floor(Date.UTC(2026, 10, 2) / 86400000);
+  const topicIndex = ((ordinal - anchor) % 3 + 3) % 3;
 
   return WEEKLY_SLOTS[dayIndex].map((slot) => ({
     ...slot,
     label: slot.key === "article"
-      ? "Článok · " + ARTICLE_TOPICS[dayIndex]
+      ? "Článok · " + ARTICLE_TOPICS[topicIndex]
       : LABELS[slot.key],
   }));
 }
