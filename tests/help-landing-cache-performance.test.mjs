@@ -6,6 +6,7 @@ const visualStore = readFileSync(new URL("../lib/visual-library-edit-store.ts", 
 const overview = readFileSync(new URL("../components/help-overview.tsx", import.meta.url), "utf8");
 const helpStore = readFileSync(new URL("../lib/help-landing-store.ts", import.meta.url), "utf8");
 const helpPage = readFileSync(new URL("../app/pomoc-psom/page.tsx", import.meta.url), "utf8");
+const homepage = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 
 test("help landing remains public-only with bounded D1 content reads", () => {
   assert.match(helpPage, /getHelpLandingSnapshot\(\)/);
@@ -39,4 +40,14 @@ test("hero and banners launch concurrently without changing displayed banner anc
     assert.ok(overview.includes(`"${id}"`), id);
     assert.ok(visualStore.includes(`"${id}"`), id);
   }
+});
+
+test("homepage uses one lightweight public banner read and preserves both slots", () => {
+  assert.match(homepage, /getPublishedDesktopBannerColorsBatch\(\["homepage:profil", "help:lost-found"\]\)/);
+  assert.doesNotMatch(homepage, /getPublishedDesktopBannerColors\("homepage:profil"\)/);
+  assert.doesNotMatch(homepage, /getPublishedDesktopBannerColors\("help:lost-found"\)/);
+  assert.match(homepage, /const homeProfileBannerColors = publishedBannerColors\["homepage:profil"\]/);
+  assert.match(homepage, /const lostFoundBannerColors = publishedBannerColors\["help:lost-found"\]/);
+  const single = visualStore.slice(visualStore.indexOf("export async function getPublishedDesktopBannerColors(id:"));
+  assert.match(single, /getPublishedDesktopBannerColorsBatch\(\[id\]\)/);
 });
