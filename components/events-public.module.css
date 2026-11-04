@@ -2976,3 +2976,17 @@
   font-size: 0.69rem;
   font-weight: 800;
 }
+
+/* Event category indicator retains the calendar legend's exact color. */
+.listTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 7px;
+  border-left: 4px solid var(--event-type-color);
+  border-radius: 4px;
+  background: var(--sage-light);
+  color: var(--forest-dark);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
