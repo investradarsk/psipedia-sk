@@ -6,7 +6,8 @@ import {
 } from "@/components/public-visual-system/public-result-states";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowIcon, SearchIcon } from "@/components/icons";
+import { ArrowIcon } from "@/components/icons";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { directoryCategories } from "@/lib/directory";
 import { eventTypes } from "@/lib/events";
 import { getNewsCategory } from "@/lib/news";
@@ -268,55 +269,30 @@ export default async function SearchPage({ searchParams }: Props) {
 
   return (
     <main id="obsah" className="portal-search-page">
-      <header className="portal-search-hero">
-        <div className="shell">
-          <span className="eyebrow">Celá Psipedia na jednom mieste</span>
-          <h1>Čo hľadáš?</h1>
-          <p>
-            {section === "starostlivost"
-              ? "Vyhľadávame iba v poradni Zdravie a starostlivosť."
-              : section === "aktivity"
-                ? "Vyhľadávame iba v sekcii Výcvik a aktivity."
-                : section === "steniatka"
-                  ? "Vyhľadávame iba v sprievodcovi Šteniatka."
-                  : section === "novinky"
-                    ? "Vyhľadávame iba medzi Novinkami."
-                    : section === "recenzie"
-                      ? "Vyhľadávame iba medzi redakčnými recenziami a testami."
-                      : section === "pomoc-psom"
-                        ? "Vyhľadávame iba v sekcii Pomoc psom."
-                        : "Článok, plemeno, podujatie, veterinára, trénera, službu alebo pomoc nájdeš jedným vyhľadávaním."}
-          </p>
-          <form
-            action="/hladat"
-            method="get"
-            className="portal-search-form"
-            role="search"
-            data-public-search-ui="main"
-          >
-            {section && <input type="hidden" name="sekcia" value={section} />}
-            {section && subsection && <input type="hidden" name="podsekcia" value={subsection} />}
-            <span className="public-search-entry">
-              <span className="public-search-icon" aria-hidden="true">
-                <SearchIcon size={21} />
-              </span>
-              <label className="sr-only" htmlFor="portal-query">
-                Hľadaný výraz
-              </label>
-              <PublicTextInput
-                appearance="context"
-                id="portal-query"
-                name="q"
-                defaultValue={query}
-                maxLength={SEARCH_MAX_QUERY_LENGTH}
-                placeholder="Hľadať na Psipedii"
-                autoComplete="off"
-              />
-            </span>
-            <button type="submit">Hľadať</button>
-          </form>
-        </div>
-      </header>
+      <UniversalPageHero
+        eyebrow="Celá Psipedia na jednom mieste"
+        title="Čo hľadáš?"
+        intro={section === "starostlivost"
+          ? "Vyhľadávame iba v poradni Zdravie a starostlivosť."
+          : section === "aktivity"
+            ? "Vyhľadávame iba v sekcii Výcvik a aktivity."
+            : section === "steniatka"
+              ? "Vyhľadávame iba v sprievodcovi Šteniatka."
+              : section === "novinky"
+                ? "Vyhľadávame iba medzi Novinkami."
+                : section === "recenzie"
+                  ? "Vyhľadávame iba medzi redakčnými recenziami a testami."
+                  : section === "pomoc-psom"
+                    ? "Vyhľadávame iba v sekcii Pomoc psom."
+                    : "Článok, plemeno, podujatie, veterinára, trénera, službu alebo pomoc nájdeš jedným vyhľadávaním."}
+        searchDefaultValue={query}
+        allowEmptySearch
+        searchScope={section || undefined}
+        searchHidden={[
+          ...(section ? [{ name: "sekcia", value: section }] : []),
+          ...(section && subsection ? [{ name: "podsekcia", value: subsection }] : []),
+        ]}
+      />
 
       {query.length >= 2 && !section ? (
         <section
