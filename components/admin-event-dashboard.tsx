@@ -76,13 +76,15 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
     initialData: requestKey === initialRequestKey
       ? { ...initialPage, reviewedIds: initialReviewedIds } : undefined,
     placeholderData: keepPreviousData,
-    staleTime: 20_000,
+    // Returning to a recently visited month/filter stays instant; writes
+    // explicitly invalidate every cached events page before refetching.
+    staleTime: 60_000,
   });
   const data = eventQuery.data ?? initialPage;
   const reviewedIds = eventQuery.data?.reviewedIds ?? initialReviewedIds;
   const reviewed = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const events = data.events;
-  const loading = eventQuery.isFetching || eventQuery.isPlaceholderData || filters.query !== settledSearch;
+  const loading = eventQuery.isPending || eventQuery.isPlaceholderData || filters.query !== settledSearch;
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
