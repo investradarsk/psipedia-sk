@@ -39,13 +39,13 @@ test("only audited, literal public DOM markers can prove a component is in serve
   const directory = read("components/directory-card.tsx");
   const event = read("components/event-card.tsx");
   const listing = read("components/public-listing-row-card.tsx");
-  assert.match(directory, /<PublicListingRowCard\\b/);
+  assert.match(directory, /<PublicListingRowCard\b/);
   assert.match(directory, /kind="directory"/);
-  assert.match(event, /<PublicListingRowCard\\b/);
+  assert.match(event, /<PublicListingRowCard\b/);
   assert.match(event, /kind="event"/);
   assert.match(listing, /kind === "event"/);
-  assert.match(listing, /data-directory-card\\b/);
-  assert.match(listing, /data-event-card\\b/);
+  assert.match(listing, /data-directory-card\b/);
+  assert.match(listing, /data-event-card\b/);
   assert.equal(componentHtmlProbeIdForOwnerGroup("unknown"), null);
   assert.equal(componentHtmlProbeIdForOwnerGroup("__proto__"), null);
   assert.equal(validHtmlProbe({kind:"component",componentId:"h1, body"}), false);
