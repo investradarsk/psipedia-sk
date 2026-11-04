@@ -248,14 +248,17 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <label className="admin-field"><span>Každodenné potreby</span><AdminLexicalTextField rows={5} value={form.needs} onChange={(next)=>change("needs",next)} ariaLabel="Každodenné potreby" /></label>
         <label className="admin-field"><span>Potreba pohybu</span><AdminLexicalTextField rows={6} value={form.exercise} onChange={(next)=>change("exercise",next)} ariaLabel="Potreba pohybu" /></label>
         <label className="admin-field"><span>Výcvik</span><AdminLexicalTextField rows={6} value={form.training} onChange={(next)=>change("training",next)} ariaLabel="Výcvik" /></label>
-        <div className="admin-field-grid">
+        <details className={styles.fciGroup}>
+          <summary>Rozšírené redakčné texty (pôvodné polia – obsah zostáva zachovaný)</summary>
+          <div className="admin-field-grid">
           <label className="admin-field"><span>Odporúčanie k pohybu</span><AdminLexicalTextField rows={3} value={form.editorial.exerciseTip??""} onChange={(next)=>updateEditorial("exerciseTip",next)} ariaLabel="Odporúčanie k pohybu" /></label>
           <label className="admin-field"><span>Odporúčanie k výcviku</span><AdminLexicalTextField rows={3} value={form.editorial.trainingTip??""} onChange={(next)=>updateEditorial("trainingTip",next)} ariaLabel="Odporúčanie k výcviku" /></label>
           <label className="admin-field"><span>Srsť a údržba</span><AdminLexicalTextField rows={4} value={form.editorial.coatCare??""} onChange={(next)=>updateEditorial("coatCare",next)} ariaLabel="Srsť a údržba" /></label>
           <label className="admin-field"><span>Odporúčanie k srsti</span><AdminLexicalTextField rows={3} value={form.editorial.coatTip??""} onChange={(next)=>updateEditorial("coatTip",next)} ariaLabel="Odporúčanie k srsti" /></label>
           <label className="admin-field"><span>Život s rodinou a deťmi</span><AdminLexicalTextField rows={4} value={form.editorial.familyLife??""} onChange={(next)=>updateEditorial("familyLife",next)} ariaLabel="Život s rodinou a deťmi" /></label>
           <label className="admin-field"><span>Vzťah k iným psom</span><AdminLexicalTextField rows={4} value={form.editorial.otherDogsLife??""} onChange={(next)=>updateEditorial("otherDogsLife",next)} ariaLabel="Vzťah k iným psom" /></label>
-        </div>
+          </div>
+        </details>
         <label className="admin-field"><span>Pre koho sa hodí — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.goodFor} onChange={(next)=>change("goodFor",next)} ariaLabel="Pre koho sa hodí — jedna položka na riadok" /></label>
         <label className="admin-field"><span>Na čo si dať pozor — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.consider} onChange={(next)=>change("consider",next)} ariaLabel="Na čo si dať pozor — jedna položka na riadok" /></label>
         <label className="admin-field"><span>Zaujímavosti</span><AdminLexicalTextField rows={4} value={form.editorial.curiosities??""} onChange={(next)=>updateEditorial("curiosities",next)} ariaLabel="Zaujímavosti" /></label>
@@ -268,7 +271,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <div className={styles.heading}><div><h2>Zdravie</h2><p>Zverejňuj iba odborne overený obsah; editor nepridáva žiadne odvodené zdravotné tvrdenia.</p></div></div>
         <label className="admin-field"><span>Zdravie</span><AdminLexicalTextField rows={7} value={form.health} onChange={(next)=>change("health",next)} ariaLabel="Zdravie" /></label>
         <label className="admin-field"><span>Typické zdravotné riziká — jedna položka na riadok</span><AdminLexicalTextField rows={5} value={form.healthRisks} onChange={(next)=>change("healthRisks",next)} ariaLabel="Typické zdravotné riziká — jedna položka na riadok" /></label>
-        <label className="admin-field"><span>Zdravotná poznámka</span><AdminLexicalTextField rows={3} value={form.editorial.healthTip??""} onChange={(next)=>updateEditorial("healthTip",next)} ariaLabel="Zdravotná poznámka" /></label>
+        <details className={styles.fciGroup}><summary>Rozšírená zdravotná poznámka (pôvodné pole)</summary>
+          <label className="admin-field"><span>Zdravotná poznámka</span><AdminLexicalTextField rows={3} value={form.editorial.healthTip??""} onChange={(next)=>updateEditorial("healthTip",next)} ariaLabel="Zdravotná poznámka" /></label>
+        </details>
       </div>
     </AdminEditorSection>
 

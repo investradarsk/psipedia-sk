@@ -300,31 +300,46 @@ test("Admin-owned Notion field remains pending until outbound PATCH succeeds", (
   assert.equal(next.intro, "V Notione staré");
 });
 
-test("an absent Notion property never deletes Admin data; an empty present cell does", () => {
+test("blank Notion fields never clear Admin data, while filled fields update independently", () => {
   const present = breedNotionPresentFieldIds({
     properties: {
       Charakter: { rich_text: [] },
       "FCI oči": { rich_text: [] },
+      Zdravie: { rich_text: [{ plain_text: "Nové zdravie" }] },
+      Deti: { number: null },
+      "SEO noindex": { checkbox: false },
+      "Editorial complete": { checkbox: false },
+      "Športy JSON": { rich_text: [{ plain_text: "[]" }] },
     },
   });
-  assert.equal(present.has("character"), true);
+  assert.equal(present.has("character"), false);
+  assert.equal(present.has("fciStandard.oci"), false);
+  assert.equal(present.has("children"), false);
+  assert.equal(present.has("sports"), false);
+  assert.equal(present.has("health"), true);
+  assert.equal(present.has("seo.noindex"), true);
+  assert.equal(present.has("editorialComplete"), true);
+  const existing = breed({ character: "Starý charakter", health: "Zdravie zostáva" });
+  const old = breedFieldSnapshot(existing);
+  const incoming = source({ character: "", health: "Nové zdravie" });
+  const actual = planBreedNotionFieldDelta(existing, incoming, old, old, {}, present);
+  assert.ok(actual.accepted.includes("health"));
+  assert.ok(!actual.accepted.includes("character"));
+  assert.equal(actual.patch.character, undefined);
+  assert.equal(actual.patch.health, "Nové zdravie");
+});
+
+test("filled legacy FCI aggregate can supply a blank individual subfield", () => {
+  const present = breedNotionPresentFieldIds({
+    properties: {
+      "FCI štandard JSON": { rich_text: [{ plain_text: '{"oci":"Tmavé oči"}' }] },
+      "FCI oči": { rich_text: [] },
+      "Redakčné sekcie JSON": { rich_text: [{ plain_text: '{"overview":"Zachovať text"}' }] },
+      "Redakcia prehľad": { rich_text: [] },
+    },
+  });
   assert.equal(present.has("fciStandard.oci"), true);
-  assert.equal(present.has("health"), false);
-  const old = breedFieldSnapshot(
-    breed({ character: "Starý charakter", health: "Zdravie zostáva" }),
-  );
-  const incoming = source({ character: "", health: "" });
-  const actual = planBreedNotionFieldDelta(
-    breed({ character: "Starý charakter", health: "Zdravie zostáva" }),
-    incoming,
-    old,
-    old,
-    {},
-    present,
-  );
-  assert.ok(actual.accepted.includes("character"));
-  assert.ok(!actual.accepted.includes("health"));
-  assert.equal(actual.patch.health, undefined);
+  assert.equal(present.has("editorial.overview"), true);
 });
 
 test("old FCI JSON can supply missing leaf properties, but malformed JSON cannot", () => {
