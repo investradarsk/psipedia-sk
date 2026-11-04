@@ -2990,3 +2990,249 @@
   font-size: 0.72rem;
   font-weight: 850;
 }
+
+
+/* PODUJATIA-DESKTOP-WIDE-COMPACT: the month sits above the filters/results.
+   Scope to desktop: keep the existing mobile calendar and filters unchanged. */
+@media (min-width: 821px) {
+  .calendarSection {
+    padding-top: 8px;
+    padding-bottom: 32px;
+  }
+
+  .calendar[data-event-workspace] {
+    grid-template-columns: 228px minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    column-gap: 18px;
+    row-gap: 12px;
+  }
+
+  .calendar[data-event-workspace] > .resultBar {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .calendar[data-event-workspace] .timeBar {
+    gap: 6px;
+  }
+
+  .calendar[data-event-workspace] .timeChip,
+  .calendar[data-event-workspace] .activeTimeChip {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 0.79rem;
+  }
+
+  .calendar[data-event-workspace] > .calendarLayout {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .calendar[data-event-workspace] .monthCalendar {
+    padding: 12px 16px 10px;
+    border-radius: 16px;
+  }
+
+  .calendar[data-event-workspace] .desktopCalendarColumns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .calendar[data-event-workspace] .monthHeading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .calendar[data-event-workspace] .monthEyebrow {
+    display: none;
+  }
+
+  .calendar[data-event-workspace] .monthHeading h2 {
+    font-size: 1.18rem;
+    line-height: 1.2;
+  }
+
+  .calendar[data-event-workspace] .monthNavigation {
+    justify-content: flex-end;
+    gap: 5px;
+  }
+
+  .calendar[data-event-workspace] .monthNavigation a {
+    min-height: 30px;
+    min-width: 30px;
+    padding: 4px 9px;
+    font-size: 0.78rem;
+  }
+
+  .calendar[data-event-workspace] .desktopFullCalendar :global(.fc-col-header-cell-cushion) {
+    padding: 4px 2px;
+    font-size: 0.72rem;
+  }
+
+  .calendar[data-event-workspace] .desktopFullCalendar :global(.fc-daygrid-day-frame),
+  .calendar[data-event-workspace] .desktopFullCalendar .fullCalendarDayLink,
+  .calendar[data-event-workspace] .desktopFullCalendar .fullCalendarDayContent {
+    min-height: 38px;
+    height: 38px;
+  }
+
+  .calendar[data-event-workspace] .desktopFullCalendar .fullCalendarDayContent {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+    padding: 4px 8px;
+  }
+
+  .calendar[data-event-workspace] .desktopFullCalendar .fullCalendarDayHeading {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+  }
+
+  .calendar[data-event-workspace] .desktopFullCalendar .fullCalendarCount {
+    min-width: 19px;
+    width: auto;
+    height: 19px;
+    padding: 2px 4px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    line-height: 1;
+  }
+
+  .calendar[data-event-workspace]
+    .desktopFullCalendar
+    .fullCalendarDayContent[data-today="true"]
+    .fullCalendarDayHeading
+    > span:first-child {
+    width: 23px;
+    height: 23px;
+  }
+
+  .calendar[data-event-workspace] .desktopFullCalendar .fullCalendarIndicators {
+    flex: 0 1 auto;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .calendar[data-event-workspace] .desktopFullCalendar .fullCalendarIndicators > span {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+  }
+
+  .calendar[data-event-workspace] .calendarDetailColumn:has(.dayPanelPlaceholder) {
+    display: none;
+  }
+
+  .calendar[data-event-workspace] .calendarDetailColumn:not(:has(.dayPanelPlaceholder)) {
+    display: block;
+    margin-top: 10px;
+    padding: 10px 0 0;
+    border-top: 1px solid var(--ps-border-soft);
+    border-left: 0;
+  }
+
+  .calendar[data-event-workspace] .calendarDetailColumn .dayEvents {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .calendar[data-event-workspace] .calendarDetailColumn .dayEvent {
+    grid-template-columns: 54px minmax(0, 1fr);
+    min-height: 66px;
+    gap: 8px;
+    padding: 6px;
+  }
+
+  .calendar[data-event-workspace] .calendarDetailColumn .dayEventMedia {
+    width: 54px;
+  }
+
+  .calendar[data-event-workspace] .calendarLegend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    margin-top: 8px;
+    padding: 7px 0 0;
+  }
+
+  .calendar[data-event-workspace] .calendarLegend a {
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: 7px;
+    font-size: 0.75rem;
+  }
+
+  .calendar[data-event-workspace] [data-events-listing-layout] {
+    display: contents;
+  }
+
+  .calendar[data-event-workspace] [data-public-filter-panel] {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .calendar[data-event-workspace] :global(#events-list) {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .calendar[data-event-workspace] .filterSidebar {
+    padding: 14px;
+  }
+
+  .calendar[data-event-workspace] .sidebarHeading h2 {
+    margin-bottom: 5px;
+    font-size: 0.99rem;
+  }
+
+  .calendar[data-event-workspace] .sidebarContent form {
+    gap: 9px;
+    margin-top: 10px;
+  }
+
+  .calendar[data-event-workspace] .sidebarContent label {
+    gap: 4px;
+    font-size: 0.79rem;
+  }
+
+  .calendar[data-event-workspace] .sidebarContent input:not([type="radio"]),
+  .calendar[data-event-workspace] .sidebarContent select {
+    min-height: 37px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+  }
+
+  .calendar[data-event-workspace] .sidebarContent .typeChoice {
+    min-height: 34px;
+    gap: 7px;
+  }
+
+  .calendar[data-event-workspace] .sidebarContent legend {
+    font-size: 0.8rem;
+  }
+
+  .calendar[data-event-workspace] .listingLayout .listHeading {
+    gap: 8px 14px;
+  }
+
+  .calendar[data-event-workspace] .listingLayout .listHeading h2 {
+    font-size: clamp(1.35rem, 2vw, 1.7rem);
+  }
+}
