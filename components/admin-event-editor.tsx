@@ -68,6 +68,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   const [status, setStatus] = useState<EventStatus>(event?.status ?? "draft");
   const [seo, setSeo] = useState(event?.seo ?? {});
   const [saving, setSaving] = useState(false);
+  const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -197,6 +198,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   }
 
   async function save(nextStatus: EventStatus) {
+    if (savePendingRef.current || uploading) return;
+    savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
       const response = await fetch(event ? `/api/admin/events/${event.id}` : "/api/admin/events", {
@@ -217,7 +220,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Podujatie sa nepodarilo uložiť.");
-    } finally { setSaving(false); }
+    } finally { savePendingRef.current = false; setSaving(false); }
   }
 
   const liveSummary = (
