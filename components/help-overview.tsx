@@ -26,7 +26,7 @@ import {
 import { HomePortalSearch } from "@/components/home-portal-search";
 import type { HelpCategorySlug } from "@/lib/help";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
-import { getPublishedDesktopBannerColors } from "@/lib/visual-library-edit-store";
+import { getPublishedDesktopBannerColorsBatch } from "@/lib/visual-library-edit-store";
 import type { BannerDraft } from "@/lib/visual-library-drafts";
 import styles from "./help-public.module.css";
 
@@ -106,9 +106,8 @@ export async function HelpOverview({
   // Each individually anchored Help banner can have a separate desktop-only
   // publication. Mobile continues rendering its original shared preset.
   const helpBannerIds = ["help:lost-found", "help:overview:0", "help:overview:2", "help:overview:4", "help:closing"] as const;
-  const publishedHelp = Object.fromEntries(await Promise.all(helpBannerIds.map(async (id) =>
-    [id, await getPublishedDesktopBannerColors(id)] as const
-  ))) as Record<string, BannerDraft | null>;
+  const publishedHelp: Record<string, BannerDraft | null> =
+    await getPublishedDesktopBannerColorsBatch(helpBannerIds);
   return (
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
