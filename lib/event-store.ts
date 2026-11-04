@@ -384,7 +384,7 @@ export async function getPublicEventCalendar(filters: EventListingFilters, month
   const end = `${month}-${String(new Date(Date.UTC(year, number, 0)).getUTCDate()).padStart(2,'0')}`;
   // Evaluate the filtered month once; do not repeat the same D1 reads for 31 days.
   // Aggregate day counts and load the selected day's cards concurrently.
-  const validDay = /^20\\d{2}-\\d{2}-\\d{2}$/.test(day) && day >= start && day <= end;
+  const validDay = /^20\d{2}-\d{2}-\d{2}$/.test(day) && day >= start && day <= end;
   const [rows, dayEvents] = await Promise.all([
     database.prepare(publicEventCalendarSummarySql(sql.where))
       .bind(start, end, ...sql.values, end, start)
