@@ -9,7 +9,7 @@
   min-width: 0;
   font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
   color: var(--detail-ink);
-  background: #faf9f4;
+  background: var(--ps-color-canvas);
   padding-bottom: 48px;
 }
 .shell {
