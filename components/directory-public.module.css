@@ -1,6 +1,6 @@
 .page {
   min-width: 0;
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 
 .foundation,
@@ -229,7 +229,7 @@
 
 .resultsSection {
   padding-block: 34px 52px;
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 
 .listGrid {
@@ -425,7 +425,7 @@
 
 /* DIRECTORY-VISUAL-1: richer public directory overview inspired by the Psipedia homepage language. */
 .page {
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 
 .headerShell {
@@ -719,7 +719,7 @@
 
 /* DIR-VISUAL-2: stronger landing hierarchy while preserving the existing directory/result contracts. */
 .page {
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 
 .headerShell {
@@ -1897,7 +1897,7 @@
 
 /* GLOBAL-DESIGN-UNIFICATION-1: align the directory search below the shared hero. */
 .resultsSection {
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 .directorySearch {
   width: 100%;
