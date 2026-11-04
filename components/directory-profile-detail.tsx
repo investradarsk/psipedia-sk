@@ -275,6 +275,7 @@ export function DirectoryProfileDetail({
       content: (
         <DetailContactsCard
           id="directory-profile-contact"
+          noteTone="neutral"
           title="Adresa a kontakt"
           contacts={practicalRows}
           note={
@@ -284,7 +285,7 @@ export function DirectoryProfileDetail({
               ) : null}
               {updatedAt ? (
                 <span>
-                  Aktualizované <time dateTime={presentation.updatedAt}>{updatedAt}</time>
+                  <time dateTime={presentation.updatedAt}>{updatedAt}</time>
                 </span>
               ) : null}
             </>

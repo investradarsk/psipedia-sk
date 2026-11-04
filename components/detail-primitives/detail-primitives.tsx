@@ -80,12 +80,14 @@ export function DetailContactsCard({
   title,
   contacts,
   note,
+  noteTone = "highlight",
   emptyMessage = "Priamy kontakt zatiaľ nie je uvedený.",
   id,
 }: {
   title: string;
   contacts: DetailContact[];
   note?: ReactNode;
+  noteTone?: "highlight" | "neutral";
   emptyMessage?: string;
   id?: string;
 }) {
@@ -103,7 +105,7 @@ export function DetailContactsCard({
       ) : (
         <p data-public-contact-empty>{emptyMessage}</p>
       )}
-      {hasContent(note) && <p className={styles.note}>{note}</p>}
+      {hasContent(note) && <p className={noteTone === "neutral" ? styles.noteNeutral : styles.note}>{note}</p>}
     </section>
   );
 }

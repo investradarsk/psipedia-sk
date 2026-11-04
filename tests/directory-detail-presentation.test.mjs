@@ -239,6 +239,16 @@ test("DIRECTORY-AI-PROFILE-SURFACE-1 formats a neutral public updated date", () 
   assert.equal(formatDirectoryUpdatedAt("not-a-date"), null);
 });
 
+test("public directory contact metadata is not duplicated or styled as an alert", () => {
+  const component = fs.readFileSync(
+    new URL("../components/directory-profile-detail.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(component.includes('noteTone="neutral"'));
+  assert.ok(component.includes('<time dateTime={presentation.updatedAt}>{updatedAt}</time>'));
+  assert.ok(!component.includes("Aktualizované <time"));
+});
+
 test("DIRECTORY-AI-PROFILE-SURFACE-1 veterinary quick facts contain only populated public values", () => {
   const presentation = getDirectoryDetailPresentation(
     profile({
