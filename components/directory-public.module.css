@@ -1745,24 +1745,23 @@
   background: var(--sage-light);
   font-size: 0.72rem;
 }
-.listRows:global(.directory-grid),
-.listRows:global([data-event-list]) {
+.directoryColumns .listGrid:global(.directory-grid) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 11px;
 }
-.listRows .cardInner {
+.directoryColumns .cardInner {
   padding: 15px;
   gap: 14px;
 }
-.listRows .cardWithImage {
+.directoryColumns .cardWithImage {
   grid-template-columns: 96px minmax(0, 1fr);
 }
-.listRows .cardImage {
+.directoryColumns .cardImage {
   width: 96px;
   height: 82px;
 }
-.listRows .cardTitle {
+.directoryColumns .cardTitle {
   font-size: 1.08rem;
 }
 .directorySidebar {
@@ -1881,10 +1880,10 @@
   .resultsHeading > strong {
     white-space: normal;
   }
-  .listRows .cardWithImage {
+  .directoryColumns .cardWithImage {
     grid-template-columns: 72px minmax(0, 1fr);
   }
-  .listRows .cardImage {
+  .directoryColumns .cardImage {
     width: 72px;
     height: 72px;
   }
@@ -1933,18 +1932,18 @@
   overflow: hidden;
   border-radius: 12px;
 }
-.listRows .cardWithImage {
+.directoryColumns .cardWithImage {
   grid-template-columns: 80px minmax(0, 1fr);
 }
-.listRows .cardImage {
+.directoryColumns .cardImage {
   width: 80px;
   height: 80px;
 }
 @media (max-width: 620px) {
-  .listRows .cardWithImage {
+  .directoryColumns .cardWithImage {
     grid-template-columns: 68px minmax(0, 1fr);
   }
-  .listRows .cardImage {
+  .directoryColumns .cardImage {
     width: 68px;
     height: 68px;
   }
@@ -1992,44 +1991,44 @@
 /* Shared listing-row rhythm: same mobile information hierarchy as article
    previews without losing service-specific location, badges or summaries. */
 @media (max-width: 620px) {
-  .listRows .card {
+  .directoryColumns .card {
     border-radius: 15px;
     box-shadow: none;
   }
-  .listRows .cardInner {
+  .directoryColumns .cardInner {
     padding: 13px 11px;
   }
-  .listRows .cardWithImage {
+  .directoryColumns .cardWithImage {
     grid-template-columns: 76px minmax(0, 1fr);
     gap: 11px;
   }
-  .listRows .cardImage {
+  .directoryColumns .cardImage {
     width: 76px;
     height: 76px;
   }
-  .listRows .cardCopy {
+  .directoryColumns .cardCopy {
     min-width: 0;
     gap: 4px;
   }
-  .listRows .cardTitle {
+  .directoryColumns .cardTitle {
     font-size: clamp(0.98rem, 4.2vw, 1.17rem);
     line-height: 1.23;
   }
-  .listRows .cardLocation {
+  .directoryColumns .cardLocation {
     font-size: 0.78rem;
     line-height: 1.4;
   }
-  .listRows .cardMeta {
+  .directoryColumns .cardMeta {
     font-size: 0.74rem;
     line-height: 1.4;
   }
 }
 @media (max-width: 360px) {
-  .listRows .cardWithImage {
+  .directoryColumns .cardWithImage {
     grid-template-columns: 68px minmax(0, 1fr);
     gap: 8px;
   }
-  .listRows .cardImage {
+  .directoryColumns .cardImage {
     width: 68px;
     height: 68px;
   }
@@ -2165,22 +2164,80 @@
   }
 }
 
-/* Both event and service listings use this one canonical compact row layout. */
-.listRows {
+/* Event listings reuse the directory-card surface without changing any existing
+   directory selectors or its approved desktop/mobile geometry. */
+.listRows:global(.directory-grid),
+.listRows:global([data-event-list]) {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
   gap: 11px;
 }
-
+.listRows .cardInner {
+  padding: 15px;
+  gap: 14px;
+}
+.listRows .cardWithImage {
+  grid-template-columns: 80px minmax(0, 1fr);
+}
+.listRows .cardImage {
+  display: block;
+  width: 80px;
+  height: 80px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+}
 .listRows .cardImage img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-
 .listRows .cardMeta time {
   font: inherit;
   color: inherit;
+}
+@media (max-width: 620px) {
+  .listRows .card {
+    border-radius: 15px;
+    box-shadow: none;
+  }
+  .listRows .cardInner {
+    padding: 13px 11px;
+    gap: 11px;
+  }
+  .listRows .cardWithImage {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+  .listRows .cardImage {
+    width: 76px;
+    height: 76px;
+  }
+  .listRows .cardCopy {
+    min-width: 0;
+    gap: 4px;
+  }
+  .listRows .cardTitle {
+    font-size: clamp(0.98rem, 4.2vw, 1.17rem);
+    line-height: 1.23;
+  }
+  .listRows .cardLocation {
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+  .listRows .cardMeta {
+    font-size: 0.74rem;
+    line-height: 1.4;
+  }
+}
+@media (max-width: 360px) {
+  .listRows .cardWithImage {
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .listRows .cardImage {
+    width: 68px;
+    height: 68px;
+  }
 }
