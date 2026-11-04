@@ -20,6 +20,8 @@ const API="https://api.notion.com/v1";
 const VERSION="2025-09-03";
 const id=process.env.NOTION_BREEDS_DATA_SOURCE_ID?.trim() ||
   "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2";
+const backupId=process.env.NOTION_BREEDS_BACKUP_DATA_SOURCE_ID?.trim() ||
+  "170793fc-1d18-8204-a6f9-87479609dca7";
 const token=process.env.NOTION_API_TOKEN?.trim();
 const mode=process.argv.find(v=>v.startsWith("--mode="))?.split("=")[1] ?? "audit";
 const confirm=process.argv.find(v=>v.startsWith("--confirm="))?.split("=")[1] ?? "";
@@ -51,11 +53,11 @@ async function request(method,path,body) {
   }
   throw Error("NOTION_RETRY_EXHAUSTED");
 }
-async function allPages(){
+async function allPages(dataSourceId=id){
   const seen=new Set(),pages=[];
   let cursor;
   do{
-    const response=await request("POST","/data_sources/"+encodeURIComponent(id)+"/query",{
+    const response=await request("POST","/data_sources/"+encodeURIComponent(dataSourceId)+"/query",{
       page_size:100,...(cursor?{start_cursor:cursor}:{})
     });
     for(const page of response.results??[]){
@@ -102,6 +104,17 @@ function richText(value){
   return out;
 }
 const pages=await allPages();
+if(mode!=="audit") {
+  // Two independent page inventories must be complete before any live edits.
+  const backup=await allPages(backupId);
+  const uniqueKey=(page)=>notionText(page.properties?.["Psipedia ID"]);
+  const sourceIds=pages.map(uniqueKey),archivedIds=backup.map(uniqueKey);
+  if(sourceIds.some(x=>!x)||archivedIds.some(x=>!x)||
+      new Set(sourceIds).size!==344||new Set(archivedIds).size!==344||
+      sourceIds.some(x=>!archivedIds.includes(x))) {
+    throw Error("BREED_BACKUP_IDENTITY_COVERAGE_INCOMPLETE");
+  }
+}
 const list=pages.slice(0,requestedLimit||undefined);
 const stats={mode,inventory:pages.length,scanned:0,changed:0,verified:0,skipped:0,
   conflicts:0,propertyWrites:0,unresolvedSources:new Set(),failedIds:[]};
