@@ -163,7 +163,7 @@ function conciseHeroIntro(intro: ReactNode): ReactNode {
   return summary && summary.length <= 265 ? summary : sentences[0]?.trim() || clean;
 }
 
-export async function UnifiedSectionHero({
+export function UnifiedSectionHero({
   breadcrumbs,
   eyebrow,
   title,
