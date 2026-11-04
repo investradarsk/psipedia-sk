@@ -4,11 +4,15 @@ import * as Dialog from "@radix-ui/react-dialog";
 import Fuse from "fuse.js";
 import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
 import styles from "./admin-quick-navigation.module.css";
 
 type Destination = { label: string; category: string; href: string; keywords: string; subtitle?: string };
+type CachedRecords = { results: Destination[]; incomplete: boolean; expiresAt: number };
+const SEARCH_DEBOUNCE_MS = 140;
+const SEARCH_CACHE_TTL_MS = 15_000;
+const SEARCH_CACHE_LIMIT = 24;
 
 // Keep the regular sidebar as the single authority for main destinations.
 // Only deeper, verified admin routes are added below for fast access.
@@ -55,35 +59,58 @@ export function AdminQuickNavigation() {
   const [loading, setLoading] = useState(false);
   const [incomplete, setIncomplete] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const cache = useRef(new Map<string, CachedRecords>());
 
   useEffect(() => {
-    if (!open || query.trim().length < 2) return;
+    const term = query.trim();
+    if (!open || term.length < 2) return;
+
+    const cached = cache.current.get(term);
+    if (cached && cached.expiresAt > Date.now()) {
+      setRecords(cached.results);
+      setIncomplete(cached.incomplete);
+      setSearchError("");
+      setLoading(false);
+      return;
+    }
+    if (cached) cache.current.delete(term);
+
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch("/api/admin/global-search?q=" + encodeURIComponent(query.trim()), {
+        const response = await fetch("/api/admin/global-search?q=" + encodeURIComponent(term), {
           credentials: "same-origin", cache: "no-store", signal: controller.signal,
         });
-        const data = await response.json() as { results?: Array<{ title: string; subtitle: string; href: string; category: string }>; incomplete?: boolean; error?: string };
-        if (!response.ok) throw new Error(data.error ?? "Vyhľadávanie nie je dostupné.");
-        if (!controller.signal.aborted) {
-          setRecords((data.results ?? []).map(record => ({
-            label: record.title, subtitle: record.subtitle, category: record.category, href: record.href, keywords: "",
-          })));
-          setIncomplete(Boolean(data.incomplete));
-          setSearchError("");
-          setLoading(false);
+        if (!response.ok) throw new Error("Vyhľadávanie nie je dostupné.");
+        const data = await response.json() as {
+          results?: Array<{ title: string; subtitle: string; href: string; category: string }>;
+          incomplete?: boolean;
+        };
+        if (controller.signal.aborted) return;
+        const results = (data.results ?? []).map(record => ({
+          label: record.title, subtitle: record.subtitle, category: record.category,
+          href: record.href, keywords: "",
+        }));
+        const incomplete = Boolean(data.incomplete);
+        cache.current.delete(term);
+        cache.current.set(term, { results, incomplete, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
+        if (cache.current.size > SEARCH_CACHE_LIMIT) {
+          const oldest = cache.current.keys().next().value;
+          if (oldest !== undefined) cache.current.delete(oldest);
         }
+        setRecords(results);
+        setIncomplete(incomplete);
+        setSearchError("");
+        setLoading(false);
       } catch (error) {
         if (!controller.signal.aborted) {
           setSearchError(error instanceof Error ? error.message : "Vyhľadávanie nie je dostupné.");
           setLoading(false);
         }
       }
-    }, 260);
+    }, SEARCH_DEBOUNCE_MS);
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [open, query]);
-
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -177,7 +204,7 @@ export function AdminQuickNavigation() {
                 <span><strong>{item.label}</strong><small>{item.category}{item.subtitle ? " · " + item.subtitle : ""}</small></span>
                 <span className={styles.arrow} aria-hidden="true">↗</span>
               </button>
-            )) : <p className={styles.empty}>Takúto sekciu som nenašiel. Skús iné slovo.</p>}
+            )) : !loading && <p className={styles.empty}>Takúto sekciu som nenašiel. Skús iné slovo.</p>}
           </div>
           {loading && <p className={styles.searchFeedback} role="status">Hľadám záznamy…</p>}
           {searchError && <p className={styles.searchFeedback} role="alert">{searchError}</p>}

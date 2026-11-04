@@ -58,10 +58,31 @@ const groups: Group[] = [
 export async function searchAdminRecords(database: D1Database, input: string) {
   const query = input.trim().slice(0, 80);
   if (query.length < 2) return { results: [] as AdminGlobalRecord[], incomplete: false };
-  const answers = await Promise.allSettled(groups.map(group => {
+  const statements = groups.map(group => {
     const matchCount = (group.sql.match(/lower\(\?\)/g) ?? []).length;
-    return database.prepare(group.sql).bind(...Array(matchCount).fill(query)).all<SearchRow>();
-  }));
+    return database.prepare(group.sql).bind(...Array(matchCount).fill(query));
+  });
+
+  // One D1 round trip in the healthy case. If a module's table is missing
+  // during a staged migration, retry each SELECT independently so that
+  // healthy modules are still searchable.
+  const individualReads = () => Promise.allSettled(
+    statements.map(statement => statement.all<SearchRow>()),
+  );
+  let answers: Awaited<ReturnType<typeof individualReads>>;
+  if (typeof database.batch === "function") {
+    try {
+      const batch = await database.batch<SearchRow>(statements);
+      if (batch.length !== groups.length || batch.some(result => result.success === false)) {
+        throw new Error("Incomplete global search batch");
+      }
+      answers = batch.map(value => ({ status: "fulfilled" as const, value }));
+    } catch {
+      answers = await individualReads();
+    }
+  } else {
+    answers = await individualReads();
+  }
   const results: AdminGlobalRecord[] = [];
   let incomplete = false;
   for (let i = 0; i < answers.length; i += 1) {
