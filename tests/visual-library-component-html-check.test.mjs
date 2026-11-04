@@ -15,9 +15,9 @@ const fake = (selectors = []) => ({
 
 test("only audited, literal public DOM markers can prove a component is in server HTML", () => {
   const markerSources = {
-    "directory-card": "components/directory-card.tsx",
+    "directory-card": "components/public-listing-row-card.tsx",
     "breed-card": "components/breed-card.tsx",
-    "event-list": "components/event-card.tsx",
+    "event-list": "components/public-listing-row-card.tsx",
     "help-card": "components/help-card.tsx",
     "help-profile": "components/public-visual-system/public-help-profile-card.tsx",
     "directory-services-short": "components/directory-services-list.tsx",
@@ -35,6 +35,17 @@ test("only audited, literal public DOM markers can prove a component is in serve
     assert.equal(classifyHtmlInspection(fake(["h1"]), {kind:"component", componentId:id}).state, "page-only");
     assert.equal(classifyHtmlInspection(fake(), {kind:"component", componentId:id}).state, "missing");
   }
+  // Both directory and grid event cards render through one shared, source-audited shell.
+  const directory = read("components/directory-card.tsx");
+  const event = read("components/event-card.tsx");
+  const listing = read("components/public-listing-row-card.tsx");
+  assert.match(directory, /<PublicListingRowCard\\b/);
+  assert.match(directory, /kind="directory"/);
+  assert.match(event, /<PublicListingRowCard\\b/);
+  assert.match(event, /kind="event"/);
+  assert.match(listing, /kind === "event"/);
+  assert.match(listing, /data-directory-card\\b/);
+  assert.match(listing, /data-event-card\\b/);
   assert.equal(componentHtmlProbeIdForOwnerGroup("unknown"), null);
   assert.equal(componentHtmlProbeIdForOwnerGroup("__proto__"), null);
   assert.equal(validHtmlProbe({kind:"component",componentId:"h1, body"}), false);
