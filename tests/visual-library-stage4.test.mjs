@@ -37,7 +37,7 @@ test("primary and secondary CTA samples link to exact public DOM anchors", () =>
   const help = read("components/help-overview.tsx");
   assert.match(examples, /<PublicActionLink href="\/mapa" variant="primary">/);
   assert.match(examples, /<PublicActionLink href="\/organizacie" variant="secondary">/);
-  assert.match(directory, /id=\{CTA_DIRECTORY_MAP_ANCHOR\} variant="primary"/);
+  assert.match(directory, /<PublicActionLink\s+id=\{CTA_DIRECTORY_MAP_ANCHOR\}\s+variant="primary"/);
   assert.match(help, /id=\{CTA_HELP_ORGANIZATIONS_ANCHOR\}/);
 });
 
@@ -49,6 +49,13 @@ test("article card uses real published article and stable rendered anchor", () =
   assert.match(examples, /getPublishedArticleSummaries\(\{ limit: 1 \}\)/);
   assert.match(examples, /<ArticleListItem article=\{newestArticle\}/);
   assert.match(browser, /anchorId=\{articleListCardAnchor\(article\.slug\)\}/);
-  assert.match(card, /anchorId=\{anchorId\}/);
-  assert.match(publicVisual, /<Link id=\{anchorId\} className=\{cx\(styles\.articleListItem/);
+  // The compatibility wrapper forwards all props; the shared card passes
+  // anchorId to the actual published article link.
+  assert.match(card, /anchorId\?: string/);
+  assert.match(card, /<ArticleCard \{\.\.\.props\} variant="row" \/>/);
+  const canonicalCard=read("components/article-card.tsx");
+  const canonicalRenderer=read("components/public-visual-system/public-article-card.tsx");
+  assert.match(canonicalCard, /anchorId=\{anchorId\}/);
+  assert.match(canonicalRenderer, /<Link\s+id=\{anchorId\}/);
+  assert.match(publicVisual, /PublicArticleCard/);
 });
