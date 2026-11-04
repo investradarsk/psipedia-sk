@@ -218,7 +218,7 @@ export function EventListingResults({
                 name="zoradenie"
                 defaultValue={f.sort}
               >
-                <option value="">Predvolené poradie</option>
+                <option value="">{groupedByType ? "Podľa typu (po 5)" : "Predvolené poradie"}</option>
                 <option value="najblizsie">Od najbližšieho dátumu</option>
                 <option value="najnovsie">Od najnovšieho dátumu</option>
               </PublicSelect>
