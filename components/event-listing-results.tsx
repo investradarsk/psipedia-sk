@@ -14,7 +14,7 @@ import {
   PublicTextInput,
 } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { EventCard } from "./event-card";
 import {
   PublicActionButton,
@@ -22,10 +22,11 @@ import {
   PublicNotice,
   PublicPagination,
 } from "@/components/public-visual-system";
-import { eventListingParams, EVENT_PAGE_SIZE, type EventListingFilters } from "@/lib/event-listing";
+import { eventListingParams, eventTypeBatchGroupingEnabled, EVENT_PAGE_SIZE, type EventListingFilters } from "@/lib/event-listing";
 import { eventTypes, slovakRegions, type PublicEventCard } from "@/lib/events";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
 import styles from "./events-public.module.css";
+import directoryStyles from "./directory-public.module.css";
 
 type Props = {
   events: PublicEventCard[];
@@ -50,6 +51,7 @@ export function EventListingResults({
   day,
   beforeResults,
 }: Props) {
+  const groupedByType = eventTypeBatchGroupingEnabled(f);
   const params = eventListingParams(f);
   params.set("kalendar", calendarMonth);
   if (day) params.set("den", day);
@@ -260,9 +262,16 @@ export function EventListingResults({
               })}{" "}
               · Strana {listing.page} z {listing.pages}
             </p>
-            <div className={styles.cardGrid} data-event-list>
-              {events.map((event) => (
-                <EventCard key={event.id} event={event} today={today} variant="grid" />
+            <div className={`${styles.cardGrid} ${directoryStyles.listRows}`} data-event-list>
+              {events.map((event, index) => (
+                <Fragment key={event.id}>
+                  {groupedByType && (index === 0 || events[index - 1]?.eventType !== event.eventType) ? (
+                    <h3 className={styles.eventTypeGroupHeading}>
+                      {eventTypePresentation[event.eventType].label}
+                    </h3>
+                  ) : null}
+                  <EventCard event={event} today={today} variant="grid" />
+                </Fragment>
               ))}
             </div>
             <PublicPagination
