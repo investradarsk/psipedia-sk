@@ -276,6 +276,10 @@
       "coverage": "needs-preview"
     },
     {
+      "path": "components/help-financial-progress.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/help-overview.tsx",
       "coverage": "page-composite"
     },
@@ -333,6 +337,10 @@
     },
     {
       "path": "components/map/google-map-renderer.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/map/map-consent-state.tsx",
       "coverage": "needs-preview"
     },
     {
@@ -512,6 +520,14 @@
       "coverage": "live-preview"
     },
     {
+      "path": "components/public-filters.tsx",
+      "coverage": "needs-preview"
+    },
+    {
+      "path": "components/public-heading.tsx",
+      "coverage": "server-preview"
+    },
+    {
       "path": "components/public-profile/public-profile-hero.tsx",
       "coverage": "live-preview"
     },
@@ -522,6 +538,10 @@
     {
       "path": "components/public-visual-system/public-article-callout.tsx",
       "coverage": "live-preview"
+    },
+    {
+      "path": "components/public-visual-system/public-article-card.tsx",
+      "coverage": "server-preview"
     },
     {
       "path": "components/public-visual-system/public-banner-frame.tsx",
