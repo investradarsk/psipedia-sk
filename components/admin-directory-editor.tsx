@@ -214,7 +214,7 @@ export function AdminDirectoryEditor({
 
   useEffect(() => {
     if (formRef.current) formRef.current.dataset.hydrated = "true";
-  }, []);
+  }, [status]);
 
   function changeName(value: string) {
     setName(value);
@@ -281,7 +281,8 @@ export function AdminDirectoryEditor({
       setReviewState(data.draft.reviewState); setNotionVersion(data.draft.lastEditedAt);
       setReviewConfirm(null);
       setMessage(reviewConfirm === "reject" ? "Koncept bol odmietnutý." : "Koncept bol obnovený bez publikovania.");
-      if (onNotionSaved) onNotionSaved(); else window.location.reload();
+      // The latest review state is already in React state; avoid a full reload.
+      onNotionSaved?.();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Zmena zlyhala."); }
     finally { setSaving(false); }
   }
@@ -412,7 +413,7 @@ export function AdminDirectoryEditor({
   }
 
   async function restoreArchivedProfile() {
-    if (!profile || profile.status !== "archived") return;
+    if (!profile || status !== "archived" || saving) return;
     setSaving(true); setError(""); setMessage("");
     try {
       const response = await fetch(`/api/admin/directory/${profile.id}`, {
@@ -422,14 +423,16 @@ export function AdminDirectoryEditor({
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo obnoviť.");
-      window.location.reload();
+      setStatus(data.profile.status);
+      setMessage("Profil je obnovený do konceptu. Môžeš ho upravovať bez obnovenia stránky.");
     } catch (restoreError) {
       setError(restoreError instanceof Error ? restoreError.message : "Profil sa nepodarilo obnoviť.");
+    } finally {
       setSaving(false);
     }
   }
 
-  if (profile?.status === "archived") {
+  if (profile && status === "archived") {
     return (
       <section className="admin-form-card">
         <h2>Archivovaný profil</h2>
