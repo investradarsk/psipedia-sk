@@ -10,8 +10,12 @@ test("a missing Notion number is not a manual content change or implicit score 3
   for(const value of [null,undefined,"",NaN,Infinity])
     assert.equal(manualBreedCellHasValue("number",value),false);
   assert.equal(manualBreedCellHasValue("number",3),true);
-  assert.equal(manualBreedCellHasValue("number",0),true);
+  assert.equal(manualBreedCellHasValue("number",0),false);
+  assert.equal(manualBreedCellHasValue("number",6),false);
+  assert.equal(manualBreedCellHasValue("number",2.5),false);
   assert.equal(manualBreedCellHasValue("number",5),true);
+  assert.equal(manualBreedCellHasValue("number",9,"fciGroup"),true);
+  assert.equal(manualBreedCellHasValue("number",11,"fciGroup"),false);
 });
 
 test("blank text/JSON/url cannot silently clear Admin; false checkbox is explicit",()=>{
