@@ -15,7 +15,13 @@ test("article cards are a real shared grid/featured React component with two dis
   const card = read("components/article-card.tsx");
   const tabs = read("components/portal-section-tabs.tsx");
   assert.match(card, /export function ArticleCard/);
-  assert.match(card, /ArticleCardVariant = "featured" \| "grid" \| "compact"/);
+  // Since shared-card consolidation, grid/featured/row are implemented by the
+  // canonical PublicArticleCard; "compact" remains a wrapper alias for "row".
+  const canonicalCard=read("components/public-visual-system/public-article-card.tsx");
+  assert.match(canonicalCard, /PublicArticleCardVariant = "featured" \| "grid" \| "row"/);
+  assert.match(card, /ArticleCardVariant = PublicArticleCardVariant \| "compact"/);
+  assert.match(card, /variant === "compact" \? "row"/);
+  assert.match(card, /<PublicArticleCard/);
   assert.match(samples, /id: "article-card-grid", path: "components\/article-card.tsx"/);
   assert.match(samples, /id: "article-card-featured", path: "components\/article-card.tsx"/);
   assert.match(samples, /id: "portal-section-tabs", path: "components\/portal-section-tabs.tsx"/);
