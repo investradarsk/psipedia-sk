@@ -2241,3 +2241,19 @@
     height: 68px;
   }
 }
+
+/* Full-card event anchor inside a semantic article; service cards remain direct links. */
+.cardLink {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+.cardLink:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: -3px;
+}
+.listRows h3.cardTitle {
+  margin: 0;
+}
