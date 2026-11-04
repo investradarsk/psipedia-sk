@@ -46,7 +46,7 @@ test("past events are marked automatically, registration is hidden and future ev
   assert.match(detail, /dateStatus === "past" && !event.cancelled/);
   assert.match(detail, /Podujatie sa už uskutočnilo/);
   assert.match(detail, /data-event-past-notice/);
-  assert.match(detail, /showRegistration = dateStatus !== "past" && !event.cancelled/);
+  assert.match(detail, /const showRegistration\s*=\s*dateStatus !== "past"\s*&&\s*!event\.cancelled\s*&&\s*Boolean\(event\.registrationUrl\)/);
   assert.match(detail, /showRegistration && event.registrationUrl/);
 });
 
