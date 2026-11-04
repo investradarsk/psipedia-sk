@@ -11,6 +11,7 @@ import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { cleanFciStandard, combinedFciMeasurement, inspectBreedMeasurement, normalizeBreedSearchText, publicBreedMeasurement, publicBreedSize, publicFciSectionName, type FciStandard } from "@/lib/breed-fci";
 import { breedCompletenessIssues, validateBulkBreedStatus, type BreedCompletenessIssue } from "./admin-breeds";
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
+import { cleanBreedCoatDescription, cleanBreedEditorialList } from "./breed-long-description.ts";
 
 export type BreedStatus = "draft" | "published";
 
@@ -410,7 +411,7 @@ export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"slug
 
 function clean(input:ManagedBreedInput, preserved?:ManagedBreed){
   const text=(value:unknown,max=1000)=>String(value??"").trim().slice(0,max);const score=(value:unknown)=>Math.min(5,Math.max(1,Number(value)||3));
-  const strings=(value:unknown)=>Array.isArray(value)?value.map((item)=>text(item,240)).filter(Boolean).slice(0,30):[];
+  const strings=cleanBreedEditorialList;
   const ids=(value:unknown)=>Array.isArray(value)?[...new Set(value.map(Number).filter((item)=>Number.isSafeInteger(item)&&item>0))].slice(0,100):[];
   const slug=text(input.slug,90).toLowerCase().replace(/[^a-z0-9-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");const name=text(input.name,120);
   if(!slug||!name)throw new Error("Názov a adresa plemena sú povinné.");
@@ -479,7 +480,7 @@ function clean(input:ManagedBreedInput, preserved?:ManagedBreed){
     officialFciName,validStandardDate:input.validStandardDate?text(input.validStandardDate,40):null,workingTrial:text(input.workingTrial,160),
     importKey:input.importKey?text(input.importKey,120):null,fciStandard,editorial,sports,relatedBreedIds:ids(input.relatedBreedIds),relatedArticleIds:ids(input.relatedArticleIds),directoryProfileIds:ids(input.directoryProfileIds),editorialComplete:input.editorialComplete!==false,
     origin:text(input.origin,160),group:text(input.group,160),
-    size:text(input.size,160),weight:text(input.weight,100),height:text(input.height,100),lifespan:text(input.lifespan,100),coat:text(input.coat,200),
+    size:text(input.size,160),weight:text(input.weight,100),height:text(input.height,100),lifespan:text(input.lifespan,100),coat:cleanBreedCoatDescription(input.coat),
     energy:score(input.energy),trainability:score(input.trainability),family,children,otherDogs:score(input.otherDogs),apartment:score(input.apartment),
     grooming:score(input.grooming),shedding:score(input.shedding),preyDrive:score(input.preyDrive),intro:text(input.intro,1200),character:text(input.character,8000),
     needs:text(input.needs,8000),history:text(input.history,8000),exercise:text(input.exercise,8000),training:text(input.training,8000),health:text(input.health,8000),
