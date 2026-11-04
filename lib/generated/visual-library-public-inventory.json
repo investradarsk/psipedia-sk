@@ -528,6 +528,10 @@
       "coverage": "server-preview"
     },
     {
+      "path": "components/public-listing-row-card.tsx",
+      "coverage": "needs-preview"
+    },
+    {
       "path": "components/public-profile/public-profile-hero.tsx",
       "coverage": "live-preview"
     },
