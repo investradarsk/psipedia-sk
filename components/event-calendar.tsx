@@ -223,7 +223,7 @@ export function EventCalendar({
     // aggregates are already loaded, so avoid repeating their expensive D1 reads.
     if (sameMonth && !pending) {
       setPendingDay(false);
-      if (next.day === view.day) return;
+      if (next.day === view.day && !pendingDay) return;
       if (!next.day || (data.calendarSummaries && !data.calendarSummaries.some((item) => item.date === next.day && item.count > 0))) {
         setData((current) => ({ ...current, calendarEvents: [] }));
         return;
