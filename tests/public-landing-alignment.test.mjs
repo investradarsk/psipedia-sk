@@ -259,6 +259,7 @@ test("SERVICES-V2 renders search, categories, filters, cards and sidebar in appr
 
 test("SERVICES-V2 keeps cards and URLs while preventing narrow three-column thumbnails", () => {
   const cards = read("components/directory-card.tsx");
+  const sharedCard = read("components/public-listing-row-card.tsx");
   const results = read("components/directory-results.tsx");
   assert.match(directoryCss, /grid-template-columns:\s*220px\s+minmax\(0,\s*1fr\)\s+255px/);
   assert.match(
@@ -267,9 +268,10 @@ test("SERVICES-V2 keeps cards and URLs while preventing narrow three-column thum
   );
   assert.match(directoryCss, /\.directoryColumns \.listGrid:global\(\.directory-grid\)/);
   assert.match(cards, /directoryProfileHref\(profile\)/);
-  assert.match(cards, /profile\.imageUrl \? <ImageDisplay/);
+  assert.match(cards, /profile\.imageUrl\s*\?\s*\(\s*<ImageDisplay/);
   assert.match(cards, /<PublicMediaFallback/);
-  assert.match(cards, /styles\.cardWithImage/);
+  assert.match(cards, /<PublicListingRowCard/);
+  assert.match(sharedCard, /styles\.cardWithImage/);
   assert.match(results, /directoryPageHref\(basePath, filters/);
 });
 
