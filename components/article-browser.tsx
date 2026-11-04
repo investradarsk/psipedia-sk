@@ -25,7 +25,7 @@ function ArchiveArticleRow({ article }: { article: ArticleListingCard }) {
   return <ArticleListItem article={article} anchorId={articleListCardAnchor(article.slug)} />;
 }
 
-/** First three articles share a row with discovery, the rest use the full available width. */
+/** Continuous article list alongside discovery: no blank gap below a taller sidebar. */
 export function ArticleBrowser({
   articles,
   initialCategory = "Všetky",
@@ -125,14 +125,14 @@ export function ArticleBrowser({
       {visible.length > 0 ? (
         <>
           {sidebar && <div className="article-listing-intro">
-            <div className="article-listing-lead-list" role="list" aria-label="Najnovšie články">
-              {featured.map((article) => <ArchiveArticleRow article={article} key={article.slug} />)}
+            <div className="article-listing-lead-list" role="list" aria-label="Články">
+              {[...featured, ...remaining].map((article) => <ArchiveArticleRow article={article} key={article.slug} />)}
             </div>
             {sidebar}
           </div>}
-          {remaining.length > 0 && <div className="article-grid article-grid--listing article-grid--compact" role="list" data-article-listing-grid>
+          {!sidebar && remaining.length > 0 && <div className="article-grid article-grid--listing article-grid--compact" role="list" data-article-listing-grid>
             {remaining.map((article) => <ArchiveArticleRow article={article} key={article.slug} />)}
-          </div>}
+          </div>
           {displayed.length < visible.length && (
             <div className="article-listing-load-more">
               <PublicActionButton type="button" variant="primary" onClick={() => setShown((current) => current + NEXT_COUNT)}>

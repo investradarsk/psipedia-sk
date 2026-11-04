@@ -363,9 +363,25 @@ export async function EditorialSectionHub({
     { title: "Zdravie a rast", description: "Prevencia a primeraný telesný vývoj.", slugs: ["ockovanie-a-zdravie", "rast-a-vyvoj"] },
     { title: "Výchova a dospievanie", description: "Socializácia, tréning a pokojná puberta.", slugs: ["socializacia", "vycvik-steniatka", "puberta"] },
   ];
-  const topicStages = sectionSlug === "steniatka"
+  // The same editorial stage/card template is shared by all three sections.
+  // Only the editorial grouping and section-level colour token differ.
+  const careStages = [
+    { title: "Zdravie a každodenná starostlivosť", description: "Prevencia, výživa a zdravé návyky.", slugs: ["zdravie", "vyziva", "srst-a-hygiena"] },
+    { title: "Život so psom", description: "Správanie, výchova a starostlivosť v každom veku.", slugs: ["vycvik", "spravanie", "senior"] },
+  ];
+  const activityStages = [
+    { title: "Výcvik a šport", description: "Učenie, spolupráca a vhodný pohyb.", slugs: ["trening", "psie-sporty"] },
+    { title: "Spoločne vonku a na cestách", description: "Výlety, miesta a bezpečné cestovanie.", slugs: ["vylety-so-psom", "dog-friendly-miesta", "dovolenka-so-psom"] },
+  ];
+  const configuredStages = sectionSlug === "steniatka"
     ? puppyStages
-    : [{ title: "", description: "", slugs: subpages.map((page) => page.slug) }];
+    : sectionSlug === "starostlivost" ? careStages : activityStages;
+  const configuredSlugs = new Set(configuredStages.flatMap((stage) => stage.slugs));
+  const otherSlugs = subpages.map((page) => page.slug).filter((slug) => !configuredSlugs.has(slug));
+  // Managed Notion/Admin categories must not disappear when new topics are added.
+  const topicStages = otherSlugs.length
+    ? [...configuredStages, { title: "Ďalšie témy", description: "Ďalšie užitočné sprievodcovské oblasti.", slugs: otherSlugs }]
+    : configuredStages;
   const nextCards = nextSteps(sectionSlug);
   const hasScrollableServices = nextCards.length > 3;
   const heroVisual = await getSectionHeroVisual(`section.${sectionSlug}`);
@@ -413,15 +429,15 @@ export async function EditorialSectionHub({
         <div className={styles.topicGroups} data-section-subcategories data-section-topic-groups>
           <PageContainer>
             {topicStages.map((stage) => (
-              <section className={sectionSlug === "steniatka" ? styles.puppyStage : styles.standardStage}
-                key={stage.title || "all"} data-puppy-stage={stage.title || undefined}>
-                {sectionSlug === "steniatka" ? (
-                  <header className={styles.puppyStageHeading}>
-                    <h2>{stage.title}</h2>
-                    <p>{stage.description}</p>
-                  </header>
-                ) : null}
-                <div className={sectionSlug === "steniatka" ? styles.puppyStageGrid : styles.standardStageGrid}>
+              <section className={styles.topicStage}
+                key={stage.title}
+                data-editorial-stage={stage.title}
+                data-puppy-stage={sectionSlug === "steniatka" ? stage.title : undefined}>
+                <header className={styles.topicStageHeading}>
+                  <h2>{stage.title}</h2>
+                  <p>{stage.description}</p>
+                </header>
+                <div className={styles.topicStageGrid}>
                   {subpages.filter((subpage) => stage.slugs.includes(subpage.slug)).map((subpage) => {
                     const related = orderedArticles(section, articles, subpage);
                     const href = portalSubpageHref(section, subpage);
@@ -429,16 +445,12 @@ export async function EditorialSectionHub({
                     return (
                       <section className={styles.topicGroup} key={subpage.slug}
                         aria-labelledby={headingId} data-section-article-group>
-                        {sectionSlug === "steniatka" ? (
-                          <h3 className={styles.topicGroupTitle} id={headingId}><Link href={href}>{subpage.label}</Link></h3>
-                        ) : (
-                          <h2 className={styles.topicGroupTitle} id={headingId}><Link href={href}>{subpage.label}</Link></h2>
-                        )}
+                        <h3 className={styles.topicGroupTitle} id={headingId}><Link href={href}>{subpage.label}</Link></h3>
                         <div data-section-content-list>
                           {related.length > 0 ? (
                             <SectionContentList articles={related}
                               label={`Články z oblasti ${subpage.label}`}
-                              limit={sectionSlug === "steniatka" ? 2 : 5} />
+                              limit={2} />
                           ) : (
                             <p className={styles.topicGroupEmpty}>Články z tejto oblasti pripravujeme.</p>
                           )}

@@ -42,6 +42,12 @@ const shortGroupLabels: Record<number, string> = {
   10: "Chrty",
 };
 
+// Use short readable option text while retaining the canonical value for filtering/URLs.
+function originOptionLabel(origin: string) {
+  const main = origin.split(";")[0].replace(/\s*\([^)]*\)\s*$/, "").trim();
+  return main.length > 48 ? `${main.slice(0, 45).trimEnd()}…` : main || origin;
+}
+
 const INITIAL_PER_GROUP = 3;
 
 export function BreedBrowser({
@@ -214,13 +220,12 @@ export function BreedBrowser({
               <option value="all">Všetky krajiny pôvodu</option>
               {origins.map((origin) => (
                 <option value={origin} key={origin}>
-                  {origin}
+                  {originOptionLabel(origin)}
                 </option>
               ))}
             </PublicSelect>
           </label>
         </div>
-        {actions}
         {activeSelections.length > 0 && (
           <div aria-label="Aktívne filtre plemien" data-public-active-filters>
             <span data-public-active-filter-label>Aktívne filtre</span>
@@ -302,6 +307,7 @@ export function BreedBrowser({
         </div>
       </PublicFilterPanel>
       <div data-public-filter-results>
+        {actions}
         <p className="result-count" aria-live="polite">
           {breedCountLabel(visible.length)}
         </p>

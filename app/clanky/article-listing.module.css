@@ -45,3 +45,18 @@
   .layout :global(.article-listing-intro) { gap: 14px; }
   .layout :global(.article-grid--compact [role="listitem"]) { padding: 10px; }
 }
+
+/* The archive and editorial sections reuse ArticleListItem. Keep the whole
+   feed beside the sidebar, instead of dropping the fourth row below its height. */
+.layout :global(.article-listing-intro) {
+  margin-bottom: 0;
+}
+.layout :global(.article-listing-lead-list) {
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+}
+.layout :global(.article-listing-lead-list [data-article-list-item]) {
+  min-width: 0;
+  min-height: 0;
+}
