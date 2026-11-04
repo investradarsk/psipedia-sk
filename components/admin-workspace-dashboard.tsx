@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import {AdminWorkspaceActivity} from "./admin-workspace-activity";
-import type {WorkspaceFeed} from "@/lib/admin-workspace-feed";
+import type {WorkspaceOverview} from "@/lib/admin-workspace-feed";
 import type { AdminAttentionExactSummary } from "@/lib/admin-attention-queue-store";
 import type { AdminAttentionQueueSourceType } from "@/lib/admin-attention-queue";
 import { summarizeAdminAutomationReads, type AdminAutomationReadResult } from "@/lib/admin-automation-reliability";
@@ -96,15 +96,26 @@ function QueueLink({
 type QualityRead = AdminAutomationReadResult<AdminDataQualitySummary>;
 type AttentionPromise = Promise<AdminAttentionExactSummary>;
 type QualityPromise = Promise<QualityRead>;
-type ActivityPromise = Promise<WorkspaceFeed>;
+type ActivityPromise = Promise<WorkspaceOverview>;
 
 function PendingMetric({ label }: { label: string }) {
   return <div className={styles.metricCard} role="status" aria-busy="true">{label}: načítava sa…</div>;
 }
 
-async function WorkspaceActivityPanel({ promise }: { promise: ActivityPromise }) {
-  const activity = await promise;
-  return <AdminWorkspaceActivity initial={activity} />;
+async function WorkspaceActivityPanel({
+  promise,
+  qualityPromise,
+}: {
+  promise: ActivityPromise;
+  qualityPromise: QualityPromise;
+}) {
+  const [activity, qualityRead] = await Promise.all([promise, qualityPromise]);
+  return (
+    <AdminWorkspaceActivity
+      initial={activity}
+      qualityPending={qualityRead.status === "UNAVAILABLE" ? null : qualityRead.data.profilesWithCoreIssues}
+    />
+  );
 }
 
 async function WorkspaceReliabilityPanel({ promise }: { promise: QualityPromise }) {
@@ -159,29 +170,59 @@ async function WorkspaceQualityMetric({ promise }: { promise: QualityPromise }) 
   );
 }
 
-async function WorkspaceCommunity({ promise }: { promise: AttentionPromise }) {
+const communitySources: Array<{ title: string; source: AdminAttentionQueueSourceType }> = [
+  { title: "Moderácia podaní", source: "MODERATION_SUBMISSION" },
+  { title: "Profilové recenzie", source: "PROFILE_REVIEW_MODERATION" },
+  { title: "Tipy pre redakciu", source: "NEWS_TIP" },
+  { title: "Návrhy úprav", source: "DIRECTORY_CHANGE_REQUEST" },
+  { title: "Dopyty", source: "DIRECTORY_INQUIRY" },
+  { title: "Hodnotenia článkov", source: "ARTICLE_FEEDBACK" },
+  { title: "Žiadosti o správu profilu", source: "PARTNER_CLAIM_REVIEW" },
+];
+
+function WorkspaceCommunityPending() {
+  return (
+    <div className={styles.queueGrid} aria-busy="true">
+      {communitySources.map(({ title, source }) => (
+        <Link
+          key={source}
+          className={styles.queueLink}
+          href={`/admin/operations?source=${source}`}
+          aria-label={`${title}: načítava sa počet položiek`}
+        >
+          <span><strong>{title}</strong><small>Načítava sa…</small></span>
+          <b>—</b>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+async function WorkspaceCommunityCounts({ promise }: { promise: AttentionPromise }) {
   const attention = await promise;
   return (
-      <section aria-labelledby="admin-community-title">
-        <div className={styles.sectionHeading}>
-          <div>
-            <span>Komunita</span>
-            <h2 id="admin-community-title">Podnety, žiadosti a moderovanie</h2>
-          </div>
-          <p>Každá položka otvorí príslušné žiadosti a podnety.</p>
-        </div>
-        <div className={styles.queueGrid}>
-          <QueueLink title="Moderácia podaní" source="MODERATION_SUBMISSION" summary={attention} />
-          <QueueLink title="Profilové recenzie" source="PROFILE_REVIEW_MODERATION" summary={attention} />
-          <QueueLink title="Tipy pre redakciu" source="NEWS_TIP" summary={attention} />
-          <QueueLink title="Návrhy úprav" source="DIRECTORY_CHANGE_REQUEST" summary={attention} />
-          <QueueLink title="Dopyty" source="DIRECTORY_INQUIRY" summary={attention} />
-          <QueueLink title="Hodnotenia článkov" source="ARTICLE_FEEDBACK" summary={attention} />
-          <QueueLink title="Žiadosti o správu profilu" source="PARTNER_CLAIM_REVIEW" summary={attention} />
-        </div>
-      </section>
+    <div className={styles.queueGrid}>
+      {communitySources.map(({ title, source }) => (
+        <QueueLink key={source} title={title} source={source} summary={attention} />
+      ))}
+    </div>
+  );
+}
 
-
+function WorkspaceCommunity({ promise }: { promise: AttentionPromise }) {
+  return (
+    <section aria-labelledby="admin-community-title">
+      <div className={styles.sectionHeading}>
+        <div>
+          <span>Komunita</span>
+          <h2 id="admin-community-title">Podnety, žiadosti a moderovanie</h2>
+        </div>
+        <p>Každá položka otvorí príslušné žiadosti a podnety.</p>
+      </div>
+      <Suspense fallback={<WorkspaceCommunityPending />}>
+        <WorkspaceCommunityCounts promise={promise} />
+      </Suspense>
+    </section>
   );
 }
 
@@ -216,9 +257,7 @@ export function AdminWorkspaceDashboard({
           </Suspense>
         </div>
       </section>
-      <Suspense fallback={<section role="status">Načítavajú sa verejné podnety…</section>}>
-        <WorkspaceCommunity promise={attentionPromise} />
-      </Suspense>
+      <WorkspaceCommunity promise={attentionPromise} />
       <section className={styles.splitGrid} aria-label="Automatizácie a rýchla správa">
         <article className={styles.panel}>
           <div className={styles.panelHeading}>
@@ -254,7 +293,7 @@ export function AdminWorkspaceDashboard({
       </section>
       {/* Event history belongs after actionable queues and commonly used agendas. */}
       <Suspense fallback={<p role="status">Načítava sa pracovný feed…</p>}>
-        <WorkspaceActivityPanel promise={activityPromise} />
+        <WorkspaceActivityPanel promise={activityPromise} qualityPromise={qualityPromise} />
       </Suspense>
 
     </div>

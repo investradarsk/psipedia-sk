@@ -69,7 +69,8 @@ test("admin home streams attention, quality and activity in independent suspense
   assert.match(dashboard, /async function WorkspaceActivityPanel/);
   assert.match(dashboard, /async function WorkspaceAttentionMetrics/);
   assert.match(dashboard, /async function WorkspaceQualityMetric/);
-  assert.match(dashboard, /async function WorkspaceCommunity/);
+  assert.match(dashboard, /async function WorkspaceCommunityCounts/);
+  assert.match(dashboard, /function WorkspaceCommunity\(/);
   assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Kvalita údajov" \/>\}>/);
   assert.match(dashboard, /<WorkspaceCommunity promise=\{attentionPromise\} \/>/);
   assert.match(shell, /summaryPromise \?\? loadExactAdminAttentionSummary\(\)/);
@@ -98,7 +99,7 @@ test("dashboard prioritizes real queues and quick agendas over the activity feed
   const attention = dashboard.indexOf('id="admin-priority-title"');
   const community = dashboard.indexOf("<WorkspaceCommunity promise={attentionPromise} />");
   const quick = dashboard.indexOf('aria-label="Automatizácie a rýchla správa"');
-  const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} />");
+  const feed = dashboard.indexOf("<WorkspaceActivityPanel promise={activityPromise} qualityPromise={qualityPromise} />");
   assert.ok(attention !== -1 && attention < community && community < quick && quick < feed);
   assert.match(activity, /Otvoriť pracovnú sekciu/);
   assert.match(activity, /href="\/admin\/operations"/);
