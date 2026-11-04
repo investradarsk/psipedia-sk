@@ -1745,23 +1745,24 @@
   background: var(--sage-light);
   font-size: 0.72rem;
 }
-.directoryColumns .listGrid:global(.directory-grid) {
+.listRows:global(.directory-grid),
+.listRows:global([data-event-list]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 11px;
 }
-.directoryColumns .cardInner {
+.listRows .cardInner {
   padding: 15px;
   gap: 14px;
 }
-.directoryColumns .cardWithImage {
+.listRows .cardWithImage {
   grid-template-columns: 96px minmax(0, 1fr);
 }
-.directoryColumns .cardImage {
+.listRows .cardImage {
   width: 96px;
   height: 82px;
 }
-.directoryColumns .cardTitle {
+.listRows .cardTitle {
   font-size: 1.08rem;
 }
 .directorySidebar {
@@ -1880,10 +1881,10 @@
   .resultsHeading > strong {
     white-space: normal;
   }
-  .directoryColumns .cardWithImage {
+  .listRows .cardWithImage {
     grid-template-columns: 72px minmax(0, 1fr);
   }
-  .directoryColumns .cardImage {
+  .listRows .cardImage {
     width: 72px;
     height: 72px;
   }
@@ -1932,18 +1933,18 @@
   overflow: hidden;
   border-radius: 12px;
 }
-.directoryColumns .cardWithImage {
+.listRows .cardWithImage {
   grid-template-columns: 80px minmax(0, 1fr);
 }
-.directoryColumns .cardImage {
+.listRows .cardImage {
   width: 80px;
   height: 80px;
 }
 @media (max-width: 620px) {
-  .directoryColumns .cardWithImage {
+  .listRows .cardWithImage {
     grid-template-columns: 68px minmax(0, 1fr);
   }
-  .directoryColumns .cardImage {
+  .listRows .cardImage {
     width: 68px;
     height: 68px;
   }
@@ -1991,44 +1992,44 @@
 /* Shared listing-row rhythm: same mobile information hierarchy as article
    previews without losing service-specific location, badges or summaries. */
 @media (max-width: 620px) {
-  .directoryColumns .card {
+  .listRows .card {
     border-radius: 15px;
     box-shadow: none;
   }
-  .directoryColumns .cardInner {
+  .listRows .cardInner {
     padding: 13px 11px;
   }
-  .directoryColumns .cardWithImage {
+  .listRows .cardWithImage {
     grid-template-columns: 76px minmax(0, 1fr);
     gap: 11px;
   }
-  .directoryColumns .cardImage {
+  .listRows .cardImage {
     width: 76px;
     height: 76px;
   }
-  .directoryColumns .cardCopy {
+  .listRows .cardCopy {
     min-width: 0;
     gap: 4px;
   }
-  .directoryColumns .cardTitle {
+  .listRows .cardTitle {
     font-size: clamp(0.98rem, 4.2vw, 1.17rem);
     line-height: 1.23;
   }
-  .directoryColumns .cardLocation {
+  .listRows .cardLocation {
     font-size: 0.78rem;
     line-height: 1.4;
   }
-  .directoryColumns .cardMeta {
+  .listRows .cardMeta {
     font-size: 0.74rem;
     line-height: 1.4;
   }
 }
 @media (max-width: 360px) {
-  .directoryColumns .cardWithImage {
+  .listRows .cardWithImage {
     grid-template-columns: 68px minmax(0, 1fr);
     gap: 8px;
   }
-  .directoryColumns .cardImage {
+  .listRows .cardImage {
     width: 68px;
     height: 68px;
   }
@@ -2162,4 +2163,24 @@
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 6px;
   }
+}
+
+/* Both event and service listings use this one canonical compact row layout. */
+.listRows {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 11px;
+}
+
+.listRows .cardImage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.listRows .cardMeta time {
+  font: inherit;
+  color: inherit;
 }
