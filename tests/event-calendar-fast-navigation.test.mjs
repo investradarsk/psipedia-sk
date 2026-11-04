@@ -8,7 +8,7 @@ const dayRoute = readFileSync(new URL("../app/api/public/events/calendar/day/rou
 const store = readFileSync(new URL("../lib/event-store.ts", import.meta.url), "utf8");
 
 test("selecting a day preserves the month and listing and fetches only its 12 bounded previews", () => {
-  const dayBranch = client.slice(client.indexOf("if (sameMonth && !pending)"), client.indexOf("setPendingDay(false);\n    setPending(true);"));
+  const dayBranch = client.slice(client.indexOf("if (sameMonth && !pending)"), client.indexOf("    const calendarOnly = sameListing && !next.day;"));
   assert.match(dayBranch, /setData\(\(current\) => \(\{ \.\.\.current, calendarEvents:/);
   assert.match(dayBranch, /dayEndpoint\.pathname \+= "\/day"/);
   assert.match(dayBranch, /if \(!next\.day \|\|/);
