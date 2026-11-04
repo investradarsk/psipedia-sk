@@ -61,7 +61,7 @@ test("homepage uses the shared responsive hero and cards use R2 srcsets", () => 
     ["components/breed-photo.tsx", "props.src"],
   ]) {
     const source = read(path);
-    assert.match(source, new RegExp(`responsiveMediaSrcSet\\(${token.replaceAll(".", "\\.")}`), path);
+    assert.match(source, new RegExp(`responsiveMediaSrcSet\\(\\s*${token.replaceAll(".", "\\.")}`), path);
     assert.match(source, /sizes=/, path);
   }
   assert.match(homepage, /loading="lazy"/);
