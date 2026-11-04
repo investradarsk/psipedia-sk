@@ -6,6 +6,7 @@ import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-butt
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
 import { useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import type { BreedEditorOptions, BreedHeroTrait, BreedSport, ManagedBreed } from "@/lib/breed-store";
 import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
@@ -44,6 +45,7 @@ type SportDraft={index:number|null;key:string;label:string;rating:number;note:st
 const subscribeToHydration=()=>()=>{};
 
 export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;options:BreedEditorOptions }) {
+  const router = useRouter();
   const hydrated=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
   const [form,setCanonicalForm]=useState({
     name:breed?.name??"",slug:breed?.slug??"",status:breed?.status??"draft",image:breed?.image??"",imageKey:breed?.imageKey??"",
@@ -145,7 +147,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
       setDirty(false);
       setMessage(status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
-      if(!breed)window.setTimeout(()=>window.location.assign(`/admin/plemena/${data.breed.id}`),0);
+      if(!breed)router.replace(`/admin/plemena/${data.breed.id}`);
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}
     finally{setSaving(false);}
   }
@@ -184,7 +186,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       status={<><EditorStatus label={form.status === "published" ? "Publikované" : "Koncept"} tone={form.status === "published" ? "success" : "neutral"} /><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /></>}
       sections={editorNavigation}
       dirty={dirty}
-      onClose={()=>{ setDirty(false); window.setTimeout(()=>window.location.assign("/admin/plemena"),0); }}
+      onClose={()=>{ setDirty(false); router.push("/admin/plemena"); }}
       closeLabel="Späť na plemená"
       actions={<EditorActionBar
         message={<span role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
