@@ -129,7 +129,6 @@ for (const name of [
   "map-geo-foundation-ci.yml",
   "map-production-launch-ci.yml",
   "map-public-ui-ci.yml",
-  "map-read-api-ci.yml",
   "notion-article-sync-ci.yml",
   "notion-events-help-sync-ci.yml",
   "organization-profile-e2e.yml",
@@ -201,10 +200,10 @@ assert.equal(prWorkflowWouldRun("pr-visual-evidence.yml", ["lib/notion-article-s
   "backend-only Notion edits must not start visual evidence");
 assert.equal(prWorkflowWouldRun("pr-visual-evidence.yml", ["components/article-detail.tsx"]), true,
   "public component edits still need visual evidence");
-assert.equal(prWorkflowWouldRun("map-read-api-ci.yml", ["drizzle/0156_notion_manual_transfer_jobs.sql"]), false,
-  "unrelated migrations must not start map E2E");
-assert.equal(prWorkflowWouldRun("map-read-api-ci.yml", ["drizzle/0157_geo_events.sql"]), true,
-  "geo migrations must still start map E2E");
+assert.equal(prWorkflowWouldRun("map-read-api-ci.yml", ["worker/index.ts"]), true,
+  "map runtime remains fail-closed on shared worker changes");
+assert.equal(prWorkflowWouldRun("map-read-api-ci.yml", ["drizzle/0156_notion_manual_transfer_jobs.sql"]), true,
+  "existing map D1 fail-closed guard remains in place");
 assert.equal(prWorkflowWouldRun("clean-d1-migration-validation.yml", ["package.json"]), false,
   "package metadata changes are validated by required CI");
 assert.equal(prWorkflowWouldRun("clean-d1-migration-validation.yml", ["package-lock.json"]), true,
