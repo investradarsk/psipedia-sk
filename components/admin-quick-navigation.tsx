@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
+import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
 import styles from "./admin-quick-navigation.module.css";
 
 type Destination = { label: string; category: string; href: string; keywords: string; subtitle?: string };
@@ -139,6 +140,18 @@ export function AdminQuickNavigation() {
   }
   function go(href: string) {
     changeOpen(false);
+
+    // Ctrl+K uses buttons rather than anchors, so the iOS document fallback
+    // in AdminMobileDocumentNavigation cannot intercept this route change.
+    const target = new URL(href, window.location.origin);
+    if (target.origin === window.location.origin &&
+      (target.pathname === "/admin" || target.pathname === "/admin/clanky") &&
+      window.matchMedia("(max-width: 820px)").matches &&
+      isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) {
+      window.location.assign(target.href);
+      return;
+    }
+
     router.push(href);
   }
   function handleKeys(event: KeyboardEvent<HTMLInputElement>) {
