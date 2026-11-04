@@ -8,7 +8,7 @@ import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } from "@/lib/content";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
-import { cleanFciStandard, combinedFciMeasurement, inspectBreedMeasurement, normalizeBreedSearchText, publicBreedMeasurement, publicBreedSize, publicFciSectionName, type FciStandard } from "@/lib/breed-fci";
+import { cleanFciStandard, combinedFciMeasurement, inspectBreedMeasurement, normalizeBreedSearchText, publicBreedMeasurement, publicBreedSize, publicFciSectionName, breedSectionForView, type FciStandard } from "@/lib/breed-fci";
 import { breedCompletenessIssues, validateBulkBreedStatus, type BreedCompletenessIssue } from "./admin-breeds";
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 import { cleanBreedCoatDescription, cleanBreedEditorialList } from "./breed-long-description.ts";
@@ -119,7 +119,7 @@ async function ensure(database:D1Database) {
 
 function fromRow(row:Row,relations:{articles?:number[];directory?:number[];public?:boolean}={}):ManagedBreed { const editorial=parseObject<BreedEditorial>(row.editorial_json);editorial.heroTraits=Array.isArray(editorial.heroTraits)?editorial.heroTraits.filter(isBreedHeroTrait).slice(0,3):[];const fciStandard=parseObject<FciStandard>(row.fci_standard_json);return {
   id:row.id,slug:row.slug,name:row.name,status:row.status==="published"?"published":"draft",image:row.image_url,imageKey:row.image_key,
-  gallery:parseArray(row.gallery_json,isBreedImage),fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),
+  gallery:parseArray(row.gallery_json,isBreedImage),fciNumber:row.fci_number,fciGroup:row.fci_group,fciSection:breedSectionForView(row.fci_group,row.fci_section_number,row.fci_section,relations.public),
   fciSectionNumber:row.fci_section_number,officialFciName:row.official_fci_name,validStandardDate:row.valid_standard_date,
   workingTrial:row.working_trial,importKey:row.import_key,fciStandard,editorial,
   sports:parseArray(row.sports_json,isBreedSport),relatedBreedIds:parseArray(row.related_breeds_json,(item):item is number=>Number.isSafeInteger(item)&&Number(item)>0),relatedArticleIds:relations.articles??[],directoryProfileIds:relations.directory??[],searchText:row.search_text,
