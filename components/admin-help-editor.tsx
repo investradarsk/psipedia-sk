@@ -12,6 +12,7 @@ import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
 import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
 import { useAdminUnsavedFormLinks } from "@/components/admin-unsaved-form-links";
 import { ChangeEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import {
   defaultHelpActionLabel,
@@ -36,6 +37,7 @@ function slugify(value: string) {
 }
 
 export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: HelpCase; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
+  const router = useRouter();
   const [title, setTitle] = useState(item?.title ?? "");
   const titleInputRef = useRef<HTMLInputElement>(null);
   const titleDraftRef = useRef(item?.title ?? "");
@@ -137,7 +139,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
       if (item) navigation.markSaved();
       else navigation.markSavedBeforeRedirect();
       setStatus(data.item.status); setMessage(nextStatus === "published" ? "Prípad je publikovaný v sekcii Pomoc psom." : "Koncept je bezpečne uložený.");
-      if (!item) window.location.assign(`/admin/pomoc/${data.item.id}?vytvorene=1`);
+      if (!item) router.replace(`/admin/pomoc/${data.item.id}?vytvorene=1`);
     } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Prípad sa nepodarilo uložiť."); }
     finally { mutationPending.current = false; setSaving(false); }
   }
