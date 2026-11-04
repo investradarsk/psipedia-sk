@@ -207,9 +207,9 @@ test.describe("final events acceptance", () => {
       await expect(page.locator("h1")).toHaveCount(1);
       await expect(page.locator("input[name=q]:not([type=hidden])")).toHaveCount(1);
       await expect(page.locator("[data-event-card]")).toHaveCount(12);
-      // DS-5 approved grid: three desktop columns from 1280px, two at 761–1279px,
-      // and one on mobile (<=760px). The 768px tablet viewport intentionally has two.
-      const expectedColumns = width >= 1280 ? 3 : width >= 761 ? 2 : 1;
+      // Events now share the canonical service-profile listing row:
+      // exactly one column on mobile, tablet and desktop.
+      const expectedColumns = 1;
       expect(
         await page
           .locator("[data-event-list]")
