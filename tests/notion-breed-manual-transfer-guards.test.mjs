@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { inspectBreedMeasurement } from "../lib/breed-fci.ts";
 import {
   manualBreedCellHasValue,assertManualBreedSweepOutcome,
 } from "../lib/notion-breed-manual-transfer-guards.ts";
@@ -54,4 +55,22 @@ test("manual queue uses verified field results and breed adapter respects filled
   assert.match(sync,/manualBreedPresentFieldIds\(page\)/);
   assert.match(sync,/invalidSelected/);
   assert.match(sync,/lastErrorCode/);
+});
+
+test("FCI dog and bitch heights allow +/-1 cm tolerance without treating it as 1 cm height",()=>{
+  for(const value of [
+    "56–62 (tolerancia ±1 cm)",
+    "52–56 (tolerancia ±1 cm)",
+  ]){
+    const issues=inspectBreedMeasurement(value,"height",{requireUnit:false});
+    assert.deepEqual(issues.filter(issue=>issue.severity==="error"),[]);
+  }
+  assert.ok(inspectBreedMeasurement("62–56 (tolerancia ±1 cm)","height",
+    {requireUnit:false}).some(issue=>issue.code==="reversed-range"));
+  assert.ok(inspectBreedMeasurement("56–620 (tolerancia ±1 cm)","height",
+    {requireUnit:false}).some(issue=>issue.code==="out-of-range"));
+  assert.ok(inspectBreedMeasurement("(tolerancia ±1 cm)","height",
+    {requireUnit:false}).some(issue=>issue.code==="missing-number"));
+  assert.ok(inspectBreedMeasurement("200 cm","height",
+    {requireUnit:false}).some(issue=>issue.code==="out-of-range"));
 });
