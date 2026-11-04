@@ -84,10 +84,10 @@ test("event filters keep canonical page type, regions, date status, search and r
   assert.match(listing, /<details/);
   // Approved UX: month/type/time changes update only calendar data, not the hero.
   assert.ok(calendar.includes("useState<View>"));
-  assert.ok(calendar.includes('window.history.pushState(window.history.state,"",href)'));
-  assert.ok(calendar.includes('window.addEventListener("popstate",restore)'));
+  assert.match(calendar, /window\.history\.pushState\(\s*window\.history\.state,\s*"",\s*href\s*\)/);
+  assert.match(calendar, /window\.addEventListener\(\s*"popstate",\s*restore\s*\)/);
   assert.ok(calendar.includes('requestRef.current?.abort()'));
-  assert.ok(calendar.includes('fetch(endpoint.toString(),{signal:controller.signal'));
+  assert.match(calendar, /fetch\(\s*endpoint\.toString\(\),\s*\{\s*signal:\s*controller\.signal\s*,/);
   assert.doesNotMatch(calendar, /eventTypeFilters\.map|const eventTypes\s*=/);
 });
 
