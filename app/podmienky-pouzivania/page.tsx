@@ -1,5 +1,6 @@
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -11,15 +12,13 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function TermsPage() {
   return (
-    <main id="obsah" className="prose-page legal-page">
-      <span className="eyebrow">Pravidlá portálu</span>
-      <PublicHeading role="page" as="h1">
-        Podmienky používania
-      </PublicHeading>
-      <p className="lead">
-        Psipedia.sk je odborný a informačný portál o psoch. Používaním portálu berieš na vedomie
-        tieto pravidlá.
-      </p>
+    <main id="obsah">
+      <UniversalPageHero
+        eyebrow="Pravidlá portálu"
+        title="Podmienky používania"
+        intro="Psipedia.sk je odborný a informačný portál o psoch. Používaním portálu berieš na vedomie tieto pravidlá."
+      />
+      <section className="prose-page legal-page">
 
       <PublicHeading role="section" as="h2">
         Informačný charakter
@@ -185,6 +184,7 @@ export default function TermsPage() {
         povinností. Aktuálne znenie bude vždy dostupné na tejto adrese.
       </p>
       <p className="legal-updated">Aktualizované 24. septembra 2026.</p>
+      </section>
     </main>
   );
 }
