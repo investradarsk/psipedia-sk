@@ -83,6 +83,7 @@ export default async function OrganizationsHubPage() {
         <PublicFoundation className={styles.foundation}>
           <UnifiedSectionHeroShell>
             <UnifiedSectionHero
+              contentSource="route"
               breadcrumbs={
                 <Breadcrumbs label="Drobečková navigácia">
                   <Link href="/">Domov</Link>
@@ -94,7 +95,7 @@ export default async function OrganizationsHubPage() {
               }
               eyebrow="Pomoc psom"
               title="Organizácie pomáhajúce psom"
-              intro="Verejný prehľad publikovaných útulkov, združení a ďalších organizácií. Každá karta vedie na samostatný canonical profil organizácie."
+              intro="Nájdite útulok, združenie alebo organizáciu pomáhajúcu psom. V profile si pozrite jej činnosť a dostupné kontakty."
               visual={heroVisual}
               metaSlot={
                 <div className={styles.heroMeta}>
@@ -111,7 +112,7 @@ export default async function OrganizationsHubPage() {
               <PublicLandingSectionHeading
                 eyebrow="Adresár organizácií"
                 title="Publikované organizácie"
-                description="Profily organizácií sú samostatné verejné entity. Prípady pomoci, adopcie a zbierky zostávajú vo svojich vlastných sekciách."
+                description="Spoznajte organizácie a možnosti, ako im pomôcť. Konkrétne psy a výzvy nájdete v adopciách a zbierkach."
                 id="organization-list-heading"
               />
 
@@ -133,7 +134,10 @@ export default async function OrganizationsHubPage() {
                         excerpt={excerpt}
                         actionLabel="Zobraziť profil"
                         media={
-                          <Link href={href} aria-label={`Otvoriť profil organizácie ${organization.name}`}>
+                          <Link
+                            href={href}
+                            aria-label={`Otvoriť profil organizácie ${organization.name}`}
+                          >
                             {organization.imageUrl ? (
                               <ImageDisplay
                                 roleHint="generic"

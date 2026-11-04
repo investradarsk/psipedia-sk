@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { calendarMonthDays, moveCalendarMonth, eventsForCalendarDay } from "../lib/event-calendar-view.ts";
+import {
+  calendarMonthDays,
+  moveCalendarMonth,
+  eventsForCalendarDay,
+} from "../lib/event-calendar-view.ts";
 import {
   bratislavaDateKey,
   eventDateStatus,
@@ -47,10 +51,22 @@ test("structured event times use the Bratislava DST offset for their date", () =
 });
 
 test("every event type links to a dedicated crawlable calendar category", () => {
-  assert.deepEqual(eventPortalCategory("Výstava"), { href: "/podujatia/vystavy", label: "Výstavy" });
-  assert.deepEqual(eventPortalCategory("Tréning"), { href: "/podujatia/treningy", label: "Tréningy" });
-  assert.deepEqual(eventPortalCategory("Stretnutie"), { href: "/podujatia/stretnutia", label: "Stretnutia" });
-  assert.deepEqual(eventPortalCategory("Iné"), { href: "/podujatia/dalsie", label: "Ďalšie podujatia" });
+  assert.deepEqual(eventPortalCategory("Výstava"), {
+    href: "/podujatia/vystavy",
+    label: "Výstavy",
+  });
+  assert.deepEqual(eventPortalCategory("Tréning"), {
+    href: "/podujatia/treningy",
+    label: "Tréningy",
+  });
+  assert.deepEqual(eventPortalCategory("Stretnutie"), {
+    href: "/podujatia/stretnutia",
+    label: "Stretnutia",
+  });
+  assert.deepEqual(eventPortalCategory("Iné"), {
+    href: "/podujatia/dalsie",
+    label: "Ďalšie podujatia",
+  });
 });
 
 test("event time filters keep stable shareable URLs for crawlable archive anchors", () => {
@@ -59,13 +75,22 @@ test("event time filters keep stable shareable URLs for crawlable archive anchor
   assert.equal(eventTimeFilterFromParam(["vsetky"]), "all");
   assert.equal(eventTimeFilterFromParam("invalid"), "upcoming");
   assert.equal(eventTimeFilterHref("past"), "/podujatia?termin=ukoncene");
-  assert.equal(eventTimeFilterHref("past", "/podujatia/vystavy"), "/podujatia/vystavy?termin=ukoncene");
+  assert.equal(
+    eventTimeFilterHref("past", "/podujatia/vystavy"),
+    "/podujatia/vystavy?termin=ukoncene",
+  );
   assert.equal(eventTimeFilterHref("upcoming", "/podujatia/vystavy"), "/podujatia/vystavy");
 });
 
 test("event type navigation and time filters stay crawlable with the intended transition model", () => {
-  const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
-  const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
+  const calendar = readFileSync(
+    new URL("../components/event-calendar.tsx", import.meta.url),
+    "utf8",
+  );
+  const eventsPage = readFileSync(
+    new URL("../components/events-page.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(eventsPage, /eventTypePortalHref\(type\)/);
   assert.doesNotMatch(eventsPage, /PublicSubcategoryNavigator/);
   assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
@@ -78,22 +103,34 @@ test("event type navigation and time filters stay crawlable with the intended tr
   assert.match(calendar, /if \(month\) params\.set\("mesiac", month\)/);
   assert.match(calendar, /if \(timeParam\) params\.set\("termin", timeParam\)/);
   // These are crawlable, shareable links with fast in-place navigation.
-  assert.ok(calendar.includes('window.history.pushState(window.history.state,"",href)'));
-  assert.ok(calendar.includes('window.addEventListener("popstate",restore)'));
-  assert.ok(calendar.includes('event.preventDefault()'));
-  assert.ok(calendar.includes('fetch(endpoint.toString(),{signal:controller.signal'));
-  assert.ok(calendar.includes('new URL("/api/public/events/calendar",window.location.origin)'));
-  assert.ok(calendar.includes('href={calendarHref(moveCalendarMonth(visibleMonth, 1))}'));
-  assert.ok(calendar.includes('href={calendarHref(moveCalendarMonth(visibleMonth, -1))}'));
+  assert.match(
+    calendar,
+    /window\.history\.pushState\(\s*window\.history\.state,\s*"",\s*href\s*\)/,
+  );
+  assert.match(calendar, /window\.addEventListener\(\s*"popstate",\s*restore\s*\)/);
+  assert.ok(calendar.includes("event.preventDefault()"));
+  assert.match(calendar, /fetch\(\s*endpoint\.toString\(\),\s*\{\s*signal:\s*controller\.signal/);
+  assert.match(
+    calendar,
+    /new URL\(\s*"\/api\/public\/events\/calendar",\s*window\.location\.origin\s*\)/,
+  );
+  assert.ok(calendar.includes("href={calendarHref(moveCalendarMonth(visibleMonth, 1))}"));
+  assert.ok(calendar.includes("href={calendarHref(moveCalendarMonth(visibleMonth, -1))}"));
 });
 
 test("homepage and event listing reuse the central event date implementation", () => {
   const homepage = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
   const portal = readFileSync(new URL("../app/[section]/page.tsx", import.meta.url), "utf8");
-  const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
-  const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
+  const calendar = readFileSync(
+    new URL("../components/event-calendar.tsx", import.meta.url),
+    "utf8",
+  );
+  const eventsPage = readFileSync(
+    new URL("../components/events-page.tsx", import.meta.url),
+    "utf8",
+  );
   const card = readFileSync(new URL("../components/event-card.tsx", import.meta.url), "utf8");
-  assert.match(homepage, /getHomepageUpcomingEventsWithImages\(3\)/);
+  assert.match(homepage, /getHomepageUpcomingEventsWithImages\(8\)/);
   assert.match(portal, /getPublishedEventListing\(parseEventListing/);
   assert.match(portal, /slug === "podujatia"\) return <EventsPage/);
   assert.match(card, /eventDateStatus\(event, today\)/);
@@ -101,7 +138,10 @@ test("homepage and event listing reuse the central event date implementation", (
   assert.match(filters, /f\.time === 'current'/);
   assert.match(eventsPage, /bratislavaDateKey\(\)/);
   assert.match(card, /eventDateStatus\(event, today\)/);
-  assert.doesNotMatch(`${calendar}\n${eventsPage}\n${card}`, /new Date\(\).*startDate|toISOString\(\)\.slice\(0, 10\)/s);
+  assert.doesNotMatch(
+    `${calendar}\n${eventsPage}\n${card}`,
+    /new Date\(\).*startDate|toISOString\(\)\.slice\(0, 10\)/s,
+  );
 });
 
 test("EVENTS-CALENDAR-V1 uses Monday-first month cells and year-safe navigation", () => {
@@ -115,7 +155,13 @@ test("EVENTS-CALENDAR-V1 uses Monday-first month cells and year-safe navigation"
 
 test("EVENTS-CALENDAR-V1 reuses inclusive local dates for multi-day event selection", () => {
   const events = [{ id: 9, startDate: "2026-10-31", endDate: "2026-11-02" }];
-  assert.deepEqual(eventsForCalendarDay(events, "2026-11-01").map((event) => event.id), [9]);
-  assert.deepEqual(eventsForCalendarDay(events, "2026-11-02").map((event) => event.id), [9]);
+  assert.deepEqual(
+    eventsForCalendarDay(events, "2026-11-01").map((event) => event.id),
+    [9],
+  );
+  assert.deepEqual(
+    eventsForCalendarDay(events, "2026-11-02").map((event) => event.id),
+    [9],
+  );
   assert.deepEqual(eventsForCalendarDay(events, "2026-11-03"), []);
 });

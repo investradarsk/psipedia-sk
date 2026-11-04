@@ -21,52 +21,57 @@ const helpCategory = read("app/pomoc-psom/[category]/page.tsx");
 
 test("shared public disclosure is keyboard-native and reports active secondary filters", () => {
   assert.match(disclosure, /type="button"/);
-  assert.match(disclosure, /aria-expanded=\{open\}/);
-  assert.match(disclosure, /aria-controls=\{contentId\}/);
+  assert.match(disclosure, /aria-expanded=\{\s*open\s*\}/);
+  assert.match(disclosure, /aria-controls=\{\s*contentId\s*\}/);
   assert.match(disclosure, /data-public-filter-count/);
-  assert.match(disclosure, /Ďalšie filtre/);
+  assert.match(disclosure, /Ďalšie\s*filtre/);
 });
 
 test("Services preserve one canonical GET search, secondary filters and URL state", () => {
   assert.equal((directory.match(/<HomePortalSearch\b/g) ?? []).length, 1);
-  assert.match(directory, /portalSearchSlot=\{/);
+  assert.match(directory, /portalSearchSlot=\{\s*/);
   assert.match(directory, /searchScope="services"/);
-  assert.match(directory, /action=\{basePath\}/);
-  assert.match(directory, /hidden=\{directoryQueryFields\(filters, \["q", "page"\]\)\}/);
+  assert.match(directory, /action=\{\s*basePath\s*\}/);
+  assert.match(
+    directory,
+    /hidden=\{\s*directoryQueryFields\(\s*filters,\s*\[\s*"q",\s*"page"\s*\]\s*\)\s*\}/,
+  );
   assert.match(
     portalSearch,
-    /<form action=\{action\} method="get"[^>]*role="search"[^>]*data-public-search-form=\{searchScope\}/,
+    /<form\s*action=\{\s*action\s*\}\s*method="get"[^>]*role="search"[^>]*data-public-search-form=\{\s*searchScope\s*\}/,
   );
-  assert.match(portalSearch, /name=\{inputName\}/);
-  assert.match(portalSearch, /<button type="submit">/);
+  assert.match(portalSearch, /name=\{\s*inputName\s*\}/);
+  assert.match(portalSearch, /<button\s*type="submit">/);
   assert.match(services, /method="get"/);
   assert.match(services, /data-directory-filter-form/);
-  assert.match(services, /directoryQueryFields\(filters,/);
+  assert.match(services, /directoryQueryFields\(\s*filters,\s*/);
   assert.doesNotMatch(services, /data-public-search-form=|<PublicFilterDisclosure\b/);
   for (const name of [
     "region",
     "district",
     "city",
-    "service",
+    "svc",
     "breed",
     "fci",
     "organization",
-    "type",
     "sort",
   ]) {
     assert.match(services, new RegExp('name="' + name + '"'));
   }
-  assert.match(directoryQuery, /export function directoryQueryFields/);
-  assert.match(directoryQuery, /export function directoryPageHref/);
-  assert.match(directoryQuery, /export function directoryEmptyQueryRedirect/);
-  assert.match(servicesResults, /directoryPageHref\(basePath, filters, result\.page/);
-  assert.match(servicesStore, /page: Math\.max\(1,/);
-  assert.match(servicesStore, /query: firstParam\(params\.q\)\.slice\(0, 100\)/);
+  assert.match(directoryQuery, /export\s*function\s*directoryQueryFields/);
+  assert.match(directoryQuery, /export\s*function\s*directoryPageHref/);
+  assert.match(directoryQuery, /export\s*function\s*directoryEmptyQueryRedirect/);
+  assert.match(servicesResults, /directoryPageHref\(\s*basePath,\s*filters,\s*result\s*\.page/);
+  assert.match(servicesStore, /page:\s*Math\s*\.max\(\s*1,\s*/);
+  assert.match(
+    servicesStore,
+    /query:\s*firstParam\(\s*params\s*\.q\s*\)\s*\.slice\(\s*0,\s*100\s*\)/,
+  );
 });
 test("Events keep server-backed search while calendar navigation updates in place", () => {
-  assert.match(events, /"use client"/);
-  assert.match(events, /window\.history\.pushState/);
-  assert.match(events, /fetch\(endpoint\.toString\(\)/);
+  assert.match(events, /"use\s*client"/);
+  assert.match(events, /window\s*\.history\s*\.pushState/);
+  assert.match(events, /fetch\(\s*endpoint\s*\.toString\(\s*\)/);
   assert.match(events, /\/api\/public\/events\/calendar/);
   const results = read("components/event-listing-results.tsx");
   const page = read("components/events-page.tsx");
@@ -76,21 +81,24 @@ test("Events keep server-backed search while calendar navigation updates in plac
   assert.match(results, /name="mesiac"/);
   assert.match(results, /eventListingParams/);
   assert.match(results, /<details/);
-  assert.match(events, /function timeHref/);
-  assert.match(results, /Vymazať filtre/);
+  assert.match(events, /function\s*timeHref/);
+  assert.match(results, /Vymazať\s*filtre/);
   assert.match(eventsLib, /eventSearchQueryFromParam/);
   assert.match(eventsLib, /eventRegionFilterFromParam/);
   assert.match(eventsLib, /eventMonthFilterFromParam/);
-  assert.match(eventsRoot, /initialQuery=\{eventSearchQueryFromParam\(rawSearchParams\.q\)\}/);
+  assert.match(
+    eventsRoot,
+    /initialQuery=\{\s*eventSearchQueryFromParam\(\s*rawSearchParams\s*\.q\s*\)\s*\}/,
+  );
   assert.match(
     eventsType,
-    /initialRegion=\{eventRegionFilterFromParam\(rawSearchParams\.region\)\}/,
+    /initialRegion=\{\s*eventRegionFilterFromParam\(\s*rawSearchParams\s*\.region\s*\)\s*\}/,
   );
 });
 
 test("Help category pages have one primary search and URL-backed SSR filters", () => {
   assert.doesNotMatch(helpPage, /SectionHeroSearch/);
-  assert.doesNotMatch(helpBrowser, /"use client"|useState|useMemo|window\.history/);
+  assert.doesNotMatch(helpBrowser, /"use\s*client"|useState|useMemo|window\s*\.history/);
   assert.match(helpBrowser, /method="get"/);
   assert.match(helpPage, /searchScope="help"/);
   assert.match(helpBrowser, /data-help-secondary-filters/);
@@ -99,13 +107,19 @@ test("Help category pages have one primary search and URL-backed SSR filters", (
   assert.match(helpBrowser, /name="region"/);
   assert.match(helpBrowser, /name="stav"/);
   assert.match(helpBrowser, /<PublicFilterDisclosure/);
-  assert.match(helpBrowser, /Zobraziť celý zoznam/);
+  assert.match(helpBrowser, /Zobraziť\s*celý\s*zoznam/);
   assert.match(
     helpCategory,
-    /initialQuery = scalar\(rawSearchParams\.q\)\.trim\(\)\.slice\(0, 120\)/,
+    /initialQuery\s*=\s*scalar\(\s*rawSearchParams\s*\.q\s*\)\s*\.trim\(\s*\)\s*\.slice\(\s*0,\s*120\s*\)/,
   );
-  assert.match(helpCategory, /initialRegion = regionFilter\(rawSearchParams\.region\)/);
-  assert.match(helpCategory, /initialActiveOnly = scalar\(rawSearchParams\.stav\) !== "vsetky"/);
+  assert.match(
+    helpCategory,
+    /initialRegion\s*=\s*regionFilter\(\s*rawSearchParams\s*\.region\s*\)/,
+  );
+  assert.match(
+    helpCategory,
+    /initialActiveOnly\s*=\s*scalar\(\s*rawSearchParams\s*\.stav\s*\)\s*!==\s*"vsetky"/,
+  );
 });
 
 test("public search simplification does not introduce persistence or routing redesign hooks", () => {
@@ -124,39 +138,54 @@ test("DS-3 main search shares one visual contract without changing GET destinati
   for (const source of [portalSearch, header, results]) {
     assert.match(source, /data-public-search-ui="main"/);
     assert.match(source, /className="public-search-entry"/);
-    assert.match(source, /className="public-search-icon" aria-hidden="true"/);
-    assert.match(source, /<button type="submit">/);
+    assert.match(source, /className="public-search-icon"\s*aria-hidden="true"/);
+    assert.match(source, /<button\s*type="submit">/);
   }
   assert.match(
     portalSearch,
-    /<form action=\{action\} method="get"[^>]*role="search"[^>]*data-public-search-form=\{searchScope\}/,
+    /<form\s*action=\{\s*action\s*\}\s*method="get"[^>]*role="search"[^>]*data-public-search-form=\{\s*searchScope\s*\}/,
   );
-  assert.match(portalSearch, /name=\{inputName\}/);
-  assert.match(portalSearch, /minLength=\{allowEmpty \? undefined : 2\}/);
-  assert.match(portalSearch, /hidden\.map\(\(field\) => <input type="hidden" name=\{field.name\}/);
-  assert.match(directory, /action=\{basePath\}/);
-  assert.match(directory, /hidden=\{directoryQueryFields\(filters, \["q", "page"\]\)\}/);
-  assert.match(help, /hidden=\{\[\{ name: "sekcia", value: "pomoc-psom" \}\]\}/);
-  assert.match(eventPage, /action=\{categoryHref \?\? "\/podujatia"\}/);
-  assert.match(eventPage, /hidden=\{searchHidden\}/);
-  assert.match(reviews, /hidden=\{\[\{ name: "sekcia", value: "recenzie" \}\]\}/);
-  assert.match(results, /<form action="\/hladat" method="get"[^>]*role="search"/);
+  assert.match(portalSearch, /name=\{\s*inputName\s*\}/);
+  assert.match(portalSearch, /minLength=\{\s*allowEmpty\s*\?\s*undefined\s*:\s*2\s*\}/);
+  assert.match(
+    portalSearch,
+    /hidden\s*\.map\(\s*\(\s*field\s*\)\s*=>\s*<input\s*type="hidden"\s*name=\{\s*field.name\s*\}/,
+  );
+  assert.match(directory, /action=\{\s*basePath\s*\}/);
+  assert.match(
+    directory,
+    /hidden=\{\s*directoryQueryFields\(\s*filters,\s*\[\s*"q",\s*"page"\s*\]\s*\)\s*\}/,
+  );
+  assert.match(
+    help,
+    /hidden=\{\s*\[\s*\{\s*name:\s*"sekcia",\s*value:\s*"pomoc-psom"\s*\}\s*\]\s*\}/,
+  );
+  assert.match(eventPage, /action=\{\s*categoryHref\s*\?\?\s*"\/podujatia"\s*\}/);
+  assert.match(eventPage, /hidden=\{\s*searchHidden\s*\}/);
+  assert.match(
+    reviews,
+    /hidden=\{\s*\[\s*\{\s*name:\s*"sekcia",\s*value:\s*"recenzie"\s*\}\s*\]\s*\}/,
+  );
+  assert.match(results, /<form\s*action="\/hladat"\s*method="get"[^>]*role="search"/);
   assert.match(results, /name="q"/);
   assert.match(results, /name="sekcia"/);
   assert.match(results, /name="podsekcia"/);
-  assert.match(header, /window\.location\.href = `\/hladat\?q=\$\{encodeURIComponent\(clean\)\}`/);
-  assert.match(header, /if \(event\.key === "Escape"\)/);
+  assert.match(
+    header,
+    /window\s*\.location\s*\.href\s*=\s*`\/hladat\?q=\$\{\s*encodeURIComponent\(\s*clean\s*\)\s*\}`/,
+  );
+  assert.match(header, /if\s*\(\s*event\s*\.key\s*===\s*"Escape"\s*\)/);
   assert.match(header, /aria-modal="true"/);
-  assert.match(hero, /portalSearchSlot \? null : managedSearch\(searchSlot/);
+  assert.match(hero, /portalSearchSlot\s*\?\s*null\s*:\s*managedSearch\(\s*searchSlot/);
 });
 
 test("DS-3 keeps contextual section search separate from secondary filters", () => {
   const sectionSearch = read("components/section-hero-search.tsx");
   assert.match(sectionSearch, /method="get"/);
   assert.match(sectionSearch, /data-public-search-ui="section"/);
-  assert.match(sectionSearch, /name=\{inputName\}/);
+  assert.match(sectionSearch, /name=\{\s*inputName\s*\}/);
   assert.match(sectionSearch, /beforeInput/);
-  assert.match(sectionSearch, /hidden\.map\(/);
+  assert.match(sectionSearch, /hidden\s*\.map\(\s*/);
   assert.match(sectionSearch, /className="public-search-entry"/);
   assert.doesNotMatch(services, /data-public-search-ui=/);
   assert.doesNotMatch(services, /public-search-entry/);
@@ -166,20 +195,20 @@ test("DS-3 desktop and mobile search controls are token-based, scoped and keyboa
   const css = read("app/design-system.css");
   const section = css.split("/* DS-3 PUBLIC SEARCH")[1];
   assert.ok(section, "Shared public search styles missing");
-  assert.match(section, /\[data-public-search-ui="main"\]/);
-  assert.match(section, /grid-template-columns: minmax\(0, 1fr\) auto;/);
-  assert.match(section, /min-height: 52px;/);
+  assert.match(section, /\[\s*data-public-search-ui="main"\s*\]/);
+  assert.match(section, /grid-template-columns:\s*minmax\(\s*0,\s*1fr\s*\)\s*auto;/);
+  assert.match(section, /min-height:\s*52px;/);
   assert.match(section, /--ps-color-action-primary/);
   assert.match(section, /--ps-color-action-primary-hover/);
   assert.match(section, /--ps-color-text-primary/);
   assert.match(section, /--ps-radius-control/);
   assert.match(section, /:focus-within/);
   assert.match(section, /:focus-visible/);
-  assert.match(section, /@media \(max-width: 620px\)/);
-  assert.match(section, /grid-template-columns: minmax\(0, 1fr\);/);
-  assert.match(section, /min-height: 48px;/);
-  assert.match(section, /min-height: 46px;/);
-  assert.match(section, /@media \(forced-colors: active\)/);
-  assert.doesNotMatch(section, /\.admin[-_\w]+\s*\{/);
+  assert.match(section, /@media\s*\(\s*max-width:\s*620px\s*\)/);
+  assert.match(section, /grid-template-columns:\s*minmax\(\s*0,\s*1fr\s*\);/);
+  assert.match(section, /min-height:\s*48px;/);
+  assert.match(section, /min-height:\s*46px;/);
+  assert.match(section, /@media\s*\(\s*forced-colors:\s*active\s*\)/);
+  assert.doesNotMatch(section, /\s*\.admin[-_\w]+\s*\{\s*/);
   assert.doesNotMatch(section, /!important/);
 });

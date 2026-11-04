@@ -306,9 +306,9 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
   const detail = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
 
   assert.match(directoryPage, /title=\{active\?\.heroTitle \?\? "Služby pre psov"\}/);
-  assert.match(directoryPage, /intro=\{active\?\.intro \?\?/);
-  assert.match(directoryPage, /title=\{active \? active\.resultsTitle : filters\.query \|\| filters\.category/);
-  assert.match(directoryPage, /\? "Výsledky vyhľadávania" : "Všetky služby pre psov"\}/);
+  assert.match(directoryPage, /intro=\{\s*active\?\.intro\s*\?\?/);
+  assert.match(directoryPage, /title=\{\s*active\s*\?\s*active\.resultsTitle\s*:\s*filters\.query\s*\|\|\s*filters\.category/);
+  assert.match(directoryPage, /\?\s*"Výsledky vyhľadávania"\s*:\s*"Všetky služby pre psov"\s*\}/);
 
   assert.match(categoryPage, /directoryCategoryListingMetadata\(category, policy\.page\)/);
   assert.match(categoryPage, /name: category\.heroTitle/);
@@ -316,8 +316,8 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
 
   assert.match(card, /href=\{directoryProfileHref\(profile\)\}/);
   assert.match(results, /<PublicPagination/);
-  assert.match(results, /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/);
-  assert.match(results, /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/);
+  assert.match(results, /previousHref=\{\s*result\.page\s*>\s*1\s*\?\s*directoryPageHref\(basePath,\s*filters,\s*result\.page\s*-\s*1\)\s*:\s*undefined\s*\}/);
+  assert.match(results, /nextHref=\{\s*result\.page\s*<\s*result\.totalPages\s*\?\s*directoryPageHref\(basePath,\s*filters,\s*result\.page\s*\+\s*1\)\s*:\s*undefined\s*\}/);
   const pagination = fs.readFileSync(new URL("../components/public-visual-system/public-result-states.tsx", import.meta.url), "utf8");
   assert.match(pagination, /<Link href=\{previousHref\} rel="prev" aria-label=\{previousAriaLabel\}>/);
   assert.match(pagination, /<Link href=\{nextHref\} rel="next" aria-label=\{nextAriaLabel\}>/);

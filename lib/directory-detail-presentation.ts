@@ -1,3 +1,4 @@
+import { directoryQualificationSections } from "./directory-public-copy.ts";
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
@@ -22,6 +23,7 @@ export type DirectoryDetailPresentation = {
   excerpt: string;
   services: string[];
   qualifications: string[];
+  sources?: string[];
   city: string;
   district: string;
   region: string;
@@ -54,18 +56,86 @@ export type DirectoryQuickFact = {
 };
 
 const unavailableValue = /^(?:neoveren[eé]|nezisten[eé]|neuveden[eé]|n\/a|nie je uveden[eé])$/i;
-const relationFields = ["Plemeno", "Plemená", "FCI skupina", "Organizácia", "Zastrešujúca organizácia"] as const;
+const relationFields = [
+  "Plemeno",
+  "Plemená",
+  "FCI skupina",
+  "Organizácia",
+  "Zastrešujúca organizácia",
+] as const;
 
 const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
   veterinari: ["Špecializácie", "Pohotovosť", "Hospitalizácia", "RTG", "USG", "Laboratórium"],
-  treneri: ["Individuálny výcvik", "Skupinový výcvik", "Výcvik šteniat", "Behaviorálne poradenstvo"],
-  "kynologicke-kluby": ["Typ klubu", "Zameranie", "Organizácia", "Výcvik šteniat", "Individuálny výcvik", "Skupinový výcvik", "Športová kynológia", "Obrany", "Stopy", "Agility", "Rally obedience", "Retriever / poľovnícka kynológia"],
-  "chovatelske-kluby": ["Plemeno", "Plemená", "FCI skupina", "Organizácia", "Zastrešujúca organizácia"],
-  "chovatelske-stanice": ["Plemeno", "Plemená", "FCI skupina", "Chovateľ", "Klub", "Aktívny chov", "Aktuálne vrhy", "Plánované vrhy"],
+  treneri: [
+    "Individuálny výcvik",
+    "Skupinový výcvik",
+    "Výcvik šteniat",
+    "Behaviorálne poradenstvo",
+  ],
+  "kynologicke-kluby": [
+    "Typ klubu",
+    "Zameranie",
+    "Organizácia",
+    "Výcvik šteniat",
+    "Individuálny výcvik",
+    "Skupinový výcvik",
+    "Športová kynológia",
+    "Obrany",
+    "Stopy",
+    "Agility",
+    "Rally obedience",
+    "Retriever / poľovnícka kynológia",
+  ],
+  "chovatelske-kluby": [
+    "Plemeno",
+    "Plemená",
+    "FCI skupina",
+    "Organizácia",
+    "Zastrešujúca organizácia",
+  ],
+  "chovatelske-stanice": [
+    "Plemeno",
+    "Plemená",
+    "FCI skupina",
+    "Chovateľ",
+    "Klub",
+    "Aktívny chov",
+    "Aktuálne vrhy",
+    "Plánované vrhy",
+  ],
   "hotely-a-opatrovanie": ["Hotel", "Opatrovanie", "Denná starostlivosť", "Vyzdvihnutie psa"],
-  vencenie: ["Individuálne venčenie", "Skupinové venčenie", "Venčenie s tréningom", "Šteňatá", "Veľké psy", "Seniori / špeciálne potreby", "Vyzdvihnutie psa", "GPS / foto report", "Typ poskytovateľa"],
-  fyzioterapia: ["Hydroterapia", "Laserterapia", "Magnetoterapia", "Elektroterapia", "Manuálne techniky", "Dogfitness / prevencia", "Pooperačná rehabilitácia", "Ortopedickí pacienti", "Neurologickí pacienti", "Športové / pracovné psy", "Mobilná služba", "Odborník / certifikácia"],
-  "dalsie-sluzby": ["Typ služby", "Pokrytie", "Výjazd ku klientovi", "Celoslovenská dostupnosť", "Orientačná cena"],
+  vencenie: [
+    "Individuálne venčenie",
+    "Skupinové venčenie",
+    "Venčenie s tréningom",
+    "Šteňatá",
+    "Veľké psy",
+    "Seniori / špeciálne potreby",
+    "Vyzdvihnutie psa",
+    "GPS / foto report",
+    "Typ poskytovateľa",
+  ],
+  fyzioterapia: [
+    "Hydroterapia",
+    "Laserterapia",
+    "Magnetoterapia",
+    "Elektroterapia",
+    "Manuálne techniky",
+    "Dogfitness / prevencia",
+    "Pooperačná rehabilitácia",
+    "Ortopedickí pacienti",
+    "Neurologickí pacienti",
+    "Športové / pracovné psy",
+    "Mobilná služba",
+    "Odborník / certifikácia",
+  ],
+  "dalsie-sluzby": [
+    "Typ služby",
+    "Pokrytie",
+    "Výjazd ku klientovi",
+    "Celoslovenská dostupnosť",
+    "Orientačná cena",
+  ],
 };
 
 function importedValue(profile: PublicDirectoryProfile, ...keys: string[]) {
@@ -84,7 +154,11 @@ export function usefulDirectoryDetailValue(value: string | null | undefined) {
 export function publicDirectoryDetailUrl(value: string | null | undefined) {
   const clean = usefulDirectoryDetailValue(value);
   if (!clean) return null;
-  const candidate = /^https?:\/\//i.test(clean) ? clean : /^[\w.-]+\.[a-z]{2,}(?:\/|$)/i.test(clean) ? `https://${clean}` : null;
+  const candidate = /^https?:\/\//i.test(clean)
+    ? clean
+    : /^[\w.-]+\.[a-z]{2,}(?:\/|$)/i.test(clean)
+      ? `https://${clean}`
+      : null;
   if (!candidate) return null;
   try {
     const url = new URL(candidate);
@@ -127,31 +201,58 @@ export function getDirectoryQuickFacts(
   addText("Mesto / obec", presentation.city);
   addText("Okres", presentation.district);
   addText("Kraj", presentation.region);
-  addLinks("Plemená", relatedBreeds.map((breed) => ({ label: breed.name, href: breed.href })));
+  addLinks(
+    "Plemená",
+    relatedBreeds.map((breed) => ({ label: breed.name, href: breed.href })),
+  );
   addText("Služby", presentation.services.join(", "));
   addText("Zameranie / kvalifikácie", presentation.qualifications.join(", "));
-  if (presentation.websiteUrl) addLinks("Web", [{ label: "Oficiálny web", href: presentation.websiteUrl }]);
-  if (presentation.facebookUrl) addLinks("Facebook", [{ label: "Facebook", href: presentation.facebookUrl }]);
-  if (presentation.instagramUrl) addLinks("Instagram", [{ label: "Instagram", href: presentation.instagramUrl }]);
-  if (presentation.phone) addLinks("Telefón", [{ label: presentation.phone.value, href: presentation.phone.href }]);
-  addLinks("E-mail", presentation.emails.map((email) => ({ label: email.value, href: email.href })));
+  if (presentation.websiteUrl)
+    addLinks("Web", [{ label: "Oficiálny web", href: presentation.websiteUrl }]);
+  if (presentation.facebookUrl)
+    addLinks("Facebook", [{ label: "Facebook", href: presentation.facebookUrl }]);
+  if (presentation.instagramUrl)
+    addLinks("Instagram", [{ label: "Instagram", href: presentation.instagramUrl }]);
+  if (presentation.phone)
+    addLinks("Telefón", [{ label: presentation.phone.value, href: presentation.phone.href }]);
+  addLinks(
+    "E-mail",
+    presentation.emails.map((email) => ({ label: email.value, href: email.href })),
+  );
   const updatedLabel = formatDirectoryUpdatedAt(presentation.updatedAt);
-  if (updatedLabel) facts.push({ label: "Posledná aktualizácia", value: updatedLabel, dateTime: presentation.updatedAt });
+  if (updatedLabel)
+    facts.push({
+      label: "Posledná aktualizácia",
+      value: updatedLabel,
+      dateTime: presentation.updatedAt,
+    });
 
   return facts;
 }
 
 function splitDescription(value: string | null) {
-  return value ? value.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean) : [];
+  return value
+    ? value
+        .split(/\n{2,}/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
 }
 
-export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile): DirectoryDetailPresentation {
-  const publicAddress = profile.address.trim()
-    || (profile.formattedServiceAddress ? profile.formattedServiceAddress.replace(/\n/g, ", ") : "");
+export function getDirectoryDetailPresentation(
+  profile: PublicDirectoryProfile,
+): DirectoryDetailPresentation {
+  const publicAddress =
+    profile.address.trim() ||
+    (profile.formattedServiceAddress ? profile.formattedServiceAddress.replace(/\n/g, ", ") : "");
   const publicContacts = readDirectoryPublicContacts(profile.importData, profile.websiteUrl ?? "");
   const phoneValue = usefulDirectoryDetailValue(publicContacts.phone);
   const rawEmail = usefulDirectoryDetailValue(publicContacts.email);
-  const emails = rawEmail?.split(/[;,]/).map((item) => item.trim()).filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item)) ?? [];
+  const emails =
+    rawEmail
+      ?.split(/[;,]/)
+      .map((item) => item.trim())
+      .filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item)) ?? [];
   const websiteUrl = publicDirectoryDetailUrl(publicContacts.website);
   const facebookUrl = publicDirectoryDetailUrl(publicContacts.facebook);
   const instagramUrl = publicDirectoryDetailUrl(publicContacts.instagram);
@@ -164,22 +265,25 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     const value = usefulDirectoryDetailValue(importedValue(profile, label));
     return value ? [{ label, value }] : [];
   });
-  const health = profile.category === "veterinari" && facts.length > 0
-    ? {
-        variant: "veterinari" as const,
-        eyebrow: "Zdravie a starostlivosť",
-        title: "Veterinárna starostlivosť a vybavenie",
-        facts,
-      }
-    : profile.category === "fyzioterapia" && facts.length > 0
+  const health =
+    profile.category === "veterinari" && facts.length > 0
       ? {
-          variant: "fyzioterapia" as const,
+          variant: "veterinari" as const,
           eyebrow: "Zdravie a starostlivosť",
-          title: "Terapie a rehabilitácia",
+          title: "Veterinárna starostlivosť a vybavenie",
           facts,
         }
-      : null;
-  const coverage = usefulDirectoryDetailValue(importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"));
+      : profile.category === "fyzioterapia" && facts.length > 0
+        ? {
+            variant: "fyzioterapia" as const,
+            eyebrow: "Zdravie a starostlivosť",
+            title: "Terapie a rehabilitácia",
+            facts,
+          }
+        : null;
+  const coverage = usefulDirectoryDetailValue(
+    importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"),
+  );
   const description = profile.description || profile.excerpt || null;
 
   return {
@@ -189,13 +293,28 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     category: profile.category,
     excerpt: profile.excerpt,
     services: profile.services,
-    qualifications: profile.qualifications,
+    ...directoryQualificationSections(profile.qualifications),
+    sources: [
+      ...new Set([
+        ...(profile.sources ?? []),
+        ...directoryQualificationSections(profile.qualifications).sources,
+      ]),
+    ],
     city: publicLocationValue(profile.city, "city"),
     district: publicLocationValue(profile.district, "district"),
     region: publicLocationValue(profile.region, "region"),
     address: publicAddress,
     priceNote: profile.priceNote,
-    openingHours: usefulDirectoryDetailValue(importedValue(profile, "Ordinačné hodiny", "Otváracie hodiny", "Otváracia doba", "Ordinačná doba", "Pracovná doba")),
+    openingHours: usefulDirectoryDetailValue(
+      importedValue(
+        profile,
+        "Ordinačné hodiny",
+        "Otváracie hodiny",
+        "Otváracia doba",
+        "Ordinačná doba",
+        "Pracovná doba",
+      ),
+    ),
     imageUrl: profile.imageUrl,
     detailImageDisplay: profile.detailImageDisplay,
     verified: profile.verified,
@@ -205,7 +324,9 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     coverage,
     facts,
     health,
-    phone: phoneValue ? { value: phoneValue, href: `tel:${phoneValue.replace(/[^+\d]/g, "")}` } : null,
+    phone: phoneValue
+      ? { value: phoneValue, href: `tel:${phoneValue.replace(/[^+\d]/g, "")}` }
+      : null,
     emails: emails.map((value) => ({ value, href: `mailto:${value}` })),
     websiteUrl,
     facebookUrl,

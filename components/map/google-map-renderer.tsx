@@ -669,7 +669,7 @@ export function GoogleMapRenderer(props: Props) {
           cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
         }}
       />
-      {configMissing || !ready ? (
+      {consentGranted && (configMissing || !ready) ? (
         <PublicNotice
           as="div"
           appearance="context"

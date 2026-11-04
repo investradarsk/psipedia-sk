@@ -1,4 +1,5 @@
 "use client";
+import { PublicHeading } from "@/components/public-heading";
 import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import {
@@ -77,7 +78,9 @@ export function DirectoryContactForm({
     <form className="directory-contact-form" onSubmit={submit}>
       <div className="directory-contact-heading">
         <div>
-          <h2>Napíš svoj dopyt</h2>
+          <PublicHeading role="panel" as="h2">
+            Napíš svoj dopyt
+          </PublicHeading>
           <p>Správa príde najprv redakcii. Skontrolujeme ju a sprostredkujeme ďalší kontakt.</p>
         </div>
       </div>

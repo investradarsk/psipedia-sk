@@ -1,6 +1,13 @@
 import type { ArticleSeo } from "@/lib/content";
 
-export const eventTypes = ["Výstava", "Preteky", "Seminár", "Tréning", "Stretnutie", "Iné"] as const;
+export const eventTypes = [
+  "Výstava",
+  "Preteky",
+  "Seminár",
+  "Tréning",
+  "Stretnutie",
+  "Iné",
+] as const;
 export type EventType = (typeof eventTypes)[number];
 
 export const slovakRegions = [
@@ -55,15 +62,40 @@ export type DogEvent = {
 };
 
 /** Data needed by public event listing cards; long descriptions and SEO remain on detail routes. */
-export type PublicEventCard = Pick<DogEvent,
-  "id" | "slug" | "title" | "eventType" | "startDate" | "startTime" |
-  "endDate" | "endTime" | "venue" | "city" | "region" | "cancelled" |
-  "imageUrl" | "imageDisplay" | "thumbnailImageDisplay">;
+export type PublicEventCard = Pick<
+  DogEvent,
+  | "id"
+  | "slug"
+  | "title"
+  | "eventType"
+  | "startDate"
+  | "startTime"
+  | "endDate"
+  | "endTime"
+  | "venue"
+  | "city"
+  | "region"
+  | "cancelled"
+  | "imageUrl"
+  | "imageDisplay"
+  | "thumbnailImageDisplay"
+>;
 
 /** Minimal D1 response for the 12 linked events shown after selecting a calendar day. */
-export type PublicEventDayPreview = Pick<DogEvent,
-  "id" | "slug" | "title" | "eventType" | "startDate" | "startTime" |
-  "endDate" | "venue" | "city" | "cancelled" | "imageUrl">;
+export type PublicEventDayPreview = Pick<
+  DogEvent,
+  | "id"
+  | "slug"
+  | "title"
+  | "eventType"
+  | "startDate"
+  | "startTime"
+  | "endDate"
+  | "venue"
+  | "city"
+  | "cancelled"
+  | "imageUrl"
+>;
 
 export const eventTypeFilters = [
   { value: "Všetky", label: "Všetky" },
@@ -100,7 +132,10 @@ export function eventDateStatus(
   return "current";
 }
 
-export function eventIsActive(event: Pick<DogEvent, "startDate" | "endDate">, today = bratislavaDateKey()) {
+export function eventIsActive(
+  event: Pick<DogEvent, "startDate" | "endDate">,
+  today = bratislavaDateKey(),
+) {
   return eventDateStatus(event, today) !== "past";
 }
 
@@ -111,11 +146,21 @@ export function eventDateTimeIso(date: string, time?: string | null): string {
   const utcGuess = Date.UTC(year, month - 1, day, hour, minute);
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: EVENT_TIME_ZONE,
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
   }).formatToParts(new Date(utcGuess));
   const zoned = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  const representedAsUtc = Date.UTC(Number(zoned.year), Number(zoned.month) - 1, Number(zoned.day), Number(zoned.hour), Number(zoned.minute));
+  const representedAsUtc = Date.UTC(
+    Number(zoned.year),
+    Number(zoned.month) - 1,
+    Number(zoned.day),
+    Number(zoned.hour),
+    Number(zoned.minute),
+  );
   const offsetMinutes = Math.round((representedAsUtc - utcGuess) / 60_000);
   const sign = offsetMinutes >= 0 ? "+" : "-";
   const absolute = Math.abs(offsetMinutes);
@@ -144,8 +189,18 @@ function isInternalEventPresentationLine(value: string) {
 
   if (/^nezistene(?:\b|\s*[–—-])/.test(normalized)) return true;
   if (/^[^:]{1,80}:\s*nezistene\b/.test(normalized)) return true;
-  if (/^(?:zdroje?|source(?: url)?|url zdroja|zdrojova url|importovane z)\s*:\s*https?:\/\//.test(normalized)) return true;
-  if (/^(?:source (?:id|url|key)|external (?:id|key)|import (?:id|key|source|url)|raw (?:source|payload|url)|zdrojove id|interne id)\s*:/.test(normalized)) return true;
+  if (
+    /^(?:zdroje?|source(?: url)?|url zdroja|zdrojova url|importovane z)\s*:\s*https?:\/\//.test(
+      normalized,
+    )
+  )
+    return true;
+  if (
+    /^(?:source (?:id|url|key)|external (?:id|key)|import (?:id|key|source|url)|raw (?:source|payload|url)|zdrojove id|interne id)\s*:/.test(
+      normalized,
+    )
+  )
+    return true;
   return false;
 }
 
@@ -165,16 +220,21 @@ export function buildPublicEventPresentation(event: DogEvent): DogEvent {
   let practicalInfo = sanitizePublicEventText(event.practicalInfo);
 
   const excerptComparable = eventPresentationComparisonText(excerpt);
-  if (description && excerptComparable && eventPresentationComparisonText(description) === excerptComparable) {
+  if (
+    description &&
+    excerptComparable &&
+    eventPresentationComparisonText(description) === excerptComparable
+  ) {
     description = "";
   }
 
   const visibleDescriptionComparable = eventPresentationComparisonText(description);
   const practicalComparable = eventPresentationComparisonText(practicalInfo);
   if (
-    practicalInfo
-    && practicalComparable
-    && (practicalComparable === excerptComparable || practicalComparable === visibleDescriptionComparable)
+    practicalInfo &&
+    practicalComparable &&
+    (practicalComparable === excerptComparable ||
+      practicalComparable === visibleDescriptionComparable)
   ) {
     practicalInfo = "";
   }
@@ -195,28 +255,42 @@ export function formatEventUpdatedAt(value: string | null | undefined) {
 }
 
 export function formatEventDate(event: Pick<DogEvent, "startDate" | "endDate">) {
-  const formatter = new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: EVENT_TIME_ZONE });
+  const formatter = new Intl.DateTimeFormat("sk-SK", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: EVENT_TIME_ZONE,
+  });
   const start = new Date(`${event.startDate}T12:00:00Z`);
   if (!event.endDate || event.endDate === event.startDate) return formatter.format(start);
   const end = new Date(`${event.endDate}T12:00:00Z`);
   return formatter.formatRange(start, end);
 }
 
-export function eventIsPast(event: Pick<DogEvent, "endDate" | "startDate">, today: Date | string = new Date()) {
-  return eventDateStatus(event, typeof today === "string" ? today : bratislavaDateKey(today)) === "past";
+export function eventIsPast(
+  event: Pick<DogEvent, "endDate" | "startDate">,
+  today: Date | string = new Date(),
+) {
+  return (
+    eventDateStatus(event, typeof today === "string" ? today : bratislavaDateKey(today)) === "past"
+  );
 }
 
 const eventTypePortalSlugs: Record<EventType, string> = {
-  "Výstava": "vystavy",
-  "Preteky": "preteky",
-  "Seminár": "seminare",
-  "Tréning": "treningy",
-  "Stretnutie": "stretnutia",
-  "Iné": "dalsie",
+  Výstava: "vystavy",
+  Preteky: "preteky",
+  Seminár: "seminare",
+  Tréning: "treningy",
+  Stretnutie: "stretnutia",
+  Iné: "dalsie",
 };
 
 export function eventTypeFromPortalSlug(slug: string): EventType | null {
-  return (Object.entries(eventTypePortalSlugs).find(([, value]) => value === slug)?.[0] as EventType | undefined) ?? null;
+  return (
+    (Object.entries(eventTypePortalSlugs).find(([, value]) => value === slug)?.[0] as
+      | EventType
+      | undefined) ?? null
+  );
 }
 
 export function eventTypePortalHref(eventType: EventType) {
@@ -227,27 +301,33 @@ export function eventTypePortalHref(eventType: EventType) {
 const EVENT_TYPE_LISTING_SEO: Record<EventType, { title: string; description: string }> = {
   Výstava: {
     title: "Výstavy psov",
-    description: "Národné, medzinárodné a klubové výstavy psov na Slovensku s termínmi, miestom konania a praktickými informáciami pre vystavovateľov aj návštevníkov.",
+    description:
+      "Národné, medzinárodné a klubové výstavy psov na Slovensku s termínmi, miestom konania a praktickými informáciami pre vystavovateľov aj návštevníkov.",
   },
   Preteky: {
     title: "Preteky a skúšky psov",
-    description: "Preteky, pracovné skúšky a športové súťaže so psami na Slovensku s termínmi, lokalitou, organizátorom a praktickými informáciami.",
+    description:
+      "Preteky, pracovné skúšky a športové súťaže so psami na Slovensku s termínmi, lokalitou, organizátorom a praktickými informáciami.",
   },
   Seminár: {
-    title: "Semináre a tréningy so psami",
-    description: "Semináre, workshopy a otvorené tréningy pre majiteľov, chovateľov a kynológov s termínmi, miestom a informáciami o organizátorovi.",
+    title: "Semináre so psami",
+    description:
+      "Semináre a workshopy pre majiteľov, chovateľov a kynológov s termínmi, miestom a informáciami o organizátorovi.",
   },
   Tréning: {
     title: "Tréningy so psami",
-    description: "Verejné tréningy a praktické kynologické aktivity so psami s termínmi, miestom konania, organizátorom a ďalšími informáciami.",
+    description:
+      "Verejné tréningy a praktické kynologické aktivity so psami s termínmi, miestom konania, organizátorom a ďalšími informáciami.",
   },
   Stretnutie: {
     title: "Stretnutia pre psí svet",
-    description: "Stretnutia majiteľov psov, klubové a komunitné akcie s termínmi, lokalitou, organizátorom a praktickými informáciami pre návštevníkov.",
+    description:
+      "Stretnutia majiteľov psov, klubové a komunitné akcie s termínmi, lokalitou, organizátorom a praktickými informáciami pre návštevníkov.",
   },
   Iné: {
     title: "Ďalšie podujatia so psami",
-    description: "Ďalšie verejné podujatia zo sveta psov s termínmi, miestom konania, organizátorom a praktickými informáciami na jednom mieste.",
+    description:
+      "Ďalšie verejné podujatia zo sveta psov s termínmi, miestom konania, organizátorom a praktickými informáciami na jednom mieste.",
   },
 };
 
@@ -262,10 +342,18 @@ export function selectRelatedEvents<T extends PublicEventCard>(
   today = bratislavaDateKey(),
 ) {
   const active = candidates
-    .filter((candidate) => candidate.slug !== event.slug && !candidate.cancelled && eventDateStatus(candidate, today) !== "past")
-    .sort((left, right) => left.startDate.localeCompare(right.startDate)
-      || left.startTime.localeCompare(right.startTime)
-      || left.id - right.id);
+    .filter(
+      (candidate) =>
+        candidate.slug !== event.slug &&
+        !candidate.cancelled &&
+        eventDateStatus(candidate, today) !== "past",
+    )
+    .sort(
+      (left, right) =>
+        left.startDate.localeCompare(right.startDate) ||
+        left.startTime.localeCompare(right.startTime) ||
+        left.id - right.id,
+    );
 
   if (eventDateStatus(event, today) === "past") return active.slice(0, limit);
 
@@ -275,28 +363,34 @@ export function selectRelatedEvents<T extends PublicEventCard>(
 }
 
 export function eventPortalCategory(eventType: EventType) {
-  return ({
-    Výstava: { href: "/podujatia/vystavy", label: "Výstavy" },
-    Preteky: { href: "/podujatia/preteky", label: "Preteky" },
-    Seminár: { href: "/podujatia/seminare", label: "Semináre" },
-    Tréning: { href: "/podujatia/treningy", label: "Tréningy" },
-    Stretnutie: { href: "/podujatia/stretnutia", label: "Stretnutia" },
-    Iné: { href: "/podujatia/dalsie", label: "Ďalšie podujatia" },
-  } satisfies Record<EventType, { href: string; label: string }>)[eventType];
+  return (
+    {
+      Výstava: { href: "/podujatia/vystavy", label: "Výstavy" },
+      Preteky: { href: "/podujatia/preteky", label: "Preteky" },
+      Seminár: { href: "/podujatia/seminare", label: "Semináre" },
+      Tréning: { href: "/podujatia/treningy", label: "Tréningy" },
+      Stretnutie: { href: "/podujatia/stretnutia", label: "Stretnutia" },
+      Iné: { href: "/podujatia/dalsie", label: "Ďalšie podujatia" },
+    } satisfies Record<EventType, { href: string; label: string }>
+  )[eventType];
 }
 
 export function eventSearchQueryFromParam(value: string | string[] | undefined) {
-  const parameter = Array.isArray(value) ? value[0] ?? "" : value ?? "";
+  const parameter = Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
   return parameter.trim().slice(0, 120);
 }
 
-export function eventRegionFilterFromParam(value: string | string[] | undefined): "" | SlovakRegion {
-  const parameter = (Array.isArray(value) ? value[0] ?? "" : value ?? "").trim();
-  return (slovakRegions as readonly string[]).includes(parameter) ? parameter as SlovakRegion : "";
+export function eventRegionFilterFromParam(
+  value: string | string[] | undefined,
+): "" | SlovakRegion {
+  const parameter = (Array.isArray(value) ? (value[0] ?? "") : (value ?? "")).trim();
+  return (slovakRegions as readonly string[]).includes(parameter)
+    ? (parameter as SlovakRegion)
+    : "";
 }
 
 export function eventMonthFilterFromParam(value: string | string[] | undefined) {
-  const parameter = (Array.isArray(value) ? value[0] ?? "" : value ?? "").trim();
+  const parameter = (Array.isArray(value) ? (value[0] ?? "") : (value ?? "")).trim();
   return /^\d{4}-(?:0[1-9]|1[0-2])$/.test(parameter) ? parameter : "";
 }
 
@@ -307,7 +401,13 @@ export function eventTimeFilterParam(value: EventTimeFilter) {
 
 export function eventTimeFilterFromParam(value: string | string[] | undefined): EventTimeFilter {
   const parameter = Array.isArray(value) ? value[0] : value;
-  return ({ prebiehajuce: "current", ukoncene: "past", vsetky: "all" } as Partial<Record<string, EventTimeFilter>>)[parameter ?? ""] ?? "upcoming";
+  return (
+    (
+      { prebiehajuce: "current", ukoncene: "past", vsetky: "all" } as Partial<
+        Record<string, EventTimeFilter>
+      >
+    )[parameter ?? ""] ?? "upcoming"
+  );
 }
 
 export function eventTimeFilterHref(value: EventTimeFilter, pathname = "/podujatia") {

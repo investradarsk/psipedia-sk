@@ -85,6 +85,9 @@ jobs:
       - name: Adoption unit/integration suite
         if: steps.required-scope.outputs.full_core == 'true' || contains(steps.required-scope.outputs.scopes, 'HELP')
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/adoption-foundation.test.mjs tests/adoption-catalog.test.mjs tests/adoption-detail.test.mjs tests/adoption-sitemap-integration.test.mjs tests/adoption-admin-list.test.mjs tests/adoption-admin-editor.test.mjs
+      - name: Help lifecycle D1 regression
+        if: steps.required-scope.outputs.full_core == 'true' || contains(steps.required-scope.outputs.scopes, 'HELP')
+        run: node --experimental-strip-types --test tests/public-unification.test.mjs
       - name: Shared visual contracts
         if: steps.required-scope.outputs.bounded_core == 'true' && contains(steps.required-scope.outputs.scopes, 'VISUAL')
         run: npm run test:unified-section-hero && npm run test:section-hero-v2 && npm run test:public-landing-alignment && npm run test:public-css-scope

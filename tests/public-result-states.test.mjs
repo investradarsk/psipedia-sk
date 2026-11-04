@@ -34,7 +34,7 @@ test("shared public feedback stays semantic and public-scoped", () => {
     "numbered links use the common component",
   );
   assert.ok(src.includes('aria-current={page === currentPage ? "page" : undefined}'));
-  assert.doesNotMatch(src, /"use client"|window\.|localStorage|fetch\(/);
+  assert.doesNotMatch(src, /"use\s*client"|window\s*\.|localStorage|fetch\(\s*/);
 });
 
 test("directory retains canonical paging and empty-state CTA", () => {
@@ -56,7 +56,7 @@ test("events preserve URL form and paging while using common status/chip styles"
   for (const contract of [
     '<PublicNotice role="alert" tone="error">{f.error}</PublicNotice>',
     "<PublicFilterTag key={key} href={clearOneHref(key)}",
-    "data-public-active-filters",
+    "<PublicActiveFilters",
     'method="get"',
     "const pages =",
     "href(listing.page - 1)",

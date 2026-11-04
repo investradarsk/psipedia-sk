@@ -20,8 +20,14 @@ test("PUBLIC-MAPS-1 reusable detail map reuses renderer, consent and MAP-UX coor
   assert.match(component, /setGoogleMapsConsent/);
   assert.match(component, /Mapa/);
   assert.match(component, /Satelit/);
-  assert.match(component, /buildGoogleMapsPlaceUrl\(selected\.latitude, selected\.longitude, selected\.googlePlaceId\)/);
-  assert.match(component, /buildGoogleMapsDirectionsUrl\(selected\.latitude, selected\.longitude, selected\.googlePlaceId\)/);
+  assert.match(
+    component,
+    /buildGoogleMapsPlaceUrl\(selected\.latitude, selected\.longitude, selected\.googlePlaceId\)/,
+  );
+  assert.match(
+    component,
+    /buildGoogleMapsDirectionsUrl\(selected\.latitude, selected\.longitude, selected\.googlePlaceId\)/,
+  );
   assert.match(component, /!isApproximateMapItem\(selected\)/);
   assert.match(component, /Približná poloha/);
   assert.match(component, />\s*Navigovať\s*</);
@@ -40,11 +46,17 @@ test("PUBLIC-MAPS-1 reusable detail map reuses renderer, consent and MAP-UX coor
 test("MAP-UX-1E map type switching separates presentation idle from user intent", async () => {
   const renderer = await read("components/map/google-map-renderer.tsx");
   assert.match(renderer, /mapPresentationBaselineFromMap\(mapRef\.current\)/);
-  assert.match(renderer, /beginMapTypeIdleSuppression\(mapTypeIdleSuppressionRef\.current, mapType, baseline\)/);
+  assert.match(
+    renderer,
+    /beginMapTypeIdleSuppression\(mapTypeIdleSuppressionRef\.current, mapType, baseline\)/,
+  );
   assert.match(renderer, /mapRef\.current\.setMapTypeId\(mapType\)/);
   assert.match(renderer, /map\.addListener\("maptypeid_changed"/);
   assert.match(renderer, /const runtimeMapType = map\.getMapTypeId\?\.\(\) \?\? null/);
-  assert.match(renderer, /confirmMapTypeChange\(mapTypeIdleSuppressionRef\.current, runtimeMapType\)/);
+  assert.match(
+    renderer,
+    /confirmMapTypeChange\(mapTypeIdleSuppressionRef\.current, runtimeMapType\)/,
+  );
   assert.match(renderer, /map\.addListener\("dragstart"/);
   assert.doesNotMatch(renderer, /map\.addListener\("zoom_changed"/);
   assert.match(renderer, /onPointerDownCapture=\{\(\) => \{/);
@@ -66,10 +78,10 @@ test("PUBLIC-MAPS-1 detail map is consent-gated and no Google script is injected
     read("components/map/google-map-renderer.tsx"),
   ]);
   assert.match(component, /const waitingForConsent = rendererAvailable && !consentGranted/);
-  assert.match(component, /Google Maps čaká na tvoje povolenie/);
+  assert.match(component, /MapConsentState/);
   assert.match(component, /Interaktívna mapa momentálne nie je dostupná/);
   assert.match(component, /\{waitingForConsent \? \(/);
-  assert.match(component, /Povoliť Google Maps/);
+  assert.match(await read("components/map/map-consent-state.tsx"), /Povoliť Google Maps/);
   assert.doesNotMatch(component, /document\.createElement\(["']script["']\)/);
   assert.match(renderer, /!rendererEnabled \|\| !consentGranted \|\| configMissing/);
   assert.match(renderer, /document\.createElement\("script"\)/);
@@ -105,9 +117,15 @@ test("PUBLIC-MAPS-1 directory detail only offers directions for an approved exac
   // No address-text navigation fallback is allowed, even when publicMap is empty.
   assert.match(detail, /const mapItem = publicMap\?\.items\[0\]/);
   assert.match(detail, /mapItem && !isApproximateMapItem\(mapItem\)/);
-  assert.match(detail, /buildGoogleMapsDirectionsUrl\(mapItem\.latitude, mapItem\.longitude, mapItem\.googlePlaceId\)/);
+  assert.match(
+    detail,
+    /buildGoogleMapsDirectionsUrl\(mapItem\.latitude, mapItem\.longitude, mapItem\.googlePlaceId\)/,
+  );
   assert.match(detail, /navigationHref=\{navigationHref\}/);
-  assert.match(detail, /\{navigationHref \? <a[^\n]*href=\{navigationHref\}[^\n]*>Navigovať<\/a> : null\}/);
+  assert.match(
+    detail,
+    /\{navigationHref \? \(\s*<a[\s\S]*?href=\{navigationHref\}[\s\S]*?>\s*Navigovať\s*<\/a>\s*\) : null\}/,
+  );
   assert.doesNotMatch(detail, /presentation\.navigationUrl/);
   assert.match(detail, /publicMap\?\.items\.length \? \(/);
   assert.match(detail, /title="Kde nás nájdete"/);
@@ -118,7 +136,10 @@ test("PUBLIC-MAPS-1 organization detail exposes one role-free canonical point", 
     read("components/map/public-location-map.tsx"),
     read("lib/map-query.ts"),
   ]);
-  assert.doesNotMatch(component, /Verejné lokality organizácie|SERVICE_AREA|LEGAL_SEAT|Prevádzka|Oblasť pôsobenia|Sídlo/);
+  assert.doesNotMatch(
+    component,
+    /Verejné lokality organizácie|SERVICE_AREA|LEGAL_SEAT|Prevádzka|Oblasť pôsobenia|Sídlo/,
+  );
   assert.match(query, /SELECT cl\.id[\s\S]*WHERE cl\.organization_id = o\.id[\s\S]*LIMIT 1/);
   assert.match(query, /deduplicateOrganizationEntities/);
   assert.match(query, /publicDisplayLocation/);
@@ -160,6 +181,9 @@ test("PUBLIC-MAPS-1 stays read/presentation-only with no schema or provider writ
   ]);
   const sources = query + component + runtime + directory + organization + portal;
   assert.doesNotMatch(sources, /INSERT INTO geo_points|UPDATE geo_points|DELETE FROM geo_points/i);
-  assert.doesNotMatch(component + directory + organization + portal, /geoapify\.com\/v|GEOAPIFY_API_KEY|geocode/i);
+  assert.doesNotMatch(
+    component + directory + organization + portal,
+    /geoapify\.com\/v|GEOAPIFY_API_KEY|geocode/i,
+  );
   assert.doesNotMatch(component, /\/api\/map/);
 });

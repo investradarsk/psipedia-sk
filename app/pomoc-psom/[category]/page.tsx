@@ -1,3 +1,4 @@
+import { helpListing, helpListingPage } from "@/lib/help-listing";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { StructuredData } from "@/components/structured-data";
@@ -14,23 +15,25 @@ type Props = {
 };
 
 function scalar(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
 
 function regionFilter(value: string | string[] | undefined): "all" | SlovakRegion {
   const clean = scalar(value).trim();
-  return (slovakRegions as readonly string[]).includes(clean) ? clean as SlovakRegion : "all";
+  return (slovakRegions as readonly string[]).includes(clean) ? (clean as SlovakRegion) : "all";
 }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { category: slug } = await params;
   const category = getHelpCategory(slug);
-  return category ? buildListingPageMetadata({
-    title: `${category.label} – Pomoc psom`,
-    description: category.description,
-    path: `/pomoc-psom/${category.slug}`,
-    searchParams: await searchParams,
-  }) : {};
+  return category
+    ? buildListingPageMetadata({
+        title: `${category.label} – Pomoc psom`,
+        description: category.description,
+        path: `/pomoc-psom/${category.slug}`,
+        searchParams: await searchParams,
+      })
+    : {};
 }
 
 export default async function HelpCategoryPage({ params, searchParams }: Props) {
@@ -39,10 +42,21 @@ export default async function HelpCategoryPage({ params, searchParams }: Props) 
   if (category === "stratene-a-najdene") redirect("/pomoc-psom/stratene-psy");
   const definition = getHelpCategory(category);
   if (!definition) notFound();
-  const [items, rawSearchParams] = await Promise.all([getPublishedHelpCaseCards(category), searchParams]);
+  const [items, rawSearchParams] = await Promise.all([
+    getPublishedHelpCaseCards(category),
+    searchParams,
+  ]);
   const initialQuery = scalar(rawSearchParams.q).trim().slice(0, 120);
   const initialActiveOnly = scalar(rawSearchParams.stav) !== "vsetky";
   const initialRegion = regionFilter(rawSearchParams.region);
+  const initialPage = helpListingPage(rawSearchParams.page);
+  const listing = helpListing(items, {
+    category,
+    query: initialQuery,
+    region: initialRegion,
+    activeOnly: initialActiveOnly,
+    page: initialPage,
+  });
   const schema = buildCollectionPageJsonLd({
     name: definition.label,
     description: definition.description,
@@ -52,7 +66,19 @@ export default async function HelpCategoryPage({ params, searchParams }: Props) 
       { name: "Pomoc psom", path: "/pomoc-psom" },
       { name: definition.label, path: `/pomoc-psom/${definition.slug}` },
     ],
-    items: items.slice(0, 50).map((item) => ({ name: item.title, path: helpCaseHref(item) })),
+    items: listing.items.map((item) => ({ name: item.title, path: helpCaseHref(item) })),
   });
-  return <><StructuredData value={schema} /><HelpPage items={items} initialCategory={category} initialQuery={initialQuery} initialActiveOnly={initialActiveOnly} initialRegion={initialRegion} /></>;
+  return (
+    <>
+      <StructuredData value={schema} />
+      <HelpPage
+        items={items}
+        initialCategory={category}
+        initialQuery={initialQuery}
+        initialActiveOnly={initialActiveOnly}
+        initialRegion={initialRegion}
+        initialPage={initialPage}
+      />
+    </>
+  );
 }

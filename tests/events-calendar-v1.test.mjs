@@ -40,7 +40,13 @@ test("multi-day events appear on every inclusive day but keep one identity", () 
   assert.equal(eventOverlapsDay(event, "2026-11-01"), true);
   assert.equal(eventOverlapsDay(event, "2026-11-02"), true);
   assert.equal(eventOverlapsDay(event, "2026-11-03"), false);
-  assert.deepEqual(eventsForCalendarDay([event, { id: 42, startDate: "2026-11-01", endDate: null }], "2026-11-01").map((x) => x.id), [41, 42]);
+  assert.deepEqual(
+    eventsForCalendarDay(
+      [event, { id: 42, startDate: "2026-11-01", endDate: null }],
+      "2026-11-01",
+    ).map((x) => x.id),
+    [41, 42],
+  );
   assert.equal(eventsForCalendarDay([], "2026-11-01").length, 0);
 });
 
@@ -59,11 +65,17 @@ test("one published-only bounded read powers calendar while listing remains cano
   const calendar = read("components/event-calendar.tsx");
 
   assert.match(store, /export async function getPublishedEventsInMonth/);
-  assert.match(store, /WHERE status = 'published' AND start_date <= \? AND COALESCE\(end_date, start_date\) >= \?/);
+  assert.match(
+    store,
+    /WHERE status = 'published' AND start_date <= \? AND COALESCE\(end_date, start_date\) >= \?/,
+  );
   assert.match(store, /ORDER BY start_date ASC, start_time ASC, id ASC LIMIT 500/);
   assert.match(root, /getPublicEventCalendar\(parseEventListing/);
   assert.match(type, /getPublicEventCalendar\(parseEventListing/);
-  assert.match(page, /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarEvents=\{calendarEvents\}/);
+  assert.match(
+    page,
+    /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarEvents=\{calendarEvents\}/,
+  );
   assert.match(read("lib/event-listing.ts"), /status = 'published'/);
   // The approved interactive version reads bounded fresh data rather than
   // pretending the initial day's 12 previews represent the entire month.
@@ -83,7 +95,8 @@ test("hero precedes one search and calendar, with a banner before the listing", 
   const calendar = read("components/event-calendar.tsx");
   assert.ok(page.indexOf("<UnifiedSectionHero") < page.indexOf("styles.calendarSection"));
   assert.doesNotMatch(page, /landingCategories|eventLandingIcon|eventLandingFallbackImage/);
-  assert.ok(calendar.indexOf("{afterCalendar}") < calendar.indexOf("<EventListingResults"));
+  assert.match(calendar, /beforeResults=\{afterCalendar\}/);
+  assert.match(read("components/event-listing-results.tsx"), /data-event-organizer/);
   assert.equal((page.match(/id="events-search"/g) ?? []).length, 1);
   assert.doesNotMatch(calendar, /<PublicFilterDisclosure|Použiť filtre/);
   assert.match(read("components/event-listing-results.tsx"), /data-event-filters/);
@@ -105,9 +118,16 @@ test("day indicators count events, deduplicate types and cover inclusive multi-d
   const events = [
     { eventType: "Výstava", startDate: "2026-10-15", endDate: null },
     { eventType: "Výstava", startDate: "2026-10-15", endDate: "2026-10-16" },
-    ...["Preteky", "Seminár", "Tréning", "Stretnutie", "Iné"].map(eventType => ({ eventType, startDate: "2026-10-15", endDate: null })),
+    ...["Preteky", "Seminár", "Tréning", "Stretnutie", "Iné"].map((eventType) => ({
+      eventType,
+      startDate: "2026-10-15",
+      endDate: null,
+    })),
   ];
-  assert.deepEqual(calendarDaySummary(events, "2026-10-15"), { count: 7, types: ["Výstava", "Preteky", "Seminár", "Tréning", "Stretnutie", "Iné"] });
+  assert.deepEqual(calendarDaySummary(events, "2026-10-15"), {
+    count: 7,
+    types: ["Výstava", "Preteky", "Seminár", "Tréning", "Stretnutie", "Iné"],
+  });
   assert.deepEqual(calendarDaySummary(events, "2026-10-16"), { count: 1, types: ["Výstava"] });
   assert.deepEqual(calendarDaySummary(events, "2026-10-17"), { count: 0, types: [] });
 });

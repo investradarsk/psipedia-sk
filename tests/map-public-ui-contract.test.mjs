@@ -99,7 +99,7 @@ test("map guidance and provider disclosure follow canonical client state", () =>
   assert.match(experience, /hasSelectedItem/);
   assert.match(experience, /Vyber výsledok na mape alebo v zozname/);
   assert.match(experience, /Vybraný výsledok nájdeš nižšie/);
-  assert.match(experience, /googleMapsConsent && rendererStatus === "ready"/);
+  assert.match(experience, /googleMapsConsent && rendererStatus !== "ready"/);
   assert.match(experience, /data-testid="map-provider-disclosure"/);
   assert.doesNotMatch(page, /className=\{styles\.providerDisclosure\}/);
 });

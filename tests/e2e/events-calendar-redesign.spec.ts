@@ -16,7 +16,9 @@ test.beforeEach(async ({ page }) => {
   await page.goto(target);
 });
 
-test("compact calendar uses six canonical legend links and real unique day indicators", async ({ page }) => {
+test("compact calendar uses six canonical legend links and real unique day indicators", async ({
+  page,
+}) => {
   const legend = page.locator("[data-events-legend]");
   await expect(legend.getByRole("link")).toHaveCount(6);
   const day = page.locator('[data-calendar-date="2026-10-15"]');
@@ -34,31 +36,47 @@ test("compact calendar uses six canonical legend links and real unique day indic
     expect(url.searchParams.get("termin")).toBe("vsetky");
     await expect(day).toHaveAttribute("aria-label", new RegExp(label));
     const dot = link.locator("[data-event-type]");
-    expect(await dot.evaluate(el => getComputedStyle(el).backgroundColor)).toBe(color);
+    expect(await dot.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(color);
     const dayDot = day.locator(`[data-event-type="${type}"]`);
-    if (await dayDot.count()) expect(await dayDot.evaluate(el => getComputedStyle(el).backgroundColor)).toBe(color);
+    if (await dayDot.count())
+      expect(await dayDot.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(color);
   }
   await expect(day.locator('[data-event-type="Výstava"]')).toHaveCount(1);
-  await expect(page.locator('[data-calendar-date="2026-10-16"]')).toHaveAttribute("data-count", "1");
-  await expect(page.locator('[data-calendar-date="2026-10-16"] [data-event-type="Výstava"]')).toHaveCount(1);
+  await expect(page.locator('[data-calendar-date="2026-10-16"]')).toHaveAttribute(
+    "data-count",
+    "1",
+  );
+  await expect(
+    page.locator('[data-calendar-date="2026-10-16"] [data-event-type="Výstava"]'),
+  ).toHaveCount(1);
   await expect(page.locator('[data-calendar-date="2026-10-17"] [data-event-type]')).toHaveCount(0);
   await day.click();
   await expect(page.locator("[data-selected-day] li")).toHaveCount(7);
   await expect(page.locator("[data-selected-day]")).toContainText("Zrušené");
-  await expect(page.locator('[data-calendar-date="2026-10-15"]')).toHaveAttribute("data-selected", "true");
+  await expect(page.locator('[data-calendar-date="2026-10-15"]')).toHaveAttribute(
+    "data-selected",
+    "true",
+  );
 });
 
-test("desktop calendar is compact on the left and selected-day events appear on the right; mobile stays single-column", async ({ page }) => {
+test("desktop calendar is compact on the left, results start alongside it and selected-day details remain available", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(target);
   const calendar = page.locator("[data-fullcalendar-desktop]");
   const dayPanel = page.locator("[data-calendar-day-panel]");
   await expect(calendar).toBeVisible();
-  await expect(page.locator("[data-calendar-day-placeholder]")).toBeVisible();
-  const columns = await page.locator("[data-calendar-desktop-columns]").evaluate(element => {
+  await expect(page.locator("[data-calendar-day-placeholder]")).toBeHidden();
+  const columns = await page.locator("[data-event-workspace]").evaluate((element) => {
     const first = element.querySelector('[class*="calendarMonthColumn"]')!.getBoundingClientRect();
-    const second = element.querySelector('[data-calendar-day-panel]')!.getBoundingClientRect();
-    return { left: first.left, right: first.right, panelLeft: second.left, panelRight: second.right };
+    const second = element.querySelector("#events-list")!.getBoundingClientRect();
+    return {
+      left: first.left,
+      right: first.right,
+      panelLeft: second.left,
+      panelRight: second.right,
+    };
   });
   expect(columns.right).toBeLessThan(columns.panelLeft);
   expect(columns.panelRight).toBeGreaterThan(columns.panelLeft);
@@ -71,43 +89,68 @@ test("desktop calendar is compact on the left and selected-day events appear on 
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(target);
-  await expect(page.locator('[data-events-month-calendar] [data-calendar-date="2026-10-15"]')).toBeVisible();
+  await expect(
+    page.locator('[data-events-month-calendar] [data-calendar-date="2026-10-15"]'),
+  ).toBeVisible();
   await expect(calendar).toHaveCount(0);
   await expect(page.locator("[data-calendar-day-placeholder]")).toHaveCount(0);
 });
 
-test("DOM order is calendar, selected-day detail, one banner, then the unchanged listing", async ({ page }) => {
+test("calendar retains selected-day details and the single organizer banner belongs to the results flow", async ({
+  page,
+}) => {
   await page.locator('[data-calendar-date="2026-10-15"]').click();
   // Calendar days are real navigation links. Wait for the server-rendered selected day,
   // not only static sections already present on the previous page.
   await expect(page.locator('[data-selected-day="2026-10-15"]')).toBeVisible();
-  await expect(page.locator('[data-calendar-date="2026-10-15"]')).toHaveAttribute("data-selected", "true");
+  await expect(page.locator('[data-calendar-date="2026-10-15"]')).toHaveAttribute(
+    "data-selected",
+    "true",
+  );
   await expect(page.getByRole("group", { name: "Spôsob prezerania podujatí" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Vyberte si, čo vás zaujíma" })).toHaveCount(0);
   await expect(page.locator("[data-public-subcategory-mode=landing]")).toHaveCount(0);
   await expect(page.locator("[data-public-context-banner]")).toHaveCount(1);
-  await expect(page.getByRole("link", { name: "Pridať podujatie", exact: true })).toHaveAttribute("href", "/podujatia/pridat-podujatie");
-  expect(await page.evaluate(() => {
-    const calendar = document.querySelector("#events-calendar")!;
-    const detail = document.querySelector("[data-selected-day]")!;
-    const banner = document.querySelector("[data-public-context-banner]")!;
-    const list = document.querySelector("#events-list")!;
-    return calendar.contains(detail) && Boolean(detail.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING)
-      && Boolean(banner.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING);
-  })).toBe(true);
+  await expect(page.getByRole("link", { name: "Pridať podujatie", exact: true })).toHaveAttribute(
+    "href",
+    "/podujatia/pridat-podujatie",
+  );
+  expect(
+    await page.evaluate(() => {
+      const calendar = document.querySelector("#events-calendar")!;
+      const detail = document.querySelector("[data-selected-day]")!;
+      const banner = document.querySelector("[data-public-context-banner]")!;
+      const list = document.querySelector("#events-list")!;
+      return calendar.contains(detail) && list.contains(banner);
+    }),
+  ).toBe(true);
   await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
-  await expect(page).toHaveURL(url => url.searchParams.get("q") === "Calendar phase2" && url.searchParams.get("kalendar") === "2026-11" && !url.searchParams.has("mesiac"));
+  await expect(page).toHaveURL(
+    (url) =>
+      url.searchParams.get("q") === "Calendar phase2" &&
+      url.searchParams.get("kalendar") === "2026-11" &&
+      !url.searchParams.has("mesiac"),
+  );
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();
-  await expect(page).toHaveURL(url => url.searchParams.get("termin") === "ukoncene" && url.searchParams.get("q") === "Calendar phase2");
+  await expect(page).toHaveURL(
+    (url) =>
+      url.searchParams.get("termin") === "ukoncene" &&
+      url.searchParams.get("q") === "Calendar phase2",
+  );
 });
 
-test("legend stays visible without overflow, cells remain bounded, and accessibility is preserved", async ({ page }) => {
+test("legend stays visible without overflow, cells remain bounded, and accessibility is preserved", async ({
+  page,
+}) => {
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(target);
     // Avoid measuring before hydration/fonts settle, and read both boxes in the
     // same layout snapshot so a concurrent reflow cannot create false overlap.
-    await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+    await expect(page.locator("[data-public-calendar]")).toHaveAttribute(
+      "data-calendar-ready",
+      "true",
+    );
     const { calendar, legend } = await page.evaluate(async () => {
       await document.fonts.ready;
       const month = document.querySelector("#events-calendar")!.getBoundingClientRect();
@@ -143,44 +186,67 @@ test("legend stays visible without overflow, cells remain bounded, and accessibi
       expect(full!.height).toBeLessThanOrEqual(60);
       expect(full!.height).toBeGreaterThanOrEqual(44);
     }
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
   }
   await page.setViewportSize({ width: 320, height: 1000 });
-  const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-  expect(result.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
+  const result = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    result.violations.filter((v) => v.impact === "serious" || v.impact === "critical"),
+  ).toEqual([]);
 });
 
-
 test("month, day, period and legend change without reloading the document", async ({ page }) => {
-  // A native link clicked before client hydration cannot be intercepted.
-  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  // The framework marker is set when hydrateRoot starts, before this island
+  // necessarily attaches handlers. Wait for this calendar to commit hydration.
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute(
+    "data-calendar-ready",
+    "true",
+  );
   await page.evaluate(() => {
-    (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker = "retained";
+    (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker =
+      "retained";
   });
   await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
-  await expect(page).toHaveURL(url => url.searchParams.get("kalendar") === "2026-11");
+  await expect(page).toHaveURL((url) => url.searchParams.get("kalendar") === "2026-11");
   await expect(page.getByRole("heading", { name: /november 2026/i })).toBeVisible();
-  await expect.poll(() => page.evaluate(() =>
-    (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker,
-  )).toBe("retained");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker,
+      ),
+    )
+    .toBe("retained");
   await page.getByRole("link", { name: "Predchádzajúci mesiac" }).click();
   await expect(page.getByRole("heading", { name: /október 2026/i })).toBeVisible();
   await page.locator('[data-calendar-date="2026-10-15"]').click();
-  await expect(page).toHaveURL(url => url.searchParams.get("den") === "2026-10-15");
+  await expect(page).toHaveURL((url) => url.searchParams.get("den") === "2026-10-15");
   await expect(page.locator('[data-selected-day="2026-10-15"]')).toBeVisible();
   await expect(page.locator('[data-selected-day="2026-10-15"] li')).toHaveCount(7);
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();
-  await expect(page).toHaveURL(url => url.searchParams.get("termin") === "ukoncene");
-  await page.locator('[data-events-legend]').getByRole("link", { name: "Preteky" }).click();
-  await expect(page).toHaveURL(url => url.pathname === "/podujatia/preteky");
-  expect(await page.evaluate(() =>
-    (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker,
-  )).toBe("retained");
+  await expect(page).toHaveURL((url) => url.searchParams.get("termin") === "ukoncene");
+  await page.locator("[data-events-legend]").getByRole("link", { name: "Preteky" }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/podujatia/preteky");
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __calendarDocumentMarker?: string }).__calendarDocumentMarker,
+    ),
+  ).toBe("retained");
 });
 
-test("month, date and event type update in place without reloading the public document", async ({ page }) => {
-  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
-  await page.evaluate(() => document.documentElement.setAttribute("data-calendar-no-reload-marker", "retained"));
+test("month, date and event type update in place without reloading the public document", async ({
+  page,
+}) => {
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute(
+    "data-calendar-ready",
+    "true",
+  );
+  await page.evaluate(() =>
+    document.documentElement.setAttribute("data-calendar-no-reload-marker", "retained"),
+  );
   const calendar = page.locator("[data-events-month-calendar]");
 
   await page.getByRole("link", { name: "Nasledujúci mesiac" }).click();
@@ -193,7 +259,10 @@ test("month, date and event type update in place without reloading the public do
   await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
   await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");
 
-  await page.locator('[data-events-legend]').getByRole("link", { name: "Preteky", exact: true }).click();
+  await page
+    .locator("[data-events-legend]")
+    .getByRole("link", { name: "Preteky", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/podujatia\/preteky/);
   await expect(page.locator("html")).toHaveAttribute("data-calendar-no-reload-marker", "retained");
   await expect(page.locator("[data-public-calendar]")).toHaveAttribute("aria-busy", "false");

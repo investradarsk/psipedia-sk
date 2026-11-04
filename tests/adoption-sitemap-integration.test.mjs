@@ -112,7 +112,10 @@ test("public help, homepage and portal search no longer source legacy adoption r
   const portalSearch = read("../lib/portal-search.ts");
   assert.match(helpStore, /status = 'published' AND category NOT IN \('adopcia', 'utulky'\)/);
   assert.match(helpStore, /category === "adopcia"\) return \[\]/);
-  assert.match(helpStore, /category NOT IN \('adopcia', 'utulky'\) AND resolved = 0/);
+  assert.match(helpStore, /category NOT IN \('adopcia', 'utulky'\) AND \$\{activeHelpSql\(\)\}/);
+  const lifecycleSql = read("../lib/help-lifecycle.ts");
+  assert.match(lifecycleSql, /resolved = 0 AND NOT/);
+  assert.match(lifecycleSql, /category = 'zbierky'/);
   const landingStore = read("../lib/help-landing-store.ts");
   assert.match(helpRoot, /getHelpLandingSnapshot\(\)/);
   assert.match(helpRoot, /adopcia: adoptions\.count/);

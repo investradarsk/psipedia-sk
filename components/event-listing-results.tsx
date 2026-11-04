@@ -1,3 +1,12 @@
+import { PublicHeading } from "@/components/public-heading";
+import { formatSlovakCount } from "@/lib/slovak-count";
+import {
+  PublicFilterLayout,
+  PublicFilterPanel,
+  PublicResultsToolbar,
+  PublicActiveFilters,
+  PublicFilterField,
+} from "@/components/public-filters";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import {
   PublicChoiceInput,
@@ -5,9 +14,14 @@ import {
   PublicTextInput,
 } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { EventCard } from "./event-card";
-import { PublicActionButton, PublicFilterTag, PublicNotice, PublicPagination } from "@/components/public-visual-system";
+import {
+  PublicActionButton,
+  PublicFilterTag,
+  PublicNotice,
+  PublicPagination,
+} from "@/components/public-visual-system";
 import { eventListingParams, EVENT_PAGE_SIZE, type EventListingFilters } from "@/lib/event-listing";
 import { eventTypes, slovakRegions, type PublicEventCard } from "@/lib/events";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
@@ -22,6 +36,7 @@ type Props = {
   title: string;
   calendarMonth: string;
   day: string;
+  beforeResults?: ReactNode;
 };
 
 export function EventListingResults({
@@ -33,6 +48,7 @@ export function EventListingResults({
   title,
   calendarMonth,
   day,
+  beforeResults,
 }: Props) {
   const params = eventListingParams(f);
   params.set("kalendar", calendarMonth);
@@ -53,9 +69,21 @@ export function EventListingResults({
     { key: "od", label: "Od", value: f.from },
     { key: "do", label: "Do", value: f.to },
     { key: "mesto", label: "Lokalita", value: f.city },
-    { key: "typ", label: "Typ", value: f.type === "Všetky" ? "" : eventTypePresentation[f.type].label },
-    { key: "termin", label: "Obdobie", value: f.time === "current" ? "Prebiehajúce" : f.time === "past" ? "Ukončené" : "" },
-    { key: "zoradenie", label: "Zoradenie", value: f.sort === "najblizsie" ? "Najbližšie" : f.sort === "najnovsie" ? "Najnovšie" : "" },
+    {
+      key: "typ",
+      label: "Typ",
+      value: f.type === "Všetky" ? "" : eventTypePresentation[f.type].label,
+    },
+    {
+      key: "termin",
+      label: "Obdobie",
+      value: f.time === "current" ? "Prebiehajúce" : f.time === "past" ? "Ukončené" : "",
+    },
+    {
+      key: "zoradenie",
+      label: "Zoradenie",
+      value: f.sort === "najblizsie" ? "Najbližšie" : f.sort === "najnovsie" ? "Najnovšie" : "",
+    },
   ].filter((entry) => Boolean(entry.value));
   const clearOneHref = (key: string) => {
     const next = new URLSearchParams(params);
@@ -71,8 +99,13 @@ export function EventListingResults({
     .sort((a, b) => a - b);
 
   return (
-    <div className={styles.listingLayout} data-events-listing-layout>
-      <aside className={styles.filterSidebar} aria-label="Filtre podujatí">
+    <PublicFilterLayout className={styles.listingLayout} data-events-listing-layout>
+      <PublicFilterPanel
+        title="Filtrovať podujatia"
+        resetHref="/podujatia"
+        className={styles.filterSidebar}
+        aria-label="Filtre podujatí"
+      >
         {/* The sibling panel stays usable on desktop without JavaScript; native
             disclosure state controls its mobile visibility and accessibility. */}
         <details className={styles.mobileFilters}>
@@ -81,22 +114,21 @@ export function EventListingResults({
           </summary>
         </details>
         <div id="events-filter-panel" className={styles.sidebarContent}>
-          <div className={styles.sidebarHeading}>
-            <h2>Filtrovať podujatia</h2>
+          <div className={styles.sidebarHeading} data-public-filter-heading>
+            <PublicHeading role="section" as="h2">
+              Filtrovať podujatia
+            </PublicHeading>
             <Link href="/podujatia">Vymazať filtre</Link>
           </div>
           <form method="get" action={`${pathname}#events-list`} data-event-filters>
             {hidden(["region", "od", "do", "mesto", "mesiac"])}
-            <label>
-              Dátum od
+            <PublicFilterField label="Dátum od">
               <PublicTextInput appearance="context" type="date" name="od" defaultValue={f.from} />
-            </label>
-            <label>
-              Dátum do
+            </PublicFilterField>
+            <PublicFilterField label="Dátum do">
               <PublicTextInput appearance="context" type="date" name="do" defaultValue={f.to} />
-            </label>
-            <label>
-              Kraj
+            </PublicFilterField>
+            <PublicFilterField label="Kraj">
               <PublicSelect
                 appearance="context"
                 aria-label="Kraj"
@@ -110,25 +142,23 @@ export function EventListingResults({
                     <option key={region}>{region}</option>
                   ))}
               </PublicSelect>
-            </label>
-            <label>
-              Mesto / lokalita
+            </PublicFilterField>
+            <PublicFilterField label="Mesto / lokalita">
               <PublicTextInput
                 appearance="context"
                 name="mesto"
                 defaultValue={f.city}
                 maxLength={120}
               />
-            </label>
-            <label>
-              Mesiac
+            </PublicFilterField>
+            <PublicFilterField label="Mesiac">
               <PublicTextInput
                 appearance="context"
                 type="month"
                 name="mesiac"
                 defaultValue={f.month}
               />
-            </label>
+            </PublicFilterField>
             <fieldset>
               <legend>Typ podujatia</legend>
               {(["Všetky", ...eventTypes] as const).map((type) => (
@@ -155,17 +185,26 @@ export function EventListingResults({
             <PublicActionButton type="submit">Zobraziť výsledky</PublicActionButton>
           </form>
         </div>
-      </aside>
+      </PublicFilterPanel>
 
       <section
         className={styles.upcomingSection}
         id="events-list"
         aria-labelledby="events-upcoming-heading"
       >
-        <div className={styles.listHeading}>
+        {beforeResults ? <div data-event-organizer>{beforeResults}</div> : null}
+        <PublicResultsToolbar className={styles.listHeading}>
           <div>
-            <h2 id="events-upcoming-heading">{title}</h2>
-            <p>{listing.total} podujatí</p>
+            <PublicHeading role="section" as="h2" id="events-upcoming-heading">
+              {title}
+            </PublicHeading>
+            <p>
+              {formatSlovakCount(listing.total, {
+                one: "podujatie",
+                few: "podujatia",
+                many: "podujatí",
+              })}
+            </p>
           </div>
           <form method="get" action={`${pathname}#events-list`}>
             {hidden(["zoradenie"])}
@@ -184,17 +223,25 @@ export function EventListingResults({
             </label>
             <PublicActionButton type="submit">Zoradiť</PublicActionButton>
           </form>
-        </div>
+        </PublicResultsToolbar>
         {active.length ? (
-          <div className={styles.filterSummary} aria-label="Aktívne filtre" data-public-active-filters>
-            <span data-public-active-filter-label>Aktívne filtre</span>
+          <PublicActiveFilters className={styles.filterSummary}>
             {active.map(({ key, label, value }) => (
-              <PublicFilterTag key={key} href={clearOneHref(key)} removeLabel={`Odstrániť filter ${label}: ${value}`}>
-                <span>{label}: {value}</span><span aria-hidden="true">×</span>
+              <PublicFilterTag
+                key={key}
+                href={clearOneHref(key)}
+                removeLabel={`Odstrániť filter ${label}: ${value}`}
+              >
+                <span>
+                  {label}: {value}
+                </span>
+                <span aria-hidden="true">×</span>
               </PublicFilterTag>
             ))}
-            <Link href="/podujatia" data-public-filter-reset>Vymazať všetko</Link>
-          </div>
+            <Link href="/podujatia" data-public-filter-reset>
+              Vymazať všetko
+            </Link>
+          </PublicActiveFilters>
         ) : null}
         {f.error ? (
           <PublicNotice role="alert" tone="error">
@@ -205,8 +252,13 @@ export function EventListingResults({
           <>
             <p data-event-range>
               Zobrazených {(listing.page - 1) * EVENT_PAGE_SIZE + 1}–
-              {Math.min(listing.page * EVENT_PAGE_SIZE, listing.total)} z {listing.total} podujatí ·
-              Strana {listing.page} z {listing.pages}
+              {Math.min(listing.page * EVENT_PAGE_SIZE, listing.total)} z{" "}
+              {formatSlovakCount(listing.total, {
+                one: "podujatia",
+                few: "podujatí",
+                many: "podujatí",
+              })}{" "}
+              · Strana {listing.page} z {listing.pages}
             </p>
             <div className={styles.cardGrid} data-event-list>
               {events.map((event) => (
@@ -235,6 +287,6 @@ export function EventListingResults({
           </PublicEmptyState>
         )}
       </section>
-    </div>
+    </PublicFilterLayout>
   );
 }

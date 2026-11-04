@@ -40,18 +40,21 @@ test("IMAGE-EDITOR-3: manual crop/blur/position/zoom remains normalized and inde
 test("IMAGE-EDITOR-3: shared renderer uses loaded dimensions and responds to changed src", () => {
   const source = read("components/image-display.tsx");
   const smart = read("components/smart-card-image.tsx");
-  assert.match(source, /automaticThumbnailFit\(width, height, frameRatio, lightBackgroundShare\)/);
-  assert.match(source, /autoFit\?\.src === src/);
-  assert.match(source, /settings\.mode === "auto"/);
-  assert.match(source, /settings\.mode === "blur"/);
-  assert.match(source, /settings\.mode === "crop" \? "cover"/);
+  assert.match(
+    source,
+    /automaticThumbnailFit\(\s*width,\s*height,\s*frameRatio,\s*lightBackgroundShare,\s*?\s*\)/,
+  );
+  assert.match(source, /autoFit\?\s*\.src\s*===\s*src/);
+  assert.match(source, /settings\s*\.mode\s*===\s*"auto"/);
+  assert.match(source, /settings\s*\.mode\s*===\s*"blur"/);
+  assert.match(source, /settings\s*\.mode\s*===\s*"crop"\s*\?\s*"cover"/);
   assert.match(source, /data-image-display=/);
-  assert.match(smart, /image\.naturalWidth/);
-  assert.match(smart, /image\.naturalHeight/);
-  assert.match(smart, /parent\.clientWidth \/ parent\.clientHeight/);
-  assert.match(smart, /if \(imageRef\.current\?\.complete\)/);
+  assert.match(smart, /image\s*\.naturalWidth/);
+  assert.match(smart, /image\s*\.naturalHeight/);
+  assert.match(smart, /parent\s*\.clientWidth\s*\/\s*parent\s*\.clientHeight/);
+  assert.match(smart, /image\?\s*\.complete/);
   assert.match(smart, /lightShareCache/);
-  assert.match(smart, /sampleLightBackground\(image\)/);
+  assert.match(smart, /sampleLightBackground\(\s*image\s*\)/);
   assert.match(source, /lightBackgroundShare/);
   assert.doesNotMatch(
     read("lib/image-display.ts").match(/export function automaticThumbnailFit[\s\S]*?\n}/)?.[0] ??
@@ -65,26 +68,32 @@ test("IMAGE-EDITOR-3: blur is accessible and reuses the same responsive candidat
   const css = read("components/image-display.module.css");
   assert.match(
     renderer,
-    /className=\{styles\.blurBackground\} src=\{src\} srcSet=\{imageProps\.srcSet\}/,
+    /className=\{\s*styles\s*\.blurBackground\s*\}\s*src=\{\s*src\s*\}\s*srcSet=\{\s*imageProps\s*\.srcSet\s*\}/,
   );
-  assert.match(renderer, /sizes=\{imageProps\.sizes\} loading=\{imageProps\.loading\}/);
-  assert.match(renderer, /alt="" aria-hidden="true"/);
+  assert.match(
+    renderer,
+    /sizes=\{\s*imageProps\s*\.sizes\s*\}\s*loading=\{\s*imageProps\s*\.loading\s*\}/,
+  );
+  assert.match(renderer, /alt=""[\s\S]*?aria-hidden="true"/);
   assert.doesNotMatch(renderer, /backgroundImage:/);
-  assert.match(css, /filter: blur\(18px\)/);
-  assert.match(css, /pointer-events: none/);
-  assert.match(css, /\.frame\.natural/);
+  assert.match(css, /filter:\s*blur\(\s*18px\s*\)/);
+  assert.match(css, /pointer-events:\s*none/);
+  assert.match(css, /\s*\.frame\s*\.natural/);
 });
 
 test("IMAGE-EDITOR-3: homepage images use saved thumbnail overrides", () => {
   const page = read("app/page.tsx");
-  assert.match(page, /<EventImage\s[^>]*config=\{event\.thumbnailImageDisplay\}/);
-  assert.match(page, /<ImageDisplay\s[^>]*config=\{profile\.thumbnailImageDisplay\}/);
-  assert.match(page, /<ImageDisplay\s[^>]*config=\{item\.thumbnailImageDisplay\}/);
+  assert.match(page, /<EventImage\s[^>]*config=\{\s*event\s*\.thumbnailImageDisplay\s*\}/);
+  assert.match(page, /<ImageDisplay\s[^>]*config=\{\s*profile\s*\.thumbnailImageDisplay\s*\}/);
+  assert.match(page, /<ImageDisplay\s[^>]*config=\{\s*item\s*\.thumbnailImageDisplay\s*\}/);
   assert.doesNotMatch(page, /<SmartCardImage/);
-  const card = read("components/article-card.tsx");
-  assert.match(card, /config=\{article\.thumbnailImageDisplay\}/);
-  assert.match(card, /fetchPriority=\{imagePriority \? "high" : "auto"\}/);
-  assert.match(card, /loading=\{imagePriority \? "eager" : "lazy"\}/);
+  const card = read("components/public-visual-system/public-article-card.tsx");
+  assert.match(
+    read("lib/article-card-presentation.ts"),
+    /config: article\s*\.thumbnailImageDisplay/,
+  );
+  assert.match(card, /fetchPriority=\{\s*imagePriority\s*\?\s*"high"\s*:\s*"auto"\s*\}/);
+  assert.match(card, /loading=\{\s*imagePriority\s*\?\s*"eager"\s*:\s*"lazy"\s*\}/);
 });
 
 test("IMAGE-EDITOR-3: every entity detail respects manual config, with natural fallback", () => {
@@ -100,7 +109,7 @@ test("IMAGE-EDITOR-3: every entity detail respects manual config, with natural f
   assert.match(read("components/admin-event-editor.tsx"), /DEFAULT_DETAIL/);
   assert.match(
     read("components/image-display.tsx"),
-    /context === "detail" && settings\.mode === "natural"/,
+    /context\s*===\s*"detail"\s*&&\s*settings\s*\.mode\s*===\s*"natural"/,
   );
 });
 
@@ -110,13 +119,13 @@ test("IMAGE-EDITOR-3: natural portraits can grow without cropping in each detail
   assert.ok(css.includes('.heroMedia:has([data-image-display="natural"])'));
   assert.match(
     css,
-    /\.heroMedia:has\(\[data-image-display="natural"\]\)\s*\{[^}]*aspect-ratio:\s*auto/,
+    /\s*\.heroMedia:has\(\s*\[\s*data-image-display="natural"\s*\]\s*\)\s*\{\s*[^}]*aspect-ratio:\s*auto/,
   );
   assert.match(
     css,
-    /\.heroMedia:has\(\[data-image-display="natural"\]\) img\s*\{[^}]*height:\s*auto/,
+    /\s*\.heroMedia:has\(\s*\[\s*data-image-display="natural"\s*\]\s*\)\s*img\s*\{\s*[^}]*height:\s*auto/,
   );
-  assert.match(hero, /className=\{styles\.heroMedia\}/);
+  assert.match(hero, /className=\{\s*styles\s*\.heroMedia\s*\}/);
   for (const path of [
     "components/public-profile/public-profile-hero.tsx",
     "components/help-details/help-detail-shell.tsx",
@@ -130,21 +139,21 @@ test("IMAGE-EDITOR-3: natural portraits can grow without cropping in each detail
 
 test("IMAGE-EDITOR-3: editor keeps independent tabs, gestures and reset semantics", () => {
   const editor = read("components/image-display-editor.tsx");
-  assert.match(editor, /setDraftThumbnail\(value\)/);
-  assert.match(editor, /setDraftDetail\(value\)/);
-  assert.match(editor, /change\(null\)/);
-  assert.match(editor, /Vycentrovať obrázok/);
-  assert.match(editor, /onPointerMove=\{onPointerMove\}/);
-  assert.match(editor, /onPointerCancel=\{onPointerEnd\}/);
-  assert.match(editor, /onKeyDown=\{onPreviewKey\}/);
-  assert.match(editor, /onSave\(draftThumbnail, draftDetail\)/);
+  assert.match(editor, /setDraftThumbnail\(\s*value\s*\)/);
+  assert.match(editor, /setDraftDetail\(\s*value\s*\)/);
+  assert.match(editor, /change\(\s*null\s*\)/);
+  assert.match(editor, /Vycentrovať\s*obrázok/);
+  assert.match(editor, /onPointerMove=\{\s*onPointerMove\s*\}/);
+  assert.match(editor, /onPointerCancel=\{\s*onPointerEnd\s*\}/);
+  assert.match(editor, /onKeyDown=\{\s*onPreviewKey\s*\}/);
+  assert.match(editor, /onSave\(\s*draftThumbnail,\s*draftDetail\s*\)/);
 });
 
 test("IMAGE-EDITOR-3: existing event fallback and compatibility remain intact", () => {
   const event = read("components/event-image.tsx");
-  assert.match(event, /getEventFallbackImage\(eventType\)/);
-  assert.match(event, /onError:/);
-  assert.match(event, /legacyMode=\{mode\}/);
+  assert.match(event, /getEventFallbackImage\(\s*eventType\s*\)/);
+  assert.match(event, /onImageFailure:/);
+  assert.match(event, /legacyMode=\{\s*mode\s*\}/);
   for (const table of [
     "managed_events",
     "directory_profiles",
@@ -162,7 +171,7 @@ test("IMAGE-EDITOR-3: existing event fallback and compatibility remain intact", 
 
 test("IMAGE-EDITOR-3: no AI processor, new migration or expensive image pipeline introduced", () => {
   const renderer = read("components/image-display.tsx");
-  assert.doesNotMatch(renderer, /generateImage|sharp\(|fetch\(/);
+  assert.doesNotMatch(renderer, /generateImage|sharp\(\s*|fetch\(\s*/);
   const card = read("components/event-card.tsx");
   assert.match(card, /loading="lazy"/);
   assert.match(read("components/event-detail.tsx"), /fetchPriority="high"/);

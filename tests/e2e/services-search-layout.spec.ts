@@ -117,7 +117,8 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
     const previewSections = previews.locator("section[aria-labelledby^='preview-']");
     for (const section of await previewSections.all()) {
       await expect(section.locator("h2 a")).toHaveCount(1);
-      await expect(section.getByRole("link", { name: /Zobraziť všetky/ })).toHaveCount(1);
+      const categoryHref = await section.locator("h2 a").getAttribute("href");
+      await expect(section.getByRole("link", { name: /^Zobraziť kategóriu / })).toHaveAttribute("href", categoryHref!);
       expect(await section.locator("[data-directory-card]").count()).toBeLessThanOrEqual(5);
     }
     expect(await previews.locator("[data-directory-card]").count()).toBeGreaterThan(0);

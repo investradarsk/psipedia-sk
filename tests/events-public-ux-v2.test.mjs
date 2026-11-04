@@ -9,10 +9,16 @@ test("EVENTS-PUBLIC-UX-V2 retains one published-data calendar and crawlable list
   const calendar = source("components/event-calendar.tsx");
   const route = source("app/[section]/page.tsx");
 
-  assert.match(page, /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarEvents=\{calendarEvents\}/);
+  assert.match(
+    page,
+    /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarEvents=\{calendarEvents\}/,
+  );
   // Month-scoped event data is refreshed without a full-page navigation.
-  assert.match(calendar, /eventsForCalendarDay\(data\.calendarEvents,selectedDay\)/);
-  assert.match(calendar, /new URL\("\/api\/public\/events\/calendar",window\.location\.origin\)/);
+  assert.match(calendar, /eventsForCalendarDay\(data\.calendarEvents,\s*selectedDay\)/);
+  assert.match(
+    calendar,
+    /new URL\("\/api\/public\/events\/calendar",\s*window\.location\.origin\)/,
+  );
   assert.match(calendar, /data-events-month-calendar/);
   assert.match(calendar, /id="events-calendar"/);
   assert.match(source("components/event-listing-results.tsx"), /id="events-list"/);
@@ -23,7 +29,7 @@ test("EVENTS-PUBLIC-UX-V2 retains one published-data calendar and crawlable list
   assert.match(route, /getPublicEventCalendar\(parseEventListing/);
   assert.match(calendar, /^"use client";/);
   assert.match(calendar, /window\.history\.pushState/);
-  assert.match(calendar, /window\.addEventListener\("popstate",restore\)/);
+  assert.match(calendar, /window\.addEventListener\("popstate",\s*restore\)/);
 });
 
 test("month navigation drops an obsolete month filter, preserving search and region", () => {
@@ -38,7 +44,10 @@ test("month navigation drops an obsolete month filter, preserving search and reg
   assert.doesNotMatch(calendar, /<PublicFilterDisclosure|Použiť filtre/);
   assert.match(source("components/event-listing-results.tsx"), /mobileFilters/);
   assert.match(source("components/event-listing-results.tsx"), /Vymazať filtre/);
-  assert.match(source("components/event-listing-results.tsx"), /className=\{styles\.filterSummary\}/);
+  assert.match(
+    source("components/event-listing-results.tsx"),
+    /className=\{styles\.filterSummary\}/,
+  );
 });
 
 test("mobile cards and details keep online events accurate and provide a listing return", () => {
@@ -51,13 +60,16 @@ test("mobile cards and details keep online events accurate and provide a listing
   assert.doesNotMatch(card, /Online podujatie/);
   assert.match(card, /Miesto nie je uvedené/);
   assert.doesNotMatch(card, /<strong>Organizátor<\/strong>/);
-  assert.match(detail, /const hasMap = event\.region !== "Online" && Boolean\(publicMap\?\.items\.length\)/);
+  assert.match(
+    detail,
+    /const hasMap = event\.region !== "Online" && Boolean\(publicMap\?\.items\.length\)/,
+  );
   // The shared detail layout owns the semantic aside; event details provide the map as a prop.
   assert.match(detail, /<PublicDetailLayout/);
-  assert.match(detail, /aside=\{hasMap && publicMap \? \(/);
+  assert.match(detail, /aside=\{\s*hasMap && publicMap \? \(/);
   assert.match(detail, /<PublicLocationMap/);
   assert.match(detail, /items=\{publicMap\.items\}/);
-  assert.match(detail, /<EventsBackLink fallbackHref=\{typeHref \?\? "\/podujatia"\}/);
+  assert.match(detail, /<EventsBackLink\s+fallbackHref=\{typeHref \?\? "\/podujatia"\}/);
   assert.match(page, /<RememberEventsListing key=/);
   assert.match(returnLink, /window\.sessionStorage\.setItem/);
   assert.match(returnLink, /window\.sessionStorage\.getItem/);

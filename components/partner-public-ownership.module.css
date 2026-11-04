@@ -164,13 +164,75 @@
 }
 
 /* Shared public owner / correction actions on all claimed partner profiles. */
-.wrap { margin-top: 18px; margin-bottom: 36px; }
-.management, .correction { gap: 14px; padding: 16px 20px; }
-.management p, .correction p { line-height: 1.5; }
-.actions { gap: 7px; }
+.wrap {
+  margin-top: 18px;
+  margin-bottom: 36px;
+}
+.management,
+.correction {
+  gap: 14px;
+  padding: 16px 20px;
+}
+.management p,
+.correction p {
+  line-height: 1.5;
+}
+.actions {
+  gap: 7px;
+}
 @media (max-width: 700px) {
-  .wrap { margin-bottom: 30px; }
-  .management, .correction { gap: 12px; padding: 15px; }
-  .actions { display: flex; flex-wrap: wrap; justify-content: stretch; }
-  .primaryCta, .secondaryCta, .correctionCta { width: auto; max-width: 100%; padding-inline: 14px; }
+  .wrap {
+    margin-bottom: 30px;
+  }
+  .management,
+  .correction {
+    gap: 12px;
+    padding: 15px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+  .primaryCta,
+  .secondaryCta,
+  .correctionCta {
+    width: auto;
+    max-width: 100%;
+    padding-inline: 14px;
+  }
+}
+
+@media (min-width: 801px) {
+  .embedded {
+    width: 100%;
+    margin: 0;
+  }
+  .embedded .management,
+  .embedded .correction {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 16px;
+  }
+  .embedded .managementContent {
+    display: grid;
+    gap: 10px;
+  }
+  .embedded .management h2 {
+    font-size: 1.15rem;
+  }
+  .embedded .management p,
+  .embedded .correction p {
+    font-size: 0.82rem;
+  }
+  .embedded .actions {
+    justify-content: flex-start;
+  }
+}
+
+/* Embedded ownership keeps the parent shell gutter, including on mobile. */
+.embedded {
+  width: 100%;
+  margin: 0;
 }

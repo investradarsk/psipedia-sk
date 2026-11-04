@@ -37,9 +37,15 @@ import { withAvailableBreedImages } from "../lib/breed-image.ts";
 import robots from "../app/robots.ts";
 
 test("lastModified uses the latest real timestamp and omits unknown dates", () => {
-  assert.equal(latestModified(["2026-08-17", "2026-09-07T12:30:00Z"])?.toISOString(), "2026-09-07T12:30:00.000Z");
+  assert.equal(
+    latestModified(["2026-08-17", "2026-09-07T12:30:00Z"])?.toISOString(),
+    "2026-09-07T12:30:00.000Z",
+  );
   assert.equal(latestModified([undefined, "", "not-a-date"]), undefined);
-  assert.equal("lastModified" in sitemapEntry("/sukromie", { changeFrequency: "monthly", priority: 0.5 }), false);
+  assert.equal(
+    "lastModified" in sitemapEntry("/sukromie", { changeFrequency: "monthly", priority: 0.5 }),
+    false,
+  );
 });
 
 test("article JSON-LD distinguishes a named person from the Psipedia editorial organization", () => {
@@ -51,20 +57,38 @@ test("article JSON-LD distinguishes a named person from the Psipedia editorial o
     author: { "@type": "Person", name: "Martin" },
   });
 
-  const detail = fs.readFileSync(new URL("../components/article-detail.tsx", import.meta.url), "utf8");
-  assert.match(detail, /const authorName = authorProfile\?\.displayName \|\| article\.author/);
-  assert.match(detail, /author:\s*articleAuthorJsonLd\(authorName\)/);
-  assert.doesNotMatch(detail, /author:\s*\{\s*"@type":\s*"Organization",\s*name:\s*article\.author/s);
+  const detail = fs.readFileSync(
+    new URL("../components/article-detail.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    detail,
+    /const\s*authorName\s*=\s*authorProfile\?\s*\.displayName\s*\|\|\s*article\s*\.author/,
+  );
+  assert.match(detail, /author:\s*articleAuthorJsonLd\(\s*authorName\s*\)/);
+  assert.doesNotMatch(
+    detail,
+    /author:\s*\{\s*"@type":\s*"Organization",\s*name:\s*article\s*\.author/s,
+  );
   assert.equal((detail.match(/application\/ld\+json/g) ?? []).length, 1);
 });
 
 test("Event JSON-LD keeps a known Bratislava time and DST offset", () => {
   assert.equal(eventDateTimeIso("2026-09-16", "18:00"), "2026-09-16T18:00:00+02:00");
-  const eventPage = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
+  const eventPage = fs.readFileSync(
+    new URL("../app/[section]/[slug]/page.tsx", import.meta.url),
+    "utf8",
+  );
   const eventSchema = fs.readFileSync(new URL("../lib/event-schema.ts", import.meta.url), "utf8");
-  assert.match(eventPage, /buildEventJsonLd\(event, canonical\)/);
-  assert.match(eventSchema, /startDate:\s*eventDateTimeIso\(event\.startDate, event\.startTime\)/);
-  assert.match(eventSchema, /endDate:\s*event\.endDate\s*\?\s*eventDateTimeIso\(event\.endDate, event\.endTime\)/);
+  assert.match(eventPage, /buildEventJsonLd\(\s*event,\s*canonical\s*\)/);
+  assert.match(
+    eventSchema,
+    /startDate:\s*eventDateTimeIso\(\s*event\s*\.startDate,\s*event\s*\.startTime\s*\)/,
+  );
+  assert.match(
+    eventSchema,
+    /endDate:\s*event\s*\.endDate\s*\?\s*eventDateTimeIso\(\s*event\s*\.endDate,\s*event\s*\.endTime\s*\)/,
+  );
 });
 
 test("AI-CRAWLER-POLICY-1 preserves discovery access while blocking training-only crawlers", () => {
@@ -90,10 +114,7 @@ test("AI-CRAWLER-POLICY-1 preserves discovery access while blocking training-onl
     assert.equal(rules.get(crawler)?.disallow, "/", crawler);
   }
 
-  assert.deepEqual(policy.sitemap, [
-    `${SITE_URL}/sitemap.xml`,
-    `${SITE_URL}/news-sitemap.xml`,
-  ]);
+  assert.deepEqual(policy.sitemap, [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/news-sitemap.xml`]);
   assert.equal(policy.host, SITE_URL);
 });
 
@@ -114,7 +135,10 @@ test("missing public landings are included with canonical metadata and condition
 });
 
 test("News sitemap excludes noncanonical article URLs", () => {
-  const route = fs.readFileSync(new URL("../app/news-sitemap.xml/route.ts", import.meta.url), "utf8");
+  const route = fs.readFileSync(
+    new URL("../app/news-sitemap.xml/route.ts", import.meta.url),
+    "utf8",
+  );
   assert.ok(route.includes("isSelfCanonical(article.seo, articleHref(article))"));
 });
 
@@ -125,26 +149,54 @@ test("News sitemap admits only publication dates from the last two days", () => 
   assert.equal(isNewsSitemapEligibleDate(new Date(now + 1), now), false);
   assert.equal(isNewsSitemapEligibleDate("not-a-date", now), false);
 
-  const route = fs.readFileSync(new URL("../app/news-sitemap.xml/route.ts", import.meta.url), "utf8");
-  assert.match(route, /isNewsSitemapEligibleDate\(published, now\)/);
-  for (const requiredTag of ["<news:news>", "<news:publication>", "<news:name>", "<news:language>sk</news:language>", "<news:publication_date>", "<news:title>"]) {
+  const route = fs.readFileSync(
+    new URL("../app/news-sitemap.xml/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /isNewsSitemapEligibleDate\(\s*published,\s*now\s*\)/);
+  for (const requiredTag of [
+    "<news:news>",
+    "<news:publication>",
+    "<news:name>",
+    "<news:language>sk</news:language>",
+    "<news:publication_date>",
+    "<news:title>",
+  ]) {
     assert.ok(route.includes(requiredTag), `News sitemap musí obsahovať ${requiredTag}`);
   }
-  assert.doesNotMatch(route, /newsMetadata\s*=|:\s*"";\s*\n\s*return `\n\s*<url>/s);
+  assert.doesNotMatch(route, /newsMetadata\s*=|:\s*"";\s*\n\s*return\s*`\n\s*<url>/s);
 });
 
 test("only indexable self-canonical content is eligible for sitemap", () => {
   assert.equal(isSelfCanonical(undefined, "/plemena/labradorsky-retriever"), true);
-  assert.equal(isSelfCanonical({ canonicalUrl: "https://psipedia.sk/plemena/labradorsky-retriever" }, "/plemena/labradorsky-retriever"), true);
+  assert.equal(
+    isSelfCanonical(
+      { canonicalUrl: "https://psipedia.sk/plemena/labradorsky-retriever" },
+      "/plemena/labradorsky-retriever",
+    ),
+    true,
+  );
   assert.equal(isSelfCanonical({ noindex: true }, "/plemena/labradorsky-retriever"), false);
-  assert.equal(isSelfCanonical({ canonicalUrl: "https://psipedia.sk/plemena/labrador" }, "/plemena/labradorsky-retriever"), false);
+  assert.equal(
+    isSelfCanonical(
+      { canonicalUrl: "https://psipedia.sk/plemena/labrador" },
+      "/plemena/labradorsky-retriever",
+    ),
+    false,
+  );
 });
 
 test("invalid and external canonical URLs are not self-canonical", () => {
   const path = "/starostlivost/test-canonical";
   assert.equal(isSelfCanonical({ canonicalUrl: "not a valid absolute canonical" }, path), false);
-  assert.equal(isSelfCanonical({ canonicalUrl: "https://example.com/starostlivost/test-canonical" }, path), false);
-  assert.equal(isSelfCanonical({ canonicalUrl: "http://psipedia.sk/starostlivost/test-canonical" }, path), false);
+  assert.equal(
+    isSelfCanonical({ canonicalUrl: "https://example.com/starostlivost/test-canonical" }, path),
+    false,
+  );
+  assert.equal(
+    isSelfCanonical({ canonicalUrl: "http://psipedia.sk/starostlivost/test-canonical" }, path),
+    false,
+  );
 });
 
 test("global sitemap validation catches a cross-entity URL collision", () => {
@@ -158,10 +210,16 @@ test("global sitemap validation catches a cross-entity URL collision", () => {
 
 test("sitemap QA rejects duplicates, parameters, internal paths and redirect sources", () => {
   const entry = (path) => ({ url: `https://psipedia.sk${path}` });
-  assert.throws(() => assertValidSitemap([entry("/plemena"), entry("/plemena")]), /sitemap-duplicate-url/);
+  assert.throws(
+    () => assertValidSitemap([entry("/plemena"), entry("/plemena")]),
+    /sitemap-duplicate-url/,
+  );
   assert.throws(() => assertValidSitemap([entry("/plemena?fciGroup=1")]), /sitemap-parametric-url/);
   assert.throws(() => assertValidSitemap([entry("/admin")]), /sitemap-internal-url/);
-  assert.throws(() => assertValidSitemap([entry("/adresar/psie-skoly")]), /sitemap-redirect-source/);
+  assert.throws(
+    () => assertValidSitemap([entry("/adresar/psie-skoly")]),
+    /sitemap-redirect-source/,
+  );
 });
 
 test("redirect-source ownership wins over implicit self-canonical sitemap eligibility", () => {
@@ -176,47 +234,62 @@ test("redirect-source ownership wins over implicit self-canonical sitemap eligib
 
 test("sitemap builders exclude redirect-source details before parity and global validation", () => {
   const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
-  const articleStart = source.indexOf('const articleEntries');
-  const eventStart = source.indexOf('const eventEntries');
-  const directoryStart = source.indexOf('const directoryCandidates');
-  const helpStart = source.indexOf('const helpCandidates');
+  const articleStart = source.indexOf("const articleEntries");
+  const eventStart = source.indexOf("const eventEntries");
+  const directoryStart = source.indexOf("const directoryCandidates");
+  const helpStart = source.indexOf("const helpCandidates");
   const articleBlock = source.slice(articleStart, eventStart);
   const eventBlock = source.slice(eventStart, directoryStart);
   const directoryBlock = source.slice(directoryStart, helpStart);
 
-  assert.match(articleBlock, /!SITEMAP_REDIRECT_SOURCES\.has\(path\)/);
-  assert.match(articleBlock, /redirectSource \? "redirect-source"/);
-  assert.match(eventBlock, /!SITEMAP_REDIRECT_SOURCES\.has\(path\)/);
-  assert.match(eventBlock, /redirectSource \? "redirect-source"/);
-  assert.match(directoryBlock, /SITEMAP_REDIRECT_SOURCES\.has\(path!\)/);
-  assert.match(directoryBlock, /!legacyRedirect && !redirectSource/);
-  assert.match(directoryBlock, /legacyRedirect \|\| redirectSource/);
+  assert.match(articleBlock, /!SITEMAP_REDIRECT_SOURCES\s*\.has\(\s*path\s*\)/);
+  assert.match(articleBlock, /redirectSource\s*\?\s*"redirect-source"/);
+  assert.match(eventBlock, /!SITEMAP_REDIRECT_SOURCES\s*\.has\(\s*path\s*\)/);
+  assert.match(eventBlock, /redirectSource\s*\?\s*"redirect-source"/);
+  assert.match(directoryBlock, /SITEMAP_REDIRECT_SOURCES\s*\.has\(\s*path!\s*\)/);
+  assert.match(directoryBlock, /!legacyRedirect\s*&&\s*!redirectSource/);
+  assert.match(directoryBlock, /legacyRedirect\s*\|\|\s*redirectSource/);
 });
 
 test("legacy activity training URL redirects directly to the canonical managed topic", () => {
   const legacyPath = "/aktivity/-vycvik-a-aktivity-trening";
   const targetPath = "/aktivity/trening";
-  const route = fs.readFileSync(new URL("../app/aktivity/-vycvik-a-aktivity-trening/route.ts", import.meta.url), "utf8");
+  const route = fs.readFileSync(
+    new URL("../app/aktivity/-vycvik-a-aktivity-trening/route.ts", import.meta.url),
+    "utf8",
+  );
   const portal = fs.readFileSync(new URL("../lib/portal.ts", import.meta.url), "utf8");
-  const portalPage = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
+  const portalPage = fs.readFileSync(
+    new URL("../app/[section]/[slug]/page.tsx", import.meta.url),
+    "utf8",
+  );
 
-  assert.match(route, /NextResponse\.redirect\(new URL\("\/aktivity\/trening", request\.url\), 301\)/);
+  assert.match(
+    route,
+    /NextResponse\s*\.redirect\(\s*new\s*URL\(\s*"\/aktivity\/trening",\s*request\s*\.url\s*\),\s*301\s*\)/,
+  );
   assert.equal(SITEMAP_REDIRECT_SOURCES.has(legacyPath), true);
   assert.equal(SITEMAP_REDIRECT_SOURCES.has(targetPath), false);
   assert.match(portal, /slug:\s*"trening",\s*label:\s*"Tréning"/);
   assert.doesNotMatch(portal, /-vycvik-a-aktivity-trening/);
-  assert.match(portalPage, /path:\s*`\/\$\{portalTopic\.section\.slug\}\/\$\{portalTopic\.subpage\.slug\}`/);
-  assert.match(portalPage, /if \(portalTopic\) return <PortalTopic/);
+  assert.match(
+    portalPage,
+    /path:\s*`\/\$\{\s*portalTopic\s*\.section\s*\.slug\s*\}\/\$\{\s*portalTopic\s*\.subpage\s*\.slug\s*\}`/,
+  );
+  assert.match(portalPage, /if\s*\(\s*portalTopic\s*\)\s*return\s*<PortalTopic/);
 });
 
 test("directory sitemap reader is lightweight, cursor-batched and not capped at 500 or 1000", async () => {
   const query = buildPublishedDirectorySitemapPageQuery(0, 500);
   assert.equal(query.batchSize, 500);
-  assert.match(query.sql, /id > \?/);
-  assert.match(query.sql, /ORDER BY id ASC/);
-  assert.match(query.sql, /status = 'published'/);
-  assert.match(query.sql, /archived_at IS NULL/);
-  assert.doesNotMatch(query.sql, /description|services_json|qualifications_json|source_data_json|verified|featured/i);
+  assert.match(query.sql, /id\s*>\s*\?/);
+  assert.match(query.sql, /ORDER\s*BY\s*id\s*ASC/);
+  assert.match(query.sql, /status\s*=\s*'published'/);
+  assert.match(query.sql, /archived_at\s*IS\s*NULL/);
+  assert.doesNotMatch(
+    query.sql,
+    /description|services_json|qualifications_json|source_data_json|verified|featured/i,
+  );
 
   const database = new DatabaseSync(":memory:");
   database.exec(`
@@ -242,13 +315,24 @@ test("directory sitemap reader is lightweight, cursor-batched and not capped at 
       "published",
       `2026-09-${String((id % 27) + 1).padStart(2, "0")}T10:00:00.000Z`,
       id === 1205
-        ? JSON.stringify({ canonicalUrl: "https://psipedia.sk/adresar/veterinari/profil-1205", noindex: false })
+        ? JSON.stringify({
+            canonicalUrl: "https://psipedia.sk/adresar/veterinari/profil-1205",
+            noindex: false,
+          })
         : "{}",
       null,
     );
   }
   insert.run(1206, "draft", "veterinari", "draft", "2026-09-28T10:00:00.000Z", "{}", null);
-  insert.run(1207, "archived", "veterinari", "published", "2026-09-28T10:00:00.000Z", "{}", "2026-09-28T11:00:00.000Z");
+  insert.run(
+    1207,
+    "archived",
+    "veterinari",
+    "published",
+    "2026-09-28T10:00:00.000Z",
+    "{}",
+    "2026-09-28T11:00:00.000Z",
+  );
   database.exec("COMMIT;");
 
   let queryCount = 0;
@@ -270,11 +354,23 @@ test("directory sitemap reader is lightweight, cursor-batched and not capped at 
   const records = await listPublishedDirectorySitemapRecords(d1, { batchSize: 500 });
   assert.equal(records.length, 1205);
   assert.equal(queryCount, 3);
-  assert.deepEqual(records.slice(0, 2).map((item) => item.id), [1, 2]);
+  assert.deepEqual(
+    records.slice(0, 2).map((item) => item.id),
+    [1, 2],
+  );
   assert.equal(records.at(-1).id, 1205);
-  assert.equal(records.some((item) => item.slug === "draft"), false);
-  assert.equal(records.some((item) => item.slug === "archived"), false);
-  assert.equal(records.at(-1).seo.canonicalUrl, "https://psipedia.sk/adresar/veterinari/profil-1205");
+  assert.equal(
+    records.some((item) => item.slug === "draft"),
+    false,
+  );
+  assert.equal(
+    records.some((item) => item.slug === "archived"),
+    false,
+  );
+  assert.equal(
+    records.at(-1).seo.canonicalUrl,
+    "https://psipedia.sk/adresar/veterinari/profil-1205",
+  );
 });
 
 test("article, event and Help sitemap readers remain complete beyond 1000 rows", async () => {
@@ -282,9 +378,12 @@ test("article, event and Help sitemap readers remain complete beyond 1000 rows",
   const eventQuery = buildPublishedEventSitemapPageQuery(0, 500);
   const helpQuery = buildPublishedHelpSitemapPageQuery(0, 500);
   for (const query of [articleQuery, eventQuery, helpQuery]) {
-    assert.match(query.sql, /id > \?/);
-    assert.match(query.sql, /ORDER BY id ASC/);
-    assert.doesNotMatch(query.sql, /description|excerpt|services_json|practical_info|source_data_json/i);
+    assert.match(query.sql, /id\s*>\s*\?/);
+    assert.match(query.sql, /ORDER\s*BY\s*id\s*ASC/);
+    assert.doesNotMatch(
+      query.sql,
+      /description|excerpt|services_json|practical_info|source_data_json/i,
+    );
   }
 
   const database = new DatabaseSync(":memory:");
@@ -332,11 +431,35 @@ test("article, event and Help sitemap readers remain complete beyond 1000 rows",
   );
   for (let id = 1; id <= 1205; id += 1) {
     const updated = `2026-09-${String((id % 27) + 1).padStart(2, "0")}T10:00:00.000Z`;
-    articleInsert.run(id, `article-${id}`, "starostlivost", "zdravie", "Zdravie", "published", updated, updated, null, "", 0);
+    articleInsert.run(
+      id,
+      `article-${id}`,
+      "starostlivost",
+      "zdravie",
+      "Zdravie",
+      "published",
+      updated,
+      updated,
+      null,
+      "",
+      0,
+    );
     eventInsert.run(id, `event-${id}`, "published", updated, null, "{}");
     helpInsert.run(id, `help-${id}`, "docasna-opatera", "published", updated, null, "{}");
   }
-  articleInsert.run(1206, "draft-article", "clanky", null, "Výcvik", "draft", null, null, null, "", 0);
+  articleInsert.run(
+    1206,
+    "draft-article",
+    "clanky",
+    null,
+    "Výcvik",
+    "draft",
+    null,
+    null,
+    null,
+    "",
+    0,
+  );
   eventInsert.run(1206, "draft-event", "draft", null, null, "{}");
   helpInsert.run(1206, "draft-help", "zbierky", "draft", null, null, "{}");
   database.exec("COMMIT;");
@@ -347,7 +470,11 @@ test("article, event and Help sitemap readers remain complete beyond 1000 rows",
       queryCount += 1;
       return {
         bind(...bindings) {
-          return { async all() { return { results: database.prepare(sql).all(...bindings) }; } };
+          return {
+            async all() {
+              return { results: database.prepare(sql).all(...bindings) };
+            },
+          };
         },
       };
     },
@@ -365,16 +492,31 @@ test("article, event and Help sitemap readers remain complete beyond 1000 rows",
   assert.equal(articles.at(-1).portalSubpage, "zdravie");
   assert.equal(articles.at(-1).category, "Zdravie");
   assert.equal(help.at(-1).category, "docasna-opatera");
-  assert.equal(articles.some((item) => item.slug === "draft-article"), false);
-  assert.equal(events.some((item) => item.slug === "draft-event"), false);
-  assert.equal(help.some((item) => item.slug === "draft-help"), false);
+  assert.equal(
+    articles.some((item) => item.slug === "draft-article"),
+    false,
+  );
+  assert.equal(
+    events.some((item) => item.slug === "draft-event"),
+    false,
+  );
+  assert.equal(
+    help.some((item) => item.slug === "draft-help"),
+    false,
+  );
   database.close();
 });
 
 test("sitemap entity parity exposes duplicates, missing slugs and invalid statuses", () => {
   const clean = [
     { slug: "a", url: "https://psipedia.sk/a", indexable: true, validStatus: true },
-    { slug: "legacy", url: "https://psipedia.sk/legacy", indexable: false, validStatus: true, exclusionReason: "redirect-source" },
+    {
+      slug: "legacy",
+      url: "https://psipedia.sk/legacy",
+      indexable: false,
+      validStatus: true,
+      exclusionReason: "redirect-source",
+    },
   ];
   const report = inspectSitemapEntityParity("test", clean, ["https://psipedia.sk/a"]);
   assert.equal(report.indexableCanonicalCount, 1);
@@ -383,28 +525,49 @@ test("sitemap entity parity exposes duplicates, missing slugs and invalid status
   assert.doesNotThrow(() => assertSitemapEntityParity("test", clean, ["https://psipedia.sk/a"]));
 
   assert.throws(
-    () => assertSitemapEntityParity("duplicates", [
-      { slug: "a", url: "https://psipedia.sk/a", indexable: true, validStatus: true },
-      { slug: "b", url: "https://psipedia.sk/b", indexable: true, validStatus: true },
-    ], ["https://psipedia.sk/a", "https://psipedia.sk/a"]),
+    () =>
+      assertSitemapEntityParity(
+        "duplicates",
+        [
+          { slug: "a", url: "https://psipedia.sk/a", indexable: true, validStatus: true },
+          { slug: "b", url: "https://psipedia.sk/b", indexable: true, validStatus: true },
+        ],
+        ["https://psipedia.sk/a", "https://psipedia.sk/a"],
+      ),
     /sitemap-parity:duplicates/,
   );
   assert.throws(
-    () => assertSitemapEntityParity("missing-slug", [
-      { slug: "", url: null, indexable: true, validStatus: true },
-    ], []),
+    () =>
+      assertSitemapEntityParity(
+        "missing-slug",
+        [{ slug: "", url: null, indexable: true, validStatus: true }],
+        [],
+      ),
     /missingSlugCount/,
   );
   assert.throws(
-    () => assertSitemapEntityParity("invalid-status", [
-      { slug: "draft", url: "https://psipedia.sk/draft", indexable: true, validStatus: false },
-    ], []),
+    () =>
+      assertSitemapEntityParity(
+        "invalid-status",
+        [{ slug: "draft", url: "https://psipedia.sk/draft", indexable: true, validStatus: false }],
+        [],
+      ),
     /invalidStatusCount/,
   );
   assert.throws(
-    () => assertSitemapEntityParity("unexplained", [
-      { slug: "hidden", url: "https://psipedia.sk/hidden", indexable: false, validStatus: true },
-    ], []),
+    () =>
+      assertSitemapEntityParity(
+        "unexplained",
+        [
+          {
+            slug: "hidden",
+            url: "https://psipedia.sk/hidden",
+            indexable: false,
+            validStatus: true,
+          },
+        ],
+        [],
+      ),
     /unexplainedExclusionCount/,
   );
 });
@@ -431,53 +594,90 @@ test("generated sitemap uses canonical public sources and no hardcoded fake date
   assert.match(source, /getPublishedArticleSitemapRecords/);
   assert.match(source, /getPublishedEventSitemapRecords/);
   assert.match(source, /getPublishedHelpSitemapRecords/);
-  assert.doesNotMatch(source, /getPublishedDirectoryProfiles|getPublishedArticleIndex|getPublishedEvents|getPublishedHelpCases/);
+  assert.doesNotMatch(
+    source,
+    /getPublishedDirectoryProfiles|getPublishedArticleIndex|getPublishedEvents|getPublishedHelpCases/,
+  );
   assert.match(source, /assertSitemapEntityParity/);
   assert.match(source, /isSelfCanonical/);
   assert.match(source, /assertValidSitemap/);
-  assert.doesNotMatch(source, /new Date\(["']2026-08-(?:17|29)["']\)/);
+  assert.doesNotMatch(source, /new\s*Date\(\s*["']2026-08-(?:17|29)["']\s*\)/);
   assert.doesNotMatch(source, /resolvedCanonical/);
 });
 
 test("filtered listings keep a clean base canonical", () => {
   const breeds = fs.readFileSync(new URL("../app/plemena/page.tsx", import.meta.url), "utf8");
   const directory = fs.readFileSync(new URL("../app/adresar/page.tsx", import.meta.url), "utf8");
-  const directoryCategory = fs.readFileSync(new URL("../app/adresar/[category]/page.tsx", import.meta.url), "utf8");
+  const directoryCategory = fs.readFileSync(
+    new URL("../app/adresar/[category]/page.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(breeds, /path:\s*["']\/plemena["']/);
   assert.match(directory, /path:\s*["']\/adresar["']/);
-  assert.match(directoryCategory, /path:\s*`\/adresar\/\$\{category\.slug\}`/);
+  assert.match(directoryCategory, /path:\s*`\/adresar\/\$\{\s*category\s*\.slug\s*\}`/);
 });
 
 test("canonical repair migration fixes only the confirmed broken canonical targets and is idempotent", () => {
   const database = new DatabaseSync(":memory:");
-  database.exec("CREATE TABLE managed_articles (slug TEXT PRIMARY KEY, canonical_url TEXT NOT NULL, updated_at TEXT, updated_by TEXT); CREATE TABLE managed_events (slug TEXT PRIMARY KEY, seo_json TEXT NOT NULL, updated_at TEXT, updated_by TEXT);");
+  database.exec(
+    "CREATE TABLE managed_articles (slug TEXT PRIMARY KEY, canonical_url TEXT NOT NULL, updated_at TEXT, updated_by TEXT); CREATE TABLE managed_events (slug TEXT PRIMARY KEY, seo_json TEXT NOT NULL, updated_at TEXT, updated_by TEXT);",
+  );
   const articles = [
-    ["prosba-aby-dal-psa-na-vodzku-mala-skoncit-bitkou-incident-v", "https://psipedia.sk/novinky/spor-pes-vodzka-mala-fatra-pravidla"],
+    [
+      "prosba-aby-dal-psa-na-vodzku-mala-skoncit-bitkou-incident-v",
+      "https://psipedia.sk/novinky/spor-pes-vodzka-mala-fatra-pravidla",
+    ],
     ["zakladny-vycvik-psat", "https://psipedia.sk/aktivity/zakladny-vycvik-psa"],
-    ["banska-bystrica-riesi-nove-pravidla-pre-psov-majitelia-sa-py", "https://psipedia.sk/novinky/banska-bystrica-nove-pravidla-psy-vencoviska"],
+    [
+      "banska-bystrica-riesi-nove-pravidla-pre-psov-majitelia-sa-py",
+      "https://psipedia.sk/novinky/banska-bystrica-nove-pravidla-psy-vencoviska",
+    ],
     ["psi-talent-2026-galanta", "https://psipedia.sk/novinky/psi-talent-2026-galanta"],
   ];
   const events = [
     ["psi-talent-2026", "https://psipedia.sk/podujatia/psi-talent-2026-galanta-hody"],
-    ["specialna-vystava-slovenskeho-novofundlandskeho-klubu-2026-cac", "https://psipedia.sk/podujatia/specialna-vystava-slovenskeho-novofundlandskeho-klubu-2026"],
+    [
+      "specialna-vystava-slovenskeho-novofundlandskeho-klubu-2026-cac",
+      "https://psipedia.sk/podujatia/specialna-vystava-slovenskeho-novofundlandskeho-klubu-2026",
+    ],
   ];
-  for (const [slug, canonicalUrl] of articles) database.prepare("INSERT INTO managed_articles VALUES (?, ?, NULL, NULL)").run(slug, canonicalUrl);
-  for (const [slug, canonicalUrl] of events) database.prepare("INSERT INTO managed_events VALUES (?, ?, NULL, NULL)").run(slug, JSON.stringify({ canonicalUrl }));
-  database.prepare("INSERT INTO managed_articles VALUES (?, ?, NULL, NULL)").run("untouched", "https://psipedia.sk/clanky/untouched");
-  const migrations = ["0025_repair_broken_content_canonicals.sql", "0026_repair_article_canonical_columns.sql", "0027_repair_event_cross_canonical.sql", "0028_repair_article_event_canonical.sql"]
-    .map((name) => fs.readFileSync(new URL(`../drizzle/${name}`, import.meta.url), "utf8"));
+  for (const [slug, canonicalUrl] of articles)
+    database
+      .prepare("INSERT INTO managed_articles VALUES (?, ?, NULL, NULL)")
+      .run(slug, canonicalUrl);
+  for (const [slug, canonicalUrl] of events)
+    database
+      .prepare("INSERT INTO managed_events VALUES (?, ?, NULL, NULL)")
+      .run(slug, JSON.stringify({ canonicalUrl }));
+  database
+    .prepare("INSERT INTO managed_articles VALUES (?, ?, NULL, NULL)")
+    .run("untouched", "https://psipedia.sk/clanky/untouched");
+  const migrations = [
+    "0025_repair_broken_content_canonicals.sql",
+    "0026_repair_article_canonical_columns.sql",
+    "0027_repair_event_cross_canonical.sql",
+    "0028_repair_article_event_canonical.sql",
+  ].map((name) => fs.readFileSync(new URL(`../drizzle/${name}`, import.meta.url), "utf8"));
   for (const migration of migrations) database.exec(migration);
   for (const migration of migrations) database.exec(migration);
-  const repairedArticles = database.prepare("SELECT slug, canonical_url canonical FROM managed_articles ORDER BY slug").all();
-  const repairedEvents = database.prepare("SELECT slug, json_extract(seo_json, '$.canonicalUrl') canonical FROM managed_events ORDER BY slug").all();
-  assert.equal(repairedArticles.find((row) => row.slug === "untouched").canonical, "https://psipedia.sk/clanky/untouched");
+  const repairedArticles = database
+    .prepare("SELECT slug, canonical_url canonical FROM managed_articles ORDER BY slug")
+    .all();
+  const repairedEvents = database
+    .prepare(
+      "SELECT slug, json_extract(seo_json, '$.canonicalUrl') canonical FROM managed_events ORDER BY slug",
+    )
+    .all();
+  assert.equal(
+    repairedArticles.find((row) => row.slug === "untouched").canonical,
+    "https://psipedia.sk/clanky/untouched",
+  );
   for (const row of repairedArticles.filter((item) => item.slug !== "untouched")) {
     assert.ok(row.canonical.endsWith(`/${row.slug}`));
   }
   for (const row of repairedEvents) assert.ok(row.canonical.endsWith(`/${row.slug}`));
   database.close();
 });
-
 
 test("sitemap orchestrator bounds D1 fan-out independently of the confirmed asset-probe root cause", async () => {
   const connectionLimit = 6;
@@ -486,7 +686,9 @@ test("sitemap orchestrator bounds D1 fan-out independently of the confirmed asse
     let active = 0;
     let maxActive = 0;
     return {
-      get maxActive() { return maxActive; },
+      get maxActive() {
+        return maxActive;
+      },
       async query() {
         active += 1;
         maxActive = Math.max(maxActive, active);
@@ -524,7 +726,13 @@ test("sitemap stage errors expose a safe stage code and preserve the original ca
   const cause = new Error("private-runtime-detail");
   await assert.rejects(
     loadSitemapStages([
-      { key: "organizations", stage: "load-organizations", load: async () => { throw cause; } },
+      {
+        key: "organizations",
+        stage: "load-organizations",
+        load: async () => {
+          throw cause;
+        },
+      },
     ]),
     (error) => {
       assert.ok(error instanceof SitemapStageError);
@@ -543,13 +751,13 @@ test("sitemap application source has no top-level loader fan-out or required-dat
   const buildStart = source.indexOf("function buildSitemapEntries");
   const loadSource = source.slice(loadStart, buildStart);
   assert.match(loadSource, /loadSitemapStages/);
-  assert.doesNotMatch(loadSource, /Promise\.all/);
-  assert.doesNotMatch(loadSource, /\.catch\(\(\) => \[\]\)/);
-  assert.match(loadSource, /stage: "load-organizations"/);
+  assert.doesNotMatch(loadSource, /Promise\s*\.all/);
+  assert.doesNotMatch(loadSource, /\s*\.catch\(\s*\(\s*\)\s*=>\s*\[\s*\]\s*\)/);
+  assert.match(loadSource, /stage:\s*"load-organizations"/);
   assert.match(source, /listManagedPortalSectionsForSitemap/);
   assert.match(source, /listPublishedCanonicalBreedSitemapIndex/);
   assert.doesNotMatch(source, /listPublishedCanonicalBreedIndex/);
-  assert.match(source, /runSitemapStageSync\("global-validation"/);
+  assert.match(source, /runSitemapStageSync\(\s*"global-validation"/);
 });
 
 test("old breed image availability path can exceed Cloudflare's six waiting connections", async () => {
@@ -579,26 +787,34 @@ test("breed sitemap DTO stays lightweight and never probes R2 or static assets",
   const start = source.indexOf("export async function listPublishedCanonicalBreedSitemapIndex");
   const end = source.indexOf("export async function listPublishedBreedsForComparison", start);
   const sitemapReader = source.slice(start, end);
-  assert.match(sitemapReader, /SELECT slug,image_url,seo_json,updated_at/);
-  assert.doesNotMatch(sitemapReader, /withAvailableBreedImages|BUCKET|ASSETS|HEAD|fci_standard_json/);
+  assert.match(sitemapReader, /SELECT\s*slug,\s*image_url,\s*seo_json,\s*updated_at/);
+  assert.doesNotMatch(
+    sitemapReader,
+    /withAvailableBreedImages|BUCKET|ASSETS|HEAD|fci_standard_json/,
+  );
 });
-
 
 test("sitemap D1 canonical projection reproduces the SQLite scalar crash and safely excludes malformed canonicals", async () => {
   const database = new DatabaseSync(":memory:");
-  const scalar = database.prepare(
-    "SELECT json_extract('{\"canonicalUrl\":17}', '$.canonicalUrl') AS canonical_url",
-  ).get().canonical_url;
+  const scalar = database
+    .prepare("SELECT json_extract('{\"canonicalUrl\":17}', '$.canonicalUrl') AS canonical_url")
+    .get().canonical_url;
   assert.equal(typeof scalar, "number");
   assert.throws(() => scalar?.trim(), TypeError);
   assert.equal(sitemapCanonicalFromD1(null), "");
   assert.equal(sitemapCanonicalFromD1(undefined), "");
   assert.equal(sitemapCanonicalFromD1("  "), "");
   for (const invalid of [0, 1, false, true, {}, []]) {
-    assert.equal(isSelfCanonical({ canonicalUrl: sitemapCanonicalFromD1(invalid) }, "/podujatia/malformed"), false);
+    assert.equal(
+      isSelfCanonical({ canonicalUrl: sitemapCanonicalFromD1(invalid) }, "/podujatia/malformed"),
+      false,
+    );
   }
   assert.equal(sitemapCanonicalFromD1(" /podujatia/valid "), "/podujatia/valid");
-  assert.equal(isSelfCanonical({ canonicalUrl: sitemapCanonicalFromD1(scalar) }, "/podujatia/malformed"), false);
+  assert.equal(
+    isSelfCanonical({ canonicalUrl: sitemapCanonicalFromD1(scalar) }, "/podujatia/malformed"),
+    false,
+  );
 
   database.exec(`
     CREATE TABLE directory_profiles (
@@ -627,7 +843,11 @@ test("sitemap D1 canonical projection reproduces the SQLite scalar crash and saf
     prepare(sql) {
       return {
         bind(...bindings) {
-          return { async all() { return { results: database.prepare(sql).all(...bindings) }; } };
+          return {
+            async all() {
+              return { results: database.prepare(sql).all(...bindings) };
+            },
+          };
         },
       };
     },
@@ -681,13 +901,25 @@ test("sitemap D1 canonical projection reproduces the SQLite scalar crash and saf
 
 test("sitemap fails closed at each of the eleven load phases, without replacing mandatory datasets with empty arrays", async () => {
   const stages = [
-    "load-articles", "load-events", "load-directory", "load-breeding-station-landings",
-    "load-directory-location-landings", "load-help-cases", "load-managed-sections",
-    "load-breeds", "load-lost-found", "load-adoptions", "load-organizations",
+    "load-articles",
+    "load-events",
+    "load-directory",
+    "load-breeding-station-landings",
+    "load-directory-location-landings",
+    "load-help-cases",
+    "load-managed-sections",
+    "load-breeds",
+    "load-lost-found",
+    "load-adoptions",
+    "load-organizations",
   ];
-  const successful = await loadSitemapStages(stages.map((stage, index) => ({
-    key: stage, stage, load: async () => [index],
-  })));
+  const successful = await loadSitemapStages(
+    stages.map((stage, index) => ({
+      key: stage,
+      stage,
+      load: async () => [index],
+    })),
+  );
   assert.equal(Object.keys(successful).length, stages.length);
   assert.equal(Object.values(successful).flat().length, stages.length);
 
@@ -695,18 +927,21 @@ test("sitemap fails closed at each of the eleven load phases, without replacing 
     const executed = [];
     const cause = new Error("D1 simulated failure");
     await assert.rejects(
-      loadSitemapStages(stages.map((stage, index) => ({
-        key: stage,
-        stage,
-        load: async () => {
-          executed.push(stage);
-          if (index === failedIndex) throw cause;
-          return [index];
-        },
-      }))),
-      (error) => error instanceof SitemapStageError
-        && error.stage === stages[failedIndex]
-        && error.cause === cause,
+      loadSitemapStages(
+        stages.map((stage, index) => ({
+          key: stage,
+          stage,
+          load: async () => {
+            executed.push(stage);
+            if (index === failedIndex) throw cause;
+            return [index];
+          },
+        })),
+      ),
+      (error) =>
+        error instanceof SitemapStageError &&
+        error.stage === stages[failedIndex] &&
+        error.cause === cause,
     );
     assert.deepEqual(executed, stages.slice(0, failedIndex + 1));
   }
@@ -715,48 +950,82 @@ test("sitemap fails closed at each of the eleven load phases, without replacing 
 test("sitemap parity and global validation remain fail-closed after canonical projection", () => {
   const missingUrl = "https://psipedia.sk/podujatia/valid";
   assert.throws(
-    () => runSitemapStageSync("parity-events", () => assertSitemapEntityParity(
-      "events", [{ slug: "valid", url: missingUrl, indexable: true, validStatus: true }], [],
-    )),
-    (error) => error instanceof SitemapStageError
-      && error.stage === "parity-events"
-      && String(error.cause).includes("missingUrls"),
+    () =>
+      runSitemapStageSync("parity-events", () =>
+        assertSitemapEntityParity(
+          "events",
+          [{ slug: "valid", url: missingUrl, indexable: true, validStatus: true }],
+          [],
+        ),
+      ),
+    (error) =>
+      error instanceof SitemapStageError &&
+      error.stage === "parity-events" &&
+      String(error.cause).includes("missingUrls"),
   );
   assert.throws(
-    () => runSitemapStageSync("global-validation", () => assertValidSitemap([
-      { url: missingUrl }, { url: missingUrl },
-    ])),
-    (error) => error instanceof SitemapStageError
-      && error.stage === "global-validation"
-      && String(error.cause).includes("sitemap-duplicate-url"),
+    () =>
+      runSitemapStageSync("global-validation", () =>
+        assertValidSitemap([{ url: missingUrl }, { url: missingUrl }]),
+      ),
+    (error) =>
+      error instanceof SitemapStageError &&
+      error.stage === "global-validation" &&
+      String(error.cause).includes("sitemap-duplicate-url"),
   );
 });
 
-
 test("news sitemap selects news before the result limit rather than filtering a global top 1000", () => {
   const store = fs.readFileSync(new URL("../lib/article-store.ts", import.meta.url), "utf8");
-  const route = fs.readFileSync(new URL("../app/news-sitemap.xml/route.ts", import.meta.url), "utf8");
-  assert.match(route, /getPublishedArticleIndex\(MAX_NEWS_ITEMS, \{ portalSection: "novinky" \}\)/);
-  assert.match(store, /const portalFilter = options\.portalSection \? " AND portal_section = \?" : ""/);
-  assert.match(store, /WHERE \(status = 'published' OR \(status = 'scheduled' AND published_at <= \?\)\)\$\{portalFilter\}/);
-  assert.match(store, /\.bind\(\.\.\.bindings\)/);
+  const route = fs.readFileSync(
+    new URL("../app/news-sitemap.xml/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    route,
+    /getPublishedArticleIndex\(\s*MAX_NEWS_ITEMS,\s*\{\s*portalSection:\s*"novinky"\s*\}\s*\)/,
+  );
+  assert.match(
+    store,
+    /const\s*portalFilter\s*=\s*options\s*\.portalSection\s*\?\s*"\s*AND\s*portal_section\s*=\s*\?"\s*:\s*""/,
+  );
+  assert.match(
+    store,
+    /WHERE\s*\(\s*status\s*=\s*'published'\s*OR\s*\(\s*status\s*=\s*'scheduled'\s*AND\s*published_at\s*<=\s*\?\s*\)\s*\)\$\{\s*portalFilter\s*\}/,
+  );
+  assert.match(store, /\s*\.bind\(\s*\.\s*\.\s*\.bindings\s*\)/);
 
   const db = new DatabaseSync(":memory:");
-  db.exec("CREATE TABLE managed_articles (id INTEGER PRIMARY KEY, slug TEXT, status TEXT, portal_section TEXT, published_at TEXT, updated_at TEXT)");
-  const insert = db.prepare("INSERT INTO managed_articles (slug,status,portal_section,published_at,updated_at) VALUES (?,?,?,?,?)");
+  db.exec(
+    "CREATE TABLE managed_articles (id INTEGER PRIMARY KEY, slug TEXT, status TEXT, portal_section TEXT, published_at TEXT, updated_at TEXT)",
+  );
+  const insert = db.prepare(
+    "INSERT INTO managed_articles (slug,status,portal_section,published_at,updated_at) VALUES (?,?,?,?,?)",
+  );
   db.exec("BEGIN");
   for (let i = 0; i < 1205; i += 1) {
-    insert.run("guide-" + i, "published", "starostlivost", "2026-10-21T11:00:00Z", "2026-10-21T11:00:00Z");
+    insert.run(
+      "guide-" + i,
+      "published",
+      "starostlivost",
+      "2026-10-21T11:00:00Z",
+      "2026-10-21T11:00:00Z",
+    );
   }
   insert.run("news-1", "published", "novinky", "2026-10-21T10:00:00Z", "2026-10-21T10:00:00Z");
   insert.run("news-2", "scheduled", "novinky", "2026-10-21T09:00:00Z", "2026-10-21T09:00:00Z");
   insert.run("future-news", "scheduled", "novinky", "2026-10-22T09:00:00Z", "2026-10-22T09:00:00Z");
   db.exec("COMMIT");
 
-  const rows = db.prepare(
-    "SELECT slug FROM managed_articles WHERE (status = 'published' OR (status = 'scheduled' AND published_at <= ?)) AND portal_section = ? ORDER BY published_at DESC, updated_at DESC, id DESC LIMIT ?",
-  ).all("2026-10-21T12:00:00Z", "novinky", 1000);
-  assert.deepEqual(rows.map((row) => row.slug), ["news-1", "news-2"]);
+  const rows = db
+    .prepare(
+      "SELECT slug FROM managed_articles WHERE (status = 'published' OR (status = 'scheduled' AND published_at <= ?)) AND portal_section = ? ORDER BY published_at DESC, updated_at DESC, id DESC LIMIT ?",
+    )
+    .all("2026-10-21T12:00:00Z", "novinky", 1000);
+  assert.deepEqual(
+    rows.map((row) => row.slug),
+    ["news-1", "news-2"],
+  );
   db.close();
 });
 
@@ -777,26 +1046,41 @@ test("Help sitemap excludes malformed categories instead of inventing urgent-cas
     prepare(sql) {
       return {
         bind(...values) {
-          return { async all() { return { results: database.prepare(sql).all(...values) }; } };
+          return {
+            async all() {
+              return { results: database.prepare(sql).all(...values) };
+            },
+          };
         },
       };
     },
   };
   const items = await listPublishedHelpSitemapRecords(d1, { batchSize: 2 });
-  assert.deepEqual(items.map((item) => [item.slug, item.category]), [
-    ["good-case", "docasna-opatera"],
-    ["urgent-case", "urgentne-pripady"],
-  ]);
+  assert.deepEqual(
+    items.map((item) => [item.slug, item.category]),
+    [
+      ["good-case", "docasna-opatera"],
+      ["urgent-case", "urgentne-pripady"],
+    ],
+  );
   database.close();
 });
 
 test("public breed atlas uses trusted image paths without blocking HTML on R2 probes", () => {
   const store = fs.readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
-  const atlas = store.split("export async function listPublishedCanonicalBreedIndex()")[1]?.split("export type BreedSitemapIndexItem")[0];
+  const atlas = store
+    .split("export async function listPublishedCanonicalBreedIndex()")[1]
+    ?.split("export type BreedSitemapIndexItem")[0];
   assert.ok(atlas, "Expected a dedicated public atlas index loader");
-  assert.match(atlas, /image:ownedBreedImage\(breed\.image\)/);
-  assert.doesNotMatch(atlas, /withAvailableBreedImages|availableBreedImage|BUCKET\.(?:head|list)/);
+  assert.match(atlas, /image:\s*ownedBreedImage\(\s*breed\s*\.image\s*\)/);
+  assert.doesNotMatch(
+    atlas,
+    /withAvailableBreedImages|availableBreedImage|BUCKET\s*\.(?:head|list)/,
+  );
   const photo = fs.readFileSync(new URL("../components/breed-photo.tsx", import.meta.url), "utf8");
-  assert.match(photo, /onError=\{\(\)=>setFailed\(String\(props\.src\)\)\}/);
-  assert.match(photo, /failed===props\.src/);
+  assert.match(
+    photo,
+    /onError=\{\s*\(\s*\)=>setFailed\(\s*String\(\s*props\s*\.src\s*\)\s*\)\s*\}/,
+  );
+  assert.match(photo, /failed===props\s*\.src/);
 });

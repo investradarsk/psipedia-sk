@@ -1,6 +1,9 @@
 import { eventTypes, slovakRegions, type EventType } from "./events";
 import { directoryFilterRegistry } from "./directory-filter-contract.ts";
-import { parsePublicDirectoryFacets, type DirectoryPublicFacets } from "./directory-public-filters.ts";
+import {
+  parsePublicDirectoryFacets,
+  type DirectoryPublicFacets,
+} from "./directory-public-filters.ts";
 
 export const mapCategories = ["services", "organizations", "events"] as const;
 export type MapCategory = (typeof mapCategories)[number];
@@ -46,6 +49,8 @@ export type MapItem = {
 
 export type MapCluster = {
   id: string;
+  /** Public locality names already present in the grouped records. */
+  label?: string;
   latitude: number;
   longitude: number;
   count: number;
@@ -105,8 +110,21 @@ export const MAP_MAX_CLUSTERS = 250;
 export const MAP_INTERNAL_ROW_LIMIT = 5001;
 
 const allowedParams = new Set([
-  "north", "south", "east", "west", "zoom", "category", "subcategory",
-  "region", "district", "city", "search", "eventType", "eventTiming", "limit", "svc",
+  "north",
+  "south",
+  "east",
+  "west",
+  "zoom",
+  "category",
+  "subcategory",
+  "region",
+  "district",
+  "city",
+  "search",
+  "eventType",
+  "eventTiming",
+  "limit",
+  "svc",
   ...directoryFilterRegistry.map((definition) => "f." + definition.id),
 ]);
 
@@ -153,12 +171,7 @@ export function mapResponseMode(query: Pick<MapQueryInput, "bbox" | "zoom">): Ma
   return "items";
 }
 
-export function mapClusterGridSize(zoom: number) {
-  if (zoom <= 6) return 1;
-  if (zoom <= 8) return 0.5;
-  if (zoom <= 10) return 0.2;
-  return 0.1;
-}
+export { mapClusterGridSize } from "./map-grid.js";
 
 export function parseMapQuery(params: URLSearchParams): MapQueryInput {
   for (const key of params.keys()) {
@@ -180,9 +193,7 @@ export function parseMapQuery(params: URLSearchParams): MapQueryInput {
   if (zoom < 3 || zoom > 20) throw new MapQueryValidationError("Invalid zoom.");
 
   const categoryRaw = boundedText(params, "category", 32);
-  const category = categoryRaw
-    ? mapCategories.find((value) => value === categoryRaw)
-    : undefined;
+  const category = categoryRaw ? mapCategories.find((value) => value === categoryRaw) : undefined;
   if (categoryRaw && !category) throw new MapQueryValidationError("Invalid category.");
 
   const region = boundedText(params, "region", 80);
@@ -193,7 +204,9 @@ export function parseMapQuery(params: URLSearchParams): MapQueryInput {
 
   const eventTypeRaw = boundedText(params, "eventType", 80);
   const eventType = eventTypeRaw
-    ? (eventTypes as readonly string[]).includes(eventTypeRaw) ? eventTypeRaw as EventType : undefined
+    ? (eventTypes as readonly string[]).includes(eventTypeRaw)
+      ? (eventTypeRaw as EventType)
+      : undefined
     : undefined;
   if (eventTypeRaw && !eventType) throw new MapQueryValidationError("Invalid eventType.");
 
@@ -202,29 +215,34 @@ export function parseMapQuery(params: URLSearchParams): MapQueryInput {
   if (!eventTiming) throw new MapQueryValidationError("Invalid eventTiming.");
 
   const search = boundedText(params, "search", 80);
-  if (search && search.length < 2) throw new MapQueryValidationError("Search must contain at least 2 characters.");
+  if (search && search.length < 2)
+    throw new MapQueryValidationError("Search must contain at least 2 characters.");
 
   const limitRaw = params.get("limit");
-  const limit = limitRaw === null || limitRaw.trim() === "" ? MAP_DEFAULT_ITEM_LIMIT : Number(limitRaw);
+  const limit =
+    limitRaw === null || limitRaw.trim() === "" ? MAP_DEFAULT_ITEM_LIMIT : Number(limitRaw);
   if (!Number.isInteger(limit) || limit < 1 || limit > MAP_MAX_ITEMS) {
     throw new MapQueryValidationError(`limit must be between 1 and ${MAP_MAX_ITEMS}.`);
   }
 
   // Canonical service IDs are allowed ONLY for an explicitly scoped services category.
   // Reject duplicates and ambiguous routes before any SQL or cached response.
-  const canonicalRaw=params.getAll("svc");
-  const canonicalService=canonicalRaw.length?boundedText(params,"svc",100):undefined;
-  if(canonicalRaw.length>1||canonicalRaw.length===1&&!canonicalService)
+  const canonicalRaw = params.getAll("svc");
+  const canonicalService = canonicalRaw.length ? boundedText(params, "svc", 100) : undefined;
+  if (canonicalRaw.length > 1 || (canonicalRaw.length === 1 && !canonicalService))
     throw new MapQueryValidationError("Invalid canonical service filter.");
-  if(canonicalService&&(category!=="services"||!params.get("subcategory")))
+  if (canonicalService && (category !== "services" || !params.get("subcategory")))
     throw new MapQueryValidationError("Canonical service filter requires a service subcategory.");
 
   const categoryFacets = parsePublicDirectoryFacets(
     Object.fromEntries([...params.entries()].filter(([key]) => key.startsWith("f."))),
-    category === "services" ? params.get("subcategory") ?? "" : "",
+    category === "services" ? (params.get("subcategory") ?? "") : "",
   );
   for (const key of params.keys()) {
-    if (key.startsWith("f.") && (params.getAll(key).length !== 1 || !Object.hasOwn(categoryFacets, key.slice(2)))) {
+    if (
+      key.startsWith("f.") &&
+      (params.getAll(key).length !== 1 || !Object.hasOwn(categoryFacets, key.slice(2)))
+    ) {
       throw new MapQueryValidationError("Invalid or out-of-category service facet.");
     }
   }

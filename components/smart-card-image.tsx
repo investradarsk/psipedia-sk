@@ -16,7 +16,13 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "onLoad"> & {
   focusX?: number | null;
   focusY?: number | null;
   onResolvedFit?: (fit: SmartImageFit) => void;
-  onImageDimensions?: (size: { width: number; height: number; frameRatio: number; lightBackgroundShare?: number }) => void;
+  onImageFailure?: () => void;
+  onImageDimensions?: (size: {
+    width: number;
+    height: number;
+    frameRatio: number;
+    lightBackgroundShare?: number;
+  }) => void;
 };
 
 /** Inspect a small canvas sample. Cross-origin images without CORS use dimension-based fallback. */
@@ -31,8 +37,12 @@ function sampleLightBackground(image: HTMLImageElement): number | undefined {
     const data = context.getImageData(0, 0, 40, 40).data;
     let paper = 0;
     for (let i = 0; i < data.length; i += 4) {
-      const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
-      if (a < 220 || (r > 232 && g > 232 && b > 232 && Math.max(r, g, b) - Math.min(r, g, b) < 22)) paper++;
+      const r = data[i],
+        g = data[i + 1],
+        b = data[i + 2],
+        a = data[i + 3];
+      if (a < 220 || (r > 232 && g > 232 && b > 232 && Math.max(r, g, b) - Math.min(r, g, b) < 22))
+        paper++;
     }
     return paper / 1600;
   } catch {
@@ -52,45 +62,75 @@ export function SmartCardImage({
   focusY = null,
   onResolvedFit,
   onImageDimensions,
+  onImageFailure,
   src,
   style,
   ...rest
 }: Props) {
   const [analyzed, setAnalyzed] = useState<{ src: string; fit: SmartImageFit } | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  const lightShareCache = useRef<{ src: string; width: number; height: number; value: number | undefined } | null>(null);
+  const lightShareCache = useRef<{
+    src: string;
+    width: number;
+    height: number;
+    value: number | undefined;
+  } | null>(null);
   const resolvedFitCallback = useRef(onResolvedFit);
   const dimensionsCallback = useRef(onImageDimensions);
-  useEffect(() => { resolvedFitCallback.current = onResolvedFit; }, [onResolvedFit]);
-  useEffect(() => { dimensionsCallback.current = onImageDimensions; }, [onImageDimensions]);
+  const failureCallback = useRef(onImageFailure);
+  useEffect(() => {
+    failureCallback.current = onImageFailure;
+  }, [onImageFailure]);
+  useEffect(() => {
+    resolvedFitCallback.current = onResolvedFit;
+  }, [onResolvedFit]);
+  useEffect(() => {
+    dimensionsCallback.current = onImageDimensions;
+  }, [onImageDimensions]);
   const key = typeof src === "string" ? src : "";
   const initialFit: SmartImageFit = roleHint === "article" ? "cover" : "contain";
-  const fit: SmartImageFit = mode !== "auto" ? mode : analyzed?.src === key ? analyzed.fit : initialFit;
-  const focus = roleHint === "article" ? articleFocalPosition({ focusX, focusY }) : {
-    x: focusX ?? 50,
-    y: focusY ?? 50,
-  };
+  const fit: SmartImageFit =
+    mode !== "auto" ? mode : analyzed?.src === key ? analyzed.fit : initialFit;
+  const focus =
+    roleHint === "article"
+      ? articleFocalPosition({ focusX, focusY })
+      : {
+          x: focusX ?? 50,
+          y: focusY ?? 50,
+        };
 
   function resolveLoadedImage(image: HTMLImageElement) {
     if (!image.naturalWidth || !image.naturalHeight) return;
     const sourceRatio = image.naturalWidth / Math.max(1, image.naturalHeight);
     const parent = image.parentElement;
-    const slotRatio = parent && parent.clientHeight > 0
-      ? parent.clientWidth / parent.clientHeight : 16 / 9;
+    const slotRatio =
+      parent && parent.clientHeight > 0 ? parent.clientWidth / parent.clientHeight : 16 / 9;
     // Preserve the legacy bright-background artwork heuristic for automatic cards only.
     // Cache the existing 40x40 sample; mode updates must not resample the same image.
     let lightBackgroundShare: number | undefined;
     if (mode === "auto" || dimensionsCallback.current) {
       const cached = lightShareCache.current;
-      if (cached?.src === key && cached.width === image.naturalWidth && cached.height === image.naturalHeight) {
+      if (
+        cached?.src === key &&
+        cached.width === image.naturalWidth &&
+        cached.height === image.naturalHeight
+      ) {
         lightBackgroundShare = cached.value;
       } else {
         lightBackgroundShare = sampleLightBackground(image);
-        lightShareCache.current = { src: key, width: image.naturalWidth, height: image.naturalHeight, value: lightBackgroundShare };
+        lightShareCache.current = {
+          src: key,
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+          value: lightBackgroundShare,
+        };
       }
     }
     dimensionsCallback.current?.({
-      width: image.naturalWidth, height: image.naturalHeight, frameRatio: slotRatio, lightBackgroundShare,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      frameRatio: slotRatio,
+      lightBackgroundShare,
     });
     if (mode !== "auto") return;
     const nextFit = inferSmartImageFit({
@@ -99,28 +139,45 @@ export function SmartCardImage({
       src: key,
       lightBackgroundShare,
     });
-    const next = roleHint === "article" && nextFit === "cover" && avoidSevereArticleCrop(sourceRatio, slotRatio)
-      ? "contain" : nextFit;
-    setAnalyzed((previous) => previous?.src === key && previous.fit === next
-      ? previous : { src: key, fit: next });
+    const next =
+      roleHint === "article" &&
+      nextFit === "cover" &&
+      avoidSevereArticleCrop(sourceRatio, slotRatio)
+        ? "contain"
+        : nextFit;
+    setAnalyzed((previous) =>
+      previous?.src === key && previous.fit === next ? previous : { src: key, fit: next },
+    );
     resolvedFitCallback.current?.(next);
   }
 
   // A cached photo may have loaded before client hydration and never fire React onLoad.
   useEffect(() => {
-    if (imageRef.current?.complete) resolveLoadedImage(imageRef.current);
+    const image = imageRef.current;
+    if (image?.complete) {
+      if (image.naturalWidth > 0) resolveLoadedImage(image);
+      else if (key) failureCallback.current?.();
+    }
     // The source and presentation role fully determine the natural fit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, mode, roleHint]);
+  }, [key, rest.srcSet, mode, roleHint]);
 
-  function onLoad(event: SyntheticEvent<HTMLImageElement>) { resolveLoadedImage(event.currentTarget); }
+  function onLoad(event: SyntheticEvent<HTMLImageElement>) {
+    resolveLoadedImage(event.currentTarget);
+  }
 
-  return <img
-    {...rest}
-    ref={imageRef}
-    src={src}
-    onLoad={onLoad}
-    data-smart-image-fit={fit}
-    style={{ ...style, objectFit: fit, objectPosition: `${focus.x}% ${focus.y}%` }}
-  />;
+  return (
+    <img
+      {...rest}
+      ref={imageRef}
+      src={src}
+      onLoad={onLoad}
+      onError={(event) => {
+        rest.onError?.(event);
+        failureCallback.current?.();
+      }}
+      data-smart-image-fit={fit}
+      style={{ ...style, objectFit: fit, objectPosition: `${focus.x}% ${focus.y}%` }}
+    />
+  );
 }

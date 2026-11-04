@@ -11,8 +11,14 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
           <p>Zmeny verejných údajov odošlete na kontrolu priamo zo svojho Partner účtu.</p>
         </div>
         <div className={styles.actions}>
-          {state.editHref ? <Link className={styles.primaryCta} href={state.editHref}>Upraviť profil</Link> : null}
-          <Link className={styles.secondaryCta} href={state.accountHref}>Otvoriť Partner účet</Link>
+          {state.editHref ? (
+            <Link className={styles.primaryCta} href={state.editHref}>
+              Upraviť profil
+            </Link>
+          ) : null}
+          <Link className={styles.secondaryCta} href={state.accountHref}>
+            Otvoriť Partner účet
+          </Link>
         </div>
       </>
     );
@@ -22,11 +28,15 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
     return (
       <>
         <div>
-          <h2 id="partner-profile-management-heading">Žiadosť o správu profilu čaká na kontrolu.</h2>
+          <h2 id="partner-profile-management-heading">
+            Žiadosť o správu profilu čaká na kontrolu.
+          </h2>
           <p>Ďalšiu žiadosť netreba posielať. Stav nájdete vo svojom Partner účte.</p>
         </div>
         <div className={styles.actions}>
-          <Link className={styles.primaryCta} href={state.requestHref}>Zobraziť stav žiadosti</Link>
+          <Link className={styles.primaryCta} href={state.requestHref}>
+            Zobraziť stav žiadosti
+          </Link>
         </div>
       </>
     );
@@ -40,8 +50,12 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
           <p>Stav predchádzajúcej žiadosti nájdete vo svojom Partner účte.</p>
         </div>
         <div className={styles.actions}>
-          <Link className={styles.primaryCta} href={state.claimHref}>Požiadať znova o správu profilu</Link>
-          <Link className={styles.secondaryCta} href={state.requestHref}>Zobraziť žiadosti</Link>
+          <Link className={styles.primaryCta} href={state.claimHref}>
+            Požiadať znova o správu profilu
+          </Link>
+          <Link className={styles.secondaryCta} href={state.requestHref}>
+            Zobraziť žiadosti
+          </Link>
         </div>
       </>
     );
@@ -52,10 +66,14 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
       <>
         <div>
           <h2 id="partner-profile-management-heading">Spravujete tento profil?</h2>
-          <p>Ak ste majiteľ alebo poverený správca, môžete požiadať o jeho správu cez Partner účet.</p>
+          <p>
+            Ak ste majiteľ alebo poverený správca, môžete požiadať o jeho správu cez Partner účet.
+          </p>
         </div>
         <div className={styles.actions}>
-          <Link className={styles.primaryCta} href={state.claimHref}>Požiadať o správu profilu</Link>
+          <Link className={styles.primaryCta} href={state.claimHref}>
+            Požiadať o správu profilu
+          </Link>
         </div>
       </>
     );
@@ -65,10 +83,15 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
     <>
       <div>
         <h2 id="partner-profile-management-heading">Spravujete tento profil?</h2>
-        <p>Správa základných údajov profilu je bezplatná. Prihláste sa do Partner účtu a požiadajte o jeho správu.</p>
+        <p>
+          Správa základných údajov profilu je bezplatná. Prihláste sa do Partner účtu a požiadajte o
+          jeho správu.
+        </p>
       </div>
       <div className={styles.actions}>
-        <Link className={styles.primaryCta} href={state.managementHref}>Spravovať tento profil</Link>
+        <Link className={styles.primaryCta} href={state.managementHref}>
+          Spravovať tento profil
+        </Link>
       </div>
     </>
   );
@@ -77,12 +100,18 @@ function ManagementContent({ state }: { state: PublicPartnerProfileManagementSta
 export function PartnerPublicOwnership({
   state,
   correctionHref,
+  embedded = false,
 }: {
   state: PublicPartnerProfileManagementState;
   correctionHref: string;
+  embedded?: boolean;
 }) {
+  const Wrapper = embedded ? "div" : "aside";
   return (
-    <aside className={styles.wrap} aria-label="Správa a oprava profilu">
+    <Wrapper
+      className={[styles.wrap, embedded && styles.embedded].filter(Boolean).join(" ")}
+      aria-label={embedded ? undefined : "Správa a oprava profilu"}
+    >
       <div className={styles.inner}>
         <section className={styles.management} aria-labelledby="partner-profile-management-heading">
           {state.verified ? (
@@ -101,11 +130,15 @@ export function PartnerPublicOwnership({
         <section className={styles.correction} aria-labelledby="partner-profile-correction-heading">
           <div>
             <h3 id="partner-profile-correction-heading">Našli ste nesprávny údaj?</h3>
-            <p>Opravu môže navrhnúť každý návštevník. Návrh opravy nevytvára právo spravovať profil.</p>
+            <p>
+              Opravu môže navrhnúť každý návštevník. Návrh opravy nevytvára právo spravovať profil.
+            </p>
           </div>
-          <Link className={styles.correctionCta} href={correctionHref}>Navrhnúť opravu údajov</Link>
+          <Link className={styles.correctionCta} href={correctionHref}>
+            Navrhnúť opravu údajov
+          </Link>
         </section>
       </div>
-    </aside>
+    </Wrapper>
   );
 }

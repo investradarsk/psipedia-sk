@@ -46,7 +46,11 @@ test("the compact/foto banner variants keep their own responsive layouts and des
   const helpPresets = read("lib/help-banner-presets.ts");
   assert.match(context, /hasImage && styles\.hasImage/);
   assert.match(context, /data-public-context-banner-layout=\{inline \? "inline" : "stacked"\}/);
-  assert.match(context, /<PublicActionLink href=\{ctaHref!\}/);
+  assert.match(context, /<PublicBannerContent/);
+  assert.match(
+    read("components/public-visual-system/public-magazine-banner.tsx"),
+    /<PublicActionLink/,
+  );
   assert.match(css, /\.tone_forest \{/);
   assert.match(css, /\.tone_coral \{/);
   assert.match(css, /\.inline > \.copy \{/);
@@ -55,5 +59,8 @@ test("the compact/foto banner variants keep their own responsive layouts and des
   assert.match(helpPresets, /href: "\/pomoc-psom\/dobrovolnictvo"/);
   assert.match(help, /promo=\{helpClosingPromo\}/);
   assert.match(help, /<PublicPhotoCallout/);
-  assert.match(read("components/public-visual-system/public-photo-callout.tsx"), /<PublicMagazineBanner/);
+  assert.match(
+    read("components/public-visual-system/public-photo-callout.tsx"),
+    /<PublicMagazineBanner/,
+  );
 });
