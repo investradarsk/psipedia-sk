@@ -18,7 +18,8 @@ import {
   PublicSelect,
 } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
-import { AdoptionCardMedia } from "@/components/adoption-card-media";
+import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import { PawMark } from "@/components/icons";
 import {
   PublicContentShell,
@@ -32,10 +33,7 @@ import { HomePortalSearch } from "@/components/home-portal-search";
 import {
   adoptionCatalogAgeLabels,
   adoptionCatalogHref,
-  adoptionCatalogSexLabels,
-  adoptionCatalogSizeLabels,
   buildAdoptionCatalogView,
-  formatAdoptionCatalogAge,
   type AdoptionCatalogFilters,
   type AdoptionPublicDog,
 } from "@/lib/adoption-catalog";
@@ -56,75 +54,39 @@ type Props = {
   breeds: AdoptionBreedOptionsResult;
 };
 
-function formatCatalogDate(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("sk-SK", {
-        timeZone: "Europe/Bratislava",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      }).format(date);
-}
-
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   const href = adoptionDetailPath(dog.slug);
+  const meta = [dog.organizationName, dog.city, dog.region].filter(Boolean).join(" · ");
   return (
     <PublicHelpProfileCard
       data-adoption-card={dog.slug}
       href={href}
       title={dog.name}
-      category={dog.status === "RESERVED" ? "Rezervovaný" : "Pes na adopciu"}
+      category="Pes na adopciu"
       titleLevel="h2"
-      actionLabel="Zobraziť profil"
+      badge={dog.status === "RESERVED"
+        ? <span className={styles.cardReservedBadge}>Rezervovaný</span>
+        : null}
       media={
-        <AdoptionCardMedia
-          href={href}
-          name={dog.name}
-          status={dog.status}
-          mainImage={dog.mainImage}
-          imageConfig={dog.thumbnailImageDisplay}
-        />
-      }
-      meta={
-        <>
-          {(dog.city || dog.region) && <p>{[dog.city, dog.region].filter(Boolean).join(" · ")}</p>}
-          {dog.organizationName && (
-            <p>
-              Organizácia:{" "}
-              {dog.organizationSlug ? (
-                <Link href={"/organizacie/" + dog.organizationSlug}>{dog.organizationName}</Link>
-              ) : (
-                dog.organizationName
-              )}
-            </p>
+        <Link href={href} aria-label={`Otvoriť: ${dog.name}`}>
+          {dog.mainImage ? (
+            <ImageDisplay
+              roleHint="generic"
+              context="thumbnail"
+              fallbackOnError
+              config={dog.thumbnailImageDisplay}
+              src={dog.mainImage}
+              alt={`${dog.name} – pes na adopciu`}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <PublicMediaFallback appearance="context" decorative />
           )}
-        </>
+        </Link>
       }
+      meta={meta}
       excerpt={dog.shortDescription}
-      extras={
-        <>
-          <p>
-            {[
-              dog.breedName ? (dog.breedMix ? "Kríženec · " : "") + dog.breedName : null,
-              formatAdoptionCatalogAge(dog),
-              adoptionCatalogSexLabels[dog.sex],
-              adoptionCatalogSizeLabels[dog.size],
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          {dog.status === "RESERVED" && (
-            <p className={styles.reservedNote}>Tento pes je momentálne rezervovaný.</p>
-          )}
-          {dog.lastVerifiedAt ? (
-            <p>Dostupnosť potvrdená: {formatCatalogDate(dog.lastVerifiedAt)}</p>
-          ) : dog.publishedAt ? (
-            <p>Publikované: {formatCatalogDate(dog.publishedAt)}</p>
-          ) : null}
-        </>
-      }
     />
   );
 }
@@ -245,16 +207,6 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
               shortcuts={[]}
               searchScope="adoptions"
             />
-          }
-          metaSlot={
-            <span>
-              <strong>{pagination.total}</strong>{" "}
-              {formatSlovakCount(pagination.total, {
-                one: "publikovaný profil",
-                few: "publikované profily",
-                many: "publikovaných profilov",
-              }).replace(/^\d+ /, "")}
-            </span>
           }
         />
       </UnifiedSectionHeroShell>

@@ -20,7 +20,6 @@ import {
 import { ImageDisplay } from "@/components/image-display";
 import Link from "next/link";
 import { StructuredData } from "@/components/structured-data";
-import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import {
   PublicContentShell,
   PublicFoundation,
@@ -40,8 +39,6 @@ import {
   dogReportHref,
   dogReportTypeLabel,
   dogReportTypeShortLabel,
-  dogSexLabel,
-  dogSizeLabel,
   formatDogReportDate,
   type DogReportType,
   type DogSex,
@@ -431,29 +428,9 @@ export async function LostFoundDogsPage({
                             )}
                           </Link>
                         }
-                        meta={
-                          <>
-                            <p>
-                              <LocationIcon size={14} /> {report.city}
-                              {report.district ? " · " + report.district : ""}
-                            </p>
-                            <p>
-                              <CalendarIcon size={14} /> {formatDogReportDate(report.eventDate)}
-                            </p>
-                          </>
-                        }
-                        excerpt={
-                          report.description.length > 150
-                            ? report.description.slice(0, 147) + "…"
-                            : report.description
-                        }
-                        extras={
-                          <p>
-                            {[report.breed, dogSexLabel[report.sex], dogSizeLabel[report.size]]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </p>
-                        }
+                        meta={[report.city, report.district, formatDogReportDate(report.eventDate)]
+                          .filter(Boolean).join(" · ")}
+                        excerpt={report.description}
                       />
                     ))}
                   </div>
