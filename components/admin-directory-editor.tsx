@@ -211,6 +211,7 @@ export function AdminDirectoryEditor({
   const [formDirty, setFormDirty] = useState(false);
   const [confirmDirectoryExit, setConfirmDirectoryExit] = useState(false);
   const directoryBackLinkRef = useRef<HTMLAnchorElement>(null);
+  const restoredProfileLinkRef = useRef<HTMLAnchorElement>(null);
   const allowDirectoryExitRef = useRef(false);
 
   useEffect(() => {
@@ -427,7 +428,10 @@ export function AdminDirectoryEditor({
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo obnoviť.");
       setStatus(data.profile.status);
-      setMessage("Profil je obnovený do konceptu. Môžeš ho upravovať bez obnovenia stránky.");
+      setMessage("Profil je obnovený do konceptu.");
+      // Navigate inside Next.js so the parent header and separate Services V3 editor
+      // also receive the fresh draft status, without reloading the browser.
+      restoredProfileLinkRef.current?.click();
     } catch (restoreError) {
       setError(restoreError instanceof Error ? restoreError.message : "Profil sa nepodarilo obnoviť.");
     } finally {
@@ -438,6 +442,7 @@ export function AdminDirectoryEditor({
   if (profile && status === "archived") {
     return (
       <section className="admin-form-card">
+        <Link href={`/admin/adresar/${profile.id}?obnovene=1`} ref={restoredProfileLinkRef} hidden tabIndex={-1} aria-hidden="true">Otvoriť obnovený profil</Link>
         <h2>Archivovaný profil</h2>
         <p>Profil nie je verejný a jeho canonical resource zostáva zachovaný pre historické a trust dáta.</p>
         <label className={styles.reviewControl}>
