@@ -165,9 +165,9 @@ export async function publishVisualDraft(input: {
 }
 
 /**
- * Read multiple independently published public banners with a single D1 roundtrip.
- * Each record still passes the same validation as the single-banner API.
- * Unknown IDs and unavailable/invalid publications fall back to static styling.
+ * Load only published public banner data. Draft JSON and admin revisions are
+ * intentionally excluded from the page-rendering query and parsing path.
+ * Each publication still passes strict validation against its original banner.
  */
 export async function getPublishedDesktopBannerColorsBatch(
   ids: readonly string[],
@@ -182,19 +182,22 @@ export async function getPublishedDesktopBannerColorsBatch(
   try {
     const placeholders = allowed.map(() => "?").join(", ");
     const rows = await database().prepare(`
-      SELECT banner_id,variant_index,draft_json,revision,published_json,published_revision
+      SELECT banner_id,variant_index,published_json
       FROM visual_library_banner_edits
       WHERE banner_id IN (${placeholders}) AND published_json IS NOT NULL
-    `).bind(...allowed).all<EditRow>();
+    `).bind(...allowed).all<Pick<EditRow, "banner_id" | "variant_index" | "published_json">>();
     for (const row of rows.results) {
-      if (!(row.banner_id in result)) continue;
+      if (!Object.prototype.hasOwnProperty.call(result, row.banner_id) || !row.published_json) continue;
       const target = ALLOWED_PUBLICATIONS[row.banner_id];
       if (!target || row.variant_index !== target.variant) continue;
       try {
-        const stored = fromRow(row);
-        if (!stored.published) continue;
-        validatePublication(row.banner_id, target.variant, stored.published, target.url);
-        result[row.banner_id] = stored.published;
+        const { banner } = validatedBannerKey(row.banner_id, target.variant);
+        const published = validateBannerDraft(
+          JSON.parse(row.published_json), defaultBannerDraft(banner, target.variant),
+        );
+        if (!published) continue;
+        validatePublication(row.banner_id, target.variant, published, target.url);
+        result[row.banner_id] = published;
       } catch (error) {
         console.error("visual_library_public_colors_unavailable", row.banner_id, error);
       }
@@ -208,13 +211,6 @@ export async function getPublishedDesktopBannerColorsBatch(
 /** Public side: allowlisted IDs only; a failure returns original static style. */
 export async function getPublishedDesktopBannerColors(id: string): Promise<BannerDraft | null> {
   if (!ALLOWED_PUBLICATIONS[id]) return null;
-  try {
-    const stored = await getVisualDraft(id, ALLOWED_PUBLICATIONS[id].variant);
-    if (!stored?.published) return null;
-    validatePublication(id, ALLOWED_PUBLICATIONS[id].variant, stored.published, ALLOWED_PUBLICATIONS[id].url);
-    return stored.published;
-  } catch (error) {
-    console.error("visual_library_public_colors_unavailable", id, error);
-    return null;
-  }
+  const published = await getPublishedDesktopBannerColorsBatch([id]);
+  return published[id] ?? null;
 }
