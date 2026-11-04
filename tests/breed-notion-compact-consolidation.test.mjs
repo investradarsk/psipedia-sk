@@ -1,0 +1,78 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  BREED_COMPACT_VISIBLE,BREED_COMPACT_HIDDEN,BREED_COMPACT_MERGE,
+  BREED_COMPACT_OPERATIONAL,BREED_COMPACT_RETIRE_AFTER_AUDIT,
+  planBreedCompactMigration,assertBreedCompactContract
+} from "../lib/breed-notion-compact-consolidation.mjs";
+
+test("every one of 109 original Notion properties has an explicit disposition",()=>{
+  assert.doesNotThrow(assertBreedCompactContract);
+  const all=[...BREED_COMPACT_VISIBLE,...BREED_COMPACT_HIDDEN];
+  assert.equal(all.length,109);
+  assert.equal(new Set(all).size,109);
+  assert.equal(BREED_COMPACT_VISIBLE.length,60);
+  assert.deepEqual(
+    new Set(Object.keys(BREED_COMPACT_MERGE).concat(
+      BREED_COMPACT_OPERATIONAL,BREED_COMPACT_RETIRE_AFTER_AUDIT)),
+    new Set(BREED_COMPACT_HIDDEN)
+  );
+});
+test("FCI and practical texts are never overwritten, even if destination is filled",()=>{
+  const source={
+    "FCI telo":"Pevný chrbát.",
+    "FCI chvost":"Chvost strednej dĺžky.",
+    "FCI krk":"Svalnatý krk.",
+    "Potreby":"Potrebný je denný kontakt so psovodom.",
+    "Redakcia prehľad":"Pôvodný prehľad odborného profilu.",
+    "Skupina":"Spoločenský pes.",
+  };
+  const plan=planBreedCompactMigration(source);
+  assert.equal(plan.ready,true);
+  assert.match(plan.changes["FCI telo"],/Pevný chrbát/);
+  assert.match(plan.changes["FCI telo"],/Chvost strednej dĺžky/);
+  assert.match(plan.changes["FCI telo"],/Svalnatý krk/);
+  assert.match(plan.changes["Redakcia prehľad"],/Pôvodný prehľad odborného profilu/);
+  assert.match(plan.changes["Redakcia prehľad"],/Potrebný je denný kontakt/);
+  assert.match(plan.changes["Redakcia prehľad"],/Spoločenský pes/);
+});
+test("repeat of the exact migration is idempotent for multi-source targets",()=>{
+  const source={
+    "FCI telo":"Telo.",
+    "FCI chvost":"Chvost.",
+    "FCI krk":"Krk.",
+  };
+  const first=planBreedCompactMigration(source);
+  const second=planBreedCompactMigration({...source,...first.changes});
+  assert.equal(second.ready,true);
+  assert.deepEqual(second.changes,{});
+  assert.equal(second.statuses.find(v=>v.source==="FCI chvost").status,"ALREADY_PRESENT");
+});
+test("changed source after migration blocks deletion instead of hiding new text",()=>{
+  const original=planBreedCompactMigration({"FCI chvost":"Pôvodný chvost."});
+  const changed=planBreedCompactMigration({...original.changes,"FCI chvost":"Zmenený odborný opis chvosta."});
+  assert.equal(changed.ready,false);
+  assert.ok(changed.blocked.some(v=>v.source==="FCI chvost"));
+});
+test("technical IDs, publishing, sync and canonical relations are never merged into public text",()=>{
+  const plan=planBreedCompactMigration({
+    "Psipedia ID":"3214",
+    "Import kľúč":"fci-122",
+    "Stav":"Publikované",
+    "Poznámky":"Len interné.",
+    "Súvisiace profily služieb ID":"31; 32",
+  });
+  assert.deepEqual(plan.changes,{});
+  for(const key of ["Psipedia ID","Import kľúč","Stav","Poznámky",
+    "Súvisiace profily služieb ID"]) {
+    assert.equal(plan.statuses.find(v=>v.source===key).status,"KEEP_OPERATIONAL");
+  }
+});
+test("obsolete nonempty fields require verified archival before deletion",()=>{
+  const plan=planBreedCompactMigration({
+    "Profil skvalitnený":"__YES__",
+    "Redakčné sekcie JSON":"{ \"overview\": \"Odborný text\" }"
+  });
+  assert.equal(plan.statuses.find(v=>v.source==="Profil skvalitnený").status,"REQUIRES_ARCHIVE");
+  assert.equal(plan.statuses.find(v=>v.source==="Redakčné sekcie JSON").status,"REQUIRES_ARCHIVE");
+});
