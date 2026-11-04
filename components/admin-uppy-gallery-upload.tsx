@@ -1,4 +1,5 @@
 "use client";
+import { runAdminUploadQueue } from "@/lib/admin-upload-queue";
 
 import { useEffect, useRef, useState } from "react";
 import Uppy from "@uppy/core";
@@ -59,22 +60,22 @@ export function AdminUppyGalleryUpload({
       // A custom Uppy uploader must announce upload-start. Without this event
       // Dashboard keeps showing the file picker and appears to ignore "Nahrať".
       uppy.emit("upload-start", files);
-      const uploaded: AdminImageUpload[] = [];
-      const failures: string[] = [];
+      const uploadedById = new Map<string, AdminImageUpload>();
+      const failuresById = new Map<string, string>();
       try {
-        // Bounded sequential uploads: the current Worker contract does not
-        // offer tus or resumable uploads. Never claim resumability here.
-        for (const id of fileIds) {
+        // Restrict costly canvas conversion and requests to two concurrent files.
+        // Preserve picker order even if a later file finishes earlier.
+        await runAdminUploadQueue(fileIds, async (id) => {
+          if (!active) return;
           const item = uppy.getFile(id);
-          if (!item) continue;
+          if (!item) return;
           try {
             if (item.isRemote) throw new Error("Vzdialené súbory nie sú podporované.");
             const blob = item.data;
             const file = blob instanceof File ? blob : new File([blob], item.name, { type: item.type ?? "" });
             const result = await uploadAdminImage(file, props.current.folder);
-            uploaded.push(result);
-            // The existing fetch uploader does not expose intermediate progress.
-            // Report completion only after the authenticated API has succeeded.
+            uploadedById.set(id, result);
+            // The fetch uploader can report completion, but not intermediate progress.
             uppy.emit("upload-progress", item, {
               uploader: uppy,
               bytesUploaded: file.size,
@@ -83,17 +84,24 @@ export function AdminUppyGalleryUpload({
             uppy.emit("upload-success", item, { status: 200, body: result, uploadURL: result.imageUrl });
           } catch (cause) {
             const error = cause instanceof Error ? cause : new Error("Nahratie sa nepodarilo.");
-            failures.push(item.name + ": " + error.message);
+            failuresById.set(id, item.name + ": " + error.message);
             uppy.emit("upload-error", item, error);
           }
-        }
+        });
+        const uploaded = fileIds.flatMap((id) => {
+          const result = uploadedById.get(id);
+          return result ? [result] : [];
+        });
+        const failures = fileIds.flatMap((id) => {
+          const message = failuresById.get(id);
+          return message ? [message] : [];
+        });
         if (active && uploaded.length) props.current.onUploaded(uploaded);
         if (active && failures.length) {
           props.current.onRejected?.(failures.join(" "));
           uppy.info("Niektoré fotografie sa nepodarilo nahrať. Skontroluj označené súbory.", "error", 8000);
         }
-        // Make success unmistakable. The user must still save the parent form;
-        // a failed/partial batch stays open with per-file errors for retry.
+        // A failed or partial batch stays open for retry.
         if (active && uploaded.length === files.length && failures.length === 0) setOpen(false);
       } finally {
         if (active) {
