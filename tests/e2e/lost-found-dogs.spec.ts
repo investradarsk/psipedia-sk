@@ -57,6 +57,7 @@ for (const entry of cases) {
     // Open the canonical disclosure before asserting the field accessibility.
     const filterToggle = page.getByRole("button", { name: /Filtrovať hlásenia/ });
     if (await filterToggle.isVisible()) {
+      await expect(filterToggle).toHaveAttribute("data-public-filter-ready", "true");
       await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
       await filterToggle.click();
       await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
