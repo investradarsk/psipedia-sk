@@ -2869,7 +2869,7 @@
   .homeV2 :global(.home-magazine-main .home-latest-item:nth-child(n + 5)),
   .homeV2 :global(.home-magazine-side .home-event-item:nth-child(n + 4)),
   .homeV2 :global(.home-magazine-side .home-vet-item:nth-child(n + 4)),
-  .homeV2 :global(.home-side-breed-list > :nth-child(n + 4)) {
+  .homeV2 :global(.home-magazine-side .home-side-breed-list > .home-side-unified-row.home-side-unified-row:nth-child(n + 4)) {
     display: none;
   }
 }

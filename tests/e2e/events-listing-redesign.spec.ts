@@ -86,9 +86,11 @@ test("responsive grid, accessible mobile disclosure, full-card links and smart i
     const [first, second, third] = await cards.evaluateAll((nodes) =>
       nodes.slice(0, 3).map((node) => node.getBoundingClientRect().toJSON()),
     );
+    // Event cards now reuse the same single-column rows as service profiles
+    // on desktop and mobile, instead of the former three-column image grid.
+    expect(second!.y).toBeGreaterThan(first!.y);
+    expect(third!.y).toBeGreaterThan(second!.y);
     if (width >= 1280) {
-      expect(first!.y).toBe(second!.y);
-      expect(first!.y).toBe(third!.y);
       const sidebar = await page.locator('aside[aria-label="Filtre podujatí"]').boundingBox();
       expect(sidebar!.x + sidebar!.width).toBeLessThan(first!.x);
       await expect(page.locator("[data-event-filters]")).toBeVisible();
@@ -205,9 +207,9 @@ test.describe("final events acceptance", () => {
       await expect(page.locator("h1")).toHaveCount(1);
       await expect(page.locator("input[name=q]:not([type=hidden])")).toHaveCount(1);
       await expect(page.locator("[data-event-card]")).toHaveCount(12);
-      // DS-5 approved grid: three desktop columns from 1280px, two at 761–1279px,
-      // and one on mobile (<=760px). The 768px tablet viewport intentionally has two.
-      const expectedColumns = width >= 1280 ? 3 : width >= 761 ? 2 : 1;
+      // Events now share the canonical service-profile listing row:
+      // exactly one column on mobile, tablet and desktop.
+      const expectedColumns = 1;
       expect(
         await page
           .locator("[data-event-list]")

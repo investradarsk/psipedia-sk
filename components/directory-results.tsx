@@ -42,7 +42,7 @@ export function DirectoryResults({
       </PublicResultsToolbar>
 
       {result.profiles.length ? (
-        <div className={`directory-grid ${styles.listGrid}`} data-directory-list>
+        <div className={`directory-grid ${styles.listGrid} ${styles.listRows}`} data-directory-list>
           {result.profiles.map((profile) => (
             <DirectoryCard profile={profile} key={profile.id} />
           ))}
