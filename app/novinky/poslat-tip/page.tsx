@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { NewsTipForm } from "@/components/news-tip-form";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { CheckIcon } from "@/components/icons";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -13,12 +14,14 @@ export const metadata: Metadata = buildPageMetadata({
 export default function SendNewsTipPage() {
   return (
     <main id="obsah" className="news-tip-page">
-      <header className="news-tip-hero">
-        <div className="shell">
-          <nav className="article-breadcrumbs" aria-label="Navigácia"><Link href="/">Domov</Link><span>/</span><Link href="/novinky">Novinky</Link><span>/</span><span>Pošli tip</span></nav>
-          <div><span className="eyebrow">Pomôž nám nájsť zaujímavý príbeh</span><h1>Pošli tip Psipedii</h1><p>Vieš o zachránenom psovi, výnimočnom zásahu, novom výskume, zaujímavom projekte alebo udalosti, ktorá by nemala zostať bez povšimnutia? Daj nám vedieť.</p></div>
-        </div>
-      </header>
+      <UniversalPageHero
+        breadcrumbs={<nav className="article-breadcrumbs" aria-label="Navigácia">
+          <Link href="/">Domov</Link><span>/</span><Link href="/novinky">Novinky</Link><span>/</span><span>Pošli tip</span>
+        </nav>}
+        eyebrow="Pomôž nám nájsť zaujímavý príbeh"
+        title="Pošli tip Psipedii"
+        intro="Vieš o zachránenom psovi, výnimočnom zásahu, novom výskume, zaujímavom projekte alebo udalosti, ktorá by nemala zostať bez povšimnutia? Daj nám vedieť."
+      />
 
       <section className="section shell news-tip-layout">
         <NewsTipForm />
