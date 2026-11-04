@@ -54,3 +54,28 @@ test("bulk link discovery uses stable keyset pagination rather than growing offs
   assert.match(queue,/cursor=rows\[rows\.length-1\]\.profile_id/);
   assert.doesNotMatch(queue,/ORDER BY profile_id LIMIT \? OFFSET \?/);
 });
+
+test("owner confirmation is atomic and resets retry eligibility",()=>{
+  assert.match(queue,/const \[claimed\]=await db\.batch\(\[/);
+  assert.match(queue,/status='QUEUED',processed_profiles=0,changed_fields=0/);
+  assert.match(queue,/attempts=0,started_at=NULL,next_attempt_at=\?,updated_at=\?/);
+  assert.match(queue,/WHERE run_id=\? AND status='PREVIEWED' AND EXISTS/);
+  assert.match(queue,/if\(claimed\.meta\.changes!==1\)throw Error\("TRANSFER_PREVIEW_CHANGED"\)/);
+});
+
+test("completed items recover a stale parent run status without altering pending retries",()=>{
+  assert.match(queue,/async function reconcileSettledManualTransferRuns/);
+  assert.match(queue,/NOT EXISTS \(SELECT 1 FROM notion_manual_transfer_items i/);
+  assert.match(queue,/WHERE i\.run_id=r\.id AND i\.status NOT IN/);
+  assert.match(queue,/ORDER BY r\.updated_at LIMIT 5/);
+  assert.match(queue,/await reconcileSettledManualTransferRuns\(input\.database\)/);
+  assert.match(queue,/for\(const run of result\.results\?\?\[\]\)await updateRun\(db,run\.id\)/);
+});
+
+test("progress aggregation is amortized while the last partial group is flushed",()=>{
+  assert.match(queue,/const touchedRuns=new Set<string>\(\)/);
+  assert.match(queue,/touchedRuns\.add\(item\.run_id\)/);
+  assert.match(queue,/if\(total\.claimed%3===0\)await flushRunProgress\(\)/);
+  assert.match(queue,/await flushRunProgress\(\);\s*\/\/ Repair a previously settled run/);
+  assert.match(queue,/for\(const id of touchedRuns\)await updateRun\(input\.database,id\)/);
+});

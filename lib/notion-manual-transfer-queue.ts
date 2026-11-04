@@ -324,6 +324,11 @@ export async function runManualTransferQueueBatch(input:{
   let executionClaims=0;
   let previewAvailable=true;
   let executionAvailable=true;
+  const touchedRuns=new Set<string>();
+  async function flushRunProgress(){
+    for(const id of touchedRuns)await updateRun(input.database,id);
+    touchedRuns.clear();
+  }
   async function claim(preview:boolean,now:string,stale:string){
     const activeStatus=preview?"PREVIEWING":"RUNNING";
     const runCondition=preview?"r.status='PREVIEW'":"r.status IN ('QUEUED','RUNNING')";
@@ -396,8 +401,12 @@ export async function runManualTransferQueueBatch(input:{
           .bind(reason,item.id).run();
       }else total.retried++;
     }
-    await updateRun(input.database,item.run_id);
+    // Aggregate per-field history after a short group, not after every
+    // profile: large runs otherwise repeatedly scan growing field journals.
+    touchedRuns.add(item.run_id);
+    if(total.claimed%3===0)await flushRunProgress();
   }
+  await flushRunProgress();
   // Repair a previously settled run if its final status update was interrupted.
   await reconcileSettledManualTransferRuns(input.database);
   return total;

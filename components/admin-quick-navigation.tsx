@@ -81,11 +81,12 @@ export function AdminQuickNavigation() {
         const response = await fetch("/api/admin/global-search?q=" + encodeURIComponent(term), {
           credentials: "same-origin", cache: "no-store", signal: controller.signal,
         });
-        if (!response.ok) throw new Error("Vyhľadávanie nie je dostupné.");
         const data = await response.json() as {
           results?: Array<{ title: string; subtitle: string; href: string; category: string }>;
           incomplete?: boolean;
+          error?: string;
         };
+        if (!response.ok) throw new Error(data.error ?? "Vyhľadávanie nie je dostupné.");
         if (controller.signal.aborted) return;
         const results = (data.results ?? []).map(record => ({
           label: record.title, subtitle: record.subtitle, category: record.category,
