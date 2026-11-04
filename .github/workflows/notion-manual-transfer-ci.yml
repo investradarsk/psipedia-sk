@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - "lib/notion-manual-transfer-*.ts"
+      - "lib/breed-long-description.ts"
+      - "lib/breed-store.ts"
+      - "tests/breed-long-description.test.mjs"
       - "lib/notion-breed-manual-transfer-guards.ts"
       - "app/api/admin/notion-manual-transfer/**"
       - "drizzle/0156_notion_manual_transfer_jobs.sql"
@@ -31,6 +34,6 @@ jobs:
         with:
           node-version: '24'
       - name: Read-only field planning and SQLite journal tests
-        run: node --experimental-strip-types --test tests/notion-manual-transfer-contract.test.mjs tests/notion-manual-transfer-plan.test.mjs tests/notion-breed-manual-transfer-guards.test.mjs
+        run: node --experimental-strip-types --test tests/notion-manual-transfer-contract.test.mjs tests/notion-manual-transfer-plan.test.mjs tests/notion-breed-manual-transfer-guards.test.mjs tests/breed-long-description.test.mjs
       - name: GitHub revision evidence
         run: echo "validated_head=$(git rev-parse HEAD)"
