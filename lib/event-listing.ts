@@ -44,6 +44,11 @@ export function eventSearchSql(expression: string) {
 function eventSearchFields(columns: string[]) {
     return `trim(${columns.map(column => `CASE WHEN COALESCE(${column}, '') <> '' THEN ${column} || ' ' ELSE '' END`).join(' || ')})`;
 }
+/** The default unfiltered overview cycles event categories in blocks of five. */
+export function eventTypeBatchGroupingEnabled(f: EventListingFilters): boolean {
+    return f.type === 'Všetky' && f.time === 'upcoming' && !f.sort &&
+        !f.query && !f.region && !f.month && !f.from && !f.to && !f.city;
+}
 export function eventListingSql(f: EventListingFilters, today = bratislavaDateKey()) {
     const clauses = ["status = 'published'"], values: string[] = [];
     const add = (sql: string, ...args: string[]) => { clauses.push(sql); values.push(...args); };
@@ -76,8 +81,7 @@ export function eventListingSql(f: EventListingFilters, today = bratislavaDateKe
     const order = f.sort === 'najblizsie' ? asc : f.sort === 'najnovsie' ? 'start_date DESC, start_time DESC, id DESC' : `CASE WHEN ${end} < '${today}' THEN CASE WHEN cancelled = 1 THEN 4 ELSE 3 END WHEN cancelled = 1 THEN 2 WHEN start_date <= '${today}' THEN 0 ELSE 1 END, CASE WHEN ${end} < '${today}' THEN ${end} END DESC, CASE WHEN ${end} < '${today}' THEN start_time END DESC, CASE WHEN ${end} < '${today}' THEN id END DESC, ${asc}`;
     // Only the unfiltered upcoming overview groups five records per type.
     // Explicit date sort and every filtered/category listing retain their usual order.
-    const groupByType = f.type === 'Všetky' && f.time === 'upcoming' && !f.sort &&
-        !f.query && !f.region && !f.month && !f.from && !f.to && !f.city;
+    const groupByType = eventTypeBatchGroupingEnabled(f);
     return { where: clauses.join(' AND '), values, order, groupByType };
 }
 export function eventTypeSelectionRedirect(raw: Record<string, string | string[] | undefined>) {
