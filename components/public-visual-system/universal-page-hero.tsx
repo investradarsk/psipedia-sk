@@ -16,6 +16,10 @@ export function UniversalPageHero({
   imageUrl,
   imageAlt,
   searchAction = "/hladat",
+  searchDefaultValue = "",
+  searchHidden = [],
+  searchScope,
+  allowEmptySearch = false,
 }: {
   title: ReactNode;
   intro?: ReactNode;
@@ -24,6 +28,10 @@ export function UniversalPageHero({
   imageUrl?: string | null;
   imageAlt?: string | null;
   searchAction?: string;
+  searchDefaultValue?: string;
+  searchHidden?: Array<{ name: string; value: string }>;
+  searchScope?: string;
+  allowEmptySearch?: boolean;
 }) {
   const visual: ResolvedSectionVisual = {
     visualKey: "detail.public",
@@ -46,7 +54,15 @@ export function UniversalPageHero({
         title={title}
         intro={intro}
         visual={visual}
-        portalSearchSlot={<HomePortalSearch action={searchAction} />}
+        portalSearchSlot={
+          <HomePortalSearch
+            action={searchAction}
+            defaultValue={searchDefaultValue}
+            hidden={searchHidden}
+            searchScope={searchScope}
+            allowEmpty={allowEmptySearch}
+          />
+        }
       />
     </UnifiedSectionHeroShell>
   );
