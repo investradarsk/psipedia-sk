@@ -17,6 +17,7 @@ import {
 } from "@/lib/notion-breed-field-delta";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.ts";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
+import { manualBreedCellHasValue } from "@/lib/notion-breed-manual-transfer-guards";
 import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
 import { notionBreedRichTextProperty as notionRichTextProperty, sameBreedSyncValue as sameBreedField } from "@/lib/notion-breed-text";
 import { reconcileBreedExtraFields, BREED_EXTRA_FIELDS, readBreedExtraFields, extraValueFromNotion } from "@/lib/notion-breed-extras";
@@ -92,6 +93,8 @@ export type NotionBreedSyncSummary = {
   updated: number;
   unchanged: number;
   failed: number;
+  /** Only for the one-shot targeted adapter; no source values are exposed. */
+  lastErrorCode?: string;
 };
 
 const SYNC_ACTOR = "notion-breed-sync@psipedia.sk";
@@ -101,6 +104,28 @@ const MAX_EDITORIAL_UPDATES_PER_SWEEP = 25;
 
 function checkboxProperty(page: NotionPage, name: string) {
   return notionPropertyRecord(page, name)?.checkbox === true;
+}
+
+/** Explicitly filled Notion cells only, for owner-confirmed one-shot transfers.
+ * Empty numbers, text, URLs or JSON staging cells are not clear instructions.
+ * Normal automatic sync keeps its existing independent presence semantics.
+ */
+function manualBreedPresentFieldIds(page:NotionPage):Set<BreedNotionField>{
+  const declared=breedNotionPresentFieldIds(page);
+  const filled=new Set<BreedNotionField>();
+  for(const spec of BREED_NOTION_SCHEMA){
+    if(spec.mode!=="content"||!declared.has(spec.id))continue;
+    let value:unknown;
+    if(spec.type==="number")value=notionNumberProperty(page,spec.notion);
+    else if(spec.type==="checkbox")value=checkboxProperty(page,spec.notion);
+    else if(spec.type==="url")value=notionUrlProperty(page,spec.notion);
+    else if(spec.type==="date")value=notionDateStartProperty(page,spec.notion);
+    else if(spec.type==="select")value=notionSelectProperty(page,spec.notion);
+    else if(spec.type==="title")value=notionTitleProperty(page,spec.notion);
+    else value=notionRichTextProperty(page,spec.notion);
+    if(manualBreedCellHasValue(spec.type,value))filled.add(spec.id as BreedNotionField);
+  }
+  return filled;
 }
 
 function optionalNumber(page: NotionPage, name: string) {
@@ -871,8 +896,9 @@ async function syncOneBreed(
         "relatedArticleIds","directoryProfileIds"]);
       const admin=breedFieldSnapshot(existing);
       const remote=breedFieldSnapshot(basePayload);
+      const manuallyFilled=manualBreedPresentFieldIds(page);
       const selected=BREED_NOTION_EDITABLE_FIELDS.filter(key=>
-        presentBreedFields.has(key)&&!special.has(key));
+        manuallyFilled.has(key)&&!special.has(key));
       if(manualDirection==="ADMIN_TO_NOTION"){
         const output=await writeBackBreedEditorialToNotion({
           database,bindings,before:existing,breed:existing,
@@ -887,8 +913,13 @@ async function syncOneBreed(
       const forced={...remote};
       for(const key of selected)forced[key]=admin[key];
       const plan=planBreedNotionFieldDelta(existing,basePayload,forced,admin,{},new Set(selected));
+      // Do not let malformed *unselected* aggregates or gallery JSON fail
+      // an otherwise safe manual content transfer. Special adapters handle
+      // gallery/relations separately; per-field validation remains enabled.
+      const invalidSelected=new Set([...invalidStructuredBreedFields(page)]
+        .filter(field=>selected.includes(field)));
       return applySafeBreedSync(database,bindings,page,existing,plan,
-        forced,admin,remote,{},contentHash,invalidStructuredBreedFields(page),true);
+        forced,admin,remote,{},contentHash,invalidSelected,true);
     }
     // A later Admin edit is not an acknowledgement from Notion. Never
     // mark its old snapshot "synchronized" or pull an older remote version
@@ -1136,11 +1167,19 @@ export async function runNotionBreedSyncSweep(args: {
     } catch (error) {
       summary.failed += 1;
       const message = error instanceof Error ? error.message : String(error);
+      if(args.manualDirection)
+        summary.lastErrorCode=/^[A-Z][A-Z0-9_]{2,100}$/.test(message)
+          ?message:"TRANSFER_BREED_ADAPTER_FAILED";
       console.error(JSON.stringify({
         event: "notion_breed_sync_failed",
         notionPageId: page.id,
         error: message,
       }));
+      // applySafeBreedSync can commit accepted fields and then report
+      // rejected siblings. Keep its detailed field diagnostic in Notion;
+      // the owner-confirmed queue will read back every field, marking any
+      // remaining mismatches FAILED instead of hiding them behind one code.
+      if(args.manualDirection&&message==="TRANSFER_BREED_PARTIAL_FIELDS")continue;
       try {
         await updateNotionSyncState(args.bindings, page.id, {
           state: "Chyba",
@@ -1227,7 +1266,7 @@ export async function inspectManualBreedProfile(input:{
     ||(parsed.fciNumber!=null&&adminBreed.fciNumber!=null
       &&parsed.fciNumber!==adminBreed.fciNumber))
     throw Error("TRANSFER_BREED_IDENTITY_MISMATCH");
-  const present=breedNotionPresentFieldIds(page);
+  const present=manualBreedPresentFieldIds(page);
   const remote=breedFieldSnapshot(parsed);
   const notion:Record<string,unknown>={};
   for(const id of present)if(Object.prototype.hasOwnProperty.call(remote,id))
