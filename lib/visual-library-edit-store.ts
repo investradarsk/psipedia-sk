@@ -164,6 +164,47 @@ export async function publishVisualDraft(input: {
   } catch (error) { return serviceUnavailable(error); }
 }
 
+/**
+ * Read multiple independently published public banners with a single D1 roundtrip.
+ * Each record still passes the same validation as the single-banner API.
+ * Unknown IDs and unavailable/invalid publications fall back to static styling.
+ */
+export async function getPublishedDesktopBannerColorsBatch(
+  ids: readonly string[],
+): Promise<Record<string, BannerDraft | null>> {
+  const requested = [...new Set(ids)];
+  const result: Record<string, BannerDraft | null> = Object.fromEntries(
+    requested.map((id) => [id, null]),
+  );
+  const allowed = requested.filter((id) => Boolean(ALLOWED_PUBLICATIONS[id]));
+  if (!allowed.length) return result;
+
+  try {
+    const placeholders = allowed.map(() => "?").join(", ");
+    const rows = await database().prepare(`
+      SELECT banner_id,variant_index,draft_json,revision,published_json,published_revision
+      FROM visual_library_banner_edits
+      WHERE banner_id IN (${placeholders}) AND published_json IS NOT NULL
+    `).bind(...allowed).all<EditRow>();
+    for (const row of rows.results) {
+      if (!(row.banner_id in result)) continue;
+      const target = ALLOWED_PUBLICATIONS[row.banner_id];
+      if (!target || row.variant_index !== target.variant) continue;
+      try {
+        const stored = fromRow(row);
+        if (!stored.published) continue;
+        validatePublication(row.banner_id, target.variant, stored.published, target.url);
+        result[row.banner_id] = stored.published;
+      } catch (error) {
+        console.error("visual_library_public_colors_unavailable", row.banner_id, error);
+      }
+    }
+  } catch (error) {
+    console.error("visual_library_public_batch_unavailable", error);
+  }
+  return result;
+}
+
 /** Public side: allowlisted IDs only; a failure returns original static style. */
 export async function getPublishedDesktopBannerColors(id: string): Promise<BannerDraft | null> {
   if (!ALLOWED_PUBLICATIONS[id]) return null;
