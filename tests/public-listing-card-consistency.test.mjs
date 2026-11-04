@@ -5,20 +5,28 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
 test("five public content card families opt in to one visible design contract", () => {
-  const components = [
+  const shared = read("components/public-listing-row-card.tsx");
+  assert.match(shared, /data-public-card=\{kind === "directory" \? "directory" : "event-grid"\}/);
+  assert.match(shared, /data-public-card-title/);
+  assert.match(shared, /data-public-card-meta/);
+  for (const [path, marker] of [
     ["components/public-visual-system/public-article-card.tsx", 'data-public-card="article"'],
     ["components/breed-card.tsx", 'data-public-card="breed"'],
-    ["components/directory-card.tsx", 'data-public-card="directory"'],
+    ["components/directory-card.tsx", 'kind="directory"'],
     ["components/help-card.tsx", 'data-public-card="help"'],
-    ["components/event-card.tsx", 'data-public-card="event-grid"'],
+    ["components/event-card.tsx", 'kind="event"'],
     ["components/event-card.tsx", 'data-public-card="event-list"'],
-  ];
-  for (const [path, marker] of components) {
+  ]) {
     const source = read(path);
     assert.ok(source.includes(marker), path + " must opt in");
-    // Help cards render their semantic title/meta through one shared template.
-    const rendered =
-      path === "components/help-card.tsx"
+    const sharedCard = path === "components/directory-card.tsx" ||
+      (path === "components/event-card.tsx" && marker === 'kind="event"');
+    if (sharedCard) assert.match(source, /<PublicListingRowCard/);
+    // Help cards and shared directory/event rows render semantic title/meta
+    // in their imported component rather than duplicating visible markup.
+    const rendered = sharedCard
+      ? shared
+      : path === "components/help-card.tsx"
         ? read("components/public-visual-system/public-help-profile-card.tsx")
         : source;
     assert.match(rendered, /data-public-card-title/, path + " title");
