@@ -20,6 +20,12 @@ test("unknown FCI category keeps existing public fallback",()=>{
 });
 test("breed store uses raw section in internal reads, public label in public views",()=>{
   const source=readFileSync(new URL("../lib/breed-store.ts",import.meta.url),"utf8");
-  assert.ok(source.includes("fciSection:breedSectionForView(row.fci_group,row.fci_section_number,row.fci_section,relations.public)"));
-  assert.ok(source.includes("fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section)"));
+  assert.match(
+    source,
+    /fciSection:\s*breedSectionForView\(row\.fci_group,\s*row\.fci_section_number,\s*row\.fci_section,\s*relations\.public\)/,
+  );
+  assert.match(
+    source,
+    /fciSection:\s*publicFciSectionName\(row\.fci_group,\s*row\.fci_section_number,\s*row\.fci_section\)/,
+  );
 });
