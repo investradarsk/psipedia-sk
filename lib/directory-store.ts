@@ -38,7 +38,7 @@ import {
   editableDirectoryProfileData,
   specializedChangeRequestFields,
 } from "@/lib/directory-change-request";
-import { slovakRegions, type SlovakRegion } from "@/lib/events";
+import { bratislavaDateKey, slovakRegions, type SlovakRegion } from "@/lib/events";
 import {
   getSlovakDistricts,
   getSlovakMunicipalities,
@@ -60,7 +60,6 @@ import {
 import { directoryQualificationSections } from "./directory-public-copy.ts";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
-import { bratislavaDateKey } from "@/lib/events";
 import { homepageRotationOffset } from "@/lib/homepage-rotation";
 import {
   normalizeImageDisplayConfig,
