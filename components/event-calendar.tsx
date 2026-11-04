@@ -269,10 +269,9 @@ export function EventCalendar({
     // When only the calendar month changes, the 12-card listing is unchanged.
     // Request just the new month's aggregate instead of two more list queries.
     const calendarOnly = sameListing && !next.day;
-    const fetchEndpoint = new URL(endpoint);
-    if (calendarOnly) fetchEndpoint.searchParams.set("calendarOnly", "1");
+    if (calendarOnly) endpoint.searchParams.set("calendarOnly", "1");
     try {
-      const response = await fetch(fetchEndpoint.toString(), {
+      const response = await fetch(endpoint.toString(), {
         signal: controller.signal,
         headers: { Accept: "application/json" },
       });
