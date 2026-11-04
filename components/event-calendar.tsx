@@ -143,6 +143,7 @@ export function EventCalendar({
   }));
   const [pending, setPending] = useState(false);
   const [pendingDay, setPendingDay] = useState(false);
+  const [pendingCalendarOnly, setPendingCalendarOnly] = useState(false);
   const [loadError, setLoadError] = useState("");
   const calendarRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
@@ -190,7 +191,7 @@ export function EventCalendar({
       : "";
   const typePathname =
     view.type === "Všetky" ? "/podujatia" : (eventTypePortalHref(view.type) ?? "/podujatia");
-  const filtered = pending ? [] : data.events;
+  const filtered = pending && !pendingCalendarOnly ? [] : data.events;
   const daySummaries = pending
     ? new Map<string, { date: string; count: number; types: EventType[] }>()
     : data.calendarSummaries
@@ -259,16 +260,18 @@ export function EventCalendar({
     }
 
     setPendingDay(false);
+    const calendarOnly = sameListing && !next.day;
+    setPendingCalendarOnly(calendarOnly);
     setPending(true);
     const cached = cacheRef.current.get(key);
     if (cached) {
       setData(cached);
       setPending(false);
+      setPendingCalendarOnly(false);
       return;
     }
     // When only the calendar month changes, the 12-card listing is unchanged.
     // Request just the new month's aggregate instead of two more list queries.
-    const calendarOnly = sameListing && !next.day;
     if (calendarOnly) endpoint.searchParams.set("calendarOnly", "1");
     try {
       const response = await fetch(endpoint.toString(), {
@@ -293,7 +296,10 @@ export function EventCalendar({
       if (!controller.signal.aborted)
         setLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
     } finally {
-      if (!controller.signal.aborted) setPending(false);
+      if (!controller.signal.aborted) {
+        setPending(false);
+        setPendingCalendarOnly(false);
+      }
     }
   }
   // Calendar controls use native anchors: the handler owns history + data
@@ -767,7 +773,7 @@ export function EventCalendar({
         </p>
       ) : null}
 
-      {!pending && !loadError && (
+      {(!pending || pendingCalendarOnly) && !loadError && (
         <EventListingResults
           beforeResults={afterCalendar}
           events={filtered}
