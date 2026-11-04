@@ -6,6 +6,7 @@ import {
   type NotionManualTransferDirection,
 } from "./notion-manual-transfer-contract";
 import { runNotionBreedSyncSweep, type NotionBreedSyncBindings } from "./notion-breed-sync";
+import { assertManualBreedSweepOutcome } from "./notion-breed-manual-transfer-guards";
 import { runNotionDirectorySyncSweep, type NotionDirectorySyncBindings } from "./notion-directory-sync";
 import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync";
 import { runNotionEshopSyncSweep, type NotionEshopSyncBindings } from "./notion-eshop-sync";
@@ -183,8 +184,10 @@ async function runOne(input:{db:D1Database;bindings:ManualTransferBindings;job:J
       database:db,bindings,targetPageId:job.notion_page_id,
       manualDirection:job.direction,
     });
-    if(!summary.enabled)throw Error("TRANSFER_BREED_SYNC_DISABLED");
-    if(summary.failed||summary.scanned!==1)throw Error("TRANSFER_BREED_ADAPTER_FAILED");
+    // A partially applied breed sweep already wrote its valid siblings.
+    // Let executeVerified read back and mark every mismatched field FAILED,
+    // rather than retrying blindly and hiding the true per-field outcome.
+    assertManualBreedSweepOutcome(summary);
     return;
   }
   if(job.scope.startsWith("directory:")){
