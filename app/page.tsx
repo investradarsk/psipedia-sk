@@ -1,6 +1,6 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { HOME_PROFILE_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
-import { getPublishedDesktopBannerColors } from "@/lib/visual-library-edit-store";
+import { getPublishedDesktopBannerColorsBatch } from "@/lib/visual-library-edit-store";
 import { PublicHelpPhotoBanner } from "@/components/public-visual-system/public-help-banner";
 import { lostFoundSubmitPromo, helpOverviewPromos } from "@/lib/help-banner-presets";
 import { BreedPhoto } from "@/components/breed-photo";
@@ -60,8 +60,7 @@ export default async function Home() {
     directoryGroups,
     homeHeroVisual,
     featuredBreeds,
-    homeProfileBannerColors,
-    lostFoundBannerColors,
+    publishedBannerColors,
   ] = await Promise.all([
     getPublishedArticleSummaries({ limit: 120 }),
     getHomepageUpcomingEventsWithImages(8),
@@ -72,12 +71,13 @@ export default async function Home() {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
     }),
-    getPublishedDesktopBannerColors("homepage:profil"),
-    getPublishedDesktopBannerColors("help:lost-found"),
+    getPublishedDesktopBannerColorsBatch(["homepage:profil", "help:lost-found"]),
   ]);
   const veterinarians = directoryGroups.veterinari ?? [];
   const trainers = directoryGroups.treneri ?? [];
   const homeHero = homeHeroVisual;
+  const homeProfileBannerColors = publishedBannerColors["homepage:profil"];
+  const lostFoundBannerColors = publishedBannerColors["help:lost-found"];
   const articleSelection = selectHomepageArticles(publishedArticles, {
     latestLimit: 6,
     sectionLimit: 6,
