@@ -177,6 +177,59 @@ assert.match(automationV2, /name:\s*Source-management admin contracts/);
 assert.match(automationV2, /admin-e2e:[\s\S]*if:\s*needs\.scope\.outputs\.automation_admin_e2e == 'true'/);
 assert.ok(pullRequestPaths(automationV2)?.includes(".github/workflows/data-automation-v2-ci.yml"));
 
+// Regression: shared worker and generic configuration changes must not fan out to
+// unrelated domain workflows. The two required checks still run on every PR.
+const workerDomainSuites = [
+  "data-automation-ci.yml",
+  "notion-article-sync-ci.yml",
+  "notion-events-help-sync-ci.yml",
+  "services-v3-hourly-auto-sync.yml",
+  "sitemap-edge-resilience.yml",
+];
+for (const name of workerDomainSuites) {
+  assert.equal(prWorkflowWouldRun(name, ["worker/index.ts"]), false,
+    `${name}: shared worker changes are covered by required full-core regression`);
+  assert.equal(prWorkflowWouldRun(name, [`.github/workflows/${name}`]), true,
+    `${name}: edits to its own workflow must still validate`);
+}
+assert.equal(prWorkflowWouldRun("public-html-cache-safety-guard.yml", ["worker/index.ts"]), true,
+  "cache safety guard must stay on shared worker changes");
+assert.equal(prWorkflowWouldRun("gemini-global-stop-ci.yml", ["worker/index.ts"]), true,
+  "Gemini global stop guard must stay on shared worker changes");
+assert.equal(prWorkflowWouldRun("pr-visual-evidence.yml", ["lib/notion-article-sync.ts"]), false,
+  "backend-only Notion edits must not start visual evidence");
+assert.equal(prWorkflowWouldRun("pr-visual-evidence.yml", ["components/article-detail.tsx"]), true,
+  "public component edits still need visual evidence");
+assert.equal(prWorkflowWouldRun("map-read-api-ci.yml", ["worker/index.ts"]), true,
+  "map runtime remains fail-closed on shared worker changes");
+assert.equal(prWorkflowWouldRun("map-read-api-ci.yml", ["drizzle/0156_notion_manual_transfer_jobs.sql"]), true,
+  "existing map D1 fail-closed guard remains in place");
+assert.equal(prWorkflowWouldRun("clean-d1-migration-validation.yml", ["package.json"]), false,
+  "package metadata changes are validated by required CI");
+assert.equal(prWorkflowWouldRun("clean-d1-migration-validation.yml", ["package-lock.json"]), true,
+  "lockfile changes must retain the D1 regression");
+assert.doesNotMatch(required, /\n  cookie-consent-preview-e2e:/,
+  "expired PR-specific preview job must not appear as a skipped check");
+
+// CI-control-only edits keep required status checks and self-triggering suites,
+// without forcing the expensive full application suite.
+for (const files of [
+  [".github/workflows/clean-d1-migration-validation.yml"],
+  [".github/workflows/clean-d1-migration-validation.yml", "scripts/check-ci-scope.mjs"],
+  [".github/workflows/playwright-e2e.yml", ".github/workflows/gemini-automation-foundation-ci.yml"],
+]) {
+  const result = classifyChangedFiles(files);
+  assert.equal(result.ciControlOnly, true, "expected CI-only file set");
+  assert.equal(result.fullCore, false, "CI-only updates should not force all application tests");
+  assert.equal(result.validationMode, "ci-control");
+}
+assert.equal(classifyChangedFiles(["drizzle/0156_notion_manual_transfer_jobs.sql"]).fullCore, true,
+  "real database migrations must still run full regression");
+assert.equal(classifyChangedFiles([".github/workflows/clean-d1-migration-validation.yml", "worker/index.ts"]).fullCore, true,
+  "mixed CI and runtime changes must still run full regression");
+assert.equal(prWorkflowWouldRun("gemini-automation-foundation-ci.yml", ["wrangler.jsonc"]), true,
+  "Gemini model and pilot configuration require the focused contract suite");
+
 const productionContracts = {
   "playwright-e2e.yml": ["push:", "schedule:", "workflow_dispatch:"],
   "map-production-live-audit.yml": ["push:", "workflow_dispatch:"],

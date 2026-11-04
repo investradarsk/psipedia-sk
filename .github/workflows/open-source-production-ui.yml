@@ -67,8 +67,6 @@ on:
       - "tests/admin-open-source-unification.test.mjs"
       - "tests/article-gallery-shared-upload.test.mjs"
       - "tests/open-source-final-adoption.test.mjs"
-      - "package.json"
-      - "package-lock.json"
       - "tests/open-source-production-ui.test.mjs"
       - "tests/service-catalog-mobile-polish.test.mjs"
       - ".github/workflows/open-source-production-ui.yml"

@@ -312,7 +312,10 @@ export function classifyChangedFiles(inputFiles, { packageTestScriptsOnly = fals
   const runtimeChanged = files.length === 0 || files.some((file) => !isDocsOnlyFile(file) && !isCiControlFile(file));
   const sharedCore = scopes.includes("SHARED_CORE");
   const migration = scopes.includes("DATABASE_MIGRATIONS");
-  const fullCore = files.length === 0 || (!docsOnly && (dependency || sharedCore || migration));
+  // CI-only changes are validated by the required policy gate and their own
+  // scoped workflows. Editing a migration workflow must not trigger npm test
+  // for the entire application when no runtime or schema file changed.
+  const fullCore = files.length === 0 || (!ciControlOnly && !docsOnly && (dependency || sharedCore || migration));
   const boundedCore = runtimeChanged && !fullCore && !docsOnly;
   const core = runtimeChanged && !docsOnly;
   const automationBroad = scopes.includes("AUTOMATION") && files.some((file) => AUTOMATION_BROAD_RE.test(file));

@@ -4,7 +4,6 @@ on:
     paths:
       - "lib/service-catalog-notion-auto-sweep.ts"
       - "lib/service-catalog-notion-internal-runner.ts"
-      - "worker/index.ts"
       - "drizzle/0139_services_catalog_notion_auto_attempts.sql"
       - "tests/service-catalog-notion-auto-sweep.test.mjs"
       - ".github/workflows/services-v3-hourly-auto-sync.yml"

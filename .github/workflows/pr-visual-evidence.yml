@@ -3,17 +3,19 @@ name: PR Visual Evidence
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened]
     # Changed visual files trigger automatic route selection; unrelated edits are skipped.
     paths:
       - "app/**"
       - "components/**"
       - "public/**"
       - "styles/**"
-      - "lib/**"
+      # Presentation stores only; server-side Notion/automation changes are not visual reviews.
+      - "lib/section-visual*.ts"
+      - "lib/visual-library*.ts"
+      - "lib/portal*.ts"
       - "**/*.css"
       - "**/*.svg"
-      - "AGENTS.md"
       - "docs/PR-VISUAL-REVIEW.md"
       - "scripts/pr-visual-screenshots.mjs"
       - "scripts/pr-visual-route-selection.mjs"
