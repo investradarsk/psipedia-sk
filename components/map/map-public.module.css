@@ -2,7 +2,7 @@
   --map-panel-border: rgba(23, 53, 43, 0.12);
   --map-muted: var(--muted, #66746c);
   min-width: 0;
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 
 .hero {
