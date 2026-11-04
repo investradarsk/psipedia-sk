@@ -28,7 +28,7 @@ test("bulk preview remains strictly read-only until explicit owner confirmation"
 });
 
 test("pending profiles avoid unnecessary D1 field queries, with clear user-facing state",()=>{
-  assert.match(queue,/if\(row\.status==="PENDING"&&row\.attempts===0\)/);
+  assert.match(queue,/const eligible=\(rows\.results\?\?\[\]\)\.filter\(row=>row\.status!=="PENDING"\|\|row\.attempts>0\)/);
   assert.match(ui,/Čaká vo fronte/);
   assert.match(ui,/najviac 10 profilov za minútu/);
   assert.match(ui,/waitingForFirstProfile/);
