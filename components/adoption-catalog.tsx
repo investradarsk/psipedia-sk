@@ -62,6 +62,7 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
       data-adoption-card={dog.slug}
       href={href}
       title={dog.name}
+      actionLabel="Zobraziť profil"
       category="Pes na adopciu"
       titleLevel="h2"
       badge={dog.status === "RESERVED"

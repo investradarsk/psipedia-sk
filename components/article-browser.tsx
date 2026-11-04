@@ -132,7 +132,7 @@ export function ArticleBrowser({
           </div>}
           {!sidebar && remaining.length > 0 && <div className="article-grid article-grid--listing article-grid--compact" role="list" data-article-listing-grid>
             {remaining.map((article) => <ArchiveArticleRow article={article} key={article.slug} />)}
-          </div>
+          </div>}
           {displayed.length < visible.length && (
             <div className="article-listing-load-more">
               <PublicActionButton type="button" variant="primary" onClick={() => setShown((current) => current + NEXT_COUNT)}>

@@ -307,15 +307,17 @@ export function DetailHero({
   media,
   kind,
   mediaPresentation = "standard",
+  heroImageUrl,
 }: {
   breadcrumbs: ReactNode;
   copy: ReactNode;
   media?: ReactNode;
+  heroImageUrl?: string | null;
   mediaPresentation?: "standard" | "compact";
   kind: DetailHeroKind;
 }) {
   const title = findDetailTitle(copy) ?? "Profil na Psipedii";
-  const imageUrl = findDetailImage(media);
+  const imageUrl = heroImageUrl || findDetailImage(media);
   const detailContext = withoutPageTitle(copy);
 
   return (
