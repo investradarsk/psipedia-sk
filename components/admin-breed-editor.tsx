@@ -1,4 +1,5 @@
 "use client";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
@@ -313,7 +314,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>Fotografie</h2><p>Titulná fotografia a galéria nad existujúcim image contractom.</p></div></div>
         <div className={styles.mediaGrid}>
-          <div className={styles.coverPreview}>{form.image?<img src={form.image} alt={`Náhľad: ${form.name||"plemeno"}`} loading="lazy" decoding="async"/>:<span>Bez fotografie<br/>verejne sa použije fallback</span>}</div>
+          <div className={styles.coverPreview}>{form.image?<img src={form.image} alt={`Náhľad: ${form.name||"plemeno"}`} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(form.image, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px"/>:<span>Bez fotografie<br/>verejne sa použije fallback</span>}</div>
           <div className={styles.mediaActions}>
             <div className="admin-field"><span>Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)</span><AdminSingleImageUpload label={form.image?"Vybrať inú titulnú fotografiu":"Nahrať titulnú fotografiu"} onFile={uploadCover} disabled={saving} busy={uploading} onRejected={setError}/><small>{uploading?"Nahrávam…":form.image||"Zatiaľ bez fotografie"}</small></div>
             {form.image&&<AdminActionButton variant="destructive" onClick={()=>setForm((current)=>({...current,image:"",imageKey:""}))}>Odstrániť titulnú fotografiu</AdminActionButton>}
@@ -324,7 +325,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <AdminSortableGallery urls={form.gallery.map(item=>item.imageUrl)} as="article"
           className={styles.galleryList} rowClassName={styles.galleryRow} disabled={uploading||saving}
           onReorder={(from,to)=>setForm(current=>({...current,gallery:arrayMove(current.gallery,from,to)}))}
-          renderRow={(index,handle)=>{const item=form.gallery[index];return <><img src={item.imageUrl} alt={item.alt||"Náhľad"} loading="lazy" decoding="async"/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}>{handle}<AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></>;}}/>
+          renderRow={(index,handle)=>{const item=form.gallery[index];return <><img src={item.imageUrl} alt={item.alt||"Náhľad"} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(item.imageUrl, [160, 320, 480])} sizes="(max-width: 680px) 44vw, 160px"/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}>{handle}<AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></>;}}/>
       </div>
     </AdminEditorSection>
 
