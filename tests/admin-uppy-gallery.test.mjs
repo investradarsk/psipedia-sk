@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("Uppy gallery uses only the canonical admin API, with sequential bounded image uploads", () => {
+test("Uppy gallery uses only the canonical admin API, with two concurrent bounded image uploads", () => {
   const uploader = read("components/admin-uppy-gallery-upload.tsx");
   const api = read("lib/admin-image-upload.ts");
   assert.match(uploader, /from "@uppy\/core"/);
@@ -17,7 +17,9 @@ test("Uppy gallery uses only the canonical admin API, with sequential bounded im
   assert.match(uploader, /failures\.length === 0\) setOpen\(false\)/);
   assert.match(uploader, /uppy\.info\("Niektoré fotografie/);
   assert.match(uploader, /await uploadAdminImage\(file, props\.current\.folder\)/);
-  assert.match(uploader, /for \(const id of fileIds\)/);
+  assert.match(uploader, /runAdminUploadQueue\(fileIds/);
+  assert.match(uploader, /uploadedById\.get\(id\)/);
+  assert.match(uploader, /failuresById\.get\(id\)/);
   assert.match(uploader, /MAX_ADMIN_IMAGE_BYTES/);
   assert.match(uploader, /maxNumberOfFiles: Math\.max\(1, remaining\)/);
   assert.match(uploader, /if \(item\.isRemote\) throw/);
