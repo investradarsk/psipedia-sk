@@ -58,7 +58,7 @@ test("Breeds intro editor keeps identity and relationships and uses draft Notion
   assert.match(store, /export async function updateManagedBreedInlineIntro/);
   assert.match(store, /SET intro=\?, updated_at=\?/);
   assert.match(store, /WHERE id=\? AND updated_at=\? RETURNING id/);
-  assert.match(store, /"officialFciName" \| "intro" \| "updatedAt"/);
+  assert.match(store, /"officialFciName"\s*\|\s*"intro"\s*\|\s*"updatedAt"/);
   assert.match(route, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(route, /body\.action !== "set-inline-intro"/);
   assert.match(route, /Object\.keys\(body\)\.length !== 3/);
@@ -72,7 +72,7 @@ test("Breeds intro editor keeps identity and relationships and uses draft Notion
 test("Breed intro CAS changes only intro and timestamp, preserving canonical FCI identity", () => {
   const store = read("lib/breed-store.ts");
   const section = store.slice(store.indexOf("export async function updateManagedBreedInlineIntro"),store.indexOf("export async function updateManagedBreed("));
-  const match = section.match(/database\.prepare\(`(UPDATE managed_breeds[\s\S]*?RETURNING id)`\)/);
+  const match = section.match(/database\s*\.prepare\(\s*`(UPDATE managed_breeds[\s\S]*?RETURNING id)`\s*,?\s*\)/);
   assert.ok(match, "Breed CAS SQL missing");
   const db = new DatabaseSync(":memory:");
   try {
