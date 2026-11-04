@@ -4,6 +4,7 @@ import { formatSlovakCount } from "@/lib/slovak-count";
 import { EventListingResults } from "./event-listing-results";
 import dynamic from "next/dynamic";
 import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
+import { PublicSubcategoryNavigator } from "@/components/public-visual-system";
 import {
   eventListingParams,
   parseEventListing,
@@ -320,6 +321,12 @@ export function EventCalendar({
     if (state.day) params.set("den", state.day);
     return params.size ? "?" + params.toString() : "";
   };
+  const timeOptions = [
+    ["upcoming", "Najbližšie"],
+    ["current", "Prebiehajúce"],
+    ["past", "Ukončené"],
+    ["all", "Všetky"],
+  ] as const;
   const upcomingTitle =
     view.time === "past"
       ? "Ukončené podujatia"
@@ -338,26 +345,21 @@ export function EventCalendar({
       aria-busy={pending}
     >
       <div className={styles.resultBar}>
-        <div className={styles.timeBar} role="group" aria-label="Obdobie podujatia">
-          {(
-            [
-              ["upcoming", "Najbližšie"],
-              ["current", "Prebiehajúce"],
-              ["past", "Ukončené"],
-              ["all", "Všetky"],
-            ] as const
-          ).map(([value, label]) => (
-            <a
-              href={timeHref(value)}
-              onClick={(event) => clickNavigate(event, timeHref(value), { ...view, time: value })}
-              className={view.time === value ? styles.activeTimeChip : styles.timeChip}
-              aria-current={view.time === value ? "page" : undefined}
-              key={value}
-            >
-              {label}
-            </a>
-          ))}
-        </div>
+        <PublicSubcategoryNavigator
+          mode="compact"
+          mobileLayout="grid"
+          columns={4}
+          label="Obdobie podujatia"
+          items={timeOptions.map(([value, label]) => ({
+            href: timeHref(value),
+            title: label,
+            current: view.time === value,
+          }))}
+          onSelect={(event, index) => {
+            const value = timeOptions[index][0];
+            clickNavigate(event, timeHref(value), { ...view, time: value });
+          }}
+        />
       </div>
 
       <div className={styles.calendarLayout} data-events-calendar-layout>

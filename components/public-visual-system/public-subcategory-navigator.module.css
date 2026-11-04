@@ -406,3 +406,22 @@
 @media (max-width: 900px) { .compactTrack { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .compactTrack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 380px) { .compactTrack { grid-template-columns: minmax(0, 1fr); } }
+
+/* Shared Help / Directory / Events category tabs: one appearance and responsive grid. */
+.compactSix .compactTrack { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.compactFour .compactTrack { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 821px) and (max-width: 1100px) {
+  .compactSix .compactTrack { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 820px) {
+  .compactSix .compactTrack,
+  .compactFour .compactTrack { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .compactSix .compactTrack,
+  .compactFour .compactTrack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 380px) {
+  .compactSix .compactTrack,
+  .compactFour .compactTrack { grid-template-columns: minmax(0, 1fr); }
+}
