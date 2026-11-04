@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   DIRECTORY_ADMIN_PAGE_SIZE,
@@ -283,4 +284,24 @@ test("public contact metadata round-trips without destroying breed, organization
     facebook: "",
     instagram: "https://instagram.com/new",
   });
+});
+
+
+test("directory list indexes support global pagination orders without temp sort", () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, status TEXT, updated_at TEXT, name TEXT, city TEXT)");
+  const migration = readFileSync(new URL("../drizzle/0158_admin_directory_list_indexes.sql", import.meta.url), "utf8");
+  sqlite.exec(migration);
+  for (const [where, order, index] of [
+    ["", "updated_at DESC, id DESC", "directory_profiles_admin_updated_idx"],
+    ["WHERE category = 'veterinari'", "updated_at DESC, id DESC", "directory_profiles_admin_category_updated_idx"],
+    ["", "name COLLATE NOCASE ASC, id ASC", "directory_profiles_admin_name_idx"],
+    ["", "city COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC", "directory_profiles_admin_city_name_idx"],
+    ["WHERE status = 'published'", "updated_at DESC, id DESC", "directory_profiles_admin_status_updated_idx"],
+  ]) {
+    const plan = sqlite.prepare(`EXPLAIN QUERY PLAN SELECT id FROM directory_profiles ${where} ORDER BY ${order} LIMIT 50 OFFSET 50`).all();
+    assert.ok(plan.some(row => row.detail.includes(index)), JSON.stringify({ index, plan }));
+    assert.ok(plan.every(row => !/USE TEMP B-TREE FOR ORDER BY/i.test(row.detail)), JSON.stringify(plan));
+  }
+  sqlite.close();
 });
