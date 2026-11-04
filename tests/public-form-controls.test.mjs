@@ -31,22 +31,22 @@ test("canonical public form primitives preserve browser-native control semantics
   assert.doesNotMatch(src, /"use client"|onSubmit|window\.|localStorage|fetch\(/);
 });
 
-test("search page opts into shared controls without changing SSR GET actions or params", () => {
+test("search page delegates GET and hidden scope to shared public hero", () => {
   const page = read("app/hladat/page.tsx");
+  const universal = read("components/public-visual-system/universal-page-hero.tsx");
+  const search = read("components/home-portal-search.tsx");
   for (const fragment of [
-    '<form action="/hladat" method="get" className={styles.filterForm}',
     '<PublicFormField label="Typ výsledku">',
     '<PublicSelect name="typ" defaultValue={activeTypeFilter}>',
     '<PublicFormField label="Lokalita">',
-    "<PublicTextInput",
-    'name="lokalita"',
-    'name="q"',
-    'name="sekcia"',
-    'name="podsekcia"',
     "searchPortal(query",
-  ])
-    assert.ok(
-      page.replace(/\s+/g, " ").includes(fragment),
-      "missing unchanged search contract: " + fragment,
-    );
+    "<UniversalPageHero",
+    "searchDefaultValue={query}",
+    'name: "sekcia", value: section',
+    'name: "podsekcia", value: subsection',
+  ]) assert.ok(page.includes(fragment), "missing preserved search contract: " + fragment);
+  assert.match(universal, /<HomePortalSearch/);
+  assert.match(universal, /searchHidden/);
+  assert.match(search, /<form action=\{action\} method="get"/);
+  assert.match(search, /data-public-search-ui="main"/);
 });
