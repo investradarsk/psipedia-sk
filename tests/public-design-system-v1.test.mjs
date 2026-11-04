@@ -42,3 +42,39 @@ test("public design V1: canonical search retains route-scoped GET parameters", (
   assert.match(search, /hidden\.map/);
   assert.match(search, /searchScope/);
 });
+
+test("public canvas: all public pages inherit the homepage background on desktop and mobile", () => {
+  const globals = read("app/globals.css");
+  const design = read("app/design-system.css");
+  assert.match(globals, /--cream:\s*#f8f4eb/);
+  assert.match(globals, /body\s*\{[^}]*background:\s*var\(--cream\)/);
+  assert.match(design, /--ps-color-canvas:\s*var\(--cream\)/);
+  assert.match(design, /main#obsah\s*\{\s*background:\s*var\(--ps-color-canvas\)/);
+
+  const publicSurfaces = [
+    ["components/public-visual-system/public-visual-system.module.css", ".foundation"],
+    ["components/detail-primitives/detail-primitives.module.css", ".page"],
+    ["components/article-detail.module.css", ".modernArticle"],
+    ["components/editorial-section.module.css", ".main"],
+    ["components/directory-public.module.css", ".page"],
+    ["components/help-public.module.css", ".foundation"],
+    ["components/reviews-hub.module.css", ".foundation"],
+    ["components/map/map-public.module.css", ".page"],
+    ["app/kontakt/contact.module.css", ".page"],
+    ["components/dog-name-day-calendar.module.css", ".page"],
+  ];
+  for (const [path, selector] of publicSurfaces) {
+    const source = read(path);
+    const offset = source.indexOf(selector + " {");
+    assert.ok(offset >= 0, path + " root selector must exist");
+    const rule = source.slice(offset, source.indexOf("}", offset) + 1);
+    assert.match(rule, /background:\s*var\(--ps-color-canvas\)/, path + " must use the shared canvas");
+  }
+
+  const directory = read("components/directory-public.module.css");
+  assert.match(directory, /\.resultsSection\s*\{\s*background:\s*var\(--ps-color-canvas\)/);
+  const reviews = read("components/reviews-hub.module.css");
+  assert.match(reviews, /\.sectionAlt\s*\{\s*background:\s*var\(--ps-color-canvas\)/);
+  const events = read("components/events-public.module.css");
+  assert.match(events, /\.pageHeader\s*\{[^}]*background:\s*var\(--ps-color-canvas\)/);
+});
