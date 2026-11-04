@@ -25,7 +25,7 @@ test("directory and event editors stream before supplementary D1 reads", () => {
     const shellAt = file.indexOf("<AdminShell");
     assert.ok(authorizedAt >= 0 && readAt > authorizedAt && shellAt > readAt,
       name + " must authorize before reading the canonical record");
-    assert.match(file, /if (!(?:profile|event)) notFound\(\)/);
+    assert.match(file, /if \(!(?:profile|event)\) notFound\(\)/);
     assert.ok(file.includes(duplicate) && file.includes(optional));
     assert.match(file, /<Suspense fallback=/, name + " renders auxiliary data behind a streaming boundary");
     assert.doesNotMatch(file, /await Promise\.all\(\[\s*getManaged(?:DirectoryProfileById|EventById)/,
