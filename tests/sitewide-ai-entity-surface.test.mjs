@@ -7,7 +7,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 test("ARTICLE public surface already exposes canonical editorial identity and dates", () => {
   const source = read("../components/article-detail.tsx");
   for (const pattern of [
-    /<h1>\{article\.title\}<\/h1>/,
+    /title=\{article\.title\}/,
     /Publikované <time dateTime=\{article\.dateIso\}>/,
     /Aktualizované <time dateTime=\{article\.updatedDateIso\}>/,
     /section === "novinky" \? "NewsArticle" : "Article"/,
