@@ -529,7 +529,7 @@ export function AdminDirectoryEditor({
 
       <div className="admin-event-editor-grid">
         <div className="admin-event-fields" onChangeCapture={() => setFormDirty(true)}>
-          <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
+          <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} source={profile ? { entityType: "DIRECTORY", canonicalEntityId: profile.id } : undefined} onAccepted={applyAutomationUpdate} />
           <AdminEditorSection id="directory-main" className="admin-form-card admin-form-card--intro">
             <div className="admin-card-heading"><div><span>01</span><div><h2>Hlavné údaje</h2><p>Názov, zaradenie a krátke verejné predstavenie.</p></div></div></div>
             <div className="admin-field admin-field--title"><label htmlFor="directory-name">Názov profilu</label><input id="directory-name" value={name} onChange={(event) => changeName(event.target.value)} placeholder="Napríklad: Psia škola Pod Zoborom" required /></div>
