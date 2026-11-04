@@ -26,7 +26,10 @@ type Job = LinkRow & {
 };
 const MAX_LINKS=10000;
 const MAX_ATTEMPTS=8;
-const BATCH_SIZE=2;
+// Preview is read-only and safe to process in modest bounded groups.
+// Actual owner-confirmed writes remain at the original two per minute.
+export const MANUAL_PREVIEW_BATCH_SIZE=10;
+export const MANUAL_EXECUTION_BATCH_SIZE=2;
 const ALLOWED_SCOPES=new Set(NOTION_AUTHORITY_GROUPS
   .filter(group=>group.active && areaOfManualTransferScope(group.scope)!==null)
   .map(group=>group.scope));
@@ -304,7 +307,7 @@ async function executeVerified(db:D1Database,bindings:ManualTransferBindings,job
   return failed?"PARTIAL" as const:"DONE" as const;
 }
 
-/** Only two small D1-claimed items per minute, read-only preview first. */
+/** Bounded per-minute queue: up to ten read-only previews, at most two writes. */
 export async function runManualTransferQueueBatch(input:{
   database:D1Database;bindings:ManualTransferBindings;limit?:number;
 }):Promise<{claimed:number;previewed:number;done:number;partial:number;retried:number;failed:number;disabled:boolean}>{
@@ -313,7 +316,8 @@ export async function runManualTransferQueueBatch(input:{
     total.disabled=true;return total;
   }
   if(!await manualTransferSchemaReady(input.database))return {...total,disabled:true};
-  const limit=Math.min(BATCH_SIZE,Math.max(1,input.limit??1));
+  const limit=Math.min(MANUAL_PREVIEW_BATCH_SIZE,Math.max(1,input.limit??1));
+  let executionClaims=0;
   for(let n=0;n<limit;n++){
     const now=new Date().toISOString();
     const stale=new Date(Date.now()-10*60*1000).toISOString();
@@ -330,6 +334,8 @@ export async function runManualTransferQueueBatch(input:{
       "RETURNING id,run_id,scope,profile_id,notion_page_id,preview_hash,attempts"
     ).bind(now,now,now,stale).first<Omit<Job,"direction"|"area">>();
     if(!item){
+      // Never turn higher preview throughput into faster live writes.
+      if(executionClaims>=MANUAL_EXECUTION_BATCH_SIZE)break;
       isPreview=false;
       item=await input.database.prepare(
         "UPDATE notion_manual_transfer_items SET status='RUNNING',"+
@@ -344,6 +350,7 @@ export async function runManualTransferQueueBatch(input:{
       ).bind(now,now,now,stale).first<Omit<Job,"direction"|"area">>();
     }
     if(!item)break;
+    if(!isPreview)executionClaims++;
     total.claimed++;
     const header=await input.database.prepare(
       "SELECT area,direction FROM notion_manual_transfer_runs WHERE id=?"
