@@ -182,6 +182,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0154_facebook_content_share_markers.sql",
     "0155_breed_notion_extra_fields.sql",
     "0156_notion_manual_transfer_jobs.sql",
+    "0157_facebook_weekly_plan_marks.sql",
   ]);
 });
 

@@ -18,6 +18,7 @@ on:
           - 0154_facebook_content_share_markers.sql
           - 0155_breed_notion_extra_fields.sql
           - 0156_notion_manual_transfer_jobs.sql
+          - 0157_facebook_weekly_plan_marks.sql
           - 0147_notion_field_authority.sql
           - 0062_profile_reviews_foundation.sql
           - 0063_partner_claims_verification.sql
@@ -228,6 +229,7 @@ jobs:
             0154_facebook_content_share_markers.sql) expected_confirmation="APPLY-0154-psipedia-sk-db" ;;
             0155_breed_notion_extra_fields.sql) expected_confirmation="APPLY-0155-psipedia-sk-db" ;;
             0156_notion_manual_transfer_jobs.sql) expected_confirmation="APPLY-0156-psipedia-sk-db" ;;
+            0157_facebook_weekly_plan_marks.sql) expected_confirmation="APPLY-0157-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
