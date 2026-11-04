@@ -28,37 +28,56 @@ export function PublicListingRowCard({
   eventStatus?: string;
   hasImage?: boolean;
 }) {
+  const contents = (
+    <span className={`${styles.cardInner} ${styles.cardWithImage}`}>
+      <span className={styles.cardImage} aria-hidden="true">
+        {media}
+      </span>
+      <span className={styles.cardCopy}>
+        <span className={styles.cardTopline} data-public-card-meta>
+          <span className={styles.cardType}>{typeLabel}</span>
+          {badge}
+        </span>
+        {kind === "event" ? (
+          <h3 className={styles.cardTitle} data-public-card-title>{title}</h3>
+        ) : (
+          <strong className={styles.cardTitle} data-public-card-title>{title}</strong>
+        )}
+        {location && <span className={styles.cardLocation}>{location}</span>}
+        {meta && (
+          <span className={styles.cardMeta} data-public-card-meta>
+            {meta}
+          </span>
+        )}
+      </span>
+    </span>
+  );
+
+  if (kind === "event") {
+    // The event card remains an article containing exactly one full-card link.
+    // This retains the existing event's semantic/a11y and navigation contract.
+    return (
+      <article
+        className={styles.card}
+        data-public-card="event-grid"
+        data-event-card
+        data-event-has-image={String(Boolean(hasImage))}
+        data-event-status={eventStatus}
+      >
+        <Link className={styles.cardLink} href={href}>{contents}</Link>
+      </article>
+    );
+  }
+
   return (
     <Link
       className={styles.card}
       href={href}
-      data-public-card={kind === "directory" ? "directory" : "event-grid"}
-      data-directory-card={kind === "directory" ? "" : undefined}
-      data-directory-featured={kind === "directory" && featured ? "true" : undefined}
-      data-event-card={kind === "event" ? "" : undefined}
-      data-event-has-image={kind === "event" ? String(Boolean(hasImage)) : undefined}
-      data-event-status={kind === "event" ? eventStatus : undefined}
+      data-public-card="directory"
+      data-directory-card
+      data-directory-featured={featured ? "true" : undefined}
     >
-      <span className={`${styles.cardInner} ${styles.cardWithImage}`}>
-        <span className={styles.cardImage} aria-hidden="true">
-          {media}
-        </span>
-        <span className={styles.cardCopy}>
-          <span className={styles.cardTopline} data-public-card-meta>
-            <span className={styles.cardType}>{typeLabel}</span>
-            {badge}
-          </span>
-          <strong className={styles.cardTitle} data-public-card-title>
-            {title}
-          </strong>
-          {location && <span className={styles.cardLocation}>{location}</span>}
-          {meta && (
-            <span className={styles.cardMeta} data-public-card-meta>
-              {meta}
-            </span>
-          )}
-        </span>
-      </span>
+      {contents}
     </Link>
   );
 }
