@@ -74,7 +74,11 @@ export function eventListingSql(f: EventListingFilters, today = bratislavaDateKe
         add(`instr(${eventSearchSql(eventSearchFields(['title', 'excerpt', 'event_type', 'venue', 'address', 'city', 'region', 'organizer']))}, ?) > 0`, normalizeEventSearch(f.query));
     const asc = 'start_date ASC, start_time ASC, id ASC';
     const order = f.sort === 'najblizsie' ? asc : f.sort === 'najnovsie' ? 'start_date DESC, start_time DESC, id DESC' : `CASE WHEN ${end} < '${today}' THEN CASE WHEN cancelled = 1 THEN 4 ELSE 3 END WHEN cancelled = 1 THEN 2 WHEN start_date <= '${today}' THEN 0 ELSE 1 END, CASE WHEN ${end} < '${today}' THEN ${end} END DESC, CASE WHEN ${end} < '${today}' THEN start_time END DESC, CASE WHEN ${end} < '${today}' THEN id END DESC, ${asc}`;
-    return { where: clauses.join(' AND '), values, order };
+    // Only the unfiltered upcoming overview groups five records per type.
+    // Explicit date sort and every filtered/category listing retain their usual order.
+    const groupByType = f.type === 'Všetky' && f.time === 'upcoming' && !f.sort &&
+        !f.query && !f.region && !f.month && !f.from && !f.to && !f.city;
+    return { where: clauses.join(' AND '), values, order, groupByType };
 }
 export function eventTypeSelectionRedirect(raw: Record<string, string | string[] | undefined>) {
     const type = Array.isArray(raw.typ) ? raw.typ[0] : raw.typ;
