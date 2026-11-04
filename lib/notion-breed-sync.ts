@@ -123,7 +123,7 @@ function manualBreedPresentFieldIds(page:NotionPage):Set<BreedNotionField>{
     else if(spec.type==="select")value=notionSelectProperty(page,spec.notion);
     else if(spec.type==="title")value=notionTitleProperty(page,spec.notion);
     else value=notionRichTextProperty(page,spec.notion);
-    if(manualBreedCellHasValue(spec.type,value))filled.add(spec.id as BreedNotionField);
+    if(manualBreedCellHasValue(spec.type,value,spec.id))filled.add(spec.id as BreedNotionField);
   }
   return filled;
 }
