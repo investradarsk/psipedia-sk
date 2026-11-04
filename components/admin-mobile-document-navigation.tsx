@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
 
 /**
- * iOS/mobile admin recovery: client-side Next.js transitions can preserve a
+ * iOS/iPadOS recovery: client-side Next.js transitions can preserve a
  * stale RSC router tree when moving into the streamed workspace or article list
  * after a deployment. Navigate these two routes with a fresh document instead.
  *
- * Capture applies to *all* admin links (drawer, breadcrumbs, quick links), not
+ * Capture applies to *all* affected iOS admin links (drawer, breadcrumbs, quick links), not
  * just the sidebar. Desktop navigation remains client-side and fast.
  */
 export function AdminMobileDocumentNavigation() {
@@ -16,6 +17,7 @@ export function AdminMobileDocumentNavigation() {
       if (event.defaultPrevented || event.button !== 0 ||
         event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
         !window.matchMedia("(max-width: 820px)").matches ||
+        !isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints) ||
         !(event.target instanceof Element)) return;
 
       const anchor = event.target.closest("a[href]") as HTMLAnchorElement | null;
