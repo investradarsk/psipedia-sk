@@ -27,7 +27,7 @@
 .main {
   min-width: 0;
   overflow-x: clip;
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 
 .headerShell {
