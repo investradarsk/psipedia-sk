@@ -1,4 +1,4 @@
-import { HOMEPAGE_REAL_IMAGE_SQL } from "./homepage-media";
+import { HOMEPAGE_REAL_IMAGE_SQL } from "./homepage-media.ts";
 
 /**
  * Load multiple homepage directory categories in one D1 roundtrip, retaining
