@@ -16,7 +16,7 @@ const home = read("app/page.tsx");
 const directoryPage = read("components/directory-page.tsx");
 
 test("SECTION-HERO-V2 keeps one canonical hero and a homepage-style separate tools panel", () => {
-  assert.match(hero, /export async function UnifiedSectionHero/);
+  assert.match(hero, /export function UnifiedSectionHero/);
   assert.match(hero, /data-unified-section-hero-visual/);
   assert.match(hero, /data-unified-section-hero-tools/);
   assert.match(hero, /<div className=\{styles\.visual\}[\s\S]*<\/div>[\s\S]*hasTools \? \(/);
