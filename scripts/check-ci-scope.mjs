@@ -129,6 +129,7 @@ for (const name of [
   "map-geo-foundation-ci.yml",
   "map-production-launch-ci.yml",
   "map-public-ui-ci.yml",
+  "map-read-api-ci.yml",
   "notion-article-sync-ci.yml",
   "notion-events-help-sync-ci.yml",
   "organization-profile-e2e.yml",
@@ -184,7 +185,6 @@ const workerDomainSuites = [
   "notion-events-help-sync-ci.yml",
   "services-v3-hourly-auto-sync.yml",
   "sitemap-edge-resilience.yml",
-  "map-read-api-ci.yml",
 ];
 for (const name of workerDomainSuites) {
   assert.equal(prWorkflowWouldRun(name, ["worker/index.ts"]), false,
