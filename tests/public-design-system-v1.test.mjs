@@ -68,13 +68,13 @@ test("public canvas: all public pages inherit the homepage background on desktop
     const offset = source.indexOf(selector + " {");
     assert.ok(offset >= 0, path + " root selector must exist");
     const rule = source.slice(offset, source.indexOf("}", offset) + 1);
-    assert.match(rule, /background:\s*var\(--ps-color-canvas\)/, path + " must use the shared canvas");
+    assert.match(rule, /background:\s*var\(--cream\)/, path + " must use the shared canvas");
   }
 
   const directory = read("components/directory-public.module.css");
-  assert.match(directory, /\.resultsSection\s*\{\s*background:\s*var\(--ps-color-canvas\)/);
+  assert.match(directory, /\.resultsSection\s*\{\s*background:\s*var\(--cream\)/);
   const reviews = read("components/reviews-hub.module.css");
-  assert.match(reviews, /\.sectionAlt\s*\{\s*background:\s*var\(--ps-color-canvas\)/);
+  assert.match(reviews, /\.sectionAlt\s*\{\s*background:\s*var\(--cream\)/);
   const events = read("components/events-public.module.css");
-  assert.match(events, /\.pageHeader\s*\{[^}]*background:\s*var\(--ps-color-canvas\)/);
+  assert.match(events, /\.pageHeader\s*\{[^}]*background:\s*var\(--cream\)/);
 });
