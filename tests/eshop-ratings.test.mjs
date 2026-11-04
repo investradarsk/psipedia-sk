@@ -114,6 +114,6 @@ test("e-shop submission reuses verified reviewer, Turnstile and rate limiting wi
 test("public e-shop score stays separate from external ratings", () => {
   const profile = read("app/recenzie/eshopy/[slug]/page.tsx");
   const hub = read("components/reviews-hub.tsx");
-  assert.match(profile, /Externé hodnotenia z Google, Heureky ani samotného e-shopu sa do priemeru Psipedia nezapočítavajú/);
+  assert.match(profile, /Externé hodnotenia z Google,\s+Heureky ani samotného e-shopu sa do priemeru Psipedia nezapočítavajú/);
   assert.match(hub, /externé hviezdičky sa do skóre Psipedia nemiešajú/);
 });

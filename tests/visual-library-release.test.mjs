@@ -39,8 +39,9 @@ test("stage 7 affects CSS only on approved desktop banners, not mobile layouts o
   assert.match(banner, /styles\.mobileCopy/);
   assert.match(banner, /styles\.desktopCopy/);
   assert.match(css, /@media \(min-width: 621px\)/);
-  assert.match(css, /\.mobileCopy\{display:none\}/);
-  assert.match(css, /\.desktopCopy\{display:inline\}/);
+  // Approved desktop-only copy is scoped to published banners at >=621px.
+  assert.match(css, /\.magazine\[data-visual-library-desktop-published="true"\] \.mobileCopy\s*\{\s*display:\s*none;/);
+  assert.match(css, /\.magazine\[data-visual-library-desktop-published="true"\] \.desktopCopy\s*\{\s*display:\s*inline;/);
   assert.match(home, /desktopCopy=\{homeProfileBannerColors\}/);
   assert.match(atlas, /desktopCopy=\{breedClubBannerColors\}/);
   assert.match(css, /var\(--ps-visual-desktop-button/);
@@ -73,17 +74,19 @@ test("desktop-only text is responsive inside the original semantic heading and C
   const editor=read("components/admin-visual-library-editor.tsx");
   const store=read("lib/visual-library-edit-store.ts");
   // One heading and one CTA link, with viewport-specific text descendants.
-  assert.equal((component.match(/<h2\b/g)||[]).length, 1);
-  assert.equal((component.match(/<Link href=\{href\} className="button button--dark">/g)||[]).length, 1);
+  assert.equal((component.match(/<PublicHeading\b/g)||[]).length, 1);
+  assert.match(component, /<PublicHeading role="section" as="h2" id=\{headingId\}>/);
+  assert.equal((component.match(/<PublicActionLink\b/g)||[]).length, 1);
+  assert.match(component, /<PublicActionLink\s+href=\{href\}\s+variant=\{actionVariant\}\s+className="button button--dark"/);
   assert.match(component, /<span className=\{styles\.mobileCopy\}>\{title\}<\/span>/);
   assert.match(component, /<span className=\{styles\.desktopCopy\}>\{desktopCopy\.title\}<\/span>/);
   assert.match(component, /<span className=\{styles\.mobileCopy\}>\{description\}<\/span>/);
   assert.match(component, /<span className=\{styles\.desktopCopy\}>\{desktopCopy\.description\}<\/span>/);
   assert.match(component, /<span className=\{styles\.mobileCopy\}>\{label\}<\/span>/);
   assert.match(component, /<span className=\{styles\.desktopCopy\}>\{desktopCopy\.ctaLabel\}<\/span>/);
-  assert.match(css, /\.mobileCopy\{display:inline\}/);
-  assert.match(css, /\.desktopCopy\{display:none\}/);
-  assert.match(css, /@media \(min-width: 621px\)\{/);
+  assert.match(css, /\.mobileCopy\s*\{\s*display:\s*inline;/);
+  assert.match(css, /\.desktopCopy\s*\{\s*display:\s*none;/);
+  assert.match(css, /@media \(min-width: 621px\)\s*\{/);
   assert.match(home, /desktopCopy=\{desktopCopy\}/);
   assert.match(store, /return stored\.published/);
   assert.match(editor, /draft\.scope === "one"/);

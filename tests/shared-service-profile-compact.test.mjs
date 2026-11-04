@@ -18,8 +18,8 @@ const partnerCss = read("components/partner-public-ownership.module.css");
 test("all directory categories and organizations use one shared, explicit compact hero", () => {
   assert.match(shared, /mediaPresentation\?: "standard" \| "compact"/);
   assert.match(shared, /data-media-presentation=\{mediaPresentation\}/);
-  assert.match(directory, /<DetailHero kind="directory" mediaPresentation="compact"/);
-  assert.match(organization, /<DetailHero kind="organization" mediaPresentation="compact"/);
+  assert.match(directory, /<DetailHero\s+kind="directory"\s+mediaPresentation="compact"/);
+  assert.match(organization, /<DetailHero\s+kind="organization"\s+mediaPresentation="compact"/);
   assert.match(css, /\.heroFrame\[data-media-presentation="compact"\]/);
   assert.match(css, /\[data-image-display="natural"\] img/);
   assert.match(css, /object-fit: contain/);
@@ -57,7 +57,7 @@ test("common review, navigation and form are compact without removing actions or
   assert.match(reviewsCss, /\.zeroState \{ padding: 12px 15px; \}/);
   assert.match(reviewsCss, /min-height: 44px/);
   assert.match(linksCss, /min-height: 52px/);
-  assert.match(partnerCss, /\.management, \.correction \{ gap: 14px; padding: 16px 20px; \}/);
+  assert.match(partnerCss, /\.management,\s*\.correction\s*\{\s*gap:\s*14px;\s*padding:\s*16px 20px;\s*\}/);
   assert.doesNotMatch(form, /✉️/);
   assert.match(form, /rows=\{4\}/);
   assert.match(form, /required/);

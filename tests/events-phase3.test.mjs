@@ -64,13 +64,13 @@ test("Events 2.0 presents calendar after managed hero, with shared date filterin
   assert.doesNotMatch(eventsPage, /<SectionHero\b|heroImage|event-calendar-hero--photo/);
   assert.match(
     eventsPage,
-    /getSectionHeroVisual\(isMainListing \|\| !categorySlug \? "section\.podujatia" : `events\.\$\{categorySlug\}`\)/,
+    /getSectionHeroVisual\(\s*isMainListing \|\| !categorySlug \? "section\.podujatia" : `events\.\$\{categorySlug\}`,?\s*\)/,
   );
   assert.match(eventsCss, /\.calendarSection[\s\S]*var\(--ps-space-section\)/);
 });
 
 test("event filters keep canonical page type, regions, date status, search and reliable month ranges", () => {
-  assert.match(calendar, /const typePathname = view.type === "Všetky"/);
+  assert.match(calendar, /const typePathname\s*=\s*view.type === "Všetky"/);
   assert.match(calendar, /eventTypePortalHref\(view.type\)/);
   assert.match(listing, /slovakRegions\s*\.filter/);
   assert.match(eventCard, /eventDateStatus\(event, today\)/);
@@ -84,20 +84,20 @@ test("event filters keep canonical page type, regions, date status, search and r
   assert.match(listing, /<details/);
   // Approved UX: month/type/time changes update only calendar data, not the hero.
   assert.ok(calendar.includes("useState<View>"));
-  assert.ok(calendar.includes('window.history.pushState(window.history.state,"",href)'));
-  assert.ok(calendar.includes('window.addEventListener("popstate",restore)'));
+  assert.match(calendar, /window\.history\.pushState\(\s*window\.history\.state,\s*"",\s*href\s*\)/);
+  assert.match(calendar, /window\.addEventListener\(\s*"popstate",\s*restore\s*\)/);
   assert.ok(calendar.includes('requestRef.current?.abort()'));
-  assert.ok(calendar.includes('fetch(endpoint.toString(),{signal:controller.signal'));
+  assert.match(calendar, /fetch\(\s*endpoint\.toString\(\),\s*\{\s*signal:\s*controller\.signal\s*,/);
   assert.doesNotMatch(calendar, /eventTypeFilters\.map|const eventTypes\s*=/);
 });
 
 test("event categories link from search shortcuts and calendar legend without duplicate overview cards", () => {
-  assert.match(eventsPage, /eventTypes\.filter/);
+  assert.match(eventsPage, /eventTypes\s*\.filter/);
   assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
   assert.match(calendar, /eventTypePortalHref\(type\)/);
   assert.doesNotMatch(eventsPage, /PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(listing, /className=\{`\$\{styles\.cardGrid\} \$\{directoryStyles\.listRows\}`\} data-event-list/);
+  assert.match(listing, /className=\{`\$\{styles\.cardGrid\}\s+\$\{directoryStyles\.listRows\}`\}\s+data-event-list/);
   assert.doesNotMatch(
     calendar,
     /items\.slice\(0, 5\)|data-event-category-overview|data-event-category=\{group\.eventType\}|Všetky výstavy|Všetky tréningy/,
@@ -199,7 +199,7 @@ test("calendar data is month-scoped, publication-only and read-only", () => {
     /\b(?:UPDATE|DELETE|INSERT)\s+managed_events\b|createManagedEvent|updateManagedEvent|deleteManagedEvent/,
   );
   // Selected-day events now come from the latest scoped JSON response.
-  assert.ok(calendar.includes("eventsForCalendarDay(data.calendarEvents,selectedDay)"));
+  assert.match(calendar, /eventsForCalendarDay\(\s*data\.calendarEvents,\s*selectedDay\s*\)/);
   const ajax = readFileSync(new URL("../app/api/public/events/calendar/route.ts", import.meta.url), "utf8");
   assert.ok(ajax.includes("getPublicEventCalendar(filters, month, day)"));
   assert.ok(ajax.includes("getPublishedEventListing(filters)"));

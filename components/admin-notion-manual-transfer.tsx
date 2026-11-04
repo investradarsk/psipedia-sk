@@ -49,6 +49,7 @@ export function AdminNotionManualTransfer(){
   const [direction,setDirection]=useState<"NOTION_TO_ADMIN"|"ADMIN_TO_NOTION">("NOTION_TO_ADMIN");
   const [runId,setRunId]=useState("");
   const [detail,setDetail]=useState<Detail|null>(null);
+  const [lastPollAt,setLastPollAt]=useState<number|null>(null);
   const [history,setHistory]=useState<Run[]>([]);
   const [offset,setOffset]=useState(0);
   const [onlyErrors,setOnlyErrors]=useState(false);
@@ -87,7 +88,7 @@ export function AdminNotionManualTransfer(){
       const response=await fetch("/api/admin/notion-manual-transfer?"+query,
         {cache:"no-store",credentials:"same-origin"});
       const body=await readJson<Detail>(response);
-      if(active)setDetail(body);
+      if(active){setDetail(body);setLastPollAt(Date.now());}
     }catch(e){if(active)setError(e instanceof Error?e.message:"Načítanie zlyhalo.")}};
     void refresh();
     const timer=window.setInterval(()=>{void refresh()},7000);
@@ -95,7 +96,7 @@ export function AdminNotionManualTransfer(){
   },[runId,offset,onlyErrors]);
   const chooseRun=(id:string)=>{
     setRunId(id);setOffset(0);setOnlyErrors(false);
-    setDetail(null);setError("");setMessage("");
+    setDetail(null);setLastPollAt(null);setError("");setMessage("");
   };
   async function post(payload:Record<string,unknown>){
     setBusy(true);setError("");setMessage("");
@@ -122,6 +123,10 @@ export function AdminNotionManualTransfer(){
   const canRetry=["PARTIAL","FAILED"].includes(detail?.run.status??"")&&!busy;
   const progress=detail?.run.total_profiles
     ?Math.round((detail.run.processed_profiles/detail.run.total_profiles)*100):0;
+  const waitingForFirstProfile=Boolean(detail?.run.status==="PREVIEW"
+    &&detail.run.processed_profiles===0
+    &&Number.isFinite(Date.parse(detail.run.created_at))
+    &&lastPollAt!==null&&lastPollAt-Date.parse(detail.run.created_at)>4*60*1000);
 
   return <section className={styles.root} aria-label="Jednorazový prenos údajov">
     <div className={styles.head}>
@@ -175,6 +180,12 @@ export function AdminNotionManualTransfer(){
         {detail.run.processed_profiles} z {detail.run.total_profiles} profilov ·
         {progress}%</p>
       <progress max={detail.run.total_profiles||1} value={detail.run.processed_profiles}/>
+      {detail.run.status==="PREVIEW"&&detail.run.selection==="ALL"
+        ?<p className={styles.hint}>Hromadná kontrola beží po dávkach cez minútový cron (najviac 10 profilov za minútu).
+          PENDING znamená, že profil ešte čaká vo fronte. Kontrola nič neprepisuje.</p>:null}
+      {waitingForFirstProfile
+        ?<p className={styles.notice} role="status">Zatiaľ sa nedokončil ani prvý profil. Môžu sa spracúvať staršie úlohy;
+          ak sa priebeh ďalej nepohne, treba preveriť minútový cron alebo chyby jeho vykonávania.</p>:null}
       <div className={styles.stats}>
         <div><strong>{detail.run.total_profiles}</strong><span>Profilov</span></div>
         <div><strong>{detail.run.changed_fields}</strong><span>{["PREVIEW","PREVIEW_READY"].includes(detail.run.status)?"Rozdielov":"Prenesených polí"}</span></div>
@@ -202,7 +213,7 @@ export function AdminNotionManualTransfer(){
       {detail.items.length===0?<p>Zatiaľ nie sú spracované položky alebo tomuto filtru nič nezodpovedá.</p>:null}
       {detail.items.map(item=><details key={item.id} className={styles.item}>
         <summary><strong>{item.scope} · ID {item.profile_id}</strong>
-          <span>{item.status} · {item.changed_fields} zmien · {item.failed_fields} chýb</span>
+          <span>{item.status==="PENDING"?"Čaká vo fronte":item.status==="PREVIEWING"?"Kontroluje sa":item.status} · {item.changed_fields} zmien · {item.failed_fields} chýb</span>
         </summary>
         {item.last_error_code?<p className={styles.error}>Dôvod: {errorLabel(item.last_error_code)}</p>:null}
         {item.fields.length?<table><thead><tr><th>Pole</th><th>Výsledok</th><th>Dôvod</th></tr></thead>

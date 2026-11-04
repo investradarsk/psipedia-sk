@@ -68,8 +68,10 @@ test("public HTML has a short edge cache while admin remains no-store", () => {
 });
 
 test("breed detail uses a selective canonical query and avoids runtime image HEAD checks", () => {
-  assert.match(breedStore, /WHERE slug=\? AND \$\{canonicalBreedWinnerSql\('managed_breeds'\)\} LIMIT 1/);
-  const detailLoader = breedStore.match(/const getPublishedBreedUncached=[\s\S]*?export const getPublishedBreed=/)?.[0] ?? "";
+  // Formatting and quote style change during normal refactors; require the
+  // canonical filter, bounded query and publicly safe image projection.
+  assert.match(breedStore, /WHERE slug=\? AND \$\{canonicalBreedWinnerSql\(["']managed_breeds["']\)\} LIMIT 1/);
+  const detailLoader = breedStore.match(/const getPublishedBreedUncached\s*=[\s\S]*?export const getPublishedBreed\s*=/)?.[0] ?? "";
   assert.doesNotMatch(detailLoader, /availableBreedImage/);
   assert.match(detailLoader, /ownedBreedImage/);
 });
@@ -77,11 +79,11 @@ test("breed detail uses a selective canonical query and avoids runtime image HEA
 
 test("homepage breed-of-the-day validates images in bounded batches", () => {
   const loader = breedStore.match(/export async function getBreedOfTheDay[\s\S]*?export async function listPublishedBreeds/)?.[0] ?? "";
-  assert.match(loader, /candidates\.slice\(offset,offset\+8\)/);
-  assert.match(loader, /withAvailableBreedImages\(batch,env\)/);
-  assert.match(loader, /if\(selected\)break/);
-  assert.match(loader, /fallback\?\?=checked\[0\]/);
-  assert.match(loader, /const row=selected\?\?fallback/);
+  assert.match(loader, /candidates\s*\.slice\(offset,\s*offset\s*\+\s*8\)/);
+  assert.match(loader, /withAvailableBreedImages\(batch,\s*env\)/);
+  assert.match(loader, /if\s*\(selected\)\s*break/);
+  assert.match(loader, /fallback\s*\?\?=\s*checked\[0\]/);
+  assert.match(loader, /const row\s*=\s*selected\s*\?\?\s*fallback/);
   assert.doesNotMatch(loader, /withAvailableBreedImages\(candidates\.map/);
   assert.doesNotMatch(loader, /\|\|checked\[0\]/);
 });

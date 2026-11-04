@@ -86,12 +86,13 @@ test("valuable managed review landing content is preserved without treating labe
 
 test("shared article cards can show review category metadata without a second card system", () => {
   const card = read("components/article-card.tsx");
-  assert.match(card, /topicHref: topicHrefOverride/);
-  assert.match(card, /topicLabel: topicLabelOverride/);
-  assert.match(card, /actionLabel/);
-  assert.match(card, /const topicHref = topicHrefOverride \?\?/);
-  assert.match(card, /const topicLabel = topicLabelOverride \?\?/);
-  assert.match(card, /resolvedActionLabel/);
+  assert.match(card, /topicHref\?: string/);
+  assert.match(card, /topicLabel\?: string/);
+  assert.match(card, /actionLabel\?: string/);
+  assert.match(card, /<PublicArticleCard/);
+  assert.match(card, /topicHref=\{topicHref \?\? presentation\.topicHref\}/);
+  assert.match(card, /topicLabel \?\? \(resolvedVariant === "row"/);
+  assert.match(card, /actionLabel=\{actionLabel \?\? presentation\.actionLabel\}/);
   assert.equal((card.match(/export function ArticleCard/g) ?? []).length, 1);
 });
 
