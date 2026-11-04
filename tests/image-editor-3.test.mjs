@@ -120,7 +120,7 @@ test("IMAGE-EDITOR-3: natural portraits can grow without cropping in each detail
   const frameCss = read("components/image-display.module.css");
   // Detail imagery is now inside the sole universal HERO, not a second
   // independent heroMedia frame. Natural photos must remain uncropped.
-  assert.match(hero, /mediaSlot=\{imageUrl\s*\?\s*media\s*:\s*undefined\}/);
+  assert.match(hero, /mediaSlot=\{kind\s*===\s*"organization"\s*\?\s*media\s*:\s*imageUrl\s*\?\s*media\s*:\s*undefined\}/);
   assert.match(universal, /data-public-hero-configured-media/);
   assert.match(universalCss, /\.mediaSlot\s+\[data-image-display="natural"\] img/);
   assert.match(frameCss, /\.frame\s+\.naturalPhoto\s*\{/);

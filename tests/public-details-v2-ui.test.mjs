@@ -80,9 +80,15 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const canonical=hero.locator('[data-unified-section-hero]'); assert.equal(await canonical.count(),1);
  const image=canonical.locator('[data-unified-section-hero-media]');
  assert.equal(await image.count(),1,'all details must use the same photographic hero');
- const visual=image.locator('img').first();
+ const visual=name==='organization'
+    ? image.locator('[data-public-profile-media] [data-public-media-fallback]')
+    : image.locator('img').first();
  const visualBox=await visual.boundingBox();
- assert.ok(visualBox&&visualBox.width>0&&visualBox.height>0,`${name} ${width} visible shared hero photograph`);
+ assert.ok(visualBox&&visualBox.width>0&&visualBox.height>0,`${name} ${width} visible shared hero media`);
+ if(name==='organization') {
+  assert.equal(await image.locator('[data-public-profile-media] img').count(),0,'organization without photo has no fabricated photo');
+  assert.equal(await image.locator('[data-public-profile-media] [data-public-media-fallback]').count(),1,'accessible organization placeholder');
+ }
  const photoBox=await canonical.locator('[data-unified-section-hero-visual]').boundingBox();
  const titleBox=await canonical.locator('h1').boundingBox();
  assert.ok(photoBox && titleBox && photoBox.width>=titleBox.width,`${name} ${width} title overlays common photo`);
@@ -91,7 +97,7 @@ test('unified public details: responsive layout, honest media/data, actions and 
  if(name==='adoption-breed-duplicate') assert.doesNotMatch(await page.locator('main').innerText(),/Kríženec\s*·\s*kríženec/i,'breed mix must not duplicate name');
  if(name.includes('long')) assert.equal(await canonical.locator('h1').count(),1,'long titles retain the single page heading');
  if(name==='event-cancelled') assert.equal(await hero.locator('[data-detail-state="cancelled"]').count(),1,'cancelled state distinct from type');
- for(const minimal of ['directory-minimal','adoption-minimal','organization']) {
+ for(const minimal of ['directory-minimal','adoption-minimal']) {
   if(name===minimal) assert.ok((await visual.getAttribute('src'))?.includes('hero-labrador.webp'),`${name} keeps shared fallback photo`);
  }
  // Event pages intentionally use their category's illustration in the same HERO.
