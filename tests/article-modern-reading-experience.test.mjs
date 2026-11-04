@@ -549,8 +549,8 @@ test("ARTICLE-CARDS-1 homepage and unified search consume the same article famil
   assert.doesNotMatch(searchStyles, /\.articleCopy\b|\.articleImage\b/);
 });
 
-test("ARTICLE-READING-WHITE-1 scopes a high-contrast reading surface to article pages", () => {
-  assert.match(styles, /\.modernArticle\s*\{[^}]*background:\s*#fff;/s);
+test("article keeps high-contrast editorial typography on the shared cream page canvas", () => {
+  assert.match(styles, /\.modernArticle\s*\{[^}]*background:\s*var\(--cream\);/s);
   assert.match(styles, /--article-reading-width:\s*800px/);
   assert.match(
     styles,
