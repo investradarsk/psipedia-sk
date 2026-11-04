@@ -53,7 +53,7 @@ test("atlas projection avoids full FCI and SEO blobs while retaining canonical i
   assert.match(page, /listPublishedCanonicalBreedAtlasCards\(\)/);
   assert.match(browser, /BreedAtlasCard\[\]/);
   assert.match(crawlIndex, /BreedAtlasCard\[\]/);
-  assert.match(store, /export type BreedAtlasCard = Pick<ManagedBreedIndexItem/);
+  assert.match(store, /export type BreedAtlasCard\s*=\s*Pick<\s*ManagedBreedIndexItem\s*,/);
 });
 
 test("atlas SQL scalar FCI projections preserve measurement fallbacks, reject malformed JSON", () => {
