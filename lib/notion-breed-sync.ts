@@ -614,6 +614,7 @@ export async function writeBackBreedEditorialToNotion(args:{
     .filter(key=>args.forceFieldKeys?.includes(key)||!sameBreedField(before[key],after[key]));
   if(!changed.length)return {linked:true,updated:false,reason:"no-mirrored-field-change" as const};
   const patch:Record<string,unknown>={};
+  const queued:Array<{field:string;properties:Record<string,unknown>}>=[];
   const acknowledged:string[]=[];
   const pending:string[]=[];
   for(const field of changed){
@@ -625,8 +626,9 @@ export async function writeBackBreedEditorialToNotion(args:{
       pending.push(field);continue;
     }
     try {
-      Object.assign(patch,breedNotionContentPatch(field,after[field]));
-      acknowledged.push(field);
+      const properties=breedNotionContentPatch(field,after[field]);
+      Object.assign(patch,properties);
+      queued.push({field,properties});
     } catch (error) {
       // A malformed or oversized source cell must not block unrelated Admin
       // edits; keep this cell pending for a later retry.
@@ -638,17 +640,44 @@ export async function writeBackBreedEditorialToNotion(args:{
     }
   }
   let written=page;
-  if(Object.keys(patch).length){
-    written=await notionRequest<NotionPage>(args.bindings,
-      "/pages/"+encodeURIComponent(page.id),{
-        method:"PATCH",body:JSON.stringify({properties:patch}),
-      });
-    if(written.id!==page.id||!written.properties)
-      throw new Error("BREED_NOTION_WRITEBACK_UNCONFIRMED");
-    const confirmed=breedFieldSnapshot(notionPageToManagedBreedInput(written));
-    for(const field of acknowledged){
-      if(!sameBreedField(confirmed[field],after[field]))
+  if(queued.length){
+    const submit=async(properties:Record<string,unknown>)=>{
+      const result=await notionRequest<NotionPage>(args.bindings,
+        "/pages/"+encodeURIComponent(page.id),{
+          method:"PATCH",body:JSON.stringify({properties}),
+        });
+      if(result.id!==page.id||!result.properties)
         throw new Error("BREED_NOTION_WRITEBACK_UNCONFIRMED");
+      return result;
+    };
+    try {
+      written=await submit(patch);
+      const confirmed=breedFieldSnapshot(notionPageToManagedBreedInput(written));
+      for(const {field} of queued){
+        if(sameBreedField(confirmed[field],after[field]))acknowledged.push(field);
+        else pending.push(field);
+      }
+    }catch(error){
+      // A malformed Notion property should not block unrelated fields.
+      // Only split a provider validation error; never multiply 429/5xx retries.
+      const reason=error instanceof Error?error.message:"";
+      if(!reason.startsWith("Notion API 400:")||queued.length<2)throw error;
+      for(const {field,properties} of queued){
+        try {
+          const next=await submit(properties);
+          const confirmed=breedFieldSnapshot(notionPageToManagedBreedInput(next));
+          written=next;
+          if(sameBreedField(confirmed[field],after[field]))acknowledged.push(field);
+          else pending.push(field);
+        }catch(fieldError){
+          const fieldReason=fieldError instanceof Error?fieldError.message:"";
+          if(!fieldReason.startsWith("Notion API 400:"))throw fieldError;
+          pending.push(field);
+          console.warn("notion_breed_field_writeback_pending",{
+            breedId:args.breed.id,field,code:"NOTION_VALIDATION_FAILED",
+          });
+        }
+      }
     }
   }
   // Remember only successfully acknowledged fields; rejected fields are
