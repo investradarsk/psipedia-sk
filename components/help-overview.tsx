@@ -102,12 +102,16 @@ export async function HelpOverview({
   sections: HelpOverviewSection[];
   totalActive: number;
 }) {
-  const heroVisual = await getSectionHeroVisual("section.pomoc-psom");
-  // Each individually anchored Help banner can have a separate desktop-only
-  // publication. Mobile continues rendering its original shared preset.
+  // Each individually anchored Help banner has a separate publication.
+  // Fetch the section HERO and all banner colors concurrently on a cold SSR.
   const helpBannerIds = ["help:lost-found", "help:overview:0", "help:overview:2", "help:overview:4", "help:closing"] as const;
-  const publishedHelp: Record<string, BannerDraft | null> =
-    await getPublishedDesktopBannerColorsBatch(helpBannerIds);
+  const [heroVisual, publishedHelp]: [
+    Awaited<ReturnType<typeof getSectionHeroVisual>>,
+    Record<string, BannerDraft | null>,
+  ] = await Promise.all([
+    getSectionHeroVisual("section.pomoc-psom"),
+    getPublishedDesktopBannerColorsBatch(helpBannerIds),
+  ]);
   return (
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
