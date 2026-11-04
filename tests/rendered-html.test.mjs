@@ -295,7 +295,11 @@ test("renders the portal homepage", async () => {
   assert.match(publishedSummariesQuery, /LIMIT \?/);
   assert.doesNotMatch(publishedSummariesQuery, /SELECT \*/);
   assert.match(featuredBreedsQuery, /canonicalBreedIdsSql/);
-  assert.match(featuredBreedsQuery, /ORDER BY RANDOM\(\) LIMIT \?/);
+  // Recommendations are stable within the local day and advance on the next day.
+  assert.match(featuredBreedsQuery, /homepageRotationOffset\(bratislavaDateKey\(\), safeLimit\)/);
+  assert.match(featuredBreedsQuery, /ROW_NUMBER\(\) OVER \(ORDER BY slug ASC\)/);
+  assert.match(featuredBreedsQuery, /rotation_index[\s\S]*LIMIT \?/);
+  assert.doesNotMatch(featuredBreedsQuery, /ORDER BY RANDOM\(\)/);
   assert.doesNotMatch(featuredBreedsQuery, /fci_standard_json|SELECT \*/);
 });
 
