@@ -71,3 +71,11 @@ test("completed items recover a stale parent run status without altering pending
   assert.match(queue,/await reconcileSettledManualTransferRuns\(input\.database\)/);
   assert.match(queue,/for\(const run of result\.results\?\?\[\]\)await updateRun\(db,run\.id\)/);
 });
+
+test("progress aggregation is amortized while the last partial group is flushed",()=>{
+  assert.match(queue,/const touchedRuns=new Set<string>\(\)/);
+  assert.match(queue,/touchedRuns\.add\(item\.run_id\)/);
+  assert.match(queue,/if\(total\.claimed%3===0\)await flushRunProgress\(\)/);
+  assert.match(queue,/await flushRunProgress\(\);\s*\/\/ Repair a previously settled run/);
+  assert.match(queue,/for\(const id of touchedRuns\)await updateRun\(input\.database,id\)/);
+});
