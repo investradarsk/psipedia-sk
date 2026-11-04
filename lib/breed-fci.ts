@@ -87,6 +87,20 @@ export function publicFciSectionName(group: number, section: string, fallback = 
   return "Sekcia sa overuje";
 }
 
+/**
+ * The editor/sync must read the literal D1 fci_section value it writes.
+ * Public pages intentionally show the canonical FCI group/section label.
+ * Comparing the public label against Notion's editorial wording makes a
+ * successful one-shot write appear FAILED and can trigger repeated rewrites.
+ */
+export function breedSectionForView(
+  group:number,sectionNumber:string,storedLabel:string,publicView=false,
+):string{
+  return publicView
+    ?publicFciSectionName(group,sectionNumber,storedLabel)
+    :storedLabel;
+}
+
 export function fciMeasurement(value: string | undefined, unit: "cm" | "kg") {
   const normalized = value?.replace(/\s+/g, " ").trim() ?? "";
   if (!normalized) return "";

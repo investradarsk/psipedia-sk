@@ -27,6 +27,7 @@ import {
   publicBreedMeasurement,
   publicBreedSize,
   publicFciSectionName,
+  breedSectionForView,
   type FciStandard,
 } from "@/lib/breed-fci";
 import {
@@ -516,7 +517,7 @@ function fromRow(
     gallery: parseArray(row.gallery_json, isBreedImage),
     fciNumber: row.fci_number,
     fciGroup: row.fci_group,
-    fciSection: publicFciSectionName(row.fci_group, row.fci_section_number, row.fci_section),
+    fciSection: breedSectionForView(row.fci_group, row.fci_section_number, row.fci_section, relations.public),
     fciSectionNumber: row.fci_section_number,
     officialFciName: row.official_fci_name,
     validStandardDate: row.valid_standard_date,
