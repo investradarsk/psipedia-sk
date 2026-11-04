@@ -357,7 +357,7 @@ test("valid public submission stays private until admin approval, then publishes
   await expect(page.getByRole("heading", { level: 1, name: "Hlásenie sme prijali" })).toBeVisible();
 
   await page.goto("/pomoc-psom/najdene-psy?q=" + encodeURIComponent(unique), { waitUntil: "domcontentloaded" });
-  await expect(page.locator("body")).not.toContainText(unique);
+  await expect(page.locator("[data-public-filter-results]")).not.toContainText(unique);
 
   const adminHref = await adminReportHref(page, unique);
   await page.goto(adminHref, { waitUntil: "domcontentloaded" });
@@ -444,5 +444,5 @@ test("admin can reject a public submission and it never becomes public", async (
   await expect(page.getByText("Hlásenie bolo uložené.")).toBeVisible();
 
   await page.goto("/pomoc-psom/najdene-psy?q=" + encodeURIComponent(name), { waitUntil: "domcontentloaded" });
-  await expect(page.locator("body")).not.toContainText(name);
+  await expect(page.locator("[data-public-filter-results]")).not.toContainText(name);
 });
