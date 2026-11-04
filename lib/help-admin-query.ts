@@ -106,23 +106,34 @@ export function buildHelpAdminWhere(filters: HelpAdminFilters) {
 }
 
 export async function queryHelpAdmin<T>(database: ReadDatabase, filters: HelpAdminFilters) {
-  const totals = await database.prepare(`SELECT COUNT(*) AS total,
-    COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
-    COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
-    COUNT(CASE WHEN urgent = 1 AND resolved = 0 THEN 1 END) AS urgent,
-    COUNT(CASE WHEN resolved = 0 THEN 1 END) AS current,
-    COUNT(CASE WHEN resolved = 1 THEN 1 END) AS resolved
-    FROM help_cases
-    WHERE ${HELP_ADMIN_DOMAIN_SQL}`).first<{ total: number; published: number; draft: number; urgent: number; current: number; resolved: number }>();
-  const grouped = await database.prepare(`SELECT category, COUNT(*) AS count FROM help_cases WHERE ${HELP_ADMIN_DOMAIN_SQL} GROUP BY category`).all<{ category: string; count: number }>();
   const { where, args } = buildHelpAdminWhere(filters);
-  const count = await database.prepare(`SELECT COUNT(*) AS count FROM help_cases${where}`).bind(...args).first<{ count: number }>();
-  const resultCount = count?.count ?? 0;
-  const pages = Math.max(1, Math.ceil(resultCount / HELP_ADMIN_PAGE_SIZE));
-  const page = Math.min(filters.page, pages);
-  const result = await database.prepare(`SELECT id, slug, title, excerpt, category, status, organization, dog_name, city, image_url, verified, urgent, resolved, updated_at
+  // The global totals already count every row in an unfiltered Help list.
+  // Avoid a duplicate COUNT and run independent reads concurrently.
+  const reuseTotalCount = where === ` WHERE ${HELP_ADMIN_DOMAIN_SQL}`;
+  const requestedPage = Math.max(1, Math.trunc(filters.page || 1));
+  const loadPage = (page: number) => database.prepare(`SELECT id, slug, title, excerpt, category, status, organization, dog_name, city, image_url, verified, urgent, resolved, updated_at
     FROM help_cases${where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
     .bind(...args, HELP_ADMIN_PAGE_SIZE, (page - 1) * HELP_ADMIN_PAGE_SIZE).all<T>();
+  const [totals, grouped, count, requestedResult] = await Promise.all([
+    database.prepare(`SELECT COUNT(*) AS total,
+      COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
+      COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
+      COUNT(CASE WHEN urgent = 1 AND resolved = 0 THEN 1 END) AS urgent,
+      COUNT(CASE WHEN resolved = 0 THEN 1 END) AS current,
+      COUNT(CASE WHEN resolved = 1 THEN 1 END) AS resolved
+      FROM help_cases WHERE ${HELP_ADMIN_DOMAIN_SQL}`)
+      .first<{ total: number; published: number; draft: number; urgent: number; current: number; resolved: number }>(),
+    database.prepare(`SELECT category, COUNT(*) AS count FROM help_cases WHERE ${HELP_ADMIN_DOMAIN_SQL} GROUP BY category`)
+      .all<{ category: string; count: number }>(),
+    reuseTotalCount ? Promise.resolve(null) :
+      database.prepare(`SELECT COUNT(*) AS count FROM help_cases${where}`)
+        .bind(...args).first<{ count: number }>(),
+    loadPage(requestedPage),
+  ]);
+  const resultCount = Number(reuseTotalCount ? totals?.total ?? 0 : count?.count ?? 0);
+  const pages = Math.max(1, Math.ceil(resultCount / HELP_ADMIN_PAGE_SIZE));
+  const page = Math.min(requestedPage, pages);
+  const result = page === requestedPage ? requestedResult : await loadPage(page);
   return {
     totals: totals ?? { total: 0, published: 0, draft: 0, urgent: 0, current: 0, resolved: 0 },
     categoryCounts: Object.fromEntries(grouped.results.map((row) => [row.category, row.count])),
