@@ -49,6 +49,7 @@ export function AdminNotionManualTransfer(){
   const [direction,setDirection]=useState<"NOTION_TO_ADMIN"|"ADMIN_TO_NOTION">("NOTION_TO_ADMIN");
   const [runId,setRunId]=useState("");
   const [detail,setDetail]=useState<Detail|null>(null);
+  const [lastPollAt,setLastPollAt]=useState<number|null>(null);
   const [history,setHistory]=useState<Run[]>([]);
   const [offset,setOffset]=useState(0);
   const [onlyErrors,setOnlyErrors]=useState(false);
@@ -87,7 +88,7 @@ export function AdminNotionManualTransfer(){
       const response=await fetch("/api/admin/notion-manual-transfer?"+query,
         {cache:"no-store",credentials:"same-origin"});
       const body=await readJson<Detail>(response);
-      if(active)setDetail(body);
+      if(active){setDetail(body);setLastPollAt(Date.now());}
     }catch(e){if(active)setError(e instanceof Error?e.message:"Načítanie zlyhalo.")}};
     void refresh();
     const timer=window.setInterval(()=>{void refresh()},7000);
@@ -95,7 +96,7 @@ export function AdminNotionManualTransfer(){
   },[runId,offset,onlyErrors]);
   const chooseRun=(id:string)=>{
     setRunId(id);setOffset(0);setOnlyErrors(false);
-    setDetail(null);setError("");setMessage("");
+    setDetail(null);setLastPollAt(null);setError("");setMessage("");
   };
   async function post(payload:Record<string,unknown>){
     setBusy(true);setError("");setMessage("");
@@ -125,7 +126,7 @@ export function AdminNotionManualTransfer(){
   const waitingForFirstProfile=Boolean(detail?.run.status==="PREVIEW"
     &&detail.run.processed_profiles===0
     &&Number.isFinite(Date.parse(detail.run.created_at))
-    &&Date.now()-Date.parse(detail.run.created_at)>4*60*1000);
+    &&lastPollAt!==null&&lastPollAt-Date.parse(detail.run.created_at)>4*60*1000);
 
   return <section className={styles.root} aria-label="Jednorazový prenos údajov">
     <div className={styles.head}>
