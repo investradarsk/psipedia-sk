@@ -19,7 +19,7 @@ import { AdSlot } from "@/components/ad-slot";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { listHomepageFeaturedBreeds } from "@/lib/breed-store";
 import { directoryProfileHref } from "@/lib/directory";
-import { getHomepageDirectoryProfilesWithImages } from "@/lib/directory-store";
+import { getHomepageDirectoryProfilesByCategoriesWithImages } from "@/lib/directory-store";
 import { getHomepageUpcomingEventsWithImages } from "@/lib/event-store";
 import { eventHref, formatEventDate } from "@/lib/events";
 import { publicLocationValue } from "@/lib/public-location";
@@ -57,8 +57,7 @@ export default async function Home() {
     publishedArticles,
     nextEvents,
     activeHelpCases,
-    veterinarians,
-    trainers,
+    directoryGroups,
     homeHeroVisual,
     featuredBreeds,
     homeProfileBannerColors,
@@ -67,8 +66,7 @@ export default async function Home() {
     getPublishedArticleSummaries({ limit: 120 }),
     getHomepageUpcomingEventsWithImages(8),
     getHomepageHighlightedHelpCasesWithImages(3),
-    getHomepageDirectoryProfilesWithImages("veterinari", 8),
-    getHomepageDirectoryProfilesWithImages("treneri", 8),
+    getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8),
     getSectionHeroVisual("home.hero"),
     listHomepageFeaturedBreeds(8).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
@@ -77,6 +75,8 @@ export default async function Home() {
     getPublishedDesktopBannerColors("homepage:profil"),
     getPublishedDesktopBannerColors("help:lost-found"),
   ]);
+  const veterinarians = directoryGroups.veterinari ?? [];
+  const trainers = directoryGroups.treneri ?? [];
   const homeHero = homeHeroVisual;
   const articleSelection = selectHomepageArticles(publishedArticles, {
     latestLimit: 6,
