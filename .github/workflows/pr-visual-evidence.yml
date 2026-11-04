@@ -9,7 +9,11 @@ on:
       - "app/**"
       - "components/**"
       - "public/**"
-      - "styles/**"\n      # Presentation stores only; server-side Notion/automation changes are not visual reviews.\n      - "lib/section-visual*.ts"\n      - "lib/visual-library*.ts"\n      - "lib/portal*.ts"
+      - "styles/**"
+      # Presentation stores only; server-side Notion/automation changes are not visual reviews.
+      - "lib/section-visual*.ts"
+      - "lib/visual-library*.ts"
+      - "lib/portal*.ts"
       - "**/*.css"
       - "**/*.svg"
       - "docs/PR-VISUAL-REVIEW.md"
