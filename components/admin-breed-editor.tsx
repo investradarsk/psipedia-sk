@@ -65,6 +65,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const [slugEdited,setSlugEdited]=useState(Boolean(breed));
   const [expectedUpdatedAt,setExpectedUpdatedAt]=useState(breed?.updatedAt??"");
   const [saving,setSaving]=useState(false);
+  const savePendingRef=useRef(false);
   const [uploading,setUploading]=useState(false);
   const uploadPending = useRef(false);
   const [message,setMessage]=useState("");
@@ -135,7 +136,8 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   function removeSport(index:number){setForm((current)=>({...current,sports:current.sports.filter((_,itemIndex)=>itemIndex!==index)}));}
 
   async function save(status:"draft"|"published"){
-    if (saving || uploadPending.current) return;
+    if (saving || savePendingRef.current || uploadPending.current) return;
+    savePendingRef.current=true;
     setSaving(true);setError("");setMessage("");
     try{
       const response=await fetch(breed?`/api/admin/breeds/${breed.id}`:"/api/admin/breeds",{
@@ -150,7 +152,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       setMessage(status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
       if(!breed)router.replace(`/admin/plemena/${data.breed.id}`);
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}
-    finally{setSaving(false);}
+    finally{savePendingRef.current=false;setSaving(false);}
   }
 
   const editorNavigation=[
