@@ -5,7 +5,7 @@
   --help-accent: var(--coral, #f47757);
   --help-accent-strong: var(--coral-dark, #b94732);
   min-width: 0;
-  background: var(--ps-color-canvas);
+  background: var(--cream);
 }
 .headerWrap {
   padding-top: 22px;
