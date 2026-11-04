@@ -68,7 +68,7 @@ async function openDirectoryForm(page: Page) {
   await expect(cta).toHaveAttribute("href", "/recenzia/napisat?resourceId=" + DIRECTORY_RESOURCE);
   await cta.click();
   await expect(page).toHaveURL(new RegExp("/recenzia/napisat\\?resourceId=" + DIRECTORY_RESOURCE + "$"));
-  await expect(page.getByRole("heading", { name: "Napísať recenziu" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Napísať recenziu", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Odoslať recenziu" })).toBeEnabled();
 }
 
@@ -154,7 +154,7 @@ test("organization reuses the same canonical reviewer form flow", async ({ page,
   const cta = page.locator("#recenzie").getByRole("link", { name: "Napísať recenziu" });
   await expect(cta).toHaveAttribute("href", "/recenzia/napisat?resourceId=" + ORGANIZATION_RESOURCE);
   await cta.click();
-  await expect(page.getByRole("heading", { name: "Napísať recenziu" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Napísať recenziu", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Odoslať recenziu" })).toBeEnabled();
   await expect(page.getByRole("group", { name: "Komunikácia" })).toBeVisible();
   await expect(page.getByRole("group", { name: "Kvalita služby" })).toBeVisible();
@@ -235,7 +235,7 @@ test("mobile 390x844 review form is keyboard-accessible, axe-clean and has no do
   const cta = reviews.getByRole("link", { name: "Napísať recenziu" });
   await expect(cta).toHaveAttribute("href", "/recenzia/napisat?resourceId=" + DIRECTORY_RESOURCE);
   await page.goto("/recenzia/napisat?resourceId=" + DIRECTORY_RESOURCE, { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Napísať recenziu" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Napísať recenziu", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Odoslať recenziu" })).toBeEnabled();
   await expectNoHorizontalOverflow(page, "review submission form 390x844");
 

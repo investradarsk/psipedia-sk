@@ -102,7 +102,7 @@ test('unified public details: responsive layout, honest media/data, actions and 
  }
  // Event pages intentionally use their category's illustration in the same HERO.
  if(name==='event-minimal') {
-  assert.ok((await visual.getAttribute('src'))?.includes('vystavy.webp'), 'event-minimal keeps category-specific fallback photo');
+  assert.ok((await visual.getAttribute('src'))?.includes('preteky.webp'), 'event-minimal keeps the Preteky category illustration');
   assert.equal(await visual.getAttribute('data-event-image-source'), 'fallback');
  }
  if(name==='help-zbierky') assert.equal(await hero.locator('a[href="https://example.test/support"]').count(),0,'unverified fundraising gate preserved');
