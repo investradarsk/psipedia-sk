@@ -23,10 +23,12 @@ test("five independent public banner lookups become one parameterized D1 read", 
   assert.match(body, /banner_id IN \(\$\{placeholders\}\)/);
   assert.match(body, /WHERE banner_id IN/);
   assert.match(body, /published_json IS NOT NULL/);
-  assert.match(body, /\.bind\(\.\.\.allowed\)\.all<EditRow>\(\)/);
-  assert.match(body, /fromRow\(row\)/);
-  assert.match(body, /validatePublication\(row\.banner_id, target\.variant, stored\.published, target\.url\)/);
-  assert.match(body, /result\[row\.banner_id\] = stored\.published/);
+  assert.match(body, /SELECT banner_id,variant_index,published_json/);
+  assert.doesNotMatch(body, /SELECT banner_id,variant_index,draft_json/);
+  assert.match(body, /\.bind\(\.\.\.allowed\)\.all<Pick<EditRow/);
+  assert.match(body, /defaultBannerDraft\(banner, target\.variant\)/);
+  assert.match(body, /validatePublication\(row\.banner_id, target\.variant, published, target\.url\)/);
+  assert.match(body, /result\[row\.banner_id\] = published/);
   assert.match(overview, /getPublishedDesktopBannerColorsBatch\(helpBannerIds\)/);
   assert.doesNotMatch(overview, /getPublishedDesktopBannerColors\(id\)/);
 });
