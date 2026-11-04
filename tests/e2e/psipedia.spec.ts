@@ -364,7 +364,7 @@ test("@production homepage search, CTA and featured breeds work without JS error
     await expect(secondary, item.id + ": compact-article container is missing").toHaveCount(1);
     const articleRows = secondary.locator(".home-latest-item");
     const rowCount = await articleRows.count();
-    expect(rowCount, item.id + ": more than four secondary articles rendered").toBeLessThanOrEqual(4);
+    expect(rowCount, item.id + ": more than five secondary articles rendered").toBeLessThanOrEqual(5);
     const compactRows = articleRows.locator("[data-article-list-item]");
     await expect(compactRows, item.id + ": secondary articles must use the compact list design").toHaveCount(rowCount);
     const media = compactRows.locator("[data-article-image]");
@@ -378,17 +378,20 @@ test("@production homepage search, CTA and featured breeds work without JS error
       await expect(first.locator("p")).toHaveCount(0);
 
       const visibleRows = compactRows.filter({ visible: true });
+      // The homepage has one lead + five compact articles; the fifth compact row is desktop-only.
+      const visibleLimit = (page.viewportSize()?.width ?? 1280) <= 900 ? 4 : 5;
+      await expect(visibleRows, item.id + ": incorrect responsive article count").toHaveCount(Math.min(rowCount, visibleLimit));
       for (let index = 0; index < await visibleRows.count(); index += 1) {
         await expectReadyEditorialMedia(visibleRows.nth(index).locator("[data-article-image]"),
           item.id + ": compact media " + index);
       }
 
-      const sizes = await media.evaluateAll((elements) => elements.map((element) => {
+      const sizes = await visibleRows.locator("[data-article-image]").evaluateAll((elements) => elements.map((element) => {
         const { width, height } = element.getBoundingClientRect();
         return { width, height };
       }));
       expect(sizes.every(({ width, height }) => width >= 60 && height >= 50), item.id + ": collapsed article thumbnails: " + JSON.stringify(sizes)).toBe(true);
-      const heights = await compactRows.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
+      const heights = await visibleRows.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
       expect(heights.every((height) => height < 220), item.id + ": oversized compact rows: " + JSON.stringify(heights)).toBe(true);
     }
   }
@@ -415,9 +418,13 @@ test("@production homepage search, CTA and featured breeds work without JS error
   await expect(breedSidebar).toBeVisible();
   await expect(breedSidebar.getByRole("heading", { name: "Objav plemená" })).toBeVisible();
   await expect(breedSidebar.getByRole("link", { name: "Všetky plemená" })).toHaveAttribute("href", "/plemena");
-  const breedCards = breedSidebar.locator(".home-side-breed-item");
+  const breedCards = breedSidebar.locator(".home-side-breed-list > [data-home-sidebar-row]");
   const breedCount = await breedCards.count();
-  expect(breedCount, "More than four featured breeds rendered").toBeLessThanOrEqual(4);
+  expect(breedCount, "More than eight featured breeds rendered").toBeLessThanOrEqual(8);
+  // All cards may remain in the DOM, but only three are shown at mobile widths.
+  const visibleBreedLimit = (page.viewportSize()?.width ?? 1280) <= 900 ? 3 : 8;
+  await expect(breedCards.filter({ visible: true }), "Incorrect responsive featured-breed count")
+    .toHaveCount(Math.min(breedCount, visibleBreedLimit));
   for (let index = 0; index < breedCount; index += 1) {
     const card = breedCards.nth(index);
     await expect(card).toHaveAttribute("href", /^\/plemena\/[^/?#]+$/);
