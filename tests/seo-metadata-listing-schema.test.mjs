@@ -306,7 +306,7 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
   const detail = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
 
   assert.match(directoryPage, /title=\{active\?\.heroTitle \?\? "Služby pre psov"\}/);
-  assert.match(directoryPage, /intro=\{active\?\.intro \?\?/);
+  assert.match(directoryPage, /intro=\{\s*active\?\.intro\s*\?\?/);
   assert.match(directoryPage, /title=\{active \? active\.resultsTitle : filters\.query \|\| filters\.category/);
   assert.match(directoryPage, /\? "Výsledky vyhľadávania" : "Všetky služby pre psov"\}/);
 
