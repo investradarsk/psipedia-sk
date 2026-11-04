@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { createShortLivedAsyncCache } from "@/lib/public-navigation-cache";
 import { defaultNavigationItems, type NavigationItem } from "@/lib/navigation";
 import { publicMapLaunchEnabled } from "@/config/runtime-env";
 
@@ -18,6 +19,9 @@ type RuntimeBindings = {
   GOOGLE_MAPS_MAP_ID?: string;
 };
 let navigationSchemaReady: Promise<void> | null = null;
+// The same anonymous menu is rendered on every public page. Avoid repeating D1
+// reads on each RSC navigation or simultaneous SSR miss; edits invalidate it.
+const publicNavigationRows = createShortLivedAsyncCache<NavigationRow[]>(30_000);
 
 function getD1Binding() {
   const database = (env as unknown as RuntimeBindings).DB;
@@ -97,8 +101,11 @@ export async function getNavigationItems() {
   });
   const database = getD1Binding();
   if (!database) return applyPublicMapLaunchGate(canonicalizeLegacyNewsLanding(defaultNavigationItems), enabled);
-  const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
-  const items = result.results.length ? result.results.map(rowToItem) : defaultNavigationItems;
+  const rows = await publicNavigationRows.get(async () => {
+    const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
+    return result.results;
+  });
+  const items = rows.length ? rows.map(rowToItem) : defaultNavigationItems;
   return applyPublicMapLaunchGate(canonicalizeLegacyNewsLanding(items), enabled);
 }
 
@@ -184,5 +191,6 @@ export async function saveNavigationItems(payload: unknown, updatedBy: string) {
     `).bind(item.id, item.label, item.href, item.parentId, item.position, item.visible ? 1 : 0, now, updatedBy));
   }
   await database.batch(statements);
+  publicNavigationRows.invalidate();
   return items;
 }
