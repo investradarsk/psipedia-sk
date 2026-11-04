@@ -6,6 +6,7 @@ import {
   PUBLIC_OPERATOR_NAME,
 } from "@/lib/public-contact";
 import { buildPageMetadata } from "@/lib/seo";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import styles from "./contact.module.css";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -21,33 +22,22 @@ const missingServiceHref = `mailto:${EDITORIAL_EMAIL_ADDRESS}?subject=${encodeUR
 export default function ContactPage() {
   return (
     <main id="obsah" className={styles.page}>
-      <header className={styles.hero}>
-        <div className={`shell ${styles.heroShell}`}>
-          <nav className={styles.breadcrumbs} aria-label="Navigácia">
-            <Link href="/">Domov</Link>
-            <span aria-hidden="true">/</span>
-            <span>Kontakt</span>
-          </nav>
-
-          <div className={styles.heroGrid}>
-            <div className={styles.heroCopy}>
-              <span className="eyebrow">Kontakt Psipedia.sk</span>
-              <h1>Ako ti môžeme pomôcť?</h1>
-              <p>
-                Vyber tému, ktorá najlepšie vystihuje tvoju správu. Ak už pre daný typ podnetu existuje
-                samostatný postup, pošleme ťa priamo tam — vďaka tomu sa správa dostane na správne miesto.
-              </p>
-            </div>
-
-            <aside className={styles.emailPanel} aria-label="Všeobecný kontakt">
-              <span>Všeobecný kontakt</span>
-              <strong>{EDITORIAL_EMAIL_ADDRESS}</strong>
-              <p>Ak si nie si istý, kam správa patrí, napíš redakcii priamo e-mail.</p>
-              <a data-contact-action href={generalQuestionHref}>Napísať e-mail</a>
-            </aside>
-          </div>
-        </div>
-      </header>
+      <UniversalPageHero
+        breadcrumbs={<nav className={styles.breadcrumbs} aria-label="Navigácia">
+          <Link href="/">Domov</Link><span aria-hidden="true">/</span><span>Kontakt</span>
+        </nav>}
+        eyebrow="Kontakt Psipedia.sk"
+        title="Ako ti môžeme pomôcť?"
+        intro="Vyber tému, ktorá najlepšie vystihuje tvoju správu. Ak už pre daný typ podnetu existuje samostatný postup, pošleme ťa priamo tam."
+      />
+      <div className="shell">
+        <aside className={styles.emailPanel} aria-label="Všeobecný kontakt">
+          <span>Všeobecný kontakt</span>
+          <strong>{EDITORIAL_EMAIL_ADDRESS}</strong>
+          <p>Ak si nie si istý, kam správa patrí, napíš redakcii priamo e-mail.</p>
+          <a data-contact-action href={generalQuestionHref}>Napísať e-mail</a>
+        </aside>
+      </div>
 
       <section className={`shell ${styles.routeSection}`} aria-labelledby="contact-routes-title">
         <div className={styles.sectionHeading}>
