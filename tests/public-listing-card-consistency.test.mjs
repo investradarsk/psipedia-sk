@@ -6,7 +6,9 @@ const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf
 
 test("five public content card families opt in to one visible design contract", () => {
   const shared = read("components/public-listing-row-card.tsx");
-  assert.match(shared, /data-public-card=\{kind === "directory" \? "directory" : "event-grid"\}/);
+  assert.match(shared, /data-public-card="event-grid"/);
+  assert.match(shared, /data-public-card="directory"/);
+  assert.match(shared, /<article[\s\S]*data-event-card/);
   assert.match(shared, /data-public-card-title/);
   assert.match(shared, /data-public-card-meta/);
   for (const [path, marker] of [
