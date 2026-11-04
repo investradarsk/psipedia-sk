@@ -60,6 +60,8 @@ import {
 import { directoryQualificationSections } from "./directory-public-copy.ts";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
+import { bratislavaDateKey } from "@/lib/events";
+import { homepageRotationOffset } from "@/lib/homepage-rotation";
 import {
   normalizeImageDisplayConfig,
   readImageDisplayConfig,
@@ -1239,20 +1241,29 @@ export async function getHomepageDirectoryProfilesWithImages(
   const database = getD1Binding();
   if (!database) return [];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const rotationOffset = homepageRotationOffset(bratislavaDateKey(), safeLimit);
   const result = await database
     .prepare(
-      `
-    SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
-      CASE WHEN json_valid(source_data_json)
-        AND json_type(source_data_json, '$."Okres"') IN ('text', 'integer', 'real')
-        THEN CAST(json_extract(source_data_json, '$."Okres"') AS TEXT)
-        ELSE NULL END AS fallback_district
-    FROM directory_profiles
-    WHERE status = 'published' AND category = ? AND ${HOMEPAGE_REAL_IMAGE_SQL}
-    ORDER BY featured DESC, name ASC, id ASC LIMIT ?
-  `,
+      `WITH candidates AS (
+        SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
+          featured,
+          CASE WHEN json_valid(source_data_json)
+            AND json_type(source_data_json, '$."Okres"') IN ('text', 'integer', 'real')
+            THEN CAST(json_extract(source_data_json, '$."Okres"') AS TEXT)
+            ELSE NULL END AS fallback_district,
+          ROW_NUMBER() OVER (PARTITION BY featured ORDER BY name ASC, id ASC) - 1 AS rotation_index,
+          COUNT(*) OVER (PARTITION BY featured) AS rotation_count
+        FROM directory_profiles
+        WHERE status = 'published' AND category = ? AND ${HOMEPAGE_REAL_IMAGE_SQL}
+      )
+      SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
+        fallback_district
+      FROM candidates
+      ORDER BY featured DESC,
+        ((rotation_index - (? % rotation_count) + rotation_count) % rotation_count) ASC
+      LIMIT ?`,
     )
-    .bind(category, safeLimit)
+    .bind(category, rotationOffset, safeLimit)
     .all<HomepageDirectoryRow>();
   return result.results.map(
     (row): HomepageDirectoryCard => ({
