@@ -4,6 +4,7 @@ import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
@@ -85,6 +86,7 @@ export function AdminArticleEditor({
   promoUtcDay?: string;
   returnToCalendar?: string;
 }) {
+  const router = useRouter();
   const initialPortalSection = article?.portalSection ?? defaultPortalSection;
   const builtInSectionOptions = articlePortalSectionOptions.filter(
     (option) => option.slug === "clanky" || option.slug === "novinky",
@@ -220,6 +222,7 @@ export function AdminArticleEditor({
     };
   }, [status, confirmedPublishedAt]);
   const [saving, setSaving] = useState(false);
+  const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -335,6 +338,8 @@ export function AdminArticleEditor({
   }
 
   async function save(nextStatus: ArticleStatus) {
+    if (savePendingRef.current || uploading) return;
+    savePendingRef.current = true;
     setSaving(true);
     setError("");
     setMessage("");
@@ -450,16 +455,17 @@ export function AdminArticleEditor({
       focusResult();
       if (returnToCalendar && nextStatus === "draft") {
         allowNavigationRef.current = true;
-        window.setTimeout(() => window.location.assign(returnToCalendar), 0);
+        router.replace(returnToCalendar);
       } else if (!article) {
         allowNavigationRef.current = true;
-        window.setTimeout(() => window.location.assign(`/admin/clanky/${data.article.id}?vytvoreny=1`), 0);
+        router.replace(`/admin/clanky/${data.article.id}?vytvoreny=1`);
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Článok sa nepodarilo uložiť.");
       // Preserve the QA blocker focus selected above; only generic errors focus the result.
       if (!hasQaIssues) focusResult();
     } finally {
+      savePendingRef.current = false;
       setSaving(false);
     }
   }
@@ -478,10 +484,8 @@ export function AdminArticleEditor({
     // EditorWorkspace confirms discard before invoking this callback.
     allowNavigationRef.current = true;
     setEditorDirty(false);
-    window.setTimeout(() => {
-      if (returnToCalendar) window.location.assign(returnToCalendar);
-      else window.location.assign("/admin/clanky");
-    }, 0);
+    if (returnToCalendar) router.push(returnToCalendar);
+    else router.push("/admin/clanky");
   }
 
   function unpublish() {
