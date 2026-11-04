@@ -86,9 +86,11 @@ test("responsive grid, accessible mobile disclosure, full-card links and smart i
     const [first, second, third] = await cards.evaluateAll((nodes) =>
       nodes.slice(0, 3).map((node) => node.getBoundingClientRect().toJSON()),
     );
+    // Event cards now reuse the same single-column rows as service profiles
+    // on desktop and mobile, instead of the former three-column image grid.
+    expect(second!.y).toBeGreaterThan(first!.y);
+    expect(third!.y).toBeGreaterThan(second!.y);
     if (width >= 1280) {
-      expect(first!.y).toBe(second!.y);
-      expect(first!.y).toBe(third!.y);
       const sidebar = await page.locator('aside[aria-label="Filtre podujatí"]').boundingBox();
       expect(sidebar!.x + sidebar!.width).toBeLessThan(first!.x);
       await expect(page.locator("[data-event-filters]")).toBeVisible();
