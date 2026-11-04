@@ -13,7 +13,7 @@ test("Gemini dashboard uses canonical 22-category catalog, not example profiles"
   assert.match(page, /listGeminiSettings\(db\)/);
   assert.match(workspace, /liveSettings\.filter\(\(item\) => item\.section === section\.key\)/);
   assert.match(workspace, /value=\{selected\?\.stableKey \?\? ""\}/);
-  assert.match(workspace, /key=\{selected\.stableKey\} initial=\{selected\}/);
+  assert.match(workspace, /key=\{selected\.stableKey \+ ":" \+ cardRevision\} initial=\{selected\}/);
   assert.doesNotMatch(workspace, /Argyle Thebery|Bergficht Kennel|Mountain Dog House/);
 });
 
