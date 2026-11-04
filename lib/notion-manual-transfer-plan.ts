@@ -36,6 +36,12 @@ function getAt(record: Record<string,unknown>,path:string): {present:boolean;val
   return {present:cursor!==undefined,value:cursor};
 }
 function setAt(record:Record<string,unknown>,path:string,value:unknown):void{
+  // Breed snapshots use literal dotted keys (e.g. "fciStandard.oci").
+  // Preserve that representation instead of writing a shadow nested object.
+  if(Object.prototype.hasOwnProperty.call(record,path)){
+    record[path]=jsonClone(value);
+    return;
+  }
   const parts=path.split(".");
   let cursor=record;
   for(const part of parts.slice(0,-1)){
@@ -45,9 +51,13 @@ function setAt(record:Record<string,unknown>,path:string,value:unknown):void{
   }
   cursor[parts[parts.length-1]]=jsonClone(value);
 }
-function isProtected(path:string,locked:ReadonlySet<string>):boolean{
+function isProtected(path:string,locked:ReadonlySet<string>,aggregateOnly:ReadonlySet<string>):boolean{
   if(locked.has(path))return true;
-  return [...locked].some(item=>path.startsWith(item+".")||item.startsWith(path+"."));
+  // An aggregate JSON exchange view is read-only *as a whole*, but its
+  // individual editorial/FCI leaves have their own explicit field policy.
+  // Other protected parents still protect all descendants.
+  return [...locked].some(item=>!aggregateOnly.has(item)
+    &&(path.startsWith(item+".")||item.startsWith(path+".")));
 }
 
 /** Compare the current two versions, not stale baseline receipts.
@@ -61,6 +71,8 @@ export function planOwnerDirectedFields<T extends Record<string,unknown>>(input:
   direction:ManualFieldDirection;
   editablePaths:readonly string[];
   protectedPaths:ReadonlySet<string>;
+  /** Read-only aggregate views whose explicitly listed child fields stay editable. */
+  aggregateOnlyPaths?:ReadonlySet<string>;
 }): {desired:T;changes:string[];results:ManualFieldResult[]} {
   if(input.direction!=="NOTION_TO_ADMIN"&&input.direction!=="ADMIN_TO_NOTION")
     throw Error("TRANSFER_DIRECTION_INVALID");
@@ -73,7 +85,7 @@ export function planOwnerDirectedFields<T extends Record<string,unknown>>(input:
     if(!path || path==="__proto__" || path==="constructor" || path==="prototype"
       || path.split(".").some(x=>["__proto__","constructor","prototype"].includes(x)))
       throw Error("TRANSFER_FIELD_INVALID");
-    if(isProtected(path,input.protectedPaths)){
+    if(isProtected(path,input.protectedPaths,input.aggregateOnlyPaths??new Set())){
       results.push({field:path,state:"SKIPPED",reason:"PROTECTED_FIELD"});
       continue;
     }
