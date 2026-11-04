@@ -186,11 +186,18 @@ jobs:
           VISUAL_DIFF_OUTPUT_DIR: .e2e-artifacts/pr-visual/site-diff
           VISUAL_DIFF_REVIEW_ONLY: "1"
         run: node scripts/pr-visual-baseline-compare.mjs
-      - name: Verify and compare fixture screenshots against Git ancestor
+      - name: Verify fixture screenshots and flag intentional changes for review
         if: steps.routes.outputs.enabled == 'true'
+        env:
+          # A planned layout change is review evidence, not a broken build.
+          # Missing baseline/current screenshots still fail in the comparison script.
+          VISUAL_DIFF_REVIEW_ONLY: "1"
         run: |
           node --test tests/pr-visual-baseline-compare.test.mjs
           node scripts/pr-visual-baseline-compare.mjs
+          if grep -q 'DIFFERENT — review' .e2e-artifacts/pr-visual/template-diff/summary.md; then
+            echo "::warning title=Visual review required::The PR changes deterministic template screenshots. Review template-baseline, template-fixtures and template-diff artifacts before merge."
+          fi
       - name: GitHub run summary
         if: always()
         run: |
