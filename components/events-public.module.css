@@ -2952,3 +2952,41 @@
     font-size: 0.69rem;
   }
 }
+
+/* Events reuse the canonical service-profile row; only event-specific labels live here. */
+.eventTypeGroupHeading {
+  min-width: 0;
+  margin: 16px 0 0;
+  color: var(--forest-dark);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.22rem, 2.1vw, 1.55rem);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.eventTypeGroupHeading:first-child {
+  margin-top: 0;
+}
+
+.listStatusBadge {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--sage-light);
+  color: var(--forest-dark);
+  font-size: 0.69rem;
+  font-weight: 800;
+}
+
+/* Event category indicator retains the calendar legend's exact color. */
+.listTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 7px;
+  border-left: 4px solid var(--event-type-color);
+  border-radius: 4px;
+  background: var(--sage-light);
+  color: var(--forest-dark);
+  font-size: 0.72rem;
+  font-weight: 850;
+}

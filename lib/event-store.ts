@@ -331,9 +331,31 @@ export async function getPublishedEventListing(filters: EventListingFilters): Pr
   const total = count?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / EVENT_PAGE_SIZE));
   const page = Math.min(filters.page, pages);
-  const result = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,end_time,
-    venue,city,region,cancelled,image_url,image_display,thumbnail_display_json
-    FROM managed_events WHERE ${sql.where} ORDER BY ${sql.order} LIMIT ? OFFSET ?`)
+  const columns = `id,slug,title,event_type,start_date,start_time,end_date,end_time,
+    venue,city,region,cancelled,image_url,image_display,thumbnail_display_json`;
+  // Interleave blocks of five by type across all pages, not just within the current page.
+  // ROW_NUMBER is calculated after applying the publication/date filters, before LIMIT.
+  const query = sql.groupByType
+    ? `WITH matching AS (
+        SELECT ${columns},
+          ROW_NUMBER() OVER (PARTITION BY event_type ORDER BY ${sql.order}) AS type_position
+        FROM managed_events WHERE ${sql.where}
+      )
+      SELECT ${columns} FROM matching
+      ORDER BY CAST((type_position - 1) / 5 AS INTEGER),
+        CASE event_type
+          WHEN 'Preteky' THEN 0
+          WHEN 'Seminár' THEN 1
+          WHEN 'Tréning' THEN 2
+          WHEN 'Výstava' THEN 3
+          WHEN 'Stretnutie' THEN 4
+          ELSE 5
+        END,
+        type_position
+      LIMIT ? OFFSET ?`
+    : `SELECT ${columns} FROM managed_events
+       WHERE ${sql.where} ORDER BY ${sql.order} LIMIT ? OFFSET ?`;
+  const result = await database.prepare(query)
     .bind(...sql.values, EVENT_PAGE_SIZE, (page - 1) * EVENT_PAGE_SIZE).all<PublicEventCardRow>();
   return { events: result.results.map(rowToPublicEventCard), total, page, pages };
 }

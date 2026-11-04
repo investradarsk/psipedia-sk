@@ -19,7 +19,9 @@ test('six renderable category illustrations and stable mixed cards',async({page}
   await expect(cards.locator('time')).toHaveCount(6);
   await expect(cards.nth(1)).toContainText('Zrušené');
   const dimensions=await cards.locator('img').evaluateAll(images=>images.map(img=>({width:img.getBoundingClientRect().width,height:img.getBoundingClientRect().height})));
-  for(const value of dimensions) expect(value.width/value.height).toBeCloseTo(1.6,1);
+  // Listing cards now share the directory's square thumbnail frame;
+  // fallback artwork itself retains its full 1280×800 source image.
+  for(const value of dimensions) expect(value.width/value.height).toBeCloseTo(1,1);
   const results=await new AxeBuilder({page}).analyze();
   expect(results.violations.filter(v=>['serious','critical'].includes(v.impact??''))).toEqual([]);
   await page.screenshot({path:`outputs/redesign4/${info.project.name}-series-grid.png`,fullPage:true});

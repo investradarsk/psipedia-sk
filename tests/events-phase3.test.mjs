@@ -97,7 +97,7 @@ test("event categories link from search shortcuts and calendar legend without du
   assert.match(calendar, /eventTypePortalHref\(type\)/);
   assert.doesNotMatch(eventsPage, /PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(listing, /className=\{styles\.cardGrid\} data-event-list/);
+  assert.match(listing, /className=\{`\$\{styles\.cardGrid\} \$\{directoryStyles\.listRows\}`\} data-event-list/);
   assert.doesNotMatch(
     calendar,
     /items\.slice\(0, 5\)|data-event-category-overview|data-event-category=\{group\.eventType\}|Všetky výstavy|Všetky tréningy/,

@@ -154,10 +154,13 @@ test("homepage breed cards read only presentation fields, not the editor's full 
   const end = store.indexOf("export async function getManagedBreed(", start);
   assert.ok(start >= 0 && end > start, "a dedicated homepage breed projection exists");
   const fn = store.slice(start, end);
-  assert.match(fn, /SELECT slug,name,image_url,intro\s+FROM managed_breeds/);
+  assert.match(fn, /SELECT slug,name,image_url,intro FROM candidates/);
+  assert.match(fn, /FROM managed_breeds/);
   assert.match(fn, /WHERE id IN \(\$\{canonicalBreedIdsSql\}\)/);
-  // Homepage deliberately rotates its image-backed breed picks; projection stays small.
-  assert.match(fn, /ORDER BY RANDOM\(\) LIMIT \?/);
+  // Homepage rotates eligible breeds once per local calendar day, keeping projection small.
+  assert.match(fn, /ROW_NUMBER\(\) OVER \(ORDER BY slug ASC\)/);
+  assert.match(fn, /ORDER BY[\s\S]*rotation_index[\s\S]*LIMIT \?/);
+  assert.doesNotMatch(fn, /ORDER BY RANDOM\(\)/);
   assert.match(fn, /image:\s*ownedBreedImage\(row\.image_url\)/);
   assert.doesNotMatch(fn, /withAvailableBreedImages|availableBreedImage\(/);
   assert.match(fn, /SELECT slug,name,image_url,intro/);

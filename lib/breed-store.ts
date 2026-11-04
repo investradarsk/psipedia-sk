@@ -16,6 +16,8 @@ import { articleHref, type ArticlePortalSection } from "./portal";
 import { directoryProfileHref } from "./directory";
 import { ownedBreedImage, withAvailableBreedImages } from "./breed-image";
 import { env } from "cloudflare:workers";
+import { bratislavaDateKey } from "@/lib/events";
+import { homepageRotationOffset, homepageRotatingWindow } from "@/lib/homepage-rotation";
 import { cache } from "react";
 import { breeds as seedBreeds, type Breed, type BreedImage, type BreedSource } from "@/lib/content";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
@@ -1023,9 +1025,10 @@ export async function listHomepageFeaturedBreeds(
   limit = 6,
 ): Promise<Array<Pick<Breed, "slug" | "name" | "image" | "intro">>> {
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const rotationOffset = homepageRotationOffset(bratislavaDateKey(), safeLimit);
   const database = db();
   if (!database)
-    return seedBreeds.slice(0, safeLimit).map(({ slug, name, image, intro }) => ({
+    return homepageRotatingWindow(seedBreeds, rotationOffset, safeLimit).map(({ slug, name, image, intro }) => ({
       slug,
       name,
       image: ownedBreedImage(image),
@@ -1033,18 +1036,25 @@ export async function listHomepageFeaturedBreeds(
     }));
   const result = await database
     .prepare(
-      `SELECT slug,name,image_url,intro
-    FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql})
-    AND (
-      image_url LIKE '/images/%' OR image_url LIKE '/media/%'
-      OR image_url LIKE '/migrated-media/%'
-      OR image_url LIKE 'https://psipedia.sk/images/%'
-      OR image_url LIKE 'https://psipedia.sk/media/%'
-      OR image_url LIKE 'https://psipedia.sk/migrated-media/%'
+      `WITH candidates AS (
+        SELECT slug,name,image_url,intro,
+          ROW_NUMBER() OVER (ORDER BY slug ASC) - 1 AS rotation_index,
+          COUNT(*) OVER () AS rotation_count
+        FROM managed_breeds
+        WHERE id IN (${canonicalBreedIdsSql})
+          AND (
+            image_url LIKE '/images/%' OR image_url LIKE '/media/%'
+            OR image_url LIKE '/migrated-media/%'
+            OR image_url LIKE 'https://psipedia.sk/images/%'
+            OR image_url LIKE 'https://psipedia.sk/media/%'
+            OR image_url LIKE 'https://psipedia.sk/migrated-media/%'
+          )
+      )
+      SELECT slug,name,image_url,intro FROM candidates
+      ORDER BY ((rotation_index - (? % rotation_count) + rotation_count) % rotation_count) ASC
+      LIMIT ?`,
     )
-    ORDER BY RANDOM() LIMIT ?`,
-    )
-    .bind(safeLimit)
+    .bind(rotationOffset, safeLimit)
     .all<{ slug: string; name: string; image_url: string; intro: string }>();
   return result.results.map((row) => ({
     slug: row.slug,

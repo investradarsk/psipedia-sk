@@ -1,11 +1,12 @@
 import { eventTypePresentation, getEventOwnImage } from '@/lib/event-type-presentation';
-import type { CSSProperties } from 'react';
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { eventDateStatus, eventHref, formatEventDate, type PublicEventCard } from "@/lib/events";
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
 import { EventImage } from "@/components/event-image";
+import { PublicListingRowCard } from "@/components/public-listing-row-card";
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MÁJ", "JÚN", "JÚL", "AUG", "SEP", "OKT", "NOV", "DEC"];
 
@@ -39,20 +40,45 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
   const endLabel = endDateLabel(event);
   const statusLabel = event.cancelled ? "Zrušené" : dateStatus === "current" ? "Prebieha" : dateStatus === "past" ? "Uskutočnilo sa" : null;
 
-  if (variant === 'grid') return <article className={styles.gridCard} data-public-card="event-grid" data-event-card data-event-has-image={ownImage ? 'true':'false'} data-event-status={event.cancelled ? 'cancelled':dateStatus}>
-    <Link href={eventHref(event)} className={styles.gridCardLink}>
-      <div className={styles.gridMedia}>
-        <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} config={event.thumbnailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 900px) calc(100vw - 284px), (max-width: 1199px) calc((100vw - 334px) / 2), (max-width: 1279px) calc((100vw - 354px) / 3), 290px" alt="" loading="lazy" decoding="async"/>
-        <time className={styles.gridDate} dateTime={event.startDate}>{day}. {month}</time>
-      </div>
-      <div className={styles.gridBody}>
-        <div className={styles.cardMeta} data-public-card-meta><span className={styles.gridType} style={{'--event-type-color':eventTypePresentation[event.eventType].color} as CSSProperties}>{eventTypePresentation[event.eventType].label}</span>{statusLabel ? <b>{statusLabel}</b>:null}</div>
-        <h3 data-public-card-title>{event.title}</h3>
-        <p>{formatEventDate(event)}{timeLabel ? ' · '+timeLabel:''}</p>
-        <p>{location || "Miesto nie je uvedené"}</p>
-      </div>
-    </Link>
-  </article>;
+  if (variant === "grid") {
+    return (
+      <PublicListingRowCard
+        kind="event"
+        href={eventHref(event)}
+        typeLabel={
+          <span
+            className={styles.listTypeBadge}
+            style={{ "--event-type-color": eventTypePresentation[event.eventType].color } as CSSProperties}
+          >
+            {eventTypePresentation[event.eventType].label}
+          </span>
+        }
+        title={event.title}
+        location={location || "Miesto nie je uvedené"}
+        hasImage={Boolean(ownImage)}
+        eventStatus={event.cancelled ? "cancelled" : dateStatus}
+        badge={statusLabel ? <span className={styles.listStatusBadge}>{statusLabel}</span> : undefined}
+        media={
+          <EventImage
+            imageUrl={event.imageUrl}
+            eventType={event.eventType}
+            mode={event.imageDisplay}
+            config={event.thumbnailImageDisplay}
+            sizes="(max-width: 620px) 76px, 96px"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        }
+        meta={
+          <time dateTime={event.startDate}>
+            {formatEventDate(event)}
+            {timeLabel ? " · " + timeLabel : ""}
+          </time>
+        }
+      />
+    );
+  }
 
   return (
     <article

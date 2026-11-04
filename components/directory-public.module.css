@@ -2163,3 +2163,97 @@
     gap: 6px;
   }
 }
+
+/* Event listings reuse the directory-card surface without changing any existing
+   directory selectors or its approved desktop/mobile geometry. */
+.listRows:global(.directory-grid),
+.listRows:global([data-event-list]) {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 11px;
+}
+.listRows .cardInner {
+  padding: 15px;
+  gap: 14px;
+}
+.listRows .cardWithImage {
+  grid-template-columns: 80px minmax(0, 1fr);
+}
+.listRows .cardImage {
+  display: block;
+  width: 80px;
+  height: 80px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.listRows .cardImage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.listRows .cardMeta time {
+  font: inherit;
+  color: inherit;
+}
+@media (max-width: 620px) {
+  .listRows .card {
+    border-radius: 15px;
+    box-shadow: none;
+  }
+  .listRows .cardInner {
+    padding: 13px 11px;
+    gap: 11px;
+  }
+  .listRows .cardWithImage {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+  .listRows .cardImage {
+    width: 76px;
+    height: 76px;
+  }
+  .listRows .cardCopy {
+    min-width: 0;
+    gap: 4px;
+  }
+  .listRows .cardTitle {
+    font-size: clamp(0.98rem, 4.2vw, 1.17rem);
+    line-height: 1.23;
+  }
+  .listRows .cardLocation {
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+  .listRows .cardMeta {
+    font-size: 0.74rem;
+    line-height: 1.4;
+  }
+}
+@media (max-width: 360px) {
+  .listRows .cardWithImage {
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .listRows .cardImage {
+    width: 68px;
+    height: 68px;
+  }
+}
+
+/* Full-card event anchor inside a semantic article; service cards remain direct links. */
+.cardLink {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+.cardLink:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: -3px;
+}
+.listRows h3.cardTitle {
+  margin: 0;
+}
