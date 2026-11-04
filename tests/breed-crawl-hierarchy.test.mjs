@@ -13,7 +13,7 @@ test("canonical breed cards remain reachable through SSR group URLs and the JSON
   assert.match(page, /items: breeds\.map\(\(breed\) => \(\{ name: breed\.name, path:/);
   assert.match(page, /buildCollectionPageJsonLd/);
   assert.match(browser, /fciGroup: String\(group\.number\)/);
-  assert.match(browser, /<Link href=\{breedAtlasHref/);
+  assert.match(browser, /<Link\s+href=\{breedAtlasHref\(/);
   assert.match(browser, /selectedGroup === String\(number\)/);
   assert.match(crawlIndex, /for \(const breed of breeds\)/);
 });
@@ -30,7 +30,7 @@ test("each FCI group previews three real cards and can be expanded independently
   assert.match(browser, /expandedGroups/);
   assert.match(browser, /setExpandedGroups\(\(current\) =>/);
   assert.match(browser, /toggleGroup\(group\.number\)/);
-  assert.match(browser, /groupBreeds\.slice\(0, isGroupExpanded/);
+  assert.match(browser, /groupBreeds\s*\.slice\(\s*0,\s*isGroupExpanded/);
   assert.match(browser, /Všetky plemená skupiny/);
   assert.doesNotMatch(browser, /setShown/);
 });
@@ -45,7 +45,7 @@ test("atlas projection avoids full FCI and SEO blobs while retaining canonical i
   assert.match(part, /canonicalBreedIdsSql/);
   assert.match(part, /ORDER BY fci_group,name/);
   // Public HTML must not wait for R2 HEAD/list subrequests per card.
-  assert.match(part, /image:ownedBreedImage\(row\.image_url\)/);
+  assert.match(part, /image:\s*ownedBreedImage\(row\.image_url\)/);
   assert.doesNotMatch(part, /withAvailableBreedImages|availableBreedImage|BUCKET\.(?:head|list)/);
   assert.doesNotMatch(part, /SELECT \*|SELECT.*fci_standard_json|SELECT.*seo_json/);
   assert.match(part, /json_extract\(fci_standard_json, '\$\.vyska_pes_cm'\)/);
@@ -60,9 +60,9 @@ test("atlas SQL scalar FCI projections preserve measurement fallbacks, reject ma
   const store = readFileSync("lib/breed-store.ts", "utf8");
   const start = store.indexOf("export async function listPublishedCanonicalBreedAtlasCards");
   const part = store.slice(start, store.indexOf("export type BreedSitemapIndexItem", start));
-  const raw = part.split("const result=await database.prepare(")[1]?.split(").all<BreedAtlasCardRow>()")[0];
+  const raw = part.match(/const result\s*=\s*await database\s*\.prepare\(\s*`([\s\S]*?)`\s*,?\s*\)\s*\.all<BreedAtlasCardRow>\(\)/)?.[1];
   assert.ok(raw, "dedicated SQL projection exists");
-  const sql = raw.slice(1, -1).replace("$" + "{canonicalBreedIdsSql}", "SELECT id FROM managed_breeds WHERE status = 'published'");
+  const sql = raw.replace("$" + "{canonicalBreedIdsSql}", "SELECT id FROM managed_breeds WHERE status = 'published'");
   const db = new DatabaseSync(":memory:");
   try {
     db.exec("CREATE TABLE managed_breeds (" +
