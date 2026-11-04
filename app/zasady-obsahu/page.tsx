@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -10,10 +11,13 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function EditorialPolicyPage() {
   return (
-    <main id="obsah" className="prose-page">
-      <span className="eyebrow">Transparentnosť</span>
-      <h1>Zásady obsahu</h1>
-      <p className="lead">Dôvera sa nedá postaviť iba pekným dizajnom. Preto otvorene uvádzame, čo môže čitateľ od textov Psipedia.sk očakávať.</p>
+    <main id="obsah">
+      <UniversalPageHero
+        eyebrow="Transparentnosť"
+        title="Zásady obsahu"
+        intro="Dôvera sa nedá postaviť iba pekným dizajnom. Preto otvorene uvádzame, čo môže čitateľ od textov Psipedia.sk očakávať."
+      />
+      <section className="prose-page">
 
       <h2>Praktické, ale nie univerzálne</h2>
       <p>Každý pes má inú históriu, zdravie a temperament. Všeobecný návod preto opisujeme ako východisko, nie ako záruku výsledku. Pri správaní, ktoré predstavuje riziko, odporúčame osobnú pomoc kvalifikovaného odborníka.</p>
@@ -38,6 +42,7 @@ export default function EditorialPolicyPage() {
 
       <h2>Zbierky a pomoc psom</h2>
       <p>Výzvu na finančnú pomoc zverejníme iba po primeranom preverení organizátora, príjemcu a účelu. Peniaze v pilotnej verzii nejdú cez Psipediu; odkaz vedie na oficiálnu stránku organizátora. Pri zmene alebo ukončení výzvy údaj aktualizujeme.</p>
+      </section>
     </main>
   );
 }
