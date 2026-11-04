@@ -398,7 +398,25 @@ export async function runManualTransferQueueBatch(input:{
     }
     await updateRun(input.database,item.run_id);
   }
+  // Repair a previously settled run if its final status update was interrupted.
+  await reconcileSettledManualTransferRuns(input.database);
   return total;
+}
+
+/** Recover a header whose final progress update failed after the last item settled.
+ * Bounded and read-only until updateRun computes the exact per-field totals.
+ */
+async function reconcileSettledManualTransferRuns(db:D1Database){
+  const result=await db.prepare(
+    "SELECT r.id FROM notion_manual_transfer_runs r "+
+    "WHERE r.status IN ('PREVIEW','QUEUED','RUNNING') "+
+    "AND EXISTS (SELECT 1 FROM notion_manual_transfer_items i WHERE i.run_id=r.id) "+
+    "AND NOT EXISTS (SELECT 1 FROM notion_manual_transfer_items i "+
+    "WHERE i.run_id=r.id AND i.status NOT IN "+
+    "('PREVIEWED','DONE','PARTIAL','FAILED','SKIPPED')) "+
+    "ORDER BY r.updated_at LIMIT 5"
+  ).all<{id:string}>();
+  for(const run of result.results??[])await updateRun(db,run.id);
 }
 
 /** Two-stage owner confirmation: never accept a failed/incomplete preview. */
@@ -414,13 +432,19 @@ export async function confirmManualTransferRun(db:D1Database,runId:string,actor:
     .bind(runId).first<{n:number}>();
   if(validated?.n!==head.total_profiles)throw Error("TRANSFER_PREVIEW_INCOMPLETE");
   const now=new Date().toISOString();
-  const claimed=await db.prepare("UPDATE notion_manual_transfer_runs SET "+
-    "status='QUEUED',processed_profiles=0,changed_fields=0,updated_at=? WHERE id=? AND status='PREVIEW_READY'")
-    .bind(now,runId).run();
+  // One D1 transaction: never leave QUEUED with PREVIEWED items if a
+  // second statement fails. Re-enable immediately, even after preview retries.
+  const [claimed]=await db.batch([
+    db.prepare("UPDATE notion_manual_transfer_runs SET "+
+      "status='QUEUED',processed_profiles=0,changed_fields=0,updated_at=? "+
+      "WHERE id=? AND status='PREVIEW_READY'").bind(now,runId),
+    db.prepare("UPDATE notion_manual_transfer_items SET status='PENDING',"+
+      "attempts=0,started_at=NULL,next_attempt_at=?,updated_at=? "+
+      "WHERE run_id=? AND status='PREVIEWED' AND EXISTS ("+
+      "SELECT 1 FROM notion_manual_transfer_runs "+
+      "WHERE id=? AND status='QUEUED')").bind(now,now,runId,runId),
+  ]);
   if(claimed.meta.changes!==1)throw Error("TRANSFER_PREVIEW_CHANGED");
-  await db.prepare("UPDATE notion_manual_transfer_items SET status='PENDING',"+
-    "attempts=0,started_at=NULL WHERE run_id=? AND status='PREVIEWED'")
-    .bind(runId).run();
   return {runId,status:"QUEUED" as const};
 }
 
