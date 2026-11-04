@@ -174,7 +174,8 @@ test("redakčné kategórie keep one navigator and intended hero variations", ()
   );
   assert.match(hub, /<UnifiedSectionHero/);
   assert.match(topic, /<UnifiedSectionHero/);
-  assert.match(topic, /<SectionHero/);
+  // Structured topics use the same canonical editorial template rather than a nested duplicate HERO.
+  assert.match(topic, /return <EditorialSectionTopic/);
 });
 
 test("visual fixtures cover actual canonical details in desktop/mobile screenshot mode", () => {
