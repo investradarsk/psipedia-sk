@@ -35,6 +35,7 @@ import {
   type BreedCompletenessIssue,
 } from "./admin-breeds";
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
+import { cleanBreedCoatDescription, cleanBreedEditorialList } from "./breed-long-description.ts";
 
 export type BreedStatus = "draft" | "published";
 
@@ -1273,13 +1274,7 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed) {
       .trim()
       .slice(0, max);
   const score = (value: unknown) => Math.min(5, Math.max(1, Number(value) || 3));
-  const strings = (value: unknown) =>
-    Array.isArray(value)
-      ? value
-          .map((item) => text(item, 240))
-          .filter(Boolean)
-          .slice(0, 30)
-      : [];
+  const strings = cleanBreedEditorialList;
   const ids = (value: unknown) =>
     Array.isArray(value)
       ? [
@@ -1453,7 +1448,7 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed) {
     weight: text(input.weight, 1000),
     height: text(input.height, 1000),
     lifespan: text(input.lifespan, 1000),
-    coat: text(input.coat, 200),
+    coat: cleanBreedCoatDescription(input.coat),
     energy: score(input.energy),
     trainability: score(input.trainability),
     family,

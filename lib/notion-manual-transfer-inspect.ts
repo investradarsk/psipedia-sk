@@ -79,10 +79,16 @@ export async function inspectManualTransferRecord(input:{
   }
   const excluded=new Set(values.excluded);
   const locked=new Set(group.fields.filter(f=>f.locked).map(f=>f.id));
+  // fciStandard/editorial are readonly *aggregate JSON views*, not locks on
+  // their independently editable Notion properties (fciStandard.oci, etc.).
+  // Only the breeds registry defines these two aggregate-only paths.
+  const aggregateOnly=new Set(link.scope==="breeds"
+    ? ["fciStandard","editorial"]:[]);
   for(const key of excluded)locked.add(key);
   const plan=planOwnerDirectedFields({
     notion:values.notion,admin:values.admin,direction,
     editablePaths:group.fields.map(f=>f.id),protectedPaths:locked,
+    aggregateOnlyPaths:aggregateOnly,
   });
   const fields:ManualTransferFieldResult[]=plan.results.map(f=>({
     field:f.field,label:group.fields.find(g=>g.id===f.field)?.label??f.field,
