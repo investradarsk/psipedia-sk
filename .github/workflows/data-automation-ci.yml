@@ -35,7 +35,6 @@ on:
       - "lib/admin-attention-queue*.ts"
       - "lib/editorial-email.ts"
       - "lib/editorial-notifications.ts"
-      - "worker/index.ts"
       - "drizzle/0050_data_automation_foundation.sql"
       - "drizzle/0055_data_automation_apply.sql"
       - "drizzle/0056_scheduled_source_discovery.sql"

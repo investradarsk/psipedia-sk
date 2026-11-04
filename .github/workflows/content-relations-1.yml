@@ -24,8 +24,6 @@ on:
       - "tests/fixtures/content-relations-1-e2e.sql"
       - ".github/workflows/content-relations-1.yml"
       - "playwright.config.ts"
-      - "vite.config.*"
-      - "tsconfig.json"
 
 concurrency:
   group: content-relations-1-${{ github.event.pull_request.number || github.ref }}

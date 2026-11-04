@@ -12,7 +12,6 @@ on:
       - "tests/notion-article-content-writeback.test.mjs"
       - "tests/notion-article-editorial-retry.test.mjs"
       - "lib/article-publish-notion-reconciliation.ts"
-      - "worker/index.ts"
       - "lib/article-subsection-taxonomy.ts"
       - "lib/notion-breed-sync.ts"
       - "lib/notion-event-sync.ts"

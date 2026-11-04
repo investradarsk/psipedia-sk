@@ -23,7 +23,6 @@ on:
       - "lib/notion-directory-update-safety.ts"
       - "tests/notion-geo-mirror.test.mjs"
       - "app/api/admin/notion-events-help-sync/**"
-      - "worker/index.ts"
       - "drizzle/0108_notion_events_help_bidirectional_sync.sql"
       - "tests/notion-events-help-bidirectional.test.mjs"
       - "tests/notion-directory-apply-sql-r2-integration.test.mjs"

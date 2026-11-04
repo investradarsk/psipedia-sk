@@ -57,7 +57,6 @@ on:
       - "wrangler.jsonc"
       - "config/runtime-env.ts"
       - ".env.example"
-      - "scripts/ci-scope.mjs"
       - ".github/workflows/gemini-automation-foundation-ci.yml"
 
 permissions:

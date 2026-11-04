@@ -5,7 +5,6 @@ on:
     paths:
       - "lib/sitemap-edge-cache.ts"
       - "lib/sitemap-xml-validator.ts"
-      - "worker/index.ts"
       - "app/sitemap.ts"
       - "tests/sitemap-edge-cache.test.mjs"
       - "tests/sitemap-xml-hardening.test.mjs"

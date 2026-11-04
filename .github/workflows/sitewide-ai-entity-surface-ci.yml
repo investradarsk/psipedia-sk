@@ -64,8 +64,6 @@ on:
       - "tests/fixtures/lost-found-e2e.sql"
       - "tests/fixtures/help-detail-e2e.sql"
       - "playwright.config.ts"
-      - "vite.config.ts"
-      - "tsconfig.json"
       - ".github/workflows/sitewide-ai-entity-surface-ci.yml"
 
 permissions:
