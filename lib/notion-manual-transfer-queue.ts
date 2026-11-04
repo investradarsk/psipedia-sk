@@ -27,9 +27,9 @@ type Job = LinkRow & {
 const MAX_LINKS=10000;
 const MAX_ATTEMPTS=8;
 // Preview is read-only and safe to process in modest bounded groups.
-// Actual owner-confirmed writes remain at the original two per minute.
+// Limit external writes independently of previews to avoid Notion API bursts.
 export const MANUAL_PREVIEW_BATCH_SIZE=10;
-export const MANUAL_EXECUTION_BATCH_SIZE=2;
+export const MANUAL_EXECUTION_BATCH_SIZE=4;
 const ALLOWED_SCOPES=new Set(NOTION_AUTHORITY_GROUPS
   .filter(group=>group.active && areaOfManualTransferScope(group.scope)!==null)
   .map(group=>group.scope));
@@ -95,9 +95,10 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
     // A bounded single read per scope. Fail closed instead of reporting a
     // partial all-record queue as a completed whole-area transfer.
     const pageSize=250;
-    for(let offset=0;;offset+=pageSize){
-      const q=await db.prepare(sql+" ORDER BY profile_id LIMIT ? OFFSET ?")
-        .bind(...bind,pageSize,offset)
+    let cursor=0;
+    for(;;){
+      const q=await db.prepare(sql+" AND "+idColumn+">? ORDER BY profile_id LIMIT ?")
+        .bind(...bind,cursor,pageSize)
         .all<{profile_id:number;notion_page_id:string}>();
       const rows=q.results??[];
       for(const row of rows){
@@ -107,6 +108,7 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
         if(output.length>MAX_LINKS)throw Error("TRANSFER_TOO_MANY_PROFILES");
       }
       if(rows.length<pageSize)break;
+      cursor=rows[rows.length-1].profile_id;
     }
   }
   if(!output.length)throw Error("TRANSFER_NO_LINKED_PROFILES");
@@ -289,9 +291,10 @@ async function executeVerified(db:D1Database,bindings:ManualTransferBindings,job
   if(!job.preview_hash||before.fingerprint!==job.preview_hash)
     throw Error("TRANSFER_PREVIEW_STALE");
   if(before.changed)await runOne({db,bindings,job});
-  const after=await inspectManualTransferRecord({
+  // The read-only preview already proved a no-op. Avoid another provider GET.
+  const after=before.changed?await inspectManualTransferRecord({
     database:db,bindings,link:job,direction:job.direction,
-  });
+  }):before;
   const checked=verifyManualTransferFields(before,after);
   await writeFieldResults(db,job.id,checked.map(f=>({
     field:f.field,status:f.status,reason:f.reason_code,attempts:job.attempts,
@@ -307,7 +310,7 @@ async function executeVerified(db:D1Database,bindings:ManualTransferBindings,job
   return failed?"PARTIAL" as const:"DONE" as const;
 }
 
-/** Bounded per-minute queue: up to ten read-only previews, at most two writes. */
+/** Bounded per-minute queue: ten read-only previews and four owner-approved writes. */
 export async function runManualTransferQueueBatch(input:{
   database:D1Database;bindings:ManualTransferBindings;limit?:number;
 }):Promise<{claimed:number;previewed:number;done:number;partial:number;retried:number;failed:number;disabled:boolean}>{
@@ -317,40 +320,49 @@ export async function runManualTransferQueueBatch(input:{
   }
   if(!await manualTransferSchemaReady(input.database))return {...total,disabled:true};
   const limit=Math.min(MANUAL_PREVIEW_BATCH_SIZE,Math.max(1,input.limit??1));
+  let previewClaims=0;
   let executionClaims=0;
-  for(let n=0;n<limit;n++){
-    const now=new Date().toISOString();
-    const stale=new Date(Date.now()-10*60*1000).toISOString();
-    let isPreview=true;
-    let item=await input.database.prepare(
-      "UPDATE notion_manual_transfer_items SET status='PREVIEWING',"+
+  let previewAvailable=true;
+  let executionAvailable=true;
+  async function claim(preview:boolean,now:string,stale:string){
+    const activeStatus=preview?"PREVIEWING":"RUNNING";
+    const runCondition=preview?"r.status='PREVIEW'":"r.status IN ('QUEUED','RUNNING')";
+    return input.database.prepare(
+      "UPDATE notion_manual_transfer_items SET status=?,"+
       "attempts=attempts+1,started_at=?,updated_at=? WHERE id=("+
       "SELECT i.id FROM notion_manual_transfer_items i "+
       "JOIN notion_manual_transfer_runs r ON r.id=i.run_id "+
-      "WHERE r.status='PREVIEW' AND "+
+      "WHERE "+runCondition+" AND "+
       "((i.status='PENDING' AND i.next_attempt_at<=?) OR "+
-      "(i.status='PREVIEWING' AND i.started_at<?)) "+
+      "(i.status=? AND i.started_at<?)) "+
       "ORDER BY r.created_at,i.id LIMIT 1) "+
       "RETURNING id,run_id,scope,profile_id,notion_page_id,preview_hash,attempts"
-    ).bind(now,now,now,stale).first<Omit<Job,"direction"|"area">>();
-    if(!item){
-      // Never turn higher preview throughput into faster live writes.
-      if(executionClaims>=MANUAL_EXECUTION_BATCH_SIZE)break;
-      isPreview=false;
-      item=await input.database.prepare(
-        "UPDATE notion_manual_transfer_items SET status='RUNNING',"+
-        "attempts=attempts+1,started_at=?,updated_at=? WHERE id=("+
-        "SELECT i.id FROM notion_manual_transfer_items i "+
-        "JOIN notion_manual_transfer_runs r ON r.id=i.run_id "+
-        "WHERE r.status IN ('QUEUED','RUNNING') AND "+
-        "((i.status='PENDING' AND i.next_attempt_at<=?) OR "+
-        "(i.status='RUNNING' AND i.started_at<?)) "+
-        "ORDER BY r.created_at,i.id LIMIT 1) "+
-        "RETURNING id,run_id,scope,profile_id,notion_page_id,preview_hash,attempts"
-      ).bind(now,now,now,stale).first<Omit<Job,"direction"|"area">>();
+    ).bind(activeStatus,now,now,now,activeStatus,stale)
+      .first<Omit<Job,"direction"|"area">>();
+  }
+  // Reserve independent write slots. An unfinished bulk preview must not
+  // starve an older owner-confirmed run for another entire sweep.
+  for(let n=0;n<limit+MANUAL_EXECUTION_BATCH_SIZE;n++){
+    const now=new Date().toISOString();
+    const stale=new Date(Date.now()-10*60*1000).toISOString();
+    let isPreview=false;
+    let item:Omit<Job,"direction"|"area">|null=null;
+    if(n%3===0 && executionAvailable && executionClaims<MANUAL_EXECUTION_BATCH_SIZE){
+      item=await claim(false,now,stale);
+      if(!item)executionAvailable=false;
+    }
+    if(!item && previewAvailable && previewClaims<limit){
+      item=await claim(true,now,stale);
+      if(item)isPreview=true;
+      else previewAvailable=false;
+    }
+    if(!item && executionAvailable && executionClaims<MANUAL_EXECUTION_BATCH_SIZE){
+      item=await claim(false,now,stale);
+      if(!item)executionAvailable=false;
     }
     if(!item)break;
-    if(!isPreview)executionClaims++;
+    if(isPreview)previewClaims++;
+    else executionClaims++;
     total.claimed++;
     const header=await input.database.prepare(
       "SELECT area,direction FROM notion_manual_transfer_runs WHERE id=?"
@@ -470,20 +482,33 @@ export async function readManualTransferRun(
   ).bind(runId,offset).all<{id:number;scope:string;profile_id:number;
     status:string;attempts:number;changed_fields:number;failed_fields:number;
     last_error_code:string|null;updated_at:string}>();
-  const items=[];
-  for(const row of rows.results??[]){
-    // Untouched PENDING records have no field results. Avoid up to 100
-    // unnecessary D1 reads on every seven-second admin status refresh.
-    if(row.status==="PENDING"&&row.attempts===0){
-      items.push({...row,fields:[]});continue;
+  const eligible=(rows.results??[]).filter(row=>row.status!=="PENDING"||row.attempts>0);
+  const fieldsByItem=new Map<number,Array<{
+    field_key:string;status:string;reason_code:string|null;attempts:number;
+  }>>();
+  if(eligible.length){
+    // One bounded query replaces up to 100 D1 round trips per seven-second poll.
+    // Keep the original maximum of 150 sorted fields per item.
+    const placeholders=eligible.map(()=>"?").join(",");
+    const fieldRows=await db.prepare(
+      "SELECT item_id,field_key,status,reason_code,attempts FROM ("+
+      "SELECT item_id,field_key,status,reason_code,attempts,"+
+      "ROW_NUMBER() OVER (PARTITION BY item_id ORDER BY field_key) AS rank "+
+      "FROM notion_manual_transfer_field_results WHERE item_id IN ("+placeholders+")) "+
+      "WHERE rank<=150 ORDER BY item_id,field_key"
+    ).bind(...eligible.map(row=>row.id)).all<{
+      item_id:number;field_key:string;status:string;reason_code:string|null;attempts:number;
+    }>();
+    for(const field of fieldRows.results??[]){
+      const list=fieldsByItem.get(field.item_id)??[];
+      list.push({field_key:field.field_key,status:field.status,
+        reason_code:field.reason_code,attempts:field.attempts});
+      fieldsByItem.set(field.item_id,list);
     }
-    const fields=await db.prepare(
-      "SELECT field_key,status,reason_code,attempts "+
-      "FROM notion_manual_transfer_field_results WHERE item_id=? "+
-      "ORDER BY field_key LIMIT 150"
-    ).bind(row.id).all();
-    items.push({...row,fields:fields.results??[]});
   }
+  const items=(rows.results??[]).map(row=>({
+    ...row,fields:fieldsByItem.get(row.id)??[],
+  }));
   return {run,items,offset,limit:100,hasMore:(rows.results?.length??0)===100,
     onlyErrors};
 }
