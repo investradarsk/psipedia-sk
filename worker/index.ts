@@ -344,7 +344,7 @@ const worker = {
       // protected migration 0156 and explicit production activation.
       if(pushTaskEnabled(env.NOTION_MANUAL_TRANSFER_ENABLED)){
         _ctx.waitUntil(runManualTransferQueueBatch({
-          database:env.DB,bindings:env,limit:2,
+          database:env.DB,bindings:env,limit:10,
         }).then(summary=>console.info(JSON.stringify({
           event:"notion_manual_transfer_sweep",...summary,
         }))).catch(()=>console.error(JSON.stringify({
