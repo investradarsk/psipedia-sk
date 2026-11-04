@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
+
+// SSR and hydration share the disabled snapshot. React enables the control only
+// after the client has hydrated and attached its click handler.
+const subscribeHydration = () => () => {};
+const clientHydrationSnapshot = () => true;
+const serverHydrationSnapshot = () => false;
 
 function activeFilterLabel(count: number) {
   return count === 1
@@ -26,12 +32,13 @@ export function PublicFilterDisclosure({
   openContentClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [ready, setReady] = useState(false);
+  const ready = useSyncExternalStore(
+    subscribeHydration,
+    clientHydrationSnapshot,
+    serverHydrationSnapshot,
+  );
   const contentId = useId();
 
-  // Keep the server-rendered toggle non-interactive until React can handle clicks.
-  // Otherwise an early tap on mobile can be silently lost during hydration.
-  useEffect(() => setReady(true), []);
 
   return (
     <>
