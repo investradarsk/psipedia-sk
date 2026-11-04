@@ -23,14 +23,14 @@ async function setOrganizationProfileViewport(
   projectName: string,
 ) {
   await page.setViewportSize(
-    projectName.includes("mobile")
-      ? { width: 390, height: 844 }
-      : { width: 1440, height: 900 },
+    projectName.includes("mobile") ? { width: 390, height: 844 } : { width: 1440, height: 900 },
   );
 }
 
 test.describe("organization public profile", () => {
-  test("published canonical fixture renders public fields, adoption cards, layout and accessibility", async ({ page }, testInfo) => {
+  test("published canonical fixture renders public fields, adoption cards, layout and accessibility", async ({
+    page,
+  }, testInfo) => {
     await setOrganizationProfileViewport(page, testInfo.project.name);
     const response = await page.goto("/organizacie/org-3b-e2e-kanonicka-organizacia", {
       waitUntil: "domcontentloaded",
@@ -38,9 +38,15 @@ test.describe("organization public profile", () => {
 
     expect(response?.status()).toBe(200);
     const main = page.locator("main#obsah");
-    await expect(main.getByRole("heading", { level: 1, name: "E2E Kanonická organizácia" })).toBeVisible();
-    await expect(main.getByText("Izolovaný lokálny CI profil pre ORG-3B.", { exact: true })).toBeVisible();
-    await expect(main.getByText("Pomáhame psom v núdzi a hľadáme im bezpečné domovy.", { exact: true })).toBeVisible();
+    await expect(
+      main.getByRole("heading", { level: 1, name: "E2E Kanonická organizácia" }),
+    ).toBeVisible();
+    await expect(
+      main.getByText("Izolovaný lokálny CI profil pre ORG-3B.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      main.getByText("Pomáhame psom v núdzi a hľadáme im bezpečné domovy.", { exact: true }),
+    ).toBeVisible();
     await expect(main.getByRole("navigation", { name: "Drobečková navigácia" })).toContainText(
       "Domov›Organizácie›E2E Kanonická organizácia",
     );
@@ -53,11 +59,12 @@ test.describe("organization public profile", () => {
       "href",
       "tel:+421900987654",
     );
-    await expect(main.getByRole("link", { name: /https:\/\/example\.org\/organization/ })).toHaveAttribute(
-      "href",
-      "https://example.org/organization",
-    );
-    await expect(main.getByText("https://provenance.example.invalid/internal-only", { exact: true })).toHaveCount(0);
+    await expect(
+      main.getByRole("link", { name: /https:\/\/example\.org\/organization/ }),
+    ).toHaveAttribute("href", "https://example.org/organization");
+    await expect(
+      main.getByText("https://provenance.example.invalid/internal-only", { exact: true }),
+    ).toHaveCount(0);
 
     await expect(main.getByRole("heading", { name: "Ako môžete pomôcť" })).toBeVisible();
     const fundraisingCards = main.locator("[data-fundraising-method]");
@@ -94,10 +101,14 @@ test.describe("organization public profile", () => {
     }
 
     for (const card of await fundraisingCards.all()) {
-      const overflow = await card.evaluate((element) => Math.max(0, element.scrollWidth - element.clientWidth));
+      const overflow = await card.evaluate((element) =>
+        Math.max(0, element.scrollWidth - element.clientWidth),
+      );
       expect(overflow).toBeLessThanOrEqual(1);
     }
-    const fundraisingCtaBox = await donation.getByRole("link", { name: /Otvoriť stránku podpory/ }).boundingBox();
+    const fundraisingCtaBox = await donation
+      .getByRole("link", { name: /Otvoriť stránku podpory/ })
+      .boundingBox();
     expect(fundraisingCtaBox).not.toBeNull();
     expect(fundraisingCtaBox?.height ?? 0).toBeGreaterThanOrEqual(44);
 
@@ -146,26 +157,32 @@ test.describe("organization public profile", () => {
     expect(copyBox).not.toBeNull();
     expect((mediaBox?.x ?? 0) + (mediaBox?.width ?? 0)).toBeLessThanOrEqual((copyBox?.x ?? 0) + 2);
 
-    const ctaBox = await luna.getByRole("link", { name: "Zobraziť profil", exact: true }).boundingBox();
+    const ctaBox = await luna
+      .getByRole("link", { name: "Zobraziť profil", exact: true })
+      .boundingBox();
     expect(ctaBox).not.toBeNull();
     expect(ctaBox?.height ?? 0).toBeGreaterThanOrEqual(44);
 
     for (const card of await cards.all()) {
-      const overflow = await card.evaluate((element) => Math.max(0, element.scrollWidth - element.clientWidth));
+      const overflow = await card.evaluate((element) =>
+        Math.max(0, element.scrollWidth - element.clientWidth),
+      );
       expect(overflow).toBeLessThanOrEqual(1);
     }
 
     const adoptionDetailPage = await page.context().newPage();
     await setOrganizationProfileViewport(adoptionDetailPage, testInfo.project.name);
-    const adoptionResponse = await adoptionDetailPage.goto("/pomoc-psom/adopcia/org-3b-e2e-neo-na-adopciu", {
-      waitUntil: "domcontentloaded",
-    });
+    const adoptionResponse = await adoptionDetailPage.goto(
+      "/pomoc-psom/adopcia/org-3b-e2e-neo-na-adopciu",
+      {
+        waitUntil: "domcontentloaded",
+      },
+    );
     expect(adoptionResponse?.status()).toBe(200);
     const adoptionMain = adoptionDetailPage.locator("main#obsah");
-    await expect(adoptionMain.getByRole("link", { name: "E2E Kanonická organizácia", exact: true })).toHaveAttribute(
-      "href",
-      "/organizacie/org-3b-e2e-kanonicka-organizacia",
-    );
+    await expect(
+      adoptionMain.getByRole("link", { name: "E2E Kanonická organizácia", exact: true }),
+    ).toHaveAttribute("href", "/organizacie/org-3b-e2e-kanonicka-organizacia");
     await expectNoHorizontalOverflow(adoptionDetailPage);
     await expectNoSeriousAccessibilityViolations(adoptionDetailPage);
 
@@ -175,15 +192,21 @@ test.describe("organization public profile", () => {
     );
     expect(draftOrganizationResponse?.status()).toBe(200);
     const draftOrganizationMain = adoptionDetailPage.locator("main#obsah");
-    await expect(draftOrganizationMain.getByText("E2E Draft organizácia", { exact: true })).toBeVisible();
-    await expect(draftOrganizationMain.getByRole("link", { name: "E2E Draft organizácia", exact: true })).toHaveCount(0);
+    await expect(
+      draftOrganizationMain.getByText("E2E Draft organizácia", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      draftOrganizationMain.getByRole("link", { name: "E2E Draft organizácia", exact: true }),
+    ).toHaveCount(0);
     await adoptionDetailPage.close();
 
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAccessibilityViolations(page);
   });
 
-  test("single canonical location stays compact and empty location data renders no placeholder", async ({ page }, testInfo) => {
+  test("single canonical location stays compact and empty location data renders no placeholder", async ({
+    page,
+  }, testInfo) => {
     await setOrganizationProfileViewport(page, testInfo.project.name);
 
     const singleResponse = await page.goto("/organizacie/org-2b-e2e-jedna-lokalita", {
@@ -191,7 +214,9 @@ test.describe("organization public profile", () => {
     });
     expect(singleResponse?.status()).toBe(200);
     const singleMain = page.locator("main#obsah");
-    await expect(singleMain.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
+    await expect(
+      singleMain.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" }),
+    ).toBeVisible();
     const locationSummary = singleMain.locator("[data-organization-location-summary]");
     await expect(locationSummary).toContainText("Trnava · Trnavský kraj");
     await expect(locationSummary).not.toContainText("Prevádzka");
@@ -203,10 +228,9 @@ test.describe("organization public profile", () => {
     await expect(singleFundraising).toHaveCount(1);
     await expect(singleFundraising).toHaveAttribute("data-fundraising-method", "990207");
     await expect(singleFundraising).toContainText("Transparentný účet");
-    await expect(singleFundraising.getByRole("link", { name: /Otvoriť transparentný účet/ })).toHaveAttribute(
-      "href",
-      "https://example.org/transparent",
-    );
+    await expect(
+      singleFundraising.getByRole("link", { name: /Otvoriť transparentný účet/ }),
+    ).toHaveAttribute("href", "https://example.org/transparent");
     await expectNoHorizontalOverflow(page);
 
     const emptyResponse = await page.goto("/organizacie/org-2b-e2e-bez-lokality", {
@@ -214,7 +238,9 @@ test.describe("organization public profile", () => {
     });
     expect(emptyResponse?.status()).toBe(200);
     const emptyMain = page.locator("main#obsah");
-    await expect(emptyMain.getByRole("heading", { level: 1, name: "E2E Bez lokality" })).toBeVisible();
+    await expect(
+      emptyMain.getByRole("heading", { level: 1, name: "E2E Bez lokality" }),
+    ).toBeVisible();
     await expect(emptyMain.locator("[data-organization-location-summary]")).toHaveCount(0);
     await expect(emptyMain.locator("[data-organization-location]")).toHaveCount(0);
     await expect(emptyMain.getByRole("heading", { name: "Kde organizácia pôsobí" })).toHaveCount(0);
@@ -234,12 +260,16 @@ test.describe("organization public profile", () => {
       const response = await page.goto(`/organizacie/${slug}`);
       expect(response?.status(), slug).toBe(404);
       expect(new URL(page.url()).pathname, slug).toBe(`/organizacie/${slug}`);
-      await expect(page.getByRole("heading", { level: 1 }), slug).not.toHaveText(/E2E Kanonická organizácia/);
+      await expect(page.getByRole("heading", { level: 1 }), slug).not.toHaveText(
+        /E2E Kanonická organizácia/,
+      );
       await expectNoHorizontalOverflow(page);
     }
   });
 
-  test("@production canonical route fails closed for an ineligible legacy-only slug", async ({ page }) => {
+  test("@production canonical route fails closed for an ineligible legacy-only slug", async ({
+    page,
+  }) => {
     const response = await page.goto("/organizacie/e2e-organizacia");
 
     expect(response?.status()).toBe(404);
@@ -250,15 +280,22 @@ test.describe("organization public profile", () => {
 });
 
 test.describe("organization location admin CRUD", () => {
-  test("admin edits the one canonical address and public read stays single-address", async ({ page }, testInfo) => {
+  test("admin edits the one canonical address and public read stays single-address", async ({
+    page,
+  }, testInfo) => {
     const configuredBase = process.env.E2E_BASE_URL;
     if (configuredBase) {
       const hostname = new URL(configuredBase).hostname;
-      test.skip(!["localhost", "127.0.0.1", "::1"].includes(hostname), "Mutating organization E2E runs only against isolated local D1.");
+      test.skip(
+        !["localhost", "127.0.0.1", "::1"].includes(hostname),
+        "Mutating organization E2E runs only against isolated local D1.",
+      );
     }
 
     await setOrganizationProfileViewport(page, testInfo.project.name);
-    const response = await page.goto("/admin/organizacie/990007", { waitUntil: "domcontentloaded" });
+    const response = await page.goto("/admin/organizacie/990007", {
+      waitUntil: "domcontentloaded",
+    });
     expect(response?.status()).toBeLessThan(400);
     await expect(page.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
 
@@ -278,7 +315,10 @@ test.describe("organization location admin CRUD", () => {
     await addressAdmin.getByRole("button", { name: "Uložiť adresu" }).click();
     await expect(addressAdmin.getByRole("status")).toContainText("Adresa bola uložená");
 
-    await page.goto(`/organizacie/org-2b-e2e-jedna-lokalita?single-address=${testInfo.project.name}-${testInfo.retry}`, { waitUntil: "domcontentloaded" });
+    await page.goto(
+      `/organizacie/org-2b-e2e-jedna-lokalita?single-address=${testInfo.project.name}-${testInfo.retry}`,
+      { waitUntil: "domcontentloaded" },
+    );
     const publicSummary = page.locator("[data-organization-location-summary]");
     await expect(publicSummary).toHaveCount(1);
     await expect(publicSummary).toContainText("Košice · Košický kraj");
@@ -301,16 +341,22 @@ test.describe("organization location admin CRUD", () => {
   });
 });
 
-test("PUBLIC-PROFILE-UX-UNIFICATION-1: mobile-first organization profile preserves donation and adoption", async ({ page }) => {
+test("PUBLIC-PROFILE-UX-UNIFICATION-1: mobile-first organization profile preserves donation and adoption", async ({
+  page,
+}) => {
   for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ width, height: width < 900 ? 844 : 900 });
-    const response = await page.goto("/organizacie/org-3b-e2e-kanonicka-organizacia", { waitUntil: "domcontentloaded" });
+    const response = await page.goto("/organizacie/org-3b-e2e-kanonicka-organizacia", {
+      waitUntil: "domcontentloaded",
+    });
     expect(response?.status()).toBe(200);
     const main = page.locator("main#obsah");
     const hero = main.locator("[data-public-profile-hero]");
     const sidebar = main.locator("[data-public-profile-sidebar]");
     const body = main.locator("[data-public-profile-body]");
-    await expect(hero.getByRole("heading", { level: 1, name: "E2E Kanonická organizácia" })).toBeVisible();
+    await expect(
+      hero.getByRole("heading", { level: 1, name: "E2E Kanonická organizácia" }),
+    ).toBeVisible();
     await expect(main.getByRole("heading", { name: "Kontakty", exact: true })).toBeVisible();
     await expect(main.locator("[data-fundraising-method]")).toHaveCount(3);
     await expect(main.locator("[data-adoption-card]")).toHaveCount(2);
@@ -324,13 +370,21 @@ test("PUBLIC-PROFILE-UX-UNIFICATION-1: mobile-first organization profile preserv
     expect(asideBox).not.toBeNull();
     expect(bodyBox).not.toBeNull();
     if (width <= 800) {
-      expect((bodyBox?.y ?? 0) + (bodyBox?.height ?? 0)).toBeLessThanOrEqual((asideBox?.y ?? 0) + 2);
+      expect((bodyBox?.y ?? 0) + (bodyBox?.height ?? 0)).toBeLessThanOrEqual(
+        (asideBox?.y ?? 0) + 2,
+      );
     } else {
       expect(asideBox?.x ?? 0).toBeGreaterThan(bodyBox?.x ?? 0);
     }
-    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-    const accessibility = await new AxeBuilder({ page }).include("main#obsah")
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBeLessThanOrEqual(1);
+    const accessibility = await new AxeBuilder({ page })
+      .include("main#obsah")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
     expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
   }
 
@@ -347,6 +401,12 @@ test("PUBLIC-PROFILE-UX-UNIFICATION-1: mobile-first organization profile preserv
   await expect(missingPhoto).toHaveCount(1);
   await expect(missingPhoto.locator("img")).toHaveCount(0);
   await expect(missingPhoto.locator("[data-public-media-fallback]")).toBeVisible();
-  await expect(empty.locator("[data-profile-primary-action]")).toHaveAttribute("href", "/organizacie");
-  await expect(empty.getByRole("heading", { name: "Kontakty", exact: true })).toHaveCount(0);
+  await expect(empty.locator("[data-profile-primary-action]")).toHaveAttribute(
+    "href",
+    "/organizacie",
+  );
+  await expect(empty.getByRole("heading", { name: "Kontakty", exact: true })).toHaveCount(1);
+  await expect(
+    empty.getByText("Priamy kontakt zatiaľ nie je uvedený.", { exact: true }),
+  ).toBeVisible();
 });

@@ -1,0 +1,56 @@
+/* Desktop article geometry belongs to the variant, not the page containing it. */
+@media (min-width: 901px) {
+  .row {
+    grid-template-columns: 112px minmax(0, 1fr);
+    min-height: 100px;
+    padding: 12px;
+    gap: 14px;
+  }
+  .row [data-article-title] {
+    color: var(--forest);
+    font-size: 1.1rem;
+    line-height: 1.25;
+  }
+  .row [data-article-image] {
+    aspect-ratio: 4 / 3;
+  }
+  .row [data-article-image] img {
+    width: 100%;
+    height: 100%;
+  }
+  .card[data-article-variant="featured"] {
+    position: relative;
+    display: block;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .card[data-article-variant="featured"] :global(.article-card-media) {
+    display: block;
+    width: 100%;
+    height: clamp(300px, 29vw, 430px);
+    aspect-ratio: auto;
+  }
+  .card[data-article-variant="featured"] :global(.article-card-body) {
+    position: absolute;
+    inset: auto 0 0;
+    padding: 60px 22px 20px;
+    background: linear-gradient(transparent, rgba(10, 30, 23, 0.94));
+  }
+  .card[data-article-variant="featured"] :global(.article-card-title) {
+    color: #fff;
+    font-size: clamp(1.5rem, 2.2vw, 2rem);
+    line-height: 1.16;
+  }
+  .card[data-article-variant="featured"] :global(.article-card-meta),
+  .card[data-article-variant="featured"] :global(.article-card-topic),
+  .card[data-article-variant="featured"] :global(.article-card-meta > time),
+  .card[data-article-variant="featured"] :global(.article-card-meta > span),
+  .card[data-article-variant="featured"] :global(.article-card-excerpt) {
+    color: #fff;
+  }
+  .card[data-article-variant="featured"] :global(.article-card-excerpt) {
+    margin-top: 8px;
+    font-size: 0.85rem;
+  }
+}

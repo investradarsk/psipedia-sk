@@ -61,18 +61,32 @@ function HomeMagazineColumns({ children, sidebar }: { children: ReactNode; sideb
 }
 
 /** One row component for events, breeds, veterinarians and trainers. */
-export function HomeSidebarRow({ href, media, eyebrow, title, description }: {
-  href: string; media: ReactNode; eyebrow?: ReactNode; title: ReactNode; description?: ReactNode;
+export function HomeSidebarRow({
+  href,
+  media,
+  eyebrow,
+  title,
+  description,
+}: {
+  href: string;
+  media: ReactNode;
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
 }) {
-  return <Link href={href} className="home-side-unified-row" data-home-sidebar-row>
-    <span className="home-side-unified-media">{media}</span>
-    <span className="home-side-unified-copy">
-      {eyebrow ? <small className="home-side-unified-eyebrow">{eyebrow}</small> : null}
-      <strong>{title}</strong>
-      {description ? <small className="home-side-unified-description">{description}</small> : null}
-    </span>
-    <ArrowIcon size={17} />
-  </Link>;
+  return (
+    <Link href={href} className="home-side-unified-row" data-home-sidebar-row>
+      <span className="home-side-unified-media">{media}</span>
+      <span className="home-side-unified-copy">
+        {eyebrow ? <small className="home-side-unified-eyebrow">{eyebrow}</small> : null}
+        <strong>{title}</strong>
+        {description ? (
+          <small className="home-side-unified-description">{description}</small>
+        ) : null}
+      </span>
+      <ArrowIcon size={17} />
+    </Link>
+  );
 }
 
 export function HomeMagazineSidebar({
@@ -90,7 +104,6 @@ export function HomeMagazineSidebar({
     <section className="home-magazine-sidebar-block">
       <div className="home-magazine-sidebar-heading">
         <h3>{title}</h3>
-
       </div>
       {children}
       <Link href={href} className="home-magazine-sidebar-action">
@@ -116,7 +129,10 @@ export function HomeMagazineBanner({
   href: string;
   testId: string;
   anchorId?: string;
-  desktopColors?: { background: "original" | "sage" | "cream" | "white"; button: "original" | "green" | "red" } | null;
+  desktopColors?: {
+    background: "original" | "sage" | "cream" | "white";
+    button: "original" | "green" | "red";
+  } | null;
   desktopCopy?: { eyebrow: string; title: string; description: string; ctaLabel: string } | null;
 }) {
   return (
@@ -163,17 +179,15 @@ export function HomeLatestArticles({
             data-home-latest-empty
           >
             <strong>Nové články pripravujeme</strong>
-            <p>
-              Články zo všetkých redakčných kategórií sa tu zobrazia hneď po publikovaní.
-            </p>
+            <p>Články zo všetkých redakčných kategórií sa tu zobrazia hneď po publikovaní.</p>
           </PublicEmptyState>
         )}
+        <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="latest">
+          <Link href="/clanky" className="text-link">
+            Všetky články <ArrowIcon size={17} />
+          </Link>
+        </div>
       </HomeMagazineColumns>
-      <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="latest">
-        <Link href="/clanky" className="text-link">
-          Všetky články <ArrowIcon size={17} />
-        </Link>
-      </div>
     </section>
   );
 }

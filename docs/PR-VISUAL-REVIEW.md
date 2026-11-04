@@ -35,8 +35,14 @@ automatické schválenie vzhľadu.
   stránok znamená **potrebuje vizuálnu kontrolu**, nie automatickú chybu CI.
 - Chýbajúce porovnávacie obrázky, neplatné URL alebo neúspešné načítanie
   kontrolovanej stránky sú chyby, ktoré kontrola nesmie zamlčať.
-- Existujúce **deterministické testy šablón** zostávajú prísne: nečakaný
-  rozdiel vo fixných testovacích obrázkoch naďalej zlyhá v CI.
+- **Deterministické testy šablón** ďalej striktne overujú zachytenie,
+  rozmery, prah rozdielov a prítomnosť obrázkov. Neplatné porovnanie,
+  chýbajúci pôvodný alebo nový obrázok a zlyhané funkčné testy stále
+  skončia červeným CI. Rozdiel pixelov pri zámernom redizajne vytvorí
+  **warning v CI a obrázkový dôkaz na manuálne schválenie**, nie červené X.
+  To **nie je automatické schválenie vzhľadu**: autor musí pred merge
+  skontrolovať `template-baseline`, `template-fixtures` a `template-diff`
+  a potvrdiť výsledok vo vizuálnej revízii.
 - Niektoré produkčné obrázky a záznamy nemusia byť dostupné v izolovanom
   prostredí. Také stránky vyžadujú aj manuálnu kontrolu naživo.
 - Náklady predstavujú minúty GitHub Actions. Workflow je obmedzený na

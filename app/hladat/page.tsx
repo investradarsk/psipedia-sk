@@ -1,3 +1,4 @@
+import { PublicArticleListItem } from "@/components/public-visual-system";
 import {
   PublicNotice,
   PublicEmptyState,
@@ -450,64 +451,47 @@ export default async function SearchPage({ searchParams }: Props) {
             </div>
             <div className={styles.resultList} aria-label="Výsledky vyhľadávania">
               {result.items.map((item) => {
+                if (item.kind === "article")
+                  return (
+                    <PublicArticleListItem
+                      key={item.href}
+                      href={item.href}
+                      title={item.title}
+                      topic={searchArticleTopic(item)}
+                      date={item.publishedAt ? searchArticleDate(item.publishedAt) : undefined}
+                      dateTime={item.publishedAt || undefined}
+                      image={
+                        item.imageUrl
+                          ? {
+                              src: item.imageUrl,
+                              alt: `Ilustračná fotografia k článku: ${item.title}`,
+                            }
+                          : undefined
+                      }
+                      listItem={false}
+                    />
+                  );
                 const location = resultLocation(item);
                 const services = item.kind === "directory" ? serviceLabels(item.services) : [];
                 return (
-                  <Link
-                    href={item.href}
-                    key={item.href}
-                    className={`${styles.result} ${item.kind === "article" ? styles.articleResult : ""}`}
-                    data-article-list-item={item.kind === "article" ? "" : undefined}
-                  >
-                    {item.kind === "article" ? (
-                      <span
-                        className={`${styles.copy} ${item.imageUrl ? styles.articleCopy : styles.articleCopyNoImage}`}
-                      >
-                        {item.imageUrl ? (
-                          <span className={styles.articleImage} data-article-image>
-                            <img
-                              src={item.imageUrl}
-                              alt={"Ilustračná fotografia k článku: " + item.title}
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          </span>
-                        ) : null}
-                        <span className={styles.articleText}>
-                          <span className={styles.articleTopic} data-article-topic>
-                            {searchArticleTopic(item)}
-                          </span>
-                          <strong data-article-title>{item.title}</strong>
-                          {item.publishedAt ? (
-                            <time
-                              className={styles.articleDate}
-                              dateTime={item.publishedAt}
-                              data-article-date
-                            >
-                              {searchArticleDate(item.publishedAt)}
-                            </time>
-                          ) : null}
-                        </span>
+                  <Link href={item.href} key={item.href} className={styles.result}>
+                    <span className={styles.copy}>
+                      <span className={styles.meta}>
+                        <small className={styles.type}>{item.type}</small>
+                        {location ? <span className={styles.location}>{location}</span> : null}
                       </span>
-                    ) : (
-                      <span className={styles.copy}>
-                        <span className={styles.meta}>
-                          <small className={styles.type}>{item.type}</small>
-                          {location ? <span className={styles.location}>{location}</span> : null}
+                      <strong>{item.title}</strong>
+                      {item.description ? (
+                        <span className={styles.description}>{item.description}</span>
+                      ) : null}
+                      {services.length ? (
+                        <span className={styles.services} aria-label="Dostupné služby">
+                          {services.map((service) => (
+                            <span key={service}>{service}</span>
+                          ))}
                         </span>
-                        <strong>{item.title}</strong>
-                        {item.description ? (
-                          <span className={styles.description}>{item.description}</span>
-                        ) : null}
-                        {services.length ? (
-                          <span className={styles.services} aria-label="Dostupné služby">
-                            {services.map((service) => (
-                              <span key={service}>{service}</span>
-                            ))}
-                          </span>
-                        ) : null}
-                      </span>
-                    )}
+                      ) : null}
+                    </span>
                     <ArrowIcon size={20} />
                   </Link>
                 );

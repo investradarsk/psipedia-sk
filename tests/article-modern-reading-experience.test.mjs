@@ -528,23 +528,17 @@ test("Novinky still uses the complete published reader and existing taxonomy", (
   assert.match(newsHub, /<PublicContentList/);
 });
 
-test("ARTICLE-CARDS-1 exposes purposeful featured, grid and compact variants without invented metadata", () => {
-  assert.match(articleCard, /export type ArticleCardVariant = "featured" \| "grid" \| "compact"/);
-  assert.match(articleCard, /variant \?\? \(large \? "featured" : "grid"\)/);
-  assert.match(articleCard, /resolvedVariant === "compact"/);
-  assert.match(articleCard, /const date = article\.date\?\.trim\(\)/);
-  assert.match(
-    articleCard,
-    /\{date \? \(dateIso \? <time dateTime=\{dateIso\}>\{date\}<\/time> : <span>\{date\}<\/span>\) : null\}/,
-  );
-  assert.match(
-    articleCard,
-    /\{excerpt \? <p className="article-card-excerpt">\{excerpt\}<\/p> : null\}/,
-  );
-  assert.match(articleListItem, /const date = article\.date\?\.trim\(\) \|\| undefined/);
-  assert.match(publicVisual, /date\?: ReactNode/);
-  assert.match(publicVisual, /date \? <span aria-hidden="true">·<\/span> : null/);
-  for (const source of [articleCard, articleListItem, homeEditorial]) {
+test("ARTICLE-CARDS-1 variants use one media/metadata renderer without invented metadata", () => {
+  const renderer = readFileSync("components/public-visual-system/public-article-card.tsx", "utf8");
+  const presentation = readFileSync("lib/article-card-presentation.ts", "utf8");
+  assert.match(articleCard, /PublicArticleCard/);
+  assert.match(articleListItem, /variant="row"/);
+  assert.match(renderer, /"featured" \| "grid" \| "row"/);
+  assert.match(renderer, /function ArticleMedia/);
+  assert.match(renderer, /function ArticleMeta/);
+  assert.match(presentation, /article.date\?\.trim\(\)/);
+  assert.match(renderer, /<time dateTime=\{dateTime\}/);
+  for (const source of [renderer, articleCard, articleListItem, homeEditorial]) {
     assert.doesNotMatch(source, /readTime|čas čítania|min čítania/i);
     assert.doesNotMatch(source, /\bOverené\b|\bPreverené\b/);
   }
@@ -564,33 +558,25 @@ test("ARTICLE-CARDS-1 reserves media geometry and keeps long titles unclamped", 
   assert.match(cardStyles, /\.article-card-media img[\s\S]*?object-fit:\s*cover/);
   assert.match(cardStyles, /overflow-wrap:\s*anywhere/);
   assert.doesNotMatch(cardStyles, /\.article-card-title[\s\S]{0,500}-webkit-line-clamp/);
-  assert.match(articleCard, /loading=\{imagePriority \? "eager" : "lazy"\}/);
-  assert.match(articleCard, /fetchPriority=\{imagePriority \? "high" : "auto"\}/);
+  assert.match(
+    readFileSync("components/public-visual-system/public-article-card.tsx", "utf8"),
+    /loading=\{imagePriority \? "eager" : "lazy"\}/,
+  );
+  assert.match(
+    readFileSync("components/public-visual-system/public-article-card.tsx", "utf8"),
+    /fetchPriority=\{imagePriority \? "high" : "auto"\}/,
+  );
   assert.match(publicVisualStyles, /\.articleListMedia img\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
 });
 
-test("ARTICLE-CARDS-1 reuses shared article presentation on homepage and only adapts article rows inside unified search", () => {
-  assert.match(
-    homeEditorial,
-    /<ArticleCard article=\{lead\} variant="featured" headingLevel=\{3\} omitMissingImage=\{false\} \/>/,
-  );
-  assert.match(
-    homeEditorial,
-    /<ArticleCard article=\{article\} variant="compact" listItem=\{false\} \/>/,
-  );
+test("ARTICLE-CARDS-1 homepage and unified search consume the same article family", () => {
+  assert.match(homeEditorial, /<ArticleCard article=\{lead\} variant="featured"/);
+  assert.match(homeEditorial, /<ArticleCard article=\{article\} variant="compact"/);
   assert.doesNotMatch(homeEditorial, /home-latest-lead-link|home-latest-thumb|home-latest-copy/);
   assert.match(searchPage, /result\.items\.map\(\(item\) =>/);
-  assert.match(searchPage, /item\.kind === "article" \? styles\.articleResult/);
-  assert.match(searchPage, /\{item\.publishedAt \? \(/);
-  assert.doesNotMatch(searchPage, /<PublicArticleListItem/);
-  assert.match(
-    searchStyles,
-    /\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*128px minmax\(0, 1fr\)/,
-  );
-  assert.match(
-    searchStyles,
-    /@media \(max-width: 620px\)[\s\S]*?\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*88px minmax\(0, 1fr\)/,
-  );
+  assert.match(searchPage, /<PublicArticleListItem/);
+  assert.match(searchPage, /dateTime=\{item.publishedAt \|\| undefined\}/);
+  assert.doesNotMatch(searchStyles, /\.articleCopy\b|\.articleImage\b/);
 });
 
 test("ARTICLE-READING-WHITE-1 scopes a high-contrast reading surface to article pages", () => {

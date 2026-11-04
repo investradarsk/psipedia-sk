@@ -82,7 +82,7 @@ test("seeded adoption catalogue, filters and detail stay public-safe and accessi
   await expect(page.getByRole("link", { name: "E2E Luna", exact: true })).toHaveCount(0);
 
   await page.goto(`${catalogPath}?stav=RESERVED`, { waitUntil: "domcontentloaded" });
-  await expect(page.getByLabel("Stav")).toHaveValue("RESERVED");
+  await expect(page.getByLabel("Stav", { exact: true })).toHaveValue("RESERVED");
   await expect(page.getByRole("link", { name: "E2E Luna", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Rex", exact: true })).toHaveCount(0);
 

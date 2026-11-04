@@ -45,7 +45,7 @@ test("legacy shelter detail redirects to canonical organization without a legacy
   expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
 });
 
-test("contact actions and help options remain operable; absent data creates no empty cards", async ({ page }) => {
+test("contact actions remain operable; absent contact data shows an honest empty state", async ({ page }) => {
   await page.goto(legacyShelterPath);
   expect(new URL(page.url()).pathname).toBe(canonicalShelterPath);
   await expect(page.getByRole("link", { name: "+421 900 123 456" })).toHaveAttribute("href", "tel:+421900123456");
@@ -54,7 +54,7 @@ test("contact actions and help options remain operable; absent data creates no e
   await expect(page.getByText(/Dobrovoľníctvo: venčenie/)).toBeVisible();
 
   await page.goto(cases[0].path);
-  await expect(page.getByRole("heading", { name: "Kontakty" })).toHaveCount(0);
+  await expect(page.locator("[data-public-contact-panel]")).toContainText("Priamy kontakt zatiaľ nie je uvedený.");
   await expect(page.locator("dt", { hasText: "Vek" })).toHaveCount(0);
   await expect(page.getByText("Nezistené", { exact: true })).toHaveCount(0);
 

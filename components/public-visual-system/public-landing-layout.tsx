@@ -1,3 +1,4 @@
+import { PublicHeading } from "@/components/public-heading";
 import type { HTMLAttributes, ReactNode } from "react";
 import { PageContainer } from "@/components/page-system";
 import styles from "./public-landing-layout.module.css";
@@ -55,12 +56,20 @@ export function PublicLandingSectionHeading({
       data-public-landing-section-heading
     >
       <div className={styles.headingCopy}>
-        <span className={styles.eyebrow} data-public-landing-eyebrow>{eyebrow}</span>
-        <h2 id={id} data-public-landing-heading>{title}</h2>
+        <span className={styles.eyebrow} data-public-landing-eyebrow>
+          {eyebrow}
+        </span>
+        <PublicHeading as="h2" role="section" id={id} data-public-landing-heading>
+          {title}
+        </PublicHeading>
       </div>
       {hasAside ? (
         <div className={styles.headingAside}>
-          {description ? <p className={styles.description} data-public-landing-description>{description}</p> : null}
+          {description ? (
+            <p className={styles.description} data-public-landing-description>
+              {description}
+            </p>
+          ) : null}
           {action ? <div className={styles.action}>{action}</div> : null}
         </div>
       ) : null}

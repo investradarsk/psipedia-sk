@@ -1,3 +1,6 @@
+import { applyHelpLifecycle } from "@/lib/help-lifecycle";
+import { PublicHeading } from "@/components/public-heading";
+import { HelpFinancialProgress } from "@/components/help-financial-progress";
 import { ImageDisplay } from "@/components/image-display";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
@@ -5,7 +8,13 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { ShieldCheckIcon } from "@/components/help-public-icons";
-import { formatHelpAmount, formatHelpDate, formatHelpUpdatedDate, getHelpCategory, helpProgress, type HelpCase } from "@/lib/help";
+import {
+  formatHelpDate,
+  formatHelpUpdatedDate,
+  getHelpCategory,
+  helpFinancials,
+  type HelpCase,
+} from "@/lib/help";
 import { getHelpPresentation, type HelpContact } from "@/lib/help-detail-presentation";
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 import {
@@ -23,10 +32,16 @@ import styles from "./help-detail.module.css";
 export type HelpFact = DetailFact;
 
 function externalAction(item: HelpCase) {
-  return Boolean(item.actionUrl && (item.category !== "zbierky" || item.verified) && !item.resolved);
+  return Boolean(
+    item.actionUrl &&
+      (item.category !== "zbierky" || item.verified) &&
+      (!item.resolved || item.category === "zbierky"),
+  );
 }
 
 function safetyCopy(item: HelpCase) {
+  if (item.resolved && item.category === "zbierky")
+    return "Táto výzva je ukončená. Odkaz slúži na zobrazenie pôvodnej zbierky; nejde o aktuálnu žiadosť o príspevok.";
   switch (item.category) {
     case "zbierky":
       return "Finančnú pomoc posielajte iba cez uvedený dôveryhodný odkaz a pred platbou si skontrolujte organizátora aj účel zbierky.";
@@ -40,9 +55,8 @@ function safetyCopy(item: HelpCase) {
   }
 }
 
-
 export function HelpDetailShell({
-  item,
+  item: rawItem,
   title,
   contextTitle,
   children,
@@ -54,87 +68,200 @@ export function HelpDetailShell({
   children: ReactNode;
   sidebar: ReactNode;
 }) {
+  const item = applyHelpLifecycle(rawItem);
   const category = getHelpCategory(item.category);
   const presentation = getHelpPresentation(item);
   const updatedLabel = formatHelpUpdatedDate(item.updatedAt);
   const showTrust = presentation.sources.length > 0 || Boolean(updatedLabel);
   const heroTitle = title?.trim() || item.title;
   const imageAlt = item.dogName ? `${item.dogName} – ${item.title}` : item.title;
-  const location = publicLocationLabel([publicLocationValue(item.city, "city"), publicLocationValue(item.region, "region")]);
+  const location = publicLocationLabel([
+    publicLocationValue(item.city, "city"),
+    publicLocationValue(item.region, "region"),
+  ]);
 
-  return <main id="obsah" tabIndex={-1} className={styles.detail}>
-    <DetailHero kind="help" breadcrumbs={<Breadcrumbs>
-          <Link href="/">Domov</Link><span>/</span>
-          <Link href="/pomoc-psom">Pomoc psom</Link><span>/</span>
-          <Link href={`/pomoc-psom/${item.category}`}>{category?.label ?? "Pomoc psom"}</Link><span>/</span>
-          <span>{heroTitle}</span>
-        </Breadcrumbs>}
-      copy={<>
+  return (
+    <main id="obsah" tabIndex={-1} className={styles.detail}>
+      <DetailHero
+        kind="help"
+        breadcrumbs={
+          <Breadcrumbs>
+            <Link href="/">Domov</Link>
+            <span>/</span>
+            <Link href="/pomoc-psom">Pomoc psom</Link>
+            <span>/</span>
+            <Link href={`/pomoc-psom/${item.category}`}>{category?.label ?? "Pomoc psom"}</Link>
+            <span>/</span>
+            <span>{heroTitle}</span>
+          </Breadcrumbs>
+        }
+        copy={
+          <>
             <div className={styles.tags}>
               <span className={styles.tag}>{category?.singular ?? "Pomoc psom"}</span>
               {item.urgent && !item.resolved && <span className={styles.urgent}>Urgentné</span>}
               {item.resolved && <span className={styles.resolved}>Ukončené / vyriešené</span>}
             </div>
-            <h1 data-long-title={heroTitle.length >= 70 ? "" : undefined}>{heroTitle}</h1>
-            {contextTitle && contextTitle !== heroTitle && <p className={styles.contextTitle}>{contextTitle}</p>}
+            <PublicHeading
+              role="page"
+              as="h1"
+              data-long-title={heroTitle.length >= 70 ? "" : undefined}
+            >
+              {heroTitle}
+            </PublicHeading>
+            {contextTitle && contextTitle !== heroTitle && (
+              <p className={styles.contextTitle}>{contextTitle}</p>
+            )}
 
             <div className={styles.heroMeta}>
-              {location ? <span><strong>Lokalita</strong> {location}</span> : null}
-              {item.reportedDate && <span><strong>Dátum</strong> {formatHelpDate(item.reportedDate)}</span>}
+              {location ? (
+                <span>
+                  <strong>Lokalita</strong> {location}
+                </span>
+              ) : null}
+              {item.reportedDate && (
+                <span>
+                  <strong>Dátum</strong> {formatHelpDate(item.reportedDate)}
+                </span>
+              )}
             </div>
             {item.excerpt && <p className={styles.excerpt}>{item.excerpt}</p>}
             <div className={styles.heroActions}>
-              {externalAction(item) && <a className={styles.primaryAction} href={item.actionUrl ?? undefined} target="_blank" rel="noreferrer">{item.actionLabel || "Zistiť viac"} ↗</a>}
-              
+              {externalAction(item) && (
+                <a
+                  className={styles.primaryAction}
+                  href={item.actionUrl ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {item.actionLabel || "Zistiť viac"} ↗
+                </a>
+              )}
             </div>
-</>}
-      media={item.imageUrl ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={item.detailImageDisplay} src={item.imageUrl} alt={imageAlt} loading="eager" /> : <PublicMediaFallback size="detail" label="Fotografia záznamu zatiaľ nie je dostupná" />} />
+          </>
+        }
+        media={
+          item.imageUrl ? (
+            <ImageDisplay
+              roleHint="generic"
+              fallbackOnError
+              context="detail"
+              config={item.detailImageDisplay}
+              src={item.imageUrl}
+              alt={imageAlt}
+              loading="eager"
+            />
+          ) : (
+            <PublicMediaFallback size="detail" label="Fotografia záznamu zatiaľ nie je dostupná" />
+          )
+        }
+      />
 
-    <section className={styles.content}>
-      <PublicHelpProfileDetailLayout aside={sidebar} asideLabel="Praktické informácie">
-        <article className={styles.copy}>{children}</article>
-      </PublicHelpProfileDetailLayout>
-      {showTrust && <div className={styles.shell}>
-        <section className={styles.trust} aria-labelledby={`help-trust-${item.id}`}>
-          <span className={styles.trustIcon} aria-hidden="true"><ShieldCheckIcon size={18} /></span>
-          <div>
-            <h2 id={`help-trust-${item.id}`}>Aktuálnosť a zdroje</h2>
-            <p>Uvádzame verejné údaje a zdroje uložené pri tomto zázname. Informácie sa môžu časom meniť.</p>
-            <div className={styles.trustMeta}>
-              {updatedLabel && <span>Aktualizované: <strong>{updatedLabel}</strong></span>}
-              {presentation.sources.map((source) => source.href
-                ? <a key={`${source.label}-${source.value}`} href={source.href} target="_blank" rel="noreferrer nofollow">{source.label} ↗</a>
-                : <span key={`${source.label}-${source.value}`}>{source.label}: {source.value}</span>)}
-            </div>
+      <section className={styles.content}>
+        <PublicHelpProfileDetailLayout aside={sidebar} asideLabel="Praktické informácie">
+          <article className={styles.copy}>{children}</article>
+        </PublicHelpProfileDetailLayout>
+        {showTrust && (
+          <div className={styles.shell}>
+            <section className={styles.trust} aria-labelledby={`help-trust-${item.id}`}>
+              <span className={styles.trustIcon} aria-hidden="true">
+                <ShieldCheckIcon size={18} />
+              </span>
+              <div>
+                <PublicHeading role="panel" as="h2" id={`help-trust-${item.id}`}>
+                  Aktuálnosť a zdroje
+                </PublicHeading>
+                <p>
+                  Uvádzame verejné údaje a zdroje uložené pri tomto zázname. Informácie sa môžu
+                  časom meniť.
+                </p>
+                <div className={styles.trustMeta}>
+                  {updatedLabel && (
+                    <span>
+                      Aktualizované: <strong>{updatedLabel}</strong>
+                    </span>
+                  )}
+                  {presentation.sources.map((source) =>
+                    source.href ? (
+                      <a
+                        key={`${source.label}-${source.value}`}
+                        href={source.href}
+                        target="_blank"
+                        rel="noreferrer nofollow"
+                      >
+                        {source.label} ↗
+                      </a>
+                    ) : (
+                      <span key={`${source.label}-${source.value}`}>
+                        {source.label}: {source.value}
+                      </span>
+                    ),
+                  )}
+                </div>
+              </div>
+            </section>
           </div>
-        </section>
-      </div>}
-    </section>
+        )}
+      </section>
 
-    <section className={styles.safety} aria-labelledby={`help-safety-${item.id}`}>
-      <div className={`${styles.shell} ${styles.safetyInner}`}>
-        <span className={styles.safetyIcon} aria-hidden="true">!</span>
-        <div><h2 id={`help-safety-${item.id}`}>Pomáhajte bezpečne</h2><p>{safetyCopy(item)}</p></div>
-        <Link href="/zasady-obsahu">Ako overujeme obsah →</Link>
-      </div>
-    </section>
-  </main>;
+      <section className={styles.safety} aria-labelledby={`help-safety-${item.id}`}>
+        <div className={`${styles.shell} ${styles.safetyInner}`}>
+          <span className={styles.safetyIcon} aria-hidden="true">
+            !
+          </span>
+          <div>
+            <PublicHeading role="panel" as="h2" id={`help-safety-${item.id}`}>
+              Pomáhajte bezpečne
+            </PublicHeading>
+            <p>{safetyCopy(item)}</p>
+          </div>
+          <Link href="/zasady-obsahu">Ako overujeme obsah →</Link>
+        </div>
+      </section>
+    </main>
+  );
 }
 
 export { DetailSection as HelpSection, DetailParagraphs as HelpParagraphs };
 
-export function HelpFactsCard({ title = "Základné informácie", facts }: { title?: string; facts: Array<HelpFact | null | false | undefined> }) {
+export function HelpFactsCard({
+  title = "Základné informácie",
+  facts,
+}: {
+  title?: string;
+  facts: Array<HelpFact | null | false | undefined>;
+}) {
   return <DetailFactsCard title={title} facts={facts} />;
 }
 
-export function HelpContactsCard({ contacts, note }: { contacts: HelpContact[]; note?: string | null }) {
-  return <DetailContactsCard title="Kontakty" contacts={contacts.map((contact) => ({
-    label: contact.label,
-    id: `${contact.label}-${contact.value}`,
-    value: contact.href
-      ? <a href={contact.href} target={contact.external ? "_blank" : undefined} rel={contact.external ? "noreferrer" : undefined}>{contact.external ? `${contact.value} ↗` : contact.value}</a>
-      : <strong>{contact.value}</strong>,
-  }))} note={note} />;
+export function HelpContactsCard({
+  contacts,
+  note,
+}: {
+  contacts: HelpContact[];
+  note?: string | null;
+}) {
+  return (
+    <DetailContactsCard
+      title="Kontakty"
+      contacts={contacts.map((contact) => ({
+        label: contact.label,
+        id: `${contact.label}-${contact.value}`,
+        value: contact.href ? (
+          <a
+            href={contact.href}
+            target={contact.external ? "_blank" : undefined}
+            rel={contact.external ? "noreferrer" : undefined}
+          >
+            {contact.external ? `${contact.value} ↗` : contact.value}
+          </a>
+        ) : (
+          <strong>{contact.value}</strong>
+        ),
+      }))}
+      note={note}
+    />
+  );
 }
 
 export function HelpOptions({ options }: { options: Array<{ label: string; value: string }> }) {
@@ -142,7 +269,13 @@ export function HelpOptions({ options }: { options: Array<{ label: string; value
 }
 
 export function HelpProgressCard({ item }: { item: HelpCase }) {
-  const progress = helpProgress(item);
-  if (item.raisedAmount === null && item.goalAmount === null) return null;
-  return <section className={`${detailStyles.card} ${styles.progress}`}><h2>Stav zbierky</h2><div className={styles.progressNumbers}>{item.raisedAmount !== null ? <span>Vyzbierané<strong>{formatHelpAmount(item.raisedAmount)}</strong></span> : null}{item.goalAmount !== null ? <span>Cieľ<strong>{formatHelpAmount(item.goalAmount)}</strong></span> : null}</div>{progress !== null ? <><div className={styles.progressTrack} role="progressbar" aria-label="Priebeh zbierky" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><small>{progress} % cieľa</small></> : null}</section>;
+  if (!helpFinancials(item)) return null;
+  return (
+    <section className={detailStyles.card}>
+      <PublicHeading role="panel" as="h2">
+        Stav zbierky
+      </PublicHeading>
+      <HelpFinancialProgress item={item} />
+    </section>
+  );
 }

@@ -55,19 +55,32 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
         }
       }
 
-      const body = main.locator("article[data-public-profile-body]");
-      const h2 = await body.getByRole("heading", { level: 2 }).allTextContents();
-      const aboutIndex = h2.indexOf("O službe");
-      await expect(body.getByRole("heading", { name: contact, exact: true })).toBeVisible();
-      const contactIndex = h2.indexOf(contact);
-      const servicesIndex = h2.indexOf("Poskytované služby");
-      const expertiseIndex = h2.indexOf("Odborné informácie");
-      const reviewIndex = h2.indexOf("Recenzie");
-      expect(aboutIndex).toBeGreaterThanOrEqual(0);
-      expect(contactIndex).toBeGreaterThan(aboutIndex);
-      expect(servicesIndex).toBeGreaterThan(contactIndex);
-      expect(expertiseIndex).toBeGreaterThan(servicesIndex);
-      expect(reviewIndex).toBeGreaterThan(expertiseIndex);
+      // The unified detail flow keeps main content and contact in independent
+      // desktop stacks; mobile restores the intended visual section order.
+      const flow = main.locator("[data-public-detail-flow]");
+      const section = (key: string) => flow.locator(`[data-detail-block="${key}"]`);
+      const orderedSections = [
+        { key: "intro", heading: "O službe" },
+        { key: "contact", heading: contact },
+        { key: "services", heading: "Poskytované služby" },
+        { key: "expertise", heading: "Odborné informácie" },
+        { key: "reviews", heading: "Recenzie" },
+      ];
+      for (const { key, heading: sectionHeading } of orderedSections) {
+        await expect(section(key).getByRole("heading", { level: 2, name: sectionHeading, exact: true })).toBeVisible();
+      }
+      if (width <= 800) {
+        const tops = await Promise.all(
+          orderedSections.map(async ({ key }) => (await section(key).boundingBox())!.y),
+        );
+        for (let index = 1; index < tops.length; index++) {
+          expect(tops[index], `Mobile section order at ${width}px: ${orderedSections[index].key}`).toBeGreaterThan(tops[index - 1]);
+        }
+      } else {
+        const introBox = (await section("intro").boundingBox())!;
+        const contactBox = (await section("contact").boundingBox())!;
+        expect(contactBox.x, `Desktop contact column at ${width}px`).toBeGreaterThan(introBox.x);
+      }
 
       const primary = hero.locator("[data-profile-primary-action]");
       await expect(primary).toHaveAttribute("href", "#kontakt");

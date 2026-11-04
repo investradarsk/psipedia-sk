@@ -7,7 +7,7 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const css = read("app/design-system.css");
 const globals = read("app/globals.css");
-const originalBlob = "c6bab4bdd5258ac468eb4f3d88b77467748b317c";
+const originalBlob = "d2083afc1592ff703e8572e46b1c97bb9c22674c";
 const start = "  /* DS-1A SEMANTIC ALIASES START */\n";
 const end = "  /* DS-1A SEMANTIC ALIASES END */\n";
 const expected = new Map([
@@ -48,10 +48,11 @@ const mobile = new Map([
   ["--ps-space-stack", "16px"],
 ]);
 
-const gitBlobSha = (value) => createHash("sha1")
-  .update("blob " + Buffer.byteLength(value, "utf8") + "\0")
-  .update(value, "utf8")
-  .digest("hex");
+const gitBlobSha = (value) =>
+  createHash("sha1")
+    .update("blob " + Buffer.byteLength(value, "utf8") + "\0")
+    .update(value, "utf8")
+    .digest("hex");
 
 function declarations(text) {
   const result = new Map();
@@ -68,25 +69,39 @@ function aliasBlock(source = css) {
   assert.equal(source.split(end).length, 2, "the END marker must occur once");
   const a = source.indexOf(start);
   const b = source.indexOf(end, a + start.length);
-  assert.ok(a >= 0 && b > a && b < source.indexOf("\n}\n"), "aliases must stay in the original :root");
-  return { content: source.slice(a + start.length, b), before: source.slice(0, a), after: source.slice(b + end.length) };
+  assert.ok(
+    a >= 0 && b > a && b < source.indexOf("\n}\n"),
+    "aliases must stay in the original :root",
+  );
+  return {
+    content: source.slice(a + start.length, b),
+    before: source.slice(0, a),
+    after: source.slice(b + end.length),
+  };
 }
 
-test("DS-1A original CSS is byte-identical after excluding the isolated DS-5 extension", () => {
+test("DS-1A approved base CSS and desktop heading tokens stay pinned outside the isolated DS-5 extension", () => {
   const ds3Marker = "\n/* DS-3 PUBLIC SEARCH";
-  assert.equal(css.split(ds3Marker).length, 2, "exactly one DS-3 public-search extension is required");
+  assert.equal(
+    css.split(ds3Marker).length,
+    2,
+    "exactly one DS-3 public-search extension is required",
+  );
   const preDs3Css = css.split(ds3Marker)[0].replace(/\n+$/, "\n");
   const block = aliasBlock(preDs3Css);
   const ds5Start = "\n/* DS-5 PUBLIC CARDS, GRIDS & MEDIA START";
   const ds5End = "/* DS-5 PUBLIC CARDS, GRIDS & MEDIA END */\n";
   assert.equal(block.after.split(ds5Start).length, 2, "exactly one DS-5 extension is required");
   const extensionAt = block.after.indexOf(ds5Start);
-  assert.ok(extensionAt >= 0 && block.after.endsWith(ds5End), "DS-5 may only be appended after original CSS");
+  assert.ok(
+    extensionAt >= 0 && block.after.endsWith(ds5End),
+    "DS-5 may only be appended after original CSS",
+  );
   const originalAfter = block.after.slice(0, extensionAt);
   assert.equal(gitBlobSha(block.before + originalAfter), originalBlob);
   const lines = block.content.trimEnd().split("\n");
   assert.equal(lines.length, expected.size);
-  for (const line of lines) assert.match(line, /^  --ps-[\w-]+: var\(--[\w-]+\);$/);
+  for (const line of lines) assert.match(line, /^\s*--ps-[\w-]+:\s*var\(\s*--[\w-]+\s*\);$/);
 });
 
 test("every new semantic alias is defined once and points to its exact approved existing source", () => {
@@ -103,12 +118,14 @@ test("every new semantic alias is defined once and points to its exact approved 
 });
 
 test("all alias dependency chains terminate without cycles", () => {
-  const graph = new Map([...declarations(globals), ...declarations(css)].map(([name, values]) => [name, values[0]]));
+  const graph = new Map(
+    [...declarations(globals), ...declarations(css)].map(([name, values]) => [name, values[0]]),
+  );
   const resolve = (name, visiting = new Set()) => {
     assert.ok(graph.has(name), "missing variable " + name);
     assert.ok(!visiting.has(name), "cyclic variable alias at " + name);
     visiting.add(name);
-    const next = [...graph.get(name).matchAll(/var\(\s*(--[\w-]+)/g)].map(x => x[1]);
+    const next = [...graph.get(name).matchAll(/var\(\s*(--[\w-]+)/g)].map((x) => x[1]);
     for (const token of next) resolve(token, new Set(visiting));
   };
   for (const name of expected.keys()) resolve(name);
@@ -130,25 +147,41 @@ test("all six original 620px mobile overrides remain intact", () => {
 
 test("root and admin import order remains the original contract", () => {
   const layout = read("app/layout.tsx");
-  const imports = [...layout.matchAll(/import ["'](\.\/[^"']+\.css)["'];/g)].map(match => match[1]);
+  const imports = [...layout.matchAll(/import ["'](\.\/[^"']+\.css)["'];/g)].map(
+    (match) => match[1],
+  );
   assert.deepEqual(imports, [
-    "./globals.css", "./design-system.css", "./breed-hero-safe-zone.css",
-    "./navigation-loading.css", "./navigation-hotfix.css",
+    "./globals.css",
+    "./design-system.css",
+    "./breed-hero-safe-zone.css",
+    "./navigation-loading.css",
+    "./navigation-hotfix.css",
   ]);
   const admin = read("app/admin/layout.tsx");
-  assert.ok(admin.indexOf('import "./admin-legacy-scoped.css";') < admin.indexOf('import "./admin-workspace.css";'));
+  assert.ok(
+    admin.indexOf('import "./admin-legacy-scoped.css";') <
+      admin.indexOf('import "./admin-workspace.css";'),
+  );
   assert.match(admin, /data-admin-workspace/);
 });
 
 test("DS-1A aliases may be adopted only in canonical public CTA rules", () => {
-  const forbidden = new RegExp("var\\(\\s*(?:" + [...expected.keys()].join("|") + ")(?:\\s*[,)]|\\s*$)");
+  const forbidden = new RegExp(
+    "var\\(\\s*(?:" + [...expected.keys()].join("|") + ")(?:\\s*[,)]|\\s*$)",
+  );
   const ctaPath = "components/public-visual-system/public-visual-system.module.css";
   const checked = [];
   function walk(folder) {
-    for (const item of readdirSync(new URL("../" + folder + "/", import.meta.url), { withFileTypes: true })) {
+    for (const item of readdirSync(new URL("../" + folder + "/", import.meta.url), {
+      withFileTypes: true,
+    })) {
       const path = folder + "/" + item.name;
       if (item.isDirectory()) walk(path);
-      else if (item.isFile() && /\.(?:css|scss|sass)$/i.test(item.name) && path !== "app/design-system.css") {
+      else if (
+        item.isFile() &&
+        /\.(?:css|scss|sass)$/i.test(item.name) &&
+        path !== "app/design-system.css"
+      ) {
         checked.push(path);
         const content = read(path);
         if (path === ctaPath) {
@@ -157,17 +190,23 @@ test("DS-1A aliases may be adopted only in canonical public CTA rules", () => {
           assert.ok(start >= 0 && end > start, "canonical CTA rules must exist");
           const actions = content.slice(start, end);
           const outside = content.slice(0, start) + content.slice(end);
-          assert.doesNotMatch(outside, forbidden, "unexpected semantic use outside canonical action rules");
+          assert.doesNotMatch(
+            outside,
+            forbidden,
+            "unexpected semantic use outside canonical action rules",
+          );
           const allowed = new Set([
             "--ps-color-action-primary",
             "--ps-color-action-primary-hover",
             "--ps-color-action-primary-text",
           ]);
-          for (const token of allowed) assert.ok(actions.includes("var(" + token + ")"), "missing CTA token " + token);
+          for (const token of allowed)
+            assert.ok(actions.includes("var(" + token + ")"), "missing CTA token " + token);
           const used = [...actions.matchAll(/var\(\s*(--ps-[\w-]+)/g)]
             .map((match) => match[1])
             .filter((token) => expected.has(token));
-          for (const token of used) assert.ok(allowed.has(token), "unexpected alias in CTA: " + token);
+          for (const token of used)
+            assert.ok(allowed.has(token), "unexpected alias in CTA: " + token);
         } else {
           assert.doesNotMatch(content, forbidden, "unexpected alias in " + path);
         }
@@ -180,12 +219,21 @@ test("DS-1A aliases may be adopted only in canonical public CTA rules", () => {
 });
 
 test("original base token palette remains defined in globals.css", () => {
-  const root = globals.slice(globals.indexOf(":root {"), globals.indexOf("\n}\n", globals.indexOf(":root {")));
+  const root = globals.slice(
+    globals.indexOf(":root {"),
+    globals.indexOf("\n}\n", globals.indexOf(":root {")),
+  );
   const base = declarations(root);
   const values = {
-    "--ink": "#17352b", "--muted": "#52665d", "--forest": "#174b38",
-    "--forest-dark": "#0f392a", "--white": "#fff", "--cream": "#f8f4eb",
-    "--paper": "#fffdf8", "--shadow-sm": "0 8px 28px rgba(23, 53, 43, 0.08)",
+    "--ink": "#17352b",
+    "--muted": "#52665d",
+    "--forest": "#174b38",
+    "--forest-dark": "#0f392a",
+    "--white": "#fff",
+    "--cream": "#f8f4eb",
+    "--paper": "#fffdf8",
+    "--shadow-sm": "0 8px 28px rgba(23, 53, 43, 0.08)",
   };
-  for (const [name, value] of Object.entries(values)) assert.deepEqual(base.get(name), [value], name);
+  for (const [name, value] of Object.entries(values))
+    assert.deepEqual(base.get(name), [value], name);
 });

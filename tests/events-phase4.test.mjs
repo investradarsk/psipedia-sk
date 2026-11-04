@@ -46,13 +46,13 @@ test("Events 2.0 detail keeps shared structural primitives and route-owned JSON-
   const detail = readFileSync(new URL("../components/event-detail.tsx", import.meta.url), "utf8");
   assert.match(detail, /PageContainer/);
   assert.match(detail, /<Breadcrumbs/);
-  assert.match(detail, /<DetailHero kind="event"/);
+  assert.match(detail, /<DetailHero\s*kind="event"/);
   const hero = readFileSync(
     new URL("../components/detail-primitives/detail-primitives.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(hero, /data-event-detail-header=\{kind === "event"/);
-  assert.match(detail, /eventDateStatus\(event\)/);
+  assert.match(hero, /data-event-detail-header=\{\s*kind\s*===\s*"event"/);
+  assert.match(detail, /eventDateStatus\(\s*event\s*\)/);
   assert.doesNotMatch(detail, /application\/ld\+json|eventDateTimeIso/);
 });
 
@@ -61,20 +61,23 @@ test("detail exposes real event fields before optional media and never renders e
   for (const label of ["Termín", "Miesto", "Organizátor", "Registrácia", "Oficiálna stránka"]) {
     assert.match(detail, new RegExp(label));
   }
-  assert.match(detail, /timeLabel && <span>/);
-  assert.match(detail, /event\.registrationUrl && <PublicActionLink/);
-  assert.match(detail, /event\.websiteUrl && <PublicActionLink/);
-  assert.match(detail, /<dl className=\{detailStyles\.factTiles\}/);
-  assert.match(detail, /locationLines\.map/);
-  assert.doesNotMatch(detail, /<DetailFactsCard/);
-  assert.match(detail, /event\.organizer &&/);
-  assert.match(detail, /event\.description &&/);
-  assert.match(detail, /event\.practicalInfo &&/);
+  assert.match(detail, /timeLabel\s*&&\s*<span>/);
   assert.match(
     detail,
-    /media=\{<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\}/,
+    /showRegistration\s*&&\s*event\s*\.registrationUrl\s*&&\s*\(\s*<PublicActionLink/,
   );
-  assert.doesNotMatch(detail, /PawMark|Program|Poplatky|Podmienky účasti/);
+  assert.match(detail, /event\s*\.websiteUrl\s*&&\s*\(\s*<PublicActionLink/);
+  assert.match(detail, /<dl\s*className=\{\s*detailStyles\s*\.factTiles\s*\}/);
+  assert.match(detail, /locationLines\s*\.map/);
+  assert.doesNotMatch(detail, /<DetailFactsCard/);
+  assert.match(detail, /event\s*\.organizer\s*&&/);
+  assert.match(detail, /event\s*\.description\s*&&/);
+  assert.match(detail, /event\s*\.practicalInfo\s*&&/);
+  assert.match(
+    detail,
+    /media=\{\s*<EventImage\s*imageUrl=\{\s*event\s*\.imageUrl\s*\}\s*eventType=\{\s*event\s*\.eventType\s*\}/,
+  );
+  assert.doesNotMatch(detail, /PawMark|Program|Poplatky|Podmienky\s*účasti/);
 });
 
 test("PUBLIC-HYGIENE event presentation removes import diagnostics, raw sources and exact duplicate copy", () => {
@@ -96,11 +99,11 @@ test("PUBLIC-HYGIENE event presentation removes import diagnostics, raw sources 
   assert.equal(presentation.description, "");
   assert.doesNotMatch(
     presentation.practicalInfo,
-    /Nezistené|https:\/\/kalendar\.unkk\.sk|source_id/i,
+    /Nezistené|https:\/\/kalendar\s*\.unkk\s*\.sk|source_id/i,
   );
-  assert.match(presentation.practicalInfo, /Parkovanie: pri areáli/);
-  assert.match(presentation.practicalInfo, /Návštevníci: vstup voľný/);
-  assert.match(presentation.practicalInfo, /Zdroj: klubový bulletin/);
+  assert.match(presentation.practicalInfo, /Parkovanie:\s*pri\s*areáli/);
+  assert.match(presentation.practicalInfo, /Návštevníci:\s*vstup\s*voľný/);
+  assert.match(presentation.practicalInfo, /Zdroj:\s*klubový\s*bulletin/);
 });
 
 test("every public event type has a reversible crawlable listing route", () => {
@@ -144,17 +147,23 @@ test("internal discovery controls remain crawlable while directory pagination st
     "utf8",
   );
 
-  assert.match(calendar, /href=\{timeHref\(value\)\}/);
-  assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
-  assert.match(eventsPage, /eventTypes\.filter\(\(type\) => type !== "Iné"\)\.flatMap/);
-  assert.match(eventsPage, /eventTypePortalHref\(type\)/);
+  assert.match(calendar, /href=\{\s*timeHref\(\s*value\s*\)\s*\}/);
+  assert.match(eventsPage, /shortcuts=\{\s*searchShortcuts\s*\}/);
+  assert.match(
+    eventsPage,
+    /eventTypes\s*\.filter\(\s*\(\s*type\s*\)\s*=>\s*type\s*!==\s*"Iné"\s*\)\s*\.flatMap/,
+  );
+  assert.match(eventsPage, /eventTypePortalHref\(\s*type\s*\)/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(calendar, /eventTypePortalHref\(type\)/);
-  assert.doesNotMatch(calendar, /eventTypeFilters|selectType|className=\{styles\.typeBar\}/);
-  assert.match(helpCategoryRoute, /rawSearchParams\.stav/);
+  assert.match(calendar, /eventTypePortalHref\(\s*type\s*\)/);
+  assert.doesNotMatch(
+    calendar,
+    /eventTypeFilters|selectType|className=\{\s*styles\s*\.typeBar\s*\}/,
+  );
+  assert.match(helpCategoryRoute, /rawSearchParams\s*\.stav/);
   assert.match(helpBrowser, /name="stav"/);
-  assert.match(helpBrowser, /value="vsetky">Aj ukončené/);
-  assert.doesNotMatch(helpBrowser, /useState|window\.history/);
+  assert.match(helpBrowser, /value="vsetky">Aj\s*ukončené/);
+  assert.doesNotMatch(helpBrowser, /useState|window\s*\.history/);
   // The directory supplies filter-preserving canonical hrefs, while the shared
   // server-rendered pagination owns native rel=prev/next links for crawlers.
   const pagination = readFileSync(
@@ -162,25 +171,28 @@ test("internal discovery controls remain crawlable while directory pagination st
     "utf8",
   );
   assert.match(directoryResults, /<PublicPagination\b/);
-  assert.match(directoryResults, /currentPage=\{result\.page\}/);
-  assert.match(directoryResults, /totalPages=\{result\.totalPages\}/);
+  assert.match(directoryResults, /currentPage=\{\s*result\s*\.page\s*\}/);
+  assert.match(directoryResults, /totalPages=\{\s*result\s*\.totalPages\s*\}/);
   assert.match(
     directoryResults,
-    /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/,
+    /previousHref=\{\s*result\s*\.page\s*>\s*1\s*\?\s*directoryPageHref\(\s*basePath,\s*filters,\s*result\s*\.page\s*-\s*1\s*\)\s*:\s*undefined\s*\}/,
   );
   assert.match(
     directoryResults,
-    /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/,
+    /nextHref=\{\s*result\s*\.page\s*<\s*result\s*\.totalPages\s*\?\s*directoryPageHref\(\s*basePath,\s*filters,\s*result\s*\.page\s*\+\s*1\s*\)\s*:\s*undefined\s*\}/,
   );
   assert.match(
     pagination,
-    /<Link\s+href=\{previousHref\}\s+rel="prev"\s+aria-label=\{previousAriaLabel\}>\s*\{previousLabel\}\s*<\/Link>/,
+    /<Link\s+href=\{\s*previousHref\s*\}\s+rel="prev"\s+aria-label=\{\s*previousAriaLabel\s*\}>\s*\{\s*previousLabel\s*\}\s*<\/Link>/,
   );
   assert.match(
     pagination,
-    /<Link\s+href=\{nextHref\}\s+rel="next"\s+aria-label=\{nextAriaLabel\}>\s*\{nextLabel\}\s*<\/Link>/,
+    /<Link\s+href=\{\s*nextHref\s*\}\s+rel="next"\s+aria-label=\{\s*nextAriaLabel\s*\}>\s*\{\s*nextLabel\s*\}\s*<\/Link>/,
   );
-  assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
+  assert.match(
+    relatedEntities,
+    /<Link\s*className=\{\s*styles\s*\.card\s*\}\s*href=\{\s*breed\s*\.href\s*\}>/,
+  );
 });
 
 test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable type shortcuts and compact category links", () => {
@@ -196,12 +208,15 @@ test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable type shortcuts and comp
 
   assert.doesNotMatch(page, /PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(page, /shortcuts=\{searchShortcuts\}/);
-  assert.match(page, /eventTypes\.filter\(\(type\) => type !== "Iné"\)\.flatMap/);
-  assert.match(page, /eventTypePortalHref\(type\)/);
-  assert.match(calendar, /eventTypePortalHref\(type\)/);
+  assert.match(page, /shortcuts=\{\s*searchShortcuts\s*\}/);
+  assert.match(
+    page,
+    /eventTypes\s*\.filter\(\s*\(\s*type\s*\)\s*=>\s*type\s*!==\s*"Iné"\s*\)\s*\.flatMap/,
+  );
+  assert.match(page, /eventTypePortalHref\(\s*type\s*\)/);
+  assert.match(calendar, /eventTypePortalHref\(\s*type\s*\)/);
   // Active state follows client-side calendar selection, not initial SSR props.
-  assert.match(calendar, /aria-current=\{view\.type === type/);
+  assert.match(calendar, /aria-current=\{\s*view\s*\.type\s*===\s*type/);
   assert.match(calendar, /data-events-legend/);
   assert.match(page, /PublicContextBanner/);
   assert.match(page, /ctaHref="\/podujatia\/pridat-podujatie"/);
@@ -217,12 +232,18 @@ test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable type shortcuts and comp
   assert.doesNotMatch(calendar, /eventTypeFilters|EVENT_SECTION_COPY|categoryOverview|selectType/);
   assert.match(results, /<details/);
   assert.match(results, /aria-controls="events-filter-panel"/);
-  assert.match(results, /className=\{styles\.sidebarContent\}/);
-  assert.match(page, /placeholder="Názov podujatia, mesto, miesto alebo organizátor\.\.\."/);
-  assert.match(css, /\.filterToggle[\s\S]*min-height:\s*44px/);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.secondaryFilters[\s\S]*display:\s*none/);
-  assert.match(css, /\.secondaryFiltersOpen[\s\S]*display:\s*grid/);
-  assert.match(css, /\.timeBar[\s\S]*overflow-x:\s*auto/);
+  assert.match(results, /className=\{\s*styles\s*\.sidebarContent\s*\}/);
+  assert.match(
+    page,
+    /placeholder="Názov\s*podujatia,\s*mesto,\s*miesto\s*alebo\s*organizátor\s*\.\s*\.\s*\."/,
+  );
+  assert.match(css, /\s*\.filterToggle[\s\S]*min-height:\s*44px/);
+  assert.match(
+    css,
+    /@media\s*\(\s*max-width:\s*760px\s*\)[\s\S]*\s*\.secondaryFilters[\s\S]*display:\s*none/,
+  );
+  assert.match(css, /\s*\.secondaryFiltersOpen[\s\S]*display:\s*grid/);
+  assert.match(css, /\s*\.timeBar[\s\S]*overflow-x:\s*auto/);
 });
 
 test("related events prefer active same-type events while past details prefer the nearest active events", () => {
@@ -260,21 +281,21 @@ test("route reuses the canonical Event graph builder without duplicating schema 
   assert.match(page, /buildContentMetadata/);
   assert.match(
     page,
-    /resolvedCanonical\(event\.seo,eventHref\(event\)\)|resolvedCanonical\(event\.seo, eventHref\(event\)\)/,
+    /resolvedCanonical\(\s*event\s*\.seo,\s*eventHref\(\s*event\s*\)\s*\)|resolvedCanonical\(\s*event\s*\.seo,\s*eventHref\(\s*event\s*\)\s*\)/,
   );
-  assert.match(page, /buildEventJsonLd\(event, canonical\)/);
-  assert.doesNotMatch(page, /"@type": "Event"/);
-  assert.match(schemaBuilder, /"@type": "Event"/);
-  assert.match(schemaBuilder, /"@type": "BreadcrumbList"/);
-  assert.match(schemaBuilder, /buildWebPageJsonLd\(\{/);
-  assert.match(schemaBuilder, /mainEntityOfPage: \{ "@id": canonical \}/);
-  assert.match(schemaBuilder, /Do not invent a foreign Person\/Organization entity/);
-  assert.doesNotMatch(schemaBuilder, /organizer: \{ "@type": "Organization"/);
+  assert.match(page, /buildEventJsonLd\(\s*event,\s*canonical\s*\)/);
+  assert.doesNotMatch(page, /"@type":\s*"Event"/);
+  assert.match(schemaBuilder, /"@type":\s*"Event"/);
+  assert.match(schemaBuilder, /"@type":\s*"BreadcrumbList"/);
+  assert.match(schemaBuilder, /buildWebPageJsonLd\(\s*\{\s*/);
+  assert.match(schemaBuilder, /mainEntityOfPage:\s*\{\s*"@id":\s*canonical\s*\}/);
+  assert.match(schemaBuilder, /Do\s*not\s*invent\s*a\s*foreign\s*Person\/Organization\s*entity/);
+  assert.doesNotMatch(schemaBuilder, /organizer:\s*\{\s*"@type":\s*"Organization"/);
   assert.doesNotMatch(schemaBuilder, /\boffers\s*:|\bpriceCurrency\s*:|\bticket\s*:/);
-  assert.match(page, /getUpcomingEventCards\(8\)/);
-  assert.match(page, /buildPublicEventPresentation\(storedEvent\)/);
-  assert.match(page, /selectRelatedEvents\(event,/);
-  assert.match(page, /<EventDetail event=\{event\} related=\{related\}/);
+  assert.match(page, /getUpcomingEventCards\(\s*8\s*\)/);
+  assert.match(page, /buildPublicEventPresentation\(\s*storedEvent\s*\)/);
+  assert.match(page, /selectRelatedEvents\(\s*event,\s*/);
+  assert.match(page, /<EventDetail\s*event=\{\s*event\s*\}\s*related=\{\s*related\s*\}/);
 });
 
 test("Event graph covers physical, online and registration-free events with canonical dates", () => {
@@ -346,16 +367,16 @@ test("detail uses scoped tokens, safe image cropping and mobile single-column fa
     new URL("../components/events-public.module.css", import.meta.url),
     "utf8",
   );
-  assert.match(css, /\.detailFacts[\s\S]*grid-template-columns:\s*repeat\(3/);
-  assert.match(css, /\.detailVisual img[\s\S]*object-fit:\s*cover/);
-  assert.match(css, /var\(--ps-space-section\)/);
-  assert.match(css, /var\(--ps-border-soft\)/);
+  assert.match(css, /\s*\.detailFacts[\s\S]*grid-template-columns:\s*repeat\(\s*3/);
+  assert.match(css, /\s*\.detailVisual\s*img[\s\S]*object-fit:\s*cover/);
+  assert.match(css, /var\(\s*--ps-space-section\s*\)/);
+  assert.match(css, /var\(\s*--ps-border-soft\s*\)/);
   assert.match(
     css,
-    /@media \(max-width: 760px\)[\s\S]*\.detailGrid[\s\S]*grid-template-columns:\s*1fr/,
+    /@media\s*\(\s*max-width:\s*760px\s*\)[\s\S]*\s*\.detailGrid[\s\S]*grid-template-columns:\s*1fr/,
   );
   assert.match(
     css,
-    /@media \(max-width: 900px\)[\s\S]*\.detailFacts[\s\S]*grid-template-columns:\s*1fr/,
+    /@media\s*\(\s*max-width:\s*900px\s*\)[\s\S]*\s*\.detailFacts[\s\S]*grid-template-columns:\s*1fr/,
   );
 });

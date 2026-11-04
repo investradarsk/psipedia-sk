@@ -289,7 +289,7 @@ test("renders the portal homepage", async () => {
   const featuredBreedsQuery = breedStoreSource.slice(featuredBreedsStart, breedStoreSource.indexOf("export async function getManagedBreed", featuredBreedsStart));
   assert.match(homeSource, /getPublishedArticleSummaries\(\{ limit: 120 \}\)/);
   assert.match(homeSource, /selectHomepageArticles\(publishedArticles/);
-  assert.match(homeSource, /listHomepageFeaturedBreeds\(5\)/);
+  assert.match(homeSource, /listHomepageFeaturedBreeds\(8\)/);
   assert.doesNotMatch(homeSource, /getHomepageArticles|getPublishedArticles|listPublishedBreedsForComparison/);
   assert.match(publishedSummariesQuery, /ORDER BY published_at DESC/);
   assert.match(publishedSummariesQuery, /LIMIT \?/);
@@ -845,7 +845,7 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   // Clean landing shows five real published profiles per category; filtered
   // requests and category URLs retain the existing full DirectoryResults list.
   assert.match(directoryHtml, /data-directory-category-previews/);
-  assert.match(directoryHtml, /Zobraziť všetky/);
+  assert.match(directoryHtml, /Zobraziť kategóriu/);
   assert.match(directoryHtml, /data-directory-map-cta/);
   assert.match(directoryHtml, /data-directory-provider-cta/);
   assert.match(directoryHtml, /Poskytuješ služby pre psov/);

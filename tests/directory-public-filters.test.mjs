@@ -214,7 +214,7 @@ test("public source mounts wire map/sql facets, while admin, Notion and editor p
   assert.match(store, /baseClauses\.push\(\.\.\.publicFacets\.clauses\)/);
   assert.match(
     map,
-    /directoryPublicFacetSql\(query\.subcategory \?\? "", query\.facets, "d\.source_data_json"\)/,
+    /directoryPublicFacetSql\(\s*query\.subcategory \?\? "",\s*query\.facets,\s*"d\.source_data_json",?\s*\)/,
   );
   assert.match(page, /facets: filters\.facets/);
   assert.match(category, /parseDirectoryFilters\(rawSearchParams, category\.slug\)/);
@@ -229,21 +229,21 @@ test("approved desktop A and mobile B render a single canonical set of category 
   assert.match(component, /publicDirectoryFacetKey\(facet\.id\)/);
   assert.match(component, /publicDirectoryFacetOptions\(facet\)/);
   assert.match(component, /data-directory-public-facets/);
-  assert.match(component, /"page", "facets"/);
-  assert.match(component, /<dialog id="directory-filter-dialog"/);
+  assert.match(component, /facets.map\(\(facet\) => publicDirectoryFacetKey\(facet.id\)\)/);
+  assert.match(component, /<dialog\s+id="directory-filter-dialog"/);
   assert.match(component, /\.showModal\(\)/);
   assert.match(component, /aria-haspopup="dialog"/);
   assert.match(component, /data-directory-active-filters/);
   assert.match(component, /directoryQueryFields\(filters, \["page"\]\)/);
   // Chip removal needs reliable, no-JS-friendly full GET navigation.
-  assert.match(component, /<PublicFilterTag key=\{key\} href=\{clearOneHref\(key\)\}/);
+  assert.match(component, /<PublicFilterTag\s+key=\{key\}\s+href=\{clearOneHref\(key\)\}/);
   assert.match(
     read("components/public-visual-system/public-result-states.tsx"),
     /return\s*\(?\s*<a\s+className=[\s\S]*?href=\{href\}/,
   );
   assert.match(
     component,
-    /<a className=\{styles\.clearAll\} href=\{basePath\} data-public-filter-reset>Vymazať všetko<\/a>/,
+    /<a className=\{styles\.clearAll\} href=\{basePath\} data-public-filter-reset>\s*Vymazať všetko\s*<\/a>/,
   );
   assert.doesNotMatch(component, /<Link className=\{styles\.chip\}/);
   assert.match(directory, /mapHref=\{mapHref\(filters, active\?\.slug\)\}/);

@@ -1,4 +1,5 @@
 "use client";
+import { MapConsentState } from "./map-consent-state";
 import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -119,9 +120,14 @@ export function PublicLocationMap({
     >
       <div className={styles.heading} data-compact-heading={compactHeading ? "true" : undefined}>
         {compactHeading ? (
-          <h2 id="public-location-map-title" className={styles.compactHeading}>{eyebrow}</h2>
+          <h2 id="public-location-map-title" className={styles.compactHeading}>
+            {eyebrow}
+          </h2>
         ) : (
-          <><span className="eyebrow">{eyebrow}</span><h2 id="public-location-map-title">{title}</h2></>
+          <>
+            <span className="eyebrow">{eyebrow}</span>
+            <h2 id="public-location-map-title">{title}</h2>
+          </>
         )}
       </div>
 
@@ -149,20 +155,12 @@ export function PublicLocationMap({
               onStatusChange={setRendererStatus}
               ariaLabel={`Interaktívna mapa: ${title}`}
             />
-          ) : (
+          ) : !waitingForConsent ? (
             <PublicNotice as="div" appearance="context" className={styles.fallback} role="status">
-              <strong>
-                {waitingForConsent
-                  ? "Google Maps čaká na tvoje povolenie"
-                  : "Interaktívna mapa momentálne nie je dostupná"}
-              </strong>
-              <span>
-                {waitingForConsent
-                  ? "Mapový podklad sa načíta až po povolení nižšie."
-                  : "Ostatný obsah profilu zostáva plne dostupný."}
-              </span>
+              <strong>Interaktívna mapa momentálne nie je dostupná</strong>
+              <span>Ostatný obsah profilu zostáva plne dostupný.</span>
             </PublicNotice>
-          )}
+          ) : null}
 
           {showMapControls ? (
             <div className={styles.mapTypeControl} role="group" aria-label="Typ mapového podkladu">
@@ -184,22 +182,14 @@ export function PublicLocationMap({
           ) : null}
 
           {waitingForConsent ? (
-            <div className={styles.consent} data-testid="detail-map-consent-gate">
-              <strong>Načítať interaktívnu Google mapu?</strong>
-              <span>
-                Google Maps sa načíta až po tvojom výslovnom povolení. Detail stránky funguje aj bez
-                nej.
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setGoogleMapsConsent(true);
-                  setConsentGranted(true);
-                }}
-              >
-                Povoliť Google Maps
-              </button>
-            </div>
+            <MapConsentState
+              testId="detail-map-consent-gate"
+              alternative="Adresa a odkazy na navigáciu sú dostupné aj bez nej."
+              onGrant={() => {
+                setGoogleMapsConsent(true);
+                setConsentGranted(true);
+              }}
+            />
           ) : null}
         </div>
 

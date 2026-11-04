@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
 test("directory, events, help and breeds display removable URL-backed active filters", () => {
   const directory = read("components/directory-filter-form.tsx");
@@ -10,44 +10,64 @@ test("directory, events, help and breeds display removable URL-backed active fil
   const help = read("components/help-browser.tsx");
   const breeds = read("components/breed-browser.tsx");
   const design = read("app/design-system.css");
-  for (const [name, src] of [["directory", directory], ["events", events], ["help", help], ["breeds", breeds]]) {
-    assert.match(src, /data-public-active-filters/, name);
-    assert.match(src, /<PublicFilterTag[^>]*href=\{clearOneHref\(key\)\}/, name);
+  for (const [name, src] of [
+    ["directory", directory],
+    ["events", events],
+    ["help", help],
+    ["breeds", breeds],
+  ]) {
+    assert.match(src, /<PublicActiveFilters|data-public-active-filters/, name);
+    assert.match(src, /<PublicFilterTag[^>]*href=\{\s*clearOneHref\(\s*key\s*\)\s*\}/, name);
     assert.match(src, /data-public-filter-reset/, name);
   }
-  assert.match(design, /\[data-public-active-filters\] \[data-public-filter-reset\] \{/);
-  assert.match(design, /min-height: var\(--ps-control-min-height, 44px\)/);
-  assert.match(design, /@media \(forced-colors: active\) \{/);
+  assert.match(
+    design,
+    /\[\s*data-public-active-filters\s*\]\s*\[\s*data-public-filter-reset\s*\]\s*\{\s*/,
+  );
+  assert.match(design, /min-height:\s*var\(\s*--ps-control-min-height,\s*44px\s*\)/);
+  assert.match(design, /@media\s*\(\s*forced-colors:\s*active\s*\)\s*\{\s*/);
 });
 
 test("event remove links preserve native params and handle category/period semantics", () => {
   const events = read("components/event-listing-results.tsx");
-  assert.match(events, /const next = new URLSearchParams\(params\)/);
-  assert.match(events, /next\.delete\(key\)/);
-  assert.match(events, /key === "typ" \? "\/podujatia" : pathname/);
-  assert.match(events, /if \(key === "termin"\) next\.set\("termin", "vsetky"\)/);
-  assert.match(events, /key: "zoradenie"/);
-  assert.match(events, /<details className=\{styles\.mobileFilters\}>/);
+  assert.match(events, /const\s*next\s*=\s*new\s*URLSearchParams\(\s*params\s*\)/);
+  assert.match(events, /next\s*\.delete\(\s*key\s*\)/);
+  assert.match(events, /key\s*===\s*"typ"\s*\?\s*"\/podujatia"\s*:\s*pathname/);
+  assert.match(
+    events,
+    /if\s*\(\s*key\s*===\s*"termin"\s*\)\s*next\s*\.set\(\s*"termin",\s*"vsetky"\s*\)/,
+  );
+  assert.match(events, /key:\s*"zoradenie"/);
+  assert.match(events, /<details\s*className=\{\s*styles\s*\.mobileFilters\s*\}>/);
   const css = read("components/events-public.module.css");
-  assert.match(css, /\.mobileFilters > summary:focus-visible/);
-  assert.match(css, /min-height: var\(--ps-control-min-height, 44px\)/);
+  assert.match(css, /\s*\.mobileFilters\s*>\s*summary:focus-visible/);
+  assert.match(css, /min-height:\s*var\(\s*--ps-control-min-height,\s*44px\s*\)/);
 });
 
 test("help chips preserve other GET filters and breed chips reset dependent FCI section", () => {
   const help = read("components/help-browser.tsx");
-  assert.match(help, /if \(query && key !== "q"\) next\.set\("q", query\)/);
-  assert.match(help, /if \(region !== "all" && key !== "region"\) next\.set\("region", region\)/);
-  assert.match(help, /if \(!activeOnly && key !== "stav"\) next\.set\("stav", "vsetky"\)/);
+  assert.match(
+    help,
+    /if\s*\(\s*query\s*&&\s*key\s*!==\s*"q"\s*\)\s*next\s*\.set\(\s*"q",\s*query\s*\)/,
+  );
+  assert.match(
+    help,
+    /if\s*\(\s*region\s*!==\s*"all"\s*&&\s*key\s*!==\s*"region"\s*\)\s*next\s*\.set\(\s*"region",\s*region\s*\)/,
+  );
+  assert.match(
+    help,
+    /if\s*\(\s*!activeOnly\s*&&\s*key\s*!==\s*"stav"\s*\)\s*next\s*\.set\(\s*"stav",\s*"vsetky"\s*\)/,
+  );
   const breed = read("components/breed-browser.tsx");
-  assert.match(breed, /breedAtlasHref\(\{/);
-  assert.match(breed, /key === "fciGroup" \? \{ fciSection: "" \}/);
-  assert.match(breed, /<Link href="\/plemena" data-public-filter-reset>/);
-  assert.match(breed, /aria-pressed=\{selectedGroup ===/);
+  assert.match(breed, /breedAtlasHref\(\s*\{\s*/);
+  assert.match(breed, /key\s*===\s*"fciGroup"\s*\?\s*\{\s*fciSection:\s*""\s*\}/);
+  assert.match(breed, /<Link\s*href="\/plemena"\s*data-public-filter-reset>/);
+  assert.match(breed, /aria-pressed=\{\s*selectedGroup\s*===/);
   const page = read("app/plemena/page.tsx");
-  assert.match(page, /<BreedBrowser key=\{breedAtlasHref\(initialFilters\)\}/);
+  assert.match(page, /<BreedBrowser\s*key=\{\s*breedAtlasHref\(\s*initialFilters\s*\)\s*\}/);
   const directory = read("components/directory-filter-form.tsx");
-  assert.match(directory, /key === "region" \? \["region", "district", "city"\]/);
-  assert.match(directory, /key === "district" \? \["district", "city"\]/);
-  assert.match(directory, /<dialog id="directory-filter-dialog"/);
+  assert.match(directory, /key\s*===\s*"region"\s*\?\s*\[\s*"region",\s*"district",\s*"city"\s*\]/);
+  assert.match(directory, /key\s*===\s*"district"\s*\?\s*\[\s*"district",\s*"city"\s*\]/);
+  assert.match(directory, /<dialog\s*id="directory-filter-dialog"/);
   assert.match(directory, /method="get"/);
 });

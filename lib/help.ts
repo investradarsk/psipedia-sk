@@ -47,7 +47,13 @@ export const helpCategories = [
 ] as const;
 
 const legacyHelpCategories = [
-  { slug: "urgentne-pripady", label: "Urgentné prípady", singular: "Urgentný prípad", icon: "🚨", description: "Prípady, pri ktorých je potrebná rýchla pomoc a pozornosť." },
+  {
+    slug: "urgentne-pripady",
+    label: "Urgentné prípady",
+    singular: "Urgentný prípad",
+    icon: "🚨",
+    description: "Prípady, pri ktorých je potrebná rýchla pomoc a pozornosť.",
+  },
 ] as const;
 
 export const allHelpCategories = [...helpCategories, ...legacyHelpCategories] as const;
@@ -94,11 +100,29 @@ export type HelpCase = {
 };
 
 /** Only fields rendered or searched in public help-category cards. */
-export type PublicHelpCard = Pick<HelpCase,
-  "id" | "slug" | "title" | "category" | "excerpt" | "organization" |
-  "dogName" | "breed" | "ageNote" | "city" | "region" |
-  "reportedDate" | "goalAmount" | "raisedAmount" | "imageUrl" |
-  "thumbnailImageDisplay" | "urgent" | "verified" | "resolved" | "updatedAt">;
+export type PublicHelpCard = Pick<
+  HelpCase,
+  | "id"
+  | "slug"
+  | "title"
+  | "category"
+  | "excerpt"
+  | "organization"
+  | "dogName"
+  | "breed"
+  | "ageNote"
+  | "city"
+  | "region"
+  | "reportedDate"
+  | "goalAmount"
+  | "raisedAmount"
+  | "imageUrl"
+  | "thumbnailImageDisplay"
+  | "urgent"
+  | "verified"
+  | "resolved"
+  | "updatedAt"
+>;
 
 export function getHelpCategory(slug: string) {
   return allHelpCategories.find((category) => category.slug === slug) ?? null;
@@ -118,30 +142,65 @@ export function helpCaseHref(item: Pick<HelpCase, "category" | "slug">) {
 }
 
 export function defaultHelpActionLabel(category: HelpCategorySlug) {
-  return ({
-    adopcia: "Mám záujem o adopciu",
-    utulky: "Pomôcť organizácii",
-    "stratene-a-najdene": "Mám informáciu",
-    "urgentne-pripady": "Ako môžem pomôcť",
-    zbierky: "Otvoriť zbierku alebo výzvu",
-    "docasna-opatera": "Ponúknuť dočasnú opateru",
-    dobrovolnictvo: "Chcem pomôcť",
-  } satisfies Record<HelpCategorySlug, string>)[category];
+  return (
+    {
+      adopcia: "Mám záujem o adopciu",
+      utulky: "Pomôcť organizácii",
+      "stratene-a-najdene": "Mám informáciu",
+      "urgentne-pripady": "Ako môžem pomôcť",
+      zbierky: "Otvoriť zbierku alebo výzvu",
+      "docasna-opatera": "Ponúknuť dočasnú opateru",
+      dobrovolnictvo: "Chcem pomôcť",
+    } satisfies Record<HelpCategorySlug, string>
+  )[category];
+}
+
+/** Financial presentation is only meaningful for an actual monetary fundraiser. */
+export function helpFinancials(item: Pick<HelpCase, "category" | "goalAmount" | "raisedAmount">) {
+  if (item.category !== "zbierky") return null;
+  const goalAmount =
+    typeof item.goalAmount === "number" && Number.isFinite(item.goalAmount) && item.goalAmount > 0
+      ? item.goalAmount
+      : null;
+  const raisedAmount =
+    typeof item.raisedAmount === "number" &&
+    Number.isFinite(item.raisedAmount) &&
+    item.raisedAmount >= 0
+      ? item.raisedAmount
+      : null;
+  // Legacy import defaults 0/0 do not identify a monetary campaign.
+  if (goalAmount === null && (raisedAmount === null || raisedAmount === 0)) return null;
+  return { goalAmount, raisedAmount };
 }
 
 export function helpProgress(item: Pick<HelpCase, "goalAmount" | "raisedAmount">) {
-  if (item.goalAmount === null || item.goalAmount <= 0 || item.raisedAmount === null || item.raisedAmount < 0) return null;
+  if (
+    item.goalAmount === null ||
+    item.goalAmount <= 0 ||
+    item.raisedAmount === null ||
+    item.raisedAmount < 0
+  )
+    return null;
   return Math.min(100, Math.max(0, Math.round((item.raisedAmount / item.goalAmount) * 100)));
 }
 
 export function formatHelpAmount(value: number | null) {
   if (value === null) return null;
-  return new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat("sk-SK", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 export function formatHelpDate(value: string | null) {
   if (!value) return null;
-  return new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
+  return new Intl.DateTimeFormat("sk-SK", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T12:00:00Z`));
 }
 
 export function formatHelpUpdatedDate(value: string | null | undefined) {

@@ -37,7 +37,8 @@ test("one canonical UnifiedSectionHero contract owns the section header", () => 
   assert.match(unified, /data-unified-section-hero-media/);
   assert.match(unified, /data-unified-section-hero-copy/);
   assert.match(unified, /data-unified-section-hero-tools/);
-  assert.match(unified, /<h1 data-section-hero-title>/);
+  assert.match(unified, /<PublicHeading role="page" as="h1" data-section-hero-title>/);
+  assert.match(read("components/public-heading.tsx"), /const Tag = as \?\? \(role === "page" \? "h1" : "h2"\)/);
 });
 
 test("desktop and mobile preview geometry match the homepage hero", () => {
@@ -201,5 +202,11 @@ test("cards retain dynamic images while hero sources are stable", () => {
   assert.match(helpOverview, /item\.imageUrl/);
   assert.match(adoption, /mainImage/);
   assert.match(lostFound, /report\.mainImage/);
-  assert.match(read("components/article-card.tsx"), /article\.image/);
+  const articleCard = read("components/article-card.tsx");
+  const articlePresentation = read("lib/article-card-presentation.ts");
+  const publicArticleCard = read("components/public-visual-system/public-article-card.tsx");
+  assert.match(articleCard, /articleCardPresentation\(article\)/);
+  assert.match(articleCard, /<PublicArticleCard/);
+  assert.match(articlePresentation, /image: article\.image/);
+  assert.match(publicArticleCard, /<ArticleMedia/);
 });

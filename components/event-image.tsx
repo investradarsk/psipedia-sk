@@ -4,7 +4,12 @@ import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { useState, type ImgHTMLAttributes } from "react";
 import { ImageDisplay } from "@/components/image-display";
 import type { ImageDisplayConfig, ImageDisplayContext } from "@/lib/image-display";
-import { getEventFallbackImage, getEventFallbackSrcSet, getEventOwnImage, eventTypePresentation } from "@/lib/event-type-presentation";
+import {
+  getEventFallbackImage,
+  getEventFallbackSrcSet,
+  getEventOwnImage,
+  eventTypePresentation,
+} from "@/lib/event-type-presentation";
 import type { EventType } from "@/lib/events";
 import type { SmartImageMode } from "@/lib/smart-image";
 
@@ -17,7 +22,15 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "srcSet" | "onErr
 };
 
 /** Event-only failure handling. The initial image is selected during SSR. */
-export function EventImage({ imageUrl, eventType, mode, context = "thumbnail", config, alt, ...props }: Props) {
+export function EventImage({
+  imageUrl,
+  eventType,
+  mode,
+  context = "thumbnail",
+  config,
+  alt,
+  ...props
+}: Props) {
   const ownImage = getEventOwnImage(imageUrl);
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const real = Boolean(ownImage && failedSource !== ownImage);
@@ -26,20 +39,44 @@ export function EventImage({ imageUrl, eventType, mode, context = "thumbnail", c
     ...props,
     src,
     srcSet: real ? responsiveMediaSrcSet(src, [320, 480, 640, 768, 960, 1280]) : undefined,
-    alt: real ? alt : alt === "" ? "" : `Ilustračný obrázok – ${eventTypePresentation[eventType].label.toLocaleLowerCase("sk")}`,
+    alt: real
+      ? alt
+      : alt === ""
+        ? ""
+        : `Ilustračný obrázok – ${eventTypePresentation[eventType].label.toLocaleLowerCase("sk")}`,
     width: 1280,
     height: 800,
     "data-event-image-source": real ? "real" : "fallback",
-    onError: () => {
+    onImageFailure: () => {
       if (real) {
         console.warn("Event photograph failed to load; displaying category illustration.");
         setFailedSource(src);
       }
     },
   };
-  return real ? <ImageDisplay roleHint="generic" {...imageProps} src={src} alt={imageProps.alt ?? ""} context={context} config={config} legacyMode={mode} /> : (
+  return real ? (
+    <ImageDisplay
+      roleHint="generic"
+      {...imageProps}
+      src={src}
+      alt={imageProps.alt ?? ""}
+      context={context}
+      config={config}
+      legacyMode={mode}
+    />
+  ) : (
     // Optimized local artwork intentionally skips smart image analysis.
     // eslint-disable-next-line @next/next/no-img-element
-    <img {...imageProps} srcSet={getEventFallbackSrcSet(eventType)} sizes={props.sizes ?? "(max-width: 760px) calc(100vw - 32px), (max-width: 1199px) 50vw, 33vw"} alt={imageProps.alt} style={{ ...props.style, objectFit: "cover" }} />
+    <img
+      {...props}
+      src={src}
+      width={1280}
+      height={800}
+      data-event-image-source="fallback"
+      srcSet={getEventFallbackSrcSet(eventType)}
+      sizes={props.sizes ?? "(max-width: 760px) calc(100vw - 32px), (max-width: 1199px) 50vw, 33vw"}
+      alt={imageProps.alt}
+      style={{ ...props.style, objectFit: "cover" }}
+    />
   );
 }

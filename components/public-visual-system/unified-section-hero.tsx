@@ -1,3 +1,4 @@
+import { PublicHeading } from "@/components/public-heading";
 import {
   cloneElement,
   isValidElement,
@@ -16,15 +17,16 @@ import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import styles from "./unified-section-hero.module.css";
 import { PublicActionLink } from "./public-visual-system";
 
-type VisualStyle = CSSProperties & Record<
-  | "--section-visual-desktop-x"
-  | "--section-visual-desktop-y"
-  | "--section-visual-desktop-zoom"
-  | "--section-visual-mobile-x"
-  | "--section-visual-mobile-y"
-  | "--section-visual-mobile-zoom",
-  string | number
->;
+type VisualStyle = CSSProperties &
+  Record<
+    | "--section-visual-desktop-x"
+    | "--section-visual-desktop-y"
+    | "--section-visual-desktop-zoom"
+    | "--section-visual-mobile-x"
+    | "--section-visual-mobile-y"
+    | "--section-visual-mobile-zoom",
+    string | number
+  >;
 
 export type UnifiedSectionHeroVariant = "homepage-style" | "compact" | "task";
 
@@ -44,7 +46,6 @@ function visualStyle(visual: ResolvedSectionVisual): VisualStyle {
     "--section-visual-mobile-zoom": visual.mobileCrop.zoom,
   };
 }
-
 
 const STANDARD_HERO_SHORTCUTS = [
   { href: "/adresar", label: "Služby pre psov" },
@@ -82,21 +83,31 @@ const SECTION_HERO_SHORTCUTS: Record<string, Array<{ href: string; label: string
 };
 
 function defaultHeroQuickLinks(key: string): Array<{ href: string; label: string }> {
-  const sectionKey = key.startsWith("directory.") ? "section.adresar"
-    : key.startsWith("events.") ? "section.podujatia"
-    : key.startsWith("help.") ? "section.pomoc-psom"
-    : key.startsWith("reviews.") ? "section.recenzie"
-    : key.startsWith("subsection.") ? "section." + key.split(".")[1]
-    : key;
+  const sectionKey = key.startsWith("directory.")
+    ? "section.adresar"
+    : key.startsWith("events.")
+      ? "section.podujatia"
+      : key.startsWith("help.")
+        ? "section.pomoc-psom"
+        : key.startsWith("reviews.")
+          ? "section.recenzie"
+          : key.startsWith("subsection.")
+            ? "section." + key.split(".")[1]
+            : key;
   return SECTION_HERO_SHORTCUTS[sectionKey] ?? STANDARD_HERO_SHORTCUTS;
 }
 
-function managedSearch(searchSlot: ReactNode, config: SectionHeroConfig, fallbackShortcuts: Array<{ href: string; label: string }>) {
+function managedSearch(
+  searchSlot: ReactNode,
+  config: SectionHeroConfig,
+  fallbackShortcuts: Array<{ href: string; label: string }>,
+) {
   if (!searchSlot || !isValidElement(searchSlot)) return searchSlot;
   const overrides: SearchElementProps = {};
   if (config.searchPlaceholder) overrides.placeholder = config.searchPlaceholder;
   if (config.searchButtonLabel) overrides.buttonLabel = config.searchButtonLabel;
-  const configuredLinks = config.quickLinks?.filter((item) => item.visible !== false && item.label && item.href) ?? [];
+  const configuredLinks =
+    config.quickLinks?.filter((item) => item.visible !== false && item.label && item.href) ?? [];
   const existingLinks = (searchSlot as ReactElement<SearchElementProps>).props.shortcuts;
   if (configuredLinks.length) {
     overrides.shortcuts = configuredLinks.map(({ href, label }) => ({ href, label }));
@@ -149,7 +160,7 @@ function conciseHeroIntro(intro: ReactNode): ReactNode {
   if (clean.length <= 230) return clean;
   const sentences = clean.match(/[^.!?]+[.!?]+(?:\s|$)/g) ?? [];
   const summary = sentences.slice(0, 2).join(" ").trim();
-  return summary && summary.length <= 265 ? summary : (sentences[0]?.trim() || clean);
+  return summary && summary.length <= 265 ? summary : sentences[0]?.trim() || clean;
 }
 
 export async function UnifiedSectionHero({
@@ -165,6 +176,7 @@ export async function UnifiedSectionHero({
   hideQuickLinks = false,
   className,
   variant = "homepage-style",
+  contentSource = "managed",
 }: {
   breadcrumbs?: ReactNode;
   eyebrow?: ReactNode;
@@ -179,20 +191,32 @@ export async function UnifiedSectionHero({
   hideQuickLinks?: boolean;
   className?: string;
   variant?: UnifiedSectionHeroVariant;
+  /** Route-specific category names must not be replaced by a parent landing title. */
+  contentSource?: "managed" | "route";
 }) {
-  const managedTitle = visual.heroContent?.title || title;
-  const managedEyebrow = visual.heroContent?.eyebrow || eyebrow;
-  const managedIntro = conciseHeroIntro(visual.heroContent?.intro || intro);
+  const managedTitle = contentSource === "route" ? title : visual.heroContent?.title || title;
+  const managedEyebrow =
+    contentSource === "route" ? eyebrow : visual.heroContent?.eyebrow || eyebrow;
+  const managedIntro = conciseHeroIntro(
+    contentSource === "route" ? intro : visual.heroContent?.intro || intro,
+  );
   const config: SectionHeroConfig = visual.heroContent?.config ?? {};
 
-  const configuredLinks = (config.quickLinks ?? []).filter((item) => item.visible !== false && item.label && item.href)
+  const configuredLinks = (config.quickLinks ?? [])
+    .filter((item) => item.visible !== false && item.label && item.href)
     .map(({ href, label }) => ({ href, label }));
-  const activeShortcuts = configuredLinks.length ? configuredLinks : defaultHeroQuickLinks(visual.visualKey);
-  const resolvedSearch = portalSearchSlot ? null : managedSearch(searchSlot, config, activeShortcuts);
+  const activeShortcuts = configuredLinks.length
+    ? configuredLinks
+    : defaultHeroQuickLinks(visual.visualKey);
+  const resolvedSearch = portalSearchSlot
+    ? null
+    : managedSearch(searchSlot, config, activeShortcuts);
   const resolvedPortalSearch = managedSearch(portalSearchSlot, config, activeShortcuts);
   const resolvedCta = managedCta(config, ctaSlot);
   const quickLinks = hideQuickLinks || portalSearchSlot ? [] : activeShortcuts;
-  const hasTools = Boolean(resolvedSearch || resolvedCta || metaSlot || config.metaLabel || quickLinks.length);
+  const hasTools = Boolean(
+    resolvedSearch || resolvedCta || metaSlot || config.metaLabel || quickLinks.length,
+  );
 
   return (
     <section
@@ -205,15 +229,37 @@ export async function UnifiedSectionHero({
     >
       <div className={styles.visual} data-unified-section-hero-visual>
         <div className={styles.media} data-unified-section-hero-media>
-          <img className={styles.image} src={visual.imageUrl} srcSet={responsiveMediaSrcSet(visual.imageUrl, [640, 960, 1280, 1600, 1920])} sizes="(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px" alt={visual.altText} decoding="async" fetchPriority={variant === "homepage-style" ? "high" : undefined} />
+          <img
+            className={styles.image}
+            src={visual.imageUrl}
+            srcSet={responsiveMediaSrcSet(visual.imageUrl, [640, 960, 1280, 1600, 1920])}
+            sizes="(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px"
+            alt={visual.altText}
+            decoding="async"
+            fetchPriority={variant === "homepage-style" ? "high" : undefined}
+          />
           <div className={styles.shade} aria-hidden="true" />
         </div>
 
         <div className={styles.copy} data-unified-section-hero-copy>
-          {breadcrumbs ? <div className={styles.breadcrumbs} data-section-hero-breadcrumbs>{breadcrumbs}</div> : null}
-          {managedEyebrow ? <div className={styles.eyebrow} data-section-hero-eyebrow>{managedEyebrow}</div> : null}
-          <h1 data-section-hero-title>{managedTitle}</h1>
-          {managedIntro ? <div className={styles.intro} data-section-hero-intro>{managedIntro}</div> : null}
+          {breadcrumbs ? (
+            <div className={styles.breadcrumbs} data-section-hero-breadcrumbs>
+              {breadcrumbs}
+            </div>
+          ) : null}
+          {managedEyebrow ? (
+            <div className={styles.eyebrow} data-section-hero-eyebrow>
+              {managedEyebrow}
+            </div>
+          ) : null}
+          <PublicHeading role="page" as="h1" data-section-hero-title>
+            {managedTitle}
+          </PublicHeading>
+          {managedIntro ? (
+            <div className={styles.intro} data-section-hero-intro>
+              {managedIntro}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -224,19 +270,33 @@ export async function UnifiedSectionHero({
       ) : null}
 
       {hasTools ? (
-        <div className={[styles.tools, portalSearchSlot ? styles.additionalTools : ""].filter(Boolean).join(" ")} data-unified-section-hero-tools data-section-hero-panel>
+        <div
+          className={[styles.tools, portalSearchSlot ? styles.additionalTools : ""]
+            .filter(Boolean)
+            .join(" ")}
+          data-unified-section-hero-tools
+          data-section-hero-panel
+        >
           {resolvedSearch ? <div className={styles.search}>{resolvedSearch}</div> : null}
           {resolvedCta ? <div className={styles.cta}>{resolvedCta}</div> : null}
-          {(config.metaLabel || metaSlot) ? (
+          {config.metaLabel || metaSlot ? (
             <div className={styles.meta}>
               {config.metaLabel ? <span>{config.metaLabel}</span> : null}
               {metaSlot ? <span>{metaSlot}</span> : null}
             </div>
           ) : null}
           {quickLinks.length ? (
-            <nav className={styles.quickLinks} aria-label="Rýchle odkazy" data-section-hero-quick-links>
+            <nav
+              className={styles.quickLinks}
+              aria-label="Rýchle odkazy"
+              data-section-hero-quick-links
+            >
               <span className={styles.quickLinksLabel}>Rýchlo:</span>
-              {quickLinks.map((item) => <a href={item.href} key={item.href + item.label}>{item.label}</a>)}
+              {quickLinks.map((item) => (
+                <a href={item.href} key={item.href + item.label}>
+                  {item.label}
+                </a>
+              ))}
             </nav>
           ) : null}
         </div>

@@ -1,3 +1,4 @@
+import { PublicFilterLayout, PublicFilterPanel } from "@/components/public-filters";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import {
@@ -15,11 +16,17 @@ import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
 import {
-  directoryCategories, directoryCategoryHref, getDirectoryCategory,
+  directoryCategories,
+  directoryCategoryHref,
+  getDirectoryCategory,
   type DirectoryCategorySlug,
 } from "@/lib/directory";
 import { directoryQueryFields } from "@/lib/directory-query";
-import { getDirectoryCategoryPreviews, type DirectoryFilters, type PublicDirectoryProfilePage } from "@/lib/directory-store";
+import {
+  getDirectoryCategoryPreviews,
+  type DirectoryFilters,
+  type PublicDirectoryProfilePage,
+} from "@/lib/directory-store";
 import { EMPTY_MAP_FILTERS, serializeMapUiFilters } from "@/lib/map-public-ui";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { CTA_DIRECTORY_MAP_ANCHOR } from "@/lib/visual-library-anchors";
@@ -40,13 +47,15 @@ function mapHref(filters: DirectoryFilters, category?: DirectoryCategorySlug) {
     city: filters.city,
     search: filters.query,
     facets: filters.facets,
-    canonicalService: filters.canonicalService??"",
+    canonicalService: filters.canonicalService ?? "",
   });
   return "/mapa?" + params.toString();
 }
 
 export async function DirectoryPage({
-  result, filters, initialCategory = "all",
+  result,
+  filters,
+  initialCategory = "all",
 }: {
   result: PublicDirectoryProfilePage;
   filters: DirectoryFilters;
@@ -55,10 +64,23 @@ export async function DirectoryPage({
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
   // Only the unfiltered overview uses five bounded profiles per category.
   // All searches, facets, sorts, category routes and pages keep full results.
-  const isOverview = !active && filters.page === 1 && filters.sort === "recommended" &&
-    ![filters.query, filters.category, filters.region, filters.district, filters.city,
-      filters.service, filters.canonicalService, filters.breed, filters.fciGroup,
-      filters.organization, filters.profileType].some(Boolean) &&
+  const isOverview =
+    !active &&
+    filters.page === 1 &&
+    filters.sort === "recommended" &&
+    ![
+      filters.query,
+      filters.category,
+      filters.region,
+      filters.district,
+      filters.city,
+      filters.service,
+      filters.canonicalService,
+      filters.breed,
+      filters.fciGroup,
+      filters.organization,
+      filters.profileType,
+    ].some(Boolean) &&
     Object.keys(filters.facets ?? {}).length === 0;
   const categoryPreviews = isOverview ? await getDirectoryCategoryPreviews(5) : null;
   const basePath = active ? `/adresar/${active.slug}` : "/adresar";
@@ -68,7 +90,10 @@ export async function DirectoryPage({
   ]);
   // Preserve the established category SEO copy and all stored image/crop values.
   const seoHeroVisual = active
-    ? { ...heroVisual, heroContent: { ...heroVisual.heroContent, title: active.heroTitle, intro: active.intro } }
+    ? {
+        ...heroVisual,
+        heroContent: { ...heroVisual.heroContent, title: active.heroTitle, intro: active.intro },
+      }
     : heroVisual;
 
   const categoryItems = [
@@ -80,22 +105,35 @@ export async function DirectoryPage({
     })),
   ];
 
-  const hasPopularity = discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
+  const hasPopularity =
+    discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
 
   return (
     <main id="obsah" className={styles.page}>
       <PublicFoundation className={styles.foundation}>
         <UnifiedSectionHeroShell>
           <UnifiedSectionHero
-            breadcrumbs={<Breadcrumbs>
-              <Link href="/">Domov</Link><span>/</span>
-              {active
-                ? <><Link href="/adresar">Služby pre psov</Link><span>/</span><span>{active.label}</span></>
-                : <span>Služby pre psov</span>}
-            </Breadcrumbs>}
+            breadcrumbs={
+              <Breadcrumbs>
+                <Link href="/">Domov</Link>
+                <span>/</span>
+                {active ? (
+                  <>
+                    <Link href="/adresar">Služby pre psov</Link>
+                    <span>/</span>
+                    <span>{active.label}</span>
+                  </>
+                ) : (
+                  <span>Služby pre psov</span>
+                )}
+              </Breadcrumbs>
+            }
             eyebrow={active ? active.singular : "Adresár služieb"}
             title={active?.heroTitle ?? "Služby pre psov"}
-            intro={active?.intro ?? "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."}
+            intro={
+              active?.intro ??
+              "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."
+            }
             visual={seoHeroVisual}
             portalSearchSlot={
               <HomePortalSearch
@@ -104,8 +142,16 @@ export async function DirectoryPage({
                 label="Hľadať služby pre psov"
                 panelLabel="Vyhľadávanie služieb pre psov"
                 eyebrow="ČO POTREBUJEŠ?"
-                title={active ? `Nájdi ${active.label.toLowerCase()} vo svojom okolí` : "Nájdi službu pre svojho psa"}
-                placeholder={active ? `Hľadať ${active.label.toLowerCase()} alebo mesto...` : "Hľadať veterinára, trénera, salón alebo mesto..."}
+                title={
+                  active
+                    ? `Nájdi ${active.searchObject} vo svojom okolí`
+                    : "Nájdi službu pre svojho psa"
+                }
+                placeholder={
+                  active
+                    ? `Hľadať ${active.searchObject} alebo mesto...`
+                    : "Hľadať veterinára, trénera, salón alebo mesto..."
+                }
                 defaultValue={filters.query}
                 buttonLabel="Hľadať"
                 allowEmpty
@@ -120,11 +166,15 @@ export async function DirectoryPage({
 
         <section className={styles.resultsSection} aria-label="Adresár služieb pre psov">
           <PublicContentShell variant="listing" className={styles.resultsShell}>
-
             <DirectoryCategoryNavigation items={categoryItems} />
 
-            <div className={styles.directoryColumns} data-directory-columns>
-              <aside className={styles.filterColumn} aria-label="Filtre adresára">
+            <PublicFilterLayout extra className={styles.directoryColumns} data-directory-columns>
+              <PublicFilterPanel
+                title="Filtrovať služby"
+                resetHref={basePath}
+                className={styles.filterColumn}
+                aria-label="Filtre adresára"
+              >
                 <DirectoryFilterForm
                   filters={filters}
                   options={result.options}
@@ -132,7 +182,7 @@ export async function DirectoryPage({
                   category={active?.slug}
                   mapHref={mapHref(filters, active?.slug)}
                 />
-              </aside>
+              </PublicFilterPanel>
 
               {isOverview && categoryPreviews ? (
                 <div className={styles.categoryPreviewResults} data-directory-category-previews>
@@ -140,17 +190,27 @@ export async function DirectoryPage({
                     const profiles = categoryPreviews[category.slug] ?? [];
                     const href = directoryCategoryHref(category);
                     return (
-                      <section className={styles.categoryPreviewSection} key={category.slug} aria-labelledby={`preview-${category.slug}`}>
+                      <section
+                        className={styles.categoryPreviewSection}
+                        key={category.slug}
+                        aria-labelledby={`preview-${category.slug}`}
+                      >
                         <h2 id={`preview-${category.slug}`} className={styles.categoryPreviewTitle}>
                           <Link href={href}>{category.label}</Link>
                         </h2>
                         {profiles.length > 0 ? (
                           <div className={styles.categoryPreviewCards}>
-                            {profiles.map((profile) => <DirectoryCard profile={profile} key={profile.id} />)}
+                            {profiles.map((profile) => (
+                              <DirectoryCard profile={profile} key={profile.id} />
+                            ))}
                           </div>
-                        ) : <p className={styles.categoryPreviewEmpty}>Profily v tejto kategórii ešte dopĺňame.</p>}
+                        ) : (
+                          <p className={styles.categoryPreviewEmpty}>
+                            Profily v tejto kategórii ešte dopĺňame.
+                          </p>
+                        )}
                         <Link className={styles.categoryPreviewMore} href={href}>
-                          Zobraziť všetky {category.label.toLocaleLowerCase("sk")} <span aria-hidden="true">→</span>
+                          Zobraziť kategóriu {category.label} <span aria-hidden="true">→</span>
                         </Link>
                       </section>
                     );
@@ -161,33 +221,63 @@ export async function DirectoryPage({
                   result={result}
                   filters={filters}
                   basePath={basePath}
-                  title={active ? active.resultsTitle : filters.query || filters.category || filters.region || filters.city ? "Výsledky vyhľadávania" : "Všetky služby pre psov"}
+                  title={
+                    active
+                      ? active.resultsTitle
+                      : filters.query || filters.category || filters.region || filters.city
+                        ? "Výsledky vyhľadávania"
+                        : "Všetky služby pre psov"
+                  }
                 />
               )}
 
               <aside className={styles.directorySidebar} aria-label="Ďalšie možnosti">
-                <section className={`ps-public-banner-frame ${styles.sidebarCard}`} data-directory-map-cta>
+                <section
+                  className={`ps-public-banner-frame ${styles.sidebarCard}`}
+                  data-directory-map-cta
+                >
                   <span className={styles.sidebarEyebrow}>Služby v okolí</span>
                   <h2>Nájdi služby na mape</h2>
                   <p>Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality.</p>
-                  {filters.canonicalService&&<p>Mapa používa rovnaký filter potvrdenej služby ako zoznam.</p>}
-                  <PublicActionLink id={CTA_DIRECTORY_MAP_ANCHOR} variant="primary" href={mapHref(filters, active?.slug)}>Zobraziť na mape →</PublicActionLink>
+                  {filters.canonicalService && (
+                    <p>Mapa používa rovnaký filter potvrdenej služby ako zoznam.</p>
+                  )}
+                  <PublicActionLink
+                    id={CTA_DIRECTORY_MAP_ANCHOR}
+                    variant="primary"
+                    href={mapHref(filters, active?.slug)}
+                  >
+                    Zobraziť na mape →
+                  </PublicActionLink>
                 </section>
 
-                <section className={`ps-public-banner-frame ${styles.sidebarCard}`} data-directory-provider-cta>
+                <section
+                  className={`ps-public-banner-frame ${styles.sidebarCard}`}
+                  data-directory-provider-cta
+                >
                   <span className={styles.sidebarEyebrow}>Pre poskytovateľov</span>
                   <h2>Poskytuješ služby pre psov?</h2>
                   <p>Požiadaj o pridanie alebo úpravu údajov svojho profilu.</p>
-                  <PublicActionLink variant="secondary" href="/o-nas#kontakt">Pridať alebo upraviť profil →</PublicActionLink>
+                  <PublicActionLink variant="secondary" href="/o-nas#kontakt">
+                    Pridať alebo upraviť profil →
+                  </PublicActionLink>
                 </section>
 
                 <div className={styles.popularityCard} data-directory-popular-articles>
-                  {hasPopularity
-                    ? <ArticlePopularitySidebar popularity={discovery.popularity} initialWindow="24h" />
-                    : <section className={styles.sidebarCard}><h2>Najčítanejšie</h2><p>Za posledné obdobie zatiaľ nemáme rebríček.</p></section>}
+                  {hasPopularity ? (
+                    <ArticlePopularitySidebar
+                      popularity={discovery.popularity}
+                      initialWindow="24h"
+                    />
+                  ) : (
+                    <section className={styles.sidebarCard}>
+                      <h2>Najčítanejšie</h2>
+                      <p>Za posledné obdobie zatiaľ nemáme rebríček.</p>
+                    </section>
+                  )}
                 </div>
               </aside>
-            </div>
+            </PublicFilterLayout>
           </PublicContentShell>
         </section>
       </PublicFoundation>

@@ -14,30 +14,35 @@ test("ARTICLE public surface already exposes canonical editorial identity and da
     /author: articleAuthorJsonLd\(authorName\)/,
     /"@type": "BreadcrumbList"/,
     /relatedBreeds/,
-  ]) assert.match(source, pattern);
+  ])
+    assert.match(source, pattern);
 });
 
 test("BREED public surface has a canonical breed identity without an invented commercial type", () => {
   const source = read("../app/plemena/[slug]/page.tsx");
-  assert.match(source, /<h1>\{breed\.name\}<\/h1>/);
-  assert.match(source, /<dl className=\{styles\.factGrid\}/);
-  assert.match(source, /idSuffix: "breed"/);
-  assert.match(source, /about: \{ "@id": breedEntityId \}/);
-  assert.match(source, /mainEntityId: breedEntityId/);
-  assert.doesNotMatch(source, /"@type": "Product"|"@type": "LocalBusiness"|"@type": "ProfilePage"/);
-  assert.doesNotMatch(source, />Overené informácie</);
+  assert.match(source, /<h1>\{\s*breed\s*\.name\s*\}<\/h1>/);
+  assert.match(source, /<dl\s*className=\{\s*styles\s*\.factGrid\s*\}/);
+  assert.match(source, /idSuffix:\s*"breed"/);
+  assert.match(source, /about:\s*\{\s*"@id":\s*breedEntityId\s*\}/);
+  assert.match(source, /mainEntityId:\s*breedEntityId/);
+  assert.doesNotMatch(
+    source,
+    /"@type":\s*"Product"|"@type":\s*"LocalBusiness"|"@type":\s*"ProfilePage"/,
+  );
+  assert.doesNotMatch(source, />Overené\s*informácie</);
 });
 
 test("EVENT public surface keeps visible facts aligned with the shared Event graph", () => {
   const detail = read("../components/event-detail.tsx");
   const route = read("../app/[section]/[slug]/page.tsx");
   const schema = read("../lib/event-schema.ts");
-  for (const label of ["Termín", "Miesto", "Organizátor", "Aktualizované"]) assert.match(detail, new RegExp(label));
-  assert.match(route, /buildEventJsonLd\(event, canonical\)/);
-  assert.match(schema, /datePublished: event\.publishedAt \|\| event\.createdAt/);
-  assert.match(schema, /dateModified: event\.updatedAt/);
-  assert.match(schema, /"@type": "VirtualLocation"/);
-  assert.match(schema, /"@type": "PostalAddress"/);
+  for (const label of ["Termín", "Miesto", "Organizátor", "Aktualizované"])
+    assert.match(detail, new RegExp(label));
+  assert.match(route, /buildEventJsonLd\(\s*event,\s*canonical\s*\)/);
+  assert.match(schema, /datePublished:\s*event\s*\.publishedAt\s*\|\|\s*event\s*\.createdAt/);
+  assert.match(schema, /dateModified:\s*event\s*\.updatedAt/);
+  assert.match(schema, /"@type":\s*"VirtualLocation"/);
+  assert.match(schema, /"@type":\s*"PostalAddress"/);
   assert.doesNotMatch(schema, /registrationUrl|offers:|priceCurrency|ProfilePage/);
 });
 
@@ -46,14 +51,17 @@ test("ORGANIZATION public surface exposes canonical Organization identity, sameA
   const presentation = read("../lib/organization-profile-presentation.ts");
   const schema = read("../lib/organization-seo.ts");
   const sharedHero = read("../components/public-profile/public-profile-hero.tsx");
-  assert.match(detail, /title=\{organization\.name\}/);
-  assert.match(sharedHero, /<h1 data-long-title=\{title\.length >= 70 \? "" : undefined\}>\{title\}<\/h1>/);
-  assert.match(detail, /DetailFactsCard title="Základné informácie"/);
-  assert.match(presentation, /label: "Aktualizované"/);
-  assert.match(schema, /"@type": "Organization"/);
-  assert.match(schema, /"@type": "PostalAddress"/);
+  assert.match(detail, /title=\{\s*organization\s*\.name\s*\}/);
+  assert.match(
+    sharedHero,
+    /<PublicHeading[^>]*as="h1"[^>]*data-long-title=\{\s*title\s*\.length\s*>=\s*70\s*\?\s*""\s*:\s*undefined\s*\}>\s*\{\s*title\s*\}\s*<\/PublicHeading>/,
+  );
+  assert.match(detail, /DetailFactsCard\s*title="Základné\s*informácie"/);
+  assert.match(presentation, /label:\s*"Aktualizované"/);
+  assert.match(schema, /"@type":\s*"Organization"/);
+  assert.match(schema, /"@type":\s*"PostalAddress"/);
   assert.match(schema, /sameAs/);
-  assert.match(schema, /dateModified: organization\.updatedAt/);
+  assert.match(schema, /dateModified:\s*organization\s*\.updatedAt/);
   assert.doesNotMatch(schema, /sourceUrl|lastVerifiedAt|ProfilePage/);
 });
 
@@ -61,49 +69,61 @@ test("ADOPTION public surface uses a privacy-safe canonical dog main entity", ()
   const route = read("../app/pomoc-psom/adopcia/[slug]/page.tsx");
   const detail = read("../components/adoption-detail.tsx");
   const schema = read("../lib/adoption-detail.ts");
-  assert.match(route, /robots: seo\.indexable \? undefined : \{ index: false, follow: true \}/);
-  assert.match(detail, /<h1>\{dog\.name\}<\/h1>/);
-  assert.match(detail, /label: "Aktualizované"/);
-  assert.match(schema, /idSuffix: "dog"/);
-  assert.match(schema, /mainEntity: \{ "@id": dogEntity\["@id"\] \}/);
+  assert.match(
+    route,
+    /robots:\s*seo\s*\.indexable\s*\?\s*undefined\s*:\s*\{\s*index:\s*false,\s*follow:\s*true\s*\}/,
+  );
+  assert.match(detail, /<h1>\{\s*dog\s*\.name\s*\}<\/h1>/);
+  assert.match(detail, /label:\s*"Aktualizované"/);
+  assert.match(schema, /idSuffix:\s*"dog"/);
+  assert.match(schema, /mainEntity:\s*\{\s*"@id":\s*dogEntity\[\s*"@id"\s*\]\s*\}/);
   assert.doesNotMatch(schema, /contactEmail.*dogEntity|contactPhone.*dogEntity|ProfilePage/);
-  assert.doesNotMatch(detail, /Overenie profilu|Posledné overenie|Profil potrebuje nové overenie/);
+  assert.doesNotMatch(
+    detail,
+    /Overenie\s*profilu|Posledné\s*overenie|Profil\s*potrebuje\s*nové\s*overenie/,
+  );
 });
 
 test("LOST and FOUND surface preserves lifecycle index policy and excludes private contact data from schema", () => {
   const source = read("../components/lost-found-dog-detail.tsx");
-  assert.match(source, /lostFoundStatusShouldIndex\(report\.status\)/);
-  assert.match(source, /idSuffix: "dog-report"/);
-  assert.match(source, /buildWebPageJsonLd\(\{/);
-  assert.match(source, /datePublished: report\.publishedAt \|\| report\.createdAt/);
-  assert.match(source, /dateModified: report\.updatedAt/);
-  assert.match(source, /Telefón a e-mail oznamovateľa nie sú automaticky publikované/);
-  assert.doesNotMatch(source, /report\.contactEmail|report\.contactPhone|ProfilePage/);
+  assert.match(source, /lostFoundStatusShouldIndex\(\s*report\s*\.status\s*\)/);
+  assert.match(source, /idSuffix:\s*"dog-report"/);
+  assert.match(source, /buildWebPageJsonLd\(\s*\{\s*/);
+  assert.match(source, /datePublished:\s*report\s*\.publishedAt\s*\|\|\s*report\s*\.createdAt/);
+  assert.match(source, /dateModified:\s*report\s*\.updatedAt/);
+  assert.match(
+    source,
+    /Telefón\s*a\s*e-mail\s*oznamovateľa\s*nie\s*sú\s*automaticky\s*publikované/,
+  );
+  assert.doesNotMatch(source, /report\s*\.contactEmail|report\s*\.contactPhone|ProfilePage/);
 });
 
 test("HELP public surface has canonical main entity and no public verification wording", () => {
   const route = read("../app/pomoc-psom/[category]/[slug]/page.tsx");
   const shell = read("../components/help-details/help-detail-shell.tsx");
   const types = read("../components/help-details/help-detail-types.tsx");
-  assert.match(route, /idSuffix: "help-case"/);
-  assert.match(route, /mainEntityId: helpEntity\["@id"\]/);
-  assert.match(route, /dateModified: item\.updatedAt/);
-  assert.match(shell, /Aktuálnosť a zdroje/);
+  assert.match(route, /idSuffix:\s*"help-case"/);
+  assert.match(route, /mainEntityId:\s*helpEntity\[\s*"@id"\s*\]/);
+  assert.match(route, /dateModified:\s*item\s*\.updatedAt/);
+  assert.match(shell, /Aktuálnosť\s*a\s*zdroje/);
   assert.match(shell, /Aktualizované:/);
-  assert.doesNotMatch(shell + types, /Overené Psipediou|Posledná kontrola/);
+  assert.doesNotMatch(shell + types, /Overené\s*Psipediou|Posledná\s*kontrola/);
 });
 
 test("DIRECTORY regression keeps PR #641 semantic fact and schema contracts unchanged", () => {
   const detail = read("../components/directory-profile-detail.tsx");
   const presentation = read("../lib/directory-detail-presentation.ts");
   const schema = read("../lib/directory-profile-schema.ts");
-  assert.match(detail, /<h2[^>]*id="directory-profile-contact"[^>]*>Adresa a kontakt<\/h2>/);
-  assert.match(detail, /<dl className=\{styles\.practicalGrid\}/);
-  assert.match(presentation, /label: "Posledná aktualizácia"/);
+  assert.match(
+    detail,
+    /<DetailContactsCard\s+id="directory-profile-contact"\s+title="Adresa a kontakt"/,
+  );
+  assert.match(read("../components/detail-primitives/detail-primitives.tsx"), /<DetailFactList/);
+  assert.match(presentation, /label:\s*"Posledná\s*aktualizácia"/);
   assert.match(schema, /"VeterinaryCare"/);
   assert.match(schema, /"Organization"/);
   assert.match(schema, /"LocalBusiness"/);
-  assert.match(schema, /dateModified: profile\.updatedAt/);
+  assert.match(schema, /dateModified:\s*profile\s*\.updatedAt/);
   assert.match(schema, /sameAs/);
   assert.doesNotMatch(schema, /ProfilePage/);
 });
@@ -123,10 +143,13 @@ test("sitemap keeps entity parity, real updated timestamps and excludes query/re
   ]) {
     assert.match(source, new RegExp(parityStage));
   }
-  assert.match(source, /lastModified: latestModified\(\[event\.updatedAt\]\)/);
-  assert.match(source, /lastModified: latestModified\(\[item\.updatedAt\]\)/);
-  assert.match(source, /buildOrganizationSitemapEntries\(organizations\)/);
-  assert.match(organizationSitemap, /latestModified\(\[organization\.updatedAt, organization\.publishedAt\]\)/);
+  assert.match(source, /lastModified:\s*latestModified\(\s*\[\s*event\s*\.updatedAt\s*\]\s*\)/);
+  assert.match(source, /lastModified:\s*latestModified\(\s*\[\s*item\s*\.updatedAt\s*\]\s*\)/);
+  assert.match(source, /buildOrganizationSitemapEntries\(\s*organizations\s*\)/);
+  assert.match(
+    organizationSitemap,
+    /latestModified\(\s*\[\s*organization\s*\.updatedAt,\s*organization\s*\.publishedAt\s*\]\s*\)/,
+  );
   assert.match(source, /SITEMAP_REDIRECT_SOURCES/);
-  assert.match(source, /assertValidSitemap\(entries\)/);
+  assert.match(source, /assertValidSitemap\(\s*entries\s*\)/);
 });

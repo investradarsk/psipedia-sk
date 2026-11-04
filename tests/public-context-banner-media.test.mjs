@@ -24,6 +24,10 @@ test("banner tones and public CTA keep the established shared contract", () => {
   assert.match(source, /"forest" \| "sage" \| "coral" \| "sand"/);
   assert.match(source, /data-public-context-banner-tone=\{tone\}/);
   assert.match(source, /data-public-context-banner-layout=\{inline \? "inline" : "stacked"\}/);
-  assert.match(source, /<PublicActionLink href=\{ctaHref!\}/);
+  assert.match(source, /<PublicBannerContent/);
+  assert.match(
+    read("components/public-visual-system/public-magazine-banner.tsx"),
+    /<PublicActionLink/,
+  );
   assert.match(source, /const hasCta = Boolean\(ctaLabel && ctaHref\)/);
 });

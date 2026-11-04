@@ -110,8 +110,10 @@ function rowToCandidate(row: CandidateRow): MapCandidate {
     geoPointId: Number(row.geo_point_id),
     entityType: row.entity_type,
     entityId: Number(row.entity_id),
-    organizationLocationId: row.organization_location_id === null ? null : Number(row.organization_location_id),
-    linkedDirectoryProfileId: row.linked_directory_profile_id === null ? null : Number(row.linked_directory_profile_id),
+    organizationLocationId:
+      row.organization_location_id === null ? null : Number(row.organization_location_id),
+    linkedDirectoryProfileId:
+      row.linked_directory_profile_id === null ? null : Number(row.linked_directory_profile_id),
     name: row.name,
     slug: row.slug,
     subcategory: row.subcategory,
@@ -181,12 +183,14 @@ function parameterizedSearch(query: MapQueryInput, expression: string) {
   // D1 caps LIKE/GLOB patterns at 50 bytes. normalizeDirectorySearchText() emits
   // ASCII-only tokens, so reserving two bytes for % wildcards is sufficient.
   const maxNeedleLength = D1_LIKE_PATTERN_MAX_BYTES - D1_LIKE_WILDCARD_BYTES;
-  const tokens = [...new Set(
-    normalized
-      .split(" ")
-      .filter(Boolean)
-      .map((token) => token.slice(0, maxNeedleLength)),
-  )];
+  const tokens = [
+    ...new Set(
+      normalized
+        .split(" ")
+        .filter(Boolean)
+        .map((token) => token.slice(0, maxNeedleLength)),
+    ),
+  ];
   if (!tokens.length) return { sql: "", bindings: [] as unknown[] };
 
   const normalizedExpression = sqlNormalizedExpression(expression);
@@ -198,20 +202,35 @@ function parameterizedSearch(query: MapQueryInput, expression: string) {
 
 function serviceStatement(query: MapQueryInput, db: MapD1Database) {
   const bbox = bboxSql(query);
-  const publicFacets = directoryPublicFacetSql(query.subcategory ?? "", query.facets, "d.source_data_json");
-  const canonicalPublicEnabled=(env as unknown as {SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?:string})
-    .SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED==="true";
-  const canonicalService=canonicalPublicServiceWhere(
-    query.subcategory??"",query.canonicalService??"",canonicalPublicEnabled,"d");
-  const canonicalCategory=query.canonicalService&&query.subcategory
-    ? {clause:"AND d.category = ?",bindings:[query.subcategory]}
-    : {clause:"",bindings:[] as string[]};
-  const search = parameterizedSearch(query, `
+  const publicFacets = directoryPublicFacetSql(
+    query.subcategory ?? "",
+    query.facets,
+    "d.source_data_json",
+  );
+  const canonicalPublicEnabled =
+    (env as unknown as { SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?: string })
+      .SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED === "true";
+  const canonicalService = canonicalPublicServiceWhere(
+    query.subcategory ?? "",
+    query.canonicalService ?? "",
+    canonicalPublicEnabled,
+    "d",
+  );
+  const canonicalCategory =
+    query.canonicalService && query.subcategory
+      ? { clause: "AND d.category = ?", bindings: [query.subcategory] }
+      : { clause: "", bindings: [] as string[] };
+  const search = parameterizedSearch(
+    query,
+    `
     coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
     coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
     coalesce(d.region, '')
-  `);
-  return db.prepare(`
+  `,
+  );
+  return db
+    .prepare(
+      `
     SELECT
       g.id AS geo_point_id, 'service' AS entity_type, d.id AS entity_id,
       NULL AS organization_location_id, NULL AS linked_directory_profile_id,
@@ -242,17 +261,30 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
       ${canonicalService.clauses.map((clause) => "AND " + clause).join("\n      ")}
     ORDER BY g.id ASC
     LIMIT ?
-  `).bind(...bbox.bindings, ...search.bindings, ...publicFacets.bindings,
-    ...canonicalCategory.bindings,...canonicalService.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `,
+    )
+    .bind(
+      ...bbox.bindings,
+      ...search.bindings,
+      ...publicFacets.bindings,
+      ...canonicalCategory.bindings,
+      ...canonicalService.bindings,
+      MAP_INTERNAL_ROW_LIMIT,
+    );
 }
 
 function organizationStatement(query: MapQueryInput, db: MapD1Database) {
   const bbox = bboxSql(query);
-  const search = parameterizedSearch(query, `
+  const search = parameterizedSearch(
+    query,
+    `
     coalesce(o.name, '') || ' ' || coalesce(o.short_description, '') || ' ' || coalesce(o.description, '') || ' ' ||
     coalesce(l.label, '') || ' ' || coalesce(l.city, '') || ' ' || coalesce(l.district, '') || ' ' || coalesce(l.region, '')
-  `);
-  return db.prepare(`
+  `,
+  );
+  return db
+    .prepare(
+      `
     SELECT
       g.id AS geo_point_id, 'organization' AS entity_type, o.id AS entity_id,
       l.id AS organization_location_id, o.directory_profile_id AS linked_directory_profile_id,
@@ -290,23 +322,31 @@ function organizationStatement(query: MapQueryInput, db: MapD1Database) {
       ${search.sql}
     ORDER BY g.id ASC
     LIMIT ?
-  `).bind(...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `,
+    )
+    .bind(...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
 function eventStatement(query: MapQueryInput, db: MapD1Database, today: string) {
   const bbox = bboxSql(query);
-  const search = parameterizedSearch(query, `
+  const search = parameterizedSearch(
+    query,
+    `
     coalesce(e.title, '') || ' ' || coalesce(e.excerpt, '') || ' ' || coalesce(e.organizer, '') || ' ' ||
     coalesce(e.venue, '') || ' ' || coalesce(e.event_type, '') || ' ' || coalesce(e.city, '') || ' ' || coalesce(e.region, '')
-  `);
-  const timing = query.eventTiming === "current"
-    ? "e.start_date <= ? AND COALESCE(e.end_date, e.start_date) >= ?"
-    : query.eventTiming === "upcoming"
-      ? "e.start_date > ?"
-      : "COALESCE(e.end_date, e.start_date) >= ?";
+  `,
+  );
+  const timing =
+    query.eventTiming === "current"
+      ? "e.start_date <= ? AND COALESCE(e.end_date, e.start_date) >= ?"
+      : query.eventTiming === "upcoming"
+        ? "e.start_date > ?"
+        : "COALESCE(e.end_date, e.start_date) >= ?";
   const timingBindings = query.eventTiming === "current" ? [today, today] : [today];
 
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT
       g.id AS geo_point_id, 'event' AS entity_type, e.id AS entity_id,
       NULL AS organization_location_id, NULL AS linked_directory_profile_id,
@@ -335,9 +375,10 @@ function eventStatement(query: MapQueryInput, db: MapD1Database, today: string) 
       ${search.sql}
     ORDER BY e.start_date ASC, e.start_time ASC, g.id ASC
     LIMIT ?
-  `).bind(...timingBindings, ...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `,
+    )
+    .bind(...timingBindings, ...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
-
 
 export type PublicMapEntityTarget =
   | { entityType: "DIRECTORY_PROFILE"; entityId: number }
@@ -350,7 +391,9 @@ export type PublicEntityMapResult = {
 };
 
 function scopedDirectoryStatement(entityId: number, db: MapD1Database) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT
       g.id AS geo_point_id, 'service' AS entity_type, d.id AS entity_id,
       NULL AS organization_location_id, NULL AS linked_directory_profile_id,
@@ -377,11 +420,15 @@ function scopedDirectoryStatement(entityId: number, db: MapD1Database) {
       AND d.archived_at IS NULL
     ORDER BY g.id ASC
     LIMIT 2
-  `).bind(entityId);
+  `,
+    )
+    .bind(entityId);
 }
 
 function scopedOrganizationStatement(entityId: number, db: MapD1Database) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT
       g.id AS geo_point_id, 'organization' AS entity_type, o.id AS entity_id,
       l.id AS organization_location_id, o.directory_profile_id AS linked_directory_profile_id,
@@ -418,11 +465,15 @@ function scopedOrganizationStatement(entityId: number, db: MapD1Database) {
       )
     ORDER BY g.id ASC
     LIMIT 1
-  `).bind(entityId);
+  `,
+    )
+    .bind(entityId);
 }
 
 function scopedEventStatement(entityId: number, db: MapD1Database) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT
       g.id AS geo_point_id, 'event' AS entity_type, e.id AS entity_id,
       NULL AS organization_location_id, NULL AS linked_directory_profile_id,
@@ -449,7 +500,9 @@ function scopedEventStatement(entityId: number, db: MapD1Database) {
       AND e.region <> 'Online'
     ORDER BY g.id ASC
     LIMIT 2
-  `).bind(entityId);
+  `,
+    )
+    .bind(entityId);
 }
 
 function publicMapAttribution(candidates: MapCandidate[]) {
@@ -478,11 +531,12 @@ export async function getPublicMapItemsForEntity(
   }
   if (!schemaReady) throw new MapGeoUnavailableError("Geo foundation is unavailable.");
 
-  const statement = target.entityType === "DIRECTORY_PROFILE"
-    ? scopedDirectoryStatement(target.entityId, db)
-    : target.entityType === "ORGANIZATION"
-      ? scopedOrganizationStatement(target.entityId, db)
-      : scopedEventStatement(target.entityId, db);
+  const statement =
+    target.entityType === "DIRECTORY_PROFILE"
+      ? scopedDirectoryStatement(target.entityId, db)
+      : target.entityType === "ORGANIZATION"
+        ? scopedOrganizationStatement(target.entityId, db)
+        : scopedEventStatement(target.entityId, db);
   const result = await statement.all<CandidateRow>();
   const today = bratislavaDateKey(now);
   const eligible = result.results
@@ -497,27 +551,45 @@ export async function getPublicMapItemsForEntity(
 }
 
 export function isPublicMapCandidate(candidate: MapCandidate, today = bratislavaDateKey()) {
-  if (candidate.publicVisibility !== "EXACT_PUBLIC" && candidate.publicVisibility !== "APPROXIMATE_PUBLIC") return false;
+  if (
+    candidate.publicVisibility !== "EXACT_PUBLIC" &&
+    candidate.publicVisibility !== "APPROXIMATE_PUBLIC"
+  )
+    return false;
   if (candidate.geocodeStatus !== "RESOLVED") return false;
-  if (!candidate.resolvedSourceFingerprint || candidate.sourceFingerprint !== candidate.resolvedSourceFingerprint) return false;
+  if (
+    !candidate.resolvedSourceFingerprint ||
+    candidate.sourceFingerprint !== candidate.resolvedSourceFingerprint
+  )
+    return false;
   if (!Number.isFinite(candidate.latitude) || !Number.isFinite(candidate.longitude)) return false;
-  if (candidate.latitude < -90 || candidate.latitude > 90 || candidate.longitude < -180 || candidate.longitude > 180) return false;
+  if (
+    candidate.latitude < -90 ||
+    candidate.latitude > 90 ||
+    candidate.longitude < -180 ||
+    candidate.longitude > 180
+  )
+    return false;
 
   if (candidate.entityType === "service") {
-    return candidate.canonicalStatus === "published"
-      && candidate.archivedAt === null
-      && candidate.publicVisibility === "EXACT_PUBLIC"
-      && candidate.precision === "EXACT";
+    return (
+      candidate.canonicalStatus === "published" &&
+      candidate.archivedAt === null &&
+      candidate.publicVisibility === "EXACT_PUBLIC" &&
+      candidate.precision === "EXACT"
+    );
   }
   if (candidate.entityType === "organization") {
     return candidate.canonicalStatus === "PUBLISHED" && candidate.archivedAt === null;
   }
   const lastDate = candidate.eventEndDate || candidate.eventStartDate || "";
-  return candidate.canonicalStatus === "published"
-    && !candidate.cancelled
-    && candidate.region !== "Online"
-    && Boolean(candidate.eventStartDate)
-    && lastDate >= today;
+  return (
+    candidate.canonicalStatus === "published" &&
+    !candidate.cancelled &&
+    candidate.region !== "Online" &&
+    Boolean(candidate.eventStartDate) &&
+    lastDate >= today
+  );
 }
 
 function sameText(left: string, right: string) {
@@ -526,9 +598,12 @@ function sameText(left: string, right: string) {
 
 function candidateMatchesQuery(candidate: MapCandidate, query: MapQueryInput, today: string) {
   if (!bboxContains(query.bbox, candidate.latitude, candidate.longitude)) return false;
-  const category: MapCategory = candidate.entityType === "service"
-    ? "services"
-    : candidate.entityType === "organization" ? "organizations" : "events";
+  const category: MapCategory =
+    candidate.entityType === "service"
+      ? "services"
+      : candidate.entityType === "organization"
+        ? "organizations"
+        : "events";
   if (query.category && query.category !== category) return false;
   if (query.subcategory && !sameText(candidate.subcategory, query.subcategory)) return false;
   if (query.region && !sameText(candidate.region, query.region)) return false;
@@ -555,7 +630,10 @@ function candidateMatchesQuery(candidate: MapCandidate, query: MapQueryInput, to
 }
 
 function sameCoordinate(left: MapCandidate, right: MapCandidate) {
-  return Math.abs(left.latitude - right.latitude) < 1e-8 && Math.abs(left.longitude - right.longitude) < 1e-8;
+  return (
+    Math.abs(left.latitude - right.latitude) < 1e-8 &&
+    Math.abs(left.longitude - right.longitude) < 1e-8
+  );
 }
 
 export function deduplicateOrganizationEntities(candidates: MapCandidate[]) {
@@ -568,47 +646,65 @@ export function deduplicateOrganizationEntities(candidates: MapCandidate[]) {
   });
 }
 
-export function deduplicateLinkedOrganizationDirectory(candidates: MapCandidate[], preferOrganizations = true) {
+export function deduplicateLinkedOrganizationDirectory(
+  candidates: MapCandidate[],
+  preferOrganizations = true,
+) {
   if (!preferOrganizations) return candidates;
-  const organizationLinks = candidates.filter((item) => item.entityType === "organization" && item.linkedDirectoryProfileId);
+  const organizationLinks = candidates.filter(
+    (item) => item.entityType === "organization" && item.linkedDirectoryProfileId,
+  );
   if (!organizationLinks.length) return candidates;
   return candidates.filter((item) => {
     if (item.entityType !== "service") return true;
-    return !organizationLinks.some((organization) =>
-      organization.linkedDirectoryProfileId === item.entityId && sameCoordinate(organization, item));
+    return !organizationLinks.some(
+      (organization) =>
+        organization.linkedDirectoryProfileId === item.entityId &&
+        sameCoordinate(organization, item),
+    );
   });
 }
 
 function uniqueLocationParts(values: string[]) {
   const seen = new Set<string>();
-  return values.map((value) => value.trim()).filter((value) => {
-    if (!value) return false;
-    const key = normalizeDirectorySearchText(value);
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return values
+    .map((value) => value.trim())
+    .filter((value) => {
+      if (!value) return false;
+      const key = normalizeDirectorySearchText(value);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
-export function publicDisplayLocation(candidate: Pick<MapCandidate, "publicVisibility" | "address" | "city" | "district" | "region">) {
-  const values = candidate.publicVisibility === "EXACT_PUBLIC"
-    ? [candidate.address, candidate.city, candidate.district, candidate.region]
-    : [candidate.city, candidate.district, candidate.region];
+export function publicDisplayLocation(
+  candidate: Pick<MapCandidate, "publicVisibility" | "address" | "city" | "district" | "region">,
+) {
+  const values =
+    candidate.publicVisibility === "EXACT_PUBLIC"
+      ? [candidate.address, candidate.city, candidate.district, candidate.region]
+      : [candidate.city, candidate.district, candidate.region];
   return uniqueLocationParts(values).join(" · ") || undefined;
 }
 
 export function mapCandidateToItem(candidate: MapCandidate): MapItem {
-  const category: MapCategory = candidate.entityType === "service"
-    ? "services"
-    : candidate.entityType === "organization" ? "organizations" : "events";
-  const id = candidate.entityType === "organization"
-    ? `organization:${candidate.entityId}:location:${candidate.organizationLocationId ?? candidate.geoPointId}`
-    : `${candidate.entityType}:${candidate.entityId}`;
-  const href = candidate.entityType === "service"
-    ? `/adresar/${candidate.subcategory}/${candidate.slug}`
-    : candidate.entityType === "organization"
-      ? `/organizacie/${candidate.slug}`
-      : `/podujatia/${candidate.slug}`;
+  const category: MapCategory =
+    candidate.entityType === "service"
+      ? "services"
+      : candidate.entityType === "organization"
+        ? "organizations"
+        : "events";
+  const id =
+    candidate.entityType === "organization"
+      ? `organization:${candidate.entityId}:location:${candidate.organizationLocationId ?? candidate.geoPointId}`
+      : `${candidate.entityType}:${candidate.entityId}`;
+  const href =
+    candidate.entityType === "service"
+      ? `/adresar/${candidate.subcategory}/${candidate.slug}`
+      : candidate.entityType === "organization"
+        ? `/organizacie/${candidate.slug}`
+        : `/podujatia/${candidate.slug}`;
 
   const item: MapItem = {
     id,
@@ -628,9 +724,9 @@ export function mapCandidateToItem(candidate: MapCandidate): MapItem {
   };
 
   if (
-    candidate.googlePlaceId
-    && candidate.googlePlaceSourceFingerprint
-    && candidate.googlePlaceSourceFingerprint === candidate.sourceFingerprint
+    candidate.googlePlaceId &&
+    candidate.googlePlaceSourceFingerprint &&
+    candidate.googlePlaceSourceFingerprint === candidate.sourceFingerprint
   ) {
     item.googlePlaceId = candidate.googlePlaceId;
   }
@@ -641,24 +737,33 @@ export function mapCandidateToItem(candidate: MapCandidate): MapItem {
   }
   if (candidate.entityType === "event" && candidate.eventStartDate) {
     item.eventStart = eventDateTimeIso(candidate.eventStartDate, candidate.eventStartTime);
-    if (candidate.eventEndDate) item.eventEnd = eventDateTimeIso(candidate.eventEndDate, candidate.eventEndTime);
+    if (candidate.eventEndDate)
+      item.eventEnd = eventDateTimeIso(candidate.eventEndDate, candidate.eventEndTime);
   }
   return item;
 }
 
-export function clusterMapItems(items: MapItem[], zoom: number, limit = MAP_MAX_CLUSTERS): MapCluster[] {
+export function clusterMapItems(
+  items: MapItem[],
+  zoom: number,
+  limit = MAP_MAX_CLUSTERS,
+): MapCluster[] {
   const grid = mapClusterGridSize(zoom);
-  const buckets = new Map<string, {
-    lat: number;
-    lng: number;
-    count: number;
-    services: number;
-    organizations: number;
-    events: number;
-    x: number;
-    y: number;
-    singletonItem?: MapItem;
-  }>();
+  const buckets = new Map<
+    string,
+    {
+      lat: number;
+      lng: number;
+      count: number;
+      services: number;
+      organizations: number;
+      events: number;
+      x: number;
+      y: number;
+      singletonItem?: MapItem;
+      localities: Set<string>;
+    }
+  >();
   for (const item of items) {
     const x = Math.floor((item.longitude + 180) / grid);
     const y = Math.floor((item.latitude + 90) / grid);
@@ -673,7 +778,10 @@ export function clusterMapItems(items: MapItem[], zoom: number, limit = MAP_MAX_
       x,
       y,
       singletonItem: item,
+      localities: new Set<string>(),
     };
+    const locality = item.city || item.district || item.region;
+    if (locality && bucket.localities.size < 3) bucket.localities.add(locality);
     bucket.lat += item.latitude;
     bucket.lng += item.longitude;
     bucket.count += 1;
@@ -686,6 +794,7 @@ export function clusterMapItems(items: MapItem[], zoom: number, limit = MAP_MAX_
   return [...buckets.values()]
     .map((bucket) => ({
       id: `cluster:z${zoom <= 6 ? 6 : zoom <= 8 ? 8 : zoom <= 10 ? 10 : 11}:g${grid}:x${bucket.x}:y${bucket.y}`,
+      label: [...bucket.localities].join(" · ") || undefined,
       latitude: bucket.lat / bucket.count,
       longitude: bucket.lng / bucket.count,
       count: bucket.count,
@@ -703,9 +812,12 @@ export function clusterMapItems(items: MapItem[], zoom: number, limit = MAP_MAX_
 async function loadCandidates(query: MapQueryInput, db: MapD1Database, today: string) {
   const statements: Array<Promise<D1Result<CandidateRow>>> = [];
   const eventOnly = Boolean(query.eventType);
-  if (!eventOnly && (!query.category || query.category === "services")) statements.push(serviceStatement(query, db).all<CandidateRow>());
-  if (!eventOnly && (!query.category || query.category === "organizations")) statements.push(organizationStatement(query, db).all<CandidateRow>());
-  if (eventOnly || !query.category || query.category === "events") statements.push(eventStatement(query, db, today).all<CandidateRow>());
+  if (!eventOnly && (!query.category || query.category === "services"))
+    statements.push(serviceStatement(query, db).all<CandidateRow>());
+  if (!eventOnly && (!query.category || query.category === "organizations"))
+    statements.push(organizationStatement(query, db).all<CandidateRow>());
+  if (eventOnly || !query.category || query.category === "events")
+    statements.push(eventStatement(query, db, today).all<CandidateRow>());
   const results = await Promise.all(statements);
   return {
     candidates: results.flatMap((result) => result.results.map(rowToCandidate)),
@@ -732,7 +844,10 @@ export async function queryPublicMap(
   const loaded = await loadCandidates(query, db, today);
   const eligible = loaded.candidates.filter((candidate) => isPublicMapCandidate(candidate, today));
   const singleAddressOrganizations = deduplicateOrganizationEntities(eligible);
-  const deduped = deduplicateLinkedOrganizationDirectory(singleAddressOrganizations, query.category !== "services");
+  const deduped = deduplicateLinkedOrganizationDirectory(
+    singleAddressOrganizations,
+    query.category !== "services",
+  );
   const filtered = deduped.filter((candidate) => candidateMatchesQuery(candidate, query, today));
   const matched = filtered.length;
   const items = filtered.map(mapCandidateToItem);

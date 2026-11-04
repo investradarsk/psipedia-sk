@@ -138,7 +138,7 @@ test("SEO-RECOVERY-1 event time links preserve filters and remain noindex/follow
   // The calendar now changes periods client-side. The active ARIA state must
   // follow the visible period, not the initial server-rendered value.
   assert.match(source, /aria-current=\{view\.time === value \? "page" : undefined\}/);
-  assert.match(source, /onClick=\{\(event\)=>clickNavigate\(event,timeHref\(value\),\{\.\.\.view,time:value\}\)\}/);
+  assert.match(source, /onClick=\{\s*\(event\)\s*=>\s*clickNavigate\(\s*event,\s*timeHref\(value\),\s*\{\s*\.\.\.view,\s*time:\s*value\s*\}\s*\)\s*\}/);
 
   const filtered = buildListingPageMetadata({
     title: "Podujatia",

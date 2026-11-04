@@ -210,8 +210,8 @@ test("Partner and admin UI expose preview replace remove, current-vs-proposed an
   assert.match(newProfileForm,/Logo alebo hlavná fotografia/);
   assert.match(profileEditForm,/Navrhnúť zmenu obrázka/);
   assert.match(eventForm,/Hlavný obrázok podujatia/);
-  assert.match(partnerCss,/@media\(max-width:600px\)/);
-  assert.match(partnerCss,/width:100%/);
+  assert.match(partnerCss, /@media\s*\(max-width:\s*760px\)/);
+  assert.match(partnerCss, /\.partner-contact-grid\s*\{\s*grid-template-columns:\s*1fr/);
   assert.match(adminCss,/admin-partner-media-compare/);
   assert.match(adminCss,/@media\(max-width:720px\)/);
 });

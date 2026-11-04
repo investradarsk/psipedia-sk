@@ -76,6 +76,15 @@ test("identical PNGs pass; modified pixels and missing baselines fail with artif
     const nested = result.manifest.comparisons.find(item => item.name === "podujatia/mobile-390-viewport.png");
     assert.equal(nested?.status, "DIFFERENT — review");
     assert.ok((await readFile(join(output, "podujatia", "mobile-390-viewport.png"))).length > 24);
+
+    // A screenshot missing from the new revision must remain a hard failure,
+    // even when intentional layout changes are review-only.
+    await rm(join(after, "directory-320.png"));
+    result = await compareSnapshotDirectories({ baselineDir: before, currentDir: after, outputDir: output });
+    assert.equal(result.failed, true);
+    const missingCurrent = result.manifest.comparisons.find(item => item.name === "directory-320.png");
+    assert.equal(missingCurrent?.status, "MISSING PR");
+    assert.match(result.summary, /MISSING PR/);
   } finally {
     await browser?.close();
     await rm(root, { recursive: true, force: true });

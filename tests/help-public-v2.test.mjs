@@ -70,7 +70,10 @@ test("Help landing counts and limited previews come from canonical public read p
 });
 
 test("generic Help browser does not merge dedicated adoption or lost-found domains", () => {
-  assert.match(landing, /const browserItems = items\.filter\(\(item\) => item\.category !== "stratene-a-najdene"\)/);
+  assert.match(
+    landing,
+    /const browserItems = items\.filter\(\(item\) => item\.category !== "stratene-a-najdene"\)/,
+  );
   assert.doesNotMatch(browser, /getPublicAdoptions|listPublicDogReports/);
   assert.doesNotMatch(browser, /category\.slug !== "adopcia"/);
 });
@@ -93,19 +96,21 @@ test("published resolved Help details remain discoverable through URL-backed SSR
 });
 
 test("canonical organizations stay reachable through the Help hierarchy", () => {
-  assert.match(helpModel, /if \(item\.category === "utulky"\) return `\/organizacie\/\$\{item\.slug\}`/);
+  assert.match(
+    helpModel,
+    /if \(item\.category === "utulky"\) return `\/organizacie\/\$\{item\.slug\}`/,
+  );
   assert.match(categoryRoute, /getPublishedHelpCaseCards\(category\)/);
   assert.match(card, /href=\{detailHref\}/);
 });
 
-test("fundraising progress is rendered only when both real amounts exist", () => {
-  assert.match(helpModel, /item\.goalAmount === null/);
-  assert.match(helpModel, /item\.raisedAmount === null/);
-  assert.doesNotMatch(helpModel, /raisedAmount \?\? 0/);
-  assert.match(card, /item\.raisedAmount !== null/);
-  assert.match(card, /item\.goalAmount !== null/);
-  assert.match(detail, /item\.raisedAmount === null && item\.goalAmount === null/);
-  assert.doesNotMatch(detail, /raisedAmount \?\? 0/);
+test("fundraising cards and details consume the same category-aware financial block", () => {
+  const financial = read("components/help-financial-progress.tsx");
+  assert.match(card, /HelpFinancialProgress/);
+  assert.match(detail, /HelpFinancialProgress/);
+  assert.match(financial, /helpFinancials\(item\)/);
+  assert.match(financial, /if \(!amounts\) return null/);
+  assert.doesNotMatch(financial, /raisedAmount \?\? 0/);
 });
 
 test("adoption and lost-found listings expose canonical data-first fields", () => {
@@ -129,10 +134,15 @@ test("empty states and 390px mobile contract are explicit", () => {
   assert.doesNotMatch(styles, /overflow-x:\s*(?:scroll|auto)/);
 });
 
-
 test("Help Admin owns only generic Help and routes dedicated domains to their canonical admins", () => {
-  assert.match(adminQuery, /HELP_ADMIN_DEDICATED_CATEGORIES = \["adopcia", "utulky", "stratene-a-najdene"\]/);
-  assert.match(adminQuery, /HELP_ADMIN_CREATE_CATEGORIES = \["docasna-opatera", "zbierky", "dobrovolnictvo"\]/);
+  assert.match(
+    adminQuery,
+    /HELP_ADMIN_DEDICATED_CATEGORIES = \["adopcia", "utulky", "stratene-a-najdene"\]/,
+  );
+  assert.match(
+    adminQuery,
+    /HELP_ADMIN_CREATE_CATEGORIES = \["docasna-opatera", "zbierky", "dobrovolnictvo"\]/,
+  );
   assert.match(adminHelpHub, /adopcia: "\/admin\/adopcie"/);
   assert.match(adminHelpHub, /"stratene-a-najdene": "\/admin\/stratene-najdene"/);
   assert.match(adminHelpHub, /utulky: "\/admin\/organizacie\?type=SHELTER"/);
@@ -149,7 +159,6 @@ test("Help Admin mobile controls declare touch-safe targets without changing sha
   assert.match(adminStyles, /@media\(max-width:760px\)/);
   assert.match(adminStyles, /grid-template-columns:\s*1fr/);
 });
-
 
 test("Help category pages expose one primary homepage-style search and preserve region/status facets", () => {
   assert.doesNotMatch(landing, /SectionHeroSearch/);

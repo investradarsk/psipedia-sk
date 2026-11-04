@@ -1,4 +1,10 @@
-import { HELP_ADMIN_DOMAIN_SQL, isHelpAdminCreateCategory, type HelpAdminFilters, queryHelpAdmin } from "@/lib/help-admin-query";
+import { applyHelpLifecycle, activeHelpSql } from "./help-lifecycle";
+import {
+  HELP_ADMIN_DOMAIN_SQL,
+  isHelpAdminCreateCategory,
+  type HelpAdminFilters,
+  queryHelpAdmin,
+} from "@/lib/help-admin-query";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { slugifyArticleTitle } from "@/lib/article-store";
@@ -15,7 +21,11 @@ import {
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
-import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
+import {
+  normalizeImageDisplayConfig,
+  readImageDisplayConfig,
+  type ImageDisplayConfig,
+} from "@/lib/image-display";
 import {
   listPublishedOrganizations,
   listPublishedOrganizationCards,
@@ -109,24 +119,63 @@ type HelpCaseRow = {
 };
 
 /** Only the fields rendered by homepage help cards and their links. */
-type HomepageHelpRow = Pick<HelpCaseRow,
-  "id" | "slug" | "title" | "category" | "status" | "city" |
-  "image_url" | "thumbnail_display_json" | "urgent" | "resolved">;
-export type HomepageHelpCard = Pick<HelpCase,
-  "id" | "slug" | "title" | "category" | "status" | "city" |
-  "imageUrl" | "thumbnailImageDisplay" | "urgent" | "resolved">;
+type HomepageHelpRow = Pick<
+  HelpCaseRow,
+  | "id"
+  | "slug"
+  | "title"
+  | "category"
+  | "status"
+  | "city"
+  | "image_url"
+  | "thumbnail_display_json"
+  | "urgent"
+  | "resolved"
+>;
+export type HomepageHelpCard = Pick<
+  HelpCase,
+  | "id"
+  | "slug"
+  | "title"
+  | "category"
+  | "status"
+  | "city"
+  | "imageUrl"
+  | "thumbnailImageDisplay"
+  | "urgent"
+  | "resolved"
+>;
 
 /** Projection for help-category card listing; private contacts, long descriptions and SEO stay in detail/admin reads. */
-type PublicHelpCardRow = Pick<HelpCaseRow,
-  "id" | "slug" | "title" | "category" | "excerpt" | "organization" |
-  "dog_name" | "breed" | "age_note" | "city" | "region" | "reported_date" |
-  "goal_amount" | "raised_amount" | "image_url" | "thumbnail_display_json" |
-  "urgent" | "verified" | "resolved" | "updated_at">;
+type PublicHelpCardRow = Pick<
+  HelpCaseRow,
+  | "id"
+  | "slug"
+  | "title"
+  | "category"
+  | "excerpt"
+  | "organization"
+  | "dog_name"
+  | "breed"
+  | "age_note"
+  | "city"
+  | "region"
+  | "reported_date"
+  | "goal_amount"
+  | "raised_amount"
+  | "image_url"
+  | "thumbnail_display_json"
+  | "urgent"
+  | "verified"
+  | "resolved"
+  | "updated_at"
+>;
 
-export const PUBLIC_HELP_CARD_COLUMNS = "id,slug,title,category,excerpt,organization,dog_name,breed,age_note,city,region,reported_date,goal_amount,raised_amount,image_url,thumbnail_display_json,urgent,verified,resolved,updated_at";
+export const PUBLIC_HELP_CARD_COLUMNS =
+  "id,slug,title,category,excerpt,organization,dog_name,breed,age_note,city,region,reported_date,goal_amount,raised_amount,image_url,thumbnail_display_json,urgent,verified,resolved,updated_at";
 
 function rowToPublicHelpCard(row: PublicHelpCardRow): PublicHelpCard {
-  return {
+  return applyHelpLifecycle({
     id: row.id,
     slug: row.slug,
     title: row.title,
@@ -137,7 +186,9 @@ function rowToPublicHelpCard(row: PublicHelpCardRow): PublicHelpCard {
     breed: row.breed,
     ageNote: row.age_note,
     city: row.city,
-    region: (slovakRegions as readonly string[]).includes(row.region) ? row.region as SlovakRegion : "Online",
+    region: (slovakRegions as readonly string[]).includes(row.region)
+      ? (row.region as SlovakRegion)
+      : "Online",
     reportedDate: row.reported_date,
     goalAmount: row.goal_amount,
     raisedAmount: row.raised_amount,
@@ -147,7 +198,7 @@ function rowToPublicHelpCard(row: PublicHelpCardRow): PublicHelpCard {
     verified: Boolean(row.verified),
     resolved: Boolean(row.resolved),
     updatedAt: row.updated_at,
-  };
+  });
 }
 
 type HelpCaseSummaryRow = {
@@ -186,7 +237,7 @@ async function ensureHelpStore(database: D1Database) {
 }
 
 function rowToHelpCase(row: HelpCaseRow): HelpCase {
-  return {
+  return applyHelpLifecycle({
     id: row.id,
     slug: row.slug,
     title: row.title,
@@ -199,7 +250,9 @@ function rowToHelpCase(row: HelpCaseRow): HelpCase {
     breed: row.breed,
     ageNote: row.age_note,
     city: row.city,
-    region: (slovakRegions as readonly string[]).includes(row.region) ? row.region as SlovakRegion : "Online",
+    region: (slovakRegions as readonly string[]).includes(row.region)
+      ? (row.region as SlovakRegion)
+      : "Online",
     locationNote: row.location_note,
     reportedDate: row.reported_date,
     deadlineDate: row.deadline_date,
@@ -221,14 +274,12 @@ function rowToHelpCase(row: HelpCaseRow): HelpCase {
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     seo: parseSeo(row.seo_json),
-  };
+  });
 }
 
-function canonicalOrganizationToHelpCase(
-  organization: PublicOrganizationIndexItem,
-): HelpCase {
+function canonicalOrganizationToHelpCase(organization: PublicOrganizationIndexItem): HelpCase {
   const region = (slovakRegions as readonly string[]).includes(organization.region)
-    ? organization.region as SlovakRegion
+    ? (organization.region as SlovakRegion)
     : "Online";
   return {
     id: organization.id,
@@ -267,14 +318,22 @@ function canonicalOrganizationToHelpCase(
 }
 
 function comparePublicHelpCases(left: HelpCase, right: HelpCase) {
-  return Number(left.resolved) - Number(right.resolved)
-    || Number(right.urgent) - Number(left.urgent)
-    || Number(right.verified) - Number(left.verified)
-    || right.updatedAt.localeCompare(left.updatedAt)
-    || right.id - left.id;
+  return (
+    Number(left.resolved) - Number(right.resolved) ||
+    Number(right.urgent) - Number(left.urgent) ||
+    Number(right.verified) - Number(left.verified) ||
+    right.updatedAt.localeCompare(left.updatedAt) ||
+    right.id - left.id
+  );
 }
 
-function parseSeo(value: string): EditableSeo { try { return cleanEditableSeo(JSON.parse(value) as EditableSeo); } catch { return {}; } }
+function parseSeo(value: string): EditableSeo {
+  try {
+    return cleanEditableSeo(JSON.parse(value) as EditableSeo);
+  } catch {
+    return {};
+  }
+}
 
 function rowToHelpCaseSummary(row: HelpCaseSummaryRow): ManagedHelpCaseSummary {
   return {
@@ -299,26 +358,36 @@ function normalizeUrl(value: string | null | undefined) {
   const clean = value?.trim() || null;
   if (!clean) return null;
   let parsed: URL;
-  try { parsed = new URL(clean); } catch { throw new Error("Odkaz na pomoc nie je platný."); }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error("Odkaz musí začínať http:// alebo https://.");
+  try {
+    parsed = new URL(clean);
+  } catch {
+    throw new Error("Odkaz na pomoc nie je platný.");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+    throw new Error("Odkaz musí začínať http:// alebo https://.");
   return clean;
 }
 
 function normalizeDate(value: string | null | undefined, label: string) {
   const clean = value?.trim() || null;
   if (!clean) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean) || Number.isNaN(new Date(`${clean}T12:00:00Z`).getTime())) throw new Error(`${label} nie je platný.`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean) || Number.isNaN(new Date(`${clean}T12:00:00Z`).getTime()))
+    throw new Error(`${label} nie je platný.`);
   return clean;
 }
 
 function normalizeAmount(value: number | string | null | undefined, label: string) {
   if (value === null || value === undefined || value === "") return null;
   const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 100000000 || !Number.isInteger(numeric)) throw new Error(`${label} musí byť celé nezáporné číslo.`);
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 100000000 || !Number.isInteger(numeric))
+    throw new Error(`${label} musí byť celé nezáporné číslo.`);
   return numeric;
 }
 
-function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrgent?: boolean } = {}) {
+function normalizeInput(
+  payload: ManagedHelpCaseInput,
+  options: { allowLegacyUrgent?: boolean } = {},
+) {
   const title = payload.title?.trim() ?? "";
   const slug = slugifyArticleTitle(payload.slug?.trim() || title);
   const category = payload.category && isHelpCategory(payload.category) ? payload.category : null;
@@ -327,34 +396,60 @@ function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrg
   const description = payload.description?.trim() ?? "";
   const organization = payload.organization?.trim() ?? "";
   const city = payload.city?.trim() ?? "";
-  const region = (slovakRegions as readonly string[]).includes(payload.region ?? "") ? payload.region as SlovakRegion : null;
+  const region = (slovakRegions as readonly string[]).includes(payload.region ?? "")
+    ? (payload.region as SlovakRegion)
+    : null;
   const actionUrl = normalizeUrl(payload.actionUrl);
   const goalAmount = normalizeAmount(payload.goalAmount, "Cieľ zbierky");
   const raisedAmount = normalizeAmount(payload.raisedAmount, "Doteraz vyzbieraná suma");
   const verified = Boolean(payload.verified);
 
   if (!title) throw new Error("Doplň názov prípadu alebo výzvy.");
-  if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa prípadu nie je platná.");
+  if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))
+    throw new Error("Adresa prípadu nie je platná.");
   if (!category) throw new Error("Vyber kategóriu pomoci.");
   if (category === "adopcia") throw new Error("Adopcie sa spravujú v canonical sekcii Adopcie.");
-  if (category === "stratene-a-najdene") throw new Error("Stratené a nájdené psy sa spravujú v canonical Lost/Found sekcii.");
-  if (category === "utulky") throw new Error("Útulky a organizácie sa spravujú v canonical sekcii Organizácie.");
-  if (!isHelpAdminCreateCategory(category) && !(options.allowLegacyUrgent && category === "urgentne-pripady")) throw new Error("Táto kategória nepatrí do generic Help CRUD.");
-  if (allHelpCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu prípadu.");
-  if (status === "published" && excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
-  if (status === "published" && description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
-  if (status === "published" && !organization) throw new Error("Doplň zodpovednú organizáciu alebo osobu.");
+  if (category === "stratene-a-najdene")
+    throw new Error("Stratené a nájdené psy sa spravujú v canonical Lost/Found sekcii.");
+  if (category === "utulky")
+    throw new Error("Útulky a organizácie sa spravujú v canonical sekcii Organizácie.");
+  if (
+    !isHelpAdminCreateCategory(category) &&
+    !(options.allowLegacyUrgent && category === "urgentne-pripady")
+  )
+    throw new Error("Táto kategória nepatrí do generic Help CRUD.");
+  if (allHelpCategories.some((item) => item.slug === slug))
+    throw new Error("Túto adresu používa kategória. Uprav adresu prípadu.");
+  if (status === "published" && excerpt.length < 20)
+    throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
+  if (status === "published" && description.length < 40)
+    throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
+  if (status === "published" && !organization)
+    throw new Error("Doplň zodpovednú organizáciu alebo osobu.");
   if (status === "published" && !city) throw new Error("Doplň mesto alebo obec prípadu.");
   if (status === "published" && !region) throw new Error("Vyber kraj.");
-  if (category === "zbierky" && status === "published" && (!verified || !actionUrl || (goalAmount !== null && goalAmount <= 0))) {
-    throw new Error("Zbierku možno publikovať až po overení, s platným odkazom a kladnou cieľovou sumou, ak je zadaná.");
+  if (
+    category === "zbierky" &&
+    status === "published" &&
+    (!verified || !actionUrl || (goalAmount !== null && goalAmount <= 0))
+  ) {
+    throw new Error(
+      "Zbierku možno publikovať až po overení, s platným odkazom a kladnou cieľovou sumou, ak je zadaná.",
+    );
   }
-  if (goalAmount !== null && raisedAmount !== null && raisedAmount > goalAmount * 10) throw new Error("Skontroluj vyzbieranú sumu; výrazne presahuje cieľ.");
+  if (goalAmount !== null && raisedAmount !== null && raisedAmount > goalAmount * 10)
+    throw new Error("Skontroluj vyzbieranú sumu; výrazne presahuje cieľ.");
 
   const imageUrl = payload.imageUrl?.trim() || null;
-  if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka nie je platná.");
+  if (
+    imageUrl &&
+    !imageUrl.startsWith("/media/") &&
+    !imageUrl.startsWith("/images/") &&
+    !/^https:\/\//i.test(imageUrl)
+  )
+    throw new Error("Adresa obrázka nie je platná.");
 
-  return {
+  return applyHelpLifecycle({
     slug,
     title,
     category,
@@ -383,44 +478,57 @@ function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrg
     urgent: Boolean(payload.urgent),
     resolved: Boolean(payload.resolved),
     seo: cleanEditableSeo(payload.seo),
-  };
+  });
 }
 
 /** Category landing: only the fields actually used for search and public cards. */
-export async function getPublishedHelpCaseCards(category: HelpCategorySlug, limit = 250): Promise<PublicHelpCard[]> {
+export async function getPublishedHelpCaseCards(
+  category: HelpCategorySlug,
+  limit = 250,
+): Promise<PublicHelpCard[]> {
   const database = getD1Binding();
   if (!database || category === "adopcia" || category === "stratene-a-najdene") return [];
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
   if (category === "utulky") {
-    const organizations = await listPublishedOrganizationCards(database as unknown as AdoptionD1Database, safeLimit);
-    return organizations.map((organization): PublicHelpCard => ({
-      id: organization.id,
-      slug: organization.slug,
-      title: organization.name,
-      category: "utulky",
-      excerpt: organization.shortDescription,
-      organization: organization.name,
-      dogName: "",
-      breed: "",
-      ageNote: "",
-      city: organization.city || "Online",
-      region: (slovakRegions as readonly string[]).includes(organization.region)
-        ? organization.region as SlovakRegion : "Online",
-      reportedDate: null,
-      goalAmount: null,
-      raisedAmount: null,
-      imageUrl: organization.imageUrl,
-      thumbnailImageDisplay: organization.thumbnailImageDisplay,
-      urgent: false,
-      verified: Boolean(organization.lastVerifiedAt),
-      resolved: false,
-      updatedAt: organization.updatedAt,
-    }));
+    const organizations = await listPublishedOrganizationCards(
+      database as unknown as AdoptionD1Database,
+      safeLimit,
+    );
+    return organizations.map(
+      (organization): PublicHelpCard => ({
+        id: organization.id,
+        slug: organization.slug,
+        title: organization.name,
+        category: "utulky",
+        excerpt: organization.shortDescription,
+        organization: organization.name,
+        dogName: "",
+        breed: "",
+        ageNote: "",
+        city: organization.city || "Online",
+        region: (slovakRegions as readonly string[]).includes(organization.region)
+          ? (organization.region as SlovakRegion)
+          : "Online",
+        reportedDate: null,
+        goalAmount: null,
+        raisedAmount: null,
+        imageUrl: organization.imageUrl,
+        thumbnailImageDisplay: organization.thumbnailImageDisplay,
+        urgent: false,
+        verified: Boolean(organization.lastVerifiedAt),
+        resolved: false,
+        updatedAt: organization.updatedAt,
+      }),
+    );
   }
-  const result = await database.prepare(`SELECT ${PUBLIC_HELP_CARD_COLUMNS} FROM help_cases
+  const result = await database
+    .prepare(
+      `SELECT ${PUBLIC_HELP_CARD_COLUMNS} FROM help_cases
     WHERE status = 'published' AND category = ?
-    ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?`)
-    .bind(category, safeLimit).all<PublicHelpCardRow>();
+    ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?`,
+    )
+    .bind(category, safeLimit)
+    .all<PublicHelpCardRow>();
   return result.results.map(rowToPublicHelpCard);
 }
 
@@ -431,47 +539,70 @@ export async function getPublishedHelpCases(category?: HelpCategorySlug, limit =
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
   const organizationDatabase = database as unknown as AdoptionD1Database;
   if (category === "utulky") {
-    return (await listPublishedOrganizations(organizationDatabase, safeLimit)).map(canonicalOrganizationToHelpCase);
+    return (await listPublishedOrganizations(organizationDatabase, safeLimit)).map(
+      canonicalOrganizationToHelpCase,
+    );
   }
   if (category) {
-    const result = await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?").bind(category, safeLimit).all<HelpCaseRow>();
+    const result = await database
+      .prepare(
+        "SELECT * FROM help_cases WHERE status = 'published' AND category = ? ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?",
+      )
+      .bind(category, safeLimit)
+      .all<HelpCaseRow>();
     return result.results.map(rowToHelpCase);
   }
   const [legacy, organizations] = await Promise.all([
-    database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?").bind(safeLimit).all<HelpCaseRow>(),
+    database
+      .prepare(
+        "SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?",
+      )
+      .bind(safeLimit)
+      .all<HelpCaseRow>(),
     listPublishedOrganizations(organizationDatabase, safeLimit),
   ]);
   return [
     ...legacy.results.map(rowToHelpCase),
     ...organizations.map(canonicalOrganizationToHelpCase),
-  ].sort(comparePublicHelpCases).slice(0, safeLimit);
+  ]
+    .sort(comparePublicHelpCases)
+    .slice(0, safeLimit);
 }
 
 /** Homepage-only card selection. Help listings and canonical details remain unchanged. */
-export async function getHomepageHighlightedHelpCasesWithImages(limit = 3): Promise<HomepageHelpCard[]> {
+export async function getHomepageHighlightedHelpCasesWithImages(
+  limit = 3,
+): Promise<HomepageHelpCard[]> {
   const database = getD1Binding();
   if (!database) return [];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
-  const result = await database.prepare(`
+  const result = await database
+    .prepare(
+      `
     SELECT id, slug, title, category, status, city, image_url,
            thumbnail_display_json, urgent, resolved
     FROM help_cases
-    WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND resolved = 0
+    WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND ${activeHelpSql()}
       AND ${HOMEPAGE_REAL_IMAGE_SQL}
     ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?
-  `).bind(safeLimit).all<HomepageHelpRow>();
-  return result.results.map((row): HomepageHelpCard => ({
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
-    status: row.status === "published" ? "published" : "draft",
-    city: row.city,
-    imageUrl: row.image_url,
-    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
-    urgent: Boolean(row.urgent),
-    resolved: Boolean(row.resolved),
-  }));
+  `,
+    )
+    .bind(safeLimit)
+    .all<HomepageHelpRow>();
+  return result.results.map(
+    (row): HomepageHelpCard => ({
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
+      status: row.status === "published" ? "published" : "draft",
+      city: row.city,
+      imageUrl: row.image_url,
+      thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+      urgent: Boolean(row.urgent),
+      resolved: Boolean(row.resolved),
+    }),
+  );
 }
 
 export async function getHighlightedHelpCases(limit = 2) {
@@ -479,7 +610,9 @@ export async function getHighlightedHelpCases(limit = 2) {
   if (!database) return [] as HelpCase[];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const result = await database
-    .prepare("SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND resolved = 0 ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?")
+    .prepare(
+      `SELECT * FROM help_cases WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND ${activeHelpSql()} ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?`,
+    )
     .bind(safeLimit)
     .all<HelpCaseRow>();
   return result.results.map(rowToHelpCase);
@@ -488,7 +621,12 @@ export async function getHighlightedHelpCases(limit = 2) {
 const getPublishedHelpCaseUncached = async (category: string, slug: string) => {
   const database = getD1Binding();
   if (!database || !isHelpCategory(category) || category === "utulky") return null;
-  const row = await database.prepare("SELECT * FROM help_cases WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1").bind(category, slug).first<HelpCaseRow>();
+  const row = await database
+    .prepare(
+      "SELECT * FROM help_cases WHERE status = 'published' AND category = ? AND slug = ? LIMIT 1",
+    )
+    .bind(category, slug)
+    .first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 };
 export const getPublishedHelpCase = cache(getPublishedHelpCaseUncached);
@@ -497,13 +635,18 @@ export async function listManagedHelpCaseSummaries(limit = 100) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
   const safeLimit = Math.max(1, Math.min(200, Math.trunc(limit)));
-  const result = await database.prepare(`
+  const result = await database
+    .prepare(
+      `
     SELECT id, slug, title, category, status, organization, dog_name, city, image_url, verified, urgent, resolved
     FROM help_cases
     WHERE ${HELP_ADMIN_DOMAIN_SQL}
     ORDER BY updated_at DESC, id DESC
     LIMIT ?
-  `).bind(safeLimit).all<HelpCaseSummaryRow>();
+  `,
+    )
+    .bind(safeLimit)
+    .all<HelpCaseSummaryRow>();
   return result.results.map(rowToHelpCaseSummary);
 }
 
@@ -516,7 +659,10 @@ export async function getManagedHelpDashboard(filters: HelpAdminFilters) {
 export async function getManagedHelpCaseById(id: number) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
-  const row = await database.prepare(`SELECT * FROM help_cases WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} LIMIT 1`).bind(id).first<HelpCaseRow>();
+  const row = await database
+    .prepare(`SELECT * FROM help_cases WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} LIMIT 1`)
+    .bind(id)
+    .first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 }
 
@@ -528,28 +674,42 @@ export async function transitionManagedHelpCaseResolved(
   databaseInput?: D1Database,
 ) {
   const database = requireD1Binding(databaseInput);
-  const current = await database.prepare(`SELECT id,status,resolved,updated_at
-    FROM help_cases WHERE id=? AND ${HELP_ADMIN_DOMAIN_SQL} LIMIT 1`)
-    .bind(id).first<{ id: number; status: string; resolved: number; updated_at: string }>();
+  const current = await database
+    .prepare(
+      `SELECT id,status,resolved,updated_at
+    FROM help_cases WHERE id=? AND ${HELP_ADMIN_DOMAIN_SQL} LIMIT 1`,
+    )
+    .bind(id)
+    .first<{ id: number; status: string; resolved: number; updated_at: string }>();
   if (!current) return null;
   if (Boolean(current.resolved) === resolved) {
-    return { id: Number(current.id), status: current.status, resolved, updatedAt: current.updated_at };
+    return {
+      id: Number(current.id),
+      status: current.status,
+      resolved,
+      updatedAt: current.updated_at,
+    };
   }
-  if (!expectedUpdatedAt || current.updated_at !== expectedUpdatedAt) throw new Error("help_lifecycle_stale");
+  if (!expectedUpdatedAt || current.updated_at !== expectedUpdatedAt)
+    throw new Error("help_lifecycle_stale");
 
   const now = new Date().toISOString();
-  const row = await database.prepare(`UPDATE help_cases
+  const row = await database
+    .prepare(
+      `UPDATE help_cases
     SET resolved=?,updated_at=?,updated_by=?
     WHERE id=? AND updated_at=? AND ${HELP_ADMIN_DOMAIN_SQL}
-    RETURNING id,status,resolved,updated_at`).bind(
-      resolved ? 1 : 0,
-      now,
-      editorEmail,
-      id,
-      expectedUpdatedAt,
-    ).first<{ id: number; status: string; resolved: number; updated_at: string }>();
+    RETURNING id,status,resolved,updated_at`,
+    )
+    .bind(resolved ? 1 : 0, now, editorEmail, id, expectedUpdatedAt)
+    .first<{ id: number; status: string; resolved: number; updated_at: string }>();
   if (!row) throw new Error("help_lifecycle_stale");
-  return { id: Number(row.id), status: row.status, resolved: Boolean(row.resolved), updatedAt: row.updated_at };
+  return {
+    id: Number(row.id),
+    status: row.status,
+    resolved: Boolean(row.resolved),
+    updatedAt: row.updated_at,
+  };
 }
 
 export async function createManagedHelpCase(payload: ManagedHelpCaseInput, editorEmail: string) {
@@ -557,64 +717,146 @@ export async function createManagedHelpCase(payload: ManagedHelpCaseInput, edito
   await ensureHelpStore(database);
   const input = normalizeInput(payload);
   const now = new Date().toISOString();
-  const row = await database.prepare(`
+  const row = await database
+    .prepare(
+      `
     INSERT INTO help_cases (
       slug, title, category, status, excerpt, description, organization, dog_name, breed, age_note,
       city, region, location_note, reported_date, deadline_date, action_label, action_url, contact_note,
       goal_amount, raised_amount, image_url, image_key, thumbnail_display_json, detail_display_json, verified, urgent, resolved, seo_json,
       created_at, updated_at, published_at, created_by, updated_by
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
-  `).bind(
-    input.slug, input.title, input.category, input.status, input.excerpt, input.description, input.organization,
-    input.dogName, input.breed, input.ageNote, input.city, input.region, input.locationNote,
-    input.reportedDate, input.deadlineDate, input.actionLabel, input.actionUrl, input.contactNote,
-    input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey,
-    input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null, input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
-    input.verified ? 1 : 0,
-    input.urgent ? 1 : 0, input.resolved ? 1 : 0, JSON.stringify(input.seo), now, now,
-    input.status === "published" ? now : null, editorEmail, editorEmail,
-  ).first<HelpCaseRow>();
+  `,
+    )
+    .bind(
+      input.slug,
+      input.title,
+      input.category,
+      input.status,
+      input.excerpt,
+      input.description,
+      input.organization,
+      input.dogName,
+      input.breed,
+      input.ageNote,
+      input.city,
+      input.region,
+      input.locationNote,
+      input.reportedDate,
+      input.deadlineDate,
+      input.actionLabel,
+      input.actionUrl,
+      input.contactNote,
+      input.goalAmount,
+      input.raisedAmount,
+      input.imageUrl,
+      input.imageKey,
+      input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
+      input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
+      input.verified ? 1 : 0,
+      input.urgent ? 1 : 0,
+      input.resolved ? 1 : 0,
+      JSON.stringify(input.seo),
+      now,
+      now,
+      input.status === "published" ? now : null,
+      editorEmail,
+      editorEmail,
+    )
+    .first<HelpCaseRow>();
   if (!row) throw new Error("Prípad sa nepodarilo vytvoriť.");
   return rowToHelpCase(row);
 }
 
-export async function updateManagedHelpCase(id: number, payload: ManagedHelpCaseInput, editorEmail: string, existingItem?: HelpCase) {
+export async function updateManagedHelpCase(
+  id: number,
+  payload: ManagedHelpCaseInput,
+  editorEmail: string,
+  existingItem?: HelpCase,
+) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
-  const existing = existingItem ?? await getManagedHelpCaseById(id);
+  const existing = existingItem ?? (await getManagedHelpCaseById(id));
   if (!existing) return null;
-  if (existing.category === "utulky") throw new Error("Legacy shelter záznam sa po canonical cutover už neupravuje.");
-  const input = normalizeInput(payload, { allowLegacyUrgent: existing.category === "urgentne-pripady" });
+  if (existing.category === "utulky")
+    throw new Error("Legacy shelter záznam sa po canonical cutover už neupravuje.");
+  const input = normalizeInput(payload, {
+    allowLegacyUrgent: existing.category === "urgentne-pripady",
+  });
   const now = new Date().toISOString();
-  const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
-  const row = await database.prepare(`
+  const publishedAt =
+    input.status === "published" ? (existing.publishedAt ?? now) : existing.publishedAt;
+  const row = await database
+    .prepare(
+      `
     UPDATE help_cases SET
       slug = ?, title = ?, category = ?, status = ?, excerpt = ?, description = ?, organization = ?,
       dog_name = ?, breed = ?, age_note = ?, city = ?, region = ?, location_note = ?, reported_date = ?,
       deadline_date = ?, action_label = ?, action_url = ?, contact_note = ?, goal_amount = ?, raised_amount = ?,
       image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, verified = ?, urgent = ?, resolved = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} RETURNING *
-  `).bind(
-    input.slug, input.title, input.category, input.status, input.excerpt, input.description, input.organization,
-    input.dogName, input.breed, input.ageNote, input.city, input.region, input.locationNote,
-    input.reportedDate, input.deadlineDate, input.actionLabel, input.actionUrl, input.contactNote,
-    input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey,
-    JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
-    JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
-    input.verified ? 1 : 0,
-    input.urgent ? 1 : 0, input.resolved ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id,
-  ).first<HelpCaseRow>();
+  `,
+    )
+    .bind(
+      input.slug,
+      input.title,
+      input.category,
+      input.status,
+      input.excerpt,
+      input.description,
+      input.organization,
+      input.dogName,
+      input.breed,
+      input.ageNote,
+      input.city,
+      input.region,
+      input.locationNote,
+      input.reportedDate,
+      input.deadlineDate,
+      input.actionLabel,
+      input.actionUrl,
+      input.contactNote,
+      input.goalAmount,
+      input.raisedAmount,
+      input.imageUrl,
+      input.imageKey,
+      JSON.stringify(
+        payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl
+          ? (existing.thumbnailImageDisplay ?? null)
+          : (input.thumbnailImageDisplay ?? null),
+      ),
+      JSON.stringify(
+        payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl
+          ? (existing.detailImageDisplay ?? null)
+          : (input.detailImageDisplay ?? null),
+      ),
+      input.verified ? 1 : 0,
+      input.urgent ? 1 : 0,
+      input.resolved ? 1 : 0,
+      JSON.stringify(input.seo),
+      now,
+      publishedAt,
+      editorEmail,
+      id,
+    )
+    .first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 }
 
 export async function deleteManagedHelpCase(id: number) {
   const database = requireD1Binding();
   await ensureHelpStore(database);
-  const row = await database.prepare(`DELETE FROM help_cases WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} RETURNING *`).bind(id).first<HelpCaseRow>();
+  const row = await database
+    .prepare(`DELETE FROM help_cases WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} RETURNING *`)
+    .bind(id)
+    .first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;
 }
 
 export function isHelpCaseConflict(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes("UNIQUE constraint failed") || message.includes("help_cases.category, help_cases.slug");
+  return (
+    message.includes("UNIQUE constraint failed") ||
+    message.includes("help_cases.category, help_cases.slug")
+  );
 }
