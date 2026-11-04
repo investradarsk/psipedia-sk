@@ -224,7 +224,7 @@ export function EventCalendar({
     if (sameMonth && !pending) {
       setPendingDay(false);
       if (next.day === view.day) return;
-      if (!next.day || data.calendarSummaries?.some((item) => item.date === next.day && item.count === 0)) {
+      if (!next.day || (data.calendarSummaries && !data.calendarSummaries.some((item) => item.date === next.day && item.count > 0))) {
         setData((current) => ({ ...current, calendarEvents: [] }));
         return;
       }
