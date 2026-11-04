@@ -54,9 +54,10 @@ test('detail fallback and own photo remain responsive and accessible',async({pag
     await page.goto('/?view=detail'+(own?'&photo=1':''));
     // Details now use the universal HERO component. The source must still
     // choose the actual photograph or the event-type fallback illustration.
-    const image=page.locator('[data-event-detail-header] [data-unified-section-hero-media] img');
+    const image=page.locator('[data-event-detail-header] [data-public-hero-configured-media] img:not([aria-hidden="true"])');
     await expect(image).toHaveAttribute('src',own?/hero-labrador\.webp/:/vystavy\.webp/);
-    await expect(image).toHaveAttribute('alt',/Podujatie pre milovníkov psov/);
+    await expect(image).toHaveAttribute('data-event-image-source',own?'real':'fallback');
+    await expect(image).toHaveAttribute('alt',own?/Fotografia podujatia/:/Ilustračný obrázok/);
     await expect.poll(()=>image.evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0)).toBe(true);
     await expect(page.getByRole('heading',{level:1})).toContainText('Podujatie pre milovníkov psov');
     await page.screenshot({path:`outputs/redesign4/${info.project.name}-detail-${own?'real':'fallback'}.png`,fullPage:true});

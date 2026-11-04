@@ -15,6 +15,7 @@ export function UniversalPageHero({
   breadcrumbs,
   imageUrl,
   imageAlt,
+  mediaSlot,
   searchAction = "/hladat",
   searchDefaultValue = "",
   searchHidden = [],
@@ -27,6 +28,7 @@ export function UniversalPageHero({
   breadcrumbs?: ReactNode;
   imageUrl?: string | null;
   imageAlt?: string | null;
+  mediaSlot?: ReactNode;
   searchAction?: string;
   searchDefaultValue?: string;
   searchHidden?: Array<{ name: string; value: string }>;
@@ -54,6 +56,7 @@ export function UniversalPageHero({
         title={title}
         intro={intro}
         visual={visual}
+        mediaSlot={mediaSlot}
         portalSearchSlot={
           <HomePortalSearch
             action={searchAction}

@@ -12,6 +12,7 @@ import { ArticleContinuation } from "@/components/article-continuation";
 import { FavoriteButton } from "@/components/favorite-button";
 import { Breadcrumbs } from "@/components/page-system";
 import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
+import { ImageDisplay } from "@/components/image-display";
 import { PublicContentList } from "@/components/public-visual-system";
 import { ArticleListItem } from "@/components/article-list-item";
 import { ShareButton } from "@/components/share-button";
@@ -72,6 +73,7 @@ export function ArticleDetail({
   const topicLabel = newsCategory?.label ?? reviewCategory?.label ?? article.category;
   const canonical = absoluteUrl(article.seo?.canonicalUrl || articleHref(article));
   const image = article.image ? absoluteUrl(article.image) : undefined;
+  const detailImageConfig = article.detailImageDisplay;
   const imageCreditHref = safeExternalImageCreditUrl(article.imageCreditUrl);
   const showImageMeta = Boolean(article.image && (article.imageCaption || article.imageCredit || imageCreditHref));
   const authorName = authorProfile?.displayName || article.author;
@@ -182,6 +184,22 @@ export function ArticleDetail({
         intro={article.excerpt}
         imageUrl={article.image}
         imageAlt={article.imageAlt || article.title}
+        mediaSlot={article.image ? (
+          <ImageDisplay
+            roleHint="article"
+            context="detail"
+            config={detailImageConfig}
+            legacyMode={article.imageDisplay}
+            legacyFocusX={article.imageFocusX}
+            legacyFocusY={article.imageFocusY}
+            src={article.image}
+            alt={article.imageAlt || article.title}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            fallbackOnError
+          />
+        ) : undefined}
       />
       <div className={`${styles.articleLayout} shell`} data-article-layout>
         <div className={styles.articleMainColumn}>
