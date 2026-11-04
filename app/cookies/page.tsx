@@ -1,5 +1,6 @@
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import Link from "next/link";
 import { PrivacyControls } from "@/components/privacy-controls";
 import { GoogleMapsConsentControls } from "@/components/google-maps-consent-controls";
@@ -13,16 +14,13 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function CookiesPage() {
   return (
-    <main id="obsah" className="prose-page legal-page">
-      <span className="eyebrow">Tvoje zariadenie</span>
-      <PublicHeading role="page" as="h1">
-        Cookies a lokálne úložisko
-      </PublicHeading>
-      <p className="lead">
-        Psipedia.sk používa nevyhnutné technické údaje a lokálne úložisko. Google Analytics 4 sa
-        spustí iba vtedy, keď návštevník analytiku výslovne povolí. Prípadné reklamné technológie
-        tretích strán sa spustia až po príslušnom súhlase.
-      </p>
+    <main id="obsah">
+      <UniversalPageHero
+        eyebrow="Tvoje zariadenie"
+        title="Cookies a lokálne úložisko"
+        intro="Psipedia.sk používa nevyhnutné technické údaje a lokálne úložisko. Google Analytics 4 sa spustí iba vtedy, keď návštevník analytiku výslovne povolí. Prípadné reklamné technológie tretích strán sa spustia až po príslušnom súhlase."
+      />
+      <section className="prose-page legal-page">
 
       <PublicHeading role="section" as="h2">
         Nevyhnutné technológie
@@ -147,6 +145,7 @@ export default function CookiesPage() {
         <Link href="/sukromie">zásadách ochrany osobných údajov</Link>.
       </p>
       <p className="legal-updated">Aktualizované 23. septembra 2026.</p>
+      </section>
     </main>
   );
 }
