@@ -3,9 +3,10 @@
  * value from an empty Notion cell; a blank is not permission to clear reviewed
  * Admin content. Deliberate explicit value/array updates still transfer.
  */
-export function manualBreedCellHasValue(type:string,value:unknown):boolean{
+export function manualBreedCellHasValue(type:string,value:unknown,id=""):boolean{
   if(type==="checkbox")return typeof value==="boolean";
-  if(type==="number")return typeof value==="number"&&Number.isFinite(value);
+  if(type==="number")return typeof value==="number"&&Number.isInteger(value)
+    &&value>=1&&value<=(id==="fciGroup"?10:5);
   return typeof value==="string"&&value.trim().length>0;
 }
 
