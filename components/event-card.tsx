@@ -1,4 +1,5 @@
 import { eventTypePresentation, getEventOwnImage } from '@/lib/event-type-presentation';
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { eventDateStatus, eventHref, formatEventDate, type PublicEventCard } from "@/lib/events";
@@ -44,7 +45,14 @@ export function EventCard({ event, today, variant }: { event: PublicEventCard; t
       <PublicListingRowCard
         kind="event"
         href={eventHref(event)}
-        typeLabel={eventTypePresentation[event.eventType].label}
+        typeLabel={
+          <span
+            className={styles.listTypeBadge}
+            style={{ "--event-type-color": eventTypePresentation[event.eventType].color } as CSSProperties}
+          >
+            {eventTypePresentation[event.eventType].label}
+          </span>
+        }
         title={event.title}
         location={location || "Miesto nie je uvedené"}
         hasImage={Boolean(ownImage)}
