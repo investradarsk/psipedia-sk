@@ -233,9 +233,11 @@ function structuredBreedColumns(
   const raw=optionalStructuredBreedField(page,jsonProperty,"object") as Record<string,unknown>|undefined;
   const merged:Record<string,unknown>={...(raw??{})};
   for(const [key,column] of columns){
-    // An existing empty Notion cell is an explicit clear; an absent property
-    // is not. Individual FCI/editorial columns win over the aggregate JSON.
-    if (notionPropertyRecord(page,column)) merged[key]=notionRichTextProperty(page,column);
+    // A blank individual column is not a deletion and cannot overwrite a
+    // nonempty aggregate value or an existing Admin FCI/editorial section.
+    // Explicitly filled individual columns still take priority over JSON.
+    const filled=notionRichTextProperty(page,column);
+    if (filled) merged[key]=filled;
   }
   return Object.keys(merged).length ? merged : undefined;
 }
@@ -254,8 +256,7 @@ function breedEditorialNotionDetails(page: NotionPage): ManagedBreedInput["edito
   const merged=structuredBreedColumns(page,"Redakčné sekcie JSON",BREED_NOTION_EDITORIAL_COLUMNS) ?? {};
   const traits=optionalStructuredBreedField(page,"Redakcia hlavné vlastnosti JSON","array");
   if(traits)merged.heroTraits=traits;
-  else if(notionPropertyRecord(page,"Redakcia hlavné vlastnosti JSON")
-       && !notionRichTextProperty(page,"Redakcia hlavné vlastnosti JSON"))merged.heroTraits=[];
+  // A blank trait staging cell never clears existing Admin traits.
   return Object.keys(merged).length ? merged as unknown as ManagedBreedInput["editorial"] : undefined;
 }
 
