@@ -67,8 +67,7 @@ test("homepage keeps events chronological and limits mobile breeds with sufficie
   ]);
 
   assert.match(page, /listHomepageFeaturedBreeds\(8\)/);
-  assert.match(page, /getHomepageDirectoryProfilesWithImages\("veterinari", 8\)/);
-  assert.match(page, /getHomepageDirectoryProfilesWithImages\("treneri", 8\)/);
+  assert.match(page, /getHomepageDirectoryProfilesByCategoriesWithImages\(\["veterinari", "treneri"\], 8\)/);
   assert.match(
     styles,
     /@media \(max-width: 900px\)[\s\S]*\.home-magazine-side \.home-side-breed-list > \.home-side-unified-row\.home-side-unified-row:nth-child\(n \+ 4\)\) \{\s*display: none;/,
