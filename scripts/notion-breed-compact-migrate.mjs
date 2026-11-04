@@ -84,6 +84,14 @@ function flat(page) {
   for(const [name,value] of Object.entries(page.properties??{}))result[name]=notionText(value);
   return result;
 }
+/** Never silently strip linked or formatted Notion rich text during migration. */
+function simpleRichText(property) {
+  if(!property || !Array.isArray(property.rich_text))return false;
+  return property.rich_text.every(part=>
+    part.type==="text" && !part.text?.link &&
+    (!part.annotations || Object.values(part.annotations).every(v=>v===false||v==="default"))
+  );
+}
 function richText(value){
   const characters=Array.from(value);
   if(characters.length>180000)throw Error("CONTENT_TOO_LONG");
@@ -102,6 +110,8 @@ for(const summaryPage of list){
   try{
     const page=mode==="audit"?summaryPage:
       await request("GET","/pages/"+encodeURIComponent(summaryPage.id));
+    if(mode==="apply" && page.last_edited_time!==summaryPage.last_edited_time)
+      throw Error("BREED_REVISION_CHANGED_SINCE_INVENTORY");
     const raw=flat(page);
     const proposal=planBreedCompactMigration(raw);
     stats.scanned++;
@@ -114,6 +124,16 @@ for(const summaryPage of list){
       // Verification only succeeds after all source fields have been folded
       // into the retained target. No write here.
       stats.conflicts++;stats.failedIds.push(page.id);continue;
+    }
+    // A merge must not erase styled text, mentions or embedded hyperlinks.
+    // Unsupported source/target formatting is a per-page blocker for manual review.
+    for(const [source,target] of Object.entries(BREED_COMPACT_MERGE)){
+      if(!raw[source])continue;
+      const origin=page.properties?.[source];
+      if(origin?.type==="rich_text"&&!simpleRichText(origin))
+        throw Error("FORMATTED_SOURCE_REQUIRES_MANUAL_MERGE_"+source);
+      if(!page.properties?.[target] || !simpleRichText(page.properties[target]))
+        throw Error("TARGET_FIELD_MISSING_OR_FORMATTED_"+target);
     }
     const properties=Object.fromEntries(keys.map(key=>[key,{rich_text:richText(proposal.changes[key])}]));
     await request("PATCH","/pages/"+encodeURIComponent(page.id),{properties});
