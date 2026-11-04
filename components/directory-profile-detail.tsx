@@ -275,8 +275,8 @@ export function DirectoryProfileDetail({
       content: (
         <DetailContactsCard
           id="directory-profile-contact"
-          noteTone="neutral"
           title="Adresa a kontakt"
+          noteTone="neutral"
           contacts={practicalRows}
           note={
             <>
