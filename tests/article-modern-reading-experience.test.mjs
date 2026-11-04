@@ -209,7 +209,7 @@ test("article uses the canonical homepage hero before preserving the reading met
   assert.ok(hero < title && title < intro && intro < photo && photo < meta
     && meta < favorite && favorite < compactShare && compactShare < articleBody
     && articleBody < excerpt);
-  assert.match(styles, /--article-layout-gap:\\s*clamp\\(20px,\\s*2vw,\\s*30px\\)/);
+  assert.match(styles, /--article-layout-gap:\s*clamp\(20px,\s*2vw,\s*30px\)/);
 });
 test("desktop magazine layout widens the reading column and keeps a truthful sticky sidebar", () => {
   assert.match(styles, /--article-sidebar-width:\s*290px/);
@@ -357,10 +357,11 @@ test("mobile article composition hides sidebar and keeps compact readable contro
   );
   assert.doesNotMatch(styles, /width:\s*calc\(100vw \+/);
 });
-test("article without hero image skips hero media instead of reserving a large placeholder", () => {
-  assert.match(detail, /\{article\.image \? \(\s*<figure className=\{styles\.heroFigure\}>/s);
+test("article cover image uses the shared hero and falls back safely when missing", () => {
+  assert.match(detail, /imageUrl=\{article\.image\}/);
+  const universal = readFileSync("components/public-visual-system/universal-page-hero.tsx", "utf8");
+  assert.match(universal, /imageUrl\?\.trim\(\) \|\| "\/images\/hero-labrador\.webp"/);
   assert.doesNotMatch(detail, /article-hero-placeholder/);
-  assert.doesNotMatch(detail, /PawMark/);
 });
 
 test("article with no safe related candidate renders no automatic mid card", () => {
@@ -470,7 +471,7 @@ test("article schema and metadata preserve canonical, dates, author and image se
 test("hero image accessibility metadata remains separate from visible caption and credit", () => {
   assert.match(detail, /article\.imageAlt \|\| article\.title/);
   assert.match(detail, /const showImageMeta = Boolean\(article\.image/);
-  assert.match(detail, /<figcaption className=\{styles\.heroImageMeta\}>/);
+  assert.match(detail, /<p className=\{styles\.heroImageMeta\}>/);
   assert.match(detail, /article\.imageCaption/);
   assert.match(detail, /article\.imageCredit/);
   assert.match(detail, /safeExternalImageCreditUrl\(article\.imageCreditUrl\)/);
