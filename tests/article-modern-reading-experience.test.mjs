@@ -196,51 +196,20 @@ test("editor-authored related blocks stay in body flow while sources remain at t
   assert.ok(body < sources);
   assert.match(blocks, /article-block-related/);
 });
-test("article header follows compact editorial hierarchy and aligns with the reading grid", () => {
-  const kicker = indexOfOrFail(detail, "className={styles.kicker}", "category kicker is missing");
-  const title = indexOfOrFail(detail, "<h1>{article.title}</h1>", "headline is missing");
-  const excerpt = indexOfOrFail(
-    detail,
-    "<p className={styles.standfirst} data-article-standfirst>{article.excerpt}</p>",
-    "perex is missing",
-  );
-  const meta = indexOfOrFail(
-    detail,
-    "className={styles.metaActions}",
-    "metadata actions are missing",
-  );
-  const favorite = indexOfOrFail(
-    detail,
-    "<FavoriteButton slug={article.slug} />",
-    "favorite is missing",
-  );
-  const compactShare = indexOfOrFail(
-    detail,
-    "url={canonical} compact",
-    "compact header share is missing",
-  );
-  const figure = indexOfOrFail(detail, "className={styles.heroFigure}", "hero figure is missing");
-  const articleBody = indexOfOrFail(
-    detail,
-    'className="article-prose" data-article-reading-end',
-    "article body is missing",
-  );
-  assert.ok(
-    kicker < title &&
-      title < meta &&
-      meta < favorite &&
-      favorite < compactShare &&
-      compactShare < figure &&
-      figure < articleBody &&
-      articleBody < excerpt,
-  );
-  assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
-  assert.match(styles, /\.title h1\s*\{[^}]*max-width:\s*none/);
-  assert.match(styles, /--article-layout-gap:\s*clamp\(20px,\s*2vw,\s*30px\)/);
-  assert.match(styles, /\.heroGrid[\s\S]*max-width:\s*var\(--article-reading-width\)/);
-  assert.match(styles, /\.title[\s\S]*max-width:\s*var\(--article-reading-width\)/);
-  assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
-  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 9/);
+test("article uses the canonical homepage hero before preserving the reading metadata", () => {
+  const hero = indexOfOrFail(detail, "<UniversalPageHero", "canonical hero is missing");
+  const title = indexOfOrFail(detail, "title={article.title}", "headline is missing");
+  const intro = indexOfOrFail(detail, "intro={article.excerpt}", "hero introduction is missing");
+  const photo = indexOfOrFail(detail, "imageUrl={article.image}", "cover photo is missing");
+  const meta = indexOfOrFail(detail, "className={styles.metaActions}", "metadata is missing");
+  const favorite = indexOfOrFail(detail, "<FavoriteButton slug={article.slug} />", "favorite is missing");
+  const compactShare = indexOfOrFail(detail, "url={canonical} compact", "share is missing");
+  const articleBody = indexOfOrFail(detail, 'className="article-prose" data-article-reading-end', "body is missing");
+  const excerpt = indexOfOrFail(detail, '<p className={styles.standfirst} data-article-standfirst>{article.excerpt}</p>', "perex is missing");
+  assert.ok(hero < title && title < intro && intro < photo && photo < meta
+    && meta < favorite && favorite < compactShare && compactShare < articleBody
+    && articleBody < excerpt);
+  assert.match(styles, /--article-layout-gap:\\s*clamp\\(20px,\\s*2vw,\\s*30px\\)/);
 });
 test("desktop magazine layout widens the reading column and keeps a truthful sticky sidebar", () => {
   assert.match(styles, /--article-sidebar-width:\s*290px/);
