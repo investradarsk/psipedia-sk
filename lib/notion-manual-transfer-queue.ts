@@ -472,6 +472,11 @@ export async function readManualTransferRun(
     last_error_code:string|null;updated_at:string}>();
   const items=[];
   for(const row of rows.results??[]){
+    // Untouched PENDING records have no field results. Avoid up to 100
+    // unnecessary D1 reads on every seven-second admin status refresh.
+    if(row.status==="PENDING"&&row.attempts===0){
+      items.push({...row,fields:[]});continue;
+    }
     const fields=await db.prepare(
       "SELECT field_key,status,reason_code,attempts "+
       "FROM notion_manual_transfer_field_results WHERE item_id=? "+
