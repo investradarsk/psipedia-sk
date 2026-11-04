@@ -1,5 +1,6 @@
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import Link from "next/link";
 import { getLegalSettings } from "@/lib/legal-settings";
 import {
@@ -26,15 +27,13 @@ export default async function LegalInformationPage() {
   const publicEmail = settings.email || EDITORIAL_EMAIL_ADDRESS;
 
   return (
-    <main id="obsah" className="prose-page legal-page">
-      <span className="eyebrow">Transparentnosť</span>
-      <PublicHeading role="page" as="h1">
-        Prevádzkovateľ a právne informácie
-      </PublicHeading>
-      <p className="lead">
-        Psipedia.sk je slovenský odborný a informačný portál o psoch. Na tejto stránke nájdeš údaje
-        o jeho prevádzkovateľovi a základné právne informácie.
-      </p>
+    <main id="obsah">
+      <UniversalPageHero
+        eyebrow="Transparentnosť"
+        title="Prevádzkovateľ a právne informácie"
+        intro="Psipedia.sk je slovenský odborný a informačný portál o psoch. Na tejto stránke nájdeš údaje o jeho prevádzkovateľovi a základné právne informácie."
+      />
+      <section className="prose-page legal-page">
 
       <div className="legal-status-note">
         <strong>Pilotná prevádzka</strong>
@@ -141,6 +140,7 @@ export default async function LegalInformationPage() {
       </p>
 
       <p className="legal-updated">Aktualizované 12. septembra 2026.</p>
+      </section>
     </main>
   );
 }
