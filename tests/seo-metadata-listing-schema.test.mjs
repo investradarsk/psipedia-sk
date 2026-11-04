@@ -316,8 +316,8 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
 
   assert.match(card, /href=\{directoryProfileHref\(profile\)\}/);
   assert.match(results, /<PublicPagination/);
-  assert.match(results, /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/);
-  assert.match(results, /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/);
+  assert.match(results, /previousHref=\{\s*result\.page\s*>\s*1\s*\?\s*directoryPageHref\(basePath,\s*filters,\s*result\.page\s*-\s*1\)\s*:\s*undefined\s*\}/);
+  assert.match(results, /nextHref=\{\s*result\.page\s*<\s*result\.totalPages\s*\?\s*directoryPageHref\(basePath,\s*filters,\s*result\.page\s*\+\s*1\)\s*:\s*undefined\s*\}/);
   const pagination = fs.readFileSync(new URL("../components/public-visual-system/public-result-states.tsx", import.meta.url), "utf8");
   assert.match(pagination, /<Link href=\{previousHref\} rel="prev" aria-label=\{previousAriaLabel\}>/);
   assert.match(pagination, /<Link href=\{nextHref\} rel="next" aria-label=\{nextAriaLabel\}>/);
