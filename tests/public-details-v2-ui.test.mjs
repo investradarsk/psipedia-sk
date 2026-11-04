@@ -91,8 +91,13 @@ test('unified public details: responsive layout, honest media/data, actions and 
  if(name==='adoption-breed-duplicate') assert.doesNotMatch(await page.locator('main').innerText(),/Kríženec\s*·\s*kríženec/i,'breed mix must not duplicate name');
  if(name.includes('long')) assert.equal(await canonical.locator('h1').count(),1,'long titles retain the single page heading');
  if(name==='event-cancelled') assert.equal(await hero.locator('[data-detail-state="cancelled"]').count(),1,'cancelled state distinct from type');
- for(const minimal of ['directory-minimal','adoption-minimal','organization','event-minimal']) {
+ for(const minimal of ['directory-minimal','adoption-minimal','organization']) {
   if(name===minimal) assert.ok((await visual.getAttribute('src'))?.includes('hero-labrador.webp'),`${name} keeps shared fallback photo`);
+ }
+ // Event pages intentionally use their category's illustration in the same HERO.
+ if(name==='event-minimal') {
+  assert.ok((await visual.getAttribute('src'))?.includes('vystavy.webp'), 'event-minimal keeps category-specific fallback photo');
+  assert.equal(await visual.getAttribute('data-event-image-source'), 'fallback');
  }
  if(name==='help-zbierky') assert.equal(await hero.locator('a[href="https://example.test/support"]').count(),0,'unverified fundraising gate preserved');
  const axe=await new AxeBuilder({page}).include('main#obsah').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();

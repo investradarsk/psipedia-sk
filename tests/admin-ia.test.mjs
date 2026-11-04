@@ -233,7 +233,10 @@ test("dashboard count cards point to current canonical filtered work queues", ()
   ]) {
     assert.match(dashboard, new RegExp(pair[1].replace(/[?]/g, "\\?")));
   }
-  assert.match(dashboard, /QueueLink title="Žiadosti o správu profilu" source="PARTNER_CLAIM_REVIEW"/);
+  // The same canonical source is now rendered from the shared data-driven list.
+  assert.match(dashboard, /\{ title: "Žiadosti o správu profilu", source: "PARTNER_CLAIM_REVIEW" \}/);
+  assert.match(dashboard, /<QueueLink key=\{source\} title=\{title\} source=\{source\} summary=\{attention\}/);
+  assert.match(dashboard, /href=\{\x60\/admin\/operations\?source=\$\{source\}\x60\}/);
   assert.match(dashboard, /href="\/admin\/kvalita"/);
   assert.match(dashboard, /href="\/admin\/automatizacie-gemini"/);
 });

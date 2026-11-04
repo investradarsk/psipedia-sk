@@ -97,8 +97,9 @@ jobs:
           BASE_DIR="$RUNNER_TEMP/psipedia-visual-base"
           git worktree add --detach "$BASE_DIR" "$BASE_SHA"
           ln -s "$GITHUB_WORKSPACE/node_modules" "$BASE_DIR/node_modules"
-          # Use the SAME fixture cases for both code revisions; only implementation changes.
-          cp "$GITHUB_WORKSPACE/tests/public-details-v2-ui.test.mjs" "$BASE_DIR/tests/public-details-v2-ui.test.mjs"
+          # Baseline and head share the fixture cases and screenshots, but the
+          # baseline contract must match the baseline implementation. Forcing
+          # HEAD-only HERO assertions onto pre-HERO code would fail prematurely.
           mkdir -p "$GITHUB_WORKSPACE/.e2e-artifacts/pr-visual/template-baseline"
           (
             cd "$BASE_DIR"
