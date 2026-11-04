@@ -3,7 +3,7 @@
   --article-sidebar-width: 290px;
   --article-layout-gap: clamp(20px, 2vw, 30px);
   min-width: 0;
-  background: #fff;
+  background: var(--ps-color-canvas);
 }
 
 .articleLayout {
