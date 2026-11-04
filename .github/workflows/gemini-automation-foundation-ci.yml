@@ -54,6 +54,7 @@ on:
       - "drizzle/0114_gemini_dedupe.sql"
       - "drizzle/0115_gemini_notion_bridge.sql"
       - "drizzle/0117_gemini_events_rejections.sql"
+      - "wrangler.jsonc"
       - "config/runtime-env.ts"
       - ".env.example"
       - ".github/workflows/gemini-automation-foundation-ci.yml"
