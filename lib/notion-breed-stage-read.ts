@@ -1,4 +1,4 @@
-import { notionBreedRichTextProperty } from "./notion-breed-text";
+import { notionBreedRichTextProperty } from "./notion-breed-text.ts";
 
 /**
  * Temporary read adapter for Notion's 109 -> 60 field transition.
