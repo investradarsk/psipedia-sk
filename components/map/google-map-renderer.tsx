@@ -38,6 +38,7 @@ type Props = {
   testMode: boolean;
   rendererEnabled: boolean;
   consentGranted: boolean;
+  gestureHandling?: "greedy" | "cooperative";
   items: MapItem[];
   clusters: MapCluster[];
   selectedItemId: string | null;
@@ -344,6 +345,7 @@ export function GoogleMapRenderer(props: Props) {
     testMode,
     rendererEnabled,
     consentGranted,
+    gestureHandling = "greedy",
     items,
     clusters,
     selectedItemId,
@@ -443,7 +445,7 @@ export function GoogleMapRenderer(props: Props) {
           zoomControl: true,
           keyboardShortcuts: true,
           clickableIcons: false,
-          gestureHandling: "greedy",
+          gestureHandling,
         });
         mapRef.current = map;
         markerCtorRef.current = markerLibrary.AdvancedMarkerElement;
@@ -526,7 +528,7 @@ export function GoogleMapRenderer(props: Props) {
       cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
       setReady(false);
     };
-  }, [apiKey, configMissing, consentGranted, rendererEnabled, mapId, onStatusChange, testMode]);
+  }, [apiKey, configMissing, consentGranted, gestureHandling, rendererEnabled, mapId, onStatusChange, testMode]);
 
   useEffect(() => {
     if (testMode || !ready || !mapRef.current || !markerCtorRef.current) return;
