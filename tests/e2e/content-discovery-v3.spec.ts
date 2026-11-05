@@ -2,7 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { mkdirSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
-// External images and embeds must not block the local article DOM readiness check.\nconst articlePath = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
+// External images and embeds must not block the local article DOM readiness check.
+const articlePath = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
 
 test.beforeEach(async ({ page, baseURL }) => {
   expect(new URL(baseURL!).hostname).toMatch(/^(localhost|127\.0\.0\.1)$/);
