@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { env } from "cloudflare:workers";
 import Link from "next/link";
 import { MapExperience } from "@/components/map/map-experience";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import { Breadcrumbs } from "@/components/page-system";
 import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
@@ -63,10 +64,10 @@ export default async function MapPage() {
         <UnifiedSectionHero
           breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Mapa Psipedie</span></Breadcrumbs>}
           eyebrow="Objavujte miesta a podujatia"
-          hideQuickLinks
           title="Mapa Psipedie"
           intro="Vyhľadajte služby, organizácie a podujatia vo svojom okolí. Pri citlivých záznamoch zobrazujeme iba približnú oblasť."
           visual={heroVisual}
+          portalSearchSlot={<HomePortalSearch />}
         />
       </UnifiedSectionHeroShell>
 

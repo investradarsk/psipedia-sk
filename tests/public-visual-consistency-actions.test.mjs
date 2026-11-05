@@ -166,5 +166,5 @@ test("editorial category pages use one shared subcategory navigation component",
     1,
   );
   assert.match(topic, /<UnifiedSectionHero/);
-  assert.match(topic, /<SectionHero/);
+  assert.match(topic, /<UniversalPageHero/);
 });

@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs } from "@/components/page-system";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import {
   PublicContentShell,
   PublicFoundation,
@@ -97,13 +98,8 @@ export default async function OrganizationsHubPage() {
               title="Organizácie pomáhajúce psom"
               intro="Nájdite útulok, združenie alebo organizáciu pomáhajúcu psom. V profile si pozrite jej činnosť a dostupné kontakty."
               visual={heroVisual}
-              metaSlot={
-                <div className={styles.heroMeta}>
-                  <span>
-                    <strong>{organizations.length}</strong> publikovaných organizácií
-                  </span>
-                </div>
-              }
+              portalSearchSlot={<HomePortalSearch />}
+
             />
           </UnifiedSectionHeroShell>
 

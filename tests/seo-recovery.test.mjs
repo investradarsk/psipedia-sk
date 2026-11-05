@@ -132,13 +132,17 @@ test("SEO-RECOVERY-1 listing routes delegate query indexability to the shared po
 test("SEO-RECOVERY-1 event time links preserve filters and remain noindex/follow", () => {
   const source = fs.readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
   assert.match(source, /function timeHref\(value: EventTimeFilter\)/);
-  assert.match(source, /href=\{timeHref\(value\)\}/);
+  assert.match(source, /href:\s*timeHref\(value\)/);
+  assert.match(source, /<PublicSubcategoryNavigator/);
+  const sharedNavigator = fs.readFileSync(new URL("../components/public-visual-system/public-subcategory-navigator.tsx", import.meta.url), "utf8");
+  assert.match(sharedNavigator, /href=\{item\.href\}/);
   assert.match(source, /params\.delete\("termin"\)/);
   assert.match(source, /eventTimeFilterParam\(value\)/);
   // The calendar now changes periods client-side. The active ARIA state must
   // follow the visible period, not the initial server-rendered value.
-  assert.match(source, /aria-current=\{view\.time === value \? "page" : undefined\}/);
-  assert.match(source, /onClick=\{\s*\(event\)\s*=>\s*clickNavigate\(\s*event,\s*timeHref\(value\),\s*\{\s*\.\.\.view,\s*time:\s*value\s*\}\s*\)\s*\}/);
+  assert.match(source, /current:\s*view\.time\s*===\s*value/);
+  assert.match(sharedNavigator, /aria-current=\{item\.current \? "page" : undefined\}/);
+  assert.match(source, /clickNavigate\(event,\s*timeHref\(value\),\s*\{\s*\.\.\.view,\s*time:\s*value\s*\}\)/);
 
   const filtered = buildListingPageMetadata({
     title: "Podujatia",

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { EshopRatingForm } from "@/components/eshop-rating-form";
@@ -23,17 +24,17 @@ export default async function EshopRatingPage({ params }: { params: Promise<{ sl
   if (!identity) redirect(reviewAuthorAuthHref(returnTo));
 
   if (!profileReviewSubmissionEnabled()) {
-    return <main id="obsah" className={styles.ratingShell}><div className="review-auth-verification-card"><h1>Hodnotenie momentálne nie je dostupné</h1><p>Skúste to prosím neskôr.</p><Link className="button button--dark" href={`/recenzie/eshopy/${shop.slug}`}>Späť na e-shop</Link></div></main>;
+    return <main id="obsah" className={styles.ratingShell}><UniversalPageHero eyebrow="Recenzie Psipedia" title={`Ohodnotiť e-shop ${shop.name}`} intro="Ohodnoť doručenie, komunikáciu, sortiment, ceny a celkovú skúsenosť." imageUrl={shop.logoUrl} imageAlt={shop.name} /><div className="review-auth-verification-card"><h2>Hodnotenie momentálne nie je dostupné</h2><p>Skúste to prosím neskôr.</p><Link className="button button--dark" href={`/recenzie/eshopy/${shop.slug}`}>Späť na e-shop</Link></div></main>;
   }
 
   const siteKey = getPartnerTurnstileSiteKey();
   if (!siteKey) {
-    return <main id="obsah" className={styles.ratingShell}><div className="review-auth-verification-card"><h1>Bezpečnostné overenie nie je dostupné</h1><p>Hodnotenie momentálne nemožno odoslať.</p><Link className="button button--dark" href={`/recenzie/eshopy/${shop.slug}`}>Späť na e-shop</Link></div></main>;
+    return <main id="obsah" className={styles.ratingShell}><UniversalPageHero eyebrow="Recenzie Psipedia" title={`Ohodnotiť e-shop ${shop.name}`} intro="Ohodnoť doručenie, komunikáciu, sortiment, ceny a celkovú skúsenosť." imageUrl={shop.logoUrl} imageAlt={shop.name} /><div className="review-auth-verification-card"><h2>Bezpečnostné overenie nie je dostupné</h2><p>Hodnotenie momentálne nemožno odoslať.</p><Link className="button button--dark" href={`/recenzie/eshopy/${shop.slug}`}>Späť na e-shop</Link></div></main>;
   }
 
   const existing = await getEshopRatingForAuthor(shop.id, identity.authorId).catch(() => null);
   return (
-    <main id="obsah" className={styles.ratingShell}>
+    <main id="obsah" className={styles.ratingShell}><UniversalPageHero eyebrow="Recenzie Psipedia" title={`Ohodnotiť e-shop ${shop.name}`} intro="Ohodnoť doručenie, komunikáciu, sortiment, ceny a celkovú skúsenosť." imageUrl={shop.logoUrl} imageAlt={shop.name} />
       <EshopRatingForm eshopId={shop.id} eshopName={shop.name} eshopSlug={shop.slug} siteKey={siteKey} initialRating={existing} />
     </main>
   );

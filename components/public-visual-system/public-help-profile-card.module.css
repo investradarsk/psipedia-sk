@@ -107,6 +107,10 @@
   text-underline-offset: 2px;
 }
 .meta {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   min-width: 0;
   color: #4c6357;
   font-size: 0.76rem;

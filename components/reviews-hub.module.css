@@ -1,11 +1,11 @@
 .foundation {
   min-width: 0;
-  background: var(--paper);
+  background: var(--cream);
 }
 
 .hero {
   padding: 22px 0 0;
-  background: var(--paper);
+  background: var(--cream);
 }
 
 .hero p,
@@ -155,7 +155,7 @@
   padding: clamp(42px, 5vw, 64px) 0;
 }
 .sectionAlt {
-  background: #f7f5ee;
+  background: var(--cream);
 }
 .methodology {
   background: var(--forest);

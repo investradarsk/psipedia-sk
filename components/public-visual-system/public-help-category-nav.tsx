@@ -39,13 +39,11 @@ export function PublicHelpCategoryNav({
         label={label}
         mode="compact"
         mobileLayout="grid"
+        columns={6}
         items={items.map((item) => ({
           href: item.href,
           title: item.label,
           icon: <HelpCategoryIcon category={item.slug} size={19} />,
-          meta: typeof item.count === "number"
-            ? <span aria-label={`Počet profilov: ${item.count}`}>{item.count}</span>
-            : undefined,
           current: item.current,
         }))}
       />

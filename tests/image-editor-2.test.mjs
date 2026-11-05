@@ -127,7 +127,7 @@ test("IMAGE-EDITOR-2 public cards and detail components consume the same rendere
   );
   assert.match(
     read("components/adoption-catalog.tsx"),
-    /imageConfig=\{dog\.thumbnailImageDisplay\}/,
+    /config=\{dog\.thumbnailImageDisplay\}/,
   );
 });
 test("IMAGE-EDITOR-2 store boundaries normalize and read configs, preserve previous and event legacy presentation", () => {

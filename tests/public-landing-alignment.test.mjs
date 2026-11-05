@@ -230,16 +230,21 @@ test("SERVICES-V2 map and provider CTAs remain safe and above real popularity", 
   assert.doesNotMatch(directory, /<MapExperience/);
 });
 
-test("SERVICES-V2 category navigation keeps canonical links and accessible mobile selection", () => {
+test("SERVICES-V2 category navigation retains canonical links in a fully visible mobile grid", () => {
   const navigation = read("components/directory-category-navigation.tsx");
   const navigator = read("components/public-visual-system/public-subcategory-navigator.tsx");
+  const css = read("components/public-visual-system/public-subcategory-navigator.module.css");
   assert.match(directory, /href: directoryCategoryHref\(category\)/);
   assert.doesNotMatch(directory, /\?category=/);
-  assert.match(navigation, /aria-label="Vyber kategóriu služby"/);
-  assert.match(navigation, /router.push\(event.target.value\)/);
-  assert.match(navigation, /<option key=\{item.href\} value=\{item.href\}>/);
   assert.match(navigation, /<PublicSubcategoryNavigator/);
+  assert.match(navigation, /mobileLayout="grid"/);
+  assert.match(navigation, /columns=\{6\}/);
+  assert.match(navigation, /label="Kategórie služieb pre psov"/);
+  assert.match(navigator, /aria-label=\{label\}/);
+  assert.match(navigator, /href=\{item\.href\}/);
   assert.match(navigator, /aria-current=\{item\.current \? "page" : undefined\}/);
+  assert.match(css, /\.compactSix \.compactTrack/);
+  assert.doesNotMatch(navigation, /<select|overflow-x:\s*auto/);
 });
 
 test("SERVICES-V2 renders search, categories, filters, cards and sidebar in approved order", () => {

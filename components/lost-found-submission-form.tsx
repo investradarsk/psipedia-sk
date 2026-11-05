@@ -119,7 +119,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
         aria-live="polite"
       >
         <span className="eyebrow">Pomoc psom</span>
-        <h1>Hlásenie sme prijali</h1>
+        <h2>Hlásenie sme prijali</h2>
         <p>{result.text}</p>
         <p>
           Kontaktné údaje zostávajú súkromné. Ak hlásenie schválime, verejne zobrazíme iba údaje o
@@ -146,7 +146,7 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
     >
       <header className={styles.header}>
         <span className="eyebrow">Pomoc psom</span>
-        <h1>Nahlásiť strateného alebo nájdeného psa</h1>
+        <h2>Nahlásiť strateného alebo nájdeného psa</h2>
         <p>Hlásenie pred zverejnením skontrolujeme. Telefón a e-mail sa verejne nezobrazia.</p>
       </header>
 

@@ -7,27 +7,27 @@
 }
 
 .puppyTone {
-  --section-accent: var(--coral-dark);
-  --section-accent-soft: #fff8f3;
-  --section-accent-border: rgba(185, 71, 50, 0.2);
+  --section-accent: #326b4a;
+  --section-accent-soft: #eaf3eb;
+  --section-accent-border: rgba(50, 107, 74, 0.2);
 }
 
 .careTone {
-  --section-accent: var(--forest);
-  --section-accent-soft: #f3f7f2;
-  --section-accent-border: rgba(23, 75, 56, 0.18);
+  --section-accent: #387c88;
+  --section-accent-soft: #e7f2f4;
+  --section-accent-border: rgba(56, 124, 136, 0.22);
 }
 
 .activityTone {
-  --section-accent: #856317;
-  --section-accent-soft: #fffaf0;
-  --section-accent-border: rgba(177, 128, 25, 0.22);
+  --section-accent: #9d542d;
+  --section-accent-soft: #faeee2;
+  --section-accent-border: rgba(157, 84, 45, 0.22);
 }
 
 .main {
   min-width: 0;
   overflow-x: clip;
-  background: var(--paper);
+  background: var(--cream);
 }
 
 .headerShell {
@@ -911,6 +911,13 @@
 .topicBody {
   padding-block: clamp(22px, 3.4vw, 42px);
 }
+/* Remove the inherited section gap under the topic tabs/search.
+   A single category page should start immediately with its article list. */
+.topicBody > .relatedSection {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
 .emptyState {
   composes: editorialEmpty from "./public-visual-system/public-result-variants.module.css";
 }
@@ -1038,21 +1045,67 @@
   .carouselControls, .carouselCue { display: none !important; }
 }
 
-/* Puppy homepage themes: discoverable 4 stages, 11 stable topic URLs,
-   compact three-column editorial layout (no horizontal scrolling/accordions). */
-.puppyStage { min-width: 0; padding-block: clamp(16px, 2.5vw, 28px); border-bottom: 1px solid var(--section-border); }
-.puppyStageHeading { display: grid; gap: 5px; margin-bottom: 14px; }
-.puppyStageHeading h2 { margin: 0; color: var(--forest-dark); font-size: clamp(1.3rem, 2.3vw, 1.85rem); line-height: 1.2; }
-.puppyStageHeading p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.45; }
-.puppyStageGrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 13px; align-items: stretch; }
-.puppyStageGrid .topicGroup {
-  display: flex; flex-direction: column; min-width: 0; min-height: 100%;
-  padding: 17px; border: 1px solid var(--ps-border-soft);
-  border-radius: var(--ps-radius-card, 16px); background: var(--paper);
+/* One topic-card system for Šteniatka, Zdravie and Výcvik.
+   Colour changes only small accents; white cards and the Psipedia typography stay shared. */
+.topicStage {
+  min-width: 0;
+  padding-block: clamp(14px, 2.2vw, 24px);
+  border-bottom: 1px solid var(--section-border);
 }
-.puppyStageGrid .topicGroup:first-child { padding-top: 17px; }
-.puppyStageGrid .topicGroupTitle { margin: 0 0 10px; font-size: clamp(1.12rem, 1.5vw, 1.28rem); line-height: 1.24; }
-.puppyStageGrid .topicGroupFooter { margin-top: auto; padding-top: 12px; }
-.puppyStageGrid .topicGroup :global([data-article-list-item]) { padding-block: 10px; }
-@media(max-width: 950px) { .puppyStageGrid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-@media(max-width: 620px) { .puppyStageGrid { grid-template-columns: minmax(0,1fr); } .puppyStageGrid .topicGroup { padding: 14px; } .puppyStageGrid .topicGroup:first-child { padding-top: 14px; } }
+.topicStageHeading {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+  padding-left: 13px;
+  border-left: 3px solid var(--section-accent);
+}
+.topicStageHeading h2 {
+  margin: 0;
+  color: var(--forest-dark);
+  font-size: clamp(1.3rem, 2.3vw, 1.85rem);
+  line-height: 1.2;
+}
+.topicStageHeading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: .85rem;
+  line-height: 1.45;
+}
+.topicStageGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.topicStageGrid .topicGroup {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-card, 16px);
+  background: var(--paper);
+}
+.topicStageGrid .topicGroup:first-child { padding-top: 15px; }
+.topicStageGrid .topicGroupTitle {
+  margin: 0 0 9px;
+  font-size: clamp(1.1rem, 1.5vw, 1.25rem);
+  line-height: 1.24;
+}
+.topicStageGrid .topicGroupFooter {
+  min-height: 0;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--section-border);
+}
+.topicStageGrid .topicGroup :global([data-article-list-item]) { padding-block: 9px; }
+.topicStageGrid .topicGroupEmpty { padding-block: 6px; }
+.topicStageGrid .topicGroup :global([data-public-action="tertiary"]) { color: var(--section-accent); }
+@media (max-width: 950px) {
+  .topicStageGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .topicStageGrid { grid-template-columns: minmax(0, 1fr); }
+  .topicStageGrid .topicGroup, .topicStageGrid .topicGroup:first-child { padding: 14px; }
+  .topicStageHeading { margin-bottom: 10px; }
+}

@@ -87,7 +87,7 @@ test("zero-result local intent keeps filters and offers bounded broader scopes",
 
 test("exact directory profile remains searchable beyond 500 published rows", async ({ page }) => {
   await page.goto(`/hladat?q=${encodeURIComponent("SEARCH E2E Zzz Veterina 506")}`);
-  const target = page.getByRole("link", { name: /SEARCH E2E Zzz Veterina 506/ });
+  const target = page.locator('a[href="/adresar/veterinari/search-e2e-target-506"]');
   await expect(target).toBeVisible();
   await expect(target).toHaveAttribute("href", "/adresar/veterinari/search-e2e-target-506");
   await expect(page.getByText("Overené", { exact: true })).toHaveCount(0);

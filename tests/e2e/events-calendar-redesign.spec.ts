@@ -59,7 +59,7 @@ test("compact calendar uses six canonical legend links and real unique day indic
   );
 });
 
-test("desktop calendar is compact on the left, results start alongside it and selected-day details remain available", async ({
+test("desktop calendar is compact above results and selected-day details remain available", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -74,11 +74,15 @@ test("desktop calendar is compact on the left, results start alongside it and se
     return {
       left: first.left,
       right: first.right,
+      bottom: first.bottom,
+      panelTop: second.top,
       panelLeft: second.left,
       panelRight: second.right,
     };
   });
-  expect(columns.right).toBeLessThan(columns.panelLeft);
+  // The owner-approved calendar now sits above the results on desktop.
+  expect(columns.bottom).toBeLessThan(columns.panelTop);
+  expect(columns.right).toBeGreaterThan(columns.left);
   expect(columns.panelRight).toBeGreaterThan(columns.panelLeft);
   await page.locator('[data-calendar-date="2026-10-15"]').click();
   const detail = page.locator('[data-selected-day="2026-10-15"]');

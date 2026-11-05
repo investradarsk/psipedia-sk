@@ -51,7 +51,7 @@ export function ReviewAuthorVerification() {
   return (
     <div className="review-auth-verification-card" aria-live="polite">
       <span className="eyebrow">Recenzie Psipedia</span>
-      <h1>{state === "loading" ? "Overujeme váš e-mail" : "Odkaz sa nepodarilo overiť"}</h1>
+      <h2>{state === "loading" ? "Overujeme váš e-mail" : "Odkaz sa nepodarilo overiť"}</h2>
       <p>{message}</p>
       {state === "loading" ? (
         <div className="review-auth-progress" aria-hidden="true"><span /></div>

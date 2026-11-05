@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedComparison } from "@/components/breed-comparison";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { ArrowIcon } from "@/components/icons";
 import { listPublishedBreedsForComparison } from "@/lib/breed-store";
 import { buildPageMetadata } from "@/lib/seo";
@@ -18,14 +19,16 @@ export default async function CompareBreedsPage() {
   const breeds = await listPublishedBreedsForComparison();
   return (
     <main id="obsah" className={styles.comparisonPage}>
-      <header className="page-hero page-hero--compact shell compare-page-hero">
-        <div className="page-hero-inner">
-          <span className="eyebrow">Porovnávač plemien</span>
-          <h1>Porovnaj dve plemená psov</h1>
-          <p>Porovnaj veľkosť, energiu, povahu a potreby plemien na jednom mieste.</p>
-          <Link href="/plemena" className="text-link text-link--large">Atlas plemien <ArrowIcon /></Link>
-        </div>
-      </header>
+      <UniversalPageHero
+        eyebrow="Porovnávač plemien"
+        title="Porovnaj dve plemená psov"
+        intro="Porovnaj veľkosť, energiu, povahu a potreby plemien na jednom mieste."
+      />
+      <div className="shell">
+        <Link href="/plemena" className="text-link text-link--large">
+          Atlas plemien <ArrowIcon />
+        </Link>
+      </div>
       <section className="page-body shell">
         <BreedComparison breeds={breeds} />
       </section>

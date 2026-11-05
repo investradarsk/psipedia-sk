@@ -2,9 +2,7 @@
   --map-panel-border: rgba(23, 53, 43, 0.12);
   --map-muted: var(--muted, #66746c);
   min-width: 0;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(218, 230, 208, 0.62), transparent 34rem),
-    linear-gradient(180deg, var(--paper, #f8f4eb) 0%, #f5f1e8 100%);
+  background: var(--cream);
 }
 
 .hero {
