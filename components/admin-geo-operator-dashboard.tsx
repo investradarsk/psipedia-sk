@@ -380,6 +380,11 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
           </div>
         </div>
         <AdminGooglePlacesApiLink />
+        <details className="admin-help" data-google-bulk-cost-notice>
+          <summary>Počet platených Google volaní a limit 5 €</summary>
+          <p>Jedna manuálne spustená položka môže vyvolať až 4 platené vyhľadávania Places.
+          Dávka 100 položiek teda môže znamenať až 400 volaní. Rozpočtové upozornenie 5 € nie je okamžitý pevný strop; používaj malé dávky.</p>
+        </details>
         <div className="admin-editor-actions" style={{ alignItems: "end", flexWrap: "wrap" }}>
           <div className="admin-field" style={{ maxWidth: 160 }}>
             <label htmlFor="google-bulk-count">Počet</label>
