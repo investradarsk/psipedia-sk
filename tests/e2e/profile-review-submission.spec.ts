@@ -103,8 +103,8 @@ test("directory reviewer completes config-driven submission form and receives pe
   for (let index = 0; index < 4; index += 1) await page.keyboard.press("ArrowRight");
   await expect(page.locator('input[name="overallRating"][value="5"]')).toBeChecked();
 
-  await page.locator('input[name="dimension-communication"][value="4"]').check({ force: true });
-  await page.locator('input[name="dimension-service_quality"][value="5"]').check({ force: true });
+  await page.locator('input[name="dimension-communication"][value="4"]').locator("xpath=..").click();
+  await page.locator('input[name="dimension-service_quality"][value="5"]').locator("xpath=..").click();
   const directoryBody = page.getByLabel("Text recenzie");
   const directoryBodyValue = "Veľmi dobrá skúsenosť so službou, jasná komunikácia a profesionálny prístup.";
   await directoryBody.fill(directoryBodyValue);
@@ -159,7 +159,7 @@ test("organization reuses the same canonical reviewer form flow", async ({ page,
   await expect(page.getByRole("group", { name: "Komunikácia" })).toBeVisible();
   await expect(page.getByRole("group", { name: "Kvalita služby" })).toBeVisible();
 
-  await page.locator('input[name="overallRating"][value="4"]').check({ force: true });
+  await page.locator('input[name="overallRating"][value="4"]').locator("xpath=..").click();
   const organizationBody = page.getByLabel("Text recenzie");
   const organizationBodyValue = "Organizácia komunikovala jasne a celý priebeh bol dobre zorganizovaný.";
   await organizationBody.fill(organizationBodyValue);
@@ -174,7 +174,7 @@ test("existing pending review shows safe already-reviewed state and never opens 
   await setCookie(context, REVIEW_COOKIE, reviewerSessions.already);
 
   await page.goto("/recenzia/napisat?resourceId=" + DIRECTORY_RESOURCE, { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Tento profil ste už ohodnotili" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tento profil ste už ohodnotili", level: 2 })).toBeVisible();
   await expect(page.getByText(/čaká na kontrolu/i)).toBeVisible();
   await expect(page.getByRole("button", { name: "Odoslať recenziu" })).toHaveCount(0);
 });
@@ -187,7 +187,7 @@ test("Partner session alone never unlocks reviewer submission", async ({ page, c
   await expect(page).toHaveURL(/\/recenzia\/prihlasenie\?returnTo=/);
   const returnTo = new URL(page.url()).searchParams.get("returnTo");
   expect(returnTo).toBe("/recenzia/napisat?resourceId=" + DIRECTORY_RESOURCE);
-  await expect(page.getByRole("heading", { name: "Overenie e-mailu" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overenie e-mailu", level: 2 })).toBeVisible();
 });
 
 test("malicious review text remains inert and server validation error is associated with body", async ({ page, context }, testInfo) => {
@@ -210,7 +210,7 @@ test("malicious review text remains inert and server validation error is associa
   });
 
   await openDirectoryForm(page);
-  await page.locator('input[name="overallRating"][value="5"]').check({ force: true });
+  await page.locator('input[name="overallRating"][value="5"]').locator("xpath=..").click();
   const xssBody = page.getByLabel("Text recenzie");
   const xssBodyValue = "<script>window.reviews2bXss=1</script> Toto je dostatočne dlhý testovací text recenzie.";
   await xssBody.fill(xssBodyValue);
