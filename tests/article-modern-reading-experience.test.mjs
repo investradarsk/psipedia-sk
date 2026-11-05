@@ -196,20 +196,51 @@ test("editor-authored related blocks stay in body flow while sources remain at t
   assert.ok(body < sources);
   assert.match(blocks, /article-block-related/);
 });
-test("article uses the canonical homepage hero before preserving the reading metadata", () => {
-  const hero = indexOfOrFail(detail, "<UniversalPageHero", "canonical hero is missing");
-  const title = indexOfOrFail(detail, "title={article.title}", "headline is missing");
-  const intro = indexOfOrFail(detail, "intro={article.excerpt}", "hero introduction is missing");
-  const photo = indexOfOrFail(detail, "imageUrl={article.image}", "cover photo is missing");
-  const meta = indexOfOrFail(detail, "className={styles.metaActions}", "metadata is missing");
-  const favorite = indexOfOrFail(detail, "<FavoriteButton slug={article.slug} />", "favorite is missing");
-  const compactShare = indexOfOrFail(detail, "url={canonical} compact", "share is missing");
-  const articleBody = indexOfOrFail(detail, 'className="article-prose" data-article-reading-end', "body is missing");
-  const excerpt = indexOfOrFail(detail, '<p className={styles.standfirst} data-article-standfirst>{article.excerpt}</p>', "perex is missing");
-  assert.ok(hero < title && title < intro && intro < photo && photo < meta
-    && meta < favorite && favorite < compactShare && compactShare < articleBody
-    && articleBody < excerpt);
+test("article header follows compact editorial hierarchy and aligns with the reading grid", () => {
+  const kicker = indexOfOrFail(detail, "className={styles.kicker}", "category kicker is missing");
+  const title = indexOfOrFail(detail, "<h1>{article.title}</h1>", "headline is missing");
+  const excerpt = indexOfOrFail(
+    detail,
+    "<p className={styles.standfirst} data-article-standfirst>{article.excerpt}</p>",
+    "perex is missing",
+  );
+  const meta = indexOfOrFail(
+    detail,
+    "className={styles.metaActions}",
+    "metadata actions are missing",
+  );
+  const favorite = indexOfOrFail(
+    detail,
+    "<FavoriteButton slug={article.slug} />",
+    "favorite is missing",
+  );
+  const compactShare = indexOfOrFail(
+    detail,
+    "url={canonical} compact",
+    "compact header share is missing",
+  );
+  const figure = indexOfOrFail(detail, "className={styles.heroFigure}", "hero figure is missing");
+  const articleBody = indexOfOrFail(
+    detail,
+    'className="article-prose" data-article-reading-end',
+    "article body is missing",
+  );
+  assert.ok(
+    kicker < title &&
+      title < meta &&
+      meta < favorite &&
+      favorite < compactShare &&
+      compactShare < figure &&
+      figure < articleBody &&
+      articleBody < excerpt,
+  );
+  assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
+  assert.match(styles, /\.title h1\s*\{[^}]*max-width:\s*none/);
   assert.match(styles, /--article-layout-gap:\s*clamp\(20px,\s*2vw,\s*30px\)/);
+  assert.match(styles, /\.heroGrid[\s\S]*max-width:\s*var\(--article-reading-width\)/);
+  assert.match(styles, /\.title[\s\S]*max-width:\s*var\(--article-reading-width\)/);
+  assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
+  assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 9/);
 });
 test("desktop magazine layout widens the reading column and keeps a truthful sticky sidebar", () => {
   assert.match(styles, /--article-sidebar-width:\s*290px/);
@@ -357,11 +388,10 @@ test("mobile article composition hides sidebar and keeps compact readable contro
   );
   assert.doesNotMatch(styles, /width:\s*calc\(100vw \+/);
 });
-test("article cover image uses the shared hero and falls back safely when missing", () => {
-  assert.match(detail, /imageUrl=\{article\.image\}/);
-  const universal = readFileSync("components/public-visual-system/universal-page-hero.tsx", "utf8");
-  assert.match(universal, /imageUrl\?\.trim\(\) \|\| "\/images\/hero-labrador\.webp"/);
+test("article without hero image skips hero media instead of reserving a large placeholder", () => {
+  assert.match(detail, /\{article\.image \? \(\s*<figure className=\{styles\.heroFigure\}>/s);
   assert.doesNotMatch(detail, /article-hero-placeholder/);
+  assert.doesNotMatch(detail, /PawMark/);
 });
 
 test("article with no safe related candidate renders no automatic mid card", () => {
@@ -471,7 +501,7 @@ test("article schema and metadata preserve canonical, dates, author and image se
 test("hero image accessibility metadata remains separate from visible caption and credit", () => {
   assert.match(detail, /article\.imageAlt \|\| article\.title/);
   assert.match(detail, /const showImageMeta = Boolean\(article\.image/);
-  assert.match(detail, /<p className=\{styles\.heroImageMeta\}>/);
+  assert.match(detail, /<figcaption className=\{styles\.heroImageMeta\}>/);
   assert.match(detail, /article\.imageCaption/);
   assert.match(detail, /article\.imageCredit/);
   assert.match(detail, /safeExternalImageCreditUrl\(article\.imageCreditUrl\)/);
@@ -549,8 +579,8 @@ test("ARTICLE-CARDS-1 homepage and unified search consume the same article famil
   assert.doesNotMatch(searchStyles, /\.articleCopy\b|\.articleImage\b/);
 });
 
-test("article keeps high-contrast editorial typography on the shared cream page canvas", () => {
-  assert.match(styles, /\.modernArticle\s*\{[^}]*background:\s*var\(--cream\);/s);
+test("ARTICLE-READING-WHITE-1 scopes a high-contrast reading surface to article pages", () => {
+  assert.match(styles, /\.modernArticle\s*\{[^}]*background:\s*#fff;/s);
   assert.match(styles, /--article-reading-width:\s*800px/);
   assert.match(
     styles,
