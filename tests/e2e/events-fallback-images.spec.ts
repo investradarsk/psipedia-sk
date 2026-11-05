@@ -52,9 +52,8 @@ test('current props switch photo, removal, type and failed photo without losing 
 test('detail fallback and own photo remain responsive and accessible',async({page},info)=>{
   for(const own of [false,true]) {
     await page.goto('/?view=detail'+(own?'&photo=1':''));
-    // Details now use the universal HERO component. The source must still
-    // choose the actual photograph or the event-type fallback illustration.
-    const image=page.locator('[data-event-detail-header] [data-public-hero-configured-media] img:not([aria-hidden="true"])');
+    // Event details use their compact media slot; keep actual photo or event-type fallback.
+    const image=page.locator('[data-event-image] img:not([aria-hidden="true"])');
     await expect(image).toHaveAttribute('src',own?/hero-labrador\.webp/:/vystavy\.webp/);
     await expect(image).toHaveAttribute('data-event-image-source',own?'real':'fallback');
     await expect(image).toHaveAttribute('alt',own?/Fotografia podujatia/:/Ilustračný obrázok/);

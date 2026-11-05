@@ -23,17 +23,14 @@ test("public design: desktop and mobile hero geometry is shared by every route",
   assert.doesNotMatch(css, /\.hero:not\(\[data-section-visual-key="home\.hero"\]\)/);
 });
 
-test("public detail and article surfaces reuse the homepage renderer instead of cloning it", () => {
-  const universal = read("components/public-visual-system/universal-page-hero.tsx");
+test("section HERO is limited to landing pages, never article or profile details", () => {
   const detail = read("components/detail-primitives/detail-primitives.tsx");
   const article = read("components/article-detail.tsx");
-  assert.match(universal, /<UnifiedSectionHero/);
-  assert.match(universal, /<UnifiedSectionHeroShell/);
-  assert.match(universal, /<HomePortalSearch/);
-  assert.match(detail, /<UniversalPageHero/);
-  assert.match(article, /<UniversalPageHero/);
-  assert.match(article, /title=\{article\.title\}/);
-  assert.match(article, /imageUrl=\{article\.image\}/);
+  const events = read("components/event-detail.tsx");
+  assert.doesNotMatch(detail, /UniversalPageHero|UnifiedSectionHero/);
+  assert.doesNotMatch(article, /UniversalPageHero|UnifiedSectionHero/);
+  assert.match(article, /<h1>\{article\.title\}<\/h1>/);
+  assert.match(events, /<DetailHero/);
 });
 
 test("public design V1: canonical search retains route-scoped GET parameters", () => {

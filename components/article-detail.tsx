@@ -11,8 +11,6 @@ import { ArticlePromo } from "@/components/article-promo";
 import { ArticleContinuation } from "@/components/article-continuation";
 import { FavoriteButton } from "@/components/favorite-button";
 import { Breadcrumbs } from "@/components/page-system";
-import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
-import { ImageDisplay } from "@/components/image-display";
 import { PublicContentList } from "@/components/public-visual-system";
 import { ArticleListItem } from "@/components/article-list-item";
 import { ShareButton } from "@/components/share-button";
@@ -31,6 +29,8 @@ import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/edit
 import { AD_PLACEMENTS } from "@/lib/monetization";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 import styles from "./article-detail.module.css";
+import { ImageDisplay } from "@/components/image-display";
+import { legacyArticleDetail } from "@/lib/image-display";
 
 function safeExternalImageCreditUrl(value?: string) {
   if (!value) return undefined;
@@ -73,7 +73,6 @@ export function ArticleDetail({
   const topicLabel = newsCategory?.label ?? reviewCategory?.label ?? article.category;
   const canonical = absoluteUrl(article.seo?.canonicalUrl || articleHref(article));
   const image = article.image ? absoluteUrl(article.image) : undefined;
-  const detailImageConfig = article.detailImageDisplay;
   const imageCreditHref = safeExternalImageCreditUrl(article.imageCreditUrl);
   const showImageMeta = Boolean(article.image && (article.imageCaption || article.imageCredit || imageCreditHref));
   const authorName = authorProfile?.displayName || article.author;
@@ -117,6 +116,8 @@ export function ArticleDetail({
     sidebarPromoKey: discovery.promo?.promoKey,
     relatedHrefs: relatedItems.map((item) => articleHref(item)),
   });
+  const legacyDetailConfig = legacyArticleDetail(article.imageDisplay, article.imageFocusX, article.imageFocusY);
+  const detailImageConfig = article.detailImageDisplay ?? legacyDetailConfig;
   const hasPopularity = discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
   const showDiscoverySidebar = hasPopularity || Boolean(discovery.promo);
 
@@ -171,45 +172,22 @@ export function ArticleDetail({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
       <ArticleReadTracker articleSlug={article.slug} />
       <ArticleReadingProgress />
-      <UniversalPageHero
-        breadcrumbs={
-          <Breadcrumbs label="Navigácia v článku">
-            <Link href="/">Domov</Link><span>/</span>
-            <Link href={sectionHref}>{portalSectionLabel(section)}</Link><span>/</span>
-            <Link href={topicHref}>{topicLabel}</Link>
-          </Breadcrumbs>
-        }
-        eyebrow={`${portalSectionLabel(section)} · ${topicLabel}`}
-        title={article.title}
-        intro={article.excerpt}
-        imageUrl={article.image}
-        imageAlt={article.imageAlt || article.title}
-        mediaSlot={article.image ? (
-          <ImageDisplay
-            roleHint="article"
-            context="detail"
-            config={detailImageConfig}
-            legacyMode={article.imageDisplay}
-            legacyFocusX={article.imageFocusX}
-            legacyFocusY={article.imageFocusY}
-            src={article.image}
-            alt={article.imageAlt || article.title}
-            loading="eager"
-            fetchPriority="high"
-            decoding="async"
-            fallbackOnError
-          />
-        ) : undefined}
-      />
       <div className={`${styles.articleLayout} shell`} data-article-layout>
         <div className={styles.articleMainColumn}>
           <header className={styles.hero} data-article-reading-start>
+        <Breadcrumbs label="Navigácia v článku">
+          <Link href="/">Domov</Link><span>/</span>
+          <Link href={sectionHref}>{portalSectionLabel(section)}</Link><span>/</span>
+          <Link href={topicHref}>{topicLabel}</Link>
+        </Breadcrumbs>
+        <div className={styles.heroGrid}>
+          <div className={styles.title}>
+            <span className={styles.kicker}>{portalSectionLabel(section)} · {topicLabel}</span>
+            <h1>{article.title}</h1>
             <div className={styles.metaActions}>
               <div className={styles.bylineWrap}>
                 <div className={styles.authorIdentity}>
-                  {authorProfile?.avatarUrl ? (
-                    <img src={authorProfile.avatarUrl} alt="" loading="lazy" decoding="async" />
-                  ) : null}
+                  {authorProfile?.avatarUrl ? <img src={authorProfile.avatarUrl} alt="" loading="lazy" decoding="async" /> : null}
                   <span>
                     <strong>{authorName}</strong>
                     {showAuthorRole ? <small>{authorRole}</small> : null}
@@ -227,21 +205,28 @@ export function ArticleDetail({
                 <ShareButton title={article.title} label={shareLabel} url={canonical} compact />
               </div>
             </div>
-            {showImageMeta ? (
-              <p className={styles.heroImageMeta}>
-                {article.imageCaption ? <span>{article.imageCaption}</span> : null}
-                {article.imageCaption && (article.imageCredit || imageCreditHref) ? <span aria-hidden="true"> · </span> : null}
-                {article.imageCredit || imageCreditHref ? (
-                  <span>
-                    Foto: {imageCreditHref ? (
-                      <a href={imageCreditHref} target="_blank" rel="noopener noreferrer">
-                        {article.imageCredit || "Zdroj fotografie"}
-                      </a>
-                    ) : article.imageCredit}
-                  </span>
-                ) : null}
-              </p>
-            ) : null}
+          </div>
+          {article.image ? (
+            <figure className={styles.heroFigure}>
+              <div className={`${styles.heroMedia} ${(!detailImageConfig || detailImageConfig.mode === "natural") ? styles.heroNatural : ""}`}>
+                <ImageDisplay context="detail" config={detailImageConfig} imageClassName="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
+              </div>
+              {showImageMeta ? (
+                <figcaption className={styles.heroImageMeta}>
+                  {article.imageCaption ? <span>{article.imageCaption}</span> : null}
+                  {article.imageCaption && (article.imageCredit || imageCreditHref) ? <span aria-hidden="true"> · </span> : null}
+                  {article.imageCredit || imageCreditHref ? (
+                    <span>
+                      Foto: {imageCreditHref ? (
+                        <a href={imageCreditHref} target="_blank" rel="noopener noreferrer">{article.imageCredit || "Zdroj fotografie"}</a>
+                      ) : article.imageCredit}
+                    </span>
+                  ) : null}
+                </figcaption>
+              ) : null}
+            </figure>
+          ) : null}
+        </div>
           </header>
 
           <div className={styles.readingShell}>

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { notFound } from "next/navigation";
 import { getFciGroup } from "@/lib/content";
 import {
@@ -159,21 +158,17 @@ export default async function BreedFciStandardPage({ params }: Props) {
   return (
     <main id="obsah" className={styles.page}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
-      <UniversalPageHero
-        breadcrumbs={<nav className="article-breadcrumbs" aria-label="Navigácia">
+      <div className={`shell ${styles.shell}`}>
+        <nav className={`article-breadcrumbs ${styles.breadcrumbs}`} aria-label="Navigácia">
           <Link href="/">Domov</Link><span>/</span><Link href="/plemena">Plemená</Link><span>/</span>
           <Link href={`/plemena/${breed.slug}`}>{breed.name}</Link><span>/</span><span>FCI štandard</span>
-        </nav>}
-        eyebrow="Odborná referencia · FCI štandard"
-        title={breed.name}
-        intro={managed?.officialFciName?.trim() || `Oficiálny štandard plemena ${breed.name}`}
-        imageUrl={breed.image}
-        imageAlt={breed.name}
-      />
-      <div className={`shell ${styles.shell}`}>
+        </nav>
+
         <header className={styles.referenceHeader}>
           <div className={styles.headerTop}>
             <div>
+              <p className={styles.eyebrow}>Odborná referencia · FCI štandard</p>
+              <h1>{breed.name}</h1>
               {managed?.officialFciName?.trim()
                 ? <p className={styles.officialName}>{managed.officialFciName}</p>
                 : null}

@@ -101,10 +101,8 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     const main = await openProfile(page, MINIMUM);
     await expect(main.getByRole("heading", { level: 1, name: "E2E Minimálna služba" })).toBeVisible();
-    // A profile without its own photo still gets the shared homepage HERO image.
-    const fallbackHero = main.locator('[data-directory-profile-hero] [data-unified-section-hero-media] img').first();
-    await expect(fallbackHero).toBeVisible();
-    await expect(fallbackHero).toHaveAttribute("src", /hero-labrador\.webp/);
+    await expect(main.locator(PHOTO + " img")).toHaveCount(0);
+    await expect(main.locator(PHOTO + " [data-public-media-fallback]")).toBeVisible();
     await expect(main.getByRole("heading", { name: "Poskytované služby" })).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Odborné informácie" })).toHaveCount(0);
     await expect(main.getByRole("link", { name: "Zavolať" })).toHaveCount(0);
@@ -121,16 +119,14 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
   test("veterinary specialist data are shown only when populated", async ({ page }) => {
     const rich = await openProfile(page, "/adresar/veterinari/health-fixture-vet-rich");
     const hero = rich.locator("[data-directory-profile-hero]");
-    const photo = hero.locator("[data-public-hero-configured-media] img").first();
+    const photo = hero.locator("[data-public-profile-media] img");
     await expect(photo).toBeVisible();
     await expect(photo).toHaveAttribute("src", "/images/zdravie-veterinar.webp");
     await expect.poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
-    // The canonical HERO displays its image behind the title on every viewport.
-    const visual = hero.locator("[data-unified-section-hero-visual]");
-    await expect(visual).toBeVisible();
-    const photoBox = await photo.boundingBox();
-    expect(photoBox?.width ?? 0).toBeGreaterThan(0);
-    expect(photoBox?.height ?? 0).toBeGreaterThan(0);
+    const photoTop = await photo.evaluate((image) => image.getBoundingClientRect().top);
+    const headingTop = await hero.getByRole("heading", { level: 1 }).evaluate((heading) => heading.getBoundingClientRect().top);
+    if ((page.viewportSize()?.width ?? 1440) <= 800) expect(photoTop).toBeLessThan(headingTop);
+    else expect((await photo.boundingBox())!.x).toBeGreaterThan((await hero.getByRole("heading", { level: 1 }).boundingBox())!.x);
     await page.screenshot({ path: ".e2e-artifacts/services-profile-ux/veterinary-photo.png", fullPage: true });
     const expert = rich.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie" }).locator("xpath=ancestor::section[1]");
     await expect(expert.getByText("Špecializácie", { exact: true })).toBeVisible();
