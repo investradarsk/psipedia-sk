@@ -328,6 +328,857 @@ for (const articleCase of cases) {
       await firstAnchor.click();
       await expectAnchorClearsStickyHeader(page, href!);
 
+      // Reload the current article with its hash in place to verify a real
+      // direct-entry navigation without entering a restricted about:blank origin.
+      // The E2E consent init script reads localStorage on every navigation.
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(new RegExp(`#${href!.slice(1)}import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+
+const cases = [
+  {
+    id: "bikejoring",
+    path: "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku",
+    title: "Bikejoring so psom: kompletný sprievodca od prvého tréningu až po preteky na Slovensku",
+    toc: true,
+    updated: false,
+    hasImage: true,
+  },
+  {
+    id: "stimulus-control",
+    path: "/aktivity/stimulus-control-u-psa",
+    title: "Stimulus control: kedy pes povel naozaj ovláda",
+    toc: true,
+    updated: false,
+    hasImage: true,
+  },
+  {
+    id: "granule",
+    path: "/starostlivost/ako-vybrat-granule-bez-marketingovych-mytov",
+    title: "Ako vybrať granule bez marketingových mýtov",
+    toc: true,
+    updated: true,
+    hasImage: true,
+  },
+  {
+    id: "no-image",
+    path: "/starostlivost/e2e-clanok-bez-obrazka",
+    title: "E2E článok bez hero obrázka",
+    toc: false,
+    updated: false,
+    hasImage: false,
+  },
+] as const;
+
+const productionReferenceCases = [
+  { id: "zubna-hygiena", path: "/starostlivost/ako-cistit-psovi-zuby" },
+  { id: "nosework", path: "/aktivity/nosework" },
+  { id: "prvy-den-steniatka", path: "/steniatka/prvy-den-so-steniatkom-doma" },
+] as const;
+
+async function expectNoSeriousAccessibilityViolations(page: Page) {
+  const result = await new AxeBuilder({ page })
+    .include("main#obsah")
+    // Third-party YouTube/Vimeo player DOM is outside Psipedia's control.
+    // The host iframe contract is covered separately below.
+    .exclude(".article-block-embed iframe")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const violations = result.violations.filter(({ impact }) => impact === "serious" || impact === "critical");
+  expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
+}
+
+// A production screenshot is optional evidence, not a reliable required-PR check.
+// External production navigation can hang the Playwright browser despite the
+// per-navigation timeout; local article assertions remain mandatory on PRs.
+function shouldCaptureProductionBaseline() {
+  return process.env.ARTICLE_UX_CAPTURE_PRODUCTION === "1" && process.env.GITHUB_EVENT_NAME !== "pull_request";
+}
+
+async function captureProductionBaseline(page: Page, path: string, output: string) {
+  if (!shouldCaptureProductionBaseline()) return;
+  try {
+    const response = await page.goto(`https://psipedia.sk${path}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 15_000,
+    });
+    if (!response?.ok()) {
+      console.warn(`[article-ux] production baseline unavailable for ${path}: HTTP ${response?.status() ?? "unknown"}`);
+      return;
+    }
+    await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined);
+    // Production can keep loading external images indefinitely. Baseline capture
+    // is best-effort evidence, not an assertion about the local article UX.
+    // Bound each screenshot so six captures cannot exhaust the test budget.
+    await page.screenshot({ path: output, timeout: 8_000, animations: "disabled" });
+  } catch (error) {
+    console.warn(
+      `[article-ux] production baseline unavailable for ${path}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+async function expectAnchorClearsStickyHeader(page: Page, href: string) {
+  const id = decodeURIComponent(href.replace(/^#/, ""));
+  const target = page.locator(`#${id}`);
+  await target.waitFor({ state: "visible" });
+  const metrics = await target.evaluate((node) => {
+    const header = document.querySelector<HTMLElement>(".site-header");
+    return {
+      top: node.getBoundingClientRect().top,
+      headerHeight: header?.getBoundingClientRect().height ?? 0,
+    };
+  });
+  expect(metrics.top).toBeGreaterThanOrEqual(metrics.headerHeight + 8);
+}
+
+async function expectSemanticArticleHeadings(page: Page) {
+  const levels = await page.locator(".article-prose h2, .article-prose h3").evaluateAll((headings) =>
+    headings.map((heading) => Number(heading.tagName.slice(1))),
+  );
+  let previous = 1;
+  for (const level of levels) {
+    expect(level).toBeGreaterThanOrEqual(2);
+    expect(level).toBeLessThanOrEqual(3);
+    expect(level - previous).toBeLessThanOrEqual(1);
+    previous = level;
+  }
+}
+
+test.beforeEach(async ({ page, baseURL }) => {
+  expect(new URL(baseURL!).hostname).toMatch(/^(localhost|127\.0\.0\.1)$/);
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+});
+
+test("ARTICLE-VISUAL-1 captures requested production references on desktop and mobile", async ({ page }, testInfo) => {
+  // Six external production navigations can each consume the bounded 15s timeout.
+  // Keep a separate budget for evidence collection without relaxing local UX assertions.
+  test.setTimeout(240_000);
+  test.skip(!shouldCaptureProductionBaseline(), "External production screenshot capture is opt-in outside required PR CI; local article UX checks still run.");
+  test.skip(testInfo.project.name !== "desktop-chromium", "Captured once with explicit desktop and mobile viewports.");
+  for (const reference of productionReferenceCases) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await captureProductionBaseline(
+      page,
+      reference.path,
+      `.e2e-artifacts/article-ux-1/${reference.id}-before-production-desktop-1440x900.png`,
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await captureProductionBaseline(
+      page,
+      reference.path,
+      `.e2e-artifacts/article-ux-1/${reference.id}-before-production-mobile-390x844.png`,
+    );
+  }
+});
+
+// Article details can contain remote media, so navigation waits for local DOM readiness,
+// not third-party images or embeds that can hold the browser load event open.
+for (const articleCase of cases) {
+  test(`${articleCase.id} mobile 390x844 article composition`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await captureProductionBaseline(
+      page,
+      articleCase.path,
+      `.e2e-artifacts/article-ux-1/${articleCase.id}-before-production-mobile-390x844.png`,
+    );
+
+    await page.goto(articleCase.path, { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 1, name: articleCase.title })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Navigácia v článku" })).toBeVisible();
+    if (articleCase.hasImage) {
+      await expect(page.locator(".article-hero-image")).toBeVisible();
+    } else {
+      await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
+    }
+    await expect(page.locator("[data-article-standfirst]")).toBeVisible();
+    await expect(page.locator(".article-intro")).toBeVisible();
+    await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
+    await expect(page.locator(".article-aside")).toHaveCount(0);
+    const mobileSidebar = page.locator("[data-article-discovery-sidebar]");
+    await expect(mobileSidebar).toBeHidden();
+    await expect(mobileSidebar.locator("[data-automatic-article-promo]")).toBeHidden();
+    const mobileProgress = page.locator("[data-article-reading-progress]");
+    await expect(mobileProgress).toHaveCount(1);
+    await expect(mobileProgress).toHaveAttribute("aria-hidden", "true");
+    if (articleCase.id === "no-image") {
+      await expect(page.locator('.article-prose [data-promo-key="veterinari"]')).toBeVisible();
+    }
+
+    const saveButton = page.getByRole("button", { name: /Uložiť medzi obľúbené|Odstrániť z obľúbených/ });
+    const compactShare = page.getByRole("group", { name: /Zdieľať/ }).first().getByRole("button").first();
+    for (const control of [saveButton, compactShare]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    await saveButton.focus();
+    await expect(saveButton).toBeFocused();
+
+    const metrics = await page.evaluate(() => {
+      const h1 = document.querySelector<HTMLElement>("h1")!;
+      const excerpt = document.querySelector<HTMLElement>(".article-prose [data-article-standfirst]")!;
+      const image = document.querySelector<HTMLElement>(".article-hero-image");
+      const prose = document.querySelector<HTMLElement>(".article-prose")!;
+      const intro = document.querySelector<HTMLElement>(".article-intro")!;
+      const introParagraph = intro.querySelector<HTMLElement>("p");
+      const bodyParagraph = document.querySelector<HTMLElement>(".article-block-text p");
+      const takeaway = document.querySelector<HTMLElement>(".takeaway-box")!;
+      const header = document.querySelector<HTMLElement>("[data-article-reading-start]")!;
+      const imageRect = image?.getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        h1Size: Number.parseFloat(getComputedStyle(h1).fontSize),
+        excerptClipping: excerpt.scrollHeight - excerpt.clientHeight,
+        excerptTop: excerpt.getBoundingClientRect().top,
+        imageRatio: imageRect ? imageRect.width / imageRect.height : null,
+        imageNaturalRatio: image instanceof HTMLImageElement && image.naturalHeight > 0 ? image.naturalWidth / image.naturalHeight : null,
+        imageMode: image?.closest("[data-image-display]")?.getAttribute("data-image-display") ?? null,
+        proseWidth: prose.getBoundingClientRect().width,
+        proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
+        canvasColor: getComputedStyle(document.querySelector<HTMLElement>('main#obsah')!).backgroundColor,
+        bodyColor: getComputedStyle(prose).color,
+        proseFontFamily: getComputedStyle(prose).fontFamily,
+        readingFontFamily: introParagraph ? getComputedStyle(introParagraph).fontFamily : null,
+        readingColor: introParagraph ? getComputedStyle(introParagraph).color : null,
+        readingMargin: introParagraph ? Number.parseFloat(getComputedStyle(introParagraph).marginLeft) : null,
+        readingExtraWidth: introParagraph ? introParagraph.getBoundingClientRect().width - intro.getBoundingClientRect().width : null,
+        titleLeft: h1.getBoundingClientRect().left,
+        readingLeft: introParagraph ? introParagraph.getBoundingClientRect().left : null,
+        firstSectionHeadingLeft: document.querySelector<HTMLElement>(".article-blocks h2")?.getBoundingClientRect().left ?? null,
+        introTextAlign: introParagraph ? getComputedStyle(introParagraph).textAlign : null,
+        introHyphens: introParagraph ? getComputedStyle(introParagraph).hyphens : null,
+        bodyTextAlign: bodyParagraph ? getComputedStyle(bodyParagraph).textAlign : null,
+        bodyHyphens: bodyParagraph ? getComputedStyle(bodyParagraph).hyphens : null,
+        proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
+        introTop: intro.getBoundingClientRect().top,
+        introBottom: intro.getBoundingClientRect().bottom,
+        takeawayTop: takeaway.getBoundingClientRect().top,
+        noImageGap: prose.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
+      };
+    });
+
+    console.log(`[article-ux] ${articleCase.id} mobile metrics ${JSON.stringify(metrics)}`);
+    await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-mobile-390x844.png` });
+
+    expect(metrics.overflow).toBeLessThanOrEqual(1);
+    expect(metrics.h1Size).toBeGreaterThanOrEqual(26);
+    expect(metrics.h1Size).toBeLessThanOrEqual(31.5);
+    expect(metrics.excerptClipping, "The mobile perex must be fully visible").toBeLessThanOrEqual(1);
+    if (articleCase.hasImage) {
+      expect(metrics.imageRatio).not.toBeNull();
+      if (metrics.imageMode === "natural") {
+        // Intrinsic image ratio is preserved rather than forcing a 16:9 crop.
+        expect(metrics.imageNaturalRatio).toBeGreaterThan(0);
+        expect(Math.abs(metrics.imageRatio! - metrics.imageNaturalRatio!)).toBeLessThan(0.03);
+      } else {
+        expect(metrics.imageRatio!).toBeGreaterThan(1.74);
+        expect(metrics.imageRatio!).toBeLessThan(1.81);
+      }
+    } else {
+      expect(metrics.imageRatio).toBeNull();
+      expect(metrics.noImageGap).toBeLessThanOrEqual(32);
+    }
+    expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 24 + 1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.canvasColor).toBe("rgb(248, 244, 235)");
+    expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
+    expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
+    expect(metrics.readingFontFamily).toMatch(/Avenir Next|Avenir/);
+    expect(metrics.readingColor).toBe("rgb(52, 59, 55)");
+    expect(metrics.readingMargin).toBe(0);
+    expect(Math.abs(metrics.readingExtraWidth ?? 100)).toBeLessThanOrEqual(1);
+    expect(metrics.titleLeft).toBeGreaterThanOrEqual(11);
+    expect(metrics.titleLeft).toBeLessThanOrEqual(13);
+    expect(Math.abs((metrics.readingLeft ?? 100) - metrics.titleLeft)).toBeLessThanOrEqual(1);
+    if (metrics.firstSectionHeadingLeft !== null) {
+      expect(Math.abs(metrics.firstSectionHeadingLeft - metrics.titleLeft)).toBeLessThanOrEqual(1);
+    }
+    expect(metrics.introTextAlign).toBe("left");
+    expect(metrics.introHyphens).toBe("none");
+    if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
+    if (metrics.bodyHyphens !== null) expect(metrics.bodyHyphens).toBe("none");
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.52);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.58);
+    expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
+
+    if (articleCase.id === "bikejoring") {
+      expect(
+        metrics.excerptTop,
+        "Bikejoring standfirst must be visible or directly adjacent to the first 390x844 viewport",
+      ).toBeLessThanOrEqual(944);
+    }
+
+    const endSharing = page.getByRole("group", { name: /Zdieľať/ }).last();
+    const endShareControls = endSharing.locator("a, button");
+    expect(await endShareControls.count()).toBeGreaterThanOrEqual(3);
+    const firstShareBox = await endShareControls.nth(0).boundingBox();
+    const secondShareBox = await endShareControls.nth(1).boundingBox();
+    expect(firstShareBox).not.toBeNull();
+    expect(secondShareBox).not.toBeNull();
+    expect(Math.abs(firstShareBox!.y - secondShareBox!.y)).toBeLessThanOrEqual(2);
+    expect(firstShareBox!.height).toBeLessThanOrEqual(42);
+
+    const feedback = page.locator(".article-feedback");
+    await expect(feedback.getByRole("button", { name: "Áno", exact: true })).toBeVisible();
+    await expect(feedback.getByRole("button", { name: "Nie", exact: true })).toBeVisible();
+    await expect(feedback).not.toContainText(/🐾|👍|👎/);
+
+    const sources = page.locator(".article-block-sources");
+    if (await sources.count()) {
+      const sourceSize = await sources.first().evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
+      expect(sourceSize).toBeLessThanOrEqual(14.5);
+    }
+
+    const mobileUtilityStrip = page.locator("[data-mobile-name-day]");
+    await page.evaluate(() => window.scrollTo(0, 560));
+    const stickyHeader = page.locator(".site-header");
+    await expect(stickyHeader).toBeVisible();
+    const stickyHeaderBox = await stickyHeader.boundingBox();
+    expect(stickyHeaderBox).not.toBeNull();
+    expect(Math.abs(stickyHeaderBox!.y)).toBeLessThanOrEqual(2);
+    if (await mobileUtilityStrip.count()) {
+      const stripBox = await mobileUtilityStrip.boundingBox();
+      expect(stripBox).not.toBeNull();
+      expect(stripBox!.y + stripBox!.height).toBeLessThanOrEqual(1);
+    }
+
+    // Approved shared mobile UX: no floating back-to-top control covering content.
+    await expect(page.getByRole("button", { name: "Späť hore" })).toHaveCount(0);
+    await page.evaluate(() => window.scrollTo(0, 0));
+
+    const toc = page.getByRole("navigation", { name: "Obsah článku" });
+    if (articleCase.toc) {
+      await expect(toc).toHaveCount(1);
+      await expect(toc).toBeVisible();
+      const firstAnchor = toc.locator("a[href^='#']").first();
+      await expect(firstAnchor).toBeVisible();
+      const href = await firstAnchor.getAttribute("href");
+      expect(href).toBeTruthy();
+      if (articleCase.id === "bikejoring") {
+        await expect(toc).not.toContainText("Smer a zastavenie");
+      }
+      await firstAnchor.click();
+      await expectAnchorClearsStickyHeader(page, href!);
+
+));
+      await expectAnchorClearsStickyHeader(page, href!);
+      const directToc = page.getByRole("navigation", { name: "Obsah článku" });
+      await expect(directToc).toBeVisible();
+    } else {
+      await expect(toc).toHaveCount(0);
+    }
+
+    await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
+
+    if (articleCase.updated) {
+      await expect(page.getByText(/Aktualizované/)).toBeVisible();
+    }
+
+    await expectSemanticArticleHeadings(page);
+    if (articleCase.id === "bikejoring") await expectNoSeriousAccessibilityViolations(page);
+  });
+
+  test(`${articleCase.id} desktop 1440x900 article composition`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await captureProductionBaseline(
+      page,
+      articleCase.path,
+      `.e2e-artifacts/article-ux-1/${articleCase.id}-before-production-desktop-1440x900.png`,
+    );
+
+    await page.goto(articleCase.path, { waitUntil: "domcontentloaded" });
+    const h1 = page.getByRole("heading", { level: 1, name: articleCase.title });
+    await expect(h1).toBeVisible();
+    if (articleCase.hasImage) {
+      await expect(page.locator(".article-hero-image")).toBeVisible();
+    } else {
+      await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
+    }
+    await expect(page.locator(".article-prose")).toBeVisible();
+    await expect(page.locator(".article-aside")).toHaveCount(0);
+    const desktopSidebar = page.locator("[data-article-discovery-sidebar]");
+    await expect(desktopSidebar).toBeVisible();
+    await expect(desktopSidebar.getByRole("heading", { name: "Najčítanejšie" })).toBeVisible();
+    const tab24h = desktopSidebar.getByRole("tab", { name: "24 hodín" });
+    const tab7d = desktopSidebar.getByRole("tab", { name: "7 dní" });
+    await expect(tab24h).toHaveAttribute("aria-selected", "true");
+    await expect(desktopSidebar.locator('[data-popularity-window="24h"] li')).toHaveCount(5);
+    const popularityHrefs24h = await desktopSidebar.locator('[data-popularity-window="24h"] li a')
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    expect(popularityHrefs24h).not.toContain(articleCase.path);
+    // React may still be hydrating after SSR paints the desktop sidebar,
+    // especially under the mobile Chromium project with a desktop viewport.
+    // Wait for the explicit client readiness marker before testing a click.
+    await expect(desktopSidebar.locator("[data-popularity-hydrated]")).toHaveAttribute("data-popularity-hydrated", "true");
+    await tab7d.click();
+    await expect(tab7d).toHaveAttribute("aria-selected", "true");
+    await expect(desktopSidebar.locator('[data-popularity-window="7d"] li')).toHaveCount(5);
+    await expect(desktopSidebar.locator("[data-automatic-article-promo] [data-promo-key]")).toHaveCount(1);
+    await expect(page.getByText("Najnovšie články", { exact: true })).toHaveCount(0);
+
+    const metrics = await page.evaluate(() => {
+      const heading = document.querySelector<HTMLElement>("h1")!;
+      const image = document.querySelector<HTMLElement>(".article-hero-image");
+      const prose = document.querySelector<HTMLElement>(".article-prose")!;
+      const header = document.querySelector<HTMLElement>("[data-article-reading-start]")!;
+      const introParagraph = document.querySelector<HTMLElement>(".article-intro p")!;
+      const bodyHeading = document.querySelector<HTMLElement>(".article-prose h2, .article-prose h3");
+      const disclaimer = document.querySelector<HTMLElement>(".article-disclaimer")!;
+      const sidebar = document.querySelector<HTMLElement>("[data-article-discovery-sidebar]")!;
+      const imageRect = image?.getBoundingClientRect();
+      const headingRect = heading.getBoundingClientRect();
+      const sidebarRect = sidebar.getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        h1Size: Number.parseFloat(getComputedStyle(heading).fontSize),
+        imageHeight: imageRect?.height ?? null,
+        imageWidth: imageRect?.width ?? null,
+        imageRatio: imageRect ? imageRect.width / imageRect.height : null,
+        imageNaturalRatio: image instanceof HTMLImageElement && image.naturalHeight > 0 ? image.naturalWidth / image.naturalHeight : null,
+        imageMode: image?.closest("[data-image-display]")?.getAttribute("data-image-display") ?? null,
+        headingLeft: headingRect.left,
+        headingTop: headingRect.top,
+        proseLeft: prose.getBoundingClientRect().left,
+        proseWidth: prose.getBoundingClientRect().width,
+        proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
+        canvasColor: getComputedStyle(document.querySelector<HTMLElement>('main#obsah')!).backgroundColor,
+        bodyColor: getComputedStyle(prose).color,
+        proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
+        noImageGap: prose.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
+        sidebarTop: sidebarRect.top,
+        sidebarRightOfHero: imageRect ? sidebarRect.left > imageRect.right : sidebarRect.left > prose.getBoundingClientRect().right,
+        proseFontFamily: getComputedStyle(prose).fontFamily,
+        introTextAlign: getComputedStyle(introParagraph).textAlign,
+        headingTextAlign: bodyHeading ? getComputedStyle(bodyHeading).textAlign : null,
+        disclaimerTextAlign: getComputedStyle(disclaimer).textAlign,
+      };
+    });
+
+    await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-desktop-1440x900.png` });
+
+    expect(metrics.overflow).toBeLessThanOrEqual(1);
+    expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
+    if (articleCase.hasImage) {
+      expect(metrics.imageHeight).not.toBeNull();
+      expect(metrics.imageRatio).not.toBeNull();
+      if (metrics.imageMode === "natural") {
+        // Uncropped photographs keep their real aspect ratio, constrained to article width.
+        expect(metrics.imageNaturalRatio).toBeGreaterThan(0);
+        expect(Math.abs(metrics.imageRatio! - metrics.imageNaturalRatio!)).toBeLessThan(0.03);
+        expect(metrics.imageHeight!).toBeGreaterThan(0);
+        expect(metrics.imageHeight!).toBeLessThanOrEqual(680);
+        expect(metrics.imageWidth!).toBeGreaterThan(0);
+        expect(metrics.imageWidth!).toBeLessThanOrEqual(805);
+      } else {
+        // Crop/blur modes retain the intentional 16:9 hero geometry.
+        expect(metrics.imageHeight!).toBeGreaterThanOrEqual(443);
+        expect(metrics.imageHeight!).toBeLessThanOrEqual(453);
+        expect(metrics.imageWidth).toBeGreaterThanOrEqual(790);
+        expect(metrics.imageWidth).toBeLessThanOrEqual(805);
+        expect(metrics.imageRatio!).toBeGreaterThan(1.74);
+        expect(metrics.imageRatio!).toBeLessThan(1.81);
+      }
+    } else {
+      expect(metrics.imageHeight).toBeNull();
+      expect(metrics.imageRatio).toBeNull();
+      expect(metrics.noImageGap).toBeLessThanOrEqual(40);
+    }
+    expect(metrics.proseWidth).toBeGreaterThanOrEqual(790);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(805);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.52);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.58);
+    expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
+    if (articleCase.hasImage) expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(6);
+    expect(metrics.sidebarTop, "Desktop sidebar should start in the title/meta zone").toBeLessThanOrEqual(metrics.headingTop);
+    expect(metrics.sidebarRightOfHero, "Desktop sidebar should occupy the right rail beside the article").toBe(true);
+    expect(metrics.canvasColor).toBe("rgb(248, 244, 235)");
+    expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
+    expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
+    expect(metrics.introTextAlign).toBe("left");
+    expect(metrics.headingTextAlign).not.toBe("justify");
+    expect(metrics.disclaimerTextAlign).not.toBe("justify");
+
+    const readingProgress = page.locator("[data-article-reading-progress]");
+    await expect(readingProgress).toHaveCount(1);
+    await expect(readingProgress).toHaveAttribute("aria-hidden", "true");
+    const progressFill = readingProgress.locator("span");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForFunction(() => {
+      const fill = document.querySelector<HTMLElement>("[data-article-reading-progress] span");
+      return (Number.parseFloat(fill?.style.getPropertyValue("--article-reading-progress") || "0") || 0) <= 0.05;
+    });
+    const progressAtTop = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressAtTop).toBeGreaterThanOrEqual(0);
+    expect(progressAtTop).toBeLessThanOrEqual(0.05);
+    const articleEnd = page.locator("[data-article-reading-end]");
+    await articleEnd.evaluate((node) => window.scrollTo(0, Math.max(0, node.getBoundingClientRect().bottom + window.scrollY - window.innerHeight)));
+    await page.waitForFunction(() => {
+      const fill = document.querySelector<HTMLElement>("[data-article-reading-progress] span");
+      return Number.parseFloat(fill?.style.getPropertyValue("--article-reading-progress") || "0") >= 0.99;
+    });
+    const progressAtEnd = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressAtEnd).toBeGreaterThanOrEqual(0.99);
+    await page.locator(".related-section").first().scrollIntoViewIfNeeded();
+    const progressInRelated = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressInRelated).toBeGreaterThanOrEqual(0.99);
+    expect(progressInRelated).toBeLessThanOrEqual(1);
+
+    const [desktopProseBox, desktopSidebarBox] = await Promise.all([
+      page.locator(".article-prose").boundingBox(),
+      desktopSidebar.boundingBox(),
+    ]);
+    expect(desktopProseBox).not.toBeNull();
+    expect(desktopSidebarBox).not.toBeNull();
+    expect(desktopSidebarBox!.x).toBeGreaterThan(desktopProseBox!.x + desktopProseBox!.width);
+
+    const toc = page.getByRole("navigation", { name: "Obsah článku" });
+    await expect(toc).toHaveCount(articleCase.toc ? 1 : 0);
+    if (articleCase.toc) {
+      await expect(toc).toBeVisible();
+      const firstAnchor = toc.locator("a[href^='#']").first();
+      const href = await firstAnchor.getAttribute("href");
+      expect(href).toBeTruthy();
+      await firstAnchor.click();
+      await expectAnchorClearsStickyHeader(page, href!);
+
+      // Reload the current article with its hash in place to verify a real
+      // direct-entry navigation without entering a restricted about:blank origin.
+      // The E2E consent init script reads localStorage on every navigation.
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(new RegExp(`#${href!.slice(1)}import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+
+const cases = [
+  {
+    id: "bikejoring",
+    path: "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku",
+    title: "Bikejoring so psom: kompletný sprievodca od prvého tréningu až po preteky na Slovensku",
+    toc: true,
+    updated: false,
+    hasImage: true,
+  },
+  {
+    id: "stimulus-control",
+    path: "/aktivity/stimulus-control-u-psa",
+    title: "Stimulus control: kedy pes povel naozaj ovláda",
+    toc: true,
+    updated: false,
+    hasImage: true,
+  },
+  {
+    id: "granule",
+    path: "/starostlivost/ako-vybrat-granule-bez-marketingovych-mytov",
+    title: "Ako vybrať granule bez marketingových mýtov",
+    toc: true,
+    updated: true,
+    hasImage: true,
+  },
+  {
+    id: "no-image",
+    path: "/starostlivost/e2e-clanok-bez-obrazka",
+    title: "E2E článok bez hero obrázka",
+    toc: false,
+    updated: false,
+    hasImage: false,
+  },
+] as const;
+
+const productionReferenceCases = [
+  { id: "zubna-hygiena", path: "/starostlivost/ako-cistit-psovi-zuby" },
+  { id: "nosework", path: "/aktivity/nosework" },
+  { id: "prvy-den-steniatka", path: "/steniatka/prvy-den-so-steniatkom-doma" },
+] as const;
+
+async function expectNoSeriousAccessibilityViolations(page: Page) {
+  const result = await new AxeBuilder({ page })
+    .include("main#obsah")
+    // Third-party YouTube/Vimeo player DOM is outside Psipedia's control.
+    // The host iframe contract is covered separately below.
+    .exclude(".article-block-embed iframe")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const violations = result.violations.filter(({ impact }) => impact === "serious" || impact === "critical");
+  expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
+}
+
+// A production screenshot is optional evidence, not a reliable required-PR check.
+// External production navigation can hang the Playwright browser despite the
+// per-navigation timeout; local article assertions remain mandatory on PRs.
+function shouldCaptureProductionBaseline() {
+  return process.env.ARTICLE_UX_CAPTURE_PRODUCTION === "1" && process.env.GITHUB_EVENT_NAME !== "pull_request";
+}
+
+async function captureProductionBaseline(page: Page, path: string, output: string) {
+  if (!shouldCaptureProductionBaseline()) return;
+  try {
+    const response = await page.goto(`https://psipedia.sk${path}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 15_000,
+    });
+    if (!response?.ok()) {
+      console.warn(`[article-ux] production baseline unavailable for ${path}: HTTP ${response?.status() ?? "unknown"}`);
+      return;
+    }
+    await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined);
+    // Production can keep loading external images indefinitely. Baseline capture
+    // is best-effort evidence, not an assertion about the local article UX.
+    // Bound each screenshot so six captures cannot exhaust the test budget.
+    await page.screenshot({ path: output, timeout: 8_000, animations: "disabled" });
+  } catch (error) {
+    console.warn(
+      `[article-ux] production baseline unavailable for ${path}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+async function expectAnchorClearsStickyHeader(page: Page, href: string) {
+  const id = decodeURIComponent(href.replace(/^#/, ""));
+  const target = page.locator(`#${id}`);
+  await target.waitFor({ state: "visible" });
+  const metrics = await target.evaluate((node) => {
+    const header = document.querySelector<HTMLElement>(".site-header");
+    return {
+      top: node.getBoundingClientRect().top,
+      headerHeight: header?.getBoundingClientRect().height ?? 0,
+    };
+  });
+  expect(metrics.top).toBeGreaterThanOrEqual(metrics.headerHeight + 8);
+}
+
+async function expectSemanticArticleHeadings(page: Page) {
+  const levels = await page.locator(".article-prose h2, .article-prose h3").evaluateAll((headings) =>
+    headings.map((heading) => Number(heading.tagName.slice(1))),
+  );
+  let previous = 1;
+  for (const level of levels) {
+    expect(level).toBeGreaterThanOrEqual(2);
+    expect(level).toBeLessThanOrEqual(3);
+    expect(level - previous).toBeLessThanOrEqual(1);
+    previous = level;
+  }
+}
+
+test.beforeEach(async ({ page, baseURL }) => {
+  expect(new URL(baseURL!).hostname).toMatch(/^(localhost|127\.0\.0\.1)$/);
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+});
+
+test("ARTICLE-VISUAL-1 captures requested production references on desktop and mobile", async ({ page }, testInfo) => {
+  // Six external production navigations can each consume the bounded 15s timeout.
+  // Keep a separate budget for evidence collection without relaxing local UX assertions.
+  test.setTimeout(240_000);
+  test.skip(!shouldCaptureProductionBaseline(), "External production screenshot capture is opt-in outside required PR CI; local article UX checks still run.");
+  test.skip(testInfo.project.name !== "desktop-chromium", "Captured once with explicit desktop and mobile viewports.");
+  for (const reference of productionReferenceCases) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await captureProductionBaseline(
+      page,
+      reference.path,
+      `.e2e-artifacts/article-ux-1/${reference.id}-before-production-desktop-1440x900.png`,
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await captureProductionBaseline(
+      page,
+      reference.path,
+      `.e2e-artifacts/article-ux-1/${reference.id}-before-production-mobile-390x844.png`,
+    );
+  }
+});
+
+// Article details can contain remote media, so navigation waits for local DOM readiness,
+// not third-party images or embeds that can hold the browser load event open.
+for (const articleCase of cases) {
+  test(`${articleCase.id} mobile 390x844 article composition`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await captureProductionBaseline(
+      page,
+      articleCase.path,
+      `.e2e-artifacts/article-ux-1/${articleCase.id}-before-production-mobile-390x844.png`,
+    );
+
+    await page.goto(articleCase.path, { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 1, name: articleCase.title })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Navigácia v článku" })).toBeVisible();
+    if (articleCase.hasImage) {
+      await expect(page.locator(".article-hero-image")).toBeVisible();
+    } else {
+      await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
+    }
+    await expect(page.locator("[data-article-standfirst]")).toBeVisible();
+    await expect(page.locator(".article-intro")).toBeVisible();
+    await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
+    await expect(page.locator(".article-aside")).toHaveCount(0);
+    const mobileSidebar = page.locator("[data-article-discovery-sidebar]");
+    await expect(mobileSidebar).toBeHidden();
+    await expect(mobileSidebar.locator("[data-automatic-article-promo]")).toBeHidden();
+    const mobileProgress = page.locator("[data-article-reading-progress]");
+    await expect(mobileProgress).toHaveCount(1);
+    await expect(mobileProgress).toHaveAttribute("aria-hidden", "true");
+    if (articleCase.id === "no-image") {
+      await expect(page.locator('.article-prose [data-promo-key="veterinari"]')).toBeVisible();
+    }
+
+    const saveButton = page.getByRole("button", { name: /Uložiť medzi obľúbené|Odstrániť z obľúbených/ });
+    const compactShare = page.getByRole("group", { name: /Zdieľať/ }).first().getByRole("button").first();
+    for (const control of [saveButton, compactShare]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    await saveButton.focus();
+    await expect(saveButton).toBeFocused();
+
+    const metrics = await page.evaluate(() => {
+      const h1 = document.querySelector<HTMLElement>("h1")!;
+      const excerpt = document.querySelector<HTMLElement>(".article-prose [data-article-standfirst]")!;
+      const image = document.querySelector<HTMLElement>(".article-hero-image");
+      const prose = document.querySelector<HTMLElement>(".article-prose")!;
+      const intro = document.querySelector<HTMLElement>(".article-intro")!;
+      const introParagraph = intro.querySelector<HTMLElement>("p");
+      const bodyParagraph = document.querySelector<HTMLElement>(".article-block-text p");
+      const takeaway = document.querySelector<HTMLElement>(".takeaway-box")!;
+      const header = document.querySelector<HTMLElement>("[data-article-reading-start]")!;
+      const imageRect = image?.getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        h1Size: Number.parseFloat(getComputedStyle(h1).fontSize),
+        excerptClipping: excerpt.scrollHeight - excerpt.clientHeight,
+        excerptTop: excerpt.getBoundingClientRect().top,
+        imageRatio: imageRect ? imageRect.width / imageRect.height : null,
+        imageNaturalRatio: image instanceof HTMLImageElement && image.naturalHeight > 0 ? image.naturalWidth / image.naturalHeight : null,
+        imageMode: image?.closest("[data-image-display]")?.getAttribute("data-image-display") ?? null,
+        proseWidth: prose.getBoundingClientRect().width,
+        proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
+        canvasColor: getComputedStyle(document.querySelector<HTMLElement>('main#obsah')!).backgroundColor,
+        bodyColor: getComputedStyle(prose).color,
+        proseFontFamily: getComputedStyle(prose).fontFamily,
+        readingFontFamily: introParagraph ? getComputedStyle(introParagraph).fontFamily : null,
+        readingColor: introParagraph ? getComputedStyle(introParagraph).color : null,
+        readingMargin: introParagraph ? Number.parseFloat(getComputedStyle(introParagraph).marginLeft) : null,
+        readingExtraWidth: introParagraph ? introParagraph.getBoundingClientRect().width - intro.getBoundingClientRect().width : null,
+        titleLeft: h1.getBoundingClientRect().left,
+        readingLeft: introParagraph ? introParagraph.getBoundingClientRect().left : null,
+        firstSectionHeadingLeft: document.querySelector<HTMLElement>(".article-blocks h2")?.getBoundingClientRect().left ?? null,
+        introTextAlign: introParagraph ? getComputedStyle(introParagraph).textAlign : null,
+        introHyphens: introParagraph ? getComputedStyle(introParagraph).hyphens : null,
+        bodyTextAlign: bodyParagraph ? getComputedStyle(bodyParagraph).textAlign : null,
+        bodyHyphens: bodyParagraph ? getComputedStyle(bodyParagraph).hyphens : null,
+        proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
+        introTop: intro.getBoundingClientRect().top,
+        introBottom: intro.getBoundingClientRect().bottom,
+        takeawayTop: takeaway.getBoundingClientRect().top,
+        noImageGap: prose.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
+      };
+    });
+
+    console.log(`[article-ux] ${articleCase.id} mobile metrics ${JSON.stringify(metrics)}`);
+    await page.screenshot({ path: `.e2e-artifacts/article-ux-1/${articleCase.id}-after-local-mobile-390x844.png` });
+
+    expect(metrics.overflow).toBeLessThanOrEqual(1);
+    expect(metrics.h1Size).toBeGreaterThanOrEqual(26);
+    expect(metrics.h1Size).toBeLessThanOrEqual(31.5);
+    expect(metrics.excerptClipping, "The mobile perex must be fully visible").toBeLessThanOrEqual(1);
+    if (articleCase.hasImage) {
+      expect(metrics.imageRatio).not.toBeNull();
+      if (metrics.imageMode === "natural") {
+        // Intrinsic image ratio is preserved rather than forcing a 16:9 crop.
+        expect(metrics.imageNaturalRatio).toBeGreaterThan(0);
+        expect(Math.abs(metrics.imageRatio! - metrics.imageNaturalRatio!)).toBeLessThan(0.03);
+      } else {
+        expect(metrics.imageRatio!).toBeGreaterThan(1.74);
+        expect(metrics.imageRatio!).toBeLessThan(1.81);
+      }
+    } else {
+      expect(metrics.imageRatio).toBeNull();
+      expect(metrics.noImageGap).toBeLessThanOrEqual(32);
+    }
+    expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 24 + 1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.canvasColor).toBe("rgb(248, 244, 235)");
+    expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
+    expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
+    expect(metrics.readingFontFamily).toMatch(/Avenir Next|Avenir/);
+    expect(metrics.readingColor).toBe("rgb(52, 59, 55)");
+    expect(metrics.readingMargin).toBe(0);
+    expect(Math.abs(metrics.readingExtraWidth ?? 100)).toBeLessThanOrEqual(1);
+    expect(metrics.titleLeft).toBeGreaterThanOrEqual(11);
+    expect(metrics.titleLeft).toBeLessThanOrEqual(13);
+    expect(Math.abs((metrics.readingLeft ?? 100) - metrics.titleLeft)).toBeLessThanOrEqual(1);
+    if (metrics.firstSectionHeadingLeft !== null) {
+      expect(Math.abs(metrics.firstSectionHeadingLeft - metrics.titleLeft)).toBeLessThanOrEqual(1);
+    }
+    expect(metrics.introTextAlign).toBe("left");
+    expect(metrics.introHyphens).toBe("none");
+    if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
+    if (metrics.bodyHyphens !== null) expect(metrics.bodyHyphens).toBe("none");
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.52);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.58);
+    expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
+
+    if (articleCase.id === "bikejoring") {
+      expect(
+        metrics.excerptTop,
+        "Bikejoring standfirst must be visible or directly adjacent to the first 390x844 viewport",
+      ).toBeLessThanOrEqual(944);
+    }
+
+    const endSharing = page.getByRole("group", { name: /Zdieľať/ }).last();
+    const endShareControls = endSharing.locator("a, button");
+    expect(await endShareControls.count()).toBeGreaterThanOrEqual(3);
+    const firstShareBox = await endShareControls.nth(0).boundingBox();
+    const secondShareBox = await endShareControls.nth(1).boundingBox();
+    expect(firstShareBox).not.toBeNull();
+    expect(secondShareBox).not.toBeNull();
+    expect(Math.abs(firstShareBox!.y - secondShareBox!.y)).toBeLessThanOrEqual(2);
+    expect(firstShareBox!.height).toBeLessThanOrEqual(42);
+
+    const feedback = page.locator(".article-feedback");
+    await expect(feedback.getByRole("button", { name: "Áno", exact: true })).toBeVisible();
+    await expect(feedback.getByRole("button", { name: "Nie", exact: true })).toBeVisible();
+    await expect(feedback).not.toContainText(/🐾|👍|👎/);
+
+    const sources = page.locator(".article-block-sources");
+    if (await sources.count()) {
+      const sourceSize = await sources.first().evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
+      expect(sourceSize).toBeLessThanOrEqual(14.5);
+    }
+
+    const mobileUtilityStrip = page.locator("[data-mobile-name-day]");
+    await page.evaluate(() => window.scrollTo(0, 560));
+    const stickyHeader = page.locator(".site-header");
+    await expect(stickyHeader).toBeVisible();
+    const stickyHeaderBox = await stickyHeader.boundingBox();
+    expect(stickyHeaderBox).not.toBeNull();
+    expect(Math.abs(stickyHeaderBox!.y)).toBeLessThanOrEqual(2);
+    if (await mobileUtilityStrip.count()) {
+      const stripBox = await mobileUtilityStrip.boundingBox();
+      expect(stripBox).not.toBeNull();
+      expect(stripBox!.y + stripBox!.height).toBeLessThanOrEqual(1);
+    }
+
+    // Approved shared mobile UX: no floating back-to-top control covering content.
+    await expect(page.getByRole("button", { name: "Späť hore" })).toHaveCount(0);
+    await page.evaluate(() => window.scrollTo(0, 0));
+
+    const toc = page.getByRole("navigation", { name: "Obsah článku" });
+    if (articleCase.toc) {
+      await expect(toc).toHaveCount(1);
+      await expect(toc).toBeVisible();
+      const firstAnchor = toc.locator("a[href^='#']").first();
+      await expect(firstAnchor).toBeVisible();
+      const href = await firstAnchor.getAttribute("href");
+      expect(href).toBeTruthy();
+      if (articleCase.id === "bikejoring") {
+        await expect(toc).not.toContainText("Smer a zastavenie");
+      }
+      await firstAnchor.click();
+      await expectAnchorClearsStickyHeader(page, href!);
+
       await page.goto("about:blank");
       await page.goto(`${articleCase.path}${href}`, { waitUntil: "domcontentloaded" });
       await expectAnchorClearsStickyHeader(page, href!);
@@ -512,8 +1363,7 @@ for (const articleCase of cases) {
       await firstAnchor.click();
       await expectAnchorClearsStickyHeader(page, href!);
 
-      await page.goto("about:blank");
-      await page.goto(`${articleCase.path}${href}`, { waitUntil: "domcontentloaded" });
+));
       await expectAnchorClearsStickyHeader(page, href!);
       const directToc = page.getByRole("navigation", { name: "Obsah článku" });
       await expect(directToc).not.toHaveAttribute("open");
