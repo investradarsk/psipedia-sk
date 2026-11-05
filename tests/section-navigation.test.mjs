@@ -245,9 +245,17 @@ test("ADMIN-CORE navigation editor exposes a lightweight structural preview", ()
   assert.match(css, /\.admin-navigation-fields input,[\s\S]*?min-height:\s*44px/);
 });
 
-test("ADMIN-CORE keeps public navigation on the existing SiteHeader contract", () => {
+test("ADMIN-CORE preserves the public SiteHeader contract with server-projected navigation", () => {
   const header = read("components/site-header.tsx");
-  assert.match(header, /navigationItems\.filter\(\(item\) => item\.visible\)/);
-  assert.match(header, /storedChildren\.length \? storedChildren : fallbackChildren/);
+  const projection = read("lib/public-header-navigation.ts");
+  const layout = read("app/layout.tsx");
+  // Visibility, hierarchy and fallback subpages are now composed on the server,
+  // so the client header receives a compact, already-public navigation model.
+  assert.match(projection, /navigationItems\.filter\(\(item\) => item\.visible\)/);
+  assert.match(projection, /storedChildren\.length \? storedChildren : fallbackChildren/);
+  assert.match(projection, /visible\.filter\(\(item\) => !item\.parentId\)/);
+  assert.match(layout, /buildPublicHeaderNavigation\(await getNavigationItems\(\), portalSections\)/);
+  assert.match(header, /const nav = navigationItems;/);
   assert.match(header, /setMenuOpen\(false\)/);
+  assert.doesNotMatch(header, /import \{ portalSections \}/);
 });
