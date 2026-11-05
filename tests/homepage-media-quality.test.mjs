@@ -127,8 +127,22 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
     assert.match(segment, /Math\.min\(12, Math\.trunc\(limit\)\)/);
     assert.match(segment, /ORDER BY[\s\S]*LIMIT \?/);
     assert.doesNotMatch(segment, /fetch\(|\.filter\(\(.*imageUrl/);
-    assert.match(page, new RegExp(functionName));
+    if (functionName === "getHomepageDirectoryProfilesWithImages") {
+      // Kept for other consumers; homepage now uses one grouped D1 read.
+      assert.match(directory, /export async function getHomepageDirectoryProfilesByCategoriesWithImages/);
+      assert.match(page, /getHomepageDirectoryProfilesByCategoriesWithImages\(\["veterinari", "treneri"\], 8\)/);
+    } else {
+      assert.match(page, new RegExp(functionName));
+    }
   }
+  // The grouped homepage query must keep the old privacy and photo predicates,
+  // but apply the per-category limit only after ranking eligible published rows.
+  const groupedSql = await repoFile("lib/homepage-directory-query.ts");
+  assert.match(groupedSql, /WHERE status = 'published' AND category IN/);
+  assert.match(groupedSql, /HOMEPAGE_REAL_IMAGE_SQL/);
+  assert.match(groupedSql, /PARTITION BY category/);
+  assert.match(groupedSql, /WHERE card_rank <= \?/);
+  assert.match(groupedSql, /SELECT id, slug, name, category, city, district, image_url/);
   // Upcoming events without uploaded photos remain visible; EventImage provides safe category artwork.
   const upcoming = events
     .slice(events.indexOf("export async function getHomepageUpcomingEventsWithImages"))
