@@ -25,7 +25,6 @@ import {
   type PublicEventCard,
 } from "@/lib/events";
 import { publicLocationValue } from "@/lib/public-location";
-import { getEventFallbackImage, getEventOwnImage } from "@/lib/event-type-presentation";
 import styles from "./events-public.module.css";
 
 function eventTimeLabel(event: DogEvent) {
@@ -82,7 +81,6 @@ export function EventDetail({
       <PublicFoundation className={styles.foundation}>
         <DetailHero
           kind="event"
-          heroImageUrl={getEventOwnImage(event.imageUrl) ?? getEventFallbackImage(event.eventType)}
           breadcrumbs={
             <Breadcrumbs className={styles.breadcrumbs}>
               <Link href="/">Domov</Link>
