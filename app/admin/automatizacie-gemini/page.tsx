@@ -40,21 +40,31 @@ export default async function AdminGeminiAutomationPage({ searchParams }: {
   );
   const queueEnabled = externalEnabled || backgroundEnabled;
   let ready = true;
+  let historyAvailable = true;
+  let queueAvailable = true;
   let control: GeminiGlobalControl | null = null;
 
   try {
     const db = requireGeminiAdminD1();
-    // The queue is independent of settings, history and global control.
-    // Await all four reads together instead of delaying the entire dashboard
-    // until a second sequential D1 round trip has completed.
-    [settings, runs, control, queuedJobs] = await Promise.all([
+    // History and queue failures must not disable working settings or STOP.
+    const [settingsRead, historyRead, controlRead, queueRead] = await Promise.allSettled([
       listGeminiSettings(db),
       listRecentGeminiRuns(db),
       getGeminiGlobalControl(db),
       queueEnabled ? listGeminiManualBackgroundJobs(db) : Promise.resolve([]),
     ]);
+    if (settingsRead.status === "fulfilled") settings = settingsRead.value;
+    else ready = false;
+    if (controlRead.status === "fulfilled") control = controlRead.value;
+    else ready = false;
+    if (historyRead.status === "fulfilled") runs = historyRead.value;
+    else historyAvailable = false;
+    if (queueRead.status === "fulfilled") queuedJobs = queueRead.value;
+    else queueAvailable = false;
   } catch {
     ready = false;
+    historyAvailable = false;
+    queueAvailable = false;
   }
 
   return (
@@ -83,6 +93,8 @@ export default async function AdminGeminiAutomationPage({ searchParams }: {
         sections={geminiAutomationSections}
         settings={settings}
         available={ready}
+        initialHistoryAvailable={historyAvailable}
+        initialQueueAvailable={queueAvailable}
         externalEnabled={externalEnabled}
         queueEnabled={queueEnabled}
         scheduledEnabled={externalAgentScheduledEnabled(env)}
