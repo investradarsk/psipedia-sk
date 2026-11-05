@@ -1,4 +1,4 @@
-import { parseEventListing, eventTypeSelectionRedirect } from '@/lib/event-listing';
+import { parseEventListing, eventTypeSelectionRedirect, eventListingPageHref } from '@/lib/event-listing';
 import { getPublishedEventListing, getPublicEventCalendar } from '@/lib/event-store';
 import type { Metadata } from "next";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
@@ -119,6 +119,9 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     ]);
     if (!managedSection?.visible) notFound();
     const path = `/podujatia/${slug}`;
+    if (parseEventListing(rawSearchParams, eventType).page > events.pages) {
+      redirect(eventListingPageHref(path, rawSearchParams, events.pages));
+    }
     const policy = resolveListingIndexPolicy(path, rawSearchParams);
     const copy = eventTypeListingSeo(eventType);
     const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
