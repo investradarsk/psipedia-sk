@@ -317,7 +317,7 @@ export default async function BreedDetailPage({ params }: Props) {
 
   const fciGroupName = getFciGroup(breed.fciGroup)?.label || fci.fci_skupina_nazov || breed.group;
   const sectionNumber = managedBreed?.fciSectionNumber?.trim() ?? "";
-  const storedSectionName = (fci.fci_sekcia_nazov || breed.fciSection || "").trim();
+  const storedSectionName = stripStagedBreedMerge(fci.fci_sekcia_nazov || breed.fciSection || "").trim();
   const sectionName = publicFciSectionName(
     breed.fciGroup,
     sectionNumber,
