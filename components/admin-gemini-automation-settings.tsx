@@ -705,7 +705,8 @@ export function AdminGeminiAutomationSettings({
               <h2 id="gemini-drafts-title">Koncepty z automatizácie</h2>
               <Link href="/admin/automatizacie-gemini/koncepty">Všetky koncepty →</Link>
             </div>
-            {(externalEnabled || Boolean(pendingDeepLinkId)) && selected ? (
+            {/* Existing concepts remain readable even when the external discovery agent is disabled. */}
+            {selected ? (
               <>
                 <p className={styles.microcopy}>Koncepty kategórie {selected.label}. Zoznam a filtrovanie otvor na požiadanie; úpravy zostávajú v existujúcom kanonickom editore.</p>
                 {!showCategoryDrafts && (
@@ -719,10 +720,7 @@ export function AdminGeminiAutomationSettings({
                     deepLinkDraftId={selected.stableKey === initialSelectedKey ? pendingDeepLinkId : undefined} />
                 )}
               </>
-            ) : <p className={styles.emptyCompact}>
-              {externalEnabled ? "Vyber kategóriu pre prístup ku konceptom." :
-                "Externý pracovník nie je aktivovaný. Koncepty otvor cez samostatnú stránku."}
-            </p>}
+            ) : <p className={styles.emptyCompact}>Vyber kategóriu pre prístup ku konceptom.</p>}
           </section>
         </div>
       </div>
