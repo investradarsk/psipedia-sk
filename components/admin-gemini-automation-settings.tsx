@@ -36,9 +36,19 @@ const outcomeLabels: Record<string, string> = {
   NO_RESULT_EXHAUSTED: "Vyhľadávanie vyčerpalo dostupných kandidátov",
 };
 
-function jobStatus(job: GeminiQueuedJob) {
+function isStalledGeminiJob(job: GeminiQueuedJob, now: number) {
+  if (job.status !== "RUNNING" || !job.claimed_at) return false;
+  const claimedAt = Date.parse(job.claimed_at);
+  return Number.isFinite(claimedAt) && now - claimedAt > 2 * 60 * 60 * 1000;
+}
+
+function jobStatus(job: GeminiQueuedJob, now = Date.now()) {
   if (job.status === "QUEUED") return "V poradovníku — čaká na spustenie";
-  if (job.status === "RUNNING") return "Vyhľadáva / spracúva výsledok";
+  if (job.status === "RUNNING") {
+    return isStalledGeminiJob(job, now)
+      ? "Beh trvá viac než 2 hodiny — vyžaduje diagnostiku, nespúšťaj ho opakovane"
+      : "Vyhľadáva / spracúva výsledok";
+  }
   if (job.status === "FAILED") return "Zlyhalo: " + (job.error_code ?? "neznáma chyba");
   if (job.run_id == null) return "Neúplný zápis výsledku — vyžaduje kontrolu";
   return outcomeLabels[job.error_code ?? ""] ??
@@ -167,17 +177,22 @@ function GeminiSettingsCard({ initial, available, externalEnabled, scheduledEnab
       } else {
         setPilotResult(data as PilotResult);
       }
-      // Re-render server-side run history, without starting any other request.
+      // The POST outcome is authoritative: a failed readback must not turn an
+      // accepted paid job into an apparent failed run and invite a retry.
       router.refresh();
-      const settingResponse = await fetch("/api/admin/gemini-automation?stable_key=" + encodeURIComponent(setting.stableKey), {
-        credentials: "same-origin", cache: "no-store",
-      });
-      if (settingResponse.ok) {
-        const latest = await settingResponse.json() as { setting?: GeminiSettingView };
-        if (latest.setting) setSetting(latest.setting);
+      try {
+        const settingResponse = await fetch("/api/admin/gemini-automation?stable_key=" + encodeURIComponent(setting.stableKey), {
+          credentials: "same-origin", cache: "no-store",
+        });
+        if (settingResponse.ok) {
+          const latest = await settingResponse.json() as { setting?: GeminiSettingView };
+          if (latest.setting) setSetting(latest.setting);
+        }
+      } catch {
+        // The regular read-only polling will reconcile the settings.
       }
     } catch {
-      setPilotError("Gemini beh sa nepodarilo dokončiť. Pred opakovaním skontroluj históriu behov.");
+      setPilotError("Potvrdenie spustenia sa nepodarilo získať. Pred opakovaním over frontu a históriu, aby nevznikla duplicitná platená úloha.");
     } finally {
       requestLocked.current = false;
       setRunning(false);
@@ -244,9 +259,9 @@ function GeminiSettingsCard({ initial, available, externalEnabled, scheduledEnab
       <p className={styles.scheduleExplanation} role="status">{schedule.explanation}</p>
       <GeminiPromptPreview stableKey={setting.stableKey} />
       {latestJob && <p role="status" aria-live="polite"
-        className={latestJob.status === "FAILED" || (latestJob.status === "SUCCESS" && !latestJob.run_id)
+        className={latestJob.status === "FAILED" || isStalledGeminiJob(latestJob, currentTime) || (latestJob.status === "SUCCESS" && !latestJob.run_id)
           ? styles.pilotError : styles.feedback}>
-        Úloha #{latestJob.id}: {jobStatus(latestJob)}
+        Úloha #{latestJob.id}: {jobStatus(latestJob, currentTime)}
         {latestJob.completed_at ? " · Dokončené " + formatDate(latestJob.completed_at) : ""}
         {latestJob.run_id ? " · Beh #" + latestJob.run_id : ""}
       </p>}
@@ -414,7 +429,7 @@ function GeminiHistory({ runs, selectedKey, settings }: {
   );
 }
 
-function GeminiQueue({ jobs }: { jobs: readonly GeminiQueuedJob[] }) {
+function GeminiQueue({ jobs, currentTime }: { jobs: readonly GeminiQueuedJob[]; currentTime: number }) {
   const waiting = jobs.filter((job) => job.status === "QUEUED").map((job) => job.id).sort((a, b) => a - b);
   return (
     <section className={styles.panel} aria-labelledby="gemini-queue-title">
@@ -439,7 +454,7 @@ function GeminiQueue({ jobs }: { jobs: readonly GeminiQueuedJob[] }) {
           <li key={job.id}>
             <strong>Úloha #{job.id} · {job.stable_key}</strong>
             <span>{job.status === "QUEUED" ? "V poradovníku · " + (waiting.indexOf(job.id) + 1) + ". v poradí"
-              : job.status === "RUNNING" ? "Pracuje"
+              : job.status === "RUNNING" ? jobStatus(job, currentTime)
                 : job.status === "SUCCESS" && !job.run_id ? "NEÚPLNÝ ZÁPIS" : job.status}</span>
             <small>Vytvorené: {formatDate(job.created_at)} · Beh: {job.run_id ?? "—"}</small>
             {(job.error_code || (job.status === "SUCCESS" && !job.run_id)) && (
@@ -456,11 +471,14 @@ function GeminiQueue({ jobs }: { jobs: readonly GeminiQueuedJob[] }) {
 }
 
 export function AdminGeminiAutomationSettings({
-  sections, settings, available, externalEnabled, queueEnabled, scheduledEnabled, control, initialJobs, recentRuns, initialSelectedKey, initialDraftId,
+  sections, settings, available, initialHistoryAvailable, initialQueueAvailable,
+  externalEnabled, queueEnabled, scheduledEnabled, control, initialJobs, recentRuns, initialSelectedKey, initialDraftId,
 }: {
   sections: readonly { key: GeminiSectionKey; label: string }[];
   settings: readonly GeminiSettingView[];
   available: boolean;
+  initialHistoryAvailable: boolean;
+  initialQueueAvailable: boolean;
   externalEnabled: boolean;
   queueEnabled: boolean;
   scheduledEnabled: boolean;
@@ -470,19 +488,30 @@ export function AdminGeminiAutomationSettings({
   initialSelectedKey?: string;
   initialDraftId?: string;
 }) {
-  const [remote, setRemote] = useState<{ settings: readonly GeminiSettingView[]; jobs: GeminiQueuedJob[]; runs: readonly GeminiRecentRun[]; control: GeminiGlobalControl | null } | null>(null);
+  const [remote, setRemote] = useState<{
+    settings: readonly GeminiSettingView[];
+    jobs: GeminiQueuedJob[];
+    runs: readonly GeminiRecentRun[];
+    control: GeminiGlobalControl | null;
+    historyAvailable: boolean;
+    queueAvailable: boolean;
+  } | null>(null);
   const router = useRouter();
   const [controlPending, setControlPending] = useState(false);
   const [controlError, setControlError] = useState("");
+  const [refreshError, setRefreshError] = useState("");
   const liveControl = remote?.control ?? control;
   const globalRunning = liveControl?.state === "RUNNING";
   const liveSettings = remote?.settings ?? settings;
   const jobs = remote?.jobs ?? initialJobs;
   const liveRuns = remote?.runs ?? recentRuns;
+  const historyAvailable = remote?.historyAvailable ?? initialHistoryAvailable;
+  const queueAvailable = remote?.queueAvailable ?? initialQueueAvailable;
   // Keep in-progress runs responsive; avoid heavy D1 polling every 10 seconds
   // when the page only displays idle settings and historical results.
   const hasActiveWork = jobs.some((job) => job.status === "QUEUED" || job.status === "RUNNING") ||
-    liveRuns.some((run) => run.status === "RUNNING");
+    liveRuns.some((run) => run.status === "RUNNING") ||
+    !historyAvailable || (queueEnabled && !queueAvailable);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [selectedKey, setSelectedKey] = useState(initialSelectedKey ?? settings[0]?.stableKey ?? "");
   const [pendingDeepLinkId, setPendingDeepLinkId] = useState(initialDraftId);
@@ -497,8 +526,10 @@ export function AdminGeminiAutomationSettings({
       jobs: previous?.jobs ?? [...initialJobs],
       runs: previous?.runs ?? recentRuns,
       control: previous?.control ?? control,
+      historyAvailable: previous?.historyAvailable ?? initialHistoryAvailable,
+      queueAvailable: previous?.queueAvailable ?? initialQueueAvailable,
     }));
-  }, [settings, initialJobs, recentRuns, control]);
+  }, [settings, initialJobs, recentRuns, control, initialHistoryAvailable, initialQueueAvailable]);
   const onQuickSaved = useCallback((next: GeminiSettingView) => {
     onSaved(next);
     // Refresh the selected detail form from persisted values after an inline edit.
@@ -510,17 +541,19 @@ export function AdminGeminiAutomationSettings({
     if (!available) return;
     let cancelled = false;
     let inFlight = false;
+    const controller = new AbortController();
     const refresh = async () => {
       if (cancelled || inFlight || document.visibilityState === "hidden") return;
       inFlight = true;
       try {
         const response = await fetch("/api/admin/gemini-automation", {
-          credentials: "same-origin", cache: "no-store",
+          credentials: "same-origin", cache: "no-store", signal: controller.signal,
         });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error("Gemini stav nie je dostupný.");
         const data = await response.json() as {
           settings?: GeminiSettingView[]; jobs?: GeminiQueuedJob[];
           runs?: GeminiRecentRun[]; control?: GeminiGlobalControl;
+          historyAvailable?: boolean; queueAvailable?: boolean;
         };
         if (!cancelled) {
           if (Array.isArray(data.settings) || Array.isArray(data.jobs) || Array.isArray(data.runs)) {
@@ -529,12 +562,16 @@ export function AdminGeminiAutomationSettings({
               jobs: Array.isArray(data.jobs) ? data.jobs : previous?.jobs ?? [...initialJobs],
               runs: Array.isArray(data.runs) ? data.runs : previous?.runs ?? recentRuns,
               control: data.control ?? previous?.control ?? control,
+              historyAvailable: data.historyAvailable ?? previous?.historyAvailable ?? initialHistoryAvailable,
+              queueAvailable: data.queueAvailable ?? previous?.queueAvailable ?? initialQueueAvailable,
             }));
             setCurrentTime(Date.now());
+            setRefreshError("");
           }
         }
       } catch {
-        // A temporary network failure does not start or repeat any paid work.
+        // Read-only refresh failures must be visible, but must never retry paid work.
+        if (!cancelled) setRefreshError("Aktuálny stav sa nepodarilo overiť. Zobrazené údaje môžu byť zastarané.");
       } finally {
         inFlight = false;
       }
@@ -550,14 +587,19 @@ export function AdminGeminiAutomationSettings({
     const id = window.setInterval(() => void refresh(), hasActiveWork ? 10000 : 30000);
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [available, settings, initialJobs, recentRuns, control, hasActiveWork]);
+  }, [
+    available, settings, initialJobs, recentRuns, control, hasActiveWork,
+    initialHistoryAvailable, initialQueueAvailable,
+  ]);
 
   const selected = liveSettings.find((item) => item.stableKey === selectedKey) ?? liveSettings[0];
   const waiting = jobs.filter((job) => job.status === "QUEUED").length;
   const running = jobs.filter((job) => job.status === "RUNNING").length;
+  const stalled = jobs.filter((job) => isStalledGeminiJob(job, currentTime)).length;
   const enabled = liveSettings.filter((item) => item.enabled).length;
   const latestRun = liveRuns[0];
 
@@ -582,6 +624,8 @@ export function AdminGeminiAutomationSettings({
         jobs: previous?.jobs ?? [...initialJobs],
         runs: previous?.runs ?? recentRuns,
         control: data.control!,
+        historyAvailable: previous?.historyAvailable ?? initialHistoryAvailable,
+        queueAvailable: previous?.queueAvailable ?? initialQueueAvailable,
       }));
       router.refresh();
     } catch (error) {
@@ -604,6 +648,7 @@ export function AdminGeminiAutomationSettings({
 
   return (
     <div className={styles.dashboard}>
+      {refreshError && <p role="status" className={styles.warning}>{refreshError}</p>}
       <section className={styles.panel} aria-labelledby="gemini-main-stop-title">
         <div className={styles.panelHeader}>
           <h2 id="gemini-main-stop-title">Hlavný STOP Gemini</h2>
@@ -634,7 +679,7 @@ export function AdminGeminiAutomationSettings({
         </div>
         <div className={styles.metric}>
           <small>Čakajúce a bežiace úlohy</small>
-          <strong>{!available ? "Údaje nedostupné" : queueEnabled ? waiting + " čaká · " + running + " beží" : "Fronta nie je aktivovaná"}</strong>
+          <strong>{!available || (queueEnabled && !queueAvailable) ? "Údaje nedostupné" : queueEnabled ? waiting + " čaká · " + running + " beží" : "Fronta nie je aktivovaná"}</strong>
           <span>{queueEnabled ? "Podľa evidencie úloh na pozadí" : "Bez aktívneho pracovného režimu"}</span>
         </div>
         <div className={styles.metric}>
@@ -644,7 +689,7 @@ export function AdminGeminiAutomationSettings({
         </div>
         <div className={styles.metric}>
           <small>Posledný zaznamenaný beh</small>
-          <strong>{!available ? "Údaje nedostupné" : latestRun ? runLabel(latestRun.status) : "Zatiaľ bez behu"}</strong>
+          <strong>{!available || !historyAvailable ? "Údaje nedostupné" : latestRun ? runLabel(latestRun.status) : "Zatiaľ bez behu"}</strong>
           <span>{latestRun ? formatDate(latestRun.startedAt) : "—"}
             {latestRun?.errorCode ? " · " + latestRun.errorCode : ""}</span>
         </div>
@@ -698,8 +743,12 @@ export function AdminGeminiAutomationSettings({
         </div>
 
         <div className={styles.column}>
-          <GeminiHistory runs={liveRuns} selectedKey={selected?.stableKey ?? ""} settings={liveSettings} />
-          {queueEnabled && <GeminiQueue jobs={jobs} />}
+          {historyAvailable
+            ? <GeminiHistory runs={liveRuns} selectedKey={selected?.stableKey ?? ""} settings={liveSettings} />
+            : <section className={styles.panel} role="alert">História behov je dočasne nedostupná. Neznamená to, že žiadne behy neprebehli.</section>}
+          {queueEnabled && (queueAvailable
+            ? <GeminiQueue jobs={jobs} currentTime={currentTime} />
+            : <section className={styles.panel} role="alert">Stav fronty je dočasne nedostupný. Pred ďalším spustením over už zaradené úlohy.</section>)}
           <section className={styles.panel} aria-labelledby="gemini-drafts-title">
             <div className={styles.panelHeader}>
               <h2 id="gemini-drafts-title">Koncepty z automatizácie</h2>
@@ -724,9 +773,10 @@ export function AdminGeminiAutomationSettings({
           </section>
         </div>
       </div>
-      {running > 0 && <p role="status" className={styles.warning}>
-        Práve beží platená úloha. Ak zostane v stave RUNNING viac než dve hodiny,
-        ďalšie spustenia ostanú blokované do manuálnej diagnostiky v GitHub Actions.
+      {stalled > 0 && <p role="alert" className={styles.warning}>
+        {stalled} platená úloha zostáva v stave RUNNING viac než dve hodiny.
+        Ďalšie spustenia ostávajú blokované do manuálnej diagnostiky v GitHub Actions.
+        Neopakuj spustenie bez overenia výsledku.
       </p>}
       <details className={styles.rules}>
         <summary>Prevádzkové pravidlá a obmedzenia</summary>
