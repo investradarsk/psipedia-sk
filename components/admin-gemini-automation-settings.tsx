@@ -510,8 +510,7 @@ export function AdminGeminiAutomationSettings({
   // Keep in-progress runs responsive; avoid heavy D1 polling every 10 seconds
   // when the page only displays idle settings and historical results.
   const hasActiveWork = jobs.some((job) => job.status === "QUEUED" || job.status === "RUNNING") ||
-    liveRuns.some((run) => run.status === "RUNNING") ||
-    !historyAvailable || (queueEnabled && !queueAvailable);
+    liveRuns.some((run) => run.status === "RUNNING");
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [selectedKey, setSelectedKey] = useState(initialSelectedKey ?? settings[0]?.stableKey ?? "");
   const [pendingDeepLinkId, setPendingDeepLinkId] = useState(initialDraftId);
@@ -565,7 +564,6 @@ export function AdminGeminiAutomationSettings({
               historyAvailable: data.historyAvailable ?? previous?.historyAvailable ?? initialHistoryAvailable,
               queueAvailable: data.queueAvailable ?? previous?.queueAvailable ?? initialQueueAvailable,
             }));
-            setCurrentTime(Date.now());
             setRefreshError("");
           }
         }
@@ -574,6 +572,8 @@ export function AdminGeminiAutomationSettings({
         if (!cancelled) setRefreshError("Aktuálny stav sa nepodarilo overiť. Zobrazené údaje môžu byť zastarané.");
       } finally {
         inFlight = false;
+        // Keep age-based stalled-job warnings accurate even during a read outage.
+        if (!cancelled) setCurrentTime(Date.now());
       }
     };
     // Server props already contain a freshly fetched D1 snapshot. Avoid an
