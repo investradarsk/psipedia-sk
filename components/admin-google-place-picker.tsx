@@ -56,8 +56,11 @@ export function AdminGooglePlacePicker({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const autoStarted = useRef(false);
+  const requestInFlight = useRef(false);
 
   async function discover() {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setBusy(true);
     setError("");
     setMessage("");
@@ -79,6 +82,7 @@ export function AdminGooglePlacePicker({
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Google Maps miesto sa nepodarilo vyhľadať.");
     } finally {
+      requestInFlight.current = false;
       setBusy(false);
     }
   }
@@ -93,6 +97,8 @@ export function AdminGooglePlacePicker({
   }, [autoDiscover, available, configured, endpoint]);
 
   async function confirm(placeId: string) {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setBusy(true);
     setError("");
     setMessage("");
@@ -115,6 +121,7 @@ export function AdminGooglePlacePicker({
     } catch (caught) {
       setError(googlePlaceErrorText(caught instanceof Error ? caught.message : "Google Maps miesto sa nepodarilo potvrdiť."));
     } finally {
+      requestInFlight.current = false;
       setBusy(false);
     }
   }
