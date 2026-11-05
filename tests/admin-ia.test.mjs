@@ -142,7 +142,7 @@ test("sidebar links are mounted only for expanded groups and prefetched only on 
   assert.match(navigation, /onMouseEnter=\{\(\) => prefetchOnIntent\(item\.href\)\}/);
   assert.match(navigation, /onFocus=\{\(\) => prefetchOnIntent\(item\.href\)\}/);
   assert.match(navigation, /prefetched\.current\.has\(href\)/);
-  assert.match(navigation, /router\.prefetch\(href\)/);
+  assert.match(navigation, /router\.prefetch\(href, \{ onInvalidate: \(\) => prefetched\.current\.delete\(href\) \}\)/);
   assert.match(navigation, /aria-expanded=\{expanded\}/);
   assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
   assert.match(shell, /<AdminNavigation/);
@@ -190,7 +190,7 @@ test("admin landing is the read-only workspace and old article filters redirect 
   assert.match(articles, /listManagedArticleSummaries/);
   assert.match(articles, /listPath="\/admin\/clanky"/);
   assert.match(articleDashboard, /const routePath = fixedPortalSection \? "\/admin\/steniatka" : listPath;/);
-  assert.match(articleEditor, /window\.location\.assign\("\/admin\/clanky"\)/);
+  assert.match(articleEditor, /router\.push\("\/admin\/clanky"\)/);
 });
 
 test("dashboard uses bounded existing summaries and never treats unavailable data as a successful zero", () => {
