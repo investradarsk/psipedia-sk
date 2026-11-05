@@ -65,6 +65,20 @@ test("merges use clear editorial/FCI labels rather than internal debug markers",
   assert.doesNotMatch(JSON.stringify(plan.changes),/Pôvodné pole|⟦|⟧/);
   assert.equal(new Set(Object.values(BREED_COMPACT_HEADINGS)).size,23);
 });
+test("a partially migrated breed resumes without duplicating FCI eye and ear sections",()=>{
+  const original={
+    "FCI lebka":"Silná lebka. — Oči podľa FCI: Tmavé oči. — Tvárová časť podľa FCI: Krátka tvár.",
+    "FCI oči":"Tmavé oči.",
+    "FCI tvár":"Krátka tvár.",
+    "FCI uši":"Vzpriamené uši."
+  };
+  const plan=planBreedCompactMigration(original);
+  assert.equal(plan.ready,true);
+  assert.equal(plan.statuses.find(s=>s.source==="FCI oči").status,"ALREADY_PRESENT");
+  assert.equal(plan.statuses.find(s=>s.source==="FCI tvár").status,"ALREADY_PRESENT");
+  assert.equal(plan.changes["FCI lebka"],original["FCI lebka"]+" — Uši podľa FCI: Vzpriamené uši.");
+  assert.doesNotMatch(plan.changes["FCI lebka"],/<br\s*\/?\s*>/i);
+});
 test("changed source after migration blocks deletion instead of hiding new text",()=>{
   const original=planBreedCompactMigration({"FCI chvost":"Pôvodný chvost."});
   const changed=planBreedCompactMigration({...original.changes,"FCI chvost":"Zmenený odborný opis chvosta."});
