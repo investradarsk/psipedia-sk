@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { mkdirSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
-const articlePath = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
+// External images and embeds must not block the local article DOM readiness check.\nconst articlePath = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
 
 test.beforeEach(async ({ page, baseURL }) => {
   expect(new URL(baseURL!).hostname).toMatch(/^(localhost|127\.0\.0\.1)$/);
@@ -12,7 +12,7 @@ test.beforeEach(async ({ page, baseURL }) => {
 for (const width of [390, 1440]) {
   test(`CONTENT-DISCOVERY-V3 keeps one compact article next step at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-    await page.goto(articlePath);
+    await page.goto(articlePath, { waitUntil: "domcontentloaded" });
     const trail = page.locator("[data-content-discovery-v3]");
     await expect(trail).toHaveCount(1);
     await trail.scrollIntoViewIfNeeded();
