@@ -47,7 +47,8 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // 0153 is eligible ONLY for a protected owner-dispatched D1 migration.
 // 0154 and 0157 are additive manual Facebook checklists; each requires the same owner-dispatched protected process.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
-export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([]);
+// 0158 is present for review, but has no approved protected rollout target.
+export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze(["0158_admin_directory_list_indexes.sql"]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0151 requires canonical psipedia-sk-db");

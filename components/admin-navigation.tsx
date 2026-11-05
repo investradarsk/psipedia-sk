@@ -9,6 +9,7 @@ import {
   getAdminBreadcrumbs,
 } from "@/lib/admin-navigation";
 import styles from "./admin-navigation.module.css";
+import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
 
 function NavigationPendingIndicator() {
   const { pending } = useLinkStatus();
@@ -21,21 +22,28 @@ function NavigationPendingIndicator() {
   );
 }
 
-function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
-  const pathname = usePathname();
+function useAdminIntentPrefetch() {
   const router = useRouter();
   const prefetched = useRef(new Set<string>());
-  const prefetchOnIntent = (href: string) => {
-    // Mobile workspace/article routes intentionally use a fresh document.
-    // Do not prefetch an RSC payload which will never be used on iOS.
+
+  return (href: string) => {
+    // Only iOS/iPadOS needs a full document on these two streamed routes.
+    // Android and desktop can reuse the client router without a reload.
     if ((href === "/admin" || href === "/admin/clanky") &&
-      window.matchMedia("(max-width: 820px)").matches) return;
-    // Prefetch only with user intent, not automatically for every visible
-    // link to a dynamic, D1-backed admin page.
+      window.matchMedia("(max-width: 820px)").matches &&
+      isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) return;
+
+    // No speculative prefetch of dozens of authenticated D1-backed pages.
+    // One request per deliberate hover/focus, re-enabled when Next invalidates it.
     if (prefetched.current.has(href)) return;
     prefetched.current.add(href);
-    router.prefetch(href);
+    router.prefetch(href, { onInvalidate: () => prefetched.current.delete(href) });
   };
+}
+
+function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
+  const pathname = usePathname();
+  const prefetchOnIntent = useAdminIntentPrefetch();
   const active = findActiveAdminNavigationItem(pathname);
   // Remember manual disclosure per route; a route change naturally reverts to its active group.
   const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<{ pathname: string; group: string } | null>(null);
@@ -241,6 +249,7 @@ export function AdminNavigation({
 
 export function AdminBreadcrumbs() {
   const pathname = usePathname();
+  const prefetchOnIntent = useAdminIntentPrefetch();
   const breadcrumbs = getAdminBreadcrumbs(pathname);
 
   return (
@@ -250,7 +259,12 @@ export function AdminBreadcrumbs() {
           <li key={item.href}>
             {item.current
               ? <span aria-current="page">{item.label}</span>
-              : <Link href={item.href}>{item.label}</Link>}
+              : <Link
+                  href={item.href}
+                  prefetch={false}
+                  onMouseEnter={() => prefetchOnIntent(item.href)}
+                  onFocus={() => prefetchOnIntent(item.href)}
+                >{item.label}</Link>}
           </li>
         ))}
       </ol>

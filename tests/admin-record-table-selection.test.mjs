@@ -48,3 +48,15 @@ test("unified Help table requires a reviewed preflight and cannot spill across p
   assert.match(validator, /helpAdminDomainSql\(\)/);
   assert.match(validator, /bulkHelpStatusSql/);
 });
+
+
+test("paginated admin tables avoid background prefetch and support server-wide ordering", () => {
+  const pagination = source("components/admin-pagination.tsx");
+  const table = source("components/admin-record-table.tsx");
+  const directory = source("components/admin-directory-dashboard.tsx");
+  assert.equal((pagination.match(/prefetch=\{false\}/g) ?? []).length, 5);
+  assert.match(table, /serverSorted \? "zoradenie platí pre celý zoznam"/);
+  assert.match(table, /enableSorting: Boolean\(column\.sortValue\) && !serverSorted/);
+  assert.match(directory, /serverSorted/);
+  assert.match(directory, /name="sort"/);
+});

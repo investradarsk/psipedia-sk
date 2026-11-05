@@ -1,4 +1,5 @@
 "use client";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import {useEffect,useRef,useState,useSyncExternalStore} from "react";
 import {calendarMonthDays,calendarMonthLabel,calendarWeekdays,moveCalendarMonth} from "@/lib/event-calendar-view";
 import {facebookWallTime,facebookPostsForDay,type FacebookImagePost} from "@/lib/facebook-image-post";
@@ -394,7 +395,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         {scheduledInMonth.length? <div className={styles.upcomingList}>{scheduledInMonth.map(post=>
           <AdminActionButton key={post.id} type="button" className={styles.upcomingRow} disabled={loading||!ready}
             onClick={()=>edit(post)}>
-            {post.imageUrl?<img src={post.imageUrl} width={48} height={48} alt="" loading="lazy" decoding="async"/>:
+            {post.imageUrl?<img src={post.imageUrl} width={48} height={48} alt="" loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(post.imageUrl, [160, 320])} sizes="48px"/>:
               <span className={styles.imageFallback} aria-hidden="true">FB</span>}
             <span className={styles.upcomingText}>
               <strong>{post.articleId?"Článok · ":""}{post.title}</strong>
@@ -483,7 +484,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         {!data.items.length&&<p className={styles.emptyNote}>Žiadne príspevky pre zvolený filter.</p>}
         <div className={styles.list}>{data.items.map(post=><article key={post.id}
           className={[styles.listItem,styles[visualStatus(post).kind+"Card"]??""].join(" ")}>
-          {post.imageUrl?<img src={post.imageUrl} alt="" width={72} height={72} loading="lazy" decoding="async"/>:
+          {post.imageUrl?<img src={post.imageUrl} alt="" width={72} height={72} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(post.imageUrl, [160, 320])} sizes="72px"/>:
             <span className={styles.imageFallback} aria-hidden="true">FB</span>}
           <div className={styles.listText}>
             <div className={styles.listTitle}>{activeInline?.id===post.id
@@ -577,7 +578,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
                 {pickerItems.map(item=><div key={item.id} className={styles.pickerResultRow}>
                   <button type="button" className={styles.pickerResult}
                     disabled={selectionBusy||pickerMarkerBusy!==null} onClick={()=>void selectContent(item)}>
-                    {item.imageUrl?<img src={item.imageUrl} alt="" loading="lazy" width={48} height={48}/>:<span className={styles.pickerEmpty}>Bez foto</span>}
+                    {item.imageUrl?<img src={item.imageUrl} alt="" loading="lazy" decoding="async" width={48} height={48} srcSet={responsiveMediaSrcSet(item.imageUrl, [160, 320])} sizes="48px"/>:<span className={styles.pickerEmpty}>Bez foto</span>}
                     <span><strong>{item.title}</strong>{item.detail&&<small>{item.detail}</small>}</span>
                     <span aria-hidden="true">Vybrať</span>
                   </button>

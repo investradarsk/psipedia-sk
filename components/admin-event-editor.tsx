@@ -68,6 +68,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   const [status, setStatus] = useState<EventStatus>(event?.status ?? "draft");
   const [seo, setSeo] = useState(event?.seo ?? {});
   const [saving, setSaving] = useState(false);
+  const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -197,6 +198,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   }
 
   async function save(nextStatus: EventStatus) {
+    if (savePendingRef.current || uploading) return;
+    savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
       const response = await fetch(event ? `/api/admin/events/${event.id}` : "/api/admin/events", {
@@ -217,7 +220,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Podujatie sa nepodarilo uložiť.");
-    } finally { setSaving(false); }
+    } finally { savePendingRef.current = false; setSaving(false); }
   }
 
   const liveSummary = (
@@ -257,7 +260,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         }
       >
         <form id="event-editor-v3-form" noValidate className={`admin-event-editor ${styles.eventForm}`} onSubmit={(submitEvent) => { submitEvent.preventDefault(); if (!saving && !uploading) void save(status); }}>
-          <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
+          <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} source={event ? { entityType: "EVENT", canonicalEntityId: event.id } : undefined} onAccepted={applyAutomationUpdate} />
           <EditorSection id="event-basics" className="admin-form-card admin-form-card--intro">
             <div className="admin-field admin-field--title"><label htmlFor="event-title">Názov podujatia</label><input id="event-title" value={title} onChange={(input) => changeTitle(input.target.value)} placeholder="Napríklad: Klubová výstava retrieverov" required /></div>
             <div className="admin-field"><label htmlFor="event-excerpt">Krátky popis</label><AdminLexicalTextField id="event-excerpt" rows={3} value={excerpt} onChange={setExcerpt} placeholder="Čo sa bude diať a pre koho je podujatie určené?" required ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>

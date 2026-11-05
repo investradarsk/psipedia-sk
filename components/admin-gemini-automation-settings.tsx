@@ -10,7 +10,7 @@ import type { GeminiQueuedJob } from "@/lib/gemini-automation-background-queue";
 import type { GeminiRecentRun } from "@/lib/gemini-automation-admin-store";
 import type { GeminiGlobalControl } from "@/lib/gemini-global-control";
 import styles from "./admin-gemini-automation.module.css";
-import { AdminGeminiNotionDrafts } from "./admin-gemini-notion-drafts";
+import { AdminGeminiNotionDrafts } from "./admin-gemini-canonical-drafts-lazy";
 import { AdminGeminiQuickSettings } from "./admin-gemini-quick-settings";
 import { geminiSchedulePresentation, nextVisibleGeminiSchedule } from "@/lib/gemini-schedule-presentation";
 
@@ -479,9 +479,14 @@ export function AdminGeminiAutomationSettings({
   const liveSettings = remote?.settings ?? settings;
   const jobs = remote?.jobs ?? initialJobs;
   const liveRuns = remote?.runs ?? recentRuns;
+  // Keep in-progress runs responsive; avoid heavy D1 polling every 10 seconds
+  // when the page only displays idle settings and historical results.
+  const hasActiveWork = jobs.some((job) => job.status === "QUEUED" || job.status === "RUNNING") ||
+    liveRuns.some((run) => run.status === "RUNNING");
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [selectedKey, setSelectedKey] = useState(initialSelectedKey ?? settings[0]?.stableKey ?? "");
   const [pendingDeepLinkId, setPendingDeepLinkId] = useState(initialDraftId);
+  const [showCategoryDrafts, setShowCategoryDrafts] = useState(Boolean(initialDraftId));
   const [dirty, setDirty] = useState(false);
   const [cardRevision, setCardRevision] = useState(0);
   const onDirtyChange = useCallback((value: boolean) => setDirty(value), []);
@@ -536,19 +541,19 @@ export function AdminGeminiAutomationSettings({
     };
     // Server props already contain a freshly fetched D1 snapshot. Avoid an
     // identical full 22-category settings/history/queue GET at hydration.
-    // Keep the established 10-second cadence and refresh promptly when an
-    // inactive tab becomes visible again.
+    // Poll every 10s while work is active, otherwise every 30s. Refresh
+    // immediately when returning to a previously hidden tab.
     const onVisible = () => {
       if (document.visibilityState === "visible") void refresh();
     };
     document.addEventListener("visibilitychange", onVisible);
-    const id = window.setInterval(() => void refresh(), 10000);
+    const id = window.setInterval(() => void refresh(), hasActiveWork ? 10000 : 30000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [available, settings, initialJobs, recentRuns, control]);
+  }, [available, settings, initialJobs, recentRuns, control, hasActiveWork]);
 
   const selected = liveSettings.find((item) => item.stableKey === selectedKey) ?? liveSettings[0];
   const waiting = jobs.filter((job) => job.status === "QUEUED").length;
@@ -593,6 +598,7 @@ export function AdminGeminiAutomationSettings({
       !window.confirm("V otvorenom editore máš neuložené zmeny konceptu. Opustiť kategóriu?")) return;
     setDirty(false);
     setPendingDeepLinkId(undefined);
+    setShowCategoryDrafts(false);
     setSelectedKey(key);
   }
 
@@ -699,16 +705,22 @@ export function AdminGeminiAutomationSettings({
               <h2 id="gemini-drafts-title">Koncepty z automatizácie</h2>
               <Link href="/admin/automatizacie-gemini/koncepty">Všetky koncepty →</Link>
             </div>
-            {(externalEnabled || Boolean(pendingDeepLinkId)) && selected ? (
+            {/* Existing concepts remain readable even when the external discovery agent is disabled. */}
+            {selected ? (
               <>
                 <p className={styles.microcopy}>Koncepty kategórie {selected.label}. Zoznam a filtrovanie otvor na požiadanie; úpravy zostávajú v existujúcom kanonickom editore.</p>
-                <AdminGeminiNotionDrafts key={selected.stableKey} stableKey={selected.stableKey} nativeOnly
-                  deepLinkDraftId={selected.stableKey === initialSelectedKey ? pendingDeepLinkId : undefined} />
+                {!showCategoryDrafts && (
+                  <button type="button" className={styles.runButton}
+                    onClick={() => setShowCategoryDrafts(true)}>
+                    Načítať koncepty kategórie
+                  </button>
+                )}
+                {showCategoryDrafts && (
+                  <AdminGeminiNotionDrafts key={selected.stableKey} stableKey={selected.stableKey} nativeOnly
+                    deepLinkDraftId={selected.stableKey === initialSelectedKey ? pendingDeepLinkId : undefined} />
+                )}
               </>
-            ) : <p className={styles.emptyCompact}>
-              {externalEnabled ? "Vyber kategóriu pre prístup ku konceptom." :
-                "Externý pracovník nie je aktivovaný. Koncepty otvor cez samostatnú stránku."}
-            </p>}
+            ) : <p className={styles.emptyCompact}>Vyber kategóriu pre prístup ku konceptom.</p>}
           </section>
         </div>
       </div>

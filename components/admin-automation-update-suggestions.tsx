@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   AutomationUpdateFieldActionResult,
   CanonicalUpdateSuggestion,
@@ -10,6 +10,7 @@ import type {
 type Props = {
   initialSuggestions: CanonicalUpdateSuggestion[];
   onAccepted?: (updatedValues: Record<string, unknown>, updatedAt: string) => void;
+  source?: { entityType: "DIRECTORY" | "EVENT"; canonicalEntityId: number };
 };
 
 function scalarText(value: unknown) {
@@ -48,11 +49,38 @@ function proposedKey(value: unknown) {
   try { return JSON.stringify(value); } catch { return String(value); }
 }
 
-export function AdminAutomationUpdateSuggestions({ initialSuggestions, onAccepted }: Props) {
+export function AdminAutomationUpdateSuggestions({ initialSuggestions, onAccepted, source }: Props) {
   const [suggestions, setSuggestions] = useState(initialSuggestions);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const entityType = source?.entityType;
+  const canonicalEntityId = source?.canonicalEntityId;
+
+  // Automation reviews are supplementary: do not delay the editable profile
+  // while their D1 joins and field materialization complete.
+  useEffect(() => {
+    if (!entityType || !canonicalEntityId) return;
+    const controller = new AbortController();
+    const query = new URLSearchParams({
+      entityType,
+      canonicalEntityId: String(canonicalEntityId),
+    });
+    void fetch(`/api/admin/automation-update-suggestions?${query}`, {
+      signal: controller.signal,
+      cache: "no-store",
+      credentials: "same-origin",
+    }).then(async (response) => {
+      const data = await response.json() as { suggestions?: CanonicalUpdateSuggestion[]; error?: string };
+      if (!response.ok) throw new Error(data.error || "Návrhy sa nepodarilo načítať.");
+      if (!controller.signal.aborted) setSuggestions(data.suggestions ?? []);
+    }).catch((caught: unknown) => {
+      if (!controller.signal.aborted) {
+        setError(caught instanceof Error ? caught.message : "Návrhy sa nepodarilo načítať.");
+      }
+    });
+    return () => controller.abort();
+  }, [entityType, canonicalEntityId]);
 
   const conflictingFields = useMemo(() => {
     const values = new Map<string, Set<string>>();
@@ -67,7 +95,7 @@ export function AdminAutomationUpdateSuggestions({ initialSuggestions, onAccepte
     return new Set([...values.entries()].filter(([, set]) => set.size > 1).map(([field]) => field));
   }, [suggestions]);
 
-  if (!suggestions.length) return null;
+  if (!suggestions.length) return error ? <p className="admin-flash admin-flash--error" role="alert">{error}</p> : null;
 
   async function decide(suggestion: CanonicalUpdateSuggestion, field: CanonicalUpdateSuggestionField, action: "accept" | "reject") {
     if (action === "reject" && !window.confirm("Zamietnuť tento návrh?")) return;

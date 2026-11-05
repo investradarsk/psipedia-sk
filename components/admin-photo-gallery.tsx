@@ -1,4 +1,5 @@
 "use client";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 
 import { useId, useState } from "react";
 import { arrayMove } from "@dnd-kit/sortable";
@@ -74,7 +75,9 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
     <AdminSortableGallery urls={value} as="li" containerAs="ol" className={styles.items}
       disabled={locked} onReorder={(from,to)=>onChange(arrayMove(value,from,to))}
       renderRow={(index,handle)=><>
-        <img src={value[index]} alt={`Fotografia ${index + 1}`} loading="lazy" />
+        <img src={value[index]} alt={`Fotografia ${index + 1}`} loading="lazy" decoding="async"
+          srcSet={responsiveMediaSrcSet(value[index], [160, 320])}
+          sizes="(max-width: 480px) 44vw, 160px" width={160} height={128} />
         <div className={styles.controls}>
           {handle}
           <button type="button" disabled={locked || index === 0}
