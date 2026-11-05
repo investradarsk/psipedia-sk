@@ -365,6 +365,7 @@ export function GoogleMapRenderer(props: Props) {
   const mapTypeRef = useRef<PublicMapType>(mapType);
   const mapTypeIdleSuppressionRef = useRef(createMapTypeIdleSuppressionState());
   const onViewportChangeRef = useRef(onViewportChange);
+  const initialViewportRef = useRef(viewport);
   const onSelectItemRef = useRef(onSelectItem);
   const onClusterClickRef = useRef(onClusterClick);
   const [ready, setReady] = useState(false);
@@ -373,6 +374,9 @@ export function GoogleMapRenderer(props: Props) {
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange;
   }, [onViewportChange]);
+  useEffect(() => {
+    initialViewportRef.current = viewport;
+  }, [viewport]);
   useEffect(() => {
     onSelectItemRef.current = onSelectItem;
   }, [onSelectItem]);
@@ -435,8 +439,8 @@ export function GoogleMapRenderer(props: Props) {
         if (disposed || !containerRef.current) return;
 
         const map = new mapsLibrary.Map(containerRef.current, {
-          center: MAP_DEFAULT_CENTER,
-          zoom: MAP_DEFAULT_ZOOM,
+          center: initialViewportRef.current.center,
+          zoom: initialViewportRef.current.zoom,
           mapId,
           mapTypeId: mapTypeRef.current,
           mapTypeControl: false,
