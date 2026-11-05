@@ -129,13 +129,13 @@ test("homepage uses the managed shared hero while retaining its home.hero image 
   assert.doesNotMatch(home, /className="hero-card"/);
 });
 
-test("detail pages now share the exact same renderer as section HERO", () => {
-  const universal = read("components/public-visual-system/universal-page-hero.tsx");
+test("detail pages keep standalone headings and images, never the section HERO", () => {
   const detail = read("components/detail-primitives/detail-primitives.tsx");
   const article = read("components/article-detail.tsx");
-  assert.match(universal, /<UnifiedSectionHero/);
-  assert.match(detail, /<UniversalPageHero/);
-  assert.match(article, /<UniversalPageHero/);
+  assert.doesNotMatch(detail, /<UniversalPageHero|<UnifiedSectionHero/);
+  assert.doesNotMatch(article, /<UniversalPageHero|<UnifiedSectionHero/);
+  assert.match(detail, /className=\{styles\.hero\}/);
+  assert.match(article, /<h1>\{article\.title\}<\/h1>/);
 });
 
 test("hero images still come only from section visuals, never list entities", () => {
