@@ -19,6 +19,7 @@ import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { manualBreedCellHasValue } from "@/lib/notion-breed-manual-transfer-guards";
 import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
+import { readNotionStagedBreedField, invalidNotionStagedBreedTargets } from "@/lib/notion-breed-stage-read";
 import { notionBreedRichTextProperty as notionRichTextProperty, sameBreedSyncValue as sameBreedField } from "@/lib/notion-breed-text";
 import { reconcileBreedExtraFields, BREED_EXTRA_FIELDS, readBreedExtraFields, extraValueFromNotion } from "@/lib/notion-breed-extras";
 import {
@@ -236,7 +237,7 @@ function structuredBreedColumns(
     // A blank individual column is not a deletion and cannot overwrite a
     // nonempty aggregate value or an existing Admin FCI/editorial section.
     // Explicitly filled individual columns still take priority over JSON.
-    const filled=notionRichTextProperty(page,column);
+    const filled=readNotionStagedBreedField(page,column);
     if (filled) merged[key]=filled;
   }
   return Object.keys(merged).length ? merged : undefined;
@@ -281,6 +282,10 @@ function invalidStructuredBreedFields(page: NotionPage): Set<BreedNotionField> {
       if(!valid)invalid.add(field);
     }catch{invalid.add(field);}
   }
+  for(const target of invalidNotionStagedBreedTargets(page)){
+    const field=BREED_NOTION_SCHEMA.find(spec=>spec.notion===target&&spec.mode==="content");
+    if(field)invalid.add(field.id as BreedNotionField);
+  }
   return invalid;
 }
 
@@ -299,7 +304,7 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     status: "draft",
     fciNumber: optionalNumber(page, "FCI číslo"),
     fciGroup: optionalNumber(page, "FCI skupina"),
-    fciSection: notionRichTextProperty(page, "FCI sekcia"),
+    fciSection: readNotionStagedBreedField(page, "FCI sekcia"),
     fciSectionNumber: notionRichTextProperty(page, "FCI sekcia číslo"),
     officialFciName: notionRichTextProperty(page, "Oficiálny FCI názov"),
     validStandardDate: notionDateStartProperty(page, "Platnosť FCI štandardu") || null,
@@ -341,10 +346,10 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     intro: notionRichTextProperty(page, "Intro"),
     character: notionRichTextProperty(page, "Charakter"),
     needs: notionRichTextProperty(page, "Potreby"),
-    history: notionRichTextProperty(page, "História"),
-    exercise: notionRichTextProperty(page, "Pohyb"),
-    training: notionRichTextProperty(page, "Výcvik"),
-    health: notionRichTextProperty(page, "Zdravie"),
+    history: readNotionStagedBreedField(page, "História"),
+    exercise: readNotionStagedBreedField(page, "Pohyb"),
+    training: readNotionStagedBreedField(page, "Výcvik"),
+    health: readNotionStagedBreedField(page, "Zdravie"),
     healthRisks: splitList(notionRichTextProperty(page, "Zdravotné riziká")),
     goodFor: splitList(notionRichTextProperty(page, "Vhodné pre")),
     consider: splitList(notionRichTextProperty(page, "Zvážiť")),
@@ -980,6 +985,7 @@ async function syncOneBreed(
       if (!expectedNotionHash || !/^[a-f0-9]{64}$/i.test(expectedNotionHash))
         throw new Error("BREED_EXPLICIT_HASH_REQUIRED");
       if (authority[explicitField] === "admin") throw new Error("BREED_FIELD_ADMIN_AUTHORITY");
+      if (invalidStructuredBreedFields(page).has(explicitField)) throw new Error("BREED_STAGED_FIELD_REQUIRES_REVIEW");
       const actualHash = await sha256Text(JSON.stringify(breedFieldSnapshot(basePayload)[explicitField]) ?? "null");
       if (actualHash !== expectedNotionHash) throw new Error("BREED_EXPLICIT_REMOTE_CHANGED");
       // The manually confirmed Notion value and correct breed ID are enough;
