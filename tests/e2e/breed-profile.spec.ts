@@ -126,16 +126,12 @@ test("breed profile: representative canonical details return 200, keep canonical
     await expect(identity).toBeVisible();
     await expect(photo).toBeVisible();
 
-    // S-06: the canonical DetailHero is two-column on desktop and
-    // intentionally single-column on mobile. Verify both responsive modes.
+    // All detail pages now render the same homepage-style HERO.
     await page.evaluate(() => document.fonts.ready);
-    const sharedHero = page.locator('[data-public-detail-hero="breed"] [data-has-media="true"]');
+    const sharedHero = page.locator('[data-public-detail-hero="breed"] [data-unified-section-hero]');
     await expect(sharedHero).toBeVisible();
-    await expect.poll(() => sharedHero.evaluate((hero) => {
-      const style = getComputedStyle(hero);
-      const tracks = style.gridTemplateColumns.trim().split(" ").filter(Boolean);
-      return style.display === "grid" && tracks.length === (window.innerWidth <= 800 ? 1 : 2);
-    })).toBe(true);
+    await expect(sharedHero.locator("[data-unified-section-hero-visual]")).toBeVisible();
+    await expect(sharedHero.getByRole("heading", { level: 1, name: breed.name })).toBeVisible();
 
     // Read all boxes in one synchronous layout snapshot. Still fail on any
     // genuine hero overlap, but do not mix geometry across layout shifts.
@@ -291,7 +287,7 @@ test("breed profile: static anchor navigation, no-crop media, useful cards and a
   await expectAxeClean(page, "Breed profile");
 
   await page.goto("/plemena/nova-scotia-duck-tolling-retriever");
-  await expect(page.getByText("Fotografia sa pripravuje", { exact: true })).toBeVisible();
+  await expect(page.getByText("Fotografia sa pripravuje.", { exact: true })).toBeVisible();
 });
 
 test("breed profile: FCI standard renders seven permanently visible expert sections and working anchor navigation", async ({ page }) => {
