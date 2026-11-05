@@ -18,12 +18,12 @@ import {
   setGoogleMapsConsent,
 } from "@/lib/google-maps-consent";
 import type { MapRendererCommand, MapRendererStatus } from "./google-map-renderer";
+import styles from "./public-location-map.module.css";
 
 const GoogleMapRenderer = lazy(async () => {
   const rendererModule = await import("./google-map-renderer");
   return { default: rendererModule.GoogleMapRenderer };
 });
-import styles from "./public-location-map.module.css";
 
 type Attribution = { label: string; url?: string };
 
@@ -160,26 +160,26 @@ export function PublicLocationMap({
               </PublicNotice>
             }>
               <GoogleMapRenderer
-              apiKey={googleApiKey}
-              mapId={googleMapId}
-              testMode={testRenderer}
-              rendererEnabled={rendererEnabled || testRenderer}
-              consentGranted={consentGranted || testRenderer}
-              items={items}
-              clusters={[]}
-              selectedItemId={selected?.id ?? null}
-              viewport={viewport}
-              mapType={mapType}
-              command={command}
-              onViewportChange={() => {}}
-              onSelectItem={(id) => {
-                const item = items.find((candidate) => candidate.id === id);
-                if (item) focusItem(item);
-              }}
-              onClusterClick={() => {}}
-              onStatusChange={setRendererStatus}
-              ariaLabel={`Interaktívna mapa: ${title}`}
-              gestureHandling="cooperative"
+                apiKey={googleApiKey}
+                mapId={googleMapId}
+                testMode={testRenderer}
+                rendererEnabled={rendererEnabled || testRenderer}
+                consentGranted={consentGranted || testRenderer}
+                items={items}
+                clusters={[]}
+                selectedItemId={selected?.id ?? null}
+                viewport={viewport}
+                mapType={mapType}
+                command={command}
+                onViewportChange={() => {}}
+                onSelectItem={(id) => {
+                  const item = items.find((candidate) => candidate.id === id);
+                  if (item) focusItem(item);
+                }}
+                onClusterClick={() => {}}
+                onStatusChange={setRendererStatus}
+                ariaLabel={`Interaktívna mapa: ${title}`}
+                gestureHandling="cooperative"
               />
             </Suspense>
           ) : showRenderer ? (
