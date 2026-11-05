@@ -30,10 +30,21 @@ export async function GET(request: Request) {
       ]);
       return Response.json({ setting, job }, { headers: NO_STORE });
     }
-    const [settings, runs, jobs, control] = await Promise.all([
+    // A broken history/queue read must not make STOP or saved settings disappear.
+    const [settingsRead, historyRead, queueRead, controlRead] = await Promise.allSettled([
       listGeminiSettings(db), listRecentGeminiRuns(db), listGeminiManualBackgroundJobs(db, 50), getGeminiGlobalControl(db),
     ]);
-    return Response.json({ settings, runs, jobs, control }, { headers: NO_STORE });
+    if (settingsRead.status === "rejected" || controlRead.status === "rejected") {
+      return Response.json({ error: "Stav nastavení alebo hlavného STOP nie je dostupný." }, { status: 503, headers: NO_STORE });
+    }
+    return Response.json({
+      settings: settingsRead.value,
+      runs: historyRead.status === "fulfilled" ? historyRead.value : [],
+      jobs: queueRead.status === "fulfilled" ? queueRead.value : [],
+      control: controlRead.value,
+      historyAvailable: historyRead.status === "fulfilled",
+      queueAvailable: queueRead.status === "fulfilled",
+    }, { headers: NO_STORE });
   } catch {
     return Response.json({ error: "Gemini konfigurácie nie sú dostupné. Over migrácie 0113 a 0126." }, { status: 503, headers: NO_STORE });
   }
