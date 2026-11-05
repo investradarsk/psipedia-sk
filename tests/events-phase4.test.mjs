@@ -147,7 +147,12 @@ test("internal discovery controls remain crawlable while directory pagination st
     "utf8",
   );
 
-  assert.match(calendar, /href=\{\s*timeHref\(\s*value\s*\)\s*\}/);
+  // The shared category navigator renders real anchors from these href items,
+  // while the click handler retains the in-place calendar state transition.
+  assert.match(calendar, /href:\s*timeHref\(value\)/);
+  assert.match(calendar, /<PublicSubcategoryNavigator/);
+  assert.match(calendar, /clickNavigate\(event,\s*timeHref\(value\)/);
+  assert.match(readFileSync(new URL("../components/public-visual-system/public-subcategory-navigator.tsx", import.meta.url), "utf8"), /<Link[\s\S]*?href=\{item\.href\}/);
   assert.match(eventsPage, /shortcuts=\{\s*searchShortcuts\s*\}/);
   assert.match(
     eventsPage,

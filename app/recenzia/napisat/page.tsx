@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ProfileReviewSubmissionForm } from "@/components/profile-review-submission-form";
@@ -30,9 +31,10 @@ function StateCard({
 }) {
   return (
     <main id="obsah" className="review-auth-shell review-auth-shell--centered">
+      <UniversalPageHero eyebrow="Recenzie Psipedia" title={title} intro={message} />
       <section className="review-auth-verification-card">
         <span className="eyebrow">Recenzie Psipedia</span>
-        <h1>{title}</h1>
+        <h2>{title}</h2>
         <p>{message}</p>
         <Link className="button button--dark" href={href}>{action}</Link>
       </section>
@@ -128,6 +130,7 @@ export default async function ReviewSubmissionPage({
 
   return (
     <main id="obsah" className="review-auth-shell">
+      <UniversalPageHero eyebrow="Recenzie Psipedia" title={`Napísať recenziu: ${target.name}`} intro="Napíš vlastné hodnotenie služby na Psipedii." />
       <ProfileReviewSubmissionForm
         resourceId={target.resourceId}
         profileName={target.name}

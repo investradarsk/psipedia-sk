@@ -27,7 +27,7 @@ test.describe("admin directory v2", () => {
     let response = await page.goto("/admin/adresar?category=bogus&status=bogus&verification=bogus&media=bogus&page=-4", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.getByLabel("Kategória")).toHaveValue("");
-    await expect(page.getByLabel("Stav publikácie")).toHaveValue("all");
+    await expect(page.locator('select[name="status"]')).toHaveValue("all");
     await expect(page.getByLabel("Overenie")).toHaveValue("all");
     await expect(page.getByLabel("Obrázok")).toHaveValue("all");
 
@@ -64,7 +64,7 @@ test.describe("admin directory v2", () => {
     await expect(page.getByText("11 položiek vybraných na tejto strane")).toBeVisible();
     await expect(page.getByText("Vybrané: 11", { exact: true })).toBeVisible();
 
-    await page.getByLabel("Stav publikácie").selectOption("published");
+    await page.locator('select[name="status"]').selectOption("published");
     await page.getByRole("button", { name: "Použiť filtre" }).click();
     await expect(page.locator(".admin-directory-results")).toContainText("Nájdené: 1");
     await expect(page.getByText("Vybrané: 11", { exact: true })).toHaveCount(0);
@@ -301,7 +301,7 @@ test.describe("admin directory v2", () => {
     for (const control of [
       page.locator('input[name="q"]'),
       page.getByLabel("Kategória"),
-      page.getByLabel("Stav publikácie"),
+      page.locator('select[name="status"]'),
       page.getByLabel("Kraj"),
       page.getByLabel("Okres"),
       page.locator('select[name="city"]'),

@@ -340,3 +340,23 @@
     margin-bottom: 5px;
   }
 }
+
+/* Contextual promos must always render a readable CTA label, including when
+   global article-body link styling or desktop overrides are active. */
+.magazine :global(a[data-public-action]) {
+  color: #fff;
+}
+.magazine :global(a[data-public-action] > span) {
+  display: inline;
+  color: inherit;
+  opacity: 1;
+  visibility: visible;
+}
+.magazine.withPhoto :global(a[data-public-action]) {
+  color: #174b38;
+}
+@media (min-width: 621px) {
+  .magazine[data-visual-library-desktop-published="true"] :global(a[data-public-action]) {
+    color: #fff;
+  }
+}

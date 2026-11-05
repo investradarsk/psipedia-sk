@@ -32,10 +32,6 @@ import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { CTA_DIRECTORY_MAP_ANCHOR } from "@/lib/visual-library-anchors";
 import styles from "./directory-public.module.css";
 
-function profileCountLabel(count: number) {
-  return count === 1 ? "profil" : count > 1 && count < 5 ? "profily" : "profilov";
-}
-
 function mapHref(filters: DirectoryFilters, category?: DirectoryCategorySlug) {
   // Reuse the actual public map URL contract. No Google SDK call on listing.
   const params = serializeMapUiFilters({
@@ -160,7 +156,6 @@ export async function DirectoryPage({
                 searchScope="services"
               />
             }
-            metaSlot={active ? `${result.total} ${profileCountLabel(result.total)}` : undefined}
           />
         </UnifiedSectionHeroShell>
 

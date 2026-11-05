@@ -99,9 +99,9 @@ export function EshopRatingForm({ eshopId, eshopName, eshopSlug, siteKey, initia
     <form className={styles.form} onSubmit={submit}>
       <header>
         <span className="eyebrow">Hodnotenie e-shopu</span>
-        <h1>
+        <h2>
           {initialRating ? "Upraviť hodnotenie" : "Ohodnotiť"} {eshopName}
-        </h1>
+        </h2>
         <p>Každú oblasť ohodnoťte od 1 do 5. Text recenzie nie je potrebný.</p>
       </header>
 

@@ -187,7 +187,7 @@ export function ProfileReviewSubmissionForm({
     return (
       <section className={styles.confirmation} aria-live="polite">
         <span className="eyebrow">Recenzie Psipedia</span>
-        <h1>Ďakujeme za recenziu</h1>
+        <h2>Ďakujeme za recenziu</h2>
         <p>{result.text}</p>
         <p className={styles.pendingNote}>Recenzia zatiaľ nie je verejná a čaká na kontrolu.</p>
         <Link className="button button--dark" href={result.profileHref || profileHref}>
@@ -201,7 +201,7 @@ export function ProfileReviewSubmissionForm({
     <form ref={formRef} className={styles.form} onSubmit={submit} noValidate={false}>
       <header className={styles.header}>
         <span className="eyebrow">Recenzie Psipedia</span>
-        <h1>Napísať recenziu</h1>
+        <h2>Napísať recenziu</h2>
         <p>
           Hodnotíte <strong>{profileName}</strong>. Recenziu pred zverejnením skontrolujeme.
         </p>

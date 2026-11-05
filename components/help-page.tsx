@@ -4,7 +4,6 @@ import {
   PublicHelpReportBanner,
 } from "@/components/public-visual-system/public-help-banner";
 import { HelpBrowser } from "@/components/help-browser";
-import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { PublicHelpCategoryNav } from "@/components/public-visual-system/public-help-category-nav";
 import {
   PublicFoundation,
@@ -50,19 +49,9 @@ export async function HelpPage({
   initialRegion?: "all" | import("@/lib/events").SlovakRegion;
 }) {
   const active = initialCategory === "all" ? null : getHelpCategory(initialCategory);
-  const activeCount = active
-    ? (categoryCounts[active.slug] ??
-      items.filter((item) => item.category === active.slug && !item.resolved).length)
-    : null;
   const heroVisual = await getSectionHeroVisual(
     active ? `help.${active.slug}` : "section.pomoc-psom",
   );
-  const countValues = Object.values(categoryCounts).filter(
-    (value): value is number => typeof value === "number",
-  );
-  const totalActive = countValues.length
-    ? countValues.reduce((sum, value) => sum + value, 0)
-    : null;
   const browserItems = items.filter((item) => item.category !== "stratene-a-najdene");
 
   return (
@@ -111,23 +100,6 @@ export async function HelpPage({
                 shortcuts={[]}
                 searchScope="help"
               />
-            }
-            metaSlot={
-              <div className={styles.headerMeta}>
-                {activeCount !== null ? (
-                  <span>
-                    <strong>{activeCount}</strong> aktívnych záznamov
-                  </span>
-                ) : null}
-                {!active && totalActive !== null ? (
-                  <span>
-                    <strong>{totalActive}</strong> aktívnych záznamov
-                  </span>
-                ) : null}
-                <span>
-                  <ShieldCheckIcon size={17} /> Zobrazujeme iba publikované údaje
-                </span>
-              </div>
             }
           />
         </UnifiedSectionHeroShell>

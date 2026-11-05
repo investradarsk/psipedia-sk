@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactElement, ReactNode } from "react";
+import type { MouseEvent, ReactElement, ReactNode } from "react";
 import { ArrowIcon } from "@/components/icons";
 import { PageContainer } from "@/components/page-system";
 import { PublicIcon } from "./public-visual-system";
@@ -65,7 +65,10 @@ function LandingItem({ item }: { item: PublicSubcategoryItem }) {
   );
 }
 
-function CompactItem({ item }: { item: PublicSubcategoryItem }) {
+function CompactItem({ item, onSelect }: {
+  item: PublicSubcategoryItem;
+  onSelect?: (event: MouseEvent<HTMLAnchorElement>) => void;
+}) {
   return (
     <Link
       className={cx("section-tab", item.current && "is-active", styles.compactItem, item.current && styles.compactItemCurrent)}
@@ -73,6 +76,7 @@ function CompactItem({ item }: { item: PublicSubcategoryItem }) {
       aria-current={item.current ? "page" : undefined}
       rel={item.rel}
       prefetch={item.prefetch}
+      onClick={onSelect}
       data-public-subcategory-item
     >
       {item.icon ? <PublicIcon icon={item.icon} size="sm" /> : null}
@@ -87,12 +91,16 @@ export function PublicSubcategoryNavigator({
   label,
   mode = "landing",
   mobileLayout = "wrap",
+  columns,
+  onSelect,
   className,
 }: {
   items: PublicSubcategoryItem[];
   label: string;
   mode?: PublicSubcategoryNavigatorMode;
   mobileLayout?: "wrap" | "grid";
+  columns?: 4 | 6;
+  onSelect?: (event: MouseEvent<HTMLAnchorElement>, index: number) => void;
   className?: string;
 }) {
   if (!items.length) return null;
@@ -100,13 +108,19 @@ export function PublicSubcategoryNavigator({
   if (mode === "compact") {
     return (
       <nav
-        className={cx(styles.navigator, styles.compact, mobileLayout === "grid" && styles.compactGridMobile, className)}
+        className={cx(styles.navigator, styles.compact, mobileLayout === "grid" && styles.compactGridMobile, columns === 6 && styles.compactSix, columns === 4 && styles.compactFour, className)}
         aria-label={label}
         data-public-subcategory-navigator
         data-public-subcategory-mode="compact"
       >
         <PageContainer className={cx("section-tabs-inner", styles.compactTrack)} data-public-subcategory-track>
-          {items.map((item, index) => <CompactItem item={item} key={item.href + "-" + index} />)}
+          {items.map((item, index) => (
+            <CompactItem
+              item={item}
+              key={item.href + "-" + index}
+              onSelect={onSelect ? (event) => onSelect(event, index) : undefined}
+            />
+          ))}
         </PageContainer>
       </nav>
     );

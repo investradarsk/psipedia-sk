@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { buildListingPageMetadata } from "@/lib/listing-seo";
 import { DogNameDayCalendar } from "@/components/dog-name-day-calendar";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { getPublishedDogNameDaysForMonth, searchPublishedDogNameDays } from "@/lib/dog-name-day-store";
 import { resolveDogNameDayCalendar, todayInBratislava } from "@/lib/dog-name-day-calendar";
 import styles from "@/components/dog-name-day-calendar.module.css";
@@ -41,15 +42,15 @@ export default async function DogNameDaysPage({
 
   return (
     <main className={styles.page} id="obsah">
-      <div className={styles.container}>
-        <nav className={styles.breadcrumbs} aria-label="Navigačná cesta">
+      <UniversalPageHero
+        breadcrumbs={<nav className={styles.breadcrumbs} aria-label="Navigačná cesta">
           <Link href="/">Domov</Link><span aria-hidden="true">/</span><span>Psie meniny</span>
-        </nav>
-        <header className={styles.intro}>
-          <span className={styles.eyebrow}>Kalendár psích mien</span>
-          <h1>Psie meniny počas celého roka</h1>
-          <p>Vyber deň, pozri si publikované psie mená a prechádzaj medzi mesiacmi. Kalendár vychádza z redakčne evidovaných údajov Psipedie.</p>
-        </header>
+        </nav>}
+        eyebrow="Kalendár psích mien"
+        title="Psie meniny počas celého roka"
+        intro="Vyber deň, pozri si publikované psie mená a prechádzaj medzi mesiacmi. Kalendár vychádza z redakčne evidovaných údajov Psipedie."
+      />
+      <div className={styles.container}>
         <section className={styles.nameSearch} aria-label="Vyhľadanie psích menín podľa mena">
           <form action="/psie-meniny" method="get" role="search">
             <label htmlFor="dog-name-search">Vyhľadať psie meno</label>

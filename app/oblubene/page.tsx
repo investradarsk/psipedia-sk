@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FavoritesList } from "@/components/favorites-list";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 
 export const dynamic = "force-dynamic";
@@ -15,13 +16,11 @@ export default async function FavoritesPage() {
 
   return (
     <main id="obsah">
-      <header className="page-hero page-hero--compact shell">
-        <div className="page-hero-inner">
-          <span className="eyebrow">Tvoja knižnica</span>
-          <h1>Obľúbené články</h1>
-          <p>Uložené zostanú v tomto zariadení, kým ich neodstrániš alebo nevymažeš údaje prehliadača.</p>
-        </div>
-      </header>
+      <UniversalPageHero
+        eyebrow="Tvoja knižnica"
+        title="Obľúbené články"
+        intro="Uložené zostanú v tomto zariadení, kým ich neodstrániš alebo nevymažeš údaje prehliadača."
+      />
       <section className="page-body shell"><FavoritesList articles={articles} /></section>
     </main>
   );

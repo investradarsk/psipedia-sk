@@ -16,7 +16,7 @@ const home = read("app/page.tsx");
 const directoryPage = read("components/directory-page.tsx");
 
 test("SECTION-HERO-V2 keeps one canonical hero and a homepage-style separate tools panel", () => {
-  assert.match(hero, /export async function UnifiedSectionHero/);
+  assert.match(hero, /export function UnifiedSectionHero/);
   assert.match(hero, /data-unified-section-hero-visual/);
   assert.match(hero, /data-unified-section-hero-tools/);
   assert.match(hero, /<div className=\{styles\.visual\}[\s\S]*<\/div>[\s\S]*hasTools \? \(/);
@@ -129,16 +129,13 @@ test("homepage uses the managed shared hero while retaining its home.hero image 
   assert.doesNotMatch(home, /className="hero-card"/);
 });
 
-test("detail pages remain outside SECTION-HERO-V2", () => {
-  for (const path of [
-    "components/article-detail.tsx",
-    "components/event-detail.tsx",
-    "components/directory-profile-detail.tsx",
-    "components/organization-profile-detail.tsx",
-    "components/adoption-detail.tsx",
-  ]) {
-    assert.doesNotMatch(read(path), /UnifiedSectionHero/);
-  }
+test("detail pages now share the exact same renderer as section HERO", () => {
+  const universal = read("components/public-visual-system/universal-page-hero.tsx");
+  const detail = read("components/detail-primitives/detail-primitives.tsx");
+  const article = read("components/article-detail.tsx");
+  assert.match(universal, /<UnifiedSectionHero/);
+  assert.match(detail, /<UniversalPageHero/);
+  assert.match(article, /<UniversalPageHero/);
 });
 
 test("hero images still come only from section visuals, never list entities", () => {

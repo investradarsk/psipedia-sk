@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { WorkspaceFeed } from "@/lib/admin-workspace-feed";
+import type { WorkspaceOverview } from "@/lib/admin-workspace-feed";
 import styles from "./admin-workspace-activity.module.css";
 
 function formatTime(raw: string) {
@@ -13,7 +13,7 @@ function formatTime(raw: string) {
  * The workspace is a navigation hub, not another inbox. The notification bell
  * and canonical queues own item-level activity and acknowledgement.
  */
-export function AdminWorkspaceActivity({ initial }: { initial: WorkspaceFeed }) {
+export function AdminWorkspaceActivity({ initial, qualityPending }: { initial: WorkspaceOverview; qualityPending: number | null }) {
   return (
     <section className={styles.root} aria-label="Prejsť do pracovných sekcií">
       <div className={styles.titleRow}>
@@ -31,7 +31,7 @@ export function AdminWorkspaceActivity({ initial }: { initial: WorkspaceFeed }) 
         </Link>
         <Link href="/admin/kvalita" className={styles.linkCard}>
           <strong>Chýbajúce údaje</strong>
-          <span>{initial.status === "OK" ? `${initial.qualityPending} návrhov na schválenie` : "Počet momentálne nie je dostupný"}</span>
+          <span>{qualityPending !== null ? `${qualityPending} návrhov na schválenie` : "Počet momentálne nie je dostupný"}</span>
           <b>Otvoriť kvalitu údajov →</b>
         </Link>
         <Link href="/admin/mapy" className={styles.linkCard}>
@@ -53,7 +53,7 @@ export function AdminWorkspaceActivity({ initial }: { initial: WorkspaceFeed }) 
         </Link>
       </div>
       {initial.status === "UNAVAILABLE" &&
-        <p role="status" className={styles.note}>Počty a termíny sa nepodarilo načítať. Pracovné sekcie môžeš stále otvoriť.</p>}
+        <p role="status" className={styles.note}>Termín najbližšej automatizácie sa nepodarilo načítať. Pracovné sekcie môžeš stále otvoriť.</p>}
     </section>
   );
 }

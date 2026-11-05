@@ -356,7 +356,7 @@ test("valid public submission stays private until admin approval, then publishes
   expect(payload).not.toHaveProperty("status");
   expect(payload).not.toHaveProperty("reportId");
   expect(payload).not.toHaveProperty("id");
-  await expect(page.getByRole("heading", { level: 1, name: "Hlásenie sme prijali" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Hlásenie sme prijali" })).toBeVisible();
 
   await page.goto("/pomoc-psom/najdene-psy?q=" + encodeURIComponent(unique), { waitUntil: "domcontentloaded" });
   await expect(page.locator("[data-public-filter-results]")).not.toContainText(unique);

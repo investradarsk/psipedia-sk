@@ -163,12 +163,13 @@ function conciseHeroIntro(intro: ReactNode): ReactNode {
   return summary && summary.length <= 265 ? summary : sentences[0]?.trim() || clean;
 }
 
-export async function UnifiedSectionHero({
+export function UnifiedSectionHero({
   breadcrumbs,
   eyebrow,
   title,
   intro,
   visual,
+  mediaSlot,
   searchSlot,
   portalSearchSlot,
   ctaSlot,
@@ -183,6 +184,8 @@ export async function UnifiedSectionHero({
   title: ReactNode;
   intro?: ReactNode;
   visual: ResolvedSectionVisual;
+  /** Detail photos retain the existing image editor crop, contain and blur settings. */
+  mediaSlot?: ReactNode;
   searchSlot?: ReactNode;
   /** Full homepage-style search panel; never combine with searchSlot. */
   portalSearchSlot?: ReactNode;
@@ -229,15 +232,21 @@ export async function UnifiedSectionHero({
     >
       <div className={styles.visual} data-unified-section-hero-visual>
         <div className={styles.media} data-unified-section-hero-media>
-          <img
-            className={styles.image}
-            src={visual.imageUrl}
-            srcSet={responsiveMediaSrcSet(visual.imageUrl, [640, 960, 1280, 1600, 1920])}
-            sizes="(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px"
-            alt={visual.altText}
-            decoding="async"
-            fetchPriority={variant === "homepage-style" ? "high" : undefined}
-          />
+          {mediaSlot ? (
+            <div className={styles.mediaSlot} data-public-hero-configured-media>
+              {mediaSlot}
+            </div>
+          ) : (
+            <img
+              className={styles.image}
+              src={visual.imageUrl}
+              srcSet={responsiveMediaSrcSet(visual.imageUrl, [640, 960, 1280, 1600, 1920])}
+              sizes="(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px"
+              alt={visual.altText}
+              decoding="async"
+              fetchPriority={variant === "homepage-style" ? "high" : undefined}
+            />
+          )}
           <div className={styles.shade} aria-hidden="true" />
         </div>
 

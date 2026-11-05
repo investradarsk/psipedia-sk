@@ -115,17 +115,16 @@ test("IMAGE-EDITOR-3: every entity detail respects manual config, with natural f
 
 test("IMAGE-EDITOR-3: natural portraits can grow without cropping in each detail layout", () => {
   const hero = read("components/detail-primitives/detail-primitives.tsx");
-  const css = read("components/detail-primitives/detail-primitives.module.css");
-  assert.ok(css.includes('.heroMedia:has([data-image-display="natural"])'));
-  assert.match(
-    css,
-    /\s*\.heroMedia:has\(\s*\[\s*data-image-display="natural"\s*\]\s*\)\s*\{\s*[^}]*aspect-ratio:\s*auto/,
-  );
-  assert.match(
-    css,
-    /\s*\.heroMedia:has\(\s*\[\s*data-image-display="natural"\s*\]\s*\)\s*img\s*\{\s*[^}]*height:\s*auto/,
-  );
-  assert.match(hero, /className=\{\s*styles\s*\.heroMedia\s*\}/);
+  const universal = read("components/public-visual-system/unified-section-hero.tsx");
+  const universalCss = read("components/public-visual-system/unified-section-hero.module.css");
+  const frameCss = read("components/image-display.module.css");
+  // Detail imagery is now inside the sole universal HERO, not a second
+  // independent heroMedia frame. Natural photos must remain uncropped.
+  assert.match(hero, /mediaSlot=\{kind\s*===\s*"organization"\s*\|\|\s*imageUrl\s*\?\s*media\s*:\s*undefined\}/);
+  assert.match(universal, /data-public-hero-configured-media/);
+  assert.match(universalCss, /\.mediaSlot\s+\[data-image-display="natural"\] img/);
+  assert.match(frameCss, /\.frame\s+\.naturalPhoto\s*\{/);
+  assert.match(frameCss, /object-fit:\s*contain/);
   for (const path of [
     "components/public-profile/public-profile-hero.tsx",
     "components/help-details/help-detail-shell.tsx",

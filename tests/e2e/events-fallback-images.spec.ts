@@ -52,10 +52,12 @@ test('current props switch photo, removal, type and failed photo without losing 
 test('detail fallback and own photo remain responsive and accessible',async({page},info)=>{
   for(const own of [false,true]) {
     await page.goto('/?view=detail'+(own?'&photo=1':''));
-    const image=page.locator('[data-event-image] img:not([aria-hidden="true"])');
+    // Details now use the universal HERO component. The source must still
+    // choose the actual photograph or the event-type fallback illustration.
+    const image=page.locator('[data-event-detail-header] [data-public-hero-configured-media] img:not([aria-hidden="true"])');
+    await expect(image).toHaveAttribute('src',own?/hero-labrador\.webp/:/vystavy\.webp/);
     await expect(image).toHaveAttribute('data-event-image-source',own?'real':'fallback');
-    if(own) await expect(image).toHaveAttribute('data-smart-image-fit','contain');
-    else await expect(image).toHaveAttribute('alt',/Ilustračný obrázok/);
+    await expect(image).toHaveAttribute('alt',own?/Fotografia podujatia/:/Ilustračný obrázok/);
     await expect.poll(()=>image.evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0)).toBe(true);
     await expect(page.getByRole('heading',{level:1})).toContainText('Podujatie pre milovníkov psov');
     await page.screenshot({path:`outputs/redesign4/${info.project.name}-detail-${own?'real':'fallback'}.png`,fullPage:true});

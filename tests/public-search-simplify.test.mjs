@@ -135,12 +135,16 @@ test("DS-3 main search shares one visual contract without changing GET destinati
   const eventPage = read("components/events-page.tsx");
   const reviews = read("components/reviews-hub.tsx");
   const hero = read("components/public-visual-system/unified-section-hero.tsx");
-  for (const source of [portalSearch, header, results]) {
+  for (const source of [portalSearch, header]) {
     assert.match(source, /data-public-search-ui="main"/);
     assert.match(source, /className="public-search-entry"/);
     assert.match(source, /className="public-search-icon"\s*aria-hidden="true"/);
     assert.match(source, /<button\s*type="submit">/);
   }
+  assert.match(results, /<UniversalPageHero/);
+  assert.match(results, /searchDefaultValue=\{query\}/);
+  assert.match(results, /searchHidden=\{/);
+  assert.match(read("components/public-visual-system/universal-page-hero.tsx"), /<HomePortalSearch/);
   assert.match(
     portalSearch,
     /<form\s*action=\{\s*action\s*\}\s*method="get"[^>]*role="search"[^>]*data-public-search-form=\{\s*searchScope\s*\}/,
@@ -166,10 +170,9 @@ test("DS-3 main search shares one visual contract without changing GET destinati
     reviews,
     /hidden=\{\s*\[\s*\{\s*name:\s*"sekcia",\s*value:\s*"recenzie"\s*\}\s*\]\s*\}/,
   );
-  assert.match(results, /<form\s*action="\/hladat"\s*method="get"[^>]*role="search"/);
-  assert.match(results, /name="q"/);
-  assert.match(results, /name="sekcia"/);
-  assert.match(results, /name="podsekcia"/);
+  assert.match(results, /name: "sekcia", value: section/);
+  assert.match(results, /name: "podsekcia", value: subsection/);
+  assert.match(read("components/home-portal-search.tsx"), /<form action=\{action\} method="get"/);
   assert.match(
     header,
     /window\s*\.location\s*\.href\s*=\s*`\/hladat\?q=\$\{\s*encodeURIComponent\(\s*clean\s*\)\s*\}`/,

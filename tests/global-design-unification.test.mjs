@@ -37,7 +37,8 @@ test("breeds display the interactive atlas search before action cards and filter
   const browser = source("components/breed-browser.tsx");
   const page = source("app/plemena/page.tsx");
   assert.ok(browser.indexOf('className="browser-toolbar breed-search-wrap"') < browser.indexOf("{actions}"));
-  assert.ok(browser.indexOf("{actions}") < browser.indexOf('className="fci-filter-panel"'));
+  assert.ok(browser.indexOf('className="fci-filter-panel"') < browser.indexOf("{actions}"));
+  assert.ok(browser.indexOf("{actions}") < browser.indexOf('className="result-count"'));
   assert.match(page, /actions=\{breedSection \? \(/);
 });
 test("editorial hub and topic each render one canonical portal search", () => {

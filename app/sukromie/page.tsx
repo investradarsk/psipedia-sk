@@ -1,5 +1,6 @@
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import Link from "next/link";
 import { getLegalSettings } from "@/lib/legal-settings";
 import {
@@ -25,16 +26,13 @@ export default async function PrivacyPage() {
   const privacyEmail = settings.privacyEmail || settings.email || EDITORIAL_EMAIL_ADDRESS;
 
   return (
-    <main id="obsah" className="prose-page legal-page">
-      <span className="eyebrow">Tvoje údaje</span>
-      <PublicHeading role="page" as="h1">
-        Ochrana osobných údajov
-      </PublicHeading>
-      <p className="lead">
-        Psipedia.sk nevyžaduje registráciu bežných návštevníkov, osobné údaje nepredáva a nevytvára
-        reklamné používateľské profily. Spracúvame iba údaje potrebné na fungovanie portálu,
-        komunikáciu a funkcie, ktoré návštevník sám použije.
-      </p>
+    <main id="obsah">
+      <UniversalPageHero
+        eyebrow="Tvoje údaje"
+        title="Ochrana osobných údajov"
+        intro="Psipedia.sk nevyžaduje registráciu bežných návštevníkov, osobné údaje nepredáva a nevytvára reklamné používateľské profily. Spracúvame iba údaje potrebné na fungovanie portálu, komunikáciu a funkcie, ktoré návštevník sám použije."
+      />
+      <section className="prose-page legal-page">
 
       <PublicHeading role="section" as="h2">
         Prevádzkovateľ osobných údajov
@@ -285,6 +283,7 @@ export default async function PrivacyPage() {
         osobných údajov, a pri zmene právnych alebo technických podmienok.
       </p>
       <p className="legal-updated">Aktualizované 24. septembra 2026.</p>
+      </section>
     </main>
   );
 }

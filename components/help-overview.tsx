@@ -10,9 +10,8 @@ import {
 } from "@/components/public-visual-system/public-help-banner";
 import { ImageDisplay } from "@/components/image-display";
 import { helpOverviewPromos } from "@/lib/help-banner-presets";
-import { HELP_LOST_FOUND_BANNER_ANCHOR, CTA_HELP_ORGANIZATIONS_ANCHOR, helpOverviewBannerAnchor } from "@/lib/visual-library-anchors";
+import { HELP_LOST_FOUND_BANNER_ANCHOR, helpOverviewBannerAnchor } from "@/lib/visual-library-anchors";
 import type { ImageDisplayConfig } from "@/lib/image-display";
-import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import {
@@ -143,23 +142,6 @@ export async function HelpOverview({
                 shortcuts={[]}
                 searchScope="help"
               />
-            }
-            ctaSlot={
-              <PublicActionLink
-                id={CTA_HELP_ORGANIZATIONS_ANCHOR}
-                href="/organizacie"
-                variant="secondary"
-                icon={<ArrowIcon size={16} />}
-              >
-                Zobraziť organizácie
-              </PublicActionLink>
-            }
-            metaSlot={
-              <div className={styles.headerMeta}>
-                <span>
-                  <ShieldCheckIcon size={17} /> Zobrazujeme iba publikované údaje
-                </span>
-              </div>
             }
           />
         </UnifiedSectionHeroShell>

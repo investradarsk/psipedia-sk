@@ -1,5 +1,6 @@
 import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import Link from "next/link";
 import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 import { buildPageMetadata } from "@/lib/seo";
@@ -12,15 +13,13 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function CorrectionsPage() {
   return (
-    <main id="obsah" className="prose-page legal-page">
-      <span className="eyebrow">Presnosť obsahu</span>
-      <PublicHeading role="page" as="h1">
-        Opravy a podnety
-      </PublicHeading>
-      <p className="lead">
-        Ak nájdeš chybný, neaktuálny alebo neúplný údaj, daj nám vedieť. Podnet preveríme a podľa
-        výsledku obsah opravíme alebo doplníme.
-      </p>
+    <main id="obsah">
+      <UniversalPageHero
+        eyebrow="Presnosť obsahu"
+        title="Opravy a podnety"
+        intro="Ak nájdeš chybný, neaktuálny alebo neúplný údaj, daj nám vedieť. Podnet preveríme a podľa výsledku obsah opravíme alebo doplníme."
+      />
+      <section className="prose-page legal-page">
 
       <PublicHeading role="section" as="h2">
         Čo nám môžeš nahlásiť
@@ -85,6 +84,7 @@ export default function CorrectionsPage() {
       </p>
 
       <p className="legal-updated">Aktualizované 12. septembra 2026.</p>
+      </section>
     </main>
   );
 }

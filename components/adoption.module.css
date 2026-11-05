@@ -469,3 +469,17 @@
 
 .categoryNavShell { margin: 0 0 15px; }
 @media (max-width: 650px) { .categoryNavShell { margin-bottom: 12px; } }
+
+/* Help profile cards share the main Pomoc psom presentation.
+   A reserved state is data, not a separate media/card layout. */
+.cardReservedBadge {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #80550b;
+  background: #fff2d7;
+  font-size: 0.64rem;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}

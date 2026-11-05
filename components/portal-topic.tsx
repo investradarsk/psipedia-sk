@@ -3,7 +3,8 @@ import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { EditorialSectionTopic } from "@/components/editorial-section";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
-import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
+import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import {
   PublicContentShell,
   PublicLandingSectionHeading,
@@ -277,24 +278,22 @@ export async function PortalTopic({
           />
         </UnifiedSectionHeroShell>
       ) : (
-        <SectionHero
-          className={`portal-topic-hero portal-section-hero portal-topic-hero--${section.accent}`}
-          containerClassName="portal-topic-hero-inner"
-        >
-          <Breadcrumbs>
-            <Link href="/">Domov</Link>
-            <span>/</span>
-            <Link href={`/${section.slug}`}>{section.label}</Link>
-            <span>/</span>
-            <span>{subpage.label}</span>
-          </Breadcrumbs>
-          <span className="eyebrow">{section.eyebrow}</span>
-          <div className="portal-topic-title">
-            {subpage.icon && <span aria-hidden="true">{subpage.icon}</span>}
-            <h1>{subpage.label}</h1>
-          </div>
-          <p>{subpage.description}</p>
-        </SectionHero>
+        <UniversalPageHero
+          breadcrumbs={
+            <Breadcrumbs>
+              <Link href="/">Domov</Link>
+              <span>/</span>
+              <Link href={`/${section.slug}`}>{section.label}</Link>
+              <span>/</span>
+              <span>{subpage.label}</span>
+            </Breadcrumbs>
+          }
+          eyebrow={section.eyebrow}
+          title={subpage.label}
+          intro={subpage.description}
+          imageUrl={subpage.imageUrl}
+          imageAlt={subpage.imageAlt || subpage.label}
+        />
       )}
 
       {showSectionTabs && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}

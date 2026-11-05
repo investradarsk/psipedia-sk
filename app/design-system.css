@@ -1227,3 +1227,12 @@
 .comparison-value details a {
   color: var(--forest);
 }
+
+/* PUBLIC-CANVAS-1: The homepage's cream canvas is canonical across every
+ * public route, independent of older route-level background gradients.
+ * Cards, interactive surfaces, photos and status panels keep their own fills.
+ * Do not target admin/partner screens or reuse this token for raised surfaces.
+ */
+main#obsah {
+  background: var(--ps-color-canvas);
+}

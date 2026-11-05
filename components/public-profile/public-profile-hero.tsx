@@ -87,7 +87,8 @@ export function PublicProfileHero({
         </>
       }
       media={
-        imageUrl ? (
+        <div data-public-profile-media>
+          {imageUrl ? (
           <ImageDisplay
             roleHint="generic"
             fallbackOnError
@@ -104,7 +105,8 @@ export function PublicProfileHero({
             size="detail"
             label={`Fotografia profilu ${title} zatiaľ nie je pridaná`}
           />
-        )
+          )}
+        </div>
       }
     />
   );

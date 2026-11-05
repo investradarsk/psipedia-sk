@@ -1,20 +1,18 @@
 import { applyHelpLifecycle } from "@/lib/help-lifecycle";
 import Link from "next/link";
-import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { ImageDisplay } from "@/components/image-display";
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
-import { formatHelpDate, getHelpCategory, helpCaseHref, type PublicHelpCard } from "@/lib/help";
+import { getHelpCategory, helpCaseHref, type PublicHelpCard } from "@/lib/help";
 import styles from "./help-public.module.css";
-import { HelpFinancialProgress } from "./help-financial-progress";
 
+/** The category listing intentionally uses the exact same compact card as
+ * the Pomoc psom landing; detailed facts live on the profile page. */
 export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
   const item = applyHelpLifecycle(rawItem);
   const category = getHelpCategory(item.category);
-  const detailHref = helpCaseHref(item);
-  const displayDate =
-    item.category === "utulky" ? null : (item.reportedDate ?? item.updatedAt.slice(0, 10));
+  const href = helpCaseHref(item);
   const showOrganization = Boolean(
     item.organization?.trim() &&
       item.organization.trim().toLocaleLowerCase("sk") !==
@@ -24,6 +22,10 @@ export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
     publicLocationValue(item.city, "city"),
     publicLocationValue(item.region, "region"),
   ]);
+  const meta = [showOrganization ? item.organization : null, location]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <PublicHelpProfileCard
       data-help-card
@@ -32,14 +34,12 @@ export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
       className={[
         item.urgent && !item.resolved ? styles.cardUrgent : "",
         item.resolved ? styles.cardResolved : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      href={detailHref}
+      ].filter(Boolean).join(" ")}
+      href={href}
       title={item.title}
       category={category?.singular ?? "Pomoc psom"}
+      meta={meta}
       excerpt={item.excerpt}
-      actionLabel={item.resolved ? "Pozrieť výsledok" : "Otvoriť detail"}
       badge={
         item.resolved ? (
           <span className={[styles.badge, styles.badgeResolved].join(" ")}>Vyriešené</span>
@@ -48,7 +48,7 @@ export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
         ) : null
       }
       media={
-        <Link href={detailHref} aria-label={"Otvoriť " + item.title}>
+        <Link href={href} aria-label={"Otvoriť " + item.title}>
           {item.imageUrl ? (
             <ImageDisplay
               roleHint="generic"
@@ -64,29 +64,6 @@ export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
             <PublicMediaFallback appearance="context" decorative />
           )}
         </Link>
-      }
-      meta={
-        <>
-          {showOrganization ? <p className={styles.organization}>{item.organization}</p> : null}
-          {location ? (
-            <p>
-              <LocationIcon size={14} /> {location}
-            </p>
-          ) : null}
-          {displayDate ? (
-            <p>
-              <CalendarIcon size={14} /> Aktualizované {formatHelpDate(displayDate)}
-            </p>
-          ) : null}
-        </>
-      }
-      extras={
-        <>
-          {item.dogName || item.breed || item.ageNote ? (
-            <p>{[item.dogName, item.breed, item.ageNote].filter(Boolean).join(" · ")}</p>
-          ) : null}
-          <HelpFinancialProgress item={item} compact />
-        </>
       }
     />
   );

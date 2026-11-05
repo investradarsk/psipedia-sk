@@ -1046,8 +1046,8 @@ test("renders the functional event calendar and type view", async () => {
   const landing = await worker.fetch(new Request("http://localhost/podujatia", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(landing.status, 200);
   assert.match(await landing.text(), /Názov podujatia, mesto, miesto alebo organizátor/);
-  assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=ukoncene"[^>]*>Ukončené<\/a>/);
-  assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=vsetky"[^>]*>Všetky<\/a>/);
+  assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=ukoncene"[^>]*>\s*<span>Ukončené<\/span>\s*<\/a>/);
+  assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=vsetky"[^>]*>\s*<span>Všetky<\/span>\s*<\/a>/);
   assert.match(calendarHtml, /Nenašli sme zhodu/);
 
   const shows = await worker.fetch(new Request("http://localhost/podujatia/vystavy", { headers: { accept: "text/html" } }), bindings, context);
@@ -1059,8 +1059,8 @@ test("renders the functional event calendar and type view", async () => {
   const pastShowsHtml = await pastShows.text();
   assert.match(pastShowsHtml, /<meta name="robots" content="noindex, follow"/);
   assert.match(pastShowsHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/podujatia\/vystavy"/);
-  assert.match(pastShowsHtml, /<a[^>]*href="\/podujatia\/vystavy\?termin=ukoncene"[^>]*aria-current="page"[^>]*>Ukončené<\/a>/);
-  assert.match(pastShowsHtml, /<a[^>]*href="\/podujatia\/vystavy\?termin=vsetky"[^>]*>Všetky<\/a>/);
+  assert.match(pastShowsHtml, /<a[^>]*href="\/podujatia\/vystavy\?termin=ukoncene"[^>]*aria-current="page"[^>]*>\s*<span>Ukončené<\/span>\s*<\/a>/);
+  assert.match(pastShowsHtml, /<a[^>]*href="\/podujatia\/vystavy\?termin=vsetky"[^>]*>\s*<span>Všetky<\/span>\s*<\/a>/);
 });
 
 test("renders the help portal, stable category URL and emergency guide", async () => {

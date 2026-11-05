@@ -107,7 +107,8 @@ test("homepage search defaults stay unchanged and event search follows the hero 
     await page.evaluate(async () => {
       await document.fonts.ready;
     });
-    const expectedOverlap = width > 820 ? 10 : width <= 620 ? 18 : 25;
+    // The canonical HERO applies a 25px desktop/tablet overlap and 18px on mobile.
+    const expectedOverlap = width <= 620 ? 18 : 25;
     const measure = () =>
       page.evaluate(() => {
         const hero = document

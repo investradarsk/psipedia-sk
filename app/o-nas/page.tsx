@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
+import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -12,11 +13,13 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function AboutPage() {
   return (
-    <main id="obsah" className="prose-page">
-      <span className="eyebrow">O projekte</span>
-      <h1>Lepší život so psom začína porozumením</h1>
-      <p className="lead">Psipedia.sk vzniká ako moderný slovenský magazín a praktická encyklopédia pre ľudí, ktorí nechcú iba rýchlu odpoveď. Chcú vedieť, prečo ich pes niečo robí a ako mu pomôcť férovo.</p>
-
+    <main id="obsah">
+      <UniversalPageHero
+        eyebrow="O projekte"
+        title="Lepší život so psom začína porozumením"
+        intro="Psipedia.sk vzniká ako moderný slovenský magazín a praktická encyklopédia pre ľudí, ktorí chcú svojmu psovi lepšie rozumieť."
+      />
+      <section className="prose-page">
       <h2>Čo chceme robiť inak</h2>
       <p>O psoch existuje obrovské množstvo obsahu, no často je neaktuálny, protirečivý alebo napísaný hlavne preto, aby niečo predal. My oddeľujeme informáciu od reklamy, pomenúvame hranice všeobecnej rady a dávame prednosť praktickým postupom.</p>
 
@@ -40,6 +43,7 @@ export default function AboutPage() {
         <a className="button button--coral" href={`mailto:${EDITORIAL_EMAIL_ADDRESS}`}>{EDITORIAL_EMAIL_ADDRESS}</a>
       </section>
       <Link className="button button--dark" href="/clanky">Pozrieť články <ArrowIcon /></Link>
+      </section>
     </main>
   );
 }
