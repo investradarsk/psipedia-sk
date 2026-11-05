@@ -138,7 +138,7 @@ test("ARTICLE-VISUAL-1 captures requested production references on desktop and m
   }
 });
 
-for (const articleCase of cases) {
+// Article details can contain remote media, so navigation waits for local DOM readiness,\n// not third-party images or embeds that can hold the browser load event open.\nfor (const articleCase of cases) {
   test(`${articleCase.id} mobile 390x844 article composition`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await captureProductionBaseline(
@@ -147,7 +147,7 @@ for (const articleCase of cases) {
       `.e2e-artifacts/article-ux-1/${articleCase.id}-before-production-mobile-390x844.png`,
     );
 
-    await page.goto(articleCase.path);
+    await page.goto(articleCase.path, { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: articleCase.title })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Navigácia v článku" })).toBeVisible();
     if (articleCase.hasImage) {
@@ -327,7 +327,7 @@ for (const articleCase of cases) {
       await expectAnchorClearsStickyHeader(page, href!);
 
       await page.goto("about:blank");
-      await page.goto(`${articleCase.path}${href}`);
+      await page.goto(`${articleCase.path}${href}`, { waitUntil: "domcontentloaded" });
       await expectAnchorClearsStickyHeader(page, href!);
       const directToc = page.getByRole("navigation", { name: "Obsah článku" });
       await expect(directToc).toBeVisible();
@@ -353,7 +353,7 @@ for (const articleCase of cases) {
       `.e2e-artifacts/article-ux-1/${articleCase.id}-before-production-desktop-1440x900.png`,
     );
 
-    await page.goto(articleCase.path);
+    await page.goto(articleCase.path, { waitUntil: "domcontentloaded" });
     const h1 = page.getByRole("heading", { level: 1, name: articleCase.title });
     await expect(h1).toBeVisible();
     if (articleCase.hasImage) {
@@ -511,7 +511,7 @@ for (const articleCase of cases) {
       await expectAnchorClearsStickyHeader(page, href!);
 
       await page.goto("about:blank");
-      await page.goto(`${articleCase.path}${href}`);
+      await page.goto(`${articleCase.path}${href}`, { waitUntil: "domcontentloaded" });
       await expectAnchorClearsStickyHeader(page, href!);
       const directToc = page.getByRole("navigation", { name: "Obsah článku" });
       await expect(directToc).not.toHaveAttribute("open");
@@ -548,7 +548,7 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
 
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
-    await page.goto(path);
+    await page.goto(path, { waitUntil: "domcontentloaded" });
     const metrics = await page.evaluate(() => {
       const hero = document.querySelector<HTMLElement>(".article-hero-image")!;
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
@@ -603,7 +603,7 @@ test("ARTICLE-READING-UX-2 manual related stays editorial while automatic relate
   const bikePath = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
   const stimulusPath = "/aktivity/stimulus-control-u-psa";
 
-  await page.goto(bikePath);
+  await page.goto(bikePath, { waitUntil: "domcontentloaded" });
   const manualRelated = page.locator(".article-block-related");
   await expect(manualRelated).toHaveCount(1);
   await expect(manualRelated.getByText("Súvisiaci článok", { exact: true })).toBeVisible();
@@ -622,13 +622,13 @@ test("ARTICLE-READING-UX-2 manual related stays editorial while automatic relate
   expect(recommendationHrefs).not.toContain(bikePath);
   expect(new Set(recommendationHrefs).size, "Duplicate recommendation hrefs: " + JSON.stringify(recommendationHrefs)).toBe(recommendationHrefs.length);
 
-  await page.goto(stimulusPath);
+  await page.goto(stimulusPath, { waitUntil: "domcontentloaded" });
   await expect(page.locator(".article-block-related")).toHaveCount(0);
   await expect(page.locator('aside[aria-label="Súvisiaci článok"]')).toHaveCount(0);
   await expect(page.locator('.related-section [data-article-list-item][href="' + bikePath + '"]')).toHaveCount(1);
   await expect(page.getByText("E2E nepublikovaný related kandidát", { exact: true })).toHaveCount(0);
 
-  await page.goto("/starostlivost/e2e-clanok-bez-obrazka");
+  await page.goto("/starostlivost/e2e-clanok-bez-obrazka", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
   await expect(page.locator('aside[aria-label="Súvisiaci článok"]')).toHaveCount(0);
   const discoverySidebar = page.locator("[data-article-discovery-sidebar]");
@@ -638,7 +638,7 @@ test("ARTICLE-READING-UX-2 manual related stays editorial while automatic relate
 });
 test("ARTICLE-2 preserves canonical Article schema, dates, author and image metadata", async ({ page }) => {
   const path = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
-  await page.goto(path);
+  await page.goto(path, { waitUntil: "domcontentloaded" });
 
   const canonical = page.locator('link[rel="canonical"]');
   await expect(canonical).toHaveAttribute("href", "https://psipedia.sk" + path);
@@ -677,7 +677,7 @@ test("ARTICLE-2 preserves canonical Article schema, dates, author and image meta
 
 test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku");
+  await page.goto("/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Redakcia Psipedia", { exact: true }).first()).toBeVisible();
   await expect(page.locator(".article-prose strong").filter({ hasText: "Bikejoring je tímový šport" })).toBeVisible();
@@ -697,7 +697,7 @@ test("ARTICLE-PUBLIC canonical rich text, author, safe video and share actions",
 });
 
 test("ARTICLE-PUBLIC legacy author fallback and malicious embed fail closed", async ({ page }) => {
-  await page.goto("/aktivity/stimulus-control-u-psa");
+  await page.goto("/aktivity/stimulus-control-u-psa", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("Martin", { exact: true }).first()).toBeVisible();
   await expect(page.locator('iframe[src^="javascript:"]')).toHaveCount(0);
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
@@ -705,13 +705,13 @@ test("ARTICLE-PUBLIC legacy author fallback and malicious embed fail closed", as
 
 test("ARTICLE-PUBLIC canonical news landing redirects and topic URLs stay available", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/novinky");
+  await page.goto("/novinky", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/clanky$/);
   await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
   await expect(page.locator(".article-browser a[role='listitem']").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
-  await page.goto("/novinky/veda-a-zdravie");
+  await page.goto("/novinky/veda-a-zdravie", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/novinky\/veda-a-zdravie$/);
   await expect(page.getByRole("list", { name: "Novinky: Veda a zdravie" }).getByText("E2E výskum psov 2026")).toBeVisible();
   await expect(page.getByText("E2E zaujímavosť zo sveta psov")).toHaveCount(0);
@@ -720,7 +720,7 @@ test("ARTICLE-PUBLIC canonical news landing redirects and topic URLs stay availa
 });
 
 test("PUBLIC-GLOBAL search keeps article results compact while retaining full-text matching", async ({ page }) => {
-  await page.goto("/hladat?q=E2E%20výskum");
+  await page.goto("/hladat?q=E2E%20výskum", { waitUntil: "domcontentloaded" });
   const row = page.locator('[data-article-list-item][href*="/novinky/"]').first();
   await expect(row).toBeVisible();
   await expect(row.locator("[data-article-title]")).toBeVisible();
@@ -732,7 +732,7 @@ test("PUBLIC-GLOBAL search keeps article results compact while retaining full-te
 });
 
 test("ARTICLE-PUBLIC unknown article remains a real 404", async ({ page }) => {
-  const response = await page.goto("/clanky/article-public-neexistuje");
+  const response = await page.goto("/clanky/article-public-neexistuje", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(404);
 });
 
@@ -758,7 +758,7 @@ test("ARTICLE-CARDS-1 approved magazine rows and homepage feature remain respons
         await captureProductionBaseline(page, surface.path,
           `.e2e-artifacts/article-ux-1/${surface.id}-before-production-${viewport.label}.png`);
       }
-      await page.goto(surface.path);
+      await page.goto(surface.path, { waitUntil: "domcontentloaded" });
       const cards = page.locator(surface.selector);
       if ((await cards.count()) === 0 && surface.emptySelector) {
         await expect(page.locator(surface.emptySelector)).toBeVisible();
@@ -802,7 +802,7 @@ test("ARTICLE-CARDS-1 approved magazine rows and homepage feature remain respons
   }
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/clanky");
+  await page.goto("/clanky", { waitUntil: "domcontentloaded" });
   const noImage = page.locator(".article-browser a[role='listitem']").filter({ hasText: "E2E článok bez hero obrázka" });
   if (await noImage.count()) {
     await expect(noImage.locator("img")).toHaveCount(0);
