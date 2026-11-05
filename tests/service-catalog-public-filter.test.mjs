@@ -225,3 +225,42 @@ test("edited original category membership and labels govern public filters witho
     f.close();
   }
 });
+
+
+test("editable directory facet is submitted once without dropping other active facets", () => {
+  const filters = {
+    query: "",
+    category: "veterinari",
+    region: "",
+    district: "",
+    city: "",
+    service: "",
+    canonicalService: "",
+    breed: "",
+    fciGroup: "",
+    organization: "",
+    profileType: "",
+    sort: "recommended",
+    page: 2,
+    facets: {
+      "veterinari.emergency": "yes",
+      "veterinari.home_visits": "no",
+    },
+  };
+  const editedName = "f.veterinari.emergency";
+  const preservedName = "f.veterinari.home_visits";
+  // The visible select/radio owns editedName; only other facets stay hidden.
+  const hidden = directoryQueryFields(filters, ["page", editedName]);
+  assert.equal(hidden.some(({ name }) => name === editedName), false);
+  assert.deepEqual(hidden.filter(({ name }) => name === preservedName), [
+    { name: preservedName, value: "no" },
+  ]);
+  const submitted = new URLSearchParams(hidden.map(({ name, value }) => [name, value]));
+  submitted.append(editedName, "no");
+  assert.deepEqual(submitted.getAll(editedName), ["no"]);
+  assert.deepEqual(submitted.getAll(preservedName), ["no"]);
+  assert.equal(
+    directoryQueryFields(filters, ["facets"]).some(({ name }) => name.startsWith("f.")),
+    false,
+  );
+});

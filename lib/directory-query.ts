@@ -26,7 +26,14 @@ export function directoryQueryFields(
   for (const [name, value] of values) {
     if (!omit.includes(name) && value.trim()) fields.push({ name, value });
   }
-  if (!omit.includes("facets")) fields.push(...directoryPublicFacetQueryFields(filters.facets));
+  if (!omit.includes("facets")) {
+    // Visible facet controls must not compete with duplicate hidden GET parameters.
+    fields.push(
+      ...directoryPublicFacetQueryFields(filters.facets).filter(
+        ({ name }) => !omit.includes(name),
+      ),
+    );
+  }
   return fields;
 }
 
