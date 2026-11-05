@@ -1,6 +1,5 @@
 import { PublicHeading } from "@/components/public-heading";
-import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
-import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
+import type { ReactNode } from "react";
 import styles from "./detail-primitives.module.css";
 
 export type DetailFact = { label: string; value: ReactNode };
@@ -228,122 +227,45 @@ export function PublicDetailLayout({
   );
 }
 
-type DetailHeroKind = "directory" | "event" | "adoption" | "help" | "lost-found" | "organization" | "breed";
-
-const DETAIL_HERO_EYEBROWS: Record<DetailHeroKind, string> = {
-  directory: "Služby pre psov",
-  event: "Podujatia",
-  adoption: "Adopcia",
-  help: "Pomoc psom",
-  "lost-found": "Stratené a nájdené psy",
-  organization: "Organizácie",
-  breed: "Plemená",
-};
-
-function isPageTitle(node: ReactElement): boolean {
-  const props = node.props as { role?: string; as?: string };
-  return node.type === "h1" || (props.role === "page" && props.as === "h1");
-}
-
-/** Read only the title and media already supplied by the existing detail UI. */
-function findDetailTitle(node: ReactNode): ReactNode {
-  let title: ReactNode = null;
-  function visit(value: ReactNode) {
-    Children.forEach(value, (child) => {
-      if (title !== null || !isValidElement(child)) return;
-      const props = child.props as { children?: ReactNode };
-      if (isPageTitle(child)) {
-        title = props.children ?? null;
-      } else {
-        visit(props.children);
-      }
-    });
-  }
-  visit(node);
-  return title;
-}
-
-function findDetailImage(node: ReactNode): string | null {
-  let result: string | null = null;
-  function visit(value: ReactNode) {
-    Children.forEach(value, (child) => {
-      if (result || !isValidElement(child)) return;
-      const props = child.props as { src?: unknown; imageUrl?: unknown; children?: ReactNode };
-      const candidate = typeof props.src === "string" ? props.src : props.imageUrl;
-      if (typeof candidate === "string" && candidate.trim()) {
-        result = candidate;
-      } else {
-        visit(props.children);
-      }
-    });
-  }
-  visit(node);
-  return result;
-}
-
-/** Existing location, status, dates and actions remain directly below the hero. */
-function withoutPageTitle(node: ReactNode): ReactNode {
-  return Children.map(node, (child) => {
-    if (!isValidElement(child)) return child;
-    if (isPageTitle(child)) return null;
-    const props = child.props as { children?: ReactNode };
-    if (props.children === undefined) return child;
-    return cloneElement(
-      child as ReactElement<{ children?: ReactNode }>,
-      {},
-      withoutPageTitle(props.children),
-    );
-  });
-}
-
-/**
- * All public detail pages use the same actual hero as the homepage.
- * Their profile-specific badges, facts and actionable links remain accessible
- * in a separate context row rather than changing the hero's visual layout.
- */
+/** One visual frame; callers retain ownership of their data, actions and states. */
 export function DetailHero({
   breadcrumbs,
   copy,
   media,
   kind,
   mediaPresentation = "standard",
-  heroImageUrl,
 }: {
   breadcrumbs: ReactNode;
   copy: ReactNode;
   media?: ReactNode;
-  heroImageUrl?: string | null;
   mediaPresentation?: "standard" | "compact";
-  kind: DetailHeroKind;
+  kind: "directory" | "event" | "adoption" | "help" | "lost-found" | "organization" | "breed";
 }) {
-  const title = findDetailTitle(copy) ?? "Profil na Psipedii";
-  const imageUrl = heroImageUrl || findDetailImage(media);
-  const detailContext = withoutPageTitle(copy);
-
   return (
     <header
-      className={styles.universalDetailHero}
+      className={styles.hero}
       data-public-detail-hero={kind}
       data-public-profile-hero={kind === "directory" || kind === "organization" ? "" : undefined}
       data-directory-profile-hero={kind === "directory" ? "" : undefined}
       data-event-detail-header={kind === "event" ? "" : undefined}
     >
-      <UniversalPageHero
-        breadcrumbs={breadcrumbs}
-        eyebrow={DETAIL_HERO_EYEBROWS[kind]}
-        title={title}
-        imageUrl={imageUrl}
-        imageAlt={typeof title === "string" ? title : "Fotografia profilu"}
-        mediaSlot={kind === "organization" || kind === "breed" || imageUrl ? media : undefined}
-      />
       <div className={styles.shell}>
+        <div className={styles.breadcrumbs}>{breadcrumbs}</div>
         <div
           className={styles.heroFrame}
-          data-has-media="false"
+          data-has-media={media ? "true" : "false"}
           data-media-presentation={mediaPresentation}
         >
-          <div className={styles.heroCopy}>{detailContext}</div>
-          {!imageUrl ? <p className={styles.missingPhoto}>Fotografia sa pripravuje.</p> : null}
+          <div className={styles.heroCopy}>{copy}</div>
+          {media ? (
+            <div
+              className={styles.heroMedia}
+              data-public-profile-media
+              data-event-image={kind === "event" ? "" : undefined}
+            >
+              {media}
+            </div>
+          ) : null}
         </div>
       </div>
     </header>
