@@ -28,7 +28,7 @@ export function eventListingPageHref(
     const calendarMonth = eventMonthFilterFromParam(raw.kalendar);
     const requestedDay = Array.isArray(raw.den) ? raw.den[0] : raw.den;
     if (calendarMonth) params.set('kalendar', calendarMonth);
-    if (requestedDay && /^20\\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$/.test(requestedDay)) {
+    if (requestedDay && /^20\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/.test(requestedDay)) {
         const parsed = new Date(requestedDay + 'T12:00:00Z');
         if (Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === requestedDay)
             params.set('den', requestedDay);
