@@ -57,7 +57,9 @@ test("autocomplete is split from initial header and homepage JavaScript", () => 
   assert.doesNotMatch(home, /from "\.\/public-search-suggestions"/);
   assert.match(wrapper, /lazy\(async \(\) => \{/);
   assert.match(wrapper, /await import\("\.\/public-search-suggestions"\)/);
-  assert.match(wrapper, /props\.query\.trim\(\)\.length >= 2/);
-  assert.match(wrapper, /if \(!activated\) return null/);
+  assert.match(wrapper, /props\.query\.trim\(\)\.length < 2/);
+  assert.doesNotMatch(wrapper, /setActivated\(/);
   assert.match(wrapper, /<Suspense fallback=\{null\}>/);
+  const details = file("tests/public-details-v2-ui.test.mjs");
+  assert.match(details, /buildPublicHeaderNavigation\(defaultNavigationItems, portalSections\)/);
 });
