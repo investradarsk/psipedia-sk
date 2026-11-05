@@ -18,6 +18,25 @@ export function eventListingParams(f: EventListingFilters) {
             p.set(key, value);
     return p;
 }
+/** Clamp a listing page without dropping the active filters and calendar selection. */
+export function eventListingPageHref(
+    pathname: string,
+    raw: Record<string, string | string[] | undefined>,
+    page: number,
+) {
+    const params = eventListingParams(parseEventListing(raw));
+    const calendarMonth = eventMonthFilterFromParam(raw.kalendar);
+    const requestedDay = Array.isArray(raw.den) ? raw.den[0] : raw.den;
+    if (calendarMonth) params.set('kalendar', calendarMonth);
+    if (requestedDay && /^20\\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$/.test(requestedDay)) {
+        const parsed = new Date(requestedDay + 'T12:00:00Z');
+        if (Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === requestedDay)
+            params.set('den', requestedDay);
+    }
+    if (page > 1) params.set('strana', String(page));
+    return pathname + (params.size ? '?' + params.toString() : '');
+}
+
 // SQLite lower() is ASCII-only. Preserve the previous NFD/case folding in D1.
 const foldSource = eventFoldSource.replaceAll("'", "''");
 const foldTarget = eventFoldTarget.replaceAll("'", "''");
