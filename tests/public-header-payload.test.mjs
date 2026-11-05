@@ -61,5 +61,5 @@ test("autocomplete is split from initial header and homepage JavaScript", () => 
   assert.doesNotMatch(wrapper, /setActivated\(/);
   assert.match(wrapper, /<Suspense fallback=\{null\}>/);
   const details = file("tests/public-details-v2-ui.test.mjs");
-  assert.match(details, /buildPublicHeaderNavigation\(defaultNavigationItems, portalSections\)/);
+  assert.match(details, /defaultNavigationItems\.map\(item => \(\{\.\.\.item,children:\[\]\}\)\)/);
 });
