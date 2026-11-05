@@ -138,7 +138,9 @@ test("ARTICLE-VISUAL-1 captures requested production references on desktop and m
   }
 });
 
-// Article details can contain remote media, so navigation waits for local DOM readiness,\n// not third-party images or embeds that can hold the browser load event open.\nfor (const articleCase of cases) {
+// Article details can contain remote media, so navigation waits for local DOM readiness,
+// not third-party images or embeds that can hold the browser load event open.
+for (const articleCase of cases) {
   test(`${articleCase.id} mobile 390x844 article composition`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await captureProductionBaseline(
