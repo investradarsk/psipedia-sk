@@ -175,7 +175,7 @@ test("existing pending review shows safe already-reviewed state and never opens 
 
   await page.goto("/recenzia/napisat?resourceId=" + DIRECTORY_RESOURCE, { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Tento profil ste už ohodnotili", level: 2 })).toBeVisible();
-  await expect(page.getByText(/čaká na kontrolu/i)).toBeVisible();
+  await expect(page.getByRole("paragraph").filter({ hasText: /čaká na kontrolu/i })).toBeVisible();
   await expect(page.getByRole("button", { name: "Odoslať recenziu" })).toHaveCount(0);
 });
 
