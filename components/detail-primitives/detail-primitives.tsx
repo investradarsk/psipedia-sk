@@ -334,7 +334,7 @@ export function DetailHero({
         title={title}
         imageUrl={imageUrl}
         imageAlt={typeof title === "string" ? title : "Fotografia profilu"}
-        mediaSlot={kind === "organization" ? media : imageUrl ? media : undefined}
+        mediaSlot={media}
       />
       <div className={styles.shell}>
         <div
