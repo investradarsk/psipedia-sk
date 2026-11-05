@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { parseEventListing, eventTypeSelectionRedirect } from '@/lib/event-listing';
+import { parseEventListing, eventTypeSelectionRedirect, eventListingPageHref } from '@/lib/event-listing';
 import { getPublishedEventListing, getPublicEventCalendar } from '@/lib/event-store';
 import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
@@ -94,8 +94,8 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   const eventList = events?.events ?? [];
   const listingPolicy = resolveListingIndexPolicy(`/${section.slug}`, rawSearchParams,
     slug === "podujatia" ? { indexPagination: true, paginationParam: "strana" } : {});
-  if (slug === "podujatia" && listingPolicy.kind === "pagination" && events && listingPolicy.page! > events.pages) {
-    redirect(events.pages > 1 ? `/podujatia?strana=${events.pages}` : "/podujatia");
+  if (slug === "podujatia" && events && parseEventListing(rawSearchParams).page > events.pages) {
+    redirect(eventListingPageHref("/podujatia", rawSearchParams, events.pages));
   }
   const eventSchema = slug !== "podujatia" || listingPolicy.kind === "query" ? null : buildCollectionPageJsonLd({
     name: section.label,
