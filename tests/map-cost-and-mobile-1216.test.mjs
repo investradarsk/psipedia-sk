@@ -23,6 +23,8 @@ test("detail maps load the Google SDK only after consent and proximity to the vi
 test("detail gestures are cooperative while the interactive full map keeps its original greedy default", () => {
   assert.match(renderer, /gestureHandling = "greedy"/);
   assert.match(renderer, /gestureHandling,/);
+  assert.match(renderer, /center: initialViewportRef\.current\.center/);
+  assert.match(renderer, /zoom: initialViewportRef\.current\.zoom/);
   assert.match(detail, /gestureHandling="cooperative"/);
   assert.match(experience, /<GoogleMapRenderer/);
 });
