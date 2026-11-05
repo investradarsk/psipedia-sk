@@ -121,7 +121,11 @@ export function PublicSearchSuggestions({
       input.removeAttribute("aria-activedescendant");
     }
     return () => {
+      // The deferred search component unmounts when the input becomes short
+      // again. Do not leave ARIA references to a removed suggestion list.
       input.removeAttribute("aria-activedescendant");
+      input.removeAttribute("aria-controls");
+      input.removeAttribute("aria-autocomplete");
     };
   }, [inputRef, enabled, listId, isOpen, status, selected, suggestions.length]);
 
