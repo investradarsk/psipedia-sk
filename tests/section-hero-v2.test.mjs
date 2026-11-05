@@ -139,6 +139,8 @@ test("detail pages keep standalone headings and images, never the section HERO",
   assert.doesNotMatch(fciStandard, /<UniversalPageHero|<UnifiedSectionHero/);
   assert.doesNotMatch(eshopDetail, /<UniversalPageHero|<UnifiedSectionHero/);
   assert.match(detail, /className=\{styles\.hero\}/);
+  assert.match(detail, /className=\{styles\.heroMedia\}/);
+  assert.match(detail, /className=\{styles\.heroCopy\}>\{copy\}<\/div>/);
   assert.match(article, /<h1>\{article\.title\}<\/h1>/);
 });
 
