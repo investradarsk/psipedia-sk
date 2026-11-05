@@ -25,8 +25,6 @@ test('unified public details: responsive layout, honest media/data, actions and 
  import {OrganizationProfileDetail} from './components/organization-profile-detail';
  import {SiteHeader} from './components/site-header';
  import {defaultNavigationItems} from './lib/navigation';
- import {buildPublicHeaderNavigation} from './lib/public-header-navigation';
- import {portalSections} from './lib/portal';
  import './app/globals.css'; import './app/design-system.css'; import './app/navigation-loading.css'; import './app/navigation-hotfix.css';
  const name = new URLSearchParams(location.search).get('case') || 'directory';
  const minimal = name.includes('minimal');
@@ -47,7 +45,7 @@ test('unified public details: responsive layout, honest media/data, actions and 
  globalThis.fixtureReport={id:1,type:name==='found'?'FOUND':'LOST',slug:'test',dogName:'Test hlásenia',status:name==='lost-resolved'?'RESOLVED':'ACTIVE',sex:'UNKNOWN',size:'UNKNOWN',breed:'',breedSlug:'',color:'',approximateAge:'',chipped:'UNKNOWN',city:'Trnava',district:'Trnava',region:'Trnavský kraj',eventDate:'2026-10-18',lastSeenDateTime:null,description:'Test verejného hlásenia bez súkromných údajov.',distinguishingMarks:'',collarDescription:'',gallery:[],mainImage:null,source:'',sourceUrl:'',publicContactNote:'',publicLatitude:null,locationDescription:'',publishedAt:'2026-10-18',createdAt:'2026-10-18',updatedAt:'2026-10-18'};
  view=await LostFoundDogDetail({type:name==='found'?'FOUND':'LOST',slug:'test'});
  }
- createRoot(document.getElementById('root')).render(<><SiteHeader navigationItems={buildPublicHeaderNavigation(defaultNavigationItems, portalSections)} partnerAuthenticated={false}/>{view}</>);
+ createRoot(document.getElementById('root')).render(<><SiteHeader navigationItems={defaultNavigationItems.map(item => ({...item,children:[]}))} partnerAuthenticated={false}/>{view}</>);
  ` }, bundle:true, format:'esm', conditions:['style'], outfile:join(dir,'app.js'), jsx:'automatic', define:{'process.env.NODE_ENV':'"production"'}, plugins:[{name:'platform-fixtures',setup(b){
  b.onResolve({filter:/^(next\/(link|navigation)|cloudflare:workers)$/},a=>({path:a.path,namespace:'fixture'}));
  b.onResolve({filter:/^@\/lib\/lost-found-dog-store$/},()=>({path:'store',namespace:'fixture'}));
