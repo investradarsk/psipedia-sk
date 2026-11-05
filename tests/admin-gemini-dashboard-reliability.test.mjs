@@ -24,7 +24,7 @@ test("Gemini dashboard isolates history and queue read failures from STOP and se
 test("unavailable Gemini history is not incorrectly presented as empty", () => {
   const dashboard = read("components/admin-gemini-automation-settings.tsx");
 
-  assert.match(dashboard, /historyAvailable \? <GeminiHistory/);
+  assert.match(dashboard, /historyAvailable\s*\?\s*<GeminiHistory/);
   assert.match(dashboard, /História behov je dočasne nedostupná/);
   assert.match(dashboard, /queueAvailable\s*\? <GeminiQueue/);
   assert.match(dashboard, /Stav fronty je dočasne nedostupný/);
