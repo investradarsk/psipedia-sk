@@ -73,7 +73,7 @@ test("new reviewer starts from profile, sees generic success, consumes magic lin
     "&returnTo=" + encodeURIComponent(authReturnTo!),
   );
   await expect(page).toHaveURL(/\/recenzia\/napisat\?resourceId=/);
-  await expect(page.getByRole("heading", { name: "Napísať recenziu" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Napísať recenziu", exact: true })).toBeVisible();
 
   await page.goto("/recenzia/prihlasenie?returnTo=" + encodeURIComponent(authReturnTo!));
   await expect(page.getByRole("heading", { name: "E-mail je overený" })).toBeVisible();
