@@ -8,6 +8,8 @@ export type AdminPaginationState = {
   totalPages: number;
 };
 
+// Avoid firing costly D1 list queries for every visible pagination link.
+// Pages are fetched only when a user actually navigates to them.
 function pageHref(basePath: string, page: number) {
   return page <= 1 ? basePath : `${basePath}${basePath.includes("?") ? "&" : "?"}page=${page}`;
 }
@@ -23,11 +25,11 @@ export function AdminPagination({ pagination, basePath }: {
   return (
     <nav className="admin-pagination" aria-label="Stránkovanie zoznamu">
       {pagination.page > 1
-        ? <Link href={pageHref(basePath, previous)}>← Predchádzajúca</Link>
+        ? <Link prefetch={false} href={pageHref(basePath, previous)}>← Predchádzajúca</Link>
         : <span aria-disabled="true">← Predchádzajúca</span>}
       <strong>Strana {pagination.page} z {pagination.totalPages}</strong>
       {pagination.page < pagination.totalPages
-        ? <Link href={pageHref(basePath, next)}>Ďalšia →</Link>
+        ? <Link prefetch={false} href={pageHref(basePath, next)}>Ďalšia →</Link>
         : <span aria-disabled="true">Ďalšia →</span>}
     </nav>
   );
@@ -54,11 +56,11 @@ export function AdminNumberedPagination({
   if (totalPages <= 1) return null;
   return (
     <nav className={className ?? "admin-pagination"} aria-label={ariaLabel}>
-      {page > 1 && <Link href={hrefForPage(page - 1)} aria-label="Predchádzajúca strana">←</Link>}
+      {page > 1 && <Link prefetch={false} href={hrefForPage(page - 1)} aria-label="Predchádzajúca strana">←</Link>}
       {adminNumberedPageWindow(page, totalPages).map((current) => current === page
         ? <span key={current} aria-current="page">{current}</span>
-        : <Link key={current} href={hrefForPage(current)} aria-label={`Strana ${current}`}>{current}</Link>)}
-      {page < totalPages && <Link href={hrefForPage(page + 1)} aria-label="Nasledujúca strana">→</Link>}
+        : <Link prefetch={false} key={current} href={hrefForPage(current)} aria-label={`Strana ${current}`}>{current}</Link>)}
+      {page < totalPages && <Link prefetch={false} href={hrefForPage(page + 1)} aria-label="Nasledujúca strana">→</Link>}
     </nav>
   );
 }

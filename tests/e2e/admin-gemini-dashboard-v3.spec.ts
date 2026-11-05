@@ -119,7 +119,7 @@ test("Gemini V3 dashboard: 22 categories, safe confirmation, no overflow, real s
   await expect(page.getByRole("link", { name: "Upraviť prompt" })).toHaveAttribute(
     "href", /stable_key=directory\.veterinari/,
   );
-  await expect(page.getByRole("button", { name: /Koncepty z automatizácie/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Načítať koncepty kategórie", exact: true })).toBeVisible();
   await verifyCompactLayout(page, mobile ? 390 : 1440);
   await category.focus();
   await expect(category).toBeFocused();
@@ -266,7 +266,7 @@ test("AdminShell V3 navigation and canonical Gemini concept editor integrate wit
 
   const category = page.getByRole("combobox", { name: "Kategória", exact: true });
   await category.selectOption("directory.veterinari");
-  const conceptPanel = page.getByRole("button", { name: /Koncepty z automatizácie/ });
+  const conceptPanel = page.getByRole("button", { name: "Načítať koncepty kategórie", exact: true });
   await conceptPanel.click();
   const search = page.getByRole("searchbox", { name: /Hľadať koncept v načítaných záznamoch/ });
   await expect(search).toBeVisible();

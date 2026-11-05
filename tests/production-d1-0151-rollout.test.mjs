@@ -47,7 +47,8 @@ test("0151 is approved only by pinned SHA and protected canonical DB identity", 
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(TARGET));
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(TARGET));
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
-  assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, []);
+  assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, ["0158_admin_directory_list_indexes.sql"]);
+  assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes("0158_admin_directory_list_indexes.sql"));
 });
 test("0151 is one-shot and requires exact 0150 ledger predecessor", () => {
   const prior = [

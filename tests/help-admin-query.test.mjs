@@ -46,6 +46,7 @@ test("full counts cover only generic Help and list stays paged at 50", async () 
   assert.deepEqual({...result.totals},{total:124,published:57,draft:67,urgent:2,current:123,resolved:1});
   assert.equal(result.items.length,HELP_ADMIN_PAGE_SIZE);
   assert.equal(result.pages,3);
+  assert.equal(sql.length,3,"unfiltered list reuses totals instead of a redundant count");
   assert.equal(result.categoryCounts.dobrovolnictvo,121);
   assert.equal(result.categoryCounts["docasna-opatera"],1);
   assert.equal(result.categoryCounts.zbierky,1);
@@ -54,6 +55,15 @@ test("full counts cover only generic Help and list stays paged at 50", async () 
   assert.ok(sql.every((query)=>/^SELECT\b/.test(query)));
   assert.ok(sql.every((query)=>!query.includes("lost_found_dog_reports")));
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM lost_found_dog_reports").get().count,1);
+});
+
+test("filtered Help page retains its independent count without serial reads", async () => {
+  const {db,sql}=fixture();
+  const result=await queryHelpAdmin(db,filters({status:"draft",page:2}));
+  assert.equal(result.resultCount,67);
+  assert.equal(result.page,2);
+  assert.equal(result.items.length,17);
+  assert.equal(sql.length,4,"totals + category counts + filtered count + requested page");
 });
 
 test("category, publication, urgent and resolved/current filters combine on the complete dataset", async () => {

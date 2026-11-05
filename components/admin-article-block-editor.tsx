@@ -1,4 +1,5 @@
 "use client";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 
 import { ChangeEvent, Fragment, useEffect, useRef, useState } from "react";
 import { ArticleBlocks } from "@/components/article-blocks";
@@ -302,7 +303,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
             {(block.type === "h2" || block.type === "h3") && <div className="admin-field"><label htmlFor={`block-${block.id}`}>{block.type === "h2" ? "Hlavný medzititulok" : "Menší podnadpis"}</label><input id={`block-${block.id}`} value={block.text} onChange={(event) => update(block.id, (item) => item.type === block.type ? { ...item, text: event.target.value } : item)} placeholder={block.type === "h2" ? "Nadpis novej časti" : "Podnadpis v rámci časti"} /></div>}
 
             {block.type === "image" && <div className="admin-block-image-fields">
-              {block.url ? <img src={block.url} alt={block.alt} /> : <div className="admin-block-image-placeholder">Obrázok ešte nie je vybraný</div>}
+              {block.url ? <img src={block.url} alt={block.alt} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(block.url, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px" /> : <div className="admin-block-image-placeholder">Obrázok ešte nie je vybraný</div>}
               <AdminSingleImageUpload label={block.url ? "Vymeniť obrázok" : "Nahrať obrázok"}
                  onFile={file=>uploadSingle(file, block.id)} busy={uploadingSingleId===block.id}
                  disabled={uploadingSingleId!==null || galleryUploading} onRejected={onError} />
@@ -319,7 +320,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
               <AdminSortableGallery urls={block.images.map(image=>image.url)} className="admin-gallery-items"
                 rowClassName="admin-gallery-item" onReorder={(from,to)=>update(block.id,item=>item.type==="gallery"?{...item,images:arrayMove(item.images,from,to)}:item)}
                 renderRow={(imageIndex,handle)=>{const image=block.images[imageIndex];return <>
-                <img src={image.url} alt={image.alt} />
+                <img src={image.url} alt={image.alt} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(image.url, [160, 320, 480])} sizes="(max-width: 680px) 44vw, 160px" />
                 <label>Alt text<input value={image.alt} aria-label={`Alt text obrázka ${imageIndex + 1}`} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, alt: event.target.value } : entry) } : item)} placeholder="Čo je na obrázku" /></label>
                 <label>Popis pod obrázkom<input value={image.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, caption: event.target.value } : entry) } : item)} /></label>
                 <label>Kredit / zdroj<input value={image.credit ?? ""} onChange={(event) => update(block.id, (item) => item.type === "gallery" ? { ...item, images: item.images.map((entry, entryIndex) => entryIndex === imageIndex ? { ...entry, credit: event.target.value } : entry) } : item)} /></label>

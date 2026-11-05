@@ -1,9 +1,11 @@
 "use client";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
@@ -85,6 +87,7 @@ export function AdminArticleEditor({
   promoUtcDay?: string;
   returnToCalendar?: string;
 }) {
+  const router = useRouter();
   const initialPortalSection = article?.portalSection ?? defaultPortalSection;
   const builtInSectionOptions = articlePortalSectionOptions.filter(
     (option) => option.slug === "clanky" || option.slug === "novinky",
@@ -220,6 +223,7 @@ export function AdminArticleEditor({
     };
   }, [status, confirmedPublishedAt]);
   const [saving, setSaving] = useState(false);
+  const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -335,6 +339,8 @@ export function AdminArticleEditor({
   }
 
   async function save(nextStatus: ArticleStatus) {
+    if (savePendingRef.current || uploading) return;
+    savePendingRef.current = true;
     setSaving(true);
     setError("");
     setMessage("");
@@ -450,16 +456,17 @@ export function AdminArticleEditor({
       focusResult();
       if (returnToCalendar && nextStatus === "draft") {
         allowNavigationRef.current = true;
-        window.setTimeout(() => window.location.assign(returnToCalendar), 0);
+        router.replace(returnToCalendar);
       } else if (!article) {
         allowNavigationRef.current = true;
-        window.setTimeout(() => window.location.assign(`/admin/clanky/${data.article.id}?vytvoreny=1`), 0);
+        router.replace(`/admin/clanky/${data.article.id}?vytvoreny=1`);
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Článok sa nepodarilo uložiť.");
       // Preserve the QA blocker focus selected above; only generic errors focus the result.
       if (!hasQaIssues) focusResult();
     } finally {
+      savePendingRef.current = false;
       setSaving(false);
     }
   }
@@ -478,10 +485,8 @@ export function AdminArticleEditor({
     // EditorWorkspace confirms discard before invoking this callback.
     allowNavigationRef.current = true;
     setEditorDirty(false);
-    window.setTimeout(() => {
-      if (returnToCalendar) window.location.assign(returnToCalendar);
-      else window.location.assign("/admin/clanky");
-    }, 0);
+    if (returnToCalendar) router.push(returnToCalendar);
+    else router.push("/admin/clanky");
   }
 
   function unpublish() {
@@ -679,7 +684,7 @@ export function AdminArticleEditor({
             <div className="admin-field"><label htmlFor="article-og-description">Open Graph popis</label><textarea id="article-og-description" rows={3} value={ogDescription} onChange={(event) => setOgDescription(event.target.value)} placeholder={metaDescription || excerpt || "Popis pri zdieľaní"} /></div>
           </div>
           <div className="admin-upload-row admin-og-upload">
-            <div className={`admin-upload-preview admin-upload-preview--${accent}`}>{ogImageUrl ? <img src={ogImageUrl} alt="Náhľad Open Graph obrázka" loading="lazy" decoding="async" /> : <span>OG</span>}</div>
+            <div className={`admin-upload-preview admin-upload-preview--${accent}`}>{ogImageUrl ? <img src={ogImageUrl} alt="Náhľad Open Graph obrázka" loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(ogImageUrl, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px" /> : <span>OG</span>}</div>
             <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><AdminSingleImageUpload label={ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"} onFile={uploadOgImage} busy={uploading} onRejected={setError}/>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setEditorDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
           </div>
           <label className="admin-check"><input type="checkbox" checked={noindex} onChange={(event) => setNoindex(event.target.checked)} /><span><strong>Neindexovať článok (noindex)</strong><small>Článok zostane dostupný cez URL, ale vyhľadávače ho nemajú zaradiť.</small></span></label>
@@ -773,7 +778,7 @@ export function AdminArticleEditor({
           </div>
           <div className="admin-upload-row">
             <div className={`admin-upload-preview admin-upload-preview--${accent}`}>
-              {imageUrl ? <img src={imageUrl} alt="Náhľad titulnej fotografie" loading="lazy" decoding="async" /> : <span>🐕</span>}
+              {imageUrl ? <img src={imageUrl} alt="Náhľad titulnej fotografie" loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(imageUrl, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px" /> : <span>🐕</span>}
             </div>
             <div className="admin-upload-actions">
               <AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>
