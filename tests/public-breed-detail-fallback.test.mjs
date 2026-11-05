@@ -36,4 +36,6 @@ test("breed hero retain the established test and image safety contract", () => {
   assert.match(detail, /data-testid="breed-hero-photo"/);
   assert.match(detail, /data-image-fallback="breed-photo"/);
   assert.match(detail, /Fotografia plemena/);
+  const universalHero = read("components/detail-primitives/detail-primitives.tsx");
+  assert.match(universalHero, /mediaSlot=\{kind === "organization" \|\| kind === "breed" \|\| imageUrl \? media : undefined\}/);
 });
