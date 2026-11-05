@@ -13,7 +13,7 @@
  */
 import {
   BREED_COMPACT_MERGE,BREED_COMPACT_VISIBLE,BREED_COMPACT_HIDDEN,
-  planBreedCompactMigration,
+  planBreedCompactMigration,equivalentBreedCompactStoredText,
 } from "../lib/breed-notion-compact-consolidation.mjs";
 
 const API="https://api.notion.com/v1";
@@ -152,7 +152,7 @@ for(const summaryPage of list){
     await request("PATCH","/pages/"+encodeURIComponent(page.id),{properties});
     await sleep(400);
     const stored=flat(await request("GET","/pages/"+encodeURIComponent(page.id)));
-    const mismatch=keys.filter(k=>stored[k]!==proposal.changes[k]);
+    const mismatch=keys.filter(k=>!equivalentBreedCompactStoredText(stored[k],proposal.changes[k]));
     if(mismatch.length){stats.conflicts++;stats.failedIds.push(page.id);continue;}
     stats.changed++;stats.verified++;stats.propertyWrites+=keys.length;
   }catch(error){
