@@ -25,6 +25,7 @@ import {
   type FciStandard,
 } from "@/lib/breed-fci";
 import { normalizeBreedSports, textParagraphs } from "@/lib/breed-profile";
+import { stripStagedBreedMerge } from "@/lib/breed-compact-public";
 import {
   getBreedDetailRelations,
   getPublishedBreed,
@@ -250,20 +251,20 @@ export default async function BreedDetailPage({ params }: Props) {
     { label: "Pracovná skúška", value: workingTrial },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
 
-  const overviewParagraphs = textParagraphs(editorial.overview, breed.character);
+  const overviewParagraphs = textParagraphs(stripStagedBreedMerge(editorial.overview), breed.character);
   const accordions: AccordionItem[] = [
     {
       key: "movement",
       eyebrow: "Každodenný život",
       title: "Pohyb a každodenný život",
-      paragraphs: textParagraphs(breed.exercise, breed.needs),
+      paragraphs: textParagraphs(stripStagedBreedMerge(breed.exercise), breed.needs),
       tip: editorial.exerciseTip,
     },
     {
       key: "training",
       eyebrow: "Výchova",
       title: "Výcvik",
-      paragraphs: textParagraphs(breed.training),
+      paragraphs: textParagraphs(stripStagedBreedMerge(breed.training)),
       tip: editorial.trainingTip,
       extraSections: [
         {
@@ -288,14 +289,14 @@ export default async function BreedDetailPage({ params }: Props) {
       key: "coat",
       eyebrow: "Starostlivosť",
       title: "Srsť a starostlivosť",
-      paragraphs: textParagraphs(editorial.coatCare),
+      paragraphs: textParagraphs(stripStagedBreedMerge(editorial.coatCare)),
       tip: editorial.coatTip,
     },
     {
       key: "health",
       eyebrow: "Zdravie",
       title: "Zdravie",
-      paragraphs: textParagraphs(breed.health),
+      paragraphs: textParagraphs(stripStagedBreedMerge(breed.health)),
       tip: editorial.healthTip,
       risks: healthRisks,
     },
@@ -303,7 +304,7 @@ export default async function BreedDetailPage({ params }: Props) {
       key: "history",
       eyebrow: "Pôvod plemena",
       title: "História a pôvod",
-      paragraphs: textParagraphs(breed.history),
+      paragraphs: textParagraphs(stripStagedBreedMerge(breed.history)),
       extraSections: [{ title: "Zaujímavosti", paragraphs: textParagraphs(editorial.curiosities) }],
     },
   ].filter(
