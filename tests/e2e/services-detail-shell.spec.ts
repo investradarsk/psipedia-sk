@@ -123,10 +123,12 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
     await expect(photo).toBeVisible();
     await expect(photo).toHaveAttribute("src", "/images/zdravie-veterinar.webp");
     await expect.poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
-    const photoTop = await photo.evaluate((image) => image.getBoundingClientRect().top);
-    const headingTop = await hero.getByRole("heading", { level: 1 }).evaluate((heading) => heading.getBoundingClientRect().top);
-    if ((page.viewportSize()?.width ?? 1440) <= 800) expect(photoTop).toBeLessThan(headingTop);
-    else expect((await photo.boundingBox())!.x).toBeGreaterThan((await hero.getByRole("heading", { level: 1 }).boundingBox())!.x);
+    // The canonical HERO displays its image behind the title on every viewport.
+    const visual = hero.locator("[data-unified-section-hero-visual]");
+    await expect(visual).toBeVisible();
+    const photoBox = await photo.boundingBox();
+    expect(photoBox?.width ?? 0).toBeGreaterThan(0);
+    expect(photoBox?.height ?? 0).toBeGreaterThan(0);
     await page.screenshot({ path: ".e2e-artifacts/services-profile-ux/veterinary-photo.png", fullPage: true });
     const expert = rich.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie" }).locator("xpath=ancestor::section[1]");
     await expect(expert.getByText("Špecializácie", { exact: true })).toBeVisible();
