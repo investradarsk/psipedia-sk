@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import {
   BREED_COMPACT_VISIBLE,BREED_COMPACT_HIDDEN,BREED_COMPACT_MERGE,
   BREED_COMPACT_OPERATIONAL,BREED_COMPACT_RETIRE_AFTER_AUDIT,
@@ -119,4 +120,12 @@ test("obsolete nonempty fields require verified archival before deletion",()=>{
   });
   assert.equal(plan.statuses.find(v=>v.source==="Profil skvalitnený").status,"REQUIRES_ARCHIVE");
   assert.equal(plan.statuses.find(v=>v.source==="Redakčné sekcie JSON").status,"REQUIRES_ARCHIVE");
+});
+
+test("mass migration cannot run before explicit public/adapter cutover",async()=>{
+  const runner=await readFile(new URL("../scripts/notion-breed-compact-migrate.mjs",import.meta.url),"utf8");
+  assert.match(runner,/BREED_COMPACT_PUBLIC_CUTOVER_READY/);
+  assert.match(runner,/BREED_COMPACT_PUBLIC_CUTOVER_NOT_READY/);
+  assert.match(runner,/BACKUP_344_VERIFIED/);
+  assert.doesNotMatch(runner,/DROP COLUMN/);
 });
