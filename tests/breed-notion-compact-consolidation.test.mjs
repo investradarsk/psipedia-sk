@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   BREED_COMPACT_VISIBLE,BREED_COMPACT_HIDDEN,BREED_COMPACT_MERGE,
   BREED_COMPACT_OPERATIONAL,BREED_COMPACT_RETIRE_AFTER_AUDIT,
-  BREED_COMPACT_HEADINGS,
+  BREED_COMPACT_HEADINGS,equivalentBreedCompactStoredText,
   planBreedCompactMigration,assertBreedCompactContract
 } from "../lib/breed-notion-compact-consolidation.mjs";
 
@@ -78,6 +78,19 @@ test("a partially migrated breed resumes without duplicating FCI eye and ear sec
   assert.equal(plan.statuses.find(s=>s.source==="FCI tvár").status,"ALREADY_PRESENT");
   assert.equal(plan.changes["FCI lebka"],original["FCI lebka"]+" — Uši podľa FCI: Vzpriamené uši.");
   assert.doesNotMatch(plan.changes["FCI lebka"],/<br\s*\/?\s*>/i);
+});
+test("Notion URL auto-link conversion is equivalent only when link and label agree",()=>{
+  const bare="https://fci.be/en/nomenclature/AFFENPINSCHER-186.html";
+  const linked="["+bare+"]("+bare+")";
+  assert.equal(equivalentBreedCompactStoredText(bare,linked),true);
+  assert.equal(equivalentBreedCompactStoredText(linked,bare),true);
+  assert.equal(equivalentBreedCompactStoredText("[link]("+bare+")",bare),false);
+  assert.equal(equivalentBreedCompactStoredText("["+bare+"](https://example.com)",bare),false);
+  const old={"FCI nomenklatúra URL":bare,"FCI zdroj poznámka":"Zdroj — FCI nomenklatúra – zdroj: "+linked};
+  const migration=planBreedCompactMigration(old);
+  assert.equal(migration.ready,true);
+  assert.equal(migration.changes["FCI zdroj poznámka"],undefined);
+  assert.equal(migration.statuses.find(s=>s.source==="FCI nomenklatúra URL").status,"ALREADY_PRESENT");
 });
 test("changed source after migration blocks deletion instead of hiding new text",()=>{
   const original=planBreedCompactMigration({"FCI chvost":"Pôvodný chvost."});
