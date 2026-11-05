@@ -177,17 +177,22 @@ function GeminiSettingsCard({ initial, available, externalEnabled, scheduledEnab
       } else {
         setPilotResult(data as PilotResult);
       }
-      // Re-render server-side run history, without starting any other request.
+      // The POST outcome is authoritative: a failed readback must not turn an
+      // accepted paid job into an apparent failed run and invite a retry.
       router.refresh();
-      const settingResponse = await fetch("/api/admin/gemini-automation?stable_key=" + encodeURIComponent(setting.stableKey), {
-        credentials: "same-origin", cache: "no-store",
-      });
-      if (settingResponse.ok) {
-        const latest = await settingResponse.json() as { setting?: GeminiSettingView };
-        if (latest.setting) setSetting(latest.setting);
+      try {
+        const settingResponse = await fetch("/api/admin/gemini-automation?stable_key=" + encodeURIComponent(setting.stableKey), {
+          credentials: "same-origin", cache: "no-store",
+        });
+        if (settingResponse.ok) {
+          const latest = await settingResponse.json() as { setting?: GeminiSettingView };
+          if (latest.setting) setSetting(latest.setting);
+        }
+      } catch {
+        // The regular read-only polling will reconcile the settings.
       }
     } catch {
-      setPilotError("Gemini beh sa nepodarilo dokončiť. Pred opakovaním skontroluj históriu behov.");
+      setPilotError("Potvrdenie spustenia sa nepodarilo získať. Pred opakovaním over frontu a históriu, aby nevznikla duplicitná platená úloha.");
     } finally {
       requestLocked.current = false;
       setRunning(false);
@@ -254,7 +259,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, scheduledEnab
       <p className={styles.scheduleExplanation} role="status">{schedule.explanation}</p>
       <GeminiPromptPreview stableKey={setting.stableKey} />
       {latestJob && <p role="status" aria-live="polite"
-        className={latestJob.status === "FAILED" || (latestJob.status === "SUCCESS" && !latestJob.run_id)
+        className={latestJob.status === "FAILED" || isStalledGeminiJob(latestJob, currentTime) || (latestJob.status === "SUCCESS" && !latestJob.run_id)
           ? styles.pilotError : styles.feedback}>
         Úloha #{latestJob.id}: {jobStatus(latestJob, currentTime)}
         {latestJob.completed_at ? " · Dokončené " + formatDate(latestJob.completed_at) : ""}
@@ -594,6 +599,7 @@ export function AdminGeminiAutomationSettings({
   const selected = liveSettings.find((item) => item.stableKey === selectedKey) ?? liveSettings[0];
   const waiting = jobs.filter((job) => job.status === "QUEUED").length;
   const running = jobs.filter((job) => job.status === "RUNNING").length;
+  const stalled = jobs.filter((job) => isStalledGeminiJob(job, currentTime)).length;
   const enabled = liveSettings.filter((item) => item.enabled).length;
   const latestRun = liveRuns[0];
 
@@ -767,9 +773,10 @@ export function AdminGeminiAutomationSettings({
           </section>
         </div>
       </div>
-      {running > 0 && <p role="status" className={styles.warning}>
-        Práve beží platená úloha. Ak zostane v stave RUNNING viac než dve hodiny,
-        ďalšie spustenia ostanú blokované do manuálnej diagnostiky v GitHub Actions.
+      {stalled > 0 && <p role="alert" className={styles.warning}>
+        {stalled} platená úloha zostáva v stave RUNNING viac než dve hodiny.
+        Ďalšie spustenia ostávajú blokované do manuálnej diagnostiky v GitHub Actions.
+        Neopakuj spustenie bez overenia výsledku.
       </p>}
       <details className={styles.rules}>
         <summary>Prevádzkové pravidlá a obmedzenia</summary>
