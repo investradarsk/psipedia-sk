@@ -42,7 +42,7 @@ export default async function ReviewAuthorLoginPage({
         <UniversalPageHero eyebrow="Recenzie Psipedia" title="E-mail je overený" intro="Môžeš pokračovať k hodnoteniu." />
         <section className="review-auth-verification-card">
           <span className="eyebrow">Recenzie Psipedia</span>
-          <h2>E-mail je overený</h2>
+          <h2>Overenie dokončené</h2>
           <p>
             Vaša reviewer identita je pripravená. Môžete pokračovať tam, kde ste začali.
           </p>
@@ -60,7 +60,7 @@ export default async function ReviewAuthorLoginPage({
       <section className={`review-auth-layout ${styles.layout}`}>
         <div className="review-auth-copy">
           <span className="eyebrow">Recenzie Psipedia</span>
-          <h2>Overenie e-mailu</h2>
+          <h2>Ako funguje overenie</h2>
           <p className="review-auth-lead">
             {shop ? `Pred hodnotením e-shopu ${shop.name} potrebujeme overiť váš e-mail.` : "Pred napísaním recenzie potrebujeme overiť váš e-mail."}
             {" "}Bez hesla a bez registrácie.
