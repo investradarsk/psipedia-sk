@@ -19,7 +19,7 @@ import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership.
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { manualBreedCellHasValue } from "@/lib/notion-breed-manual-transfer-guards";
 import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
-import { readNotionStagedBreedField, invalidNotionStagedBreedTargets } from "@/lib/notion-breed-stage-read";
+import { readNotionStagedBreedField, inspectNotionStagedBreedField, invalidNotionStagedBreedTargets } from "@/lib/notion-breed-stage-read";
 import { notionBreedRichTextProperty as notionRichTextProperty, sameBreedSyncValue as sameBreedField } from "@/lib/notion-breed-text";
 import { reconcileBreedExtraFields, BREED_EXTRA_FIELDS, readBreedExtraFields, extraValueFromNotion } from "@/lib/notion-breed-extras";
 import {
@@ -623,6 +623,17 @@ export async function writeBackBreedEditorialToNotion(args:{
   const acknowledged:string[]=[];
   const pending:string[]=[];
   for(const field of changed){
+    // When a canonical Notion cell already contains migrated legacy sections,
+    // blindly writing the Admin copy would erase those sections. Keep only
+    // this field pending; unrelated fields still sync independently.
+    const notionTarget=BREED_NOTION_SCHEMA.find(spec=>spec.id===field&&spec.mode==="content")?.notion;
+    if(notionTarget && inspectNotionStagedBreedField(page,notionTarget).staged){
+      pending.push(field);
+      console.warn("notion_breed_staged_field_writeback_deferred",{
+        breedId:args.breed.id,field,code:"STAGED_NOTION_CUTOVER_PENDING",
+      });
+      continue;
+    }
     const remoteChanged=!sameBreedField(remote[field],oldNotion[field])
       &&!sameBreedField(remote[field],after[field]);
     if(remoteChanged&&!args.ownerConfirmedOverwrite&&authorities[field]!=="admin"){
