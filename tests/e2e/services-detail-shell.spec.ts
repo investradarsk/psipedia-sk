@@ -101,8 +101,10 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     const main = await openProfile(page, MINIMUM);
     await expect(main.getByRole("heading", { level: 1, name: "E2E Minimálna služba" })).toBeVisible();
-    await expect(main.locator(PHOTO + " img")).toHaveCount(0);
-    await expect(main.locator(PHOTO + " [data-public-media-fallback]")).toBeVisible();
+    // A profile without its own photo still gets the shared homepage HERO image.
+    const fallbackHero = main.locator('[data-directory-profile-hero] [data-unified-section-hero-media] img').first();
+    await expect(fallbackHero).toBeVisible();
+    await expect(fallbackHero).toHaveAttribute("src", /hero-labrador\.webp/);
     await expect(main.getByRole("heading", { name: "Poskytované služby" })).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Odborné informácie" })).toHaveCount(0);
     await expect(main.getByRole("link", { name: "Zavolať" })).toHaveCount(0);
@@ -119,7 +121,7 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
   test("veterinary specialist data are shown only when populated", async ({ page }) => {
     const rich = await openProfile(page, "/adresar/veterinari/health-fixture-vet-rich");
     const hero = rich.locator("[data-directory-profile-hero]");
-    const photo = hero.locator("[data-public-profile-media] img");
+    const photo = hero.locator("[data-public-hero-configured-media] img").first();
     await expect(photo).toBeVisible();
     await expect(photo).toHaveAttribute("src", "/images/zdravie-veterinar.webp");
     await expect.poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
