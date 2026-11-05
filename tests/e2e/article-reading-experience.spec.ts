@@ -514,7 +514,9 @@ for (const articleCase of cases) {
       await firstAnchor.click();
       await expectAnchorClearsStickyHeader(page, href!);
 
-));
+      // Verify direct entry to the current anchor without losing local origin.
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(new RegExp(`#${href!.slice(1)}`));
       await expectAnchorClearsStickyHeader(page, href!);
       const directToc = page.getByRole("navigation", { name: "Obsah článku" });
       await expect(directToc).not.toHaveAttribute("open");
