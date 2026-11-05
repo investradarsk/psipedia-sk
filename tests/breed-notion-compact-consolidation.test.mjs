@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import {
   BREED_COMPACT_VISIBLE,BREED_COMPACT_HIDDEN,BREED_COMPACT_MERGE,
   BREED_COMPACT_OPERATIONAL,BREED_COMPACT_RETIRE_AFTER_AUDIT,
+  BREED_COMPACT_HEADINGS,equivalentBreedCompactStoredText,
   planBreedCompactMigration,assertBreedCompactContract
 } from "../lib/breed-notion-compact-consolidation.mjs";
 
@@ -48,6 +50,49 @@ test("repeat of the exact migration is idempotent for multi-source targets",()=>
   assert.deepEqual(second.changes,{});
   assert.equal(second.statuses.find(v=>v.source==="FCI chvost").status,"ALREADY_PRESENT");
 });
+test("merges use clear editorial/FCI labels rather than internal debug markers",()=>{
+  const plan=planBreedCompactMigration({
+    "FCI lebka":"Silná lebka.",
+    "FCI oči":"Tmavé oči.",
+    "FCI tvár":"Krátka tvár.",
+    "FCI uši":"Vzpriamené uši.",
+    "Potreby":"Pravidelný denný režim."
+  });
+  assert.equal(plan.ready,true);
+  assert.match(plan.changes["FCI lebka"],/Oči podľa FCI: Tmavé oči\./);
+  assert.match(plan.changes["FCI lebka"],/Tvárová časť podľa FCI: Krátka tvár\./);
+  assert.match(plan.changes["FCI lebka"],/Uši podľa FCI: Vzpriamené uši\./);
+  assert.match(plan.changes["Redakcia prehľad"],/Každodenné potreby: Pravidelný denný režim\./);
+  assert.doesNotMatch(JSON.stringify(plan.changes),/Pôvodné pole|⟦|⟧/);
+  assert.equal(new Set(Object.values(BREED_COMPACT_HEADINGS)).size,23);
+});
+test("a partially migrated breed resumes without duplicating FCI eye and ear sections",()=>{
+  const original={
+    "FCI lebka":"Silná lebka. — Oči podľa FCI: Tmavé oči. — Tvárová časť podľa FCI: Krátka tvár.",
+    "FCI oči":"Tmavé oči.",
+    "FCI tvár":"Krátka tvár.",
+    "FCI uši":"Vzpriamené uši."
+  };
+  const plan=planBreedCompactMigration(original);
+  assert.equal(plan.ready,true);
+  assert.equal(plan.statuses.find(s=>s.source==="FCI oči").status,"ALREADY_PRESENT");
+  assert.equal(plan.statuses.find(s=>s.source==="FCI tvár").status,"ALREADY_PRESENT");
+  assert.equal(plan.changes["FCI lebka"],original["FCI lebka"]+" — Uši podľa FCI: Vzpriamené uši.");
+  assert.doesNotMatch(plan.changes["FCI lebka"],/<br\s*\/?\s*>/i);
+});
+test("Notion URL auto-link conversion is equivalent only when link and label agree",()=>{
+  const bare="https://fci.be/en/nomenclature/AFFENPINSCHER-186.html";
+  const linked="["+bare+"]("+bare+")";
+  assert.equal(equivalentBreedCompactStoredText(bare,linked),true);
+  assert.equal(equivalentBreedCompactStoredText(linked,bare),true);
+  assert.equal(equivalentBreedCompactStoredText("[link]("+bare+")",bare),false);
+  assert.equal(equivalentBreedCompactStoredText("["+bare+"](https://example.com)",bare),false);
+  const old={"FCI nomenklatúra URL":bare,"FCI zdroj poznámka":"Zdroj — FCI nomenklatúra – zdroj: "+linked};
+  const migration=planBreedCompactMigration(old);
+  assert.equal(migration.ready,true);
+  assert.equal(migration.changes["FCI zdroj poznámka"],undefined);
+  assert.equal(migration.statuses.find(s=>s.source==="FCI nomenklatúra URL").status,"ALREADY_PRESENT");
+});
 test("changed source after migration blocks deletion instead of hiding new text",()=>{
   const original=planBreedCompactMigration({"FCI chvost":"Pôvodný chvost."});
   const changed=planBreedCompactMigration({...original.changes,"FCI chvost":"Zmenený odborný opis chvosta."});
@@ -75,4 +120,12 @@ test("obsolete nonempty fields require verified archival before deletion",()=>{
   });
   assert.equal(plan.statuses.find(v=>v.source==="Profil skvalitnený").status,"REQUIRES_ARCHIVE");
   assert.equal(plan.statuses.find(v=>v.source==="Redakčné sekcie JSON").status,"REQUIRES_ARCHIVE");
+});
+
+test("mass migration cannot run before explicit public/adapter cutover",async()=>{
+  const runner=await readFile(new URL("../scripts/notion-breed-compact-migrate.mjs",import.meta.url),"utf8");
+  assert.match(runner,/BREED_COMPACT_PUBLIC_CUTOVER_READY/);
+  assert.match(runner,/BREED_COMPACT_PUBLIC_CUTOVER_NOT_READY/);
+  assert.match(runner,/BACKUP_344_VERIFIED/);
+  assert.doesNotMatch(runner,/DROP COLUMN/);
 });
