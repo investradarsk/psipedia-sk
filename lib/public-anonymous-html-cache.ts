@@ -9,7 +9,10 @@ const PUBLIC_DIRECTORY_CATEGORIES = new Set([
 
 export function isExplicitAnonymousHtmlRoute(pathname: string): boolean {
   const path = pathname.replace(/\/+$/, "") || "/";
-  if (path === "/" || path === "/clanky" || path === "/podujatia") return true;
+  // /pomoc-psom renders one public landing snapshot (adoptions, reports,
+  // organizations and generic help). It reads no personal data and is costly
+  // to regenerate; only the exact root qualifies, never submissions or details.
+  if (path === "/" || path === "/clanky" || path === "/podujatia" || path === "/pomoc-psom") return true;
   if (/^\/plemena(?:\/[a-z0-9-]+)?$/.test(path)) return true;
   if (path === "/adresar") return true;
   const match = /^\/adresar\/([a-z0-9-]+)$/.exec(path);

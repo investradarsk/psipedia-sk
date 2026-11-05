@@ -1,12 +1,11 @@
 "use client";
 
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
-import { PublicSearchSuggestions } from "./public-search-suggestions";
+import { LazyPublicSearchSuggestions } from "./lazy-public-search-suggestions";
 import Link from "next/link";
-import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import type { NavigationItem } from "@/lib/navigation";
-import { portalSections } from "@/lib/portal";
+import type { PublicHeaderNavigationItem } from "@/lib/public-header-navigation";
 import { BookmarkIcon, ChevronDownIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
 import { STORAGE_KEY } from "./favorite-button";
 import { NavigationProgress } from "./navigation-progress";
@@ -20,7 +19,7 @@ export function SiteHeader({
   navigationItems,
   partnerAuthenticated,
 }: {
-  navigationItems: NavigationItem[];
+  navigationItems: PublicHeaderNavigationItem[];
   partnerAuthenticated: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -42,31 +41,8 @@ export function SiteHeader({
   const pathname = usePathname();
   const partnerHref = partnerAuthenticated ? "/partner" : "/partner/prihlasenie";
   const partnerLabel = "Partner účet";
-  const nav = useMemo(() => {
-    const visible = navigationItems.filter((item) => item.visible);
-    return visible.filter((item) => !item.parentId).map((item) => {
-      const slug = item.href.split("/").filter(Boolean)[0] ?? "";
-      const sectionSlug = item.id === "novinky" && slug === "clanky" ? "novinky" : slug;
-      const section = portalSections.find((candidate) => candidate.slug === sectionSlug);
-      const storedChildren = visible.filter((child) => child.parentId === item.id);
-      const fallbackChildren = ["steniatka", "starostlivost", "aktivity"].includes(sectionSlug)
-        ? (section?.subpages ?? []).filter((subpage) => subpage.visible !== false).map((subpage, position) => ({
-            id: `portal-${sectionSlug}-${subpage.slug}`,
-            label: subpage.label,
-            href: subpage.href ?? `/${sectionSlug}/${subpage.slug}`,
-            parentId: item.id,
-            position,
-            visible: true,
-          }))
-        : [];
-      return {
-        ...item,
-        className: sectionSlug === "pomoc-psom" ? "nav-help" : sectionSlug === "novinky" ? "nav-news" : undefined,
-        title: section?.description,
-        children: storedChildren.length ? storedChildren : fallbackChildren,
-      };
-    });
-  }, [navigationItems]);
+  const nav = navigationItems;
+
 
   useEffect(() => {
     function openWithKeyboard(event: KeyboardEvent) {
@@ -612,7 +588,7 @@ export function SiteHeader({
               </span>
               <button type="submit">Hľadať</button>
             </form>
-            <PublicSearchSuggestions
+            <LazyPublicSearchSuggestions
               query={query}
               enabled={searchOpen}
               mode="modal"

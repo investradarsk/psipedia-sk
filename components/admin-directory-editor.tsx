@@ -204,17 +204,19 @@ export function AdminDirectoryEditor({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
+  const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [formDirty, setFormDirty] = useState(false);
   const [confirmDirectoryExit, setConfirmDirectoryExit] = useState(false);
   const directoryBackLinkRef = useRef<HTMLAnchorElement>(null);
+  const restoredProfileLinkRef = useRef<HTMLAnchorElement>(null);
   const allowDirectoryExitRef = useRef(false);
 
   useEffect(() => {
     if (formRef.current) formRef.current.dataset.hydrated = "true";
-  }, []);
+  }, [status]);
 
   function changeName(value: string) {
     setName(value);
@@ -281,17 +283,19 @@ export function AdminDirectoryEditor({
       setReviewState(data.draft.reviewState); setNotionVersion(data.draft.lastEditedAt);
       setReviewConfirm(null);
       setMessage(reviewConfirm === "reject" ? "Koncept bol odmietnutý." : "Koncept bol obnovený bez publikovania.");
-      if (onNotionSaved) onNotionSaved(); else window.location.reload();
+      // The latest review state is already in React state; avoid a full reload.
+      onNotionSaved?.();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Zmena zlyhala."); }
     finally { setSaving(false); }
   }
 
   async function save(nextStatus: DirectoryProfileStatus) {
-    if (saving || notionReadOnly) return;
+    if (saving || savePendingRef.current || notionReadOnly) return;
     if (notionDraft && nextStatus === "published") {
       setError("Najprv bezpečne importuj koncept do D1 a publikuj v natívnom editore.");
       return;
     }
+    savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
       if (notionDraft) {
@@ -386,6 +390,7 @@ export function AdminDirectoryEditor({
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
     } finally {
+      savePendingRef.current = false;
       setSaving(false);
     }
   }
@@ -412,7 +417,7 @@ export function AdminDirectoryEditor({
   }
 
   async function restoreArchivedProfile() {
-    if (!profile || profile.status !== "archived") return;
+    if (!profile || status !== "archived" || saving) return;
     setSaving(true); setError(""); setMessage("");
     try {
       const response = await fetch(`/api/admin/directory/${profile.id}`, {
@@ -422,16 +427,22 @@ export function AdminDirectoryEditor({
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo obnoviť.");
-      window.location.reload();
+      setStatus(data.profile.status);
+      setMessage("Profil je obnovený do konceptu.");
+      // Navigate inside Next.js so the parent header and separate Services V3 editor
+      // also receive the fresh draft status, without reloading the browser.
+      restoredProfileLinkRef.current?.click();
     } catch (restoreError) {
       setError(restoreError instanceof Error ? restoreError.message : "Profil sa nepodarilo obnoviť.");
+    } finally {
       setSaving(false);
     }
   }
 
-  if (profile?.status === "archived") {
+  if (profile && status === "archived") {
     return (
       <section className="admin-form-card">
+        <Link href={`/admin/adresar/${profile.id}?obnovene=1`} ref={restoredProfileLinkRef} hidden tabIndex={-1} aria-hidden="true">Otvoriť obnovený profil</Link>
         <h2>Archivovaný profil</h2>
         <p>Profil nie je verejný a jeho canonical resource zostáva zachovaný pre historické a trust dáta.</p>
         <label className={styles.reviewControl}>
@@ -529,7 +540,7 @@ export function AdminDirectoryEditor({
 
       <div className="admin-event-editor-grid">
         <div className="admin-event-fields" onChangeCapture={() => setFormDirty(true)}>
-          <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
+          <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} source={profile ? { entityType: "DIRECTORY", canonicalEntityId: profile.id } : undefined} onAccepted={applyAutomationUpdate} />
           <AdminEditorSection id="directory-main" className="admin-form-card admin-form-card--intro">
             <div className="admin-card-heading"><div><span>01</span><div><h2>Hlavné údaje</h2><p>Názov, zaradenie a krátke verejné predstavenie.</p></div></div></div>
             <div className="admin-field admin-field--title"><label htmlFor="directory-name">Názov profilu</label><input id="directory-name" value={name} onChange={(event) => changeName(event.target.value)} placeholder="Napríklad: Psia škola Pod Zoborom" required /></div>

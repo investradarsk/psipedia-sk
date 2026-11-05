@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { PublicSearchSuggestions } from "./public-search-suggestions";
+import { LazyPublicSearchSuggestions } from "./lazy-public-search-suggestions";
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import { SearchIcon } from "@/components/icons";
@@ -73,7 +73,7 @@ export function HomePortalSearch({
           </span>
           <button type="submit">{buttonLabel}</button>
         </form>
-        <PublicSearchSuggestions
+        <LazyPublicSearchSuggestions
           query={liveQuery}
           enabled={enableSuggestions}
           mode="home"

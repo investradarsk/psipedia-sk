@@ -74,15 +74,19 @@ test('public event listing reads only card fields and keeps complete event detai
 test('selected-day calendar reads only essential preview fields, not full event bodies', async () => {
   const { readFileSync } = await import('node:fs');
   const store = readFileSync('lib/event-store.ts', 'utf8');
-  const start = store.indexOf('export async function getPublicEventCalendar(');
-  const end = store.indexOf('export async function getPublishedEvents(', start);
-  const calendar = store.slice(start, end);
-  assert.ok(start >= 0 && end > start);
-  assert.match(calendar, /rowToPublicEventDayPreview/);
-  assert.match(calendar, /all<PublicEventDayRow>\(\)/);
-  assert.doesNotMatch(calendar, /SELECT \*|description|practical_info|seo_json|image_key|contact_note/);
-  assert.match(calendar, /COALESCE\(NULLIF\(end_date,''\),start_date\) >= \?/);
-  assert.match(calendar, /ORDER BY \$\{sql.order\} LIMIT 12/);
+  const dayStart = store.indexOf('export async function getPublicEventDayPreview(');
+  const monthStart = store.indexOf('export async function getPublicEventCalendar(', dayStart);
+  const end = store.indexOf('export async function getPublishedEvents(', monthStart);
+  assert.ok(dayStart >= 0 && monthStart > dayStart && end > monthStart);
+  const dayPreview = store.slice(dayStart, monthStart);
+  const calendar = store.slice(monthStart, end);
+  // Month summaries delegate selected-day reads to one bounded preview query.
+  assert.ok(calendar.includes('validDay ? getPublicEventDayPreview(filters, day)'));
+  assert.ok(dayPreview.includes('rowToPublicEventDayPreview'));
+  assert.ok(dayPreview.includes('all<PublicEventDayRow>()'));
+  assert.doesNotMatch(dayPreview, /SELECT \*|description|practical_info|seo_json|image_key|contact_note/);
+  assert.ok(dayPreview.includes("COALESCE(NULLIF(end_date,''),start_date) >= ?"));
+  assert.ok(dayPreview.includes('ORDER BY ${sql.order} LIMIT 12'));
   assert.match(store, /const getPublishedEventUncached = async/);
   assert.match(store, /SELECT \* FROM managed_events WHERE slug = \?/);
 });

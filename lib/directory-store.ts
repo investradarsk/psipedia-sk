@@ -61,6 +61,7 @@ import { directoryQualificationSections } from "./directory-public-copy.ts";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 import { homepageRotationOffset } from "@/lib/homepage-rotation";
+import { homepageDirectoryGroupedSql } from "@/lib/homepage-directory-query";
 import {
   normalizeImageDisplayConfig,
   readImageDisplayConfig,
@@ -1278,6 +1279,49 @@ export async function getHomepageDirectoryProfilesWithImages(
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     }),
   );
+}
+
+
+/**
+ * Homepage calls veterinarians and trainers together. Rank each category
+ * independently in one D1 statement instead of two network roundtrips.
+ * The single-category public helper above remains available to other callers.
+ */
+export async function getHomepageDirectoryProfilesByCategoriesWithImages(
+  categories: readonly DirectoryCategorySlug[],
+  limit = 3,
+): Promise<Partial<Record<DirectoryCategorySlug, HomepageDirectoryCard[]>>> {
+  const selected = [...new Set(categories)].filter(isDirectoryCategory).slice(0, 12);
+  const groups = Object.fromEntries(
+    selected.map((category) => [category, [] as HomepageDirectoryCard[]]),
+  ) as Partial<Record<DirectoryCategorySlug, HomepageDirectoryCard[]>>;
+  const database = getD1Binding();
+  if (!database || !selected.length) return groups;
+
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const rotationOffset = homepageRotationOffset(bratislavaDateKey(), safeLimit);
+  const rows = await database
+    .prepare(homepageDirectoryGroupedSql(selected.length))
+    .bind(...selected, rotationOffset, safeLimit)
+    .all<HomepageDirectoryRow>();
+  for (const row of rows.results) {
+    if (!isDirectoryCategory(row.category)) continue;
+    const destination = groups[row.category];
+    if (!destination) continue;
+    destination.push({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      category: row.category,
+      city: runtimeDirectoryLocationText(row.city),
+      district:
+        runtimeDirectoryLocationText(row.district) ||
+        runtimeDirectoryLocationText(row.fallback_district),
+      imageUrl: row.image_url,
+      thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    });
+  }
+  return groups;
 }
 
 export async function listPublishedDirectoryProfiles(options: {

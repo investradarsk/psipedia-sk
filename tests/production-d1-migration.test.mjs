@@ -708,7 +708,8 @@ test("production D1 targets account for every canonical migration, including una
     .filter((name) => /^\d{4}_.+\.sql$/.test(name) && Number(name.slice(0, 4)) >= 62)
     .sort();
   assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS, ...UNACTIVATED_PRODUCTION_TARGETS].sort(), canonicalTargets);
-  assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, []);
+  // 0158 is a reviewed proposal only: it must stay outside the protected APPLY allowlist.
+  assert.deepEqual(UNACTIVATED_PRODUCTION_TARGETS, ["0158_admin_directory_list_indexes.sql"]);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0157_facebook_weekly_plan_marks.sql");
   for (const target of UNACTIVATED_PRODUCTION_TARGETS) {
     assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes(target), false);

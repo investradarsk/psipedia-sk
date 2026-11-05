@@ -2,6 +2,7 @@ export const DIRECTORY_ADMIN_PAGE_SIZE = 50;
 export type DirectoryAdminStatus = "all" | "published" | "draft" | "archived";
 export type DirectoryAdminVerification = "all" | "verified" | "unverified";
 export type DirectoryAdminMedia = "all" | "with-image" | "without-image";
+export type DirectoryAdminSort = "updated" | "name" | "city" | "status";
 export type DirectoryAdminMembershipFilters = {
   category: string;
   status: DirectoryAdminStatus;
@@ -12,7 +13,7 @@ export type DirectoryAdminMembershipFilters = {
   verification: DirectoryAdminVerification;
   media: DirectoryAdminMedia;
 };
-export type DirectoryAdminFilters = DirectoryAdminMembershipFilters & { page: number };
+export type DirectoryAdminFilters = DirectoryAdminMembershipFilters & { page: number; sort?: DirectoryAdminSort };
 export type DirectoryAdminCategoryOption = { readonly slug: string; readonly label: string };
 
 type Statement = {
@@ -36,6 +37,7 @@ export function parseDirectoryAdminFilters(
   const rawCategory = firstParam(params.get("category"));
   const rawStatus = firstParam(params.get("status"));
   const rawPage = firstParam(params.get("page")) || "1";
+  const rawSort = firstParam(params.get("sort"));
   return {
     category: rawCategory && isCategory(rawCategory) ? rawCategory : "",
     status: rawStatus === "published" || rawStatus === "draft" || rawStatus === "archived" ? rawStatus : "all",
@@ -50,6 +52,7 @@ export function parseDirectoryAdminFilters(
       ? "with-image"
       : firstParam(params.get("media")) === "without-image" ? "without-image" : "all",
     page: /^\d{1,9}$/.test(rawPage) ? Math.max(1, Number(rawPage)) : 1,
+    sort: rawSort === "name" || rawSort === "city" || rawSort === "status" ? rawSort : "updated",
   };
 }
 
@@ -109,6 +112,7 @@ export function directoryAdminHref(filters: DirectoryAdminFilters) {
   if (filters.city) params.set("city", filters.city);
   if (filters.verification !== "all") params.set("verification", filters.verification);
   if (filters.media !== "all") params.set("media", filters.media);
+  if (filters.sort && filters.sort !== "updated") params.set("sort", filters.sort);
   if (filters.page > 1) params.set("page", String(filters.page));
   const query = params.toString();
   return `/admin/adresar${query ? `?${query}` : ""}`;
@@ -203,9 +207,18 @@ export async function queryDirectoryAdmin<T>(
   // Launch the bounded page together with counters and location facets:
   // only out-of-range URLs need a second read for the clamped last page.
   const requestedPage = Math.max(1, Math.trunc(filters.page || 1));
+  // Whitelist SQL order clauses: the database sorts the entire matching set
+  // before LIMIT/OFFSET. Sorting only a loaded page gives misleading results.
+  const orderBy: Record<DirectoryAdminSort, string> = {
+    updated: "updated_at DESC, id DESC",
+    name: "name COLLATE NOCASE ASC, id ASC",
+    city: "city COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC",
+    status: "status ASC, updated_at DESC, id DESC",
+  };
+  const sortSql = orderBy[filters.sort ?? "updated"] ?? orderBy.updated;
   const loadPage = (page: number) => database.prepare(`SELECT id, slug, name, excerpt, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,
       COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
-    FROM directory_profiles${membershipQuery.where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
+    FROM directory_profiles${membershipQuery.where} ORDER BY ${sortSql} LIMIT ? OFFSET ?`)
     .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();
   const [totals, count, locations, requestedResult] = await Promise.all([
     database.prepare(`SELECT COUNT(*) AS total,

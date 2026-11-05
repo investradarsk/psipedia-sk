@@ -12,11 +12,11 @@ const ssr = (cacheControl = "private, no-cache, no-store, max-age=0, must-revali
   });
 
 test("only explicitly public and non-personalized routes are eligible", () => {
-  for (const path of ["/", "/clanky", "/podujatia", "/plemena", "/plemena/labradorsky-retriever", "/adresar", "/adresar/veterinari"]) {
+  for (const path of ["/", "/clanky", "/podujatia", "/pomoc-psom", "/pomoc-psom/", "/plemena", "/plemena/labradorsky-retriever", "/adresar", "/adresar/veterinari"]) {
     assert.equal(isExplicitAnonymousHtmlRoute(path), true, path);
     assert.equal(isExplicitAnonymousSsrHtml(ssr(), path), true, path);
   }
-  for (const path of ["/admin", "/admin/clanky", "/partner", "/partner/prihlasenie", "/api/adresar", "/recenzia", "/recenzia/123", "/adresar/veterinari/profil", "/podujatia/pridat-podujatie", "/random"]) {
+  for (const path of ["/admin", "/admin/clanky", "/partner", "/partner/prihlasenie", "/api/adresar", "/recenzia", "/recenzia/123", "/adresar/veterinari/profil", "/podujatia/pridat-podujatie", "/pomoc-psom/adopcia", "/pomoc-psom/adopcia/nejaky-pes", "/pomoc-psom/stratene-a-najdene", "/pomoc-psom/zbierky", "/random"]) {
     assert.equal(isExplicitAnonymousHtmlRoute(path), false, path);
     assert.equal(isExplicitAnonymousSsrHtml(ssr(), path), false, path);
   }
@@ -50,4 +50,16 @@ test("HTML cache is still strictly anonymous and local, not new pre-Worker Worke
   assert.match(worker, /url\.hostname\.toLowerCase\(\) !== "psipedia.sk" \|\| !isExplicitAnonymousHtmlRoute\(url\.pathname\)/);
   assert.match(worker, /!isCacheableHtmlResponse\(response\) && !isExplicitAnonymousSsrHtml\(response, url\.pathname\)/);
   assert.equal(wrangler.cache?.enabled ?? false, false, "Do not enable Worker-wide pre-execution cache for cookie-personalized pages");
+});
+
+test("help landing cache respects all response privacy restrictions and keeps short TTL", () => {
+  const path = "/pomoc-psom";
+  assert.equal(isExplicitAnonymousHtmlRoute(path), true);
+  assert.equal(isExplicitAnonymousHtmlRoute("/pomoc-psom/pridat"), false);
+  assert.equal(isExplicitAnonymousSsrHtml(ssr(), path), true);
+  assert.equal(isExplicitAnonymousSsrHtml(ssr(undefined, { "Set-Cookie": "private=1" }), path), false);
+  assert.equal(isExplicitAnonymousSsrHtml(ssr(undefined, { Vary: "Cookie" }), path), false);
+  assert.equal(isExplicitAnonymousSsrHtml(ssr(undefined, { "X-Robots-Tag": "noindex" }), path), false);
+  assert.match(worker, /const PUBLIC_HTML_CACHE_TTL_SECONDS = 45;/);
+  assert.match(worker, /url\.search \|\| isAdminAuthPath\(url\.pathname\) \|\| isReviewAuthorRoute\(url\.pathname\)/);
 });

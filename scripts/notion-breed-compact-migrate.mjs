@@ -13,7 +13,7 @@
  */
 import {
   BREED_COMPACT_MERGE,BREED_COMPACT_VISIBLE,BREED_COMPACT_HIDDEN,
-  planBreedCompactMigration,
+  planBreedCompactMigration,equivalentBreedCompactStoredText,
 } from "../lib/breed-notion-compact-consolidation.mjs";
 
 const API="https://api.notion.com/v1";
@@ -29,6 +29,11 @@ const requestedLimit=Number(process.argv.find(v=>v.startsWith("--limit="))?.spli
 if(!["audit","apply","verify"].includes(mode))throw Error("INVALID_MODE");
 if(!token)throw Error("NOTION_API_TOKEN_MISSING");
 if(mode==="apply" && confirm!=="BACKUP_344_VERIFIED")throw Error("BACKUP_CONFIRMATION_REQUIRED");
+// Until the public renderer and Admin/Notion read/write adapters are cut over,
+// copying legacy content into canonical fields creates duplicate public text.
+// This explicit operations gate must remain closed during staging and pilots.
+if(mode==="apply" && process.env.BREED_COMPACT_PUBLIC_CUTOVER_READY!=="true")
+  throw Error("BREED_COMPACT_PUBLIC_CUTOVER_NOT_READY");
 if(requestedLimit && (!Number.isSafeInteger(requestedLimit)||requestedLimit<1))throw Error("INVALID_LIMIT");
 const sleep=(ms)=>new Promise(resolve=>setTimeout(resolve,ms));
 async function request(method,path,body) {
@@ -152,7 +157,7 @@ for(const summaryPage of list){
     await request("PATCH","/pages/"+encodeURIComponent(page.id),{properties});
     await sleep(400);
     const stored=flat(await request("GET","/pages/"+encodeURIComponent(page.id)));
-    const mismatch=keys.filter(k=>stored[k]!==proposal.changes[k]);
+    const mismatch=keys.filter(k=>!equivalentBreedCompactStoredText(stored[k],proposal.changes[k]));
     if(mismatch.length){stats.conflicts++;stats.failedIds.push(page.id);continue;}
     stats.changed++;stats.verified++;stats.propertyWrites+=keys.length;
   }catch(error){

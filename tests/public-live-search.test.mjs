@@ -37,12 +37,18 @@ test("header keeps existing keyboard dialog and autocomplete while homepage GET 
   const header = file("components/site-header.tsx");
   const home = file("components/home-portal-search.tsx");
   const live = file("components/public-search-suggestions.tsx");
+  const deferred = file("components/lazy-public-search-suggestions.tsx");
   assert.match(header, /aria-modal="true"/);
   assert.match(header, /if \(event.key === "Escape"\)/);
-  assert.match(header, /<PublicSearchSuggestions/);
+  assert.match(header, /<LazyPublicSearchSuggestions/);
   assert.match(home, /<form action=\{action\} method="get"/);
   assert.match(home, /name=\{inputName\}/);
   assert.match(home, /hidden.map/);
+  // Keep the full keyboard/autocomplete behavior, but load it only after typing.
+  assert.match(deferred, /lazy\(async \(\) => \{/);
+  assert.match(deferred, /await import\("\.\/public-search-suggestions"\)/);
+  assert.match(deferred, /props\.query\.trim\(\)\.length < 2/);
+  assert.match(home, /<LazyPublicSearchSuggestions/);
   assert.match(live, /AbortController/);
   assert.match(live, /ArrowDown/);
   assert.match(live, /aria-selected/);

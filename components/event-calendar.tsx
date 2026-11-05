@@ -143,6 +143,8 @@ export function EventCalendar({
     calendarSummaries,
   }));
   const [pending, setPending] = useState(false);
+  const [pendingDay, setPendingDay] = useState(false);
+  const [pendingCalendarOnly, setPendingCalendarOnly] = useState(false);
   const [loadError, setLoadError] = useState("");
   const calendarRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
@@ -152,6 +154,30 @@ export function EventCalendar({
     return () => calendar?.removeAttribute("data-calendar-ready");
   }, []);
   const cacheRef = useRef(new Map<string, CalendarData>());
+  // Only retain bounded, short-lived client data. Published event changes
+  // become visible again when the cache expires or the page is revisited.
+  function remember(key: string, payload: CalendarData) {
+    cacheRef.current.delete(key);
+    cacheRef.current.set(key, payload);
+    window.setTimeout(() => {
+      if (cacheRef.current.get(key) === payload) cacheRef.current.delete(key);
+    }, 120_000);
+    if (cacheRef.current.size > 24)
+      cacheRef.current.delete(cacheRef.current.keys().next().value!);
+  }
+  useEffect(() => {
+    // Reuse server-rendered data when returning to the initial month/day.
+    const current = new URL(window.location.href);
+    const endpoint = new URL("/api/public/events/calendar", current.origin);
+    current.searchParams.forEach((value, key) => endpoint.searchParams.set(key, value));
+    if (initialType !== "Všetky") endpoint.searchParams.set("typ", initialType);
+    remember(endpoint.pathname + endpoint.search, {
+      events,
+      listing: listing ?? { total: events.length, page: 1, pages: 1 },
+      calendarEvents,
+      calendarSummaries,
+    });
+  }, []);
   const f = { ...initialFilters, month: view.filterMonth, time: view.time, type: view.type };
   const query = initialQuery.trim().slice(0, 120);
   const region = initialRegion;
@@ -166,7 +192,7 @@ export function EventCalendar({
       : "";
   const typePathname =
     view.type === "Všetky" ? "/podujatia" : (eventTypePortalHref(view.type) ?? "/podujatia");
-  const filtered = pending ? [] : data.events;
+  const filtered = pending && !pendingCalendarOnly ? [] : data.events;
   const daySummaries = pending
     ? new Map<string, { date: string; count: number; types: EventType[] }>()
     : data.calendarSummaries
@@ -177,57 +203,104 @@ export function EventCalendar({
             .map((day) => [day.date, calendarDaySummary(data.calendarEvents, day.date)]),
         );
   const dailyEvents =
-    selectedDay && !pending ? eventsForCalendarDay(data.calendarEvents, selectedDay) : [];
+    selectedDay && !pending && !pendingDay ? eventsForCalendarDay(data.calendarEvents, selectedDay) : [];
 
   async function navigate(href: string, next: View, addHistory = true) {
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
     if (addHistory) window.history.pushState(window.history.state, "", href);
-    setView(next); // Immediate visual response; only bounded data is loaded.
-    setPending(true);
+    setView(next);
     setLoadError("");
     const target = new URL(href, window.location.origin);
     const endpoint = new URL("/api/public/events/calendar", window.location.origin);
     target.searchParams.forEach((value, key) => endpoint.searchParams.set(key, value));
     if (next.type !== "Všetky") endpoint.searchParams.set("typ", next.type);
     const key = endpoint.pathname + endpoint.search;
+    const sameListing = view.time === next.time &&
+      view.type === next.type && view.filterMonth === next.filterMonth;
+    const sameMonth = sameListing && view.month === next.month;
+
+    // A day selection changes only the right-hand panel. The list and month
+    // aggregates are already loaded, so avoid repeating their expensive D1 reads.
+    if (sameMonth && !pending) {
+      setPendingDay(false);
+      if (next.day === view.day && !pendingDay) return;
+      if (!next.day || (data.calendarSummaries && !data.calendarSummaries.some((item) => item.date === next.day && item.count > 0))) {
+        setData((current) => ({ ...current, calendarEvents: [] }));
+        return;
+      }
+      const cachedDay = cacheRef.current.get(key);
+      if (cachedDay) {
+        setData((current) => ({ ...current, calendarEvents: cachedDay.calendarEvents }));
+        return;
+      }
+      setPendingDay(true);
+      const dayEndpoint = new URL(endpoint);
+      dayEndpoint.pathname += "/day";
+      try {
+        const response = await fetch(dayEndpoint.toString(), {
+          signal: controller.signal,
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) throw new Error("Day request failed");
+        const dayPayload = (await response.json()) as { calendarEvents: PublicEventDayPreview[] };
+        if (!Array.isArray(dayPayload.calendarEvents)) throw new Error("Invalid day response");
+        if (!controller.signal.aborted) {
+          const payload = { ...data, calendarEvents: dayPayload.calendarEvents };
+          remember(key, payload);
+          setData((current) => ({ ...current, calendarEvents: dayPayload.calendarEvents }));
+        }
+      } catch {
+        if (!controller.signal.aborted)
+          setLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
+      } finally {
+        if (!controller.signal.aborted) setPendingDay(false);
+      }
+      return;
+    }
+
+    setPendingDay(false);
+    const calendarOnly = sameListing && !next.day;
+    setPendingCalendarOnly(calendarOnly);
+    setPending(true);
     const cached = cacheRef.current.get(key);
     if (cached) {
       setData(cached);
       setPending(false);
+      setPendingCalendarOnly(false);
       return;
     }
+    // When only the calendar month changes, the 12-card listing is unchanged.
+    // Request just the new month's aggregate instead of two more list queries.
+    if (calendarOnly) endpoint.searchParams.set("calendarOnly", "1");
     try {
       const response = await fetch(endpoint.toString(), {
         signal: controller.signal,
         headers: { Accept: "application/json" },
       });
       if (!response.ok) throw new Error("Calendar request failed");
-      const payload = (await response.json()) as CalendarData;
+      const received = await response.json() as Partial<CalendarData>;
       if (
-        !Array.isArray(payload.events) ||
-        !Array.isArray(payload.calendarEvents) ||
-        !Array.isArray(payload.calendarSummaries) ||
-        !payload.listing
-      )
-        throw new Error("Calendar response invalid");
+        !Array.isArray(received.calendarEvents) ||
+        !Array.isArray(received.calendarSummaries) ||
+        (!calendarOnly && (!Array.isArray(received.events) || !received.listing))
+      ) throw new Error("Calendar response invalid");
       if (!controller.signal.aborted) {
-        cacheRef.current.set(key, payload);
-        // A bounded, short-lived cache uses an expiry timer rather than rendering-time
-        // clock reads, and never removes a newer response for the same key.
-        window.setTimeout(() => {
-          if (cacheRef.current.get(key) === payload) cacheRef.current.delete(key);
-        }, 60_000);
-        if (cacheRef.current.size > 16)
-          cacheRef.current.delete(cacheRef.current.keys().next().value!);
+        const payload = calendarOnly
+          ? { ...data, calendarEvents: received.calendarEvents, calendarSummaries: received.calendarSummaries }
+          : received as CalendarData;
+        remember(key, payload);
         setData(payload);
       }
     } catch {
       if (!controller.signal.aborted)
         setLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
     } finally {
-      if (!controller.signal.aborted) setPending(false);
+      if (!controller.signal.aborted) {
+        setPending(false);
+        setPendingCalendarOnly(false);
+      }
     }
   }
   // Calendar controls use native anchors: the handler owns history + data
@@ -298,7 +371,7 @@ export function EventCalendar({
   }
 
   useEffect(() => {
-    if (isDesktopCalendar || pending || !selectedDay || loadError) return;
+    if (isDesktopCalendar || pending || pendingDay || !selectedDay || loadError) return;
     const target = document.getElementById("vybrany-den");
     if (!target) return;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -308,7 +381,7 @@ export function EventCalendar({
       target.scrollIntoView({ behavior: motion, block: "start" }),
     );
     return () => window.cancelAnimationFrame(id);
-  }, [selectedDay, pending, loadError, isDesktopCalendar]);
+  }, [selectedDay, pending, pendingDay, loadError, isDesktopCalendar]);
 
   const windowSafeQuery = (state: View) => {
     const params = eventListingParams({
@@ -342,7 +415,7 @@ export function EventCalendar({
       className={styles.calendar}
       data-public-calendar
       data-event-workspace
-      aria-busy={pending}
+      aria-busy={pending || pendingDay}
     >
       <div className={styles.resultBar}>
         <PublicSubcategoryNavigator
@@ -588,7 +661,7 @@ export function EventCalendar({
                       </Link>
                     </p>
                   ) : null}
-                  {pending ? (
+                  {pending || pendingDay ? (
                     <p role="status" className={styles.dayEmpty}>
                       Načítavajú sa podujatia pre vybraný deň…
                     </p>
@@ -702,7 +775,7 @@ export function EventCalendar({
         </p>
       ) : null}
 
-      {!pending && !loadError && (
+      {(!pending || pendingCalendarOnly) && !loadError && (
         <EventListingResults
           beforeResults={afterCalendar}
           events={filtered}

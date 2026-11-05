@@ -69,7 +69,8 @@ test("Uppy gallery retains canonical upload sequencing while single-image Dropzo
   assert.ok(uppy.includes("from \"@uppy/core\""));
   assert.ok(uppy.includes("from \"@uppy/react/dashboard-modal\""));
   assert.ok(uppy.includes("await uploadAdminImage(file, props.current.folder)"));
-  assert.ok(uppy.includes("for (const id of fileIds)"));
+  assert.ok(uppy.includes("await runAdminUploadQueue(fileIds, async (id) => {"), "uploads use the bounded two-worker queue");
+  assert.ok(uppy.includes("fileIds.flatMap((id) => {"), "results retain selection order after concurrent uploads");
   assert.ok(uppy.includes("onBusyChange(false)"));
   assert.ok(common.includes('from "react-dropzone"'));
   assert.ok(common.includes("getInputProps({"), "the named single-image file input stays accessible");

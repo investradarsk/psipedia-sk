@@ -360,6 +360,19 @@ export async function getPublishedEventListing(filters: EventListingFilters): Pr
   return { events: result.results.map(rowToPublicEventCard), total, page, pages };
 }
 
+/** Fetch bounded previews of one day without recomputing the entire list or month. */
+export async function getPublicEventDayPreview(filters: EventListingFilters, day: string): Promise<PublicEventDayPreview[]> {
+  const database = getD1Binding();
+  if (!database || !/^20\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/.test(day)) return [];
+  const sql = eventListingSql(filters);
+  const result = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,venue,city,cancelled,image_url
+    FROM managed_events WHERE ${sql.where} AND start_date <= ?
+      AND COALESCE(NULLIF(end_date,''),start_date) >= ?
+    ORDER BY ${sql.order} LIMIT 12`)
+    .bind(...sql.values, day, day).all<PublicEventDayRow>();
+  return result.results.map(rowToPublicEventDayPreview);
+}
+
 /** At most 31 × 6 aggregate rows and 12 day previews, regardless of list page. */
 export async function getPublicEventCalendar(filters: EventListingFilters, month: string, day: string): Promise<{events:PublicEventDayPreview[];summaries:{date:string;count:number;types:EventType[]}[]}> {
   const database = getD1Binding();
@@ -370,19 +383,18 @@ export async function getPublicEventCalendar(filters: EventListingFilters, month
   const [year, number] = month.split('-').map(Number);
   const end = `${month}-${String(new Date(Date.UTC(year, number, 0)).getUTCDate()).padStart(2,'0')}`;
   // Evaluate the filtered month once; do not repeat the same D1 reads for 31 days.
-  const rows = await database.prepare(publicEventCalendarSummarySql(sql.where))
-    .bind(start, end, ...sql.values, end, start)
-    .all<{date:string;type:DogEvent['eventType'];count:number}>();
+  // Aggregate day counts and load the selected day's cards concurrently.
+  const validDay = /^20\d{2}-\d{2}-\d{2}$/.test(day) && day >= start && day <= end;
+  const [rows, dayEvents] = await Promise.all([
+    database.prepare(publicEventCalendarSummarySql(sql.where))
+      .bind(start, end, ...sql.values, end, start)
+      .all<{date:string;type:DogEvent['eventType'];count:number}>(),
+    validDay ? getPublicEventDayPreview(filters, day) : Promise.resolve([] as PublicEventDayPreview[]),
+  ]);
   const summaries = new Map<string, {date:string;count:number;types:DogEvent['eventType'][]}>();
   for(const row of rows.results) { const summary: {date:string;count:number;types:EventType[]} = summaries.get(row.date) ?? {date:row.date,count:0,types:[]}; summary.count+=row.count; summary.types.push(row.type); summaries.set(row.date,summary); }
   for (const summary of summaries.values()) summary.types.sort((a,b)=>eventTypes.indexOf(a)-eventTypes.indexOf(b));
-  if (!/^20\d{2}-\d{2}-\d{2}$/.test(day) || day < start || day > end) return {events:empty.events,summaries:[...summaries.values()]};
-  const result = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,venue,city,cancelled,image_url
-    FROM managed_events WHERE ${sql.where} AND start_date <= ?
-      AND COALESCE(NULLIF(end_date,''),start_date) >= ?
-    ORDER BY ${sql.order} LIMIT 12`)
-    .bind(...sql.values,day,day).all<PublicEventDayRow>();
-  return {events:result.results.map(rowToPublicEventDayPreview),summaries:[...summaries.values()]};
+  return {events:dayEvents,summaries:[...summaries.values()]};
 }
 
 export async function getPublishedEvents(limit = 250) {

@@ -13,10 +13,30 @@ const paths = {
   article: "app/admin/clanky/[id]/page.tsx",
 };
 
-test("five canonical editors await independent reads in parallel, after authorization and ID validation", () => {
+test("directory and event editors stream before supplementary D1 reads", () => {
   const checks = [
-    ["directory", "getManagedDirectoryProfileById(id)", "getCanonicalDraftDuplicateWarning(\"DIRECTORY\", id)", "listCanonicalAutomationUpdateSuggestions"],
-    ["event", "getManagedEventById(numericId)", "getCanonicalDraftDuplicateWarning(\"EVENT\", numericId)", "getAdminEntityReview(\"EVENT\", numericId)"],
+    ["directory", "getManagedDirectoryProfileById(id)", "DirectoryDuplicateWarning", "DirectoryServiceValues"],
+    ["event", "getManagedEventById(numericId)", "EventDuplicateWarning", "EventReviewAction"],
+  ];
+  for (const [name, canonicalRead, duplicate, optional] of checks) {
+    const file = read(paths[name]);
+    const authorizedAt = file.indexOf("await requireAdminPageUser(");
+    const readAt = file.indexOf("await " + canonicalRead);
+    const shellAt = file.indexOf("<AdminShell");
+    assert.ok(authorizedAt >= 0 && readAt > authorizedAt && shellAt > readAt,
+      name + " must authorize before reading the canonical record");
+    assert.match(file, /if \(!(?:profile|event)\) notFound\(\)/);
+    assert.ok(file.includes(duplicate) && file.includes(optional));
+    assert.match(file, /<Suspense fallback=/, name + " renders auxiliary data behind a streaming boundary");
+    assert.doesNotMatch(file, /await Promise\.all\(\[\s*getManaged(?:DirectoryProfileById|EventById)/,
+      name + " must not block the form on optional lookups");
+    assert.doesNotMatch(file, /listCanonicalAutomationUpdateSuggestions/,
+      name + " must not materialize automation proposals before rendering");
+  }
+});
+
+test("organization, adoption and help retain guarded parallel canonical reads", () => {
+  const checks = [
     ["organization", "getOrganizationPublicationAdminById(organizationId)", "getCanonicalDraftDuplicateWarning(\"ORGANIZATION\", organizationId)", "getAdminEntityReview(\"ORGANIZATION\", organizationId)"],
     ["adoption", "getAdoptionById(numericId)", "getCanonicalDraftDuplicateWarning(\"ADOPTION\", numericId)", "getAdminEntityReview(\"ADOPTION\", numericId)"],
     ["help", "getManagedHelpCaseById(numericId)", "getAdminEntityReview(\"HELP_CASE\", numericId)"],
@@ -31,11 +51,34 @@ test("five canonical editors await independent reads in parallel, after authoriz
     for (const expected of [entityRead, independentA, independentB].filter(Boolean)) {
       assert.ok(batch.includes(expected), name + " parallel group missing " + expected);
     }
-    assert.match(file.slice(parallelEnd), /if \(!(?:profile|event|organization|item)\) notFound\(\)/,
-      name + " must still reject missing canonical record");
-    assert.match(file, /\.catch\(\(\) => null\)/, name + " preserves best-effort duplicate warning");
-    assert.doesNotMatch(file, /Promise\.allSettled/, name + " must not silently mask hard failures");
+    assert.match(file.slice(parallelEnd), /if \(!(?:organization|item)\) notFound\(\)/);
+    assert.doesNotMatch(file, /Promise\.allSettled/);
   }
+});
+
+test("automation reviews load independently with authorization, no-store and abort on route change", () => {
+  const route = read("app/api/admin/automation-update-suggestions/route.ts");
+  const client = read("components/admin-automation-update-suggestions.tsx");
+  const event = read("components/admin-event-editor.tsx");
+  const directory = read("components/admin-directory-editor.tsx");
+  assert.match(route, /await getAdminApiUser\(\)/);
+  assert.match(route, /entityType !== "DIRECTORY" && entityType !== "EVENT"/);
+  assert.match(route, /Number\.isSafeInteger\(canonicalEntityId\)/);
+  assert.match(route, /Cache-Control": "private, no-store"/);
+  assert.match(client, /AbortController/);
+  assert.match(client, /controller\.abort\(\)/);
+  assert.match(client, /credentials: "same-origin"/);
+  assert.match(event, /source=\{event \? \{ entityType: "EVENT", canonicalEntityId: event\.id \}/);
+  assert.match(directory, /source=\{profile \? \{ entityType: "DIRECTORY", canonicalEntityId: profile\.id \}/);
+});
+
+test("breed editor mounts optional Lexical fields on demand, preserving unsaved edits", () => {
+  const component = read("components/admin-deferred-details.tsx");
+  const editor = read("components/admin-breed-editor.tsx");
+  assert.match(component, /if \(event\.currentTarget\.open\) setEverOpened\(true\)/);
+  assert.match(component, /everOpened \? children : null/);
+  assert.match(editor, /AdminDeferredDetails className=\{styles\.fciGroup\} summary="Rozšírené redakčné texty/);
+  assert.match(editor, /AdminDeferredDetails className=\{styles\.fciGroup\} summary="Rozšírená zdravotná poznámka/);
 });
 
 test("FOSTER/HELP_ITEM warnings still depend on actual Help category", () => {

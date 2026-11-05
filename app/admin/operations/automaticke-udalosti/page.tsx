@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import Link from "next/link";
+import { Suspense } from "react";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminAutomationHistoryRead } from "@/components/admin-automation-history-read";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -17,17 +18,17 @@ const statuses = ["started","success","no_change","partial_success","failed","sk
 const periods = [7, 30, 90] as const;
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] ?? "" : value ?? "";
 
-export default async function AdminAutomationHistory({ searchParams }: { searchParams: Promise<Params> }) {
-  const user = await requireAdminPageUser("/admin/operations/automaticke-udalosti");
-  const params = await searchParams;
-  const system = first(params.system);
-  const status = first(params.status);
-  const run = first(params.run);
-  const automation = first(params.automation);
-  const period = Number(first(params.period) || 30);
-  const days = periods.includes(period as 7 | 30 | 90) ? period : 30;
-  const cursor = Number(first(params.cursor));
-  const safeCursor = Number.isSafeInteger(cursor) && cursor > 0 ? cursor : null;
+type HistoryResultProps = {
+  userEmail: string;
+  system: string;
+  status: string;
+  run: string;
+  automation: string;
+  days: number;
+  safeCursor: number | null;
+};
+
+async function AdminAutomationHistoryResults({ userEmail, system, status, run, automation, days, safeCursor }: HistoryResultProps) {
   const conditions = ["e.source_type = 'AUTOMATION_RUN'", "e.actor_type = 'AUTOMATION'", "e.created_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)"];
   const argumentsList: (string | number)[] = [`-${days} days`];
   if (["data", "gemini", "discovery", "notion"].includes(system)) {
@@ -52,12 +53,12 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
   }
   const db = (env as { DB: D1Database }).DB;
   const result = await db.prepare(`SELECT e.id, e.event_type, e.resource_type, e.actor_ref,
-      e.title, e.body, e.created_at, e.target_url, r.read_at
+      e.title, substr(e.body, 1, 601) AS body, e.created_at, e.target_url, r.read_at
     FROM admin_notification_events e
     LEFT JOIN admin_notification_read_receipts r ON r.event_id = e.id AND r.admin_email = ?
     WHERE ${conditions.join(" AND ")}
     ORDER BY e.id DESC LIMIT 41`)
-    .bind(user.email.trim().toLowerCase(), ...argumentsList).all<EventRow>();
+    .bind(userEmail, ...argumentsList).all<EventRow>();
   const rows = result.results.slice(0, 40);
   const hasMore = result.results.length > 40;
   const next = new URLSearchParams();
@@ -68,6 +69,40 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
   next.set("period", String(days));
   if (rows.length) next.set("cursor", String(rows[rows.length - 1].id));
 
+  return (
+    <>
+      <section className="admin-panel">
+        {rows.length === 0 ? <p>V tomto období nie sú žiadne zaznamenané automatické udalosti.</p> :
+          <div style={{ display: "grid", gap: "0.75rem" }}>
+            {rows.map((event) => <article key={event.id} style={{ borderBottom: "1px solid var(--admin-border, #ddd)", paddingBottom: "0.75rem" }}>
+              <p><strong>{event.title}</strong> · {event.resource_type} · {event.event_type.replace("automation_run_", "").toUpperCase()}
+                {" "}· {new Date(event.created_at).toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" })}</p>
+              <p>{event.body.length > 600 ? `${event.body.slice(0, 600)}…` : event.body}</p>
+              <div className="admin-form-actions">
+                <span>{event.read_at ? "Prečítané" : "Neprečítané"}</span>
+                {!event.read_at && <AdminAutomationHistoryRead eventId={event.id} />}
+                <Link href={automationHistoryDetailHref(event.id)}>Otvoriť detail →</Link>
+              </div>
+            </article>)}
+          </div>
+        }
+        {hasMore && <Link href={`/admin/operations/automaticke-udalosti?${next}`}>Načítať staršie udalosti →</Link>}
+      </section>
+    </>
+  );
+}
+
+export default async function AdminAutomationHistory({ searchParams }: { searchParams: Promise<Params> }) {
+  const user = await requireAdminPageUser("/admin/operations/automaticke-udalosti");
+  const params = await searchParams;
+  const system = first(params.system);
+  const status = first(params.status);
+  const run = first(params.run);
+  const automation = first(params.automation);
+  const period = Number(first(params.period) || 30);
+  const days = periods.includes(period as 7 | 30 | 90) ? period : 30;
+  const cursor = Number(first(params.cursor));
+  const safeCursor = Number.isSafeInteger(cursor) && cursor > 0 ? cursor : null;
   return (
     <AdminShell user={user} eyebrow="Automatizácie" title="Automatické udalosti"
       description="Audit začiatkov a výsledkov skutočne zaznamenaných behov. História zostáva dostupná aj pri neúspešnom push doručení.">
@@ -86,23 +121,13 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
           <button type="submit">Filtrovať</button>
         </form>
       </section>
-      <section className="admin-panel">
-        {rows.length === 0 ? <p>V tomto období nie sú žiadne zaznamenané automatické udalosti.</p> :
-          <div style={{ display: "grid", gap: "0.75rem" }}>
-            {rows.map((event) => <article key={event.id} style={{ borderBottom: "1px solid var(--admin-border, #ddd)", paddingBottom: "0.75rem" }}>
-              <p><strong>{event.title}</strong> · {event.resource_type} · {event.event_type.replace("automation_run_", "").toUpperCase()}
-                {" "}· {new Date(event.created_at).toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" })}</p>
-              <p>{event.body}</p>
-              <div className="admin-form-actions">
-                <span>{event.read_at ? "Prečítané" : "Neprečítané"}</span>
-                {!event.read_at && <AdminAutomationHistoryRead eventId={event.id} />}
-                <Link href={automationHistoryDetailHref(event.id)}>Otvoriť detail →</Link>
-              </div>
-            </article>)}
-          </div>
-        }
-        {hasMore && <Link href={`/admin/operations/automaticke-udalosti?${next}`}>Načítať staršie udalosti →</Link>}
-      </section>
+      <Suspense fallback={<section className="admin-panel" role="status" aria-busy="true">
+        Načítavam históriu automatizácií…
+      </section>}>
+        <AdminAutomationHistoryResults userEmail={user.email.trim().toLowerCase()}
+          system={system} status={status} run={run} automation={automation}
+          days={days} safeCursor={safeCursor} />
+      </Suspense>
     </AdminShell>
   );
 }

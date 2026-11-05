@@ -4,12 +4,14 @@ import test from "node:test";
 
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("mobile admin navigation reloads only the two unstable streamed routes", () => {
+test("only iOS mobile navigation reloads the two unstable streamed routes", () => {
   const guard = read("components/admin-mobile-document-navigation.tsx");
   const layout = read("app/admin/layout.tsx");
   const navigation = read("components/admin-navigation.tsx");
+  const quickNavigation = read("components/admin-quick-navigation.tsx");
   assert.match(guard, /window\.matchMedia\("\(max-width: 820px\)"\)\.matches/);
   assert.match(guard, /target\.origin !== window\.location\.origin/);
+  assert.match(guard, /isIosWebKitDevice\(navigator\.userAgent, navigator\.platform, navigator\.maxTouchPoints\)/);
   assert.match(guard, /target\.pathname !== "\/admin" && target\.pathname !== "\/admin\/clanky"/);
   assert.match(guard, /event\.defaultPrevented \|\| event\.button !== 0/);
   assert.match(guard, /event\.metaKey \|\| event\.ctrlKey \|\| event\.shiftKey \|\| event\.altKey/);
@@ -20,7 +22,10 @@ test("mobile admin navigation reloads only the two unstable streamed routes", ()
   assert.match(guard, /document\.removeEventListener\("click", handler, true\)/);
   assert.match(layout, /<AdminMobileDocumentNavigation \/>/);
   assert.match(navigation, /href === "\/admin" \|\| href === "\/admin\/clanky"/);
-  assert.match(navigation, /router\.prefetch\(href\)/, "unaffected routes continue using existing navigation");
+  assert.match(navigation, /router\.prefetch\(href, \{ onInvalidate:/, "unaffected routes prefetch on intent and refresh invalidated payloads");
+  assert.match(navigation, /prefetch=\{false\}/, "admin destinations must not prefetch the whole D1-backed sidebar");
+  assert.match(quickNavigation, /window\.location\.assign\(target\.href\)/, "Ctrl+K destinations respect the iOS document fallback");
+  assert.match(quickNavigation, /router\.push\(href\)/, "other platforms keep fast client-side quick navigation");
 });
 
 test("admin route failure renders retry and safe full-document escape links instead of white screen", () => {

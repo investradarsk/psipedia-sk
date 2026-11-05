@@ -37,6 +37,12 @@ import {
 } from "../lib/notion-eshop-sync";
 import { runMediaSourceMonitorSweep } from "../lib/media-source-monitor";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
+import {
+  isEligiblePublicMediaEdgeRequest,
+  isCacheablePublicMediaEdgeResponse,
+  PUBLIC_MEDIA_EDGE_TTL_SECONDS,
+  PUBLIC_MEDIA_BROWSER_CACHE_CONTROL,
+} from "../lib/public-media-edge-cache.ts";
 import { isExplicitAnonymousHtmlRoute, isExplicitAnonymousSsrHtml } from "../lib/public-anonymous-html-cache";
 import { eligiblePublicSitemapRequest, servePublicSitemap } from "../lib/sitemap-edge-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
@@ -239,6 +245,22 @@ const worker = {
       if (cached) return responseWithHeaders(cached, publicHtmlCacheHeaders("HIT"));
     }
 
+    // Public, anonymous R2 raster images are immutable at their URL. Serve a
+    // warm Cloudflare POP entry before invoking vinext, R2, or IMAGES again.
+    const mediaStorage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
+    const mediaCacheKey = mediaStorage && isEligiblePublicMediaEdgeRequest(request, url)
+      ? new Request(url.toString(), { method: "GET" })
+      : null;
+    if (mediaStorage && mediaCacheKey) {
+      const cachedMedia = await mediaStorage.match(mediaCacheKey);
+      if (cachedMedia) {
+        return responseWithHeaders(cachedMedia, {
+          "Cache-Control": PUBLIC_MEDIA_BROWSER_CACHE_CONTROL,
+          "X-Psipedia-Media-Cache": "HIT",
+        });
+      }
+    }
+
     const breedMatch=url.pathname.match(/^\/plemena\/([a-z0-9-]+)$/);
     if(breedMatch&&env.DB){
       const target=await canonicalBreedRedirect(env.DB,breedMatch[1]);
@@ -309,6 +331,16 @@ const worker = {
     }
     if (isAdminAuthPath(url.pathname) || url.pathname.startsWith("/api/")) {
       return responseWithHeader(response, "Cache-Control", "private, no-store");
+    }
+    if (mediaStorage && mediaCacheKey && isCacheablePublicMediaEdgeResponse(response)) {
+      // Cache API's stored copy has a short POP TTL; the original response
+      // keeps the media route's immutable browser-cache policy.
+      const edgeCopy = responseWithHeaders(response.clone(), {
+        "Cache-Control": `public, max-age=${PUBLIC_MEDIA_EDGE_TTL_SECONDS}`,
+        "CDN-Cache-Control": `public, max-age=${PUBLIC_MEDIA_EDGE_TTL_SECONDS}`,
+      });
+      ctx.waitUntil(mediaStorage.put(mediaCacheKey, edgeCopy));
+      return responseWithHeader(response, "X-Psipedia-Media-Cache", "MISS");
     }
     // The origin marks all dynamic SSR no-store. Only a cookie-free, explicitly
     // public listing or breed page may promote that framework default to a
