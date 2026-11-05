@@ -10,6 +10,7 @@ on:
       - 'app/api/admin/organizations/**'
       - 'app/api/admin/adoptions/**'
       - 'app/api/admin/breeds/**'
+      - 'app/api/admin/navigation/**'
       - 'lib/admin-auth.ts'
       - 'lib/admin-mutation-origin.ts'
       - 'tests/admin-legacy-mutation-csrf.test.mjs'
