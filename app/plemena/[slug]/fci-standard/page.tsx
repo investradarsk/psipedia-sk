@@ -10,6 +10,7 @@ import {
   type FciStandard,
 } from "@/lib/breed-fci";
 import { textParagraphs } from "@/lib/breed-profile";
+import { stripStagedBreedMerge } from "@/lib/breed-compact-public";
 import { getPublishedBreed, type ManagedBreed } from "@/lib/breed-store";
 import { serializeJsonLd, SITE_URL } from "@/lib/seo";
 import {
@@ -60,7 +61,7 @@ export default async function BreedFciStandardPage({ params }: Props) {
   const fci: FciStandard = managed?.fciStandard ?? {};
   const groupName = getFciGroup(breed.fciGroup)?.label || fci.fci_skupina_nazov || breed.group;
   const sectionNumber = managed?.fciSectionNumber?.trim() ?? "";
-  const storedSectionName = (fci.fci_sekcia_nazov || breed.fciSection || "").trim();
+  const storedSectionName = stripStagedBreedMerge(fci.fci_sekcia_nazov || breed.fciSection || "").trim();
   const sectionName = publicFciSectionName(
     breed.fciGroup,
     sectionNumber,
@@ -90,14 +91,14 @@ export default async function BreedFciStandardPage({ params }: Props) {
       textItem("Povaha / temperament", fci.povaha_temperament),
     ]),
     group("hlava", "Hlava", [
-      textItem("Lebková časť", fci.hlava_lebecna_cast),
+      textItem("Lebková časť", stripStagedBreedMerge(fci.hlava_lebecna_cast)),
       textItem("Tvárová časť", fci.hlava_tvarova_cast),
       textItem("Oči", fci.oci),
       textItem("Uši", fci.usi),
     ]),
     group("telo-a-stavba", "Telo a stavba", [
       textItem("Krk", fci.krk),
-      textItem("Telo", fci.telo),
+      textItem("Telo", stripStagedBreedMerge(fci.telo)),
       textItem("Chvost", fci.chvost),
     ]),
     group("koncatiny-a-pohyb", "Končatiny a pohyb", [
@@ -107,7 +108,7 @@ export default async function BreedFciStandardPage({ params }: Props) {
     ]),
     group("srst-a-farba", "Srsť a farba", [
       textItem("Koža", fci.koza),
-      textItem("Srsť", fci.srst),
+      textItem("Srsť", stripStagedBreedMerge(fci.srst)),
       textItem("Farba", fci.farba),
     ]),
     group("vyska-a-hmotnost", "Výška a hmotnosť", [
