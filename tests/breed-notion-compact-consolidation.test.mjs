@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   BREED_COMPACT_VISIBLE,BREED_COMPACT_HIDDEN,BREED_COMPACT_MERGE,
   BREED_COMPACT_OPERATIONAL,BREED_COMPACT_RETIRE_AFTER_AUDIT,
+  BREED_COMPACT_HEADINGS,
   planBreedCompactMigration,assertBreedCompactContract
 } from "../lib/breed-notion-compact-consolidation.mjs";
 
@@ -47,6 +48,22 @@ test("repeat of the exact migration is idempotent for multi-source targets",()=>
   assert.equal(second.ready,true);
   assert.deepEqual(second.changes,{});
   assert.equal(second.statuses.find(v=>v.source==="FCI chvost").status,"ALREADY_PRESENT");
+});
+test("merges use clear editorial/FCI labels rather than internal debug markers",()=>{
+  const plan=planBreedCompactMigration({
+    "FCI lebka":"Silná lebka.",
+    "FCI oči":"Tmavé oči.",
+    "FCI tvár":"Krátka tvár.",
+    "FCI uši":"Vzpriamené uši.",
+    "Potreby":"Pravidelný denný režim."
+  });
+  assert.equal(plan.ready,true);
+  assert.match(plan.changes["FCI lebka"],/Oči podľa FCI: Tmavé oči\./);
+  assert.match(plan.changes["FCI lebka"],/Tvárová časť podľa FCI: Krátka tvár\./);
+  assert.match(plan.changes["FCI lebka"],/Uši podľa FCI: Vzpriamené uši\./);
+  assert.match(plan.changes["Redakcia prehľad"],/Každodenné potreby: Pravidelný denný režim\./);
+  assert.doesNotMatch(JSON.stringify(plan.changes),/Pôvodné pole|⟦|⟧/);
+  assert.equal(new Set(Object.values(BREED_COMPACT_HEADINGS)).size,23);
 });
 test("changed source after migration blocks deletion instead of hiding new text",()=>{
   const original=planBreedCompactMigration({"FCI chvost":"Pôvodný chvost."});
