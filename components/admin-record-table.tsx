@@ -42,6 +42,7 @@ export function AdminRecordTable<T extends { id: number }>({
   busy = false,
   selection,
   stretch = false,
+  serverSorted = false,
 }: {
   rows: T[];
   columns: AdminRecordColumn<T>[];
@@ -50,6 +51,8 @@ export function AdminRecordTable<T extends { id: number }>({
   selection?: AdminRecordTableSelection<T>;
   /** Opt in to filling available desktop width, while preserving horizontal scrolling. */
   stretch?: boolean;
+  /** Server already sorted the entire result set before pagination. */
+  serverSorted?: boolean;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [visibility, setVisibility] = useState<VisibilityState>(() =>
@@ -94,11 +97,11 @@ export function AdminRecordTable<T extends { id: number }>({
     header: column.label,
     accessorFn: (record: T) => column.sortValue ? column.sortValue(record) : "",
     cell: ({ row }: CellContext<T, unknown>) => column.cell(row.original),
-    enableSorting: Boolean(column.sortValue),
+    enableSorting: Boolean(column.sortValue) && !serverSorted,
     size: column.width ?? 165,
     minSize: 85,
   })),
-  ], [columns, selection, label, busy, rows.length]);
+  ], [columns, selection, label, busy, rows.length, serverSorted]);
 
   const table = useReactTable({
     data: rows,
@@ -123,7 +126,7 @@ export function AdminRecordTable<T extends { id: number }>({
       <div className={styles.toolbar}>
         <div className={styles.tableIntro}>
           <strong>{label}</strong>
-          <span>{rows.length} záznamov na tejto strane · zoradenie platí len pre túto stranu</span>
+          <span>{rows.length} záznamov na tejto strane · {serverSorted ? "zoradenie platí pre celý zoznam" : "zoradenie platí len pre túto stranu"}</span>
         </div>
         <details className={styles.columnPicker}>
           <summary>Stĺpce</summary>

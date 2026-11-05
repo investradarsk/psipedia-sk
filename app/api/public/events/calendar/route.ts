@@ -23,6 +23,16 @@ export async function GET(request: Request) {
   const day = calendarMonthDays(month).some((item) => item.inMonth && item.date === requestedDay)
     ? requestedDay : "";
   try {
+    // Month navigation leaves the event listing filters unchanged. Reusing the
+    // existing list means only the month aggregate needs a D1 read.
+    if (raw.calendarOnly === "1") {
+      const calendar = await getPublicEventCalendar(filters, month, day);
+      return Response.json({
+        calendarEvents: calendar.events,
+        calendarSummaries: calendar.summaries,
+        month, day, type, time: filters.time,
+      }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     const [listing, calendar] = await Promise.all([
       getPublishedEventListing(filters),
       getPublicEventCalendar(filters, month, day),

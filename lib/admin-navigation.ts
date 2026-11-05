@@ -79,10 +79,20 @@ function itemMatchScore(pathname: string, item: AdminNavigationItem) {
 }
 
 export function findActiveAdminNavigationItem(pathname: string) {
-  return adminNavigationItems
-    .map((item) => ({ item, score: itemMatchScore(pathname, item) }))
-    .filter(({ score }) => score >= 0)
-    .sort((a, b) => b.score - a.score)[0]?.item ?? null;
+  // This runs for desktop/mobile navigation and breadcrumbs on every route
+  // transition. Avoid allocating and sorting intermediate arrays each time.
+  let bestItem: AdminNavigationItem | null = null;
+  let bestScore = -1;
+
+  for (const item of adminNavigationItems) {
+    const score = itemMatchScore(pathname, item);
+    if (score > bestScore) {
+      bestScore = score;
+      bestItem = item;
+    }
+  }
+
+  return bestItem;
 }
 
 function detailLabel(pathname: string) {

@@ -18,11 +18,11 @@ type Row = {
 
 /** Read-only Gemini concept list: native editor only when the existing
  * Notion→D1 mapping is confirmed. No duplicate editor, no mutations. */
-export function AdminGeminiCanonicalDrafts({ stableKey, deepLinkDraftId }: {
-  stableKey: string; deepLinkDraftId?: string;
+export function AdminGeminiCanonicalDrafts({ stableKey, deepLinkDraftId, initiallyExpanded = false }: {
+  stableKey: string; deepLinkDraftId?: string; initiallyExpanded?: boolean;
 }) {
   const [rows, setRows] = useState<Row[]>([]);
-  const [expanded, setExpanded] = useState(Boolean(deepLinkDraftId));
+  const [expanded, setExpanded] = useState(Boolean(deepLinkDraftId) || initiallyExpanded);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<GeminiReviewState | "ACTIVE" | "ALL">("ACTIVE");
   const [loading, setLoading] = useState(false);

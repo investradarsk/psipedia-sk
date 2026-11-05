@@ -45,9 +45,10 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
 // 0151 and 0152 are owner-dispatched ONLY through the protected workflow.
 // 0152 requires an applied 0151 with a validated physical schema.
 // 0153 is eligible ONLY for a protected owner-dispatched D1 migration.
-// 0154 is an additive manual Facebook checklist and requires the same owner-dispatched protected process.
+// 0154 and 0157 are additive manual Facebook checklists; each requires the same owner-dispatched protected process.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
-export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([]);
+// 0158 is present for review, but has no approved protected rollout target.
+export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze(["0158_admin_directory_list_indexes.sql"]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0151 requires canonical psipedia-sk-db");
@@ -320,6 +321,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0154_facebook_content_share_markers.sql",
   "0155_breed_notion_extra_fields.sql",
   "0156_notion_manual_transfer_jobs.sql",
+  "0157_facebook_weekly_plan_marks.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1583,6 +1585,9 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0156_notion_manual_transfer_jobs.sql") {
     return { partial: OBJECTS_0156.some(name => names.has(name)) };
+  }
+  if (targetMigration === "0157_facebook_weekly_plan_marks.sql") {
+    return { partial: names.has("facebook_weekly_plan_marks") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -3004,6 +3009,27 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 152) assertVisualLibrary0152Schema(schema);
   if (migrationIndex(targetMigration) >= 153) assertProfileFieldBaseline0153Schema(schema);
   if (migrationIndex(targetMigration) >= 156) assertManualTransfer0156Schema(schema);
+  if (migrationIndex(targetMigration) >= 157) assertFacebookWeeklyPlan0157Schema(schema);
+}
+
+/** Schema verification for the isolated manual Facebook planning checklist. */
+export function assertFacebookWeeklyPlan0157Schema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const table = objects.get("facebook_weekly_plan_marks");
+  invariant(table?.type === "table", "0157 Facebook weekly planner table missing");
+  const sql = String(table.sql ?? "").replace(/\s+/g, " ").toLowerCase();
+  for (const fragment of [
+    "slot_date text not null",
+    "slot_key text not null",
+    "marked_at text not null",
+    "marked_by text not null",
+    "primary key (slot_date, slot_key)",
+    "'news'", "'breed'", "'video'", "'infographic'",
+    "'help'", "'article'", "'service'", "'event'",
+  ]) {
+    invariant(sql.includes(fragment), "0157 Facebook weekly planner schema drift: " + fragment);
+  }
+  return true;
 }
 
 /** D1 0153: isolated, hash-verified common editorial snapshots only. */

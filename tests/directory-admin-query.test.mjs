@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   DIRECTORY_ADMIN_PAGE_SIZE,
@@ -24,7 +25,7 @@ const categorySlugs = new Set(categories.map((item) => item.slug));
 const isCategory = (value) => categorySlugs.has(value);
 const filters = (overrides = {}) => ({
   category: "", status: "all", q: "", region: "", district: "", city: "",
-  verification: "all", media: "all", page: 1, ...overrides,
+  verification: "all", media: "all", page: 1, sort: "updated", ...overrides,
 });
 
 function fixture() {
@@ -168,6 +169,26 @@ test("search combines with all other membership filters and empty search is neut
   assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari", q: "   " }), categories)).resultCount, 127);
 });
 
+test("global sorting is deterministic across page boundaries and survives filters", async () => {
+  const { db } = fixture();
+  const first = await queryDirectoryAdmin(db, filters({ sort: "name" }), categories);
+  const second = await queryDirectoryAdmin(db, filters({ sort: "name", page: 2 }), categories);
+  assert.deepEqual(first.items.slice(0, 4).map((row) => row.id), [128, 129, 1, 2]);
+  assert.equal(first.items.at(-1).id, 48);
+  assert.equal(second.items[0].id, 49);
+  assert.equal(second.resultCount, 129);
+  assert.equal(new Set([...first.items, ...second.items].map((row) => row.id)).size, 100);
+
+  const byCity = await queryDirectoryAdmin(db, filters({ sort: "city" }), categories);
+  assert.equal(byCity.items[0].city, "Bratislava");
+  assert.equal(byCity.items[1].city, "Nitra");
+
+  const draft = await queryDirectoryAdmin(db, filters({ status: "draft", sort: "status", page: 2 }), categories);
+  assert.equal(draft.resultCount, 62);
+  assert.equal(draft.items.length, 12);
+  assert.equal(draft.items[0].status, "draft");
+});
+
 test("pagination works beyond 50 rows and clamps an out-of-range page", async () => {
   const { db } = fixture();
   const second = await queryDirectoryAdmin(db, filters({ category: "veterinari", page: 2 }), categories);
@@ -186,6 +207,8 @@ test("URL parsing normalizes filters safely", () => {
   );
   assert.deepEqual(parseDirectoryAdminFilters(new URLSearchParams("category=bogus&status=bogus&verification=maybe&media=broken&page=-3"), isCategory), filters());
   assert.equal(parseDirectoryAdminFilters(new URLSearchParams("status=archived"), isCategory).status, "archived");
+  assert.equal(parseDirectoryAdminFilters(new URLSearchParams("sort=name"), isCategory).sort, "name");
+  assert.equal(parseDirectoryAdminFilters(new URLSearchParams("sort=updated_at%3Bdrop"), isCategory).sort, "updated");
   assert.deepEqual(parseDirectoryAdminFilters(new URLSearchParams("page=2oops"), isCategory), filters());
 });
 
@@ -199,6 +222,8 @@ test("pagination URLs preserve membership filters while filter changes can reset
     "/admin/adresar?category=veterinari&status=draft&q=klinika&region=Nitriansky+kraj&district=Nitra&city=Nitra&verification=verified&media=with-image&page=2",
   );
   assert.equal(directoryAdminHref({ ...current, page: 1 }).includes("page="), false);
+  assert.equal(directoryAdminHref({ ...current, sort: "city" }),
+    "/admin/adresar?category=veterinari&status=draft&q=klinika&region=Nitriansky+kraj&district=Nitra&city=Nitra&verification=verified&media=with-image&sort=city&page=2");
   assert.deepEqual(directoryAdminMembershipFilters(current), {
     category: "veterinari", status: "draft", q: "klinika", region: "Nitriansky kraj",
     district: "Nitra", city: "Nitra", verification: "verified", media: "with-image",
@@ -210,7 +235,7 @@ test("membership fingerprint excludes page and binds the exact combined WHERE co
     category: "veterinari", status: "draft", q: " E2E ", region: "Nitriansky kraj",
     district: "Nitra", city: "Nitra", verification: "unverified", media: "without-image", page: 1,
   });
-  const second = { ...first, page: 2 };
+  const second = { ...first, page: 2, sort: "city" };
   const membership = directoryAdminMembershipFilters(first);
   assert.equal(
     directoryAdminMembershipFingerprint(membership),
@@ -259,4 +284,24 @@ test("public contact metadata round-trips without destroying breed, organization
     facebook: "",
     instagram: "https://instagram.com/new",
   });
+});
+
+
+test("directory list indexes support global pagination orders without temp sort", () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT, status TEXT, updated_at TEXT, name TEXT, city TEXT)");
+  const migration = readFileSync(new URL("../drizzle/0158_admin_directory_list_indexes.sql", import.meta.url), "utf8");
+  sqlite.exec(migration);
+  for (const [where, order, index] of [
+    ["", "updated_at DESC, id DESC", "directory_profiles_admin_updated_idx"],
+    ["WHERE category = 'veterinari'", "updated_at DESC, id DESC", "directory_profiles_admin_category_updated_idx"],
+    ["", "name COLLATE NOCASE ASC, id ASC", "directory_profiles_admin_name_idx"],
+    ["", "city COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC", "directory_profiles_admin_city_name_idx"],
+    ["WHERE status = 'published'", "updated_at DESC, id DESC", "directory_profiles_admin_status_updated_idx"],
+  ]) {
+    const plan = sqlite.prepare(`EXPLAIN QUERY PLAN SELECT id FROM directory_profiles ${where} ORDER BY ${order} LIMIT 50 OFFSET 50`).all();
+    assert.ok(plan.some(row => row.detail.includes(index)), JSON.stringify({ index, plan }));
+    assert.ok(plan.every(row => !/USE TEMP B-TREE FOR ORDER BY/i.test(row.detail)), JSON.stringify(plan));
+  }
+  sqlite.close();
 });

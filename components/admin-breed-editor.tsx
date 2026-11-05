@@ -1,4 +1,5 @@
 "use client";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
@@ -6,11 +7,13 @@ import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-butt
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
 import { useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import type { BreedEditorOptions, BreedHeroTrait, BreedSport, ManagedBreed } from "@/lib/breed-store";
 import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { AdminBreedNotionExtras } from "@/components/admin-breed-notion-extras";
+import { AdminDeferredDetails } from "@/components/admin-deferred-details";
 import { AdminFieldFeedback, AdminFormFeedback } from "@/components/admin-form-feedback";
 import { breedSeoFallback } from "@/lib/content-seo";
 import { inspectBreedMeasurement, type BreedMeasurementKind, type FciStandard, type FciStandardTextKey } from "@/lib/breed-fci";
@@ -44,6 +47,7 @@ type SportDraft={index:number|null;key:string;label:string;rating:number;note:st
 const subscribeToHydration=()=>()=>{};
 
 export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;options:BreedEditorOptions }) {
+  const router = useRouter();
   const hydrated=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
   const [form,setCanonicalForm]=useState({
     name:breed?.name??"",slug:breed?.slug??"",status:breed?.status??"draft",image:breed?.image??"",imageKey:breed?.imageKey??"",
@@ -62,6 +66,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const [slugEdited,setSlugEdited]=useState(Boolean(breed));
   const [expectedUpdatedAt,setExpectedUpdatedAt]=useState(breed?.updatedAt??"");
   const [saving,setSaving]=useState(false);
+  const savePendingRef=useRef(false);
   const [uploading,setUploading]=useState(false);
   const uploadPending = useRef(false);
   const [message,setMessage]=useState("");
@@ -132,7 +137,8 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   function removeSport(index:number){setForm((current)=>({...current,sports:current.sports.filter((_,itemIndex)=>itemIndex!==index)}));}
 
   async function save(status:"draft"|"published"){
-    if (saving || uploadPending.current) return;
+    if (saving || savePendingRef.current || uploadPending.current) return;
+    savePendingRef.current=true;
     setSaving(true);setError("");setMessage("");
     try{
       const response=await fetch(breed?`/api/admin/breeds/${breed.id}`:"/api/admin/breeds",{
@@ -145,9 +151,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
       setDirty(false);
       setMessage(status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
-      if(!breed)window.setTimeout(()=>window.location.assign(`/admin/plemena/${data.breed.id}`),0);
+      if(!breed)router.replace(`/admin/plemena/${data.breed.id}`);
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}
-    finally{setSaving(false);}
+    finally{savePendingRef.current=false;setSaving(false);}
   }
 
   const editorNavigation=[
@@ -184,7 +190,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       status={<><EditorStatus label={form.status === "published" ? "Publikované" : "Koncept"} tone={form.status === "published" ? "success" : "neutral"} /><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /></>}
       sections={editorNavigation}
       dirty={dirty}
-      onClose={()=>{ setDirty(false); window.setTimeout(()=>window.location.assign("/admin/plemena"),0); }}
+      onClose={()=>{ setDirty(false); router.push("/admin/plemena"); }}
       closeLabel="Späť na plemená"
       actions={<EditorActionBar
         message={<span role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
@@ -248,8 +254,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <label className="admin-field"><span>Každodenné potreby</span><AdminLexicalTextField rows={5} value={form.needs} onChange={(next)=>change("needs",next)} ariaLabel="Každodenné potreby" /></label>
         <label className="admin-field"><span>Potreba pohybu</span><AdminLexicalTextField rows={6} value={form.exercise} onChange={(next)=>change("exercise",next)} ariaLabel="Potreba pohybu" /></label>
         <label className="admin-field"><span>Výcvik</span><AdminLexicalTextField rows={6} value={form.training} onChange={(next)=>change("training",next)} ariaLabel="Výcvik" /></label>
-        <details className={styles.fciGroup}>
-          <summary>Rozšírené redakčné texty (pôvodné polia – obsah zostáva zachovaný)</summary>
+        <AdminDeferredDetails className={styles.fciGroup} summary="Rozšírené redakčné texty (pôvodné polia – obsah zostáva zachovaný)">
           <div className="admin-field-grid">
           <label className="admin-field"><span>Odporúčanie k pohybu</span><AdminLexicalTextField rows={3} value={form.editorial.exerciseTip??""} onChange={(next)=>updateEditorial("exerciseTip",next)} ariaLabel="Odporúčanie k pohybu" /></label>
           <label className="admin-field"><span>Odporúčanie k výcviku</span><AdminLexicalTextField rows={3} value={form.editorial.trainingTip??""} onChange={(next)=>updateEditorial("trainingTip",next)} ariaLabel="Odporúčanie k výcviku" /></label>
@@ -258,7 +263,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
           <label className="admin-field"><span>Život s rodinou a deťmi</span><AdminLexicalTextField rows={4} value={form.editorial.familyLife??""} onChange={(next)=>updateEditorial("familyLife",next)} ariaLabel="Život s rodinou a deťmi" /></label>
           <label className="admin-field"><span>Vzťah k iným psom</span><AdminLexicalTextField rows={4} value={form.editorial.otherDogsLife??""} onChange={(next)=>updateEditorial("otherDogsLife",next)} ariaLabel="Vzťah k iným psom" /></label>
           </div>
-        </details>
+        </AdminDeferredDetails>
         <label className="admin-field"><span>Pre koho sa hodí — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.goodFor} onChange={(next)=>change("goodFor",next)} ariaLabel="Pre koho sa hodí — jedna položka na riadok" /></label>
         <label className="admin-field"><span>Na čo si dať pozor — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.consider} onChange={(next)=>change("consider",next)} ariaLabel="Na čo si dať pozor — jedna položka na riadok" /></label>
         <label className="admin-field"><span>Zaujímavosti</span><AdminLexicalTextField rows={4} value={form.editorial.curiosities??""} onChange={(next)=>updateEditorial("curiosities",next)} ariaLabel="Zaujímavosti" /></label>
@@ -271,9 +276,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <div className={styles.heading}><div><h2>Zdravie</h2><p>Zverejňuj iba odborne overený obsah; editor nepridáva žiadne odvodené zdravotné tvrdenia.</p></div></div>
         <label className="admin-field"><span>Zdravie</span><AdminLexicalTextField rows={7} value={form.health} onChange={(next)=>change("health",next)} ariaLabel="Zdravie" /></label>
         <label className="admin-field"><span>Typické zdravotné riziká — jedna položka na riadok</span><AdminLexicalTextField rows={5} value={form.healthRisks} onChange={(next)=>change("healthRisks",next)} ariaLabel="Typické zdravotné riziká — jedna položka na riadok" /></label>
-        <details className={styles.fciGroup}><summary>Rozšírená zdravotná poznámka (pôvodné pole)</summary>
+        <AdminDeferredDetails className={styles.fciGroup} summary="Rozšírená zdravotná poznámka (pôvodné pole)">
           <label className="admin-field"><span>Zdravotná poznámka</span><AdminLexicalTextField rows={3} value={form.editorial.healthTip??""} onChange={(next)=>updateEditorial("healthTip",next)} ariaLabel="Zdravotná poznámka" /></label>
-        </details>
+        </AdminDeferredDetails>
       </div>
     </AdminEditorSection>
 
@@ -311,7 +316,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>Fotografie</h2><p>Titulná fotografia a galéria nad existujúcim image contractom.</p></div></div>
         <div className={styles.mediaGrid}>
-          <div className={styles.coverPreview}>{form.image?<img src={form.image} alt={`Náhľad: ${form.name||"plemeno"}`} loading="lazy" decoding="async"/>:<span>Bez fotografie<br/>verejne sa použije fallback</span>}</div>
+          <div className={styles.coverPreview}>{form.image?<img src={form.image} alt={`Náhľad: ${form.name||"plemeno"}`} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(form.image, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px"/>:<span>Bez fotografie<br/>verejne sa použije fallback</span>}</div>
           <div className={styles.mediaActions}>
             <div className="admin-field"><span>Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)</span><AdminSingleImageUpload label={form.image?"Vybrať inú titulnú fotografiu":"Nahrať titulnú fotografiu"} onFile={uploadCover} disabled={saving} busy={uploading} onRejected={setError}/><small>{uploading?"Nahrávam…":form.image||"Zatiaľ bez fotografie"}</small></div>
             {form.image&&<AdminActionButton variant="destructive" onClick={()=>setForm((current)=>({...current,image:"",imageKey:""}))}>Odstrániť titulnú fotografiu</AdminActionButton>}
@@ -322,7 +327,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <AdminSortableGallery urls={form.gallery.map(item=>item.imageUrl)} as="article"
           className={styles.galleryList} rowClassName={styles.galleryRow} disabled={uploading||saving}
           onReorder={(from,to)=>setForm(current=>({...current,gallery:arrayMove(current.gallery,from,to)}))}
-          renderRow={(index,handle)=>{const item=form.gallery[index];return <><img src={item.imageUrl} alt={item.alt||"Náhľad"} loading="lazy" decoding="async"/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}>{handle}<AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></>;}}/>
+          renderRow={(index,handle)=>{const item=form.gallery[index];return <><img src={item.imageUrl} alt={item.alt||"Náhľad"} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(item.imageUrl, [160, 320, 480])} sizes="(max-width: 680px) 44vw, 160px"/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}>{handle}<AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></>;}}/>
       </div>
     </AdminEditorSection>
 
