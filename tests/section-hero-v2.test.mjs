@@ -132,8 +132,12 @@ test("homepage uses the managed shared hero while retaining its home.hero image 
 test("detail pages keep standalone headings and images, never the section HERO", () => {
   const detail = read("components/detail-primitives/detail-primitives.tsx");
   const article = read("components/article-detail.tsx");
+  const fciStandard = read("app/plemena/[slug]/fci-standard/page.tsx");
+  const eshopDetail = read("app/recenzie/eshopy/[slug]/page.tsx");
   assert.doesNotMatch(detail, /<UniversalPageHero|<UnifiedSectionHero/);
   assert.doesNotMatch(article, /<UniversalPageHero|<UnifiedSectionHero/);
+  assert.doesNotMatch(fciStandard, /<UniversalPageHero|<UnifiedSectionHero/);
+  assert.doesNotMatch(eshopDetail, /<UniversalPageHero|<UnifiedSectionHero/);
   assert.match(detail, /className=\{styles\.hero\}/);
   assert.match(article, /<h1>\{article\.title\}<\/h1>/);
 });
