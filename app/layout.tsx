@@ -9,6 +9,8 @@ import { StructuredData } from "@/components/structured-data";
 import { BackToTop } from "@/components/back-to-top";
 import { isValidGooglePublisherClientId } from "@/lib/monetization";
 import { getNavigationItems } from "@/lib/navigation-store";
+import { portalSections } from "@/lib/portal";
+import { buildPublicHeaderNavigation } from "@/lib/public-header-navigation";
 import { getPartnerSession } from "@/lib/partner-auth";
 import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
 import { buildSiteIdentityJsonLd, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
@@ -72,7 +74,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const navigationItems = await getNavigationItems();
+  const navigationItems = buildPublicHeaderNavigation(await getNavigationItems(), portalSections);
   const jar = await cookies();
   const partnerToken = jar.get(PARTNER_SESSION_COOKIE)?.value;
   const partnerSession = partnerToken ? await getPartnerSession({ token: partnerToken }) : null;

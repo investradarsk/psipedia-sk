@@ -324,6 +324,10 @@
       "coverage": "live-preview"
     },
     {
+      "path": "components/lazy-public-search-suggestions.tsx",
+      "coverage": "nonvisual"
+    },
+    {
       "path": "components/lost-found-dog-detail.tsx",
       "coverage": "page-composite"
     },

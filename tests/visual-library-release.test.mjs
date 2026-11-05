@@ -11,7 +11,8 @@ test("stage 7 uses an allowlisted persisted draft and explicit reviewed single U
   assert.match(store, /draft\.scope !== "one"/);
   assert.match(store, /acknowledgedUrl !== target\.url/);
   assert.match(store, /published text is desktop-only/);
-  assert.match(store, /return stored.published/);
+  assert.match(store, /return published\[id\] \?\? null/);
+  assert.match(store, /validatePublication\(row\.banner_id, target\.variant, published, target\.url\)/);
   assert.match(store, /published_revision IS \?/);
   assert.match(store, /ON CONFLICT\(banner_id,variant_index\) DO NOTHING/);
   assert.match(store, /revision=revision\+1/);
@@ -45,7 +46,7 @@ test("stage 7 affects CSS only on approved desktop banners, not mobile layouts o
   assert.match(home, /desktopCopy=\{homeProfileBannerColors\}/);
   assert.match(atlas, /desktopCopy=\{breedClubBannerColors\}/);
   assert.match(css, /var\(--ps-visual-desktop-button/);
-  assert.match(home, /getPublishedDesktopBannerColors\("homepage:profil"\)/);
+  assert.match(home, /getPublishedDesktopBannerColorsBatch\(\["homepage:profil", "help:lost-found"\]\)/);
   assert.match(atlas, /getPublishedDesktopBannerColors\("plemena:kluby"\)/);
   assert.match(home, /desktopColors=\{homeProfileBannerColors\}/);
   assert.match(atlas, /desktopColors=\{breedClubBannerColors\}/);
@@ -88,7 +89,7 @@ test("desktop-only text is responsive inside the original semantic heading and C
   assert.match(css, /\.desktopCopy\s*\{\s*display:\s*none;/);
   assert.match(css, /@media \(min-width: 621px\)\s*\{/);
   assert.match(home, /desktopCopy=\{desktopCopy\}/);
-  assert.match(store, /return stored\.published/);
+  assert.match(store, /return published\[id\] \?\? null/);
   assert.match(editor, /draft\.scope === "one"/);
 });
 
@@ -101,7 +102,7 @@ test("five independently anchored Help banners publish only desktop copy, never 
     assert.ok(store.includes('"' + id + '": { url: "https://psipedia.sk/pomoc-psom", variant: 0 }'), id);
     assert.ok(overview.includes(id), id);
   }
-  assert.match(overview, /getPublishedDesktopBannerColors\(id\)/);
+  assert.match(overview, /getPublishedDesktopBannerColorsBatch\(helpBannerIds\)/);
   assert.match(overview, /desktopColors=\{published\} desktopCopy=\{published\}/);
   assert.match(help, /desktopColors=\{desktopColors\}/);
   assert.match(help, /desktopCopy=\{desktopCopy\}/);
