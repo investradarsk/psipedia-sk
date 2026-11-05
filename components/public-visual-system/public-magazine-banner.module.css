@@ -335,6 +335,13 @@
     max-width: 65ch;
     color: var(--muted, #52645b);
   }
+  /* The shared copy renderer uses a div, not the legacy paragraph selector. */
+  .withPhoto .bannerCopy .bannerDescription {
+    color: #fff;
+  }
+  .withPhoto .bannerCopy :global(.eyebrow) {
+    color: #f7cfbd;
+  }
   .bannerCopy .eyebrow {
     display: block;
     margin-bottom: 5px;
