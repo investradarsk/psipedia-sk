@@ -89,9 +89,9 @@ for (const width of [1440, 390, 320]) {
     await form.locator("#adoption-breed-name").fill("Kríženec labradora");
     await activate("adoption-location", "Lokalita");
     await form.locator("#adoption-city").fill("Nitra");
-    await activate("adoption-temperament", "Povaha a kompatibilita");
+    await activate("adoption-personality", "Povaha a kompatibilita");
     await form.locator("#adoption-temperament").fill("Pokojný a spoločenský");
-    await activate("adoption-health", "Zdravie");
+    await activate("adoption-medical", "Zdravie");
     await expect(form.locator("#adoption-health")).toBeVisible();
     await activate("adoption-contact", "Organizácia a kontakt");
     await form.locator("#adoption-email").fill("utulok@example.sk");
