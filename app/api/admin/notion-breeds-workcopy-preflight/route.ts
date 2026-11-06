@@ -4,6 +4,9 @@ import { notionRequest, type NotionPage, type NotionSyncBindings } from "@/lib/n
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
 import { planBreedWorkcopyIdentity } from "@/lib/notion-breed-workcopy-identity-plan.mjs";
 
+import { inspectBreedWorkCopy } from "@/lib/notion-breed-workcopy-parity.mjs";
+import { expandBreed60WorkPage } from "@/lib/notion-breed-workcopy-adapter.mjs";
+
 export const dynamic = "force-dynamic";
 
 type OwnedNotionPage = NotionPage & {
@@ -86,14 +89,35 @@ export async function GET() {
       canonicalBreeds: canonical.results,
       productionLinks: productionMappings.results,
     });
+    const parity = inspectBreedWorkCopy(sourcePages, workPages);
+    const malformedMergedFields: Array<{ pageId: string; target: string; code: string }> = [];
+    for (const page of workPages) {
+      const expanded = expandBreed60WorkPage(page);
+      for (const failure of expanded.errors) {
+        malformedMergedFields.push({
+          pageId: page.id,
+          target: failure.target,
+          code: failure.code,
+        });
+      }
+    }
+    const workCopyContentReady = parity.dataParity && malformedMergedFields.length === 0;
     return Response.json({
       identityReady: result.identityReady,
       cutoverReady: false,
+      workCopyContentReady,
       summary: result.summary,
+      contentComparison: {
+        ...parity.stats,
+        issueCount: parity.issues.length,
+        issues: parity.issues.slice(0, 50),
+        malformedMergedFieldCount: malformedMergedFields.length,
+        malformedMergedFields: malformedMergedFields.slice(0, 50),
+      },
       issues: result.issues.slice(0, 50),
       issueCount: result.issues.length,
       // Operational content freshness and bidirectional sync remain unproven.
-      next: "Verify full 60-field parity and D1 field receipts before any remapping",
+      next: "Review D1 field receipts and bi-directional sync before any remapping",
     }, { headers });
   } catch (error) {
     // Do not reveal Notion tokens, request bodies or D1 values to the client.
