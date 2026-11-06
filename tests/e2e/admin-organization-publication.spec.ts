@@ -10,6 +10,7 @@ async function showOrganizationSection(page: import("@playwright/test").Page, id
   if (await select.isVisible()) await select.selectOption(id);
   else await nav.getByRole("button", { name: label, exact: true }).click();
   await expect(page.locator("#" + id)).toBeVisible();
+  await expect(page.locator("#" + id)).toBeFocused();
 }
 
 
