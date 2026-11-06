@@ -403,7 +403,10 @@ test("PUBLIC-UX-FOUNDATION-1 provides one two-mode crawlable subcategory navigat
   assert.match(navigator, /loading=\{item\.image\.loading \?\? "lazy"\}/);
   assert.match(navigator, /width=\{item\.image\.width \?\? 640\}/);
   assert.match(navigator, /height=\{item\.image\.height \?\? 360\}/);
-  assert.doesNotMatch(navigator, /useState|useEffect|onClick/);
+  // Stateless server-rendered links may expose an optional onSelect handler
+  // for navigation telemetry without owning state or client-side filtering.
+  assert.doesNotMatch(navigator, /useState|useEffect/);
+  assert.match(navigator, /onClick=\{onSelect\}/);
   assert.doesNotMatch(navigator, /\.slice\(/);
   assert.match(navigatorCss, /grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(
