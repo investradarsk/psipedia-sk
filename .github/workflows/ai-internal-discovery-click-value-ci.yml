@@ -3,6 +3,7 @@ name: AI-INTERNAL-DISCOVERY-CLICK-VALUE-1 validation
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "app/sitemap.ts"
       - "app/plemena/[slug]/page.tsx"
@@ -76,6 +77,8 @@ concurrency:
 
 jobs:
   contracts:
+    # Comprehensive PR regression runs once changes are ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Discovery contracts, lint, build and regressions
     runs-on: ubuntu-latest
     timeout-minutes: 40

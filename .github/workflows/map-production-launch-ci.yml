@@ -3,6 +3,7 @@ name: MAP-1E Launch Hardening
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - ".github/workflows/production-d1-migrate.yml"
       - ".github/workflows/map-production-readiness.yml"
@@ -35,6 +36,8 @@ permissions:
 
 jobs:
   launch-hardening:
+    # Comprehensive PR regression runs once changes are ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Migration gates, map regressions and build
     runs-on: ubuntu-latest
     timeout-minutes: 35

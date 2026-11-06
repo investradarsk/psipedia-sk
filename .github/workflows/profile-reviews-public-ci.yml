@@ -3,6 +3,7 @@ name: REVIEWS-1B Public Read UI
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "lib/profile-review-read.ts"
       - "lib/profile-review-domain.ts"
@@ -27,6 +28,8 @@ permissions:
 
 jobs:
   public-reviews:
+    # Comprehensive PR regression runs once changes are ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Public review read model, D1 and E2E
     runs-on: ubuntu-latest
     timeout-minutes: 35

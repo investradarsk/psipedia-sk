@@ -3,6 +3,7 @@ name: Partner platform security and UX
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "app/partner/**"
       - "app/api/partner/**"
@@ -66,6 +67,8 @@ permissions:
 
 jobs:
   security:
+    # Comprehensive PR regression runs once changes are ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Partner auth — security, types, lint and build
     runs-on: ubuntu-latest
     timeout-minutes: 30

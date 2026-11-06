@@ -12,9 +12,20 @@ const heavyWorkflows = [
   "admin-operations-ci.yml",
   "admin-pwa-ci.yml",
   "pr-visual-evidence.yml",
+  // Longer independently bootstrapped D1/Playwright/SEO suites.
+  "profile-reviews-public-ci.yml",
+  "partner-auth-ci.yml",
+  "map-read-api-ci.yml",
+  "map-production-launch-ci.yml",
+  "admin-article-bulk-e2e.yml",
+  "content-relations-1.yml",
+  "ai-internal-discovery-click-value-ci.yml",
+  "sitewide-ai-entity-surface-ci.yml",
+  "organization-profile-e2e.yml",
+  "gemini-automation-foundation-ci.yml",
 ];
 
-test("heavy admin checks run on ready-for-review and are deferred only for drafts", () => {
+test("heavy optional checks run on ready-for-review and are deferred only for drafts", () => {
   for (const name of heavyWorkflows) {
     const workflow = read(".github/workflows/" + name);
     assert.match(workflow, /ready_for_review/, name + " must run when a draft becomes review-ready");
@@ -39,4 +50,34 @@ test("irrelevant public screenshot and Gemini checks are excluded from admin-onl
   assert.match(visual, /"!components\/admin-\*\*"/);
   assert.doesNotMatch(gemini, /^\s+- "components\/admin-event-editor\.tsx"\s*$/m);
   assert.doesNotMatch(gemini, /^\s+- "components\/admin-help-editor\.tsx"\s*$/m);
+});
+
+
+test("deferred workflows include a ready-for-review trigger, but manual dispatch remains intact", () => {
+  for (const name of heavyWorkflows) {
+    const source = read(".github/workflows/" + name);
+    assert.match(source, /ready_for_review/, name);
+    // These workflow files are responsible for heavyweight optional jobs only.
+    assert.match(source, /github\.event\.pull_request\.draft == false/, name);
+  }
+  const launch = read(".github/workflows/map-production-launch-ci.yml");
+  const reviews = read(".github/workflows/profile-reviews-public-ci.yml");
+  assert.match(launch, /workflow_dispatch:/);
+  assert.match(reviews, /workflow_dispatch:/);
+});
+
+test("event fallback preserves cheap scope discovery while deferring browser regressions", () => {
+  const event = read(".github/workflows/events-fallback-images.yml");
+  assert.match(event, /ready_for_review/);
+  assert.match(event, /  scope:\n    name: Detect events regression ownership/);
+  assert.match(event, /  artwork:\n    [^\n]*\n    if: \$\{\{ github.event_name != 'pull_request' \|\| github.event.pull_request.draft == false \}\}/);
+  assert.match(event, /  public-events:[\s\S]*?github.event.pull_request.draft == false/);
+  assert.match(event, /workflow_dispatch:/);
+});
+
+test("mandatory migration and central safety jobs are never deferred", () => {
+  for (const name of ["playwright-e2e.yml", "clean-d1-migration-validation.yml"]) {
+    const source = read(".github/workflows/" + name);
+    assert.doesNotMatch(source, /github\.event\.pull_request\.draft == false/, name + " must run on draft PRs");
+  }
 });
