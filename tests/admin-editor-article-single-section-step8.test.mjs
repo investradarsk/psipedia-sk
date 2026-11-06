@@ -63,7 +63,8 @@ test("EDITOR-8: live preview, Lexical, SEO, media, FB and QA remain functional i
   assert.doesNotMatch(read("components/admin-editor-section-visibility.tsx"), /fetch\s*\(|DATABASE_URL/);
 });
 
-test("EDITOR-8: other page editors do not silently switch to one-section mode", () => {
-  const paths = ["components/admin-event-editor.tsx", "components/admin-directory-editor.tsx"];
-  for (const path of paths) assert.doesNotMatch(read(path), /sectionMode="switch"/, path);
+test("EDITOR-8: event editor stays in its independently planned scroll mode", () => {
+  const src = read("components/admin-event-editor.tsx");
+  assert.doesNotMatch(src, /sectionMode="switch"/);
+  // Directory editor is migrated separately in step 9.
 });
