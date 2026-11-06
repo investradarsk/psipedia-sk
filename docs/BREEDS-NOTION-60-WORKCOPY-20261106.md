@@ -41,3 +41,9 @@
 - `materializeBreedWorkCopyForRead` vytvorí virtuálny 109-poľový čítací pohľad, ale **nie** systémové stĺpce: `Slug` berie len z D1 po zhodnom Psipedia ID a FCI. `Stav`, `Sync stav`, publikovanie a ostatné admin metadáta nevyrába.
 - `drizzle/0159_breed_notion_workcopy_links.sql` je výlučne **aditívna** tabuľka. Uchová pôvodné a nové Notion ID, identitu D1 a pôvodný sync receipt; existujúca tabuľka `breed_notion_sync` a zverejnené plemená zostávajú nezmenené. Zatiaľ neexistuje aktivačná operácia ani automatický D1 backfill.
 - Doplnkové testy: 7/7 identity, 5/5 rollback shadow väzby, 3/3 čítací kompatibilný adapter; spolu s prvými 10 testami **25/25 izolovaných testov**. SQLite schéma bola otestovaná v lokálnej dočasnej databáze vrátane CHECK a UNIQUE obmedzení. Celé CI ani produkčné E2E doteraz nie je potvrdené.
+
+## Bezpečný plánovač zápisu jedného zlúčeného poľa
+- `lib/notion-breed-workcopy-field-patch.mjs` vie nahradiť iba základný text alebo iba jednu z 23 pomenovaných sekcií v príslušnom zlúčenom Notion poli.
+- Ostatné pôvodné sekcie musia ostať rovnaké; pri duplicite nadpisu, nesprávnom poli, chybnom FCI dátume/URL alebo zmene kontrolovaného textu sa zápis odmietne.
+- Výsledkom je **jeden pripravený Notion PATCH cell**, nie volanie API; žiadne produkčné zápisy ani prepnutie automatizácií sa ešte neuskutočnili.
+- Doplnkové izolované testy `tests/notion-breed-workcopy-field-patch.test.mjs` prešli **8/8**. Celkový počet overených izolovaných testov pre túto pracovnú kópiu je **33/33**.
