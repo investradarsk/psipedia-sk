@@ -29,12 +29,6 @@
 .sportRow p { margin: 0; color: #607167; font-size: 13px; }
 .sportActions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .relationColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
-.relationBox { min-width: 0; border: 1px solid #dce6df; border-radius: 12px; padding: 12px; }
-.relationBox legend { font-weight: 800; padding: 0 6px; }
-.relationSearch { width: 100%; margin-bottom: 10px; }
-.relationItems { display: grid; gap: 7px; max-height: 320px; overflow: auto; padding-right: 4px; }
-.relationItems label { min-width: 0; }
-.relationItems small { display: block; color: #607167; }
 .mediaGrid { display: grid; grid-template-columns: minmax(180px, 280px) 1fr; gap: 18px; align-items: start; }
 .coverPreview { aspect-ratio: 4 / 3; border-radius: 14px; background: #eef3ef; overflow: hidden; display: grid; place-items: center; color: #5d7066; }
 .coverPreview img { width: 100%; height: 100%; object-fit: cover; display: block; }
