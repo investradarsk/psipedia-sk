@@ -69,6 +69,9 @@ async function galleryRenderer() {
   new Function("require", "exports", compiled)((name) => {
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsx;
+    // Thumbnail URLs are already covered by public-media-responsiveness-1216;
+    // this renderer test isolates gallery structure and existing link behavior.
+    if (name === "@/lib/responsive-media") return { responsiveMediaSrcSet: () => undefined };
     if (name === "./public-photoswipe-enhancer") return { PublicPhotoSwipeEnhancer: ({ children }) => children };
     if (name.endsWith(".module.css")) return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
     throw new Error("Unexpected import " + name);
