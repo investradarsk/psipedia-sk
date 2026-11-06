@@ -25,6 +25,7 @@ test("EDITOR-9: Save/Publish reveal the invalid field instead of trapping focus 
   assert.match(src, /<form ref=\{formRef\} noValidate/);
   assert.match(src, /if \(!name\.trim\(\)\)/);
   assert.match(src, /if \(!slug\.trim\(\)\)/);
+  assert.match(src, /status === "published" && nextStatus === "draft" && !notionDraft/);
   assert.match(src, /element\.willValidate && !element\.checkValidity\(\)/);
   assert.match(src, /invalidControl\.closest<HTMLElement>\("\[data-admin-editor-section\]"\)/);
   assert.match(src, /setActiveDirectorySection\(section\.id\)/);
