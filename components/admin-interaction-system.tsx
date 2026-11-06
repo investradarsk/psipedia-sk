@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useContext,
   useEffect,
   useId,
   useRef,
@@ -13,6 +14,7 @@ import {
 } from "react";
 import styles from "./admin-interaction-system.module.css";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
+import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
 
 export type AdminActionVariant = "primary" | "secondary" | "neutral" | "destructive" | "link";
 
@@ -484,11 +486,15 @@ export function AdminEditorSection({
   children: ReactNode;
   className?: string;
 }) {
+  const visibility = useContext(AdminEditorSectionVisibility);
+  const hidden = visibility?.mode === "switch" && visibility.activeId !== id;
   return (
     <section
       id={id}
       className={classes(styles.editorSection, className)}
-      tabIndex={-1}
+      tabIndex={hidden ? undefined : -1}
+      hidden={hidden}
+      data-editor-section-active={visibility?.mode === "switch" ? (!hidden ? "true" : "false") : undefined}
       data-admin-editor-section
     >
       {children}
