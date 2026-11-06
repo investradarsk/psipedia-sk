@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { cloneElement, isValidElement, useState, type ReactNode } from "react";
 import {
   AdminUiCard,
   AdminUiCardContent,
@@ -89,14 +89,21 @@ export function AdminUnifiedEditorWorkspace({
   );
 }
 
-export function AdminUnifiedEditorFields({ children }: { children: ReactNode }) {
-  return <div className={styles.fields}>{children}</div>;
+export function AdminUnifiedEditorFields({
+  children,
+  columns = 2,
+}: {
+  children: ReactNode;
+  columns?: 1 | 2;
+}) {
+  return <div className={styles.fields} data-columns={columns}>{children}</div>;
 }
 
 export function AdminUnifiedEditorField({
   id,
   label,
   hint,
+  error,
   required = false,
   wide = false,
   children,
@@ -104,15 +111,33 @@ export function AdminUnifiedEditorField({
   id: string;
   label: string;
   hint?: string;
+  error?: string;
   required?: boolean;
   wide?: boolean;
   children: ReactNode;
 }) {
+  // A single input/select/textarea child receives its hint/error IDs without
+  // taking ownership of its value, native validation, onChange or form name.
+  const fieldControl = isValidElement<{
+    "aria-describedby"?: string;
+    "aria-invalid"?: boolean | "true" | "false";
+  }>(children)
+    ? cloneElement(children, {
+        "aria-describedby": [
+          children.props["aria-describedby"],
+          hint ? id + "-hint" : "",
+          error ? id + "-error" : "",
+        ].filter(Boolean).join(" ") || undefined,
+        "aria-invalid": error ? true : children.props["aria-invalid"],
+      })
+    : children;
+
   return (
-    <div className={styles.field} data-wide={wide}>
+    <div className={styles.field} data-wide={wide} data-invalid={Boolean(error)}>
       <label htmlFor={id}>{label}{required ? <span aria-hidden="true"> *</span> : null}</label>
-      {children}
+      {fieldControl}
       {hint ? <small id={id + "-hint"}>{hint}</small> : null}
+      {error ? <small id={id + "-error"} className={styles.fieldError} role="alert">{error}</small> : null}
     </div>
   );
 }
