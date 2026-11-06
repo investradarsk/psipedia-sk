@@ -63,6 +63,59 @@ test("adoption editor keeps unsaved input on cancelled navigation and discards o
   expect(writes).toEqual([]);
 });
 
+for (const width of [1440, 390, 320]) {
+  test(`adoption editor preserves FormData and controls when navigating mounted panels at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/adopcie/novy", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const form = page.locator("form.admin-event-editor");
+    await expect(form).toHaveAttribute("data-hydrated", "true");
+    const nav = form.getByRole("navigation", { name: "Sekcie editora adopcií" });
+    await expect(nav.locator("select option")).toHaveCount(8);
+    const name = form.locator("#adoption-name");
+    await name.fill("Rozpracovaný profil Ben");
+    const writes: string[] = [];
+    page.on("request", request => {
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) &&
+          request.url().includes("/api/admin/adoptions")) writes.push(request.url());
+    });
+    const activate = async (id: string, label: string) => {
+      const select = nav.getByRole("combobox");
+      if (await select.isVisible()) await select.selectOption(id);
+      else await nav.getByRole("button", { name: label, exact: true }).click();
+      await expect(form.locator("#" + id)).toBeVisible();
+    };
+    await activate("adoption-dog", "Plemeno a profil");
+    await form.locator("#adoption-breed-name").fill("Kríženec labradora");
+    await activate("adoption-location", "Lokalita");
+    await form.locator("#adoption-city").fill("Nitra");
+    await activate("adoption-temperament", "Povaha a kompatibilita");
+    await form.locator("#adoption-temperament").fill("Pokojný a spoločenský");
+    await activate("adoption-health", "Zdravie");
+    await expect(form.locator("#adoption-health")).toBeVisible();
+    await activate("adoption-contact", "Organizácia a kontakt");
+    await form.locator("#adoption-email").fill("utulok@example.sk");
+    await activate("adoption-media", "Fotografie");
+    await expect(form.locator("#adoption-main-image")).toBeVisible();
+    await activate("adoption-verification", "Stav a overenie");
+    await expect(form.locator("#adoption-verified")).toBeVisible();
+    await activate("adoption-location", "Lokalita");
+    await expect(form.locator("#adoption-city")).toHaveValue("Nitra");
+    await activate("adoption-contact", "Organizácia a kontakt");
+    await expect(form.locator("#adoption-email")).toHaveValue("utulok@example.sk");
+    await activate("adoption-dog", "Plemeno a profil");
+    await expect(form.locator("#adoption-breed-name")).toHaveValue("Kríženec labradora");
+    await activate("adoption-basics", "Základné údaje");
+    await expect(name).toHaveValue("Rozpracovaný profil Ben");
+    const serialized = await form.evaluate(el => Object.fromEntries(new FormData(el as HTMLFormElement)));
+    expect(serialized.city).toBe("Nitra");
+    expect(serialized.breedName).toBe("Kríženec labradora");
+    expect(serialized.contactEmail).toBe("utulok@example.sk");
+    expect(writes).toEqual([]);
+    await expectNoHorizontalOverflow(page);
+  });
+}
+
 test("seeded adoption catalogue, filters and detail stay public-safe and accessible", async ({ page }) => {
   const response = await page.goto(catalogPath, { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
