@@ -40,7 +40,14 @@ test("month navigation drops an obsolete month filter, preserving search and reg
   assert.match(calendar, /if \(month && targetMonth !== month\) params\.delete\("mesiac"\)/);
   assert.match(calendar, /params\.set\("kalendar", targetMonth\)/);
   assert.match(calendar, /params\.set\("den", day\)/);
-  assert.match(calendar, /href=\{timeHref\(value\)\}/);
+  // Period choices now render through the shared responsive navigator,
+  // which keeps native crawlable anchors and in-place calendar transitions.
+  assert.match(calendar, /<PublicSubcategoryNavigator/);
+  assert.match(calendar, /href: timeHref\(value\)/);
+  assert.match(calendar, /clickNavigate\(event, timeHref\(value\), \{ \.\.\.view, time: value \}\)/);
+  const navigator = source("components/public-visual-system/public-subcategory-navigator.tsx");
+  assert.match(navigator, /href=\{item\.href\}/);
+  assert.match(navigator, /onClick=\{onSelect\}/);
   assert.doesNotMatch(calendar, /<PublicFilterDisclosure|Použiť filtre/);
   assert.match(source("components/event-listing-results.tsx"), /mobileFilters/);
   assert.match(source("components/event-listing-results.tsx"), /Vymazať filtre/);
@@ -96,7 +103,8 @@ test("event sidebar applies new filters without stale calendar selection or dupl
   const categories = source("app/[section]/[slug]/page.tsx");
 
   assert.match(listing, /hidden\(\["region", "od", "do", "mesto", "mesiac", "kalendar", "den"\]\)/);
-  assert.match(listing, /slovakRegions\.map\(\(region\) =>/);
+  // "Online" is not a physical region and must not appear in the region picker.
+  assert.match(listing, /slovakRegions\.filter\(\(region\) => region !== "Online"\)\.map\(\(region\) =>/);
   assert.match(css, /\.filterSidebar > header\s*\{\s*display: none;/);
   assert.match(main, /eventListingPageHref\("\/podujatia", rawSearchParams, events\.pages\)/);
   assert.match(categories, /eventListingPageHref\(path, rawSearchParams, events\.pages\)/);

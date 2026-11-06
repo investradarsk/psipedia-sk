@@ -36,9 +36,11 @@ test("primary and secondary CTA samples link to exact public DOM anchors", () =>
   const directory = read("components/directory-page.tsx");
   const help = read("components/help-overview.tsx");
   assert.match(examples, /<PublicActionLink href="\/mapa" variant="primary">/);
-  assert.match(examples, /<PublicActionLink href="\/organizacie" variant="secondary">/);
+  assert.match(examples, /<PublicActionLink href="\/pomoc-psom\/utulky" variant="tertiary">/);
+  assert.match(examples, /anchorId: "help-overview-utulky"/);
   assert.match(directory, /<PublicActionLink\s+id=\{CTA_DIRECTORY_MAP_ANCHOR\}\s+variant="primary"/);
-  assert.match(help, /id=\{CTA_HELP_ORGANIZATIONS_ANCHOR\}/);
+  assert.match(help, /id=\{`help-overview-\$\{section\.slug\}`\}/);
+  assert.match(help, /<PublicActionLink href=\{section\.href\} variant="tertiary"/);
 });
 
 test("article card uses real published article and stable rendered anchor", () => {

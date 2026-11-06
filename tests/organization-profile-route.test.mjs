@@ -44,7 +44,13 @@ test("profile presentation renders canonical related adoptions as public cards",
 });
 
 test("organization cards reuse the catalog public image, fallback and status primitive", () => {
-  assert.match(catalogSource, /AdoptionCardMedia/);
+  // Catalog and organization details both use the same public Help card shell.
+  // The organization detail intentionally keeps the richer AdoptionCardMedia
+  // status label, while the compact catalog uses thumbnail/fallback media.
+  assert.match(catalogSource, /<PublicHelpProfileCard/);
+  assert.match(catalogSource, /<ImageDisplay/);
+  assert.match(catalogSource, /<PublicMediaFallback/);
+  assert.match(componentSource, /<AdoptionCardMedia/);
   assert.match(mediaSource, /adoptionDetailStatusLabels\[status\]/);
   assert.match(mediaSource, /data-adoption-media="image"/);
   assert.match(mediaSource, /data-adoption-media="fallback"/);

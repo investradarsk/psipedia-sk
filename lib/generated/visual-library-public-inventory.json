@@ -624,6 +624,10 @@
       "coverage": "server-preview"
     },
     {
+      "path": "components/public-visual-system/universal-page-hero.tsx",
+      "coverage": "page-composite"
+    },
+    {
       "path": "components/related-entity-links.tsx",
       "coverage": "live-preview"
     },
