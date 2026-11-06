@@ -866,8 +866,31 @@ async function createProfileFromNotion(input: {
       importWarnings.push("Skontroluj formát adresy.");
     }
     if (desired.confirmedServiceLocation) {
+      desired.confirmedServiceLocation = false;
+      importWarnings.push("Potvrď prevádzku a adresu v administrácii.");
+    }
+    if (desired.services.length) importWarnings.push("Služby skontroluj a priraď v katalógu Admin/D1.");
+    desired.services = [];
+    if (!desired.region) importWarnings.push("Doplň kraj.");
+    if (!desired.city) importWarnings.push("Doplň mesto/obec.");
+    if (!desired.description) importWarnings.push("Doplň popis profilu.");
+    desired.slug = await resolveGeminiPublicSlug(input.database, "directory", {
+      requestedSlug: desired.slug, name: desired.name, city: desired.city, notionPageId: input.page.id,
+    });
+  }
+  const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
+  const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
+  const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
+  let payload = newProfileInput(desired);
+  if (input.trustedGemini) {
+    // Fail closed, regardless of unexpected Notion status/defaults.
+    payload = { ...payload, status: "draft" };
+  }
+  let verified = null;
+
+  if (desired.confirmedServiceLocation) {
     if (desired.houseNumber.trim()) {
-      // Exact provider verification is only possible when a house number is supplied.
+      // Exact provider verification is only possible with a house number.
       const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
       verified = await verifyDirectoryCanonicalAddress({
         region: desired.region,
@@ -880,7 +903,7 @@ async function createProfileFromNotion(input: {
       });
       payload = withVerifiedDirectoryAddress(payload, verified);
     } else {
-      // An incomplete address is a review signal, not a blocker for a new profile.
+      // Missing house numbers are editorial review signals, not sync errors.
       payload = { ...payload, clearServiceAddressConfirmation: true };
       importWarnings.push("Číslo domu nie je uvedené; presná adresa zostáva nepotvrdená.");
     }
@@ -996,8 +1019,8 @@ async function applyNotionToProfile(input: {
       });
       payload = withVerifiedDirectoryAddress(payload, verified);
     } else if (current.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION") {
-      // Never let a partial Notion address overwrite an already verified exact
-      // canonical address or its existing GEO/Google Place association.
+      // Partial Notion address cannot replace a verified canonical address
+      // or overwrite its manually confirmed GEO / Google Place association.
       payload = {
         ...payload,
         region: current.region,
@@ -1011,8 +1034,7 @@ async function applyNotionToProfile(input: {
         confirmServiceAddress: true,
       };
     } else {
-      // Keep syncing content even if Notion's confirmation flag is set without
-      // a house number. Exact location remains unconfirmed; no geocoder call.
+      // Continue synchronizing editorial fields without claiming exact GEO.
       payload = { ...payload, clearServiceAddressConfirmation: true };
     }
   } else if (desired.confirmedServiceLocation) {
