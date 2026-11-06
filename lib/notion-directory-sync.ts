@@ -52,7 +52,7 @@ import { planOwnerDirectedFields, type ManualFieldDirection } from "@/lib/notion
 import {
   BREEDER_NOTION_EDITORIAL_FIELDS, breederAdminChangedFields,
   breederNotionChangedFields, breederApplyNotionChanges, breederReadPath,
-  type BreederEditorialField,
+  breederPreserveUneditedFields, type BreederEditorialField,
 } from "@/lib/notion-breeder-field-events";
 import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes";
 
@@ -1169,6 +1169,19 @@ async function changedProfileIds(database: D1Database) {
     LIMIT ?
   `).bind(CHANGED_PROFILE_BATCH).all<{ id: number }>();
   return (result.results ?? []).map((row) => Number(row.id)).filter(Number.isSafeInteger);
+}
+
+/** Keep freshly imported Notion data when an older Admin form saves other fields. */
+export function preserveLiveBreederFields(
+  live: ManagedDirectoryProfile,
+  submitted: ManagedDirectoryProfileInput,
+  edited: readonly BreederEditorialField[],
+): ManagedDirectoryProfileInput {
+  return breederPreserveUneditedFields(
+    submitted as Record<string, unknown>,
+    profileSnapshot(live) as unknown as Record<string, unknown>,
+    edited,
+  ) as ManagedDirectoryProfileInput;
 }
 
 /** Exactly the editorial fields saved in Admin; the rest of the profile is irrelevant. */
