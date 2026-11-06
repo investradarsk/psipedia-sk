@@ -74,3 +74,15 @@
 Izolované testy aktivácie sú registrované v `test:breed-concurrency`. Ich existenciu nemožno zamieňať za produkčný E2E test. Konfiguračný prepínač ostáva vypnutý.
 
 - Doplnené sú aj nezávislé 60-poľové zoznamové bunky **Zdravotné riziká**, **Vhodné pre**, **Zvážiť** a **Zdroje**; Admin → Notion používa rovnaké oddelenie položiek bodkočiarkou ako existujúci parser, pri neplatnej hodnote alebo starej baseline zápis zastaví. Obrázky a vzťahy sa nemenia.
+
+
+## Pokračovanie: migračná disciplína, receipts a nedeliteľná aktivácia
+
+- Migračný súbor `0159_breed_notion_workcopy_links.sql` je registrovaný v `UNACTIVATED_PRODUCTION_TARGETS` spolu s `0158`. Chránená produkčná APPLY allowlist ho **neobsahuje**; zostáva explicitne nenasadený.
+- Preflight vracia `compatibleReceiptCount` a `legacyOrInvalidReceiptCount`. `shadowReceiptReady=true` je možné len vtedy, ak sa dá **všetkých 344** originálnych D1 receiptov rozbaliť na per-field baseline kompatibilnú s novým runtime. Samotný ne-prázdny reťazec ani starý SHA nestačí.
+- Staging už nezapočítava legacy `content_hash` ako pripravený `work_sync_receipt`. Pri chýbajúcej kompatibilite sa cutover zablokuje; dátumy ani hodnoty údajov sa automaticky neodhadujú.
+- Notion → Admin aj Admin → Notion podporujú aj samostatný **Názov** (Notion `title`), bez zmeny Psipedia ID, FCI identity alebo slugu. Prázdny názov nemôže vymazať platné meno.
+- Aktivácia v `lib/notion-breed-workcopy-activation-sql.mjs` najprv **MATERIALIZED CTE** vyhodnotí úplnú množinu oprávnených 344 riadkov a až potom vykoná jediný SQL UPDATE. Pri nesúlade ľubovoľného riadku je výsledkom **0 zmenených riadkov**, nie čiastočný cutover.
+- Doplnkové SQLite testy pokrývajú úplný 344-row update a blokáciu 343/345 profilov, neplatného receiptu, cudzieho slugu a zmenenej pôvodnej väzby. Bez živého prístupu k produkčnej D1 zostáva reálny preflight, staging, aktivácia a E2E neoverená.
+
+**Pre produkciu stále platí: aktiváciu nespúšťať, kým všetkých 344 receiptov nie je kompatibilných a oba automaty aj oba sync enginy nie sú zastavené.**
