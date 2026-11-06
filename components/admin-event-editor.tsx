@@ -1,4 +1,5 @@
 "use client";
+import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
@@ -304,10 +305,12 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
 
           <EditorSection id="event-media" className="admin-form-card">
             <div className="admin-card-heading"><div><span>04</span><div><h2>Odkazy, fotografia a adresa stránky</h2><p>Registrácia a titulná fotografia podujatia.</p></div></div></div>
+<AdminEditorToolFrame kind="contacts">
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="event-web">Web organizátora</label><input id="event-web" type="url" value={websiteUrl} onChange={(input) => setWebsiteUrl(input.target.value)} placeholder="https://…" /></div>
               <div className="admin-field"><label htmlFor="event-registration">Registrácia</label><input id="event-registration" type="url" value={registrationUrl} onChange={(input) => setRegistrationUrl(input.target.value)} placeholder="https://…" /></div>
             </div>
+            </AdminEditorToolFrame>
             <div className="admin-field"><label htmlFor="event-slug">Adresa podujatia</label><div className="admin-slug-input"><span>psipedia.sk/podujatia/</span><input id="event-slug" value={slug} onChange={(input) => { setSlugEdited(true); setSlug(slugify(input.target.value)); }} placeholder="adresa-podujatia" required /></div></div>
             <div className="admin-upload-row">
               <div className="admin-upload-preview admin-upload-preview--coral">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" src={imageUrl} config={thumbnailImageDisplay} legacyMode={imageDisplay} alt="Náhľad obrázka podujatia" /> : <span>📅</span>}</div>
