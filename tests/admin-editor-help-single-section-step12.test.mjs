@@ -17,7 +17,7 @@ function panel(id) {
 test("EDITOR-12: six mounted Help panels use shared sidebar/mobile switch navigation", () => {
   const expected = [
     ["help-basics", "Základné údaje"],
-    ["help-location", "Zaradenie a lokalita"],
+    ["help-place", "Zaradenie a lokalita"],
     ["help-story", "Prípad a pes"],
     ["help-action", "Výzva a zbierka"],
     ["help-media", "Fotografia a stav"],
@@ -43,7 +43,7 @@ test("EDITOR-12: six mounted Help panels use shared sidebar/mobile switch naviga
 test("EDITOR-12: Help fields, Lexical, gallery, SEO and preview remain mounted once", () => {
   const expected = {
     "help-basics": ["help-title", "help-excerpt"],
-    "help-location": ["help-category", "help-organization", "help-region", "help-city", "help-location"],
+    "help-place": ["help-category", "help-organization", "help-region", "help-city", "help-location"],
     "help-story": ["help-description", "help-dog-name", "help-breed", "help-age", "help-reported", "help-deadline"],
     "help-action": ["help-action-label", "help-action-url", "help-goal", "help-raised", "help-contact-note"],
     "help-media": ["help-slug"],
