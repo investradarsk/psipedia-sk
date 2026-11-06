@@ -19,7 +19,7 @@ test("EDITOR-3: one shared accessible navigation serves all three editor shells"
   assert.match(core, /event\.preventDefault\(\)/);
   assert.match(core, /useId\(\)/);
   assert.match(core, /<select/);
-  assert.match(core, /disabled=\{!ready\}/);
+  assert.match(core, /disabled=\{!navigationReady\}/);
   assert.match(core, /aria-current/);
   assert.match(pilot, /layout="sidebar" mode="switch"/);
   assert.match(sticky, /mode="scroll"/);
