@@ -6,6 +6,7 @@ import {
 } from "@/lib/directory-read-facets";
 import { cache } from "react";
 import { directoryCatalogFilters } from "./directory-query.ts";
+import { mergeDirectoryBreederGallery, readDirectoryBreederGallery } from "./directory-breeder-gallery.ts";
 import { readNonemptyD1Page } from "@/lib/perf-d1-page-read";
 import {
   parsePublicDirectoryFacets,
@@ -108,6 +109,7 @@ export type ManagedDirectoryProfileInput = {
   internalEmail?: string | null;
   imageUrl?: string | null;
   imageKey?: string | null;
+  galleryUrls?: string[];
   thumbnailImageDisplay?: ImageDisplayConfig | null;
   detailImageDisplay?: ImageDisplayConfig | null;
   qualityResolutions?: DirectoryQualityResolutionInput;
@@ -668,6 +670,9 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     priceNote: row.price_note,
     websiteUrl: row.website_url,
     imageUrl: row.image_url,
+    galleryUrls: row.category === "chovatelske-stanice"
+      ? readDirectoryBreederGallery(safeImportData(row.source_data_json, true))
+      : [],
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     verified: Boolean(row.verified),
@@ -1035,7 +1040,7 @@ export function normalizeManagedDirectoryProfileInput(
   });
   const publicContacts = readDirectoryPublicContacts(contactSourceData, websiteUrl ?? "");
   const qualityCheckedAt = normalizeQualityCheckedAt(payload.qualityCheckedAt);
-  const sourceData = mergeDirectoryQualityMetadata(
+  const qualitySourceData = mergeDirectoryQualityMetadata(
     contactSourceData,
     payload.qualityResolutions,
     {
@@ -1050,6 +1055,7 @@ export function normalizeManagedDirectoryProfileInput(
     qualityCheckedAt ?? undefined,
     { refreshCheckedAt: Boolean(qualityCheckedAt) },
   );
+  const sourceData = mergeDirectoryBreederGallery(qualitySourceData, category, payload.galleryUrls);
   return {
     slug,
     name,
