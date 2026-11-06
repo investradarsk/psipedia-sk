@@ -96,7 +96,19 @@ test("event type navigation and time filters stay crawlable with the intended tr
   assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
   assert.match(eventsPage, /eventTypePortalHref\(type\)/);
   assert.match(calendar, /data-events-legend/);
-  assert.match(calendar, /href=\{timeHref\(value\)\}/);
+  // Period links are now rendered through the shared compact navigator.
+  // It still emits crawlable anchors and delegates ordinary clicks to the
+  // in-place calendar navigation (preserving browser back/forward).
+  assert.match(calendar, /<PublicSubcategoryNavigator/);
+  assert.match(calendar, /items=\{timeOptions\.map\(\(\[value, label\]\) => \(\{/);
+  assert.match(calendar, /href: timeHref\(value\)/);
+  assert.match(calendar, /clickNavigate\(event, timeHref\(value\), \{ \.\.\.view, time: value \}\)/);
+  const sharedNavigator = readFileSync(
+    new URL("../components/public-visual-system/public-subcategory-navigator.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(sharedNavigator, /href=\{item\.href\}/);
+  assert.match(sharedNavigator, /onClick=\{onSelect\}/);
   assert.match(calendar, /function timeHref\(value: EventTimeFilter\)/);
   assert.match(calendar, /if \(query\) params\.set\("q", query\)/);
   assert.match(calendar, /if \(region\) params\.set\("region", region\)/);
