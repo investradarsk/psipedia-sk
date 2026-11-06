@@ -7,6 +7,7 @@
  * A caller must prove old sync is disabled before applying any future plan.
  */
 import { materializeBreedWorkCopyForRead } from "@/lib/notion-breed-workcopy-compatible-page.mjs";
+import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
 import { notionPageToManagedBreedInput } from "@/lib/notion-breed-sync";
 import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
 import {
@@ -62,6 +63,10 @@ export function planBreedWorkCopyEditorialDelta(input: {
     ...plan.accepted,
     ...plan.changed,
   ])].filter(field => FULL_FCI_AND_EDITORIAL.has(field));
+  // A blank Notion cell is not an instruction to erase valid Admin content.
+  // Keep its previous receipt so a later filled value can still transfer.
+  const blank = plan.accepted.filter(field =>
+    !isTransferableBreedWorkCopyValue(actual[field]));
   // Isolate special media/relations: never let one unsupported field block
   // independently valid ordinary text and FCI edits. Those fields remain
   // pending in their prior receipt until their dedicated adapter is ready.
@@ -72,8 +77,9 @@ export function planBreedWorkCopyEditorialDelta(input: {
     conflicts: plan.conflicts.map(field => ({
       code: "BREED_WORKCOPY_FIELD_CONFLICT", field,
     })),
-    accepted: plan.accepted.filter(field => !restricted.includes(field)),
-    skipped: restricted,
+    accepted: plan.accepted.filter(field =>
+      !restricted.includes(field) && !blank.includes(field)),
+    skipped: [...new Set([...restricted, ...blank])],
     changed: plan.changed,
     patch: plan.patch,
     sourceSnapshot: actual,
