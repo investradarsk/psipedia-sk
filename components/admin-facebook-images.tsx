@@ -160,10 +160,29 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
             if(!photoResponse.ok)throw Error("Titulný obrázok nie je dostupný.");
             const blob=await photoResponse.blob();
             const mime=blob.type.split(";")[0].toLowerCase();
-            if(!["image/jpeg","image/png","image/webp"].includes(mime)||!blob.size||blob.size>8*1024*1024)
-              throw Error("Titulný obrázok nie je JPG, PNG alebo WebP do 8 MB.");
-            const extension=mime==="image/png"?"png":mime==="image/webp"?"webp":"jpg";
-            const uploaded=await uploadAdminImage(new File([blob],"fotografia-clanku."+extension,{type:mime}),"facebook-images");
+            if(!["image/jpeg","image/png","image/webp","image/avif"].includes(mime)||!blob.size||blob.size>8*1024*1024)
+              throw Error("Titulný obrázok nie je podporovaný alebo presahuje 8 MB.");
+            let file:File;
+            if(mime==="image/avif"){
+              // FB accepts JPEG/PNG/WebP, while the source article can use AVIF.
+              const bitmap=await createImageBitmap(blob);
+              try{
+                const canvas=document.createElement("canvas");
+                const scale=Math.min(1,2400/Math.max(bitmap.width,bitmap.height));
+                canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+                canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+                const context=canvas.getContext("2d");
+                if(!context)throw Error("Prevod fotografie zlyhal.");
+                context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+                const webp=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(
+                  value=>value?resolve(value):reject(Error("Prevod fotografie zlyhal.")),"image/webp",0.84));
+                file=new File([webp],"fotografia-clanku.webp",{type:"image/webp"});
+              }finally{bitmap.close();}
+            }else{
+              const extension=mime==="image/png"?"png":mime==="image/webp"?"webp":"jpg";
+              file=new File([blob],"fotografia-clanku."+extension,{type:mime});
+            }
+            const uploaded=await uploadAdminImage(file,"facebook-images");
             selectedImage={imageUrl:uploaded.imageUrl,imageKey:uploaded.imageKey};
             imageWarning="";
           }
