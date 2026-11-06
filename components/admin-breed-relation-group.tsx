@@ -101,7 +101,7 @@ export function AdminBreedRelationGroup({
           type="search" autoComplete="off" />
       </label>
       <div className={styles.results} aria-live="polite">
-        {!searching ? <p className={styles.help}>Zadaj aspoň 2 znaky. Vyhľadávanie prehľadá celý adresár.</p>
+        {!searching ? <p className={styles.help}>{kind==="articles"?"Zadaj aspoň 2 znaky; prehľadávajú sa všetky články.":kind==="breeds"?"Zadaj aspoň 2 znaky názvu plemena.":"Zadaj aspoň 2 znaky; prehľadáva sa celý adresár."}</p>
           : error ? <p className={styles.error} role="alert">{error}</p>
           : kind !== "breeds" && (loading || resolvedQuery !== trimmed) ? <p className={styles.help}>Vyhľadávam…</p>
           : available.length ? (
