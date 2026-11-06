@@ -1,4 +1,5 @@
 "use client";
+import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
@@ -156,6 +157,8 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
     {navigation.dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
     <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
-    <div className="admin-editor-actions"><Link href="/admin/adopcie">Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
+    <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
+      <div className="admin-editor-actions"><Link href="/admin/adopcie">Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
+    </AdminEditorFooter>
   </form>;
 }
