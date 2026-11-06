@@ -3,6 +3,8 @@
 .horizontal, .sidebar { min-width: 0; color: var(--admin-v3-neutral-text, #173b2d); }
 .horizontal { flex: 1 1 auto; display: flex; align-items: center; }
 .links { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 0; }
+.horizontal .links { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; max-width: 100%; }
+.horizontal .links :is(button, a) { flex: 0 0 auto; white-space: nowrap; }
 .links :is(button, a) {
   min-height: 44px;
   padding: 9px 12px;
