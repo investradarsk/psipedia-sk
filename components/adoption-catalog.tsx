@@ -88,6 +88,11 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
       }
       meta={meta}
       excerpt={dog.shortDescription}
+      extras={dog.organizationSlug && dog.organizationName ? (
+        <Link href={"/organizacie/" + dog.organizationSlug}>
+          Profil organizácie: {dog.organizationName}
+        </Link>
+      ) : null}
     />
   );
 }
