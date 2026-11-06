@@ -56,6 +56,8 @@ function fixture(options = {}) {
       "/media/directory/old.webp", "directory/old.webp", version,
       status === "archived" ? version : null, "CONFIRMED_SERVICE_LOCATION",
     );
+  sqlite.prepare("UPDATE directory_profiles SET postal_code=?, street=?, house_number=?, address_format=? WHERE id=1")
+    .run("94901", "Hlavná", "1", "STREET");
   const initial = sqlite.prepare("SELECT * FROM directory_profiles WHERE id=1").get();
   const objects = new Set(["directory/old.webp"]);
   const deleted = [];
@@ -243,8 +245,8 @@ test("invalid Notion physical address fails verification before R2", async () =>
 
 test("numberless Notion edit retains verified canonical address while allowing content update", async () => {
   const f = fixture({ numberless: true, verifyExactAddress: true });
-  const result = await f.run();
-  assert.equal(result.name, "Pôvodný profil");
+  await f.run();
+  assert.equal(f.read().name, "Nový profil");
   assert.equal(f.calls.includes("address-validation"), false);
   assert.equal(f.calls.includes("geo-after-commit"), false);
   assert.equal(f.calls.includes("canonical-committed"), true);
