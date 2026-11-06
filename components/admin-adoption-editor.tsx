@@ -137,7 +137,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
     } finally { setSaving(false); }
   }
 
-  return <form ref={formRef} className="admin-event-editor" onChangeCapture={navigation.captureChange} onClickCapture={navigation.captureLinkClick} onSubmit={save}>
+  return <form ref={formRef} data-admin-form-system="v4" className="admin-event-editor" onChangeCapture={navigation.captureChange} onClickCapture={navigation.captureLinkClick} onSubmit={save}>
     <EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} />
     <div className="admin-event-editor-grid"><div className="admin-event-fields">
       <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
