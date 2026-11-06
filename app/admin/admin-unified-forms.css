@@ -116,3 +116,23 @@
     gap: 12px;
   }
 }
+
+/* EDITOR-5: stable shared-tool widths for canonical (non-demo) editors.
+   No changes to underlying upload, map or SEO API contracts. */
+[data-admin-workspace] [data-admin-editor-tool],
+[data-admin-workspace] [data-admin-editor-tool="gallery-list"] {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+[data-admin-workspace] [data-admin-editor-tool="gallery-list"] img {
+  max-width: 100%;
+}
+[data-admin-workspace] [data-admin-editor-tool="seo"] :is(h2, h3),
+[data-admin-workspace] [data-admin-editor-tool="gallery"] :is(h2, h3) {
+  color: var(--admin-v3-green, #174b38);
+}
+[data-admin-workspace] [data-admin-editor-tool="image"] button,
+[data-admin-workspace] [data-admin-editor-tool="gallery"] button {
+  min-height: 44px;
+}
