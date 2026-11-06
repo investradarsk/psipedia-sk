@@ -73,6 +73,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [activeEventSection, setActiveEventSection] = useState(EVENT_SECTIONS[0].id);
+  const activeEventSectionIndex = EVENT_SECTIONS.findIndex((section) => section.id === activeEventSection);
 
   // Track the canonical form payload, not DOM input events: markdown toolbar,
   // SEO drawer, image display settings and automation patches all change React state.
@@ -200,6 +202,41 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
 
   async function save(nextStatus: EventStatus) {
     if (savePendingRef.current || uploading) return;
+    // The form uses one mounted panel at a time; native validation cannot
+    // focus a required field in a hidden section. Keep server publish rules
+    // authoritative, but reveal the corresponding field before API requests.
+    if (!(status === "published" && nextStatus === "draft")) {
+      const requiredFields = [
+        { value: title, section: "event-basics", label: "Názov podujatia" },
+        { value: excerpt, section: "event-basics", label: "Krátky popis" },
+        { value: startDate, section: "event-schedule", label: "Dátum začiatku" },
+        { value: city, section: "event-location", label: "Mesto" },
+        { value: organizer, section: "event-location", label: "Organizátor" },
+        { value: description, section: "event-details", label: "Podrobný popis" },
+        { value: slug, section: "event-media", label: "Adresa podujatia" },
+      ];
+      const missing = requiredFields.find((field) => !field.value.trim());
+      if (missing) {
+        setActiveEventSection(missing.section);
+        setMessage("");
+        setError(`Vyplň povinné pole: ${missing.label}.`);
+        return;
+      }
+      for (const [value, section, label] of [
+        [websiteUrl, "event-media", "Web organizátora"],
+        [registrationUrl, "event-media", "Registrácia"],
+      ]) {
+        if (!value.trim()) continue;
+        try {
+          const parsed = new URL(value);
+          if (parsed.protocol === "http:" || parsed.protocol === "https:") continue;
+        } catch { /* Show the same user-facing error for invalid URL protocols. */ }
+        setActiveEventSection(section);
+        setMessage("");
+        setError(`Skontroluj URL adresu: ${label}.`);
+        return;
+      }
+    }
     savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
@@ -242,6 +279,9 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         description="Zachovaný editor podujatia a jeho živý súhrn."
         status={<EditorStatus label={cancelled ? "Zrušené podujatie" : status === "published" ? "Publikované" : "Koncept"} tone={cancelled ? "warning" : status === "published" ? "success" : "neutral"} />}
         sections={EVENT_SECTIONS}
+        sectionMode="switch"
+        activeSectionId={activeEventSection}
+        onSectionChange={setActiveEventSection}
         preview={liveSummary}
         previewFocusable
         previewTitle="Živý súhrn podujatia"
@@ -251,7 +291,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         actions={
           <EditorActionBar
             message={dirty ? "Neuložené zmeny" : undefined}
-            feedback={<AdminFormFeedback message={message} error={error} pending={saving} />}
+            feedback={undefined}
             destructive={status === "published" ? <AdminActionButton type="button" variant="secondary" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z kalendára</AdminActionButton> : undefined}
             secondary={status === "draft" ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton> : undefined}
             primary={status === "published"
@@ -261,6 +301,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         }
       >
         <form id="event-editor-v3-form" noValidate className={`admin-event-editor ${styles.eventForm}`} onSubmit={(submitEvent) => { submitEvent.preventDefault(); if (!saving && !uploading) void save(status); }}>
+          <AdminFormFeedback message={message} error={error} pending={saving} />
           <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} source={event ? { entityType: "EVENT", canonicalEntityId: event.id } : undefined} onAccepted={applyAutomationUpdate} />
           <EditorSection id="event-basics" className="admin-form-card admin-form-card--intro">
             <div className="admin-field admin-field--title"><label htmlFor="event-title">Názov podujatia</label><input id="event-title" value={title} onChange={(input) => changeTitle(input.target.value)} placeholder="Napríklad: Klubová výstava retrieverov" required /></div>
@@ -323,6 +364,13 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
           <EditorSection id="event-seo" className={styles.seoSection}>
             <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/podujatia/${slug}`} fallbackTitle={eventSeoFallback(title||"Názov podujatia",eventType,city).title} fallbackDescription={eventSeoFallback(title||"Názov podujatia",eventType,city).description}/>
           </EditorSection>
+          <nav className={styles.sectionPager} aria-label="Prechod medzi sekciami podujatia">
+            <AdminActionButton variant="secondary" type="button" disabled={activeEventSectionIndex <= 0}
+              onClick={() => setActiveEventSection(EVENT_SECTIONS[activeEventSectionIndex - 1]?.id ?? EVENT_SECTIONS[0].id)}>Predchádzajúca</AdminActionButton>
+            <span role="status">Sekcia {activeEventSectionIndex + 1} z {EVENT_SECTIONS.length}</span>
+            <AdminActionButton variant="secondary" type="button" disabled={activeEventSectionIndex >= EVENT_SECTIONS.length - 1}
+              onClick={() => setActiveEventSection(EVENT_SECTIONS[activeEventSectionIndex + 1]?.id ?? EVENT_SECTIONS[EVENT_SECTIONS.length - 1].id)}>Ďalšia</AdminActionButton>
+          </nav>
         </form>
 
       {imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={title || "Podujatie"} title={title} excerpt={excerpt}
