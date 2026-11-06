@@ -92,6 +92,8 @@ function fixture(options = {}) {
     imageUrl: initial.image_url, imageKey: initial.image_key,
     importData: {}, seo: {}, address: initial.address,
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION", websiteUrl: "",
+    region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
+    postalCode: "94901", street: "Hlavná", houseNumber: "1", addressFormat: "STREET",
   };
   const newPayload = {
     name: "Nový profil", slug: "test-profil", category: options.invalidInput ? "invalid-category" : "treneri",
@@ -110,6 +112,8 @@ function fixture(options = {}) {
     imageUrl: options.image === false ? "" : "https://images.example.org/new.webp",
     confirmedServiceLocation: true, name: "Nový profil", websiteUrl: "",
     region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
+    address: "Hlavná 1, Nitra", postalCode: "94901", street: "Hlavná",
+    houseNumber: options.numberless ? "" : "1", addressFormat: "STREET",
   };
   const ctx = {
     exports: {},
@@ -234,6 +238,19 @@ test("invalid Notion physical address fails verification before R2", async () =>
   await assert.rejects(f.run, /INVALID_ADDRESS/);
   assert.equal(f.calls.includes("r2-put"), false);
   assert.deepEqual(f.read(), f.initial);
+  closes(f);
+});
+
+test("numberless Notion edit retains verified canonical address while allowing content update", async () => {
+  const f = fixture({ numberless: true, verifyExactAddress: true });
+  const result = await f.run();
+  assert.equal(result.name, "Pôvodný profil");
+  assert.equal(f.calls.includes("address-validation"), false);
+  assert.equal(f.calls.includes("geo-after-commit"), false);
+  assert.equal(f.calls.includes("canonical-committed"), true);
+  assert.equal(f.read().address, "Hlavná 1, Nitra");
+  assert.equal(f.read().house_number, "1");
+  assert.equal(f.read().service_address_confirmation, "CONFIRMED_SERVICE_LOCATION");
   closes(f);
 });
 
