@@ -10,6 +10,7 @@ import type { PublicMapRuntime } from "@/lib/public-map-runtime";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import {
   DetailHero,
+  DetailHeroActions,
   DetailSection,
   PublicDetailLayout,
 } from "./detail-primitives/detail-primitives";
@@ -195,7 +196,7 @@ export function EventDetail({
                 </p>
               )}
               {hasActions && (
-                <nav className={detailStyles.heroActions} aria-label="Odkazy podujatia">
+                <DetailHeroActions className={detailStyles.heroActions} label="Odkazy podujatia">
                   {showRegistration && event.registrationUrl && (
                     <PublicActionLink
                       className={detailStyles.primaryAction}
@@ -219,7 +220,7 @@ export function EventDetail({
                       Oficiálna stránka
                     </PublicActionLink>
                   )}
-                </nav>
+                </DetailHeroActions>
               )}
             </>
           }
