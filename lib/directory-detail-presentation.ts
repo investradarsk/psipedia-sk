@@ -31,7 +31,7 @@ export type DirectoryDetailPresentation = {
   priceNote: string;
   openingHours: string | null;
   imageUrl: string | null;
-  galleryUrls: string[];
+  galleryUrls?: string[];
   detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;
   featured: boolean;
