@@ -1,5 +1,5 @@
-import { AdminEditorSection } from "@/components/admin-interaction-system";
 "use client";
+import { AdminEditorSection } from "@/components/admin-interaction-system";
 
 import {useState} from "react";
 import {AdminLexicalAppendButton} from "@/components/admin-lexical-append-button";
