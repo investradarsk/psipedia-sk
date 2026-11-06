@@ -13,7 +13,11 @@ test("RSDC: canonical YES choices fill missing public labels without duplicate a
   };
   const db = {
     prepare(sql) {
-      return {
+      const statement = {
+        async all() {
+          assert.match(sql, /service_catalog_admin_options/);
+          return { results: [] };
+        },
         bind(...params) {
           return {
             async first() {
@@ -27,13 +31,10 @@ test("RSDC: canonical YES choices fill missing public labels without duplicate a
               }
               throw new Error("Unexpected SQL: " + sql);
             },
-            async all() {
-              assert.match(sql, /service_catalog_admin_options/);
-              return { results: [] };
-            },
           };
         },
       };
+      return statement;
     },
   };
   const selections = [
