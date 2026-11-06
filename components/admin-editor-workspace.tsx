@@ -313,7 +313,7 @@ export function EditorWorkspace({
           {body}
         </AdminModalDialog>
       ) : (
-        <section className={styles.pageWorkspace} aria-label={title} data-editor-page>
+        <section className={styles.pageWorkspace} aria-label={title} data-editor-page data-admin-form-system="v4">
           <EditorHeader status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
           {body}
           {resolvedActions && <div className={styles.pageActions}>{resolvedActions}</div>}
