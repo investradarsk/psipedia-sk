@@ -1,4 +1,5 @@
 "use client";
+import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
@@ -701,6 +702,7 @@ export function AdminDirectoryEditor({
 
           <AdminEditorSection id="directory-contacts" className="admin-form-card">
             <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Verejné kontakty sú oddelené od interného e-mailu Psipedie.</p></div></div></div>
+<AdminEditorToolFrame kind="contacts">
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="tel" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
               <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="email" value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
@@ -709,6 +711,7 @@ export function AdminDirectoryEditor({
               <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="url" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
               <div className="admin-field"><label htmlFor="directory-email">Interný e-mail <small>neverejný</small></label><input id="directory-email" type="email" value={internalEmail} onChange={(event) => setInternalEmail(event.target.value)} placeholder="kontakt@profil.sk" /></div>
             </div>
+            </AdminEditorToolFrame>
             <AdminHelpText term="Kvalita údajov">Ak profil web, telefón alebo e-mail naozaj nemá, nie je verejný alebo sa ho nepodarilo dohľadať, označ stav pri prázdnom poli. Taký údaj prestane byť falošným problémom v Kvalite údajov a po 12 mesiacoch sa automaticky znovu skontroluje.</AdminHelpText>
             <AdminHelpText term="Súkromie">Interný e-mail slúži administrácii a nezmiešava sa s verejným kontaktným contractom.</AdminHelpText>
           </AdminEditorSection>
