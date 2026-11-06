@@ -3,6 +3,7 @@ name: ADMIN-IA-2 admin navigation and workspace
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "app/admin/page.tsx"
       - "app/admin/clanky/**"
@@ -40,6 +41,8 @@ permissions:
 
 jobs:
   admin-ia-2:
+    # Fast required CI runs for drafts; comprehensive E2E starts when review-ready.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: ADMIN-IA-2 — contracts, build, lint and Playwright
     runs-on: ubuntu-latest
     timeout-minutes: 35

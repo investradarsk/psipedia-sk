@@ -3,6 +3,7 @@ name: ADMIN-EDITOR-WORKSPACE-V3 foundation
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "components/admin-editor-workspace.tsx"
       - "components/admin-editor-workspace.module.css"
@@ -36,6 +37,8 @@ permissions:
 
 jobs:
   foundation:
+    # Fast required CI runs for drafts; comprehensive E2E starts when review-ready.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:

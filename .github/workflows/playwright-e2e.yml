@@ -62,13 +62,30 @@ jobs:
           CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/ci-scope.mjs --github-output
       - name: Validate CI scope policy
-        run: node scripts/check-ci-scope.mjs
+        run: |
+          node scripts/check-ci-scope.mjs
+          node --test tests/ci-two-stage-guards.test.mjs
       - name: Install dependencies
         if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm ci
       - name: Lint
         if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm run lint
+      - name: Fast admin editor contracts
+        if: steps.required-scope.outputs.bounded_core == 'true' && contains(steps.required-scope.outputs.scopes, 'ADMIN')
+        run: |
+          node --experimental-strip-types --test \
+            tests/admin-editor-workspace-v3.test.mjs \
+            tests/admin-button-system.test.mjs \
+            tests/admin-v3-shared-visual.test.mjs \
+            tests/admin-v3-compactness.test.mjs \
+            tests/admin-event-editor-v3.test.mjs
+      - name: Fast article editor contracts
+        if: steps.required-scope.outputs.bounded_core == 'true' && contains(steps.required-scope.outputs.scopes, 'ARTICLES')
+        run: npm run test:article-admin-editor
+      - name: Fast breed editor contracts
+        if: steps.required-scope.outputs.bounded_core == 'true' && contains(steps.required-scope.outputs.scopes, 'BREEDS')
+        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breed-admin-v2.test.mjs
       - name: Full unit and integration regression
         if: steps.required-scope.outputs.full_core == 'true'
         run: npm test
