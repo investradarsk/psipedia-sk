@@ -144,6 +144,50 @@ for (const editor of editors) {
   });
 }
 
+for (const width of [1440, 390, 320]) {
+  test(`help: mounted single-section editor preserves values at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/pomoc/novy");
+    expect(response?.status()).toBe(200);
+    const nav = page.getByRole("navigation", { name: "Sekcie editora Pomoc psom" });
+    const title = page.locator("#help-title");
+    await expect(title).toBeEditable();
+    await title.fill("Pomoc psom – skúšobná výzva");
+    const written: string[] = [];
+    page.on("request", (request) => {
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method())
+          && request.url().includes("/api/admin/help")) written.push(request.url());
+    });
+    const activate = async (id: string, name: string) => {
+      const select = nav.getByRole("combobox");
+      if (await select.isVisible()) await select.selectOption(id);
+      else await nav.getByRole("button", { name, exact: true }).click();
+      await expect(page.locator("#" + id)).toBeVisible();
+    };
+    await activate("help-location", "Zaradenie a lokalita");
+    await expect(title).toBeHidden();
+    await page.locator("#help-organization").fill("Záchranné centrum");
+    await activate("help-story", "Prípad a pes");
+    await expect(page.locator("#help-dog-name")).toBeEditable();
+    await page.locator("#help-dog-name").fill("Ben");
+    await activate("help-action", "Výzva a zbierka");
+    await expect(page.locator("#help-action-url")).toBeEditable();
+    await activate("help-media", "Fotografia a stav");
+    await expect(page.locator("#help-slug")).toBeEditable();
+    await activate("help-seo", "SEO");
+    await expect(page.locator("#help-seo")).toBeVisible();
+    await activate("help-location", "Zaradenie a lokalita");
+    await expect(page.locator("#help-organization")).toHaveValue("Záchranné centrum");
+    await activate("help-story", "Prípad a pes");
+    await expect(page.locator("#help-dog-name")).toHaveValue("Ben");
+    await activate("help-basics", "Základné údaje");
+    await expect(title).toHaveValue("Pomoc psom – skúšobná výzva");
+    expect(written).toEqual([]);
+    await noOverflow(page);
+    await accessible(page);
+  });
+}
+
 test("breed settings drawer preserves input, traps keyboard focus and returns focus on Escape", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: testInfo.project.name === "mobile-chromium" ? 320 : 1440, height: 900 });
   await page.goto("/admin/plemena/novy");
