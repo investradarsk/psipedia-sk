@@ -62,20 +62,9 @@ export function planBreedWorkCopyEditorialDelta(input: {
     ...plan.accepted,
     ...plan.changed,
   ])].filter(field => FULL_FCI_AND_EDITORIAL.has(field));
-  if (restricted.length) {
-    // Aggregates, images and relations need special adapters and must not
-    // be treated as ordinary text even if the old receipt contained them.
-    return {
-      ready: false as const,
-      conflicts: restricted.map(field => ({
-        code: "BREED_WORKCOPY_COMPLEX_FIELD_REQUIRES_ADAPTER", field,
-      })),
-      accepted: plan.accepted.filter(field => !restricted.includes(field)),
-      skipped: restricted,
-      changed: plan.changed,
-      patch: plan.patch,
-    };
-  }
+  // Isolate special media/relations: never let one unsupported field block
+  // independently valid ordinary text and FCI edits. Those fields remain
+  // pending in their prior receipt until their dedicated adapter is ready.
   // The existing per-field engine decides Notion/Admin priority. We do not
   // synthesize missing SEO/OG values or absent technical fields.
   return {
@@ -83,8 +72,8 @@ export function planBreedWorkCopyEditorialDelta(input: {
     conflicts: plan.conflicts.map(field => ({
       code: "BREED_WORKCOPY_FIELD_CONFLICT", field,
     })),
-    accepted: plan.accepted,
-    skipped: [] as string[],
+    accepted: plan.accepted.filter(field => !restricted.includes(field)),
+    skipped: restricted,
     changed: plan.changed,
     patch: plan.patch,
     sourceSnapshot: actual,
