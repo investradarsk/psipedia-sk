@@ -63,6 +63,34 @@ test("Editor supports hierarchical article/profile selection, link, photo and no
   assert.match(editor, /Uložiť koncept/);
 });
 
+test("Selecting an article also stages its own photo for the Facebook graphic editor", () => {
+  const picker = read("components/admin-facebook-images.tsx");
+  const graphic = read("components/admin-facebook-graphic-editor.tsx");
+  const api = read("app/api/admin/facebook-images/article-picker/route.ts");
+
+  // The authenticated API normally copies the article hero to FB media.
+  assert.match(api, /copyArticlePhoto\(article, null\)/);
+  // For an older image with a missing/stale R2 key, the visible same-origin
+  // article photo gets copied through the same authenticated upload flow.
+  assert.match(picker, /if\(!selectedImage\?\.imageKey&&item\.imageUrl\)/);
+  assert.match(picker, /source\.origin===window\.location\.origin/);
+  assert.match(picker, /uploadAdminImage\(new File\(\[blob\]/);
+  assert.match(picker, /"facebook-images"\)/);
+  assert.match(picker, /imageUrl:selectedImage\?\.imageUrl\|\|""/);
+  assert.match(picker, /imageKey:selectedImage\?\.imageKey\|\|""/);
+  assert.match(picker, /initialPhotoUrl=\{form\.imageUrl\}/);
+  // The editor must actually load the selected local photo, not silently
+  // return to the empty green template because of an overly narrow URL guard.
+  assert.match(graphic, /new URL\(initialPhotoUrl, window\.location\.origin\)/);
+  assert.match(graphic, /fetch\(localUrl\.pathname \+ localUrl\.search/);
+  assert.match(graphic, /setPhoto\(new File\(\[blob\]/);
+  assert.match(graphic, /setError\("Fotografia musí byť dostupná/);
+  // Selecting content never grants publication consent.
+  assert.doesNotMatch(picker.slice(picker.indexOf("async function selectContent("),
+    picker.indexOf("const queryKey=", picker.indexOf("async function selectContent("))),
+    /save\("scheduled"\)|setApproval\(/);
+});
+
 test("Existing from-profile handoff reuses the media copy helper", () => {
   assert.match(read("app/api/admin/facebook-images/from-profile/route.ts"), /copyFacebookProfileImage/);
   assert.match(read("lib/facebook-profile-image.ts"), /facebook-images\//);
