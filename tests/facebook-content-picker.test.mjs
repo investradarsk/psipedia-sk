@@ -74,7 +74,8 @@ test("Selecting an article also stages its own photo for the Facebook graphic ed
   // article photo gets copied through the same authenticated upload flow.
   assert.match(picker, /if\(!selectedImage\?\.imageKey&&item\.imageUrl\)/);
   assert.match(picker, /source\.origin===window\.location\.origin/);
-  assert.match(picker, /uploadAdminImage\(new File\(\[blob\]/);
+  assert.match(picker, /mime==="image\/avif"/);
+  assert.match(picker, /uploadAdminImage\(file,"facebook-images"\)/);
   assert.match(picker, /"facebook-images"\)/);
   assert.match(picker, /imageUrl:selectedImage\?\.imageUrl\|\|""/);
   assert.match(picker, /imageKey:selectedImage\?\.imageKey\|\|""/);
