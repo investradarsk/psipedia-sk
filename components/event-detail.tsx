@@ -99,6 +99,7 @@ export function EventDetail({
           media={
             <EventImage
               imageUrl={event.imageUrl}
+              eventId={event.id}
               eventType={event.eventType}
               mode={event.imageDisplay}
               context="detail"

@@ -89,9 +89,33 @@ test("external event poster stays the preferred SSR image and is retried before 
   assert.match(component, /stage === "primary"[\s\S]*?stage: "original"/);
   assert.match(component, /stage: "fallback"/);
   assert.match(component, /real && stage === "primary" \? responsiveMediaSrcSet/);
-  assert.match(component, /referrerPolicy=\{remote && stage === "original" \? "no-referrer"/);
+  assert.match(component, /referrerPolicy=\{remote \? "no-referrer"/);
   const calendar = readFileSync("components/event-calendar.tsx", "utf8");
   assert.match(calendar, /<EventImage[\s\S]*?imageUrl=\{event\.imageUrl\}/);
+});
+
+test("external event detail can retry a blocked poster using its published event ID", () => {
+  const url = "https://www.nitradog.sk/wp-content/uploads/2026/09/banner-web-napis.jpg";
+  const html = renderToStaticMarkup(
+    React.createElement(EventImage, { imageUrl: url, eventId: 173, eventType: "Výstava", context: "detail", alt: "Plagát" }),
+  );
+  // The official poster remains the first choice; the proxy is only for a
+  // failure reported by the browser, not an unconditional network request.
+  assert.match(html, /banner-web-napis\.jpg/);
+  assert.match(html, /data-event-image-source="real"/);
+  assert.doesNotMatch(html, /\/api\/public\/events\/image\/173/);
+  const component = readFileSync("components/event-image.tsx", "utf8");
+  assert.match(component, /stage === "original" && proxy/);
+  assert.match(component, /stage: "proxy"/);
+  assert.match(component, /stage: "fallback"/);
+  assert.match(component, /referrerPolicy=\{remote \? "no-referrer"/);
+  const detail = readFileSync("components/event-detail.tsx", "utf8");
+  assert.match(detail, /eventId=\{event\.id\}/);
+  const route = readFileSync("app/api/public/events/image/[id]/route.ts", "utf8");
+  assert.match(route, /SELECT image_url FROM managed_events WHERE id = \? AND status = 'published'/);
+  assert.match(route, /safeRemoteImageUrl\(row\.image_url\)/);
+  assert.match(route, /downloadRemoteImage\(source\.toString\(\)\)/);
+  assert.doesNotMatch(route, /request\.url.*searchParams|new URLSearchParams\(.*request/);
 });
 
 test("unsafe or invalid photo URLs select the fallback during SSR", () => {
