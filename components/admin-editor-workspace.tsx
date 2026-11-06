@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useMemo,
   useId,
   useRef,
   useState,
@@ -250,6 +251,7 @@ export function EditorWorkspace({
   const currentSection = sections.some((section) => section.id === (activeSectionId ?? activeSection))
     ? (activeSectionId ?? activeSection)
     : sections[0]?.id ?? "";
+  const sectionVisibility = useMemo(() => ({ activeId: currentSection, mode: sectionMode }), [currentSection, sectionMode]);
   // A page editor follows the document viewport; modal editors retain their
   // isolated scroll pane and keyboard/focus behavior.
   useEffect(() => {
@@ -321,7 +323,7 @@ export function EditorWorkspace({
       />
       <div className={styles.columns} data-editor-columns={preview ? "with-preview" : "single"}>
         <EditorContent contentRef={contentRef}>
-          <AdminEditorSectionVisibility.Provider value={{ activeId: currentSection, mode: sectionMode }}>
+          <AdminEditorSectionVisibility.Provider value={sectionVisibility}>
             {children}
           </AdminEditorSectionVisibility.Provider>
         </EditorContent>
