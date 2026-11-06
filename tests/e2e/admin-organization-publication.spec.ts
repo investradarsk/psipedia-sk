@@ -140,3 +140,56 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
   await expectAxeClean(page);
 });
+
+
+for (const width of [1440, 390, 320]) {
+  test(`organization shared editor retains fields while switching four panels at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/organizacie/novy", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const form = page.locator("form[data-admin-organization-editor]");
+    const nav = form.getByRole("navigation", { name: "Sekcie editora organizácie" });
+    await expect(nav.locator("option")).toHaveCount(4);
+    await expect(form.locator("#organization-general")).toBeVisible();
+    await expect(page.getByLabel("Názov *", { exact: true })).toBeEnabled();
+    const writes: string[] = [];
+    page.on("request", request => {
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) &&
+          /\/api\/admin\/organizations(?:\/|$)/.test(new URL(request.url()).pathname)) writes.push(request.url());
+    });
+    await page.getByLabel("Názov *", { exact: true }).fill("Neuložená organizácia krok 15");
+    await page.getByLabel("Slug *", { exact: true }).fill("neulozena-organizacia-krok-15");
+    await showOrganizationSection(page, "organization-content", "Verejný obsah");
+    await page.getByLabel("Krátky popis").fill("Pomoc strateným a nájdeným psom.");
+    await showOrganizationSection(page, "organization-contacts", "Kontakty");
+    await page.getByLabel("Verejný e-mail").fill("kontakt@example.sk");
+    await page.getByLabel("Web").fill("https://example.sk/");
+    await showOrganizationSection(page, "organization-media", "Obrázok a zdroj");
+    await page.getByLabel("Zdroj / referencia").fill("https://example.sk/zdroj");
+    await showOrganizationSection(page, "organization-contacts", "Kontakty");
+    await expect(page.getByLabel("Verejný e-mail")).toHaveValue("kontakt@example.sk");
+    await showOrganizationSection(page, "organization-content", "Verejný obsah");
+    await expect(page.getByLabel("Krátky popis")).toContainText("Pomoc strateným a nájdeným psom.");
+    await showOrganizationSection(page, "organization-general", "Základné");
+    await expect(page.getByLabel("Názov *", { exact: true })).toHaveValue("Neuložená organizácia krok 15");
+    await expect(page.getByLabel("Slug *", { exact: true })).toHaveValue("neulozena-organizacia-krok-15");
+    expect(writes).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  });
+}
+
+test("organization submit reveals an invalid field in a hidden section without API writes", async ({ page }) => {
+  await page.goto("/admin/organizacie/novy", { waitUntil: "domcontentloaded" });
+  await showOrganizationSection(page, "organization-contacts", "Kontakty");
+  await page.getByLabel("Verejný e-mail").fill("not-valid-email");
+  const writes: string[] = [];
+  page.on("request", request => {
+    if (["POST", "PUT"].includes(request.method()) && request.url().includes("/api/admin/organizations")) writes.push(request.url());
+  });
+  await showOrganizationSection(page, "organization-media", "Obrázok a zdroj");
+  await page.getByRole("button", { name: "Vytvoriť koncept" }).click();
+  // Name and slug precede email in form order; open the first invalid section.
+  await expect(page.locator("#organization-general")).toBeVisible();
+  await expect(page.locator('[data-admin-form-feedback="error"]')).toContainText("Názov");
+  expect(writes).toEqual([]);
+});
