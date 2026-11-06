@@ -63,10 +63,12 @@ export async function PUT(request: Request, { params }: Props) {
     const rawBody = await request.json() as ManagedDirectoryProfileInput & {
       numberlessLocalityConfirmed?: unknown;
       breederEditedPaths?: unknown;
+      trainerServicesEdited?: unknown;
     };
     const {
       numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
       breederEditedPaths: rawBreederEditedPaths,
+      trainerServicesEdited: rawTrainerServicesEdited,
       ...submittedBody
     } = rawBody;
     // A stale full-form payload must never silently undo a newer Notion edit
@@ -78,9 +80,15 @@ export async function PUT(request: Request, { params }: Props) {
               typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
           )
         : null;
-    const body = editedPaths
+    const fieldPreserved = editedPaths
       ? preserveLiveBreederFields(before, submittedBody, editedPaths)
       : submittedBody;
+    // The canonical Services V3 relation can change while a trainer form is
+    // open. Unless the operator explicitly edited legacy services, preserve
+    // the latest D1 list instead of silently restoring stale textarea data.
+    const body = before.category === "treneri" && editedPaths && rawTrainerServicesEdited !== true
+      ? { ...fieldPreserved, services: before.services }
+      : fieldPreserved;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
     const changed = directoryPhysicalAddressChanged(before, body);
 
