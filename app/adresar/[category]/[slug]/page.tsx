@@ -21,7 +21,7 @@ import { getPublicPartnerCommercialFlags } from "@/lib/partner-commercial-agreem
 import { getPublicMapItemsForEntity } from "@/lib/map-query";
 import { getPublicMapRuntime } from "@/lib/public-map-runtime";
 import { listRelatedBreedsForDirectoryProfile } from "@/lib/content-relations";
-import { listPublicBreederClubLinks } from "@/lib/breeder-profile-relations";
+import { listPublicBreederBreedLinks, listPublicBreederClubLinks } from "@/lib/breeder-profile-relations";
 import { listIndexableDirectoryProfileLocationLinks } from "@/lib/internal-discovery";
 
 export const dynamic = "force-dynamic";
@@ -129,7 +129,9 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       return [];
     },
   );
-  const relatedBreedsPromise = listRelatedBreedsForDirectoryProfile(profile.id, { limit: 6 }).catch(
+  const relatedBreedsPromise = (profile.category === "chovatelske-stanice"
+    ? listPublicBreederBreedLinks((env as unknown as { DB: D1Database }).DB, profile.id)
+    : listRelatedBreedsForDirectoryProfile(profile.id, { limit: 6 })).catch(
     (error) => {
       console.error("Public directory breed relations read failed", {
         profileId: profile.id,
