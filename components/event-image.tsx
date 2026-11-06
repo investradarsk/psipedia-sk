@@ -63,7 +63,7 @@ export function EventImage({
         setAttempt({ source: ownImage, stage: "original" });
         return;
       }
-      console.warn("Event photograph and original failed to load; displaying category illustration.");
+      console.warn("Event photograph failed to load even after original retry; displaying category illustration.");
       setAttempt({ source: ownImage, stage: "fallback" });
     },
   };
