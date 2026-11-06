@@ -84,7 +84,12 @@ test('unified public details: responsive layout, honest media/data, actions and 
  if(name==='adoption-breed-duplicate') assert.doesNotMatch(await page.locator('main').innerText(),/Kríženec\s*·\s*kríženec/i,'breed mix must not duplicate name');
  if(name.includes('long')) assert.equal(await hero.locator('h1[data-long-title]').count(),1,'long titles use compact typography');
  if(name==='event-cancelled') assert.equal(await hero.locator('[data-detail-state="cancelled"]').count(),1,'cancelled state distinct from type');
- if(name==='directory' || name==='adoption') { const img=image.locator('img').last(); const size=await img.evaluate(i=>({w:i.naturalWidth,h:i.naturalHeight,cw:i.getBoundingClientRect().width,ch:i.getBoundingClientRect().height})); assert.ok(size.w>0);// Compact service heroes intentionally bound the image element to a square frame;\n // object-fit: contain preserves the decoded photograph's proportions without cropping.\n const fit = await img.evaluate(i=>getComputedStyle(i).objectFit);\n assert.ok(Math.abs(size.cw/size.ch-size.w/size.h)<.02 || fit==='contain',\n   'natural photograph retains its aspect ratio or renders uncropped with contain fit'); }
+ if(name==='directory' || name==='adoption') { const img=image.locator('img').last(); const size=await img.evaluate(i=>({w:i.naturalWidth,h:i.naturalHeight,cw:i.getBoundingClientRect().width,ch:i.getBoundingClientRect().height})); assert.ok(size.w>0);
+ // Compact service heroes intentionally bound the image element to a square frame;
+ // object-fit: contain preserves the decoded photograph's proportions without cropping.
+ const fit = await img.evaluate(i=>getComputedStyle(i).objectFit);
+ assert.ok(Math.abs(size.cw/size.ch-size.w/size.h)<.02 || fit==='contain',
+   'natural photograph retains its aspect ratio or renders uncropped with contain fit'); }
  if(name==='directory-minimal') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'missing directory photo uses the common visual');
  if(name==='adoption-minimal') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'missing adoption photo uses the common visual');
  if(name==='organization') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'organization without photo uses the common visual');
