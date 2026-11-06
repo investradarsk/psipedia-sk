@@ -159,7 +159,8 @@ for (const articleCase of cases) {
     }
     await expect(page.locator("[data-article-standfirst]")).toBeVisible();
     await expect(page.locator(".article-intro")).toBeVisible();
-    await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
+    await expect(page.locator('.article-prose aside.takeaway-box[aria-label="To najdôležitejšie"]')).toBeVisible();
+    await expect(page.getByText("To najdôležitejšie", { exact: true })).toHaveCount(0);
     await expect(page.locator(".article-aside")).toHaveCount(0);
     const mobileSidebar = page.locator("[data-article-discovery-sidebar]");
     await expect(mobileSidebar).toBeHidden();
@@ -369,7 +370,7 @@ for (const articleCase of cases) {
     await expect(page.locator(".article-aside")).toHaveCount(0);
     const desktopSidebar = page.locator("[data-article-discovery-sidebar]");
     await expect(desktopSidebar).toBeVisible();
-    await expect(desktopSidebar.getByRole("heading", { name: "Najčítanejšie" })).toBeVisible();
+    await expect(desktopSidebar.getByRole("heading", { name: "Najčítanejšie články" })).toBeVisible();
     const tab24h = desktopSidebar.getByRole("tab", { name: "24 hodín" });
     const tab7d = desktopSidebar.getByRole("tab", { name: "7 dní" });
     await expect(tab24h).toHaveAttribute("aria-selected", "true");
@@ -461,7 +462,13 @@ for (const articleCase of cases) {
     expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.52);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.58);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
-    if (articleCase.hasImage) expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(6);
+    // Natural photos may be narrower than the article column to preserve their full aspect ratio.
+    if (articleCase.hasImage) {
+      expect(metrics.imageWidth).toBeLessThanOrEqual(metrics.proseWidth + 2);
+      if (metrics.imageMode !== "natural") {
+        expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(6);
+      }
+    }
     expect(metrics.sidebarTop, "Desktop sidebar should start in the title/meta zone").toBeLessThanOrEqual(metrics.headingTop);
     expect(metrics.sidebarRightOfHero, "Desktop sidebar should occupy the right rail beside the article").toBe(true);
     expect(metrics.canvasColor).toBe("rgb(248, 244, 235)");
@@ -581,11 +588,14 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
     });
     expect(metrics.overflow, `overflow at ${viewport.width}px`).toBeLessThanOrEqual(1);
     expect(Math.abs(metrics.h1Left - metrics.proseLeft), `title axis at ${viewport.width}px`).toBeLessThanOrEqual(2);
-    expect(Math.abs(metrics.heroLeft - metrics.proseLeft), `hero axis at ${viewport.width}px`).toBeLessThanOrEqual(2);
-    if (viewport.width >= 768) {
-      expect(Math.abs(metrics.heroWidth - metrics.proseWidth), `hero width at ${viewport.width}px`).toBeLessThanOrEqual(2);
-    } else {
-      expect(metrics.heroWidth).toBeLessThanOrEqual(viewport.width - (viewport.width <= 620 ? 24 : 32) + 1);
+    // Intrinsic-size photos can be narrower and centered without an artificial crop.
+    // Keep their full bounds inside the reading column at every breakpoint.
+    expect(metrics.heroLeft, `hero left bound at ${viewport.width}px`).toBeGreaterThanOrEqual(metrics.proseLeft - 2);
+    expect(metrics.heroLeft + metrics.heroWidth, `hero right bound at ${viewport.width}px`)
+      .toBeLessThanOrEqual(metrics.proseLeft + metrics.proseWidth + 2);
+    if (metrics.heroWidth >= metrics.proseWidth - 2) {
+      expect(Math.abs(metrics.heroLeft - metrics.proseLeft), `full-width hero axis at ${viewport.width}px`)
+        .toBeLessThanOrEqual(2);
     }
     if (viewport.width >= 1200) {
       expect(metrics.sidebarDisplay, `desktop sidebar display at ${viewport.width}px`).not.toBe("none");
@@ -708,19 +718,19 @@ test("ARTICLE-PUBLIC legacy author fallback and malicious embed fail closed", as
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
 });
 
-test("ARTICLE-PUBLIC canonical news landing redirects and topic URLs stay available", async ({ page }) => {
+test("ARTICLE-PUBLIC canonical news landing and topic URLs stay available", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/novinky", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/clanky$/);
+  await expect(page).toHaveURL(/\/novinky$/);
   await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
-  await expect(page.locator(".article-browser a[data-article-list-item]").first()).toBeVisible();
+  await expect(page.getByRole("list", { name: "Všetky novinky" }).getByRole("link").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
   await page.goto("/novinky/veda-a-zdravie", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/novinky\/veda-a-zdravie$/);
   await expect(page.getByRole("list", { name: "Novinky: Veda a zdravie" }).getByText("E2E výskum psov 2026")).toBeVisible();
   await expect(page.getByText("E2E zaujímavosť zo sveta psov")).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" }).getByRole("link", { name: "Všetky" })).toHaveAttribute("href", "/clanky");
+  await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" }).getByRole("link", { name: "Všetky" })).toHaveAttribute("href", "/novinky");
   await expectNoSeriousAccessibilityViolations(page);
 });
 
