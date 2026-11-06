@@ -1,5 +1,5 @@
 import { DetailContactsCard } from "@/components/detail-primitives/detail-primitives";
-import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
+import { PublicHeading } from "@/components/public-heading";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -54,25 +54,38 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
   if (!shop) notFound();
   return (
     <main id="obsah" className={styles.page}>
-      <UniversalPageHero
-        breadcrumbs={<Breadcrumbs>
-          <Link href="/">Domov</Link><span>/</span>
-          <Link href="/recenzie?typ=eshopy">Recenzie a testy</Link><span>/</span>
-          <span>{shop.name}</span>
-        </Breadcrumbs>}
-        eyebrow="E-shop · hodnotenia Psipedia"
-        title={shop.name}
-        intro={profileExcerpt(shop.description)}
-        imageUrl={shop.logoUrl}
-        imageAlt={`Logo ${shop.name}`}
-      />
       <PageContainer>
-        <section className={styles.hero} aria-label="Akcie e-shopu">
-          {shop.focusTags.length ? (
-            <div className={styles.focusTags}>
-              {shop.focusTags.map((tag) => <span key={tag}>{tag}</span>)}
+        <Breadcrumbs>
+          <Link href="/">Domov</Link>
+          <span>/</span>
+          <Link href="/recenzie?typ=eshopy">Recenzie a testy</Link>
+          <span>/</span>
+          <span>{shop.name}</span>
+        </Breadcrumbs>
+        <section className={styles.hero}>
+          <div className={styles.heroIdentity}>
+            <div className={styles.logo}>
+              {shop.logoUrl ? (
+                <img src={shop.logoUrl} alt={`Logo ${shop.name}`} />
+              ) : (
+                <span aria-hidden="true">🛒</span>
+              )}
             </div>
-          ) : null}
+            <div>
+              <span className="eyebrow">E-shop · hodnotenia Psipedia</span>
+              <PublicHeading role="page" as="h1">
+                {shop.name}
+              </PublicHeading>
+              <p>{profileExcerpt(shop.description)}</p>
+              {shop.focusTags.length ? (
+                <div className={styles.focusTags}>
+                  {shop.focusTags.map((tag) => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
           <div className={styles.heroActions}>
             <PublicActionLink variant="primary" href={`/recenzie/eshopy/${shop.slug}/hodnotit`}>
               Ohodnotiť e-shop

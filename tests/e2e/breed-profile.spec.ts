@@ -122,44 +122,42 @@ test("breed profile: representative canonical details return 200, keep canonical
     await expectNoHorizontalOverflow(page, path);
 
     const identity = page.getByTestId("breed-hero-identity");
-    await expect(identity).toBeVisible();
-
-    // All detail pages share a real homepage-style HERO. Profiles without their
-    // own picture use its neutral fallback image instead of a phantom photo box.
-    await page.evaluate(() => document.fonts.ready);
-    const sharedHero = page.locator('[data-public-detail-hero="breed"] [data-unified-section-hero]');
-    await expect(sharedHero).toBeVisible();
-    await expect(sharedHero.locator("[data-unified-section-hero-visual]")).toBeVisible();
-    await expect(sharedHero.getByRole("heading", { level: 1, name: breed.name })).toBeVisible();
-
     const photo = page.getByTestId("breed-hero-photo");
-    if (await photo.count()) {
-      await expect(photo).toBeVisible();
-      // The original breed picture and context identity may not overlap.
-      const boxes = await page.evaluate(() => {
-        const rect = (id: string) => {
-          const node = document.querySelector(`[data-testid="${id}"]`);
-          if (!node) return null;
-          const box = node.getBoundingClientRect();
-          return { x: box.x, y: box.y, width: box.width, height: box.height };
-        };
-        return {
-          identity: rect("breed-hero-identity"),
-          photo: rect("breed-hero-photo"),
-          lead: rect("breed-hero-lead"),
-        };
-      });
-      expect(boxes.identity, `${path}: identity box unavailable`).not.toBeNull();
-      expect(boxes.photo, `${path}: photo box unavailable`).not.toBeNull();
-      expect(boxes.photo!.height, `${path}: photo height is zero`).toBeGreaterThan(0);
-      expect(boxesOverlap(boxes.identity!, boxes.photo!), `${path}: identity overlaps photo`).toBe(false);
-      if (boxes.lead) {
-        expect(boxesOverlap(boxes.lead, boxes.photo!), `${path}: lead overlaps photo`).toBe(false);
-      }
-    } else {
-      const fallback = sharedHero.locator("[data-unified-section-hero-media] img").first();
-      await expect(fallback).toBeVisible();
-      await expect(fallback).toHaveAttribute("src", /hero-labrador\.webp/);
+    await expect(identity).toBeVisible();
+    await expect(photo).toBeVisible();
+
+    // S-06: the canonical DetailHero is two-column on desktop and
+    // intentionally single-column on mobile. Verify both responsive modes.
+    await page.evaluate(() => document.fonts.ready);
+    const sharedHero = page.locator('[data-public-detail-hero="breed"] [data-has-media="true"]');
+    await expect(sharedHero).toBeVisible();
+    await expect.poll(() => sharedHero.evaluate((hero) => {
+      const style = getComputedStyle(hero);
+      const tracks = style.gridTemplateColumns.trim().split(" ").filter(Boolean);
+      return style.display === "grid" && tracks.length === (window.innerWidth <= 800 ? 1 : 2);
+    })).toBe(true);
+
+    // Read all boxes in one synchronous layout snapshot. Still fail on any
+    // genuine hero overlap, but do not mix geometry across layout shifts.
+    const heroBoxes = await page.evaluate(() => {
+      const rect = (id: string) => {
+        const node = document.querySelector(`[data-testid="${id}"]`);
+        if (!node) return null;
+        const box = node.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      };
+      return {
+        identity: rect("breed-hero-identity"),
+        photo: rect("breed-hero-photo"),
+        lead: rect("breed-hero-lead"),
+      };
+    });
+    expect(heroBoxes.identity, `${path}: identity box unavailable`).not.toBeNull();
+    expect(heroBoxes.photo, `${path}: photo box unavailable`).not.toBeNull();
+    expect(heroBoxes.photo!.height, `${path}: photo height is zero`).toBeGreaterThan(0);
+    expect(boxesOverlap(heroBoxes.identity!, heroBoxes.photo!), `${path}: hero identity overlaps photo`).toBe(false);
+    if (heroBoxes.lead) {
+      expect(boxesOverlap(heroBoxes.lead, heroBoxes.photo!), `${path}: hero lead overlaps photo`).toBe(false);
     }
   }
 });
@@ -293,7 +291,7 @@ test("breed profile: static anchor navigation, no-crop media, useful cards and a
   await expectAxeClean(page, "Breed profile");
 
   await page.goto("/plemena/nova-scotia-duck-tolling-retriever");
-  await expect(page.getByText("Fotografia sa pripravuje.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Fotografia sa pripravuje", { exact: true })).toBeVisible();
 });
 
 test("breed profile: FCI standard renders seven permanently visible expert sections and working anchor navigation", async ({ page }) => {

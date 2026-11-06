@@ -19,6 +19,7 @@ import {
 import type { AdoptionPublicOrganizationLink } from "@/lib/adoption-store";
 import styles from "./adoption-detail.module.css";
 import { ImageDisplay } from "@/components/image-display";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { PublicMediaFallback, PublicPhotoGallery } from "@/components/public-visual-system";
 
 type Fact = { label: string; value: string };
@@ -67,7 +68,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
     <DetailHero kind="adoption" breadcrumbs={    <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
       <Link href="/">Domov</Link><span>/</span><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span><Link href="/pomoc-psom/adopcia">Psy na adopciu</Link><span>/</span><span>{dog.name}</span>
     </nav>}
-      media={dog.mainImage ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={dog.detailImageDisplay} src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} loading="eager" fetchPriority="high" /> : <PublicMediaFallback size="detail" label={`Fotografia psa ${dog.name} zatiaľ nie je dostupná`} />}
+      media={dog.mainImage ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={dog.detailImageDisplay} src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} loading="eager" fetchPriority="high" srcSet={responsiveMediaSrcSet(dog.mainImage, [480, 640, 960, 1280, 1600])} sizes="(max-width: 760px) 100vw, 50vw" /> : <PublicMediaFallback size="detail" label={`Fotografia psa ${dog.name} zatiaľ nie je dostupná`} />}
       copy={<>    {dog.status === "RESERVED" && <div className={styles.reservedBanner} role="status"><strong>Rezervovaný</strong><span>Tento pes je momentálne rezervovaný a nemusí byť dostupný na adopciu.</span></div>}
         <span className={`${styles.statusBadge} ${dog.status === "RESERVED" ? styles.reserved : styles.active}`}>{adoptionDetailStatusLabels[dog.status]}</span>
         <h1>{dog.name}</h1>

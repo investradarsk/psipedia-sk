@@ -330,10 +330,10 @@ export async function processGooglePlaceBulkTarget(input: {
     }
     const googleState = await currentGooglePlaceState(targetType, effectiveTargetId);
     const googlePlaceId = String(googleState?.google_place_id ?? "").trim();
-    const googlePlaceFingerprint = String(googleState?.google_place_source_fingerprint ?? "").trim();
-    const sourceFingerprint = String(googleState?.source_fingerprint ?? "").trim();
-    if (googlePlaceId && googlePlaceFingerprint && sourceFingerprint && googlePlaceFingerprint === sourceFingerprint) {
-      return withMeta(meta, "SKIPPED", "Target už má aktuálny Google Place.");
+    // An existing Place ID may have been manually verified even when its source
+    // fingerprint is stale. Bulk processing must never replace that decision.
+    if (googlePlaceId) {
+      return withMeta(meta, "SKIPPED", "Google miesto už bolo priradené. Prípadnú zmenu over ručne.");
     }
 
     if (targetType === "MANAGED_EVENT" && source.online) {

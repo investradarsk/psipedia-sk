@@ -47,6 +47,7 @@ import {
 } from "@/lib/events";
 import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
+import { rememberEventsListing } from "./events-return-link";
 
 const DesktopEventFullCalendar = dynamic(
   () => import("./desktop-event-fullcalendar").then((mod) => mod.DesktopEventFullCalendar),
@@ -146,6 +147,7 @@ export function EventCalendar({
   const [pendingDay, setPendingDay] = useState(false);
   const [pendingCalendarOnly, setPendingCalendarOnly] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [dayLoadError, setDayLoadError] = useState("");
   const calendarRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -210,8 +212,11 @@ export function EventCalendar({
     const controller = new AbortController();
     requestRef.current = controller;
     if (addHistory) window.history.pushState(window.history.state, "", href);
+    // Client-only navigation must update the return URL after every month/day change.
+    rememberEventsListing(window.location.pathname + window.location.search + window.location.hash);
     setView(next);
     setLoadError("");
+    setDayLoadError("");
     const target = new URL(href, window.location.origin);
     const endpoint = new URL("/api/public/events/calendar", window.location.origin);
     target.searchParams.forEach((value, key) => endpoint.searchParams.set(key, value));
@@ -253,7 +258,7 @@ export function EventCalendar({
         }
       } catch {
         if (!controller.signal.aborted)
-          setLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
+          setDayLoadError("Podujatia sa nepodarilo načítať. Skúste to znova.");
       } finally {
         if (!controller.signal.aborted) setPendingDay(false);
       }
@@ -303,6 +308,11 @@ export function EventCalendar({
       }
     }
   }
+  // Browser popstate must use current view/data, not the initial render's closure.
+  const navigateRef = useRef(navigate);
+  useEffect(() => {
+    navigateRef.current = navigate;
+  });
   // Calendar controls use native anchors: the handler owns history + data
   // updates; a framework Link would also attempt route navigation.
   function clickNavigate(event: MouseEvent<HTMLAnchorElement>, href: string, next: View) {
@@ -323,7 +333,7 @@ export function EventCalendar({
       );
       const slug = url.pathname.split("/").filter(Boolean)[1];
       const type = slug ? (eventTypeFromPortalSlug(slug) ?? "Všetky") : "Všetky";
-      void navigate(
+      void navigateRef.current(
         url.pathname + url.search,
         {
           month: visible,
@@ -665,9 +675,9 @@ export function EventCalendar({
                     <p role="status" className={styles.dayEmpty}>
                       Načítavajú sa podujatia pre vybraný deň…
                     </p>
-                  ) : loadError ? (
+                  ) : dayLoadError || loadError ? (
                     <p role="alert" className={styles.dayEmpty}>
-                      {loadError}
+                      {dayLoadError || loadError}
                     </p>
                   ) : dailyEvents.length ? (
                     <ul className={styles.dayEvents}>

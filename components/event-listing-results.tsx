@@ -123,7 +123,9 @@ export function EventListingResults({
             <Link href="/podujatia">Vymazať filtre</Link>
           </div>
           <form method="get" action={`${pathname}#events-list`} data-event-filters>
-            {hidden(["region", "od", "do", "mesto", "mesiac"])}
+            {/* A changed month/date/location invalidates the previously selected calendar day.
+                Let the server derive the visible month from the submitted mesiac filter. */}
+            {hidden(["region", "od", "do", "mesto", "mesiac", "kalendar", "den"])}
             <PublicFilterField label="Dátum od">
               <PublicTextInput appearance="context" type="date" name="od" defaultValue={f.from} />
             </PublicFilterField>
@@ -138,9 +140,7 @@ export function EventListingResults({
                 defaultValue={f.region}
               >
                 <option value="">Všetky kraje</option>
-                {slovakRegions
-                  .filter((region) => region !== "Online")
-                  .map((region) => (
+                {slovakRegions.map((region) => (
                     <option key={region}>{region}</option>
                   ))}
               </PublicSelect>

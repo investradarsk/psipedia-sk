@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { getNavigationItems, saveNavigationItems } from "@/lib/navigation-store";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +10,9 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   try {
     const body = await request.json() as { items?: unknown };
     return Response.json({ items: await saveNavigationItems(body.items, user.email) });

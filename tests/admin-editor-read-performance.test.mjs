@@ -128,3 +128,12 @@ test("article editor's breed picker transfers only the scalar values its checkbo
     assert.ok(rows.every(row => Object.keys(row).length === 3));
   } finally { db.close(); }
 });
+
+
+test("directory editor navigates to newly created profile without document reload", () => {
+  const editor = read("components/admin-directory-editor.tsx");
+  assert.doesNotMatch(editor, /useRouter\(\)/);
+  assert.match(editor, /if \(!profile\) setCreatedProfileHref\(`\/admin\/adresar\/\$\{data\.profile\.id\}\?vytvorene=1`\)/);
+  assert.match(editor, /createdProfileLinkRef\.current\?\.click\(\)/);
+  assert.doesNotMatch(editor, /window\.location\.(?:assign|replace|reload)/);
+});

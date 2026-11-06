@@ -88,3 +88,16 @@ test("SEO recovery boundaries: no URL schema or indexing policy changes", () => 
   assert.match(detailRoute, /buildEventJsonLd/);
   assert.match(detailRoute, /resolvedCanonical/);
 });
+
+test("event sidebar applies new filters without stale calendar selection or duplicate heading", () => {
+  const listing = source("components/event-listing-results.tsx");
+  const css = source("components/events-public.module.css");
+  const main = source("app/[section]/page.tsx");
+  const categories = source("app/[section]/[slug]/page.tsx");
+
+  assert.match(listing, /hidden\(\["region", "od", "do", "mesto", "mesiac", "kalendar", "den"\]\)/);
+  assert.match(listing, /slovakRegions\.map\(\(region\) =>/);
+  assert.match(css, /\.filterSidebar > header\s*\{\s*display: none;/);
+  assert.match(main, /eventListingPageHref\("\/podujatia", rawSearchParams, events\.pages\)/);
+  assert.match(categories, /eventListingPageHref\(path, rawSearchParams, events\.pages\)/);
+});

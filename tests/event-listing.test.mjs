@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { parseEventListing, eventListingSql, eventTypeSelectionRedirect, eventListingParams, eventSearchSql, normalizeEventSearch } from '../lib/event-listing.ts';
+import { parseEventListing, eventListingSql, eventTypeSelectionRedirect, eventListingParams, eventListingPageHref, eventSearchSql, normalizeEventSearch } from '../lib/event-listing.ts';
 const database = new DatabaseSync(':memory:');
 database.exec(`CREATE TABLE managed_events(id INTEGER PRIMARY KEY,title TEXT,excerpt TEXT,event_type TEXT,venue TEXT,address TEXT,city TEXT,region TEXT,organizer TEXT,status TEXT,start_date TEXT,end_date TEXT,start_time TEXT,cancelled INTEGER,slug TEXT DEFAULT '',end_time TEXT DEFAULT '',image_url TEXT DEFAULT '',image_display TEXT DEFAULT '',thumbnail_display_json TEXT DEFAULT '')`);
 const insert = database.prepare(`INSERT INTO managed_events (id,title,excerpt,event_type,venue,address,city,region,organizer,status,start_date,end_date,start_time,cancelled) VALUES (?,?,'','Výstava','Výstavisko','','Žilina','Žilinský kraj','Klub','published','2026-10-10','2026-10-12','09:00',0)`);
@@ -14,6 +14,31 @@ test('inclusive overlapping ranges, month intersections, location and type combi
 test('invalid dates and pages are safe; conflicting range gives feedback and no results', () => { for (const value of ['bad', '2026-02-31', '2026-13-01', '2026-00-00'])
     assert.equal(parseEventListing({ od: value }).from, ''); assert.equal(parseEventListing({ strana: '-2', region: 'bad', mesiac: 'bad' }).page, 1); const conflict = read({ od: '2026-10-12', do: '2026-10-10', termin: 'vsetky' }); assert.ok(conflict.f.error); assert.equal(conflict.total, 0); assert.equal(read({ q: "' OR 1=1 --", termin: 'vsetky' }).total, 0); });
 test('canonical type submission preserves filters and resets pagination', () => { const url = new URL(eventTypeSelectionRedirect({ typ: 'Preteky', q: 'pes', od: '2026-10-11', mesto: 'Žilina', strana: '3' }), 'https://psipedia.sk'); assert.equal(url.pathname, '/podujatia/preteky'); assert.equal(url.searchParams.get('q'), 'pes'); assert.equal(url.searchParams.get('mesto'), 'Žilina'); assert.equal(url.searchParams.has('typ'), false); assert.equal(url.searchParams.has('strana'), false); assert.equal(eventListingParams(parseEventListing({ q: 'pes', strana: '2', od: '2026-10-11' })).has('strana'), false); });
+test('clamped pagination keeps date, location, sort, type route and calendar URL state', () => {
+  const raw = {
+    region: 'Nitriansky kraj',
+    mesto: 'Nitra',
+    od: '2026-11-01',
+    do: '2026-11-30',
+    mesiac: '2026-11',
+    kalendar: '2026-11',
+    den: '2026-11-07',
+    termin: 'vsetky',
+    zoradenie: 'najnovsie',
+    q: 'výstava',
+    strana: '999',
+  };
+  const url = new URL(eventListingPageHref('/podujatia/vystavy', raw, 3), 'https://psipedia.sk');
+  assert.equal(url.pathname, '/podujatia/vystavy');
+  for (const [key, expected] of Object.entries({ ...raw, strana: '3' }))
+    assert.equal(url.searchParams.get(key), expected, key);
+  assert.equal(url.searchParams.has('typ'), false);
+  assert.equal(
+    new URL(eventListingPageHref('/podujatia', { region: 'Nitriansky kraj', strana: '9' }, 1), 'https://psipedia.sk').searchParams.get('strana'),
+    null,
+  );
+});
+
 test('D1 search normalization preserves foreign accents, combining marks, case and empty-field boundaries', () => {
     for (const value of ['ŽILINSKÁ', 'Crème brûlée ÖÜ Ñ Ā Ǎ', 'Z\u030cilina', 'ΕΛΛΆΔΑ Москва', '한글']) {
         const row = database.prepare(`SELECT ${eventSearchSql('?')} AS normalized`).get(value, value, value);

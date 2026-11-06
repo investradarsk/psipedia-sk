@@ -333,7 +333,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         }} />}
       </EditorWorkspace>
       <EditorUnsavedChangesGuard
-        active={false}
+        active={dirty}
+        allowNativeExitRef={allowNavigationRef}
         open={confirmNavigation}
         onStay={stayInEditor}
         onDiscard={discardAndNavigate}

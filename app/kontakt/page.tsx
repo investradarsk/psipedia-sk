@@ -8,6 +8,7 @@ import {
 import { buildPageMetadata } from "@/lib/seo";
 import { UniversalPageHero } from "@/components/public-visual-system/universal-page-hero";
 import styles from "./contact.module.css";
+import { contactRelaySubject } from "@/lib/contact-relay-subject";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Kontakt",
@@ -19,7 +20,15 @@ const generalQuestionHref = `mailto:${EDITORIAL_EMAIL_ADDRESS}?subject=${encodeU
 const collaborationHref = `mailto:${EDITORIAL_EMAIL_ADDRESS}?subject=${encodeURIComponent("Spolupráca – Psipedia.sk")}`;
 const missingServiceHref = `mailto:${EDITORIAL_EMAIL_ADDRESS}?subject=${encodeURIComponent("Doplnenie služby – Psipedia.sk")}`;
 
-export default function ContactPage() {
+export default async function ContactPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const relaySubject = contactRelaySubject((await searchParams).tema);
+  const generalEmailHref = relaySubject
+    ? `mailto:${EDITORIAL_EMAIL_ADDRESS}?subject=${encodeURIComponent(relaySubject)}`
+    : generalQuestionHref;
   return (
     <main id="obsah" className={styles.page}>
       <UniversalPageHero
@@ -35,7 +44,7 @@ export default function ContactPage() {
           <span>Všeobecný kontakt</span>
           <strong>{EDITORIAL_EMAIL_ADDRESS}</strong>
           <p>Ak si nie si istý, kam správa patrí, napíš redakcii priamo e-mail.</p>
-          <a data-contact-action href={generalQuestionHref}>Napísať e-mail</a>
+          <a data-contact-action href={generalEmailHref}>Napísať e-mail</a>
         </aside>
       </div>
 
@@ -47,7 +56,7 @@ export default function ContactPage() {
         </div>
 
         <div className={styles.routeGrid} data-contact-routes>
-          <a className={styles.routeCard} data-contact-route="general" data-contact-action href={generalQuestionHref}>
+          <a className={styles.routeCard} data-contact-route="general" data-contact-action href={generalEmailHref}>
             <span className={styles.routeKicker}>Všeobecne</span>
             <h3>Všeobecná otázka</h3>
             <p>Otázka k Psipedii, obsahu alebo fungovaniu portálu, ktorá nepatrí do špecializovaného formulára.</p>

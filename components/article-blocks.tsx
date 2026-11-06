@@ -1,5 +1,6 @@
 import { PublicArticleCallout } from "@/components/public-visual-system/public-article-callout";
 import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 import { articleBlockLabels } from "@/lib/article-blocks";
@@ -168,7 +169,9 @@ export function ArticleBlocks({
                 className={`article-block-image article-block-image--${block.size ?? "normal"}`}
                 key={block.id}
               >
-                <img src={block.url} alt={block.alt} loading="lazy" decoding="async" />
+                <img src={block.url} alt={block.alt} loading="lazy" decoding="async"
+                  srcSet={responsiveMediaSrcSet(block.url, [320, 480, 640, 768, 960, 1280, 1600])}
+                  sizes="(max-width: 680px) 100vw, (max-width: 1100px) 90vw, 880px" />
                 {(block.caption || block.credit) && (
                   <figcaption>
                     {block.caption && (

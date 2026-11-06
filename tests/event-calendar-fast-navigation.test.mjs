@@ -6,6 +6,7 @@ const client = readFileSync(new URL("../components/event-calendar.tsx", import.m
 const calendarRoute = readFileSync(new URL("../app/api/public/events/calendar/route.ts", import.meta.url), "utf8");
 const dayRoute = readFileSync(new URL("../app/api/public/events/calendar/day/route.ts", import.meta.url), "utf8");
 const store = readFileSync(new URL("../lib/event-store.ts", import.meta.url), "utf8");
+const backLink = readFileSync(new URL("../components/events-return-link.tsx", import.meta.url), "utf8");
 
 test("selecting a day preserves the month and listing and fetches only its 12 bounded previews", () => {
   const dayBranch = client.slice(client.indexOf("if (sameMonth && !pending)"), client.indexOf("    const calendarOnly = sameListing && !next.day;"));
@@ -40,4 +41,17 @@ test("calendar responses are cancellable, short-lived and bounded in browser cac
   assert.match(client, /120_000/);
   assert.match(client, /setPendingDay\(true\)/);
   assert.match(client, /aria-busy=\{pending \|\| pendingDay\}/);
+});
+
+test("browser back uses latest state and detail return remembers the selected day", () => {
+  assert.match(client, /const navigateRef = useRef\(navigate\)/);
+  assert.match(client, /navigateRef\.current = navigate/);
+  assert.match(client, /void navigateRef\.current\(/);
+  assert.match(client, /rememberEventsListing\(window\.location\.pathname/);
+  assert.match(backLink, /export function rememberEventsListing\(href: string\)/);
+});
+
+test("failed day preview does not hide the main event listing", () => {
+  assert.match(client, /setDayLoadError\("Podujatia sa nepodarilo načítať/);
+  assert.match(client, /dayLoadError \|\| loadError/);
 });

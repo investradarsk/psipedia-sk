@@ -87,7 +87,7 @@ export function PublicProfileHero({
         </>
       }
       media={
-        <div data-public-profile-media>
+        <div>
           {imageUrl ? (
           <ImageDisplay
             roleHint="generic"

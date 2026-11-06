@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { DirectoryServicesList } from "@/components/directory-services-list";
@@ -75,6 +76,8 @@ function DirectoryProfileHero({
             config={presentation.detailImageDisplay}
             src={presentation.imageUrl}
             alt={"Fotografia služby " + presentation.name}
+            srcSet={responsiveMediaSrcSet(presentation.imageUrl, [480, 640, 960, 1280, 1600])}
+            sizes="(max-width: 760px) 100vw, 50vw"
             loading="eager"
             fetchPriority="high"
             decoding="async"

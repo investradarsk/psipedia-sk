@@ -377,7 +377,7 @@ test.describe("final events acceptance", () => {
         )
         .toBe(before.pathname + before.search + before.hash);
       await page.locator("[data-event-card]").first().getByRole("link").click();
-      await expect(page.locator("[data-event-detail-header] [data-unified-section-hero-media] img[data-event-image-source]")).toBeVisible();
+      await expect(page.locator("[data-event-image] img[data-event-image-source]")).toBeVisible();
       await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute(
         "data-search-ready",
         "true",
@@ -389,12 +389,12 @@ test.describe("final events acceptance", () => {
     }
     await page.goto(finalTarget);
     await page.locator("[data-event-card]").first().getByRole("link").click();
-    await expect(page.locator("[data-event-detail-header] [data-unified-section-hero-media] img[data-event-image-source]")).toHaveAttribute(
+    await expect(page.locator("[data-event-image] img[data-event-image-source]")).toHaveAttribute(
       "data-event-image-source",
       "real",
     );
     await page.goto("/podujatia/final-audit-4");
-    await expect(page.locator("[data-event-detail-header] [data-unified-section-hero-media] img[data-event-image-source]")).toHaveAttribute(
+    await expect(page.locator("[data-event-image] img[data-event-image-source]")).toHaveAttribute(
       "data-event-image-source",
       "fallback",
     );
