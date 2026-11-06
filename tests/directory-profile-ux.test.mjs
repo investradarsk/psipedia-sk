@@ -9,6 +9,8 @@ import { isDirectoryInternalMetadataKey } from "../lib/directory-profile-metadat
 const source = readFileSync("components/directory-profile-detail.tsx", "utf8");
 const css = readFileSync("components/directory-profile-detail.module.css", "utf8");
 const sharedHero = readFileSync("components/public-profile/public-profile-hero.tsx", "utf8");
+const detailPrimitives = readFileSync("components/detail-primitives/detail-primitives.tsx", "utf8");
+const detailStyles = readFileSync("components/detail-primitives/detail-primitives.module.css", "utf8");
 
 test("directory detail remains single layout for all 10 supported categories", () => {
   assert.equal(directoryCategories.length, 10);
@@ -16,17 +18,22 @@ test("directory detail remains single layout for all 10 supported categories", (
   assert.match(source, /getDirectoryCategory\(presentation\.category\)/);
   assert.doesNotMatch(source, /import.*PublicProfileHero/);
   assert.match(sharedHero, /export function PublicProfileHero/);
-  assert.match(source, /data-directory-profile-hero/);
+  assert.match(source, /<DetailHero\s+kind="directory"\s+mediaPresentation="compact"/);
+  assert.match(detailPrimitives, /data-directory-profile-hero=\{kind === "directory" \? "" : undefined\}/);
 });
 
-test("photo appears before textual content in source order, while natural display and no-photo paths remain safe", () => {
-  assert.ok(source.indexOf("data-public-profile-media") < source.indexOf("className={styles.heroCopy}"));
+test("shared detail shows the service photo before copy visually on mobile while preserving no-photo and natural modes", () => {
+  assert.match(detailPrimitives, /data-public-profile-media/);
+  assert.match(detailPrimitives, /className=\{styles\.heroMedia\}/);
+  assert.match(detailStyles, /\.heroFrame\[data-media-presentation="compact"\] \.heroMedia\s*\{[^}]*grid-row:\s*1;/);
+  assert.match(detailStyles, /\.heroFrame\[data-media-presentation="compact"\] \.heroCopy\s*\{[^}]*grid-row:\s*2;/);
   assert.match(source, /presentation\.imageUrl \? \(/);
   assert.match(source, /context="detail"/);
   assert.match(source, /config=\{presentation\.detailImageDisplay\}/);
   assert.match(source, /loading="eager"/);
   assert.match(source, /fetchPriority="high"/);
-  assert.match(css, /\.heroMedia:has\(\[data-image-display="natural"\]\)/);
+  assert.match(source, /<PublicMediaFallback/);
+  assert.match(detailStyles, /\.heroMedia:has\(\[data-image-display="natural"\]\)/);
 });
 
 test("semantic mobile order follows description, contact, services, specialist data, maps, reviews, relations and form", () => {
