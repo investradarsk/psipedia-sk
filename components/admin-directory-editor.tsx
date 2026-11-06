@@ -2,6 +2,7 @@
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
+import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -151,6 +152,8 @@ export function AdminDirectoryEditor({
   onNotionSaved?: (keepEditorOpen?: boolean) => void;
   automationSuggestions?: CanonicalUpdateSuggestion[];
 }) {
+  // Last saved D1 projection; supports one-field saves from a long-open editor.
+  const breederSaveBaselineRef = useRef(profile);
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
   const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
@@ -356,10 +359,31 @@ export function AdminDirectoryEditor({
       const filterPatch = filterCategory
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
+      const breederBaseline = breederSaveBaselineRef.current;
+      const breederChangedPaths = profile?.category === "chovatelske-stanice"
+        && category === "chovatelske-stanice" && breederBaseline
+        ? breederAdminChangedFields(
+            {
+              ...breederBaseline,
+              websiteUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").website,
+              publicPhone: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").phone,
+              publicEmail: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").email,
+              facebookUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").facebook,
+              instagramUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").instagram,
+            },
+            {
+              name, excerpt, description, qualifications: listFromText(qualifications),
+              region, district, city, address: publicAddress, postalCode, street, houseNumber,
+              addressFormat, priceNote, websiteUrl, publicPhone, publicEmail,
+              facebookUrl, instagramUrl, seo,
+            },
+          )
+        : undefined;
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
           services: listFromText(services), qualifications: listFromText(qualifications),
           address: publicAddress,
@@ -396,6 +420,22 @@ export function AdminDirectoryEditor({
       }
       setFilterSourceData(savedProfile.importData ?? {});
       setFilterChanges({});
+      if (savedProfile.category === "chovatelske-stanice") {
+        // Refresh form values from the committed D1 result: untouched fields
+        // may have been updated through a Notion webhook while this was open.
+        breederSaveBaselineRef.current = savedProfile;
+        const syncedContacts = readDirectoryPublicContacts(savedProfile.importData, savedProfile.websiteUrl ?? "");
+        setName(savedProfile.name); setExcerpt(savedProfile.excerpt); setDescription(savedProfile.description);
+        setQualifications(savedProfile.qualifications.join("\n"));
+        setCity(savedProfile.city); setDistrict(savedProfile.district); setRegion(savedProfile.region);
+        setPublicAddress(savedProfile.address); setPostalCode(savedProfile.postalCode);
+        setStreet(savedProfile.street); setHouseNumber(savedProfile.houseNumber);
+        setAddressFormat(savedProfile.addressFormat);
+        setPriceNote(savedProfile.priceNote);
+        setWebsiteUrl(syncedContacts.website); setPublicPhone(syncedContacts.phone);
+        setPublicEmail(syncedContacts.email); setFacebookUrl(syncedContacts.facebook);
+        setInstagramUrl(syncedContacts.instagram); setSeo(savedProfile.seo ?? {});
+      }
       setGalleryUrls(savedProfile.galleryUrls ?? []);
       setStatus(savedProfile.status);
       setQualityResolutions(qualityResolutionInput(savedProfile));
