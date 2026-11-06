@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminGooglePlacePicker } from "@/components/admin-google-place-picker";
+import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import type { GeoSourceLocation, GeoTargetType } from "@/lib/geo";
 import type { GeoPointRecord } from "@/lib/geo-store";
 
@@ -131,7 +132,7 @@ export function AdminProfileGoogleMaps({
       : snapshot.googlePlaceAction.reason;
 
   return (
-    <section
+    <AdminEditorToolFrame kind="map"><section
       className="admin-form-card"
       data-admin-profile-google-maps
       data-google-maps-target-type={targetType}
@@ -197,6 +198,6 @@ export function AdminProfileGoogleMaps({
       )}
 
       {error ? <p className="admin-message admin-message--error" role="alert">{error}</p> : null}
-    </section>
+    </section></AdminEditorToolFrame>
   );
 }
