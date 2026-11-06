@@ -1,8 +1,10 @@
 name: SITEWIDE-AI-ENTITY-SURFACE-1 validation
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
     paths:
       - "app/sitemap.ts"
       - "app/[section]/[slug]/page.tsx"
@@ -113,6 +115,9 @@ jobs:
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/sitemap-seo.test.mjs
 
   public-entity-playwright:
+    # Unit/SEO contracts still run on PR; the full browser matrix is opt-in.
+    # Use the 'full-e2e' label on a PR, or run manually on the default branch.
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-e2e') }}
     name: Public entity Playwright — desktop/mobile
     needs: entity-contracts
     runs-on: ubuntu-latest
