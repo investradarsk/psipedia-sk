@@ -56,8 +56,9 @@ export function breederAdminChangedFields(
   before: Record<string, unknown>,
   after: Record<string, unknown>,
 ): BreederEditorialField[] {
+  const stable = (value: unknown) => JSON.stringify(value == null ? "" : value);
   return BREEDER_EDITORIAL_PATHS.filter(path =>
-    JSON.stringify(breederReadPath(before, path)) !== JSON.stringify(breederReadPath(after, path)));
+    stable(breederReadPath(before, path)) !== stable(breederReadPath(after, path)));
 }
 
 /** Notion sends opaque property IDs, not the new values. */
@@ -91,6 +92,24 @@ export function breederApplyNotionChanges(
     if (value === undefined || value === null || (typeof value === "string" && !value.trim())
         || (Array.isArray(value) && value.length === 0)) continue;
     breederSetPath(result, path, value);
+  }
+  return result;
+}
+
+/**
+ * A long-open Admin form must not overwrite a newer Notion edit to an
+ * untouched field. The editor sends its own dirty field keys based on the
+ * original form values; the server fills every other field from live D1.
+ */
+export function breederPreserveUneditedFields(
+  submitted: Record<string, unknown>,
+  live: Record<string, unknown>,
+  edited: readonly BreederEditorialField[],
+): Record<string, unknown> {
+  const result = structuredClone(submitted);
+  const dirty = new Set(edited);
+  for (const path of BREEDER_EDITORIAL_PATHS) {
+    if (!dirty.has(path)) breederSetPath(result, path, breederReadPath(live, path));
   }
   return result;
 }
