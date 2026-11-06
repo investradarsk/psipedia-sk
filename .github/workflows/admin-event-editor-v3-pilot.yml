@@ -3,6 +3,7 @@ name: ADMIN-EVENT-EDITOR-V3 pilot E2E acceptance
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "components/admin-event-editor.tsx"
       - "components/admin-event-markdown-editor.tsx"
@@ -26,6 +27,8 @@ concurrency:
 
 jobs:
   events-pilot-only:
+    # Fast required CI runs for drafts; comprehensive E2E starts when review-ready.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:

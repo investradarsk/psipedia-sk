@@ -219,6 +219,7 @@ export type PublicDirectoryProfile = {
   priceNote: string;
   websiteUrl: string | null;
   imageUrl: string | null;
+  galleryUrls?: string[];
   thumbnailImageDisplay?: ImageDisplayConfig | null;
   detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;

@@ -8,7 +8,8 @@ test("only iOS mobile navigation reloads the two unstable streamed routes", () =
   const guard = read("components/admin-mobile-document-navigation.tsx");
   const layout = read("app/admin/layout.tsx");
   const navigation = read("components/admin-navigation.tsx");
-  const quickNavigation = read("components/admin-quick-navigation-dialog.tsx");
+  const quickNavigation = read("components/admin-quick-navigation.tsx");
+  const quickNavigationDialog = read("components/admin-quick-navigation-dialog.tsx");
   assert.match(guard, /window\.matchMedia\("\(max-width: 820px\)"\)\.matches/);
   assert.match(guard, /target\.origin !== window\.location\.origin/);
   assert.match(guard, /isIosWebKitDevice\(navigator\.userAgent, navigator\.platform, navigator\.maxTouchPoints\)/);
@@ -24,8 +25,10 @@ test("only iOS mobile navigation reloads the two unstable streamed routes", () =
   assert.match(navigation, /href === "\/admin" \|\| href === "\/admin\/clanky"/);
   assert.match(navigation, /router\.prefetch\(href, \{ onInvalidate:/, "unaffected routes prefetch on intent and refresh invalidated payloads");
   assert.match(navigation, /prefetch=\{false\}/, "admin destinations must not prefetch the whole D1-backed sidebar");
-  assert.match(quickNavigation, /window\.location\.assign\(target\.href\)/, "Ctrl+K destinations respect the iOS document fallback");
-  assert.match(quickNavigation, /router\.push\(href\)/, "other platforms keep fast client-side quick navigation");
+  assert.match(quickNavigation, /dynamic\(/, "Ctrl+K dialog must remain lazy loaded");
+  assert.match(quickNavigation, /admin-quick-navigation-dialog/, "Ctrl+K navigation stays in the dynamically loaded dialog");
+  assert.match(quickNavigationDialog, /window\.location\.assign\(target\.href\)/, "Ctrl+K destinations respect the iOS document fallback");
+  assert.match(quickNavigationDialog, /router\.push\(href\)/, "other platforms keep fast client-side quick navigation");
 });
 
 test("admin route failure renders retry and safe full-document escape links instead of white screen", () => {

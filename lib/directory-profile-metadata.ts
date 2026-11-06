@@ -1,3 +1,5 @@
+import { DIRECTORY_BREEDER_GALLERY_KEY } from "./directory-breeder-gallery.ts";
+
 export type DirectoryImportData = Record<string, string | number | null>;
 
 export const DIRECTORY_QUALITY_RECHECK_DAYS = 365;
@@ -72,7 +74,7 @@ export function directoryQualityCheckedAtSourceKey(field: DirectoryQualityField)
 }
 
 export function isDirectoryInternalMetadataKey(key: string) {
-  return key.startsWith(qualityKeyPrefix) || key.startsWith(profileReviewKeyPrefix);
+  return key.startsWith(qualityKeyPrefix) || key.startsWith(profileReviewKeyPrefix) || key === DIRECTORY_BREEDER_GALLERY_KEY;
 }
 
 function isResolutionStatus(value: unknown): value is DirectoryQualityResolutionStatus {
