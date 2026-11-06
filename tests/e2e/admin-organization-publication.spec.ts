@@ -4,6 +4,15 @@ import { expect, test } from "@playwright/test";
 const fixtureName = "ORG-8A Testovacia organizácia";
 const fixtureSlug = "org-8a-testovacia-organizacia";
 
+async function showOrganizationSection(page: import("@playwright/test").Page, id: string, label: string) {
+  const nav = page.getByRole("navigation", { name: "Sekcie editora organizácie" });
+  const select = nav.getByRole("combobox", { name: "Sekcia editora" });
+  if (await select.isVisible()) await select.selectOption(id);
+  else await nav.getByRole("button", { name: label, exact: true }).click();
+  await expect(page.locator("#" + id)).toBeVisible();
+}
+
+
 async function expectAxeClean(page: import("@playwright/test").Page) {
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -103,6 +112,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   await page.getByLabel("Názov *").fill(name);
   await page.getByLabel("Slug *").fill(slug);
   await page.getByLabel("Typ *").selectOption("CIVIC_ASSOCIATION");
+  await showOrganizationSection(page, "organization-content", "Verejný obsah");
   await page.getByLabel("Krátky popis").fill("Testovací canonical profil.");
   await page.getByRole("button", { name: "Vytvoriť koncept" }).click();
 
@@ -110,9 +120,12 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   await expect(page.getByLabel("Publication stav")).toHaveValue("DRAFT");
 
+  await showOrganizationSection(page, "organization-content", "Verejný obsah");
   await page.getByLabel("Verejný popis").fill("Verejný opis organizácie pre admin finalization E2E.");
+  await showOrganizationSection(page, "organization-contacts", "Kontakty");
   await page.getByLabel("Verejný e-mail").fill("org-final@example.sk");
   await page.getByLabel("Web").fill("https://example.sk/org-final");
+  await showOrganizationSection(page, "organization-media", "Obrázok a zdroj");
   await page.getByLabel("Zdroj / referencia").fill("https://example.sk/source");
   await page.getByRole("button", { name: "Uložiť organizáciu" }).click();
   await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText("Canonical údaje organizácie boli uložené");
