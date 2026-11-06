@@ -45,6 +45,10 @@ export type DogEvent = {
   organizer: string;
   description: string;
   practicalInfo: string;
+  /** Optional public organizer contact and admission information. */
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  admissionFee?: string;
   websiteUrl: string | null;
   registrationUrl: string | null;
   imageUrl: string | null;
