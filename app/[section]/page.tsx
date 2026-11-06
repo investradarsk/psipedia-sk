@@ -3,10 +3,11 @@ import { parseEventListing, eventTypeSelectionRedirect, eventListingPageHref } f
 import { getPublishedEventListing, getPublicEventCalendar } from '@/lib/event-store';
 import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { StructuredData } from "@/components/structured-data";
 import { EventsPage as EventsListingPage } from "@/components/events-page";
 import { PortalHub } from "@/components/portal-hub";
+import { NewsHub } from "@/components/news-hub";
 import { ReviewsHub, normalizeReviewsHubView } from "@/components/reviews-hub";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { listPublishedEshops } from "@/lib/eshop-ratings";
@@ -52,7 +53,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     return buildListingPageMetadata({
       title: "Novinky zo sveta psov",
       description: NOVINKY_DESCRIPTION,
-      path: "/clanky",
+      path: "/novinky",
       searchParams: rawSearchParams,
     });
   }
@@ -78,8 +79,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function PortalSectionPage({ params, searchParams }: Props) {
   const { section: slug } = await params;
-  if (slug === "novinky") permanentRedirect("/clanky");
-  const rawSearchParams = await searchParams;
+   const rawSearchParams = await searchParams;
   const typeRedirect = slug === 'podujatia' ? eventTypeSelectionRedirect(rawSearchParams) : null;
   if (typeRedirect) redirect(typeRedirect);
   const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
@@ -107,6 +107,7 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     ],
     items: eventList.map((event) => ({ name: event.title, path: eventHref(event) })),
   });
+  if (slug === "novinky") return <NewsHub articles={articles} section={section} landingPath="/novinky" />;
   if (slug === "recenzie") {
     const database = publicReviewDatabase();
     const [profileReviews, eshops] = await Promise.all([
