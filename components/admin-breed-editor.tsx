@@ -71,6 +71,8 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
   const [settingsOpen,setSettingsOpen]=useState(false);
+  const [activeBreedSection,setActiveBreedSection]=useState("breed-basic");
+  const [activeRelationKind,setActiveRelationKind]=useState<"articles"|"breeds"|"stations"|"clubs">("articles");
   const [sportDraft,setSportDraft]=useState<SportDraft|null>(null);
   const [sportError,setSportError]=useState("");
 
@@ -133,6 +135,24 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
 
   async function save(status:"draft"|"published"){
     if (saving || savePendingRef.current || uploadPending.current) return;
+    // Native required controls cannot focus inside a temporarily hidden
+    // section. Apply the existing essential required-field rules explicitly
+    // and reveal the right section rather than silently submitting an error.
+    if (!form.name.trim()) {
+      setActiveBreedSection("breed-basic");
+      setError("Vyplň názov plemena.");
+      return;
+    }
+    if (!form.intro.trim()) {
+      setActiveBreedSection("breed-overview");
+      setError("Vyplň krátky úvod plemena.");
+      return;
+    }
+    if (!form.slug.trim()) {
+      setSettingsOpen(true);
+      setError("Vyplň URL adresu plemena v pokročilých nastaveniach.");
+      return;
+    }
     savePendingRef.current=true;
     setSaving(true);setError("");setMessage("");
     try{
@@ -179,6 +199,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       description="Pracuj po sekciách. Rozšírené FCI a SEO nájdeš v nastaveniach."
       status={<><EditorStatus label={form.status === "published" ? "Publikované" : "Koncept"} tone={form.status === "published" ? "success" : "neutral"} /><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /></>}
       sections={editorNavigation}
+      sectionMode="switch"
+      activeSectionId={activeBreedSection}
+      onSectionChange={setActiveBreedSection}
       dirty={dirty}
       onClose={()=>{ setDirty(false); router.push("/admin/plemena"); }}
       closeLabel="Späť na plemená"
@@ -191,11 +214,11 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         </>}
       />}
     >
-    <form id="breed-canonical-editor-form" className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
+    <form id="breed-canonical-editor-form" noValidate className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
     <div className={styles.editorTopbar}>
       <div>
         <strong>{breed ? "Plemeno #" + breed.id : "Nový profil plemena"}</strong>
-        <p>Vyber sekciu v navigácii; pokročilé údaje FCI a SEO sú v nastaveniach.</p>
+        <p>Úpravy všetkých sekcií sa uložia spoločne.</p>
       </div>
       <div className={styles.editorStats} aria-label="Prehľad vyplnenia">
         <span>{form.sports.length} športov</span>
@@ -349,7 +372,17 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       </div>
     </AdminEditorSection>
 
-    {breed?<AdminBreedNotionExtras breedId={breed.id}/>:null}
+    <div className={styles.sectionPager} aria-label="Prechod medzi sekciami plemena">
+      <AdminActionButton variant="neutral" disabled={editorNavigation[0].id===activeBreedSection}
+        onClick={()=>setActiveBreedSection(editorNavigation[Math.max(0,editorNavigation.findIndex(item=>item.id===activeBreedSection)-1)].id)}>
+        ← Predchádzajúca
+      </AdminActionButton>
+      <span>{editorNavigation.findIndex(item=>item.id===activeBreedSection)+1} / {editorNavigation.length}</span>
+      <AdminActionButton variant="secondary" disabled={editorNavigation[editorNavigation.length-1].id===activeBreedSection}
+        onClick={()=>setActiveBreedSection(editorNavigation[Math.min(editorNavigation.length-1,editorNavigation.findIndex(item=>item.id===activeBreedSection)+1)].id)}>
+        Ďalšia →
+      </AdminActionButton>
+    </div>
 
     <AdminFormFeedback message={message} error={error} pending={saving} errorClassName="admin-form-error" successClassName="admin-flash" />
     <AdminDrawer
@@ -365,6 +398,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <section className={styles.drawerSection}><h3>FCI odborný štandard</h3><AdminHelpText>Sem patria referenčné FCI údaje. Semantika polí sa v BREEDS-ADMIN nemení.</AdminHelpText>{fciSections.map((section)=><details className={styles.fciGroup} key={section.title}><summary>{section.title}</summary><div>{section.fields.map(([key,label])=><label className="admin-field" key={key}><span>{label}</span><textarea rows={5} value={form.fciStandard[key]??""} onChange={(e)=>updateFci(key,e.target.value)}/></label>)}</div></details>)}</section>
         <section className={styles.drawerSection}><h3>Zdroje</h3>{form.sources.map((source,index)=><div className={styles.sourceRow} key={index}><label className="admin-field"><span>Názov zdroja</span><input value={source.label} onChange={(e)=>updateSource(index,{label:e.target.value})}/></label><label className="admin-field"><span>URL zdroja</span><input type="url" value={source.url} onChange={(e)=>updateSource(index,{url:e.target.value})}/></label><AdminActionButton variant="destructive" onClick={()=>change("sources",form.sources.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div>)}<AdminActionButton variant="secondary" onClick={()=>change("sources",[...form.sources,{...emptySource}])}>+ Pridať zdroj</AdminActionButton></section>
         <section className={styles.drawerSection}><h3>SEO a zdieľanie</h3><AdminSeoFields value={form.seo} onChange={(seo)=>change("seo",seo)} canonicalPath={`/plemena/${form.slug}`} fallbackTitle={breedSeoFallback(form.name||"Názov plemena").title} fallbackDescription={breedSeoFallback(form.name||"Názov plemena").description}/></section>
+        {breed ? <AdminDeferredDetails className={styles.fciGroup} summary="Doplnkové technické údaje Notion">
+          <AdminBreedNotionExtras breedId={breed.id}/>
+        </AdminDeferredDetails> : null}
       </div>
     </AdminDrawer>
 
