@@ -26,3 +26,11 @@
 6. Až po D1/readback testoch, kontrolách obrázkov, URL, vzťahov, publikovania a rollback pláne sa môže starý data source odpojiť. Záloha nesmie byť vymazaná.
 
 **Tento PR nesmie meniť produkčný data source ID, nevytvára D1 migráciu a nemení automatizácie.**
+
+## Kontrola skutočných D1 identít (rozšírenie PR)
+- Funkcia `lib/notion-breed-workcopy-identity-plan.mjs` porovná 344 pôvodných + 344 nových stránok s `managed_breeds` a súčasnými `breed_notion_sync` väzbami.
+- Explicitne blokuje duplicitné ID, nesprávny zdrojový odkaz, zmenené FCI číslo, nesúlad `Slug` a prípad, keď má profil v D1 inú Notion stránku.
+- Nový zabezpečený endpoint `GET /api/admin/notion-breeds-workcopy-preflight` len číta Notion + D1 a vracia počty a kódy blokátorov; nezaťažuje produkčný synchronizátor zápismi.
+- Adresa novej pracovnej databázy je v samostatnej konfiguračnej premennej `NOTION_BREEDS_WORK_DATA_SOURCE_ID`. Pôvodná `NOTION_BREEDS_DATA_SOURCE_ID` zostala bez zmeny.
+- Test `tests/notion-breed-workcopy-identity-plan.test.mjs`: **7/7 izolovaných testov**; kontrola úplného inventára, identity, FCI, historických väzieb a odmietnutia konfliktov.
+- Kompletný živý D1 preflight je možné spustiť až po sprístupnení novej verzie v bezpečnom runtime. Testy so syntetickými záznamami **nie sú** dôkazom zhody produkčnej D1.
