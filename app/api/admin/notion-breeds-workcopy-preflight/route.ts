@@ -4,6 +4,7 @@ import { notionRequest, type NotionPage, type NotionSyncBindings } from "@/lib/n
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
 import { planBreedWorkcopyIdentity } from "@/lib/notion-breed-workcopy-identity-plan.mjs";
 import { planBreedWorkcopyShadowRows } from "@/lib/notion-breed-workcopy-shadow-plan.mjs";
+import { materializeBreedWorkCopyForRead } from "@/lib/notion-breed-workcopy-compatible-page.mjs";
 
 import { inspectBreedWorkCopy } from "@/lib/notion-breed-workcopy-parity.mjs";
 import { expandBreed60WorkPage } from "@/lib/notion-breed-workcopy-adapter.mjs";
@@ -104,6 +105,34 @@ export async function GET() {
       }
     }
     const workCopyContentReady = parity.dataParity && malformedMergedFields.length === 0;
+    const d1ById = new Map(canonical.results.map(breed => [breed.id, breed]));
+    const workByPage = new Map(workPages.map(page => [page.id.replaceAll("-", ""), page]));
+    const readAdapterErrors: Array<{ breedId: number; code: string }> = [];
+    if (result.identityReady && workCopyContentReady) {
+      for (const mapping of result.rows) {
+        const d1Breed = d1ById.get(mapping.breedId);
+        const workPage = workByPage.get(mapping.newPageId.replaceAll("-", ""));
+        if (!d1Breed || !workPage) {
+          readAdapterErrors.push({ breedId: mapping.breedId, code: "BREED_WORKCOPY_ADAPTER_SOURCE_MISSING" });
+          continue;
+        }
+        try {
+          const projected = materializeBreedWorkCopyForRead(workPage, {
+            id: d1Breed.id, slug: d1Breed.slug, fciNumber: d1Breed.fci_number,
+          });
+          if (!projected.valid) {
+            readAdapterErrors.push({ breedId: mapping.breedId, code: "BREED_WORKCOPY_ADAPTER_MERGE_INVALID" });
+          }
+        } catch (error) {
+          readAdapterErrors.push({
+            breedId: mapping.breedId,
+            code: error instanceof Error ? error.message : "BREED_WORKCOPY_ADAPTER_FAILED",
+          });
+        }
+      }
+    }
+    const readAdapterReady = result.identityReady && workCopyContentReady &&
+      readAdapterErrors.length === 0;
     let shadowReceiptReady = false;
     let shadowReceiptIssue: string | null = null;
     if (result.identityReady && workCopyContentReady) {
@@ -125,6 +154,9 @@ export async function GET() {
       workCopyContentReady,
       shadowReceiptReady,
       shadowReceiptIssue,
+      readAdapterReady,
+      readAdapterErrorCount: readAdapterErrors.length,
+      readAdapterErrors: readAdapterErrors.slice(0, 50),
       summary: result.summary,
       contentComparison: {
         ...parity.stats,
