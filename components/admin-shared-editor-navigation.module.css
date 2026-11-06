@@ -73,3 +73,36 @@
   .sidebar .links { display: none; }
   .sidebar .mobile { display: grid; gap: 4px; }
 }
+
+/* EDITOR-17: keep every switch navigation touch-safe at 320px.
+   A long section name must wrap rather than enlarge the admin canvas. */
+.sidebar .links :is(button, a) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.mobile,
+.mobile select,
+.mobile span {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 380px) {
+  .sidebar,
+  .horizontal,
+  .mobile {
+    width: 100%;
+    min-width: 0;
+  }
+  .mobile select {
+    padding-inline: 9px;
+    font-size: 16px; /* Prevent iOS focus zoom in narrow editor forms. */
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .horizontal {
+    scroll-behavior: auto;
+  }
+}
