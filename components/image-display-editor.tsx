@@ -115,7 +115,7 @@ export function ImageDisplayEditor({
 
   return (
     <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
-      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="image-display-editor-title" className={styles.dialog}>
+      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" data-admin-editor-tool="image" aria-labelledby="image-display-editor-title" className={styles.dialog}>
         <div className={styles.header}>
           <div><h2 id="image-display-editor-title">Upraviť zobrazenie obrázka</h2><p>Originál fotografie zostane nezmenený.</p></div>
           <button type="button" className={styles.close} onClick={onCancel} aria-label="Zavrieť editor obrázka">×</button>
