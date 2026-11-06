@@ -71,6 +71,29 @@ test("own photograph takes precedence, retains imageDisplay, removal and type ch
   assert.match(canonical, /srcSet=/);
   assert.match(canonical, /event-photo.webp\?w=320/);
 });
+test("external event poster stays the preferred SSR image and is retried before illustration", () => {
+  const poster = "https://www.nitradog.sk/wp-content/uploads/2026/09/banner-web-napis.jpg";
+  const html = renderToStaticMarkup(
+    React.createElement(EventImage, {
+      imageUrl: poster,
+      eventType: "Výstava",
+      context: "detail",
+      alt: "Oficiálny plagát",
+    }),
+  );
+  assert.ok(html.includes(`src="${poster}"`));
+  assert.match(html, /data-event-image-source="real"/);
+  assert.doesNotMatch(html, /images\\/events\\/defaults/);
+
+  const component = readFileSync("components/event-image.tsx", "utf8");
+  assert.match(component, /stage === "primary"[\\s\\S]*?stage: "original"/);
+  assert.match(component, /stage: "fallback"/);
+  assert.match(component, /real && stage === "primary" \\? responsiveMediaSrcSet/);
+  assert.match(component, /referrerPolicy=\\{remote && stage === "original" \\? "no-referrer"/);
+  const calendar = readFileSync("components/event-calendar.tsx", "utf8");
+  assert.match(calendar, /<EventImage[\\s\\S]*?imageUrl=\\{event\\.imageUrl\\}/);
+});
+
 test("unsafe or invalid photo URLs select the fallback during SSR", () => {
   for (const value of [
     null,
