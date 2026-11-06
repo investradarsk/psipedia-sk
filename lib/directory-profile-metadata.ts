@@ -1,4 +1,5 @@
 import { DIRECTORY_BREEDER_GALLERY_KEY } from "./directory-breeder-gallery.ts";
+import { BREEDER_CLUB_IDS_METADATA_KEY } from "./breeder-profile-relations.ts";
 
 export type DirectoryImportData = Record<string, string | number | null>;
 
@@ -74,7 +75,7 @@ export function directoryQualityCheckedAtSourceKey(field: DirectoryQualityField)
 }
 
 export function isDirectoryInternalMetadataKey(key: string) {
-  return key.startsWith(qualityKeyPrefix) || key.startsWith(profileReviewKeyPrefix) || key === DIRECTORY_BREEDER_GALLERY_KEY;
+  return key.startsWith(qualityKeyPrefix) || key.startsWith(profileReviewKeyPrefix) || (key === DIRECTORY_BREEDER_GALLERY_KEY || key === BREEDER_CLUB_IDS_METADATA_KEY);
 }
 
 function isResolutionStatus(value: unknown): value is DirectoryQualityResolutionStatus {
