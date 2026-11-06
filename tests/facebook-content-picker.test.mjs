@@ -58,7 +58,7 @@ test("Editor supports hierarchical article/profile selection, link, photo and no
   assert.match(editor, /Celý článok/);
   assert.match(editor, /Viac informácií/);
   assert.match(editor, /initialPhotoUrl=\{form\.imageUrl\}/);
-  assert.match(graphic, /fetch\(initialPhotoUrl/);
+  assert.match(graphic, /fetch\(localUrl\.pathname \+ localUrl\.search/);
   assert.match(graphic, /setPhoto\(new File/);
   assert.match(editor, /Uložiť koncept/);
 });
