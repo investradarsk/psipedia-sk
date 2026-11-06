@@ -158,7 +158,7 @@ export function AdminShadcnEditorPreview() {
         </label>
         <p className={styles.demoNote}>Izolovaná ukážka nového UI. Formulár nevolá API, nemení D1, Notion ani verejný web. Po prepnutí typu záznamu ostanú lokálne rozpracované hodnoty zachované.</p>
       </div>
-      <form onSubmit={(event) => { event.preventDefault(); save(); }}>
+      <form noValidate onSubmit={(event) => { event.preventDefault(); save(); }}>
         <AdminUnifiedEditorWorkspace key={kind} sections={sections}
           status={<span className={styles.badge}>{kindLabels[kind]} · {published[kind] ? "Lokálne publikované" : "Koncept"}{isDirty ? " · Neuložené zmeny" : ""}</span>}
           preview={<><h3>{draft.title || "Bez názvu"}</h3><p>{draft.summary}</p><p>{draft.city}</p><p>{draft.contact}</p></>}
