@@ -5,6 +5,7 @@ import { fetchBreedNotionInventory as inventory } from "@/lib/notion-breed-workc
 import { planBreedWorkcopyIdentity } from "@/lib/notion-breed-workcopy-identity-plan.mjs";
 import { planBreedWorkcopyShadowRows } from "@/lib/notion-breed-workcopy-shadow-plan.mjs";
 import { materializeBreedWorkCopyForRead } from "@/lib/notion-breed-workcopy-compatible-page.mjs";
+import { isCompatibleBreedWorkcopyReceipt } from "@/lib/notion-breed-workcopy-receipt";
 
 import { inspectBreedWorkCopy } from "@/lib/notion-breed-workcopy-parity.mjs";
 import { expandBreed60WorkPage } from "@/lib/notion-breed-workcopy-adapter.mjs";
@@ -96,6 +97,7 @@ export async function GET() {
     const readAdapterReady = result.identityReady && workCopyContentReady &&
       readAdapterErrors.length === 0;
     let shadowReceiptReady = false;
+    let compatibleReceiptCount = 0;
     let shadowReceiptIssue: string | null = null;
     if (result.identityReady && workCopyContentReady) {
       try {
@@ -105,7 +107,9 @@ export async function GET() {
           originalDataSourceId: source,
           workDataSourceId: work,
         });
-        shadowReceiptReady = rows.length === 344;
+        compatibleReceiptCount = rows.filter(row =>
+          isCompatibleBreedWorkcopyReceipt(row.originalSyncReceipt)).length;
+        shadowReceiptReady = rows.length === 344 && compatibleReceiptCount === 344;
       } catch (reason) {
         shadowReceiptIssue = reason instanceof Error ? reason.message : "BREED_SHADOW_UNKNOWN";
       }
@@ -115,6 +119,8 @@ export async function GET() {
       cutoverReady: false,
       workCopyContentReady,
       shadowReceiptReady,
+      compatibleReceiptCount,
+      legacyOrInvalidReceiptCount: result.identityReady ? 344 - compatibleReceiptCount : null,
       shadowReceiptIssue,
       readAdapterReady,
       readAdapterErrorCount: readAdapterErrors.length,
