@@ -54,3 +54,21 @@
     font-size: 0.85rem;
   }
 }
+
+/* Same row renderer and mobile geometry; editorial grids opt in on desktop. */
+@media (min-width: 901px) {
+  .row.stacked {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    align-items: start;
+    gap: 12px;
+  }
+  .row.stacked [data-article-image] {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+  .row.stacked [data-article-title] {
+    font-size: clamp(1.15rem, 1.5vw, 1.4rem);
+    line-height: 1.25;
+  }
+}

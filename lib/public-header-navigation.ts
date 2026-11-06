@@ -20,7 +20,7 @@ export function buildPublicHeaderNavigation(
   const visible = navigationItems.filter((item) => item.visible);
   return visible.filter((item) => !item.parentId).map((item) => {
     const slug = item.href.split("/").filter(Boolean)[0] ?? "";
-    const sectionSlug = item.id === "novinky" && slug === "clanky" ? "novinky" : slug;
+    const sectionSlug = item.id === "novinky" ? "novinky" : slug;
     const section = sections.find((candidate) => candidate.slug === sectionSlug);
     const storedChildren = visible.filter((child) => child.parentId === item.id);
     const fallbackChildren: NavigationItem[] = ["steniatka", "starostlivost", "aktivity"].includes(sectionSlug)

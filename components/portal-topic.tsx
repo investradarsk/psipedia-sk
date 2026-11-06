@@ -103,10 +103,12 @@ export async function PortalTopic({
   section,
   subpage,
   articles,
+  pagination,
 }: {
   section: PortalSection;
   subpage: PortalSubpage;
   articles: Article[];
+  pagination?: { page: number; hasNext: boolean };
 }) {
   const newsCategory = section.slug === "novinky" ? getNewsCategory(subpage.slug) : null;
   const isCare = section.slug === "starostlivost";
@@ -116,7 +118,7 @@ export async function PortalTopic({
   const isStructuredTopic = isCare || isActivities || isPuppies;
   const showSectionTabs = isStructuredTopic || isReviews;
   if (isStructuredTopic)
-    return <EditorialSectionTopic section={section} subpage={subpage} articles={articles} />;
+    return <EditorialSectionTopic section={section} subpage={subpage} articles={articles} pagination={pagination} />;
   const reviewHeroVisual = isReviews ? await getSectionHeroVisual(`reviews.${subpage.slug}`) : null;
   const hasReviewGuide = isReviews && portalSubpageHasEditorialValue(subpage);
   const legacyCareArea = (article: Article) =>

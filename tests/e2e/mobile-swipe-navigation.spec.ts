@@ -351,8 +351,9 @@ test("sitewide Chrome iPhone: homepage → magazine → article → two browser 
   page,
 }) => {
   await emulateChromeOnIphone(page);
-  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
-  await page.locator('#mobile-menu a[href="/clanky"]').first().click();
+  // The mobile "Novinky" menu now opens /novinky; the all-article magazine
+  // remains at /clanky and has a distinct homepage link.
+  await page.locator('[data-home-latest] a[href="/clanky"]').click();
   await expect(page).toHaveURL(/\/clanky$/);
   const beforeArticle = await loadCount(page);
   const article = page.locator('.article-browser a[data-article-list-item]').first();

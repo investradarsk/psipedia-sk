@@ -39,9 +39,20 @@ export function selectAutomaticMidRelated(article: Article, candidates: Article[
 export function selectEndRelated(article: Article, candidates: Article[], midRelated: Article | null, limit = 3) {
   const excluded = new Set([article.slug, midRelated?.slug].filter((value): value is string => Boolean(value)));
   const seen = new Set<string>();
-  return candidates.filter((candidate) => {
+  const ranked = candidates.filter((candidate) => {
     if (excluded.has(candidate.slug) || seen.has(candidate.slug)) return false;
     seen.add(candidate.slug);
     return true;
-  }).slice(0, Math.max(0, limit));
+  });
+  const originalSection = portalSection(article);
+  const rank = (candidate: Article) => {
+    if (portalSection(candidate) === originalSection) {
+      if (originalSection === "novinky" && article.newsCategory && candidate.newsCategory === article.newsCategory) return 0;
+      if (article.portalSubpage && candidate.portalSubpage === article.portalSubpage) return 0;
+      return 1;
+    }
+    return candidate.category === article.category ? 2 : 3;
+  };
+  return ranked.sort((first, second) => rank(first) - rank(second))
+    .slice(0, Math.max(0, limit));
 }

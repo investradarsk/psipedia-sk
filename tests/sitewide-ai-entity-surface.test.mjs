@@ -9,7 +9,7 @@ test("ARTICLE public surface already exposes canonical editorial identity and da
   for (const pattern of [
     /title=\{article\.title\}/,
     /Publikované <time dateTime=\{article\.dateIso\}>/,
-    /Aktualizované <time dateTime=\{article\.updatedDateIso\}>/,
+    /Aktualizované\{" "\}\s*<time dateTime=\{article\.updatedDateIso\}>/,
     /section === "novinky" \? "NewsArticle" : "Article"/,
     /author: articleAuthorJsonLd\(authorName\)/,
     /"@type": "BreadcrumbList"/,

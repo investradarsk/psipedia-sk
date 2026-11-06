@@ -276,7 +276,7 @@ test("legacy activity training URL redirects directly to the canonical managed t
     portalPage,
     /path:\s*`\/\$\{\s*portalTopic\s*\.section\s*\.slug\s*\}\/\$\{\s*portalTopic\s*\.subpage\s*\.slug\s*\}`/,
   );
-  assert.match(portalPage, /if\s*\(\s*portalTopic\s*\)\s*return\s*<PortalTopic/);
+  assert.match(portalPage, /if\s*\(\s*portalTopic\s*\)\s*\{[\s\S]*?return\s*<PortalTopic/);
 });
 
 test("directory sitemap reader is lightweight, cursor-batched and not capped at 500 or 1000", async () => {
