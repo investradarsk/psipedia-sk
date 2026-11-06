@@ -1,4 +1,5 @@
 import { applyHelpLifecycle } from "@/lib/help-lifecycle";
+import { HelpFinancialProgress } from "@/components/help-financial-progress";
 import Link from "next/link";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
@@ -40,6 +41,9 @@ export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
       category={category?.singular ?? "Pomoc psom"}
       meta={meta}
       excerpt={item.excerpt}
+      extras={item.category === "zbierky"
+        ? <HelpFinancialProgress item={item} compact />
+        : null}
       badge={
         item.resolved ? (
           <span className={[styles.badge, styles.badgeResolved].join(" ")}>Vyriešené</span>
