@@ -198,6 +198,13 @@ export async function HelpOverview({
                         </Link>
                       </div>
                     )}
+                    {section.slug === "utulky" ? (
+                      <div className={styles.overviewSectionFooter}>
+                        <PublicActionLink href="/organizacie" variant="tertiary" icon={<ArrowIcon size={16} />}>
+                          Všetky organizácie
+                        </PublicActionLink>
+                      </div>
+                    ) : null}
                     {section.items.length > 0 && (
                       <div className={styles.overviewSectionFooter}>
                         <PublicActionLink href={section.href} variant="tertiary" icon={<ArrowIcon size={16} />}>
