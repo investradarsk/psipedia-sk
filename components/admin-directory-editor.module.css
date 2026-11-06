@@ -167,8 +167,8 @@
     padding: 0;
     background: transparent;
   }
-  .editorWorkspace :global([data-admin-shared-editor-navigation] .links) { display: none; }
-  .editorWorkspace :global([data-admin-shared-editor-navigation] .mobile) { display: grid; gap: 4px; }
+  .editorWorkspace :global([data-admin-shared-editor-navigation] > div) { display: none; }
+  .editorWorkspace :global([data-admin-shared-editor-navigation] > label) { display: grid; gap: 4px; }
   .editorWorkspaceContent :global(.admin-event-editor-grid) { grid-template-columns: minmax(0, 1fr); }
 }
 @container (max-width: 420px) {
