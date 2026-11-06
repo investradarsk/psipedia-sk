@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
-import { PublicMediaFallback } from "@/components/public-visual-system";
+import { PublicMediaFallback, PublicPhotoGallery } from "@/components/public-visual-system";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { DirectoryServicesList } from "@/components/directory-services-list";
 import { DirectoryOpeningHours } from "@/components/directory-opening-hours";
@@ -261,6 +261,9 @@ export function DirectoryProfileDetail({
     presentation.description?.trim() &&
       presentation.description.trim() !== presentation.excerpt.trim(),
   );
+  const breederGallery = presentation.category === "chovatelske-stanice"
+    ? (presentation.galleryUrls ?? []).filter((url) => url && url !== presentation.imageUrl)
+    : [];
 
   const blocks = [
     {
@@ -269,6 +272,21 @@ export function DirectoryProfileDetail({
       content: hasExtendedDescription ? (
         <DetailSection compactHeading eyebrow="Predstavenie" title="O službe">
           <DetailParagraphs value={presentation.description} />
+        </DetailSection>
+      ) : null,
+    },
+    {
+      key: "breeder-gallery",
+      column: "main" as const,
+      content: breederGallery.length ? (
+        <DetailSection compactHeading eyebrow="Fotografie" title="Galéria">
+          <PublicPhotoGallery
+            label={`Fotografie chovateľskej stanice ${presentation.name}`}
+            images={breederGallery.map((src, index) => ({
+              src,
+              alt: `${presentation.name} – fotografia ${index + 1}`,
+            }))}
+          />
         </DetailSection>
       ) : null,
     },

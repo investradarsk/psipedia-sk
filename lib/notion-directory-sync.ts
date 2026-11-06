@@ -889,17 +889,24 @@ async function createProfileFromNotion(input: {
   let verified = null;
 
   if (desired.confirmedServiceLocation) {
-    const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
-    verified = await verifyDirectoryCanonicalAddress({
-      region: desired.region,
-      district: desired.district,
-      city: desired.city,
-      street: desired.street,
-      houseNumber: desired.houseNumber,
-      addressFormat,
-      revalidateStreet: addressFormat === "STREET",
-    });
-    payload = withVerifiedDirectoryAddress(payload, verified);
+    if ((desired.houseNumber ?? "").trim()) {
+      // Exact provider verification is only possible with a house number.
+      const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
+      verified = await verifyDirectoryCanonicalAddress({
+        region: desired.region,
+        district: desired.district,
+        city: desired.city,
+        street: desired.street,
+        houseNumber: desired.houseNumber,
+        addressFormat,
+        revalidateStreet: addressFormat === "STREET",
+      });
+      payload = withVerifiedDirectoryAddress(payload, verified);
+    } else {
+      // Missing house numbers are editorial review signals, not sync errors.
+      payload = { ...payload, clearServiceAddressConfirmation: true };
+      importWarnings.push("Číslo domu nie je uvedené; presná adresa zostáva nepotvrdená.");
+    }
   } else {
     payload = { ...payload, clearServiceAddressConfirmation: true };
   }
@@ -999,17 +1006,37 @@ async function applyNotionToProfile(input: {
 
   let verified = null;
   if (safety.verifyExactAddress) {
-    const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
-    verified = await verifyDirectoryCanonicalAddress({
-      region: desired.region,
-      district: desired.district,
-      city: desired.city,
-      street: desired.street,
-      houseNumber: desired.houseNumber,
-      addressFormat,
-      revalidateStreet: addressFormat === "STREET",
-    });
-    payload = withVerifiedDirectoryAddress(payload, verified);
+    if ((desired.houseNumber ?? "").trim()) {
+      const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
+      verified = await verifyDirectoryCanonicalAddress({
+        region: desired.region,
+        district: desired.district,
+        city: desired.city,
+        street: desired.street,
+        houseNumber: desired.houseNumber,
+        addressFormat,
+        revalidateStreet: addressFormat === "STREET",
+      });
+      payload = withVerifiedDirectoryAddress(payload, verified);
+    } else if (current.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION") {
+      // Partial Notion address cannot replace a verified canonical address
+      // or overwrite its manually confirmed GEO / Google Place association.
+      payload = {
+        ...payload,
+        region: current.region,
+        district: current.district,
+        city: current.city,
+        address: current.address,
+        postalCode: current.postalCode,
+        street: current.street,
+        houseNumber: current.houseNumber,
+        addressFormat: current.addressFormat,
+        confirmServiceAddress: true,
+      };
+    } else {
+      // Continue synchronizing editorial fields without claiming exact GEO.
+      payload = { ...payload, clearServiceAddressConfirmation: true };
+    }
   } else if (desired.confirmedServiceLocation) {
     payload = { ...payload, confirmServiceAddress: true };
   } else {

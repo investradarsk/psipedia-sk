@@ -31,6 +31,7 @@ export type DirectoryDetailPresentation = {
   priceNote: string;
   openingHours: string | null;
   imageUrl: string | null;
+  galleryUrls?: string[];
   detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;
   featured: boolean;
@@ -316,6 +317,7 @@ export function getDirectoryDetailPresentation(
       ),
     ),
     imageUrl: profile.imageUrl,
+    galleryUrls: profile.category === "chovatelske-stanice" ? (profile.galleryUrls ?? []) : [],
     detailImageDisplay: profile.detailImageDisplay,
     verified: profile.verified,
     featured: profile.featured,

@@ -1,5 +1,9 @@
 "use client";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import dynamic from "next/dynamic";
+import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
+
+const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
@@ -189,6 +193,8 @@ export function AdminDirectoryEditor({
   const [internalEmail, setInternalEmail] = useState(profile?.internalEmail ?? notionDraft?.internalEmail ?? "");
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
+  const [galleryUrls, setGalleryUrls] = useState<string[]>(profile?.galleryUrls ?? []);
+  const [galleryBusy, setGalleryBusy] = useState(false);
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
   const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.detailImageDisplay ?? null);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
@@ -298,7 +304,7 @@ export function AdminDirectoryEditor({
   }
 
   async function save(nextStatus: DirectoryProfileStatus) {
-    if (saving || savePendingRef.current || notionReadOnly) return;
+    if (saving || galleryBusy || savePendingRef.current || notionReadOnly) return;
     if (notionDraft && nextStatus === "published") {
       setError("Najprv bezpečne importuj koncept do D1 a publikuj v natívnom editore.");
       return;
@@ -366,6 +372,7 @@ export function AdminDirectoryEditor({
           publicPhone, publicEmail, facebookUrl, instagramUrl,
           internalEmail: internalEmail || null,
           imageUrl: imageUrl || null, imageKey: imageKey || null,
+          ...(category === "chovatelske-stanice" ? { galleryUrls } : {}),
           thumbnailImageDisplay, detailImageDisplay,
           qualityResolutions,
           verified, featured, seo,
@@ -389,6 +396,7 @@ export function AdminDirectoryEditor({
       }
       setFilterSourceData(savedProfile.importData ?? {});
       setFilterChanges({});
+      setGalleryUrls(savedProfile.galleryUrls ?? []);
       setStatus(savedProfile.status);
       setQualityResolutions(qualityResolutionInput(savedProfile));
       setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
@@ -718,6 +726,16 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>05</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
             <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
+            {!notionDraft && category === "chovatelske-stanice" ? (
+              <AdminPhotoGallery
+                folder="directory"
+                limit={DIRECTORY_BREEDER_GALLERY_LIMIT}
+                value={galleryUrls}
+                disabled={saving || uploading || galleryBusy}
+                onBusyChange={setGalleryBusy}
+                onChange={(urls) => { setGalleryUrls(urls); setFormDirty(true); }}
+              />
+            ) : null}
             {notionDraft && <div className="admin-field"><label htmlFor="directory-notion-logo">URL oficiálneho loga</label><input id="directory-notion-logo" type="url" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://…" /><small>Logo je samostatné od hlavnej fotografie. Nastavenie výrezu fotografie bude dostupné po synchronizácii profilu do Adresára.</small></div>}
             {!imageUrl ? (
               <QualityResolutionField
@@ -784,9 +802,9 @@ export function AdminDirectoryEditor({
           : "Publikovať bude možné až po overenom importe v natívnom D1 editore."}</p>}
         {canonicalEditorUrl && <a href={canonicalEditorUrl}>Otvoriť overený D1 editor →</a>}
         <div>
-          {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
-          <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || notionReadOnly}>{saving ? "Ukladám…" : status === "published" && !notionDraft ? "Uložiť bez zmeny publikovania" : "Uložiť koncept"}</AdminActionButton>
-          {!notionDraft && <AdminActionButton variant="primary" disabled={saving || uploading || Boolean(reviewConfirm)}
+          {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading || galleryBusy} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
+          <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || galleryBusy || notionReadOnly}>{saving ? "Ukladám…" : status === "published" && !notionDraft ? "Uložiť bez zmeny publikovania" : "Uložiť koncept"}</AdminActionButton>
+          {!notionDraft && <AdminActionButton variant="primary" disabled={saving || uploading || galleryBusy || Boolean(reviewConfirm)}
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
         </div>
       </div>
