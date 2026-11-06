@@ -66,7 +66,8 @@ function articleArea(article: Article, sectionSlug: EditorialSectionSlug) {
       )[article.category]
     );
   }
-  return article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
+  // A missing area must not silently become "Psie športy".
+  return article.portalSubpage;
 }
 
 function orderedArticles(section: PortalSection, articles: Article[], subpage?: PortalSubpage) {
@@ -358,6 +359,11 @@ export async function EditorialSectionHub({
   const sectionSlug = section.slug;
   if (!isEditorialSectionSlug(sectionSlug)) return null;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
+  const visibleAreaSlugs = new Set(subpages.map((subpage) => subpage.slug));
+  const unassignedArticles = articles.filter(
+    (article) => articlePortalSection(article) === sectionSlug
+      && !visibleAreaSlugs.has(articleArea(article, sectionSlug) ?? ""),
+  );
   // Four clear life-stage groups replace the 11 consecutive undifferentiated
   // puppy topic sections. Canonical topic URLs and all content stay intact.
   const puppyStages = [
@@ -536,6 +542,15 @@ export async function EditorialSectionHub({
                 </div>
               </section>
             ))}
+            {unassignedArticles.length > 0 && (
+              <section className={styles.topicStage} aria-label="Ďalšie články">
+                <PublicHeading as="h2" role="section">Ďalšie články</PublicHeading>
+                <SectionContentList articles={unassignedArticles} label="Ďalšie články" limit={8} />
+                <p>
+                  <Link href="/clanky">Všetky články v spoločnom archíve</Link>
+                </p>
+              </section>
+            )}
           </PageContainer>
         </div>
 
