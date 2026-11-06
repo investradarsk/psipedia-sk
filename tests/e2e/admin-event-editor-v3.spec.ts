@@ -212,7 +212,7 @@ test("New event: publish action sends published status through the canonical POS
   await root.getByLabel("Dátum začiatku").fill("2026-11-12");
   await showEventSection(root, "event-location", "Miesto a organizátor");
   await root.getByLabel("Mesto").fill("Nitra");
-  await root.getByLabel("Organizátor").fill("Klub");
+  await root.getByRole("textbox", { name: "Organizátor", exact: true }).fill("Klub");
   await showEventSection(root, "event-details", "Popis a informácie");
   await root.getByRole("textbox", { name: "Podrobný popis", exact: true }).fill("Podujatie s programom pre všetkých návštevníkov a vystavovateľov.");
   await root.getByRole("button", { name: "Publikovať podujatie" }).click();
