@@ -258,11 +258,12 @@ export function AdminFacebookGraphicEditor({
   // staged under /media/facebook-images; allow older safe Psipedia assets too.
   // Do not silently open an empty template for a selected image.
   useEffect(() => {
-    if (!initialPhotoUrl) return;
+    const photoUrl = initialPhotoUrl;
+    if (!photoUrl) return;
     const controller = new AbortController();
     async function loadSelectedPhoto() {
       let localUrl: URL;
-      try { localUrl = new URL(initialPhotoUrl!, window.location.origin); }
+      try { localUrl = new URL(photoUrl, window.location.origin); }
       catch { throw Error("Adresa fotografie z vybraného článku nie je platná."); }
       if (localUrl.origin !== window.location.origin ||
           !/^\/(?:media\/(?!safe\/|quarantine\/|quality-missing-candidates\/)|images\/|migrated-media\/)/i.test(localUrl.pathname)) {
