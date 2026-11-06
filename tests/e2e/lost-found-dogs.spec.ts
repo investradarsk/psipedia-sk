@@ -126,6 +126,7 @@ for (const width of [1440, 390, 320]) {
       if (await select.isVisible()) await select.selectOption(id);
       else await nav.getByRole("button", { name: label, exact: true }).click();
       await expect(form.locator("#" + id)).toBeVisible();
+      await expect(form.locator("#" + id)).toBeFocused();
     };
     const writes: string[] = [];
     page.on("request", request => {
