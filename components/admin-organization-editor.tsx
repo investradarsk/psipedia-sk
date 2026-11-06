@@ -1,4 +1,5 @@
 "use client";
+import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
@@ -268,9 +269,11 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
        thumbnail={draft.thumbnailImageDisplay ?? null} detail={draft.detailImageDisplay ?? null} onCancel={() => setImageEditorOpen(false)}
        onSave={(thumbnail, detail) => { patch({ thumbnailImageDisplay: thumbnail, detailImageDisplay: detail }); setImageEditorOpen(false); }} />}
     <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
-    <div className="admin-editor-actions">
+    <AdminEditorFooter dirty={dirty} pending={saving}>
+      <div className="admin-editor-actions">
       <div><Link href="/admin/organizacie">← Späť na organizácie</Link></div>
       <div><AdminActionButton variant="primary" type="submit" disabled={editingDisabled || saving || uploading}>{saving ? "Ukladám…" : organization ? "Uložiť organizáciu" : "Vytvoriť koncept"}</AdminActionButton></div>
     </div>
+    </AdminEditorFooter>
   </form>;
 }
