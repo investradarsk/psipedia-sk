@@ -5,6 +5,8 @@ import { AdminModalDialog, AdminActionButton } from "@/components/admin-interact
 import {
   AdminUiInput,
   AdminUiTextarea,
+  AdminUiSelect,
+  AdminUiCheckbox,
 } from "@/components/admin-shadcn-editor-primitives";
 import {
   AdminUnifiedEditorField,
@@ -32,6 +34,12 @@ const kindLabels: Record<Kind, string> = {
   article: "Článok",
   directory: "Služba pre psov",
   event: "Podujatie",
+};
+const categoryOptions: Record<Kind, string[]> = {
+  breed: ["Stavač", "Retríver", "Ovčiak"],
+  article: ["Výcvik", "Zdravie", "Šteniatka"],
+  directory: ["Psí tréner", "Veterinár", "Psí salón"],
+  event: ["Výstava", "Preteky", "Seminár"],
 };
 const defaults: Record<Kind, Sample> = {
   breed: {
@@ -88,7 +96,9 @@ export function AdminShadcnEditorPreview() {
           <AdminUiInput id="demo-title" required value={draft.title} onChange={(event) => change("title", event.target.value)} />
         </AdminUnifiedEditorField>
         <AdminUnifiedEditorField id="demo-category" label="Typ alebo kategória">
-          <AdminUiInput id="demo-category" value={draft.category} onChange={(event) => change("category", event.target.value)} />
+          <AdminUiSelect id="demo-category" value={draft.category} onChange={(event) => change("category", event.target.value)}>
+            {categoryOptions[kind].map((option) => <option key={option} value={option}>{option}</option>)}
+          </AdminUiSelect>
         </AdminUnifiedEditorField>
         <AdminUnifiedEditorField id="demo-city" label={kind === "breed" ? "Krajina pôvodu" : "Mesto / lokalita"}>
           <AdminUiInput id="demo-city" value={draft.city} onChange={(event) => change("city", event.target.value)} />
@@ -99,10 +109,10 @@ export function AdminShadcnEditorPreview() {
       id: "text", label: "Popisy a obsah", description: "Krátky text zostáva kompaktný. Odborný obsah má celú šírku a rastie s textom.",
       content: <AdminUnifiedEditorFields>
         <AdminUnifiedEditorField id="demo-summary" label="Krátky úvod" wide>
-          <AdminUiTextarea id="demo-summary" rows={3} value={draft.summary} onChange={(event) => change("summary", event.target.value)} />
+          <AdminUiTextarea id="demo-summary" length="short" rows={3} value={draft.summary} onChange={(event) => change("summary", event.target.value)} />
         </AdminUnifiedEditorField>
         <AdminUnifiedEditorField id="demo-description" label="Podrobný obsah" wide hint="V reálnych editoroch zostane obsahový formát a existujúci Lexical.">
-          <AdminUiTextarea id="demo-description" rows={10} value={draft.description} onChange={(event) => change("description", event.target.value)} />
+          <AdminUiTextarea id="demo-description" length="long" rows={10} value={draft.description} onChange={(event) => change("description", event.target.value)} />
         </AdminUnifiedEditorField>
       </AdminUnifiedEditorFields>,
     },
@@ -122,7 +132,7 @@ export function AdminShadcnEditorPreview() {
         </> : null}
         <div className={styles.field} data-wide="true">
           <label className={styles.checkboxRow}>
-            <input type="checkbox" checked={draft.featured} onChange={(event) => change("featured", event.target.checked)} />
+            <AdminUiCheckbox checked={draft.featured} onChange={(event) => change("featured", event.target.checked)} />
             Označiť ako odporúčaný obsah (iba ukážka)
           </label>
         </div>
@@ -132,7 +142,7 @@ export function AdminShadcnEditorPreview() {
       id: "contacts", label: "Kontakty a prepojenia", description: "Jednotné ovládanie, ale polia podľa skutočného typu profilu.",
       content: <AdminUnifiedEditorFields>
         <AdminUnifiedEditorField id="demo-contact" label={kind === "event" ? "Telefón organizátora (návrh)" : "Kontaktné číslo / odkaz"} wide>
-          <AdminUiInput id="demo-contact" value={draft.contact} onChange={(event) => change("contact", event.target.value)} placeholder="+421 ..." />
+          <AdminUiInput id="demo-contact" type="tel" value={draft.contact} onChange={(event) => change("contact", event.target.value)} placeholder="+421 ..." />
         </AdminUnifiedEditorField>
         <div className={styles.mutedBlock} style={{ gridColumn: "1 / -1" }}>
           Prepojenia plemien, kategóriové služby, mapy a partneri zostanú samostatnými špecializovanými ovládacími prvkami.
@@ -152,9 +162,9 @@ export function AdminShadcnEditorPreview() {
     <div data-unified-editor-demo className={styles.workspace}>
       <div className={styles.demoToolbar}>
         <label htmlFor="demo-kind">Typ záznamu
-          <select id="demo-kind" value={kind} onChange={(event) => { setKind(event.target.value as Kind); setMessage("Nič sa neukladá na server."); }}>
+          <AdminUiSelect id="demo-kind" value={kind} onChange={(event) => { setKind(event.target.value as Kind); setMessage("Nič sa neukladá na server."); }}>
             {(Object.keys(kindLabels) as Kind[]).map((value) => <option key={value} value={value}>{kindLabels[value]}</option>)}
-          </select>
+          </AdminUiSelect>
         </label>
         <p className={styles.demoNote}>Izolovaná ukážka nového UI. Formulár nevolá API, nemení D1, Notion ani verejný web. Po prepnutí typu záznamu ostanú lokálne rozpracované hodnoty zachované.</p>
       </div>
