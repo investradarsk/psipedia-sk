@@ -10,7 +10,7 @@
 - Desktop má bočné menu; úzke rozloženie vrátane Notion/Gemini modalu používa mobilný výber podľa *šírky editora* (CSS container query). Tlačidlá Predchádzajúca/Ďalšia fungujú bez odoslania formulára.
 - Živý náhľad profilu, priebežné stavové označenia, horné akcie, galéria výrezu obrázka a pokročilý SEO drawer sa nemenia funkčne. Náhľad zostáva viditeľný aj pri prepnutí sekcie.
 - Výsledky uloženia aj chyby sa ukazujú **nad** pracovnými sekciami; v prípade nesprávneho poľa sa vyberie jeho sekcia alebo otvorí SEO drawer.
-- Natívna validácia už nesmie zastaviť formulár pre skryté pole bez vysvetlenia: `noValidate` dopĺňa explicitná kontrola existujúcich `required`, `type=email`, `type=url` atď. pri **oboch** akciách Uložiť a Publikovať. Server je aj naďalej rozhodujúci pre ostatné pravidlá.
+- Natívna validácia už nesmie zastaviť formulár pre skryté pole bez vysvetlenia: `noValidate` dopĺňa explicitná kontrola existujúcich `required`, `type=email`, `type=url` atď. pri **oboch** akciách Uložiť a Publikovať; pri samotnom stiahnutí už publikovaného profilu sa kontrola preskočí, aby neplatný starší kontakt neblokoval stiahnutie. Server je aj naďalej rozhodujúci pre ostatné pravidlá.
 
 ## Zachované procesy
 
