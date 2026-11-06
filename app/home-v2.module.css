@@ -2850,7 +2850,7 @@
   .homeV2 :global(.home-magazine-sidebar-block > .home-side-breed-list),
   .homeV2 :global(.home-magazine-sidebar-block > .home-vet-list) {
     flex: 1;
-    align-content: start;
+    align-content: space-between;
   }
 
   .homeV2 :global(.home-magazine-sidebar-action) {
@@ -2869,7 +2869,73 @@
   .homeV2 :global(.home-magazine-main .home-latest-item:nth-child(n + 5)),
   .homeV2 :global(.home-magazine-side .home-event-item:nth-child(n + 4)),
   .homeV2 :global(.home-magazine-side .home-vet-item:nth-child(n + 4)),
-  .homeV2 :global(.home-magazine-side .home-side-breed-list > .home-side-unified-row.home-side-unified-row:nth-child(n + 4)) {
+  .homeV2
+    :global(
+      .home-magazine-side
+        .home-side-breed-list
+        > .home-side-unified-row.home-side-unified-row:nth-child(n + 4)
+    ) {
+    display: none;
+  }
+}
+
+/* Desktop audit: keep mobile source order and spacing unchanged. The rail spans
+   both article content and its action, matching the latest-news section. */
+@media (min-width: 901px) {
+  .homeV2 :global(.home-editorial-section:has(> .home-magazine-grid > .home-magazine-side)) {
+    display: grid;
+    grid-template-columns: minmax(0, 2.45fr) minmax(260px, 1fr);
+    column-gap: clamp(22px, 2.8vw, 36px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .homeV2
+    :global(
+      .home-editorial-section:has(> .home-magazine-grid > .home-magazine-side)
+        > .home-section-heading
+    ) {
+    grid-column: 1 / -1;
+  }
+
+  .homeV2 :global(.home-editorial-section > .home-magazine-grid:has(> .home-magazine-side)) {
+    display: contents;
+  }
+
+  .homeV2
+    :global(
+      .home-editorial-section > .home-magazine-grid:has(> .home-magazine-side) > .home-magazine-main
+    ) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .homeV2 :global(.home-editorial-section > .home-magazine-grid > .home-magazine-side) {
+    grid-column: 2;
+    grid-row: 2 / 4;
+  }
+
+  .homeV2
+    :global(
+      .home-editorial-section:has(> .home-magazine-grid > .home-magazine-side) > .home-section-cta
+    ) {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .homeV2 :global(.home-magazine-main .home-latest-item > [data-article-list-item]) {
+    padding-inline: 12px;
+  }
+
+  /* Only contain/blur thumbnails use this neutral canvas; crop photos and saved
+     focal positions retain their existing rendering. */
+  .homeV2 :global(.home-vet-list .home-side-unified-media [data-image-display="blur"]) {
+    background: white;
+  }
+
+  .homeV2
+    :global(
+      .home-vet-list .home-side-unified-media [data-image-display="blur"] img[aria-hidden="true"]
+    ) {
     display: none;
   }
 }

@@ -15,6 +15,8 @@ import type { SmartImageMode } from "@/lib/smart-image";
 
 type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "srcSet" | "onError"> & {
   imageUrl: string | null;
+  /** When a third-party photo fails in the browser, try the safe same-origin event relay. */
+  eventId?: number;
   eventType: EventType;
   mode?: SmartImageMode;
   context?: ImageDisplayContext;
@@ -24,6 +26,7 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "srcSet" | "onErr
 /** Event-only failure handling. The initial image is selected during SSR. */
 export function EventImage({
   imageUrl,
+  eventId,
   eventType,
   mode,
   context = "thumbnail",
@@ -32,13 +35,24 @@ export function EventImage({
   ...props
 }: Props) {
   const ownImage = getEventOwnImage(imageUrl);
-  const [failedSource, setFailedSource] = useState<string | null>(null);
-  const real = Boolean(ownImage && failedSource !== ownImage);
-  const src = real ? ownImage! : getEventFallbackImage(eventType);
+  // Keep failure state tied to the exact URL so a new event/photo is never stuck
+  // displaying the previous event's illustration.
+  const [attempt, setAttempt] = useState<{
+    source: string;
+    stage: "original" | "proxy" | "fallback";
+  } | null>(null);
+  const stage = attempt?.source === ownImage ? attempt.stage : "primary";
+  const remote = Boolean(ownImage && /^https?:\/\//i.test(ownImage));
+  const proxy = remote && Number.isSafeInteger(eventId) && (eventId ?? 0) > 0
+    ? `/api/public/events/image/${eventId}`
+    : null;
+  const real = Boolean(ownImage && stage !== "fallback");
+  const src = stage === "proxy" && proxy ? proxy : real ? ownImage! : getEventFallbackImage(eventType);
   const imageProps = {
     ...props,
     src,
-    srcSet: real ? responsiveMediaSrcSet(src, [320, 480, 640, 768, 960, 1280]) : undefined,
+    // A failed resized R2 variant must not hide a working original.
+    srcSet: real && stage === "primary" ? responsiveMediaSrcSet(src, [320, 480, 640, 768, 960, 1280]) : undefined,
     alt: real
       ? alt
       : alt === ""
@@ -48,16 +62,30 @@ export function EventImage({
     height: 800,
     "data-event-image-source": real ? "real" : "fallback",
     onImageFailure: () => {
-      if (real) {
-        console.warn("Event photograph failed to load; displaying category illustration.");
-        setFailedSource(src);
+      if (!real || !ownImage) return;
+      if (stage === "primary") {
+        // Retry the canonical URL without responsive candidates. On external
+        // hosts, the retry also omits Referer to handle hotlink restrictions.
+        setAttempt({ source: ownImage, stage: "original" });
+        return;
       }
+      if (stage === "original" && proxy) {
+        // Some providers allow direct navigation but block hotlinked <img>
+        // elements. Relay only a published event's stored source, not a URL
+        // supplied by the browser. The endpoint validates size and type.
+        setAttempt({ source: ownImage, stage: "proxy" });
+        return;
+      }
+      console.warn("Event photograph failed to load even after original retry; displaying category illustration.");
+      setAttempt({ source: ownImage, stage: "fallback" });
     },
   };
   return real ? (
     <ImageDisplay
+      key={`${src}:${stage}`}
       roleHint="generic"
       {...imageProps}
+      referrerPolicy={remote ? "no-referrer" : props.referrerPolicy}
       src={src}
       alt={imageProps.alt ?? ""}
       context={context}

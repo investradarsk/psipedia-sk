@@ -1022,7 +1022,8 @@ test("breed encyclopedia relations stay explicit, bounded and editable", () => {
     "Športy a aktivity",
     "Súvisiace články",
     "Podobné plemená",
-    "Chovateľské stanice a kluby",
+    "Chovateľské stanice",
+    "Chovateľské kluby",
   ])
     assert.match(breedEditor, new RegExp(label));
   const articleEditor = readFileSync(

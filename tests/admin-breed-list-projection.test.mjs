@@ -149,3 +149,35 @@ test("projection agrees with the original JSON parsing for complete, sparse and 
     db.close();
   }
 });
+
+
+test("breed editor searches all directory records and loads selected links regardless of alphabet", () => {
+  const editorFn = source.slice(
+    source.indexOf("export async function getBreedEditorOptions"),
+    source.indexOf("export async function getBreedDetailRelations"),
+  );
+  const statements = [...editorFn.matchAll(/database\.prepare\(\s*"([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(statements.length, 3);
+  assert.doesNotMatch(statements[2], /LIMIT\s+500/i);
+  assert.match(statements[2], /json_each\(\?\)/);
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,name TEXT,category TEXT,city TEXT,region TEXT)");
+    const insert = db.prepare("INSERT INTO directory_profiles VALUES (?,?,?,'Malinovo','Bratislavský kraj')");
+    for (let id = 1; id <= 550; id++) insert.run(id, "Stanica " + id, "chovatelske-stanice");
+    insert.run(1859, "zo Šaštínskeho lesa", "chovatelske-stanice");
+    const selected = db.prepare(statements[2]).all(JSON.stringify([1859]));
+    assert.deepEqual(selected.map((row) => row.id), [1859]);
+  } finally {
+    db.close();
+  }
+
+  const route = readFileSync(new URL("../app/api/admin/breeds/relation-options/route.ts", import.meta.url), "utf8");
+  assert.match(route, /slug LIKE \?/);
+  assert.match(route, /category=\?/);
+  assert.match(route, /getAdminApiUser/);
+  const picker = readFileSync(new URL("../components/admin-breed-relation-group.tsx", import.meta.url), "utf8");
+  assert.ok(picker.indexOf('className={styles.selectedList}') < picker.indexOf('className={styles.resultList}'));
+  assert.match(picker, /selectedIds\.includes\(item\.id\)/);
+  assert.match(picker, /checked onChange/);
+});
