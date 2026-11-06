@@ -144,6 +144,36 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       if(!response.ok)throw Error(result.error||"Obsah sa nepodarilo prevziať.");
       const selected=result.article||result.profile;
       if(!selected)throw Error("Neúplná odpoveď pri výbere obsahu.");
+      // An older article may render its photo publicly even when its R2
+      // image_key is missing/stale. If server-side copying fails, use the
+      // already-visible same-origin thumbnail and stage it through the normal
+      // authenticated FB upload. Never save the article URL as an FB media key.
+      let selectedImage=result.image;
+      let imageWarning=result.imageWarning||"";
+      if(!selectedImage?.imageKey&&item.imageUrl){
+        try{
+          const source=new URL(item.imageUrl,window.location.origin);
+          const safeLocalImage=source.origin===window.location.origin&&
+            /^\\/(?:media\\/(?!safe\\/|quarantine\\/|quality-missing-candidates\\/)|images\\/|migrated-media\\/)/i.test(source.pathname);
+          if(safeLocalImage){
+            const photoResponse=await fetch(source.pathname+source.search,{credentials:"same-origin",cache:"no-store"});
+            if(!photoResponse.ok)throw Error("Titulný obrázok nie je dostupný.");
+            const blob=await photoResponse.blob();
+            const mime=blob.type.split(";")[0].toLowerCase();
+            if(!["image/jpeg","image/png","image/webp"].includes(mime)||!blob.size||blob.size>8*1024*1024)
+              throw Error("Titulný obrázok nie je JPG, PNG alebo WebP do 8 MB.");
+            const extension=mime==="image/png"?"png":mime==="image/webp"?"webp":"jpg";
+            const uploaded=await uploadAdminImage(new File([blob],"fotografia-clanku."+extension,{type:mime}),"facebook-images");
+            selectedImage={imageUrl:uploaded.imageUrl,imageKey:uploaded.imageKey};
+            imageWarning="";
+          }
+        }catch{
+          // The server warning remains visible; no partial/unsafe image key
+          // is put into the unsaved Facebook post.
+        }
+      }
+      if(!selectedImage?.imageKey&&item.imageUrl&&!imageWarning)
+        imageWarning="Titulný obrázok sa nepodarilo preniesť. Nahraj ho ručne.";
       const linkLabel=pickerKind==="article"?"Celý článok":"Viac informácií";
       setForm(old=>{
         const previous=selectedContentUrl;
@@ -155,11 +185,13 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         const link=linkLabel+": "+selected.url;
         if(!caption.includes(selected.url))caption=[caption,link].filter(Boolean).join("\n\n");
         return {...old,title:selected.title.slice(0,200),caption,
-          imageUrl:result.image?.imageUrl||"",imageKey:result.image?.imageKey||""};
+          imageUrl:selectedImage?.imageUrl||"",imageKey:selectedImage?.imageKey||""};
       });
       setSelectedContentUrl(selected.url);
-      setPickerError(result.imageWarning||"");
-      setNotice("Obsah bol predvyplnený. Uprav text a obrázok a následne ulož koncept.");
+      setPickerError(imageWarning);
+      setNotice(selectedImage?.imageKey
+        ?"Obsah aj fotografia boli prevzaté. Môžeš otvoriť editor grafiky."
+        :"Obsah bol prevzatý bez fotografie. Pred vytvorením grafiky nahraj fotografiu.");
       setPickerKind("none");
     }catch(error){setPickerError(error instanceof Error?error.message:"Výber obsahu zlyhal.");}
     finally{setSelectionBusy(false);}
