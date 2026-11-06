@@ -889,7 +889,7 @@ async function createProfileFromNotion(input: {
   let verified = null;
 
   if (desired.confirmedServiceLocation) {
-    if (desired.houseNumber.trim()) {
+    if ((desired.houseNumber ?? "").trim()) {
       // Exact provider verification is only possible with a house number.
       const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
       verified = await verifyDirectoryCanonicalAddress({
@@ -1006,7 +1006,7 @@ async function applyNotionToProfile(input: {
 
   let verified = null;
   if (safety.verifyExactAddress) {
-    if (desired.houseNumber.trim()) {
+    if ((desired.houseNumber ?? "").trim()) {
       const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
       verified = await verifyDirectoryCanonicalAddress({
         region: desired.region,
