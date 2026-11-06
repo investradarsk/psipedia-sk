@@ -10,6 +10,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { validateAdminPhotoGalleryUrl } from "@/lib/admin-photo-gallery-url";
 import { type AdminImageFolder, type AdminImageUpload } from "@/lib/admin-image-upload";
 import styles from "./admin-photo-gallery.module.css";
+import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 
 /** Edits the existing gallery URL array. Removing a reference never deletes shared media. */
 export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = false, onBusyChange }: {
@@ -60,7 +61,7 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
     onChange(next);
   }
 
-  return <section className={styles.gallery} aria-labelledby={`${id}-title`} aria-busy={busy}>
+  return <AdminEditorToolFrame kind="gallery"><section data-admin-photo-gallery className={styles.gallery} aria-labelledby={`${id}-title`} aria-busy={busy}>
     <h3 id={`${id}-title`}>Galéria fotografií ({value.length}/{limit})</h3>
     <p>Poradie môžeš zmeniť šípkami. Odstránenie vyradí fotografiu z galérie tohto profilu. Zmeny potvrď uložením profilu.</p>
     <AdminUppyGalleryUpload
@@ -94,5 +95,5 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
         </div>
       </>}/>
     {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
-  </section>;
+  </section></AdminEditorToolFrame>;
 }
