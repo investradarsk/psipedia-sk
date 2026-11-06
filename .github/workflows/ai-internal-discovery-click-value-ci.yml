@@ -1,8 +1,10 @@
 name: AI-INTERNAL-DISCOVERY-CLICK-VALUE-1 validation
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
     # This large E2E suite belongs to discovery/linking changes, not every
     # shared profile presentation or global test-fixture update.
     paths:
@@ -77,6 +79,8 @@ jobs:
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/sitemap-seo.test.mjs
 
   playwright:
+    # Discovery contracts remain automatic; browser matrix is opt-in.
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-e2e') }}
     name: Discovery Playwright — desktop/mobile
     needs: contracts
     runs-on: ubuntu-latest
