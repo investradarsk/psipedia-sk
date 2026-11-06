@@ -77,6 +77,19 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);assert.ok(overflow<=1,`${name} ${width} overflow ${overflow}`);
  const hero=page.locator('[data-public-detail-hero]'); assert.equal(await hero.count(),1);
  assert.equal(await page.locator('main h1').count(),1);
+ // STEP-16: service and event details use exactly one shared hero action template.
+ // Minimal events may have no external actions, but services always expose inquiry.
+ if(name.startsWith('directory') || name==='event') {
+   const actions=hero.locator('[data-public-detail-actions]');
+   assert.equal(await actions.count(),1,name+' must have the shared hero action row');
+   assert.equal(await actions.getAttribute('aria-label'),name==='event'?'Odkazy podujatia':'Akcie profilu');
+   if(name.startsWith('directory')) {
+     assert.equal(await page.locator('[data-public-service-detail-template="shared-event-service"]').count(),1);
+     assert.equal(await actions.locator('a[href="#kontakt"]').count(),1);
+   } else {
+     assert.ok((await actions.locator('a').count())>=1,'event retains registration or official-site action');
+   }
+ }
  const image=hero.locator('[data-public-profile-media]');
  if(await image.count()) { const fallback=image.locator('[data-public-media-fallback]'); const visual=await fallback.count()?fallback:image.locator('img:not([aria-hidden="true"])').last(); const visualBox=await visual.boundingBox(); assert.ok(visualBox&&visualBox.width>0&&visualBox.height>0,`${name} ${width} visible media or fallback must have nonzero dimensions`); const m=await image.boundingBox(),h=await hero.locator('h1').boundingBox();if(width>800)assert.ok(m.x>h.x,`${name} desktop media right`);else assert.ok(m.y<h.y,`${name} mobile media first`);}
  if(name==='organization') { const body=await page.locator('[data-public-profile-body]').boundingBox(); const aside=await page.locator('[data-public-profile-sidebar]').boundingBox(); if(width<=800) assert.ok(body.y+body.height<=aside.y+2,'organization content precedes sidebar on mobile'); else assert.ok(aside.x>body.x,'organization desktop sidebar on right'); }
