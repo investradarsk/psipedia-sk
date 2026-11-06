@@ -29,9 +29,10 @@ import { legacyArticleThumbnail, type ImageDisplayConfig } from "@/lib/image-dis
 const EVENT_SECTIONS: EditorWorkspaceSection[] = [
   { id: "event-basics", label: "Základné údaje" },
   { id: "event-schedule", label: "Termín a typ" },
-  { id: "event-location", label: "Miesto a organizátor" },
-  { id: "event-details", label: "Popis a informácie" },
-  { id: "event-media", label: "Odkazy a fotografia" },
+  { id: "event-location", label: "Miesto podujatia" },
+  { id: "event-contacts", label: "Organizátor a kontakty" },
+  { id: "event-details", label: "Program a informácie" },
+  { id: "event-media", label: "Fotografia a URL" },
   { id: "event-seo", label: "SEO" },
 ];
 
@@ -219,7 +220,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
           { value: excerpt, section: "event-basics", label: "Krátky popis" },
           { value: startDate, section: "event-schedule", label: "Dátum začiatku" },
           { value: city, section: "event-location", label: "Mesto" },
-          { value: organizer, section: "event-location", label: "Organizátor" },
+          { value: organizer, section: "event-contacts", label: "Organizátor" },
           { value: description, section: "event-details", label: "Podrobný popis" },
         ] : []),
       ];
@@ -240,8 +241,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         return;
       }
       for (const [value, section, label] of [
-        [websiteUrl, "event-media", "Web organizátora"],
-        [registrationUrl, "event-media", "Registrácia"],
+        [websiteUrl, "event-contacts", "Web organizátora"],
+        [registrationUrl, "event-contacts", "Registrácia"],
       ]) {
         if (!value.trim()) continue;
         try {
@@ -256,7 +257,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
     }
     if (nextStatus !== "draft" || status !== "published") {
       if (contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
-        setActiveEventSection("event-media"); setMessage(""); setError("Skontroluj kontaktný e-mail."); return;
+        setActiveEventSection("event-contacts"); setMessage(""); setError("Skontroluj kontaktný e-mail."); return;
       }
     }
     savePendingRef.current = true;
@@ -298,7 +299,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       <EditorWorkspace
         mode="page"
         title={event ? `Upraviť: ${event.title}` : "Nové podujatie"}
-        description="Zachovaný editor podujatia a jeho živý súhrn."
+        description="Uprav termín, miesto, organizátora, program a zverejnenie v samostatných sekciách."
         status={<EditorStatus label={cancelled ? "Zrušené podujatie" : status === "published" ? "Publikované" : "Koncept"} tone={cancelled ? "warning" : status === "published" ? "success" : "neutral"} />}
         sections={EVENT_SECTIONS}
         sectionMode="switch"
@@ -325,12 +326,13 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
           <AdminFormFeedback message={message} error={error} pending={saving} />
           <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} source={event ? { entityType: "EVENT", canonicalEntityId: event.id } : undefined} onAccepted={applyAutomationUpdate} />
           <EditorSection id="event-basics" className="admin-form-card admin-form-card--intro">
+            <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Názov a stručné predstavenie pre kalendár podujatí.</p></div></div></div>
             <div className="admin-field admin-field--title"><label htmlFor="event-title">Názov podujatia</label><input id="event-title" value={title} onChange={(input) => changeTitle(input.target.value)} placeholder="Napríklad: Klubová výstava retrieverov" required /></div>
             <div className="admin-field"><label htmlFor="event-excerpt">Krátky popis</label><AdminLexicalTextField id="event-excerpt" rows={3} value={excerpt} onChange={setExcerpt} placeholder="Čo sa bude diať a pre koho je podujatie určené?" required ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </EditorSection>
 
           <EditorSection id="event-schedule" className="admin-form-card">
-            <div className="admin-card-heading"><div><span>01</span><div><h2>Termín a typ</h2><p>Základné zaradenie v kalendári.</p></div></div></div>
+            <div className="admin-card-heading"><div><span>02</span><div><h2>Termín a typ</h2><p>Začiatok a koniec udalosti aj jej zaradenie v kalendári.</p></div></div></div>
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="event-type">Typ podujatia</label><select id="event-type" value={eventType} onChange={(input) => setEventType(input.target.value as EventType)}>{eventTypes.map((type) => <option key={type}>{type}</option>)}</select></div>
               <div className="admin-field"><label htmlFor="event-start-date">Dátum začiatku</label><input id="event-start-date" type="date" value={startDate} onInput={(input) => setStartDate(input.currentTarget.value)} required /></div>
@@ -338,16 +340,16 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
               <div className="admin-field"><label htmlFor="event-end-date">Dátum konca</label><input id="event-end-date" type="date" value={endDate} onInput={(input) => setEndDate(input.currentTarget.value)} /></div>
               <div className="admin-field"><label htmlFor="event-end-time">Čas konca</label><input id="event-end-time" type="time" value={endTime} onInput={(input) => setEndTime(input.currentTarget.value)} /></div>
             </div>
+            <label className="admin-event-cancelled"><input type="checkbox" checked={cancelled} onChange={(input) => setCancelled(input.target.checked)} /><span><strong>Podujatie je zrušené</strong><small>Na verejnej stránke sa zobrazí výrazné upozornenie.</small></span></label>
           </EditorSection>
 
           <EditorSection id="event-location" className="admin-form-card">
-            <div className="admin-card-heading"><div><span>02</span><div><h2>Miesto a organizátor</h2><p>Údaje, podľa ktorých návštevník podujatie nájde.</p></div></div></div>
+            <div className="admin-card-heading"><div><span>03</span><div><h2>Miesto podujatia</h2><p>Údaje na navigáciu a presné nájdenie miesta konania.</p></div></div></div>
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="event-region">Kraj</label><select id="event-region" value={region} onChange={(input) => setRegion(input.target.value as SlovakRegion)}>{slovakRegions.filter((item) => item !== "Online").map((item) => <option key={item}>{item}</option>)}</select></div>
               <div className="admin-field"><label htmlFor="event-city">Mesto</label><input id="event-city" value={city} onChange={(input) => setCity(input.target.value)} placeholder="Nitra" required /></div>
               <div className="admin-field"><label htmlFor="event-venue">Areál alebo budova</label><input id="event-venue" value={venue} onChange={(input) => setVenue(input.target.value)} placeholder="Agrokomplex" /></div>
               <div className="admin-field"><label htmlFor="event-address">Adresa</label><input id="event-address" value={address} onChange={(input) => setAddress(input.target.value)} placeholder="Výstavná 4" /></div>
-              <div className="admin-field"><label htmlFor="event-organizer">Organizátor</label><input id="event-organizer" value={organizer} onChange={(input) => setOrganizer(input.target.value)} required /></div>
             </div>
             {event ? (
               <div id="event-google-maps">
@@ -359,23 +361,29 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
             )}
           </EditorSection>
 
+          <EditorSection id="event-contacts" className="admin-form-card">
+            <div className="admin-card-heading"><div><span>04</span><div><h2>Organizátor a kontakty</h2><p>Kontaktné údaje a odkazy na registráciu dostupné návštevníkom.</p></div></div></div>
+            <AdminEditorToolFrame kind="contacts">
+              <div className="admin-field-grid">
+                <div className="admin-field"><label htmlFor="event-organizer">Organizátor</label><input id="event-organizer" value={organizer} onChange={(input) => setOrganizer(input.target.value)} required /></div>
+                <div className="admin-field"><label htmlFor="event-contact-phone">Verejný telefón organizátora</label><input id="event-contact-phone" type="tel" value={contactPhone} onChange={(input) => setContactPhone(input.target.value)} placeholder="+421 900 000 000" maxLength={80} /></div>
+                <div className="admin-field"><label htmlFor="event-contact-email">Verejný e-mail organizátora</label><input id="event-contact-email" type="email" value={contactEmail} onChange={(input) => setContactEmail(input.target.value)} placeholder="kontakt@organizator.sk" maxLength={254} /></div>
+                <div className="admin-field"><label htmlFor="event-web">Web organizátora</label><input id="event-web" type="url" value={websiteUrl} onChange={(input) => setWebsiteUrl(input.target.value)} placeholder="https://…" /></div>
+                <div className="admin-field"><label htmlFor="event-registration">Registrácia</label><input id="event-registration" type="url" value={registrationUrl} onChange={(input) => setRegistrationUrl(input.target.value)} placeholder="https://…" /></div>
+              </div>
+            </AdminEditorToolFrame>
+          </EditorSection>
+
           <EditorSection id="event-details" className="admin-form-card">
-            <div className="admin-card-heading"><div><span>03</span><div><h2>Popis a praktické informácie</h2><p>Vysvetli program, podmienky a čo si priniesť.</p></div></div></div>
+            <div className="admin-card-heading"><div><span>05</span><div><h2>Program a informácie</h2><p>Do podrobného popisu zapíš program, harmonogram a jednotlivé body podujatia. Praktické informácie sú určené aj na podmienky účasti.</p></div></div></div>
             <AdminEventMarkdownEditor id="event-description" label="Podrobný popis" value={description} onChange={setDescription} required />
             <AdminEventMarkdownEditor id="event-practical" label="Praktické informácie" value={practicalInfo} onChange={setPracticalInfo} />
+            <div className="admin-field"><label htmlFor="event-admission-fee">Vstupné</label><input id="event-admission-fee" value={admissionFee} onChange={(input) => setAdmissionFee(input.target.value)} placeholder="Zdarma / 5 € / podľa kategórie" maxLength={160} /><small>Uveď cenu alebo „Zdarma“. Podmienky doplň do praktických informácií.</small></div>
           </EditorSection>
 
           <EditorSection id="event-media" className="admin-form-card">
-            <div className="admin-card-heading"><div><span>04</span><div><h2>Odkazy, fotografia a adresa stránky</h2><p>Registrácia a titulná fotografia podujatia.</p></div></div></div>
-<AdminEditorToolFrame kind="contacts">
-            <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="event-web">Web organizátora</label><input id="event-web" type="url" value={websiteUrl} onChange={(input) => setWebsiteUrl(input.target.value)} placeholder="https://…" /></div>
-              <div className="admin-field"><label htmlFor="event-registration">Registrácia</label><input id="event-registration" type="url" value={registrationUrl} onChange={(input) => setRegistrationUrl(input.target.value)} placeholder="https://…" /></div>
-               <div className="admin-field"><label htmlFor="event-contact-phone">Verejný telefón organizátora</label><input id="event-contact-phone" type="tel" value={contactPhone} onChange={(input) => setContactPhone(input.target.value)} placeholder="+421 900 000 000" maxLength={80} /></div>
-               <div className="admin-field"><label htmlFor="event-contact-email">Verejný e-mail organizátora</label><input id="event-contact-email" type="email" value={contactEmail} onChange={(input) => setContactEmail(input.target.value)} placeholder="kontakt@organizator.sk" maxLength={254} /></div>
-               <div className="admin-field"><label htmlFor="event-admission-fee">Vstupné</label><input id="event-admission-fee" value={admissionFee} onChange={(input) => setAdmissionFee(input.target.value)} placeholder="Zdarma / 5 € / podľa kategórie" maxLength={160} /></div>
-            </div>
-            </AdminEditorToolFrame>
+            <div className="admin-card-heading"><div><span>06</span><div><h2>Fotografia a URL</h2><p>Titulný obrázok a verejná adresa stránky podujatia.</p></div></div></div>
+
             <div className="admin-field"><label htmlFor="event-slug">Adresa podujatia</label><div className="admin-slug-input"><span>psipedia.sk/podujatia/</span><input id="event-slug" value={slug} onChange={(input) => { setSlugEdited(true); setSlug(slugify(input.target.value)); }} placeholder="adresa-podujatia" required /></div></div>
             <div className="admin-upload-row">
               <div className="admin-upload-preview admin-upload-preview--coral">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" src={imageUrl} config={thumbnailImageDisplay} legacyMode={imageDisplay} alt="Náhľad obrázka podujatia" /> : <span>📅</span>}</div>
@@ -383,7 +391,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
             </div>
             {imageUrl && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {event && <AdminShareToFacebook title={title} imageUrl={imageUrl} publicPath={"/podujatia/" + event.slug} />}
-             <label className="admin-event-cancelled"><input type="checkbox" checked={cancelled} onChange={(input) => setCancelled(input.target.checked)} /><span><strong>Podujatie je zrušené</strong><small>Na verejnej stránke sa zobrazí výrazné upozornenie.</small></span></label>
+             
           </EditorSection>
           <EditorSection id="event-seo" className={styles.seoSection}>
             <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/podujatia/${slug}`} fallbackTitle={eventSeoFallback(title||"Názov podujatia",eventType,city).title} fallbackDescription={eventSeoFallback(title||"Názov podujatia",eventType,city).description}/>
