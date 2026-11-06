@@ -1,5 +1,8 @@
 "use client";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
+import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
+import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
+import styles from "./admin-organization-editor.module.css";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
@@ -12,7 +15,7 @@ import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AdminActionButton, AdminEditorSection, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
+import { AdminActionButton, AdminEditorSection, AdminHelpText } from "@/components/admin-interaction-system";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { ImageDisplay } from "@/components/image-display";
 import { ImageDisplayEditor } from "@/components/image-display-editor";
@@ -71,6 +74,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [activeOrganizationSection, setActiveOrganizationSection] = useState("organization-general");
   const archived = organization?.status === "ARCHIVED" || Boolean(organization?.archivedAt);
   const editingDisabled = !hydrated || archived || saving || uploading;
   const editorSnapshot = JSON.stringify(draft);
@@ -91,6 +95,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
     { id: "organization-contacts", label: "Kontakty" },
     { id: "organization-media", label: "Obrázok a zdroj" },
   ], []);
+  const activeOrganizationIndex = sections.findIndex((section) => section.id === activeOrganizationSection);
 
   useEffect(() => {
     if (!dirty) return;
@@ -181,6 +186,19 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (archived || mutationPending.current || uploading) return;
+    // All four form panels stay mounted. With noValidate, hidden native
+    // constraints can be inspected and their panel revealed before saving.
+    const invalid = Array.from(event.currentTarget.elements).find((control): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+      (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
+      && control.willValidate && !control.checkValidity()
+    );
+    if (invalid) {
+      const owner = invalid.closest("[data-admin-editor-section]") as HTMLElement | null;
+      setActiveOrganizationSection(owner?.id ?? "organization-general");
+      setMessage("");
+      setError("Vyplň alebo oprav: " + (invalid.labels?.[0]?.textContent?.trim() || "Pole formulára") + ".");
+      return;
+    }
     mutationPending.current = true;
     const submittedSnapshot = JSON.stringify(draft);
     setSaving(true); setError(""); setMessage("");
@@ -206,14 +224,24 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
       setMessage("Canonical údaje organizácie boli uložené.");
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Organizáciu sa nepodarilo uložiť.");
+      const detail = caught instanceof Error ? caught.message : "Organizáciu sa nepodarilo uložiť.";
+      if (/obráz|fotograf|image|source|zdroj/i.test(detail)) setActiveOrganizationSection("organization-media");
+      else if (/kontaktn|e-mail|telefón|website|facebook|instagram|odkaz|web|url/i.test(detail)) setActiveOrganizationSection("organization-contacts");
+      else if (/opis|popis|description|text|obsah/i.test(detail)) setActiveOrganizationSection("organization-content");
+      else if (/názov|meno|slug|typ|identit|name/i.test(detail)) setActiveOrganizationSection("organization-general");
+      setError(detail);
     } finally { mutationPending.current = false; setSaving(false); }
   }
 
-  return <form className="admin-event-editor" data-admin-form-system="v4" onSubmit={save}>
+  return <form noValidate className={`admin-event-editor ${styles.editor}`} data-admin-form-system="v4" data-admin-organization-editor onSubmit={save}>
     <EditorUnsavedChangesGuard active={dirty} open={confirmNavigation} onStay={stayInEditor} onDiscard={discardAndNavigate} />
-    <AdminStickyEditorNavigation sections={sections} ariaLabel="Sekcie editora organizácie" />
-    <div className="admin-event-fields">
+    <AdminEditorSectionVisibility.Provider value={{ activeId: activeOrganizationSection, mode: "switch" }}>
+      <div className={styles.layout} data-admin-organization-editor-workspace>
+        <AdminSharedEditorNavigation sections={sections} activeId={activeOrganizationSection}
+          onNavigate={setActiveOrganizationSection} layout="sidebar" mode="switch" ariaLabel="Sekcie editora organizácie" ready={hydrated} />
+        <div className={styles.content}>
+          <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
+          <div className="admin-event-fields">
       <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
       {archived && <p className="admin-message admin-message--error">Archivovaná organizácia je iba na čítanie. Obnov ju zo zoznamu organizácií do konceptu, ak ju potrebuješ upraviť.</p>}
 
@@ -262,12 +290,21 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
         </div>
         <div className="admin-field"><label htmlFor="organization-source">Zdroj / referencia</label><input id="organization-source" type="url" inputMode="url" value={text(draft.sourceUrl)} disabled={editingDisabled} onChange={(event) => patch({ sourceUrl: event.target.value || null })} /></div>
       </AdminEditorSection>
-    </div>
+          </div>
+          <nav className={styles.pager} aria-label="Prechod medzi sekciami organizácie">
+            <button type="button" disabled={activeOrganizationIndex <= 0}
+              onClick={() => setActiveOrganizationSection(sections[activeOrganizationIndex - 1]?.id ?? sections[0].id)}>Predchádzajúca</button>
+            <span role="status">Sekcia {activeOrganizationIndex + 1} z {sections.length}</span>
+            <button type="button" disabled={activeOrganizationIndex >= sections.length - 1}
+              onClick={() => setActiveOrganizationSection(sections[activeOrganizationIndex + 1]?.id ?? sections[sections.length - 1].id)}>Ďalšia</button>
+          </nav>
+        </div>
+      </div>
+    </AdminEditorSectionVisibility.Provider>
 
     {imageEditorOpen && draft.imageUrl && <ImageDisplayEditor src={draft.imageUrl} alt={draft.name || "Organizácia"} title={draft.name} excerpt={draft.shortDescription} entityLabel="organizácie" thumbnailAspectRatio="4 / 3"
        thumbnail={draft.thumbnailImageDisplay ?? null} detail={draft.detailImageDisplay ?? null} onCancel={() => setImageEditorOpen(false)}
        onSave={(thumbnail, detail) => { patch({ thumbnailImageDisplay: thumbnail, detailImageDisplay: detail }); setImageEditorOpen(false); }} />}
-    <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
     <AdminEditorFooter dirty={dirty} pending={saving}>
       <div className="admin-editor-actions">
       <div><Link href="/admin/organizacie">← Späť na organizácie</Link></div>
