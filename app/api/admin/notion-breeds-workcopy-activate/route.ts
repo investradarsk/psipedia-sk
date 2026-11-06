@@ -6,7 +6,7 @@ import { inspectBreedWorkCopy } from "@/lib/notion-breed-workcopy-parity.mjs";
 import { expandBreed60WorkPage } from "@/lib/notion-breed-workcopy-adapter.mjs";
 import { planBreedWorkcopyShadowRows } from "@/lib/notion-breed-workcopy-shadow-plan.mjs";
 import { planBreedWorkcopyActivation } from "@/lib/notion-breed-workcopy-activation-plan.mjs";
-import { parseBreedFieldSnapshot } from "@/lib/notion-breed-field-delta";
+import { isCompatibleBreedWorkcopyReceipt } from "@/lib/notion-breed-workcopy-receipt";
 import type { NotionSyncBindings } from "@/lib/notion-sync-shared";
 
 export const dynamic = "force-dynamic";
@@ -103,14 +103,8 @@ export async function POST(request: Request) {
     });
     // A syntactically valid receipt is insufficient: the full existing
     // per-field engine must also understand both saved field snapshots.
-    const baselinesValid = staged.results.every(row => {
-      if (!row.work_sync_receipt?.startsWith("breed-field-v1:")) return false;
-      try {
-        const receipt = JSON.parse(row.work_sync_receipt.slice("breed-field-v1:".length));
-        return !!parseBreedFieldSnapshot(receipt.notion ?? null) &&
-          !!parseBreedFieldSnapshot(receipt.admin ?? null);
-      } catch { return false; }
-    });
+    const baselinesValid = staged.results.every(row =>
+      isCompatibleBreedWorkcopyReceipt(row.work_sync_receipt));
     if (!baselinesValid) {
       return Response.json({code:"BREED_WORKCOPY_BASELINE_INCOMPATIBLE"},
         {status:409,headers});
