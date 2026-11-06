@@ -7,6 +7,7 @@ import {
   type ManagedBreedInput,
 } from "@/lib/breed-store";
 import { SITE_URL } from "@/config/public-site";
+import { writeBackBreedToWorkCopy } from "@/lib/notion-breed-workcopy-sync";
 import { mergeNotionBreedInput } from "@/lib/breed-sync-preservation";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
@@ -45,6 +46,8 @@ import {
 
 export type NotionBreedSyncBindings = NotionSyncBindings & {
   NOTION_BREED_SYNC_ENABLED?: string;
+  NOTION_BREED_WORKCOPY_SYNC_ENABLED?: string;
+  NOTION_BREEDS_WORK_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_DATA_SOURCE_ID?: string;
 };
 
@@ -593,6 +596,15 @@ export async function writeBackBreedEditorialToNotion(args:{
   /** Manual Admin → Notion confirmation; still validates page/ID and echoes. */
   ownerConfirmedOverwrite?:boolean;
 }){
+  if (notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED)) {
+    if (notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED))
+      throw Error("BREED_DUAL_SYNCHRONIZERS_FORBIDDEN");
+    return writeBackBreedToWorkCopy({
+      database: args.database, bindings: args.bindings,
+      before: args.before, breed: args.breed,
+      changedFieldKeys: args.changedFieldKeys,
+    });
+  }
   if(!notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED))
     return {linked:false,updated:false,reason:"disabled" as const};
   if(args.before.id!==args.breed.id||args.before.slug!==args.breed.slug)
@@ -1176,6 +1188,8 @@ export async function runNotionBreedSyncSweep(args: {
   /** Explicit one-page, linked-profile transfer direction. */
   manualDirection?: ManualFieldDirection;
 }): Promise<NotionBreedSyncSummary> {
+  if (notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED))
+    throw Error("BREED_OLD_SWEEP_DISABLED_IN_WORKCOPY_MODE");
   const summary: NotionBreedSyncSummary = {
     enabled: notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED),
     scanned: 0,
@@ -1251,6 +1265,12 @@ export async function writeBackPublishedBreedToNotion(args: {
   bindings: NotionBreedSyncBindings;
   breed: Pick<ManagedBreed, "id" | "slug" | "status" | "publishedAt">;
 }) {
+  if (notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED)) {
+    if (notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED))
+      throw Error("BREED_DUAL_SYNCHRONIZERS_FORBIDDEN");
+    // Publication is D1-owned; the 60+2 Notion source has no Stav or URL Psipedia.
+    return { linked: false, updated: false, reason: "workcopy-publication-d1-owned" as const };
+  }
   if (!notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED)) {
     return { linked: false, updated: false, reason: "disabled" as const };
   }
