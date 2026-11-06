@@ -3,6 +3,7 @@ import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { notionRequest, type NotionPage, type NotionSyncBindings } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
 import { planBreedWorkcopyIdentity } from "@/lib/notion-breed-workcopy-identity-plan.mjs";
+import { planBreedWorkcopyShadowRows } from "@/lib/notion-breed-workcopy-shadow-plan.mjs";
 
 import { inspectBreedWorkCopy } from "@/lib/notion-breed-workcopy-parity.mjs";
 import { expandBreed60WorkPage } from "@/lib/notion-breed-workcopy-adapter.mjs";
@@ -80,8 +81,9 @@ export async function GET() {
         "SELECT id,slug,name,fci_number,status FROM managed_breeds",
       ).all<{ id: number; slug: string; name: string; fci_number: number | null; status: string }>(),
       bindings.DB.prepare(
-        "SELECT breed_id,notion_page_id FROM breed_notion_sync",
-      ).all<{ breed_id: number; notion_page_id: string }>(),
+        "SELECT breed_id,notion_page_id,content_hash,last_synced_at,notion_last_edited_time FROM breed_notion_sync",
+      ).all<{ breed_id: number; notion_page_id: string; content_hash: string;
+        last_synced_at: string | null; notion_last_edited_time: string | null }>(),
     ]);
     const result = planBreedWorkcopyIdentity({
       sourcePages,
@@ -102,10 +104,27 @@ export async function GET() {
       }
     }
     const workCopyContentReady = parity.dataParity && malformedMergedFields.length === 0;
+    let shadowReceiptReady = false;
+    let shadowReceiptIssue: string | null = null;
+    if (result.identityReady && workCopyContentReady) {
+      try {
+        const rows = planBreedWorkcopyShadowRows({
+          identityPlan: result,
+          productionLinks: productionMappings.results,
+          originalDataSourceId: source,
+          workDataSourceId: work,
+        });
+        shadowReceiptReady = rows.length === 344;
+      } catch (reason) {
+        shadowReceiptIssue = reason instanceof Error ? reason.message : "BREED_SHADOW_UNKNOWN";
+      }
+    }
     return Response.json({
       identityReady: result.identityReady,
       cutoverReady: false,
       workCopyContentReady,
+      shadowReceiptReady,
+      shadowReceiptIssue,
       summary: result.summary,
       contentComparison: {
         ...parity.stats,
