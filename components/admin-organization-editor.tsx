@@ -1,4 +1,5 @@
 "use client";
+import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -237,6 +238,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
 
       <AdminEditorSection id="organization-contacts" className="admin-form-card">
         <div className="admin-card-heading"><div><span>03</span><div><h2>Kontakty a odkazy</h2><p>Iba public organization fields; súkromné PII sem nepatrí.</p></div></div></div>
+<AdminEditorToolFrame kind="contacts">
         <div className="admin-field-grid">
           <div className="admin-field"><label htmlFor="organization-email">Verejný e-mail</label><input id="organization-email" type="email" value={text(draft.publicEmail)} disabled={editingDisabled} onChange={(event) => patch({ publicEmail: event.target.value || null })} /></div>
           <div className="admin-field"><label htmlFor="organization-phone">Verejný telefón</label><input id="organization-phone" value={text(draft.publicPhone)} disabled={editingDisabled} onChange={(event) => patch({ publicPhone: event.target.value || null })} /></div>
@@ -244,6 +246,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
           <div className="admin-field"><label htmlFor="organization-facebook">Facebook</label><input id="organization-facebook" type="url" inputMode="url" value={text(draft.facebookUrl)} disabled={editingDisabled} onChange={(event) => patch({ facebookUrl: event.target.value || null })} /></div>
           <div className="admin-field"><label htmlFor="organization-instagram">Instagram</label><input id="organization-instagram" type="url" inputMode="url" value={text(draft.instagramUrl)} disabled={editingDisabled} onChange={(event) => patch({ instagramUrl: event.target.value || null })} /></div>
         </div>
+            </AdminEditorToolFrame>
       </AdminEditorSection>
 
       <AdminEditorSection id="organization-media" className="admin-form-card">
