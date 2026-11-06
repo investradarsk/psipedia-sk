@@ -9,6 +9,7 @@ import {
   AdminUiCardTitle,
 } from "@/components/admin-shadcn-editor-primitives";
 import styles from "./admin-shadcn-editor.module.css";
+import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 
 export type AdminUnifiedEditorSection = {
   id: string;
@@ -60,24 +61,11 @@ export function AdminUnifiedEditorWorkspace({
           {preview}
         </aside>
       ) : null}
-      <div className={styles.mobileNav}>
-        <label htmlFor="unified-editor-section">Sekcia editora</label>
-        <select id="unified-editor-section" value={currentId} onChange={(event) => setActiveId(event.target.value)}>
-          {sections.map((section) => (
-            <option key={section.id} value={section.id}>{section.label}</option>
-          ))}
-        </select>
-      </div>
       <div className={styles.editorGrid}>
-        <nav className={styles.sideNav} aria-label="Sekcie editora">
-          <span className={styles.sideTitle}>Obsah editora</span>
-          {sections.map((section) => (
-            <button type="button" key={section.id} aria-current={section.id === currentId ? "step" : undefined}
-              onClick={() => setActiveId(section.id)}>
-              {section.label}
-            </button>
-          ))}
-        </nav>
+        <AdminSharedEditorNavigation
+          sections={sections} activeId={currentId} onNavigate={setActiveId}
+          layout="sidebar" mode="switch" ariaLabel="Sekcie editora"
+        />
         <div className={styles.mainColumn}>
           {sections.map((section) => (
             <section className={styles.section} key={section.id} id={"unified-section-" + section.id}
