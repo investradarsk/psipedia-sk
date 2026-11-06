@@ -240,3 +240,29 @@ test("EDITORIAL-5 qualified reads respect visibility, cooldown, and exclusion of
   assert.match(tracker, /isInternalArticleReadBrowser/);
   assert.match(endpoint, /isInternalTrafficRequest\(request\)/);
 });
+
+test("EDITORIAL-5 news menu, canonical route and sitemap agree on /novinky", () => {
+  const navDefaults = readFileSync("lib/navigation.ts", "utf8");
+  const navStore = readFileSync("lib/navigation-store.ts", "utf8");
+  const header = readFileSync("lib/public-header-navigation.ts", "utf8");
+  const footer = readFileSync("components/site-footer.tsx", "utf8");
+  const sitemap = readFileSync("lib/sitemap-seo.ts", "utf8");
+  const newsRoute = readFileSync("app/[section]/page.tsx", "utf8");
+
+  assert.match(navDefaults, /id: "novinky", label: "Novinky", href: "\/novinky"/);
+  assert.match(navStore, /item.id === "novinky" && item.href === "\/clanky"/);
+  assert.match(navStore, /href: "\/novinky"/);
+  assert.match(header, /item.id === "novinky" \? "novinky"/);
+  assert.match(footer, /<Link href="\/novinky">Novinky<\/Link>/);
+  assert.doesNotMatch(sitemap.split("export const NEWS_SITEMAP_WINDOW_MS")[0], /"\/novinky"/);
+  assert.match(newsRoute, /path: "\/novinky"/);
+  assert.match(newsRoute, /<NewsHub/);
+});
+
+test("EDITORIAL-5 homepage labels mixed latest articles separately from news", () => {
+  const homepage = readFileSync("components/home-editorial.tsx", "utf8");
+  const archive = readFileSync("app/clanky/page.tsx", "utf8");
+  assert.match(homepage, /home-latest-title">Najnovšie články/);
+  assert.match(homepage, /<Link href="\/clanky"/);
+  assert.match(archive, /title: "Všetky články"/);
+});
