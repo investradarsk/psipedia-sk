@@ -7,6 +7,7 @@ import { expandBreed60WorkPage } from "@/lib/notion-breed-workcopy-adapter.mjs";
 import { planBreedWorkcopyShadowRows } from "@/lib/notion-breed-workcopy-shadow-plan.mjs";
 import { planBreedWorkcopyActivation } from "@/lib/notion-breed-workcopy-activation-plan.mjs";
 import { isCompatibleBreedWorkcopyReceipt } from "@/lib/notion-breed-workcopy-receipt";
+import { breedWorkcopyAtomicActivationSql } from "@/lib/notion-breed-workcopy-activation-sql.mjs";
 import type { NotionSyncBindings } from "@/lib/notion-sync-shared";
 
 export const dynamic = "force-dynamic";
@@ -116,26 +117,10 @@ export async function POST(request: Request) {
       },{status:409,headers});
     }
 
-    // A single SQL statement is all-or-nothing for the 344 status changes.
-    // The subquery blocks ANY partial activation if a receipt, identity or
-    // original link has changed since the live preflight.
-    const result = await db.prepare(
-      "UPDATE breed_notion_workcopy_links SET status='ACTIVE',"+
-      "verified_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),"+
-      "activated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),"+
-      "updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "+
-      "WHERE status='SHADOW' "+
-      "AND (SELECT COUNT(*) FROM breed_notion_workcopy_links)=344 "+
-      "AND (SELECT COUNT(*) FROM breed_notion_workcopy_links AS w "+
-      "JOIN breed_notion_sync AS s ON s.breed_id=w.breed_id "+
-      "JOIN managed_breeds AS b ON b.id=w.breed_id "+
-      "WHERE w.status='SHADOW' AND w.original_notion_page_id=s.notion_page_id "+
-      "AND w.original_sync_receipt=s.content_hash "+
-      "AND w.canonical_slug=b.slug AND w.fci_number=b.fci_number "+
-      "AND w.original_data_source_id=? AND w.work_data_source_id=? "+
-      "AND w.work_sync_receipt=w.original_sync_receipt "+
-      "AND w.work_sync_receipt LIKE 'breed-field-v1:%')=344",
-    ).bind(oldId,newId).run();
+    // MATERIALIZED eligibility and the exact 344/344 guard execute before the
+    // one-shot D1 update. Any mismatch produces ZERO ACTIVE rows.
+    const result = await db.prepare(breedWorkcopyAtomicActivationSql)
+      .bind(oldId, newId).run();
 
     if (result.meta.changes !== 344) {
       return Response.json({code:"BREED_WORKCOPY_ACTIVATION_CAS_FAILED"},
