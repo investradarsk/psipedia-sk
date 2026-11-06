@@ -176,9 +176,9 @@ export function AdminShadcnEditorPreview() {
           actions={<>
             <span className={styles.statusLine} role="status" aria-live="polite">{message}</span>
             <div className={styles.actionGroup}>
-              <button type="button" className={styles.buttonQuiet} disabled={!isDirty} onClick={discard}>Zahodiť zmeny</button>
-              <button type="submit" className={styles.buttonSecondary}>Uložiť lokálne</button>
-              <button type="button" className={styles.buttonPrimary} onClick={() => setConfirmPublish(true)}>Simulovať publikovanie</button>
+              <AdminActionButton type="button" variant="neutral" disabled={!isDirty} onClick={discard}>Zahodiť zmeny</AdminActionButton>
+              <AdminActionButton type="submit" variant="secondary">Uložiť lokálne</AdminActionButton>
+              <AdminActionButton type="button" variant="primary" onClick={() => setConfirmPublish(true)}>Simulovať publikovanie</AdminActionButton>
             </div>
           </>}
         />
