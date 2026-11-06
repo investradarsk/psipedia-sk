@@ -9,7 +9,6 @@ import {
   HERO_BREEDS_ANCHOR,
   HERO_ARTICLES_ANCHOR,
   CTA_DIRECTORY_MAP_ANCHOR,
-  CTA_HELP_ORGANIZATIONS_ANCHOR,
   articleListCardAnchor,
 } from "@/lib/visual-library-anchors";
 
@@ -113,15 +112,15 @@ export async function getVisualLibraryExamples(): Promise<VisualLibraryExample[]
   examples.push({
     id: "cta:help-organizations",
     category: "cta",
-    label: "Tlačidlo – Zobraziť organizácie",
-    explanation: "Sekundárne CTA z hlavičky Pomoc psom. Používa skutočný komponent verejného tlačidla.",
+    label: "Tlačidlo – Zobraziť všetky (útulky)",
+    explanation: "Terciárne CTA v prehľade Útulky a organizácie na stránke Pomoc psom. Odkaz na umiestnenie smeruje na existujúci nadpis sekcie.",
     uses: [{
       url: path("/pomoc-psom"),
       label: "Pomoc psom",
-      placement: "Hero – tlačidlo Zobraziť organizácie",
-      anchorId: CTA_HELP_ORGANIZATIONS_ANCHOR,
+      placement: "Útulky a organizácie – Zobraziť všetky",
+      anchorId: "help-overview-utulky",
     }],
-    preview: <PublicActionLink href="/organizacie" variant="secondary">Zobraziť organizácie</PublicActionLink>,
+    preview: <PublicActionLink href="/pomoc-psom/utulky" variant="tertiary">Zobraziť všetky</PublicActionLink>,
   });
 
   const newestArticle = published.status === "fulfilled" ? published.value[0] : null;
