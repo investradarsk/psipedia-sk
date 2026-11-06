@@ -154,7 +154,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         try{
           const source=new URL(item.imageUrl,window.location.origin);
           const safeLocalImage=source.origin===window.location.origin&&
-            /^\\/(?:media\\/(?!safe\\/|quarantine\\/|quality-missing-candidates\\/)|images\\/|migrated-media\\/)/i.test(source.pathname);
+            /^\/(?:media\/(?!safe\/|quarantine\/|quality-missing-candidates\/)|images\/|migrated-media\/)/i.test(source.pathname);
           if(safeLocalImage){
             const photoResponse=await fetch(source.pathname+source.search,{credentials:"same-origin",cache:"no-store"});
             if(!photoResponse.ok)throw Error("Titulný obrázok nie je dostupný.");
