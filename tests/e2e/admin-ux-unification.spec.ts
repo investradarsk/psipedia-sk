@@ -164,7 +164,7 @@ for (const width of [1440, 390, 320]) {
       else await nav.getByRole("button", { name, exact: true }).click();
       await expect(page.locator("#" + id)).toBeVisible();
     };
-    await activate("help-location", "Zaradenie a lokalita");
+    await activate("help-place", "Zaradenie a lokalita");
     await expect(title).toBeHidden();
     await page.locator("#help-organization").fill("Záchranné centrum");
     await activate("help-story", "Prípad a pes");
@@ -176,7 +176,7 @@ for (const width of [1440, 390, 320]) {
     await expect(page.locator("#help-slug")).toBeEditable();
     await activate("help-seo", "SEO");
     await expect(page.locator("#help-seo")).toBeVisible();
-    await activate("help-location", "Zaradenie a lokalita");
+    await activate("help-place", "Zaradenie a lokalita");
     await expect(page.locator("#help-organization")).toHaveValue("Záchranné centrum");
     await activate("help-story", "Prípad a pes");
     await expect(page.locator("#help-dog-name")).toHaveValue("Ben");
