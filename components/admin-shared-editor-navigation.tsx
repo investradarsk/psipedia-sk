@@ -1,9 +1,15 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useSyncExternalStore } from "react";
 import styles from "./admin-shared-editor-navigation.module.css";
 
 export type AdminSharedEditorSectionLink = { id: string; label: string };
+
+// Hydration-safe controls: native scroll anchors remain available without JS,
+// while switch buttons/select are enabled only once React can handle a change.
+const subscribeEditorHydration = () => () => {};
+const readyOnClient = () => true;
+const readyOnServer = () => false;
 
 /**
  * Common presentation and keyboard/select behavior for Psipedia's editors.
@@ -29,6 +35,8 @@ export function AdminSharedEditorNavigation({
   ariaLabel?: string;
 }) {
   const selectId = useId();
+  const hydrated = useSyncExternalStore(subscribeEditorHydration, readyOnClient, readyOnServer);
+  const navigationReady = ready && hydrated;
   if (!sections.length) return null;
   const currentId = sections.some((item) => item.id === activeId)
     ? activeId
@@ -38,7 +46,7 @@ export function AdminSharedEditorNavigation({
   // follow the newly revealed section. Never steal focus on initial hydration,
   // or on scroll/hash navigation that has its own focus/scroll semantics.
   function navigate(id: string) {
-    if (!ready || !sections.some((section) => section.id === id)) return;
+    if (!navigationReady || !sections.some((section) => section.id === id)) return;
     onNavigate(id);
     if (mode !== "switch") return;
     window.requestAnimationFrame(() => {
@@ -52,7 +60,7 @@ export function AdminSharedEditorNavigation({
     <nav className={layout === "sidebar" ? styles.sidebar : styles.horizontal}
       aria-label={ariaLabel} data-admin-shared-editor-navigation
       data-editor-navigation-layout={layout}
-      data-editor-navigation-mode={mode} data-admin-editor-nav-ready={ready ? "true" : "false"}>
+      data-editor-navigation-mode={mode} data-admin-editor-nav-ready={navigationReady ? "true" : "false"}>
       <div className={styles.links}>
         {sections.map((item) => mode === "scroll" ? (
           <a key={item.id} href={`#${encodeURIComponent(item.id)}`}
@@ -67,7 +75,7 @@ export function AdminSharedEditorNavigation({
           <button key={item.id} type="button"
             aria-current={currentId === item.id ? "step" : undefined}
             aria-controls={item.id}
-            disabled={!ready}
+            disabled={!navigationReady}
             onClick={() => navigate(item.id)}>
             {item.label}
           </button>
@@ -77,7 +85,7 @@ export function AdminSharedEditorNavigation({
         <span>Sekcia editora</span>
         <select id={selectId} aria-label="Sekcia editora" value={currentId}
           aria-controls={mode === "switch" ? currentId : undefined}
-          disabled={!ready} onChange={(event) => navigate(event.currentTarget.value)}>
+          disabled={!navigationReady} onChange={(event) => navigate(event.currentTarget.value)}>
           {sections.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
