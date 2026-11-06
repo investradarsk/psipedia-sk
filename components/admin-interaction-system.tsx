@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import styles from "./admin-interaction-system.module.css";
+import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 
 export type AdminActionVariant = "primary" | "secondary" | "neutral" | "destructive" | "link";
 
@@ -461,34 +462,16 @@ export function AdminStickyEditorNavigation({
   if (!sections.length) return null;
 
   return (
-    <nav className={styles.editorNavigation} aria-label={ariaLabel} data-admin-editor-navigation data-admin-editor-nav-ready={navigationReady ? "true" : "false"}>
-      <div className={styles.editorNavigationLinks}>
-        {sections.map((section) => (
-          <a
-            href={`#${section.id}`}
-            key={section.id}
-            aria-current={currentSectionId === section.id ? "location" : undefined}
-            onClick={(event) => {
-              event.preventDefault();
-              goToSection(section.id);
-            }}
-          >
-            {section.label}
-          </a>
-        ))}
-      </div>
-      <label className={styles.editorNavigationMobile}>
-        <span>Sekcia</span>
-        <select
-          value={currentSectionId}
-          aria-label={ariaLabel}
-          disabled={!navigationReady}
-          onChange={(event) => goToSection(event.currentTarget.value)}
-        >
-          {sections.map((section) => <option value={section.id} key={section.id}>{section.label}</option>)}
-        </select>
-      </label>
-    </nav>
+    <div className={styles.editorNavigation} data-admin-editor-navigation data-admin-editor-nav-ready={navigationReady ? "true" : "false"}>
+      <AdminSharedEditorNavigation
+        sections={sections}
+        activeId={currentSectionId}
+        onNavigate={goToSection}
+        ready={navigationReady}
+        ariaLabel={ariaLabel}
+        mode="scroll"
+      />
+    </div>
   );
 }
 
