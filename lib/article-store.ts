@@ -789,15 +789,19 @@ async function articleImageProjection(database: D1Database): Promise<string> {
 
 export async function getPublishedArticleSummaries(options: {
   portalSection?: ArticlePortalSection;
+  portalSubpage?: string;
   category?: Article["category"];
   limit?: number;
+  offset?: number;
 } = {}): Promise<Article[]> {
   const database = getD1Binding();
   const limit = Math.max(1, Math.min(500, Math.trunc(options.limit ?? 120)));
+  const offset = options.offset === undefined ? undefined : Math.max(0, Math.trunc(options.offset));
   if (!database) return seedArticles
     .filter((article) => !options.portalSection || article.portalSection === options.portalSection)
+    .filter((article) => !options.portalSubpage || article.portalSubpage === options.portalSubpage)
     .filter((article) => !options.category || article.category === options.category)
-    .slice(0, limit);
+    .slice(offset ?? 0, (offset ?? 0) + limit);
   await ensureArticleStore(database);
   const conditions = ["(status = 'published' OR (status = 'scheduled' AND published_at <= ?))"];
   const bindings: unknown[] = [new Date().toISOString()];
@@ -809,13 +813,17 @@ export async function getPublishedArticleSummaries(options: {
     conditions.push("category = ?");
     bindings.push(options.category);
   }
+  if (options.portalSubpage) {
+    conditions.push("portal_subpage = ?");
+    bindings.push(options.portalSubpage);
+  }
   const result = await database
     .prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, ${await articleImageProjection(database)}
       FROM managed_articles
       WHERE ${conditions.join(" AND ")}
       ORDER BY published_at DESC, updated_at DESC, id DESC
-      LIMIT ?`)
-    .bind(...bindings, limit)
+      LIMIT ?${offset === undefined ? "" : " OFFSET ?"}`)
+    .bind(...bindings, limit, ...(offset === undefined ? [] : [offset]))
     .all<ArticleSummaryRow>();
   return result.results.map(rowToPublishedArticleSummary);
 }
