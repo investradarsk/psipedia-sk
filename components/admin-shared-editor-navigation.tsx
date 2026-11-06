@@ -34,6 +34,20 @@ export function AdminSharedEditorNavigation({
     ? activeId
     : sections[0].id;
 
+  // For one-panel-at-a-time editors, keyboard and screen-reader focus must
+  // follow the newly revealed section. Never steal focus on initial hydration,
+  // or on scroll/hash navigation that has its own focus/scroll semantics.
+  function navigate(id: string) {
+    if (!ready || !sections.some((section) => section.id === id)) return;
+    onNavigate(id);
+    if (mode !== "switch") return;
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(id);
+      if (!(target instanceof HTMLElement) || !target.matches("[data-admin-editor-section]") || target.hidden) return;
+      target.focus({ preventScroll: false });
+    });
+  }
+
   return (
     <nav className={layout === "sidebar" ? styles.sidebar : styles.horizontal}
       aria-label={ariaLabel} data-admin-shared-editor-navigation
@@ -52,7 +66,9 @@ export function AdminSharedEditorNavigation({
         ) : (
           <button key={item.id} type="button"
             aria-current={currentId === item.id ? "step" : undefined}
-            onClick={() => onNavigate(item.id)}>
+            aria-controls={item.id}
+            disabled={!ready}
+            onClick={() => navigate(item.id)}>
             {item.label}
           </button>
         ))}
@@ -60,7 +76,8 @@ export function AdminSharedEditorNavigation({
       <label className={styles.mobile} htmlFor={selectId}>
         <span>Sekcia editora</span>
         <select id={selectId} aria-label="Sekcia editora" value={currentId}
-          disabled={!ready} onChange={(event) => onNavigate(event.currentTarget.value)}>
+          aria-controls={mode === "switch" ? currentId : undefined}
+          disabled={!ready} onChange={(event) => navigate(event.currentTarget.value)}>
           {sections.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
