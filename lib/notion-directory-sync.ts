@@ -1218,6 +1218,16 @@ async function syncBreederEvent(input: {
     let updated = false;
     const failures: string[] = [];
     for (const path of paths) {
+      // A signed editorial event never invalidates a previously confirmed
+      // Google Place/address. Only the Admin address verification workflow
+      // may change those protected physical-location fields.
+      if (["region","district","city","address","postalCode","street","houseNumber","addressFormat"].includes(path)) {
+        const geo = await loadGeoMirror(database, current.id);
+        const googleConfirmed = Boolean(geo?.google_place_id &&
+          geo.google_place_source_fingerprint && geo.source_fingerprint &&
+          geo.google_place_source_fingerprint === geo.source_fingerprint);
+        if (googleConfirmed || current.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION") continue;
+      }
       const before = profileSnapshot(current) as unknown as Record<string, unknown>;
       const desired = breederApplyNotionChanges(before, fromNotion, [path]);
       if (JSON.stringify(breederReadPath(before, path)) ===
