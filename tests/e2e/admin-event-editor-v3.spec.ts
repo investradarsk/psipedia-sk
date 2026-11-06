@@ -6,9 +6,10 @@ const outDir = ".e2e-artifacts/events-editor-v3";
 const sections = [
   ["event-basics", "Základné údaje"],
   ["event-schedule", "Termín a typ"],
-  ["event-location", "Miesto a organizátor"],
-  ["event-details", "Popis a informácie"],
-  ["event-media", "Odkazy a fotografia"],
+  ["event-location", "Miesto podujatia"],
+  ["event-contacts", "Organizátor a kontakty"],
+  ["event-details", "Program a informácie"],
+  ["event-media", "Fotografia a URL"],
   ["event-seo", "SEO"],
 ] as const;
 
@@ -78,17 +79,17 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 320, height: 690 },
 ]) {
-  test("Events V3: six sections, edit preservation, preview, SEO, footer and guard at " + viewport.width + "px", async ({ page }) => {
+  test("Events V3: seven sections, edit preservation, preview, SEO, footer and guard at " + viewport.width + "px", async ({ page }) => {
     await page.setViewportSize(viewport);
     const root = await openEditor(page);
-    await expect(root.locator("[data-admin-editor-section]")).toHaveCount(6);
+    await expect(root.locator("[data-admin-editor-section]")).toHaveCount(7);
     await expect(page.getByRole("button", { name: "Späť na podujatia", exact: true })).toHaveCount(1);
     await expect(root.getByRole("button", { name: "Uložiť koncept", exact: true })).toBeVisible();
     await expect(root.getByRole("button", { name: "Publikovať podujatie", exact: true })).toBeVisible();
 
     const title = root.getByLabel("Názov podujatia");
     await title.fill("Klubová výstava retrieverov");
-    await showEventSection(root, "event-details", "Popis a informácie");
+    await showEventSection(root, "event-details", "Program a informácie");
     const markdown = root.getByRole("textbox", { name: "Podrobný popis", exact: true });
     await markdown.fill("Prvý odsek\n\nDôležité informácie");
     await expect(root.getByRole("region", { name: "Náhľad: Podrobný popis" })).toContainText("Dôležité informácie");
@@ -131,11 +132,12 @@ for (const viewport of [
     // is actually visible before capturing the final layout, not mid-animation.
     await expect(root.locator("#event-basics")).toBeInViewport({ ratio: 0.2 });
     await expect(title).toHaveValue("Klubová výstava retrieverov");
-    await showEventSection(root, "event-details", "Popis a informácie");
+    await showEventSection(root, "event-details", "Program a informácie");
     await expect(markdown).toContainText("Prvý odsek");
     await expect(markdown).toContainText("Dôležité informácie");
-    await showEventSection(root, "event-basics", "Základné údaje");
+    await showEventSection(root, "event-seo", "SEO");
     await expect(root.getByLabel("SEO title")).toHaveValue("Klubová výstava – SEO test");
+    await showEventSection(root, "event-basics", "Základné údaje");
     await checkNoHorizontalOverflow(page);
     if (viewport.width > 820) {
       const previewPanel = root.locator("[data-editor-preview]");
@@ -170,17 +172,18 @@ test("New event: external-form draft button sends canonical POST to isolated moc
   });
   const root = await openEditor(page);
   await root.getByLabel("Názov podujatia").fill("Testovací koncept");
-  await showEventSection(root, "event-location", "Miesto a organizátor");
+  await showEventSection(root, "event-location", "Miesto podujatia");
   await root.getByLabel("Mesto").fill("Nitra");
+  await showEventSection(root, "event-contacts", "Organizátor a kontakty");
   await root.getByRole("textbox", { name: "Organizátor", exact: true }).fill("Klub");
   await showEventSection(root, "event-schedule", "Termín a typ");
   await root.getByLabel("Dátum začiatku").fill("2026-11-12");
-  await showEventSection(root, "event-details", "Popis a informácie");
+  await showEventSection(root, "event-details", "Program a informácie");
   await root.getByRole("textbox", { name: "Podrobný popis", exact: true }).fill("Markdown koncept");
-  await showEventSection(root, "event-media", "Odkazy a fotografia");
+  await root.getByLabel("Vstupné").fill("5 € / deti zdarma");
+  await showEventSection(root, "event-contacts", "Organizátor a kontakty");
   await root.getByLabel("Verejný telefón organizátora").fill("+421 900 111 222");
   await root.getByLabel("Verejný e-mail organizátora").fill("klub@example.sk");
-  await root.getByLabel("Vstupné").fill("5 € / deti zdarma");
   await root.getByRole("button", { name: "Uložiť koncept" }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toMatchObject({
@@ -210,10 +213,11 @@ test("New event: publish action sends published status through the canonical POS
   await root.getByRole("textbox", { name: "Krátky popis" }).fill("Klubová výstava pre chovateľov a návštevníkov.");
   await showEventSection(root, "event-schedule", "Termín a typ");
   await root.getByLabel("Dátum začiatku").fill("2026-11-12");
-  await showEventSection(root, "event-location", "Miesto a organizátor");
+  await showEventSection(root, "event-location", "Miesto podujatia");
   await root.getByLabel("Mesto").fill("Nitra");
+  await showEventSection(root, "event-contacts", "Organizátor a kontakty");
   await root.getByRole("textbox", { name: "Organizátor", exact: true }).fill("Klub");
-  await showEventSection(root, "event-details", "Popis a informácie");
+  await showEventSection(root, "event-details", "Program a informácie");
   await root.getByRole("textbox", { name: "Podrobný popis", exact: true }).fill("Podujatie s programom pre všetkých návštevníkov a vystavovateľov.");
   await root.getByRole("button", { name: "Publikovať podujatie" }).click();
   await expect.poll(() => requests.length).toBe(1);
@@ -272,7 +276,7 @@ test("Legacy event Markdown is untouched when saving unrelated fields", async ({
     });
   });
   const root = await openEditor(page, "legacy");
-  await showEventSection(root, "event-details", "Popis a informácie");
+  await showEventSection(root, "event-details", "Program a informácie");
   const source = root.getByRole("textbox", { name: "Podrobný popis", exact: true });
   await expect(source).toHaveValue("* Starý zoznam\n3. Netradičné číslovanie");
   await expect(root.getByRole("textbox", { name: "Praktické informácie", exact: true }))
