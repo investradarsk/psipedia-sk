@@ -180,6 +180,8 @@ for (const width of [1440, 390, 320]) {
 
 test("organization submit reveals an invalid field in a hidden section without API writes", async ({ page }) => {
   await page.goto("/admin/organizacie/novy", { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Názov *", { exact: true }).fill("Neplatný e-mail v skrytej sekcii");
+  await page.getByLabel("Slug *", { exact: true }).fill("neplatny-email-v-skrytej-sekcii");
   await showOrganizationSection(page, "organization-contacts", "Kontakty");
   await page.getByLabel("Verejný e-mail").fill("not-valid-email");
   const writes: string[] = [];
@@ -188,8 +190,8 @@ test("organization submit reveals an invalid field in a hidden section without A
   });
   await showOrganizationSection(page, "organization-media", "Obrázok a zdroj");
   await page.getByRole("button", { name: "Vytvoriť koncept" }).click();
-  // Name and slug precede email in form order; open the first invalid section.
-  await expect(page.locator("#organization-general")).toBeVisible();
-  await expect(page.locator('[data-admin-form-feedback="error"]')).toContainText("Názov");
+  // The invalid email is in a hidden panel at submit time.
+  await expect(page.locator("#organization-contacts")).toBeVisible();
+  await expect(page.locator('[data-admin-form-feedback="error"]')).toContainText("Verejný e-mail");
   expect(writes).toEqual([]);
 });
