@@ -1196,7 +1196,7 @@ export function breederEditedFields(
 }
 
 /**
- * Breeder-only event mode: one explicit source action is authoritative for
+ * Mapped breeder/trainer event mode: one explicit source action is authoritative for
  * the fields it edited. No record-wide hash/baseline/conflict reconciliation.
  * Retain the mapped identity, auth, and canonical structural constraints.
  */
@@ -1312,7 +1312,7 @@ async function syncMappedPage(input: {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
   }
 
-  if (profile.category === "chovatelske-stanice"
+  if (["chovatelske-stanice", "treneri"].includes(profile.category)
       && (input.breederWebhookPropertyIds !== undefined || input.breederAdminFields !== undefined)
       && !input.manualDirection) {
     // A signed webhook must not be allowed to reassign a different entity.
@@ -1890,7 +1890,7 @@ export async function runNotionDirectorySyncSweep(input: {
   // the entire service catalog; no new cron, schema or parallel writer.
   let relationSchemaReady: Promise<boolean> | undefined;
   let lookupPromise: Promise<CatalogRelationLookup> | null = null;
-  async function syncRelation(pageId: string, profileId: number) {
+  async function syncRelation(pageId: string, profileId: number, notionAdditionsOnly = false) {
     relationSchemaReady ??= input.database.prepare(
       "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'"
     ).first<{ok:number}>().then(Boolean);
@@ -1901,7 +1901,7 @@ export async function runNotionDirectorySyncSweep(input: {
     return syncProfileCatalogRelation({
       db: input.database, bindings: input.bindings, pageId, profileId,
       category: profile.category, directoryDataSourceId: dataSourceId,
-      lookup: await lookupPromise,
+      lookup: await lookupPromise, notionAdditionsOnly,
     });
   }
 
@@ -1924,10 +1924,12 @@ export async function runNotionDirectorySyncSweep(input: {
       if(action==="pulled"||action==="pushed")
         await recordDirectoryTransfer(input.database,input.targetProfileId,
           action==="pulled"?"NOTION_TO_ADMIN":"ADMIN_TO_NOTION");
-      // Only an explicit service-choice save enables this additional targeted
-      // relation. A skipped relation does NOT count as successfully mirrored.
-      if (input.syncServiceRelations) {
-        const relation = await syncRelation(mapping.notion_page_id, input.targetProfileId);
+      // Explicit Admin service choice or approved one-profile Notion→Admin
+      // transfer also updates canonical service selections/legacy public text.
+      // The latter imports only additions, never infers a deletion.
+      if (input.syncServiceRelations || input.manualDirection === "NOTION_TO_ADMIN") {
+        const relation = await syncRelation(mapping.notion_page_id, input.targetProfileId,
+          input.manualDirection === "NOTION_TO_ADMIN");
         summary.serviceRelationSync = relation;
         if (relation === "skipped") summary.failed++;
       }
@@ -2142,6 +2144,9 @@ export async function runNotionDirectorySyncSweep(input: {
       }
 
       if (!mapping) continue;
+      // Breeders and trainers are field-event driven. Do not re-merge the
+      // entire mapped profile during hourly sweeps after a partial event.
+      if (!input.targetPageId && propertyText(page, "Kategória") === "treneri") continue;
 
       if (
         page.last_edited_time
@@ -2177,8 +2182,17 @@ export async function runNotionDirectorySyncSweep(input: {
         page,
         breederWebhookPropertyIds: input.changedPropertyIds,
       });
-      // Services V3 canonical relation is not part of a breeder editorial event.
-      if (input.changedPropertyIds === undefined) await syncRelation(page.id,mapping.directory_profile_id);
+      // A signed change to the canonical relation is independent of text fields.
+      // The Notion event can add verified choices without silently removing
+      // older Admin YES selections. Ordinary sweeps retain 3-way reconciliation.
+      const relationProp = page.properties?.["Služby z katalógu"] as { id?: unknown } | undefined;
+      const relationChanged = input.changedPropertyIds?.some(id =>
+        id === "Služby z katalógu" || id === relationProp?.id) ?? false;
+      if (input.changedPropertyIds === undefined || relationChanged) {
+        const relation = await syncRelation(page.id, mapping.directory_profile_id, relationChanged);
+        summary.serviceRelationSync = relation;
+        if (relation === "skipped" && relationChanged) summary.failed++;
+      }
       if (result === "pulled") summary.pulledFromNotion += 1;
       else if (result === "pushed") summary.pushedToNotion += 1;
       else summary.unchanged += 1;
@@ -2208,7 +2222,7 @@ export async function runNotionDirectorySyncSweep(input: {
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
-    if (changedProfile?.category === "chovatelske-stanice") continue;
+    if (changedProfile && ["chovatelske-stanice", "treneri"].includes(changedProfile.category)) continue;
     let page: NotionPage | undefined;
     try {
       // Load only once. The same snapshot is used for identity validation,
