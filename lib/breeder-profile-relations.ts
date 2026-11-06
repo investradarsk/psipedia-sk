@@ -1,4 +1,4 @@
-import { breedProfileHref, canonicalBreedIdsSql } from "./breed-canonical";
+import { breedProfileHref, canonicalBreedIdsSql } from "./breed-canonical.ts";
 import type { PublicRelatedBreed } from "./content-relations";
 
 /**
