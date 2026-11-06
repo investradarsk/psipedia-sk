@@ -91,3 +91,17 @@
     flex: 1 1 auto;
   }
 }
+
+
+/* UNIFIED-EDITOR-3: event page follows the same document scroll as article and
+   breed editors. The previous 76/78dvh pilot cap produced nested scrolling. */
+.eventPilot :global([data-editor-page]) {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+.eventPilot :global([data-editor-page]) > :global([data-editor-workspace]) {
+  flex: none;
+  min-height: 0;
+  max-height: none;
+}
