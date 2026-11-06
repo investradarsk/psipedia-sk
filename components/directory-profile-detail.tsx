@@ -276,21 +276,6 @@ export function DirectoryProfileDetail({
       ) : null,
     },
     {
-      key: "breeder-gallery",
-      column: "main" as const,
-      content: breederGallery.length ? (
-        <DetailSection compactHeading eyebrow="Fotografie" title="Galéria">
-          <PublicPhotoGallery
-            label={`Fotografie chovateľskej stanice ${presentation.name}`}
-            images={breederGallery.map((src, index) => ({
-              src,
-              alt: `${presentation.name} – fotografia ${index + 1}`,
-            }))}
-          />
-        </DetailSection>
-      ) : null,
-    },
-    {
       key: "contact",
       column: "aside" as const,
       content: (
@@ -326,7 +311,7 @@ export function DirectoryProfileDetail({
     },
     {
       key: "expertise",
-      column: "main" as const,
+      column: "aside" as const,
       content: hasExpertise ? (
         <DetailSection
           compactHeading
@@ -388,6 +373,21 @@ export function DirectoryProfileDetail({
               <li key={source}>{source}</li>
             ))}
           </ul>
+        </DetailSection>
+      ) : null,
+    },
+    {
+      key: "breeder-gallery",
+      column: "main" as const,
+      content: breederGallery.length ? (
+        <DetailSection compactHeading eyebrow="Fotografie" title="Galéria">
+          <PublicPhotoGallery
+            label={`Fotografie chovateľskej stanice ${presentation.name}`}
+            images={breederGallery.map((src, index) => ({
+              src,
+              alt: `${presentation.name} – fotografia ${index + 1}`,
+            }))}
+          />
         </DetailSection>
       ) : null,
     },
