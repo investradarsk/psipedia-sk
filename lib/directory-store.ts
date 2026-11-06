@@ -670,9 +670,9 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     priceNote: row.price_note,
     websiteUrl: row.website_url,
     imageUrl: row.image_url,
-    galleryUrls: row.category === "chovatelske-stanice"
-      ? readDirectoryBreederGallery(safeImportData(row.source_data_json, true))
-      : [],
+    ...(row.category === "chovatelske-stanice"
+      ? { galleryUrls: readDirectoryBreederGallery(safeImportData(row.source_data_json, true)) }
+      : {}),
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     verified: Boolean(row.verified),
