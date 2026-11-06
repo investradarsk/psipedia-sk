@@ -63,3 +63,42 @@ test("invalid number and missing visible property fail closed", () => {
   assert.throws(() => patch("children", "4", 3), /BREED_WORKCOPY_NUMBER_INVALID/);
   assert.throws(() => patch("health", "Zdravie", ""), /BREED_WORKCOPY_TARGET_MISSING/);
 });
+
+
+test("visible health-risks and good-for arrays serialize as independent Notion text cells", () => {
+  const p = page();
+  p.properties["Zdravotné riziká"] = text("Alergie; Dysplázia");
+  p.properties["Vhodné pre"] = text("Rodiny; Aktívni ľudia");
+  const risks = patch("healthRisks", ["Alergie","Dysplázia","Oči"],
+    ["Alergie","Dysplázia"],p);
+  assert.equal(risks.properties["Zdravotné riziká"].rich_text[0].text.content,
+    "Alergie; Dysplázia; Oči");
+  const good = patch("goodFor", ["Rodiny","Aktívni ľudia","Športovci"],
+    ["Rodiny","Aktívni ľudia"],p);
+  assert.equal(good.property,"Vhodné pre");
+  assert.deepEqual(Object.keys(good.properties),["Vhodné pre"]);
+});
+
+test("structured sources preserve each existing label and URL", () => {
+  const p = page();
+  p.properties["Zdroje"] = text("FCI|https://fci.be/; Klub|https://example.org/");
+  const sources=patch("sources", [
+    {label:"FCI",url:"https://fci.be/"},
+    {label:"Klub",url:"https://example.org/"},
+    {label:"Štandard",url:"https://example.com/standard"},
+  ],[
+    {label:"FCI",url:"https://fci.be/"},
+    {label:"Klub",url:"https://example.org/"},
+  ],p);
+  assert.equal(sources.properties.Zdroje.rich_text[0].text.content,
+    "FCI|https://fci.be/; Klub|https://example.org/; Štandard|https://example.com/standard");
+});
+
+test("invalid structured data and stale list baselines block without a PATCH", () => {
+  const p=page();
+  p.properties["Zvážiť"]=text("Výcvik; Pohyb");
+  assert.throws(()=>patch("consider",["Zneužitie; neplatné"],["Výcvik","Pohyb"],p),
+    /BREED_WORKCOPY_LIST_INVALID/);
+  assert.throws(()=>patch("consider",["Bývanie"],["Staré hodnoty"],p),
+    /BREED_WORKCOPY_FIELD_CHANGED_IN_NOTION/);
+});
