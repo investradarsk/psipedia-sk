@@ -27,6 +27,7 @@ import { getNewsCategory } from "@/lib/news";
 import {
   articleHref,
   articlePortalSection,
+  getPortalSubpage,
   portalSectionLabel,
   portalSubpageHref,
   type PortalSection,
@@ -79,18 +80,21 @@ export function ArticleDetail({
   const section = articlePortalSection(article);
   const sectionHref = section === "clanky" ? "/clanky" : `/${section}`;
   const newsCategory = section === "novinky" ? getNewsCategory(article.newsCategory) : null;
-  const reviewCategory =
-    section === "recenzie" && portalSection?.slug === "recenzie" && article.portalSubpage
-      ? (portalSection.subpages.find(
+  // Canonical section + subsection takes precedence over the legacy editorial category.
+  // The fallback is for older records without a valid assigned subsection.
+  const managedTopic = article.portalSubpage
+    ? portalSection?.slug === section
+      ? portalSection.subpages.find(
           (item) => item.slug === article.portalSubpage && item.visible !== false,
-        ) ?? null)
-      : null;
+        )
+      : getPortalSubpage(section, article.portalSubpage)?.subpage
+    : null;
   const topicHref = newsCategory
     ? `/novinky/${newsCategory.slug}`
-    : reviewCategory
-      ? portalSubpageHref(portalSection!, reviewCategory)
+    : managedTopic
+      ? portalSubpageHref({ slug: section }, managedTopic)
       : articleCategoryHref(article.category);
-  const topicLabel = newsCategory?.label ?? reviewCategory?.label ?? article.category;
+  const topicLabel = newsCategory?.label ?? managedTopic?.label ?? article.category;
   const canonical = absoluteUrl(article.seo?.canonicalUrl || articleHref(article));
   const image = article.image ? absoluteUrl(article.image) : undefined;
   const imageCreditHref = safeExternalImageCreditUrl(article.imageCreditUrl);
