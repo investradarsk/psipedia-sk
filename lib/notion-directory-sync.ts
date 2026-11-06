@@ -1209,6 +1209,19 @@ async function syncBreederEvent(input: {
       const desired = breederApplyNotionChanges(before, fromNotion, [path]);
       if (JSON.stringify(breederReadPath(before, path)) ===
           JSON.stringify(breederReadPath(desired, path))) continue;
+      // Preserve the complete stored source JSON, including nested legacy
+      // metadata and the breeder gallery, just like the Admin PUT handler.
+      const sourceRow = await database.prepare(
+        "SELECT source_data_json FROM directory_profiles WHERE id=? LIMIT 1",
+      ).bind(current.id).first<{ source_data_json: string }>();
+      let completeSource: unknown;
+      try { completeSource = JSON.parse(sourceRow?.source_data_json ?? "null"); }
+      catch { completeSource = null; }
+      if (!completeSource || typeof completeSource !== "object" || Array.isArray(completeSource)) {
+        failures.push(path);
+        continue;
+      }
+      current = { ...current, importData: completeSource as typeof current.importData };
       const payload = fullProfileInput(desired as unknown as EditableDirectorySnapshot, current);
       // An editorial address edit is not a claim of a verified Google location.
       if (["region", "district", "city", "address", "postalCode", "street", "houseNumber", "addressFormat"].includes(path)) {
