@@ -48,7 +48,7 @@ const skippedSpecial = new Set<string>([
   "name", "fciStandard", "editorial",
   "image", "gallery", "relatedBreedIds",
   "relatedArticleIds", "directoryProfileIds",
-  "sports", "healthRisks", "goodFor", "consider", "sources",
+  "sports",
 ]);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const normalized = (id: string) => id.replaceAll("-", "").toLowerCase();
