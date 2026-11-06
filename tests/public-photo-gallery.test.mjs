@@ -101,7 +101,10 @@ test("preserved gallery variants keep every photo, captions, crop variants and e
 
   const report = render({ images, variant: "report", maxImages: images.length });
   assert.equal((report.match(/<img /g) ?? []).length, 8);
-  assert.doesNotMatch(report, /<a |<figure|loading=|decoding=/);
+  assert.doesNotMatch(report, /<a |<figure/);
+  // Report photos now use native deferred decoding/loading to reduce initial network work.
+  assert.equal((report.match(/loading="lazy"/g) ?? []).length, images.length);
+  assert.equal((report.match(/decoding="async"/g) ?? []).length, images.length);
 
   const editorial = render({ images: [{ ...images[0], size: "wide", caption: "Popis" }], variant: "editorial" });
   assert.match(editorial, /article-block-gallery-item--wide/);
