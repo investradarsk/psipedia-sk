@@ -10,6 +10,7 @@ import {
 } from "@/components/admin-shadcn-editor-primitives";
 import styles from "./admin-shadcn-editor.module.css";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
+import { AdminEditorFooter } from "@/components/admin-editor-footer";
 
 export type AdminUnifiedEditorSection = {
   id: string;
@@ -84,7 +85,7 @@ export function AdminUnifiedEditorWorkspace({
           ))}
         </div>
       </div>
-      {actions ? <footer className={styles.footer} data-unified-editor-actions>{actions}</footer> : null}
+      {actions ? <AdminEditorFooter data-unified-editor-actions>{actions}</AdminEditorFooter> : null}
     </div>
   );
 }
