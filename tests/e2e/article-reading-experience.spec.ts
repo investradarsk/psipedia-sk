@@ -723,7 +723,8 @@ test("ARTICLE-PUBLIC canonical news landing and topic URLs stay available", asyn
   await page.goto("/novinky", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/novinky$/);
   await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Všetky novinky" }).getByRole("link").first()).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Všetky publikované novinky" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
   await page.goto("/novinky/veda-a-zdravie", { waitUntil: "domcontentloaded" });
