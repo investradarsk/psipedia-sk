@@ -17,7 +17,7 @@ Použitý je **jeden zdieľaný navigačný systém** pre osem kanonických rod�
 
 - `tests/e2e/admin-ux-unification.spec.ts`: odstránený zastaraný predpoklad hash odkazov v adresári. E2E teraz skutočne prepína sekcie cez tlačidlo alebo select, kontroluje fokus, viditeľnosť, retenciu údajov, horizontálne pretekanie a accessibility pomocou axe.
 - `tests/e2e/adoption.spec.ts`, `tests/e2e/lost-found-dogs.spec.ts`, `tests/e2e/admin-organization-publication.spec.ts`: doplnené očakávanie `toBeFocused()` po výbere sekcie. Ich existujúca matica zostáva **1440 / 390 / 320 px** bez rozširovania počtu pomalých testov.
-- `tests/admin-editor-unified-navigation-step3.test.mjs`: upravená existujúca statická asercia na nové hydraulicky bezpečné `navigationReady`.
+- `tests/admin-editor-unified-navigation-step3.test.mjs`: upravená existujúca statická asercia na nové hydratačne bezpečné `navigationReady`.
 - **Nový malý statický kontrakt** `tests/admin-editor-mobile-a11y-step17.test.mjs`: zdieľaná navigácia, focus, hydratácia, desktop/mobile CSS, footer a všetkých osem editorov.
 
 ## Presný stav overenia
