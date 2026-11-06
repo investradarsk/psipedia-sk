@@ -10,6 +10,7 @@ import {
 } from "@/lib/portal";
 import { isNewsCategory, type NewsCategorySlug } from "@/lib/news";
 import { getManagedPortalSubpage } from "@/lib/section-store";
+import { articleCategoryForPortalPlacement } from "@/lib/article-subsection-taxonomy";
 import {
   articleBlockSources,
   legacyArticleBlocks,
@@ -607,9 +608,6 @@ async function normalizeInput(
   const takeawayRichText = suppliedTakeawayRichText ?? legacyRichTextToDocument(takeaway);
   const status: ArticleStatus = payload.status === "published" ? "published" : payload.status === "scheduled" ? "scheduled" : "draft";
   const staticQaIssues = assessArticleContentQa(payload);
-  const category = ARTICLE_CATEGORIES.includes(payload.category as (typeof ARTICLE_CATEGORIES)[number])
-    ? (payload.category as Article["category"])
-    : null;
   const portalSection: ArticlePortalSection = payload.portalSection && isArticlePortalSection(payload.portalSection)
     ? payload.portalSection
     : "clanky";
@@ -620,6 +618,14 @@ async function normalizeInput(
   const newsCategory: NewsCategorySlug | null = portalSection === "novinky"
     ? payload.newsCategory && isNewsCategory(payload.newsCategory) ? payload.newsCategory : "zo-sveta"
     : null;
+  const submittedCategory = ARTICLE_CATEGORIES.includes(payload.category as (typeof ARTICLE_CATEGORIES)[number])
+    ? (payload.category as Article["category"])
+    : null;
+  // Canonical portal placement owns the legacy category for newly edited records.
+  // General /clanky records retain their deliberately selected editorial category.
+  const category = portalSection === "clanky" || !(portalSubpage || portalSection === "novinky")
+    ? submittedCategory
+    : articleCategoryForPortalPlacement(portalSection, portalSubpage ?? "");
   const accent = ARTICLE_ACCENTS.includes(payload.accent as (typeof ARTICLE_ACCENTS)[number])
     ? (payload.accent as Article["accent"])
     : "forest";
