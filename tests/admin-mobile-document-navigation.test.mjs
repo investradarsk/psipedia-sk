@@ -8,7 +8,7 @@ test("only iOS mobile navigation reloads the two unstable streamed routes", () =
   const guard = read("components/admin-mobile-document-navigation.tsx");
   const layout = read("app/admin/layout.tsx");
   const navigation = read("components/admin-navigation.tsx");
-  const quickNavigation = read("components/admin-quick-navigation.tsx");
+  const quickNavigation = read("components/admin-quick-navigation-dialog.tsx");
   assert.match(guard, /window\.matchMedia\("\(max-width: 820px\)"\)\.matches/);
   assert.match(guard, /target\.origin !== window\.location\.origin/);
   assert.match(guard, /isIosWebKitDevice\(navigator\.userAgent, navigator\.platform, navigator\.maxTouchPoints\)/);
