@@ -1,0 +1,146 @@
+import { env } from "cloudflare:workers";
+import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { fetchBreedNotionInventory } from "@/lib/notion-breed-workcopy-inventory";
+import { planBreedWorkcopyIdentity } from "@/lib/notion-breed-workcopy-identity-plan.mjs";
+import { inspectBreedWorkCopy } from "@/lib/notion-breed-workcopy-parity.mjs";
+import { expandBreed60WorkPage } from "@/lib/notion-breed-workcopy-adapter.mjs";
+import { planBreedWorkcopyShadowRows } from "@/lib/notion-breed-workcopy-shadow-plan.mjs";
+import { planBreedWorkcopyActivation } from "@/lib/notion-breed-workcopy-activation-plan.mjs";
+import type { NotionSyncBindings } from "@/lib/notion-sync-shared";
+
+export const dynamic = "force-dynamic";
+const headers = { "Cache-Control": "private, no-store" };
+type Bindings = NotionSyncBindings & {
+  DB?: D1Database;
+  NOTION_BREED_SYNC_ENABLED?: string;
+  NOTION_BREED_WORKCOPY_SYNC_ENABLED?: string;
+  NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED?: string;
+  NOTION_BREEDS_DATA_SOURCE_ID?: string;
+  NOTION_BREEDS_WORK_DATA_SOURCE_ID?: string;
+};
+type DbBreed = {
+  id: number; slug: string; name: string; fci_number: number | null; status: string;
+};
+type DbLink = {
+  breed_id: number; notion_page_id: string; content_hash: string;
+  last_synced_at: string | null; notion_last_edited_time: string | null;
+};
+type ShadowRow = {
+  breed_id: number; original_notion_page_id: string;
+  work_notion_page_id: string; original_data_source_id: string;
+  work_data_source_id: string; canonical_slug: string; fci_number: number;
+  original_sync_receipt: string; work_sync_receipt: string | null;
+  work_notion_last_edited_time: string | null; status: string;
+};
+const UUID = /^[a-f0-9]{8}(?:-?[a-f0-9]{4}){3}-?[a-f0-9]{12}$/i;
+const norm = (s:string) => s.replaceAll("-", "").toLowerCase();
+
+/**
+ * Owner-confirmed, one-shot D1 status transition for all 344 breeds.
+ * Both cron sync engines MUST first be off. External ChatGPT editorial
+ * automations must be paused by the operator. Never edits Notion, canonical
+ * profiles, publication, SEO or original production page-ID mappings.
+ *
+ * Deployed disabled. This is NOT called on merge or by any cron.
+ */
+export async function POST(request: Request) {
+  const user = await getAdminApiUser();
+  if (!user) return unauthorizedAdminResponse();
+  const bindings = env as unknown as Bindings;
+  const oldId = bindings.NOTION_BREEDS_DATA_SOURCE_ID?.trim() ?? "";
+  const newId = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID?.trim() ?? "";
+  if (!bindings.DB || !bindings.NOTION_API_TOKEN ||
+      bindings.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED !== "true" ||
+      bindings.NOTION_BREED_SYNC_ENABLED !== "false" ||
+      bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED !== "false" ||
+      !UUID.test(oldId) || !UUID.test(newId) || norm(oldId) === norm(newId)) {
+    return Response.json({code:"BREED_WORKCOPY_ACTIVATION_DISABLED"},
+      {status:503,headers});
+  }
+  if (request.headers.get("x-psipedia-confirm-action") !== "ACTIVATE_344_BREEDS" ||
+      request.headers.get("x-psipedia-editorial-automations") !== "BOTH_PAUSED") {
+    return Response.json({code:"BREED_WORKCOPY_ACTIVATION_CONFIRMATION_REQUIRED"},
+      {status:409,headers});
+  }
+
+  try {
+    const db = bindings.DB;
+    const [sourcePages, workPages, canonical, originalLinks, staged] =
+      await Promise.all([
+        fetchBreedNotionInventory(oldId, bindings),
+        fetchBreedNotionInventory(newId, bindings),
+        db.prepare("SELECT id,slug,name,fci_number,status FROM managed_breeds")
+          .all<DbBreed>(),
+        db.prepare("SELECT breed_id,notion_page_id,content_hash,last_synced_at,"+
+          "notion_last_edited_time FROM breed_notion_sync").all<DbLink>(),
+        db.prepare("SELECT breed_id,original_notion_page_id,work_notion_page_id,"+
+          "original_data_source_id,work_data_source_id,canonical_slug,"+
+          "fci_number,original_sync_receipt,work_sync_receipt,"+
+          "work_notion_last_edited_time,status FROM breed_notion_workcopy_links")
+          .all<ShadowRow>(),
+      ]);
+    const identity = planBreedWorkcopyIdentity({
+      sourcePages, workPages,
+      canonicalBreeds: canonical.results, productionLinks: originalLinks.results,
+    });
+    const parity = inspectBreedWorkCopy(sourcePages, workPages);
+    const mergedValid = workPages.every(page =>
+      expandBreed60WorkPage(page).errors.length === 0);
+    if (!identity.identityReady || !parity.dataParity || !mergedValid) {
+      return Response.json({code:"BREED_WORKCOPY_LIVE_PREFLIGHT_FAILED"},
+        {status:409,headers});
+    }
+    const planned = planBreedWorkcopyShadowRows({
+      identityPlan: identity,
+      productionLinks: originalLinks.results,
+      originalDataSourceId: oldId,
+      workDataSourceId: newId,
+    });
+    const activation = planBreedWorkcopyActivation({
+      planned, staged: staged.results, workPages,
+      oldSourceId: oldId, newSourceId: newId,
+    });
+    if (!activation.ready) {
+      return Response.json({
+        code:"BREED_WORKCOPY_NOT_READY",
+        count:activation.count, failures:activation.failures,
+      },{status:409,headers});
+    }
+
+    // A single SQL statement is all-or-nothing for the 344 status changes.
+    // The subquery blocks ANY partial activation if a receipt, identity or
+    // original link has changed since the live preflight.
+    const result = await db.prepare(
+      "UPDATE breed_notion_workcopy_links SET status='ACTIVE',"+
+      "verified_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),"+
+      "activated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),"+
+      "updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "+
+      "WHERE status='SHADOW' "+
+      "AND (SELECT COUNT(*) FROM breed_notion_workcopy_links)=344 "+
+      "AND (SELECT COUNT(*) FROM breed_notion_workcopy_links AS w "+
+      "JOIN breed_notion_sync AS s ON s.breed_id=w.breed_id "+
+      "JOIN managed_breeds AS b ON b.id=w.breed_id "+
+      "WHERE w.status='SHADOW' AND w.original_notion_page_id=s.notion_page_id "+
+      "AND w.original_sync_receipt=s.content_hash "+
+      "AND w.canonical_slug=b.slug AND w.fci_number=b.fci_number "+
+      "AND w.original_data_source_id=? AND w.work_data_source_id=? "+
+      "AND w.work_sync_receipt=w.original_sync_receipt "+
+      "AND w.work_sync_receipt LIKE 'breed-field-v1:%')=344",
+    ).bind(oldId,newId).run();
+
+    if (result.meta.changes !== 344) {
+      return Response.json({code:"BREED_WORKCOPY_ACTIVATION_CAS_FAILED"},
+        {status:409,headers});
+    }
+    return Response.json({
+      activated:true, activeLinks:344,
+      oldSyncEnabled:false, workCopySyncEnabled:false,
+      next:"Enable only the new sync after readback, then switch both editorial automations.",
+    },{headers});
+  } catch (error) {
+    console.error("breed_workcopy_activation_failed",
+      error instanceof Error ? error.message : "unknown");
+    return Response.json({code:"BREED_WORKCOPY_ACTIVATION_FAILED"},
+      {status:503,headers});
+  }
+}
