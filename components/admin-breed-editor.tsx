@@ -307,7 +307,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <div className={styles.heading}><div><h2>Športy a aktivity</h2><p>Upravuj vhodnosť a poradie aktivít. Každý šport má byť v profile iba raz.</p></div><AdminActionButton variant="secondary" onClick={openNewSport}>+ Pridať šport</AdminActionButton></div>
         <div className={styles.sportsList}>
           {form.sports.map((sport,index)=><article className={styles.sportRow} key={`${sport.key}-${index}`}>
-            <strong>{sport.label}</strong><span>Vhodnosť {sport.rating}/5</span><p>{sport.note||"Bez poznámky"}</p>
+            <strong>{sport.label}</strong><span className={styles.sportRating}>Vhodnosť {sport.rating}/5</span>{sport.note ? <p>{sport.note}</p> : <span className={styles.sportEmpty}>Bez poznámky</span>}
             <div className={styles.sportActions}>
               <AdminActionButton variant="neutral" onClick={()=>moveSport(index,-1)} disabled={index===0} aria-label={`Posunúť ${sport.label} vyššie`}>↑</AdminActionButton>
               <AdminActionButton variant="neutral" onClick={()=>moveSport(index,1)} disabled={index===form.sports.length-1} aria-label={`Posunúť ${sport.label} nižšie`}>↓</AdminActionButton>
@@ -323,13 +323,26 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     <AdminEditorSection id="breed-relations" className={styles.sectionCard}>
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>Súvisiaci obsah a databázy</h2><p>Priradené položky sú vždy navrchu. Ďalšie pridáš vyhľadaním názvu; výber nemení obsah článkov ani profilov v adresári.</p></div></div>
+        <div className={styles.relationTabs} role="group" aria-label="Vyber typ prepojenia">
+          {([
+            ["articles","Články"],
+            ["breeds","Plemená"],
+            ["stations","Chovateľské stanice"],
+            ["clubs","Chovateľské kluby"],
+          ] as const).map(([kind,label])=><button
+            key={kind} type="button" aria-pressed={activeRelationKind===kind}
+            onClick={()=>setActiveRelationKind(kind)}>{label}</button>)}
+        </div>
         <div className={styles.relationColumns}>
+          <div className={styles.relationPanel} hidden={activeRelationKind!=="articles"}>
           <AdminBreedRelationGroup
             kind="articles" title="Súvisiace články" placeholder="Hľadať článok"
             selectedIds={form.relatedArticleIds}
             initialOptions={options.articles.map((item)=>({id:item.id,label:item.title,meta:item.status}))}
             onToggle={(id)=>toggleId("relatedArticleIds",id)}
           />
+          </div>
+          <div className={styles.relationPanel} hidden={activeRelationKind!=="breeds"}>
           <AdminBreedRelationGroup
             kind="breeds" title="Podobné plemená" placeholder="Hľadať plemeno"
             selectedIds={form.relatedBreedIds}
@@ -337,18 +350,23 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
             localOptions={options.breeds.filter((item)=>item.id!==breed?.id).map((item)=>({id:item.id,label:item.name,meta:item.fciNumber?"FCI "+item.fciNumber:"FCI číslo neuvedené"}))}
             onToggle={(id)=>toggleId("relatedBreedIds",id)}
           />
+          </div>
+          <div className={styles.relationPanel} hidden={activeRelationKind!=="stations"}>
           <AdminBreedRelationGroup
             kind="stations" title="Chovateľské stanice" placeholder="Hľadať stanicu"
             selectedIds={form.directoryProfileIds}
             initialOptions={options.directoryProfiles.filter((item)=>item.category==="chovatelske-stanice").map((item)=>({id:item.id,label:item.name,meta:item.city}))}
             onToggle={(id)=>toggleId("directoryProfileIds",id)}
           />
+          </div>
+          <div className={styles.relationPanel} hidden={activeRelationKind!=="clubs"}>
           <AdminBreedRelationGroup
             kind="clubs" title="Chovateľské kluby" placeholder="Hľadať klub"
             selectedIds={form.directoryProfileIds}
             initialOptions={options.directoryProfiles.filter((item)=>item.category==="chovatelske-kluby").map((item)=>({id:item.id,label:item.name,meta:item.city}))}
             onToggle={(id)=>toggleId("directoryProfileIds",id)}
           />
+          </div>
         </div>
       </div>
     </AdminEditorSection>
