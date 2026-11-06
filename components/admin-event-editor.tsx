@@ -79,6 +79,23 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   const [error, setError] = useState("");
   const [activeEventSection, setActiveEventSection] = useState(EVENT_SECTIONS[0].id);
   const activeEventSectionIndex = EVENT_SECTIONS.findIndex((section) => section.id === activeEventSection);
+  const pagerFocusTargetRef = useRef<string | null>(null);
+  const navigateWithPager = (id: string) => {
+    if (!EVENT_SECTIONS.some((section) => section.id === id)) return;
+    pagerFocusTargetRef.current = id;
+    setActiveEventSection(id);
+  };
+  // Shared sidebar/mobile navigation focuses its own panel. The in-form pager
+  // updates controlled state directly, so restore focus/scroll after React
+  // reveals the new panel (not while it is still hidden).
+  useEffect(() => {
+    if (pagerFocusTargetRef.current !== activeEventSection) return;
+    pagerFocusTargetRef.current = null;
+    const panel = document.getElementById(activeEventSection);
+    if (panel?.getAttribute("data-editor-section-active") !== "true") return;
+    panel.scrollIntoView({ block: "start", behavior: "smooth" });
+    panel.focus({ preventScroll: true });
+  }, [activeEventSection]);
 
   // Track the canonical form payload, not DOM input events: markdown toolbar,
   // SEO drawer, image display settings and automation patches all change React state.
@@ -398,10 +415,10 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
           </EditorSection>
           <nav className={styles.sectionPager} aria-label="Prechod medzi sekciami podujatia">
             <AdminActionButton variant="secondary" type="button" disabled={activeEventSectionIndex <= 0}
-              onClick={() => setActiveEventSection(EVENT_SECTIONS[activeEventSectionIndex - 1]?.id ?? EVENT_SECTIONS[0].id)}>Predchádzajúca</AdminActionButton>
+              onClick={() => navigateWithPager(EVENT_SECTIONS[activeEventSectionIndex - 1]?.id ?? EVENT_SECTIONS[0].id)}>Predchádzajúca</AdminActionButton>
             <span role="status">Sekcia {activeEventSectionIndex + 1} z {EVENT_SECTIONS.length}</span>
             <AdminActionButton variant="secondary" type="button" disabled={activeEventSectionIndex >= EVENT_SECTIONS.length - 1}
-              onClick={() => setActiveEventSection(EVENT_SECTIONS[activeEventSectionIndex + 1]?.id ?? EVENT_SECTIONS[EVENT_SECTIONS.length - 1].id)}>Ďalšia</AdminActionButton>
+              onClick={() => navigateWithPager(EVENT_SECTIONS[activeEventSectionIndex + 1]?.id ?? EVENT_SECTIONS[EVENT_SECTIONS.length - 1].id)}>Ďalšia</AdminActionButton>
           </nav>
         </form>
 
