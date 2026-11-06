@@ -1,3 +1,6 @@
+import { breedProfileHref, canonicalBreedIdsSql } from "./breed-canonical";
+import type { PublicRelatedBreed } from "./content-relations";
+
 /**
  * Explicit breeder relationships. Breeds reuse the canonical
  * breed_directory_relations table; clubs are stored as a private JSON string
@@ -115,5 +118,26 @@ export async function listPublicBreederClubLinks(
   ).bind(JSON.stringify(clubIds)).all<{ id: number; name: string; slug: string }>();
   return (result.results ?? []).map(row => ({
     id: row.id, name: row.name, href: "/adresar/chovatelske-kluby/" + row.slug,
+  }));
+}
+
+/** Show every selected canonical, published breed, not the generic six-item teaser. */
+export async function listPublicBreederBreedLinks(
+  database: Database, profileId: number,
+): Promise<PublicRelatedBreed[]> {
+  const profile = await breeder(database, profileId);
+  if (!profile || profile.category !== "chovatelske-stanice") return [];
+  const rows = await database.prepare(
+    `SELECT DISTINCT b.id,b.name,b.slug,b.image_url,b.fci_group
+     FROM breed_directory_relations r
+     JOIN managed_breeds b ON b.id=r.breed_id
+     WHERE r.profile_id=? AND b.id IN (${canonicalBreedIdsSql})
+     ORDER BY b.fci_group,b.name COLLATE NOCASE LIMIT 40`,
+  ).bind(profileId).all<{
+    id: number; name: string; slug: string; image_url: string | null; fci_group: number;
+  }>();
+  return (rows.results ?? []).map(row => ({
+    id: row.id, name: row.name, slug: row.slug,
+    href: breedProfileHref(row.slug), imageUrl: row.image_url, fciGroup: row.fci_group,
   }));
 }
