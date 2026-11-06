@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { formatSlovakCount } from "@/lib/slovak-count";
 import type { PublicDirectoryProfile } from "@/lib/directory";
 import {
   DIRECTORY_LOCATION_LANDING_REGISTRY,
@@ -206,7 +207,11 @@ async function resolveIndexableDirectoryLinks(
     return [{
       href: item.href,
       label: item.label,
-      description: `${profileCount} publikovaných profilov`,
+      description: formatSlovakCount(profileCount, {
+        one: "publikovaný profil",
+        few: "publikované profily",
+        many: "publikovaných profilov",
+      }),
     }];
   }), 3);
 }

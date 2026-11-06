@@ -254,7 +254,7 @@ test("native browser history returns from article to magazine and then homepage"
   page,
 }) => {
   await page.goto("/clanky");
-  const article = page.locator('.article-browser a[role="listitem"]').first();
+  const article = page.locator('.article-browser a[data-article-list-item]').first();
   await expect(article).toBeVisible();
   const url = new URL((await article.getAttribute("href"))!, page.url()).toString();
   await article.click();
@@ -355,7 +355,7 @@ test("sitewide Chrome iPhone: homepage → magazine → article → two browser 
   await page.locator('#mobile-menu a[href="/clanky"]').first().click();
   await expect(page).toHaveURL(/\/clanky$/);
   const beforeArticle = await loadCount(page);
-  const article = page.locator('.article-browser a[role="listitem"]').first();
+  const article = page.locator('.article-browser a[data-article-list-item]').first();
   await expect(article).toBeVisible();
   await article.click();
   await expect(page).not.toHaveURL(/\/clanky$/);

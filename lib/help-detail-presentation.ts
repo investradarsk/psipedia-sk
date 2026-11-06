@@ -1,6 +1,7 @@
 import type { HelpCase } from "@/lib/help";
 
-const unavailableValue = /^(?:neoveren[eé]|nezisten[eé]|neuveden[eé]|nezn[aá]me|n\/a|nie je uveden[eé]|inform[aá]cia nie je k dispoz[ií]cii)$/i;
+const unavailableValue =
+  /^(?:neoveren[eé]|nezisten[eé]|neuveden[eé]|nezn[aá]me|n\/a|nie je uveden[eé]|inform[aá]cia nie je k dispoz[ií]cii)$/i;
 const negativeValue = /^(?:nie|nie je|nie sú|neposkytuje|neponúka)$/i;
 
 const knownLabels = [
@@ -50,7 +51,11 @@ export function usefulHelpValue(value: string | null | undefined) {
 }
 
 function normalizedLabel(value: string) {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 export function parseHelpLabelledText(value: string | null | undefined) {
@@ -64,8 +69,13 @@ export function parseHelpLabelledText(value: string | null | undefined) {
   const prefix = text.slice(0, matches[0].index ?? 0).trim();
   for (const [index, match] of matches.entries()) {
     const start = (match.index ?? 0) + match[0].length;
-    const end = index + 1 < matches.length ? (matches[index + 1].index ?? text.length) : text.length;
-    const rawValue = text.slice(start, end).trim().replace(/[|;·]+$/, "").trim();
+    const end =
+      index + 1 < matches.length ? (matches[index + 1].index ?? text.length) : text.length;
+    const rawValue = text
+      .slice(start, end)
+      .trim()
+      .replace(/[|;·]+$/, "")
+      .trim();
     const clean = usefulHelpValue(rawValue);
     if (clean) fields.push({ label: match[1].trim(), value: clean });
   }
@@ -80,7 +90,11 @@ function fieldValue(fields: HelpPresentationField[], ...labels: string[]) {
 function publicUrl(value: string | null | undefined) {
   const clean = usefulHelpValue(value);
   if (!clean) return null;
-  const candidate = /^https?:\/\//i.test(clean) ? clean : /^[\w.-]+\.[a-z]{2,}(?:\/|$)/i.test(clean) ? `https://${clean}` : null;
+  const candidate = /^https?:\/\//i.test(clean)
+    ? clean
+    : /^[\w.-]+\.[a-z]{2,}(?:\/|$)/i.test(clean)
+      ? `https://${clean}`
+      : null;
   if (!candidate) return null;
   try {
     const parsed = new URL(candidate);
@@ -96,35 +110,94 @@ function contactFromField(label: string, value: string | null): HelpContact | nu
   const normalized = normalizedLabel(label);
   if (["telefon", "mobil"].includes(normalized)) {
     const hrefNumber = clean.replace(/[^+\d]/g, "");
-    return hrefNumber.length >= 9 ? { label: "Telefón", value: clean, href: `tel:${hrefNumber}` } : null;
+    return hrefNumber.length >= 9
+      ? { label: "Telefón", value: clean, href: `tel:${hrefNumber}` }
+      : null;
   }
   if (["e-mail", "email"].includes(normalized)) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean) ? { label: "E-mail", value: clean, href: `mailto:${clean}` } : null;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)
+      ? { label: "E-mail", value: clean, href: `mailto:${clean}` }
+      : null;
   }
-  if (["web", "webstranka", "facebook", "instagram", "zdroj", "zdroj 1", "zdroj 2"].includes(normalized)) {
+  if (
+    ["web", "webstranka", "facebook", "instagram", "zdroj", "zdroj 1", "zdroj 2"].includes(
+      normalized,
+    )
+  ) {
     const href = publicUrl(clean);
     if (!href) return null;
-    const displayLabel = normalized.startsWith("zdroj") ? label : normalized === "webstranka" ? "Web" : label;
+    const displayLabel = normalized.startsWith("zdroj")
+      ? label
+      : normalized === "webstranka"
+        ? "Web"
+        : label;
     return { label: displayLabel, value: clean, href, external: true };
   }
-  if (["adresa", "verejna adresa"].includes(normalized)) return { label: "Adresa", value: clean, href: null };
+  if (["adresa", "verejna adresa"].includes(normalized))
+    return { label: "Adresa", value: clean, href: null };
   return null;
+}
+
+/** Only standalone contact tokens are promoted; prose may negate or qualify a contact. */
+function unlabelledContacts(value: string | null) {
+  const contacts: HelpContact[] = [];
+  const notes: string[] = [];
+  for (const part of value?.split(/[;\n]+/) ?? []) {
+    const token = part.trim();
+    if (!token) continue;
+    let contact: HelpContact | null = null;
+    if (/^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+$/i.test(token)) {
+      contact = contactFromField("E-mail", token);
+    } else if (/^\+?\d[\d ()-]*\d$/.test(token)) {
+      const digits = token.replace(/\D/g, "");
+      if (digits.length >= 9 && digits.length <= 15) {
+        contact = contactFromField("Telefón", token);
+      }
+    }
+    if (contact) contacts.push(contact);
+    else notes.push(token);
+  }
+  return { contacts, note: notes.length ? notes.join("\n") : null };
 }
 
 export function getHelpPresentation(item: HelpCase) {
   const description = parseHelpLabelledText(item.description);
   const contact = parseHelpLabelledText(item.contactNote);
   const fields = [...description.fields, ...contact.fields];
-  const descriptionText = usefulHelpValue(fieldValue(fields, "Popis")) ?? usefulHelpValue(description.remainder) ?? usefulHelpValue(item.description);
+  const descriptionText =
+    usefulHelpValue(fieldValue(fields, "Popis")) ??
+    usefulHelpValue(description.remainder) ??
+    usefulHelpValue(item.description);
   const contactRemainder = usefulHelpValue(contact.remainder);
+  const unlabelled = unlabelledContacts(contactRemainder);
 
-  const contactLabels = ["Telefón", "Telefon", "Mobil", "E-mail", "Email", "Web", "Webstránka", "Facebook", "Instagram", "Adresa", "Verejná adresa"];
+  const contactLabels = [
+    "Telefón",
+    "Telefon",
+    "Mobil",
+    "E-mail",
+    "Email",
+    "Web",
+    "Webstránka",
+    "Facebook",
+    "Instagram",
+    "Adresa",
+    "Verejná adresa",
+  ];
   const contacts = contactLabels.flatMap((label) => {
     const value = fieldValue(fields, label);
     const parsed = contactFromField(label, value);
     return parsed ? [parsed] : [];
   });
-  const deduplicatedContacts = contacts.filter((candidate, index) => contacts.findIndex((other) => other.label === candidate.label && other.value === candidate.value) === index);
+  const allContacts = [...contacts, ...unlabelled.contacts];
+  const deduplicatedContacts = allContacts.filter(
+    (candidate, index) =>
+      allContacts.findIndex(
+        (other) =>
+          other.label === candidate.label &&
+          (other.href ?? other.value) === (candidate.href ?? candidate.value),
+      ) === index,
+  );
 
   const helpOptions = [
     ["Adopcie", fieldValue(fields, "Adopcie")],
@@ -132,16 +205,28 @@ export function getHelpPresentation(item: HelpCase) {
     ["Dobrovoľníctvo", fieldValue(fields, "Dobrovoľníctvo", "Dobrovoľnícka pomoc")],
     ["Materiálna pomoc", fieldValue(fields, "Materiálna pomoc")],
     ["Finančná pomoc", fieldValue(fields, "Finančná pomoc")],
-    ["Prijímanie / záchrana psov", fieldValue(fields, "Prijímanie alebo záchrana psov", "Prijímanie a záchrana psov", "Prijímanie psov")],
+    [
+      "Prijímanie / záchrana psov",
+      fieldValue(
+        fields,
+        "Prijímanie alebo záchrana psov",
+        "Prijímanie a záchrana psov",
+        "Prijímanie psov",
+      ),
+    ],
   ] as const;
 
-  const sourceValues = [fieldValue(fields, "Zdroj"), fieldValue(fields, "Zdroj 1"), fieldValue(fields, "Zdroj 2")]
+  const sourceValues = [
+    fieldValue(fields, "Zdroj"),
+    fieldValue(fields, "Zdroj 1"),
+    fieldValue(fields, "Zdroj 2"),
+  ]
     .map((value) => usefulHelpValue(value))
     .filter((value): value is string => Boolean(value));
 
   return {
     description: descriptionText,
-    contactNote: contactRemainder,
+    contactNote: unlabelled.contacts.length ? unlabelled.note : contactRemainder,
     helpOptions: helpOptions.flatMap(([label, value]) => {
       const clean = usefulHelpValue(value);
       return clean && !negativeValue.test(clean) ? [{ label, value: clean }] : [];

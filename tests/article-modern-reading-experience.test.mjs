@@ -473,8 +473,8 @@ test("TOC stays deterministic, H2-only, always visible and accessible with ancho
     /const tocHeadings = headings\.filter\(\(heading\) => heading\.level === 2\)/,
   );
   assert.match(detail, /const showTableOfContents = tocHeadings\.length >= 3/);
-  assert.match(detail, /visibleTocHeadings\.map/);
-  assert.match(detail, /tocHeadings\.slice\(0, 7\)/);
+  assert.match(detail, /tocHeadings\.map/);
+  assert.doesNotMatch(detail, /tocHeadings\.slice/);
   assert.doesNotMatch(detail, /readMinutes|article\.readTime/);
   assert.match(detail, /<nav className=\{styles\.toc\} aria-label="Obsah článku">/);
   assert.doesNotMatch(detail, /<details className=\{styles\.toc\}>/);

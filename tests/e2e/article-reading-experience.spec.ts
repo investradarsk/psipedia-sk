@@ -713,7 +713,7 @@ test("ARTICLE-PUBLIC canonical news landing redirects and topic URLs stay availa
   await page.goto("/novinky", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/clanky$/);
   await expect(page.getByRole("heading", { level: 1, name: "Novinky zo sveta psov" })).toBeVisible();
-  await expect(page.locator(".article-browser a[role='listitem']").first()).toBeVisible();
+  await expect(page.locator(".article-browser a[data-article-list-item]").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
   await page.goto("/novinky/veda-a-zdravie", { waitUntil: "domcontentloaded" });
@@ -746,7 +746,7 @@ test("ARTICLE-CARDS-1 approved magazine rows and homepage feature remain respons
   test.skip(testInfo.project.name !== "desktop-chromium", "Viewport matrix is captured once from the desktop Chromium project.");
 
   const surfaces = [
-    { id: "magazine-cards", path: "/clanky", selector: ".article-browser a[role='listitem']", emptySelector: null },
+    { id: "magazine-cards", path: "/clanky", selector: ".article-browser a[data-article-list-item]", emptySelector: null },
     { id: "homepage-cards", path: "/", selector: "[data-home-latest] [data-article-card]", emptySelector: "[data-home-latest-empty]" },
   ] as const;
   const viewports = [
@@ -808,7 +808,7 @@ test("ARTICLE-CARDS-1 approved magazine rows and homepage feature remain respons
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/clanky", { waitUntil: "domcontentloaded" });
-  const noImage = page.locator(".article-browser a[role='listitem']").filter({ hasText: "E2E článok bez hero obrázka" });
+  const noImage = page.locator(".article-browser a[data-article-list-item]").filter({ hasText: "E2E článok bez hero obrázka" });
   if (await noImage.count()) {
     await expect(noImage.locator("img")).toHaveCount(0);
     await expect(noImage.getByText("E2E článok bez hero obrázka")).toBeVisible();
