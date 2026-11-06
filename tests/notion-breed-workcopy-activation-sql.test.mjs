@@ -29,7 +29,7 @@ function seed(n=344) {
   }
   return db;
 }
-const counts=db=>db.prepare("SELECT status,COUNT(*) n FROM breed_notion_workcopy_links GROUP BY status ORDER BY status").all();
+const counts=db=>db.prepare("SELECT status,COUNT(*) n FROM breed_notion_workcopy_links GROUP BY status ORDER BY status").all().map(row=>({status:row.status,n:Number(row.n)}));
 
 test("correct complete 344-row cohort activates in a single SQL statement",()=>{
   const db=seed();
