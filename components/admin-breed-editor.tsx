@@ -73,6 +73,13 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [activeBreedSection,setActiveBreedSection]=useState("breed-basic");
   const [activeRelationKind,setActiveRelationKind]=useState<"articles"|"breeds"|"stations"|"clubs">("articles");
+  function chooseBreedSection(id: string) {
+    setActiveBreedSection(id);
+    // A pager can be reached at the bottom of a very long section. Return to
+    // the editor header after changing the section, not to an empty document tail.
+    document.querySelector<HTMLElement>("[data-editor-page]")
+      ?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
   const [sportDraft,setSportDraft]=useState<SportDraft|null>(null);
   const [sportError,setSportError]=useState("");
 
@@ -139,12 +146,12 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     // section. Apply the existing essential required-field rules explicitly
     // and reveal the right section rather than silently submitting an error.
     if (!form.name.trim()) {
-      setActiveBreedSection("breed-basic");
+      chooseBreedSection("breed-basic");
       setError("Vyplň názov plemena.");
       return;
     }
     if (!form.intro.trim()) {
-      setActiveBreedSection("breed-overview");
+      chooseBreedSection("breed-overview");
       setError("Vyplň krátky úvod plemena.");
       return;
     }
@@ -392,12 +399,12 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
 
     <div className={styles.sectionPager} aria-label="Prechod medzi sekciami plemena">
       <AdminActionButton variant="neutral" disabled={editorNavigation[0].id===activeBreedSection}
-        onClick={()=>setActiveBreedSection(editorNavigation[Math.max(0,editorNavigation.findIndex(item=>item.id===activeBreedSection)-1)].id)}>
+        onClick={()=>chooseBreedSection(editorNavigation[Math.max(0,editorNavigation.findIndex(item=>item.id===activeBreedSection)-1)].id)}>
         ← Predchádzajúca
       </AdminActionButton>
       <span>{editorNavigation.findIndex(item=>item.id===activeBreedSection)+1} / {editorNavigation.length}</span>
       <AdminActionButton variant="secondary" disabled={editorNavigation[editorNavigation.length-1].id===activeBreedSection}
-        onClick={()=>setActiveBreedSection(editorNavigation[Math.min(editorNavigation.length-1,editorNavigation.findIndex(item=>item.id===activeBreedSection)+1)].id)}>
+        onClick={()=>chooseBreedSection(editorNavigation[Math.min(editorNavigation.length-1,editorNavigation.findIndex(item=>item.id===activeBreedSection)+1)].id)}>
         Ďalšia →
       </AdminActionButton>
     </div>
