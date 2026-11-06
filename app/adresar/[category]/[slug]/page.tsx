@@ -21,6 +21,7 @@ import { getPublicPartnerCommercialFlags } from "@/lib/partner-commercial-agreem
 import { getPublicMapItemsForEntity } from "@/lib/map-query";
 import { getPublicMapRuntime } from "@/lib/public-map-runtime";
 import { listRelatedBreedsForDirectoryProfile } from "@/lib/content-relations";
+import { listPublicBreederClubLinks } from "@/lib/breeder-profile-relations";
 import { listIndexableDirectoryProfileLocationLinks } from "@/lib/internal-discovery";
 
 export const dynamic = "force-dynamic";
@@ -137,7 +138,11 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       return [];
     },
   );
-  const [partnerState, reviewResult, commercial, publicMap, relatedBreeds, locationDiscoveryLinks] =
+  const relatedClubsPromise = profile.category === "chovatelske-stanice"
+    ? listPublicBreederClubLinks((env as unknown as { DB: D1Database }).DB, profile.id)
+        .catch(() => [])
+    : Promise.resolve([]);
+  const [partnerState, reviewResult, commercial, publicMap, relatedBreeds, locationDiscoveryLinks, relatedClubs] =
     await Promise.all([
       partnerStatePromise,
       reviewsPromise,
@@ -145,6 +150,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       publicMapPromise,
       relatedBreedsPromise,
       locationDiscoveryPromise,
+      relatedClubsPromise,
     ]);
   const publicMapPresentation = { ...publicMap, ...getPublicMapRuntime() };
   const schema = buildDirectoryProfileJsonLd({ profile, presentation, canonical, relatedBreeds });
@@ -159,6 +165,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
         commercial={commercial}
         publicMap={publicMapPresentation}
         relatedBreeds={relatedBreeds}
+        relatedClubs={relatedClubs}
         locationDiscoveryLinks={locationDiscoveryLinks}
         management={
           <PartnerPublicOwnership embedded state={partnerState} correctionHref={correctionHref} />
