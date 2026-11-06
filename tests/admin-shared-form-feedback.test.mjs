@@ -73,12 +73,14 @@ test("Eshop, Organization and Directory editors share the same save feedback wit
   assert.match(directory, /<AdminSingleImageUpload/);
 });
 
-test("Event action bar reuses shared feedback without nesting alerts inside polite status", () => {
+test("Event editor shows save feedback above switchable sections without nesting live regions", () => {
   const workspace=read("components/admin-editor-workspace.tsx");
   const event=read("components/admin-event-editor.tsx");
   assert.match(workspace,/feedback\?: ReactNode/);
   assert.match(workspace,/\{feedback\}/);
-  assert.match(event,/feedback=\{<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
+  assert.match(event,/<form id="event-editor-v3-form"[\s\S]*<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
+  assert.equal((event.match(/<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/g) ?? []).length, 1);
+  assert.match(event,/sectionMode="switch"/);
   assert.match(event,/message=\{dirty \? "Neuložené zmeny" : undefined\}/);
   assert.match(event,/EditorUnsavedChangesGuard/);
   assert.match(event,/save\("published"\)/);
