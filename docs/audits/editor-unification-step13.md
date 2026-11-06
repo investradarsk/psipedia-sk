@@ -7,7 +7,7 @@ Editor adopcií teraz používa ten istý prezentačný systém ako službové a
 
 Osem sekcií (každá je stále namontovaná v DOM; skryté panely sa **nevypínajú**):
 1. Základné údaje – meno, slug a lifecycle stav
-2. Plemeno a profil – identifikácia, breed_id, výška? Nie, iba existujúce polia (pohlavie, vek, veľkosť, hmotnosť, farba)
+2. Plemeno a profil – väzba na plemeno, pohlavie, vek, veľkosť, hmotnosť a farba
 3. Lokalita – kraj, okres a mesto
 4. Povaha a kompatibilita – krátky opis, príbeh, povaha, potreby a kompatibilita domácnosti
 5. Zdravie – zdravotné údaje a podmienky adopcie
