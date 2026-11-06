@@ -222,6 +222,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       />}
     >
     <form id="breed-canonical-editor-form" noValidate className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
+    <AdminFormFeedback message={message} error={error} pending={saving} errorClassName="admin-form-error" successClassName="admin-flash" />
     <div className={styles.editorTopbar}>
       <div>
         <strong>{breed ? "Plemeno #" + breed.id : "Nový profil plemena"}</strong>
@@ -409,7 +410,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       </AdminActionButton>
     </div>
 
-    <AdminFormFeedback message={message} error={error} pending={saving} errorClassName="admin-form-error" successClassName="admin-flash" />
+
     <AdminDrawer
       open={settingsOpen}
       title="Nastavenia plemena"
