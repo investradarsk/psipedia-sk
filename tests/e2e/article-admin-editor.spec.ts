@@ -6,15 +6,42 @@ function projectSuffix(name: string) {
 }
 
 async function waitForEditor(page: import("@playwright/test").Page, selector = "#article-intro") {
-  await expect(page.locator(`${selector}[data-editor-ready="true"]`)).toBeVisible();
+  // Lexical is mounted in the hidden content section from the start; a hidden
+  // contenteditable is still initialized and should be tested by attribute.
+  await expect(page.locator(`${selector}[data-editor-ready="true"]`)).toHaveCount(1);
+  await expect(page.locator("#article-basics")).toBeVisible();
+}
+
+const articleSectionLabels: Record<string, string> = {
+  "article-basics": "Základné údaje",
+  "article-content": "Úvod a obsah",
+  "article-blocks": "Bloky článku",
+  "article-media": "Fotografie",
+  "article-settings": "Zaradenie a adresa",
+  "article-relations": "Prepojené plemená",
+  "article-authors": "Autor",
+  "article-publish": "Publikovanie",
+  "article-seo": "SEO a zdieľanie",
+};
+
+async function showArticleSection(page: import("@playwright/test").Page, id: string) {
+  const section = page.locator("#" + id);
+  if (await section.isVisible()) return;
+  const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+  const picker = nav.getByLabel("Sekcia editora");
+  if (await picker.isVisible()) await picker.selectOption(id);
+  else await nav.getByRole("button", { name: articleSectionLabels[id], exact: true }).click();
+  await expect(section).toBeVisible();
 }
 
 async function fillMinimumArticle(page: import("@playwright/test").Page, title: string) {
   await waitForEditor(page);
   await page.locator("#article-title").fill(title);
   await page.getByLabel("Krátky úvod na karte").fill("Izolovaný E2E perex s dostatočnou dĺžkou pre validačný contract.");
+  await showArticleSection(page, "article-content");
   const intro = page.locator("#article-intro");
   await intro.fill("Toto je bezpečný úvod článku s dostatočnou dĺžkou pre redakčný editor.");
+  await showArticleSection(page, "article-blocks");
   const blockEditor = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
   await blockEditor.fill("Toto je obsahový blok upravovaný priamo na hlavnej stránke editora.");
 }
@@ -41,6 +68,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(footer.getByRole("button")).toHaveCount(1);
     expect(await footer.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThan(100);
 
+    await showArticleSection(page, "article-relations");
     const breeds = page.locator("#article-relations");
     const search = breeds.getByRole("searchbox", { name: "Hľadať plemeno" });
     await expect(search).toBeVisible();
@@ -61,6 +89,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await nav.getByRole("button", { name: "Náhľad" }).click();
     await expect(page.getByRole("button", { name: "Skryť náhľad" })).toBeVisible();
     await page.getByRole("button", { name: "Skryť náhľad" }).click();
+    await showArticleSection(page, "article-basics");
     await expect(page.locator("#article-title")).toBeVisible();
     await expect(page.getByRole("button", { name: "Ukázať náhľad článku" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
@@ -86,12 +115,13 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
         contentOverflow: getComputedStyle(content).overflowY,
       };
     });
-    expect(layout.documentHeight).toBeGreaterThan(layout.viewportHeight * 2);
+    expect(layout.documentHeight).toBeGreaterThan(layout.viewportHeight);
     expect(layout.pageOverflow).toBe("visible");
     expect(layout.workspaceMaxHeight).toBe("none");
     expect(layout.columnsOverflow).toBe("visible");
     expect(layout.contentOverflow).toBe("visible");
 
+    await showArticleSection(page, "article-publish");
     await page.evaluate(() => window.scrollTo(0, 0));
     const facebookDate = page.locator("#article-facebook-at");
     await facebookDate.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "auto" }));
