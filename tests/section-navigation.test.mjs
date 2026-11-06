@@ -124,7 +124,7 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.doesNotMatch(section, /<SectionHero\b/);
   // All three editorial hubs share the same compact two-article topic preview.
   // Individual topic pages retain the complete list instead of truncating at five.
-  assert.match(section, /<SectionContentList articles=\{related\}/);
+  assert.match(section, /<SectionContentList\s+articles=\{related\}/);
   assert.match(section, /limit=\{2\}/);
   assert.match(section, /articles=\{topicArticles\}/);
   assert.match(section, /limit=\{Math\.max\(10, topicArticles\.length\)\}/);
@@ -141,7 +141,8 @@ test("PUBLIC-HUBS-UX-1 keeps one landing navigator on editorial roots and compac
   const hub = section.slice(hubStart, topicStart);
   const topic = section.slice(topicStart);
   assert.match(hub, /data-section-topic-groups/);
-  assert.doesNotMatch(hub, /<PortalSectionTabs/);
+  assert.match(hub, /className=\{styles.desktopTopicPicker\}/);
+  assert.match(hub, /<PortalSectionTabs section=\{section\}/);
   assert.doesNotMatch(hub, /data-section-topic-card/);
   assert.match(topic, /<PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
 });
@@ -201,8 +202,14 @@ test("SECTION-PUBLIC keeps all compact categories visible in a responsive grid",
   assert.match(css, /\.compactTrack \{\s*display: grid;/);
   assert.match(css, /scroll-snap-type:\s*none/);
   assert.match(css, /\.compactItem \{[\s\S]*?min-height:\s*48px/);
-  assert.match(css, /@media \(max-width: 620px\) \{ \.compactTrack \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(css, /@media \(max-width: 380px\) \{ \.compactTrack \{ grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(
+    css,
+    /@media \(max-width: 620px\) \{ \.compactTrack \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 380px\) \{ \.compactTrack \{ grid-template-columns: minmax\(0, 1fr\)/,
+  );
   assert.match(css, /\.compactItemCurrent/);
 });
 
@@ -256,7 +263,10 @@ test("ADMIN-CORE preserves the public SiteHeader contract with server-projected 
   assert.match(projection, /navigationItems\.filter\(\(item\) => item\.visible\)/);
   assert.match(projection, /storedChildren\.length \? storedChildren : fallbackChildren/);
   assert.match(projection, /visible\.filter\(\(item\) => !item\.parentId\)/);
-  assert.match(layout, /buildPublicHeaderNavigation\(await getNavigationItems\(\), portalSections\)/);
+  assert.match(
+    layout,
+    /buildPublicHeaderNavigation\(await getNavigationItems\(\), portalSections\)/,
+  );
   assert.match(header, /const nav = navigationItems;/);
   assert.match(header, /setMenuOpen\(false\)/);
   assert.doesNotMatch(header, /import \{ portalSections \}/);

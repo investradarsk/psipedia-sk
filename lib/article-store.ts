@@ -10,6 +10,7 @@ import {
 } from "@/lib/portal";
 import { isNewsCategory, type NewsCategorySlug } from "@/lib/news";
 import { getManagedPortalSubpage } from "@/lib/section-store";
+import { articleCategoryForPortalPlacement } from "@/lib/article-subsection-taxonomy";
 import {
   articleBlockSources,
   legacyArticleBlocks,
@@ -607,9 +608,6 @@ async function normalizeInput(
   const takeawayRichText = suppliedTakeawayRichText ?? legacyRichTextToDocument(takeaway);
   const status: ArticleStatus = payload.status === "published" ? "published" : payload.status === "scheduled" ? "scheduled" : "draft";
   const staticQaIssues = assessArticleContentQa(payload);
-  const category = ARTICLE_CATEGORIES.includes(payload.category as (typeof ARTICLE_CATEGORIES)[number])
-    ? (payload.category as Article["category"])
-    : null;
   const portalSection: ArticlePortalSection = payload.portalSection && isArticlePortalSection(payload.portalSection)
     ? payload.portalSection
     : "clanky";
@@ -620,6 +618,14 @@ async function normalizeInput(
   const newsCategory: NewsCategorySlug | null = portalSection === "novinky"
     ? payload.newsCategory && isNewsCategory(payload.newsCategory) ? payload.newsCategory : "zo-sveta"
     : null;
+  const submittedCategory = ARTICLE_CATEGORIES.includes(payload.category as (typeof ARTICLE_CATEGORIES)[number])
+    ? (payload.category as Article["category"])
+    : null;
+  // Canonical portal placement owns the legacy category for newly edited records.
+  // General /clanky records retain their deliberately selected editorial category.
+  const category = portalSection === "clanky" || !(portalSubpage || portalSection === "novinky")
+    ? submittedCategory
+    : articleCategoryForPortalPlacement(portalSection, portalSubpage ?? "");
   const accent = ARTICLE_ACCENTS.includes(payload.accent as (typeof ARTICLE_ACCENTS)[number])
     ? (payload.accent as Article["accent"])
     : "forest";
@@ -783,15 +789,19 @@ async function articleImageProjection(database: D1Database): Promise<string> {
 
 export async function getPublishedArticleSummaries(options: {
   portalSection?: ArticlePortalSection;
+  portalSubpage?: string;
   category?: Article["category"];
   limit?: number;
+  offset?: number;
 } = {}): Promise<Article[]> {
   const database = getD1Binding();
   const limit = Math.max(1, Math.min(500, Math.trunc(options.limit ?? 120)));
+  const offset = options.offset === undefined ? undefined : Math.max(0, Math.trunc(options.offset));
   if (!database) return seedArticles
     .filter((article) => !options.portalSection || article.portalSection === options.portalSection)
+    .filter((article) => !options.portalSubpage || article.portalSubpage === options.portalSubpage)
     .filter((article) => !options.category || article.category === options.category)
-    .slice(0, limit);
+    .slice(offset ?? 0, (offset ?? 0) + limit);
   await ensureArticleStore(database);
   const conditions = ["(status = 'published' OR (status = 'scheduled' AND published_at <= ?))"];
   const bindings: unknown[] = [new Date().toISOString()];
@@ -803,13 +813,17 @@ export async function getPublishedArticleSummaries(options: {
     conditions.push("category = ?");
     bindings.push(options.category);
   }
+  if (options.portalSubpage) {
+    conditions.push("portal_subpage = ?");
+    bindings.push(options.portalSubpage);
+  }
   const result = await database
     .prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, ${await articleImageProjection(database)}
       FROM managed_articles
       WHERE ${conditions.join(" AND ")}
       ORDER BY published_at DESC, updated_at DESC, id DESC
-      LIMIT ?`)
-    .bind(...bindings, limit)
+      LIMIT ?${offset === undefined ? "" : " OFFSET ?"}`)
+    .bind(...bindings, limit, ...(offset === undefined ? [] : [offset]))
     .all<ArticleSummaryRow>();
   return result.results.map(rowToPublishedArticleSummary);
 }
@@ -951,10 +965,13 @@ export async function getRelatedPublishedArticles(article: Article, limit = 3): 
   const database = getD1Binding();
   if (!database) {
     const others = seedArticles.filter((item) => item.slug !== article.slug);
-    return [
-      ...others.filter((item) => item.category === article.category),
-      ...others.filter((item) => item.category !== article.category),
-    ].slice(0, safeLimit);
+    return others.sort((first, second) => {
+      const rank = (candidate: Article) =>
+        candidate.portalSection === article.portalSection
+          ? article.portalSubpage && candidate.portalSubpage === article.portalSubpage ? 0 : 1
+          : candidate.category === article.category ? 2 : 3;
+      return rank(first) - rank(second);
+    }).slice(0, safeLimit);
   }
   const now = new Date().toISOString();
   const result = await database.prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, ${await articleImageProjection(database)}
@@ -962,12 +979,19 @@ export async function getRelatedPublishedArticles(article: Article, limit = 3): 
     WHERE slug <> ?
       AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?))
     ORDER BY CASE
-      WHEN ? = 'novinky' AND news_category = ? THEN 0
-      WHEN ? <> 'novinky' AND category = ? THEN 0
-      ELSE 1
+      WHEN portal_section = ? AND ? = 'novinky' AND news_category = ? THEN 0
+      WHEN portal_section = ? AND ? <> '' AND portal_subpage = ? THEN 0
+      WHEN portal_section = ? THEN 1
+      WHEN category = ? THEN 2
+      ELSE 3
     END, published_at DESC, updated_at DESC, id DESC
     LIMIT ?`)
-    .bind(article.slug, now, article.portalSection ?? "clanky", article.newsCategory ?? "", article.portalSection ?? "clanky", article.category, safeLimit)
+    .bind(
+      article.slug, now,
+      article.portalSection ?? "clanky", article.portalSection ?? "clanky", article.newsCategory ?? "",
+      article.portalSection ?? "clanky", article.portalSubpage ?? "", article.portalSubpage ?? "",
+      article.portalSection ?? "clanky", article.category, safeLimit,
+    )
     .all<ArticleSummaryRow>();
   return result.results.map(rowToPublishedArticleSummary);
 }

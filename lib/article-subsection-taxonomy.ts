@@ -27,7 +27,7 @@ export type CanonicalArticleSubsection = {
   newsCategory: NewsCategorySlug | null;
 };
 
-function articleCategoryForSubsection(portalSection: ArticlePortalSection, portalSubpage: string): CanonicalArticleCategory {
+export function articleCategoryForPortalPlacement(portalSection: ArticlePortalSection, portalSubpage: string): CanonicalArticleCategory {
   if (portalSection === "starostlivost") {
     if (portalSubpage === "zdravie" || portalSubpage === "srst-a-hygiena" || portalSubpage === "senior") return "Zdravie";
     if (portalSubpage === "vyziva") return "Výživa";
@@ -91,7 +91,7 @@ export function resolveCanonicalArticleSubsection(
     portalSection,
     portalSubpage: subpage.slug,
     publicSubsectionPath: `/${portalSection}/${subpage.slug}`,
-    category: articleCategoryForSubsection(portalSection, subpage.slug),
+    category: articleCategoryForPortalPlacement(portalSection, subpage.slug),
     newsCategory,
   };
 }

@@ -9,7 +9,7 @@ import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticlePromo } from "@/components/article-promo";
 import { articlePromoBlockAnchor } from "@/lib/visual-library-anchors";
 import { articleBlockHeadings, type ArticleBlock } from "@/lib/article-blocks";
-import { withoutLeadingEditorialLabel, legacyRichTextToDocument } from "@/lib/editorial-content";
+import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 
 function safeHref(value: string, allowInternal = false) {
@@ -169,9 +169,14 @@ export function ArticleBlocks({
                 className={`article-block-image article-block-image--${block.size ?? "normal"}`}
                 key={block.id}
               >
-                <img src={block.url} alt={block.alt} loading="lazy" decoding="async"
+                <img
+                  src={block.url}
+                  alt={block.alt}
+                  loading="lazy"
+                  decoding="async"
                   srcSet={responsiveMediaSrcSet(block.url, [320, 480, 640, 768, 960, 1280, 1600])}
-                  sizes="(max-width: 680px) 100vw, (max-width: 1100px) 90vw, 880px" />
+                  sizes="(max-width: 680px) 100vw, (max-width: 1100px) 90vw, 880px"
+                />
                 {(block.caption || block.credit) && (
                   <figcaption>
                     {block.caption && (
@@ -228,13 +233,9 @@ export function ArticleBlocks({
           if (block.type === "tip")
             return block.content ? (
               <aside className="article-block-callout article-block-callout--tip" key={block.id}>
-                <strong>Tip z praxe</strong>
                 <EditorialRichText
                   className="article-block-rich-content"
-                  document={withoutLeadingEditorialLabel(
-                    block.richText ?? legacyRichTextToDocument(block.content),
-                    "Tip z praxe",
-                  )}
+                  document={block.richText ?? legacyRichTextToDocument(block.content)}
                   keyPrefix={block.id}
                 />
               </aside>
@@ -245,13 +246,9 @@ export function ArticleBlocks({
                 className="article-block-callout article-block-callout--warning"
                 key={block.id}
               >
-                <strong>Dôležité upozornenie</strong>
                 <EditorialRichText
                   className="article-block-rich-content"
-                  document={withoutLeadingEditorialLabel(
-                    block.richText ?? legacyRichTextToDocument(block.content),
-                    "Dôležité upozornenie",
-                  )}
+                  document={block.richText ?? legacyRichTextToDocument(block.content)}
                   keyPrefix={block.id}
                 />
               </aside>

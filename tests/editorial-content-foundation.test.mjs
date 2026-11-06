@@ -59,20 +59,22 @@ function fakeAuthorDatabase(rows) {
 }
 
 test("rich-text v1 covers the WYSIWYG-safe minimum without raw HTML nodes", () => {
-  const document = legacyRichTextToDocument([
-    "## Nadpis",
-    "",
-    "Odstavec s **tučným**, _kurzívou_ a [odkazom](https://psipedia.sk/clanky).",
-    "druhý riadok",
-    "",
-    "- prvá položka",
-    "- druhá položka",
-    "",
-    "1. prvá",
-    "2. druhá",
-    "",
-    "> bezpečný citát",
-  ].join("\n"));
+  const document = legacyRichTextToDocument(
+    [
+      "## Nadpis",
+      "",
+      "Odstavec s **tučným**, _kurzívou_ a [odkazom](https://psipedia.sk/clanky).",
+      "druhý riadok",
+      "",
+      "- prvá položka",
+      "- druhá položka",
+      "",
+      "1. prvá",
+      "2. druhá",
+      "",
+      "> bezpečný citát",
+    ].join("\n"),
+  );
 
   assert.equal(document.version, EDITORIAL_RICH_TEXT_VERSION);
   assert.equal(document.type, "doc");
@@ -86,7 +88,9 @@ test("rich-text v1 covers the WYSIWYG-safe minimum without raw HTML nodes", () =
 
   const paragraph = document.content.find((block) => block.type === "paragraph");
   assert.ok(paragraph && paragraph.type === "paragraph");
-  const marks = paragraph.content.flatMap((node) => node.type === "text" ? node.marks ?? [] : []);
+  const marks = paragraph.content.flatMap((node) =>
+    node.type === "text" ? (node.marks ?? []) : [],
+  );
   assert.ok(marks.some((mark) => mark.type === "bold"));
   assert.ok(marks.some((mark) => mark.type === "italic"));
   assert.ok(marks.some((mark) => mark.type === "link"));
@@ -104,8 +108,16 @@ test("rich-text normalizer drops script-like nodes, arbitrary HTML nodes and mal
         type: "paragraph",
         content: [
           { type: "text", text: "<script>alert(1)</script>" },
-          { type: "text", text: "bad link", marks: [{ type: "link", href: "javascript:alert(1)" }] },
-          { type: "text", text: "good link", marks: [{ type: "link", href: "https://psipedia.sk" }] },
+          {
+            type: "text",
+            text: "bad link",
+            marks: [{ type: "link", href: "javascript:alert(1)" }],
+          },
+          {
+            type: "text",
+            text: "good link",
+            marks: [{ type: "link", href: "https://psipedia.sk" }],
+          },
         ],
       },
     ],
@@ -114,13 +126,18 @@ test("rich-text normalizer drops script-like nodes, arbitrary HTML nodes and mal
   assert.ok(normalized);
   assert.equal(normalized.content.length, 1);
   assert.equal(normalized.content[0].type, "paragraph");
-  assert.equal(editorialRichTextPlainText(normalized), "<script>alert(1)</script> bad link good link");
+  assert.equal(
+    editorialRichTextPlainText(normalized),
+    "<script>alert(1)</script> bad link good link",
+  );
   const paragraph = normalized.content[0];
   assert.ok(paragraph.type === "paragraph");
   const bad = paragraph.content.find((node) => node.type === "text" && node.text === "bad link");
   const good = paragraph.content.find((node) => node.type === "text" && node.text === "good link");
   assert.deepEqual(bad?.type === "text" ? bad.marks : undefined, undefined);
-  assert.deepEqual(good?.type === "text" ? good.marks : undefined, [{ type: "link", href: "https://psipedia.sk/" }]);
+  assert.deepEqual(good?.type === "text" ? good.marks : undefined, [
+    { type: "link", href: "https://psipedia.sk/" },
+  ]);
 
   assert.equal(sanitizeEditorialHref("javascript:alert(1)"), "");
   assert.equal(sanitizeEditorialHref("data:text/html,<script>alert(1)</script>"), "");
@@ -145,10 +162,23 @@ test("video contract only produces iframe metadata for allowlisted HTTPS provide
   assert.equal(vimeo.provider, "vimeo");
   assert.equal(vimeo.embedUrl, "https://player.vimeo.com/video/123456789");
 
-  assert.equal(normalizeEditorialExternalVideo({ url: "http://youtube.com/watch?v=dQw4w9WgXcQ" }), null);
-  assert.equal(normalizeEditorialExternalVideo({ url: "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ" }), null);
+  assert.equal(
+    normalizeEditorialExternalVideo({ url: "http://youtube.com/watch?v=dQw4w9WgXcQ" }),
+    null,
+  );
+  assert.equal(
+    normalizeEditorialExternalVideo({
+      url: "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ",
+    }),
+    null,
+  );
   assert.equal(normalizeEditorialExternalVideo({ url: "javascript:alert(1)" }), null);
-  assert.equal(normalizeEditorialExternalVideo({ url: "<iframe src=\"https://youtube.com/embed/dQw4w9WgXcQ\"></iframe>" }), null);
+  assert.equal(
+    normalizeEditorialExternalVideo({
+      url: '<iframe src="https://youtube.com/embed/dQw4w9WgXcQ"></iframe>',
+    }),
+    null,
+  );
 });
 
 test("author selection supports canonical default, explicit active profile and legacy fallback", async () => {
@@ -177,7 +207,10 @@ test("author selection supports canonical default, explicit active profile and l
     { authorProfileId: 1, author: "Redakcia Psipedia" },
   );
   assert.deepEqual(
-    await resolveArticleAuthorSelection(database, { authorProfileId: 2, legacyAuthor: "Starý text" }),
+    await resolveArticleAuthorSelection(database, {
+      authorProfileId: 2,
+      legacyAuthor: "Starý text",
+    }),
     { authorProfileId: 2, author: "Martin" },
   );
   assert.deepEqual(
@@ -198,12 +231,15 @@ test("article storage keeps legacy compatibility while takeaway and article sour
   assert.match(store, /parseRichTextDocument\(row\.intro_rich_text_json, row\.intro\)/);
   assert.match(store, /parseRichTextDocument\(row\.takeaway_rich_text_json, row\.takeaway\)/);
   assert.match(store, /author_profile_id/);
-  assert.match(store, /payload\.intro\?\.trim\(\) \|\| editorialRichTextPlainText\(suppliedIntroRichText\)/);
+  assert.match(
+    store,
+    /payload\.intro\?\.trim\(\) \|\| editorialRichTextPlainText\(suppliedIntroRichText\)/,
+  );
   assert.match(store, /getEditorialAuthorProfile\(database, existingAuthorProfileId, false\)/);
   assert.doesNotMatch(store, /takeaway\.length\s*</);
   assert.doesNotMatch(store, /Novinka potrebuje pred publikovaním aspoň jeden overiteľný zdroj/);
   assert.match(editor, /Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných/);
-  assert.match(detail, /showTakeaway \? <aside className="takeaway-box"/);
+  assert.match(detail, /showTakeaway \? \(\s*<aside className="takeaway-box"/);
   assert.match(editor, /To najdôležitejšie <small>nepovinné<\/small>/);
   assert.doesNotMatch(editor, /id="article-takeaway"[^\n>]*required/);
 });
@@ -211,7 +247,10 @@ test("article storage keeps legacy compatibility while takeaway and article sour
 test("migration is forward-only and preserves legacy article author/text columns", () => {
   const migration = readFileSync("drizzle/0043_editorial_content_foundation.sql", "utf8");
   assert.match(migration, /CREATE TABLE editorial_author_profiles/);
-  assert.match(migration, /ADD COLUMN author_profile_id INTEGER REFERENCES editorial_author_profiles\(id\) ON DELETE SET NULL/);
+  assert.match(
+    migration,
+    /ADD COLUMN author_profile_id INTEGER REFERENCES editorial_author_profiles\(id\) ON DELETE SET NULL/,
+  );
   assert.match(migration, /ADD COLUMN intro_rich_text_json TEXT/);
   assert.match(migration, /ADD COLUMN takeaway_rich_text_json TEXT/);
   assert.match(migration, /redakcia-psipedia/);

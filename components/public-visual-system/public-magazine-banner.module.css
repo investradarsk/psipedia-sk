@@ -367,3 +367,27 @@
     color: #fff;
   }
 }
+
+/* Desktop promos are text-first. Keep the existing mobile photo composition. */
+@media (min-width: 901px) {
+  .magazine:global(.home-magazine-banner).withPhoto {
+    min-height: 0;
+    background: var(--ps-visual-desktop-bg, #17352b);
+  }
+  .withPhoto .photoMedia,
+  .withPhoto::before {
+    display: none;
+  }
+  .magazine:global(.home-magazine-banner) [data-public-heading] {
+    font-size: var(--ps-heading-content-section);
+    line-height: 1.25;
+  }
+  /* Published light backgrounds need dark copy, including previously photographic banners. */
+  .magazine.withPhoto[style*="--ps-visual-desktop-bg"] [data-public-heading],
+  .magazine.withPhoto[style*="--ps-visual-desktop-bg"] .bannerDescription {
+    color: var(--forest-dark);
+  }
+  .magazine.withPhoto[style*="--ps-visual-desktop-bg"] :global(.eyebrow) {
+    color: var(--coral-dark);
+  }
+}

@@ -173,7 +173,7 @@ test("SEO-RECOVERY-1 retired /tema routes permanently redirect without creating 
   assert.doesNotMatch(source, /buildPageMetadata|openGraph:/);
   assert.doesNotMatch(sitemap, /sitemapEntry\(\x60\/tema\//);
   for (const target of [
-    "/starostlivost/zdravie", "/starostlivost/vyziva",
+    "/clanky?tema=zdravie", "/clanky?tema=vyziva",
     "/clanky?tema=vycvik", "/clanky?tema=zivot-so-psom",
   ]) assert.ok(targets.includes(target));
 });

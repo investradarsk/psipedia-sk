@@ -165,7 +165,7 @@ export function HomeLatestArticles({
       <div className="home-section-heading">
         <div>
           <span className="eyebrow">Redakcia Psipedia</span>
-          <h2 id="home-latest-title">Novinky zo sveta psov</h2>
+          <h2 id="home-latest-title">Najnovšie články</h2>
           <p>Najnovšie články, odborné rady a správy zo všetkých rubrík Psipedie.</p>
         </div>
       </div>

@@ -10,8 +10,8 @@ const categorySlugs: Record<Article["category"], string> = {
 
 const categoryDestinations: Record<Article["category"], string> = {
   Výcvik: "/clanky?tema=vycvik",
-  Zdravie: "/starostlivost/zdravie",
-  Výživa: "/starostlivost/vyziva",
+  Zdravie: "/clanky?tema=zdravie",
+  Výživa: "/clanky?tema=vyziva",
   "Život so psom": "/clanky?tema=zivot-so-psom",
 };
 
