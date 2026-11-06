@@ -60,3 +60,15 @@
 - Dodatočné izolované testy: 7/7 pre mapovanie jednotlivých Admin polí na Notion PATCH, 6/6 pre runtime bezpečnostné kontrakty. SQL stagingu prešlo testom v dočasnej SQLite databáze (vloženie, idempotencia, odmietnutie cudzej väzby).
 - **Produkcia neprešla na novú databázu.** Reálne volanie novej sync trasy proti 344 produkčným D1 záznamom, E2E a úplné CI ešte nie je potvrdené.
 - Pred ostrým prepnutím: (1) zastaviť obe staré redakčné automatizácie, (2) prebehnúť kompletný preflight znova, (3) vytvoriť a overiť SHADOW väzby, (4) kontrolovane označiť všetkých 344 ako ACTIVE a zapnúť nový režim pri vypnutom starom, (5) overiť Notion ↔ Admin na jednom profile, (6) až potom zmeniť zadania automatizácií na nový data source. Pôvodnú Notion databázu ponechať ako zálohu.
+
+
+## Pokračovanie: ochrana prázdnych hodnôt a atómová aktivácia (6. 11.)
+
+- V novom 60-poľovom režime Notion → Admin **prázdny reťazec, iba whitespace, null ani prázdne pole [] nevymazávajú** existujúci hodnotný obsah v D1. Explicitné `false` alebo `0` ostávajú platnými hodnotami. Nedotknuté polia majú vlastný receipt, takže neskôr vyplnené údaje sa môžu preniesť.
+- `lib/notion-breed-workcopy-activation-plan.mjs` validuje kompletnú sadu 344 SHADOW záznamov, pôvodné D1 receipt väzby, zhodné identity a revízie stránok novej databázy; neúplný alebo zmenený rad **odmietne**.
+- Nový `POST /api/admin/notion-breeds-workcopy-activate` je **vypnutý** (`NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED=false`). Nie je volaný cronmi ani obyčajným mergom. Vyžaduje Admin autentifikáciu, výslovné potvrdenie, potvrdenie pozastavenia oboch redakčných automatizácií a oba synchronizátory vypnuté.
+- Pri výslovne povolenej aktivácii vykoná znovu aktuálnu paritu Notion, kontrolu 344 profilov v D1 a kompatibilitu každého per-field receiptu. Samotné označenie 344 väzieb `ACTIVE` je **jediný atómový SQL UPDATE** podmienený úplnou zhodou pôvodných väzieb a receiptov, nie 14 nezávislých batchov. Nezapisuje do `managed_breeds`, pôvodného `breed_notion_sync` ani do Notionu.
+- Aktivácia **sama nezapne nový synchronizátor a neprepne automatizácie**. Pred živým použitím treba potvrdiť nasadenie migrácie 0159, úplné produkčné D1 a Notion overenie, zabezpečiť pauzu oboch automatizácií, vypnúť oba crony, vytvoriť a overiť SHADOW, výslovne aktivovať ACTIVE, vykonať readback, potom zapnúť výhradne nový sync a presmerovať obe automatizácie.
+- Ak sa živá validácia zlyhá, **neaktivovať ani nemergovať ako hotový cutover**. Pri návrate po skutočných zápisoch do novej databázy treba dáta najprv zosúladiť; starú databázu nemožno bez ďalších kontrol automaticky vyhlásiť za aktuálnu.
+
+Izolované testy aktivácie sú registrované v `test:breed-concurrency`. Ich existenciu nemožno zamieňať za produkčný E2E test. Konfiguračný prepínač ostáva vypnutý.
