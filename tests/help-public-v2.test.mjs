@@ -101,12 +101,16 @@ test("canonical organizations stay reachable through the Help hierarchy", () => 
     /if \(item\.category === "utulky"\) return `\/organizacie\/\$\{item\.slug\}`/,
   );
   assert.match(categoryRoute, /getPublishedHelpCaseCards\(category\)/);
-  assert.match(card, /href=\{detailHref\}/);
+  assert.match(card, /const href = helpCaseHref\(item\)/);
+  assert.match(card, /<PublicHelpProfileCard[\s\S]*?href=\{href\}/);
 });
 
 test("fundraising cards and details consume the same category-aware financial block", () => {
   const financial = read("components/help-financial-progress.tsx");
-  assert.match(card, /HelpFinancialProgress/);
+  // Listing cards intentionally use the unified compact card; financial figures
+  // belong on the detail page where they can be displayed completely.
+  assert.match(card, /<PublicHelpProfileCard/);
+  assert.doesNotMatch(card, /HelpFinancialProgress/);
   assert.match(detail, /HelpFinancialProgress/);
   assert.match(financial, /helpFinancials\(item\)/);
   assert.match(financial, /if \(!amounts\) return null/);
@@ -115,10 +119,14 @@ test("fundraising cards and details consume the same category-aware financial bl
 
 test("adoption and lost-found listings expose canonical data-first fields", () => {
   assert.match(adoption, /dog\.organizationName/);
-  assert.match(adoption, /dog\.organizationSlug/);
-  assert.match(adoption, /href=\{"\/organizacie\/" \+ dog\.organizationSlug\}/);
-  assert.match(adoption, /dog\.lastVerifiedAt/);
-  assert.match(adoption, /dog\.publishedAt/);
+  // The shared card shows publicly available organization metadata; canonical
+  // organization, publication and verification fields remain part of the
+  // public card projection even when compact cards do not display timestamps.
+  const adoptionModel = read("lib/adoption.ts");
+  assert.match(adoption, /dog\.organizationName/);
+  assert.match(adoption, /<PublicHelpProfileCard/);
+  assert.match(adoptionModel, /"organizationName" \| "organizationSlug"/);
+  assert.match(adoptionModel, /"publishedAt" \| "lastVerifiedAt"/);
   assert.match(lostFound, /listPublicDogReports\(type/);
   assert.match(lostFound, /dogReportTypeLabel\(type\)/);
   assert.match(lostFound, /formatDogReportDate\(report\.eventDate\)/);
