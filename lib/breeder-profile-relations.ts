@@ -6,7 +6,8 @@ import type { PublicRelatedBreed } from "./content-relations";
  * breed_directory_relations table; clubs are stored as a private JSON string
  * alongside the breeder's existing metadata, without an additional D1 migration.
  */
-export const BREEDER_CLUB_IDS_METADATA_KEY = "_psipedia_breeder_club_profile_ids";
+export { BREEDER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
+import { BREEDER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
 
 export type BreederRelationSelection = {
   breedIds: number[];
