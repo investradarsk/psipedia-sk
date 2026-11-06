@@ -38,6 +38,8 @@ test("RSDC: canonical YES choices fill missing public labels without duplicate a
   };
   const selections = [
     "svc.training.basic_obedience", "svc.training.agility",
+    "svc.training.obedience", "svc.training.dogfrisbee",
+    "svc.training.dogdancing", "svc.training.show_handling",
     "svc.training.socialization", "svc.training.rally_obedience",
   ];
   assert.equal(await ensureCanonicalServiceChoicesInLegacy(db, 543, selections), 2);
