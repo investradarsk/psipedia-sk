@@ -4,14 +4,14 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("EDITOR-10: six mounted event panels with single-section navigation", () => {
+test("EDITOR-10/11: seven mounted event panels with single-section navigation", () => {
   const src = read("components/admin-event-editor.tsx");
   const css = read("components/admin-event-editor.module.css");
-  const ids = ["basics", "schedule", "location", "details", "media", "seo"];
+  const ids = ["basics", "schedule", "location", "contacts", "details", "media", "seo"];
   for (const name of ids) {
     assert.match(src, new RegExp('<EditorSection id="event-' + name + '"'));
   }
-  assert.equal((src.match(/<EditorSection id="event-/g) ?? []).length, 6);
+  assert.equal((src.match(/<EditorSection id="event-/g) ?? []).length, 7);
   assert.match(src, /sectionMode="switch"/);
   assert.match(src, /activeSectionId=\{activeEventSection\}/);
   assert.match(src, /onSectionChange=\{setActiveEventSection\}/);
@@ -29,7 +29,7 @@ test("EDITOR-10: invalid publication reveals its section without blocking legacy
   assert.match(src, /status === "published" && nextStatus === "draft"/);
   assert.match(src, /nextStatus === "published" && status !== "published"/);
   assert.match(src, /setActiveEventSection\(missing\.section\)/);
-  assert.match(src, /setActiveEventSection\("event-media"\)/);
+  assert.match(src, /setActiveEventSection\("event-contacts"\)/);
   assert.match(src, /<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
   assert.match(src, /onSubmit=\{\(submitEvent\)/);
   assert.match(src, /void save\("published"\)/);
