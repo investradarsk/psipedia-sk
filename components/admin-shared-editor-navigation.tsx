@@ -40,9 +40,18 @@ export function AdminSharedEditorNavigation({
       data-editor-navigation-layout={layout}
       data-editor-navigation-mode={mode} data-admin-editor-nav-ready={ready ? "true" : "false"}>
       <div className={styles.links}>
-        {sections.map((item) => (
+        {sections.map((item) => mode === "scroll" ? (
+          <a key={item.id} href={`#${encodeURIComponent(item.id)}`}
+            aria-current={currentId === item.id ? "location" : undefined}
+            onClick={(event) => {
+              event.preventDefault();
+              onNavigate(item.id);
+            }}>
+            {item.label}
+          </a>
+        ) : (
           <button key={item.id} type="button"
-            aria-current={currentId === item.id ? (mode === "switch" ? "step" : "location") : undefined}
+            aria-current={currentId === item.id ? "step" : undefined}
             onClick={() => onNavigate(item.id)}>
             {item.label}
           </button>
