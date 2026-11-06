@@ -251,7 +251,13 @@ export async function writeBackBreedToWorkCopy(input: {
       input.before.slug !== input.breed.slug ||
       input.before.fciNumber !== input.breed.fciNumber)
     throw Error("BREED_WORKCOPY_ADMIN_IDENTITY_CHANGED");
-  await requireActiveCohort(input.database);
+  try {
+    await requireActiveCohort(input.database);
+  } catch (error) {
+    if (error instanceof Error && error.message === "BREED_WORKCOPY_COHORT_NOT_ACTIVE")
+      return { linked:false, updated:false, reason:"workcopy-inactive" as const };
+    throw error;
+  }
   const link = await getActiveLink(input.database, input.breed.id);
   if (!link) return { linked:false, updated:false, reason:"not-linked" as const };
   const receipt = readReceipt(link.work_sync_receipt);
