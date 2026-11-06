@@ -1,4 +1,5 @@
 "use client";
+import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -762,6 +763,7 @@ export function AdminDirectoryEditor({
 
       </NotionDraftFields>
       <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
+      <AdminEditorFooter dirty={formDirty} pending={saving}>
       <div className="admin-editor-actions">
         <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" ref={directoryBackLinkRef} onClick={event => {
           // Preserve native behavior for modified clicks and background tabs.
@@ -793,6 +795,7 @@ export function AdminDirectoryEditor({
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
         </div>
       </div>
+      </AdminEditorFooter>
       {!notionDraft && <Link href={createdProfileHref || "/admin/adresar"} ref={createdProfileLinkRef} hidden tabIndex={-1} aria-hidden="true">Otvoriť vytvorený profil</Link>}
       <EditorUnsavedChangesGuard
         active={formDirty}
