@@ -20,6 +20,7 @@ import { runReviewAuthorNotificationSweep } from "../lib/review-author-email";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runArticlePublishNotionReconciliation } from "../lib/article-publish-notion-reconciliation";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
+import { runNotionBreedWorkCopySyncSweep } from "../lib/notion-breed-workcopy-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
 import { runSimpleServiceCatalogSync } from "../lib/service-catalog-simple-sync.ts";
 import { notionSyncHealth, notionAgendaHealth } from "../lib/notion-sync-health.ts";
@@ -74,6 +75,7 @@ interface Env {
   VAPID_SUBJECT?: string;
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_BREED_SYNC_ENABLED?: string;
+  NOTION_BREED_WORKCOPY_SYNC_ENABLED?: string;
   NOTION_MANUAL_TRANSFER_ENABLED?: string;
   NOTION_EVENT_SYNC_ENABLED?: string;
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
@@ -573,8 +575,11 @@ const worker = {
       observeScheduledAutomation({
           database: env.DB, scheduledTime: controller.scheduledTime,
           system: "notion", automationId: "breeds", label: "Notion — plemená",
-          active: pushTaskEnabled(env.NOTION_BREED_SYNC_ENABLED),
-          execute: () => runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
+          active: pushTaskEnabled(env.NOTION_BREED_SYNC_ENABLED)
+            || pushTaskEnabled(env.NOTION_BREED_WORKCOPY_SYNC_ENABLED),
+          execute: () => pushTaskEnabled(env.NOTION_BREED_WORKCOPY_SYNC_ENABLED)
+            ? runNotionBreedWorkCopySyncSweep({ database: env.DB, bindings: env })
+            : runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
           summarize: (r) => ({ enabled: r.enabled, checked: r.scanned, created: r.created, updated: r.updated, errors: r.failed }),
         }),
       notionEventsHelpEnabled
