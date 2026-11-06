@@ -1114,12 +1114,8 @@ export async function getBreedEditorOptions(selected?: Pick<ManagedBreed, "relat
       "SELECT id,title,status FROM managed_articles WHERE id IN (SELECT value FROM json_each(?)) ORDER BY title COLLATE NOCASE",
     ).bind(JSON.stringify(selected?.relatedArticleIds ?? [])),
     database.prepare(
-    ),
-    database.prepare(
       "SELECT id,name,category,city,region FROM directory_profiles WHERE id IN (SELECT value FROM json_each(?)) AND category IN ('chovatelske-stanice','chovatelske-kluby') ORDER BY category,name",
     ).bind(JSON.stringify(selected?.directoryProfileIds ?? [])),
-    database.prepare(
-    ),
   ]);
   return {
     breeds: breedsResult.results as BreedEditorOptions["breeds"],
