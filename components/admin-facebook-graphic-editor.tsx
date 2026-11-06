@@ -254,24 +254,41 @@ export function AdminFacebookGraphicEditor({
   const bitmap = loaded?.file === photo ? loaded.bitmap : null;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  // Reuse the copy of a selected article/profile image already staged in R2.
+  // Display the exact image selected in the Facebook post. Normally it is
+  // staged under /media/facebook-images; allow older safe Psipedia assets too.
+  // Do not silently open an empty template for a selected image.
   useEffect(() => {
-    if (!initialPhotoUrl || !/^\/media\/facebook-images\/[a-z0-9/_.-]+$/i.test(initialPhotoUrl)) return;
+    const photoUrl = initialPhotoUrl;
+    if (!photoUrl) return;
     const controller = new AbortController();
-    fetch(initialPhotoUrl, { credentials: "same-origin", signal: controller.signal })
-      .then(async response => {
-        if (!response.ok) throw Error("Titulný obrázok sa nepodarilo načítať.");
-        const blob = await response.blob();
-        if (blob.size > MAX_BYTES || !["image/jpeg", "image/png", "image/webp"].includes(blob.type))
-          throw Error("Titulný obrázok musí byť JPG, PNG alebo WebP do 8 MB.");
-        if (!controller.signal.aborted) {
-          const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
-          setPhoto(new File([blob], "vybrany-obsah." + ext, { type: blob.type }));
-        }
-      }).catch(failure => {
-        if (!controller.signal.aborted)
-          setError(failure instanceof Error ? failure.message : "Obrázok sa nepodarilo načítať.");
+    async function loadSelectedPhoto() {
+      let localUrl: URL;
+      try { localUrl = new URL(photoUrl, window.location.origin); }
+      catch { throw Error("Adresa fotografie z vybraného článku nie je platná."); }
+      if (localUrl.origin !== window.location.origin ||
+          !/^\/(?:media\/(?!safe\/|quarantine\/|quality-missing-candidates\/)|images\/|migrated-media\/)/i.test(localUrl.pathname)) {
+        throw Error("Fotografia musí byť dostupná na Psipedia.sk. Nahraj ju ručne.");
+      }
+      const response = await fetch(localUrl.pathname + localUrl.search, {
+        credentials: "same-origin", cache: "no-store", signal: controller.signal,
       });
+      if (!response.ok) throw Error("Titulný obrázok sa nepodarilo načítať.");
+      const blob = await response.blob();
+      const mime = blob.type.split(";")[0].toLowerCase();
+      if (!blob.size || blob.size > MAX_BYTES || !["image/jpeg", "image/png", "image/webp"].includes(mime))
+        throw Error("Titulný obrázok musí byť JPG, PNG alebo WebP do 8 MB.");
+      if (!controller.signal.aborted) {
+        const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+        setPhoto(new File([blob], "vybrany-obsah." + ext, { type: mime }));
+        setError("");
+      }
+    }
+    // Validation and loading errors flow through the async callback, not a
+    // synchronous state update in the effect setup (React effects lint rule).
+    void loadSelectedPhoto().catch(failure => {
+      if (!controller.signal.aborted)
+        setError(failure instanceof Error ? failure.message : "Obrázok sa nepodarilo načítať.");
+    });
     return () => controller.abort();
   }, [initialPhotoUrl]);
   const previewRef = useRef<HTMLCanvasElement>(null);
