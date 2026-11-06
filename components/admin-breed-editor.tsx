@@ -299,7 +299,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
 
     <AdminEditorSection id="breed-relations" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>Súvisiaci obsah a databázy</h2><p>Upravujú sa iba existujúce canonical relations. Chovateľské stanice a kluby sú oddelené pre jasnú správu; profily adresára ani články sa tu nemenia.</p></div></div>
+        <div className={styles.heading}><div><h2>Súvisiaci obsah a databázy</h2><p>Priradené položky sú vždy navrchu. Ďalšie pridáš vyhľadaním názvu; výber nemení obsah článkov ani profilov v adresári.</p></div></div>
         <div className={styles.relationColumns}>
           <AdminBreedRelationGroup
             kind="articles" title="Súvisiace články" placeholder="Hľadať článok"
