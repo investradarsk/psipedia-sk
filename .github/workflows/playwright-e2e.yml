@@ -62,9 +62,9 @@ jobs:
           CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/ci-scope.mjs --github-output
       - name: Validate CI scope policy
-        run: |
-          node scripts/check-ci-scope.mjs
-          node --test tests/ci-two-stage-guards.test.mjs
+        run: node scripts/check-ci-scope.mjs
+      - name: Validate two-stage editor CI guard
+        run: node --test tests/ci-two-stage-guards.test.mjs
       - name: Install dependencies
         if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm ci
