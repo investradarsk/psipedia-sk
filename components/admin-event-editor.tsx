@@ -215,7 +215,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       const requiredFields = [
         { value: title, section: "event-basics", label: "Názov podujatia" },
         { value: slug, section: "event-media", label: "Adresa podujatia" },
-        ...(nextStatus === "published" ? [
+        ...(nextStatus === "published" && status !== "published" ? [
           { value: excerpt, section: "event-basics", label: "Krátky popis" },
           { value: startDate, section: "event-schedule", label: "Dátum začiatku" },
           { value: city, section: "event-location", label: "Mesto" },
@@ -230,7 +230,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         setError(`Vyplň povinné pole: ${missing.label}.`);
         return;
       }
-      if (nextStatus === "published" && (excerpt.trim().length < 20 || description.trim().length < 30)) {
+      if (nextStatus === "published" && status !== "published" && (excerpt.trim().length < 20 || description.trim().length < 30)) {
         const summaryIsShort = excerpt.trim().length < 20;
         setActiveEventSection(summaryIsShort ? "event-basics" : "event-details");
         setMessage("");
