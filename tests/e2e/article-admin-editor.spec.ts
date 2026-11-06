@@ -99,6 +99,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     await waitForEditor(page);
+    await showArticleSection(page, "article-publish");
 
     const layout = await page.evaluate(() => {
       const editor = document.querySelector<HTMLElement>("[data-editor-page]");
@@ -121,7 +122,6 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     expect(layout.columnsOverflow).toBe("visible");
     expect(layout.contentOverflow).toBe("visible");
 
-    await showArticleSection(page, "article-publish");
     await page.evaluate(() => window.scrollTo(0, 0));
     const facebookDate = page.locator("#article-facebook-at");
     await facebookDate.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "auto" }));
