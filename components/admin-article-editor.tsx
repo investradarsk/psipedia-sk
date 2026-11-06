@@ -228,7 +228,7 @@ export function AdminArticleEditor({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [qaIssues, setQaIssues] = useState<ArticleQaIssue[]>([]);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(true);
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-basics");
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [dirty, setDirtyState] = useState(false);
