@@ -206,7 +206,7 @@ export function AdminDirectoryEditor({
   const [breederRelationSearch, setBreederRelationSearch] = useState({ breeds: "", clubs: "" });
   const [breederRelationsDirty, setBreederRelationsDirty] = useState(false);
   const [breederRelationsError, setBreederRelationsError] = useState("");
-  const [breederRelationsLoading, setBreederRelationsLoading] = useState(false);
+  const [breederRelationsLoading, setBreederRelationsLoading] = useState(profile?.category === "chovatelske-stanice");
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
   const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.detailImageDisplay ?? null);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
@@ -217,7 +217,6 @@ export function AdminDirectoryEditor({
   useEffect(() => {
     if (!profile || profile.category !== "chovatelske-stanice") return;
     let cancelled = false;
-    setBreederRelationsLoading(true);
     fetch(`/api/admin/directory/${profile.id}/breeder-relations`, { cache: "no-store" })
       .then(async response => {
         if (!response.ok) throw new Error("Prepojenia sa nepodarilo načítať.");
