@@ -1141,7 +1141,7 @@ async function bootstrapProfileIds(database: D1Database) {
     SELECT dp.id
     FROM directory_profiles dp
     LEFT JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
-    WHERE dns.directory_profile_id IS NULL
+    WHERE dns.directory_profile_id IS NULL AND dp.category <> 'chovatelske-stanice'
     ORDER BY dp.id ASC
     LIMIT ?
   `).bind(BOOTSTRAP_BATCH).all<{ id: number }>();
@@ -1154,7 +1154,8 @@ async function changedProfileIds(database: D1Database) {
     FROM directory_profiles dp
     JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
     LEFT JOIN geo_points gp ON gp.directory_profile_id = dp.id
-    WHERE COALESCE(dns.psipedia_updated_at, '') <> dp.updated_at
+    WHERE dp.category <> 'chovatelske-stanice' AND (
+       COALESCE(dns.psipedia_updated_at, '') <> dp.updated_at
        OR (gp.updated_at IS NOT NULL AND gp.updated_at > dns.last_synced_at)
        OR EXISTS (
          SELECT 1 FROM moderation_events m
@@ -1163,6 +1164,7 @@ async function changedProfileIds(database: D1Database) {
            AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
            AND m.created_at > dns.last_synced_at
        )
+    )
     ORDER BY dp.updated_at ASC, dp.id ASC
     LIMIT ?
   `).bind(CHANGED_PROFILE_BATCH).all<{ id: number }>();
@@ -2215,7 +2217,7 @@ export async function runNotionDirectorySyncSweep(input: {
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
-      if (!profile) continue;
+      if (!profile || profile.category === "chovatelske-stanice") continue;
       await writeProfileToNotion({
         database: input.database,
         bindings: input.bindings,
