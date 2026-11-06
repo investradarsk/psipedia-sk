@@ -12,6 +12,7 @@ const page = () => ({
     "Intro": text("Starý intro."),
     "Deti": { type: "number", number: 3 },
     "Editorial complete": { type: "checkbox", checkbox: true },
+    "Názov": { type:"title", title: [{ plain_text:"Labradorský retriever" }] },
     "FCI číslo": { type: "number", number: 122 },
     "Hlavný obrázok URL": { type: "url", url: "https://psipedia.sk/test" },
   },
@@ -100,5 +101,16 @@ test("invalid structured data and stale list baselines block without a PATCH", (
   assert.throws(()=>patch("consider",["Zneužitie; neplatné"],["Výcvik","Pohyb"],p),
     /BREED_WORKCOPY_LIST_INVALID/);
   assert.throws(()=>patch("consider",["Bývanie"],["Staré hodnoty"],p),
+    /BREED_WORKCOPY_FIELD_CHANGED_IN_NOTION/);
+});
+
+test("breed display name is one independent Notion title cell; slug and ID are unchanged", () => {
+  const p=page();
+  const update=patch("name","Labradorský retríver","Labradorský retriever",p);
+  assert.equal(update.property,"Názov");
+  assert.deepEqual(Object.keys(update.properties),["Názov"]);
+  assert.equal(update.properties["Názov"].title[0].text.content,"Labradorský retríver");
+  p.properties["Názov"] = {type:"title",title:[{plain_text:"Premenované inde"}]};
+  assert.throws(()=>patch("name","Nové meno","Labradorský retriever",p),
     /BREED_WORKCOPY_FIELD_CHANGED_IN_NOTION/);
 });
