@@ -951,10 +951,13 @@ export async function getRelatedPublishedArticles(article: Article, limit = 3): 
   const database = getD1Binding();
   if (!database) {
     const others = seedArticles.filter((item) => item.slug !== article.slug);
-    return [
-      ...others.filter((item) => item.category === article.category),
-      ...others.filter((item) => item.category !== article.category),
-    ].slice(0, safeLimit);
+    return others.sort((first, second) => {
+      const rank = (candidate: Article) =>
+        candidate.portalSection === article.portalSection
+          ? article.portalSubpage && candidate.portalSubpage === article.portalSubpage ? 0 : 1
+          : candidate.category === article.category ? 2 : 3;
+      return rank(first) - rank(second);
+    }).slice(0, safeLimit);
   }
   const now = new Date().toISOString();
   const result = await database.prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, ${await articleImageProjection(database)}
@@ -962,12 +965,19 @@ export async function getRelatedPublishedArticles(article: Article, limit = 3): 
     WHERE slug <> ?
       AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?))
     ORDER BY CASE
-      WHEN ? = 'novinky' AND news_category = ? THEN 0
-      WHEN ? <> 'novinky' AND category = ? THEN 0
-      ELSE 1
+      WHEN portal_section = ? AND ? = 'novinky' AND news_category = ? THEN 0
+      WHEN portal_section = ? AND ? <> '' AND portal_subpage = ? THEN 0
+      WHEN portal_section = ? THEN 1
+      WHEN category = ? THEN 2
+      ELSE 3
     END, published_at DESC, updated_at DESC, id DESC
     LIMIT ?`)
-    .bind(article.slug, now, article.portalSection ?? "clanky", article.newsCategory ?? "", article.portalSection ?? "clanky", article.category, safeLimit)
+    .bind(
+      article.slug, now,
+      article.portalSection ?? "clanky", article.portalSection ?? "clanky", article.newsCategory ?? "",
+      article.portalSection ?? "clanky", article.portalSubpage ?? "", article.portalSubpage ?? "",
+      article.portalSection ?? "clanky", article.category, safeLimit,
+    )
     .all<ArticleSummaryRow>();
   return result.results.map(rowToPublishedArticleSummary);
 }
