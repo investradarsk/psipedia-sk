@@ -274,13 +274,13 @@ test("FOUNDATION-ADMIN drawer and sticky editor navigation keep context and prov
   assert.match(interactionCss, /\.drawer \{[\s\S]*position: fixed[\s\S]*height: 100dvh/);
   assert.match(interaction, /IntersectionObserver/);
   assert.match(interaction, /<AdminSharedEditorNavigation/);
-  assert.match(sharedNavigation, /aria-current=\\{currentId === item\\.id \\? "location"/);
+  assert.match(sharedNavigation, /aria-current=\{currentId === item\.id \? "location"/);
   assert.match(sharedNavigation, /mode === "scroll"/);
   assert.match(interaction, /target\.scrollIntoView/);
   assert.match(interaction, /target\.focus\(\{ preventScroll: true \}\)/);
   assert.match(interactionCss, /\.editorSection \{[\s\S]*scroll-margin-top:/);
-  assert.match(sharedNavigationCss, /@media \\(max-width: 960px\\)[\\s\\S]*\\.horizontal \\.links \\{ display: none; \\}[\\s\\S]*\\.horizontal \\.mobile \\{ display: grid/);
-  assert.match(sharedNavigationCss, /@media \\(max-width: 820px\\)[\\s\\S]*\\.sidebar \\.links \\{ display: none; \\}[\\s\\S]*\\.sidebar \\.mobile \\{ display: grid/);
+  assert.match(sharedNavigationCss, /@media \(max-width: 960px\)[\s\S]*\.horizontal \.links \{ display: none; \}[\s\S]*\.horizontal \.mobile \{ display: grid/);
+  assert.match(sharedNavigationCss, /@media \(max-width: 820px\)[\s\S]*\.sidebar \.links \{ display: none; \}[\s\S]*\.sidebar \.mobile \{ display: grid/);
 });
 
 test("FOUNDATION-ADMIN proof-of-contract reuses the shared toolbar without changing article bulk endpoints", () => {
