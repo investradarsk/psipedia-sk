@@ -211,3 +211,32 @@ test("ARTICLE-DISCOVERY-2 keeps automatic discovery sidebar hidden on mobile whi
   assert.match(detailSource, /Ďalšie články k téme/);
   assert.match(detailSource, /<ArticleBlocks blocks=\{contentBlocks\} promoUtcDay=\{discovery\.utcDay\} \/>/);
 });
+
+
+test("EDITORIAL-5 article popularity is sitewide across editorial sections, not a page-views metric", () => {
+  const popularityStore = readFileSync("lib/article-popularity.ts", "utf8");
+  const sidebar = readFileSync("components/article-popularity-sidebar.tsx", "utf8");
+  const discovery = readFileSync("lib/article-discovery.ts", "utf8");
+  const list = readFileSync("app/clanky/page.tsx", "utf8");
+
+  const rankingQuery = popularityStore.slice(popularityStore.indexOf("export async function getPopularArticles"));
+  assert.match(rankingQuery, /JOIN managed_articles a ON a.id = h.article_id/);
+  assert.match(rankingQuery, /SUM\(h.qualified_reads\) AS qualified_reads/);
+  assert.match(rankingQuery, /a.status = 'published'/);
+  assert.doesNotMatch(rankingQuery, /AND a.portal_section =/);
+  assert.match(discovery, /articleHref\(article\)/);
+  assert.match(sidebar, /Najčítanejšie články/);
+  assert.match(list, /initialWindow=\{discovery.initialWindow\}/);
+});
+
+test("EDITORIAL-5 qualified reads respect visibility, cooldown, and exclusion of internal traffic", () => {
+  const tracker = readFileSync("components/article-read-tracker.tsx", "utf8");
+  const readLogic = readFileSync("lib/article-read-tracking.ts", "utf8");
+  const endpoint = readFileSync("app/api/articles/read/route.ts", "utf8");
+
+  assert.match(readLogic, /ARTICLE_READ_QUALIFY_MS = 10_000/);
+  assert.match(readLogic, /ARTICLE_READ_COOLDOWN_MS = 6 \* 60 \* 60 \* 1000/);
+  assert.match(tracker, /visibilitychange/);
+  assert.match(tracker, /isInternalArticleReadBrowser/);
+  assert.match(endpoint, /isInternalTrafficRequest\(request\)/);
+});
