@@ -62,8 +62,9 @@ function rowToItem(row: NavigationRow): NavigationItem {
 }
 
 export function canonicalizeLegacyNewsLanding(items: NavigationItem[]) {
-  return items.map((item) => item.href === "/novinky"
-    ? { ...item, href: "/clanky" }
+  // Normalize only legacy news navigation; /clanky remains the all-articles archive.
+  return items.map((item) => item.id === "novinky" && item.href === "/clanky"
+    ? { ...item, href: "/novinky" }
     : item);
 }
 
