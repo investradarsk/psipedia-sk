@@ -36,8 +36,8 @@ const ADOPTION_SECTIONS = [
   { id: "adoption-basics", label: "Základné údaje" },
   { id: "adoption-dog", label: "Plemeno a profil" },
   { id: "adoption-location", label: "Lokalita" },
-  { id: "adoption-temperament", label: "Povaha a kompatibilita" },
-  { id: "adoption-health", label: "Zdravie" },
+  { id: "adoption-personality", label: "Povaha a kompatibilita" },
+  { id: "adoption-medical", label: "Zdravie" },
   { id: "adoption-contact", label: "Organizácia a kontakt" },
   { id: "adoption-media", label: "Fotografie" },
   { id: "adoption-verification", label: "Stav a overenie" },
@@ -172,9 +172,9 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
       else if (/fotograf|obrázk|galéri/i.test(details)) setActiveAdoptionSection("adoption-media");
       else if (/overen|verified|lastVerifiedAt|posledné/i.test(details)) setActiveAdoptionSection("adoption-verification");
       else if (/mesto|okres|kraj|region|city/i.test(details)) setActiveAdoptionSection("adoption-location");
-      else if (/popis|príbeh|povah|temperament|compatib/i.test(details)) setActiveAdoptionSection("adoption-temperament");
+      else if (/popis|príbeh|povah|temperament|compatib/i.test(details)) setActiveAdoptionSection("adoption-personality");
       else if (/plemen|vek|pohlav|veľkosť|naroden|weight|breed/i.test(details)) setActiveAdoptionSection("adoption-dog");
-      else if (/zdrav|očkov|kastr|čip/i.test(details)) setActiveAdoptionSection("adoption-health");
+      else if (/zdrav|očkov|kastr|čip/i.test(details)) setActiveAdoptionSection("adoption-medical");
       else if (/slug|name|meno|status|stav/i.test(details)) setActiveAdoptionSection("adoption-basics");
       setError(details);
     } finally { setSaving(false); }
