@@ -1,5 +1,5 @@
 import { DIRECTORY_BREEDER_GALLERY_KEY } from "./directory-breeder-gallery.ts";
-import { BREEDER_CLUB_IDS_METADATA_KEY } from "./breeder-profile-relations.ts";
+export const BREEDER_CLUB_IDS_METADATA_KEY = "_psipedia_breeder_club_profile_ids";
 
 export type DirectoryImportData = Record<string, string | number | null>;
 
