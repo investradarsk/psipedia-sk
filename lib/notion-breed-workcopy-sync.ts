@@ -257,6 +257,8 @@ export async function writeBackBreedToWorkCopy(input: {
   const receipt = readReceipt(link.work_sync_receipt);
   const actualAdmin = breedFieldSnapshot(input.breed);
   const keys = (input.changedFieldKeys ?? BREED_NOTION_EDITABLE_FIELDS)
+    .filter((field): field is BreedNotionField =>
+      BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField))
     .filter(field => !skippedSpecial.has(field) &&
       !same(actualAdmin[field],receipt.admin[field]));
   const pending:string[] = [];
