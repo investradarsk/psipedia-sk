@@ -606,10 +606,12 @@ export async function EditorialSectionTopic({
   section,
   subpage,
   articles,
+  pagination,
 }: {
   section: PortalSection;
   subpage: PortalSubpage;
   articles: Article[];
+  pagination?: { page: number; hasNext: boolean };
 }) {
   const sectionSlug = section.slug;
   if (!isEditorialSectionSlug(sectionSlug)) return null;
@@ -688,6 +690,21 @@ export async function EditorialSectionTopic({
               label={`Články v oblasti ${subpage.label}`}
               limit={Math.max(10, topicArticles.length)}
             />
+            {pagination && (pagination.page > 1 || pagination.hasNext) && (
+              <nav aria-label="Stránkovanie článkov">
+                {pagination.page > 1 && (
+                  <Link href={pagination.page === 2 ? path : `${path}?strana=${pagination.page - 1}`}>
+                    ← Predchádzajúce články
+                  </Link>
+                )}
+                <span> Strana {pagination.page} </span>
+                {pagination.hasNext && (
+                  <Link href={`${path}?strana=${pagination.page + 1}`}>
+                    Ďalšie články →
+                  </Link>
+                )}
+              </nav>
+            )}
           </section>
           <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
         </PageContainer>
