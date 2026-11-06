@@ -2,7 +2,7 @@
 function validatedGalleryUrl(value: string): string | null {
   const clean = value.trim();
   if (!clean) return null;
-  if (/^\\/(?:media|images)\\//.test(clean)) return clean;
+  if (clean.startsWith("/media/") || clean.startsWith("/images/")) return clean;
   try {
     return ["http:", "https:"].includes(new URL(clean).protocol) ? clean : null;
   } catch {
