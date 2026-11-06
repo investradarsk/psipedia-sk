@@ -47,3 +47,16 @@
 - Ostatné pôvodné sekcie musia ostať rovnaké; pri duplicite nadpisu, nesprávnom poli, chybnom FCI dátume/URL alebo zmene kontrolovaného textu sa zápis odmietne.
 - Výsledkom je **jeden pripravený Notion PATCH cell**, nie volanie API; žiadne produkčné zápisy ani prepnutie automatizácií sa ešte neuskutočnili.
 - Doplnkové izolované testy `tests/notion-breed-workcopy-field-patch.test.mjs` prešli **8/8**. Celkový počet overených izolovaných testov pre túto pracovnú kópiu je **33/33**.
+
+## Doplnené skutočné obojsmerné napojenie (6. 11. – ďalšia fáza)
+
+- `lib/notion-breed-workcopy-sync.ts` obsahuje podmienený **Notion → Admin** prenos cez existujúce per-field plánovanie a bezpečné D1 ukladanie a **Admin → Notion** prenos iba jedného povoleného poľa pri každom zápise. Zmeny v poli FCI neprepíšu susedné sekcie.
+- Starý aj nový režim sú explicitne vzájomne vylúčené: `NOTION_BREED_SYNC_ENABLED=true`, `NOTION_BREED_WORKCOPY_SYNC_ENABLED=false` znamená zachovať súčasnú produkciu. Súbežné zapnutie dvoch synchronizátorov vyvolá chybu a nové zápisy sa nevykonajú.
+- Prepínanie je zapojené do plánovaného worker behu, do administrátorskej sync API trasy a do Admin → Notion writebacku. V novom režime sa produkčný stav publikovania uchováva v D1, pretože 60+2 databáza nemá `Stav`, `Sync stav` ani `URL Psipedia`.
+- D1 zrkadlo používa výhradne novú `breed_notion_workcopy_links` tabuľku so stavom `ACTIVE` a vlastnými per-field receipty. Staré `breed_notion_sync` sa počas nového režimu nemení.
+- `POST /api/admin/notion-breeds-workcopy-stage` vie **až po samostatnom zapnutí** `NOTION_BREED_WORKCOPY_STAGE_ENABLED` a explicitnom potvrdení uložiť 344 *SHADOW* väzieb. Neaktivuje ich ani nemení produkčné dáta. Opakovateľné SQL má identitné/CAS podmienky; iný Notion profil ani prepojenie neprepíše.
+- Pred skutočnými zápismi musí byť **344/344 aktívnych väzieb** s per-field receiptmi. Každý Notion zápis číta aktuálnu revíziu a overuje cieľové pole opätovným čítaním; D1 zápisy používajú existujúcu CAS ochranu.
+- Bežné odborné texty, hodnotenia, SEO titulky a zlúčené FCI časti sú pripravené. **Médiá, galérie, vzťahy, komplexné zoznamy a agregované JSON polia zatiaľ nový engine neprepíše**, iba ich zachová a nechá na samostatný bezpečný adaptér. Nedokáže tak vyhlásiť úplnú parity každého z pôvodných 109 polí; zachovanie ostáva v D1.
+- Dodatočné izolované testy: 7/7 pre mapovanie jednotlivých Admin polí na Notion PATCH, 6/6 pre runtime bezpečnostné kontrakty. SQL stagingu prešlo testom v dočasnej SQLite databáze (vloženie, idempotencia, odmietnutie cudzej väzby).
+- **Produkcia neprešla na novú databázu.** Reálne volanie novej sync trasy proti 344 produkčným D1 záznamom, E2E a úplné CI ešte nie je potvrdené.
+- Pred ostrým prepnutím: (1) zastaviť obe staré redakčné automatizácie, (2) prebehnúť kompletný preflight znova, (3) vytvoriť a overiť SHADOW väzby, (4) kontrolovane označiť všetkých 344 ako ACTIVE a zapnúť nový režim pri vypnutom starom, (5) overiť Notion ↔ Admin na jednom profile, (6) až potom zmeniť zadania automatizácií na nový data source. Pôvodnú Notion databázu ponechať ako zálohu.
