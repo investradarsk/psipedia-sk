@@ -33,6 +33,8 @@ test("EDITOR-11: exactly seven panels have an intentional single-section informa
   assert.match(editor, /sectionMode="switch"/);
   assert.match(editor, /onSectionChange=\{setActiveEventSection\}/);
   assert.match(editor, /EVENT_SECTIONS\[activeEventSectionIndex \+ 1\]/);
+  assert.match(editor, /pagerFocusTargetRef\.current = id/);
+  assert.match(editor, /panel\.focus\(\{ preventScroll: true \}\)/);
 });
 
 test("EDITOR-11: organizer/contact, program/fee and location controls live in independent panels", () => {
