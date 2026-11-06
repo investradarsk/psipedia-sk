@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const config = JSON.parse(read("wrangler.jsonc"));
 const activate = read("app/api/admin/notion-breeds-workcopy-activate/route.ts");
+const atomic = read("lib/notion-breed-workcopy-activation-sql.mjs");
 
 test("activation cannot run from a merge or an ordinary sync tick", () => {
   assert.equal(config.vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED,"false");
@@ -23,11 +24,12 @@ test("activation requires live parity, safe receipts and an atomic 344-row D1 tr
     /inspectBreedWorkCopy/, /expandBreed60WorkPage/,
     /planBreedWorkcopyShadowRows/, /planBreedWorkcopyActivation/,
     /isCompatibleBreedWorkcopyReceipt/,
-    /UPDATE breed_notion_workcopy_links SET status='ACTIVE'/,
-    /WHERE status='SHADOW'/,
-    /COUNT\(\*\) FROM breed_notion_workcopy_links\)=344/,
-    /original_sync_receipt=s\.content_hash/,
+    /breedWorkcopyAtomicActivationSql/,
     /result\.meta\.changes !== 344/,
   ]) assert.match(activate,required);
   assert.doesNotMatch(activate,/UPDATE breed_notion_sync|UPDATE managed_breeds|method: "PATCH"/);
+  assert.match(atomic, /WITH eligible AS MATERIALIZED/);
+  assert.match(atomic, /guard AS MATERIALIZED/);
+  assert.match(atomic, /UPDATE breed_notion_workcopy_links/);
+  assert.match(atomic, /eligible_count=344/);
 });
