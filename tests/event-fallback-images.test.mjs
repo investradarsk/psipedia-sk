@@ -89,7 +89,7 @@ test("external event poster stays the preferred SSR image and is retried before 
   assert.match(component, /stage === "primary"[\s\S]*?stage: "original"/);
   assert.match(component, /stage: "fallback"/);
   assert.match(component, /real && stage === "primary" \? responsiveMediaSrcSet/);
-  assert.match(component, /referrerPolicy=\{remote && stage === "original" \? "no-referrer"/);
+  assert.match(component, /referrerPolicy=\{remote \? "no-referrer"/);
   const calendar = readFileSync("components/event-calendar.tsx", "utf8");
   assert.match(calendar, /<EventImage[\s\S]*?imageUrl=\{event\.imageUrl\}/);
 });
