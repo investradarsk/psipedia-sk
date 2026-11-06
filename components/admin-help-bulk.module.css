@@ -84,7 +84,8 @@
 @media (max-width: 820px) {
   .helpEditorLayout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .helpEditorBody :global(.admin-event-editor-grid) { grid-template-columns: minmax(0, 1fr); }
-  .helpEditorBody :global(.admin-help-preview) { display: none; }
+  /* Keep the existing live preview below the form on narrow screens. */
+  .helpEditorBody :global(.admin-help-preview) { display: block; width: 100%; }
   .helpSectionPager button { flex: 1 1 auto; }
 }
 @media (max-width: 380px) {
