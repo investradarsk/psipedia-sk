@@ -44,6 +44,9 @@ export function mergeDirectoryBreederGallery(
   // Notion sync and other profile updates do not supply this field. Preserve it.
   if (proposed === undefined) return next;
   if (category !== "chovatelske-stanice") {
+    // Empty gallery is inert for unrelated categories, including legacy full
+    // GET → PUT payloads. Never expose or create breeder media on other profiles.
+    if (Array.isArray(proposed) && proposed.length === 0) return next;
     throw new Error("Fotogaléria je dostupná len pre chovateľské stanice.");
   }
   if (!Array.isArray(proposed) || proposed.length > DIRECTORY_BREEDER_GALLERY_LIMIT) {
