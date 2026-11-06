@@ -72,7 +72,7 @@ export async function PUT(request: Request, { params }: Props) {
     // A stale full-form payload must never silently undo a newer Notion edit
     // to a field the editor did not touch.
     const editedPaths: BreederEditorialField[] | null =
-      before.category === "chovatelske-stanice" && Array.isArray(rawBreederEditedPaths)
+      ["chovatelske-stanice", "treneri"].includes(before.category) && Array.isArray(rawBreederEditedPaths)
         ? rawBreederEditedPaths.filter(
             (path): path is BreederEditorialField =>
               typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
@@ -173,7 +173,7 @@ export async function PUT(request: Request, { params }: Props) {
             database: notionEnv.DB,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
-            breederAdminFields: before.category === "chovatelske-stanice"
+            breederAdminFields: ["chovatelske-stanice", "treneri"].includes(before.category)
               ? breederEditedFields(before, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
@@ -256,7 +256,7 @@ export async function PATCH(request: Request, { params }: Props) {
             database: db,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
-            breederAdminFields: breederBefore?.category === "chovatelske-stanice" && profile
+            breederAdminFields: breederBefore && ["chovatelske-stanice", "treneri"].includes(breederBefore.category) && profile
               ? breederEditedFields(breederBefore, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
