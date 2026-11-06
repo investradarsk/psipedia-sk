@@ -3,6 +3,8 @@ name: AI-INTERNAL-DISCOVERY-CLICK-VALUE-1 validation
 on:
   pull_request:
     branches: [main]
+    # This large E2E suite belongs to discovery/linking changes, not every
+    # shared profile presentation or global test-fixture update.
     paths:
       - "app/sitemap.ts"
       - "app/plemena/[slug]/page.tsx"
@@ -13,15 +15,8 @@ on:
       - "app/adresar/chovatelske-stanice/kraj/[regionSlug]/page.tsx"
       - "app/adresar/chovatelske-stanice/plemeno/[breedSlug]/page.tsx"
       - "app/adresar/chovatelske-stanice/plemeno/[breedSlug]/kraj/[regionSlug]/page.tsx"
-      - "components/article-detail.tsx"
-      - "components/directory-profile-detail.tsx"
       - "components/directory-location-landing.tsx"
       - "components/breeding-station-landing.tsx"
-      - "components/organization-profile-detail.tsx"
-      - "components/event-detail.tsx"
-      - "components/adoption-detail.tsx"
-      - "components/lost-found-dog-detail.tsx"
-      - "components/help-details/**"
       - "components/related-entity-list.tsx"
       - "components/related-entity-list.module.css"
       - "components/structured-data.tsx"
@@ -40,31 +35,13 @@ on:
       - "lib/sitemap-runtime.ts"
       - "lib/sitemap-seo.ts"
       - "lib/ai-referral.ts"
-      - "lib/breed-store.ts"
-      - "lib/adoption-store.ts"
       - "tests/internal-discovery.test.mjs"
       - "tests/breeding-station-ai-landings.test.mjs"
       - "tests/directory-ai-landings-scale.test.mjs"
       - "tests/article-discovery.test.mjs"
-      - "tests/sitewide-ai-entity-surface.test.mjs"
-      - "tests/seo-structured-data-2.test.mjs"
-      - "tests/rendered-html.test.mjs"
-      - "tests/sitemap-seo.test.mjs"
-      - "tests/ai-referral.test.mjs"
       - "tests/e2e/internal-discovery.spec.ts"
       - "tests/e2e/ai-discovery-hardening.spec.ts"
       - "scripts/bootstrap-internal-discovery-e2e.mjs"
-      - "scripts/bootstrap-breed-e2e.mjs"
-      - "scripts/bootstrap-adoption-e2e.mjs"
-      - "scripts/bootstrap-adoption-staging-ci.mjs"
-      - "scripts/bootstrap-admin-events-e2e.mjs"
-      - "tests/fixtures/help-detail-e2e.sql"
-      - "tests/fixtures/directory-admin-e2e.sql"
-      - "tests/fixtures/lost-found-e2e.sql"
-      - "tests/fixtures/organization-profile-e2e.sql"
-      - "playwright.config.ts"
-      - "vite.config.ts"
-      - "tsconfig.json"
       - ".github/workflows/ai-internal-discovery-click-value-ci.yml"
 
 permissions:
