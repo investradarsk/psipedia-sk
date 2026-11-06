@@ -480,3 +480,23 @@ dialog.workspaceModal[open] :is(h2, h3),
     background: var(--admin-v3-surface, #fff);
   }
 }
+
+/* EDITOR-17: also show a focus cue on plain section nodes (articles/events).
+   Shared AdminEditorSection has its own focus ring. */
+.pageWorkspace[data-editor-section-mode="switch"] .content
+  [data-admin-editor-section-active="true"]:focus-visible {
+  outline: 3px solid var(--admin-v3-focus, #c38b31);
+  outline-offset: 3px;
+}
+@media (max-width: 380px) {
+  .pageWorkspace[data-editor-section-mode="switch"] > .workspace,
+  .pageWorkspace[data-editor-section-mode="switch"] .columns,
+  .pageWorkspace[data-editor-section-mode="switch"] .content {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .pageWorkspace[data-editor-section-mode="switch"] .content
+    [data-admin-editor-section-active="true"] {
+    overflow-wrap: anywhere;
+  }
+}
