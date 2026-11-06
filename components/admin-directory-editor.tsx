@@ -418,11 +418,17 @@ export function AdminDirectoryEditor({
             },
           )
         : undefined;
+      // A previously opened editor must not re-save a stale legacy services
+      // list after Services V3 was updated by an independent Notion event.
+      const trainerServicesEdited = profile?.category === "treneri" && category === "treneri" && breederBaseline
+        ? JSON.stringify(listFromText(services)) !== JSON.stringify(breederBaseline.services)
+        : undefined;
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
+          ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
           services: listFromText(services), qualifications: listFromText(qualifications),
           address: publicAddress,
@@ -479,6 +485,7 @@ export function AdminDirectoryEditor({
         const syncedContacts = readDirectoryPublicContacts(savedProfile.importData, savedProfile.websiteUrl ?? "");
         setName(savedProfile.name); setExcerpt(savedProfile.excerpt); setDescription(savedProfile.description);
         setQualifications(savedProfile.qualifications.join("\n"));
+        setServices(savedProfile.services.join("\n"));
         setCity(savedProfile.city); setDistrict(savedProfile.district); setRegion(savedProfile.region);
         setPublicAddress(savedProfile.address); setPostalCode(savedProfile.postalCode);
         setStreet(savedProfile.street); setHouseNumber(savedProfile.houseNumber);
