@@ -164,6 +164,43 @@ test("Notion address edits use exact GEO without automatically searching Google 
   assert.match(storeSource, /reconcileGeoAfterSourceMutation/);
 });
 
+test("Notion Directory creation accepts a missing house number without claiming an exact location", () => {
+  const createBody = syncSource.slice(
+    syncSource.indexOf("async function createProfileFromNotion("),
+    syncSource.indexOf("async function applyNotionToProfile("),
+  );
+  const confirmed = createBody.indexOf("if (desired.confirmedServiceLocation)");
+  const numberGate = createBody.indexOf("if (desired.houseNumber.trim())", confirmed);
+  const exactVerify = createBody.indexOf("verified = await verifyDirectoryCanonicalAddress", numberGate);
+  assert.ok(confirmed >= 0 && numberGate > confirmed && exactVerify > numberGate,
+    "exact geocoding must be gated by a supplied house number");
+  assert.match(createBody, /clearServiceAddressConfirmation: true/);
+  assert.match(createBody, /Číslo domu nie je uvedené; presná adresa zostáva nepotvrdená/);
+  assert.ok(createBody.indexOf("normalizeManagedDirectoryProfileInput(payload)") > exactVerify,
+    "location warning must not bypass canonical input normalization");
+});
+
+test("Notion Directory edits without a number preserve confirmed GEO and still allow content sync", () => {
+  const apply = syncSource.slice(
+    syncSource.indexOf("async function applyNotionToProfile("),
+    syncSource.indexOf("async function recentNotionPages("),
+  );
+  const verify = apply.indexOf("if (safety.verifyExactAddress)");
+  const numberGate = apply.indexOf("if (desired.houseNumber.trim())", verify);
+  const exact = apply.indexOf("verified = await verifyDirectoryCanonicalAddress", numberGate);
+  const preserve = apply.indexOf('current.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION"', exact);
+  const unconfirmed = apply.indexOf("clearServiceAddressConfirmation: true", preserve);
+  const saved = apply.indexOf("await updateManagedDirectoryProfile(", unconfirmed);
+  assert.ok(verify >= 0 && numberGate > verify && exact > numberGate && preserve > exact &&
+    unconfirmed > preserve && saved > unconfirmed,
+    "missing numbers must skip provider verification, never destroy a confirmed address, and continue to D1");
+  for (const field of ["region", "district", "city", "address", "postalCode", "street", "houseNumber", "addressFormat"]) {
+    assert.ok(apply.includes(`${field}: current.${field}`), `confirmed canonical ${field} must be retained`);
+  }
+  assert.match(apply, /confirmServiceAddress: true/);
+  assert.match(apply, /applyVerifiedDirectoryAddressGeo/);
+});
+
 test("Notion Ready creates canonical drafts; publication requires explicit Psipedia state", () => {
   assert.match(syncSource, /createManagedDirectoryProfile/);
   assert.match(syncSource, /if \(propertyText\(page, "Psipedia ID"\)\) return false/);
