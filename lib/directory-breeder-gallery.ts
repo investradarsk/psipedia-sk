@@ -1,4 +1,14 @@
-import { validateAdminPhotoGalleryUrl } from "./admin-photo-gallery-url.ts";
+/** Mirrors the existing AdminPhotoGallery URL policy without an editor-only dependency. */
+function validatedGalleryUrl(value: string): string | null {
+  const clean = value.trim();
+  if (!clean) return null;
+  if (/^\\/(?:media|images)\\//.test(clean)) return clean;
+  try {
+    return ["http:", "https:"].includes(new URL(clean).protocol) ? clean : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Gallery metadata lives in the existing directory source_data_json; no D1 migration. */
 export const DIRECTORY_BREEDER_GALLERY_KEY = "_psipedia_breeder_gallery_urls";
@@ -15,7 +25,7 @@ export function readDirectoryBreederGallery(
     const seen = new Set<string>();
     return values.flatMap((value) => {
       if (typeof value !== "string") return [];
-      const url = validateAdminPhotoGalleryUrl(value);
+      const url = validatedGalleryUrl(value);
       if (!url || seen.has(url) || seen.size >= DIRECTORY_BREEDER_GALLERY_LIMIT) return [];
       seen.add(url);
       return [url];
@@ -42,7 +52,7 @@ export function mergeDirectoryBreederGallery(
   const urls: string[] = [];
   for (const value of proposed) {
     if (typeof value !== "string") throw new Error("Neplatná fotografia vo fotogalérii.");
-    const url = validateAdminPhotoGalleryUrl(value);
+    const url = validatedGalleryUrl(value);
     if (!url) throw new Error("Neplatná URL fotografie vo fotogalérii.");
     if (urls.includes(url)) throw new Error("Rovnaká fotografia je vo fotogalérii dvakrát.");
     urls.push(url);
