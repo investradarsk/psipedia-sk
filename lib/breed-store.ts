@@ -1104,18 +1104,18 @@ const getPublishedBreedUncached = async (slug: string) => {
 };
 export const getPublishedBreed = cache(getPublishedBreedUncached);
 
-export async function getBreedEditorOptions(): Promise<BreedEditorOptions> {
+export async function getBreedEditorOptions(selected?: Pick<ManagedBreed, "relatedArticleIds" | "directoryProfileIds">): Promise<BreedEditorOptions> {
   const database = requireDb();
   const [breedsResult, articlesResult, directoryResult] = await database.batch([
     database.prepare(
       "SELECT id,name,fci_number FROM managed_breeds ORDER BY fci_group,name LIMIT 500",
     ),
     database.prepare(
-      "SELECT id,title,status FROM managed_articles ORDER BY updated_at DESC,id DESC LIMIT 500",
-    ),
+      "SELECT id,title,status FROM managed_articles WHERE id IN (SELECT value FROM json_each(?)) ORDER BY title COLLATE NOCASE",
+    ).bind(JSON.stringify(selected?.relatedArticleIds ?? [])),
     database.prepare(
-      "SELECT id,name,category,city,region FROM directory_profiles WHERE category IN ('chovatelske-stanice','chovatelske-kluby') ORDER BY category,name LIMIT 500",
-    ),
+      "SELECT id,name,category,city,region FROM directory_profiles WHERE id IN (SELECT value FROM json_each(?)) AND category IN ('chovatelske-stanice','chovatelske-kluby') ORDER BY category,name",
+    ).bind(JSON.stringify(selected?.directoryProfileIds ?? [])),
   ]);
   return {
     breeds: breedsResult.results as BreedEditorOptions["breeds"],

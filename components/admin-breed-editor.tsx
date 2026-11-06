@@ -6,7 +6,7 @@ import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
-import { useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
+import { useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { BreedEditorOptions, BreedHeroTrait, BreedSport, ManagedBreed } from "@/lib/breed-store";
 import type { BreedImage, BreedSource } from "@/lib/content";
@@ -14,6 +14,7 @@ import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upl
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { AdminBreedNotionExtras } from "@/components/admin-breed-notion-extras";
 import { AdminDeferredDetails } from "@/components/admin-deferred-details";
+import { AdminBreedRelationGroup } from "@/components/admin-breed-relation-group";
 import { AdminFieldFeedback, AdminFormFeedback } from "@/components/admin-form-feedback";
 import { breedSeoFallback } from "@/lib/content-seo";
 import { inspectBreedMeasurement, type BreedMeasurementKind, type FciStandard, type FciStandardTextKey } from "@/lib/breed-fci";
@@ -33,8 +34,6 @@ function slugify(value:string){return value.normalize("NFD").replace(/[\u0300-\u
 function lines(value:string){return value.split("\n").map((item)=>item.replace(/^[-•]\s*/,"").trim()).filter(Boolean);}
 function measurementMessage(value:string,kind:BreedMeasurementKind){return inspectBreedMeasurement(value,kind).map((item)=>item.message).join(" ");}
 function measurementHasError(value:string,kind:BreedMeasurementKind){return inspectBreedMeasurement(value,kind).some((item)=>item.severity==="error");}
-function normalized(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("sk");}
-function filterNamedOptions<T extends {name:string}>(items:T[],query:string){const needle=normalized(query.trim());return !needle?items:items.filter((item)=>normalized(item.name).includes(needle));}
 const emptySource:BreedSource={label:"",url:""};
 const sportOptions=[
   ["obedience","Obedience"],["rally-obedience","Rally obedience"],["agility","Agility"],["canicross","Canicross"],
@@ -74,10 +73,6 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [sportDraft,setSportDraft]=useState<SportDraft|null>(null);
   const [sportError,setSportError]=useState("");
-  const [articleQuery,setArticleQuery]=useState("");
-  const [stationQuery,setStationQuery]=useState("");
-  const [clubQuery,setClubQuery]=useState("");
-  const [breedQuery,setBreedQuery]=useState("");
 
   const change=(key:keyof typeof form,value:(typeof form)[keyof typeof form])=>setForm((current)=>({...current,[key]:value}));
   function changeName(value:string){change("name",value);if(!slugEdited)change("slug",slugify(value));}
@@ -177,16 +172,11 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     {title:"Veľkosť a chyby",fields:[["vyska_pes_cm","Výška – pes"],["vyska_suka_cm","Výška – suka"],["hmotnost_pes_kg","Hmotnosť – pes"],["hmotnost_suka_kg","Hmotnosť – suka"],["velkost_hmotnost_poznamka","Poznámka k veľkosti"],["chyby","Chyby"],["zavazne_chyby","Závažné chyby"],["diskvalifikacne_chyby","Diskvalifikačné chyby"],["poznamka_chov","Poznámka k chovu"]]},
   ];
 
-  const articles=useMemo(()=>{const needle=normalized(articleQuery.trim());return !needle?options.articles:options.articles.filter((item)=>normalized(item.title).includes(needle));},[articleQuery,options.articles]);
-  const stations=useMemo(()=>filterNamedOptions(options.directoryProfiles.filter((item)=>item.category==="chovatelske-stanice"),stationQuery),[options.directoryProfiles,stationQuery]);
-  const clubs=useMemo(()=>filterNamedOptions(options.directoryProfiles.filter((item)=>item.category==="chovatelske-kluby"),clubQuery),[options.directoryProfiles,clubQuery]);
-  const relatedBreeds=useMemo(()=>filterNamedOptions(options.breeds.filter((item)=>item.id!==breed?.id),breedQuery),[options.breeds,breed?.id,breedQuery]);
-
   return <>
     <EditorWorkspace
       mode="page"
       title={breed ? `Upraviť plemeno: ${form.name || breed.name}` : "Nové plemeno"}
-      description="Kanonický editor plemena vrátane FCI, médií a vzťahov."
+      description="Pracuj po sekciách. Rozšírené FCI a SEO nájdeš v nastaveniach."
       status={<><EditorStatus label={form.status === "published" ? "Publikované" : "Koncept"} tone={form.status === "published" ? "success" : "neutral"} /><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /></>}
       sections={editorNavigation}
       dirty={dirty}
@@ -203,8 +193,15 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     >
     <form id="breed-canonical-editor-form" className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
     <div className={styles.editorTopbar}>
-      <p>{breed ? `ID ${breed.id} · ${form.status==="published"?"Publikované":"Koncept"}` : "Nový koncept plemena"}</p>
-      
+      <div>
+        <strong>{breed ? "Plemeno #" + breed.id : "Nový profil plemena"}</strong>
+        <p>Vyber sekciu v navigácii; pokročilé údaje FCI a SEO sú v nastaveniach.</p>
+      </div>
+      <div className={styles.editorStats} aria-label="Prehľad vyplnenia">
+        <span>{form.sports.length} športov</span>
+        <span>{form.relatedArticleIds.length} článkov</span>
+        <span>{form.directoryProfileIds.length} staníc a klubov</span>
+      </div>
     </div>
 
     <AdminEditorSection id="breed-basic" className={styles.sectionCard}>
@@ -284,7 +281,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
 
     <AdminEditorSection id="breed-sports" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>Športy a aktivity</h2><p>Poradie sa ukladá v existujúcom <code>sports_json</code>; verejný contract sa nemení.</p></div><AdminActionButton variant="secondary" onClick={openNewSport}>+ Pridať šport</AdminActionButton></div>
+        <div className={styles.heading}><div><h2>Športy a aktivity</h2><p>Upravuj vhodnosť a poradie aktivít. Každý šport má byť v profile iba raz.</p></div><AdminActionButton variant="secondary" onClick={openNewSport}>+ Pridať šport</AdminActionButton></div>
         <div className={styles.sportsList}>
           {form.sports.map((sport,index)=><article className={styles.sportRow} key={`${sport.key}-${index}`}>
             <strong>{sport.label}</strong><span>Vhodnosť {sport.rating}/5</span><p>{sport.note||"Bez poznámky"}</p>
@@ -302,12 +299,33 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
 
     <AdminEditorSection id="breed-relations" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>Súvisiaci obsah a databázy</h2><p>Upravujú sa iba existujúce canonical relations. Chovateľské stanice a kluby sú oddelené pre jasnú správu; profily adresára ani články sa tu nemenia.</p></div></div>
+        <div className={styles.heading}><div><h2>Súvisiaci obsah a databázy</h2><p>Priradené položky sú vždy navrchu. Ďalšie pridáš vyhľadaním názvu; výber nemení obsah článkov ani profilov v adresári.</p></div></div>
         <div className={styles.relationColumns}>
-          <fieldset className={styles.relationBox}><legend>Súvisiace články</legend><input className={styles.relationSearch} value={articleQuery} onChange={(e)=>setArticleQuery(e.target.value)} placeholder="Hľadať článok"/><div className={styles.relationItems}>{articles.map((item)=><label className="admin-check" key={item.id}><input type="checkbox" checked={form.relatedArticleIds.includes(item.id)} onChange={()=>toggleId("relatedArticleIds",item.id)}/><span>{item.title}<small>{item.status}</small></span></label>)}</div></fieldset>
-          <fieldset className={styles.relationBox}><legend>Podobné plemená</legend><input className={styles.relationSearch} value={breedQuery} onChange={(e)=>setBreedQuery(e.target.value)} placeholder="Hľadať plemeno"/><div className={styles.relationItems}>{relatedBreeds.map((item)=><label className="admin-check" key={item.id}><input type="checkbox" checked={form.relatedBreedIds.includes(item.id)} onChange={()=>toggleId("relatedBreedIds",item.id)}/><span>{item.name}<small>{item.fciNumber?`FCI ${item.fciNumber}`:"FCI číslo neuvedené"}</small></span></label>)}</div></fieldset>
-          <fieldset className={styles.relationBox}><legend>Chovateľské stanice</legend><input className={styles.relationSearch} value={stationQuery} onChange={(e)=>setStationQuery(e.target.value)} placeholder="Hľadať stanicu"/><div className={styles.relationItems}>{stations.map((item)=><label className="admin-check" key={item.id}><input type="checkbox" checked={form.directoryProfileIds.includes(item.id)} onChange={()=>toggleId("directoryProfileIds",item.id)}/><span>{item.name}<small>Stanica{item.city?` · ${item.city}`:""}</small></span></label>)}</div></fieldset>
-          <fieldset className={styles.relationBox}><legend>Chovateľské kluby</legend><input className={styles.relationSearch} value={clubQuery} onChange={(e)=>setClubQuery(e.target.value)} placeholder="Hľadať klub"/><div className={styles.relationItems}>{clubs.map((item)=><label className="admin-check" key={item.id}><input type="checkbox" checked={form.directoryProfileIds.includes(item.id)} onChange={()=>toggleId("directoryProfileIds",item.id)}/><span>{item.name}<small>Klub{item.city?` · ${item.city}`:""}</small></span></label>)}</div></fieldset>
+          <AdminBreedRelationGroup
+            kind="articles" title="Súvisiace články" placeholder="Hľadať článok"
+            selectedIds={form.relatedArticleIds}
+            initialOptions={options.articles.map((item)=>({id:item.id,label:item.title,meta:item.status}))}
+            onToggle={(id)=>toggleId("relatedArticleIds",id)}
+          />
+          <AdminBreedRelationGroup
+            kind="breeds" title="Podobné plemená" placeholder="Hľadať plemeno"
+            selectedIds={form.relatedBreedIds}
+            initialOptions={options.breeds.filter((item)=>item.id!==breed?.id).map((item)=>({id:item.id,label:item.name,meta:item.fciNumber?"FCI "+item.fciNumber:"FCI číslo neuvedené"}))}
+            localOptions={options.breeds.filter((item)=>item.id!==breed?.id).map((item)=>({id:item.id,label:item.name,meta:item.fciNumber?"FCI "+item.fciNumber:"FCI číslo neuvedené"}))}
+            onToggle={(id)=>toggleId("relatedBreedIds",id)}
+          />
+          <AdminBreedRelationGroup
+            kind="stations" title="Chovateľské stanice" placeholder="Hľadať stanicu"
+            selectedIds={form.directoryProfileIds}
+            initialOptions={options.directoryProfiles.filter((item)=>item.category==="chovatelske-stanice").map((item)=>({id:item.id,label:item.name,meta:item.city}))}
+            onToggle={(id)=>toggleId("directoryProfileIds",id)}
+          />
+          <AdminBreedRelationGroup
+            kind="clubs" title="Chovateľské kluby" placeholder="Hľadať klub"
+            selectedIds={form.directoryProfileIds}
+            initialOptions={options.directoryProfiles.filter((item)=>item.category==="chovatelske-kluby").map((item)=>({id:item.id,label:item.name,meta:item.city}))}
+            onToggle={(id)=>toggleId("directoryProfileIds",id)}
+          />
         </div>
       </div>
     </AdminEditorSection>
