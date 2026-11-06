@@ -8,6 +8,7 @@ import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   AdminActionButton,
@@ -147,6 +148,7 @@ export function AdminDirectoryEditor({
   onNotionSaved?: (keepEditorOpen?: boolean) => void;
   automationSuggestions?: CanonicalUpdateSuggestion[];
 }) {
+  const router = useRouter();
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
   const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
@@ -386,7 +388,7 @@ export function AdminDirectoryEditor({
       setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
       setMessage(nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.");
       setFormDirty(false);
-      if (!profile) window.location.assign(`/admin/adresar/${data.profile.id}?vytvorene=1`);
+      if (!profile) router.replace(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
     } finally {
