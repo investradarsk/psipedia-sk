@@ -112,24 +112,29 @@ for (const editor of editors) {
         }
         await select.selectOption(target);
       }
-      else if (sharedWorkspace) {
+      else {
+        // All canonical editors migrated to "switch" in steps 7–15.
+        // In this mode navigation uses real buttons, not scroll anchors or hash.
         const label = await nav.locator("select option").evaluateAll((elements, value) =>
           elements.find(element => (element as HTMLOptionElement).value === value)?.textContent?.trim() ?? "", target);
         await nav.getByRole("button", { name: label, exact: true }).click();
-      } else {
-        await nav.locator(`a[href$="#${target}"]`).click();
       }
-      if (sharedWorkspace) await expect(page.locator(`#${target}`)).toBeFocused();
-      else await expect(page).toHaveURL(new RegExp(`#${target}$`));
+      await expect(page.locator(`#${target}`)).toBeVisible();
+      await expect(page.locator(`#${target}`)).toBeFocused();
       await expect(field).toHaveValue(value);
-      await expect.poll(async () => {
-        const section = await page.locator(`#${target}`).boundingBox();
-        const box = await nav.boundingBox();
-        return (section?.y ?? -1) >= (box?.y ?? 0) + (box?.height ?? 0) - 1;
-      }).toBe(true);
-      // The editor can sit just above the viewport edge after scrolling, but its
-      // navigation must remain visibly usable rather than merely having a positive top.
-      await expect(nav).toBeInViewport({ ratio: 0.5 });
+      // Keyboard focus follows the chosen section in switch mode;
+      // returning to the initial panel must keep the unsaved field value.
+      const initial = options[0];
+      const selectBack = nav.getByRole("combobox");
+      if (await selectBack.isVisible()) await selectBack.selectOption(initial);
+      else {
+        const initialLabel = await nav.locator("select option").evaluateAll((elements, value) =>
+          elements.find(element => (element as HTMLOptionElement).value === value)?.textContent?.trim() ?? "", initial);
+        await nav.getByRole("button", { name: initialLabel, exact: true }).click();
+      }
+      await expect(page.locator(`#${initial}`)).toBeVisible();
+      await expect(field).toBeVisible();
+      await expect(field).toHaveValue(value);
     }
     expect(writes).toEqual([]);
     await noOverflow(page);
