@@ -5,6 +5,7 @@ import { planBreedWorkcopyIdentity } from "@/lib/notion-breed-workcopy-identity-
 import { inspectBreedWorkCopy } from "@/lib/notion-breed-workcopy-parity.mjs";
 import { expandBreed60WorkPage } from "@/lib/notion-breed-workcopy-adapter.mjs";
 import { planBreedWorkcopyShadowRows } from "@/lib/notion-breed-workcopy-shadow-plan.mjs";
+import { isCompatibleBreedWorkcopyReceipt } from "@/lib/notion-breed-workcopy-receipt";
 import type { NotionSyncBindings } from "@/lib/notion-sync-shared";
 
 export const dynamic = "force-dynamic";
@@ -150,11 +151,12 @@ export async function POST(request: Request) {
         check.fci_number === row.fciNumber;
     });
     const receiptsReady = rows.filter(row =>
-      Boolean(existing.get(row.breedId)?.work_sync_receipt)).length;
+      isCompatibleBreedWorkcopyReceipt(existing.get(row.breedId)?.work_sync_receipt)).length;
     return Response.json({
       shadowStaged: good && saved.results.length === 344,
       stagedRows: saved.results.length,
       receiptsReady,
+      legacyOrInvalidReceipts: 344 - receiptsReady,
       casApplied: changed,
       cutoverReady: false,
       // This endpoint NEVER changes status to VERIFIED or ACTIVE.
