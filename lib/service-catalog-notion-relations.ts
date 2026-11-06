@@ -10,7 +10,7 @@
 import {notionRequest,type NotionSyncBindings} from "./notion-sync-shared";
 import {planCatalogRelationSync} from "./service-catalog-notion-relation-plan";
 import {serviceCatalog} from "./service-catalog-contract";
-import {importNotionServiceChoices,projectServiceChoiceToDirectoryNotion} from "./service-profile-notion-bridge";
+import {importNotionServiceChoices,projectServiceChoiceToDirectoryNotion,ensureCanonicalServiceChoicesInLegacy} from "./service-profile-notion-bridge";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port";
 import {notionPageBelongsToDataSource} from "./notion-sync-page-ownership";
 
@@ -112,6 +112,8 @@ async function readRemote(bindings:NotionSyncBindings,pageId:string,expectedDire
 export async function syncProfileCatalogRelation(input:{
  db:D1Database;bindings:NotionSyncBindings;pageId:string;profileId:number;category:string;
  directoryDataSourceId:string;lookup:CatalogRelationLookup;
+ /** Signed relation edit or owner-approved Notion→Admin import; never infer deletes. */
+ notionAdditionsOnly?:boolean;
 }):Promise<"skipped"|"unchanged"|"pushed"|"pulled">{
  const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
  if(!await schemaExists(db))return "skipped"; // Migration not yet applied: do not break existing sync.
@@ -139,6 +141,42 @@ export async function syncProfileCatalogRelation(input:{
    if(!Array.isArray(decoded)||!decoded.every(x=>typeof x==="string"))
      throw Error("SERVICES_RELATION_BAD_BASELINE");
    previous=decoded;
+ }
+ // Signed Notion relation edits are append-only. Omitted entries are never
+ // deletion receipts; the canonical catalog identities and Admin YES choices win.
+ if(input.notionAdditionsOnly){
+   const target=[...new Set([...local,...remote])].sort();
+   const additions=target.filter(id=>!local.includes(id));
+   const readIds=async()=>relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
+   const equalIds=(a:readonly string[]|null,b:readonly string[])=>
+     a!==null&&JSON.stringify([...a].sort())===JSON.stringify([...b].sort());
+   if(!equalIds(await readIds(),remote))
+     throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
+   if(additions.length){
+     await importNotionServiceChoices(db,profileId,category,
+       target.map(id=>available.get(id)!.label));
+   }
+   const confirmed=await canonicalYes(db,profileId,available);
+   if(!equalIds(confirmed,target))throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
+   await ensureCanonicalServiceChoicesInLegacy(db,profileId,confirmed);
+   const pushed=!equalIds(remote,confirmed);
+   if(pushed){
+     if(!equalIds(await readIds(),remote))
+       throw Error("SERVICES_RELATION_CHANGED_BEFORE_EXPORT");
+     const pages=confirmed.map(id=>({id:lookup.serviceToPage.get(id)!}));
+     const ack=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId),{
+       method:"PATCH",body:JSON.stringify({properties:{[PROPERTY]:{relation:pages}}})
+     },{retryTransient:false});
+     if(normal(ack.id??"")!==normal(pageId)||!equalIds(await readIds(),pages.map(p=>p.id)))
+       throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
+   }
+   await db.prepare(
+     "INSERT INTO directory_service_notion_relation_sync (directory_profile_id,notion_page_id,confirmed_ids_json,synced_at) "+
+     "VALUES (?1,?2,?3,?4) ON CONFLICT(directory_profile_id) DO UPDATE SET "+
+     "confirmed_ids_json=excluded.confirmed_ids_json,synced_at=excluded.synced_at "+
+     "WHERE notion_page_id=excluded.notion_page_id"
+   ).bind(profileId,pageId,JSON.stringify(confirmed),new Date().toISOString()).run();
+   return additions.length?"pulled":pushed?"pushed":"unchanged";
  }
  const plan=planCatalogRelationSync(local,remote,previous);
  if(plan.action==="conflict")throw Error("SERVICES_RELATION_BOTH_SIDES_CHANGED_REVIEW");
@@ -172,6 +210,7 @@ export async function syncProfileCatalogRelation(input:{
    if(JSON.stringify(observed?.sort())!==JSON.stringify(pages.map(x=>x.id).sort()))
      throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
  }
+ await ensureCanonicalServiceChoicesInLegacy(db,profileId,await canonicalYes(db,profileId,available));
  const now=new Date().toISOString();
  await db.prepare(
    "INSERT INTO directory_service_notion_relation_sync (directory_profile_id,notion_page_id,confirmed_ids_json,synced_at) "+
