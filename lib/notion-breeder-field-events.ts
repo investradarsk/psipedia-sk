@@ -109,7 +109,11 @@ export function breederPreserveUneditedFields(
   const result = structuredClone(submitted);
   const dirty = new Set(edited);
   for (const path of BREEDER_EDITORIAL_PATHS) {
-    if (!dirty.has(path)) breederSetPath(result, path, breederReadPath(live, path));
+    if (dirty.has(path)) continue;
+    const value = breederReadPath(live, path);
+    // An omitted live field is not evidence that a previously valid field
+    // should be removed or replaced with an undefined object property.
+    if (value !== undefined) breederSetPath(result, path, value);
   }
   return result;
 }
