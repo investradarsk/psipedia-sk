@@ -216,3 +216,19 @@
     color: #e3eee5;
   }
 }
+
+@media (min-width: 901px) {
+  .banner.hasImage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .banner .media {
+    display: none;
+  }
+  .banner.hasImage > .copy {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .banner .copy [data-public-heading] {
+    font-size: var(--ps-heading-content-section);
+    line-height: 1.25;
+  }
+}

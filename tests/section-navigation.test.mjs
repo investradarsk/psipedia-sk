@@ -141,7 +141,8 @@ test("PUBLIC-HUBS-UX-1 keeps one landing navigator on editorial roots and compac
   const hub = section.slice(hubStart, topicStart);
   const topic = section.slice(topicStart);
   assert.match(hub, /data-section-topic-groups/);
-  assert.doesNotMatch(hub, /<PortalSectionTabs/);
+  assert.match(hub, /className=\{styles.desktopTopicPicker\}/);
+  assert.match(hub, /<PortalSectionTabs section=\{section\}/);
   assert.doesNotMatch(hub, /data-section-topic-card/);
   assert.match(topic, /<PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
 });

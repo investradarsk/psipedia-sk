@@ -14,6 +14,9 @@ for (const path of ["/steniatka", "/starostlivost", "/aktivity"]) {
       expect(media).not.toBeNull();
       expect(title).not.toBeNull();
       if (width > 900) {
+        await expect(page.locator(".portal-section-tabs select")).toBeVisible();
+        const serviceImages = page.locator("[data-section-next-card] img");
+        for (const image of await serviceImages.all()) await expect(image).toBeHidden();
         expect(title!.y).toBeGreaterThanOrEqual(media!.y + media!.height);
         expect(media!.width).toBeGreaterThan(260);
         const first = await groups.first().boundingBox();

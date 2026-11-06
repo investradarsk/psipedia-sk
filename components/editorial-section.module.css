@@ -1259,3 +1259,31 @@
     margin: 0;
   }
 }
+
+.desktopTopicPicker {
+  display: none;
+}
+@media (min-width: 901px) {
+  .desktopTopicPicker {
+    display: block;
+  }
+  .topicStageHeading h2,
+  .topicStageGrid .topicGroupTitle {
+    font-size: var(--ps-heading-content-section);
+    line-height: 1.25;
+  }
+  /* Recommendation cards retain their destinations, now without decorative photos. */
+  .nextCard {
+    grid-template-rows: auto;
+  }
+  .nextCardMedia {
+    display: none;
+  }
+  .nextCardCopy {
+    min-height: 150px;
+    padding: 20px;
+  }
+  .nextCardCopy > strong {
+    font-size: var(--ps-heading-content-section);
+  }
+}

@@ -1,5 +1,6 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
+import { PublicHeading } from "@/components/public-heading";
 import { ArticleListItem } from "@/components/article-list-item";
 import { HorizontalCarouselControls } from "@/components/horizontal-carousel-controls";
 import { ArrowIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
@@ -464,6 +465,10 @@ export async function EditorialSectionHub({
           />
         </UnifiedSectionHeroShell>
 
+        <div className={styles.desktopTopicPicker}>
+          <PortalSectionTabs section={section} />
+        </div>
+
         {sectionSlug === "starostlivost" ? (
           <PageContainer className={styles.calloutShell} data-section-public-callout>
             <HubCallout sectionSlug="starostlivost" />
@@ -480,7 +485,9 @@ export async function EditorialSectionHub({
                 data-puppy-stage={sectionSlug === "steniatka" ? stage.title : undefined}
               >
                 <header className={styles.topicStageHeading}>
-                  <h2>{stage.title}</h2>
+                  <PublicHeading as="h2" role="section">
+                    {stage.title}
+                  </PublicHeading>
                   <p>{stage.description}</p>
                 </header>
                 <div className={styles.topicStageGrid}>
@@ -497,9 +504,14 @@ export async function EditorialSectionHub({
                           aria-labelledby={headingId}
                           data-section-article-group
                         >
-                          <h3 className={styles.topicGroupTitle} id={headingId}>
+                          <PublicHeading
+                            as="h3"
+                            role="section"
+                            className={styles.topicGroupTitle}
+                            id={headingId}
+                          >
                             <Link href={href}>{subpage.label}</Link>
-                          </h3>
+                          </PublicHeading>
                           <div data-section-content-list>
                             {related.length > 0 ? (
                               <SectionContentList

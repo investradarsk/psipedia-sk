@@ -23,8 +23,6 @@ on:
       - "lib/notion-events-help-sync.ts"
       - "lib/event-store.ts"
       - "lib/help-store.ts"
-      - "components/admin-event-editor.tsx"
-      - "components/admin-help-editor.tsx"
       - "scripts/gemini-notion-*.mjs"
       - "tests/gemini-notion-*.test.mjs"
       - "drizzle/0124_gemini_notion_review_locks.sql"
