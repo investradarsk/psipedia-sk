@@ -16,6 +16,7 @@ import {
 } from "@/components/admin-interaction-system";
 import styles from "./admin-editor-workspace.module.css";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
+import { AdminEditorFooter } from "@/components/admin-editor-footer";
 
 export { AdminEditorSection as EditorSection } from "@/components/admin-interaction-system";
 
@@ -143,14 +144,15 @@ export function EditorActionBar({
   feedback?: ReactNode;
 }) {
   return (
-    <div className={styles.actionBar} data-editor-actionbar>
-      <div className={styles.actionStart}>
-        {destructive}
-        {message && <div className={styles.actionMessage} role="status" aria-live="polite">{message}</div>}
-        {feedback}
-      </div>
-      <div className={styles.actionEnd}>{secondary}{primary}</div>
-    </div>
+    <AdminEditorFooter
+      className={styles.actionBar}
+      data-editor-actionbar
+      destructive={destructive}
+      message={message}
+      feedback={feedback}
+    >
+      {secondary}{primary}
+    </AdminEditorFooter>
   );
 }
 
