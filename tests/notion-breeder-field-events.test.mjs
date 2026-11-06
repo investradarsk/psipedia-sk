@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import {
   BREEDER_EDITORIAL_PATHS,
   breederNotionChangedFields, breederAdminChangedFields,
-  breederApplyNotionChanges,
+  breederApplyNotionChanges, breederPreserveUneditedFields,
 } from "../lib/notion-breeder-field-events.ts";
 
 test("signed Notion property IDs select only the breeder field actually edited", () => {
@@ -57,11 +57,30 @@ test("only explicitly saved Admin field deltas are exported", () => {
   assert.deepEqual(breederAdminChangedFields(after, after), []);
 });
 
+
+test("stale Admin form cannot undo a newer inbound Facebook edit", () => {
+  const oldForm = {
+    name: "Duckmoors", excerpt: "Old short text", description: "User changed description",
+    facebookUrl: "", instagramUrl: "", seo: { title: "Old SEO" },
+  };
+  const latestD1 = {
+    name: "Duckmoors", excerpt: "Old short text", description: "Earlier text",
+    facebookUrl: "https://www.facebook.com/izasterova",
+    instagramUrl: "", seo: { title: "Fresh Notion SEO" },
+  };
+  const result = breederPreserveUneditedFields(oldForm, latestD1, ["description"]);
+  assert.equal(result.description, "User changed description");
+  assert.equal(result.facebookUrl, latestD1.facebookUrl);
+  assert.deepEqual(result.seo, latestD1.seo);
+  assert.equal(result.name, "Duckmoors");
+});
+
 test("breeder-only transport bypasses full-profile conflict merging and cron", async () => {
   const directory = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
   const dispatch = await readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
   const webhook = await readFile(new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
   const admin = await readFile(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
+  const editor = await readFile(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
   assert.match(directory, /return syncBreederEvent\(\{/);
   assert.match(directory, /changedPropertyIds\?: readonly string\[\]/);
   assert.match(directory, /breederAdminFields\?: readonly BreederEditorialField\[\]/);
