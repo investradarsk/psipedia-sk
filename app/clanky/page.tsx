@@ -25,8 +25,8 @@ function scalar(value: string | string[] | undefined) {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   return buildListingPageMetadata({
-    title: "Novinky zo sveta psov",
-    description: "Články, novinky, praktické návody a ďalší redakčný obsah zo sveta psov na jednom mieste.",
+    title: "Všetky články",
+    description: "Spoločný archív odborných článkov, noviniek, recenzií a praktických návodov o psoch.",
     path: "/clanky",
     searchParams: await searchParams,
   });
@@ -49,12 +49,12 @@ export default async function ArticlesPage({ searchParams }: Props) {
     "zivot-so-psom": "Život so psom",
   };
   const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
-    name: "Novinky zo sveta psov",
-    description: "Články, novinky, praktické návody a ďalší redakčný obsah zo sveta psov na jednom mieste.",
+    name: "Všetky články",
+    description: "Spoločný archív odborných článkov, noviniek, recenzií a praktických návodov o psoch.",
     path: "/clanky",
     breadcrumbs: [
       { name: "Domov", path: "/" },
-      { name: "Novinky zo sveta psov", path: "/clanky" },
+      { name: "Všetky články", path: "/clanky" },
     ],
     items: articles.map((article) => ({ name: article.title, path: articleHref(article) })),
   }) : null;
@@ -65,10 +65,10 @@ export default async function ArticlesPage({ searchParams }: Props) {
       <main id="obsah">
         <UnifiedSectionHeroShell id={HERO_ARTICLES_ANCHOR}>
           <UnifiedSectionHero
-            breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Novinky</span></Breadcrumbs>}
+            breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Všetky články</span></Breadcrumbs>}
             eyebrow="Psipedia"
-            title="Novinky zo sveta psov"
-            intro="Články, novinky, praktické návody a ďalší obsah, ktorý pomáha lepšie sa orientovať vo svete psov."
+            title="Všetky články"
+            intro="Články, novinky, recenzie a praktické návody z celej Psipedie na jednom mieste."
             visual={heroVisual}
             portalSearchSlot={
               <HomePortalSearch
