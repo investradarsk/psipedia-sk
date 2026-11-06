@@ -170,6 +170,24 @@ export function EventDetail({
                     <dd>{event.organizer}</dd>
                   </div>
                 )}
+                {event.admissionFee && (
+                  <div>
+                    <dt>Vstupné</dt>
+                    <dd>{event.admissionFee}</dd>
+                  </div>
+                )}
+                {event.contactPhone && (
+                  <div>
+                    <dt>Verejný telefón</dt>
+                    <dd><a href={`tel:${event.contactPhone.replace(/[^+\d]/g, "")}`}>{event.contactPhone}</a></dd>
+                  </div>
+                )}
+                {event.contactEmail && (
+                  <div>
+                    <dt>Verejný e-mail</dt>
+                    <dd><a href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></dd>
+                  </div>
+                )}
               </dl>
               {updatedLabel && (
                 <p className={styles.detailUpdated}>
