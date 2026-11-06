@@ -122,10 +122,12 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.match(section, /StructuredData/);
   assert.match(section, /buildCollectionPageJsonLd/);
   assert.doesNotMatch(section, /<SectionHero\b/);
-  // The primary guide is now an article card, while the rest remains a content list.
-  // Puppy topic groups intentionally show 2 articles; care and activities show 5.
-  assert.match(section, /limit=\{sectionSlug === "steniatka" \? 2 : 5\}/);
+  // All three editorial hubs share the same compact two-article topic preview.
+  // Individual topic pages retain the complete list instead of truncating at five.
+  assert.match(section, /<SectionContentList articles=\{related\}/);
+  assert.match(section, /limit=\{2\}/);
   assert.match(section, /articles=\{topicArticles\}/);
+  assert.match(section, /limit=\{Math\.max\(10, topicArticles\.length\)\}/);
   assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
   assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(css, /@media \(max-width: 390px\)/);
