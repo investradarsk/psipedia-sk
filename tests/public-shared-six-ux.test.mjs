@@ -54,13 +54,15 @@ test("shared detail fact list is slimmer and keeps semantic values", () => {
 });
 
 test("all categories can be selected on mobile without horizontal scroll", () => {
-  assert.match(category, /<select/);
-  assert.match(category, /aria-label="Vyber kategóriu služby"/);
-  assert.match(category, /router.push\(event.target.value\)/);
+  // After unification with Help/Events, services use one responsive link grid,
+  // not a mobile select or scrollable toolbar.
   assert.match(category, /<PublicSubcategoryNavigator/);
-  assert.match(categoryStyles, /\.categoryMobileSelect/);
-  assert.match(sharedTabs, /\.compactTrack \{/);
-  assert.match(sharedTabs, /flex-wrap: wrap/);
+  assert.match(category, /mobileLayout="grid"/);
+  assert.match(category, /label="Kategórie služieb pre psov"/);
+  assert.match(sharedTabs, /\.compactGridMobile \.compactTrack \{/);
+  assert.match(sharedTabs, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(sharedTabs, /\.compactGridMobile \.compactItem/);
+  assert.match(sharedTabs, /min-height: 52px/);
 });
 
 test("all opt-in service profiles use a wide contain photo and three accessible hero actions", () => {
