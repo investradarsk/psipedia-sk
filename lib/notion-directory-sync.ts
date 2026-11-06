@@ -866,40 +866,24 @@ async function createProfileFromNotion(input: {
       importWarnings.push("Skontroluj formát adresy.");
     }
     if (desired.confirmedServiceLocation) {
-      desired.confirmedServiceLocation = false;
-      importWarnings.push("Potvrď prevádzku a adresu v administrácii.");
+    if (desired.houseNumber.trim()) {
+      // Exact provider verification is only possible when a house number is supplied.
+      const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
+      verified = await verifyDirectoryCanonicalAddress({
+        region: desired.region,
+        district: desired.district,
+        city: desired.city,
+        street: desired.street,
+        houseNumber: desired.houseNumber,
+        addressFormat,
+        revalidateStreet: addressFormat === "STREET",
+      });
+      payload = withVerifiedDirectoryAddress(payload, verified);
+    } else {
+      // An incomplete address is a review signal, not a blocker for a new profile.
+      payload = { ...payload, clearServiceAddressConfirmation: true };
+      importWarnings.push("Číslo domu nie je uvedené; presná adresa zostáva nepotvrdená.");
     }
-    if (desired.services.length) importWarnings.push("Služby skontroluj a priraď v katalógu Admin/D1.");
-    desired.services = [];
-    if (!desired.region) importWarnings.push("Doplň kraj.");
-    if (!desired.city) importWarnings.push("Doplň mesto/obec.");
-    if (!desired.description) importWarnings.push("Doplň popis profilu.");
-    desired.slug = await resolveGeminiPublicSlug(input.database, "directory", {
-      requestedSlug: desired.slug, name: desired.name, city: desired.city, notionPageId: input.page.id,
-    });
-  }
-  const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
-  const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
-  const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
-  let payload = newProfileInput(desired);
-  if (input.trustedGemini) {
-    // Fail closed, regardless of unexpected Notion status/defaults.
-    payload = { ...payload, status: "draft" };
-  }
-  let verified = null;
-
-  if (desired.confirmedServiceLocation) {
-    const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
-    verified = await verifyDirectoryCanonicalAddress({
-      region: desired.region,
-      district: desired.district,
-      city: desired.city,
-      street: desired.street,
-      houseNumber: desired.houseNumber,
-      addressFormat,
-      revalidateStreet: addressFormat === "STREET",
-    });
-    payload = withVerifiedDirectoryAddress(payload, verified);
   } else {
     payload = { ...payload, clearServiceAddressConfirmation: true };
   }
@@ -999,17 +983,38 @@ async function applyNotionToProfile(input: {
 
   let verified = null;
   if (safety.verifyExactAddress) {
-    const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
-    verified = await verifyDirectoryCanonicalAddress({
-      region: desired.region,
-      district: desired.district,
-      city: desired.city,
-      street: desired.street,
-      houseNumber: desired.houseNumber,
-      addressFormat,
-      revalidateStreet: addressFormat === "STREET",
-    });
-    payload = withVerifiedDirectoryAddress(payload, verified);
+    if (desired.houseNumber.trim()) {
+      const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
+      verified = await verifyDirectoryCanonicalAddress({
+        region: desired.region,
+        district: desired.district,
+        city: desired.city,
+        street: desired.street,
+        houseNumber: desired.houseNumber,
+        addressFormat,
+        revalidateStreet: addressFormat === "STREET",
+      });
+      payload = withVerifiedDirectoryAddress(payload, verified);
+    } else if (current.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION") {
+      // Never let a partial Notion address overwrite an already verified exact
+      // canonical address or its existing GEO/Google Place association.
+      payload = {
+        ...payload,
+        region: current.region,
+        district: current.district,
+        city: current.city,
+        address: current.address,
+        postalCode: current.postalCode,
+        street: current.street,
+        houseNumber: current.houseNumber,
+        addressFormat: current.addressFormat,
+        confirmServiceAddress: true,
+      };
+    } else {
+      // Keep syncing content even if Notion's confirmation flag is set without
+      // a house number. Exact location remains unconfirmed; no geocoder call.
+      payload = { ...payload, clearServiceAddressConfirmation: true };
+    }
   } else if (desired.confirmedServiceLocation) {
     payload = { ...payload, confirmServiceAddress: true };
   } else {
