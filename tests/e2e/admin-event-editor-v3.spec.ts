@@ -87,6 +87,11 @@ for (const viewport of [
     await expect(root.getByRole("button", { name: "Uložiť koncept", exact: true })).toBeVisible();
     await expect(root.getByRole("button", { name: "Publikovať podujatie", exact: true })).toBeVisible();
 
+    const pager = root.getByRole("navigation", { name: "Prechod medzi sekciami podujatia" });
+    await pager.getByRole("button", { name: "Ďalšia" }).click();
+    await expect(root.locator("#event-schedule")).toBeFocused();
+    await pager.getByRole("button", { name: "Predchádzajúca" }).click();
+    await expect(root.locator("#event-basics")).toBeFocused();
     const title = root.getByLabel("Názov podujatia");
     await title.fill("Klubová výstava retrieverov");
     await showEventSection(root, "event-details", "Program a informácie");
