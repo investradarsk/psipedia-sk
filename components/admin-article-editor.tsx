@@ -34,6 +34,7 @@ import {
   type PortalSection,
 } from "@/lib/portal";
 import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/news";
+import { articleCategoryForPortalPlacement } from "@/lib/article-subsection-taxonomy";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { ImageDisplay } from "@/components/image-display";
 import { ImageDisplayEditor } from "@/components/image-display-editor";
@@ -109,7 +110,7 @@ export function AdminArticleEditor({
   const [portalSubpage, setPortalSubpage] = useState(
     article?.portalSubpage ??
     initialAreas.find((area) => area.slug === defaultPortalSubpage)?.slug ??
-    initialAreas[0]?.slug ?? "",
+    "",
   );
   const currentAreas = areasFor(portalSection);
   // Keep an imported or legacy area selectable even if it is absent from current public options.
@@ -294,10 +295,11 @@ export function AdminArticleEditor({
   }
 
   function changePortalSection(value: ArticlePortalSection) {
+    if (value === portalSection) return;
     setPortalSection(value);
     const nextAreas = areasFor(value);
-    if (!nextAreas.some((area) => area.slug === portalSubpage)) setPortalSubpage(nextAreas[0]?.slug ?? "");
-    if (value === "novinky" && category === "Výcvik") setCategory("Život so psom");
+    // Do not silently assign the first area of a different section.
+    if (!nextAreas.some((area) => area.slug === portalSubpage)) setPortalSubpage("");
   }
 
   async function uploadImage(event: File | ChangeEvent<HTMLInputElement>) {
@@ -360,7 +362,9 @@ export function AdminArticleEditor({
     const payload = {
       title,
       slug,
-      category,
+      category: portalSection === "clanky"
+        ? category
+        : articleCategoryForPortalPlacement(portalSection, portalSubpage),
       portalSection,
       portalSubpage: preservedMetadata.portalSubpage,
       newsCategory: portalSection === "novinky" ? newsCategory : null,
@@ -702,9 +706,9 @@ export function AdminArticleEditor({
               </select>
               <small>Určí, kde sa článok zobrazí a akú bude mať adresu.</small>
             </div>
-            {portalSection !== "novinky" && (
+            {portalSection === "clanky" && (
               <div className="admin-field">
-                <label htmlFor="article-category">Kategória článku</label>
+                <label htmlFor="article-category">Kategória článku (starší archív)</label>
                 <select id="article-category" value={category} onChange={(event) => setCategory(event.target.value as ManagedArticle["category"])}>
                   <option>Výcvik</option><option>Zdravie</option><option>Výživa</option><option>Život so psom</option>
                 </select>
@@ -719,6 +723,7 @@ export function AdminArticleEditor({
               <div className="admin-field">
                 <label htmlFor="article-portal-area">Oblasť {managedSections.find((section) => section.slug === portalSection)?.label ?? "sekcie"}</label>
                 <select id="article-portal-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
+                  <option value="">Vyber oblasť…</option>
                   {originalAreaHidden && <option value={article?.portalSubpage}>{`Pôvodná oblasť (${article?.portalSubpage})`}</option>}
                   {currentAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
                 </select>
@@ -734,6 +739,18 @@ export function AdminArticleEditor({
                 <small>Určí tematický prehľad, v ktorom sa novinka zobrazí.</small>
               </div>
             )}
+            <div className="admin-field admin-field--full">
+              <small role="status">
+                Umiestnenie: {portalSectionLabel(portalSection)} → {portalSection === "novinky"
+                  ? getNewsCategory(newsCategory)?.label ?? "Vyber typ novinky"
+                  : currentAreas.find((item) => item.slug === portalSubpage)?.label
+                    ?? (portalSection === "clanky" ? category : portalSubpage ? "Pôvodná oblasť" : "Vyber oblasť")}
+              </small>
+              <small>Adresa: /{portalSection}/{slug || "adresa-clanku"}</small>
+              {article && article.portalSection !== portalSection && (
+                <small>Upozornenie: zmena sekcie mení adresu článku. Over presmerovanie pôvodnej URL.</small>
+              )}
+            </div>
             <div className="admin-field">
               <label htmlFor="article-reading">Čas čítania (minúty)</label>
               <input id="article-reading" type="number" min="1" max="60" value={readingMinutes} onChange={(event) => setReadingMinutes(Number(event.target.value))} />
