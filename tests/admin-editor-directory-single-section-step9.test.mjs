@@ -17,7 +17,7 @@ test("EDITOR-9: service directory has five independently visible but mounted pan
   assert.match(css, /\[data-admin-editor-section\]\[hidden\]/);
   assert.match(css, /display: none !important/);
   assert.match(css, /@container \(max-width: 860px\)/);
-  assert.match(css, /\[data-admin-shared-editor-navigation\] \.mobile/);
+  assert.match(css, /\[data-admin-shared-editor-navigation\] > label/);
 });
 
 test("EDITOR-9: Save/Publish reveal the invalid field instead of trapping focus in a hidden section", () => {
