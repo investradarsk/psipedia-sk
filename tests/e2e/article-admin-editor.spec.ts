@@ -86,7 +86,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(breeds.getByText("Žiadne plemená nezodpovedajú vyhľadávaniu.")).toBeVisible();
     await search.fill("");
 
-    await nav.getByRole("button", { name: "Náhľad" }).click();
+    await page.locator("[data-editor-navigation]").getByRole("button", { name: "Náhľad" }).click();
     await expect(page.getByRole("button", { name: "Skryť náhľad" })).toBeVisible();
     await page.getByRole("button", { name: "Skryť náhľad" }).click();
     await showArticleSection(page, "article-basics");

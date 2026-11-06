@@ -59,7 +59,7 @@ export function AdminSharedEditorNavigation({
       </div>
       <label className={styles.mobile} htmlFor={selectId}>
         <span>Sekcia editora</span>
-        <select id={selectId} aria-label={ariaLabel} value={currentId}
+        <select id={selectId} aria-label="Sekcia editora" value={currentId}
           disabled={!ready} onChange={(event) => onNavigate(event.currentTarget.value)}>
           {sections.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>

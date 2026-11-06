@@ -212,7 +212,6 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
 
   return <form className="admin-event-editor" data-admin-form-system="v4" onSubmit={save}>
     <EditorUnsavedChangesGuard active={dirty} open={confirmNavigation} onStay={stayInEditor} onDiscard={discardAndNavigate} />
-    {dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}
     <AdminStickyEditorNavigation sections={sections} ariaLabel="Sekcie editora organizácie" />
     <div className="admin-event-fields">
       <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />

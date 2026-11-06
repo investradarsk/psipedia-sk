@@ -28,6 +28,10 @@ on:
       - "tests/pr-visual-baseline-compare.test.mjs"
       - "scripts/pr-visual-baseline-compare.mjs"
       - ".github/workflows/pr-visual-evidence.yml"
+      # Public baseline screenshots are not meaningful for admin-only edits.
+      # Admin editors retain dedicated desktop/mobile E2E workflows.
+      - "!app/admin/**"
+      - "!components/admin-**"
 
 concurrency:
   group: pr-visual-evidence-${{ github.event.pull_request.number || github.run_id }}

@@ -289,6 +289,12 @@ export function EditorWorkspace({
       // Let React reveal the next section before a browser focus/scroll attempt.
       contentRef.current?.closest<HTMLElement>("[data-editor-page]")
         ?.scrollIntoView({ block: "start", behavior: "smooth" });
+      // Keep keyboard focus on the newly visible panel after a section switch.
+      window.requestAnimationFrame(() => {
+        const target = Array.from(contentRef.current?.querySelectorAll<HTMLElement>("[data-admin-editor-section]") ?? [])
+          .find((section) => section.id === id);
+        target?.focus({ preventScroll: true });
+      });
       return;
     }
     const target = Array.from(contentRef.current?.querySelectorAll<HTMLElement>("[data-admin-editor-section]") ?? [])
@@ -347,7 +353,7 @@ export function EditorWorkspace({
         </AdminModalDialog>
       ) : (
         <section className={styles.pageWorkspace} aria-label={title} data-editor-page data-admin-form-system="v4" data-editor-section-mode={sectionMode}>
-          <EditorHeader status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
+          <EditorHeader title={title} description={description} status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
           {body}
           {resolvedActions && <div className={styles.pageActions}>{resolvedActions}</div>}
         </section>

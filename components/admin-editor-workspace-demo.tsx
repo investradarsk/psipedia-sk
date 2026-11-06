@@ -71,6 +71,7 @@ export function AdminEditorWorkspaceDemo() {
         description="Jeden spoločný workspace, vlastné polia canonical editora."
         status={<EditorStatus label={published ? "Lokálne publikované" : "Nezverejnený koncept"} tone={published ? "success" : "neutral"} />}
         sections={sections}
+        sectionMode="switch"
         previewTitle="Náhľad profilu"
         preview={
           <div data-demo-preview>

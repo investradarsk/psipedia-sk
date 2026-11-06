@@ -69,7 +69,11 @@ for (const editor of editors) {
     const value = `Neuložený test ${editor.key}`;
     // Wait for the client editor, then verify that moving within the editor
     // never sends a mutation or replaces typed state.
-    if (editor.key === "article") await expect(page.locator('#article-intro[data-editor-ready="true"]')).toBeVisible();
+    if (editor.key === "article") {
+      // Lexical stays initialized in the mounted, but inactive, content section.
+      await expect(page.locator('#article-intro[data-editor-ready="true"]')).toHaveCount(1);
+      await expect(page.locator("#article-basics")).toBeVisible();
+    }
     if (editor.key === "breed") await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
     // Preserve main's hydration gate: the directory is server-rendered before
     // its interactive navigation becomes available on slower mobile workers.

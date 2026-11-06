@@ -193,6 +193,12 @@ test("article editor opens month overview, exposes same-time conflict and keeps 
   await expect(input).toHaveValue(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
   const original = await input.inputValue();
 
+  // Publication fields remain mounted but hidden until their section is active.
+  const sectionNav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+  const sectionPicker = sectionNav.getByRole("combobox", { name: "Sekcia editora" });
+  if (await sectionPicker.isVisible()) await sectionPicker.selectOption("article-publish");
+  else await sectionNav.getByRole("button", { name: "Publikovanie", exact: true }).click();
+  await expect(page.locator("#article-publish")).toBeVisible();
   // These fixtures share exactly the same publication minute.
   await expect(page.getByText(/Pozor, tento termín je už obsadený/)).toBeVisible();
   const monthResponse = await page.request.get("/api/admin/articles/calendar?mesiac=" + original.slice(0, 7));
