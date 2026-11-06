@@ -66,7 +66,7 @@ const editorNavigation = [
   { id: "article-authors", label: "Autor" },
   { id: "article-publish", label: "Publikovanie" },
   { id: "article-seo", label: "SEO a zdieľanie" },
-] as const;
+];
 
 export function AdminArticleEditor({
   article,
