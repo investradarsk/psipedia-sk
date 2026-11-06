@@ -182,17 +182,20 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     await fillMinimumArticle(page, title);
 
+    await showArticleSection(page, "article-content");
     const intro = page.locator("#article-intro");
     await intro.selectText();
     await page.keyboard.press("Control+b");
     await expect(intro.locator("b, strong")).toHaveCount(1);
 
+    await showArticleSection(page, "article-media");
     await page.getByLabel("ALT text").fill(`ALT ARTICLE ADMIN ${suffix}`);
     await page.getByLabel("Popis fotografie / Caption").fill(`Caption ARTICLE ADMIN ${suffix}`);
     await page.getByLabel("Zdroj / autor fotografie").fill(`Credit ARTICLE ADMIN ${suffix}`);
     await page.getByLabel("URL zdroja fotografie").fill("https://example.com/photo-source");
 
     await expect(page.getByRole("navigation", { name: "Sekcie pracovného editora" })).toBeVisible();
+    await showArticleSection(page, "article-authors");
     await expect(page.getByLabel("Autor", { exact: true })).toContainText("Redakcia Psipedia");
 
     await page.getByRole("button", { name: "+ Nový autor" }).click();
@@ -205,6 +208,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await authorDrawer.getByRole("button", { name: "Uložiť autora" }).click();
     await expect(authorDrawer).toBeHidden();
     await page.getByLabel("Autor", { exact: true }).selectOption({ label: authorName });
+    await showArticleSection(page, "article-blocks");
 
     const addArea = page.locator(".admin-block-add");
     await addArea.getByRole("button", { name: "+ Pridať blok na koniec" }).click();
@@ -215,12 +219,15 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
+    await showArticleSection(page, "article-content");
     await expect(page.locator("#article-intro").locator("strong")).toContainText("Toto je bezpečný úvod");
+    await showArticleSection(page, "article-media");
     await expect(page.getByLabel("ALT text")).toHaveValue(`ALT ARTICLE ADMIN ${suffix}`);
     await expect(page.getByLabel("Popis fotografie / Caption")).toHaveValue(`Caption ARTICLE ADMIN ${suffix}`);
     await expect(page.getByLabel("Zdroj / autor fotografie")).toHaveValue(`Credit ARTICLE ADMIN ${suffix}`);
     await expect(page.getByLabel("URL zdroja fotografie")).toHaveValue("https://example.com/photo-source");
 
+    await showArticleSection(page, "article-authors");
     await page.getByLabel("Autor", { exact: true }).selectOption({ label: authorName });
     await page.getByRole("button", { name: "Upraviť autora" }).click();
     const editDrawer = page.getByRole("dialog", { name: "Upraviť autora" });
@@ -236,6 +243,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   test("supports format-first editing, live toolbar state, block formatting and list lifecycle", async ({ page }) => {
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     await waitForEditor(page);
+    await showArticleSection(page, "article-content");
 
     const intro = page.locator("#article-intro");
     const introEditor = intro.locator("..");
@@ -312,6 +320,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.keyboard.type("Druhý krok");
     await expect(takeaway.locator("ol > li")).toHaveCount(2);
 
+    await showArticleSection(page, "article-blocks");
     const bodyEditor = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
     const bodyWrapper = bodyEditor.locator("..");
     await bodyEditor.focus();
