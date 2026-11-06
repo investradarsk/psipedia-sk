@@ -45,7 +45,7 @@ type WorkReceipt = { notion: BreedFieldSnapshot; admin: BreedFieldSnapshot };
 const actor = "notion-breed-sync@psipedia.sk";
 const maxProfiles = 10;
 const skippedSpecial = new Set<string>([
-  "name", "fciStandard", "editorial",
+  "fciStandard", "editorial",
   "image", "gallery", "relatedBreedIds",
   "relatedArticleIds", "directoryProfileIds",
   "sports",
