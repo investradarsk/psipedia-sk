@@ -10,6 +10,7 @@ import { DirectoryServicesList } from "@/components/directory-services-list";
 import { DirectoryOpeningHours } from "@/components/directory-opening-hours";
 import { ProfileReviewSection } from "@/components/profile-review-section";
 import { RelatedBreedList } from "@/components/related-entity-list";
+import type { BreederPublicLink } from "@/lib/breeder-profile-relations";
 import { RelatedEntityLinks } from "@/components/related-entity-links";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import { buildGoogleMapsDirectionsUrl, isApproximateMapItem } from "@/lib/map-public-ui";
@@ -157,6 +158,7 @@ export function DirectoryProfileDetail({
   commercial,
   publicMap,
   relatedBreeds = [],
+  relatedClubs = [],
   locationDiscoveryLinks = [],
   management,
 }: {
@@ -166,6 +168,7 @@ export function DirectoryProfileDetail({
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
   publicMap?: PublicEntityMapResult & PublicMapRuntime;
   relatedBreeds?: PublicRelatedBreed[];
+  relatedClubs?: BreederPublicLink[];
   locationDiscoveryLinks?: InternalDiscoveryLink[];
   management?: ReactNode;
 }) {
@@ -253,8 +256,26 @@ export function DirectoryProfileDetail({
   const visibleQualifications = presentation.qualifications.filter(
     (qualification) => !factValues.has(qualification.trim().toLocaleLowerCase("sk")),
   );
+  const isBreeder = presentation.category === "chovatelske-stanice";
+  const expertFacts = presentation.facts.filter(fact =>
+    !(isBreeder && relatedBreeds.length > 0 && (fact.label === "Plemeno" || fact.label === "Plemená")) &&
+    !(isBreeder && relatedClubs.length > 0 && fact.label === "Klub"));
+  const breederLinkFacts: Array<{ label: string; value: ReactNode }> = isBreeder ? [
+    ...(relatedBreeds.length ? [{
+      label: relatedBreeds.length > 1 ? "Plemená" : "Plemeno",
+      value: <span className={styles.expertLinks}>
+        {relatedBreeds.map(breed => <Link key={breed.id} href={breed.href}>{breed.name}</Link>)}
+      </span>,
+    }] : []),
+    ...(relatedClubs.length ? [{
+      label: relatedClubs.length > 1 ? "Chovateľské kluby" : "Chovateľský klub",
+      value: <span className={styles.expertLinks}>
+        {relatedClubs.map(club => <Link key={club.id} href={club.href}>{club.name}</Link>)}
+      </span>,
+    }] : []),
+  ] : [];
   const hasExpertise =
-    presentation.facts.length > 0 ||
+    expertFacts.length > 0 || breederLinkFacts.length > 0 ||
     visibleQualifications.length > 0 ||
     Boolean(presentation.priceNote);
   const hasExtendedDescription = Boolean(
@@ -318,7 +339,8 @@ export function DirectoryProfileDetail({
           eyebrow="Zameranie"
           title={presentation.health?.title ?? "Odborné informácie"}
         >
-          {presentation.facts.length > 0 ? <DetailOptionGrid options={presentation.facts} /> : null}
+          {expertFacts.length || breederLinkFacts.length
+            ? <DetailOptionGrid options={[...expertFacts, ...breederLinkFacts]} /> : null}
           {visibleQualifications.length > 0 ? (
             <div className={styles.qualifications}>
               <h3>Skúsenosti a kvalifikácie</h3>
@@ -417,7 +439,7 @@ export function DirectoryProfileDetail({
       key: "breeds",
       column: "main" as const,
       content:
-        relatedBreeds.length > 0 ? (
+        !isBreeder && relatedBreeds.length > 0 ? (
           <DetailSection
             compactHeading
             eyebrow="Súvisiace plemená"
