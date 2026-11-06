@@ -55,8 +55,8 @@ export function AdminUnifiedEditorWorkspace({
           </button>
         ) : null}
       </div>
-      {preview && previewOpen ? (
-        <aside id="admin-unified-preview" className={styles.previewPane} aria-label={previewLabel}>
+      {preview ? (
+        <aside id="admin-unified-preview" className={styles.previewPane} aria-label={previewLabel} hidden={!previewOpen}>
           {preview}
         </aside>
       ) : null}
