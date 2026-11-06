@@ -41,6 +41,7 @@
 .badge { display: inline-flex; align-items: center; border-radius: 999px; font-size: 0.76rem; font-weight: 750; padding: 5px 10px; background: #e1f0e6; color: #15502e; }
 .previewBar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; margin: 0 0 16px; }
 .previewPane { border-radius: 12px; border: 1px solid var(--ue-border); background: var(--ue-bg); padding: 14px 18px; margin-bottom: 14px; }
+.previewPane[hidden] { display: none !important; }
 .previewPane h3 { font-size: 1.1rem; margin: 0 0 8px; color: var(--ue-ink); }
 .previewPane p { margin: 4px 0; font-size: 0.86rem; overflow-wrap: anywhere; }
 .demoToolbar { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; padding: 13px 16px; background: #eff5f0; border-radius: 11px; }
