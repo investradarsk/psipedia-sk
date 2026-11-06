@@ -50,7 +50,8 @@ test("field-level writeback re-reads Notion and confirms the single cell", () =>
   assert.match(sync, /BREED_WORKCOPY_WRITE_NOT_CONFIRMED/);
   assert.match(sync, /method: "PATCH", body: JSON\.stringify\(\{ properties:plan\.properties \}\)/);
   assert.match(delta, /planBreedNotionFieldDelta/);
-  assert.match(delta, /filter\(field => !restricted\.includes\(field\)\)/);
+  assert.match(delta, /!restricted\.includes\(field\) && !blank\.includes\(field\)/);
+  assert.match(delta, /isTransferableBreedWorkCopyValue/);
 });
 
 test("staging is separately owner-confirmed, does not activate and leaves old links untouched", () => {
