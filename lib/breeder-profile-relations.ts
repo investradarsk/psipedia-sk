@@ -61,7 +61,7 @@ export async function getBreederRelationSelection(
 export async function listBreederRelationOptions(database: Database) {
   const [breeds, clubs] = await database.batch([
     database.prepare(
-      "SELECT id,name,slug FROM managed_breeds WHERE status='published' ORDER BY name COLLATE NOCASE LIMIT 500",
+      `SELECT id,name,slug FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY name COLLATE NOCASE LIMIT 500`,
     ),
     database.prepare(
       "SELECT id,name,slug,city FROM directory_profiles WHERE category='chovatelske-kluby' AND status IN ('draft','published') ORDER BY name COLLATE NOCASE LIMIT 1000",
