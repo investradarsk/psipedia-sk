@@ -34,3 +34,10 @@
 - Adresa novej pracovnej databázy je v samostatnej konfiguračnej premennej `NOTION_BREEDS_WORK_DATA_SOURCE_ID`. Pôvodná `NOTION_BREEDS_DATA_SOURCE_ID` zostala bez zmeny.
 - Test `tests/notion-breed-workcopy-identity-plan.test.mjs`: **7/7 izolovaných testov**; kontrola úplného inventára, identity, FCI, historických väzieb a odmietnutia konfliktov.
 - Kompletný živý D1 preflight je možné spustiť až po sprístupnení novej verzie v bezpečnom runtime. Testy so syntetickými záznamami **nie sú** dôkazom zhody produkčnej D1.
+
+## Nová čítacia vrstva a bezpečný D1 shadow model (pokračovanie 6. 11.)
+- Admin môže po nasadení bezpečnej prípravy spustiť **len GET** `/api/admin/notion-breeds-workcopy-preflight`. API vyžaduje prihlásenie cez Admin a porovná 344 pôvodných a 344 nových profilov s aktuálnou produkčnou D1 (ID, slug, FCI, staré Notion page ID a synchronizačné receipts). Hodnoty polí ani tokeny nevracia.
+- Obsahovú paritu číta z rovnakého čistého modulu, ktorý používa samostatný Notion API skript; zároveň validuje formát 23 zlúčených sekcií. Toto nie je dôkaz produkčného výsledku, kým endpoint skutočne nie je zavolaný na pripojenej D1.
+- `materializeBreedWorkCopyForRead` vytvorí virtuálny 109-poľový čítací pohľad, ale **nie** systémové stĺpce: `Slug` berie len z D1 po zhodnom Psipedia ID a FCI. `Stav`, `Sync stav`, publikovanie a ostatné admin metadáta nevyrába.
+- `drizzle/0159_breed_notion_workcopy_links.sql` je výlučne **aditívna** tabuľka. Uchová pôvodné a nové Notion ID, identitu D1 a pôvodný sync receipt; existujúca tabuľka `breed_notion_sync` a zverejnené plemená zostávajú nezmenené. Zatiaľ neexistuje aktivačná operácia ani automatický D1 backfill.
+- Doplnkové testy: 7/7 identity, 5/5 rollback shadow väzby, 3/3 čítací kompatibilný adapter; spolu s prvými 10 testami **25/25 izolovaných testov**. SQLite schéma bola otestovaná v lokálnej dočasnej databáze vrátane CHECK a UNIQUE obmedzení. Celé CI ani produkčné E2E doteraz nie je potvrdené.
