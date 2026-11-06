@@ -22,7 +22,15 @@ function matchesCategory(article: ArticleListingCard, category: string) {
 
 function ArchiveArticleRow({ article }: { article: ArticleListingCard }) {
   // Use the same article preview as the homepage and editorial section lists.
-  return <ArticleListItem article={article} anchorId={articleListCardAnchor(article.slug)} />;
+  return (
+    <div role="listitem">
+      <ArticleListItem
+        article={article}
+        anchorId={articleListCardAnchor(article.slug)}
+        listItem={false}
+      />
+    </div>
+  );
 }
 
 /** Continuous article list alongside discovery: no blank gap below a taller sidebar. */
