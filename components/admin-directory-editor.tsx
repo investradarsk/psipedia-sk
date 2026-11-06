@@ -8,7 +8,6 @@ import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   AdminActionButton,
@@ -148,7 +147,6 @@ export function AdminDirectoryEditor({
   onNotionSaved?: (keepEditorOpen?: boolean) => void;
   automationSuggestions?: CanonicalUpdateSuggestion[];
 }) {
-  const router = useRouter();
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
   const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
@@ -213,12 +211,20 @@ export function AdminDirectoryEditor({
   const [formDirty, setFormDirty] = useState(false);
   const [confirmDirectoryExit, setConfirmDirectoryExit] = useState(false);
   const directoryBackLinkRef = useRef<HTMLAnchorElement>(null);
+  const createdProfileLinkRef = useRef<HTMLAnchorElement>(null);
+  const [createdProfileHref, setCreatedProfileHref] = useState("");
   const restoredProfileLinkRef = useRef<HTMLAnchorElement>(null);
   const allowDirectoryExitRef = useRef(false);
 
   useEffect(() => {
     if (formRef.current) formRef.current.dataset.hydrated = "true";
   }, [status]);
+
+  useEffect(() => {
+    // Follow the existing Next Link after the successful create render. The
+    // shared editor is also mounted in Gemini modal fixtures without a router provider.
+    if (createdProfileHref) createdProfileLinkRef.current?.click();
+  }, [createdProfileHref]);
 
   function changeName(value: string) {
     setName(value);
@@ -388,7 +394,7 @@ export function AdminDirectoryEditor({
       setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
       setMessage(nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.");
       setFormDirty(false);
-      if (!profile) router.replace(`/admin/adresar/${data.profile.id}?vytvorene=1`);
+      if (!profile) setCreatedProfileHref(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
     } finally {
@@ -784,6 +790,7 @@ export function AdminDirectoryEditor({
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
         </div>
       </div>
+      {!notionDraft && <Link href={createdProfileHref || "/admin/adresar"} ref={createdProfileLinkRef} hidden tabIndex={-1} aria-hidden="true">Otvoriť vytvorený profil</Link>}
       <EditorUnsavedChangesGuard
         active={formDirty}
         open={confirmDirectoryExit}
