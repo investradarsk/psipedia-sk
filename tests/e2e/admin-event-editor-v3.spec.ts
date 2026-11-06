@@ -177,6 +177,10 @@ test("New event: external-form draft button sends canonical POST to isolated moc
   await root.getByLabel("Dátum začiatku").fill("2026-11-12");
   await showEventSection(root, "event-details", "Popis a informácie");
   await root.getByRole("textbox", { name: "Podrobný popis", exact: true }).fill("Markdown koncept");
+  await showEventSection(root, "event-media", "Odkazy a fotografia");
+  await root.getByLabel("Verejný telefón organizátora").fill("+421 900 111 222");
+  await root.getByLabel("Verejný e-mail organizátora").fill("klub@example.sk");
+  await root.getByLabel("Vstupné").fill("5 € / deti zdarma");
   await root.getByRole("button", { name: "Uložiť koncept" }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toMatchObject({
@@ -184,6 +188,7 @@ test("New event: external-form draft button sends canonical POST to isolated moc
     status: "draft", city: "Nitra", organizer: "Klub",
     startDate: "2026-11-12", description: "Markdown koncept",
     registrationUrl: null, endDate: null, cancelled: false,
+    contactPhone: "+421 900 111 222", contactEmail: "klub@example.sk", admissionFee: "5 € / deti zdarma",
   });
   expect(requests[0]).toHaveProperty("seo");
   expect(requests[0]).toHaveProperty("thumbnailImageDisplay");
