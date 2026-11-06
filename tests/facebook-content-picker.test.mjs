@@ -82,10 +82,10 @@ test("Selecting an article also stages its own photo for the Facebook graphic ed
   assert.match(picker, /initialPhotoUrl=\{form\.imageUrl\}/);
   // The editor must actually load the selected local photo, not silently
   // return to the empty green template because of an overly narrow URL guard.
-  assert.match(graphic, /new URL\(initialPhotoUrl, window\.location\.origin\)/);
+  assert.match(graphic, /new URL\(photoUrl, window\.location\.origin\)/);
   assert.match(graphic, /fetch\(localUrl\.pathname \+ localUrl\.search/);
   assert.match(graphic, /setPhoto\(new File\(\[blob\]/);
-  assert.match(graphic, /setError\("Fotografia musí byť dostupná/);
+  assert.match(graphic, /throw Error\("Fotografia musí byť dostupná/);
   // Selecting content never grants publication consent.
   assert.doesNotMatch(picker.slice(picker.indexOf("async function selectContent("),
     picker.indexOf("const queryKey=", picker.indexOf("async function selectContent("))),
