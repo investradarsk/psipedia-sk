@@ -233,10 +233,10 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
     } finally { mutationPending.current = false; setSaving(false); }
   }
 
-  return <form noValidate className={`admin-event-editor ${styles.editor}`} data-admin-form-system="v4" data-admin-organization-editor onSubmit={save}>
+  return <form noValidate className={`admin-event-editor ${styles.editor}`} data-admin-form-system="v4" data-admin-organization-editor="true" onSubmit={save}>
     <EditorUnsavedChangesGuard active={dirty} open={confirmNavigation} onStay={stayInEditor} onDiscard={discardAndNavigate} />
     <AdminEditorSectionVisibility.Provider value={{ activeId: activeOrganizationSection, mode: "switch" }}>
-      <div className={styles.layout} data-admin-organization-editor-workspace>
+      <div className={styles.layout} data-admin-organization-editor-workspace="true">
         <AdminSharedEditorNavigation sections={sections} activeId={activeOrganizationSection}
           onNavigate={setActiveOrganizationSection} layout="sidebar" mode="switch" ariaLabel="Sekcie editora organizácie" ready={hydrated} />
         <div className={styles.content}>
