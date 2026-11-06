@@ -17,6 +17,7 @@ import {
 import styles from "./admin-editor-workspace.module.css";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
+import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
 
 export { AdminEditorSection as EditorSection } from "@/components/admin-interaction-system";
 
@@ -71,6 +72,7 @@ export function EditorSectionNavigation({
   previewAvailable = false,
   showingPreview = false,
   onTogglePreview,
+  sectionMode = "scroll",
 }: {
   sections: EditorWorkspaceSection[];
   activeSection: string;
@@ -78,6 +80,7 @@ export function EditorSectionNavigation({
   previewAvailable?: boolean;
   showingPreview?: boolean;
   onTogglePreview?: () => void;
+  sectionMode?: "scroll" | "switch";
 }) {
   return (
     <div className={styles.navigation} data-editor-navigation>
@@ -86,7 +89,8 @@ export function EditorSectionNavigation({
         activeId={activeSection}
         onNavigate={onNavigate}
         ariaLabel="Sekcie pracovného editora"
-        mode="scroll"
+        mode={sectionMode}
+        layout={sectionMode === "switch" ? "sidebar" : "horizontal"}
       />
       {previewAvailable && (
         <button
@@ -214,6 +218,9 @@ export function EditorWorkspace({
   onClose,
   closeLabel,
   children,
+  sectionMode = "scroll",
+  activeSectionId,
+  onSectionChange,
 }: {
   mode?: "modal" | "page";
   open?: boolean;
@@ -221,6 +228,11 @@ export function EditorWorkspace({
   description?: string;
   status?: ReactNode;
   sections: EditorWorkspaceSection[];
+  /** One mounted section at a time (opt-in for canonical breed editor). */
+  sectionMode?: "scroll" | "switch";
+  /** Optional controlled section selection allows callers to reveal validation errors. */
+  activeSectionId?: string;
+  onSectionChange?: (id: string) => void;
   preview?: ReactNode;
   previewTitle?: string;
   previewFocusable?: boolean;
@@ -235,10 +247,13 @@ export function EditorWorkspace({
   const [showPreview, setShowPreview] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const currentSection = sections.some((section) => section.id === (activeSectionId ?? activeSection))
+    ? (activeSectionId ?? activeSection)
+    : sections[0]?.id ?? "";
   // A page editor follows the document viewport; modal editors retain their
   // isolated scroll pane and keyboard/focus behavior.
   useEffect(() => {
-    if (mode !== "page" || typeof IntersectionObserver === "undefined") return;
+    if (mode !== "page" || sectionMode === "switch" || typeof IntersectionObserver === "undefined") return;
     const pane = contentRef.current;
     if (!pane) return;
     const allowed = new Set(sections.map((section) => section.id));
@@ -251,7 +266,7 @@ export function EditorWorkspace({
     }, { root: null, rootMargin: "-18% 0px -66% 0px", threshold: 0 });
     targets.forEach((section) => observer.observe(section));
     return () => observer.disconnect();
-  }, [mode, sections]);
+  }, [mode, sectionMode, sections]);
 
   const requestClose = useCallback(() => {
     if (!onClose) return;
@@ -263,8 +278,17 @@ export function EditorWorkspace({
     onClose?.();
   };
   const navigate = (id: string) => {
+    if (!sections.some((section) => section.id === id)) return;
     setShowPreview(false);
     setActiveSection(id);
+    onSectionChange?.(id);
+    if (sectionMode === "switch") {
+      // Sections remain mounted and preserve their uncontrolled editor buffers.
+      // Let React reveal the next section before a browser focus/scroll attempt.
+      contentRef.current?.closest<HTMLElement>("[data-editor-page]")
+        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
     const target = Array.from(contentRef.current?.querySelectorAll<HTMLElement>("[data-admin-editor-section]") ?? [])
       .find((section) => section.id === id);
     if (target && contentRef.current) {
@@ -288,14 +312,19 @@ export function EditorWorkspace({
       <EditorHeader status={mode === "modal" ? status : undefined} />
       <EditorSectionNavigation
         sections={sections}
-        activeSection={activeSection}
+        activeSection={currentSection}
         onNavigate={navigate}
+        sectionMode={sectionMode}
         previewAvailable={Boolean(preview)}
         showingPreview={showPreview}
         onTogglePreview={() => setShowPreview((value) => !value)}
       />
       <div className={styles.columns} data-editor-columns={preview ? "with-preview" : "single"}>
-        <EditorContent contentRef={contentRef}>{children}</EditorContent>
+        <EditorContent contentRef={contentRef}>
+          <AdminEditorSectionVisibility.Provider value={{ activeId: currentSection, mode: sectionMode }}>
+            {children}
+          </AdminEditorSectionVisibility.Provider>
+        </EditorContent>
         {preview && <EditorPreview title={previewTitle} focusable={previewFocusable}>{preview}</EditorPreview>}
       </div>
     </div>
@@ -315,7 +344,7 @@ export function EditorWorkspace({
           {body}
         </AdminModalDialog>
       ) : (
-        <section className={styles.pageWorkspace} aria-label={title} data-editor-page data-admin-form-system="v4">
+        <section className={styles.pageWorkspace} aria-label={title} data-editor-page data-admin-form-system="v4" data-editor-section-mode={sectionMode}>
           <EditorHeader status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
           {body}
           {resolvedActions && <div className={styles.pageActions}>{resolvedActions}</div>}
