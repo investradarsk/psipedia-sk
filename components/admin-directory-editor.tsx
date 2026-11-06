@@ -627,7 +627,12 @@ export function AdminDirectoryEditor({
       <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
 
       <div className={styles.editorTopline} data-admin-editor-navigation-container>
-        <AdminStickyEditorNavigation sections={editorSections} ariaLabel="Sekcie profilu adresára" />
+        <AdminStickyEditorNavigation
+            sections={profile && category === "chovatelske-stanice"
+              ? [...editorSections.slice(0, 4), { id: "directory-breeder-links", label: "Prepojenia" }, ...editorSections.slice(4)]
+              : editorSections}
+            ariaLabel="Sekcie profilu adresára"
+          />
         <div className={styles.toplineActions}>
           <EditorStatus label={status === "published" ? "Publikovaný" : "Koncept"} tone={status === "published" ? "success" : "warning"} />
           {formDirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
@@ -816,7 +821,7 @@ export function AdminDirectoryEditor({
 
           {profile && category === "chovatelske-stanice" ? (
             <AdminEditorSection id="directory-breeder-links" className="admin-form-card">
-              <div className="admin-card-heading"><div><span>04</span><div>
+              <div className="admin-card-heading"><div><span>05</span><div>
                 <h2>Prepojené plemená a chovateľské kluby</h2>
                 <p>Vyber existujúce profily. Prepojenia sa uložia spolu s tlačidlom Uložiť profil.</p>
               </div></div></div>
@@ -863,7 +868,7 @@ export function AdminDirectoryEditor({
           ) : null}
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             {profile && <AdminShareToFacebook title={name} imageUrl={imageUrl} publicPath={"/adresar/" + profile.category + "/" + profile.slug} />}
-            <div className="admin-card-heading"><div><span>05</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
+            <div className="admin-card-heading"><div><span>{profile && category === "chovatelske-stanice" ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
             <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {!notionDraft && category === "chovatelske-stanice" ? (
