@@ -272,6 +272,30 @@ export function DetailHero({
   );
 }
 
+/**
+ * The same semantic action row for event and service heroes.
+ * The owning detail controls which links to show and their destinations.
+ */
+export function DetailHeroActions({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <nav
+      className={[styles.heroActions, className].filter(Boolean).join(" ")}
+      aria-label={label}
+      data-public-detail-actions
+    >
+      {children}
+    </nav>
+  );
+}
+
 /** Independent desktop stacks with the original ordered blocks on narrow screens. */
 export function PublicDetailFlow({
   blocks,
