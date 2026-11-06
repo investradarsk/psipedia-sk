@@ -15,6 +15,7 @@ import {
   AdminModalDialog,
 } from "@/components/admin-interaction-system";
 import styles from "./admin-editor-workspace.module.css";
+import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 
 export { AdminEditorSection as EditorSection } from "@/components/admin-interaction-system";
 
@@ -78,29 +79,14 @@ export function EditorSectionNavigation({
   onTogglePreview?: () => void;
 }) {
   return (
-    <nav className={styles.navigation} aria-label="Sekcie pracovného editora" data-editor-navigation>
-      <div className={styles.navigationLinks}>
-        {sections.map((section) => (
-          <button
-            key={section.id}
-            type="button"
-            aria-current={!showingPreview && activeSection === section.id ? "location" : undefined}
-            onClick={() => onNavigate(section.id)}
-          >
-            {section.label}
-          </button>
-        ))}
-      </div>
-      <label className={styles.mobileSectionSelect}>
-        <span>Sekcia editora</span>
-        <select
-          aria-label="Sekcia editora"
-          value={activeSection}
-          onChange={(event) => onNavigate(event.target.value)}
-        >
-          {sections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
-        </select>
-      </label>
+    <div className={styles.navigation} data-editor-navigation>
+      <AdminSharedEditorNavigation
+        sections={sections}
+        activeId={activeSection}
+        onNavigate={onNavigate}
+        ariaLabel="Sekcie pracovného editora"
+        mode="scroll"
+      />
       {previewAvailable && (
         <button
           className={styles.previewToggle}
@@ -111,7 +97,7 @@ export function EditorSectionNavigation({
           {showingPreview ? "Späť na úpravy" : "Náhľad"}
         </button>
       )}
-    </nav>
+    </div>
   );
 }
 
@@ -247,6 +233,24 @@ export function EditorWorkspace({
   const [showPreview, setShowPreview] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  // A page editor follows the document viewport; modal editors retain their
+  // isolated scroll pane and keyboard/focus behavior.
+  useEffect(() => {
+    if (mode !== "page" || typeof IntersectionObserver === "undefined") return;
+    const pane = contentRef.current;
+    if (!pane) return;
+    const allowed = new Set(sections.map((section) => section.id));
+    const targets = Array.from(pane.querySelectorAll<HTMLElement>("[data-admin-editor-section]"))
+      .filter((section) => allowed.has(section.id));
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting)
+        .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
+      if (visible) setActiveSection(visible.target.id);
+    }, { root: null, rootMargin: "-18% 0px -66% 0px", threshold: 0 });
+    targets.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [mode, sections]);
+
   const requestClose = useCallback(() => {
     if (!onClose) return;
     if (dirty) setConfirmClose(true);
@@ -262,11 +266,15 @@ export function EditorWorkspace({
     const target = Array.from(contentRef.current?.querySelectorAll<HTMLElement>("[data-admin-editor-section]") ?? [])
       .find((section) => section.id === id);
     if (target && contentRef.current) {
-      // Scroll only the internal editor pane. scrollIntoView() also scrolls
-      // document ancestors, pushing page-mode navigation outside the viewport.
-      const pane = contentRef.current;
-      const relativeTop = target.getBoundingClientRect().top - pane.getBoundingClientRect().top;
-      pane.scrollTo({ top: pane.scrollTop + relativeTop - 12, behavior: "smooth" });
+      if (mode === "page") {
+        // Page editors scroll the document, never an inner pane.
+        target.scrollIntoView({ block: "start", behavior: "smooth" });
+      } else {
+        // Dialogs keep their dedicated scroll region.
+        const pane = contentRef.current;
+        const relativeTop = target.getBoundingClientRect().top - pane.getBoundingClientRect().top;
+        pane.scrollTo({ top: pane.scrollTop + relativeTop - 12, behavior: "smooth" });
+      }
       target.focus({ preventScroll: true });
     }
   };
@@ -306,7 +314,7 @@ export function EditorWorkspace({
         </AdminModalDialog>
       ) : (
         <section className={styles.pageWorkspace} aria-label={title} data-editor-page>
-          <EditorHeader title={title} description={description} status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
+          <EditorHeader status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
           {body}
           {resolvedActions && <div className={styles.pageActions}>{resolvedActions}</div>}
         </section>
