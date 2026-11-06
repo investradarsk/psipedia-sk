@@ -3,7 +3,7 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceF
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
+import { breederEditedFields, runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -153,6 +153,8 @@ export async function PUT(request: Request, { params }: Props) {
             database: notionEnv.DB,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
+            breederAdminFields: before.category === "chovatelske-stanice"
+              ? breederEditedFields(before, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
             : result.pushedToNotion || result.pulledFromNotion ? "synced"
@@ -214,6 +216,7 @@ export async function PATCH(request: Request, { params }: Props) {
       }
       const db = (env as unknown as { DB?: D1Database }).DB;
       if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+      const breederBefore = await getManagedDirectoryProfileById(id, db);
       const updated = await db.prepare(`UPDATE directory_profiles
         SET name=?1,excerpt=?2,updated_at=?3,updated_by=?4
         WHERE id=?5 AND updated_at=?6 AND status IN ('draft','published')
@@ -233,6 +236,8 @@ export async function PATCH(request: Request, { params }: Props) {
             database: db,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
+            breederAdminFields: breederBefore?.category === "chovatelske-stanice" && profile
+              ? breederEditedFields(breederBefore, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
             : result.pushedToNotion || result.pulledFromNotion ? "synced"
