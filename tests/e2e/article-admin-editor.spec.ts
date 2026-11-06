@@ -562,6 +562,35 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     }
   });
 
+  test("EDITOR-8 keeps only one article section visible while preserving unsaved Lexical text", async ({ page }) => {
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+    const sections = page.locator("#article-canonical-editor-form > [data-admin-editor-section]");
+    await expect(sections).toHaveCount(9);
+    await expect(page.locator("#article-basics")).toBeVisible();
+    await expect(page.locator("#article-content")).toBeHidden();
+
+    await page.locator("#article-title").fill("EDITOR-8 in-progress article");
+    await showArticleSection(page, "article-content");
+    const intro = page.locator("#article-intro");
+    await intro.fill("Rozpracovaný obsah musí zostať uložený počas prepínania sekcií.");
+    await showArticleSection(page, "article-media");
+    await expect(page.locator("#article-content")).toBeHidden();
+    await expect(page.locator("#article-media")).toBeVisible();
+    await showArticleSection(page, "article-content");
+    await expect(intro).toContainText("Rozpracovaný obsah musí zostať uložený");
+    await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
+    await expect.poll(() => sections.evaluateAll((elements) =>
+      elements.filter((element) => getComputedStyle(element).display !== "none").length,
+    )).toBe(1);
+
+    // Invalid submit from a different active section reveals the missing
+    // required field instead of triggering native invisible-input focusing.
+    await page.getByRole("button", { name: /Uložiť koncept/ }).first().click();
+    await expect(page.locator("#article-basics")).toBeVisible();
+    await expect(page.getByText("Vyplň krátky úvod na karte.")).toBeVisible();
+  });
+
   test("mobile dashboard filters do not stretch into giant blank gaps", async ({ page }) => {
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
