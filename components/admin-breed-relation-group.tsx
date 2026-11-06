@@ -88,7 +88,7 @@ export function AdminBreedRelationGroup({
         <span>{selected.length}</span>
       </div>
       {selected.length ? (
-        <div className={styles.selectedList}>
+        <div className={styles.selectedList} data-relation-selected-list>
           {selected.map((item) => (
             <label className={styles.selectedRow} key={item.id}>
               <input type="checkbox" checked onChange={() => toggle(item)} />
@@ -107,7 +107,7 @@ export function AdminBreedRelationGroup({
           : error ? <p className={styles.error} role="alert">{error}</p>
           : kind !== "breeds" && (loading || resolvedQuery !== trimmed) ? <p className={styles.help}>Vyhľadávam…</p>
           : available.length ? (
-            <div className={styles.resultList}>
+            <div className={styles.resultList} data-relation-result-list>
               {available.map((item) => (
                 <label className={styles.resultRow} key={item.id}>
                   <input type="checkbox" checked={false} onChange={() => toggle(item)} />
