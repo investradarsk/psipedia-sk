@@ -99,9 +99,11 @@ test("DIRECTORY NOT_REQUIRED stays canonical", () => {
 });
 
 test("EVENT Google workflow remains in location section and online events are system-complete", () => {
-  const locationSection = eventEditor.indexOf("<h2>Miesto a organizátor</h2>");
+  const locationSection = eventEditor.indexOf('<EditorSection id="event-location"');
+  const nextSection = eventEditor.indexOf('<EditorSection id="event-contacts"');
   const googleBlock = eventEditor.indexOf('<AdminProfileGoogleMaps targetType="MANAGED_EVENT"');
-  assert.ok(locationSection >= 0 && googleBlock > locationSection);
+  assert.ok(locationSection >= 0 && googleBlock > locationSection && googleBlock < nextSection);
+  assert.ok(eventEditor.slice(locationSection, nextSection).includes("<h2>Miesto podujatia</h2>"));
   assert.doesNotMatch(eventPage, /AdminGeoLocation/);
   assert.match(geoRoute, /googleMapsNotRequiredSystemDerived/);
   assert.match(profileGoogle, /systemNotRequired/);
