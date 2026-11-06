@@ -104,7 +104,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
               initialCategory={categories[scalar(params.tema) ?? ""] ?? "Všetky"}
               sidebar={<aside className={styles.sidebar} aria-label="Objavte ďalší obsah" data-article-discovery-sidebar>
                 <div className={styles.sidebarSticky}>
-                  <ArticlePopularitySidebar popularity={discovery.popularity} initialWindow="24h" />
+                  <ArticlePopularitySidebar popularity={discovery.popularity} initialWindow={discovery.initialWindow} />
                   {discovery.promo ? (
                     <div className={styles.promo} data-automatic-article-promo>
                       <ArticlePromo anchorId={ARTICLE_LISTING_PROMO_ANCHOR} promoKey={discovery.promo.promoKey} variant="auto"
