@@ -32,13 +32,21 @@ export function EventImage({
   ...props
 }: Props) {
   const ownImage = getEventOwnImage(imageUrl);
-  const [failedSource, setFailedSource] = useState<string | null>(null);
-  const real = Boolean(ownImage && failedSource !== ownImage);
+  // Keep failure state tied to the exact URL so a new event/photo is never stuck
+  // displaying the previous event's illustration.
+  const [attempt, setAttempt] = useState<{
+    source: string;
+    stage: "original" | "fallback";
+  } | null>(null);
+  const stage = attempt?.source === ownImage ? attempt.stage : "primary";
+  const real = Boolean(ownImage && stage !== "fallback");
   const src = real ? ownImage! : getEventFallbackImage(eventType);
+  const remote = Boolean(ownImage && /^https?:\/\//i.test(ownImage));
   const imageProps = {
     ...props,
     src,
-    srcSet: real ? responsiveMediaSrcSet(src, [320, 480, 640, 768, 960, 1280]) : undefined,
+    // A failed resized R2 variant must not hide a working original.
+    srcSet: real && stage === "primary" ? responsiveMediaSrcSet(src, [320, 480, 640, 768, 960, 1280]) : undefined,
     alt: real
       ? alt
       : alt === ""
@@ -48,15 +56,22 @@ export function EventImage({
     height: 800,
     "data-event-image-source": real ? "real" : "fallback",
     onImageFailure: () => {
-      if (real) {
-        console.warn("Event photograph failed to load; displaying category illustration.");
-        setFailedSource(src);
+      if (!real || !ownImage) return;
+      if (stage === "primary") {
+        // Retry the canonical URL without responsive candidates. On external
+        // hosts, the retry also omits Referer to handle hotlink restrictions.
+        setAttempt({ source: ownImage, stage: "original" });
+        return;
       }
+      console.warn("Event photograph and original failed to load; displaying category illustration.");
+      setAttempt({ source: ownImage, stage: "fallback" });
     },
   };
   return real ? (
     <ImageDisplay
+      key={`${src}:${stage}`}
       roleHint="generic"
+      referrerPolicy={remote && stage === "original" ? "no-referrer" : props.referrerPolicy}
       {...imageProps}
       src={src}
       alt={imageProps.alt ?? ""}
