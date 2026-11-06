@@ -313,7 +313,6 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         actions={
           <EditorActionBar
             message={dirty ? "Neuložené zmeny" : undefined}
-            feedback={undefined}
             destructive={status === "published" ? <AdminActionButton type="button" variant="secondary" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z kalendára</AdminActionButton> : undefined}
             secondary={status === "draft" ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton> : undefined}
             primary={status === "published"
