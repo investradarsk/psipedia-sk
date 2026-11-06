@@ -3,7 +3,8 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceF
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { breederEditedFields, runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
+import { breederEditedFields, preserveLiveBreederFields, runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
+import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -59,8 +60,27 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({ error: "Pôvodné metadáta profilu nie sú platné; ukladanie je zablokované." }, { status: 409 });
     }
     const before = { ...projected, importData: completeSource as typeof projected.importData };
-    const rawBody = await request.json() as ManagedDirectoryProfileInput & { numberlessLocalityConfirmed?: unknown };
-    const { numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed, ...body } = rawBody;
+    const rawBody = await request.json() as ManagedDirectoryProfileInput & {
+      numberlessLocalityConfirmed?: unknown;
+      breederEditedPaths?: unknown;
+    };
+    const {
+      numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
+      breederEditedPaths: rawBreederEditedPaths,
+      ...submittedBody
+    } = rawBody;
+    // A stale full-form payload must never silently undo a newer Notion edit
+    // to a field the editor did not touch.
+    const editedPaths: BreederEditorialField[] | null =
+      before.category === "chovatelske-stanice" && Array.isArray(rawBreederEditedPaths)
+        ? rawBreederEditedPaths.filter(
+            (path): path is BreederEditorialField =>
+              typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
+          )
+        : null;
+    const body = editedPaths
+      ? preserveLiveBreederFields(before, submittedBody, editedPaths)
+      : submittedBody;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
     const changed = directoryPhysicalAddressChanged(before, body);
 
