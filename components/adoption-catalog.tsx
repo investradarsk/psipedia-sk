@@ -37,7 +37,7 @@ import {
   type AdoptionCatalogFilters,
   type AdoptionPublicDog,
 } from "@/lib/adoption-catalog";
-import { adoptionDetailPath } from "@/lib/adoption-detail";
+import { adoptionDetailPath, formatAdoptionDetailVerification } from "@/lib/adoption-detail";
 import type { AdoptionBreedOptionsResult, AdoptionPagination } from "@/lib/adoption-store";
 import type { PublicAdoptionCard } from "@/lib/adoption";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
@@ -57,6 +57,8 @@ type Props = {
 function DogCard({ dog }: { dog: AdoptionPublicDog }) {
   const href = adoptionDetailPath(dog.slug);
   const meta = [dog.organizationName, dog.city, dog.region].filter(Boolean).join(" · ");
+  // Confirmation is historical evidence, not a promise the dog is still available.
+  const confirmationDate = formatAdoptionDetailVerification(dog.lastVerifiedAt);
   return (
     <PublicHelpProfileCard
       data-adoption-card={dog.slug}
@@ -88,6 +90,20 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
       }
       meta={meta}
       excerpt={dog.shortDescription}
+      extras={confirmationDate || (dog.organizationSlug && dog.organizationName) ? (
+        <div>
+          {confirmationDate ? (
+            <p>
+              Dostupnosť potvrdená: <time dateTime={dog.lastVerifiedAt ?? undefined}>{confirmationDate}</time>
+            </p>
+          ) : null}
+          {dog.organizationSlug && dog.organizationName ? (
+            <Link href={"/organizacie/" + dog.organizationSlug}>
+              Profil organizácie: {dog.organizationName}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
     />
   );
 }

@@ -140,7 +140,7 @@ export function EventListingResults({
                 defaultValue={f.region}
               >
                 <option value="">Všetky kraje</option>
-                {slovakRegions.map((region) => (
+                {slovakRegions.filter((region) => region !== "Online").map((region) => (
                     <option key={region}>{region}</option>
                   ))}
               </PublicSelect>
