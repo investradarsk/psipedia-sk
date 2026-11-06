@@ -29,7 +29,8 @@ test("URL-only gallery shares one sortable implementation while preserving order
   assert.match(photo, /onClick=\{\(\)=>onChange\(value.filter\(\(_,i\)=>i!==index\)\)\}/);
   assert.match(sorter, /containerAs\?:"div"\|"ol"\|"ul"/);
   assert.match(sorter, /const ContainerTag=containerAs/);
-  assert.match(sorter, /<ContainerTag className=\{className\}>/);
+  assert.match(sorter, /<ContainerTag className=\{className\}[^>]*>/);
+  assert.match(sorter, /data-admin-editor-tool="gallery-list"/);
   assert.match(sorter, /<SortRow key=\{id\}/);
   assert.match(sorter, /gallerySortableIds\(urls\)/);
   assert.match(sorter, /KeyboardSensor/);
