@@ -170,7 +170,7 @@ test("Notion Directory creation accepts a missing house number without claiming 
     syncSource.indexOf("async function applyNotionToProfile("),
   );
   const confirmed = createBody.indexOf("if (desired.confirmedServiceLocation)");
-  const numberGate = createBody.indexOf("if (desired.houseNumber.trim())", confirmed);
+  const numberGate = createBody.indexOf('if ((desired.houseNumber ?? "").trim())', confirmed);
   const exactVerify = createBody.indexOf("verified = await verifyDirectoryCanonicalAddress", numberGate);
   assert.ok(confirmed >= 0 && numberGate > confirmed && exactVerify > numberGate,
     "exact geocoding must be gated by a supplied house number");
@@ -186,7 +186,7 @@ test("Notion Directory edits without a number preserve confirmed GEO and still a
     syncSource.indexOf("async function recentNotionPages("),
   );
   const verify = apply.indexOf("if (safety.verifyExactAddress)");
-  const numberGate = apply.indexOf("if (desired.houseNumber.trim())", verify);
+  const numberGate = apply.indexOf('if ((desired.houseNumber ?? "").trim())', verify);
   const exact = apply.indexOf("verified = await verifyDirectoryCanonicalAddress", numberGate);
   const preserve = apply.indexOf('current.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION"', exact);
   const unconfirmed = apply.indexOf("clearServiceAddressConfirmation: true", preserve);
