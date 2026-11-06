@@ -22,7 +22,7 @@ test("activation requires live parity, safe receipts and an atomic 344-row D1 tr
     /fetchBreedNotionInventory/, /planBreedWorkcopyIdentity/,
     /inspectBreedWorkCopy/, /expandBreed60WorkPage/,
     /planBreedWorkcopyShadowRows/, /planBreedWorkcopyActivation/,
-    /parseBreedFieldSnapshot/,
+    /isCompatibleBreedWorkcopyReceipt/,
     /UPDATE breed_notion_workcopy_links SET status='ACTIVE'/,
     /WHERE status='SHADOW'/,
     /COUNT\(\*\) FROM breed_notion_workcopy_links\)=344/,
