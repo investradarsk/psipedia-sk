@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { directoryCategories } from "../lib/directory.ts";
 import { getDirectoryDetailPresentation } from "../lib/directory-detail-presentation.ts";
+import { DIRECTORY_BREEDER_GALLERY_KEY, DIRECTORY_BREEDER_GALLERY_LIMIT, readDirectoryBreederGallery, mergeDirectoryBreederGallery } from "../lib/directory-breeder-gallery.ts";
+import { isDirectoryInternalMetadataKey } from "../lib/directory-profile-metadata.ts";
 
 const source = readFileSync("components/directory-profile-detail.tsx", "utf8");
 const css = readFileSync("components/directory-profile-detail.module.css", "utf8");
@@ -66,4 +68,48 @@ test("opening hours display only when present, without guessing an unavailable v
   };
   assert.equal(getDirectoryDetailPresentation(p).openingHours, "Po–Pi 9:00–17:00");
   assert.equal(getDirectoryDetailPresentation({ ...p, importData: { "Ordinačné hodiny": "Neoverené" } }).openingHours, null);
+});
+
+
+test("breeder gallery metadata round-trips six ordered URLs without affecting unrelated profile data", () => {
+  const urls = Array.from({ length: DIRECTORY_BREEDER_GALLERY_LIMIT }, (_, i) => `/media/directory/steniatko-${i}.webp`);
+  const existing = { "Plemeno": "Zlatý retriever", "nested_legacy": null };
+  const stored = mergeDirectoryBreederGallery(existing, "chovatelske-stanice", urls);
+  assert.deepEqual(readDirectoryBreederGallery(stored), urls);
+  assert.equal(stored.Plemeno, "Zlatý retriever");
+  assert.equal(stored.nested_legacy, null);
+  assert.equal(isDirectoryInternalMetadataKey(DIRECTORY_BREEDER_GALLERY_KEY), true);
+  const preserved = mergeDirectoryBreederGallery(stored, "chovatelske-stanice", undefined);
+  assert.deepEqual(readDirectoryBreederGallery(preserved), urls,
+    "Notion and unrelated edits omit galleryUrls and must not delete the saved gallery");
+  const cleared = mergeDirectoryBreederGallery(stored, "chovatelske-stanice", []);
+  assert.deepEqual(readDirectoryBreederGallery(cleared), []);
+  assert.equal(Object.hasOwn(cleared, DIRECTORY_BREEDER_GALLERY_KEY), false);
+});
+
+test("breeder gallery rejects unsafe, duplicated, oversized and wrong-category writes", () => {
+  const save = (category, urls) => mergeDirectoryBreederGallery({}, category, urls);
+  assert.throws(() => save("chovatelske-stanice", ["javascript:alert(1)"]), /Neplatná URL/);
+  assert.throws(() => save("chovatelske-stanice", ["/media/directory/a.webp", "/media/directory/a.webp"]), /dvakrát/);
+  assert.throws(() => save("chovatelske-stanice", Array.from({ length: 7 }, (_, i) => `/media/${i}.webp`)), /najviac/);
+  assert.throws(() => save("veterinari", ["/media/directory/a.webp"]), /len pre chovateľské stanice/);
+  assert.deepEqual(readDirectoryBreederGallery({ [DIRECTORY_BREEDER_GALLERY_KEY]: "invalid JSON" }), []);
+  assert.deepEqual(readDirectoryBreederGallery({ [DIRECTORY_BREEDER_GALLERY_KEY]: '["javascript:alert(1)","/media/directory/ok.webp"]' }), ["/media/directory/ok.webp"]);
+});
+
+test("existing photo gallery components are available only for breeder stations", () => {
+  const admin = readFileSync("components/admin-directory-editor.tsx", "utf8");
+  const store = readFileSync("lib/directory-store.ts", "utf8");
+  const detailPresentation = readFileSync("lib/directory-detail-presentation.ts", "utf8");
+  assert.match(admin, /category === "chovatelske-stanice"\s*\?\s*\(/);
+  assert.match(admin, /<AdminPhotoGallery[\s\S]*?folder="directory"/);
+  assert.match(admin, /galleryUrls\s*}\s*:\s*\{\}/);
+  assert.match(admin, /galleryBusy/);
+  assert.match(store, /mergeDirectoryBreederGallery\(qualitySourceData, category, payload\.galleryUrls\)/);
+  assert.match(store, /readDirectoryBreederGallery\(safeImportData\(row\.source_data_json, true\)\)/);
+  assert.match(detailPresentation, /profile\.category === "chovatelske-stanice"/);
+  assert.match(source, /<PublicPhotoGallery/);
+  assert.match(source, /breederGallery\.length/);
+  assert.match(source, /url !== presentation\.imageUrl/);
+  assert.match(source, /title="Galéria"/);
 });
