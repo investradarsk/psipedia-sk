@@ -5,6 +5,7 @@ import { ArticleCard } from "./article-card";
 /** Backwards-compatible adapter; archive, sections and homepage use the same row renderer. */
 export function ArticleListItem(props: {
   article: ArticleListingCard;
+  desktopLayout?: "stacked";
   topicLabel?: string;
   className?: string;
   listItem?: boolean;

@@ -962,39 +962,92 @@
   }
 }
 @media (max-width: 640px) {
-  .topicBody { padding-block: 20px 27px; }
-  .contentHub { gap: 16px; }
-  .contentHubCompanion h2 { margin-bottom: 10px; }
+  .topicBody {
+    padding-block: 20px 27px;
+  }
+  .contentHub {
+    gap: 16px;
+  }
+  .contentHubCompanion h2 {
+    margin-bottom: 10px;
+  }
 }
 
 /* These editorial widgets are reused by Steniatka, Starostlivost and Aktivity.
    Mobile readers can see whole cards without a horizontal carousel. */
 @media (max-width: 640px) {
   .nextCarousel {
-    display: grid; grid-template-columns: minmax(0, 1fr);
-    gap: 10px; overflow: visible; padding: 0;
-    scroll-snap-type: none; scroll-behavior: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    overflow: visible;
+    padding: 0;
+    scroll-snap-type: none;
+    scroll-behavior: auto;
   }
   .nextCard {
-    display: grid; grid-template-columns: 112px minmax(0, 1fr);
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
     grid-template-rows: minmax(112px, auto);
-    flex: auto; min-height: 112px; border-radius: var(--ps-radius-card);
+    flex: auto;
+    min-height: 112px;
+    border-radius: var(--ps-radius-card);
   }
-  .nextCardMedia { aspect-ratio: 1; height: 100%; overflow: hidden; }
-  .nextCardMedia img { border-radius: var(--ps-radius-card) 0 0 var(--ps-radius-card); }
-  .nextCardIcon { display: none; }
-  .nextCardCopy { min-height: 0; padding: 12px 42px 12px 14px; gap: 5px; align-content: center; }
-  .nextCardCopy > strong { font-size: 1.04rem; font-weight: 600; line-height: 1.2; }
-  .nextCardCopy > span:not(.nextCardAction) { font-size: .76rem; line-height: 1.4; }
-  .nextCardAction { right: 10px; bottom: 8px; min-height: 30px; font-size: .71rem; }
-  .callout, .urgent { padding: 14px; gap: 9px; }
-  .calloutIcon { display: none; }
-  .calloutShell { padding-top: 8px; }
-  .contentSection, .nextSection { padding-block: 22px; }
+  .nextCardMedia {
+    aspect-ratio: 1;
+    height: 100%;
+    overflow: hidden;
+  }
+  .nextCardMedia img {
+    border-radius: var(--ps-radius-card) 0 0 var(--ps-radius-card);
+  }
+  .nextCardIcon {
+    display: none;
+  }
+  .nextCardCopy {
+    min-height: 0;
+    padding: 12px 42px 12px 14px;
+    gap: 5px;
+    align-content: center;
+  }
+  .nextCardCopy > strong {
+    font-size: 1.04rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .nextCardCopy > span:not(.nextCardAction) {
+    font-size: 0.76rem;
+    line-height: 1.4;
+  }
+  .nextCardAction {
+    right: 10px;
+    bottom: 8px;
+    min-height: 30px;
+    font-size: 0.71rem;
+  }
+  .callout,
+  .urgent {
+    padding: 14px;
+    gap: 9px;
+  }
+  .calloutIcon {
+    display: none;
+  }
+  .calloutShell {
+    padding-top: 8px;
+  }
+  .contentSection,
+  .nextSection {
+    padding-block: 22px;
+  }
 }
 @media (max-width: 360px) {
-  .nextCard { grid-template-columns: 92px minmax(0, 1fr); }
-  .nextCardCopy { padding-right: 34px; }
+  .nextCard {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+  .nextCardCopy {
+    padding-right: 34px;
+  }
 }
 
 /* Shared editorial-area rhythm: heading → up to 5 articles → area link.
@@ -1007,7 +1060,9 @@
   padding: clamp(18px, 2.8vw, 30px) 0;
   border-bottom: 1px solid var(--section-border);
 }
-.topicGroup:first-child { padding-top: 6px; }
+.topicGroup:first-child {
+  padding-top: 6px;
+}
 .topicGroupTitle {
   margin: 0 0 10px;
   font-family: Georgia, "Times New Roman", serif;
@@ -1016,9 +1071,18 @@
   line-height: 1.24;
   overflow-wrap: anywhere;
 }
-.topicGroupTitle a { color: var(--forest-dark); text-decoration: none; }
-.topicGroupTitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.topicGroupTitle a:focus-visible { outline: 3px solid var(--section-accent); outline-offset: 3px; }
+.topicGroupTitle a {
+  color: var(--forest-dark);
+  text-decoration: none;
+}
+.topicGroupTitle a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.topicGroupTitle a:focus-visible {
+  outline: 3px solid var(--section-accent);
+  outline-offset: 3px;
+}
 .topicGroupFooter {
   display: flex;
   align-items: center;
@@ -1030,19 +1094,39 @@
   margin: 0;
   padding: 10px 0;
   color: var(--muted);
-  font-size: .83rem;
+  font-size: 0.83rem;
 }
-.topicGroup :global([data-article-list-item]) { padding-block: 11px; }
-.topicGroup :global([data-section-content-list]) { min-width: 0; }
-.topicEmergency { margin-bottom: 19px; }
+.topicGroup :global([data-article-list-item]) {
+  padding-block: 11px;
+}
+.topicGroup :global([data-section-content-list]) {
+  min-width: 0;
+}
+.topicEmergency {
+  margin-bottom: 19px;
+}
 @media (max-width: 680px) {
-  .topicGroups { padding-top: 12px; }
-  .topicGroup { padding-block: 17px; }
-  .topicGroupTitle { margin-bottom: 8px; font-size: 1.38rem; }
-  .topicGroupFooter { margin-top: 9px; }
-  .topicGroup :global([data-article-list-item]) { padding-block: 9px; }
+  .topicGroups {
+    padding-top: 12px;
+  }
+  .topicGroup {
+    padding-block: 17px;
+  }
+  .topicGroupTitle {
+    margin-bottom: 8px;
+    font-size: 1.38rem;
+  }
+  .topicGroupFooter {
+    margin-top: 9px;
+  }
+  .topicGroup :global([data-article-list-item]) {
+    padding-block: 9px;
+  }
   /* Vertical lists on phones must not show controls for a non-scrollable carousel. */
-  .carouselControls, .carouselCue { display: none !important; }
+  .carouselControls,
+  .carouselCue {
+    display: none !important;
+  }
 }
 
 /* One topic-card system for Šteniatka, Zdravie and Výcvik.
@@ -1068,7 +1152,7 @@
 .topicStageHeading p {
   margin: 0;
   color: var(--muted);
-  font-size: .85rem;
+  font-size: 0.85rem;
   line-height: 1.45;
 }
 .topicStageGrid {
@@ -1086,7 +1170,9 @@
   border-radius: var(--ps-radius-card, 16px);
   background: var(--paper);
 }
-.topicStageGrid .topicGroup:first-child { padding-top: 15px; }
+.topicStageGrid .topicGroup:first-child {
+  padding-top: 15px;
+}
 .topicStageGrid .topicGroupTitle {
   margin: 0 0 9px;
   font-size: clamp(1.1rem, 1.5vw, 1.25rem);
@@ -1098,14 +1184,78 @@
   padding-top: 7px;
   border-top: 1px solid var(--section-border);
 }
-.topicStageGrid .topicGroup :global([data-article-list-item]) { padding-block: 9px; }
-.topicStageGrid .topicGroupEmpty { padding-block: 6px; }
-.topicStageGrid .topicGroup :global([data-public-action="tertiary"]) { color: var(--section-accent); }
+.topicStageGrid .topicGroup :global([data-article-list-item]) {
+  padding-block: 9px;
+}
+.topicStageGrid .topicGroupEmpty {
+  padding-block: 6px;
+}
+.topicStageGrid .topicGroup :global([data-public-action="tertiary"]) {
+  color: var(--section-accent);
+}
 @media (max-width: 950px) {
-  .topicStageGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .topicStageGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 620px) {
-  .topicStageGrid { grid-template-columns: minmax(0, 1fr); }
-  .topicStageGrid .topicGroup, .topicStageGrid .topicGroup:first-child { padding: 14px; }
-  .topicStageHeading { margin-bottom: 10px; }
+  .topicStageGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .topicStageGrid .topicGroup,
+  .topicStageGrid .topicGroup:first-child {
+    padding: 14px;
+  }
+  .topicStageHeading {
+    margin-bottom: 10px;
+  }
+}
+
+/* One full-width topic at a time: titles no longer compete with side thumbnails
+   inside three narrow panels. Existing phone/tablet rules remain unchanged. */
+@media (min-width: 901px) {
+  .topicStageGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .topicStageGrid .topicGroup,
+  .topicStageGrid .topicGroup:first-child {
+    padding: 16px 0;
+    border: 0;
+    border-bottom: 1px solid var(--section-border);
+    border-radius: 0;
+    background: transparent;
+  }
+  .topicStageGrid .topicGroupTitle {
+    margin-bottom: 12px;
+    font-size: 1.3rem;
+  }
+  .contentList {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
+    gap: 20px;
+  }
+  .contentList > :only-child {
+    max-width: 580px;
+  }
+  .topicStageGrid .topicGroupFooter {
+    border-top: 0;
+    margin-top: 8px;
+    padding-top: 0;
+  }
+  .topicStageGrid .topicGroup:has(.topicGroupEmpty) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 20px;
+  }
+  .topicStageGrid .topicGroup:has(.topicGroupEmpty) .topicGroupTitle {
+    margin-bottom: 4px;
+  }
+  .topicStageGrid .topicGroup:has(.topicGroupEmpty) .topicGroupFooter {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+    margin: 0;
+  }
 }
