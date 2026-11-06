@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import styles from "./admin-breed-relation-group.module.css";
+import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 
 export type BreedRelationOption = { id: number; label: string; meta?: string };
 export type BreedRelationKind = "articles" | "breeds" | "stations" | "clubs";
@@ -79,6 +80,7 @@ export function AdminBreedRelationGroup({
   }
 
   return (
+    <AdminEditorToolFrame kind="relations">
     <fieldset className={styles.group}>
       <legend>{title}</legend>
       <div className={styles.selectedHeading}>
@@ -116,5 +118,6 @@ export function AdminBreedRelationGroup({
           ) : <p className={styles.help}>Žiadne ďalšie výsledky. Skús iný názov.</p>}
       </div>
     </fieldset>
+    </AdminEditorToolFrame>
   );
 }
