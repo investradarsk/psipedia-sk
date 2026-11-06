@@ -1,5 +1,9 @@
 "use client";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
+import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
+import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
+import { AdminEditorSection } from "@/components/admin-interaction-system";
+import styles from "./admin-adoption-editor.module.css";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
@@ -28,6 +32,16 @@ import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 
 const publicStatuses = new Set<AdoptionStatus>(["ACTIVE", "RESERVED"]);
+const ADOPTION_SECTIONS = [
+  { id: "adoption-basics", label: "Základné údaje" },
+  { id: "adoption-dog", label: "Plemeno a profil" },
+  { id: "adoption-location", label: "Lokalita" },
+  { id: "adoption-temperament", label: "Povaha a kompatibilita" },
+  { id: "adoption-health", label: "Zdravie" },
+  { id: "adoption-contact", label: "Organizácia a kontakt" },
+  { id: "adoption-media", label: "Fotografie" },
+  { id: "adoption-verification", label: "Stav a overenie" },
+] as const;
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const nullableNumber = (data: FormData, key: string) => { const value = text(data, key); return value ? Number(value) : null; };
 const nullableBoolean = (data: FormData, key: string) => { const value = text(data, key); return value === "true" ? true : value === "false" ? false : null; };
@@ -51,6 +65,8 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [activeAdoptionSection, setActiveAdoptionSection] = useState<string>(ADOPTION_SECTIONS[0].id);
+  const activeAdoptionIndex = ADOPTION_SECTIONS.findIndex((section) => section.id === activeAdoptionSection);
   const formRef = useRef<HTMLFormElement>(null);
   const navigation = useAdminUnsavedFormLinks();
   // Local Playwright/SSR gate: do not type into an inert server-rendered form.
@@ -102,6 +118,21 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || uploading || galleryUploading) return;
+    // A selected panel is visible; other form fields remain mounted but
+    // hidden. Native submit validation cannot focus hidden required inputs.
+    // Check every mounted field before the request and reveal its own panel.
+    const invalid = Array.from(event.currentTarget.elements).find((control): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+      (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
+      && control.willValidate && !control.checkValidity()
+    );
+    if (invalid) {
+      const owner = invalid.closest("[data-admin-editor-section]") as HTMLElement | null;
+      setActiveAdoptionSection(owner?.id ?? "adoption-basics");
+      const label = invalid.labels?.[0]?.textContent?.trim() || "Pole formulára";
+      setMessage("");
+      setError("Vyplň alebo oprav: " + label + ".");
+      return;
+    }
     setSaving(true); setError(""); setMessage("");
     try {
       const data = new FormData(event.currentTarget);
@@ -134,15 +165,32 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
       setMessage("Adopčný profil bol bezpečne uložený.");
       if (!item) window.location.assign(`/admin/adopcie/${body.item.id}?vytvorene=1`);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Adopčný profil sa nepodarilo uložiť.");
+      const details = saveError instanceof Error ? saveError.message : "Adopčný profil sa nepodarilo uložiť.";
+      // Server-side lifecycle and publication rules are authoritative;
+      // guide the editor to the relevant persisted input without rewriting them.
+      if (/organization|organizáci|kontakt|e-mail|telefón/i.test(details)) setActiveAdoptionSection("adoption-contact");
+      else if (/fotograf|obrázk|galéri/i.test(details)) setActiveAdoptionSection("adoption-media");
+      else if (/overen|verified|lastVerifiedAt|posledné/i.test(details)) setActiveAdoptionSection("adoption-verification");
+      else if (/mesto|okres|kraj|region|city/i.test(details)) setActiveAdoptionSection("adoption-location");
+      else if (/popis|príbeh|povah|temperament|compatib/i.test(details)) setActiveAdoptionSection("adoption-temperament");
+      else if (/plemen|vek|pohlav|veľkosť|naroden|weight|breed/i.test(details)) setActiveAdoptionSection("adoption-dog");
+      else if (/zdrav|očkov|kastr|čip/i.test(details)) setActiveAdoptionSection("adoption-health");
+      else if (/slug|name|meno|status|stav/i.test(details)) setActiveAdoptionSection("adoption-basics");
+      setError(details);
     } finally { setSaving(false); }
   }
 
-  return <form ref={formRef} data-admin-form-system="v4" className="admin-event-editor" onChangeCapture={navigation.captureChange} onClickCapture={navigation.captureLinkClick} onSubmit={save}>
+  return <form ref={formRef} noValidate data-admin-form-system="v4" className={`admin-event-editor ${styles.editor}`} onChangeCapture={navigation.captureChange} onClickCapture={navigation.captureLinkClick} onSubmit={save}>
     <EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} />
-    <div className="admin-event-editor-grid"><div className="admin-event-fields">
+    <AdminEditorSectionVisibility.Provider value={{ activeId: activeAdoptionSection, mode: "switch" }}>
+      <div className={styles.layout} data-admin-adoption-editor-workspace>
+        <AdminSharedEditorNavigation sections={ADOPTION_SECTIONS} activeId={activeAdoptionSection}
+          onNavigate={setActiveAdoptionSection} layout="sidebar" mode="switch" ariaLabel="Sekcie editora adopcií" />
+        <div className={styles.content}>
+          <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
+          <div className="admin-event-editor-grid"><div className="admin-event-fields">
       <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
-      <section className="admin-form-card admin-form-card--intro">
+      <AdminEditorSection id="adoption-basics" className="admin-form-card admin-form-card--intro">
         <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Meno, adresa profilu a lifecycle stav.</p></div></div></div>
         <div className="admin-field-grid">
           <div className="admin-field"><label htmlFor="adoption-name">Meno *</label><input id="adoption-name" value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => changeName(event.target.value)} required/></div>
@@ -150,13 +198,22 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
           <div className="admin-field"><label htmlFor="adoption-status">Lifecycle stav *</label><select id="adoption-status" value={status} onChange={(event: ChangeEvent<HTMLSelectElement>) => setStatus(event.target.value as AdoptionStatus)}>{lifecycleOptions.map((value) => <option key={value} value={value}>{adoptionStatusLabels[value]}</option>)}</select></div>
         </div>
         {publishing && <p className="admin-help">Pri ACTIVE/RESERVED server vyžaduje všetky publikačné údaje vrátane canonical organization_id a znovu ich validuje.</p>}
-      </section>
+      </AdminEditorSection>
       <AdminAdoptionEditorProfile item={item} breeds={breeds} publishing={publishing} onProgrammaticChange={navigation.markDirty}/>
       <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading || saving} gallery={gallery} onGalleryChange={nextGallery => { navigation.markDirty(); setGallery(nextGallery); }} onGalleryBusyChange={setGalleryUploading} onMainImageChange={replaceMainImage} onUpload={uploadImage} onEditDisplay={() => setImageEditorOpen(true)} onContentChange={navigation.markDirty}/>
+      <nav className={styles.pager} aria-label="Prechod medzi sekciami adopcie">
+        <button type="button" disabled={activeAdoptionIndex <= 0}
+          onClick={() => setActiveAdoptionSection(ADOPTION_SECTIONS[activeAdoptionIndex - 1]?.id ?? ADOPTION_SECTIONS[0].id)}>Predchádzajúca</button>
+        <span role="status">Sekcia {activeAdoptionIndex + 1} z {ADOPTION_SECTIONS.length}</span>
+        <button type="button" disabled={activeAdoptionIndex >= ADOPTION_SECTIONS.length - 1}
+          onClick={() => setActiveAdoptionSection(ADOPTION_SECTIONS[activeAdoptionIndex + 1]?.id ?? ADOPTION_SECTIONS[ADOPTION_SECTIONS.length - 1].id)}>Ďalšia</button>
+      </nav>
     </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný stav – server vyžaduje kompletné publikačné údaje." : "Koncept môže zostať neúplný."}</p><Link href="/admin/adopcie">← Späť na adopcie</Link>{item && <AdminShareToFacebook title={name} imageUrl={mainImage} publicPath={"/pomoc-psom/adopcia/" + item.slug} />}</aside></div>
+        </div>
+      </div>
+    </AdminEditorSectionVisibility.Provider>
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
     {navigation.dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
-    <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
     <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
       <div className="admin-editor-actions"><Link href="/admin/adopcie">Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
     </AdminEditorFooter>
