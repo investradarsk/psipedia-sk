@@ -321,16 +321,6 @@ export function DirectoryProfileDetail({
       ),
     },
     {
-      key: "services",
-      column: "main" as const,
-      content:
-        presentation.services.length > 0 ? (
-          <DetailSection compactHeading eyebrow="Ponuka" title="Poskytované služby">
-            <DirectoryServicesList services={presentation.services} />
-          </DetailSection>
-        ) : null,
-    },
-    {
       key: "expertise",
       column: "aside" as const,
       content: hasExpertise ? (
@@ -359,6 +349,16 @@ export function DirectoryProfileDetail({
           ) : null}
         </DetailSection>
       ) : null,
+    },
+    {
+      key: "services",
+      column: "main" as const,
+      content:
+        presentation.services.length > 0 ? (
+          <DetailSection compactHeading eyebrow="Ponuka" title="Poskytované služby">
+            <DirectoryServicesList services={presentation.services} />
+          </DetailSection>
+        ) : null,
     },
     {
       key: "hours",
