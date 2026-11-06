@@ -91,8 +91,15 @@ dialog.workspaceModal[open] > div:nth-child(3) {
   outline: 3px solid var(--admin-v3-focus, #d59834);
   outline-offset: 2px;
 }
+/* Keep selected switch-navigation controls readable, also when the mouse
+   remains over a newly selected item (aria-current="step"). */
+.navigation :global([data-admin-shared-editor-navigation] button[aria-current]) {
+  background: var(--admin-v3-green, #173f2d);
+  border-color: var(--admin-v3-green, #173f2d);
+  color: #fff;
+}
 .navigation .previewToggle { border: 1px solid var(--admin-v3-control-border, #b9c9bd); flex: 0 0 auto; }
-.navigation button:hover:not(:disabled):not([aria-current="location"]):not([aria-pressed="true"]) {
+.navigation button:hover:not(:disabled):not([aria-current]):not([aria-pressed="true"]) {
   background: var(--admin-v3-neutral-background, #f5f8f6);
 }
 .navigation button:disabled { cursor: not-allowed; opacity: .58; }
