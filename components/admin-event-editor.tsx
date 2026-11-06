@@ -208,18 +208,29 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
     if (!(status === "published" && nextStatus === "draft")) {
       const requiredFields = [
         { value: title, section: "event-basics", label: "Názov podujatia" },
-        { value: excerpt, section: "event-basics", label: "Krátky popis" },
-        { value: startDate, section: "event-schedule", label: "Dátum začiatku" },
-        { value: city, section: "event-location", label: "Mesto" },
-        { value: organizer, section: "event-location", label: "Organizátor" },
-        { value: description, section: "event-details", label: "Podrobný popis" },
         { value: slug, section: "event-media", label: "Adresa podujatia" },
+        ...(nextStatus === "published" ? [
+          { value: excerpt, section: "event-basics", label: "Krátky popis" },
+          { value: startDate, section: "event-schedule", label: "Dátum začiatku" },
+          { value: city, section: "event-location", label: "Mesto" },
+          { value: organizer, section: "event-location", label: "Organizátor" },
+          { value: description, section: "event-details", label: "Podrobný popis" },
+        ] : []),
       ];
       const missing = requiredFields.find((field) => !field.value.trim());
       if (missing) {
         setActiveEventSection(missing.section);
         setMessage("");
         setError(`Vyplň povinné pole: ${missing.label}.`);
+        return;
+      }
+      if (nextStatus === "published" && (excerpt.trim().length < 20 || description.trim().length < 30)) {
+        const summaryIsShort = excerpt.trim().length < 20;
+        setActiveEventSection(summaryIsShort ? "event-basics" : "event-details");
+        setMessage("");
+        setError(summaryIsShort
+          ? "Krátky popis musí mať aspoň 20 znakov."
+          : "Podrobný popis musí mať aspoň 30 znakov.");
         return;
       }
       for (const [value, section, label] of [
