@@ -87,7 +87,8 @@ test("mobile bottom sheet and filter dialog have explicit accessibility, gesture
 });
 
 test("singleton clusters reuse public MapItems while multi clusters retain zoom behavior", () => {
-  assert.match(renderer, /gestureHandling:\s*"greedy"/);
+  assert.match(renderer, /gestureHandling = "greedy"/);
+  assert.match(renderer, /gestureHandling,/);
   assert.match(experience, /cluster\.count === 1 && cluster\.singletonItem/);
   assert.match(experience, /cluster\.count !== 1 \|\| !cluster\.singletonItem/);
   assert.match(experience, /const singletonClusterItem = response\?\.mode === "clusters"/);

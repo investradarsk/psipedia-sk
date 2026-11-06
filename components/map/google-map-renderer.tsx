@@ -38,6 +38,7 @@ type Props = {
   testMode: boolean;
   rendererEnabled: boolean;
   consentGranted: boolean;
+  gestureHandling?: "greedy" | "cooperative";
   items: MapItem[];
   clusters: MapCluster[];
   selectedItemId: string | null;
@@ -344,6 +345,7 @@ export function GoogleMapRenderer(props: Props) {
     testMode,
     rendererEnabled,
     consentGranted,
+    gestureHandling = "greedy",
     items,
     clusters,
     selectedItemId,
@@ -363,6 +365,7 @@ export function GoogleMapRenderer(props: Props) {
   const mapTypeRef = useRef<PublicMapType>(mapType);
   const mapTypeIdleSuppressionRef = useRef(createMapTypeIdleSuppressionState());
   const onViewportChangeRef = useRef(onViewportChange);
+  const initialViewportRef = useRef(viewport);
   const onSelectItemRef = useRef(onSelectItem);
   const onClusterClickRef = useRef(onClusterClick);
   const [ready, setReady] = useState(false);
@@ -371,6 +374,9 @@ export function GoogleMapRenderer(props: Props) {
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange;
   }, [onViewportChange]);
+  useEffect(() => {
+    initialViewportRef.current = viewport;
+  }, [viewport]);
   useEffect(() => {
     onSelectItemRef.current = onSelectItem;
   }, [onSelectItem]);
@@ -433,8 +439,8 @@ export function GoogleMapRenderer(props: Props) {
         if (disposed || !containerRef.current) return;
 
         const map = new mapsLibrary.Map(containerRef.current, {
-          center: MAP_DEFAULT_CENTER,
-          zoom: MAP_DEFAULT_ZOOM,
+          center: initialViewportRef.current.center,
+          zoom: initialViewportRef.current.zoom,
           mapId,
           mapTypeId: mapTypeRef.current,
           mapTypeControl: false,
@@ -443,7 +449,7 @@ export function GoogleMapRenderer(props: Props) {
           zoomControl: true,
           keyboardShortcuts: true,
           clickableIcons: false,
-          gestureHandling: "greedy",
+          gestureHandling,
         });
         mapRef.current = map;
         markerCtorRef.current = markerLibrary.AdvancedMarkerElement;
@@ -526,7 +532,7 @@ export function GoogleMapRenderer(props: Props) {
       cancelMapTypeIdleSuppression(mapTypeIdleSuppressionRef.current);
       setReady(false);
     };
-  }, [apiKey, configMissing, consentGranted, rendererEnabled, mapId, onStatusChange, testMode]);
+  }, [apiKey, configMissing, consentGranted, gestureHandling, rendererEnabled, mapId, onStatusChange, testMode]);
 
   useEffect(() => {
     if (testMode || !ready || !mapRef.current || !markerCtorRef.current) return;

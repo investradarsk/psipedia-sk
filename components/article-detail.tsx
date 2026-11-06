@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { articleCategoryHref } from "@/lib/article-category-routes";
 import { ArticleBlocks } from "@/components/article-blocks";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { AUTOMATIC_ARTICLE_PROMO_ANCHOR } from "@/lib/visual-library-anchors";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
@@ -209,7 +210,7 @@ export function ArticleDetail({
           {article.image ? (
             <figure className={styles.heroFigure}>
               <div className={`${styles.heroMedia} ${(!detailImageConfig || detailImageConfig.mode === "natural") ? styles.heroNatural : ""}`}>
-                <ImageDisplay context="detail" config={detailImageConfig} imageClassName="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
+                <ImageDisplay context="detail" config={detailImageConfig} imageClassName="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" srcSet={responsiveMediaSrcSet(article.image, [640, 960, 1280, 1600, 1920])} sizes="(max-width: 760px) 100vw, (max-width: 1200px) 90vw, 1100px" />
               </div>
               {showImageMeta ? (
                 <figcaption className={styles.heroImageMeta}>

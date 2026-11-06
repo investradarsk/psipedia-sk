@@ -1932,6 +1932,11 @@
   border: 1px solid var(--ps-border-soft);
   border-radius: var(--ps-radius-filter, 18px);
 }
+/* The event sidebar already has its established heading and reset link.
+   Hide only the duplicate header supplied by the shared panel wrapper. */
+.filterSidebar > header {
+  display: none;
+}
 .mobileFilters > summary {
   display: none;
 }

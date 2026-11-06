@@ -52,15 +52,21 @@ test("one unavailable database module cannot hide other matching profiles", asyn
 test("the admin search is available from every AdminShell, with auth and clean section links", () => {
   const shell = read("components/admin-shell.tsx");
   const nav = read("components/admin-quick-navigation.tsx");
+  const dialog = read("components/admin-quick-navigation-dialog.tsx");
   const route = read("app/api/admin/global-search/route.ts");
   const hub = read("app/admin/pomoc-psom/page.tsx");
   const grid = read("components/admin-help-unified-table.tsx");
   const tour = read("components/admin-tour-button.tsx");
   assert.match(shell, /<AdminQuickNavigation\s*\/>/);
   assert.match(shell, /<AdminTourButton\s*\/>/);
-  assert.match(nav, /onChange=\{event => \{ setQuery/);
-  assert.match(nav, /\/api\/admin\/global-search\?q=/);
+  assert.match(dialog, /onChange=\{event => \{ setQuery/);
+  assert.match(dialog, /\/api\/admin\/global-search\?q=/);
   assert.match(nav, /event\.ctrlKey \|\| event\.metaKey/);
+  assert.match(nav, /dynamic\(/);
+  assert.match(nav, /ssr:\s*false/);
+  assert.doesNotMatch(nav, /from "fuse\.js"|from "@radix-ui\/react-dialog"/);
+  assert.match(dialog, /from "fuse\.js"/);
+  assert.match(dialog, /from "@radix-ui\/react-dialog"/);
   assert.match(route, /getAdminApiUser\(\)/);
   assert.match(route, /unauthorizedAdminResponse\(\)/);
   assert.match(route, /no-store/);

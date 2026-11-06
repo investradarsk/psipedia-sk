@@ -69,6 +69,9 @@ async function galleryRenderer() {
   new Function("require", "exports", compiled)((name) => {
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsx;
+    // Thumbnail URLs are already covered by public-media-responsiveness-1216;
+    // this renderer test isolates gallery structure and existing link behavior.
+    if (name === "@/lib/responsive-media") return { responsiveMediaSrcSet: () => undefined };
     if (name === "./public-photoswipe-enhancer") return { PublicPhotoSwipeEnhancer: ({ children }) => children };
     if (name.endsWith(".module.css")) return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
     throw new Error("Unexpected import " + name);
@@ -98,7 +101,10 @@ test("preserved gallery variants keep every photo, captions, crop variants and e
 
   const report = render({ images, variant: "report", maxImages: images.length });
   assert.equal((report.match(/<img /g) ?? []).length, 8);
-  assert.doesNotMatch(report, /<a |<figure|loading=|decoding=/);
+  assert.doesNotMatch(report, /<a |<figure/);
+  // Report photos now use native deferred decoding/loading to reduce initial network work.
+  assert.equal((report.match(/loading="lazy"/g) ?? []).length, images.length);
+  assert.equal((report.match(/decoding="async"/g) ?? []).length, images.length);
 
   const editorial = render({ images: [{ ...images[0], size: "wide", caption: "Popis" }], variant: "editorial" });
   assert.match(editorial, /article-block-gallery-item--wide/);

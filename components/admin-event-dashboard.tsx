@@ -151,9 +151,10 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
     // mutation endpoints and their concurrency checks remain authoritative.
     await queryClient.invalidateQueries({ queryKey: ["admin", "events"], refetchType: "none" });
     const fresh = await eventQuery.refetch();
-    if (fresh.error) throw fresh.error;
     setSelected(new Set());
     setBulkEditOpen(false);
+    // A successful write stays successful even if the following list refresh fails.
+    return !fresh.error;
   }
 
   async function applyBulk(field: BulkEventField, value: BulkValue) {
@@ -177,8 +178,10 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Hromadná zmena zlyhala.");
-      await reload();
-      setMessage(`Zmenených podujatí: ${data.changed}.`);
+      const refreshed = await reload();
+      setMessage(refreshed
+        ? `Zmenených podujatí: ${data.changed}.`
+        : `Zmenených podujatí: ${data.changed}. Zoznam sa nepodarilo obnoviť; použi „Skúsiť znova“.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Zmena zlyhala.");
     } finally {
@@ -210,6 +213,12 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
 
   async function saveQuickEdit() {
     if (!quickEvent) return;
+    if (quickType === quickEvent.eventType && quickCancelled === quickEvent.cancelled) {
+      setQuickEvent(null);
+      setInlineEventId(null);
+      setMessage("Nie sú žiadne zmeny na uloženie.");
+      return;
+    }
     setBusy(true);
     setMessage("");
     try {
@@ -220,10 +229,12 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Rýchla úprava zlyhala.");
-      await reload();
       setQuickEvent(null);
       setInlineEventId(null);
-      setMessage("Rýchla úprava podujatia bola uložená.");
+      const refreshed = await reload();
+      setMessage(refreshed
+        ? "Rýchla úprava podujatia bola uložená."
+        : "Rýchla úprava bola uložená, ale zoznam sa nepodarilo obnoviť; použi „Skúsiť znova“.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Rýchla úprava zlyhala.");
     } finally {
@@ -239,9 +250,11 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
       const response = await fetch(`/api/admin/events/${deleteTarget.id}`, { method: "DELETE" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Podujatie sa nepodarilo odstrániť.");
-      await reload();
       setDeleteTarget(null);
-      setMessage("Podujatie bolo odstránené.");
+      const refreshed = await reload();
+      setMessage(refreshed
+        ? "Podujatie bolo odstránené."
+        : "Podujatie bolo odstránené, ale zoznam sa nepodarilo obnoviť; použi „Skúsiť znova“.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Odstránenie zlyhalo.");
     } finally {

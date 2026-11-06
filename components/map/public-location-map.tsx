@@ -2,7 +2,7 @@
 import { MapConsentState } from "./map-consent-state";
 import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { MapItem } from "@/lib/map-contract";
 import {
   buildGoogleMapsDirectionsUrl,
@@ -17,12 +17,13 @@ import {
   hasGoogleMapsConsent,
   setGoogleMapsConsent,
 } from "@/lib/google-maps-consent";
-import {
-  GoogleMapRenderer,
-  type MapRendererCommand,
-  type MapRendererStatus,
-} from "./google-map-renderer";
+import type { MapRendererCommand, MapRendererStatus } from "./google-map-renderer";
 import styles from "./public-location-map.module.css";
+
+const GoogleMapRenderer = lazy(async () => {
+  const rendererModule = await import("./google-map-renderer");
+  return { default: rendererModule.GoogleMapRenderer };
+});
 
 type Attribution = { label: string; url?: string };
 
@@ -54,6 +55,7 @@ export function PublicLocationMap({
   const [selectedItemId, setSelectedItemId] = useState(items[0]?.id ?? null);
   const [mapType, setMapType] = useState<PublicMapType>("roadmap");
   const [consentGranted, setConsentGranted] = useState(false);
+  const [mapNearViewport, setMapNearViewport] = useState(testRenderer);
   const [rendererStatus, setRendererStatus] = useState<MapRendererStatus>("loading");
   const [command, setCommand] = useState<MapRendererCommand | null>(() =>
     detailMapCommandForItems(items, 1),
@@ -68,6 +70,23 @@ export function PublicLocationMap({
     window.addEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
     return () => window.removeEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
   }, []);
+
+  useEffect(() => {
+    if (!consentGranted || mapNearViewport || !rendererEnabled) return;
+    const element = sectionRef.current;
+    if (!element) return;
+    if (typeof IntersectionObserver === "undefined") {
+      const frame = window.requestAnimationFrame(() => setMapNearViewport(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setMapNearViewport(true);
+      observer.disconnect();
+    }, { rootMargin: "240px" });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [consentGranted, mapNearViewport, rendererEnabled]);
 
   const viewport = useMemo(() => {
     const item = selected ?? items[0];
@@ -97,7 +116,8 @@ export function PublicLocationMap({
   const rendererAvailable = testRenderer || rendererEnabled;
   const waitingForConsent = rendererAvailable && !consentGranted;
   const showRenderer = consentGranted && rendererAvailable;
-  const showMapControls = consentGranted && rendererAvailable;
+  const mountRenderer = showRenderer && mapNearViewport;
+  const showMapControls = mountRenderer;
 
   function focusItem(item: MapItem) {
     setSelectedItemId(item.id);
@@ -133,28 +153,39 @@ export function PublicLocationMap({
 
       <div className={styles.shell}>
         <div className={styles.mapWrap}>
-          {showRenderer ? (
-            <GoogleMapRenderer
-              apiKey={googleApiKey}
-              mapId={googleMapId}
-              testMode={testRenderer}
-              rendererEnabled={rendererEnabled || testRenderer}
-              consentGranted={consentGranted || testRenderer}
-              items={items}
-              clusters={[]}
-              selectedItemId={selected?.id ?? null}
-              viewport={viewport}
-              mapType={mapType}
-              command={command}
-              onViewportChange={() => {}}
-              onSelectItem={(id) => {
-                const item = items.find((candidate) => candidate.id === id);
-                if (item) focusItem(item);
-              }}
-              onClusterClick={() => {}}
-              onStatusChange={setRendererStatus}
-              ariaLabel={`Interaktívna mapa: ${title}`}
-            />
+          {mountRenderer ? (
+            <Suspense fallback={
+              <PublicNotice as="div" appearance="context" className={styles.fallback} role="status">
+                <strong>Načítavam mapu Psipedie…</strong>
+              </PublicNotice>
+            }>
+              <GoogleMapRenderer
+                apiKey={googleApiKey}
+                mapId={googleMapId}
+                testMode={testRenderer}
+                rendererEnabled={rendererEnabled || testRenderer}
+                consentGranted={consentGranted || testRenderer}
+                items={items}
+                clusters={[]}
+                selectedItemId={selected?.id ?? null}
+                viewport={viewport}
+                mapType={mapType}
+                command={command}
+                onViewportChange={() => {}}
+                onSelectItem={(id) => {
+                  const item = items.find((candidate) => candidate.id === id);
+                  if (item) focusItem(item);
+                }}
+                onClusterClick={() => {}}
+                onStatusChange={setRendererStatus}
+                ariaLabel={`Interaktívna mapa: ${title}`}
+                gestureHandling="cooperative"
+              />
+            </Suspense>
+          ) : showRenderer ? (
+            <PublicNotice as="div" appearance="context" className={styles.fallback} role="status">
+              <strong>Mapa sa načíta pri zobrazení.</strong>
+            </PublicNotice>
           ) : !waitingForConsent ? (
             <PublicNotice as="div" appearance="context" className={styles.fallback} role="status">
               <strong>Interaktívna mapa momentálne nie je dostupná</strong>

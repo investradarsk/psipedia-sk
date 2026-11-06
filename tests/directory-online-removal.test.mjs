@@ -125,7 +125,8 @@ test("J legacy directory online flag does not hide GEO and missing address is or
 
 test("K canonical DIRECTORY create/update/import keep DB legacy online column pinned to zero", () => {
   assert.match(store, /online, price_note/);
-  assert.match(store, /0, input\.priceNote/);
+  // Keep the legacy online flag at zero even after multiline bind formatting.
+  assert.match(store, /0,\s*input\.priceNote/);
   assert.match(store, /service_address_confirmation = \?, online = \?, price_note/);
   assert.match(importRoute, /city, district, region, address, 0, importedText/);
 });

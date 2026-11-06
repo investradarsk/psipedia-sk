@@ -107,6 +107,7 @@ const legacyRoutes = [
   "organizations/[id]/locations/route.ts", "organizations/[id]/locations/[locationId]/route.ts",
   "adoptions/route.ts", "adoptions/[id]/route.ts",
   "breeds/route.ts", "breeds/[id]/route.ts", "breeds/bulk/route.ts",
+  "navigation/route.ts",
 ];
 
 test("every legacy mutator has centralized guard before request parsing; GET remains unmodified", () => {

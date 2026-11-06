@@ -1,6 +1,7 @@
 import { Fragment, type HTMLAttributes, type ReactNode } from "react";
 import styles from "./public-photo-gallery.module.css";
 import { PublicPhotoSwipeEnhancer } from "./public-photoswipe-enhancer";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 
 export type PublicPhotoGalleryImage = {
   src: string;
@@ -46,8 +47,22 @@ export function PublicPhotoGallery({
       {visible.map((image, index) => {
         if (variant !== "linked") {
           const photo = renderImage ? renderImage(image, index) : variant === "report"
-            ? <img src={image.src} alt={image.alt} />
-            : <img src={image.src} alt={image.alt} loading="lazy" decoding="async" />;
+            ? <img
+                src={image.src}
+                alt={image.alt}
+                srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960])}
+                sizes="(max-width: 650px) 50vw, 33vw"
+                loading="lazy"
+                decoding="async"
+              />
+            : <img
+                src={image.src}
+                alt={image.alt}
+                srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960, 1280])}
+                sizes={variant === "breed" ? "(max-width: 620px) 100vw, 50vw" : "(max-width: 680px) 100vw, 75vw"}
+                loading="lazy"
+                decoding="async"
+              />;
           if (variant === "report") return <Fragment key={image.src + "-" + index}>{photo}</Fragment>;
           return (
             <figure key={image.src + "-" + index}
@@ -62,6 +77,8 @@ export function PublicPhotoGallery({
         const photo = (
           <img
             src={image.src}
+            srcSet={responsiveMediaSrcSet(image.src, [160, 320, 480, 640, 768])}
+            sizes="(max-width: 600px) 50vw, 33vw"
             alt={image.alt}
             loading="lazy"
             decoding="async"
