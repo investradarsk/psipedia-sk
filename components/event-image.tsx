@@ -71,8 +71,8 @@ export function EventImage({
     <ImageDisplay
       key={`${src}:${stage}`}
       roleHint="generic"
-      referrerPolicy={remote && stage === "original" ? "no-referrer" : props.referrerPolicy}
       {...imageProps}
+      referrerPolicy={remote && stage === "original" ? "no-referrer" : props.referrerPolicy}
       src={src}
       alt={imageProps.alt ?? ""}
       context={context}
