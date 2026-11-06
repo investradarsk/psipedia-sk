@@ -35,6 +35,20 @@ export function AdminUiCardFooter({ className, ...props }: ComponentProps<"div">
 export function AdminUiInput({ className, type, ...props }: ComponentProps<"input">) {
   return <input type={type} data-slot="input" className={classes(styles.input, className)} {...props} />;
 }
-export function AdminUiTextarea({ className, ...props }: ComponentProps<"textarea">) {
-  return <textarea data-slot="textarea" className={classes(styles.textarea, className)} {...props} />;
+export function AdminUiTextarea({
+  className,
+  length = "standard",
+  ...props
+}: ComponentProps<"textarea"> & { length?: "short" | "standard" | "long" }) {
+  return <textarea data-slot="textarea" data-editor-text-length={length}
+    className={classes(styles.textarea, className)} {...props} />;
+}
+
+/** Native keyboard, form and validation semantics are retained. */
+export function AdminUiSelect({ className, children, ...props }: ComponentProps<"select">) {
+  return <select data-slot="select" className={classes(styles.select, className)} {...props}>{children}</select>;
+}
+
+export function AdminUiCheckbox({ className, ...props }: Omit<ComponentProps<"input">, "type">) {
+  return <input type="checkbox" data-slot="checkbox" className={classes(styles.checkbox, className)} {...props} />;
 }
