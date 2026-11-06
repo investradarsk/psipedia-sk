@@ -262,7 +262,7 @@ export function DirectoryProfileDetail({
       presentation.description.trim() !== presentation.excerpt.trim(),
   );
   const breederGallery = presentation.category === "chovatelske-stanice"
-    ? presentation.galleryUrls.filter((url) => url && url !== presentation.imageUrl)
+    ? (presentation.galleryUrls ?? []).filter((url) => url && url !== presentation.imageUrl)
     : [];
 
   const blocks = [
