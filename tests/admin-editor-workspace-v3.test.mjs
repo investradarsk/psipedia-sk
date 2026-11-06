@@ -85,7 +85,10 @@ test("ADMIN V3 content save and exit actions preserve publication and dirty stat
   const breed = read("components/admin-breed-editor.tsx");
   assert.match(article, /form="article-canonical-editor-form"/);
   assert.match(article, /type="submit"/);
-  assert.match(article, /onSubmit=\{\(event\) => \{ event.preventDefault\(\); void save\(displayedStatus\); \}\}/);
+  assert.match(article, /onSubmit=\{\(event\) => \{ event.preventDefault\(\); submitArticleForm\(\); \}\}/);
+  assert.match(article, /function submitArticleForm\(\)/);
+  assert.match(article, /void save\(displayedStatus\)/);
+  assert.match(article, /chooseArticleSection\(missing\.section\)/);
   assert.match(article, /setEditorDirty\(false\)/);
   assert.match(article, /backToEditor\?\.click\(\)/);
   assert.match(breed, /form="breed-canonical-editor-form"/);
