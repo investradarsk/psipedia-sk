@@ -3,7 +3,7 @@ import { formatSlovakCount } from "@/lib/slovak-count";
 
 import { EventListingResults } from "./event-listing-results";
 import dynamic from "next/dynamic";
-import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
+import { EventImage } from "@/components/event-image";
 import { PublicSubcategoryNavigator } from "@/components/public-visual-system";
 import {
   eventListingParams,
@@ -688,11 +688,14 @@ export function EventCalendar({
                             href={eventHref(event)}
                             aria-label={"Otvoriť podujatie: " + event.title}
                           >
-                            {event.imageUrl ? (
-                              <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
-                            ) : (
-                              <PublicMediaFallback decorative />
-                            )}
+                            <EventImage
+                              imageUrl={event.imageUrl}
+                              eventType={event.eventType}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              sizes="(max-width: 760px) 82px, 120px"
+                            />
                           </Link>
                           <div>
                             <span className={styles.dayEventType}>
