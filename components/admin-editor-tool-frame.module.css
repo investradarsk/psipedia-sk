@@ -12,3 +12,11 @@
 .frame[data-admin-editor-tool="contacts"] { gap: 0.55rem; }
 .frame[data-admin-editor-tool="relations"] { gap: 0.5rem; }
 @media (max-width: 820px) { .frame { gap: 0.55rem; } }
+
+/* The same rhythm and minimum targets apply to every existing tool. */
+.frame :global(.admin-card-heading) :is(h2, h3) { color: var(--admin-v3-green, #174b38); line-height: 1.35; }
+.frame :global(.admin-field-grid) { min-width: 0; gap: 0.75rem 0.9rem; }
+.frame :global(.admin-upload-button), .frame :global(button) { min-height: 44px; }
+.frame :global(.admin-upload-button):focus-visible { outline: 3px solid var(--admin-v3-focus, #a26a1b); outline-offset: 2px; }
+.frame :global(input[type="file"]) { max-width: none; }
+@media (max-width: 820px) { .frame :global(.admin-field-grid) { grid-template-columns: minmax(0, 1fr); } }
