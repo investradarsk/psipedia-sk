@@ -144,7 +144,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
     // mounted panel before submitting; keep canonical server validation.
     const missing = [
       { section: "help-basics", valid: Boolean((titleDraftRef.current || title).trim()), label: "Názov prípadu" },
-      { section: "help-media", valid: Boolean(slug.trim()), label: "Adresa prípadu" },
+      { section: "help-media", valid: Boolean(slug.trim() || slugify(titleDraftRef.current || title)), label: "Adresa prípadu" },
       ...(nextStatus === "published" ? [
         { section: "help-basics", valid: excerpt.trim().length >= 20, label: "Krátky popis (aspoň 20 znakov)" },
         { section: "help-story", valid: description.trim().length >= 40, label: "Podrobný popis (aspoň 40 znakov)" },
@@ -156,6 +156,13 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
       setActiveHelpSection(missing.section);
       setMessage("");
       setError("Vyplň alebo oprav: " + missing.label + ".");
+      return;
+    }
+    // Preserve the server's existing rule: public fundraisers must be verified.
+    if (nextStatus === "published" && category === "zbierky" && !verified) {
+      setActiveHelpSection("help-media");
+      setMessage("");
+      setError("Zbierku možno publikovať až po overení prípadu.");
       return;
     }
     mutationPending.current = true;
@@ -176,9 +183,9 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
     } catch (saveError) {
       const details = saveError instanceof Error ? saveError.message : "Prípad sa nepodarilo uložiť.";
       if (/odkaz|zbierk|suma|sumu/i.test(details)) setActiveHelpSection("help-action");
-      else if (/podrobný popis/i.test(details)) setActiveHelpSection("help-story");
+      else if (/podrobný popis|dátum|termín/i.test(details)) setActiveHelpSection("help-story");
       else if (/organizáci|mesto|obec|kraj|kategóri/i.test(details)) setActiveHelpSection("help-place");
-      else if (/adresa prípadu/i.test(details)) setActiveHelpSection("help-media");
+      else if (/adresa prípadu|obrázk|fotograf/i.test(details)) setActiveHelpSection("help-media");
       else if (/názov|krátky popis/i.test(details)) setActiveHelpSection("help-basics");
       setError(details);
     }
