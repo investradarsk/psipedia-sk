@@ -75,3 +75,35 @@
     justify-content: flex-end;
   }
 }
+
+/* EDITOR-17: action labels and state messages cannot force 320px overflow. */
+.footer,
+.start,
+.end,
+.end > :global(.admin-editor-actions),
+.end > :global(.admin-editor-actions) > :global(div) {
+  max-width: 100%;
+  min-width: 0;
+}
+.status,
+.start,
+.end {
+  overflow-wrap: anywhere;
+}
+.footer :is(button, a) {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 380px) {
+  .footer { gap: 8px; }
+  .end,
+  .end > :global(.admin-editor-actions),
+  .end > :global(.admin-editor-actions) > :global(div) {
+    width: 100%;
+    flex-basis: 100%;
+  }
+  .end > :global(.admin-editor-actions) > :global(div) > :is(button, a) {
+    flex: 1 1 auto;
+  }
+}
