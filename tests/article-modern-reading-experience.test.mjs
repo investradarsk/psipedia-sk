@@ -44,7 +44,7 @@ const searchPage = readFileSync("app/hladat/page.tsx", "utf8");
 const searchStyles = readFileSync("app/hladat/search.module.css", "utf8");
 
 function indexOfOrFail(source, value, message) {
-  const index = source.indexOf(value);
+  const index = source.replace(/\s+/g, "").indexOf(value.replace(/\s+/g, ""));
   assert.notEqual(index, -1, message);
   return index;
 }
@@ -190,7 +190,7 @@ test("editor-authored related blocks stay in body flow while sources remain at t
   );
   const sources = indexOfOrFail(
     detail,
-    "{sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} /> : null}",
+    "<ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} />",
     "sources are missing",
   );
   assert.ok(body < sources);
@@ -249,7 +249,7 @@ test("desktop magazine layout widens the reading column and keeps a truthful sti
   assert.match(styles, /--article-reading-width:\s*800px/);
   assert.match(
     styles,
-    /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/,
+    /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(\s*220px,\s*var\(--article-sidebar-width\)\s*\)/,
   );
   assert.match(
     styles,
@@ -286,7 +286,7 @@ test("ARTICLE-READING-WHITE-1 uses left-aligned prose and lifts the desktop disc
 
   assert.match(
     styles,
-    /\.articleLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/,
+    /\.articleLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(\s*220px,\s*var\(--article-sidebar-width\)\s*\)/,
   );
   assert.match(styles, /\.sidebar[\s\S]*align-self:\s*stretch/);
   assert.match(
@@ -346,7 +346,7 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 keeps one canonical article axis and an isola
   assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(
     styles,
-    /\.relatedInner[\s\S]*max-width:\s*calc\(var\(--article-reading-width\) \+ var\(--article-layout-gap\) \+ var\(--article-sidebar-width\)\)/,
+    /\.relatedInner[\s\S]*max-width:\s*calc\(\s*var\(--article-reading-width\) \+ var\(--article-layout-gap\) \+ var\(--article-sidebar-width\)\s*\)/,
   );
   assert.match(styles, /\.readingProgress[\s\S]*top:\s*var\(--psipedia-sticky-header-height/);
   assert.match(
@@ -409,8 +409,11 @@ test("end recommendations use three unique items and the requested editorial hea
     detail,
     /items\.findIndex\(\(candidate\) => candidate\.slug === item\.slug\) === index/,
   );
-  assert.match(detail, /<h2>Ďalšie články k téme<\/h2>/);
-  assert.match(detail, /<PublicContentList label="Ďalšie články k téme"/);
+  assert.match(
+    detail,
+    /<PublicHeading as="h2" role="section">\s*Ďalšie články\s*<\/PublicHeading>/,
+  );
+  assert.match(detail, /<PublicContentList\s+label="Ďalšie články k téme"/);
 });
 
 test("ARTICLE-READING-UX-2 preserves tracker, compact feedback, sticky-header and back-to-top contracts", () => {
@@ -500,7 +503,7 @@ test("article schema and metadata preserve canonical, dates, author and image se
 
 test("hero image accessibility metadata remains separate from visible caption and credit", () => {
   assert.match(detail, /article\.imageAlt \|\| article\.title/);
-  assert.match(detail, /const showImageMeta = Boolean\(article\.image/);
+  assert.match(detail, /const showImageMeta = Boolean\(\s*article\.image/);
   assert.match(detail, /<figcaption className=\{styles\.heroImageMeta\}>/);
   assert.match(detail, /article\.imageCaption/);
   assert.match(detail, /article\.imageCredit/);

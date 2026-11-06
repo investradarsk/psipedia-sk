@@ -8,7 +8,10 @@
 
 .articleLayout {
   display: grid;
-  grid-template-columns: minmax(0, var(--article-reading-width)) minmax(220px, var(--article-sidebar-width));
+  grid-template-columns: minmax(0, var(--article-reading-width)) minmax(
+      220px,
+      var(--article-sidebar-width)
+    );
   gap: var(--article-layout-gap);
   align-items: start;
   justify-content: center;
@@ -65,7 +68,6 @@
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
-
 
 .metaActions {
   display: flex;
@@ -315,7 +317,9 @@
   border-radius: 5px;
 }
 
-.toc ol { padding-block: 0 15px; }
+.toc ol {
+  padding-block: 0 15px;
+}
 
 .toc ol {
   display: grid;
@@ -554,7 +558,6 @@
   background: color-mix(in srgb, var(--brand-accent) 7%, white);
 }
 
-
 .sidebar {
   min-width: 0;
   align-self: stretch;
@@ -596,7 +599,9 @@
 }
 
 .relatedInner {
-  max-width: calc(var(--article-reading-width) + var(--article-layout-gap) + var(--article-sidebar-width));
+  max-width: calc(
+    var(--article-reading-width) + var(--article-layout-gap) + var(--article-sidebar-width)
+  );
   margin-inline: auto;
 }
 
@@ -935,7 +940,10 @@
 }
 
 /* IMAGE-EDITOR-1: natural images take intrinsic height. */
-.modernArticle .heroMedia.heroNatural { aspect-ratio: auto; background: transparent; }
+.modernArticle .heroMedia.heroNatural {
+  aspect-ratio: auto;
+  background: transparent;
+}
 
 /* Keep the legacy hero image hook for reading-layout consumers without
    allowing old global crop rules to override an intrinsic-size photo. */
@@ -949,4 +957,36 @@
   aspect-ratio: auto;
   object-fit: contain;
   border-radius: 0;
+}
+
+/* Compact desktop reading flow; preserve intrinsic aspect ratio and editor crops. */
+@media (min-width: 901px) {
+  .modernArticle .heroMedia.heroNatural :global(.article-hero-image) {
+    max-height: min(480px, 60vh);
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    object-fit: contain;
+  }
+  .modernArticle .heroMedia.heroNatural :global([data-image-display="natural"]) {
+    display: flex;
+    justify-content: center;
+  }
+  .relatedSection {
+    padding-block: 28px 36px;
+  }
+  .relatedSection :global([data-public-heading]) {
+    max-width: none;
+    margin: 0 0 16px;
+  }
+  .relatedList {
+    max-width: none;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    align-items: start;
+    gap: 20px;
+    border-top: 0;
+  }
+  .relatedList > :only-child {
+    max-width: 480px;
+  }
 }
