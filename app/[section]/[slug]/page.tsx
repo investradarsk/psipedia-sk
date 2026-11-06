@@ -153,7 +153,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   if (portalTopic && section === "novinky") {
     const newsCategory = getNewsCategory(slug);
     if (newsCategory) {
-      return <NewsHub articles={await getAllPublishedArticleSummaries({ portalSection: "novinky" })} section={portalTopic.section} activeCategory={newsCategory.slug} landingPath="/clanky" />;
+      return <NewsHub articles={await getAllPublishedArticleSummaries({ portalSection: "novinky" })} section={portalTopic.section} activeCategory={newsCategory.slug} landingPath="/novinky" />;
     }
   }
   if (portalTopic && section === "recenzie") {
@@ -222,5 +222,5 @@ export default async function PortalContentPage({ params, searchParams }: Props)
       return [];
     }),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={section === "recenzie" ? managedSection : undefined} />;
+  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={managedSection} />;
 }
