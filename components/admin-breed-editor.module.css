@@ -6,7 +6,10 @@
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
-.editorTopbar p { margin: 0; color: #607167; font-size: 13px; }
+.editorTopbar p { margin: 4px 0 0; color: #607167; font-size: 13px; }
+.editorTopbar strong { color: #1f4a3a; font-size: 14px; }
+.editorStats { display: flex; flex-wrap: wrap; gap: 6px; }
+.editorStats span { padding: 6px 9px; border: 1px solid #dce6df; background: #f3f7f3; border-radius: 20px; color: #355d46; font-size: 12px; font-weight: 750; }
 .editorTopbarActions { display: flex; gap: 8px; flex-wrap: wrap; }
 .sectionCard { scroll-margin-top: 110px; }
 .heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
@@ -25,7 +28,7 @@
 }
 .sportRow p { margin: 0; color: #607167; font-size: 13px; }
 .sportActions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-.relationColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.relationColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
 .relationBox { min-width: 0; border: 1px solid #dce6df; border-radius: 12px; padding: 12px; }
 .relationBox legend { font-weight: 800; padding: 0 6px; }
 .relationSearch { width: 100%; margin-bottom: 10px; }

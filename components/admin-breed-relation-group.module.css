@@ -1,0 +1,31 @@
+.group {
+  min-width: 0;
+  border: 1px solid #dce6df;
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+}
+.group legend { font-weight: 800; color: #1f4a3a; padding: 0 6px; font-size: 15px; }
+.selectedHeading { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; font-size: 13px; }
+.selectedHeading span { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 20px; font-weight: 800; background: #eaf3ed; color: #1f4a3a; }
+.selectedList { display: grid; gap: 5px; max-height: 230px; overflow: auto; padding-right: 3px; margin-bottom: 13px; }
+.selectedRow, .resultRow { display: flex; gap: 9px; align-items: flex-start; min-width: 0; padding: 9px 10px; border-radius: 9px; cursor: pointer; }
+.selectedRow { background: #eff6f1; border: 1px solid #cfe1d4; }
+.resultRow { background: #fff; border: 1px solid #e5ece7; }
+.resultRow:hover, .resultRow:focus-within { background: #f5f8f6; border-color: #a9c9b2; }
+.selectedRow input, .resultRow input { flex: 0 0 auto; margin-top: 3px; accent-color: #1f4a3a; }
+.optionText { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.35; }
+.optionText strong { font-weight: 650; }
+.optionText small { color: #62736a; font-size: 12px; }
+.empty { font-size: 12px; color: #6b7c71; margin: 0 0 13px; padding: 10px; background: #f7f9f7; border-radius: 8px; }
+.searchLabel { display: grid; gap: 7px; font-size: 13px; font-weight: 750; }
+.searchLabel input { width: 100%; min-width: 0; box-sizing: border-box; font-size: 14px; }
+.results { min-height: 42px; margin-top: 8px; }
+.resultList { display: grid; gap: 5px; max-height: 210px; overflow: auto; padding: 2px; }
+.help { font-size: 12px; color: #65756c; margin: 8px 0 0; }
+.error { font-size: 12px; color: #a12e36; margin: 8px 0 0; }
+@media (max-width: 720px) {
+  .group { padding: 10px; }
+  .selectedList { max-height: 180px; }
+  .resultList { max-height: 200px; }
+}
