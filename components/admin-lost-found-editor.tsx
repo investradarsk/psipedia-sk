@@ -1,5 +1,8 @@
 "use client";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
+import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
+import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
+import { AdminEditorSection } from "@/components/admin-interaction-system";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
@@ -22,6 +25,16 @@ import { allowedLostFoundTransitions, type LostFoundStatus } from "@/lib/lost-fo
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import styles from "./admin-lost-found.module.css";
+
+const LOST_FOUND_SECTIONS = [
+  { id: "lost-found-basics", label: "Typ a stav prípadu" },
+  { id: "lost-found-dog", label: "Pes a plemeno" },
+  { id: "lost-found-description", label: "Popis a identifikácia" },
+  { id: "lost-found-location", label: "Dátum a bezpečná lokalita" },
+  { id: "lost-found-contacts", label: "Kontakt a súkromie" },
+  { id: "lost-found-media", label: "Fotografie a galéria" },
+  { id: "lost-found-moderation", label: "Životnosť a moderácia" },
+] as const;
 
 type EditorState = {
   gallery: string[];
@@ -55,6 +68,8 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
   const [state,setState]=useState(()=>initial(report)); const [saving,setSaving]=useState(false); const [uploading,setUploading]=useState(false); const [message,setMessage]=useState(""); const [error,setError]=useState(""); const formRef=useRef<HTMLFormElement|null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
+  const [activeLostFoundSection, setActiveLostFoundSection] = useState<string>(LOST_FOUND_SECTIONS[0].id);
+  const activeLostFoundIndex = LOST_FOUND_SECTIONS.findIndex((section) => section.id === activeLostFoundSection);
   const navigation = useAdminUnsavedFormLinks();
   useEffect(()=>{ if(formRef.current) formRef.current.dataset.hydrated="true"; },[]);
   const set=<K extends keyof EditorState>(key:K,value:EditorState[K])=>{navigation.markDirty();setState((s)=>({...s,[key]:value}));};
@@ -65,6 +80,25 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
   async function uploadImage(e:File|ChangeEvent<HTMLInputElement>){const file=adminSelectedImage(e);if(!file)return;setUploading(true);setError("");try{const data=await uploadAdminImage(file,"lost-found");navigation.markDirty();setState(s=>({...s,mainImage:data.imageUrl,mainImageKey:data.imageKey,thumbnailImageDisplay:null,detailImageDisplay:null}));setMessage(adminImageUploadMessage(data,"Ulož hlásenie."))}catch(err){setError(err instanceof Error?err.message:"Obrázok sa nepodarilo nahrať.")}finally{setUploading(false)}}
   async function save(status:LostFoundStatus=state.status){
     if (saving || uploading || galleryUploading) return;
+    // Keep every panel mounted; reveal the first invalid field explicitly.
+    // The D1 store is still authoritative for publish, privacy and lifecycle.
+    const missing = [
+      { section: "lost-found-basics", valid: Boolean(state.slug.trim()), label: "Adresa hlásenia" },
+      ...(status !== "DRAFT" ? [
+        { section: "lost-found-location", valid: /^\d{4}-\d{2}-\d{2}$/.test(state.eventDate), label: "Dátum udalosti" },
+        { section: "lost-found-location", valid: Boolean(state.region.trim()) && Boolean(state.city.trim()), label: "Kraj a obec/mesto" },
+        { section: "lost-found-description", valid: state.description.trim().length >= 20, label: "Hlavný popis (aspoň 20 znakov)" },
+      ] : []),
+      ...(status === "ACTIVE" && state.type === "LOST" ? [
+        { section: "lost-found-location", valid: Boolean(state.lastSeenDateTime), label: "Naposledy videný" },
+      ] : []),
+    ].find((field) => !field.valid);
+    if (missing) {
+      setActiveLostFoundSection(missing.section);
+      setMessage("");
+      setError("Vyplň alebo oprav: " + missing.label + ".");
+      return;
+    }
     setSaving(true);setError("");setMessage("");
     try{
       const payload={
@@ -81,7 +115,16 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
       setState(initial(data.report));
       setMessage(status==="ACTIVE"?"Hlásenie je aktívne a verejné.":"Hlásenie bolo uložené.");
       if(!report)window.location.assign(`/admin/stratene-najdene/${data.report.id}?vytvorene=1`);
-    }catch(err){setError(err instanceof Error?err.message:"Uloženie zlyhalo.")}finally{setSaving(false)}
+    }catch(err){
+      const detail = err instanceof Error ? err.message : "Uloženie zlyhalo.";
+      if (/súradnic|zemepis|map|kraj|mesto|obec|dátum|naposledy/i.test(detail)) setActiveLostFoundSection("lost-found-location");
+      else if (/popis|znak|obojok/i.test(detail)) setActiveLostFoundSection("lost-found-description");
+      else if (/plemen|breed/i.test(detail)) setActiveLostFoundSection("lost-found-dog");
+      else if (/kontaktn|e-mail|telefón|odkaz|URL/i.test(detail)) setActiveLostFoundSection("lost-found-contacts");
+      else if (/obráz|fotograf|galéri/i.test(detail)) setActiveLostFoundSection("lost-found-media");
+      else if (/stav|expir|lifecycle|duplicit/i.test(detail)) setActiveLostFoundSection("lost-found-moderation");
+      setError(detail);
+    }finally{setSaving(false)}
   }
   function applyAutomationUpdate(values: Record<string, unknown>) { if (Object.keys(values).length) navigation.markDirty(); setState((current) => ({ ...current, ...values } as EditorState)); }
   async function markDuplicate(){
