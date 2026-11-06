@@ -43,6 +43,7 @@ cleanup() {
 }
 trap cleanup EXIT
 npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
 node scripts/bootstrap-breed-e2e.mjs prepare
 
 cat > .dev.vars <<'VARS'
