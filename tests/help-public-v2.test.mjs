@@ -107,10 +107,10 @@ test("canonical organizations stay reachable through the Help hierarchy", () => 
 
 test("fundraising cards and details consume the same category-aware financial block", () => {
   const financial = read("components/help-financial-progress.tsx");
-  // Listing cards intentionally use the unified compact card; financial figures
-  // belong on the detail page where they can be displayed completely.
+  // Unified cards still display the same category-aware fundraiser totals
+  // as the details; compact layout alone must not hide financial context.
   assert.match(card, /<PublicHelpProfileCard/);
-  assert.doesNotMatch(card, /HelpFinancialProgress/);
+  assert.match(card, /<HelpFinancialProgress item=\{item\} compact/);
   assert.match(detail, /HelpFinancialProgress/);
   assert.match(financial, /helpFinancials\(item\)/);
   assert.match(financial, /if \(!amounts\) return null/);
@@ -126,6 +126,8 @@ test("adoption and lost-found listings expose canonical data-first fields", () =
   assert.match(adoption, /dog\.organizationName/);
   assert.match(adoption, /<PublicHelpProfileCard/);
   assert.match(adoptionModel, /"organizationName" \| "organizationSlug"/);
+  assert.match(adoption, /dog\.organizationSlug/);
+  assert.match(adoption, /href=\{"\/organizacie\/" \+ dog\.organizationSlug\}/);
   assert.match(adoptionModel, /"publishedAt" \| "lastVerifiedAt"/);
   assert.match(lostFound, /listPublicDogReports\(type/);
   assert.match(lostFound, /dogReportTypeLabel\(type\)/);
