@@ -1,5 +1,8 @@
 "use client";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
+import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
+import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
+import { AdminEditorSection } from "@/components/admin-interaction-system";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
@@ -32,6 +35,15 @@ import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-rev
 import { helpSeoFallback } from "@/lib/content-seo";
 import { HELP_ADMIN_CREATE_CATEGORIES } from "@/lib/help-admin-query";
 import styles from "./admin-help-bulk.module.css";
+
+const HELP_SECTIONS = [
+  { id: "help-basics", label: "Základné údaje" },
+  { id: "help-location", label: "Zaradenie a lokalita" },
+  { id: "help-story", label: "Prípad a pes" },
+  { id: "help-action", label: "Výzva a zbierka" },
+  { id: "help-media", label: "Fotografia a stav" },
+  { id: "help-seo", label: "SEO" },
+] as const;
 
 function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
@@ -77,6 +89,8 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [activeHelpSection, setActiveHelpSection] = useState<string>(HELP_SECTIONS[0].id);
+  const activeHelpIndex = HELP_SECTIONS.findIndex((section) => section.id === activeHelpSection);
   const navigation = useAdminUnsavedFormLinks();
 
   function changeTitle(value: string) {
@@ -126,6 +140,24 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
 
   async function save(nextStatus: HelpCaseStatus) {
     if (mutationPending.current || uploading) return;
+    // A hidden native required field cannot be focused. Show the matching
+    // mounted panel before submitting; keep canonical server validation.
+    const missing = [
+      { section: "help-basics", valid: Boolean((titleDraftRef.current || title).trim()), label: "Názov prípadu" },
+      { section: "help-media", valid: Boolean(slug.trim()), label: "Adresa prípadu" },
+      ...(nextStatus === "published" ? [
+        { section: "help-basics", valid: excerpt.trim().length >= 20, label: "Krátky popis (aspoň 20 znakov)" },
+        { section: "help-story", valid: description.trim().length >= 40, label: "Podrobný popis (aspoň 40 znakov)" },
+        { section: "help-location", valid: Boolean(organization.trim()), label: "Zodpovedná organizácia alebo osoba" },
+        { section: "help-location", valid: Boolean(city.trim()), label: "Mesto" },
+      ] : []),
+    ].find((field) => !field.valid);
+    if (missing) {
+      setActiveHelpSection(missing.section);
+      setMessage("");
+      setError("Vyplň alebo oprav: " + missing.label + ".");
+      return;
+    }
     mutationPending.current = true;
     setConfirmUnpublish(false);
     setSaving(true); setError(""); setMessage("");
@@ -141,7 +173,15 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
       else navigation.markSavedBeforeRedirect();
       setStatus(data.item.status); setMessage(nextStatus === "published" ? "Prípad je publikovaný v sekcii Pomoc psom." : "Koncept je bezpečne uložený.");
       if (!item) router.replace(`/admin/pomoc/${data.item.id}?vytvorene=1`);
-    } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Prípad sa nepodarilo uložiť."); }
+     } catch (saveError) {
+      const details = saveError instanceof Error ? saveError.message : "Prípad sa nepodarilo uložiť.";
+      if (/odkaz|zbierk|suma|sumu/i.test(details)) setActiveHelpSection("help-action");
+      else if (/podrobný popis/i.test(details)) setActiveHelpSection("help-story");
+      else if (/organizáci|mesto|obec|kraj|kategóri/i.test(details)) setActiveHelpSection("help-location");
+      else if (/adresa prípadu/i.test(details)) setActiveHelpSection("help-media");
+      else if (/názov|krátky popis/i.test(details)) setActiveHelpSection("help-basics");
+      setError(details);
+    }
     finally { mutationPending.current = false; setSaving(false); }
   }
 
