@@ -3,6 +3,7 @@ name: BREEDS-ADMIN Plemená Admin 2.0
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "app/admin/plemena/**"
       - "app/api/admin/breeds/**"
@@ -27,6 +28,8 @@ permissions:
 
 jobs:
   breeds-admin:
+    # Fast required CI runs for drafts; comprehensive E2E starts when review-ready.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: List, editor, relations, bulk and responsive E2E
     # Ubuntu 26.04 on ubuntu-latest can expose a Microsoft apt feed that
     # returns HTTP 403 during Playwright --with-deps, before tests can run.
