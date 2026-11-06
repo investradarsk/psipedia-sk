@@ -109,6 +109,48 @@ async function readRemote(bindings:NotionSyncBindings,pageId:string,expectedDire
     throw Error("SERVICES_PROFILE_NOTION_SOURCE_CHANGED");
   return p;
 }
+/**
+ * The public page reads directory_profiles.services_json, while the Notion
+ * "Služby" text is its editorial mirror. Reflect only this specific property
+ * after a verified service-selection import; never PATCH unrelated fields.
+ */
+async function reflectPublicServiceText(
+  db:D1Database,bindings:NotionSyncBindings,pageId:string,profileId:number,
+  directoryDataSourceId:string,
+){
+  const row=await db.prepare(
+    "SELECT services_json FROM directory_profiles WHERE id=?1 LIMIT 1"
+  ).bind(profileId).first<{services_json:string|null}>();
+  if(!row)throw Error("SERVICES_PROFILE_NOT_FOUND");
+  let values:unknown;
+  try{values=JSON.parse(row.services_json??"[]");}
+  catch{throw Error("INVALID_LEGACY_SERVICES_JSON");}
+  if(!Array.isArray(values)||!values.every(v=>typeof v==="string"))
+    throw Error("INVALID_LEGACY_SERVICES_JSON");
+  const target=(values as string[]).join("\n");
+  if(target.length>30000)throw Error("SERVICES_LEGACY_TEXT_TOO_LONG");
+  const latest=await readRemote(bindings,pageId,directoryDataSourceId);
+  const prop=latest.properties?.["Služby"] as {
+    rich_text?:Array<{plain_text?:string;text?:{content?:string}}>
+  }|undefined;
+  if(!Array.isArray(prop?.rich_text))throw Error("SERVICES_LEGACY_TEXT_PROPERTY_MISSING");
+  const text=prop.rich_text.map(v=>v.plain_text??v.text?.content??"").join("").replace(/\r\n?/g,"\n").trim();
+  if(text===target)return;
+  const rich_text=(target.match(/[\s\S]{1,1800}/g)??[]).map(content=>
+    ({type:"text",text:{content}}));
+  const written=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId),{
+    method:"PATCH",body:JSON.stringify({properties:{"Služby":{type:"rich_text",rich_text}}})
+  },{retryTransient:false});
+  if(normal(written.id??"")!==normal(pageId))
+    throw Error("SERVICES_LEGACY_TEXT_WRITE_UNCERTAIN");
+  const observed=await readRemote(bindings,pageId,directoryDataSourceId);
+  const items=(observed.properties?.["Služby"] as {
+    rich_text?:Array<{plain_text?:string;text?:{content?:string}}>
+  }|undefined)?.rich_text??[];
+  if(items.map(v=>v.plain_text??v.text?.content??"").join("").replace(/\r\n?/g,"\n").trim()!==target)
+    throw Error("SERVICES_LEGACY_TEXT_WRITE_NOT_VERIFIED");
+}
+
 export async function syncProfileCatalogRelation(input:{
  db:D1Database;bindings:NotionSyncBindings;pageId:string;profileId:number;category:string;
  directoryDataSourceId:string;lookup:CatalogRelationLookup;
@@ -159,6 +201,7 @@ export async function syncProfileCatalogRelation(input:{
    const confirmed=await canonicalYes(db,profileId,available);
    if(!equalIds(confirmed,target))throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
    await ensureCanonicalServiceChoicesInLegacy(db,profileId,confirmed);
+   await reflectPublicServiceText(db,bindings,pageId,profileId,directoryDataSourceId);
    const pushed=!equalIds(remote,confirmed);
    if(pushed){
      if(!equalIds(await readIds(),remote))
