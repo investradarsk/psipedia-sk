@@ -1,4 +1,4 @@
-import { parseBreedFieldSnapshot } from "./notion-breed-field-delta";
+import { parseBreedFieldSnapshot } from "./notion-breed-field-delta.ts";
 
 /**
  * A legacy hash, malformed JSON, or a partial snapshot is NOT a cutover
