@@ -1244,13 +1244,13 @@ async function syncBreederEvent(input: {
     if (failures.length) {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
-    if (updated) {
-      await patchNotionPage(bindings, page.id, {
-        "Sync stav": select("Synchronizované"),
-        "Sync chyba": richText(""),
-        "Posledný sync": date(now),
-      });
-    }
+    // Also clear a legacy whole-profile conflict when the new event was
+    // already applied (for example, an inbox retry or a duplicate delivery).
+    await patchNotionPage(bindings, page.id, {
+      "Sync stav": select("Synchronizované"),
+      "Sync chyba": richText(""),
+      "Posledný sync": date(now),
+    });
     return updated ? "pulled" : "unchanged";
   }
 
