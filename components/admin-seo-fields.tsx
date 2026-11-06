@@ -1,6 +1,7 @@
 "use client";
 
 import type { ArticleSeo } from "@/lib/content";
+import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 
 export function AdminSeoFields({ value, onChange, canonicalPath, fallbackTitle, fallbackDescription }: {
   value: ArticleSeo;
@@ -10,7 +11,7 @@ export function AdminSeoFields({ value, onChange, canonicalPath, fallbackTitle, 
   fallbackDescription: string;
 }) {
   const set = (key: keyof ArticleSeo, next: string | boolean) => onChange({ ...value, [key]: next });
-  return <section className="admin-form-card admin-seo-card">
+  return <AdminEditorToolFrame kind="seo"><section className="admin-form-card admin-seo-card">
     <div className="admin-card-heading"><div><span>SEO</span><div><h2>SEO a zdieľanie</h2><p>Polia sú nepovinné. Prázdne hodnoty sa automaticky doplnia z profilu.</p></div></div></div>
     <div className="admin-field-grid">
       <label className="admin-field"><span>SEO title</span><input value={value.title ?? ""} onChange={(e)=>set("title",e.target.value)} placeholder={fallbackTitle}/></label>
@@ -24,5 +25,5 @@ export function AdminSeoFields({ value, onChange, canonicalPath, fallbackTitle, 
     </div>
     <label className="admin-field"><span>Open Graph description</span><textarea rows={3} value={value.ogDescription ?? ""} onChange={(e)=>set("ogDescription",e.target.value)} placeholder={value.description || fallbackDescription}/></label>
     <label className="admin-event-cancelled"><input type="checkbox" checked={Boolean(value.noindex)} onChange={(e)=>set("noindex",e.target.checked)}/><span><strong>Neindexovať profil (noindex)</strong><small>Vyhľadávače stránku neindexujú a sitemap ju vynechá.</small></span></label>
-  </section>;
+  </section></AdminEditorToolFrame>;
 }
