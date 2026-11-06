@@ -9,7 +9,7 @@ test("EDITOR-4: all canonical editing surfaces opt into shared admin form styles
   const css = read("app/admin/admin-unified-forms.css");
   assert.match(layout, /import "\.\/admin-unified-forms\.css"/);
   assert.match(css, /\[data-admin-workspace\] \[data-admin-form-system="v4"\]/);
-  assert.match(css, /grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 260px\), 1fr\)\)/);
+  assert.match(css, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(css, /min-height: 44px/);
   assert.match(css, /field-sizing: content/);
