@@ -57,6 +57,9 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   const [organizer, setOrganizer] = useState(event?.organizer ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
   const [practicalInfo, setPracticalInfo] = useState(event?.practicalInfo ?? "");
+  const [contactPhone, setContactPhone] = useState(event?.contactPhone ?? "");
+  const [contactEmail, setContactEmail] = useState(event?.contactEmail ?? "");
+  const [admissionFee, setAdmissionFee] = useState(event?.admissionFee ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(event?.websiteUrl ?? "");
   const [registrationUrl, setRegistrationUrl] = useState(event?.registrationUrl ?? "");
   const [imageUrl, setImageUrl] = useState(event?.imageUrl ?? "");
@@ -80,7 +83,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   // SEO drawer, image display settings and automation patches all change React state.
   const editorSnapshot = JSON.stringify({
     title, slug, excerpt, eventType, startDate, startTime, endDate, endTime,
-    venue, city, region, address, organizer, description, practicalInfo,
+    venue, city, region, address, organizer, description, practicalInfo, contactPhone, contactEmail, admissionFee,
     websiteUrl, registrationUrl, imageUrl, imageKey, imageDisplay,
     thumbnailImageDisplay, detailImageDisplay, cancelled, seo,
   });
@@ -195,6 +198,9 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       else if (field === "organizer") setOrganizer(text);
       else if (field === "description") setDescription(text);
       else if (field === "practicalInfo") setPracticalInfo(text);
+      else if (field === "contactPhone") setContactPhone(text);
+      else if (field === "contactEmail") setContactEmail(text);
+      else if (field === "admissionFee") setAdmissionFee(text);
       else if (field === "websiteUrl") setWebsiteUrl(text);
       else if (field === "registrationUrl") setRegistrationUrl(text);
     }
@@ -248,13 +254,18 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         return;
       }
     }
+    if (nextStatus !== "draft" || status !== "published") {
+      if (contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
+        setActiveEventSection("event-media"); setMessage(""); setError("Skontroluj kontaktný e-mail."); return;
+      }
+    }
     savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
       const response = await fetch(event ? `/api/admin/events/${event.id}` : "/api/admin/events", {
         method: event ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo }),
+        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo }),
       });
       const data = await response.json() as { event?: DogEvent; error?: string };
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
@@ -361,6 +372,9 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="event-web">Web organizátora</label><input id="event-web" type="url" value={websiteUrl} onChange={(input) => setWebsiteUrl(input.target.value)} placeholder="https://…" /></div>
               <div className="admin-field"><label htmlFor="event-registration">Registrácia</label><input id="event-registration" type="url" value={registrationUrl} onChange={(input) => setRegistrationUrl(input.target.value)} placeholder="https://…" /></div>
+               <div className="admin-field"><label htmlFor="event-contact-phone">Verejný telefón organizátora</label><input id="event-contact-phone" type="tel" value={contactPhone} onChange={(input) => setContactPhone(input.target.value)} placeholder="+421 900 000 000" maxLength={80} /></div>
+               <div className="admin-field"><label htmlFor="event-contact-email">Verejný e-mail organizátora</label><input id="event-contact-email" type="email" value={contactEmail} onChange={(input) => setContactEmail(input.target.value)} placeholder="kontakt@organizator.sk" maxLength={254} /></div>
+               <div className="admin-field"><label htmlFor="event-admission-fee">Vstupné</label><input id="event-admission-fee" value={admissionFee} onChange={(input) => setAdmissionFee(input.target.value)} placeholder="Zdarma / 5 € / podľa kategórie" maxLength={160} /></div>
             </div>
             </AdminEditorToolFrame>
             <div className="admin-field"><label htmlFor="event-slug">Adresa podujatia</label><div className="admin-slug-input"><span>psipedia.sk/podujatia/</span><input id="event-slug" value={slug} onChange={(input) => { setSlugEdited(true); setSlug(slugify(input.target.value)); }} placeholder="adresa-podujatia" required /></div></div>
