@@ -10,6 +10,7 @@ const picker = read("components/admin-google-place-picker.tsx");
 const geoEditor = read("components/admin-geo-location.tsx");
 const directoryPage = read("app/admin/adresar/[id]/page.tsx");
 const organizationPage = read("app/admin/organizacie/[id]/page.tsx");
+const organizationEditor = read("components/admin-organization-editor.tsx");
 const organizationLocations = read("components/admin-organization-locations.tsx");
 const eventPage = read("app/admin/podujatia/[id]/page.tsx");
 const eventEditor = read("components/admin-event-editor.tsx");
@@ -28,7 +29,8 @@ test("PROFILE-GOOGLE-UNIFIED keeps one shared Google Maps component contract", (
   assert.match(profileGoogle, /<AdminGooglePlacePicker/);
   assert.match(geoEditor, /<AdminProfileGoogleMaps/);
   assert.match(directoryPage, /<AdminGeoLocation targetType="DIRECTORY_PROFILE"/);
-  assert.match(organizationPage, /<AdminProfileGoogleMaps/);
+  assert.match(organizationEditor, /<AdminProfileGoogleMaps/);
+  assert.match(organizationPage, /<AdminOrganizationEditor organization=\{organization\} initialLocations=\{locations\}/);
   assert.match(eventEditor, /<AdminProfileGoogleMaps targetType="MANAGED_EVENT"/);
 });
 
@@ -58,11 +60,14 @@ test("profile Google discovery remains lazy and server-authoritative", () => {
 });
 
 test("HELP profile presents one Address section then Google Maps", () => {
-  const addressIndex = organizationPage.indexOf("<AdminOrganizationLocations");
-  const googleIndex = organizationPage.indexOf("<AdminProfileGoogleMaps");
-  assert.ok(addressIndex >= 0 && googleIndex > addressIndex);
+  const sectionIndex = organizationEditor.indexOf('<AdminEditorSection id="organization-address"');
+  const addressIndex = organizationEditor.indexOf("<AdminOrganizationLocations draft=", sectionIndex);
+  const googleIndex = organizationEditor.indexOf("<AdminProfileGoogleMaps", sectionIndex);
+  const nextSection = organizationEditor.indexOf('<AdminEditorSection id="organization-contacts"', sectionIndex);
+  assert.ok(sectionIndex >= 0 && addressIndex > sectionIndex && googleIndex > addressIndex && googleIndex < nextSection);
   assert.match(organizationLocations, /data-single-address/);
-  assert.match(organizationLocations, /<h2>Adresa<\/h2>/);
+  assert.match(organizationEditor, /<h2>Adresa a mapa<\/h2>/);
+  assert.doesNotMatch(organizationLocations, /<form|Uložiť adresu/);
   assert.doesNotMatch(organizationLocations, />Typ lokality<|>Pridať lokalitu<|>Hlavná lokalita<|>Prevádzka<|>Sídlo<|>Pôsobnosť</);
 });
 
