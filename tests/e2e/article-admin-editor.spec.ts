@@ -530,12 +530,14 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await modal.getByRole("button", { name: "Zrušiť" }).click();
   });
 
-  test("ARTICLE-TIPTAP-5: one sticky toolbar targets only visible text and keeps full-color controls gated", async ({ page }) => {
+  test("ARTICLE-TIPTAP-5: centered toolbar applies selected-text colors and stays scoped to visible blocks", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     await waitForEditor(page);
     const toolbar = page.locator("[data-admin-tiptap-toolbar]");
     await expect(toolbar).toHaveCount(1);
+    await expect(page.locator("[data-editor-content] [data-admin-tiptap-toolbar]")).toHaveCount(1);
+    await expect(page.locator("[data-editor-page] > [data-admin-tiptap-toolbar]")).toHaveCount(0);
     const bold = toolbar.getByRole("button", { name: /Tučné/ });
     await expect(bold).toBeDisabled();
     const textColor = toolbar.getByLabel("Celá paleta farieb textu", { exact: true });
@@ -550,10 +552,21 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(highlight).toBeEnabled();
     await intro.fill("Farebne formátovaný úvod.");
     await intro.selectText();
-    await textColor.fill("#2468ac");
-    await highlight.fill("#fae123");
+    await expect(textColor).toHaveCSS("cursor", "pointer");
+    await textColor.click();
+    const textPalette = toolbar.locator('[data-tiptap-color-panel="text"]');
+    await expect(textPalette).toBeVisible();
+    await textPalette.getByRole("button", { name: "Použiť farbu #2563eb" }).click();
     await expect(intro.locator('span[style*="color"]')).toContainText("Farebne formátovaný");
+    await highlight.click();
+    const highlightPalette = toolbar.locator('[data-tiptap-color-panel="highlight"]');
+    await highlightPalette.getByRole("button", { name: "Použiť farbu #fde68a" }).click();
     await expect(intro.locator('mark')).toContainText("Farebne formátovaný");
+    await textColor.click();
+    const hexPalette = toolbar.locator('[data-tiptap-color-panel="text"]');
+    await hexPalette.getByRole("textbox", { name: "HEX – farba textu" }).fill("#2468ac");
+    await hexPalette.getByRole("button", { name: "Použiť", exact: true }).click();
+    await expect(intro.locator('span[style*="color"]')).toHaveAttribute("style", /#2468ac/);
     await showArticleSection(page, "article-blocks");
     await expect(bold).toBeDisabled();
 

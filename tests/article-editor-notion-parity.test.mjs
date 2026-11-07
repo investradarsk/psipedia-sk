@@ -65,7 +65,10 @@ test("ARTICLE-EDITOR-NOTION-PARITY-1 imported article: blocks, image, SEO and to
   assert.equal(imported.seo.focusKeyword, "tréning");
   assert.deepEqual(imported.relatedBreedIds, [17]);
   assert.match(editor, /article\?\.blocks\?\.length/);
-  assert.match(editor, /onNavigateBlock=\{\(blockId\) => navigatePreview\(blockId\)\}/);
+  const fullscreen = read("components/admin-article-fullscreen-preview.tsx");
+  assert.match(editor, /<AdminArticleFullscreenPreview/);
+  assert.match(editor, /blocks=\{blocks\}/);
+  assert.match(fullscreen, /<ArticleBlocks blocks=\{props\.blocks\} preview/);
   assert.match(editor, /introRichText,/);
   assert.match(editor, /focusKeyword,/);
   assert.match(editor, /topicIds,/);
@@ -103,7 +106,8 @@ test("ARTICLE-EDITOR-NOTION-PARITY-1 normal draft save cannot change published o
   assert.match(editor, /data-article-current-status/);
   assert.match(editor, /ArticleEditorCalendar/);
   assert.match(editor, /setPreviewOpen/);
-  assert.match(editor, /onNavigateBlock/);
+  assert.match(editor, /setFullscreenPreviewOpen\(true\)/);
+  assert.match(editor, /onClose=\{\(\) => setFullscreenPreviewOpen\(false\)\}/);
 });
 
 test("ARTICLE-EDITOR-NOTION-PARITY-1 update rejects stale imports and preserves omitted values", () => {

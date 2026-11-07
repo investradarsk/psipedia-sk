@@ -95,7 +95,7 @@ test("ADMIN V3 content save and exit actions preserve publication and dirty stat
   assert.match(article, /void save\(displayedStatus\)/);
   assert.match(article, /chooseArticleSection\(missing\.section\)/);
   assert.match(article, /setEditorDirty\(false\)/);
-  assert.match(article, /backToEditor\?\.click\(\)/);
+  assert.match(article, /onClose=\{\(\) => setFullscreenPreviewOpen\(false\)\}/);
   assert.match(breed, /form="breed-canonical-editor-form"/);
   assert.equal((breed.match(/Nastavenia, FCI a SEO/g) ?? []).length, 1, "settings drawer has only one trigger");
   assert.match(breed, /save\(form.status==="published"\?"published":"draft"\)/);
@@ -160,8 +160,11 @@ test("ARTICLE-MOBILE-COMPACT: six changes remain scoped to the canonical article
   assert.match(editor, /displayedStatus !== "published" && <AdminActionButton variant="secondary"[^>]*onClick=\{\(\) => void save\("scheduled"\)\}/);
   assert.doesNotMatch(editor, /disabled=\{saving \|\| uploading \|\| !publishedAt \|\| displayedStatus === "published"\}/);
 
-  // Mobile preview toggle belongs in the navigation; close is next to the preview itself.
-  assert.match(editor, /admin-preview-bar[^\n]*className=\{editorStyles\.previewClose\}/);
+  // Navigation retains mobile toggle; the article rail has one compact preview
+  // and one full-screen open action instead of the obsolete expanded duplicate.
+  assert.match(editor, /data-article-compact-preview/);
+  assert.match(editor, /setFullscreenPreviewOpen\(true\)/);
+  assert.doesNotMatch(editor, /previewDetailedOpen|admin-preview-bar/);
   assert.match(editor, /className=\{editorStyles\.previewRestore\}/);
   assert.match(workspace, /showingPreview \? "Späť na úpravy" : "Náhľad"/);
 

@@ -18,9 +18,6 @@ import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-f
 import { AdminActionButton, AdminDestructiveConfirmDialog, AdminHelpText } from "@/components/admin-interaction-system";
 import { EditorActionBar, EditorWorkspace } from "@/components/admin-editor-workspace";
 import editorStyles from "./admin-content-editor-v3.module.css";
-import { ArticleBlocks } from "@/components/article-blocks";
-import navStyles from "@/components/admin-article-preview-nav.module.css";
-import { EditorialRichText } from "@/components/editorial-rich-text";
 import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
 import { effectiveArticleStatus, articleEffectiveStatusLabel } from "@/lib/article-effective-status";
 import { formatArticleLocalDateTime } from "@/lib/article-schedule-time";
@@ -232,7 +229,6 @@ export function AdminArticleEditor({
   const [error, setError] = useState("");
   const [qaIssues, setQaIssues] = useState<ArticleQaIssue[]>([]);
   const [previewOpen, setPreviewOpen] = useState(true);
-  const [previewDetailedOpen, setPreviewDetailedOpen] = useState(false);
   const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
@@ -241,8 +237,6 @@ export function AdminArticleEditor({
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
   const allowNavigationRef = useRef(false);
   const resultRef = useRef<HTMLDivElement>(null);
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (highlightTimer.current) clearTimeout(highlightTimer.current); }, []);
   function chooseArticleSection(id: string) {
     if (id !== "article-content" && !editorNavigation.some((section) => section.id === id)) return;
     const visibleId = id === "article-content" ? "article-basics" : id;
@@ -251,25 +245,6 @@ export function AdminArticleEditor({
     window.requestAnimationFrame(() => {
       document.getElementById(visibleId)?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
-  }
-  function navigatePreview(targetId: string, field = false) {
-    const target = document.getElementById(field ? targetId : `admin-editor-block-${targetId}`);
-    if (!target) return;
-    const sectionId = target.closest<HTMLElement>("[data-admin-editor-section]")?.id
-      ?? (field ? targetId : "article-blocks");
-    chooseArticleSection(sectionId);
-    // On narrow screens, the preview replaces the form. Reveal the form before focusing its target.
-    const backToEditor = document.querySelector<HTMLButtonElement>('[data-editor-navigation] button[aria-pressed="true"]');
-    backToEditor?.click();
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-    document.querySelectorAll(`.${navStyles.targetHighlight}`).forEach((element) => element.classList.remove(navStyles.targetHighlight));
-    target.classList.add(navStyles.targetHighlight);
-    window.requestAnimationFrame(() => {
-      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-      // Focusing the wrapper keeps an existing rich-text caret and drag state intact.
-      target.focus({ preventScroll: true });
-    });
-    highlightTimer.current = setTimeout(() => target.classList.remove(navStyles.targetHighlight), 1800);
   }
   const focusResult = () => window.requestAnimationFrame(() => {
     resultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -546,7 +521,6 @@ export function AdminArticleEditor({
   return (
     <>
       <div className={editorStyles.workspaceRoot}>
-      <AdminTiptapArticleScope activeSectionId={activeArticleSection}>
       <EditorWorkspace
         mode="page"
         title={article ? "Upraviť článok" : "Nový článok"}
@@ -638,7 +612,6 @@ export function AdminArticleEditor({
                     onClick={() => {
                       document.querySelector<HTMLButtonElement>('[data-editor-layout="article"] [data-editor-navigation] button[aria-pressed="true"]')?.click();
                       setPreviewOpen(false);
-                      setPreviewDetailedOpen(false);
                     }}>Skryť náhľad</button>
                 )}
               </div>
@@ -660,34 +633,9 @@ export function AdminArticleEditor({
                     </div>
                   </div>
                   <button type="button" className={editorStyles.railExpand}
-                    aria-expanded={previewDetailedOpen} onClick={() => setPreviewDetailedOpen((value) => !value)}>
-                    {previewDetailedOpen ? "Zbaliť celý náhľad" : "Zobraziť celý náhľad"}
-                  </button>
-                  <button type="button" className={editorStyles.railExpand}
                     onClick={() => setFullscreenPreviewOpen(true)}>
                     Náhľad na celú obrazovku · počítač/mobil
                   </button>
-                  {previewDetailedOpen && (
-                    <aside className="admin-live-preview" aria-label="Živý náhľad článku">
-                    <div className="admin-preview-bar"><span><i /> Živý náhľad</span><small>takto bude článok vyzerať</small><button type="button" className={editorStyles.previewClose} onClick={() => setPreviewDetailedOpen(false)}>Späť na stručný náhľad</button></div>
-                    <article className="admin-preview-paper">
-                      <span className="eyebrow">{portalSectionLabel(portalSection)} · {portalSection === "novinky" ? getNewsCategory(newsCategory)?.shortLabel : category}</span>
-                      <h1 className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť názov článku" onClick={() => navigatePreview("article-basics", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-basics", true); } }}>{title || "Názov tvojho článku"}</h1>
-                      <p className={`admin-preview-excerpt ${navStyles.previewTarget}`} role="button" tabIndex={0} aria-label="Upraviť perex článku" onClick={() => navigatePreview("article-basics", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-basics", true); } }}>{excerpt || "Tu sa zobrazí krátky úvod z karty článku."}</p>
-                      {imageUrl && <div className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť titulnú fotografiu" onClick={() => setImageEditorOpen(true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setImageEditorOpen(true); } }}><div style={{ aspectRatio: detailImageDisplay?.mode === "crop" || detailImageDisplay?.mode === "blur" ? "16 / 9" : undefined }}><ImageDisplay context="detail" config={detailImageDisplay} src={imageUrl} alt={imageAlt || title} loading="lazy" /></div></div>}
-                      {imageUrl && (imageCaption || imageCredit) ? (
-                        <p className="admin-preview-image-meta">
-                          {imageCaption}
-                          {imageCaption && imageCredit ? " · " : ""}
-                          {imageCredit ? `Foto: ${imageCredit}` : ""}
-                        </p>
-                      ) : null}
-                      <div className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť úvod článku" onClick={() => navigatePreview("article-content", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-content", true); } }}><EditorialRichText className="admin-preview-intro" document={intro.trim() ? introRichText : legacyRichTextToDocument("Úvod článku sa zobrazí na tomto mieste.")} /></div>
-                      {takeaway.trim() && <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayRichText} /></div>}
-                      <ArticleBlocks blocks={blocks} preview promoUtcDay={promoUtcDay} onNavigateBlock={(blockId) => navigatePreview(blockId)} />
-                    </article>
-                  </aside>
-                  )}
                 </>
               ) : (
                 <button type="button" className={editorStyles.railExpand} onClick={() => setPreviewOpen(true)}>
@@ -714,6 +662,7 @@ export function AdminArticleEditor({
           </>}
         />}
       >
+      <AdminTiptapArticleScope activeSectionId={activeArticleSection}>
       <form id="article-canonical-editor-form" noValidate className={`admin-editor-form ${editorStyles.articleForm}`} onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); submitArticleForm(); }}>
         {(message || error || saving) && <div ref={resultRef} tabIndex={-1}>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
@@ -1083,8 +1032,8 @@ export function AdminArticleEditor({
 
       
       </form>
-      </EditorWorkspace>
       </AdminTiptapArticleScope>
+      </EditorWorkspace>
       </div>
 
       <AdminArticleFullscreenPreview
