@@ -75,7 +75,7 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   } else if (sameSource(sourceId, bindings.NOTION_BREEDS_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_BREEDS_DATA_SOURCE_ID!)) {
     // After cutover, stale old-source webhooks cannot run a second sync engine.
-    if (bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "true") return "disabled";
+    if (bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "true") return "out-of-scope";
     summary = await runNotionBreedSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
       changedPropertyIds: event.data?.updated_properties ?? [],
@@ -83,7 +83,7 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   } else if (sameSource(sourceId, bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!)) {
     // The new 60-field source is inert until the explicitly gated cutover.
-    if (bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED !== "true") return "disabled";
+    if (bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED !== "true") return "out-of-scope";
     summary = await runNotionBreedWorkCopySyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
       changedPropertyIds: event.data?.updated_properties ?? [],
