@@ -197,7 +197,7 @@ test("article editor opens month overview, exposes same-time conflict and keeps 
   const sectionNav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
   const sectionPicker = sectionNav.getByRole("combobox", { name: "Sekcia editora" });
   if (await sectionPicker.isVisible()) await sectionPicker.selectOption("article-publish");
-  else await sectionNav.getByRole("button", { name: "Publikovanie", exact: true }).click();
+  else await sectionNav.getByRole("link", { name: "Publikovanie", exact: true }).click();
   await expect(page.locator("#article-publish")).toBeVisible();
   // These fixtures share exactly the same publication minute.
   await expect(page.getByText(/Pozor, tento termín je už obsadený/)).toBeVisible();
