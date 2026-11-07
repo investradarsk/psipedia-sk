@@ -254,10 +254,23 @@ export function DirectoryProfileDetail({
   const factValues = new Set(
     presentation.facts.map((fact) => fact.value.trim().toLocaleLowerCase("sk")),
   );
-  const visibleQualifications = presentation.qualifications.filter(
-    (qualification) => !factValues.has(qualification.trim().toLocaleLowerCase("sk")),
-  );
   const isBreeder = presentation.category === "chovatelske-stanice";
+  // Older imported records split prose at semicolons. Join only clear
+  // lowercase continuations; do not render half a sentence as its own tag.
+  const visibleQualifications = presentation.qualifications.reduce<string[]>((items, raw) => {
+    const qualification = raw.trim();
+    if (!qualification || factValues.has(qualification.toLocaleLowerCase("sk"))) return items;
+    if (isBreeder && relatedBreeds.length && /^plemen[oa]:/i.test(qualification)) return items;
+    if (isBreeder && relatedClubs.length && /^(klub|chovateľský klub):/i.test(qualification)) return items;
+    if (isBreeder && relatedClubs.some(club =>
+      club.name.trim().toLocaleLowerCase("sk") === qualification.toLocaleLowerCase("sk"))) return items;
+    if (items.length && /^\p{Ll}/u.test(qualification)) {
+      items[items.length - 1] += "; " + qualification;
+    } else if (!items.some(item => item.toLocaleLowerCase("sk") === qualification.toLocaleLowerCase("sk"))) {
+      items.push(qualification);
+    }
+    return items;
+  }, []);
   const expertFacts = presentation.facts.filter(fact =>
     !(isBreeder && relatedBreeds.length > 0 && (fact.label === "Plemeno" || fact.label === "Plemená")) &&
     !(isBreeder && relatedClubs.length > 0 && fact.label === "Klub"));
@@ -335,12 +348,22 @@ export function DirectoryProfileDetail({
             ? <DetailOptionGrid options={[...expertFacts, ...breederLinkFacts]} /> : null}
           {visibleQualifications.length > 0 ? (
             <div className={styles.qualifications}>
-              <h3>Skúsenosti a kvalifikácie</h3>
+              <h3>Odbornosť a skúsenosti</h3>
               <ul className={styles.qualificationsList}>
-                {visibleQualifications.map((qualification) => (
+                {visibleQualifications.slice(0, 4).map((qualification) => (
                   <li key={qualification}>{qualification}</li>
                 ))}
               </ul>
+              {visibleQualifications.length > 4 ? (
+                <details className={styles.moreQualifications}>
+                  <summary>Ďalšie informácie ({visibleQualifications.length - 4})</summary>
+                  <ul className={styles.qualificationsList}>
+                    {visibleQualifications.slice(4).map(qualification => (
+                      <li key={qualification}>{qualification}</li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
             </div>
           ) : null}
           {presentation.priceNote ? (

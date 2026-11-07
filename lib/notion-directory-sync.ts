@@ -55,6 +55,14 @@ import {
   breederPreserveUneditedFields, type BreederEditorialField,
 } from "@/lib/notion-breeder-field-events";
 import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes";
+import {
+  getBreederRelationSelection, listBreederRelationOptions, saveBreederRelationSelection,
+} from "./breeder-profile-relations";
+import {
+  BREEDER_NOTION_RELATION_FIELDS, breederRelationChangedFields,
+  resolveBreederRelationText, formatBreederRelationText, sameBreederRelationIds,
+  type BreederRelationField,
+} from "./breeder-relation-text.ts";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -254,6 +262,15 @@ function splitList(value: string) {
     .slice(0, 20);
 }
 
+/** Qualifications are human prose: semicolons belong inside the same sentence. */
+function splitQualificationLines(value: string) {
+  return [...new Set(value
+    .split(/\r?\n|<br\s*\/?\s*>/gi)
+    .map(item => item.replace(/^[-•]\s*/, "").trim())
+    .filter(Boolean))]
+    .slice(0, 40);
+}
+
 function statusFromNotion(value: string): EditableDirectorySnapshot["status"] {
   if (value === "Publikované") return "published";
   if (value === "Archív") return "archived";
@@ -360,7 +377,7 @@ function notionSnapshot(page: NotionPage): EditableDirectorySnapshot {
     excerpt: propertyText(page, "Perex"),
     description: propertyText(page, "Popis"),
     services: splitList(propertyText(page, "Služby")),
-    qualifications: splitList(propertyText(page, "Kvalifikácie")),
+    qualifications: splitQualificationLines(propertyText(page, "Kvalifikácie")),
     region: propertyText(page, "Kraj"),
     district: propertyText(page, "Okres"),
     city: propertyText(page, "Mesto"),
@@ -1212,7 +1229,9 @@ async function syncBreederEvent(input: {
   const now = new Date().toISOString();
   if (input.changedPropertyIds !== undefined) {
     const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds);
-    if (!paths.length) return "unchanged";
+    const relationFields = input.profile.category === "chovatelske-stanice"
+      ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
+    if (!paths.length && !relationFields.length) return "unchanged";
     const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
     let current = input.profile;
     let updated = false;
@@ -1264,9 +1283,36 @@ async function syncBreederEvent(input: {
         failures.push(path);
       }
     }
+    // Relationship names are an independent, best-effort channel. Unknown,
+    // ambiguous and empty entries NEVER erase old links or fail another field.
+    let relationsUpdated = false;
+    if (relationFields.length) {
+      try {
+        const selected = await getBreederRelationSelection(database, input.profile.id);
+        if (selected) {
+          const options = await listBreederRelationOptions(database);
+          const next = { breedIds: [...selected.breedIds], clubIds: [...selected.clubIds] };
+          for (const field of relationFields) {
+            const text = propertyText(page, BREEDER_NOTION_RELATION_FIELDS[field]);
+            const result = resolveBreederRelationText(text, field === "breedIds" ? options.breeds : options.clubs);
+            if (result.status === "resolved") next[field] = result.ids;
+            else if (result.status === "unmatched")
+              console.warn("BREEDER_RELATION_NAME_UNMATCHED", input.profile.id, field, result.unmatched);
+          }
+          if (!sameBreederRelationIds(selected.breedIds, next.breedIds) ||
+              !sameBreederRelationIds(selected.clubIds, next.clubIds)) {
+            await saveBreederRelationSelection(database, input.profile.id, next, SYSTEM_ACTOR);
+            relationsUpdated = true;
+          }
+        }
+      } catch (error) {
+        console.warn("BREEDER_RELATION_TEXT_SYNC_SKIPPED", input.profile.id, error);
+      }
+    }
     if (failures.length) {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
+    if (!paths.length && !relationsUpdated) return "unchanged";
     // Also clear a legacy whole-profile conflict when the new event was
     // already applied (for example, an inbox retry or a duplicate delivery).
     await patchNotionPage(bindings, page.id, {
@@ -1274,7 +1320,7 @@ async function syncBreederEvent(input: {
       "Sync chyba": richText(""),
       "Posledný sync": date(now),
     });
-    return updated ? "pulled" : "unchanged";
+    return updated || relationsUpdated ? "pulled" : "unchanged";
   }
 
   const fields = (input.adminChangedFields ?? []).filter(
@@ -1295,6 +1341,44 @@ async function syncBreederEvent(input: {
   patch["Posledný sync"] = date(now);
   await patchNotionPage(bindings, page.id, patch);
   return "pushed";
+}
+
+/**
+ * Admin relation choices -> human-readable Notion text.
+ * Called only after a successful Admin selection save, and never reconciles
+ * any ordinary profile field or removes relationships on Notion failures.
+ */
+export async function mirrorBreederRelationNamesToNotion(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  profileId: number;
+  fields: readonly BreederRelationField[];
+}): Promise<boolean> {
+  if (!input.fields.length || !notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
+      !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
+    return false;
+  const mapping = await loadMappingByProfile(input.database, input.profileId);
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!mapping || !profile || profile.category !== "chovatelske-stanice") return false;
+  const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+  if (page.id !== mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!)) return false;
+  if (propertyText(page, "Psipedia ID") !== String(input.profileId)) return false;
+  const selected = await getBreederRelationSelection(input.database, input.profileId);
+  if (!selected) return false;
+  const options = await listBreederRelationOptions(input.database);
+  const patch: Record<string, unknown> = {};
+  for (const field of input.fields) {
+    const name = BREEDER_NOTION_RELATION_FIELDS[field];
+    if (!Object.hasOwn(page.properties ?? {}, name)) continue;
+    const names = formatBreederRelationText(selected[field],
+      field === "breedIds" ? options.breeds : options.clubs);
+    if (names !== null && names !== propertyText(page, name))
+      patch[name] = richText(names);
+  }
+  if (!Object.keys(patch).length) return false;
+  await patchNotionPage(input.bindings, page.id, patch);
+  return true;
 }
 
 async function syncMappedPage(input: {

@@ -4,6 +4,8 @@ import {
   getBreederRelationSelection, listBreederRelationOptions,
   saveBreederRelationSelection, validateBreederRelations,
 } from "@/lib/breeder-profile-relations";
+import { mirrorBreederRelationNamesToNotion, type NotionDirectorySyncBindings } from "@/lib/notion-directory-sync";
+import { sameBreederRelationIds, type BreederRelationField } from "@/lib/breeder-relation-text";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -37,7 +39,24 @@ export async function PUT(request: Request, { params }: Props) {
   if (!database) return Response.json({ error: "Databáza nie je pripojená." }, { status: 503 });
   try {
     const selected = validateBreederRelations(await request.json());
+    const before = await getBreederRelationSelection(database, id);
     const saved = await saveBreederRelationSelection(database, id, selected, auth.user.email);
+    // A Notion outage or an unrecognised name never rolls back the Admin save.
+    const changed: BreederRelationField[] = [];
+    if (before) {
+      if (!sameBreederRelationIds(before.breedIds, saved.breedIds)) changed.push("breedIds");
+      if (!sameBreederRelationIds(before.clubIds, saved.clubIds)) changed.push("clubIds");
+    }
+    if (changed.length) {
+      try {
+        await mirrorBreederRelationNamesToNotion({
+          database, bindings: env as unknown as NotionDirectorySyncBindings,
+          profileId: id, fields: changed,
+        });
+      } catch (error) {
+        console.warn("BREEDER_NOTION_RELATION_WRITEBACK_SKIPPED", id, error);
+      }
+    }
     return Response.json({ selected: saved }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return Response.json({
