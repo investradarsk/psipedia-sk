@@ -35,7 +35,7 @@ jobs:
       BREED_STAGE_CONFIRMATION: ${{ inputs.confirmation }}
       BREED_STAGE_MODE: ${{ inputs.mode }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
-      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      BREED_STAGE_NOTION_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
     steps:
       - name: Main-only manual owner confirmation
         shell: bash
@@ -51,7 +51,7 @@ jobs:
           esac
           test "$BREED_STAGE_CONFIRMATION" = "$expected"
           test -n "$CLOUDFLARE_API_TOKEN"
-          test -n "$NOTION_API_TOKEN"
+          test -n "$BREED_STAGE_NOTION_TOKEN"
 
       - name: Checkout pinned workflow revision
         uses: actions/checkout@v4
