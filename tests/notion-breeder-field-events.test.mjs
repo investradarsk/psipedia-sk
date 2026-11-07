@@ -148,7 +148,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   await exports.saveBreederEditorialValue(db, current, desired, "services");
   assert.equal(queries[4].values.at(-2), "salony-a-sluzby");
   assert.equal(queries[4].values[0], JSON.stringify(desired.services));
-  assert.match(queries[4].sql, /services_json = \\?/);
+  assert.match(queries[4].sql, /services_json = \?/);
   assert.doesNotMatch(queries[4].sql, /directory_service|service_option/);
   // No other directory category is entitled to the newly enabled event writer.
   current.category = "hotely-a-opatrovanie";
@@ -190,7 +190,6 @@ test("breeder-only transport bypasses full-profile conflict merging and cron", a
   assert.match(admin, /breederEditedFields\(before, profile\)/);
   assert.match(admin, /breederEditedFields\(breederBefore, profile\)/);
 });
-
 
 test("salon edit events preserve individual fields and bypass whole-record conflict sync", async () => {
   const directory = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
