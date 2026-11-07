@@ -193,7 +193,7 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   useEffect(() => {
     if (!openColorPanel) return;
     const onOutsidePress = (event: PointerEvent) => {
-      if (!toolbarRef.current?.contains(event.target as globalThis.Node)) setOpenColorPanel(null);
+      if (!toolbarRef.current?.contains(event.target as HTMLElement)) setOpenColorPanel(null);
     };
     document.addEventListener("pointerdown", onOutsidePress);
     return () => document.removeEventListener("pointerdown", onOutsidePress);
