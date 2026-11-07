@@ -132,7 +132,8 @@ test("347 canonical records may include exactly three unrelated drafts", () => {
   for (let id = 1; id <= 3; id++) {
     args.canonicalBreeds.push({
       id: 9000 + id, slug: "nezaradene-" + id, name: "Koncept " + id,
-      fci_number: null, status: "draft",
+      // A draft may share an FCI reference, but is not in the migration cohort.
+      fci_number: id === 1 ? 1 : null, status: "draft",
     });
   }
   const r = planBreedWorkcopyIdentity(args);
