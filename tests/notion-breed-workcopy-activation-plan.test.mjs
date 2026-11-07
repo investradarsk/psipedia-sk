@@ -47,3 +47,16 @@ test("refuses missing per-field receipts and already ACTIVE rows",()=>{
   input.staged[0].status="ACTIVE";
   assert.equal(planBreedWorkcopyActivation(input).ready,false);
 });
+
+test("independent new 60-field baseline may differ from preserved 109-field receipt", () => {
+  const args = setup();
+  const updated = "breed-field-v1:" + JSON.stringify({
+    hash: "0".repeat(64),
+    notion: JSON.stringify({ intro: "new-notion" }),
+    admin: JSON.stringify({ intro: "existing-admin" }),
+  });
+  args.staged[0].work_sync_receipt = updated;
+  assert.equal(planBreedWorkcopyActivation(args).ready, true);
+  args.staged[0].original_sync_receipt = "changed-old";
+  assert.equal(planBreedWorkcopyActivation(args).ready, false);
+});
