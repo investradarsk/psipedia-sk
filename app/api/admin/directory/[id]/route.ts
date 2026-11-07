@@ -3,7 +3,7 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceF
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
+import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import { isDirectoryEventPilotCategory } from "@/lib/notion-directory-field-event-scope";
@@ -66,11 +66,13 @@ export async function PUT(request: Request, { params }: Props) {
       numberlessLocalityConfirmed?: unknown;
       breederEditedPaths?: unknown;
       trainerServicesEdited?: unknown;
+      pilotMetadataFields?: unknown;
     };
     const {
       numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
       breederEditedPaths: rawBreederEditedPaths,
       trainerServicesEdited: rawTrainerServicesEdited,
+      pilotMetadataFields: rawPilotMetadataFields,
       ...submittedBody
     } = rawBody;
     // A stale full-form payload must never silently undo a newer Notion edit
@@ -158,7 +160,7 @@ export async function PUT(request: Request, { params }: Props) {
       // remains LEGACY_UNCONFIRMED; if it did not, the prior technical state is
       // preserved.
     }
-    const profile = await updateManagedDirectoryProfile(id, payload, user.email, before);
+    let profile = await updateManagedDirectoryProfile(id, payload, user.email, before);
     if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
     if (before.imageKey && before.imageKey !== profile.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
@@ -166,6 +168,27 @@ export async function PUT(request: Request, { params }: Props) {
     }
     if (verified) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
+    }
+    // Pilot metadata stays separate from profile normalization and V3 relations.
+    const metadataWarnings: string[] = [];
+    const changedPilotMetadata: Partial<Record<PilotDirectoryMetadataField, string>> = {};
+    if (isDirectoryEventPilotCategory(profile.category) && rawPilotMetadataFields &&
+        typeof rawPilotMetadataFields === "object" && !Array.isArray(rawPilotMetadataFields)) {
+      const submitted = rawPilotMetadataFields as Record<string, unknown>;
+      for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
+        if (!Object.hasOwn(submitted, field) || typeof submitted[field] !== "string") continue;
+        const value = (submitted[field] as string).trim();
+        if (!value) continue;
+        try {
+          profile = await savePilotDirectoryMetadataField({
+            database: db, profileId: id, category: profile.category, field, value,
+          });
+          changedPilotMetadata[field] = value;
+        } catch (error) {
+          console.error("DIRECTORY_PILOT_METADATA_ADMIN_SAVE_FAILED", id, field, error);
+          metadataWarnings.push(field + ": zmena nebola uložená");
+        }
+      }
     }
     // Saving a profile never triggers a paid Google Places search.
     // Only the just-saved linked profile is reconciled. This does not run an
@@ -197,6 +220,26 @@ export async function PUT(request: Request, { params }: Props) {
         }
       }
     }
+    if (isDirectoryEventPilotCategory(profile.category) &&
+        Object.keys(changedPilotMetadata).length > 0) {
+      if (notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true" && notionEnv.DB) {
+        try {
+          const mirrored = await mirrorPilotDirectoryMetadataFieldsToNotion({
+            database: notionEnv.DB,
+            bindings: env as Parameters<typeof mirrorPilotDirectoryMetadataFieldsToNotion>[0]["bindings"],
+            profileId: id, changed: changedPilotMetadata,
+          });
+          if (mirrored) notionFieldSync = "synced";
+        } catch (error) {
+          console.error("DIRECTORY_PILOT_METADATA_NOTION_WRITEBACK_FAILED", id, error);
+          metadataWarnings.push("Prenos ordinačných hodín alebo zdrojov do Notionu sa nepodaril");
+          notionFieldSync = "pending";
+        }
+      } else {
+        metadataWarnings.push("Notion writeback je vypnutý; metadata čakajú na prenos");
+        notionFieldSync = "pending";
+      }
+    }
     if (notionEnv.DB && (["chovatelske-stanice", "treneri"].includes(before.category) || isDirectoryEventPilotCategory(before.category))) {
       const edited = breederEditedFields(before, profile);
       if (edited.length) {
@@ -206,7 +249,7 @@ export async function PUT(request: Request, { params }: Props) {
           "ADMIN_TO_NOTION");
       }
     }
-    return Response.json({ profile, notionFieldSync });
+    return Response.json({ profile, notionFieldSync, metadataWarnings });
   } catch (error) { return errorResponse(error); }
 }
 
