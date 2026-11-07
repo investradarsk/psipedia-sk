@@ -6,8 +6,7 @@ function projectSuffix(name: string) {
 }
 
 async function waitForEditor(page: import("@playwright/test").Page, selector = "#article-intro") {
-  // Lexical is mounted in the hidden content section from the start; a hidden
-  // contenteditable is still initialized and should be tested by attribute.
+  // Tiptap mounts in the hidden content section; only the hydrated editor is ready.
   await expect(page.locator(`${selector}[data-editor-ready="true"]`)).toHaveCount(1);
   await showArticleSection(page, "article-basics");
 }
@@ -255,7 +254,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-content");
 
     const intro = page.locator("#article-intro");
-    const introEditor = intro.locator("..");
+    const introEditor = page.locator("[data-admin-tiptap-toolbar]");
     const bold = introEditor.getByRole("button", { name: /Tučné/ });
     const italic = introEditor.getByRole("button", { name: /Kurzíva/ });
 
@@ -277,12 +276,12 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await italic.click();
     await expect(italic).toHaveAttribute("aria-pressed", "false");
 
-    const h2 = introEditor.getByRole("button", { name: "Nadpis úrovne 2" });
+    const h2 = introEditor.getByRole("button", { name: "Nadpis 2" });
     await h2.click();
     await expect(intro.locator("h2")).toHaveCount(1);
     await expect(h2).toHaveAttribute("aria-pressed", "true");
 
-    const h3 = introEditor.getByRole("button", { name: "Nadpis úrovne 3" });
+    const h3 = introEditor.getByRole("button", { name: "Nadpis 3" });
     await h3.click();
     await expect(intro.locator("h3")).toHaveCount(1);
     await expect(h3).toHaveAttribute("aria-pressed", "true");
@@ -292,23 +291,23 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(intro.locator("blockquote")).toHaveCount(1);
     await expect(quote).toHaveAttribute("aria-pressed", "true");
 
-    const callout = introEditor.getByRole("button", { name: "Tip alebo zvýraznenie" });
+    const callout = introEditor.getByRole("button", { name: "Zvýraznený tip" });
     await callout.click();
-    await expect(intro.locator('[data-editorial-callout="tip"]')).toHaveCount(1);
+    await expect(intro.locator('[data-psipedia-callout="tip"]')).toHaveCount(1);
     await expect(callout).toHaveAttribute("aria-pressed", "true");
 
     await introEditor.getByRole("button", { name: "Odsek" }).click();
     await expect(intro.locator("p")).toHaveCount(1);
-    await expect(intro.locator("[data-editorial-callout]")).toHaveCount(0);
+    await expect(intro.locator("[data-psipedia-callout]")).toHaveCount(0);
 
     await intro.selectText();
-    await introEditor.getByRole("button", { name: "Vložiť odkaz" }).click();
+    await introEditor.getByRole("button", { name: "Vložiť alebo upraviť odkaz" }).click();
     await introEditor.getByLabel("Odkaz", { exact: true }).fill("https://example.com/editor-link");
     await introEditor.getByRole("button", { name: "Použiť" }).click();
     await expect(intro.locator('a[href="https://example.com/editor-link"]')).toHaveCount(1);
 
     const takeaway = page.locator("#article-takeaway");
-    const takeawayEditor = takeaway.locator("..");
+    const takeawayEditor = page.locator("[data-admin-tiptap-toolbar]");
     const bullet = takeawayEditor.getByRole("button", { name: "Odrážkový zoznam" });
     await takeaway.focus();
     await bullet.click();
@@ -331,7 +330,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await showArticleSection(page, "article-blocks");
     const bodyEditor = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
-    const bodyWrapper = bodyEditor.locator("..");
+    const bodyWrapper = page.locator("[data-admin-tiptap-toolbar]");
     await bodyEditor.focus();
     await page.keyboard.type("Prvý odsek");
     await page.keyboard.press("Enter");
@@ -367,7 +366,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await intro.selectText();
     const richWrapper = intro.locator("..");
-    await richWrapper.getByRole("button", { name: "Vložiť odkaz" }).click();
+    await richWrapper.getByRole("button", { name: "Vložiť alebo upraviť odkaz" }).click();
     await richWrapper.getByLabel("Odkaz", { exact: true }).fill("javascript:alert(1)");
     await richWrapper.getByRole("button", { name: "Použiť" }).click();
     await expect(richWrapper.getByRole("alert")).toContainText("bezpečný odkaz");
@@ -633,7 +632,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-basics");
     await expect(page.locator("#article-intro")).toBeVisible();
     await expect(page.locator("#article-takeaway")).toBeVisible();
-    await expect(page.locator('[data-admin-lexical-rich-text] [role="toolbar"]').first()).toBeVisible();
+    await expect(page.locator('[data-admin-tiptap-toolbar]')).toBeVisible();
   });
 
   test("ARTICLE-VISUAL-3: right rail schedule shares article state and shows SEO and full preview", async ({ page }) => {
