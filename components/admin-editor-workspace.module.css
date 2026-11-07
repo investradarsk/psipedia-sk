@@ -479,6 +479,11 @@ dialog.workspaceModal[open] :is(h2, h3),
     border-radius: 10px;
     background: var(--admin-v3-surface, #fff);
   }
+  /* Account for both the admin top bar and the sticky section selector. */
+  .pageWorkspace[data-editor-section-mode="switch"] .content
+    [data-admin-editor-section-active="true"] {
+    scroll-margin-top: calc(var(--admin-sticky-stack, 96px) + 84px);
+  }
 }
 
 /* EDITOR-17: also show a focus cue on plain section nodes (articles/events).

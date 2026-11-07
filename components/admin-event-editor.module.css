@@ -6,13 +6,14 @@
   color: #52665d;
 }
 
+/* Publication is the shared primary action; red is reserved for destructive actions. */
 .publishButton {
-  color: #fff;
-  background: #b34830;
+  color: var(--admin-v3-surface, #fff);
+  background: var(--admin-v3-green, #174b38);
 }
 
 .publishButton:hover:not(:disabled) {
-  background: #9f3a26;
+  background: var(--admin-v3-green-hover, #0f3425);
 }
 
 /* Isolated canonical Events editor pilot. All rules stay within this workspace. */

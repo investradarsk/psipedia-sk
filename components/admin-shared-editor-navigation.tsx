@@ -52,7 +52,11 @@ export function AdminSharedEditorNavigation({
     window.requestAnimationFrame(() => {
       const target = document.getElementById(id);
       if (!(target instanceof HTMLElement) || !target.matches("[data-admin-editor-section]") || target.hidden) return;
-      target.focus({ preventScroll: false });
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({
+        block: "start",
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
     });
   }
 
