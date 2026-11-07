@@ -182,7 +182,6 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
       }
       refresh((value) => value + 1);
     };
-    handle();
     editor.on("selectionUpdate", handle);
     editor.on("transaction", handle);
     return () => {
