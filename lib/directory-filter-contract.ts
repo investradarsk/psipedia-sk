@@ -132,7 +132,8 @@ export function normalizeDirectoryFilterValue(
   if (!value) return { status: "missing", value: "unknown" };
   if (definition.valueType === "tri_state") {
     const canonical = value === "áno" || value === "ano" ? "yes"
-      : value === "nie" ? "no" : value;
+      : value === "nie" ? "no"
+      : value === "neznáme" || value === "nezname" ? "unknown" : value;
     return (triValues as readonly string[]).includes(canonical)
       ? { status: "known", value: canonical }
       : { status: "invalid", value: "unknown" };
