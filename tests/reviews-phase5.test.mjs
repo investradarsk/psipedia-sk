@@ -99,8 +99,16 @@ test("shared article cards can show review category metadata without a second ca
 test("review detail uses the managed product category in breadcrumbs and structured data", () => {
   const detail = read("components/article-detail.tsx");
   const route = read("app/[section]/[slug]/page.tsx");
-  assert.match(detail, /section === "recenzie" && portalSection\?\.slug === "recenzie"/);
-  assert.match(detail, /portalSubpageHref\(portalSection!, reviewCategory\)/);
+  // The managed subsection contract supports both the legacy review-only form
+  // and the newer canonical section/subsection implementation from main.
+  if (detail.includes("const managedTopic = article.portalSubpage")) {
+    assert.match(detail, /portalSection\\?\\.slug === section/);
+    assert.match(detail, /getPortalSubpage\\(section, article\\.portalSubpage\\)\\?\\.subpage/);
+    assert.match(detail, /portalSubpageHref\\(\\{ slug: section \\}, managedTopic\\)/);
+  } else {
+    assert.match(detail, /section === "recenzie" && portalSection\\?\\.slug === "recenzie"/);
+    assert.match(detail, /portalSubpageHref\\(portalSection!, reviewCategory\\)/);
+  }
   assert.match(detail, /articleSection: topicLabel/);
   assert.match(detail, /name: topicLabel, item: `\$\{SITE_URL\}\$\{topicHref\}`/);
   assert.match(route, /portalSection=\{section === "recenzie" \? managedSection : undefined\}/);
