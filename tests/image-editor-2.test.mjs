@@ -158,7 +158,6 @@ test("IMAGE-EDITOR-2 store boundaries normalize and read configs, preserve previ
 });
 test("IMAGE-EDITOR-2 SQL column/placeholder counts remain in sync for fixed INSERTs", () => {
   for (const [file, table] of [
-    ["lib/event-store.ts", "managed_events"],
     ["lib/help-store.ts", "help_cases"],
     ["lib/lost-found-dog-store.ts", "lost_found_dog_reports"],
   ]) {
@@ -170,4 +169,10 @@ test("IMAGE-EDITOR-2 SQL column/placeholder counts remain in sync for fixed INSE
     assert.ok(match, file);
     assert.equal(match[1].split(",").length, (match[2].match(/\?/g) ?? []).length, file);
   }
+  // Events 0160 has an optional three-column extension. The number of SQL
+  // placeholders is derived directly from the bound values at runtime.
+  const events = read("lib/event-store.ts");
+  assert.match(events, /const values = \[/);
+  assert.match(events, /hasContactColumns \? \[input\.contactPhone, input\.contactEmail, input\.admissionFee\] : \[\]/);
+  assert.match(events, /values\.map\(\(\) => "\?"\)\.join\(", "\)/);
 });

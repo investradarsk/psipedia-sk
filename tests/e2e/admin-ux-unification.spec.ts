@@ -171,6 +171,59 @@ for (const editor of editors) {
   });
 }
 
+for (const width of [390, 320]) {
+  test(`mobile editor controls avoid input zoom and preserve keyboard flow at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 840 });
+    const response = await page.goto("/admin/pomoc/novy", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const form = page.locator("form[data-admin-help-editor]");
+    await expect(form).toHaveAttribute("data-hydrated", "true");
+    const title = form.locator("#help-title");
+    await expect(title).toBeEditable();
+    const nav = form.getByRole("navigation", { name: "Sekcie editora Pomoc psom" });
+    const select = nav.getByRole("combobox");
+    await expect(select).toBeVisible();
+
+    const sizes = await Promise.all([title, select].map(locator =>
+      locator.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize))));
+    expect(sizes.every(size => size >= 16), `iOS focus zoom risk: ${sizes.join(", ")} px`).toBe(true);
+
+    await title.fill("Mobilná rozpracovaná výzva");
+    await select.selectOption("help-place");
+    await expect(page.locator("#help-place")).toBeFocused();
+    // A focusable section is followed by its first native form control.
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#help-category")).toBeFocused();
+    await select.selectOption("help-basics");
+    await expect(title).toHaveValue("Mobilná rozpracovaná výzva");
+    await form.locator("[data-admin-editor-pager]").getByRole("button", { name: "Ďalšia" }).click();
+    await expect(page.locator("#help-place")).toBeFocused();
+    await noOverflow(page);
+  });
+
+  test(`breed mobile sticky navigation leaves the active section in view at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 840 });
+    const response = await page.goto("/admin/plemena/novy", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
+    const title = page.getByLabel("Názov plemena", { exact: true });
+    const fontSize = await title.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize));
+    expect(fontSize).toBeGreaterThanOrEqual(16);
+    const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+    await nav.getByRole("combobox").selectOption("breed-overview");
+    await expect(page.locator("#breed-overview")).toBeFocused();
+    await expect.poll(() => page.evaluate(() => {
+      const toolbar = document.querySelector("[data-editor-page] [data-editor-navigation]");
+      const target = document.getElementById("breed-overview");
+      if (!toolbar || !target) return false;
+      // Smooth scrolling is asynchronous. The active panel must clear
+      // the sticky navigation once the scroll has settled.
+      return target.getBoundingClientRect().top >= toolbar.getBoundingClientRect().bottom - 2;
+    })).toBe(true);
+    await noOverflow(page);
+  });
+}
+
 for (const width of [1440, 390, 320]) {
   test(`help: mounted single-section editor preserves values at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -179,6 +232,8 @@ for (const width of [1440, 390, 320]) {
     const nav = page.getByRole("navigation", { name: "Sekcie editora Pomoc psom" });
     await expect(nav).toHaveAttribute("data-admin-editor-nav-ready", "true");
     const title = page.locator("#help-title");
+    // Prevent typing into an SSR-rendered but not yet hydrated controlled input.
+    await expect(page.locator("form[data-admin-help-editor]")).toHaveAttribute("data-hydrated", "true");
     await expect(title).toBeEditable();
     await title.fill("Pomoc psom – skúšobná výzva");
     const written: string[] = [];
@@ -209,6 +264,12 @@ for (const width of [1440, 390, 320]) {
     await activate("help-story", "Prípad a pes");
     await expect(page.locator("#help-dog-name")).toHaveValue("Ben");
     await activate("help-basics", "Základné údaje");
+    await expect(title).toHaveValue("Pomoc psom – skúšobná výzva");
+    const pager = page.locator('[data-admin-editor-pager]');
+    await pager.getByRole("button", { name: "Ďalšia" }).click();
+    await expect(page.locator("#help-place")).toBeFocused();
+    await pager.getByRole("button", { name: "Predchádzajúca" }).click();
+    await expect(page.locator("#help-basics")).toBeFocused();
     await expect(title).toHaveValue("Pomoc psom – skúšobná výzva");
     expect(written).toEqual([]);
     await noOverflow(page);

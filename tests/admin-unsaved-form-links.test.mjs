@@ -26,7 +26,7 @@ test("Help and Lost/Found use one shared guard with canonical save-state control
   assert.match(src,/<EditorUnsavedChangesGuard active=\{navigation\.dirty\} open=\{navigation\.confirmOpen\}/);
   assert.match(src,/allowNativeExitRef=\{navigation\.allowNativeExitRef\}/);
   assert.match(src,/navigation\.markSavedBeforeRedirect\(\)/);
-  assert.match(src,/navigation\.markSaved\(\)/);
+  assert.match(src,/navigation\.markSavedIfUnchanged\(submittedRevision\)/);
   assert.match(src,/navigation\.markDirty\(\)/);
   assert.match(src,/<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
  }
@@ -52,7 +52,7 @@ test("Adoption canonical form shares unsaved-link protection and preserves CAS w
  assert.match(src,/onClickCapture=\{navigation\.captureLinkClick\}/);
  assert.match(src,/<EditorUnsavedChangesGuard active=\{navigation\.dirty\} open=\{navigation\.confirmOpen\}/);
  assert.match(src,/navigation\.markSavedBeforeRedirect\(\)/);
- assert.match(src,/navigation\.markSaved\(\)/);
+ assert.match(src,/navigation\.markSavedIfUnchanged\(submittedRevision\)/);
  assert.match(src,/onGalleryChange=\{nextGallery => \{ navigation\.markDirty\(\); setGallery\(nextGallery\); \}\}/);
  assert.match(src,/onProgrammaticChange=\{navigation\.markDirty\}/);
  assert.match(src,/if \(Object\.keys\(values\)\.length\) navigation\.markDirty\(\)/);

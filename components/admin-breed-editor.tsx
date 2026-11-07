@@ -1,4 +1,5 @@
 "use client";
+import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -61,7 +62,8 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     consider:breed?.consider.join("\n")??"",editorial:breed?.editorial??{},sports:breed?.sports??[],relatedBreedIds:breed?.relatedBreedIds??[],relatedArticleIds:breed?.relatedArticleIds??[],directoryProfileIds:breed?.directoryProfileIds??[],sources:breed?.sources?.length?breed.sources:[{...emptySource}],accent:breed?.accent??"forest",seo:breed?.seo??{},
   });
   const [dirty,setDirty]=useState(false);
-  const setForm: typeof setCanonicalForm = (update) => { setDirty(true); setCanonicalForm(update); };
+  const formEditRevisionRef = useRef(0);
+  const setForm: typeof setCanonicalForm = (update) => { formEditRevisionRef.current += 1; setDirty(true); setCanonicalForm(update); };
   const [slugEdited,setSlugEdited]=useState(Boolean(breed));
   const [expectedUpdatedAt,setExpectedUpdatedAt]=useState(breed?.updatedAt??"");
   const [saving,setSaving]=useState(false);
@@ -73,13 +75,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [activeBreedSection,setActiveBreedSection]=useState("breed-basic");
   const [activeRelationKind,setActiveRelationKind]=useState<"articles"|"breeds"|"stations"|"clubs">("articles");
-  function chooseBreedSection(id: string) {
-    setActiveBreedSection(id);
-    // A pager can be reached at the bottom of a very long section. Return to
-    // the editor header after changing the section, not to an empty document tail.
-    document.querySelector<HTMLElement>("[data-editor-page]")
-      ?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }
+  const chooseBreedSection = useProfileEditorSectionPager(activeBreedSection, setActiveBreedSection);
   const [sportDraft,setSportDraft]=useState<SportDraft|null>(null);
   const [sportError,setSportError]=useState("");
 
@@ -160,6 +156,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       setError("Vyplň URL adresu plemena v pokročilých nastaveniach.");
       return;
     }
+    const submittedRevision = formEditRevisionRef.current;
     savePendingRef.current=true;
     setSaving(true);setError("");setMessage("");
     try{
@@ -171,7 +168,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
       setExpectedUpdatedAt(data.breed.updatedAt);
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
-      setDirty(false);
+      if (formEditRevisionRef.current === submittedRevision) setDirty(false);
       setMessage(status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
       if(!breed)router.replace(`/admin/plemena/${data.breed.id}`);
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}
@@ -221,7 +218,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         </>}
       />}
     >
-    <form id="breed-canonical-editor-form" noValidate className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
+    <form id="breed-canonical-editor-form" inert={saving} aria-busy={saving} noValidate className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
     <AdminFormFeedback message={message} error={error} pending={saving} errorClassName="admin-form-error" successClassName="admin-flash" />
     <div className={styles.editorTopbar}>
       <div>
@@ -398,7 +395,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       </div>
     </AdminEditorSection>
 
-    <div className={styles.sectionPager} aria-label="Prechod medzi sekciami plemena">
+    <div data-admin-editor-pager className={styles.sectionPager} aria-label="Prechod medzi sekciami plemena">
       <AdminActionButton variant="neutral" disabled={editorNavigation[0].id===activeBreedSection}
         onClick={()=>chooseBreedSection(editorNavigation[Math.max(0,editorNavigation.findIndex(item=>item.id===activeBreedSection)-1)].id)}>
         ← Predchádzajúca

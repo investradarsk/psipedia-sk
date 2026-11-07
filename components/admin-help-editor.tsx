@@ -1,4 +1,5 @@
 "use client";
+import { useProfileEditorHydrated, useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
@@ -91,6 +92,8 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
   const [error, setError] = useState("");
   const [activeHelpSection, setActiveHelpSection] = useState<string>(HELP_SECTIONS[0].id);
   const activeHelpIndex = HELP_SECTIONS.findIndex((section) => section.id === activeHelpSection);
+  const navigateHelpPager = useProfileEditorSectionPager(activeHelpSection, setActiveHelpSection);
+  const hydrated = useProfileEditorHydrated();
   const navigation = useAdminUnsavedFormLinks();
 
   function changeTitle(value: string) {
@@ -165,6 +168,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
       setError("Zbierku možno publikovať až po overení prípadu.");
       return;
     }
+    const submittedRevision = navigation.getRevision();
     mutationPending.current = true;
     setConfirmUnpublish(false);
     setSaving(true); setError(""); setMessage("");
@@ -176,7 +180,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
       });
       const data = await response.json() as { item?: HelpCase; error?: string };
       if (!response.ok || !data.item) throw new Error(data.error || "Prípad sa nepodarilo uložiť.");
-      if (item) navigation.markSaved();
+      if (item) navigation.markSavedIfUnchanged(submittedRevision);
       else navigation.markSavedBeforeRedirect();
       setStatus(data.item.status); setMessage(nextStatus === "published" ? "Prípad je publikovaný v sekcii Pomoc psom." : "Koncept je bezpečne uložený.");
       if (!item) router.replace(`/admin/pomoc/${data.item.id}?vytvorene=1`);
@@ -195,7 +199,7 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
   const categoryInfo = getHelpCategory(category);
   const categoryOptions = HELP_ADMIN_CREATE_CATEGORIES.map((slug) => getHelpCategory(slug)).filter((entry): entry is NonNullable<ReturnType<typeof getHelpCategory>> => Boolean(entry));
   if (item?.category === "urgentne-pripady") { const legacy = getHelpCategory("urgentne-pripady"); if (legacy) categoryOptions.push(legacy); }
-  return <form noValidate data-admin-form-system="v4" className={`${styles.editor} admin-event-editor admin-help-editor`} onChangeCapture={navigation.captureChange} onClickCapture={navigation.captureLinkClick} onSubmit={(event) => { event.preventDefault(); void save(status); }}><EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} /><div className={styles.editorBoundary} role="note"><strong>Pomoc psom – prípady a výzvy</strong><span>Adopcie, stratené či nájdené psy a organizácie majú samostatné editory.</span><nav className={styles.moduleLinks} aria-label="Samostatné admin moduly"><Link href="/admin/adopcie">Adopcie</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link><Link href="/admin/organizacie">Organizácie</Link></nav></div><AdminEditorSectionVisibility.Provider value={{ activeId: activeHelpSection, mode: "switch" }}>
+  return <form inert={saving} aria-busy={saving} noValidate data-admin-help-editor data-hydrated={hydrated ? "true" : "false"} data-admin-form-system="v4" className={`${styles.editor} admin-event-editor admin-help-editor`} onChangeCapture={navigation.captureChange} onClickCapture={navigation.captureLinkClick} onSubmit={(event) => { event.preventDefault(); void save(status); }}><fieldset className="admin-profile-hydration-gate" disabled={!hydrated}><EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} /><div className={styles.editorBoundary} role="note"><strong>Pomoc psom – prípady a výzvy</strong><span>Adopcie, stratené či nájdené psy a organizácie majú samostatné editory.</span><nav className={styles.moduleLinks} aria-label="Samostatné admin moduly"><Link href="/admin/adopcie">Adopcie</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link><Link href="/admin/organizacie">Organizácie</Link></nav></div><AdminEditorSectionVisibility.Provider value={{ activeId: activeHelpSection, mode: "switch" }}>
     <div className={styles.helpEditorLayout} data-admin-help-editor-workspace>
       <AdminSharedEditorNavigation sections={HELP_SECTIONS} activeId={activeHelpSection} onNavigate={setActiveHelpSection}
         layout="sidebar" mode="switch" ariaLabel="Sekcie editora Pomoc psom" />
@@ -215,13 +219,13 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
       <div className="admin-card-heading"><div><span>06</span><div><h2>SEO</h2><p>Texty pre vyhľadávače a sociálne siete.</p></div></div></div>
     <AdminSeoFields value={seo} onChange={nextSeo => { navigation.markDirty(); setSeo(nextSeo); }} canonicalPath={`/pomoc-psom/${category}/${slug}`} fallbackTitle={helpSeoFallback(title||"Názov prípadu",categoryInfo?.singular??"Pomoc psom",city).title} fallbackDescription={helpSeoFallback(title||"Názov prípadu",categoryInfo?.singular??"Pomoc psom",city).description}/>
     </AdminEditorSection>
-    <nav className={styles.helpSectionPager} aria-label="Prechod medzi sekciami pomoci psom">
-      <button type="button" disabled={activeHelpIndex <= 0} onClick={() => setActiveHelpSection(HELP_SECTIONS[activeHelpIndex - 1]?.id ?? HELP_SECTIONS[0].id)}>Predchádzajúca</button>
+    <nav data-admin-editor-pager className={styles.helpSectionPager} aria-label="Prechod medzi sekciami pomoci psom">
+      <button type="button" disabled={activeHelpIndex <= 0} onClick={() => navigateHelpPager(HELP_SECTIONS[activeHelpIndex - 1]?.id ?? HELP_SECTIONS[0].id)}>Predchádzajúca</button>
       <span role="status">Sekcia {activeHelpIndex + 1} z {HELP_SECTIONS.length}</span>
-      <button type="button" disabled={activeHelpIndex >= HELP_SECTIONS.length - 1} onClick={() => setActiveHelpSection(HELP_SECTIONS[activeHelpIndex + 1]?.id ?? HELP_SECTIONS[HELP_SECTIONS.length - 1].id)}>Ďalšia</button>
+      <button type="button" disabled={activeHelpIndex >= HELP_SECTIONS.length - 1} onClick={() => navigateHelpPager(HELP_SECTIONS[activeHelpIndex + 1]?.id ?? HELP_SECTIONS[HELP_SECTIONS.length - 1].id)}>Ďalšia</button>
     </nav>
   </div><aside className="admin-event-preview admin-help-preview"><span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overené" : ""}</span><h2>{title || "Názov prípadu"}</h2><p>{excerpt || "Krátky popis prípadu sa zobrazí tu."}</p><dl><div><dt>Lokalita</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Zodpovedá</dt><dd>{organization || "Organizácia"}</dd></div><div><dt>Stav</dt><dd>{resolved ? "Vybavené" : urgent ? "Urgentné" : "Aktívne"}</dd></div></dl></aside></div></div></div></AdminEditorSectionVisibility.Provider>{imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={title || "Pomoc psom"} title={title} excerpt={excerpt} entityLabel="prípadu pomoci" thumbnailAspectRatio="4 / 3"
     thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
     onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}{navigation.dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}<AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading}>
-      <div className="admin-editor-actions"><div><Link href="/admin/pomoc">← Späť na prípady</Link></div><div>{status === "published" && <button className="admin-unpublish" type="button" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z webu</button>}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Uložiť koncept"}</button>{status !== "published" && <button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať prípad"}</button>}</div></div></AdminEditorFooter><AdminModalDialog open={confirmUnpublish} title="Stiahnuť prípad z webu?" description="Prípad sa zmení na koncept a prestane byť verejne dostupný." onClose={() => setConfirmUnpublish(false)} footer={<><AdminActionButton variant="neutral" onClick={() => setConfirmUnpublish(false)}>Ponechať publikované</AdminActionButton><AdminActionButton variant="destructive" disabled={saving || uploading} onClick={() => void save("draft")}>Potvrdiť stiahnutie</AdminActionButton></>}><p>Aktuálne úpravy sa uložia spolu so zmenou stavu.</p></AdminModalDialog></form>;
+      <div className="admin-editor-actions"><div><Link href="/admin/pomoc">← Späť na prípady</Link></div><div>{status === "published" && <button className="admin-unpublish" type="button" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z webu</button>}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Uložiť koncept"}</button>{status !== "published" && <button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať prípad"}</button>}</div></div></AdminEditorFooter><AdminModalDialog open={confirmUnpublish} title="Stiahnuť prípad z webu?" description="Prípad sa zmení na koncept a prestane byť verejne dostupný." onClose={() => setConfirmUnpublish(false)} footer={<><AdminActionButton variant="neutral" onClick={() => setConfirmUnpublish(false)}>Ponechať publikované</AdminActionButton><AdminActionButton variant="destructive" disabled={saving || uploading} onClick={() => void save("draft")}>Potvrdiť stiahnutie</AdminActionButton></>}><p>Aktuálne úpravy sa uložia spolu so zmenou stavu.</p></AdminModalDialog></fieldset></form>;
 }

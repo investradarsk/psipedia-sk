@@ -161,6 +161,33 @@ for (const width of [1440, 390, 320]) {
   });
 }
 
+test("moderation duplicate action refuses to discard unrelated unsaved fields", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Covered once on desktop; mobile panel preservation has separate coverage.");
+  const response = await page.goto("/admin/stratene-najdene/910001", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  const form = page.locator("form[data-admin-lost-found-editor]");
+  await expect(form).toHaveAttribute("data-hydrated", "true");
+  const nav = form.getByRole("navigation", { name: "Sekcie editora stratených a nájdených psov" });
+
+  await nav.getByRole("button", { name: "Pes a plemeno" }).click();
+  await form.getByLabel("Meno, ak je známe").fill("Rozpracované meno – nesmie sa stratiť");
+  await nav.getByRole("button", { name: "Životnosť a moderácia" }).click();
+  await form.getByLabel("Kanonické hlásenie ID").fill("910002");
+
+  const writes: string[] = [];
+  page.on("request", request => {
+    if (request.method() === "POST" && request.url().includes("/api/admin/lost-found/910001/duplicate")) writes.push(request.url());
+  });
+  await form.getByRole("button", { name: "Označiť ako duplicitu" }).click();
+  await expect(form).toContainText("Najprv ulož ostatné úpravy hlásenia");
+  expect(writes).toEqual([]);
+
+  await nav.getByRole("button", { name: "Pes a plemeno" }).click();
+  await expect(form.getByLabel("Meno, ak je známe")).toHaveValue("Rozpracované meno – nesmie sa stratiť");
+  await nav.getByRole("button", { name: "Životnosť a moderácia" }).click();
+  await expect(form.getByLabel("Kanonické hlásenie ID")).toHaveValue("910002");
+});
+
 test("authorized admin detail receives private contact fields from the private table", async ({ page }) => {
   const response = await page.goto("/admin/stratene-najdene/910001", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);

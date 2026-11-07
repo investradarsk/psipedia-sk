@@ -1,4 +1,5 @@
 "use client";
+import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
@@ -70,7 +71,11 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [activeLostFoundSection, setActiveLostFoundSection] = useState<string>(LOST_FOUND_SECTIONS[0].id);
   const activeLostFoundIndex = LOST_FOUND_SECTIONS.findIndex((section) => section.id === activeLostFoundSection);
+  const navigateLostFoundPager = useProfileEditorSectionPager(activeLostFoundSection, setActiveLostFoundSection);
   const navigation = useAdminUnsavedFormLinks();
+  const mutationPendingRef = useRef(false);
+  // Moderation-only duplicate fields are not part of the profile save payload.
+  const lastPersistedStateRef = useRef<EditorState>(initial(report));
   useEffect(()=>{ if(formRef.current) formRef.current.dataset.hydrated="true"; },[]);
   const set=<K extends keyof EditorState>(key:K,value:EditorState[K])=>{navigation.markDirty();setState((s)=>({...s,[key]:value}));};
   const publicHref=useMemo(()=>state.slug?dogReportHref({type:state.type,slug:state.slug}):"",[state.slug,state.type]);
@@ -79,7 +84,7 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
   function changeName(value:string){navigation.markDirty();setState((s)=>({...s,dogName:value,slug:s.slug||slugify(`${s.type==="LOST"?"strateny":"najdeny"}-${value}`)}))}
   async function uploadImage(e:File|ChangeEvent<HTMLInputElement>){const file=adminSelectedImage(e);if(!file)return;setUploading(true);setError("");try{const data=await uploadAdminImage(file,"lost-found");navigation.markDirty();setState(s=>({...s,mainImage:data.imageUrl,mainImageKey:data.imageKey,thumbnailImageDisplay:null,detailImageDisplay:null}));setMessage(adminImageUploadMessage(data,"Ulož hlásenie."))}catch(err){setError(err instanceof Error?err.message:"Obrázok sa nepodarilo nahrať.")}finally{setUploading(false)}}
   async function save(status:LostFoundStatus=state.status){
-    if (saving || uploading || galleryUploading) return;
+    if (saving || mutationPendingRef.current || uploading || galleryUploading) return;
     // Keep every panel mounted; reveal the first invalid field explicitly.
     // The D1 store is still authoritative for publish, privacy and lifecycle.
     const missing = [
@@ -99,6 +104,8 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
       setError("Vyplň alebo oprav: " + missing.label + ".");
       return;
     }
+    const submittedRevision = navigation.getRevision();
+    mutationPendingRef.current = true;
     setSaving(true);setError("");setMessage("");
     try{
       const payload={
@@ -110,10 +117,20 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
       const res=await fetch(report?`/api/admin/lost-found/${report.id}`:"/api/admin/lost-found",{method:report?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
       const data=await res.json() as {report?:AdminDogReport;error?:string};
       if(!res.ok||!data.report)throw new Error(data.error||"Uloženie zlyhalo.");
-      if (report) navigation.markSaved();
+      lastPersistedStateRef.current = initial(data.report);
+      const hasNewerEdits = navigation.getRevision() !== submittedRevision;
+      if (report) navigation.markSavedIfUnchanged(submittedRevision);
       else navigation.markSavedBeforeRedirect();
-      setState(initial(data.report));
-      setMessage(status==="ACTIVE"?"Hlásenie je aktívne a verejné.":"Hlásenie bolo uložené.");
+      // Server normalization is authoritative only if no newer form edit arrived.
+      // The independent moderation fields must survive an ordinary save.
+      if (!hasNewerEdits) setState((current) => ({
+        ...lastPersistedStateRef.current,
+        duplicateOfId: current.duplicateOfId,
+        duplicateReason: current.duplicateReason,
+      }));
+      setMessage(hasNewerEdits
+        ? "Predchádzajúce úpravy boli uložené. Novšie zmeny si ešte ulož."
+        : status==="ACTIVE"?"Hlásenie je aktívne a verejné.":"Hlásenie bolo uložené.");
       if(!report)window.location.assign(`/admin/stratene-najdene/${data.report.id}?vytvorene=1`);
     }catch(err){
       const detail = err instanceof Error ? err.message : "Uloženie zlyhalo.";
@@ -124,21 +141,34 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
       else if (/obráz|fotograf|galéri/i.test(detail)) setActiveLostFoundSection("lost-found-media");
       else if (/stav|expir|lifecycle|duplicit/i.test(detail)) setActiveLostFoundSection("lost-found-moderation");
       setError(detail);
-    }finally{setSaving(false)}
+    }finally{mutationPendingRef.current=false;setSaving(false)}
   }
   function applyAutomationUpdate(values: Record<string, unknown>) { if (Object.keys(values).length) navigation.markDirty(); setState((current) => ({ ...current, ...values } as EditorState)); }
   async function markDuplicate(){
     if(!report)return;
-    if (saving || uploading || galleryUploading) return;
+    if (saving || mutationPendingRef.current || uploading || galleryUploading) return;
+    // The duplicate endpoint archives the record without persisting profile
+    // fields. Never silently discard unsaved description, contacts or media.
+    const saved = lastPersistedStateRef.current;
+    const pendingProfileChanges = (Object.keys(state) as Array<keyof EditorState>)
+      .some((key) => key !== "duplicateOfId" && key !== "duplicateReason" &&
+        JSON.stringify(state[key]) !== JSON.stringify(saved[key]));
+    if (pendingProfileChanges) {
+      setActiveLostFoundSection("lost-found-moderation");
+      setError("Najprv ulož ostatné úpravy hlásenia. Vybrané údaje o duplicite zostanú zachované.");
+      return;
+    }
+    mutationPendingRef.current=true;
     setSaving(true);setError("");setMessage("");
     try{
       const res=await fetch(`/api/admin/lost-found/${report.id}/duplicate`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({duplicateOfId:state.duplicateOfId||null,duplicateReason:state.duplicateReason})});
       const data=await res.json() as {report?:AdminDogReport;error?:string};
       if(!res.ok||!data.report)throw new Error(data.error||"Označenie duplicity zlyhalo.");
+      lastPersistedStateRef.current = initial(data.report);
       navigation.markSaved();setState(initial(data.report));setMessage("Hlásenie bolo označené ako duplicita a archivované.");
-    }catch(err){setError(err instanceof Error?err.message:"Označenie duplicity zlyhalo.")}finally{setSaving(false)}
+    }catch(err){setError(err instanceof Error?err.message:"Označenie duplicity zlyhalo.")}finally{mutationPendingRef.current=false;setSaving(false)}
   }
-  return <form ref={formRef} noValidate data-hydrated="false" data-admin-form-system="v4" data-admin-lost-found-editor onChangeCapture={navigation.captureChange} onClickCapture={navigation.captureLinkClick} onSubmit={(e)=>{e.preventDefault();void save()}}>
+  return <form ref={formRef} inert={saving} aria-busy={saving} noValidate data-hydrated="false" data-admin-form-system="v4" data-admin-lost-found-editor onChangeCapture={navigation.captureChange} onClickCapture={navigation.captureLinkClick} onSubmit={(e)=>{e.preventDefault();void save()}}>
     <EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} />
     <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
     {navigation.dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}
@@ -156,12 +186,12 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
       <AdminEditorSection id="lost-found-contacts" className={styles.card}><h2>05. Kontakt, zdroj a súkromie</h2><div className={styles.fieldGrid}><div className={styles.field}><label htmlFor="lf-field-kontaktna-osoba-iba-admin">Kontaktná osoba — iba admin</label><input id="lf-field-kontaktna-osoba-iba-admin" value={state.contactName} onChange={(e)=>set("contactName",e.target.value)}/></div><div className={styles.field}><label htmlFor="lf-field-telefon-iba-admin">Telefón — iba admin</label><input id="lf-field-telefon-iba-admin" value={state.contactPhone} onChange={(e)=>set("contactPhone",e.target.value)}/></div><div className={styles.field}><label htmlFor="lf-field-e-mail-iba-admin">E-mail — iba admin</label><input id="lf-field-e-mail-iba-admin" type="email" value={state.contactEmail} onChange={(e)=>set("contactEmail",e.target.value)}/></div><div className={styles.field}><label htmlFor="lf-field-zdroj">Zdroj</label><input id="lf-field-zdroj" value={state.source} onChange={(e)=>set("source",e.target.value)}/></div></div><div className={styles.field}><label>Verejná kontaktná poznámka</label><AdminLexicalTextField rows={3} value={state.publicContactNote} onChange={(next)=>set("publicContactNote",next)} ariaLabel="Verejná kontaktná poznámka" placeholder="napr. kontakt sprostredkujeme cez Psipediu"/></div><div className={styles.field}><label htmlFor="lf-field-url-povodneho-hlasenia">URL pôvodného hlásenia</label><input id="lf-field-url-povodneho-hlasenia" type="url" value={state.sourceUrl} onChange={(e)=>set("sourceUrl",e.target.value)}/></div></AdminEditorSection>
 <AdminEditorSection id="lost-found-media" className={styles.card}><h2>06. Fotografie a galéria</h2><div className={styles.field}><label>Hlavná fotografia</label><div className={styles.upload}><AdminSingleImageUpload label={state.mainImage?"Vybrať inú fotografiu":"Nahrať hlavnú fotografiu"} onFile={uploadImage} busy={uploading} disabled={saving} onRejected={setError}/>{state.mainImage&&<button type="button" className={styles.secondary} onClick={()=>{navigation.markDirty();setState(s=>({...s,mainImage:"",mainImageKey:"",thumbnailImageDisplay:null,detailImageDisplay:null}))}}>Odstrániť</button>}</div>{state.mainImage&&<button type="button" className={styles.secondary} onClick={()=>setImageEditorOpen(true)}>Upraviť zobrazenie</button>}<small className={styles.help}>Obrázky idú do samostatného R2 priečinka lost-found. Galériu fotografií spravuješ nižšie.</small></div><AdminPhotoGallery value={state.gallery} onChange={(gallery) => set("gallery", gallery)} folder="lost-found" limit={8} disabled={saving || uploading} onBusyChange={setGalleryUploading} /></AdminEditorSection>
       <AdminEditorSection id="lost-found-moderation" className={styles.card}><h2>07. Životnosť{report?" a duplicita":""}</h2><div className={styles.field}><label htmlFor="lf-field-expiracia">Expirácia</label><input id="lf-field-expiracia" type="datetime-local" value={state.expiresAt} onChange={(e)=>set("expiresAt",e.target.value)}/><small className={styles.help}>Ak ACTIVE nemá dátum, systém nastaví 30 dní.</small></div>{report&&<><div className={styles.fieldGrid}><div className={styles.field}><label htmlFor="lf-field-kanonicke-hlasenie-id">Kanonické hlásenie ID</label><input id="lf-field-kanonicke-hlasenie-id" inputMode="numeric" value={state.duplicateOfId} onChange={(e)=>set("duplicateOfId",e.target.value)} placeholder="napr. 152"/></div><div className={styles.field}><label htmlFor="lf-field-dovod-oznacenia-duplicity">Dôvod označenia duplicity</label><textarea id="lf-field-dovod-oznacenia-duplicity" rows={2} value={state.duplicateReason} onChange={(e)=>set("duplicateReason",e.target.value)}/></div></div><button type="button" className={styles.secondary} disabled={saving||uploading||galleryUploading||!state.duplicateOfId} onClick={()=>void markDuplicate()}>Označiť ako duplicitu</button><small className={styles.help}>Ide o samostatnú moderátorskú operáciu. Server overí existenciu cieľa a zhodu typu LOST/FOUND a potom záznam archivuje.</small></>}<div className={styles.field}><label>Interná moderátorská poznámka</label><AdminLexicalTextField rows={4} value={state.internalNote} onChange={(next)=>set("internalNote",next)} ariaLabel="Interná moderátorská poznámka"/></div></AdminEditorSection>
-      <nav className={styles.sectionPager} aria-label="Prechod medzi sekciami stratených a nájdených psov">
+      <nav data-admin-editor-pager className={styles.sectionPager} aria-label="Prechod medzi sekciami stratených a nájdených psov">
         <button type="button" disabled={activeLostFoundIndex <= 0}
-          onClick={() => setActiveLostFoundSection(LOST_FOUND_SECTIONS[activeLostFoundIndex - 1]?.id ?? LOST_FOUND_SECTIONS[0].id)}>Predchádzajúca</button>
+          onClick={() => navigateLostFoundPager(LOST_FOUND_SECTIONS[activeLostFoundIndex - 1]?.id ?? LOST_FOUND_SECTIONS[0].id)}>Predchádzajúca</button>
         <span role="status">Sekcia {activeLostFoundIndex + 1} z {LOST_FOUND_SECTIONS.length}</span>
         <button type="button" disabled={activeLostFoundIndex >= LOST_FOUND_SECTIONS.length - 1}
-          onClick={() => setActiveLostFoundSection(LOST_FOUND_SECTIONS[activeLostFoundIndex + 1]?.id ?? LOST_FOUND_SECTIONS[LOST_FOUND_SECTIONS.length - 1].id)}>Ďalšia</button>
+          onClick={() => navigateLostFoundPager(LOST_FOUND_SECTIONS[activeLostFoundIndex + 1]?.id ?? LOST_FOUND_SECTIONS[LOST_FOUND_SECTIONS.length - 1].id)}>Ďalšia</button>
       </nav>
     </div><aside className={styles.preview}><span>{dogReportTypeLabel(state.type)}</span>{state.mainImage?<ImageDisplay roleHint="generic" context="thumbnail" config={state.thumbnailImageDisplay} src={state.mainImage} alt="Náhľad fotografie"/>:privatePreview?<img src={privatePreview} alt="Súkromný náhľad fotografie pred schválením"/>:<div style={{aspectRatio:"4/3",display:"grid",placeItems:"center",fontSize:"4rem",background:"#eef2ef",borderRadius:14}}>🐕</div>}<h2>{state.dogName||state.breed||"Pes bez mena"}</h2><p><strong>{dogReportStatusLabel[state.status]}</strong></p><dl><div><dt>Dátum</dt><dd>{state.eventDate||"—"}</dd></div><div><dt>Lokalita</dt><dd>{state.city||"—"}</dd></div><div><dt>Pohlavie</dt><dd>{dogSexLabel[state.sex]}</dd></div></dl>{report&&publicHref&&["ACTIVE","RESOLVED","EXPIRED","ARCHIVED"].includes(state.status)&&<Link href={publicHref} target="_blank">Verejný náhľad ↗</Link>}</aside></div>
       </div>
