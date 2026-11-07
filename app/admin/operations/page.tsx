@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { env } from "cloudflare:workers";
+import { loadDirectoryNotionAlerts } from "@/lib/directory-notion-sync-alerts";
 import { Suspense } from "react";
 import { AdminAttentionQueue } from "@/components/admin-attention-queue";
 import { AdminAttentionHistorySync } from "@/components/admin-attention-history-sync";
@@ -20,14 +22,16 @@ const first = (value: string | string[] | undefined) => Array.isArray(value) ? v
 
 async function AdminOperationsContent({
   attentionPromise,
+  notionAlertsPromise,
   filters,
   cursor,
 }: {
   attentionPromise: ReturnType<typeof loadAdminAttentionPage>;
+  notionAlertsPromise: ReturnType<typeof loadDirectoryNotionAlerts>;
   filters: AdminAttentionFilters;
   cursor?: string;
 }) {
-  const attention = await attentionPromise;
+  const [attention, notionAlerts] = await Promise.all([attentionPromise, notionAlertsPromise]);
 
   return (
     <>
@@ -46,6 +50,21 @@ async function AdminOperationsContent({
 
       </section>
 
+      {notionAlerts.length > 0 ? (
+        <section className="admin-panel" aria-labelledby="notion-sync-alert-title">
+          <h2 id="notion-sync-alert-title">Synchronizácia Notion</h2>
+          <p>Profil je uložený v administrácii, ale niektoré zmeny čakajú na potvrdenie prenosu. Zobrazujú sa tu, nie v editore profilu.</p>
+          <ul>
+            {notionAlerts.map(alert => (
+              <li key={alert.profile_id}>
+                <Link href={`/admin/adresar/${alert.profile_id}`}>{alert.name} (#{alert.profile_id})</Link>
+                {" – "}{alert.direction === "NOTION_TO_ADMIN" ? "Notion → Admin" : "Admin → Notion"}
+                {": "}{alert.message || "Prenos nie je potvrdený."}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <p className="admin-panel"><Link href="/admin/operations/overovanie-zdrojov">Overovanie zdrojov psov – výsledky denných automatických kontrol →</Link></p>
 
       <AdminAttentionHistorySync cursor={cursor ?? ""} />
@@ -76,6 +95,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
 
   // One canonical read for both the bell and page; stream the shell before D1 finishes.
   const attentionPromise = loadAdminAttentionPage({ filters, cursor });
+  const notionAlertsPromise = loadDirectoryNotionAlerts((env as unknown as { DB?: D1Database }).DB);
   const attentionSummaryPromise = loadExactAdminAttentionSummary();
 
   return (
@@ -91,7 +111,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
           Načítavajú sa upozornenia…
         </div>
       }>
-        <AdminOperationsContent attentionPromise={attentionPromise} filters={filters} cursor={cursor} />
+        <AdminOperationsContent attentionPromise={attentionPromise} notionAlertsPromise={notionAlertsPromise} filters={filters} cursor={cursor} />
       </Suspense>
     </AdminShell>
   );

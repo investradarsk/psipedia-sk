@@ -11,6 +11,7 @@ const operator = read("lib/geo-admin-operator.ts");
 const dashboard = read("components/admin-geo-operator-dashboard.tsx");
 const organizationWrite = read("lib/organization-location-admin-write.ts");
 const organizationUi = read("components/admin-organization-locations.tsx");
+const organizationEditor = read("components/admin-organization-editor.tsx");
 const organizationWorkflow = read("lib/organization-google-maps-workflow.ts");
 const publicDetail = read("components/organization-profile-detail.tsx");
 const publicStore = read("lib/help-organization-store.ts");
@@ -230,7 +231,9 @@ test("C: server prevents a second organization address", () => {
 
 test("C+F: organization editor exposes Adresa only, not multi-location role controls", () => {
   assert.match(organizationUi, /data-single-address/);
-  assert.match(organizationUi, /<h2>Adresa<\/h2>/);
+  assert.match(organizationEditor, /<h2>Adresa a mapa<\/h2>/);
+  assert.match(organizationEditor, /<AdminOrganizationLocations draft=\{addressDraft\}/);
+  assert.doesNotMatch(organizationUi, /<form|Uložiť adresu/);
   for (const forbidden of [
     "Typ lokality",
     "Pridať lokalitu",

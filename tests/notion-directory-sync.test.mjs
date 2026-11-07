@@ -76,15 +76,18 @@ test("Notion quality resolution fields map to Psipedia quality metadata and carr
   assert.match(syncSource, /qualityCheckedAt: desired\.qualityCheckedAt/);
 });
 
-test("technical GEO and sync state are mirrored from Psipedia without becoming editable profile input", () => {
+test("technical GEO is owned by Admin, while operational sync state remains mirrored", () => {
+  const notionWriter = syncSource.slice(
+    syncSource.indexOf("function notionProfileProperties("),
+    syncSource.indexOf("async function schemaReady("),
+  );
   for (const field of [
-    "Latitude",
-    "Longitude",
-    "GEO stav",
-    "GEO provider",
-    "Google Place ID",
-    "Google miesto aktuálne",
-    "Google Maps cieľ",
+    "Latitude", "Longitude", "GEO stav", "GEO provider", "Google Place ID",
+    "Google miesto aktuálne", "Google Maps netreba", "Google Maps cieľ",
+  ]) {
+    assert.ok(!notionWriter.includes(`"${field}"`), `unexpected Notion GEO mirror field ${field}`);
+  }
+  for (const field of [
     "Vytvorené Psipedia",
     "Aktualizované Psipedia",
     "Publikované Psipedia",

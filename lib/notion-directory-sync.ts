@@ -1,4 +1,6 @@
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
+import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue } from "@/lib/directory-filter-contract";
+import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
 import {importNotionServiceChoices} from "./service-profile-notion-bridge.ts";
 import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
@@ -377,7 +379,9 @@ function notionSnapshot(page: NotionPage): EditableDirectorySnapshot {
     status: statusFromNotion(propertyText(page, "Psipedia stav")),
     excerpt: propertyText(page, "Perex"),
     description: propertyText(page, "Popis"),
-    services: splitList(propertyText(page, "Služby")),
+    services: propertyText(page, "Kategória") === "chovatelske-stanice"
+      ? propertyText(page, "Služby").split(/\r?\n|<br\s*\/?\s*>/gi).map(item => item.trim()).filter(Boolean)
+      : splitList(propertyText(page, "Služby")),
     qualifications: splitQualificationLines(propertyText(page, "Kvalifikácie")),
     region: propertyText(page, "Kraj"),
     district: propertyText(page, "Okres"),
@@ -481,12 +485,6 @@ function notionProfileProperties(
   sourceImageUrl = "",
 ) {
   const snapshot = profileSnapshot(profile, sourceImageUrl);
-  const googleCurrent = Boolean(
-    geo?.google_place_id
-    && geo.google_place_source_fingerprint
-    && geo.source_fingerprint
-    && geo.google_place_source_fingerprint === geo.source_fingerprint,
-  );
   const publicUrl = `${SITE_URL}/adresar/${profile.category}/${profile.slug}`;
 
   return {
@@ -515,7 +513,6 @@ function notionProfileProperties(
     "E-mail": email(snapshot.publicEmail),
     "Facebook": url(snapshot.facebookUrl),
     "Instagram": url(snapshot.instagramUrl),
-    "Interný e-mail": email(snapshot.internalEmail),
     "Hlavný obrázok URL": url(snapshot.imageUrl),
     "Kvalita · Telefón": select(qualityStatusToNotion(snapshot.qualityResolutions.phone)),
     "Kvalita · E-mail": select(qualityStatusToNotion(snapshot.qualityResolutions.email)),
@@ -534,14 +531,6 @@ function notionProfileProperties(
     "OG obrázok": url(snapshot.seo.ogImage),
     "Noindex": checkbox(snapshot.seo.noindex),
     "URL Psipedia": url(publicUrl),
-    "Latitude": { number: geo?.latitude ?? null },
-    "Longitude": { number: geo?.longitude ?? null },
-    "GEO stav": richText(geo?.geocode_status ?? ""),
-    "GEO provider": richText(geo?.provider ?? ""),
-    "Google Place ID": richText(geo?.google_place_id ?? ""),
-    "Google miesto aktuálne": checkbox(googleCurrent),
-    "Google Maps netreba": checkbox(geo?.google_maps_action === "GOOGLE_MAPS_NOT_REQUIRED"),
-    "Google Maps cieľ": richText(googleCurrent ? "PLACE" : geo?.geocode_status === "RESOLVED" ? "COORDINATES" : ""),
     "Obrázok Psipedia": url(absoluteAsset(profile.imageUrl)),
     "Obrázok key": richText(profile.imageKey ?? ""),
     "Vytvorené Psipedia": date(profile.createdAt),
@@ -630,7 +619,7 @@ async function patchNotionPage(
 // RICH_TEXT properties must be writable without discarding a field value.
 const directoryEditableTextProperties = [
   "Web", "Facebook", "Instagram", "Telefón",
-  "E-mail", "Interný e-mail", "Canonical URL", "OG obrázok",
+  "E-mail", "Canonical URL", "OG obrázok",
 ] as const;
 function adaptDirectoryNotionTextProperties(
   desired: Record<string, unknown>,
@@ -794,7 +783,7 @@ function fullProfileInput(
     publicEmail: desired.publicEmail,
     facebookUrl: desired.facebookUrl,
     instagramUrl: desired.instagramUrl,
-    internalEmail: desired.internalEmail || null,
+    internalEmail: current.internalEmail,
     imageUrl,
     imageKey,
     qualityResolutions: desired.qualityResolutions,
@@ -850,7 +839,7 @@ function newProfileInput(
     publicEmail: desired.publicEmail,
     facebookUrl: desired.facebookUrl,
     instagramUrl: desired.instagramUrl,
-    internalEmail: desired.internalEmail || null,
+    internalEmail: null,
     imageUrl: preparedImage?.imageUrl ?? ownPsipediaImage(desired.imageUrl),
     imageKey: preparedImage?.imageKey ?? null,
     qualityResolutions: desired.qualityResolutions,
@@ -1260,7 +1249,7 @@ const breederScalarColumns: Partial<Record<BreederEditorialField, string>> = {
   name: "name", excerpt: "excerpt", description: "description",
   region: "region", district: "district", city: "city", address: "address",
   postalCode: "postal_code", street: "street", houseNumber: "house_number",
-  priceNote: "price_note", internalEmail: "internal_email",
+  priceNote: "price_note",
 };
 const breederContactJsonNames: Partial<Record<BreederEditorialField, string>> = {
   publicPhone: "Telefón", publicEmail: "E-mail",
@@ -1272,8 +1261,25 @@ const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
   "seo.ogTitle": "ogTitle", "seo.ogDescription": "ogDescription",
   "seo.ogImage": "ogImage",
 };
+const breederFacetNotionProperties = {
+  "chovatelske-stanice.visits_by_appointment": "Návštevy po dohode",
+  "chovatelske-stanice.health_testing_information": "Informácie o zdravotných testoch",
+} as const;
+type BreederFacetId = keyof typeof breederFacetNotionProperties;
+const breederFacetIds = Object.keys(breederFacetNotionProperties) as BreederFacetId[];
+function breederChangedNotionFacets(page: NotionPage, changedIds: readonly string[]): BreederFacetId[] {
+  const changed = new Set(changedIds);
+  return breederFacetIds.filter(id => {
+    const key = breederFacetNotionProperties[id];
+    const record = page.properties?.[key] as { id?: string } | undefined;
+    return changed.has(key) || Boolean(record?.id && changed.has(record.id));
+  });
+}
+function notionFacetLabel(value: string): string {
+  return value === "yes" ? "Áno" : value === "no" ? "Nie" : "Neznáme";
+}
 const breederSearchFields = new Set<BreederEditorialField>([
-  "name", "excerpt", "description", "qualifications", "region", "district",
+  "name", "excerpt", "description", "services", "qualifications", "region", "district",
   "city", "address", "postalCode", "street", "houseNumber",
 ]);
 async function saveBreederEditorialValue(
@@ -1294,11 +1300,14 @@ async function saveBreederEditorialValue(
   if (scalar) {
     assignments.push(scalar + " = ?");
     params.push(value);
-  } else if (path === "qualifications") {
-    // Kept as a list only for existing public rendering; each line stays
-    // arbitrary text and is not parsed as an email, URL or service.
-    assignments.push("qualifications_json = ?");
-    params.push(JSON.stringify(Array.isArray(raw) ? raw : [value]));
+  } else if (path === "services" || path === "qualifications") {
+    // Existing public rendering expects arrays, but each line is free text.
+    // Canonical Services V3 and its relations are entirely separate.
+    const items = Array.isArray(raw)
+      ? raw.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+      : value ? value.split(/\r?\n/).map(item => item.trim()).filter(Boolean) : [];
+    assignments.push(path === "services" ? "services_json = ?" : "qualifications_json = ?");
+    params.push(JSON.stringify(items));
   } else if (path === "addressFormat") {
     // A storage format is a technical enum, not editorial prose.
     if (!["", "STREET", "MUNICIPALITY_NUMBER"].includes(value))
@@ -1360,25 +1369,20 @@ async function syncBreederEvent(input: {
   const { database, bindings, page } = input;
   const now = new Date().toISOString();
   if (input.changedPropertyIds !== undefined) {
-    const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds);
+    const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds)
+      .filter(path => path !== "services" || input.profile.category === "chovatelske-stanice");
     const relationFields = input.profile.category === "chovatelske-stanice"
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
-    if (!paths.length && !relationFields.length) return "unchanged";
+    const facetFields = input.profile.category === "chovatelske-stanice"
+      ? breederChangedNotionFacets(page, input.changedPropertyIds) : [];
+    if (!paths.length && !relationFields.length && !facetFields.length) return "unchanged";
     const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
     let current = input.profile;
     let updated = false;
     const failures: string[] = [];
     for (const path of paths) {
-      // A signed editorial event never invalidates a previously confirmed
-      // Google Place/address. Only the Admin address verification workflow
-      // may change those protected physical-location fields.
-      if (["region","district","city","address","postalCode","street","houseNumber","addressFormat"].includes(path)) {
-        const geo = await loadGeoMirror(database, current.id);
-        const googleConfirmed = Boolean(geo?.google_place_id &&
-          geo.google_place_source_fingerprint && geo.source_fingerprint &&
-          geo.google_place_source_fingerprint === geo.source_fingerprint);
-        if (googleConfirmed || current.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION") continue;
-      }
+      // The Notion address is editorial text only: never modify the Google
+      // Place ID, geo_points coordinates or paid-provider verification.
       const before = profileSnapshot(current) as unknown as Record<string, unknown>;
       const desired = breederApplyNotionChanges(before, fromNotion, [path]);
       if (JSON.stringify(breederReadPath(before, path)) ===
@@ -1414,6 +1418,38 @@ async function syncBreederEvent(input: {
         failures.push(path);
       }
     }
+    // Explicit tri-state Notion changes never infer "No" from an empty field.
+    let facetsUpdated = false;
+    for (const id of facetFields) {
+      const def = getDirectoryFilterDefinition(id);
+      if (!def) continue;
+      const selected = propertyText(page, breederFacetNotionProperties[id]);
+      if (!selected) continue;
+      const normalized = normalizeDirectoryFilterValue(def, selected);
+      if (normalized.status !== "known") {
+        failures.push(id);
+        continue;
+      }
+      try {
+        const row = await database.prepare("SELECT source_data_json, updated_at FROM directory_profiles WHERE id=? LIMIT 1")
+          .bind(current.id).first<{ source_data_json: string; updated_at: string }>();
+        if (!row) throw new Error("BREEDER_FACET_PROFILE_MISSING");
+        const source = JSON.parse(row.source_data_json) as Record<string, unknown>;
+        if (source[def.d1.key] === normalized.value) continue;
+        const merged = mergeDirectoryFilterValues(row.source_data_json, "chovatelske-stanice", { [id]: normalized.value });
+        const changed = await database.prepare(`UPDATE directory_profiles
+          SET source_data_json=?, updated_at=?, updated_by=?
+          WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id`)
+          .bind(merged, new Date().toISOString(), SYSTEM_ACTOR, current.id, row.source_data_json, row.updated_at)
+          .first<{ id: number }>();
+        if (!changed) throw new Error("BREEDER_FACET_WRITE_CONFLICT");
+        current = (await getManagedDirectoryProfileById(current.id, database)) ?? current;
+        facetsUpdated = true;
+      } catch (error) {
+        console.error("BREEDER_FACET_FIELD_WRITE_FAILED", current.id, id, error);
+        failures.push(id);
+      }
+    }
     // Relationship names are an independent, best-effort channel. Unknown,
     // ambiguous and empty entries NEVER erase old links or fail another field.
     let relationsUpdated = false;
@@ -1443,7 +1479,7 @@ async function syncBreederEvent(input: {
     if (failures.length) {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
-    if (!paths.length && !relationsUpdated) return "unchanged";
+    if (!paths.length && !relationsUpdated && !facetFields.length) return "unchanged";
     // Also clear a legacy whole-profile conflict when the new event was
     // already applied (for example, an inbox retry or a duplicate delivery).
     await patchNotionPage(bindings, page.id, {
@@ -1451,11 +1487,13 @@ async function syncBreederEvent(input: {
       "Sync chyba": richText(""),
       "Posledný sync": date(now),
     });
-    return updated || relationsUpdated ? "pulled" : "unchanged";
+    return updated || relationsUpdated || facetsUpdated ? "pulled" : "unchanged";
   }
 
   const fields = (input.adminChangedFields ?? []).filter(
-    (path): path is BreederEditorialField => Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
+    (path): path is BreederEditorialField =>
+      Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
+      (path !== "services" || input.profile.category === "chovatelske-stanice"),
   );
   if (!fields.length) return "unchanged";
   const geo = await loadGeoMirror(database, input.profile.id);
@@ -1481,6 +1519,45 @@ async function syncBreederEvent(input: {
  * Called only after a successful Admin selection save, and never reconciles
  * any ordinary profile field or removes relationships on Notion failures.
  */
+export async function mirrorBreederCategoryFiltersToNotion(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  profileId: number;
+  fields: readonly string[];
+}): Promise<boolean> {
+  if (!input.fields.length) return false;
+  if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
+      !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
+    throw new Error("BREEDER_FACET_NOTION_SYNC_DISABLED");
+  const mapping = await loadMappingByProfile(input.database, input.profileId);
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!mapping || !profile || profile.category !== "chovatelske-stanice")
+    throw new Error("BREEDER_FACET_NOTION_MAPPING_UNAVAILABLE");
+  const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+  if (page.id !== mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!) ||
+      propertyText(page, "Psipedia ID") !== String(input.profileId))
+    throw new NotionDirectoryUnsafeTargetError("BREEDER_FACET_TARGET_INVALID");
+  const patch: Record<string, unknown> = {};
+  for (const id of input.fields) {
+    if (!Object.hasOwn(breederFacetNotionProperties, id)) continue;
+    const key = breederFacetNotionProperties[id as BreederFacetId];
+    if (!Object.hasOwn(page.properties ?? {}, key)) throw new Error("BREEDER_NOTION_FACET_MISSING: " + key);
+    const def = getDirectoryFilterDefinition(id);
+    if (!def) continue;
+    const state = normalizeDirectoryFilterValue(def, profile.importData?.[def.d1.key]);
+    if (state.status !== "known") continue;
+    const label = notionFacetLabel(state.value);
+    if (propertyText(page, key) !== label) patch[key] = select(label);
+  }
+  if (!Object.keys(patch).length) return false;
+  patch["Sync stav"] = select("Synchronizované");
+  patch["Sync chyba"] = richText("");
+  patch["Posledný sync"] = date(new Date().toISOString());
+  await patchNotionPage(input.bindings, page.id, patch);
+  return true;
+}
+
 export async function mirrorBreederRelationNamesToNotion(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -2446,6 +2523,8 @@ export async function runNotionDirectorySyncSweep(input: {
         summary.serviceRelationSync = relation;
         if (relation === "skipped" && relationChanged) summary.failed++;
       }
+      if (input.changedPropertyIds?.length || result !== "unchanged")
+        await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id, "resolved", "", "NOTION_TO_ADMIN");
       if (result === "pulled") summary.pulledFromNotion += 1;
       else if (result === "pushed") summary.pushedToNotion += 1;
       else summary.unchanged += 1;
@@ -2454,6 +2533,8 @@ export async function runNotionDirectorySyncSweep(input: {
           result==="pulled"?"NOTION_TO_ADMIN":"ADMIN_TO_NOTION");
     } catch (error) {
       summary.failed += 1;
+      await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id, "pending",
+        error instanceof Error ? error.message : String(error), "NOTION_TO_ADMIN");
       // Even a diagnostic PATCH must not mutate an unrelated/moved Notion page.
       if (!(error instanceof NotionDirectoryUnsafeTargetError)) {
         await markPageError(input.bindings, page.id, error, page);

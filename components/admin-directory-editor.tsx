@@ -198,7 +198,6 @@ export function AdminDirectoryEditor({
   const [publicEmail, setPublicEmail] = useState(profile ? contacts.email : notionDraft?.email ?? "");
   const [facebookUrl, setFacebookUrl] = useState(profile ? contacts.facebook : notionDraft?.facebook ?? "");
   const [instagramUrl, setInstagramUrl] = useState(profile ? contacts.instagram : notionDraft?.instagram ?? "");
-  const [internalEmail, setInternalEmail] = useState(profile?.internalEmail ?? notionDraft?.internalEmail ?? "");
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
   const [galleryUrls, setGalleryUrls] = useState<string[]>(profile?.galleryUrls ?? []);
@@ -410,7 +409,7 @@ export function AdminDirectoryEditor({
               services: listFromText(services), qualifications: listFromText(qualifications),
               address: publicAddress, city, district, region, postalCode, street,
               houseNumber, addressFormat, priceNote, websiteUrl,
-              publicPhone, publicEmail, facebookUrl, instagramUrl, internalEmail,
+              publicPhone, publicEmail, facebookUrl, instagramUrl,
               imageUrl, imageKey, logoUrl, qualityResolutions, verified, featured,
               seo: {
                 title: seo.title ?? "", description: seo.description ?? "",
@@ -454,7 +453,7 @@ export function AdminDirectoryEditor({
               instagramUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").instagram,
             },
             {
-              name, excerpt, description, qualifications: listFromText(qualifications),
+              name, excerpt, description, services: listFromText(services), qualifications: listFromText(qualifications),
               region, district, city, address: publicAddress, postalCode, street, houseNumber,
               addressFormat, priceNote, websiteUrl, publicPhone, publicEmail,
               facebookUrl, instagramUrl, seo,
@@ -482,7 +481,6 @@ export function AdminDirectoryEditor({
           priceNote,
           websiteUrl: websiteUrl || null,
           publicPhone, publicEmail, facebookUrl, instagramUrl,
-          internalEmail: internalEmail || null,
           imageUrl: imageUrl || null, imageKey: imageKey || null,
           ...(category === "chovatelske-stanice" ? { galleryUrls } : {}),
           thumbnailImageDisplay, detailImageDisplay,
@@ -848,8 +846,8 @@ export function AdminDirectoryEditor({
             <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
             <AdminHelpText term="Formát">Lexical ukladá popis do existujúceho textového poľa bez zmeny synchronizácie Notion.</AdminHelpText>
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => setServices(event.target.value)} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
-              <div className="admin-field"><label htmlFor="directory-qualifications">Skúsenosti a kvalifikácie</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={"Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
+              <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
+              <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
             {filterCategory && !notionDraft ? (
@@ -865,7 +863,7 @@ export function AdminDirectoryEditor({
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-contacts" className="admin-form-card">
-            <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Verejné kontakty sú oddelené od interného e-mailu Psipedie.</p></div></div></div>
+            <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Kontaktné údaje, ktoré sa zobrazujú návštevníkom profilu.</p></div></div></div>
 <AdminEditorToolFrame kind="contacts">
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="tel" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
@@ -873,11 +871,9 @@ export function AdminDirectoryEditor({
               <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type={category === "chovatelske-stanice" ? "text" : "url"} value={websiteUrl} onChange={(event) => { const value = event.target.value; setWebsiteUrl(value); if (value.trim()) clearQualityResolution("website"); }} placeholder="https://…" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
               <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type={category === "chovatelske-stanice" ? "text" : "url"} value={facebookUrl} onChange={(event) => setFacebookUrl(event.target.value)} placeholder="https://facebook.com/…" /></div>
               <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type={category === "chovatelske-stanice" ? "text" : "url"} value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
-              <div className="admin-field"><label htmlFor="directory-email">Interný e-mail <small>neverejný</small></label><input id="directory-email" type={category === "chovatelske-stanice" ? "text" : "email"} value={internalEmail} onChange={(event) => setInternalEmail(event.target.value)} placeholder="kontakt@profil.sk" /></div>
             </div>
             </AdminEditorToolFrame>
             <AdminHelpText term="Kvalita údajov">Ak profil web, telefón alebo e-mail naozaj nemá, nie je verejný alebo sa ho nepodarilo dohľadať, označ stav pri prázdnom poli. Taký údaj prestane byť falošným problémom v Kvalite údajov a po 12 mesiacoch sa automaticky znovu skontroluje.</AdminHelpText>
-            <AdminHelpText term="Súkromie">Interný e-mail slúži administrácii a nezmiešava sa s verejným kontaktným contractom.</AdminHelpText>
           </AdminEditorSection>
 
           {profile && category === "chovatelske-stanice" ? (
