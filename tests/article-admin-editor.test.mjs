@@ -70,9 +70,9 @@ test("ARTICLE-VIDEO-RESPONSIVE uses portrait 9:16 for Shorts and landscape 16:9 
   const articleCss = readFileSync("components/article-detail.module.css", "utf8");
   assert.match(blocks, /article-block-embed--shorts/);
   assert.match(admin, /admin-video-preview--shorts/);
-  assert.match(css, /\\.article-block-embed--shorts\\s*\\{[^}]*aspect-ratio:\\s*9\\s*\\/\\s*16/s);
-  assert.match(css, /\\.admin-video-preview--shorts iframe\\s*\\{[^}]*aspect-ratio:\\s*9\\s*\\/\\s*16/s);
-  assert.match(articleCss, /\\.readingShell :global\\(\\.article-block-embed iframe\\)\\s*\\{[^}]*height:\\s*100%/s);
+  assert.match(css, /\.article-block-embed--shorts\s*\{[^}]*aspect-ratio:\s*9\s*\/\s*16/s);
+  assert.match(css, /\.admin-video-preview--shorts iframe\s*\{[^}]*aspect-ratio:\s*9\s*\/\s*16/s);
+  assert.match(articleCss, /\.readingShell :global\(\.article-block-embed iframe\)\s*\{[^}]*height:\s*100%/s);
 });
 
 test("ARTICLE-ADMIN WYSIWYG writes canonical AST and strips rich HTML paste at the editing boundary", () => {
