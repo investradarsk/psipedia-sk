@@ -216,7 +216,7 @@ export function AdminOrganizationEditor({
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (archived || mutationPending.current || uploading) return;
-    // All four form panels stay mounted. With noValidate, hidden native
+    // All five form panels stay mounted. With noValidate, hidden native
     // constraints can be inspected and their panel revealed before saving.
     const invalid = Array.from(event.currentTarget.elements).find((control): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
       (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
