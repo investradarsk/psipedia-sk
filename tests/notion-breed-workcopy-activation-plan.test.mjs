@@ -60,3 +60,16 @@ test("independent new 60-field baseline may differ from preserved 109-field rece
   args.staged[0].original_sync_receipt = "changed-old";
   assert.equal(planBreedWorkcopyActivation(args).ready, false);
 });
+
+test("50 legacy original receipts do not block 344 independent new workcopy baselines", () => {
+  const args = setup();
+  for (let i = 0; i < 50; i++) {
+    const oldHash = "legacy-sha-" + i;
+    args.planned[i].originalSyncReceipt = oldHash;
+    args.staged[i].original_sync_receipt = oldHash;
+    // The NEW work-copy receipt is independent and remains valid.
+  }
+  assert.equal(planBreedWorkcopyActivation(args).ready, true);
+  args.staged[0].original_sync_receipt = "stale-original";
+  assert.equal(planBreedWorkcopyActivation(args).ready, false);
+});
