@@ -8,13 +8,15 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Blocks, BookOpen, CalendarDays, Camera, CheckCircle2, ChevronDown, Clock3, Eye, PawPrint, Search, Settings2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
+import { AdminTiptapArticleScope } from "@/components/admin-tiptap-article-editor";
+import { AdminArticleFullscreenPreview } from "@/components/admin-article-fullscreen-preview";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
 import { preservedEditorArticleMetadata } from "@/components/admin-article-editor-preserve";
 import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-field";
 import { AdminActionButton, AdminDestructiveConfirmDialog, AdminHelpText } from "@/components/admin-interaction-system";
-import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
+import { EditorActionBar, EditorWorkspace } from "@/components/admin-editor-workspace";
 import editorStyles from "./admin-content-editor-v3.module.css";
 import { ArticleBlocks } from "@/components/article-blocks";
 import navStyles from "@/components/admin-article-preview-nav.module.css";
@@ -59,14 +61,14 @@ function dateTimeValue(value?: string | null) {
 }
 
 const editorNavigation = [
+  { id: "article-publish", label: "Publikovanie", icon: <CalendarDays size={17} aria-hidden="true" /> },
+  { id: "article-authors", label: "Autor", icon: <UserRound size={17} aria-hidden="true" /> },
+  { id: "article-settings", label: "Nastavenia", icon: <Settings2 size={17} aria-hidden="true" /> },
+  { id: "article-seo", label: "SEO", icon: <Search size={17} aria-hidden="true" /> },
+  { id: "article-relations", label: "Prepojené plemená", icon: <PawPrint size={17} aria-hidden="true" /> },
+  { id: "article-media", label: "Fotografie", icon: <Camera size={17} aria-hidden="true" /> },
   { id: "article-basics", label: "Úvod a obsah", icon: <BookOpen size={17} aria-hidden="true" /> },
   { id: "article-blocks", label: "Bloky článku", icon: <Blocks size={17} aria-hidden="true" /> },
-  { id: "article-media", label: "Fotografie", icon: <Camera size={17} aria-hidden="true" /> },
-  { id: "article-relations", label: "Prepojené plemená", icon: <PawPrint size={17} aria-hidden="true" /> },
-  { id: "article-authors", label: "Autor", icon: <UserRound size={17} aria-hidden="true" /> },
-  { id: "article-publish", label: "Publikovanie", icon: <CalendarDays size={17} aria-hidden="true" /> },
-  { id: "article-seo", label: "SEO", icon: <Search size={17} aria-hidden="true" /> },
-  { id: "article-settings", label: "Nastavenia", icon: <Settings2 size={17} aria-hidden="true" /> },
 ];
 
 export function AdminArticleEditor({
@@ -231,7 +233,8 @@ export function AdminArticleEditor({
   const [qaIssues, setQaIssues] = useState<ArticleQaIssue[]>([]);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [previewDetailedOpen, setPreviewDetailedOpen] = useState(false);
-  const [activeArticleSection, setActiveArticleSection] = useState<string>("article-basics");
+  const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
+  const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [dirty, setDirtyState] = useState(false);
   const dirtyRef = useRef(false);
@@ -242,9 +245,11 @@ export function AdminArticleEditor({
   useEffect(() => () => { if (highlightTimer.current) clearTimeout(highlightTimer.current); }, []);
   function chooseArticleSection(id: string) {
     if (id !== "article-content" && !editorNavigation.some((section) => section.id === id)) return;
-    setActiveArticleSection(id === "article-content" ? "article-basics" : id);
+    const visibleId = id === "article-content" ? "article-basics" : id;
+    setActiveArticleSection(visibleId);
+    // Wait until React has revealed the selected panel before scrolling.
     window.requestAnimationFrame(() => {
-      document.getElementById(id)?.scrollIntoView({ block: "start", behavior: "smooth" });
+      document.getElementById(visibleId)?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
   }
   function navigatePreview(targetId: string, field = false) {
@@ -354,6 +359,12 @@ export function AdminArticleEditor({
   }
 
   async function save(nextStatus: ArticleStatus) {
+    // Never save a stale parent snapshot when a Tiptap field rejected a change.
+    if (document.querySelector('[data-article-tiptap-invalid="true"]')) {
+      setError("Niektorý textový blok obsahuje nepodporované formátovanie. Pred uložením uprav označený blok.");
+      setMessage("");
+      return;
+    }
     if (savePendingRef.current || uploading) return;
     savePendingRef.current = true;
     setSaving(true);
@@ -535,17 +546,13 @@ export function AdminArticleEditor({
   return (
     <>
       <div className={editorStyles.workspaceRoot}>
+      <AdminTiptapArticleScope activeSectionId={activeArticleSection}>
       <EditorWorkspace
         mode="page"
         title={article ? "Upraviť článok" : "Nový článok"}
         articleLayout
-        summary={<div className={editorStyles.articleSummary}>
-          <span className={editorStyles.summaryStatus}>{articleEffectiveStatusLabel(displayedStatus)}</span>
-          <div><h2>{title.trim() || (article ? article.title : "Nový článok")}</h2><p>Obsah, médiá, SEO a publikovanie v jednom pracovisku.</p></div>
-        </div>}
-        status={<><EditorStatus label={articleEffectiveStatusLabel(displayedStatus)} tone={displayedStatus === "published" ? "success" : displayedStatus === "scheduled" ? "warning" : "neutral"} /><EditorStatus label={dirty ? "Neuložené zmeny" : article ? "Uložené" : "Nový koncept"} tone={dirty || !article ? "warning" : "success"} /></>}
         sections={editorNavigation}
-        sectionMode="scroll"
+        sectionMode="switch"
         activeSectionId={activeArticleSection}
         onSectionChange={setActiveArticleSection}
         dirty={dirty}
@@ -656,6 +663,10 @@ export function AdminArticleEditor({
                     aria-expanded={previewDetailedOpen} onClick={() => setPreviewDetailedOpen((value) => !value)}>
                     {previewDetailedOpen ? "Zbaliť celý náhľad" : "Zobraziť celý náhľad"}
                   </button>
+                  <button type="button" className={editorStyles.railExpand}
+                    onClick={() => setFullscreenPreviewOpen(true)}>
+                    Náhľad na celú obrazovku · počítač/mobil
+                  </button>
                   {previewDetailedOpen && (
                     <aside className="admin-live-preview" aria-label="Živý náhľad článku">
                     <div className="admin-preview-bar"><span><i /> Živý náhľad</span><small>takto bude článok vyzerať</small><button type="button" className={editorStyles.previewClose} onClick={() => setPreviewDetailedOpen(false)}>Späť na stručný náhľad</button></div>
@@ -724,177 +735,8 @@ export function AdminArticleEditor({
           </section>
         )}
         {!previewOpen && <button type="button" className={editorStyles.previewRestore} onClick={() => setPreviewOpen(true)}>Ukázať náhľad článku</button>}
-        <section id="article-basics" tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" ? "true" : "false"} data-admin-editor-section className={`admin-form-card admin-form-card--intro ${editorStyles.introCard}`}>
-          <div className="admin-card-heading"><div><span>01</span><div><h2>Úvod a obsah</h2><p>Základné informácie o článku a jeho úvod.</p></div></div></div>
-          <div className="admin-field admin-field--title">
-            <label htmlFor="article-title">Názov {portalSection === "novinky" ? "novinky" : "článku"}</label>
-            <input id="article-title" value={title} onChange={(event) => changeTitle(event.target.value)} placeholder="Napríklad: Ako naučiť psa pokojne čakať" required />
-          </div>
-          <div className="admin-field">
-            <label htmlFor="article-excerpt">Krátky úvod na karte</label>
-            <AdminLexicalTextField id="article-excerpt" rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setEditorDirty(true); }} placeholder="Jednou až dvomi vetami vysvetli, čo čitateľ v článku nájde." required ariaLabel="Krátky úvod na karte" />
-            <small>{excerpt.length} znakov · odporúčame 90–180</small>
-          </div>
-        </section>
-
-        <section id="article-content" tabIndex={-1} data-editor-section-active={activeArticleSection === "article-content" ? "true" : "false"} data-admin-editor-section className={`admin-form-card ${editorStyles.introContinuation}`}>
-          <h2 className={editorStyles.visuallyHidden}>Textový obsah článku</h2>
-          <div className="admin-field">
-            <label htmlFor="article-intro">Úvod článku</label>
-            <RichTextInput id="article-intro" rows={7} value={intro} richText={introRichText} onChange={(content, richText) => { setIntro(content); setIntroRichText(richText); setEditorDirty(true); }} placeholder="Uveď čitateľa do témy…" showLists required />
-          </div>
-          <div className="admin-field">
-            <label htmlFor="article-takeaway">To najdôležitejšie <small>nepovinné</small></label>
-            <RichTextInput id="article-takeaway" rows={4} value={takeaway} richText={takeawayRichText} onChange={(content, richText) => { setTakeaway(content); setTakeawayRichText(richText); setEditorDirty(true); }} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists />
-          </div>
-        </section>
-
-        <section id="article-relations" tabIndex={activeArticleSection === "article-relations" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-relations" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
-          <div className="admin-card-heading"><div><span>02</span><div><h2>Prepojené plemená</h2><p>Článok sa zobrazí v časti „Prehĺbte si vedomosti“ iba pri vybraných plemenách.</p></div></div></div>
-          <div className={editorStyles.breedSearchBar}>
-            <label htmlFor="article-breed-search">Hľadať plemeno</label>
-            <input id="article-breed-search" type="search" value={breedSearch}
-              placeholder="Hľadať plemeno (názov alebo FCI číslo)…"
-              onFocus={() => setBreedPickerOpen(true)}
-              onChange={(event) => { setBreedSearch(event.target.value); setBreedPickerOpen(true); setBreedVisibleLimit(12); }} />
-            <small>{relatedBreedIds.length} vybraných · {matchingBreeds.length} výsledkov</small>
-          </div>
-          {selectedBreeds.length > 0 && (
-            <div className={editorStyles.selectedBreedTags} role="group" aria-label="Vybrané plemená">
-              {selectedBreeds.map((item) => (
-                <button type="button" key={item.id}
-                  aria-label={`Odstrániť prepojenie: ${item.name}`}
-                  onClick={() => {
-                    setRelatedBreedIds((current) => current.filter((id) => id !== item.id));
-                    setEditorDirty(true);
-                  }}>
-                  <span>{item.name}{item.fciNumber ? ` (FCI ${item.fciNumber})` : ""}</span>
-                  <X aria-hidden="true" size={14} />
-                </button>
-              ))}
-            </div>
-          )}
-          {!breedPickerOpen && (
-            <button type="button" className={editorStyles.breedPickerToggle}
-              onClick={() => setBreedPickerOpen(true)}>Vybrať z dostupných plemien</button>
-          )}
-          {breedPickerOpen && (
-            <div className={editorStyles.breedPickerResults}>
-              <div className={editorStyles.breedPickerHeader}>
-                <strong>Vybrať plemená</strong>
-                <button type="button" onClick={() => { setBreedPickerOpen(false); setBreedSearch(""); }}>
-                  Skryť výber
-                </button>
-              </div>
-              <div className={editorStyles.breedList} aria-label="Dostupné plemená">
-                {visibleBreeds.map((item) => <label className={editorStyles.breedRow} key={item.id}>
-                  <input type="checkbox" checked={relatedBreedIds.includes(item.id)}
-                    onChange={() => {
-                      setRelatedBreedIds((current) => current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]);
-                      setEditorDirty(true);
-                    }} />
-                  <span className={editorStyles.breedName}>{item.name}</span>
-                  {item.fciNumber ? <small>FCI {item.fciNumber}</small> : null}
-                </label>)}
-                {!matchingBreeds.length && <p role="status">Žiadne plemená nezodpovedajú vyhľadávaniu.</p>}
-              </div>
-              {unselectedBreeds.length > breedVisibleLimit && <button type="button" className={editorStyles.breedMore}
-                onClick={() => setBreedVisibleLimit((value) => value + 24)}>
-                Zobraziť ďalšie plemená ({unselectedBreeds.length - breedVisibleLimit})
-              </button>}
-            </div>
-          )}
-        </section>
-
-        <section id="article-blocks" tabIndex={activeArticleSection === "article-blocks" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-blocks" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
-          <div className="admin-card-heading">
-            <div><span>03</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
-          </div>
-          <p className="admin-block-news-note"><strong>Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných.</strong> Ak ich chceš uviesť, pridaj blok Zdroj.</p>
-          <p className="admin-block-news-note">Pre viac zdrojov pridaj viac blokov <strong>Zdroj</strong>. Na verejnom článku sa spoja do jedného prehľadného zoznamu.</p>
-          <AdminArticleBlockEditor
-            blocks={blocks}
-            onChange={(nextBlocks) => { setBlocks(nextBlocks); setEditorDirty(true); }}
-            currentArticleId={article?.id}
-            promoUtcDay={promoUtcDay}
-            onUploadingChange={setUploading}
-            onMessage={setMessage}
-            onError={setError}
-          />
-        </section>
-
-
-
-      <section id="article-media" tabIndex={activeArticleSection === "article-media" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-media" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
-          <div className="admin-card-heading">
-            <div><span>04</span><div><h2>Fotografie</h2><p>JPG, PNG, WebP alebo AVIF, najviac 8 MB.</p></div></div>
-          </div>
-          <div className="admin-upload-row">
-            <div className={`admin-upload-preview admin-upload-preview--${accent}`}>
-              {imageUrl ? <img src={imageUrl} alt="Náhľad titulnej fotografie" loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(imageUrl, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px" /> : <span>🐕</span>}
-            </div>
-            <div className="admin-upload-actions">
-              <AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>
-              {imageUrl && <button type="button" onClick={() => {
-                setImageUrl("");
-                setImageKey("");
-                setThumbnailImageDisplay(null);
-                setDetailImageDisplay(null);
-                setImageAlt("");
-                setImageCaption("");
-                setImageCredit("");
-                setImageCreditUrl("");
-                setEditorDirty(true);
-              }}>Odstrániť fotku</button>}
-              <small>Odporúčaný pomer 16 : 9 a šírka aspoň 1200 px.</small>
-            </div>
-          </div>
-          {imageUrl && <div className="admin-field" data-article-image-presentation>
-            <button type="button" className="admin-secondary-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>
-            <small>Náhľadové karty a detail článku majú nezávislé nastavenia.</small>
-          </div>}
-          <div className="admin-field-grid">
-            <div className="admin-field admin-field--full">
-              <label htmlFor="article-image-alt">ALT text</label>
-              <input id="article-image-alt" value={imageAlt} onChange={(event) => setImageAlt(event.target.value)} placeholder="Stručne opíš, čo je na fotografii." />
-              <small>ALT slúži čítačkám obrazovky a SEO. Nie je to popis ani kredit fotografie.</small>
-            </div>
-            <div className="admin-field admin-field--full">
-              <label htmlFor="article-image-caption">Popis fotografie / Caption</label>
-              <textarea id="article-image-caption" rows={2} value={imageCaption} onChange={(event) => setImageCaption(event.target.value)} placeholder="Voliteľný viditeľný popis pod fotografiou." />
-            </div>
-            <div className="admin-field">
-              <label htmlFor="article-image-credit">Zdroj / autor fotografie</label>
-              <input id="article-image-credit" value={imageCredit} onChange={(event) => setImageCredit(event.target.value)} placeholder="Napríklad Jane Smith / Unsplash" />
-            </div>
-            <div className="admin-field">
-              <label htmlFor="article-image-credit-url">URL zdroja fotografie</label>
-              <input id="article-image-credit-url" type="url" value={imageCreditUrl} onChange={(event) => setImageCreditUrl(event.target.value)} placeholder="https://…" />
-              <small>Voliteľný odkaz na autora alebo zdroj fotografie.</small>
-            </div>
-          </div>
-        </section>
-
-        <section id="article-authors" tabIndex={activeArticleSection === "article-authors" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-authors" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
-          <div className="admin-card-heading">
-            <div><span>05</span><div><h2>Autor</h2><p>Vyber profil autora alebo zachovaj legacy meno pri staršom článku.</p></div></div>
-          </div>
-          <AdminEditorialAuthorField
-            selectedProfileId={authorProfileId}
-            legacyAuthor={author}
-            onSelectionChange={(id, displayName, markDirty = true) => {
-              setAuthorProfileId(id);
-              if (displayName) setAuthor(displayName);
-              if (markDirty) setEditorDirty(true);
-            }}
-            onLegacyAuthorChange={(value) => { setAuthor(value); setEditorDirty(true); }}
-            onMessage={setMessage}
-            onError={setError}
-          />
-        </section>
-
-        <section id="article-publish" tabIndex={activeArticleSection === "article-publish" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-publish" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
-          <div className="admin-card-heading"><div><span>06</span><div><h2>Publikovanie</h2><p>Termín publikovania a redakčná aktualizácia.</p></div></div></div>
+<section id="article-publish" hidden={activeArticleSection !== "article-publish"} tabIndex={activeArticleSection === "article-publish" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-publish" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
+          <div className="admin-card-heading"><div><span>01</span><div><h2>Publikovanie</h2><p>Termín publikovania a redakčná aktualizácia.</p></div></div></div>
           <p data-article-current-status aria-live="polite">Aktuálny stav: {articleEffectiveStatusLabel(displayedStatus)}</p>
           <div className={editorStyles.mobileExtraActions} aria-label="Ďalšie publikačné akcie">
             {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>Naplánovať publikovanie</AdminActionButton>}
@@ -911,6 +753,8 @@ export function AdminArticleEditor({
             </div>
             <div className="admin-field"><label htmlFor="article-updated-at">Dátum aktualizácie</label><input id="article-updated-at" type="date" value={contentUpdatedAt} onChange={(event) => setContentUpdatedAt(event.target.value)} /></div>
           </div>
+          <details className={editorStyles.editorDisclosure} data-article-facebook-disclosure defaultOpen={Boolean(fbEnabled || fbDateTime || fbError)}>
+            <summary>Facebook a sociálne siete <span>{fbPost?.status === "scheduled" ? "Naplánované" : fbEnabled ? "Aktívne" : "Voliteľné"}</span></summary>
           <div className="admin-field" data-facebook-article-controls>
             {article && !fbPost && <button type="button" className="admin-secondary-button"
               disabled={fbDraftBusy || !fbLoaded} onClick={() => void stageFacebookArticleDraft()}>
@@ -965,29 +809,31 @@ export function AdminArticleEditor({
             {fbPost&&<small>Stav FB: {fbPost.status==="published"?"Publikovaný":fbPost.status==="scheduled"?"Naplánovaný":"Koncept"} · <Link href="/admin/facebook-obrazky">Spoločný kalendár</Link></small>}
             {fbError&&<p role="alert">{fbError}</p>}
           </div>
+          </details>
           <label className="admin-check"><input type="checkbox" checked={showUpdated} onChange={(event) => setShowUpdated(event.target.checked)} /><span><strong>Zobraziť označenie Aktualizované</strong><small>Pri titulku sa zobrazí zvolený dátum aktualizácie.</small></span></label>
         </section>
 
-        <section id="article-seo" tabIndex={activeArticleSection === "article-seo" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-seo" ? "true" : "false"} data-admin-editor-section data-admin-editor-tool="seo" className="admin-form-card">
-          <div className="admin-card-heading"><div><span>07</span><div><h2>SEO a zdieľanie</h2><p>Ak pole necháš prázdne, použije sa názov, perex alebo titulná fotografia článku.</p></div></div></div>
-          <div className="admin-field-grid">
-            <div className="admin-field"><label htmlFor="article-seo-title">SEO title</label><input id="article-seo-title" value={seoTitle} onChange={(event) => setSeoTitle(event.target.value)} placeholder={title || "Názov pre vyhľadávače"} /><small>{seoTitle.length} znakov · odporúčame do 60</small></div>
-            <div className="admin-field"><label htmlFor="article-focus-keyword">Hlavné kľúčové slovo alebo fráza</label><input id="article-focus-keyword" value={focusKeyword} onChange={(event) => setFocusKeyword(event.target.value)} placeholder="napríklad výživa labradora" /></div>
-            <div className="admin-field admin-field--full"><label htmlFor="article-meta-description">Meta description</label><textarea id="article-meta-description" rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} placeholder={excerpt || "Krátky popis pre výsledky vyhľadávania"} /><small>{metaDescription.length} znakov · odporúčame 120–160</small></div>
-            <div className="admin-field admin-field--full"><label htmlFor="article-canonical-url">Canonical URL</label><input id="article-canonical-url" type="url" value={canonicalUrl} onChange={(event) => setCanonicalUrl(event.target.value)} placeholder={`https://psipedia.sk/${portalSection === "clanky" ? "clanky" : portalSection}/${slug || "adresa-clanku"}`} /></div>
-            <div className="admin-field"><label htmlFor="article-og-title">Open Graph titulok</label><input id="article-og-title" value={ogTitle} onChange={(event) => setOgTitle(event.target.value)} placeholder={seoTitle || title || "Titulok pri zdieľaní"} /></div>
-            <div className="admin-field"><label htmlFor="article-og-description">Open Graph popis</label><textarea id="article-og-description" rows={3} value={ogDescription} onChange={(event) => setOgDescription(event.target.value)} placeholder={metaDescription || excerpt || "Popis pri zdieľaní"} /></div>
+        <section id="article-authors" hidden={activeArticleSection !== "article-authors"} tabIndex={activeArticleSection === "article-authors" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-authors" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
+          <div className="admin-card-heading">
+            <div><span>02</span><div><h2>Autor</h2><p>Vyber profil autora alebo zachovaj legacy meno pri staršom článku.</p></div></div>
           </div>
-          <div className="admin-upload-row admin-og-upload">
-            <div className={`admin-upload-preview admin-upload-preview--${accent}`}>{ogImageUrl ? <img src={ogImageUrl} alt="Náhľad Open Graph obrázka" loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(ogImageUrl, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px" /> : <span>OG</span>}</div>
-            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><AdminSingleImageUpload label={ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"} onFile={uploadOgImage} busy={uploading} onRejected={setError}/>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setEditorDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
-          </div>
-          <label className="admin-check"><input type="checkbox" checked={noindex} onChange={(event) => setNoindex(event.target.checked)} /><span><strong>Neindexovať článok (noindex)</strong><small>Článok zostane dostupný cez URL, ale vyhľadávače ho nemajú zaradiť.</small></span></label>
+          <AdminEditorialAuthorField
+            selectedProfileId={authorProfileId}
+            legacyAuthor={author}
+            onSelectionChange={(id, displayName, markDirty = true) => {
+              setAuthorProfileId(id);
+              if (displayName) setAuthor(displayName);
+              if (markDirty) setEditorDirty(true);
+            }}
+            onLegacyAuthorChange={(value) => { setAuthor(value); setEditorDirty(true); }}
+            onMessage={setMessage}
+            onError={setError}
+          />
         </section>
 
-        <section id="article-settings" tabIndex={activeArticleSection === "article-settings" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-settings" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
+        <section id="article-settings" hidden={activeArticleSection !== "article-settings"} tabIndex={activeArticleSection === "article-settings" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-settings" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
           <div className="admin-card-heading">
-            <div><span>08</span><div><h2>Zaradenie a adresa</h2><p>Téma, sekcia a adresa článku.</p></div></div>
+            <div><span>03</span><div><h2>Nastavenia</h2><p>Sekcia, kategória a adresa článku.</p></div></div>
           </div>
           <div className="admin-field-grid">
             <div className="admin-field">
@@ -1062,10 +908,203 @@ export function AdminArticleEditor({
           </div>
         </section>
 
+<section id="article-seo" hidden={activeArticleSection !== "article-seo"} tabIndex={activeArticleSection === "article-seo" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-seo" ? "true" : "false"} data-admin-editor-section data-admin-editor-tool="seo" className="admin-form-card">
+          <div className="admin-card-heading"><div><span>04</span><div><h2>SEO a zdieľanie</h2><p>Ak pole necháš prázdne, použije sa názov, perex alebo titulná fotografia článku.</p></div></div></div>
+          <div className="admin-field-grid">
+            <div className="admin-field"><label htmlFor="article-seo-title">SEO title</label><input id="article-seo-title" value={seoTitle} onChange={(event) => setSeoTitle(event.target.value)} placeholder={title || "Názov pre vyhľadávače"} /><small>{seoTitle.length} znakov · odporúčame do 60</small></div>
+            <div className="admin-field"><label htmlFor="article-focus-keyword">Hlavné kľúčové slovo alebo fráza</label><input id="article-focus-keyword" value={focusKeyword} onChange={(event) => setFocusKeyword(event.target.value)} placeholder="napríklad výživa labradora" /></div>
+            <div className="admin-field admin-field--full"><label htmlFor="article-meta-description">Meta description</label><textarea id="article-meta-description" rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} placeholder={excerpt || "Krátky popis pre výsledky vyhľadávania"} /><small>{metaDescription.length} znakov · odporúčame 120–160</small></div>
+          </div>
+          <details className={editorStyles.editorDisclosure} data-article-seo-advanced>
+            <summary>Pokročilé SEO a zdieľanie <span>Canonical URL · Open Graph · Indexovanie</span></summary>
+          <div className="admin-field-grid">
+            <div className="admin-field admin-field--full"><label htmlFor="article-canonical-url">Canonical URL</label><input id="article-canonical-url" type="url" value={canonicalUrl} onChange={(event) => setCanonicalUrl(event.target.value)} placeholder={`https://psipedia.sk/${portalSection === "clanky" ? "clanky" : portalSection}/${slug || "adresa-clanku"}`} /></div>
+            <div className="admin-field"><label htmlFor="article-og-title">Open Graph titulok</label><input id="article-og-title" value={ogTitle} onChange={(event) => setOgTitle(event.target.value)} placeholder={seoTitle || title || "Titulok pri zdieľaní"} /></div>
+            <div className="admin-field"><label htmlFor="article-og-description">Open Graph popis</label><textarea id="article-og-description" rows={3} value={ogDescription} onChange={(event) => setOgDescription(event.target.value)} placeholder={metaDescription || excerpt || "Popis pri zdieľaní"} /></div>
+          </div>
+          <div className="admin-upload-row admin-og-upload">
+            <div className={`admin-upload-preview admin-upload-preview--${accent}`}>{ogImageUrl ? <img src={ogImageUrl} alt="Náhľad Open Graph obrázka" loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(ogImageUrl, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px" /> : <span>OG</span>}</div>
+            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><AdminSingleImageUpload label={ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"} onFile={uploadOgImage} busy={uploading} onRejected={setError}/>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setEditorDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
+          </div>
+          <label className="admin-check"><input type="checkbox" checked={noindex} onChange={(event) => setNoindex(event.target.checked)} /><span><strong>Neindexovať článok (noindex)</strong><small>Článok zostane dostupný cez URL, ale vyhľadávače ho nemajú zaradiť.</small></span></label>
+          </details>
+        </section>
 
+        <section id="article-relations" hidden={activeArticleSection !== "article-relations"} tabIndex={activeArticleSection === "article-relations" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-relations" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
+          <div className="admin-card-heading"><div><span>05</span><div><h2>Prepojené plemená</h2><p>Článok sa zobrazí v časti „Prehĺbte si vedomosti“ iba pri vybraných plemenách.</p></div></div></div>
+          <div className={editorStyles.breedSearchBar}>
+            <label htmlFor="article-breed-search">Hľadať plemeno</label>
+            <input id="article-breed-search" type="search" value={breedSearch}
+              placeholder="Hľadať plemeno (názov alebo FCI číslo)…"
+              onFocus={() => setBreedPickerOpen(true)}
+              onChange={(event) => { setBreedSearch(event.target.value); setBreedPickerOpen(true); setBreedVisibleLimit(12); }} />
+            <small>{relatedBreedIds.length} vybraných · {matchingBreeds.length} výsledkov</small>
+          </div>
+          {selectedBreeds.length > 0 && (
+            <div className={editorStyles.selectedBreedTags} role="group" aria-label="Vybrané plemená">
+              {selectedBreeds.map((item) => (
+                <button type="button" key={item.id}
+                  aria-label={`Odstrániť prepojenie: ${item.name}`}
+                  onClick={() => {
+                    setRelatedBreedIds((current) => current.filter((id) => id !== item.id));
+                    setEditorDirty(true);
+                  }}>
+                  <span>{item.name}{item.fciNumber ? ` (FCI ${item.fciNumber})` : ""}</span>
+                  <X aria-hidden="true" size={14} />
+                </button>
+              ))}
+            </div>
+          )}
+          {!breedPickerOpen && (
+            <button type="button" className={editorStyles.breedPickerToggle}
+              onClick={() => setBreedPickerOpen(true)}>Vybrať z dostupných plemien</button>
+          )}
+          {breedPickerOpen && (
+            <div className={editorStyles.breedPickerResults}>
+              <div className={editorStyles.breedPickerHeader}>
+                <strong>Vybrať plemená</strong>
+                <button type="button" onClick={() => { setBreedPickerOpen(false); setBreedSearch(""); }}>
+                  Skryť výber
+                </button>
+              </div>
+              <div className={editorStyles.breedList} aria-label="Dostupné plemená">
+                {visibleBreeds.map((item) => <label className={editorStyles.breedRow} key={item.id}>
+                  <input type="checkbox" checked={relatedBreedIds.includes(item.id)}
+                    onChange={() => {
+                      setRelatedBreedIds((current) => current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]);
+                      setEditorDirty(true);
+                    }} />
+                  <span className={editorStyles.breedName}>{item.name}</span>
+                  {item.fciNumber ? <small>FCI {item.fciNumber}</small> : null}
+                </label>)}
+                {!matchingBreeds.length && <p role="status">Žiadne plemená nezodpovedajú vyhľadávaniu.</p>}
+              </div>
+              {unselectedBreeds.length > breedVisibleLimit && <button type="button" className={editorStyles.breedMore}
+                onClick={() => setBreedVisibleLimit((value) => value + 24)}>
+                Zobraziť ďalšie plemená ({unselectedBreeds.length - breedVisibleLimit})
+              </button>}
+            </div>
+          )}
+        </section>
+
+        <section id="article-media" hidden={activeArticleSection !== "article-media"} tabIndex={activeArticleSection === "article-media" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-media" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
+          <div className="admin-card-heading">
+            <div><span>06</span><div><h2>Fotografie</h2><p>JPG, PNG, WebP alebo AVIF, najviac 8 MB.</p></div></div>
+          </div>
+          <div className="admin-upload-row">
+            <div className={`admin-upload-preview admin-upload-preview--${accent}`}>
+              {imageUrl ? <img src={imageUrl} alt="Náhľad titulnej fotografie" loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(imageUrl, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px" /> : <span>🐕</span>}
+            </div>
+            <div className="admin-upload-actions">
+              <AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>
+              {imageUrl && <button type="button" onClick={() => {
+                setImageUrl("");
+                setImageKey("");
+                setThumbnailImageDisplay(null);
+                setDetailImageDisplay(null);
+                setImageAlt("");
+                setImageCaption("");
+                setImageCredit("");
+                setImageCreditUrl("");
+                setEditorDirty(true);
+              }}>Odstrániť fotku</button>}
+              <small>Odporúčaný pomer 16 : 9 a šírka aspoň 1200 px.</small>
+            </div>
+          </div>
+          {imageUrl && <div className="admin-field" data-article-image-presentation>
+            <button type="button" className="admin-secondary-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>
+            <small>Náhľadové karty a detail článku majú nezávislé nastavenia.</small>
+          </div>}
+          <div className="admin-field-grid">
+            <div className="admin-field admin-field--full">
+              <label htmlFor="article-image-alt">ALT text</label>
+              <input id="article-image-alt" value={imageAlt} onChange={(event) => setImageAlt(event.target.value)} placeholder="Stručne opíš, čo je na fotografii." />
+              <small>ALT slúži čítačkám obrazovky a SEO. Nie je to popis ani kredit fotografie.</small>
+            </div>
+            <div className="admin-field admin-field--full">
+              <label htmlFor="article-image-caption">Popis fotografie / Caption</label>
+              <textarea id="article-image-caption" rows={2} value={imageCaption} onChange={(event) => setImageCaption(event.target.value)} placeholder="Voliteľný viditeľný popis pod fotografiou." />
+            </div>
+            <div className="admin-field">
+              <label htmlFor="article-image-credit">Zdroj / autor fotografie</label>
+              <input id="article-image-credit" value={imageCredit} onChange={(event) => setImageCredit(event.target.value)} placeholder="Napríklad Jane Smith / Unsplash" />
+            </div>
+            <div className="admin-field">
+              <label htmlFor="article-image-credit-url">URL zdroja fotografie</label>
+              <input id="article-image-credit-url" type="url" value={imageCreditUrl} onChange={(event) => setImageCreditUrl(event.target.value)} placeholder="https://…" />
+              <small>Voliteľný odkaz na autora alebo zdroj fotografie.</small>
+            </div>
+          </div>
+        </section>
+
+        <section id="article-basics" hidden={activeArticleSection !== "article-basics"} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" ? "true" : "false"} data-admin-editor-section className={`admin-form-card admin-form-card--intro ${editorStyles.introCard}`}>
+          <div className="admin-card-heading"><div><span>07</span><div><h2>Úvod a obsah</h2><p>Základné informácie o článku a jeho úvod.</p></div></div></div>
+          <div className="admin-field admin-field--title">
+            <label htmlFor="article-title">Názov {portalSection === "novinky" ? "novinky" : "článku"}</label>
+            <input id="article-title" value={title} onChange={(event) => changeTitle(event.target.value)} placeholder="Napríklad: Ako naučiť psa pokojne čakať" required />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="article-excerpt">Krátky úvod na karte</label>
+            <AdminLexicalTextField id="article-excerpt" rows={3} value={excerpt} onChange={(next) => { setExcerpt(next); setEditorDirty(true); }} placeholder="Jednou až dvomi vetami vysvetli, čo čitateľ v článku nájde." required ariaLabel="Krátky úvod na karte" />
+            <small>{excerpt.length} znakov · odporúčame 90–180</small>
+          </div>
+        </section>
+
+        <section id="article-content" hidden={activeArticleSection !== "article-basics"} tabIndex={-1} data-editor-section-active={activeArticleSection === "article-basics" ? "true" : "false"} data-admin-editor-section className={`admin-form-card ${editorStyles.introContinuation}`}>
+          <h2 className={editorStyles.visuallyHidden}>Textový obsah článku</h2>
+          <div className="admin-field">
+            <label htmlFor="article-intro">Úvod článku</label>
+            <RichTextInput id="article-intro" rows={7} value={intro} richText={introRichText} onChange={(content, richText) => { setIntro(content); setIntroRichText(richText); setEditorDirty(true); }} placeholder="Uveď čitateľa do témy…" showLists required />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="article-takeaway">To najdôležitejšie <small>nepovinné</small></label>
+            <RichTextInput id="article-takeaway" rows={4} value={takeaway} richText={takeawayRichText} onChange={(content, richText) => { setTakeaway(content); setTakeawayRichText(richText); setEditorDirty(true); }} placeholder="Jedna jasná myšlienka, ktorú si má čitateľ odniesť." showLists />
+          </div>
+        </section>
+
+        <section id="article-blocks" hidden={activeArticleSection !== "article-blocks"} tabIndex={activeArticleSection === "article-blocks" ? -1 : undefined} data-editor-section-active={activeArticleSection === "article-blocks" ? "true" : "false"} data-admin-editor-section className="admin-form-card">
+          <div className="admin-card-heading">
+            <div><span>08</span><div><h2>Blokový obsah článku</h2><p>Pridávaj text, nadpisy, obrázky, zoznamy, zdroje a ďalšie prvky v ľubovoľnom poradí.</p></div></div>
+          </div>
+          <p className="admin-block-news-note"><strong>Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných.</strong> Ak ich chceš uviesť, pridaj blok Zdroj.</p>
+          <p className="admin-block-news-note">Pre viac zdrojov pridaj viac blokov <strong>Zdroj</strong>. Na verejnom článku sa spoja do jedného prehľadného zoznamu.</p>
+          <AdminArticleBlockEditor
+            blocks={blocks}
+            onChange={(nextBlocks) => { setBlocks(nextBlocks); setEditorDirty(true); }}
+            currentArticleId={article?.id}
+            promoUtcDay={promoUtcDay}
+            onUploadingChange={setUploading}
+            onMessage={setMessage}
+            onError={setError}
+          />
+        </section>
+
+
+
+      
       </form>
       </EditorWorkspace>
+      </AdminTiptapArticleScope>
       </div>
+
+      <AdminArticleFullscreenPreview
+        open={fullscreenPreviewOpen}
+        onClose={() => setFullscreenPreviewOpen(false)}
+        sectionLabel={portalSectionLabel(portalSection)}
+        category={portalSection === "novinky" ? getNewsCategory(newsCategory)?.shortLabel ?? "" : category}
+        title={title}
+        excerpt={excerpt}
+        imageUrl={imageUrl}
+        imageAlt={imageAlt}
+        imageCaption={imageCaption}
+        imageCredit={imageCredit}
+        imageConfig={detailImageDisplay}
+        introRichText={introRichText}
+        takeawayRichText={takeawayRichText}
+        takeaway={takeaway}
+        blocks={blocks}
+        promoUtcDay={promoUtcDay}
+      />
 
       <AdminDestructiveConfirmDialog
         open={confirmUnpublish}

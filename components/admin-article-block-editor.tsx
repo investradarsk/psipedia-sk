@@ -5,7 +5,7 @@ import { ChangeEvent, Fragment, useEffect, useRef, useState } from "react";
 import { ArticleBlocks } from "@/components/article-blocks";
 import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { ArticlePromo } from "@/components/article-promo";
-import { AdminLexicalRichTextEditor } from "@/components/admin-lexical-rich-text-editor";
+import { AdminTiptapRichTextEditor } from "@/components/admin-tiptap-article-editor";
 import {AdminGalleryDropzone} from "@/components/admin-gallery-dropzone";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -92,7 +92,7 @@ export function RichTextInput({
   const documentValue = normalizeEditorialRichText(richText) ?? legacyRichTextToDocument(value);
   return (
     <div className="admin-rich-text">
-      <AdminLexicalRichTextEditor
+      <AdminTiptapRichTextEditor
         id={id}
         value={documentValue}
         onChange={(nextDocument) => onChange(editorialRichTextPlainText(nextDocument), nextDocument)}

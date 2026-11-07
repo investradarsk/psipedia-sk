@@ -4,33 +4,40 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("ARTICLE-VISUAL-2: article retains all nine content sections and eight clear navigation entries", () => {
+test("ARTICLE-TIPTAP-2: section switch preserves mounted fields and matches left navigation order", () => {
   const src = read("components/admin-article-editor.tsx");
   const css = read("components/admin-content-editor-v3.module.css");
-  const ids = ["basics", "content", "relations", "blocks", "media", "authors", "publish", "seo", "settings"];
+  const shells = [
+    read("app/admin/clanky/[id]/page.tsx"),
+    read("app/admin/novy/page.tsx"),
+  ];
+  const ids = ["publish", "authors", "settings", "seo", "relations", "media", "basics", "content", "blocks"];
   for (const name of ids) {
     const id = "article-" + name;
-    assert.ok(src.includes('<section id="' + id + '"'), "The mounted section must remain: " + id);
-    if (name !== "content") assert.ok(src.includes('{ id: "' + id + '", label:'), "Navigation is required for " + id);
+    assert.ok(src.includes('<section id="' + id + '"'), "Article section remains mounted: " + id);
+    if (name !== "content") assert.ok(src.includes('{ id: "' + id + '", label:'), "Nav entry " + id);
+    const visibleId = name === "content" ? "basics" : name;
+    assert.ok(src.includes('hidden={activeArticleSection !== "article-' + visibleId + '"}'), "Section hidden while inactive: " + id);
   }
   assert.equal((src.match(/\{ id: "article-/g) ?? []).length, 8);
-  assert.ok(src.includes('id: "article-basics", label: "Úvod a obsah"'));
-  assert.ok(src.includes('sectionMode="scroll"'));
-  assert.ok(src.includes('articleLayout'));
+  assert.ok(src.includes('sectionMode="switch"'));
+  assert.ok(src.includes('useState<string>("article-publish")'));
   assert.ok(src.includes('activeSectionId={activeArticleSection}'));
   assert.ok(src.includes('onSectionChange={setActiveArticleSection}'));
   assert.ok(src.includes('editorStyles.introCard'));
   assert.ok(src.includes('editorStyles.introContinuation'));
   assert.ok(src.includes('editorStyles.selectedBreedTags'));
   assert.ok(src.includes('breedPickerOpen'));
+  assert.ok(src.includes('data-article-facebook-disclosure'));
+  assert.ok(src.includes('data-article-seo-advanced'));
   assert.ok(css.includes('data-editor-layout="article"'));
+  assert.ok(css.includes('data-editor-section-mode="switch"'));
+  assert.ok(shells.every(s => s.includes("compactHeading")));
   const order = ids.map(id => src.indexOf('<section id="article-' + id + '"'));
   assert.ok(order.every((value, index) => value >= 0 && (index === 0 || value > order[index - 1])));
-  // Approved reference places the compact breed relation card just below the introduction.
-  assert.ok(src.indexOf('<section id="article-relations"') > src.indexOf('<section id="article-content"'));
-  assert.ok(src.indexOf('<section id="article-relations"') < src.indexOf('<section id="article-blocks"'));
-
-  assert.ok(!src.includes('hidden={activeArticleSection !== "article-'));
+  const nav = src.slice(src.indexOf("const editorNavigation = ["), src.indexOf("];", src.indexOf("const editorNavigation = [")));
+  const navOrder = ids.filter(id => id !== "content").map(id => nav.indexOf('id: "article-' + id + '"'));
+  assert.ok(navOrder.every((value, index) => value >= 0 && (index === 0 || value > navOrder[index - 1])));
 });
 
 test("EDITOR-8: submit validation reveals hidden required fields, publication decisions stay server-owned", () => {

@@ -16,7 +16,7 @@ import { preserveArticlePromoBlocks } from "@/lib/article-promo";
 import { notionArticleMainImageSource } from "@/lib/notion-article-image-source";
 import { assertPublishedRelatedBlocks } from "@/lib/notion-article-related-publication";
 import {
-  EDITORIAL_RICH_TEXT_VERSION,
+  EDITORIAL_RICH_TEXT_LEGACY_VERSION,
   sanitizeEditorialHref,
   type EditorialRichTextDocument,
   type EditorialRichTextInline,
@@ -168,7 +168,7 @@ function notionRichTextDocument(
     : type === "blockquote"
       ? { type: "blockquote" as const, content }
       : { type: "callout" as const, tone, content };
-  return { version: EDITORIAL_RICH_TEXT_VERSION, type: "doc", content: [block] };
+  return { version: EDITORIAL_RICH_TEXT_LEGACY_VERSION, type: "doc", content: [block] };
 }
 
 function notionRichTextMarkdown(value: unknown) {
@@ -1723,6 +1723,47 @@ function articleAuthorityCoversDifferences(
   });
 }
 
+/** Preserve rich HEX styling when Notion changes unrelated fields.
+ * If source text actually differs, require explicit review instead of erasing
+ * native Psipedia formatting during a background inbound synchronization. */
+function hasPsipediaV2Styles(doc: EditorialRichTextDocument | null | undefined) {
+  return Boolean(doc?.content.some(block => {
+    const inline = "items" in block ? block.items.flat() : block.content;
+    return inline.some(node => node.type === "text" &&
+      node.marks?.some(mark => mark.type === "color" || mark.type === "highlight" || mark.type === "underline"));
+  }));
+}
+function preserveNotionUnrepresentableStyles(
+  incoming: ManagedArticleInput,
+  existing: ManagedArticle,
+  modes: Readonly<Record<string, NotionFieldMode>>,
+): ManagedArticleInput {
+  const next = { ...incoming };
+  if (modes.intro !== "admin" && hasPsipediaV2Styles(existing.introRichText)) {
+    if (incoming.intro !== existing.intro) throw new Error("NOTION_ARTICLE_STYLED_INTRO_REVIEW_REQUIRED");
+    next.introRichText = existing.introRichText;
+  }
+  if (modes.blocks !== "admin") {
+    const styledOld = (existing.blocks ?? []).filter(block =>
+      "richText" in block && hasPsipediaV2Styles(block.richText));
+    if (styledOld.length) {
+      const proposed = next.blocks ?? [];
+      for (const block of styledOld) {
+        const match = proposed.find(item => item.id === block.id);
+        if (!match || match.type !== block.type || !("content" in match) ||
+          !("content" in block) || match.content !== block.content) {
+          throw new Error("NOTION_ARTICLE_STYLED_BLOCK_REVIEW_REQUIRED");
+        }
+      }
+      next.blocks = proposed.map(block => {
+        const old = styledOld.find(item => item.id === block.id);
+        return old && "richText" in old && "richText" in block ? { ...block, richText: old.richText } : block;
+      }) as ArticleBlock[];
+    }
+  }
+  return next;
+}
+
 async function syncOneNotionPage(
   database: D1Database,
   bindings: NotionSyncBindings,
@@ -1775,8 +1816,11 @@ async function syncOneNotionPage(
   const sourcePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined);
   const articleModes = existing && mapping
     ? await readNotionFieldAuthorities(database,"articles") : {};
-  const basePayload = existing && mapping
+  const authorityPayload = existing && mapping
     ? applyArticleAuthority(sourcePayload,existing,articleModes) : sourcePayload;
+  const basePayload = existing && mapping
+    ? preserveNotionUnrepresentableStyles(authorityPayload, existing, articleModes)
+    : authorityPayload;
   // Notion manifests bypass the Admin's published-article-only picker.
   // Resolve related article blocks against the currently public canonical URL.
   await assertPublishedRelatedBlocks(

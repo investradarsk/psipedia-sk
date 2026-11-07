@@ -6,10 +6,9 @@ function projectSuffix(name: string) {
 }
 
 async function waitForEditor(page: import("@playwright/test").Page, selector = "#article-intro") {
-  // Lexical is mounted in the hidden content section from the start; a hidden
-  // contenteditable is still initialized and should be tested by attribute.
+  // Tiptap mounts in the hidden content section; only the hydrated editor is ready.
   await expect(page.locator(`${selector}[data-editor-ready="true"]`)).toHaveCount(1);
-  await expect(page.locator("#article-basics")).toBeVisible();
+  await showArticleSection(page, "article-basics");
 }
 
 const articleSectionLabels: Record<string, string> = {
@@ -33,7 +32,7 @@ async function showArticleSection(page: import("@playwright/test").Page, id: str
   const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
   const picker = nav.getByLabel("Sekcia editora");
   if (await picker.isVisible()) await picker.selectOption(id === "article-content" ? "article-basics" : id);
-  else await nav.getByRole("link", { name: articleSectionLabels[id], exact: true }).click();
+  else await nav.getByRole("button", { name: articleSectionLabels[id], exact: true }).click();
   await expect(section).toBeVisible();
   await section.scrollIntoViewIfNeeded();
 }
@@ -130,6 +129,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     expect(layout.contentOverflow).toBe("visible");
 
     await page.evaluate(() => window.scrollTo(0, 0));
+    await page.locator("[data-article-facebook-disclosure] summary").click();
     const facebookDate = page.locator("#article-facebook-at");
     await facebookDate.evaluate((element) => element.scrollIntoView({ block: "center", behavior: "auto" }));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
@@ -154,7 +154,8 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       await page.getByLabel("Sekcia editora").selectOption("article-publish");
       const section = page.locator("#article-publish");
       await expect(section).toBeVisible();
-      await expect(section.locator("details")).toHaveCount(0);
+      await expect(section.locator("[data-article-facebook-disclosure]")).toHaveCount(1);
+      await section.locator("[data-article-facebook-disclosure] summary").click();
       await expect(section.locator('[data-article-current-status]')).toBeHidden();
       for (const id of ["article-published-at", "article-updated-at", "article-facebook-at"]) {
         const input = section.locator("#" + id);
@@ -253,7 +254,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-content");
 
     const intro = page.locator("#article-intro");
-    const introEditor = intro.locator("..");
+    const introEditor = page.locator("[data-admin-tiptap-toolbar]");
     const bold = introEditor.getByRole("button", { name: /Tučné/ });
     const italic = introEditor.getByRole("button", { name: /Kurzíva/ });
 
@@ -275,12 +276,12 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await italic.click();
     await expect(italic).toHaveAttribute("aria-pressed", "false");
 
-    const h2 = introEditor.getByRole("button", { name: "Nadpis úrovne 2" });
+    const h2 = introEditor.getByRole("button", { name: "Nadpis 2" });
     await h2.click();
     await expect(intro.locator("h2")).toHaveCount(1);
     await expect(h2).toHaveAttribute("aria-pressed", "true");
 
-    const h3 = introEditor.getByRole("button", { name: "Nadpis úrovne 3" });
+    const h3 = introEditor.getByRole("button", { name: "Nadpis 3" });
     await h3.click();
     await expect(intro.locator("h3")).toHaveCount(1);
     await expect(h3).toHaveAttribute("aria-pressed", "true");
@@ -290,23 +291,23 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(intro.locator("blockquote")).toHaveCount(1);
     await expect(quote).toHaveAttribute("aria-pressed", "true");
 
-    const callout = introEditor.getByRole("button", { name: "Tip alebo zvýraznenie" });
+    const callout = introEditor.getByRole("button", { name: "Zvýraznený tip" });
     await callout.click();
-    await expect(intro.locator('[data-editorial-callout="tip"]')).toHaveCount(1);
+    await expect(intro.locator('[data-psipedia-callout="tip"]')).toHaveCount(1);
     await expect(callout).toHaveAttribute("aria-pressed", "true");
 
     await introEditor.getByRole("button", { name: "Odsek" }).click();
     await expect(intro.locator("p")).toHaveCount(1);
-    await expect(intro.locator("[data-editorial-callout]")).toHaveCount(0);
+    await expect(intro.locator("[data-psipedia-callout]")).toHaveCount(0);
 
     await intro.selectText();
-    await introEditor.getByRole("button", { name: "Vložiť odkaz" }).click();
+    await introEditor.getByRole("button", { name: "Vložiť alebo upraviť odkaz" }).click();
     await introEditor.getByLabel("Odkaz", { exact: true }).fill("https://example.com/editor-link");
     await introEditor.getByRole("button", { name: "Použiť" }).click();
     await expect(intro.locator('a[href="https://example.com/editor-link"]')).toHaveCount(1);
 
     const takeaway = page.locator("#article-takeaway");
-    const takeawayEditor = takeaway.locator("..");
+    const takeawayEditor = page.locator("[data-admin-tiptap-toolbar]");
     const bullet = takeawayEditor.getByRole("button", { name: "Odrážkový zoznam" });
     await takeaway.focus();
     await bullet.click();
@@ -329,7 +330,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await showArticleSection(page, "article-blocks");
     const bodyEditor = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
-    const bodyWrapper = bodyEditor.locator("..");
+    const bodyWrapper = page.locator("[data-admin-tiptap-toolbar]");
     await bodyEditor.focus();
     await page.keyboard.type("Prvý odsek");
     await page.keyboard.press("Enter");
@@ -364,11 +365,11 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(intro).toContainText("<script>alert(1)</script>");
 
     await intro.selectText();
-    const richWrapper = intro.locator("..");
-    await richWrapper.getByRole("button", { name: "Vložiť odkaz" }).click();
+    const richWrapper = page.locator("[data-admin-tiptap-toolbar]");
+    await richWrapper.getByRole("button", { name: "Vložiť alebo upraviť odkaz" }).click();
     await richWrapper.getByLabel("Odkaz", { exact: true }).fill("javascript:alert(1)");
     await richWrapper.getByRole("button", { name: "Použiť" }).click();
-    await expect(richWrapper.getByRole("alert")).toContainText("bezpečný odkaz");
+    await expect(richWrapper.getByRole("alert")).toContainText("Povolené sú odkazy");
 
     await showArticleSection(page, "article-media");
     await page.getByLabel("URL zdroja fotografie").fill("ftp://example.com/photo");
@@ -456,6 +457,26 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(page.getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
   });
 
+  test("ARTICLE-TIPTAP-4: fullscreen preview shows unsaved styled content in desktop and mobile modes", async ({ page }) => {
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+    await page.locator("#article-title").fill("Neuložený vizuálny náhľad");
+    await page.locator("#article-intro").fill("Tento text je zatiaľ len v editore.");
+    await page.getByRole("button", { name: "Náhľad na celú obrazovku · počítač/mobil" }).click();
+    const preview = page.getByRole("dialog", { name: "Celoobrazovkový náhľad článku" });
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("heading", { name: "Neuložený vizuálny náhľad" })).toBeVisible();
+    await expect(preview).toContainText("Tento text je zatiaľ len v editore.");
+    await expect(preview.locator('[data-preview-device="desktop"]')).toBeVisible();
+    await preview.getByRole("button", { name: "Mobil" }).click();
+    await expect(preview.locator('[data-preview-device="mobile"]')).toBeVisible();
+    await preview.getByRole("button", { name: "Späť do editora" }).click();
+    await expect(preview).toBeHidden();
+    await expect(page.locator("#article-title")).toHaveValue("Neuložený vizuálny náhľad");
+    await expect(page.locator("#article-intro")).toContainText("Tento text je zatiaľ len v editore.");
+    await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
+  });
+
   test("IMAGE-EDITOR-1 independently persists thumbnail blur and detail crop, with cancel and reset", async ({ page }, testInfo) => {
     const id = testInfo.project.name.includes("mobile") ? 972002 : 972001;
     await page.goto(`/admin/clanky/${id}`, { waitUntil: "domcontentloaded" });
@@ -505,6 +526,46 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await modal.getByRole("tab", { name: "Detail článku" }).click();
     await expect(modal.getByRole("combobox")).toHaveValue("crop");
     await modal.getByRole("button", { name: "Zrušiť" }).click();
+  });
+
+  test("ARTICLE-TIPTAP-5: one sticky toolbar targets only visible text and keeps full-color controls gated", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+    const toolbar = page.locator("[data-admin-tiptap-toolbar]");
+    await expect(toolbar).toHaveCount(1);
+    const bold = toolbar.getByRole("button", { name: /Tučné/ });
+    await expect(bold).toBeDisabled();
+    const textColor = toolbar.getByLabel("Celá paleta farieb textu", { exact: true });
+    const highlight = toolbar.getByLabel("Celá paleta zvýraznenia", { exact: true });
+    await expect(textColor).toBeDisabled();
+    await expect(highlight).toBeDisabled();
+
+    const intro = page.locator("#article-intro");
+    await intro.focus();
+    await expect(bold).toBeEnabled();
+    await expect(textColor).toBeEnabled();
+    await expect(highlight).toBeEnabled();
+    await intro.fill("Farebne formátovaný úvod.");
+    await intro.selectText();
+    await textColor.fill("#2468ac");
+    await highlight.fill("#fae123");
+    await expect(intro.locator('span[style*="color"]')).toContainText("Farebne formátovaný");
+    await expect(intro.locator('mark')).toContainText("Farebne formátovaný");
+    await showArticleSection(page, "article-blocks");
+    await expect(bold).toBeDisabled();
+
+    const addArea = page.locator(".admin-block-add");
+    await addArea.getByRole("button", { name: "+ Pridať blok na koniec" }).click();
+    await addArea.getByRole("button", { name: "Text", exact: true }).click();
+    const block = page.locator("[data-admin-tiptap-rich-text]").last().locator('[contenteditable="true"]');
+    await block.fill("Mobilný blok má vlastný obsah.");
+    await expect(bold).toBeEnabled();
+    await showArticleSection(page, "article-basics");
+    await expect(bold).toBeDisabled();
+    await expect(intro).toBeVisible();
+    await expect(intro.locator("mark")).toContainText("Farebne formátovaný");
+    await expect(page.locator("[data-admin-tiptap-toolbar]")).toHaveCount(1);
   });
 
   test("toolbar is keyboard reachable, axe-clean and does not overflow at 390px-class mobile width", async ({ page }, testInfo) => {
@@ -569,34 +630,47 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     }
   });
 
-  test("ARTICLE-VISUAL-1 shows all article sections in a scrollable three-column layout without losing edits", async ({ page }) => {
+  test("ARTICLE-TIPTAP-2: one selected section, ordered nav, unsaved text survives switching", async ({ page }) => {
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
-    await waitForEditor(page);
-    const editor = page.locator('[data-editor-layout="article"]');
-    const sections = page.locator("#article-canonical-editor-form > [data-admin-editor-section]");
+    await expect(page.locator('#article-intro[data-editor-ready="true"]')).toHaveCount(1);
+    const editor = page.locator('[data-editor-layout="article"][data-editor-section-mode="switch"]');
+    const sections = editor.locator("#article-canonical-editor-form > [data-admin-editor-section]");
     await expect(sections).toHaveCount(9);
-    await expect(page.locator("#article-basics")).toBeVisible();
-    await expect(page.locator("#article-content")).toBeVisible();
-    await expect(page.locator("#article-relations")).toBeVisible();
-
-    await page.locator("#article-title").fill("ARTICLE-VISUAL-1 rozpracovaný článok");
-    const intro = page.locator("#article-intro");
-    await intro.fill("Rozpracovaný obsah musí zostať uložený počas posúvania sekcií.");
-    const nav = editor.getByRole("navigation", { name: "Sekcie pracovného editora" });
-    if ((page.viewportSize()?.width ?? 0) > 820) {
-      await nav.getByRole("link", { name: "Fotografie" }).click();
-      await expect(page.locator("#article-media")).toBeInViewport();
-    } else {
-      await nav.getByLabel("Sekcia editora").selectOption("article-media");
-    }
-    await expect(intro).toContainText("Rozpracovaný obsah musí zostať uložený");
-    await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
+    await expect(page.locator("#article-publish")).toBeVisible();
+    await expect(page.locator("#article-basics")).toBeHidden();
     await expect.poll(() => sections.evaluateAll(elements =>
-      elements.filter(element => getComputedStyle(element).display !== "none").length,
-    )).toBe(9);
-
-    await page.getByRole("button", { name: /Uložiť koncept/ }).first().click();
-    await expect(page.getByText("Vyplň krátky úvod na karte.")).toBeVisible();
+      elements.filter(el => getComputedStyle(el).display !== "none").length,
+    )).toBe(1);
+    const nav = editor.getByRole("navigation", { name: "Sekcie pracovného editora" });
+    const ids = ["article-publish","article-authors","article-settings","article-seo",
+      "article-relations","article-media","article-basics","article-blocks"];
+    if ((page.viewportSize()?.width ?? 0) > 820) {
+      await expect(nav.getByRole("button")).toHaveCount(8); // section controls; Preview is outside nav
+      const labels = ["Publikovanie","Autor","Nastavenia","SEO","Prepojené plemená",
+        "Fotografie","Úvod a obsah","Bloky článku"];
+      for (let i=0; i<labels.length; i++) {
+        await expect(nav.getByRole("button", {name:labels[i],exact:true})).toHaveAttribute("aria-controls", ids[i]);
+      }
+    } else {
+      const options = await nav.getByLabel("Sekcia editora").locator("option").evaluateAll(
+        elements => elements.map(el => (el as HTMLOptionElement).value)
+      );
+      expect(options).toEqual(ids);
+    }
+    await showArticleSection(page, "article-basics");
+    await expect(page.locator("#article-content")).toBeVisible();
+    await expect.poll(() => sections.evaluateAll(elements =>
+      elements.filter(el => getComputedStyle(el).display !== "none").length,
+    )).toBe(2);
+    await page.locator("#article-title").fill("Rozpracovaný článok zostáva zachovaný");
+    await page.locator("#article-intro").fill("Text prvého bloku musí zostať aj po zmene sekcie.");
+    await showArticleSection(page, "article-media");
+    await expect(page.locator("#article-basics")).toBeHidden();
+    await expect(page.locator("#article-intro")).toBeHidden();
+    await showArticleSection(page, "article-basics");
+    await expect(page.locator("#article-title")).toHaveValue("Rozpracovaný článok zostáva zachovaný");
+    await expect(page.locator("#article-intro")).toContainText("Text prvého bloku musí zostať");
+    await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
   });
 
   test("ARTICLE-VISUAL-2 joins the introduction card and displays removable breed chips", async ({ page }) => {
@@ -604,6 +678,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await waitForEditor(page);
     await expect(page.locator("#article-basics").getByRole("heading", { name: "Úvod a obsah" })).toBeVisible();
     await expect(page.locator("#article-content")).toHaveCSS("border-top-width", "0px");
+    await showArticleSection(page, "article-relations");
     const search = page.locator("#article-breed-search");
     await search.focus();
     const first = page.locator('#article-relations label[class*="breedRow"]').first();
@@ -614,9 +689,10 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       await page.getByRole("button", { name: `Odstrániť prepojenie: ${name}` }).click();
       await expect(page.getByRole("group", { name: "Vybrané plemená" })).toHaveCount(0);
     }
+    await showArticleSection(page, "article-basics");
     await expect(page.locator("#article-intro")).toBeVisible();
     await expect(page.locator("#article-takeaway")).toBeVisible();
-    await expect(page.locator('[data-admin-lexical-rich-text] [role="toolbar"]').first()).toBeVisible();
+    await expect(page.locator('[data-admin-tiptap-toolbar]')).toBeVisible();
   });
 
   test("ARTICLE-VISUAL-3: right rail schedule shares article state and shows SEO and full preview", async ({ page }) => {
@@ -628,13 +704,14 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(rail.getByRole("region", { name: "Stav článku" })).toBeVisible();
     const sidebarDate = rail.locator("#article-rail-published-at");
     await sidebarDate.fill("2026-12-10T18:00");
+    await showArticleSection(page, "article-publish");
     await expect(page.locator("#article-published-at")).toHaveValue("2026-12-10T18:00");
     await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
     const seo = rail.locator("[data-article-rail-seo]");
     await seo.locator("summary").click();
     await expect(seo.getByText("Meta popis")).toBeVisible();
     await seo.getByRole("button", { name: "Upraviť všetky SEO polia" }).click();
-    await expect(page.locator("#article-seo")).toBeInViewport();
+    await expect(page.locator("#article-seo")).toBeVisible();
     const compact = rail.locator("[data-article-compact-preview]");
     await expect(compact).toBeVisible();
     await rail.getByRole("button", { name: "Zobraziť celý náhľad" }).click();

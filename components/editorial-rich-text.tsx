@@ -13,6 +13,9 @@ function renderInlineNode(node: EditorialRichTextInline, key: string): ReactNode
   for (const [index, mark] of (node.marks ?? []).entries()) {
     if (mark.type === "bold") content = <strong key={`${key}-bold-${index}`}>{content}</strong>;
     if (mark.type === "italic") content = <em key={`${key}-italic-${index}`}>{content}</em>;
+    if (mark.type === "underline") content = <u key={`${key}-underline-${index}`}>{content}</u>;
+    if (mark.type === "color") content = <span key={`${key}-color-${index}`} style={{ color: mark.color }}>{content}</span>;
+    if (mark.type === "highlight") content = <mark key={`${key}-highlight-${index}`} style={{ backgroundColor: mark.color }}>{content}</mark>;
     if (mark.type === "link") {
       const href = sanitizeEditorialHref(mark.href, true);
       content = href

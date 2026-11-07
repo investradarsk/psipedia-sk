@@ -53,9 +53,9 @@ test("EDITOR-17: 320px navigation, section focus, motion and shared action bar a
   assert.match(footer, /role="status" aria-live="polite"/);
 });
 
-test("EDITOR-17: article uses document scrolling while the other canonical editor families retain switched navigation", () => {
+test("EDITOR-17: article opts into single-section navigation while other canonical editors remain unchanged", () => {
   const article = read("components/admin-article-editor.tsx");
-  assert.match(article, /sectionMode="scroll"/);
+  assert.match(article, /sectionMode="switch"/);
   assert.match(article, /articleLayout/);
   const workspace = ["components/admin-breed-editor.tsx", "components/admin-event-editor.tsx"];
   const standalone = [

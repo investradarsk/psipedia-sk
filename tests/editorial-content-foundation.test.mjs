@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
-  EDITORIAL_RICH_TEXT_VERSION,
+  EDITORIAL_RICH_TEXT_LEGACY_VERSION,
   editorialRichTextPlainText,
   legacyRichTextToDocument,
   normalizeEditorialRichText,
@@ -76,7 +76,7 @@ test("rich-text v1 covers the WYSIWYG-safe minimum without raw HTML nodes", () =
     ].join("\n"),
   );
 
-  assert.equal(document.version, EDITORIAL_RICH_TEXT_VERSION);
+  assert.equal(document.version, EDITORIAL_RICH_TEXT_LEGACY_VERSION);
   assert.equal(document.type, "doc");
   assert.ok(document.content.some((block) => block.type === "heading" && block.level === 2));
   assert.ok(document.content.some((block) => block.type === "paragraph"));
