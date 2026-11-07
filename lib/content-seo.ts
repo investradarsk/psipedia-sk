@@ -34,8 +34,21 @@ export function normalizeCanonical(value: string | undefined | null) {
   return `${SITE_URL}${url.pathname}`;
 }
 
+function safeMetadataImage(value: string | undefined | null) {
+  const image = value?.trim() || "";
+  if (!image) return null;
+  if (image.startsWith("/media/") || image.startsWith("/images/")) return image;
+  try {
+    const url = new URL(image);
+    return url.protocol === "https:" ? image : null;
+  } catch { return null; }
+}
+
 export function resolvedCanonical(seo: EditableSeo | undefined, path: string) {
-  return normalizeCanonical(seo?.canonicalUrl) || absoluteUrl(path);
+  // Breeder editorial fields can contain any text. Invalid canonical input
+  // is saved for review but must not break public profile rendering.
+  try { return normalizeCanonical(seo?.canonicalUrl) || absoluteUrl(path); }
+  catch { return absoluteUrl(path); }
 }
 
 type ContentMetadataInput = {
@@ -62,7 +75,7 @@ export function buildContentMetadata(input: ContentMetadataInput): Metadata {
     description,
     path: input.path,
     canonical,
-    image: input.seo?.ogImage?.trim() || input.image,
+    image: safeMetadataImage(input.seo?.ogImage) || input.image,
     imageAlt: input.imageAlt,
     socialTitle,
     socialDescription,

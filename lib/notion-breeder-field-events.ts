@@ -20,6 +20,7 @@ export const BREEDER_NOTION_EDITORIAL_FIELDS = {
   websiteUrl: "Web",
   publicPhone: "Telefón",
   publicEmail: "E-mail",
+  internalEmail: "Interný e-mail",
   facebookUrl: "Facebook",
   instagramUrl: "Instagram",
   "seo.title": "SEO title",

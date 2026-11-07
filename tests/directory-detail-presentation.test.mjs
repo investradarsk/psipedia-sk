@@ -60,6 +60,28 @@ test("legacy contact aliases are normalized into presentation-only contacts", ()
   assert.equal(presentation.verified, true);
 });
 
+test("free-form breeder contacts survive public rendering but never create unsafe links", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    category: "chovatelske-stanice",
+    importData: {
+      "E-mail": "blaljdljflajsdlfa",
+      "Telefón": "zavolaj neskôr",
+      Web: "javascript:alert(1)",
+      Facebook: "nie je známe",
+      Instagram: "https://instagram.com/example",
+    },
+  }));
+  assert.deepEqual(presentation.emails, [{ value: "blaljdljflajsdlfa", href: null }]);
+  assert.deepEqual(presentation.phone, { value: "zavolaj neskôr", href: null });
+  assert.equal(presentation.websiteText, "javascript:alert(1)");
+  assert.equal(presentation.websiteUrl, null);
+  assert.equal(presentation.facebookText, "nie je známe");
+  assert.equal(presentation.facebookUrl, null);
+  assert.equal(presentation.instagramUrl, "https://instagram.com/example");
+  const facts = getDirectoryQuickFacts(presentation);
+  assert.equal(facts.some(f => f.links?.some(l => l.href.startsWith("javascript:"))), false);
+});
+
 test("category-specific legacy facts and coverage aliases are normalized without exposing importData", () => {
   const presentation = getDirectoryDetailPresentation(
     profile({

@@ -15,7 +15,7 @@
 .editor ul { list-style: disc; }
 .editor ol { list-style: decimal; }
 .editor blockquote { border-left: 3px solid #c0654f; padding-left: 0.8rem; }
-.placeholder { position: absolute; left: 0.85rem; top: 0.75rem; pointer-events: none; color: #75817b; }
+.placeholder { position: absolute; left: 0.85rem; top: 0.75rem; pointer-events: none; color: #53675c; }
 
 .toolbar button[aria-pressed="true"] { background: #dceee5; border-color: #679b82; }
 .link label { font-size: 0.82rem; font-weight: 600; color: #17392e; }

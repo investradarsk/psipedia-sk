@@ -75,6 +75,63 @@ test("stale Admin form cannot undo a newer inbound Facebook edit", () => {
   assert.equal(result.name, "Duckmoors");
 });
 
+test("a single breeder field writes raw D1 content without validating unrelated fields", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const ts = await import("typescript");
+  const source = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const start = source.indexOf("const breederScalarColumns:");
+  const end = source.indexOf("/**\n * Mapped breeder/trainer event mode:", start);
+  assert.ok(start > 0 && end > start);
+  const js = ts.transpileModule(source.slice(start, end) +
+    "\nexports.saveBreederEditorialValue = saveBreederEditorialValue;", {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports = {};
+  const queries = [];
+  const current = {
+    id: 1017, category: "chovatelske-stanice", status: "published",
+    updatedAt: "2026-11-07T12:00:00Z", publicEmail: "nonsense (unrelated)",
+  };
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          queries.push({ sql, values });
+          return { async first() { return { id: 1017 }; } };
+        },
+      };
+    },
+  };
+  runInNewContext(js, {
+    exports, SYSTEM_ACTOR: "sync", breederReadPath: (v, p) => p.split(".")
+      .reduce((x, k) => x?.[k], v),
+    normalizeDirectorySearchText: value => value,
+    getManagedDirectoryProfileById: async () => current,
+  });
+  const desired = {
+    name: "BELIEVE ME", excerpt: "Perex", description: "Voľný opis",
+    services: [], qualifications: [], region: "", district: "",
+    city: "", address: "", postalCode: "", street: "", houseNumber: "",
+    publicEmail: "blaljdljflajsdlfa",
+    seo: { canonicalUrl: "čistý ľubovoľný text" },
+  };
+  await exports.saveBreederEditorialValue(db, current, desired, "description");
+  assert.match(queries[0].sql, /description = \?/);
+  assert.doesNotMatch(queries[0].sql, /public_email|internal_email|website_url/);
+  assert.equal(queries[0].values[0], "Voľný opis");
+  await exports.saveBreederEditorialValue(db, current, desired, "publicEmail");
+  assert.match(queries[1].sql, /source_data_json = json_set/);
+  assert.equal(queries[1].values[1], "blaljdljflajsdlfa");
+  await exports.saveBreederEditorialValue(db, current, desired, "seo.canonicalUrl");
+  assert.match(queries[2].sql, /seo_json = json_set/);
+  assert.equal(queries[2].values[1], "čistý ľubovoľný text");
+  for (const { sql } of queries) {
+    assert.match(sql, /category = 'chovatelske-stanice'/);
+    assert.match(sql, /updated_at = \?/);
+    assert.doesNotMatch(sql, /services_json\s*=/);
+  }
+});
+
 test("breeder-only transport bypasses full-profile conflict merging and cron", async () => {
   const directory = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
   const dispatch = await readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
