@@ -23,11 +23,18 @@ test("ARTICLE-TIPTAP-3: all article rich text uses one scoped Tiptap toolbar", (
   assert.match(article, /data-article-tiptap-invalid/);
 });
 
-test("ARTICLE-TIPTAP-3: unsupported colors remain gated until the versioned step 4 contract", () => {
+test("ARTICLE-TIPTAP-4: native unrestricted color pickers use the versioned v2 contract", () => {
   const tiptap = read("components/admin-tiptap-article-editor.tsx");
-  assert.match(tiptap, /type="color" defaultValue="#1f4a3a" disabled/);
-  assert.match(tiptap, /type="color" defaultValue="#fff3a0" disabled/);
-  assert.match(read("lib/tiptap-editorial-bridge.ts"), /Unsupported Tiptap mark/);
+  const content = read("lib/editorial-content.ts");
+  const renderer = read("components/editorial-rich-text.tsx");
+  assert.match(tiptap, /aria-label="Celá paleta farieb textu"/);
+  assert.match(tiptap, /aria-label="Celá paleta zvýraznenia"/);
+  assert.match(tiptap, /setMark\("textStyle"/);
+  assert.match(tiptap, /setMark\("highlight"/);
+  assert.match(content, /EDITORIAL_RICH_TEXT_VERSION = 2/);
+  assert.match(renderer, /backgroundColor: mark\.color/);
+  assert.match(renderer, /color: mark\.color/);
+  assert.match(read("lib/tiptap-editorial-bridge.ts"), /Invalid Tiptap color/);
   assert.match(read("components/admin-article-editor.tsx"), /querySelector\('/);
 });
 
