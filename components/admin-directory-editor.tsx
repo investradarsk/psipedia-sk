@@ -257,12 +257,11 @@ export function AdminDirectoryEditor({
     ? [...editorSections.slice(0, 4), { id: "directory-breeder-links", label: "Prepojenia" }, ...editorSections.slice(4)]
     : editorSections;
   const [activeDirectorySection, setActiveDirectorySection] = useState(editorSectionsForProfile[0].id);
-  const activeDirectoryIndex = editorSectionsForProfile.findIndex((section) => section.id === activeDirectorySection);
-  useEffect(() => {
-    if (activeDirectorySection === "directory-breeder-links" && (!profile || category !== "chovatelske-stanice")) {
-      setActiveDirectorySection("directory-main");
-    }
-  }, [activeDirectorySection, category, profile]);
+  // Derive a valid visible section when changing category; avoid a state update in an effect.
+  const currentDirectorySection = editorSectionsForProfile.some((section) => section.id === activeDirectorySection)
+    ? activeDirectorySection
+    : editorSectionsForProfile[0].id;
+  const activeDirectoryIndex = editorSectionsForProfile.findIndex((section) => section.id === currentDirectorySection);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
   const savePendingRef = useRef(false);
@@ -666,7 +665,7 @@ export function AdminDirectoryEditor({
   const categoryInfo = getDirectoryCategory(category);
   return (
     <form ref={formRef} noValidate data-hydrated="false" data-admin-form-system="v4" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
-      <AdminEditorSectionVisibility.Provider value={{ activeId: activeDirectorySection, mode: "switch" }}>
+      <AdminEditorSectionVisibility.Provider value={{ activeId: currentDirectorySection, mode: "switch" }}>
       <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
 
       <div className={styles.editorTopline} data-admin-editor-navigation-container>
@@ -692,7 +691,7 @@ export function AdminDirectoryEditor({
 
       <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
       <div className={styles.editorWorkspace} data-admin-directory-editor-workspace>
-        <AdminSharedEditorNavigation sections={editorSectionsForProfile} activeId={activeDirectorySection} onNavigate={setActiveDirectorySection}
+        <AdminSharedEditorNavigation sections={editorSectionsForProfile} activeId={currentDirectorySection} onNavigate={setActiveDirectorySection}
           layout="sidebar" mode="switch" ariaLabel="Sekcie profilu adresára" />
         <div className={styles.editorWorkspaceContent}>
       <div className="admin-event-editor-grid">
