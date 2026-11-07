@@ -71,7 +71,7 @@ test("event fallback preserves cheap scope discovery while deferring browser reg
   assert.match(event, /ready_for_review/);
   assert.match(event, /  scope:\n    name: Detect events regression ownership/);
   assert.match(event, /  artwork:\n    [^\n]*\n    if: \$\{\{ github.event_name != 'pull_request' \|\| github.event.pull_request.draft == false \}\}/);
-  assert.match(event, /  public-events:[\s\S]*?github.event.pull_request.draft == false/);
+  assert.match(event, /  public-events:[\s\S]*?if: github.event_name == 'workflow_dispatch' \|\| github.event_name == 'pull_request'/);
   assert.match(event, /workflow_dispatch:/);
 });
 
