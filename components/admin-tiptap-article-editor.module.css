@@ -35,7 +35,8 @@
 .editable :global(.ProseMirror ul), .editable :global(.ProseMirror ol) { padding-left: 1.65rem; margin: 0.4rem 0 0.75rem; }
 .editable :global(.ProseMirror blockquote) { border-left: 3px solid #1f4a3a; padding-left: 0.7rem; }
 .editable :global(.ProseMirror aside[data-psipedia-callout]) { border-left: 3px solid #b4513d; padding: 0.6rem 0.75rem; background: #fff5ee; margin-block: 0.65rem; }
-.editable :global(.ProseMirror:has(> p:only-child > br.ProseMirror-trailingBreak))::before { content: attr(data-placeholder); color: #839086; position: absolute; pointer-events: none; }\n.loading { background: #f7faf8; }
+.editable :global(.ProseMirror:has(> p:only-child > br.ProseMirror-trailingBreak))::before { content: attr(data-placeholder); color: #839086; position: absolute; pointer-events: none; }
+.loading { background: #f7faf8; }
 .placeholder { position: absolute; left: 0.9rem; top: 0.75rem; color: #839086; pointer-events: none; }
 .error { font-size: 0.83rem; margin: 0.3rem 0.7rem 0.65rem; color: #a92c26; }
 @media (max-width: 760px) {
