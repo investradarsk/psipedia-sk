@@ -37,6 +37,15 @@ async function showArticleSection(page: import("@playwright/test").Page, id: str
   await section.scrollIntoViewIfNeeded();
 }
 
+/** Publication controls are in the sticky action bar on desktop but inside
+ * the Publishing section on mobile. Selecting the visible control by layout
+ * avoids accidentally targeting the hidden duplicate from the other mode. */
+function publicationAction(page: import("@playwright/test").Page, name: string) {
+  const mobile = (page.viewportSize()?.width ?? 1440) <= 820;
+  const scope = mobile ? page.locator("#article-publish") : page.locator("[data-editor-actionbar]");
+  return scope.getByRole("button", { name, exact: true });
+}
+
 async function fillMinimumArticle(page: import("@playwright/test").Page, title: string) {
   await waitForEditor(page);
   await page.locator("#article-title").fill(title);
@@ -425,9 +434,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await fillMinimumArticle(page, `ARTICLE ADMIN Novinky optional source ${suffix}`);
     await expect(page.getByText("Odborné zdroje sú nepovinné vo všetkých článkoch vrátane zdravotných.")).toBeVisible();
     await showArticleSection(page, "article-publish");
-    await page.getByRole("button", { name: /Publikovať novinku/ }).click();
+    await publicationAction(page, "Publikovať novinku").click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
-    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
+    await expect(publicationAction(page, "Stiahnuť z webu")).toBeVisible();
   });
 
   test("server-side publish gate blocks editorial placeholders, focuses content and allows draft recovery", async ({ page }, testInfo) => {
@@ -438,7 +447,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const bodyEditor = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
     await bodyEditor.fill("Po publikovaní bude vhodné prepojiť aj článok Ako spoznať bolesť u psa.");
     await showArticleSection(page, "article-publish");
-    await page.getByRole("button", { name: "Publikovať článok" }).click();
+    await publicationAction(page, "Publikovať článok").click();
     await expect(page.getByRole("heading", { name: "Chýbajú povinné údaje" })).toBeVisible();
     await expect(page.getByText(/internú redakčnú poznámku alebo placeholder/).first()).toBeVisible();
     await expect(page.getByText("Článok zatiaľ nemožno publikovať. Oprav blokujúce položky.")).toBeVisible();
@@ -454,17 +463,17 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(persistedBody).toBeVisible();
     await persistedBody.fill("Finálny verejný obsah po odstránení internej redakčnej poznámky.");
     await showArticleSection(page, "article-publish");
-    await page.getByRole("button", { name: "Publikovať článok" }).click();
-    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
+    await publicationAction(page, "Publikovať článok").click();
+    await expect(publicationAction(page, "Stiahnuť z webu")).toBeVisible();
 
-    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" }).click();
+    await publicationAction(page, "Stiahnuť z webu").click();
     const unpublish = page.getByRole("dialog", { name: "Stiahnuť článok z webu?" });
     await expect(unpublish).toBeVisible();
     await unpublish.getByRole("button", { name: "Ponechať publikované" }).click();
     await expect(unpublish).toBeHidden();
-    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
+    await expect(publicationAction(page, "Stiahnuť z webu")).toBeVisible();
 
-    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" }).click();
+    await publicationAction(page, "Stiahnuť z webu").click();
     await unpublish.getByRole("button", { name: "Potvrdiť stiahnutie" }).click();
     await expect(unpublish).toBeHidden();
     await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
