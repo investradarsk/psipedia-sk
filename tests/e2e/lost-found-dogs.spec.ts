@@ -145,7 +145,7 @@ for (const width of [1440, 390, 320]) {
     await form.getByLabel("E-mail — iba admin").fill("kontakt@example.invalid");
     await selectPanel("lost-found-media", "Fotografie a galéria");
     await expect(form.getByRole("heading", { name: "06. Fotografie a galéria" })).toBeVisible();
-    await expect(form.getByRole("button", { name: /Nahrať hlavnú fotografiu|Vybrať inú fotografiu/ })).toBeVisible();
+    await expect(form.getByRole("button", { name: /^(Nahrať hlavnú fotografiu|Vybrať inú fotografiu)$/ })).toBeVisible();
     await selectPanel("lost-found-moderation", "Životnosť a moderácia");
     await expect(form.getByRole("heading", { name: /07\. Životnosť/ })).toBeVisible();
     await selectPanel("lost-found-contacts", "Kontakt a súkromie");
