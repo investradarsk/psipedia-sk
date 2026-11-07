@@ -367,3 +367,35 @@ test("approved V3 shell renders navigation and captures desktop/mobile evidence"
     });
   }
 });
+
+test("event preview is beside the form on desktop and toggled instead of stacked on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const response = await page.goto("/admin/podujatia/nove", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  const editor = page.locator("[data-event-editor-v3]");
+  const content = editor.locator("[data-editor-content]");
+  const preview = editor.locator("[data-editor-preview]");
+  const previewToggle = editor.locator("[data-editor-navigation] > button");
+  await expect(content).toBeVisible();
+  await expect(preview).toBeVisible();
+  await expect(previewToggle).toBeHidden();
+  const contentBox = await content.boundingBox();
+  const previewBox = await preview.boundingBox();
+  expect(contentBox).not.toBeNull();
+  expect(previewBox).not.toBeNull();
+  expect(previewBox!.x).toBeGreaterThanOrEqual(contentBox!.x + contentBox!.width - 2);
+  await noOverflow(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(content).toBeVisible();
+  await expect(preview).toBeHidden();
+  await expect(previewToggle).toHaveText("Náhľad");
+  await previewToggle.click();
+  await expect(preview).toBeVisible();
+  await expect(content).toBeHidden();
+  await expect(previewToggle).toHaveText("Späť na úpravy");
+  await previewToggle.click();
+  await expect(content).toBeVisible();
+  await expect(preview).toBeHidden();
+  await noOverflow(page);
+});
