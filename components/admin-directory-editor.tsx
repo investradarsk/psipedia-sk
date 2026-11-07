@@ -8,6 +8,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
 import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
+import { isDirectoryEventPilotCategory } from "@/lib/notion-directory-field-event-scope";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
@@ -441,7 +442,7 @@ export function AdminDirectoryEditor({
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
       const breederBaseline = breederSaveBaselineRef.current;
-      const breederChangedPaths = profile && ["chovatelske-stanice", "treneri"].includes(profile.category)
+      const breederChangedPaths = profile && (["chovatelske-stanice", "treneri"].includes(profile.category) || isDirectoryEventPilotCategory(profile.category))
         && category === profile.category && breederBaseline
         ? breederAdminChangedFields(
             {
@@ -462,7 +463,7 @@ export function AdminDirectoryEditor({
         : undefined;
       // A previously opened editor must not re-save a stale legacy services
       // list after Services V3 was updated by an independent Notion event.
-      const trainerServicesEdited = profile?.category === "treneri" && category === "treneri" && breederBaseline
+      const trainerServicesEdited = profile && (profile.category === "treneri" || isDirectoryEventPilotCategory(profile.category)) && category === profile.category && breederBaseline
         ? JSON.stringify(listFromText(services)) !== JSON.stringify(breederBaseline.services)
         : undefined;
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
@@ -522,7 +523,7 @@ export function AdminDirectoryEditor({
         setFilterSourceData(savedProfile.importData ?? {});
         setFilterChanges({});
       }
-      if (["chovatelske-stanice", "treneri"].includes(savedProfile.category)) {
+      if (["chovatelske-stanice", "treneri"].includes(savedProfile.category) || isDirectoryEventPilotCategory(savedProfile.category)) {
         // Refresh form values from the committed D1 result: untouched fields
         // may have been updated through a Notion webhook while this was open.
         breederSaveBaselineRef.current = savedProfile;
