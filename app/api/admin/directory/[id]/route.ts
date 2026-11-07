@@ -6,6 +6,7 @@ import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelect
 import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
+import { isDirectoryEventPilotCategory } from "@/lib/notion-directory-field-event-scope";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -75,7 +76,7 @@ export async function PUT(request: Request, { params }: Props) {
     // A stale full-form payload must never silently undo a newer Notion edit
     // to a field the editor did not touch.
     const editedPaths: BreederEditorialField[] | null =
-      ["chovatelske-stanice", "treneri"].includes(before.category) && Array.isArray(rawBreederEditedPaths)
+      (["chovatelske-stanice", "treneri"].includes(before.category) || isDirectoryEventPilotCategory(before.category)) && Array.isArray(rawBreederEditedPaths)
         ? rawBreederEditedPaths.filter(
             (path): path is BreederEditorialField =>
               typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
@@ -90,7 +91,7 @@ export async function PUT(request: Request, { params }: Props) {
     // The canonical Services V3 relation can change while a trainer form is
     // open. Unless the operator explicitly edited legacy services, preserve
     // the latest D1 list instead of silently restoring stale textarea data.
-    const body = before.category === "treneri" && editedPaths && rawTrainerServicesEdited !== true
+    const body = (before.category === "treneri" || isDirectoryEventPilotCategory(before.category)) && editedPaths && rawTrainerServicesEdited !== true
       ? { ...fieldPreserved, services: before.services }
       : fieldPreserved;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
@@ -185,7 +186,7 @@ export async function PUT(request: Request, { params }: Props) {
             database: notionEnv.DB,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
-            breederAdminFields: ["chovatelske-stanice", "treneri"].includes(before.category)
+            breederAdminFields: ["chovatelske-stanice", "treneri"].includes(before.category) || isDirectoryEventPilotCategory(before.category)
               ? breederEditedFields(before, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
@@ -196,7 +197,7 @@ export async function PUT(request: Request, { params }: Props) {
         }
       }
     }
-    if (notionEnv.DB && ["chovatelske-stanice", "treneri"].includes(before.category)) {
+    if (notionEnv.DB && (["chovatelske-stanice", "treneri"].includes(before.category) || isDirectoryEventPilotCategory(before.category))) {
       const edited = breederEditedFields(before, profile);
       if (edited.length) {
         const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
