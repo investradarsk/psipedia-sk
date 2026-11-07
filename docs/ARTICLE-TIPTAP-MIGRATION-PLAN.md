@@ -1,7 +1,7 @@
 # Article editor replacement (Tiptap) — 5 steps
 
 Audit baseline: main commit 2e6f5eb885032bae8285ae2c1c2311ccc833227e, 2026-11-07.
-Status: STEPS 1–3 in draft PR #1234 — Tiptap wired to rich-text inputs; no production deploy or merge. Step 4 data contract and full palette activation pending.
+Status: STEPS 1–3 integrated; STEP 5 regression repairs in draft PR #1234. STEP 4 NOT implemented; no production deploy or merge. Full palette and real fullscreen preview pending.
 
 ## Decision: reuse a real open-source editor
 
@@ -83,6 +83,27 @@ Step 4 must extend parsing, storage, rendering and Notion compatibility before
 the color controls are activated. Unsafe rich-text changes block save instead
 of silently dropping material. Browser tests and a real npm-ci install still
 require verification before merge.
+
+## Step 5 regression audit (partial, step 4 dependency still open)
+
+The first PR #1234 CI pass exposed two `react-hooks/set-state-in-effect`
+errors in the new Tiptap component and a historical test that expected a
+Lexical editor. Both were corrected. The React lint stage subsequently
+passed. The image/upload regression assertion now checks the canonical
+rich-text bridge instead of requiring the old Lexical implementation.
+
+The shared toolbar is now scoped to the active, visible left-navigation
+section; hidden text blocks cannot accidentally receive its commands.
+Mobile browser regression coverage checks this explicitly and verifies that
+full-color controls are gated until the public data contract supports them.
+The sticky position now respects the admin shell's sticky header stack.
+Existing E2E selectors were changed to address the single shared toolbar.
+
+Unverified: real browser E2E completion, complete suite, published/legacy
+articles round-trip after Tiptap input, cursor and undo state under all focus
+transitions, final responsive screen inspection and color/preview flows.
+No assertion of full step 5 acceptance or merge-readiness is warranted until
+step 4 lands and these checks pass.
 
 ## Remaining steps
 
