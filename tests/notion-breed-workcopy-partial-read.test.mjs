@@ -14,8 +14,8 @@ const page = () => ({
     "FCI číslo": { type: "number", number: 1 },
     "Zdrojový profil Notion": { type: "url",
       url: "https://app.notion.com/p/00000000000000000000000000000002" },
-    "História": text("Pôvodná história — FCI historický súhrn: prvá časť" +
-      " — FCI historický súhrn: duplicitná časť"),
+    "História": text("Pôvodná história — Historický súhrn podľa FCI: prvá časť" +
+      " — Historický súhrn podľa FCI: duplicitná časť"),
     "Intro": text("Upravený úvod"),
   },
 });
