@@ -1184,6 +1184,7 @@ async function bootstrapProfileIds(database: D1Database) {
     FROM directory_profiles dp
     LEFT JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
     WHERE dns.directory_profile_id IS NULL AND dp.category <> 'chovatelske-stanice'
+      AND dp.category NOT IN ('veterinari', 'fyzioterapia', 'dalsie-sluzby')
     ORDER BY dp.id ASC
     LIMIT ?
   `).bind(BOOTSTRAP_BATCH).all<{ id: number }>();
@@ -1196,7 +1197,8 @@ async function changedProfileIds(database: D1Database) {
     FROM directory_profiles dp
     JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
     LEFT JOIN geo_points gp ON gp.directory_profile_id = dp.id
-    WHERE dp.category <> 'chovatelske-stanice' AND (
+    WHERE dp.category <> 'chovatelske-stanice'
+      AND dp.category NOT IN ('treneri', 'veterinari', 'fyzioterapia', 'dalsie-sluzby') AND (
        COALESCE(dns.psipedia_updated_at, '') <> dp.updated_at
        OR (gp.updated_at IS NOT NULL AND gp.updated_at > dns.last_synced_at)
        OR EXISTS (
@@ -1289,7 +1291,7 @@ async function saveBreederEditorialValue(
   desired: Record<string, unknown>,
   path: BreederEditorialField,
 ): Promise<ManagedDirectoryProfile> {
-  if (!isDirectoryEventPilotCategory(current.category) && current.category !== "chovatelske-stanice" || current.status === "archived")
+  if ((!isDirectoryEventPilotCategory(current.category) && current.category !== "chovatelske-stanice") || current.status === "archived")
     throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
   const raw = breederReadPath(desired, path);
   const value = typeof raw === "string" ? raw : "";
@@ -2362,6 +2364,8 @@ export async function runNotionDirectorySyncSweep(input: {
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
+      // Pilot covers existing linked IDs only: never create duplicate canonical profiles.
+      if (!mapping && isDirectoryEventPilotCategory(propertyText(page, "Kategória"))) continue;
       if (!mapping && (notionProfileReadyForCreate(page, trustedGemini) || operatorLegacy)) {
         if (privateImport) {
           // Serialize canonical duplicate-check + INSERT across different Notion IDs.
@@ -2568,7 +2572,7 @@ export async function runNotionDirectorySyncSweep(input: {
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
-    if (changedProfile && ["chovatelske-stanice", "treneri"].includes(changedProfile.category)) continue;
+    if (changedProfile && isDirectoryFieldEventCategory(changedProfile.category)) continue;
     let page: NotionPage | undefined;
     try {
       // Load only once. The same snapshot is used for identity validation,
