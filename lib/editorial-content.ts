@@ -282,7 +282,7 @@ export function legacyRichTextToDocument(value: string): EditorialRichTextDocume
   flushList();
 
   return {
-    version: EDITORIAL_RICH_TEXT_VERSION,
+    version: EDITORIAL_RICH_TEXT_LEGACY_VERSION,
     type: "doc",
     content: content.slice(0, MAX_BLOCKS),
   };
