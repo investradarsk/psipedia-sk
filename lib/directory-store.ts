@@ -1020,17 +1020,23 @@ export function normalizeManagedDirectoryProfileInput(
   // saving or publishing an otherwise safe directory payload.
   const authoritativeAddressText = publicAddress || serviceAddress.formattedAddress || "";
 
+  // Breeder editorial content is stored literally. Validation of clickable
+  // links happens on the public page, not when saving free-form text.
+  const breederRawText = category === "chovatelske-stanice";
+  const rawContact = (value: string | null | undefined) => value?.trim() ?? "";
   const services = normalizeStringList(payload.services);
-  const qualifications = normalizeStringList(payload.qualifications);
-  const websiteUrl = normalizeUrl(payload.websiteUrl);
-  const publicPhone =
-    payload.publicPhone === undefined ? undefined : normalizePublicPhone(payload.publicPhone);
-  const publicEmail =
-    payload.publicEmail === undefined ? undefined : (normalizeEmail(payload.publicEmail) ?? "");
-  const facebookUrl =
-    payload.facebookUrl === undefined ? undefined : (normalizeUrl(payload.facebookUrl) ?? "");
-  const instagramUrl =
-    payload.instagramUrl === undefined ? undefined : (normalizeUrl(payload.instagramUrl) ?? "");
+  const qualifications = breederRawText && Array.isArray(payload.qualifications)
+    ? payload.qualifications.filter((item): item is string => typeof item === "string")
+    : normalizeStringList(payload.qualifications);
+  const websiteUrl = breederRawText ? (rawContact(payload.websiteUrl) || null) : normalizeUrl(payload.websiteUrl);
+  const publicPhone = payload.publicPhone === undefined ? undefined
+    : breederRawText ? rawContact(payload.publicPhone) : normalizePublicPhone(payload.publicPhone);
+  const publicEmail = payload.publicEmail === undefined ? undefined
+    : breederRawText ? rawContact(payload.publicEmail) : (normalizeEmail(payload.publicEmail) ?? "");
+  const facebookUrl = payload.facebookUrl === undefined ? undefined
+    : breederRawText ? rawContact(payload.facebookUrl) : (normalizeUrl(payload.facebookUrl) ?? "");
+  const instagramUrl = payload.instagramUrl === undefined ? undefined
+    : breederRawText ? rawContact(payload.instagramUrl) : (normalizeUrl(payload.instagramUrl) ?? "");
   const contactSourceData = mergeDirectoryPublicContactData(currentImportData, {
     publicPhone,
     publicEmail,
@@ -1083,14 +1089,23 @@ export function normalizeManagedDirectoryProfileInput(
     facebookUrl,
     instagramUrl,
     sourceData,
-    internalEmail: normalizeEmail(payload.internalEmail),
+    internalEmail: breederRawText ? (rawContact(payload.internalEmail) || null) : normalizeEmail(payload.internalEmail),
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
     thumbnailImageDisplay: normalizeImageDisplayConfig(payload.thumbnailImageDisplay, "thumbnail"),
     detailImageDisplay: normalizeImageDisplayConfig(payload.detailImageDisplay, "detail"),
     verified: Boolean(payload.verified),
     featured: Boolean(payload.featured),
-    seo: cleanEditableSeo(payload.seo),
+    seo: breederRawText ? {
+      title: payload.seo?.title ?? "",
+      focusKeyword: payload.seo?.focusKeyword ?? "",
+      description: payload.seo?.description ?? "",
+      canonicalUrl: payload.seo?.canonicalUrl ?? "",
+      ogTitle: payload.seo?.ogTitle ?? "",
+      ogDescription: payload.seo?.ogDescription ?? "",
+      ogImage: payload.seo?.ogImage ?? "",
+      noindex: Boolean(payload.seo?.noindex),
+    } : cleanEditableSeo(payload.seo),
     searchText: directorySearchText({
       name,
       excerpt,
