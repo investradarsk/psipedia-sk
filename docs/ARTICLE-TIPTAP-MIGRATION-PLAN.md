@@ -67,7 +67,24 @@ to load unchanged. JSON TEXT columns may accommodate this without a destructive
 database migration, but it must be proven by tests. Do not persist raw Tiptap
 HTML or bypass the current URL sanitization.
 
-## Step 3 implementation and explicit safety boundary\n\nThe article intro, takeaway and body rich-text blocks now use a scoped Tiptap 3.33.0 editor with one sticky toolbar (bold/italic, H2/H3, lists, quote, callout, safe links, undo/redo). The plain excerpt remains a plain-text field; images, metadata and non-text article blocks keep their existing components. The Tiptap package and complete transitive dependency closure are pinned in package-lock.json.\n\nThe full native color pickers for text and background are present but intentionally disabled. Enabling them before the versioned Psipedia AST upgrade would silently strip styles. Step 4 must wire colors and highlights into the canonical parser, persistence, public renderer and Notion compatibility, then enable the controls. The editor refuses to save an unsupported document instead of losing content. Browser tests and a real npm-ci install still require verification before merging.\n\n## Remaining steps
+## Step 3 implementation and explicit safety boundary
+
+The article intro, takeaway and body rich-text blocks now use scoped open-source
+Tiptap 3.33.0 instances with one shared sticky toolbar: bold, italic, H2/H3,
+lists, quote, callout, safe links, undo and redo. This uses the Tiptap engine
+and a Psipedia-specific toolbar, not a verbatim copy of the Simple template.
+The plain excerpt stays a plain-text field. Images, metadata and all non-text
+article blocks retain their existing components. The Tiptap packages and
+transitive dependencies are pinned in package-lock.json.
+
+The unrestricted native color inputs (text and background) are visible but
+intentionally disabled. The v1 Psipedia AST cannot preserve these styles.
+Step 4 must extend parsing, storage, rendering and Notion compatibility before
+the color controls are activated. Unsafe rich-text changes block save instead
+of silently dropping material. Browser tests and a real npm-ci install still
+require verification before merge.
+
+## Remaining steps
 
 Step 2 — Reorder left menu (Publikovanie, Autor, Nastavenia, SEO,
 Prepojené plemená, Fotografie, Úvod a obsah, Bloky článku); clicking shows
