@@ -34,7 +34,7 @@ export function organizationAddressDraftFromLocation(
 
 /**
  * Address inputs are part of the *same* organization form and save action.
- * This deliberately has no nested <form>, extra submit or independent API call.
+ * This deliberately has no nested form element, extra submit or independent API call.
  * The canonical address/location API is invoked by AdminOrganizationEditor.
  */
 export function AdminOrganizationLocations({
