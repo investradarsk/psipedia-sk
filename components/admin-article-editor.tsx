@@ -8,6 +8,7 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Blocks, BookOpen, CalendarDays, Camera, CheckCircle2, ChevronDown, Clock3, Eye, PawPrint, Search, Settings2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
+import { AdminTiptapArticleScope } from "@/components/admin-tiptap-article-editor";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
@@ -537,6 +538,7 @@ export function AdminArticleEditor({
   return (
     <>
       <div className={editorStyles.workspaceRoot}>
+      <AdminTiptapArticleScope>
       <EditorWorkspace
         mode="page"
         title={article ? "Upraviť článok" : "Nový článok"}
@@ -1070,6 +1072,7 @@ export function AdminArticleEditor({
       
       </form>
       </EditorWorkspace>
+      </AdminTiptapArticleScope>
       </div>
 
       <AdminDestructiveConfirmDialog
