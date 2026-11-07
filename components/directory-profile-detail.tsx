@@ -130,7 +130,7 @@ function DirectoryProfileHero({
             <a className={styles.primaryAction} data-profile-primary-action href="#kontakt">
               Poslať dopyt
             </a>
-            {presentation.phone ? (
+            {presentation.phone?.href ? (
               <a className={styles.secondaryAction} href={presentation.phone.href}>
                 Zavolať
               </a>
@@ -191,7 +191,9 @@ export function DirectoryProfileDetail({
       ? [
           {
             label: "Telefón",
-            value: <a href={presentation.phone.href}>{presentation.phone.value}</a>,
+            value: presentation.phone.href
+              ? <a href={presentation.phone.href}>{presentation.phone.value}</a>
+              : presentation.phone.value,
           },
         ]
       : []),
@@ -202,48 +204,42 @@ export function DirectoryProfileDetail({
             value: (
               <span className={styles.contactValues}>
                 {presentation.emails.map((email) => (
-                  <a href={email.href} key={email.value}>
-                    {email.value}
-                  </a>
+                  email.href
+                    ? <a href={email.href} key={email.value}>{email.value}</a>
+                    : <span key={email.value}>{email.value}</span>
                 ))}
               </span>
             ),
           },
         ]
       : []),
-    ...(presentation.websiteUrl
+    ...(presentation.websiteText
       ? [
           {
             label: "Web",
-            value: (
-              <a href={presentation.websiteUrl} target="_blank" rel="noreferrer">
-                Otvoriť web ↗
-              </a>
-            ),
+            value: presentation.websiteUrl
+              ? <a href={presentation.websiteUrl} target="_blank" rel="noreferrer">Otvoriť web ↗</a>
+              : presentation.websiteText,
           },
         ]
       : []),
-    ...(presentation.facebookUrl
+    ...(presentation.facebookText
       ? [
           {
             label: "Facebook",
-            value: (
-              <a href={presentation.facebookUrl} target="_blank" rel="noreferrer">
-                Facebook ↗
-              </a>
-            ),
+            value: presentation.facebookUrl
+              ? <a href={presentation.facebookUrl} target="_blank" rel="noreferrer">Facebook ↗</a>
+              : presentation.facebookText,
           },
         ]
       : []),
-    ...(presentation.instagramUrl
+    ...(presentation.instagramText
       ? [
           {
             label: "Instagram",
-            value: (
-              <a href={presentation.instagramUrl} target="_blank" rel="noreferrer">
-                Instagram ↗
-              </a>
-            ),
+            value: presentation.instagramUrl
+              ? <a href={presentation.instagramUrl} target="_blank" rel="noreferrer">Instagram ↗</a>
+              : presentation.instagramText,
           },
         ]
       : []),
@@ -322,7 +318,7 @@ export function DirectoryProfileDetail({
           contacts={practicalRows}
           note={
             <>
-              {!presentation.phone && !presentation.emails.length && !presentation.websiteUrl ? (
+              {!presentation.phone && !presentation.emails.length && !presentation.websiteText ? (
                 <span data-public-contact-empty>Priamy kontakt zatiaľ nie je uvedený. </span>
               ) : null}
               {updatedAt ? (

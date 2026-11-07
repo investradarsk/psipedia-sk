@@ -6,8 +6,8 @@ import { publicLocationValue } from "./public-location.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
 export type DirectoryDetailFact = { label: string; value: string };
-export type DirectoryDetailPhone = { value: string; href: string };
-export type DirectoryDetailEmail = { value: string; href: string };
+export type DirectoryDetailPhone = { value: string; href: string | null };
+export type DirectoryDetailEmail = { value: string; href: string | null };
 export type DirectoryDetailHealth = {
   variant: "veterinari" | "fyzioterapia";
   eyebrow: string;
@@ -43,8 +43,11 @@ export type DirectoryDetailPresentation = {
   phone: DirectoryDetailPhone | null;
   emails: DirectoryDetailEmail[];
   websiteUrl: string | null;
+  websiteText: string | null;
   facebookUrl: string | null;
+  facebookText: string | null;
   instagramUrl: string | null;
+  instagramText: string | null;
   navigationUrl: string | null;
   updatedAt: string;
 };
@@ -214,11 +217,12 @@ export function getDirectoryQuickFacts(
     addLinks("Facebook", [{ label: "Facebook", href: presentation.facebookUrl }]);
   if (presentation.instagramUrl)
     addLinks("Instagram", [{ label: "Instagram", href: presentation.instagramUrl }]);
-  if (presentation.phone)
+  if (presentation.phone?.href)
     addLinks("Telefón", [{ label: presentation.phone.value, href: presentation.phone.href }]);
   addLinks(
     "E-mail",
-    presentation.emails.map((email) => ({ label: email.value, href: email.href })),
+    presentation.emails.filter((email): email is DirectoryDetailEmail & { href: string } => Boolean(email.href))
+    .map((email) => ({ label: email.value, href: email.href })),
   );
   const updatedLabel = formatDirectoryUpdatedAt(presentation.updatedAt);
   if (updatedLabel)
@@ -249,14 +253,20 @@ export function getDirectoryDetailPresentation(
   const publicContacts = readDirectoryPublicContacts(profile.importData, profile.websiteUrl ?? "");
   const phoneValue = usefulDirectoryDetailValue(publicContacts.phone);
   const rawEmail = usefulDirectoryDetailValue(publicContacts.email);
-  const emails =
-    rawEmail
-      ?.split(/[;,]/)
-      .map((item) => item.trim())
-      .filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item)) ?? [];
+  // Preserve arbitrary editorial strings on public profiles. Only genuinely
+  // usable values become mailto/tel/web links; invalid text is never lost.
+  const breederText = profile.category === "chovatelske-stanice";
+  const emails = (rawEmail
+    ?.split(/[;,\n]|\s+\/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean) ?? [])
+    .filter((value) => breederText || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
   const websiteUrl = publicDirectoryDetailUrl(publicContacts.website);
   const facebookUrl = publicDirectoryDetailUrl(publicContacts.facebook);
   const instagramUrl = publicDirectoryDetailUrl(publicContacts.instagram);
+  const websiteText = breederText ? usefulDirectoryDetailValue(publicContacts.website) : websiteUrl;
+  const facebookText = breederText ? usefulDirectoryDetailValue(publicContacts.facebook) : facebookUrl;
+  const instagramText = breederText ? usefulDirectoryDetailValue(publicContacts.instagram) : instagramUrl;
   // Textová/redakčná adresa sama osebe nie je dôkazom exact GEO polohy.
   // Navigáciu poskytuje PublicLocationMap iba vtedy, keď existuje aktuálny
   // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
@@ -327,12 +337,17 @@ export function getDirectoryDetailPresentation(
     facts,
     health,
     phone: phoneValue
-      ? { value: phoneValue, href: `tel:${phoneValue.replace(/[^+\d]/g, "")}` }
+      ? { value: phoneValue, href: /\d{3,}/.test(phoneValue.replace(/\D/g, ""))
+        ? `tel:${phoneValue.replace(/[^+\d]/g, "")}` : null }
       : null,
-    emails: emails.map((value) => ({ value, href: `mailto:${value}` })),
+    emails: emails.map((value) => ({ value,
+      href: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? `mailto:${value}` : null })),
     websiteUrl,
+    websiteText,
     facebookUrl,
+    facebookText,
     instagramUrl,
+    instagramText,
     navigationUrl,
     updatedAt: profile.updatedAt,
   };

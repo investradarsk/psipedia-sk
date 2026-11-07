@@ -40,7 +40,9 @@ async function noOverflow(page: Page) {
 async function accessible(page: Page) {
   const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   const serious = result.violations.filter(item => item.impact === "critical" || item.impact === "serious");
-  expect(serious.map(item => `${item.id}: ${item.help}`)).toEqual([]);
+  expect(serious.flatMap(item => item.nodes.map(node =>
+    `${item.id}: ${item.help}; target=${node.target.join(",")}; summary=${node.failureSummary ?? ""}`
+  ))).toEqual([]);
 }
 
 test.beforeEach(async ({ page, baseURL }) => {
@@ -65,6 +67,14 @@ for (const editor of editors) {
     const response = await page.goto(editor.route, { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     const field = editor.key === "breed" ? page.getByLabel("Názov plemena", { exact: true }) : page.locator(editor.field);
+    // Server-rendered inputs may be editable before React is ready. Do not
+    // count pre-hydration typing as a persisted client-side editor change.
+    if (editor.navigation) {
+      const name = editor.key === "article" || editor.key === "breed"
+        ? "Sekcie pracovného editora" : editor.navigation;
+      await expect(page.getByRole("navigation", { name, exact: true }))
+        .toHaveAttribute("data-admin-editor-nav-ready", "true");
+    }
     await expect(field).toBeEditable();
     const value = `Neuložený test ${editor.key}`;
     // Wait for the client editor, then verify that moving within the editor
@@ -117,10 +127,18 @@ for (const editor of editors) {
         // In this mode navigation uses real buttons, not scroll anchors or hash.
         const label = await nav.locator("select option").evaluateAll((elements, value) =>
           elements.find(element => (element as HTMLOptionElement).value === value)?.textContent?.trim() ?? "", target);
-        await nav.getByRole("button", { name: label, exact: true }).click();
+        if (await nav.getAttribute("data-editor-navigation-mode") === "scroll") {
+          await nav.getByRole("link", { name: label, exact: true }).click();
+        } else {
+          await nav.getByRole("button", { name: label, exact: true }).click();
+        }
       }
       await expect(page.locator(`#${target}`)).toBeVisible();
-      await expect(page.locator(`#${target}`)).toBeFocused();
+      // Scroll-mode navigation retains the text caret; switch mode moves
+      // focus to the newly revealed panel for keyboard accessibility.
+      if (await nav.getAttribute("data-editor-navigation-mode") === "switch") {
+        await expect(page.locator(`#${target}`)).toBeFocused();
+      }
       await expect(field).toHaveValue(value);
       // Keyboard focus follows the chosen section in switch mode;
       // returning to the initial panel must keep the unsaved field value.
@@ -130,7 +148,11 @@ for (const editor of editors) {
       else {
         const initialLabel = await nav.locator("select option").evaluateAll((elements, value) =>
           elements.find(element => (element as HTMLOptionElement).value === value)?.textContent?.trim() ?? "", initial);
-        await nav.getByRole("button", { name: initialLabel, exact: true }).click();
+        if (await nav.getAttribute("data-editor-navigation-mode") === "scroll") {
+          await nav.getByRole("link", { name: initialLabel, exact: true }).click();
+        } else {
+          await nav.getByRole("button", { name: initialLabel, exact: true }).click();
+        }
       }
       await expect(page.locator(`#${initial}`)).toBeVisible();
       await expect(field).toBeVisible();
@@ -155,6 +177,7 @@ for (const width of [1440, 390, 320]) {
     const response = await page.goto("/admin/pomoc/novy");
     expect(response?.status()).toBe(200);
     const nav = page.getByRole("navigation", { name: "Sekcie editora Pomoc psom" });
+    await expect(nav).toHaveAttribute("data-admin-editor-nav-ready", "true");
     const title = page.locator("#help-title");
     await expect(title).toBeEditable();
     await title.fill("Pomoc psom – skúšobná výzva");
