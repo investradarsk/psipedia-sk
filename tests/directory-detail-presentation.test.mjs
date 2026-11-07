@@ -52,7 +52,6 @@ test("legacy contact aliases are normalized into presentation-only contacts", ()
   assert.deepEqual(presentation.phone, { value: "+421 900 123 456", href: "tel:+421900123456" });
   assert.deepEqual(presentation.emails, [
     { value: "prvy@example.org", href: "mailto:prvy@example.org" },
-    { value: "neplatny", href: null },
     { value: "druhy@example.org", href: "mailto:druhy@example.org" },
   ]);
   assert.equal(presentation.websiteUrl, "https://example.org/");
