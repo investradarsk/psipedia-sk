@@ -501,6 +501,12 @@
   overflow: visible;
 }
 .workspaceRoot :global([data-editor-layout="article"] [data-editor-content]) {
+  /* The shared Tiptap toolbar and the article form are siblings in this grid.
+     Its implicit auto track expands to the toolbar's intrinsic desktop width
+     even at 320px. Constrain the parent track, not just the form inside it. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
   min-width: 0;
   padding: 0;
   border: 0;
