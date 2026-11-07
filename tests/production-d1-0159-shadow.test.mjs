@@ -43,7 +43,10 @@ function inspect(db) {
   const statusIndexColumns = index ? db.prepare(
     "SELECT name FROM pragma_index_info('idx_breed_notion_workcopy_status')",
   ).all().map(row => row.name) : [];
-  const shadowStatuses = present ? db.prepare("SELECT status, COUNT(*) AS count FROM breed_notion_workcopy_links GROUP BY status").all() : [];
+  const hasStatus = columns.some(column => column.name === "status");
+  const shadowStatuses = present && hasStatus
+    ? db.prepare("SELECT status, COUNT(*) AS count FROM breed_notion_workcopy_links GROUP BY status").all()
+    : [];
   return { canonicalBreeds, productionLinks, shadowTablePresent:present,
     shadowColumns:columns, shadowUniqueKeys:uniqueKeys, shadowStatuses,
     statusIndexPresent:Boolean(index), statusIndexColumns,
@@ -110,6 +113,10 @@ test("fail closed on partial or in-use 0159 table, including even one row", () =
   const db = fixture();
   try {
     db.exec("CREATE TABLE breed_notion_workcopy_links (breed_id INTEGER PRIMARY KEY)");
+    assert.throws(() => assertBreed0159Preflight(inspect(db)),
+      /EXISTING_SCHEMA_INCOMPATIBLE_OR_IN_USE/);
+    // A malformed table containing data must also be rejected deterministically.
+    db.exec("INSERT INTO breed_notion_workcopy_links (breed_id) VALUES (1)");
     assert.throws(() => assertBreed0159Preflight(inspect(db)),
       /EXISTING_SCHEMA_INCOMPATIBLE_OR_IN_USE/);
   } finally { db.close(); }
