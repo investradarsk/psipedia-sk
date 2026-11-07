@@ -3,11 +3,12 @@ name: MAP-1E Launch Hardening
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Only map/Gemini/service-specific changes belong here; generic D1
+    # migration tooling is already covered by required CI and Clean D1.
     paths:
-      - ".github/workflows/production-d1-migrate.yml"
       - ".github/workflows/map-production-readiness.yml"
       - ".github/workflows/map-production-launch-ci.yml"
-      - "scripts/production-d1-migrate.mjs"
       - "scripts/map-production-readiness.mjs"
       - "scripts/map-production-privacy-smoke.mjs"
       - "app/mapa/**"
@@ -23,7 +24,6 @@ on:
       - "app/podmienky-pouzivania/page.tsx"
       - "tests/map-production-launch.test.mjs"
       - "tests/config-contract.test.mjs"
-      - "tests/production-d1-migration.test.mjs"
   workflow_dispatch:
 
 concurrency:
@@ -35,6 +35,8 @@ permissions:
 
 jobs:
   launch-hardening:
+    # Comprehensive PR regression runs once changes are ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Migration gates, map regressions and build
     runs-on: ubuntu-latest
     timeout-minutes: 35

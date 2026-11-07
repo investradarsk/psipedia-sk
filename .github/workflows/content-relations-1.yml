@@ -3,6 +3,7 @@ name: CONTENT-RELATIONS-1
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "app/[section]/[slug]/page.tsx"
       - "app/clanky/[slug]/page.tsx"
@@ -34,6 +35,8 @@ permissions:
 
 jobs:
   content-relations:
+    # Comprehensive PR regression runs once changes are ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Explicit relations — unit, build, desktop/mobile
     runs-on: ubuntu-latest
     timeout-minutes: 40

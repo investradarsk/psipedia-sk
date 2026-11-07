@@ -3,6 +3,7 @@ name: Event fallback artwork
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'components/event-listing-results.tsx'
       - 'components/event-calendar.tsx'
@@ -50,6 +51,8 @@ jobs:
           CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/ci-scope.mjs --github-output
   artwork:
+    # Screenshot comparisons are full acceptance checks, not draft iteration gates.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Event artwork SSR, desktop and mobile
     # Pin a supported Playwright runner: latest Ubuntu apt mirrors can stall browser dependency downloads.
     runs-on: ubuntu-24.04

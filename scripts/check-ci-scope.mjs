@@ -119,11 +119,15 @@ for (const [name, source] of workflows) {
   assert.ok(cancel && cancel !== "false", `${name}: PR concurrency must cancel stale runs`);
 }
 
+// Retired branch-specific workflow must not be accidentally reintroduced.
+// AI referral contracts remain covered by the mandatory regression and discovery CI.
+assert.ok(!workflows.has("ai-referral-measurement-ci.yml"),
+  "retired AI referral CI should not be reintroduced; keep tests in active suites");
+
 // Required full regression and clean D1 are the only lockfile-wide PR validations.
 assert.ok(pullRequestPaths(workflows.get("clean-d1-migration-validation.yml"))?.includes("package-lock.json"));
 for (const name of [
   "ai-internal-discovery-click-value-ci.yml",
-  "ai-referral-measurement-ci.yml",
   "article-ux-ci.yml",
   "content-relations-1.yml",
   "map-geo-foundation-ci.yml",
