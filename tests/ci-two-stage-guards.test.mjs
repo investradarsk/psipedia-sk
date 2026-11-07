@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -79,5 +79,38 @@ test("mandatory migration and central safety jobs are never deferred", () => {
   for (const name of ["playwright-e2e.yml", "clean-d1-migration-validation.yml"]) {
     const source = read(".github/workflows/" + name);
     assert.doesNotMatch(source, /github\.event\.pull_request\.draft == false/, name + " must run on draft PRs");
+  }
+});
+
+test("retired branch-only AI referral CI is removed without breaking required scope policy", () => {
+  assert.equal(existsSync(new URL("../.github/workflows/ai-referral-measurement-ci.yml", import.meta.url)), false);
+  const policy = read("scripts/check-ci-scope.mjs");
+  assert.doesNotMatch(policy, /^\\s+"ai-referral-measurement-ci\\.yml",\\s*$/m);
+  assert.match(policy, /!workflows\\.has\\("ai-referral-measurement-ci\\.yml"\\)/);
+  const discovery = read(".github/workflows/ai-internal-discovery-click-value-ci.yml");
+  assert.match(discovery, /npm run test:ai-referral/);
+});
+
+test("map trigger stays fail-closed for published map routes, D1 migrations and shared worker", () => {
+  const map = read(".github/workflows/map-read-api-ci.yml");
+  for (const pattern of [
+    "app/adresar/page.tsx", "components/directory-profile-detail.tsx",
+    "lib/events.ts", "lib/event-store.ts", "db/schema.ts",
+    "drizzle/**", "worker/index.ts",
+  ]) {
+    assert.ok(map.includes(pattern), "must retain MAP-1C on " + pattern);
+  }
+  assert.match(map, /github\\.event\\.pull_request\\.draft == false/);
+  assert.match(map, /ready_for_review/);
+});
+
+test("SEO and public screenshots run automatically once review-ready, not only with labels", () => {
+  const discovery = read(".github/workflows/ai-internal-discovery-click-value-ci.yml");
+  const entity = read(".github/workflows/sitewide-ai-entity-surface-ci.yml");
+  const visual = read(".github/workflows/pr-visual-evidence.yml");
+  for (const source of [discovery, entity, visual]) {
+    assert.match(source, /ready_for_review/);
+    assert.match(source, /github\\.event\\.pull_request\\.draft == false/);
+    assert.doesNotMatch(source, /contains\\(github\\.event\\.pull_request\\.labels/);
   }
 });

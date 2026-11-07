@@ -19,6 +19,14 @@
 - `workflow_dispatch` zostáva dostupný všade, kde bol definovaný; odložené E2E možno spustiť manuálne.
 - Po prepnutí na Ready for review treba skontrolovať všetky výsledky pred merge, nielen povinné kontroly.
 
+## Spoločná oprava CI PR #1227 + #1228
+
+- Zrušené vetvovo viazané a dávno neaktívne `ai-referral-measurement-ci.yml`. Odkaz v `scripts/check-ci-scope.mjs` je opravený; aktívny test `test:ai-referral` zostáva v discovery CI.
+- Rozsah interného AI objavovania bol zúžený na vlastné API/SEO/linkové kontrakty namiesto každej vizuálnej úpravy zdieľaného profilu.
+- Samostatné Gemini STOP, MAP-1E a Services V3 workflowy už nebežia len preto, že sa mení generický migračný runner; všeobecné migračné testy ostávajú v povinných kontrolách.
+- MAP-1C ponecháva bezpečnostnú maticu verejných mapových trás a všetkých D1 migrácií. Príliš úzke spúšťače z pôvodného #1227 preto nepreberáme.
+- Nezavádzame štítky `full-e2e` ani `visual-evidence` ako jediný spôsob spustenia finálnych testov: **Ready for review musí stačiť**.
+
 ## Optimalizácia rozsahu
 
 - Verejné baseline screenshoty sa už nespúšťajú pri zmenách iba v `app/admin/**` a `components/admin-**` (na to sú samostatné administrátorské E2E).
