@@ -23,6 +23,7 @@ import type { ManagedArticleSummary } from "@/lib/article-store";
 import { articleHref } from "@/lib/portal";
 import { editorialRichTextPlainText, legacyRichTextToDocument, normalizeEditorialRichText, type EditorialRichTextDocument } from "@/lib/editorial-content";
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
+import videoStyles from "./article-video-embed.module.css";
 import {
   articlePromoKeys,
   articlePromoRegistry,
@@ -421,8 +422,9 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
                   <div className="admin-field"><label>Názov videa <small>nepovinný</small></label><input value={block.title ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, title: event.target.value } : item)} /></div>
                   <div className="admin-field"><label>Popis videa <small>nepovinný</small></label><input value={block.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, caption: event.target.value } : item)} /></div>
                 </div>
-                {video && <div className={video.displayFormat === "shorts" ? "admin-video-preview admin-video-preview--shorts" : "admin-video-preview"}>
+                {video && <div className="admin-video-preview">
                   <iframe
+                    className={video.displayFormat === "shorts" ? videoStyles.shortsPreviewIframe : undefined}
                     src={video.embedUrl}
                     title={video.title || "Náhľad videa"}
                     loading="lazy"
