@@ -441,7 +441,7 @@ export function AdminDirectoryEditor({
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
       const breederBaseline = breederSaveBaselineRef.current;
-      const breederChangedPaths = profile && ["chovatelske-stanice", "treneri"].includes(profile.category)
+      const breederChangedPaths = profile && ["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(profile.category)
         && category === profile.category && breederBaseline
         ? breederAdminChangedFields(
             {
@@ -522,7 +522,7 @@ export function AdminDirectoryEditor({
         setFilterSourceData(savedProfile.importData ?? {});
         setFilterChanges({});
       }
-      if (["chovatelske-stanice", "treneri"].includes(savedProfile.category)) {
+      if (["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(savedProfile.category)) {
         // Refresh form values from the committed D1 result: untouched fields
         // may have been updated through a Notion webhook while this was open.
         breederSaveBaselineRef.current = savedProfile;
