@@ -379,7 +379,7 @@ function notionSnapshot(page: NotionPage): EditableDirectorySnapshot {
     status: statusFromNotion(propertyText(page, "Psipedia stav")),
     excerpt: propertyText(page, "Perex"),
     description: propertyText(page, "Popis"),
-    services: propertyText(page, "Kategória") === "chovatelske-stanice"
+    services: ["chovatelske-stanice", "salony-a-sluzby"].includes(propertyText(page, "Kategória"))
       ? propertyText(page, "Služby").split(/\r?\n|<br\s*\/?\s*>/gi).map(item => item.trim()).filter(Boolean)
       : splitList(propertyText(page, "Služby")),
     qualifications: splitQualificationLines(propertyText(page, "Kvalifikácie")),
@@ -1288,7 +1288,7 @@ async function saveBreederEditorialValue(
   desired: Record<string, unknown>,
   path: BreederEditorialField,
 ): Promise<ManagedDirectoryProfile> {
-  if (current.category !== "chovatelske-stanice" || current.status === "archived")
+  if (!["chovatelske-stanice", "salony-a-sluzby"].includes(current.category) || current.status === "archived")
     throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
   const raw = breederReadPath(desired, path);
   const value = typeof raw === "string" ? raw : "";
@@ -1343,9 +1343,9 @@ async function saveBreederEditorialValue(
   const saved = await database.prepare(
     "UPDATE directory_profiles SET " + assignments.join(", ") +
     ", updated_at = ?, updated_by = ? " +
-    "WHERE id = ? AND category = 'chovatelske-stanice' AND status <> 'archived' " +
+    "WHERE id = ? AND category = ? AND status <> 'archived' " +
     "AND updated_at = ? RETURNING id",
-  ).bind(...params, now, SYSTEM_ACTOR, current.id, current.updatedAt)
+  ).bind(...params, now, SYSTEM_ACTOR, current.id, current.category, current.updatedAt)
     .first<{ id: number }>();
   if (!saved) throw new Error("BREEDER_FIELD_WRITE_CONFLICT");
   const updated = await getManagedDirectoryProfileById(current.id, database);
@@ -1370,7 +1370,7 @@ async function syncBreederEvent(input: {
   const now = new Date().toISOString();
   if (input.changedPropertyIds !== undefined) {
     const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds)
-      .filter(path => path !== "services" || input.profile.category === "chovatelske-stanice");
+      .filter(path => path !== "services" || ["chovatelske-stanice", "salony-a-sluzby"].includes(input.profile.category));
     const relationFields = input.profile.category === "chovatelske-stanice"
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
     const facetFields = input.profile.category === "chovatelske-stanice"
@@ -1388,7 +1388,7 @@ async function syncBreederEvent(input: {
       if (JSON.stringify(breederReadPath(before, path)) ===
           JSON.stringify(breederReadPath(desired, path))) continue;
       try {
-        current = input.profile.category === "chovatelske-stanice"
+        current = ["chovatelske-stanice", "salony-a-sluzby"].includes(input.profile.category)
           ? await saveBreederEditorialValue(database, current, desired, path)
           : await (async () => {
             // Trainers retain their existing validator until their own rollout.
@@ -1493,7 +1493,7 @@ async function syncBreederEvent(input: {
   const fields = (input.adminChangedFields ?? []).filter(
     (path): path is BreederEditorialField =>
       Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
-      (path !== "services" || input.profile.category === "chovatelske-stanice"),
+      (path !== "services" || ["chovatelske-stanice", "salony-a-sluzby"].includes(input.profile.category)),
   );
   if (!fields.length) return "unchanged";
   const geo = await loadGeoMirror(database, input.profile.id);
@@ -1620,7 +1620,7 @@ async function syncMappedPage(input: {
   // still mirror an Admin-confirmed publication, but PATCH only its status:
   // never re-enter record-wide editorial hash/baseline reconciliation.
   // The owner-directed manual full-profile transfer below stays available.
-  if (profile.category === "chovatelske-stanice" &&
+  if (["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category) &&
       !input.manualDirection &&
       input.breederWebhookPropertyIds === undefined &&
       input.breederAdminFields === undefined) {
@@ -1642,7 +1642,7 @@ async function syncMappedPage(input: {
     return "unchanged" as const;
   }
 
-  if (["chovatelske-stanice", "treneri"].includes(profile.category)
+  if (["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(profile.category)
       && (input.breederWebhookPropertyIds !== undefined || input.breederAdminFields !== undefined)
       && !input.manualDirection) {
     // A signed webhook must not be allowed to reassign a different entity.
@@ -2321,7 +2321,7 @@ export async function runNotionDirectorySyncSweep(input: {
 
   for (const candidate of pages) {
     // Existing breeders are event-only; never re-run record-wide hourly merges.
-    if (!input.targetPageId && propertyText(candidate, "Kategória") === "chovatelske-stanice") continue;
+    if (!input.targetPageId && ["chovatelske-stanice", "salony-a-sluzby"].includes(propertyText(candidate, "Kategória"))) continue;
     let page = candidate;
     let release: (() => Promise<void>) | null = null;
     let releaseImport: (() => Promise<void>) | null = null;
@@ -2556,7 +2556,7 @@ export async function runNotionDirectorySyncSweep(input: {
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
-    if (changedProfile && ["chovatelske-stanice", "treneri"].includes(changedProfile.category)) continue;
+    if (changedProfile && ["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(changedProfile.category)) continue;
     let page: NotionPage | undefined;
     try {
       // Load only once. The same snapshot is used for identity validation,
