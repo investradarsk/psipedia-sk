@@ -143,7 +143,7 @@ test("workflow is manual-only and cannot apply or switch when merged", () => {
   assert.match(workflow, /group: production-d1-migration/);
   assert.match(workflow, /APPLY-BREED-STAGE-344/);
   assert.match(workflow, /AUDIT-BREED-STAGE-344/);
-  assert.match(workflow, /secrets.NOTION_API_TOKEN/);
+  assert.match(workflow, /secrets.NOTION_API_TOKEN\s*\|\|\s*secrets.GEMINI_AGENT_NOTION_TOKEN/);
   assert.match(script, /BREED_STAGE_RECOVERY_BOOKMARK_MISSING/);
   assert.match(script, /inspectBreedWorkCopy/);
   assert.match(script, /planBreedWorkcopyIdentity/);
