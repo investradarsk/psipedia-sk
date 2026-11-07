@@ -174,7 +174,7 @@ export function AdminTiptapRichTextEditor({
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
     editorProps: {
-      attributes: { id, role: "textbox", "aria-multiline": "true", "aria-label": ariaLabel, "data-editor-ready": "true" },
+      attributes: { id, role: "textbox", "aria-multiline": "true", "aria-label": ariaLabel, "data-editor-ready": "true", "data-placeholder": placeholder },
       handlePaste(view, event) {
         // Never import arbitrary clipboard HTML into the editorial JSON model.
         const plain = event.clipboardData?.getData("text/plain");
