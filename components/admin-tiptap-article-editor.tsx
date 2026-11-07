@@ -215,10 +215,9 @@ export function AdminTiptapRichTextEditor({
     if (scopeRef.current?.active?.id === id) scopeRef.current.setActive(null);
   }, [id]);
 
-  return <div className={styles.editorBox} data-admin-tiptap-rich-text data-admin-rich-text-editor>
+  return <div className={styles.editorBox} data-admin-tiptap-rich-text data-admin-rich-text-editor data-article-tiptap-invalid={error ? "true" : "false"}>
     <EditorContent editor={editor} className={styles.editable} style={{ minHeight }} />
     {!editor && <div className={styles.loading} aria-hidden="true" style={{ minHeight }} />}
-    {!editor?.getText().trim() && <span className={styles.placeholder} aria-hidden="true">{placeholder}</span>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
   </div>;
 }
