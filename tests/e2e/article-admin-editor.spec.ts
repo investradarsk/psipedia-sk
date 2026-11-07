@@ -413,7 +413,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-publish");
     await page.getByRole("button", { name: /Publikovať novinku/ }).click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
-    await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
+    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
   });
 
   test("server-side publish gate blocks editorial placeholders, focuses content and allows draft recovery", async ({ page }, testInfo) => {
@@ -441,16 +441,16 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await persistedBody.fill("Finálny verejný obsah po odstránení internej redakčnej poznámky.");
     await showArticleSection(page, "article-publish");
     await page.getByRole("button", { name: "Publikovať článok" }).click();
-    await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
+    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Stiahnuť z webu" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" }).click();
     const unpublish = page.getByRole("dialog", { name: "Stiahnuť článok z webu?" });
     await expect(unpublish).toBeVisible();
     await unpublish.getByRole("button", { name: "Ponechať publikované" }).click();
     await expect(unpublish).toBeHidden();
-    await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
+    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Stiahnuť z webu" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Stiahnuť z webu" }).click();
     await unpublish.getByRole("button", { name: "Potvrdiť stiahnutie" }).click();
     await expect(unpublish).toBeHidden();
     await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
@@ -653,7 +653,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
       await expect(nav.getByLabel("Sekcia editora")).toBeVisible();
       await expect(page.locator("#article-title")).toBeVisible();
-      await nav.getByRole("button", { name: "Náhľad" }).click();
+      await page.locator("[data-editor-navigation]").getByRole("button", { name: "Náhľad" }).click();
       const rail = page.locator("[data-article-editor-rail]");
       await expect(rail).toBeVisible();
       await expect(rail.locator("#article-rail-published-at")).toBeVisible();
@@ -661,7 +661,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       await expect.poll(() => page.evaluate(() =>
         document.documentElement.scrollWidth - document.documentElement.clientWidth,
       )).toBeLessThanOrEqual(1);
-      await nav.getByRole("button", { name: "Späť na úpravy" }).click();
+      await page.locator("[data-editor-navigation]").getByRole("button", { name: "Späť na úpravy" }).click();
       await expect(page.locator("#article-title")).toBeVisible();
       await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
     }
