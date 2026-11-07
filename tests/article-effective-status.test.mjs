@@ -76,7 +76,8 @@ test("admin list/store and calendar all consume one effective lifecycle contract
   assert.match(calendarUi, /resolveArticleEffectiveStatus\(article.status, article.publishedAt\)/);
   assert.match(editor, /effectiveArticleStatus\(status, confirmedPublishedAt, statusClock\)/);
   assert.match(editor, /articleEffectiveStatusLabel\(displayedStatus\)/);
-  assert.match(editor, /onSubmit=\{\(event\) => \{ event.preventDefault\(\); void save\(displayedStatus\); \}\}/);
+  assert.match(editor, /onSubmit=\{\(event\) => \{ event.preventDefault\(\); submitArticleForm\(\); \}\}/);
+  assert.match(editor, /function submitArticleForm\(\) \{[\s\S]*?void save\(displayedStatus\);/);
   assert.match(editor, /status === "scheduled" && displayedStatus === "published" && confirmedPublishedAt/);
   assert.match(editor, /\? new Date\(confirmedPublishedAt\)/);
   assert.match(editor, /readOnly=\{displayedStatus === "published"\}/);

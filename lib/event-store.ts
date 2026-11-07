@@ -40,6 +40,9 @@ export type ManagedEventInput = {
   organizer?: string;
   description?: string;
   practicalInfo?: string;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  admissionFee?: string;
   websiteUrl?: string | null;
   registrationUrl?: string | null;
   imageUrl?: string | null;
@@ -71,6 +74,9 @@ type EventRow = {
   organizer: string;
   description: string;
   practical_info: string;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  admission_fee?: string;
   website_url: string | null;
   registration_url: string | null;
   image_url: string | null;
@@ -187,6 +193,9 @@ function rowToEvent(row: EventRow): DogEvent {
     organizer: row.organizer,
     description: row.description,
     practicalInfo: row.practical_info,
+    contactPhone: row.contact_phone ?? null,
+    contactEmail: row.contact_email ?? null,
+    admissionFee: row.admission_fee ?? "",
     websiteUrl: row.website_url,
     registrationUrl: row.registration_url,
     imageUrl: row.image_url,
@@ -281,6 +290,12 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
   const region = (slovakRegions as readonly string[]).includes(payload.region ?? "") ? payload.region as SlovakRegion : null;
   const organizer = payload.organizer?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
+  const contactPhone = payload.contactPhone?.trim() || null;
+  const contactEmail = payload.contactEmail?.trim() || null;
+  const admissionFee = payload.admissionFee?.trim() ?? "";
+  if (contactPhone && contactPhone.length > 80) throw new Error("Kontaktný telefón je príliš dlhý.");
+  if (contactEmail && (contactEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail))) throw new Error("Kontaktný e-mail nie je platný.");
+  if (admissionFee.length > 160) throw new Error("Vstupné je príliš dlhé.");
 
   if (!title) throw new Error("Doplň názov podujatia.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa podujatia nie je platná.");
@@ -310,6 +325,7 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
     organizer,
     description,
     practicalInfo: payload.practicalInfo?.trim() ?? "",
+    contactPhone, contactEmail, admissionFee,
     websiteUrl: normalizeUrl(payload.websiteUrl, "Web podujatia"),
     registrationUrl: normalizeUrl(payload.registrationUrl, "Odkaz na registráciu"),
     imageUrl,
@@ -643,14 +659,15 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
     INSERT INTO managed_events (
       slug, title, excerpt, event_type, status, start_date, start_time, end_date, end_time,
       venue, city, region, address, organizer, description, practical_info,
+      contact_phone, contact_email, admission_fee,
       website_url, registration_url, image_url, image_key, image_display, thumbnail_display_json, detail_display_json, cancelled, seo_json,
       created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `).bind(
     input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
     input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
-    input.description, input.practicalInfo, input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
+    input.description, input.practicalInfo, input.contactPhone, input.contactEmail, input.admissionFee, input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
     input.imageDisplay, input.thumbnailImageDisplay && JSON.stringify(input.thumbnailImageDisplay), input.detailImageDisplay && JSON.stringify(input.detailImageDisplay), input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<EventRow>();
   if (!row) throw new Error("Podujatie sa nepodarilo vytvoriť.");
@@ -671,13 +688,17 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
     UPDATE managed_events SET
       slug = ?, title = ?, excerpt = ?, event_type = ?, status = ?, start_date = ?, start_time = ?,
       end_date = ?, end_time = ?, venue = ?, city = ?, region = ?, address = ?, organizer = ?,
-      description = ?, practical_info = ?, website_url = ?, registration_url = ?, image_url = ?, image_key = ?, image_display = ?, thumbnail_display_json = ?, detail_display_json = ?,
+      description = ?, practical_info = ?, contact_phone = ?, contact_email = ?, admission_fee = ?, website_url = ?, registration_url = ?, image_url = ?, image_key = ?, image_display = ?, thumbnail_display_json = ?, detail_display_json = ?,
       cancelled = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? RETURNING *
   `).bind(
     input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
     input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
-    input.description, input.practicalInfo, input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
+    input.description, input.practicalInfo,
+    payload.contactPhone === undefined ? existing.contactPhone ?? null : input.contactPhone,
+    payload.contactEmail === undefined ? existing.contactEmail ?? null : input.contactEmail,
+    payload.admissionFee === undefined ? existing.admissionFee ?? "" : input.admissionFee,
+    input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
     payload.imageDisplay === undefined ? existing.imageDisplay ?? "auto" : input.imageDisplay,
     JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
     JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),

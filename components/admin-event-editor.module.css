@@ -91,3 +91,54 @@
     flex: 1 1 auto;
   }
 }
+
+
+/* UNIFIED-EDITOR-3: event page follows the same document scroll as article and
+   breed editors. The previous 76/78dvh pilot cap produced nested scrolling. */
+.eventPilot :global([data-editor-page]) {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+.eventPilot :global([data-editor-page]) > :global([data-editor-workspace]) {
+  flex: none;
+  min-height: 0;
+  max-height: none;
+}
+
+/* EDITOR-10: single-section event editor, same shell as breeds/articles. */
+.eventPilot :global([data-editor-section-mode="switch"]) { width: 100%; min-width: 0; }
+.eventPilot :global([data-editor-section-mode="switch"] [data-editor-columns]) { min-width: 0; }
+.eventForm :global([data-admin-editor-section][hidden]) { display: none !important; }
+.eventForm :global([data-admin-editor-section]) { min-width: 0; scroll-margin-top: 1rem; }
+.sectionPager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0;
+  color: var(--admin-v3-muted, #52695c);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.sectionPager button { min-height: 44px; }
+@media (max-width: 820px) {
+  .eventPilot :global([data-editor-section-mode="switch"]) { height: auto; overflow: visible; }
+  .eventPilot :global([data-editor-section-mode="switch"] [data-editor-workspace]) {
+    max-height: none;
+    overflow: visible;
+  }
+  .eventPilot :global([data-editor-section-mode="switch"] [data-editor-columns]),
+  .eventPilot :global([data-editor-section-mode="switch"] [data-editor-content]) {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+}
+@media (max-width: 380px) {
+  .sectionPager { gap: 0.35rem; }
+  .sectionPager button { flex: 1 1 auto; }
+  .sectionPager span { order: -1; width: 100%; text-align: center; }
+  .eventForm :global(.admin-field-grid) { grid-template-columns: minmax(0, 1fr); }
+}

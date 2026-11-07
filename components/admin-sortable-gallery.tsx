@@ -47,7 +47,7 @@ export function AdminSortableGallery({urls,onReorder,renderRow,as="div",containe
  const ContainerTag=containerAs;
  return <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
    <SortableContext items={ids} strategy={rectSortingStrategy}>
-     <ContainerTag className={className}>{ids.map((id,index)=>
+     <ContainerTag className={className} data-admin-editor-tool="gallery-list">{ids.map((id,index)=>
        <SortRow key={id} id={id} index={index} as={as} className={rowClassName}
          renderRow={renderRow} disabled={disabled}/>
      )}</ContainerTag>

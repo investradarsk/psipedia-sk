@@ -1,14 +1,15 @@
 import { mkdirSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const outDir = ".e2e-artifacts/events-editor-v3";
 const sections = [
   ["event-basics", "Základné údaje"],
   ["event-schedule", "Termín a typ"],
-  ["event-location", "Miesto a organizátor"],
-  ["event-details", "Popis a informácie"],
-  ["event-media", "Odkazy a fotografia"],
+  ["event-location", "Miesto podujatia"],
+  ["event-contacts", "Organizátor a kontakty"],
+  ["event-details", "Program a informácie"],
+  ["event-media", "Fotografia a URL"],
   ["event-seo", "SEO"],
 ] as const;
 
@@ -27,6 +28,14 @@ async function openEditor(page: Page, fixture = "") {
   // The event editor declares itself hydrated only when client handlers work.
   await expect(root.locator("[data-hydrated]").first()).toHaveAttribute("data-hydrated", "true");
   return root;
+}
+
+async function showEventSection(root: Locator, id: string, label: string) {
+  const navigation = root.locator("[data-editor-navigation]");
+  const select = root.getByLabel("Sekcia editora");
+  if (await select.isVisible()) await select.selectOption(id);
+  else await navigation.getByRole("button", { name: label, exact: true }).click();
+  await expect(root.locator("#" + id)).toBeVisible();
 }
 
 async function checkNoHorizontalOverflow(page: Page) {
@@ -70,32 +79,33 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 320, height: 690 },
 ]) {
-  test("Events V3: six sections, edit preservation, preview, SEO, footer and guard at " + viewport.width + "px", async ({ page }) => {
+  test("Events V3: seven sections, edit preservation, preview, SEO, footer and guard at " + viewport.width + "px", async ({ page }) => {
     await page.setViewportSize(viewport);
     const root = await openEditor(page);
-    await expect(root.locator("[data-admin-editor-section]")).toHaveCount(6);
+    await expect(root.locator("[data-admin-editor-section]")).toHaveCount(7);
     await expect(page.getByRole("button", { name: "Späť na podujatia", exact: true })).toHaveCount(1);
     await expect(root.getByRole("button", { name: "Uložiť koncept", exact: true })).toBeVisible();
     await expect(root.getByRole("button", { name: "Publikovať podujatie", exact: true })).toBeVisible();
 
+    const pager = root.getByRole("navigation", { name: "Prechod medzi sekciami podujatia" });
+    await pager.getByRole("button", { name: "Ďalšia" }).click();
+    await expect(root.locator("#event-schedule")).toBeFocused();
+    await pager.getByRole("button", { name: "Predchádzajúca" }).click();
+    await expect(root.locator("#event-basics")).toBeFocused();
     const title = root.getByLabel("Názov podujatia");
     await title.fill("Klubová výstava retrieverov");
+    await showEventSection(root, "event-details", "Program a informácie");
     const markdown = root.getByRole("textbox", { name: "Podrobný popis", exact: true });
     await markdown.fill("Prvý odsek\n\nDôležité informácie");
     await expect(root.getByRole("region", { name: "Náhľad: Podrobný popis" })).toContainText("Dôležité informácie");
+    await showEventSection(root, "event-schedule", "Termín a typ");
     await root.getByLabel("Dátum začiatku").fill("2026-11-12");
 
     // Every navigation target must exist and accept section switching.
     for (const [id, label] of sections) {
       const section = root.locator("[data-admin-editor-section]#" + id);
       await expect(section).toHaveCount(1);
-      if (viewport.width <= 820) {
-        await root.getByLabel("Sekcia editora").selectOption(id);
-        await expect(root.getByLabel("Sekcia editora")).toHaveValue(id);
-      } else {
-        await root.locator("[data-editor-navigation]").getByRole("button", { name: label, exact: true }).click();
-        await expect(root.locator("[data-editor-navigation]").getByRole("button", { name: label, exact: true })).toHaveAttribute("aria-current", "location");
-      }
+      await showEventSection(root, id, label);
       await expect(section).toBeVisible();
     }
 
@@ -104,19 +114,9 @@ for (const viewport of [
     await lastSeo.fill("Posledné pole formulára je dostupné.");
     await lastSeo.scrollIntoViewIfNeeded();
     await expect(lastSeo).toBeInViewport();
-    // The workspace intentionally uses native document scrolling on mobile.
-    // Desktop retains its dedicated scrollable editor pane.
-    const scroll = viewport.width <= 820
-      ? await page.evaluate(() => ({
-          position: window.scrollY,
-          maximum: document.documentElement.scrollHeight - window.innerHeight,
-        }))
-      : await root.locator("[data-editor-content]").evaluate((element) => ({
-          position: element.scrollTop,
-          maximum: element.scrollHeight - element.clientHeight,
-        }));
-    expect(scroll.maximum).toBeGreaterThan(0);
-    expect(scroll.position).toBeGreaterThan(0);
+    // Single-panel navigation is allowed to fit in a viewport: don't
+    // require an artificial scrollbar; the final SEO field must be reachable.
+    await expect(lastSeo).toBeInViewport();
     await checkNoHorizontalOverflow(page);
     const actionbar = root.locator("[data-editor-actionbar]");
     await actionbar.scrollIntoViewIfNeeded();
@@ -128,19 +128,21 @@ for (const viewport of [
       await expect(root.locator("[data-event-live-summary]")).toBeVisible();
       await expect(root.locator("[data-event-live-summary]")).toContainText("Klubová výstava retrieverov");
       await root.getByRole("button", { name: "Späť na úpravy" }).click();
-      await root.getByLabel("Sekcia editora").selectOption("event-basics");
     } else {
       await expect(root.locator("[data-event-live-summary]")).toContainText("Klubová výstava retrieverov");
-      await root.locator("[data-editor-navigation]").getByRole("button", { name: "Základné údaje" }).click();
     }
+    await showEventSection(root, "event-basics", "Základné údaje");
 
     // Section navigation scrolls smoothly; wait until the selected Basics section
     // is actually visible before capturing the final layout, not mid-animation.
     await expect(root.locator("#event-basics")).toBeInViewport({ ratio: 0.2 });
     await expect(title).toHaveValue("Klubová výstava retrieverov");
+    await showEventSection(root, "event-details", "Program a informácie");
     await expect(markdown).toContainText("Prvý odsek");
     await expect(markdown).toContainText("Dôležité informácie");
+    await showEventSection(root, "event-seo", "SEO");
     await expect(root.getByLabel("SEO title")).toHaveValue("Klubová výstava – SEO test");
+    await showEventSection(root, "event-basics", "Základné údaje");
     await checkNoHorizontalOverflow(page);
     if (viewport.width > 820) {
       const previewPanel = root.locator("[data-editor-preview]");
@@ -162,6 +164,34 @@ for (const viewport of [
   });
 }
 
+
+test("New event: publication reveals required fields in their own sections without losing drafts", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const root = await openEditor(page);
+  await root.getByLabel("Názov podujatia").fill("Tréning psov");
+  await root.getByRole("button", { name: "Publikovať podujatie" }).click();
+  await expect(root.locator("#event-basics")).toBeVisible();
+  await expect(root.getByText("Vyplň povinné pole: Krátky popis.")).toBeVisible();
+  await root.getByRole("textbox", { name: "Krátky popis" }).fill("Podujatie so spoločným tréningom psov.");
+  await root.getByRole("button", { name: "Publikovať podujatie" }).click();
+  await expect(root.locator("#event-schedule")).toBeVisible();
+  await expect(root.getByText("Vyplň povinné pole: Dátum začiatku.")).toBeVisible();
+  await root.getByLabel("Dátum začiatku").fill("2026-11-12");
+  await root.getByRole("button", { name: "Publikovať podujatie" }).click();
+  await expect(root.locator("#event-location")).toBeVisible();
+  await root.getByLabel("Mesto").fill("Nitra");
+  await root.getByRole("button", { name: "Publikovať podujatie" }).click();
+  await expect(root.locator("#event-contacts")).toBeVisible();
+  await expect(root.getByText("Vyplň povinné pole: Organizátor.")).toBeVisible();
+  await root.getByRole("textbox", { name: "Organizátor", exact: true }).fill("Klub retrieverov");
+  await root.getByRole("button", { name: "Publikovať podujatie" }).click();
+  await expect(root.locator("#event-details")).toBeVisible();
+  await expect(root.getByText("Vyplň povinné pole: Podrobný popis.")).toBeVisible();
+  await showEventSection(root, "event-basics", "Základné údaje");
+  await expect(root.getByLabel("Názov podujatia")).toHaveValue("Tréning psov");
+  await expect(root.getByRole("textbox", { name: "Krátky popis" })).toContainText("Podujatie so spoločným tréningom psov.");
+});
+
 test("New event: external-form draft button sends canonical POST to isolated mocked API", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const requests: Record<string, unknown>[] = [];
@@ -175,10 +205,23 @@ test("New event: external-form draft button sends canonical POST to isolated moc
   });
   const root = await openEditor(page);
   await root.getByLabel("Názov podujatia").fill("Testovací koncept");
+  await showEventSection(root, "event-location", "Miesto podujatia");
   await root.getByLabel("Mesto").fill("Nitra");
+  await showEventSection(root, "event-contacts", "Organizátor a kontakty");
   await root.getByRole("textbox", { name: "Organizátor", exact: true }).fill("Klub");
+  await showEventSection(root, "event-schedule", "Termín a typ");
   await root.getByLabel("Dátum začiatku").fill("2026-11-12");
+  await showEventSection(root, "event-details", "Program a informácie");
   await root.getByRole("textbox", { name: "Podrobný popis", exact: true }).fill("Markdown koncept");
+  await root.getByLabel("Vstupné").fill("5 € / deti zdarma");
+  await showEventSection(root, "event-contacts", "Organizátor a kontakty");
+  await root.getByLabel("Verejný telefón organizátora").fill("+421 900 111 222");
+  await root.getByLabel("Verejný e-mail organizátora").fill("klub@example.sk");
+  await showEventSection(root, "event-details", "Program a informácie");
+  await expect(root.getByLabel("Vstupné")).toHaveValue("5 € / deti zdarma");
+  await showEventSection(root, "event-contacts", "Organizátor a kontakty");
+  await expect(root.getByLabel("Verejný telefón organizátora")).toHaveValue("+421 900 111 222");
+  await expect(root.getByLabel("Verejný e-mail organizátora")).toHaveValue("klub@example.sk");
   await root.getByRole("button", { name: "Uložiť koncept" }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toMatchObject({
@@ -186,6 +229,7 @@ test("New event: external-form draft button sends canonical POST to isolated moc
     status: "draft", city: "Nitra", organizer: "Klub",
     startDate: "2026-11-12", description: "Markdown koncept",
     registrationUrl: null, endDate: null, cancelled: false,
+    contactPhone: "+421 900 111 222", contactEmail: "klub@example.sk", admissionFee: "5 € / deti zdarma",
   });
   expect(requests[0]).toHaveProperty("seo");
   expect(requests[0]).toHaveProperty("thumbnailImageDisplay");
@@ -204,6 +248,15 @@ test("New event: publish action sends published status through the canonical POS
   });
   const root = await openEditor(page);
   await root.getByLabel("Názov podujatia").fill("Publikovaný E2E test");
+  await root.getByRole("textbox", { name: "Krátky popis" }).fill("Klubová výstava pre chovateľov a návštevníkov.");
+  await showEventSection(root, "event-schedule", "Termín a typ");
+  await root.getByLabel("Dátum začiatku").fill("2026-11-12");
+  await showEventSection(root, "event-location", "Miesto podujatia");
+  await root.getByLabel("Mesto").fill("Nitra");
+  await showEventSection(root, "event-contacts", "Organizátor a kontakty");
+  await root.getByRole("textbox", { name: "Organizátor", exact: true }).fill("Klub");
+  await showEventSection(root, "event-details", "Program a informácie");
+  await root.getByRole("textbox", { name: "Podrobný popis", exact: true }).fill("Podujatie s programom pre všetkých návštevníkov a vystavovateľov.");
   await root.getByRole("button", { name: "Publikovať podujatie" }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toMatchObject({ title: "Publikovaný E2E test", status: "published" });
@@ -227,6 +280,7 @@ test("Existing published event: PUT preserves payload, save changes and unpublis
   await expect(root.getByRole("button", { name: "Uložiť koncept", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Späť na podujatia", exact: true })).toHaveCount(1);
   await root.getByLabel("Názov podujatia").fill("Upravená klubová výstava");
+  await showEventSection(root, "event-seo", "SEO");
   await root.getByLabel("SEO title").fill("Úprava SEO");
   await root.getByRole("button", { name: "Uložiť zmeny", exact: true }).click();
   await expect.poll(() => requests.length).toBe(1);
@@ -260,10 +314,12 @@ test("Legacy event Markdown is untouched when saving unrelated fields", async ({
     });
   });
   const root = await openEditor(page, "legacy");
+  await showEventSection(root, "event-details", "Program a informácie");
   const source = root.getByRole("textbox", { name: "Podrobný popis", exact: true });
   await expect(source).toHaveValue("* Starý zoznam\n3. Netradičné číslovanie");
   await expect(root.getByRole("textbox", { name: "Praktické informácie", exact: true }))
     .toHaveValue("[Kontakt](mailto:klub@example.org)");
+  await showEventSection(root, "event-basics", "Základné údaje");
   await root.getByLabel("Názov podujatia").fill("Zmenený iba názov");
   await root.getByRole("button", { name: "Uložiť zmeny" }).click();
   await expect.poll(() => requests.length).toBe(1);
@@ -350,6 +406,7 @@ for (const width of [1440, 390, 320]) {
       expect((box?.x ?? Infinity) + (box?.width ?? Infinity)).toBeLessThanOrEqual(width + 1);
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
     }
+    await showEventSection(root, "event-seo", "SEO");
     await root.getByLabel("SEO title").fill("Mobilné SEO");
     const lastSeo = root.getByLabel("Open Graph description");
     await lastSeo.fill("Dostupné posledné pole");

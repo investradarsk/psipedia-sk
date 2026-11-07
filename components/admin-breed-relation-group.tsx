@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import styles from "./admin-breed-relation-group.module.css";
+import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 
 export type BreedRelationOption = { id: number; label: string; meta?: string };
 export type BreedRelationKind = "articles" | "breeds" | "stations" | "clubs";
@@ -79,6 +80,7 @@ export function AdminBreedRelationGroup({
   }
 
   return (
+    <AdminEditorToolFrame kind="relations">
     <fieldset className={styles.group}>
       <legend>{title}</legend>
       <div className={styles.selectedHeading}>
@@ -86,7 +88,7 @@ export function AdminBreedRelationGroup({
         <span>{selected.length}</span>
       </div>
       {selected.length ? (
-        <div className={styles.selectedList}>
+        <div className={styles.selectedList} data-relation-selected-list>
           {selected.map((item) => (
             <label className={styles.selectedRow} key={item.id}>
               <input type="checkbox" checked onChange={() => toggle(item)} />
@@ -105,7 +107,7 @@ export function AdminBreedRelationGroup({
           : error ? <p className={styles.error} role="alert">{error}</p>
           : kind !== "breeds" && (loading || resolvedQuery !== trimmed) ? <p className={styles.help}>Vyhľadávam…</p>
           : available.length ? (
-            <div className={styles.resultList}>
+            <div className={styles.resultList} data-relation-result-list>
               {available.map((item) => (
                 <label className={styles.resultRow} key={item.id}>
                   <input type="checkbox" checked={false} onChange={() => toggle(item)} />
@@ -116,5 +118,6 @@ export function AdminBreedRelationGroup({
           ) : <p className={styles.help}>Žiadne ďalšie výsledky. Skús iný názov.</p>}
       </div>
     </fieldset>
+    </AdminEditorToolFrame>
   );
 }

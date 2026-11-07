@@ -268,14 +268,19 @@ test("FOUNDATION-ADMIN bulk edit shell explains changed and unchanged scope befo
 test("FOUNDATION-ADMIN drawer and sticky editor navigation keep context and provide mobile fallback", () => {
   const interaction = readFileSync(new URL("../components/admin-interaction-system.tsx", import.meta.url), "utf8");
   const interactionCss = readFileSync(new URL("../components/admin-interaction-system.module.css", import.meta.url), "utf8");
+  const sharedNavigation = readFileSync(new URL("../components/admin-shared-editor-navigation.tsx", import.meta.url), "utf8");
+  const sharedNavigationCss = readFileSync(new URL("../components/admin-shared-editor-navigation.module.css", import.meta.url), "utf8");
   assert.match(interaction, /data-admin-drawer/);
   assert.match(interactionCss, /\.drawer \{[\s\S]*position: fixed[\s\S]*height: 100dvh/);
   assert.match(interaction, /IntersectionObserver/);
-  assert.match(interaction, /aria-current=\{currentSectionId === section\.id \? "location"/);
+  assert.match(interaction, /<AdminSharedEditorNavigation/);
+  assert.match(sharedNavigation, /aria-current=\{currentId === item\.id \? "location"/);
+  assert.match(sharedNavigation, /mode === "scroll"/);
   assert.match(interaction, /target\.scrollIntoView/);
   assert.match(interaction, /target\.focus\(\{ preventScroll: true \}\)/);
   assert.match(interactionCss, /\.editorSection \{[\s\S]*scroll-margin-top:/);
-  assert.match(interactionCss, /@media \(max-width: 720px\)[\s\S]*\.editorNavigationLinks \{[\s\S]*display: none[\s\S]*\.editorNavigationMobile \{[\s\S]*display: grid/);
+  assert.match(sharedNavigationCss, /@media \(max-width: 960px\)[\s\S]*\.horizontal \.links \{ display: none; \}[\s\S]*\.horizontal \.mobile \{ display: grid/);
+  assert.match(sharedNavigationCss, /@media \(max-width: 820px\)[\s\S]*\.sidebar \.links \{ display: none; \}[\s\S]*\.sidebar \.mobile \{ display: grid/);
 });
 
 test("FOUNDATION-ADMIN proof-of-contract reuses the shared toolbar without changing article bulk endpoints", () => {

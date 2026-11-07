@@ -112,6 +112,55 @@ test("admin lost-found dashboard is protected by the existing admin layer, pagin
   await expectNoAxeViolations(page);
 });
 
+for (const width of [1440, 390, 320]) {
+  test(`Lost/Found editor keeps case details and private contacts while switching 7 panels at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/stratene-najdene/novy", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const form = page.locator("form[data-admin-lost-found-editor]");
+    await expect(form).toHaveAttribute("data-hydrated", "true");
+    const nav = form.getByRole("navigation", { name: "Sekcie editora stratených a nájdených psov" });
+    await expect(nav.locator("option")).toHaveCount(7);
+    const selectPanel = async (id: string, label: string) => {
+      const select = nav.getByRole("combobox");
+      if (await select.isVisible()) await select.selectOption(id);
+      else await nav.getByRole("button", { name: label, exact: true }).click();
+      await expect(form.locator("#" + id)).toBeVisible();
+      await expect(form.locator("#" + id)).toBeFocused();
+    };
+    const writes: string[] = [];
+    page.on("request", request => {
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) &&
+        request.url().includes("/api/admin/lost-found")) writes.push(request.url());
+    });
+    await form.getByLabel("Slug", { exact: true }).fill("testovaci-pes-bez-ulozenia");
+    await selectPanel("lost-found-dog", "Pes a plemeno");
+    await form.getByLabel("Meno, ak je známe").fill("Rex");
+    await selectPanel("lost-found-description", "Popis a identifikácia");
+    await expect(form.getByRole("textbox", { name: "Hlavný popis" })).toBeVisible();
+    await selectPanel("lost-found-location", "Dátum a bezpečná lokalita");
+    await form.getByLabel("Obec / mesto").fill("Nitra");
+    await selectPanel("lost-found-contacts", "Kontakt a súkromie");
+    await form.getByLabel("Kontaktná osoba — iba admin").fill("Testovací kontakt");
+    await form.getByLabel("E-mail — iba admin").fill("kontakt@example.invalid");
+    await selectPanel("lost-found-media", "Fotografie a galéria");
+    await expect(form.getByRole("heading", { name: "06. Fotografie a galéria" })).toBeVisible();
+    await expect(form.getByRole("button", { name: /^(Nahrať hlavnú fotografiu|Vybrať inú fotografiu)$/ })).toBeVisible();
+    await selectPanel("lost-found-moderation", "Životnosť a moderácia");
+    await expect(form.getByRole("heading", { name: /07\. Životnosť/ })).toBeVisible();
+    await selectPanel("lost-found-contacts", "Kontakt a súkromie");
+    await expect(form.getByLabel("E-mail — iba admin")).toHaveValue("kontakt@example.invalid");
+    await selectPanel("lost-found-location", "Dátum a bezpečná lokalita");
+    await expect(form.getByLabel("Obec / mesto")).toHaveValue("Nitra");
+    await selectPanel("lost-found-dog", "Pes a plemeno");
+    await expect(form.getByLabel("Meno, ak je známe")).toHaveValue("Rex");
+    await selectPanel("lost-found-basics", "Typ a stav prípadu");
+    await expect(form.getByLabel("Slug", { exact: true })).toHaveValue("testovaci-pes-bez-ulozenia");
+    expect(writes).toEqual([]);
+    await expectNoHorizontalOverflow(page);
+  });
+}
+
 test("authorized admin detail receives private contact fields from the private table", async ({ page }) => {
   const response = await page.goto("/admin/stratene-najdene/910001", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);

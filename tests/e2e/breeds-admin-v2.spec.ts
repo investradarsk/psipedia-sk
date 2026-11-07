@@ -121,20 +121,26 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.goto("/admin/plemena/novy", { waitUntil: "domcontentloaded" });
     await waitForBreedEditor(page);
     await page.getByLabel("Názov plemena").fill(draftName(testInfo));
+    await goToBreedEditorSection(page, "Prehľad", "breed-overview");
     await page.getByLabel("Krátky úvod v hero (2–4 vety)").fill("Izolovaný lokálny koncept pre BREEDS-ADMIN E2E.");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/plemena\/\d+$/);
     await waitForBreedEditor(page);
 
+    await goToBreedEditorSection(page, "Prehľad", "breed-overview");
     await page.getByLabel("Prehľad plemena").fill("Overený lokálny prehľad používaný iba v izolovanom CI.");
+    await goToBreedEditorSection(page, "Praktické", "breed-practical");
     await page.getByLabel("Každodenné potreby").fill("Lokálny test praktického obsahu.");
+    await goToBreedEditorSection(page, "Základ", "breed-basic");
     await page.getByLabel("FCI skupina", { exact: true }).fill("8");
     await page.getByLabel("FCI sekcia", { exact: true }).fill("Retrievery");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je uložený.")).toBeVisible();
     await page.reload();
     await waitForBreedEditor(page);
+    await goToBreedEditorSection(page, "Prehľad", "breed-overview");
     await expect(page.getByLabel("Prehľad plemena")).toContainText("Overený lokálny prehľad používaný iba v izolovanom CI.");
+    await goToBreedEditorSection(page, "Praktické", "breed-practical");
     await expect(page.getByLabel("Každodenné potreby")).toContainText("Lokálny test praktického obsahu.");
   });
 
@@ -168,12 +174,14 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(page.getByText("Koncept je uložený.")).toBeVisible();
     await page.reload();
     await waitForBreedEditor(page);
-
+    await goToBreedEditorSection(page, "Športy", "breed-sports");
     await expect(page.locator("#breed-sports").getByText("Nosework", { exact: true })).toBeVisible();
+    await goToBreedEditorSection(page, "Prepojenia", "breed-relations");
     await expect(page.getByLabel(/BREEDS-ADMIN súvisiaci článok/)).toBeChecked();
     await expect(page.getByLabel(/BREEDS-ADMIN Chovateľská stanica/)).toBeChecked();
     await expect(page.getByLabel(/BREEDS-ADMIN Chovateľský klub/)).toBeChecked();
 
+    await goToBreedEditorSection(page, "Športy", "breed-sports");
     const sportRow = page.getByRole("article").filter({ hasText: "Nosework" });
     await sportRow.getByRole("button", { name: "Upraviť" }).click();
     const editSport = page.getByRole("dialog", { name: "Upraviť šport" });
@@ -201,6 +209,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(drawer).toBeHidden();
     await expect(settings).toBeFocused();
 
+    await goToBreedEditorSection(page, "Fotografie", "breed-media");
     const imageSection = page.locator("#breed-media");
     await expect(imageSection.locator("img")).toBeVisible();
     await imageSection.getByRole("button", { name: "Odstrániť titulnú fotografiu" }).click();

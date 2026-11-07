@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
-import { PublicMediaFallback, PublicPhotoGallery } from "@/components/public-visual-system";
+import { PublicFoundation, PublicMediaFallback, PublicPhotoGallery } from "@/components/public-visual-system";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { DirectoryServicesList } from "@/components/directory-services-list";
 import { DirectoryOpeningHours } from "@/components/directory-opening-hours";
@@ -18,6 +18,7 @@ import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
 import {
   DetailHero,
+  DetailHeroActions,
   DetailOptionGrid,
   DetailParagraphs,
   DetailSection,
@@ -125,7 +126,7 @@ function DirectoryProfileHero({
           {showExcerpt && presentation.excerpt ? (
             <p className={styles.heroLead}>{presentation.excerpt}</p>
           ) : null}
-          <nav className={styles.heroActions} aria-label="Akcie profilu">
+          <DetailHeroActions className={styles.heroActions} label="Akcie profilu">
             <a className={styles.primaryAction} data-profile-primary-action href="#kontakt">
               Poslať dopyt
             </a>
@@ -144,7 +145,7 @@ function DirectoryProfileHero({
                 Navigovať
               </a>
             ) : null}
-          </nav>
+          </DetailHeroActions>
         </>
       }
     />
@@ -282,6 +283,7 @@ export function DirectoryProfileDetail({
     presentation.description?.trim() &&
       presentation.description.trim() !== presentation.excerpt.trim(),
   );
+
   const breederGallery = presentation.category === "chovatelske-stanice"
     ? (presentation.galleryUrls ?? []).filter((url) => url && url !== presentation.imageUrl)
     : [];
@@ -453,6 +455,7 @@ export function DirectoryProfileDetail({
 
   return (
     <main id="obsah" className={styles.page}>
+      <PublicFoundation data-public-service-detail-template="shared-event-service">
       <DirectoryProfileHero
         presentation={presentation}
         categoryLabel={category?.singular ?? "Profil služby"}
@@ -471,6 +474,7 @@ export function DirectoryProfileDetail({
           <DirectoryContactForm profileId={presentation.id} profileName={presentation.name} />
         </section>
       </PublicDetailLayout>
+      </PublicFoundation>
     </main>
   );
 }

@@ -434,8 +434,20 @@
 }
 
 .editorSection {
-  scroll-margin-top: 6.5rem;
+  scroll-margin-top: calc(var(--admin-sticky-stack, 96px) + 14px);
   outline: none;
+}
+/* EDITOR-17: focus must remain visible after keyboard section switching.
+   This is scoped to programmatically focused sections, not every card. */
+.editorSection:focus-visible {
+  outline: 3px solid var(--admin-v3-focus, #c38b31);
+  outline-offset: 3px;
+}
+@media (max-width: 380px) {
+  .editorSection {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 }
 
 .helpText {

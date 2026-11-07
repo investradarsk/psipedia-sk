@@ -1,4 +1,8 @@
 "use client";
+import { AdminEditorFooter } from "@/components/admin-editor-footer";
+import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
+import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
+import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
@@ -20,7 +24,6 @@ import {
   AdminDrawer,
   AdminEditorSection,
   AdminHelpText,
-  AdminStickyEditorNavigation,
 } from "@/components/admin-interaction-system";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { EditorStatus, EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
@@ -250,6 +253,15 @@ export function AdminDirectoryEditor({
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
   const [seo, setSeo] = useState<ArticleSeo>(profile?.seo ?? notionDraft?.seo ?? {});
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const editorSectionsForProfile = profile && category === "chovatelske-stanice"
+    ? [...editorSections.slice(0, 4), { id: "directory-breeder-links", label: "Prepojenia" }, ...editorSections.slice(4)]
+    : editorSections;
+  const [activeDirectorySection, setActiveDirectorySection] = useState(editorSectionsForProfile[0].id);
+  // Derive a valid visible section when changing category; avoid a state update in an effect.
+  const currentDirectorySection = editorSectionsForProfile.some((section) => section.id === activeDirectorySection)
+    ? activeDirectorySection
+    : editorSectionsForProfile[0].id;
+  const activeDirectoryIndex = editorSectionsForProfile.findIndex((section) => section.id === currentDirectorySection);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
   const savePendingRef = useRef(false);
@@ -351,6 +363,29 @@ export function AdminDirectoryEditor({
       setError("Najprv bezpečne importuj koncept do D1 a publikuj v natívnom editore.");
       return;
     }
+    // Unpublishing must remain possible even if legacy contact/SEO fields are invalid.
+    if (!(status === "published" && nextStatus === "draft" && !notionDraft)) {
+      // Inactive sections and the closed SEO drawer cannot receive native validation focus.
+      // Preserve the current field constraints for both Save and Publish.
+      if (!name.trim()) { setActiveDirectorySection("directory-main"); setError("Vyplň názov profilu."); setMessage(""); return; }
+      if (!slug.trim()) { setAdvancedOpen(true); setError("Vyplň URL adresu profilu."); setMessage(""); return; }
+      const invalidControl = Array.from(formRef.current?.elements ?? []).find(
+        (element): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
+          (element instanceof HTMLInputElement || element instanceof HTMLSelectElement ||
+            element instanceof HTMLTextAreaElement) && element.willValidate && !element.checkValidity(),
+      );
+      if (invalidControl) {
+        const section = invalidControl.closest<HTMLElement>("[data-admin-editor-section]");
+        if (section?.id) setActiveDirectorySection(section.id);
+        else setAdvancedOpen(true);
+        const label = invalidControl.labels?.[0]?.textContent?.trim() || "označené pole";
+        setMessage("");
+        setError(invalidControl.validity.valueMissing
+          ? `Vyplň povinné pole: ${label}.` : `Skontroluj formát poľa: ${label}.`);
+        if (section) requestAnimationFrame(() => invalidControl.focus());
+        return;
+      }
+      }
     savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
@@ -629,16 +664,12 @@ export function AdminDirectoryEditor({
 
   const categoryInfo = getDirectoryCategory(category);
   return (
-    <form ref={formRef} data-hydrated="false" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
+    <form ref={formRef} noValidate data-hydrated="false" data-admin-form-system="v4" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
+      <AdminEditorSectionVisibility.Provider value={{ activeId: currentDirectorySection, mode: "switch" }}>
       <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
 
       <div className={styles.editorTopline} data-admin-editor-navigation-container>
-        <AdminStickyEditorNavigation
-            sections={profile && category === "chovatelske-stanice"
-              ? [...editorSections.slice(0, 4), { id: "directory-breeder-links", label: "Prepojenia" }, ...editorSections.slice(4)]
-              : editorSections}
-            ariaLabel="Sekcie profilu adresára"
-          />
+        <div className={styles.toplineLabel}>Úprava profilu služby · {editorSectionsForProfile[activeDirectoryIndex]?.label ?? "Hlavné"}</div>
         <div className={styles.toplineActions}>
           <EditorStatus label={status === "published" ? "Publikovaný" : "Koncept"} tone={status === "published" ? "success" : "warning"} />
           {formDirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
@@ -658,6 +689,11 @@ export function AdminDirectoryEditor({
         </div>
       </div>
 
+      <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
+      <div className={styles.editorWorkspace} data-admin-directory-editor-workspace>
+        <AdminSharedEditorNavigation sections={editorSectionsForProfile} activeId={currentDirectorySection} onNavigate={setActiveDirectorySection}
+          layout="sidebar" mode="switch" ariaLabel="Sekcie profilu adresára" />
+        <div className={styles.editorWorkspaceContent}>
       <div className="admin-event-editor-grid">
         <div className="admin-event-fields" onChangeCapture={() => setFormDirty(true)}>
           <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} source={profile ? { entityType: "DIRECTORY", canonicalEntityId: profile.id } : undefined} onAccepted={applyAutomationUpdate} />
@@ -813,6 +849,7 @@ export function AdminDirectoryEditor({
 
           <AdminEditorSection id="directory-contacts" className="admin-form-card">
             <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Verejné kontakty sú oddelené od interného e-mailu Psipedie.</p></div></div></div>
+<AdminEditorToolFrame kind="contacts">
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="tel" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
               <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="email" value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
@@ -821,6 +858,7 @@ export function AdminDirectoryEditor({
               <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="url" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
               <div className="admin-field"><label htmlFor="directory-email">Interný e-mail <small>neverejný</small></label><input id="directory-email" type="email" value={internalEmail} onChange={(event) => setInternalEmail(event.target.value)} placeholder="kontakt@profil.sk" /></div>
             </div>
+            </AdminEditorToolFrame>
             <AdminHelpText term="Kvalita údajov">Ak profil web, telefón alebo e-mail naozaj nemá, nie je verejný alebo sa ho nepodarilo dohľadať, označ stav pri prázdnom poli. Taký údaj prestane byť falošným problémom v Kvalite údajov a po 12 mesiacoch sa automaticky znovu skontroluje.</AdminHelpText>
             <AdminHelpText term="Súkromie">Interný e-mail slúži administrácii a nezmiešava sa s verejným kontaktným contractom.</AdminHelpText>
           </AdminEditorSection>
@@ -909,6 +947,15 @@ export function AdminDirectoryEditor({
           <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Bez známej lokality"}{district ? ` · okres ${district}` : ""}{region ? ` · ${region}` : ""}</dd></div><div><dt>Adresa</dt><dd>{addressEvaluation.formattedAddress ?? (publicAddress.trim() || addressStatusText)}</dd></div></dl>
         </aside>
       </div>
+      <nav className={styles.sectionPager} aria-label="Prechod medzi sekciami služby">
+        <AdminActionButton variant="secondary" disabled={activeDirectoryIndex <= 0}
+          onClick={() => setActiveDirectorySection(editorSectionsForProfile[activeDirectoryIndex - 1]?.id ?? editorSectionsForProfile[0].id)}>Predchádzajúca</AdminActionButton>
+        <span role="status">Sekcia {activeDirectoryIndex + 1} z {editorSectionsForProfile.length}</span>
+        <AdminActionButton variant="secondary" disabled={activeDirectoryIndex >= editorSectionsForProfile.length - 1}
+          onClick={() => setActiveDirectorySection(editorSectionsForProfile[activeDirectoryIndex + 1]?.id ?? editorSectionsForProfile[editorSectionsForProfile.length - 1].id)}>Ďalšia</AdminActionButton>
+      </nav>
+        </div>
+      </div>
 
       {imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={name || "Profil"} title={name} excerpt={excerpt} entityLabel="profilu služby" thumbnailAspectRatio="1 / 1" thumbnailLayout="compact"
          thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
@@ -921,13 +968,14 @@ export function AdminDirectoryEditor({
         footer={<AdminActionButton variant="primary" onClick={() => setAdvancedOpen(false)}>Hotovo</AdminActionButton>}
       >
         <div className={styles.drawerFields}>
-          <div className="admin-field"><label htmlFor="directory-slug">Adresa profilu</label><div className="admin-slug-input"><span>psipedia.sk/adresar/{category}/</span><input id="directory-slug" value={slug} onChange={(event) => { setSlugEdited(true); setSlug(slugify(event.target.value)); }} placeholder="nazov-profilu" required /></div></div>
+          <div className="admin-field"><label htmlFor="directory-slug">Adresa profilu</label><div className="admin-slug-input"><span>psipedia.sk/adresar/{category}/</span><input id="directory-slug" value={slug} onChange={(event) => { setSlugEdited(true); setSlug(slugify(event.target.value)); setFormDirty(true); }} placeholder="nazov-profilu" required /></div></div>
           <AdminSeoFields value={seo} onChange={(next) => { setSeo(next); setFormDirty(true); }} canonicalPath={`/adresar/${category}/${slug}`} fallbackTitle={directorySeoFallback(name || "Názov profilu", city, category).title} fallbackDescription={directorySeoFallback(name || "Názov profilu", city, category).description} />
         </div>
       </AdminDrawer>
 
       </NotionDraftFields>
-      <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
+      </AdminEditorSectionVisibility.Provider>
+      <AdminEditorFooter dirty={formDirty} pending={saving}>
       <div className="admin-editor-actions">
         <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" ref={directoryBackLinkRef} onClick={event => {
           // Preserve native behavior for modified clicks and background tabs.
@@ -959,6 +1007,7 @@ export function AdminDirectoryEditor({
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
         </div>
       </div>
+      </AdminEditorFooter>
       {!notionDraft && <Link href={createdProfileHref || "/admin/adresar"} ref={createdProfileLinkRef} hidden tabIndex={-1} aria-hidden="true">Otvoriť vytvorený profil</Link>}
       <EditorUnsavedChangesGuard
         active={formDirty}

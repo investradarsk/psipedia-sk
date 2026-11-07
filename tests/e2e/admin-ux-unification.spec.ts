@@ -69,7 +69,11 @@ for (const editor of editors) {
     const value = `Neuložený test ${editor.key}`;
     // Wait for the client editor, then verify that moving within the editor
     // never sends a mutation or replaces typed state.
-    if (editor.key === "article") await expect(page.locator('#article-intro[data-editor-ready="true"]')).toBeVisible();
+    if (editor.key === "article") {
+      // Lexical stays initialized in the mounted, but inactive, content section.
+      await expect(page.locator('#article-intro[data-editor-ready="true"]')).toHaveCount(1);
+      await expect(page.locator("#article-basics")).toBeVisible();
+    }
     if (editor.key === "breed") await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
     // Preserve main's hydration gate: the directory is server-rendered before
     // its interactive navigation becomes available on slower mobile workers.
@@ -108,24 +112,29 @@ for (const editor of editors) {
         }
         await select.selectOption(target);
       }
-      else if (sharedWorkspace) {
+      else {
+        // All canonical editors migrated to "switch" in steps 7–15.
+        // In this mode navigation uses real buttons, not scroll anchors or hash.
         const label = await nav.locator("select option").evaluateAll((elements, value) =>
           elements.find(element => (element as HTMLOptionElement).value === value)?.textContent?.trim() ?? "", target);
         await nav.getByRole("button", { name: label, exact: true }).click();
-      } else {
-        await nav.locator(`a[href$="#${target}"]`).click();
       }
-      if (sharedWorkspace) await expect(page.locator(`#${target}`)).toBeFocused();
-      else await expect(page).toHaveURL(new RegExp(`#${target}$`));
+      await expect(page.locator(`#${target}`)).toBeVisible();
+      await expect(page.locator(`#${target}`)).toBeFocused();
       await expect(field).toHaveValue(value);
-      await expect.poll(async () => {
-        const section = await page.locator(`#${target}`).boundingBox();
-        const box = await nav.boundingBox();
-        return (section?.y ?? -1) >= (box?.y ?? 0) + (box?.height ?? 0) - 1;
-      }).toBe(true);
-      // The editor can sit just above the viewport edge after scrolling, but its
-      // navigation must remain visibly usable rather than merely having a positive top.
-      await expect(nav).toBeInViewport({ ratio: 0.5 });
+      // Keyboard focus follows the chosen section in switch mode;
+      // returning to the initial panel must keep the unsaved field value.
+      const initial = options[0];
+      const selectBack = nav.getByRole("combobox");
+      if (await selectBack.isVisible()) await selectBack.selectOption(initial);
+      else {
+        const initialLabel = await nav.locator("select option").evaluateAll((elements, value) =>
+          elements.find(element => (element as HTMLOptionElement).value === value)?.textContent?.trim() ?? "", initial);
+        await nav.getByRole("button", { name: initialLabel, exact: true }).click();
+      }
+      await expect(page.locator(`#${initial}`)).toBeVisible();
+      await expect(field).toBeVisible();
+      await expect(field).toHaveValue(value);
     }
     expect(writes).toEqual([]);
     await noOverflow(page);
@@ -137,6 +146,50 @@ for (const editor of editors) {
     }
     await mkdir(".e2e-artifacts/admin-ux-unification/verified", { recursive: true });
     await page.screenshot({ path: `.e2e-artifacts/admin-ux-unification/verified/${editor.key}-${testInfo.project.name}.png` });
+  });
+}
+
+for (const width of [1440, 390, 320]) {
+  test(`help: mounted single-section editor preserves values at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/pomoc/novy");
+    expect(response?.status()).toBe(200);
+    const nav = page.getByRole("navigation", { name: "Sekcie editora Pomoc psom" });
+    const title = page.locator("#help-title");
+    await expect(title).toBeEditable();
+    await title.fill("Pomoc psom – skúšobná výzva");
+    const written: string[] = [];
+    page.on("request", (request) => {
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method())
+          && request.url().includes("/api/admin/help")) written.push(request.url());
+    });
+    const activate = async (id: string, name: string) => {
+      const select = nav.getByRole("combobox");
+      if (await select.isVisible()) await select.selectOption(id);
+      else await nav.getByRole("button", { name, exact: true }).click();
+      await expect(page.locator("#" + id)).toBeVisible();
+    };
+    await activate("help-place", "Zaradenie a lokalita");
+    await expect(title).toBeHidden();
+    await page.locator("#help-organization").fill("Záchranné centrum");
+    await activate("help-story", "Prípad a pes");
+    await expect(page.locator("#help-dog-name")).toBeEditable();
+    await page.locator("#help-dog-name").fill("Ben");
+    await activate("help-action", "Výzva a zbierka");
+    await expect(page.locator("#help-action-url")).toBeEditable();
+    await activate("help-media", "Fotografia a stav");
+    await expect(page.locator("#help-slug")).toBeEditable();
+    await activate("help-seo", "SEO");
+    await expect(page.locator("#help-seo")).toBeVisible();
+    await activate("help-place", "Zaradenie a lokalita");
+    await expect(page.locator("#help-organization")).toHaveValue("Záchranné centrum");
+    await activate("help-story", "Prípad a pes");
+    await expect(page.locator("#help-dog-name")).toHaveValue("Ben");
+    await activate("help-basics", "Základné údaje");
+    await expect(title).toHaveValue("Pomoc psom – skúšobná výzva");
+    expect(written).toEqual([]);
+    await noOverflow(page);
+    await accessible(page);
   });
 }
 

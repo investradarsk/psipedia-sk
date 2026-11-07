@@ -119,3 +119,61 @@
   .toplineActions { gap: 0.35rem; }
   .toplineActions :global(button) { min-height: 44px; }
 }
+
+
+/* EDITOR-9: the canonical service editor shares the breed/article section switch.
+   All panels stay mounted; hidden ones cannot take layout space or keyboard focus. */
+.editor { container-type: inline-size; }
+.toplineLabel {
+  color: var(--admin-v3-heading, #173b2d);
+  font-weight: 800;
+  font-size: 0.92rem;
+  padding: 0.55rem 0;
+  overflow-wrap: anywhere;
+}
+.editorWorkspace {
+  display: grid;
+  grid-template-columns: minmax(172px, 214px) minmax(0, 1fr);
+  gap: clamp(0.6rem, 1.4vw, 1rem);
+  min-width: 0;
+  align-items: start;
+}
+.editorWorkspaceContent { min-width: 0; max-width: 100%; }
+.editorWorkspaceContent :global(.admin-event-editor-grid),
+.editorWorkspaceContent :global(.admin-event-fields),
+.editorWorkspaceContent :global(.admin-event-preview) { min-width: 0; max-width: 100%; }
+.editorWorkspaceContent :global([data-admin-editor-section]) { min-width: 0; margin: 0; }
+.editorWorkspaceContent :global([data-admin-editor-section][hidden]) { display: none !important; }
+.sectionPager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  padding: 0.55rem 0 0.2rem;
+  color: var(--admin-v3-muted, #52695c);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.sectionPager button { min-height: 44px; }
+@container (max-width: 860px) {
+  .editorWorkspace { grid-template-columns: minmax(0, 1fr); }
+  .editorWorkspace :global([data-admin-shared-editor-navigation]) {
+    position: static;
+    top: auto;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: transparent;
+  }
+  .editorWorkspace :global([data-admin-shared-editor-navigation] > div) { display: none; }
+  .editorWorkspace :global([data-admin-shared-editor-navigation] > label) { display: grid; gap: 4px; }
+  .editorWorkspaceContent :global(.admin-event-editor-grid) { grid-template-columns: minmax(0, 1fr); }
+}
+@container (max-width: 420px) {
+  .sectionPager { gap: 0.35rem; }
+  .sectionPager button { flex: 1 1 auto; }
+  .sectionPager span { order: -1; width: 100%; text-align: center; }
+  .editorWorkspaceContent :global(.admin-field-grid) { grid-template-columns: minmax(0, 1fr); }
+}

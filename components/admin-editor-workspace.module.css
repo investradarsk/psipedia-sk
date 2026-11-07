@@ -91,8 +91,15 @@ dialog.workspaceModal[open] > div:nth-child(3) {
   outline: 3px solid var(--admin-v3-focus, #d59834);
   outline-offset: 2px;
 }
+/* Keep selected switch-navigation controls readable, also when the mouse
+   remains over a newly selected item (aria-current="step"). */
+.navigation :global([data-admin-shared-editor-navigation] button[aria-current]) {
+  background: var(--admin-v3-green, #173f2d);
+  border-color: var(--admin-v3-green, #173f2d);
+  color: #fff;
+}
 .navigation .previewToggle { border: 1px solid var(--admin-v3-control-border, #b9c9bd); flex: 0 0 auto; }
-.navigation button:hover:not(:disabled):not([aria-current="location"]):not([aria-pressed="true"]) {
+.navigation button:hover:not(:disabled):not([aria-current]):not([aria-pressed="true"]) {
   background: var(--admin-v3-neutral-background, #f5f8f6);
 }
 .navigation button:disabled { cursor: not-allowed; opacity: .58; }
@@ -354,5 +361,142 @@ dialog.workspaceModal[open] :is(h2, h3),
     min-height: 0;
     overflow: visible;
     overscroll-behavior: auto;
+  }
+}
+
+
+/* UNIFIED-EDITOR-3: one document scroll for all page-mode canonical editors.
+   Dialog-mode EditorWorkspace keeps its own bounded pane and modal focus trap. */
+.pageWorkspace {
+  overflow: visible;
+  min-height: 0;
+}
+.pageWorkspace > .workspace {
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+.pageWorkspace .columns,
+.pageWorkspace .columns[data-editor-columns="with-preview"] {
+  flex: none;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  align-items: start;
+}
+.pageWorkspace .content,
+.pageWorkspace .preview {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  overscroll-behavior: auto;
+}
+.pageWorkspace .content [data-admin-editor-section] {
+  scroll-margin-top: calc(var(--admin-sticky-stack, 96px) + 86px);
+}
+.pageWorkspace .navigation {
+  position: sticky;
+  top: var(--admin-sticky-stack, 96px);
+  z-index: 9;
+  border: 1px solid var(--admin-v3-line, #dce5de);
+  border-radius: 10px;
+}
+.pageWorkspace .pageActions {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background: #fff;
+  box-shadow: 0 -5px 17px rgb(23 53 43 / 7%);
+}
+@media (max-width: 820px) {
+  .pageWorkspace .content [data-admin-editor-section] {
+    scroll-margin-top: calc(var(--admin-sticky-stack, 96px) + 84px);
+  }
+}
+
+
+/* EDITOR-7: single-section canonical breed editor. Scope every rule to its
+   opt-in attribute; existing long-form article/event editors are untouched. */
+.pageWorkspace[data-editor-section-mode="switch"] > .workspace {
+  display: grid;
+  grid-template-columns: minmax(174px, 216px) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  min-height: 0;
+  max-height: none;
+}
+.pageWorkspace[data-editor-section-mode="switch"] .navigation {
+  grid-column: 1;
+  position: sticky;
+  top: calc(var(--admin-sticky-stack, 96px) + 10px);
+  align-self: start;
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.pageWorkspace[data-editor-section-mode="switch"] .columns {
+  grid-column: 2;
+  min-width: 0;
+  width: 100%;
+  display: block;
+  padding: 0;
+}
+.pageWorkspace[data-editor-section-mode="switch"] .content {
+  padding: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+}
+.pageWorkspace[data-editor-section-mode="switch"] .content [data-admin-editor-section][hidden] {
+  display: none !important;
+}
+.pageWorkspace[data-editor-section-mode="switch"] .content [data-admin-editor-section-active="true"] {
+  display: block;
+  min-width: 0;
+  scroll-margin-top: calc(var(--admin-sticky-stack, 96px) + 15px);
+}
+.pageWorkspace[data-editor-section-mode="switch"] .content [data-admin-editor-section-active="true"] > :global(.admin-form-card) {
+  margin-top: 0;
+}
+@media (max-width: 820px) {
+  .pageWorkspace[data-editor-section-mode="switch"] > .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .pageWorkspace[data-editor-section-mode="switch"] .navigation,
+  .pageWorkspace[data-editor-section-mode="switch"] .columns {
+    grid-column: 1;
+  }
+  .pageWorkspace[data-editor-section-mode="switch"] .navigation {
+    position: sticky;
+    top: var(--admin-sticky-stack, 96px);
+    z-index: 10;
+    padding: 7px 9px;
+    border: 1px solid var(--admin-v3-line, #dce5de);
+    border-radius: 10px;
+    background: var(--admin-v3-surface, #fff);
+  }
+}
+
+/* EDITOR-17: also show a focus cue on plain section nodes (articles/events).
+   Shared AdminEditorSection has its own focus ring. */
+.pageWorkspace[data-editor-section-mode="switch"] .content
+  [data-admin-editor-section-active="true"]:focus-visible {
+  outline: 3px solid var(--admin-v3-focus, #c38b31);
+  outline-offset: 3px;
+}
+@media (max-width: 380px) {
+  .pageWorkspace[data-editor-section-mode="switch"] > .workspace,
+  .pageWorkspace[data-editor-section-mode="switch"] .columns,
+  .pageWorkspace[data-editor-section-mode="switch"] .content {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .pageWorkspace[data-editor-section-mode="switch"] .content
+    [data-admin-editor-section-active="true"] {
+    overflow-wrap: anywhere;
   }
 }

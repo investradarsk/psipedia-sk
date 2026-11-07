@@ -10,6 +10,7 @@ import type { PublicMapRuntime } from "@/lib/public-map-runtime";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import {
   DetailHero,
+  DetailHeroActions,
   DetailSection,
   PublicDetailLayout,
 } from "./detail-primitives/detail-primitives";
@@ -170,6 +171,24 @@ export function EventDetail({
                     <dd>{event.organizer}</dd>
                   </div>
                 )}
+                {event.admissionFee && (
+                  <div>
+                    <dt>Vstupné</dt>
+                    <dd>{event.admissionFee}</dd>
+                  </div>
+                )}
+                {event.contactPhone && (
+                  <div>
+                    <dt>Verejný telefón</dt>
+                    <dd><a href={`tel:${event.contactPhone.replace(/[^+\d]/g, "")}`}>{event.contactPhone}</a></dd>
+                  </div>
+                )}
+                {event.contactEmail && (
+                  <div>
+                    <dt>Verejný e-mail</dt>
+                    <dd><a href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></dd>
+                  </div>
+                )}
               </dl>
               {updatedLabel && (
                 <p className={styles.detailUpdated}>
@@ -177,7 +196,7 @@ export function EventDetail({
                 </p>
               )}
               {hasActions && (
-                <nav className={detailStyles.heroActions} aria-label="Odkazy podujatia">
+                <DetailHeroActions className={detailStyles.heroActions} label="Odkazy podujatia">
                   {showRegistration && event.registrationUrl && (
                     <PublicActionLink
                       className={detailStyles.primaryAction}
@@ -201,7 +220,7 @@ export function EventDetail({
                       Oficiálna stránka
                     </PublicActionLink>
                   )}
-                </nav>
+                </DetailHeroActions>
               )}
             </>
           }

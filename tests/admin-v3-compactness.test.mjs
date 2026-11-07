@@ -47,7 +47,12 @@ test("compactness is admin-only and retains explicit mobile drawer clearance", (
   assert.match(compact("navigation"), /\.mobileGroup a \{ min-height: 44px/);
   assert.match(compact("navigation"), /\.groupButton \{ min-height: 44px/);
   assert.doesNotMatch(compact("global"), /overflow-x:\s*hidden/);
-  assert.doesNotMatch(compact("editor"), /display:\s*none/);
+  const editorCompact = compact("editor");
+  const optInSwitch = editorCompact.indexOf("/* EDITOR-7:");
+  assert.ok(optInSwitch > 0, "single-section display changes must be strictly opt-in");
+  assert.doesNotMatch(editorCompact.slice(0, optInSwitch), /display:\s*none/);
+  assert.match(editorCompact.slice(optInSwitch), /data-editor-section-mode="switch"/);
+  assert.match(editorCompact.slice(optInSwitch), /\[data-admin-editor-section\]\[hidden\]/);
 });
 
 test("reduced whitespace never trades away core mobile hit targets", () => {

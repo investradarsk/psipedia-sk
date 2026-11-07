@@ -77,6 +77,19 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);assert.ok(overflow<=1,`${name} ${width} overflow ${overflow}`);
  const hero=page.locator('[data-public-detail-hero]'); assert.equal(await hero.count(),1);
  assert.equal(await page.locator('main h1').count(),1);
+ // STEP-16: service and event details use exactly one shared hero action template.
+ // Minimal events may have no external actions, but services always expose inquiry.
+ if(name.startsWith('directory') || name==='event') {
+   const actions=hero.locator('[data-public-detail-actions]');
+   assert.equal(await actions.count(),1,name+' must have the shared hero action row');
+   assert.equal(await actions.getAttribute('aria-label'),name==='event'?'Odkazy podujatia':'Akcie profilu');
+   if(name.startsWith('directory')) {
+     assert.equal(await page.locator('[data-public-service-detail-template="shared-event-service"]').count(),1);
+     assert.equal(await actions.locator('a[href="#kontakt"]').count(),1);
+   } else {
+     assert.ok((await actions.locator('a').count())>=1,'event retains registration or official-site action');
+   }
+ }
  const image=hero.locator('[data-public-profile-media]');
  if(await image.count()) {
   // The captured event photo is an external source that this offline fixture

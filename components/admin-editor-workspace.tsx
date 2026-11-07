@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useMemo,
   useId,
   useRef,
   useState,
@@ -15,6 +16,9 @@ import {
   AdminModalDialog,
 } from "@/components/admin-interaction-system";
 import styles from "./admin-editor-workspace.module.css";
+import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
+import { AdminEditorFooter } from "@/components/admin-editor-footer";
+import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
 
 export { AdminEditorSection as EditorSection } from "@/components/admin-interaction-system";
 
@@ -69,6 +73,7 @@ export function EditorSectionNavigation({
   previewAvailable = false,
   showingPreview = false,
   onTogglePreview,
+  sectionMode = "scroll",
 }: {
   sections: EditorWorkspaceSection[];
   activeSection: string;
@@ -76,31 +81,18 @@ export function EditorSectionNavigation({
   previewAvailable?: boolean;
   showingPreview?: boolean;
   onTogglePreview?: () => void;
+  sectionMode?: "scroll" | "switch";
 }) {
   return (
-    <nav className={styles.navigation} aria-label="Sekcie pracovného editora" data-editor-navigation>
-      <div className={styles.navigationLinks}>
-        {sections.map((section) => (
-          <button
-            key={section.id}
-            type="button"
-            aria-current={!showingPreview && activeSection === section.id ? "location" : undefined}
-            onClick={() => onNavigate(section.id)}
-          >
-            {section.label}
-          </button>
-        ))}
-      </div>
-      <label className={styles.mobileSectionSelect}>
-        <span>Sekcia editora</span>
-        <select
-          aria-label="Sekcia editora"
-          value={activeSection}
-          onChange={(event) => onNavigate(event.target.value)}
-        >
-          {sections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
-        </select>
-      </label>
+    <div className={styles.navigation} data-editor-navigation>
+      <AdminSharedEditorNavigation
+        sections={sections}
+        activeId={activeSection}
+        onNavigate={onNavigate}
+        ariaLabel="Sekcie pracovného editora"
+        mode={sectionMode}
+        layout={sectionMode === "switch" ? "sidebar" : "horizontal"}
+      />
       {previewAvailable && (
         <button
           className={styles.previewToggle}
@@ -111,7 +103,7 @@ export function EditorSectionNavigation({
           {showingPreview ? "Späť na úpravy" : "Náhľad"}
         </button>
       )}
-    </nav>
+    </div>
   );
 }
 
@@ -157,14 +149,15 @@ export function EditorActionBar({
   feedback?: ReactNode;
 }) {
   return (
-    <div className={styles.actionBar} data-editor-actionbar>
-      <div className={styles.actionStart}>
-        {destructive}
-        {message && <div className={styles.actionMessage} role="status" aria-live="polite">{message}</div>}
-        {feedback}
-      </div>
-      <div className={styles.actionEnd}>{secondary}{primary}</div>
-    </div>
+    <AdminEditorFooter
+      className={styles.actionBar}
+      data-editor-actionbar
+      destructive={destructive}
+      message={message}
+      feedback={feedback}
+    >
+      {secondary}{primary}
+    </AdminEditorFooter>
   );
 }
 
@@ -226,6 +219,9 @@ export function EditorWorkspace({
   onClose,
   closeLabel,
   children,
+  sectionMode = "scroll",
+  activeSectionId,
+  onSectionChange,
 }: {
   mode?: "modal" | "page";
   open?: boolean;
@@ -233,6 +229,11 @@ export function EditorWorkspace({
   description?: string;
   status?: ReactNode;
   sections: EditorWorkspaceSection[];
+  /** One mounted section at a time (opt-in for canonical breed editor). */
+  sectionMode?: "scroll" | "switch";
+  /** Optional controlled section selection allows callers to reveal validation errors. */
+  activeSectionId?: string;
+  onSectionChange?: (id: string) => void;
   preview?: ReactNode;
   previewTitle?: string;
   previewFocusable?: boolean;
@@ -247,6 +248,28 @@ export function EditorWorkspace({
   const [showPreview, setShowPreview] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const currentSection = sections.some((section) => section.id === (activeSectionId ?? activeSection))
+    ? (activeSectionId ?? activeSection)
+    : sections[0]?.id ?? "";
+  const sectionVisibility = useMemo(() => ({ activeId: currentSection, mode: sectionMode }), [currentSection, sectionMode]);
+  // A page editor follows the document viewport; modal editors retain their
+  // isolated scroll pane and keyboard/focus behavior.
+  useEffect(() => {
+    if (mode !== "page" || sectionMode === "switch" || typeof IntersectionObserver === "undefined") return;
+    const pane = contentRef.current;
+    if (!pane) return;
+    const allowed = new Set(sections.map((section) => section.id));
+    const targets = Array.from(pane.querySelectorAll<HTMLElement>("[data-admin-editor-section]"))
+      .filter((section) => allowed.has(section.id));
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting)
+        .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
+      if (visible) setActiveSection(visible.target.id);
+    }, { root: null, rootMargin: "-18% 0px -66% 0px", threshold: 0 });
+    targets.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [mode, sectionMode, sections]);
+
   const requestClose = useCallback(() => {
     if (!onClose) return;
     if (dirty) setConfirmClose(true);
@@ -257,16 +280,35 @@ export function EditorWorkspace({
     onClose?.();
   };
   const navigate = (id: string) => {
+    if (!sections.some((section) => section.id === id)) return;
     setShowPreview(false);
     setActiveSection(id);
+    onSectionChange?.(id);
+    if (sectionMode === "switch") {
+      // Sections remain mounted and preserve their uncontrolled editor buffers.
+      // Let React reveal the next section before a browser focus/scroll attempt.
+      contentRef.current?.closest<HTMLElement>("[data-editor-page]")
+        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+      // Keep keyboard focus on the newly visible panel after a section switch.
+      window.requestAnimationFrame(() => {
+        const target = Array.from(contentRef.current?.querySelectorAll<HTMLElement>("[data-admin-editor-section]") ?? [])
+          .find((section) => section.id === id);
+        target?.focus({ preventScroll: true });
+      });
+      return;
+    }
     const target = Array.from(contentRef.current?.querySelectorAll<HTMLElement>("[data-admin-editor-section]") ?? [])
       .find((section) => section.id === id);
     if (target && contentRef.current) {
-      // Scroll only the internal editor pane. scrollIntoView() also scrolls
-      // document ancestors, pushing page-mode navigation outside the viewport.
-      const pane = contentRef.current;
-      const relativeTop = target.getBoundingClientRect().top - pane.getBoundingClientRect().top;
-      pane.scrollTo({ top: pane.scrollTop + relativeTop - 12, behavior: "smooth" });
+      if (mode === "page") {
+        // Page editors scroll the document, never an inner pane.
+        target.scrollIntoView({ block: "start", behavior: "smooth" });
+      } else {
+        // Dialogs keep their dedicated scroll region.
+        const pane = contentRef.current;
+        const relativeTop = target.getBoundingClientRect().top - pane.getBoundingClientRect().top;
+        pane.scrollTo({ top: pane.scrollTop + relativeTop - 12, behavior: "smooth" });
+      }
       target.focus({ preventScroll: true });
     }
   };
@@ -278,14 +320,19 @@ export function EditorWorkspace({
       <EditorHeader status={mode === "modal" ? status : undefined} />
       <EditorSectionNavigation
         sections={sections}
-        activeSection={activeSection}
+        activeSection={currentSection}
         onNavigate={navigate}
+        sectionMode={sectionMode}
         previewAvailable={Boolean(preview)}
         showingPreview={showPreview}
         onTogglePreview={() => setShowPreview((value) => !value)}
       />
       <div className={styles.columns} data-editor-columns={preview ? "with-preview" : "single"}>
-        <EditorContent contentRef={contentRef}>{children}</EditorContent>
+        <EditorContent contentRef={contentRef}>
+          <AdminEditorSectionVisibility.Provider value={sectionVisibility}>
+            {children}
+          </AdminEditorSectionVisibility.Provider>
+        </EditorContent>
         {preview && <EditorPreview title={previewTitle} focusable={previewFocusable}>{preview}</EditorPreview>}
       </div>
     </div>
@@ -305,7 +352,7 @@ export function EditorWorkspace({
           {body}
         </AdminModalDialog>
       ) : (
-        <section className={styles.pageWorkspace} aria-label={title} data-editor-page>
+        <section className={styles.pageWorkspace} aria-label={title} data-editor-page data-admin-form-system="v4" data-editor-section-mode={sectionMode}>
           <EditorHeader title={title} description={description} status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
           {body}
           {resolvedActions && <div className={styles.pageActions}>{resolvedActions}</div>}

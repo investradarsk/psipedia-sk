@@ -1,0 +1,22 @@
+/* Common minimal framing for existing admin tools; their own logic stays unchanged. */
+.frame { --tool-line: var(--admin-v3-line, #d8e4db); --tool-text: var(--admin-v3-label, #345447); display: grid; gap: 0.7rem; min-width: 0; width: 100%; box-sizing: border-box; }
+.description { margin: 0; color: var(--tool-text); font-size: 0.82rem; line-height: 1.55; }
+.frame > :global(.admin-form-card) { min-width: 0; max-width: 100%; }
+.frame :global([data-admin-editor-tool-input]) { max-width: 100%; box-sizing: border-box; }
+.frame :global(button):focus-visible, .frame :global(a):focus-visible { outline: 3px solid var(--admin-v3-focus, #a26a1b); outline-offset: 2px; }
+.frame[data-admin-editor-tool="image"] { display: block; }
+.frame[data-admin-editor-tool="gallery"] { gap: 0.65rem; }
+.frame[data-admin-editor-tool="gallery"] :global([data-admin-photo-gallery]) { min-width: 0; }
+.frame[data-admin-editor-tool="map"] { gap: 0.8rem; }
+.frame[data-admin-editor-tool="seo"] :global(.admin-seo-card) { min-width: 0; }
+.frame[data-admin-editor-tool="contacts"] { gap: 0.55rem; }
+.frame[data-admin-editor-tool="relations"] { gap: 0.5rem; }
+@media (max-width: 820px) { .frame { gap: 0.55rem; } }
+
+/* The same rhythm and minimum targets apply to every existing tool. */
+.frame :global(.admin-card-heading) :is(h2, h3) { color: var(--admin-v3-green, #174b38); line-height: 1.35; }
+.frame :global(.admin-field-grid) { min-width: 0; gap: 0.75rem 0.9rem; }
+.frame :global(.admin-upload-button), .frame :global(button) { min-height: 44px; }
+.frame :global(.admin-upload-button):focus-visible { outline: 3px solid var(--admin-v3-focus, #a26a1b); outline-offset: 2px; }
+.frame :global(input[type="file"]) { max-width: none; }
+@media (max-width: 820px) { .frame :global(.admin-field-grid) { grid-template-columns: minmax(0, 1fr); } }

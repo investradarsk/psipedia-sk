@@ -1,4 +1,5 @@
 "use client";
+import { AdminEditorSection } from "@/components/admin-interaction-system";
 
 import {useState} from "react";
 import {AdminLexicalAppendButton} from "@/components/admin-lexical-append-button";
@@ -24,7 +25,7 @@ const labels = {
 export function AdminAdoptionEditorProfile({ item, breeds, publishing, onProgrammaticChange }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; publishing: boolean; onProgrammaticChange?: () => void }) {
   const [description,setDescription]=useState(item?.description??"");
   return <>
-    <section className="admin-form-card">
+    <AdminEditorSection id="adoption-dog" className="admin-form-card">
       <div className="admin-card-heading"><div><span>02</span><div><h2>Plemeno a profil</h2><p>Vek, pohlavie, veľkosť a fyzické údaje.</p></div></div></div>
       <div className="admin-field-grid">
         <div className="admin-field"><label htmlFor="adoption-breed">Plemeno z databázy</label>{!breeds.available && item?.breedId ? <input type="hidden" name="breedId" value={item.breedId} /> : null}<select id="adoption-breed" name="breedId" defaultValue={item?.breedId ?? ""} disabled={!breeds.available}><option value="">{breeds.available ? "Bez väzby / kríženec / neznáme" : "Plemená sú momentálne nedostupné"}</option>{breeds.options.map((breed) => <option key={breed.id} value={breed.id}>{breed.name}</option>)}</select></div>
@@ -38,18 +39,18 @@ export function AdminAdoptionEditorProfile({ item, breeds, publishing, onProgram
         <div className="admin-field"><label htmlFor="adoption-color">Farba</label><input id="adoption-color" name="color" defaultValue={item?.color ?? ""}/></div>
         <div className="admin-field"><label htmlFor="adoption-activity">Aktivita</label><select id="adoption-activity" name="activityLevel" defaultValue={item?.activityLevel ?? "UNKNOWN"}>{adoptionActivityLevels.map((value) => <option key={value} value={value}>{labels.activity[value]}</option>)}</select></div>
       </div>
-    </section>
+    </AdminEditorSection>
 
-    <section className="admin-form-card">
+    <AdminEditorSection id="adoption-location" className="admin-form-card">
       <div className="admin-card-heading"><div><span>03</span><div><h2>Lokalita</h2><p>Kraj, okres a mesto podľa modelu.</p></div></div></div>
       <div className="admin-field-grid">
         <div className="admin-field"><label htmlFor="adoption-region">Kraj{publishing ? " *" : ""}</label><select id="adoption-region" name="region" defaultValue={item?.region ?? ""}><option value="">Neuvedený</option>{adoptionRegions.map((value) => <option key={value}>{value}</option>)}</select></div>
         <div className="admin-field"><label htmlFor="adoption-district">Okres</label><input id="adoption-district" name="district" defaultValue={item?.district ?? ""}/></div>
         <div className="admin-field"><label htmlFor="adoption-city">Mesto{publishing ? " *" : ""}</label><input id="adoption-city" name="city" defaultValue={item?.city ?? ""} required={publishing}/></div>
       </div>
-    </section>
+    </AdminEditorSection>
 
-    <section className="admin-form-card">
+    <AdminEditorSection id="adoption-personality" className="admin-form-card">
       <div className="admin-card-heading"><div><span>04</span><div><h2>Povaha a kompatibilita</h2><p>Opis psa a overené vzťahy k domácnosti.</p></div></div></div>
       <div className="admin-field"><label htmlFor="adoption-short">Krátky popis{publishing ? " *" : ""}</label><AdminLexicalTextField id="adoption-short" name="shortDescription" rows={3} defaultValue={item?.shortDescription ?? ""} required={publishing} onChange={() => onProgrammaticChange?.()} ariaLabel="Krátky popis" /></div>
       <div className="admin-field"><label htmlFor="adoption-description">Príbeh a podrobný popis{publishing ? " *" : ""}</label><AdminLexicalTextField id="adoption-description" name="description" rows={8} value={description} onChange={(next) => { setDescription(next); onProgrammaticChange?.(); }} required={publishing} ariaLabel="Príbeh a podrobný popis" /><AdminLexicalAppendButton onAppend={text=>{ onProgrammaticChange?.(); setDescription(current=>appendLexicalPlainText(current,text)); }}/></div>
@@ -61,6 +62,6 @@ export function AdminAdoptionEditorProfile({ item, breeds, publishing, onProgram
         {[["apartmentSuitable","Vhodný do bytu",item?.apartmentSuitable],["beginnerSuitable","Pre začiatočníka",item?.beginnerSuitable]].map(([key,label,value]) => <div className="admin-field" key={String(key)}><label htmlFor={`adoption-${key}`}>{label}</label><select id={`adoption-${key}`} name={String(key)} defaultValue={value === true ? "true" : value === false ? "false" : ""}><option value="">Neoverené</option><option value="true">Áno</option><option value="false">Nie</option></select></div>)}
         <label className="admin-event-cancelled"><input type="checkbox" name="needsExperiencedOwner" defaultChecked={item?.needsExperiencedOwner ?? false}/><span><strong>Potrebuje skúseného majiteľa</strong></span></label>
       </div>
-    </section>
+    </AdminEditorSection>
   </>;
 }

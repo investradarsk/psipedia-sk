@@ -4,6 +4,7 @@ import { AdminMobileDocumentNavigation } from "@/components/admin-mobile-documen
 import { AdminQueryProvider } from "@/components/admin-query-provider";
 import "./admin-legacy-scoped.css";
 import "./admin-workspace.css";
+import "./admin-unified-forms.css";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import "driver.js/dist/driver.css";
