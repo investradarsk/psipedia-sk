@@ -221,7 +221,7 @@ async function main() {
     pinnedGitBlob, recoveryBookmark:bookmark,before,after:before,
     applied:null, note:"Apply outcome not yet verified; inspect production D1."});
   runWrangler(["d1","execute",database,"--remote","--config",configPath,
-    "--file",sqlPath,"--json"]);
+    "--file",sqlPath,"--yes","--json"]);
   const post=assertBreed0159Postflight(inspect());
   record({phase:"POSTFLIGHT",success:true,tableInstalled:true,pinnedGitBlob,
     recoveryBookmark:bookmark,before,after:summary(post),applied:true,
