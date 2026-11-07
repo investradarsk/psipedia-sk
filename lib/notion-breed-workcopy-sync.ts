@@ -21,7 +21,6 @@ import {
   BREED_NOTION_EDITABLE_FIELDS, type BreedFieldSnapshot,
   type BreedNotionField,
 } from "@/lib/notion-breed-field-delta";
-import { readNotionFieldAuthorities } from "@/lib/notion-field-authority";
 import { planSafeBreedFields } from "@/lib/notion-breed-safe-patch";
 import { planBreedWorkCopyEditorialDelta } from "@/lib/notion-breed-workcopy-delta";
 import { planBreedWorkCopyFieldWrite } from "@/lib/notion-breed-workcopy-patch-bridge.mjs";
@@ -169,7 +168,8 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
   // Only a signed targeted property event is an inbound editorial change.
   if (!args.targetPageId || !args.changedPropertyIds?.length) return summary;
   await requireActiveCohort(args.database);
-  const authority = await readNotionFieldAuthorities(args.database, "breeds");
+  // Same as breeder field events: the verified edited Notion field is authoritative.
+  const authority = {};
   const result = await args.database.prepare(
     "SELECT * FROM breed_notion_workcopy_links WHERE status='ACTIVE' "+
     "AND work_notion_page_id=? LIMIT ?",
@@ -193,7 +193,7 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       const plan = planBreedWorkCopyEditorialDelta({
         page, canonical,
         previousNotion: receipt.notion, previousAdmin: receipt.admin,
-        authority,
+        authority, eventFieldIds: edited,
       });
       if (!plan.ready || !plan.sourceSnapshot)
         throw Error("BREED_WORKCOPY_PARSE_INVALID");
