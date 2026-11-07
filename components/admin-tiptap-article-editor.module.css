@@ -19,7 +19,7 @@
 }
 .tools button[aria-pressed="true"] { color: white; background: #1f4a3a; border-color: #1f4a3a; }
 .tools button:focus-visible, .linkBar button:focus-visible, .linkBar input:focus-visible { outline: 2px solid #b4513d; outline-offset: 2px; }
-.tools button:disabled { opacity: 0.44; cursor: not-allowed; }
+.tools button:disabled { opacity: 0.44; cursor: default; }
 /* Active color tools must look clickable; red "not allowed" cursors belonged
    to step 3 when both native pickers were deliberately disabled. */
 .colorTrigger { display: inline-flex; align-items: center; justify-content: center; gap: 0.32rem; white-space: nowrap; }
