@@ -107,8 +107,7 @@ export async function POST(request: Request) {
           "original_sync_receipt,work_sync_receipt,original_sync_last_synced_at,"+
           "original_notion_last_edited_time,work_notion_last_edited_time,status"+
           ") SELECT ?,?,?,?,?,?,?,source.content_hash,"+
-          "CASE WHEN source.content_hash LIKE 'breed-field-v1:%' "+
-          "THEN source.content_hash ELSE NULL END,"+
+          "NULL,"+
           "source.last_synced_at,source.notion_last_edited_time,?,'SHADOW' "+
           "FROM breed_notion_sync AS source "+
           "JOIN managed_breeds AS breed ON breed.id=source.breed_id "+
@@ -150,13 +149,19 @@ export async function POST(request: Request) {
         check.canonical_slug === row.slug &&
         check.fci_number === row.fciNumber;
     });
+    // Always create an independent NEW-source baseline from live work-copy and
+    // D1 content later. Copying an old 109-field receipt is not a valid
+    // acknowledgment of a different 60-field Notion page.
     const receiptsReady = rows.filter(row =>
       isCompatibleBreedWorkcopyReceipt(existing.get(row.breedId)?.work_sync_receipt)).length;
+    const legacyOriginalReceipts = rows.filter(row =>
+      !isCompatibleBreedWorkcopyReceipt(row.originalSyncReceipt)).length;
     return Response.json({
       shadowStaged: good && saved.results.length === 344,
       stagedRows: saved.results.length,
       receiptsReady,
-      legacyOrInvalidReceipts: 344 - receiptsReady,
+      workBaselinesPending: 344 - receiptsReady,
+      legacyOriginalReceipts,
       casApplied: changed,
       cutoverReady: false,
       // This endpoint NEVER changes status to VERIFIED or ACTIVE.
