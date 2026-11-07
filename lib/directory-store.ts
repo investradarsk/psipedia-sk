@@ -679,13 +679,27 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
     importData: safeImportData(row.source_data_json),
-    seo: parseSeo(row.seo_json),
+    seo: parseSeo(row.seo_json, row.category === "chovatelske-stanice"),
   };
 }
 
-function parseSeo(value: string): EditableSeo {
+function parseSeo(value: string, breederRawText = false): EditableSeo {
   try {
-    return cleanEditableSeo(JSON.parse(value) as EditableSeo);
+    const raw = JSON.parse(value) as EditableSeo;
+    if (!breederRawText) return cleanEditableSeo(raw);
+    // Returning content from D1 must never silently remove an arbitrary SEO
+    // string by attempting to validate its format on read.
+    const text = (value: unknown) => typeof value === "string" ? value : "";
+    return {
+      title: text(raw?.title),
+      focusKeyword: text(raw?.focusKeyword),
+      description: text(raw?.description),
+      canonicalUrl: text(raw?.canonicalUrl),
+      ogTitle: text(raw?.ogTitle),
+      ogDescription: text(raw?.ogDescription),
+      ogImage: text(raw?.ogImage),
+      noindex: raw?.noindex === true,
+    };
   } catch {
     return {};
   }
