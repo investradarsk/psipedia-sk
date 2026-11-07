@@ -40,7 +40,7 @@ export type DirectoryFilterDefinition = Readonly<{
   allowedValues: readonly string[];
   unknownPolicy: Readonly<{ missing: "unknown"; invalid: "review"; conflict: "review"; publicBehavior: "exclude" }>;
   d1: Readonly<{ column: "source_data_json"; key: string; status: "proposed" }>;
-  notion: Readonly<{ property: string; type: "select"; status: "not_provisioned" }>;
+  notion: Readonly<{ property: string; type: "select"; status: "not_provisioned" | "provisioned" }>;
   legacyAliases: readonly string[];
   version: typeof DIRECTORY_FILTER_CONTRACT_VERSION;
 }>;
@@ -59,13 +59,20 @@ function defineFacet(
   legacyAliases: readonly string[] = [],
 ): DirectoryFilterDefinition {
   const id = `${category}.${name}`;
+  const provisionedInNotion = category === "chovatelske-stanice" &&
+    (name === "visits_by_appointment" || name === "health_testing_information");
+  const notionProperty = category === "chovatelske-stanice" && name === "visits_by_appointment"
+    ? "Návštevy po dohode"
+    : category === "chovatelske-stanice" && name === "health_testing_information"
+      ? "Informácie o zdravotných testoch"
+      : `Filter · ${id}`;
   return {
     id, category, label,
     valueType: values === triValues ? "tri_state" : "single_select",
     allowedValues: values,
     unknownPolicy,
     d1: { column: "source_data_json", key: `_psipedia_filter_v1_${category.replace(/-/g, "_")}_${name}`, status: "proposed" },
-    notion: { property: `Filter · ${id}`, type: "select", status: "not_provisioned" },
+    notion: { property: notionProperty, type: "select", status: provisionedInNotion ? "provisioned" : "not_provisioned" },
     legacyAliases,
     version: DIRECTORY_FILTER_CONTRACT_VERSION,
   };
