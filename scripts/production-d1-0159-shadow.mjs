@@ -141,6 +141,10 @@ function inspect() {
   const uniqueKeys = indexes.map(row =>
     select("SELECT name FROM pragma_index_info('" + String(row.name).replaceAll("'", "''") + "')")
       .map(item => item.name));
+  const statusIndexColumns = index.length === 1
+    ? select("SELECT name FROM pragma_index_info('idx_breed_notion_workcopy_status')")
+      .map(row => row.name)
+    : [];
   const shadowStatuses = present
     ? select("SELECT status,COUNT(*) AS count FROM breed_notion_workcopy_links GROUP BY status")
     : [];
@@ -149,6 +153,7 @@ function inspect() {
     shadowTablePresent: present,
     shadowColumns: columns, shadowUniqueKeys: uniqueKeys,
     shadowStatuses, statusIndexPresent:index.length===1,
+    statusIndexColumns,
     createSql: table[0]?.sql || "",
   };
 }
