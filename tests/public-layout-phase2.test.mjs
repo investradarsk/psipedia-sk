@@ -17,7 +17,6 @@ test("public listing headings use one typography contract across major sections"
       "app/plemena/breed-atlas.module.css",
       "\\.foundation :global\\(\\.breed-crawl-index-intro h2\\)",
     ],
-    ["components/news-hub.module.css", "\\.archiveHeader h2"],
   ]) {
     const css = read(path);
     assert.match(
@@ -26,6 +25,11 @@ test("public listing headings use one typography contract across major sections"
       path,
     );
   }
+  // Novinky migrated to the shared PublicSectionHeader; the removed archiveHeader h2 does not exist.
+  const newsHub = read("components/news-hub.tsx");
+  const sharedHeader = read("components/public-visual-system/public-visual-system.module.css");
+  assert.match(newsHub, /<PublicSectionHeader/);
+  assert.match(sharedHeader, /\.headerCompact h1,[\s\S]*?font-size: var\(--pv-type-data-heading/);
 });
 
 test("layout follows shared shell and centralizes listing gaps and search panel widths", () => {
