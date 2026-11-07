@@ -148,7 +148,10 @@
     "@fullcalendar/daygrid": "6.1.19",
     "@fullcalendar/react": "6.1.19",
     "@uppy/locales": "5.3.1",
-    "driver.js": "1.10.2"
+    "driver.js": "1.10.2",
+    "@tiptap/core": "3.33.0",
+    "@tiptap/react": "3.33.0",
+    "@tiptap/starter-kit": "3.33.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
