@@ -13,7 +13,7 @@ async function waitForEditor(page: import("@playwright/test").Page, selector = "
 }
 
 const articleSectionLabels: Record<string, string> = {
-  "article-basics": "Základné údaje",
+  "article-basics": "Úvod a obsah",
   "article-content": "Úvod a obsah",
   "article-blocks": "Bloky článku",
   "article-media": "Fotografie",
@@ -26,12 +26,16 @@ const articleSectionLabels: Record<string, string> = {
 
 async function showArticleSection(page: import("@playwright/test").Page, id: string) {
   const section = page.locator("#" + id);
-  if (await section.isVisible()) return;
+  if (await section.isVisible()) {
+    await section.scrollIntoViewIfNeeded();
+    return;
+  }
   const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
   const picker = nav.getByLabel("Sekcia editora");
-  if (await picker.isVisible()) await picker.selectOption(id);
-  else await nav.getByRole("button", { name: articleSectionLabels[id], exact: true }).click();
+  if (await picker.isVisible()) await picker.selectOption(id === "article-content" ? "article-basics" : id);
+  else await nav.getByRole("link", { name: articleSectionLabels[id], exact: true }).click();
   await expect(section).toBeVisible();
+  await section.scrollIntoViewIfNeeded();
 }
 
 async function fillMinimumArticle(page: import("@playwright/test").Page, title: string) {
@@ -639,6 +643,28 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(rail.locator("[data-article-compact-preview]")).toHaveCount(0);
     await page.getByRole("button", { name: "Ukázať náhľad článku" }).click();
     await expect(rail.locator("[data-article-compact-preview]")).toBeVisible();
+  });
+
+  test("ARTICLE-VISUAL-4: mobile editor and right rail remain usable at 320 and 390px", async ({ page }) => {
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+      await waitForEditor(page);
+      const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+      await expect(nav.getByLabel("Sekcia editora")).toBeVisible();
+      await expect(page.locator("#article-title")).toBeVisible();
+      await nav.getByRole("button", { name: "Náhľad" }).click();
+      const rail = page.locator("[data-article-editor-rail]");
+      await expect(rail).toBeVisible();
+      await expect(rail.locator("#article-rail-published-at")).toBeVisible();
+      await expect(rail.locator("[data-article-compact-preview]")).toBeVisible();
+      await expect.poll(() => page.evaluate(() =>
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )).toBeLessThanOrEqual(1);
+      await nav.getByRole("button", { name: "Späť na úpravy" }).click();
+      await expect(page.locator("#article-title")).toBeVisible();
+      await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
+    }
   });
 
   test("mobile dashboard filters do not stretch into giant blank gaps", async ({ page }) => {

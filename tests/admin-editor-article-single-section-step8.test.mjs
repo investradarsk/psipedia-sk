@@ -7,7 +7,7 @@ const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf
 test("ARTICLE-VISUAL-2: article retains all nine content sections and eight clear navigation entries", () => {
   const src = read("components/admin-article-editor.tsx");
   const css = read("components/admin-content-editor-v3.module.css");
-  const ids = ["basics", "content", "blocks", "media", "relations", "authors", "publish", "seo", "settings"];
+  const ids = ["basics", "content", "relations", "blocks", "media", "authors", "publish", "seo", "settings"];
   for (const name of ids) {
     const id = "article-" + name;
     assert.ok(src.includes('<section id="' + id + '"'), "The mounted section must remain: " + id);
@@ -26,6 +26,10 @@ test("ARTICLE-VISUAL-2: article retains all nine content sections and eight clea
   assert.ok(css.includes('data-editor-layout="article"'));
   const order = ids.map(id => src.indexOf('<section id="article-' + id + '"'));
   assert.ok(order.every((value, index) => value >= 0 && (index === 0 || value > order[index - 1])));
+  // Approved reference places the compact breed relation card just below the introduction.
+  assert.ok(src.indexOf('<section id="article-relations"') > src.indexOf('<section id="article-content"'));
+  assert.ok(src.indexOf('<section id="article-relations"') < src.indexOf('<section id="article-blocks"'));
+
   assert.ok(!src.includes('hidden={activeArticleSection !== "article-'));
 });
 

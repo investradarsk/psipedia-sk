@@ -71,7 +71,8 @@ test("dirty-state safety stays explicit and native dialogs restore keyboard focu
   assert.match(action, /data-admin-editor-nav-ready=\{navigationReady \? "true" : "false"\}/);
   assert.match(action, /ready=\{navigationReady\}/);
   const sharedNavigation = read("components/admin-shared-editor-navigation.tsx");
-  assert.match(sharedNavigation, /disabled=\{!ready\}/);
+  assert.match(sharedNavigation, /const navigationReady = ready && hydrated/);
+  assert.match(sharedNavigation, /disabled=\{!navigationReady\}/);
 });
 
 function luminance(hex) {
