@@ -74,6 +74,26 @@ export async function POST(request: Request) {
       return new Response(null, { status: 503 });
     }
   }
+  // Breeder/trainer editorial edits should reach Admin in this same webhook
+  // request. Only known, already-linked profiles use the event fast path.
+  // Failed/time-limited transfers retain the durable minute-queue retry below.
+  try {
+    const breeder = await bindings.DB.prepare(
+      "SELECT dp.id FROM directory_notion_sync dns " +
+      "JOIN directory_profiles dp ON dp.id=dns.directory_profile_id " +
+      "WHERE dns.notion_page_id=? AND dp.category IN ('chovatelske-stanice','treneri') LIMIT 1",
+    ).bind(data.entity!.id).first<{ id: number }>();
+    if (breeder) {
+      const result = await dispatchNotionPageChange(data, bindings);
+      if (result === "processed" || result === "metadata-only" || result === "ignored") {
+        return Response.json({ received: true, result }, { status: 200 });
+      }
+    }
+  } catch {
+    // A remote outage or concurrent edit is retried by the existing durable inbox.
+    console.error("notion_breeder_immediate_dispatch_deferred");
+  }
+
   try {
     await enqueueNotionWebhook(bindings.DB, data, body);
     return Response.json({ received: true, result: "queued" }, { status: 200 });

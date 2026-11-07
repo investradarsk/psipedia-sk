@@ -3,7 +3,8 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceF
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
+import { breederEditedFields, preserveLiveBreederFields, runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
+import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -59,8 +60,35 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({ error: "Pôvodné metadáta profilu nie sú platné; ukladanie je zablokované." }, { status: 409 });
     }
     const before = { ...projected, importData: completeSource as typeof projected.importData };
-    const rawBody = await request.json() as ManagedDirectoryProfileInput & { numberlessLocalityConfirmed?: unknown };
-    const { numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed, ...body } = rawBody;
+    const rawBody = await request.json() as ManagedDirectoryProfileInput & {
+      numberlessLocalityConfirmed?: unknown;
+      breederEditedPaths?: unknown;
+      trainerServicesEdited?: unknown;
+    };
+    const {
+      numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
+      breederEditedPaths: rawBreederEditedPaths,
+      trainerServicesEdited: rawTrainerServicesEdited,
+      ...submittedBody
+    } = rawBody;
+    // A stale full-form payload must never silently undo a newer Notion edit
+    // to a field the editor did not touch.
+    const editedPaths: BreederEditorialField[] | null =
+      ["chovatelske-stanice", "treneri"].includes(before.category) && Array.isArray(rawBreederEditedPaths)
+        ? rawBreederEditedPaths.filter(
+            (path): path is BreederEditorialField =>
+              typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
+          )
+        : null;
+    const fieldPreserved = editedPaths
+      ? preserveLiveBreederFields(before, submittedBody, editedPaths)
+      : submittedBody;
+    // The canonical Services V3 relation can change while a trainer form is
+    // open. Unless the operator explicitly edited legacy services, preserve
+    // the latest D1 list instead of silently restoring stale textarea data.
+    const body = before.category === "treneri" && editedPaths && rawTrainerServicesEdited !== true
+      ? { ...fieldPreserved, services: before.services }
+      : fieldPreserved;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
     const changed = directoryPhysicalAddressChanged(before, body);
 
@@ -153,6 +181,8 @@ export async function PUT(request: Request, { params }: Props) {
             database: notionEnv.DB,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
+            breederAdminFields: ["chovatelske-stanice", "treneri"].includes(before.category)
+              ? breederEditedFields(before, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
             : result.pushedToNotion || result.pulledFromNotion ? "synced"
@@ -214,6 +244,7 @@ export async function PATCH(request: Request, { params }: Props) {
       }
       const db = (env as unknown as { DB?: D1Database }).DB;
       if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+      const breederBefore = await getManagedDirectoryProfileById(id, db);
       const updated = await db.prepare(`UPDATE directory_profiles
         SET name=?1,excerpt=?2,updated_at=?3,updated_by=?4
         WHERE id=?5 AND updated_at=?6 AND status IN ('draft','published')
@@ -233,6 +264,8 @@ export async function PATCH(request: Request, { params }: Props) {
             database: db,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
+            breederAdminFields: breederBefore && ["chovatelske-stanice", "treneri"].includes(breederBefore.category) && profile
+              ? breederEditedFields(breederBefore, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
             : result.pushedToNotion || result.pulledFromNotion ? "synced"

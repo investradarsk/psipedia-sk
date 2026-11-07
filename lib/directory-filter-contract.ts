@@ -5,6 +5,24 @@
 import type { DirectoryCategorySlug } from "./directory";
 
 export const DIRECTORY_FILTER_CONTRACT_VERSION = 1 as const;
+
+/** Public URL normalization only: exact legacy service-facet identifiers.
+ * Kept separate from the canonical Services V3 schema, so the live read path
+ * never imports the administrative catalog or its mutation contracts. */
+export const directoryLegacyServiceFacetIds = [
+  "kynologicke-kluby.trial_preparation",
+  "chovatelske-kluby.breeding_advice",
+  "salony-a-sluzby.nail_trimming",
+  "salony-a-sluzby.hand_stripping",
+  "hotely-a-opatrovanie.overnight_stays",
+  "hotely-a-opatrovanie.daycare",
+  "vencenie.individual_walks",
+  "vencenie.group_walks",
+  "fyzioterapia.hydrotherapy",
+  "dalsie-sluzby.pet_transport",
+  "dalsie-sluzby.equipment_rental",
+] as const;
+
 export const serviceFilterCategories = [
   "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
   "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",

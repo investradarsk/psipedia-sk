@@ -78,7 +78,28 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const hero=page.locator('[data-public-detail-hero]'); assert.equal(await hero.count(),1);
  assert.equal(await page.locator('main h1').count(),1);
  const image=hero.locator('[data-public-profile-media]');
- if(await image.count()) { const fallback=image.locator('[data-public-media-fallback]'); const visual=await fallback.count()?fallback:image.locator('img:not([aria-hidden="true"])').last(); const visualBox=await visual.boundingBox(); assert.ok(visualBox&&visualBox.width>0&&visualBox.height>0,`${name} ${width} visible media or fallback must have nonzero dimensions`); const m=await image.boundingBox(),h=await hero.locator('h1').boundingBox();if(width>800)assert.ok(m.x>h.x,`${name} desktop media right`);else assert.ok(m.y<h.y,`${name} mobile media first`);}
+ if(await image.count()) {
+  // The captured event photo is an external source that this offline fixture
+  // intentionally blocks. EventImage retries original and same-origin proxy
+  // before showing its category illustration. Wait for the *decoded final*
+  // illustration rather than inspecting the DOM between React replacements.
+  // This keeps the real nonzero-media assertion and fails if fallback breaks.
+  if(name.startsWith('event')&&!name.includes('minimal')) {
+   const finalImage=image.locator('img[data-event-image-source="fallback"]');
+   await finalImage.waitFor({state:'visible',timeout:15000});
+   await finalImage.evaluate(async img=>{await img.decode();});
+   const natural=await finalImage.evaluate(img=>({w:img.naturalWidth,h:img.naturalHeight}));
+   assert.ok(natural.w>0&&natural.h>0,`${name} ${width} fallback illustration must decode`);
+  }
+  const fallback=image.locator('[data-public-media-fallback]');
+  const visual=await fallback.count()?fallback:image.locator('img:not([aria-hidden="true"])').last();
+  await visual.waitFor({state:'visible',timeout:10000});
+  const visualBox=await visual.boundingBox();
+  assert.ok(visualBox&&visualBox.width>0&&visualBox.height>0,`${name} ${width} visible media or fallback must have nonzero dimensions`);
+  const m=await image.boundingBox(),h=await hero.locator('h1').boundingBox();
+  if(width>800)assert.ok(m.x>h.x,`${name} desktop media right`);
+  else assert.ok(m.y<h.y,`${name} mobile media first`);
+ }
  if(name==='organization') { const body=await page.locator('[data-public-profile-body]').boundingBox(); const aside=await page.locator('[data-public-profile-sidebar]').boundingBox(); if(width<=800) assert.ok(body.y+body.height<=aside.y+2,'organization content precedes sidebar on mobile'); else assert.ok(aside.x>body.x,'organization desktop sidebar on right'); }
  if(name.startsWith('adoption')) assert.ok(!/\b0 kg\b/.test(await page.locator('main').innerText()),'unknown weight hidden');
  if(name==='adoption-breed-duplicate') assert.doesNotMatch(await page.locator('main').innerText(),/Kríženec\s*·\s*kríženec/i,'breed mix must not duplicate name');

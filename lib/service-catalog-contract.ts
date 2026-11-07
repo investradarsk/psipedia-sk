@@ -343,7 +343,8 @@ export const serviceCatalog:readonly ServiceDefinition[]=[
     ],
     "group": "Výcvik",
     "aliases": [
-      "Handling psov"
+      "Handling psov",
+      "Show handling"
     ],
     "meaning": "Nie výstavná úprava srsti."
   },
