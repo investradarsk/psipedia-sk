@@ -4,22 +4,23 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("EDITOR-8: article has nine mounted navigable sections with one visible at a time", () => {
+test("ARTICLE-VISUAL-1: article keeps all nine sections mounted in document scroll order", () => {
   const src = read("components/admin-article-editor.tsx");
   const css = read("components/admin-content-editor-v3.module.css");
-  const ids = ["basics", "content", "blocks", "media", "settings", "relations", "authors", "publish", "seo"];
+  const ids = ["basics", "content", "blocks", "media", "relations", "authors", "publish", "seo", "settings"];
   for (const name of ids) {
     const id = "article-" + name;
-    assert.match(src, new RegExp('id="' + id + '"[^>]*hidden=\\{activeArticleSection !== "' + id + '"\\}[^>]*data-admin-editor-section'));
+    assert.match(src, new RegExp('id="' + id + '"[^>]*data-admin-editor-section'));
     assert.match(src, new RegExp('\\{ id: "' + id + '", label:'));
   }
-  assert.equal((src.match(/hidden=\{activeArticleSection !== "article-/g) ?? []).length, 9);
-  assert.match(src, /sectionMode="switch"/);
-  assert.match(src, /activeSectionId=\{activeArticleSection\}/);
-  assert.match(src, /onSectionChange=\{setActiveArticleSection\}/);
-  assert.match(src, /aria-label="Prechod medzi sekciami článku"/);
-  assert.match(css, /\.articleForm > \[data-admin-editor-section\]\[hidden\]/);
-  assert.match(css, /display: none !important/);
+  assert.equal((src.match(/hidden=\\{activeArticleSection !== "article-/g) ?? []).length, 0);
+  assert.match(src, /sectionMode="scroll"/);
+  assert.match(src, /articleLayout/);
+  assert.match(src, /activeSectionId=\\{activeArticleSection\\}/);
+  assert.match(src, /onSectionChange=\\{setActiveArticleSection\\}/);
+  assert.match(css, /data-editor-layout="article"/);
+  const order = ids.map(id => src.indexOf('<section id="article-' + id + '"'));
+  assert.ok(order.every((value, index) => value >= 0 && (index === 0 || value > order[index - 1])));
 });
 
 test("EDITOR-8: submit validation reveals hidden required fields, publication decisions stay server-owned", () => {
