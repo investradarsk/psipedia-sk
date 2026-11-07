@@ -544,7 +544,7 @@ export function AdminArticleEditor({
   return (
     <>
       <div className={editorStyles.workspaceRoot}>
-      <AdminTiptapArticleScope>
+      <AdminTiptapArticleScope activeSectionId={activeArticleSection}>
       <EditorWorkspace
         mode="page"
         title={article ? "Upraviť článok" : "Nový článok"}
