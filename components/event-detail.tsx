@@ -71,7 +71,13 @@ export function EventDetail({
         : null;
   const showRegistration =
     dateStatus !== "past" && !event.cancelled && Boolean(event.registrationUrl);
-  const hasActions = Boolean(showRegistration || event.websiteUrl);
+  // Only create clickable links for actionable contact values. Keep legacy
+  // free-text contacts readable even if they cannot form a valid tel:/mailto:.
+  const normalizedPhone = event.contactPhone?.trim().replace(/[^+\d]/g, "") ?? "";
+  const contactPhoneHref = /^\+?\d{6,15}$/.test(normalizedPhone) ? `tel:${normalizedPhone}` : null;
+  const contactEmailHref = event.contactEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(event.contactEmail.trim())
+    ? `mailto:${event.contactEmail.trim()}` : null;
+  const hasActions = Boolean(showRegistration || event.websiteUrl || contactPhoneHref);
   const publicCity = publicLocationValue(event.city, "city");
   const publicRegion = publicLocationValue(event.region, "region");
   const updatedLabel = formatEventUpdatedAt(event.updatedAt);
@@ -180,13 +186,13 @@ export function EventDetail({
                 {event.contactPhone && (
                   <div>
                     <dt>Verejný telefón</dt>
-                    <dd><a href={`tel:${event.contactPhone.replace(/[^+\d]/g, "")}`}>{event.contactPhone}</a></dd>
+                    <dd>{contactPhoneHref ? <a href={contactPhoneHref}>{event.contactPhone}</a> : event.contactPhone}</dd>
                   </div>
                 )}
                 {event.contactEmail && (
                   <div>
                     <dt>Verejný e-mail</dt>
-                    <dd><a href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></dd>
+                    <dd>{contactEmailHref ? <a href={contactEmailHref}>{event.contactEmail}</a> : event.contactEmail}</dd>
                   </div>
                 )}
               </dl>
@@ -218,6 +224,15 @@ export function EventDetail({
                       icon={<ArrowIcon size={17} />}
                     >
                       Oficiálna stránka
+                    </PublicActionLink>
+                  )}
+                  {contactPhoneHref && (
+                    <PublicActionLink
+                      className={detailStyles.secondaryAction}
+                      href={contactPhoneHref}
+                      variant="secondary"
+                    >
+                      Zavolať
                     </PublicActionLink>
                   )}
                 </DetailHeroActions>
