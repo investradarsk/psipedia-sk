@@ -246,13 +246,19 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   // shared toolbar is re-rendered by its active-editor context.
   const toggleInlineMark = (name: "bold" | "italic" | "underline") => {
     if (!editor) return;
-    if (!editor.state.selection.empty) {
+    const selection = editor.state.selection;
+    // ProseMirror can initially select the entire empty document. Although
+    // that selection is non-empty, there is no text to format, so prepare a
+    // stored mark for the first typed character instead.
+    const selectedText = selection.empty ? "" : editor.state.doc.textBetween(selection.from, selection.to, " ");
+    if (!selection.empty && selectedText.length > 0) {
       const chain = editor.chain().focus();
       if (name === "bold") chain.toggleBold().run();
       else if (name === "italic") chain.toggleItalic().run();
       else chain.toggleUnderline().run();
       return;
     }
+    if (!selection.empty) editor.commands.focus("start");
     // The editor remains focused because toolbar buttons prevent mousedown
     // focus stealing. Re-focusing here can clear ProseMirror's pending marks
     // before the first character is typed (format-first editing).
