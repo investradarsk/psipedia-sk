@@ -145,7 +145,10 @@ function inspect() {
     ? select("SELECT name FROM pragma_index_info('idx_breed_notion_workcopy_status')")
       .map(row => row.name)
     : [];
-  const shadowStatuses = present
+  // A manually created or partially migrated table may lack `status`.
+  // Never query a missing column: the schema guard must reject it cleanly.
+  const hasStatus = columns.some(column => column.name === "status");
+  const shadowStatuses = present && hasStatus
     ? select("SELECT status,COUNT(*) AS count FROM breed_notion_workcopy_links GROUP BY status")
     : [];
   return {
