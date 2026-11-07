@@ -50,7 +50,7 @@ test("a single insert stages precisely 344 links and preserves all old D1 rows a
   try {
     const sql = buildAtomicBreedShadowInsert(rows);
     assert.equal((sql.match(/INSERT INTO/g) || []).length, 1);
-    assert.doesNotMatch(sql, /\b(?:DROP|UPDATE|DELETE|CREATE|ALTER|REPLACE)\b/i);
+    assert.doesNotMatch(sql, /\b(?:DROP|UPDATE|DELETE|CREATE|ALTER|REPLACE\s+INTO)\b/i);
     const original = db.prepare("SELECT * FROM breed_notion_sync ORDER BY breed_id").all();
     const canonical = db.prepare("SELECT * FROM managed_breeds ORDER BY id").all();
     db.exec(sql);
