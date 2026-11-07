@@ -457,6 +457,26 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(page.getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
   });
 
+  test("ARTICLE-TIPTAP-4: fullscreen preview shows unsaved styled content in desktop and mobile modes", async ({ page }) => {
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+    await page.locator("#article-title").fill("Neuložený vizuálny náhľad");
+    await page.locator("#article-intro").fill("Tento text je zatiaľ len v editore.");
+    await page.getByRole("button", { name: "Náhľad na celú obrazovku · počítač/mobil" }).click();
+    const preview = page.getByRole("dialog", { name: "Celoobrazovkový náhľad článku" });
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("heading", { name: "Neuložený vizuálny náhľad" })).toBeVisible();
+    await expect(preview).toContainText("Tento text je zatiaľ len v editore.");
+    await expect(preview.locator('[data-preview-device="desktop"]')).toBeVisible();
+    await preview.getByRole("button", { name: "Mobil" }).click();
+    await expect(preview.locator('[data-preview-device="mobile"]')).toBeVisible();
+    await preview.getByRole("button", { name: "Späť do editora" }).click();
+    await expect(preview).toBeHidden();
+    await expect(page.locator("#article-title")).toHaveValue("Neuložený vizuálny náhľad");
+    await expect(page.locator("#article-intro")).toContainText("Tento text je zatiaľ len v editore.");
+    await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
+  });
+
   test("IMAGE-EDITOR-1 independently persists thumbnail blur and detail crop, with cancel and reset", async ({ page }, testInfo) => {
     const id = testInfo.project.name.includes("mobile") ? 972002 : 972001;
     await page.goto(`/admin/clanky/${id}`, { waitUntil: "domcontentloaded" });
