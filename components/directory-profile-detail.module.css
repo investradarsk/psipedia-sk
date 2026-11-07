@@ -85,22 +85,59 @@
   overflow-wrap: anywhere;
 }
 .qualifications {
-  margin-top: 18px;
+  margin-top: 14px;
+}
+.qualifications h3 {
+  margin: 0 0 8px;
+  font-size: 0.83rem;
+  line-height: 1.4;
+  font-weight: 760;
+  color: #154b3b;
 }
 .qualificationsList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .qualificationsList li {
-  padding: 8px 10px;
-  border: 1px solid #e6ede6;
-  border-radius: 8px;
-  font-size: 0.8rem;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 7px 0;
+  border: 0;
+  border-bottom: 1px solid #e9eee8;
+  background: transparent;
+  font-size: 0.81rem;
+  line-height: 1.5;
   overflow-wrap: anywhere;
+}
+.qualificationsList li::before {
+  content: "";
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #74998b;
+  transform: translateY(-2px);
+}
+.moreQualifications {
+  margin-top: 10px;
+}
+.moreQualifications summary {
+  display: list-item;
+  width: fit-content;
+  cursor: pointer;
+  color: #16543f;
+  font-size: 0.79rem;
+  font-weight: 730;
+}
+.moreQualifications summary:hover {
+  text-decoration: underline;
+}
+.moreQualifications .qualificationsList {
+  margin-top: 7px;
 }
 .priceNote {
   margin-top: 18px;
