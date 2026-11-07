@@ -962,9 +962,12 @@ export function normalizeManagedDirectoryProfileInput(
   const status: DirectoryProfileStatus = payload.status === "published" ? "published" : "draft";
   const excerpt = payload.excerpt?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
-  const city = safeDirectoryAddressText(payload.city, 120, "Mesto / obec");
-  const district = safeDirectoryAddressText(payload.district, 120, "Okres");
-  const rawRegion = safeDirectoryAddressText(payload.region, 80, "Kraj");
+  const breederRawText = category === "chovatelske-stanice";
+  const editorialAddressText = (value: string | undefined, max: number, label: string) =>
+    breederRawText ? (value ?? "").trim() : safeDirectoryAddressText(value, max, label);
+  const city = editorialAddressText(payload.city, 120, "Mesto / obec");
+  const district = editorialAddressText(payload.district, 120, "Okres");
+  const rawRegion = editorialAddressText(payload.region, 80, "Kraj");
   const region = rawRegion ? normalizeDirectoryRegion(rawRegion) : null;
   const imageUrl = payload.imageUrl?.trim() || null;
 
@@ -989,18 +992,18 @@ export function normalizeManagedDirectoryProfileInput(
     : "";
   if (payload.addressFormat && !addressFormat) throw new Error("Neplatný formát adresy prevádzky.");
 
-  const postalCode = normalizeSlovakPostalCode(
+  const postalCode = breederRawText ? (payload.postalCode ?? "").trim() : normalizeSlovakPostalCode(
     safeDirectoryAddressText(payload.postalCode, 20, "PSČ"),
   );
-  const street = safeDirectoryAddressText(payload.street, 180, "Ulica");
-  const houseNumber = safeDirectoryAddressText(payload.houseNumber, 40, "Číslo domu");
+  const street = editorialAddressText(payload.street, 180, "Ulica");
+  const houseNumber = editorialAddressText(payload.houseNumber, 40, "Číslo domu");
   const serviceAddressConfirmation: DirectoryServiceAddressConfirmation =
     payload.confirmServiceAddress === true
       ? "CONFIRMED_SERVICE_LOCATION"
       : payload.clearServiceAddressConfirmation === true
         ? "LEGACY_UNCONFIRMED"
         : (options.currentServiceAddressConfirmation ?? "LEGACY_UNCONFIRMED");
-  const publicAddress = safeDirectoryAddressText(
+  const publicAddress = editorialAddressText(
     payload.address === undefined ? (options.legacyAddress ?? "") : payload.address,
     500,
     "Verejná adresa",
@@ -1022,7 +1025,6 @@ export function normalizeManagedDirectoryProfileInput(
 
   // Breeder editorial content is stored literally. Validation of clickable
   // links happens on the public page, not when saving free-form text.
-  const breederRawText = category === "chovatelske-stanice";
   const rawContact = (value: string | null | undefined) => value?.trim() ?? "";
   const services = normalizeStringList(payload.services);
   const qualifications = breederRawText && Array.isArray(payload.qualifications)
