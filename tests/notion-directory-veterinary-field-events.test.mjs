@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
-import { createRequire } from "node:module";
 import {
   isDirectoryEventPilotCategory,
   isDirectoryFieldEventCategory,
@@ -56,8 +55,8 @@ test("a pilot editor save exports only changed fields and never creates Notion p
   assert.match(source, /saveBreederEditorialValue\(database, current, desired, path\)/);
   assert.match(admin, /isDirectoryEventPilotCategory\(before\.category\)/);
   assert.match(editor, /isDirectoryEventPilotCategory\(profile\.category\)/);
-  assert.match(source, /breederAdminFields: input\.breederAdminFields/);
-  assert.match(source, /changedPropertyIds: input\.changedPropertyIds/);
+  assert.match(source, /adminChangedFields: input\.breederAdminFields/);
+  assert.match(source, /breederWebhookPropertyIds: input\.changedPropertyIds/);
   // Services V3 is written through its own relation API, never inferred from the free text.
   const eventBody = source.slice(source.indexOf("async function syncBreederEvent("),
     source.indexOf("export async function mirrorBreederCategoryFiltersToNotion("));
