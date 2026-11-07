@@ -240,7 +240,7 @@ test.describe("admin directory v2", () => {
     await expect(page.getByRole("button", { name: "Odstrániť fotku" })).toBeVisible();
     await page.getByRole("button", { name: "Odstrániť fotku" }).click();
     await page.getByRole("button", { name: "Uložiť zmeny" }).click();
-    await expect(page.getByRole("status")).toContainText("Profil je publikovaný");
+    await expect(page.locator("form.admin-directory-editor [data-admin-form-feedback]")).toContainText("Profil je publikovaný");
 
     const id = Number(page.url().match(/\/admin\/adresar\/(\d+)/)?.[1]);
     expect(Number.isSafeInteger(id)).toBeTruthy();
