@@ -120,3 +120,22 @@ test("missing unique source/work link index or non-integer primary key blocks sc
   assert.equal(noPrimary.shadowPrimaryKeyValid, false);
   assert.equal(noPrimary.shadowSchemaCompatible, false);
 });
+
+test("347 canonical rows with three unrelated drafts still allow the 344 linked identities", () => {
+  const args = sample();
+  args.canonicalBreeds.push(
+    { id: 345, slug: "koncept-345", status: "draft" },
+    { id: 346, slug: "koncept-346", status: "draft" },
+    { id: 347, slug: "koncept-347", status: "draft" },
+  );
+  const r = inspect(args);
+  assert.equal(r.canonicalCount, 347);
+  assert.equal(r.originalLinkCount, 344);
+  assert.equal(r.originalLinksReady, true);
+  assert.equal(r.extraCanonicalBreeds.length, 3);
+  assert.deepEqual(r.extraCanonicalBreeds.map(row => row.status), ["draft", "draft", "draft"]);
+  assert.equal(r.cutoverReady, false);
+  args.productionLinks[3].breed_id = 987654;
+  const broken = inspect(args);
+  assert.equal(broken.originalLinksReady, false);
+});
