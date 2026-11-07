@@ -4,12 +4,20 @@ import {useCallback,useRef,useState,type FormEvent,type MouseEvent} from "react"
 /** Centralize unsaved form navigation without changing the editor's API writes. */
 export function useAdminUnsavedFormLinks() {
   const [dirty,setDirty]=useState(false);
+  // A save acknowledges only the version that was actually submitted.
+  const editRevisionRef=useRef(0);
   const [confirmOpen,setConfirmOpen]=useState(false);
   const pendingAnchor=useRef<HTMLAnchorElement|null>(null);
   const replayingClick=useRef(false);
   const allowNativeExitRef=useRef(false);
-  const markDirty=useCallback(()=>{allowNativeExitRef.current=false;setDirty(true);},[]);
+  const markDirty=useCallback(()=>{editRevisionRef.current+=1;allowNativeExitRef.current=false;setDirty(true);},[]);
   const markSaved=useCallback(()=>setDirty(false),[]);
+  const getRevision=useCallback(()=>editRevisionRef.current,[]);
+  const markSavedIfUnchanged=useCallback((submittedRevision:number)=>{
+    if(editRevisionRef.current!==submittedRevision)return false;
+    setDirty(false);
+    return true;
+  },[]);
   const markSavedBeforeRedirect=useCallback(()=>{
     allowNativeExitRef.current=true;
     setDirty(false);
@@ -43,6 +51,6 @@ export function useAdminUnsavedFormLinks() {
     replayingClick.current=true;
     try{anchor.click();}finally{replayingClick.current=false;}
   },[]);
-  return{dirty,confirmOpen,allowNativeExitRef,markDirty,markSaved,markSavedBeforeRedirect,
+  return{dirty,confirmOpen,allowNativeExitRef,markDirty,markSaved,markSavedIfUnchanged,getRevision,markSavedBeforeRedirect,
     captureChange,captureLinkClick,stay,discard};
 }

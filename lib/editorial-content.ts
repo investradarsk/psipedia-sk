@@ -1,8 +1,17 @@
-export const EDITORIAL_RICH_TEXT_VERSION = 1 as const;
+export const EDITORIAL_RICH_TEXT_VERSION = 2 as const;
+export const EDITORIAL_RICH_TEXT_LEGACY_VERSION = 1 as const;
+
+/** Only six-digit opaque hexadecimal values are persisted as CSS colors. */
+export function sanitizeEditorialColor(value: unknown): string {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : "";
+}
 
 export type EditorialRichTextMark =
   | { type: "bold" }
   | { type: "italic" }
+  | { type: "underline" }
+  | { type: "color"; color: string }
+  | { type: "highlight"; color: string }
   | { type: "link"; href: string };
 
 export type EditorialRichTextInline =
@@ -17,7 +26,7 @@ export type EditorialRichTextBlock =
   | { type: "callout"; tone: "info" | "tip" | "warning"; content: EditorialRichTextInline[] };
 
 export type EditorialRichTextDocument = {
-  version: typeof EDITORIAL_RICH_TEXT_VERSION;
+  version: typeof EDITORIAL_RICH_TEXT_VERSION | typeof EDITORIAL_RICH_TEXT_LEGACY_VERSION;
   type: "doc";
   content: EditorialRichTextBlock[];
 };
@@ -43,12 +52,13 @@ export function sanitizeEditorialHref(value: unknown, allowInternal = true) {
   }
 }
 
-function normalizeMarks(value: unknown): EditorialRichTextMark[] | undefined {
+function normalizeMarks(value: unknown, version: 1 | 2): EditorialRichTextMark[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const result: EditorialRichTextMark[] = [];
   let hasBold = false;
   let hasItalic = false;
   let hasLink = false;
+  const seenStyle = new Set<string>();
 
   for (const raw of value.slice(0, 8)) {
     if (!raw || typeof raw !== "object") continue;
@@ -63,6 +73,19 @@ function normalizeMarks(value: unknown): EditorialRichTextMark[] | undefined {
       hasItalic = true;
       continue;
     }
+    if (version === 2 && (mark.type === "color" || mark.type === "highlight")) {
+      const color = sanitizeEditorialColor(mark.color);
+      if (color && !seenStyle.has(mark.type)) {
+        result.push({ type: mark.type, color });
+        seenStyle.add(mark.type);
+      }
+      continue;
+    }
+    if (version === 2 && mark.type === "underline" && !seenStyle.has("underline")) {
+      result.push({ type: "underline" });
+      seenStyle.add("underline");
+      continue;
+    }
     if (mark.type === "link" && !hasLink) {
       const href = sanitizeEditorialHref(mark.href, true);
       if (href) {
@@ -75,7 +98,7 @@ function normalizeMarks(value: unknown): EditorialRichTextMark[] | undefined {
   return result.length ? result : undefined;
 }
 
-function normalizeInline(value: unknown): EditorialRichTextInline[] {
+function normalizeInline(value: unknown, version: 1 | 2): EditorialRichTextInline[] {
   if (!Array.isArray(value)) return [];
   return value.slice(0, MAX_INLINE_NODES).flatMap((raw): EditorialRichTextInline[] => {
     if (!raw || typeof raw !== "object") return [];
@@ -84,16 +107,16 @@ function normalizeInline(value: unknown): EditorialRichTextInline[] {
     if (node.type !== "text") return [];
     const text = safeText(node.text);
     if (!text) return [];
-    const marks = normalizeMarks(node.marks);
+    const marks = normalizeMarks(node.marks, version);
     return [{ type: "text", text, ...(marks ? { marks } : {}) }];
   });
 }
 
-function normalizeListItems(value: unknown) {
+function normalizeListItems(value: unknown, version: 1 | 2) {
   if (!Array.isArray(value)) return [];
   return value
     .slice(0, MAX_LIST_ITEMS)
-    .map((item) => normalizeInline(item))
+    .map((item) => normalizeInline(item, version))
     .filter((item) => item.length > 0);
 }
 
@@ -102,40 +125,41 @@ export function normalizeEditorialRichText(value: unknown): EditorialRichTextDoc
   const doc = value as Record<string, unknown>;
   if (
     doc.type !== "doc" ||
-    doc.version !== EDITORIAL_RICH_TEXT_VERSION ||
+    (doc.version !== EDITORIAL_RICH_TEXT_VERSION && doc.version !== EDITORIAL_RICH_TEXT_LEGACY_VERSION) ||
     !Array.isArray(doc.content)
   )
     return null;
 
+  const version = doc.version as 1 | 2;
   const content = doc.content.slice(0, MAX_BLOCKS).flatMap((raw): EditorialRichTextBlock[] => {
     if (!raw || typeof raw !== "object") return [];
     const block = raw as Record<string, unknown>;
     if (block.type === "paragraph") {
-      const inline = normalizeInline(block.content);
+      const inline = normalizeInline(block.content, version);
       return inline.length ? [{ type: "paragraph", content: inline }] : [];
     }
     if (block.type === "heading") {
-      const inline = normalizeInline(block.content);
+      const inline = normalizeInline(block.content, version);
       const level = block.level === 3 ? 3 : block.level === 2 ? 2 : null;
       return level && inline.length ? [{ type: "heading", level, content: inline }] : [];
     }
     if (block.type === "bulletList" || block.type === "orderedList") {
-      const items = normalizeListItems(block.items);
+      const items = normalizeListItems(block.items, version);
       return items.length ? [{ type: block.type, items }] : [];
     }
     if (block.type === "blockquote") {
-      const inline = normalizeInline(block.content);
+      const inline = normalizeInline(block.content, version);
       return inline.length ? [{ type: "blockquote", content: inline }] : [];
     }
     if (block.type === "callout") {
-      const inline = normalizeInline(block.content);
+      const inline = normalizeInline(block.content, version);
       const tone = block.tone === "tip" || block.tone === "warning" ? block.tone : "info";
       return inline.length ? [{ type: "callout", tone, content: inline }] : [];
     }
     return [];
   });
 
-  return { version: EDITORIAL_RICH_TEXT_VERSION, type: "doc", content };
+  return { version, type: "doc", content };
 }
 
 function parseInlineMarkdown(value: string): EditorialRichTextInline[] {
@@ -258,7 +282,7 @@ export function legacyRichTextToDocument(value: string): EditorialRichTextDocume
   flushList();
 
   return {
-    version: EDITORIAL_RICH_TEXT_VERSION,
+    version: EDITORIAL_RICH_TEXT_LEGACY_VERSION,
     type: "doc",
     content: content.slice(0, MAX_BLOCKS),
   };

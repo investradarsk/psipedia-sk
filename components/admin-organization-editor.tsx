@@ -1,4 +1,5 @@
 "use client";
+import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
@@ -96,6 +97,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
     { id: "organization-media", label: "Obrázok a zdroj" },
   ], []);
   const activeOrganizationIndex = sections.findIndex((section) => section.id === activeOrganizationSection);
+  const navigateOrganizationPager = useProfileEditorSectionPager(activeOrganizationSection, setActiveOrganizationSection);
 
   useEffect(() => {
     if (!dirty) return;
@@ -291,12 +293,12 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
         <div className="admin-field"><label htmlFor="organization-source">Zdroj / referencia</label><input id="organization-source" type="url" inputMode="url" value={text(draft.sourceUrl)} disabled={editingDisabled} onChange={(event) => patch({ sourceUrl: event.target.value || null })} /></div>
       </AdminEditorSection>
           </div>
-          <nav className={styles.pager} aria-label="Prechod medzi sekciami organizácie">
+          <nav data-admin-editor-pager className={styles.pager} aria-label="Prechod medzi sekciami organizácie">
             <button type="button" disabled={activeOrganizationIndex <= 0}
-              onClick={() => setActiveOrganizationSection(sections[activeOrganizationIndex - 1]?.id ?? sections[0].id)}>Predchádzajúca</button>
+              onClick={() => navigateOrganizationPager(sections[activeOrganizationIndex - 1]?.id ?? sections[0].id)}>Predchádzajúca</button>
             <span role="status">Sekcia {activeOrganizationIndex + 1} z {sections.length}</span>
             <button type="button" disabled={activeOrganizationIndex >= sections.length - 1}
-              onClick={() => setActiveOrganizationSection(sections[activeOrganizationIndex + 1]?.id ?? sections[sections.length - 1].id)}>Ďalšia</button>
+              onClick={() => navigateOrganizationPager(sections[activeOrganizationIndex + 1]?.id ?? sections[sections.length - 1].id)}>Ďalšia</button>
           </nav>
         </div>
       </div>

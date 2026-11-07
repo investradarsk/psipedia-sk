@@ -132,7 +132,7 @@
 .sportRow p, .sportEmpty { font-size: 0.79rem; color: #53675b; }
 .sportRating { font-size: 0.77rem; font-weight: 750; color: #20513a; white-space: nowrap; }
 .sportActions { gap: 4px; }
-.sportActions :global(button) { min-height: 40px; padding: 5px 9px; font-size: 0.78rem; }
+.sportActions :global(button) { min-height: 44px; padding: 7px 9px; font-size: 0.78rem; }
 .relationTabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .relationTabs button {
   min-height: 44px;

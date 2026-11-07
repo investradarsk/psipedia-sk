@@ -56,11 +56,14 @@ test("Domain-specific upload and rich-text persistence formats remain intentiona
   assert.match(fb, /uploadAdminImage\(file,"facebook-images"\)/);
   assert.match(fb, /"image\/jpeg","image\/png","image\/webp"/);
   assert.match(fb, /accept="image\/jpeg,image\/png,image\/webp"/);
-  assert.match(article, /<AdminLexicalRichTextEditor/);
-  const lexical = read("components/admin-lexical-rich-text-editor.tsx");
-  assert.match(lexical, /normalizeEditorialRichText/);
-  assert.match(lexical, /readDocument/);
-  assert.match(lexical, /type: "callout"/);
+  // Article rich text was intentionally migrated to Tiptap; this test
+  // protects the canonical storage contract, not the old editor brand.
+  assert.match(article, /<AdminTiptapRichTextEditor/);
+  assert.match(article, /normalizeEditorialRichText/);
+  const bridge = read("lib/tiptap-editorial-bridge.ts");
+  assert.match(bridge, /tiptapToEditorial/);
+  assert.match(bridge, /normalizeEditorialRichText/);
+  assert.match(bridge, /type: "callout"/);
   assert.match(markdown, /appendLexicalPlainTextToMarkdown/);
   // The event Markdown editor delegates link validation to the lossless adapter.
   assert.match(markdown, /eventMarkdownToEditorial/);

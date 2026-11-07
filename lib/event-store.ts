@@ -21,6 +21,7 @@ import { slugifyArticleTitle } from "@/lib/article-store";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { normalizeSmartImageMode, type SmartImageMode } from "@/lib/smart-image";
+import { canWriteEventContactColumns, type ManagedEventContactValues } from "./event-contact-column-compat";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
 
 export type ManagedEventInput = {
@@ -172,6 +173,19 @@ function requireD1Binding(database?: D1Database) {
 async function ensureEventStore(database: D1Database) {
   void database;
   // Schema creation and indexes are handled by deployment migrations.
+}
+
+/**
+ * 0160 is still a review-only migration. Continue supporting legacy event
+ * writes without those columns, but NEVER silently discard a newly supplied
+ * contact or admission value. No DDL runs from a page request.
+ */
+async function eventContactColumnsReady(
+  database: D1Database,
+  values: ManagedEventContactValues,
+) {
+  const schema = await database.prepare("PRAGMA table_info('managed_events')").all<{ name: string }>();
+  return canWriteEventContactColumns((schema.results ?? []).map((column) => column.name), values);
 }
 
 function rowToEvent(row: EventRow): DogEvent {
@@ -654,22 +668,26 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
   const database = requireD1Binding(injectedDatabase);
   await ensureEventStore(database);
   const input = normalizeManagedEventInput(payload);
+  const hasContactColumns = await eventContactColumnsReady(database, input);
   const now = new Date().toISOString();
+  const values = [
+    input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
+    input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
+    input.description, input.practicalInfo,
+    ...(hasContactColumns ? [input.contactPhone, input.contactEmail, input.admissionFee] : []),
+    input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
+    input.imageDisplay, input.thumbnailImageDisplay && JSON.stringify(input.thumbnailImageDisplay), input.detailImageDisplay && JSON.stringify(input.detailImageDisplay), input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
+  ];
   const row = await database.prepare(`
     INSERT INTO managed_events (
       slug, title, excerpt, event_type, status, start_date, start_time, end_date, end_time,
       venue, city, region, address, organizer, description, practical_info,
-      contact_phone, contact_email, admission_fee,
+      ${hasContactColumns ? "contact_phone, contact_email, admission_fee," : ""}
       website_url, registration_url, image_url, image_key, image_display, thumbnail_display_json, detail_display_json, cancelled, seo_json,
       created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (${values.map(() => "?").join(", ")})
     RETURNING *
-  `).bind(
-    input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
-    input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
-    input.description, input.practicalInfo, input.contactPhone, input.contactEmail, input.admissionFee, input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
-    input.imageDisplay, input.thumbnailImageDisplay && JSON.stringify(input.thumbnailImageDisplay), input.detailImageDisplay && JSON.stringify(input.detailImageDisplay), input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
-  ).first<EventRow>();
+  `).bind(...values).first<EventRow>();
   if (!row) throw new Error("Podujatie sa nepodarilo vytvoriť.");
   const event = rowToEvent(row);
   await reconcileManagedEventGeo(event.id, editorEmail, database);
@@ -682,22 +700,28 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
   const existing = existingEvent ?? await getManagedEventById(id);
   if (!existing) return null;
   const input = normalizeManagedEventInput(payload);
+  const contactValues = {
+    contactPhone: payload.contactPhone === undefined ? existing.contactPhone ?? null : input.contactPhone,
+    contactEmail: payload.contactEmail === undefined ? existing.contactEmail ?? null : input.contactEmail,
+    admissionFee: payload.admissionFee === undefined ? existing.admissionFee ?? "" : input.admissionFee,
+  };
+  const hasContactColumns = await eventContactColumnsReady(database, contactValues);
   const now = new Date().toISOString();
   const publishedAt = input.status === "published" ? existing.publishedAt ?? now : existing.publishedAt;
   const row = await database.prepare(`
     UPDATE managed_events SET
       slug = ?, title = ?, excerpt = ?, event_type = ?, status = ?, start_date = ?, start_time = ?,
       end_date = ?, end_time = ?, venue = ?, city = ?, region = ?, address = ?, organizer = ?,
-      description = ?, practical_info = ?, contact_phone = ?, contact_email = ?, admission_fee = ?, website_url = ?, registration_url = ?, image_url = ?, image_key = ?, image_display = ?, thumbnail_display_json = ?, detail_display_json = ?,
+      description = ?, practical_info = ?,
+      ${hasContactColumns ? "contact_phone = ?, contact_email = ?, admission_fee = ?," : ""}
+      website_url = ?, registration_url = ?, image_url = ?, image_key = ?, image_display = ?, thumbnail_display_json = ?, detail_display_json = ?,
       cancelled = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? RETURNING *
   `).bind(
     input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
     input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
     input.description, input.practicalInfo,
-    payload.contactPhone === undefined ? existing.contactPhone ?? null : input.contactPhone,
-    payload.contactEmail === undefined ? existing.contactEmail ?? null : input.contactEmail,
-    payload.admissionFee === undefined ? existing.admissionFee ?? "" : input.admissionFee,
+    ...(hasContactColumns ? [contactValues.contactPhone, contactValues.contactEmail, contactValues.admissionFee] : []),
     input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
     payload.imageDisplay === undefined ? existing.imageDisplay ?? "auto" : input.imageDisplay,
     JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
