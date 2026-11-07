@@ -7,7 +7,9 @@ import {
   PublicContentList,
   PublicFoundation,
   PublicSectionHeader,
+  PublicSubcategoryNavigator,
 } from "@/components/public-visual-system";
+import { PortalMobileCategorySelect } from "@/components/portal-mobile-category-select";
 import type { Article } from "@/lib/content";
 import {
   getNewsCategory,
@@ -43,7 +45,16 @@ export function NewsHub({
   const title = category ? category.label : section.label;
   const intro = category
     ? category.description
-    : "Všetky publikované novinky na jednom mieste. Vyber si kategóriu alebo prejdi celý archív od najnovších článkov.";
+    : "Aktuálne správy, výskum a príbehy zo sveta psov.";
+  const categoryItems = [
+    { href: landingPath, title: "Všetky", label: "Všetky", current: !category },
+    ...newsCategories.map((item) => ({
+      href: `/novinky/${item.slug}`,
+      title: item.label,
+      label: item.label,
+      current: category?.slug === item.slug,
+    })),
+  ];
   const schema = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -88,32 +99,24 @@ export function NewsHub({
             eyebrow="Redakčný archív"
             title={title}
             intro={intro}
-            meta={`${newsArticles.length} ${newsArticles.length === 1 ? "publikovaný článok" : "publikovaných článkov"}`}
           />
         </div>
 
         <section className={`${styles.archive} shell`} aria-labelledby="news-archive-title">
-          <div className={styles.archiveHeader}>
-            <div>
-              <span className="eyebrow">Kategórie</span>
-              <h2 id="news-archive-title">
-                {category ? `Archív: ${category.label}` : "Všetky publikované novinky"}
-              </h2>
-            </div>
-            <nav className={styles.filters} aria-label="Filtrovať novinky podľa kategórie">
-              <Link href={landingPath} aria-current={!category ? "page" : undefined}>
-                Všetky
-              </Link>
-              {newsCategories.map((item) => (
-                <Link
-                  href={`/novinky/${item.slug}`}
-                  aria-current={category?.slug === item.slug ? "page" : undefined}
-                  key={item.slug}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+          <h2 id="news-archive-title" className={styles.visuallyHidden}>Novinky podľa kategórie</h2>
+          <div className={styles.mobileCategories} data-news-category-navigation>
+            <PortalMobileCategorySelect
+              sectionLabel="Novinky"
+              items={categoryItems.map(({ href, label, current }) => ({ href, label, current }))}
+            />
+          </div>
+          <div className={styles.desktopCategories} data-news-category-navigation>
+            <PublicSubcategoryNavigator
+              mode="compact"
+              label="Filtrovať novinky podľa kategórie"
+              items={categoryItems}
+              columns={4}
+            />
           </div>
 
           {guidance ? (
