@@ -241,6 +241,30 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
     setOpenColorPanel((value) => value === target ? null : target);
   };
 
+  // A collapsed selection uses ProseMirror stored marks for format-first typing.
+  // Updating those marks directly avoids losing the pending format when the
+  // shared toolbar is re-rendered by its active-editor context.
+  const toggleInlineMark = (name: "bold" | "italic" | "underline") => {
+    if (!editor) return;
+    if (!editor.state.selection.empty) {
+      const chain = editor.chain().focus();
+      if (name === "bold") chain.toggleBold().run();
+      else if (name === "italic") chain.toggleItalic().run();
+      else chain.toggleUnderline().run();
+      return;
+    }
+    const { view } = editor;
+    view.focus();
+    const { state } = view;
+    const markType = state.schema.marks[name];
+    if (!markType) return;
+    const marks = state.storedMarks ?? state.selection.$from.marks();
+    const nextMarks = markType.isInSet(marks)
+      ? markType.removeFromSet(marks)
+      : markType.create().addToSet(marks);
+    view.dispatch(state.tr.setStoredMarks(nextMarks));
+  };
+
   const action = (label: string, title: string, callback: () => void, selected = false, enabled = true) => (
     <button type="button" title={title} aria-label={title}
       aria-pressed={selected} disabled={!editor || !enabled}
@@ -263,8 +287,8 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
     <div ref={toolbarRef} className={styles.toolbar} role="toolbar" aria-label="Spoločná lišta formátovania článku" data-admin-tiptap-toolbar>
       <div className={styles.tools}>
         <span className={styles.activeLabel} aria-live="polite">{active ? "Upravuješ: " + (active.id.startsWith("block-") ? "textový blok" : active.id === "article-intro" ? "úvod" : "to najdôležitejšie") : "Klikni do textu"}</span>
-        {action("B", "Tučné (Ctrl+B)", () => editor?.chain().focus().toggleBold().run(), Boolean(editor?.isActive("bold")))}
-        {action("I", "Kurzíva (Ctrl+I)", () => editor?.chain().focus().toggleItalic().run(), Boolean(editor?.isActive("italic")))}
+        {action("B", "Tučné (Ctrl+B)", () => toggleInlineMark("bold"), Boolean(editor?.isActive("bold")))}
+        {action("I", "Kurzíva (Ctrl+I)", () => toggleInlineMark("italic"), Boolean(editor?.isActive("italic")))}
         {action("Odkaz", "Vložiť alebo upraviť odkaz", () => {
           setLinkInput(String(editor?.getAttributes("link").href || "https://"));
           setLinkOpen((value) => !value);
@@ -279,7 +303,7 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
         {action("Tip", "Zvýraznený tip", () => editor?.chain().focus().toggleNode("psipediaCallout", "paragraph", { tone: "tip" }).run(), Boolean(editor?.isActive("psipediaCallout")), Boolean(active?.allowCallouts))}
         {action("↶", "Späť (Ctrl+Z)", () => editor?.chain().focus().undo().run())}
         {action("↷", "Znova (Ctrl+Y)", () => editor?.chain().focus().redo().run())}
-        {action("U", "Podčiarknutie (Ctrl+U)", () => editor?.chain().focus().toggleUnderline().run(), Boolean(editor?.isActive("underline")))}
+        {action("U", "Podčiarknutie (Ctrl+U)", () => toggleInlineMark("underline"), Boolean(editor?.isActive("underline")))}
         <button type="button" className={styles.colorTrigger}
           aria-label="Celá paleta farieb textu"
           title="Farba textu"
