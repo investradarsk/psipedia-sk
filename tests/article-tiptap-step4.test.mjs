@@ -66,3 +66,31 @@ test("ARTICLE-TIPTAP-4: Notion synchronization rejects lossy outbound marks and 
   assert.match(incoming, /NOTION_ARTICLE_STYLED_INTRO_REVIEW_REQUIRED/);
   assert.match(incoming, /NOTION_ARTICLE_STYLED_BLOCK_REVIEW_REQUIRED/);
 });
+
+test("ARTICLE-UI-REPAIR: one toolbar is inside the center column and the duplicate preview is removed", () => {
+  const article = read("components/admin-article-editor.tsx");
+  const workspaceAt = article.indexOf("<EditorWorkspace");
+  const scopeAt = article.indexOf("<AdminTiptapArticleScope", workspaceAt);
+  const formAt = article.indexOf('<form id="article-canonical-editor-form"', scopeAt);
+  const closeScopeAt = article.indexOf("</AdminTiptapArticleScope>", formAt);
+  const closeWorkspaceAt = article.indexOf("</EditorWorkspace>", closeScopeAt);
+  assert.ok(workspaceAt >= 0 && scopeAt > workspaceAt);
+  assert.ok(formAt > scopeAt && closeScopeAt > formAt && closeWorkspaceAt > closeScopeAt);
+  assert.doesNotMatch(article, /previewDetailedOpen|setPreviewDetailedOpen/);
+  assert.match(article, /Náhľad na celú obrazovku · počítač\/mobil/);
+  assert.match(article, /data-article-compact-preview/);
+});
+
+test("ARTICLE-UI-REPAIR: palette is usable with restored text selection, HEX and keyboard access", () => {
+  const editor = read("components/admin-tiptap-article-editor.tsx");
+  const css = read("components/admin-tiptap-article-editor.module.css");
+  assert.match(editor, /data-tiptap-color-panel=\{target\}/);
+  assert.match(editor, /rememberedSelection/);
+  assert.match(editor, /setTextSelection\(range\)/);
+  assert.match(editor, /event\.preventDefault\(\); rememberSelection\(\)/);
+  assert.match(editor, /sanitizeEditorialColor\(hex\)/);
+  assert.match(editor, /event\.key === "Escape"/);
+  assert.match(css, /\.nativeColor input \{[^}]*cursor: pointer/s);
+  assert.match(css, /\.paletteGrid \{ display: grid/);
+  assert.doesNotMatch(css, /\.colorControl input/);
+});
