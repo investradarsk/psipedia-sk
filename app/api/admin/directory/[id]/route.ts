@@ -194,7 +194,7 @@ export async function PUT(request: Request, { params }: Props) {
     // Only the just-saved linked profile is reconciled. This does not run an
     // entire directory scan, trigger Services V3 or affect Facebook images.
     // The canonical Admin save is not rolled back if Notion is unavailable;
-    // the established hourly sweep will retry unacknowledged field changes.
+    // per-field failures are surfaced as pending; never claim a successful sync.
     let notionFieldSync: "synced" | "unchanged" | "pending" | "disabled" | "unlinked" = "disabled";
     const notionEnv = env as unknown as {
       DB?: D1Database;
@@ -229,7 +229,7 @@ export async function PUT(request: Request, { params }: Props) {
             bindings: env as Parameters<typeof mirrorPilotDirectoryMetadataFieldsToNotion>[0]["bindings"],
             profileId: id, changed: changedPilotMetadata,
           });
-          if (mirrored) notionFieldSync = "synced";
+          if (mirrored && notionFieldSync !== "pending" && notionFieldSync !== "unlinked") notionFieldSync = "synced";
         } catch (error) {
           console.error("DIRECTORY_PILOT_METADATA_NOTION_WRITEBACK_FAILED", id, error);
           metadataWarnings.push("Prenos ordinačných hodín alebo zdrojov do Notionu sa nepodaril");
@@ -242,7 +242,7 @@ export async function PUT(request: Request, { params }: Props) {
     }
     if (notionEnv.DB && (["chovatelske-stanice", "treneri"].includes(before.category) || isDirectoryEventPilotCategory(before.category))) {
       const edited = breederEditedFields(before, profile);
-      if (edited.length) {
+      if (edited.length || Object.keys(changedPilotMetadata).length) {
         const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
         await recordDirectoryNotionAlert(notionEnv.DB, id, failed ? "pending" : "resolved",
           failed ? "Zmena profilu je uložená v Admine, ale prenos do Notionu nie je potvrdený." : "",
