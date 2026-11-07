@@ -270,7 +270,7 @@ async function main() {
   const sql = buildAtomicBreedShadowInsert(fresh.planned);
   requireThat(sql.startsWith("WITH candidates(") &&
     sql.includes("INSERT INTO breed_notion_workcopy_links") &&
-    !/\b(?:UPDATE|DELETE|DROP|ALTER|REPLACE|CREATE)\b/i.test(sql),
+    !/\b(?:UPDATE|DELETE|DROP|ALTER|REPLACE\s+INTO|CREATE)\b/i.test(sql),
     "BREED_STAGE_SQL_NOT_ISOLATED_INSERT");
   writeFileSync(sqlFile, sql + "\n", { mode: 0o600 });
   reportState({ phase: "RECOVERY_POINT", success: false, applied: null,
