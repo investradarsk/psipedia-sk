@@ -4,23 +4,29 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("ARTICLE-VISUAL-1: article keeps all nine sections mounted in document scroll order", () => {
+test("ARTICLE-VISUAL-2: article retains all nine content sections and eight clear navigation entries", () => {
   const src = read("components/admin-article-editor.tsx");
   const css = read("components/admin-content-editor-v3.module.css");
   const ids = ["basics", "content", "blocks", "media", "relations", "authors", "publish", "seo", "settings"];
   for (const name of ids) {
     const id = "article-" + name;
-    assert.match(src, new RegExp('id="' + id + '"[^>]*data-admin-editor-section'));
-    assert.match(src, new RegExp('\\{ id: "' + id + '", label:'));
+    assert.ok(src.includes('<section id="' + id + '"'), "The mounted section must remain: " + id);
+    if (name !== "content") assert.ok(src.includes('{ id: "' + id + '", label:'), "Navigation is required for " + id);
   }
-  assert.equal((src.match(/hidden=\\{activeArticleSection !== "article-/g) ?? []).length, 0);
-  assert.match(src, /sectionMode="scroll"/);
-  assert.match(src, /articleLayout/);
-  assert.match(src, /activeSectionId=\\{activeArticleSection\\}/);
-  assert.match(src, /onSectionChange=\\{setActiveArticleSection\\}/);
-  assert.match(css, /data-editor-layout="article"/);
+  assert.equal((src.match(/\{ id: "article-/g) ?? []).length, 8);
+  assert.ok(src.includes('id: "article-basics", label: "Úvod a obsah"'));
+  assert.ok(src.includes('sectionMode="scroll"'));
+  assert.ok(src.includes('articleLayout'));
+  assert.ok(src.includes('activeSectionId={activeArticleSection}'));
+  assert.ok(src.includes('onSectionChange={setActiveArticleSection}'));
+  assert.ok(src.includes('editorStyles.introCard'));
+  assert.ok(src.includes('editorStyles.introContinuation'));
+  assert.ok(src.includes('editorStyles.selectedBreedTags'));
+  assert.ok(src.includes('breedPickerOpen'));
+  assert.ok(css.includes('data-editor-layout="article"'));
   const order = ids.map(id => src.indexOf('<section id="article-' + id + '"'));
   assert.ok(order.every((value, index) => value >= 0 && (index === 0 || value > order[index - 1])));
+  assert.ok(!src.includes('hidden={activeArticleSection !== "article-'));
 });
 
 test("EDITOR-8: submit validation reveals hidden required fields, publication decisions stay server-owned", () => {

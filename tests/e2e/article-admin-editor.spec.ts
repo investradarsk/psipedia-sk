@@ -72,6 +72,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const breeds = page.locator("#article-relations");
     const search = breeds.getByRole("searchbox", { name: "Hľadať plemeno" });
     await expect(search).toBeVisible();
+    // Compact options are opened on focus instead of rendering the full list.
+    await expect(breeds.locator('label[class*="breedRow"]')).toHaveCount(0);
+    await search.focus();
     const rows = breeds.locator('label[class*="breedRow"]');
     expect(await rows.count()).toBeLessThanOrEqual(12);
     if (await rows.count()) {
@@ -590,6 +593,26 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await page.getByRole("button", { name: /Uložiť koncept/ }).first().click();
     await expect(page.getByText("Vyplň krátky úvod na karte.")).toBeVisible();
+  });
+
+  test("ARTICLE-VISUAL-2 joins the introduction card and displays removable breed chips", async ({ page }) => {
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+    await expect(page.locator("#article-basics").getByRole("heading", { name: "Úvod a obsah" })).toBeVisible();
+    await expect(page.locator("#article-content")).toHaveCSS("border-top-width", "0px");
+    const search = page.locator("#article-breed-search");
+    await search.focus();
+    const first = page.locator('#article-relations label[class*="breedRow"]').first();
+    if (await first.count()) {
+      const name = await first.locator("span").innerText();
+      await first.locator('input[type="checkbox"]').check();
+      await expect(page.getByRole("group", { name: "Vybrané plemená" })).toContainText(name);
+      await page.getByRole("button", { name: `Odstrániť prepojenie: ${name}` }).click();
+      await expect(page.getByRole("group", { name: "Vybrané plemená" })).toHaveCount(0);
+    }
+    await expect(page.locator("#article-intro")).toBeVisible();
+    await expect(page.locator("#article-takeaway")).toBeVisible();
+    await expect(page.locator('[data-admin-lexical-rich-text] [role="toolbar"]').first()).toBeVisible();
   });
 
   test("mobile dashboard filters do not stretch into giant blank gaps", async ({ page }) => {
