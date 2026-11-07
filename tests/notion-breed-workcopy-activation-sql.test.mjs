@@ -66,3 +66,12 @@ test("a 343-row or 345-row cohort never activates even if 344 otherwise match",(
     assert.deepEqual(counts(extra),[{status:"SHADOW",n:345}]);
   }finally{extra.close();}
 });
+
+test("atomic guard allows a separately initialized new workcopy receipt", () => {
+  const db = seed();
+  try {
+    db.exec("UPDATE breed_notion_workcopy_links SET work_sync_receipt='breed-field-v1:new-baseline' WHERE breed_id=2");
+    assert.equal(Number(db.prepare(SQL).run(OLD, NEW).changes), 344);
+    assert.deepEqual(counts(db), [{ status: "ACTIVE", n: 344 }]);
+  } finally { db.close(); }
+});
