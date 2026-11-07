@@ -1,7 +1,7 @@
 # Article editor replacement (Tiptap) — 5 steps
 
 Audit baseline: main commit 2e6f5eb885032bae8285ae2c1c2311ccc833227e, 2026-11-07.
-Status: STEPS 1–3 integrated; STEP 5 regression repairs in draft PR #1234. STEP 4 NOT implemented; no production deploy or merge. Full palette and real fullscreen preview pending.
+Status: STEPS 1–4 implemented in draft PR #1234; STEP 5 final browser acceptance pending. No production deploy or merge.
 
 ## Decision: reuse a real open-source editor
 
@@ -84,6 +84,31 @@ the color controls are activated. Unsafe rich-text changes block save instead
 of silently dropping material. Browser tests and a real npm-ci install still
 require verification before merge.
 
+## Step 4 — V2 styled content and fullscreen preview
+
+- `lib/editorial-content.ts`: versioned v2 rich-text marks for validated
+  six-digit hexadecimal text colors and highlights plus underline. Existing
+  v1 JSON and legacy Markdown inputs remain v1 and are not rewritten.
+- `lib/tiptap-editorial-bridge.ts`: strict Tiptap JSON conversion with
+  rejection of invalid colors, unknown nodes and unsafe links; no raw
+  untrusted HTML persistence. Native color inputs expose unrestricted RGB.
+- `components/editorial-rich-text.tsx`: sanitized public rendering; storage
+  uses the existing JSON TEXT columns and block records, with no D1 migration.
+- Notion uses a restricted palette, so arbitrary hexadecimal colors cannot
+  be mirrored losslessly. The outbound editorial plan fails closed with
+  `UNSUPPORTED_NOTION_EDITORIAL_STYLE`, while inbound sync preserves existing
+  Psipedia styled text for otherwise unchanged fields and rejects ambiguous
+  edits. A failed Notion writeback must never mark the mapping as synced.
+- `AdminArticleFullscreenPreview`: native modal dialog, unsaved current
+  React state, public image and rich-content renderers, desktop/mobile width,
+  no publish/save/network call, keyboard Escape and return to editor.
+- Unit/contract tests for v1/v2 round-trips, CSS injection, Notion safeguards
+  and no-write preview; browser regression included in article E2E spec.
+
+No assertion of pixel-perfect parity with public site typography is made
+until a final browser visual comparison. The popup reuses public article
+renderers but has its own lightweight surrounding preview layout.
+
 ## Step 5 regression audit (partial, step 4 dependency still open)
 
 The first PR #1234 CI pass exposed two `react-hooks/set-state-in-effect`
@@ -94,8 +119,8 @@ rich-text bridge instead of requiring the old Lexical implementation.
 
 The shared toolbar is now scoped to the active, visible left-navigation
 section; hidden text blocks cannot accidentally receive its commands.
-Mobile browser regression coverage checks this explicitly and verifies that
-full-color controls are gated until the public data contract supports them.
+Mobile browser regression coverage checks this explicitly, including
+newly activated color controls and fullscreen preview modes.
 The sticky position now respects the admin shell's sticky header stack.
 Existing E2E selectors were changed to address the single shared toolbar.
 
@@ -103,7 +128,7 @@ Unverified: real browser E2E completion, complete suite, published/legacy
 articles round-trip after Tiptap input, cursor and undo state under all focus
 transitions, final responsive screen inspection and color/preview flows.
 No assertion of full step 5 acceptance or merge-readiness is warranted until
-step 4 lands and these checks pass.
+focused and browser checks pass on the final commit.
 
 ## Remaining steps
 
