@@ -58,6 +58,7 @@ import {
   breederPreserveUneditedFields, type BreederEditorialField,
 } from "@/lib/notion-breeder-field-events";
 import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes";
+import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "./notion-directory-field-event-scope";
 import {
   getBreederRelationSelection, listBreederRelationOptions, saveBreederRelationSelection,
 } from "./breeder-profile-relations";
@@ -1288,7 +1289,7 @@ async function saveBreederEditorialValue(
   desired: Record<string, unknown>,
   path: BreederEditorialField,
 ): Promise<ManagedDirectoryProfile> {
-  if (current.category !== "chovatelske-stanice" || current.status === "archived")
+  if (!isDirectoryEventPilotCategory(current.category) && current.category !== "chovatelske-stanice" || current.status === "archived")
     throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
   const raw = breederReadPath(desired, path);
   const value = typeof raw === "string" ? raw : "";
@@ -1340,12 +1341,15 @@ async function saveBreederEditorialValue(
     ].join(" ")));
   }
   const now = new Date().toISOString();
+  const guardedCategory = current.category === "chovatelske-stanice"
+    ? "category = 'chovatelske-stanice'" : "category = ?";
+  const categoryArg = current.category === "chovatelske-stanice" ? [] : [current.category];
   const saved = await database.prepare(
     "UPDATE directory_profiles SET " + assignments.join(", ") +
     ", updated_at = ?, updated_by = ? " +
-    "WHERE id = ? AND category = 'chovatelske-stanice' AND status <> 'archived' " +
+    "WHERE id = ? AND " + guardedCategory + " AND status <> 'archived' " +
     "AND updated_at = ? RETURNING id",
-  ).bind(...params, now, SYSTEM_ACTOR, current.id, current.updatedAt)
+  ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt)
     .first<{ id: number }>();
   if (!saved) throw new Error("BREEDER_FIELD_WRITE_CONFLICT");
   const updated = await getManagedDirectoryProfileById(current.id, database);
@@ -1388,7 +1392,7 @@ async function syncBreederEvent(input: {
       if (JSON.stringify(breederReadPath(before, path)) ===
           JSON.stringify(breederReadPath(desired, path))) continue;
       try {
-        current = input.profile.category === "chovatelske-stanice"
+        current = input.profile.category === "chovatelske-stanice" || isDirectoryEventPilotCategory(input.profile.category)
           ? await saveBreederEditorialValue(database, current, desired, path)
           : await (async () => {
             // Trainers retain their existing validator until their own rollout.
@@ -1642,7 +1646,7 @@ async function syncMappedPage(input: {
     return "unchanged" as const;
   }
 
-  if (["chovatelske-stanice", "treneri"].includes(profile.category)
+  if (isDirectoryFieldEventCategory(profile.category)
       && (input.breederWebhookPropertyIds !== undefined || input.breederAdminFields !== undefined)
       && !input.manualDirection) {
     // A signed webhook must not be allowed to reassign a different entity.
@@ -1654,6 +1658,14 @@ async function syncMappedPage(input: {
       changedPropertyIds: input.breederWebhookPropertyIds,
       adminChangedFields: input.breederAdminFields,
     });
+  }
+
+  // Pilot categories never fall back into record-wide reconciliation. Existing
+  // events and Admin saves use only changed-field updates, preserving mapping IDs.
+  if (isDirectoryEventPilotCategory(profile.category) && !input.manualDirection) {
+    if (propertyText(page, "Psipedia ID") !== String(profile.id))
+      throw new NotionDirectoryUnsafeTargetError("DIRECTORY_FIELD_EVENT_IDENTITY_MISMATCH");
+    return "unchanged" as const;
   }
 
   // A mapping can already exist when the first Notion write-back failed.
@@ -2321,7 +2333,7 @@ export async function runNotionDirectorySyncSweep(input: {
 
   for (const candidate of pages) {
     // Existing breeders are event-only; never re-run record-wide hourly merges.
-    if (!input.targetPageId && propertyText(candidate, "Kategória") === "chovatelske-stanice") continue;
+    if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(candidate, "Kategória"))) continue;
     let page = candidate;
     let release: (() => Promise<void>) | null = null;
     let releaseImport: (() => Promise<void>) | null = null;
@@ -2476,7 +2488,7 @@ export async function runNotionDirectorySyncSweep(input: {
       if (!mapping) continue;
       // Breeders and trainers are field-event driven. Do not re-merge the
       // entire mapped profile during hourly sweeps after a partial event.
-      if (!input.targetPageId && propertyText(page, "Kategória") === "treneri") continue;
+      if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(page, "Kategória"))) continue;
 
       if (
         page.last_edited_time
