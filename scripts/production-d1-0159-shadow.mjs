@@ -215,6 +215,11 @@ async function main() {
   // Recheck current remote D1 immediately before the one additive statement.
   const fresh=assertBreed0159Preflight(inspect());
   requireCondition(!fresh.alreadyInstalled,"BREED_0159_RACE_ALREADY_APPLIED");
+  // Persist the bookmark BEFORE attempting SQL. On timeout/network failure the
+  // apply outcome is UNKNOWN; the report must retain recovery information.
+  record({phase:"RECOVERY_POINT",success:false,tableInstalled:false,
+    pinnedGitBlob, recoveryBookmark:bookmark,before,after:before,
+    applied:null, note:"Apply outcome not yet verified; inspect production D1."});
   runWrangler(["d1","execute",database,"--remote","--config",configPath,
     "--file",sqlPath,"--json"]);
   const post=assertBreed0159Postflight(inspect());
