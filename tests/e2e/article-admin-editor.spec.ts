@@ -516,12 +516,22 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(toolbar).toHaveCount(1);
     const bold = toolbar.getByRole("button", { name: /Tučné/ });
     await expect(bold).toBeDisabled();
-    await expect(toolbar.getByLabel("Celá paleta farieb textu – zatiaľ nedostupná")).toBeDisabled();
-    await expect(toolbar.getByLabel("Celá paleta zvýraznenia – zatiaľ nedostupná")).toBeDisabled();
+    const textColor = toolbar.getByLabel("Celá paleta farieb textu", { exact: true });
+    const highlight = toolbar.getByLabel("Celá paleta zvýraznenia", { exact: true });
+    await expect(textColor).toBeDisabled();
+    await expect(highlight).toBeDisabled();
 
     const intro = page.locator("#article-intro");
     await intro.focus();
     await expect(bold).toBeEnabled();
+    await expect(textColor).toBeEnabled();
+    await expect(highlight).toBeEnabled();
+    await intro.fill("Farebne formátovaný úvod.");
+    await intro.selectText();
+    await textColor.fill("#2468ac");
+    await highlight.fill("#fae123");
+    await expect(intro.locator('span[style*="color"]')).toContainText("Farebne formátovaný");
+    await expect(intro.locator('mark')).toContainText("Farebne formátovaný");
     await showArticleSection(page, "article-blocks");
     await expect(bold).toBeDisabled();
 
@@ -534,6 +544,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-basics");
     await expect(bold).toBeDisabled();
     await expect(intro).toBeVisible();
+    await expect(intro.locator("mark")).toContainText("Farebne formátovaný");
     await expect(page.locator("[data-admin-tiptap-toolbar]")).toHaveCount(1);
   });
 
