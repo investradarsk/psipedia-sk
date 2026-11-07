@@ -5,6 +5,15 @@ import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-na
 import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
 import styles from "./admin-organization-editor.module.css";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
+import { AdminProfileGoogleMaps } from "@/components/admin-profile-google-maps";
+import {
+  AdminOrganizationLocations,
+  canonicalOrganizationLocation,
+  organizationAddressDraftFromLocation,
+  type OrganizationAddressDraft,
+} from "@/components/admin-organization-locations";
+import type { OrganizationLocationAdminRecord } from "@/lib/organization-location-admin-store";
+import type { OrganizationLocationAdminInput } from "@/lib/organization-location-admin";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -61,9 +70,25 @@ function text(value: string | null) {
   return value ?? "";
 }
 
-export function AdminOrganizationEditor({ organization, automationSuggestions = [] }: { organization?: OrganizationPublicationAdminItem | null; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
+export function AdminOrganizationEditor({
+  organization,
+  initialLocations = [],
+  automationSuggestions = [],
+}: {
+  organization?: OrganizationPublicationAdminItem | null;
+  initialLocations?: OrganizationLocationAdminRecord[];
+  automationSuggestions?: CanonicalUpdateSuggestion[];
+}) {
   const router = useRouter();
   const [draft, setDraft] = useState<OrganizationAdminInput>(() => organization ? organizationAdminInputFromCandidate(organization) : blankInput());
+  const [location, setLocation] = useState<OrganizationLocationAdminRecord | null>(() => canonicalOrganizationLocation(initialLocations));
+  const [addressDraft, setAddressDraft] = useState<OrganizationAddressDraft>(() =>
+    organizationAddressDraftFromLocation(organization, canonicalOrganizationLocation(initialLocations)));
+  const addressSnapshot = JSON.stringify(addressDraft);
+  const [savedAddressSnapshot, setSavedAddressSnapshot] = useState(addressSnapshot);
+  // A new organization may be committed before its separate location write
+  // succeeds. Keep its ID so retry uses PUT and never creates a duplicate.
+  const createdOrganizationId = useRef<number | null>(null);
   const hydrated = useSyncExternalStore(
     () => () => undefined,
     () => true,
@@ -80,7 +105,8 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
   const editingDisabled = !hydrated || archived || saving || uploading;
   const editorSnapshot = JSON.stringify(draft);
   const [savedSnapshot, setSavedSnapshot] = useState(editorSnapshot);
-  const dirty = editorSnapshot !== savedSnapshot;
+  const addressDirty = addressSnapshot !== savedAddressSnapshot;
+  const dirty = editorSnapshot !== savedSnapshot || addressDirty;
   const [confirmNavigation, setConfirmNavigation] = useState(false);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
   const allowNavigationRef = useRef(false);
@@ -93,6 +119,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
   const sections = useMemo(() => [
     { id: "organization-general", label: "Základné" },
     { id: "organization-content", label: "Verejný obsah" },
+    { id: "organization-address", label: "Adresa a mapa" },
     { id: "organization-contacts", label: "Kontakty" },
     { id: "organization-media", label: "Obrázok a zdroj" },
   ], []);
@@ -160,6 +187,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
     allowNavigationRef.current = true;
     setConfirmNavigation(false);
     setSavedSnapshot(editorSnapshot);
+    setSavedAddressSnapshot(addressSnapshot);
     navigate?.();
   };
 
