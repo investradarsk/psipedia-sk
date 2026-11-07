@@ -1616,6 +1616,19 @@ async function syncMappedPage(input: {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
   }
 
+  // Trainers already linked to Notion also use explicit field events. A
+  // plain targeted sweep has no changed-property IDs and must not fall through
+  // to the legacy whole-profile baseline reconciliation (BASELINE_UNAVAILABLE).
+  // Owner-directed manual transfers retain their separate path below.
+  if (profile.category === "treneri" &&
+      !input.manualDirection &&
+      input.breederWebhookPropertyIds === undefined &&
+      input.breederAdminFields === undefined) {
+    if (propertyText(page, "Psipedia ID") !== String(profile.id))
+      throw new NotionDirectoryUnsafeTargetError("TRAINER_IDENTITY_MISMATCH");
+    return "unchanged" as const;
+  }
+
   // Automatic breeder sync is field-event only. A plain targeted sweep may
   // still mirror an Admin-confirmed publication, but PATCH only its status:
   // never re-enter record-wide editorial hash/baseline reconciliation.
