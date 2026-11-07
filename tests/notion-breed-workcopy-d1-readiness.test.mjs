@@ -34,9 +34,14 @@ test("post-0159 schema is verified by physical columns and read-only status coun
   const r = inspect({
     ...sample(),
     shadowTablePresent: true,
-    shadowColumns: BREED_WORKCOPY_SHADOW_COLUMNS.map(name => ({ name })),
+    shadowColumns: BREED_WORKCOPY_SHADOW_COLUMNS.map(name => ({
+      name, type: name === "breed_id" ? "INTEGER" : "TEXT",
+      pk: name === "breed_id" ? 1 : 0,
+    })),
+    shadowUniqueKeys: [["original_notion_page_id"], ["work_notion_page_id"]],
     shadowStatuses: [{ status: "SHADOW", count: 344 }],
   });
+  assert.equal(r.shadowConstraintsValid, true);
   assert.equal(r.shadowSchemaCompatible, true);
   assert.equal(r.shadowCounts.SHADOW, 344);
   assert.equal(r.totalShadowLinks, 344);
@@ -75,7 +80,11 @@ test("shadow statuses must be complete, valid, and remain non-activating", () =>
   const args = {
     ...sample(),
     shadowTablePresent: true,
-    shadowColumns: BREED_WORKCOPY_SHADOW_COLUMNS.map(name => ({ name })),
+    shadowColumns: BREED_WORKCOPY_SHADOW_COLUMNS.map(name => ({
+      name, type: name === "breed_id" ? "INTEGER" : "TEXT",
+      pk: name === "breed_id" ? 1 : 0,
+    })),
+    shadowUniqueKeys: [["original_notion_page_id"], ["work_notion_page_id"]],
   };
   const missing = inspect({ ...args, shadowStatuses: [{ status: "SHADOW", count: 343 }] });
   assert.equal(missing.shadowCountsReady, false);
@@ -87,4 +96,27 @@ test("shadow statuses must be complete, valid, and remain non-activating", () =>
   const invalid = inspect({ ...args, shadowStatuses: [{ status: "SHADOW", count: -1 }] });
   assert.equal(invalid.status, "INVALID_D1_COUNTS");
   assert.equal(invalid.cutoverReady, false);
+});
+
+test("missing unique source/work link index or non-integer primary key blocks schema readiness", () => {
+  const schema = BREED_WORKCOPY_SHADOW_COLUMNS.map(name => ({
+    name, type: name === "breed_id" ? "INTEGER" : "TEXT",
+    pk: name === "breed_id" ? 1 : 0,
+  }));
+  const base = { ...sample(), shadowTablePresent: true,
+    shadowColumns: schema, shadowStatuses: [{ status: "SHADOW", count: 344 }] };
+  const withoutWork = inspect({
+    ...base, shadowUniqueKeys: [["original_notion_page_id"]],
+  });
+  assert.equal(withoutWork.shadowSourceUnique, true);
+  assert.equal(withoutWork.shadowWorkUnique, false);
+  assert.equal(withoutWork.shadowSchemaCompatible, false);
+  const noPrimary = inspect({
+    ...base,
+    shadowColumns: schema.map(item => item.name === "breed_id" ?
+      { ...item, pk: 0 } : item),
+    shadowUniqueKeys: [["original_notion_page_id"], ["work_notion_page_id"]],
+  });
+  assert.equal(noPrimary.shadowPrimaryKeyValid, false);
+  assert.equal(noPrimary.shadowSchemaCompatible, false);
 });
