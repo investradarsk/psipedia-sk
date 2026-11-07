@@ -55,8 +55,8 @@ async function readD1Diagnostics(database: D1Database,
     ).all<{ status: string; count: number }>()).results
     : [];
   return summarizeBreedWorkcopyD1Readiness({
-    canonicalBreeds: canonical.results,
-    productionLinks: productionMappings.results,
+    canonicalBreeds,
+    productionLinks,
     shadowTablePresent,
     shadowColumns,
     shadowStatuses,
