@@ -1,0 +1,46 @@
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 42;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #d7e2da;
+  border-radius: 12px;
+  background: #fbfdfb;
+  box-shadow: 0 4px 18px rgb(31 74 58 / 8%);
+  margin-bottom: 0.7rem;
+}
+.tools { display: flex; align-items: center; flex-wrap: wrap; gap: 0.28rem; }
+.activeLabel { font-size: 0.76rem; font-weight: 700; color: #1f4a3a; padding: 0 0.5rem 0 0.25rem; min-width: 6.5rem; }
+.tools button, .linkBar button {
+  border: 1px solid #d6e3d9; background: #fff; color: #1f4a3a;
+  padding: 0.35rem 0.57rem; border-radius: 7px; font-size: 0.81rem;
+  min-height: 32px; cursor: pointer;
+}
+.tools button[aria-pressed="true"] { color: white; background: #1f4a3a; border-color: #1f4a3a; }
+.tools button:focus-visible, .linkBar button:focus-visible, .linkBar input:focus-visible { outline: 2px solid #b4513d; outline-offset: 2px; }
+.tools button:disabled { opacity: 0.44; cursor: not-allowed; }
+.colorControl { font-size: 0.7rem; color: #67796b; display: flex; align-items: center; gap: 0.25rem; padding-inline: 0.3rem; }
+.colorControl input { width: 26px; height: 28px; cursor: not-allowed; opacity: 0.4; }
+.linkBar { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; margin-top: 0.5rem; }
+.linkBar label { font-size: 0.78rem; font-weight: 700; }
+.linkBar input { min-width: 180px; flex: 1; padding: 0.5rem; border: 1px solid #ccdcd1; border-radius: 8px; font-size: 0.86rem; }
+.linkBar [role="alert"] { color: #a92c26; font-size: 0.8rem; }
+.editorBox { position: relative; background: #fff; border: 1px solid #cfded3; border-radius: 10px; overflow: hidden; }
+.editorBox:focus-within { border-color: #1f4a3a; box-shadow: 0 0 0 2px rgb(31 74 58 / 12%); }
+.editable { padding: 0.75rem 0.9rem; font-size: 0.94rem; line-height: 1.65; color: #182d20; }
+.editable :global(.ProseMirror) { min-height: inherit; outline: none; overflow-wrap: anywhere; }
+.editable :global(.ProseMirror p) { margin: 0 0 0.6rem; }
+.editable :global(.ProseMirror h2) { font-size: 1.3rem; margin: 0.8rem 0 0.45rem; }
+.editable :global(.ProseMirror h3) { font-size: 1.1rem; margin: 0.7rem 0 0.4rem; }
+.editable :global(.ProseMirror ul), .editable :global(.ProseMirror ol) { padding-left: 1.65rem; margin: 0.4rem 0 0.75rem; }
+.editable :global(.ProseMirror blockquote) { border-left: 3px solid #1f4a3a; padding-left: 0.7rem; }
+.editable :global(.ProseMirror aside[data-psipedia-callout]) { border-left: 3px solid #b4513d; padding: 0.6rem 0.75rem; background: #fff5ee; margin-block: 0.65rem; }
+.loading { background: #f7faf8; }
+.placeholder { position: absolute; left: 0.9rem; top: 0.75rem; color: #839086; pointer-events: none; }
+.error { font-size: 0.83rem; margin: 0.3rem 0.7rem 0.65rem; color: #a92c26; }
+@media (max-width: 760px) {
+  .toolbar { top: 0; margin-inline: 0; padding: 0.45rem; }
+  .tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .tools button, .activeLabel, .colorControl { flex-shrink: 0; }
+  .linkBar input { min-width: 110px; }
+}
