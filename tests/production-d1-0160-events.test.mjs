@@ -30,7 +30,7 @@ test("0160 preserves existing events and backfills admission as an empty string"
     db.exec("INSERT INTO managed_events(id,title) VALUES(11,'Existing event'),(12,'Other event');");
     assert.equal(classifyEvent0160(db.prepare("SELECT name,type,\"notnull\",dflt_value FROM pragma_table_info('managed_events')").all()).alreadyInstalled, false);
     db.exec(sql.toString("utf8"));
-    const cols = db.prepare("SELECT name,type,notnull,dflt_value FROM pragma_table_info('managed_events')").all();
+    const cols = db.prepare("SELECT name,type,\"notnull\",dflt_value FROM pragma_table_info('managed_events')").all();
     assertEvent0160Postflight(cols);
     assert.deepEqual(db.prepare("SELECT id,title,contact_phone,contact_email,admission_fee FROM managed_events ORDER BY id").all().map(row => ({ ...row })),
       [
