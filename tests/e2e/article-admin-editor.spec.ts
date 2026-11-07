@@ -486,7 +486,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.locator("#article-intro").fill("Tento text je zatiaľ len v editore.");
     const mobileView = (page.viewportSize()?.width ?? 1440) <= 820;
     if (mobileView) {
-      await page.getByRole("navigation", { name: "Sekcie pracovného editora" })
+      await page.locator("[data-editor-navigation]")
         .getByRole("button", { name: "Náhľad", exact: true }).click();
     }
     await page.locator("[data-article-editor-rail]")
@@ -501,8 +501,8 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await preview.getByRole("button", { name: "Späť do editora" }).click();
     await expect(preview).toBeHidden();
     if (mobileView) {
-      await page.getByRole("navigation", { name: "Sekcie pracovného editora" })
-        .getByRole("button", { name: "Späť na úpravy" }).click();
+      await page.locator("[data-editor-navigation]")
+        .getByRole("button", { name: "Späť na úpravy", exact: true }).click();
     }
     await expect(page.locator("#article-title")).toHaveValue("Neuložený vizuálny náhľad");
     await expect(page.locator("#article-intro")).toContainText("Tento text je zatiaľ len v editore.");
@@ -603,7 +603,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     const addArea = page.locator(".admin-block-add");
     await addArea.getByRole("button", { name: "+ Pridať blok na koniec" }).click();
-    await addArea.getByRole("button", { name: "Text", exact: true }).click();
+    await addArea.locator(".admin-block-picker").getByRole("button", { name: /Text$/ }).click();
     const block = page.locator("[data-admin-tiptap-rich-text]").last().locator('[contenteditable="true"]');
     await block.fill("Mobilný blok má vlastný obsah.");
     await expect(bold).toBeEnabled();
