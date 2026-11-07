@@ -99,3 +99,26 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
     assert.doesNotMatch(logs[0].sql, /services_json =|seo_json =|source_data_json =/);
   }
 });
+
+test("hours and provenance are independent text fields for the pilot only", async () => {
+  const source = await get("../lib/notion-directory-sync.ts");
+  const admin = await get("../app/api/admin/directory/[id]/route.ts");
+  const editor = await get("../components/admin-directory-editor.tsx");
+  for (const field of ["Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka"])
+    assert.ok(source.includes('"' + field + '"'));
+  assert.match(source, /source_data_json = json_set/);
+  assert.match(source, /pilotChangedNotionMetadataFields\(page, input\.changedPropertyIds\)/);
+  assert.match(source, /if \(!trimmed\) throw new Error\("DIRECTORY_PILOT_METADATA_EMPTY_NOT_A_DELETE"\)/);
+  assert.match(source, /WHERE id = \? AND category = \? AND status <> 'archived'/);
+  assert.match(source, /DIRECTORY_PILOT_METADATA_TARGET_INVALID/);
+  assert.match(admin, /changedPilotMetadata\[field\] = value/);
+  assert.match(admin, /mirrorPilotDirectoryMetadataFieldsToNotion/);
+  assert.match(editor, /pilotOpeningHours/);
+  assert.match(editor, /pilotDataSources/);
+  assert.match(editor, /pilotImageSource/);
+  assert.match(editor, /pilotMetadataFields\[key\] = current\.trim\(\)/);
+  // Sources and hours must not enter the canonical catalogue relation importer.
+  const block = source.slice(source.indexOf("export const PILOT_DIRECTORY_METADATA_FIELDS"),
+    source.indexOf("/*\*\n * Mapped breeder/trainer event mode:", source.indexOf("export const PILOT_DIRECTORY_METADATA_FIELDS")));
+  assert.doesNotMatch(block, /importNotionServiceChoices|syncProfileCatalogRelation|prepareNotionMainImage/);
+});
