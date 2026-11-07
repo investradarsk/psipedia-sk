@@ -74,6 +74,8 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     });
   } else if (sameSource(sourceId, bindings.NOTION_BREEDS_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_BREEDS_DATA_SOURCE_ID!)) {
+    // After cutover, stale old-source webhooks cannot run a second sync engine.
+    if (bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "true") return "disabled";
     summary = await runNotionBreedSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
       changedPropertyIds: event.data?.updated_properties ?? [],
