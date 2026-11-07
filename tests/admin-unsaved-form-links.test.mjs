@@ -26,7 +26,7 @@ test("Help and Lost/Found use one shared guard with canonical save-state control
   assert.match(src,/<EditorUnsavedChangesGuard active=\{navigation\.dirty\} open=\{navigation\.confirmOpen\}/);
   assert.match(src,/allowNativeExitRef=\{navigation\.allowNativeExitRef\}/);
   assert.match(src,/navigation\.markSavedBeforeRedirect\(\)/);
-  assert.match(src,/navigation\.markSaved\(\)/);
+  assert.match(src,/navigation\.markSavedIfUnchanged\(submittedRevision\)/);
   assert.match(src,/navigation\.markDirty\(\)/);
   assert.match(src,/<AdminFormFeedback message=\{message\} error=\{error\} pending=\{saving\}/);
  }
