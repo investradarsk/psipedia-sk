@@ -199,6 +199,13 @@ export function AdminDirectoryEditor({
   const [publicEmail, setPublicEmail] = useState(profile ? contacts.email : notionDraft?.email ?? "");
   const [facebookUrl, setFacebookUrl] = useState(profile ? contacts.facebook : notionDraft?.facebook ?? "");
   const [instagramUrl, setInstagramUrl] = useState(profile ? contacts.instagram : notionDraft?.instagram ?? "");
+  const pilotMetadataText = (key: string) => {
+    const value = profile?.importData?.[key];
+    return typeof value === "string" ? value : "";
+  };
+  const [pilotOpeningHours, setPilotOpeningHours] = useState(pilotMetadataText("Ordinačné hodiny"));
+  const [pilotDataSources, setPilotDataSources] = useState(pilotMetadataText("Zdroj dát"));
+  const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
   const [galleryUrls, setGalleryUrls] = useState<string[]>(profile?.galleryUrls ?? []);
@@ -461,6 +468,19 @@ export function AdminDirectoryEditor({
             },
           )
         : undefined;
+      const pilotMetadataFields: Record<string, string> = {};
+      if (profile && isDirectoryEventPilotCategory(profile.category)) {
+        for (const [key, current] of [
+          ["Ordinačné hodiny", pilotOpeningHours],
+          ["Zdroj dát", pilotDataSources],
+          ["Zdroj obrázka", pilotImageSource],
+        ]) {
+          const value = breederBaseline?.importData?.[key];
+          const baseline = typeof value === "string" ? value : "";
+          if (current.trim() && current.trim() !== baseline.trim())
+            pilotMetadataFields[key] = current.trim();
+        }
+      }
       // A previously opened editor must not re-save a stale legacy services
       // list after Services V3 was updated by an independent Notion event.
       const trainerServicesEdited = profile && (profile.category === "treneri" || isDirectoryEventPilotCategory(profile.category)) && category === profile.category && breederBaseline
@@ -472,6 +492,7 @@ export function AdminDirectoryEditor({
         body: JSON.stringify({
           ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
+          ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
           services: listFromText(services), qualifications: listFromText(qualifications),
           address: publicAddress,
@@ -489,7 +510,7 @@ export function AdminDirectoryEditor({
           verified, featured, seo,
         }),
       });
-      const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
+      const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string; metadataWarnings?: string[] };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
       // Write only explicit facet changes through the authenticated, CAS-protected endpoint.
       // The canonical profile save above continues to own all unrelated fields.
@@ -540,6 +561,15 @@ export function AdminDirectoryEditor({
         setWebsiteUrl(syncedContacts.website); setPublicPhone(syncedContacts.phone);
         setPublicEmail(syncedContacts.email); setFacebookUrl(syncedContacts.facebook);
         setInstagramUrl(syncedContacts.instagram); setSeo(savedProfile.seo ?? {});
+        if (isDirectoryEventPilotCategory(savedProfile.category)) {
+          const storedText = (key: string) => {
+            const value = savedProfile.importData?.[key];
+            return typeof value === "string" ? value : "";
+          };
+          setPilotOpeningHours(storedText("Ordinačné hodiny"));
+          setPilotDataSources(storedText("Zdroj dát"));
+          setPilotImageSource(storedText("Zdroj obrázka"));
+        }
         }
       }
       if (!hasNewerEdits) {
@@ -551,7 +581,8 @@ export function AdminDirectoryEditor({
       setStatus(savedProfile.status);
       setMessage(hasNewerEdits
         ? "Predchádzajúce úpravy boli uložené. Novšie zmeny sú stále neuložené."
-        : nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.");
+        : (nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.") +
+          (data.metadataWarnings?.length ? " Upozornenia: " + data.metadataWarnings.join("; ") : ""));
       if (!profile) setCreatedProfileHref(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
@@ -851,6 +882,30 @@ export function AdminDirectoryEditor({
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
+            {profile && isDirectoryEventPilotCategory(category) ? (
+              <>
+                <div className="admin-field">
+                  <label htmlFor="directory-pilot-hours">Ordinačné / otváracie hodiny</label>
+                  <textarea id="directory-pilot-hours" rows={6} value={pilotOpeningHours}
+                    onChange={event => { setPilotOpeningHours(event.target.value); setFormDirty(true); }}
+                    placeholder={"Pondelok: 08:00–16:00\nUtorok: 08:00–16:00\nPodľa dohody"} />
+                  <small>Píšte iba overené časy; prázdne pole nevymaže pôvodnú hodnotu.</small>
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="directory-pilot-sources">Zdroje údajov</label>
+                  <textarea id="directory-pilot-sources" rows={3} value={pilotDataSources}
+                    onChange={event => { setPilotDataSources(event.target.value); setFormDirty(true); }}
+                    placeholder="https://oficialny-web.sk/kontakt" />
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="directory-pilot-image-source">Zdroj fotografie</label>
+                  <input id="directory-pilot-image-source" type="text" value={pilotImageSource}
+                    onChange={event => { setPilotImageSource(event.target.value); setFormDirty(true); }}
+                    placeholder="Odkaz na zdroj fotografie; bez práv fotografiu nekopírovať" />
+                </div>
+              </>
+            ) : null}
+
             {filterCategory && !notionDraft ? (
               <DirectoryCategoryFilterFields
                 category={filterCategory}
