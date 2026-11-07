@@ -347,8 +347,29 @@ export function AdminOrganizationEditor({
         <AdminHelpText term="Storage contract">Lexical rešpektuje pôvodné textové polia a obojsmernú synchronizáciu.</AdminHelpText>
       </AdminEditorSection>
 
+      <AdminEditorSection id="organization-address" className="admin-form-card">
+        <div className="admin-card-heading"><div><span>03</span><div><h2>Adresa a mapa</h2><p>Jedna hlavná adresa organizácie. Zmeny ulož rovnakým tlačidlom ako ostatné údaje.</p></div></div></div>
+        <AdminOrganizationLocations draft={addressDraft} disabled={editingDisabled}
+          onChange={(changes) => setAddressDraft((current) => ({ ...current, ...changes }))} />
+        {organization ? (
+          dirty ? (
+            <p className="admin-help" role="status">Pred zmenou Google miesta ulož rozpracované údaje organizácie a adresu. Predídeme strate neuložených zmien.</p>
+          ) : (
+            <div id="google-maps">
+              <AdminProfileGoogleMaps
+                targetType="ORGANIZATION_LOCATION"
+                targetId={organization.id}
+                endpoint={`/api/admin/organizations/${organization.id}/google-place`}
+              />
+            </div>
+          )
+        ) : (
+          <p className="admin-help">Google Maps bude dostupné po prvom úspešnom uložení organizácie a adresy.</p>
+        )}
+      </AdminEditorSection>
+
       <AdminEditorSection id="organization-contacts" className="admin-form-card">
-        <div className="admin-card-heading"><div><span>03</span><div><h2>Kontakty a odkazy</h2><p>Iba public organization fields; súkromné PII sem nepatrí.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Iba public organization fields; súkromné PII sem nepatrí.</p></div></div></div>
 <AdminEditorToolFrame kind="contacts">
         <div className="admin-field-grid">
           <div className="admin-field"><label htmlFor="organization-email">Verejný e-mail</label><input id="organization-email" type="email" value={text(draft.publicEmail)} disabled={editingDisabled} onChange={(event) => patch({ publicEmail: event.target.value || null })} /></div>
@@ -361,7 +382,7 @@ export function AdminOrganizationEditor({
       </AdminEditorSection>
 
       <AdminEditorSection id="organization-media" className="admin-form-card">
-        <div className="admin-card-heading"><div><span>04</span><div><h2>Obrázok a zdroj</h2><p>Re-use existujúceho admin image upload backendu; nevzniká nový media systém.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>05</span><div><h2>Obrázok a zdroj</h2><p>Re-use existujúceho admin image upload backendu; nevzniká nový media systém.</p></div></div></div>
         <div className="admin-upload-row">
           <div className="admin-upload-preview admin-upload-preview--forest">{draft.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={draft.thumbnailImageDisplay} src={draft.imageUrl} alt="Náhľad obrázka organizácie" /> : <span aria-hidden="true">🐾</span>}</div>
           <div className="admin-upload-actions">
