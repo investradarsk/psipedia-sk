@@ -21,11 +21,15 @@ import {
   BREED_NOTION_EDITABLE_FIELDS, type BreedFieldSnapshot,
   type BreedNotionField,
 } from "@/lib/notion-breed-field-delta";
-import { readNotionFieldAuthorities } from "@/lib/notion-field-authority";
 import { planSafeBreedFields } from "@/lib/notion-breed-safe-patch";
 import { planBreedWorkCopyEditorialDelta } from "@/lib/notion-breed-workcopy-delta";
 import { planBreedWorkCopyFieldWrite } from "@/lib/notion-breed-workcopy-patch-bridge.mjs";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
+import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
+import {
+  workCopyChangedEditorialIds, workCopyNonblankChangedFields,
+  workCopyAdminChangedFields,
+} from "@/lib/notion-breed-workcopy-field-events.mjs";
 
 export type BreedWorkCopyBindings = NotionSyncBindings & {
   NOTION_BREED_SYNC_ENABLED?: string;
@@ -152,18 +156,24 @@ async function advanceReceipt(
 export async function runNotionBreedWorkCopySyncSweep(args: {
   database: D1Database;
   bindings: BreedWorkCopyBindings;
+  targetPageId?: string;
+  changedPropertyIds?: readonly string[];
 }) {
   const summary = {
     enabled: notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED),
     scanned: 0, created: 0, updated: 0, unchanged: 0, failed: 0,
   };
   if (!requireWorkCopyOnly(args.bindings)) return summary;
+  // As with breeders, periodic sweeps never replay whole profile values.
+  // Only a signed targeted property event is an inbound editorial change.
+  if (!args.targetPageId || !args.changedPropertyIds?.length) return summary;
   await requireActiveCohort(args.database);
-  const authority = await readNotionFieldAuthorities(args.database, "breeds");
+  // Same as breeder field events: the verified edited Notion field is authoritative.
+  const authority = {};
   const result = await args.database.prepare(
     "SELECT * FROM breed_notion_workcopy_links WHERE status='ACTIVE' "+
-    "ORDER BY COALESCE(work_last_synced_at,'') ASC,breed_id ASC LIMIT ?",
-  ).bind(maxProfiles).all<ShadowLink>();
+    "AND work_notion_page_id=? LIMIT ?",
+  ).bind(args.targetPageId, maxProfiles).all<ShadowLink>();
   for (const link of result.results) {
     summary.scanned++;
     try {
@@ -173,17 +183,27 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       const page = await notionRequest<NotionPage>(args.bindings,
         "/pages/" + encodeURIComponent(link.work_notion_page_id));
       assertOwnedPage(page, link, canonical, args.bindings);
+      const edited = workCopyChangedEditorialIds(
+        page, args.changedPropertyIds, BREED_NOTION_SCHEMA,
+      );
+      if (!edited.length) {
+        summary.unchanged++;
+        continue;
+      }
       const plan = planBreedWorkCopyEditorialDelta({
         page, canonical,
         previousNotion: receipt.notion, previousAdmin: receipt.admin,
-        authority,
+        authority, eventFieldIds: edited,
       });
       if (!plan.ready || !plan.sourceSnapshot)
         throw Error("BREED_WORKCOPY_PARSE_INVALID");
-      const accepted = plan.accepted.filter(field => !skippedSpecial.has(field));
+      const accepted = workCopyNonblankChangedFields({
+        allowed: edited, changed: plan.changed,
+        values: plan.sourceSnapshot, accepted: plan.accepted,
+      }).filter(field => !skippedSpecial.has(field));
       const safe = planSafeBreedFields(canonical, {
         latest: plan.sourceSnapshot,
-        changed: plan.changed as BreedNotionField[],
+        changed: accepted as BreedNotionField[],
         accepted: accepted as BreedNotionField[],
         conflicts: [] as BreedNotionField[],
         patch: plan.patch,
@@ -197,7 +217,8 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         relatedArticleIds: canonical.relatedArticleIds,
         directoryProfileIds: canonical.directoryProfileIds,
       };
-      const changed = !same(breedFieldSnapshot(canonical), breedFieldSnapshot(candidate));
+      const changed = accepted.length > 0 &&
+        !same(breedFieldSnapshot(canonical), breedFieldSnapshot(candidate));
       const updated = changed
         ? await updateManagedBreed(canonical.id, candidate, actor,
           canonical.updatedAt, { preserveUnchangedInvalid: canonical })
@@ -262,11 +283,15 @@ export async function writeBackBreedToWorkCopy(input: {
   if (!link) return { linked:false, updated:false, reason:"not-linked" as const };
   const receipt = readReceipt(link.work_sync_receipt);
   const actualAdmin = breedFieldSnapshot(input.breed);
-  const keys = (input.changedFieldKeys ?? BREED_NOTION_EDITABLE_FIELDS)
-    .filter((field): field is BreedNotionField =>
-      BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField))
-    .filter(field => !skippedSpecial.has(field) &&
-      !same(actualAdmin[field],receipt.admin[field]));
+  const beforeAdmin = breedFieldSnapshot(input.before);
+  const keys = workCopyAdminChangedFields(
+    beforeAdmin, actualAdmin, BREED_NOTION_EDITABLE_FIELDS, input.changedFieldKeys,
+  ).filter((field): field is BreedNotionField =>
+    !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field]));
+  // No record-wide receipt diff: never resend an untouched Admin field.
+  if (!keys.length) return {
+    linked: true, updated: false, reason: "no-mirrored-field-change" as const,
+  };
   const pending:string[] = [];
   const acknowledged:string[] = [];
   for (const field of keys) {

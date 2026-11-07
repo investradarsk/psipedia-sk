@@ -66,3 +66,30 @@ test("a 343-row or 345-row cohort never activates even if 344 otherwise match",(
     assert.deepEqual(counts(extra),[{status:"SHADOW",n:345}]);
   }finally{extra.close();}
 });
+
+test("atomic guard allows a separately initialized new workcopy receipt", () => {
+  const db = seed();
+  try {
+    db.exec("UPDATE breed_notion_workcopy_links SET work_sync_receipt='breed-field-v1:new-baseline' WHERE breed_id=2");
+    assert.equal(Number(db.prepare(SQL).run(OLD, NEW).changes), 344);
+    assert.deepEqual(counts(db), [{ status: "ACTIVE", n: 344 }]);
+  } finally { db.close(); }
+});
+
+test("atomic SQL safely preserves 50 legacy original hashes while using new receipts", () => {
+  const db = seed();
+  try {
+    const source = db.prepare("UPDATE breed_notion_sync SET content_hash=? WHERE breed_id=?");
+    const shadow = db.prepare(
+      "UPDATE breed_notion_workcopy_links SET original_sync_receipt=? WHERE breed_id=?");
+    for (let n = 1; n <= 50; n++) {
+      const legacy = "legacy-sha-" + n;
+      source.run(legacy, n);
+      shadow.run(legacy, n);
+    }
+    assert.equal(Number(db.prepare(SQL).run(OLD, NEW).changes), 344);
+    assert.deepEqual(counts(db), [{ status: "ACTIVE", n: 344 }]);
+    assert.equal(db.prepare("SELECT content_hash FROM breed_notion_sync WHERE breed_id=10")
+      .get().content_hash, "legacy-sha-10");
+  } finally { db.close(); }
+});
