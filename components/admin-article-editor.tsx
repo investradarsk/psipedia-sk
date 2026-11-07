@@ -357,6 +357,12 @@ export function AdminArticleEditor({
   }
 
   async function save(nextStatus: ArticleStatus) {
+    // Never save a stale parent snapshot when a Tiptap field rejected a change.
+    if (document.querySelector('[data-article-tiptap-invalid="true"]')) {
+      setError("Niektorý textový blok obsahuje nepodporované formátovanie. Pred uložením uprav označený blok.");
+      setMessage("");
+      return;
+    }
     if (savePendingRef.current || uploading) return;
     savePendingRef.current = true;
     setSaving(true);
