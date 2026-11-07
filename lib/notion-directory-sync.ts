@@ -1626,6 +1626,21 @@ async function syncMappedPage(input: {
       input.breederAdminFields === undefined) {
     if (propertyText(page, "Psipedia ID") !== String(profile.id))
       throw new NotionDirectoryUnsafeTargetError("TRAINER_IDENTITY_MISMATCH");
+    // Publishing through the canonical Admin editor is a structural event,
+    // not an editorial field reconciliation. Preserve its existing writeback.
+    const notionStatus = propertyText(page, "Psipedia stav");
+    if (profile.status === "published" && notionStatus === "Archív")
+      throw new Error("TRAINER_PUBLICATION_STATUS_CONFLICT");
+    if (profile.status === "published" && notionStatus === "Koncept") {
+      const echoed = await patchNotionPage(input.bindings, page.id, {
+        "Psipedia stav": select("Publikované"),
+        "Stav": select("Publikované"),
+        "Publikované Psipedia": date(profile.publishedAt ?? profile.updatedAt),
+      });
+      if (echoed.id !== page.id || propertyText(echoed, "Psipedia stav") !== "Publikované")
+        throw new Error("TRAINER_PUBLICATION_WRITEBACK_UNVERIFIED");
+      return "pushed" as const;
+    }
     return "unchanged" as const;
   }
 
