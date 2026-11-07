@@ -1396,17 +1396,6 @@ async function syncMappedPage(input: {
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile) return "unchanged" as const;
 
-  // Breeder profiles use signed Notion field events or explicit Admin field
-  // edits. A targeted/legacy sweep without changed fields must not fall
-  // through to whole-profile hash/baseline reconciliation. Keep that code for
-  // an explicitly owner-directed, one-off full-profile transfer only.
-  if (profile.category === "chovatelske-stanice" &&
-      !input.manualDirection &&
-      input.breederWebhookPropertyIds === undefined &&
-      input.breederAdminFields === undefined) {
-    return "unchanged" as const;
-  }
-
   let page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
   if (page.id !== input.mapping.notion_page_id) {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
@@ -1415,6 +1404,32 @@ async function syncMappedPage(input: {
   // canonical Directory data source. Never PATCH an unrelated Notion page.
   if (!notionDirectoryPageBelongsToSource(page, input.dataSourceId)) {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
+  }
+
+  // Automatic breeder sync is field-event only. A plain targeted sweep may
+  // still mirror an Admin-confirmed publication, but PATCH only its status:
+  // never re-enter record-wide editorial hash/baseline reconciliation.
+  // The owner-directed manual full-profile transfer below stays available.
+  if (profile.category === "chovatelske-stanice" &&
+      !input.manualDirection &&
+      input.breederWebhookPropertyIds === undefined &&
+      input.breederAdminFields === undefined) {
+    if (propertyText(page, "Psipedia ID") !== String(profile.id))
+      throw new NotionDirectoryUnsafeTargetError("BREEDER_IDENTITY_MISMATCH");
+    const notionStatus = propertyText(page, "Psipedia stav");
+    if (profile.status === "published" && notionStatus === "Archív")
+      throw new Error("BREEDER_PUBLICATION_STATUS_CONFLICT");
+    if (profile.status === "published" && notionStatus === "Koncept") {
+      const echoed = await patchNotionPage(input.bindings, page.id, {
+        "Psipedia stav": select("Publikované"),
+        "Stav": select("Publikované"),
+        "Publikované Psipedia": date(profile.publishedAt ?? profile.updatedAt),
+      });
+      if (echoed.id !== page.id || propertyText(echoed, "Psipedia stav") !== "Publikované")
+        throw new Error("BREEDER_PUBLICATION_WRITEBACK_UNVERIFIED");
+      return "pushed" as const;
+    }
+    return "unchanged" as const;
   }
 
   if (["chovatelske-stanice", "treneri"].includes(profile.category)
