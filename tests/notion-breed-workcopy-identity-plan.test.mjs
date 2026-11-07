@@ -126,3 +126,18 @@ test("editorial flag divergence is a data freshness blocker", () => {
   assert.equal(p.identityReady, false);
   assert(includes(p, "EDITORIAL_COMPLETE_DIFFERENCE"));
 });
+
+test("347 canonical records may include exactly three unrelated drafts", () => {
+  const args = setup();
+  for (let id = 1; id <= 3; id++) {
+    args.canonicalBreeds.push({
+      id: 9000 + id, slug: "nezaradene-" + id, name: "Koncept " + id,
+      fci_number: null, status: "draft",
+    });
+  }
+  const r = planBreedWorkcopyIdentity(args);
+  assert.equal(r.identityReady, true);
+  assert.equal(r.rows.length, 344);
+  assert.equal(r.summary.canonicalCount, 347);
+  assert.equal(r.cutoverReady, false);
+});
