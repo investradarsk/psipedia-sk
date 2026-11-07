@@ -90,7 +90,7 @@ test("structured topic landing pages keep the section system and active tab", ()
   // Structured topics now delegate to the shared editorial renderer.
   assert.match(
     topic,
-    /if \(isStructuredTopic\)\s*return <EditorialSectionTopic section=\{section\} subpage=\{subpage\} articles=\{articles\} \/>/,
+    /if \(isStructuredTopic\)\s*return <EditorialSectionTopic section=\{section\} subpage=\{subpage\} articles=\{articles\}(?: pagination=\{pagination\})? \/>/,
   );
   assert.match(editorial, /<PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
   assert.match(topic, /subpage\.homeSteps/);
