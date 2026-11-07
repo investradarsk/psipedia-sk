@@ -274,6 +274,31 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
     view.dispatch(state.tr.setStoredMarks(nextMarks));
   };
 
+  // An empty ProseMirror field can have a trailing paragraph after the first
+  // list toggle. In that case the list is rendered but the caret remains
+  // outside it, so the toolbar reports an inactive list and typing misses it.
+  // Move the caret into the newly created list only for a blank field.
+  const toggleList = (kind: "bulletList" | "orderedList") => {
+    if (!editor) return;
+    const blankField = editor.state.doc.childCount === 1
+      && editor.state.doc.firstChild?.type.name === "paragraph"
+      && editor.state.doc.textContent.length === 0;
+    if (kind === "bulletList") editor.chain().focus().toggleBulletList().run();
+    else editor.chain().focus().toggleOrderedList().run();
+
+    if (!blankField || editor.isActive(kind)) return;
+    let firstItemPos: number | null = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name !== kind) return true;
+      if (node.firstChild?.type.name === "listItem"
+        && node.firstChild.firstChild?.isTextblock) {
+        firstItemPos = pos + 3; // list + listItem + paragraph start
+      }
+      return false;
+    });
+    if (firstItemPos !== null) editor.chain().focus().setTextSelection(firstItemPos).run();
+  };
+
   const action = (label: string, title: string, callback: () => void, selected = false, enabled = true) => (
     <button type="button" title={title} aria-label={title}
       aria-pressed={selected} disabled={!editor || !enabled}
@@ -306,8 +331,8 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
         {action("P", "Odsek", () => editor?.chain().focus().setParagraph().run(), Boolean(editor?.isActive("paragraph")))}
         {action("H2", "Nadpis 2", () => editor?.chain().focus().toggleHeading({ level: 2 }).run(), Boolean(editor?.isActive("heading", { level: 2 })), Boolean(active?.allowHeadings))}
         {action("H3", "Nadpis 3", () => editor?.chain().focus().toggleHeading({ level: 3 }).run(), Boolean(editor?.isActive("heading", { level: 3 })), Boolean(active?.allowHeadings))}
-        {action("•", "Odrážkový zoznam", () => editor?.chain().focus().toggleBulletList().run(), Boolean(editor?.isActive("bulletList")))}
-        {action("1.", "Číslovaný zoznam", () => editor?.chain().focus().toggleOrderedList().run(), Boolean(editor?.isActive("orderedList")))}
+        {action("•", "Odrážkový zoznam", () => toggleList("bulletList"), Boolean(editor?.isActive("bulletList")))}
+        {action("1.", "Číslovaný zoznam", () => toggleList("orderedList"), Boolean(editor?.isActive("orderedList")))}
         {action("Citácia", "Citácia", () => editor?.chain().focus().toggleBlockquote().run(), Boolean(editor?.isActive("blockquote")), Boolean(active?.allowQuotes))}
         {action("Tip", "Zvýraznený tip", () => editor?.chain().focus().toggleNode("psipediaCallout", "paragraph", { tone: "tip" }).run(), Boolean(editor?.isActive("psipediaCallout")), Boolean(active?.allowCallouts))}
         {action("↶", "Späť (Ctrl+Z)", () => editor?.chain().focus().undo().run())}
