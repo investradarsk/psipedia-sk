@@ -1,4 +1,5 @@
 "use client";
+import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
@@ -262,13 +263,19 @@ export function AdminDirectoryEditor({
     ? activeDirectorySection
     : editorSectionsForProfile[0].id;
   const activeDirectoryIndex = editorSectionsForProfile.findIndex((section) => section.id === currentDirectorySection);
+  const navigateDirectoryPager = useProfileEditorSectionPager(currentDirectorySection, setActiveDirectorySection);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
   const savePendingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [formDirty, setFormDirty] = useState(false);
+  const [formDirty, setFormDirtyState] = useState(false);
+  const formEditRevisionRef = useRef(0);
+  const setFormDirty = (next: boolean) => {
+    if (next) formEditRevisionRef.current += 1;
+    setFormDirtyState(next);
+  };
   const [confirmDirectoryExit, setConfirmDirectoryExit] = useState(false);
   const directoryBackLinkRef = useRef<HTMLAnchorElement>(null);
   const createdProfileLinkRef = useRef<HTMLAnchorElement>(null);
@@ -302,7 +309,7 @@ export function AdminDirectoryEditor({
 
   async function uploadImage(event: File | ChangeEvent<HTMLInputElement>) {
     const file = adminSelectedImage(event);
-    if (!file) return;
+    if (!file || saving || uploading || savePendingRef.current) return;
     setUploading(true); setError(""); setMessage("");
     try {
       const data = await uploadAdminImage(file, "directory");
@@ -358,7 +365,7 @@ export function AdminDirectoryEditor({
   }
 
   async function save(nextStatus: DirectoryProfileStatus) {
-    if (saving || galleryBusy || savePendingRef.current || notionReadOnly) return;
+    if (saving || uploading || galleryBusy || savePendingRef.current || notionReadOnly) return;
     if (notionDraft && nextStatus === "published") {
       setError("Najprv bezpečne importuj koncept do D1 a publikuj v natívnom editore.");
       return;
@@ -386,6 +393,7 @@ export function AdminDirectoryEditor({
         return;
       }
       }
+    const submittedRevision = formEditRevisionRef.current;
     savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
@@ -425,7 +433,7 @@ export function AdminDirectoryEditor({
         setMessage(data.canonicalSave?.state === "CANONICAL_DRAFT_READY"
           ? "Koncept uložený v Notione a prepojený s neverejným D1 profilom."
           : "Koncept uložený v Notione; prípadný D1 import zostáva na kontrolu. Nič sa nepublikovalo.");
-        setFormDirty(false);
+        if (formEditRevisionRef.current === submittedRevision) setFormDirty(false);
         onNotionSaved?.(Boolean(data.canonicalSave?.state === "CANONICAL_DRAFT_READY" &&
           /^\/admin\/adresar\/[1-9][0-9]*$/.test(data.canonicalSave.editorUrl ?? "")));
         return;
@@ -509,14 +517,18 @@ export function AdminDirectoryEditor({
           throw new Error("Profil je uložený, ale prepojenia sa nepodarilo uložiť: " +
             (details.error || "Neznáma chyba."));
         }
-        setBreederRelationsDirty(false);
+        if (formEditRevisionRef.current === submittedRevision) setBreederRelationsDirty(false);
       }
-      setFilterSourceData(savedProfile.importData ?? {});
-      setFilterChanges({});
+      const hasNewerEdits = formEditRevisionRef.current !== submittedRevision;
+      if (!hasNewerEdits) {
+        setFilterSourceData(savedProfile.importData ?? {});
+        setFilterChanges({});
+      }
       if (["chovatelske-stanice", "treneri"].includes(savedProfile.category)) {
         // Refresh form values from the committed D1 result: untouched fields
         // may have been updated through a Notion webhook while this was open.
         breederSaveBaselineRef.current = savedProfile;
+        if (!hasNewerEdits) {
         const syncedContacts = readDirectoryPublicContacts(savedProfile.importData, savedProfile.websiteUrl ?? "");
         setName(savedProfile.name); setExcerpt(savedProfile.excerpt); setDescription(savedProfile.description);
         setQualifications(savedProfile.qualifications.join("\n"));
@@ -529,13 +541,18 @@ export function AdminDirectoryEditor({
         setWebsiteUrl(syncedContacts.website); setPublicPhone(syncedContacts.phone);
         setPublicEmail(syncedContacts.email); setFacebookUrl(syncedContacts.facebook);
         setInstagramUrl(syncedContacts.instagram); setSeo(savedProfile.seo ?? {});
+        }
       }
-      setGalleryUrls(savedProfile.galleryUrls ?? []);
+      if (!hasNewerEdits) {
+        setGalleryUrls(savedProfile.galleryUrls ?? []);
+        setQualityResolutions(qualityResolutionInput(savedProfile));
+        setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
+        setFormDirty(false);
+      }
       setStatus(savedProfile.status);
-      setQualityResolutions(qualityResolutionInput(savedProfile));
-      setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
-      setMessage(nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.");
-      setFormDirty(false);
+      setMessage(hasNewerEdits
+        ? "Predchádzajúce úpravy boli uložené. Novšie zmeny sú stále neuložené."
+        : nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.");
       if (!profile) setCreatedProfileHref(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
@@ -664,7 +681,7 @@ export function AdminDirectoryEditor({
 
   const categoryInfo = getDirectoryCategory(category);
   return (
-    <form ref={formRef} noValidate data-hydrated="false" data-admin-form-system="v4" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
+    <form ref={formRef} inert={saving} aria-busy={saving} noValidate data-hydrated="false" data-admin-form-system="v4" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
       <AdminEditorSectionVisibility.Provider value={{ activeId: currentDirectorySection, mode: "switch" }}>
       <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
 
@@ -947,12 +964,12 @@ export function AdminDirectoryEditor({
           <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Bez známej lokality"}{district ? ` · okres ${district}` : ""}{region ? ` · ${region}` : ""}</dd></div><div><dt>Adresa</dt><dd>{addressEvaluation.formattedAddress ?? (publicAddress.trim() || addressStatusText)}</dd></div></dl>
         </aside>
       </div>
-      <nav className={styles.sectionPager} aria-label="Prechod medzi sekciami služby">
+      <nav data-admin-editor-pager className={styles.sectionPager} aria-label="Prechod medzi sekciami služby">
         <AdminActionButton variant="secondary" disabled={activeDirectoryIndex <= 0}
-          onClick={() => setActiveDirectorySection(editorSectionsForProfile[activeDirectoryIndex - 1]?.id ?? editorSectionsForProfile[0].id)}>Predchádzajúca</AdminActionButton>
+          onClick={() => navigateDirectoryPager(editorSectionsForProfile[activeDirectoryIndex - 1]?.id ?? editorSectionsForProfile[0].id)}>Predchádzajúca</AdminActionButton>
         <span role="status">Sekcia {activeDirectoryIndex + 1} z {editorSectionsForProfile.length}</span>
         <AdminActionButton variant="secondary" disabled={activeDirectoryIndex >= editorSectionsForProfile.length - 1}
-          onClick={() => setActiveDirectorySection(editorSectionsForProfile[activeDirectoryIndex + 1]?.id ?? editorSectionsForProfile[editorSectionsForProfile.length - 1].id)}>Ďalšia</AdminActionButton>
+          onClick={() => navigateDirectoryPager(editorSectionsForProfile[activeDirectoryIndex + 1]?.id ?? editorSectionsForProfile[editorSectionsForProfile.length - 1].id)}>Ďalšia</AdminActionButton>
       </nav>
         </div>
       </div>
