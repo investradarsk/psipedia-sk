@@ -12721,13 +12721,6 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   border-radius: 15px;
   background: #17231e;
 }
-
-/* YouTube Shorts use a portrait player without stretching the article column. */
-.article-block-embed--shorts {
-  width: min(100%, 400px);
-  aspect-ratio: 9 / 16;
-  margin-inline: auto;
-}
 .article-block-embed iframe {
   position: absolute;
   inset: 0;
@@ -17389,12 +17382,6 @@ a.breed-fci-path-node:focus-visible {
   border: 0;
   border-radius: 12px;
   background: #111;
-}
-
-.admin-video-preview--shorts iframe {
-  max-width: 360px;
-  aspect-ratio: 9 / 16;
-  justify-self: center;
 }
 
 .admin-video-preview button {
