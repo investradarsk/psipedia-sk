@@ -421,7 +421,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
                   <div className="admin-field"><label>Názov videa <small>nepovinný</small></label><input value={block.title ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, title: event.target.value } : item)} /></div>
                   <div className="admin-field"><label>Popis videa <small>nepovinný</small></label><input value={block.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "embed" ? { ...item, caption: event.target.value } : item)} /></div>
                 </div>
-                {video && <div className="admin-video-preview">
+                {video && <div className={video.displayFormat === "shorts" ? "admin-video-preview admin-video-preview--shorts" : "admin-video-preview"}>
                   <iframe
                     src={video.embedUrl}
                     title={video.title || "Náhľad videa"}
