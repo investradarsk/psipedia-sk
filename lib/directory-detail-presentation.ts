@@ -255,16 +255,18 @@ export function getDirectoryDetailPresentation(
   const rawEmail = usefulDirectoryDetailValue(publicContacts.email);
   // Preserve arbitrary editorial strings on public profiles. Only genuinely
   // usable values become mailto/tel/web links; invalid text is never lost.
-  const emails = rawEmail
+  const breederText = profile.category === "chovatelske-stanice";
+  const emails = (rawEmail
     ?.split(/[;,\n]|\s+\/\s+/)
     .map((item) => item.trim())
-    .filter(Boolean) ?? [];
-  const websiteText = usefulDirectoryDetailValue(publicContacts.website);
-  const facebookText = usefulDirectoryDetailValue(publicContacts.facebook);
-  const instagramText = usefulDirectoryDetailValue(publicContacts.instagram);
+    .filter(Boolean) ?? [])
+    .filter((value) => breederText || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
   const websiteUrl = publicDirectoryDetailUrl(publicContacts.website);
   const facebookUrl = publicDirectoryDetailUrl(publicContacts.facebook);
   const instagramUrl = publicDirectoryDetailUrl(publicContacts.instagram);
+  const websiteText = breederText ? usefulDirectoryDetailValue(publicContacts.website) : websiteUrl;
+  const facebookText = breederText ? usefulDirectoryDetailValue(publicContacts.facebook) : facebookUrl;
+  const instagramText = breederText ? usefulDirectoryDetailValue(publicContacts.instagram) : instagramUrl;
   // Textová/redakčná adresa sama osebe nie je dôkazom exact GEO polohy.
   // Navigáciu poskytuje PublicLocationMap iba vtedy, keď existuje aktuálny
   // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
