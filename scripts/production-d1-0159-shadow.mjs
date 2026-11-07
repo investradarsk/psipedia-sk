@@ -58,7 +58,10 @@ function verifyPinnedSql() {
     "BREED_0159_SQL_NOT_ADDITIVE_TABLE");
   requireCondition(plain.includes("CREATE INDEX IF NOT EXISTS idx_breed_notion_workcopy_status"),
     "BREED_0159_SQL_MISSING_INDEX");
-  requireCondition(!/\b(DROP|DELETE|UPDATE|ALTER|INSERT|TRUNCATE|REPLACE)\b/i.test(plain),
+  // ON DELETE CASCADE belongs to a foreign-key declaration; it is not
+  // a DELETE statement. Only the pinned 0159 bytes may reach this point.
+  const noForeignKeyClause = plain.replace(/\bON\s+DELETE\s+CASCADE\b/gi, "");
+  requireCondition(!/\b(DROP|DELETE|UPDATE|ALTER|INSERT|TRUNCATE|REPLACE)\b/i.test(noForeignKeyClause),
     "BREED_0159_SQL_MUTATION_FORBIDDEN");
   return gitBlob;
 }
