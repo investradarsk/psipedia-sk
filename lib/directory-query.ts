@@ -1,4 +1,4 @@
-import { legacyFacetMappings } from "./service-catalog-contract.ts";
+import { directoryLegacyServiceFacetIds } from "./directory-filter-contract.ts";
 import type { DirectoryFilters } from "@/lib/directory-store";
 import { directoryPublicFacetQueryFields } from "./directory-public-filters.ts";
 
@@ -62,11 +62,7 @@ export function directoryEmptyQueryRedirect(
 /** A catalogue selection replaces historical service/type fields even for native GET forms without JS. */
 export function directoryCatalogFilters(filters: DirectoryFilters): DirectoryFilters {
   if (!filters.canonicalService) return filters;
-  const legacyServiceIds = new Set(
-    legacyFacetMappings
-      .filter((mapping) => mapping.targetKind === "service")
-      .map((mapping) => mapping.legacyId),
-  );
+  const legacyServiceIds: ReadonlySet<string> = new Set(directoryLegacyServiceFacetIds);
   return {
     ...filters,
     service: "",

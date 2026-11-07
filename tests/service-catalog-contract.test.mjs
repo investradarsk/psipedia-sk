@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
-import {directoryFilterRegistry,serviceFilterCategories} from "../lib/directory-filter-contract.ts";
+import {directoryFilterRegistry,serviceFilterCategories,directoryLegacyServiceFacetIds} from "../lib/directory-filter-contract.ts";
 import {
  SERVICE_CATALOG_VERSION,SERVICE_SELECTION_POLICY,TRI_STATE_VALUES,
  serviceCatalog,attributeCatalog,providerTypeCatalog,legacyFacetMappings,
@@ -61,6 +61,12 @@ test("different care/supervision data, kennel not sold as artificial services, d
  assert.ok(serviceCatalog.filter(x=>x.categories.includes("chovatelske-stanice")).every(x=>x.id==="svc.breeding.advice"));
  assert.equal(SERVICE_SELECTION_POLICY.defaultMode,"all");
  assert.deepEqual(SERVICE_SELECTION_POLICY.supportedModes,["all","any"]);
+});
+test("public legacy service facet IDs are exactly the validated canonical service mappings",()=>{
+ assert.deepEqual(
+  [...directoryLegacyServiceFacetIds].sort(),
+  legacyFacetMappings.filter(mapping=>mapping.targetKind==="service").map(mapping=>mapping.legacyId).sort(),
+ );
 });
 test("contract is not imported by live writers, filters, editors or maps",()=>{
  for(const path of["lib/directory-store.ts","lib/directory-query.ts","lib/map-query.ts","lib/notion-directory-sync.ts","components/admin-directory-editor.tsx","components/directory-page.tsx","lib/gemini-notion-directory-review.ts"]){

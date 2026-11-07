@@ -551,8 +551,12 @@ test("Services V3 relation sync runs only when requested for an existing mapped 
   assert.ok(helper >= 0 && helper < fastStart, "the hourly and targeted paths reuse one relation helper");
   assert.ok(target.includes("const mapping = await loadMappingByProfile("));
   assert.ok(target.includes("if (!mapping) return summary"), "no new Notion page for unmapped records");
-  assert.ok(target.includes("if (input.syncServiceRelations) {"));
-  assert.ok(target.includes("await syncRelation(mapping.notion_page_id, input.targetProfileId)"));
+  assert.ok(target.includes('if (input.syncServiceRelations || input.manualDirection === "NOTION_TO_ADMIN") {'),
+    "explicit CAS service selection or owner-approved one-profile Notion import may reconcile the relation");
+  assert.ok(target.includes("await syncRelation(mapping.notion_page_id, input.targetProfileId"),
+    "targeted service sync uses only the already mapped profile");
+  assert.ok(target.includes('input.manualDirection === "NOTION_TO_ADMIN"'),
+    "manual Notion import is additions-only and cannot silently remove Admin YES choices");
   assert.ok(target.includes("summary.serviceRelationSync = relation"));
   assert.ok(target.includes('if (relation === "skipped") summary.failed++'),
     "missing migration or missing remote relation must not be reported as synced");
