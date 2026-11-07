@@ -1592,7 +1592,7 @@ async function syncBreederEvent(input: {
     if (failures.length) {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
-    if (!paths.length && !relationsUpdated && !facetFields.length) return "unchanged";
+    if (!paths.length && !relationsUpdated && !facetFields.length && !pilotMetaFields.length) return "unchanged";
     // Also clear a legacy whole-profile conflict when the new event was
     // already applied (for example, an inbox retry or a duplicate delivery).
     await patchNotionPage(bindings, page.id, {
