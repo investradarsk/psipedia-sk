@@ -1,0 +1,105 @@
+name: Production Breed Workcopy 344 Shadow Links (manual)
+
+# No push, pull_request or cron trigger. Merge never stages records.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Audit only reads Notion and D1; Apply inserts 344 SHADOW rows
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: AUDIT-BREED-STAGE-344 or APPLY-BREED-STAGE-344
+        type: string
+        required: true
+
+# Use the SAME production migration lock as schema 0159.
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  workcopy-stage:
+    name: Protected 344 identity and parity recheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      BREED_STAGE_CONFIRMATION: ${{ inputs.confirmation }}
+      BREED_STAGE_MODE: ${{ inputs.mode }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+    steps:
+      - name: Main-only manual owner confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          case "$BREED_STAGE_MODE" in
+            audit) expected="AUDIT-BREED-STAGE-344" ;;
+            apply) expected="APPLY-BREED-STAGE-344" ;;
+            *) exit 1 ;;
+          esac
+          test "$BREED_STAGE_CONFIRMATION" = "$expected"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$NOTION_API_TOKEN"
+
+      - name: Checkout pinned workflow revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Refuse stale main checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+
+      - name: Enforce existing migration safety and full staging regression
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-breed-workcopy-stage.test.mjs
+          node --test tests/production-d1-0159-shadow.test.mjs
+          node --test tests/notion-breed-workcopy-identity-plan.test.mjs
+          node --test tests/notion-breed-workcopy-shadow-plan.test.mjs
+          node --test tests/notion-breed-workcopy-preflight.test.mjs
+
+      - name: Bind only canonical production Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id)')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Verify live Notion and D1 then audit or stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-breed-workcopy-stage.mjs "$BREED_STAGE_MODE"
+
+      - name: Retain aggregate report and recovery bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-breed-workcopy-stage-${{ github.run_id }}
+          path: .production-breed-workcopy-stage/report.json
+          if-no-files-found: ignore
+          retention-days: 30
