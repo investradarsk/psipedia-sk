@@ -176,12 +176,22 @@ test("admin routes enforce auth-before-body, JSON content type and organization-
 });
 
 
-test("organization address admin gates the single-address form until hydration", () => {
-  const editor = read("../components/admin-organization-locations.tsx");
+test("organization address uses one hydrated canonical editor and no nested save form", () => {
+  const address = read("../components/admin-organization-locations.tsx");
+  const editor = read("../components/admin-organization-editor.tsx");
+  const page = read("../app/admin/organizacie/[id]/page.tsx");
+  assert.match(address, /data-organization-address-admin data-single-address/);
+  assert.match(address, /canonicalOrganizationLocation/);
+  assert.match(address, /disabled=\{disabled\}/);
+  assert.doesNotMatch(address, /<form|Uložiť adresu|fetch\(|Typ lokality|Pridať lokalitu|Hlavná lokalita|ORGANIZATION_LOCATION_ROLES/);
   assert.match(editor, /useSyncExternalStore/);
-  assert.match(editor, /const disabled = !hydrated \|\| archived \|\| busy/);
-  assert.match(editor, /<h2>Adresa<\/h2>/);
-  assert.doesNotMatch(editor, /Typ lokality|Pridať lokalitu|Hlavná lokalita|ORGANIZATION_LOCATION_ROLES/);
+  assert.match(editor, /const editingDisabled = !hydrated \|\| archived \|\| saving \|\| uploading/);
+  assert.match(editor, /<AdminEditorSection id="organization-address"/);
+  assert.match(editor, /<AdminOrganizationLocations draft=\{addressDraft\} disabled=\{editingDisabled\}/);
+  assert.match(editor, /<AdminProfileGoogleMaps/);
+  assert.match(editor, /const dirty = editorSnapshot !== savedSnapshot \|\| addressDirty/);
+  assert.match(page, /initialLocations=\{locations\}/);
+  assert.doesNotMatch(page, /<AdminOrganizationLocations|<AdminProfileGoogleMaps/);
 });
 
 test("MAP-AUTO-1C create initializes GEO with classifier-owned SITE review semantics", async () => {

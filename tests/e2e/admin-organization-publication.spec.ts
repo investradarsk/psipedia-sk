@@ -130,7 +130,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   await showOrganizationSection(page, "organization-media", "Obrázok a zdroj");
   await page.getByLabel("Zdroj / referencia").fill("https://example.sk/source");
   await page.getByRole("button", { name: "Uložiť organizáciu" }).click();
-  await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText("Canonical údaje organizácie boli uložené");
+  await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText("Údaje organizácie sú uložené");
 
   await page.goto("/admin/organizacie?q=" + encodeURIComponent(name), { waitUntil: "domcontentloaded" });
   const result = page.locator("article").filter({ hasText: name });
@@ -145,13 +145,13 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
 
 
 for (const width of [1440, 390, 320]) {
-  test(`organization shared editor retains fields while switching four panels at ${width}px`, async ({ page }) => {
+  test(`organization shared editor retains profile and address fields while switching five panels at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const response = await page.goto("/admin/organizacie/novy", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     const form = page.locator("form[data-admin-organization-editor]");
     const nav = form.getByRole("navigation", { name: "Sekcie editora organizácie" });
-    await expect(nav.locator("option")).toHaveCount(4);
+    await expect(nav.locator("option")).toHaveCount(5);
     await expect(form.locator("#organization-general")).toBeVisible();
     await expect(page.getByLabel("Názov *", { exact: true })).toBeEnabled();
     const writes: string[] = [];
@@ -163,6 +163,10 @@ for (const width of [1440, 390, 320]) {
     await page.getByLabel("Slug *", { exact: true }).fill("neulozena-organizacia-krok-15");
     await showOrganizationSection(page, "organization-content", "Verejný obsah");
     await page.getByLabel("Krátky popis").fill("Pomoc strateným a nájdeným psom.");
+    await showOrganizationSection(page, "organization-address", "Adresa a mapa");
+    await page.getByLabel("Adresa", { exact: true }).fill("Skúšobná 12");
+    await page.getByLabel("Mesto", { exact: true }).fill("Nitra");
+    await expect(form.locator("form")).toHaveCount(0); // address has no nested independent submit
     await showOrganizationSection(page, "organization-contacts", "Kontakty");
     await page.getByLabel("Verejný e-mail").fill("kontakt@example.sk");
     await page.getByLabel("Web").fill("https://example.sk/");
@@ -170,6 +174,9 @@ for (const width of [1440, 390, 320]) {
     await page.getByLabel("Zdroj / referencia").fill("https://example.sk/zdroj");
     await showOrganizationSection(page, "organization-contacts", "Kontakty");
     await expect(page.getByLabel("Verejný e-mail")).toHaveValue("kontakt@example.sk");
+    await showOrganizationSection(page, "organization-address", "Adresa a mapa");
+    await expect(page.getByLabel("Adresa", { exact: true })).toHaveValue("Skúšobná 12");
+    await expect(page.getByLabel("Mesto", { exact: true })).toHaveValue("Nitra");
     await showOrganizationSection(page, "organization-content", "Verejný obsah");
     await expect(page.getByLabel("Krátky popis")).toContainText("Pomoc strateným a nájdeným psom.");
     await showOrganizationSection(page, "organization-general", "Základné");

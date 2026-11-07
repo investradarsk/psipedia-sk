@@ -21,6 +21,7 @@ test.describe("MAP-1B admin geo foundation", () => {
       await navigation.getByRole("button", { name: "Lokalita", exact: true }).click();
     }
     const locationSection = page.locator("#directory-location");
+    await expect(locationSection).toBeVisible();
     const geoPanel = locationSection.locator("[data-admin-geo-location]");
     await expect(geoPanel.getByRole("heading", { name: "Poloha na mape" })).toBeVisible();
     await expect(geoPanel.getByLabel("Verejná poloha")).toBeVisible();

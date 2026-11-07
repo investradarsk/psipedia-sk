@@ -5,6 +5,15 @@ import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-na
 import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
 import styles from "./admin-organization-editor.module.css";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
+import { AdminProfileGoogleMaps } from "@/components/admin-profile-google-maps";
+import {
+  AdminOrganizationLocations,
+  canonicalOrganizationLocation,
+  organizationAddressDraftFromLocation,
+  type OrganizationAddressDraft,
+} from "@/components/admin-organization-locations";
+import type { OrganizationLocationAdminRecord } from "@/lib/organization-location-admin-store";
+import type { OrganizationLocationAdminInput } from "@/lib/organization-location-admin";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -61,9 +70,25 @@ function text(value: string | null) {
   return value ?? "";
 }
 
-export function AdminOrganizationEditor({ organization, automationSuggestions = [] }: { organization?: OrganizationPublicationAdminItem | null; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
+export function AdminOrganizationEditor({
+  organization,
+  initialLocations = [],
+  automationSuggestions = [],
+}: {
+  organization?: OrganizationPublicationAdminItem | null;
+  initialLocations?: OrganizationLocationAdminRecord[];
+  automationSuggestions?: CanonicalUpdateSuggestion[];
+}) {
   const router = useRouter();
   const [draft, setDraft] = useState<OrganizationAdminInput>(() => organization ? organizationAdminInputFromCandidate(organization) : blankInput());
+  const [location, setLocation] = useState<OrganizationLocationAdminRecord | null>(() => canonicalOrganizationLocation(initialLocations));
+  const [addressDraft, setAddressDraft] = useState<OrganizationAddressDraft>(() =>
+    organizationAddressDraftFromLocation(organization, canonicalOrganizationLocation(initialLocations)));
+  const addressSnapshot = JSON.stringify(addressDraft);
+  const [savedAddressSnapshot, setSavedAddressSnapshot] = useState(addressSnapshot);
+  // A new organization may be committed before its separate location write
+  // succeeds. Keep its ID so retry uses PUT and never creates a duplicate.
+  const createdOrganizationId = useRef<number | null>(null);
   const hydrated = useSyncExternalStore(
     () => () => undefined,
     () => true,
@@ -80,7 +105,8 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
   const editingDisabled = !hydrated || archived || saving || uploading;
   const editorSnapshot = JSON.stringify(draft);
   const [savedSnapshot, setSavedSnapshot] = useState(editorSnapshot);
-  const dirty = editorSnapshot !== savedSnapshot;
+  const addressDirty = addressSnapshot !== savedAddressSnapshot;
+  const dirty = editorSnapshot !== savedSnapshot || addressDirty;
   const [confirmNavigation, setConfirmNavigation] = useState(false);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
   const allowNavigationRef = useRef(false);
@@ -93,6 +119,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
   const sections = useMemo(() => [
     { id: "organization-general", label: "Základné" },
     { id: "organization-content", label: "Verejný obsah" },
+    { id: "organization-address", label: "Adresa a mapa" },
     { id: "organization-contacts", label: "Kontakty" },
     { id: "organization-media", label: "Obrázok a zdroj" },
   ], []);
@@ -160,6 +187,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
     allowNavigationRef.current = true;
     setConfirmNavigation(false);
     setSavedSnapshot(editorSnapshot);
+    setSavedAddressSnapshot(addressSnapshot);
     navigate?.();
   };
 
@@ -188,7 +216,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (archived || mutationPending.current || uploading) return;
-    // All four form panels stay mounted. With noValidate, hidden native
+    // All five form panels stay mounted. With noValidate, hidden native
     // constraints can be inspected and their panel revealed before saving.
     const invalid = Array.from(event.currentTarget.elements).find((control): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
       (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
@@ -203,35 +231,88 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
     }
     mutationPending.current = true;
     const submittedSnapshot = JSON.stringify(draft);
+    const submittedAddressSnapshot = JSON.stringify(addressDraft);
+    const organizationChanged = submittedSnapshot !== savedSnapshot;
+    const addressChanged = submittedAddressSnapshot !== savedAddressSnapshot;
+    let savingAddress = false;
+    let organizationSaved = false;
     setSaving(true); setError(""); setMessage("");
     try {
-      const response = await fetch(organization ? "/api/admin/organizations/" + organization.id : "/api/admin/organizations", {
-        method: organization ? "PUT" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(organization ? { payload: draft, expectedUpdatedAt } : draft),
-      });
-      const body = await response.json() as { item?: OrganizationPublicationAdminItem; error?: string };
-      if (!response.ok || !body.item) throw new Error(body.error || "Organizáciu sa nepodarilo uložiť.");
+      let organizationId = organization?.id ?? createdOrganizationId.current;
+      // Avoid touching an unchanged organization row just to save its address.
+      // In particular, this preserves its updated_at and Notion mirror.
+      if (!organizationId || organizationChanged) {
+        const response = await fetch(organizationId ? "/api/admin/organizations/" + organizationId : "/api/admin/organizations", {
+          method: organizationId ? "PUT" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(organizationId ? { payload: draft, expectedUpdatedAt } : draft),
+        });
+        const body = await response.json() as { item?: OrganizationPublicationAdminItem; error?: string };
+        if (!response.ok || !body.item) throw new Error(body.error || "Organizáciu sa nepodarilo uložiť.");
+        organizationId = body.item.id;
+        if (!organization) createdOrganizationId.current = organizationId;
+        setExpectedUpdatedAt(body.item.updatedAt);
+        const persistedDraft = organizationAdminInputFromCandidate(body.item);
+        setSavedSnapshot(JSON.stringify(persistedDraft));
+        // Do not overwrite a newer automation change accepted during the request.
+        setDraft((current) => JSON.stringify(current) === submittedSnapshot ? persistedDraft : current);
+        organizationSaved = true;
+      }
+
+      if (addressChanged) {
+        savingAddress = true;
+        if (!organizationId) throw new Error("Pred uložením adresy musí existovať organizácia.");
+        const payload: OrganizationLocationAdminInput = {
+          role: location?.role ?? "SITE",
+          label: location?.label ?? "",
+          address: addressDraft.address,
+          city: addressDraft.city,
+          district: addressDraft.district,
+          region: addressDraft.region,
+          countryCode: addressDraft.countryCode || "SK",
+          isPrimary: true,
+          sortOrder: 0,
+        };
+        const endpoint = location
+          ? `/api/admin/organizations/${organizationId}/locations/${location.id}`
+          : `/api/admin/organizations/${organizationId}/locations`;
+        const response = await fetch(endpoint, {
+          method: location ? "PUT" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ payload }),
+        });
+        const body = await response.json() as { item?: OrganizationLocationAdminRecord; error?: string };
+        if (!response.ok || !body.item) throw new Error(body.error || "Adresu sa nepodarilo uložiť.");
+        setLocation(body.item);
+        const savedAddress = organizationAddressDraftFromLocation(null, body.item);
+        setSavedAddressSnapshot(JSON.stringify(savedAddress));
+        setAddressDraft((current) => JSON.stringify(current) === submittedAddressSnapshot ? savedAddress : current);
+      }
+
       if (!organization) {
+        // Redirect only after both writes succeed. An address failure keeps
+        // the unsaved address and the newly created ID for a safe retry.
         allowNavigationRef.current = true;
-        setSavedSnapshot(submittedSnapshot);
-        router.replace(`/admin/organizacie/${body.item.id}`);
+        router.replace(`/admin/organizacie/${organizationId}`);
         return;
       }
-      setExpectedUpdatedAt(body.item.updatedAt);
-      const persistedDraft = organizationAdminInputFromCandidate(body.item);
-      setSavedSnapshot(JSON.stringify(persistedDraft));
-      // Do not replace an automation patch accepted while this request was in flight.
-      setDraft((current) => JSON.stringify(current) === submittedSnapshot ? persistedDraft : current);
-      setMessage("Canonical údaje organizácie boli uložené.");
+      setMessage(addressChanged ? "Údaje organizácie aj adresa sú uložené." : organizationSaved
+        ? "Údaje organizácie sú uložené." : "Žiadne neuložené zmeny.");
       router.refresh();
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : "Organizáciu sa nepodarilo uložiť.";
-      if (/obráz|fotograf|image|source|zdroj/i.test(detail)) setActiveOrganizationSection("organization-media");
-      else if (/kontaktn|e-mail|telefón|website|facebook|instagram|odkaz|web|url/i.test(detail)) setActiveOrganizationSection("organization-contacts");
-      else if (/opis|popis|description|text|obsah/i.test(detail)) setActiveOrganizationSection("organization-content");
-      else if (/názov|meno|slug|typ|identit|name/i.test(detail)) setActiveOrganizationSection("organization-general");
-      setError(detail);
+      if (savingAddress) {
+        setActiveOrganizationSection("organization-address");
+        setError(organizationSaved
+          ? "Údaje organizácie sa uložili, ale adresa nie. Oprav adresu a klikni znovu na Uložiť organizáciu. " + detail
+          : "Adresa sa neuložila. Ostatné údaje zostali nezmenené. " + detail);
+      } else {
+        if (/obráz|fotograf|image|source|zdroj/i.test(detail)) setActiveOrganizationSection("organization-media");
+        else if (/kontaktn|e-mail|telefón|website|facebook|instagram|odkaz|web|url/i.test(detail)) setActiveOrganizationSection("organization-contacts");
+        else if (/opis|popis|description|text|obsah/i.test(detail)) setActiveOrganizationSection("organization-content");
+        else if (/názov|meno|slug|typ|identit|name/i.test(detail)) setActiveOrganizationSection("organization-general");
+        setError(detail);
+      }
     } finally { mutationPending.current = false; setSaving(false); }
   }
 
@@ -266,8 +347,29 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
         <AdminHelpText term="Storage contract">Lexical rešpektuje pôvodné textové polia a obojsmernú synchronizáciu.</AdminHelpText>
       </AdminEditorSection>
 
+      <AdminEditorSection id="organization-address" className="admin-form-card">
+        <div className="admin-card-heading"><div><span>03</span><div><h2>Adresa a mapa</h2><p>Jedna hlavná adresa organizácie. Zmeny ulož rovnakým tlačidlom ako ostatné údaje.</p></div></div></div>
+        <AdminOrganizationLocations draft={addressDraft} disabled={editingDisabled}
+          onChange={(changes) => setAddressDraft((current) => ({ ...current, ...changes }))} />
+        {organization ? (
+          dirty ? (
+            <p className="admin-help" role="status">Pred zmenou Google miesta ulož rozpracované údaje organizácie a adresu. Predídeme strate neuložených zmien.</p>
+          ) : (
+            <div id="google-maps">
+              <AdminProfileGoogleMaps
+                targetType="ORGANIZATION_LOCATION"
+                targetId={organization.id}
+                endpoint={`/api/admin/organizations/${organization.id}/google-place`}
+              />
+            </div>
+          )
+        ) : (
+          <p className="admin-help">Google Maps bude dostupné po prvom úspešnom uložení organizácie a adresy.</p>
+        )}
+      </AdminEditorSection>
+
       <AdminEditorSection id="organization-contacts" className="admin-form-card">
-        <div className="admin-card-heading"><div><span>03</span><div><h2>Kontakty a odkazy</h2><p>Iba public organization fields; súkromné PII sem nepatrí.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Iba public organization fields; súkromné PII sem nepatrí.</p></div></div></div>
 <AdminEditorToolFrame kind="contacts">
         <div className="admin-field-grid">
           <div className="admin-field"><label htmlFor="organization-email">Verejný e-mail</label><input id="organization-email" type="email" value={text(draft.publicEmail)} disabled={editingDisabled} onChange={(event) => patch({ publicEmail: event.target.value || null })} /></div>
@@ -280,7 +382,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
       </AdminEditorSection>
 
       <AdminEditorSection id="organization-media" className="admin-form-card">
-        <div className="admin-card-heading"><div><span>04</span><div><h2>Obrázok a zdroj</h2><p>Re-use existujúceho admin image upload backendu; nevzniká nový media systém.</p></div></div></div>
+        <div className="admin-card-heading"><div><span>05</span><div><h2>Obrázok a zdroj</h2><p>Re-use existujúceho admin image upload backendu; nevzniká nový media systém.</p></div></div></div>
         <div className="admin-upload-row">
           <div className="admin-upload-preview admin-upload-preview--forest">{draft.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={draft.thumbnailImageDisplay} src={draft.imageUrl} alt="Náhľad obrázka organizácie" /> : <span aria-hidden="true">🐾</span>}</div>
           <div className="admin-upload-actions">
