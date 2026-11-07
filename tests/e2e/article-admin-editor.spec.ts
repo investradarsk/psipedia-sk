@@ -365,11 +365,11 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(intro).toContainText("<script>alert(1)</script>");
 
     await intro.selectText();
-    const richWrapper = intro.locator("..");
+    const richWrapper = page.locator("[data-admin-tiptap-toolbar]");
     await richWrapper.getByRole("button", { name: "Vložiť alebo upraviť odkaz" }).click();
     await richWrapper.getByLabel("Odkaz", { exact: true }).fill("javascript:alert(1)");
     await richWrapper.getByRole("button", { name: "Použiť" }).click();
-    await expect(richWrapper.getByRole("alert")).toContainText("bezpečný odkaz");
+    await expect(richWrapper.getByRole("alert")).toContainText("Povolené sú odkazy");
 
     await showArticleSection(page, "article-media");
     await page.getByLabel("URL zdroja fotografie").fill("ftp://example.com/photo");
