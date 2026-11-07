@@ -1396,6 +1396,17 @@ async function syncMappedPage(input: {
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile) return "unchanged" as const;
 
+  // Breeder profiles use signed Notion field events or explicit Admin field
+  // edits. A targeted/legacy sweep without changed fields must not fall
+  // through to whole-profile hash/baseline reconciliation. Keep that code for
+  // an explicitly owner-directed, one-off full-profile transfer only.
+  if (profile.category === "chovatelske-stanice" &&
+      !input.manualDirection &&
+      input.breederWebhookPropertyIds === undefined &&
+      input.breederAdminFields === undefined) {
+    return "unchanged" as const;
+  }
+
   let page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
   if (page.id !== input.mapping.notion_page_id) {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
