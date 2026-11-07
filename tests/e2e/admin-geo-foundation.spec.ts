@@ -10,18 +10,16 @@ test.describe("MAP-1B admin geo foundation", () => {
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture", { waitUntil: "domcontentloaded" });
     await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
 
-    // Directory editors show one section at a time after UNIFIED-EDITOR-3.
-    // Reach the location panel through the actual desktop/mobile navigation
-    // before asserting on its portalled GEO controls.
+    // The shared editor renders one section at a time. Open the location
+    // section using its accessible desktop navigation / mobile selector.
     const navigation = page.getByRole("navigation", { name: "Sekcie profilu adresára" });
     await expect(navigation).toHaveAttribute("data-admin-editor-nav-ready", "true");
-    const sectionSelect = navigation.getByRole("combobox");
-    if (await sectionSelect.isVisible()) {
-      await sectionSelect.selectOption("directory-location");
+    const mobileSelect = navigation.getByRole("combobox", { name: "Sekcia editora" });
+    if (await mobileSelect.isVisible()) {
+      await mobileSelect.selectOption({ label: "Lokalita" });
     } else {
       await navigation.getByRole("button", { name: "Lokalita", exact: true }).click();
     }
-
     const locationSection = page.locator("#directory-location");
     await expect(locationSection).toBeVisible();
     const geoPanel = locationSection.locator("[data-admin-geo-location]");

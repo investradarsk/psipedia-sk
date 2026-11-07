@@ -50,7 +50,7 @@ test("navigation and cancel do not silently discard draft values",()=>{
  assert.match(workspace,/EditorUnsavedChangesGuard/);
  assert.match(profile,/Zahodiť neuložené hodnoty služieb/);
 });
-test("Services profile delegates its single feedback status to shared EditorActionBar",()=>{const workspace=read("components/admin-editor-workspace.tsx");assert.doesNotMatch(profile,/<span role="status">|<span aria-live="polite" aria-atomic="true">/);assert.match(profile,/<EditorActionBar message=\{message\}/);assert.match(workspace,/className=\{styles\.actionMessage\} role="status" aria-live="polite"/);});
+test("Services profile delegates its single feedback status to shared EditorActionBar",()=>{const workspace=read("components/admin-editor-workspace.tsx");assert.doesNotMatch(profile,/<span role="status">|<span aria-live="polite" aria-atomic="true">/);assert.match(profile,/<EditorActionBar message=\{message\}/);assert.match(workspace,/\<AdminEditorFooter/);const footer=read("components/admin-editor-footer.tsx");assert.match(footer,/className=\{styles\.status\} role="status" aria-live="polite"/);});
 test("simple catalog retains CAS, auth and multi-category inputs",()=>{
  const route=read("app/api/admin/service-catalog/options/[id]/route.ts");
  assert.match(catalog,/expectedVersion:editing!.version/);
