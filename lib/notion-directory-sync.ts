@@ -1360,6 +1360,92 @@ async function saveBreederEditorialValue(
 }
 
 /**
+ * Extra operational text for the three pilot categories. This is not part of
+ * the legacy whole-profile snapshot/hash, nor of canonical Services V3/GEO.
+ */
+export const PILOT_DIRECTORY_METADATA_FIELDS = [
+  "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka",
+] as const;
+export type PilotDirectoryMetadataField = (typeof PILOT_DIRECTORY_METADATA_FIELDS)[number];
+
+function pilotChangedNotionMetadataFields(
+  page: NotionPage, changedIds: readonly string[],
+): PilotDirectoryMetadataField[] {
+  const changed = new Set(changedIds);
+  return PILOT_DIRECTORY_METADATA_FIELDS.filter(name => {
+    const item = page.properties?.[name] as { id?: unknown } | undefined;
+    return changed.has(name) || (typeof item?.id === "string" && changed.has(item.id));
+  });
+}
+
+/** Save one source/hours field, preserving every unrelated JSON property. */
+export async function savePilotDirectoryMetadataField(input: {
+  database: D1Database;
+  profileId: number;
+  category: string;
+  field: PilotDirectoryMetadataField;
+  value: string;
+}): Promise<ManagedDirectoryProfile> {
+  if (!isDirectoryEventPilotCategory(input.category) ||
+      !PILOT_DIRECTORY_METADATA_FIELDS.includes(input.field))
+    throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
+  const trimmed = input.value.trim();
+  if (!trimmed) throw new Error("DIRECTORY_PILOT_METADATA_EMPTY_NOT_A_DELETE");
+  const current = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!current || current.category !== input.category || current.status === "archived")
+    throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
+  if (String(current.importData?.[input.field] ?? "").trim() === trimmed) return current;
+  const now = new Date().toISOString();
+  const saved = await input.database.prepare(
+    "UPDATE directory_profiles SET source_data_json = json_set(" +
+      "COALESCE(source_data_json, '{}'), ?, ?), updated_at = ?, updated_by = ? " +
+    "WHERE id = ? AND category = ? AND status <> 'archived' " +
+      "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) RETURNING id"
+  ).bind('$."' + input.field + '"', trimmed, now, SYSTEM_ACTOR,
+    input.profileId, input.category, current.updatedAt).first<{ id: number }>();
+  if (!saved) throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
+  const next = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!next) throw new Error("DIRECTORY_PILOT_METADATA_RELOAD_FAILED");
+  return next;
+}
+
+/** Admin -> Notion: changed operational fields only, never a record-wide push. */
+export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  profileId: number;
+  changed: Partial<Record<PilotDirectoryMetadataField, string>>;
+}): Promise<boolean> {
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!profile || !isDirectoryEventPilotCategory(profile.category))
+    throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
+  const mapping = await loadMappingByProfile(input.database, input.profileId);
+  if (!mapping) throw new Error("DIRECTORY_PILOT_METADATA_UNLINKED");
+  const dataSourceId = input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
+  if (!dataSourceId || !input.bindings.NOTION_API_TOKEN?.trim())
+    throw new Error("DIRECTORY_PILOT_METADATA_NOTION_DISABLED");
+  const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+  if (page.id !== mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(page, dataSourceId) ||
+      propertyText(page, "Psipedia ID") !== String(input.profileId))
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_PILOT_METADATA_TARGET_INVALID");
+  const patch: Record<string, unknown> = {};
+  for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
+    const value = input.changed[field]?.trim();
+    if (!value || propertyText(page, field) === value) continue;
+    if (!Object.hasOwn(page.properties ?? {}, field))
+      throw new Error("DIRECTORY_PILOT_METADATA_NOTION_FIELD_MISSING: " + field);
+    patch[field] = richText(value);
+  }
+  if (!Object.keys(patch).length) return false;
+  const echoed = await patchNotionPage(input.bindings, page.id, patch);
+  if (echoed.id !== page.id || !echoed.properties ||
+      Object.keys(patch).some(field => propertyText(echoed, field) !== input.changed[field]?.trim()))
+    throw new Error("DIRECTORY_PILOT_METADATA_WRITEBACK_UNVERIFIED");
+  return true;
+}
+
+/**
  * Mapped breeder/trainer event mode: one explicit source action is authoritative for
  * the fields it edited. No record-wide hash/baseline/conflict reconciliation.
  * Retain the mapped identity, auth, and canonical structural constraints.
@@ -1381,7 +1467,10 @@ async function syncBreederEvent(input: {
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
     const facetFields = input.profile.category === "chovatelske-stanice"
       ? breederChangedNotionFacets(page, input.changedPropertyIds) : [];
-    if (!paths.length && !relationFields.length && !facetFields.length) return "unchanged";
+    const pilotMetaFields = isDirectoryEventPilotCategory(input.profile.category)
+      ? pilotChangedNotionMetadataFields(page, input.changedPropertyIds) : [];
+    if (!paths.length && !relationFields.length && !facetFields.length && !pilotMetaFields.length)
+      return "unchanged";
     const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
     let current = input.profile;
     let updated = false;
@@ -1424,6 +1513,24 @@ async function syncBreederEvent(input: {
         failures.push(path);
       }
     }
+    // Operational hours and sources are one-field JSON writes. Empty Notion
+    // values are missing, never a delete; other fields still transfer.
+    let pilotMetaUpdated = false;
+    for (const field of pilotMetaFields) {
+      const value = propertyText(page, field).trim();
+      if (!value) continue;
+      try {
+        const next = await savePilotDirectoryMetadataField({
+          database, profileId: current.id, category: current.category, field, value,
+        });
+        if (next.updatedAt !== current.updatedAt) pilotMetaUpdated = true;
+        current = next;
+      } catch (error) {
+        console.error("DIRECTORY_PILOT_METADATA_FIELD_WRITE_FAILED", current.id, field, error);
+        failures.push(field);
+      }
+    }
+
     // Explicit tri-state Notion changes never infer "No" from an empty field.
     let facetsUpdated = false;
     for (const id of facetFields) {
@@ -1493,7 +1600,7 @@ async function syncBreederEvent(input: {
       "Sync chyba": richText(""),
       "Posledný sync": date(now),
     });
-    return updated || relationsUpdated || facetsUpdated ? "pulled" : "unchanged";
+    return updated || relationsUpdated || facetsUpdated || pilotMetaUpdated ? "pulled" : "unchanged";
   }
 
   const fields = (input.adminChangedFields ?? []).filter(
