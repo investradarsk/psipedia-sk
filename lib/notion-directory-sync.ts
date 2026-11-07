@@ -1499,7 +1499,7 @@ async function syncBreederEvent(input: {
   const fields = (input.adminChangedFields ?? []).filter(
     (path): path is BreederEditorialField =>
       Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
-      (path !== "services" || input.profile.category === "chovatelske-stanice"),
+      (path !== "services" || input.profile.category !== "treneri"),
   );
   if (!fields.length) return "unchanged";
   const geo = await loadGeoMirror(database, input.profile.id);
