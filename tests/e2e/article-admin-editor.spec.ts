@@ -484,7 +484,13 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await waitForEditor(page);
     await page.locator("#article-title").fill("Neuložený vizuálny náhľad");
     await page.locator("#article-intro").fill("Tento text je zatiaľ len v editore.");
-    await page.getByRole("button", { name: "Náhľad na celú obrazovku · počítač/mobil" }).click();
+    const mobileView = (page.viewportSize()?.width ?? 1440) <= 820;
+    if (mobileView) {
+      await page.getByRole("navigation", { name: "Sekcie pracovného editora" })
+        .getByRole("button", { name: "Náhľad", exact: true }).click();
+    }
+    await page.locator("[data-article-editor-rail]")
+      .getByRole("button", { name: "Náhľad na celú obrazovku · počítač/mobil" }).click();
     const preview = page.getByRole("dialog", { name: "Celoobrazovkový náhľad článku" });
     await expect(preview).toBeVisible();
     await expect(preview.getByRole("heading", { name: "Neuložený vizuálny náhľad" })).toBeVisible();
@@ -494,9 +500,13 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(preview.locator('[data-preview-device="mobile"]')).toBeVisible();
     await preview.getByRole("button", { name: "Späť do editora" }).click();
     await expect(preview).toBeHidden();
+    if (mobileView) {
+      await page.getByRole("navigation", { name: "Sekcie pracovného editora" })
+        .getByRole("button", { name: "Späť na úpravy" }).click();
+    }
     await expect(page.locator("#article-title")).toHaveValue("Neuložený vizuálny náhľad");
     await expect(page.locator("#article-intro")).toContainText("Tento text je zatiaľ len v editore.");
-    await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
+    if (!mobileView) await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
   });
 
   test("IMAGE-EDITOR-1 independently persists thumbnail blur and detail crop, with cancel and reset", async ({ page }, testInfo) => {
@@ -586,7 +596,8 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const hexPalette = toolbar.locator('[data-tiptap-color-panel="text"]');
     await hexPalette.getByRole("textbox", { name: "HEX – farba textu" }).fill("#2468ac");
     await hexPalette.getByRole("button", { name: "Použiť", exact: true }).click();
-    await expect(intro.locator('span[style*="color"]')).toHaveAttribute("style", /#2468ac/);
+    // Browsers normalize a HEX declaration to computed RGB in the DOM.
+    await expect(intro.locator('span[style*="color"]')).toHaveCSS("color", "rgb(36, 104, 172)");
     await showArticleSection(page, "article-blocks");
     await expect(bold).toBeDisabled();
 
