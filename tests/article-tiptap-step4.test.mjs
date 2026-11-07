@@ -29,7 +29,7 @@ test("ARTICLE-TIPTAP-4: CSS injection and unrecognized v1 styles are never promo
       { type: "paragraph", content: [{ type: "text", text: "Test", marks: [
         { type: "color", color: "#bb1122;url(javascript:alert(1))" },
         { type: "highlight", color: "#abc123" },
-      ] }],
+      ] }] },
     ],
   });
   assert.ok(safe);
@@ -38,7 +38,7 @@ test("ARTICLE-TIPTAP-4: CSS injection and unrecognized v1 styles are never promo
     version: 1, type: "doc", content: [
       { type: "paragraph", content: [{ type: "text", text: "Legacy", marks: [
         { type: "color", color: "#abcdef" }, { type: "italic" },
-      ] }],
+      ] }] },
     ],
   });
   assert.deepEqual(legacy.content[0].content[0].marks, [{ type: "italic" }]);
