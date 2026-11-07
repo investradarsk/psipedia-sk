@@ -1,6 +1,6 @@
 .toolbar {
   position: sticky;
-  top: 0;
+  top: calc(var(--admin-sticky-stack, 96px) + 4px);
   z-index: 42;
   padding: 0.55rem 0.75rem;
   border: 1px solid #d7e2da;
@@ -40,7 +40,7 @@
 .placeholder { position: absolute; left: 0.9rem; top: 0.75rem; color: #839086; pointer-events: none; }
 .error { font-size: 0.83rem; margin: 0.3rem 0.7rem 0.65rem; color: #a92c26; }
 @media (max-width: 760px) {
-  .toolbar { top: 0; margin-inline: 0; padding: 0.45rem; }
+  .toolbar { top: var(--admin-sticky-stack, 96px); margin-inline: 0; padding: 0.45rem; }
   .tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
   .tools button, .activeLabel, .colorControl { flex-shrink: 0; }
   .linkBar input { min-width: 110px; }
