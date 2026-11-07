@@ -10,6 +10,7 @@ import {
   archiveManagedDirectoryProfile,
   createManagedDirectoryProfile,
   getManagedDirectoryProfileById,
+  normalizeDirectorySearchText,
   normalizeManagedDirectoryProfileInput,
   updateManagedDirectoryProfile,
   type ManagedDirectoryProfileInput,
@@ -1213,6 +1214,103 @@ export function breederEditedFields(
 }
 
 /**
+ * Breeder editorial fields are raw content. Write ONLY the changed D1 value
+ * (plus its derived search index), never call the record-wide profile validator.
+ * Identifiers, publication state, Services V3 and verified GEO are untouched.
+ *
+ * SQL identifiers and JSON paths below are compile-time allowlisted; values
+ * are always bound. Invalid unrelated historical contact/SEO data cannot
+ * veto a plain-text edit.
+ */
+const breederScalarColumns: Partial<Record<BreederEditorialField, string>> = {
+  name: "name", excerpt: "excerpt", description: "description",
+  region: "region", district: "district", city: "city", address: "address",
+  postalCode: "postal_code", street: "street", houseNumber: "house_number",
+  priceNote: "price_note", internalEmail: "internal_email",
+};
+const breederContactJsonNames: Partial<Record<BreederEditorialField, string>> = {
+  publicPhone: "Telefón", publicEmail: "E-mail",
+  websiteUrl: "Web", facebookUrl: "Facebook", instagramUrl: "Instagram",
+};
+const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
+  "seo.title": "title", "seo.description": "description",
+  "seo.focusKeyword": "focusKeyword", "seo.canonicalUrl": "canonicalUrl",
+  "seo.ogTitle": "ogTitle", "seo.ogDescription": "ogDescription",
+  "seo.ogImage": "ogImage",
+};
+const breederSearchFields = new Set<BreederEditorialField>([
+  "name", "excerpt", "description", "qualifications", "region", "district",
+  "city", "address", "postalCode", "street", "houseNumber",
+]);
+async function saveBreederEditorialValue(
+  database: D1Database,
+  current: ManagedDirectoryProfile,
+  desired: Record<string, unknown>,
+  path: BreederEditorialField,
+): Promise<ManagedDirectoryProfile> {
+  if (current.category !== "chovatelske-stanice" || current.status === "archived")
+    throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
+  const raw = breederReadPath(desired, path);
+  const value = typeof raw === "string" ? raw : "";
+  const assignments: string[] = [];
+  const params: unknown[] = [];
+  const scalar = breederScalarColumns[path];
+  const contact = breederContactJsonNames[path];
+  const seoKey = breederSeoJsonNames[path];
+  if (scalar) {
+    assignments.push(scalar + " = ?");
+    params.push(value);
+  } else if (path === "qualifications") {
+    // Kept as a list only for existing public rendering; each line stays
+    // arbitrary text and is not parsed as an email, URL or service.
+    assignments.push("qualifications_json = ?");
+    params.push(JSON.stringify(Array.isArray(raw) ? raw : [value]));
+  } else if (path === "addressFormat") {
+    // A storage format is a technical enum, not editorial prose.
+    if (!["", "STREET", "MUNICIPALITY_NUMBER"].includes(value))
+      throw new Error("BREEDER_ADDRESS_FORMAT_INVALID");
+    assignments.push("address_format = ?");
+    params.push(value);
+  } else if (contact) {
+    // source_data_json also carries unrelated original import metadata.
+    // JSON_SET mutates only the named contact and preserves all other keys.
+    assignments.push("source_data_json = json_set(COALESCE(source_data_json, '{}'), ?, ?)");
+    params.push('$."' + contact + '"', value);
+    if (path === "websiteUrl") {
+      assignments.push("website_url = ?");
+      params.push(value);
+    }
+  } else if (seoKey) {
+    assignments.push("seo_json = json_set(COALESCE(seo_json, '{}'), ?, ?)");
+    params.push("$." + seoKey, value);
+  } else {
+    throw new Error("BREEDER_FIELD_UNSUPPORTED");
+  }
+  if (breederSearchFields.has(path)) {
+    const next = desired as unknown as EditableDirectorySnapshot;
+    assignments.push("search_text = ?");
+    params.push(normalizeDirectorySearchText([
+      next.name, next.excerpt, next.description,
+      next.services.join(" "), next.qualifications.join(" "),
+      next.city, next.district, next.region, next.address,
+      next.postalCode, next.street, next.houseNumber,
+    ].join(" ")));
+  }
+  const now = new Date().toISOString();
+  const saved = await database.prepare(
+    "UPDATE directory_profiles SET " + assignments.join(", ") +
+    ", updated_at = ?, updated_by = ? " +
+    "WHERE id = ? AND category = 'chovatelske-stanice' AND status <> 'archived' " +
+    "AND updated_at = ? RETURNING id",
+  ).bind(...params, now, SYSTEM_ACTOR, current.id, current.updatedAt)
+    .first<{ id: number }>();
+  if (!saved) throw new Error("BREEDER_FIELD_WRITE_CONFLICT");
+  const updated = await getManagedDirectoryProfileById(current.id, database);
+  if (!updated) throw new Error("BREEDER_FIELD_RELOAD_FAILED");
+  return updated;
+}
+
+/**
  * Mapped breeder/trainer event mode: one explicit source action is authoritative for
  * the fields it edited. No record-wide hash/baseline/conflict reconciliation.
  * Retain the mapped identity, auth, and canonical structural constraints.
@@ -1251,35 +1349,34 @@ async function syncBreederEvent(input: {
       const desired = breederApplyNotionChanges(before, fromNotion, [path]);
       if (JSON.stringify(breederReadPath(before, path)) ===
           JSON.stringify(breederReadPath(desired, path))) continue;
-      // Preserve the complete stored source JSON, including nested legacy
-      // metadata and the breeder gallery, just like the Admin PUT handler.
-      const sourceRow = await database.prepare(
-        "SELECT source_data_json FROM directory_profiles WHERE id=? LIMIT 1",
-      ).bind(current.id).first<{ source_data_json: string }>();
-      let completeSource: unknown;
-      try { completeSource = JSON.parse(sourceRow?.source_data_json ?? "null"); }
-      catch { completeSource = null; }
-      if (!completeSource || typeof completeSource !== "object" || Array.isArray(completeSource)) {
-        failures.push(path);
-        continue;
-      }
-      current = { ...current, importData: completeSource as typeof current.importData };
-      const payload = fullProfileInput(desired as unknown as EditableDirectorySnapshot, current);
-      // An editorial address edit is not a claim of a verified Google location.
-      if (["region", "district", "city", "address", "postalCode", "street", "houseNumber", "addressFormat"].includes(path)) {
-        payload.clearServiceAddressConfirmation = true;
-      }
       try {
-        const saved = await updateManagedDirectoryProfile(
-          current.id, payload, SYSTEM_ACTOR, current, database,
-          { expectedUpdatedAt: current.updatedAt },
-        );
-        if (!saved) throw new Error("BREEDER_PROFILE_NOT_SAVED");
-        current = saved;
+        current = input.profile.category === "chovatelske-stanice"
+          ? await saveBreederEditorialValue(database, current, desired, path)
+          : await (async () => {
+            // Trainers retain their existing validator until their own rollout.
+            const sourceRow = await database.prepare(
+              "SELECT source_data_json FROM directory_profiles WHERE id=? LIMIT 1",
+            ).bind(current.id).first<{ source_data_json: string }>();
+            let source: unknown;
+            try { source = JSON.parse(sourceRow?.source_data_json ?? "null"); }
+            catch { source = null; }
+            if (!source || typeof source !== "object" || Array.isArray(source))
+              throw new Error("TRAINER_SOURCE_JSON_INVALID");
+            const enriched = { ...current, importData: source as typeof current.importData };
+            const payload = fullProfileInput(desired as unknown as EditableDirectorySnapshot, enriched);
+            if (["region", "district", "city", "address", "postalCode", "street", "houseNumber", "addressFormat"].includes(path))
+              payload.clearServiceAddressConfirmation = true;
+            const saved = await updateManagedDirectoryProfile(
+              enriched.id, payload, SYSTEM_ACTOR, enriched, database,
+              { expectedUpdatedAt: enriched.updatedAt },
+            );
+            if (!saved) throw new Error("TRAINER_PROFILE_NOT_SAVED");
+            return saved;
+          })();
         updated = true;
-      } catch {
-        // One malformed field must never prevent a different valid field
-        // from reaching D1. The inbox retries unsuccessful fields later.
+      } catch (error) {
+        // Keep the real reason in server logs; only this path is retried.
+        console.error("BREEDER_EDITORIAL_FIELD_WRITE_FAILED", current.id, path, error);
         failures.push(path);
       }
     }
