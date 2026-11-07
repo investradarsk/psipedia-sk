@@ -12,8 +12,10 @@ test("EDITOR-9: service directory keeps five base panels and optional breeder re
   assert.equal((src.match(/<AdminEditorSection id="directory-/g) || []).length, 6);
   assert.match(src, /editorSectionsForProfile = profile && category === "chovatelske-stanice"/);
   assert.match(src, /id: "directory-breeder-links", label: "Prepojenia"/);
-  assert.match(src, /AdminEditorSectionVisibility.Provider value=\{\{ activeId: activeDirectorySection, mode: "switch" \}\}/);
-  assert.match(src, /<AdminSharedEditorNavigation sections=\{editorSectionsForProfile\} activeId=\{activeDirectorySection\} onNavigate=\{setActiveDirectorySection\}/);
+  assert.match(src, /const currentDirectorySection = editorSectionsForProfile\.some/);
+  assert.doesNotMatch(src, /useEffect\(\(\) => \{\s*if \(activeDirectorySection === "directory-breeder-links"/);
+  assert.match(src, /AdminEditorSectionVisibility.Provider value=\{\{ activeId: currentDirectorySection, mode: "switch" \}\}/);
+  assert.match(src, /<AdminSharedEditorNavigation sections=\{editorSectionsForProfile\} activeId=\{currentDirectorySection\} onNavigate=\{setActiveDirectorySection\}/);
   assert.match(src, /layout="sidebar" mode="switch"/);
   assert.match(src, /aria-label="Prechod medzi sekciami služby"/);
   assert.match(css, /\[data-admin-editor-section\]\[hidden\]/);
