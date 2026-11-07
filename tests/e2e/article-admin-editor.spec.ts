@@ -508,6 +508,35 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await modal.getByRole("button", { name: "Zrušiť" }).click();
   });
 
+  test("ARTICLE-TIPTAP-5: one sticky toolbar targets only visible text and keeps full-color controls gated", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+    const toolbar = page.locator("[data-admin-tiptap-toolbar]");
+    await expect(toolbar).toHaveCount(1);
+    const bold = toolbar.getByRole("button", { name: /Tučné/ });
+    await expect(bold).toBeDisabled();
+    await expect(toolbar.getByLabel("Celá paleta farieb textu – zatiaľ nedostupná")).toBeDisabled();
+    await expect(toolbar.getByLabel("Celá paleta zvýraznenia – zatiaľ nedostupná")).toBeDisabled();
+
+    const intro = page.locator("#article-intro");
+    await intro.focus();
+    await expect(bold).toBeEnabled();
+    await showArticleSection(page, "article-blocks");
+    await expect(bold).toBeDisabled();
+
+    const addArea = page.locator(".admin-block-add");
+    await addArea.getByRole("button", { name: "+ Pridať blok na koniec" }).click();
+    await addArea.getByRole("button", { name: "Text", exact: true }).click();
+    const block = page.locator("[data-admin-tiptap-rich-text]").last().locator('[contenteditable="true"]');
+    await block.fill("Mobilný blok má vlastný obsah.");
+    await expect(bold).toBeEnabled();
+    await showArticleSection(page, "article-basics");
+    await expect(bold).toBeDisabled();
+    await expect(intro).toBeVisible();
+    await expect(page.locator("[data-admin-tiptap-toolbar]")).toHaveCount(1);
+  });
+
   test("toolbar is keyboard reachable, axe-clean and does not overflow at 390px-class mobile width", async ({ page }, testInfo) => {
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     await waitForEditor(page);
