@@ -16,7 +16,7 @@ import { preserveArticlePromoBlocks } from "@/lib/article-promo";
 import { notionArticleMainImageSource } from "@/lib/notion-article-image-source";
 import { assertPublishedRelatedBlocks } from "@/lib/notion-article-related-publication";
 import {
-  EDITORIAL_RICH_TEXT_VERSION,
+  EDITORIAL_RICH_TEXT_LEGACY_VERSION,
   sanitizeEditorialHref,
   type EditorialRichTextDocument,
   type EditorialRichTextInline,
@@ -168,7 +168,7 @@ function notionRichTextDocument(
     : type === "blockquote"
       ? { type: "blockquote" as const, content }
       : { type: "callout" as const, tone, content };
-  return { version: EDITORIAL_RICH_TEXT_VERSION, type: "doc", content: [block] };
+  return { version: EDITORIAL_RICH_TEXT_LEGACY_VERSION, type: "doc", content: [block] };
 }
 
 function notionRichTextMarkdown(value: unknown) {
