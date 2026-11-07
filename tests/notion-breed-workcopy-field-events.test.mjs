@@ -22,15 +22,19 @@ test("signed Notion webhook selects only its explicitly changed content field", 
 
 test("changed field is recognized by Notion property NAME when id is not sent", () => {
   const page = touched(["Intro", "História"]);
-  assert.deepEqual(workCopyChangedEditorialIds(page, ["História"], BREED_NOTION_SCHEMA), ["history"]);
+  const fields = workCopyChangedEditorialIds(page, ["História"], BREED_NOTION_SCHEMA);
+  // A physical compact field may contain two independent logical sections.
+  assert(fields.includes("history"));
+  assert(fields.includes("fciStandard.historicky_suhrn"));
+  assert(!fields.includes("intro"));
 });
 
 test("merged FCI property includes its logical fields but unrelated properties are excluded", () => {
-  const target = BREED_COMPACT_MERGE["FCI farba"];
-  assert(target);
+  const target = BREED_COMPACT_MERGE["FCI historický súhrn"];
+  assert.equal(target, "História");
   const page = touched([target, "Intro"]);
   const fields = workCopyChangedEditorialIds(page, ["prop_0"], BREED_NOTION_SCHEMA);
-  assert(fields.includes("fciStandard.farba"));
+  assert(fields.includes("fciStandard.historicky_suhrn"));
   assert(!fields.includes("intro"));
   assert(!fields.includes("system.FCI číslo"));
 });
