@@ -617,12 +617,13 @@ test("uses light admin lists and loads full records only for detail and save", a
     assert.match(articleDetailHtml, /Pozrieť produkt/);
     assert.match(articleDetailHtml, /Partnerský odkaz/);
     assert.match(articleDetailHtml, /rel="sponsored nofollow noreferrer"/);
-    // The Lexical composer mounts only after client hydration. SSR deliberately
-    // renders its accessible shell, not the client-only toolbar and help text.
-    assert.match(articleDetailHtml, /data-admin-lexical-rich-text/);
+    // Tiptap contenteditable mounts after client hydration, while SSR keeps
+    // a stable rich-text shell. The shared formatting toolbar is scoped above
+    // the editor and does not include the old per-field Lexical toolbar.
+    assert.match(articleDetailHtml, /data-admin-tiptap-rich-text/);
     assert.match(articleDetailHtml, /data-admin-rich-text-editor/);
+    assert.match(articleDetailHtml, /Spoločná lišta formátovania článku/);
     assert.doesNotMatch(articleDetailHtml, /aria-label="Formátovanie textu"/);
-    assert.doesNotMatch(articleDetailHtml, /aria-label="Vložiť odkaz"/);
     assert.doesNotMatch(articleDetailHtml, /Prázdny riadok vytvorí na webe nový odsek/);
 
     const profileDetail = await worker.fetch(adminRequest("/admin/adresar/9"), bindings, context);
