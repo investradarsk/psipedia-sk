@@ -254,6 +254,8 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
       return;
     }
     const { view } = editor;
+    console.info("[TIPTAP-DIAG] toggle-before", active?.id, name, editor.state.selection.empty,
+      editor.state.storedMarks?.map((mark) => mark.type.name), editor.isActive(name));
     view.focus();
     const { state } = view;
     const markType = state.schema.marks[name];
@@ -263,6 +265,8 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
       ? markType.removeFromSet(marks)
       : markType.create().addToSet(marks);
     view.dispatch(state.tr.setStoredMarks(nextMarks));
+    console.info("[TIPTAP-DIAG] toggle-after", active?.id, name,
+      view.state.storedMarks?.map((mark) => mark.type.name), editor.isActive(name));
   };
 
   const action = (label: string, title: string, callback: () => void, selected = false, enabled = true) => (
@@ -400,9 +404,12 @@ export function AdminTiptapRichTextEditor({
       },
     },
     onFocus({ editor: focused }) {
+      console.info("[TIPTAP-DIAG] focus", id,
+        focused.state.storedMarks?.map((mark) => mark.type.name));
       scopeRef.current?.setActive({ id, editor: focused, allowHeadings, allowCallouts, allowQuotes });
     },
     onUpdate({ editor: updated }) {
+      if (id === "article-intro") console.info("[TIPTAP-DIAG] update", updated.getJSON(), updated.state.storedMarks?.map((mark) => mark.type.name));
       try {
         const next = tiptapToEditorial(updated.getJSON());
         lastEmitted.current = JSON.stringify(next);
@@ -421,6 +428,7 @@ export function AdminTiptapRichTextEditor({
     // is safer than silently replacing it with empty content.
     const validated = normalizeEditorialRichText(value);
     if (!validated) return;
+    if (id === "article-intro") console.info("[TIPTAP-DIAG] setContent", signature.slice(0, 180), lastEmitted.current.slice(0, 180));
     editor.commands.setContent(editorialToTiptap(validated), { emitUpdate: false });
     lastEmitted.current = signature;
   }, [editor, signature, value]);
