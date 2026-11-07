@@ -9,9 +9,9 @@ export const EVENT_NOTION_CONTACT_FIELDS = [
   "Vstupné",
 ] as const;
 
-export function withoutEventContactFields(
-  snapshot: Record<string, unknown>,
-): Record<string, unknown> {
+export function withoutEventContactFields<T>(
+  snapshot: Record<string, T>,
+): Record<string, T> {
   const removed = new Set<string>(EVENT_NOTION_CONTACT_FIELDS);
   return Object.fromEntries(
     Object.entries(snapshot).filter(([name]) => !removed.has(name)),
