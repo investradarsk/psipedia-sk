@@ -261,7 +261,7 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
 
   return (
     <div ref={toolbarRef} className={styles.toolbar} role="toolbar" aria-label="Spoločná lišta formátovania článku" data-admin-tiptap-toolbar>
-      <div className={styles.tools}>
+      <div className={styles.tools} tabIndex={0} aria-label="Posúvateľná lišta nástrojov formátovania">
         <span className={styles.activeLabel} aria-live="polite">{active ? "Upravuješ: " + (active.id.startsWith("block-") ? "textový blok" : active.id === "article-intro" ? "úvod" : "to najdôležitejšie") : "Klikni do textu"}</span>
         {action("B", "Tučné (Ctrl+B)", () => editor?.chain().focus().toggleBold().run(), Boolean(editor?.isActive("bold")))}
         {action("I", "Kurzíva (Ctrl+I)", () => editor?.chain().focus().toggleItalic().run(), Boolean(editor?.isActive("italic")))}
