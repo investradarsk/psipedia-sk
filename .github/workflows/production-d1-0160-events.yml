@@ -1,0 +1,99 @@
+name: Production D1 0160 Event Contacts and Admission (manual)
+
+# Separate from held migration 0158 and already applied, schema-only 0159.
+# No automatic trigger; merge does not change production D1.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read-only audit or apply additive 0160 columns only
+        required: true
+        type: choice
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: Type AUDIT-0160-psipedia-sk-db or APPLY-0160-psipedia-sk-db
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  event-0160:
+    name: Protected 0160 schema audit or manual apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    env:
+      EVENT_0160_MODE: ${{ inputs.mode }}
+      EVENT_0160_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require owner-dispatched main and exact confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          case "$EVENT_0160_MODE" in
+            audit) expected="AUDIT-0160-psipedia-sk-db" ;;
+            apply) expected="APPLY-0160-psipedia-sk-db" ;;
+            *) echo "Unsupported mode" >&2; exit 1 ;;
+          esac
+          test "$EVENT_0160_CONFIRMATION" = "$expected"
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Refuse a stale main checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Repository migration safety and isolated 0160 regression tests
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-d1-0160-events.test.mjs
+
+      - name: Validate protected Cloudflare account binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id)')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Perform read-only audit or explicit 0160-only apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-d1-0160-events.mjs "$EVENT_0160_MODE"
+
+      - name: Retain aggregate-only report and recovery bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-0160-${{ github.run_id }}
+          path: .production-d1-0160/report.json
+          if-no-files-found: ignore
+          retention-days: 30
