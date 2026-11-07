@@ -9,6 +9,7 @@ import { Blocks, BookOpen, CalendarDays, Camera, CheckCircle2, ChevronDown, Cloc
 import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
 import { AdminTiptapArticleScope } from "@/components/admin-tiptap-article-editor";
+import { AdminArticleFullscreenPreview } from "@/components/admin-article-fullscreen-preview";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
@@ -232,6 +233,7 @@ export function AdminArticleEditor({
   const [qaIssues, setQaIssues] = useState<ArticleQaIssue[]>([]);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [previewDetailedOpen, setPreviewDetailedOpen] = useState(false);
+  const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [dirty, setDirtyState] = useState(false);
@@ -661,6 +663,10 @@ export function AdminArticleEditor({
                     aria-expanded={previewDetailedOpen} onClick={() => setPreviewDetailedOpen((value) => !value)}>
                     {previewDetailedOpen ? "Zbaliť celý náhľad" : "Zobraziť celý náhľad"}
                   </button>
+                  <button type="button" className={editorStyles.railExpand}
+                    onClick={() => setFullscreenPreviewOpen(true)}>
+                    Náhľad na celú obrazovku · počítač/mobil
+                  </button>
                   {previewDetailedOpen && (
                     <aside className="admin-live-preview" aria-label="Živý náhľad článku">
                     <div className="admin-preview-bar"><span><i /> Živý náhľad</span><small>takto bude článok vyzerať</small><button type="button" className={editorStyles.previewClose} onClick={() => setPreviewDetailedOpen(false)}>Späť na stručný náhľad</button></div>
@@ -1080,6 +1086,25 @@ export function AdminArticleEditor({
       </EditorWorkspace>
       </AdminTiptapArticleScope>
       </div>
+
+      <AdminArticleFullscreenPreview
+        open={fullscreenPreviewOpen}
+        onClose={() => setFullscreenPreviewOpen(false)}
+        sectionLabel={portalSectionLabel(portalSection)}
+        category={portalSection === "novinky" ? getNewsCategory(newsCategory)?.shortLabel ?? "" : category}
+        title={title}
+        excerpt={excerpt}
+        imageUrl={imageUrl}
+        imageAlt={imageAlt}
+        imageCaption={imageCaption}
+        imageCredit={imageCredit}
+        imageConfig={detailImageDisplay}
+        introRichText={introRichText}
+        takeawayRichText={takeawayRichText}
+        takeaway={takeaway}
+        blocks={blocks}
+        promoUtcDay={promoUtcDay}
+      />
 
       <AdminDestructiveConfirmDialog
         open={confirmUnpublish}
