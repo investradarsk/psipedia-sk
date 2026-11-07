@@ -1,21 +1,17 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Node, type Editor } from "@tiptap/core";
+import { Mark, Node, type Editor } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
   editorialToTiptap,
   tiptapToEditorial,
 } from "@/lib/tiptap-editorial-bridge";
-import { normalizeEditorialRichText, sanitizeEditorialHref, type EditorialRichTextDocument } from "@/lib/editorial-content";
+import { normalizeEditorialRichText, sanitizeEditorialColor, sanitizeEditorialHref, type EditorialRichTextDocument } from "@/lib/editorial-content";
 import styles from "./admin-tiptap-article-editor.module.css";
 
-/**
- * First stage of the Tiptap replacement: only v1-safe formatting is writable.
- * Color/highlight/underline controls cannot be enabled until the versioned
- * editorial contract, API, Notion and public renderer are upgraded in step 4.
- */
+/** A single toolbar edits v1 legacy and v2 styled documents without HTML persistence. */
 type ActiveEditor = {
   id: string;
   editor: Editor;
@@ -47,6 +43,34 @@ const PsipediaCallout = Node.create({
   renderHTML({ HTMLAttributes }) { return ["aside", HTMLAttributes, 0]; },
 });
 
+/** Closed, hex-only mark schema. Unsafe imported CSS is not serialized. */
+const PsipediaTextColor = Mark.create({
+  name: "textStyle",
+  addAttributes() {
+    return { color: { default: null,
+      parseHTML: (element) => sanitizeEditorialColor((element as HTMLElement).style.color) || null,
+      renderHTML: (attrs) => {
+        const color = sanitizeEditorialColor(attrs.color);
+        return color ? { style: `color: ${color}` } : {};
+      },
+    } };
+  },
+  parseHTML() { return [{ tag: "span[style]" }]; },
+  renderHTML({ HTMLAttributes }) { return ["span", HTMLAttributes, 0]; },
+});
+
+const PsipediaHighlight = Mark.create({
+  name: "highlight",
+  addAttributes() {
+    return { color: { default: "#ffff00",
+      parseHTML: (element) => sanitizeEditorialColor((element as HTMLElement).style.backgroundColor) || "#ffff00",
+      renderHTML: (attrs) => ({ style: `background-color: ${sanitizeEditorialColor(attrs.color) || "#ffff00"}` }),
+    } };
+  },
+  parseHTML() { return [{ tag: "mark" }]; },
+  renderHTML({ HTMLAttributes }) { return ["mark", HTMLAttributes, 0]; },
+});
+
 const extensions = [
   StarterKit.configure({
     heading: { levels: [2, 3] },
@@ -54,10 +78,11 @@ const extensions = [
     codeBlock: false,
     horizontalRule: false,
     strike: false,
-    underline: false,
     link: { openOnClick: false, autolink: false },
   }),
   PsipediaCallout,
+  PsipediaTextColor,
+  PsipediaHighlight,
 ];
 
 function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
@@ -116,12 +141,21 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
         {action("Tip", "Zvýraznený tip", () => editor?.chain().focus().toggleNode("psipediaCallout", "paragraph", { tone: "tip" }).run(), Boolean(editor?.isActive("psipediaCallout")), Boolean(active?.allowCallouts))}
         {action("↶", "Späť (Ctrl+Z)", () => editor?.chain().focus().undo().run())}
         {action("↷", "Znova (Ctrl+Y)", () => editor?.chain().focus().redo().run())}
-        <label className={styles.colorControl} title="Farba textu – aktivujeme po rozšírení ukladania v kroku 4">
-          Text <input aria-label="Celá paleta farieb textu – zatiaľ nedostupná" type="color" defaultValue="#1f4a3a" disabled />
+        {action("U", "Podčiarknutie (Ctrl+U)", () => editor?.chain().focus().toggleUnderline().run(), Boolean(editor?.isActive("underline")))}
+        <label className={styles.colorControl} title="Vybrať ľubovoľnú farbu textu">
+          Farba textu <input aria-label="Celá paleta farieb textu" type="color"
+            disabled={!editor}
+            value={sanitizeEditorialColor(editor?.getAttributes("textStyle").color) || "#1f4a3a"}
+            onChange={(event) => editor?.chain().focus().setMark("textStyle", { color: event.target.value }).run()} />
         </label>
-        <label className={styles.colorControl} title="Zvýraznenie – aktivujeme po rozšírení ukladania v kroku 4">
-          Podfarbenie <input aria-label="Celá paleta zvýraznenia – zatiaľ nedostupná" type="color" defaultValue="#fff3a0" disabled />
+        {action("Bez farby", "Odstrániť farbu textu", () => editor?.chain().focus().unsetMark("textStyle").run(), false, Boolean(editor?.isActive("textStyle")))}
+        <label className={styles.colorControl} title="Vybrať ľubovoľnú farbu zvýraznenia">
+          Podfarbenie <input aria-label="Celá paleta zvýraznenia" type="color"
+            disabled={!editor}
+            value={sanitizeEditorialColor(editor?.getAttributes("highlight").color) || "#fff3a0"}
+            onChange={(event) => editor?.chain().focus().setMark("highlight", { color: event.target.value }).run()} />
         </label>
+        {action("Bez pozadia", "Odstrániť zvýraznenie", () => editor?.chain().focus().unsetMark("highlight").run(), false, Boolean(editor?.isActive("highlight")))}
       </div>
       {linkOpen && editor && <div className={styles.linkBar}>
         <label htmlFor="article-tiptap-link">Odkaz</label>
