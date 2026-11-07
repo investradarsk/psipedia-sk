@@ -60,13 +60,13 @@ function dateTimeValue(value?: string | null) {
 
 const editorNavigation = [
   { id: "article-basics", label: "Úvod a obsah", icon: <BookOpen size={17} aria-hidden="true" /> },
-  { id: "article-relations", label: "Prepojené plemená", icon: <PawPrint size={17} aria-hidden="true" /> },
   { id: "article-blocks", label: "Bloky článku", icon: <Blocks size={17} aria-hidden="true" /> },
   { id: "article-media", label: "Fotografie", icon: <Camera size={17} aria-hidden="true" /> },
+  { id: "article-relations", label: "Prepojené plemená", icon: <PawPrint size={17} aria-hidden="true" /> },
   { id: "article-authors", label: "Autor", icon: <UserRound size={17} aria-hidden="true" /> },
   { id: "article-publish", label: "Publikovanie", icon: <CalendarDays size={17} aria-hidden="true" /> },
-  { id: "article-seo", label: "SEO a zdieľanie", icon: <Search size={17} aria-hidden="true" /> },
-  { id: "article-settings", label: "Zaradenie a adresa", icon: <Settings2 size={17} aria-hidden="true" /> },
+  { id: "article-seo", label: "SEO", icon: <Search size={17} aria-hidden="true" /> },
+  { id: "article-settings", label: "Nastavenia", icon: <Settings2 size={17} aria-hidden="true" /> },
 ];
 
 export function AdminArticleEditor({

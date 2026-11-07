@@ -17,11 +17,11 @@ const articleSectionLabels: Record<string, string> = {
   "article-content": "Úvod a obsah",
   "article-blocks": "Bloky článku",
   "article-media": "Fotografie",
-  "article-settings": "Zaradenie a adresa",
+  "article-settings": "Nastavenia",
   "article-relations": "Prepojené plemená",
   "article-authors": "Autor",
   "article-publish": "Publikovanie",
-  "article-seo": "SEO a zdieľanie",
+  "article-seo": "SEO",
 };
 
 async function showArticleSection(page: import("@playwright/test").Page, id: string) {
