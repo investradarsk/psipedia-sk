@@ -265,7 +265,8 @@ test("mapped Directory native publication pushes verified D1 status to the same 
     const accepted = await scenario("draft");
     assert.equal(await accepted.run(), "pushed", item.stableKey);
     const breeder = item.subcategory === "chovatelske-stanice";
-    if (breeder) {
+    const trainer = item.subcategory === "treneri";
+    if (breeder || trainer) {
       // Publication is a targeted status write, not a legacy whole-profile push.
       assert.equal(accepted.writes.length, 0, item.stableKey);
       assert.equal(accepted.patches.length, 1, item.stableKey);
@@ -283,7 +284,7 @@ test("mapped Directory native publication pushes verified D1 status to the same 
     assert.equal(accepted.edits.length, 0, item.stableKey);
     const changedBoth = await scenario("archived");
     await assert.rejects(changedBoth.run(),
-      breeder ? /BREEDER_PUBLICATION_STATUS_CONFLICT/ : /LOSSLESS_FIELD_REVIEW_REQUIRED/,
+      breeder ? /BREEDER_PUBLICATION_STATUS_CONFLICT/ : trainer ? /TRAINER_PUBLICATION_STATUS_CONFLICT/ : /LOSSLESS_FIELD_REVIEW_REQUIRED/,
       item.stableKey);
     assert.equal(changedBoth.writes.length, 0, "A concurrent Notion edit must never be overwritten");
     assert.equal(changedBoth.patches.length, 0, "An archived Notion profile must never be republished");
