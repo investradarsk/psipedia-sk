@@ -85,10 +85,10 @@ test("mandatory migration and central safety jobs are never deferred", () => {
 test("retired branch-only AI referral CI is removed without breaking required scope policy", () => {
   assert.equal(existsSync(new URL("../.github/workflows/ai-referral-measurement-ci.yml", import.meta.url)), false);
   const policy = read("scripts/check-ci-scope.mjs");
-  assert.doesNotMatch(policy, /^\\s+"ai-referral-measurement-ci\\.yml",\\s*$/m);
-  assert.match(policy, /!workflows\\.has\\("ai-referral-measurement-ci\\.yml"\\)/);
+  assert.ok(!policy.includes('  "ai-referral-measurement-ci.yml",'), "obsolete file must leave the monitored workflow list");
+  assert.ok(policy.includes('!workflows.has("ai-referral-measurement-ci.yml")'), "required scope policy should guard retirement");
   const discovery = read(".github/workflows/ai-internal-discovery-click-value-ci.yml");
-  assert.match(discovery, /npm run test:ai-referral/);
+  assert.ok(discovery.includes("npm run test:ai-referral"), "real referral tests stay active");
 });
 
 test("map trigger stays fail-closed for published map routes, D1 migrations and shared worker", () => {
@@ -100,8 +100,8 @@ test("map trigger stays fail-closed for published map routes, D1 migrations and 
   ]) {
     assert.ok(map.includes(pattern), "must retain MAP-1C on " + pattern);
   }
-  assert.match(map, /github\\.event\\.pull_request\\.draft == false/);
-  assert.match(map, /ready_for_review/);
+  assert.ok(map.includes("github.event.pull_request.draft == false"));
+  assert.ok(map.includes("ready_for_review"));
 });
 
 test("SEO and public screenshots run automatically once review-ready, not only with labels", () => {
@@ -109,8 +109,8 @@ test("SEO and public screenshots run automatically once review-ready, not only w
   const entity = read(".github/workflows/sitewide-ai-entity-surface-ci.yml");
   const visual = read(".github/workflows/pr-visual-evidence.yml");
   for (const source of [discovery, entity, visual]) {
-    assert.match(source, /ready_for_review/);
-    assert.match(source, /github\\.event\\.pull_request\\.draft == false/);
-    assert.doesNotMatch(source, /contains\\(github\\.event\\.pull_request\\.labels/);
+    assert.ok(source.includes("ready_for_review"));
+    assert.ok(source.includes("github.event.pull_request.draft == false"));
+    assert.ok(!source.includes("contains(github.event.pull_request.labels"), "full checks must not require special labels");
   }
 });
