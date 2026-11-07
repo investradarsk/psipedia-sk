@@ -22,7 +22,7 @@ import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-
 
 export { AdminEditorSection as EditorSection } from "@/components/admin-interaction-system";
 
-export type EditorWorkspaceSection = { id: string; label: string };
+export type EditorWorkspaceSection = { id: string; label: string; icon?: ReactNode };
 export type EditorStatusTone = "neutral" | "success" | "warning" | "danger";
 
 export function EditorStatus({
@@ -74,6 +74,7 @@ export function EditorSectionNavigation({
   showingPreview = false,
   onTogglePreview,
   sectionMode = "scroll",
+  articleLayout = false,
 }: {
   sections: EditorWorkspaceSection[];
   activeSection: string;
@@ -82,6 +83,7 @@ export function EditorSectionNavigation({
   showingPreview?: boolean;
   onTogglePreview?: () => void;
   sectionMode?: "scroll" | "switch";
+  articleLayout?: boolean;
 }) {
   return (
     <div className={styles.navigation} data-editor-navigation>
@@ -91,7 +93,7 @@ export function EditorSectionNavigation({
         onNavigate={onNavigate}
         ariaLabel="Sekcie pracovného editora"
         mode={sectionMode}
-        layout={sectionMode === "switch" ? "sidebar" : "horizontal"}
+        layout={articleLayout || sectionMode === "switch" ? "sidebar" : "horizontal"}
       />
       {previewAvailable && (
         <button
@@ -220,6 +222,8 @@ export function EditorWorkspace({
   closeLabel,
   children,
   sectionMode = "scroll",
+  articleLayout = false,
+  summary,
   activeSectionId,
   onSectionChange,
 }: {
@@ -231,6 +235,10 @@ export function EditorWorkspace({
   sections: EditorWorkspaceSection[];
   /** One mounted section at a time (opt-in for canonical breed editor). */
   sectionMode?: "scroll" | "switch";
+  /** Article-only visual layout, without changing shared profile editor behavior. */
+  articleLayout?: boolean;
+  /** Content displayed below the editor page heading. */
+  summary?: ReactNode;
   /** Optional controlled section selection allows callers to reveal validation errors. */
   activeSectionId?: string;
   onSectionChange?: (id: string) => void;
@@ -264,11 +272,14 @@ export function EditorWorkspace({
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter((entry) => entry.isIntersecting)
         .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
-      if (visible) setActiveSection(visible.target.id);
+      if (visible) {
+        setActiveSection(visible.target.id);
+        onSectionChange?.(visible.target.id);
+      }
     }, { root: null, rootMargin: "-18% 0px -66% 0px", threshold: 0 });
     targets.forEach((section) => observer.observe(section));
     return () => observer.disconnect();
-  }, [mode, sectionMode, sections]);
+  }, [mode, sectionMode, sections, onSectionChange]);
 
   const requestClose = useCallback(() => {
     if (!onClose) return;
@@ -323,6 +334,7 @@ export function EditorWorkspace({
         activeSection={currentSection}
         onNavigate={navigate}
         sectionMode={sectionMode}
+        articleLayout={articleLayout}
         previewAvailable={Boolean(preview)}
         showingPreview={showPreview}
         onTogglePreview={() => setShowPreview((value) => !value)}
@@ -352,8 +364,9 @@ export function EditorWorkspace({
           {body}
         </AdminModalDialog>
       ) : (
-        <section className={styles.pageWorkspace} aria-label={title} data-editor-page data-admin-form-system="v4" data-editor-section-mode={sectionMode}>
+        <section className={styles.pageWorkspace} aria-label={title} data-editor-page data-admin-form-system="v4" data-editor-section-mode={sectionMode} data-editor-layout={articleLayout ? "article" : undefined}>
           <EditorHeader title={title} description={description} status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
+          {summary}
           {body}
           {resolvedActions && <div className={styles.pageActions}>{resolvedActions}</div>}
         </section>

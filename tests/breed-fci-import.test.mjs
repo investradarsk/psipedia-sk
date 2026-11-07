@@ -1030,8 +1030,12 @@ test("breed encyclopedia relations stay explicit, bounded and editable", () => {
     new URL("../components/admin-article-editor.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(articleEditor, /Prepojenie na plemená/);
+  // The article editor shows compact selected-breed chips after its visual redesign.
+  // Verify the canonical relation field and editable picker, not a legacy heading.
+  assert.match(articleEditor, /Prepojené plemená/);
   assert.match(articleEditor, /relatedBreedIds/);
+  assert.match(articleEditor, /id="article-breed-search"/);
+  assert.match(articleEditor, /setRelatedBreedIds/);
 });
 
 test("FCI standard only combines verified identical male/female height AND weight", () => {

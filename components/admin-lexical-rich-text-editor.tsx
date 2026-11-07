@@ -329,13 +329,15 @@ export function AdminLexicalRichTextEditor({
   return (
     <div className={styles.wrapper} data-admin-lexical-rich-text data-admin-rich-text-editor>
       {mounted ? <LexicalComposer initialConfig={initialConfig}>
-        <div className={styles.surface} style={{ minHeight }}>
+        <div className={styles.surface}>
           <Toolbar id={id} allowHeadings={allowHeadings} allowCallouts={allowCallouts} allowQuotes={allowQuotes} />
-          <RichTextPlugin
-            contentEditable={<ContentEditable id={id} className={styles.editor} aria-label={ariaLabel} />}
-            placeholder={<span className={styles.placeholder}>{placeholder}</span>}
-            ErrorBoundary={LexicalErrorBoundary}
-          />
+          <div className={styles.editorBody} style={{ minHeight }}>
+            <RichTextPlugin
+              contentEditable={<ContentEditable id={id} className={styles.editor} aria-label={ariaLabel} />}
+              placeholder={<span className={styles.placeholder}>{placeholder}</span>}
+              ErrorBoundary={LexicalErrorBoundary}
+            />
+          </div>
           <ListPlugin />
           <LinkPlugin />
           <HistoryPlugin />
@@ -345,8 +347,10 @@ export function AdminLexicalRichTextEditor({
           <p className={styles.help}>Píš priamo ako v textovom editore. Podporované sú nadpisy, zoznamy, citácie, odkazy aj zvýraznenia.</p>
         </div>
       </LexicalComposer> : (
-        <div className={styles.surface} style={{ minHeight }} aria-hidden="true">
-          <div className={styles.editor} />
+        <div className={styles.surface} aria-hidden="true">
+          <div className={styles.editorBody} style={{ minHeight }}>
+            <div className={styles.editor} />
+          </div>
         </div>
       )}
     </div>
