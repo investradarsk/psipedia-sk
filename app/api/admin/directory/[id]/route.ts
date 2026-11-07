@@ -3,7 +3,8 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceF
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { breederEditedFields, preserveLiveBreederFields, runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
+import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
+import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -80,9 +81,12 @@ export async function PUT(request: Request, { params }: Props) {
               typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
           )
         : null;
+    // The retired internal e-mail is no longer editable. Keep historical D1
+    // data until the archival migration, regardless of a stale client payload.
+    const safeSubmittedBody = { ...submittedBody, internalEmail: before.internalEmail };
     const fieldPreserved = editedPaths
-      ? preserveLiveBreederFields(before, submittedBody, editedPaths)
-      : submittedBody;
+      ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
+      : safeSubmittedBody;
     // The canonical Services V3 relation can change while a trainer form is
     // open. Unless the operator explicitly edited legacy services, preserve
     // the latest D1 list instead of silently restoring stale textarea data.
@@ -192,6 +196,15 @@ export async function PUT(request: Request, { params }: Props) {
         }
       }
     }
+    if (notionEnv.DB && ["chovatelske-stanice", "treneri"].includes(before.category)) {
+      const edited = breederEditedFields(before, profile);
+      if (edited.length) {
+        const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
+        await recordDirectoryNotionAlert(notionEnv.DB, id, failed ? "pending" : "resolved",
+          failed ? "Zmena profilu je uložená v Admine, ale prenos do Notionu nie je potvrdený." : "",
+          "ADMIN_TO_NOTION");
+      }
+    }
     return Response.json({ profile, notionFieldSync });
   } catch (error) { return errorResponse(error); }
 }
@@ -274,6 +287,15 @@ export async function PATCH(request: Request, { params }: Props) {
           notionFieldSync = "pending";
         }
       }
+      if (profile && breederBefore && notionEnv.DB && ["chovatelske-stanice", "treneri"].includes(profile.category)) {
+        const edited = breederEditedFields(breederBefore, profile);
+        if (edited.length) {
+          const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
+          await recordDirectoryNotionAlert(notionEnv.DB, id, failed ? "pending" : "resolved",
+            failed ? "Rýchla úprava je uložená v Admine, ale prenos do Notionu nie je potvrdený." : "",
+            "ADMIN_TO_NOTION");
+        }
+      }
       return Response.json({ profile, notionFieldSync }, { headers: { "cache-control": "no-store" } });
     }
     if (body.action === "set-category-filters") {
@@ -308,7 +330,32 @@ export async function PATCH(request: Request, { params }: Props) {
           .bind(next, new Date().toISOString(), user.email, id, row.category, row.source_data_json).first<{ id: number }>();
         if (!updated) return Response.json({ error: "Údaje profilu sa medzičasom zmenili. Obnovte stránku." }, { status: 409 });
       }
-      return Response.json({ profile: await getManagedDirectoryProfileById(id) });
+      // Category filters are a separate structured channel from free-text
+      // services and the canonical Services V3 catalog.
+      let notionFieldSync: "synced" | "unchanged" | "pending" | "disabled" = "disabled";
+      if (row.category === "chovatelske-stanice" && Object.keys(requested.updates).length) {
+        const bindings = env as Parameters<typeof mirrorBreederCategoryFiltersToNotion>[0]["bindings"];
+        const enabled = (env as unknown as { NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string }).NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true";
+        if (enabled) {
+          try {
+            const changed = await mirrorBreederCategoryFiltersToNotion({
+              database: db, bindings, profileId: id, fields: Object.keys(requested.updates),
+            });
+            notionFieldSync = changed ? "synced" : "unchanged";
+          } catch (error) {
+            console.error("DIRECTORY_NOTION_FACET_WRITEBACK_FAILED", id, error);
+            notionFieldSync = "pending";
+          }
+        }
+        if (notionFieldSync === "disabled" || notionFieldSync === "pending") {
+          await recordDirectoryNotionAlert(db, id, "pending",
+            "Výberové kategóriové filtre sú uložené v Admine, ale ich prenos do Notionu nie je potvrdený.",
+            "ADMIN_TO_NOTION");
+        } else {
+          await recordDirectoryNotionAlert(db, id, "resolved", "", "ADMIN_TO_NOTION");
+        }
+      }
+      return Response.json({ profile: await getManagedDirectoryProfileById(id), notionFieldSync });
     }
     if (body.action === "set-reviewed") {
       if (typeof body.reviewed !== "boolean") {

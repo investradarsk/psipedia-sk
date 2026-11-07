@@ -11,16 +11,19 @@ test("signed Notion property IDs select only the breeder field actually edited",
   const properties = {
     Facebook: { id: "FacebookOpaque", url: "https://www.facebook.com/izasterova" },
     Popis: { id: "descriptionOpaque", rich_text: [] },
+    Služby: { id: "servicesOpaque", rich_text: [] },
     "SEO title": { id: "seoOpaque", rich_text: [] },
     "Sync stav": { id: "syncOpaque", select: { name: "Chyba" } },
   };
   assert.deepEqual(breederNotionChangedFields(properties, ["FacebookOpaque"]), ["facebookUrl"]);
   assert.deepEqual(breederNotionChangedFields(properties, ["Facebook"]), ["facebookUrl"]);
+  assert.deepEqual(breederNotionChangedFields(properties, ["servicesOpaque"]), ["services"]);
   assert.deepEqual(breederNotionChangedFields(properties, ["syncOpaque"]), []);
   assert.deepEqual(breederNotionChangedFields(properties, []), []);
   assert.ok(!BREEDER_EDITORIAL_PATHS.includes("status"));
   assert.ok(!BREEDER_EDITORIAL_PATHS.includes("slug"));
-  assert.ok(!BREEDER_EDITORIAL_PATHS.includes("services"));
+  assert.ok(BREEDER_EDITORIAL_PATHS.includes("services"));
+  assert.ok(!BREEDER_EDITORIAL_PATHS.includes("internalEmail"));
 });
 
 test("a Facebook edit does not overwrite legacy text, SEO or canonical identity", () => {
@@ -55,6 +58,7 @@ test("only explicitly saved Admin field deltas are exported", () => {
   const after = { facebookUrl: "https://facebook.com/izasterova", description: "Original", seo: { title: "Before" } };
   assert.deepEqual(breederAdminChangedFields(before, after), ["facebookUrl"]);
   assert.deepEqual(breederAdminChangedFields(after, after), []);
+  assert.deepEqual(breederAdminChangedFields({ services: ["Pracovný chov"] }, { services: ["Pracovný chovx"] }), ["services"]);
 });
 
 
@@ -130,6 +134,29 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     assert.match(sql, /updated_at = \?/);
     assert.doesNotMatch(sql, /services_json\s*=/);
   }
+  // Service text is an independent editorial list. No canonical Services V3
+  // relation or other unrelated metadata may be touched by this D1 write.
+  desired.services = ["rodinný; výstavný chov", "Aktívny chov – test"];
+  await exports.saveBreederEditorialValue(db, current, desired, "services");
+  assert.match(queries[3].sql, /services_json = \?/);
+  assert.doesNotMatch(queries[3].sql, /source_data_json =/);
+  assert.equal(queries[3].values[0], JSON.stringify(desired.services));
+});
+
+test("Notion tri-state filters and operational alerts stay separate from V3 services", async () => {
+  const directory = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
+  const operations = await readFile(new URL("../app/admin/operations/page.tsx", import.meta.url), "utf8");
+  assert.match(directory, /chovatelske-stanice\.visits_by_appointment/);
+  assert.match(directory, /chovatelske-stanice\.health_testing_information/);
+  assert.match(directory, /breederChangedNotionFacets/);
+  assert.match(directory, /mirrorBreederCategoryFiltersToNotion/);
+  assert.match(directory, /mergeDirectoryFilterValues/);
+  assert.match(route, /action === "set-category-filters"/);
+  assert.match(route, /mirrorBreederCategoryFiltersToNotion/);
+  assert.match(operations, /loadDirectoryNotionAlerts/);
+  assert.doesNotMatch(directory.slice(directory.indexOf("function notionProfileProperties("),
+    directory.indexOf("async function schemaReady(")), /"Google Place ID"| "Latitude":| "Longitude":/);
 });
 
 test("breeder-only transport bypasses full-profile conflict merging and cron", async () => {
