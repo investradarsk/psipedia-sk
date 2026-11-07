@@ -1,4 +1,5 @@
 import test from "node:test";
+import { classifyBreedWorkCopyValue } from "../lib/notion-breed-workcopy-parity.mjs";
 import assert from "node:assert/strict";
 import {
   BREED_COMPACT_VISIBLE,
@@ -142,4 +143,48 @@ test("read-only preflight detects truncated Notion rich text instead of silently
   const report = inspectBreedWorkCopy(originals, copies);
   assert.equal(report.dataParity, false);
   assert(report.issues.some(x => x.code === "SOURCE_RICH_TEXT_PAGINATION_REQUIRED"));
+});
+
+test("safe additive references and labelled expert alternatives retain content parity", () => {
+  const { originals, copies } = inventory();
+  originals[0].properties["Zdroje"] = notionProperty("Zdroje", "Overený pôvodný zdroj.");
+  copies[0].properties["Zdroje"] = notionProperty("Zdroje",
+    "Overený pôvodný zdroj.\nDoplnkový odborný zdroj.");
+
+  const originalFCINotes = projectBreed60(originals[1])["FCI zdroj poznámka"];
+  copies[1].properties["FCI zdroj poznámka"] = notionProperty("FCI zdroj poznámka",
+    originalFCINotes + " \\[Alternatívne znenie zachované z pracovnej kópie: detailne overené\\]");
+
+  originals[2].properties["FCI srsť"] = notionProperty("FCI srsť", "Koža pigmentovaná.");
+  copies[2].properties["FCI srsť"] = notionProperty("FCI srsť",
+    "Koža pigmentovaná. \\[Alternatívne znenie zachované z pracovnej kópie: tesná.\\]");
+
+  const result = inspectBreedWorkCopy(originals, copies);
+  assert.equal(result.dataParity, true, JSON.stringify(result.issues.slice(0, 4)));
+  assert.equal(result.stats.approvedAdditions, 3);
+  assert.equal(result.stats.approvedAdditionTypes.APPENDED_SOURCES, 1);
+  assert.equal(result.stats.approvedAdditionTypes.ANNOTATED_ALTERNATIVE, 2);
+});
+
+test("only the old structured FCI date may be treated as a retained addendum", () => {
+  const [original] = fixture(0);
+  assert.equal(classifyBreedWorkCopyValue(
+    "FCI zdroj poznámka", "", "Dátum platnosti štandardu FCI: 2026-10-31", original,
+  ), "RETAINED_SOURCE_DATE");
+  assert.equal(classifyBreedWorkCopyValue(
+    "FCI zdroj poznámka", "", "Dátum platnosti štandardu FCI: 2026-10-30", original,
+  ), null);
+});
+
+test("a rewritten source, unlabelled field change and duplicate alternative remain blockers", () => {
+  const { originals, copies } = inventory();
+  originals[0].properties["Zdroje"] = notionProperty("Zdroje", "Oficiálny zdroj A");
+  copies[0].properties["Zdroje"] = notionProperty("Zdroje", "Podvrhnutý zdroj A\nExtra");
+  copies[1].properties["Intro"] = notionProperty("Intro", "Nový neschválený text");
+  copies[2].properties["FCI srsť"] = notionProperty("FCI srsť",
+    " \\[Alternatívne znenie zachované z pracovnej kópie: A\\] \\[Alternatívne znenie zachované z pracovnej kópie: B\\]");
+  const r = inspectBreedWorkCopy(originals, copies);
+  assert.equal(r.dataParity, false);
+  assert.equal(r.stats.mismatchedCells, 3);
+  assert(r.issues.some(x => x.code === "CONTENT_MISMATCH" && x.field === "Zdroje"));
 });

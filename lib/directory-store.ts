@@ -679,13 +679,27 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
     importData: safeImportData(row.source_data_json),
-    seo: parseSeo(row.seo_json),
+    seo: parseSeo(row.seo_json, row.category === "chovatelske-stanice"),
   };
 }
 
-function parseSeo(value: string): EditableSeo {
+function parseSeo(value: string, breederRawText = false): EditableSeo {
   try {
-    return cleanEditableSeo(JSON.parse(value) as EditableSeo);
+    const raw = JSON.parse(value) as EditableSeo;
+    if (!breederRawText) return cleanEditableSeo(raw);
+    // Returning content from D1 must never silently remove an arbitrary SEO
+    // string by attempting to validate its format on read.
+    const text = (value: unknown) => typeof value === "string" ? value : "";
+    return {
+      title: text(raw?.title),
+      focusKeyword: text(raw?.focusKeyword),
+      description: text(raw?.description),
+      canonicalUrl: text(raw?.canonicalUrl),
+      ogTitle: text(raw?.ogTitle),
+      ogDescription: text(raw?.ogDescription),
+      ogImage: text(raw?.ogImage),
+      noindex: raw?.noindex === true,
+    };
   } catch {
     return {};
   }
@@ -962,9 +976,12 @@ export function normalizeManagedDirectoryProfileInput(
   const status: DirectoryProfileStatus = payload.status === "published" ? "published" : "draft";
   const excerpt = payload.excerpt?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
-  const city = safeDirectoryAddressText(payload.city, 120, "Mesto / obec");
-  const district = safeDirectoryAddressText(payload.district, 120, "Okres");
-  const rawRegion = safeDirectoryAddressText(payload.region, 80, "Kraj");
+  const breederRawText = category === "chovatelske-stanice";
+  const editorialAddressText = (value: string | undefined, max: number, label: string) =>
+    breederRawText ? (value ?? "").trim() : safeDirectoryAddressText(value, max, label);
+  const city = editorialAddressText(payload.city, 120, "Mesto / obec");
+  const district = editorialAddressText(payload.district, 120, "Okres");
+  const rawRegion = editorialAddressText(payload.region, 80, "Kraj");
   const region = rawRegion ? normalizeDirectoryRegion(rawRegion) : null;
   const imageUrl = payload.imageUrl?.trim() || null;
 
@@ -989,18 +1006,18 @@ export function normalizeManagedDirectoryProfileInput(
     : "";
   if (payload.addressFormat && !addressFormat) throw new Error("Neplatný formát adresy prevádzky.");
 
-  const postalCode = normalizeSlovakPostalCode(
+  const postalCode = breederRawText ? (payload.postalCode ?? "").trim() : normalizeSlovakPostalCode(
     safeDirectoryAddressText(payload.postalCode, 20, "PSČ"),
   );
-  const street = safeDirectoryAddressText(payload.street, 180, "Ulica");
-  const houseNumber = safeDirectoryAddressText(payload.houseNumber, 40, "Číslo domu");
+  const street = editorialAddressText(payload.street, 180, "Ulica");
+  const houseNumber = editorialAddressText(payload.houseNumber, 40, "Číslo domu");
   const serviceAddressConfirmation: DirectoryServiceAddressConfirmation =
     payload.confirmServiceAddress === true
       ? "CONFIRMED_SERVICE_LOCATION"
       : payload.clearServiceAddressConfirmation === true
         ? "LEGACY_UNCONFIRMED"
         : (options.currentServiceAddressConfirmation ?? "LEGACY_UNCONFIRMED");
-  const publicAddress = safeDirectoryAddressText(
+  const publicAddress = editorialAddressText(
     payload.address === undefined ? (options.legacyAddress ?? "") : payload.address,
     500,
     "Verejná adresa",
@@ -1020,17 +1037,22 @@ export function normalizeManagedDirectoryProfileInput(
   // saving or publishing an otherwise safe directory payload.
   const authoritativeAddressText = publicAddress || serviceAddress.formattedAddress || "";
 
+  // Breeder editorial content is stored literally. Validation of clickable
+  // links happens on the public page, not when saving free-form text.
+  const rawContact = (value: string | null | undefined) => value?.trim() ?? "";
   const services = normalizeStringList(payload.services);
-  const qualifications = normalizeStringList(payload.qualifications);
-  const websiteUrl = normalizeUrl(payload.websiteUrl);
-  const publicPhone =
-    payload.publicPhone === undefined ? undefined : normalizePublicPhone(payload.publicPhone);
-  const publicEmail =
-    payload.publicEmail === undefined ? undefined : (normalizeEmail(payload.publicEmail) ?? "");
-  const facebookUrl =
-    payload.facebookUrl === undefined ? undefined : (normalizeUrl(payload.facebookUrl) ?? "");
-  const instagramUrl =
-    payload.instagramUrl === undefined ? undefined : (normalizeUrl(payload.instagramUrl) ?? "");
+  const qualifications = breederRawText && Array.isArray(payload.qualifications)
+    ? payload.qualifications.filter((item): item is string => typeof item === "string")
+    : normalizeStringList(payload.qualifications);
+  const websiteUrl = breederRawText ? (rawContact(payload.websiteUrl) || null) : normalizeUrl(payload.websiteUrl);
+  const publicPhone = payload.publicPhone === undefined ? undefined
+    : breederRawText ? rawContact(payload.publicPhone) : normalizePublicPhone(payload.publicPhone);
+  const publicEmail = payload.publicEmail === undefined ? undefined
+    : breederRawText ? rawContact(payload.publicEmail) : (normalizeEmail(payload.publicEmail) ?? "");
+  const facebookUrl = payload.facebookUrl === undefined ? undefined
+    : breederRawText ? rawContact(payload.facebookUrl) : (normalizeUrl(payload.facebookUrl) ?? "");
+  const instagramUrl = payload.instagramUrl === undefined ? undefined
+    : breederRawText ? rawContact(payload.instagramUrl) : (normalizeUrl(payload.instagramUrl) ?? "");
   const contactSourceData = mergeDirectoryPublicContactData(currentImportData, {
     publicPhone,
     publicEmail,
@@ -1083,14 +1105,23 @@ export function normalizeManagedDirectoryProfileInput(
     facebookUrl,
     instagramUrl,
     sourceData,
-    internalEmail: normalizeEmail(payload.internalEmail),
+    internalEmail: breederRawText ? (rawContact(payload.internalEmail) || null) : normalizeEmail(payload.internalEmail),
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
     thumbnailImageDisplay: normalizeImageDisplayConfig(payload.thumbnailImageDisplay, "thumbnail"),
     detailImageDisplay: normalizeImageDisplayConfig(payload.detailImageDisplay, "detail"),
     verified: Boolean(payload.verified),
     featured: Boolean(payload.featured),
-    seo: cleanEditableSeo(payload.seo),
+    seo: breederRawText ? {
+      title: payload.seo?.title ?? "",
+      focusKeyword: payload.seo?.focusKeyword ?? "",
+      description: payload.seo?.description ?? "",
+      canonicalUrl: payload.seo?.canonicalUrl ?? "",
+      ogTitle: payload.seo?.ogTitle ?? "",
+      ogDescription: payload.seo?.ogDescription ?? "",
+      ogImage: payload.seo?.ogImage ?? "",
+      noindex: Boolean(payload.seo?.noindex),
+    } : cleanEditableSeo(payload.seo),
     searchText: directorySearchText({
       name,
       excerpt,
