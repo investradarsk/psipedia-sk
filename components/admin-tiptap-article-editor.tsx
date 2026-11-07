@@ -77,7 +77,6 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
       editor.off("transaction", handle);
     };
   }, [editor]);
-  useEffect(() => { setLinkOpen(false); setLinkError(""); }, [editor]);
 
   const action = (label: string, title: string, callback: () => void, selected = false, enabled = true) => (
     <button type="button" title={title} aria-label={title}
@@ -136,11 +135,15 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   );
 }
 
-export function AdminTiptapArticleScope({ children }: { children: ReactNode }) {
+export function AdminTiptapArticleScope({ children, activeSectionId }: { children: ReactNode; activeSectionId: string }) {
   const [active, setActive] = useState<ActiveEditor | null>(null);
   const scope = useMemo(() => ({ active, setActive }), [active]);
+  // Switching left-hand panels must not edit a hidden, previously focused field.
+  const visible = active && (active.id.startsWith("block-")
+    ? activeSectionId === "article-blocks"
+    : activeSectionId === "article-basics") ? active : null;
   return <ScopeContext.Provider value={scope}>
-    <TiptapSharedToolbar active={active} />
+    <TiptapSharedToolbar key={visible?.id ?? "no-visible-editor"} active={visible} />
     {children}
   </ScopeContext.Provider>;
 }
@@ -200,15 +203,14 @@ export function AdminTiptapRichTextEditor({
   }, [id]);
 
   useEffect(() => {
-    if (!editor) return;
-    if (signature === lastEmitted.current) return;
-    try {
-      editor.commands.setContent(editorialToTiptap(value), { emitUpdate: false });
-      lastEmitted.current = signature;
-      setError("");
-    } catch {
-      setError("Tento dokument sa nedá bezpečne previesť. Pôvodný obsah sa nezmenil.");
-    }
+    if (!editor || signature === lastEmitted.current) return;
+    // Props are already normalized by RichTextInput. Never write a fallback
+    // document on an unexpected external value: preserving the editor state
+    // is safer than silently replacing it with empty content.
+    const validated = normalizeEditorialRichText(value);
+    if (!validated) return;
+    editor.commands.setContent(editorialToTiptap(validated), { emitUpdate: false });
+    lastEmitted.current = signature;
   }, [editor, signature, value]);
 
   useEffect(() => () => {
