@@ -66,12 +66,12 @@ test("ARTICLE-VIDEO-RESPONSIVE uses portrait 9:16 for Shorts and landscape 16:9 
 
   const blocks = readFileSync("components/article-blocks.tsx", "utf8");
   const admin = readFileSync("components/admin-article-block-editor.tsx", "utf8");
-  const css = readFileSync("app/globals.css", "utf8");
+  const videoCss = readFileSync("components/article-video-embed.module.css", "utf8");
   const articleCss = readFileSync("components/article-detail.module.css", "utf8");
-  assert.match(blocks, /article-block-embed--shorts/);
-  assert.match(admin, /admin-video-preview--shorts/);
-  assert.match(css, /\.article-block-embed--shorts\s*\{[^}]*aspect-ratio:\s*9\s*\/\s*16/s);
-  assert.match(css, /\.admin-video-preview--shorts iframe\s*\{[^}]*aspect-ratio:\s*9\s*\/\s*16/s);
+  assert.match(blocks, /videoStyles\.shorts/);
+  assert.match(admin, /videoStyles\.shortsPreviewIframe/);
+  assert.match(videoCss, /:global\(\.article-block-embed\)\.shorts\s*\{[^}]*aspect-ratio:\s*9\s*\/\s*16/s);
+  assert.match(videoCss, /:global\(\.admin-video-preview\) \.shortsPreviewIframe\s*\{[^}]*aspect-ratio:\s*9\s*\/\s*16/s);
   assert.match(articleCss, /\.readingShell :global\(\.article-block-embed iframe\)\s*\{[^}]*height:\s*100%/s);
 });
 
