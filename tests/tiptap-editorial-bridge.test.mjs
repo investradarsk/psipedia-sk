@@ -31,14 +31,40 @@ test("legacy prose is preserved through the bridge", () => {
   assert.deepEqual(tiptapToEditorial(editorialToTiptap(original)), original);
 });
 
-test("colors, highlights, unsupported nodes and unsafe links fail closed", () => {
-  for (const markType of ["textStyle", "highlight", "underline"]) {
+test("v2 unrestricted hex colors, highlights and underline survive round-trip", () => {
+  const styled = tiptapToEditorial({
+    type: "doc", content: [{ type: "paragraph", content: [
+      { type: "text", text: "Zelená", marks: [
+        { type: "textStyle", attrs: { color: "#Aa11BB" } },
+        { type: "highlight", attrs: { color: "#F2E456" } },
+        { type: "underline" },
+        { type: "bold" },
+      ] },
+    ] }],
+  });
+  assert.equal(styled.version, 2);
+  assert.deepEqual(styled.content[0].content[0].marks, [
+    { type: "color", color: "#aa11bb" },
+    { type: "highlight", color: "#f2e456" },
+    { type: "underline" },
+    { type: "bold" },
+  ]);
+  assert.deepEqual(tiptapToEditorial(editorialToTiptap(styled)), styled);
+});
+
+test("invalid color CSS, unknown marks, unknown blocks and unsafe links fail closed", () => {
+  for (const attrs of [{ color: "red" }, { color: "#12ab34; background:url(x)" }, { color: "rgb(1,2,3)" }]) {
     assert.throws(() => tiptapToEditorial({
       type: "doc", content: [{ type: "paragraph", content: [
-        { type: "text", text: "Test", marks: [{ type: markType, attrs: { color: "#ff00aa" } }] },
+        { type: "text", text: "Test", marks: [{ type: "textStyle", attrs }] },
       ] }],
-    }), /Unsupported Tiptap mark/);
+    }), /Invalid Tiptap color/);
   }
+  assert.throws(() => tiptapToEditorial({
+    type: "doc", content: [{ type: "paragraph", content: [
+      { type: "text", text: "X", marks: [{ type: "script" }] },
+    ] }],
+  }), /Unsupported Tiptap mark/);
   assert.throws(() => tiptapToEditorial({
     type: "doc", content: [{ type: "table", content: [] }],
   }), /Unsupported Tiptap block/);
