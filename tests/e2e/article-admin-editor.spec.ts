@@ -314,7 +314,11 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const takeawayEditor = page.locator("[data-admin-tiptap-toolbar]");
     const bullet = takeawayEditor.getByRole("button", { name: "Odrážkový zoznam" });
     await takeaway.focus();
+    // The shared toolbar changes identity when focus moves from intro to takeaway.
+    // Do not click an action until it is bound to the newly active Tiptap instance.
+    await expect(takeawayEditor).toContainText("Upravuješ: to najdôležitejšie");
     await bullet.click();
+    await expect(takeaway.locator("ul")).toHaveCount(1);
     await expect(bullet).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.type("Prvý bod");
     await page.keyboard.press("Enter");
@@ -340,6 +344,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.keyboard.press("Enter");
     await page.keyboard.type("Druhý odsek");
     await page.keyboard.press("Control+a");
+    await expect(bodyWrapper).toContainText("Upravuješ: textový blok");
     await bodyWrapper.getByRole("button", { name: "Odrážkový zoznam" }).click();
     await expect(bodyEditor.locator("ul > li")).toHaveCount(2);
   });
