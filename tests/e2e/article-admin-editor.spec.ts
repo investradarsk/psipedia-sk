@@ -615,6 +615,32 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(page.locator('[data-admin-lexical-rich-text] [role="toolbar"]').first()).toBeVisible();
   });
 
+  test("ARTICLE-VISUAL-3: right rail schedule shares article state and shows SEO and full preview", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+    const rail = page.locator("[data-article-editor-rail]");
+    await expect(rail).toBeVisible();
+    await expect(rail.getByRole("region", { name: "Stav článku" })).toBeVisible();
+    const sidebarDate = rail.locator("#article-rail-published-at");
+    await sidebarDate.fill("2026-12-10T18:00");
+    await expect(page.locator("#article-published-at")).toHaveValue("2026-12-10T18:00");
+    await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
+    const seo = rail.locator("[data-article-rail-seo]");
+    await seo.locator("summary").click();
+    await expect(seo.getByText("Meta popis")).toBeVisible();
+    await seo.getByRole("button", { name: "Upraviť všetky SEO polia" }).click();
+    await expect(page.locator("#article-seo")).toBeInViewport();
+    const compact = rail.locator("[data-article-compact-preview]");
+    await expect(compact).toBeVisible();
+    await rail.getByRole("button", { name: "Zobraziť celý náhľad" }).click();
+    await expect(rail.locator(".admin-preview-paper")).toBeVisible();
+    await rail.getByRole("button", { name: "Skryť náhľad" }).click();
+    await expect(rail.locator("[data-article-compact-preview]")).toHaveCount(0);
+    await page.getByRole("button", { name: "Ukázať náhľad článku" }).click();
+    await expect(rail.locator("[data-article-compact-preview]")).toBeVisible();
+  });
+
   test("mobile dashboard filters do not stretch into giant blank gaps", async ({ page }) => {
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });

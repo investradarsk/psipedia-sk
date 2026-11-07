@@ -5,7 +5,7 @@ import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
-import { Blocks, BookOpen, CalendarDays, Camera, PawPrint, Search, Settings2, UserRound, X } from "lucide-react";
+import { Blocks, BookOpen, CalendarDays, Camera, CheckCircle2, ChevronDown, Clock3, Eye, PawPrint, Search, Settings2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
@@ -230,6 +230,7 @@ export function AdminArticleEditor({
   const [error, setError] = useState("");
   const [qaIssues, setQaIssues] = useState<ArticleQaIssue[]>([]);
   const [previewOpen, setPreviewOpen] = useState(true);
+  const [previewDetailedOpen, setPreviewDetailedOpen] = useState(false);
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-basics");
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [dirty, setDirtyState] = useState(false);
@@ -551,9 +552,113 @@ export function AdminArticleEditor({
         onClose={cancelEditing}
         closeLabel={returnToCalendar ? "Späť do kalendára" : "Späť na články"}
         previewTitle="Živý náhľad článku"
-        preview={previewOpen ? (
-          <aside className="admin-live-preview" aria-label="Živý náhľad článku">
-                    <div className="admin-preview-bar"><span><i /> Živý náhľad</span><small>takto bude článok vyzerať</small><button type="button" className={editorStyles.previewClose} onClick={() => { document.querySelector<HTMLButtonElement>('[data-editor-navigation] button[aria-pressed="true"]')?.click(); setPreviewOpen(false); }}>Skryť náhľad</button></div>
+        preview={
+          <div className={editorStyles.rightRail} data-article-editor-rail>
+            <section className={editorStyles.railCard} aria-label="Stav článku">
+              <div className={editorStyles.railHeading}>
+                <h3><CheckCircle2 size={17} aria-hidden="true" /> Stav článku</h3>
+                <span className={editorStyles.railStatus} data-publication-state={displayedStatus}>
+                  {articleEffectiveStatusLabel(displayedStatus)}
+                </span>
+              </div>
+              <p className={editorStyles.railNote}>
+                {dirty ? "V editore sú neuložené zmeny." : article ? "Všetky zmeny boli uložené." : "Nový článok ešte nebol uložený."}
+              </p>
+              {displayedStatus === "scheduled" && publishedAt && (
+                <p className={editorStyles.railMeta}><Clock3 size={14} aria-hidden="true" /> Termín: {publishedAt.replace("T", " ")}</p>
+              )}
+            </section>
+
+            <section className={editorStyles.railCard} aria-label="Publikovanie článku">
+              <div className={editorStyles.railHeading}>
+                <h3><CalendarDays size={17} aria-hidden="true" /> Publikovanie</h3>
+              </div>
+              <div className={editorStyles.railField}>
+                <label htmlFor="article-rail-published-at">Dátum a čas publikovania</label>
+                <input id="article-rail-published-at" type="datetime-local"
+                  value={publishedAt} readOnly={displayedStatus === "published"}
+                  onChange={(event) => { setPublishedAt(event.target.value); setEditorDirty(true); }} />
+              </div>
+              <p className={editorStyles.railNote}>
+                {displayedStatus === "published"
+                  ? "Publikovaný článok si zachováva pôvodný čas publikovania."
+                  : "Bez termínu môžeš článok publikovať okamžite."}
+              </p>
+              <div className={editorStyles.railActions}>
+                <button type="button" className={editorStyles.railSecondary}
+                  disabled={saving || uploading} onClick={() => void save(displayedStatus)}>
+                  {saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť zmeny" : displayedStatus === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}
+                </button>
+                {displayedStatus !== "published" && (
+                  <button type="button" className={editorStyles.railSecondary}
+                    disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>
+                    Naplánovať
+                  </button>
+                )}
+                {displayedStatus === "published" ? (
+                  <button type="button" className={editorStyles.railDanger}
+                    disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</button>
+                ) : (
+                  <button type="button" className={editorStyles.railPrimary}
+                    disabled={saving || uploading} onClick={() => void save("published")}>Publikovať článok</button>
+                )}
+              </div>
+              <button type="button" className={editorStyles.railTextLink}
+                onClick={() => chooseArticleSection("article-publish")}>
+                Otvoriť všetky nastavenia publikovania
+              </button>
+            </section>
+
+            <details className={editorStyles.railCard} data-article-rail-seo>
+              <summary className={editorStyles.railSummary}>
+                <span><Search size={17} aria-hidden="true" /> SEO a zdieľanie</span>
+                <ChevronDown size={17} aria-hidden="true" />
+              </summary>
+              <div className={editorStyles.railDetails}>
+                <p><strong>SEO titulok</strong><span>{seoTitle.trim() || title.trim() || "Zatiaľ bez názvu"}</span></p>
+                <p><strong>Meta popis</strong><span>{metaDescription.trim() || excerpt.trim() || "Použije sa perex článku."}</span></p>
+                <p><strong>Indexovanie</strong><span>{noindex ? "Neindexovať" : "Povolené"}</span></p>
+                <button type="button" className={editorStyles.railTextLink}
+                  onClick={() => chooseArticleSection("article-seo")}>Upraviť všetky SEO polia</button>
+              </div>
+            </details>
+
+            <section className={editorStyles.railCard} aria-label="Živý náhľad článku">
+              <div className={editorStyles.railHeading}>
+                <h3><Eye size={17} aria-hidden="true" /> Živý náhľad</h3>
+                {previewOpen && (
+                  <button type="button" className={editorStyles.railTextLink}
+                    onClick={() => {
+                      document.querySelector<HTMLButtonElement>('[data-editor-navigation] button[aria-pressed="true"]')?.click();
+                      setPreviewOpen(false);
+                      setPreviewDetailedOpen(false);
+                    }}>Skryť náhľad</button>
+                )}
+              </div>
+              {previewOpen ? (
+                <>
+                  <div className={editorStyles.railPreviewCard} data-article-compact-preview>
+                    {imageUrl ? (
+                      <div className={editorStyles.railPreviewPhoto}>
+                        <ImageDisplay context="thumbnail" config={thumbnailImageDisplay}
+                          src={imageUrl} alt={imageAlt || title || "Titulná fotografia článku"} loading="lazy" />
+                      </div>
+                    ) : (
+                      <div className={editorStyles.railPreviewEmpty}><Camera size={23} aria-hidden="true" /><span>Bez titulnej fotografie</span></div>
+                    )}
+                    <div className={editorStyles.railPreviewText}>
+                      <span>{portalSectionLabel(portalSection)}</span>
+                      <h4>{title || "Názov tvojho článku"}</h4>
+                      <p>{excerpt || "Tu sa zobrazí krátky úvod článku."}</p>
+                    </div>
+                  </div>
+                  <button type="button" className={editorStyles.railExpand}
+                    aria-expanded={previewDetailedOpen} onClick={() => setPreviewDetailedOpen((value) => !value)}>
+                    {previewDetailedOpen ? "Zbaliť celý náhľad" : "Zobraziť celý náhľad"}
+                  </button>
+                  {previewDetailedOpen && (
+                    <aside className="admin-live-preview" aria-label="Živý náhľad článku">
+                    <div className="admin-preview-bar"><span><i /> Živý náhľad</span><small>takto bude článok vyzerať</small><button type="button" className={editorStyles.previewClose} onClick={() => setPreviewDetailedOpen(false)}>Späť na stručný náhľad</button></div>
                     <article className="admin-preview-paper">
                       <span className="eyebrow">{portalSectionLabel(portalSection)} · {portalSection === "novinky" ? getNewsCategory(newsCategory)?.shortLabel : category}</span>
                       <h1 className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť názov článku" onClick={() => navigatePreview("article-basics", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-basics", true); } }}>{title || "Názov tvojho článku"}</h1>
@@ -571,7 +676,16 @@ export function AdminArticleEditor({
                       <ArticleBlocks blocks={blocks} preview promoUtcDay={promoUtcDay} onNavigateBlock={(blockId) => navigatePreview(blockId)} />
                     </article>
                   </aside>
-        ) : undefined}
+                  )}
+                </>
+              ) : (
+                <button type="button" className={editorStyles.railExpand} onClick={() => setPreviewOpen(true)}>
+                  Ukázať náhľad
+                </button>
+              )}
+            </section>
+          </div>
+        }
         actions={<EditorActionBar
           message={<span className="admin-editor-dirty-state">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
           destructive={displayedStatus === "published" ? <span className={editorStyles.desktopActions}><AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton></span> : undefined}

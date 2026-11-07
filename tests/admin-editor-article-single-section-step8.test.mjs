@@ -70,6 +70,32 @@ test("EDITOR-8: live preview, Lexical, SEO, media, FB and QA remain functional i
   assert.doesNotMatch(read("components/admin-editor-section-visibility.tsx"), /fetch\s*\(|DATABASE_URL/);
 });
 
+test("ARTICLE-VISUAL-3: the right rail reuses existing status, schedule, SEO and full preview", () => {
+  const src = read("components/admin-article-editor.tsx");
+  const css = read("components/admin-content-editor-v3.module.css");
+  assert.match(src, /data-article-editor-rail/);
+  assert.match(src, /aria-label="Stav článku"/);
+  assert.match(src, /aria-label="Publikovanie článku"/);
+  assert.match(src, /data-article-rail-seo/);
+  assert.match(src, /data-article-compact-preview/);
+  assert.match(src, /id="article-rail-published-at"/);
+  assert.match(src, /id="article-published-at"/);
+  assert.match(src, /onChange=\{\(event\) => \{ setPublishedAt\(event.target.value\); setEditorDirty\(true\); \}\}/);
+  assert.match(src, /onClick=\{\(\) => chooseArticleSection\("article-seo"\)\}/);
+  assert.match(src, /onClick=\{\(\) => chooseArticleSection\("article-publish"\)\}/);
+  assert.match(src, /onClick=\{\(\) => void save\("scheduled"\)\}/);
+  assert.match(src, /onClick=\{\(\) => void save\("published"\)\}/);
+  assert.match(src, /onClick=\{unpublish\}/);
+  assert.match(src, /previewDetailedOpen \&\&/);
+  assert.match(src, /<ArticleBlocks blocks=\{blocks\} preview/);
+  assert.match(css, /\.rightRail/);
+  assert.match(css, /\.railCard/);
+  assert.match(css, /\.railPreviewCard/);
+  // No separate publication/SEO payload or API path is introduced by the visual rail.
+  assert.equal((src.match(/method: article \? "PUT" : "POST"/g) ?? []).length, 1);
+  assert.equal((src.match(/expectedUpdatedAt: lastSavedUpdatedAtRef\.current/g) ?? []).length, 1);
+});
+
 test("EDITOR-8: event and directory editors migrate only in their later steps", () => {
   const directory = read("components/admin-directory-editor.tsx");
   const events = read("components/admin-event-editor.tsx");
