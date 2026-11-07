@@ -224,7 +224,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await videoEditor.locator('input[type="url"]').fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     await expect(videoEditor.locator("iframe")).toBeVisible();
 
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
     await showArticleSection(page, "article-content");
     await expect(page.locator("#article-intro").locator("strong")).toContainText("Toto je bezpečný úvod");
@@ -243,7 +243,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(editDrawer).toBeHidden();
     await expect(page.getByLabel("Meno autora pre legacy článok")).toHaveValue(authorName);
 
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
   });
 
@@ -253,7 +253,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-content");
 
     const intro = page.locator("#article-intro");
-    const introEditor = intro.locator("..");
+    const introEditor = intro.locator("xpath=ancestor::*[@data-admin-rich-text-editor][1]");
     const bold = introEditor.getByRole("button", { name: /Tučné/ });
     const italic = introEditor.getByRole("button", { name: /Kurzíva/ });
 
@@ -306,7 +306,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(intro.locator('a[href="https://example.com/editor-link"]')).toHaveCount(1);
 
     const takeaway = page.locator("#article-takeaway");
-    const takeawayEditor = takeaway.locator("..");
+    const takeawayEditor = takeaway.locator("xpath=ancestor::*[@data-admin-rich-text-editor][1]");
     const bullet = takeawayEditor.getByRole("button", { name: "Odrážkový zoznam" });
     await takeaway.focus();
     await bullet.click();
@@ -329,7 +329,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await showArticleSection(page, "article-blocks");
     const bodyEditor = page.locator("[data-admin-rich-text-editor]").nth(2).locator('[contenteditable="true"]');
-    const bodyWrapper = bodyEditor.locator("..");
+    const bodyWrapper = bodyEditor.locator("xpath=ancestor::*[@data-admin-rich-text-editor][1]");
     await bodyEditor.focus();
     await page.keyboard.type("Prvý odsek");
     await page.keyboard.press("Enter");
@@ -364,7 +364,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(intro).toContainText("<script>alert(1)</script>");
 
     await intro.selectText();
-    const richWrapper = intro.locator("..");
+    const richWrapper = intro.locator("xpath=ancestor::*[@data-admin-rich-text-editor][1]");
     await richWrapper.getByRole("button", { name: "Vložiť odkaz" }).click();
     await richWrapper.getByLabel("Odkaz", { exact: true }).fill("javascript:alert(1)");
     await richWrapper.getByRole("button", { name: "Použiť" }).click();
@@ -372,7 +372,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await showArticleSection(page, "article-media");
     await page.getByLabel("URL zdroja fotografie").fill("ftp://example.com/photo");
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("URL zdroja fotografie musí byť platná webová adresa.")).toBeVisible();
     await page.getByLabel("URL zdroja fotografie").fill("");
     await showArticleSection(page, "article-blocks");
@@ -384,12 +384,12 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await videoEditor.locator('input[type="url"]').fill("https://evil.example/video");
     await expect(videoEditor.getByRole("alert")).toContainText("YouTube alebo Vimeo");
 
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Video musí byť bezpečný HTTPS odkaz na YouTube alebo Vimeo.")).toBeVisible();
 
     await videoEditor.locator('input[type="url"]').fill("https://vimeo.com/123456789");
     await expect(videoEditor.locator("iframe")).toBeVisible();
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
   });
 
@@ -402,7 +402,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-content");
     await expect(page.locator("#article-intro")).toContainText("Legacy úvod článku");
     await page.locator("#article-intro").fill("Legacy článok je teraz upravený cez canonical WYSIWYG bez straty spätnej kompatibility.");
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
     await expect(page.getByText("Uložené", { exact: true })).toBeVisible();
 
@@ -431,7 +431,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(page.locator("#article-blocks")).toBeFocused();
     await expect(page).toHaveURL(/\/admin\/novy\?sekcia=clanky/);
 
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/clanky\/\d+\?vytvoreny=1$/);
     await waitForEditor(page);
     await showArticleSection(page, "article-blocks");
@@ -453,7 +453,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.getByRole("button", { name: "Stiahnuť z webu" }).click();
     await unpublish.getByRole("button", { name: "Potvrdiť stiahnutie" }).click();
     await expect(unpublish).toBeHidden();
-    await expect(page.getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
+    await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
   });
 
   test("IMAGE-EDITOR-1 independently persists thumbnail blur and detail crop, with cancel and reset", async ({ page }, testInfo) => {
@@ -485,7 +485,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
 
     await modal.getByRole("button", { name: "Uložiť zobrazenie" }).click();
     await expect(modal).toBeHidden();
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
 
     await page.reload({ waitUntil: "domcontentloaded" });
