@@ -6,7 +6,14 @@ import { expect, test, type Page } from "@playwright/test";
 async function openDirectoryEditorSection(page: Page, label: string) {
   const navigation = page.getByRole("navigation", { name: "Sekcie profilu adresára" });
   await expect(navigation).toHaveAttribute("data-admin-editor-nav-ready", "true");
-  await navigation.getByRole("button", { name: label, exact: true }).click();
+  const mobileSelect = navigation.getByRole("combobox", { name: "Sekcia editora" });
+  // The shared component switches to a native select below 820px.
+  // Exercise the visible control rather than attempting a hidden desktop click.
+  if (await mobileSelect.isVisible()) {
+    await mobileSelect.selectOption({ label });
+  } else {
+    await navigation.getByRole("button", { name: label, exact: true }).click();
+  }
 }
 
 test.describe("admin directory v2", () => {
