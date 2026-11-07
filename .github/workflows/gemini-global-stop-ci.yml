@@ -3,16 +3,16 @@ name: GEMINI GLOBAL STOP 01 — offline safety CI
 on:
   pull_request:
     branches: [main]
+    # Only map/Gemini/service-specific changes belong here; generic D1
+    # migration tooling is already covered by required CI and Clean D1.
     paths:
       - "drizzle/0136_gemini_global_stop.sql"
       - "lib/gemini-global-control.ts"
       - "lib/gemini-external-agent.ts"
       - "worker/index.ts"
       - "scripts/gemini-notion-agent.mjs"
-      - "scripts/production-d1-migrate.mjs"
       - "scripts/production-d1-0136-schema.mjs"
       - "tests/production-d1-0136-rollout.test.mjs"
-      - ".github/workflows/production-d1-migrate.yml"
       - "app/api/admin/gemini-automation/**"
       - "app/api/internal/gemini-agent/authorize/**"
       - "app/admin/automatizacie-gemini/page.tsx"

@@ -3,6 +3,7 @@ name: Organization profile E2E
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       # Global layout/CI configuration is validated by the required workflow.
       - "app/organizacie/**"
@@ -41,6 +42,8 @@ permissions:
 
 jobs:
   organization-profile-e2e:
+    # Comprehensive PR regression runs once changes are ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Organization profile — desktop/mobile, Axe and overflow
     runs-on: ubuntu-latest
     timeout-minutes: 35

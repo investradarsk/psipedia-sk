@@ -3,6 +3,7 @@ name: MAP-1C Map Read API
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'app/api/map/**'
       - 'app/mapa/**'
@@ -69,6 +70,8 @@ permissions:
 
 jobs:
   map-read-api:
+    # Comprehensive PR regression runs once changes are ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Map read contract, D1 integration and API E2E
     runs-on: ubuntu-latest
     timeout-minutes: 35

@@ -3,6 +3,7 @@ name: Gemini automation foundation contracts
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "app/admin/automatizacie-gemini/**"
       - "app/api/admin/gemini-automation/**"
@@ -66,6 +67,8 @@ concurrency:
 
 jobs:
   contracts:
+    # Comprehensive PR regression runs once changes are ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Isolated Gemini foundation contract and migration safety
     runs-on: ubuntu-latest
     timeout-minutes: 15
