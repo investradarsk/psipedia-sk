@@ -1,4 +1,5 @@
 "use client";
+import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
@@ -79,23 +80,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   const [error, setError] = useState("");
   const [activeEventSection, setActiveEventSection] = useState(EVENT_SECTIONS[0].id);
   const activeEventSectionIndex = EVENT_SECTIONS.findIndex((section) => section.id === activeEventSection);
-  const pagerFocusTargetRef = useRef<string | null>(null);
-  const navigateWithPager = (id: string) => {
-    if (!EVENT_SECTIONS.some((section) => section.id === id)) return;
-    pagerFocusTargetRef.current = id;
-    setActiveEventSection(id);
-  };
-  // Shared sidebar/mobile navigation focuses its own panel. The in-form pager
-  // updates controlled state directly, so restore focus/scroll after React
-  // reveals the new panel (not while it is still hidden).
-  useEffect(() => {
-    if (pagerFocusTargetRef.current !== activeEventSection) return;
-    pagerFocusTargetRef.current = null;
-    const panel = document.getElementById(activeEventSection);
-    if (panel?.getAttribute("data-editor-section-active") !== "true") return;
-    panel.scrollIntoView({ block: "start", behavior: "smooth" });
-    panel.focus({ preventScroll: true });
-  }, [activeEventSection]);
+  const navigateWithPager = useProfileEditorSectionPager(activeEventSection, setActiveEventSection);
 
   // Track the canonical form payload, not DOM input events: markdown toolbar,
   // SEO drawer, image display settings and automation patches all change React state.
@@ -413,7 +398,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
           <EditorSection id="event-seo" className={styles.seoSection}>
             <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/podujatia/${slug}`} fallbackTitle={eventSeoFallback(title||"Názov podujatia",eventType,city).title} fallbackDescription={eventSeoFallback(title||"Názov podujatia",eventType,city).description}/>
           </EditorSection>
-          <nav className={styles.sectionPager} aria-label="Prechod medzi sekciami podujatia">
+          <nav data-admin-editor-pager className={styles.sectionPager} aria-label="Prechod medzi sekciami podujatia">
             <AdminActionButton variant="secondary" type="button" disabled={activeEventSectionIndex <= 0}
               onClick={() => navigateWithPager(EVENT_SECTIONS[activeEventSectionIndex - 1]?.id ?? EVENT_SECTIONS[0].id)}>Predchádzajúca</AdminActionButton>
             <span role="status">Sekcia {activeEventSectionIndex + 1} z {EVENT_SECTIONS.length}</span>
