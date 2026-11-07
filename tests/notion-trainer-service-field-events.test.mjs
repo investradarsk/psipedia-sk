@@ -66,6 +66,22 @@ test("trainer Notion webhook and Admin PUT reuse field events without bulk profi
   assert.match(editor, /category === profile\.category && breederBaseline/);
 });
 
+test("mapped trainer without an explicit change does not enter legacy baseline conflict resolution", async () => {
+  const source = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const trainer = source.indexOf('if (profile.category === "treneri" &&');
+  const breeder = source.indexOf('if (profile.category === "chovatelske-stanice" &&', trainer);
+  const legacy = source.indexOf("LOSSLESS_FIELD_REVIEW_REQUIRED", trainer);
+  assert.ok(trainer > 0 && breeder > trainer && legacy > breeder);
+  const guard = source.slice(trainer, breeder);
+  assert.match(guard, /!input\.manualDirection/);
+  assert.match(guard, /input\.breederWebhookPropertyIds === undefined/);
+  assert.match(guard, /input\.breederAdminFields === undefined/);
+  assert.match(guard, /TRAINER_IDENTITY_MISMATCH/);
+  assert.match(guard, /return "unchanged" as const/);
+  // Actual signed field events still reach syncBreederEvent, not the no-op guard.
+  assert.match(source.slice(breeder, legacy), /return syncBreederEvent\(\{/);
+});
+
 test("signed Notion catalog changes are additions-only and guarded by relation readback", async () => {
   const relation = await readFile(new URL("../lib/service-catalog-notion-relations.ts", import.meta.url), "utf8");
   assert.match(relation, /const target=\[\.\.\.new Set\(\[\.\.\.local,\.\.\.remote\]\)\]\.sort\(\)/);
