@@ -90,9 +90,11 @@ export async function POST(request: Request) {
             page.last_edited_time !== row.work_notion_last_edited_time) {
           throw Error("BREED_WORKCOPY_BASELINE_NOTION_REVISION_CHANGED");
         }
-        const provenance = page.properties?.["Zdrojový profil Notion"];
+        const provenance = page.properties?.["Zdrojový profil Notion"] as
+          { type?: string; url?: string | null } | undefined;
         const url = provenance?.type === "url" ? provenance.url ?? "" : "";
-        const original = url.replace(/[-/?#]/g, "").slice(-32).toLowerCase();
+        const original = url.split(/[?#]/)[0]
+          .replace(/[-/?#]/g, "").slice(-32).toLowerCase();
         if (original !== normalize(row.original_notion_page_id))
           throw Error("BREED_WORKCOPY_BASELINE_PROVENANCE_CHANGED");
         const baseline = buildBreedWorkCopyBaseline(page, breed);
