@@ -24,11 +24,11 @@ export function organizationAddressDraftFromLocation(
   location: OrganizationLocationAdminRecord | null,
 ): OrganizationAddressDraft {
   return {
-    address: location?.address ?? organization?.address ?? "",
-    city: location?.city ?? organization?.city ?? "",
-    district: location?.district ?? organization?.district ?? "",
-    region: location?.region ?? organization?.region ?? "",
-    countryCode: location?.countryCode ?? organization?.countryCode ?? "SK",
+    address: location?.address || organization?.address || "",
+    city: location?.city || organization?.city || "",
+    district: location?.district || organization?.district || "",
+    region: location?.region || organization?.region || "",
+    countryCode: location?.countryCode || organization?.countryCode || "SK",
   };
 }
 
