@@ -94,6 +94,11 @@ function richNodes(nodes: EditorialRichTextInline[]): RecordValue[] {
       if (mark.type === "bold") annotations.bold = true;
       if (mark.type === "italic") annotations.italic = true;
       if (mark.type === "link") url = requireRemoteHttps(mark.href);
+      // Notion's fixed color vocabulary cannot represent arbitrary hex codes
+      // or our underline/highlight combinations losslessly. Fail closed.
+      if (mark.type === "color" || mark.type === "highlight" || mark.type === "underline") {
+        fail("UNSUPPORTED_NOTION_EDITORIAL_STYLE");
+      }
     }
     if (!node.text) continue;
     for (const part of notionText(node.text)) {
