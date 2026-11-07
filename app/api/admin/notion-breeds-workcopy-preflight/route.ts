@@ -6,6 +6,7 @@ import { planBreedWorkcopyIdentity } from "@/lib/notion-breed-workcopy-identity-
 import { planBreedWorkcopyShadowRows } from "@/lib/notion-breed-workcopy-shadow-plan.mjs";
 import { materializeBreedWorkCopyForRead } from "@/lib/notion-breed-workcopy-compatible-page.mjs";
 import { isCompatibleBreedWorkcopyReceipt } from "@/lib/notion-breed-workcopy-receipt";
+import { summarizeBreedWorkcopyD1Readiness } from "@/lib/notion-breed-workcopy-d1-readiness.mjs";
 
 import { inspectBreedWorkCopy } from "@/lib/notion-breed-workcopy-parity.mjs";
 import { expandBreed60WorkPage } from "@/lib/notion-breed-workcopy-adapter.mjs";
@@ -49,6 +50,32 @@ export async function GET() {
       ).all<{ breed_id: number; notion_page_id: string; content_hash: string;
         last_synced_at: string | null; notion_last_edited_time: string | null }>(),
     ]);
+    // Read-only physical D1 schema check; presence of a SQL source file is
+    // NOT evidence that migration 0159 has run on production.
+    const shadowTable = await bindings.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' " +
+      "AND name='breed_notion_workcopy_links' LIMIT 1",
+    ).first<{ name: string }>();
+    const shadowTablePresent = Boolean(shadowTable?.name);
+    const shadowColumns = shadowTablePresent
+      ? (await bindings.DB.prepare(
+          "SELECT name FROM pragma_table_info('breed_notion_workcopy_links')",
+        ).all<{ name: string }>()).results
+      : [];
+    const shadowStatuses = shadowTablePresent &&
+      shadowColumns.some(column => column.name === "status")
+      ? (await bindings.DB.prepare(
+          "SELECT status, COUNT(*) AS count FROM breed_notion_workcopy_links GROUP BY status",
+        ).all<{ status: string; count: number }>()).results
+      : [];
+    const d1Diagnostics = summarizeBreedWorkcopyD1Readiness({
+      canonicalBreeds: canonical.results,
+      productionLinks: productionMappings.results,
+      shadowTablePresent,
+      shadowColumns,
+      shadowStatuses,
+      isCompatibleReceipt: isCompatibleBreedWorkcopyReceipt,
+    });
     const result = planBreedWorkcopyIdentity({
       sourcePages,
       workPages,
@@ -116,6 +143,7 @@ export async function GET() {
     }
     return Response.json({
       identityReady: result.identityReady,
+      d1Diagnostics,
       cutoverReady: false,
       workCopyContentReady,
       shadowReceiptReady,
