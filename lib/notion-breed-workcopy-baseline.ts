@@ -10,6 +10,7 @@ import { materializeBreedWorkCopyForRead } from "@/lib/notion-breed-workcopy-com
 import { notionPageToManagedBreedInput } from "@/lib/notion-breed-sync";
 import { breedFieldSnapshot } from "@/lib/notion-breed-field-delta";
 import { isCompatibleBreedWorkcopyReceipt } from "@/lib/notion-breed-workcopy-receipt";
+import { encodeIndependentBreedWorkCopyReceipt } from "@/lib/notion-breed-workcopy-baseline-receipt.mjs";
 
 export function buildBreedWorkCopyBaseline(page: NotionPage, breed: ManagedBreed) {
   const projection = materializeBreedWorkCopyForRead(page, {
@@ -19,11 +20,7 @@ export function buildBreedWorkCopyBaseline(page: NotionPage, breed: ManagedBreed
     throw Error("BREED_WORKCOPY_BASELINE_UNREADABLE_PAGE");
   const notion = breedFieldSnapshot(notionPageToManagedBreedInput(projection.page));
   const admin = breedFieldSnapshot(breed);
-  const value = "breed-field-v1:" + JSON.stringify({
-    hash: "0".repeat(64),
-    notion: JSON.stringify(notion),
-    admin: JSON.stringify(admin),
-  });
+  const value = encodeIndependentBreedWorkCopyReceipt(notion, admin);
   if (!isCompatibleBreedWorkcopyReceipt(value))
     throw Error("BREED_WORKCOPY_BASELINE_INVALID");
   const differenceCount = Object.keys(notion).filter(key =>
