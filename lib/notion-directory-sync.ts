@@ -1376,7 +1376,7 @@ async function syncBreederEvent(input: {
   const now = new Date().toISOString();
   if (input.changedPropertyIds !== undefined) {
     const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds)
-      .filter(path => path !== "services" || input.profile.category === "chovatelske-stanice");
+      .filter(path => path !== "services" || input.profile.category !== "treneri");
     const relationFields = input.profile.category === "chovatelske-stanice"
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
     const facetFields = input.profile.category === "chovatelske-stanice"
