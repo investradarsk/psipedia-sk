@@ -102,12 +102,12 @@ test("review detail uses the managed product category in breadcrumbs and structu
   // The managed subsection contract supports both the legacy review-only form
   // and the newer canonical section/subsection implementation from main.
   if (detail.includes("const managedTopic = article.portalSubpage")) {
-    assert.match(detail, /portalSection\\?\\.slug === section/);
-    assert.match(detail, /getPortalSubpage\\(section, article\\.portalSubpage\\)\\?\\.subpage/);
-    assert.match(detail, /portalSubpageHref\\(\\{ slug: section \\}, managedTopic\\)/);
+    assert.ok(detail.includes("portalSection?.slug === section"), "Managed section must match article section");
+    assert.ok(detail.includes("getPortalSubpage(section, article.portalSubpage)?.subpage"), "Legacy managed subsection fallback must remain");
+    assert.ok(detail.includes("portalSubpageHref({ slug: section }, managedTopic)"), "Breadcrumb must use managed subsection route");
   } else {
-    assert.match(detail, /section === "recenzie" && portalSection\\?\\.slug === "recenzie"/);
-    assert.match(detail, /portalSubpageHref\\(portalSection!, reviewCategory\\)/);
+    assert.ok(detail.includes('section === "recenzie" && portalSection?.slug === "recenzie"'));
+    assert.ok(detail.includes("portalSubpageHref(portalSection!, reviewCategory)"));
   }
   assert.match(detail, /articleSection: topicLabel/);
   assert.match(detail, /name: topicLabel, item: `\$\{SITE_URL\}\$\{topicHref\}`/);
