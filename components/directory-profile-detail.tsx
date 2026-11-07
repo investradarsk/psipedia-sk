@@ -264,7 +264,7 @@ export function DirectoryProfileDetail({
     if (isBreeder && relatedClubs.length && /^(klub|chovateľský klub):/i.test(qualification)) return items;
     if (isBreeder && relatedClubs.some(club =>
       club.name.trim().toLocaleLowerCase("sk") === qualification.toLocaleLowerCase("sk"))) return items;
-    if (items.length && /^\\p{Ll}/u.test(qualification)) {
+    if (items.length && /^\p{Ll}/u.test(qualification)) {
       items[items.length - 1] += "; " + qualification;
     } else if (!items.some(item => item.toLocaleLowerCase("sk") === qualification.toLocaleLowerCase("sk"))) {
       items.push(qualification);
