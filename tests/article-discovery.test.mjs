@@ -211,3 +211,58 @@ test("ARTICLE-DISCOVERY-2 keeps automatic discovery sidebar hidden on mobile whi
   assert.match(detailSource, /Ďalšie články k téme/);
   assert.match(detailSource, /<ArticleBlocks blocks=\{contentBlocks\} promoUtcDay=\{discovery\.utcDay\} \/>/);
 });
+
+
+test("EDITORIAL-5 article popularity is sitewide across editorial sections, not a page-views metric", () => {
+  const popularityStore = readFileSync("lib/article-popularity.ts", "utf8");
+  const sidebar = readFileSync("components/article-popularity-sidebar.tsx", "utf8");
+  const discovery = readFileSync("lib/article-discovery.ts", "utf8");
+  const list = readFileSync("app/clanky/page.tsx", "utf8");
+
+  const rankingQuery = popularityStore.slice(popularityStore.indexOf("export async function getPopularArticles"));
+  assert.match(rankingQuery, /JOIN managed_articles a ON a.id = h.article_id/);
+  assert.match(rankingQuery, /SUM\(h.qualified_reads\) AS qualified_reads/);
+  assert.match(rankingQuery, /a.status = 'published'/);
+  assert.doesNotMatch(rankingQuery, /AND a.portal_section =/);
+  assert.match(discovery, /articleHref\(article\)/);
+  assert.match(sidebar, /Najčítanejšie články/);
+  assert.match(list, /initialWindow=\{discovery.initialWindow\}/);
+});
+
+test("EDITORIAL-5 qualified reads respect visibility, cooldown, and exclusion of internal traffic", () => {
+  const tracker = readFileSync("components/article-read-tracker.tsx", "utf8");
+  const readLogic = readFileSync("lib/article-read-tracking.ts", "utf8");
+  const endpoint = readFileSync("app/api/articles/read/route.ts", "utf8");
+
+  assert.match(readLogic, /ARTICLE_READ_QUALIFY_MS = 10_000/);
+  assert.match(readLogic, /ARTICLE_READ_COOLDOWN_MS = 6 \* 60 \* 60 \* 1000/);
+  assert.match(tracker, /visibilitychange/);
+  assert.match(tracker, /isInternalArticleReadBrowser/);
+  assert.match(endpoint, /isInternalTrafficRequest\(request\)/);
+});
+
+test("EDITORIAL-5 news menu, canonical route and sitemap agree on /novinky", () => {
+  const navDefaults = readFileSync("lib/navigation.ts", "utf8");
+  const navStore = readFileSync("lib/navigation-store.ts", "utf8");
+  const header = readFileSync("lib/public-header-navigation.ts", "utf8");
+  const footer = readFileSync("components/site-footer.tsx", "utf8");
+  const sitemap = readFileSync("lib/sitemap-seo.ts", "utf8");
+  const newsRoute = readFileSync("app/[section]/page.tsx", "utf8");
+
+  assert.match(navDefaults, /id: "novinky", label: "Novinky", href: "\/novinky"/);
+  assert.match(navStore, /item.id === "novinky" && item.href === "\/clanky"/);
+  assert.match(navStore, /href: "\/novinky"/);
+  assert.match(header, /item.id === "novinky" \? "novinky"/);
+  assert.match(footer, /<Link href="\/novinky">Novinky<\/Link>/);
+  assert.doesNotMatch(sitemap.split("export const NEWS_SITEMAP_WINDOW_MS")[0], /"\/novinky"/);
+  assert.match(newsRoute, /path: "\/novinky"/);
+  assert.match(newsRoute, /<NewsHub/);
+});
+
+test("EDITORIAL-5 homepage labels mixed latest articles separately from news", () => {
+  const homepage = readFileSync("components/home-editorial.tsx", "utf8");
+  const archive = readFileSync("app/clanky/page.tsx", "utf8");
+  assert.match(homepage, /home-latest-title">Najnovšie články/);
+  assert.match(homepage, /<Link href="\/clanky"/);
+  assert.match(archive, /title: "Všetky články"/);
+});

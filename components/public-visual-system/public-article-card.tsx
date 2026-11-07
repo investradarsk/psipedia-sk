@@ -26,6 +26,7 @@ export type PublicArticleCardProps = {
   };
   excerpt?: ReactNode;
   variant?: PublicArticleCardVariant;
+  desktopLayout?: "stacked";
   accent?: string;
   actionLabel?: string;
   headingLevel?: 2 | 3 | 4;
@@ -41,6 +42,7 @@ function ArticleMedia({
   image,
   variant,
   imagePriority,
+  desktopLayout,
 }: PublicArticleCardProps & { variant: PublicArticleCardVariant }) {
   return image ? (
     <ImageDisplay
@@ -53,11 +55,13 @@ function ArticleMedia({
       src={image.src}
       srcSet={responsiveMediaSrcSet(
         image.src,
-        variant === "row" ? [160, 320, 480] : [320, 480, 640, 768, 960, 1280],
+        variant === "row" && !desktopLayout ? [160, 320, 480] : [320, 480, 640, 768, 960, 1280],
       )}
       sizes={
         variant === "row"
-          ? "(max-width: 620px) 90px, 112px"
+          ? desktopLayout === "stacked"
+            ? "(min-width: 901px) 40vw, (max-width: 620px) 90px, 112px"
+            : "(max-width: 620px) 90px, 112px"
           : variant === "featured"
             ? "(max-width: 980px) 100vw, 55vw"
             : "(max-width: 620px) 100vw, 33vw"
@@ -140,6 +144,7 @@ export function PublicArticleCard(props: PublicArticleCardProps) {
           styles.articleListItem,
           styles.articleListItemWithImage,
           cardStyles.row,
+          props.desktopLayout === "stacked" && cardStyles.stacked,
           className,
         ]
           .filter(Boolean)

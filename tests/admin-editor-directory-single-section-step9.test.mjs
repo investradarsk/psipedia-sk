@@ -4,14 +4,16 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("EDITOR-9: service directory has five independently visible but mounted panels", () => {
+test("EDITOR-9: service directory keeps five base panels and optional breeder relations", () => {
   const src = read("components/admin-directory-editor.tsx");
   const css = read("components/admin-directory-editor.module.css");
   const ids = ["directory-main", "directory-location", "directory-content", "directory-contacts", "directory-media-trust"];
   for (const id of ids) assert.match(src, new RegExp('<AdminEditorSection id="' + id + '"'));
-  assert.equal((src.match(/<AdminEditorSection id="directory-/g) || []).length, 5);
+  assert.equal((src.match(/<AdminEditorSection id="directory-/g) || []).length, 6);
+  assert.match(src, /editorSectionsForProfile = profile && category === "chovatelske-stanice"/);
+  assert.match(src, /id: "directory-breeder-links", label: "Prepojenia"/);
   assert.match(src, /AdminEditorSectionVisibility.Provider value=\{\{ activeId: activeDirectorySection, mode: "switch" \}\}/);
-  assert.match(src, /<AdminSharedEditorNavigation sections=\{editorSections\} activeId=\{activeDirectorySection\} onNavigate=\{setActiveDirectorySection\}/);
+  assert.match(src, /<AdminSharedEditorNavigation sections=\{editorSectionsForProfile\} activeId=\{activeDirectorySection\} onNavigate=\{setActiveDirectorySection\}/);
   assert.match(src, /layout="sidebar" mode="switch"/);
   assert.match(src, /aria-label="Prechod medzi sekciami služby"/);
   assert.match(css, /\[data-admin-editor-section\]\[hidden\]/);

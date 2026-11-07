@@ -13,6 +13,7 @@ export type ArticleCardVariant = PublicArticleCardVariant | "compact";
 export function ArticleCard({
   article,
   variant,
+  desktopLayout,
   large = false,
   topicHref,
   topicLabel,
@@ -27,6 +28,7 @@ export function ArticleCard({
 }: {
   article: ArticleListingCard;
   variant?: ArticleCardVariant;
+  desktopLayout?: "stacked";
   large?: boolean;
   topicHref?: string;
   topicLabel?: string;
@@ -46,6 +48,7 @@ export function ArticleCard({
     <PublicArticleCard
       {...presentation}
       variant={resolvedVariant}
+      desktopLayout={desktopLayout}
       title={article.title}
       topic={
         topicLabel ?? (resolvedVariant === "row" ? presentation.topic : presentation.sectionTopic)

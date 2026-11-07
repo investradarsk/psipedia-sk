@@ -10,7 +10,7 @@ const expectedMainNavigation = [
   ["Pomoc psom", "/pomoc-psom"],
   ["Podujatia", "/podujatia"],
   ["Recenzie a testy", "/recenzie"],
-  ["Novinky", "/clanky"],
+  ["Novinky", "/novinky"],
 ] as const;
 
 const expectedSubmenus = {

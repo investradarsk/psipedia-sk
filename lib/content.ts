@@ -248,6 +248,7 @@ export const articles: Article[] = [
   {
     slug: "ako-vybrat-granule-bez-marketingovych-mytov",
     portalSection: "starostlivost",
+    portalSubpage: "vyziva",
     title: "Ako vybrať granule bez marketingových mýtov",
     excerpt:
       "Zloženie, energia, tolerancia a kondícia psa: štyri veci, ktoré majú väčšiu váhu než predná strana obalu.",
@@ -298,6 +299,7 @@ export const articles: Article[] = [
   {
     slug: "aport-od-hry-k-spolahlivemu-odovzdaniu",
     portalSection: "aktivity",
+    portalSubpage: "psie-sporty",
     title: "Aport: od naháňačky k spoľahlivému odovzdaniu do ruky",
     excerpt:
       "Ako zachovať chuť prinášať a pritom psa naučiť pokojne držať, prísť a odovzdať predmet.",

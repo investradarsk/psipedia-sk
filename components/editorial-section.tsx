@@ -1,14 +1,9 @@
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
+import { PublicHeading } from "@/components/public-heading";
 import { ArticleListItem } from "@/components/article-list-item";
 import { HorizontalCarouselControls } from "@/components/horizontal-carousel-controls";
-import {
-  ArrowIcon,
-  HeartIcon,
-  PawMark,
-  SparkIcon,
-  WhistleIcon,
-} from "@/components/icons";
+import { ArrowIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import { HomePortalSearch } from "@/components/home-portal-search";
@@ -71,7 +66,8 @@ function articleArea(article: Article, sectionSlug: EditorialSectionSlug) {
       )[article.category]
     );
   }
-  return article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
+  // A missing area must not silently become "Psie športy".
+  return article.portalSubpage;
 }
 
 function orderedArticles(section: PortalSection, articles: Article[], subpage?: PortalSubpage) {
@@ -91,18 +87,26 @@ function orderedArticles(section: PortalSection, articles: Article[], subpage?: 
   );
 }
 
-function SectionContentList({ articles, label, limit = 8 }: {
+function SectionContentList({
+  articles,
+  label,
+  limit = 8,
+}: {
   articles: Article[];
   label: string;
   limit?: number;
 }) {
   if (!articles.length) {
-    return <PublicEmptyState variant="context" className={styles.emptyState}>Ďalšie články pripravujeme.</PublicEmptyState>;
+    return (
+      <PublicEmptyState variant="context" className={styles.emptyState}>
+        Ďalšie články pripravujeme.
+      </PublicEmptyState>
+    );
   }
   return (
     <PublicContentList label={label} className={styles.contentList}>
       {articles.slice(0, limit).map((article) => (
-        <ArticleListItem article={article} key={article.slug} />
+        <ArticleListItem article={article} desktopLayout="stacked" key={article.slug} />
       ))}
     </PublicContentList>
   );
@@ -355,32 +359,79 @@ export async function EditorialSectionHub({
   const sectionSlug = section.slug;
   if (!isEditorialSectionSlug(sectionSlug)) return null;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
+  const visibleAreaSlugs = new Set(subpages.map((subpage) => subpage.slug));
+  const unassignedArticles = articles.filter(
+    (article) => articlePortalSection(article) === sectionSlug
+      && !visibleAreaSlugs.has(articleArea(article, sectionSlug) ?? ""),
+  );
   // Four clear life-stage groups replace the 11 consecutive undifferentiated
   // puppy topic sections. Canonical topic URLs and all content stay intact.
   const puppyStages = [
-    { title: "Pred príchodom psa", description: "Rozhodnutie, plemeno a zodpovedný chov.", slugs: ["pred-kupou-psa", "vyber-plemena", "vyber-chovatela"] },
-    { title: "Prvé mesiace doma", description: "Bezpečné prostredie, výživa a základné návyky.", slugs: ["prve-dni", "hygiena", "krmenie"] },
-    { title: "Zdravie a rast", description: "Prevencia a primeraný telesný vývoj.", slugs: ["ockovanie-a-zdravie", "rast-a-vyvoj"] },
-    { title: "Výchova a dospievanie", description: "Socializácia, tréning a pokojná puberta.", slugs: ["socializacia", "vycvik-steniatka", "puberta"] },
+    {
+      title: "Pred príchodom psa",
+      description: "Rozhodnutie, plemeno a zodpovedný chov.",
+      slugs: ["pred-kupou-psa", "vyber-plemena", "vyber-chovatela"],
+    },
+    {
+      title: "Prvé mesiace doma",
+      description: "Bezpečné prostredie, výživa a základné návyky.",
+      slugs: ["prve-dni", "hygiena", "krmenie"],
+    },
+    {
+      title: "Zdravie a rast",
+      description: "Prevencia a primeraný telesný vývoj.",
+      slugs: ["ockovanie-a-zdravie", "rast-a-vyvoj"],
+    },
+    {
+      title: "Výchova a dospievanie",
+      description: "Socializácia, tréning a pokojná puberta.",
+      slugs: ["socializacia", "vycvik-steniatka", "puberta"],
+    },
   ];
   // The same editorial stage/card template is shared by all three sections.
   // Only the editorial grouping and section-level colour token differ.
   const careStages = [
-    { title: "Zdravie a každodenná starostlivosť", description: "Prevencia, výživa a zdravé návyky.", slugs: ["zdravie", "vyziva", "srst-a-hygiena"] },
-    { title: "Život so psom", description: "Správanie, výchova a starostlivosť v každom veku.", slugs: ["vycvik", "spravanie", "senior"] },
+    {
+      title: "Zdravie a každodenná starostlivosť",
+      description: "Prevencia, výživa a zdravé návyky.",
+      slugs: ["zdravie", "vyziva", "srst-a-hygiena"],
+    },
+    {
+      title: "Život so psom",
+      description: "Správanie, výchova a starostlivosť v každom veku.",
+      slugs: ["vycvik", "spravanie", "senior"],
+    },
   ];
   const activityStages = [
-    { title: "Výcvik a šport", description: "Učenie, spolupráca a vhodný pohyb.", slugs: ["trening", "psie-sporty"] },
-    { title: "Spoločne vonku a na cestách", description: "Výlety, miesta a bezpečné cestovanie.", slugs: ["vylety-so-psom", "dog-friendly-miesta", "dovolenka-so-psom"] },
+    {
+      title: "Výcvik a šport",
+      description: "Učenie, spolupráca a vhodný pohyb.",
+      slugs: ["trening", "psie-sporty"],
+    },
+    {
+      title: "Spoločne vonku a na cestách",
+      description: "Výlety, miesta a bezpečné cestovanie.",
+      slugs: ["vylety-so-psom", "dog-friendly-miesta", "dovolenka-so-psom"],
+    },
   ];
-  const configuredStages = sectionSlug === "steniatka"
-    ? puppyStages
-    : sectionSlug === "starostlivost" ? careStages : activityStages;
+  const configuredStages =
+    sectionSlug === "steniatka"
+      ? puppyStages
+      : sectionSlug === "starostlivost"
+        ? careStages
+        : activityStages;
   const configuredSlugs = new Set(configuredStages.flatMap((stage) => stage.slugs));
   const otherSlugs = subpages.map((page) => page.slug).filter((slug) => !configuredSlugs.has(slug));
   // Managed Notion/Admin categories must not disappear when new topics are added.
   const topicStages = otherSlugs.length
-    ? [...configuredStages, { title: "Ďalšie témy", description: "Ďalšie užitočné sprievodcovské oblasti.", slugs: otherSlugs }]
+    ? [
+        ...configuredStages,
+        {
+          title: "Ďalšie témy",
+          description: "Ďalšie užitočné sprievodcovské oblasti.",
+          slugs: otherSlugs,
+        },
+      ]
     : configuredStages;
   const nextCards = nextSteps(sectionSlug);
   const hasScrollableServices = nextCards.length > 3;
@@ -420,6 +471,10 @@ export async function EditorialSectionHub({
           />
         </UnifiedSectionHeroShell>
 
+        <div className={styles.desktopTopicPicker}>
+          <PortalSectionTabs section={section} />
+        </div>
+
         {sectionSlug === "starostlivost" ? (
           <PageContainer className={styles.calloutShell} data-section-public-callout>
             <HubCallout sectionSlug="starostlivost" />
@@ -429,43 +484,73 @@ export async function EditorialSectionHub({
         <div className={styles.topicGroups} data-section-subcategories data-section-topic-groups>
           <PageContainer>
             {topicStages.map((stage) => (
-              <section className={styles.topicStage}
+              <section
+                className={styles.topicStage}
                 key={stage.title}
                 data-editorial-stage={stage.title}
-                data-puppy-stage={sectionSlug === "steniatka" ? stage.title : undefined}>
+                data-puppy-stage={sectionSlug === "steniatka" ? stage.title : undefined}
+              >
                 <header className={styles.topicStageHeading}>
-                  <h2>{stage.title}</h2>
+                  <PublicHeading as="h2" role="section">
+                    {stage.title}
+                  </PublicHeading>
                   <p>{stage.description}</p>
                 </header>
                 <div className={styles.topicStageGrid}>
-                  {subpages.filter((subpage) => stage.slugs.includes(subpage.slug)).map((subpage) => {
-                    const related = orderedArticles(section, articles, subpage);
-                    const href = portalSubpageHref(section, subpage);
-                    const headingId = `area-${sectionSlug}-${subpage.slug}`;
-                    return (
-                      <section className={styles.topicGroup} key={subpage.slug}
-                        aria-labelledby={headingId} data-section-article-group>
-                        <h3 className={styles.topicGroupTitle} id={headingId}><Link href={href}>{subpage.label}</Link></h3>
-                        <div data-section-content-list>
-                          {related.length > 0 ? (
-                            <SectionContentList articles={related}
-                              label={`Články z oblasti ${subpage.label}`}
-                              limit={2} />
-                          ) : (
-                            <p className={styles.topicGroupEmpty}>Články z tejto oblasti pripravujeme.</p>
-                          )}
-                        </div>
-                        <div className={styles.topicGroupFooter}>
-                          <PublicActionLink href={href} variant="tertiary" icon={<ArrowIcon />}>
-                            Všetky články z oblasti
-                          </PublicActionLink>
-                        </div>
-                      </section>
-                    );
-                  })}
+                  {subpages
+                    .filter((subpage) => stage.slugs.includes(subpage.slug))
+                    .map((subpage) => {
+                      const related = orderedArticles(section, articles, subpage);
+                      const href = portalSubpageHref(section, subpage);
+                      const headingId = `area-${sectionSlug}-${subpage.slug}`;
+                      return (
+                        <section
+                          className={styles.topicGroup}
+                          key={subpage.slug}
+                          aria-labelledby={headingId}
+                          data-section-article-group
+                        >
+                          <PublicHeading
+                            as="h3"
+                            role="section"
+                            className={styles.topicGroupTitle}
+                            id={headingId}
+                          >
+                            <Link href={href}>{subpage.label}</Link>
+                          </PublicHeading>
+                          <div data-section-content-list>
+                            {related.length > 0 ? (
+                              <SectionContentList
+                                articles={related}
+                                label={`Články z oblasti ${subpage.label}`}
+                                limit={2}
+                              />
+                            ) : (
+                              <p className={styles.topicGroupEmpty}>
+                                Články z tejto oblasti pripravujeme.
+                              </p>
+                            )}
+                          </div>
+                          <div className={styles.topicGroupFooter}>
+                            <PublicActionLink href={href} variant="tertiary" icon={<ArrowIcon />}>
+                              Všetky články z oblasti
+                            </PublicActionLink>
+                          </div>
+                        </section>
+                      );
+                    })}
                 </div>
               </section>
             ))}
+            {unassignedArticles.length > 0 && (
+              <section className={styles.topicStage} aria-label="Ďalšie články">
+                <PublicHeading as="h2" role="section">Ďalšie články</PublicHeading>
+                <SectionContentList articles={unassignedArticles} label="Ďalšie články" limit={8} />
+                <p>
+                  <Link href="/clanky">Všetky články v spoločnom archíve</Link>
+                </p>
+              </section>
+            )}
           </PageContainer>
         </div>
 
@@ -475,13 +560,15 @@ export async function EditorialSectionHub({
               eyebrow="Ďalší krok"
               title="Užitočné služby a pokračovanie"
               id={`${sectionSlug}-next`}
-              action={hasScrollableServices ? (
-                <HorizontalCarouselControls
-                  targetId={`${sectionSlug}-next-carousel`}
-                  className={styles.carouselControls}
-                  buttonClassName={styles.carouselControl}
-                />
-              ) : null}
+              action={
+                hasScrollableServices ? (
+                  <HorizontalCarouselControls
+                    targetId={`${sectionSlug}-next-carousel`}
+                    className={styles.carouselControls}
+                    buttonClassName={styles.carouselControl}
+                  />
+                ) : null
+              }
             />
             <div
               id={`${sectionSlug}-next-carousel`}
@@ -515,7 +602,11 @@ export async function EditorialSectionHub({
             </div>
             {hasScrollableServices ? (
               <div className={styles.carouselCue} aria-hidden="true">
-                <span>←</span><i /><i /><i /><span>→</span>
+                <span>←</span>
+                <i />
+                <i />
+                <i />
+                <span>→</span>
               </div>
             ) : null}
             <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
@@ -530,10 +621,12 @@ export async function EditorialSectionTopic({
   section,
   subpage,
   articles,
+  pagination,
 }: {
   section: PortalSection;
   subpage: PortalSubpage;
   articles: Article[];
+  pagination?: { page: number; hasNext: boolean };
 }) {
   const sectionSlug = section.slug;
   if (!isEditorialSectionSlug(sectionSlug)) return null;
@@ -572,12 +665,20 @@ export async function EditorialSectionTopic({
             title={subpage.label}
             intro={subpage.description}
             visual={heroVisual}
-            portalSearchSlot={<SearchBox sectionSlug={sectionSlug} subpage={subpage}
-                shortcuts={isHealthLanding ? [
-                  { href: "/adresar/veterinari", label: "Veterinári" },
-                  { href: "/starostlivost/vyziva", label: "Výživa" },
-                ] : undefined}
-              />}
+            portalSearchSlot={
+              <SearchBox
+                sectionSlug={sectionSlug}
+                subpage={subpage}
+                shortcuts={
+                  isHealthLanding
+                    ? [
+                        { href: "/adresar/veterinari", label: "Veterinári" },
+                        { href: "/starostlivost/vyziva", label: "Výživa" },
+                      ]
+                    : undefined
+                }
+              />
+            }
           />
         </UnifiedSectionHeroShell>
 
@@ -589,7 +690,11 @@ export async function EditorialSectionTopic({
               <HubCallout sectionSlug="starostlivost" />
             </div>
           ) : null}
-          <section className={styles.relatedSection} aria-labelledby="topic-related-heading" data-section-content-list>
+          <section
+            className={styles.relatedSection}
+            aria-labelledby="topic-related-heading"
+            data-section-content-list
+          >
             <PublicLandingSectionHeading
               eyebrow="Články v oblasti"
               title={subpage.label}
@@ -600,6 +705,21 @@ export async function EditorialSectionTopic({
               label={`Články v oblasti ${subpage.label}`}
               limit={Math.max(10, topicArticles.length)}
             />
+            {pagination && (pagination.page > 1 || pagination.hasNext) && (
+              <nav aria-label="Stránkovanie článkov">
+                {pagination.page > 1 && (
+                  <Link href={pagination.page === 2 ? path : `${path}?strana=${pagination.page - 1}`}>
+                    ← Predchádzajúce články
+                  </Link>
+                )}
+                <span> Strana {pagination.page} </span>
+                {pagination.hasNext && (
+                  <Link href={`${path}?strana=${pagination.page + 1}`}>
+                    Ďalšie články →
+                  </Link>
+                )}
+              </nav>
+            )}
           </section>
           <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
         </PageContainer>

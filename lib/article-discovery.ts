@@ -10,7 +10,7 @@ import {
   type ContextualArticlePromoInput,
 } from "@/lib/article-promo-context";
 import { getNewsCategory } from "@/lib/news";
-import { articleHref, getPortalSubpage } from "@/lib/portal";
+import { articleHref, getPortalSection, getPortalSubpage } from "@/lib/portal";
 
 export type ArticleDiscoveryPopularItem = {
   slug: string;
@@ -33,9 +33,10 @@ function popularityLabel(article: PopularArticleSummary) {
   }
   if (article.portalSubpage) {
     return getPortalSubpage(article.portalSection, article.portalSubpage)?.subpage.label
+      ?? getPortalSection(article.portalSection)?.label
       ?? article.category;
   }
-  return article.category;
+  return getPortalSection(article.portalSection ?? "")?.label ?? article.category;
 }
 
 function toPopularItem(article: PopularArticleSummary): ArticleDiscoveryPopularItem {

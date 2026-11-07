@@ -99,8 +99,8 @@ test("event type landing has canonical listing schema and filtered variant does 
 
 test("retired /tema paths redirect to an accessible canonical topic or filtered archive", async ({ page, request }) => {
   const destinations = [
-    ["/tema/zdravie", "/starostlivost/zdravie"],
-    ["/tema/vyziva", "/starostlivost/vyziva"],
+    ["/tema/zdravie", "/clanky?tema=zdravie"],
+    ["/tema/vyziva", "/clanky?tema=vyziva"],
     ["/tema/vycvik", "/clanky?tema=vycvik"],
     ["/tema/zivot-so-psom", "/clanky?tema=zivot-so-psom"],
   ] as const;
@@ -135,7 +135,6 @@ test("sitemap is production-shaped and contains only clean unique canonical URLs
     expect(parsed.pathname).not.toMatch(/^\/(?:admin|api|hladat|oblubene)(?:\/|$)/);
   }
   for (const redirectSource of [
-    `${PROD_ORIGIN}/novinky`,
     `${PROD_ORIGIN}/adresar/psie-skoly`,
     `${PROD_ORIGIN}/podujatia/kalendar`,
     `${PROD_ORIGIN}/recenzie/vybava`,

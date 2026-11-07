@@ -400,3 +400,20 @@
     margin-top: 0;
   }
 }
+
+/* Shared sidebar expertise: compact facts and clean canonical profile links. */
+.expertLinks {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.expertLinks a {
+  color: var(--forest-dark, #1f4a3a);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+.expertLinks a:hover,
+.expertLinks a:focus-visible {
+  color: var(--brand-accent-strong, #b94732);
+}

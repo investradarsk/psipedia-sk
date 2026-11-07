@@ -153,13 +153,34 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   if (portalTopic && section === "novinky") {
     const newsCategory = getNewsCategory(slug);
     if (newsCategory) {
-      return <NewsHub articles={await getAllPublishedArticleSummaries({ portalSection: "novinky" })} section={portalTopic.section} activeCategory={newsCategory.slug} landingPath="/clanky" />;
+      return <NewsHub articles={await getAllPublishedArticleSummaries({ portalSection: "novinky" })} section={portalTopic.section} activeCategory={newsCategory.slug} landingPath="/novinky" />;
     }
   }
   if (portalTopic && section === "recenzie") {
     return <PortalTopic {...portalTopic} articles={await getPublishedReviewSummaries(slug, 120)} />;
   }
-  if (portalTopic) return <PortalTopic {...portalTopic} articles={await getPublishedArticleSummaries({ portalSection: portalTopic.section.slug as ArticlePortalSection, limit: 120 })} />;
+  if (portalTopic) {
+    const isEditorialSubsection = ["steniatka", "starostlivost", "aktivity"].includes(section);
+    if (isEditorialSubsection) {
+      const params = await searchParams;
+      const requestedPage = Number(scalar(params.strana) ?? "1");
+      const page = Number.isSafeInteger(requestedPage) && requestedPage > 0
+        ? Math.min(requestedPage, 10000) : 1;
+      const pageSize = 12;
+      // Filter in D1 BEFORE LIMIT/OFFSET; older articles must remain reachable.
+      const results = await getPublishedArticleSummaries({
+        portalSection: portalTopic.section.slug as ArticlePortalSection,
+        portalSubpage: portalTopic.subpage.slug,
+        limit: pageSize + 1,
+        offset: (page - 1) * pageSize,
+      });
+      return <PortalTopic {...portalTopic} articles={results.slice(0, pageSize)}
+        pagination={{ page, hasNext: results.length > pageSize }} />;
+    }
+    return <PortalTopic {...portalTopic} articles={await getPublishedArticleSummaries({
+      portalSection: portalTopic.section.slug as ArticlePortalSection, limit: 120,
+    })} />;
+  }
 
   if (section === "podujatia") {
     const storedEvent = await getPublishedEvent(slug);
@@ -201,5 +222,5 @@ export default async function PortalContentPage({ params, searchParams }: Props)
       return [];
     }),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={section === "recenzie" ? managedSection : undefined} />;
+  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={managedSection} />;
 }
