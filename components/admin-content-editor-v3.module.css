@@ -1,6 +1,9 @@
 /* Scoped content-editor density. Shared Admin V3 tokens and workspace are unchanged. */
 .articleForm {
   display: grid;
+  /* Implicit auto tracks can expand to the min-content width of wide
+     publication/FB controls, pushing the editor off a 320px viewport. */
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 0.65rem;
   min-width: 0;
