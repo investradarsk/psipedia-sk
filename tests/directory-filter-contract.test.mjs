@@ -21,7 +21,9 @@ test("all ten canonical categories have a unique, versioned typed registry", () 
   for (const item of directoryFilterRegistry) {
     assert.equal(item.version, DIRECTORY_FILTER_CONTRACT_VERSION);
     assert.equal(item.d1.status, "proposed");
-    assert.equal(item.notion.status, "not_provisioned");
+    const inNotion = item.category === "chovatelske-stanice" &&
+      ["visits_by_appointment", "health_testing_information"].some(name => item.id.endsWith("." + name));
+    assert.equal(item.notion.status, inNotion ? "provisioned" : "not_provisioned");
     assert.equal(item.unknownPolicy.publicBehavior, "exclude");
     assert.ok(item.allowedValues.includes("unknown"));
     assert.ok(Array.isArray(item.legacyAliases));
@@ -34,6 +36,8 @@ test("explicit yes/no/unknown remain distinct; absent and unchecked checkbox are
   assert.deepEqual(normalizeDirectoryFilterValue(definition, "ÁNO"), { status: "known", value: "yes" });
   assert.deepEqual(normalizeDirectoryFilterValue(definition, "NIE"), { status: "known", value: "no" });
   assert.deepEqual(normalizeDirectoryFilterValue(definition, "unknown"), { status: "known", value: "unknown" });
+  assert.deepEqual(normalizeDirectoryFilterValue(definition, "Neznáme"), { status: "known", value: "unknown" });
+  assert.deepEqual(normalizeDirectoryFilterValue(definition, "nezname"), { status: "known", value: "unknown" });
   assert.deepEqual(normalizeDirectoryFilterValue(definition, null), { status: "missing", value: "unknown" });
   assert.deepEqual(normalizeDirectoryFilterValue(definition, false), { status: "invalid", value: "unknown" });
   assert.deepEqual(normalizeDirectoryFilterValue(definition, "neposkytujeme pohotovosť"), { status: "invalid", value: "unknown" });
