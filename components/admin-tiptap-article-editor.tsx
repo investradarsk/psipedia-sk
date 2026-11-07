@@ -85,16 +85,104 @@ const extensions = [
   PsipediaHighlight,
 ];
 
+type ColorTarget = "text" | "highlight";
+
+const EDITORIAL_PALETTE = [
+  "#1f4a3a", "#b4513d", "#142d25", "#ffffff",
+  "#000000", "#64748b", "#2563eb", "#0d9488",
+  "#eab308", "#be123c", "#9333ea", "#f97316",
+  "#f5e8cc", "#fde68a", "#bbf7d0", "#bae6fd",
+] as const;
+
+function TiptapColorPanel({
+  target, currentColor, onApply, onClear, onClose,
+}: {
+  target: ColorTarget;
+  currentColor: string;
+  onApply: (color: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const label = target === "text" ? "Farba textu" : "Podfarbenie";
+  const [hex, setHex] = useState(currentColor);
+  const [error, setError] = useState("");
+  const applyHex = () => {
+    const color = sanitizeEditorialColor(hex);
+    if (!color) {
+      setError("Zadaj platnú HEX farbu vo formáte #RRGGBB.");
+      return;
+    }
+    setError("");
+    onApply(color);
+  };
+
+  return (
+    <section className={styles.colorPanel} role="group" aria-label={`${label} – výber farby`}
+      data-tiptap-color-panel={target}
+      onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
+      <div className={styles.panelTitle}>
+        <strong>{label}</strong>
+        <button type="button" onClick={onClose} aria-label="Zavrieť výber farby">Zavrieť</button>
+      </div>
+      <div className={styles.paletteGrid} role="group" aria-label="Predvolené farby">
+        {EDITORIAL_PALETTE.map((color) => (
+          <button key={color} type="button" className={styles.paletteSwatch}
+            style={{ backgroundColor: color }}
+            aria-label={`Použiť farbu ${color}`}
+            title={color}
+            aria-pressed={color === currentColor}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onApply(color)}
+          />
+        ))}
+      </div>
+      <div className={styles.customColorRow}>
+        <label className={styles.nativeColor}>
+          Vlastná farba
+          <input type="color" aria-label={`Vlastná farba – ${label.toLowerCase()}`}
+            value={sanitizeEditorialColor(hex) || currentColor}
+            onChange={(event) => { setHex(event.target.value); onApply(event.target.value); }} />
+        </label>
+        <label className={styles.hexControl}>
+          HEX
+          <input type="text" aria-label={`HEX – ${label.toLowerCase()}`}
+            value={hex} maxLength={7} spellCheck={false}
+            onChange={(event) => { setHex(event.target.value); setError(""); }}
+            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); applyHex(); } }} />
+        </label>
+        <button type="button" className={styles.applyColor} onClick={applyHex}>Použiť</button>
+      </div>
+      <button type="button" className={styles.clearColor} onClick={onClear}>
+        {target === "text" ? "Odstrániť farbu textu" : "Odstrániť podfarbenie"}
+      </button>
+      {error && <p role="alert" className={styles.colorError}>{error}</p>}
+    </section>
+  );
+}
+
 function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   const [, refresh] = useState(0);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkInput, setLinkInput] = useState("https://");
   const [linkError, setLinkError] = useState("");
+  const [openColorPanel, setOpenColorPanel] = useState<ColorTarget | null>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const rememberedSelection = useRef<{ from: number; to: number } | null>(null);
   const editor = active?.editor;
 
   useEffect(() => {
     if (!editor) return;
-    const handle = () => refresh((value) => value + 1);
+    const handle = () => {
+      // A toolbar control must never collapse the editor's selected text.
+      if (editor.isFocused) {
+        rememberedSelection.current = {
+          from: editor.state.selection.from,
+          to: editor.state.selection.to,
+        };
+      }
+      refresh((value) => value + 1);
+    };
+    handle();
     editor.on("selectionUpdate", handle);
     editor.on("transaction", handle);
     return () => {
@@ -102,6 +190,57 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
       editor.off("transaction", handle);
     };
   }, [editor]);
+
+  useEffect(() => {
+    if (!openColorPanel) return;
+    const onOutsidePress = (event: PointerEvent) => {
+      if (!toolbarRef.current?.contains(event.target as globalThis.Node)) setOpenColorPanel(null);
+    };
+    document.addEventListener("pointerdown", onOutsidePress);
+    return () => document.removeEventListener("pointerdown", onOutsidePress);
+  }, [openColorPanel]);
+
+  const rememberSelection = () => {
+    if (!editor) return;
+    rememberedSelection.current = {
+      from: editor.state.selection.from,
+      to: editor.state.selection.to,
+    };
+  };
+
+  const selectedChain = () => {
+    if (!editor) return null;
+    const selection = rememberedSelection.current ?? {
+      from: editor.state.selection.from, to: editor.state.selection.to,
+    };
+    // Never attempt to restore a selection from an unrelated/changed document.
+    const max = editor.state.doc.content.size;
+    const range = selection.from >= 0 && selection.to <= max && selection.from <= selection.to
+      ? selection : { from: editor.state.selection.from, to: editor.state.selection.to };
+    return editor.chain().focus().setTextSelection(range);
+  };
+
+  const applyColor = (target: ColorTarget, value: string) => {
+    const color = sanitizeEditorialColor(value);
+    const chain = selectedChain();
+    if (!chain || !color) return;
+    if (target === "text") chain.setMark("textStyle", { color }).run();
+    else chain.setMark("highlight", { color }).run();
+    setOpenColorPanel(null);
+  };
+
+  const removeColor = (target: ColorTarget) => {
+    const chain = selectedChain();
+    if (!chain) return;
+    if (target === "text") chain.unsetMark("textStyle").run();
+    else chain.unsetMark("highlight").run();
+    setOpenColorPanel(null);
+  };
+
+  const toggleColors = (target: ColorTarget) => {
+    rememberSelection();
+    setOpenColorPanel((value) => value === target ? null : target);
+  };
 
   const action = (label: string, title: string, callback: () => void, selected = false, enabled = true) => (
     <button type="button" title={title} aria-label={title}
@@ -122,7 +261,7 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
   };
 
   return (
-    <div className={styles.toolbar} role="toolbar" aria-label="Spoločná lišta formátovania článku" data-admin-tiptap-toolbar>
+    <div ref={toolbarRef} className={styles.toolbar} role="toolbar" aria-label="Spoločná lišta formátovania článku" data-admin-tiptap-toolbar>
       <div className={styles.tools}>
         <span className={styles.activeLabel} aria-live="polite">{active ? "Upravuješ: " + (active.id.startsWith("block-") ? "textový blok" : active.id === "article-intro" ? "úvod" : "to najdôležitejšie") : "Klikni do textu"}</span>
         {action("B", "Tučné (Ctrl+B)", () => editor?.chain().focus().toggleBold().run(), Boolean(editor?.isActive("bold")))}
@@ -142,21 +281,37 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
         {action("↶", "Späť (Ctrl+Z)", () => editor?.chain().focus().undo().run())}
         {action("↷", "Znova (Ctrl+Y)", () => editor?.chain().focus().redo().run())}
         {action("U", "Podčiarknutie (Ctrl+U)", () => editor?.chain().focus().toggleUnderline().run(), Boolean(editor?.isActive("underline")))}
-        <label className={styles.colorControl} title="Vybrať ľubovoľnú farbu textu">
-          Farba textu <input aria-label="Celá paleta farieb textu" type="color"
-            disabled={!editor}
-            value={sanitizeEditorialColor(editor?.getAttributes("textStyle").color) || "#1f4a3a"}
-            onChange={(event) => editor?.chain().focus().setMark("textStyle", { color: event.target.value }).run()} />
-        </label>
-        {action("Bez farby", "Odstrániť farbu textu", () => editor?.chain().focus().unsetMark("textStyle").run(), false, Boolean(editor?.isActive("textStyle")))}
-        <label className={styles.colorControl} title="Vybrať ľubovoľnú farbu zvýraznenia">
-          Podfarbenie <input aria-label="Celá paleta zvýraznenia" type="color"
-            disabled={!editor}
-            value={sanitizeEditorialColor(editor?.getAttributes("highlight").color) || "#fff3a0"}
-            onChange={(event) => editor?.chain().focus().setMark("highlight", { color: event.target.value }).run()} />
-        </label>
-        {action("Bez pozadia", "Odstrániť zvýraznenie", () => editor?.chain().focus().unsetMark("highlight").run(), false, Boolean(editor?.isActive("highlight")))}
+        <button type="button" className={styles.colorTrigger}
+          aria-label="Celá paleta farieb textu"
+          title="Farba textu"
+          aria-expanded={openColorPanel === "text"}
+          disabled={!editor}
+          onMouseDown={(event) => { event.preventDefault(); rememberSelection(); }}
+          onClick={() => toggleColors("text")}>
+          Farba textu <span className={styles.colorPreview} aria-hidden="true"
+            style={{ backgroundColor: sanitizeEditorialColor(editor?.getAttributes("textStyle").color) || "#1f4a3a" }} />
+          <span aria-hidden="true">⌄</span>
+        </button>
+        <button type="button" className={styles.colorTrigger}
+          aria-label="Celá paleta zvýraznenia"
+          title="Podfarbenie textu"
+          aria-expanded={openColorPanel === "highlight"}
+          disabled={!editor}
+          onMouseDown={(event) => { event.preventDefault(); rememberSelection(); }}
+          onClick={() => toggleColors("highlight")}>
+          Podfarbenie <span className={styles.colorPreview} aria-hidden="true"
+            style={{ backgroundColor: sanitizeEditorialColor(editor?.getAttributes("highlight").color) || "#fff3a0" }} />
+          <span aria-hidden="true">⌄</span>
+        </button>
       </div>
+      {openColorPanel && editor && (
+        <TiptapColorPanel key={openColorPanel} target={openColorPanel}
+          currentColor={sanitizeEditorialColor(editor.getAttributes(openColorPanel === "text" ? "textStyle" : "highlight").color)
+            || (openColorPanel === "text" ? "#1f4a3a" : "#fff3a0")}
+          onApply={(color) => applyColor(openColorPanel, color)}
+          onClear={() => removeColor(openColorPanel)}
+          onClose={() => setOpenColorPanel(null)} />
+      )}
       {linkOpen && editor && <div className={styles.linkBar}>
         <label htmlFor="article-tiptap-link">Odkaz</label>
         <input id="article-tiptap-link" value={linkInput} onChange={(event) => {setLinkInput(event.target.value);setLinkError("");}}
