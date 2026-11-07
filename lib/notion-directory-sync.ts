@@ -1406,6 +1406,32 @@ async function syncMappedPage(input: {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
   }
 
+  // Automatic breeder sync is field-event only. A plain targeted sweep may
+  // still mirror an Admin-confirmed publication, but PATCH only its status:
+  // never re-enter record-wide editorial hash/baseline reconciliation.
+  // The owner-directed manual full-profile transfer below stays available.
+  if (profile.category === "chovatelske-stanice" &&
+      !input.manualDirection &&
+      input.breederWebhookPropertyIds === undefined &&
+      input.breederAdminFields === undefined) {
+    if (propertyText(page, "Psipedia ID") !== String(profile.id))
+      throw new NotionDirectoryUnsafeTargetError("BREEDER_IDENTITY_MISMATCH");
+    const notionStatus = propertyText(page, "Psipedia stav");
+    if (profile.status === "published" && notionStatus === "Archív")
+      throw new Error("BREEDER_PUBLICATION_STATUS_CONFLICT");
+    if (profile.status === "published" && notionStatus === "Koncept") {
+      const echoed = await patchNotionPage(input.bindings, page.id, {
+        "Psipedia stav": select("Publikované"),
+        "Stav": select("Publikované"),
+        "Publikované Psipedia": date(profile.publishedAt ?? profile.updatedAt),
+      });
+      if (echoed.id !== page.id || propertyText(echoed, "Psipedia stav") !== "Publikované")
+        throw new Error("BREEDER_PUBLICATION_WRITEBACK_UNVERIFIED");
+      return "pushed" as const;
+    }
+    return "unchanged" as const;
+  }
+
   if (["chovatelske-stanice", "treneri"].includes(profile.category)
       && (input.breederWebhookPropertyIds !== undefined || input.breederAdminFields !== undefined)
       && !input.manualDirection) {

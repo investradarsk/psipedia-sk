@@ -215,7 +215,7 @@ test("mapped Directory native publication pushes verified D1 status to the same 
   assert.equal(directoryKeys.length, 10);
   for (const item of directoryKeys) {
     async function scenario(notionStatus, pageId = id) {
-      const writes = [], edits = [], profiles = [];
+      const writes = [], edits = [], profiles = [], patches = [];
       const exports = {};
       const profile = {id: 77, category: item.subcategory, status: "published", imageUrl: "",
         websiteUrl: "", updatedAt: "2026-10-21T20:00:00Z"};
@@ -227,7 +227,16 @@ test("mapped Directory native publication pushes verified D1 status to the same 
         NotionDirectoryUnsafeTargetError,
         getManagedDirectoryProfileById: async () => profile,
         fetchNotionPage: async () => {throw Error("Should reuse the explicit page");},
-        propertyText: (page,key) => key === "Psipedia ID" ? "77" : "",
+        propertyText: (page,key) => key === "Psipedia ID" ? "77"
+          : key === "Psipedia stav" ? ({ draft: "Koncept", published: "Publikované",
+            archived: "Archív" }[page.status] ?? "") : "",
+        select: name => ({ select: { name } }),
+        date: start => ({ date: { start } }),
+        patchNotionPage: async (_bindings, pageId, properties) => {
+          patches.push({ pageId, properties });
+          return { id: pageId, status: properties["Psipedia stav"]?.select?.name === "Publikované"
+            ? "published" : "draft" };
+        },
         getMediaSourceMonitorForEntity: async () => null,
         externalSourceImageUrl: () => "",
         profileSnapshot: p => ({ status: p.status }),
@@ -251,20 +260,38 @@ test("mapped Directory native publication pushes verified D1 status to the same 
       const run = () => exports.syncMappedPage({database: {}, bindings: {
         NOTION_GEMINI_22_PRIORITY_A_ENABLED: "false",
       }, dataSourceId, mapping, page});
-      return {run, writes, edits, profiles};
+      return {run, writes, edits, profiles, patches};
     }
     const accepted = await scenario("draft");
     assert.equal(await accepted.run(), "pushed", item.stableKey);
-    assert.equal(accepted.writes.length, 1, item.stableKey);
-    assert.deepEqual(accepted.writes[0], {pageId:id, status:"published",profileId:77}, item.stableKey);
+    const breeder = item.subcategory === "chovatelske-stanice";
+    if (breeder) {
+      // Publication is a targeted status write, not a legacy whole-profile push.
+      assert.equal(accepted.writes.length, 0, item.stableKey);
+      assert.equal(accepted.patches.length, 1, item.stableKey);
+      assert.equal(accepted.patches[0].pageId, id, item.stableKey);
+      assert.deepEqual(Object.keys(accepted.patches[0].properties),
+        ["Psipedia stav", "Stav", "Publikované Psipedia"], item.stableKey);
+      assert.equal(accepted.patches[0].properties["Psipedia stav"].select.name, "Publikované");
+      const alreadyPublished = await scenario("published");
+      assert.equal(await alreadyPublished.run(), "unchanged", item.stableKey);
+      assert.equal(alreadyPublished.patches.length, 0, item.stableKey);
+    } else {
+      assert.equal(accepted.writes.length, 1, item.stableKey);
+      assert.deepEqual(accepted.writes[0], {pageId:id, status:"published",profileId:77}, item.stableKey);
+    }
     assert.equal(accepted.edits.length, 0, item.stableKey);
     const changedBoth = await scenario("archived");
-    await assert.rejects(changedBoth.run(), /LOSSLESS_FIELD_REVIEW_REQUIRED/, item.stableKey);
+    await assert.rejects(changedBoth.run(),
+      breeder ? /BREEDER_PUBLICATION_STATUS_CONFLICT/ : /LOSSLESS_FIELD_REVIEW_REQUIRED/,
+      item.stableKey);
     assert.equal(changedBoth.writes.length, 0, "A concurrent Notion edit must never be overwritten");
+    assert.equal(changedBoth.patches.length, 0, "An archived Notion profile must never be republished");
     assert.equal(changedBoth.edits.length, 0, "A concurrent Notion edit must never publish the profile");
     const identity = await scenario("draft", "22222222-2222-4222-8222-222222222222");
     await assert.rejects(identity.run(), /IDENTITY_CONFLICT/, item.stableKey);
     assert.equal(identity.writes.length, 0, "A mismatched Notion identity may not be written");
+    assert.equal(identity.patches.length, 0, "A mismatched Notion identity must not be PATCHed");
   }
 });
 
