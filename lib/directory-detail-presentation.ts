@@ -217,11 +217,12 @@ export function getDirectoryQuickFacts(
     addLinks("Facebook", [{ label: "Facebook", href: presentation.facebookUrl }]);
   if (presentation.instagramUrl)
     addLinks("Instagram", [{ label: "Instagram", href: presentation.instagramUrl }]);
-  if (presentation.phone)
+  if (presentation.phone?.href)
     addLinks("Telefón", [{ label: presentation.phone.value, href: presentation.phone.href }]);
   addLinks(
     "E-mail",
-    presentation.emails.map((email) => ({ label: email.value, href: email.href })),
+    presentation.emails.filter((email): email is DirectoryDetailEmail & { href: string } => Boolean(email.href))
+    .map((email) => ({ label: email.value, href: email.href })),
   );
   const updatedLabel = formatDirectoryUpdatedAt(presentation.updatedAt);
   if (updatedLabel)
