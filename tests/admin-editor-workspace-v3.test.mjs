@@ -65,10 +65,12 @@ test("ADMIN V3 content editors reuse workspace without copying canonical data fo
     assert.match(source, /onClose=/);
     assert.doesNotMatch(source, /AdminStickyEditorNavigation/);
   }
-  // The article now uses a compact status rail while breed still uses EditorStatus.
-  assert.match(breed, /<EditorStatus/);
-  assert.match(article, /articleEffectiveStatusLabel\(displayedStatus\)/);
+  // The merged Tiptap article editor displays a publication status in its
+  // right-hand rail; the breed editor still uses the shared status primitive.
+  assert.match(article, /aria-label="Stav článku"/);
   assert.match(article, /data-publication-state=\{displayedStatus\}/);
+  assert.match(article, /articleEffectiveStatusLabel\(displayedStatus\)/);
+  assert.match(breed, /<EditorStatus/);
   for (const section of ["article-basics", "article-publish", "article-seo", "article-settings", "article-authors", "article-media", "article-content", "article-blocks", "article-relations"])
     assert.match(article, new RegExp('id="' + section + '"[^>]*data-admin-editor-section'));
   for (const section of ["breed-basic", "breed-overview", "breed-character", "breed-practical", "breed-health", "breed-sports", "breed-relations", "breed-media"])
