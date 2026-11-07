@@ -625,12 +625,45 @@ async function patchNotionPage(
   );
 }
 
+// The Directory data source is shared across categories. During the safe
+// typed-to-text migration, both existing URL/email/phone columns and the new
+// RICH_TEXT properties must be writable without discarding a field value.
+const directoryEditableTextProperties = [
+  "Web", "Facebook", "Instagram", "Telefón",
+  "E-mail", "Interný e-mail", "Canonical URL", "OG obrázok",
+] as const;
+function adaptDirectoryNotionTextProperties(
+  desired: Record<string, unknown>,
+  remote: Record<string, unknown>,
+): Record<string, unknown> {
+  const output = { ...desired };
+  for (const name of directoryEditableTextProperties) {
+    const declared = remote[name] as { type?: unknown } | undefined;
+    if (declared?.type !== "rich_text") continue;
+    const previous = output[name] as {
+      url?: string | null; email?: string | null; phone_number?: string | null;
+    } | undefined;
+    const value = previous?.url ?? previous?.email ?? previous?.phone_number ?? "";
+    output[name] = richText(value);
+  }
+  return output;
+}
+
 async function createNotionPage(
   bindings: NotionDirectorySyncBindings,
   dataSourceId: string,
   properties: Record<string, unknown>,
   singleAttempt = false,
 ) {
+  let sourceTypes: Record<string, unknown> = {};
+  try {
+    const source = await notionRequest<{ properties?: Record<string, unknown> }>(
+      bindings, `/data_sources/${encodeURIComponent(dataSourceId)}`,
+    );
+    sourceTypes = source.properties ?? {};
+  } catch {
+    // Legacy schemas still accept typed email/phone/URL values.
+  }
   return notionRequest<NotionPage>(
     bindings,
     "/pages",
@@ -638,7 +671,7 @@ async function createNotionPage(
       method: "POST",
       body: JSON.stringify({
         parent: { type: "data_source_id", data_source_id: dataSourceId },
-        properties,
+        properties: adaptDirectoryNotionTextProperties(properties, sourceTypes),
       }),
     },
     { retryTransient: !singleAttempt },
@@ -684,7 +717,8 @@ async function writeProfileToNotion(input: {
     const current = await fetchNotionPage(input.bindings, input.pageId);
     if (current.id !== input.pageId || !notionDirectoryPageBelongsToSource(current, input.dataSourceId))
       throw new NotionDirectoryUnsafeTargetError("NOTION_DIRECTORY_TARGET_MOVED");
-    const patch = selectiveNotionProperties(current.properties ?? {}, properties);
+    const adapted = adaptDirectoryNotionTextProperties(properties, current.properties ?? {});
+    const patch = selectiveNotionProperties(current.properties ?? {}, adapted);
     page = patch ? await patchNotionPage(input.bindings, input.pageId, patch) : current;
   } else {
     page = await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
@@ -1431,7 +1465,9 @@ async function syncBreederEvent(input: {
   const patch: Record<string, unknown> = {};
   for (const path of fields) {
     const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
-    patch[key] = allProperties[key];
+    patch[key] = adaptDirectoryNotionTextProperties(
+      { [key]: allProperties[key] }, page.properties ?? {},
+    )[key];
   }
   patch["Sync stav"] = select("Synchronizované");
   patch["Sync chyba"] = richText("");
