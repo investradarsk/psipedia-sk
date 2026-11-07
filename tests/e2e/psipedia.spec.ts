@@ -326,7 +326,7 @@ test("@production homepage search, CTA and featured breeds work without JS error
   // PR #815 displays a real empty state until image-backed articles exist.
   // Every editorial section must render exactly one of its article layout or empty state.
   const homepageSections = [
-    { root: "[data-home-latest]", id: "latest", title: "Novinky zo sveta psov", cta: "Všetky články", href: "/clanky", empty: "[data-home-latest-empty]", emptyLabel: "Nové články pripravujeme" },
+    { root: "[data-home-latest]", id: "latest", title: "Najnovšie články", cta: "Všetky články", href: "/clanky", empty: "[data-home-latest-empty]", emptyLabel: "Nové články pripravujeme" },
     { root: '[data-home-editorial="steniatka"]', id: "steniatka", title: "Šteniatka", cta: "Všetko o šteniatkach", href: "/steniatka", empty: '[data-home-editorial-empty="steniatka"]', emptyLabel: "Ďalší obsah pripravujeme" },
     { root: '[data-home-editorial="starostlivost"]', id: "starostlivost", title: "Zdravie a starostlivosť", cta: "Všetko o zdraví", href: "/starostlivost", empty: '[data-home-editorial-empty="starostlivost"]', emptyLabel: "Ďalší obsah pripravujeme" },
     { root: '[data-home-editorial="aktivity"]', id: "aktivity", title: "Výcvik a aktivity", cta: "Výcvik a aktivity", href: "/aktivity", empty: '[data-home-editorial-empty="aktivity"]', emptyLabel: "Ďalší obsah pripravujeme" },
