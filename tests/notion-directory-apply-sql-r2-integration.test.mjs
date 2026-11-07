@@ -44,14 +44,15 @@ function fixture(options = {}) {
     updated_at TEXT, published_at TEXT, archived_at TEXT, updated_by TEXT
   )`);
   // Registry exists in post-0127 canonical D1; these legacy tests exercise
-  // unrelated ordinary Notion edits with no recorded Gemini provenance.
+  // ordinary Notion whole-profile edits for categories still using the legacy
+  // reconciliation path. Trainers now use explicit field events instead.
   sqlite.exec("CREATE TABLE gemini_notion_created_pages (" +
     "notion_page_id TEXT PRIMARY KEY, import_agenda TEXT, canonical_entity_id INTEGER)");
   const version = "2026-10-14T08:00:00.000Z";
   const status = options.status ?? "draft";
   sqlite.prepare(`INSERT INTO directory_profiles
     (id,slug,name,category,status,city,district,region,address,image_url,image_key,updated_at,archived_at,service_address_confirmation)
-    VALUES (1,'test-profil','Pôvodný profil','treneri',?,?,?,?,?,?,?,?,?,?)`).run(
+    VALUES (1,'test-profil','Pôvodný profil','veterinari',?,?,?,?,?,?,?,?,?,?)`).run(
       status, "Nitra", "Nitra", "Nitriansky kraj", "Hlavná 1, Nitra",
       "/media/directory/old.webp", "directory/old.webp", version,
       status === "archived" ? version : null, "CONFIRMED_SERVICE_LOCATION",
