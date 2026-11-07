@@ -382,7 +382,10 @@ export function ArticleBlocks({
             });
             if (video)
               return (
-                <figure className="article-block-embed" key={block.id}>
+                <figure
+                  className={video.displayFormat === "shorts" ? "article-block-embed article-block-embed--shorts" : "article-block-embed"}
+                  key={block.id}
+                >
                   <iframe
                     src={video.embedUrl}
                     title={video.title || "Video v článku"}
