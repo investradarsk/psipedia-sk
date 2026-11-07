@@ -101,7 +101,7 @@ function rows(sql) {
 function inspect() {
   const tables = rows("SELECT name FROM sqlite_master WHERE type='table' AND name='managed_events'");
   ensure(tables.length === 1, "EVENT_0160_MANAGED_EVENTS_MISSING");
-  const columns = rows("SELECT name,type,notnull,dflt_value,pk FROM pragma_table_info('managed_events')");
+  const columns = rows("SELECT name,type,\"notnull\",dflt_value,pk FROM pragma_table_info('managed_events')");
   const schema = classifyEvent0160(columns);
   const counts = rows("SELECT COUNT(*) AS count, MAX(id) AS max_id FROM managed_events");
   ensure(counts.length === 1, "EVENT_0160_COUNT_QUERY_FAILED");
