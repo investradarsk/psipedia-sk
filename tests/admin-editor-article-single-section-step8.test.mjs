@@ -4,22 +4,33 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("EDITOR-8: article has nine mounted navigable sections with one visible at a time", () => {
+test("ARTICLE-VISUAL-2: article retains all nine content sections and eight clear navigation entries", () => {
   const src = read("components/admin-article-editor.tsx");
   const css = read("components/admin-content-editor-v3.module.css");
-  const ids = ["basics", "content", "blocks", "media", "settings", "relations", "authors", "publish", "seo"];
+  const ids = ["basics", "content", "relations", "blocks", "media", "authors", "publish", "seo", "settings"];
   for (const name of ids) {
     const id = "article-" + name;
-    assert.match(src, new RegExp('id="' + id + '"[^>]*hidden=\\{activeArticleSection !== "' + id + '"\\}[^>]*data-admin-editor-section'));
-    assert.match(src, new RegExp('\\{ id: "' + id + '", label:'));
+    assert.ok(src.includes('<section id="' + id + '"'), "The mounted section must remain: " + id);
+    if (name !== "content") assert.ok(src.includes('{ id: "' + id + '", label:'), "Navigation is required for " + id);
   }
-  assert.equal((src.match(/hidden=\{activeArticleSection !== "article-/g) ?? []).length, 9);
-  assert.match(src, /sectionMode="switch"/);
-  assert.match(src, /activeSectionId=\{activeArticleSection\}/);
-  assert.match(src, /onSectionChange=\{setActiveArticleSection\}/);
-  assert.match(src, /aria-label="Prechod medzi sekciami článku"/);
-  assert.match(css, /\.articleForm > \[data-admin-editor-section\]\[hidden\]/);
-  assert.match(css, /display: none !important/);
+  assert.equal((src.match(/\{ id: "article-/g) ?? []).length, 8);
+  assert.ok(src.includes('id: "article-basics", label: "Úvod a obsah"'));
+  assert.ok(src.includes('sectionMode="scroll"'));
+  assert.ok(src.includes('articleLayout'));
+  assert.ok(src.includes('activeSectionId={activeArticleSection}'));
+  assert.ok(src.includes('onSectionChange={setActiveArticleSection}'));
+  assert.ok(src.includes('editorStyles.introCard'));
+  assert.ok(src.includes('editorStyles.introContinuation'));
+  assert.ok(src.includes('editorStyles.selectedBreedTags'));
+  assert.ok(src.includes('breedPickerOpen'));
+  assert.ok(css.includes('data-editor-layout="article"'));
+  const order = ids.map(id => src.indexOf('<section id="article-' + id + '"'));
+  assert.ok(order.every((value, index) => value >= 0 && (index === 0 || value > order[index - 1])));
+  // Approved reference places the compact breed relation card just below the introduction.
+  assert.ok(src.indexOf('<section id="article-relations"') > src.indexOf('<section id="article-content"'));
+  assert.ok(src.indexOf('<section id="article-relations"') < src.indexOf('<section id="article-blocks"'));
+
+  assert.ok(!src.includes('hidden={activeArticleSection !== "article-'));
 });
 
 test("EDITOR-8: submit validation reveals hidden required fields, publication decisions stay server-owned", () => {
@@ -61,6 +72,32 @@ test("EDITOR-8: live preview, Lexical, SEO, media, FB and QA remain functional i
   assert.match(src, /<AdminFormFeedback/);
   assert.match(src, /dirtyRef\.current/);
   assert.doesNotMatch(read("components/admin-editor-section-visibility.tsx"), /fetch\s*\(|DATABASE_URL/);
+});
+
+test("ARTICLE-VISUAL-3: the right rail reuses existing status, schedule, SEO and full preview", () => {
+  const src = read("components/admin-article-editor.tsx");
+  const css = read("components/admin-content-editor-v3.module.css");
+  assert.match(src, /data-article-editor-rail/);
+  assert.match(src, /aria-label="Stav článku"/);
+  assert.match(src, /aria-label="Publikovanie článku"/);
+  assert.match(src, /data-article-rail-seo/);
+  assert.match(src, /data-article-compact-preview/);
+  assert.match(src, /id="article-rail-published-at"/);
+  assert.match(src, /id="article-published-at"/);
+  assert.match(src, /onChange=\{\(event\) => \{ setPublishedAt\(event.target.value\); setEditorDirty\(true\); \}\}/);
+  assert.match(src, /onClick=\{\(\) => chooseArticleSection\("article-seo"\)\}/);
+  assert.match(src, /onClick=\{\(\) => chooseArticleSection\("article-publish"\)\}/);
+  assert.match(src, /onClick=\{\(\) => void save\("scheduled"\)\}/);
+  assert.match(src, /onClick=\{\(\) => void save\("published"\)\}/);
+  assert.match(src, /onClick=\{unpublish\}/);
+  assert.match(src, /previewDetailedOpen \&\&/);
+  assert.match(src, /<ArticleBlocks blocks=\{blocks\} preview/);
+  assert.match(css, /\.rightRail/);
+  assert.match(css, /\.railCard/);
+  assert.match(css, /\.railPreviewCard/);
+  // No separate publication/SEO payload or API path is introduced by the visual rail.
+  assert.equal((src.match(/method: article \? "PUT" : "POST"/g) ?? []).length, 1);
+  assert.equal((src.match(/expectedUpdatedAt: lastSavedUpdatedAtRef\.current/g) ?? []).length, 1);
 });
 
 test("EDITOR-8: event and directory editors migrate only in their later steps", () => {

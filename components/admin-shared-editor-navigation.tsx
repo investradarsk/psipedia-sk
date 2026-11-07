@@ -1,9 +1,9 @@
 "use client";
 
-import { useId, useSyncExternalStore } from "react";
+import { useId, useSyncExternalStore, type ReactNode } from "react";
 import styles from "./admin-shared-editor-navigation.module.css";
 
-export type AdminSharedEditorSectionLink = { id: string; label: string };
+export type AdminSharedEditorSectionLink = { id: string; label: string; icon?: ReactNode };
 
 // Hydration-safe controls: native scroll anchors remain available without JS,
 // while switch buttons/select are enabled only once React can handle a change.
@@ -69,7 +69,7 @@ export function AdminSharedEditorNavigation({
               event.preventDefault();
               onNavigate(item.id);
             }}>
-            {item.label}
+            {item.icon}{item.label}
           </a>
         ) : (
           <button key={item.id} type="button"
@@ -77,7 +77,7 @@ export function AdminSharedEditorNavigation({
             aria-controls={item.id}
             disabled={!navigationReady}
             onClick={() => navigate(item.id)}>
-            {item.label}
+            {item.icon}{item.label}
           </button>
         ))}
       </div>
