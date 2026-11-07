@@ -1,5 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+// The shared directory editor shows one section at a time. Use its real
+// accessible navigation instead of trying to interact with hidden panels.
+async function openDirectoryEditorSection(page: Page, label: string) {
+  const navigation = page.getByRole("navigation", { name: "Sekcie profilu adresára" });
+  await expect(navigation).toHaveAttribute("data-admin-editor-nav-ready", "true");
+  await navigation.getByRole("button", { name: label, exact: true }).click();
+}
 
 test.describe("admin directory v2", () => {
   test("dense list uses the full dataset, accent-insensitive search and combined filters", async ({ page }) => {
@@ -175,7 +183,9 @@ test.describe("admin directory v2", () => {
     await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
     await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
 
+    await openDirectoryEditorSection(page, "Kontakty");
     const phone = page.getByLabel("Verejný telefón");
+    await expect(phone).toBeVisible();
     const previous = await phone.inputValue();
     await phone.fill(previous + " 9");
     await expect(page.locator("form.admin-directory-editor [data-editor-status]").filter({ hasText: "Neuložené zmeny" })).toBeVisible();
@@ -205,9 +215,12 @@ test.describe("admin directory v2", () => {
     // Interact with the advanced drawer only after the client editor is ready.
     await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
 
+    await openDirectoryEditorSection(page, "Kontakty");
+    await expect(page.getByLabel("Verejný telefón")).toBeVisible();
     await expect(page.getByLabel("Verejný telefón")).toHaveValue("+421 900 111 222");
     await expect(page.getByLabel("Verejný e-mail")).toHaveValue("public-fixture@example.invalid");
     await expect(page.getByLabel("Interný e-mail")).toHaveValue("internal-fixture@example.invalid");
+    await openDirectoryEditorSection(page, "Médiá a dôvera");
     await expect(page.getByText("Trust stav: redakcia preverila základné údaje. Nie je to publication state.")).toBeVisible();
     await expect(page.getByText("Neznamená platené ani sponzorované umiestnenie.")).toBeVisible();
 
@@ -219,9 +232,11 @@ test.describe("admin directory v2", () => {
     await page.keyboard.press("Escape");
     await expect(advanced).toBeFocused();
 
+    await openDirectoryEditorSection(page, "Kontakty");
     await page.getByLabel("Verejný telefón").fill("+421 900 333 444");
     await page.getByLabel("Verejný e-mail").fill("updated-public@example.invalid");
     await page.getByLabel("Facebook").fill("https://facebook.com/updated-fixture");
+    await openDirectoryEditorSection(page, "Médiá a dôvera");
     await expect(page.getByRole("button", { name: "Odstrániť fotku" })).toBeVisible();
     await page.getByRole("button", { name: "Odstrániť fotku" }).click();
     await page.getByRole("button", { name: "Uložiť zmeny" }).click();
@@ -257,8 +272,10 @@ test.describe("admin directory v2", () => {
 
     await page.getByLabel("Názov profilu").fill("Directory Admin Created Fixture");
     await page.getByLabel("Krátky popis").fill("Testovací profil vytvorený cez nový directory admin flow.");
+    await openDirectoryEditorSection(page, "Obsah");
     await page.getByLabel("Podrobný popis").fill("Toto je dostatočne dlhý deterministický popis používaný iba v lokálnom E2E teste administrácie.");
     await expect(page.getByLabel("Služby aj online")).toHaveCount(0);
+    await openDirectoryEditorSection(page, "Kontakty");
     await page.getByLabel("Verejný telefón").fill("neplatny-telefon");
     await page.getByRole("button", { name: "Publikovať profil" }).click();
     await expect(page.getByRole("alert")).toContainText("Telefónne číslo nie je platné.");
