@@ -77,5 +77,8 @@ export function formatBreederRelationText(
 }
 
 export function sameBreederRelationIds(a: readonly number[], b: readonly number[]): boolean {
-  return a.length === b.length && [...a].sort((x, y) => x - y).every((id, i) => id === [...b].sort((x, y) => x - y)[i]);
+  if (a.length !== b.length) return false;
+  const left = [...a].sort((x, y) => x - y);
+  const right = [...b].sort((x, y) => x - y);
+  return left.every((id, i) => id === right[i]);
 }
