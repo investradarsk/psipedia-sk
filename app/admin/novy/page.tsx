@@ -22,8 +22,9 @@ export default async function NewArticlePage({ searchParams }: { searchParams: P
   return (
     <AdminShell
       user={user}
+      compactHeading
       eyebrow="Nový obsah"
-      title="Napíš článok alebo aktuálnu novinku"
+      title="Nový článok alebo novinka"
       description="Najprv vyber sekciu portálu. Kým obsah nepublikuješ, čitatelia ho neuvidia."
     >
       <AdminArticleEditor

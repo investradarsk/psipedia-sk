@@ -1164,3 +1164,113 @@
   .railHeading { gap: 0.35rem; }
   .railHeading h3, .railSummary > span { font-size: 0.93rem; }
 }
+
+/* ARTICLE-TIPTAP migration step 2: one active section, unchanged article data. */
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-header]) {
+  min-height: 0;
+  padding: 0 0.75rem 0.3rem;
+  background: transparent;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-header] h1),
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-header] [data-editor-status]) {
+  display: none;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-columns]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 310px);
+  gap: 0.85rem;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-content]) {
+  min-width: 0;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-content] [data-admin-editor-section][hidden]) {
+  display: none !important;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-navigation] [data-editor-navigation-layout="sidebar"] button) {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-navigation] [data-editor-navigation-layout="sidebar"] button svg) {
+  flex: 0 0 auto;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-content]) .articleForm > .introCard {
+  border-bottom: 0;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-content]) .articleForm > .introContinuation:not([hidden]) {
+  display: block;
+  margin-top: -0.7rem;
+  border-top: 0;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-content]) .articleForm > :global([data-admin-editor-section]:not([hidden])) {
+  padding: 0.85rem;
+  box-shadow: 0 3px 13px rgb(30 53 39 / 3%);
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-content]) .articleForm :global(.admin-card-heading) {
+  margin-bottom: 0.55rem;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-content]) .articleForm :global(.admin-card-heading p) {
+  margin-top: 0.15rem;
+}
+.workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-content]) .articleForm :global(.admin-field-grid) {
+  gap: 0.65rem;
+}
+.editorDisclosure {
+  display: grid;
+  min-width: 0;
+  gap: 0.65rem;
+  margin-top: 0.55rem;
+  padding: 0.1rem 0.8rem;
+  border: 1px solid #e1e6d9;
+  border-radius: 10px;
+  background: #fbfcf8;
+}
+.editorDisclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  min-height: 44px;
+  padding-block: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 750;
+  color: #244637;
+  cursor: pointer;
+  list-style: none;
+}
+.editorDisclosure > summary::-webkit-details-marker { display: none; }
+.editorDisclosure > summary::before {
+  content: "▸";
+  flex: 0 0 auto;
+  color: #a54b36;
+}
+.editorDisclosure[open] > summary::before { content: "▾"; }
+.editorDisclosure > summary span {
+  font-weight: 500;
+  font-size: 0.72rem;
+  color: #647569;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.editorDisclosure[open] { padding-bottom: 0.85rem; }
+.editorDisclosure > :not(summary) { min-width: 0; }
+.editorDisclosure > summary:focus-visible { outline: 3px solid #7ba98c; outline-offset: 3px; }
+@media (max-width: 1230px) {
+  .workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-columns]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 820px) {
+  .workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-navigation]) {
+    padding: 0.55rem;
+    top: var(--admin-sticky-stack, 96px);
+  }
+  .workspaceRoot :global([data-editor-layout="article"][data-editor-section-mode="switch"] [data-editor-content]) .articleForm > :global([data-admin-editor-section]:not([hidden])) {
+    padding: 0.7rem;
+  }
+  .editorDisclosure { padding-inline: 0.55rem; }
+  .editorDisclosure > summary { align-items: flex-start; }
+}

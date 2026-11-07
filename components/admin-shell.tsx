@@ -77,6 +77,7 @@ export function AdminShell({
   eyebrow,
   title,
   description,
+  compactHeading = false,
   actions,
   children,
   attentionCount,
@@ -87,6 +88,8 @@ export function AdminShell({
   eyebrow: string;
   title: string;
   description?: string;
+  /** Compact page title for editorial article routes only. */
+  compactHeading?: boolean;
   actions?: ReactNode;
   children: ReactNode;
   attentionCount?: number;
@@ -134,11 +137,11 @@ export function AdminShell({
             </header>
             <div className={styles.workspaceMain}>
               <AdminBreadcrumbs />
-              <div className={`admin-heading ${styles.headingAnchor}`}>
+              <div className={`admin-heading ${styles.headingAnchor} ${compactHeading ? styles.compactHeading : ""}`}>
                 <div>
-                  <span className="admin-eyebrow">{eyebrow}</span>
+                  {!compactHeading && <span className="admin-eyebrow">{eyebrow}</span>}
                   <h1>{title}</h1>
-                  {description && <p>{description}</p>}
+                  {!compactHeading && description && <p>{description}</p>}
                 </div>
                 {actions && <div className="admin-heading-actions">{actions}</div>}
               </div>

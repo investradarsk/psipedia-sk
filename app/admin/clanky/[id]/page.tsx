@@ -35,6 +35,7 @@ export default async function EditArticlePage({ params, searchParams }: Props) {
   return (
     <AdminShell
       user={user}
+      compactHeading
       eyebrow={article.status === "published" ? (isNews ? "Publikovaná novinka" : "Publikovaný článok") : article.status === "scheduled" ? "Naplánované publikovanie" : "Rozpracovaný koncept"}
       title={`Upraviť ${isNews ? "novinku" : "článok"}`}
       description="Zmeny ulož ako koncept alebo ich rovno publikuj na verejnom webe."

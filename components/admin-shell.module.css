@@ -307,3 +307,19 @@
 @media (max-width: 360px) {
   .mobileBrand > span { display: none; }
 }
+
+/* Article editor: a single small page heading; ordinary admin headings are unchanged. */
+.headingAnchor.compactHeading {
+  padding-block: 0.3rem;
+  margin-block: 0 0.55rem;
+  min-height: 0;
+}
+.headingAnchor.compactHeading h1 {
+  margin: 0;
+  color: #274c3b;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
