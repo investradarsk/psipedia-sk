@@ -2,6 +2,7 @@ import { metadataOnlyChange, sameSource, UUID, EVENT_TYPES, type NotionWebhookEv
 import type { NotionWebhookInboxResult } from "@/lib/notion-webhook-inbox";
 import { runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
 import { runNotionBreedSyncSweep } from "@/lib/notion-breed-sync";
+import { runNotionBreedWorkCopySyncSweep } from "@/lib/notion-breed-workcopy-sync";
 import { runNotionArticleSyncSweep } from "@/lib/notion-article-sync";
 import { runNotionEshopSyncSweep } from "@/lib/notion-eshop-sync";
 import { runNotionEventsHelpSyncSweep } from "@/lib/notion-events-help-sync";
@@ -21,7 +22,9 @@ export type WebhookBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
   NOTION_DIRECTORY_DATA_SOURCE_ID?: string;
   NOTION_BREED_SYNC_ENABLED?: string;
+  NOTION_BREED_WORKCOPY_SYNC_ENABLED?: string;
   NOTION_BREEDS_DATA_SOURCE_ID?: string;
+  NOTION_BREEDS_WORK_DATA_SOURCE_ID?: string;
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_ESHOP_SYNC_ENABLED?: string;
@@ -71,7 +74,17 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     });
   } else if (sameSource(sourceId, bindings.NOTION_BREEDS_DATA_SOURCE_ID)
       && notionPageBelongsToDataSource(page, bindings.NOTION_BREEDS_DATA_SOURCE_ID!)) {
+    // After cutover, stale old-source webhooks cannot run a second sync engine.
+    if (bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "true") return "out-of-scope";
     summary = await runNotionBreedSyncSweep({
+      database: bindings.DB, bindings, targetPageId: id,
+      changedPropertyIds: event.data?.updated_properties ?? [],
+    });
+  } else if (sameSource(sourceId, bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID)
+      && notionPageBelongsToDataSource(page, bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!)) {
+    // The new 60-field source is inert until the explicitly gated cutover.
+    if (bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED !== "true") return "out-of-scope";
+    summary = await runNotionBreedWorkCopySyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
       changedPropertyIds: event.data?.updated_properties ?? [],
     });

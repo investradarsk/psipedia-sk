@@ -7,6 +7,8 @@
  * A caller must prove old sync is disabled before applying any future plan.
  */
 import { materializeBreedWorkCopyForRead } from "@/lib/notion-breed-workcopy-compatible-page.mjs";
+import { BREED_COMPACT_MERGE } from "@/lib/breed-notion-compact-consolidation.mjs";
+import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
 import { notionPageToManagedBreedInput } from "@/lib/notion-breed-sync";
 import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
@@ -30,15 +32,21 @@ export function planBreedWorkCopyEditorialDelta(input: {
   previousNotion: BreedFieldSnapshot;
   previousAdmin: BreedFieldSnapshot;
   authority?: Readonly<Record<string, NotionFieldMode>>;
+  eventFieldIds?: readonly string[];
 }) {
   if (!input.page?.id || !input.canonical?.id || !input.previousNotion || !input.previousAdmin)
     throw Error("BREED_WORKCOPY_DELTA_MISSING_BASELINE");
 
+  const targets = input.eventFieldIds
+    ? new Set(BREED_NOTION_SCHEMA.filter(spec =>
+      input.eventFieldIds!.includes(spec.id) && spec.mode === "content")
+      .map(spec => BREED_COMPACT_MERGE[spec.notion] ?? spec.notion))
+    : null;
   const projection = materializeBreedWorkCopyForRead(input.page, {
     id: input.canonical.id,
     slug: input.canonical.slug,
     fciNumber: input.canonical.fciNumber,
-  });
+  }, targets ? { onlyTargets: targets, allowPartial: true } : undefined);
   if (!projection.valid || !projection.page)
     return {
       ready: false as const,
@@ -48,6 +56,19 @@ export function planBreedWorkCopyEditorialDelta(input: {
       changed: [] as string[],
       patch: {},
     };
+  // Ignore only malformed SOURCE segments, not every sibling field.
+  // A missing merged target invalidates that physical field's logical parts.
+  const invalidSources = new Set<string>();
+  const invalidTargets = new Set<string>();
+  for (const error of projection.errors) {
+    if (error.source) invalidSources.add(error.source);
+    else if (error.target) invalidTargets.add(error.target);
+  }
+  const invalidFieldIds = new Set(BREED_NOTION_SCHEMA
+    .filter(spec => spec.mode === "content" && (
+      invalidSources.has(spec.notion) ||
+      invalidTargets.has(BREED_COMPACT_MERGE[spec.notion] ?? spec.notion)))
+    .map(spec => spec.id));
   const managed = notionPageToManagedBreedInput(projection.page);
   const present = breedNotionPresentFieldIds(projection.page);
   const actual = breedFieldSnapshot(managed);
@@ -78,8 +99,9 @@ export function planBreedWorkCopyEditorialDelta(input: {
       code: "BREED_WORKCOPY_FIELD_CONFLICT", field,
     })),
     accepted: plan.accepted.filter(field =>
-      !restricted.includes(field) && !blank.includes(field)),
-    skipped: [...new Set([...restricted, ...blank])],
+      !restricted.includes(field) && !blank.includes(field) &&
+      !invalidFieldIds.has(field)),
+    skipped: [...new Set([...restricted, ...blank, ...invalidFieldIds])],
     changed: plan.changed,
     patch: plan.patch,
     sourceSnapshot: actual,

@@ -88,3 +88,18 @@ test("event description and practical info use Lexical with lossless Markdown so
   assert.match(markdownBridge, /<textarea/);
   assert.match(markdownAdapter, /editorialToEventMarkdown\(doc\) !== source/);
 });
+
+test("event preview remains a right-hand rail on wide screens and a toggle on narrow screens", () => {
+  // Scoped to Events. Directory, Breeds and the newly merged Tiptap article
+  // editor keep their existing layout and behavior.
+  assert.match(css, /@media \(min-width: 1181px\)/);
+  assert.match(css, /\[data-editor-columns="with-preview"\]/);
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(280px, 34%\)/);
+  assert.match(css, /\[data-editor-preview\]/);
+  assert.match(css, /position: sticky/);
+  assert.match(css, /@media \(max-width: 1180px\)/);
+  assert.match(css, /\[data-mobile-panel="preview"\]/);
+  assert.match(shell, /data-mobile-panel=\{showPreview \? "preview" : "edit"\}/);
+  assert.match(shell, /showingPreview \? "Späť na úpravy" : "Náhľad"/);
+  assert.match(editor, /preview=\{liveSummary\}/);
+});
