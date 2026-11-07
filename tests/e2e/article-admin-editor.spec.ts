@@ -299,7 +299,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(callout).toHaveAttribute("aria-pressed", "true");
 
     await introEditor.getByRole("button", { name: "Odsek" }).click();
-    await expect(intro.locator("p")).toHaveCount(1);
+    // Tiptap may keep a separate empty trailing paragraph for continued typing.
+    // Verify the actual text-bearing paragraph survives the block conversion.
+    await expect(intro.locator("p").filter({ hasText: "Tučný začiatok" })).toHaveCount(1);
     await expect(intro.locator("[data-psipedia-callout]")).toHaveCount(0);
 
     await intro.selectText();
