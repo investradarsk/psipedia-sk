@@ -414,7 +414,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.locator("#article-intro").fill("Legacy článok je teraz upravený cez canonical WYSIWYG bez straty spätnej kompatibility.");
     await page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
-    await expect(page.getByText("Uložené", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-editor-actionbar]").getByRole("status")).toContainText("Všetky zmeny uložené");
 
     const suffix = projectSuffix(testInfo.project.name);
     await page.goto("/admin/novy?sekcia=novinky", { waitUntil: "domcontentloaded" });
