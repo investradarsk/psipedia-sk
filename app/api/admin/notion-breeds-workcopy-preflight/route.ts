@@ -45,9 +45,18 @@ async function readD1Diagnostics(database: D1Database,
   const shadowTablePresent = Boolean(shadowTable?.name);
   const shadowColumns = shadowTablePresent
     ? (await database.prepare(
-      "SELECT name FROM pragma_table_info('breed_notion_workcopy_links')",
+      "SELECT name, type, pk FROM pragma_table_info('breed_notion_workcopy_links')",
+    ).all<{ name: string; type: string; pk: number }>()).results
+    : [];
+  const uniqueIndexes = shadowTablePresent
+    ? (await database.prepare(
+      "SELECT name FROM pragma_index_list('breed_notion_workcopy_links') WHERE \"unique\"=1",
     ).all<{ name: string }>()).results
     : [];
+  const shadowUniqueKeys = await Promise.all(uniqueIndexes.map(async row =>
+    (await database.prepare("SELECT name FROM pragma_index_info(?)")
+      .bind(row.name).all<{ name: string }>()).results.map(column => column.name),
+  ));
   const shadowStatuses = shadowTablePresent &&
     shadowColumns.some(column => column.name === "status")
     ? (await database.prepare(
@@ -59,6 +68,7 @@ async function readD1Diagnostics(database: D1Database,
     productionLinks,
     shadowTablePresent,
     shadowColumns,
+    shadowUniqueKeys,
     shadowStatuses,
     isCompatibleReceipt: isCompatibleBreedWorkcopyReceipt,
   });
@@ -66,7 +76,7 @@ async function readD1Diagnostics(database: D1Database,
 }
 
 /**
- * Owner-only, read-only operational preflight. This endpoint NEVER writes to
+ * Admin-authenticated, read-only operational preflight. This endpoint NEVER writes to
  * Notion or D1, and NEVER changes active sync or automation data source IDs.
  */
 export async function GET(request: Request) {
@@ -86,7 +96,7 @@ export async function GET(request: Request) {
 
   try {
     if (d1Only) {
-      // Lightweight owner-only D1 check, with no Notion request and no writes.
+      // Lightweight authenticated D1 check, with no Notion request and no writes.
       const { canonical, productionMappings } = await readD1Base(bindings.DB);
       const d1Diagnostics = await readD1Diagnostics(
         bindings.DB, canonical.results, productionMappings.results,
