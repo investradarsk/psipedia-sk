@@ -57,10 +57,10 @@ test("trainer Notion webhook and Admin PUT reuse field events without bulk profi
   const webhook = await readFile(new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
   const admin = await readFile(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
   const editor = await readFile(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
-  assert.match(directory, /\["chovatelske-stanice", "treneri"\]\.includes\(profile\.category\)/);
+  assert.match(directory, /isDirectoryFieldEventCategory\(profile\.category\)/);
   assert.match(directory, /relationChanged/);
   assert.match(directory, /notionAdditionsOnly/);
-  assert.match(directory, /propertyText\(page, "Kategória"\) === "treneri"\) continue/);
+  assert.match(directory, /isDirectoryFieldEventCategory\(propertyText\(page, "Kategória"\)\)\) continue/);
   assert.match(webhook, /dp\.category IN \('chovatelske-stanice','treneri'\)/);
   assert.match(admin, /\["chovatelske-stanice", "treneri"\]\.includes\(before\.category\)/);
   assert.match(editor, /category === profile\.category && breederBaseline/);
