@@ -115,7 +115,7 @@ export async function POST(request: Request) {
           "AND breed.slug=? AND breed.fci_number=? AND source.content_hash=? "+
           "ON CONFLICT(breed_id) DO UPDATE SET "+
           "original_sync_receipt=excluded.original_sync_receipt,"+
-          "work_sync_receipt=excluded.work_sync_receipt,"+
+          "work_sync_receipt=NULL,work_last_error_code=NULL,"+
           "original_sync_last_synced_at=excluded.original_sync_last_synced_at,"+
           "original_notion_last_edited_time=excluded.original_notion_last_edited_time,"+
           "work_notion_last_edited_time=excluded.work_notion_last_edited_time,"+
