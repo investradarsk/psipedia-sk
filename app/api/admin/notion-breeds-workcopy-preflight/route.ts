@@ -20,62 +20,91 @@ type RuntimeBindings = NotionSyncBindings & {
 };
 const UUID = /^[a-f0-9]{8}(?:-?[a-f0-9]{4}){3}-?[a-f0-9]{12}$/i;
 
+type CanonicalBreedRow = { id: number; slug: string; name: string; fci_number: number | null; status: string };
+type ProductionBreedLinkRow = { breed_id: number; notion_page_id: string; content_hash: string;
+  last_synced_at: string | null; notion_last_edited_time: string | null };
+async function readD1Base(database: D1Database) {
+  const [canonical, productionMappings] = await Promise.all([
+    database.prepare("SELECT id,slug,name,fci_number,status FROM managed_breeds")
+      .all<CanonicalBreedRow>(),
+    database.prepare("SELECT breed_id,notion_page_id,content_hash,last_synced_at,"+
+      "notion_last_edited_time FROM breed_notion_sync").all<ProductionBreedLinkRow>(),
+  ]);
+  return { canonical, productionMappings };
+}
+
+async function readD1Diagnostics(database: D1Database,
+  canonicalBreeds: CanonicalBreedRow[],
+  productionLinks: ProductionBreedLinkRow[]) {
+  // Read-only physical D1 schema check; presence of a SQL source file is
+  // NOT evidence that migration 0159 has run on production.
+  const shadowTable = await database.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' " +
+    "AND name='breed_notion_workcopy_links' LIMIT 1",
+  ).first<{ name: string }>();
+  const shadowTablePresent = Boolean(shadowTable?.name);
+  const shadowColumns = shadowTablePresent
+    ? (await database.prepare(
+      "SELECT name FROM pragma_table_info('breed_notion_workcopy_links')",
+    ).all<{ name: string }>()).results
+    : [];
+  const shadowStatuses = shadowTablePresent &&
+    shadowColumns.some(column => column.name === "status")
+    ? (await database.prepare(
+      "SELECT status, COUNT(*) AS count FROM breed_notion_workcopy_links GROUP BY status",
+    ).all<{ status: string; count: number }>()).results
+    : [];
+  return summarizeBreedWorkcopyD1Readiness({
+    canonicalBreeds: canonical.results,
+    productionLinks: productionMappings.results,
+    shadowTablePresent,
+    shadowColumns,
+    shadowStatuses,
+    isCompatibleReceipt: isCompatibleBreedWorkcopyReceipt,
+  });
+
+}
+
 /**
  * Owner-only, read-only operational preflight. This endpoint NEVER writes to
  * Notion or D1, and NEVER changes active sync or automation data source IDs.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getAdminApiUser();
   if (!user) return unauthorizedAdminResponse();
   const bindings = env as unknown as RuntimeBindings;
   const source = bindings.NOTION_BREEDS_DATA_SOURCE_ID?.trim() ?? "";
   const work = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID?.trim() ?? "";
-  const headers = { "Cache-Control": "no-store" };
-  if (!bindings.DB || !bindings.NOTION_API_TOKEN ||
+  const headers = { "Cache-Control": "private, no-store" };
+  const d1Only = new URL(request.url).searchParams.get("scope") === "d1";
+  if (!bindings.DB || (!d1Only && (!bindings.NOTION_API_TOKEN ||
     !UUID.test(source) || !UUID.test(work) ||
-    source.replaceAll("-", "").toLowerCase() === work.replaceAll("-", "").toLowerCase()) {
+    source.replaceAll("-", "").toLowerCase() === work.replaceAll("-", "").toLowerCase()))) {
     return Response.json({ code: "BREED_WORKCOPY_PREFLIGHT_NOT_CONFIGURED" },
       { status: 503, headers });
   }
 
   try {
-    const [sourcePages, workPages, canonical, productionMappings] = await Promise.all([
+    if (d1Only) {
+      // Lightweight owner-only D1 check, with no Notion request and no writes.
+      const { canonical, productionMappings } = await readD1Base(bindings.DB);
+      const d1Diagnostics = await readD1Diagnostics(
+        bindings.DB, canonical.results, productionMappings.results,
+      );
+      return Response.json({
+        scope: "d1", cutoverReady: false, d1Diagnostics,
+        next: "This report does not authorize applying SQL 0159 or switching sync",
+      }, { headers });
+    }
+    const [sourcePages, workPages, d1] = await Promise.all([
       inventory(source, bindings),
       inventory(work, bindings),
-      bindings.DB.prepare(
-        "SELECT id,slug,name,fci_number,status FROM managed_breeds",
-      ).all<{ id: number; slug: string; name: string; fci_number: number | null; status: string }>(),
-      bindings.DB.prepare(
-        "SELECT breed_id,notion_page_id,content_hash,last_synced_at,notion_last_edited_time FROM breed_notion_sync",
-      ).all<{ breed_id: number; notion_page_id: string; content_hash: string;
-        last_synced_at: string | null; notion_last_edited_time: string | null }>(),
+      readD1Base(bindings.DB),
     ]);
-    // Read-only physical D1 schema check; presence of a SQL source file is
-    // NOT evidence that migration 0159 has run on production.
-    const shadowTable = await bindings.DB.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' " +
-      "AND name='breed_notion_workcopy_links' LIMIT 1",
-    ).first<{ name: string }>();
-    const shadowTablePresent = Boolean(shadowTable?.name);
-    const shadowColumns = shadowTablePresent
-      ? (await bindings.DB.prepare(
-          "SELECT name FROM pragma_table_info('breed_notion_workcopy_links')",
-        ).all<{ name: string }>()).results
-      : [];
-    const shadowStatuses = shadowTablePresent &&
-      shadowColumns.some(column => column.name === "status")
-      ? (await bindings.DB.prepare(
-          "SELECT status, COUNT(*) AS count FROM breed_notion_workcopy_links GROUP BY status",
-        ).all<{ status: string; count: number }>()).results
-      : [];
-    const d1Diagnostics = summarizeBreedWorkcopyD1Readiness({
-      canonicalBreeds: canonical.results,
-      productionLinks: productionMappings.results,
-      shadowTablePresent,
-      shadowColumns,
-      shadowStatuses,
-      isCompatibleReceipt: isCompatibleBreedWorkcopyReceipt,
-    });
+    const { canonical, productionMappings } = d1;
+    const d1Diagnostics = await readD1Diagnostics(
+      bindings.DB, canonical.results, productionMappings.results,
+    );
     const result = planBreedWorkcopyIdentity({
       sourcePages,
       workPages,
