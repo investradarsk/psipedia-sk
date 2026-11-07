@@ -7,6 +7,8 @@
  * A caller must prove old sync is disabled before applying any future plan.
  */
 import { materializeBreedWorkCopyForRead } from "@/lib/notion-breed-workcopy-compatible-page.mjs";
+import { BREED_COMPACT_MERGE } from "@/lib/breed-notion-compact-consolidation.mjs";
+import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
 import { notionPageToManagedBreedInput } from "@/lib/notion-breed-sync";
 import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
@@ -30,15 +32,21 @@ export function planBreedWorkCopyEditorialDelta(input: {
   previousNotion: BreedFieldSnapshot;
   previousAdmin: BreedFieldSnapshot;
   authority?: Readonly<Record<string, NotionFieldMode>>;
+  eventFieldIds?: readonly string[];
 }) {
   if (!input.page?.id || !input.canonical?.id || !input.previousNotion || !input.previousAdmin)
     throw Error("BREED_WORKCOPY_DELTA_MISSING_BASELINE");
 
+  const targets = input.eventFieldIds
+    ? new Set(BREED_NOTION_SCHEMA.filter(spec =>
+      input.eventFieldIds!.includes(spec.id) && spec.mode === "content")
+      .map(spec => BREED_COMPACT_MERGE[spec.notion] ?? spec.notion))
+    : null;
   const projection = materializeBreedWorkCopyForRead(input.page, {
     id: input.canonical.id,
     slug: input.canonical.slug,
     fciNumber: input.canonical.fciNumber,
-  });
+  }, targets ? { onlyTargets: targets } : undefined);
   if (!projection.valid || !projection.page)
     return {
       ready: false as const,
