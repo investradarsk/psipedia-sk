@@ -749,8 +749,12 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(page.locator("#article-seo")).toBeVisible();
     const compact = rail.locator("[data-article-compact-preview]");
     await expect(compact).toBeVisible();
-    await rail.getByRole("button", { name: "Zobraziť celý náhľad" }).click();
-    await expect(rail.locator(".admin-preview-paper")).toBeVisible();
+    await rail.getByRole("button", { name: "Náhľad na celú obrazovku · počítač/mobil" }).click();
+    const fullscreen = page.getByRole("dialog", { name: "Celoobrazovkový náhľad článku" });
+    await expect(fullscreen).toBeVisible();
+    await expect(fullscreen.locator('[data-preview-device="desktop"]')).toBeVisible();
+    await fullscreen.getByRole("button", { name: "Späť do editora" }).click();
+    await expect(fullscreen).toBeHidden();
     await rail.getByRole("button", { name: "Skryť náhľad" }).click();
     await expect(rail.locator("[data-article-compact-preview]")).toHaveCount(0);
     await page.getByRole("button", { name: "Ukázať náhľad článku" }).click();
