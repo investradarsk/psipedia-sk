@@ -226,7 +226,8 @@ test.describe("admin directory v2", () => {
     await expect(page.getByLabel("Verejný telefón")).toBeVisible();
     await expect(page.getByLabel("Verejný telefón")).toHaveValue("+421 900 111 222");
     await expect(page.getByLabel("Verejný e-mail")).toHaveValue("public-fixture@example.invalid");
-    await expect(page.getByLabel("Interný e-mail")).toHaveValue("internal-fixture@example.invalid");
+    // This field was retired from the editor. Legacy D1 data must remain intact.
+    await expect(page.getByLabel("Interný e-mail")).toHaveCount(0);
     await openDirectoryEditorSection(page, "Médiá a dôvera");
     await expect(page.getByText("Trust stav: redakcia preverila základné údaje. Nie je to publication state.")).toBeVisible();
     await expect(page.getByText("Neznamená platené ani sponzorované umiestnenie.")).toBeVisible();
@@ -260,6 +261,7 @@ test.describe("admin directory v2", () => {
     expect(profile.imageUrl).toBeNull();
     expect(profile.importData["Telefón"]).toBe("+421 900 333 444");
     expect(profile.importData["E-mail"]).toBe("updated-public@example.invalid");
+    expect(profile.internalEmail).toBe("internal-fixture@example.invalid");
     expect(profile.importData["Plemeno"]).toBe("Labradorský retriever");
     expect(profile.importData["Organizácia"]).toBe("Fixture klub");
 
