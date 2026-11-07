@@ -143,3 +143,48 @@
   .sectionPager span { order: -1; width: 100%; text-align: center; }
   .eventForm :global(.admin-field-grid) { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Event-only layout correction: match the service editor's editing/preview
+   hierarchy. Shared switch-mode CSS defaults to display:block, which put the
+   event preview BELOW its form even on wide desktop screens. */
+@media (min-width: 1181px) {
+  .eventPilot :global([data-editor-page][data-editor-section-mode="switch"] [data-editor-columns="with-preview"]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 34%);
+    gap: clamp(0.75rem, 1.2vw, 1.1rem);
+    align-items: start;
+  }
+  .eventPilot :global([data-editor-page][data-editor-section-mode="switch"] [data-editor-content]) {
+    width: 100%;
+    min-width: 0;
+  }
+  .eventPilot :global([data-editor-page][data-editor-section-mode="switch"] [data-editor-preview]) {
+    position: sticky;
+    top: calc(var(--admin-sticky-stack, 96px) + 10px);
+    align-self: start;
+    min-width: 0;
+  }
+  /* The preview is already visible beside the form: do not offer a redundant
+     toggle that could leave it hidden without an obvious way back. */
+  .eventPilot :global([data-editor-page][data-editor-section-mode="switch"] [data-editor-navigation] > button) {
+    display: none;
+  }
+}
+
+/* On smaller desktop/tablet/mobile viewports keep ONE visible panel at a time.
+   The existing shared "Náhľad / Späť na úpravy" button changes data-mobile-panel.
+   Do not stack a second, full-width preview under the editor. */
+@media (max-width: 1180px) {
+  .eventPilot :global([data-editor-page][data-editor-section-mode="switch"] [data-editor-columns="with-preview"]) {
+    display: block;
+  }
+  .eventPilot :global([data-editor-page][data-editor-section-mode="switch"] [data-editor-preview]) {
+    display: none;
+  }
+  .eventPilot :global([data-editor-page][data-editor-section-mode="switch"] [data-editor-workspace][data-mobile-panel="preview"] [data-editor-preview]) {
+    display: block;
+  }
+  .eventPilot :global([data-editor-page][data-editor-section-mode="switch"] [data-editor-workspace][data-mobile-panel="preview"] [data-editor-content]) {
+    display: none;
+  }
+}
