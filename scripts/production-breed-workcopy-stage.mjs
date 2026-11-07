@@ -42,7 +42,7 @@ function configAndAuthorization() {
   requireThat(process.env.BREED_STAGE_CONFIRMATION === confirmation,
     "BREED_STAGE_SEPARATE_EXPLICIT_CONFIRMATION_REQUIRED");
   requireThat(Boolean(process.env.CLOUDFLARE_API_TOKEN) &&
-    Boolean(process.env.NOTION_API_TOKEN), "BREED_STAGE_PROTECTED_SECRETS_REQUIRED");
+    Boolean(process.env.BREED_STAGE_NOTION_TOKEN), "BREED_STAGE_PROTECTED_SECRETS_REQUIRED");
   requireThat(process.env.CLOUDFLARE_ACCOUNT_ID === expectedAccount,
     "BREED_STAGE_CLOUDFLARE_ACCOUNT_MISMATCH");
   const resources = JSON.parse(readFileSync("config/cloudflare-resources.json", "utf8"));
@@ -158,7 +158,7 @@ async function notionPages(sourceId) {
         encodeURIComponent(sourceId) + "/query", {
         method: "POST",
         headers: {
-          Authorization: "Bearer " + process.env.NOTION_API_TOKEN,
+          Authorization: "Bearer " + process.env.BREED_STAGE_NOTION_TOKEN,
           "Notion-Version": notionVersion,
           "Content-Type": "application/json",
         },
