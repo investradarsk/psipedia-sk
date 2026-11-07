@@ -1253,7 +1253,7 @@ async function saveBreederEditorialValue(
   const raw = breederReadPath(desired, path);
   const value = typeof raw === "string" ? raw : "";
   const assignments: string[] = [];
-  const params: unknown[] = [];
+  const params: string[] = [];
   const scalar = breederScalarColumns[path];
   const contact = breederContactJsonNames[path];
   const seoKey = breederSeoJsonNames[path];
