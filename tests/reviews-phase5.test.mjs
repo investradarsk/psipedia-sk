@@ -111,7 +111,9 @@ test("review detail uses the managed product category in breadcrumbs and structu
   }
   assert.match(detail, /articleSection: topicLabel/);
   assert.match(detail, /name: topicLabel, item: `\$\{SITE_URL\}\$\{topicHref\}`/);
-  assert.match(route, /portalSection=\{section === "recenzie" \? managedSection : undefined\}/);
+  // The current article route passes its managed section for all article types.
+  // Older review-only routes guarded the prop explicitly; both preserve review breadcrumbs.
+  assert.match(route, /portalSection=\\{(?:section === "recenzie" \\? managedSection : undefined|managedSection)\\}/);
 });
 
 test("empty thin review categories are noindex and excluded from sitemap until they have value", () => {
