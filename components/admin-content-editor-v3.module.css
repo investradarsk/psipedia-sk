@@ -793,6 +793,10 @@
     flex: 1 1 auto;
     min-width: 0;
   }
+  /* The select already has an aria-label; hide redundant visual label to keep the toolbar one row high. */
+  .workspaceRoot :global([data-editor-layout="article"] [data-editor-navigation] [data-admin-shared-editor-navigation] label > span) {
+    display: none;
+  }
   .workspaceRoot :global([data-editor-layout="article"] [data-editor-navigation] > button) {
     margin-top: 0;
     flex: 0 0 auto;
