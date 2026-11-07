@@ -1,0 +1,100 @@
+name: Production D1 0159 Breed Workcopy Shadow (manual)
+
+# No push, cron or pull_request trigger. Merging this PR runs NO migration.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Audit is SELECT-only; Apply creates only empty 0159 shadow table
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: Type AUDIT-0159-psipedia-sk-db or APPLY-0159-psipedia-sk-db
+        type: string
+        required: true
+
+# Shares the production database migration lock with existing workflows.
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  breed-0159:
+    name: Protected 0159 read-only audit or schema-only apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    env:
+      BREED_0159_MODE: ${{ inputs.mode }}
+      BREED_0159_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Main only, manual request and exact user confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          case "$BREED_0159_MODE" in
+            audit) expected="AUDIT-0159-psipedia-sk-db" ;;
+            apply) expected="APPLY-0159-psipedia-sk-db" ;;
+            *) echo "Unsupported mode" >&2; exit 1 ;;
+          esac
+          test "$BREED_0159_CONFIRMATION" = "$expected"
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Checkout the exact dispatched revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Refuse a stale main checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Migration safety and isolated 0159 regression tests
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-d1-0159-shadow.test.mjs
+
+      - name: Validate protected Cloudflare account binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id)')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Run exactly requested 0159 audit or operator-approved apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-d1-0159-shadow.mjs "$BREED_0159_MODE"
+
+      - name: Retain aggregate-only report and recovery bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-0159-${{ github.run_id }}
+          path: .production-d1-0159/report.json
+          if-no-files-found: ignore
+          retention-days: 30
