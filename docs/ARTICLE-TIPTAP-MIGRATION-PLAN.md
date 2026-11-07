@@ -1,7 +1,7 @@
 # Article editor replacement (Tiptap) — 5 steps
 
 Audit baseline: main commit 2e6f5eb885032bae8285ae2c1c2311ccc833227e, 2026-11-07.
-Status: STEP 1 ONLY — no production integration, no schema change, no live editor swap.
+Status: STEPS 1–3 in draft PR #1234 — Tiptap wired to rich-text inputs; no production deploy or merge. Step 4 data contract and full palette activation pending.
 
 ## Decision: reuse a real open-source editor
 
@@ -67,7 +67,7 @@ to load unchanged. JSON TEXT columns may accommodate this without a destructive
 database migration, but it must be proven by tests. Do not persist raw Tiptap
 HTML or bypass the current URL sanitization.
 
-## Remaining steps
+## Step 3 implementation and explicit safety boundary\n\nThe article intro, takeaway and body rich-text blocks now use a scoped Tiptap 3.33.0 editor with one sticky toolbar (bold/italic, H2/H3, lists, quote, callout, safe links, undo/redo). The plain excerpt remains a plain-text field; images, metadata and non-text article blocks keep their existing components. The Tiptap package and complete transitive dependency closure are pinned in package-lock.json.\n\nThe full native color pickers for text and background are present but intentionally disabled. Enabling them before the versioned Psipedia AST upgrade would silently strip styles. Step 4 must wire colors and highlights into the canonical parser, persistence, public renderer and Notion compatibility, then enable the controls. The editor refuses to save an unsupported document instead of losing content. Browser tests and a real npm-ci install still require verification before merging.\n\n## Remaining steps
 
 Step 2 — Reorder left menu (Publikovanie, Autor, Nastavenia, SEO,
 Prepojené plemená, Fotografie, Úvod a obsah, Bloky článku); clicking shows
