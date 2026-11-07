@@ -1622,11 +1622,11 @@ async function syncMappedPage(input: {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
   }
 
-  // Automatic breeder sync is field-event only. A plain targeted sweep may
-  // still mirror an Admin-confirmed publication, but PATCH only its status:
+  // Breeders and the three pilot service categories are field-event only.
+  // A targeted sweep may still mirror Admin-confirmed publication, status only:
   // never re-enter record-wide editorial hash/baseline reconciliation.
   // The owner-directed manual full-profile transfer below stays available.
-  if (profile.category === "chovatelske-stanice" &&
+  if ((profile.category === "chovatelske-stanice" || isDirectoryEventPilotCategory(profile.category)) &&
       !input.manualDirection &&
       input.breederWebhookPropertyIds === undefined &&
       input.breederAdminFields === undefined) {
@@ -1660,14 +1660,6 @@ async function syncMappedPage(input: {
       changedPropertyIds: input.breederWebhookPropertyIds,
       adminChangedFields: input.breederAdminFields,
     });
-  }
-
-  // Pilot categories never fall back into record-wide reconciliation. Existing
-  // events and Admin saves use only changed-field updates, preserving mapping IDs.
-  if (isDirectoryEventPilotCategory(profile.category) && !input.manualDirection) {
-    if (propertyText(page, "Psipedia ID") !== String(profile.id))
-      throw new NotionDirectoryUnsafeTargetError("DIRECTORY_FIELD_EVENT_IDENTITY_MISMATCH");
-    return "unchanged" as const;
   }
 
   // A mapping can already exist when the first Notion write-back failed.
