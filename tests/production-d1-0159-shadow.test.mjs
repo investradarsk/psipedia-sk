@@ -40,10 +40,14 @@ function inspect(db) {
   const columns = present ? db.prepare("SELECT name,type,pk FROM pragma_table_info('breed_notion_workcopy_links')").all() : [];
   const indexes = present ? db.prepare("SELECT name FROM pragma_index_list('breed_notion_workcopy_links') WHERE \"unique\"=1").all() : [];
   const uniqueKeys = indexes.map(x => db.prepare("SELECT name FROM pragma_index_info(?)").all(x.name).map(z => z.name));
+  const statusIndexColumns = index ? db.prepare(
+    "SELECT name FROM pragma_index_info('idx_breed_notion_workcopy_status')",
+  ).all().map(row => row.name) : [];
   const shadowStatuses = present ? db.prepare("SELECT status, COUNT(*) AS count FROM breed_notion_workcopy_links GROUP BY status").all() : [];
   return { canonicalBreeds, productionLinks, shadowTablePresent:present,
     shadowColumns:columns, shadowUniqueKeys:uniqueKeys, shadowStatuses,
-    statusIndexPresent:Boolean(index), createSql:table?.sql || "" };
+    statusIndexPresent:Boolean(index), statusIndexColumns,
+    createSql:table?.sql || "" };
 }
 test("0159 SQL bytes remain exactly pinned to reviewed Git blob", () => {
   const sha = createHash("sha1").update(
