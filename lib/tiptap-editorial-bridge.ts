@@ -1,13 +1,10 @@
-/**
- * Safe v1-only JSON bridge for the planned Tiptap editor.
- * Not wired to any production article save/render path in step 1.
- * The future editor must register a custom "psipediaCallout" inline node.
- * Reject unsupported nodes/marks before saving; never silently strip them.
- */
+/** Strict JSON bridge for v1 legacy and v2 styled Psipedia rich text.
+ * Reject unknown marks and nodes instead of losing content on save. */
 import {
   EDITORIAL_RICH_TEXT_VERSION,
   normalizeEditorialRichText,
   sanitizeEditorialHref,
+  sanitizeEditorialColor,
   type EditorialRichTextDocument,
   type EditorialRichTextInline,
   type EditorialRichTextMark,
@@ -25,8 +22,12 @@ export type TiptapEditorialDocument = { type: "doc"; content: TiptapEditorialNod
 function fromInline(inline: EditorialRichTextInline[]): TiptapEditorialNode[] {
   return inline.map((node) => {
     if (node.type === "hardBreak") return { type: "hardBreak" };
-    const marks = node.marks?.map((mark) => mark.type === "link"
-      ? { type: "link", attrs: { href: mark.href } } : { type: mark.type });
+    const marks = node.marks?.map((mark) => {
+      if (mark.type === "link") return { type: "link", attrs: { href: mark.href } };
+      if (mark.type === "color") return { type: "textStyle", attrs: { color: mark.color } };
+      if (mark.type === "highlight") return { type: "highlight", attrs: { color: mark.color } };
+      return { type: mark.type };
+    });
     return { type: "text", text: node.text, ...(marks?.length ? { marks } : {}) };
   });
 }
@@ -78,15 +79,19 @@ function parseInline(value: unknown): EditorialRichTextInline[] {
         if (!href) throw new Error("Unsafe Tiptap link");
         return { type: "link", href };
       }
-      // Text color, multicolor highlight and underline require a versioned
-      // Psipedia content contract + renderer before their toolbar is enabled.
+      if (mark.type === "underline") return { type: "underline" };
+      if (mark.type === "textStyle" || mark.type === "highlight") {
+        const color = sanitizeEditorialColor(asRecord(mark.attrs).color);
+        if (!color) throw new Error("Invalid Tiptap color");
+        return mark.type === "textStyle" ? { type: "color", color } : { type: "highlight", color };
+      }
       throw new Error("Unsupported Tiptap mark: " + String(mark.type));
     });
     return { type: "text", text: node.text, ...(marks.length ? { marks } : {}) };
   });
 }
 
-/** Only the audited V1 subset is accepted. Unknown content never gets dropped. */
+/** Only the versioned supported subset is accepted. Unknown content never gets dropped. */
 export function tiptapToEditorial(value: unknown): EditorialRichTextDocument {
   const doc = asRecord(value);
   if (doc.type !== "doc") throw new Error("Expected Tiptap doc");
@@ -126,8 +131,13 @@ export function tiptapToEditorial(value: unknown): EditorialRichTextDocument {
     }
     throw new Error("Unsupported Tiptap block: " + String(node.type));
   });
+  const hasV2Style = content.some((block) => {
+    const inline = "items" in block ? block.items.flat() : block.content;
+    return inline.some((node) => node.type === "text" &&
+      node.marks?.some((mark) => mark.type === "color" || mark.type === "highlight" || mark.type === "underline"));
+  });
   const normalized = normalizeEditorialRichText({
-    version: EDITORIAL_RICH_TEXT_VERSION, type: "doc", content,
+    version: hasV2Style ? EDITORIAL_RICH_TEXT_VERSION : 1, type: "doc", content,
   });
   if (!normalized) throw new Error("Cannot normalize Tiptap document");
   return normalized;
