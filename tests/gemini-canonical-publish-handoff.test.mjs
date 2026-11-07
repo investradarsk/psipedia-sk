@@ -1,4 +1,5 @@
 import test from "node:test";
+import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "../lib/notion-directory-field-event-scope.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
@@ -221,6 +222,7 @@ test("mapped Directory native publication pushes verified D1 status to the same 
         websiteUrl: "", updatedAt: "2026-10-21T20:00:00Z"};
       const context = {
         exports, structuredClone, reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedProfileBaselineFromHashes,
+        isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
         readNotionFieldAuthorities: async () => ({}),
         gemini22PriorityEnabled: () => false,
         notionDirectoryPageBelongsToSource,
@@ -264,8 +266,9 @@ test("mapped Directory native publication pushes verified D1 status to the same 
     }
     const accepted = await scenario("draft");
     assert.equal(await accepted.run(), "pushed", item.stableKey);
-    const breeder = item.subcategory === "chovatelske-stanice";
-    if (breeder) {
+    const fieldEventOnly = item.subcategory === "chovatelske-stanice" ||
+      isDirectoryEventPilotCategory(item.subcategory);
+    if (fieldEventOnly) {
       // Publication is a targeted status write, not a legacy whole-profile push.
       assert.equal(accepted.writes.length, 0, item.stableKey);
       assert.equal(accepted.patches.length, 1, item.stableKey);
@@ -283,7 +286,7 @@ test("mapped Directory native publication pushes verified D1 status to the same 
     assert.equal(accepted.edits.length, 0, item.stableKey);
     const changedBoth = await scenario("archived");
     await assert.rejects(changedBoth.run(),
-      breeder ? /BREEDER_PUBLICATION_STATUS_CONFLICT/ : /LOSSLESS_FIELD_REVIEW_REQUIRED/,
+      fieldEventOnly ? /BREEDER_PUBLICATION_STATUS_CONFLICT/ : /LOSSLESS_FIELD_REVIEW_REQUIRED/,
       item.stableKey);
     assert.equal(changedBoth.writes.length, 0, "A concurrent Notion edit must never be overwritten");
     assert.equal(changedBoth.patches.length, 0, "An archived Notion profile must never be republished");
