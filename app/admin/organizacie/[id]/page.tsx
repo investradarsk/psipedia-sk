@@ -6,8 +6,6 @@ import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-w
 import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminOrganizationFundraising } from "@/components/admin-organization-fundraising";
-import { AdminOrganizationLocations } from "@/components/admin-organization-locations";
-import { AdminProfileGoogleMaps } from "@/components/admin-profile-google-maps";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
@@ -48,15 +46,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     <Link href="/admin/organizacie">← Späť na organizácie</Link>
    </>}>
     <AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} />
-    <AdminOrganizationEditor organization={organization} automationSuggestions={automationSuggestions} />
-    <div id="address"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>
-    <div id="google-maps">
-      <AdminProfileGoogleMaps
-        targetType="ORGANIZATION_LOCATION"
-        targetId={organization.id}
-        endpoint={`/api/admin/organizations/${organization.id}/google-place`}
-      />
-    </div>
+    <AdminOrganizationEditor organization={organization} initialLocations={locations} automationSuggestions={automationSuggestions} />
     <div id="fundraising"><AdminOrganizationFundraising organization={organization} initialMethods={methods} /></div>
     {organization.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ORGANIZATION" canonicalEntityId={organization.id} returnHref="/admin/organizacie" />}
   </AdminShell>;
