@@ -110,3 +110,48 @@ export async function importNotionServiceChoices(db:DB,profileId:number,category
   }
   return {added,removed};
 }
+
+/**
+ * Keep the public legacy "Poskytované služby" list in step with confirmed
+ * Services V3 YES choices. Add missing catalog labels only: never remove
+ * historic free text or convert an omitted Notion value into a deletion.
+ * Accept aliases as already present so "základná poslušnosť" is not duplicated.
+ */
+export async function ensureCanonicalServiceChoicesInLegacy(
+  db: DB, profileId: number, selectedIds: readonly string[],
+): Promise<number> {
+  const profile = await db.prepare(
+    "SELECT id,category,services_json,updated_at FROM directory_profiles WHERE id=?1 LIMIT 1",
+  ).bind(profileId).first<Profile>();
+  if (!profile) throw Error("SERVICE_PROFILE_NOT_FOUND");
+  const available = await allowedCatalog(db, profile.category);
+  const byId = new Map(available.map(option => [option.id, option]));
+  if (profile.services_json !== null) {
+    try {
+      const parsed = JSON.parse(profile.services_json);
+      if (!Array.isArray(parsed) || !parsed.every(x => typeof x === "string"))
+        throw Error("INVALID_LEGACY_SERVICES_JSON");
+    } catch { throw Error("INVALID_LEGACY_SERVICES_JSON"); }
+  }
+  const current = parseServices(profile.services_json);
+  const next = [...current];
+  const present = new Set(current.map(normalizeCatalogLabel));
+  let added = 0;
+  for (const id of new Set(selectedIds)) {
+    const option = byId.get(id);
+    if (!option) throw Error("SERVICE_CATALOG_UNKNOWN_CHOICE");
+    const names = [option.label, ...option.aliases].map(normalizeCatalogLabel);
+    if (names.some(name => present.has(name))) continue;
+    next.push(option.label);
+    names.forEach(name => present.add(name));
+    added++;
+  }
+  if (!added) return 0;
+  const result = await db.prepare(
+    "UPDATE directory_profiles SET services_json=?1,updated_at=?2 " +
+    "WHERE id=?3 AND COALESCE(services_json,'[]')=?4 AND updated_at IS ?5 RETURNING id",
+  ).bind(JSON.stringify(next), new Date().toISOString(), profileId,
+    profile.services_json ?? "[]", profile.updated_at).first<{id:number}>();
+  if (!result) throw Error("SERVICE_LEGACY_PROJECTION_CONCURRENT_CHANGE");
+  return added;
+}

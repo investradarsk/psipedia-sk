@@ -62,8 +62,10 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
       const orderedSections = [
         { key: "intro", heading: "O službe" },
         { key: "contact", heading: contact },
-        { key: "services", heading: "Poskytované služby" },
+        // Shared profile template: expertise sits directly below contact
+        // in the right column, and immediately follows it on mobile.
         { key: "expertise", heading: "Odborné informácie" },
+        { key: "services", heading: "Poskytované služby" },
         { key: "reviews", heading: "Recenzie" },
       ];
       for (const { key, heading: sectionHeading } of orderedSections) {

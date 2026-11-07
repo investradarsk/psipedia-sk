@@ -2,6 +2,8 @@
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
+import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
+import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -151,6 +153,8 @@ export function AdminDirectoryEditor({
   onNotionSaved?: (keepEditorOpen?: boolean) => void;
   automationSuggestions?: CanonicalUpdateSuggestion[];
 }) {
+  // Last saved D1 projection; supports one-field saves from a long-open editor.
+  const breederSaveBaselineRef = useRef(profile);
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
   const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
@@ -195,6 +199,14 @@ export function AdminDirectoryEditor({
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
   const [galleryUrls, setGalleryUrls] = useState<string[]>(profile?.galleryUrls ?? []);
   const [galleryBusy, setGalleryBusy] = useState(false);
+  const [breederRelationOptions, setBreederRelationOptions] = useState<{
+    breeds: BreederRelationOption[]; clubs: BreederRelationOption[];
+  }>({ breeds: [], clubs: [] });
+  const [breederSelection, setBreederSelection] = useState<BreederRelationSelection>({ breedIds: [], clubIds: [] });
+  const [breederRelationSearch, setBreederRelationSearch] = useState({ breeds: "", clubs: "" });
+  const [breederRelationsDirty, setBreederRelationsDirty] = useState(false);
+  const [breederRelationsError, setBreederRelationsError] = useState("");
+  const [breederRelationsLoading, setBreederRelationsLoading] = useState(profile?.category === "chovatelske-stanice");
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
   const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.detailImageDisplay ?? null);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
@@ -202,6 +214,36 @@ export function AdminDirectoryEditor({
   const [qualityCheckedAt, setQualityCheckedAt] = useState<Partial<Record<DirectoryQualityField, string>>>(() => qualityCheckedAtInput(profile));
   const [reviewed, setReviewed] = useState(profile?.reviewed ?? false);
   const [reviewedAt, setReviewedAt] = useState(profile?.reviewedAt ?? "");
+  useEffect(() => {
+    if (!profile || profile.category !== "chovatelske-stanice") return;
+    let cancelled = false;
+    fetch(`/api/admin/directory/${profile.id}/breeder-relations`, { cache: "no-store" })
+      .then(async response => {
+        if (!response.ok) throw new Error("Prepojenia sa nepodarilo načítať.");
+        return response.json() as Promise<{
+          selected: BreederRelationSelection;
+          breeds: BreederRelationOption[]; clubs: BreederRelationOption[];
+        }>;
+      }).then(data => {
+        if (cancelled) return;
+        setBreederRelationOptions({ breeds: data.breeds, clubs: data.clubs });
+        setBreederSelection(data.selected);
+        setBreederRelationsDirty(false);
+        setBreederRelationsError("");
+      }).catch(error => {
+        if (!cancelled) setBreederRelationsError(error instanceof Error ? error.message : "Prepojenia nie sú dostupné.");
+      }).finally(() => { if (!cancelled) setBreederRelationsLoading(false); });
+    return () => { cancelled = true; };
+  }, [profile?.id, profile?.category]);
+  function toggleBreederLink(field: "breedIds" | "clubIds", id: number) {
+    setBreederSelection(current => ({
+      ...current, [field]: current[field].includes(id)
+        ? current[field].filter(item => item !== id)
+        : [...current[field], id],
+    }));
+    setBreederRelationsDirty(true);
+    setFormDirty(true);
+  }
   const [reviewSaving, setReviewSaving] = useState(false);
   const [verified, setVerified] = useState(profile?.verified ?? notionDraft?.verified ?? false);
   const [featured, setFeatured] = useState(profile?.featured ?? notionDraft?.featured ?? false);
@@ -356,10 +398,37 @@ export function AdminDirectoryEditor({
       const filterPatch = filterCategory
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
+      const breederBaseline = breederSaveBaselineRef.current;
+      const breederChangedPaths = profile && ["chovatelske-stanice", "treneri"].includes(profile.category)
+        && category === profile.category && breederBaseline
+        ? breederAdminChangedFields(
+            {
+              ...breederBaseline,
+              websiteUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").website,
+              publicPhone: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").phone,
+              publicEmail: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").email,
+              facebookUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").facebook,
+              instagramUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").instagram,
+            },
+            {
+              name, excerpt, description, qualifications: listFromText(qualifications),
+              region, district, city, address: publicAddress, postalCode, street, houseNumber,
+              addressFormat, priceNote, websiteUrl, publicPhone, publicEmail,
+              facebookUrl, instagramUrl, seo,
+            },
+          )
+        : undefined;
+      // A previously opened editor must not re-save a stale legacy services
+      // list after Services V3 was updated by an independent Notion event.
+      const trainerServicesEdited = profile?.category === "treneri" && category === "treneri" && breederBaseline
+        ? JSON.stringify(listFromText(services)) !== JSON.stringify(breederBaseline.services)
+        : undefined;
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
+          ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
           services: listFromText(services), qualifications: listFromText(qualifications),
           address: publicAddress,
@@ -394,8 +463,38 @@ export function AdminDirectoryEditor({
         }
         savedProfile = filtered.profile;
       }
+      if (profile?.category === "chovatelske-stanice" && breederRelationsDirty) {
+        const response = await fetch(`/api/admin/directory/${profile.id}/breeder-relations`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(breederSelection),
+        });
+        if (!response.ok) {
+          const details = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error("Profil je uložený, ale prepojenia sa nepodarilo uložiť: " +
+            (details.error || "Neznáma chyba."));
+        }
+        setBreederRelationsDirty(false);
+      }
       setFilterSourceData(savedProfile.importData ?? {});
       setFilterChanges({});
+      if (["chovatelske-stanice", "treneri"].includes(savedProfile.category)) {
+        // Refresh form values from the committed D1 result: untouched fields
+        // may have been updated through a Notion webhook while this was open.
+        breederSaveBaselineRef.current = savedProfile;
+        const syncedContacts = readDirectoryPublicContacts(savedProfile.importData, savedProfile.websiteUrl ?? "");
+        setName(savedProfile.name); setExcerpt(savedProfile.excerpt); setDescription(savedProfile.description);
+        setQualifications(savedProfile.qualifications.join("\n"));
+        setServices(savedProfile.services.join("\n"));
+        setCity(savedProfile.city); setDistrict(savedProfile.district); setRegion(savedProfile.region);
+        setPublicAddress(savedProfile.address); setPostalCode(savedProfile.postalCode);
+        setStreet(savedProfile.street); setHouseNumber(savedProfile.houseNumber);
+        setAddressFormat(savedProfile.addressFormat);
+        setPriceNote(savedProfile.priceNote);
+        setWebsiteUrl(syncedContacts.website); setPublicPhone(syncedContacts.phone);
+        setPublicEmail(syncedContacts.email); setFacebookUrl(syncedContacts.facebook);
+        setInstagramUrl(syncedContacts.instagram); setSeo(savedProfile.seo ?? {});
+      }
       setGalleryUrls(savedProfile.galleryUrls ?? []);
       setStatus(savedProfile.status);
       setQualityResolutions(qualityResolutionInput(savedProfile));
@@ -534,7 +633,12 @@ export function AdminDirectoryEditor({
       <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
 
       <div className={styles.editorTopline} data-admin-editor-navigation-container>
-        <AdminStickyEditorNavigation sections={editorSections} ariaLabel="Sekcie profilu adresára" />
+        <AdminStickyEditorNavigation
+            sections={profile && category === "chovatelske-stanice"
+              ? [...editorSections.slice(0, 4), { id: "directory-breeder-links", label: "Prepojenia" }, ...editorSections.slice(4)]
+              : editorSections}
+            ariaLabel="Sekcie profilu adresára"
+          />
         <div className={styles.toplineActions}>
           <EditorStatus label={status === "published" ? "Publikovaný" : "Koncept"} tone={status === "published" ? "success" : "warning"} />
           {formDirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
@@ -721,9 +825,56 @@ export function AdminDirectoryEditor({
             <AdminHelpText term="Súkromie">Interný e-mail slúži administrácii a nezmiešava sa s verejným kontaktným contractom.</AdminHelpText>
           </AdminEditorSection>
 
+          {profile && category === "chovatelske-stanice" ? (
+            <AdminEditorSection id="directory-breeder-links" className="admin-form-card">
+              <div className="admin-card-heading"><div><span>05</span><div>
+                <h2>Prepojené plemená a chovateľské kluby</h2>
+                <p>Vyber existujúce profily. Prepojenia sa uložia spolu s tlačidlom Uložiť profil.</p>
+              </div></div></div>
+              {breederRelationsLoading ? <p>Načítavam plemená a kluby…</p> : null}
+              {breederRelationsError ? <p role="alert">{breederRelationsError}</p> : null}
+              {([
+                { key: "breeds" as const, field: "breedIds" as const, label: "Plemená", options: breederRelationOptions.breeds },
+                { key: "clubs" as const, field: "clubIds" as const, label: "Chovateľské kluby", options: breederRelationOptions.clubs },
+              ]).map(group => {
+                const search = breederRelationSearch[group.key].trim().toLocaleLowerCase("sk");
+                const matches = group.options.filter(option =>
+                  breederSelection[group.field].includes(option.id) ||
+                  !search || option.name.toLocaleLowerCase("sk").includes(search));
+                const visible = search ? matches.slice(0, 45) : matches.filter(option =>
+                  breederSelection[group.field].includes(option.id)).slice(0, 45);
+                return (
+                  <div className="admin-field" key={group.key}>
+                    <label htmlFor={`breeder-relations-${group.key}`}>
+                      {group.label} ({breederSelection[group.field].length} vybraných)
+                    </label>
+                    <input
+                      id={`breeder-relations-${group.key}`}
+                      type="search"
+                      value={breederRelationSearch[group.key]}
+                      onChange={event => setBreederRelationSearch(value => ({ ...value, [group.key]: event.target.value }))}
+                      placeholder={`Vyhľadať ${group.label.toLocaleLowerCase("sk")}…`}
+                    />
+                    <div style={{ display: "grid", gap: 8, maxHeight: 260, overflowY: "auto", padding: "8px 0" }}>
+                      {visible.map(option => (
+                        <label key={option.id} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
+                          <input type="checkbox"
+                            checked={breederSelection[group.field].includes(option.id)}
+                            onChange={() => toggleBreederLink(group.field, option.id)}
+                          />
+                          <span>{option.name}{option.city ? ` — ${option.city}` : ""}</span>
+                        </label>
+                      ))}
+                      {!visible.length ? <small>{search ? "Nenašli sa žiadne výsledky." : "Napíš názov do vyhľadávania."}</small> : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </AdminEditorSection>
+          ) : null}
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             {profile && <AdminShareToFacebook title={name} imageUrl={imageUrl} publicPath={"/adresar/" + profile.category + "/" + profile.slug} />}
-            <div className="admin-card-heading"><div><span>05</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
+            <div className="admin-card-heading"><div><span>{profile && category === "chovatelske-stanice" ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
             <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {!notionDraft && category === "chovatelske-stanice" ? (
