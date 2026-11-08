@@ -318,6 +318,13 @@ export default async function BreedDetailPage({ params }: Props) {
     fciSection: "",
     origin: "",
   });
+  // The section NUMBER remains an internal navigation key for the atlas.
+  // It is not a separate input or visible field in the compact Notion editor.
+  const sectionNumber = managedBreed?.fciSectionNumber?.trim() ?? "";
+  const fciSectionHref = sectionNumber ? breedAtlasHref({
+    query: "", fciGroup: String(breed.fciGroup),
+    fciSection: sectionNumber, origin: "",
+  }) : undefined;
   // Only FCI identity fields present in the 60-column Notion workcopy.
   const fciFacts = [
     { label: "FCI číslo", value: managedBreed?.fciNumber ? String(managedBreed.fciNumber) : "" },
@@ -326,7 +333,7 @@ export default async function BreedDetailPage({ params }: Props) {
       value: fciGroupName ? `${breed.fciGroup}. ${fciGroupName}` : String(breed.fciGroup),
       href: fciGroupHref,
     },
-    { label: "FCI sekcia", value: breed.fciSection?.trim() ?? "" },
+    { label: "FCI sekcia", value: breed.fciSection?.trim() || sectionNumber, href: fciSectionHref },
   ].filter((item) => Boolean(item.value));
   const hasFciReference = Boolean(
     managedBreed?.fciNumber ||
