@@ -197,11 +197,13 @@ test("mismatched supplied organization name and slug cannot create an inconsiste
   assert.equal(prepared.organizationSlug, "canonical-oz");
 });
 
-test("public adoption lifecycle rejects a missing canonical organization relation while draft stays nullable", async () => {
-  await assert.rejects(
-    () => prepareAdoptionWritePayload(relationDatabase(), validPublicPayload({ organizationId: null }), "editor@psipedia.sk"),
-    /canonical organization_id/,
+test("public adoption lifecycle permits missing canonical organization without inventing one", async () => {
+  const publicProfile = await prepareAdoptionWritePayload(
+    relationDatabase(), validPublicPayload({ organizationId: null, organizationName: "", organizationSlug: null }), "editor@psipedia.sk",
   );
+  assert.equal(publicProfile.status, "ACTIVE");
+  assert.equal(publicProfile.organizationId, null);
+  assert.equal(publicProfile.organizationName, "");
   const draft = await prepareAdoptionWritePayload(
     relationDatabase(),
     validPublicPayload({ status: "DRAFT", organizationId: null, organizationName: "Legacy zodpovedná osoba", organizationSlug: null }),
