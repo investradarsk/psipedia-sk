@@ -218,11 +218,13 @@ test("mapped Directory native publication pushes verified D1 status to the same 
     async function scenario(notionStatus, pageId = id) {
       const writes = [], edits = [], profiles = [], patches = [];
       const exports = {};
-      const profile = {id: 77, category: item.subcategory, status: "published", imageUrl: "",
+      const profile = {id: 77, category: item.subcategory, status: "published",
+        importData: { _psipedia_trainer_services_text: "" }, imageUrl: "",
         websiteUrl: "", updatedAt: "2026-10-21T20:00:00Z"};
       const context = {
         exports, structuredClone, reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedProfileBaselineFromHashes,
         isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
+        TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
         readNotionFieldAuthorities: async () => ({}),
         gemini22PriorityEnabled: () => false,
         notionDirectoryPageBelongsToSource,
