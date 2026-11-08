@@ -3,7 +3,7 @@ import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/no
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
 import { writeBackPublishedEventToNotion, type NotionEventSyncBindings } from "@/lib/notion-event-sync";
-import { eventAdminChangedFields } from "@/lib/notion-event-field-events";
+import { eventAdminChangedFields, eventPreserveUneditedFields, EVENT_EDITORIAL_PATHS, type EventEditorialField } from "@/lib/notion-event-field-events";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -38,7 +38,19 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getManagedEventById(id);
     if (!before) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
-    const event = await updateManagedEvent(id, await request.json() as ManagedEventInput, user.email, before);
+    const submitted = await request.json() as ManagedEventInput & {eventEditorialChangedFields?: unknown};
+    const requested = submitted.eventEditorialChangedFields;
+    const edited = Array.isArray(requested) ? requested.filter(
+      (value): value is EventEditorialField =>
+        typeof value === "string" && EVENT_EDITORIAL_PATHS.includes(value as EventEditorialField),
+    ) : null;
+    const safeInput = edited
+      ? eventPreserveUneditedFields(
+          submitted as Record<string, unknown>,
+          before as unknown as Record<string, unknown>, edited,
+        ) as ManagedEventInput
+      : submitted;
+    const event = await updateManagedEvent(id, safeInput, user.email, before);
     if (!event) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
     if (before.imageKey && before.imageKey !== event.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
