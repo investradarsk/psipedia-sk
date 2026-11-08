@@ -414,7 +414,9 @@ export function AdminDirectoryEditor({
             body: JSON.stringify({
               lastEditedAt: notionVersion,
               name, slug, category, excerpt, description,
-              services: listFromText(services), qualifications: listFromText(qualifications),
+              services: isDirectoryEventPilotCategory(category)
+                ? listFromText(notionDraft.services ?? "") : listFromText(services),
+              qualifications: listFromText(qualifications),
               address: publicAddress, city, district, region, postalCode, street,
               houseNumber, addressFormat, priceNote, websiteUrl,
               publicPhone, publicEmail, facebookUrl, instagramUrl,
@@ -466,7 +468,7 @@ export function AdminDirectoryEditor({
               addressFormat, priceNote, websiteUrl, publicPhone, publicEmail,
               facebookUrl, instagramUrl, seo,
             },
-          )
+          ).filter(path => path !== "services" || !isDirectoryEventPilotCategory(category))
         : undefined;
       const pilotMetadataFields: Record<string, string> = {};
       if (profile && isDirectoryEventPilotCategory(profile.category)) {
@@ -481,9 +483,9 @@ export function AdminDirectoryEditor({
             pilotMetadataFields[key] = current.trim();
         }
       }
-      // A previously opened editor must not re-save a stale legacy services
-      // list after Services V3 was updated by an independent Notion event.
-      const trainerServicesEdited = profile && (profile.category === "treneri" || isDirectoryEventPilotCategory(profile.category)) && category === profile.category && breederBaseline
+      // Trainers keep their existing legacy textarea behavior. Pilot profiles
+      // never edit this field: their services are managed in catalog V3 only.
+      const trainerServicesEdited = profile && profile.category === "treneri" && category === profile.category && breederBaseline
         ? JSON.stringify(listFromText(services)) !== JSON.stringify(breederBaseline.services)
         : undefined;
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
@@ -494,7 +496,9 @@ export function AdminDirectoryEditor({
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
-          services: listFromText(services), qualifications: listFromText(qualifications),
+          services: profile && isDirectoryEventPilotCategory(profile.category)
+            ? profile.services : listFromText(services),
+          qualifications: listFromText(qualifications),
           address: publicAddress,
           city, district, region, postalCode, street, houseNumber, addressFormat,
           addressProviderResultId: addressProviderResultId || undefined,
@@ -877,8 +881,10 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
             <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
             <AdminHelpText term="Formát">Lexical ukladá popis do existujúceho textového poľa bez zmeny synchronizácie Notion.</AdminHelpText>
-            <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
+            <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
+              {!isDirectoryEventPilotCategory(category) ? (
+                <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
+              ) : null}
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
