@@ -1276,6 +1276,9 @@ const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
   "seo.ogImage": "ogImage",
 };
 const breederFacetNotionProperties = {
+  "veterinari.facility_type": "Typ pracoviska",
+  "veterinari.emergency": "Pohotovosť",
+  "veterinari.home_visits": "Návštevy doma",
   "chovatelske-stanice.visits_by_appointment": "Návštevy po dohode",
   "chovatelske-stanice.health_testing_information": "Informácie o zdravotných testoch",
   "treneri.individual_training": "Individuálny výcvik",
@@ -1292,7 +1295,17 @@ function breederChangedNotionFacets(page: NotionPage, changedIds: readonly strin
   });
 }
 function notionFacetLabel(value: string): string {
+  if (value === "ambulance") return "Ambulancia";
+  if (value === "clinic") return "Klinika";
+  if (value === "hospital") return "Nemocnica";
   return value === "yes" ? "Áno" : value === "no" ? "Nie" : "Neznáme";
+}
+function notionFacetSourceValue(value: string): string {
+  if (value === "Ambulancia") return "ambulance";
+  if (value === "Klinika") return "clinic";
+  if (value === "Nemocnica") return "hospital";
+  if (value === "Neznáme") return "unknown";
+  return value;
 }
 const breederSearchFields = new Set<BreederEditorialField>([
   "name", "excerpt", "description", "services", "qualifications", "region", "district",
@@ -1516,7 +1529,7 @@ async function syncBreederEvent(input: {
       .filter(path => path !== "services" || ["chovatelske-stanice", "salony-a-sluzby", "treneri"].includes(input.profile.category));
     const relationFields = ["chovatelske-stanice", "treneri"].includes(input.profile.category)
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
-    const facetFields = ["chovatelske-stanice", "treneri"].includes(input.profile.category)
+    const facetFields = ["chovatelske-stanice", "treneri", "veterinari"].includes(input.profile.category)
       ? breederChangedNotionFacets(page, input.changedPropertyIds)
           .filter(id => getDirectoryFilterDefinition(id)?.category === input.profile.category)
       : [];
@@ -1571,7 +1584,7 @@ async function syncBreederEvent(input: {
       if (!def) continue;
       const selected = propertyText(page, breederFacetNotionProperties[id]);
       if (!selected) continue;
-      const normalized = normalizeDirectoryFilterValue(def, selected);
+      const normalized = normalizeDirectoryFilterValue(def, notionFacetSourceValue(selected));
       if (normalized.status !== "known") {
         failures.push(id);
         continue;
@@ -1693,7 +1706,7 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
     throw new Error("BREEDER_FACET_NOTION_SYNC_DISABLED");
   const mapping = await loadMappingByProfile(input.database, input.profileId);
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!mapping || !profile || !["chovatelske-stanice", "treneri"].includes(profile.category))
+  if (!mapping || !profile || !["chovatelske-stanice", "treneri", "veterinari"].includes(profile.category))
     throw new Error("BREEDER_FACET_NOTION_MAPPING_UNAVAILABLE");
   const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
   if (page.id !== mapping.notion_page_id ||
@@ -1701,6 +1714,7 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
       propertyText(page, "Psipedia ID") !== String(input.profileId))
     throw new NotionDirectoryUnsafeTargetError("BREEDER_FACET_TARGET_INVALID");
   const patch: Record<string, unknown> = {};
+  const expectedLabels: Record<string, string> = {};
   for (const id of input.fields) {
     if (!Object.hasOwn(breederFacetNotionProperties, id)) continue;
     const key = breederFacetNotionProperties[id as BreederFacetId];
@@ -1710,9 +1724,35 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
     const state = normalizeDirectoryFilterValue(def, profile.importData?.[def.d1.key]);
     if (state.status !== "known") continue;
     const label = notionFacetLabel(state.value);
-    if (propertyText(page, key) !== label) patch[key] = select(label);
+    if (propertyText(page, key) !== label) {
+      patch[key] = select(label);
+      expectedLabels[key] = label;
+    }
   }
   if (!Object.keys(patch).length) return false;
+  // Vet facet edits remain independently transferable: one rejected Notion field
+  // must not suppress the others or rewrite unrelated category properties.
+  if (profile.category === "veterinari") {
+    const failures: string[] = [];
+    for (const [key, value] of Object.entries(patch)) {
+      try {
+        const echoed = await patchNotionPage(input.bindings, page.id, { [key]: value });
+        if (propertyText(echoed, key) !== expectedLabels[key])
+          throw new Error("VETERINARY_FACET_WRITEBACK_UNVERIFIED");
+      } catch (error) {
+        console.error("VETERINARY_FACET_WRITEBACK_FAILED", input.profileId, key, error);
+        failures.push(key);
+      }
+    }
+    if (failures.length)
+      throw new Error("VETERINARY_FACET_FIELDS_PENDING: " + failures.join(","));
+    await patchNotionPage(input.bindings, page.id, {
+      "Sync stav": select("Synchronizované"),
+      "Sync chyba": richText(""),
+      "Posledný sync": date(new Date().toISOString()),
+    });
+    return true;
+  }
   patch["Sync stav"] = select("Synchronizované");
   patch["Sync chyba"] = richText("");
   patch["Posledný sync"] = date(new Date().toISOString());
