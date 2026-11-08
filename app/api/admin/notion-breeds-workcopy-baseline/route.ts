@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     return Response.json({ code: "BREED_WORKCOPY_BASELINE_CURSOR_INVALID" },
       { status: 400, headers });
   }
+  const afterId = Number(afterRaw);
   const db = bindings.DB;
   try {
     const cohort = await db.prepare(
