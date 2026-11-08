@@ -34,7 +34,9 @@ test("additive event migration stores alt and notes without modifying existing r
     db.exec("INSERT INTO managed_events (id,title) VALUES (145,'Akadémia Sírius')");
     db.exec(read("drizzle/0161_event_image_alt_private_notes.sql"));
     const row = db.prepare("SELECT image_alt,internal_notes,title FROM managed_events WHERE id=145").get();
-    assert.deepEqual(row, { image_alt: "", internal_notes: "", title: "Akadémia Sírius" });
+    assert.equal(row.image_alt, "");
+    assert.equal(row.internal_notes, "");
+    assert.equal(row.title, "Akadémia Sírius");
   } finally { db.close(); }
 });
 
