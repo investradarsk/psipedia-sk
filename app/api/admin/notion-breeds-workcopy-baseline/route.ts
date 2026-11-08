@@ -4,6 +4,8 @@ import { getManagedBreed } from "@/lib/breed-store";
 import { notionRequest, type NotionPage, type NotionSyncBindings } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
 import { buildBreedWorkCopyBaseline } from "@/lib/notion-breed-workcopy-baseline";
+import { BREED_WORKCOPY_BASELINE_CAS_SQL, breedBaselineCasBindings } from
+  "@/lib/production-breed-workcopy-baseline-cas.mjs";
 
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store" };
@@ -38,7 +40,6 @@ export async function POST(request: Request) {
   const bindings = env as unknown as Bindings;
   if (!bindings.DB || !bindings.NOTION_API_TOKEN ||
       bindings.NOTION_BREED_WORKCOPY_BASELINE_ENABLED !== "true" ||
-      bindings.NOTION_BREED_WORKCOPY_STAGE_ENABLED !== "true" ||
       bindings.NOTION_BREED_SYNC_ENABLED !== "true" ||
       bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED !== "false" ||
       !bindings.NOTION_BREEDS_DATA_SOURCE_ID ||
@@ -51,13 +52,29 @@ export async function POST(request: Request) {
     return Response.json({ code: "BREED_WORKCOPY_BASELINE_CONFIRMATION_REQUIRED" },
       { status: 409, headers });
   }
+  // The bounded cursor allows one failing profile to remain pending without
+  // blocking the remaining 343; a later pass can safely retry that profile.
+  const afterRaw = request.headers.get("x-psipedia-breed-baseline-after") ?? "0";
+  if (!/^(0|[1-9][0-9]{0,9})$/.test(afterRaw) ||
+      Number(afterRaw) > 2147483647) {
+    return Response.json({ code: "BREED_WORKCOPY_BASELINE_CURSOR_INVALID" },
+      { status: 400, headers });
+  }
+  const afterId = Number(afterRaw);
   const db = bindings.DB;
   try {
+    const cohort = await db.prepare(
+      "SELECT COUNT(*) AS total, " +
+      "SUM(CASE WHEN status='SHADOW' THEN 1 ELSE 0 END) AS shadow " +
+      "FROM breed_notion_workcopy_links",
+    ).first<{ total: number; shadow: number | null }>();
+    if (Number(cohort?.total) !== 344 || Number(cohort?.shadow) !== 344)
+      throw Error("BREED_WORKCOPY_BASELINE_NOT_344_INACTIVE");
     const rows = await db.prepare(
       "SELECT * FROM breed_notion_workcopy_links WHERE status='SHADOW' " +
-      "AND work_sync_receipt IS NULL AND work_last_error_code IS NULL " +
+      "AND work_sync_receipt IS NULL AND breed_id>? " +
       "ORDER BY breed_id LIMIT 10",
-    ).all<WorkRow>();
+    ).bind(afterId).all<WorkRow>();
     let initialized = 0, failed = 0, differentValueCount = 0;
     for (const row of rows.results) {
       try {
@@ -86,8 +103,11 @@ export async function POST(request: Request) {
             !notionPageBelongsToDataSource(page, bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!)) {
           throw Error("BREED_WORKCOPY_BASELINE_PAGE_MOVED");
         }
-        if (!row.work_notion_last_edited_time ||
-            page.last_edited_time !== row.work_notion_last_edited_time) {
+        // 0159 SHADOW staging left this revision NULL by design. Bootstrap
+        // from the live page instead of rejecting every staged profile.
+        if (!page.last_edited_time ||
+            (row.work_notion_last_edited_time &&
+              page.last_edited_time !== row.work_notion_last_edited_time)) {
           throw Error("BREED_WORKCOPY_BASELINE_NOTION_REVISION_CHANGED");
         }
         const provenance = page.properties?.["Zdrojový profil Notion"] as
@@ -98,21 +118,19 @@ export async function POST(request: Request) {
         if (original !== normalize(row.original_notion_page_id))
           throw Error("BREED_WORKCOPY_BASELINE_PROVENANCE_CHANGED");
         const baseline = buildBreedWorkCopyBaseline(page, breed);
-        // The old source receipt is checked again in the SAME SQL statement
-        // that records the new baseline. A racing old sync cannot be accepted.
-        const update = await db.prepare(
-          "UPDATE breed_notion_workcopy_links SET work_sync_receipt=?, " +
-          "work_last_error_code=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') " +
-          "WHERE breed_id=? AND status='SHADOW' AND work_sync_receipt IS NULL " +
-          "AND work_notion_page_id=? AND work_notion_last_edited_time=? " +
-          "AND original_sync_receipt=? " +
-          "AND EXISTS(SELECT 1 FROM breed_notion_sync s WHERE s.breed_id=? " +
-          "AND s.notion_page_id=? AND s.content_hash=?)",
-        ).bind(
-          baseline.value, row.breed_id, row.work_notion_page_id,
-          row.work_notion_last_edited_time, row.original_sync_receipt,
-          row.breed_id, row.original_notion_page_id, row.original_sync_receipt,
-        ).run();
+        // Re-read Notion before committing and use a D1 updated_at CAS.
+        const freshPage = await notionRequest<NotionPage>(bindings,
+          "/pages/" + encodeURIComponent(row.work_notion_page_id));
+        if (freshPage.last_edited_time !== page.last_edited_time ||
+            normalize(freshPage.id) !== normalize(row.work_notion_page_id) ||
+            !notionPageBelongsToDataSource(
+              freshPage, bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!))
+          throw Error("BREED_WORKCOPY_BASELINE_NOTION_CHANGED_DURING_READ");
+        const update = await db.prepare(BREED_WORKCOPY_BASELINE_CAS_SQL)
+          .bind(...breedBaselineCasBindings({
+            value: baseline.value, revision: page.last_edited_time,
+            row, canonicalUpdatedAt: breed.updatedAt,
+          })).run();
         if (update.meta.changes !== 1) throw Error("BREED_WORKCOPY_BASELINE_CAS_FAILED");
         initialized++;
         differentValueCount += baseline.differenceCount;
@@ -134,8 +152,12 @@ export async function POST(request: Request) {
       "FROM breed_notion_workcopy_links",
     ).first<{ total: number; missing: number; errors: number }>();
     return Response.json({
+      scanned: rows.results.length,
+      nextCursor: rows.results.length
+        ? rows.results[rows.results.length - 1].breed_id : null,
       initialized, failed, differentValueCount,
       stagedTotal: pending?.total ?? 0,
+      baselinesReady: Number(pending?.total ?? 0) - Number(pending?.missing ?? 0),
       baselinesMissing: pending?.missing ?? 0,
       rowsNeedingReview: pending?.errors ?? 0,
       cutoverReady: false,
