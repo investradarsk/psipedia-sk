@@ -1470,6 +1470,31 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
 }
 
 /**
+ * One-column CAS write. Trust status is deliberately distinct from publication
+ * and from editorial profile updates. Never touch Services V3 or source_data_json.
+ */
+async function saveTrainerTrustField(
+  database: D1Database,
+  current: ManagedDirectoryProfile,
+  field: TrainerTrustField,
+  value: boolean,
+): Promise<ManagedDirectoryProfile> {
+  if (current.category !== "treneri" || current.status === "archived")
+    throw new Error("TRAINER_TRUST_SCOPE_INVALID");
+  if (current[field] === value) return current;
+  const column = field === "verified" ? "verified" : "featured";
+  const changed = await database.prepare(
+    "UPDATE directory_profiles SET " + column + " = ?, updated_at = ?, updated_by = ? " +
+    "WHERE id = ? AND category = 'treneri' AND status <> 'archived' AND updated_at = ? RETURNING id",
+  ).bind(value ? 1 : 0, new Date().toISOString(), SYSTEM_ACTOR, current.id, current.updatedAt)
+    .first<{ id: number }>();
+  if (!changed) throw new Error("TRAINER_TRUST_WRITE_CONFLICT");
+  const updated = await getManagedDirectoryProfileById(current.id, database);
+  if (!updated) throw new Error("TRAINER_TRUST_RELOAD_FAILED");
+  return updated;
+}
+
+/**
  * Mapped breeder/trainer event mode: one explicit source action is authoritative for
  * the fields it edited. No record-wide hash/baseline/conflict reconciliation.
  * Retain the mapped identity, auth, and canonical structural constraints.
@@ -1666,7 +1691,7 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
     throw new Error("BREEDER_FACET_NOTION_SYNC_DISABLED");
   const mapping = await loadMappingByProfile(input.database, input.profileId);
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!mapping || !profile || profile.category !== "chovatelske-stanice")
+  if (!mapping || !profile || !["chovatelske-stanice", "treneri"].includes(profile.category))
     throw new Error("BREEDER_FACET_NOTION_MAPPING_UNAVAILABLE");
   const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
   if (page.id !== mapping.notion_page_id ||
@@ -1679,7 +1704,7 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
     const key = breederFacetNotionProperties[id as BreederFacetId];
     if (!Object.hasOwn(page.properties ?? {}, key)) throw new Error("BREEDER_NOTION_FACET_MISSING: " + key);
     const def = getDirectoryFilterDefinition(id);
-    if (!def) continue;
+    if (!def || def.category !== profile.category) continue;
     const state = normalizeDirectoryFilterValue(def, profile.importData?.[def.d1.key]);
     if (state.status !== "known") continue;
     const label = notionFacetLabel(state.value);
@@ -1690,6 +1715,49 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
   patch["Sync chyba"] = richText("");
   patch["Posledný sync"] = date(new Date().toISOString());
   await patchNotionPage(input.bindings, page.id, patch);
+  return true;
+}
+
+/**
+ * Admin -> Notion trust writeback for trainer profiles only. Each selected
+ * checkbox is individually compared and patched; absence from 'fields'
+ * never modifies the other checkbox, even when an old Admin form was open.
+ */
+export async function mirrorTrainerTrustFieldsToNotion(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  profileId: number;
+  fields: readonly TrainerTrustField[];
+}): Promise<boolean> {
+  if (!input.fields.length) return false;
+  if (!notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED) ||
+      !input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim() || !input.bindings.NOTION_API_TOKEN?.trim())
+    throw new Error("TRAINER_TRUST_NOTION_DISABLED");
+  const mapping = await loadMappingByProfile(input.database, input.profileId);
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!mapping || !profile || profile.category !== "treneri" || profile.status === "archived")
+    throw new Error("TRAINER_TRUST_NOTION_MAPPING_INVALID");
+  const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+  if (page.id !== mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!) ||
+      propertyText(page, "Psipedia ID") !== String(input.profileId))
+    throw new NotionDirectoryUnsafeTargetError("TRAINER_TRUST_NOTION_TARGET_INVALID");
+  const patch: Record<string, unknown> = {};
+  for (const field of input.fields) {
+    const name = TRAINER_TRUST_NOTION_PROPERTIES[field];
+    const checked = property(page, name)?.checkbox;
+    if (typeof checked !== "boolean")
+      throw new Error("TRAINER_TRUST_NOTION_PROPERTY_INVALID: " + name);
+    if (checked !== profile[field]) patch[name] = { checkbox: profile[field] };
+  }
+  if (!Object.keys(patch).length) return false;
+  patch["Sync stav"] = select("Synchronizované");
+  patch["Sync chyba"] = richText("");
+  patch["Posledný sync"] = date(new Date().toISOString());
+  const echoed = await patchNotionPage(input.bindings, page.id, patch);
+  if (echoed.id !== page.id || !echoed.properties ||
+      input.fields.some(field => property(echoed, TRAINER_TRUST_NOTION_PROPERTIES[field])?.checkbox !== profile[field]))
+    throw new Error("TRAINER_TRUST_NOTION_WRITEBACK_UNVERIFIED");
   return true;
 }
 
