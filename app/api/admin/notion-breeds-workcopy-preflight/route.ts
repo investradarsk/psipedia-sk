@@ -162,20 +162,51 @@ export async function GET(request: Request) {
     }
     const readAdapterReady = result.identityReady && workCopyContentReady &&
       readAdapterErrors.length === 0;
+    // The 50 historical *old-source* legacy hashes do not invalidate
+    // independently initialized work-copy field receipts. The previous
+    // diagnostic mistakenly counted original receipts as new SHADOW readiness.
     let shadowReceiptReady = false;
     let compatibleReceiptCount = 0;
+    let workReceiptMissingCount = 344;
     let shadowReceiptIssue: string | null = null;
+    const legacyOriginalReceiptCount = result.identityReady
+      ? 344 - productionMappings.results.filter(row =>
+          isCompatibleBreedWorkcopyReceipt(row.content_hash)).length
+      : null;
     if (result.identityReady && workCopyContentReady) {
       try {
-        const rows = planBreedWorkcopyShadowRows({
+        const planned = planBreedWorkcopyShadowRows({
           identityPlan: result,
           productionLinks: productionMappings.results,
           originalDataSourceId: source,
           workDataSourceId: work,
         });
-        compatibleReceiptCount = rows.filter(row =>
-          isCompatibleBreedWorkcopyReceipt(row.originalSyncReceipt)).length;
-        shadowReceiptReady = rows.length === 344 && compatibleReceiptCount === 344;
+        const shadow = d1Diagnostics.shadowTablePresent
+          ? (await bindings.DB.prepare(
+              "SELECT breed_id,original_notion_page_id,work_notion_page_id,"+
+              "original_sync_receipt,work_sync_receipt,status "+
+              "FROM breed_notion_workcopy_links",
+            ).all<{
+              breed_id:number; original_notion_page_id:string;
+              work_notion_page_id:string; original_sync_receipt:string;
+              work_sync_receipt:string|null; status:string;
+            }>()).results
+          : [];
+        const byBreed = new Map(shadow.map(row => [row.breed_id, row]));
+        const normalize = (id:string) => id.replaceAll("-", "").toLowerCase();
+        compatibleReceiptCount = planned.filter(candidate => {
+          const row = byBreed.get(candidate.breedId);
+          return row?.status === "SHADOW" &&
+            normalize(row.original_notion_page_id) === normalize(candidate.originalPageId) &&
+            normalize(row.work_notion_page_id) === normalize(candidate.workPageId) &&
+            row.original_sync_receipt === candidate.originalSyncReceipt &&
+            isCompatibleBreedWorkcopyReceipt(row.work_sync_receipt);
+        }).length;
+        workReceiptMissingCount = 344 - compatibleReceiptCount;
+        shadowReceiptReady = planned.length === 344 &&
+          shadow.length === 344 && compatibleReceiptCount === 344;
+        if (!shadowReceiptReady)
+          shadowReceiptIssue = "BREED_WORKCOPY_SHADOW_RECEIPTS_OR_LINKS_PENDING";
       } catch (reason) {
         shadowReceiptIssue = reason instanceof Error ? reason.message : "BREED_SHADOW_UNKNOWN";
       }
@@ -187,7 +218,9 @@ export async function GET(request: Request) {
       workCopyContentReady,
       shadowReceiptReady,
       compatibleReceiptCount,
-      legacyOrInvalidReceiptCount: result.identityReady ? 344 - compatibleReceiptCount : null,
+      workReceiptMissingCount,
+      legacyOrInvalidReceiptCount: legacyOriginalReceiptCount,
+      legacyOriginalReceiptsAreAdvisory: true,
       shadowReceiptIssue,
       readAdapterReady,
       readAdapterErrorCount: readAdapterErrors.length,
