@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     const breeder = await bindings.DB.prepare(
       "SELECT dp.id FROM directory_notion_sync dns " +
       "JOIN directory_profiles dp ON dp.id=dns.directory_profile_id " +
-      "WHERE dns.notion_page_id=? AND dp.category IN ('chovatelske-stanice','treneri','veterinari','fyzioterapia','dalsie-sluzby') LIMIT 1",
+      "WHERE dns.notion_page_id=? AND dp.category IN ('chovatelske-stanice','treneri','salony-a-sluzby','veterinari','fyzioterapia','dalsie-sluzby') LIMIT 1",
     ).bind(data.entity!.id).first<{ id: number }>();
     if (breeder) {
       const result = await dispatchNotionPageChange(data, bindings);

@@ -8,7 +8,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
 import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
-import { isDirectoryEventPilotCategory } from "@/lib/notion-directory-field-event-scope";
+import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
@@ -451,7 +451,7 @@ export function AdminDirectoryEditor({
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
       const breederBaseline = breederSaveBaselineRef.current;
-      const breederChangedPaths = profile && (["chovatelske-stanice", "treneri"].includes(profile.category) || isDirectoryEventPilotCategory(profile.category))
+      const breederChangedPaths = profile && isDirectoryFieldEventCategory(profile.category)
         && category === profile.category && breederBaseline
         ? breederAdminChangedFields(
             {
@@ -548,7 +548,7 @@ export function AdminDirectoryEditor({
         setFilterSourceData(savedProfile.importData ?? {});
         setFilterChanges({});
       }
-      if (["chovatelske-stanice", "treneri"].includes(savedProfile.category) || isDirectoryEventPilotCategory(savedProfile.category)) {
+      if (isDirectoryFieldEventCategory(savedProfile.category)) {
         // Refresh form values from the committed D1 result: untouched fields
         // may have been updated through a Notion webhook while this was open.
         breederSaveBaselineRef.current = savedProfile;

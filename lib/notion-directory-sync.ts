@@ -380,7 +380,7 @@ function notionSnapshot(page: NotionPage): EditableDirectorySnapshot {
     status: statusFromNotion(propertyText(page, "Psipedia stav")),
     excerpt: propertyText(page, "Perex"),
     description: propertyText(page, "Popis"),
-    services: propertyText(page, "Kategória") === "chovatelske-stanice"
+    services: ["chovatelske-stanice", "salony-a-sluzby"].includes(propertyText(page, "Kategória"))
       ? propertyText(page, "Služby").split(/\r?\n|<br\s*\/?\s*>/gi).map(item => item.trim()).filter(Boolean)
       : splitList(propertyText(page, "Služby")),
     qualifications: splitQualificationLines(propertyText(page, "Kvalifikácie")),
@@ -1291,7 +1291,7 @@ async function saveBreederEditorialValue(
   desired: Record<string, unknown>,
   path: BreederEditorialField,
 ): Promise<ManagedDirectoryProfile> {
-  if ((!isDirectoryEventPilotCategory(current.category) && current.category !== "chovatelske-stanice") || current.status === "archived")
+  if ((!isDirectoryEventPilotCategory(current.category) && !["chovatelske-stanice", "salony-a-sluzby"].includes(current.category)) || current.status === "archived")
     throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
   // Pilot categories use the canonical Services V3 catalog. Their retired
   // legacy "Služby" text must not be written by any editorial event.
@@ -1466,7 +1466,7 @@ async function syncBreederEvent(input: {
   const now = new Date().toISOString();
   if (input.changedPropertyIds !== undefined) {
     const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds)
-      .filter(path => path !== "services" || input.profile.category === "chovatelske-stanice");
+      .filter(path => path !== "services" || ["chovatelske-stanice", "salony-a-sluzby"].includes(input.profile.category));
     const relationFields = input.profile.category === "chovatelske-stanice"
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
     const facetFields = input.profile.category === "chovatelske-stanice"
@@ -1487,7 +1487,7 @@ async function syncBreederEvent(input: {
       if (JSON.stringify(breederReadPath(before, path)) ===
           JSON.stringify(breederReadPath(desired, path))) continue;
       try {
-        current = input.profile.category === "chovatelske-stanice" || isDirectoryEventPilotCategory(input.profile.category)
+        current = ["chovatelske-stanice", "salony-a-sluzby"].includes(input.profile.category) || isDirectoryEventPilotCategory(input.profile.category)
           ? await saveBreederEditorialValue(database, current, desired, path)
           : await (async () => {
             // Trainers retain their existing validator until their own rollout.
@@ -1610,7 +1610,7 @@ async function syncBreederEvent(input: {
   const fields = (input.adminChangedFields ?? []).filter(
     (path): path is BreederEditorialField =>
       Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
-      (path !== "services" || input.profile.category === "chovatelske-stanice"),
+      (path !== "services" || ["chovatelske-stanice", "salony-a-sluzby"].includes(input.profile.category)),
   );
   if (!fields.length) return "unchanged";
   const geo = await loadGeoMirror(database, input.profile.id);
@@ -1737,7 +1737,7 @@ async function syncMappedPage(input: {
   // A targeted sweep may still mirror Admin-confirmed publication, status only:
   // never re-enter record-wide editorial hash/baseline reconciliation.
   // The owner-directed manual full-profile transfer below stays available.
-  if ((profile.category === "chovatelske-stanice" || isDirectoryEventPilotCategory(profile.category)) &&
+  if ((["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category) || isDirectoryEventPilotCategory(profile.category)) &&
       !input.manualDirection &&
       input.breederWebhookPropertyIds === undefined &&
       input.breederAdminFields === undefined) {
@@ -2710,7 +2710,7 @@ export async function runNotionDirectorySyncSweep(input: {
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
-      if (!profile || profile.category === "chovatelske-stanice") continue;
+      if (!profile || ["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category)) continue;
       await writeProfileToNotion({
         database: input.database,
         bindings: input.bindings,

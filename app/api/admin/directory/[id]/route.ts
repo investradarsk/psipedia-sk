@@ -6,7 +6,7 @@ import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelect
 import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
-import { isDirectoryEventPilotCategory } from "@/lib/notion-directory-field-event-scope";
+import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -78,7 +78,7 @@ export async function PUT(request: Request, { params }: Props) {
     // A stale full-form payload must never silently undo a newer Notion edit
     // to a field the editor did not touch.
     const editedPaths: BreederEditorialField[] | null =
-      (["chovatelske-stanice", "treneri"].includes(before.category) || isDirectoryEventPilotCategory(before.category)) && Array.isArray(rawBreederEditedPaths)
+      isDirectoryFieldEventCategory(before.category) && Array.isArray(rawBreederEditedPaths)
         ? rawBreederEditedPaths.filter(
             (path): path is BreederEditorialField =>
               typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
@@ -213,7 +213,7 @@ export async function PUT(request: Request, { params }: Props) {
             database: notionEnv.DB,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
-            breederAdminFields: ["chovatelske-stanice", "treneri"].includes(before.category) || isDirectoryEventPilotCategory(before.category)
+            breederAdminFields: isDirectoryFieldEventCategory(before.category)
               ? breederEditedFields(before, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
@@ -244,7 +244,7 @@ export async function PUT(request: Request, { params }: Props) {
         notionFieldSync = "pending";
       }
     }
-    if (notionEnv.DB && (["chovatelske-stanice", "treneri"].includes(before.category) || isDirectoryEventPilotCategory(before.category))) {
+    if (notionEnv.DB && isDirectoryFieldEventCategory(before.category)) {
       const edited = breederEditedFields(before, profile);
       if (edited.length || Object.keys(changedPilotMetadata).length) {
         const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
@@ -325,7 +325,7 @@ export async function PATCH(request: Request, { params }: Props) {
             database: db,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
-            breederAdminFields: breederBefore && ["chovatelske-stanice", "treneri"].includes(breederBefore.category) && profile
+            breederAdminFields: breederBefore && ["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(breederBefore.category) && profile
               ? breederEditedFields(breederBefore, profile) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
@@ -335,7 +335,7 @@ export async function PATCH(request: Request, { params }: Props) {
           notionFieldSync = "pending";
         }
       }
-      if (profile && breederBefore && notionEnv.DB && ["chovatelske-stanice", "treneri"].includes(profile.category)) {
+      if (profile && breederBefore && notionEnv.DB && ["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(profile.category)) {
         const edited = breederEditedFields(breederBefore, profile);
         if (edited.length) {
           const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
