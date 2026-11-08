@@ -176,6 +176,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
   test("settings drawer restores focus and exposes FCI/SEO while image manager shows current image, fallback and remove", async ({ page }) => {
     await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
+    await waitForBreedList(page);
     await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill("Biely svajciarsky");
     await page.getByRole("link", { name: "Biely švajčiarsky ovčiak" }).click();
     await waitForBreedEditor(page);
