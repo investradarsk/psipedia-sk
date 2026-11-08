@@ -25,6 +25,12 @@ on:
       - "app/api/admin/notion-events-help-sync/**"
       - "drizzle/0108_notion_events_help_bidirectional_sync.sql"
       - "tests/notion-events-help-bidirectional.test.mjs"
+      - "lib/notion-event-field-*.ts"
+      - "tests/notion-event-field-events.test.mjs"
+      - "app/api/admin/events/**"
+      - "components/admin-event-editor.tsx"
+      - "lib/notion-targeted-admin-save.ts"
+      - "lib/notion-webhook-dispatch.ts"
       - "tests/notion-event-contact-sync.test.mjs"
       - "lib/notion-event-contact-fields.ts"
       - "tests/notion-directory-apply-sql-r2-integration.test.mjs"
@@ -82,7 +88,7 @@ jobs:
         run: npm run test:notion-bulk-backfill
 
       - name: Directory and Event sync regressions
-        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-directory-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-event-contact-sync.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-directory-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-event-contact-sync.test.mjs tests/notion-event-field-events.test.mjs
 
       - name: Directory Notion R2 canonical write safety regressions
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-directory-apply-sql-r2-integration.test.mjs
