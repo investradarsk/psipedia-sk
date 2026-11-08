@@ -251,34 +251,31 @@ export async function syncEventAdminFields(input:{
       const canonical=source.properties[name];
       if(eventEmpty(before)&&!eventEmpty(canonical))selected.add(path);
     }
-    const patch:Record<string,unknown>={};
     const errors:string[]=[];
+    let latest=page;
+    let written=0;
     for(const path of EVENT_NOTION_PATHS){
       if(!selected.has(path))continue;
       const name=EVENT_NOTION_FIELDS[path];
       try{
-        const original=page.properties?.[name];
+        const original=latest.properties?.[name];
         if(!original)throw Error("NOTION_FIELD_MISSING");
         const value=source.properties[name];
         if(eventEmpty(value))continue; // No implicit deletion in either direction.
         const encoded=encodeValue(value,original);
-        if(!sameNotionProperty(original,encoded))patch[name]=encoded;
+        if(sameNotionProperty(original,encoded))continue;
+        // Each PATCH is isolated: a rejected URL must not undo other writes.
+        const reply=await patchNotion(input.bindings,page.id,{[name]:encoded});
+        if(reply.id!==page.id || !reply.properties?.[name] ||
+           !sameNotionProperty(reply.properties[name],encoded))
+          throw Error("EVENT_NOTION_WRITEBACK_UNVERIFIED:"+name);
+        latest=reply;
+        written++;
       }catch(e){
         errors.push(name+" ("+(e instanceof Error?e.message:"UNKNOWN")+")");
       }
     }
-    if(Object.keys(patch).length){
-      const reply=await patchNotion(input.bindings,page.id,patch);
-      if(reply.id!==page.id || !reply.properties)
-        throw Error("EVENT_NOTION_WRITEBACK_UNVERIFIED");
-      for(const [name,value] of Object.entries(patch)){
-        if(!reply.properties[name]||!sameNotionProperty(reply.properties[name],value))
-          throw Error("EVENT_NOTION_WRITEBACK_UNVERIFIED:"+name);
-      }
-    }
-    const latest=Object.keys(patch).length
-      ? await notionRequest<Page>(input.bindings,"/pages/"+encodeURIComponent(page.id)):page;
-    await updateMetadata(input.bindings,latest,errors,Object.keys(patch).length>0,
+    await updateMetadata(input.bindings,latest,errors,written>0,
       [...selected].map(path=>EVENT_NOTION_FIELDS[path]));
     return errors.length?"pending":"synced";
   }catch(e){
