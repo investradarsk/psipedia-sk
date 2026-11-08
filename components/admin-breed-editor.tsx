@@ -150,12 +150,18 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         method:breed?"PUT":"POST",headers:{"content-type":"application/json"},
         body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()&&item.url.trim()),...(breed?{expectedUpdatedAt}:{})})
       });
-      const data=await response.json() as {breed?:ManagedBreed;error?:string};
+      const data=await response.json() as {breed?:ManagedBreed;error?:string;notionEditorialWriteback?:{status:string;code?:string}};
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
       setExpectedUpdatedAt(data.breed.updatedAt);
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
       if (formEditRevisionRef.current === submittedRevision) setDirty(false);
-      setMessage(status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
+      const notionStatus=data.notionEditorialWriteback?.status;
+      const notionPending=notionStatus==="pending" ||
+        notionStatus==="workcopy-inactive" ||
+        notionStatus==="not-linked" || notionStatus==="disabled";
+      setMessage(notionPending
+        ? "Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený."
+        : status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
       if(!breed)router.replace(`/admin/plemena/${data.breed.id}`);
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}
     finally{savePendingRef.current=false;setSaving(false);}

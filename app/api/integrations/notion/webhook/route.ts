@@ -94,6 +94,40 @@ export async function POST(request: Request) {
     console.error("notion_breeder_immediate_dispatch_deferred");
   }
 
+  // A signed, explicit property edit to an already-linked breed can be
+  // applied immediately, exactly like the mapped directory fast path above.
+  // Never assume the page belongs to a breed: the dispatcher re-fetches
+  // Notion and verifies its data source and canonical profile identity.
+  // The old and 60-field adapters remain mutually exclusive.
+  if (data.type === "page.properties_updated" &&
+      data.data?.updated_properties?.length) {
+    try {
+      const workCopy = bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "true";
+      const mapping = workCopy
+        ? await bindings.DB.prepare(
+          "SELECT breed_id FROM breed_notion_workcopy_links " +
+          "WHERE work_notion_page_id=? AND status='ACTIVE' LIMIT 1",
+        ).bind(data.entity!.id).first<{ breed_id: number }>()
+        : bindings.NOTION_BREED_SYNC_ENABLED === "true"
+          ? await bindings.DB.prepare(
+            "SELECT breed_id FROM breed_notion_sync " +
+            "WHERE notion_page_id=? LIMIT 1",
+          ).bind(data.entity!.id).first<{ breed_id: number }>()
+          : null;
+      if (mapping) {
+        const result = await dispatchNotionPageChange(data, bindings);
+        if (result === "processed" || result === "metadata-only" ||
+            result === "ignored") {
+          return Response.json({ received: true, result }, { status: 200 });
+        }
+      }
+    } catch {
+      // Keep the signed property event in the durable inbox when the
+      // per-field sync or D1 query is temporarily unavailable.
+      console.error("notion_breed_immediate_dispatch_deferred");
+    }
+  }
+
   try {
     await enqueueNotionWebhook(bindings.DB, data, body);
     return Response.json({ received: true, result: "queued" }, { status: 200 });
