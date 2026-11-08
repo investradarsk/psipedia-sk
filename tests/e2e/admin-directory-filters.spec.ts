@@ -247,6 +247,10 @@ test.describe("admin directory v2", () => {
     await openDirectoryEditorSection(page, "Médiá a dôvera");
     await expect(page.getByRole("button", { name: "Odstrániť fotku" })).toBeVisible();
     await page.getByRole("button", { name: "Odstrániť fotku" }).click();
+    // Wait for React's committed image state before submitting the form:
+    // saving in the same turn can serialize the previous image URL.
+    await expect(page.getByRole("button", { name: "Odstrániť fotku" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Nahrať fotku", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Uložiť zmeny" }).click();
     await expect(page.locator("form.admin-directory-editor [data-admin-form-feedback]")).toContainText("Profil je publikovaný");
 

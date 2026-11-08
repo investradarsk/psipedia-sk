@@ -8,6 +8,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
 import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
+import { changedTrainerTrustAdminFields } from "@/lib/notion-trainer-trust-fields";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
@@ -211,6 +212,9 @@ export function AdminDirectoryEditor({
   const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
   const [pilotImageAlt, setPilotImageAlt] = useState(pilotMetadataText("Alt text obrázka"));
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
+  // An explicit remove action must survive a stale full-form save; null alone
+  // could merely be the old value of a never-edited image field.
+  const removeMainImageRequestedRef = useRef(false);
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
   const [galleryUrls, setGalleryUrls] = useState<string[]>(profile?.galleryUrls ?? []);
   const [galleryBusy, setGalleryBusy] = useState(false);
@@ -325,6 +329,7 @@ export function AdminDirectoryEditor({
     try {
       const data = await uploadAdminImage(file, "directory");
       setImageUrl(data.imageUrl);
+      removeMainImageRequestedRef.current = false;
       setFormDirty(true);
       setImageKey(data.imageKey);
       setThumbnailImageDisplay(null); setDetailImageDisplay(null);
@@ -498,6 +503,9 @@ export function AdminDirectoryEditor({
       const trainerServicesEdited = profile && profile.category === "treneri" && category === profile.category && breederBaseline
         ? trainerServicesText !== readTrainerServicesText(breederBaseline.importData)
         : undefined;
+      const trainerTrustEditedPaths = profile && profile.category === "treneri" && category === profile.category && breederBaseline
+        ? changedTrainerTrustAdminFields(breederBaseline, { verified, featured })
+        : [];
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
@@ -505,6 +513,8 @@ export function AdminDirectoryEditor({
           ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
+          ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
+          ...(removeMainImageRequestedRef.current ? { clearMainImage: true } : {}),
           ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
           services: profile && isDirectoryEventPilotCategory(profile.category)
@@ -555,6 +565,7 @@ export function AdminDirectoryEditor({
         if (formEditRevisionRef.current === submittedRevision) setBreederRelationsDirty(false);
       }
       const hasNewerEdits = formEditRevisionRef.current !== submittedRevision;
+      if (!hasNewerEdits) removeMainImageRequestedRef.current = false;
       if (!hasNewerEdits) {
         setFilterSourceData(savedProfile.importData ?? {});
         setFilterChanges({});
@@ -1023,7 +1034,7 @@ export function AdminDirectoryEditor({
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             {profile && <AdminShareToFacebook title={name} imageUrl={imageUrl} publicPath={"/adresar/" + profile.category + "/" + profile.slug} />}
             <div className="admin-card-heading"><div><span>{profile && ["chovatelske-stanice", "treneri"].includes(category) ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
-            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
+            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { removeMainImageRequestedRef.current = true; setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {!notionDraft && category === "chovatelske-stanice" ? (
               <AdminPhotoGallery

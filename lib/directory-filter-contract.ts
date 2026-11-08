@@ -59,13 +59,20 @@ function defineFacet(
   legacyAliases: readonly string[] = [],
 ): DirectoryFilterDefinition {
   const id = `${category}.${name}`;
-  const provisionedInNotion = category === "chovatelske-stanice" &&
-    (name === "visits_by_appointment" || name === "health_testing_information");
+  const provisionedInNotion =
+    (category === "chovatelske-stanice" &&
+      (name === "visits_by_appointment" || name === "health_testing_information")) ||
+    (category === "treneri" &&
+      (name === "individual_training" || name === "group_training"));
   const notionProperty = category === "chovatelske-stanice" && name === "visits_by_appointment"
     ? "Návštevy po dohode"
     : category === "chovatelske-stanice" && name === "health_testing_information"
       ? "Informácie o zdravotných testoch"
-      : `Filter · ${id}`;
+      : category === "treneri" && name === "individual_training"
+        ? "Individuálny výcvik"
+        : category === "treneri" && name === "group_training"
+          ? "Skupinový výcvik"
+          : `Filter · ${id}`;
   return {
     id, category, label,
     valueType: values === triValues ? "tri_state" : "single_select",
