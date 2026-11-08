@@ -2,6 +2,8 @@ import { runNotionEshopSyncSweep, type NotionEshopSyncBindings } from "./notion-
 import { syncOneAdminHelpRecord } from "./notion-targeted-admin-help.ts";
 import type { NotionEventsHelpSyncBindings } from "./notion-events-help-sync.ts";
 import type { BidirectionalAgendaKey } from "./notion-events-help-adapters.ts";
+import { syncEventFieldsFromAdmin } from "./notion-event-field-sync.ts";
+import type { EventEditorialField } from "./notion-event-field-events.ts";
 
 export type TargetedNotionSaveBindings =
   NotionEshopSyncBindings & NotionEventsHelpSyncBindings & {
@@ -20,6 +22,7 @@ export async function syncSavedNotionRecord(input: {
   bindings: TargetedNotionSaveBindings;
   agenda: BidirectionalAgendaKey | "eshops";
   entityId: number;
+  eventChangedFields?: readonly EventEditorialField[];
 }): Promise<TargetedNotionSaveStatus> {
   const { bindings, agenda, entityId } = input;
   if (bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") return "disabled";
@@ -27,6 +30,12 @@ export async function syncSavedNotionRecord(input: {
   if (!bindings.DB) return "pending";
 
   try {
+    if (agenda === "events") {
+      return await syncEventFieldsFromAdmin({
+        database: bindings.DB, bindings, eventId: entityId,
+        changedFields: input.eventChangedFields,
+      });
+    }
     if (agenda === "eshops") {
       const result = await runNotionEshopSyncSweep({
         database: bindings.DB, bindings, targetShopId: entityId,
