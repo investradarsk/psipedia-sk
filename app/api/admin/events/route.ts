@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { createManagedEvent, isEventSlugConflict, listManagedEventPage, type ManagedEventInput } from "@/lib/event-store";
 import { parseAdminEventListQuery } from "@/lib/admin-event-pagination";
@@ -31,6 +33,10 @@ export async function POST(request: Request) {
   const user = auth.user;
   try {
     const event = await createManagedEvent(await request.json() as ManagedEventInput, user.email);
-    return Response.json({ event }, { status: 201 });
+    const notionFieldSync = await syncSavedNotionRecord({
+      bindings:env as unknown as TargetedNotionSaveBindings,
+      agenda:"events", entityId:event.id,
+    });
+    return Response.json({ event, notionFieldSync }, { status: 201 });
   } catch (error) { return errorResponse(error); }
 }
