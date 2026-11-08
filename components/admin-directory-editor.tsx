@@ -395,7 +395,7 @@ export function AdminDirectoryEditor({
       const invalidControl = Array.from(formRef.current?.elements ?? []).find(
         (element): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
           (element instanceof HTMLInputElement || element instanceof HTMLSelectElement ||
-            element instanceof HTMLTextAreaElement) && element.willValidate && !element.checkValidity(),
+            element instanceof HTMLTextAreaElement) && element.willValidate && !element.checkValidity() && (!element.validity.valueMissing || ["directory-name", "directory-slug"].includes(element.id)),
       );
       if (invalidControl) {
         const section = invalidControl.closest<HTMLElement>("[data-admin-editor-section]");
