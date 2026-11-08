@@ -3,6 +3,7 @@ import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/no
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
 import { writeBackPublishedEventToNotion, type NotionEventSyncBindings } from "@/lib/notion-event-sync";
+import { eventChangedAdminFields, eventPreserveUneditedAdminFields, EVENT_NOTION_PATHS, type EventNotionField } from "@/lib/notion-event-field-contract";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -37,7 +38,16 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getManagedEventById(id);
     if (!before) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
-    const event = await updateManagedEvent(id, await request.json() as ManagedEventInput, user.email, before);
+    const raw = await request.json() as ManagedEventInput & {eventEditorialChangedFields?:unknown};
+    const edited = Array.isArray(raw.eventEditorialChangedFields)
+      ? raw.eventEditorialChangedFields.filter((path):path is EventNotionField =>
+          typeof path==="string" && EVENT_NOTION_PATHS.includes(path as EventNotionField))
+      : null;
+    // Preserve fresh Notion edits to fields untouched by this Admin form.
+    const safe=edited===null?raw:eventPreserveUneditedAdminFields(
+      raw as Record<string,unknown>,before as unknown as Record<string,unknown>,edited,
+    ) as ManagedEventInput;
+    const event = await updateManagedEvent(id, safe, user.email, before);
     if (!event) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
     if (before.imageKey && before.imageKey !== event.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
@@ -59,7 +69,11 @@ export async function PUT(request: Request, { params }: Props) {
         });
       }
     }
-    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id });
+    const notionFieldSync = await syncSavedNotionRecord({
+      bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id,
+      changedEventFields:edited??eventChangedAdminFields(
+        before as unknown as Record<string,unknown>,event as unknown as Record<string,unknown>),
+    });
     return Response.json({ event, notionFieldSync });
   } catch (error) { return errorResponse(error); }
 }
@@ -74,8 +88,13 @@ export async function PATCH(request: Request, { params }: Props) {
     return Response.json({ error: "Neplatný pôvod požiadavky." }, { status: 403 });
   }
   try {
+    const before = await getManagedEventById(id);
     const event = await quickEditManagedEvent(id, await request.json() as ManagedEventQuickEditInput, user.email);
-    const notionFieldSync = event ? await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id }) : "unlinked";
+    const notionFieldSync = event ? await syncSavedNotionRecord({
+      bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id,
+      changedEventFields:before?eventChangedAdminFields(
+        before as unknown as Record<string,unknown>,event as unknown as Record<string,unknown>):[],
+    }) : "unlinked";
     return Response.json({ event, notionFieldSync });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Rýchla úprava zlyhala." }, { status: 409 });
