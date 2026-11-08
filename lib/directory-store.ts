@@ -50,6 +50,7 @@ import type { GooglePlaceCandidate } from "@/lib/google-place-matching";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import {
   isDirectoryInternalMetadataKey,
+  TRAINER_SERVICES_TEXT_METADATA_KEY,
   mergeDirectoryProfileReviewMetadata,
   mergeDirectoryPublicContactData,
   mergeDirectoryQualityMetadata,
@@ -88,6 +89,8 @@ export type ManagedDirectoryProfileInput = {
   excerpt?: string;
   description?: string;
   services?: string[];
+  /** Separate prose mirrored to Notion; never mutates trainer Services V3. */
+  trainerServicesText?: string;
   qualifications?: string[];
   city?: string;
   district?: string;
@@ -1078,6 +1081,9 @@ export function normalizeManagedDirectoryProfileInput(
     { refreshCheckedAt: Boolean(qualityCheckedAt) },
   );
   const sourceData = mergeDirectoryBreederGallery(qualitySourceData, category, payload.galleryUrls);
+  if (category === "treneri" && typeof payload.trainerServicesText === "string") {
+    sourceData[TRAINER_SERVICES_TEXT_METADATA_KEY] = payload.trainerServicesText;
+  }
   return {
     slug,
     name,
