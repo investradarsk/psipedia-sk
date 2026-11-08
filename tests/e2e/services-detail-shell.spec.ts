@@ -142,13 +142,18 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
     await assertNoOverflow(page);
   });
 
-  test("physiotherapy data use the same shared detail layout without fabricated services", async ({ page }) => {
+  test("physiotherapy uses plain-text expertise, not retired therapy facets", async ({ page }) => {
     const main = await openProfile(page, "/adresar/fyzioterapia/health-fixture-fyzioterapia");
-    const expert = main.getByRole("heading", { name: "Terapie a rehabilitácia" }).locator("xpath=ancestor::section[1]");
-    await expect(expert.getByText("Hydroterapia", { exact: true })).toBeVisible();
-    await expect(expert.getByText("Pooperačná rehabilitácia", { exact: true })).toBeVisible();
-    // Identical certification in structured facts and qualifications is displayed once.
+    const hero = main.locator("[data-directory-profile-hero]");
+    // A perex must remain visible even when the profile has a longer description.
+    await expect(hero.locator("p").filter({ hasText: /.+/ }).first()).toBeVisible();
+    // Therapies are managed through Services V3, not the old Notion/import facts.
+    await expect(main.getByRole("heading", { name: "Terapie a rehabilitácia" })).toHaveCount(0);
+    const expert = main.getByRole("heading", { name: "Odbornosť a skúsenosti" }).locator("xpath=ancestor::section[1]");
+    await expect(expert).toBeVisible();
     await expect(expert.getByText("Veterinárny fyzioterapeut", { exact: true })).toHaveCount(1);
+    await expect(main.getByText("Hydroterapia", { exact: true })).toHaveCount(0);
+    await expect(main.getByText("Pooperačná rehabilitácia", { exact: true })).toHaveCount(0);
     await assertNoOverflow(page);
   });
 
