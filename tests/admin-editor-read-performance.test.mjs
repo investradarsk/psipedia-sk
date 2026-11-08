@@ -72,13 +72,23 @@ test("automation reviews load independently with authorization, no-store and abo
   assert.match(directory, /source=\{profile \? \{ entityType: "DIRECTORY", canonicalEntityId: profile\.id \}/);
 });
 
-test("breed editor mounts optional Lexical fields on demand, preserving unsaved edits", () => {
-  const component = read("components/admin-deferred-details.tsx");
+test("breed editor retains draft state across switched sections and isolates FCI settings", () => {
   const editor = read("components/admin-breed-editor.tsx");
-  assert.match(component, /if \(event\.currentTarget\.open\) setEverOpened\(true\)/);
-  assert.match(component, /everOpened \? children : null/);
-  assert.match(editor, /AdminDeferredDetails className=\{styles\.fciGroup\} summary="Rozšírené redakčné texty/);
-  assert.match(editor, /AdminDeferredDetails className=\{styles\.fciGroup\} summary="Rozšírená zdravotná poznámka/);
+  // The approved 60-field editor replaced the old deferred accordion
+  // with one persistent canonical form, section navigation and a settings drawer.
+  assert.match(editor, /const \[form,setCanonicalForm\]=useState\(/);
+  assert.match(editor, /const \[dirty,setDirty\]=useState\(false\)/);
+  assert.match(editor, /formEditRevisionRef\.current \+= 1; setDirty\(true\); setCanonicalForm\(update\)/);
+  assert.match(editor, /sectionMode="switch"/);
+  assert.match(editor, /activeSectionId=\{activeBreedSection\}/);
+  assert.match(editor, /onSectionChange=\{setActiveBreedSection\}/);
+  assert.match(editor, /<form id="breed-canonical-editor-form"/);
+  assert.match(editor, /<AdminEditorSection id="breed-overview"/);
+  assert.match(editor, /<AdminEditorSection id="breed-health"/);
+  assert.match(editor, /<AdminLexicalTextField/);
+  assert.match(editor, /title="Nastavenia plemena"/);
+  assert.match(editor, /fciSections\.map\(\(section\)=><details className=\{styles\.fciGroup\}/);
+  assert.match(editor, /if \(formEditRevisionRef\.current === submittedRevision\) setDirty\(false\)/);
 });
 
 test("FOSTER/HELP_ITEM warnings still depend on actual Help category", () => {
