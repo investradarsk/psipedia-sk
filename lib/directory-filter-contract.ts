@@ -18,7 +18,6 @@ export const directoryLegacyServiceFacetIds = [
   "hotely-a-opatrovanie.daycare",
   "vencenie.individual_walks",
   "vencenie.group_walks",
-  "fyzioterapia.hydrotherapy",
   "dalsie-sluzby.pet_transport",
   "dalsie-sluzby.equipment_rental",
 ] as const;
@@ -26,7 +25,7 @@ export const directoryLegacyServiceFacetIds = [
 export const serviceFilterCategories = [
   "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
   "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
-  "vencenie", "fyzioterapia", "dalsie-sluzby",
+  "vencenie", "dalsie-sluzby",
 ] as const satisfies readonly DirectoryCategorySlug[];
 
 export type ServiceFilterCategory = (typeof serviceFilterCategories)[number];
@@ -97,8 +96,6 @@ export const directoryFilterRegistry: readonly DirectoryFilterDefinition[] = [
   defineFacet("hotely-a-opatrovanie", "daycare", "Denná opatera"),
   defineFacet("vencenie", "individual_walks", "Individuálne venčenie"),
   defineFacet("vencenie", "group_walks", "Skupinové venčenie"),
-  defineFacet("fyzioterapia", "hydrotherapy", "Hydroterapia"),
-  defineFacet("fyzioterapia", "home_visits", "Návštevy doma"),
   defineFacet("dalsie-sluzby", "pet_transport", "Preprava psov"),
   defineFacet("dalsie-sluzby", "equipment_rental", "Požičiavanie výbavy"),
 ];
