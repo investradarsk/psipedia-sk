@@ -117,7 +117,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   }
 
   return (
-    <form className={styles.editor} onSubmit={save}>
+    <form className={styles.editor} noValidate onSubmit={save}>
       <EditorWorkspace
         mode="page"
         title={"E-shop — " + (name || "Úprava profilu")}
@@ -157,9 +157,9 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         <div className={styles.grid}>
           <label><span>Názov</span><input value={name} onChange={(event) => setName(event.target.value)} required /></label>
           <label><span>Adresa profilu</span><input value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))} required /></label>
-          <label className={styles.wide}><span>Web e-shopu</span><input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} required /></label>
-          <div className={styles.wide}><label><span>Popis</span><AdminLexicalTextField rows={6} value={description} onChange={setDescription} required ariaLabel="Popis e-shopu" /></label><AdminLexicalAppendButton disabled={saving || uploading} onAppend={text => setDescription(current => appendLexicalPlainText(current,text))}/></div>
-          <label className={styles.wide}><span>Zdroj profilu</span><input type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} required /></label>
+          <label className={styles.wide}><span>Web e-shopu</span><input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} /></label>
+          <div className={styles.wide}><label><span>Popis</span><AdminLexicalTextField rows={6} value={description} onChange={setDescription} ariaLabel="Popis e-shopu" /></label><AdminLexicalAppendButton disabled={saving || uploading} onAppend={text => setDescription(current => appendLexicalPlainText(current,text))}/></div>
+          <label className={styles.wide}><span>Zdroj profilu</span><input type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} /></label>
         </div>
       </section>
 

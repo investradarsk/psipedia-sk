@@ -420,21 +420,14 @@ function normalizeInput(
     throw new Error("Táto kategória nepatrí do generic Help CRUD.");
   if (allHelpCategories.some((item) => item.slug === slug))
     throw new Error("Túto adresu používa kategória. Uprav adresu prípadu.");
-  if (status === "published" && excerpt.length < 20)
-    throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
-  if (status === "published" && description.length < 40)
-    throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
-  if (status === "published" && !organization)
-    throw new Error("Doplň zodpovednú organizáciu alebo osobu.");
-  if (status === "published" && !city) throw new Error("Doplň mesto alebo obec prípadu.");
-  if (status === "published" && !region) throw new Error("Vyber kraj.");
+  // Missing editorial content, locality and contacts are quality warnings, not publication blockers.
   if (
     category === "zbierky" &&
     status === "published" &&
-    (!verified || !actionUrl || (goalAmount !== null && goalAmount <= 0))
+    (!verified || (goalAmount !== null && goalAmount <= 0))
   ) {
     throw new Error(
-      "Zbierku možno publikovať až po overení, s platným odkazom a kladnou cieľovou sumou, ak je zadaná.",
+      "Zbierku možno publikovať až po overení a s kladnou cieľovou sumou, ak je zadaná.",
     );
   }
   if (goalAmount !== null && raisedAmount !== null && raisedAmount > goalAmount * 10)

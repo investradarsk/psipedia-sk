@@ -125,7 +125,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
     // Check every mounted field before the request and reveal its own panel.
     const invalid = Array.from(event.currentTarget.elements).find((control): control is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
       (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
-      && control.willValidate && !control.checkValidity()
+      && control.willValidate && !control.checkValidity() && (!control.validity.valueMissing || ["adoption-name", "adoption-slug"].includes(control.id))
     );
     if (invalid) {
       const owner = invalid.closest("[data-admin-editor-section]") as HTMLElement | null;
@@ -200,7 +200,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
           <div className="admin-field"><label htmlFor="adoption-slug">Slug *</label><input id="adoption-slug" value={slug} onChange={(event: ChangeEvent<HTMLInputElement>) => { setSlugEdited(true); setSlug(slugifyAdoptionSlug(event.target.value)); }} required/></div>
           <div className="admin-field"><label htmlFor="adoption-status">Lifecycle stav *</label><select id="adoption-status" value={status} onChange={(event: ChangeEvent<HTMLSelectElement>) => setStatus(event.target.value as AdoptionStatus)}>{lifecycleOptions.map((value) => <option key={value} value={value}>{adoptionStatusLabels[value]}</option>)}</select></div>
         </div>
-        {publishing && <p className="admin-help">Pri ACTIVE/RESERVED server vyžaduje všetky publikačné údaje vrátane canonical organization_id a znovu ich validuje.</p>}
+        {publishing && <p className="admin-help">Chýbajúce údaje neblokujú publikovanie; technická identita profilu a validita vyplnených údajov zostávajú kontrolované.</p>}
       </AdminEditorSection>
       <AdminAdoptionEditorProfile item={item} breeds={breeds} publishing={publishing} onProgrammaticChange={navigation.markDirty}/>
       <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading || saving} gallery={gallery} onGalleryChange={nextGallery => { navigation.markDirty(); setGallery(nextGallery); }} onGalleryBusyChange={setGalleryUploading} onMainImageChange={replaceMainImage} onUpload={uploadImage} onEditDisplay={() => setImageEditorOpen(true)} onContentChange={navigation.markDirty}/>
@@ -211,7 +211,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
         <button type="button" disabled={activeAdoptionIndex >= ADOPTION_SECTIONS.length - 1}
           onClick={() => navigateAdoptionPager(ADOPTION_SECTIONS[activeAdoptionIndex + 1]?.id ?? ADOPTION_SECTIONS[ADOPTION_SECTIONS.length - 1].id)}>Ďalšia</button>
       </nav>
-    </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný stav – server vyžaduje kompletné publikačné údaje." : "Koncept môže zostať neúplný."}</p><Link href="/admin/adopcie">← Späť na adopcie</Link>{item && <AdminShareToFacebook title={name} imageUrl={mainImage} publicPath={"/pomoc-psom/adopcia/" + item.slug} />}</aside></div>
+    </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný profil môže mať nevyplnené údaje." : "Koncept môže zostať neúplný."}</p><Link href="/admin/adopcie">← Späť na adopcie</Link>{item && <AdminShareToFacebook title={name} imageUrl={mainImage} publicPath={"/pomoc-psom/adopcia/" + item.slug} />}</aside></div>
         </div>
       </div>
     </AdminEditorSectionVisibility.Provider>

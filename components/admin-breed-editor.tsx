@@ -137,11 +137,6 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       setError("Vyplň názov plemena.");
       return;
     }
-    if (!form.intro.trim()) {
-      chooseBreedSection("breed-overview");
-      setError("Vyplň krátky úvod plemena.");
-      return;
-    }
     if (!form.slug.trim()) {
       chooseBreedSection("breed-basic");
       setError("Plemeno potrebuje platnú URL adresu vytvorenú z názvu.");
@@ -250,7 +245,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     <AdminEditorSection id="breed-overview" className={styles.sectionCard}>
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>Prehľad</h2><p>Úvod a redakčný kontext verejného profilu.</p></div></div>
-        <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><AdminLexicalTextField required rows={4} value={form.intro} onChange={(next)=>change("intro",next)} ariaLabel="Krátky úvod v hero (2–4 vety)" /></label>
+        <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><AdminLexicalTextField rows={4} value={form.intro} onChange={(next)=>change("intro",next)} ariaLabel="Krátky úvod v hero (2–4 vety)" /></label>
         <label className="admin-field"><span>Prehľad plemena</span><AdminLexicalTextField rows={6} value={form.editorial.overview??""} onChange={(next)=>updateEditorial("overview",next)} ariaLabel="Prehľad plemena" /></label>
         <label className="admin-field"><span>História</span><AdminLexicalTextField rows={6} value={form.history} onChange={(next)=>change("history",next)} ariaLabel="História" /></label><AdminLexicalAppendButton disabled={saving} onAppend={text=>change("history",appendLexicalPlainText(form.history,text))}/>
       </div>

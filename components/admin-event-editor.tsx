@@ -215,35 +215,18 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
 
   async function save(nextStatus: EventStatus) {
     if (savePendingRef.current || uploading) return;
-    // The form uses one mounted panel at a time; native validation cannot
-    // focus a required field in a hidden section. Keep server publish rules
-    // authoritative, but reveal the corresponding field before API requests.
+    // An incomplete editorial field never blocks publication; only identity
+    // and non-empty malformed values require correction.
     if (!(status === "published" && nextStatus === "draft")) {
       const requiredFields = [
         { value: title, section: "event-basics", label: "Názov podujatia" },
         { value: slug, section: "event-media", label: "Adresa podujatia" },
-        ...(nextStatus === "published" && status !== "published" ? [
-          { value: excerpt, section: "event-basics", label: "Krátky popis" },
-          { value: startDate, section: "event-schedule", label: "Dátum začiatku" },
-          { value: city, section: "event-location", label: "Mesto" },
-          { value: organizer, section: "event-contacts", label: "Organizátor" },
-          { value: description, section: "event-details", label: "Podrobný popis" },
-        ] : []),
       ];
       const missing = requiredFields.find((field) => !field.value.trim());
       if (missing) {
         setActiveEventSection(missing.section);
         setMessage("");
         setError(`Vyplň povinné pole: ${missing.label}.`);
-        return;
-      }
-      if (nextStatus === "published" && status !== "published" && (excerpt.trim().length < 20 || description.trim().length < 30)) {
-        const summaryIsShort = excerpt.trim().length < 20;
-        setActiveEventSection(summaryIsShort ? "event-basics" : "event-details");
-        setMessage("");
-        setError(summaryIsShort
-          ? "Krátky popis musí mať aspoň 20 znakov."
-          : "Podrobný popis musí mať aspoň 30 znakov.");
         return;
       }
       for (const [value, section, label] of [
@@ -338,14 +321,14 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
           <EditorSection id="event-basics" className="admin-form-card admin-form-card--intro">
             <div className="admin-card-heading"><div><span>01</span><div><h2>Základné údaje</h2><p>Názov a stručné predstavenie pre kalendár podujatí.</p></div></div></div>
             <div className="admin-field admin-field--title"><label htmlFor="event-title">Názov podujatia</label><input id="event-title" value={title} onChange={(input) => changeTitle(input.target.value)} placeholder="Napríklad: Klubová výstava retrieverov" required /></div>
-            <div className="admin-field"><label htmlFor="event-excerpt">Krátky popis</label><AdminLexicalTextField id="event-excerpt" rows={3} value={excerpt} onChange={setExcerpt} placeholder="Čo sa bude diať a pre koho je podujatie určené?" required ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
+            <div className="admin-field"><label htmlFor="event-excerpt">Krátky popis</label><AdminLexicalTextField id="event-excerpt" rows={3} value={excerpt} onChange={setExcerpt} placeholder="Čo sa bude diať a pre koho je podujatie určené?" ariaLabel="Krátky popis" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </EditorSection>
 
           <EditorSection id="event-schedule" className="admin-form-card">
             <div className="admin-card-heading"><div><span>02</span><div><h2>Termín a typ</h2><p>Začiatok a koniec udalosti aj jej zaradenie v kalendári.</p></div></div></div>
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="event-type">Typ podujatia</label><select id="event-type" value={eventType} onChange={(input) => setEventType(input.target.value as EventType)}>{eventTypes.map((type) => <option key={type}>{type}</option>)}</select></div>
-              <div className="admin-field"><label htmlFor="event-start-date">Dátum začiatku</label><input id="event-start-date" type="date" value={startDate} onInput={(input) => setStartDate(input.currentTarget.value)} required /></div>
+              <div className="admin-field"><label htmlFor="event-start-date">Dátum začiatku</label><input id="event-start-date" type="date" value={startDate} onInput={(input) => setStartDate(input.currentTarget.value)} /></div>
               <div className="admin-field"><label htmlFor="event-start-time">Čas začiatku</label><input id="event-start-time" type="time" value={startTime} onInput={(input) => setStartTime(input.currentTarget.value)} /></div>
               <div className="admin-field"><label htmlFor="event-end-date">Dátum konca</label><input id="event-end-date" type="date" value={endDate} onInput={(input) => setEndDate(input.currentTarget.value)} /></div>
               <div className="admin-field"><label htmlFor="event-end-time">Čas konca</label><input id="event-end-time" type="time" value={endTime} onInput={(input) => setEndTime(input.currentTarget.value)} /></div>
@@ -357,7 +340,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
             <div className="admin-card-heading"><div><span>03</span><div><h2>Miesto podujatia</h2><p>Údaje na navigáciu a presné nájdenie miesta konania.</p></div></div></div>
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="event-region">Kraj</label><select id="event-region" value={region} onChange={(input) => setRegion(input.target.value as SlovakRegion)}>{slovakRegions.filter((item) => item !== "Online").map((item) => <option key={item}>{item}</option>)}</select></div>
-              <div className="admin-field"><label htmlFor="event-city">Mesto</label><input id="event-city" value={city} onChange={(input) => setCity(input.target.value)} placeholder="Nitra" required /></div>
+              <div className="admin-field"><label htmlFor="event-city">Mesto</label><input id="event-city" value={city} onChange={(input) => setCity(input.target.value)} placeholder="Nitra" /></div>
               <div className="admin-field"><label htmlFor="event-venue">Areál alebo budova</label><input id="event-venue" value={venue} onChange={(input) => setVenue(input.target.value)} placeholder="Agrokomplex" /></div>
               <div className="admin-field"><label htmlFor="event-address">Adresa</label><input id="event-address" value={address} onChange={(input) => setAddress(input.target.value)} placeholder="Výstavná 4" /></div>
             </div>
@@ -375,7 +358,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
             <div className="admin-card-heading"><div><span>04</span><div><h2>Organizátor a kontakty</h2><p>Kontaktné údaje a odkazy na registráciu dostupné návštevníkom.</p></div></div></div>
             <AdminEditorToolFrame kind="contacts">
               <div className="admin-field-grid">
-                <div className="admin-field"><label htmlFor="event-organizer">Organizátor</label><input id="event-organizer" value={organizer} onChange={(input) => setOrganizer(input.target.value)} required /></div>
+                <div className="admin-field"><label htmlFor="event-organizer">Organizátor</label><input id="event-organizer" value={organizer} onChange={(input) => setOrganizer(input.target.value)} /></div>
                 <div className="admin-field"><label htmlFor="event-contact-phone">Verejný telefón organizátora</label><input id="event-contact-phone" type="tel" value={contactPhone} onChange={(input) => setContactPhone(input.target.value)} placeholder="+421 900 000 000" maxLength={80} /></div>
                 <div className="admin-field"><label htmlFor="event-contact-email">Verejný e-mail organizátora</label><input id="event-contact-email" type="email" value={contactEmail} onChange={(input) => setContactEmail(input.target.value)} placeholder="kontakt@organizator.sk" maxLength={254} /></div>
                 <div className="admin-field"><label htmlFor="event-web">Web organizátora</label><input id="event-web" type="url" value={websiteUrl} onChange={(input) => setWebsiteUrl(input.target.value)} placeholder="https://…" /></div>
@@ -386,7 +369,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
 
           <EditorSection id="event-details" className="admin-form-card">
             <div className="admin-card-heading"><div><span>05</span><div><h2>Program a informácie</h2><p>Do podrobného popisu zapíš program, harmonogram a jednotlivé body podujatia. Praktické informácie sú určené aj na podmienky účasti.</p></div></div></div>
-            <AdminEventMarkdownEditor id="event-description" label="Podrobný popis" value={description} onChange={setDescription} required />
+            <AdminEventMarkdownEditor id="event-description" label="Podrobný popis" value={description} onChange={setDescription} />
             <AdminEventMarkdownEditor id="event-practical" label="Praktické informácie" value={practicalInfo} onChange={setPracticalInfo} />
             <div className="admin-field"><label htmlFor="event-admission-fee">Vstupné</label><input id="event-admission-fee" value={admissionFee} onChange={(input) => setAdmissionFee(input.target.value)} placeholder="Zdarma / 5 € / podľa kategórie" maxLength={160} /><small>Uveď cenu alebo „Zdarma“. Podmienky doplň do praktických informácií.</small></div>
           </EditorSection>

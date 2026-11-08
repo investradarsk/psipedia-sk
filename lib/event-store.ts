@@ -267,7 +267,9 @@ function normalizeUrl(value: string | null | undefined, label: string) {
 }
 
 function validDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T12:00:00Z`).getTime());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 function validTime(value: string) {
@@ -321,15 +323,11 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa podujatia nie je platná.");
   if (getPortalSubpage("podujatia", slug)) throw new Error("Túto adresu už používa podsekcia portálu. Uprav adresu podujatia.");
   if (!eventType) throw new Error("Vyber typ podujatia.");
-  if ((status === "published" || startDate) && !validDate(startDate)) throw new Error("Vyber platný dátum začiatku.");
+  if (startDate && !validDate(startDate)) throw new Error("Vyber platný dátum začiatku.");
   if (endDate && !validDate(endDate)) throw new Error("Dátum konca nie je platný.");
   if (endDate && endDate < startDate) throw new Error("Koniec podujatia nemôže byť pred začiatkom.");
   if (!validTime(startTime) || !validTime(endTime ?? "")) throw new Error("Čas podujatia nie je platný.");
-  if (status === "published" && !city) throw new Error("Doplň mesto alebo obec podujatia.");
-  if (status === "published" && !region) throw new Error("Vyber kraj.");
-  if (status === "published" && !organizer) throw new Error("Doplň organizátora.");
-  if (status === "published" && excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
-  if (status === "published" && description.length < 30) throw new Error("Popis podujatia by mal mať aspoň 30 znakov.");
+  // Incomplete event fields do not block publication. Undated events are not calendar-dated.
 
   const imageUrl = payload.imageUrl?.trim() || null;
   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) {

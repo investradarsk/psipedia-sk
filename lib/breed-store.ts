@@ -1425,8 +1425,6 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed) {
       throw new Error("Veľkosť plemena vyzerá ako testovacia alebo poškodená hodnota.");
     if (isSuspiciousPlaceholderText(publicCoat))
       throw new Error("Srsť plemena vyzerá ako testovacia alebo poškodená hodnota.");
-    if (!fciNumber || !input.importKey?.trim())
-      throw new Error("Publikované plemeno musí mať FCI číslo a importný kľúč.");
     const canonical = cleanEditableSeo(input.seo).canonicalUrl;
     if (canonical && canonical !== `https://psipedia.sk/plemena/${slug}`)
       throw new Error("Kanonický profil plemena musí odkazovať na vlastnú URL.");
