@@ -716,7 +716,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await showArticleSection(page, "article-basics");
     await expect(page.locator("#article-title")).toHaveValue("Rozpracovaný článok zostáva zachovaný");
     await expect(page.locator("#article-intro")).toContainText("Text prvého bloku musí zostať");
-    await expect(page.getByText("Neuložené zmeny").first()).toBeVisible();
+    await expect(page.locator("[data-editor-actionbar]")).toContainText("Neuložené zmeny");
   });
 
   test("ARTICLE-VISUAL-2 joins the introduction card and displays removable breed chips", async ({ page }) => {
@@ -780,7 +780,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       const nav = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
       await expect(nav.getByLabel("Sekcia editora")).toBeVisible();
       await expect(page.locator("#article-title")).toBeVisible();
-      await nav.getByRole("button", { name: "Náhľad" }).click();
+      await page.locator("[data-editor-navigation]").getByRole("button", { name: "Náhľad", exact: true }).click();
       const rail = page.locator("[data-article-editor-rail]");
       await expect(rail).toBeVisible();
       await expect(rail.locator("#article-rail-published-at")).toBeVisible();
@@ -788,7 +788,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
       await expect.poll(() => page.evaluate(() =>
         document.documentElement.scrollWidth - document.documentElement.clientWidth,
       )).toBeLessThanOrEqual(1);
-      await nav.getByRole("button", { name: "Späť na úpravy" }).click();
+      await page.locator("[data-editor-navigation]").getByRole("button", { name: "Späť na úpravy", exact: true }).click();
       await expect(page.locator("#article-title")).toBeVisible();
       await expect(page.locator("[data-editor-actionbar]").getByRole("button", { name: "Uložiť koncept" })).toBeVisible();
     }
