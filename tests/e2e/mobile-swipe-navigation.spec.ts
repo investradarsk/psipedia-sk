@@ -355,6 +355,9 @@ test("sitewide Chrome iPhone: homepage → magazine → article → two browser 
   // remains at /clanky and has a distinct homepage link.
   await page.locator('[data-home-latest] a[href="/clanky"]').click();
   await expect(page).toHaveURL(/\/clanky$/);
+  // A cross-document navigation replaces the root React tree. Wait for the
+  // Chrome iOS native-history handler to mount again before clicking a card.
+  await expect(page.locator("html")).toHaveAttribute("data-native-history-navigation", "chrome-ios");
   const beforeArticle = await loadCount(page);
   const article = page.locator('.article-browser a[data-article-list-item]').first();
   await expect(article).toBeVisible();

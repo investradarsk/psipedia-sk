@@ -55,6 +55,26 @@ test("ARTICLE-ADMIN external video editor only accepts the merged YouTube/Vimeo 
   assert.equal(normalizeEditorialExternalVideo({ url: '<iframe src="https://youtube.com/embed/dQw4w9WgXcQ"></iframe>' }), null);
 });
 
+test("ARTICLE-VIDEO-RESPONSIVE uses portrait 9:16 for Shorts and landscape 16:9 for other embeds", () => {
+  const shorts = normalizeEditorialExternalVideo({ url: "https://www.youtube.com/shorts/dQw4w9WgXcQ?feature=share" });
+  const watch = normalizeEditorialExternalVideo({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" });
+  const vimeo = normalizeEditorialExternalVideo({ url: "https://vimeo.com/123456789" });
+  assert.equal(shorts?.displayFormat, "shorts");
+  assert.equal(watch?.displayFormat, "standard");
+  assert.equal(vimeo?.displayFormat, "standard");
+  assert.equal(shorts?.embedUrl, "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
+
+  const blocks = readFileSync("components/article-blocks.tsx", "utf8");
+  const admin = readFileSync("components/admin-article-block-editor.tsx", "utf8");
+  const videoCss = readFileSync("components/article-video-embed.module.css", "utf8");
+  const articleCss = readFileSync("components/article-detail.module.css", "utf8");
+  assert.match(blocks, /videoStyles\.shorts/);
+  assert.match(admin, /videoStyles\.shortsPreviewIframe/);
+  assert.match(videoCss, /:global\(\.article-block-embed\)\.shorts\s*\{[^}]*aspect-ratio:\s*9\s*\/\s*16/s);
+  assert.match(videoCss, /:global\(\.admin-video-preview\) \.shortsPreviewIframe\s*\{[^}]*aspect-ratio:\s*9\s*\/\s*16/s);
+  assert.match(articleCss, /\.readingShell :global\(\.article-block-embed iframe\)\s*\{[^}]*height:\s*100%/s);
+});
+
 test("ARTICLE-ADMIN WYSIWYG writes canonical AST and strips rich HTML paste at the editing boundary", () => {
   const editor = readFileSync("components/admin-rich-text-editor.tsx", "utf8");
   assert.match(editor, /contentEditable/);
