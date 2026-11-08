@@ -658,6 +658,9 @@ test("real Events/Help normalizers accept missing publication content but reject
   for (const field of ["startDate", "city", "region", "organizer", "excerpt", "description"])
     assert.equal(event({ ...completeEvent, [field]: "" }).status, "published", field);
   assert.throws(() => event({ ...completeEvent, startDate: "not-a-date" }), /dátum/);
+  assert.throws(() => event({ ...completeEvent, startDate: "2026-02-31" }), /dátum/);
+  assert.throws(() => event({ ...completeEvent, endDate: "2026-04-31" }), /Dátum/);
+  assert.equal(event({ ...completeEvent, startDate: "2028-02-29" }).startDate, "2028-02-29");
   const h = {
     title: "Koncept",
     slug: "gemini-offline",
