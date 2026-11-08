@@ -181,7 +181,7 @@ export async function GET(request: Request) {
           originalDataSourceId: source,
           workDataSourceId: work,
         });
-        const shadow = d1Diagnostics.shadowTablePresent
+        const shadow = ("shadowTablePresent" in d1Diagnostics && d1Diagnostics.shadowTablePresent)
           ? (await bindings.DB.prepare(
               "SELECT breed_id,original_notion_page_id,work_notion_page_id,"+
               "original_sync_receipt,work_sync_receipt,status "+
