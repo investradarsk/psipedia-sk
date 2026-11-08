@@ -298,7 +298,9 @@ test("breed settings drawer preserves input, traps keyboard focus and returns fo
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Nastavenia plemena", exact: true });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel(/^URL adresa/)).toBeVisible();
+  const slug = dialog.locator("#breed-settings-slug");
+  await expect(slug).toBeVisible();
+  await expect(slug).toHaveAttribute("required", "");
   for (let i = 0; i < 5; i++) {
     await page.keyboard.press("Shift+Tab");
     expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
