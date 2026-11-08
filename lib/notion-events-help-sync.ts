@@ -50,6 +50,12 @@ import {
   extendEventContactBaseline,
   ignoreUnverifiedEmptyNotionEventContacts,
 } from "./notion-event-contact-fields.ts";
+import {
+  EVENT_NOTION_FOCUS_KEYWORD,
+  withoutEventFocusKeyword,
+  extendEventFocusKeywordBaseline,
+  ignoreUnverifiedEmptyNotionEventKeyword,
+} from "./notion-event-focus-keyword.ts";
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
@@ -1224,6 +1230,26 @@ await requireVerifiedMappedNotionWriteback({
             }
           }
         }
+        // Podujatia: the newly created SEO keyword does not exist in legacy
+        // per-profile hashes. Authenticate the previous baseline using the
+        // exact old hash; never guess other fields or adopt two-sided edits.
+        if (agenda === "events" && schema[EVENT_NOTION_FOCUS_KEYWORD]) {
+          if (baseline) {
+            baseline = extendEventFocusKeywordBaseline(baseline);
+          } else {
+            const previousNotion = withoutEventFocusKeyword(notionSnapshot);
+            const previousAdmin = withoutEventFocusKeyword(sourceSnapshot);
+            const olderNotion = withoutEventContactFields(previousNotion);
+            const olderAdmin = withoutEventContactFields(previousAdmin);
+            for (const candidate of [previousNotion, previousAdmin, olderNotion, olderAdmin]) {
+              if (await snapshotHash("events", candidate) !== mapping.content_hash) continue;
+              baseline = extendEventFocusKeywordBaseline(
+                extendEventContactBaseline(candidate),
+              );
+              break;
+            }
+          }
+        }
         // One shared field contract for UI and reconciliation. Safe Notion
         // edits may control event classification and unconfirmed addresses,
         // but never bypass canonical publication, identity or privacy locks.
@@ -1239,7 +1265,10 @@ await requireVerifiedMappedNotionWriteback({
         const resolution = reconcileProfileFields({
           baseline,
           notion: agenda === "events" && baseline
-            ? ignoreUnverifiedEmptyNotionEventContacts(notionSnapshot, baseline)
+            ? ignoreUnverifiedEmptyNotionEventKeyword(
+                ignoreUnverifiedEmptyNotionEventContacts(notionSnapshot, baseline),
+                baseline,
+              )
             : notionSnapshot,
           psipedia: sourceSnapshot, protectedFields,
           canonicalFieldsWin: true, authorities: fieldAuthorities,
