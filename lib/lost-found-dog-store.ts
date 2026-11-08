@@ -601,7 +601,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
 
   // Missing event time, location and description must not prevent an owner-approved
   // publication. Invalid non-empty dates and privacy constraints still apply.
-  if (eventDate && !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) throw new Error("Dátum udalosti nie je platný.");
+  if (eventDate && !validCalendarDate(eventDate)) throw new Error("Dátum udalosti nie je platný.");
 
   const breedUnknown = Boolean(input.breedUnknown);
   const breedId = breedUnknown ? null : positiveInt(input.breedId);
