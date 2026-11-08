@@ -130,7 +130,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.match(queries[2].sql, /seo_json = json_set/);
   assert.equal(queries[2].values[1], "čistý ľubovoľný text");
   for (const { sql } of queries) {
-    assert.match(sql, /category = 'chovatelske-stanice'/);
+    assert.match(sql, /category IN \('chovatelske-stanice','treneri'\)/);
     assert.match(sql, /updated_at = \?/);
     assert.doesNotMatch(sql, /services_json\s*=/);
   }
@@ -141,6 +141,46 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.match(queries[3].sql, /services_json = \?/);
   assert.doesNotMatch(queries[3].sql, /source_data_json =/);
   assert.equal(queries[3].values[0], JSON.stringify(desired.services));
+});
+
+test("a trainer service description updates only its separate metadata field", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const ts = await import("typescript");
+  const source = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const start = source.indexOf("const breederScalarColumns:");
+  const end = source.indexOf("/**\n * Mapped breeder/trainer event mode:", start);
+  assert.ok(start > 0 && end > start);
+  const js = ts.transpileModule(source.slice(start, end) +
+    "\nexports.saveBreederEditorialValue = saveBreederEditorialValue;", {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const profile = { id: 543, category: "treneri", status: "published",
+    updatedAt: "2026-11-08T00:00:00Z" };
+  const queries = [];
+  const db = { prepare(sql) { return { bind(...values) {
+    queries.push({ sql, values });
+    return { async first() { return { id: 543 }; } };
+  } }; } };
+  const exports = {};
+  runInNewContext(js, {
+    exports, SYSTEM_ACTOR: "sync",
+    TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
+    breederReadPath: (v, p) => p.split(".").reduce((x, k) => x?.[k], v),
+    normalizeDirectorySearchText: value => value,
+    getManagedDirectoryProfileById: async () => profile,
+  });
+  const before = {
+    name: "Škola", excerpt: "", description: "",
+    services: ["Individuálne lekcie", "Nosework"],
+    qualifications: [], region: "", district: "", city: "",
+    address: "", postalCode: "", street: "", houseNumber: "",
+  };
+  await exports.saveBreederEditorialValue(db, profile, before, "services");
+  assert.equal(queries.length, 1);
+  assert.match(queries[0].sql, /source_data_json = json_set/);
+  assert.doesNotMatch(queries[0].sql, /services_json\s*=/);
+  assert.equal(queries[0].values[0], "$._psipedia_trainer_services_text");
+  assert.equal(queries[0].values[1], "Individuálne lekcie\\nNosework");
 });
 
 test("Notion tri-state filters and operational alerts stay separate from V3 services", async () => {
