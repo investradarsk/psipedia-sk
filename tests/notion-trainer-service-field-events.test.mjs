@@ -97,8 +97,8 @@ test("signed Notion catalog changes are additions-only and guarded by relation r
 
 test("trainer free text is separate from Services V3 and persisted without touching services_json", async () => {
   assert.equal(readTrainerServicesText(undefined), "");
-  assert.equal(readTrainerServicesText({ [TRAINER_SERVICES_TEXT_METADATA_KEY]: "Nosework\\nSocializácia" }),
-    "Nosework\\nSocializácia");
+  assert.equal(readTrainerServicesText({ [TRAINER_SERVICES_TEXT_METADATA_KEY]: "Nosework\nSocializácia" }),
+    "Nosework\nSocializácia");
   for (const key of [TRAINER_SERVICES_TEXT_METADATA_KEY, TRAINER_BREED_IDS_METADATA_KEY, TRAINER_CLUB_IDS_METADATA_KEY])
     assert.equal(isDirectoryInternalMetadataKey(key), true);
 
