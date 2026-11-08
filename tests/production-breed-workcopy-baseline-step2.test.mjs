@@ -106,8 +106,8 @@ test("refuses non-field receipts and missing revision", () => {
   } finally { db.close(); }
 });
 
-test("baseline remains manual, bounded, isolated and disabled until owner approval", () => {
-  assert.equal(config.vars.NOTION_BREED_WORKCOPY_BASELINE_ENABLED, "false");
+test("baseline is owner-enabled but strictly manual, bounded and isolated", () => {
+  assert.equal(config.vars.NOTION_BREED_WORKCOPY_BASELINE_ENABLED, "true");
   assert.equal(config.vars.NOTION_BREED_SYNC_ENABLED, "true");
   assert.equal(config.vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "false");
   assert.match(route, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
