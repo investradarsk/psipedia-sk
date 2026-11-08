@@ -61,6 +61,18 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   if (metadataOnlyChange(event, page)) return "metadata-only";
 
   const sourceId = page.parent?.data_source_id;
+  // Existing Events use a per-field webhook directly. Do not require a
+  // historical agenda-target row or a global profile baseline for a single
+  // ID-verified editorial edit. Unlinked drafts keep the old gated importer.
+  const eventId = eventNotionPlainText(page.properties?.["Psipedia ID"]);
+  if (sameSource(sourceId, bindings.NOTION_EVENTS_DATA_SOURCE_ID)
+      && notionPageBelongsToDataSource(page, bindings.NOTION_EVENTS_DATA_SOURCE_ID!)
+      && typeof eventId === "string" && /^\d+$/.test(eventId)) {
+    return syncEventFieldsFromNotionWebhook({
+      database: bindings.DB, bindings, page,
+      changedPropertyIds: event.data?.updated_properties ?? [],
+    });
+  }
   // All agenda runners must be configured before a webhook is acknowledged.
   // Missing schema/provider failure is retried by Notion; intentionally
   // disabled agendas are reported explicitly, never falsely "processed".
@@ -131,21 +143,6 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     ).bind(sourceId ?? "").first<{ agenda: string }>();
     const allowed = ["events", "organizations", "adoptions", "help-cases", "lost-found"] as const;
     if (!agenda || !allowed.some(value => value === agenda.agenda)) return "out-of-scope";
-    // Existing events use breeder-style single-field events instead of the
-    // legacy record-wide hash comparison. A new, unlinked Notion draft with
-    // no Psipedia ID still uses the existing gated draft import below.
-    const eventId = agenda.agenda === "events"
-      ? eventNotionPlainText(page.properties?.["Psipedia ID"]) : null;
-    if (agenda.agenda === "events" && typeof eventId === "string" &&
-        /^\d+$/.test(eventId) &&
-        sameSource(sourceId, bindings.NOTION_EVENTS_DATA_SOURCE_ID)) {
-      const fieldResult = await syncEventFieldsFromNotionWebhook({
-        database: bindings.DB, bindings, page,
-        changedPropertyIds: event.data?.updated_properties ?? [],
-      });
-      if (fieldResult === "processed") return "processed";
-      if (fieldResult === "deferred") return "deferred";
-    }
     const result = await runNotionEventsHelpSyncSweep({
       database: bindings.DB, bindings, mode: "sync",
       agendas: [agenda.agenda as (typeof allowed)[number]],
