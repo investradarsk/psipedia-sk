@@ -113,8 +113,12 @@ function normalizedOptionalUrl(value: unknown, label: string) {
 }
 
 function normalizedUrl(value: unknown, label: string) {
-  // Empty URLs are valid editorial omissions, not publication blockers.
-  return normalizedOptionalUrl(value, label) ?? "";
+  // Empty URLs are valid editorial omissions; supplied website/source links
+  // must be external HTTP(S) URLs, never image paths.
+  const normalized = normalizedOptionalUrl(value, label) ?? "";
+  if (normalized && !/^https?:\/\//i.test(normalized))
+    throw new EshopRatingError(`${label} musí byť platná HTTP(S) URL.`, 400, "INVALID_ESHOP_PROFILE");
+  return normalized;
 }
 
 function normalizedOptionalText(value: unknown, label: string, maxLength: number) {
