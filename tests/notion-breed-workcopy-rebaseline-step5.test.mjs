@@ -11,6 +11,7 @@ const file = name => readFileSync(new URL("../" + name, import.meta.url), "utf8"
 const sql = file("drizzle/0159_breed_notion_workcopy_links.sql");
 const route = file("app/api/admin/notion-breeds-workcopy-rebaseline/route.ts");
 const ui = file("components/admin-breed-workcopy-baseline.tsx");
+const preflight = file("app/api/admin/notion-breeds-workcopy-preflight/route.ts");
 const config = JSON.parse(file("wrangler.jsonc")).vars;
 const oldId = "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2";
 const newId = "f460b1e5-4454-4a10-9200-3b35106f9e32";
@@ -122,6 +123,9 @@ test("owner-only route and UI do not accidentally activate, edit profiles or ena
   assert.match(route,/buildBreedWorkCopyBaseline\(page, canonical\)/);
   assert.match(ui,/window\.confirm/);
   assert.match(ui,/REBASELINE_344_BREEDS/);
+  assert.match(preflight,/isCompatibleBreedWorkcopyReceipt\(row\.work_sync_receipt\)/);
+  assert.match(preflight,/legacyOriginalReceiptsAreAdvisory: true/);
+  assert.match(preflight,/workReceiptMissingCount/);
   assert.doesNotMatch(route,/UPDATE managed_breeds|UPDATE breed_notion_sync|method:\s*"PATCH"|ACTIVATE_344_BREEDS/);
   assert.doesNotMatch(BREED_WORKCOPY_REBASELINE_CAS_SQL,
     /\b(?:INSERT|DELETE|DROP|ALTER|CREATE|REPLACE\s+INTO)\b/i);
