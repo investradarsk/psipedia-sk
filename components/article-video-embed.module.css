@@ -1,0 +1,12 @@
+/* Shared responsive format for public article embeds and admin previews. */
+:global(.article-block-embed).shorts {
+  width: min(100%, 400px);
+  aspect-ratio: 9 / 16;
+  margin-inline: auto;
+}
+
+:global(.admin-video-preview) .shortsPreviewIframe {
+  max-width: 360px;
+  aspect-ratio: 9 / 16;
+  justify-self: center;
+}

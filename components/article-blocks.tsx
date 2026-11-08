@@ -11,6 +11,7 @@ import { articlePromoBlockAnchor } from "@/lib/visual-library-anchors";
 import { articleBlockHeadings, type ArticleBlock } from "@/lib/article-blocks";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
+import videoStyles from "./article-video-embed.module.css";
 
 function safeHref(value: string, allowInternal = false) {
   if (allowInternal && value.startsWith("/")) return value;
@@ -382,7 +383,10 @@ export function ArticleBlocks({
             });
             if (video)
               return (
-                <figure className="article-block-embed" key={block.id}>
+                <figure
+                  className={`article-block-embed${video.displayFormat === "shorts" ? ` ${videoStyles.shorts}` : ""}`}
+                  key={block.id}
+                >
                   <iframe
                     src={video.embedUrl}
                     title={video.title || "Video v článku"}
