@@ -163,7 +163,6 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await waitForBreedEditor(page);
     await goToBreedEditorSection(page, "Športy", "breed-sports");
     await expect(page.locator("#breed-sports").getByText("Nosework", { exact: true })).toBeVisible();
-    await goToBreedEditorSection(page, "Športy", "breed-sports");
     const sportRow = page.getByRole("article").filter({ hasText: "Nosework" });
     await sportRow.getByRole("button", { name: "Upraviť" }).click();
     const editSport = page.getByRole("dialog", { name: "Upraviť šport" });
