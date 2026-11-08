@@ -38,7 +38,14 @@ test("breed detail presents the four existing utility destinations beside readab
     }
     await expect(links.nth(1)).toHaveAttribute("href", /^\/adresar\/chovatelske-stanice/);
     const cols = await layout.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
-    expect(cols).toBe(width > 1024 ? 2 : 1);
+    // Breed now uses the same PublicDetailLayout breakpoint as services and Help.
+    expect(cols).toBe(width > 800 ? 2 : 1);
+    await expect(layout).toHaveAttribute("data-public-detail-layout", "true");
+    const detailHeading = page.getByRole("heading", { level: 2, name: "O plemene" });
+    if (await detailHeading.count()) {
+      const fontSize = await detailHeading.evaluate((element) => parseFloat(getComputedStyle(element).fontSize));
+      expect(fontSize).toBeGreaterThanOrEqual(20);
+    }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
     if (width === 1440) {

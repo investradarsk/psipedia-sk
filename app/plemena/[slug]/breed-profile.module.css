@@ -1,4 +1,5 @@
 .page {
+  composes: page from "../../../components/detail-primitives/detail-primitives.module.css";
   min-height: 100vh;
   padding: 20px 0 76px;
   color: var(--ink);
@@ -113,6 +114,7 @@
 }
 
 .quickFacts {
+  composes: card from "../../../components/detail-primitives/detail-primitives.module.css";
   padding: 20px 0 22px;
   border-bottom: 1px solid var(--ps-border-soft);
 }
@@ -125,6 +127,7 @@
   text-transform: uppercase;
 }
 .factGrid {
+  composes: factTiles from "../../../components/detail-primitives/detail-primitives.module.css";
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   margin: 0;
@@ -165,6 +168,7 @@
 }
 
 .readingSection {
+  composes: section from "../../../components/detail-primitives/detail-primitives.module.css";
   max-width: 840px;
   margin: 0 auto;
   padding: 52px 0;
@@ -202,6 +206,7 @@
 }
 
 .fitSection {
+  composes: section from "../../../components/detail-primitives/detail-primitives.module.css";
   padding: 48px 0 54px;
   border-top: 1px solid var(--ps-border-soft);
   border-bottom: 1px solid var(--ps-border-soft);
@@ -266,6 +271,7 @@
 }
 
 .practicalSection {
+  composes: section from "../../../components/detail-primitives/detail-primitives.module.css";
   padding: 54px 0;
 }
 .accordionList {
@@ -359,6 +365,7 @@
   font-size: 1rem;
 }
 .sportsSection {
+  composes: section from "../../../components/detail-primitives/detail-primitives.module.css";
   padding: 48px 0 54px;
   border-top: 1px solid var(--ps-border-soft);
 }
@@ -401,6 +408,7 @@
 }
 
 .fciSection {
+  composes: section from "../../../components/detail-primitives/detail-primitives.module.css";
   display: grid;
   grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
   gap: 24px 38px;
@@ -446,6 +454,7 @@
 }
 
 .compactRelated {
+  composes: section from "../../../components/detail-primitives/detail-primitives.module.css";
   margin-block: 48px;
 }
 
@@ -806,10 +815,7 @@
 
 /* Main reference copy stays readable; navigation lives beside, not between sections. */
 .contentLayout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(230px, 280px);
-  align-items: start;
-  column-gap: clamp(24px, 3vw, 48px);
+  --ps-detail-layout-gap: 12px;
 }
 .mainColumn {
   min-width: 0;
@@ -869,9 +875,6 @@
   outline-offset: 3px;
 }
 @media (max-width: 1024px) {
-  .contentLayout {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .utilitySidebar {
     position: static;
     margin: 8px 0 38px;
@@ -1048,21 +1051,6 @@
   margin-top: 0;
 }
 @media (min-width: 821px) {
-  .readingSection h2,
-  .sectionIntro h2,
-  .fciHeading h2,
-  .compactRelated h2 {
-    color: var(--brand-accent-strong, #b94732);
-    font:
-      850 0.78rem/1.45 "Avenir Next",
-      Avenir,
-      "Segoe UI",
-      Helvetica,
-      Arial,
-      sans-serif;
-    letter-spacing: 0.085em;
-    text-transform: uppercase;
-  }
   .accordionHeading strong,
   .riskBlock h4 {
     color: var(--forest-dark);
@@ -1083,6 +1071,237 @@
     margin-block: 20px;
   }
   .contentLayout .dataCardGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+
+/* Shared public-detail design language for breed profiles (PR #1266).
+   The article and aside use PublicDetailLayout, not a breed-only grid. */
+.page {
+  padding: 0 0 30px;
+  background: var(--cream);
+}
+.page .breadcrumbs {
+  margin-bottom: 0;
+}
+.page .lead {
+  color: var(--detail-muted, #455e66);
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+.page .quickFacts {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--detail-border, #dfe7e4);
+  border-radius: var(--ps-radius-card);
+  background: var(--detail-surface, #fffefa);
+}
+.page .sectionLabel {
+  margin-bottom: 12px;
+  color: var(--detail-ink, #17352b);
+  font-size: 0.94rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.page .quickFacts .factGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 9px;
+  margin: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.page .quickFacts .factGrid > div {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--detail-border, #dfe7e4);
+  border-radius: var(--ps-radius-control);
+  background: var(--sage-light, #edf3e9);
+}
+.page .quickFacts .factGrid dt {
+  margin-bottom: 4px;
+  color: var(--detail-muted, #526158);
+  font-size: var(--ps-detail-fact-label-size);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.page .quickFacts .factGrid dd {
+  font-size: var(--ps-detail-fact-value-size);
+  line-height: 1.4;
+}
+.contentLayout {
+  margin-top: 14px;
+}
+.page .contentLayout .readingSection {
+  max-width: none;
+  margin-inline: 0;
+}
+.page .readingSection,
+.page .fitSection,
+.page .practicalSection,
+.page .sportsSection,
+.page .fciSection,
+.page .compactRelated,
+.page .gallerySection {
+  min-width: 0;
+  margin: 0;
+  padding: clamp(16px, 1.8vw, 20px);
+  border: 1px solid var(--detail-border, #dfe7e4);
+  border-radius: var(--ps-radius-card);
+  background: var(--detail-surface, #fffefa);
+  box-shadow: none;
+}
+.page .readingSection h2,
+.page .sectionIntro h2,
+.page .fciHeading h2,
+.page .compactRelated h2,
+.page .gallerySection h2 {
+  margin: 0 0 12px;
+  color: var(--detail-ink, #092d36);
+  font: 500 clamp(1.35rem, 2vw, 1.7rem)/1.2 Georgia, serif;
+  letter-spacing: -0.025em;
+  text-transform: none;
+}
+.page .eyebrow {
+  margin-bottom: 6px;
+  color: var(--coral-dark);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+.page .readingSection .prose {
+  margin-top: 8px;
+}
+.page .prose {
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+.page .prose p + p {
+  margin-top: 0.9em;
+}
+.page .sectionIntro {
+  margin-bottom: 14px;
+}
+.page .sectionIntro > p:last-child {
+  margin-top: 7px;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.page .fitGrid {
+  gap: 10px;
+}
+.page .fitGrid > div {
+  padding: 14px 16px;
+  border-radius: var(--ps-radius-control);
+}
+.page .fitGrid h3 {
+  margin-bottom: 8px;
+  font-size: 1rem;
+  color: var(--detail-ink, #17352b);
+}
+.page .accordion {
+  padding: 12px 0;
+}
+.page .accordion:first-child {
+  padding-top: 0;
+}
+.page .accordion:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.page .accordionHeading {
+  margin-bottom: 6px;
+}
+.page .accordionPanel {
+  padding-bottom: 4px;
+}
+.page .fciSection {
+  gap: 14px;
+}
+.page .fciHeading > p:last-child {
+  margin-top: 7px;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.page .fciFacts div {
+  padding-block: 8px;
+}
+.page .utilitySidebar {
+  margin-top: 0;
+  gap: 12px;
+}
+.page .utilitySidebar h2 {
+  margin-bottom: 8px;
+  color: var(--detail-ink, #17352b);
+}
+.page .utilityLinks {
+  gap: 8px;
+}
+.page .gallerySection {
+  margin-block: 14px;
+}
+.page .gallerySection .galleryGrid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+  padding-top: 0;
+}
+.page .gallerySection .galleryGrid figure {
+  border: 1px solid var(--detail-border, #dfe7e4);
+  border-radius: var(--ps-detail-photo-radius);
+  background: var(--sage-light);
+  box-shadow: none;
+}
+.page .gallerySection .galleryGrid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: var(--sage-light);
+}
+.page .gallerySection .galleryGrid figcaption {
+  padding: 9px 11px;
+}
+.page .compactRelated {
+  margin-block: 14px;
+}
+.page .contentLayout .compactRelated {
+  margin-block: 0;
+}
+.page .compactRelated > header {
+  margin-bottom: 12px;
+}
+.page .dataCardGrid {
+  gap: 10px;
+}
+@media (max-width: 800px) {
+  .page .quickFacts {
+    margin-top: 12px;
+    padding: 14px;
+  }
+  .page .quickFacts .factGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .page .readingSection,
+  .page .fitSection,
+  .page .practicalSection,
+  .page .sportsSection,
+  .page .fciSection,
+  .page .compactRelated,
+  .page .gallerySection {
+    padding: 16px;
+  }
+  .page .gallerySection .galleryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+}
+@media (max-width: 380px) {
+  .page .quickFacts .factGrid > div {
+    padding: 9px;
+  }
+  .page .gallerySection .galleryGrid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
