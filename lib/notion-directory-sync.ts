@@ -1630,6 +1630,28 @@ async function syncMappedPage(input: {
         throw new Error("TRAINER_PUBLICATION_WRITEBACK_UNVERIFIED");
       return "pushed" as const;
     }
+    // One-time lossless catch-up for existing mapped trainers: their Notion
+    // prose was previously excluded from events. A missing metadata KEY
+    // (not an empty value) is the only signal that this field was never
+    // initialized. Do not run legacy baseline or overwrite deliberate blanks.
+    if (profile.status !== "archived" &&
+        !Object.hasOwn(profile.importData ?? {}, TRAINER_SERVICES_TEXT_METADATA_KEY)) {
+      const incoming = notionSnapshot(page);
+      if (incoming.services.length) {
+        const desired = breederApplyNotionChanges(
+          profileSnapshot(profile) as unknown as Record<string, unknown>,
+          incoming as unknown as Record<string, unknown>,
+          ["services"],
+        );
+        await saveBreederEditorialValue(input.database, profile, desired, "services");
+        await patchNotionPage(input.bindings, page.id, {
+          "Sync stav": select("Synchronizované"),
+          "Sync chyba": richText(""),
+          "Posledný sync": date(new Date().toISOString()),
+        });
+        return "pulled" as const;
+      }
+    }
     return "unchanged" as const;
   }
 
