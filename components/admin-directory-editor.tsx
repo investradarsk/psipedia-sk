@@ -8,6 +8,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
 import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
+import { changedTrainerTrustAdminFields } from "@/lib/notion-trainer-trust-fields";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
@@ -495,6 +496,9 @@ export function AdminDirectoryEditor({
       const trainerServicesEdited = profile && profile.category === "treneri" && category === profile.category && breederBaseline
         ? trainerServicesText !== readTrainerServicesText(breederBaseline.importData)
         : undefined;
+      const trainerTrustEditedPaths = profile && profile.category === "treneri" && category === profile.category && breederBaseline
+        ? changedTrainerTrustAdminFields(breederBaseline, { verified, featured })
+        : [];
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
@@ -502,6 +506,7 @@ export function AdminDirectoryEditor({
           ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
+          ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
           ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
           services: profile && isDirectoryEventPilotCategory(profile.category)
