@@ -1479,7 +1479,8 @@ async function syncBreederEvent(input: {
   const { database, bindings, page } = input;
   const now = new Date().toISOString();
   if (input.changedPropertyIds !== undefined) {
-    const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds);
+    const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds)
+      .filter(path => path !== "services" || input.profile.category === "chovatelske-stanice" || input.profile.category === "treneri");
     const relationFields = ["chovatelske-stanice", "treneri"].includes(input.profile.category)
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
     const facetFields = input.profile.category === "chovatelske-stanice"
@@ -1599,7 +1600,9 @@ async function syncBreederEvent(input: {
   }
 
   const fields = (input.adminChangedFields ?? []).filter(
-    (path): path is BreederEditorialField => Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
+    (path): path is BreederEditorialField =>
+      Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
+      (path !== "services" || input.profile.category === "chovatelske-stanice" || input.profile.category === "treneri"),
   );
   if (!fields.length) return "unchanged";
   const geo = await loadGeoMirror(database, input.profile.id);
