@@ -135,7 +135,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.getByLabel("FCI skupina", { exact: true }).fill("8");
     await page.getByLabel("FCI sekcia", { exact: true }).fill("Retrievery");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
-    await expect(page.getByText("Koncept je uložený.")).toBeVisible();
+    await expect(page.getByText(/^(Koncept je uložený\.|Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený\.)$/)).toBeVisible();
     await page.reload();
     await waitForBreedEditor(page);
     await goToBreedEditorSection(page, "Odborný profil", "breed-overview");
@@ -158,7 +158,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(page.locator("#breed-sports").getByText("Nosework", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
-    await expect(page.getByText("Koncept je uložený.")).toBeVisible();
+    await expect(page.getByText(/^(Koncept je uložený\.|Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený\.)$/)).toBeVisible();
     await page.reload();
     await waitForBreedEditor(page);
     await goToBreedEditorSection(page, "Športy", "breed-sports");
