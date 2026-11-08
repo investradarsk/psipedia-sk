@@ -37,13 +37,15 @@ test("adoption and lost-found allow missing publish fields while retaining ident
 
   const lost = source("../lib/lost-found-dog-store.ts");
   assert.doesNotMatch(lost, /if \(status !== "DRAFT"\) \{/);
-  assert.match(lost, /if \(eventDate && !\/\^\\d\{4\}/);
+  assert.match(lost, /if \(eventDate && !validCalendarDate\(eventDate\)\)/);
+  assert.match(lost, /parsed\.toISOString\(\)\.slice\(0, 10\) === value/);
   assert.match(lost, /requirePiiKeys/);
 });
 
 test("empty e-shop web, source and description never produce invalid public links", () => {
   const shop = source("../lib/eshop-ratings.ts");
-  assert.match(shop, /return normalizedOptionalUrl\(value, label\) \?\? ""/);
+  assert.match(shop, /const normalized = normalizedOptionalUrl\(value, label\) \?\? ""/);
+  assert.match(shop, /if \(normalized && !\/\^https\?/);
   assert.match(shop, /normalizedOptionalText\(input\.description/);
   const publicPage = source("../app/recenzie/eshopy/[slug]/page.tsx");
   assert.match(publicPage, /shop\.websiteUrl \? \(/);
