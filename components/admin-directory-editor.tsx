@@ -476,7 +476,8 @@ export function AdminDirectoryEditor({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
-          ...(trainerServicesEdited !== undefined ? { trainerServicesEdited, trainerServicesText } : {}),
+          ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
+          ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
           services: listFromText(services), qualifications: listFromText(qualifications),
           address: publicAddress,
@@ -853,7 +854,7 @@ export function AdminDirectoryEditor({
             <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
             <AdminHelpText term="Formát">Lexical ukladá popis do existujúceho textového poľa bez zmeny synchronizácie Notion.</AdminHelpText>
             <div className="admin-field-grid">
-              {profile && category === "treneri" ? (
+              {category === "treneri" && !notionDraft ? (
                 <div className="admin-field"><label htmlFor="directory-trainer-services-text">Služby – voľný text (Notion)</label>
                   <textarea id="directory-trainer-services-text" rows={7} value={trainerServicesText}
                     onChange={event => { setTrainerServicesText(event.target.value); setFormDirty(true); }}
