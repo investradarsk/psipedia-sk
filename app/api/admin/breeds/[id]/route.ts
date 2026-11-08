@@ -54,7 +54,12 @@ export async function PUT(request: Request, { params }: RouteProps) {
         const result = await writeBackBreedEditorialToNotion({
           database:bindings.DB,bindings,before,breed,
         });
-        notionEditorialWriteback={status:result.updated?"synced":(result.reason??"unchanged")};
+        notionEditorialWriteback={
+          status: "pendingFields" in result && result.pendingFields?.length
+            ? "pending" : result.updated ? "synced" : (result.reason ?? "unchanged"),
+          ...("pendingFields" in result && result.pendingFields?.length
+            ? { code: "BREED_NOTION_FIELDS_PENDING" } : {}),
+        };
       } catch(error) {
         const raw=error instanceof Error?error.message:"";
         const code=/^BREED_[A-Z0-9_]+$/.test(raw)?raw:"REMOTE_WRITEBACK_FAILED";
@@ -116,7 +121,12 @@ export async function PATCH(request: Request, { params }: RouteProps) {
         const result = await writeBackBreedEditorialToNotion({
           database: bindings.DB, bindings, before, breed,
         });
-        notionEditorialWriteback = { status: result.updated ? "synced" : (result.reason ?? "unchanged") };
+        notionEditorialWriteback = {
+          status: "pendingFields" in result && result.pendingFields?.length
+            ? "pending" : result.updated ? "synced" : (result.reason ?? "unchanged"),
+          ...("pendingFields" in result && result.pendingFields?.length
+            ? { code: "BREED_NOTION_FIELDS_PENDING" } : {}),
+        };
       } catch (error) {
         const raw = error instanceof Error ? error.message : "";
         const code = /^BREED_[A-Z0-9_]+$/.test(raw) ? raw : "REMOTE_WRITEBACK_FAILED";
