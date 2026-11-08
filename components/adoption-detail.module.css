@@ -63,3 +63,11 @@
   .detailContent, .detailAside { width: 100%; min-width: 0; overflow-wrap: anywhere; }
   .contactLinks a, .organizationLink { overflow-wrap: anywhere; word-break: normal; }
 }
+
+
+/* Match compact Help profile density, without changing data or public actions. */
+.detailContent, .detailAside { gap: 12px; }
+.detailPanel { padding: clamp(14px, 1.7vw, 18px); }
+.detailPanel h2 { margin-bottom: 10px; font-size: clamp(1.28rem, 2vw, 1.55rem); }
+.detailFacts { gap: 8px; margin-top: 10px; }
+.contactCard { border-left: 3px solid var(--forest, #174b38); }
