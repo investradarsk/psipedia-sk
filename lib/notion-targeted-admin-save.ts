@@ -2,6 +2,7 @@ import { runNotionEshopSyncSweep, type NotionEshopSyncBindings } from "./notion-
 import { syncOneAdminHelpRecord } from "./notion-targeted-admin-help.ts";
 import type { NotionEventsHelpSyncBindings } from "./notion-events-help-sync.ts";
 import type { BidirectionalAgendaKey } from "./notion-events-help-adapters.ts";
+import type { EventNotionField } from "./notion-event-field-contract.ts";
 
 export type TargetedNotionSaveBindings =
   NotionEshopSyncBindings & NotionEventsHelpSyncBindings & {
@@ -20,6 +21,7 @@ export async function syncSavedNotionRecord(input: {
   bindings: TargetedNotionSaveBindings;
   agenda: BidirectionalAgendaKey | "eshops";
   entityId: number;
+  changedEventFields?: readonly EventNotionField[];
 }): Promise<TargetedNotionSaveStatus> {
   const { bindings, agenda, entityId } = input;
   if (bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") return "disabled";
@@ -38,6 +40,7 @@ export async function syncSavedNotionRecord(input: {
     }
     return await syncOneAdminHelpRecord({
       database: bindings.DB, bindings, agenda, entityId,
+      changedEventFields: input.changedEventFields,
     });
   } catch {
     // Admin edit must never be rolled back because a remote mirror failed.

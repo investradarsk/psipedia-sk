@@ -1388,7 +1388,7 @@ async function saveBreederEditorialValue(
  * the legacy whole-profile snapshot/hash, nor of canonical Services V3/GEO.
  */
 export const PILOT_DIRECTORY_METADATA_FIELDS = [
-  "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka",
+  "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
 ] as const;
 export type PilotDirectoryMetadataField = (typeof PILOT_DIRECTORY_METADATA_FIELDS)[number];
 
@@ -1414,7 +1414,8 @@ export async function savePilotDirectoryMetadataField(input: {
       !PILOT_DIRECTORY_METADATA_FIELDS.includes(input.field))
     throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
   const trimmed = input.value.trim();
-  if (!trimmed) throw new Error("DIRECTORY_PILOT_METADATA_EMPTY_NOT_A_DELETE");
+  // A blank value is an explicit Admin edit and must clear only this field.
+  // Blank Notion webhook values are still ignored in syncBreederEvent.
   const current = await getManagedDirectoryProfileById(input.profileId, input.database);
   if (!current || current.category !== input.category || current.status === "archived")
     throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
@@ -1455,8 +1456,9 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
     throw new NotionDirectoryUnsafeTargetError("DIRECTORY_PILOT_METADATA_TARGET_INVALID");
   const patch: Record<string, unknown> = {};
   for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
-    const value = input.changed[field]?.trim();
-    if (!value || propertyText(page, field) === value) continue;
+    if (!Object.hasOwn(input.changed, field)) continue;
+    const value = input.changed[field]!.trim();
+    if (propertyText(page, field) === value) continue;
     if (!Object.hasOwn(page.properties ?? {}, field))
       throw new Error("DIRECTORY_PILOT_METADATA_NOTION_FIELD_MISSING: " + field);
     patch[field] = richText(value);
