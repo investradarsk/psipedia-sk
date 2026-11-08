@@ -85,8 +85,8 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
   async function uploadImage(e:File|ChangeEvent<HTMLInputElement>){const file=adminSelectedImage(e);if(!file)return;setUploading(true);setError("");try{const data=await uploadAdminImage(file,"lost-found");navigation.markDirty();setState(s=>({...s,mainImage:data.imageUrl,mainImageKey:data.imageKey,thumbnailImageDisplay:null,detailImageDisplay:null}));setMessage(adminImageUploadMessage(data,"Ulož hlásenie."))}catch(err){setError(err instanceof Error?err.message:"Obrázok sa nepodarilo nahrať.")}finally{setUploading(false)}}
   async function save(status:LostFoundStatus=state.status){
     if (saving || mutationPendingRef.current || uploading || galleryUploading) return;
-    // Keep every panel mounted; reveal the first invalid field explicitly.
-    // The D1 store is still authoritative for publish, privacy and lifecycle.
+    // Missing optional dog, time, place and narrative fields do not block.
+    // D1 remains authoritative for validity, privacy and lifecycle.
     const missing = [
       { section: "lost-found-basics", valid: Boolean(state.slug.trim()), label: "Adresa hlásenia" },
     ].find((field) => !field.valid);
