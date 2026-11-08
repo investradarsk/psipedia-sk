@@ -180,7 +180,7 @@ test("a trainer service description updates only its separate metadata field", a
   assert.match(queries[0].sql, /source_data_json = json_set/);
   assert.doesNotMatch(queries[0].sql, /services_json\s*=/);
   assert.equal(queries[0].values[0], "$._psipedia_trainer_services_text");
-  assert.equal(queries[0].values[1], "Individuálne lekcie\\nNosework");
+  assert.equal(queries[0].values[1], "Individuálne lekcie\nNosework");
 });
 
 test("Notion tri-state filters and operational alerts stay separate from V3 services", async () => {
