@@ -9,7 +9,7 @@ const page = read("app/admin/organizacie/[id]/page.tsx");
 
 test("ORG-ADDRESS: address is section three of the existing five-section editor", () => {
   assert.equal((editor.match(/<AdminEditorSection id=/g) ?? []).length, 5);
-  const ids = ["organization-general", "organization-content", "organization-address", "organization-contacts", "organization-media"];
+  const ids = ["organization-general", "organization-content", "organization-location-panel", "organization-contacts", "organization-media"];
   let cursor = 0;
   for (const id of ids) {
     const next = editor.indexOf('{ id: "' + id + '"', cursor);
@@ -37,7 +37,7 @@ test("ORG-ADDRESS: one submit saves only changed canonical/location data in the 
   assert.ok(editor.includes('if (!organization) createdOrganizationId.current = organizationId;'));
   assert.ok(editor.includes('setSavedAddressSnapshot(JSON.stringify(savedAddress));'));
   assert.ok(editor.includes('if (savingAddress) {'));
-  assert.ok(editor.includes('setActiveOrganizationSection("organization-address");'));
+  assert.ok(editor.includes('setActiveOrganizationSection("organization-location-panel");'));
   assert.ok(editor.includes('router.replace(`/admin/organizacie/${organizationId}`)'));
   assert.ok(editor.indexOf("if (addressChanged)") < editor.indexOf("router.replace(`/admin/organizacie/${organizationId}`)"));
 });
@@ -46,7 +46,10 @@ test("ORG-ADDRESS: map stays manual and is disabled by unsaved fields", () => {
   assert.ok(editor.includes('dirty ? ('));
   assert.ok(editor.includes('Pred zmenou Google miesta ulož rozpracované údaje'));
   assert.ok(editor.includes('targetType="ORGANIZATION_LOCATION"'));
-  assert.ok(editor.includes('endpoint={`/api/admin/organizations/${organization.id}/google-place`}'));
+  assert.ok(editor.includes('targetId={location.id}'));
+  assert.ok(editor.includes('<AdminOrganizationLocations draft={addressDraft}'));
+  assert.ok(editor.includes('Uložiť organizáciu'));
+  assert.ok(!address.includes('Uložiť adresu'));
   assert.ok(!address.includes("GooglePlace"));
   assert.ok(!editor.includes("wrangler d1"));
 });
