@@ -81,7 +81,8 @@ export async function PUT(request: Request, { params }: Props) {
       (["chovatelske-stanice", "treneri"].includes(before.category) || isDirectoryEventPilotCategory(before.category)) && Array.isArray(rawBreederEditedPaths)
         ? rawBreederEditedPaths.filter(
             (path): path is BreederEditorialField =>
-              typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
+              typeof path === "string" && Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
+              !(path === "services" && isDirectoryEventPilotCategory(before.category)),
           )
         : null;
     // The retired internal e-mail is no longer editable. Keep historical D1
@@ -90,12 +91,15 @@ export async function PUT(request: Request, { params }: Props) {
     const fieldPreserved = editedPaths
       ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
       : safeSubmittedBody;
-    // The canonical Services V3 relation can change while a trainer form is
-    // open. Unless the operator explicitly edited legacy services, preserve
-    // the latest D1 list instead of silently restoring stale textarea data.
-    const body = (before.category === "treneri" || isDirectoryEventPilotCategory(before.category)) && editedPaths && rawTrainerServicesEdited !== true
+    // The three pilot categories use only Services V3 for service editing.
+    // Preserve historical services_json for legacy rendering, but never allow
+    // the whole-profile form to overwrite it (even from a stale/manual payload).
+    // Trainers retain their previous legacy-service behavior unchanged.
+    const body = isDirectoryEventPilotCategory(before.category)
       ? { ...fieldPreserved, services: before.services }
-      : fieldPreserved;
+      : before.category === "treneri" && editedPaths && rawTrainerServicesEdited !== true
+        ? { ...fieldPreserved, services: before.services }
+        : fieldPreserved;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
     const changed = directoryPhysicalAddressChanged(before, body);
 
