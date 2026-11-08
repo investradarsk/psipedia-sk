@@ -147,33 +147,38 @@ test("veterinary Health variant is omitted when no useful health data exists", (
   assert.equal(presentation.health, null);
 });
 
-test("physiotherapy Health variant exposes only populated therapy and rehabilitation fields", () => {
+test("physiotherapy uses Services V3 and one qualifications text, never legacy therapy facts", () => {
+  const qualifications = ["Lucia Rybárová, CertCAAPR", "Tatiana Vozárová, DiS."];
   const presentation = getDirectoryDetailPresentation(
     profile({
       category: "fyzioterapia",
+      services: ["Hydroterapia", "Laserterapia"],
+      qualifications,
       importData: {
-        Hydroterapia: "Áno",
-        Laserterapia: "Neoverené",
+        Hydroterapia: "Nie",
+        Laserterapia: "Áno",
         "Manuálne techniky": "Mäkké a mobilizačné techniky",
         "Pooperačná rehabilitácia": "Áno",
         "Neurologickí pacienti": "Áno",
-        "Odborník / certifikácia": "Veterinárny fyzioterapeut",
+        "Odborník / certifikácia": "Starý údaj",
       },
     }),
   );
+  assert.deepEqual(presentation.facts, []);
+  assert.equal(presentation.health, null);
+  assert.deepEqual(presentation.services, ["Hydroterapia", "Laserterapia"]);
+  assert.deepEqual(presentation.qualifications, qualifications);
+  assert.equal(presentation.excerpt, "Krátky opis služby.");
+});
 
-  assert.deepEqual(presentation.health, {
-    variant: "fyzioterapia",
-    eyebrow: "Zdravie a starostlivosť",
-    title: "Terapie a rehabilitácia",
-    facts: [
-      { label: "Hydroterapia", value: "Áno" },
-      { label: "Manuálne techniky", value: "Mäkké a mobilizačné techniky" },
-      { label: "Pooperačná rehabilitácia", value: "Áno" },
-      { label: "Neurologickí pacienti", value: "Áno" },
-      { label: "Odborník / certifikácia", value: "Veterinárny fyzioterapeut" },
-    ],
-  });
+test("physiotherapy public profile always shows perex and expertise as plain text", () => {
+  const detail = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
+  const admin = fs.readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
+  assert.ok(detail.includes("showExcerpt={isPhysiotherapy || !hasExtendedDescription}"));
+  assert.ok(detail.includes('title={isPhysiotherapy ? "Odbornosť a skúsenosti"'));
+  assert.ok(detail.includes('<DetailParagraphs value={visibleQualifications.join("\\n")} />'));
+  assert.ok(detail.includes('key: "physio-price"'));
+  assert.ok(admin.includes('category === "fyzioterapia" ? "Odbornosť a skúsenosti"'));
 });
 
 test("description and URL fallback preserve behavior while text-only address does not fabricate navigation", () => {
