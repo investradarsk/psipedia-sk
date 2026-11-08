@@ -251,6 +251,7 @@ export function DirectoryProfileDetail({
     presentation.facts.map((fact) => fact.value.trim().toLocaleLowerCase("sk")),
   );
   const isBreeder = presentation.category === "chovatelske-stanice";
+  const isPhysiotherapy = presentation.category === "fyzioterapia";
   const hasNamedLinks = isBreeder || presentation.category === "treneri";
   // Older imported records split prose at semicolons. Join only clear
   // lowercase continuations; do not render half a sentence as its own tag.
@@ -288,7 +289,7 @@ export function DirectoryProfileDetail({
   const hasExpertise =
     expertFacts.length > 0 || breederLinkFacts.length > 0 ||
     visibleQualifications.length > 0 ||
-    Boolean(presentation.priceNote);
+    Boolean(!isPhysiotherapy && presentation.priceNote);
   const hasExtendedDescription = Boolean(
     presentation.description?.trim() &&
       presentation.description.trim() !== presentation.excerpt.trim(),
@@ -338,37 +339,50 @@ export function DirectoryProfileDetail({
       content: hasExpertise ? (
         <DetailSection
           compactHeading
-          eyebrow="Zameranie"
-          title={presentation.health?.title ?? "Odborné informácie"}
+          eyebrow={isPhysiotherapy ? "Odborný profil" : "Zameranie"}
+          title={isPhysiotherapy ? "Odbornosť a skúsenosti" : presentation.health?.title ?? "Odborné informácie"}
         >
           {expertFacts.length || breederLinkFacts.length
             ? <DetailOptionGrid options={[...expertFacts, ...breederLinkFacts]} /> : null}
           {visibleQualifications.length > 0 ? (
-            <div className={styles.qualifications}>
-              <h3>Odbornosť a skúsenosti</h3>
-              <ul className={styles.qualificationsList}>
-                {visibleQualifications.slice(0, 4).map((qualification) => (
-                  <li key={qualification}>{qualification}</li>
-                ))}
-              </ul>
-              {visibleQualifications.length > 4 ? (
-                <details className={styles.moreQualifications}>
-                  <summary>Ďalšie informácie ({visibleQualifications.length - 4})</summary>
-                  <ul className={styles.qualificationsList}>
-                    {visibleQualifications.slice(4).map(qualification => (
-                      <li key={qualification}>{qualification}</li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-            </div>
+            isPhysiotherapy ? (
+              <DetailParagraphs value={visibleQualifications.join("\n")} />
+            ) : (
+              <div className={styles.qualifications}>
+                <h3>Odbornosť a skúsenosti</h3>
+                <ul className={styles.qualificationsList}>
+                  {visibleQualifications.slice(0, 4).map((qualification) => (
+                    <li key={qualification}>{qualification}</li>
+                  ))}
+                </ul>
+                {visibleQualifications.length > 4 ? (
+                  <details className={styles.moreQualifications}>
+                    <summary>Ďalšie informácie ({visibleQualifications.length - 4})</summary>
+                    <ul className={styles.qualificationsList}>
+                      {visibleQualifications.slice(4).map(qualification => (
+                        <li key={qualification}>{qualification}</li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+              </div>
+            )
           ) : null}
-          {presentation.priceNote ? (
+          {presentation.priceNote && !isPhysiotherapy ? (
             <div className={styles.priceNote}>
               <strong>Cena / cenník</strong>
               <p>{presentation.priceNote}</p>
             </div>
           ) : null}
+        </DetailSection>
+      ) : null,
+    },
+    {
+      key: "physio-price",
+      column: "aside" as const,
+      content: isPhysiotherapy && presentation.priceNote ? (
+        <DetailSection compactHeading eyebrow="Cenník" title="Orientačná cena">
+          <DetailParagraphs value={presentation.priceNote} />
         </DetailSection>
       ) : null,
     },
@@ -481,7 +495,7 @@ export function DirectoryProfileDetail({
         categoryLabel={category?.singular ?? "Profil služby"}
         commercial={commercial}
         navigationHref={navigationHref}
-        showExcerpt={!hasExtendedDescription}
+        showExcerpt={isPhysiotherapy || !hasExtendedDescription}
       />
       <PublicDetailFlow blocks={blocks} className={styles.layout} />
 
