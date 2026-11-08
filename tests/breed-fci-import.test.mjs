@@ -987,7 +987,7 @@ test("FCI preview rejects missing numbers, invalid groups and duplicate identiti
   }
 });
 
-test("breed encyclopedia relations stay explicit, bounded and editable", () => {
+test("breed encyclopedia relation storage remains bounded while editor follows Notion 60", () => {
   const migration = readFileSync(
     new URL("../drizzle/0023_big_shinko_yamashiro.sql", import.meta.url),
     "utf8",
@@ -1014,18 +1014,19 @@ test("breed encyclopedia relations stay explicit, bounded and editable", () => {
     "utf8",
   );
   for (const label of [
-    "Srsť a údržba",
-    "Život s rodinou a deťmi",
-    "Vzťah k iným psom",
+    "Redakcia starostlivosť o srsť",
+    "Redakcia život v rodine",
+    "Redakcia spolužitie so psami",
     "Zaujímavosti",
     "Časté chyby majiteľov",
     "Športy a aktivity",
-    "Súvisiace články",
-    "Podobné plemená",
-    "Chovateľské stanice",
-    "Chovateľské kluby",
   ])
     assert.match(breedEditor, new RegExp(label));
+  assert.doesNotMatch(breedEditor, /<AdminBreedRelationGroup|breed-relations/);
+  // This is only a visible-field change. Canonical relation IDs are still
+  // read and saved by the existing model; no D1 or public relationship loss.
+  for (const field of ["relatedArticleIds","relatedBreedIds","directoryProfileIds"])
+    assert.match(breedEditor, new RegExp(field));
   const articleEditor = readFileSync(
     new URL("../components/admin-article-editor.tsx", import.meta.url),
     "utf8",
