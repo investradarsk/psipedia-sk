@@ -1217,3 +1217,9 @@
     grid-row: 2;
   }
 }
+
+/* Breed retains full-height uncropped photography, aligned with shared
+   services, events and Help hero copy rather than vertically centering it. */
+.hero[data-public-detail-hero="breed"] .heroFrame { align-items: start; }
+.hero[data-public-detail-hero="breed"] .heroCopy,
+.hero[data-public-detail-hero="breed"] .heroMedia { align-self: start; }
