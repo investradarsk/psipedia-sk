@@ -302,9 +302,8 @@ export async function prepareAdoptionWritePayload(
   if (!existing && (normalized.status === "ADOPTED" || normalized.status === "ARCHIVED")) {
     throw new Error("Nový adopčný profil musí začať ako koncept alebo verejný stav.");
   }
-  if ((adoptionPublicStatuses as readonly AdoptionStatus[]).includes(normalized.status) && organization.organizationId === null) {
-    throw new Error("Verejný adopčný profil musí mať canonical organization_id.");
-  }
+  // An absent canonical organization is permitted: the public profile keeps
+  // its nullable relation and never fabricates a responsible organization.
   const breed = await resolveBreed(database, normalized.breedId);
   const breedName = breed.breedId === null ? normalized.breedName : breed.breedName;
   const preparedBase = {
