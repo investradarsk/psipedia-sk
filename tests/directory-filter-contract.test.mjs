@@ -8,13 +8,15 @@ import {
   serviceFilterCategories, serviceFiltersForCategory,
 } from "../lib/directory-filter-contract.ts";
 
-test("all ten canonical categories have a unique, versioned typed registry", () => {
+test("remaining nine categories have a unique, versioned facet registry", () => {
   const source = readFileSync("lib/directory.ts", "utf8");
   for (const category of serviceFilterCategories) {
     assert.match(source, new RegExp(`slug: "${category}"`));
     assert.ok(serviceFiltersForCategory(category).length >= 2);
   }
-  assert.equal(serviceFilterCategories.length, 10);
+  assert.equal(serviceFilterCategories.length, 9);
+  assert.ok(!serviceFilterCategories.includes("fyzioterapia"));
+  assert.equal(serviceFiltersForCategory("fyzioterapia").length, 0);
   assert.equal(new Set(directoryFilterRegistry.map((item) => item.id)).size, directoryFilterRegistry.length);
   assert.equal(new Set(directoryFilterRegistry.map((item) => item.d1.key)).size, directoryFilterRegistry.length);
   assert.equal(new Set(directoryFilterRegistry.map((item) => item.notion.property)).size, directoryFilterRegistry.length);
