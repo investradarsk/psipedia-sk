@@ -148,12 +148,6 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
     const missing = [
       { section: "help-basics", valid: Boolean((titleDraftRef.current || title).trim()), label: "Názov prípadu" },
       { section: "help-media", valid: Boolean(slug.trim() || slugify(titleDraftRef.current || title)), label: "Adresa prípadu" },
-      ...(nextStatus === "published" ? [
-        { section: "help-basics", valid: excerpt.trim().length >= 20, label: "Krátky popis (aspoň 20 znakov)" },
-        { section: "help-story", valid: description.trim().length >= 40, label: "Podrobný popis (aspoň 40 znakov)" },
-        { section: "help-place", valid: Boolean(organization.trim()), label: "Zodpovedná organizácia alebo osoba" },
-        { section: "help-place", valid: Boolean(city.trim()), label: "Mesto" },
-      ] : []),
     ].find((field) => !field.valid);
     if (missing) {
       setActiveHelpSection(missing.section);
