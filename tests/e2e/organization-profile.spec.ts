@@ -302,7 +302,11 @@ test.describe("organization location admin CRUD", () => {
     // The unified organization editor saves its one canonical address from
     // the common footer; the retired standalone "Uložiť adresu" no longer exists.
     const sectionNav = page.getByRole("navigation", { name: "Sekcie editora organizácie" });
-    await sectionNav.getByRole("button", { name: "Adresa a mapa", exact: true }).click();
+    if (testInfo.project.name.includes("mobile")) {
+      await sectionNav.getByRole("combobox", { name: "Sekcia editora" }).selectOption("organization-location-panel");
+    } else {
+      await sectionNav.getByRole("button", { name: "Adresa a mapa", exact: true }).click();
+    }
     const addressAdmin = page.locator("[data-organization-address-admin]");
     await expect(addressAdmin).toBeVisible();
     await expect(addressAdmin.getByLabel("Typ lokality")).toHaveCount(0);
@@ -330,8 +334,12 @@ test.describe("organization location admin CRUD", () => {
     await expect(page.getByText("Neverejná ORG-2C 1", { exact: true })).toHaveCount(0);
 
     await page.goto("/admin/organizacie/990007", { waitUntil: "domcontentloaded" });
-    await page.getByRole("navigation", { name: "Sekcie editora organizácie" })
-      .getByRole("button", { name: "Adresa a mapa", exact: true }).click();
+    const restoreNav = page.getByRole("navigation", { name: "Sekcie editora organizácie" });
+    if (testInfo.project.name.includes("mobile")) {
+      await restoreNav.getByRole("combobox", { name: "Sekcia editora" }).selectOption("organization-location-panel");
+    } else {
+      await restoreNav.getByRole("button", { name: "Adresa a mapa", exact: true }).click();
+    }
     const restore = page.locator("[data-organization-address-admin]");
     await restore.getByLabel("Adresa").fill("Neverejná 30");
     await restore.getByLabel("Mesto").fill("Trnava");
