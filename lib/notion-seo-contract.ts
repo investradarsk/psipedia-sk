@@ -5,6 +5,7 @@ export const notionSeoPropertyNames = {
   events: {
     title: "SEO title",
     description: "Meta description",
+    focusKeyword: "SEO kľúčové slovo",
     canonicalUrl: "Canonical URL",
     noindex: "Noindex",
     ogTitle: "OG title",
@@ -75,6 +76,7 @@ export function notionSeoPropertySchema(agenda: NotionSeoAgenda) {
   return {
     [fields.title]: { rich_text: {} },
     [fields.description]: { rich_text: {} },
+    ...(agenda === "events" ? { [notionSeoPropertyNames.events.focusKeyword]: { rich_text: {} } } : {}),
     [fields.canonicalUrl]: { url: {} },
     [fields.noindex]: { checkbox: {} },
     [fields.ogTitle]: { rich_text: {} },
@@ -93,6 +95,11 @@ export function mergeNotionSeo(
 
   if (hasOwn(values, fields.title)) next.title = clean(values[fields.title]);
   if (hasOwn(values, fields.description)) next.description = clean(values[fields.description]);
+  // Missing/blank Notion keyword is not a deletion instruction for existing D1 SEO.
+  if (agenda === "events" && hasOwn(values, notionSeoPropertyNames.events.focusKeyword)) {
+    const keyword = clean(values[notionSeoPropertyNames.events.focusKeyword]);
+    if (keyword) next.focusKeyword = keyword;
+  }
   if (hasOwn(values, fields.canonicalUrl)) next.canonicalUrl = clean(values[fields.canonicalUrl]);
   if (hasOwn(values, fields.noindex)) next.noindex = bool(values[fields.noindex]);
   if (hasOwn(values, fields.ogTitle)) next.ogTitle = clean(values[fields.ogTitle]);
@@ -111,6 +118,7 @@ export function notionSeoSourceProperties(
   return {
     [fields.title]: clean(seo?.title),
     [fields.description]: clean(seo?.description),
+    ...(agenda === "events" ? { [notionSeoPropertyNames.events.focusKeyword]: clean(seo?.focusKeyword) } : {}),
     [fields.canonicalUrl]: clean(seo?.canonicalUrl),
     [fields.noindex]: seo?.noindex === true,
     [fields.ogTitle]: clean(seo?.ogTitle),

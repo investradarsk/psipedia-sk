@@ -192,18 +192,15 @@ export function SlovakiaLocationSelector({
               if (selectedDistrict) setOpen(true);
             }}
             onBlur={() => {
-              setOpen(false);
-              setActiveIndex(-1);
-              if (!selectedCity) {
-                setInputQuery("");
-                setEditingQuery(false);
-              }
+              // If a typed search was not confirmed by picking an option,
+              // restore the committed municipality; never erase it on blur.
+              resetMunicipalityQuery();
             }}
             onChange={(event) => {
               setInputQuery(event.target.value);
               setEditingQuery(true);
-              if (selectedCity)
-                onChange({ region: selectedRegion, district: selectedDistrict, city: "" });
+              // Typing is a search, not an editorial clear. Only choosing a
+              // municipality (or changing region/district) commits a new city.
               setOpen(true);
               setActiveIndex(-1);
             }}

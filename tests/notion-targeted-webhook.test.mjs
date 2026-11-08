@@ -276,7 +276,7 @@ test("targeted Admin Help statuses require actual reconciliation evidence", asyn
   const makeCase = (overrides, linked = true) => {
     const calls = [];
     const item = {
-      agenda: "events", enabled: true, schemaReady: true, targetMissing: false,
+      agenda: "organizations", enabled: true, schemaReady: true, targetMissing: false,
       dataSourceId: "84e0664c-ca47-405f-9d54-31b20287bc8c",
       scanned: 1, unchanged: 1, pulledFromNotion: 0,
       pushedToNotion: 0, bootstrapped: 0,
@@ -294,7 +294,7 @@ test("targeted Admin Help statuses require actual reconciliation evidence", asyn
         first: async () => linked ? { notion_page_id: "11111111-1111-4111-8111-111111111111" } : null,
       }) }) },
       bindings: { NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED: "true" },
-      agenda: "events", entityId: 17,
+      agenda: "organizations", entityId: 17,
     };
     return { input, calls, run: () => context.exports.syncOneAdminHelpRecord(input) };
   };
@@ -313,6 +313,27 @@ test("targeted Admin Help statuses require actual reconciliation evidence", asyn
   assert.equal(await makeCase({ totals: { failed: 1 } }).run(), "pending");
   assert.equal(await makeCase({ totals: { conflicts: 1 } }).run(), "pending");
   assert.equal(await makeCase({}, false).run(), "unlinked");
+});
+
+test("mapped Events now route Admin save to the per-field engine with no legacy full-profile sweep", async () => {
+  const source = await readFile(new URL("../lib/notion-targeted-admin-help.ts", import.meta.url), "utf8");
+  const functionOnly = source.slice(source.indexOf("export async function syncOneAdminHelpRecord("));
+  const compiled = ts.transpileModule(functionOnly, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const events = [];
+  const context = {exports: {}, runNotionEventsHelpSyncSweep: async () => {
+    throw new Error("Legacy whole-profile sweep must not run");
+  },syncEventAdminFields:async args => {events.push(args);return "synced";}};
+  runInNewContext(compiled, context);
+  const input = {
+    database:{},bindings:{NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED:"true"},
+    agenda:"events",entityId:145,changedEventFields:["contactPhone","seo.focusKeyword"],
+  };
+  assert.equal(await context.exports.syncOneAdminHelpRecord(input),"synced");
+  assert.equal(events.length,1);
+  assert.equal(events[0].eventId,145);
+  assert.equal(JSON.stringify(events[0].changedFields),JSON.stringify(input.changedEventFields));
 });
 
 test("Directory and E-shop targeted saves fail closed on missing configuration or orphan mapping", async () => {

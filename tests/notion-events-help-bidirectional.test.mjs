@@ -43,6 +43,13 @@ import {
   notionSeoSourceProperties,
 } from "../lib/notion-seo-contract.ts";
 
+import {
+  EVENT_NOTION_FOCUS_KEYWORD,
+  withoutEventFocusKeyword,
+  extendEventFocusKeywordBaseline,
+  ignoreUnverifiedEmptyNotionEventKeyword,
+} from "../lib/notion-event-focus-keyword.ts";
+
 const definition = {
   key: "lost-found",
   label: "Stratené / nájdené",
@@ -425,7 +432,7 @@ test("renderer-backed Notion SEO contract is limited to events and generic help"
   const helpFields = Object.values(notionSeoPropertyNames["help-cases"]);
 
   assert.deepEqual(eventFields, [
-    "SEO title", "Meta description", "Canonical URL", "Noindex",
+    "SEO title", "Meta description", "SEO kľúčové slovo", "Canonical URL", "Noindex",
     "OG title", "OG popis", "OG obrázok",
   ]);
   assert.deepEqual(helpFields, [
@@ -446,16 +453,37 @@ test("renderer-backed Notion SEO contract is limited to events and generic help"
   assert.equal(helpFields.includes("Alt text obrázka"), false);
 });
 
+test("new Podujatia SEO keyword preserves verified historical baseline without erasing Admin data", () => {
+  assert.equal(EVENT_NOTION_FOCUS_KEYWORD, "SEO kľúčové slovo");
+  const before = { "SEO title": "Pôvodný titul", "Vstupné": "Zdarma" };
+  const after = { ...before, [EVENT_NOTION_FOCUS_KEYWORD]: "" };
+  assert.deepEqual(withoutEventFocusKeyword(after), before);
+  assert.deepEqual(extendEventFocusKeywordBaseline(before), after);
+  assert.equal(extendEventFocusKeywordBaseline({
+    ...before, [EVENT_NOTION_FOCUS_KEYWORD]: "overená fráza",
+  })[EVENT_NOTION_FOCUS_KEYWORD], "overená fráza");
+  assert.equal(ignoreUnverifiedEmptyNotionEventKeyword(
+    { [EVENT_NOTION_FOCUS_KEYWORD]: "" },
+    { [EVENT_NOTION_FOCUS_KEYWORD]: "platná fráza" },
+  )[EVENT_NOTION_FOCUS_KEYWORD], "platná fráza");
+  assert.equal(ignoreUnverifiedEmptyNotionEventKeyword(
+    { [EVENT_NOTION_FOCUS_KEYWORD]: "nová fráza" },
+    { [EVENT_NOTION_FOCUS_KEYWORD]: "platná fráza" },
+  )[EVENT_NOTION_FOCUS_KEYWORD], "nová fráza");
+});
+
 test("Notion SEO schema uses optional text/url/checkbox properties and defaults Noindex false", () => {
   const schema = notionSeoPropertySchema("events");
   assert.deepEqual(schema["SEO title"], { rich_text: {} });
   assert.deepEqual(schema["Meta description"], { rich_text: {} });
+  assert.deepEqual(schema["SEO kľúčové slovo"], { rich_text: {} });
   assert.deepEqual(schema["Canonical URL"], { url: {} });
   assert.deepEqual(schema.Noindex, { checkbox: {} });
   assert.deepEqual(schema["OG obrázok"], { url: {} });
 
-  const source = notionSeoSourceProperties("events", {}, "");
+  const source = notionSeoSourceProperties("events", { focusKeyword: "psie preteky" }, "");
   assert.equal(source.Noindex, false);
+  assert.equal(source["SEO kľúčové slovo"], "psie preteky");
 
   assert.deepEqual(notionSeoSchemaExtensionFields("events"), [
     "Canonical URL", "Noindex", "OG title", "OG popis", "OG obrázok",
@@ -489,10 +517,12 @@ test("empty Notion SEO values clear the override to fallback while absent fields
     ogTitle: "Pôvodný OG",
     ogDescription: "Pôvodný OG popis",
     ogImage: "/images/povodny.webp",
+    focusKeyword: "pôvodná fráza",
   };
 
   const merged = mergeNotionSeo("events", {
     "SEO title": "",
+    "SEO kľúčové slovo": "",
     Noindex: false,
     "OG popis": "",
   }, existing);
@@ -504,6 +534,8 @@ test("empty Notion SEO values clear the override to fallback while absent fields
   assert.equal(merged.canonicalUrl, existing.canonicalUrl);
   assert.equal(merged.ogTitle, existing.ogTitle);
   assert.equal(merged.ogImage, existing.ogImage);
+  assert.equal(merged.focusKeyword, "pôvodná fráza");
+  assert.equal(mergeNotionSeo("events", { "SEO kľúčové slovo": "nová fráza" }, existing).focusKeyword, "nová fráza");
 });
 
 test("bulk backfill extends only existing safe Notion schemas and does not require D1 schema work", async () => {
