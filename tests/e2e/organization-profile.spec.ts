@@ -299,21 +299,35 @@ test.describe("organization location admin CRUD", () => {
     expect(response?.status()).toBeLessThan(400);
     await expect(page.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
 
-    const addressAdmin = page.locator("[data-organization-address-admin]");
-    await expect(addressAdmin.getByRole("heading", { name: "Adresa", exact: true })).toBeVisible();
-    await expect(addressAdmin.getByRole("button", { name: "Uložiť adresu" })).toBeEnabled();
+    // The address is now section 3 of the same five-section organization editor.
+    // It has no separate form or save button: editing this section submits
+    // the canonical location through the organization-wide save action.
+    const nav = page.getByRole("navigation", { name: "Sekcie editora organizácie" });
+    const sectionSelector = nav.getByRole("combobox", { name: "Sekcia editora" });
+    await expect(nav).toHaveAttribute("data-admin-editor-nav-ready", "true");
+    if (await sectionSelector.isVisible()) {
+      await sectionSelector.selectOption("organization-location-panel");
+    } else {
+      await nav.getByRole("button", { name: "Adresa a mapa", exact: true }).click();
+    }
+    const addressPanel = page.locator("#organization-location-panel");
+    await expect(addressPanel).toBeVisible();
+    await expect(addressPanel.getByRole("heading", { name: "Adresa a mapa" })).toBeVisible();
+    const addressAdmin = addressPanel.locator("[data-organization-address-admin]");
+    await expect(addressAdmin).toHaveAttribute("data-single-address", "");
     await expect(addressAdmin.getByLabel("Typ lokality")).toHaveCount(0);
     await expect(addressAdmin.getByLabel("Hlavná lokalita")).toHaveCount(0);
     await expect(addressAdmin.getByRole("button", { name: "Pridať lokalitu" })).toHaveCount(0);
     await expect(addressAdmin.getByRole("button", { name: "Odstrániť lokalitu" })).toHaveCount(0);
+    await expect(addressAdmin.getByRole("button", { name: "Uložiť adresu" })).toHaveCount(0);
 
     await addressAdmin.getByLabel("Adresa").fill("Neverejná ORG-2C 1");
     await addressAdmin.getByLabel("Mesto").fill("Košice");
     await addressAdmin.getByLabel("Okres").fill("Košice");
     await addressAdmin.getByLabel("Kraj", { exact: true }).fill("Košický kraj");
-    await addressAdmin.getByLabel("Krajina").fill("SK");
-    await addressAdmin.getByRole("button", { name: "Uložiť adresu" }).click();
-    await expect(addressAdmin.getByRole("status")).toContainText("Adresa bola uložená");
+    await addressAdmin.getByLabel("Kód krajiny").fill("SK");
+    await page.getByRole("button", { name: "Uložiť organizáciu" }).click();
+    await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText("Údaje organizácie aj adresa sú uložené");
 
     await page.goto(
       `/organizacie/org-2b-e2e-jedna-lokalita?single-address=${testInfo.project.name}-${testInfo.retry}`,
@@ -327,14 +341,23 @@ test.describe("organization location admin CRUD", () => {
     await expect(page.getByText("Neverejná ORG-2C 1", { exact: true })).toHaveCount(0);
 
     await page.goto("/admin/organizacie/990007", { waitUntil: "domcontentloaded" });
-    const restore = page.locator("[data-organization-address-admin]");
+    const restoreNav = page.getByRole("navigation", { name: "Sekcie editora organizácie" });
+    await expect(restoreNav).toHaveAttribute("data-admin-editor-nav-ready", "true");
+    const restoreSelector = restoreNav.getByRole("combobox", { name: "Sekcia editora" });
+    if (await restoreSelector.isVisible()) {
+      await restoreSelector.selectOption("organization-location-panel");
+    } else {
+      await restoreNav.getByRole("button", { name: "Adresa a mapa", exact: true }).click();
+    }
+    const restore = page.locator("#organization-location-panel [data-organization-address-admin]");
+    await expect(restore).toBeVisible();
     await restore.getByLabel("Adresa").fill("Neverejná 30");
     await restore.getByLabel("Mesto").fill("Trnava");
     await restore.getByLabel("Okres").fill("Trnava");
     await restore.getByLabel("Kraj", { exact: true }).fill("Trnavský kraj");
-    await restore.getByLabel("Krajina").fill("SK");
-    await restore.getByRole("button", { name: "Uložiť adresu" }).click();
-    await expect(restore.getByRole("status")).toContainText("Adresa bola uložená");
+    await restore.getByLabel("Kód krajiny").fill("SK");
+    await page.getByRole("button", { name: "Uložiť organizáciu" }).click();
+    await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText("Údaje organizácie aj adresa sú uložené");
 
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAccessibilityViolations(page);
