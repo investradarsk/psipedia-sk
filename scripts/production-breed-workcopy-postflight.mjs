@@ -10,6 +10,8 @@ import { resolve } from "node:path";
 import { BREED_NOTION_PRIORITY_FIELDS } from "../lib/notion-breed-property-registry.ts";
 import { auditBreedBaselinePostflight } from
   "../lib/production-breed-workcopy-postflight.mjs";
+import { summarizeBreedWorkcopyBaselineDifferences } from
+  "../lib/production-breed-workcopy-field-audit.mjs";
 
 const reportDir = resolve(".production-breed-workcopy-postflight");
 const config = resolve(reportDir, "wrangler.json");
@@ -163,6 +165,14 @@ function publish(result) {
     phase: sanitized.phase, success: sanitized.success,
     counters: sanitized.counters, errors: sanitized.errors,
     readyForSeparateCutoverReview: sanitized.readyForSeparateCutoverReview,
+    baselineDifferences: sanitized.differenceAnalysis ? {
+      total: sanitized.differenceAnalysis.differingCells,
+      compared: sanitized.differenceAnalysis.comparedCells,
+      recordsWithDifferences: sanitized.differenceAnalysis.recordsWithDifferences,
+      byGroup: sanitized.differenceAnalysis.byGroup,
+      topFields: sanitized.differenceAnalysis.byField.slice(0, 15),
+      excludedFromNormalSync: sanitized.differenceAnalysis.excludedFromNormalSyncDifferences,
+    } : undefined,
     cutoverReady: false,
   }) + "\n");
 }
@@ -178,7 +188,15 @@ async function main() {
     ...d1, originalPages, workPages, requiredFields,
     originalSource: sources.originalSource, workSource: sources.workSource,
   });
-  publish(result);
+  // These are historic pairwise differences saved at baseline creation.
+  // Do not mistake them for change events or reconcile any value.
+  const differenceAnalysis = summarizeBreedWorkcopyBaselineDifferences(
+    d1.shadowRows, BREED_NOTION_PRIORITY_FIELDS,
+  );
+  if (differenceAnalysis.differingCells !==
+      result.counters.workReceiptAdminVsNotionFieldDifferences)
+    fail("BREED_POSTFLIGHT_DIFFERENCE_COUNTS_INCONSISTENT");
+  publish({ ...result, differenceAnalysis });
   if (!result.success) fail("BREED_POSTFLIGHT_INTEGRITY_REVIEW_REQUIRED");
 }
 main().catch(error => {
