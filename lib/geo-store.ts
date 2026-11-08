@@ -427,6 +427,27 @@ export async function resetGoogleMapsNotRequired(input: {
     if (input.expectedGeoRevision !== undefined && point.updatedAt !== input.expectedGeoRevision) {
       throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
     }
+    // Existing organizations may still hold a pre-unification decision in
+    // HELP_ORGANIZATION. Respect its revision without splitting the mutation API:
+    // the new decision is always written to the canonical GEO_POINT ledger.
+    const geoEvent = input.targetType === "ORGANIZATION_LOCATION"
+      ? await db.prepare(`
+          SELECT id FROM moderation_events WHERE resource_type='GEO_POINT' AND subject_id=?
+            AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+          ORDER BY created_at DESC, rowid DESC LIMIT 1
+        `).bind(String(point.id)).first<{ id: string }>()
+      : null;
+    const legacyOrganizationDecision = input.targetType === "ORGANIZATION_LOCATION"
+      && !geoEvent && input.expectedWorkflowRevision !== null;
+    const expectedGeoEvent = legacyOrganizationDecision ? null : input.expectedWorkflowRevision;
+    const legacyClause = legacyOrganizationDecision
+      ? ` AND (SELECT id FROM moderation_events
+           WHERE resource_type='HELP_ORGANIZATION'
+             AND subject_id=(SELECT CAST(organization_id AS TEXT)
+                             FROM organization_locations WHERE id=?)
+             AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+           ORDER BY created_at DESC, rowid DESC LIMIT 1) IS ?`
+      : "";
     const eventId = globalThis.crypto.randomUUID();
     const result = await db.prepare(`
       INSERT INTO moderation_events (
@@ -439,13 +460,16 @@ export async function resetGoogleMapsNotRequired(input: {
         WHERE resource_type='GEO_POINT' AND subject_id=?
           AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
         ORDER BY created_at DESC, rowid DESC LIMIT 1) IS ?
+        ${legacyClause}
         AND EXISTS (SELECT 1 FROM geo_points WHERE id=? AND updated_at=?
           AND manual_override=0 AND provider='google_places' AND geocode_status='RESOLVED'
           AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT')
     `).bind(
       eventId, String(point.id), input.actorRef, point.geocodeStatus, point.geocodeStatus,
       JSON.stringify(["google_maps_workflow"]), new Date().toISOString(),
-      String(point.id), input.expectedWorkflowRevision, point.id, point.updatedAt,
+      String(point.id), expectedGeoEvent,
+      ...(legacyOrganizationDecision ? [input.targetId, input.expectedWorkflowRevision] : []),
+      point.id, point.updatedAt,
     ).run();
     if (result.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
     return point;
