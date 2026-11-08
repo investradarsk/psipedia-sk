@@ -351,20 +351,19 @@ export function AdminOrganizationEditor({
         <div className="admin-card-heading"><div><span>03</span><div><h2>Adresa a mapa</h2><p>Jedna hlavná adresa organizácie. Zmeny ulož rovnakým tlačidlom ako ostatné údaje.</p></div></div></div>
         <AdminOrganizationLocations draft={addressDraft} disabled={editingDisabled}
           onChange={(changes) => setAddressDraft((current) => ({ ...current, ...changes }))} />
-        {organization ? (
+        {organization && location ? (
           dirty ? (
             <p className="admin-help" role="status">Pred zmenou Google miesta ulož rozpracované údaje organizácie a adresu. Predídeme strate neuložených zmien.</p>
           ) : (
             <div id="google-maps">
               <AdminProfileGoogleMaps
                 targetType="ORGANIZATION_LOCATION"
-                targetId={organization.id}
-                endpoint={`/api/admin/organizations/${organization.id}/google-place`}
+                targetId={location.id}
               />
             </div>
           )
         ) : (
-          <p className="admin-help">Google Maps bude dostupné po prvom úspešnom uložení organizácie a adresy.</p>
+          <p className="admin-help">Google Maps bude dostupné po uložení organizácie a jej hlavnej lokality.</p>
         )}
       </AdminEditorSection>
 

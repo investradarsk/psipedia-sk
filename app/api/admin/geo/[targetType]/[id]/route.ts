@@ -17,6 +17,7 @@ import { diagnoseGeoTarget, previewGeoSource, resolveGeoTarget } from "@/lib/geo
 import {
   applyGeocoderResolution,
   applyGooglePlaceResolution,
+  detachGooglePlace,
   getGeoPointForTarget,
   getGeoSourceLocation,
   getGoogleMapsWorkflowDecision,
@@ -287,6 +288,19 @@ export async function POST(request: Request, { params }: Props) {
         actorRef: user.email,
       });
       return Response.json({ point, googleMapsNotRequired: false });
+    }
+
+    if (action === "detach-google-place") {
+      const source = await getGeoSourceLocation(target.targetType, target.id);
+      if (!source) return Response.json({ error: "Profil alebo lokalita sa nenašla." }, { status: 404 });
+      const expectedGeoRevision = typeof body.expectedGeoRevision === "string" ? body.expectedGeoRevision : "";
+      if (!expectedGeoRevision) return Response.json({ error: "Obnov stránku pred odpojením Google miesta." }, { status: 409 });
+      const point = await detachGooglePlace({
+        targetType: target.targetType, targetId: target.id,
+        expectedGeoRevision, actorRef: user.email,
+      });
+      return Response.json({ point, googlePlaceDetached: true,
+        message: "Google miesto je odpojené. Textová adresa zostala zachovaná." });
     }
 
     if (action === "discover-google-place") {
