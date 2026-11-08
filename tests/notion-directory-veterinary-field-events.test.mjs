@@ -112,15 +112,17 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
   }
 });
 
-test("hours and provenance are independent text fields for the pilot only", async () => {
+test("hours, sources and alt text are independently synced for pilot categories", async () => {
   const source = await get("../lib/notion-directory-sync.ts");
   const admin = await get("../app/api/admin/directory/[id]/route.ts");
   const editor = await get("../components/admin-directory-editor.tsx");
-  for (const field of ["Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka"])
+  for (const field of ["Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka"])
     assert.ok(source.includes('"' + field + '"'));
   assert.match(source, /source_data_json = json_set/);
   assert.match(source, /pilotChangedNotionMetadataFields\(page, input\.changedPropertyIds\)/);
-  assert.match(source, /if \(!trimmed\) throw new Error\("DIRECTORY_PILOT_METADATA_EMPTY_NOT_A_DELETE"\)/);
+  assert.doesNotMatch(source, /DIRECTORY_PILOT_METADATA_EMPTY_NOT_A_DELETE/);
+  assert.match(source, /Object\.hasOwn\(input\.changed, field\)/);
+  assert.match(source, /if \(!value\) continue;/); // Inbound blank Notion values still do not delete D1.
   assert.match(source, /WHERE id = \? AND category = \? AND status <> 'archived'/);
   assert.match(source, /DIRECTORY_PILOT_METADATA_TARGET_INVALID/);
   assert.match(admin, /changedPilotMetadata\[field\] = value/);
@@ -128,9 +130,68 @@ test("hours and provenance are independent text fields for the pilot only", asyn
   assert.match(editor, /pilotOpeningHours/);
   assert.match(editor, /pilotDataSources/);
   assert.match(editor, /pilotImageSource/);
+  assert.match(editor, /pilotImageAlt/);
+  assert.match(editor, /id="directory-pilot-image-alt"/);
   assert.match(editor, /pilotMetadataFields\[key\] = current\.trim\(\)/);
+  assert.match(editor, /if \(current\.trim\(\) !== baseline\.trim\(\)\)/);
+  assert.doesNotMatch(editor, /if \(current\.trim\(\) && current\.trim\(\) !== baseline\.trim\(\)\)/);
+  assert.match(admin, /const value = \(submitted\[field\] as string\)\.trim\(\);\s*try \{/);
   // Sources and hours must not enter the canonical catalogue relation importer.
   const block = source.slice(source.indexOf("export const PILOT_DIRECTORY_METADATA_FIELDS"),
     source.indexOf("/*\*\n * Mapped breeder/trainer event mode:", source.indexOf("export const PILOT_DIRECTORY_METADATA_FIELDS")));
   assert.doesNotMatch(block, /importNotionServiceChoices|syncProfileCatalogRelation|prepareNotionMainImage/);
+});
+
+test("an explicit empty Admin edit clears only one pilot JSON field while Notion blanks are not inbound deletions", async () => {
+  const ts = await import("typescript");
+  const source = await get("../lib/notion-directory-sync.ts");
+  const start = source.indexOf("export const PILOT_DIRECTORY_METADATA_FIELDS =");
+  const end = source.indexOf("/** Admin -> Notion: changed operational fields only", start);
+  assert.ok(start > 0 && end > start);
+  const js = ts.transpileModule(source.slice(start, end) +
+    "\nexports.savePilotDirectoryMetadataField = savePilotDirectoryMetadataField;", {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const logs = [];
+  const profile = {
+    id: 1653, category: "fyzioterapia", status: "published",
+    updatedAt: "2026-11-08T00:00:00Z",
+    importData: { "Ordinačné hodiny": "x", "Zdroj dát": "https://example.sk/#x", "Alt text obrázka": "Logo x" },
+  };
+  const database = {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          logs.push({ sql, args });
+          return { async first() { return { id: profile.id }; } };
+        },
+      };
+    },
+  };
+  const exports = {};
+  runInNewContext(js, {
+    exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory,
+    getManagedDirectoryProfileById: async () => profile,
+    Date,
+  });
+  await exports.savePilotDirectoryMetadataField({
+    database, profileId: 1653, category: "fyzioterapia",
+    field: "Ordinačné hodiny", value: "",
+  });
+  assert.equal(logs.length, 1);
+  assert.match(logs[0].sql, /source_data_json = json_set/);
+  assert.ok(logs[0].args.includes('$."Ordinačné hodiny"'));
+  assert.ok(logs[0].args.includes(""), "empty edit is persisted as empty, not silently skipped");
+  assert.equal(logs[0].args.includes('$."Zdroj dát"'), false, "unrelated sources are untouched");
+  assert.ok(source.includes('if (!value) continue;'), "blank Notion webhook values remain non-destructive");
+});
+
+test("municipality search does not clear a committed city before a dropdown selection", async () => {
+  const source = await get("../components/slovakia-location-selector.tsx");
+  const typing = source.slice(source.indexOf('onChange={(event) => {', source.indexOf('id={`${baseId}-municipality`}')));
+  const untilCommit = typing.slice(0, typing.indexOf('onKeyDown={onMunicipalityKeyDown}'));
+  assert.doesNotMatch(untilCommit, /onChange\(\{ region: selectedRegion, district: selectedDistrict, city: "" \}\)/);
+  assert.match(untilCommit, /setEditingQuery\(true\)/);
+  assert.match(source, /resetMunicipalityQuery\(\);/);
+  assert.match(source, /onChange\(\{ region: selectedRegion, district: selectedDistrict, city \}\);/);
 });

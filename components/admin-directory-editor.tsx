@@ -209,6 +209,7 @@ export function AdminDirectoryEditor({
   const [pilotOpeningHours, setPilotOpeningHours] = useState(pilotMetadataText("Ordinačné hodiny"));
   const [pilotDataSources, setPilotDataSources] = useState(pilotMetadataText("Zdroj dát"));
   const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
+  const [pilotImageAlt, setPilotImageAlt] = useState(pilotMetadataText("Alt text obrázka"));
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
   const [galleryUrls, setGalleryUrls] = useState<string[]>(profile?.galleryUrls ?? []);
@@ -484,10 +485,11 @@ export function AdminDirectoryEditor({
           ["Ordinačné hodiny", pilotOpeningHours],
           ["Zdroj dát", pilotDataSources],
           ["Zdroj obrázka", pilotImageSource],
+          ["Alt text obrázka", pilotImageAlt],
         ]) {
           const value = breederBaseline?.importData?.[key];
           const baseline = typeof value === "string" ? value : "";
-          if (current.trim() && current.trim() !== baseline.trim())
+          if (current.trim() !== baseline.trim())
             pilotMetadataFields[key] = current.trim();
         }
       }
@@ -583,6 +585,7 @@ export function AdminDirectoryEditor({
           setPilotOpeningHours(storedText("Ordinačné hodiny"));
           setPilotDataSources(storedText("Zdroj dát"));
           setPilotImageSource(storedText("Zdroj obrázka"));
+          setPilotImageAlt(storedText("Alt text obrázka"));
         }
         }
       }
@@ -810,6 +813,11 @@ export function AdminDirectoryEditor({
                 }
               }}
             />
+            {profile?.city && !city ? (
+              <p className="admin-message" role="status" data-directory-missing-city-warning>
+                Mesto / obec je teraz prázdne. Po zmene kraja alebo okresu vyber aj mesto, inak sa prázdna hodnota uloží a prenesie do Notionu.
+              </p>
+            ) : null}
             <DirectoryAddressAutocomplete
               key={`${region}|${district}|${city}|${street}`}
               region={region}
@@ -916,7 +924,7 @@ export function AdminDirectoryEditor({
                   <textarea id="directory-pilot-hours" rows={6} value={pilotOpeningHours}
                     onChange={event => { setPilotOpeningHours(event.target.value); setFormDirty(true); }}
                     placeholder={"Pondelok: 08:00–16:00\nUtorok: 08:00–16:00\nPodľa dohody"} />
-                  <small>Píšte iba overené časy; prázdne pole nevymaže pôvodnú hodnotu.</small>
+                  <small>Úpravy sa prenášajú samostatne. Vymazanie celého obsahu v Admine vymaže iba tieto hodiny aj v Notione; prázdne hodnoty z Notionu existujúce údaje neprepisujú.</small>
                 </div>
                 <div className="admin-field">
                   <label htmlFor="directory-pilot-sources">Zdroje údajov</label>
@@ -929,6 +937,12 @@ export function AdminDirectoryEditor({
                   <input id="directory-pilot-image-source" type="text" value={pilotImageSource}
                     onChange={event => { setPilotImageSource(event.target.value); setFormDirty(true); }}
                     placeholder="Odkaz na zdroj fotografie; bez práv fotografiu nekopírovať" />
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="directory-pilot-image-alt">Alt text obrázka</label>
+                  <textarea id="directory-pilot-image-alt" rows={2} value={pilotImageAlt}
+                    onChange={event => { setPilotImageAlt(event.target.value); setFormDirty(true); }}
+                    placeholder="Stručný opis toho, čo je na fotografii" />
                 </div>
               </>
             ) : null}
