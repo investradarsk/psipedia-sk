@@ -165,7 +165,7 @@ function isUsableGeminiSource(value: string): boolean {
 }
 export async function loadNotionBulkEvents(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,
-    organizer,description,practical_info,contact_phone,contact_email,admission_fee,website_url,registration_url,image_url,cancelled,seo_json,
+    organizer,description,practical_info,contact_phone,contact_email,admission_fee,website_url,registration_url,image_url,image_alt,internal_notes,cancelled,seo_json,
     (SELECT c.primary_source_url FROM gemini_automation_concepts c
        WHERE c.canonical_entity_type = 'EVENT' AND c.canonical_entity_id = managed_events.id
          AND c.status IN ('DRAFT_CREATED','NOTION_CREATING','NOTION_LINKED')
@@ -220,6 +220,8 @@ export async function loadNotionBulkEvents(database: D1Database, targetId?: numb
       ...(isUsableGeminiSource(s(row.gemini_primary_source_url))
         ? { "Zdroj dát": s(row.gemini_primary_source_url) } : {}),
       "Hlavný obrázok URL": asset(row.image_url),
+      "Alt text obrázka": s(row.image_alt),
+      "Poznámky": s(row.internal_notes),
       "Zrušené": b(row.cancelled),
       ...notionGeoMirrorProperties(row, {
         forceNotRequired: /\bonline\b/i.test(s(row.venue)) || /\bonline\b/i.test(s(row.event_type)),

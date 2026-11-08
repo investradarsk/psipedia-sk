@@ -47,6 +47,9 @@ export type ManagedEventInput = {
   websiteUrl?: string | null;
   registrationUrl?: string | null;
   imageUrl?: string | null;
+  imageAlt?: string;
+  /** Private Admin/Notion-only content; never part of DogEvent or public API responses. */
+  internalNotes?: string;
   imageKey?: string | null;
   imageDisplay?: SmartImageMode;
   thumbnailImageDisplay?: ImageDisplayConfig | null;
@@ -81,6 +84,8 @@ type EventRow = {
   website_url: string | null;
   registration_url: string | null;
   image_url: string | null;
+  image_alt?: string;
+  internal_notes?: string;
   image_key: string | null;
   image_display?: string;
   thumbnail_display_json?: string | null;
@@ -213,6 +218,7 @@ function rowToEvent(row: EventRow): DogEvent {
     websiteUrl: row.website_url,
     registrationUrl: row.registration_url,
     imageUrl: row.image_url,
+    imageAlt: row.image_alt ?? "",
     imageKey: row.image_key,
     imageDisplay: normalizeSmartImageMode(row.image_display),
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
@@ -343,6 +349,8 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
     websiteUrl: normalizeUrl(payload.websiteUrl, "Web podujatia"),
     registrationUrl: normalizeUrl(payload.registrationUrl, "Odkaz na registráciu"),
     imageUrl,
+    imageAlt: (payload.imageAlt ?? "").trim().slice(0, 500),
+    internalNotes: (payload.internalNotes ?? "").slice(0, 20000),
     imageKey: payload.imageKey?.trim() || null,
     imageDisplay: normalizeSmartImageMode(payload.imageDisplay),
     thumbnailImageDisplay: normalizeImageDisplayConfig(payload.thumbnailImageDisplay, "thumbnail"),
@@ -664,6 +672,14 @@ export async function transitionManagedEventCancellation(
   return { id: Number(row.id), status: row.status, cancelled: Boolean(row.cancelled), updatedAt: row.updated_at };
 }
 
+/** Private admin-only field. Do not attach to DogEvent or any public event projection. */
+export async function getManagedEventInternalNotesById(id: number) {
+  const db = requireD1Binding();
+  const row = await db.prepare("SELECT internal_notes FROM managed_events WHERE id=? LIMIT 1")
+    .bind(id).first<{ internal_notes: string | null }>();
+  return row?.internal_notes ?? "";
+}
+
 export async function createManagedEvent(payload: ManagedEventInput, editorEmail: string, injectedDatabase?: D1Database) {
   const database = requireD1Binding(injectedDatabase);
   await ensureEventStore(database);
@@ -675,7 +691,7 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
     input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
     input.description, input.practicalInfo,
     ...(hasContactColumns ? [input.contactPhone, input.contactEmail, input.admissionFee] : []),
-    input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
+    input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey, input.imageAlt, input.internalNotes,
     input.imageDisplay, input.thumbnailImageDisplay && JSON.stringify(input.thumbnailImageDisplay), input.detailImageDisplay && JSON.stringify(input.detailImageDisplay), input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
   ];
   const row = await database.prepare(`
@@ -683,7 +699,7 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
       slug, title, excerpt, event_type, status, start_date, start_time, end_date, end_time,
       venue, city, region, address, organizer, description, practical_info,
       ${hasContactColumns ? "contact_phone, contact_email, admission_fee," : ""}
-      website_url, registration_url, image_url, image_key, image_display, thumbnail_display_json, detail_display_json, cancelled, seo_json,
+      website_url, registration_url, image_url, image_key, image_alt, internal_notes, image_display, thumbnail_display_json, detail_display_json, cancelled, seo_json,
       created_at, updated_at, published_at, created_by, updated_by
     ) VALUES (${values.map(() => "?").join(", ")})
     RETURNING *
@@ -714,7 +730,8 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
       end_date = ?, end_time = ?, venue = ?, city = ?, region = ?, address = ?, organizer = ?,
       description = ?, practical_info = ?,
       ${hasContactColumns ? "contact_phone = ?, contact_email = ?, admission_fee = ?," : ""}
-      website_url = ?, registration_url = ?, image_url = ?, image_key = ?, image_display = ?, thumbnail_display_json = ?, detail_display_json = ?,
+      website_url = ?, registration_url = ?, image_url = ?, image_key = ?, image_alt = ?,
+      ${payload.internalNotes !== undefined ? "internal_notes = ?," : ""} image_display = ?, thumbnail_display_json = ?, detail_display_json = ?,
       cancelled = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? RETURNING *
   `).bind(
@@ -723,6 +740,8 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
     input.description, input.practicalInfo,
     ...(hasContactColumns ? [contactValues.contactPhone, contactValues.contactEmail, contactValues.admissionFee] : []),
     input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
+    payload.imageAlt === undefined ? existing.imageAlt ?? "" : input.imageAlt,
+    ...(payload.internalNotes !== undefined ? [input.internalNotes] : []),
     payload.imageDisplay === undefined ? existing.imageDisplay ?? "auto" : input.imageDisplay,
     JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
     JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),

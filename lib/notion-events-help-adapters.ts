@@ -223,6 +223,7 @@ function eventInput(
     websiteUrl: s(values["Web"]) || null,
     registrationUrl: s(values["Registrácia"]) || null,
     imageUrl,
+    imageAlt: s(values["Alt text obrázka"]) || existing?.imageAlt || "",
     imageKey: imageKeyFor(existing?.imageUrl, existing?.imageKey, imageUrl),
     cancelled: b(values["Zrušené"]),
     seo: mergeNotionSeo("events", values, existing?.seo),
