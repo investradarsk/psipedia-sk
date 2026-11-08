@@ -424,7 +424,7 @@ function safeImportData(value: string, includeInternal = false) {
     return Object.fromEntries(
       Object.entries(parsed).filter(
         ([key, item]) =>
-          (includeInternal || !isDirectoryInternalMetadataKey(key)) &&
+          (includeInternal || key === TRAINER_SERVICES_TEXT_METADATA_KEY || !isDirectoryInternalMetadataKey(key)) &&
           (item === null || typeof item === "string" || typeof item === "number"),
       ),
     );
