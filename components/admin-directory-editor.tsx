@@ -8,7 +8,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
 import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
-import { isDirectoryEventPilotCategory } from "@/lib/notion-directory-field-event-scope";
+import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
