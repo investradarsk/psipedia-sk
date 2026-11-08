@@ -179,6 +179,9 @@ test("physiotherapy public profile always shows perex and expertise as plain tex
   assert.ok(detail.includes('<DetailParagraphs value={visibleQualifications.join("\\n")} />'));
   assert.ok(detail.includes('key: "physio-price"'));
   assert.ok(admin.includes('category === "fyzioterapia" ? "Odbornosť a skúsenosti"'));
+  const partner = fs.readFileSync(new URL("../components/partner-profile-edit-form.tsx", import.meta.url), "utf8");
+  assert.ok(admin.includes('category !== "fyzioterapia" && (serviceFilterCategories'));
+  assert.ok(partner.includes('directoryCategory !== "fyzioterapia"'));
 });
 
 test("description and URL fallback preserve behavior while text-only address does not fabricate navigation", () => {
