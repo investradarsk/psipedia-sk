@@ -112,7 +112,7 @@ export function EventDetail({
               context="detail"
               config={event.detailImageDisplay}
               sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 980px) 640px, 480px"
-              alt="Fotografia podujatia"
+              alt={event.imageAlt || "Fotografia podujatia"}
               loading="eager"
               fetchPriority="high"
               decoding="async"

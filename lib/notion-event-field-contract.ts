@@ -9,6 +9,7 @@ export const EVENT_NOTION_FIELDS = {
   organizer:"Organizátor",excerpt:"Perex",description:"Popis",practicalInfo:"Praktické info",
   contactPhone:"Telefón organizátora", contactEmail:"E-mail organizátora",
   admissionFee:"Vstupné",websiteUrl:"Web",registrationUrl:"Registrácia",
+  imageAlt:"Alt text obrázka",internalNotes:"Poznámky",
   "seo.title":"SEO title","seo.description":"Meta description",
   "seo.focusKeyword":"SEO kľúčové slovo","seo.canonicalUrl":"Canonical URL",
   "seo.noindex":"Noindex","seo.ogTitle":"OG title",

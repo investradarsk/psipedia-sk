@@ -692,7 +692,11 @@ test("production Google Maps audit reset SQL cannot overwrite a newer NOT_REQUIR
   const sqlStart = section.indexOf("INSERT INTO moderation_events");
   const sqlEnd = section.indexOf(String.fromCharCode(96) + ").bind(", sqlStart);
   assert.ok(sqlStart >= 0 && sqlEnd > sqlStart);
-  const sql = section.slice(sqlStart, sqlEnd);
+  // Exercise canonical GEO_POINT compare-and-set SQL; the optional legacy
+  // HELP_ORGANIZATION revision clause is inserted only for legacy decisions.
+  assert.match(section, /const legacyClause = legacyOrganizationDecision/);
+  assert.match(section, /resource_type=\x27HELP_ORGANIZATION\x27/);
+  const sql = section.slice(sqlStart, sqlEnd).replace("${legacyClause}", "");
   const db = new DatabaseSync(":memory:");
   db.exec(
     "CREATE TABLE moderation_events(id TEXT PRIMARY KEY,submission_id TEXT,resource_type TEXT,subject_id TEXT,action TEXT,actor_type TEXT,actor_ref TEXT,from_status TEXT,to_status TEXT,reason_code TEXT,changed_fields_json TEXT,request_id TEXT,created_at TEXT);CREATE TABLE geo_points(id INTEGER PRIMARY KEY,updated_at TEXT,manual_override INTEGER,provider TEXT,geocode_status TEXT,public_visibility TEXT,public_precision TEXT)",

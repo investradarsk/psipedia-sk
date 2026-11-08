@@ -163,7 +163,7 @@ for (const width of [1440, 390, 320]) {
     await page.getByLabel("Slug *", { exact: true }).fill("neulozena-organizacia-krok-15");
     await showOrganizationSection(page, "organization-content", "Verejný obsah");
     await page.getByLabel("Krátky popis").fill("Pomoc strateným a nájdeným psom.");
-    await showOrganizationSection(page, "organization-address", "Adresa a mapa");
+    await showOrganizationSection(page, "organization-location-panel", "Adresa a mapa");
     await page.getByLabel("Adresa", { exact: true }).fill("Skúšobná 12");
     await page.getByLabel("Mesto", { exact: true }).fill("Nitra");
     await expect(form.locator("form")).toHaveCount(0); // address has no nested independent submit
@@ -174,7 +174,7 @@ for (const width of [1440, 390, 320]) {
     await page.getByLabel("Zdroj / referencia").fill("https://example.sk/zdroj");
     await showOrganizationSection(page, "organization-contacts", "Kontakty");
     await expect(page.getByLabel("Verejný e-mail")).toHaveValue("kontakt@example.sk");
-    await showOrganizationSection(page, "organization-address", "Adresa a mapa");
+    await showOrganizationSection(page, "organization-location-panel", "Adresa a mapa");
     await expect(page.getByLabel("Adresa", { exact: true })).toHaveValue("Skúšobná 12");
     await expect(page.getByLabel("Mesto", { exact: true })).toHaveValue("Nitra");
     await showOrganizationSection(page, "organization-content", "Verejný obsah");

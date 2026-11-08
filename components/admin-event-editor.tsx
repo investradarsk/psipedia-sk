@@ -35,6 +35,7 @@ const EVENT_SECTIONS: EditorWorkspaceSection[] = [
   { id: "event-contacts", label: "Organizátor a kontakty" },
   { id: "event-details", label: "Program a informácie" },
   { id: "event-media", label: "Fotografia a URL" },
+  { id: "event-notes", label: "Interné poznámky" },
   { id: "event-seo", label: "SEO" },
 ];
 
@@ -42,7 +43,7 @@ function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
 }
 
-export function AdminEventEditor({ event, automationSuggestions = [] }: { event?: DogEvent; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
+export function AdminEventEditor({ event, initialInternalNotes = "", automationSuggestions = [] }: { event?: DogEvent; initialInternalNotes?: string; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
   const router = useRouter();
   const [title, setTitle] = useState(event?.title ?? "");
   const [slug, setSlug] = useState(event?.slug ?? "");
@@ -66,6 +67,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   const [websiteUrl, setWebsiteUrl] = useState(event?.websiteUrl ?? "");
   const [registrationUrl, setRegistrationUrl] = useState(event?.registrationUrl ?? "");
   const [imageUrl, setImageUrl] = useState(event?.imageUrl ?? "");
+  const [imageAlt, setImageAlt] = useState(event?.imageAlt ?? "");
+  const [internalNotes, setInternalNotes] = useState(initialInternalNotes);
   const [imageKey, setImageKey] = useState(event?.imageKey ?? "");
   const [imageDisplay] = useState<SmartImageMode>(event?.imageDisplay ?? "auto");
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(event?.thumbnailImageDisplay ?? null);
@@ -88,7 +91,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   const editorSnapshot = JSON.stringify({
     title, slug, excerpt, eventType, startDate, startTime, endDate, endTime,
     venue, city, region, address, organizer, description, practicalInfo, contactPhone, contactEmail, admissionFee,
-    websiteUrl, registrationUrl, imageUrl, imageKey, imageDisplay,
+    websiteUrl, registrationUrl, imageUrl, imageAlt, internalNotes, imageKey, imageDisplay,
     thumbnailImageDisplay, detailImageDisplay, cancelled, seo,
   });
   const [savedSnapshot, setSavedSnapshot] = useState(editorSnapshot);
@@ -269,7 +272,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       const response = await fetch(event ? `/api/admin/events/${event.id}` : "/api/admin/events", {
         method: event ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo,
+        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageAlt, internalNotes, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo,
           eventEditorialChangedFields: event ? eventChangedAdminFields(
             JSON.parse(savedSnapshot) as Record<string,unknown>,
             JSON.parse(editorSnapshot) as Record<string,unknown>,
@@ -396,9 +399,25 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
               <div className="admin-upload-preview admin-upload-preview--coral">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" src={imageUrl} config={thumbnailImageDisplay} legacyMode={imageDisplay} alt="Náhľad obrázka podujatia" /> : <span>📅</span>}</div>
               <div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); }}>Odstrániť fotku</button>}<small>Odporúčaný pomer 16 : 9, najviac 8 MB.</small></div>
             </div>
+            <div className="admin-field"><label htmlFor="event-image-alt">Alt text obrázka</label>
+              <textarea id="event-image-alt" value={imageAlt} rows={2} maxLength={500}
+                onChange={(e) => setImageAlt(e.target.value)}
+                placeholder="Stručne opíš, čo je na fotografii" />
+              <small>Verejný opis obrázka pre prístupnosť. Nie je to interná poznámka.</small>
+            </div>
             {imageUrl && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {event && <AdminShareToFacebook title={title} imageUrl={imageUrl} publicPath={"/podujatia/" + event.slug} />}
              
+          </EditorSection>
+          <EditorSection id="event-notes" className="admin-form-card">
+            <div className="admin-card-heading"><div><span>07</span><div><h2>Interné poznámky</h2>
+              <p>Len pre administrátora. Nikdy sa nezobrazujú na verejnom webe ani v jeho API.</p>
+            </div></div></div>
+            <div className="admin-field"><label htmlFor="event-internal-notes">Poznámky</label>
+              <textarea id="event-internal-notes" value={internalNotes} rows={7} maxLength={20000}
+                onChange={(e) => setInternalNotes(e.target.value)}
+                placeholder="Súkromné poznámky k organizácii podujatia…" />
+            </div>
           </EditorSection>
           <EditorSection id="event-seo" className={styles.seoSection}>
             <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/podujatia/${slug}`} fallbackTitle={eventSeoFallback(title||"Názov podujatia",eventType,city).title} fallbackDescription={eventSeoFallback(title||"Názov podujatia",eventType,city).description}/>

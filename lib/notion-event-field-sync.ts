@@ -28,6 +28,7 @@ const SCALARS:Partial<Record<EventNotionField,string>>={
   excerpt:"excerpt",description:"description",practicalInfo:"practical_info",
   contactPhone:"contact_phone",contactEmail:"contact_email",admissionFee:"admission_fee",
   websiteUrl:"website_url",registrationUrl:"registration_url",
+  imageAlt:"image_alt",internalNotes:"internal_notes",
 };
 const SEO:Partial<Record<EventNotionField,string>>={
   "seo.title":"title","seo.description":"description","seo.focusKeyword":"focusKeyword",
@@ -105,6 +106,8 @@ function validate(path:EventNotionField,value:string|boolean,live:DogEvent){
   if(typeof value!=="string")throw Error("TEXT_EXPECTED");
   if(!value.trim())throw Error("EMPTY_NOT_A_DELETE"); // Missing Notion never erases.
   if(value.length>60000)throw Error("VALUE_TOO_LONG");
+  if(path==="imageAlt" && value.length>500)throw Error("IMAGE_ALT_TOO_LONG");
+  if(path==="internalNotes" && value.length>20000)throw Error("INTERNAL_NOTES_TOO_LONG");
   if(path==="contactPhone" && value.length>80)throw Error("PHONE_TOO_LONG");
   if(path==="admissionFee" && value.length>160)throw Error("ADMISSION_TOO_LONG");
   if(path==="contactEmail" &&
@@ -166,7 +169,7 @@ async function updateMetadata(bindings:EventFieldSyncBindings,page:Page,
   const outstanding=typeof previous==="string"&&previous.startsWith("POLIA: ")
     ? previous.slice(7).split(", ").filter(Boolean):[];
   const newErrors=[
-    ...outstanding.filter(problem=>!touched.some(name=>problem.startsWith(name+" ("))),
+    ...outstanding.filter(problem=>!problem.includes("GOOGLE_PLACE_LOCATION_LOCKED") && !touched.some(name=>problem.startsWith(name+" ("))),
     ...errors,
   ];
   // Preserve unresolved field errors from other webhooks, rather than falsely
@@ -175,7 +178,7 @@ async function updateMetadata(bindings:EventFieldSyncBindings,page:Page,
     "Sync stav":newErrors.length?"Chyba":"Synchronizované",
     "Sync chyba":newErrors.length?"POLIA: "+newErrors.join(", ").slice(0,1500):"",
   };
-  if(wasWritten && !newErrors.length)data["Posledný sync"]=new Date().toISOString();
+  if((wasWritten || touched.length>0) && !newErrors.length)data["Posledný sync"]=new Date().toISOString();
   const patch:Record<string,unknown>={};
   for(const [name,value] of Object.entries(data)){
     const raw=page.properties?.[name];
@@ -213,6 +216,9 @@ export async function syncEventNotionFields(input:{
     try{
       const value=valueFromPage(input.page.properties?.[property],path);
       if(value===null || eventEmpty(value))continue;
+      // A confirmed Place deliberately owns its location; skipping is not a sync error.
+      if(EVENT_LOCATION_PATHS.has(path) &&
+         await hasCurrentGooglePlace(input.database,"MANAGED_EVENT",id)) continue;
       if(await saveField(input.database,id,path,value))saved++;
     }catch(e){
       const reason=e instanceof Error?e.message:"UNKNOWN";
@@ -261,7 +267,9 @@ export async function syncEventAdminFields(input:{
         const original=latest.properties?.[name];
         if(!original)throw Error("NOTION_FIELD_MISSING");
         const value=source.properties[name];
-        if(eventEmpty(value))continue; // No implicit deletion in either direction.
+        // Only explicitly edited Admin fields may clear an existing Notion value.
+        // All unedited and missing fields remain unchanged.
+        if(value===undefined)continue;
         const encoded=encodeValue(value,original);
         if(sameNotionProperty(original,encoded))continue;
         // Each PATCH is isolated: a rejected URL must not undo other writes.

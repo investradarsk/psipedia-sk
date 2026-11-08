@@ -60,7 +60,7 @@ test("profile Google discovery remains lazy and server-authoritative", () => {
 });
 
 test("HELP profile presents one Address section then Google Maps", () => {
-  const sectionIndex = organizationEditor.indexOf('<AdminEditorSection id="organization-address"');
+  const sectionIndex = organizationEditor.indexOf('<AdminEditorSection id="organization-location-panel"');
   const addressIndex = organizationEditor.indexOf("<AdminOrganizationLocations draft=", sectionIndex);
   const googleIndex = organizationEditor.indexOf("<AdminProfileGoogleMaps", sectionIndex);
   const nextSection = organizationEditor.indexOf('<AdminEditorSection id="organization-contacts"', sectionIndex);
@@ -77,7 +77,10 @@ test("HELP discovery uses one deterministic canonical location or organization a
   assert.match(organizationWorkflow, /organizationName: organization\.name/);
   assert.match(organizationWorkflow, /address: canonicalLocation\?\.address \|\| organization\.address \|\| ""/);
   assert.match(discovery, /organizationName, source\.label, source\.address, source\.city, source\.district, source\.region/);
-  assert.match(organizationRoute, /discoverOrganizationProfileGooglePlaces/);
+  // The old organization route now delegates to one canonical GEO endpoint.
+  assert.match(organizationRoute, /GET as sharedGET, POST as sharedPOST/);
+  assert.match(organizationRoute, /return sharedPOST\(request, target\)/);
+  assert.match(geoRoute, /const candidates = await discoverGoogleTargetPlaces\(source\)/);
 });
 
 test("HELP confirmation creates at most the one missing canonical address and never creates a second location", () => {

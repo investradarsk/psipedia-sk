@@ -68,7 +68,7 @@ export function AdminProfileGoogleMaps({
   const endpoint = endpointOverride ?? `/api/admin/geo/${targetType}/${targetId}`;
   const [snapshot, setSnapshot] = useState<ProfileGoogleMapsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busyAction, setBusyAction] = useState<"not-required" | "reset" | null>(null);
+  const [busyAction, setBusyAction] = useState<"not-required" | "reset" | "detach" | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -107,6 +107,29 @@ export function AdminProfileGoogleMaps({
       window.location.reload();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Google Maps stav sa nepodarilo uložiť.");
+      setBusyAction(null);
+    }
+  }
+
+  async function detachPlace() {
+    if (!snapshot?.point || snapshot.point.provider !== "google_places") return;
+    if (!window.confirm("Odpojiť Google Place? Názov, mesto a adresa zostanú zachované. Pôvodné súradnice sa odstránia.")) return;
+    setBusyAction("detach");
+    setError("");
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "detach-google-place",
+          expectedGeoRevision: snapshot.point.updatedAt,
+        }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Google miesto sa nepodarilo odpojiť.");
+      window.location.reload();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Odpojenie Google miesta zlyhalo.");
       setBusyAction(null);
     }
   }
@@ -183,6 +206,15 @@ export function AdminProfileGoogleMaps({
             allowExplicitPrivateOverride={allowExplicitPrivateOverride}
             onConfirmed={() => window.location.reload()}
           />
+          {snapshot.point?.provider === "google_places" && !manualOverride ? (
+            <div className="admin-editor-actions" style={{ marginTop: ".75rem" }}>
+              <button type="button" disabled={busyAction !== null}
+                onClick={() => void detachPlace()}
+                className="admin-upload-button">
+                {busyAction === "detach" ? "Odpájam…" : "Odpojiť Google Place"}
+              </button>
+            </div>
+          ) : null}
           {!hasCurrentPlace ? (
             <div className="admin-editor-actions" style={{ flexWrap: "wrap", marginTop: ".75rem" }}>
               <button

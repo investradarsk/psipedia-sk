@@ -49,7 +49,10 @@ function extractSQL(content, start, marker, occurrence = 0) {
 }
 const visibilitySql = extractSQL(geoSource,"setGeoVisibility","UPDATE geo_points SET",2);
 const googleResolutionSql = extractSQL(geoSource,"applyGooglePlaceResolution","UPDATE geo_points SET",1);
-const auditSql = extractSQL(geoSource,"resetGoogleMapsNotRequired","INSERT INTO moderation_events");
+// Normal GEO_POINT flow has no legacy organization revision predicate.
+// Production injects that clause only when migrating an old HELP_ORGANIZATION decision.
+const auditSql = extractSQL(geoSource,"resetGoogleMapsNotRequired","INSERT INTO moderation_events")
+  .replace(interpolation("legacyClause"), "");
 const invalidationSql = extractSQL(geoSource,"prepareGoogleSourceGeoInvalidation","UPDATE geo_points SET");
 const sourceStatements = {
   DIRECTORY_PROFILE: extractSQL(codeFor.DIRECTORY_PROFILE,writerFunctions.DIRECTORY_PROFILE,"UPDATE directory_profiles"),
@@ -233,6 +236,9 @@ export const sourceGeoFingerprint=async()=> "fp1";
 export const directoryExactGeoCandidate=()=>null;
 export const directoryNumberlessPlaceCandidate=()=>null;
 export async function getAdminApiUser(){return {email:"editor@example.sk"};}
+export async function requireAdminMutation(){return {user:{email:"editor@example.sk"},response:null};}
+export async function detachGooglePlace(){throw new Error("Detach is not part of the Google confirmation harness");}
+export async function syncNotionGeoMirrorAfterDetach(){return {status:"skipped"};}
 export const unauthorizedAdminResponse=()=>Response.json({error:"Unauthorized"},{status:401});
 export const diagnoseGeoTarget=async()=>({});
 export const previewGeoSource=async()=>({});
