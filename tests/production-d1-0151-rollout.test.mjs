@@ -51,6 +51,7 @@ test("0151 is approved only by pinned SHA and protected canonical DB identity", 
     "0158_admin_directory_list_indexes.sql",
     "0159_breed_notion_workcopy_links.sql",
     "0160_event_contacts_admission.sql",
+    "0161_event_image_alt_private_notes.sql",
   ]);
   assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes("0158_admin_directory_list_indexes.sql"));
 });
