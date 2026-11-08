@@ -89,14 +89,6 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
     // The D1 store is still authoritative for publish, privacy and lifecycle.
     const missing = [
       { section: "lost-found-basics", valid: Boolean(state.slug.trim()), label: "Adresa hlásenia" },
-      ...(status !== "DRAFT" ? [
-        { section: "lost-found-location", valid: /^\d{4}-\d{2}-\d{2}$/.test(state.eventDate), label: "Dátum udalosti" },
-        { section: "lost-found-location", valid: Boolean(state.region.trim()) && Boolean(state.city.trim()), label: "Kraj a obec/mesto" },
-        { section: "lost-found-description", valid: state.description.trim().length >= 20, label: "Hlavný popis (aspoň 20 znakov)" },
-      ] : []),
-      ...(status === "ACTIVE" && state.type === "LOST" ? [
-        { section: "lost-found-location", valid: Boolean(state.lastSeenDateTime), label: "Naposledy videný" },
-      ] : []),
     ].find((field) => !field.valid);
     if (missing) {
       setActiveLostFoundSection(missing.section);
