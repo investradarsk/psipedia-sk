@@ -829,6 +829,14 @@ async function syncAgenda(input: {
     const entityId = sourceId(source);
     if (entityId === null) continue;
     let mapping = mappingByEntity.get(entityId) ?? null;
+    // Existing mapped Events now use targeted field events on Admin saves and
+    // signed Notion webhooks. Do not run an hourly whole-profile replay over
+    // their pending/invalid individual fields. Keep new drafts/bootstrap.
+    if(input.definition.key==="events" && input.mode==="sync" &&
+       !input.targetPageId && mapping){
+      summary.unchanged+=1;
+      continue;
+    }
     if (input.targetPageId && mapping?.notion_page_id !== input.targetPageId) continue;
     const sourceSnapshot = editableSnapshot(input.definition.key, source.properties, schema);
     const canonicalHash = await snapshotHash(input.definition.key, sourceSnapshot);
