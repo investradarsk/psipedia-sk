@@ -1293,6 +1293,10 @@ async function saveBreederEditorialValue(
 ): Promise<ManagedDirectoryProfile> {
   if ((!isDirectoryEventPilotCategory(current.category) && current.category !== "chovatelske-stanice") || current.status === "archived")
     throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
+  // Pilot categories use the canonical Services V3 catalog. Their retired
+  // legacy "Služby" text must not be written by any editorial event.
+  if (path === "services" && isDirectoryEventPilotCategory(current.category))
+    throw new Error("DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY");
   const raw = breederReadPath(desired, path);
   const value = typeof raw === "string" ? raw : "";
   const assignments: string[] = [];
@@ -1462,7 +1466,7 @@ async function syncBreederEvent(input: {
   const now = new Date().toISOString();
   if (input.changedPropertyIds !== undefined) {
     const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds)
-      .filter(path => path !== "services" || input.profile.category !== "treneri");
+      .filter(path => path !== "services" || input.profile.category === "chovatelske-stanice");
     const relationFields = input.profile.category === "chovatelske-stanice"
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
     const facetFields = input.profile.category === "chovatelske-stanice"
@@ -1606,7 +1610,7 @@ async function syncBreederEvent(input: {
   const fields = (input.adminChangedFields ?? []).filter(
     (path): path is BreederEditorialField =>
       Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
-      (path !== "services" || input.profile.category !== "treneri"),
+      (path !== "services" || input.profile.category === "chovatelske-stanice"),
   );
   if (!fields.length) return "unchanged";
   const geo = await loadGeoMirror(database, input.profile.id);
