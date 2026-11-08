@@ -537,6 +537,12 @@ export function AdminDirectoryEditor({
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string; metadataWarnings?: string[] };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
+      // Verify that the database acknowledges lifecycle and explicit web edits.
+      if (data.profile.status !== nextStatus)
+        throw new Error("Zmena stavu profilu sa nepotvrdila. Obnov stránku a skontroluj údaje.");
+      if (breederChangedPaths?.includes("websiteUrl") &&
+          readDirectoryPublicContacts(data.profile.importData, data.profile.websiteUrl ?? "").website !== websiteUrl.trim())
+        throw new Error("Verejný web sa po uložení nepotvrdil. Skontroluj novú hodnotu v Admine.");
       // Write only explicit facet changes through the authenticated, CAS-protected endpoint.
       // The canonical profile save above continues to own all unrelated fields.
       let savedProfile = data.profile;
