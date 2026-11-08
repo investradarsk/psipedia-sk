@@ -3,6 +3,7 @@ import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/no
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
 import { writeBackPublishedEventToNotion, type NotionEventSyncBindings } from "@/lib/notion-event-sync";
+import { eventAdminChangedFields } from "@/lib/notion-event-field-events";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
@@ -59,7 +60,10 @@ export async function PUT(request: Request, { params }: Props) {
         });
       }
     }
-    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id });
+    const notionFieldSync = await syncSavedNotionRecord({
+      bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id,
+      eventChangedFields: eventAdminChangedFields(before as unknown as Record<string, unknown>, event as unknown as Record<string, unknown>),
+    });
     return Response.json({ event, notionFieldSync });
   } catch (error) { return errorResponse(error); }
 }
@@ -74,8 +78,12 @@ export async function PATCH(request: Request, { params }: Props) {
     return Response.json({ error: "Neplatný pôvod požiadavky." }, { status: 403 });
   }
   try {
+    const before = await getManagedEventById(id);
     const event = await quickEditManagedEvent(id, await request.json() as ManagedEventQuickEditInput, user.email);
-    const notionFieldSync = event ? await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id }) : "unlinked";
+    const notionFieldSync = event ? await syncSavedNotionRecord({
+      bindings: env as unknown as TargetedNotionSaveBindings, agenda: "events", entityId: event.id,
+      eventChangedFields: before ? eventAdminChangedFields(before as unknown as Record<string, unknown>, event as unknown as Record<string, unknown>) : [],
+    }) : "unlinked";
     return Response.json({ event, notionFieldSync });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Rýchla úprava zlyhala." }, { status: 409 });
