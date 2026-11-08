@@ -270,13 +270,18 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo }),
       });
-      const data = await response.json() as { event?: DogEvent; error?: string };
+      const data = await response.json() as { event?: DogEvent; error?: string; notionFieldSync?: "synced" | "pending" | "unlinked" | "disabled" };
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
       setStatus(data.event.status);
       setSavedSnapshot(editorSnapshot);
-      setMessage(data.event.status === "published"
+      const savedMessage = data.event.status === "published"
         ? (status === "published" ? "Zmeny publikovaného podujatia sú uložené." : "Podujatie je publikované v kalendári.")
-        : (status === "published" ? "Podujatie bolo stiahnuté z kalendára." : "Koncept je bezpečne uložený."));
+        : (status === "published" ? "Podujatie bolo stiahnuté z kalendára." : "Koncept je bezpečne uložený.");
+      const syncWarning = data.notionFieldSync === "pending"
+        ? " Notion: niektoré polia ešte čakajú na prenos."
+        : data.notionFieldSync === "unlinked" ? " Notion: chýba prepojenie podujatia."
+        : data.notionFieldSync === "disabled" ? " Notion: synchronizácia je vypnutá." : "";
+      setMessage(savedMessage + syncWarning);
       if (!event) {
         allowNavigationRef.current = true;
         router.replace(`/admin/podujatia/${data.event.id}?vytvorene=1`);
