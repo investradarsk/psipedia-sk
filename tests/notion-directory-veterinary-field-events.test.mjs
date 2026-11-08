@@ -57,7 +57,14 @@ test("a pilot editor save exports only changed fields and never creates Notion p
   assert.match(editor, /isDirectoryEventPilotCategory\(profile\.category\)/);
   assert.match(source, /adminChangedFields: input\.breederAdminFields/);
   assert.match(source, /breederWebhookPropertyIds: input\.changedPropertyIds/);
-  // Services V3 is written through its own relation API, never inferred from the free text.
+  // Services V3 is the only editable service selector for pilot categories.
+  // Neither Notion editorial events nor the Admin form may overwrite legacy
+  // services_json; the canonical relation API remains independent.
+  assert.match(source, /path !== "services" \|\| input\.profile\.category === "chovatelske-stanice"/);
+  assert.match(source, /DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY/);
+  assert.match(admin, /isDirectoryEventPilotCategory\(before\.category\)[\s\S]*?services: before\.services/);
+  assert.match(editor, /!isDirectoryEventPilotCategory\(category\)\s*\?\s*\([\s\S]*?id="directory-services"/);
+  assert.match(editor, /\.filter\(path => path !== "services" \|\| !isDirectoryEventPilotCategory\(category\)\)/);
   const eventBody = source.slice(source.indexOf("async function syncBreederEvent("),
     source.indexOf("export async function mirrorBreederCategoryFiltersToNotion("));
   assert.doesNotMatch(eventBody, /importNotionServiceChoices|syncProfileCatalogRelation/);
@@ -97,6 +104,11 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
     assert.match(logs[0].sql, /updated_at = \?/);
     assert.ok(logs[0].args.includes(category));
     assert.doesNotMatch(logs[0].sql, /services_json =|seo_json =|source_data_json =/);
+    await assert.rejects(
+      () => exports.saveBreederEditorialValue(db, profile, desired, "services"),
+      /DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY/,
+    );
+    assert.equal(logs.length, 1, "Services V3/legacy list was not modified by a pilot editorial event");
   }
 });
 
