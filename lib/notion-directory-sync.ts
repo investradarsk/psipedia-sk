@@ -21,6 +21,8 @@ import {
   directoryQualityCheckedAtSummary,
   directoryQualityFields,
   readDirectoryPublicContacts,
+  readTrainerServicesText,
+  TRAINER_SERVICES_TEXT_METADATA_KEY,
   type DirectoryQualityField,
   type DirectoryQualityResolutionInput,
   type DirectoryQualityResolutionStatus,
@@ -329,7 +331,9 @@ function profileSnapshot(profile: ManagedDirectoryProfile, sourceImageUrl = ""):
     status: profile.status,
     excerpt: clean(profile.excerpt),
     description: clean(profile.description),
-    services: profile.services.map(clean).filter(Boolean),
+    services: profile.category === "treneri"
+      ? readTrainerServicesText(profile.importData).split(/\r?\n/).map(clean).filter(Boolean)
+      : profile.services.map(clean).filter(Boolean),
     qualifications: profile.qualifications.map(clean).filter(Boolean),
     region: clean(profile.region),
     district: clean(profile.district),
@@ -379,7 +383,7 @@ function notionSnapshot(page: NotionPage): EditableDirectorySnapshot {
     status: statusFromNotion(propertyText(page, "Psipedia stav")),
     excerpt: propertyText(page, "Perex"),
     description: propertyText(page, "Popis"),
-    services: propertyText(page, "Kategória") === "chovatelske-stanice"
+    services: ["chovatelske-stanice", "treneri"].includes(propertyText(page, "Kategória"))
       ? propertyText(page, "Služby").split(/\r?\n|<br\s*\/?\s*>/gi).map(item => item.trim()).filter(Boolean)
       : splitList(propertyText(page, "Služby")),
     qualifications: splitQualificationLines(propertyText(page, "Kvalifikácie")),
@@ -1218,11 +1222,14 @@ export function preserveLiveBreederFields(
   submitted: ManagedDirectoryProfileInput,
   edited: readonly BreederEditorialField[],
 ): ManagedDirectoryProfileInput {
-  return breederPreserveUneditedFields(
+  const preserved = breederPreserveUneditedFields(
     submitted as Record<string, unknown>,
     profileSnapshot(live) as unknown as Record<string, unknown>,
     edited,
   ) as ManagedDirectoryProfileInput;
+  // The trainer services text lives in metadata, NOT services_json or V3.
+  // Never insert this editorial snapshot into the canonical service list.
+  return live.category === "treneri" ? { ...preserved, services: live.services } : preserved;
 }
 
 /** Exactly the editorial fields saved in Admin; the rest of the profile is irrelevant. */
@@ -1237,7 +1244,7 @@ export function breederEditedFields(
 }
 
 /**
- * Breeder editorial fields are raw content. Write ONLY the changed D1 value
+ * Breeder/trainer editorial fields are raw content. Write ONLY the changed D1 value
  * (plus its derived search index), never call the record-wide profile validator.
  * Identifiers, publication state, Services V3 and verified GEO are untouched.
  *
@@ -1288,8 +1295,8 @@ async function saveBreederEditorialValue(
   desired: Record<string, unknown>,
   path: BreederEditorialField,
 ): Promise<ManagedDirectoryProfile> {
-  if (current.category !== "chovatelske-stanice" || current.status === "archived")
-    throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
+  if (!["chovatelske-stanice", "treneri"].includes(current.category) || current.status === "archived")
+    throw new Error("DIRECTORY_EDITORIAL_FIELD_WRITE_NOT_ALLOWED");
   const raw = breederReadPath(desired, path);
   const value = typeof raw === "string" ? raw : "";
   const assignments: string[] = [];
@@ -1300,9 +1307,16 @@ async function saveBreederEditorialValue(
   if (scalar) {
     assignments.push(scalar + " = ?");
     params.push(value);
+  } else if (path === "services" && current.category === "treneri") {
+    // Trainers use Services V3 / services_json for canonical choices. Notion
+    // prose is a separate private metadata string; never replace those choices.
+    const text = Array.isArray(raw)
+      ? raw.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).join("\n")
+      : value;
+    assignments.push("source_data_json = json_set(COALESCE(source_data_json, '{}'), ?, ?)");
+    params.push("$." + TRAINER_SERVICES_TEXT_METADATA_KEY, text);
   } else if (path === "services" || path === "qualifications") {
-    // Existing public rendering expects arrays, but each line is free text.
-    // Canonical Services V3 and its relations are entirely separate.
+    // Breeders store free-text service lines; qualifications also remain text. 
     const items = Array.isArray(raw)
       ? raw.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
       : value ? value.split(/\r?\n/).map(item => item.trim()).filter(Boolean) : [];
@@ -1343,7 +1357,7 @@ async function saveBreederEditorialValue(
   const saved = await database.prepare(
     "UPDATE directory_profiles SET " + assignments.join(", ") +
     ", updated_at = ?, updated_by = ? " +
-    "WHERE id = ? AND category = 'chovatelske-stanice' AND status <> 'archived' " +
+    "WHERE id = ? AND category IN ('chovatelske-stanice','treneri') AND status <> 'archived' " +
     "AND updated_at = ? RETURNING id",
   ).bind(...params, now, SYSTEM_ACTOR, current.id, current.updatedAt)
     .first<{ id: number }>();
@@ -1369,9 +1383,8 @@ async function syncBreederEvent(input: {
   const { database, bindings, page } = input;
   const now = new Date().toISOString();
   if (input.changedPropertyIds !== undefined) {
-    const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds)
-      .filter(path => path !== "services" || input.profile.category === "chovatelske-stanice");
-    const relationFields = input.profile.category === "chovatelske-stanice"
+    const paths = breederNotionChangedFields(page.properties, input.changedPropertyIds);
+    const relationFields = ["chovatelske-stanice", "treneri"].includes(input.profile.category)
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
     const facetFields = input.profile.category === "chovatelske-stanice"
       ? breederChangedNotionFacets(page, input.changedPropertyIds) : [];
@@ -1388,29 +1401,7 @@ async function syncBreederEvent(input: {
       if (JSON.stringify(breederReadPath(before, path)) ===
           JSON.stringify(breederReadPath(desired, path))) continue;
       try {
-        current = input.profile.category === "chovatelske-stanice"
-          ? await saveBreederEditorialValue(database, current, desired, path)
-          : await (async () => {
-            // Trainers retain their existing validator until their own rollout.
-            const sourceRow = await database.prepare(
-              "SELECT source_data_json FROM directory_profiles WHERE id=? LIMIT 1",
-            ).bind(current.id).first<{ source_data_json: string }>();
-            let source: unknown;
-            try { source = JSON.parse(sourceRow?.source_data_json ?? "null"); }
-            catch { source = null; }
-            if (!source || typeof source !== "object" || Array.isArray(source))
-              throw new Error("TRAINER_SOURCE_JSON_INVALID");
-            const enriched = { ...current, importData: source as typeof current.importData };
-            const payload = fullProfileInput(desired as unknown as EditableDirectorySnapshot, enriched);
-            if (["region", "district", "city", "address", "postalCode", "street", "houseNumber", "addressFormat"].includes(path))
-              payload.clearServiceAddressConfirmation = true;
-            const saved = await updateManagedDirectoryProfile(
-              enriched.id, payload, SYSTEM_ACTOR, enriched, database,
-              { expectedUpdatedAt: enriched.updatedAt },
-            );
-            if (!saved) throw new Error("TRAINER_PROFILE_NOT_SAVED");
-            return saved;
-          })();
+        current = await saveBreederEditorialValue(database, current, desired, path);
         updated = true;
       } catch (error) {
         // Keep the real reason in server logs; only this path is retried.
@@ -1491,9 +1482,7 @@ async function syncBreederEvent(input: {
   }
 
   const fields = (input.adminChangedFields ?? []).filter(
-    (path): path is BreederEditorialField =>
-      Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path) &&
-      (path !== "services" || input.profile.category === "chovatelske-stanice"),
+    (path): path is BreederEditorialField => Object.hasOwn(BREEDER_NOTION_EDITORIAL_FIELDS, path),
   );
   if (!fields.length) return "unchanged";
   const geo = await loadGeoMirror(database, input.profile.id);
@@ -1569,7 +1558,7 @@ export async function mirrorBreederRelationNamesToNotion(input: {
     return false;
   const mapping = await loadMappingByProfile(input.database, input.profileId);
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!mapping || !profile || profile.category !== "chovatelske-stanice") return false;
+  if (!mapping || !profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return false;
   const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
   if (page.id !== mapping.notion_page_id ||
       !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!)) return false;
