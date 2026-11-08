@@ -43,6 +43,13 @@ import {
   notionSeoSourceProperties,
 } from "../lib/notion-seo-contract.ts";
 
+import {
+  EVENT_NOTION_FOCUS_KEYWORD,
+  withoutEventFocusKeyword,
+  extendEventFocusKeywordBaseline,
+  ignoreUnverifiedEmptyNotionEventKeyword,
+} from "../lib/notion-event-focus-keyword.ts";
+
 const definition = {
   key: "lost-found",
   label: "Stratené / nájdené",
@@ -444,6 +451,25 @@ test("renderer-backed Notion SEO contract is limited to events and generic help"
   for (const field of new Set([...eventFields, ...helpFields])) assert.equal(unsupported.has(field), false);
   assert.equal(eventFields.includes("Alt text obrázka"), false);
   assert.equal(helpFields.includes("Alt text obrázka"), false);
+});
+
+test("new Podujatia SEO keyword preserves verified historical baseline without erasing Admin data", () => {
+  assert.equal(EVENT_NOTION_FOCUS_KEYWORD, "SEO kľúčové slovo");
+  const before = { "SEO title": "Pôvodný titul", "Vstupné": "Zdarma" };
+  const after = { ...before, [EVENT_NOTION_FOCUS_KEYWORD]: "" };
+  assert.deepEqual(withoutEventFocusKeyword(after), before);
+  assert.deepEqual(extendEventFocusKeywordBaseline(before), after);
+  assert.equal(extendEventFocusKeywordBaseline({
+    ...before, [EVENT_NOTION_FOCUS_KEYWORD]: "overená fráza",
+  })[EVENT_NOTION_FOCUS_KEYWORD], "overená fráza");
+  assert.equal(ignoreUnverifiedEmptyNotionEventKeyword(
+    { [EVENT_NOTION_FOCUS_KEYWORD]: "" },
+    { [EVENT_NOTION_FOCUS_KEYWORD]: "platná fráza" },
+  )[EVENT_NOTION_FOCUS_KEYWORD], "platná fráza");
+  assert.equal(ignoreUnverifiedEmptyNotionEventKeyword(
+    { [EVENT_NOTION_FOCUS_KEYWORD]: "nová fráza" },
+    { [EVENT_NOTION_FOCUS_KEYWORD]: "platná fráza" },
+  )[EVENT_NOTION_FOCUS_KEYWORD], "nová fráza");
 });
 
 test("Notion SEO schema uses optional text/url/checkbox properties and defaults Noindex false", () => {
