@@ -145,9 +145,13 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
   test("physiotherapy uses plain-text expertise, not retired therapy facets", async ({ page }) => {
     const main = await openProfile(page, "/adresar/fyzioterapia/health-fixture-fyzioterapia");
     const hero = main.locator("[data-directory-profile-hero]");
-    // A perex must remain visible even when the profile has a longer description.
-    await expect(hero.locator("p").filter({ hasText: /.+/ }).first()).toBeVisible();
-    // Therapies are managed through Services V3, not the old Notion/import facts.
+    // The perex stays visible alongside a distinct long description.
+    await expect(hero.getByText("Fyzioterapeutický testovací profil s terapeutickými a rehabilitačnými údajmi.", { exact: true })).toBeVisible();
+    await expect(main.getByText("Deterministický lokálny profil určený iba na overenie Health variantu v CI.", { exact: true })).toBeVisible();
+    // The populated canonical service list is retained; legacy therapy facts do not fabricate services.
+    const services = main.getByRole("heading", { name: "Poskytované služby" }).locator("xpath=ancestor::section[1]");
+    await expect(services.getByText("Rehabilitácia", { exact: true })).toBeVisible();
+    await expect(services.getByText("Regenerácia", { exact: true })).toBeVisible();
     await expect(main.getByRole("heading", { name: "Terapie a rehabilitácia" })).toHaveCount(0);
     const expert = main.getByRole("heading", { name: "Odbornosť a skúsenosti" }).locator("xpath=ancestor::section[1]");
     await expect(expert).toBeVisible();
