@@ -5,6 +5,7 @@ export type EditorialVideoProvider = (typeof EDITORIAL_VIDEO_PROVIDERS)[number];
 export type EditorialExternalVideo = {
   kind: "external-video";
   provider: EditorialVideoProvider;
+  displayFormat: "shorts" | "standard";
   sourceUrl: string;
   embedUrl: string;
   videoId: string;
@@ -59,6 +60,7 @@ export function normalizeEditorialExternalVideo(input: {
     return {
       kind: "external-video",
       provider: "youtube",
+      displayFormat: url.pathname.startsWith("/shorts/") ? "shorts" : "standard",
       sourceUrl: url.toString(),
       embedUrl: `https://www.youtube-nocookie.com/embed/${youtube}`,
       videoId: youtube,
@@ -72,6 +74,7 @@ export function normalizeEditorialExternalVideo(input: {
     return {
       kind: "external-video",
       provider: "vimeo",
+      displayFormat: "standard",
       sourceUrl: url.toString(),
       embedUrl: `https://player.vimeo.com/video/${vimeo}`,
       videoId: vimeo,
