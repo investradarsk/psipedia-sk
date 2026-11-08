@@ -813,6 +813,11 @@ export function AdminDirectoryEditor({
                 }
               }}
             />
+            {profile?.city && !city ? (
+              <p className="admin-message" role="status" data-directory-missing-city-warning>
+                Mesto / obec je teraz prázdne. Po zmene kraja alebo okresu vyber aj mesto, inak sa prázdna hodnota uloží a prenesie do Notionu.
+              </p>
+            ) : null}
             <DirectoryAddressAutocomplete
               key={`${region}|${district}|${city}|${street}`}
               region={region}
