@@ -62,6 +62,10 @@ import {
 import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "./notion-directory-field-event-scope";
 import {
+  changedTrainerTrustNotionFields, TRAINER_TRUST_NOTION_PROPERTIES,
+  type TrainerTrustField,
+} from "./notion-trainer-trust-fields";
+import {
   getBreederRelationSelection, listBreederRelationOptions, saveBreederRelationSelection,
 } from "./breeder-profile-relations";
 import {
@@ -1274,6 +1278,8 @@ const breederSeoJsonNames: Partial<Record<BreederEditorialField, string>> = {
 const breederFacetNotionProperties = {
   "chovatelske-stanice.visits_by_appointment": "Návštevy po dohode",
   "chovatelske-stanice.health_testing_information": "Informácie o zdravotných testoch",
+  "treneri.individual_training": "Individuálny výcvik",
+  "treneri.group_training": "Skupinový výcvik",
 } as const;
 type BreederFacetId = keyof typeof breederFacetNotionProperties;
 const breederFacetIds = Object.keys(breederFacetNotionProperties) as BreederFacetId[];
@@ -1483,11 +1489,15 @@ async function syncBreederEvent(input: {
       .filter(path => path !== "services" || ["chovatelske-stanice", "salony-a-sluzby", "treneri"].includes(input.profile.category));
     const relationFields = ["chovatelske-stanice", "treneri"].includes(input.profile.category)
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
-    const facetFields = input.profile.category === "chovatelske-stanice"
-      ? breederChangedNotionFacets(page, input.changedPropertyIds) : [];
+    const facetFields = ["chovatelske-stanice", "treneri"].includes(input.profile.category)
+      ? breederChangedNotionFacets(page, input.changedPropertyIds)
+          .filter(id => getDirectoryFilterDefinition(id)?.category === input.profile.category)
+      : [];
+    const trustFields = input.profile.category === "treneri"
+      ? changedTrainerTrustNotionFields(page.properties, input.changedPropertyIds) : [];
     const pilotMetaFields = isDirectoryEventPilotCategory(input.profile.category)
       ? pilotChangedNotionMetadataFields(page, input.changedPropertyIds) : [];
-    if (!paths.length && !relationFields.length && !facetFields.length && !pilotMetaFields.length)
+    if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length)
       return "unchanged";
     const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
     let current = input.profile;
@@ -1545,7 +1555,7 @@ async function syncBreederEvent(input: {
         if (!row) throw new Error("BREEDER_FACET_PROFILE_MISSING");
         const source = JSON.parse(row.source_data_json) as Record<string, unknown>;
         if (source[def.d1.key] === normalized.value) continue;
-        const merged = mergeDirectoryFilterValues(row.source_data_json, "chovatelske-stanice", { [id]: normalized.value });
+        const merged = mergeDirectoryFilterValues(row.source_data_json, current.category as "chovatelske-stanice" | "treneri", { [id]: normalized.value });
         const changed = await database.prepare(`UPDATE directory_profiles
           SET source_data_json=?, updated_at=?, updated_by=?
           WHERE id=? AND source_data_json=? AND updated_at=? RETURNING id`)
@@ -1557,6 +1567,22 @@ async function syncBreederEvent(input: {
       } catch (error) {
         console.error("BREEDER_FACET_FIELD_WRITE_FAILED", current.id, id, error);
         failures.push(id);
+      }
+    }
+    // Trainer trust checkboxes are explicit booleans: false is an intentional
+    // change, not a missing value. Each checkbox writes its own guarded column.
+    let trustUpdated = false;
+    for (const field of trustFields) {
+      const key = TRAINER_TRUST_NOTION_PROPERTIES[field];
+      const raw = property(page, key)?.checkbox;
+      if (typeof raw !== "boolean") { failures.push(field); continue; }
+      try {
+        const next = await saveTrainerTrustField(database, current, field, raw);
+        if (next.updatedAt !== current.updatedAt) trustUpdated = true;
+        current = next;
+      } catch (error) {
+        console.error("TRAINER_TRUST_FIELD_WRITE_FAILED", current.id, field, error);
+        failures.push(field);
       }
     }
     // Relationship names are an independent, best-effort channel. Unknown,
@@ -1588,7 +1614,7 @@ async function syncBreederEvent(input: {
     if (failures.length) {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
-    if (!paths.length && !relationsUpdated && !facetFields.length && !pilotMetaFields.length) return "unchanged";
+    if (!paths.length && !relationsUpdated && !facetFields.length && !trustFields.length && !pilotMetaFields.length) return "unchanged";
     // Also clear a legacy whole-profile conflict when the new event was
     // already applied (for example, an inbox retry or a duplicate delivery).
     await patchNotionPage(bindings, page.id, {
@@ -1596,7 +1622,7 @@ async function syncBreederEvent(input: {
       "Sync chyba": richText(""),
       "Posledný sync": date(now),
     });
-    return updated || relationsUpdated || facetsUpdated || pilotMetaUpdated ? "pulled" : "unchanged";
+    return updated || relationsUpdated || facetsUpdated || trustUpdated || pilotMetaUpdated ? "pulled" : "unchanged";
   }
 
   const fields = (input.adminChangedFields ?? []).filter(
