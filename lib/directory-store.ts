@@ -682,7 +682,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
     importData: safeImportData(row.source_data_json),
-    seo: parseSeo(row.seo_json, row.category === "chovatelske-stanice"),
+    seo: parseSeo(row.seo_json, ["chovatelske-stanice", "treneri"].includes(row.category)),
   };
 }
 
@@ -979,7 +979,7 @@ export function normalizeManagedDirectoryProfileInput(
   const status: DirectoryProfileStatus = payload.status === "published" ? "published" : "draft";
   const excerpt = payload.excerpt?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
-  const breederRawText = category === "chovatelske-stanice";
+  const breederRawText = ["chovatelske-stanice", "treneri"].includes(category);
   const editorialAddressText = (value: string | undefined, max: number, label: string) =>
     breederRawText ? (value ?? "").trim() : safeDirectoryAddressText(value, max, label);
   const city = editorialAddressText(payload.city, 120, "Mesto / obec");
