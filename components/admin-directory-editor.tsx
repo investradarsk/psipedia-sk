@@ -211,6 +211,9 @@ export function AdminDirectoryEditor({
   const [pilotDataSources, setPilotDataSources] = useState(pilotMetadataText("Zdroj dát"));
   const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
+  // An explicit remove action must survive a stale full-form save; null alone
+  // could merely be the old value of a never-edited image field.
+  const removeMainImageRequestedRef = useRef(false);
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
   const [galleryUrls, setGalleryUrls] = useState<string[]>(profile?.galleryUrls ?? []);
   const [galleryBusy, setGalleryBusy] = useState(false);
@@ -325,6 +328,7 @@ export function AdminDirectoryEditor({
     try {
       const data = await uploadAdminImage(file, "directory");
       setImageUrl(data.imageUrl);
+      removeMainImageRequestedRef.current = false;
       setFormDirty(true);
       setImageKey(data.imageKey);
       setThumbnailImageDisplay(null); setDetailImageDisplay(null);
@@ -508,6 +512,7 @@ export function AdminDirectoryEditor({
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
+          ...(removeMainImageRequestedRef.current ? { clearMainImage: true } : {}),
           ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
           services: profile && isDirectoryEventPilotCategory(profile.category)
@@ -558,6 +563,7 @@ export function AdminDirectoryEditor({
         if (formEditRevisionRef.current === submittedRevision) setBreederRelationsDirty(false);
       }
       const hasNewerEdits = formEditRevisionRef.current !== submittedRevision;
+      if (!hasNewerEdits) removeMainImageRequestedRef.current = false;
       if (!hasNewerEdits) {
         setFilterSourceData(savedProfile.importData ?? {});
         setFilterChanges({});
@@ -1014,7 +1020,7 @@ export function AdminDirectoryEditor({
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             {profile && <AdminShareToFacebook title={name} imageUrl={imageUrl} publicPath={"/adresar/" + profile.category + "/" + profile.slug} />}
             <div className="admin-card-heading"><div><span>{profile && ["chovatelske-stanice", "treneri"].includes(category) ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
-            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
+            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { removeMainImageRequestedRef.current = true; setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {!notionDraft && category === "chovatelske-stanice" ? (
               <AdminPhotoGallery
