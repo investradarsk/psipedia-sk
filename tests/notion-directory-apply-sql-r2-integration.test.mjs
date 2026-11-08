@@ -53,7 +53,7 @@ function fixture(options = {}) {
   const status = options.status ?? "draft";
   sqlite.prepare(`INSERT INTO directory_profiles
     (id,slug,name,category,status,city,district,region,address,image_url,image_key,updated_at,archived_at,service_address_confirmation)
-    VALUES (1,'test-profil','Pôvodný profil','veterinari',?,?,?,?,?,?,?,?,?,?)`).run(
+    VALUES (1,'test-profil','Pôvodný profil','kynologicke-kluby',?,?,?,?,?,?,?,?,?,?)`).run(
       status, "Nitra", "Nitra", "Nitriansky kraj", "Hlavná 1, Nitra",
       "/media/directory/old.webp", "directory/old.webp", version,
       status === "archived" ? version : null, "CONFIRMED_SERVICE_LOCATION",
@@ -100,7 +100,7 @@ function fixture(options = {}) {
     postalCode: "94901", street: "Hlavná", houseNumber: "1", addressFormat: "STREET",
   };
   const newPayload = {
-    name: "Nový profil", slug: "test-profil", category: options.invalidInput ? "invalid-category" : "treneri",
+    name: "Nový profil", slug: "test-profil", category: options.invalidInput ? "invalid-category" : "kynologicke-kluby",
     status: options.notionStatus ?? "draft", region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
     address: "Hlavná 1, Nitra", street: "Hlavná", houseNumber: "1",
     addressFormat: "STREET", confirmServiceAddress: true,
