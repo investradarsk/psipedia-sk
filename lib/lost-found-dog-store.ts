@@ -586,6 +586,12 @@ function lifecycleFields(status: LostFoundStatus, existing: LostFoundLifecycleSn
   return { publishedAt, expiresAt, resolvedAt, archivedAt };
 }
 
+function validCalendarDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
   const type = oneOf(input.type, dogReportTypes, "LOST") as DogReportType;
   const status = oneOf(input.status, LOST_FOUND_STATUSES, "DRAFT") as LostFoundStatus;
