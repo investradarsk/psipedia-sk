@@ -2,6 +2,7 @@ import type { ReconciliationValue } from "./notion-bulk-reconciliation.ts";
 import { classifyHelpSyncCanonical, isHelpSyncCategoryOutOfDomain } from "./notion-help-domain-boundary.ts";
 import { mergeNotionSeo, notionSeoEditableFields } from "./notion-seo-contract.ts";
 import { notionGeoMirrorProperties } from "./notion-geo-mirror.ts";
+import { EVENT_NOTION_CONTACT_FIELDS } from "./notion-event-contact-fields.ts";
 import {
   createManagedEvent,
   getManagedEventById,
@@ -77,6 +78,7 @@ export const agendaEditableFields: Record<BidirectionalAgendaKey, readonly strin
   events: [
     "Názov", "Slug", "Stav", "Typ podujatia", "Začiatok", "Čas začiatku", "Koniec", "Čas konca",
     "Miesto", "Mesto", "Kraj", "Adresa", "Organizátor", "Perex", "Popis", "Praktické info",
+    ...EVENT_NOTION_CONTACT_FIELDS,
     "Web", "Registrácia", "Hlavný obrázok URL", "Zrušené", ...notionSeoEditableFields("events"),
   ],
   organizations: [
@@ -214,6 +216,10 @@ function eventInput(
     excerpt: s(values["Perex"]),
     description: s(values["Popis"]),
     practicalInfo: s(values["Praktické info"]),
+    // Missing or blank Notion values never delete existing D1 contact data.
+    contactPhone: s(values["Telefón organizátora"]) || existing?.contactPhone || null,
+    contactEmail: s(values["E-mail organizátora"]) || existing?.contactEmail || null,
+    admissionFee: s(values["Vstupné"]) || existing?.admissionFee || "",
     websiteUrl: s(values["Web"]) || null,
     registrationUrl: s(values["Registrácia"]) || null,
     imageUrl,
