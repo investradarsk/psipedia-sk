@@ -162,10 +162,15 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await articleGroup.getByPlaceholder("Hľadať článok").fill("BREEDS-ADMIN");
     await articleGroup.getByLabel(/BREEDS-ADMIN súvisiaci článok/).check();
 
+    // Modern relation editor shows one category at a time. Select each
+    // category tab before searching or checking its hidden panel.
+    const relationTabs = page.getByRole("group", { name: "Vyber typ prepojenia" });
+    await relationTabs.getByRole("button", { name: "Chovateľské stanice" }).click();
     const stationGroup = page.getByRole("group", { name: "Chovateľské stanice" });
     await stationGroup.getByPlaceholder("Hľadať stanicu").fill("BREEDS-ADMIN");
     await stationGroup.getByLabel(/BREEDS-ADMIN Chovateľská stanica/).check();
 
+    await relationTabs.getByRole("button", { name: "Chovateľské kluby" }).click();
     const clubGroup = page.getByRole("group", { name: "Chovateľské kluby" });
     await clubGroup.getByPlaceholder("Hľadať klub").fill("BREEDS-ADMIN");
     await clubGroup.getByLabel(/BREEDS-ADMIN Chovateľský klub/).check();
@@ -177,8 +182,12 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await goToBreedEditorSection(page, "Športy", "breed-sports");
     await expect(page.locator("#breed-sports").getByText("Nosework", { exact: true })).toBeVisible();
     await goToBreedEditorSection(page, "Prepojenia", "breed-relations");
+    const restoredTabs = page.getByRole("group", { name: "Vyber typ prepojenia" });
+    await restoredTabs.getByRole("button", { name: "Články", exact: true }).click();
     await expect(page.getByLabel(/BREEDS-ADMIN súvisiaci článok/)).toBeChecked();
+    await restoredTabs.getByRole("button", { name: "Chovateľské stanice" }).click();
     await expect(page.getByLabel(/BREEDS-ADMIN Chovateľská stanica/)).toBeChecked();
+    await restoredTabs.getByRole("button", { name: "Chovateľské kluby" }).click();
     await expect(page.getByLabel(/BREEDS-ADMIN Chovateľský klub/)).toBeChecked();
 
     await goToBreedEditorSection(page, "Športy", "breed-sports");
