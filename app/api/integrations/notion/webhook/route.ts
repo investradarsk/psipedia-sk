@@ -74,14 +74,14 @@ export async function POST(request: Request) {
       return new Response(null, { status: 503 });
     }
   }
-  // Breeder/trainer editorial edits should reach Admin in this same webhook
-  // request. Only known, already-linked profiles use the event fast path.
+  // The existing breeder/trainer fast path also covers the three audited
+  // service categories. Only known, already-linked profiles dispatch inline.
   // Failed/time-limited transfers retain the durable minute-queue retry below.
   try {
     const breeder = await bindings.DB.prepare(
       "SELECT dp.id FROM directory_notion_sync dns " +
       "JOIN directory_profiles dp ON dp.id=dns.directory_profile_id " +
-      "WHERE dns.notion_page_id=? AND dp.category IN ('chovatelske-stanice','treneri','salony-a-sluzby') LIMIT 1",
+      "WHERE dns.notion_page_id=? AND dp.category IN ('chovatelske-stanice','treneri','salony-a-sluzby','veterinari','fyzioterapia','dalsie-sluzby') LIMIT 1",
     ).bind(data.entity!.id).first<{ id: number }>();
     if (breeder) {
       const result = await dispatchNotionPageChange(data, bindings);

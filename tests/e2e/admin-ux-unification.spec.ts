@@ -80,9 +80,19 @@ for (const editor of editors) {
     // Wait for the client editor, then verify that moving within the editor
     // never sends a mutation or replaces typed state.
     if (editor.key === "article") {
-      // Lexical stays initialized in the mounted, but inactive, content section.
-      await expect(page.locator('#article-intro[data-editor-ready="true"]')).toHaveCount(1);
+      // The article editor deliberately starts in Publikovanie, not in its
+      // content section. Activate Úvod a obsah before asserting visibility
+      // or typing into the title; do not alter the editor's default UI.
+      const articleNav = page.getByRole("navigation", { name: "Sekcie pracovného editora", exact: true });
+      const articleSelect = articleNav.getByRole("combobox");
+      if (await articleSelect.isVisible()) {
+        await articleSelect.selectOption("article-basics");
+      } else {
+        await articleNav.getByRole("button", { name: "Úvod a obsah", exact: true }).click();
+      }
       await expect(page.locator("#article-basics")).toBeVisible();
+      // Tiptap remains mounted across section changes.
+      await expect(page.locator('#article-intro[data-editor-ready="true"]')).toHaveCount(1);
     }
     if (editor.key === "breed") await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
     // Preserve main's hydration gate: the directory is server-rendered before
@@ -142,7 +152,9 @@ for (const editor of editors) {
       await expect(field).toHaveValue(value);
       // Keyboard focus follows the chosen section in switch mode;
       // returning to the initial panel must keep the unsaved field value.
-      const initial = options[0];
+      // Restore the initially editable panel, rather than the first menu
+      // item: the article's first menu item is publication settings.
+      const initial = editor.key === "article" ? "article-basics" : options[0];
       const selectBack = nav.getByRole("combobox");
       if (await selectBack.isVisible()) await selectBack.selectOption(initial);
       else {

@@ -165,7 +165,7 @@ function isUsableGeminiSource(value: string): boolean {
 }
 export async function loadNotionBulkEvents(database: D1Database, targetId?: number) {
   const sourceRows = await rows(database, `SELECT id,slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,
-    organizer,description,practical_info,website_url,registration_url,image_url,cancelled,seo_json,
+    organizer,description,practical_info,contact_phone,contact_email,admission_fee,website_url,registration_url,image_url,cancelled,seo_json,
     (SELECT c.primary_source_url FROM gemini_automation_concepts c
        WHERE c.canonical_entity_type = 'EVENT' AND c.canonical_entity_id = managed_events.id
          AND c.status IN ('DRAFT_CREATED','NOTION_CREATING','NOTION_LINKED')
@@ -211,6 +211,9 @@ export async function loadNotionBulkEvents(database: D1Database, targetId?: numb
       "Perex": s(row.excerpt),
       "Popis": s(row.description),
       "Praktické info": s(row.practical_info),
+      "Telefón organizátora": s(row.contact_phone),
+      "E-mail organizátora": s(row.contact_email),
+      "Vstupné": s(row.admission_fee),
       "Web": s(row.website_url),
       "Registrácia": s(row.registration_url),
       // Gemini evidence is an optional read-only audit field, not an editable sync baseline.

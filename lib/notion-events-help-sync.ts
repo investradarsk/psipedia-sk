@@ -43,6 +43,13 @@ import {
   type NotionCanonicalTargetDefinition,
 } from "./notion-canonical-target.ts";
 import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
+import { selectiveNotionProperties } from "./notion-selective-property-patch.ts";
+import {
+  EVENT_NOTION_CONTACT_FIELDS,
+  withoutEventContactFields,
+  extendEventContactBaseline,
+  ignoreUnverifiedEmptyNotionEventContacts,
+} from "./notion-event-contact-fields.ts";
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
@@ -561,6 +568,7 @@ async function writeSourceToNotion(input: {
   source: CanonicalSourceRecord;
   schema: Record<string, DataSourceProperty>;
   pageId?: string | null;
+  existingPage?: NotionPage;
 }) {
   const syncedAt = new Date().toISOString();
   const properties = encodeProperties(
@@ -570,9 +578,15 @@ async function writeSourceToNotion(input: {
     },
     input.schema,
   );
-  return input.pageId
-    ? patchPage(input.bindings, input.pageId, properties)
-    : createPage(input.bindings, input.dataSourceId, properties);
+  if (!input.pageId) return createPage(input.bindings, input.dataSourceId, properties);
+  // A known mapped page needs only actual changed properties, never an
+  // indiscriminate rewrite of unrelated content on each Admin save.
+  const changes = input.existingPage?.properties
+    ? selectiveNotionProperties(input.existingPage.properties, properties)
+    : properties;
+  return changes
+    ? patchPage(input.bindings, input.pageId, changes)
+    : input.existingPage!;
 }
 
 async function markConflict(input: {
@@ -1189,10 +1203,27 @@ await requireVerifiedMappedNotionWriteback({
         // last common field values, even before the optional baseline D1
         // schema exists. Two divergent sides with no persisted proof
         // remain an explicit review conflict.
-        const baseline = trustedProfileBaselineFromHashes({
+        let baseline = trustedProfileBaselineFromHashes({
           recorded: storedBaseline, notion: notionSnapshot, psipedia: sourceSnapshot,
           mappingHash: mapping.content_hash, notionHash, psipediaHash: canonicalHash,
         });
+        // Migration 0160 expanded the Notion editable snapshot without
+        // changing existing mapping hashes. Reconstruct a previous baseline
+        // only if an OLD-schema snapshot still matches the verified hash.
+        // New Notion fields start empty; no unrelated fields are guessed.
+        if (agenda === "events" && EVENT_NOTION_CONTACT_FIELDS.every((field) => Boolean(schema[field]))) {
+          if (baseline) {
+            baseline = extendEventContactBaseline(baseline);
+          } else {
+            const oldNotion = withoutEventContactFields(notionSnapshot);
+            const oldAdmin = withoutEventContactFields(sourceSnapshot);
+            if (await snapshotHash("events", oldNotion) === mapping.content_hash) {
+              baseline = extendEventContactBaseline(oldNotion);
+            } else if (await snapshotHash("events", oldAdmin) === mapping.content_hash) {
+              baseline = extendEventContactBaseline(oldAdmin);
+            }
+          }
+        }
         // One shared field contract for UI and reconciliation. Safe Notion
         // edits may control event classification and unconfirmed addresses,
         // but never bypass canonical publication, identity or privacy locks.
@@ -1206,7 +1237,11 @@ await requireVerifiedMappedNotionWriteback({
           for (const field of ["Adresa", "Miesto", "Mesto", "Okres", "Kraj"]) protectedFields.add(field);
         }
         const resolution = reconcileProfileFields({
-          baseline, notion: notionSnapshot, psipedia: sourceSnapshot, protectedFields,
+          baseline,
+          notion: agenda === "events" && baseline
+            ? ignoreUnverifiedEmptyNotionEventContacts(notionSnapshot, baseline)
+            : notionSnapshot,
+          psipedia: sourceSnapshot, protectedFields,
           canonicalFieldsWin: true, authorities: fieldAuthorities,
           // Existing Events/Help hash comparison already trims strings and
           // normalizes timezone-aware lost/found instants. Apply the same
@@ -1252,7 +1287,7 @@ await requireVerifiedMappedNotionWriteback({
         const verifiedHash = await snapshotHash(agenda, verifiedSnapshot);
         const written = await writeSourceToNotion({
           bindings: input.bindings, dataSourceId: target.dataSourceId,
-          source: resolvedSource, schema, pageId: page.id,
+          source: resolvedSource, schema, pageId: page.id, existingPage: page,
         });
         // A returned Notion page may be stale or partial. Never advance the
         // common mapping hash unless its editorial payload matches canonical.

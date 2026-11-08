@@ -6,6 +6,7 @@ import {
   breederNotionChangedFields, breederAdminChangedFields,
   breederApplyNotionChanges, breederPreserveUneditedFields,
 } from "../lib/notion-breeder-field-events.ts";
+import { isDirectoryEventPilotCategory } from "../lib/notion-directory-field-event-scope.ts";
 
 test("signed Notion property IDs select only the breeder field actually edited", () => {
   const properties = {
@@ -107,7 +108,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     },
   };
   runInNewContext(js, {
-    exports, SYSTEM_ACTOR: "sync", breederReadPath: (v, p) => p.split(".")
+    exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory, breederReadPath: (v, p) => p.split(".")
       .reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
     getManagedDirectoryProfileById: async () => current,
@@ -130,9 +131,8 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.match(queries[2].sql, /seo_json = json_set/);
   assert.equal(queries[2].values[1], "čistý ľubovoľný text");
   for (const { sql } of queries) {
-    assert.match(sql, /category = \?/);
+    assert.match(sql, /category = 'chovatelske-stanice'/);
     assert.match(sql, /updated_at = \?/);
-    assert.equal(queries.find(query => query.sql === sql)?.values.at(-2), "chovatelske-stanice");
     assert.doesNotMatch(sql, /services_json\s*=/);
   }
   // Service text is an independent editorial list. No canonical Services V3
@@ -142,20 +142,17 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.match(queries[3].sql, /services_json = \?/);
   assert.doesNotMatch(queries[3].sql, /source_data_json =/);
   assert.equal(queries[3].values[0], JSON.stringify(desired.services));
-  // The same single-column CAS writer handles salon prose without Services V3 writes.
+  // Salon: one changed free-text service field, no Services V3 mutation.
   current.category = "salony-a-sluzby";
   desired.services = ["Strihanie", "Trimovanie"];
   await exports.saveBreederEditorialValue(db, current, desired, "services");
+  assert.match(queries[4].sql, /services_json = \?/);
+  assert.match(queries[4].sql, /category = \?/);
   assert.equal(queries[4].values.at(-2), "salony-a-sluzby");
   assert.equal(queries[4].values[0], JSON.stringify(desired.services));
-  assert.match(queries[4].sql, /services_json = \?/);
   assert.doesNotMatch(queries[4].sql, /directory_service|service_option/);
-  // No other directory category is entitled to the newly enabled event writer.
   current.category = "hotely-a-opatrovanie";
-  await assert.rejects(
-    () => exports.saveBreederEditorialValue(db, current, desired, "description"),
-    /BREEDER_FIELD_WRITE_NOT_ALLOWED/,
-  );
+  await assert.rejects(() => exports.saveBreederEditorialValue(db, current, desired, "description"), /BREEDER_FIELD_WRITE_NOT_ALLOWED/);
 });
 
 test("Notion tri-state filters and operational alerts stay separate from V3 services", async () => {
@@ -191,24 +188,19 @@ test("breeder-only transport bypasses full-profile conflict merging and cron", a
   assert.match(admin, /breederEditedFields\(breederBefore, profile\)/);
 });
 
-test("salon edit events preserve individual fields and bypass whole-record conflict sync", async () => {
+test("salon changes remain per-field without erasing existing values", async () => {
   const directory = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
   const webhook = await readFile(new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
-  const admin = await readFile(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
-  const editor = await readFile(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
-  assert.ok(webhook.includes("dp.category IN ('chovatelske-stanice','treneri','salony-a-sluzby')"));
-  assert.ok(directory.includes('["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(profile.category)'));
-  assert.ok(directory.includes('["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category)'));
-  assert.ok(admin.includes('["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(before.category)'));
-  assert.ok(editor.includes('["chovatelske-stanice", "treneri", "salony-a-sluzby"].includes(profile.category)'));
-  const adminPrevious = { description: "Overený popis", services: ["Trimovanie"], seo: { title: "SEO" } };
-  const incomingNotion = { description: "", services: [], seo: { title: "" } };
-  assert.deepEqual(breederApplyNotionChanges(adminPrevious, incomingNotion, ["description", "services", "seo.title"]), adminPrevious);
-  assert.deepEqual(
-    breederAdminChangedFields(adminPrevious, { ...adminPrevious, description: "Upravený odborný popis" }),
-    ["description"],
-  );
-  const fresh = breederPreserveUneditedFields({ ...adminPrevious, description: "Upravený popis" },
-    { ...adminPrevious, services: ["Kúpanie", "Trimovanie"] }, ["description"]);
-  assert.deepEqual(fresh.services, ["Kúpanie", "Trimovanie"]);
+  const scope = await readFile(new URL("../lib/notion-directory-field-event-scope.ts", import.meta.url), "utf8");
+  assert.match(scope, /category === "salony-a-sluzby"/);
+  assert.match(webhook, /'treneri','salony-a-sluzby','veterinari'/);
+  assert.match(directory, /"chovatelske-stanice", "salony-a-sluzby"/);
+  const previous = { description: "Overený popis", services: ["Trimovanie"], seo: { title: "SEO" } };
+  const fromNotion = { description: "", services: [], seo: { title: "" } };
+  assert.deepEqual(breederApplyNotionChanges(previous, fromNotion, ["description", "services", "seo.title"]), previous);
+  assert.deepEqual(breederAdminChangedFields(previous, { ...previous, description: "Upravený popis" }), ["description"]);
+  assert.deepEqual(breederPreserveUneditedFields(
+    { ...previous, description: "Upravený popis" },
+    { ...previous, services: ["Kúpanie", "Trimovanie"] }, ["description"],
+  ).services, ["Kúpanie", "Trimovanie"]);
 });
