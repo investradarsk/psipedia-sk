@@ -154,9 +154,11 @@ async function pages(sourceId) {
   } while (cursor);
   return all;
 }
+let reportWritten = false;
 function publish(result) {
   const sanitized = { ...result, checkedAt: new Date().toISOString() };
   writeFileSync(reportFile, JSON.stringify(sanitized, null, 2) + "\n");
+  reportWritten = true;
   process.stdout.write(JSON.stringify({
     phase: sanitized.phase, success: sanitized.success,
     counters: sanitized.counters, errors: sanitized.errors,
@@ -181,7 +183,7 @@ async function main() {
 }
 main().catch(error => {
   const code = error instanceof Error ? error.message : "BREED_POSTFLIGHT_UNKNOWN";
-  if (!process.exitCode) publish({
+  if (!reportWritten) publish({
     phase: "FAILED", success: false, code, cutoverReady: false,
   });
   process.exitCode = 1;
