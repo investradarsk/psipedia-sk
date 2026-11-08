@@ -23,7 +23,6 @@ import {
   type FciStandard,
 } from "@/lib/breed-fci";
 import { normalizeBreedSports, textParagraphs } from "@/lib/breed-profile";
-import { stripStagedBreedMerge } from "@/lib/breed-compact-public";
 import {
   getBreedDetailRelations,
   getPublishedBreed,
