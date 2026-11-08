@@ -51,6 +51,37 @@ export function eventAdminChangedFields(
   return EVENT_EDITORIAL_PATHS.filter(path =>
     stable(eventReadPath(before, path)) !== stable(eventReadPath(after, path)));
 }
+
+function eventSetPath(target: Record<string, unknown>, path: string, value: unknown): void {
+  const keys = path.split(".");
+  let cursor = target;
+  for (const key of keys.slice(0, -1)) {
+    if (!cursor[key] || typeof cursor[key] !== "object" || Array.isArray(cursor[key]))
+      cursor[key] = {};
+    cursor = cursor[key] as Record<string, unknown>;
+  }
+  cursor[keys[keys.length - 1]] = value;
+}
+
+/**
+ * A long-open Admin form must not overwrite Notion edits to fields the
+ * editor did not touch. The dirty key set was captured against the original
+ * form, not the new D1 revision read at save time.
+ */
+export function eventPreserveUneditedFields(
+  submitted: Record<string, unknown>, live: Record<string, unknown>,
+  edited: readonly EventEditorialField[],
+): Record<string, unknown> {
+  const safe = structuredClone(submitted);
+  const dirty = new Set(edited);
+  for (const path of EVENT_EDITORIAL_PATHS) {
+    if (dirty.has(path)) continue;
+    const current = eventReadPath(live, path);
+    if (current !== undefined) eventSetPath(safe, path, current);
+  }
+  return safe;
+}
+
 export function eventNotionChangedFields(
   properties: Record<string, unknown> | undefined, changedPropertyIds: readonly string[],
 ): EventEditorialField[] {
