@@ -873,6 +873,14 @@ async function syncAgenda(input: {
 
         const page = pagesById.get(identity.page.id);
         if (!page) continue;
+        // Event editorial changes now travel as explicit per-field save/webhook
+        // events. A historical unlinked page is NOT a record-wide conflict;
+        // only an ID-confirmed Admin save or signed webhook may recover it.
+        if (input.definition.key === "events" && input.mode === "sync" &&
+            !input.targetPageId) {
+          summary.unchanged += 1;
+          continue;
+        }
         const notionSnapshot = pageSnapshot(input.definition.key, page, schema);
         const notionHash = await snapshotHash(input.definition.key, notionSnapshot);
         if (notionHash !== canonicalHash) {
@@ -1025,6 +1033,14 @@ async function syncAgenda(input: {
         continue;
       }
 
+      // Existing events are owned by the new field-event engine. Keep the
+      // full sweep for NEW drafts/IDs and all other agendas, but never
+      // replay stale whole-record hashes against an already linked event.
+      if (input.definition.key === "events" && input.mode === "sync" &&
+          !input.targetPageId) {
+        summary.unchanged += 1;
+        continue;
+      }
       const notionSnapshot = pageSnapshot(input.definition.key, page, schema);
       const notionHash = await snapshotHash(input.definition.key, notionSnapshot);
       if(input.manualDirection){
