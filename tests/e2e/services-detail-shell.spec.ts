@@ -142,13 +142,22 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
     await assertNoOverflow(page);
   });
 
-  test("physiotherapy data use the same shared detail layout without fabricated services", async ({ page }) => {
+  test("physiotherapy uses plain-text expertise, not retired therapy facets", async ({ page }) => {
     const main = await openProfile(page, "/adresar/fyzioterapia/health-fixture-fyzioterapia");
-    const expert = main.getByRole("heading", { name: "Terapie a rehabilitácia" }).locator("xpath=ancestor::section[1]");
-    await expect(expert.getByText("Hydroterapia", { exact: true })).toBeVisible();
-    await expect(expert.getByText("Pooperačná rehabilitácia", { exact: true })).toBeVisible();
-    // Identical certification in structured facts and qualifications is displayed once.
+    const hero = main.locator("[data-directory-profile-hero]");
+    // The perex stays visible alongside a distinct long description.
+    await expect(hero.getByText("Fyzioterapeutický testovací profil s terapeutickými a rehabilitačnými údajmi.", { exact: true })).toBeVisible();
+    await expect(main.getByText("Deterministický lokálny profil určený iba na overenie Health variantu v CI.", { exact: true })).toBeVisible();
+    // The populated canonical service list is retained; legacy therapy facts do not fabricate services.
+    const services = main.getByRole("heading", { name: "Poskytované služby" }).locator("xpath=ancestor::section[1]");
+    await expect(services.getByText("Rehabilitácia", { exact: true })).toBeVisible();
+    await expect(services.getByText("Regenerácia", { exact: true })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Terapie a rehabilitácia" })).toHaveCount(0);
+    const expert = main.getByRole("heading", { name: "Odbornosť a skúsenosti" }).locator("xpath=ancestor::section[1]");
+    await expect(expert).toBeVisible();
     await expect(expert.getByText("Veterinárny fyzioterapeut", { exact: true })).toHaveCount(1);
+    await expect(main.getByText("Hydroterapia", { exact: true })).toHaveCount(0);
+    await expect(main.getByText("Pooperačná rehabilitácia", { exact: true })).toHaveCount(0);
     await assertNoOverflow(page);
   });
 

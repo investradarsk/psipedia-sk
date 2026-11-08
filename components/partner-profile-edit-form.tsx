@@ -42,6 +42,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
   const [draft, setDraft] = useState<Record<string, string | boolean>>(initial);
   const [filterChanges, setFilterChanges] = useState<Record<string, string>>({});
   const filterCategory = resourceType === "DIRECTORY_PROFILE" && directoryCategory
+    && directoryCategory !== "fyzioterapia"
     && (serviceFilterCategories as readonly string[]).includes(directoryCategory)
     ? directoryCategory as ServiceFilterCategory : null;
   const [state, setState] = useState<"idle" | "sending" | "success" | "error">("idle");

@@ -173,7 +173,8 @@ export function AdminDirectoryEditor({
   const [slug, setSlug] = useState(profile?.slug ?? notionDraft?.slug ?? (notionDraft?.name ? slugify(notionDraft.name) : ""));
   const [slugEdited, setSlugEdited] = useState(Boolean(profile || notionDraft?.slug));
   const [category, setCategory] = useState<DirectoryCategorySlug>(profile?.category ?? (notionDraft?.category as DirectoryCategorySlug | undefined) ?? "treneri");
-  const filterCategory = (serviceFilterCategories as readonly string[]).includes(category) ? category as ServiceFilterCategory : null;
+  // Physiotherapy treatments live in Services V3, not duplicate legacy category controls.
+  const filterCategory = category !== "fyzioterapia" && (serviceFilterCategories as readonly string[]).includes(category) ? category as ServiceFilterCategory : null;
   // Keep a full baseline so changing category never discards previously stored facets.
   const [filterSourceData, setFilterSourceData] = useState<Record<string, unknown>>(profile?.importData ?? {});
   const [filterChanges, setFilterChanges] = useState<Record<string, string>>({});
@@ -910,7 +911,7 @@ export function AdminDirectoryEditor({
                   <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
                 )
               ) : null}
-              <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
+              <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : category === "fyzioterapia" ? "Odbornosť a skúsenosti" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
             {profile && isDirectoryEventPilotCategory(category) ? (

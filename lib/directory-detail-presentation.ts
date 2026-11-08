@@ -9,7 +9,7 @@ export type DirectoryDetailFact = { label: string; value: string };
 export type DirectoryDetailPhone = { value: string; href: string | null };
 export type DirectoryDetailEmail = { value: string; href: string | null };
 export type DirectoryDetailHealth = {
-  variant: "veterinari" | "fyzioterapia";
+  variant: "veterinari";
   eyebrow: string;
   title: string;
   facts: DirectoryDetailFact[];
@@ -118,20 +118,6 @@ const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
     "Vyzdvihnutie psa",
     "GPS / foto report",
     "Typ poskytovateľa",
-  ],
-  fyzioterapia: [
-    "Hydroterapia",
-    "Laserterapia",
-    "Magnetoterapia",
-    "Elektroterapia",
-    "Manuálne techniky",
-    "Dogfitness / prevencia",
-    "Pooperačná rehabilitácia",
-    "Ortopedickí pacienti",
-    "Neurologickí pacienti",
-    "Športové / pracovné psy",
-    "Mobilná služba",
-    "Odborník / certifikácia",
   ],
   "dalsie-sluzby": [
     "Typ služby",
@@ -271,27 +257,22 @@ export function getDirectoryDetailPresentation(
   // Navigáciu poskytuje PublicLocationMap iba vtedy, keď existuje aktuálny
   // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
   const navigationUrl = null;
-  const factLabels = [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
+  // Physiotherapy therapy/patient flags are retired in favor of Services V3 and prose.
+  const factLabels = profile.category === "fyzioterapia"
+    ? []
+    : [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
   const facts = factLabels.flatMap((label) => {
     const value = usefulDirectoryDetailValue(importedValue(profile, label));
     return value ? [{ label, value }] : [];
   });
-  const health =
-    profile.category === "veterinari" && facts.length > 0
-      ? {
-          variant: "veterinari" as const,
-          eyebrow: "Zdravie a starostlivosť",
-          title: "Veterinárna starostlivosť a vybavenie",
-          facts,
-        }
-      : profile.category === "fyzioterapia" && facts.length > 0
-        ? {
-            variant: "fyzioterapia" as const,
-            eyebrow: "Zdravie a starostlivosť",
-            title: "Terapie a rehabilitácia",
-            facts,
-          }
-        : null;
+  const health = profile.category === "veterinari" && facts.length > 0
+    ? {
+        variant: "veterinari" as const,
+        eyebrow: "Zdravie a starostlivosť",
+        title: "Veterinárna starostlivosť a vybavenie",
+        facts,
+      }
+    : null;
   const coverage = usefulDirectoryDetailValue(
     importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"),
   );
