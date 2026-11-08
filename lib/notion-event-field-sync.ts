@@ -108,7 +108,7 @@ function validate(path:EventNotionField,value:string|boolean,live:DogEvent){
   if(path==="contactPhone" && value.length>80)throw Error("PHONE_TOO_LONG");
   if(path==="admissionFee" && value.length>160)throw Error("ADMISSION_TOO_LONG");
   if(path==="contactEmail" &&
-    (value.length>254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)))
+    (value.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)))
     throw Error("EMAIL_INVALID");
   if(["registrationUrl","websiteUrl","seo.canonicalUrl","seo.ogImage"].includes(path))
     eventValidateURL(value);
@@ -118,7 +118,7 @@ function validate(path:EventNotionField,value:string|boolean,live:DogEvent){
   if(path==="region" && !(slovakRegions as readonly string[]).includes(value))
     throw Error("REGION_INVALID");
   if(path==="startDate" || path==="endDate"){
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(value) ||
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(value) ||
       Number.isNaN(Date.parse(value+"T12:00:00Z")))throw Error("DATE_INVALID");
     if(path==="startDate" && live.endDate && live.endDate<value)
       throw Error("DATE_AFTER_END");
@@ -126,7 +126,7 @@ function validate(path:EventNotionField,value:string|boolean,live:DogEvent){
       throw Error("DATE_BEFORE_START");
   }
   if(["startTime","endTime"].includes(path) &&
-    !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value))throw Error("TIME_INVALID");
+    !/^([01]\d|2[0-3]):[0-5]\d$/.test(value))throw Error("TIME_INVALID");
 }
 async function saveField(db:D1Database,id:number,path:EventNotionField,value:string|boolean){
   const live=await getManagedEventById(id);
@@ -160,11 +160,15 @@ async function saveField(db:D1Database,id:number,path:EventNotionField,value:str
   if(!saved)throw Error("EVENT_FIELD_CONCURRENT_UPDATE");
   return true;
 }
-async function updateMetadata(bindings:EventFieldSyncBindings,page:Page,errors:string[],wasWritten:boolean){
+async function updateMetadata(bindings:EventFieldSyncBindings,page:Page,
+  errors:string[],wasWritten:boolean,touched:string[]){
   const previous=eventReadNotionProperty(page.properties?.["Sync chyba"]);
   const outstanding=typeof previous==="string"&&previous.startsWith("POLIA: ")
     ? previous.slice(7).split(", ").filter(Boolean):[];
-  const newErrors=errors.length?errors:outstanding.filter(Boolean);
+  const newErrors=[
+    ...outstanding.filter(problem=>!touched.some(name=>problem.startsWith(name+" ("))),
+    ...errors,
+  ];
   // Preserve unresolved field errors from other webhooks, rather than falsely
   // announcing that a different valid field repaired the old invalid URL.
   const data:Record<string,unknown>={
@@ -216,7 +220,8 @@ export async function syncEventNotionFields(input:{
       console.error("EVENT_NOTION_FIELD_FAILED",id,property,reason);
     }
   }
-  await updateMetadata(input.bindings,input.page,errors,saved>0);
+  await updateMetadata(input.bindings,input.page,errors,saved>0,
+    fields.map(path=>EVENT_NOTION_FIELDS[path]));
   return errors.length?"review-required":"processed";
 }
 /**
@@ -273,7 +278,8 @@ export async function syncEventAdminFields(input:{
     }
     const latest=Object.keys(patch).length
       ? await notionRequest<Page>(input.bindings,"/pages/"+encodeURIComponent(page.id)):page;
-    await updateMetadata(input.bindings,latest,errors,Object.keys(patch).length>0);
+    await updateMetadata(input.bindings,latest,errors,Object.keys(patch).length>0,
+      [...selected].map(path=>EVENT_NOTION_FIELDS[path]));
     return errors.length?"pending":"synced";
   }catch(e){
     console.error("EVENT_ADMIN_FIELD_SYNC_FAILED",input.eventId,
