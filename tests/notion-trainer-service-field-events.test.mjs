@@ -73,7 +73,7 @@ test("trainer Notion webhook and Admin PUT reuse field events without bulk profi
 test("mapped trainer without an explicit change does not enter legacy baseline conflict resolution", async () => {
   const source = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
   const trainer = source.indexOf('if (profile.category === "treneri" &&');
-  const breeder = source.indexOf('if ((profile.category === "chovatelske-stanice" || isDirectoryEventPilotCategory(profile.category)) &&', trainer);
+  const breeder = source.indexOf('if ((["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category) || isDirectoryEventPilotCategory(profile.category)) &&', trainer);
   const legacy = source.indexOf("LOSSLESS_FIELD_REVIEW_REQUIRED", trainer);
   assert.ok(trainer > 0 && breeder > trainer && legacy > breeder);
   const guard = source.slice(trainer, breeder);
@@ -113,7 +113,7 @@ test("trainer free text is separate from Services V3 and persisted without touch
   assert.match(sync, /TRAINER_SERVICES_TEXT_METADATA_KEY, text/);
   assert.match(sync, /current = await saveBreederEditorialValue\(database, current, desired, path\)/);
   assert.doesNotMatch(sync.slice(sync.indexOf("async function syncBreederEvent"), sync.indexOf("export async function mirrorBreederCategoryFiltersToNotion")), /Trainers retain their existing validator/);
-  assert.match(sync, /input\.profile\.category === "chovatelske-stanice" \|\| input\.profile\.category === "treneri"/);
+  assert.match(sync, /path !== "services" \|\| \["chovatelske-stanice", "salony-a-sluzby", "treneri"\]\.includes\(input\.profile\.category\)/);
   assert.match(store, /key === TRAINER_SERVICES_TEXT_METADATA_KEY \|\| !isDirectoryInternalMetadataKey\(key\)/);
   assert.match(store, /sourceData\[TRAINER_SERVICES_TEXT_METADATA_KEY\] = payload\.trainerServicesText/);
   assert.match(editor, /Služby – voľný text \(Notion\)/);
