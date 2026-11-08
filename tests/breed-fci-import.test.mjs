@@ -860,9 +860,10 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   assert.match(tollerFci, /20–23 kg/);
   assert.match(tollerFci, /17–20 kg/);
   assert.match(tollerFci, /Úplný koniec odborného textu\./);
-  assert.match(tollerFci, /24\. 6\. 1987/);
+  // The removed standalone effective-standard date is not part of Notion 60.
+  assert.doesNotMatch(tollerFci, /24\. 6\. 1987/);
   assert.doesNotMatch(tollerFci, /1987-06-24/);
-  assert.match(tollerFci, /Chovateľská poznámka/);
+  assert.doesNotMatch(tollerFci, /Chovateľská poznámka/);
 
   const fciOnly = await get(worker, d1, "/plemena/ciernohorsky-horsky-duric");
   assert.equal(fciOnly.status, 200);
@@ -874,7 +875,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   const fciOnlyStandard = await get(worker, d1, "/plemena/ciernohorsky-horsky-duric/fci-standard");
   assert.equal(fciOnlyStandard.status, 200);
   const fciOnlyStandardHtml = await fciOnlyStandard.text();
-  assert.match(fciOnlyStandardHtml, /História plemena Čiernohorský horský durič/);
+  assert.doesNotMatch(fciOnlyStandardHtml, /História plemena Čiernohorský horský durič/);
   assert.doesNotMatch(fciOnlyStandardHtml, /FCI nomenklatúra/);
   assert.doesNotMatch(fciOnlyStandardHtml, /Oficiálny FCI štandard \(PDF\)/);
 
