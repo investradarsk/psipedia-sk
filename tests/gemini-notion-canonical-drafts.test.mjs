@@ -637,7 +637,7 @@ function storeNormalizer(file, name) {
   runInNewContext(code, { exports, require, URL, Error, console, Date }, { timeout: 1000 });
   return exports.testNormalizer;
 }
-test("real Events/Help store normalizers accept incomplete drafts but preserve each publication requirement", () => {
+test("real Events/Help normalizers accept missing publication content but reject malformed supplied dates", () => {
   const event = storeNormalizer("event-store.ts", "normalizeManagedEventInput");
   const help = storeNormalizer("help-store.ts", "normalizeInput");
   const e = { title: "Koncept", slug: "gemini-offline", eventType: "Výstava", status: "draft" };
@@ -656,7 +656,8 @@ test("real Events/Help store normalizers accept incomplete drafts but preserve e
   };
   assert.equal(event(completeEvent).status, "published");
   for (const field of ["startDate", "city", "region", "organizer", "excerpt", "description"])
-    assert.throws(() => event({ ...completeEvent, [field]: "" }), undefined, field);
+    assert.equal(event({ ...completeEvent, [field]: "" }).status, "published", field);
+  assert.throws(() => event({ ...completeEvent, startDate: "not-a-date" }), /dátum/);
   const h = {
     title: "Koncept",
     slug: "gemini-offline",
@@ -676,7 +677,7 @@ test("real Events/Help store normalizers accept incomplete drafts but preserve e
   };
   assert.equal(help(completeHelp).status, "published");
   for (const field of ["city", "region", "organization", "excerpt", "description"])
-    assert.throws(() => help({ ...completeHelp, [field]: "" }), undefined, field);
+    assert.equal(help({ ...completeHelp, [field]: "" }).status, "published", field);
 });
 
 test("schema-driven Nippo facts reach the real existing adoption input adapter without note leakage", async () => {
