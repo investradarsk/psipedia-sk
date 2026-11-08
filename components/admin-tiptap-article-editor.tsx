@@ -241,6 +241,64 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
     setOpenColorPanel((value) => value === target ? null : target);
   };
 
+  // A collapsed selection uses ProseMirror stored marks for format-first typing.
+  // Updating those marks directly avoids losing the pending format when the
+  // shared toolbar is re-rendered by its active-editor context.
+  const toggleInlineMark = (name: "bold" | "italic" | "underline") => {
+    if (!editor) return;
+    const selection = editor.state.selection;
+    // ProseMirror can initially select the entire empty document. Although
+    // that selection is non-empty, there is no text to format, so prepare a
+    // stored mark for the first typed character instead.
+    const selectedText = selection.empty ? "" : editor.state.doc.textBetween(selection.from, selection.to, " ");
+    if (!selection.empty && selectedText.length > 0) {
+      const chain = editor.chain().focus();
+      if (name === "bold") chain.toggleBold().run();
+      else if (name === "italic") chain.toggleItalic().run();
+      else chain.toggleUnderline().run();
+      return;
+    }
+    if (!selection.empty) editor.commands.focus("start");
+    // The editor remains focused because toolbar buttons prevent mousedown
+    // focus stealing. Re-focusing here can clear ProseMirror's pending marks
+    // before the first character is typed (format-first editing).
+    if (!editor.isFocused) editor.commands.focus();
+    const { view } = editor;
+    const { state } = view;
+    const markType = state.schema.marks[name];
+    if (!markType) return;
+    const marks = state.storedMarks ?? state.selection.$from.marks();
+    const nextMarks = markType.isInSet(marks)
+      ? markType.removeFromSet(marks)
+      : markType.create().addToSet(marks);
+    view.dispatch(state.tr.setStoredMarks(nextMarks));
+  };
+
+  // An empty ProseMirror field can have a trailing paragraph after the first
+  // list toggle. In that case the list is rendered but the caret remains
+  // outside it, so the toolbar reports an inactive list and typing misses it.
+  // Move the caret into the newly created list only for a blank field.
+  const toggleList = (kind: "bulletList" | "orderedList") => {
+    if (!editor) return;
+    const blankField = editor.state.doc.childCount === 1
+      && editor.state.doc.firstChild?.type.name === "paragraph"
+      && editor.state.doc.textContent.length === 0;
+    if (kind === "bulletList") editor.chain().focus().toggleBulletList().run();
+    else editor.chain().focus().toggleOrderedList().run();
+
+    if (!blankField || editor.isActive(kind)) return;
+    let firstItemPos: number | null = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name !== kind) return true;
+      if (node.firstChild?.type.name === "listItem"
+        && node.firstChild.firstChild?.isTextblock) {
+        firstItemPos = pos + 3; // list + listItem + paragraph start
+      }
+      return false;
+    });
+    if (firstItemPos !== null) editor.chain().focus().setTextSelection(firstItemPos).run();
+  };
+
   const action = (label: string, title: string, callback: () => void, selected = false, enabled = true) => (
     <button type="button" title={title} aria-label={title}
       aria-pressed={selected} disabled={!editor || !enabled}
@@ -261,10 +319,10 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
 
   return (
     <div ref={toolbarRef} className={styles.toolbar} role="toolbar" aria-label="Spoločná lišta formátovania článku" data-admin-tiptap-toolbar>
-      <div className={styles.tools}>
+      <div className={styles.tools} role="group" tabIndex={0} aria-label="Posúvateľná lišta nástrojov formátovania">
         <span className={styles.activeLabel} aria-live="polite">{active ? "Upravuješ: " + (active.id.startsWith("block-") ? "textový blok" : active.id === "article-intro" ? "úvod" : "to najdôležitejšie") : "Klikni do textu"}</span>
-        {action("B", "Tučné (Ctrl+B)", () => editor?.chain().focus().toggleBold().run(), Boolean(editor?.isActive("bold")))}
-        {action("I", "Kurzíva (Ctrl+I)", () => editor?.chain().focus().toggleItalic().run(), Boolean(editor?.isActive("italic")))}
+        {action("B", "Tučné (Ctrl+B)", () => toggleInlineMark("bold"), Boolean(editor?.isActive("bold")))}
+        {action("I", "Kurzíva (Ctrl+I)", () => toggleInlineMark("italic"), Boolean(editor?.isActive("italic")))}
         {action("Odkaz", "Vložiť alebo upraviť odkaz", () => {
           setLinkInput(String(editor?.getAttributes("link").href || "https://"));
           setLinkOpen((value) => !value);
@@ -273,13 +331,13 @@ function TiptapSharedToolbar({ active }: { active: ActiveEditor | null }) {
         {action("P", "Odsek", () => editor?.chain().focus().setParagraph().run(), Boolean(editor?.isActive("paragraph")))}
         {action("H2", "Nadpis 2", () => editor?.chain().focus().toggleHeading({ level: 2 }).run(), Boolean(editor?.isActive("heading", { level: 2 })), Boolean(active?.allowHeadings))}
         {action("H3", "Nadpis 3", () => editor?.chain().focus().toggleHeading({ level: 3 }).run(), Boolean(editor?.isActive("heading", { level: 3 })), Boolean(active?.allowHeadings))}
-        {action("•", "Odrážkový zoznam", () => editor?.chain().focus().toggleBulletList().run(), Boolean(editor?.isActive("bulletList")))}
-        {action("1.", "Číslovaný zoznam", () => editor?.chain().focus().toggleOrderedList().run(), Boolean(editor?.isActive("orderedList")))}
+        {action("•", "Odrážkový zoznam", () => toggleList("bulletList"), Boolean(editor?.isActive("bulletList")))}
+        {action("1.", "Číslovaný zoznam", () => toggleList("orderedList"), Boolean(editor?.isActive("orderedList")))}
         {action("Citácia", "Citácia", () => editor?.chain().focus().toggleBlockquote().run(), Boolean(editor?.isActive("blockquote")), Boolean(active?.allowQuotes))}
         {action("Tip", "Zvýraznený tip", () => editor?.chain().focus().toggleNode("psipediaCallout", "paragraph", { tone: "tip" }).run(), Boolean(editor?.isActive("psipediaCallout")), Boolean(active?.allowCallouts))}
         {action("↶", "Späť (Ctrl+Z)", () => editor?.chain().focus().undo().run())}
         {action("↷", "Znova (Ctrl+Y)", () => editor?.chain().focus().redo().run())}
-        {action("U", "Podčiarknutie (Ctrl+U)", () => editor?.chain().focus().toggleUnderline().run(), Boolean(editor?.isActive("underline")))}
+        {action("U", "Podčiarknutie (Ctrl+U)", () => toggleInlineMark("underline"), Boolean(editor?.isActive("underline")))}
         <button type="button" className={styles.colorTrigger}
           aria-label="Celá paleta farieb textu"
           title="Farba textu"
@@ -397,6 +455,10 @@ export function AdminTiptapRichTextEditor({
     // is safer than silently replacing it with empty content.
     const validated = normalizeEditorialRichText(value);
     if (!validated) return;
+    // Ignore external prop echoes while the user is editing. Applying
+    // setContent during typing destroys ProseMirror's stored marks (e.g. a
+    // bold command issued before the first character).
+    if (editor.isFocused) return;
     editor.commands.setContent(editorialToTiptap(validated), { emitUpdate: false });
     lastEmitted.current = signature;
   }, [editor, signature, value]);

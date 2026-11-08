@@ -6,6 +6,7 @@ import test from "node:test";
 import ts from "typescript";
 import { buildManagedDirectoryProfileUpdateStatement, normalizeManagedDirectoryProfileInput } from "../lib/directory-store.ts";
 import { cleanupUnreferencedNotionUpload } from "../lib/notion-sync-shared.ts";
+import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "../lib/notion-directory-field-event-scope.ts";
 import {
   reconcileProfileFields,
   reconcileProfileFieldsWithoutBaseline,
@@ -210,6 +211,7 @@ function fixture(options = {}) {
     // The VM fixture extracts production functions without module imports.
     // Default-OFF gate must leave the legacy SQL/R2/GEO path unchanged.
     gemini22PriorityEnabled: () => false,
+    isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
     Date, Error, Boolean,
   };
   runInNewContext(runtimeCode, ctx, { filename: "production-notion-directory-apply.cjs" });

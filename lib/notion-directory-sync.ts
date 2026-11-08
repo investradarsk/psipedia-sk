@@ -60,6 +60,7 @@ import {
   breederPreserveUneditedFields, type BreederEditorialField,
 } from "@/lib/notion-breeder-field-events";
 import { recordGeminiImportReviewNotes } from "./gemini-import-review-notes";
+import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "./notion-directory-field-event-scope";
 import {
   getBreederRelationSelection, listBreederRelationOptions, saveBreederRelationSelection,
 } from "./breeder-profile-relations";
@@ -1187,6 +1188,7 @@ async function bootstrapProfileIds(database: D1Database) {
     FROM directory_profiles dp
     LEFT JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
     WHERE dns.directory_profile_id IS NULL AND dp.category <> 'chovatelske-stanice'
+      AND dp.category NOT IN ('veterinari', 'fyzioterapia', 'dalsie-sluzby')
     ORDER BY dp.id ASC
     LIMIT ?
   `).bind(BOOTSTRAP_BATCH).all<{ id: number }>();
@@ -1199,7 +1201,8 @@ async function changedProfileIds(database: D1Database) {
     FROM directory_profiles dp
     JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
     LEFT JOIN geo_points gp ON gp.directory_profile_id = dp.id
-    WHERE dp.category <> 'chovatelske-stanice' AND (
+    WHERE dp.category <> 'chovatelske-stanice'
+      AND dp.category NOT IN ('treneri', 'veterinari', 'fyzioterapia', 'dalsie-sluzby') AND (
        COALESCE(dns.psipedia_updated_at, '') <> dp.updated_at
        OR (gp.updated_at IS NOT NULL AND gp.updated_at > dns.last_synced_at)
        OR EXISTS (
@@ -1295,8 +1298,12 @@ async function saveBreederEditorialValue(
   desired: Record<string, unknown>,
   path: BreederEditorialField,
 ): Promise<ManagedDirectoryProfile> {
-  if (!["chovatelske-stanice", "treneri"].includes(current.category) || current.status === "archived")
-    throw new Error("DIRECTORY_EDITORIAL_FIELD_WRITE_NOT_ALLOWED");
+  if ((!isDirectoryEventPilotCategory(current.category) && !["chovatelske-stanice", "treneri"].includes(current.category)) || current.status === "archived")
+    throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
+  // Pilot categories use the canonical Services V3 catalog. Their retired
+  // legacy "Služby" text must not be written by any editorial event.
+  if (path === "services" && isDirectoryEventPilotCategory(current.category))
+    throw new Error("DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY");
   const raw = breederReadPath(desired, path);
   const value = typeof raw === "string" ? raw : "";
   const assignments: string[] = [];
@@ -1354,17 +1361,106 @@ async function saveBreederEditorialValue(
     ].join(" ")));
   }
   const now = new Date().toISOString();
+  const guardedCategory = current.category === "chovatelske-stanice"
+    ? "category = 'chovatelske-stanice'" : "category = ?";
+  const categoryArg = current.category === "chovatelske-stanice" ? [] : [current.category];
   const saved = await database.prepare(
     "UPDATE directory_profiles SET " + assignments.join(", ") +
     ", updated_at = ?, updated_by = ? " +
-    "WHERE id = ? AND category IN ('chovatelske-stanice','treneri') AND status <> 'archived' " +
+    "WHERE id = ? AND " + guardedCategory + " AND status <> 'archived' " +
     "AND updated_at = ? RETURNING id",
-  ).bind(...params, now, SYSTEM_ACTOR, current.id, current.updatedAt)
+  ).bind(...params, now, SYSTEM_ACTOR, current.id, ...categoryArg, current.updatedAt)
     .first<{ id: number }>();
   if (!saved) throw new Error("BREEDER_FIELD_WRITE_CONFLICT");
   const updated = await getManagedDirectoryProfileById(current.id, database);
   if (!updated) throw new Error("BREEDER_FIELD_RELOAD_FAILED");
   return updated;
+}
+
+/**
+ * Extra operational text for the three pilot categories. This is not part of
+ * the legacy whole-profile snapshot/hash, nor of canonical Services V3/GEO.
+ */
+export const PILOT_DIRECTORY_METADATA_FIELDS = [
+  "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka",
+] as const;
+export type PilotDirectoryMetadataField = (typeof PILOT_DIRECTORY_METADATA_FIELDS)[number];
+
+function pilotChangedNotionMetadataFields(
+  page: NotionPage, changedIds: readonly string[],
+): PilotDirectoryMetadataField[] {
+  const changed = new Set(changedIds);
+  return PILOT_DIRECTORY_METADATA_FIELDS.filter(name => {
+    const item = page.properties?.[name] as { id?: unknown } | undefined;
+    return changed.has(name) || (typeof item?.id === "string" && changed.has(item.id));
+  });
+}
+
+/** Save one source/hours field, preserving every unrelated JSON property. */
+export async function savePilotDirectoryMetadataField(input: {
+  database: D1Database;
+  profileId: number;
+  category: string;
+  field: PilotDirectoryMetadataField;
+  value: string;
+}): Promise<ManagedDirectoryProfile> {
+  if (!isDirectoryEventPilotCategory(input.category) ||
+      !PILOT_DIRECTORY_METADATA_FIELDS.includes(input.field))
+    throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
+  const trimmed = input.value.trim();
+  if (!trimmed) throw new Error("DIRECTORY_PILOT_METADATA_EMPTY_NOT_A_DELETE");
+  const current = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!current || current.category !== input.category || current.status === "archived")
+    throw new Error("DIRECTORY_PILOT_METADATA_IDENTITY_MISMATCH");
+  if (String(current.importData?.[input.field] ?? "").trim() === trimmed) return current;
+  const now = new Date().toISOString();
+  const saved = await input.database.prepare(
+    "UPDATE directory_profiles SET source_data_json = json_set(" +
+      "COALESCE(source_data_json, '{}'), ?, ?), updated_at = ?, updated_by = ? " +
+    "WHERE id = ? AND category = ? AND status <> 'archived' " +
+      "AND updated_at = ? AND json_valid(COALESCE(source_data_json,'{}')) RETURNING id"
+  ).bind('$."' + input.field + '"', trimmed, now, SYSTEM_ACTOR,
+    input.profileId, input.category, current.updatedAt).first<{ id: number }>();
+  if (!saved) throw new Error("DIRECTORY_PILOT_METADATA_WRITE_CONFLICT");
+  const next = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!next) throw new Error("DIRECTORY_PILOT_METADATA_RELOAD_FAILED");
+  return next;
+}
+
+/** Admin -> Notion: changed operational fields only, never a record-wide push. */
+export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  profileId: number;
+  changed: Partial<Record<PilotDirectoryMetadataField, string>>;
+}): Promise<boolean> {
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!profile || !isDirectoryEventPilotCategory(profile.category))
+    throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
+  const mapping = await loadMappingByProfile(input.database, input.profileId);
+  if (!mapping) throw new Error("DIRECTORY_PILOT_METADATA_UNLINKED");
+  const dataSourceId = input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
+  if (!dataSourceId || !input.bindings.NOTION_API_TOKEN?.trim())
+    throw new Error("DIRECTORY_PILOT_METADATA_NOTION_DISABLED");
+  const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+  if (page.id !== mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(page, dataSourceId) ||
+      propertyText(page, "Psipedia ID") !== String(input.profileId))
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_PILOT_METADATA_TARGET_INVALID");
+  const patch: Record<string, unknown> = {};
+  for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
+    const value = input.changed[field]?.trim();
+    if (!value || propertyText(page, field) === value) continue;
+    if (!Object.hasOwn(page.properties ?? {}, field))
+      throw new Error("DIRECTORY_PILOT_METADATA_NOTION_FIELD_MISSING: " + field);
+    patch[field] = richText(value);
+  }
+  if (!Object.keys(patch).length) return false;
+  const echoed = await patchNotionPage(input.bindings, page.id, patch);
+  if (echoed.id !== page.id || !echoed.properties ||
+      Object.keys(patch).some(field => propertyText(echoed, field) !== input.changed[field]?.trim()))
+    throw new Error("DIRECTORY_PILOT_METADATA_WRITEBACK_UNVERIFIED");
+  return true;
 }
 
 /**
@@ -1388,7 +1484,10 @@ async function syncBreederEvent(input: {
       ? breederRelationChangedFields(page.properties, input.changedPropertyIds) : [];
     const facetFields = input.profile.category === "chovatelske-stanice"
       ? breederChangedNotionFacets(page, input.changedPropertyIds) : [];
-    if (!paths.length && !relationFields.length && !facetFields.length) return "unchanged";
+    const pilotMetaFields = isDirectoryEventPilotCategory(input.profile.category)
+      ? pilotChangedNotionMetadataFields(page, input.changedPropertyIds) : [];
+    if (!paths.length && !relationFields.length && !facetFields.length && !pilotMetaFields.length)
+      return "unchanged";
     const fromNotion = notionSnapshot(page) as unknown as Record<string, unknown>;
     let current = input.profile;
     let updated = false;
@@ -1409,6 +1508,24 @@ async function syncBreederEvent(input: {
         failures.push(path);
       }
     }
+    // Operational hours and sources are one-field JSON writes. Empty Notion
+    // values are missing, never a delete; other fields still transfer.
+    let pilotMetaUpdated = false;
+    for (const field of pilotMetaFields) {
+      const value = propertyText(page, field).trim();
+      if (!value) continue;
+      try {
+        const next = await savePilotDirectoryMetadataField({
+          database, profileId: current.id, category: current.category, field, value,
+        });
+        if (next.updatedAt !== current.updatedAt) pilotMetaUpdated = true;
+        current = next;
+      } catch (error) {
+        console.error("DIRECTORY_PILOT_METADATA_FIELD_WRITE_FAILED", current.id, field, error);
+        failures.push(field);
+      }
+    }
+
     // Explicit tri-state Notion changes never infer "No" from an empty field.
     let facetsUpdated = false;
     for (const id of facetFields) {
@@ -1470,7 +1587,7 @@ async function syncBreederEvent(input: {
     if (failures.length) {
       throw new Error("BREEDER_FIELD_SAVE_FAILED: " + failures.join(","));
     }
-    if (!paths.length && !relationsUpdated && !facetFields.length) return "unchanged";
+    if (!paths.length && !relationsUpdated && !facetFields.length && !pilotMetaFields.length) return "unchanged";
     // Also clear a legacy whole-profile conflict when the new event was
     // already applied (for example, an inbox retry or a duplicate delivery).
     await patchNotionPage(bindings, page.id, {
@@ -1478,7 +1595,7 @@ async function syncBreederEvent(input: {
       "Sync chyba": richText(""),
       "Posledný sync": date(now),
     });
-    return updated || relationsUpdated || facetsUpdated ? "pulled" : "unchanged";
+    return updated || relationsUpdated || facetsUpdated || pilotMetaUpdated ? "pulled" : "unchanged";
   }
 
   const fields = (input.adminChangedFields ?? []).filter(
@@ -1655,11 +1772,11 @@ async function syncMappedPage(input: {
     return "unchanged" as const;
   }
 
-  // Automatic breeder sync is field-event only. A plain targeted sweep may
-  // still mirror an Admin-confirmed publication, but PATCH only its status:
+  // Breeders and the three pilot service categories are field-event only.
+  // A targeted sweep may still mirror Admin-confirmed publication, status only:
   // never re-enter record-wide editorial hash/baseline reconciliation.
   // The owner-directed manual full-profile transfer below stays available.
-  if (profile.category === "chovatelske-stanice" &&
+  if ((profile.category === "chovatelske-stanice" || isDirectoryEventPilotCategory(profile.category)) &&
       !input.manualDirection &&
       input.breederWebhookPropertyIds === undefined &&
       input.breederAdminFields === undefined) {
@@ -1681,7 +1798,7 @@ async function syncMappedPage(input: {
     return "unchanged" as const;
   }
 
-  if (["chovatelske-stanice", "treneri"].includes(profile.category)
+  if (isDirectoryFieldEventCategory(profile.category)
       && (input.breederWebhookPropertyIds !== undefined || input.breederAdminFields !== undefined)
       && !input.manualDirection) {
     // A signed webhook must not be allowed to reassign a different entity.
@@ -2360,7 +2477,7 @@ export async function runNotionDirectorySyncSweep(input: {
 
   for (const candidate of pages) {
     // Existing breeders are event-only; never re-run record-wide hourly merges.
-    if (!input.targetPageId && propertyText(candidate, "Kategória") === "chovatelske-stanice") continue;
+    if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(candidate, "Kategória"))) continue;
     let page = candidate;
     let release: (() => Promise<void>) | null = null;
     let releaseImport: (() => Promise<void>) | null = null;
@@ -2389,6 +2506,8 @@ export async function runNotionDirectorySyncSweep(input: {
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
+      // Pilot covers existing linked IDs only: never create duplicate canonical profiles.
+      if (!mapping && isDirectoryEventPilotCategory(propertyText(page, "Kategória"))) continue;
       if (!mapping && (notionProfileReadyForCreate(page, trustedGemini) || operatorLegacy)) {
         if (privateImport) {
           // Serialize canonical duplicate-check + INSERT across different Notion IDs.
@@ -2515,7 +2634,7 @@ export async function runNotionDirectorySyncSweep(input: {
       if (!mapping) continue;
       // Breeders and trainers are field-event driven. Do not re-merge the
       // entire mapped profile during hourly sweeps after a partial event.
-      if (!input.targetPageId && propertyText(page, "Kategória") === "treneri") continue;
+      if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(page, "Kategória"))) continue;
 
       if (
         page.last_edited_time
@@ -2595,7 +2714,7 @@ export async function runNotionDirectorySyncSweep(input: {
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
-    if (changedProfile && ["chovatelske-stanice", "treneri"].includes(changedProfile.category)) continue;
+    if (changedProfile && isDirectoryFieldEventCategory(changedProfile.category)) continue;
     let page: NotionPage | undefined;
     try {
       // Load only once. The same snapshot is used for identity validation,

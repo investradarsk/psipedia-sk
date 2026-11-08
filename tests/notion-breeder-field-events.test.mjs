@@ -6,6 +6,7 @@ import {
   breederNotionChangedFields, breederAdminChangedFields,
   breederApplyNotionChanges, breederPreserveUneditedFields,
 } from "../lib/notion-breeder-field-events.ts";
+import { isDirectoryEventPilotCategory } from "../lib/notion-directory-field-event-scope.ts";
 
 test("signed Notion property IDs select only the breeder field actually edited", () => {
   const properties = {
@@ -107,7 +108,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     },
   };
   runInNewContext(js, {
-    exports, SYSTEM_ACTOR: "sync", breederReadPath: (v, p) => p.split(".")
+    exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory, breederReadPath: (v, p) => p.split(".")
       .reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
     getManagedDirectoryProfileById: async () => current,
@@ -130,7 +131,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.match(queries[2].sql, /seo_json = json_set/);
   assert.equal(queries[2].values[1], "čistý ľubovoľný text");
   for (const { sql } of queries) {
-    assert.match(sql, /category IN \('chovatelske-stanice','treneri'\)/);
+    assert.match(sql, /category = 'chovatelske-stanice'/);
     assert.match(sql, /updated_at = \?/);
     assert.doesNotMatch(sql, /services_json\s*=/);
   }
@@ -165,6 +166,7 @@ test("a trainer service description updates only its separate metadata field", a
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync",
     TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
+    isDirectoryEventPilotCategory: () => false,
     breederReadPath: (v, p) => p.split(".").reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
     getManagedDirectoryProfileById: async () => profile,

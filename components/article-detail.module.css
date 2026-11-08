@@ -411,12 +411,19 @@
 }
 
 .readingShell :global(.article-block-image img),
-.readingShell :global(.article-block-gallery img),
-.readingShell :global(.article-block-embed iframe) {
+.readingShell :global(.article-block-gallery img) {
   display: block;
   width: 100%;
   max-width: 100%;
   height: auto;
+}
+
+/* Iframes must fill the responsive video frame, not inherit image auto-height. */
+.readingShell :global(.article-block-embed iframe) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
 }
 
 .readingShell :global(.article-block-image figcaption),

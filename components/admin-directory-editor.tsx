@@ -8,6 +8,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
 import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
+import { isDirectoryEventPilotCategory } from "@/lib/notion-directory-field-event-scope";
 import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
@@ -200,6 +201,13 @@ export function AdminDirectoryEditor({
   const [publicEmail, setPublicEmail] = useState(profile ? contacts.email : notionDraft?.email ?? "");
   const [facebookUrl, setFacebookUrl] = useState(profile ? contacts.facebook : notionDraft?.facebook ?? "");
   const [instagramUrl, setInstagramUrl] = useState(profile ? contacts.instagram : notionDraft?.instagram ?? "");
+  const pilotMetadataText = (key: string) => {
+    const value = profile?.importData?.[key];
+    return typeof value === "string" ? value : "";
+  };
+  const [pilotOpeningHours, setPilotOpeningHours] = useState(pilotMetadataText("Ordinačné hodiny"));
+  const [pilotDataSources, setPilotDataSources] = useState(pilotMetadataText("Zdroj dát"));
+  const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
   const [galleryUrls, setGalleryUrls] = useState<string[]>(profile?.galleryUrls ?? []);
@@ -408,7 +416,9 @@ export function AdminDirectoryEditor({
             body: JSON.stringify({
               lastEditedAt: notionVersion,
               name, slug, category, excerpt, description,
-              services: listFromText(services), qualifications: listFromText(qualifications),
+              services: isDirectoryEventPilotCategory(category)
+                ? listFromText(notionDraft.services ?? "") : listFromText(services),
+              qualifications: listFromText(qualifications),
               address: publicAddress, city, district, region, postalCode, street,
               houseNumber, addressFormat, priceNote, websiteUrl,
               publicPhone, publicEmail, facebookUrl, instagramUrl,
@@ -443,7 +453,7 @@ export function AdminDirectoryEditor({
         ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
         : null;
       const breederBaseline = breederSaveBaselineRef.current;
-      const breederChangedPaths = profile && ["chovatelske-stanice", "treneri"].includes(profile.category)
+      const breederChangedPaths = profile && (["chovatelske-stanice", "treneri"].includes(profile.category) || isDirectoryEventPilotCategory(profile.category))
         && category === profile.category && breederBaseline
         ? breederAdminChangedFields(
             {
@@ -465,10 +475,24 @@ export function AdminDirectoryEditor({
               addressFormat, priceNote, websiteUrl, publicPhone, publicEmail,
               facebookUrl, instagramUrl, seo,
             },
-          )
+          ).filter(path => path !== "services" || !isDirectoryEventPilotCategory(category))
         : undefined;
-      // This is the separate Notion prose field; the canonical V3 list is not editable here.
-      const trainerServicesEdited = profile?.category === "treneri" && category === "treneri" && breederBaseline
+      const pilotMetadataFields: Record<string, string> = {};
+      if (profile && isDirectoryEventPilotCategory(profile.category)) {
+        for (const [key, current] of [
+          ["Ordinačné hodiny", pilotOpeningHours],
+          ["Zdroj dát", pilotDataSources],
+          ["Zdroj obrázka", pilotImageSource],
+        ]) {
+          const value = breederBaseline?.importData?.[key];
+          const baseline = typeof value === "string" ? value : "";
+          if (current.trim() && current.trim() !== baseline.trim())
+            pilotMetadataFields[key] = current.trim();
+        }
+      }
+      // Trainers use independent free-text Notion prose; pilot categories
+      // retain their separate Services V3-only editing contract.
+      const trainerServicesEdited = profile && profile.category === "treneri" && category === profile.category && breederBaseline
         ? trainerServicesText !== readTrainerServicesText(breederBaseline.importData)
         : undefined;
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
@@ -478,8 +502,11 @@ export function AdminDirectoryEditor({
           ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
+          ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
-          services: listFromText(services), qualifications: listFromText(qualifications),
+          services: profile && isDirectoryEventPilotCategory(profile.category)
+            ? profile.services : listFromText(services),
+          qualifications: listFromText(qualifications),
           address: publicAddress,
           city, district, region, postalCode, street, houseNumber, addressFormat,
           addressProviderResultId: addressProviderResultId || undefined,
@@ -495,7 +522,7 @@ export function AdminDirectoryEditor({
           verified, featured, seo,
         }),
       });
-      const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
+      const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string; metadataWarnings?: string[] };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
       // Write only explicit facet changes through the authenticated, CAS-protected endpoint.
       // The canonical profile save above continues to own all unrelated fields.
@@ -529,7 +556,7 @@ export function AdminDirectoryEditor({
         setFilterSourceData(savedProfile.importData ?? {});
         setFilterChanges({});
       }
-      if (["chovatelske-stanice", "treneri"].includes(savedProfile.category)) {
+      if (["chovatelske-stanice", "treneri"].includes(savedProfile.category) || isDirectoryEventPilotCategory(savedProfile.category)) {
         // Refresh form values from the committed D1 result: untouched fields
         // may have been updated through a Notion webhook while this was open.
         breederSaveBaselineRef.current = savedProfile;
@@ -547,6 +574,15 @@ export function AdminDirectoryEditor({
         setWebsiteUrl(syncedContacts.website); setPublicPhone(syncedContacts.phone);
         setPublicEmail(syncedContacts.email); setFacebookUrl(syncedContacts.facebook);
         setInstagramUrl(syncedContacts.instagram); setSeo(savedProfile.seo ?? {});
+        if (isDirectoryEventPilotCategory(savedProfile.category)) {
+          const storedText = (key: string) => {
+            const value = savedProfile.importData?.[key];
+            return typeof value === "string" ? value : "";
+          };
+          setPilotOpeningHours(storedText("Ordinačné hodiny"));
+          setPilotDataSources(storedText("Zdroj dát"));
+          setPilotImageSource(storedText("Zdroj obrázka"));
+        }
         }
       }
       if (!hasNewerEdits) {
@@ -558,7 +594,8 @@ export function AdminDirectoryEditor({
       setStatus(savedProfile.status);
       setMessage(hasNewerEdits
         ? "Predchádzajúce úpravy boli uložené. Novšie zmeny sú stále neuložené."
-        : nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.");
+        : (nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.") +
+          (data.metadataWarnings?.length ? " Upozornenia: " + data.metadataWarnings.join("; ") : ""));
       if (!profile) setCreatedProfileHref(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
@@ -853,21 +890,48 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
             <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
             <AdminHelpText term="Formát">Lexical ukladá popis do existujúceho textového poľa bez zmeny synchronizácie Notion.</AdminHelpText>
-            <div className="admin-field-grid">
-              {category === "treneri" && !notionDraft ? (
-                <div className="admin-field"><label htmlFor="directory-trainer-services-text">Služby – voľný text (Notion)</label>
-                  <textarea id="directory-trainer-services-text" rows={7} value={trainerServicesText}
-                    onChange={event => { setTrainerServicesText(event.target.value); setFormDirty(true); }}
-                    placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} />
-                  <small>Tento text sa synchronizuje s poľom Služby v Notione. Katalóg Služby V3 zostáva samostatný.</small>
-                  <small>Služby V3 / doterajší verejný zoznam: {services || "Bez položiek"} (upravujú sa vo vlastnom katalógu).</small>
-                </div>
-              ) : (
-                <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
-              )}
+            <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
+              {!isDirectoryEventPilotCategory(category) ? (
+                category === "treneri" && !notionDraft ? (
+                  <div className="admin-field">
+                    <label htmlFor="directory-trainer-services-text">Služby – voľný text (Notion)</label>
+                    <textarea id="directory-trainer-services-text" rows={7} value={trainerServicesText}
+                      onChange={event => { setTrainerServicesText(event.target.value); setFormDirty(true); }}
+                      placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} />
+                    <small>Tento opis sa prenáša do poľa Služby v Notione; katalóg Služby V3 sa nemení.</small>
+                    <small>Existujúci katalógový/legacy zoznam: {services || "Bez položiek"}</small>
+                  </div>
+                ) : (
+                  <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
+                )
+              ) : null}
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
+            {profile && isDirectoryEventPilotCategory(category) ? (
+              <>
+                <div className="admin-field">
+                  <label htmlFor="directory-pilot-hours">Ordinačné / otváracie hodiny</label>
+                  <textarea id="directory-pilot-hours" rows={6} value={pilotOpeningHours}
+                    onChange={event => { setPilotOpeningHours(event.target.value); setFormDirty(true); }}
+                    placeholder={"Pondelok: 08:00–16:00\nUtorok: 08:00–16:00\nPodľa dohody"} />
+                  <small>Píšte iba overené časy; prázdne pole nevymaže pôvodnú hodnotu.</small>
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="directory-pilot-sources">Zdroje údajov</label>
+                  <textarea id="directory-pilot-sources" rows={3} value={pilotDataSources}
+                    onChange={event => { setPilotDataSources(event.target.value); setFormDirty(true); }}
+                    placeholder="https://oficialny-web.sk/kontakt" />
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="directory-pilot-image-source">Zdroj fotografie</label>
+                  <input id="directory-pilot-image-source" type="text" value={pilotImageSource}
+                    onChange={event => { setPilotImageSource(event.target.value); setFormDirty(true); }}
+                    placeholder="Odkaz na zdroj fotografie; bez práv fotografiu nekopírovať" />
+                </div>
+              </>
+            ) : null}
+
             {filterCategory && !notionDraft ? (
               <DirectoryCategoryFilterFields
                 category={filterCategory}
