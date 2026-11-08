@@ -148,3 +148,23 @@ test("global details preserve domain-specific data, safe contacts and shared pho
   assert.match(read("components/public-profile/public-profile-hero.tsx"), /<ImageDisplay/);
   assert.match(sources.event, /<EventImage/);
 });
+
+
+test("Help dog detail profile polish is scoped, top-aligned and preserves safety", () => {
+  const css = read("components/detail-primitives/detail-primitives.module.css");
+  for (const kind of ["lost-found", "adoption", "help"]) {
+    assert.match(css, new RegExp('data-public-detail-hero="' + kind + '"'));
+  }
+  assert.match(css, /\.heroMedia:has\(\[data-image-display="natural"\]\)/);
+  assert.match(css, /max-height: 390px/);
+  const detail = read("components/lost-found-dog-detail.tsx");
+  const detailCss = read("components/lost-found-dogs.module.css");
+  assert.match(detail, /styles\.contactPanel/);
+  assert.match(detail, /styles\.safetyPanel/);
+  assert.match(detail, /variant="linked" fit="contain"/);
+  assert.match(detail, /Zobrazuje sa len približná lokalita/);
+  assert.ok(detail.indexOf("styles.contactPanel") < detail.indexOf("styles.safetyPanel"));
+  assert.ok(detail.indexOf("styles.safetyPanel") < detail.indexOf("{hasFacts &&"));
+  assert.match(detailCss, /\.reportGallery\s*\{/);
+  assert.match(read("components/adoption-detail.module.css"), /\.contactCard\s*\{/);
+});

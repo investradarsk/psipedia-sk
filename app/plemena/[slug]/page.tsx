@@ -7,7 +7,7 @@ import { BreedPhoto } from "@/components/breed-photo";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
 import { BreedSectionNav } from "@/components/breed-section-nav";
-import { DetailHero } from "@/components/detail-primitives/detail-primitives";
+import { DetailHero, PublicDetailLayout } from "@/components/detail-primitives/detail-primitives";
 import { ArrowIcon, PawMark } from "@/components/icons";
 import {
   PublicActionLink,
@@ -436,11 +436,12 @@ export default async function BreedDetailPage({ params }: Props) {
 
         <BreedSectionNav items={sectionNavItems} />
 
-        <div
-          className={`shell ${styles.shell} ${styles.contentLayout}`}
+        <PublicDetailLayout
+          mode="inline"
+          className={styles.contentLayout}
           data-testid="breed-content-layout"
         >
-          <div className={styles.mainColumn}>
+          <article className={styles.mainColumn}>
             {overviewParagraphs.length ? (
               <section
                 id="prehlad"
@@ -681,7 +682,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 </PublicActionLink>
               </section>
             ) : null}
-          </div>
+          </article>
           <aside
             id="uzitocne"
             className={`${styles.utilitySidebar} ${styles.anchorSection}`}
@@ -707,29 +708,31 @@ export default async function BreedDetailPage({ params }: Props) {
             />
             <ArticlePromo promoKey="treneri" variant="v1" seed={breed.slug} compact />
           </aside>
-        </div>
+        </PublicDetailLayout>
 
         {gallery.length > 0 ? (
-          <PublicPhotoGallery
-            as="section"
-            variant="breed"
-            className="breed-gallery shell"
-            label={`Fotografie plemena ${breed.name}`}
-            maxImages={gallery.length}
-            images={gallery.map((item, index) => ({
-              src: item.imageUrl,
-              alt: item.alt || `${breed.name} – fotografia ${index + 1}`,
-              caption:
-                item.caption || item.credit ? (
-                  <>
-                    {item.caption}
-                    {item.caption && item.credit ? " · " : ""}
-                    {item.credit ? <span>Foto: {item.credit}</span> : null}
-                  </>
-                ) : undefined,
-            }))}
-            renderImage={(image) => <BreedPhoto src={image.src} alt={image.alt} />}
-          />
+          <section className={`shell ${styles.gallerySection}`} aria-labelledby="breed-gallery-heading">
+            <h2 id="breed-gallery-heading">Fotografie plemena</h2>
+            <PublicPhotoGallery
+              variant="breed"
+              className={styles.galleryGrid}
+              label={`Fotografie plemena ${breed.name}`}
+              maxImages={gallery.length}
+              images={gallery.map((item, index) => ({
+                src: item.imageUrl,
+                alt: item.alt || `${breed.name} – fotografia ${index + 1}`,
+                caption:
+                  item.caption || item.credit ? (
+                    <>
+                      {item.caption}
+                      {item.caption && item.credit ? " · " : ""}
+                      {item.credit ? <span>Foto: {item.credit}</span> : null}
+                    </>
+                  ) : undefined,
+              }))}
+              renderImage={(image) => <BreedPhoto src={image.src} alt={image.alt} />}
+            />
+          </section>
         ) : null}
 
         {relatedArticles.length > 0 ? (
