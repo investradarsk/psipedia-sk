@@ -162,6 +162,6 @@ test("manual-only production workflow cannot mutate D1, Notion or sync flags", (
   assert.match(script, /GITHUB_REF === "refs\/heads\/main"/);
   assert.match(script, /d1", "execute"/);
   assert.match(script, /"SELECT id,slug,status,fci_number FROM managed_breeds"/);
-  assert.match(script, /!\/\\b\(\?:UPDATE\|INSERT/);
+  assert.match(script, /BREED_POSTFLIGHT_NON_READONLY_SQL/);
   assert.doesNotMatch(script, /--file|method: "PATCH"|method: "DELETE"|method: "PUT"/);
 });
