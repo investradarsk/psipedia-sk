@@ -60,7 +60,7 @@ test("a pilot editor save exports only changed fields and never creates Notion p
   // Services V3 is the only editable service selector for pilot categories.
   // Neither Notion editorial events nor the Admin form may overwrite legacy
   // services_json; the canonical relation API remains independent.
-  assert.match(source, /path !== "services" \|\| \["chovatelske-stanice", "salony-a-sluzby"\]\.includes\(input\.profile\.category\)/);
+  assert.match(source, /path !== "services" \|\| \["chovatelske-stanice", "salony-a-sluzby", "treneri"\]\.includes\(input\.profile\.category\)/);
   assert.match(source, /DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY/);
   assert.match(admin, /isDirectoryEventPilotCategory\(before\.category\)[\s\S]*?services: before\.services/);
   assert.match(editor, /!isDirectoryEventPilotCategory\(category\)\s*\?\s*\([\s\S]*?id="directory-services"/);
