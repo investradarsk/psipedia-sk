@@ -186,7 +186,7 @@ test("organization address uses one hydrated canonical editor and no nested save
   assert.doesNotMatch(address, /<form|Uložiť adresu|fetch\(|Typ lokality|Pridať lokalitu|Hlavná lokalita|ORGANIZATION_LOCATION_ROLES/);
   assert.match(editor, /useSyncExternalStore/);
   assert.match(editor, /const editingDisabled = !hydrated \|\| archived \|\| saving \|\| uploading/);
-  assert.match(editor, /<AdminEditorSection id="organization-address"/);
+  assert.match(editor, /<AdminEditorSection id="organization-location-panel"/);
   assert.match(editor, /<AdminOrganizationLocations draft=\{addressDraft\} disabled=\{editingDisabled\}/);
   assert.match(editor, /<AdminProfileGoogleMaps/);
   assert.match(editor, /const dirty = editorSnapshot !== savedSnapshot \|\| addressDirty/);
