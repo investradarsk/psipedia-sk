@@ -212,7 +212,7 @@ test("breed profile: quick facts stay dense for rich data and collapse cleanly f
   await page.goto("/plemena/biely-svajciarsky-ovciak");
   const denseFacts = page.getByTestId("breed-quick-facts").locator(":scope > div");
   const denseCount = await denseFacts.count();
-  expect(denseCount, "White Swiss Shepherd should expose a dense fact row").toBeGreaterThanOrEqual(5);
+  expect(denseCount, "White Swiss Shepherd should expose a compact row of the available Notion-60 facts").toBeGreaterThanOrEqual(4);
 
   await page.goto("/plemena/burgosky-stavac");
   const sparseGrid = page.getByTestId("breed-quick-facts");
@@ -294,7 +294,7 @@ test("breed profile: static anchor navigation, no-crop media, useful cards and a
   await expect(page.getByText("Fotografia sa pripravuje", { exact: true })).toBeVisible();
 });
 
-test("breed profile: FCI standard renders seven permanently visible expert sections and working anchor navigation", async ({ page }) => {
+test("breed profile: FCI standard renders eight compact Notion sections and working anchor navigation", async ({ page }) => {
   await page.goto("/plemena/biely-svajciarsky-ovciak");
   const cta = page.getByTestId("breed-fci-cta");
   await expect(cta).toHaveAttribute("href", "/plemena/biely-svajciarsky-ovciak/fci-standard");
@@ -304,7 +304,7 @@ test("breed profile: FCI standard renders seven permanently visible expert secti
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/i);
 
   const groups = page.locator("[data-fci-group]");
-  await expect(groups).toHaveCount(7);
+  await expect(groups).toHaveCount(8);
   await expect(page.locator("[data-fci-trigger], [data-fci-group] [hidden]")).toHaveCount(0);
   await expect(page.getByTestId("fci-expand-all")).toHaveCount(0);
   await expect(page.getByTestId("fci-collapse-all")).toHaveCount(0);
