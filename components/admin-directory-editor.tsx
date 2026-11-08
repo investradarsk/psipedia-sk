@@ -9,6 +9,7 @@ import dynamic from "next/dynamic";
 import { DIRECTORY_BREEDER_GALLERY_LIMIT } from "@/lib/directory-breeder-gallery";
 import { breederAdminChangedFields } from "@/lib/notion-breeder-field-events";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
+import { readTrainerServicesText } from "@/lib/directory-profile-metadata";
 import type { BreederRelationOption, BreederRelationSelection } from "@/lib/breeder-profile-relations";
 
 const AdminPhotoGallery = dynamic(() => import("@/components/admin-photo-gallery").then(mod => mod.AdminPhotoGallery), { ssr: false });
@@ -181,6 +182,7 @@ export function AdminDirectoryEditor({
   const [excerpt, setExcerpt] = useState(profile?.excerpt ?? notionDraft?.summary ?? "");
   const [description, setDescription] = useState(profile?.description ?? notionDraft?.description ?? "");
   const [services, setServices] = useState(profile?.services.join("\n") ?? notionDraft?.services ?? "");
+  const [trainerServicesText, setTrainerServicesText] = useState(readTrainerServicesText(profile?.importData));
   const [qualifications, setQualifications] = useState(profile?.qualifications.join("\n") ?? notionDraft?.qualifications ?? "");
   const [city, setCity] = useState(profile?.city ?? notionDraft?.city ?? "");
   const [district, setDistrict] = useState(profile?.district ?? notionDraft?.district ?? "");
@@ -217,7 +219,7 @@ export function AdminDirectoryEditor({
   const [breederRelationSearch, setBreederRelationSearch] = useState({ breeds: "", clubs: "" });
   const [breederRelationsDirty, setBreederRelationsDirty] = useState(false);
   const [breederRelationsError, setBreederRelationsError] = useState("");
-  const [breederRelationsLoading, setBreederRelationsLoading] = useState(profile?.category === "chovatelske-stanice");
+  const [breederRelationsLoading, setBreederRelationsLoading] = useState(Boolean(profile && ["chovatelske-stanice", "treneri"].includes(profile.category)));
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
   const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.detailImageDisplay ?? null);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
@@ -226,7 +228,7 @@ export function AdminDirectoryEditor({
   const [reviewed, setReviewed] = useState(profile?.reviewed ?? false);
   const [reviewedAt, setReviewedAt] = useState(profile?.reviewedAt ?? "");
   useEffect(() => {
-    if (!profile || profile.category !== "chovatelske-stanice") return;
+    if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return;
     let cancelled = false;
     fetch(`/api/admin/directory/${profile.id}/breeder-relations`, { cache: "no-store" })
       .then(async response => {
@@ -261,7 +263,7 @@ export function AdminDirectoryEditor({
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
   const [seo, setSeo] = useState<ArticleSeo>(profile?.seo ?? notionDraft?.seo ?? {});
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const editorSectionsForProfile = profile && category === "chovatelske-stanice"
+  const editorSectionsForProfile = profile && ["chovatelske-stanice", "treneri"].includes(category)
     ? [...editorSections.slice(0, 4), { id: "directory-breeder-links", label: "Prepojenia" }, ...editorSections.slice(4)]
     : editorSections;
   const [activeDirectorySection, setActiveDirectorySection] = useState(editorSectionsForProfile[0].id);
@@ -456,6 +458,9 @@ export function AdminDirectoryEditor({
         ? breederAdminChangedFields(
             {
               ...breederBaseline,
+              services: breederBaseline.category === "treneri"
+                ? listFromText(readTrainerServicesText(breederBaseline.importData))
+                : breederBaseline.services,
               websiteUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").website,
               publicPhone: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").phone,
               publicEmail: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").email,
@@ -463,7 +468,9 @@ export function AdminDirectoryEditor({
               instagramUrl: readDirectoryPublicContacts(breederBaseline.importData, breederBaseline.websiteUrl ?? "").instagram,
             },
             {
-              name, excerpt, description, services: listFromText(services), qualifications: listFromText(qualifications),
+              name, excerpt, description,
+              services: category === "treneri" ? listFromText(trainerServicesText) : listFromText(services),
+              qualifications: listFromText(qualifications),
               region, district, city, address: publicAddress, postalCode, street, houseNumber,
               addressFormat, priceNote, websiteUrl, publicPhone, publicEmail,
               facebookUrl, instagramUrl, seo,
@@ -483,16 +490,17 @@ export function AdminDirectoryEditor({
             pilotMetadataFields[key] = current.trim();
         }
       }
-      // Trainers keep their existing legacy textarea behavior. Pilot profiles
-      // never edit this field: their services are managed in catalog V3 only.
+      // Trainers use independent free-text Notion prose; pilot categories
+      // retain their separate Services V3-only editing contract.
       const trainerServicesEdited = profile && profile.category === "treneri" && category === profile.category && breederBaseline
-        ? JSON.stringify(listFromText(services)) !== JSON.stringify(breederBaseline.services)
+        ? trainerServicesText !== readTrainerServicesText(breederBaseline.importData)
         : undefined;
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
+          ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
@@ -530,7 +538,7 @@ export function AdminDirectoryEditor({
         }
         savedProfile = filtered.profile;
       }
-      if (profile?.category === "chovatelske-stanice" && breederRelationsDirty) {
+      if (profile && ["chovatelske-stanice", "treneri"].includes(profile.category) && breederRelationsDirty) {
         const response = await fetch(`/api/admin/directory/${profile.id}/breeder-relations`, {
           method: "PUT",
           headers: { "content-type": "application/json" },
@@ -557,6 +565,7 @@ export function AdminDirectoryEditor({
         setName(savedProfile.name); setExcerpt(savedProfile.excerpt); setDescription(savedProfile.description);
         setQualifications(savedProfile.qualifications.join("\n"));
         setServices(savedProfile.services.join("\n"));
+        setTrainerServicesText(readTrainerServicesText(savedProfile.importData));
         setCity(savedProfile.city); setDistrict(savedProfile.district); setRegion(savedProfile.region);
         setPublicAddress(savedProfile.address); setPostalCode(savedProfile.postalCode);
         setStreet(savedProfile.street); setHouseNumber(savedProfile.houseNumber);
@@ -883,7 +892,18 @@ export function AdminDirectoryEditor({
             <AdminHelpText term="Formát">Lexical ukladá popis do existujúceho textového poľa bez zmeny synchronizácie Notion.</AdminHelpText>
             <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
               {!isDirectoryEventPilotCategory(category) ? (
-                <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
+                category === "treneri" && !notionDraft ? (
+                  <div className="admin-field">
+                    <label htmlFor="directory-trainer-services-text">Služby – voľný text (Notion)</label>
+                    <textarea id="directory-trainer-services-text" rows={7} value={trainerServicesText}
+                      onChange={event => { setTrainerServicesText(event.target.value); setFormDirty(true); }}
+                      placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} />
+                    <small>Tento opis sa prenáša do poľa Služby v Notione; katalóg Služby V3 sa nemení.</small>
+                    <small>Existujúci katalógový/legacy zoznam: {services || "Bez položiek"}</small>
+                  </div>
+                ) : (
+                  <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => { setServices(event.target.value); setFormDirty(true); }} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>
+                )
               ) : null}
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
@@ -938,7 +958,7 @@ export function AdminDirectoryEditor({
             <AdminHelpText term="Kvalita údajov">Ak profil web, telefón alebo e-mail naozaj nemá, nie je verejný alebo sa ho nepodarilo dohľadať, označ stav pri prázdnom poli. Taký údaj prestane byť falošným problémom v Kvalite údajov a po 12 mesiacoch sa automaticky znovu skontroluje.</AdminHelpText>
           </AdminEditorSection>
 
-          {profile && category === "chovatelske-stanice" ? (
+          {profile && ["chovatelske-stanice", "treneri"].includes(category) ? (
             <AdminEditorSection id="directory-breeder-links" className="admin-form-card">
               <div className="admin-card-heading"><div><span>05</span><div>
                 <h2>Prepojené plemená a chovateľské kluby</h2>
@@ -987,7 +1007,7 @@ export function AdminDirectoryEditor({
           ) : null}
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             {profile && <AdminShareToFacebook title={name} imageUrl={imageUrl} publicPath={"/adresar/" + profile.category + "/" + profile.slug} />}
-            <div className="admin-card-heading"><div><span>{profile && category === "chovatelske-stanice" ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
+            <div className="admin-card-heading"><div><span>{profile && ["chovatelske-stanice", "treneri"].includes(category) ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
             <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {!notionDraft && category === "chovatelske-stanice" ? (

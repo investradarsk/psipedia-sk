@@ -50,6 +50,7 @@ import type { GooglePlaceCandidate } from "@/lib/google-place-matching";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import {
   isDirectoryInternalMetadataKey,
+  TRAINER_SERVICES_TEXT_METADATA_KEY,
   mergeDirectoryProfileReviewMetadata,
   mergeDirectoryPublicContactData,
   mergeDirectoryQualityMetadata,
@@ -88,6 +89,8 @@ export type ManagedDirectoryProfileInput = {
   excerpt?: string;
   description?: string;
   services?: string[];
+  /** Separate prose mirrored to Notion; never mutates trainer Services V3. */
+  trainerServicesText?: string;
   qualifications?: string[];
   city?: string;
   district?: string;
@@ -421,7 +424,7 @@ function safeImportData(value: string, includeInternal = false) {
     return Object.fromEntries(
       Object.entries(parsed).filter(
         ([key, item]) =>
-          (includeInternal || !isDirectoryInternalMetadataKey(key)) &&
+          (includeInternal || key === TRAINER_SERVICES_TEXT_METADATA_KEY || !isDirectoryInternalMetadataKey(key)) &&
           (item === null || typeof item === "string" || typeof item === "number"),
       ),
     );
@@ -679,7 +682,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
     importData: safeImportData(row.source_data_json),
-    seo: parseSeo(row.seo_json, row.category === "chovatelske-stanice"),
+    seo: parseSeo(row.seo_json, ["chovatelske-stanice", "treneri"].includes(row.category)),
   };
 }
 
@@ -976,7 +979,7 @@ export function normalizeManagedDirectoryProfileInput(
   const status: DirectoryProfileStatus = payload.status === "published" ? "published" : "draft";
   const excerpt = payload.excerpt?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
-  const breederRawText = category === "chovatelske-stanice";
+  const breederRawText = ["chovatelske-stanice", "treneri"].includes(category);
   const editorialAddressText = (value: string | undefined, max: number, label: string) =>
     breederRawText ? (value ?? "").trim() : safeDirectoryAddressText(value, max, label);
   const city = editorialAddressText(payload.city, 120, "Mesto / obec");
@@ -1078,6 +1081,9 @@ export function normalizeManagedDirectoryProfileInput(
     { refreshCheckedAt: Boolean(qualityCheckedAt) },
   );
   const sourceData = mergeDirectoryBreederGallery(qualitySourceData, category, payload.galleryUrls);
+  if (category === "treneri" && typeof payload.trainerServicesText === "string") {
+    sourceData[TRAINER_SERVICES_TEXT_METADATA_KEY] = payload.trainerServicesText;
+  }
   return {
     slug,
     name,

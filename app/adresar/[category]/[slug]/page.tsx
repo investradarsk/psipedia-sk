@@ -129,7 +129,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       return [];
     },
   );
-  const relatedBreedsPromise = (profile.category === "chovatelske-stanice"
+  const relatedBreedsPromise = (["chovatelske-stanice", "treneri"].includes(profile.category)
     ? listPublicBreederBreedLinks((env as unknown as { DB: D1Database }).DB, profile.id)
     : listRelatedBreedsForDirectoryProfile(profile.id, { limit: 6 })).catch(
     (error) => {
@@ -140,7 +140,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
       return [];
     },
   );
-  const relatedClubsPromise = profile.category === "chovatelske-stanice"
+  const relatedClubsPromise = ["chovatelske-stanice", "treneri"].includes(profile.category)
     ? listPublicBreederClubLinks((env as unknown as { DB: D1Database }).DB, profile.id)
         .catch(() => [])
     : Promise.resolve([]);

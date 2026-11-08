@@ -43,6 +43,9 @@ function adapterHarness() {
         mergeNotionSeo: () => ({}),
       };
     if (id.endsWith("notion-geo-mirror.ts")) return { notionGeoMirrorProperties: () => ({}) };
+    if (id.endsWith("notion-event-contact-fields.ts")) return {
+      EVENT_NOTION_CONTACT_FIELDS: ["Telefón organizátora", "E-mail organizátora", "Vstupné"],
+    };
     if (id.endsWith("event-store.ts"))
       return {
         createManagedEvent: async (payload) => capture("events", payload),

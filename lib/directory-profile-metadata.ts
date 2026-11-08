@@ -1,7 +1,15 @@
 import { DIRECTORY_BREEDER_GALLERY_KEY } from "./directory-breeder-gallery.ts";
 export const BREEDER_CLUB_IDS_METADATA_KEY = "_psipedia_breeder_club_profile_ids";
+export const TRAINER_SERVICES_TEXT_METADATA_KEY = "_psipedia_trainer_services_text";
+export const TRAINER_BREED_IDS_METADATA_KEY = "_psipedia_trainer_breed_ids";
+export const TRAINER_CLUB_IDS_METADATA_KEY = "_psipedia_trainer_club_ids";
 
 export type DirectoryImportData = Record<string, string | number | null>;
+
+export function readTrainerServicesText(data: DirectoryImportData | null | undefined): string {
+  const raw = data?.[TRAINER_SERVICES_TEXT_METADATA_KEY];
+  return typeof raw === "string" ? raw : "";
+}
 
 export const DIRECTORY_QUALITY_RECHECK_DAYS = 365;
 
@@ -75,7 +83,9 @@ export function directoryQualityCheckedAtSourceKey(field: DirectoryQualityField)
 }
 
 export function isDirectoryInternalMetadataKey(key: string) {
-  return key.startsWith(qualityKeyPrefix) || key.startsWith(profileReviewKeyPrefix) || (key === DIRECTORY_BREEDER_GALLERY_KEY || key === BREEDER_CLUB_IDS_METADATA_KEY);
+  return key.startsWith(qualityKeyPrefix) || key.startsWith(profileReviewKeyPrefix) || (key === DIRECTORY_BREEDER_GALLERY_KEY || key === BREEDER_CLUB_IDS_METADATA_KEY ||
+    key === TRAINER_SERVICES_TEXT_METADATA_KEY || key === TRAINER_BREED_IDS_METADATA_KEY ||
+    key === TRAINER_CLUB_IDS_METADATA_KEY);
 }
 
 function isResolutionStatus(value: unknown): value is DirectoryQualityResolutionStatus {

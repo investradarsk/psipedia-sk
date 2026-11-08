@@ -91,13 +91,18 @@ export async function PUT(request: Request, { params }: Props) {
     const fieldPreserved = editedPaths
       ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
       : safeSubmittedBody;
-    // The three pilot categories use only Services V3 for service editing.
-    // Preserve historical services_json for legacy rendering, but never allow
-    // the whole-profile form to overwrite it (even from a stale/manual payload).
-    // Trainers retain their previous legacy-service behavior unchanged.
-    const body = isDirectoryEventPilotCategory(before.category)
-      ? { ...fieldPreserved, services: before.services }
-      : before.category === "treneri" && editedPaths && rawTrainerServicesEdited !== true
+    // Trainer Notion prose is stored separately from Services V3; a stale
+    // editor cannot change the canonical service choices. Pilot categories
+    // likewise retain the Services V3-only editing contract.
+    if (before.category === "treneri" && rawTrainerServicesEdited === true &&
+        typeof submittedBody.trainerServicesText !== "string") {
+      return Response.json({ error: "Neplatný textový opis služieb." }, { status: 400 });
+    }
+    const body: ManagedDirectoryProfileInput = before.category === "treneri"
+      ? { ...fieldPreserved, services: before.services,
+          trainerServicesText: rawTrainerServicesEdited === true
+            ? submittedBody.trainerServicesText : undefined }
+      : isDirectoryEventPilotCategory(before.category)
         ? { ...fieldPreserved, services: before.services }
         : fieldPreserved;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;

@@ -218,11 +218,13 @@ test("mapped Directory native publication pushes verified D1 status to the same 
     async function scenario(notionStatus, pageId = id) {
       const writes = [], edits = [], profiles = [], patches = [];
       const exports = {};
-      const profile = {id: 77, category: item.subcategory, status: "published", imageUrl: "",
+      const profile = {id: 77, category: item.subcategory, status: "published",
+        importData: { _psipedia_trainer_services_text: "" }, imageUrl: "",
         websiteUrl: "", updatedAt: "2026-10-21T20:00:00Z"};
       const context = {
         exports, structuredClone, reconcileProfileFields, reconcileProfileFieldsWithoutBaseline, trustedProfileBaselineFromHashes,
         isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
+        TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
         readNotionFieldAuthorities: async () => ({}),
         gemini22PriorityEnabled: () => false,
         notionDirectoryPageBelongsToSource,
@@ -268,7 +270,7 @@ test("mapped Directory native publication pushes verified D1 status to the same 
     assert.equal(await accepted.run(), "pushed", item.stableKey);
     const fieldEventOnly = item.subcategory === "chovatelske-stanice" ||
       item.subcategory === "salony-a-sluzby" ||
-      isDirectoryEventPilotCategory(item.subcategory);
+      item.subcategory === "treneri" || isDirectoryEventPilotCategory(item.subcategory);
     if (fieldEventOnly) {
       // Publication is a targeted status write, not a legacy whole-profile push.
       assert.equal(accepted.writes.length, 0, item.stableKey);
@@ -287,7 +289,8 @@ test("mapped Directory native publication pushes verified D1 status to the same 
     assert.equal(accepted.edits.length, 0, item.stableKey);
     const changedBoth = await scenario("archived");
     await assert.rejects(changedBoth.run(),
-      fieldEventOnly ? /BREEDER_PUBLICATION_STATUS_CONFLICT/ : /LOSSLESS_FIELD_REVIEW_REQUIRED/,
+      item.subcategory === "treneri" ? /TRAINER_PUBLICATION_STATUS_CONFLICT/ :
+        fieldEventOnly ? /BREEDER_PUBLICATION_STATUS_CONFLICT/ : /LOSSLESS_FIELD_REVIEW_REQUIRED/,
       item.stableKey);
     assert.equal(changedBoth.writes.length, 0, "A concurrent Notion edit must never be overwritten");
     assert.equal(changedBoth.patches.length, 0, "An archived Notion profile must never be republished");
