@@ -21,7 +21,9 @@ test("all ten canonical categories have a unique, versioned typed registry", () 
   for (const item of directoryFilterRegistry) {
     assert.equal(item.version, DIRECTORY_FILTER_CONTRACT_VERSION);
     assert.equal(item.d1.status, "proposed");
-    const inNotion = (item.category === "chovatelske-stanice" &&
+    const inNotion = (item.category === "veterinari" &&
+      ["facility_type", "emergency", "home_visits"].some(name => item.id.endsWith("." + name))) ||
+      (item.category === "chovatelske-stanice" &&
       ["visits_by_appointment", "health_testing_information"].some(name => item.id.endsWith("." + name))) ||
       (item.category === "treneri" &&
       ["individual_training", "group_training"].some(name => item.id.endsWith("." + name)));

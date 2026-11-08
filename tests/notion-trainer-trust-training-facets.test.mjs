@@ -119,7 +119,7 @@ test("webhook, Admin edit and filter PATCH use explicit scoped field transport",
   assert.match(route, /preserveUneditedTrainerTrust\(before, submittedBody, trainerTrustEditedPaths\)/);
   assert.match(route, /changedTrainerTrustAdminFields\(before, profile\)/);
   assert.match(route, /mirrorTrainerTrustFieldsToNotion\(\{/);
-  assert.match(route, /\["chovatelske-stanice", "treneri"\]\.includes\(row\.category\)/);
+  assert.match(route, /\["chovatelske-stanice", "treneri", "veterinari"\]\.includes\(row\.category\)/);
   assert.match(editor, /changedTrainerTrustAdminFields\(breederBaseline, \{ verified, featured \}\)/);
   assert.match(editor, /trainerTrustEditedPaths \}/);
   // No accidental coupling of trainer filters or trust to catalog services.
