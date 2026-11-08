@@ -267,6 +267,7 @@ test("mapped Directory native publication pushes verified D1 status to the same 
     const accepted = await scenario("draft");
     assert.equal(await accepted.run(), "pushed", item.stableKey);
     const fieldEventOnly = item.subcategory === "chovatelske-stanice" ||
+      item.subcategory === "salony-a-sluzby" ||
       isDirectoryEventPilotCategory(item.subcategory);
     if (fieldEventOnly) {
       // Publication is a targeted status write, not a legacy whole-profile push.
