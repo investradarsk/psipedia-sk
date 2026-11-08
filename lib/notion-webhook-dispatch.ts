@@ -6,6 +6,8 @@ import { runNotionBreedWorkCopySyncSweep } from "@/lib/notion-breed-workcopy-syn
 import { runNotionArticleSyncSweep } from "@/lib/notion-article-sync";
 import { runNotionEshopSyncSweep } from "@/lib/notion-eshop-sync";
 import { runNotionEventsHelpSyncSweep } from "@/lib/notion-events-help-sync";
+import { syncEventFieldsFromNotionWebhook } from "@/lib/notion-event-field-sync";
+import { eventNotionPlainText } from "@/lib/notion-event-field-events";
 import { runNotionFacebookImagesSync, NOTION_FACEBOOK_IMAGES_SOURCE_ID } from "@/lib/notion-facebook-images-sync";
 import { notionRequest, type NotionPage, type NotionSyncBindings } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
@@ -129,6 +131,21 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     ).bind(sourceId ?? "").first<{ agenda: string }>();
     const allowed = ["events", "organizations", "adoptions", "help-cases", "lost-found"] as const;
     if (!agenda || !allowed.some(value => value === agenda.agenda)) return "out-of-scope";
+    // Existing events use breeder-style single-field events instead of the
+    // legacy record-wide hash comparison. A new, unlinked Notion draft with
+    // no Psipedia ID still uses the existing gated draft import below.
+    const eventId = agenda.agenda === "events"
+      ? eventNotionPlainText(page.properties?.["Psipedia ID"]) : null;
+    if (agenda.agenda === "events" && typeof eventId === "string" &&
+        /^\\d+$/.test(eventId) &&
+        sameSource(sourceId, bindings.NOTION_EVENTS_DATA_SOURCE_ID)) {
+      const fieldResult = await syncEventFieldsFromNotionWebhook({
+        database: bindings.DB, bindings, page,
+        changedPropertyIds: event.data?.updated_properties ?? [],
+      });
+      if (fieldResult === "processed") return "processed";
+      if (fieldResult === "deferred") return "deferred";
+    }
     const result = await runNotionEventsHelpSyncSweep({
       database: bindings.DB, bindings, mode: "sync",
       agendas: [agenda.agenda as (typeof allowed)[number]],
