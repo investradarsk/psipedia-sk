@@ -175,6 +175,33 @@ async function saveLink(db: D1Database, id: number, page: EventNotionPage) {
 function fieldValue(source: { properties: Record<string, unknown> }, field: EventEditorialField) {
   return source.properties[FIELDS[field]];
 }
+async function createEventNotionPage(input: {
+  bindings: EventFieldSyncBindings;
+  source: { id: string; url: string; properties: Record<string, unknown> };
+}): Promise<EventNotionPage> {
+  const dataSourceId = input.bindings.NOTION_EVENTS_DATA_SOURCE_ID!.trim();
+  const schema = await notionRequest<{ properties?: Record<string, unknown> }>(
+    input.bindings, "/data_sources/" + encodeURIComponent(dataSourceId));
+  const properties = schema.properties ?? {};
+  const minimal: Record<string, unknown> = {};
+  const values: Record<string, unknown> = {
+    "Názov": input.source.properties["Názov"],
+    "Psipedia ID": input.source.id,
+    "URL Psipedia": input.source.url,
+  };
+  for (const [name, value] of Object.entries(values)) {
+    const encoded = encodeNotionValue(value, properties[name]);
+    if (!encoded) throw Error("EVENT_NOTION_CREATE_REQUIRED_FIELD_MISSING:" + name);
+    minimal[name] = encoded;
+  }
+  const created = await notionRequest<EventNotionPage>(input.bindings,"/pages",{
+    method:"POST", body:JSON.stringify({
+      parent:{type:"data_source_id",data_source_id:dataSourceId}, properties:minimal,
+    }),
+  });
+  validatePage(created,dataSourceId,input.source);
+  return created;
+}
 export async function syncEventFieldsFromAdmin(input: {
   database: D1Database; bindings: EventFieldSyncBindings;
   eventId: number; changedFields?: readonly EventEditorialField[];
@@ -188,8 +215,13 @@ export async function syncEventFieldsFromAdmin(input: {
     let page = await resolveEventPage({
       database:input.database,bindings:input.bindings,eventId:input.eventId,source,
     });
-    if (!page) return "unlinked";
-    const selected = new Set<EventEditorialField>(input.changedFields ?? []);
+    let created = false;
+    if (!page) {
+      page = await createEventNotionPage({bindings:input.bindings,source});
+      created = true;
+    }
+    const selected = new Set<EventEditorialField>(
+      created ? EVENT_EDITORIAL_PATHS : (input.changedFields ?? []));
     for (const path of eventInitialContactBackfill(source.properties, page.properties ?? {}))
       selected.add(path);
     const failed: string[] = [];
