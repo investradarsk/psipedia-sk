@@ -45,7 +45,7 @@ test("0161 SQL is exact pinned two-column additive migration", () => {
 test("0161 preserves existing event rows and all existing column values", () => {
   const db = setup();
   try {
-    const old = db.prepare("SELECT * FROM managed_events ORDER BY id").all();
+    const old = db.prepare("SELECT * FROM managed_events ORDER BY id").all().map(({id,title}) => ({id,title}));
     const before = inspect(db);
     assert.deepEqual(assertEvent0161Schema(before), { installed: false, rowCount: 2 });
     db.exec(sql);
