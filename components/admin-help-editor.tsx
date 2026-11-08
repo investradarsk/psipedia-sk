@@ -143,8 +143,8 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
 
   async function save(nextStatus: HelpCaseStatus) {
     if (mutationPending.current || uploading) return;
-    // A hidden native required field cannot be focused. Show the matching
-    // mounted panel before submitting; keep canonical server validation.
+    // Missing editorial fields never block publication. Identity and the
+    // verified-fundraiser safeguard remain independent checks.
     const missing = [
       { section: "help-basics", valid: Boolean((titleDraftRef.current || title).trim()), label: "Názov prípadu" },
       { section: "help-media", valid: Boolean(slug.trim() || slugify(titleDraftRef.current || title)), label: "Adresa prípadu" },
