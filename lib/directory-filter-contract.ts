@@ -60,12 +60,20 @@ function defineFacet(
 ): DirectoryFilterDefinition {
   const id = `${category}.${name}`;
   const provisionedInNotion =
+    (category === "veterinari" &&
+      (name === "facility_type" || name === "emergency" || name === "home_visits")) ||
     (category === "chovatelske-stanice" &&
       (name === "visits_by_appointment" || name === "health_testing_information")) ||
     (category === "treneri" &&
       (name === "individual_training" || name === "group_training"));
-  const notionProperty = category === "chovatelske-stanice" && name === "visits_by_appointment"
-    ? "Návštevy po dohode"
+  const notionProperty = category === "veterinari" && name === "facility_type"
+    ? "Typ pracoviska"
+    : category === "veterinari" && name === "emergency"
+      ? "Pohotovosť"
+      : category === "veterinari" && name === "home_visits"
+        ? "Návštevy doma"
+        : category === "chovatelske-stanice" && name === "visits_by_appointment"
+          ? "Návštevy po dohode"
     : category === "chovatelske-stanice" && name === "health_testing_information"
       ? "Informácie o zdravotných testoch"
       : category === "treneri" && name === "individual_training"
