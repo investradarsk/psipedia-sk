@@ -6,6 +6,7 @@ import {
   breederNotionChangedFields, breederAdminChangedFields,
   breederApplyNotionChanges, breederPreserveUneditedFields,
 } from "../lib/notion-breeder-field-events.ts";
+import { isDirectoryEventPilotCategory } from "../lib/notion-directory-field-event-scope.ts";
 
 test("signed Notion property IDs select only the breeder field actually edited", () => {
   const properties = {
@@ -107,7 +108,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     },
   };
   runInNewContext(js, {
-    exports, SYSTEM_ACTOR: "sync", breederReadPath: (v, p) => p.split(".")
+    exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory, breederReadPath: (v, p) => p.split(".")
       .reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
     getManagedDirectoryProfileById: async () => current,

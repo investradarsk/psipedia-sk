@@ -4,6 +4,8 @@ on:
     paths:
       - 'lib/notion-profile-field-*.ts'
       - 'lib/notion-directory-sync.ts'
+      - 'lib/notion-directory-field-event-scope.ts'
+      - 'tests/notion-directory-veterinary-field-events.test.mjs'
       - 'lib/notion-events-help-sync.ts'
       - 'lib/notion-events-help-adapters.ts'
       - 'tests/notion-profile-field-reconciliation.test.mjs'
@@ -30,4 +32,4 @@ jobs:
       - name: Install dependencies for shared official Notion SDK
         run: npm ci --ignore-scripts
       - name: Offline per-field merge and mapping tests
-        run: node --experimental-strip-types --test tests/notion-profile-field-reconciliation.test.mjs
+        run: node --experimental-strip-types --test tests/notion-profile-field-reconciliation.test.mjs tests/notion-directory-veterinary-field-events.test.mjs
