@@ -119,7 +119,7 @@ export function AdminOrganizationEditor({
   const sections = useMemo(() => [
     { id: "organization-general", label: "Základné" },
     { id: "organization-content", label: "Verejný obsah" },
-    { id: "organization-address", label: "Adresa a mapa" },
+    { id: "organization-location-panel", label: "Adresa a mapa" },
     { id: "organization-contacts", label: "Kontakty" },
     { id: "organization-media", label: "Obrázok a zdroj" },
   ], []);
@@ -302,7 +302,7 @@ export function AdminOrganizationEditor({
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : "Organizáciu sa nepodarilo uložiť.";
       if (savingAddress) {
-        setActiveOrganizationSection("organization-address");
+        setActiveOrganizationSection("organization-location-panel");
         setError(organizationSaved
           ? "Údaje organizácie sa uložili, ale adresa nie. Oprav adresu a klikni znovu na Uložiť organizáciu. " + detail
           : "Adresa sa neuložila. Ostatné údaje zostali nezmenené. " + detail);
@@ -347,7 +347,7 @@ export function AdminOrganizationEditor({
         <AdminHelpText term="Storage contract">Lexical rešpektuje pôvodné textové polia a obojsmernú synchronizáciu.</AdminHelpText>
       </AdminEditorSection>
 
-      <AdminEditorSection id="organization-address" className="admin-form-card">
+      <AdminEditorSection id="organization-location-panel" className="admin-form-card">
         <div className="admin-card-heading"><div><span>03</span><div><h2>Adresa a mapa</h2><p>Jedna hlavná adresa organizácie. Zmeny ulož rovnakým tlačidlom ako ostatné údaje.</p></div></div></div>
         <AdminOrganizationLocations draft={addressDraft} disabled={editingDisabled}
           onChange={(changes) => setAddressDraft((current) => ({ ...current, ...changes }))} />
