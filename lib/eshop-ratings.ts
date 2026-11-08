@@ -100,7 +100,7 @@ function normalizedText(value: unknown, label: string, maxLength: number) {
 }
 
 function normalizedOptionalUrl(value: unknown, label: string) {
-  if (value === null || value === undefined || value === "") return null;
+  if (value === null || value === undefined || (typeof value === "string" && !value.trim())) return null;
   const clean = normalizedText(value, label, 800);
   if (clean.startsWith("/media/")) return clean;
   try {
