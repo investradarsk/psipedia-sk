@@ -113,7 +113,7 @@ test("trainer free text is separate from Services V3 and persisted without touch
   assert.match(sync, /TRAINER_SERVICES_TEXT_METADATA_KEY, text/);
   assert.match(sync, /current = await saveBreederEditorialValue\(database, current, desired, path\)/);
   assert.doesNotMatch(sync.slice(sync.indexOf("async function syncBreederEvent"), sync.indexOf("export async function mirrorBreederCategoryFiltersToNotion")), /Trainers retain their existing validator/);
-  assert.match(sync, /const paths = breederNotionChangedFields\(page\.properties, input\.changedPropertyIds\);/);
+  assert.match(sync, /input\.profile\.category === "chovatelske-stanice" \|\| input\.profile\.category === "treneri"/);
   assert.match(store, /key === TRAINER_SERVICES_TEXT_METADATA_KEY \|\| !isDirectoryInternalMetadataKey\(key\)/);
   assert.match(store, /sourceData\[TRAINER_SERVICES_TEXT_METADATA_KEY\] = payload\.trainerServicesText/);
   assert.match(editor, /Služby – voľný text \(Notion\)/);
