@@ -1,0 +1,97 @@
+name: Production D1 0161 Event Metadata (manual)
+
+# No push, pull_request or scheduled triggers. PR merge does not APPLY SQL.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Audit reads schema only; Apply adds two event metadata columns
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: Type AUDIT-0161-psipedia-sk-db or APPLY-0161-psipedia-sk-db
+        required: true
+        type: string
+
+# Same protected lock as other production D1 migrations.
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  event-metadata-0161:
+    name: Protected 0161 schema audit or two-column apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    env:
+      EVENT_0161_CONFIRMATION: ${{ inputs.confirmation }}
+      EVENT_0161_MODE: ${{ inputs.mode }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main, manual dispatch and exact operator confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          case "$EVENT_0161_MODE" in
+            audit) expected="AUDIT-0161-psipedia-sk-db" ;;
+            apply) expected="APPLY-0161-psipedia-sk-db" ;;
+            *) echo "Unsupported 0161 mode" >&2; exit 1 ;;
+          esac
+          test "$EVENT_0161_CONFIRMATION" = "$expected"
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Checkout dispatched main revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Require current main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify migration safety and isolated schema regression
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-d1-0161-event-metadata.test.mjs
+
+      - name: Validate configured production Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id)')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Execute only the requested 0161 audit or approved apply
+        run: node scripts/production-d1-0161-event-metadata.mjs "$EVENT_0161_MODE"
+
+      - name: Retain aggregate-only rollout evidence and recovery point
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-0161-${{ github.run_id }}
+          path: .production-d1-0161/report.json
+          if-no-files-found: ignore
+          retention-days: 30

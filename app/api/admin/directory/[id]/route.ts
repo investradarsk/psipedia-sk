@@ -443,7 +443,7 @@ export async function PATCH(request: Request, { params }: Props) {
       // Category filters are a separate structured channel from free-text
       // services and the canonical Services V3 catalog.
       let notionFieldSync: "synced" | "unchanged" | "pending" | "disabled" = "disabled";
-      if (["chovatelske-stanice", "treneri"].includes(row.category) && Object.keys(requested.updates).length) {
+      if (["chovatelske-stanice", "treneri", "veterinari"].includes(row.category) && Object.keys(requested.updates).length) {
         const bindings = env as Parameters<typeof mirrorBreederCategoryFiltersToNotion>[0]["bindings"];
         const enabled = (env as unknown as { NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string }).NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true";
         if (enabled) {

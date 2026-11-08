@@ -112,6 +112,50 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
   }
 });
 
+
+test("veterinary select facets have an exact Notion contract and event writeback", async () => {
+  const ts = await import("typescript");
+  const contract = await get("../lib/directory-filter-contract.ts");
+  const source = await get("../lib/notion-directory-sync.ts");
+  const route = await get("../app/api/admin/directory/[id]/route.ts");
+  for (const [id, name] of [
+    ["veterinari.facility_type", "Typ pracoviska"],
+    ["veterinari.emergency", "Pohotovosť"],
+    ["veterinari.home_visits", "Návštevy doma"],
+  ]) {
+    assert.ok(contract.includes(name), id);
+    assert.ok(source.includes('"' + id + '": "' + name + '"'), id);
+  }
+  assert.match(contract, /category === "veterinari" &&[\s\S]*?name === "facility_type"/);
+  assert.match(route, /\["chovatelske-stanice", "treneri", "veterinari"\]\.includes\(row\.category\)/);
+  assert.match(source, /const facetFields = \["chovatelske-stanice", "treneri", "veterinari"\]/);
+  assert.match(source, /normalizeDirectoryFilterValue\(def, notionFacetSourceValue\(selected\)\)/);
+  assert.match(source, /if \(profile\.category === "veterinari"\) \{[\s\S]*?for \(const \[key, value\] of Object\.entries\(patch\)\)/);
+  assert.match(source, /VETERINARY_FACET_WRITEBACK_UNVERIFIED/);
+  const start = source.indexOf("const breederFacetNotionProperties = {");
+  const end = source.indexOf("const breederSearchFields =", start);
+  assert.ok(start >= 0 && end > start);
+  const js = ts.transpileModule(source.slice(start, end) +
+    "\nexports.toNotion = notionFacetLabel;" +
+    "\nexports.fromNotion = notionFacetSourceValue;" +
+    "\nexports.propertyNames = breederFacetNotionProperties;", {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports = {};
+  runInNewContext(js, { exports });
+  for (const [canonical, label] of [
+    ["ambulance", "Ambulancia"], ["clinic", "Klinika"],
+    ["hospital", "Nemocnica"], ["unknown", "Neznáme"],
+    ["yes", "Áno"], ["no", "Nie"],
+  ]) {
+    assert.equal(exports.toNotion(canonical), label);
+    assert.equal(exports.fromNotion(label), canonical === "yes" || canonical === "no" ? label : canonical);
+  }
+  assert.equal(exports.propertyNames["veterinari.facility_type"], "Typ pracoviska");
+  assert.equal(exports.propertyNames["veterinari.emergency"], "Pohotovosť");
+  assert.equal(exports.propertyNames["veterinari.home_visits"], "Návštevy doma");
+});
+
 test("hours, sources and alt text are independently synced for pilot categories", async () => {
   const source = await get("../lib/notion-directory-sync.ts");
   const admin = await get("../app/api/admin/directory/[id]/route.ts");
