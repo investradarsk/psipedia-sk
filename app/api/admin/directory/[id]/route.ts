@@ -87,11 +87,18 @@ export async function PUT(request: Request, { params }: Props) {
     const fieldPreserved = editedPaths
       ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
       : safeSubmittedBody;
-    // The canonical Services V3 relation can change while a trainer form is
-    // open. Unless the operator explicitly edited legacy services, preserve
-    // the latest D1 list instead of silently restoring stale textarea data.
-    const body = before.category === "treneri" && editedPaths && rawTrainerServicesEdited !== true
-      ? { ...fieldPreserved, services: before.services }
+    // The trainer's free-text Notion "Služby" lives in independent metadata.
+    // The Admin form never replays a stale Services V3/legacy service list.
+    // Only an explicit text edit writes that one metadata key; an unchanged
+    // input cannot undo a newer Notion webhook update.
+    if (before.category === "treneri" && rawTrainerServicesEdited === true &&
+        typeof submittedBody.trainerServicesText !== "string") {
+      return Response.json({ error: "Neplatný textový opis služieb." }, { status: 400 });
+    }
+    const body: ManagedDirectoryProfileInput = before.category === "treneri"
+      ? { ...fieldPreserved, services: before.services,
+          trainerServicesText: rawTrainerServicesEdited === true
+            ? submittedBody.trainerServicesText : undefined }
       : fieldPreserved;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
     const changed = directoryPhysicalAddressChanged(before, body);
