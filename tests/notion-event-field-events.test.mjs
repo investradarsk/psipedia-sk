@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   EVENT_EDITORIAL_PATHS, EVENT_INITIAL_CONTACT_FIELDS, EVENT_NOTION_EDITORIAL_FIELDS,
   eventAdminChangedFields, eventNotionChangedFields, eventNotionPlainText,
-  eventInitialContactBackfill, eventSourcePropertyNames,
+  eventInitialContactBackfill, eventSourcePropertyNames, eventPreserveUneditedFields,
 } from "../lib/notion-event-field-events.ts";
 
 const txt = (value, id = "opaque") => ({
@@ -45,6 +45,18 @@ test("on first event sync, only nonempty D1 contact values missing in Notion are
   const mixed = {...remote,[email]:txt("someone@example.sk")};
   assert.deepEqual(eventInitialContactBackfill(canonical,mixed),["contactPhone","admissionFee"]);
   assert.deepEqual(eventInitialContactBackfill({[phone]:"", [email]:"", [fee]:""},remote),[]);
+});
+test("stale Admin event form cannot overwrite newer Notion edits to untouched fields", () => {
+  const stale = { title:"Meeting", description:"Old", contactEmail:"old@example.sk",
+    contactPhone:"0900", seo:{title:"Old SEO"} };
+  const currentD1 = {...stale,description:"New from Notion",
+    contactEmail:"updated@example.sk",seo:{title:"New SEO from Notion"}};
+  const result = eventPreserveUneditedFields({...stale,title:"New title"},currentD1,["title"]);
+  assert.equal(result.title,"New title");
+  assert.equal(result.description,"New from Notion");
+  assert.equal(result.contactEmail,"updated@example.sk");
+  assert.equal(result.contactPhone,"0900");
+  assert.equal(result.seo.title,"New SEO from Notion");
 });
 test("blank Notion text has no delete meaning; boolean false is a real value", () => {
   assert.equal(eventNotionPlainText(txt("")),"");
