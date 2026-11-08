@@ -121,16 +121,16 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.goto("/admin/plemena/novy", { waitUntil: "domcontentloaded" });
     await waitForBreedEditor(page);
     await page.getByLabel("Názov plemena").fill(draftName(testInfo));
-    await goToBreedEditorSection(page, "Prehľad", "breed-overview");
+    await goToBreedEditorSection(page, "Odborný profil", "breed-overview");
     await page.getByLabel("Krátky úvod v hero (2–4 vety)").fill("Izolovaný lokálny koncept pre BREEDS-ADMIN E2E.");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/plemena\/\d+$/);
     await waitForBreedEditor(page);
 
-    await goToBreedEditorSection(page, "Prehľad", "breed-overview");
+    await goToBreedEditorSection(page, "Odborný profil", "breed-overview");
     await page.getByLabel("Prehľad plemena").fill("Overený lokálny prehľad používaný iba v izolovanom CI.");
-    await goToBreedEditorSection(page, "Praktické", "breed-practical");
-    await page.getByLabel("Každodenné potreby").fill("Lokálny test praktického obsahu.");
+    await goToBreedEditorSection(page, "Pohyb a život", "breed-practical");
+    await page.getByLabel("Potreba pohybu").fill("Lokálny test praktického obsahu.");
     await goToBreedEditorSection(page, "Základ", "breed-basic");
     await page.getByLabel("FCI skupina", { exact: true }).fill("8");
     await page.getByLabel("FCI sekcia", { exact: true }).fill("Retrievery");
@@ -138,13 +138,13 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(page.getByText("Koncept je uložený.")).toBeVisible();
     await page.reload();
     await waitForBreedEditor(page);
-    await goToBreedEditorSection(page, "Prehľad", "breed-overview");
+    await goToBreedEditorSection(page, "Odborný profil", "breed-overview");
     await expect(page.getByLabel("Prehľad plemena")).toContainText("Overený lokálny prehľad používaný iba v izolovanom CI.");
-    await goToBreedEditorSection(page, "Praktické", "breed-practical");
-    await expect(page.getByLabel("Každodenné potreby")).toContainText("Lokálny test praktického obsahu.");
+    await goToBreedEditorSection(page, "Pohyb a život", "breed-practical");
+    await expect(page.getByLabel("Potreba pohybu")).toContainText("Lokálny test praktického obsahu.");
   });
 
-  test("sports drawer, long navigation and canonical article/station/club relations persist", async ({ page }, testInfo) => {
+  test("sports drawer and 60-field Notion section navigation persist", async ({ page }, testInfo) => {
     await openCreatedDraft(page, testInfo);
     await goToBreedEditorSection(page, "Športy", "breed-sports");
 
@@ -157,40 +157,12 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(sportDrawer).toBeHidden();
     await expect(page.locator("#breed-sports").getByText("Nosework", { exact: true })).toBeVisible();
 
-    await goToBreedEditorSection(page, "Prepojenia", "breed-relations");
-    const articleGroup = page.getByRole("group", { name: "Súvisiace články" });
-    await articleGroup.getByPlaceholder("Hľadať článok").fill("BREEDS-ADMIN");
-    await articleGroup.getByLabel(/BREEDS-ADMIN súvisiaci článok/).check();
-
-    // Modern relation editor shows one category at a time. Select each
-    // category tab before searching or checking its hidden panel.
-    const relationTabs = page.getByRole("group", { name: "Vyber typ prepojenia" });
-    await relationTabs.getByRole("button", { name: "Chovateľské stanice" }).click();
-    const stationGroup = page.getByRole("group", { name: "Chovateľské stanice" });
-    await stationGroup.getByPlaceholder("Hľadať stanicu").fill("BREEDS-ADMIN");
-    await stationGroup.getByLabel(/BREEDS-ADMIN Chovateľská stanica/).check();
-
-    await relationTabs.getByRole("button", { name: "Chovateľské kluby" }).click();
-    const clubGroup = page.getByRole("group", { name: "Chovateľské kluby" });
-    await clubGroup.getByPlaceholder("Hľadať klub").fill("BREEDS-ADMIN");
-    await clubGroup.getByLabel(/BREEDS-ADMIN Chovateľský klub/).check();
-
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText("Koncept je uložený.")).toBeVisible();
     await page.reload();
     await waitForBreedEditor(page);
     await goToBreedEditorSection(page, "Športy", "breed-sports");
     await expect(page.locator("#breed-sports").getByText("Nosework", { exact: true })).toBeVisible();
-    await goToBreedEditorSection(page, "Prepojenia", "breed-relations");
-    const restoredTabs = page.getByRole("group", { name: "Vyber typ prepojenia" });
-    await restoredTabs.getByRole("button", { name: "Články", exact: true }).click();
-    await expect(page.getByLabel(/BREEDS-ADMIN súvisiaci článok/)).toBeChecked();
-    await restoredTabs.getByRole("button", { name: "Chovateľské stanice" }).click();
-    await expect(page.getByLabel(/BREEDS-ADMIN Chovateľská stanica/)).toBeChecked();
-    await restoredTabs.getByRole("button", { name: "Chovateľské kluby" }).click();
-    await expect(page.getByLabel(/BREEDS-ADMIN Chovateľský klub/)).toBeChecked();
-
-    await goToBreedEditorSection(page, "Športy", "breed-sports");
     const sportRow = page.getByRole("article").filter({ hasText: "Nosework" });
     await sportRow.getByRole("button", { name: "Upraviť" }).click();
     const editSport = page.getByRole("dialog", { name: "Upraviť šport" });
@@ -204,6 +176,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
   test("settings drawer restores focus and exposes FCI/SEO while image manager shows current image, fallback and remove", async ({ page }) => {
     await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
+    await waitForBreedList(page);
     await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill("Biely svajciarsky");
     await page.getByRole("link", { name: "Biely švajčiarsky ovčiak" }).click();
     await waitForBreedEditor(page);
@@ -212,8 +185,9 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await settings.focus();
     await settings.click();
     const drawer = page.getByRole("dialog", { name: "Nastavenia plemena" });
-    await expect(drawer.getByLabel("FCI PDF URL")).toBeVisible();
-    await expect(drawer.getByLabel("URL adresa")).toHaveValue("biely-svajciarsky-ovciak");
+    await expect(drawer.getByLabel("FCI štandard PDF")).toBeVisible();
+    await expect(drawer.getByLabel("SEO title")).toBeVisible();
+    await expect(drawer.getByLabel("Meta description")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(drawer).toBeHidden();
     await expect(settings).toBeFocused();

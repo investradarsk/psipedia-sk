@@ -35,20 +35,29 @@ test("staged merged fields never repeat older visible FCI or practical content",
   assert.equal(stripStagedBreedMerge(""),"");
 });
 
-test("public breed and FCI layouts use the same compatibility guard",async()=>{
+test("public breed and FCI pages show only the consolidated Notion 60 fields", async () => {
   const breed=await readFile(new URL("../app/plemena/[slug]/page.tsx",import.meta.url),"utf8");
   const fci=await readFile(new URL("../app/plemena/[slug]/fci-standard/page.tsx",import.meta.url),"utf8");
   for(const snippet of [
-    "stripStagedBreedMerge(editorial.overview)",
-    "stripStagedBreedMerge(breed.exercise)",
-    "stripStagedBreedMerge(breed.training)",
-    "stripStagedBreedMerge(breed.health)",
-    "stripStagedBreedMerge(breed.history)",
-    "stripStagedBreedMerge(editorial.coatCare)",
-  ])assert.ok(breed.includes(snippet),snippet);
+    "textParagraphs(editorial.overview)",
+    "textParagraphs(breed.exercise)",
+    "textParagraphs(breed.training)",
+    "textParagraphs(breed.health)",
+    "textParagraphs(breed.history)",
+    "textParagraphs(editorial.coatCare)",
+    "textParagraphs(breed.character)",
+  ]) assert.ok(breed.includes(snippet),snippet);
   for(const snippet of [
-    "stripStagedBreedMerge(fci.hlava_lebecna_cast)",
-    "stripStagedBreedMerge(fci.telo)",
-    "stripStagedBreedMerge(fci.srst)",
-  ])assert.ok(fci.includes(snippet),snippet);
+    'textItem("FCI lebka", fci.hlava_lebecna_cast)',
+    'textItem("Telo", fci.telo)',
+    'textItem("Srsť", fci.srst)',
+  ]) assert.ok(fci.includes(snippet),snippet);
+  for(const legacy of [
+    "editorial.exerciseTip", "editorial.trainingTip",
+    "editorial.healthTip", "editorial.coatTip",
+    "breed.needs", "workingTrial", "publicFciDate",
+  ]) assert(!breed.includes(legacy),legacy);
+  assert(!fci.includes("fci.oci"));
+  assert(!fci.includes("fci.hlava_tvarova_cast"));
+  assert(!fci.includes("fci.fci_nomenklatura_url"));
 });
