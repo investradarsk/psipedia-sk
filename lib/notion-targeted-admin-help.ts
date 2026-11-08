@@ -1,5 +1,7 @@
 import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync.ts";
 import type { BidirectionalAgendaKey } from "./notion-events-help-adapters.ts";
+import { syncEventAdminFields } from "./notion-event-field-sync.ts";
+import type { EventNotionField } from "./notion-event-field-contract.ts";
 
 /**
  * Admin -> Notion only for existing verified mappings.
@@ -11,6 +13,7 @@ export async function syncOneAdminHelpRecord(input: {
   bindings: NotionEventsHelpSyncBindings & { NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string };
   agenda: BidirectionalAgendaKey;
   entityId: number;
+  changedEventFields?: readonly EventNotionField[];
 }): Promise<"disabled" | "unlinked" | "synced" | "pending"> {
   if (input.bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") return "disabled";
   if (!Number.isSafeInteger(input.entityId) || input.entityId < 1) return "unlinked";
@@ -18,6 +21,10 @@ export async function syncOneAdminHelpRecord(input: {
     return "unlinked";
 
   try {
+    if(input.agenda==="events")return syncEventAdminFields({
+      database:input.database,bindings:input.bindings,eventId:input.entityId,
+      changedFields:input.changedEventFields??[],
+    });
     const mapping = input.agenda === "events"
       ? await input.database.prepare(
         "SELECT notion_page_id FROM event_notion_sync WHERE event_id=? LIMIT 1",
