@@ -172,7 +172,8 @@ export function AdminDirectoryEditor({
   const [slug, setSlug] = useState(profile?.slug ?? notionDraft?.slug ?? (notionDraft?.name ? slugify(notionDraft.name) : ""));
   const [slugEdited, setSlugEdited] = useState(Boolean(profile || notionDraft?.slug));
   const [category, setCategory] = useState<DirectoryCategorySlug>(profile?.category ?? (notionDraft?.category as DirectoryCategorySlug | undefined) ?? "treneri");
-  const filterCategory = (serviceFilterCategories as readonly string[]).includes(category) ? category as ServiceFilterCategory : null;
+  // Physiotherapy treatments live in Services V3, not duplicate legacy category controls.
+  const filterCategory = category !== "fyzioterapia" && (serviceFilterCategories as readonly string[]).includes(category) ? category as ServiceFilterCategory : null;
   // Keep a full baseline so changing category never discards previously stored facets.
   const [filterSourceData, setFilterSourceData] = useState<Record<string, unknown>>(profile?.importData ?? {});
   const [filterChanges, setFilterChanges] = useState<Record<string, string>>({});
