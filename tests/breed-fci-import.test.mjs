@@ -819,14 +819,15 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   const fciDetail = await get(worker, d1, "/plemena/labradorsky-retriever/fci-standard");
   assert.equal(fciDetail.status, 200);
   const fciDetailHtml = await fciDetail.text();
-  assert.match(fciDetailHtml, /História plemena Labradorský retriever\./);
+  // Notion 60 moved historical FCI subfields into the standalone História content field.
+  assert.doesNotMatch(fciDetailHtml, /História plemena Labradorský retriever\./);
   assert.match(fciDetailHtml, /Lebečná časť podľa štandardu/);
-  assert.match(fciDetailHtml, /Tvárová časť podľa štandardu/);
+  assert.doesNotMatch(fciDetailHtml, /Tvárová časť podľa štandardu/);
   assert.match(fciDetailHtml, /50–60 cm/);
   assert.match(fciDetailHtml, /48–58 cm/);
   assert.match(fciDetailHtml, /20–30 kg/);
   assert.match(fciDetailHtml, /18–28 kg/);
-  assert.match(fciDetailHtml, /FCI nomenklatúra/);
+  assert.doesNotMatch(fciDetailHtml, /FCI nomenklatúra/);
   assert.match(fciDetailHtml, /Oficiálny FCI štandard \(PDF\)/);
   assert.match(fciDetailHtml, /data-fci-group="celkovy-vzhlad-a-povaha"/);
   assert.match(fciDetailHtml, /href="#celkovy-vzhlad-a-povaha"/);
@@ -835,7 +836,9 @@ test("344-record FCI import remains idempotent and production routes preserve ed
     fciDetailHtml,
     /data-fci-trigger=|data-testid="fci-expand-all"|data-testid="fci-collapse-all"/,
   );
-  assert.equal((fciDetailHtml.match(/data-fci-group=/g) ?? []).length, 7);
+  // A separate Zdroj a referencia section is shown only if the compact source note exists.
+  assert.ok((fciDetailHtml.match(/data-fci-group=/g) ?? []).length >= 6);
+  assert.ok((fciDetailHtml.match(/data-fci-group=/g) ?? []).length <= 8);
 
   const tollerMain = await get(worker, d1, "/plemena/nova-scotia-duck-tolling-retriever");
   assert.equal(tollerMain.status, 200);
@@ -857,9 +860,10 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   assert.match(tollerFci, /20–23 kg/);
   assert.match(tollerFci, /17–20 kg/);
   assert.match(tollerFci, /Úplný koniec odborného textu\./);
-  assert.match(tollerFci, /24\. 6\. 1987/);
+  // The removed standalone effective-standard date is not part of Notion 60.
+  assert.doesNotMatch(tollerFci, /24\. 6\. 1987/);
   assert.doesNotMatch(tollerFci, /1987-06-24/);
-  assert.match(tollerFci, /Chovateľská poznámka/);
+  assert.doesNotMatch(tollerFci, /Chovateľská poznámka/);
 
   const fciOnly = await get(worker, d1, "/plemena/ciernohorsky-horsky-duric");
   assert.equal(fciOnly.status, 200);
@@ -871,7 +875,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   const fciOnlyStandard = await get(worker, d1, "/plemena/ciernohorsky-horsky-duric/fci-standard");
   assert.equal(fciOnlyStandard.status, 200);
   const fciOnlyStandardHtml = await fciOnlyStandard.text();
-  assert.match(fciOnlyStandardHtml, /História plemena Čiernohorský horský durič/);
+  assert.doesNotMatch(fciOnlyStandardHtml, /História plemena Čiernohorský horský durič/);
   assert.doesNotMatch(fciOnlyStandardHtml, /FCI nomenklatúra/);
   assert.doesNotMatch(fciOnlyStandardHtml, /Oficiálny FCI štandard \(PDF\)/);
 
@@ -987,7 +991,7 @@ test("FCI preview rejects missing numbers, invalid groups and duplicate identiti
   }
 });
 
-test("breed encyclopedia relations stay explicit, bounded and editable", () => {
+test("breed encyclopedia relation storage remains bounded while editor follows Notion 60", () => {
   const migration = readFileSync(
     new URL("../drizzle/0023_big_shinko_yamashiro.sql", import.meta.url),
     "utf8",
@@ -1014,18 +1018,19 @@ test("breed encyclopedia relations stay explicit, bounded and editable", () => {
     "utf8",
   );
   for (const label of [
-    "Srsť a údržba",
-    "Život s rodinou a deťmi",
-    "Vzťah k iným psom",
+    "Redakcia starostlivosť o srsť",
+    "Redakcia život v rodine",
+    "Redakcia spolužitie so psami",
     "Zaujímavosti",
     "Časté chyby majiteľov",
     "Športy a aktivity",
-    "Súvisiace články",
-    "Podobné plemená",
-    "Chovateľské stanice",
-    "Chovateľské kluby",
   ])
     assert.match(breedEditor, new RegExp(label));
+  assert.doesNotMatch(breedEditor, /<AdminBreedRelationGroup|breed-relations/);
+  // This is only a visible-field change. Canonical relation IDs are still
+  // read and saved by the existing model; no D1 or public relationship loss.
+  for (const field of ["relatedArticleIds","relatedBreedIds","directoryProfileIds"])
+    assert.match(breedEditor, new RegExp(field));
   const articleEditor = readFileSync(
     new URL("../components/admin-article-editor.tsx", import.meta.url),
     "utf8",
