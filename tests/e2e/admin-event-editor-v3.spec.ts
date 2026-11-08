@@ -166,31 +166,26 @@ for (const viewport of [
 }
 
 
-test("New event: publication reveals required fields in their own sections without losing drafts", async ({ page }) => {
+test("New event: publication accepts empty optional content and leaves title intact", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  const requests: Record<string, unknown>[] = [];
+  await page.route("**/api/admin/events", async (route) => {
+    if (route.request().method() !== "POST") return route.abort();
+    requests.push(route.request().postDataJSON() as Record<string, unknown>);
+    await route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ event: { id: 99993, status: "published" } }),
+    });
+  });
   const root = await openEditor(page);
   await root.getByLabel("Názov podujatia").fill("Tréning psov");
   await root.getByRole("button", { name: "Publikovať podujatie" }).click();
-  await expect(root.locator("#event-basics")).toBeVisible();
-  await expect(root.getByText("Vyplň povinné pole: Krátky popis.")).toBeVisible();
-  await root.getByRole("textbox", { name: "Krátky popis" }).fill("Podujatie so spoločným tréningom psov.");
-  await root.getByRole("button", { name: "Publikovať podujatie" }).click();
-  await expect(root.locator("#event-schedule")).toBeVisible();
-  await expect(root.getByText("Vyplň povinné pole: Dátum začiatku.")).toBeVisible();
-  await root.getByLabel("Dátum začiatku").fill("2026-11-12");
-  await root.getByRole("button", { name: "Publikovať podujatie" }).click();
-  await expect(root.locator("#event-location")).toBeVisible();
-  await root.getByLabel("Mesto").fill("Nitra");
-  await root.getByRole("button", { name: "Publikovať podujatie" }).click();
-  await expect(root.locator("#event-contacts")).toBeVisible();
-  await expect(root.getByText("Vyplň povinné pole: Organizátor.")).toBeVisible();
-  await root.getByRole("textbox", { name: "Organizátor", exact: true }).fill("Klub retrieverov");
-  await root.getByRole("button", { name: "Publikovať podujatie" }).click();
-  await expect(root.locator("#event-details")).toBeVisible();
-  await expect(root.getByText("Vyplň povinné pole: Podrobný popis.")).toBeVisible();
-  await showEventSection(root, "event-basics", "Základné údaje");
-  await expect(root.getByLabel("Názov podujatia")).toHaveValue("Tréning psov");
-  await expect(root.getByRole("textbox", { name: "Krátky popis" })).toContainText("Podujatie so spoločným tréningom psov.");
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0]).toMatchObject({
+    title: "Tréning psov", status: "published", excerpt: "",
+    startDate: "", city: "", organizer: "", description: "",
+  });
+  await expect(root.getByText("Vyplň povinné pole: Krátky popis.")).toHaveCount(0);
 });
 
 test("New event: external-form draft button sends canonical POST to isolated mocked API", async ({ page }) => {
