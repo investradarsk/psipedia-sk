@@ -215,9 +215,8 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
 
   async function save(nextStatus: EventStatus) {
     if (savePendingRef.current || uploading) return;
-    // The form uses one mounted panel at a time; native validation cannot
-    // focus a required field in a hidden section. Keep server publish rules
-    // authoritative, but reveal the corresponding field before API requests.
+    // An incomplete editorial field never blocks publication; only identity
+    // and non-empty malformed values require correction.
     if (!(status === "published" && nextStatus === "draft")) {
       const requiredFields = [
         { value: title, section: "event-basics", label: "Názov podujatia" },
