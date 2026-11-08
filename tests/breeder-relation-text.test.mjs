@@ -69,7 +69,7 @@ test("relationship synchronization stays independent from Notion editorial field
   const detail = await readFile(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
   const css = await readFile(new URL("../components/directory-profile-detail.module.css", import.meta.url), "utf8");
   assert.match(sync, /breederRelationChangedFields\(page\.properties, input\.changedPropertyIds\)/);
-  assert.match(sync, /if \(!paths\.length && !relationFields\.length && !facetFields\.length && !pilotMetaFields\.length\)\s*return "unchanged"/);
+  assert.match(sync, /if \(!paths\.length && !relationFields\.length && !facetFields\.length && (?:!trustFields\.length && )?!pilotMetaFields\.length\)\s*return "unchanged"/);
   assert.match(sync, /BREEDER_RELATION_NAME_UNMATCHED/);
   assert.match(sync, /mirrorBreederRelationNamesToNotion/);
   assert.match(sync, /splitQualificationLines\(propertyText\(page, "Kvalifikácie"\)\)/);

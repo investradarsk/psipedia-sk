@@ -17,10 +17,10 @@ test("events V3 integrates the existing canonical editor, not a new form engine"
   assert.match(editor, /<EditorSection/);
   assert.match(editor, /preview=\{liveSummary\}/);
   assert.match(editor, /<form id="event-editor-v3-form" noValidate/);
-  assert.equal((editor.match(/<EditorSection id=/g) ?? []).length, 7);
-  assert.equal((editor.match(/<\/EditorSection>/g) ?? []).length, 7);
+  assert.equal((editor.match(/<EditorSection id=/g) ?? []).length, 8);
+  assert.equal((editor.match(/<\/EditorSection>/g) ?? []).length, 8);
   assert.equal((editor.match(/<AdminAutomationUpdateSuggestions\b/g) ?? []).length, 1, "automation suggestions render once");
-  for (const id of ["event-basics", "event-schedule", "event-location", "event-contacts", "event-details", "event-media", "event-seo"]) {
+  for (const id of ["event-basics", "event-schedule", "event-location", "event-contacts", "event-details", "event-media", "event-notes", "event-seo"]) {
     assert.match(editor, new RegExp('id="' + id + '"'));
   }
 });

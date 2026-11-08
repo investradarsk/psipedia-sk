@@ -10,6 +10,7 @@ const sections = [
   ["event-contacts", "Organizátor a kontakty"],
   ["event-details", "Program a informácie"],
   ["event-media", "Fotografia a URL"],
+  ["event-notes", "Interné poznámky"],
   ["event-seo", "SEO"],
 ] as const;
 
@@ -79,10 +80,10 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 320, height: 690 },
 ]) {
-  test("Events V3: seven sections, edit preservation, preview, SEO, footer and guard at " + viewport.width + "px", async ({ page }) => {
+  test("Events V3: eight sections, edit preservation, preview, SEO, footer and guard at " + viewport.width + "px", async ({ page }) => {
     await page.setViewportSize(viewport);
     const root = await openEditor(page);
-    await expect(root.locator("[data-admin-editor-section]")).toHaveCount(7);
+    await expect(root.locator("[data-admin-editor-section]")).toHaveCount(8);
     await expect(page.getByRole("button", { name: "Späť na podujatia", exact: true })).toHaveCount(1);
     await expect(root.getByRole("button", { name: "Uložiť koncept", exact: true })).toBeVisible();
     await expect(root.getByRole("button", { name: "Publikovať podujatie", exact: true })).toBeVisible();

@@ -12,11 +12,12 @@ import {
   type GeoTargetType,
 } from "@/lib/geo";
 import { directoryExactGeoCandidate, directoryNumberlessPlaceCandidate } from "@/lib/directory-service-address";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { diagnoseGeoTarget, previewGeoSource, resolveGeoTarget } from "@/lib/geo-service";
 import {
   applyGeocoderResolution,
   applyGooglePlaceResolution,
+  detachGooglePlace,
   getGeoPointForTarget,
   getGeoSourceLocation,
   getGoogleMapsWorkflowDecision,
@@ -37,6 +38,7 @@ import {
   googlePlaceActionForSource,
 } from "@/lib/google-place-target-discovery";
 import { confirmAdminGooglePlace } from "@/lib/admin-google-place-confirmation";
+import { syncNotionGeoMirrorAfterDetach } from "@/lib/notion-geo-detach-mirror";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ targetType: string; id: string }> };
@@ -287,6 +289,33 @@ export async function POST(request: Request, { params }: Props) {
         actorRef: user.email,
       });
       return Response.json({ point, googleMapsNotRequired: false });
+    }
+
+    if (action === "detach-google-place") {
+      const mutation = await requireAdminMutation(request, { strictProvenance: true });
+      if (mutation.response || !mutation.user) return mutation.response ?? unauthorizedAdminResponse();
+      const source = await getGeoSourceLocation(target.targetType, target.id);
+      if (!source) return Response.json({ error: "Profil alebo lokalita sa nenašla." }, { status: 404 });
+      const expectedGeoRevision = typeof body.expectedGeoRevision === "string" ? body.expectedGeoRevision : "";
+      if (!expectedGeoRevision) return Response.json({ error: "Obnov stránku pred odpojením Google miesta." }, { status: 409 });
+      const point = await detachGooglePlace({
+        targetType: target.targetType, targetId: target.id,
+        expectedGeoRevision, actorRef: user.email,
+      });
+      // A failed external Notion request never rolls back a successful D1 unlink.
+      let notionMirror: "synced" | "unlinked" | "disabled" | "pending" = "disabled";
+      try {
+        notionMirror = await syncNotionGeoMirrorAfterDetach({
+          targetType: target.targetType, targetId: target.id,
+          bindings: env as unknown as Parameters<typeof syncNotionGeoMirrorAfterDetach>[0]["bindings"],
+        });
+      } catch (error) {
+        notionMirror = "pending";
+        console.error("GEO_NOTION_MIRROR_AFTER_UNLINK_FAILED", target.targetType, target.id,
+          error instanceof Error ? error.message : String(error));
+      }
+      return Response.json({ point, notionMirror, googlePlaceDetached: true,
+        message: "Google miesto je odpojené. Textová adresa zostala zachovaná." });
     }
 
     if (action === "discover-google-place") {

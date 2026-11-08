@@ -10,7 +10,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
 import { eventHref } from "@/lib/events";
-import { getManagedEventById } from "@/lib/event-store";
+import { getManagedEventById, getManagedEventInternalNotesById } from "@/lib/event-store";
 import { getCanonicalDraftDuplicateWarning } from "@/lib/canonical-draft-flags";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +48,7 @@ export default async function EditEventPage({ params }: Props) {
     </>}>
     <AdminGeminiOriginBadge agenda="events" entityId={event.id} />
     <Suspense fallback={null}><EventDuplicateWarning id={event.id} /></Suspense>
-    <AdminEventEditor event={event} />
+    <AdminEventEditor event={event} initialInternalNotes={await getManagedEventInternalNotesById(event.id)} />
     {event.status === "draft" && <AdminCanonicalDraftDelete entityType="EVENT" canonicalEntityId={event.id} returnHref="/admin/podujatia" />}
   </AdminShell>;
 }

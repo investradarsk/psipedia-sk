@@ -52,6 +52,7 @@ export type DogEvent = {
   websiteUrl: string | null;
   registrationUrl: string | null;
   imageUrl: string | null;
+  imageAlt?: string;
   imageKey: string | null;
   imageDisplay?: SmartImageMode;
   thumbnailImageDisplay?: ImageDisplayConfig | null;

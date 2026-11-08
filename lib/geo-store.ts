@@ -342,16 +342,30 @@ export async function getGoogleMapsWorkflowSnapshot(
 ): Promise<{ eventId: string | null; decision: "NOT_REQUIRED" | "UNRESOLVED" }> {
   const db = requireGeoD1(database);
   const point = await getGeoPointForTarget(targetType, targetId, db);
-  if (!point) return { eventId: null, decision: "UNRESOLVED" };
-  const row = await db.prepare(`
+  if (!point && targetType !== "ORGANIZATION_LOCATION") return { eventId: null, decision: "UNRESOLVED" };
+  const row = point ? await db.prepare(`
     SELECT id, action FROM moderation_events
     WHERE resource_type='GEO_POINT' AND subject_id=?
       AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
     ORDER BY created_at DESC, rowid DESC LIMIT 1
-  `).bind(String(point.id)).first<{ id: string; action: string }>();
+  `).bind(String(point.id)).first<{ id: string; action: string }>() : null;
+  // Organizations historically recorded the choice against the organization
+  // rather than its canonical location. Respect that existing decision until
+  // a new unified GEO_POINT decision supersedes it.
+  let effective = row;
+  if (!effective && targetType === "ORGANIZATION_LOCATION") {
+    effective = await db.prepare(`
+      SELECT id, action FROM moderation_events
+      WHERE resource_type='HELP_ORGANIZATION'
+        AND subject_id=(SELECT CAST(organization_id AS TEXT)
+                        FROM organization_locations WHERE id=? LIMIT 1)
+        AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+      ORDER BY created_at DESC, rowid DESC LIMIT 1
+    `).bind(targetId).first<{ id: string; action: string }>() ?? null;
+  }
   return {
-    eventId: row?.id ?? null,
-    decision: row?.action === GOOGLE_MAPS_NOT_REQUIRED_ACTION ? "NOT_REQUIRED" : "UNRESOLVED",
+    eventId: effective?.id ?? null,
+    decision: effective?.action === GOOGLE_MAPS_NOT_REQUIRED_ACTION ? "NOT_REQUIRED" : "UNRESOLVED",
   };
 }
 
@@ -413,6 +427,27 @@ export async function resetGoogleMapsNotRequired(input: {
     if (input.expectedGeoRevision !== undefined && point.updatedAt !== input.expectedGeoRevision) {
       throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
     }
+    // Existing organizations may still hold a pre-unification decision in
+    // HELP_ORGANIZATION. Respect its revision without splitting the mutation API:
+    // the new decision is always written to the canonical GEO_POINT ledger.
+    const geoEvent = input.targetType === "ORGANIZATION_LOCATION"
+      ? await db.prepare(`
+          SELECT id FROM moderation_events WHERE resource_type='GEO_POINT' AND subject_id=?
+            AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+          ORDER BY created_at DESC, rowid DESC LIMIT 1
+        `).bind(String(point.id)).first<{ id: string }>()
+      : null;
+    const legacyOrganizationDecision = input.targetType === "ORGANIZATION_LOCATION"
+      && !geoEvent && input.expectedWorkflowRevision !== null;
+    const expectedGeoEvent = legacyOrganizationDecision ? null : input.expectedWorkflowRevision;
+    const legacyClause = legacyOrganizationDecision
+      ? ` AND (SELECT id FROM moderation_events
+           WHERE resource_type='HELP_ORGANIZATION'
+             AND subject_id=(SELECT CAST(organization_id AS TEXT)
+                             FROM organization_locations WHERE id=?)
+             AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+           ORDER BY created_at DESC, rowid DESC LIMIT 1) IS ?`
+      : "";
     const eventId = globalThis.crypto.randomUUID();
     const result = await db.prepare(`
       INSERT INTO moderation_events (
@@ -425,13 +460,16 @@ export async function resetGoogleMapsNotRequired(input: {
         WHERE resource_type='GEO_POINT' AND subject_id=?
           AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
         ORDER BY created_at DESC, rowid DESC LIMIT 1) IS ?
+        ${legacyClause}
         AND EXISTS (SELECT 1 FROM geo_points WHERE id=? AND updated_at=?
           AND manual_override=0 AND provider='google_places' AND geocode_status='RESOLVED'
           AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT')
     `).bind(
       eventId, String(point.id), input.actorRef, point.geocodeStatus, point.geocodeStatus,
       JSON.stringify(["google_maps_workflow"]), new Date().toISOString(),
-      String(point.id), input.expectedWorkflowRevision, point.id, point.updatedAt,
+      String(point.id), expectedGeoEvent,
+      ...(legacyOrganizationDecision ? [input.targetId, input.expectedWorkflowRevision] : []),
+      point.id, point.updatedAt,
     ).run();
     if (result.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
     return point;
@@ -991,6 +1029,50 @@ export async function applyGeocoderResolution(input: {
         input.result.provenance, input.result.sourceLicense, now, now, current.id,
       );
   await statement.run();
+  return getGeoPointForTarget(input.targetType, input.targetId, db);
+}
+
+/** Explicit Admin unlink. Preserve canonical text address while clearing every
+ * Google Place resolution and its stale coordinates. Protected by an optimistic
+ * revision guard so an older browser tab cannot detach a newly confirmed place.
+ */
+export async function detachGooglePlace(input: {
+  targetType: GeoTargetType;
+  targetId: number;
+  expectedGeoRevision: string;
+  actorRef: string;
+}, database?: GeoD1Database) {
+  const db = requireGeoD1(database);
+  const current = await getGeoPointForTarget(input.targetType, input.targetId, db);
+  if (!current || current.provider !== "google_places") throw Error("GOOGLE_PLACE_NOT_LINKED");
+  if (current.updatedAt !== input.expectedGeoRevision || current.manualOverride) {
+    throw Error("GOOGLE_PLACE_UNLINK_CONFLICT");
+  }
+  const now = new Date().toISOString();
+  const resultId = await isGeoProviderResultIdSchemaAvailable(db);
+  const result = await db.prepare(`
+    UPDATE geo_points SET
+      google_place_id=NULL, google_place_source_fingerprint=NULL,
+      google_place_matched_at=NULL,
+      ${resultId ? "provider_result_id=NULL," : ""}
+      latitude=NULL, longitude=NULL, resolution_method=NULL,
+      provider=NULL, provenance=NULL, source_license=NULL,
+      resolved_source_fingerprint=NULL,
+      geocode_status='PENDING', last_error_code=NULL,
+      last_error_at=NULL, retry_after_at=NULL, last_geocoded_at=NULL,
+      updated_at=?
+    WHERE id=? AND updated_at=? AND provider='google_places' AND manual_override=0
+    RETURNING id
+  `).bind(now, current.id, current.updatedAt).first<{ id: number }>();
+  if (!result) throw Error("GOOGLE_PLACE_UNLINK_CONFLICT");
+  await writeGeoModerationEvent({
+    geoPointId: current.id, action: "GOOGLE_PLACE_UNLINKED",
+    actorType: "ADMIN", actorRef: input.actorRef,
+    fromStatus: current.geocodeStatus, toStatus: "PENDING",
+    reasonCode: "ADMIN_EXPLICIT_GOOGLE_PLACE_UNLINK",
+    changedFields: ["google_place_id","google_place_source_fingerprint",
+      "latitude","longitude","provider","geocode_status"],
+  }, db);
   return getGeoPointForTarget(input.targetType, input.targetId, db);
 }
 

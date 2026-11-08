@@ -47,6 +47,9 @@ export async function PUT(request: Request, { params }: Props) {
     const safe=edited===null?raw:eventPreserveUneditedAdminFields(
       raw as Record<string,unknown>,before as unknown as Record<string,unknown>,edited,
     ) as ManagedEventInput;
+    // Notes are private and absent from DogEvent. Never overwrite a newer Notion
+    // note unless the Admin editor explicitly changed that field.
+    if (edited !== null && !edited.includes("internalNotes")) delete safe.internalNotes;
     const event = await updateManagedEvent(id, safe, user.email, before);
     if (!event) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
     if (before.imageKey && before.imageKey !== event.imageKey) {
