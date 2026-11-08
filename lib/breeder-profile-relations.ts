@@ -7,7 +7,7 @@ import type { PublicRelatedBreed } from "./content-relations";
  * alongside the breeder's existing metadata, without an additional D1 migration.
  */
 export { BREEDER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
-import { BREEDER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
+import { BREEDER_CLUB_IDS_METADATA_KEY, TRAINER_BREED_IDS_METADATA_KEY, TRAINER_CLUB_IDS_METADATA_KEY } from "./directory-profile-metadata.ts";
 
 export type BreederRelationSelection = {
   breedIds: number[];
@@ -21,14 +21,17 @@ function ids(value: unknown): number[] {
   return [...new Set(value.filter((id): id is number =>
     Number.isSafeInteger(id) && id > 0))].slice(0, 40);
 }
-export function parseBreederClubIds(sourceJson: string | null | undefined): number[] {
+function parseMetadataIds(sourceJson: string | null | undefined, key: string): number[] {
   if (!sourceJson) return [];
   try {
     const metadata: unknown = JSON.parse(sourceJson);
     if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return [];
-    const value = (metadata as Record<string, unknown>)[BREEDER_CLUB_IDS_METADATA_KEY];
+    const value = (metadata as Record<string, unknown>)[key];
     return ids(typeof value === "string" ? JSON.parse(value) : value);
   } catch { return []; }
+}
+export function parseBreederClubIds(sourceJson: string | null | undefined): number[] {
+  return parseMetadataIds(sourceJson, BREEDER_CLUB_IDS_METADATA_KEY);
 }
 export function validateBreederRelations(value: unknown): BreederRelationSelection {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("Neplatné prepojenia.");
@@ -53,7 +56,11 @@ export async function getBreederRelationSelection(
   database: Database, profileId: number,
 ): Promise<BreederRelationSelection | null> {
   const profile = await breeder(database, profileId);
-  if (!profile || profile.category !== "chovatelske-stanice") return null;
+  if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return null;
+  if (profile.category === "treneri") return {
+    breedIds: parseMetadataIds(profile.source_data_json, TRAINER_BREED_IDS_METADATA_KEY),
+    clubIds: parseMetadataIds(profile.source_data_json, TRAINER_CLUB_IDS_METADATA_KEY),
+  };
   const res = await database.prepare(
     "SELECT breed_id AS id FROM breed_directory_relations WHERE profile_id=? ORDER BY breed_id",
   ).bind(profileId).all<{ id: number }>();
@@ -77,8 +84,8 @@ export async function saveBreederRelationSelection(
   database: Database, profileId: number, selection: BreederRelationSelection, actor: string,
 ) {
   const profile = await breeder(database, profileId);
-  if (!profile || profile.category !== "chovatelske-stanice" || profile.status === "archived")
-    throw Error("Chovateľská stanica sa nenašla.");
+  if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category) || profile.status === "archived")
+    throw Error("Profil chovateľskej stanice alebo trénera sa nenašiel.");
   const chosen = validateBreederRelations(selection);
   // Every selected record must already exist. These checks never look up or
   // require web/Google/FCI evidence; they only prevent broken profile links.
@@ -94,6 +101,18 @@ export async function saveBreederRelationSelection(
       (clubRows.results ?? []).length !== chosen.clubIds.length)
     throw Error("Niektoré vybrané plemená alebo kluby neexistujú.");
   const now = new Date().toISOString();
+  if (profile.category === "treneri") {
+    // Trainer links have their own metadata keys. Never reuse the breeder
+    // relation_type or change breed_directory_relations for other profiles.
+    const saved = await database.prepare(`UPDATE directory_profiles
+      SET source_data_json=json_set(source_data_json, ?, ?, ?, ?), updated_at=?,updated_by=?
+      WHERE id=? AND category='treneri' AND status <> 'archived' AND source_data_json=? RETURNING id`)
+      .bind("$." + TRAINER_BREED_IDS_METADATA_KEY, JSON.stringify(chosen.breedIds),
+        "$." + TRAINER_CLUB_IDS_METADATA_KEY, JSON.stringify(chosen.clubIds),
+        now, actor, profileId, profile.source_data_json).first<{ id: number }>();
+    if (!saved) throw Error("Prepojenia sa medzičasom zmenili. Načítaj profil a skús znova.");
+    return chosen;
+  }
   await database.batch([
     database.prepare("DELETE FROM breed_directory_relations WHERE profile_id=?").bind(profileId),
     ...chosen.breedIds.map(id => database.prepare(
@@ -109,8 +128,10 @@ export async function listPublicBreederClubLinks(
   database: Database, profileId: number,
 ): Promise<BreederPublicLink[]> {
   const profile = await breeder(database, profileId);
-  if (!profile || profile.category !== "chovatelske-stanice") return [];
-  const clubIds = parseBreederClubIds(profile.source_data_json);
+  if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return [];
+  const clubIds = profile.category === "treneri"
+    ? parseMetadataIds(profile.source_data_json, TRAINER_CLUB_IDS_METADATA_KEY)
+    : parseBreederClubIds(profile.source_data_json);
   if (!clubIds.length) return [];
   const result = await database.prepare(
     "SELECT id,name,slug FROM directory_profiles WHERE category='chovatelske-kluby' " +
@@ -127,7 +148,22 @@ export async function listPublicBreederBreedLinks(
   database: Database, profileId: number,
 ): Promise<PublicRelatedBreed[]> {
   const profile = await breeder(database, profileId);
-  if (!profile || profile.category !== "chovatelske-stanice") return [];
+  if (!profile || !["chovatelske-stanice", "treneri"].includes(profile.category)) return [];
+  if (profile.category === "treneri") {
+    const breedIds = parseMetadataIds(profile.source_data_json, TRAINER_BREED_IDS_METADATA_KEY);
+    if (!breedIds.length) return [];
+    const rows = await database.prepare(
+      `SELECT id,name,slug,image_url,fci_group FROM managed_breeds
+       WHERE id IN (${canonicalBreedIdsSql}) AND id IN (SELECT value FROM json_each(?))
+       ORDER BY fci_group,name COLLATE NOCASE LIMIT 40`,
+    ).bind(JSON.stringify(breedIds)).all<{
+      id: number; name: string; slug: string; image_url: string | null; fci_group: number;
+    }>();
+    return (rows.results ?? []).map(row => ({
+      id: row.id, name: row.name, slug: row.slug,
+      href: breedProfileHref(row.slug), imageUrl: row.image_url, fciGroup: row.fci_group,
+    }));
+  }
   const rows = await database.prepare(
     `SELECT DISTINCT b.id,b.name,b.slug,b.image_url,b.fci_group
      FROM breed_directory_relations r
