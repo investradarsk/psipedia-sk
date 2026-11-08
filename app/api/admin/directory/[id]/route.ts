@@ -68,6 +68,7 @@ export async function PUT(request: Request, { params }: Props) {
       breederEditedPaths?: unknown;
       trainerServicesEdited?: unknown;
       trainerTrustEditedPaths?: unknown;
+      clearMainImage?: unknown;
       pilotMetadataFields?: unknown;
     };
     const {
@@ -75,6 +76,7 @@ export async function PUT(request: Request, { params }: Props) {
       breederEditedPaths: rawBreederEditedPaths,
       trainerServicesEdited: rawTrainerServicesEdited,
       trainerTrustEditedPaths: rawTrainerTrustEditedPaths,
+      clearMainImage: rawClearMainImage,
       pilotMetadataFields: rawPilotMetadataFields,
       ...submittedBody
     } = rawBody;
@@ -187,6 +189,25 @@ export async function PUT(request: Request, { params }: Props) {
     const changedTrainerTrustFields = before.category === "treneri"
       ? changedTrainerTrustAdminFields(before, profile).filter(field => trainerTrustEditedPaths.includes(field))
       : [];
+    // Explicit media removal is a separate, guarded operation. In particular,
+    // do not mistake an old form's empty image field for a delete instruction.
+    if (rawClearMainImage === true && (profile.imageUrl || profile.imageKey)) {
+      const cleared = await db.prepare(
+        "UPDATE directory_profiles SET image_url=NULL, image_key=NULL, " +
+        "thumbnail_display_json=NULL, detail_display_json=NULL, updated_at=?, updated_by=? " +
+        "WHERE id=? AND category=? AND status <> 'archived' AND updated_at=? RETURNING id",
+      ).bind(new Date().toISOString(), user.email, id, profile.category, profile.updatedAt)
+        .first<{ id: number }>();
+      if (!cleared) {
+        return Response.json({
+          error: "Profil sa uložil, ale odstránenie fotografie sa nepodarilo potvrdiť. Obnov stránku.",
+        }, { status: 409 });
+      }
+      const reloaded = await getManagedDirectoryProfileById(id, db);
+      if (!reloaded || reloaded.imageUrl || reloaded.imageKey)
+        throw new Error("DIRECTORY_IMAGE_REMOVAL_NOT_PERSISTED");
+      profile = reloaded;
+    }
     if (before.imageKey && before.imageKey !== profile.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
       if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
