@@ -278,6 +278,9 @@ test.describe("admin directory v2", () => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Mutation flow runs once against the shared local fixture.");
     await page.goto("/admin/adresar/novy");
     await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
+    // Trainers intentionally retain raw editorial phone text without blocking.
+    // Exercise strict phone validation using a category with that contract.
+    await page.getByLabel("Kategória").selectOption("salony-a-sluzby");
 
     await page.getByLabel("Názov profilu").fill("Directory Admin Created Fixture");
     await page.getByLabel("Krátky popis").fill("Testovací profil vytvorený cez nový directory admin flow.");
