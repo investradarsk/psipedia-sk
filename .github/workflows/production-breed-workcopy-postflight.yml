@@ -61,6 +61,7 @@ jobs:
         run: |
           npm run db:check-migrations
           node --experimental-strip-types --test tests/production-breed-workcopy-step3-postflight.test.mjs
+          node --experimental-strip-types --test tests/production-breed-workcopy-step4-field-audit.test.mjs
           node --test tests/production-breed-workcopy-baseline-step2.test.mjs
           node --experimental-strip-types --test tests/notion-breed-workcopy-receipt.test.mjs
 
