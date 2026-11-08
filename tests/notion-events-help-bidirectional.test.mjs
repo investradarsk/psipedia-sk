@@ -425,7 +425,7 @@ test("renderer-backed Notion SEO contract is limited to events and generic help"
   const helpFields = Object.values(notionSeoPropertyNames["help-cases"]);
 
   assert.deepEqual(eventFields, [
-    "SEO title", "Meta description", "Canonical URL", "Noindex",
+    "SEO title", "Meta description", "SEO kľúčové slovo", "Canonical URL", "Noindex",
     "OG title", "OG popis", "OG obrázok",
   ]);
   assert.deepEqual(helpFields, [
@@ -450,12 +450,14 @@ test("Notion SEO schema uses optional text/url/checkbox properties and defaults 
   const schema = notionSeoPropertySchema("events");
   assert.deepEqual(schema["SEO title"], { rich_text: {} });
   assert.deepEqual(schema["Meta description"], { rich_text: {} });
+  assert.deepEqual(schema["SEO kľúčové slovo"], { rich_text: {} });
   assert.deepEqual(schema["Canonical URL"], { url: {} });
   assert.deepEqual(schema.Noindex, { checkbox: {} });
   assert.deepEqual(schema["OG obrázok"], { url: {} });
 
-  const source = notionSeoSourceProperties("events", {}, "");
+  const source = notionSeoSourceProperties("events", { focusKeyword: "psie preteky" }, "");
   assert.equal(source.Noindex, false);
+  assert.equal(source["SEO kľúčové slovo"], "psie preteky");
 
   assert.deepEqual(notionSeoSchemaExtensionFields("events"), [
     "Canonical URL", "Noindex", "OG title", "OG popis", "OG obrázok",
@@ -489,10 +491,12 @@ test("empty Notion SEO values clear the override to fallback while absent fields
     ogTitle: "Pôvodný OG",
     ogDescription: "Pôvodný OG popis",
     ogImage: "/images/povodny.webp",
+    focusKeyword: "pôvodná fráza",
   };
 
   const merged = mergeNotionSeo("events", {
     "SEO title": "",
+    "SEO kľúčové slovo": "",
     Noindex: false,
     "OG popis": "",
   }, existing);
@@ -504,6 +508,8 @@ test("empty Notion SEO values clear the override to fallback while absent fields
   assert.equal(merged.canonicalUrl, existing.canonicalUrl);
   assert.equal(merged.ogTitle, existing.ogTitle);
   assert.equal(merged.ogImage, existing.ogImage);
+  assert.equal(merged.focusKeyword, "pôvodná fráza");
+  assert.equal(mergeNotionSeo("events", { "SEO kľúčové slovo": "nová fráza" }, existing).focusKeyword, "nová fráza");
 });
 
 test("bulk backfill extends only existing safe Notion schemas and does not require D1 schema work", async () => {
