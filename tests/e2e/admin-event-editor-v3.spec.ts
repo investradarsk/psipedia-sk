@@ -10,6 +10,7 @@ const sections = [
   ["event-contacts", "Organizátor a kontakty"],
   ["event-details", "Program a informácie"],
   ["event-media", "Fotografia a URL"],
+  ["event-notes", "Interné poznámky"],
   ["event-seo", "SEO"],
 ] as const;
 

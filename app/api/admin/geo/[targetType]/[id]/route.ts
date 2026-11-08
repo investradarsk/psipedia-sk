@@ -12,7 +12,7 @@ import {
   type GeoTargetType,
 } from "@/lib/geo";
 import { directoryExactGeoCandidate, directoryNumberlessPlaceCandidate } from "@/lib/directory-service-address";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { diagnoseGeoTarget, previewGeoSource, resolveGeoTarget } from "@/lib/geo-service";
 import {
   applyGeocoderResolution,
@@ -292,6 +292,8 @@ export async function POST(request: Request, { params }: Props) {
     }
 
     if (action === "detach-google-place") {
+      const mutation = await requireAdminMutation(request, { strictProvenance: true });
+      if (mutation.response || !mutation.user) return mutation.response ?? unauthorizedAdminResponse();
       const source = await getGeoSourceLocation(target.targetType, target.id);
       if (!source) return Response.json({ error: "Profil alebo lokalita sa nenašla." }, { status: 404 });
       const expectedGeoRevision = typeof body.expectedGeoRevision === "string" ? body.expectedGeoRevision : "";

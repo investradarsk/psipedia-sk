@@ -15,6 +15,7 @@ function encode(value: unknown, raw: Record<string, unknown>) {
   if (kind === "checkbox") return { checkbox: value === true };
   if (kind === "number") return { number: typeof value === "number" ? value : null };
   if (kind === "select") return { select: str ? { name: str } : null };
+  if (kind === "status") return { status: str ? { name: str } : null };
   if (kind === "url") return { url: str || null };
   if (kind === "rich_text") return { rich_text: str
     ? [{ type: "text", text: { content: str.slice(0, 1900) } }] : [] };
