@@ -312,7 +312,7 @@ test('quick edit drawer is scoped, keyboard closable and restores trigger focus'
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({event:{}})});
   });
   await drawer.getByRole('button',{name:'Uložiť',exact:true}).click();
-  await expect(page.getByText('Sekundárne nastavenia podujatia boli uložené.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Rýchla úprava podujatia bola uložená.',{exact:true})).toBeVisible();
   expect(patch).toBe(1);
   await expect(trigger).toBeFocused();
 });
