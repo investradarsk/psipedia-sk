@@ -20,12 +20,9 @@ import { breedAtlasHref } from "@/lib/breed-atlas";
 import {
   combinedFciMeasurement,
   publicBreedMeasurement,
-  publicFciDate,
-  publicFciSectionName,
   type FciStandard,
 } from "@/lib/breed-fci";
 import { normalizeBreedSports, textParagraphs } from "@/lib/breed-profile";
-import { stripStagedBreedMerge } from "@/lib/breed-compact-public";
 import {
   getBreedDetailRelations,
   getPublishedBreed,
@@ -239,33 +236,35 @@ export default async function BreedDetailPage({ params }: Props) {
     combinedFciMeasurement([fciDogWeight, fciBitchWeight], "kg"),
   );
   const lifespan = publicBreedMeasurement(breed.lifespan, "lifespan");
-  const use = fci.vyuzitie?.trim() ?? "";
-  const workingTrial = managedBreed?.workingTrial?.trim() ?? "";
 
   const quickFacts = [
     { label: "Pôvod", value: breed.origin?.trim() },
     { label: "Výška", value: height },
     { label: "Hmotnosť", value: weight },
     { label: "Dĺžka života", value: lifespan },
-    { label: "Využitie", value: use },
-    { label: "Pracovná skúška", value: workingTrial },
+    { label: "Veľkosť", value: breed.size?.trim() },
+    { label: "Srsť", value: breed.coat?.trim() },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
 
-  const overviewParagraphs = textParagraphs(stripStagedBreedMerge(editorial.overview), breed.character);
+  const overviewParagraphs = textParagraphs(editorial.overview);
   const accordions: AccordionItem[] = [
+    {
+      key: "character",
+      eyebrow: "Povaha",
+      title: "Charakter a temperament",
+      paragraphs: textParagraphs(breed.character),
+    },
     {
       key: "movement",
       eyebrow: "Každodenný život",
       title: "Pohyb a každodenný život",
-      paragraphs: textParagraphs(stripStagedBreedMerge(breed.exercise), breed.needs),
-      tip: editorial.exerciseTip,
+      paragraphs: textParagraphs(breed.exercise),
     },
     {
       key: "training",
       eyebrow: "Výchova",
       title: "Výcvik",
-      paragraphs: textParagraphs(stripStagedBreedMerge(breed.training)),
-      tip: editorial.trainingTip,
+      paragraphs: textParagraphs(breed.training),
       extraSections: [
         {
           title: "Časté chyby majiteľov",
@@ -289,69 +288,52 @@ export default async function BreedDetailPage({ params }: Props) {
       key: "coat",
       eyebrow: "Starostlivosť",
       title: "Srsť a starostlivosť",
-      paragraphs: textParagraphs(stripStagedBreedMerge(editorial.coatCare)),
-      tip: editorial.coatTip,
+      paragraphs: textParagraphs(editorial.coatCare),
     },
     {
       key: "health",
       eyebrow: "Zdravie",
       title: "Zdravie",
-      paragraphs: textParagraphs(stripStagedBreedMerge(breed.health)),
-      tip: editorial.healthTip,
+      paragraphs: textParagraphs(breed.health),
       risks: healthRisks,
     },
     {
       key: "history",
       eyebrow: "Pôvod plemena",
       title: "História a pôvod",
-      paragraphs: textParagraphs(stripStagedBreedMerge(breed.history)),
+      paragraphs: textParagraphs(breed.history),
       extraSections: [{ title: "Zaujímavosti", paragraphs: textParagraphs(editorial.curiosities) }],
     },
   ].filter(
     (item) =>
       item.paragraphs.length > 0 ||
-      Boolean(item.tip?.trim()) ||
       Boolean(item.risks?.length) ||
       Boolean(item.extraSections?.some((section) => section.paragraphs.length > 0)),
   );
 
-  const fciGroupName = getFciGroup(breed.fciGroup)?.label || fci.fci_skupina_nazov || breed.group;
-  const sectionNumber = managedBreed?.fciSectionNumber?.trim() ?? "";
-  const storedSectionName = stripStagedBreedMerge(fci.fci_sekcia_nazov || breed.fciSection || "").trim();
-  const sectionName = publicFciSectionName(
-    breed.fciGroup,
-    sectionNumber,
-    storedSectionName && storedSectionName !== sectionNumber ? storedSectionName : "",
-  );
-  const standardDate = publicFciDate(managedBreed?.validStandardDate);
+  const fciGroupName = getFciGroup(breed.fciGroup)?.label || "";
   const fciGroupHref = breedAtlasHref({
     query: "",
     fciGroup: String(breed.fciGroup),
     fciSection: "",
     origin: "",
   });
-  const fciSectionHref = sectionNumber
-    ? breedAtlasHref({
-        query: "",
-        fciGroup: String(breed.fciGroup),
-        fciSection: sectionNumber,
-        origin: "",
-      })
-    : "";
-
+  // The section NUMBER remains an internal navigation key for the atlas.
+  // It is not a separate input or visible field in the compact Notion editor.
+  const sectionNumber = managedBreed?.fciSectionNumber?.trim() ?? "";
+  const fciSectionHref = sectionNumber ? breedAtlasHref({
+    query: "", fciGroup: String(breed.fciGroup),
+    fciSection: sectionNumber, origin: "",
+  }) : undefined;
+  // Only FCI identity fields present in the 60-column Notion workcopy.
   const fciFacts = [
     { label: "FCI číslo", value: managedBreed?.fciNumber ? String(managedBreed.fciNumber) : "" },
     {
-      label: "Skupina",
+      label: "FCI skupina",
       value: fciGroupName ? `${breed.fciGroup}. ${fciGroupName}` : String(breed.fciGroup),
       href: fciGroupHref,
     },
-    {
-      label: "Sekcia",
-      value: [sectionNumber, sectionName].filter(Boolean).join(" · "),
-      href: fciSectionHref,
-    },
-    { label: "Platný štandard", value: standardDate },
+    { label: "FCI sekcia", value: breed.fciSection?.trim() || sectionNumber, href: fciSectionHref },
   ].filter((item) => Boolean(item.value));
   const hasFciReference = Boolean(
     managedBreed?.fciNumber ||

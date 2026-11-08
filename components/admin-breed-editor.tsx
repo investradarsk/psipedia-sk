@@ -9,15 +9,10 @@ import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
 import { useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { BreedEditorOptions, BreedHeroTrait, BreedSport, ManagedBreed } from "@/lib/breed-store";
+import type { BreedEditorOptions, BreedSport, ManagedBreed } from "@/lib/breed-store";
 import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
-import { AdminSeoFields } from "@/components/admin-seo-fields";
-import { AdminBreedNotionExtras } from "@/components/admin-breed-notion-extras";
-import { AdminDeferredDetails } from "@/components/admin-deferred-details";
-import { AdminBreedRelationGroup } from "@/components/admin-breed-relation-group";
 import { AdminFieldFeedback, AdminFormFeedback } from "@/components/admin-form-feedback";
-import { breedSeoFallback } from "@/lib/content-seo";
 import { inspectBreedMeasurement, type BreedMeasurementKind, type FciStandard, type FciStandardTextKey } from "@/lib/breed-fci";
 import {
   AdminActionButton,
@@ -46,7 +41,7 @@ const sportOptions=[
 type SportDraft={index:number|null;key:string;label:string;rating:number;note:string};
 const subscribeToHydration=()=>()=>{};
 
-export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;options:BreedEditorOptions }) {
+export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:BreedEditorOptions }) {
   const router = useRouter();
   const hydrated=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
   const [form,setCanonicalForm]=useState({
@@ -64,7 +59,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const [dirty,setDirty]=useState(false);
   const formEditRevisionRef = useRef(0);
   const setForm: typeof setCanonicalForm = (update) => { formEditRevisionRef.current += 1; setDirty(true); setCanonicalForm(update); };
-  const [slugEdited,setSlugEdited]=useState(Boolean(breed));
+  const slugEdited = Boolean(breed);
   const [expectedUpdatedAt,setExpectedUpdatedAt]=useState(breed?.updatedAt??"");
   const [saving,setSaving]=useState(false);
   const savePendingRef=useRef(false);
@@ -74,7 +69,6 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const [error,setError]=useState("");
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [activeBreedSection,setActiveBreedSection]=useState("breed-basic");
-  const [activeRelationKind,setActiveRelationKind]=useState<"articles"|"breeds"|"stations"|"clubs">("articles");
   const chooseBreedSection = useProfileEditorSectionPager(activeBreedSection, setActiveBreedSection);
   const [sportDraft,setSportDraft]=useState<SportDraft|null>(null);
   const [sportError,setSportError]=useState("");
@@ -84,9 +78,6 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   function updateSource(index:number,patch:Partial<BreedSource>){setForm((current)=>({...current,sources:current.sources.map((item,i)=>i===index?{...item,...patch}:item)}));}
   function updateFci(key:keyof FciStandard,value:string){setForm((current)=>({...current,fciStandard:{...current.fciStandard,[key]:value}}));}
   function updateEditorial(key:keyof typeof form.editorial,value:string){setForm((current)=>({...current,editorial:{...current.editorial,[key]:value}}));}
-  function updateHeroTrait(index:number,patch:Partial<BreedHeroTrait>){setForm((current)=>{const traits=[...(current.editorial.heroTraits??[])];while(traits.length<=index)traits.push({label:"",rating:3});traits[index]={...traits[index],...patch};return {...current,editorial:{...current.editorial,heroTraits:traits}};});}
-  function toggleId(key:"relatedBreedIds"|"relatedArticleIds"|"directoryProfileIds",id:number){setForm((current)=>({...current,[key]:current[key].includes(id)?current[key].filter((item)=>item!==id):[...current[key],id]}));}
-
   async function uploadCover(event:File|ChangeEvent<HTMLInputElement>){const file=adminSelectedImage(event);if(!file||uploadPending.current||saving)return;uploadPending.current=true;setUploading(true);setError("");try{const result=await uploadAdminImage(file,"breeds");setForm((current)=>({...current,image:result.imageUrl,imageKey:result.imageKey}));setMessage(adminImageUploadMessage(result,"Ulož plemeno, aby sa titulná fotografia priradila."));}catch(e){setError(e instanceof Error?e.message:"Obrázok sa nepodarilo nahrať.");}finally{uploadPending.current=false;setUploading(false);}}
   async function uploadGallery(event: ChangeEvent<HTMLInputElement> | File[]) {
     const files = Array.isArray(event) ? event : Array.from(event.target.files ?? []);
@@ -152,8 +143,8 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       return;
     }
     if (!form.slug.trim()) {
-      setSettingsOpen(true);
-      setError("Vyplň URL adresu plemena v pokročilých nastaveniach.");
+      chooseBreedSection("breed-basic");
+      setError("Plemeno potrebuje platnú URL adresu vytvorenú z názvu.");
       return;
     }
     const submittedRevision = formEditRevisionRef.current;
@@ -177,30 +168,30 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
 
   const editorNavigation=[
     {id:"breed-basic",label:"Základ"},
-    {id:"breed-overview",label:"Prehľad"},
+    {id:"breed-overview",label:"Odborný profil"},
     {id:"breed-character",label:"Charakter"},
-    {id:"breed-practical",label:"Praktické"},
+    {id:"breed-practical",label:"Pohyb a život"},
     {id:"breed-health",label:"Zdravie"},
     {id:"breed-sports",label:"Športy"},
-    {id:"breed-relations",label:"Prepojenia"},
     {id:"breed-media",label:"Fotografie"},
   ];
   const scoreFields=[
     ["energy","Úroveň energie"],["trainability","Cvičiteľnosť"],["children","Vzťah k deťom"],["otherDogs","Vzťah k iným psom"],
     ["apartment","Vhodnosť do bytu"],["grooming","Náročnosť starostlivosti"],["shedding","Pĺznutie"],["preyDrive","Lovecký inštinkt"],
   ] as const;
+
+  // Only the independent FCI leaf cells of the approved 60-field Notion layout.
   const fciSections:Array<{title:string;fields:Array<[FciStandardTextKey,string]>}>=[
-    {title:"História, vzhľad a povaha",fields:[["historicky_suhrn","Historický súhrn"],["celkovy_vzhlad","Celkový vzhľad"],["dolezite_proporcie","Dôležité proporcie"],["povaha_temperament","Povaha a temperament"],["vyuzitie","Využitie"]]},
-    {title:"Hlava a telo",fields:[["hlava_lebecna_cast","Hlava – lebečná časť"],["hlava_tvarova_cast","Hlava – tvárová časť"],["oci","Oči"],["usi","Uši"],["krk","Krk"],["telo","Telo"],["chvost","Chvost"]]},
-    {title:"Končatiny, pohyb a srsť",fields:[["predne_koncatiny","Predné končatiny"],["zadne_koncatiny","Zadné končatiny"],["pohyb","Pohyb"],["koza","Koža"],["srst","Srsť"],["farba","Farba"]]},
-    {title:"Veľkosť a chyby",fields:[["vyska_pes_cm","Výška – pes"],["vyska_suka_cm","Výška – suka"],["hmotnost_pes_kg","Hmotnosť – pes"],["hmotnost_suka_kg","Hmotnosť – suka"],["velkost_hmotnost_poznamka","Poznámka k veľkosti"],["chyby","Chyby"],["zavazne_chyby","Závažné chyby"],["diskvalifikacne_chyby","Diskvalifikačné chyby"],["poznamka_chov","Poznámka k chovu"]]},
+    {title:"Vzhľad a povaha",fields:[["celkovy_vzhlad","FCI celkový vzhľad"],["dolezite_proporcie","FCI proporcie"],["povaha_temperament","FCI povaha a temperament"]]},
+    {title:"Stavba, pohyb a srsť",fields:[["hlava_lebecna_cast","FCI lebka"],["telo","FCI telo"],["predne_koncatiny","FCI predné končatiny"],["zadne_koncatiny","FCI zadné končatiny"],["pohyb","FCI pohyb"],["srst","FCI srsť"],["farba","FCI farba"]]},
+    {title:"Rozmery a chyby",fields:[["vyska_pes_cm","FCI výška pes cm"],["vyska_suka_cm","FCI výška suka cm"],["hmotnost_pes_kg","FCI hmotnosť pes kg"],["hmotnost_suka_kg","FCI hmotnosť suka kg"],["chyby","FCI chyby"],["zavazne_chyby","FCI závažné chyby"],["diskvalifikacne_chyby","FCI diskvalifikačné chyby"]]},
   ];
 
   return <>
     <EditorWorkspace
       mode="page"
       title={breed ? `Upraviť plemeno: ${form.name || breed.name}` : "Nové plemeno"}
-      description="Pracuj po sekciách. Rozšírené FCI a SEO nájdeš v nastaveniach."
+      description="Polia podľa novej 60-poľovej databázy Notion; FCI a SEO sú v nastaveniach."
       status={<><EditorStatus label={form.status === "published" ? "Publikované" : "Koncept"} tone={form.status === "published" ? "success" : "neutral"} /><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /></>}
       sections={editorNavigation}
       sectionMode="switch"
@@ -227,8 +218,6 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       </div>
       <div className={styles.editorStats} aria-label="Prehľad vyplnenia">
         <span>{form.sports.length} športov</span>
-        <span>{form.relatedArticleIds.length} článkov</span>
-        <span>{form.directoryProfileIds.length} staníc a klubov</span>
       </div>
     </div>
 
@@ -241,13 +230,13 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
           <label className="admin-field"><span>FCI číslo</span><input type="number" min="1" max="9999" value={form.fciNumber} onChange={(e)=>change("fciNumber",e.target.value)}/></label>
           <label className="admin-field"><span>FCI skupina</span><input type="number" min="1" max="10" value={form.fciGroup} onChange={(e)=>change("fciGroup",Number(e.target.value))}/></label>
           <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={(e)=>change("fciSection",e.target.value)}/></label>
-          <label className="admin-field"><span>Číslo FCI sekcie</span><input value={form.fciSectionNumber} onChange={(e)=>change("fciSectionNumber",e.target.value)}/></label>
-          <label className="admin-field"><span>Skupina / pôvodné využitie</span><input value={form.group} onChange={(e)=>change("group",e.target.value)}/></label>
+
           <label className="admin-field"><span>Veľkosť</span><input value={form.size} onChange={(e)=>change("size",e.target.value)}/></label>
           <label className="admin-field"><span>Hmotnosť</span><input aria-invalid={measurementHasError(form.weight,"weight")} aria-describedby={measurementMessage(form.weight,"weight") ? "breed-weight-feedback" : undefined} value={form.weight} onChange={(e)=>change("weight",e.target.value)}/><AdminFieldFeedback id="breed-weight-feedback" message={measurementMessage(form.weight,"weight")} invalid={measurementHasError(form.weight,"weight")} className="admin-field-warning" /></label>
           <label className="admin-field"><span>Výška v kohútiku</span><input aria-invalid={measurementHasError(form.height,"height")} aria-describedby={measurementMessage(form.height,"height") ? "breed-height-feedback" : undefined} value={form.height} onChange={(e)=>change("height",e.target.value)}/><AdminFieldFeedback id="breed-height-feedback" message={measurementMessage(form.height,"height")} invalid={measurementHasError(form.height,"height")} className="admin-field-warning" /></label>
           <label className="admin-field"><span>Dĺžka života</span><input aria-invalid={measurementHasError(form.lifespan,"lifespan")} aria-describedby={measurementMessage(form.lifespan,"lifespan") ? "breed-lifespan-feedback" : undefined} value={form.lifespan} onChange={(e)=>change("lifespan",e.target.value)}/><AdminFieldFeedback id="breed-lifespan-feedback" message={measurementMessage(form.lifespan,"lifespan")} invalid={measurementHasError(form.lifespan,"lifespan")} className="admin-field-warning" /></label>
           <label className="admin-field"><span>Srsť</span><input value={form.coat} onChange={(e)=>change("coat",e.target.value)}/></label>
+          <label className="admin-field"><span>Oficiálny FCI názov</span><input value={form.officialFciName} onChange={(e)=>change("officialFciName",e.target.value)}/></label>
         </div>
       </div>
     </AdminEditorSection>
@@ -258,9 +247,6 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><AdminLexicalTextField required rows={4} value={form.intro} onChange={(next)=>change("intro",next)} ariaLabel="Krátky úvod v hero (2–4 vety)" /></label>
         <label className="admin-field"><span>Prehľad plemena</span><AdminLexicalTextField rows={6} value={form.editorial.overview??""} onChange={(next)=>updateEditorial("overview",next)} ariaLabel="Prehľad plemena" /></label>
         <label className="admin-field"><span>História</span><AdminLexicalTextField rows={6} value={form.history} onChange={(next)=>change("history",next)} ariaLabel="História" /></label><AdminLexicalAppendButton disabled={saving} onAppend={text=>change("history",appendLexicalPlainText(form.history,text))}/>
-        <h3>Tri hlavné vlastnosti v hero</h3>
-        <AdminHelpText>Prázdne vlastnosti sa verejne nezobrazia.</AdminHelpText>
-        <div className="admin-field-grid">{Array.from({length:3},(_,index)=>{const trait=form.editorial.heroTraits?.[index];return <div className="admin-field-grid" key={index}><label className="admin-field"><span>Vlastnosť {index+1}</span><input value={trait?.label??""} onChange={(e)=>updateHeroTrait(index,{label:e.target.value})}/></label><label className="admin-field"><span>Hodnotenie 1–5</span><input type="number" min="1" max="5" value={trait?.rating??3} onChange={(e)=>updateHeroTrait(index,{rating:Number(e.target.value)})}/></label></div>})}</div>
       </div>
     </AdminEditorSection>
 
@@ -276,19 +262,13 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     <AdminEditorSection id="breed-practical" className={styles.sectionCard}>
       <div className="admin-form-card">
         <div className={styles.heading}><div><h2>Praktický obsah, výcvik a starostlivosť</h2><p>Každodenné potreby, pohyb, výcvik, srsť a život v domácnosti.</p></div></div>
-        <label className="admin-field"><span>Každodenné potreby</span><AdminLexicalTextField rows={5} value={form.needs} onChange={(next)=>change("needs",next)} ariaLabel="Každodenné potreby" /></label>
         <label className="admin-field"><span>Potreba pohybu</span><AdminLexicalTextField rows={6} value={form.exercise} onChange={(next)=>change("exercise",next)} ariaLabel="Potreba pohybu" /></label>
         <label className="admin-field"><span>Výcvik</span><AdminLexicalTextField rows={6} value={form.training} onChange={(next)=>change("training",next)} ariaLabel="Výcvik" /></label>
-        <AdminDeferredDetails className={styles.fciGroup} summary="Rozšírené redakčné texty (pôvodné polia – obsah zostáva zachovaný)">
-          <div className="admin-field-grid">
-          <label className="admin-field"><span>Odporúčanie k pohybu</span><AdminLexicalTextField rows={3} value={form.editorial.exerciseTip??""} onChange={(next)=>updateEditorial("exerciseTip",next)} ariaLabel="Odporúčanie k pohybu" /></label>
-          <label className="admin-field"><span>Odporúčanie k výcviku</span><AdminLexicalTextField rows={3} value={form.editorial.trainingTip??""} onChange={(next)=>updateEditorial("trainingTip",next)} ariaLabel="Odporúčanie k výcviku" /></label>
-          <label className="admin-field"><span>Srsť a údržba</span><AdminLexicalTextField rows={4} value={form.editorial.coatCare??""} onChange={(next)=>updateEditorial("coatCare",next)} ariaLabel="Srsť a údržba" /></label>
-          <label className="admin-field"><span>Odporúčanie k srsti</span><AdminLexicalTextField rows={3} value={form.editorial.coatTip??""} onChange={(next)=>updateEditorial("coatTip",next)} ariaLabel="Odporúčanie k srsti" /></label>
-          <label className="admin-field"><span>Život s rodinou a deťmi</span><AdminLexicalTextField rows={4} value={form.editorial.familyLife??""} onChange={(next)=>updateEditorial("familyLife",next)} ariaLabel="Život s rodinou a deťmi" /></label>
-          <label className="admin-field"><span>Vzťah k iným psom</span><AdminLexicalTextField rows={4} value={form.editorial.otherDogsLife??""} onChange={(next)=>updateEditorial("otherDogsLife",next)} ariaLabel="Vzťah k iným psom" /></label>
-          </div>
-        </AdminDeferredDetails>
+        <div className="admin-field-grid">
+          <label className="admin-field"><span>Redakcia starostlivosť o srsť</span><AdminLexicalTextField rows={5} value={form.editorial.coatCare??""} onChange={(next)=>updateEditorial("coatCare",next)} ariaLabel="Redakcia starostlivosť o srsť" /></label>
+          <label className="admin-field"><span>Redakcia život v rodine</span><AdminLexicalTextField rows={5} value={form.editorial.familyLife??""} onChange={(next)=>updateEditorial("familyLife",next)} ariaLabel="Redakcia život v rodine" /></label>
+          <label className="admin-field"><span>Redakcia spolužitie so psami</span><AdminLexicalTextField rows={5} value={form.editorial.otherDogsLife??""} onChange={(next)=>updateEditorial("otherDogsLife",next)} ariaLabel="Redakcia spolužitie so psami" /></label>
+        </div>
         <label className="admin-field"><span>Pre koho sa hodí — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.goodFor} onChange={(next)=>change("goodFor",next)} ariaLabel="Pre koho sa hodí — jedna položka na riadok" /></label>
         <label className="admin-field"><span>Na čo si dať pozor — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.consider} onChange={(next)=>change("consider",next)} ariaLabel="Na čo si dať pozor — jedna položka na riadok" /></label>
         <label className="admin-field"><span>Zaujímavosti</span><AdminLexicalTextField rows={4} value={form.editorial.curiosities??""} onChange={(next)=>updateEditorial("curiosities",next)} ariaLabel="Zaujímavosti" /></label>
@@ -301,9 +281,6 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <div className={styles.heading}><div><h2>Zdravie</h2><p>Zverejňuj iba odborne overený obsah; editor nepridáva žiadne odvodené zdravotné tvrdenia.</p></div></div>
         <label className="admin-field"><span>Zdravie</span><AdminLexicalTextField rows={7} value={form.health} onChange={(next)=>change("health",next)} ariaLabel="Zdravie" /></label>
         <label className="admin-field"><span>Typické zdravotné riziká — jedna položka na riadok</span><AdminLexicalTextField rows={5} value={form.healthRisks} onChange={(next)=>change("healthRisks",next)} ariaLabel="Typické zdravotné riziká — jedna položka na riadok" /></label>
-        <AdminDeferredDetails className={styles.fciGroup} summary="Rozšírená zdravotná poznámka (pôvodné pole)">
-          <label className="admin-field"><span>Zdravotná poznámka</span><AdminLexicalTextField rows={3} value={form.editorial.healthTip??""} onChange={(next)=>updateEditorial("healthTip",next)} ariaLabel="Zdravotná poznámka" /></label>
-        </AdminDeferredDetails>
       </div>
     </AdminEditorSection>
 
@@ -321,57 +298,6 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
             </div>
           </article>)}
           {!form.sports.length&&<p>Bez redakčne priradených športov.</p>}
-        </div>
-      </div>
-    </AdminEditorSection>
-
-    <AdminEditorSection id="breed-relations" className={styles.sectionCard}>
-      <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>Súvisiaci obsah a databázy</h2><p>Priradené položky sú vždy navrchu. Ďalšie pridáš vyhľadaním názvu; výber nemení obsah článkov ani profilov v adresári.</p></div></div>
-        <div className={styles.relationTabs} role="group" aria-label="Vyber typ prepojenia">
-          {([
-            ["articles","Články"],
-            ["breeds","Plemená"],
-            ["stations","Chovateľské stanice"],
-            ["clubs","Chovateľské kluby"],
-          ] as const).map(([kind,label])=><button
-            key={kind} type="button" aria-pressed={activeRelationKind===kind}
-            onClick={()=>setActiveRelationKind(kind)}>{label}</button>)}
-        </div>
-        <div className={styles.relationColumns}>
-          <div className={styles.relationPanel} hidden={activeRelationKind!=="articles"}>
-          <AdminBreedRelationGroup
-            kind="articles" title="Súvisiace články" placeholder="Hľadať článok"
-            selectedIds={form.relatedArticleIds}
-            initialOptions={options.articles.map((item)=>({id:item.id,label:item.title,meta:item.status}))}
-            onToggle={(id)=>toggleId("relatedArticleIds",id)}
-          />
-          </div>
-          <div className={styles.relationPanel} hidden={activeRelationKind!=="breeds"}>
-          <AdminBreedRelationGroup
-            kind="breeds" title="Podobné plemená" placeholder="Hľadať plemeno"
-            selectedIds={form.relatedBreedIds}
-            initialOptions={options.breeds.filter((item)=>item.id!==breed?.id).map((item)=>({id:item.id,label:item.name,meta:item.fciNumber?"FCI "+item.fciNumber:"FCI číslo neuvedené"}))}
-            localOptions={options.breeds.filter((item)=>item.id!==breed?.id).map((item)=>({id:item.id,label:item.name,meta:item.fciNumber?"FCI "+item.fciNumber:"FCI číslo neuvedené"}))}
-            onToggle={(id)=>toggleId("relatedBreedIds",id)}
-          />
-          </div>
-          <div className={styles.relationPanel} hidden={activeRelationKind!=="stations"}>
-          <AdminBreedRelationGroup
-            kind="stations" title="Chovateľské stanice" placeholder="Hľadať stanicu"
-            selectedIds={form.directoryProfileIds}
-            initialOptions={options.directoryProfiles.filter((item)=>item.category==="chovatelske-stanice").map((item)=>({id:item.id,label:item.name,meta:item.city}))}
-            onToggle={(id)=>toggleId("directoryProfileIds",id)}
-          />
-          </div>
-          <div className={styles.relationPanel} hidden={activeRelationKind!=="clubs"}>
-          <AdminBreedRelationGroup
-            kind="clubs" title="Chovateľské kluby" placeholder="Hľadať klub"
-            selectedIds={form.directoryProfileIds}
-            initialOptions={options.directoryProfiles.filter((item)=>item.category==="chovatelske-kluby").map((item)=>({id:item.id,label:item.name,meta:item.city}))}
-            onToggle={(id)=>toggleId("directoryProfileIds",id)}
-          />
-          </div>
         </div>
       </div>
     </AdminEditorSection>
@@ -411,19 +337,15 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     <AdminDrawer
       open={settingsOpen}
       title="Nastavenia plemena"
-      description="Slug, SEO, odborné FCI/reference údaje a ďalšie sekundárne nastavenia."
+      description="Rozšírený FCI štandard, odborné zdroje a dve SEO polia podľa novej Notion databázy."
       onClose={()=>setSettingsOpen(false)}
       footer={<div className={styles.drawerFooter}><AdminActionButton variant="primary" data-admin-autofocus="true" onClick={()=>setSettingsOpen(false)}>Hotovo</AdminActionButton></div>}
     >
       <div className={styles.drawerFields}>
-        <section className={styles.drawerSection}><h3>Adresa a vizuálne nastavenia</h3><label className="admin-field"><span>URL adresa</span><input required value={form.slug} onChange={(e)=>{setSlugEdited(true);change("slug",slugify(e.target.value));}}/><small>psipedia.sk/plemena/{form.slug||"adresa-plemena"}</small></label><label className="admin-field"><span>Farebný motív</span><select value={form.accent} onChange={(e)=>change("accent",e.target.value)}><option value="forest">Zelený</option><option value="coral">Koralový</option><option value="gold">Zlatý</option><option value="blue">Modrý</option></select></label></section>
-        <section className={styles.drawerSection}><h3>FCI identita a referencia</h3><div className="admin-field-grid"><label className="admin-field"><span>FCI uznanie / status</span><input value={form.fciStandard.status_fci??""} onChange={(e)=>updateFci("status_fci",e.target.value)}/></label><label className="admin-field"><span>Oficiálny názov FCI</span><input value={form.officialFciName} onChange={(e)=>change("officialFciName",e.target.value)}/></label><label className="admin-field"><span>Dátum platného štandardu</span><input value={form.validStandardDate} onChange={(e)=>change("validStandardDate",e.target.value)}/></label><label className="admin-field"><span>Pracovná skúška</span><input value={form.workingTrial} onChange={(e)=>change("workingTrial",e.target.value)}/></label><label className="admin-field"><span>Import key</span><input value={form.importKey} onChange={(e)=>change("importKey",e.target.value)}/><small>Publikované plemeno musí mať importný kľúč.</small></label><label className="admin-field"><span>FCI skupina – názov</span><input value={form.fciStandard.fci_skupina_nazov??""} onChange={(e)=>updateFci("fci_skupina_nazov",e.target.value)}/></label><label className="admin-field"><span>FCI sekcia – názov</span><input value={form.fciStandard.fci_sekcia_nazov??""} onChange={(e)=>updateFci("fci_sekcia_nazov",e.target.value)}/></label><label className="admin-field"><span>FCI nomenklatúra URL</span><input type="url" value={form.fciStandard.fci_nomenklatura_url??""} onChange={(e)=>updateFci("fci_nomenklatura_url",e.target.value)}/></label><label className="admin-field"><span>FCI PDF URL</span><input type="url" value={form.fciStandard.fci_standard_pdf??""} onChange={(e)=>updateFci("fci_standard_pdf",e.target.value)}/></label></div><label className="admin-field"><span>Poznámka k zdroju</span><textarea value={form.fciStandard.zdroj_poznamka??""} onChange={(e)=>updateFci("zdroj_poznamka",e.target.value)}/></label></section>
-        <section className={styles.drawerSection}><h3>FCI odborný štandard</h3><AdminHelpText>Sem patria referenčné FCI údaje. Semantika polí sa v BREEDS-ADMIN nemení.</AdminHelpText>{fciSections.map((section)=><details className={styles.fciGroup} key={section.title}><summary>{section.title}</summary><div>{section.fields.map(([key,label])=><label className="admin-field" key={key}><span>{label}</span><textarea rows={5} value={form.fciStandard[key]??""} onChange={(e)=>updateFci(key,e.target.value)}/></label>)}</div></details>)}</section>
+        <section className={styles.drawerSection}><h3>FCI referencia podľa Notionu</h3><label className="admin-field"><span>FCI štandard PDF</span><input type="url" value={form.fciStandard.fci_standard_pdf??""} onChange={(e)=>updateFci("fci_standard_pdf",e.target.value)}/></label><label className="admin-field"><span>FCI zdroj poznámka</span><textarea rows={4} value={form.fciStandard.zdroj_poznamka??""} onChange={(e)=>updateFci("zdroj_poznamka",e.target.value)}/></label></section>
+        <section className={styles.drawerSection}><h3>FCI odborný štandard</h3><AdminHelpText>Tu sú iba samostatné odborné polia zo schváleného 60-poľového modelu Notion.</AdminHelpText>{fciSections.map((section)=><details className={styles.fciGroup} key={section.title}><summary>{section.title}</summary><div>{section.fields.map(([key,label])=><label className="admin-field" key={key}><span>{label}</span><textarea rows={5} value={form.fciStandard[key]??""} onChange={(e)=>updateFci(key,e.target.value)}/></label>)}</div></details>)}</section>
         <section className={styles.drawerSection}><h3>Zdroje</h3>{form.sources.map((source,index)=><div className={styles.sourceRow} key={index}><label className="admin-field"><span>Názov zdroja</span><input value={source.label} onChange={(e)=>updateSource(index,{label:e.target.value})}/></label><label className="admin-field"><span>URL zdroja</span><input type="url" value={source.url} onChange={(e)=>updateSource(index,{url:e.target.value})}/></label><AdminActionButton variant="destructive" onClick={()=>change("sources",form.sources.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div>)}<AdminActionButton variant="secondary" onClick={()=>change("sources",[...form.sources,{...emptySource}])}>+ Pridať zdroj</AdminActionButton></section>
-        <section className={styles.drawerSection}><h3>SEO a zdieľanie</h3><AdminSeoFields value={form.seo} onChange={(seo)=>change("seo",seo)} canonicalPath={`/plemena/${form.slug}`} fallbackTitle={breedSeoFallback(form.name||"Názov plemena").title} fallbackDescription={breedSeoFallback(form.name||"Názov plemena").description}/></section>
-        {breed ? <AdminDeferredDetails className={styles.fciGroup} summary="Doplnkové technické údaje Notion">
-          <AdminBreedNotionExtras breedId={breed.id}/>
-        </AdminDeferredDetails> : null}
+        <section className={styles.drawerSection}><h3>SEO podľa Notionu</h3><label className="admin-field"><span>SEO title</span><input value={form.seo.title??""} onChange={(e)=>change("seo",{...form.seo,title:e.target.value})}/></label><label className="admin-field"><span>Meta description</span><textarea rows={4} value={form.seo.description??""} onChange={(e)=>change("seo",{...form.seo,description:e.target.value})}/></label></section>
       </div>
     </AdminDrawer>
 

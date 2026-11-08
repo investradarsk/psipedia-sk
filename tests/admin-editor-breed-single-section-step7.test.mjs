@@ -4,17 +4,17 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("EDITOR-7: canonical breed editor has exactly 8 opted-in mounted sections", () => {
+test("EDITOR-7: canonical breed editor has exactly 7 Notion-model mounted sections", () => {
   const breed = read("components/admin-breed-editor.tsx");
   const workspace = read("components/admin-editor-workspace.tsx");
   const section = read("components/admin-interaction-system.tsx");
   const visibility = read("components/admin-editor-section-visibility.tsx");
-  const ids = ["basic","overview","character","practical","health","sports","relations","media"];
+  const ids = ["basic","overview","character","practical","health","sports","media"];
   for (const id of ids) {
     assert.match(breed, new RegExp('AdminEditorSection id="breed-' + id + '"'));
     assert.match(breed, new RegExp('\\{id:"breed-' + id + '"'));
   }
-  assert.equal((breed.match(/<AdminEditorSection id="breed-/g) ?? []).length, 8);
+  assert.equal((breed.match(/<AdminEditorSection id="breed-/g) ?? []).length, 7);
   assert.match(breed, /sectionMode="switch"/);
   assert.match(breed, /activeSectionId=\{activeBreedSection\}/);
   assert.match(breed, /onSectionChange=\{setActiveBreedSection\}/);
@@ -34,7 +34,7 @@ test("EDITOR-7: breed value ownership and save path remain canonical; hidden req
   for (const field of ["fciNumber","fciStandard","editorial","sports","relatedBreedIds","relatedArticleIds","directoryProfileIds","sources","gallery","seo","expectedUpdatedAt"]) {
     assert.match(breed, new RegExp("\\b" + field + "\\b"), field);
   }
-  assert.match(breed, /<form id="breed-canonical-editor-form" noValidate/);
+  assert.match(breed, /<form id="breed-canonical-editor-form"[^>]*noValidate/);
   assert.match(breed, /if \(!form\.name\.trim\(\)\)/);
   assert.match(breed, /if \(!form\.intro\.trim\(\)\)/);
   assert.match(breed, /if \(!form\.slug\.trim\(\)\)/);
@@ -47,35 +47,24 @@ test("EDITOR-7: breed value ownership and save path remain canonical; hidden req
   assert.match(breed, /setDirty\(false\)/);
   assert.match(breed, /uploadAdminImage\(file,"breeds"\)/);
   assert.match(breed, /<AdminSortableGallery/);
-  assert.match(breed, /<AdminSeoFields/);
-  assert.match(breed, /<AdminBreedNotionExtras breedId=\{breed\.id\}/);
+  assert.match(breed, /SEO podľa Notionu/);
+  assert.match(breed, /<span>Meta description<\/span>/);
+  assert.doesNotMatch(breed, /<AdminSeoFields|<AdminBreedNotionExtras/);
   assert.match(breed, /<AdminDrawer/);
 });
 
-test("EDITOR-7: breed relations and sports are compact without resetting selected state", () => {
+test("EDITOR-7: obsolete relation editor is absent; Notion sports and media remain editable", () => {
   const breed = read("components/admin-breed-editor.tsx");
   const css = read("components/admin-breed-editor.module.css");
-  const group = read("components/admin-breed-relation-group.tsx");
   const workspaceCss = read("components/admin-editor-workspace.module.css");
-  for (const kind of ["articles","breeds","stations","clubs"]) {
-    assert.match(breed, new RegExp('hidden=\\{activeRelationKind!=="' + kind + '"\\}'));
-  }
-  assert.match(breed, /aria-pressed=\{activeRelationKind===kind\}/);
-  assert.match(breed, /<AdminBreedRelationGroup/);
-  assert.match(breed, /toggleId\("directoryProfileIds",id\)/);
-  assert.match(breed, /toggleId\("relatedBreedIds",id\)/);
-  assert.match(breed, /toggleId\("relatedArticleIds",id\)/);
+  assert.doesNotMatch(breed, /<AdminBreedRelationGroup|breed-relations|activeRelationKind/);
   assert.match(breed, /saveSport\(\)/);
   assert.match(breed, /moveSport\(index/);
   assert.match(breed, /moveGallery\(index/);
-  assert.match(group, /data-relation-selected-list/);
-  assert.match(group, /data-relation-result-list/);
-  assert.match(css, /\.relationPanel\[hidden\]/);
-  assert.match(css, /max-height: none;\s*overflow: visible;/);
+  assert.match(breed, /<AdminGalleryDropzone/);
   assert.match(css, /\.sectionPager/);
   assert.match(workspaceCss, /data-editor-section-mode="switch"/);
   assert.match(workspaceCss, /\[data-admin-editor-section\]\[hidden\]/);
-  assert.match(workspaceCss, /display: none !important/);
 });
 
 test("EDITOR-7: legacy editors retain their scroll-mode workspaces", () => {
