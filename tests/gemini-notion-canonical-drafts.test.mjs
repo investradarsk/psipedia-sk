@@ -12,6 +12,7 @@ import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
 import { geminiImportAgenda } from "../lib/gemini-notion-provenance.ts";
 import { notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
 import { decideBidirectionalChange } from "../lib/notion-bidirectional-reconciliation.ts";
+import { EVENT_NOTION_CONTACT_FIELDS } from "../lib/notion-event-contact-fields.ts";
 
 /**
  * Execute the real production createCanonicalFromNotion function, including its
@@ -34,6 +35,8 @@ function adapterHarness() {
     return entry;
   };
   const require = (id) => {
+    if (id.endsWith("notion-event-contact-fields.ts"))
+      return { EVENT_NOTION_CONTACT_FIELDS };
     if (id.endsWith("notion-seo-contract.ts"))
       return {
         notionSeoEditableFields: () => [],

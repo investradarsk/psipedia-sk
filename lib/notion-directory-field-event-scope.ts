@@ -15,5 +15,6 @@ export function isDirectoryEventPilotCategory(category: string): boolean {
 export function isDirectoryFieldEventCategory(category: string): boolean {
   return category === "chovatelske-stanice" ||
     category === "treneri" ||
+    category === "salony-a-sluzby" ||
     isDirectoryEventPilotCategory(category);
 }

@@ -142,6 +142,17 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.match(queries[3].sql, /services_json = \?/);
   assert.doesNotMatch(queries[3].sql, /source_data_json =/);
   assert.equal(queries[3].values[0], JSON.stringify(desired.services));
+  // Salon: one changed free-text service field, no Services V3 mutation.
+  current.category = "salony-a-sluzby";
+  desired.services = ["Strihanie", "Trimovanie"];
+  await exports.saveBreederEditorialValue(db, current, desired, "services");
+  assert.match(queries[4].sql, /services_json = \?/);
+  assert.match(queries[4].sql, /category = \?/);
+  assert.equal(queries[4].values.at(-2), "salony-a-sluzby");
+  assert.equal(queries[4].values[0], JSON.stringify(desired.services));
+  assert.doesNotMatch(queries[4].sql, /directory_service|service_option/);
+  current.category = "hotely-a-opatrovanie";
+  await assert.rejects(() => exports.saveBreederEditorialValue(db, current, desired, "description"), /BREEDER_FIELD_WRITE_NOT_ALLOWED/);
 });
 
 test("a trainer service description updates only its separate metadata field", async () => {
@@ -216,4 +227,21 @@ test("breeder-only transport bypasses full-profile conflict merging and cron", a
   assert.match(webhook, /await enqueueNotionWebhook\(bindings\.DB, data, body\)/);
   assert.match(admin, /breederEditedFields\(before, profile\)/);
   assert.match(admin, /breederEditedFields\(breederBefore, profile\)/);
+});
+
+test("salon changes remain per-field without erasing existing values", async () => {
+  const directory = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const webhook = await readFile(new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
+  const scope = await readFile(new URL("../lib/notion-directory-field-event-scope.ts", import.meta.url), "utf8");
+  assert.match(scope, /category === "salony-a-sluzby"/);
+  assert.match(webhook, /'treneri','salony-a-sluzby','veterinari'/);
+  assert.match(directory, /"chovatelske-stanice", "salony-a-sluzby"/);
+  const previous = { description: "Overený popis", services: ["Trimovanie"], seo: { title: "SEO" } };
+  const fromNotion = { description: "", services: [], seo: { title: "" } };
+  assert.deepEqual(breederApplyNotionChanges(previous, fromNotion, ["description", "services", "seo.title"]), previous);
+  assert.deepEqual(breederAdminChangedFields(previous, { ...previous, description: "Upravený popis" }), ["description"]);
+  assert.deepEqual(breederPreserveUneditedFields(
+    { ...previous, description: "Upravený popis" },
+    { ...previous, services: ["Kúpanie", "Trimovanie"] }, ["description"],
+  ).services, ["Kúpanie", "Trimovanie"]);
 });

@@ -1779,7 +1779,7 @@ async function syncMappedPage(input: {
   // A targeted sweep may still mirror Admin-confirmed publication, status only:
   // never re-enter record-wide editorial hash/baseline reconciliation.
   // The owner-directed manual full-profile transfer below stays available.
-  if ((profile.category === "chovatelske-stanice" || isDirectoryEventPilotCategory(profile.category)) &&
+  if ((["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category) || isDirectoryEventPilotCategory(profile.category)) &&
       !input.manualDirection &&
       input.breederWebhookPropertyIds === undefined &&
       input.breederAdminFields === undefined) {
@@ -2752,7 +2752,7 @@ export async function runNotionDirectorySyncSweep(input: {
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
-      if (!profile || profile.category === "chovatelske-stanice") continue;
+      if (!profile || ["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category)) continue;
       await writeProfileToNotion({
         database: input.database,
         bindings: input.bindings,
