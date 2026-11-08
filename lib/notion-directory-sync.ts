@@ -1715,10 +1715,16 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
     throw new NotionDirectoryUnsafeTargetError("BREEDER_FACET_TARGET_INVALID");
   const patch: Record<string, unknown> = {};
   const expectedLabels: Record<string, string> = {};
+  const missingProperties: string[] = [];
   for (const id of input.fields) {
     if (!Object.hasOwn(breederFacetNotionProperties, id)) continue;
     const key = breederFacetNotionProperties[id as BreederFacetId];
-    if (!Object.hasOwn(page.properties ?? {}, key)) throw new Error("BREEDER_NOTION_FACET_MISSING: " + key);
+    if (!Object.hasOwn(page.properties ?? {}, key)) {
+      if (profile.category !== "veterinari")
+        throw new Error("BREEDER_NOTION_FACET_MISSING: " + key);
+      missingProperties.push(key);
+      continue;
+    }
     const def = getDirectoryFilterDefinition(id);
     if (!def || def.category !== profile.category) continue;
     const state = normalizeDirectoryFilterValue(def, profile.importData?.[def.d1.key]);
@@ -1729,11 +1735,11 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
       expectedLabels[key] = label;
     }
   }
-  if (!Object.keys(patch).length) return false;
+  if (!Object.keys(patch).length && !missingProperties.length) return false;
   // Vet facet edits remain independently transferable: one rejected Notion field
   // must not suppress the others or rewrite unrelated category properties.
   if (profile.category === "veterinari") {
-    const failures: string[] = [];
+    const failures: string[] = [...missingProperties];
     for (const [key, value] of Object.entries(patch)) {
       try {
         const echoed = await patchNotionPage(input.bindings, page.id, { [key]: value });
