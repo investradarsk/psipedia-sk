@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
@@ -95,6 +95,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   const [bulkType, setBulkType] = useState<EventType>("Výstava");
   const [bulkCancelled, setBulkCancelled] = useState(false);
   const [quickEvent, setQuickEvent] = useState<AdminEventSummary | null>(null);
+  const quickTriggerIdRef = useRef<number | null>(null);
   const [inlineEventId, setInlineEventId] = useState<number | null>(null);
   const [quickType, setQuickType] = useState<EventType>("Výstava");
   const [quickCancelled, setQuickCancelled] = useState(false);
@@ -190,7 +191,26 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
     }
   }
 
+  // The shared table may remount an action cell while a modal is open.
+  // Restore focus to the current matching trigger, not its stale DOM node.
+  function focusCurrentQuickTrigger() {
+    const id = quickTriggerIdRef.current;
+    if (id === null) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const trigger = document.querySelector<HTMLButtonElement>(
+        '[data-admin-event-quick-trigger="' + id + '"]'
+      );
+      if (trigger && !trigger.disabled) trigger.focus({ preventScroll: true });
+    }));
+  }
+
+  function closeQuickEventDrawer() {
+    setQuickEvent(null);
+    focusCurrentQuickTrigger();
+  }
+
   function openQuickEdit(event: AdminEventSummary) {
+    quickTriggerIdRef.current = event.id;
     setInlineEventId(null);
     setQuickEvent(event);
     setQuickType(event.eventType);
@@ -214,7 +234,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   async function saveQuickEdit() {
     if (!quickEvent) return;
     if (quickType === quickEvent.eventType && quickCancelled === quickEvent.cancelled) {
-      setQuickEvent(null);
+      closeQuickEventDrawer();
       setInlineEventId(null);
       setMessage("Nie sú žiadne zmeny na uloženie.");
       return;
@@ -232,6 +252,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
       setQuickEvent(null);
       setInlineEventId(null);
       const refreshed = await reload();
+      focusCurrentQuickTrigger();
       setMessage(refreshed
         ? "Rýchla úprava podujatia bola uložená."
         : "Rýchla úprava bola uložená, ale zoznam sa nepodarilo obnoviť; použi „Skúsiť znova“.");
@@ -420,7 +441,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
                 onSave={() => void saveQuickEdit()}
                 onCancel={cancelInlineEdit}
               />
-              <AdminActionButton variant="neutral" disabled={!hydrated || busy || loading || inlineEventId !== null} onClick={() => openQuickEdit(event)}>Rýchla úprava</AdminActionButton>
+              <AdminActionButton variant="neutral" data-admin-event-quick-trigger={event.id} disabled={!hydrated || busy || loading || inlineEventId !== null} onClick={() => openQuickEdit(event)}>Rýchla úprava</AdminActionButton>
               <AdminActionButton variant="destructive" disabled={!hydrated || busy || loading} onClick={() => setDeleteTarget(event)}>Odstrániť</AdminActionButton>
             </div> },
           ]}
@@ -462,10 +483,10 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
         open={quickEvent !== null && inlineEventId === null}
         title="Rýchla úprava"
         description={quickEvent ? quickEvent.title : undefined}
-        onClose={() => setQuickEvent(null)}
+        onClose={closeQuickEventDrawer}
         footer={(
           <>
-            <AdminActionButton variant="neutral" disabled={busy} onClick={() => setQuickEvent(null)}>Zrušiť</AdminActionButton>
+            <AdminActionButton variant="neutral" disabled={busy} onClick={closeQuickEventDrawer}>Zrušiť</AdminActionButton>
             <AdminActionButton variant="primary" data-admin-autofocus="true" disabled={busy} onClick={() => void saveQuickEdit()}>{busy ? "Ukladám…" : "Uložiť"}</AdminActionButton>
           </>
         )}

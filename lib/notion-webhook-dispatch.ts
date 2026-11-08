@@ -6,6 +6,7 @@ import { runNotionBreedWorkCopySyncSweep } from "@/lib/notion-breed-workcopy-syn
 import { runNotionArticleSyncSweep } from "@/lib/notion-article-sync";
 import { runNotionEshopSyncSweep } from "@/lib/notion-eshop-sync";
 import { runNotionEventsHelpSyncSweep } from "@/lib/notion-events-help-sync";
+import { syncEventNotionFields } from "@/lib/notion-event-field-sync";
 import { runNotionFacebookImagesSync, NOTION_FACEBOOK_IMAGES_SOURCE_ID } from "@/lib/notion-facebook-images-sync";
 import { notionRequest, type NotionPage, type NotionSyncBindings } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
@@ -59,6 +60,19 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
   if (metadataOnlyChange(event, page)) return "metadata-only";
 
   const sourceId = page.parent?.data_source_id;
+  // Existing mapped Events use signed, individual property events just like
+  // breeder profiles. New pages still enter the existing gated draft importer.
+  if(bindings.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED==="true" &&
+     sameSource(sourceId,bindings.NOTION_EVENTS_DATA_SOURCE_ID) &&
+     notionPageBelongsToDataSource(page,bindings.NOTION_EVENTS_DATA_SOURCE_ID!) &&
+     event.type==="page.properties_updated" && event.data?.updated_properties?.length){
+    const mapping=await bindings.DB.prepare(
+      "SELECT event_id FROM event_notion_sync WHERE notion_page_id=? LIMIT 1"
+    ).bind(page.id).first<{event_id:number}>();
+    if(mapping)return syncEventNotionFields({
+      database:bindings.DB,bindings,page,updatedPropertyIds:event.data.updated_properties,
+    });
+  }
   // All agenda runners must be configured before a webhook is acknowledged.
   // Missing schema/provider failure is retried by Notion; intentionally
   // disabled agendas are reported explicitly, never falsely "processed".

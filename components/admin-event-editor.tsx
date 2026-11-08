@@ -20,6 +20,7 @@ import { AdminGeoLocation } from "@/components/admin-geo-location";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import { eventSeoFallback } from "@/lib/content-seo";
+import { eventChangedAdminFields } from "@/lib/notion-event-field-contract";
 import styles from "./admin-event-editor.module.css";
 import type { SmartImageMode } from "@/lib/smart-image";
 import { ImageDisplay } from "@/components/image-display";
@@ -268,7 +269,11 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       const response = await fetch(event ? `/api/admin/events/${event.id}` : "/api/admin/events", {
         method: event ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo }),
+        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, contactPhone: contactPhone || null, contactEmail: contactEmail || null, admissionFee, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, imageDisplay: imageDisplay, thumbnailImageDisplay, detailImageDisplay, cancelled, seo,
+          eventEditorialChangedFields: event ? eventChangedAdminFields(
+            JSON.parse(savedSnapshot) as Record<string,unknown>,
+            JSON.parse(editorSnapshot) as Record<string,unknown>,
+          ) : undefined }),
       });
       const data = await response.json() as { event?: DogEvent; error?: string };
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");

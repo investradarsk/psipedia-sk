@@ -93,6 +93,7 @@ export function notionPageToManagedEventInput(page: NotionPage): ManagedEventInp
     seo: {
       title: seoTitle,
       description: metaDescription,
+      focusKeyword: notionRichTextProperty(page, "SEO kľúčové slovo"),
       ogTitle: seoTitle,
       ogDescription: metaDescription,
     },
@@ -184,6 +185,8 @@ async function preparePayloadWithImage(
       imageKey: prepared.imageKey,
       seo: {
         ...(basePayload.seo ?? {}),
+        // Missing new Notion field must not erase an existing Admin focus phrase.
+        focusKeyword: basePayload.seo?.focusKeyword?.trim() || existing?.seo?.focusKeyword || "",
         ogImage: prepared.imageUrl ?? "",
       },
     } satisfies ManagedEventInput,
