@@ -1167,3 +1167,59 @@
     line-height: 1.45;
   }
 }
+
+
+/* Compact Help dog heroes: top-aligned copy, bounded natural portrait images.
+   Applies to Help, adoptions and lost/found, never services or events. */
+.hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroFrame {
+  align-items: start;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+.hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroCopy {
+  align-self: start;
+}
+.hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroMedia {
+  align-self: start;
+  aspect-ratio: 4 / 3;
+  max-height: 390px;
+}
+.hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroMedia:has([data-image-display="natural"]) {
+  align-self: start;
+  aspect-ratio: auto;
+  max-height: 390px;
+  overflow: hidden;
+  background: var(--sage-light, #edf3e9);
+}
+.hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroMedia [data-image-display="natural"],
+.hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroMedia [data-image-display="natural"] img {
+  max-height: 390px;
+}
+.hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroMedia [data-image-display="natural"] img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+@media (max-width: 800px) {
+  .hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroFrame {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroMedia,
+  .hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroMedia:has([data-image-display="natural"]) {
+    grid-row: 1;
+    max-height: 300px;
+  }
+  .hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroMedia [data-image-display="natural"],
+  .hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroMedia [data-image-display="natural"] img {
+    max-height: 300px;
+  }
+  .hero:is([data-public-detail-hero="help"], [data-public-detail-hero="adoption"], [data-public-detail-hero="lost-found"]) .heroCopy {
+    grid-row: 2;
+  }
+}
+
+/* Breed retains full-height uncropped photography, aligned with shared
+   services, events and Help hero copy rather than vertically centering it. */
+.hero[data-public-detail-hero="breed"] .heroFrame { align-items: start; }
+.hero[data-public-detail-hero="breed"] .heroCopy,
+.hero[data-public-detail-hero="breed"] .heroMedia { align-self: start; }
