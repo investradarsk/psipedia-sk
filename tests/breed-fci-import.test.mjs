@@ -819,14 +819,15 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   const fciDetail = await get(worker, d1, "/plemena/labradorsky-retriever/fci-standard");
   assert.equal(fciDetail.status, 200);
   const fciDetailHtml = await fciDetail.text();
-  assert.match(fciDetailHtml, /História plemena Labradorský retriever\./);
+  // Notion 60 moved historical FCI subfields into the standalone História content field.
+  assert.doesNotMatch(fciDetailHtml, /História plemena Labradorský retriever\./);
   assert.match(fciDetailHtml, /Lebečná časť podľa štandardu/);
-  assert.match(fciDetailHtml, /Tvárová časť podľa štandardu/);
+  assert.doesNotMatch(fciDetailHtml, /Tvárová časť podľa štandardu/);
   assert.match(fciDetailHtml, /50–60 cm/);
   assert.match(fciDetailHtml, /48–58 cm/);
   assert.match(fciDetailHtml, /20–30 kg/);
   assert.match(fciDetailHtml, /18–28 kg/);
-  assert.match(fciDetailHtml, /FCI nomenklatúra/);
+  assert.doesNotMatch(fciDetailHtml, /FCI nomenklatúra/);
   assert.match(fciDetailHtml, /Oficiálny FCI štandard \(PDF\)/);
   assert.match(fciDetailHtml, /data-fci-group="celkovy-vzhlad-a-povaha"/);
   assert.match(fciDetailHtml, /href="#celkovy-vzhlad-a-povaha"/);
@@ -835,7 +836,9 @@ test("344-record FCI import remains idempotent and production routes preserve ed
     fciDetailHtml,
     /data-fci-trigger=|data-testid="fci-expand-all"|data-testid="fci-collapse-all"/,
   );
-  assert.equal((fciDetailHtml.match(/data-fci-group=/g) ?? []).length, 7);
+  // A separate Zdroj a referencia section is shown only if the compact source note exists.
+  assert.ok((fciDetailHtml.match(/data-fci-group=/g) ?? []).length >= 6);
+  assert.ok((fciDetailHtml.match(/data-fci-group=/g) ?? []).length <= 8);
 
   const tollerMain = await get(worker, d1, "/plemena/nova-scotia-duck-tolling-retriever");
   assert.equal(tollerMain.status, 200);
