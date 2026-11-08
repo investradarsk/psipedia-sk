@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const webhook = read("app/api/integrations/notion/webhook/route.ts");
 const breedSave = read("app/api/admin/breeds/[id]/route.ts");
+const breedEditor = read("components/admin-breed-editor.tsx");
 const dispatch = read("lib/notion-webhook-dispatch.ts");
 
 test("signed edits on mapped breeds use immediate field dispatch, never an unverified page ID", () => {
@@ -31,4 +32,6 @@ test("Admin PUT and PATCH mark an incomplete per-field Notion write as pending",
   const matches = breedSave.match(/"pendingFields" in result && result\.pendingFields\?\.length/g) ?? [];
   assert(matches.length >= 2);
   assert.match(breedSave, /BREED_NOTION_FIELDS_PENDING/);
+  assert.match(breedEditor, /const notionPending=notionStatus==="pending"/);
+  assert.match(breedEditor, /prenos do Notionu zatiaľ nie je potvrdený/);
 });
