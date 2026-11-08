@@ -13,12 +13,9 @@ import {
 const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const empty = {};
 
-test("nine remaining categories and 19 registered facets use valid labeled options", () => {
-  assert.equal(serviceFilterCategories.length, 9);
-  assert.ok(!serviceFilterCategories.includes("fyzioterapia"));
-  assert.equal(serviceFiltersForCategory("fyzioterapia").length, 0);
-  assert.throws(() => getDirectoryCategoryFilterFields("fyzioterapia", empty), /Neplatná kategória/);
-  assert.equal(directoryFilterRegistry.length, 19);
+test("all ten categories and 21 registered facets use valid labeled options", () => {
+  assert.equal(serviceFilterCategories.length, 10);
+  assert.equal(directoryFilterRegistry.length, 21);
   for (const category of serviceFilterCategories) {
     const fields = getDirectoryCategoryFilterFields(category, empty);
     const definitions = serviceFiltersForCategory(category);
