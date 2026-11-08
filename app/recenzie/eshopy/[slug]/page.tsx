@@ -76,7 +76,7 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
               <PublicHeading role="page" as="h1">
                 {shop.name}
               </PublicHeading>
-              <p>{profileExcerpt(shop.description)}</p>
+              {shop.description.trim() ? <p>{profileExcerpt(shop.description)}</p> : null}
               {shop.focusTags.length ? (
                 <div className={styles.focusTags}>
                   {shop.focusTags.map((tag) => (
@@ -90,34 +90,32 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
             <PublicActionLink variant="primary" href={`/recenzie/eshopy/${shop.slug}/hodnotit`}>
               Ohodnotiť e-shop
             </PublicActionLink>
-            <PublicActionLink
-              variant="secondary"
-              href={shop.websiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Navštíviť e-shop ↗
-            </PublicActionLink>
+            {shop.websiteUrl ? (
+              <PublicActionLink
+                variant="secondary"
+                href={shop.websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Navštíviť e-shop ↗
+              </PublicActionLink>
+            ) : null}
           </div>
         </section>
 
-        <DetailContactsCard
-          title="Kontakty"
-          contacts={
-            shop.websiteUrl
-              ? [
-                  {
-                    label: "Web",
-                    value: (
-                      <a href={shop.websiteUrl} target="_blank" rel="noreferrer">
-                        Navštíviť e-shop ↗
-                      </a>
-                    ),
-                  },
-                ]
-              : []
-          }
-        />
+        {shop.websiteUrl ? (
+          <DetailContactsCard
+            title="Kontakty"
+            contacts={[{
+              label: "Web",
+              value: (
+                <a href={shop.websiteUrl} target="_blank" rel="noreferrer">
+                  Navštíviť e-shop ↗
+                </a>
+              ),
+            }]}
+          />
+        ) : null}
         {shop.averages ? (
           <section className={styles.summary} aria-label={`Hodnotenie e-shopu ${shop.name}`}>
             <div className={styles.score}>
@@ -142,10 +140,12 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
           </section>
         )}
 
-        <section className={styles.about} aria-labelledby="shop-about-heading">
-          <h2 id="shop-about-heading">O e-shope</h2>
-          <p>{shop.description}</p>
-        </section>
+        {shop.description.trim() ? (
+          <section className={styles.about} aria-labelledby="shop-about-heading">
+            <h2 id="shop-about-heading">O e-shope</h2>
+            <p>{shop.description}</p>
+          </section>
+        ) : null}
 
         <section className={styles.info}>
           <strong>Bez registrácie a bez importovaných hviezdičiek</strong>
@@ -155,12 +155,14 @@ export default async function EshopProfilePage({ params }: { params: Promise<{ s
             Heureky ani samotného e-shopu sa do priemeru Psipedia nezapočítavajú.
           </p>
         </section>
-        <p className={styles.source}>
-          Profilový popis vychádza z verejných údajov e-shopu.{" "}
-          <a href={shop.sourceUrl} target="_blank" rel="noreferrer">
-            Zdroj ↗
-          </a>
-        </p>
+        {shop.sourceUrl ? (
+          <p className={styles.source}>
+            Profilový popis vychádza z verejných údajov e-shopu.{" "}
+            <a href={shop.sourceUrl} target="_blank" rel="noreferrer">
+              Zdroj ↗
+            </a>
+          </p>
+        ) : null}
       </PageContainer>
     </main>
   );
