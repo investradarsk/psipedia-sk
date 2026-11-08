@@ -342,13 +342,13 @@ export async function getGoogleMapsWorkflowSnapshot(
 ): Promise<{ eventId: string | null; decision: "NOT_REQUIRED" | "UNRESOLVED" }> {
   const db = requireGeoD1(database);
   const point = await getGeoPointForTarget(targetType, targetId, db);
-  if (!point) return { eventId: null, decision: "UNRESOLVED" };
-  const row = await db.prepare(`
+  if (!point && targetType !== "ORGANIZATION_LOCATION") return { eventId: null, decision: "UNRESOLVED" };
+  const row = point ? await db.prepare(`
     SELECT id, action FROM moderation_events
     WHERE resource_type='GEO_POINT' AND subject_id=?
       AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
     ORDER BY created_at DESC, rowid DESC LIMIT 1
-  `).bind(String(point.id)).first<{ id: string; action: string }>();
+  `).bind(String(point.id)).first<{ id: string; action: string }>() : null;
   // Organizations historically recorded the choice against the organization
   // rather than its canonical location. Respect that existing decision until
   // a new unified GEO_POINT decision supersedes it.

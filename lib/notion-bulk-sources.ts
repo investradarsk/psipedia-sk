@@ -243,10 +243,16 @@ export async function loadNotionBulkOrganizations(database: D1Database, targetId
     geo.geo_point_id,geo.geo_status,geo.geo_public_visibility,geo.geo_public_precision,
     geo.geo_latitude,geo.geo_longitude,geo.geo_provider,geo.geo_google_place_id,
     geo.geo_source_fingerprint,geo.geo_google_place_source_fingerprint,
-    (SELECT m.action FROM moderation_events m
-       WHERE m.resource_type = 'HELP_ORGANIZATION' AND m.subject_id = CAST(o.id AS TEXT)
-         AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
-       ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS google_maps_action
+    COALESCE(
+      (SELECT m.action FROM moderation_events m
+       WHERE m.resource_type='GEO_POINT' AND m.subject_id=CAST(geo.geo_point_id AS TEXT)
+         AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+       ORDER BY m.created_at DESC, m.rowid DESC LIMIT 1),
+      (SELECT m.action FROM moderation_events m
+       WHERE m.resource_type='HELP_ORGANIZATION' AND m.subject_id=CAST(o.id AS TEXT)
+         AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+       ORDER BY m.created_at DESC, m.rowid DESC LIMIT 1)
+    ) AS google_maps_action
     FROM help_organizations o
     LEFT JOIN organization_locations loc ON loc.id = (
       SELECT l.id FROM organization_locations l WHERE l.organization_id=o.id

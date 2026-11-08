@@ -38,6 +38,7 @@ import {
   googlePlaceActionForSource,
 } from "@/lib/google-place-target-discovery";
 import { confirmAdminGooglePlace } from "@/lib/admin-google-place-confirmation";
+import { syncNotionGeoMirrorAfterDetach } from "@/lib/notion-geo-detach-mirror";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ targetType: string; id: string }> };
@@ -299,7 +300,19 @@ export async function POST(request: Request, { params }: Props) {
         targetType: target.targetType, targetId: target.id,
         expectedGeoRevision, actorRef: user.email,
       });
-      return Response.json({ point, googlePlaceDetached: true,
+      // A failed external Notion request never rolls back a successful D1 unlink.
+      let notionMirror: "synced" | "unlinked" | "disabled" | "pending" = "disabled";
+      try {
+        notionMirror = await syncNotionGeoMirrorAfterDetach({
+          targetType: target.targetType, targetId: target.id,
+          bindings: env as unknown as Parameters<typeof syncNotionGeoMirrorAfterDetach>[0]["bindings"],
+        });
+      } catch (error) {
+        notionMirror = "pending";
+        console.error("GEO_NOTION_MIRROR_AFTER_UNLINK_FAILED", target.targetType, target.id,
+          error instanceof Error ? error.message : String(error));
+      }
+      return Response.json({ point, notionMirror, googlePlaceDetached: true,
         message: "Google miesto je odpojené. Textová adresa zostala zachovaná." });
     }
 
