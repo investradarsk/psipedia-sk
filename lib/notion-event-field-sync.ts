@@ -7,9 +7,9 @@ import { notionPageBelongsToDataSource, type NotionOwnedPage } from "./notion-sy
 import { sameNotionProperty } from "./notion-selective-property-patch";
 import { hasCurrentGooglePlace } from "./notion-events-help-adapters";
 import {
-  EVENT_NOTION_EDITORIAL_FIELDS, EVENT_EDITORIAL_PATHS, EVENT_GEO_EDITORIAL_FIELDS,
+  EVENT_NOTION_EDITORIAL_FIELDS, EVENT_EDITORIAL_PATHS,
   eventInitialContactBackfill, eventNotionChangedFields, eventNotionPlainText,
-  eventSourcePropertyNames, eventBlankNotionValue, type EventEditorialField,
+  eventBlankNotionValue, type EventEditorialField,
 } from "./notion-event-field-events";
 
 export type EventFieldSyncBindings = {
@@ -259,6 +259,7 @@ export async function syncEventFieldsFromAdmin(input: {
   }
 }
 function validateInbound(field: EventEditorialField, value: string | boolean): void {
+  if (field !== "cancelled" && typeof value !== "string") throw Error("EVENT_FIELD_VALUE_TYPE_INVALID");
   if (field === "contactEmail" && (typeof value !== "string" || value.length > 254 ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) throw Error("EVENT_EMAIL_INVALID");
   if (field === "contactPhone" && String(value).length > 80) throw Error("EVENT_PHONE_INVALID");
@@ -290,13 +291,17 @@ async function saveNotionEventField(db: D1Database, eventId: number,
   }
   const scalar = SCALARS[field], seo = SEO[field];
   if (!scalar && !seo) throw Error("EVENT_FIELD_NOT_SUPPORTED");
-  const old = await db.prepare("SELECT updated_at FROM managed_events WHERE id=?")
-    .bind(eventId).first<{updated_at:string}>();
+  // Ignore our own echoed Notion PATCHes: reapplying an unchanged field
+  // must never fabricate a new D1 revision or overwrite an Admin edit.
+  const readSql = scalar ? scalar : "json_extract(COALESCE(seo_json,'{}'), '$." + seo + "')";
+  const old = await db.prepare("SELECT " + readSql + " AS current,updated_at FROM managed_events WHERE id=?")
+    .bind(eventId).first<{current:string | number | null; updated_at:string}>();
   if (!old) throw Error("EVENT_CANONICAL_MISSING");
+  const v = field === "cancelled" ? (value === true ? 1 : 0) : value;
+  if (String(old.current ?? "") === String(v)) return;
   const now = new Date().toISOString();
   const assignment = scalar ? scalar + " = ?" :
     "seo_json = json_set(COALESCE(seo_json,'{}'), ?, ?)";
-  const v = field === "cancelled" ? (value === true ? 1 : 0) : value;
   const args = scalar ? [v] : ["$." + seo, String(value)];
   const result = await db.prepare("UPDATE managed_events SET " + assignment +
     ", updated_at=?,updated_by=? WHERE id=? AND updated_at=? RETURNING id")
