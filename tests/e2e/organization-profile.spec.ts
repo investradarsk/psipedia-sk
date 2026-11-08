@@ -314,7 +314,7 @@ test.describe("organization location admin CRUD", () => {
     await expect(addressPanel).toBeVisible();
     await expect(addressPanel.getByRole("heading", { name: "Adresa a mapa" })).toBeVisible();
     const addressAdmin = addressPanel.locator("[data-organization-address-admin]");
-    await expect(addressAdmin).toHaveAttribute("data-single-address", "");
+    await expect(addressPanel.locator("[data-single-address]")).toHaveCount(1);
     await expect(addressAdmin.getByLabel("Typ lokality")).toHaveCount(0);
     await expect(addressAdmin.getByLabel("Hlavná lokalita")).toHaveCount(0);
     await expect(addressAdmin.getByRole("button", { name: "Pridať lokalitu" })).toHaveCount(0);
