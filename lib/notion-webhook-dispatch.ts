@@ -137,7 +137,7 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     const eventId = agenda.agenda === "events"
       ? eventNotionPlainText(page.properties?.["Psipedia ID"]) : null;
     if (agenda.agenda === "events" && typeof eventId === "string" &&
-        /^\\d+$/.test(eventId) &&
+        /^\d+$/.test(eventId) &&
         sameSource(sourceId, bindings.NOTION_EVENTS_DATA_SOURCE_ID)) {
       const fieldResult = await syncEventFieldsFromNotionWebhook({
         database: bindings.DB, bindings, page,
