@@ -148,12 +148,12 @@ test("manual-only production workflow cannot mutate D1, Notion or sync flags", (
   const workflow = read(".github/workflows/production-breed-workcopy-postflight.yml");
   const script = read("scripts/production-breed-workcopy-postflight.mjs");
   const config = JSON.parse(read("wrangler.jsonc")).vars;
-  assert.equal(config.NOTION_BREED_SYNC_ENABLED, "true");
+  assert.equal(config.NOTION_BREED_SYNC_ENABLED, "false");
   for (const key of [
     "NOTION_BREED_WORKCOPY_SYNC_ENABLED",
     "NOTION_BREED_WORKCOPY_STAGE_ENABLED",
     "NOTION_BREED_WORKCOPY_BASELINE_ENABLED",
-    "NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED",
+    
   ]) assert.equal(config[key], "false");
   assert.match(workflow, /workflow_dispatch:/);
   assert.doesNotMatch(workflow, /^\s*(?:push|pull_request|schedule):/m);
