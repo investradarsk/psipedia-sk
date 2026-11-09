@@ -137,7 +137,7 @@
   gap: 5px;
 }
 
-.itemText strong {
+.list strong {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
