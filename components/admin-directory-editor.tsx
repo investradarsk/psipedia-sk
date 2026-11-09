@@ -394,22 +394,8 @@ export function AdminDirectoryEditor({
       // Preserve the current field constraints for both Save and Publish.
       if (!name.trim()) { setActiveDirectorySection("directory-main"); setError("Vyplň názov profilu."); setMessage(""); return; }
       if (!slug.trim()) { setAdvancedOpen(true); setError("Vyplň URL adresu profilu."); setMessage(""); return; }
-      const invalidControl = Array.from(formRef.current?.elements ?? []).find(
-        (element): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
-          (element instanceof HTMLInputElement || element instanceof HTMLSelectElement ||
-            element instanceof HTMLTextAreaElement) && element.willValidate && !element.checkValidity() && (!element.validity.valueMissing || ["directory-name", "directory-slug"].includes(element.id)),
-      );
-      if (invalidControl) {
-        const section = invalidControl.closest<HTMLElement>("[data-admin-editor-section]");
-        if (section?.id) setActiveDirectorySection(section.id);
-        else setAdvancedOpen(true);
-        const label = invalidControl.labels?.[0]?.textContent?.trim() || "označené pole";
-        setMessage("");
-        setError(invalidControl.validity.valueMissing
-          ? `Vyplň povinné pole: ${label}.` : `Skontroluj formát poľa: ${label}.`);
-        if (section) requestAnimationFrame(() => invalidControl.focus());
-        return;
-      }
+      // Optional contact/URL/SEO fields are not blockers. The server
+      // sanitizes malformed optional values and returns field warnings.
       }
     const submittedRevision = formEditRevisionRef.current;
     savePendingRef.current = true;
