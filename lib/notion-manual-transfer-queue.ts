@@ -194,8 +194,10 @@ async function runOne(input:{db:D1Database;bindings:ManualTransferBindings;job:J
       const summary=await runNotionBreedWorkCopySyncSweep({
         database:db,bindings,targetPageId:job.notion_page_id,manualImport:true,
       });
-      if(!summary.enabled||summary.scanned!==1||summary.failed)
+      if(!summary.enabled||summary.scanned!==1)
         throw Error("TRANSFER_BREED_WORKCOPY_IMPORT_FAILED");
+      // Workcopy may have applied valid sibling fields before marking a
+      // malformed field failed. Let the post-write readback report EACH field.
     }else{
       const breed=await getManagedBreed(job.profile_id);
       if(!breed)throw Error("TRANSFER_BREED_NOT_FOUND");
@@ -203,8 +205,10 @@ async function runOne(input:{db:D1Database;bindings:ManualTransferBindings;job:J
         database:db,bindings,before:breed,breed,
         forceFieldKeys:input.changedFields,
       });
-      if(!result.linked||result.pendingFields?.length)
+      if(!result.linked)
         throw Error("TRANSFER_BREED_WORKCOPY_WRITE_FAILED");
+      // Pending individual fields are classified by readback, not replayed
+      // blindly over edits made after approval.
     }
     return;
   }
