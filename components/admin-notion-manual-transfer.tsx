@@ -7,7 +7,7 @@ type Scope={id:string;label:string;editable:number;locked:number;fields:Field[]}
 type Area={area:string;label:string;scopes:Scope[]};
 type Capabilities={executable:boolean;migrationReady:boolean;areas:Area[];note:string};
 type FieldResult={field_key:string;status:string;reason_code:string|null};
-type Item={id:number;scope:string;profile_id:number;status:string;attempts:number;
+type Item={id:number;scope:string;profile_id:number;profile_name?:string;status:string;attempts:number;
   changed_fields:number;failed_fields:number;last_error_code:string|null;fields:FieldResult[]};
 type Run={id:string;area:string;scope:string|null;direction:string;selection:string;
   status:string;total_profiles:number;processed_profiles:number;
@@ -223,7 +223,7 @@ export function AdminNotionManualTransfer(){
       </div>
       {detail.items.length===0?<p>Zatiaľ nie sú spracované položky alebo tomuto filtru nič nezodpovedá.</p>:null}
       {detail.items.map(item=><details key={item.id} className={styles.item}>
-        <summary><strong>{item.scope} · ID {item.profile_id}</strong>
+        <summary><strong>{item.profile_name?item.profile_name+" · ":""}{item.scope} · ID {item.profile_id}</strong>
           <span>{item.status==="PENDING"
             ?(item.attempts>0?"Prenos čaká vo fronte":"Čaká na kontrolu")
             :item.status==="PREVIEWING"?"Kontroluje sa"
