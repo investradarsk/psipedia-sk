@@ -215,6 +215,7 @@ test("an explicit empty Admin edit clears only one pilot JSON field while Notion
   const exports = {};
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory,
+    serviceFilterCategories: ["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby", "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie", "vencenie", "fyzioterapia", "dalsie-sluzby"],
     getManagedDirectoryProfileById: async () => profile,
     Date,
   });
