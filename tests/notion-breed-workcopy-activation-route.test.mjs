@@ -6,10 +6,10 @@ const config = JSON.parse(read("wrangler.jsonc"));
 const activate = read("app/api/admin/notion-breeds-workcopy-activate/route.ts");
 const atomic = read("lib/notion-breed-workcopy-activation-sql.mjs");
 
-test("activation remains manual and requires both engines paused even with temporary activation flag", () => {
-  assert.equal(config.vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED,"true");
+test("activation API remains disabled once the new workcopy engine is enabled", () => {
+  assert.equal(config.vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED,"false");
   assert.equal(config.vars.NOTION_BREED_SYNC_ENABLED,"false");
-  assert.equal(config.vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED,"false");
+  assert.equal(config.vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED,"true");
   assert.match(activate, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(activate, /Date\.now\(\) > ACTIVATION_EXPIRES_AT/);
   assert.match(activate, /NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED !== "true"/);
