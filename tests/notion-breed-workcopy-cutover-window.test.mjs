@@ -11,10 +11,10 @@ const source = read("lib/notion-breed-workcopy-sync.ts");
 const original = read("lib/notion-breed-sync.ts");
 const sql = read("lib/notion-breed-workcopy-activation-sql.mjs");
 
-test("cutover phase is a strictly gated zero-writers maintenance window", () => {
+test("phase 7 enables only the new 344-link engine with activation permanently closed", () => {
   assert.equal(vars.NOTION_BREED_SYNC_ENABLED, "false");
-  assert.equal(vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "false");
-  assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "true");
+  assert.equal(vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "true");
+  assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "false");
   assert.equal(vars.NOTION_BREED_WORKCOPY_REBASELINE_ENABLED, "false");
   assert.equal(vars.NOTION_BREED_WORKCOPY_BASELINE_ENABLED, "false");
   assert.equal(vars.NOTION_BREED_WORKCOPY_STAGE_ENABLED, "false");
@@ -27,6 +27,8 @@ test("activation requires authenticated owner action and is not invoked by page 
   assert.match(page, /NOTION_BREED_SYNC_ENABLED === "false"/);
   assert.match(page, /NOTION_BREED_WORKCOPY_SYNC_ENABLED === "false"/);
   assert.match(page, /<AdminBreedWorkcopyActivation \/>/);
+  assert.match(page, /showLiveSyncStatus/);
+  assert.match(page, /<AdminBreedWorkcopyLiveStatus \/>/);
   assert.doesNotMatch(page, /await (?:fetch|activate).*notion-breeds-workcopy-activate/);
   assert.match(ui, /window\.confirm/);
   assert.match(ui, /onClick=\{\(\) => void activate\(\)\}/);
