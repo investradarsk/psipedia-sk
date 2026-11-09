@@ -108,7 +108,7 @@ test("refuses non-field receipts and missing revision", () => {
 
 test("baseline writer is disabled after 344/344 were initialized", () => {
   assert.equal(config.vars.NOTION_BREED_WORKCOPY_BASELINE_ENABLED, "false");
-  assert.equal(config.vars.NOTION_BREED_SYNC_ENABLED, "true");
+  assert.equal(config.vars.NOTION_BREED_SYNC_ENABLED, "false");
   assert.equal(config.vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "false");
   assert.match(route, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(route, /"BASELINE_344_BREEDS"/);
