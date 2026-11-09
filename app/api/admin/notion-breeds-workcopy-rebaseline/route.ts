@@ -17,7 +17,7 @@ type Bindings = NotionSyncBindings & {
   DB?: D1Database;
   NOTION_BREED_SYNC_ENABLED?: string;
   NOTION_BREED_WORKCOPY_SYNC_ENABLED?: string;
-  NOTION_BREED_WORKCOPY_BASELINE_ENABLED?: string;
+  NOTION_BREED_WORKCOPY_REBASELINE_ENABLED?: string;
   NOTION_BREEDS_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_WORK_DATA_SOURCE_ID?: string;
 };
@@ -34,6 +34,8 @@ type Original = {
 };
 const normalize = (value: string) => value.replaceAll("-", "").toLowerCase();
 const UUID = /^[a-f0-9]{8}(?:-?[a-f0-9]{4}){3}-?[a-f0-9]{12}$/i;
+// Short, hard expiry even if a later deployment forgets to disable the flag.
+const REBASELINE_EXPIRES_AT = Date.parse("2026-11-16T23:59:59Z");
 
 /**
  * Step 5: owner-confirmed refresh of INACTIVE SHADOW baselines only.
@@ -53,7 +55,8 @@ export async function POST(request: Request) {
   const oldId = bindings.NOTION_BREEDS_DATA_SOURCE_ID?.trim() ?? "";
   const workId = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID?.trim() ?? "";
   if (!bindings.DB || !bindings.NOTION_API_TOKEN ||
-      bindings.NOTION_BREED_WORKCOPY_BASELINE_ENABLED !== "true" ||
+      bindings.NOTION_BREED_WORKCOPY_REBASELINE_ENABLED !== "true" ||
+      Date.now() > REBASELINE_EXPIRES_AT ||
       bindings.NOTION_BREED_SYNC_ENABLED !== "true" ||
       bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED !== "false" ||
       !UUID.test(oldId) || !UUID.test(workId) ||
