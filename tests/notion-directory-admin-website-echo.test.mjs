@@ -32,3 +32,17 @@ test("targeted Notion writeback confirms field echoes before marking synchroniza
     writeback.indexOf('"Sync stav": select("Synchronizované")'));
   assert.match(sync, /DIRECTORY_TARGETED_NOTION_SYNC_FAILED/);
 });
+
+test("explicit contact clears survive form baselines and remove old D1 aliases", () => {
+  const editor = source("components/admin-directory-editor.tsx");
+  const route = source("app/api/admin/directory/[id]/route.ts");
+  assert.match(editor, /explicitlyClearedContacts = \(breederChangedPaths \?\? \[\]\)/);
+  assert.match(editor, /explicitlyClearedContacts \} : \{\}/);
+  assert.match(route, /editedPaths\.includes\(field as BreederEditorialField\)/);
+  assert.match(route, /safeOptionalFields\.websiteUrl = null/);
+  assert.match(route, /source_data_json = json_remove/);
+  assert.match(route, /website_url = NULL/);
+  assert.match(route, /AND updated_at = \?/);
+  assert.match(route, /EXPLICIT_CONTACT_CLEAR_NOT_PERSISTED/);
+  assert.match(route, /contactClearWarnings/);
+});
