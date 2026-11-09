@@ -92,5 +92,5 @@ test("the breed editor keeps all 60 fields while the explicit 344-link cutover p
   assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "true");
   assert.match(activation, /"ACTIVATE_344_BREEDS"/);
   assert.match(activation, /requireAdminMutation/);
-  assert.match(activation, /result\\.meta\\.changes !== 344/);
+  assert.match(activation, /result\.meta\.changes !== 344/);
 });
