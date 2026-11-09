@@ -1,0 +1,34 @@
+name: D1 0158 + 0162 offline rollout contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "drizzle/0158_admin_directory_list_indexes.sql"
+      - "drizzle/0162_lost_found_short_description.sql"
+      - "lib/production-d1-0158-0162-guard.mjs"
+      - "scripts/production-d1-0158-0162.mjs"
+      - "tests/production-d1-0158-0162.test.mjs"
+      - ".github/workflows/production-d1-0158-0162.yml"
+      - ".github/workflows/production-d1-0158-0162-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Pinned SQL and local SQLite preservation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Migration safety and exact 0158/0162 schema tests
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-d1-0158-0162.test.mjs
