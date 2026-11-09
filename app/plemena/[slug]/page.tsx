@@ -247,7 +247,7 @@ export default async function BreedDetailPage({ params }: Props) {
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
   const coatDescription = breed.coat?.trim() ?? "";
   const coatIsLong = coatDescription.length > 160;
-  const coatPreview = coatIsLong
+  const coatExcerpt = coatIsLong
     ? `${coatDescription.slice(0, 145).trimEnd()}…`
     : coatDescription;
 
@@ -443,7 +443,7 @@ export default async function BreedDetailPage({ params }: Props) {
                   {coatIsLong ? (
                     <details>
                       <summary>
-                        <span>{coatPreview}</span>
+                        <span>{coatExcerpt}</span>
                         <span className={styles.coatExpandLabel}>Čítať celý opis</span>
                       </summary>
                       <p>{coatDescription}</p>
