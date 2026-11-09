@@ -52,7 +52,7 @@ test("a pilot editor save exports only changed fields and never creates Notion p
   assert.match(webhook, /'veterinari','fyzioterapia','dalsie-sluzby'/);
   assert.match(source, /isDirectoryFieldEventCategory\(profile\.category\)/);
   assert.match(source, /isDirectoryEventPilotCategory\(propertyText\(page, "Kategória"\)\)\) continue/);
-  assert.match(source, /isDirectoryEventPilotCategory\(input\.profile\.category\)/);
+  assert.match(source, /const pilotMetaFields = isDirectoryFieldEventCategory\(input\.profile\.category\)/);
   assert.match(source, /saveBreederEditorialValue\(database, current, desired, path\)/);
   assert.match(admin, /isDirectoryEventPilotCategory\(before\.category\)/);
   assert.match(editor, /isDirectoryEventPilotCategory\(profile\.category\)/);
@@ -157,17 +157,17 @@ test("veterinary select facets have an exact Notion contract and event writeback
   assert.equal(exports.propertyNames["veterinari.home_visits"], "Návštevy doma");
 });
 
-test("hours, sources and alt text are independently synced for pilot categories", async () => {
+test("hours, sources, alt text, organization and focus are independently synced for every service category", async () => {
   const source = await get("../lib/notion-directory-sync.ts");
   const admin = await get("../app/api/admin/directory/[id]/route.ts");
   const editor = await get("../components/admin-directory-editor.tsx");
-  for (const field of ["Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka"])
+  for (const field of ["Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka", "Organizácia", "Zameranie"])
     assert.ok(source.includes('"' + field + '"'));
   assert.match(source, /source_data_json = json_set/);
   assert.match(source, /pilotChangedNotionMetadataFields\(page, input\.changedPropertyIds\)/);
   assert.doesNotMatch(source, /DIRECTORY_PILOT_METADATA_EMPTY_NOT_A_DELETE/);
   assert.match(source, /Object\.hasOwn\(input\.changed, field\)/);
-  assert.match(source, /if \(!value\) continue;/); // Inbound blank Notion values still do not delete D1.
+  assert.doesNotMatch(source, /if \(!value\) continue;/); // Explicit Notion clears must reach D1.
   assert.match(source, /WHERE id = \? AND category = \? AND status <> 'archived'/);
   assert.match(source, /DIRECTORY_PILOT_METADATA_TARGET_INVALID/);
   assert.match(admin, /changedPilotMetadata\[field\] = value/);
@@ -187,7 +187,7 @@ test("hours, sources and alt text are independently synced for pilot categories"
   assert.doesNotMatch(block, /importNotionServiceChoices|syncProfileCatalogRelation|prepareNotionMainImage/);
 });
 
-test("an explicit empty Admin edit clears only one pilot JSON field while Notion blanks are not inbound deletions", async () => {
+test("explicit blank Admin and Notion edits clear a single JSON field without touching siblings", async () => {
   const ts = await import("typescript");
   const source = await get("../lib/notion-directory-sync.ts");
   const start = source.indexOf("export const PILOT_DIRECTORY_METADATA_FIELDS =");
@@ -229,7 +229,8 @@ test("an explicit empty Admin edit clears only one pilot JSON field while Notion
   assert.ok(logs[0].args.includes('$."Ordinačné hodiny"'));
   assert.ok(logs[0].args.includes(""), "empty edit is persisted as empty, not silently skipped");
   assert.equal(logs[0].args.includes('$."Zdroj dát"'), false, "unrelated sources are untouched");
-  assert.ok(source.includes('if (!value) continue;'), "blank Notion webhook values remain non-destructive");
+  assert.ok(source.includes("Only fields explicitly reported as changed by the Notion webhook are written."));
+  assert.ok(!source.includes("if (!value) continue;"), "explicit empty Notion webhook edits are deletions");
 });
 
 test("municipality search does not clear a committed city before a dropdown selection", async () => {
