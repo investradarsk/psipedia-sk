@@ -174,7 +174,7 @@ test("physiotherapy uses Services V3 and one qualifications text, never legacy t
 test("physiotherapy public profile always shows perex and expertise as plain text", () => {
   const detail = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
   const admin = fs.readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
-  assert.ok(detail.includes("showExcerpt={isPhysiotherapy || !hasExtendedDescription}"));
+  assert.ok(detail.includes("showExcerpt={true}"), "Short description must remain visible even with a full description");
   assert.ok(detail.includes('title={isPhysiotherapy ? "Odbornosť a skúsenosti"'));
   assert.ok(detail.includes('<DetailParagraphs value={visibleQualifications.join("\\n")} />'));
   assert.ok(detail.includes('key: "physio-price"'));
