@@ -522,15 +522,20 @@ export function AdminDirectoryEditor({
           verified, featured, seo,
         }),
       });
-      const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string; metadataWarnings?: string[] };
+      const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string; metadataWarnings?: string[]; notionFieldSync?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
       // Verify that the database acknowledges lifecycle and explicit web edits.
       if (data.profile.status !== nextStatus)
         throw new Error("Zmena stavu profilu sa nepotvrdila. Obnov stránku a skontroluj údaje.");
-      const unconfirmedWebsite = breederChangedPaths?.includes("websiteUrl") &&
-          readDirectoryPublicContacts(data.profile.importData, data.profile.websiteUrl ?? "").website !== websiteUrl.trim();
-      // The canonical D1 save already succeeded. Warn, refresh from D1 and
-      // never present a false 'save failed' after deleting an optional URL.
+      // The canonical D1 column, not a legacy imported "Web" alias, confirms
+      // the persisted public URL. A stale source_data_json alias can otherwise
+      // produce a false failure even while the public profile shows the new URL.
+      const unconfirmedWebsite = Boolean(breederChangedPaths?.includes("websiteUrl") &&
+        (data.profile.websiteUrl ?? "").trim() !== websiteUrl.trim());
+      const pendingNotionFields = Boolean(breederChangedPaths?.length &&
+        ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? ""));
+      // A committed D1 save is always successful independently of Notion.
+      // Report any actual Notion pending state separately from D1 validation.
       // Write only explicit facet changes through the authenticated, CAS-protected endpoint.
       // The canonical profile save above continues to own all unrelated fields.
       let savedProfile = data.profile;
@@ -579,7 +584,7 @@ export function AdminDirectoryEditor({
         setStreet(savedProfile.street); setHouseNumber(savedProfile.houseNumber);
         setAddressFormat(savedProfile.addressFormat);
         setPriceNote(savedProfile.priceNote);
-        setWebsiteUrl(syncedContacts.website); setPublicPhone(syncedContacts.phone);
+        setWebsiteUrl(savedProfile.websiteUrl ?? ""); setPublicPhone(syncedContacts.phone);
         setPublicEmail(syncedContacts.email); setFacebookUrl(syncedContacts.facebook);
         setInstagramUrl(syncedContacts.instagram); setSeo(savedProfile.seo ?? {});
         if (isDirectoryEventPilotCategory(savedProfile.category)) {
@@ -604,10 +609,11 @@ export function AdminDirectoryEditor({
       setMessage(hasNewerEdits
         ? "Predchádzajúce úpravy boli uložené. Novšie zmeny sú stále neuložené."
         : (nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.") +
-          (data.metadataWarnings?.length || unconfirmedWebsite
+          (data.metadataWarnings?.length || unconfirmedWebsite || pendingNotionFields
             ? " Upozornenia: " + [
                 ...(data.metadataWarnings ?? []),
-                ...(unconfirmedWebsite ? ["Verejný web sa neuložil presne podľa zadania. Obnovili sme hodnotu z databázy."] : []),
+                ...(unconfirmedWebsite ? ["Verejný web sa po uložení líši od hodnoty v databáze."] : []),
+                ...(pendingNotionFields ? ["Zmena je uložená v Admine, ale prenos do Notionu zatiaľ nie je potvrdený."] : []),
               ].join("; ") : ""));
       if (!profile) setCreatedProfileHref(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
