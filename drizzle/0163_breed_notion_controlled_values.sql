@@ -1,4 +1,4 @@
--- 0162: independently versioned structured values for the 60+2 breed work copy.
+-- 0163: independently versioned structured values for the 60+2 breed work copy.
 -- Never overwrite historical expert prose or existing per-field receipts.
 -- No data backfill: first verified access seeds only the already-existing
 -- controlled Notion properties, without inferring missing content.

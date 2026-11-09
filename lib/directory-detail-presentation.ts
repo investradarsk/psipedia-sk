@@ -31,6 +31,7 @@ export type DirectoryDetailPresentation = {
   priceNote: string;
   openingHours: string | null;
   imageUrl: string | null;
+  imageAlt: string | null;
   galleryUrls?: string[];
   detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;
@@ -258,25 +259,44 @@ export function getDirectoryDetailPresentation(
   // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
   const navigationUrl = null;
   // Physiotherapy therapy/patient flags are retired in favor of Services V3 and prose.
-  const factLabels = profile.category === "fyzioterapia"
+  const legacyFactLabels = profile.category === "fyzioterapia"
     ? []
     : [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
-  const facts = factLabels.flatMap((label) => {
-    const value = usefulDirectoryDetailValue(importedValue(profile, label));
-    return value ? [{ label, value }] : [];
-  });
-  const health = profile.category === "veterinari" && facts.length > 0
+  // Show both Admin-managed public facts consistently in every directory category.
+  // "Zastrešujúca organizácia" is a legacy alias, not a second public fact.
+  const factLabels = legacyFactLabels.filter(label =>
+    !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
+  const facts = [
+    ...factLabels.flatMap((label) => {
+      const value = usefulDirectoryDetailValue(importedValue(profile, label));
+      return value ? [{ label, value }] : [];
+    }),
+    ...(["Organizácia", "Zameranie"] as const).flatMap(label => {
+      const value = usefulDirectoryDetailValue(label === "Organizácia"
+        ? Object.hasOwn(profile.importData ?? {}, "Organizácia")
+          ? importedValue(profile, "Organizácia")
+          : importedValue(profile, "Zastrešujúca organizácia")
+        : importedValue(profile, label));
+      return value ? [{ label, value }] : [];
+    }),
+  ];
+  // Public organization/focus fields must not turn a veterinary profile into
+  // a false "equipment and care" panel when no veterinary facts are present.
+  const veterinaryFacts = facts.filter(fact =>
+    (detailFields.veterinari ?? []).includes(fact.label));
+  const health = profile.category === "veterinari" && veterinaryFacts.length > 0
     ? {
         variant: "veterinari" as const,
         eyebrow: "Zdravie a starostlivosť",
         title: "Veterinárna starostlivosť a vybavenie",
-        facts,
+        facts: veterinaryFacts,
       }
     : null;
   const coverage = usefulDirectoryDetailValue(
     importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"),
   );
-  const description = profile.description || profile.excerpt || null;
+  // Do not turn a short-only profile into a duplicate long description.
+  const description = profile.description?.trim() || null;
 
   return {
     id: profile.id,
@@ -308,6 +328,7 @@ export function getDirectoryDetailPresentation(
       ),
     ),
     imageUrl: profile.imageUrl,
+    imageAlt: usefulDirectoryDetailValue(importedValue(profile, "Alt text obrázka")),
     galleryUrls: profile.category === "chovatelske-stanice" ? (profile.galleryUrls ?? []) : [],
     detailImageDisplay: profile.detailImageDisplay,
     verified: profile.verified,

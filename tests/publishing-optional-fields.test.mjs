@@ -6,9 +6,11 @@ const source = path => readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("all directory categories ignore blank optional fields and verify save response", () => {
   const editor = source("../components/admin-directory-editor.tsx");
-  assert.match(editor, /validity\.valueMissing/);
+  assert.match(editor, /if \(!name\.trim\(\)\)/, "Profile name is required");
+  assert.match(editor, /if \(!slug\.trim\(\)\)/, "Profile slug is required");
+  assert.doesNotMatch(editor, /checkValidity\(\)|validity\.valueMissing/, "Optional fields must not block Save or Publish");
   assert.match(editor, /data\.profile\.status !== nextStatus/);
-  assert.match(editor, /Verejný web sa po uložení nepotvrdil/);
+  assert.match(editor, /Verejný web sa po uložení líši od hodnoty v databáze\./, "A persisted website mismatch is reported as a warning rather than a failed save");
   assert.match(source("../lib/directory-store.ts"), /if \(!name\) throw new Error/);
 });
 

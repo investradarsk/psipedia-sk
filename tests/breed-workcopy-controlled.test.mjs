@@ -80,7 +80,7 @@ test("stored snapshots distinguish missing keys from explicit null/empty lists",
 });
 
 test("integration uses a separate D1 sidecar and only ACTIVE targeted links",()=>{
-  const migration=source("drizzle/0162_breed_notion_controlled_values.sql");
+  const migration=source("drizzle/0163_breed_notion_controlled_values.sql");
   const runtime=source("lib/notion-breed-workcopy-controlled.ts");
   const sweep=source("lib/notion-breed-workcopy-sync.ts");
   const route=source("app/api/admin/breeds/[id]/controlled/route.ts");
