@@ -41,6 +41,7 @@ type ReportRow = {
   color: string;
   approximate_age: string;
   size: string;
+  short_description: string;
   description: string;
   distinguishing_marks: string;
   collar_description: string;
@@ -90,6 +91,7 @@ export type ManagedDogReportInput = {
   color?: string;
   approximateAge?: string;
   size?: string;
+  shortDescription?: string;
   description?: string;
   distinguishingMarks?: string;
   collarDescription?: string;
@@ -175,6 +177,7 @@ function rowToPublic(row: ReportRow): PublicDogReport {
     color: row.color,
     approximateAge: row.approximate_age,
     size: oneOf(row.size, dogSizes, "UNKNOWN"),
+    shortDescription: row.short_description,
     description: row.description,
     distinguishingMarks: row.distinguishing_marks,
     collarDescription: row.collar_description,
@@ -233,7 +236,7 @@ async function rowToAdmin(row: ReportRow, encryptionKey: string): Promise<AdminD
 const publicSelect = `
   r.id, r.type, r.status, r.slug, r.dog_name, r.sex, r.breed_id, r.breed, r.breed_unknown,
   CASE WHEN b.status = 'published' THEN b.slug ELSE NULL END AS breed_slug,
-  r.color, r.approximate_age, r.size, r.description, r.distinguishing_marks, r.collar_description,
+  r.color, r.approximate_age, r.size, r.short_description, r.description, r.distinguishing_marks, r.collar_description,
   r.chipped, r.main_image, r.thumbnail_display_json, r.detail_display_json, r.gallery_json, r.event_date, r.last_seen_date_time,
   r.region, r.district, r.city, r.location_description, r.public_latitude, r.public_longitude,
   r.public_location_precision, r.public_contact_note, r.source, r.source_url,
@@ -373,11 +376,11 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
   const now = new Date().toISOString();
 
   const result = await database.prepare(`INSERT INTO lost_found_dog_reports (
-    type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,description,distinguishing_marks,collar_description,chipped,
+    type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,short_description,description,distinguishing_marks,collar_description,chipped,
     main_image,main_image_key,thumbnail_display_json,detail_display_json,gallery_json,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,public_location_precision,
     public_contact_note,source,source_url,search_text,duplicate_of_id,duplicate_reason,created_at,updated_at,published_at,expires_at,resolved_at,archived_at
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
-    clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+    clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.shortDescription, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey,
     clean.thumbnailImageDisplay ? JSON.stringify(clean.thumbnailImageDisplay) : null,
     clean.detailImageDisplay ? JSON.stringify(clean.detailImageDisplay) : null, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
@@ -514,10 +517,10 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   const lifecycle = lifecycleFields(clean.status, existing, clean.expiresAt, now);
 
   const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports SET
-    type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,description=?,distinguishing_marks=?,collar_description=?,chipped=?,
+    type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,short_description=?,description=?,distinguishing_marks=?,collar_description=?,chipped=?,
     main_image=?,main_image_key=?,thumbnail_display_json=?,detail_display_json=?,gallery_json=?,event_date=?,last_seen_date_time=?,region=?,district=?,city=?,location_description=?,public_latitude=?,public_longitude=?,public_location_precision=?,
     public_contact_note=?,source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
-    clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
+    clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.shortDescription, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey,
     JSON.stringify(input.thumbnailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.thumbnailImageDisplay ?? null : clean.thumbnailImageDisplay ?? null),
     JSON.stringify(input.detailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.detailImageDisplay ?? null : clean.detailImageDisplay ?? null), JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
@@ -600,6 +603,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
   const region = cleanText(input.region, 80);
   const district = cleanText(input.district, 120);
   const city = cleanText(input.city, 120);
+  const shortDescription = cleanText(input.shortDescription, 500);
   const description = cleanText(input.description, 6000);
   const lastSeenDateTime = cleanIsoNullable(input.lastSeenDateTime);
   let slug = slugify(cleanText(input.slug, 100) || `${type === "LOST" ? "strateny" : "najdeny"}-${dogName || city || "pes"}-${eventDate || "hlasenie"}`);
@@ -641,7 +645,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
     breedId, breed, breedUnknown,
     color: cleanText(input.color, 160), approximateAge: cleanText(input.approximateAge, 120),
     size: oneOf(input.size, dogSizes, "UNKNOWN") as DogSize,
-    description, distinguishingMarks: cleanText(input.distinguishingMarks, 1200), collarDescription: cleanText(input.collarDescription, 700),
+    shortDescription, description, distinguishingMarks: cleanText(input.distinguishingMarks, 1200), collarDescription: cleanText(input.collarDescription, 700),
     chipped: oneOf(input.chipped, chipStates, "UNKNOWN") as ChipState,
     mainImage, mainImageKey: cleanNullable(input.mainImageKey, 500),
     thumbnailImageDisplay: normalizeImageDisplayConfig(input.thumbnailImageDisplay, "thumbnail"),
@@ -652,7 +656,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
     publicContactNote: cleanText(input.publicContactNote, 800), source: cleanText(input.source, 160) || "EDITORIAL", sourceUrl,
     expiresAt, internalNote: cleanText(input.internalNote, 4000),
   };
-  return { ...cleaned, searchText: normalizeSearch([type, dogName, breed, cleaned.color, cleaned.description, cleaned.distinguishingMarks, region, district, city, cleaned.locationDescription, cleaned.source].filter(Boolean).join(" ")) };
+  return { ...cleaned, searchText: normalizeSearch([type, dogName, breed, cleaned.color, cleaned.shortDescription, cleaned.description, cleaned.distinguishingMarks, region, district, city, cleaned.locationDescription, cleaned.source].filter(Boolean).join(" ")) };
 }
 
 function normalizeSearch(value: string) {
