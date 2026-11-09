@@ -71,7 +71,7 @@ const sportOptions=[
 
 type SportDraft={index:number|null;key:string;label:string;rating:number;note:string};
 type BreedControlledValues=Record<string,string|number|string[]|null>;
-type BreedControlledResponse={values:BreedControlledValues;revision:number;pendingKeys:string[];error?:string};
+type BreedControlledResponse={values:BreedControlledValues;revision:number;pendingKeys:string[];rejectedKeys?:string[];error?:string};
 const subscribeToHydration=()=>()=>{};
 
 export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:BreedEditorOptions }) {
@@ -241,9 +241,14 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
             setControlledRevision(result.revision);
             setControlledPendingKeys(result.pendingKeys??[]);
             controlledHasPending=Boolean(result.pendingKeys?.length);
+            const rejected=result.rejectedKeys??[];
             if (formEditRevisionRef.current===submittedRevision)
-              setControlledDirtyKeys(current=>current.filter(key=>!submittedControlledKeys.includes(key)));
-            setControlledError("");
+              setControlledDirtyKeys(current=>current.filter(key=>
+                !submittedControlledKeys.includes(key)||rejected.includes(key)));
+            if (rejected.length) {
+              controlledSaveFailed=true;
+              setControlledError(`Niektoré kontrolované hodnoty nie sú platné: ${rejected.join(", ")}.`);
+            } else setControlledError("");
           }catch(caught) {
             controlledSaveFailed=true;
             setControlledError(caught instanceof Error?caught.message:"Kontrolované údaje sa neuložili.");
