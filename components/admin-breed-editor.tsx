@@ -38,8 +38,7 @@ const emptySource:BreedSource={label:"",url:""};
 function controlledNumericChange(next:string,previous:string,kind:BreedMeasurementKind,onChange:(value:string)=>void) {
   // Existing historical FCI prose remains untouched unless the editor intentionally replaces it.
   // Backspacing is allowed to clear an old description, but new prose is never accepted.
-  if (isBreedNumericDraft(next,kind) ||
-      (!isBreedNumericDraft(previous,kind) && previous.startsWith(next))) onChange(next);
+  if (isBreedNumericDraft(next,kind) || previous.startsWith(next)) onChange(next);
 }
 function CountryChoices({value,onChange}:{value:string;onChange:(value:string)=>void}) {
   const valid=BREED_ORIGIN_COUNTRIES as readonly string[];
@@ -255,7 +254,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         <div className={styles.heading}><div><h2>Základné údaje</h2><p>Identita plemena a údaje, ktoré redaktor používa najčastejšie.</p></div></div>
         <div className="admin-field-grid">
           <label className="admin-field"><span>Názov plemena</span><input required value={form.name} onChange={(e)=>changeName(e.target.value)}/></label>
-          <label className="admin-field"><span>Krajina pôvodu</span><CountryChoices value={form.origin} onChange={next=>change("origin",next)}/></label>
+          <div className="admin-field"><span>Krajina pôvodu</span><CountryChoices value={form.origin} onChange={next=>change("origin",next)}/></div>
           <label className="admin-field"><span>FCI číslo</span><input type="number" min="1" max="9999" value={form.fciNumber} onChange={(e)=>change("fciNumber",e.target.value)}/></label>
           <label className="admin-field"><span>FCI skupina</span><select value={form.fciGroup} onChange={e=>change("fciGroup",Number(e.target.value))}>{FCI_GROUP_OPTIONS.map(([number,label])=><option value={number} key={number}>{number}. {label}</option>)}</select></label>
           <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={(e)=>change("fciSection",e.target.value)}/></label>
