@@ -31,6 +31,7 @@ export type DirectoryDetailPresentation = {
   priceNote: string;
   openingHours: string | null;
   imageUrl: string | null;
+  imageAlt: string | null;
   galleryUrls?: string[];
   detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;
@@ -308,6 +309,7 @@ export function getDirectoryDetailPresentation(
       ),
     ),
     imageUrl: profile.imageUrl,
+    imageAlt: usefulDirectoryDetailValue(importedValue(profile, "Alt text obrázka")),
     galleryUrls: profile.category === "chovatelske-stanice" ? (profile.galleryUrls ?? []) : [],
     detailImageDisplay: profile.detailImageDisplay,
     verified: profile.verified,
