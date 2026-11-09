@@ -127,7 +127,7 @@ export async function PUT(request: Request, { params }: Props) {
     if (typeof safeOptionalFields.publicEmail === "string" &&
         safeOptionalFields.publicEmail.trim() &&
         (safeOptionalFields.publicEmail.length > 254 ||
-         !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(safeOptionalFields.publicEmail.trim()))) {
+         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeOptionalFields.publicEmail.trim()))) {
       safeOptionalFields.publicEmail = "";
       optionalWarnings.push("Neplatný nepovinný e-mail bol vynechaný");
     }
