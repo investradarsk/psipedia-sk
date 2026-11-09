@@ -278,12 +278,16 @@ export function getDirectoryDetailPresentation(
       return value ? [{ label, value }] : [];
     }),
   ];
-  const health = profile.category === "veterinari" && facts.length > 0
+  // Public organization/focus fields must not turn a veterinary profile into
+  // a false "equipment and care" panel when no veterinary facts are present.
+  const veterinaryFacts = facts.filter(fact =>
+    (detailFields.veterinari ?? []).includes(fact.label));
+  const health = profile.category === "veterinari" && veterinaryFacts.length > 0
     ? {
         variant: "veterinari" as const,
         eyebrow: "Zdravie a starostlivosť",
         title: "Veterinárna starostlivosť a vybavenie",
-        facts,
+        facts: veterinaryFacts,
       }
     : null;
   const coverage = usefulDirectoryDetailValue(
