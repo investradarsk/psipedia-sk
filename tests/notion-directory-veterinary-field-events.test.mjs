@@ -14,13 +14,13 @@ import {
 
 const get = path => readFile(new URL(path, import.meta.url), "utf8");
 
-test("the new event pilot is limited to exactly the three requested categories", () => {
-  for (const category of ["veterinari", "fyzioterapia", "dalsie-sluzby"]) {
+test("the field-event pilot includes kynologické kluby but not unrelated directory categories", () => {
+  for (const category of ["veterinari", "kynologicke-kluby", "fyzioterapia", "dalsie-sluzby"]) {
     assert.equal(isDirectoryEventPilotCategory(category), true, category);
     assert.equal(isDirectoryFieldEventCategory(category), true, category);
   }
   for (const category of [
-    "chovatelske-stanice", "treneri", "kynologicke-kluby",
+    "chovatelske-stanice", "treneri",
     "chovatelske-kluby", "salony-a-sluzby", "hotely-a-opatrovanie", "vencenie",
   ]) assert.equal(isDirectoryEventPilotCategory(category), false, category);
   assert.equal(isDirectoryFieldEventCategory("chovatelske-stanice"), true);
@@ -80,7 +80,7 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
     "\nexports.saveBreederEditorialValue = saveBreederEditorialValue;", {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  for (const category of ["veterinari", "fyzioterapia", "dalsie-sluzby"]) {
+  for (const category of ["veterinari", "kynologicke-kluby", "fyzioterapia", "dalsie-sluzby"]) {
     const logs = [];
     const profile = { id: 123, category, status: "published", updatedAt: "2026-11-07T00:00:00Z" };
     const db = { prepare(sql) { return { bind(...args) {
