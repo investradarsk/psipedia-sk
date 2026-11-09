@@ -116,7 +116,6 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
   useEffect(()=>{
     if (!breed?.id) return;
     const controller=new AbortController();
-    setControlledLoading(true);
     fetch(`/api/admin/breeds/${breed.id}/controlled`,{
       cache:"no-store",signal:controller.signal,
     }).then(async(response)=>{
