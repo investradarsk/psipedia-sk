@@ -495,7 +495,7 @@ export function DirectoryProfileDetail({
         categoryLabel={category?.singular ?? "Profil služby"}
         commercial={commercial}
         navigationHref={navigationHref}
-        showExcerpt={isPhysiotherapy || !hasExtendedDescription}
+        showExcerpt={true}
       />
       <PublicDetailFlow blocks={blocks} className={styles.layout} />
 
