@@ -44,16 +44,16 @@ function fixture(options = {}) {
     verified INTEGER, featured INTEGER, seo_json TEXT, search_text TEXT,
     updated_at TEXT, published_at TEXT, archived_at TEXT, updated_by TEXT
   )`);
-  // Registry exists in post-0127 canonical D1; these legacy tests exercise
-  // ordinary Notion whole-profile edits for categories still using the legacy
-  // reconciliation path. Trainers now use explicit field events instead.
+  // Registry exists in post-0127 canonical D1; these tests intentionally use
+  // chovatelske-kluby, which still uses legacy record-wide reconciliation.
+  // Kynologicke kluby now use individual field events, like veterinarians.
   sqlite.exec("CREATE TABLE gemini_notion_created_pages (" +
     "notion_page_id TEXT PRIMARY KEY, import_agenda TEXT, canonical_entity_id INTEGER)");
   const version = "2026-10-14T08:00:00.000Z";
   const status = options.status ?? "draft";
   sqlite.prepare(`INSERT INTO directory_profiles
     (id,slug,name,category,status,city,district,region,address,image_url,image_key,updated_at,archived_at,service_address_confirmation)
-    VALUES (1,'test-profil','Pôvodný profil','kynologicke-kluby',?,?,?,?,?,?,?,?,?,?)`).run(
+    VALUES (1,'test-profil','Pôvodný profil','chovatelske-kluby',?,?,?,?,?,?,?,?,?,?)`).run(
       status, "Nitra", "Nitra", "Nitriansky kraj", "Hlavná 1, Nitra",
       "/media/directory/old.webp", "directory/old.webp", version,
       status === "archived" ? version : null, "CONFIRMED_SERVICE_LOCATION",
@@ -100,7 +100,7 @@ function fixture(options = {}) {
     postalCode: "94901", street: "Hlavná", houseNumber: "1", addressFormat: "STREET",
   };
   const newPayload = {
-    name: "Nový profil", slug: "test-profil", category: options.invalidInput ? "invalid-category" : "kynologicke-kluby",
+    name: "Nový profil", slug: "test-profil", category: options.invalidInput ? "invalid-category" : "chovatelske-kluby",
     status: options.notionStatus ?? "draft", region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
     address: "Hlavná 1, Nitra", street: "Hlavná", houseNumber: "1",
     addressFormat: "STREET", confirmServiceAddress: true,
