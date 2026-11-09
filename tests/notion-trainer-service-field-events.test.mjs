@@ -73,7 +73,7 @@ test("trainer Notion webhook and Admin PUT reuse field events without bulk profi
 test("mapped trainer without an explicit change does not enter legacy baseline conflict resolution", async () => {
   const source = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
   const trainer = source.indexOf('if (profile.category === "treneri" &&');
-  const breeder = source.indexOf('if ((["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category) || isDirectoryEventPilotCategory(profile.category)) &&', trainer);
+  const breeder = source.indexOf('if (isDirectoryFieldEventCategory(profile.category) && profile.category !== "treneri" &&', trainer);
   const legacy = source.indexOf("LOSSLESS_FIELD_REVIEW_REQUIRED", trainer);
   assert.ok(trainer > 0 && breeder > trainer && legacy > breeder);
   const guard = source.slice(trainer, breeder);
