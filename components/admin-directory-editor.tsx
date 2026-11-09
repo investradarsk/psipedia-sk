@@ -471,6 +471,16 @@ export function AdminDirectoryEditor({
             },
           ).filter(path => path !== "services" || !isDirectoryEventPilotCategory(category))
         : undefined;
+      // The server must distinguish an explicit clear from an untouched
+      // blank field in a long-open form. Only dirty contact paths are sent.
+      const explicitlyClearedContacts = (breederChangedPaths ?? []).filter(path => {
+        if (path === "websiteUrl") return !websiteUrl.trim();
+        if (path === "publicPhone") return !publicPhone.trim();
+        if (path === "publicEmail") return !publicEmail.trim();
+        if (path === "facebookUrl") return !facebookUrl.trim();
+        if (path === "instagramUrl") return !instagramUrl.trim();
+        return false;
+      });
       const pilotMetadataFields: Record<string, string> = {};
       if (profile && isDirectoryEventPilotCategory(profile.category)) {
         for (const [key, current] of [
@@ -497,7 +507,8 @@ export function AdminDirectoryEditor({
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths } : {}),
+          ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths,
+            explicitlyClearedContacts } : {}),
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
