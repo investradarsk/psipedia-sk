@@ -58,7 +58,11 @@ test("breed sync uses the exact configured Notion data source and hourly worker"
   assert.match(syncSource, /listEditableNotionBreeds\(args\.bindings, dataSourceId/);
   assert.match(workerSource, /runNotionBreedSyncSweep/);
   assert.match(workerSource, /event: "notion_breed_sync_sweep"/);
-  assert.match(wranglerSource, /"NOTION_BREED_SYNC_ENABLED": "true"/);
+  // Legacy breed sync is deliberately off during the workcopy cutover.
+  // Activation is controlled separately; never re-enable the old source to satisfy a test.
+  assert.match(wranglerSource, /"NOTION_BREED_SYNC_ENABLED": "false"/);
+  assert.match(wranglerSource, /"NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED": "true"/);
+  assert.match(wranglerSource, /"NOTION_BREEDS_WORK_DATA_SOURCE_ID": "f460b1e5-4454-4a10-9200-3b35106f9e32"/);
   assert.match(wranglerSource, /"NOTION_BREEDS_DATA_SOURCE_ID": "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2"/);
 });
 
