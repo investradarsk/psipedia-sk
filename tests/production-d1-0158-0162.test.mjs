@@ -119,7 +119,7 @@ test("0158 rejects a partial installation and incompatible index reuse", () => {
 test("0162 adds a default-empty short description without altering original descriptions", () => {
   const db = setup();
   try {
-    const original = db.prepare("SELECT id,description,status FROM lost_found_dog_reports ORDER BY id").all();
+    const original = db.prepare("SELECT id,description,status FROM lost_found_dog_reports ORDER BY id").all().map((row) => ({ ...row }));
     assert.equal(classify0162(inspect0162(db)).installed, false);
     db.exec(sql0162);
     assert.equal(classify0162(inspect0162(db)).installed, true);
