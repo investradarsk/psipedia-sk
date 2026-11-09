@@ -159,7 +159,11 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
   bindings: BreedWorkCopyBindings;
   targetPageId?: string;
   changedPropertyIds?: readonly string[];
+  /** Owner-clicked import of a single ACTIVE, verified work-copy breed. */
+  manualImport?: boolean;
 }) {
+  if (args.manualImport && (!args.targetPageId || args.changedPropertyIds?.length))
+    throw Error("BREED_WORKCOPY_MANUAL_SCOPE_INVALID");
   const summary = {
     enabled: notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED),
     scanned: 0, created: 0, updated: 0, unchanged: 0, failed: 0,
@@ -167,7 +171,7 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
   if (!requireWorkCopyOnly(args.bindings)) return summary;
   // As with breeders, periodic sweeps never replay whole profile values.
   // Only a signed targeted property event is an inbound editorial change.
-  if (!args.targetPageId || !args.changedPropertyIds?.length) return summary;
+  if (!args.targetPageId || (!args.manualImport && !args.changedPropertyIds?.length)) return summary;
   await requireActiveCohort(args.database);
   // Same as breeder field events: the verified edited Notion field is authoritative.
   const authority = {};
@@ -185,15 +189,20 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         "/pages/" + encodeURIComponent(link.work_notion_page_id));
       assertOwnedPage(page, link, canonical, args.bindings);
       const edited = workCopyChangedEditorialIds(
-        page, args.changedPropertyIds, BREED_NOTION_SCHEMA,
+        page, args.manualImport ? Object.keys(page.properties??{}) : args.changedPropertyIds,
+        BREED_NOTION_SCHEMA,
       );
       if (!edited.length) {
         summary.unchanged++;
         continue;
       }
+      // Manual import is explicitly Notion-authoritative even if the latest
+      // receipt previously acknowledged an unchanged Notion cell.
+      const manualBaseline = args.manualImport ? breedFieldSnapshot(canonical) : null;
       const plan = planBreedWorkCopyEditorialDelta({
         page, canonical,
-        previousNotion: receipt.notion, previousAdmin: receipt.admin,
+        previousNotion: manualBaseline ?? receipt.notion,
+        previousAdmin: manualBaseline ?? receipt.admin,
         authority, eventFieldIds: edited,
       });
       if (!plan.ready || !plan.sourceSnapshot)
@@ -245,11 +254,13 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       if (changed) summary.updated++; else summary.unchanged++;
       // Bad or unsupported fields remain pending; unrelated valid fields still
       // commit independently without modifying old Notion or publication.
-      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length)
+      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length) {
         console.warn("breed_workcopy_fields_pending",{
           id: canonical.id,
           count: safe.skipped.length + plan.skipped.length + rejectedMeasurements.length,
         });
+        if (args.manualImport) throw Error("BREED_WORKCOPY_MANUAL_PARTIAL_FIELDS");
+      }
     } catch (error) {
       summary.failed++;
       const code = error instanceof Error ? error.message : "BREED_WORKCOPY_UNKNOWN";
@@ -296,7 +307,7 @@ export async function writeBackBreedToWorkCopy(input: {
   const keys = workCopyAdminChangedFields(
     beforeAdmin, actualAdmin, BREED_NOTION_EDITABLE_FIELDS, input.changedFieldKeys,
   ).filter((field): field is BreedNotionField =>
-    !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field]) &&
+    !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true) &&
     isBreedStructuredMeasurement(field, actualAdmin[field]));
   // No record-wide receipt diff: never resend an untouched Admin field.
   if (!keys.length) return {

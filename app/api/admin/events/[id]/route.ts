@@ -50,6 +50,27 @@ export async function PUT(request: Request, { params }: Props) {
     // Notes are private and absent from DogEvent. Never overwrite a newer Notion
     // note unless the Admin editor explicitly changed that field.
     if (edited !== null && !edited.includes("internalNotes")) delete safe.internalNotes;
+    // Bad optional contacts cannot cancel unrelated edits. They are omitted
+    // from publication and returned as warnings, never used as unsafe links.
+    const fieldWarnings: string[] = [];
+    for (const key of ["websiteUrl", "registrationUrl"] as const) {
+      const value = safe[key];
+      if (typeof value !== "string" || !value.trim()) continue;
+      let valid = false;
+      try {
+        const url = new URL(value);
+        valid = url.protocol === "https:" || url.protocol === "http:";
+      } catch { /* Isolate the optional invalid URL. */ }
+      if (valid) continue;
+      safe[key] = null;
+      fieldWarnings.push("Neplatný nepovinný odkaz bol vynechaný: " + key);
+    }
+    if (safe.contactEmail &&
+        (safe.contactEmail.length > 254 ||
+         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safe.contactEmail))) {
+      safe.contactEmail = null;
+      fieldWarnings.push("Neplatný nepovinný e-mail bol vynechaný");
+    }
     const event = await updateManagedEvent(id, safe, user.email, before);
     if (!event) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
     if (before.imageKey && before.imageKey !== event.imageKey) {
@@ -77,7 +98,7 @@ export async function PUT(request: Request, { params }: Props) {
       changedEventFields:edited??eventChangedAdminFields(
         before as unknown as Record<string,unknown>,event as unknown as Record<string,unknown>),
     });
-    return Response.json({ event, notionFieldSync });
+    return Response.json({ event, notionFieldSync, fieldWarnings });
   } catch (error) { return errorResponse(error); }
 }
 

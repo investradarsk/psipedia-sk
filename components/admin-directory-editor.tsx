@@ -1,6 +1,7 @@
 "use client";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
+import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
@@ -532,9 +533,10 @@ export function AdminDirectoryEditor({
       // Verify that the database acknowledges lifecycle and explicit web edits.
       if (data.profile.status !== nextStatus)
         throw new Error("Zmena stavu profilu sa nepotvrdila. Obnov stránku a skontroluj údaje.");
-      if (breederChangedPaths?.includes("websiteUrl") &&
-          readDirectoryPublicContacts(data.profile.importData, data.profile.websiteUrl ?? "").website !== websiteUrl.trim())
-        throw new Error("Verejný web sa po uložení nepotvrdil. Skontroluj novú hodnotu v Admine.");
+      const unconfirmedWebsite = breederChangedPaths?.includes("websiteUrl") &&
+          readDirectoryPublicContacts(data.profile.importData, data.profile.websiteUrl ?? "").website !== websiteUrl.trim();
+      // The canonical D1 save already succeeded. Warn, refresh from D1 and
+      // never present a false 'save failed' after deleting an optional URL.
       // Write only explicit facet changes through the authenticated, CAS-protected endpoint.
       // The canonical profile save above continues to own all unrelated fields.
       let savedProfile = data.profile;
@@ -610,7 +612,11 @@ export function AdminDirectoryEditor({
       setMessage(hasNewerEdits
         ? "Predchádzajúce úpravy boli uložené. Novšie zmeny sú stále neuložené."
         : (nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.") +
-          (data.metadataWarnings?.length ? " Upozornenia: " + data.metadataWarnings.join("; ") : ""));
+          (data.metadataWarnings?.length || unconfirmedWebsite
+            ? " Upozornenia: " + [
+                ...(data.metadataWarnings ?? []),
+                ...(unconfirmedWebsite ? ["Verejný web sa neuložil presne podľa zadania. Obnovili sme hodnotu z databázy."] : []),
+              ].join("; ") : ""));
       if (!profile) setCreatedProfileHref(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
@@ -760,6 +766,8 @@ export function AdminDirectoryEditor({
               {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
             </label>
           )}
+          {profile && !notionDraft && <AdminNotionProfileImportButton scope="directory" profileId={profile.id}
+            dirty={formDirty} disabled={saving || uploading || galleryBusy} />}
           <AdminActionButton variant="secondary" onClick={() => setAdvancedOpen(true)}>Pokročilé a SEO</AdminActionButton>
         </div>
       </div>

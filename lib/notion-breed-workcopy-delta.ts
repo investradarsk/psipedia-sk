@@ -84,10 +84,9 @@ export function planBreedWorkCopyEditorialDelta(input: {
     ...plan.accepted,
     ...plan.changed,
   ])].filter(field => FULL_FCI_AND_EDITORIAL.has(field));
-  // A blank Notion cell is not an instruction to erase valid Admin content.
-  // Keep its previous receipt so a later filled value can still transfer.
+  // Only a signed, present edit may clear a field; an absent cell is preserved.
   const blank = plan.accepted.filter(field =>
-    !isTransferableBreedWorkCopyValue(actual[field]));
+    !isTransferableBreedWorkCopyValue(actual[field], true));
   // Isolate special media/relations: never let one unsupported field block
   // independently valid ordinary text and FCI edits. Those fields remain
   // pending in their prior receipt until their dedicated adapter is ready.

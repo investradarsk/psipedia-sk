@@ -35,7 +35,7 @@ test("action bar keeps one guarded back navigation and full meaning of buttons",
   assert.match(eventPage, /<AdminCanonicalDraftDelete/);
   assert.match(eventPage, /eventHref\(event\)/);
   assert.doesNotMatch(eventPage, /<Link href="\/admin\/podujatia">← Späť na podujatia/);
-  assert.match(editor, /status === "draft" \? <AdminActionButton type="submit" form="event-editor-v3-form"/);
+  assert.match(editor, /status === "draft" && <AdminActionButton type="submit" form="event-editor-v3-form"/);
   assert.match(editor, /onSubmit=\{\(submitEvent\)[\s\S]*save\(status\)/);
   assert.match(editor, /onClick=\{\(\) => setConfirmUnpublish\(true\)\}/);
   assert.match(editor, /onConfirm=\{\(\) => \{ setConfirmUnpublish\(false\); void save\("draft"\); \}\}/);

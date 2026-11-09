@@ -13,3 +13,9 @@ test("explicit values, including false and zero, remain editable", () => {
     assert.equal(isTransferableBreedWorkCopyValue(value), true);
   }
 });
+
+test("explicit edits transfer blank values, but missing properties never do", () => {
+  for (const value of [null, "", "  ", []])
+    assert.equal(isTransferableBreedWorkCopyValue(value, true), true);
+  assert.equal(isTransferableBreedWorkCopyValue(undefined, true), false);
+});

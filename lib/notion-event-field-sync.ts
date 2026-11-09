@@ -104,7 +104,11 @@ function validate(path:EventNotionField,value:string|boolean,live:DogEvent){
     return;
   }
   if(typeof value!=="string")throw Error("TEXT_EXPECTED");
-  if(!value.trim())throw Error("EMPTY_NOT_A_DELETE"); // Missing Notion never erases.
+  // Explicit signed empty edits clear optional values; essential identity remains.
+  if(!value.trim()){
+    if(path==="title" || path==="eventType")throw Error("EVENT_REQUIRED_FIELD");
+    return;
+  }
   if(value.length>60000)throw Error("VALUE_TOO_LONG");
   if(path==="imageAlt" && value.length>500)throw Error("IMAGE_ALT_TOO_LONG");
   if(path==="internalNotes" && value.length>20000)throw Error("INTERNAL_NOTES_TOO_LONG");
@@ -215,11 +219,13 @@ export async function syncEventNotionFields(input:{
     const property=EVENT_NOTION_FIELDS[path];
     try{
       const value=valueFromPage(input.page.properties?.[property],path);
-      if(value===null || eventEmpty(value))continue;
+      // Null from a present URL/date/select is an explicit clear, not an absent field.
+      if(!Object.hasOwn(input.page.properties??{},property) ||
+         (value===null && path==="seo.noindex"))continue;
       // A confirmed Place deliberately owns its location; skipping is not a sync error.
       if(EVENT_LOCATION_PATHS.has(path) &&
          await hasCurrentGooglePlace(input.database,"MANAGED_EVENT",id)) continue;
-      if(await saveField(input.database,id,path,value))saved++;
+      if(await saveField(input.database,id,path,value??""))saved++;
     }catch(e){
       const reason=e instanceof Error?e.message:"UNKNOWN";
       errors.push(property+" ("+reason+")");
