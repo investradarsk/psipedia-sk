@@ -290,10 +290,9 @@ export function DirectoryProfileDetail({
     expertFacts.length > 0 || breederLinkFacts.length > 0 ||
     visibleQualifications.length > 0 ||
     Boolean(!isPhysiotherapy && presentation.priceNote);
-  const hasExtendedDescription = Boolean(
-    presentation.description?.trim() &&
-      presentation.description.trim() !== presentation.excerpt.trim(),
-  );
+  // Short and long descriptions are independent editorial fields.
+  // Both remain visible whenever explicitly populated, even if the text matches.
+  const hasExtendedDescription = Boolean(presentation.description?.trim());
 
   const breederGallery = presentation.category === "chovatelske-stanice"
     ? (presentation.galleryUrls ?? []).filter((url) => url && url !== presentation.imageUrl)
