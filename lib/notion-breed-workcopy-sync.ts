@@ -27,6 +27,7 @@ import { planBreedWorkCopyFieldWrite } from "@/lib/notion-breed-workcopy-patch-b
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
 import { isBreedStructuredMeasurement } from "@/lib/breed-controlled-fields.mjs";
+import { receiveBreedControlledNotionEdit } from "@/lib/notion-breed-workcopy-controlled";
 import {
   workCopyChangedEditorialIds, workCopyNonblankChangedFields,
   workCopyAdminChangedFields,
@@ -188,12 +189,33 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       const page = await notionRequest<NotionPage>(args.bindings,
         "/pages/" + encodeURIComponent(link.work_notion_page_id));
       assertOwnedPage(page, link, canonical, args.bindings);
+      // The new typed columns have their own independent per-property receipts.
+      // Never route them through the legacy descriptive-text parser.
+      let controlledUpdated = false;
+      try {
+        const controlled = await receiveBreedControlledNotionEdit({
+          database:args.database,bindings:args.bindings,breedId:link.breed_id,
+          page,changedProperties:args.manualImport
+            ? Object.keys(page.properties ?? {}) : (args.changedPropertyIds ?? []),
+        });
+        controlledUpdated = controlled.updated;
+        if (controlled.invalidKeys.length)
+          console.warn("breed_controlled_notion_fields_pending",{
+            breedId:link.breed_id,count:controlled.invalidKeys.length,
+          });
+      } catch(error) {
+        // A missing migration or invalid structured value must never prevent
+        // an unrelated ordinary field from synchronizing.
+        console.warn("breed_controlled_sync_pending",{
+          breedId:link.breed_id,code:error instanceof Error?error.message:"UNKNOWN",
+        });
+      }
       const edited = workCopyChangedEditorialIds(
         page, args.manualImport ? Object.keys(page.properties??{}) : args.changedPropertyIds,
         BREED_NOTION_SCHEMA,
       );
       if (!edited.length) {
-        summary.unchanged++;
+        if (controlledUpdated) summary.updated++; else summary.unchanged++;
         continue;
       }
       // Manual import is explicitly Notion-authoritative even if the latest
@@ -251,7 +273,7 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         next.admin[field] = latest[field];
       }
       await advanceReceipt(args.database, link, next);
-      if (changed) summary.updated++; else summary.unchanged++;
+      if (changed || controlledUpdated) summary.updated++; else summary.unchanged++;
       // Bad or unsupported fields remain pending; unrelated valid fields still
       // commit independently without modifying old Notion or publication.
       if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length) {
