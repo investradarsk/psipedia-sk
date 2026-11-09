@@ -24,8 +24,8 @@ export default async function AdminBreedsPage() {
     NOTION_BREED_WORKCOPY_REBASELINE_ENABLED?: string;
   };
   const enableInitialBaseline = flags.NOTION_BREED_WORKCOPY_BASELINE_ENABLED === "true";
-  const enableRebaseline = flags.NOTION_BREED_WORKCOPY_REBASELINE_ENABLED === "true"
-    && Date.now() <= Date.parse("2026-11-16T23:59:59Z");
+  // Rendering is time-independent; the POST route enforces the hard expiry.
+  const enableRebaseline = flags.NOTION_BREED_WORKCOPY_REBASELINE_ENABLED === "true";
 
   return (
     <AdminShell
