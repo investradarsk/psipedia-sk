@@ -46,6 +46,7 @@ test("one-shot activation is atomic, receipt guarded, and verified after D1 writ
   assert.match(route, /result\.meta\.changes !== 344/);
   assert.match(route, /Number\(after\?\.active\) !== 344/);
   assert.match(route, /Number\(after\?\.shadow\) !== 0/);
+  assert.match(route, /oldSyncEnabled:false, workCopySyncEnabled:false/);
   assert.match(sql, /WITH eligible AS MATERIALIZED/);
   assert.match(sql, /eligible_count=344/);
   assert.match(sql, /SET status='ACTIVE'/);
