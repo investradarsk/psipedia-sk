@@ -1,5 +1,5 @@
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
-import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue } from "@/lib/directory-filter-contract";
+import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
 import {importNotionServiceChoices} from "./service-profile-notion-bridge.ts";
@@ -1494,14 +1494,14 @@ async function saveTrainerTrustField(
   field: TrainerTrustField,
   value: boolean,
 ): Promise<ManagedDirectoryProfile> {
-  if (current.category !== "treneri" || current.status === "archived")
-    throw new Error("TRAINER_TRUST_SCOPE_INVALID");
+  if (!serviceFilterCategories.includes(current.category as ServiceFilterCategory) || current.status === "archived")
+    throw new Error("DIRECTORY_TRUST_SCOPE_INVALID");
   if (current[field] === value) return current;
   const column = field === "verified" ? "verified" : "featured";
   const changed = await database.prepare(
     "UPDATE directory_profiles SET " + column + " = ?, updated_at = ?, updated_by = ? " +
-    "WHERE id = ? AND category = 'treneri' AND status <> 'archived' AND updated_at = ? RETURNING id",
-  ).bind(value ? 1 : 0, new Date().toISOString(), SYSTEM_ACTOR, current.id, current.updatedAt)
+    "WHERE id = ? AND category = ? AND status <> 'archived' AND updated_at = ? RETURNING id",
+  ).bind(value ? 1 : 0, new Date().toISOString(), SYSTEM_ACTOR, current.id, current.category, current.updatedAt)
     .first<{ id: number }>();
   if (!changed) throw new Error("TRAINER_TRUST_WRITE_CONFLICT");
   const updated = await getManagedDirectoryProfileById(current.id, database);
@@ -1533,8 +1533,7 @@ async function syncBreederEvent(input: {
       ? breederChangedNotionFacets(page, input.changedPropertyIds)
           .filter(id => getDirectoryFilterDefinition(id)?.category === input.profile.category)
       : [];
-    const trustFields = input.profile.category === "treneri"
-      ? changedTrainerTrustNotionFields(page.properties, input.changedPropertyIds) : [];
+    const trustFields = changedTrainerTrustNotionFields(page.properties, input.changedPropertyIds);
     const pilotMetaFields = isDirectoryEventPilotCategory(input.profile.category)
       ? pilotChangedNotionMetadataFields(page, input.changedPropertyIds) : [];
     if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length)
@@ -1767,7 +1766,7 @@ export async function mirrorBreederCategoryFiltersToNotion(input: {
 }
 
 /**
- * Admin -> Notion trust writeback for trainer profiles only. Each selected
+ * Admin -> Notion trust writeback for all service-directory categories. Each selected
  * checkbox is individually compared and patched; absence from 'fields'
  * never modifies the other checkbox, even when an old Admin form was open.
  */
@@ -1783,8 +1782,8 @@ export async function mirrorTrainerTrustFieldsToNotion(input: {
     throw new Error("TRAINER_TRUST_NOTION_DISABLED");
   const mapping = await loadMappingByProfile(input.database, input.profileId);
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!mapping || !profile || profile.category !== "treneri" || profile.status === "archived")
-    throw new Error("TRAINER_TRUST_NOTION_MAPPING_INVALID");
+  if (!mapping || !profile || !serviceFilterCategories.includes(profile.category as ServiceFilterCategory) || profile.status === "archived")
+    throw new Error("DIRECTORY_TRUST_NOTION_MAPPING_INVALID");
   const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
   if (page.id !== mapping.notion_page_id ||
       !notionDirectoryPageBelongsToSource(page, input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID!) ||
@@ -2621,8 +2620,24 @@ export async function runNotionDirectorySyncSweep(input: {
   const attemptedMappedProfileIds = new Set<number>();
 
   for (const candidate of pages) {
-    // Existing breeders are event-only; never re-run record-wide hourly merges.
-    if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(candidate, "Kategória"))) continue;
+    // Field-event profiles must never undergo a record-wide hourly merge.
+    // Independently retry Services V3 relations for recently edited profiles:
+    // missing/failed Notion relation events must not strand canonical choices.
+    if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(candidate, "Kategória"))) {
+      const mapped = await loadMappingByPage(input.database, candidate.id);
+      if (mapped && propertyText(candidate, "Psipedia ID") === String(mapped.directory_profile_id)) {
+        try {
+          const relation = await syncRelation(candidate.id, mapped.directory_profile_id);
+          summary.serviceRelationSync = relation;
+          if (relation === "skipped") throw new Error("DIRECTORY_SERVICES_RELATION_SCHEMA_MISSING");
+        } catch (error) {
+          summary.failed += 1;
+          await recordDirectoryNotionAlert(input.database, mapped.directory_profile_id, "pending",
+            error instanceof Error ? error.message : String(error), "NOTION_TO_ADMIN");
+        }
+      }
+      continue;
+    }
     let page = candidate;
     let release: (() => Promise<void>) | null = null;
     let releaseImport: (() => Promise<void>) | null = null;
@@ -2777,6 +2792,54 @@ export async function runNotionDirectorySyncSweep(input: {
       }
 
       if (!mapping) continue;
+      // Trust booleans and Services V3 relations are independent field events
+      // for ALL directory categories. A change to either must not trigger a
+      // legacy whole-profile merge, which can overwrite unrelated Admin data.
+      const relationProp = page.properties?.["Služby z katalógu"] as { id?: unknown } | undefined;
+      const changedIds = input.changedPropertyIds ?? [];
+      const trustFields = changedTrainerTrustNotionFields(page.properties, changedIds);
+      const relationChanged = changedIds.some(id =>
+        id === "Služby z katalógu" || id === relationProp?.id);
+      const onlyTrustOrServices = changedIds.length > 0 && changedIds.every(id =>
+        id === "Služby z katalógu" || id === relationProp?.id ||
+        (["verified", "featured"] as const).some(field => {
+          const key = TRAINER_TRUST_NOTION_PROPERTIES[field];
+          const raw = page.properties?.[key] as { id?: unknown } | undefined;
+          return id === key || id === raw?.id;
+        }));
+      if (onlyTrustOrServices && (trustFields.length || relationChanged)) {
+        let current = await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database);
+        if (!current || current.status === "archived" ||
+            current.category !== propertyText(page, "Kategória") ||
+            propertyText(page, "Psipedia ID") !== String(current.id))
+          throw new NotionDirectoryUnsafeTargetError("DIRECTORY_DIRECT_FIELD_IDENTITY_MISMATCH");
+        let trustUpdated = false;
+        for (const field of trustFields) {
+          const key = TRAINER_TRUST_NOTION_PROPERTIES[field];
+          const value = property(page, key)?.checkbox;
+          if (typeof value !== "boolean") throw new Error("DIRECTORY_TRUST_VALUE_INVALID: " + key);
+          if (current[field] !== value) {
+            current = await saveTrainerTrustField(input.database, current, field, value);
+            trustUpdated = true;
+          }
+        }
+        if (relationChanged) {
+          const relation = await syncRelation(page.id, mapping.directory_profile_id, true);
+          summary.serviceRelationSync = relation;
+          if (relation === "skipped") throw new Error("DIRECTORY_SERVICES_RELATION_SCHEMA_MISSING");
+        }
+        await patchNotionPage(input.bindings, page.id, {
+          "Sync stav": select("Synchronizované"),
+          "Sync chyba": richText(""),
+          "Posledný sync": date(new Date().toISOString()),
+        });
+        await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id,
+          "resolved", "", "NOTION_TO_ADMIN");
+        if (trustUpdated || summary.serviceRelationSync === "pulled")
+          summary.pulledFromNotion += 1;
+        else summary.unchanged += 1;
+        continue;
+      }
       // Breeders and trainers are field-event driven. Do not re-merge the
       // entire mapped profile during hourly sweeps after a partial event.
       if (!input.targetPageId && isDirectoryFieldEventCategory(propertyText(page, "Kategória"))) continue;
@@ -2818,9 +2881,6 @@ export async function runNotionDirectorySyncSweep(input: {
       // A signed change to the canonical relation is independent of text fields.
       // The Notion event can add verified choices without silently removing
       // older Admin YES selections. Ordinary sweeps retain 3-way reconciliation.
-      const relationProp = page.properties?.["Služby z katalógu"] as { id?: unknown } | undefined;
-      const relationChanged = input.changedPropertyIds?.some(id =>
-        id === "Služby z katalógu" || id === relationProp?.id) ?? false;
       if (input.changedPropertyIds === undefined || relationChanged) {
         const relation = await syncRelation(page.id, mapping.directory_profile_id, relationChanged);
         summary.serviceRelationSync = relation;

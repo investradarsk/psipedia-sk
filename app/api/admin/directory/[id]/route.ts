@@ -93,12 +93,12 @@ export async function PUT(request: Request, { params }: Props) {
     // A long-open trainer form may carry obsolete checkbox values from before
     // a Notion webhook. Only explicit checkbox edits may change these flags.
     const trainerTrustEditedPaths: TrainerTrustField[] =
-      before.category === "treneri" && Array.isArray(rawTrainerTrustEditedPaths)
+      serviceFilterCategories.includes(before.category as ServiceFilterCategory) && Array.isArray(rawTrainerTrustEditedPaths)
         ? rawTrainerTrustEditedPaths.filter(
             (field): field is TrainerTrustField =>
               typeof field === "string" && TRAINER_TRUST_FIELDS.includes(field as TrainerTrustField),
           ) : [];
-    const trust = before.category === "treneri"
+    const trust = serviceFilterCategories.includes(before.category as ServiceFilterCategory)
       ? preserveUneditedTrainerTrust(before, submittedBody, trainerTrustEditedPaths) : {};
     // The retired internal e-mail is no longer editable. Keep historical D1
     // data until the archival migration, regardless of a stale client payload.
@@ -186,7 +186,7 @@ export async function PUT(request: Request, { params }: Props) {
     }
     let profile = await updateManagedDirectoryProfile(id, payload, user.email, before);
     if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-    const changedTrainerTrustFields = before.category === "treneri"
+    const changedTrainerTrustFields = serviceFilterCategories.includes(before.category as ServiceFilterCategory)
       ? changedTrainerTrustAdminFields(before, profile).filter(field => trainerTrustEditedPaths.includes(field))
       : [];
     // Explicit media removal is a separate, guarded operation. In particular,
@@ -267,7 +267,7 @@ export async function PUT(request: Request, { params }: Props) {
         }
       }
     }
-    if (profile.category === "treneri" && changedTrainerTrustFields.length) {
+    if (serviceFilterCategories.includes(profile.category as ServiceFilterCategory) && changedTrainerTrustFields.length) {
       if (notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true" && notionEnv.DB) {
         try {
           const mirrored = await mirrorTrainerTrustFieldsToNotion({
@@ -306,7 +306,7 @@ export async function PUT(request: Request, { params }: Props) {
         notionFieldSync = "pending";
       }
     }
-    if (notionEnv.DB && isDirectoryFieldEventCategory(before.category)) {
+    if (notionEnv.DB && (isDirectoryFieldEventCategory(before.category) || changedTrainerTrustFields.length)) {
       const edited = breederEditedFields(before, profile);
       if (edited.length || changedTrainerTrustFields.length || Object.keys(changedPilotMetadata).length) {
         const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
