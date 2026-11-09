@@ -242,6 +242,18 @@ const publicSelect = `
   r.public_location_precision, r.public_contact_note, r.source, r.source_url,
   r.updated_at, r.published_at, r.expires_at, r.resolved_at`;
 
+/** Allow public and Admin reads to work before the additive 0162 schema is applied. */
+async function hasShortDescriptionColumn(database: D1Database): Promise<boolean> {
+  const schema = await database.prepare("PRAGMA table_info(lost_found_dog_reports)")
+    .all<{ name: string }>();
+  return (schema.results ?? []).some(column => column.name === "short_description");
+}
+
+async function selectWithOptionalShortDescription(database: D1Database, sql: string): Promise<string> {
+  if (await hasShortDescriptionColumn(database)) return sql;
+  return sql.replace("r.short_description,", "'' AS short_description,");
+}
+
 const adminSelect = `${publicSelect}, r.main_image_key, r.duplicate_of_id, r.duplicate_reason, r.created_at, r.archived_at,
   p.contact_name_encrypted AS private_contact_name_encrypted,
   p.contact_phone_encrypted AS private_contact_phone_encrypted,
@@ -287,14 +299,14 @@ export async function listPublicDogReports(type: DogReportType, filters: DogRepo
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r WHERE ${whereSql}`).bind(...args).first<{ count: number }>();
   const total = Number(count?.count || 0);
   const offset = (page - 1) * pageSize;
-  const result = await database.prepare(`SELECT ${publicSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE ${whereSql} ORDER BY r.event_date DESC, r.published_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, offset).all<ReportRow>();
+  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, publicSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE ${whereSql} ORDER BY r.event_date DESC, r.published_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, offset).all<ReportRow>();
   return { items: (result.results ?? []).map(rowToPublic), total, page, pageSize, pages: Math.ceil(total / pageSize) };
 }
 
 export async function getPublicDogReport(type: DogReportType, slug: string) {
   const database = getD1Binding();
   if (!database) return null;
-  const row = await database.prepare(`SELECT ${publicSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.type = ? AND r.slug = ? AND r.published_at IS NOT NULL AND r.duplicate_of_id IS NULL AND r.status IN ('ACTIVE','RESOLVED','EXPIRED','ARCHIVED') LIMIT 1`).bind(type, slug).first<ReportRow>();
+  const row = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, publicSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.type = ? AND r.slug = ? AND r.published_at IS NOT NULL AND r.duplicate_of_id IS NULL AND r.status IN ('ACTIVE','RESOLVED','EXPIRED','ARCHIVED') LIMIT 1`).bind(type, slug).first<ReportRow>();
   return row ? rowToPublic(row) : null;
 }
 
@@ -302,7 +314,7 @@ export async function listSitemapDogReports() {
   const database = getD1Binding();
   if (!database) return [] as PublicDogReport[];
   const nowIso = new Date().toISOString();
-  const result = await database.prepare(`SELECT ${publicSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.status = 'ACTIVE' AND r.published_at IS NOT NULL AND (r.expires_at IS NULL OR r.expires_at > ?) ORDER BY r.updated_at DESC`).bind(nowIso).all<ReportRow>();
+  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, publicSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.status = 'ACTIVE' AND r.published_at IS NOT NULL AND (r.expires_at IS NULL OR r.expires_at > ?) ORDER BY r.updated_at DESC`).bind(nowIso).all<ReportRow>();
   return (result.results ?? []).map(rowToPublic);
 }
 
@@ -320,7 +332,7 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r ${whereSql}`).bind(...args).first<{ count: number }>();
   const total = Number(count?.count || 0);
-  const result = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
+  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, adminSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
   const { encryptionKey } = requirePiiKeys();
   const items = await Promise.all((result.results ?? []).map((row) => rowToAdmin(row, encryptionKey)));
   return { items, total, page, pageSize, pages: Math.ceil(total / pageSize) };
@@ -328,7 +340,7 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
 
 export async function getAdminDogReport(id: number) {
   const database = requireD1Binding();
-  const row = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id WHERE r.id = ? LIMIT 1`).bind(id).first<ReportRow>();
+  const row = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, adminSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id WHERE r.id = ? LIMIT 1`).bind(id).first<ReportRow>();
   if (!row) return null;
   const { encryptionKey } = requirePiiKeys();
   return rowToAdmin(row, encryptionKey);
