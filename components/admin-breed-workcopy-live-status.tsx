@@ -10,23 +10,27 @@ type Status = {
   singleNewEngine: boolean;
 };
 
+async function fetchBreedWorkcopyStatus(signal?: AbortSignal): Promise<Status> {
+  const response = await fetch("/api/admin/notion-breeds-workcopy-status", {
+    credentials: "same-origin",
+    cache: "no-store",
+    signal,
+  });
+  if (!response.ok) throw new Error("STATUS_UNAVAILABLE");
+  return response.json() as Promise<Status>;
+}
+
 /** The counters are read from production D1, never assumed from a prior screenshot. */
 export function AdminBreedWorkcopyLiveStatus() {
   const [status, setStatus] = useState<Status | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch("/api/admin/notion-breeds-workcopy-status", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("STATUS_UNAVAILABLE");
-      const data = await response.json() as Status;
-      setStatus(data);
+      setStatus(await fetchBreedWorkcopyStatus());
     } catch {
       setError("Nepodarilo sa overiť živý stav D1.");
     } finally {
@@ -34,7 +38,22 @@ export function AdminBreedWorkcopyLiveStatus() {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    // React effects may start asynchronous I/O, but must not synchronously
+    // cause a cascade of render-time state updates.
+    const controller = new AbortController();
+    void fetchBreedWorkcopyStatus(controller.signal)
+      .then(data => {
+        if (!controller.signal.aborted) setStatus(data);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError("Nepodarilo sa overiť živý stav D1.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setBusy(false);
+      });
+    return () => controller.abort();
+  }, []);
 
   return (
     <section className="admin-card" aria-label="Živý stav synchronizácie plemien">
