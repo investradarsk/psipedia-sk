@@ -29,7 +29,7 @@ test("lost/found editor has independent short and long text with migration-safe 
   const migration = file("drizzle/0162_lost_found_short_description.sql");
   assert.match(editor, /set\("shortDescription",next\)/);
   assert.match(editor, /shortDescription:state\.shortDescription/);
-  assert.match(detail, /report\.shortDescription\.trim\(\)/);
+  assert.match(detail, /report\.shortDescription\?\.trim\(\)/);
   assert.match(detail, /report\.description/);
   assert.match(store, /hasShortDescriptionColumn/);
   assert.match(store, /selectWithOptionalShortDescription/);
