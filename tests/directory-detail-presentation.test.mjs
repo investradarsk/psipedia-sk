@@ -188,7 +188,8 @@ test("description and URL fallback preserve behavior while text-only address doe
   const presentation = getDirectoryDetailPresentation(
     profile({ description: "", importData: { Web: "N/A" } }),
   );
-  assert.deepEqual(presentation.descriptionParagraphs, ["Krátky opis služby."]);
+  assert.deepEqual(presentation.descriptionParagraphs, [], "An empty long description must not duplicate the short description");
+  assert.equal(presentation.excerpt, "Krátky opis služby.");
   assert.equal(presentation.websiteUrl, null);
   assert.equal(presentation.navigationUrl, null);
   assert.equal(usefulDirectoryDetailValue("Nie je uvedené"), null);
