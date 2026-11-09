@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { AdminBreedDashboard } from "@/components/admin-breed-dashboard";
 import { AdminBreedIdentityBackfill } from "@/components/admin-breed-identity-backfill";
 import { AdminBreedWorkcopyBaseline } from "@/components/admin-breed-workcopy-baseline";
+import { AdminBreedWorkcopyActivation } from "@/components/admin-breed-workcopy-activation";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -22,10 +23,16 @@ export default async function AdminBreedsPage() {
   const flags = env as unknown as {
     NOTION_BREED_WORKCOPY_BASELINE_ENABLED?: string;
     NOTION_BREED_WORKCOPY_REBASELINE_ENABLED?: string;
+    NOTION_BREED_SYNC_ENABLED?: string;
+    NOTION_BREED_WORKCOPY_SYNC_ENABLED?: string;
+    NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED?: string;
   };
   const enableInitialBaseline = flags.NOTION_BREED_WORKCOPY_BASELINE_ENABLED === "true";
   // Rendering is time-independent; the POST route enforces the hard expiry.
   const enableRebaseline = flags.NOTION_BREED_WORKCOPY_REBASELINE_ENABLED === "true";
+  const enableActivation = flags.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED === "true" &&
+    flags.NOTION_BREED_SYNC_ENABLED === "false" &&
+    flags.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "false";
 
   return (
     <AdminShell
@@ -40,6 +47,7 @@ export default async function AdminBreedsPage() {
           showInitial={enableInitialBaseline}
           showRefresh={enableRebaseline}
         />}
+      {enableActivation && <AdminBreedWorkcopyActivation />}
       <AdminBreedIdentityBackfill />
       <Suspense fallback={<AdminDataLoading label="Plemená" />}>
         <BreedList promise={breedsPromise} />
