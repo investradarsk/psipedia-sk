@@ -3,6 +3,7 @@ import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
+import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
 import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
@@ -308,7 +309,11 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
           <EditorActionBar
             message={dirty ? "Neuložené zmeny" : undefined}
             destructive={status === "published" ? <AdminActionButton type="button" variant="secondary" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z kalendára</AdminActionButton> : undefined}
-            secondary={status === "draft" ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton> : undefined}
+            secondary={<>
+              {event && <AdminNotionProfileImportButton scope="events" profileId={event.id}
+                dirty={dirty} disabled={saving || uploading} />}
+              {status === "draft" && <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>}
+            </>}
             primary={status === "published"
               ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="primary" className={styles.publishButton} disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť zmeny"}</AdminActionButton>
               : <AdminActionButton type="button" variant="primary" className={styles.publishButton} disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať podujatie"}</AdminActionButton>}
