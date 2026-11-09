@@ -254,7 +254,9 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           }
         }
       }
-      if (formEditRevisionRef.current === submittedRevision && !controlledSaveFailed) setDirty(false);
+      if (!controlledSaveFailed) {
+        if (formEditRevisionRef.current === submittedRevision) setDirty(false);
+      }
       const notionStatus=data.notionEditorialWriteback?.status;
       const notionPending=notionStatus==="pending" ||
         notionStatus==="workcopy-inactive" ||
@@ -262,7 +264,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       setMessage(controlledSaveFailed
         ? "Pôvodný profil je uložený; zmeny kontrolovaných polí si vyžadujú opakovanie."
         : notionPending || controlledHasPending
-          ? "Plemeno je uložené v Admine; časť údajov ešte čaká na potvrdenie v Notione."
+          ? "Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený."
           : status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
       if(!breed)router.replace(`/admin/plemena/${data.breed.id}`);
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}
