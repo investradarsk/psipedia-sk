@@ -15,6 +15,10 @@ import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upl
 import { AdminFieldFeedback, AdminFormFeedback } from "@/components/admin-form-feedback";
 import { inspectBreedMeasurement, type BreedMeasurementKind, type FciStandard, type FciStandardTextKey } from "@/lib/breed-fci";
 import {
+  FCI_GROUP_OPTIONS, BREED_SIZE_OPTIONS, BREED_ORIGIN_COUNTRIES,
+  isBreedNumericDraft,
+} from "@/lib/breed-controlled-fields.mjs";
+import {
   AdminActionButton,
   AdminDrawer,
   AdminEditorSection,
@@ -31,6 +35,30 @@ function lines(value:string){return value.split("\n").map((item)=>item.replace(/
 function measurementMessage(value:string,kind:BreedMeasurementKind){return inspectBreedMeasurement(value,kind).map((item)=>item.message).join(" ");}
 function measurementHasError(value:string,kind:BreedMeasurementKind){return inspectBreedMeasurement(value,kind).some((item)=>item.severity==="error");}
 const emptySource:BreedSource={label:"",url:""};
+function controlledNumericChange(next:string,previous:string,kind:BreedMeasurementKind,onChange:(value:string)=>void) {
+  // Existing historical FCI prose remains untouched unless the editor intentionally replaces it.
+  // Backspacing is allowed to clear an old description, but new prose is never accepted.
+  if (isBreedNumericDraft(next,kind) ||
+      (!isBreedNumericDraft(previous,kind) && previous.startsWith(next))) onChange(next);
+}
+function CountryChoices({value,onChange}:{value:string;onChange:(value:string)=>void}) {
+  const valid=BREED_ORIGIN_COUNTRIES as readonly string[];
+  const parts=value.split(/\s*[,;\/]\s*/).map(x=>x.trim()).filter(Boolean);
+  const chosen=parts.filter(x=>valid.includes(x));
+  const unknown=parts.some(x=>!valid.includes(x));
+  return <div>
+    <select value="" aria-label="Pridať krajinu pôvodu" onChange={e=>{
+      const added=e.target.value;
+      if (added) onChange([...new Set([...chosen,added])].join(", "));
+    }}>
+      <option value="">Vybrať krajinu…</option>
+      {valid.filter(x=>!chosen.includes(x)).map(country=><option key={country} value={country}>{country}</option>)}
+    </select>
+    {unknown&&<small>Pôvodný údaj (ponechaný bez zmeny): {value}</small>}
+    {chosen.map(country=><button key={country} type="button" aria-label={`Odstrániť krajinu ${country}`}
+      onClick={()=>onChange(chosen.filter(x=>x!==country).join(", "))}>{country} ×</button>)}
+  </div>;
+}
 const sportOptions=[
   ["obedience","Obedience"],["rally-obedience","Rally obedience"],["agility","Agility"],["canicross","Canicross"],
   ["bikejoring","Bikejöring"],["turistika","Turistika"],["nosework","Nosework"],["stopovanie","Stopovanie"],
@@ -227,15 +255,19 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         <div className={styles.heading}><div><h2>Základné údaje</h2><p>Identita plemena a údaje, ktoré redaktor používa najčastejšie.</p></div></div>
         <div className="admin-field-grid">
           <label className="admin-field"><span>Názov plemena</span><input required value={form.name} onChange={(e)=>changeName(e.target.value)}/></label>
-          <label className="admin-field"><span>Krajina pôvodu</span><input value={form.origin} onChange={(e)=>change("origin",e.target.value)}/></label>
+          <label className="admin-field"><span>Krajina pôvodu</span><CountryChoices value={form.origin} onChange={next=>change("origin",next)}/></label>
           <label className="admin-field"><span>FCI číslo</span><input type="number" min="1" max="9999" value={form.fciNumber} onChange={(e)=>change("fciNumber",e.target.value)}/></label>
-          <label className="admin-field"><span>FCI skupina</span><input type="number" min="1" max="10" value={form.fciGroup} onChange={(e)=>change("fciGroup",Number(e.target.value))}/></label>
+          <label className="admin-field"><span>FCI skupina</span><select value={form.fciGroup} onChange={e=>change("fciGroup",Number(e.target.value))}>{FCI_GROUP_OPTIONS.map(([number,label])=><option value={number} key={number}>{number}. {label}</option>)}</select></label>
           <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={(e)=>change("fciSection",e.target.value)}/></label>
 
-          <label className="admin-field"><span>Veľkosť</span><input value={form.size} onChange={(e)=>change("size",e.target.value)}/></label>
-          <label className="admin-field"><span>Hmotnosť</span><input aria-invalid={measurementHasError(form.weight,"weight")} aria-describedby={measurementMessage(form.weight,"weight") ? "breed-weight-feedback" : undefined} value={form.weight} onChange={(e)=>change("weight",e.target.value)}/><AdminFieldFeedback id="breed-weight-feedback" message={measurementMessage(form.weight,"weight")} invalid={measurementHasError(form.weight,"weight")} className="admin-field-warning" /></label>
-          <label className="admin-field"><span>Výška v kohútiku</span><input aria-invalid={measurementHasError(form.height,"height")} aria-describedby={measurementMessage(form.height,"height") ? "breed-height-feedback" : undefined} value={form.height} onChange={(e)=>change("height",e.target.value)}/><AdminFieldFeedback id="breed-height-feedback" message={measurementMessage(form.height,"height")} invalid={measurementHasError(form.height,"height")} className="admin-field-warning" /></label>
-          <label className="admin-field"><span>Dĺžka života</span><input aria-invalid={measurementHasError(form.lifespan,"lifespan")} aria-describedby={measurementMessage(form.lifespan,"lifespan") ? "breed-lifespan-feedback" : undefined} value={form.lifespan} onChange={(e)=>change("lifespan",e.target.value)}/><AdminFieldFeedback id="breed-lifespan-feedback" message={measurementMessage(form.lifespan,"lifespan")} invalid={measurementHasError(form.lifespan,"lifespan")} className="admin-field-warning" /></label>
+          <label className="admin-field"><span>Veľkosť</span><select value={form.size} onChange={e=>change("size",e.target.value)}>
+  <option value="">Nevyplnené</option>
+  {form.size && !BREED_SIZE_OPTIONS.includes(form.size) && <option value={form.size}>Pôvodný údaj: {form.size}</option>}
+  {BREED_SIZE_OPTIONS.map(size=><option key={size} value={size}>{size}</option>)}
+</select></label>
+          <label className="admin-field"><span>Hmotnosť</span><input aria-invalid={measurementHasError(form.weight,"weight")} aria-describedby={measurementMessage(form.weight,"weight") ? "breed-weight-feedback" : undefined} inputMode="decimal" value={form.weight} onChange={(e)=>controlledNumericChange(e.target.value,form.weight,"weight",next=>change("weight",next))}/><AdminFieldFeedback id="breed-weight-feedback" message={measurementMessage(form.weight,"weight")} invalid={measurementHasError(form.weight,"weight")} className="admin-field-warning" /></label>
+          <label className="admin-field"><span>Výška v kohútiku</span><input aria-invalid={measurementHasError(form.height,"height")} aria-describedby={measurementMessage(form.height,"height") ? "breed-height-feedback" : undefined} inputMode="decimal" value={form.height} onChange={(e)=>controlledNumericChange(e.target.value,form.height,"height",next=>change("height",next))}/><AdminFieldFeedback id="breed-height-feedback" message={measurementMessage(form.height,"height")} invalid={measurementHasError(form.height,"height")} className="admin-field-warning" /></label>
+          <label className="admin-field"><span>Dĺžka života</span><input aria-invalid={measurementHasError(form.lifespan,"lifespan")} aria-describedby={measurementMessage(form.lifespan,"lifespan") ? "breed-lifespan-feedback" : undefined} inputMode="decimal" value={form.lifespan} onChange={(e)=>controlledNumericChange(e.target.value,form.lifespan,"lifespan",next=>change("lifespan",next))}/><AdminFieldFeedback id="breed-lifespan-feedback" message={measurementMessage(form.lifespan,"lifespan")} invalid={measurementHasError(form.lifespan,"lifespan")} className="admin-field-warning" /></label>
           <label className="admin-field"><span>Srsť</span><input value={form.coat} onChange={(e)=>change("coat",e.target.value)}/></label>
           <label className="admin-field"><span>Oficiálny FCI názov</span><input value={form.officialFciName} onChange={(e)=>change("officialFciName",e.target.value)}/></label>
         </div>
