@@ -44,9 +44,9 @@ function fixture(options = {}) {
     verified INTEGER, featured INTEGER, seo_json TEXT, search_text TEXT,
     updated_at TEXT, published_at TEXT, archived_at TEXT, updated_by TEXT
   )`);
-  // Registry exists in post-0127 canonical D1; these tests intentionally use
-  // chovatelske-kluby, which still uses legacy record-wide reconciliation.
-  // Kynologicke kluby now use individual field events, like veterinarians.
+  // Chovateľské kluby now use the same field-event pipeline as other
+  // directory categories. Direct apply tests below still exercise
+  // D1/R2/GEO safety, while the unscoped mapped worker must do nothing.
   sqlite.exec("CREATE TABLE gemini_notion_created_pages (" +
     "notion_page_id TEXT PRIMARY KEY, import_agenda TEXT, canonical_entity_id INTEGER)");
   const version = "2026-10-14T08:00:00.000Z";
@@ -277,18 +277,18 @@ test("archived profile cannot be restored from Notion or trigger R2/D1 writes", 
   closes(f);
 });
 
-test("Notion cannot change canonical publication state through mapped sync", async () => {
+test("mapped field-event worker never changes canonical publication from Notion", async () => {
   const f = fixture({ notionStatus: "published" });
-  await assert.rejects(f.runMappedWorker, /PROTECTED_FIELD|REVIEW_REQUIRED/);
+  assert.equal(await f.runMappedWorker(), "unchanged");
   assert.deepEqual(f.read(), f.initial);
   assert.equal(f.calls.includes("r2-put"), false);
   assert.equal(f.calls.includes("notion-writeback"), false);
   closes(f);
 });
 
-test("divergent Admin and Notion edits are not resolved by an invented baseline", async () => {
+test("mapped field-event worker never invents a whole-profile baseline", async () => {
   const f = fixture({ canonicalName: "Admin-specific change" });
-  await assert.rejects(f.runMappedWorker, /LOSSLESS_FIELD_REVIEW_REQUIRED/);
+  assert.equal(await f.runMappedWorker(), "unchanged");
   assert.deepEqual(f.read(), f.initial);
   assert.equal(f.calls.includes("r2-put"), false);
   assert.equal(f.calls.includes("notion-writeback"), false);
@@ -386,23 +386,20 @@ test("stale retry cannot add another profile or overwrite the committed row", as
   closes(f);
 });
 
-test("mapped Notion worker pulls canonical SQL, R2, verified GEO and Notion writeback in order", async () => {
+test("mapped field-event worker does not run record-wide R2 or GEO writes", async () => {
   const f = fixture({ verifyExactAddress: true });
-  const result = await f.runMappedWorker();
-  assert.equal(result, "pulled");
-  assert.equal(f.read().image_key, "directory/new.webp");
-  const order = ["notion-snapshot", "r2-put", "canonical-store", "d1-update", "geo-after-commit", "notion-writeback"];
-  const positions = order.map(event => f.calls.indexOf(event));
-  assert.ok(positions.every(position => position >= 0));
-  assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+  assert.equal(await f.runMappedWorker(), "unchanged");
+  assert.deepEqual(f.read(), f.initial);
+  for (const action of ["r2-put", "canonical-store", "d1-update", "geo-after-commit", "notion-writeback"])
+    assert.equal(f.calls.includes(action), false, action);
   closes(f);
 });
 
-test("mapped Notion worker does not write success metadata after GEO postcommit failure", async () => {
+test("mapped field-event worker leaves GEO fault injection untouched without a signed edit", async () => {
   const f = fixture({ verifyExactAddress: true, geoFailure: "verified" });
-  await assert.rejects(f.runMappedWorker, /GEO_FAILED/);
-  assert.equal(f.read().image_key, "directory/new.webp");
-  assert.equal(f.objects.has("directory/new.webp"), true);
+  assert.equal(await f.runMappedWorker(), "unchanged");
+  assert.deepEqual(f.read(), f.initial);
+  assert.equal(f.objects.has("directory/old.webp"), true);
   assert.equal(f.calls.includes("notion-writeback"), false);
   closes(f);
 });
