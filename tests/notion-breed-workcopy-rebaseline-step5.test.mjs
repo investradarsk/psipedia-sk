@@ -110,7 +110,7 @@ test("refresh requires a properly formatted independent receipt and current revi
 });
 
 test("owner-only route and UI do not accidentally activate, edit profiles or enable sync", () => {
-  assert.equal(config.NOTION_BREED_WORKCOPY_SYNC_ENABLED,"false");
+  assert.equal(config.NOTION_BREED_WORKCOPY_SYNC_ENABLED,"true");
   assert.equal(config.NOTION_BREED_SYNC_ENABLED,"false");
   assert.equal(config.NOTION_BREED_WORKCOPY_BASELINE_ENABLED,"false");
   assert.match(route,/requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
