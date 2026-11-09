@@ -1400,11 +1400,11 @@ async function saveBreederEditorialValue(
  * Extra operational text for the field-event pilot categories. This is not part of
  * the legacy whole-profile snapshot/hash, nor of canonical Services V3/GEO.
  */
-export const PUBLIC_DIRECTORY_FACT_FIELDS = ["Organizácia", "Zameranie"] as const;
 export const PILOT_DIRECTORY_METADATA_FIELDS = [
   "Ordinačné hodiny", "Zdroj dát", "Zdroj obrázka", "Alt text obrázka",
-  ...PUBLIC_DIRECTORY_FACT_FIELDS,
+  "Organizácia", "Zameranie",
 ] as const;
+export const PUBLIC_DIRECTORY_FACT_FIELDS = ["Organizácia", "Zameranie"] as const;
 export type PilotDirectoryMetadataField = (typeof PILOT_DIRECTORY_METADATA_FIELDS)[number];
 
 function pilotChangedNotionMetadataFields(
