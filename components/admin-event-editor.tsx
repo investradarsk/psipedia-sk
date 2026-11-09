@@ -230,26 +230,10 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         setError(`Vyplň povinné pole: ${missing.label}.`);
         return;
       }
-      for (const [value, section, label] of [
-        [websiteUrl, "event-contacts", "Web organizátora"],
-        [registrationUrl, "event-contacts", "Registrácia"],
-      ]) {
-        if (!value.trim()) continue;
-        try {
-          const parsed = new URL(value);
-          if (parsed.protocol === "http:" || parsed.protocol === "https:") continue;
-        } catch { /* Show the same user-facing error for invalid URL protocols. */ }
-        setActiveEventSection(section);
-        setMessage("");
-        setError(`Skontroluj URL adresu: ${label}.`);
-        return;
-      }
+      // Optional links are sanitized independently by the server.
+      // Even a malformed URL must not block edits to other fields.
     }
-    if (nextStatus !== "draft" || status !== "published") {
-      if (contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
-        setActiveEventSection("event-contacts"); setMessage(""); setError("Skontroluj kontaktný e-mail."); return;
-      }
-    }
+    // Missing/invalid optional contacts are warnings, never form blockers.
     savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
@@ -262,13 +246,14 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
             JSON.parse(editorSnapshot) as Record<string,unknown>,
           ) : undefined }),
       });
-      const data = await response.json() as { event?: DogEvent; error?: string };
+      const data = await response.json() as { event?: DogEvent; error?: string; fieldWarnings?: string[] };
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
       setStatus(data.event.status);
       setSavedSnapshot(editorSnapshot);
-      setMessage(data.event.status === "published"
+      setMessage((data.event.status === "published"
         ? (status === "published" ? "Zmeny publikovaného podujatia sú uložené." : "Podujatie je publikované v kalendári.")
-        : (status === "published" ? "Podujatie bolo stiahnuté z kalendára." : "Koncept je bezpečne uložený."));
+        : (status === "published" ? "Podujatie bolo stiahnuté z kalendára." : "Koncept je bezpečne uložený.")) +
+        (data.fieldWarnings?.length ? " Upozornenia: " + data.fieldWarnings.join("; ") : ""));
       if (!event) {
         allowNavigationRef.current = true;
         router.replace(`/admin/podujatia/${data.event.id}?vytvorene=1`);
