@@ -6,7 +6,8 @@ const source = path => readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("all directory categories ignore blank optional fields and verify save response", () => {
   const editor = source("../components/admin-directory-editor.tsx");
-  assert.match(editor, /validity\.valueMissing/);
+  assert.match(editor, /checkValidity\(\)/, "Editor must validate user-entered non-empty inputs");
+  assert.match(editor, /directory-name/, "Required identity remains mandatory");
   assert.match(editor, /data\.profile\.status !== nextStatus/);
   assert.match(editor, /Verejný web sa po uložení nepotvrdil/);
   assert.match(source("../lib/directory-store.ts"), /if \(!name\) throw new Error/);
