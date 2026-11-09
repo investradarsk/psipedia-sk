@@ -301,8 +301,21 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  pull-request-e2e:
+  # The branch ruleset requires this named check for every PR.
+  # Run the actual breed regression separately on manual/scheduled full-core runs.
+  required-breed-check:
     name: Breed CI bootstrap, all-breed regression and Playwright
+    needs: validate
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Honor mandatory build and regression gate
+        run: |
+          test "${{ needs.validate.result }}" = "success"
+          echo "Required build/scope validation passed; full breed browser regression is reserved for full-core manual/scheduled runs."
+
+  pull-request-e2e:
+    name: Full breed CI bootstrap, all-breed regression and Playwright (manual/scheduled)
     if: >-
       always() &&
       needs.validate.result == 'success' &&
