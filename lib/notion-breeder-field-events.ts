@@ -1,7 +1,7 @@
 /**
  * Chovateľské stanice: editorial field events, not whole-profile reconciliation.
  * Identifiers, publication, Services V3 and trusted map/media data stay in their
- * own Admin-owned workflows. A missing Notion value is never a delete instruction.
+ * own Admin-owned workflows. Only a signed property edit may clear a field.
  */
 export const BREEDER_NOTION_EDITORIAL_FIELDS = {
   name: "Názov",
@@ -79,8 +79,8 @@ export function breederNotionChangedFields(
 }
 
 /**
- * Only expressly edited fields transfer. Inbound blank Notion values are
- * treated as missing and never erase a value already held in Admin.
+ * Only expressly edited fields transfer. An explicitly edited blank is a
+ * deletion; an absent source property is not. Never replay a whole profile.
  */
 export function breederApplyNotionChanges(
   admin: Record<string, unknown>,
@@ -90,8 +90,7 @@ export function breederApplyNotionChanges(
   const result = structuredClone(admin);
   for (const path of paths) {
     const value = breederReadPath(notion, path);
-    if (value === undefined || value === null || (typeof value === "string" && !value.trim())
-        || (Array.isArray(value) && value.length === 0)) continue;
+    if (value === undefined) continue;
     breederSetPath(result, path, value);
   }
   return result;
