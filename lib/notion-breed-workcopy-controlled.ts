@@ -216,6 +216,16 @@ export async function saveBreedControlledFromAdmin(args:{
       if (!eq(remote.values[key],notion[key]))
         throw Error("BREED_CONTROLLED_REMOTE_CHANGED");
       if (!eq(remote.values[key],values[key])) {
+        // Notion has no field-level CAS. Recheck the page revision and exact
+        // target cell immediately before PATCH; unrelated concurrent edits
+        // are deferred instead of risking a lost update.
+        const preflight=await notionRequest<NotionPage>(args.bindings,
+          "/pages/"+encodeURIComponent(link.work_notion_page_id));
+        await verifyPage(preflight,link,args.bindings);
+        const latestCell=readBreedControlledNotionPage(preflight,[key]);
+        if (preflight.last_edited_time!==page.last_edited_time ||
+            latestCell.errors.length || !eq(latestCell.values[key],notion[key]))
+          throw Error("BREED_CONTROLLED_CONCURRENT_NOTION_EDIT");
         await notionRequest(args.bindings,
           "/pages/"+encodeURIComponent(link.work_notion_page_id),{
             method:"PATCH",body:JSON.stringify({properties:breedControlledNotionPayload(key,values[key])}),
