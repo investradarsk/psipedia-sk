@@ -1,6 +1,7 @@
 "use client";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
+import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
@@ -766,6 +767,8 @@ export function AdminDirectoryEditor({
               {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
             </label>
           )}
+          {profile && !notionDraft && <AdminNotionProfileImportButton scope="directory" profileId={profile.id}
+            dirty={formDirty} disabled={saving || uploading || galleryBusy} />}
           <AdminActionButton variant="secondary" onClick={() => setAdvancedOpen(true)}>Pokročilé a SEO</AdminActionButton>
         </div>
       </div>
