@@ -1192,7 +1192,7 @@ async function bootstrapProfileIds(database: D1Database) {
     FROM directory_profiles dp
     LEFT JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
     WHERE dns.directory_profile_id IS NULL AND dp.category <> 'chovatelske-stanice'
-      AND dp.category NOT IN ('veterinari', 'fyzioterapia', 'dalsie-sluzby')
+      AND dp.category NOT IN ('veterinari', 'kynologicke-kluby', 'fyzioterapia', 'dalsie-sluzby')
     ORDER BY dp.id ASC
     LIMIT ?
   `).bind(BOOTSTRAP_BATCH).all<{ id: number }>();
@@ -1206,7 +1206,7 @@ async function changedProfileIds(database: D1Database) {
     JOIN directory_notion_sync dns ON dns.directory_profile_id = dp.id
     LEFT JOIN geo_points gp ON gp.directory_profile_id = dp.id
     WHERE dp.category <> 'chovatelske-stanice'
-      AND dp.category NOT IN ('treneri', 'veterinari', 'fyzioterapia', 'dalsie-sluzby') AND (
+      AND dp.category NOT IN ('treneri', 'veterinari', 'kynologicke-kluby', 'fyzioterapia', 'dalsie-sluzby') AND (
        COALESCE(dns.psipedia_updated_at, '') <> dp.updated_at
        OR (gp.updated_at IS NOT NULL AND gp.updated_at > dns.last_synced_at)
        OR EXISTS (
@@ -1397,7 +1397,7 @@ async function saveBreederEditorialValue(
 }
 
 /**
- * Extra operational text for the three pilot categories. This is not part of
+ * Extra operational text for the field-event pilot categories. This is not part of
  * the legacy whole-profile snapshot/hash, nor of canonical Services V3/GEO.
  */
 export const PILOT_DIRECTORY_METADATA_FIELDS = [
@@ -1916,7 +1916,7 @@ async function syncMappedPage(input: {
     return "unchanged" as const;
   }
 
-  // Breeders and the three pilot service categories are field-event only.
+  // Breeders and all pilot service categories are field-event only.
   // A targeted sweep may still mirror Admin-confirmed publication, status only:
   // never re-enter record-wide editorial hash/baseline reconciliation.
   // The owner-directed manual full-profile transfer below stays available.
