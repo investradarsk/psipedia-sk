@@ -1683,10 +1683,36 @@ async function syncBreederEvent(input: {
       { [key]: allProperties[key] }, page.properties ?? {},
     )[key];
   }
-  patch["Sync stav"] = select("Synchronizované");
-  patch["Sync chyba"] = richText("");
-  patch["Posledný sync"] = date(now);
-  await patchNotionPage(bindings, page.id, patch);
+  const echoed = await patchNotionPage(bindings, page.id, patch);
+  // Notion's PATCH response must acknowledge every requested editorial field.
+  // Never call an unconfirmed remote write "synced" just because the request
+  // returned without throwing; empty strings are genuine deletion requests.
+  const canonical = profileSnapshot(input.profile, sourceImageUrl) as unknown as Record<string, unknown>;
+  const confirmed = (candidate: NotionPage) => candidate.id === page.id &&
+    fields.every(path => {
+      const raw = breederReadPath(canonical, path);
+      const expected = Array.isArray(raw) ? raw.join("\n") : typeof raw === "string" ? raw.trim() : "";
+      const actual = propertyText(candidate, BREEDER_NOTION_EDITORIAL_FIELDS[path]);
+      // URL text and URL properties may serialize the root path differently.
+      const equivalent = (a: string, b: string) => {
+        if (a === b) return true;
+        try {
+          const left = new URL(a); const right = new URL(b);
+          return ["http:", "https:"].includes(left.protocol) && left.href === right.href;
+        } catch { return false; }
+      };
+      return equivalent(actual, expected);
+    });
+  if (!confirmed(echoed)) {
+    const fresh = await fetchNotionPage(bindings, page.id);
+    if (!confirmed(fresh)) throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH");
+  }
+  // Metadata is a separate, final acknowledgement, never a premature success.
+  await patchNotionPage(bindings, page.id, {
+    "Sync stav": select("Synchronizované"),
+    "Sync chyba": richText(""),
+    "Posledný sync": date(now),
+  });
   return "pushed";
 }
 
@@ -2565,8 +2591,11 @@ export async function runNotionDirectorySyncSweep(input: {
         summary.serviceRelationSync = relation;
         if (relation === "skipped") summary.failed++;
       }
-    } catch {
-      // The canonical save has already succeeded; the hourly sweep retries it.
+    } catch (error) {
+      // D1 remains committed, but the Notion field is still pending. Make the
+      // actual cause diagnosable rather than silently reporting only "failed".
+      console.error("DIRECTORY_TARGETED_NOTION_SYNC_FAILED", input.targetProfileId,
+        error instanceof Error ? error.message : "UNKNOWN");
       summary.failed++;
     }
     return summary;
