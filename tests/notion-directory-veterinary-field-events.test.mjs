@@ -51,7 +51,7 @@ test("a pilot editor save exports only changed fields and never creates Notion p
   assert.match(webhook, /'veterinari','fyzioterapia','dalsie-sluzby'/);
   assert.match(source, /isDirectoryFieldEventCategory\(profile\.category\)/);
   assert.match(source, /isDirectoryEventPilotCategory\(propertyText\(page, "Kategória"\)\)\) continue/);
-  assert.match(source, /isDirectoryEventPilotCategory\(profile\.category\)/);
+  assert.match(source, /isDirectoryEventPilotCategory\(input\.profile\.category\)/);
   assert.match(source, /saveBreederEditorialValue\(database, current, desired, path\)/);
   assert.match(admin, /isDirectoryEventPilotCategory\(before\.category\)/);
   assert.match(editor, /isDirectoryEventPilotCategory\(profile\.category\)/);
