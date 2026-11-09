@@ -1317,7 +1317,7 @@ async function saveBreederEditorialValue(
   desired: Record<string, unknown>,
   path: BreederEditorialField,
 ): Promise<ManagedDirectoryProfile> {
-  if ((!isDirectoryEventPilotCategory(current.category) && !["chovatelske-stanice", "salony-a-sluzby", "treneri"].includes(current.category)) || current.status === "archived")
+  if (!isDirectoryFieldEventCategory(current.category) || current.status === "archived")
     throw new Error("BREEDER_FIELD_WRITE_NOT_ALLOWED");
   // Pilot categories use the canonical Services V3 catalog. Their retired
   // legacy "Služby" text must not be written by any editorial event.
@@ -1325,6 +1325,8 @@ async function saveBreederEditorialValue(
     throw new Error("DIRECTORY_PILOT_LEGACY_SERVICES_READ_ONLY");
   const raw = breederReadPath(desired, path);
   const value = typeof raw === "string" ? raw : "";
+  // The name is identity-critical; other editorial fields may be cleared.
+  if (path === "name" && !value.trim()) throw new Error("DIRECTORY_NAME_REQUIRED");
   const assignments: string[] = [];
   const params: string[] = [];
   const scalar = breederScalarColumns[path];
@@ -1920,7 +1922,7 @@ async function syncMappedPage(input: {
   // A targeted sweep may still mirror Admin-confirmed publication, status only:
   // never re-enter record-wide editorial hash/baseline reconciliation.
   // The owner-directed manual full-profile transfer below stays available.
-  if ((["chovatelske-stanice", "salony-a-sluzby"].includes(profile.category) || isDirectoryEventPilotCategory(profile.category)) &&
+  if (isDirectoryFieldEventCategory(profile.category) && profile.category !== "treneri" &&
       !input.manualDirection &&
       input.breederWebhookPropertyIds === undefined &&
       input.breederAdminFields === undefined) {

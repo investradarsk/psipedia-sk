@@ -27,7 +27,7 @@ test("the field-event pilot includes kynologické kluby but not unrelated direct
   assert.equal(isDirectoryFieldEventCategory("treneri"), true);
 });
 
-test("Notion property events never import blank values or unrelated SEO/identity fields", () => {
+test("signed Notion field clears propagate without touching unrelated values", () => {
   const props = {
     Popis: { id: "desc-opaque" }, "SEO title": { id: "seo-opaque" },
     "Sync chyba": { id: "sync-opaque" },
@@ -39,7 +39,8 @@ test("Notion property events never import blank values or unrelated SEO/identity
     status: "published", description: "Preserved", seo: { title: "Saved" },
   };
   const incoming = { ...original, description: "", seo: { title: "Unverified" } };
-  assert.deepEqual(breederApplyNotionChanges(original, incoming, ["description"]), original);
+  assert.deepEqual(breederApplyNotionChanges(original, incoming, ["description"]),
+    { ...original, description: "" });
   assert.deepEqual(breederAdminChangedFields(original, { ...original, seo: { title: "New" } }), ["seo.title"]);
 });
 
@@ -88,7 +89,7 @@ test("pilot field writes are CAS guarded and preserve unrelated stored data", as
     } }; } };
     const exports = {};
     runInNewContext(js, {
-      exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory,
+      exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
       breederReadPath: (data, path) => path.split(".").reduce((v, k) => v?.[k], data),
       normalizeDirectorySearchText: str => str,
       getManagedDirectoryProfileById: async () => profile,

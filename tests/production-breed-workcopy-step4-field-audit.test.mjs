@@ -92,7 +92,7 @@ test("invalid, duplicate or partial receipt cannot become an accepted diagnosis"
 const notionText = (id, value) => ({
   id, type: "rich_text", rich_text: [{ plain_text: value }],
 });
-test("isolated Notion → Admin dry-run targets only the signed nonempty changed field", () => {
+test("isolated Notion → Admin dry-run handles signed blank changes without touching other fields", () => {
   const page = {
     last_edited_time: "2026-11-08T20:30:00.000Z",
     properties: {
@@ -115,7 +115,7 @@ test("isolated Notion → Admin dry-run targets only the signed nonempty changed
   ), []);
   assert.deepEqual(workCopyNonblankChangedFields({
     allowed, changed: ["intro"], accepted: ["intro"], values: { intro: " " },
-  }), []);
+  }), ["intro"]);
 });
 
 test("isolated Admin → Notion dry-run patches one exact property, not old conflicting fields", () => {

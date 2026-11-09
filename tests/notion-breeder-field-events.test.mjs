@@ -6,7 +6,7 @@ import {
   breederNotionChangedFields, breederAdminChangedFields,
   breederApplyNotionChanges, breederPreserveUneditedFields,
 } from "../lib/notion-breeder-field-events.ts";
-import { isDirectoryEventPilotCategory } from "../lib/notion-directory-field-event-scope.ts";
+import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "../lib/notion-directory-field-event-scope.ts";
 
 test("signed Notion property IDs select only the breeder field actually edited", () => {
   const properties = {
@@ -48,10 +48,12 @@ test("a Facebook edit does not overwrite legacy text, SEO or canonical identity"
   assert.equal(before.facebookUrl, "");
 });
 
-test("blank Notion fields never delete valid Admin data", () => {
+test("explicit blank Notion fields clear only selected values, never missing ones", () => {
   const previous = { facebookUrl: "https://example.com/real", seo: { title: "Valid" } };
   const incoming = { facebookUrl: "", seo: { title: "" } };
-  assert.deepEqual(breederApplyNotionChanges(previous, incoming, ["facebookUrl", "seo.title"]), previous);
+  assert.deepEqual(breederApplyNotionChanges(previous, incoming, ["facebookUrl", "seo.title"]),
+    { facebookUrl: "", seo: { title: "" } });
+  assert.deepEqual(breederApplyNotionChanges(previous, {}, ["facebookUrl"]), previous);
 });
 
 test("only explicitly saved Admin field deltas are exported", () => {
@@ -108,7 +110,7 @@ test("a single breeder field writes raw D1 content without validating unrelated 
     },
   };
   runInNewContext(js, {
-    exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory, breederReadPath: (v, p) => p.split(".")
+    exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory, isDirectoryFieldEventCategory, breederReadPath: (v, p) => p.split(".")
       .reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
     getManagedDirectoryProfileById: async () => current,
@@ -152,6 +154,9 @@ test("a single breeder field writes raw D1 content without validating unrelated 
   assert.equal(queries[4].values[0], JSON.stringify(desired.services));
   assert.doesNotMatch(queries[4].sql, /directory_service|service_option/);
   current.category = "hotely-a-opatrovanie";
+  await exports.saveBreederEditorialValue(db, current, desired, "description");
+  assert.match(queries[5].sql, /description = \?/);
+  current.category = "non-directory";
   await assert.rejects(() => exports.saveBreederEditorialValue(db, current, desired, "description"), /BREEDER_FIELD_WRITE_NOT_ALLOWED/);
 });
 
@@ -177,7 +182,7 @@ test("a trainer service description updates only its separate metadata field", a
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync",
     TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
-    isDirectoryEventPilotCategory: () => false,
+    isDirectoryEventPilotCategory: () => false, isDirectoryFieldEventCategory,
     breederReadPath: (v, p) => p.split(".").reduce((x, k) => x?.[k], v),
     normalizeDirectorySearchText: value => value,
     getManagedDirectoryProfileById: async () => profile,
@@ -229,16 +234,17 @@ test("breeder-only transport bypasses full-profile conflict merging and cron", a
   assert.match(admin, /breederEditedFields\(breederBefore, profile\)/);
 });
 
-test("salon changes remain per-field without erasing existing values", async () => {
+test("salon changes remain per-field and explicit blanks clear selected values", async () => {
   const directory = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
   const webhook = await readFile(new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
   const scope = await readFile(new URL("../lib/notion-directory-field-event-scope.ts", import.meta.url), "utf8");
-  assert.match(scope, /category === "salony-a-sluzby"/);
+  assert.match(scope, /"salony-a-sluzby"/);
   assert.match(webhook, /'treneri','salony-a-sluzby','veterinari'/);
   assert.match(directory, /"chovatelske-stanice", "salony-a-sluzby"/);
   const previous = { description: "Overený popis", services: ["Trimovanie"], seo: { title: "SEO" } };
   const fromNotion = { description: "", services: [], seo: { title: "" } };
-  assert.deepEqual(breederApplyNotionChanges(previous, fromNotion, ["description", "services", "seo.title"]), previous);
+  assert.deepEqual(breederApplyNotionChanges(previous, fromNotion, ["description", "services", "seo.title"]),
+    { description: "", services: [], seo: { title: "" } });
   assert.deepEqual(breederAdminChangedFields(previous, { ...previous, description: "Upravený popis" }), ["description"]);
   assert.deepEqual(breederPreserveUneditedFields(
     { ...previous, description: "Upravený popis" },

@@ -106,6 +106,31 @@ export async function PUT(request: Request, { params }: Props) {
     const fieldPreserved = editedPaths
       ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
       : safeSubmittedBody;
+    // Each optional contact is independent. Bad legacy links must not make
+    // a different field unsavable, and an explicit empty URL is a valid clear.
+    const safeOptionalFields = { ...fieldPreserved };
+    const optionalWarnings: string[] = [];
+    for (const key of ["websiteUrl", "facebookUrl", "instagramUrl"] as const) {
+      const text = safeOptionalFields[key];
+      if (typeof text !== "string" || !text.trim()) continue;
+      let valid = false;
+      try {
+        const url = new URL(text.trim());
+        valid = url.protocol === "https:" || url.protocol === "http:";
+      } catch { /* Only a warning: preserve other edited fields. */ }
+      if (valid) continue;
+      if (key === "websiteUrl") safeOptionalFields.websiteUrl = null;
+      else if (key === "facebookUrl") safeOptionalFields.facebookUrl = "";
+      else safeOptionalFields.instagramUrl = "";
+      optionalWarnings.push("Neplatný nepovinný odkaz bol vynechaný: " + key);
+    }
+    if (typeof safeOptionalFields.publicEmail === "string" &&
+        safeOptionalFields.publicEmail.trim() &&
+        (safeOptionalFields.publicEmail.length > 254 ||
+         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeOptionalFields.publicEmail.trim()))) {
+      safeOptionalFields.publicEmail = "";
+      optionalWarnings.push("Neplatný nepovinný e-mail bol vynechaný");
+    }
     // Trainer Notion prose is stored separately from Services V3; a stale
     // editor cannot change the canonical service choices. Pilot categories
     // likewise retain the Services V3-only editing contract.
@@ -114,12 +139,12 @@ export async function PUT(request: Request, { params }: Props) {
       return Response.json({ error: "Neplatný textový opis služieb." }, { status: 400 });
     }
     const body: ManagedDirectoryProfileInput = before.category === "treneri"
-      ? { ...fieldPreserved, services: before.services,
+      ? { ...safeOptionalFields, services: before.services,
           trainerServicesText: rawTrainerServicesEdited === true
             ? submittedBody.trainerServicesText : undefined }
       : isDirectoryEventPilotCategory(before.category)
-        ? { ...fieldPreserved, services: before.services }
-        : fieldPreserved;
+        ? { ...safeOptionalFields, services: before.services }
+        : safeOptionalFields;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
     const changed = directoryPhysicalAddressChanged(before, body);
 
@@ -216,7 +241,7 @@ export async function PUT(request: Request, { params }: Props) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
     }
     // Pilot metadata stays separate from profile normalization and V3 relations.
-    const metadataWarnings: string[] = [];
+    const metadataWarnings: string[] = [...optionalWarnings];
     const changedPilotMetadata: Partial<Record<PilotDirectoryMetadataField, string>> = {};
     if (isDirectoryEventPilotCategory(profile.category) && rawPilotMetadataFields &&
         typeof rawPilotMetadataFields === "object" && !Array.isArray(rawPilotMetadataFields)) {

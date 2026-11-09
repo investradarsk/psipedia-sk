@@ -45,14 +45,14 @@ test("system IDs, publication and media cannot become editorial write targets", 
     "Hlavný obrázok URL", "Galéria JSON"], BREED_NOTION_SCHEMA), []);
 });
 
-test("one nonblank Notion edit survives while blank siblings do not erase Admin", () => {
+test("signed Notion edits include explicitly cleared sibling fields", () => {
   const fields = workCopyNonblankChangedFields({
     allowed: ["intro", "history", "editorialComplete", "energy"],
     changed: ["intro", "history", "editorialComplete", "energy"],
     accepted: ["intro", "history", "editorialComplete", "energy"],
     values: { intro: "Nový úvod", history: "   ", editorialComplete: false, energy: 0 },
   });
-  assert.deepEqual(fields, ["intro", "editorialComplete", "energy"]);
+  assert.deepEqual(fields, ["intro", "history", "editorialComplete", "energy"]);
 });
 
 test("Admin Save patches actual before/after edits, not unrelated historical receipt differences", () => {
