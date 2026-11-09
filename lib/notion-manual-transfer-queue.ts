@@ -5,15 +5,15 @@ import {
   type ManualTransferRequest,
   type NotionManualTransferDirection,
 } from "./notion-manual-transfer-contract";
-import { runNotionBreedSyncSweep, type NotionBreedSyncBindings } from "./notion-breed-sync";
-import { assertManualBreedSweepOutcome } from "./notion-breed-manual-transfer-guards";
+import { getManagedBreed } from "./breed-store";
+import { runNotionBreedWorkCopySyncSweep, writeBackBreedToWorkCopy, type BreedWorkCopyBindings } from "./notion-breed-workcopy-sync";
 import { runNotionDirectorySyncSweep, type NotionDirectorySyncBindings } from "./notion-directory-sync";
 import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync";
 import { runNotionEshopSyncSweep, type NotionEshopSyncBindings } from "./notion-eshop-sync";
 import type { BidirectionalAgendaKey } from "./notion-events-help-adapters";
 import { inspectManualTransferRecord, verifyManualTransferFields } from "./notion-manual-transfer-inspect";
 
-export type ManualTransferBindings = NotionBreedSyncBindings &
+export type ManualTransferBindings = BreedWorkCopyBindings &
   NotionDirectorySyncBindings & NotionEventsHelpSyncBindings &
   NotionEshopSyncBindings & {
     NOTION_MANUAL_TRANSFER_ENABLED?: string;
@@ -73,7 +73,7 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
     const byId=request.selection==="ONE";
     let sql:string;const bind:unknown[]=[];
     if(scope==="breeds"){
-      sql="SELECT breed_id AS profile_id,notion_page_id FROM breed_notion_sync";
+      sql="SELECT breed_id AS profile_id,work_notion_page_id AS notion_page_id FROM breed_notion_workcopy_links WHERE status='ACTIVE' AND work_sync_receipt IS NOT NULL";
     }else if(scope.startsWith("directory:")){
       sql="SELECT m.directory_profile_id AS profile_id,m.notion_page_id FROM directory_notion_sync m " +
         "JOIN directory_profiles p ON p.id=m.directory_profile_id WHERE p.category=?";
@@ -160,7 +160,7 @@ export async function prepareManualTransferRun(input:{
 async function mappingStillLinked(db:D1Database,link:LinkRow):Promise<boolean>{
   let sql:string,bind:unknown[];
   if(link.scope==="breeds"){
-    sql="SELECT notion_page_id AS page FROM breed_notion_sync WHERE breed_id=?";
+    sql="SELECT work_notion_page_id AS page FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE' AND work_sync_receipt IS NOT NULL";
     bind=[link.profile_id];
   }else if(link.scope.startsWith("directory:")){
     sql="SELECT m.notion_page_id AS page FROM directory_notion_sync m " +
@@ -181,18 +181,30 @@ async function mappingStillLinked(db:D1Database,link:LinkRow):Promise<boolean>{
   return result?.page===link.notion_page_id;
 }
 
-async function runOne(input:{db:D1Database;bindings:ManualTransferBindings;job:Job}){
+async function runOne(input:{db:D1Database;bindings:ManualTransferBindings;job:Job;changedFields:string[]}){
   const {db,bindings,job}=input;
   if(!await mappingStillLinked(db,job))throw Error("TRANSFER_IDENTITY_CHANGED");
   if(job.scope==="breeds"){
-    const summary=await runNotionBreedSyncSweep({
-      database:db,bindings,targetPageId:job.notion_page_id,
-      manualDirection:job.direction,
-    });
-    // A partially applied breed sweep already wrote its valid siblings.
-    // Let executeVerified read back and mark every mismatched field FAILED,
-    // rather than retrying blindly and hiding the true per-field outcome.
-    assertManualBreedSweepOutcome(summary);
+    // Use the active 60+2 workcopy and never the legacy 109-field mapping.
+    if(bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED!=="true" ||
+       bindings.NOTION_BREED_SYNC_ENABLED==="true")
+      throw Error("TRANSFER_BREED_WORKCOPY_INACTIVE");
+    if(job.direction==="NOTION_TO_ADMIN"){
+      const summary=await runNotionBreedWorkCopySyncSweep({
+        database:db,bindings,targetPageId:job.notion_page_id,manualImport:true,
+      });
+      if(!summary.enabled||summary.scanned!==1||summary.failed)
+        throw Error("TRANSFER_BREED_WORKCOPY_IMPORT_FAILED");
+    }else{
+      const breed=await getManagedBreed(job.profile_id);
+      if(!breed)throw Error("TRANSFER_BREED_NOT_FOUND");
+      const result=await writeBackBreedToWorkCopy({
+        database:db,bindings,before:breed,breed,
+        forceFieldKeys:input.changedFields,
+      });
+      if(!result.linked||result.pendingFields?.length)
+        throw Error("TRANSFER_BREED_WORKCOPY_WRITE_FAILED");
+    }
     return;
   }
   if(job.scope.startsWith("directory:")){
@@ -290,7 +302,7 @@ async function executeVerified(db:D1Database,bindings:ManualTransferBindings,job
   });
   if(!job.preview_hash||before.fingerprint!==job.preview_hash)
     throw Error("TRANSFER_PREVIEW_STALE");
-  if(before.changed)await runOne({db,bindings,job});
+  if(before.changed)await runOne({db,bindings,job,changedFields:before.fields.filter(f=>f.status==="CHANGE").map(f=>f.field)});
   // The read-only preview already proved a no-op. Avoid another provider GET.
   const after=before.changed?await inspectManualTransferRecord({
     database:db,bindings,link:job,direction:job.direction,
@@ -331,13 +343,15 @@ export async function runManualTransferQueueBatch(input:{
   }
   async function claim(preview:boolean,now:string,stale:string){
     const activeStatus=preview?"PREVIEWING":"RUNNING";
-    const runCondition=preview?"r.status='PREVIEW'":"r.status IN ('QUEUED','RUNNING')";
+    const runCondition=preview?"r.status='PREVIEW'":"r.status IN ('PREVIEW','PREVIEW_READY','QUEUED','RUNNING')";
+    // Approved profiles keep their verified preview hash; uninspected rows do not.
+    const approvalCondition=preview?"i.preview_hash IS NULL":"i.preview_hash IS NOT NULL";
     return input.database.prepare(
       "UPDATE notion_manual_transfer_items SET status=?,"+
       "attempts=attempts+1,started_at=?,updated_at=? WHERE id=("+
       "SELECT i.id FROM notion_manual_transfer_items i "+
       "JOIN notion_manual_transfer_runs r ON r.id=i.run_id "+
-      "WHERE "+runCondition+" AND "+
+      "WHERE "+runCondition+" AND "+approvalCondition+" AND "+
       "((i.status='PENDING' AND i.next_attempt_at<=?) OR "+
       "(i.status=? AND i.started_at<?)) "+
       "ORDER BY r.created_at,i.id LIMIT 1) "+
@@ -426,6 +440,25 @@ async function reconcileSettledManualTransferRuns(db:D1Database){
     "ORDER BY r.updated_at LIMIT 5"
   ).all<{id:string}>();
   for(const run of result.results??[])await updateRun(db,run.id);
+}
+
+/** Approve one inspected profile without waiting for all other previews. */
+export async function confirmManualTransferItem(
+  db:D1Database,runId:string,itemId:number,actor:string,
+){
+  if(!uuid(runId)||!Number.isSafeInteger(itemId)||itemId<1)
+    throw Error("TRANSFER_ITEM_INVALID");
+  const now=new Date().toISOString();
+  const changed=await db.prepare(
+    "UPDATE notion_manual_transfer_items SET status='PENDING',"+
+    "next_attempt_at=?,updated_at=? WHERE id=? AND run_id=? "+
+    "AND status='PREVIEWED' AND preview_hash IS NOT NULL AND changed_fields>0 "+
+    "AND EXISTS (SELECT 1 FROM notion_manual_transfer_runs "+
+    "WHERE id=? AND requested_by=? AND status IN ('PREVIEW','PREVIEW_READY')) "+
+    "RETURNING id"
+  ).bind(now,now,itemId,runId,runId,actor).first<{id:number}>();
+  if(!changed)throw Error("TRANSFER_ITEM_NOT_READY_OR_UNAUTHORIZED");
+  return {runId,itemId,status:"QUEUED_ITEM" as const};
 }
 
 /** Two-stage owner confirmation: never accept a failed/incomplete preview. */
