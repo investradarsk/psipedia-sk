@@ -1425,9 +1425,7 @@ export async function savePilotDirectoryMetadataField(input: {
   field: PilotDirectoryMetadataField;
   value: string;
 }): Promise<ManagedDirectoryProfile> {
-  if (!(isDirectoryEventPilotCategory(input.category) ||
-      ((serviceFilterCategories as readonly string[]).includes(input.category) &&
-        (PUBLIC_DIRECTORY_FACT_FIELDS as readonly string[]).includes(input.field))) ||
+  if (!(serviceFilterCategories as readonly string[]).includes(input.category) ||
       !PILOT_DIRECTORY_METADATA_FIELDS.includes(input.field))
     throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
   const trimmed = input.value.trim();
@@ -1459,9 +1457,7 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
   changed: Partial<Record<PilotDirectoryMetadataField, string>>;
 }): Promise<boolean> {
   const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
-  if (!profile || !(isDirectoryEventPilotCategory(profile.category) ||
-      ((serviceFilterCategories as readonly string[]).includes(profile.category) &&
-        Object.keys(input.changed).every(key => (PUBLIC_DIRECTORY_FACT_FIELDS as readonly string[]).includes(key)))))
+  if (!profile || !(serviceFilterCategories as readonly string[]).includes(profile.category))
     throw new Error("DIRECTORY_PILOT_METADATA_SCOPE_INVALID");
   const mapping = await loadMappingByProfile(input.database, input.profileId);
   if (!mapping) throw new Error("DIRECTORY_PILOT_METADATA_UNLINKED");
@@ -1478,8 +1474,12 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
     if (!Object.hasOwn(input.changed, field)) continue;
     const value = input.changed[field]!.trim();
     if (propertyText(page, field) === value) continue;
-    if (!Object.hasOwn(page.properties ?? {}, field))
+    if (!Object.hasOwn(page.properties ?? {}, field)) {
+      // Public fact fields predate the optional Notion schema rollout.
+      // Keep their value in Admin without blocking other field updates.
+      if ((PUBLIC_DIRECTORY_FACT_FIELDS as readonly string[]).includes(field)) continue;
       throw new Error("DIRECTORY_PILOT_METADATA_NOTION_FIELD_MISSING: " + field);
+    }
     patch[field] = richText(value);
   }
   if (!Object.keys(patch).length) return false;
