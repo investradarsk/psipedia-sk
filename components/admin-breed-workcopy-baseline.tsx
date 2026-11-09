@@ -34,7 +34,10 @@ type RefreshBatchResult = {
  * Explicit owner-only process. 10 independent SHADOW receipts per request.
  * No scheduler, no automatic merge hook, no source switch.
  */
-export function AdminBreedWorkcopyBaseline() {
+export function AdminBreedWorkcopyBaseline({ showInitial = false, showRefresh = false }: {
+  showInitial?: boolean;
+  showRefresh?: boolean;
+}) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<BatchResult | null>(null);
   const [totalInitialized, setTotalInitialized] = useState(0);
@@ -147,14 +150,18 @@ export function AdminBreedWorkcopyBaseline() {
         Nezávislá východisková hodnota každého poľa sa uloží len do
         pomocnej SHADOW tabuľky. Pôvodná synchronizácia zostáva aktívna.
       </p>
+      {showInitial && (
       <button className="admin-primary-action" type="button"
         onClick={() => void initialize()} disabled={running}>
         {running ? "Spracúvam baselines…" : "Vytvoriť 344 nezávislých baselines"}
       </button>
+      )}
+      {showRefresh && (
       <button className="admin-primary-action" type="button"
         onClick={() => void refresh()} disabled={running}>
         {running ? "Spracúvam SHADOW…" : "Krok 5: obnoviť 344 baselines pred prepnutím"}
       </button>
+      )}
       {refreshResult && <p role="status">
         Obnovené: {totalRefreshed}/344,
         neúspešné v poslednej dávke: {refreshResult.failed},
