@@ -1107,8 +1107,9 @@
 }
 .page .quickFacts .factGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 9px;
+  align-items: start;
   margin: 0;
   overflow: visible;
   border: 0;
@@ -1117,6 +1118,7 @@
 }
 .page .quickFacts .factGrid > div {
   min-width: 0;
+  min-height: 70px;
   padding: 11px 12px;
   border: 1px solid var(--detail-border, #dfe7e4);
   border-radius: var(--ps-radius-control);
@@ -1125,13 +1127,62 @@
 .page .quickFacts .factGrid dt {
   margin-bottom: 4px;
   color: var(--detail-muted, #526158);
-  font-size: var(--ps-detail-fact-label-size);
+  font-size: max(0.78rem, var(--ps-detail-fact-label-size));
   letter-spacing: 0;
   text-transform: none;
 }
 .page .quickFacts .factGrid dd {
-  font-size: var(--ps-detail-fact-value-size);
+  font-size: max(0.96rem, var(--ps-detail-fact-value-size));
   line-height: 1.4;
+}
+.page .coatSummary {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--detail-border, #dfe7e4);
+  border-radius: var(--ps-radius-control);
+  background: var(--detail-surface, #fffefa);
+}
+.page .coatSummary > strong {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--detail-ink, #17352b);
+  font-size: 0.84rem;
+}
+.page .coatSummary p,
+.page .coatSummary summary > span:first-child {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+.page .coatSummary details > summary {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+}
+.page .coatSummary details > summary::-webkit-details-marker {
+  display: none;
+}
+.page .coatSummary details > summary:focus-visible {
+  outline: 3px solid rgba(23, 75, 56, 0.28);
+  outline-offset: 3px;
+}
+.page .coatSummary details[open] summary > span:first-child {
+  display: none;
+}
+.page .coatExpandLabel {
+  color: var(--forest);
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.page .coatSummary details[open] .coatExpandLabel::after {
+  content: " (skryť)";
+}
+.page .coatSummary details > p {
+  margin-top: 9px;
 }
 .contentLayout {
   margin-top: 14px;
@@ -1176,8 +1227,8 @@
   margin-top: 8px;
 }
 .page .prose {
-  font-size: 0.94rem;
-  line-height: 1.6;
+  font-size: 1rem;
+  line-height: 1.65;
 }
 .page .prose p + p {
   margin-top: 0.9em;
@@ -1192,6 +1243,10 @@
 }
 .page .fitGrid {
   gap: 10px;
+  align-items: start;
+}
+.page .fitGrid li {
+  font-size: 0.98rem;
 }
 .page .fitGrid > div {
   padding: 14px 16px;
@@ -1232,6 +1287,50 @@
 .page .utilitySidebar {
   margin-top: 0;
   gap: 12px;
+  align-self: start;
+}
+.page .sidebarIndex {
+  padding: 15px 16px;
+  border: 1px solid var(--detail-border, #dfe7e4);
+  border-radius: var(--ps-radius-card);
+  background: var(--detail-surface, #fffefa);
+}
+.page .sidebarIndex h2 {
+  margin: 0 0 9px;
+  font: 600 1.12rem/1.3 Georgia, serif;
+  color: var(--detail-ink, #17352b);
+}
+.page .sidebarIndex ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.page .sidebarIndex li + li {
+  border-top: 1px solid var(--detail-border, #dfe7e4);
+}
+.page .sidebarIndex a {
+  display: block;
+  padding: 10px 0;
+  color: var(--forest);
+  font-size: 0.93rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.page .sidebarIndex a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.page .sidebarIndex a:focus-visible {
+  outline: 3px solid rgba(23, 75, 56, 0.28);
+  outline-offset: 2px;
+}
+@media (min-width: 1025px) {
+  .page .utilitySidebar {
+    position: sticky;
+    top: calc(var(--psipedia-sticky-header-height, 107px) + 14px);
+  }
 }
 .page .utilitySidebar h2 {
   margin-bottom: 8px;
@@ -1276,6 +1375,9 @@
   gap: 10px;
 }
 @media (max-width: 800px) {
+  .page .sidebarIndex {
+    display: none;
+  }
   .page .quickFacts {
     margin-top: 12px;
     padding: 14px;
