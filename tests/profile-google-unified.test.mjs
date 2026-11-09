@@ -23,6 +23,8 @@ const geoStore = read("lib/geo-store.ts");
 const operator = read("lib/geo-admin-operator.ts");
 const bulk = read("lib/google-place-bulk.ts");
 const quality = read("lib/data-quality-store.ts");
+const geoDetachMirror = read("lib/notion-geo-detach-mirror.ts");
+const geoNotionMirror = read("lib/notion-geo-mirror.ts");
 
 test("PROFILE-GOOGLE-UNIFIED keeps one shared Google Maps component contract", () => {
   assert.match(profileGoogle, /export function AdminProfileGoogleMaps/);
@@ -129,4 +131,26 @@ test("manual override and explicit-private protections remain fail-closed", () =
 test("workflow adds no schema mutation", () => {
   const changedRuntime = [profileGoogle, geoRoute, organizationRoute, organizationWorkflow, confirmation, operator, bulk].join("\n");
   assert.doesNotMatch(changedRuntime, /CREATE TABLE|ALTER TABLE/);
+});
+
+test("DIRECTORY Google Place detach immediately mirrors canonical GEO to Notion for every service category", () => {
+  assert.match(geoRoute, /notionMirror = await syncNotionGeoMirrorAfterDetach/);
+  assert.match(geoDetachMirror, /if \(targetType === "DIRECTORY_PROFILE"\)/);
+  assert.match(geoDetachMirror, /return syncDirectoryGeoMirrorAfterDetach\(db, targetId, bindings\)/);
+  assert.match(geoDetachMirror, /NOTION_DIRECTORY_SYNC_ENABLED/);
+  assert.match(geoDetachMirror, /NOTION_DIRECTORY_DATA_SOURCE_ID/);
+  assert.match(geoDetachMirror, /FROM directory_notion_sync WHERE directory_profile_id=\?/);
+  assert.match(geoDetachMirror, /notionDirectoryPageBelongsToSource\(page, dataSourceId\)/);
+  assert.match(geoDetachMirror, /GEO_NOTION_DIRECTORY_ID_MISMATCH/);
+  assert.match(geoDetachMirror, /GEO_NOTION_DIRECTORY_URL_MISMATCH/);
+  assert.match(geoDetachMirror, /notionGeoMirrorProperties\(geo\)/);
+  assert.match(geoDetachMirror, /for \(const name of notionGeoMirrorFields\)/);
+  assert.match(geoNotionMirror, /"Google Place ID": googleCurrent \? placeId : ""/);
+  assert.match(geoNotionMirror, /"Google miesto aktuálne": googleCurrent/);
+  assert.match(geoDetachMirror, /GEO_DIRECTORY_UNLINK_STATE_CHANGED/);
+  assert.match(geoDetachMirror, /method: "PATCH"/);
+  // The Notion mirror writes technical read-only GEO values; it never rewrites the address.
+  assert.doesNotMatch(geoDetachMirror, /patch\["Adresa"\]|UPDATE directory_profiles|UPDATE directory_notion_sync/);
+  // No category gate: every DIRECTORY_PROFILE category uses the same behavior.
+  assert.doesNotMatch(geoDetachMirror, /category === "veterinari"|category === "treneri"|category === "salony-a-sluzby"/);
 });
