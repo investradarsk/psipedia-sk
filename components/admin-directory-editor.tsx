@@ -211,7 +211,7 @@ export function AdminDirectoryEditor({
   const [pilotDataSources, setPilotDataSources] = useState(pilotMetadataText("Zdroj dát"));
   const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
   const [pilotImageAlt, setPilotImageAlt] = useState(pilotMetadataText("Alt text obrázka"));
-  const [publicOrganization, setPublicOrganization] = useState(pilotMetadataText("Organizácia") || pilotMetadataText("Zastrešujúca organizácia"));
+  const [publicOrganization, setPublicOrganization] = useState(Object.hasOwn(profile?.importData ?? {}, "Organizácia") ? pilotMetadataText("Organizácia") : pilotMetadataText("Zastrešujúca organizácia"));
   const [publicFocus, setPublicFocus] = useState(pilotMetadataText("Zameranie"));
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
   // An explicit remove action must survive a stale full-form save; null alone
@@ -496,7 +496,9 @@ export function AdminDirectoryEditor({
           ["Organizácia", publicOrganization],
           ["Zameranie", publicFocus],
         ]) {
-          const value = breederBaseline?.importData?.[key];
+          const canonicalValue = breederBaseline?.importData?.[key];
+          const value = key === "Organizácia" && !Object.hasOwn(breederBaseline?.importData ?? {}, key)
+            ? breederBaseline?.importData?.["Zastrešujúca organizácia"] : canonicalValue;
           const baseline = typeof value === "string" ? value : "";
           if (current.trim() !== baseline.trim())
             pilotMetadataFields[key] = current.trim();
@@ -607,7 +609,7 @@ export function AdminDirectoryEditor({
           setPilotDataSources(storedText("Zdroj dát"));
           setPilotImageSource(storedText("Zdroj obrázka"));
           setPilotImageAlt(storedText("Alt text obrázka"));
-          setPublicOrganization(storedText("Organizácia") || storedText("Zastrešujúca organizácia"));
+          setPublicOrganization(Object.hasOwn(savedProfile.importData ?? {}, "Organizácia") ? storedText("Organizácia") : storedText("Zastrešujúca organizácia"));
           setPublicFocus(storedText("Zameranie"));
         }
         }
