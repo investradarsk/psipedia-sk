@@ -216,9 +216,9 @@ export function AdminNotionManualTransfer(){
         <h4>Výsledky po profiloch a poliach</h4>
         <div className={styles.filters}>
           <label><input type="checkbox" checked={onlyDifferences}
-            onChange={e=>{setOnlyDifferences(e.target.checked);setOffset(0)}}/> Iba profily s rozdielmi</label>
+            onChange={e=>{setOnlyDifferences(e.target.checked);if(e.target.checked)setOnlyErrors(false);setOffset(0)}}/> Iba profily s rozdielmi</label>
           <label><input type="checkbox" checked={onlyErrors}
-            onChange={e=>{setOnlyErrors(e.target.checked);setOffset(0)}}/> Iba chybné profily</label>
+            onChange={e=>{setOnlyErrors(e.target.checked);if(e.target.checked)setOnlyDifferences(false);setOffset(0)}}/> Iba chybné profily</label>
         </div>
       </div>
       {detail.items.length===0?<p>Zatiaľ nie sú spracované položky alebo tomuto filtru nič nezodpovedá.</p>:null}
