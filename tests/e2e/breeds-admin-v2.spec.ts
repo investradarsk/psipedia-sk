@@ -132,7 +132,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await goToBreedEditorSection(page, "Pohyb a život", "breed-practical");
     await page.getByLabel("Potreba pohybu").fill("Lokálny test praktického obsahu.");
     await goToBreedEditorSection(page, "Základ", "breed-basic");
-    await page.getByLabel("FCI skupina", { exact: true }).fill("8");
+    await page.getByLabel("FCI skupina", { exact: true }).selectOption("8");
     await page.getByLabel("FCI sekcia", { exact: true }).fill("Retrievery");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText(/^(Koncept je uložený\.|Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený\.)$/)).toBeVisible();
