@@ -50,7 +50,7 @@ test("one-shot activation is atomic, receipt guarded, and verified after D1 writ
   assert.match(sql, /eligible_count=344/);
   assert.match(sql, /SET status='ACTIVE'/);
   assert.doesNotMatch(route, /UPDATE managed_breeds|UPDATE breed_notion_sync|method:\s*"PATCH"|NOTION_BREED_WORKCOPY_SYNC_ENABLED:\s*"true"/);
-  assert.doesNotMatch(ui, /fetch\(["']\/api\/admin\/notion-breeds-workcopy-activate[^)]*\)\s*;?\s*$/m);
+  assert.doesNotMatch(ui, /\buseEffect\b/);
 });
 
 test("historical source content differences are informational, never silently replayed", () => {
