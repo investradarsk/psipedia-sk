@@ -281,8 +281,11 @@ export async function PUT(request: Request, { params }: Props) {
             database: notionEnv.DB,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
+            // The Admin editor sends its explicit dirty field IDs. Use those
+            // rather than re-inferring a change from legacy contact aliases:
+            // the canonical D1 value was already committed above.
             breederAdminFields: isDirectoryFieldEventCategory(before.category)
-              ? breederEditedFields(before, profile) : undefined,
+              ? (editedPaths ?? breederEditedFields(before, profile)) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
             : result.pushedToNotion || result.pulledFromNotion ? "synced"
