@@ -273,7 +273,9 @@ export function getDirectoryDetailPresentation(
     }),
     ...(["Organizácia", "Zameranie"] as const).flatMap(label => {
       const value = usefulDirectoryDetailValue(label === "Organizácia"
-        ? importedValue(profile, "Organizácia", "Zastrešujúca organizácia")
+        ? Object.hasOwn(profile.importData ?? {}, "Organizácia")
+          ? importedValue(profile, "Organizácia")
+          : importedValue(profile, "Zastrešujúca organizácia")
         : importedValue(profile, label));
       return value ? [{ label, value }] : [];
     }),
