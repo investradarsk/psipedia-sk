@@ -1,5 +1,6 @@
 "use client";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
+import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
@@ -203,7 +204,11 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       closeLabel="Späť na plemená"
       actions={<EditorActionBar
         message={<span role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
-        secondary={<AdminActionButton variant="neutral" onClick={()=>setSettingsOpen(true)}>Nastavenia, FCI a SEO</AdminActionButton>}
+        secondary={<>
+          {breed && <AdminNotionProfileImportButton scope="breeds" profileId={breed.id}
+            dirty={dirty} disabled={saving || uploading} />}
+          <AdminActionButton variant="neutral" onClick={()=>setSettingsOpen(true)}>Nastavenia, FCI a SEO</AdminActionButton>
+        </>}
         primary={<>
           <AdminActionButton variant="secondary" type="submit" form="breed-canonical-editor-form" disabled={saving||uploading}>{saving?"Ukladám…":form.status==="published"?"Uložiť zmeny":"Uložiť koncept"}</AdminActionButton>
           <AdminActionButton variant="primary" disabled={saving||uploading} onClick={()=>void save("published")}>{saving?"Ukladám…":form.status==="published"?"Uložiť a aktualizovať":"Publikovať"}</AdminActionButton>
