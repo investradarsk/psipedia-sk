@@ -4,6 +4,7 @@ import { AdminBreedDashboard } from "@/components/admin-breed-dashboard";
 import { AdminBreedIdentityBackfill } from "@/components/admin-breed-identity-backfill";
 import { AdminBreedWorkcopyBaseline } from "@/components/admin-breed-workcopy-baseline";
 import { AdminBreedWorkcopyActivation } from "@/components/admin-breed-workcopy-activation";
+import { AdminBreedWorkcopyLiveStatus } from "@/components/admin-breed-workcopy-live-status";
 import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -33,6 +34,8 @@ export default async function AdminBreedsPage() {
   const enableActivation = flags.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED === "true" &&
     flags.NOTION_BREED_SYNC_ENABLED === "false" &&
     flags.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "false";
+  const showLiveSyncStatus = flags.NOTION_BREED_SYNC_ENABLED === "false" &&
+    flags.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "true";
 
   return (
     <AdminShell
@@ -48,6 +51,7 @@ export default async function AdminBreedsPage() {
           showRefresh={enableRebaseline}
         />}
       {enableActivation && <AdminBreedWorkcopyActivation />}
+      {showLiveSyncStatus && <AdminBreedWorkcopyLiveStatus />}
       <AdminBreedIdentityBackfill />
       <Suspense fallback={<AdminDataLoading label="Plemená" />}>
         <BreedList promise={breedsPromise} />
