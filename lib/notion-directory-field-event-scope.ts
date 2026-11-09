@@ -4,6 +4,7 @@
  */
 export const DIRECTORY_EVENT_PILOT_CATEGORIES = [
   "veterinari",
+  "kynologicke-kluby",
   "fyzioterapia",
   "dalsie-sluzby",
 ] as const;
