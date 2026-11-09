@@ -393,22 +393,8 @@ export function AdminDirectoryEditor({
       // Preserve the current field constraints for both Save and Publish.
       if (!name.trim()) { setActiveDirectorySection("directory-main"); setError("Vyplň názov profilu."); setMessage(""); return; }
       if (!slug.trim()) { setAdvancedOpen(true); setError("Vyplň URL adresu profilu."); setMessage(""); return; }
-      const invalidControl = Array.from(formRef.current?.elements ?? []).find(
-        (element): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
-          (element instanceof HTMLInputElement || element instanceof HTMLSelectElement ||
-            element instanceof HTMLTextAreaElement) && element.willValidate && !element.checkValidity() && (!element.validity.valueMissing || ["directory-name", "directory-slug"].includes(element.id)),
-      );
-      if (invalidControl) {
-        const section = invalidControl.closest<HTMLElement>("[data-admin-editor-section]");
-        if (section?.id) setActiveDirectorySection(section.id);
-        else setAdvancedOpen(true);
-        const label = invalidControl.labels?.[0]?.textContent?.trim() || "označené pole";
-        setMessage("");
-        setError(invalidControl.validity.valueMissing
-          ? `Vyplň povinné pole: ${label}.` : `Skontroluj formát poľa: ${label}.`);
-        if (section) requestAnimationFrame(() => invalidControl.focus());
-        return;
-      }
+      // Optional contact/URL/SEO fields are not blockers. The server
+      // sanitizes malformed optional values and returns field warnings.
       }
     const submittedRevision = formEditRevisionRef.current;
     savePendingRef.current = true;
@@ -541,9 +527,10 @@ export function AdminDirectoryEditor({
       // Verify that the database acknowledges lifecycle and explicit web edits.
       if (data.profile.status !== nextStatus)
         throw new Error("Zmena stavu profilu sa nepotvrdila. Obnov stránku a skontroluj údaje.");
-      if (breederChangedPaths?.includes("websiteUrl") &&
-          readDirectoryPublicContacts(data.profile.importData, data.profile.websiteUrl ?? "").website !== websiteUrl.trim())
-        throw new Error("Verejný web sa po uložení nepotvrdil. Skontroluj novú hodnotu v Admine.");
+      const unconfirmedWebsite = breederChangedPaths?.includes("websiteUrl") &&
+          readDirectoryPublicContacts(data.profile.importData, data.profile.websiteUrl ?? "").website !== websiteUrl.trim();
+      // The canonical D1 save already succeeded. Warn, refresh from D1 and
+      // never present a false 'save failed' after deleting an optional URL.
       // Write only explicit facet changes through the authenticated, CAS-protected endpoint.
       // The canonical profile save above continues to own all unrelated fields.
       let savedProfile = data.profile;
@@ -617,7 +604,11 @@ export function AdminDirectoryEditor({
       setMessage(hasNewerEdits
         ? "Predchádzajúce úpravy boli uložené. Novšie zmeny sú stále neuložené."
         : (nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.") +
-          (data.metadataWarnings?.length ? " Upozornenia: " + data.metadataWarnings.join("; ") : ""));
+          (data.metadataWarnings?.length || unconfirmedWebsite
+            ? " Upozornenia: " + [
+                ...(data.metadataWarnings ?? []),
+                ...(unconfirmedWebsite ? ["Verejný web sa neuložil presne podľa zadania. Obnovili sme hodnotu z databázy."] : []),
+              ].join("; ") : ""));
       if (!profile) setCreatedProfileHref(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
