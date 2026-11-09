@@ -70,6 +70,7 @@ export async function PUT(request: Request, { params }: Props) {
       trainerTrustEditedPaths?: unknown;
       clearMainImage?: unknown;
       pilotMetadataFields?: unknown;
+      explicitlyClearedContacts?: unknown;
     };
     const {
       numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
@@ -78,6 +79,7 @@ export async function PUT(request: Request, { params }: Props) {
       trainerTrustEditedPaths: rawTrainerTrustEditedPaths,
       clearMainImage: rawClearMainImage,
       pilotMetadataFields: rawPilotMetadataFields,
+      explicitlyClearedContacts: rawExplicitlyClearedContacts,
       ...submittedBody
     } = rawBody;
     // A stale full-form payload must never silently undo a newer Notion edit
@@ -90,6 +92,26 @@ export async function PUT(request: Request, { params }: Props) {
               !(path === "services" && isDirectoryEventPilotCategory(before.category)),
           )
         : null;
+    // An explicit empty contact field is a deletion, not an omitted field in
+    // an old editor. Only whitelisted, expressly edited contacts qualify.
+    const contactAliases = {
+      websiteUrl: ["Web", "Webstránka"],
+      publicPhone: ["Telefón", "Telefon", "phone"],
+      publicEmail: ["E-mail", "Email", "email"],
+      facebookUrl: ["Facebook"],
+      instagramUrl: ["Instagram"],
+    } as const;
+    type ClearableContact = keyof typeof contactAliases;
+    const explicitlyClearedContacts: ClearableContact[] =
+      Array.isArray(rawExplicitlyClearedContacts) && editedPaths
+        ? [...new Set(rawExplicitlyClearedContacts.filter(
+            (field): field is ClearableContact => {
+              if (typeof field !== "string" || !Object.hasOwn(contactAliases, field) ||
+                  !editedPaths.includes(field as BreederEditorialField)) return false;
+              const value = (submittedBody as Record<string, unknown>)[field];
+              return value === null || (typeof value === "string" && !value.trim());
+            },
+          ))] : [];
     // A long-open trainer form may carry obsolete checkbox values from before
     // a Notion webhook. Only explicit checkbox edits may change these flags.
     const trainerTrustEditedPaths: TrainerTrustField[] =
@@ -109,6 +131,12 @@ export async function PUT(request: Request, { params }: Props) {
     // Each optional contact is independent. Bad legacy links must not make
     // a different field unsavable, and an explicit empty URL is a valid clear.
     const safeOptionalFields = { ...fieldPreserved };
+    // Preserve explicit clears even if a stale whole-form baseline carried
+    // old contact aliases. This is a narrow authenticated field-level override.
+    for (const field of explicitlyClearedContacts) {
+      if (field === "websiteUrl") safeOptionalFields.websiteUrl = null;
+      else (safeOptionalFields as Record<string, unknown>)[field] = "";
+    }
     const optionalWarnings: string[] = [];
     for (const key of ["websiteUrl", "facebookUrl", "instagramUrl"] as const) {
       const text = safeOptionalFields[key];
@@ -211,6 +239,42 @@ export async function PUT(request: Request, { params }: Props) {
     }
     let profile = await updateManagedDirectoryProfile(id, payload, user.email, before);
     if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+
+    // Verify clear requests against BOTH representations of public contacts:
+    // website_url and legacy aliases in source_data_json. A stale alias must
+    // never resurrect an explicitly deleted website on a public profile.
+    const contactClearWarnings: string[] = [];
+    if (explicitlyClearedContacts.length) {
+      const aliasNames = [...new Set(explicitlyClearedContacts.flatMap(
+        field => [...contactAliases[field]],
+      ))];
+      const paths = aliasNames.map(name => '$."' + name + '"');
+      const setParts = [
+        ...(explicitlyClearedContacts.includes("websiteUrl") ? ["website_url = NULL"] : []),
+        "source_data_json = json_remove(COALESCE(source_data_json, '{}'), " +
+          paths.map(() => "?").join(", ") + ")",
+        "updated_at = ?", "updated_by = ?",
+      ];
+      try {
+        const saved = await db.prepare(
+          "UPDATE directory_profiles SET " + setParts.join(", ") +
+          " WHERE id = ? AND category = ? AND status <> 'archived' " +
+          "AND updated_at = ? AND json_valid(COALESCE(source_data_json, '{}')) RETURNING id",
+        ).bind(...paths, new Date().toISOString(), user.email,
+          id, profile.category, profile.updatedAt).first<{ id: number }>();
+        if (!saved) throw new Error("EXPLICIT_CONTACT_CLEAR_CONFLICT");
+        const refreshed = await getManagedDirectoryProfileById(id, db);
+        if (!refreshed || explicitlyClearedContacts.some(field =>
+          (field === "websiteUrl" && Boolean(refreshed.websiteUrl)) ||
+          contactAliases[field].some(name => Boolean(refreshed.importData?.[name]))
+        )) throw new Error("EXPLICIT_CONTACT_CLEAR_NOT_PERSISTED");
+        profile = refreshed;
+      } catch (error) {
+        console.error("DIRECTORY_EXPLICIT_CONTACT_CLEAR_FAILED", id,
+          error instanceof Error ? error.message : "UNKNOWN");
+        contactClearWarnings.push("Vymazanie nepovinného kontaktu sa nepotvrdilo. Ostatné zmeny zostali uložené.");
+      }
+    }
     const changedTrainerTrustFields = serviceFilterCategories.includes(before.category as ServiceFilterCategory)
       ? changedTrainerTrustAdminFields(before, profile).filter(field => trainerTrustEditedPaths.includes(field))
       : [];
@@ -241,7 +305,7 @@ export async function PUT(request: Request, { params }: Props) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
     }
     // Pilot metadata stays separate from profile normalization and V3 relations.
-    const metadataWarnings: string[] = [...optionalWarnings];
+    const metadataWarnings: string[] = [...optionalWarnings, ...contactClearWarnings];
     const changedPilotMetadata: Partial<Record<PilotDirectoryMetadataField, string>> = {};
     if ((isDirectoryEventPilotCategory(profile.category) || serviceFilterCategories.includes(profile.category as ServiceFilterCategory)) && rawPilotMetadataFields &&
         typeof rawPilotMetadataFields === "object" && !Array.isArray(rawPilotMetadataFields)) {
@@ -282,8 +346,11 @@ export async function PUT(request: Request, { params }: Props) {
             database: notionEnv.DB,
             bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
             targetProfileId: id,
+            // The Admin editor sends its explicit dirty field IDs. Use those
+            // rather than re-inferring a change from legacy contact aliases:
+            // the canonical D1 value was already committed above.
             breederAdminFields: isDirectoryFieldEventCategory(before.category)
-              ? breederEditedFields(before, profile) : undefined,
+              ? (editedPaths ?? breederEditedFields(before, profile)) : undefined,
           });
           notionFieldSync = !result.enabled || !result.schemaReady || result.failed ? "pending"
             : result.pushedToNotion || result.pulledFromNotion ? "synced"
