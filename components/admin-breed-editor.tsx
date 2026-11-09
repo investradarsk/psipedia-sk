@@ -8,7 +8,7 @@ import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
-import { useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { BreedEditorOptions, BreedSport, ManagedBreed } from "@/lib/breed-store";
 import type { BreedImage, BreedSource } from "@/lib/content";
@@ -19,6 +19,9 @@ import {
   FCI_GROUP_OPTIONS, BREED_SIZE_OPTIONS, BREED_ORIGIN_COUNTRIES,
   isBreedNumericDraft,
 } from "@/lib/breed-controlled-fields.mjs";
+import {
+  BREED_CONTROLLED_FIELDS, emptyBreedControlledValues,
+} from "@/lib/breed-workcopy-controlled.mjs";
 import {
   AdminActionButton,
   AdminDrawer,
@@ -67,6 +70,8 @@ const sportOptions=[
 ] as const;
 
 type SportDraft={index:number|null;key:string;label:string;rating:number;note:string};
+type BreedControlledValues=Record<string,string|number|string[]|null>;
+type BreedControlledResponse={values:BreedControlledValues;revision:number;pendingKeys:string[];error?:string};
 const subscribeToHydration=()=>()=>{};
 
 export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:BreedEditorOptions }) {
@@ -100,6 +105,40 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
   const chooseBreedSection = useProfileEditorSectionPager(activeBreedSection, setActiveBreedSection);
   const [sportDraft,setSportDraft]=useState<SportDraft|null>(null);
   const [sportError,setSportError]=useState("");
+  // Separate typed work-copy values: never replace historical FCI/editorial prose.
+  const [controlled,setControlled]=useState<BreedControlledValues>(
+    () => emptyBreedControlledValues() as BreedControlledValues);
+  const [controlledRevision,setControlledRevision]=useState<number|null>(null);
+  const [controlledDirtyKeys,setControlledDirtyKeys]=useState<string[]>([]);
+  const [controlledPendingKeys,setControlledPendingKeys]=useState<string[]>([]);
+  const [controlledLoading,setControlledLoading]=useState(Boolean(breed));
+  const [controlledError,setControlledError]=useState("");
+  useEffect(()=>{
+    if (!breed?.id) return;
+    const controller=new AbortController();
+    setControlledLoading(true);
+    fetch(`/api/admin/breeds/${breed.id}/controlled`,{
+      cache:"no-store",signal:controller.signal,
+    }).then(async(response)=>{
+      const data=await response.json() as BreedControlledResponse;
+      if (!response.ok) throw Error(data.error??"Kontrolované údaje nie sú dostupné.");
+      if (controller.signal.aborted) return;
+      setControlled(data.values);
+      setControlledRevision(data.revision);
+      setControlledPendingKeys(data.pendingKeys??[]);
+      setControlledError("");
+    }).catch((error:unknown)=>{
+      if (!controller.signal.aborted)
+        setControlledError(error instanceof Error?error.message:"Kontrolované údaje nie sú dostupné.");
+    }).finally(()=>{if (!controller.signal.aborted)setControlledLoading(false);});
+    return ()=>controller.abort();
+  },[breed?.id]);
+  function changeControlled(key:string,value:string|number|string[]|null) {
+    formEditRevisionRef.current+=1;
+    setDirty(true);
+    setControlled(current=>({...current,[key]:value}));
+    setControlledDirtyKeys(current=>current.includes(key)?current:[...current,key]);
+  }
 
   const change=(key:keyof typeof form,value:(typeof form)[keyof typeof form])=>setForm((current)=>({...current,[key]:value}));
   function changeName(value:string){change("name",value);if(!slugEdited)change("slug",slugify(value));}
@@ -171,6 +210,8 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       return;
     }
     const submittedRevision = formEditRevisionRef.current;
+    const submittedControlledKeys=[...controlledDirtyKeys];
+    const submittedControlled=Object.fromEntries(submittedControlledKeys.map(key=>[key,controlled[key]]));
     savePendingRef.current=true;
     setSaving(true);setError("");setMessage("");
     try{
@@ -182,14 +223,40 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
       setExpectedUpdatedAt(data.breed.updatedAt);
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
-      if (formEditRevisionRef.current === submittedRevision) setDirty(false);
+      let controlledSaveFailed=false;
+      if (breed && submittedControlledKeys.length) {
+        if (controlledRevision===null) {
+          controlledSaveFailed=true;
+          setControlledError("Kontrolované údaje neboli načítané. Ostatné údaje sú uložené.");
+        } else {
+          try {
+            const controlledResponse=await fetch(`/api/admin/breeds/${breed.id}/controlled`,{
+              method:"PUT",headers:{"content-type":"application/json"},
+              body:JSON.stringify({expectedRevision:controlledRevision,changes:submittedControlled}),
+            });
+            const result=await controlledResponse.json() as BreedControlledResponse;
+            if (!controlledResponse.ok)
+              throw Error(result.error??"Kontrolované údaje sa neuložili.");
+            setControlledRevision(result.revision);
+            setControlledPendingKeys(result.pendingKeys??[]);
+            setControlledDirtyKeys(current=>current.filter(key=>!submittedControlledKeys.includes(key)));
+            setControlledError("");
+          }catch(caught) {
+            controlledSaveFailed=true;
+            setControlledError(caught instanceof Error?caught.message:"Kontrolované údaje sa neuložili.");
+          }
+        }
+      }
+      if (formEditRevisionRef.current === submittedRevision && !controlledSaveFailed) setDirty(false);
       const notionStatus=data.notionEditorialWriteback?.status;
       const notionPending=notionStatus==="pending" ||
         notionStatus==="workcopy-inactive" ||
         notionStatus==="not-linked" || notionStatus==="disabled";
-      setMessage(notionPending
-        ? "Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený."
-        : status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
+      setMessage(controlledSaveFailed
+        ? "Pôvodný profil je uložený; zmeny kontrolovaných polí si vyžadujú opakovanie."
+        : notionPending || controlledPendingKeys.length
+          ? "Plemeno je uložené v Admine; časť údajov ešte čaká na potvrdenie v Notione."
+          : status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
       if(!breed)router.replace(`/admin/plemena/${data.breed.id}`);
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}
     finally{savePendingRef.current=false;setSaving(false);}
@@ -275,6 +342,40 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           <label className="admin-field"><span>Srsť</span><input value={form.coat} onChange={(e)=>change("coat",e.target.value)}/></label>
           <label className="admin-field"><span>Oficiálny FCI názov</span><input value={form.officialFciName} onChange={(e)=>change("officialFciName",e.target.value)}/></label>
         </div>
+        {breed && <div className={styles.drawerSection} aria-label="Kontrolované údaje plemena">
+          <h3>Kontrolované údaje – Notion ↔ Admin</h3>
+          <AdminHelpText>Číselné a výberové údaje sú oddelené od pôvodných odborných textov. Prázdna hodnota je dovolená.</AdminHelpText>
+          {controlledLoading && <p>Načítavam kontrolované hodnoty…</p>}
+          {controlledError && <p role="alert" className={styles.validation}>{controlledError}</p>}
+          {controlledRevision!==null && <div className="admin-field-grid">
+            {BREED_CONTROLLED_FIELDS.map((field)=>{
+              const value=controlled[field.key];
+              return <label className="admin-field" key={field.key}>
+                <span>{field.notion}</span>
+                {field.type==="number"
+                  ? <input type="number" inputMode="decimal" step="any"
+                      min={field.min} max={field.max} value={typeof value==="number"?value:""}
+                      onChange={event=>changeControlled(field.key,event.target.value===""?null:Number(event.target.value))}/>
+                  : field.type==="select"
+                    ? <select value={typeof value==="string"?value:""}
+                        onChange={event=>changeControlled(field.key,event.target.value||null)}>
+                        <option value="">Nevyplnené</option>
+                        {field.options.map(option=><option key={option} value={option}>{option}</option>)}
+                      </select>
+                    : <select multiple size={Math.min(field.options.length,5)}
+                        value={Array.isArray(value)?value:[]}
+                        aria-label={field.notion}
+                        onChange={event=>changeControlled(field.key,
+                          Array.from(event.currentTarget.selectedOptions).map(option=>option.value))}>
+                        {field.options.map(option=><option key={option} value={option}>{option}</option>)}
+                      </select>}
+              </label>;
+            })}
+          </div>}
+          {controlledPendingKeys.length>0 && <p className={styles.validation}>
+            Čaká na potvrdenie v Notione: {controlledPendingKeys.length} polí.
+          </p>}
+        </div>}
       </div>
     </AdminEditorSection>
 
