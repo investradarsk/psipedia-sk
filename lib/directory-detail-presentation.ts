@@ -259,13 +259,25 @@ export function getDirectoryDetailPresentation(
   // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
   const navigationUrl = null;
   // Physiotherapy therapy/patient flags are retired in favor of Services V3 and prose.
-  const factLabels = profile.category === "fyzioterapia"
+  const legacyFactLabels = profile.category === "fyzioterapia"
     ? []
     : [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
-  const facts = factLabels.flatMap((label) => {
-    const value = usefulDirectoryDetailValue(importedValue(profile, label));
-    return value ? [{ label, value }] : [];
-  });
+  // Show both Admin-managed public facts consistently in every directory category.
+  // "Zastrešujúca organizácia" is a legacy alias, not a second public fact.
+  const factLabels = legacyFactLabels.filter(label =>
+    !["Organizácia", "Zastrešujúca organizácia", "Zameranie"].includes(label));
+  const facts = [
+    ...factLabels.flatMap((label) => {
+      const value = usefulDirectoryDetailValue(importedValue(profile, label));
+      return value ? [{ label, value }] : [];
+    }),
+    ...(["Organizácia", "Zameranie"] as const).flatMap(label => {
+      const value = usefulDirectoryDetailValue(label === "Organizácia"
+        ? importedValue(profile, "Organizácia", "Zastrešujúca organizácia")
+        : importedValue(profile, label));
+      return value ? [{ label, value }] : [];
+    }),
+  ];
   const health = profile.category === "veterinari" && facts.length > 0
     ? {
         variant: "veterinari" as const,
