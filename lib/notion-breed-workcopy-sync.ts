@@ -285,6 +285,8 @@ export async function writeBackBreedToWorkCopy(input: {
   before: ManagedBreed;
   breed: ManagedBreed;
   changedFieldKeys?: readonly string[];
+  /** Owner-approved one-shot Admin → Notion; keep the existing per-field CAS. */
+  forceFieldKeys?: readonly string[];
 }) {
   if (!requireWorkCopyOnly(input.bindings))
     return { linked:false, updated:false, reason:"disabled" as const };
@@ -304,9 +306,13 @@ export async function writeBackBreedToWorkCopy(input: {
   const receipt = readReceipt(link.work_sync_receipt);
   const actualAdmin = breedFieldSnapshot(input.breed);
   const beforeAdmin = breedFieldSnapshot(input.before);
-  const keys = workCopyAdminChangedFields(
-    beforeAdmin, actualAdmin, BREED_NOTION_EDITABLE_FIELDS, input.changedFieldKeys,
-  ).filter((field): field is BreedNotionField =>
+  const selected = input.forceFieldKeys
+    ? [...new Set(input.forceFieldKeys)].filter((field): field is BreedNotionField =>
+        BREED_NOTION_EDITABLE_FIELDS.includes(field as BreedNotionField))
+    : workCopyAdminChangedFields(
+        beforeAdmin, actualAdmin, BREED_NOTION_EDITABLE_FIELDS, input.changedFieldKeys,
+      );
+  const keys = selected.filter((field): field is BreedNotionField =>
     !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true) &&
     isBreedStructuredMeasurement(field, actualAdmin[field]));
   // No record-wide receipt diff: never resend an untouched Admin field.
@@ -368,4 +374,47 @@ export async function writeBackBreedToWorkCopy(input: {
     linked:true, updated:acknowledged.length>0,
     pendingFields:pending, acknowledgedFields:acknowledged,
   };
+}
+
+/** Read-only inspection for the owner-controlled 60+2 manual transfer queue.
+ * Uses the SAME ACTIVE link, ownership guard and projection as manualImport.
+ * Absent/unsupported fields are reported as skipped, never silently replaced.
+ */
+export async function inspectManualBreedWorkCopyProfile(input: {
+  database: D1Database;
+  bindings: BreedWorkCopyBindings;
+  profileId: number;
+  pageId: string;
+}): Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}> {
+  if (!requireWorkCopyOnly(input.bindings))
+    throw Error("TRANSFER_BREED_WORKCOPY_INACTIVE");
+  await requireActiveCohort(input.database);
+  const link = await getActiveLink(input.database, input.profileId);
+  if (!link || !link.work_sync_receipt ||
+      normalized(link.work_notion_page_id) !== normalized(input.pageId))
+    throw Error("TRANSFER_BREED_WORKCOPY_LINK_INVALID");
+  readReceipt(link.work_sync_receipt);
+  const canonical = await getManagedBreed(input.profileId);
+  if (!canonical) throw Error("TRANSFER_BREED_NOT_FOUND");
+  const page = await notionRequest<NotionPage>(input.bindings,
+    "/pages/" + encodeURIComponent(input.pageId));
+  assertOwnedPage(page, link, canonical, input.bindings);
+  const edited = workCopyChangedEditorialIds(
+    page, Object.keys(page.properties??{}), BREED_NOTION_SCHEMA,
+  );
+  const admin = breedFieldSnapshot(canonical);
+  const plan = planBreedWorkCopyEditorialDelta({
+    page, canonical, previousNotion:admin, previousAdmin:admin,
+    authority:{}, eventFieldIds:edited,
+  });
+  if (!plan.ready || !plan.sourceSnapshot)
+    throw Error("TRANSFER_BREED_WORKCOPY_INSPECTION_INVALID");
+  const present = new Set(plan.presentFields);
+  const excluded = new Set<string>([...skippedSpecial, ...plan.skipped]);
+  const notion = plan.sourceSnapshot as Record<string,unknown>;
+  for (const field of BREED_NOTION_EDITABLE_FIELDS) {
+    if (!present.has(field) || !isBreedStructuredMeasurement(field, notion[field]))
+      excluded.add(field);
+  }
+  return {notion,admin,excluded:[...excluded]};
 }
