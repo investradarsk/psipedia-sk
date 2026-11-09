@@ -456,12 +456,8 @@ export function adoptionPublicationErrors(dog: Pick<NormalizedAdoptionInput, "na
   const errors: string[] = [];
   if (!dog.name) errors.push("Doplň meno psa.");
   if (!dog.slug) errors.push("Doplň adresu profilu.");
-  if (!dog.birthDate && dog.approximateAgeMonths === null) errors.push("Doplň dátum narodenia alebo približný vek.");
-  if (dog.sex === "UNKNOWN") errors.push("Doplň pohlavie.");
-  if (!dog.region || !dog.city) errors.push("Doplň kraj a mesto.");
-  if (!dog.organizationName) errors.push("Doplň organizáciu alebo zodpovednú osobu.");
-  if (dog.shortDescription.length < 30) errors.push("Krátky popis musí mať aspoň 30 znakov.");
-  if (!dog.lastVerifiedAt) errors.push("Doplň dátum posledného overenia.");
+  // Incomplete dog, location, contact, and verification fields are quality signals,
+  // not content requirements for switching a canonical profile to a public status.
   return errors;
 }
 

@@ -100,7 +100,7 @@ function normalizedText(value: unknown, label: string, maxLength: number) {
 }
 
 function normalizedOptionalUrl(value: unknown, label: string) {
-  if (value === null || value === undefined || value === "") return null;
+  if (value === null || value === undefined || (typeof value === "string" && !value.trim())) return null;
   const clean = normalizedText(value, label, 800);
   if (clean.startsWith("/media/")) return clean;
   try {
@@ -113,9 +113,19 @@ function normalizedOptionalUrl(value: unknown, label: string) {
 }
 
 function normalizedUrl(value: unknown, label: string) {
-  const clean = normalizedOptionalUrl(value, label);
-  if (!clean) throw new EshopRatingError(`${label} je povinná.`, 400, "INVALID_ESHOP_PROFILE");
-  return clean;
+  // Empty URLs are valid editorial omissions; supplied website/source links
+  // must be external HTTP(S) URLs, never image paths.
+  const normalized = normalizedOptionalUrl(value, label) ?? "";
+  if (normalized && !/^https?:\/\//i.test(normalized))
+    throw new EshopRatingError(`${label} musí byť platná HTTP(S) URL.`, 400, "INVALID_ESHOP_PROFILE");
+  return normalized;
+}
+
+function normalizedOptionalText(value: unknown, label: string, maxLength: number) {
+  if (value === null || value === undefined || value === "") return "";
+  if (typeof value !== "string" || value.trim().length > maxLength)
+    throw new EshopRatingError(`${label} nie je platný.`, 400, "INVALID_ESHOP_PROFILE");
+  return value.trim();
 }
 
 export function normalizeEshopFocusTags(value: unknown) {
@@ -257,7 +267,7 @@ export async function updateManagedEshop(
   const name = normalizedText(input.name, "Názov", 160);
   const slug = safeSlug(input.slug);
   const websiteUrl = normalizedUrl(input.websiteUrl, "Web e-shopu");
-  const description = normalizedText(input.description, "Popis", 3000);
+  const description = normalizedOptionalText(input.description, "Popis", 3000);
   const sourceUrl = normalizedUrl(input.sourceUrl, "Zdroj");
   const logoUrl = normalizedOptionalUrl(input.logoUrl, "Logo");
   const logoKey = typeof input.logoKey === "string" && input.logoKey.trim() ? input.logoKey.trim().slice(0, 500) : null;
@@ -305,7 +315,7 @@ export async function updateManagedEshopInline(
   const name = normalizedText(input.name, "Názov", 160);
   const websiteUrl = normalizedUrl(input.websiteUrl, "Web e-shopu");
   // Unlike a logo, a shop website must be an external HTTP(S) destination.
-  if (!/^https?:\/\//i.test(websiteUrl)) {
+  if (websiteUrl && !/^https?:\/\//i.test(websiteUrl)) {
     throw new EshopRatingError("Web e-shopu musí byť adresa HTTP(S).", 400, "INVALID_ESHOP_PROFILE");
   }
   if (typeof input.expectedUpdatedAt !== "string" ||
@@ -338,7 +348,7 @@ export async function createManagedEshop(
   const name = normalizedText(input.name, "Názov", 160);
   const slug = safeSlug(input.slug);
   const websiteUrl = normalizedUrl(input.websiteUrl, "Web e-shopu");
-  const description = normalizedText(input.description, "Popis", 3000);
+  const description = normalizedOptionalText(input.description, "Popis", 3000);
   const sourceUrl = normalizedUrl(input.sourceUrl, "Zdroj");
   const logoUrl = normalizedOptionalUrl(input.logoUrl, "Logo");
   const logoKey = typeof input.logoKey === "string" && input.logoKey.trim() ? input.logoKey.trim().slice(0, 500) : null;

@@ -586,6 +586,12 @@ function lifecycleFields(status: LostFoundStatus, existing: LostFoundLifecycleSn
   return { publishedAt, expiresAt, resolvedAt, archivedAt };
 }
 
+function validCalendarDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
   const type = oneOf(input.type, dogReportTypes, "LOST") as DogReportType;
   const status = oneOf(input.status, LOST_FOUND_STATUSES, "DRAFT") as LostFoundStatus;
@@ -599,12 +605,9 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
   let slug = slugify(cleanText(input.slug, 100) || `${type === "LOST" ? "strateny" : "najdeny"}-${dogName || city || "pes"}-${eventDate || "hlasenie"}`);
   if (!slug) slug = `${type.toLowerCase()}-${Date.now()}`;
 
-  if (status !== "DRAFT") {
-    if (!eventDate || !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) throw new Error("Zadaj dátum udalosti.");
-    if (!region || !city) throw new Error("Zadaj kraj a obec/mesto.");
-    if (description.length < 20) throw new Error("Popis hlásenia musí mať aspoň 20 znakov.");
-  }
-  if (status === "ACTIVE" && type === "LOST" && !lastSeenDateTime) throw new Error("Pri aktívnom stratenom psovi zadaj čas, kedy bol naposledy videný.");
+  // Missing event time, location and description must not prevent an owner-approved
+  // publication. Invalid non-empty dates and privacy constraints still apply.
+  if (eventDate && !validCalendarDate(eventDate)) throw new Error("Dátum udalosti nie je platný.");
 
   const breedUnknown = Boolean(input.breedUnknown);
   const breedId = breedUnknown ? null : positiveInt(input.breedId);

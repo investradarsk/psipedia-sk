@@ -143,17 +143,11 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
 
   async function save(nextStatus: HelpCaseStatus) {
     if (mutationPending.current || uploading) return;
-    // A hidden native required field cannot be focused. Show the matching
-    // mounted panel before submitting; keep canonical server validation.
+    // Missing editorial fields never block publication. Identity and the
+    // verified-fundraiser safeguard remain independent checks.
     const missing = [
       { section: "help-basics", valid: Boolean((titleDraftRef.current || title).trim()), label: "Názov prípadu" },
       { section: "help-media", valid: Boolean(slug.trim() || slugify(titleDraftRef.current || title)), label: "Adresa prípadu" },
-      ...(nextStatus === "published" ? [
-        { section: "help-basics", valid: excerpt.trim().length >= 20, label: "Krátky popis (aspoň 20 znakov)" },
-        { section: "help-story", valid: description.trim().length >= 40, label: "Podrobný popis (aspoň 40 znakov)" },
-        { section: "help-place", valid: Boolean(organization.trim()), label: "Zodpovedná organizácia alebo osoba" },
-        { section: "help-place", valid: Boolean(city.trim()), label: "Mesto" },
-      ] : []),
     ].find((field) => !field.valid);
     if (missing) {
       setActiveHelpSection(missing.section);
