@@ -277,7 +277,8 @@ export function getDirectoryDetailPresentation(
   const coverage = usefulDirectoryDetailValue(
     importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"),
   );
-  const description = profile.description || profile.excerpt || null;
+  // Do not turn a short-only profile into a duplicate long description.
+  const description = profile.description?.trim() || null;
 
   return {
     id: profile.id,
