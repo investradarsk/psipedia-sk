@@ -73,7 +73,7 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
     const byId=request.selection==="ONE";
     let sql:string;const bind:unknown[]=[];
     if(scope==="breeds"){
-      sql="SELECT breed_id AS profile_id,work_notion_page_id AS notion_page_id FROM breed_notion_workcopy_links WHERE status='ACTIVE' AND work_sync_receipt IS NOT NULL";
+      sql="SELECT breed_id AS profile_id,work_notion_page_id AS notion_page_id FROM breed_notion_workcopy_links";
     }else if(scope.startsWith("directory:")){
       sql="SELECT m.directory_profile_id AS profile_id,m.notion_page_id FROM directory_notion_sync m " +
         "JOIN directory_profiles p ON p.id=m.directory_profile_id WHERE p.category=?";
@@ -91,6 +91,7 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
       :scope==="eshops"?"eshop_id"
       :scope.startsWith("directory:")?"m.directory_profile_id":"entity_id";
     sql+=(bind.length?" AND ":" WHERE ")+(byId?idColumn+"=?":"1=1");
+    if(scope==="breeds")sql+=" AND status='ACTIVE' AND work_sync_receipt IS NOT NULL";
     if(byId)bind.push(request.profileId);
     // A bounded single read per scope. Fail closed instead of reporting a
     // partial all-record queue as a completed whole-area transfer.
