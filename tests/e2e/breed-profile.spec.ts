@@ -285,7 +285,7 @@ test("breed profile: static anchor navigation, no-crop media, useful cards and a
   ]) {
     await expect(page.locator(`a[href="${href}"]`)).toBeVisible();
   }
-  await expect(page.getByRole("link", { name: "Nájsť trénera", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Psí tréneri", exact: true })).toHaveAttribute("href", "/adresar/treneri");
   await expect(page.locator('a[href^="/adresar/treneri?breed="]')).toHaveCount(0);
   await expectNoHorizontalOverflow(page, "Breed profile section navigation");
   await expectAxeClean(page, "Breed profile");
