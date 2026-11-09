@@ -256,7 +256,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           <label className="admin-field"><span>Názov plemena</span><input required value={form.name} onChange={(e)=>changeName(e.target.value)}/></label>
           <div className="admin-field"><span>Krajina pôvodu</span><CountryChoices value={form.origin} onChange={next=>change("origin",next)}/></div>
           <label className="admin-field"><span>FCI číslo</span><input type="number" min="1" max="9999" value={form.fciNumber} onChange={(e)=>change("fciNumber",e.target.value)}/></label>
-          <label className="admin-field"><span>FCI skupina</span><select value={form.fciGroup} onChange={e=>change("fciGroup",Number(e.target.value))}>{FCI_GROUP_OPTIONS.map(([number,label])=><option value={number} key={number}>{number}. {label}</option>)}</select></label>
+          <label className="admin-field"><span>FCI skupina</span><select aria-label="FCI skupina" value={form.fciGroup} onChange={e=>change("fciGroup",Number(e.target.value))}>{FCI_GROUP_OPTIONS.map(([number,label])=><option value={number} key={number}>{number}. {label}</option>)}</select></label>
           <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={(e)=>change("fciSection",e.target.value)}/></label>
 
           <label className="admin-field"><span>Veľkosť</span><select value={form.size} onChange={e=>change("size",e.target.value)}>
