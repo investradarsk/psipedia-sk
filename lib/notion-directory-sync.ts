@@ -1683,9 +1683,6 @@ async function syncBreederEvent(input: {
       { [key]: allProperties[key] }, page.properties ?? {},
     )[key];
   }
-  patch["Sync stav"] = select("Synchronizované");
-  patch["Sync chyba"] = richText("");
-  patch["Posledný sync"] = date(now);
   const echoed = await patchNotionPage(bindings, page.id, patch);
   // Notion's PATCH response must acknowledge every requested editorial field.
   // Never call an unconfirmed remote write "synced" just because the request
@@ -1710,6 +1707,12 @@ async function syncBreederEvent(input: {
     const fresh = await fetchNotionPage(bindings, page.id);
     if (!confirmed(fresh)) throw new Error("DIRECTORY_ADMIN_TO_NOTION_FIELD_ECHO_MISMATCH");
   }
+  // Metadata is a separate, final acknowledgement, never a premature success.
+  await patchNotionPage(bindings, page.id, {
+    "Sync stav": select("Synchronizované"),
+    "Sync chyba": richText(""),
+    "Posledný sync": date(now),
+  });
   return "pushed";
 }
 
