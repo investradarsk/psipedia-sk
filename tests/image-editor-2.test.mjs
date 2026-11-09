@@ -162,6 +162,13 @@ test("IMAGE-EDITOR-2 SQL column/placeholder counts remain in sync for fixed INSE
     ["lib/lost-found-dog-store.ts", "lost_found_dog_reports"],
   ]) {
     const sql = read(file);
+    if (table === "lost_found_dog_reports") {
+      // 0162 is additive and guarded: placeholders are 42 post-migration,
+      // 41 on a legacy database, with the matching optional bound value.
+      assert.match(sql, /shortDescriptionReady \? 42 : 41/);
+      assert.match(sql, /shortDescriptionReady \? \[clean\.shortDescription\] : \[\]/);
+      continue;
+    }
     const re = new RegExp(
       "INSERT INTO " + table + " \\(\\s*([\\s\\S]*?)\\) VALUES \\(\\s*([?,\\s]+)\\)",
     );

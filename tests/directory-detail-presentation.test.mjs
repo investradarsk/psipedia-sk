@@ -174,7 +174,7 @@ test("physiotherapy uses Services V3 and one qualifications text, never legacy t
 test("physiotherapy public profile always shows perex and expertise as plain text", () => {
   const detail = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
   const admin = fs.readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
-  assert.ok(detail.includes("showExcerpt={isPhysiotherapy || !hasExtendedDescription}"));
+  assert.ok(detail.includes("showExcerpt={true}"), "Short description must remain visible even with a full description");
   assert.ok(detail.includes('title={isPhysiotherapy ? "Odbornosť a skúsenosti"'));
   assert.ok(detail.includes('<DetailParagraphs value={visibleQualifications.join("\\n")} />'));
   assert.ok(detail.includes('key: "physio-price"'));
@@ -188,7 +188,8 @@ test("description and URL fallback preserve behavior while text-only address doe
   const presentation = getDirectoryDetailPresentation(
     profile({ description: "", importData: { Web: "N/A" } }),
   );
-  assert.deepEqual(presentation.descriptionParagraphs, ["Krátky opis služby."]);
+  assert.deepEqual(presentation.descriptionParagraphs, [], "An empty long description must not duplicate the short description");
+  assert.equal(presentation.excerpt, "Krátky opis služby.");
   assert.equal(presentation.websiteUrl, null);
   assert.equal(presentation.navigationUrl, null);
   assert.equal(usefulDirectoryDetailValue("Nie je uvedené"), null);
@@ -497,4 +498,45 @@ test("presentation exposes real opening hours only when imported; it never guess
   );
   assert.equal(unknown.openingHours, null);
   assert.equal(getDirectoryDetailPresentation(profile({ importData: {} })).openingHours, null);
+});
+
+test("organization and focus are public facts in all service categories without duplicated legacy aliases", () => {
+  const categories = [
+    "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
+    "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
+    "vencenie", "fyzioterapia", "dalsie-sluzby",
+  ];
+  for (const category of categories) {
+    const detail = getDirectoryDetailPresentation(profile({
+      category,
+      importData: {
+        "Organizácia": "ZŠK SR",
+        "Zameranie": "Športová kynológia",
+        "Zastrešujúca organizácia": "Pôvodný import",
+      },
+    }));
+    assert.deepEqual(
+      detail.facts.filter(fact => ["Organizácia", "Zameranie", "Zastrešujúca organizácia"].includes(fact.label)),
+      [
+        { label: "Organizácia", value: "ZŠK SR" },
+        { label: "Zameranie", value: "Športová kynológia" },
+      ],
+      category,
+    );
+    if (category === "veterinari") assert.equal(detail.health, null, "Organization alone is not veterinary equipment");
+  }
+
+  const legacy = getDirectoryDetailPresentation(profile({
+    category: "kynologicke-kluby",
+    importData: { "Zastrešujúca organizácia": "ZŠK SR" },
+  }));
+  assert.deepEqual(legacy.facts.filter(fact => fact.label === "Organizácia"),
+    [{ label: "Organizácia", value: "ZŠK SR" }]);
+
+  const cleared = getDirectoryDetailPresentation(profile({
+    category: "kynologicke-kluby",
+    importData: { "Organizácia": "", "Zastrešujúca organizácia": "Pôvodný import" },
+  }));
+  assert.equal(cleared.facts.some(fact => fact.label === "Organizácia"), false,
+    "An explicit clear must not restore stale imported values");
 });

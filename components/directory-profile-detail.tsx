@@ -77,7 +77,7 @@ function DirectoryProfileHero({
             roleHint="generic"
             config={presentation.detailImageDisplay}
             src={presentation.imageUrl}
-            alt={"Fotografia služby " + presentation.name}
+            alt={presentation.imageAlt || "Fotografia služby " + presentation.name}
             srcSet={responsiveMediaSrcSet(presentation.imageUrl, [480, 640, 960, 1280, 1600])}
             sizes="(max-width: 760px) 100vw, 50vw"
             loading="eager"
@@ -290,10 +290,9 @@ export function DirectoryProfileDetail({
     expertFacts.length > 0 || breederLinkFacts.length > 0 ||
     visibleQualifications.length > 0 ||
     Boolean(!isPhysiotherapy && presentation.priceNote);
-  const hasExtendedDescription = Boolean(
-    presentation.description?.trim() &&
-      presentation.description.trim() !== presentation.excerpt.trim(),
-  );
+  // Short and long descriptions are independent editorial fields.
+  // Both remain visible whenever explicitly populated, even if the text matches.
+  const hasExtendedDescription = Boolean(presentation.description?.trim());
 
   const breederGallery = presentation.category === "chovatelske-stanice"
     ? (presentation.galleryUrls ?? []).filter((url) => url && url !== presentation.imageUrl)
@@ -495,7 +494,7 @@ export function DirectoryProfileDetail({
         categoryLabel={category?.singular ?? "Profil služby"}
         commercial={commercial}
         navigationHref={navigationHref}
-        showExcerpt={isPhysiotherapy || !hasExtendedDescription}
+        showExcerpt={true}
       />
       <PublicDetailFlow blocks={blocks} className={styles.layout} />
 

@@ -212,6 +212,8 @@ export function AdminDirectoryEditor({
   const [pilotDataSources, setPilotDataSources] = useState(pilotMetadataText("Zdroj dát"));
   const [pilotImageSource, setPilotImageSource] = useState(pilotMetadataText("Zdroj obrázka"));
   const [pilotImageAlt, setPilotImageAlt] = useState(pilotMetadataText("Alt text obrázka"));
+  const [publicOrganization, setPublicOrganization] = useState(Object.hasOwn(profile?.importData ?? {}, "Organizácia") ? pilotMetadataText("Organizácia") : pilotMetadataText("Zastrešujúca organizácia"));
+  const [publicFocus, setPublicFocus] = useState(pilotMetadataText("Zameranie"));
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
   // An explicit remove action must survive a stale full-form save; null alone
   // could merely be the old value of a never-edited image field.
@@ -482,14 +484,18 @@ export function AdminDirectoryEditor({
         return false;
       });
       const pilotMetadataFields: Record<string, string> = {};
-      if (profile && isDirectoryEventPilotCategory(profile.category)) {
+      if (profile) {
         for (const [key, current] of [
           ["Ordinačné hodiny", pilotOpeningHours],
           ["Zdroj dát", pilotDataSources],
           ["Zdroj obrázka", pilotImageSource],
           ["Alt text obrázka", pilotImageAlt],
+          ["Organizácia", publicOrganization],
+          ["Zameranie", publicFocus],
         ]) {
-          const value = breederBaseline?.importData?.[key];
+          const canonicalValue = breederBaseline?.importData?.[key];
+          const value = key === "Organizácia" && !Object.hasOwn(breederBaseline?.importData ?? {}, key)
+            ? breederBaseline?.importData?.["Zastrešujúca organizácia"] : canonicalValue;
           const baseline = typeof value === "string" ? value : "";
           if (current.trim() !== baseline.trim())
             pilotMetadataFields[key] = current.trim();
@@ -598,7 +604,7 @@ export function AdminDirectoryEditor({
         setWebsiteUrl(savedProfile.websiteUrl ?? ""); setPublicPhone(syncedContacts.phone);
         setPublicEmail(syncedContacts.email); setFacebookUrl(syncedContacts.facebook);
         setInstagramUrl(syncedContacts.instagram); setSeo(savedProfile.seo ?? {});
-        if (isDirectoryEventPilotCategory(savedProfile.category)) {
+        {
           const storedText = (key: string) => {
             const value = savedProfile.importData?.[key];
             return typeof value === "string" ? value : "";
@@ -607,6 +613,8 @@ export function AdminDirectoryEditor({
           setPilotDataSources(storedText("Zdroj dát"));
           setPilotImageSource(storedText("Zdroj obrázka"));
           setPilotImageAlt(storedText("Alt text obrázka"));
+          setPublicOrganization(Object.hasOwn(savedProfile.importData ?? {}, "Organizácia") ? storedText("Organizácia") : storedText("Zastrešujúca organizácia"));
+          setPublicFocus(storedText("Zameranie"));
         }
         }
       }
@@ -925,6 +933,8 @@ export function AdminDirectoryEditor({
 
           <AdminEditorSection id="directory-content" className="admin-form-card">
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
+            <div className="admin-field"><label htmlFor="directory-public-organization">Organizácia <small>nepovinné</small></label><input id="directory-public-organization" value={publicOrganization} onChange={(event) => { setPublicOrganization(event.target.value); setFormDirty(true); }} placeholder="Napríklad: ZŠK SR" /><small>Verejný údaj z pôvodného profilu; ostatné importované informácie zostávajú zachované.</small></div>
+            <div className="admin-field"><label htmlFor="directory-public-focus">Zameranie <small>nepovinné</small></label><input id="directory-public-focus" value={publicFocus} onChange={(event) => { setPublicFocus(event.target.value); setFormDirty(true); }} placeholder="Napríklad: športová kynológia, výcvik a skúšky" /></div>
             <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><AdminLexicalTextField id="directory-description" rows={9} value={description} onChange={(next) => { setDescription(next); setFormDirty(true); }} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} ariaLabel="Podrobný popis" /><AdminLexicalAppendButton onAppend={text=>setDescription(appendLexicalPlainText(description,text))}/></div>
             <AdminHelpText term="Formát">Lexical ukladá popis do existujúceho textového poľa bez zmeny synchronizácie Notion.</AdminHelpText>
             <div className={isDirectoryEventPilotCategory(category) ? "" : "admin-field-grid"}>
@@ -945,7 +955,7 @@ export function AdminDirectoryEditor({
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : category === "fyzioterapia" ? "Odbornosť a skúsenosti" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
-            {profile && isDirectoryEventPilotCategory(category) ? (
+            {profile ? (
               <>
                 <div className="admin-field">
                   <label htmlFor="directory-pilot-hours">Ordinačné / otváracie hodiny</label>

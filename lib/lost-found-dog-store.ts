@@ -41,6 +41,7 @@ type ReportRow = {
   color: string;
   approximate_age: string;
   size: string;
+  short_description: string;
   description: string;
   distinguishing_marks: string;
   collar_description: string;
@@ -90,6 +91,7 @@ export type ManagedDogReportInput = {
   color?: string;
   approximateAge?: string;
   size?: string;
+  shortDescription?: string;
   description?: string;
   distinguishingMarks?: string;
   collarDescription?: string;
@@ -175,6 +177,7 @@ function rowToPublic(row: ReportRow): PublicDogReport {
     color: row.color,
     approximateAge: row.approximate_age,
     size: oneOf(row.size, dogSizes, "UNKNOWN"),
+    shortDescription: row.short_description ?? "",
     description: row.description,
     distinguishingMarks: row.distinguishing_marks,
     collarDescription: row.collar_description,
@@ -233,11 +236,30 @@ async function rowToAdmin(row: ReportRow, encryptionKey: string): Promise<AdminD
 const publicSelect = `
   r.id, r.type, r.status, r.slug, r.dog_name, r.sex, r.breed_id, r.breed, r.breed_unknown,
   CASE WHEN b.status = 'published' THEN b.slug ELSE NULL END AS breed_slug,
-  r.color, r.approximate_age, r.size, r.description, r.distinguishing_marks, r.collar_description,
+  r.color, r.approximate_age, r.size, r.short_description, r.description, r.distinguishing_marks, r.collar_description,
   r.chipped, r.main_image, r.thumbnail_display_json, r.detail_display_json, r.gallery_json, r.event_date, r.last_seen_date_time,
   r.region, r.district, r.city, r.location_description, r.public_latitude, r.public_longitude,
   r.public_location_precision, r.public_contact_note, r.source, r.source_url,
   r.updated_at, r.published_at, r.expires_at, r.resolved_at`;
+
+/** Allow public and Admin reads to work before the additive 0162 schema is applied. */
+async function hasShortDescriptionColumn(database: D1Database): Promise<boolean> {
+  try {
+    const statement = database.prepare("PRAGMA table_info(lost_found_dog_reports)");
+    // Older isolated test adapters predate the additive schema introspection.
+    if (typeof statement.all !== "function") return false;
+    const schema = await statement.all<{ name: string }>();
+    return (schema.results ?? []).some(column => column.name === "short_description");
+  } catch {
+    // Production reads remain on the legacy projection if schema is unavailable.
+    return false;
+  }
+}
+
+async function selectWithOptionalShortDescription(database: D1Database, sql: string): Promise<string> {
+  if (await hasShortDescriptionColumn(database)) return sql;
+  return sql.replace("r.short_description,", "'' AS short_description,");
+}
 
 const adminSelect = `${publicSelect}, r.main_image_key, r.duplicate_of_id, r.duplicate_reason, r.created_at, r.archived_at,
   p.contact_name_encrypted AS private_contact_name_encrypted,
@@ -284,14 +306,14 @@ export async function listPublicDogReports(type: DogReportType, filters: DogRepo
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r WHERE ${whereSql}`).bind(...args).first<{ count: number }>();
   const total = Number(count?.count || 0);
   const offset = (page - 1) * pageSize;
-  const result = await database.prepare(`SELECT ${publicSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE ${whereSql} ORDER BY r.event_date DESC, r.published_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, offset).all<ReportRow>();
+  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, publicSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE ${whereSql} ORDER BY r.event_date DESC, r.published_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, offset).all<ReportRow>();
   return { items: (result.results ?? []).map(rowToPublic), total, page, pageSize, pages: Math.ceil(total / pageSize) };
 }
 
 export async function getPublicDogReport(type: DogReportType, slug: string) {
   const database = getD1Binding();
   if (!database) return null;
-  const row = await database.prepare(`SELECT ${publicSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.type = ? AND r.slug = ? AND r.published_at IS NOT NULL AND r.duplicate_of_id IS NULL AND r.status IN ('ACTIVE','RESOLVED','EXPIRED','ARCHIVED') LIMIT 1`).bind(type, slug).first<ReportRow>();
+  const row = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, publicSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.type = ? AND r.slug = ? AND r.published_at IS NOT NULL AND r.duplicate_of_id IS NULL AND r.status IN ('ACTIVE','RESOLVED','EXPIRED','ARCHIVED') LIMIT 1`).bind(type, slug).first<ReportRow>();
   return row ? rowToPublic(row) : null;
 }
 
@@ -299,7 +321,7 @@ export async function listSitemapDogReports() {
   const database = getD1Binding();
   if (!database) return [] as PublicDogReport[];
   const nowIso = new Date().toISOString();
-  const result = await database.prepare(`SELECT ${publicSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.status = 'ACTIVE' AND r.published_at IS NOT NULL AND (r.expires_at IS NULL OR r.expires_at > ?) ORDER BY r.updated_at DESC`).bind(nowIso).all<ReportRow>();
+  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, publicSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id WHERE r.status = 'ACTIVE' AND r.published_at IS NOT NULL AND (r.expires_at IS NULL OR r.expires_at > ?) ORDER BY r.updated_at DESC`).bind(nowIso).all<ReportRow>();
   return (result.results ?? []).map(rowToPublic);
 }
 
@@ -317,7 +339,7 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r ${whereSql}`).bind(...args).first<{ count: number }>();
   const total = Number(count?.count || 0);
-  const result = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
+  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, adminSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
   const { encryptionKey } = requirePiiKeys();
   const items = await Promise.all((result.results ?? []).map((row) => rowToAdmin(row, encryptionKey)));
   return { items, total, page, pageSize, pages: Math.ceil(total / pageSize) };
@@ -325,7 +347,7 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
 
 export async function getAdminDogReport(id: number) {
   const database = requireD1Binding();
-  const row = await database.prepare(`SELECT ${adminSelect} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id WHERE r.id = ? LIMIT 1`).bind(id).first<ReportRow>();
+  const row = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, adminSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id WHERE r.id = ? LIMIT 1`).bind(id).first<ReportRow>();
   if (!row) return null;
   const { encryptionKey } = requirePiiKeys();
   return rowToAdmin(row, encryptionKey);
@@ -371,13 +393,16 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
   const clean = await cleanInput(database, { ...input, status: "DRAFT" });
   const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
+  const shortDescriptionReady = await hasShortDescriptionColumn(database);
+  if (!shortDescriptionReady && clean.shortDescription)
+    throw new Error("Krátky popis bude možné uložiť po databázovej migrácii 0162.");
 
   const result = await database.prepare(`INSERT INTO lost_found_dog_reports (
-    type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,description,distinguishing_marks,collar_description,chipped,
+    type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,${shortDescriptionReady ? "short_description," : ""}description,distinguishing_marks,collar_description,chipped,
     main_image,main_image_key,thumbnail_display_json,detail_display_json,gallery_json,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,public_location_precision,
     public_contact_note,source,source_url,search_text,duplicate_of_id,duplicate_reason,created_at,updated_at,published_at,expires_at,resolved_at,archived_at
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
-    clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
+  ) VALUES (${Array.from({ length: shortDescriptionReady ? 42 : 41 }, () => "?").join(",")})`).bind(
+    clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, ...(shortDescriptionReady ? [clean.shortDescription] : []), clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey,
     clean.thumbnailImageDisplay ? JSON.stringify(clean.thumbnailImageDisplay) : null,
     clean.detailImageDisplay ? JSON.stringify(clean.detailImageDisplay) : null, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
@@ -511,13 +536,16 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   const clean = await cleanInput(database, { ...input, gallery: input.gallery === undefined ? existing.gallery : input.gallery, status: requestedStatus });
   const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
+  const shortDescriptionReady = await hasShortDescriptionColumn(database);
+  if (!shortDescriptionReady && clean.shortDescription)
+    throw new Error("Krátky popis bude možné uložiť po databázovej migrácii 0162.");
   const lifecycle = lifecycleFields(clean.status, existing, clean.expiresAt, now);
 
   const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports SET
-    type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,description=?,distinguishing_marks=?,collar_description=?,chipped=?,
+    type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,${shortDescriptionReady ? "short_description=?," : ""}description=?,distinguishing_marks=?,collar_description=?,chipped=?,
     main_image=?,main_image_key=?,thumbnail_display_json=?,detail_display_json=?,gallery_json=?,event_date=?,last_seen_date_time=?,region=?,district=?,city=?,location_description=?,public_latitude=?,public_longitude=?,public_location_precision=?,
     public_contact_note=?,source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
-    clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
+    clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, ...(shortDescriptionReady ? [clean.shortDescription] : []), clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey,
     JSON.stringify(input.thumbnailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.thumbnailImageDisplay ?? null : clean.thumbnailImageDisplay ?? null),
     JSON.stringify(input.detailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.detailImageDisplay ?? null : clean.detailImageDisplay ?? null), JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
@@ -600,6 +628,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
   const region = cleanText(input.region, 80);
   const district = cleanText(input.district, 120);
   const city = cleanText(input.city, 120);
+  const shortDescription = cleanText(input.shortDescription, 500);
   const description = cleanText(input.description, 6000);
   const lastSeenDateTime = cleanIsoNullable(input.lastSeenDateTime);
   let slug = slugify(cleanText(input.slug, 100) || `${type === "LOST" ? "strateny" : "najdeny"}-${dogName || city || "pes"}-${eventDate || "hlasenie"}`);
@@ -641,7 +670,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
     breedId, breed, breedUnknown,
     color: cleanText(input.color, 160), approximateAge: cleanText(input.approximateAge, 120),
     size: oneOf(input.size, dogSizes, "UNKNOWN") as DogSize,
-    description, distinguishingMarks: cleanText(input.distinguishingMarks, 1200), collarDescription: cleanText(input.collarDescription, 700),
+    shortDescription, description, distinguishingMarks: cleanText(input.distinguishingMarks, 1200), collarDescription: cleanText(input.collarDescription, 700),
     chipped: oneOf(input.chipped, chipStates, "UNKNOWN") as ChipState,
     mainImage, mainImageKey: cleanNullable(input.mainImageKey, 500),
     thumbnailImageDisplay: normalizeImageDisplayConfig(input.thumbnailImageDisplay, "thumbnail"),
@@ -652,7 +681,7 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
     publicContactNote: cleanText(input.publicContactNote, 800), source: cleanText(input.source, 160) || "EDITORIAL", sourceUrl,
     expiresAt, internalNote: cleanText(input.internalNote, 4000),
   };
-  return { ...cleaned, searchText: normalizeSearch([type, dogName, breed, cleaned.color, cleaned.description, cleaned.distinguishingMarks, region, district, city, cleaned.locationDescription, cleaned.source].filter(Boolean).join(" ")) };
+  return { ...cleaned, searchText: normalizeSearch([type, dogName, breed, cleaned.color, cleaned.shortDescription, cleaned.description, cleaned.distinguishingMarks, region, district, city, cleaned.locationDescription, cleaned.source].filter(Boolean).join(" ")) };
 }
 
 function normalizeSearch(value: string) {

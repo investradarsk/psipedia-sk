@@ -307,11 +307,12 @@ export async function PUT(request: Request, { params }: Props) {
     // Pilot metadata stays separate from profile normalization and V3 relations.
     const metadataWarnings: string[] = [...optionalWarnings, ...contactClearWarnings];
     const changedPilotMetadata: Partial<Record<PilotDirectoryMetadataField, string>> = {};
-    if (isDirectoryEventPilotCategory(profile.category) && rawPilotMetadataFields &&
+    if ((isDirectoryEventPilotCategory(profile.category) || serviceFilterCategories.includes(profile.category as ServiceFilterCategory)) && rawPilotMetadataFields &&
         typeof rawPilotMetadataFields === "object" && !Array.isArray(rawPilotMetadataFields)) {
       const submitted = rawPilotMetadataFields as Record<string, unknown>;
       for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
         if (!Object.hasOwn(submitted, field) || typeof submitted[field] !== "string") continue;
+
         // The field key being present is an explicit Admin edit. An empty string
         // clears this one metadata field, not the rest of the profile.
         const value = (submitted[field] as string).trim();
@@ -378,8 +379,7 @@ export async function PUT(request: Request, { params }: Props) {
         notionFieldSync = "pending";
       }
     }
-    if (isDirectoryEventPilotCategory(profile.category) &&
-        Object.keys(changedPilotMetadata).length > 0) {
+    if (Object.keys(changedPilotMetadata).length > 0) {
       if (notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true" && notionEnv.DB) {
         try {
           const mirrored = await mirrorPilotDirectoryMetadataFieldsToNotion({

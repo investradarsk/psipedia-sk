@@ -28,7 +28,7 @@ test("all directory categories and organizations use one shared, explicit compac
 });
 
 test("directory contact, copy, service list and map stay wired to one shared template", () => {
-  assert.match(directory, /showExcerpt=\{isPhysiotherapy \|\| !hasExtendedDescription\}/);
+  assert.match(directory, /showExcerpt=\{true\}/);
   assert.match(directory, /<DirectoryContactForm profileId=\{presentation\.id\}/);
   assert.match(directory, /<ProfileReviewSection/);
   assert.match(directory, /<RelatedEntityLinks/);

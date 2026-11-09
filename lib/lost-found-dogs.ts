@@ -31,6 +31,7 @@ export type PublicDogReport = {
   color: string;
   approximateAge: string;
   size: DogSize;
+  shortDescription: string;
   description: string;
   distinguishingMarks: string;
   collarDescription: string;

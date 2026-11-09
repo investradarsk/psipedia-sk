@@ -52,7 +52,7 @@ test("a pilot editor save exports only changed fields and never creates Notion p
   assert.match(webhook, /'veterinari','fyzioterapia','dalsie-sluzby'/);
   assert.match(source, /isDirectoryFieldEventCategory\(profile\.category\)/);
   assert.match(source, /isDirectoryEventPilotCategory\(propertyText\(page, "Kategória"\)\)\) continue/);
-  assert.match(source, /isDirectoryEventPilotCategory\(profile\.category\)/);
+  assert.match(source, /isDirectoryEventPilotCategory\(input\.profile\.category\)/);
   assert.match(source, /saveBreederEditorialValue\(database, current, desired, path\)/);
   assert.match(admin, /isDirectoryEventPilotCategory\(before\.category\)/);
   assert.match(editor, /isDirectoryEventPilotCategory\(profile\.category\)/);
@@ -216,6 +216,7 @@ test("an explicit empty Admin edit clears only one pilot JSON field while Notion
   const exports = {};
   runInNewContext(js, {
     exports, SYSTEM_ACTOR: "sync", isDirectoryEventPilotCategory,
+    serviceFilterCategories: ["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby", "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie", "vencenie", "fyzioterapia", "dalsie-sluzby"],
     getManagedDirectoryProfileById: async () => profile,
     Date,
   });
