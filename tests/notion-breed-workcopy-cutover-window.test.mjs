@@ -60,3 +60,19 @@ test("historical source content differences are informational, never silently re
   assert.match(route, /legacySourceContentParity:parity\.dataParity/);
   assert.doesNotMatch(route, /!parity\.dataParity/);
 });
+
+test("live status checks exactly 344 ACTIVE receipts from D1 and never changes Notion", () => {
+  const route = read("app/api/admin/notion-breeds-workcopy-status/route.ts");
+  const ui = read("components/admin-breed-workcopy-live-status.tsx");
+  assert.match(route, /getAdminApiUser\(\)/);
+  assert.match(route, /"Cache-Control": "private, no-store"/);
+  assert.match(route, /COUNT\(\*\) AS total/);
+  assert.match(route, /status='ACTIVE'/);
+  assert.match(route, /status='SHADOW'/);
+  assert.match(route, /receiptPrefixes === 344/);
+  assert.match(route, /!oldSyncEnabled && workCopySyncEnabled && !activationEnabled/);
+  assert.doesNotMatch(route, /\b(?:UPDATE|INSERT|DELETE|DROP|ALTER)\s+breed_notion_workcopy_links\b/i);
+  assert.doesNotMatch(route, /method:\s*"PATCH"/);
+  assert.match(ui, /Obnoviť živý stav D1/);
+  assert.match(ui, /!\(status\.activeCohortReady && status\.singleNewEngine\)/);
+});
