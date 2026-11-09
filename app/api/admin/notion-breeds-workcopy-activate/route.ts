@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { fetchBreedNotionInventory } from "@/lib/notion-breed-workcopy-inventory";
 import { planBreedWorkcopyIdentity } from "@/lib/notion-breed-workcopy-identity-plan.mjs";
 import { inspectBreedWorkCopy } from "@/lib/notion-breed-workcopy-parity.mjs";
@@ -36,6 +36,7 @@ type ShadowRow = {
 };
 const UUID = /^[a-f0-9]{8}(?:-?[a-f0-9]{4}){3}-?[a-f0-9]{12}$/i;
 const norm = (s:string) => s.replaceAll("-", "").toLowerCase();
+const ACTIVATION_EXPIRES_AT = Date.parse("2026-11-16T23:59:59Z");
 
 /**
  * Owner-confirmed, one-shot D1 status transition for all 344 breeds.
@@ -46,13 +47,14 @@ const norm = (s:string) => s.replaceAll("-", "").toLowerCase();
  * Deployed disabled. This is NOT called on merge or by any cron.
  */
 export async function POST(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const bindings = env as unknown as Bindings;
   const oldId = bindings.NOTION_BREEDS_DATA_SOURCE_ID?.trim() ?? "";
   const newId = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID?.trim() ?? "";
   if (!bindings.DB || !bindings.NOTION_API_TOKEN ||
       bindings.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED !== "true" ||
+      Date.now() > ACTIVATION_EXPIRES_AT ||
       bindings.NOTION_BREED_SYNC_ENABLED !== "false" ||
       bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED !== "false" ||
       !UUID.test(oldId) || !UUID.test(newId) || norm(oldId) === norm(newId)) {
@@ -88,7 +90,10 @@ export async function POST(request: Request) {
     const parity = inspectBreedWorkCopy(sourcePages, workPages);
     const mergedValid = workPages.every(page =>
       expandBreed60WorkPage(page).errors.length === 0);
-    if (!identity.identityReady || !parity.dataParity || !mergedValid) {
+    // Source 109-field content parity is advisory: the new working copy
+    // intentionally has its OWN freshly observed field baselines. Historical
+    // differences must not rewrite or block otherwise valid independent edits.
+    if (!identity.identityReady || !mergedValid) {
       return Response.json({code:"BREED_WORKCOPY_LIVE_PREFLIGHT_FAILED"},
         {status:409,headers});
     }
@@ -104,7 +109,7 @@ export async function POST(request: Request) {
     });
     // A syntactically valid receipt is insufficient: the full existing
     // per-field engine must also understand both saved field snapshots.
-    const baselinesValid = staged.results.every(row =>
+    const baselinesValid = staged.results.length === 344 && staged.results.every(row =>
       isCompatibleBreedWorkcopyReceipt(row.work_sync_receipt));
     if (!baselinesValid) {
       return Response.json({code:"BREED_WORKCOPY_BASELINE_INCOMPATIBLE"},
@@ -129,6 +134,7 @@ export async function POST(request: Request) {
     return Response.json({
       activated:true, activeLinks:344,
       oldSyncEnabled:false, workCopySyncEnabled:false,
+      legacySourceContentParity:parity.dataParity,
       next:"Enable only the new sync after readback, then switch both editorial automations.",
     },{headers});
   } catch (error) {
