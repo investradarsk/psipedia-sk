@@ -177,7 +177,7 @@ function rowToPublic(row: ReportRow): PublicDogReport {
     color: row.color,
     approximateAge: row.approximate_age,
     size: oneOf(row.size, dogSizes, "UNKNOWN"),
-    shortDescription: row.short_description,
+    shortDescription: row.short_description ?? "",
     description: row.description,
     distinguishingMarks: row.distinguishing_marks,
     collarDescription: row.collar_description,
@@ -244,9 +244,16 @@ const publicSelect = `
 
 /** Allow public and Admin reads to work before the additive 0162 schema is applied. */
 async function hasShortDescriptionColumn(database: D1Database): Promise<boolean> {
-  const schema = await database.prepare("PRAGMA table_info(lost_found_dog_reports)")
-    .all<{ name: string }>();
-  return (schema.results ?? []).some(column => column.name === "short_description");
+  try {
+    const statement = database.prepare("PRAGMA table_info(lost_found_dog_reports)");
+    // Older isolated test adapters predate the additive schema introspection.
+    if (typeof statement.all !== "function") return false;
+    const schema = await statement.all<{ name: string }>();
+    return (schema.results ?? []).some(column => column.name === "short_description");
+  } catch {
+    // Production reads remain on the legacy projection if schema is unavailable.
+    return false;
+  }
 }
 
 async function selectWithOptionalShortDescription(database: D1Database, sql: string): Promise<string> {
