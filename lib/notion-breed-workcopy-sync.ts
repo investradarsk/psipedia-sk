@@ -26,6 +26,7 @@ import { planBreedWorkCopyEditorialDelta } from "@/lib/notion-breed-workcopy-del
 import { planBreedWorkCopyFieldWrite } from "@/lib/notion-breed-workcopy-patch-bridge.mjs";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
+import { isBreedStructuredMeasurement } from "@/lib/breed-controlled-fields.mjs";
 import {
   workCopyChangedEditorialIds, workCopyNonblankChangedFields,
   workCopyAdminChangedFields,
@@ -195,8 +196,8 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         summary.unchanged++;
         continue;
       }
-      // Manual import is explicitly Notion-authoritative even if the last
-      // recorded receipt has already acknowledged that unchanged Notion value.
+      // Manual import is explicitly Notion-authoritative even if the latest
+      // receipt previously acknowledged an unchanged Notion cell.
       const manualBaseline = args.manualImport ? breedFieldSnapshot(canonical) : null;
       const plan = planBreedWorkCopyEditorialDelta({
         page, canonical,
@@ -206,10 +207,17 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       });
       if (!plan.ready || !plan.sourceSnapshot)
         throw Error("BREED_WORKCOPY_PARSE_INVALID");
-      const accepted = workCopyNonblankChangedFields({
+      const candidates = workCopyNonblankChangedFields({
         allowed: edited, changed: plan.changed,
         values: plan.sourceSnapshot, accepted: plan.accepted,
       }).filter(field => !skippedSpecial.has(field));
+      // If Notion AI replaces a numeric measurement with a sentence, ignore
+      // ONLY that edited cell. Keep the previous D1 value and its receipt;
+      // unrelated valid fields from the same event still transfer.
+      const accepted = candidates.filter(field =>
+        isBreedStructuredMeasurement(field, plan.sourceSnapshot[field]));
+      const rejectedMeasurements = candidates.filter(field =>
+        !isBreedStructuredMeasurement(field, plan.sourceSnapshot[field]));
       const safe = planSafeBreedFields(canonical, {
         latest: plan.sourceSnapshot,
         changed: accepted as BreedNotionField[],
@@ -246,9 +254,10 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       if (changed) summary.updated++; else summary.unchanged++;
       // Bad or unsupported fields remain pending; unrelated valid fields still
       // commit independently without modifying old Notion or publication.
-      if (safe.skipped.length || plan.skipped.length) {
+      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length) {
         console.warn("breed_workcopy_fields_pending",{
-          id: canonical.id, count: safe.skipped.length + plan.skipped.length,
+          id: canonical.id,
+          count: safe.skipped.length + plan.skipped.length + rejectedMeasurements.length,
         });
         if (args.manualImport) throw Error("BREED_WORKCOPY_MANUAL_PARTIAL_FIELDS");
       }
@@ -298,7 +307,8 @@ export async function writeBackBreedToWorkCopy(input: {
   const keys = workCopyAdminChangedFields(
     beforeAdmin, actualAdmin, BREED_NOTION_EDITABLE_FIELDS, input.changedFieldKeys,
   ).filter((field): field is BreedNotionField =>
-    !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true));
+    !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true) &&
+    isBreedStructuredMeasurement(field, actualAdmin[field]));
   // No record-wide receipt diff: never resend an untouched Admin field.
   if (!keys.length) return {
     linked: true, updated: false, reason: "no-mirrored-field-change" as const,
