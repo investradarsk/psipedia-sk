@@ -131,6 +131,19 @@ export async function POST(request: Request) {
       return Response.json({code:"BREED_WORKCOPY_ACTIVATION_CAS_FAILED"},
         {status:409,headers});
     }
+    // Independent readback. A successful request is NOT merely a reported
+    // change count: the D1 cohort must now be exactly 344 ACTIVE and 0 SHADOW.
+    const after = await db.prepare(
+      "SELECT COUNT(*) AS total," +
+      "SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) AS active," +
+      "SUM(CASE WHEN status='SHADOW' THEN 1 ELSE 0 END) AS shadow " +
+      "FROM breed_notion_workcopy_links",
+    ).first<{total:number; active:number|null; shadow:number|null}>();
+    if (Number(after?.total) !== 344 || Number(after?.active) !== 344 ||
+        Number(after?.shadow) !== 0) {
+      return Response.json({code:"BREED_WORKCOPY_ACTIVATION_READBACK_MISMATCH"},
+        {status:409,headers});
+    }
     return Response.json({
       activated:true, activeLinks:344,
       oldSyncEnabled:false, workCopySyncEnabled:false,
