@@ -1542,7 +1542,7 @@ async function syncBreederEvent(input: {
           .filter(id => getDirectoryFilterDefinition(id)?.category === input.profile.category)
       : [];
     const trustFields = changedTrainerTrustNotionFields(page.properties, input.changedPropertyIds);
-    const pilotMetaFields = isDirectoryEventPilotCategory(input.profile.category)
+    const pilotMetaFields = isDirectoryFieldEventCategory(input.profile.category)
       ? pilotChangedNotionMetadataFields(page, input.changedPropertyIds) : [];
     if (!paths.length && !relationFields.length && !facetFields.length && !trustFields.length && !pilotMetaFields.length)
       return "unchanged";
@@ -1566,12 +1566,11 @@ async function syncBreederEvent(input: {
         failures.push(path);
       }
     }
-    // Operational hours and sources are one-field JSON writes. Empty Notion
-    // values are missing, never a delete; other fields still transfer.
+    // Only fields explicitly reported as changed by the Notion webhook are written.
+    // An empty edited text field is a real deletion and must clear the D1 value.
     let pilotMetaUpdated = false;
     for (const field of pilotMetaFields) {
       const value = propertyText(page, field).trim();
-      if (!value) continue;
       try {
         const next = await savePilotDirectoryMetadataField({
           database, profileId: current.id, category: current.category, field, value,
