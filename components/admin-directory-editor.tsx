@@ -489,12 +489,10 @@ export function AdminDirectoryEditor({
       const pilotMetadataFields: Record<string, string> = {};
       if (profile) {
         for (const [key, current] of [
-          ...(isDirectoryEventPilotCategory(profile.category) ? [
-            ["Ordinačné hodiny", pilotOpeningHours],
-            ["Zdroj dát", pilotDataSources],
-            ["Zdroj obrázka", pilotImageSource],
-            ["Alt text obrázka", pilotImageAlt],
-          ] : []),
+          ["Ordinačné hodiny", pilotOpeningHours],
+          ["Zdroj dát", pilotDataSources],
+          ["Zdroj obrázka", pilotImageSource],
+          ["Alt text obrázka", pilotImageAlt],
           ["Organizácia", publicOrganization],
           ["Zameranie", publicFocus],
         ]) {
@@ -605,12 +603,10 @@ export function AdminDirectoryEditor({
             const value = savedProfile.importData?.[key];
             return typeof value === "string" ? value : "";
           };
-          if (isDirectoryEventPilotCategory(savedProfile.category)) {
-            setPilotOpeningHours(storedText("Ordinačné hodiny"));
-            setPilotDataSources(storedText("Zdroj dát"));
-            setPilotImageSource(storedText("Zdroj obrázka"));
-            setPilotImageAlt(storedText("Alt text obrázka"));
-          }
+          setPilotOpeningHours(storedText("Ordinačné hodiny"));
+          setPilotDataSources(storedText("Zdroj dát"));
+          setPilotImageSource(storedText("Zdroj obrázka"));
+          setPilotImageAlt(storedText("Alt text obrázka"));
           setPublicOrganization(storedText("Organizácia") || storedText("Zastrešujúca organizácia"));
           setPublicFocus(storedText("Zameranie"));
         }
@@ -946,7 +942,7 @@ export function AdminDirectoryEditor({
               <div className="admin-field"><label htmlFor="directory-qualifications">{category === "chovatelske-stanice" ? "O chovateľovi" : category === "veterinari" ? "Kvalifikácie" : category === "fyzioterapia" ? "Odbornosť a skúsenosti" : "Skúsenosti a kvalifikácie"}</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={category === "chovatelske-stanice" ? "Predstav chovateľa, skúsenosti a doterajšiu prax." : "Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
-            {profile && isDirectoryEventPilotCategory(category) ? (
+            {profile ? (
               <>
                 <div className="admin-field">
                   <label htmlFor="directory-pilot-hours">Ordinačné / otváracie hodiny</label>
