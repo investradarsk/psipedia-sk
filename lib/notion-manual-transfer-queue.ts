@@ -563,13 +563,17 @@ export async function readManualTransferRun(
       "WHERE f.item_id=i.id AND f.status IN ('CHANGE','UPDATED','FAILED')))":"");
   const rows=await db.prepare(
     "SELECT i.id,i.scope,i.profile_id,i.status,i.attempts,i.changed_fields,i.failed_fields,"+
-    "i.last_error_code,i.updated_at FROM notion_manual_transfer_items i "+
+    "i.last_error_code,i.updated_at,COALESCE(d.name,b.name,e.title,'') AS profile_name "+
+    "FROM notion_manual_transfer_items i "+
+    "LEFT JOIN directory_profiles d ON i.scope LIKE 'directory:%' AND d.id=i.profile_id "+
+    "LEFT JOIN managed_breeds b ON i.scope='breeds' AND b.id=i.profile_id "+
+    "LEFT JOIN managed_events e ON i.scope='events' AND e.id=i.profile_id "+
     "WHERE i.run_id=?"+clause+
     " ORDER BY CASE WHEN i.preview_hash IS NOT NULL AND i.changed_fields>0 THEN 0 "+
     "WHEN i.preview_hash IS NOT NULL THEN 1 ELSE 2 END,i.id LIMIT 100 OFFSET ?"
   ).bind(runId,offset).all<{id:number;scope:string;profile_id:number;
     status:string;attempts:number;changed_fields:number;failed_fields:number;
-    last_error_code:string|null;updated_at:string}>();
+    last_error_code:string|null;updated_at:string;profile_name:string}>();
   const eligible=(rows.results??[]).filter(row=>row.status!=="PENDING"||row.attempts>0);
   const fieldsByItem=new Map<number,Array<{
     field_key:string;status:string;reason_code:string|null;attempts:number;
