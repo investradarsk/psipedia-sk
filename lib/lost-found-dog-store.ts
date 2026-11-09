@@ -386,13 +386,16 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
   const clean = await cleanInput(database, { ...input, status: "DRAFT" });
   const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
+  const shortDescriptionReady = await hasShortDescriptionColumn(database);
+  if (!shortDescriptionReady && clean.shortDescription)
+    throw new Error("Krátky popis bude možné uložiť po databázovej migrácii 0162.");
 
   const result = await database.prepare(`INSERT INTO lost_found_dog_reports (
-    type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,short_description,description,distinguishing_marks,collar_description,chipped,
+    type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,${shortDescriptionReady ? "short_description," : ""}description,distinguishing_marks,collar_description,chipped,
     main_image,main_image_key,thumbnail_display_json,detail_display_json,gallery_json,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,public_location_precision,
     public_contact_note,source,source_url,search_text,duplicate_of_id,duplicate_reason,created_at,updated_at,published_at,expires_at,resolved_at,archived_at
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
-    clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.shortDescription, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
+  ) VALUES (${Array.from({ length: shortDescriptionReady ? 42 : 41 }, () => "?").join(",")})`).bind(
+    clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, ...(shortDescriptionReady ? [clean.shortDescription] : []), clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey,
     clean.thumbnailImageDisplay ? JSON.stringify(clean.thumbnailImageDisplay) : null,
     clean.detailImageDisplay ? JSON.stringify(clean.detailImageDisplay) : null, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
@@ -526,13 +529,16 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   const clean = await cleanInput(database, { ...input, gallery: input.gallery === undefined ? existing.gallery : input.gallery, status: requestedStatus });
   const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
+  const shortDescriptionReady = await hasShortDescriptionColumn(database);
+  if (!shortDescriptionReady && clean.shortDescription)
+    throw new Error("Krátky popis bude možné uložiť po databázovej migrácii 0162.");
   const lifecycle = lifecycleFields(clean.status, existing, clean.expiresAt, now);
 
   const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports SET
-    type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,short_description=?,description=?,distinguishing_marks=?,collar_description=?,chipped=?,
+    type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,${shortDescriptionReady ? "short_description=?," : ""}description=?,distinguishing_marks=?,collar_description=?,chipped=?,
     main_image=?,main_image_key=?,thumbnail_display_json=?,detail_display_json=?,gallery_json=?,event_date=?,last_seen_date_time=?,region=?,district=?,city=?,location_description=?,public_latitude=?,public_longitude=?,public_location_precision=?,
     public_contact_note=?,source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
-    clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.shortDescription, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
+    clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, ...(shortDescriptionReady ? [clean.shortDescription] : []), clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey,
     JSON.stringify(input.thumbnailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.thumbnailImageDisplay ?? null : clean.thumbnailImageDisplay ?? null),
     JSON.stringify(input.detailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.detailImageDisplay ?? null : clean.detailImageDisplay ?? null), JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
