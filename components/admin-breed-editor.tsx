@@ -224,6 +224,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       setExpectedUpdatedAt(data.breed.updatedAt);
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
       let controlledSaveFailed=false;
+      let controlledHasPending=controlledPendingKeys.length>0;
       if (breed && submittedControlledKeys.length) {
         if (controlledRevision===null) {
           controlledSaveFailed=true;
@@ -239,7 +240,9 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
               throw Error(result.error??"Kontrolované údaje sa neuložili.");
             setControlledRevision(result.revision);
             setControlledPendingKeys(result.pendingKeys??[]);
-            setControlledDirtyKeys(current=>current.filter(key=>!submittedControlledKeys.includes(key)));
+            controlledHasPending=Boolean(result.pendingKeys?.length);
+            if (formEditRevisionRef.current===submittedRevision)
+              setControlledDirtyKeys(current=>current.filter(key=>!submittedControlledKeys.includes(key)));
             setControlledError("");
           }catch(caught) {
             controlledSaveFailed=true;
@@ -254,7 +257,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         notionStatus==="not-linked" || notionStatus==="disabled";
       setMessage(controlledSaveFailed
         ? "Pôvodný profil je uložený; zmeny kontrolovaných polí si vyžadujú opakovanie."
-        : notionPending || controlledPendingKeys.length
+        : notionPending || controlledHasPending
           ? "Plemeno je uložené v Admine; časť údajov ešte čaká na potvrdenie v Notione."
           : status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
       if(!breed)router.replace(`/admin/plemena/${data.breed.id}`);
@@ -360,14 +363,14 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
                     ? <select value={typeof value==="string"?value:""}
                         onChange={event=>changeControlled(field.key,event.target.value||null)}>
                         <option value="">Nevyplnené</option>
-                        {field.options.map(option=><option key={option} value={option}>{option}</option>)}
+                        {(field.options??[]).map(option=><option key={option} value={option}>{option}</option>)}
                       </select>
-                    : <select multiple size={Math.min(field.options.length,5)}
+                    : <select multiple size={Math.min((field.options??[]).length,5)}
                         value={Array.isArray(value)?value:[]}
                         aria-label={field.notion}
                         onChange={event=>changeControlled(field.key,
                           Array.from(event.currentTarget.selectedOptions).map(option=>option.value))}>
-                        {field.options.map(option=><option key={option} value={option}>{option}</option>)}
+                        {(field.options??[]).map(option=><option key={option} value={option}>{option}</option>)}
                       </select>}
               </label>;
             })}
