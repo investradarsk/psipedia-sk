@@ -77,7 +77,7 @@ function DirectoryProfileHero({
             roleHint="generic"
             config={presentation.detailImageDisplay}
             src={presentation.imageUrl}
-            alt={"Fotografia služby " + presentation.name}
+            alt={presentation.imageAlt || "Fotografia služby " + presentation.name}
             srcSet={responsiveMediaSrcSet(presentation.imageUrl, [480, 640, 960, 1280, 1600])}
             sizes="(max-width: 760px) 100vw, 50vw"
             loading="eager"
