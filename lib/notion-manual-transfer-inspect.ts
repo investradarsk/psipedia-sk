@@ -1,9 +1,9 @@
 import { NOTION_AUTHORITY_GROUPS } from "./notion-field-authority";
 import { planOwnerDirectedFields } from "./notion-manual-transfer-plan";
 import {
-  inspectManualBreedProfile,
-  type NotionBreedSyncBindings,
-} from "./notion-breed-sync";
+  inspectManualBreedWorkCopyProfile,
+  type BreedWorkCopyBindings,
+} from "./notion-breed-workcopy-sync";
 import {
   inspectManualDirectoryProfile,
   type NotionDirectorySyncBindings,
@@ -20,7 +20,7 @@ import type { BidirectionalAgendaKey } from "./notion-events-help-adapters";
 import type { ManualTransferFieldResult } from "./notion-manual-transfer-contract";
 import type { ManualFieldDirection } from "./notion-manual-transfer-plan";
 
-export type ManualInspectionBindings=NotionBreedSyncBindings &
+export type ManualInspectionBindings=BreedWorkCopyBindings &
   NotionDirectorySyncBindings & NotionEshopSyncBindings & NotionEventsHelpSyncBindings;
 
 export type ManualInspection = {
@@ -64,7 +64,7 @@ export async function inspectManualTransferRecord(input:{
   if(!group)throw Error("TRANSFER_SCOPE_UNSUPPORTED");
   let values:{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]};
   if(link.scope==="breeds"){
-    values=await inspectManualBreedProfile({database,bindings,
+    values=await inspectManualBreedWorkCopyProfile({database,bindings,
       profileId:link.profile_id,pageId:link.notion_page_id});
   }else if(link.scope.startsWith("directory:")){
     values=await inspectManualDirectoryProfile({database,bindings,
