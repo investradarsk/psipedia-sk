@@ -19,6 +19,13 @@ export default async function AdminBreedsPage() {
   const user = await requireAdminPageUser("/admin/plemena");
   // Fetch the same bounded projection, but do not block the shared navigation.
   const breedsPromise = listManagedBreedSummaries();
+  const flags = env as unknown as {
+    NOTION_BREED_WORKCOPY_BASELINE_ENABLED?: string;
+    NOTION_BREED_WORKCOPY_REBASELINE_ENABLED?: string;
+  };
+  const enableInitialBaseline = flags.NOTION_BREED_WORKCOPY_BASELINE_ENABLED === "true";
+  const enableRebaseline = flags.NOTION_BREED_WORKCOPY_REBASELINE_ENABLED === "true"
+    && Date.now() <= Date.parse("2026-11-16T23:59:59Z");
 
   return (
     <AdminShell
@@ -28,9 +35,11 @@ export default async function AdminBreedsPage() {
       description="Pridávaj profily plemien, upravuj ich údaje a rozhodni, ktoré sú verejné."
       actions={<><Link href="/admin/plemena/audit">Audit údajov</Link><Link className="admin-primary-action" href="/admin/plemena/novy">+ Nové plemeno</Link></>}
     >
-      {(env as unknown as {NOTION_BREED_WORKCOPY_BASELINE_ENABLED?: string})
-        .NOTION_BREED_WORKCOPY_BASELINE_ENABLED === "true" &&
-        <AdminBreedWorkcopyBaseline />}
+      {(enableInitialBaseline || enableRebaseline) &&
+        <AdminBreedWorkcopyBaseline
+          showInitial={enableInitialBaseline}
+          showRefresh={enableRebaseline}
+        />}
       <AdminBreedIdentityBackfill />
       <Suspense fallback={<AdminDataLoading label="Plemená" />}>
         <BreedList promise={breedsPromise} />
