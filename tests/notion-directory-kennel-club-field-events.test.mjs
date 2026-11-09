@@ -17,7 +17,7 @@ test("kynologicke-kluby use the veterinary per-field pipeline, not record-wide r
   assert.equal(isDirectoryEventPilotCategory("kynologicke-kluby"), true);
   assert.equal(isDirectoryFieldEventCategory("kynologicke-kluby"), true);
   assert.equal(isDirectoryEventPilotCategory("chovatelske-kluby"), false);
-  assert.equal(isDirectoryFieldEventCategory("chovatelske-kluby"), false);
+  assert.equal(isDirectoryFieldEventCategory("chovatelske-kluby"), true);
 
   const [sync, webhook, admin, editor] = await Promise.all([
     get("../lib/notion-directory-sync.ts"),
