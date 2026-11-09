@@ -503,7 +503,7 @@ export function AdminDirectoryEditor({
       const trainerServicesEdited = profile && profile.category === "treneri" && category === profile.category && breederBaseline
         ? trainerServicesText !== readTrainerServicesText(breederBaseline.importData)
         : undefined;
-      const trainerTrustEditedPaths = profile && profile.category === "treneri" && category === profile.category && breederBaseline
+      const trainerTrustEditedPaths = profile && category === profile.category && breederBaseline
         ? changedTrainerTrustAdminFields(breederBaseline, { verified, featured })
         : [];
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {

@@ -8,7 +8,7 @@ import {
 } from "../lib/notion-trainer-trust-fields.ts";
 import {
   getDirectoryFilterDefinition, normalizeDirectoryFilterValue,
-  mergeDirectoryFilterValues, readDirectoryFilterValue,
+  mergeDirectoryFilterValues, readDirectoryFilterValue, serviceFilterCategories,
 } from "../lib/directory-filter-contract.ts";
 
 const source = path => readFile(new URL(path, import.meta.url), "utf8");
@@ -64,7 +64,7 @@ test("training facets are provisioned, tri-state, and isolated from Services V3"
     /Out-of-category/);
 });
 
-test("trust inbound SQL updates one checkbox only with a trainer CAS guard", async () => {
+test("trust inbound SQL updates one checkbox only with a category CAS guard", async () => {
   const ts = await import("typescript");
   const sync = await source("../lib/notion-directory-sync.ts");
   const start = sync.indexOf("async function saveTrainerTrustField(");
@@ -87,18 +87,19 @@ test("trust inbound SQL updates one checkbox only with a trainer CAS guard", asy
       return { async first() { return { id: 1811 }; } };
     } }; } };
     const exports = {};
-    runInNewContext(js, { exports, SYSTEM_ACTOR: "sync",
+    runInNewContext(js, { exports, SYSTEM_ACTOR: "sync", serviceFilterCategories,
       getManagedDirectoryProfileById: async () => ({ ...current, [field]: nextValue, updatedAt: "later" }) });
     assert.equal((await exports.saveTrainerTrustField(db, current, field, nextValue))[field], nextValue);
     assert.equal(queries.length, 1);
     assert.match(queries[0].sql, new RegExp("SET " + field + " = \\?"));
-    assert.match(queries[0].sql, /category = 'treneri' AND status <> 'archived' AND updated_at = \?/);
+    assert.match(queries[0].sql, /category = \? AND status <> 'archived' AND updated_at = \?/);
+    assert.equal(queries[0].args[4], "treneri");
     assert.equal(queries[0].args[0], nextValue ? 1 : 0);
     assert.doesNotMatch(queries[0].sql, /services_json|source_data_json|seo_json|status\s*=/);
     assert.equal(await exports.saveTrainerTrustField(db, current, field, oldValue), current);
     assert.equal(queries.length, 1);
-    await assert.rejects(() => exports.saveTrainerTrustField(db, { ...current, category: "veterinari" }, field, nextValue),
-      /TRAINER_TRUST_SCOPE_INVALID/);
+    await assert.rejects(() => exports.saveTrainerTrustField(db, { ...current, category: "podujatia" }, field, nextValue),
+      /DIRECTORY_TRUST_SCOPE_INVALID/);
   }
 });
 
