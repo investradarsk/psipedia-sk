@@ -223,8 +223,7 @@ export async function PUT(request: Request, { params }: Props) {
       const submitted = rawPilotMetadataFields as Record<string, unknown>;
       for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
         if (!Object.hasOwn(submitted, field) || typeof submitted[field] !== "string") continue;
-        if (!isDirectoryEventPilotCategory(profile.category) &&
-            !(PUBLIC_DIRECTORY_FACT_FIELDS as readonly string[]).includes(field)) continue;
+
         // The field key being present is an explicit Admin edit. An empty string
         // clears this one metadata field, not the rest of the profile.
         const value = (submitted[field] as string).trim();
