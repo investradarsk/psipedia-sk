@@ -291,3 +291,33 @@ test("read endpoint is POST-only by route contract and narrowly bounded", () => 
   assert.match(endpoint, /application\/json/);
   assert.match(endpoint, /recordQualifiedArticleRead/);
 });
+
+test("most-read ranking uses one visual component on every article detail route", async () => {
+  const sidebar = await readFile(
+    new URL("../components/article-popularity-sidebar.tsx", import.meta.url),
+    "utf8",
+  );
+  const styling = await readFile(
+    new URL("../components/article-popularity-sidebar.module.css", import.meta.url),
+    "utf8",
+  );
+  const modernRoute = await readFile(
+    new URL("../app/[section]/[slug]/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const legacyRoute = await readFile(
+    new URL("../app/clanky/[slug]/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal((detail.match(/<ArticlePopularitySidebar\b/g) ?? []).length, 1);
+  assert.match(modernRoute, /<ArticleDetail\b/);
+  assert.match(legacyRoute, /<ArticleDetail\b/);
+  assert.match(sidebar, /24 hodín/);
+  assert.match(sidebar, /7 dní/);
+  assert.match(sidebar, /role="tablist"/);
+  assert.match(sidebar, /data-popularity-window=\{activeWindow\}/);
+  assert.match(styling, /\.popularity\s*\{[^}]*border-radius:/s);
+  assert.match(styling, /\.tabs \.activeTab/);
+  assert.match(styling, /\.thumbnail img/);
+});

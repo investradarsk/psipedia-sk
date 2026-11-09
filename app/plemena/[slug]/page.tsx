@@ -243,8 +243,13 @@ export default async function BreedDetailPage({ params }: Props) {
     { label: "Hmotnosť", value: weight },
     { label: "Dĺžka života", value: lifespan },
     { label: "Veľkosť", value: breed.size?.trim() },
-    { label: "Srsť", value: breed.coat?.trim() },
+    { label: "FCI skupina", value: breed.fciGroup ? String(breed.fciGroup) : "" },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+  const coatDescription = breed.coat?.trim() ?? "";
+  const coatIsLong = coatDescription.length > 160;
+  const coatExcerpt = coatIsLong
+    ? `${coatDescription.slice(0, 145).trimEnd()}…`
+    : coatDescription;
 
   const overviewParagraphs = textParagraphs(editorial.overview);
   const accordions: AccordionItem[] = [
@@ -417,19 +422,37 @@ export default async function BreedDetailPage({ params }: Props) {
           />
         </div>
         <div className={`shell ${styles.shell}`}>
-          {quickFacts.length ? (
+          {quickFacts.length || coatDescription ? (
             <section className={styles.quickFacts} aria-labelledby="breed-facts">
               <h2 id="breed-facts" className={styles.sectionLabel}>
                 Plemeno v skratke
               </h2>
-              <dl className={styles.factGrid} data-testid="breed-quick-facts">
-                {quickFacts.map((fact) => (
-                  <div key={fact.label} data-fact-label={fact.label}>
-                    <dt>{fact.label}</dt>
-                    <dd>{fact.value}</dd>
-                  </div>
-                ))}
-              </dl>
+              {quickFacts.length ? (
+                <dl className={styles.factGrid} data-testid="breed-quick-facts">
+                  {quickFacts.map((fact) => (
+                    <div key={fact.label} data-fact-label={fact.label}>
+                      <dt>{fact.label}</dt>
+                      <dd>{fact.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+              {coatDescription ? (
+                <div className={styles.coatSummary}>
+                  <strong>Srsť</strong>
+                  {coatIsLong ? (
+                    <details>
+                      <summary>
+                        <span>{coatExcerpt}</span>
+                        <span className={styles.coatExpandLabel}>Čítať celý opis</span>
+                      </summary>
+                      <p>{coatDescription}</p>
+                    </details>
+                  ) : (
+                    <p>{coatDescription}</p>
+                  )}
+                </div>
+              ) : null}
             </section>
           ) : null}
         </div>
@@ -689,6 +712,19 @@ export default async function BreedDetailPage({ params }: Props) {
             aria-label="Užitočné odkazy"
             data-testid="breed-utility-sidebar"
           >
+            <nav className={styles.sidebarIndex} aria-label="Rýchly prechod v profile">
+              <h2>V tomto profile</h2>
+              <ul>
+                {sectionNavItems
+                  .filter((item) => item.id !== "uzitocne")
+                  .slice(0, 6)
+                  .map((item) => (
+                    <li key={item.id}>
+                      <a href={`#${item.id}`}>{item.label}</a>
+                    </li>
+                  ))}
+              </ul>
+            </nav>
             <ArticlePromo promoKey="veterinari" variant="v1" seed={breed.slug} compact />
             <PublicMagazineBanner
               compact
@@ -706,7 +742,6 @@ export default async function BreedDetailPage({ params }: Props) {
                 { href: "/adresar/kynologicke-kluby", label: "Kynologické kluby" },
               ]}
             />
-            <ArticlePromo promoKey="treneri" variant="v1" seed={breed.slug} compact />
           </aside>
         </PublicDetailLayout>
 
