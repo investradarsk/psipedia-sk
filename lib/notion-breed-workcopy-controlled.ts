@@ -23,6 +23,7 @@ type Link = { breed_id:number; work_notion_page_id:string; canonical_slug:string
 type Raw = { breed_id:number; values_json:string; notion_values_json:string; revision:number };
 export type ControlledBreedState = {
   values:Record<string,unknown>; revision:number; pendingKeys:string[];
+  rejectedKeys?:string[];
 };
 const normalized=(s:string)=>s.replaceAll("-","").toLowerCase();
 const eq=sameBreedControlledValue;
@@ -186,17 +187,26 @@ export async function saveBreedControlledFromAdmin(args:{
   const values=parseBreedControlledValues(row.values_json);
   const notion=parseBreedControlledValues(row.notion_values_json);
   const changed:string[]=[];
+  const rejectedKeys:string[]=[];
   for (const key of edited) {
-    const value=validateBreedControlledValue(key,args.changes[key]);
-    if (!eq(values[key],value)) { values[key]=value;changed.push(key); }
+    try {
+      const value=validateBreedControlledValue(key,args.changes[key]);
+      if (!eq(values[key],value)) { values[key]=value;changed.push(key); }
+    } catch {
+      rejectedKeys.push(key); // One invalid field never blocks valid siblings.
+    }
   }
-  if (!changed.length) return state(row);
-  const updated=await args.database.prepare(
-    "UPDATE breed_notion_controlled_values SET values_json=?,revision=revision+1, "+
-    "updated_at=? WHERE breed_id=? AND revision=?",
-  ).bind(JSON.stringify(values),new Date().toISOString(),args.breedId,row.revision).run();
-  if (updated.meta.changes!==1) throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
-  for (const key of changed) {
+  const retry=edited.filter(key=>!rejectedKeys.includes(key) &&
+    !changed.includes(key) && !eq(values[key],notion[key]));
+  if (!changed.length && !retry.length) return {...state(row),rejectedKeys};
+  if (changed.length) {
+    const updated=await args.database.prepare(
+      "UPDATE breed_notion_controlled_values SET values_json=?,revision=revision+1, "+
+      "updated_at=? WHERE breed_id=? AND revision=?",
+    ).bind(JSON.stringify(values),new Date().toISOString(),args.breedId,row.revision).run();
+    if (updated.meta.changes!==1) throw Error("BREED_CONTROLLED_EDIT_CONFLICT");
+  }
+  for (const key of [...new Set([...changed,...retry])]) {
     try {
       const page=await notionRequest<NotionPage>(args.bindings,
         "/pages/"+encodeURIComponent(link.work_notion_page_id));
@@ -226,5 +236,5 @@ export async function saveBreedControlledFromAdmin(args:{
   }
   const latest=await record(args.database,args.breedId);
   if (!latest) throw Error("BREED_CONTROLLED_RECORD_MISSING");
-  return state(latest);
+  return {...state(latest),rejectedKeys};
 }
