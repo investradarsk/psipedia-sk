@@ -3,7 +3,7 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceF
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
+import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, PUBLIC_DIRECTORY_FACT_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
 import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_TRUST_FIELDS, type TrainerTrustField } from "@/lib/notion-trainer-trust-fields";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
@@ -218,11 +218,13 @@ export async function PUT(request: Request, { params }: Props) {
     // Pilot metadata stays separate from profile normalization and V3 relations.
     const metadataWarnings: string[] = [];
     const changedPilotMetadata: Partial<Record<PilotDirectoryMetadataField, string>> = {};
-    if (isDirectoryEventPilotCategory(profile.category) && rawPilotMetadataFields &&
+    if ((isDirectoryEventPilotCategory(profile.category) || serviceFilterCategories.includes(profile.category as ServiceFilterCategory)) && rawPilotMetadataFields &&
         typeof rawPilotMetadataFields === "object" && !Array.isArray(rawPilotMetadataFields)) {
       const submitted = rawPilotMetadataFields as Record<string, unknown>;
       for (const field of PILOT_DIRECTORY_METADATA_FIELDS) {
         if (!Object.hasOwn(submitted, field) || typeof submitted[field] !== "string") continue;
+        if (!isDirectoryEventPilotCategory(profile.category) &&
+            !(PUBLIC_DIRECTORY_FACT_FIELDS as readonly string[]).includes(field)) continue;
         // The field key being present is an explicit Admin edit. An empty string
         // clears this one metadata field, not the rest of the profile.
         const value = (submitted[field] as string).trim();
@@ -286,8 +288,7 @@ export async function PUT(request: Request, { params }: Props) {
         notionFieldSync = "pending";
       }
     }
-    if (isDirectoryEventPilotCategory(profile.category) &&
-        Object.keys(changedPilotMetadata).length > 0) {
+    if (Object.keys(changedPilotMetadata).length > 0) {
       if (notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true" && notionEnv.DB) {
         try {
           const mirrored = await mirrorPilotDirectoryMetadataFieldsToNotion({
