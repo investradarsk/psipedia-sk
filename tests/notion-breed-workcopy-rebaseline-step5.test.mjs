@@ -114,7 +114,13 @@ test("owner-only route and UI do not accidentally activate, edit profiles or ena
   assert.equal(config.NOTION_BREED_SYNC_ENABLED,"true");
   assert.equal(config.NOTION_BREED_WORKCOPY_BASELINE_ENABLED,"false");
   assert.match(route,/requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
-  assert.match(route,/NOTION_BREED_WORKCOPY_BASELINE_ENABLED !== "true"/);
+  assert.equal(config.NOTION_BREED_WORKCOPY_REBASELINE_ENABLED,"true");
+  assert.match(route,/NOTION_BREED_WORKCOPY_REBASELINE_ENABLED !== "true"/);
+  assert.match(route,/Date\.now\(\) > REBASELINE_EXPIRES_AT/);
+  assert.match(route,/2026-11-16T23:59:59Z/);
+  assert.match(ui,/showInitial &&/);
+  assert.match(ui,/showRefresh &&/);
+  assert.match(file("app/admin/plemena/page.tsx"),/enableRebaseline/);
   assert.match(route,/"REBASELINE_344_BREEDS"/);
   assert.match(route,/Number\(cohort\?\.total\) !== 344/);
   assert.match(route,/Number\(cohort\?\.shadow\) !== 344/);
