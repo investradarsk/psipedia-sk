@@ -11,9 +11,9 @@ const stage = read("app/api/admin/notion-breeds-workcopy-stage/route.ts");
 const schema = read("drizzle/0159_breed_notion_workcopy_links.sql");
 const delta = read("lib/notion-breed-workcopy-delta.ts");
 
-test("production cutover window pauses both engines and staging remains OFF", () => {
+test("production enables only the 60-field engine after 344 ACTIVE activation; staging OFF", () => {
   assert.equal(config.vars.NOTION_BREED_SYNC_ENABLED, "false");
-  assert.equal(config.vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "false");
+  assert.equal(config.vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "true");
   assert.equal(config.vars.NOTION_BREED_WORKCOPY_STAGE_ENABLED, "false");
   assert.equal(config.vars.NOTION_BREEDS_DATA_SOURCE_ID,
     "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2");

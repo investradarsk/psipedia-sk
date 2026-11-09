@@ -11,10 +11,10 @@ const source = read("lib/notion-breed-workcopy-sync.ts");
 const original = read("lib/notion-breed-sync.ts");
 const sql = read("lib/notion-breed-workcopy-activation-sql.mjs");
 
-test("cutover phase is a strictly gated zero-writers maintenance window", () => {
+test("phase 7 enables only the new 344-link engine with activation permanently closed", () => {
   assert.equal(vars.NOTION_BREED_SYNC_ENABLED, "false");
-  assert.equal(vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "false");
-  assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "true");
+  assert.equal(vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "true");
+  assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "false");
   assert.equal(vars.NOTION_BREED_WORKCOPY_REBASELINE_ENABLED, "false");
   assert.equal(vars.NOTION_BREED_WORKCOPY_BASELINE_ENABLED, "false");
   assert.equal(vars.NOTION_BREED_WORKCOPY_STAGE_ENABLED, "false");
@@ -27,6 +27,8 @@ test("activation requires authenticated owner action and is not invoked by page 
   assert.match(page, /NOTION_BREED_SYNC_ENABLED === "false"/);
   assert.match(page, /NOTION_BREED_WORKCOPY_SYNC_ENABLED === "false"/);
   assert.match(page, /<AdminBreedWorkcopyActivation \/>/);
+  assert.match(page, /showLiveSyncStatus/);
+  assert.match(page, /<AdminBreedWorkcopyLiveStatus \/>/);
   assert.doesNotMatch(page, /await (?:fetch|activate).*notion-breeds-workcopy-activate/);
   assert.match(ui, /window\.confirm/);
   assert.match(ui, /onClick=\{\(\) => void activate\(\)\}/);
@@ -57,4 +59,20 @@ test("one-shot activation is atomic, receipt guarded, and verified after D1 writ
 test("historical source content differences are informational, never silently replayed", () => {
   assert.match(route, /legacySourceContentParity:parity\.dataParity/);
   assert.doesNotMatch(route, /!parity\.dataParity/);
+});
+
+test("live status checks exactly 344 ACTIVE receipts from D1 and never changes Notion", () => {
+  const route = read("app/api/admin/notion-breeds-workcopy-status/route.ts");
+  const ui = read("components/admin-breed-workcopy-live-status.tsx");
+  assert.match(route, /getAdminApiUser\(\)/);
+  assert.match(route, /"Cache-Control": "private, no-store"/);
+  assert.match(route, /COUNT\(\*\) AS total/);
+  assert.match(route, /status='ACTIVE'/);
+  assert.match(route, /status='SHADOW'/);
+  assert.match(route, /receiptPrefixes === 344/);
+  assert.match(route, /!oldSyncEnabled && workCopySyncEnabled && !activationEnabled/);
+  assert.doesNotMatch(route, /\b(?:UPDATE|INSERT|DELETE|DROP|ALTER)\s+breed_notion_workcopy_links\b/i);
+  assert.doesNotMatch(route, /method:\s*"PATCH"/);
+  assert.match(ui, /Obnoviť živý stav D1/);
+  assert.match(ui, /!\(status\.activeCohortReady && status\.singleNewEngine\)/);
 });

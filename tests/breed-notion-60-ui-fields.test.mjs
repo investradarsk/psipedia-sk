@@ -84,12 +84,12 @@ test("public pages render only new standalone content fields, not historical dup
   assert.ok(!publicFci.includes("fci.usi"));
 });
 
-test("the breed editor keeps all 60 fields while the explicit 344-link cutover pauses both sync engines", () => {
+test("the 60-field breed editor runs alongside only the new sync engine and a closed activation gate", () => {
   const vars = JSON.parse(read("wrangler.jsonc")).vars;
   const activation = read("app/api/admin/notion-breeds-workcopy-activate/route.ts");
   assert.equal(vars.NOTION_BREED_SYNC_ENABLED, "false");
-  assert.equal(vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "false");
-  assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "true");
+  assert.equal(vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "true");
+  assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "false");
   assert.match(activation, /"ACTIVATE_344_BREEDS"/);
   assert.match(activation, /requireAdminMutation/);
   assert.match(activation, /result\.meta\.changes !== 344/);

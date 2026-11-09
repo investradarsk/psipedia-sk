@@ -159,8 +159,8 @@ test("production remains old-only and test never enables new sync or writes Noti
   const runtime = read("lib/notion-breed-workcopy-sync.ts");
   const postflight = read("scripts/production-breed-workcopy-postflight.mjs");
   assert.equal(vars.NOTION_BREED_SYNC_ENABLED, "false");
-  assert.equal(vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "false");
-  assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "true");
+  assert.equal(vars.NOTION_BREED_WORKCOPY_SYNC_ENABLED, "true");
+  assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "false");
   assert.equal(vars.NOTION_BREED_WORKCOPY_BASELINE_ENABLED, "false");
   assert.match(runtime, /BREED_DUAL_SYNCHRONIZERS_FORBIDDEN/);
   assert.match(runtime, /BREED_WORKCOPY_COHORT_NOT_ACTIVE/);
