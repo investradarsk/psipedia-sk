@@ -5,7 +5,7 @@ import { AdminActionButton, AdminModalDialog } from "@/components/admin-interact
 import type { RecordKind } from "@/lib/admin-record-lifecycle";
 
 type Preview={
-  id:number; name:string; category:string; status:string; published:boolean;
+  id:number; name:string; slug:string; category:string; status:string; published:boolean;
   notionLinked:boolean; notionPages:number; removalState:string|null; removalError:string|null;
   publicationSync?:string|null;publicationError?:string|null;
 };
@@ -19,6 +19,8 @@ function errorText(value:string) {
     NOTION_PUBLICATION_NOT_CONFIRMED:"Notion nepotvrdil zmenu publikovania.",
     D1_DELETE_PENDING:"Notion je v koši, ale dokončenie odstránenia v Psipedii čaká na opakovanie.",
     LOCAL_ONLY_CONFIRMATION_REQUIRED:"Záznam nie je overene prepojený s Notionom. Potvrď odstránenie iba z Psipedie.",
+    RECORD_CONFIRMATION_MISMATCH:"Údaje profilu sa od otvorenia potvrdenia zmenili. Zatvor okno a skontroluj jeho aktuálnu podobu.",
+    NOTION_MAPPING_AMBIGUOUS:"Notion má protichodné prepojenia na tento záznam. Odstránenie bolo bezpečne zastavené.",
     LIFECYCLE_MIGRATION_0164_REQUIRED:"Pred použitím je potrebné spustiť D1 migráciu 0164.",
   };
   return messages[value]??"Operácia sa nepodarila. Skontroluj stav a prípadne ju zopakuj ("+value+").";
@@ -81,7 +83,8 @@ export function AdminRecordLifecycleActions({
       const response=await fetch(endpoint,{
         method:"POST",headers:{"content-type":"application/json"},
         body:JSON.stringify(currentMode==="delete"
-          ?{action:"delete",confirmation,localOnly:!preview.notionLinked&&localOnly}
+          ?{action:"delete",confirmation,localOnly:!preview.notionLinked&&localOnly,
+            expectedSlug:preview.slug,expectedName:preview.name,expectedCategory:preview.category}
           :{action:"unpublish"}),
       });
       const data=await response.json() as RemovalResult & {error?:string;notionSync?:string;errorCode?:string;updatedAt?:string};
