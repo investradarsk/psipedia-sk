@@ -7,6 +7,8 @@ const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf
 const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const header = readFileSync(new URL("../components/site-header.tsx", import.meta.url), "utf8");
 const nameDays = readFileSync(new URL("../lib/dog-name-day-store.ts", import.meta.url), "utf8");
+const publicPartnerSession = readFileSync(new URL("../lib/public-partner-session.ts", import.meta.url), "utf8");
+const directoryProfile = readFileSync(new URL("../app/adresar/[category]/[slug]/page.tsx", import.meta.url), "utf8");
 
 test("admin access still verifies every JWT, but reuses JWK fetches and imported keys", () => {
   assert.match(worker, /const accessJwksLoads = new Map/);
@@ -38,4 +40,13 @@ test("public header throttles today's name-day fetch, pauses hidden tabs, and ha
   assert.match(header, /document\.visibilityState === "hidden"/);
   assert.match(header, /document\.addEventListener\("visibilitychange", refreshWhenVisible\)/);
   assert.match(header, /timeZone: "Europe\/Bratislava"/);
+});
+
+test("partner session is memoized for one React request, and directory detail overlaps D1 reads", () => {
+  assert.match(publicPartnerSession, /cache\(async \(token: string\)/);
+  assert.match(publicPartnerSession, /getPartnerSession\(\{ token \}\)/);
+  assert.match(layout, /getPublicPartnerSession\(partnerToken\)/);
+  assert.match(directoryProfile, /getPublicPartnerSession\(token\)/);
+  assert.match(directoryProfile, /partnerIdentityPromise\.then/);
+  assert.match(directoryProfile, /await Promise\.all\(\[/);
 });

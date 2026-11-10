@@ -11,7 +11,7 @@ import { isValidGooglePublisherClientId } from "@/lib/monetization";
 import { getNavigationItems } from "@/lib/navigation-store";
 import { portalSections } from "@/lib/portal";
 import { buildPublicHeaderNavigation } from "@/lib/public-header-navigation";
-import { getPartnerSession } from "@/lib/partner-auth";
+import { getPublicPartnerSession } from "@/lib/public-partner-session";
 import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
 import { buildSiteIdentityJsonLd, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
@@ -81,7 +81,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const partnerToken = jar.get(PARTNER_SESSION_COOKIE)?.value;
   const [navigationRows, partnerSession] = await Promise.all([
     navigationPromise,
-    partnerToken ? getPartnerSession({ token: partnerToken }) : Promise.resolve(null),
+    partnerToken ? getPublicPartnerSession(partnerToken) : Promise.resolve(null),
   ]);
   const navigationItems = buildPublicHeaderNavigation(navigationRows, portalSections);
   const programmaticClientId = process.env.GOOGLE_ADSENSE_CLIENT_ID ?? "";

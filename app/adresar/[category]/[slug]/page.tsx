@@ -10,7 +10,7 @@ import { StructuredData } from "@/components/structured-data";
 import { buildContentMetadata, directorySeoFallback, resolvedCanonical } from "@/lib/content-seo";
 import { buildDirectoryProfileJsonLd } from "@/lib/directory-profile-schema";
 import { PartnerPublicOwnership } from "@/components/partner-public-ownership";
-import { getPartnerSession } from "@/lib/partner-auth";
+import { getPublicPartnerSession } from "@/lib/public-partner-session";
 import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
 import { getPublicPartnerProfileManagementState } from "@/lib/partner-public-profile";
 import {
@@ -83,14 +83,21 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
   const canonical = resolvedCanonical(profile.seo, directoryProfileHref(profile));
   const presentation = getDirectoryDetailPresentation(profile);
   const reviewPage = scalar((await searchParams).reviewsPage);
-  const jar = await cookies();
-  const partnerToken = jar.get(PARTNER_SESSION_COOKIE)?.value;
-  const partnerIdentity = partnerToken ? await getPartnerSession({ token: partnerToken }) : null;
-  const partnerStatePromise = getPublicPartnerProfileManagementState({
-    accountId: partnerIdentity?.accountId ?? null,
-    entityType: "DIRECTORY_PROFILE",
-    canonicalId: profile.id,
+  // The partner check can be slow for a signed-in visitor. Start it in
+  // parallel with reviews, map, relations and commercial flags below. React
+  // request-scoped memoization shares the same verified session with the root
+  // layout, without persisting authentication across HTTP requests.
+  const partnerIdentityPromise = cookies().then((jar) => {
+    const token = jar.get(PARTNER_SESSION_COOKIE)?.value;
+    return token ? getPublicPartnerSession(token) : null;
   });
+  const partnerStatePromise = partnerIdentityPromise.then((identity) =>
+    getPublicPartnerProfileManagementState({
+      accountId: identity?.accountId ?? null,
+      entityType: "DIRECTORY_PROFILE",
+      canonicalId: profile.id,
+    }),
+  );
   const commercialPromise = getPublicPartnerCommercialFlags("DIRECTORY_PROFILE", profile.id);
   const database = reviewDatabase();
   const reviewsPromise = getPublicProfileReviewData(
