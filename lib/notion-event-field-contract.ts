@@ -52,6 +52,10 @@ export function eventPreserveUneditedAdminFields(
     const value=eventGetPath(live,path);
     if(value!==undefined)setPath(result,path,value);
   }
+  // A stale form must not pair a fresh Notion-updated URL with an old R2 key.
+  // Only the Admin media picker may change imageKey on a new upload.
+  if(!dirty.has("imageUrl") && Object.hasOwn(live,"imageKey"))
+    result.imageKey=live.imageKey;
   return result;
 }
 export function eventChangedNotionFields(
