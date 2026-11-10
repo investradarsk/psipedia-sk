@@ -14,6 +14,7 @@ type CachedRecords = { results: Destination[]; incomplete: boolean; expiresAt: n
 const SEARCH_DEBOUNCE_MS = 140;
 const SEARCH_CACHE_TTL_MS = 15_000;
 const SEARCH_CACHE_LIMIT = 24;
+const shouldSearchRecords = (value: string) => value.trim().length >= 2 || /^\d$/.test(value.trim());
 
 // Keep the regular sidebar as the single authority for main destinations.
 // Only deeper, verified admin routes are added below for fast access.
@@ -63,7 +64,7 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
 
   useEffect(() => {
     const term = query.trim();
-    if (!open || term.length < 2) return;
+    if (!open || !shouldSearchRecords(term)) return;
 
     const cached = cache.current.get(term);
     if (cached && cached.expiresAt > Date.now()) {
@@ -119,7 +120,7 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
     : destinations.filter(item => suggestedHrefs.has(item.href));
   // Exact section destinations and backend records share one listbox, but the
   // endpoint only searches stored data after two characters.
-  const results = [...sectionResults, ...(query.trim().length >= 2 ? records : [])]
+  const results = [...sectionResults, ...(shouldSearchRecords(query) ? records : [])]
     .filter((item, index, all) => all.findIndex(candidate => candidate.href === item.href) === index);
   const selected = Math.min(active, Math.max(0, results.length - 1));
 
@@ -163,7 +164,7 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
           <div className={styles.header}>
             <div>
               <Dialog.Title>Hľadať v celej administrácii</Dialog.Title>
-              <Dialog.Description>Vyhľadávaj profily, podujatia, články, plemená aj funkcie administrácie.</Dialog.Description>
+              <Dialog.Description>Vyhľadávaj názov alebo číselné Admin ID vo všetkých sekciách.</Dialog.Description>
             </div>
             <Dialog.Close className={styles.close} aria-label="Zavrieť vyhľadávanie"><X size={18} /></Dialog.Close>
           </div>
@@ -178,9 +179,9 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
               aria-controls="admin-quick-navigation-results"
               aria-activedescendant={results.length ? "admin-quick-nav-option-" + selected : undefined}
               value={query}
-              onChange={event => { setQuery(event.target.value); setActive(0); setRecords([]); setLoading(event.target.value.trim().length >= 2); setSearchError(""); setIncomplete(false); }}
+              onChange={event => { setQuery(event.target.value); setActive(0); setRecords([]); setLoading(shouldSearchRecords(event.target.value)); setSearchError(""); setIncomplete(false); }}
               onKeyDown={handleKeys}
-              placeholder="Profil, veterinár, článok, podujatie, Notion…"
+              placeholder="Názov profilu alebo Admin ID (napr. 1842)…"
             />
           </div>
           <div className={styles.results} id="admin-quick-navigation-results" role="listbox" aria-label="Dostupné sekcie">

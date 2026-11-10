@@ -57,8 +57,19 @@ const groups: Group[] = [
 
 export async function searchAdminRecords(database: D1Database, input: string) {
   const query = input.trim().slice(0, 80);
-  if (query.length < 2) return { results: [] as AdminGlobalRecord[], incomplete: false };
+  if (query.length < 2 && !/^\d$/.test(query)) return { results: [] as AdminGlobalRecord[], incomplete: false };
+  // A numeric query resolves exact Admin IDs independently in each section.
+  const idMatch = /^#?([1-9]\d*)$/.exec(query);
+  const numericId = idMatch ? Number(idMatch[1]) : null;
+  const byId = numericId !== null && Number.isSafeInteger(numericId);
   const statements = groups.map(group => {
+    if (byId) {
+      const extra = group.category === "Pomoc psom"
+        ? "category NOT IN ('adopcia','utulky','stratene-a-najdene') AND "
+        : "";
+      const sql = group.sql.replace(/ WHERE .+ ORDER BY .+ LIMIT 6$/, " WHERE " + extra + "id = ? LIMIT 6");
+      return database.prepare(sql).bind(numericId);
+    }
     const matchCount = (group.sql.match(/lower\(\?\)/g) ?? []).length;
     return database.prepare(group.sql).bind(...Array(matchCount).fill(query));
   });
@@ -97,7 +108,7 @@ export async function searchAdminRecords(database: D1Database, input: string) {
       if (!Number.isSafeInteger(row.id) || row.id < 1) continue;
       results.push({
         title: String(row.title || "Bez názvu"),
-        subtitle: String(row.subtitle || ""),
+        subtitle: "ID #" + row.id + (row.subtitle ? " · " + String(row.subtitle) : ""),
         category: groups[i].category,
         href: groups[i].prefix + row.id,
       });
