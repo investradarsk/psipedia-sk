@@ -9,12 +9,15 @@ import ts from "typescript";
 // boundaries. In particular, test the ORDER of the re-hide and remote trash.
 const source=readFileSync(fileURLToPath(new URL("../lib/admin-record-lifecycle.ts",import.meta.url)),"utf8");
 const start=source.indexOf("export async function removeRecord(");
+const uuidStart=source.indexOf("const NOTION_UUID=");
+const uuidEnd=source.indexOf("\n",uuidStart);
 const validatorStart=source.indexOf("function assertNotionTargetsConfigured(");
 const validatorEnd=source.indexOf("\ntype Tombstone =",validatorStart);
 const sourceStart=source.indexOf("function requireDataSource(");
 const sourceEnd=source.indexOf("\nexport async function lifecycleSchemaReady(",sourceStart);
-assert.ok(start>0&&validatorStart>0&&validatorEnd>validatorStart&&sourceStart>0&&sourceEnd>sourceStart);
+assert.ok(start>0&&uuidStart>0&&uuidEnd>uuidStart&&validatorStart>0&&validatorEnd>validatorStart&&sourceStart>0&&sourceEnd>sourceStart);
 const js=ts.transpileModule(
+  source.slice(uuidStart,uuidEnd)+"\n"+
   source.slice(validatorStart,validatorEnd)+"\n"+
   source.slice(sourceStart,sourceEnd)+"\n"+source.slice(start),{
     compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
