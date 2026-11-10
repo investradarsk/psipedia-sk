@@ -47,6 +47,31 @@ export type BidirectionalAgendaKey =
   | "help-cases"
   | "lost-found";
 
+/** Media URLs are a single canonical field in each Events/Help Notion agenda. */
+export const NOTION_MAIN_IMAGE_FIELDS: Record<BidirectionalAgendaKey, string> = {
+  events: "Hlavný obrázok URL",
+  organizations: "Hlavný obrázok URL",
+  adoptions: "Hlavný obrázok URL",
+  "help-cases": "Obrázok",
+  "lost-found": "Hlavný obrázok",
+};
+
+/**
+ * An empty Notion photo field must not erase an uploaded Admin image during
+ * an explicit one-profile import. A populated Notion URL remains importable.
+ */
+export function needsAdminMainImageBackfill(
+  agenda: BidirectionalAgendaKey,
+  notion: Record<string, unknown>,
+  admin: Record<string, unknown>,
+): boolean {
+  const field = NOTION_MAIN_IMAGE_FIELDS[agenda];
+  const remote = notion[field];
+  const local = admin[field];
+  return (remote == null || (typeof remote === "string" && !remote.trim()))
+    && typeof local === "string" && Boolean(local.trim());
+}
+
 export const NOTION_EVENTS_HELP_SYSTEM_ACTOR = "notion-events-help-sync@psipedia.sk";
 const SITE_URL = "https://psipedia.sk";
 
