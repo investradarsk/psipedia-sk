@@ -126,7 +126,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   await page.getByLabel("Verejný popis").fill("Verejný opis organizácie pre admin finalization E2E.");
   await showOrganizationSection(page, "organization-contacts", "Kontakty");
   await page.getByLabel("Verejný e-mail").fill("org-final@example.sk");
-  await page.getByLabel("Web").fill("https://example.sk/org-final");
+  await page.getByLabel("Web", { exact: true }).fill("https://example.sk/org-final");
   await showOrganizationSection(page, "organization-media", "Obrázok a zdroj");
   await page.getByLabel("Zdroj / referencia").fill("https://example.sk/source");
   await page.getByRole("button", { name: "Uložiť organizáciu" }).click();
@@ -169,7 +169,7 @@ for (const width of [1440, 390, 320]) {
     await expect(form.locator("form")).toHaveCount(0); // address has no nested independent submit
     await showOrganizationSection(page, "organization-contacts", "Kontakty");
     await page.getByLabel("Verejný e-mail").fill("kontakt@example.sk");
-    await page.getByLabel("Web").fill("https://example.sk/");
+    await page.getByLabel("Web", { exact: true }).fill("https://example.sk/");
     await showOrganizationSection(page, "organization-media", "Obrázok a zdroj");
     await page.getByLabel("Zdroj / referencia").fill("https://example.sk/zdroj");
     await showOrganizationSection(page, "organization-contacts", "Kontakty");
