@@ -178,12 +178,18 @@ test("public UI has one coherent management and correction block with state-depe
 
 test("Directory and Help Organization profiles share the same server-side state model and keep corrections separate", () => {
   for (const page of [directoryPage, organizationPage]) {
-    assert.match(page, /await cookies\(\)/);
     assert.match(page, /PARTNER_SESSION_COOKIE/);
-    assert.match(page, /getPartnerSession/);
     assert.match(page, /getPublicPartnerProfileManagementState/);
     assert.match(page, /<PartnerPublicOwnership\b[^>]*state=\{partnerState\}/);
   }
+  // Directory overlaps session validation with independent D1 reads and
+  // memoizes the verified identity only within the same React request.
+  assert.match(directoryPage, /cookies\(\)\.then\(\(jar\) =>/);
+  assert.match(directoryPage, /getPublicPartnerSession\(token\)/);
+  assert.match(directoryPage, /partnerIdentityPromise\.then/);
+  // Help organization retains its original sequential cookie/session lookup.
+  assert.match(organizationPage, /await cookies\(\)/);
+  assert.match(organizationPage, /getPartnerSession\(\{ token: partnerToken \}\)/);
   assert.match(directoryPage, /entityType: "DIRECTORY_PROFILE"/);
   assert.match(directoryPage, /correctionHref=\{correctionHref\}/);
   assert.match(organizationPage, /entityType: "HELP_ORGANIZATION"/);
