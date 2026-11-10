@@ -37,11 +37,12 @@ for(const [table,kind] of records) {
   test(kind+": deleted slug cannot be reimported, unrelated profiles remain untouched",()=>{
     const db=fixture();
     try{
-      db.prepare("INSERT INTO "+table+"(id,slug,status) VALUES (1,'owned-to-delete','draft'),(2,'unrelated','draft')").run();
+      const draft=kind==="adoptions"||kind==="lost-found"||kind==="organizations"?"DRAFT":"draft";
+      db.prepare("INSERT INTO "+table+"(id,slug,status) VALUES (1,'owned-to-delete',?),(2,'unrelated',?)").run(draft,draft);
       tombstone(db,kind,"owned-to-delete",1);
       assert.throws(()=>db.prepare("INSERT INTO "+table+"(slug,status) VALUES ('owned-to-delete','draft')").run(),/RECORD_TOMBSTONED/);
       assert.equal(db.prepare("SELECT COUNT(*) AS count FROM "+table).get().count,2);
-      db.prepare("UPDATE "+table+" SET status='draft' WHERE id=1").run();
+      db.prepare("UPDATE "+table+" SET status=? WHERE id=1").run(draft);
       assert.throws(()=>db.prepare("UPDATE "+table+" SET status=? WHERE id=1")
         .run(kind==="adoptions"||kind==="lost-found"?"ACTIVE":kind==="organizations"?"PUBLISHED":"published"),/RECORD_REMOVAL_PENDING/);
       db.prepare("UPDATE "+table+" SET status='published' WHERE id=2").run();
