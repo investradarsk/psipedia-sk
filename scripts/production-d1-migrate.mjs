@@ -55,6 +55,7 @@ export const UNACTIVATED_PRODUCTION_TARGETS = Object.freeze([
   "0161_event_image_alt_private_notes.sql",
   "0162_lost_found_short_description.sql",
   "0163_breed_notion_controlled_values.sql",
+  "0164_admin_record_lifecycle.sql",
 ]);
 export const APPROVED_0151_SHA256 = PINNED_SHA256_0151;
 export function assertApproved0151Target(databaseName, sha256) {
