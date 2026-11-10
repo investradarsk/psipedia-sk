@@ -326,6 +326,11 @@ const syncMappings: Partial<Record<RecordKind,{table:string;entity:string}>> = m
 async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targets:NotionTarget[]) {
   const spec=specs[kind];
   const statements:D1PreparedStatement[]=[];
+  // Historical deployments can have different optional journal tables.
+  // Only issue narrowly scoped cleanup for tables that actually exist.
+  const schema=await db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all<{name:string}>();
+  const present=new Set((schema.results??[]).map(item=>item.name));
+  const now=new Date().toISOString();
   const mapping=syncMappings[kind];
   if(mapping)statements.push(db.prepare("DELETE FROM "+mapping.table+" WHERE "+mapping.entity+"=?").bind(id));
   if(spec.agenda && kind!=="events")
@@ -338,9 +343,45 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
   }
   if(kind==="directory") statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE profile_id=?").bind(id));
   if(kind==="organizations") statements.push(db.prepare("UPDATE adoption_dogs SET organization_id=NULL WHERE organization_id=?").bind(id));
+  if(present.has("notion_profile_field_baselines") &&
+      ["directory","events","organizations","adoptions","help","lost-found"].includes(kind)) {
+    statements.push(db.prepare("DELETE FROM notion_profile_field_baselines WHERE agenda=? AND entity_id=?")
+      .bind(spec.agenda??kind,id));
+  }
+  // Remove stale source-check queues, never a related organization or dog.
+  if(present.has("help_source_checks") && (kind==="adoptions" || kind==="lost-found")) {
+    statements.push(db.prepare("DELETE FROM help_source_checks WHERE entity_type=? AND entity_id=?")
+      .bind(kind==="adoptions"?"ADOPTION":"LOST_FOUND",id));
+  }
+  // Media reviews are immutable and reference their monitor via FK. Preserve
+  // that monitor for audit, but make it permanently ineligible for polling.
+  const mediaEntity=kind==="directory"?"DIRECTORY_PROFILE":kind==="events"?"MANAGED_EVENT":null;
+  if(mediaEntity && present.has("media_source_monitors")) {
+    if(present.has("media_source_review_decisions")) {
+      statements.push(db.prepare(
+        "DELETE FROM media_source_monitors WHERE entity_type=? AND entity_id=? "+
+        "AND NOT EXISTS(SELECT 1 FROM media_source_review_decisions WHERE monitor_id=media_source_monitors.id)")
+        .bind(mediaEntity,id));
+    } else {
+      statements.push(db.prepare("DELETE FROM media_source_monitors WHERE entity_type=? AND entity_id=?")
+        .bind(mediaEntity,id));
+    }
+    statements.push(db.prepare(
+      "UPDATE media_source_monitors SET status='UNTRACKED',last_checked_at='9999-12-31T23:59:59Z', "+
+      "source_page_url=NULL,source_image_url=NULL,candidate_image_url=NULL,candidate_image_key=NULL,updated_at=? "+
+      "WHERE entity_type=? AND entity_id=?").bind(now,mediaEntity,id));
+  }
   for(const target of targets) {
-    statements.push(db.prepare("DELETE FROM notion_webhook_inbox WHERE page_id=?").bind(target.pageId));
-    statements.push(db.prepare("DELETE FROM gemini_notion_created_pages WHERE notion_page_id=?").bind(target.pageId));
+    if(present.has("notion_webhook_inbox"))
+      statements.push(db.prepare("DELETE FROM notion_webhook_inbox WHERE page_id=?").bind(target.pageId));
+    if(present.has("gemini_notion_created_pages"))
+      statements.push(db.prepare("DELETE FROM gemini_notion_created_pages WHERE notion_page_id=?").bind(target.pageId));
+    if(present.has("notion_manual_transfer_items")) {
+      statements.push(db.prepare(
+        "UPDATE notion_manual_transfer_items SET status='SKIPPED',last_error_code='RECORD_TOMBSTONED',"+
+        "finished_at=?,updated_at=? WHERE notion_page_id=? AND status NOT IN ('DONE','SKIPPED')")
+        .bind(now,now,target.pageId));
+    }
   }
   statements.push(db.prepare("DELETE FROM "+spec.table+" WHERE id=?").bind(id));
   statements.push(db.prepare("DELETE FROM admin_record_publication_guards WHERE kind=? AND record_id=?").bind(kind,id));
