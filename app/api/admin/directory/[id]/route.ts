@@ -3,7 +3,7 @@ import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceF
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
-import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
+import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, mirrorDirectoryMainImageToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
 import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_TRUST_FIELDS, type TrainerTrustField } from "@/lib/notion-trainer-trust-fields";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
@@ -297,6 +297,8 @@ export async function PUT(request: Request, { params }: Props) {
         throw new Error("DIRECTORY_IMAGE_REMOVAL_NOT_PERSISTED");
       profile = reloaded;
     }
+    const mainImageChanged = before.imageUrl !== profile.imageUrl ||
+      before.imageKey !== profile.imageKey;
     if (before.imageKey && before.imageKey !== profile.imageKey) {
       const bucket = (env as unknown as UploadBindings).BUCKET;
       if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
@@ -357,6 +359,25 @@ export async function PUT(request: Request, { params }: Props) {
             : result.unchanged ? "unchanged" : "unlinked";
         } catch {
           notionFieldSync = "pending";
+        }
+      }
+    }
+    if (mainImageChanged && notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true") {
+      if (!notionEnv.DB) {
+        notionFieldSync = "pending";
+        metadataWarnings.push("Fotografia je uložená, ale prenos jej URL do Notionu čaká.");
+      } else {
+        try {
+          await mirrorDirectoryMainImageToNotion({
+            database: notionEnv.DB,
+            bindings: env as Parameters<typeof mirrorDirectoryMainImageToNotion>[0]["bindings"],
+            profileId: id,
+          });
+          if (notionFieldSync !== "pending") notionFieldSync = "synced";
+        } catch (error) {
+          console.error("DIRECTORY_IMAGE_NOTION_WRITEBACK_FAILED", id, error);
+          notionFieldSync = "pending";
+          metadataWarnings.push("Fotografia je uložená, ale URL sa nepodarilo potvrdiť v Notione.");
         }
       }
     }
