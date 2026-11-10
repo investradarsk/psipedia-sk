@@ -6,6 +6,7 @@ import {
   readManualTransferRun,
   listManualTransferRuns,
   confirmManualTransferRun,
+  confirmManualTransferItem,
   retryManualTransferFailed,
 } from "@/lib/notion-manual-transfer-queue";
 
@@ -30,7 +31,8 @@ export async function GET(request:Request){
     if(!runId)return json({runs:await listManualTransferRuns(bindings.DB)});
     const offset=Number(url.searchParams.get("offset")??"0");
     const onlyErrors=url.searchParams.get("errors")==="1";
-    return json(await readManualTransferRun(bindings.DB,runId,offset,onlyErrors));
+    const onlyDifferences=url.searchParams.get("differences")==="1";
+    return json(await readManualTransferRun(bindings.DB,runId,offset,onlyErrors,onlyDifferences));
   }catch(error){return json({error:code(error)},400)}
 }
 
@@ -66,6 +68,14 @@ export async function POST(request:Request){
       }),202);
     }
     if(typeof runId!=="string")return json({error:"TRANSFER_RUN_ID_INVALID"},400);
+    if(action==="confirm_item"){
+      if(confirm!=="CONFIRM_ONE_NOTION_PROFILE"||Object.keys(requested).length!==1||
+        typeof requested.itemId!=="number")
+        return json({error:"TRANSFER_ITEM_CONFIRMATION_REQUIRED"},409);
+      return json(await confirmManualTransferItem(
+        bindings.DB,runId,requested.itemId,actor,
+      ),202);
+    }
     if(action==="confirm"){
       if(confirm!=="CONFIRM_NOTION_MANUAL_TRANSFER")
         return json({error:"TRANSFER_CONFIRMATION_REQUIRED"},409);

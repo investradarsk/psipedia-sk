@@ -29,7 +29,8 @@ test("bulk preview remains strictly read-only until explicit owner confirmation"
 
 test("pending profiles avoid unnecessary D1 field queries, with clear user-facing state",()=>{
   assert.match(queue,/const eligible=\(rows\.results\?\?\[\]\)\.filter\(row=>row\.status!=="PENDING"\|\|row\.attempts>0\)/);
-  assert.match(ui,/Čaká vo fronte/);
+  assert.match(ui,/Prenos čaká vo fronte/);
+  assert.match(ui,/Čaká na kontrolu/);
   assert.match(ui,/najviac 10 profilov za minútu/);
   assert.match(ui,/waitingForFirstProfile/);
 });
@@ -59,7 +60,7 @@ test("owner confirmation is atomic and resets retry eligibility",()=>{
   assert.match(queue,/const \[claimed\]=await db\.batch\(\[/);
   assert.match(queue,/status='QUEUED',processed_profiles=0,changed_fields=0/);
   assert.match(queue,/attempts=0,started_at=NULL,next_attempt_at=\?,updated_at=\?/);
-  assert.match(queue,/WHERE run_id=\? AND status='PREVIEWED' AND EXISTS/);
+  assert.match(queue,/WHERE run_id=\? AND status='PREVIEWED' AND preview_hash IS NOT NULL AND EXISTS/);
   assert.match(queue,/if\(claimed\.meta\.changes!==1\)throw Error\("TRANSFER_PREVIEW_CHANGED"\)/);
 });
 

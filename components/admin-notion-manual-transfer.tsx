@@ -7,7 +7,7 @@ type Scope={id:string;label:string;editable:number;locked:number;fields:Field[]}
 type Area={area:string;label:string;scopes:Scope[]};
 type Capabilities={executable:boolean;migrationReady:boolean;areas:Area[];note:string};
 type FieldResult={field_key:string;status:string;reason_code:string|null};
-type Item={id:number;scope:string;profile_id:number;status:string;attempts:number;
+type Item={id:number;scope:string;profile_id:number;profile_name?:string;status:string;attempts:number;
   changed_fields:number;failed_fields:number;last_error_code:string|null;fields:FieldResult[]};
 type Run={id:string;area:string;scope:string|null;direction:string;selection:string;
   status:string;total_profiles:number;processed_profiles:number;
@@ -16,7 +16,7 @@ type Detail={run:Run;items:Item[];offset:number;hasMore:boolean};
 type ServerError={error?:string;runId?:string;items?:number;status?:string};
 const directionLabel=(value:string)=>value==="NOTION_TO_ADMIN"?"Notion → Admin":"Admin → Notion";
 const statusText:Record<string,string>={
-  PREVIEW:"Kontrolujem rozdiely (bez zápisov)",
+  PREVIEW:"Kontrolujem rozdiely – skontrolované profily možno preniesť",
   PREVIEW_READY:"Náhľad pripravený na potvrdenie",
   QUEUED:"Čaká na vykonanie",RUNNING:"Prenášam a overujem",
   COMPLETED:"Prenos ukončený",PARTIAL:"Ukončené s chybami",
@@ -53,6 +53,7 @@ export function AdminNotionManualTransfer(){
   const [history,setHistory]=useState<Run[]>([]);
   const [offset,setOffset]=useState(0);
   const [onlyErrors,setOnlyErrors]=useState(false);
+  const [onlyDifferences,setOnlyDifferences]=useState(true);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   const [message,setMessage]=useState("");
@@ -65,8 +66,9 @@ export function AdminNotionManualTransfer(){
       for(const f of item.fields)labels[item.id+":"+f.id]=f.label;
     return labels;
   },[cap]);
-  const load=useCallback(async(id:string,off:number,errors:boolean)=>{
-    const query=new URLSearchParams({runId:id,offset:String(off),errors:errors?"1":"0"});
+  const load=useCallback(async(id:string,off:number,errors:boolean,differences:boolean)=>{
+    const query=new URLSearchParams({runId:id,offset:String(off),errors:errors?"1":"0",
+      differences:differences?"1":"0"});
     const response=await fetch("/api/admin/notion-manual-transfer?"+query,{cache:"no-store",credentials:"same-origin"});
     const value=await readJson<Detail>(response);
     setDetail(value);
@@ -84,7 +86,8 @@ export function AdminNotionManualTransfer(){
     if(!runId)return;
     let active=true;
     const refresh=async()=>{try{
-      const query=new URLSearchParams({runId,offset:String(offset),errors:onlyErrors?"1":"0"});
+      const query=new URLSearchParams({runId,offset:String(offset),errors:onlyErrors?"1":"0",
+        differences:onlyDifferences?"1":"0"});
       const response=await fetch("/api/admin/notion-manual-transfer?"+query,
         {cache:"no-store",credentials:"same-origin"});
       const body=await readJson<Detail>(response);
@@ -93,9 +96,9 @@ export function AdminNotionManualTransfer(){
     void refresh();
     const timer=window.setInterval(()=>{void refresh()},7000);
     return ()=>{active=false;window.clearInterval(timer)};
-  },[runId,offset,onlyErrors]);
+  },[runId,offset,onlyErrors,onlyDifferences]);
   const chooseRun=(id:string)=>{
-    setRunId(id);setOffset(0);setOnlyErrors(false);
+    setRunId(id);setOffset(0);setOnlyErrors(false);setOnlyDifferences(true);
     setDetail(null);setLastPollAt(null);setError("");setMessage("");
   };
   async function post(payload:Record<string,unknown>){
@@ -105,10 +108,13 @@ export function AdminNotionManualTransfer(){
         method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
         body:JSON.stringify(payload),
       }));
-      if(result.runId)chooseRun(result.runId);
+      if(result.runId && result.runId!==runId)chooseRun(result.runId);
+      else if(result.runId && runId)await load(runId,offset,onlyErrors,onlyDifferences);
       setMessage(result.status==="PREVIEW"
-        ?"Kontrola zaradená do fronty. Údaje sa zatiaľ neprepisujú."
-        :"Požiadavka prijatá. Výsledok sa zobrazí v priebehu.");
+        ?"Kontrola beží. Profily s rozdielmi sa zobrazujú priebežne a možno ich prenášať jednotlivo."
+        :result.status==="QUEUED_ITEM"
+          ?"Prenos vybraného profilu bol potvrdený. Kontrola ostatných pokračuje."
+          :"Požiadavka prijatá. Výsledok sa zobrazí v priebehu.");
     }catch(e){setError(e instanceof Error?e.message:"Akcia zlyhala.");}
     finally{setBusy(false)}
   }
@@ -182,7 +188,8 @@ export function AdminNotionManualTransfer(){
       <progress max={detail.run.total_profiles||1} value={detail.run.processed_profiles}/>
       {detail.run.status==="PREVIEW"&&detail.run.selection==="ALL"
         ?<p className={styles.hint}>Hromadná kontrola beží po dávkach cez minútový cron (najviac 10 profilov za minútu).
-          PENDING znamená, že profil ešte čaká vo fronte. Kontrola nič neprepisuje.</p>:null}
+          Profily s rozdielmi sa zobrazujú priebežne. Každý už skontrolovaný profil môžeš preniesť samostatne;
+          ostatné sa budú ďalej kontrolovať. Nič sa neprenesie bez potvrdenia.</p>:null}
       {waitingForFirstProfile
         ?<p className={styles.notice} role="status">Zatiaľ sa nedokončil ani prvý profil. Môžu sa spracúvať staršie úlohy;
           ak sa priebeh ďalej nepohne, treba preveriť minútový cron alebo chyby jeho vykonávania.</p>:null}
@@ -192,14 +199,14 @@ export function AdminNotionManualTransfer(){
         <div><strong>{detail.run.failed_fields}</strong><span>Chybných polí</span></div>
       </div>
       {canConfirm?<div className={styles.confirm}>
-        <p><strong>Náhľad je kompletný.</strong> Skontroluj rozdiely a preskočené polia.
-          Potvrdenie môže prepísať existujúce hodnoty v zvolenom smere.</p>
+        <p><strong>Náhľad je kompletný.</strong> Profily prenesené jednotlivo už neprenášame znova.
+          Môžeš potvrdiť prenos zostávajúcich skontrolovaných profilov.</p>
         <button className={styles.primary} type="button" disabled={busy}
           onClick={()=>{
             if(window.confirm("Spustiť prenos "+directionLabel(detail.run.direction)+
-              " pre "+detail.run.total_profiles+" profilov? Existujúce hodnoty v cieľovom systéme sa prepíšu."))
+              " pre zostávajúce skontrolované profily? Už prenesené profily zostanú nedotknuté."))
               void post({action:"confirm",runId:detail.run.id,confirm:"CONFIRM_NOTION_MANUAL_TRANSFER"});
-          }}>2. Potvrdiť a spustiť prenos</button>
+          }}>Preniesť zostávajúce profily</button>
       </div>:null}
       {canRetry?<button type="button" disabled={busy}
         onClick={()=>void post({action:"retry",runId:detail.run.id,confirm:"RETRY_ONLY_FAILED"})}>
@@ -207,15 +214,35 @@ export function AdminNotionManualTransfer(){
       </button>:null}
       <div className={styles.tableHead}>
         <h4>Výsledky po profiloch a poliach</h4>
-        <label><input type="checkbox" checked={onlyErrors}
-          onChange={e=>{setOnlyErrors(e.target.checked);setOffset(0)}}/> Iba chybné profily</label>
+        <div className={styles.filters}>
+          <label><input type="checkbox" checked={onlyDifferences}
+            onChange={e=>{setOnlyDifferences(e.target.checked);if(e.target.checked)setOnlyErrors(false);setOffset(0)}}/> Iba profily s rozdielmi</label>
+          <label><input type="checkbox" checked={onlyErrors}
+            onChange={e=>{setOnlyErrors(e.target.checked);if(e.target.checked)setOnlyDifferences(false);setOffset(0)}}/> Iba chybné profily</label>
+        </div>
       </div>
       {detail.items.length===0?<p>Zatiaľ nie sú spracované položky alebo tomuto filtru nič nezodpovedá.</p>:null}
       {detail.items.map(item=><details key={item.id} className={styles.item}>
-        <summary><strong>{item.scope} · ID {item.profile_id}</strong>
-          <span>{item.status==="PENDING"?"Čaká vo fronte":item.status==="PREVIEWING"?"Kontroluje sa":item.status} · {item.changed_fields} zmien · {item.failed_fields} chýb</span>
+        <summary><strong>{item.profile_name?item.profile_name+" · ":""}{item.scope} · ID {item.profile_id}</strong>
+          <span>{item.status==="PENDING"
+            ?(item.attempts>0?"Prenos čaká vo fronte":"Čaká na kontrolu")
+            :item.status==="PREVIEWING"?"Kontroluje sa"
+            :item.status==="PREVIEWED"?"Rozdiely skontrolované"
+            :item.status==="DONE"?"Prenos overený":item.status} · {item.changed_fields} zmien · {item.failed_fields} chýb</span>
         </summary>
         {item.last_error_code?<p className={styles.error}>Dôvod: {errorLabel(item.last_error_code)}</p>:null}
+        {["PREVIEW","PREVIEW_READY"].includes(detail.run.status) &&
+          item.status==="PREVIEWED" && item.changed_fields>0
+          ?<div className={styles.itemActions}>
+            <span>Skontrolovaný profil: {item.changed_fields} rozdielov. Ostatné profily zostanú nedotknuté.</span>
+            <button type="button" className={styles.primary} disabled={busy}
+              onClick={()=>{
+                if(window.confirm("Preniesť profil ID "+item.profile_id+" ("+
+                    directionLabel(detail.run.direction)+")? Pred zápisom znovu overíme rozdiely."))
+                  void post({action:"confirm_item",runId:detail.run.id,itemId:item.id,
+                    confirm:"CONFIRM_ONE_NOTION_PROFILE"});
+              }}>Preniesť tento profil</button>
+          </div>:null}
         {item.fields.length?<table><thead><tr><th>Pole</th><th>Výsledok</th><th>Dôvod</th></tr></thead>
           <tbody>{item.fields.map(field=><tr key={field.field_key}>
             <td>{fieldLabels[item.scope+":"+field.field_key]??field.field_key}</td>

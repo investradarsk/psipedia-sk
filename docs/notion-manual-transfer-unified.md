@@ -117,3 +117,30 @@ starých/nesprávne potvrdených hodnôt nie je implementované v časti 1.
 3. Čiastočné zlyhanie jedného poľa nesmie byť nahlásené ako úspech celého profilu.
 4. Trvalé priority polí sa jednorazovým prenosom **nemenia**.
 5. Ani `DONE` v webhook inboxe nie je dôkaz zhody dát.
+
+## Priebežná kontrola a individuálne potvrdenie (november 2026)
+
+- Náhľad pokračuje po dávkach a UI zobrazuje už skontrolované profily
+  s rozdielmi, bez čakania na dokončenie celej oblasti. Zobrazuje názov,
+  kategóriu, Psipedia ID, počet rozdielov a výsledky po jednotlivých poliach.
+- V stave `PREVIEWED` s aspoň jedným rozdielom môže vlastník osobitne
+  potvrdiť **Preniesť tento profil**. Do existujúcej D1 fronty sa vráti iba
+  tento overený záznam, označený nemenným hashom náhľadu. Ostatné záznamy
+  zostanú v read-only kontrole.
+- `PENDING` bez `preview_hash` patrí **výhradne kontrole**, `PENDING` s
+  `preview_hash` patrí **výhradne predtým schválenému prenosu**.
+  Nemení sa D1 schéma ani nevyžaduje nová migrácia.
+- Tesne pred prenosom sa opäť načítajú živé zdrojové aj cieľové údaje.
+  Zmena od náhľadu spôsobí `TRANSFER_PREVIEW_STALE`, bez prepísania.
+  Po prenose sa výsledok znovu overí po poliach.
+- Celkový prenos po skončení kontroly potvrdí len zostávajúce
+  `PREVIEWED` profily; jednotlivo už prenesené alebo čakajúce
+  schválené profily sa nedávajú do fronty znova.
+- **Plemená:** manuálny náhľad, import a export používajú výhradne
+  existujúce ACTIVE väzby novej 60+2 workcopy databázy. Pôvodný
+  `breed_notion_sync` a 109-poľový engine sa nesmú použiť.
+  Nepodporované médiá, vzťahy, systémové polia a neplatné hodnoty
+  sa zobrazia ako preskočené/zlyhané; aktuálny per-field readback
+  nikdy netvrdí úspech celého profilu pri čiastočnej chybe.
+- Funkčnosť nemení automatické webhooky ani bežné redakčné zápisy
+  v Notione. V produkcii sa spúšťa iba po vedomom potvrdení vlastníkom.
