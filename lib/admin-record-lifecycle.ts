@@ -1,0 +1,357 @@
+import { notionRequest, type NotionSyncBindings } from "./notion-sync-shared";
+import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership";
+
+/**
+ * Canonical lifecycle writes. Never accept a table, mapping, page ID or Notion
+ * source from the browser. The caller supplies only a whitelisted agenda + D1 ID.
+ * Apply drizzle/0164 before making any lifecycle mutation.
+ */
+export const recordKinds = ["directory","events","help","breeds","articles","adoptions","lost-found","organizations"] as const;
+export type RecordKind = typeof recordKinds[number];
+type RecordSpec = {
+  table: string;
+  title: string;
+  draft: string;
+  publicStatuses: readonly string[];
+  category?: string;
+  agenda?: string;
+};
+const specs: Record<RecordKind, RecordSpec> = {
+  directory: { table:"directory_profiles", title:"name", category:"category", draft:"draft", publicStatuses:["published"] },
+  events: { table:"managed_events", title:"title", category:"event_type", draft:"draft", publicStatuses:["published"], agenda:"events" },
+  help: { table:"help_cases", title:"title", category:"category", draft:"draft", publicStatuses:["published"], agenda:"help-cases" },
+  breeds: { table:"managed_breeds", title:"name", category:"fci_group", draft:"draft", publicStatuses:["published"] },
+  articles: { table:"managed_articles", title:"title", category:"portal_section", draft:"draft", publicStatuses:["published","scheduled"] },
+  adoptions: { table:"adoption_dogs", title:"name", draft:"DRAFT", publicStatuses:["ACTIVE","RESERVED"], agenda:"adoptions" },
+  "lost-found": { table:"lost_found_dog_reports", title:"dog_name", category:"type", draft:"DRAFT", publicStatuses:["ACTIVE","RESOLVED","EXPIRED","ARCHIVED"], agenda:"lost-found" },
+  organizations: { table:"help_organizations", title:"name", category:"type", draft:"DRAFT", publicStatuses:["PUBLISHED"], agenda:"organizations" },
+};
+const mappingTables: Partial<Record<RecordKind, { table:string; entity:string }>> = {
+  directory: { table:"directory_notion_sync",entity:"directory_profile_id" },
+  events: { table:"event_notion_sync",entity:"event_id" },
+  breeds: { table:"breed_notion_sync",entity:"breed_id" },
+  articles: { table:"article_notion_sync",entity:"article_id" },
+};
+type CanonicalRow = Record<string, unknown> & { id:number; slug:string; status:string };
+type NotionTarget = { pageId:string; sourceId:string };
+type Tombstone = {
+  kind: RecordKind; record_id:number; record_slug:string; record_name:string; record_category:string;
+  notion_page_id:string|null; notion_data_source_id:string|null; notion_targets_json:string;
+  state:"PENDING_NOTION"|"ERROR_NOTION"|"READY_LOCAL"|"COMPLETE"; error_code:string|null;
+};
+export type LifecycleBindings = NotionSyncBindings & {
+  NOTION_DIRECTORY_DATA_SOURCE_ID?:string;
+  NOTION_EVENTS_DATA_SOURCE_ID?:string;
+  NOTION_BREEDS_DATA_SOURCE_ID?:string;
+  NOTION_BREEDS_WORK_DATA_SOURCE_ID?:string;
+  NOTION_ARTICLES_DATA_SOURCE_ID?:string;
+  BUCKET?:R2Bucket;
+};
+const validateId = (id:number) => Number.isSafeInteger(id) && id>0;
+export function isRecordKind(value:string):value is RecordKind {
+  return (recordKinds as readonly string[]).includes(value);
+}
+function clean(value:unknown) { return value == null?"":String(value).trim(); }
+const sameId = (a:string,b:string) => a.replaceAll("-","").toLowerCase() === b.replaceAll("-","").toLowerCase();
+function requireDataSource(id:string) {
+  if (!/^[a-f0-9]{32}$|^[a-f0-9-]{36}$/i.test(id)) throw Error("NOTION_DATA_SOURCE_UNCONFIGURED");
+  return id;
+}
+export async function lifecycleSchemaReady(db:D1Database) {
+  const result = await db.prepare("SELECT COUNT(*) AS total FROM sqlite_master WHERE type='table' AND name IN ('admin_record_tombstones','admin_record_publication_guards')")
+    .first<{total:number}>();
+  return result?.total === 2;
+}
+async function canonical(db:D1Database,kind:RecordKind,id:number):Promise<CanonicalRow|null> {
+  const spec=specs[kind];
+  const row=await db.prepare("SELECT * FROM "+spec.table+" WHERE id=? LIMIT 1").bind(id).first<CanonicalRow>();
+  // Dedicated help domains have their own canonical tables and own delete operation.
+  if (kind==="help" && row && ["adopcia","utulky"].includes(clean(row.category))) return null;
+  return row ?? null;
+}
+function identity(kind:RecordKind,row:CanonicalRow) {
+  const spec=specs[kind];
+  return { kind, id:Number(row.id), name:clean(row[spec.title])||"Bez názvu",
+    category:clean(spec.category?row[spec.category]:kind)||kind, slug:clean(row.slug),
+    status:clean(row.status), published:spec.publicStatuses.includes(clean(row.status)) };
+}
+async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number):Promise<NotionTarget[]> {
+  if (kind==="breeds") {
+    const work=await db.prepare("SELECT original_notion_page_id,work_notion_page_id,original_data_source_id,work_data_source_id FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE' LIMIT 1")
+      .bind(id).first<{original_notion_page_id:string;work_notion_page_id:string;original_data_source_id:string;work_data_source_id:string}>();
+    if (work) {
+      // Two linked Notion copies must BOTH be verified and moved to trash before
+      // reporting complete. The historical original must not resurrect a breed.
+      return [
+        {pageId:work.work_notion_page_id,sourceId:requireDataSource(work.work_data_source_id)},
+        {pageId:work.original_notion_page_id,sourceId:requireDataSource(work.original_data_source_id)},
+      ];
+    }
+  }
+  const map=mappingTables[kind];
+  if (map) {
+    const row=await db.prepare("SELECT notion_page_id FROM "+map.table+" WHERE "+map.entity+"=? LIMIT 1")
+      .bind(id).first<{notion_page_id:string}>();
+    if (!row?.notion_page_id) return [];
+    const source=kind==="directory"?bindings.NOTION_DIRECTORY_DATA_SOURCE_ID:
+      kind==="events"?bindings.NOTION_EVENTS_DATA_SOURCE_ID:
+      kind==="breeds"?bindings.NOTION_BREEDS_DATA_SOURCE_ID:bindings.NOTION_ARTICLES_DATA_SOURCE_ID;
+    return [{pageId:row.notion_page_id,sourceId:requireDataSource(clean(source))}];
+  }
+  const agenda=specs[kind].agenda;
+  if (!agenda) return [];
+  const mapping=await db.prepare("SELECT notion_page_id FROM notion_agenda_sync WHERE agenda=? AND entity_id=? LIMIT 1")
+    .bind(agenda,id).first<{notion_page_id:string}>();
+  if (!mapping?.notion_page_id) return [];
+  const target=await db.prepare("SELECT data_source_id FROM notion_agenda_targets WHERE agenda=? LIMIT 1")
+    .bind(agenda).first<{data_source_id:string}>();
+  const source=kind==="events"?(bindings.NOTION_EVENTS_DATA_SOURCE_ID||target?.data_source_id):target?.data_source_id;
+  return [{pageId:mapping.notion_page_id,sourceId:requireDataSource(clean(source))}];
+}
+async function tombstone(db:D1Database,kind:RecordKind,id:number) {
+  return db.prepare("SELECT * FROM admin_record_tombstones WHERE kind=? AND record_id=? LIMIT 1")
+    .bind(kind,id).first<Tombstone>();
+}
+export async function recordLifecyclePreview(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number) {
+  if (!validateId(id)) throw Error("INVALID_RECORD_ID");
+  const record=await canonical(db,kind,id);
+  const removed=await tombstone(db,kind,id);
+  if (!record && !removed) return null;
+  const data=record?identity(kind,record):{
+    kind,id,name:removed!.record_name,category:removed!.record_category,
+    slug:removed!.record_slug,status:"deleted",published:false,
+  };
+  // A persisted tombstone is authoritative even if an administrator later
+  // unlinks a Notion mapping. Do not infer identity from titles or fuzzy search.
+  const targets=removed?JSON.parse(removed.notion_targets_json) as NotionTarget[]:
+    await mappedTargets(db,bindings,kind,id);
+  const guard=await db.prepare("SELECT remote_state,error_code FROM admin_record_publication_guards WHERE kind=? AND record_id=? LIMIT 1")
+    .bind(kind,id).first<{remote_state:string;error_code:string|null}>();
+  return { ...data, notionLinked:targets.length>0, notionPages:targets.length,
+    removalState:removed?.state??null, removalError:removed?.error_code??null,
+    publicationSync:guard?.remote_state??null, publicationError:guard?.error_code??null };
+}
+function notionText(page:Record<string,unknown>,name:string) {
+  const p=(page.properties as Record<string,unknown>|undefined)?.[name];
+  if (!p || typeof p!=="object") return "";
+  const r=p as Record<string,unknown>;
+  if (typeof r.number==="number") return String(r.number);
+  const list=Array.isArray(r.rich_text)?r.rich_text:Array.isArray(r.title)?r.title:[];
+  return list.map((item:unknown)=>item && typeof item==="object"?
+    clean((item as Record<string,unknown>).plain_text):"").join("").trim();
+}
+async function requireOwnedNotionPage(
+  bindings:LifecycleBindings,target:NotionTarget,id:number,allowTrashed:boolean,
+) {
+  const page=await notionRequest<Record<string,unknown>>(bindings,"/pages/"+encodeURIComponent(target.pageId));
+  const parent=page.parent as {type?:string;data_source_id?:string}|undefined;
+  if (!sameId(clean(page.id),target.pageId)
+    || parent?.type!=="data_source_id"
+    || !sameId(clean(parent.data_source_id),target.sourceId)
+    || notionText(page,"Psipedia ID")!==String(id)
+    || (!allowTrashed && !notionPageBelongsToDataSource(page,target.sourceId))) {
+    throw Error("NOTION_IDENTITY_OR_SOURCE_MISMATCH");
+  }
+  return page;
+}
+function notionDraftProperties(kind:RecordKind,page:Record<string,unknown>) {
+  // Work-copy breeds have no publication state in their 60+2 schema:
+  // publication is D1-owned there; do not fabricate a Notion property.
+  if (kind==="breeds" && !(page.properties as Record<string,unknown>|undefined)?.["Stav"])
+    return null;
+  const name=kind==="directory"||kind==="help"||kind==="lost-found"?"Psipedia stav":"Stav";
+  if (!(page.properties as Record<string,unknown>|undefined)?.[name])
+    throw Error("NOTION_PUBLICATION_PROPERTY_MISSING");
+  const value=kind==="articles"||kind==="breeds"?"Na kontrolu":"Koncept";
+  const property=(page.properties as Record<string,unknown>)[name] as {type?:string};
+  if (property.type==="status") return { [name]:{status:{name:value}} };
+  return { [name]:{select:{name:value}} };
+}
+async function mirrorDraft(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number,targets:NotionTarget[]) {
+  if (!targets.length) return "UNLINKED" as const;
+  let changed=0;
+  for (const target of targets) {
+    const page=await requireOwnedNotionPage(bindings,target,id,false);
+    const properties=notionDraftProperties(kind,page);
+    if (!properties) continue;
+    await notionRequest(bindings,"/pages/"+encodeURIComponent(target.pageId),{
+      method:"PATCH",body:JSON.stringify({properties}),
+    });
+    const verified=await requireOwnedNotionPage(bindings,target,id,false);
+    const expected=Object.entries(properties)[0];
+    const p=(verified.properties as Record<string,unknown>|undefined)?.[expected[0]] as
+      {select?:{name?:string};status?:{name?:string}}|undefined;
+    const selected=p?.select?.name??p?.status?.name??"";
+    const desired=(expected[1] as {select?:{name:string};status?:{name:string}}).select?.name
+      ??(expected[1] as {status?:{name:string}}).status?.name;
+    if (selected!==desired) throw Error("NOTION_PUBLICATION_NOT_CONFIRMED");
+    changed++;
+  }
+  return changed?"SYNCED" as const:"NOT_APPLICABLE" as const;
+}
+/** D1 state and a persistent inbound guard are committed before any remote call. */
+export async function unpublishRecord(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number) {
+  const row=await canonical(db,kind,id);
+  if (!row) throw Error("RECORD_NOT_FOUND");
+  if (await tombstone(db,kind,id)) throw Error("RECORD_REMOVAL_IN_PROGRESS");
+  const spec=specs[kind],now=new Date().toISOString();
+  const guard=await db.prepare("INSERT INTO admin_record_publication_guards (kind,record_id,remote_state,error_code,updated_at) VALUES (?,?,'PENDING',NULL,?) "+
+    "ON CONFLICT(kind,record_id) DO UPDATE SET remote_state='PENDING',error_code=NULL,updated_at=excluded.updated_at")
+    .bind(kind,id,now);
+  // Publication field + revision only; no form payload, media or editorial changes.
+  const update=db.prepare("UPDATE "+spec.table+" SET status=?,updated_at=? WHERE id=? AND status=?")
+    .bind(spec.draft,now,id,clean(row.status));
+  await db.batch([guard,update]);
+  let remoteState:"SYNCED"|"UNLINKED"|"NOT_APPLICABLE"|"PENDING"="PENDING";
+  let code:string|null=null;
+  try {
+    const targets=await mappedTargets(db,bindings,kind,id);
+    remoteState=await mirrorDraft(db,bindings,kind,id,targets);
+  } catch(error) {
+    code=error instanceof Error && /^(NOTION_[A-Z0-9_]+)$/.test(error.message)
+      ?error.message:"NOTION_WRITEBACK_UNAVAILABLE";
+  }
+  await db.prepare("UPDATE admin_record_publication_guards SET remote_state=?,error_code=?,updated_at=? WHERE kind=? AND record_id=?")
+    .bind(remoteState,code,new Date().toISOString(),kind,id).run();
+  return {state:"draft",notionSync:remoteState,errorCode:code};
+}
+/** Called only AFTER a successful explicit Admin publication; never by Notion sync. */
+export async function clearAdminUnpublishGuard(db:D1Database,kind:RecordKind,id:number) {
+  await db.prepare("DELETE FROM admin_record_publication_guards WHERE kind=? AND record_id=?").bind(kind,id).run();
+}
+export async function adminUnpublishedGuard(db:D1Database,kind:RecordKind,id:number) {
+  const row=await db.prepare("SELECT 1 AS found FROM admin_record_publication_guards WHERE kind=? AND record_id=? LIMIT 1")
+    .bind(kind,id).first<{found:number}>();
+  return Boolean(row?.found);
+}
+export async function notionPageIsTombstoned(db:D1Database,pageId:string) {
+  const row=await db.prepare("SELECT 1 AS found FROM admin_record_tombstones WHERE notion_page_id=? OR instr(notion_targets_json,?)>0 LIMIT 1")
+    .bind(pageId,pageId).first<{found:number}>();
+  return Boolean(row?.found);
+}
+async function setRemovalError(db:D1Database,kind:RecordKind,id:number,code:string) {
+  await db.prepare("UPDATE admin_record_tombstones SET state='ERROR_NOTION',error_code=?,attempts=attempts+1,updated_at=? WHERE kind=? AND record_id=? AND state<>'COMPLETE'")
+    .bind(code,new Date().toISOString(),kind,id).run();
+}
+async function verifyTrash(bindings:LifecycleBindings,target:NotionTarget,id:number) {
+  const page=await requireOwnedNotionPage(bindings,target,id,true);
+  if (page.in_trash===true) return;
+  await notionRequest(bindings,"/pages/"+encodeURIComponent(target.pageId),{
+    method:"PATCH",body:JSON.stringify({in_trash:true}),
+  });
+  // Never trust the PATCH response alone: a separate GET proves trash status.
+  const confirmed=await requireOwnedNotionPage(bindings,target,id,true);
+  if (confirmed.in_trash!==true) throw Error("NOTION_TRASH_NOT_CONFIRMED");
+}
+/** Accept only stable keys collected from the deleted row; never delete by URL or filename guess. */
+function mediaKeys(row:CanonicalRow) {
+  const found=new Set<string>();
+  for (const [key,value] of Object.entries(row)) {
+    if (typeof value==="string" && /^(?:image_key|og_image_key|main_image_key)$/.test(key)) found.add(value);
+    if (typeof value==="string" && /^(?:gallery_json|blocks_json)$/.test(key)) {
+      try {
+        const walk=(node:unknown,depth:number):void=>{
+          if(depth>8||node==null)return;
+          if(Array.isArray(node)) {for(const item of node)walk(item,depth+1);return;}
+          if(typeof node!=="object")return;
+          for(const [k,v] of Object.entries(node)) {
+            if ((k==="imageKey"||k==="mainImageKey"||k==="key")&&typeof v==="string")found.add(v);
+            else walk(v,depth+1);
+          }
+        };walk(JSON.parse(value),0);
+      } catch { /* unparseable legacy metadata must not trigger arbitrary R2 deletion */ }
+    }
+  }
+  return [...found].filter(key=>key.length>3&&key.length<400&&!key.includes("..")
+    &&!/[:?#]/.test(key)&&/^[A-Za-z0-9/_\-.]+$/.test(key)).slice(0,60);
+}
+/** Exhaustive schema-driven reference check; unknown image containers fail closed. */
+async function keyStillReferenced(db:D1Database,key:string) {
+  const tables=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+    .all<{name:string}>();
+  for(const {name} of tables.results??[]) {
+    if(!/^[A-Za-z_][A-Za-z_0-9]*$/.test(name)||name==="admin_record_tombstones")continue;
+    const columns=await db.prepare("PRAGMA table_info("+name+")").all<{name:string;type:string}>();
+    for(const col of columns.results??[]) {
+      if(!/^[A-Za-z_][A-Za-z_0-9]*$/.test(col.name))continue;
+      if(!/(image|gallery|photo|media|asset|blocks|_key$)/i.test(col.name))continue;
+      const used=await db.prepare("SELECT 1 AS found FROM "+name+" WHERE instr(CAST("+col.name+" AS TEXT),?)>0 LIMIT 1")
+        .bind(key).first<{found:number}>();
+      if(used) return true;
+    }
+  }
+  return false;
+}
+async function removeExclusiveMedia(db:D1Database,bindings:LifecycleBindings,record:CanonicalRow) {
+  const bucket=bindings.BUCKET;
+  if(!bucket)return {removed:0,preserved:mediaKeys(record).length};
+  let removed=0,preserved=0;
+  for(const key of mediaKeys(record)) {
+    try {
+      if(await keyStillReferenced(db,key)){preserved++;continue;}
+      await bucket.delete(key);removed++;
+    }catch{preserved++;} // uncertain ownership is never grounds for deletion
+  }
+  return {removed,preserved};
+}
+const syncMappings: Partial<Record<RecordKind,{table:string;entity:string}>> = mappingTables;
+async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targets:NotionTarget[]) {
+  const spec=specs[kind];
+  const statements:D1PreparedStatement[]=[];
+  const mapping=syncMappings[kind];
+  if(mapping)statements.push(db.prepare("DELETE FROM "+mapping.table+" WHERE "+mapping.entity+"=?").bind(id));
+  if(spec.agenda && kind!=="events")
+    statements.push(db.prepare("DELETE FROM notion_agenda_sync WHERE agenda=? AND entity_id=?").bind(spec.agenda,id));
+  for(const target of targets) {
+    statements.push(db.prepare("DELETE FROM notion_webhook_inbox WHERE page_id=?").bind(target.pageId));
+    statements.push(db.prepare("DELETE FROM gemini_notion_created_pages WHERE notion_page_id=?").bind(target.pageId));
+  }
+  statements.push(db.prepare("DELETE FROM "+spec.table+" WHERE id=?").bind(id));
+  statements.push(db.prepare("DELETE FROM admin_record_publication_guards WHERE kind=? AND record_id=?").bind(kind,id));
+  statements.push(db.prepare("UPDATE admin_record_tombstones SET state='COMPLETE',error_code=NULL,completed_at=?,updated_at=? WHERE kind=? AND record_id=?")
+    .bind(new Date().toISOString(),new Date().toISOString(),kind,id));
+  await db.batch(statements);
+}
+export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number,
+  owner:string,localOnly:boolean) {
+  const prior=await tombstone(db,kind,id);
+  if(prior?.state==="COMPLETE")return {state:"COMPLETE",id,notionTrash:prior.notion_page_id?"confirmed":"unlinked",media:{removed:0,preserved:0}};
+  const row=await canonical(db,kind,id);
+  if(!row)throw Error("RECORD_NOT_FOUND");
+  const meta=identity(kind,row),now=new Date().toISOString();
+  let targets:NotionTarget[];
+  if(prior) {
+    targets=JSON.parse(prior.notion_targets_json) as NotionTarget[];
+  }else{
+    targets=await mappedTargets(db,bindings,kind,id);
+    if(!targets.length&&!localOnly)throw Error("LOCAL_ONLY_CONFIRMATION_REQUIRED");
+    const spec=specs[kind];
+    const insert=db.prepare("INSERT INTO admin_record_tombstones "+
+      "(kind,record_id,record_slug,record_name,record_category,notion_page_id,notion_data_source_id,notion_targets_json,state,error_code,created_by,created_at,updated_at) "+
+      "VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?,?)")
+      .bind(kind,id,meta.slug,meta.name,meta.category,targets[0]?.pageId??null,targets[0]?.sourceId??null,
+        JSON.stringify(targets),targets.length?"PENDING_NOTION":"READY_LOCAL",owner,now,now);
+    const hide=db.prepare("UPDATE "+spec.table+" SET status=?,updated_at=? WHERE id=? AND status=?")
+      .bind(spec.draft,now,id,meta.status);
+    await db.batch([insert,hide]);
+  }
+  try{
+    for(const target of targets)await verifyTrash(bindings,target,id);
+  }catch(error){
+    const code=error instanceof Error && /^NOTION_[A-Z0-9_]+$/.test(error.message)?
+      error.message:"NOTION_UNAVAILABLE";
+    await setRemovalError(db,kind,id,code);
+    return {state:"ERROR_NOTION",id,notionTrash:"not-confirmed",errorCode:code,media:{removed:0,preserved:mediaKeys(row).length}};
+  }
+  try {
+    await completeLocalRemoval(db,kind,id,targets);
+  }catch{
+    // All Notion pages have been confirmed in trash, but local D1 cleanup must
+    // remain retryable; the record stays hidden behind the persistent tombstone.
+    await db.prepare("UPDATE admin_record_tombstones SET state='READY_LOCAL',error_code='D1_DELETE_PENDING',updated_at=? WHERE kind=? AND record_id=?")
+      .bind(new Date().toISOString(),kind,id).run();
+    return {state:"READY_LOCAL",id,notionTrash:"confirmed",errorCode:"D1_DELETE_PENDING",media:{removed:0,preserved:mediaKeys(row).length}};
+  }
+  const media=await removeExclusiveMedia(db,bindings,row);
+  return {state:"COMPLETE",id,notionTrash:targets.length?"confirmed":"unlinked",media};
+}
