@@ -280,24 +280,42 @@ export async function adminUnpublishedGuard(db:D1Database,kind:RecordKind,id:num
  * publication clears the guard. Existing field values are not deleted. */
 export async function notionPageHasAdminUnpublishGuard(db:D1Database,pageId:string) {
   if(!pageId)return false;
-  try {
-    const row=await db.prepare(
-      "SELECT 1 AS found FROM admin_record_publication_guards g WHERE "+
-      "(g.kind='directory' AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.notion_page_id=? AND m.directory_profile_id=g.record_id)) OR "+
-      "(g.kind='events' AND EXISTS(SELECT 1 FROM event_notion_sync m WHERE m.notion_page_id=? AND m.event_id=g.record_id)) OR "+
-      "(g.kind='breeds' AND (EXISTS(SELECT 1 FROM breed_notion_sync m WHERE m.notion_page_id=? AND m.breed_id=g.record_id) OR "+
-      "EXISTS(SELECT 1 FROM breed_notion_workcopy_links w WHERE w.breed_id=g.record_id AND w.status='ACTIVE' AND (w.original_notion_page_id=? OR w.work_notion_page_id=?)))) OR "+
-      "(g.kind='articles' AND EXISTS(SELECT 1 FROM article_notion_sync m WHERE m.notion_page_id=? AND m.article_id=g.record_id)) OR "+
-      "(g.kind IN ('help','adoptions','lost-found','organizations') AND EXISTS("+
-      "SELECT 1 FROM notion_agenda_sync m WHERE m.notion_page_id=? AND m.entity_id=g.record_id AND "+
-      "m.agenda=CASE g.kind WHEN 'help' THEN 'help-cases' WHEN 'adoptions' THEN 'adoptions' "+
-      "WHEN 'lost-found' THEN 'lost-found' ELSE 'organizations' END)) LIMIT 1")
-      .bind(pageId,pageId,pageId,pageId,pageId,pageId,pageId).first<{found:number}>();
-    return Boolean(row?.found);
-  } catch(error) {
-    if(error instanceof Error && /no such table: admin_record_publication_guards/i.test(error.message))return false;
-    throw error;
-  }
+  // Some deployments run this Worker before the owner executes migration
+  // 0164, and optional legacy mapping tables can be absent as well. Inspect
+  // the actual schema before preparing SQL that refers to those tables.
+  const tables=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' "+
+    "AND name IN ('admin_record_publication_guards','directory_notion_sync','event_notion_sync',"+
+    "'breed_notion_sync','breed_notion_workcopy_links','article_notion_sync','notion_agenda_sync')")
+    .all<{name:string}>();
+  const present=new Set((tables.results??[]).map(row=>row.name));
+  if(!present.has("admin_record_publication_guards"))return false;
+  const clauses:string[]=[];
+  const params:string[]=[];
+  const add=(table:string,sql:string,count=1)=>{
+    if(!present.has(table))return;
+    clauses.push(sql);
+    for(let i=0;i<count;i++)params.push(pageId);
+  };
+  add("directory_notion_sync",
+    "(g.kind='directory' AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.notion_page_id=? AND m.directory_profile_id=g.record_id))");
+  add("event_notion_sync",
+    "(g.kind='events' AND EXISTS(SELECT 1 FROM event_notion_sync m WHERE m.notion_page_id=? AND m.event_id=g.record_id))");
+  add("breed_notion_sync",
+    "(g.kind='breeds' AND EXISTS(SELECT 1 FROM breed_notion_sync m WHERE m.notion_page_id=? AND m.breed_id=g.record_id))");
+  add("breed_notion_workcopy_links",
+    "(g.kind='breeds' AND EXISTS(SELECT 1 FROM breed_notion_workcopy_links w WHERE w.breed_id=g.record_id "+
+    "AND w.status='ACTIVE' AND (w.original_notion_page_id=? OR w.work_notion_page_id=?)))",2);
+  add("article_notion_sync",
+    "(g.kind='articles' AND EXISTS(SELECT 1 FROM article_notion_sync m WHERE m.notion_page_id=? AND m.article_id=g.record_id))");
+  add("notion_agenda_sync",
+    "(g.kind IN ('help','adoptions','lost-found','organizations') AND EXISTS("+
+    "SELECT 1 FROM notion_agenda_sync m WHERE m.notion_page_id=? AND m.entity_id=g.record_id AND "+
+    "m.agenda=CASE g.kind WHEN 'help' THEN 'help-cases' WHEN 'adoptions' THEN 'adoptions' "+
+    "WHEN 'lost-found' THEN 'lost-found' ELSE 'organizations' END))");
+  if(!clauses.length)return false;
+  const row=await db.prepare("SELECT 1 AS found FROM admin_record_publication_guards g WHERE "+
+    clauses.join(" OR ")+" LIMIT 1").bind(...params).first<{found:number}>();
+  return Boolean(row?.found);
 }
 
 /** Used only on inbound Notion sweeps. Tombstones prevent resurrection; a
