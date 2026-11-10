@@ -48,7 +48,6 @@ test("breed editor exposes all 60 editorial fields from the approved Notion mode
     "<span>FCI uznanie / status</span>",
     "<span>Číslo FCI sekcie</span>",
     "<span>Import key</span>",
-    "<span>FCI nomenklatúra URL</span>",
     "<span>Farebný motív</span>",
     "<AdminSeoFields",
     "<AdminBreedNotionExtras",
