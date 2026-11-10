@@ -161,3 +161,29 @@ test("optional relation cleanup is schema-gated and never removes linked entitie
   assert.match(cleanup, /present\.has\("breed_directory_relations"\)/);
   assert.doesNotMatch(cleanup, /DELETE FROM managed_breeds|DELETE FROM managed_articles WHERE.*breed_id|DELETE FROM directory_profiles WHERE.*breed_id/);
 });
+
+test("destructive confirmation is bound to the exact record displayed in Admin", () => {
+  const removal = core.split("export async function removeRecord(")[1] ?? "";
+  assert.match(removal, /expected:\{slug:string;name:string;category:string\}/);
+  assert.match(removal, /if\(!matches\(meta\)\)throw Error\("RECORD_CONFIRMATION_MISMATCH"\)/);
+  assert.match(removal, /if\(!matches\(\{slug:prior\.record_slug,name:prior\.record_name,category:prior\.record_category\}\)\)/);
+  assert.match(route, /DELETE_IDENTITY_REQUIRED/);
+  assert.match(route, /body\.expectedSlug/);
+  assert.match(route, /body\.expectedName/);
+  assert.match(route, /body\.expectedCategory/);
+  assert.match(dialog, /expectedSlug:preview\.slug/);
+  assert.match(dialog, /expectedName:preview\.name/);
+  assert.match(dialog, /expectedCategory:preview\.category/);
+});
+
+test("event deletion protects both legacy and generic Notion mapping identities", () => {
+  const mapping = core.split("async function mappedTargets(")[1]?.split("async function tombstone(")[0] ?? "";
+  assert.match(mapping, /SELECT notion_page_id FROM event_notion_sync WHERE event_id=\?/);
+  assert.match(mapping, /SELECT notion_page_id FROM notion_agenda_sync WHERE agenda='events' AND entity_id=\?/);
+  assert.match(mapping, /NOTION_MAPPING_AMBIGUOUS/);
+  assert.match(mapping, /const unique=new Map<string,NotionTarget>\(\)/);
+  const guard = core.split("export async function notionPageHasAdminUnpublishGuard")[1]
+    ?.split("export async function notionPageMustSkipInboundSync")[0] ?? "";
+  assert.match(guard, /WHEN 'events' THEN 'events'/);
+  assert.match(route, /code==="NOTION_MAPPING_AMBIGUOUS"\?409/);
+});
