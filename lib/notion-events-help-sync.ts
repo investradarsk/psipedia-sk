@@ -27,6 +27,8 @@ import {
 } from "./notion-bidirectional-reconciliation.ts";
 import {
   agendaEditableFields,
+  NOTION_MAIN_IMAGE_FIELDS,
+  needsAdminMainImageBackfill,
   applyNotionToCanonical,
   canonicalUpdatedAt,
   hasCurrentGooglePlace,
@@ -1061,6 +1063,15 @@ async function syncAgenda(input: {
             : false;
         if(confirmedPlace)for(const field of ["Adresa","Miesto","Mesto","Okres","Kraj"])
           protectedFields.add(field);
+        // Explicit import must not turn a missing Notion image into deletion
+        // of a locally uploaded Admin image. Backfill Notion instead.
+        const missingNotionImage = input.manualDirection === "NOTION_TO_ADMIN" &&
+          needsAdminMainImageBackfill(
+            agenda,
+            notionSnapshot as Record<string, unknown>,
+            sourceSnapshot as Record<string, unknown>,
+          );
+        if (missingNotionImage) protectedFields.add(NOTION_MAIN_IMAGE_FIELDS[agenda]);
         const plan=planOwnerDirectedFields({
           notion:notionSnapshot as Record<string,unknown>,
           admin:sourceSnapshot as Record<string,unknown>,
@@ -1068,7 +1079,7 @@ async function syncAgenda(input: {
           editablePaths:group.fields.filter(f=>!f.locked).map(f=>f.id),
           protectedPaths:protectedFields,
         });
-        if(!plan.changes.length){summary.unchanged+=1;continue}
+        if(!plan.changes.length && !missingNotionImage){summary.unchanged+=1;continue}
         // Recheck the page snapshot before mutating canonical D1. A scheduled
         // webhook may have changed the source since we planned the one-shot.
         const latest=await notionRequest<NotionPage>(
