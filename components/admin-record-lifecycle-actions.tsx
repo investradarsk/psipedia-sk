@@ -37,12 +37,8 @@ export function AdminRecordLifecycleActions({
   const [pending,setPending]=useState(false);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
-  const [unpublished,setUnpublished]=useState(false);
   const endpoint="/api/admin/record-lifecycle/"+encodeURIComponent(kind)+"/"+recordId;
-  const visible=(preview?preview.published:publicStates.has(status))&&!unpublished;
-  useEffect(()=>{
-    if(publicStates.has(status))setUnpublished(false);
-  },[status]);
+  const visible=preview?preview.published:publicStates.has(status);
   useEffect(()=>{
     let live=true;
     fetch(endpoint,{cache:"no-store"}).then(async response=>{
@@ -56,14 +52,13 @@ export function AdminRecordLifecycleActions({
       if(value.removalState&&value.removalState!=="COMPLETE"){
         setMessage("Odstránenie zostáva nedokončené. Záznam je bezpečne skrytý.");
         setError(errorText(value.removalError??"NOTION_UNAVAILABLE"));
-        setUnpublished(true);
       }else if(value.publicationSync==="PENDING"){
         setMessage("Záznam je v Admine stiahnutý, Notion stále čaká na potvrdenie.");
         setError(errorText(value.publicationError??"NOTION_UNAVAILABLE"));
       }
     }).catch(()=>{});
     return ()=>{live=false;};
-  },[endpoint]);
+  },[endpoint,status]);
 
   async function open(next:"unpublish"|"delete") {
     if(pending)return;
@@ -93,7 +88,7 @@ export function AdminRecordLifecycleActions({
       setMode(null);
       if(currentMode==="unpublish"){
         setUnpublished(true);
-        setPreview(current=>current?{...current,publicationSync:data.notionSync??"PENDING",publicationError:data.errorCode??null}:current);
+        setPreview(current=>current?{...current,published:false,status:status==="PUBLISHED"||status==="ACTIVE"||status==="RESERVED"?"DRAFT":"draft",publicationSync:data.notionSync??"PENDING",publicationError:data.errorCode??null}:current);
         onUnpublished?.(status==="PUBLISHED"?"DRAFT":status==="ACTIVE"||status==="RESERVED"?"DRAFT":status==="scheduled"?"draft":status==="RESOLVED"||status==="EXPIRED"||status==="ARCHIVED"?"DRAFT":"draft",data.updatedAt);
         setMessage(data.notionSync==="PENDING"
           ?"Záznam je stiahnutý z webu. Prenos publikačného stavu do Notionu čaká na opravu."
@@ -105,7 +100,7 @@ export function AdminRecordLifecycleActions({
         setMessage("Záznam je skrytý. Odstránenie ešte nie je dokončené. Môžeš ho bezpečne zopakovať.");
         setError(errorText(data.errorCode??"NOTION_UNAVAILABLE"));
         setUnpublished(true);
-        setPreview(current=>current?{...current,removalState:data.state,removalError:data.errorCode??null}:current);
+        setPreview(current=>current?{...current,published:false,removalState:data.state,removalError:data.errorCode??null}:current);
         onUnpublished?.("draft");
       }
     }catch(e){setError(errorText(e instanceof Error?e.message:"LIFECYCLE_REQUEST_FAILED"));}
