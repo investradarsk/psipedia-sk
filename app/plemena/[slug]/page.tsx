@@ -6,8 +6,8 @@ import { notFound } from "next/navigation";
 import { BreedPhoto } from "@/components/breed-photo";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
-import { BreedSectionNav } from "@/components/breed-section-nav";
-import { DetailHero, PublicDetailLayout } from "@/components/detail-primitives/detail-primitives";
+import { DetailHero, DetailFactsCard } from "@/components/detail-primitives/detail-primitives";
+import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
 import { ArrowIcon, PawMark } from "@/components/icons";
 import {
   PublicActionLink,
@@ -257,11 +257,9 @@ export default async function BreedDetailPage({ params }: Props) {
     { label: "Využitie", value: displayFacts.useTypes },
     { label: "FCI skupina", value: displayFacts.fciGroup },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
-  const coatDescription = breed.coat?.trim() ?? "";
-  const coatIsLong = coatDescription.length > 160;
-  const coatExcerpt = coatIsLong
-    ? `${coatDescription.slice(0, 145).trimEnd()}…`
-    : coatDescription;
+  // One care section owns this description; no duplicate "Srsť" card under the hero.
+  const coatParagraphs = textParagraphs(editorial.coatCare);
+  const coatContent = coatParagraphs.length ? coatParagraphs : textParagraphs(breed.coat);
 
   const overviewParagraphs = textParagraphs(editorial.overview);
   const characterParagraphs = textParagraphs(breed.character);
@@ -282,8 +280,8 @@ export default async function BreedDetailPage({ params }: Props) {
     },
     {
       key: "movement",
-      eyebrow: "Každodenný život",
-      title: "Pohyb a každodenný život",
+      eyebrow: "",
+      title: "Pohyb a aktivita",
       paragraphs: textParagraphs(breed.exercise),
     },
     {
@@ -312,9 +310,9 @@ export default async function BreedDetailPage({ params }: Props) {
     },
     {
       key: "coat",
-      eyebrow: "Starostlivosť",
-      title: "Srsť a starostlivosť",
-      paragraphs: textParagraphs(editorial.coatCare),
+      eyebrow: "",
+      title: "Starostlivosť o srsť",
+      paragraphs: coatContent,
     },
   ].filter(
     (item) =>
@@ -390,6 +388,7 @@ export default async function BreedDetailPage({ params }: Props) {
             }
             copy={
               <>
+                <span className={styles.heroTag}>Plemeno psa</span>
                 <div className={styles.identity} data-testid="breed-hero-identity">
                   <div className={styles.fciIdentity}>
                     {managedBreed?.fciNumber ? <span>FCI č. {managedBreed.fciNumber}</span> : null}
@@ -432,46 +431,52 @@ export default async function BreedDetailPage({ params }: Props) {
             }
           />
         </div>
-        <div className={`shell ${styles.shell}`}>
-          {quickFacts.length || coatDescription ? (
-            <section className={styles.quickFacts} aria-labelledby="breed-facts">
-              <h2 id="breed-facts" className={styles.sectionLabel}>
-                Plemeno v skratke
-              </h2>
-              {quickFacts.length ? (
-                <dl className={styles.factGrid} data-testid="breed-quick-facts">
-                  {quickFacts.map((fact) => (
-                    <div key={fact.label} data-fact-label={fact.label}>
-                      <dt>{fact.label}</dt>
-                      <dd>{fact.value}</dd>
-                    </div>
+        <PublicHelpProfileDetailLayout
+          aside={
+          <div
+            id="uzitocne"
+            className={`${styles.utilitySidebar} ${styles.anchorSection}`}
+            aria-label="Užitočné odkazy"
+            data-testid="breed-utility-sidebar"
+          >
+            {quickFacts.length > 0 ? (
+              <div data-testid="breed-quick-facts">
+                <DetailFactsCard title="Plemeno v skratke" facts={quickFacts} />
+              </div>
+            ) : null}
+            <nav className={styles.sidebarIndex} aria-label="Rýchly prechod v profile">
+              <h2>V tomto profile</h2>
+              <ul>
+                {sectionNavItems
+                  .filter((item) => item.id !== "uzitocne")
+                  .slice(0, 6)
+                  .map((item) => (
+                    <li key={item.id}>
+                      <a href={`#${item.id}`}>{item.label}</a>
+                    </li>
                   ))}
-                </dl>
-              ) : null}
-              {coatDescription ? (
-                <div className={styles.coatSummary}>
-                  <strong>Srsť</strong>
-                  {coatIsLong ? (
-                    <details>
-                      <summary>
-                        <span>{coatExcerpt}</span>
-                        <span className={styles.coatExpandLabel}>Čítať celý opis</span>
-                      </summary>
-                      <p>{coatDescription}</p>
-                    </details>
-                  ) : (
-                    <p>{coatDescription}</p>
-                  )}
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-        </div>
-
-        <BreedSectionNav items={sectionNavItems} />
-
-        <PublicDetailLayout
-          mode="inline"
+              </ul>
+            </nav>
+            <ArticlePromo promoKey="veterinari" variant="v1" seed={breed.slug} compact />
+            <PublicMagazineBanner
+              compact
+              eyebrow="Adresár Psipedia"
+              title="Užitočné odkazy"
+              description="Kluby, chovatelia a tréneri na jednom mieste."
+              testId="breed-utility"
+              links={[
+                { href: "/adresar/chovatelske-kluby", label: "Chovateľské kluby" },
+                {
+                  href: relations.breedingStationLanding?.href ?? "/adresar/chovatelske-stanice",
+                  label: relations.breedingStationLanding?.label ?? "Chovateľské stanice",
+                },
+                { href: "/adresar/treneri", label: "Psí tréneri" },
+                { href: "/adresar/kynologicke-kluby", label: "Kynologické kluby" },
+              ]}
+            />
+          </div>
+          }
+          asideLabel="Základné fakty a užitočné odkazy"
           className={styles.contentLayout}
           data-testid="breed-content-layout"
         >
@@ -745,44 +750,8 @@ export default async function BreedDetailPage({ params }: Props) {
             ) : null}
 
           </article>
-          <aside
-            id="uzitocne"
-            className={`${styles.utilitySidebar} ${styles.anchorSection}`}
-            aria-label="Užitočné odkazy"
-            data-testid="breed-utility-sidebar"
-          >
-            <nav className={styles.sidebarIndex} aria-label="Rýchly prechod v profile">
-              <h2>V tomto profile</h2>
-              <ul>
-                {sectionNavItems
-                  .filter((item) => item.id !== "uzitocne")
-                  .slice(0, 6)
-                  .map((item) => (
-                    <li key={item.id}>
-                      <a href={`#${item.id}`}>{item.label}</a>
-                    </li>
-                  ))}
-              </ul>
-            </nav>
-            <ArticlePromo promoKey="veterinari" variant="v1" seed={breed.slug} compact />
-            <PublicMagazineBanner
-              compact
-              eyebrow="Adresár Psipedia"
-              title="Užitočné odkazy"
-              description="Kluby, chovatelia a tréneri na jednom mieste."
-              testId="breed-utility"
-              links={[
-                { href: "/adresar/chovatelske-kluby", label: "Chovateľské kluby" },
-                {
-                  href: relations.breedingStationLanding?.href ?? "/adresar/chovatelske-stanice",
-                  label: relations.breedingStationLanding?.label ?? "Chovateľské stanice",
-                },
-                { href: "/adresar/treneri", label: "Psí tréneri" },
-                { href: "/adresar/kynologicke-kluby", label: "Kynologické kluby" },
-              ]}
-            />
-          </aside>
-        </PublicDetailLayout>
+
+        </PublicHelpProfileDetailLayout>
 
         {gallery.length > 0 ? (
           <section className={`shell ${styles.gallerySection}`} aria-labelledby="breed-gallery-heading">
