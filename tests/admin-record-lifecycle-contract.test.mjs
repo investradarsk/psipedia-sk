@@ -120,7 +120,7 @@ test("archived records are not silently converted into drafts by the unpublish a
   assert.match(body, /!spec\.publicStatuses\.includes\(clean\(row\.status\)\)/);
   assert.match(body, /throw Error\("RECORD_NOT_PUBLIC"\)/);
   const route = source("app/api/admin/record-lifecycle/[kind]/[id]/route.ts");
-  assert.match(route, /code==="RECORD_NOT_PUBLIC"\?409/);
+  assert.match(route, /code==="RECORD_NOT_PUBLIC"\|\|/);
   assert.match(dialog, /preview\?preview\.published:publicStates\.has\(status\)/);
   assert.doesNotMatch(dialog.split("const publicStates=new Set(")[1]?.split(");")[0]??"", /ARCHIVED/);
 });
@@ -185,12 +185,25 @@ test("event deletion protects both legacy and generic Notion mapping identities"
   const guard = core.split("export async function notionPageHasAdminUnpublishGuard")[1]
     ?.split("export async function notionPageMustSkipInboundSync")[0] ?? "";
   assert.match(guard, /WHEN 'events' THEN 'events'/);
-  assert.match(route, /code==="NOTION_MAPPING_AMBIGUOUS"\?409/);
+  assert.match(route, /code==="NOTION_MAPPING_AMBIGUOUS"\|\|/);
 });
 
 test("unpublished breeds cannot be revived from any Notion work-copy migration stage", () => {
   const guard = core.split("export async function notionPageHasAdminUnpublishGuard")[1]
     ?.split("export async function notionPageMustSkipInboundSync")[0] ?? "";
-  assert.match(guard, /w\.original_notion_page_id=\? OR w\.work_notion_page_id=\?/);
+  assert.match(guard, /w\.original_notion_page_id IN \(\?,\?\) OR w\.work_notion_page_id IN \(\?,\?\)/);
   assert.doesNotMatch(guard, /w\.status='ACTIVE'/);
+});
+
+test("Notion UUID spellings and remote provenance are checked before destructive D1 writes", () => {
+  assert.match(core, /function notionPageIdVariants\(pageId:string\)/);
+  assert.match(core, /notion_page_id IN \(\?,\?\)/);
+  assert.match(core, /json_extract\(json_each\.value,'\$\.pageId'\) IN \(\?,\?\)/);
+  const deletion = core.split("export async function removeRecord(")[1] ?? "";
+  const firstProvenance=deletion.indexOf("assertNotionTargetsConfigured(targets)");
+  const firstTombstoneInsert=deletion.indexOf("INSERT INTO admin_record_tombstones");
+  assert.ok(firstProvenance>=0 && firstProvenance<firstTombstoneInsert);
+  assert.match(deletion, /assertNotionTargetsConfigured\(targets\)/);
+  assert.match(route, /NOTION_MAPPING_INVALID/);
+  assert.match(dialog, /NOTION_DATA_SOURCE_UNCONFIGURED/);
 });
