@@ -327,7 +327,7 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
     statements.push(db.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(id));
     statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(id));
   }
-  if(kind==="directory") statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE directory_profile_id=?").bind(id));
+  if(kind==="directory") statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE profile_id=?").bind(id));
   if(kind==="organizations") statements.push(db.prepare("UPDATE adoption_dogs SET organization_id=NULL WHERE organization_id=?").bind(id));
   for(const target of targets) {
     statements.push(db.prepare("DELETE FROM notion_webhook_inbox WHERE page_id=?").bind(target.pageId));
