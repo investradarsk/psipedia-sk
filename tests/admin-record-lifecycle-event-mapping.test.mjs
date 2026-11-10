@@ -21,6 +21,7 @@ runInNewContext(compiled,{
   sameId:(a,b)=>a.replaceAll("-","").toLowerCase()===b.replaceAll("-","").toLowerCase(),
 },{timeout:1200});
 const mappedTargets=exported.mappedTargets;
+const plainTargets=(targets)=>Array.from(targets,item=>({pageId:item.pageId,sourceId:item.sourceId}));
 const primaryId="1234567890abcdef1234567890abcdef";
 const secondaryId="abcdef1234567890abcdef1234567890";
 const sourceId="0123456789abcdef0123456789abcdef";
@@ -53,7 +54,7 @@ test("deletion finds legacy event mappings even without a generic agenda mapping
   const f=fixture();
   try{
     f.legacy(primaryId);
-    assert.deepEqual(Array.from(await mappedTargets(f.database,{}, "events",15)),[
+    assert.deepEqual(plainTargets(await mappedTargets(f.database,{}, "events",15)),[
       {pageId:primaryId,sourceId},
     ]);
   }finally{f.close();}
@@ -62,7 +63,7 @@ test("deletion requires BOTH distinct Notion event pages to be safely handled",a
   const f=fixture();
   try{
     f.legacy(primaryId);f.agenda(secondaryId);
-    assert.deepEqual(Array.from(await mappedTargets(f.database,{}, "events",15)),[
+    assert.deepEqual(plainTargets(await mappedTargets(f.database,{}, "events",15)),[
       {pageId:primaryId,sourceId},{pageId:secondaryId,sourceId},
     ]);
   }finally{f.close();}
