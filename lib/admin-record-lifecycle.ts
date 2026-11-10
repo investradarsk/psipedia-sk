@@ -1,5 +1,5 @@
 import { notionRequest, type NotionSyncBindings } from "./notion-sync-shared";
-import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership";
+import { notionPageBelongsToDataSource, type NotionOwnedPage } from "./notion-sync-page-ownership";
 
 /**
  * Canonical lifecycle writes. Never accept a table, mapping, page ID or Notion
@@ -83,8 +83,8 @@ async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:Recor
       // Two linked Notion copies must BOTH be verified and moved to trash before
       // reporting complete. The historical original must not resurrect a breed.
       return [
-        {pageId:work.work_notion_page_id,sourceId:requireDataSource(work.work_data_source_id)},
-        {pageId:work.original_notion_page_id,sourceId:requireDataSource(work.original_data_source_id)},
+        {pageId:work.work_notion_page_id,sourceId:clean(work.work_data_source_id)},
+        {pageId:work.original_notion_page_id,sourceId:clean(work.original_data_source_id)},
       ];
     }
   }
@@ -96,7 +96,7 @@ async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:Recor
     const source=kind==="directory"?bindings.NOTION_DIRECTORY_DATA_SOURCE_ID:
       kind==="events"?bindings.NOTION_EVENTS_DATA_SOURCE_ID:
       kind==="breeds"?bindings.NOTION_BREEDS_DATA_SOURCE_ID:bindings.NOTION_ARTICLES_DATA_SOURCE_ID;
-    return [{pageId:row.notion_page_id,sourceId:requireDataSource(clean(source))}];
+    return [{pageId:row.notion_page_id,sourceId:clean(source)}];
   }
   const agenda=specs[kind].agenda;
   if (!agenda) return [];
@@ -106,7 +106,7 @@ async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:Recor
   const target=await db.prepare("SELECT data_source_id FROM notion_agenda_targets WHERE agenda=? LIMIT 1")
     .bind(agenda).first<{data_source_id:string}>();
   const source=kind==="events"?(bindings.NOTION_EVENTS_DATA_SOURCE_ID||target?.data_source_id):target?.data_source_id;
-  return [{pageId:mapping.notion_page_id,sourceId:requireDataSource(clean(source))}];
+  return [{pageId:mapping.notion_page_id,sourceId:clean(source)}];
 }
 async function tombstone(db:D1Database,kind:RecordKind,id:number) {
   return db.prepare("SELECT * FROM admin_record_tombstones WHERE kind=? AND record_id=? LIMIT 1")
@@ -143,13 +143,14 @@ function notionText(page:Record<string,unknown>,name:string) {
 async function requireOwnedNotionPage(
   bindings:LifecycleBindings,target:NotionTarget,id:number,allowTrashed:boolean,
 ) {
+  requireDataSource(target.sourceId);
   const page=await notionRequest<Record<string,unknown>>(bindings,"/pages/"+encodeURIComponent(target.pageId));
   const parent=page.parent as {type?:string;data_source_id?:string}|undefined;
   if (!sameId(clean(page.id),target.pageId)
     || parent?.type!=="data_source_id"
     || !sameId(clean(parent.data_source_id),target.sourceId)
     || notionText(page,"Psipedia ID")!==String(id)
-    || (!allowTrashed && !notionPageBelongsToDataSource(page,target.sourceId))) {
+    || (!allowTrashed && !notionPageBelongsToDataSource(page as unknown as NotionOwnedPage,target.sourceId))) {
     throw Error("NOTION_IDENTITY_OR_SOURCE_MISMATCH");
   }
   return page;
@@ -213,7 +214,7 @@ export async function unpublishRecord(db:D1Database,bindings:LifecycleBindings,k
   }
   await db.prepare("UPDATE admin_record_publication_guards SET remote_state=?,error_code=?,updated_at=? WHERE kind=? AND record_id=?")
     .bind(remoteState,code,new Date().toISOString(),kind,id).run();
-  return {state:"draft",notionSync:remoteState,errorCode:code};
+  return {state:"draft",updatedAt:now,notionSync:remoteState,errorCode:code};
 }
 /** Called only AFTER a successful explicit Admin publication; never by Notion sync. */
 export async function clearAdminUnpublishGuard(db:D1Database,kind:RecordKind,id:number) {
