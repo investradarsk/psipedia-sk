@@ -53,6 +53,11 @@ import {
   ignoreUnverifiedEmptyNotionEventContacts,
 } from "./notion-event-contact-fields.ts";
 import {
+  LOST_FOUND_SHORT_DESCRIPTION_FIELD,
+  withoutLostFoundShortDescription,
+  extendLostFoundShortDescriptionBaseline,
+} from "./notion-lost-found-short-description.ts";
+import {
   EVENT_NOTION_FOCUS_KEYWORD,
   withoutEventFocusKeyword,
   extendEventFocusKeywordBaseline,
@@ -1246,6 +1251,24 @@ await requireVerifiedMappedNotionWriteback({
               baseline = extendEventContactBaseline(oldNotion);
             } else if (await snapshotHash("events", oldAdmin) === mapping.content_hash) {
               baseline = extendEventContactBaseline(oldAdmin);
+            }
+          }
+        }
+        // 0162: older Lost/Found hashes omitted "Krátky popis", although
+        // the property already exists in the correct Notion data source.
+        // Reconstruct ONLY a baseline independently authenticated against
+        // the old stored hash. A new value or explicit deletion then follows
+        // the same per-field three-way reconciliation as other text fields.
+        if (agenda === "lost-found" && schema[LOST_FOUND_SHORT_DESCRIPTION_FIELD]) {
+          if (baseline) {
+            baseline = extendLostFoundShortDescriptionBaseline(baseline);
+          } else {
+            const oldNotion = withoutLostFoundShortDescription(notionSnapshot);
+            const oldAdmin = withoutLostFoundShortDescription(sourceSnapshot);
+            if (await snapshotHash("lost-found", oldNotion) === mapping.content_hash) {
+              baseline = extendLostFoundShortDescriptionBaseline(oldNotion);
+            } else if (await snapshotHash("lost-found", oldAdmin) === mapping.content_hash) {
+              baseline = extendLostFoundShortDescriptionBaseline(oldAdmin);
             }
           }
         }
