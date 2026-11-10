@@ -117,7 +117,7 @@ function validate(path:EventNotionField,value:string|boolean,live:DogEvent){
   if(path==="contactEmail" &&
     (value.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)))
     throw Error("EMAIL_INVALID");
-  if(["registrationUrl","websiteUrl","seo.canonicalUrl","seo.ogImage"].includes(path))
+  if(["registrationUrl","websiteUrl","imageUrl","seo.canonicalUrl","seo.ogImage"].includes(path))
     eventValidateURL(value);
   if(path==="title" && !value.trim())throw Error("TITLE_REQUIRED");
   if(path==="eventType" && !(eventTypes as readonly string[]).includes(value))
@@ -139,6 +139,24 @@ async function saveField(db:D1Database,id:number,path:EventNotionField,value:str
   const live=await getManagedEventById(id);
   if(!live)throw Error("EVENT_CANONICAL_MISSING");
   validate(path,value,live);
+  if (path === "imageUrl") {
+    // A blank Notion URL is not proof that the owner deleted an Admin-uploaded file.
+    if (!value.trim()) return false;
+    // Notion keeps an absolute URL, while Psipedia stores its own media paths.
+    const normalized = value.startsWith("https://psipedia.sk/")
+      ? value.slice("https://psipedia.sk".length)
+      : value;
+    if (normalized === live.imageUrl) return false;
+    const saved = await updateManagedEvent(id, {
+      ...live,
+      imageUrl: normalized,
+      imageKey: null,
+      thumbnailImageDisplay: null,
+      detailImageDisplay: null,
+    }, SYSTEM_ACTOR, live);
+    if (!saved) throw Error("EVENT_IMAGE_URL_WRITE_FAILED");
+    return true;
+  }
   const geo=EVENT_LOCATION_PATHS.has(path);
   if(geo){
     // Never bypass the managed GEO invalidation and Google Place protection.
@@ -257,7 +275,7 @@ export async function syncEventAdminFields(input:{
     verifyIdentity(page,source,input.bindings);
     await confirmMapping(input.database,page.id,input.eventId);
     const selected=new Set<EventNotionField>(input.changedFields);
-    for(const path of [...EVENT_CONTACT_BACKFILL_PATHS,"seo.focusKeyword" as EventNotionField]){
+    for(const path of [...EVENT_CONTACT_BACKFILL_PATHS,"seo.focusKeyword" as EventNotionField,"imageUrl" as EventNotionField]){
       const name=EVENT_NOTION_FIELDS[path];
       const before=valueFromPage(page.properties?.[name],path);
       const canonical=source.properties[name];
