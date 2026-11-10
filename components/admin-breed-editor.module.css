@@ -182,3 +182,85 @@
   .sectionPager { gap: 4px; }
   .sectionPager :global(button) { padding: 7px 8px; font-size: 0.76rem; }
 }
+
+
+/* Editor v4: eight independent sections and compact, readable fact controls. */
+.basicTop,
+.basicBottom {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 12px;
+  align-items: start;
+  margin: 10px 0 14px;
+}
+.basicTop > :first-child { grid-column: 1 / -1; }
+.basicTop :global(select[multiple]),
+.basicBottom :global(select[multiple]) {
+  min-height: 92px;
+  max-height: 120px;
+}
+.measureGroups {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.measureGroup {
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #d8e5da;
+  border-radius: 10px;
+  background: #f8faf8;
+}
+.measureGroup legend {
+  padding: 0 5px;
+  font-weight: 750;
+  color: #1f4a3a;
+  font-size: 0.79rem;
+}
+.measureInputs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.measureInputs :global(.admin-field) { min-width: 0; }
+.measureInputs :global(.admin-field span) { font-size: 0.77rem; }
+.legacyInfo,.officialFields {
+  border: 1px solid #dee8e0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  margin-top: 12px;
+  color: #445b4e;
+  background: #fafbfa;
+}
+.legacyInfo summary,.officialFields summary { cursor: pointer; font-weight: 750; color: #244c37; font-size: 0.86rem; }
+.legacyInfo p { margin: 7px 0; font-size: 0.8rem; }
+.legacyInfo dl { display: grid; gap: 8px; margin: 10px 0 2px; }
+.legacyInfo dl > div { display: grid; grid-template-columns: 110px minmax(0,1fr); gap: 10px; }
+.legacyInfo dt { color: #65776a; font-size: 0.79rem; }
+.legacyInfo dd { margin: 0; font-size: 0.82rem; overflow-wrap: anywhere; }
+.officialFields > :global(.admin-field-grid) { margin-top: 12px; }
+.subsection { padding-top: 16px; margin-top: 16px; border-top: 1px solid #e2eae4; }
+.subheading { margin: 0 0 12px; color: #1f4a3a; font-size: 0.92rem; }
+.groupCount { font-size: 0.76rem; color: #69796d; margin-left: 8px; font-weight: 500; }
+.fciFields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.fciFields :global(textarea) { min-height: 84px; }
+.readonlyValue {
+  padding: 9px 11px;
+  background: #f5f7f5;
+  border: 1px solid #dbe5de;
+  border-radius: 8px;
+  font-weight: 700;
+  color: #305642;
+}
+.editorForm :global(.admin-field) { min-width: 0; }
+.editorForm :global(.admin-form-card) { display: grid; gap: 9px; }
+.editorForm :global(.admin-form-card > .admin-field) { margin: 0; }
+@media (max-width: 860px) {
+  .measureGroups { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .basicTop,.basicBottom,.fciFields { grid-template-columns: minmax(0,1fr); }
+  .basicTop > :first-child { grid-column: auto; }
+  .measureInputs { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .measureGroup { padding: 9px; }
+  .legacyInfo dl > div { grid-template-columns: 1fr; gap: 2px; }
+  .editorForm .sectionCard > :global(.admin-form-card) { padding: 12px; }
+}

@@ -73,14 +73,14 @@ test("ADMIN V3 content editors reuse workspace without copying canonical data fo
   assert.match(breed, /<EditorStatus/);
   for (const section of ["article-basics", "article-publish", "article-seo", "article-settings", "article-authors", "article-media", "article-content", "article-blocks", "article-relations"])
     assert.match(article, new RegExp('id="' + section + '"[^>]*data-admin-editor-section'));
-  for (const section of ["breed-basic", "breed-overview", "breed-character", "breed-practical", "breed-health", "breed-sports", "breed-media"])
+  for (const section of ["breed-basic", "breed-overview", "breed-character", "breed-practical", "breed-health", "breed-fci", "breed-media", "breed-settings"])
     assert.match(breed, new RegExp('AdminEditorSection id="' + section + '"'));
   assert.match(article, /<AdminArticleBlockEditor/);
   assert.match(article, /<RichTextInput/);
   assert.match(article, /<ArticleEditorCalendar/);
   assert.match(article, /<AdminEditorialAuthorField/);
   assert.match(article, /preservedEditorArticleMetadata/);
-  assert.match(breed, /SEO podľa Notionu/);
+  assert.match(breed, /08 · Publikovanie a SEO/);
   assert.match(breed, /<span>SEO title<\/span>/);
   assert.doesNotMatch(breed, /<AdminSeoFields|breed-relations/);
   assert.match(breed, /fciStandard/);
@@ -99,7 +99,8 @@ test("ADMIN V3 content save and exit actions preserve publication and dirty stat
   assert.match(article, /setEditorDirty\(false\)/);
   assert.match(article, /onClose=\{\(\) => setFullscreenPreviewOpen\(false\)\}/);
   assert.match(breed, /form="breed-canonical-editor-form"/);
-  assert.equal((breed.match(/Nastavenia, FCI a SEO/g) ?? []).length, 1, "settings drawer has only one trigger");
+  assert.equal((breed.match(/Nastavenia, FCI a SEO/g) ?? []).length, 0, "obsolete settings drawer stays removed");
+  assert.match(breed, /chooseBreedSection\("breed-fci"\)/);
   assert.match(breed, /save\(form.status==="published"\?"published":"draft"\)/);
   assert.match(breed, /setCanonicalForm\(\(current\)=>\(\{\.\.\.current,status:data.breed!\.status\}\)\)/);
   assert.match(breed, /setExpectedUpdatedAt\(data.breed.updatedAt\)/);
