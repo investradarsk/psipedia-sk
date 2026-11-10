@@ -350,7 +350,7 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
 }
 export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number,
   owner:string,localOnly:boolean) {
-  const prior=await tombstone(db,kind,id);
+  let prior=await tombstone(db,kind,id);
   if(prior?.state==="COMPLETE")return {state:"COMPLETE",id,notionTrash:prior.notion_page_id?"confirmed":"unlinked",media:{removed:0,preserved:0}};
   const row=await canonical(db,kind,id);
   if(!row)throw Error("RECORD_NOT_FOUND");
@@ -369,7 +369,19 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
         JSON.stringify(targets),targets.length?"PENDING_NOTION":"READY_LOCAL",owner,now,now);
     const hide=db.prepare("UPDATE "+spec.table+" SET status=?,updated_at=? WHERE id=? AND status=?")
       .bind(spec.draft,now,id,meta.status);
-    await db.batch([insert,hide]);
+    try {
+      await db.batch([insert,hide]);
+    } catch (error) {
+      // Two administrators may confirm the same record concurrently. The
+      // losing transaction must re-use the winner's exact persisted targets,
+      // never perform another insert, guess a Notion page or undo the hide.
+      const raced=await tombstone(db,kind,id);
+      if(!raced)throw error;
+      if(raced.record_slug!==meta.slug)throw Error("RECORD_TOMBSTONE_IDENTITY_CHANGED");
+      if(raced.state==="COMPLETE")return {state:"COMPLETE",id,notionTrash:raced.notion_page_id?"confirmed":"unlinked",media:{removed:0,preserved:0}};
+      prior=raced;
+      targets=JSON.parse(raced.notion_targets_json) as NotionTarget[];
+    }
   }
   try{
     for(const target of targets)await verifyTrash(bindings,target,id);
