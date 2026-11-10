@@ -524,12 +524,22 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
   await db.batch(statements);
 }
 export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number,
-  owner:string,localOnly:boolean) {
+  owner:string,localOnly:boolean,expected:{slug:string;name:string;category:string}) {
+  // The owner confirmed the concrete name, category and slug rendered by the
+  // preflight dialog. Never delete a renamed/reclassified entity based on a
+  // stale confirmation, even when the numeric D1 ID still matches.
+  const matches=(item:{slug:string;name:string;category:string}) =>
+    item.slug===expected.slug && item.name===expected.name && item.category===expected.category;
   let prior=await tombstone(db,kind,id);
-  if(prior?.state==="COMPLETE")return {state:"COMPLETE",id,notionTrash:prior.notion_page_id?"confirmed":"unlinked",media:{removed:0,preserved:0}};
+  if(prior?.state==="COMPLETE") {
+    if(!matches({slug:prior.record_slug,name:prior.record_name,category:prior.record_category}))
+      throw Error("RECORD_CONFIRMATION_MISMATCH");
+    return {state:"COMPLETE",id,notionTrash:prior.notion_page_id?"confirmed":"unlinked",media:{removed:0,preserved:0}};
+  }
   const row=await canonical(db,kind,id);
   if(!row)throw Error("RECORD_NOT_FOUND");
   const meta=identity(kind,row),now=new Date().toISOString();
+  if(!matches(meta))throw Error("RECORD_CONFIRMATION_MISMATCH");
   let targets:NotionTarget[];
   if(prior) {
     targets=JSON.parse(prior.notion_targets_json) as NotionTarget[];
