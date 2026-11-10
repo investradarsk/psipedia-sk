@@ -4,6 +4,9 @@ import { runAdminUploadQueue } from "@/lib/admin-upload-queue";
 import { useEffect, useRef, useState } from "react";
 import Uppy from "@uppy/core";
 import DashboardModal from "@uppy/react/dashboard-modal";
+// Load Uppy styles only with gallery-upload editors, not every Admin page.
+import "@uppy/core/css/style.min.css";
+import "@uppy/dashboard/css/style.min.css";
 import sk_SK from "@uppy/locales/lib/sk_SK";
 import { uploadAdminImage, MAX_ADMIN_IMAGE_BYTES, type AdminImageFolder, type AdminImageUpload } from "@/lib/admin-image-upload";
 

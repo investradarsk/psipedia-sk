@@ -89,3 +89,14 @@ test("public Google Maps renderer JavaScript loads only on test mode or consent"
   assert.match(source, /<MapRendererPlaceholder \/>/);
   assert.match(source, /<GoogleMapRenderer/);
 });
+
+test("admin feature styles do not block unrelated admin routes", () => {
+  const adminLayout = readFileSync(new URL("../app/admin/layout.tsx", import.meta.url), "utf8");
+  const uppy = readFileSync(new URL("../components/admin-uppy-gallery-upload.tsx", import.meta.url), "utf8");
+  const tour = readFileSync(new URL("../components/admin-tour-button.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(adminLayout, /@uppy\/|driver\.js\/dist\/driver\.css/);
+  assert.match(uppy, /import "@uppy\/core\/css\/style\.min\.css"/);
+  assert.match(uppy, /import "@uppy\/dashboard\/css\/style\.min\.css"/);
+  assert.match(tour, /import\("driver\.js\/dist\/driver\.css"\)/);
+  assert.match(tour, /await Promise\.all\(\[/);
+});
