@@ -99,16 +99,43 @@ function externalTombstoneKey(kind:RecordKind,row:CanonicalRow):string|null {
 }
 async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number):Promise<NotionTarget[]> {
   if (kind==="breeds") {
-    const work=await db.prepare("SELECT original_notion_page_id,work_notion_page_id,original_data_source_id,work_data_source_id FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE' LIMIT 1")
-      .bind(id).first<{original_notion_page_id:string;work_notion_page_id:string;original_data_source_id:string;work_data_source_id:string}>();
-    if (work) {
-      // Two linked Notion copies must BOTH be verified and moved to trash before
-      // reporting complete. The historical original must not resurrect a breed.
-      return [
-        {pageId:work.work_notion_page_id,sourceId:clean(work.work_data_source_id)},
-        {pageId:work.original_notion_page_id,sourceId:clean(work.original_data_source_id)},
-      ];
+    // Work-copy links exist in SHADOW/VERIFIED long before activation and may
+    // still exist after rollback. A deletion must not leave an untrashed page
+    // with this Psipedia ID that could later be imported again. Collect every
+    // explicitly linked page together with the historical mapping (if present).
+    const tables=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' "+
+      "AND name IN ('breed_notion_sync','breed_notion_workcopy_links')")
+      .all<{name:string}>();
+    const present=new Set((tables.results??[]).map(item=>item.name));
+    const targets:NotionTarget[]=[];
+    let originalSource="";
+    if(present.has("breed_notion_workcopy_links")) {
+      const work=await db.prepare(
+        "SELECT original_notion_page_id,work_notion_page_id,original_data_source_id,work_data_source_id "+
+        "FROM breed_notion_workcopy_links WHERE breed_id=? LIMIT 1")
+        .bind(id).first<{original_notion_page_id:string;work_notion_page_id:string;original_data_source_id:string;work_data_source_id:string}>();
+      if(work) {
+        originalSource=clean(work.original_data_source_id);
+        targets.push({pageId:work.original_notion_page_id,sourceId:originalSource},
+          {pageId:work.work_notion_page_id,sourceId:clean(work.work_data_source_id)});
+      }
     }
+    if(present.has("breed_notion_sync")) {
+      const legacy=await db.prepare("SELECT notion_page_id FROM breed_notion_sync WHERE breed_id=? LIMIT 1")
+        .bind(id).first<{notion_page_id:string}>();
+      if(legacy?.notion_page_id)
+        targets.push({pageId:legacy.notion_page_id,
+          sourceId:clean(bindings.NOTION_BREEDS_DATA_SOURCE_ID||originalSource)});
+    }
+    const unique=new Map<string,NotionTarget>();
+    for(const target of targets) {
+      const key=target.pageId.replaceAll("-","").toLowerCase();
+      const previous=unique.get(key);
+      if(previous) {
+        if(!sameId(previous.sourceId,target.sourceId))throw Error("NOTION_MAPPING_AMBIGUOUS");
+      }else unique.set(key,target);
+    }
+    return [...unique.values()];
   }
   if (kind==="events") {
     // Event synchronization has two historical mapping paths: the original
