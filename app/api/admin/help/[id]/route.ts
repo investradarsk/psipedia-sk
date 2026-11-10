@@ -80,9 +80,9 @@ export async function PATCH(request: Request, { params }: Props) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: Props) {
-  const user = await getAdminApiUser(); if (!user) return unauthorizedAdminResponse();
-  const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID prípadu." }, { status: 400 });
-  try { const item = await deleteManagedHelpCase(id); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 }); if (item.imageKey) { const bucket = (env as unknown as UploadBindings).BUCKET; if (bucket) await bucket.delete(item.imageKey).catch(() => undefined); } return Response.json({ deleted: true, id }); }
-  catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Prípad sa nepodarilo odstrániť." }, { status: 500 }); }
+/** Legacy DELETE must not bypass verified Notion trash + D1 tombstones. */
+export async function DELETE(request:Request) {
+  const auth=await requireAdminMutation(request,{strictProvenance:true});
+  if(auth.response)return auth.response;
+  return Response.json({error:"Použi Natrvalo odstrániť v editore: /api/admin/record-lifecycle."},{status:409});
 }
