@@ -822,7 +822,7 @@ test("344-record FCI import remains idempotent and production routes preserve ed
   // Notion 60 moved historical FCI subfields into the standalone História content field.
   assert.doesNotMatch(fciDetailHtml, /História plemena Labradorský retriever\./);
   assert.match(fciDetailHtml, /Lebečná časť podľa štandardu/);
-  assert.doesNotMatch(fciDetailHtml, /Tvárová časť podľa štandardu/);
+  assert.match(fciDetailHtml, /Tvárová časť podľa štandardu/);
   assert.match(fciDetailHtml, /50–60 cm/);
   assert.match(fciDetailHtml, /48–58 cm/);
   assert.match(fciDetailHtml, /20–30 kg/);

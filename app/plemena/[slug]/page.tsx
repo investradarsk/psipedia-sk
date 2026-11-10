@@ -23,6 +23,8 @@ import {
   type FciStandard,
 } from "@/lib/breed-fci";
 import { normalizeBreedSports, textParagraphs } from "@/lib/breed-profile";
+import { readPublicBreedControlledValues } from "@/lib/breed-public-controlled";
+import { resolvePublicBreedFacts } from "@/lib/breed-public-facts.mjs";
 import {
   getBreedDetailRelations,
   getPublishedBreed,
@@ -117,6 +119,7 @@ export default async function BreedDetailPage({ params }: Props) {
 
   const managedBreed =
     "id" in breed && typeof breed.id === "number" ? (breed as ManagedBreed) : null;
+  const controlledFacts=managedBreed ? await readPublicBreedControlledValues(managedBreed.id) : null;
   const editorial: BreedEditorial = managedBreed?.editorial ?? {};
   const fci: FciStandard = managedBreed?.fciStandard ?? {};
   const sports = normalizeBreedSports(managedBreed?.sports ?? []);
@@ -237,13 +240,22 @@ export default async function BreedDetailPage({ params }: Props) {
   );
   const lifespan = publicBreedMeasurement(breed.lifespan, "lifespan");
 
+  // New Admin values take precedence only when present and valid; old prose
+  // remains a safe read-only fallback until the Notion cutover is complete.
+  const displayFacts=resolvePublicBreedFacts({
+    origin:breed.origin?.trim()??"",size:breed.size?.trim()??"",
+    height,weight,lifespan,fciGroup:breed.fciGroup,
+    fciSection:breed.fciSection,
+  },controlledFacts);
   const quickFacts = [
-    { label: "Pôvod", value: breed.origin?.trim() },
-    { label: "Výška", value: height },
-    { label: "Hmotnosť", value: weight },
-    { label: "Dĺžka života", value: lifespan },
-    { label: "Veľkosť", value: breed.size?.trim() },
-    { label: "FCI skupina", value: breed.fciGroup ? String(breed.fciGroup) : "" },
+    { label: "Pôvod", value: displayFacts.origin },
+    { label: "Veľkosť", value: displayFacts.size },
+    { label: "Typ srsti", value: displayFacts.coatTypes },
+    { label: "Výška", value: displayFacts.height },
+    { label: "Hmotnosť", value: displayFacts.weight },
+    { label: "Dĺžka života", value: displayFacts.lifespan },
+    { label: "Využitie", value: displayFacts.useTypes },
+    { label: "FCI skupina", value: displayFacts.fciGroup },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
   const coatDescription = breed.coat?.trim() ?? "";
   const coatIsLong = coatDescription.length > 160;
@@ -252,12 +264,21 @@ export default async function BreedDetailPage({ params }: Props) {
     : coatDescription;
 
   const overviewParagraphs = textParagraphs(editorial.overview);
+  const characterParagraphs = textParagraphs(breed.character);
+  const historyParagraphs = textParagraphs(breed.history);
+  const healthParagraphs = textParagraphs(breed.health);
+  const needsParagraphs = textParagraphs(breed.needs);
+  const hasCharacteristics=overviewParagraphs.length>0 || characterParagraphs.length>0 || historyParagraphs.length>0;
+  const ratings=[
+    ["Energia",breed.energy],["Trénovateľnosť",breed.trainability],
+    ["Vzťah k deťom",breed.children],["Vzťah k iným psom",breed.otherDogs],
+    ["Vhodnosť do bytu",breed.apartment],["Náročnosť starostlivosti",breed.grooming],
+    ["Pĺznutie",breed.shedding],["Lovecký inštinkt",breed.preyDrive],
+  ].filter((item):item is [string,number]=>typeof item[1]==="number"&&Number.isFinite(item[1])&&item[1]>=1&&item[1]<=5);
   const accordions: AccordionItem[] = [
     {
-      key: "character",
-      eyebrow: "Povaha",
-      title: "Charakter a temperament",
-      paragraphs: textParagraphs(breed.character),
+      key:"needs",eyebrow:"Každodenný život",title:"Potreby plemena",
+      paragraphs:needsParagraphs,
     },
     {
       key: "movement",
@@ -295,20 +316,6 @@ export default async function BreedDetailPage({ params }: Props) {
       title: "Srsť a starostlivosť",
       paragraphs: textParagraphs(editorial.coatCare),
     },
-    {
-      key: "health",
-      eyebrow: "Zdravie",
-      title: "Zdravie",
-      paragraphs: textParagraphs(breed.health),
-      risks: healthRisks,
-    },
-    {
-      key: "history",
-      eyebrow: "Pôvod plemena",
-      title: "História a pôvod",
-      paragraphs: textParagraphs(breed.history),
-      extraSections: [{ title: "Zaujímavosti", paragraphs: textParagraphs(editorial.curiosities) }],
-    },
   ].filter(
     (item) =>
       item.paragraphs.length > 0 ||
@@ -316,18 +323,20 @@ export default async function BreedDetailPage({ params }: Props) {
       Boolean(item.extraSections?.some((section) => section.paragraphs.length > 0)),
   );
 
-  const fciGroupName = getFciGroup(breed.fciGroup)?.label || "";
+  const displayFciGroup=Number(displayFacts.fciGroup)||breed.fciGroup;
+  const fciGroupName = getFciGroup(displayFciGroup)?.label || "";
   const fciGroupHref = breedAtlasHref({
     query: "",
-    fciGroup: String(breed.fciGroup),
+    fciGroup: String(displayFciGroup),
     fciSection: "",
     origin: "",
   });
   // The section NUMBER remains an internal navigation key for the atlas.
   // It is not a separate input or visible field in the compact Notion editor.
-  const sectionNumber = managedBreed?.fciSectionNumber?.trim() ?? "";
+  const sectionNumber = typeof controlledFacts?.fciSectionSelect === "string" && controlledFacts.fciSectionSelect
+    ? controlledFacts.fciSectionSelect : (managedBreed?.fciSectionNumber?.trim() ?? "");
   const fciSectionHref = sectionNumber ? breedAtlasHref({
-    query: "", fciGroup: String(breed.fciGroup),
+    query: "", fciGroup: String(displayFciGroup),
     fciSection: sectionNumber, origin: "",
   }) : undefined;
   // Only FCI identity fields present in the 60-column Notion workcopy.
@@ -335,10 +344,10 @@ export default async function BreedDetailPage({ params }: Props) {
     { label: "FCI číslo", value: managedBreed?.fciNumber ? String(managedBreed.fciNumber) : "" },
     {
       label: "FCI skupina",
-      value: fciGroupName ? `${breed.fciGroup}. ${fciGroupName}` : String(breed.fciGroup),
+      value: fciGroupName ? `${displayFciGroup}. ${fciGroupName}` : String(displayFciGroup),
       href: fciGroupHref,
     },
-    { label: "FCI sekcia", value: breed.fciSection?.trim() || sectionNumber, href: fciSectionHref },
+    { label: "FCI sekcia", value: breed.fciSection?.trim() || displayFacts.fciSection || sectionNumber, href: fciSectionHref },
   ].filter((item) => Boolean(item.value));
   const hasFciReference = Boolean(
     managedBreed?.fciNumber ||
@@ -347,9 +356,11 @@ export default async function BreedDetailPage({ params }: Props) {
   const hasBreederContacts =
     relations.breedingStations.length > 0 || relations.breedClubs.length > 0;
   const sectionNavItems = [
-    overviewParagraphs.length ? { id: "prehlad", label: "Prehľad" } : null,
+    hasCharacteristics ? { id: "prehlad", label: "Charakteristika" } : null,
+    ratings.length ? { id: "hodnotenia", label: "Povaha" } : null,
     goodFor.length || consider.length ? { id: "vhodnost", label: "Vhodnosť" } : null,
-    accordions.length ? { id: "prakticke", label: "Praktické" } : null,
+    accordions.length ? { id: "prakticke", label: "Život a starostlivosť" } : null,
+    healthParagraphs.length || healthRisks.length ? { id: "zdravie", label: "Zdravie" } : null,
     sports.length ? { id: "sporty", label: "Športy" } : null,
     hasFciReference ? { id: "fci", label: "FCI" } : null,
     relations.articles.length ? { id: "suvisiaci-obsah", label: "Články" } : null,
@@ -382,7 +393,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 <div className={styles.identity} data-testid="breed-hero-identity">
                   <div className={styles.fciIdentity}>
                     {managedBreed?.fciNumber ? <span>FCI č. {managedBreed.fciNumber}</span> : null}
-                    {fciGroupName ? <span>Skupina {breed.fciGroup}</span> : null}
+                    {fciGroupName ? <span>Skupina {displayFciGroup}</span> : null}
                   </div>
                   <h1>{breed.name}</h1>
                   {managedBreed?.officialFciName?.trim() ? (
@@ -465,17 +476,94 @@ export default async function BreedDetailPage({ params }: Props) {
           data-testid="breed-content-layout"
         >
           <article className={styles.mainColumn}>
-            {overviewParagraphs.length ? (
-              <section
-                id="prehlad"
-                className={`${styles.readingSection} ${styles.anchorSection}`}
-                aria-labelledby="breed-about"
-              >
-                <p className={styles.eyebrow}>Profil plemena</p>
+            {hasCharacteristics ? (
+              <section id="prehlad" className={`${styles.readingSection} ${styles.anchorSection}`} aria-labelledby="breed-about">
+                <p className={styles.eyebrow}>Všeobecná charakteristika</p>
                 <h2 id="breed-about">O plemene</h2>
-                <div className={styles.prose}>
-                  <ReadingText paragraphs={overviewParagraphs} />
+                {overviewParagraphs.length ? <div className={styles.prose}><ReadingText paragraphs={overviewParagraphs}/></div> : null}
+                {characterParagraphs.length ? <div className={styles.characterBlock}>
+                  <h3>Charakter a temperament</h3>
+                  <div className={styles.prose}><ReadingText paragraphs={characterParagraphs}/></div>
+                </div> : null}
+                {historyParagraphs.length ? <div className={styles.characterBlock}>
+                  <h3>História a pôvod plemena</h3>
+                  <div className={styles.prose}><ReadingText paragraphs={historyParagraphs}/></div>
+                </div> : null}
+                {editorial.curiosities?.trim() ? <div className={styles.characterBlock}>
+                  <h3>Zaujímavosti</h3>
+                  <div className={styles.prose}><ReadingText paragraphs={textParagraphs(editorial.curiosities)}/></div>
+                </div> : null}
+              </section>
+            ) : null}
+            {ratings.length ? (
+              <section id="hodnotenia" className={`${styles.ratingSection} ${styles.anchorSection}`} aria-labelledby="breed-ratings">
+                <p className={styles.eyebrow}>Vlastnosti a temperament</p>
+                <h2 id="breed-ratings">Povaha v číslach</h2>
+                <div className={styles.ratingGrid}>
+                  {ratings.map(([label,value])=><div className={styles.ratingItem} key={label}>
+                    <div><strong>{label}</strong><span>{value}/5</span></div>
+                    <meter min={1} max={5} value={value} aria-label={label} />
+                  </div>)}
                 </div>
+              </section>
+            ) : null}
+
+            {accordions.length ? (
+              <section
+                id="prakticke"
+                className={`${styles.practicalSection} ${styles.anchorSection}`}
+                aria-labelledby="breed-practical"
+              >
+                <div className={styles.sectionIntro}>
+                  <p className={styles.eyebrow}>Každodenný život so psom</p>
+                  <h2 id="breed-practical">Praktické informácie</h2>
+                </div>
+                <div className={styles.accordionList}>
+                  {accordions.map((item) => (
+                    <BreedProfileAccordion key={item.key} title={item.title} eyebrow={item.eyebrow}>
+                      {item.paragraphs.length ? (
+                        <div className={styles.prose}>
+                          <ReadingText paragraphs={item.paragraphs} />
+                        </div>
+                      ) : null}
+                      {item.tip?.trim() ? (
+                        <aside className={styles.tip}>
+                          <p>{item.tip}</p>
+                        </aside>
+                      ) : null}
+                      {item.risks?.length ? (
+                        <div className={styles.riskBlock}>
+                          <h4>Známe zdravotné riziká</h4>
+                          <ul>
+                            {item.risks.map((risk) => (
+                              <li key={risk}>{risk}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {item.extraSections
+                        ?.filter((section) => section.paragraphs.length > 0)
+                        .map((section) => (
+                          <section className={styles.riskBlock} key={section.title}>
+                            <h4>{section.title}</h4>
+                            <div className={styles.prose}>
+                              <ReadingText paragraphs={section.paragraphs} />
+                            </div>
+                          </section>
+                        ))}
+                    </BreedProfileAccordion>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {healthParagraphs.length || healthRisks.length ? (
+              <section id="zdravie" className={`${styles.readingSection} ${styles.anchorSection}`} aria-labelledby="breed-health-heading">
+                <p className={styles.eyebrow}>Zdravie a prevencia</p>
+                <h2 id="breed-health-heading">Zdravie plemena</h2>
+                {healthParagraphs.length ? <div className={styles.prose}><ReadingText paragraphs={healthParagraphs}/></div> : null}
+                {healthRisks.length ? <div className={styles.riskBlock}><h3>Typické zdravotné riziká</h3>
+                  <ul>{healthRisks.map(risk=><li key={risk}>{risk}</li>)}</ul></div> : null}
               </section>
             ) : null}
 
@@ -512,6 +600,95 @@ export default async function BreedDetailPage({ params }: Props) {
                     </div>
                   ) : null}
                 </div>
+              </section>
+            ) : null}
+
+            {hasFciReference ? (
+              <section
+                id="fci"
+                className={`${styles.fciSection} ${styles.anchorSection}`}
+                aria-labelledby="breed-fci"
+              >
+                <div className={styles.fciHeading}>
+                  <p className={styles.eyebrow}>Oficiálna referencia</p>
+                  <h2 id="breed-fci">Oficiálne zaradenie FCI</h2>
+                  <p>
+                    Na hlavnom profile uvádzame iba základné zaradenie. Úplný štandard je dostupný
+                    samostatne ako odborná referencia.
+                  </p>
+                </div>
+                {fciFacts.length ? (
+                  <dl className={styles.fciFacts}>
+                    {fciFacts.map((fact) => (
+                      <div key={fact.label}>
+                        <dt>{fact.label}</dt>
+                        <dd>
+                          {fact.href ? (
+                            <Link href={fact.href} className="text-link">
+                              {fact.value}
+                            </Link>
+                          ) : (
+                            fact.value
+                          )}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                <PublicActionLink
+                  href={`/plemena/${breed.slug}/fci-standard`}
+                  className={styles.primaryLink}
+                  data-testid="breed-fci-cta"
+                >
+                  Pozrieť celý FCI štandard <span aria-hidden="true">→</span>
+                </PublicActionLink>
+              </section>
+            ) : null}
+            {sports.length ? (
+              <section
+                id="sporty"
+                className={`${styles.sportsSection} ${styles.anchorSection}`}
+                aria-labelledby="breed-sports-heading"
+              >
+                <div className={styles.sectionIntro}>
+                  <p className={styles.eyebrow}>Aktivity</p>
+                  <h2 id="breed-sports-heading">Šport a pracovné využitie</h2>
+                  <p>
+                    Odporúčané aktivity sú zoradené priamo v profile, aby ich nebolo potrebné hľadať
+                    v rozbalených témach.
+                  </p>
+                </div>
+                <div
+                  className={styles.sportList}
+                  aria-label="Vhodné športy a pracovné aktivity"
+                  data-testid="breed-sports"
+                >
+                  {sports.map((sport) => (
+                    <div key={sport.key} data-sport-key={sport.key}>
+                      <div>
+                        <strong>{sport.label}</strong>
+                        {sport.note ? <p>{sport.note}</p> : null}
+                      </div>
+                      <span aria-label={`hodnotenie ${sport.rating} z 5`}>{sport.rating}/5</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {sources.length ? (
+              <section className={styles.readingSection} aria-labelledby="breed-sources">
+                <p className={styles.eyebrow}>Zdroje informácií</p>
+                <h2 id="breed-sources">Odborné zdroje</h2>
+                <ol className="breed-source-list">
+                  {sources.map((source) => (
+                    <li key={`${source.label}-${source.url}`}>
+                      <a href={source.url} rel="noopener noreferrer" target="_blank">
+                        {source.label}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
               </section>
             ) : null}
 
@@ -567,144 +744,6 @@ export default async function BreedDetailPage({ params }: Props) {
               </section>
             ) : null}
 
-            {accordions.length ? (
-              <section
-                id="prakticke"
-                className={`${styles.practicalSection} ${styles.anchorSection}`}
-                aria-labelledby="breed-practical"
-              >
-                <div className={styles.sectionIntro}>
-                  <p className={styles.eyebrow}>Každodenný život so psom</p>
-                  <h2 id="breed-practical">Praktické informácie</h2>
-                </div>
-                <div className={styles.accordionList}>
-                  {accordions.map((item) => (
-                    <BreedProfileAccordion key={item.key} title={item.title} eyebrow={item.eyebrow}>
-                      {item.paragraphs.length ? (
-                        <div className={styles.prose}>
-                          <ReadingText paragraphs={item.paragraphs} />
-                        </div>
-                      ) : null}
-                      {item.tip?.trim() ? (
-                        <aside className={styles.tip}>
-                          <p>{item.tip}</p>
-                        </aside>
-                      ) : null}
-                      {item.risks?.length ? (
-                        <div className={styles.riskBlock}>
-                          <h4>Známe zdravotné riziká</h4>
-                          <ul>
-                            {item.risks.map((risk) => (
-                              <li key={risk}>{risk}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                      {item.extraSections
-                        ?.filter((section) => section.paragraphs.length > 0)
-                        .map((section) => (
-                          <section className={styles.riskBlock} key={section.title}>
-                            <h4>{section.title}</h4>
-                            <div className={styles.prose}>
-                              <ReadingText paragraphs={section.paragraphs} />
-                            </div>
-                          </section>
-                        ))}
-                    </BreedProfileAccordion>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {sports.length ? (
-              <section
-                id="sporty"
-                className={`${styles.sportsSection} ${styles.anchorSection}`}
-                aria-labelledby="breed-sports-heading"
-              >
-                <div className={styles.sectionIntro}>
-                  <p className={styles.eyebrow}>Aktivity</p>
-                  <h2 id="breed-sports-heading">Šport a pracovné využitie</h2>
-                  <p>
-                    Odporúčané aktivity sú zoradené priamo v profile, aby ich nebolo potrebné hľadať
-                    v rozbalených témach.
-                  </p>
-                </div>
-                <div
-                  className={styles.sportList}
-                  aria-label="Vhodné športy a pracovné aktivity"
-                  data-testid="breed-sports"
-                >
-                  {sports.map((sport) => (
-                    <div key={sport.key} data-sport-key={sport.key}>
-                      <div>
-                        <strong>{sport.label}</strong>
-                        {sport.note ? <p>{sport.note}</p> : null}
-                      </div>
-                      <span aria-label={`hodnotenie ${sport.rating} z 5`}>{sport.rating}/5</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {sources.length ? (
-              <section className={styles.readingSection} aria-labelledby="breed-sources">
-                <p className={styles.eyebrow}>Zdroje informácií</p>
-                <h2 id="breed-sources">Odborné zdroje</h2>
-                <ol className="breed-source-list">
-                  {sources.map((source) => (
-                    <li key={`${source.label}-${source.url}`}>
-                      <a href={source.url} rel="noopener noreferrer" target="_blank">
-                        {source.label}
-                      </a>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ) : null}
-
-            {hasFciReference ? (
-              <section
-                id="fci"
-                className={`${styles.fciSection} ${styles.anchorSection}`}
-                aria-labelledby="breed-fci"
-              >
-                <div className={styles.fciHeading}>
-                  <p className={styles.eyebrow}>Oficiálna referencia</p>
-                  <h2 id="breed-fci">Oficiálne zaradenie FCI</h2>
-                  <p>
-                    Na hlavnom profile uvádzame iba základné zaradenie. Úplný štandard je dostupný
-                    samostatne ako odborná referencia.
-                  </p>
-                </div>
-                {fciFacts.length ? (
-                  <dl className={styles.fciFacts}>
-                    {fciFacts.map((fact) => (
-                      <div key={fact.label}>
-                        <dt>{fact.label}</dt>
-                        <dd>
-                          {fact.href ? (
-                            <Link href={fact.href} className="text-link">
-                              {fact.value}
-                            </Link>
-                          ) : (
-                            fact.value
-                          )}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : null}
-                <PublicActionLink
-                  href={`/plemena/${breed.slug}/fci-standard`}
-                  className={styles.primaryLink}
-                  data-testid="breed-fci-cta"
-                >
-                  Pozrieť celý FCI štandard <span aria-hidden="true">→</span>
-                </PublicActionLink>
-              </section>
-            ) : null}
           </article>
           <aside
             id="uzitocne"

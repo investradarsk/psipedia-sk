@@ -8,6 +8,8 @@ import {
   type FciStandard,
 } from "@/lib/breed-fci";
 import { textParagraphs } from "@/lib/breed-profile";
+import { readPublicBreedControlledValues } from "@/lib/breed-public-controlled";
+import { resolvePublicBreedFacts } from "@/lib/breed-public-facts.mjs";
 import { getPublishedBreed, type ManagedBreed } from "@/lib/breed-store";
 import { serializeJsonLd, SITE_URL } from "@/lib/seo";
 import {
@@ -55,9 +57,16 @@ export default async function BreedFciStandardPage({ params }: Props) {
   if (!breed) notFound();
 
   const managed = "id" in breed && typeof breed.id === "number" ? breed as ManagedBreed : null;
+  const controlled = managed ? await readPublicBreedControlledValues(managed.id) : null;
+  const publicFacts = resolvePublicBreedFacts({
+    origin: breed.origin, size: breed.size,
+    height: breed.height ?? "",weight:breed.weight,lifespan:breed.lifespan,
+    fciGroup:breed.fciGroup,fciSection:breed.fciSection,
+  }, controlled);
+  const fciGroup = Number(publicFacts.fciGroup)||breed.fciGroup;
   const fci: FciStandard = managed?.fciStandard ?? {};
-  const groupName = getFciGroup(breed.fciGroup)?.label ?? "";
-  const sectionName = breed.fciSection?.trim() ?? "";
+  const groupName = getFciGroup(fciGroup)?.label ?? "";
+  const sectionName = breed.fciSection?.trim()||publicFacts.fciSection;
 
   const dogHeight = publicBreedMeasurement(fci.vyska_pes_cm, "height");
   const bitchHeight = publicBreedMeasurement(fci.vyska_suka_cm, "height");
@@ -73,9 +82,8 @@ export default async function BreedFciStandardPage({ params }: Props) {
     { label: "Hmotnosť", value: bitchWeight },
   ].filter((fact): fact is { label: string; value: string } => Boolean(fact.value));
 
-  // These are the independent FCI fields in the new Notion workcopy.
-  // Previously separate eyes, ears, neck, etc. were consolidated into
-  // the retained Notion paragraphs and are not separate public fields.
+  // Render independent canonical FCI values when available. No field is
+  // generated from the descriptive Notion workcopy or duplicated by inference.
   const groups = [
     group("celkovy-vzhlad-a-povaha", "Celkový vzhľad a povaha", [
       textItem("Celkový vzhľad", fci.celkovy_vzhlad),
@@ -84,9 +92,14 @@ export default async function BreedFciStandardPage({ params }: Props) {
     ]),
     group("hlava", "Hlava", [
       textItem("FCI lebka", fci.hlava_lebecna_cast),
+      textItem("Tvárová časť", fci.hlava_tvarova_cast),
+      textItem("Oči", fci.oci),
+      textItem("Uši", fci.usi),
     ]),
     group("telo-a-stavba", "Telo a stavba", [
+      textItem("Krk", fci.krk),
       textItem("Telo", fci.telo),
+      textItem("Chvost", fci.chvost),
     ]),
     group("koncatiny-a-pohyb", "Končatiny a pohyb", [
       textItem("Predné končatiny", fci.predne_koncatiny),
@@ -94,6 +107,7 @@ export default async function BreedFciStandardPage({ params }: Props) {
       textItem("Pohyb", fci.pohyb),
     ]),
     group("srst-a-farba", "Srsť a farba", [
+      textItem("Koža", fci.koza),
       textItem("Srsť", fci.srst),
       textItem("Farba", fci.farba),
     ]),
@@ -112,9 +126,12 @@ export default async function BreedFciStandardPage({ params }: Props) {
 
   const referenceFacts = [
     { label: "FCI číslo", value: managed?.fciNumber ? String(managed.fciNumber) : "" },
-    { label: "Skupina", value: groupName ? `${breed.fciGroup}. ${groupName}` : String(breed.fciGroup) },
+    { label: "Skupina", value: groupName ? `${fciGroup}. ${groupName}` : String(fciGroup) },
     { label: "Sekcia", value: sectionName },
-    { label: "Krajina pôvodu", value: breed.origin?.trim() ?? "" },
+    { label: "Krajina pôvodu", value: publicFacts.origin },
+    { label: "Veľkosť", value: publicFacts.size },
+    { label: "Výška", value: publicFacts.height },
+    { label: "Hmotnosť", value: publicFacts.weight },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
 
   const officialLinks = [

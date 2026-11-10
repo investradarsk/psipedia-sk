@@ -1407,3 +1407,75 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Breed profile v4: compact reading order matching the canonical Admin editor. */
+.page .quickFacts {
+  padding: 14px 0 18px;
+  margin-top: 0;
+}
+.page .quickFacts .factGrid {
+  grid-template-columns: repeat(4,minmax(0,1fr));
+}
+.page .quickFacts .factGrid > div {
+  padding: 10px 12px;
+}
+.page .readingSection {
+  padding: 26px 0;
+  margin: 0;
+  max-width: 100%;
+}
+.page .practicalSection,
+.page .sportsSection,
+.page .fitSection { padding: 28px 0; }
+.page .sectionIntro { margin-bottom: 16px; }
+.characterBlock {
+  margin-top: 19px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ps-border-soft);
+}
+.characterBlock h3 {
+  margin: 0 0 9px;
+  color: var(--forest-dark);
+  font-size: clamp(1.08rem,1.8vw,1.24rem);
+}
+.characterBlock .prose { margin-top: 6px; }
+.ratingSection {
+  composes: section from "../../../components/detail-primitives/detail-primitives.module.css";
+  padding: 25px 0 29px;
+  border-top: 1px solid var(--ps-border-soft);
+  border-bottom: 1px solid var(--ps-border-soft);
+}
+.ratingSection h2 { font-size: var(--ps-detail-heading-size); margin: 0 0 16px; }
+.ratingGrid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 9px;
+}
+.ratingItem {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  padding: 12px 14px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-control);
+  background: var(--white);
+}
+.ratingItem > div { display: flex; justify-content: space-between; gap: 8px; }
+.ratingItem strong { font-size: .83rem; font-weight: 700; }
+.ratingItem span { color: var(--forest-dark); font-size: .8rem; font-weight: 800; }
+.ratingItem meter { width: 100%; height: 10px; accent-color: var(--forest); }
+@media (max-width: 950px) {
+  .page .quickFacts .factGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 560px) {
+  .page .quickFacts { padding: 10px 0 14px; }
+  .page .quickFacts .factGrid > div { padding: 9px 11px; }
+  .page .readingSection,
+  .page .practicalSection,
+  .page .sportsSection,
+  .page .fitSection,
+  .ratingSection { padding: 22px 0; }
+  .ratingGrid { grid-template-columns: 1fr; gap: 7px; }
+  .ratingItem { padding: 10px 12px; }
+  .characterBlock { margin-top: 14px; padding-top: 12px; }
+}

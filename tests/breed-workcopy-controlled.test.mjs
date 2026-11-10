@@ -93,5 +93,8 @@ test("integration uses a separate D1 sidecar and only ACTIVE targeted links",()=
   assert.match(runtime,/receiveBreedControlledNotionEdit/);
   assert.match(sweep,/receiveBreedControlledNotionEdit\(/);
   assert.match(route,/requireAdminMutation/);
-  assert.match(editor,/Kontrolované údaje – Notion/);
+  assert.match(editor,/renderControlled\("originCountries"\)/);
+  assert.match(editor,/renderControlled\("heightMinCm"\)/);
+  assert.match(editor,/renderControlled\("weightMinKg"\)/);
+  assert.match(editor,/changeControlled\(field.key/);
 });
