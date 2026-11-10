@@ -1,6 +1,7 @@
 /**
  * Podujatia: explicit editorial field events rather than whole-record replay.
- * Slug, publication, photos and confirmed Google locations have separate owners.
+ * Slug, publication, binary media and confirmed Google locations have separate owners.
+ * The main image URL is mirrored as an editorial reference, not as a binary upload.
  */
 export const EVENT_NOTION_FIELDS = {
   title:"Názov", eventType:"Typ podujatia",
@@ -9,7 +10,7 @@ export const EVENT_NOTION_FIELDS = {
   organizer:"Organizátor",excerpt:"Perex",description:"Popis",practicalInfo:"Praktické info",
   contactPhone:"Telefón organizátora", contactEmail:"E-mail organizátora",
   admissionFee:"Vstupné",websiteUrl:"Web",registrationUrl:"Registrácia",
-  imageAlt:"Alt text obrázka",internalNotes:"Poznámky",
+  imageUrl:"Hlavný obrázok URL",imageAlt:"Alt text obrázka",internalNotes:"Poznámky",
   "seo.title":"SEO title","seo.description":"Meta description",
   "seo.focusKeyword":"SEO kľúčové slovo","seo.canonicalUrl":"Canonical URL",
   "seo.noindex":"Noindex","seo.ogTitle":"OG title",
