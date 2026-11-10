@@ -60,7 +60,18 @@ function requireDataSource(id:string) {
 export async function lifecycleSchemaReady(db:D1Database) {
   const result = await db.prepare("SELECT COUNT(*) AS total FROM sqlite_master WHERE type='table' AND name IN ('admin_record_tombstones','admin_record_publication_guards')")
     .first<{total:number}>();
-  return result?.total === 2;
+  if(result?.total!==2)return false;
+  const triggerNames=recordKinds.flatMap(kind=>[
+    "admin_deleted_"+kind.replace("-","_")+"_insert",
+    "admin_removing_"+kind.replace("-","_")+"_update",
+    "admin_guarded_"+kind.replace("-","_")+"_delete",
+  ]);
+  const safeNames=triggerNames.map(()=>"?").join(",");
+  const triggers=await db.prepare("SELECT COUNT(*) AS total FROM sqlite_master WHERE type='trigger' AND name IN ("+safeNames+")")
+    .bind(...triggerNames).first<{total:number}>();
+  if(triggers?.total!==triggerNames.length)return false;
+  const columns=await db.prepare("PRAGMA table_info(admin_record_tombstones)").all<{name:string}>();
+  return (columns.results??[]).some(column=>column.name==="notion_targets_json");
 }
 async function canonical(db:D1Database,kind:RecordKind,id:number):Promise<CanonicalRow|null> {
   const spec=specs[kind];
