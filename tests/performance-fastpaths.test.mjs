@@ -58,3 +58,25 @@ test("breed redirects deduplicate D1 lookups with a short bounded isolate cache"
   assert.match(worker, /breedRedirectCache\.delete\(slug\)/);
   assert.match(worker, /canonicalBreedRedirect\(database, slug\)/);
 });
+
+const fs = readFileSync;
+const uiSources = {
+  footer: fs(new URL("../components/site-footer.tsx", import.meta.url), "utf8"),
+  articles: fs(new URL("../components/public-visual-system/public-article-card.tsx", import.meta.url), "utf8"),
+  home: fs(new URL("../components/home-editorial.tsx", import.meta.url), "utf8"),
+  categories: fs(new URL("../components/admin-directory-module-nav.tsx", import.meta.url), "utf8"),
+  dashboard: fs(new URL("../components/admin-workspace-dashboard.tsx", import.meta.url), "utf8"),
+  events: fs(new URL("../components/admin-event-dashboard.tsx", import.meta.url), "utf8"),
+  help: fs(new URL("../components/admin-help-dashboard.tsx", import.meta.url), "utf8"),
+  breeds: fs(new URL("../components/admin-breed-dashboard.tsx", import.meta.url), "utf8"),
+};
+
+test("long public lists and admin tables do not trigger speculative RSC prefetches", () => {
+  for (const [name, source] of Object.entries(uiSources)) {
+    const links = [...source.matchAll(/<Link\b[^>]*>/gs)].map((match) => match[0]);
+    assert.ok(links.length > 0, name + ": expected navigational links");
+    for (const link of links) {
+      assert.match(link, /\bprefetch=\{false\}/, name + ": no automatic prefetch for large link collections");
+    }
+  }
+});

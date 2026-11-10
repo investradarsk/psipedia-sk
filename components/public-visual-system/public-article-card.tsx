@@ -90,7 +90,7 @@ function ArticleMeta({
           {topic}
         </span>
       ) : (
-        <Link href={topicHref} className="article-card-topic" data-article-topic>
+        <Link prefetch={false} href={topicHref} className="article-card-topic" data-article-topic>
           {topic}
         </Link>
       )}
@@ -137,7 +137,7 @@ export function PublicArticleCard(props: PublicArticleCardProps) {
   const media = <ArticleMedia {...props} variant={variant} />;
   if (variant === "row")
     return (
-      <Link
+      <Link prefetch={false}
         id={anchorId}
         href={href}
         className={[
@@ -180,7 +180,7 @@ export function PublicArticleCard(props: PublicArticleCardProps) {
       data-article-variant={variant}
     >
       {props.image || !omitMissingImage ? (
-        <Link
+        <Link prefetch={false}
           href={href}
           className="article-card-media"
           aria-label={`${actionLabel}: ${typeof title === "string" ? title : ""}`}
@@ -191,7 +191,7 @@ export function PublicArticleCard(props: PublicArticleCardProps) {
       <div className="article-card-body">
         <ArticleMeta {...props} row={false} />
         <Heading className="article-card-title" data-public-card-title>
-          <Link href={href}>{title}</Link>
+          <Link prefetch={false} href={href}>{title}</Link>
         </Heading>
         {excerpt ? <p className="article-card-excerpt">{excerpt}</p> : null}
         {footer ? <div className="article-card-footer">{footer}</div> : null}

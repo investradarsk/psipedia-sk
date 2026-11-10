@@ -75,7 +75,7 @@ export function HomeSidebarRow({
   description?: ReactNode;
 }) {
   return (
-    <Link href={href} className="home-side-unified-row" data-home-sidebar-row>
+    <Link prefetch={false} href={href} className="home-side-unified-row" data-home-sidebar-row>
       <span className="home-side-unified-media">{media}</span>
       <span className="home-side-unified-copy">
         {eyebrow ? <small className="home-side-unified-eyebrow">{eyebrow}</small> : null}
@@ -106,7 +106,7 @@ export function HomeMagazineSidebar({
         <h3>{title}</h3>
       </div>
       {children}
-      <Link href={href} className="home-magazine-sidebar-action">
+      <Link prefetch={false} href={href} className="home-magazine-sidebar-action">
         {actionLabel} <ArrowIcon size={16} />
       </Link>
     </section>
@@ -183,7 +183,7 @@ export function HomeLatestArticles({
           </PublicEmptyState>
         )}
         <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="latest">
-          <Link href="/clanky" className="text-link">
+          <Link prefetch={false} href="/clanky" className="text-link">
             Všetky články <ArrowIcon size={17} />
           </Link>
         </div>
@@ -212,7 +212,7 @@ export function HomeBreedMagazine({ breeds }: { breeds: HomeBreedCard[] }) {
   return (
     <div className="home-latest-layout home-breed-magazine" data-home-breed-layout>
       <article className="home-breed-feature">
-        <Link href={`/plemena/${lead.slug}`}>
+        <Link prefetch={false} href={`/plemena/${lead.slug}`}>
           <span className="home-breed-feature-media">
             <BreedPhoto
               src={lead.image ?? undefined}
@@ -233,7 +233,7 @@ export function HomeBreedMagazine({ breeds }: { breeds: HomeBreedCard[] }) {
         <div className="home-latest-list home-breed-list">
           {others.map((breed) => (
             <article className="home-breed-list-item" key={breed.slug}>
-              <Link href={`/plemena/${breed.slug}`}>
+              <Link prefetch={false} href={`/plemena/${breed.slug}`}>
                 <span className="home-breed-list-media">
                   <BreedPhoto
                     src={breed.image ?? undefined}
@@ -309,7 +309,7 @@ export function HomeEditorialSection({
           ))}
       </HomeMagazineColumns>
       <div className="home-section-cta home-section-cta--quiet" data-home-section-cta={testId}>
-        <Link href={href} className="text-link">
+        <Link prefetch={false} href={href} className="text-link">
           {actionLabel} <ArrowIcon size={17} />
         </Link>
       </div>
