@@ -1,3 +1,4 @@
+import { invalidateVersionedPublicHtmlCacheUrl } from "@/lib/public-html-cache";
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
@@ -38,6 +39,31 @@ export async function GET(_request:Request,context:Context) {
     return preview?json(preview):json({error:"RECORD_NOT_FOUND"},404);
   }catch{return json({error:"LIFECYCLE_PREFLIGHT_FAILED"},503);}
 }
+function publicPath(record:{kind:string;slug:string;category:string}) {
+  const slug=encodeURIComponent(record.slug);
+  const category=encodeURIComponent(record.category);
+  switch(record.kind) {
+    case "directory":return "/adresar/"+category+"/"+slug;
+    case "events":return "/podujatia/"+slug;
+    case "help":return "/pomoc-psom/"+category+"/"+slug;
+    case "breeds":return "/plemena/"+slug;
+    case "articles":return "/"+(record.category==="clanky"?"clanky":category)+"/"+slug;
+    case "adoptions":return "/pomoc-psom/adopcia/"+slug;
+    case "lost-found":return "/pomoc-psom/"+(record.category==="FOUND"?"najdene-psy":"stratene-psy")+"/"+slug;
+    case "organizations":return "/organizacie/"+slug;
+    default:return null;
+  }
+}
+async function invalidateRecordPage(request:Request,record:{kind:string;slug:string;category:string}|null) {
+  const path=record&&publicPath(record);
+  if(!path)return false;
+  const version=(env as unknown as {CF_VERSION_METADATA?:{id?:string}}).CF_VERSION_METADATA?.id;
+  try {
+    return await invalidateVersionedPublicHtmlCacheUrl(new URL(path,request.url),version);
+  } catch {
+    return false; // Public HTML versioned cache may be unavailable outside Workers.
+  }
+}
 export async function POST(request:Request,context:Context) {
   const auth=await requireAdminMutation(request,{strictProvenance:true});
   if(auth.response)return auth.response;
@@ -55,14 +81,18 @@ export async function POST(request:Request,context:Context) {
   }catch{return json({error:"INVALID_JSON"},400);}
   try{
     if(!await lifecycleSchemaReady(db))return json({error:"LIFECYCLE_MIGRATION_0164_REQUIRED"},503);
+    const preview=await recordLifecyclePreview(db,bindings,target.kind,target.id);
+    if(!preview)return json({error:"RECORD_NOT_FOUND"},404);
     if(body.action==="unpublish") {
       const result=await unpublishRecord(db,bindings,target.kind,target.id);
-      return json(result,result.notionSync==="PENDING"?202:200);
+      const cacheInvalidated=await invalidateRecordPage(request,preview);
+      return json({...result,cacheInvalidated},result.notionSync==="PENDING"?202:200);
     }
     if(body.action==="delete") {
       if(body.confirmation!=="VYMAZAŤ")return json({error:"DELETE_CONFIRMATION_REQUIRED"},400);
       const result=await removeRecord(db,bindings,target.kind,target.id,auth.user!.email,body.localOnly===true);
-      return json(result,result.state==="COMPLETE"?200:202);
+      const cacheInvalidated=await invalidateRecordPage(request,preview);
+      return json({...result,cacheInvalidated},result.state==="COMPLETE"?200:202);
     }
     return json({error:"UNSUPPORTED_LIFECYCLE_ACTION"},400);
   }catch(error){
