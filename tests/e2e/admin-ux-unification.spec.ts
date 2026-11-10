@@ -289,28 +289,28 @@ for (const width of [1440, 390, 320]) {
   });
 }
 
-test("breed settings drawer preserves input, traps keyboard focus and returns focus on Escape", async ({ page }, testInfo) => {
+test("breed FCI and SEO sections remain keyboard accessible while unsaved input survives navigation", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: testInfo.project.name === "mobile-chromium" ? 320 : 1440, height: 900 });
   await page.goto("/admin/plemena/novy");
   await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
-  await page.getByLabel("Názov plemena", { exact: true }).fill("Neuložené plemeno");
-  const trigger = page.getByRole("button", { name: "Nastavenia, FCI a SEO", exact: true });
-  await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Nastavenia plemena", exact: true });
-  await expect(dialog).toBeVisible();
-  // The updated breed editor generates its slug from the name; settings
-  // now expose only the Notion-aligned FCI reference and SEO fields.
-  await expect(dialog.getByLabel("FCI štandard PDF")).toBeVisible();
-  for (let i = 0; i < 5; i++) {
-    await page.keyboard.press("Shift+Tab");
-    expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
-  }
+  const nameInput = page.getByLabel("Názov plemena", { exact: true });
+  await nameInput.fill("Neuložené plemeno");
+  const navigation = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
+  const activate = async (id: string, label: string) => {
+    const mobile = navigation.getByRole("combobox", { name: "Sekcia editora" });
+    if (await mobile.isVisible()) await mobile.selectOption(id);
+    else await navigation.getByRole("button", { name: label, exact: true }).click();
+    await expect(page.locator("#" + id)).toBeVisible();
+  };
+  await activate("breed-fci", "FCI štandard");
+  await expect(page.locator("#breed-fci").getByLabel("FCI štandard PDF")).toBeVisible();
+  await activate("breed-settings", "Publikovanie a SEO");
+  await expect(page.locator("#breed-settings").getByLabel("SEO title")).toBeVisible();
+  await expect(page.locator("#breed-settings").getByLabel("Meta description")).toBeVisible();
   await noOverflow(page);
   await accessible(page);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-  await expect(trigger).toBeFocused();
-  await expect(page.getByLabel("Názov plemena", { exact: true })).toHaveValue("Neuložené plemeno");
+  await activate("breed-basic", "Základné údaje");
+  await expect(nameInput).toHaveValue("Neuložené plemeno");
 });
 
 test("shared navigation keeps its layout and active section after client navigation", async ({ page }, testInfo) => {
