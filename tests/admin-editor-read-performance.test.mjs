@@ -86,7 +86,11 @@ test("breed editor retains draft state across switched sections and isolates FCI
   assert.match(editor, /<AdminEditorSection id="breed-overview"/);
   assert.match(editor, /<AdminEditorSection id="breed-health"/);
   assert.match(editor, /<AdminLexicalTextField/);
-  assert.match(editor, /title="Nastavenia plemena"/);
+  // The canonical FCI settings are reached via the shared section pager,
+  // instead of the retired drawer. The FCI form must remain mounted and
+  // preserve unsaved edits while sections are switched.
+  assert.match(editor, /chooseBreedSection\("breed-fci"\)/);
+  assert.match(editor, /<AdminEditorSection id="breed-fci"/);
   assert.match(editor, /fciSections\.map\(\(section\)=><details className=\{styles\.fciGroup\}/);
   assert.match(editor, /if \(formEditRevisionRef\.current === submittedRevision\) setDirty\(false\)/);
 });
