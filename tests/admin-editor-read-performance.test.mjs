@@ -91,7 +91,7 @@ test("breed editor retains draft state across switched sections and isolates FCI
   // preserve unsaved edits while sections are switched.
   assert.match(editor, /chooseBreedSection\("breed-fci"\)/);
   assert.match(editor, /<AdminEditorSection id="breed-fci"/);
-  assert.match(editor, /fciSections\.map\(\(section\)=><details className=\{styles\.fciGroup\}/);
+  assert.match(editor, /fciSections\.map\(section=><details className=\{styles\.fciGroup\}/);
   assert.match(editor, /if \(formEditRevisionRef\.current === submittedRevision\) setDirty\(false\)/);
 });
 
