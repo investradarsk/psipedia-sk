@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS admin_record_tombstones (
   kind TEXT NOT NULL CHECK (kind IN ('directory','events','help','breeds','articles','adoptions','lost-found','organizations')),
   record_id INTEGER NOT NULL CHECK(record_id > 0),
   record_slug TEXT NOT NULL,
+  record_external_key TEXT,
   record_name TEXT NOT NULL,
   record_category TEXT NOT NULL,
   notion_page_id TEXT,
@@ -24,6 +25,8 @@ CREATE INDEX IF NOT EXISTS admin_record_tombstones_state_idx
   ON admin_record_tombstones(state, updated_at);
 CREATE INDEX IF NOT EXISTS admin_record_tombstones_slug_idx
   ON admin_record_tombstones(kind, record_slug);
+CREATE INDEX IF NOT EXISTS admin_record_tombstones_external_idx
+  ON admin_record_tombstones(kind,record_external_key);
 CREATE TABLE IF NOT EXISTS admin_record_publication_guards (
   kind TEXT NOT NULL CHECK (kind IN ('directory','events','help','breeds','articles','adoptions','lost-found','organizations')),
   record_id INTEGER NOT NULL,
@@ -37,7 +40,7 @@ CREATE TABLE IF NOT EXISTS admin_record_publication_guards (
 -- and Gemini accidentally recreating the exact deleted slug.
 CREATE TRIGGER IF NOT EXISTS admin_deleted_directory_insert
   BEFORE INSERT ON directory_profiles
-  WHEN EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='directory' AND record_slug=NEW.slug)
+  WHEN EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='directory' AND (record_slug=NEW.slug OR (NEW.import_key IS NOT NULL AND length(trim(NEW.import_key))>0 AND record_external_key=trim(NEW.import_key))))
   BEGIN SELECT RAISE(ABORT, 'RECORD_TOMBSTONED'); END;
 CREATE TRIGGER IF NOT EXISTS admin_deleted_events_insert
   BEFORE INSERT ON managed_events
@@ -49,7 +52,7 @@ CREATE TRIGGER IF NOT EXISTS admin_deleted_help_insert
   BEGIN SELECT RAISE(ABORT, 'RECORD_TOMBSTONED'); END;
 CREATE TRIGGER IF NOT EXISTS admin_deleted_breeds_insert
   BEFORE INSERT ON managed_breeds
-  WHEN EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND record_slug=NEW.slug)
+  WHEN EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND (record_slug=NEW.slug OR (NEW.fci_number IS NOT NULL AND NEW.fci_number > 0 AND record_external_key=CAST(NEW.fci_number AS TEXT))))
   BEGIN SELECT RAISE(ABORT, 'RECORD_TOMBSTONED'); END;
 CREATE TRIGGER IF NOT EXISTS admin_deleted_articles_insert
   BEFORE INSERT ON managed_articles
@@ -65,7 +68,7 @@ CREATE TRIGGER IF NOT EXISTS admin_deleted_lost_found_insert
   BEGIN SELECT RAISE(ABORT, 'RECORD_TOMBSTONED'); END;
 CREATE TRIGGER IF NOT EXISTS admin_deleted_organizations_insert
   BEFORE INSERT ON help_organizations
-  WHEN EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_slug=NEW.slug)
+  WHEN EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND (record_slug=NEW.slug OR (NEW.import_key IS NOT NULL AND length(trim(NEW.import_key))>0 AND record_external_key=trim(NEW.import_key))))
   BEGIN SELECT RAISE(ABORT, 'RECORD_TOMBSTONED'); END;
 
 
