@@ -67,3 +67,47 @@ CREATE TRIGGER IF NOT EXISTS admin_deleted_organizations_insert
   BEFORE INSERT ON help_organizations
   WHEN EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_slug=NEW.slug)
   BEGIN SELECT RAISE(ABORT, 'RECORD_TOMBSTONED'); END;
+
+
+-- Never allow another editor, cron or import to republish/rename a record
+-- while any stage of its owner-confirmed removal is unfinished.
+CREATE TRIGGER IF NOT EXISTS admin_removing_directory_update
+  BEFORE UPDATE OF status, slug ON directory_profiles
+  WHEN (NEW.status <> 'draft' OR NEW.slug <> OLD.slug)
+    AND EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='directory' AND record_id=OLD.id AND state<>'COMPLETE')
+  BEGIN SELECT RAISE(ABORT, 'RECORD_REMOVAL_PENDING'); END;
+CREATE TRIGGER IF NOT EXISTS admin_removing_events_update
+  BEFORE UPDATE OF status, slug ON managed_events
+  WHEN (NEW.status <> 'draft' OR NEW.slug <> OLD.slug)
+    AND EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='events' AND record_id=OLD.id AND state<>'COMPLETE')
+  BEGIN SELECT RAISE(ABORT, 'RECORD_REMOVAL_PENDING'); END;
+CREATE TRIGGER IF NOT EXISTS admin_removing_help_update
+  BEFORE UPDATE OF status, slug ON help_cases
+  WHEN (NEW.status <> 'draft' OR NEW.slug <> OLD.slug)
+    AND EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='help' AND record_id=OLD.id AND state<>'COMPLETE')
+  BEGIN SELECT RAISE(ABORT, 'RECORD_REMOVAL_PENDING'); END;
+CREATE TRIGGER IF NOT EXISTS admin_removing_breeds_update
+  BEFORE UPDATE OF status, slug ON managed_breeds
+  WHEN (NEW.status <> 'draft' OR NEW.slug <> OLD.slug)
+    AND EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND record_id=OLD.id AND state<>'COMPLETE')
+  BEGIN SELECT RAISE(ABORT, 'RECORD_REMOVAL_PENDING'); END;
+CREATE TRIGGER IF NOT EXISTS admin_removing_articles_update
+  BEFORE UPDATE OF status, slug ON managed_articles
+  WHEN (NEW.status <> 'draft' OR NEW.slug <> OLD.slug)
+    AND EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='articles' AND record_id=OLD.id AND state<>'COMPLETE')
+  BEGIN SELECT RAISE(ABORT, 'RECORD_REMOVAL_PENDING'); END;
+CREATE TRIGGER IF NOT EXISTS admin_removing_adoptions_update
+  BEFORE UPDATE OF status, slug ON adoption_dogs
+  WHEN (NEW.status <> 'DRAFT' OR NEW.slug <> OLD.slug)
+    AND EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='adoptions' AND record_id=OLD.id AND state<>'COMPLETE')
+  BEGIN SELECT RAISE(ABORT, 'RECORD_REMOVAL_PENDING'); END;
+CREATE TRIGGER IF NOT EXISTS admin_removing_lost_found_update
+  BEFORE UPDATE OF status, slug ON lost_found_dog_reports
+  WHEN (NEW.status <> 'DRAFT' OR NEW.slug <> OLD.slug)
+    AND EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='lost-found' AND record_id=OLD.id AND state<>'COMPLETE')
+  BEGIN SELECT RAISE(ABORT, 'RECORD_REMOVAL_PENDING'); END;
+CREATE TRIGGER IF NOT EXISTS admin_removing_organizations_update
+  BEFORE UPDATE OF status, slug ON help_organizations
+  WHEN (NEW.status <> 'DRAFT' OR NEW.slug <> OLD.slug)
+    AND EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_id=OLD.id AND state<>'COMPLETE')
+  BEGIN SELECT RAISE(ABORT, 'RECORD_REMOVAL_PENDING'); END;
