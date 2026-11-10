@@ -30,10 +30,10 @@ test("0162 schema, Admin save and public detail share one independent optional s
   try {
     db.exec("CREATE TABLE lost_found_dog_reports(id INTEGER PRIMARY KEY, short_description TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '')");
     db.exec("INSERT INTO lost_found_dog_reports(id,description) VALUES (1,'Dlhý popis')");
-    assert.deepEqual(db.prepare("SELECT short_description, description FROM lost_found_dog_reports WHERE id=1").get(),
+    assert.deepEqual(({...db.prepare("SELECT short_description, description FROM lost_found_dog_reports WHERE id=1").get()}),
       {short_description:"", description:"Dlhý popis"});
     db.prepare("UPDATE lost_found_dog_reports SET short_description=? WHERE id=1").run("Stratil sa čierny pes");
-    assert.deepEqual(db.prepare("SELECT short_description, description FROM lost_found_dog_reports WHERE id=1").get(),
+    assert.deepEqual(({...db.prepare("SELECT short_description, description FROM lost_found_dog_reports WHERE id=1").get()}),
       {short_description:"Stratil sa čierny pes",description:"Dlhý popis"});
     db.prepare("UPDATE lost_found_dog_reports SET short_description=? WHERE id=1").run("");
     assert.equal(db.prepare("SELECT description FROM lost_found_dog_reports WHERE id=1").get().description,"Dlhý popis");
