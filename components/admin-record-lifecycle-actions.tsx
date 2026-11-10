@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminActionButton, AdminModalDialog } from "@/components/admin-interaction-system";
 import type { RecordKind } from "@/lib/admin-record-lifecycle";
 
 type Preview={
   id:number; name:string; category:string; status:string; published:boolean;
   notionLinked:boolean; notionPages:number; removalState:string|null; removalError:string|null;
+  publicationSync?:string|null;publicationError?:string|null;
 };
 type RemovalResult={state:string;notionTrash:string;errorCode?:string;media?:{removed:number;preserved:number}};
 const publicStates=new Set(["published","scheduled","PUBLISHED","ACTIVE","RESERVED","RESOLVED","EXPIRED","ARCHIVED"]);
@@ -39,6 +40,28 @@ export function AdminRecordLifecycleActions({
   const [unpublished,setUnpublished]=useState(false);
   const endpoint="/api/admin/record-lifecycle/"+encodeURIComponent(kind)+"/"+recordId;
   const visible=publicStates.has(status)&&!unpublished;
+  useEffect(()=>{
+    let live=true;
+    fetch(endpoint,{cache:"no-store"}).then(async response=>{
+      const value=await response.json() as Preview & {error?:string};
+      if(!live)return;
+      if(!response.ok) {
+        if(value.error==="LIFECYCLE_MIGRATION_0164_REQUIRED")setError(errorText(value.error));
+        return;
+      }
+      setPreview(value);
+      if(value.removalState&&value.removalState!=="COMPLETE"){
+        setMessage("Odstránenie zostáva nedokončené. Záznam je bezpečne skrytý.");
+        setError(errorText(value.removalError??"NOTION_UNAVAILABLE"));
+        setUnpublished(true);
+      }else if(value.publicationSync==="PENDING"){
+        setMessage("Záznam je v Admine stiahnutý, Notion stále čaká na potvrdenie.");
+        setError(errorText(value.publicationError??"NOTION_UNAVAILABLE"));
+      }
+    }).catch(()=>{});
+    return ()=>{live=false;};
+  },[endpoint]);
+
   async function open(next:"unpublish"|"delete") {
     if(pending)return;
     setError("");setMessage("");setConfirmation("");setLocalOnly(false);
@@ -67,6 +90,7 @@ export function AdminRecordLifecycleActions({
       setMode(null);
       if(currentMode==="unpublish"){
         setUnpublished(true);
+        setPreview(current=>current?{...current,publicationSync:data.notionSync??"PENDING",publicationError:data.errorCode??null}:current);
         onUnpublished?.(status==="PUBLISHED"?"DRAFT":status==="ACTIVE"||status==="RESERVED"?"DRAFT":status==="scheduled"?"draft":status==="RESOLVED"||status==="EXPIRED"||status==="ARCHIVED"?"DRAFT":"draft",data.updatedAt);
         setMessage(data.notionSync==="PENDING"
           ?"Záznam je stiahnutý z webu. Prenos publikačného stavu do Notionu čaká na opravu."
@@ -78,6 +102,7 @@ export function AdminRecordLifecycleActions({
         setMessage("Záznam je skrytý. Odstránenie ešte nie je dokončené. Môžeš ho bezpečne zopakovať.");
         setError(errorText(data.errorCode??"NOTION_UNAVAILABLE"));
         setUnpublished(true);
+        setPreview(current=>current?{...current,removalState:data.state,removalError:data.errorCode??null}:current);
         onUnpublished?.("draft");
       }
     }catch(e){setError(errorText(e instanceof Error?e.message:"LIFECYCLE_REQUEST_FAILED"));}
@@ -87,8 +112,10 @@ export function AdminRecordLifecycleActions({
     <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
       {visible&&<AdminActionButton type="button" variant="secondary" disabled={disabled||pending}
         onClick={()=>void open("unpublish")}>Stiahnuť z webu</AdminActionButton>}
+      {preview?.publicationSync==="PENDING"&&<AdminActionButton type="button" variant="secondary" disabled={disabled||pending}
+        onClick={()=>void open("unpublish")}>Zopakovať prenos do Notionu</AdminActionButton>}
       <AdminActionButton type="button" variant="destructive" disabled={disabled||pending}
-        onClick={()=>void open("delete")}>Natrvalo odstrániť</AdminActionButton>
+        onClick={()=>void open("delete")}>{preview?.removalState&&preview.removalState!=="COMPLETE"?"Zopakovať odstránenie":"Natrvalo odstrániť"}</AdminActionButton>
     </div>
     {message&&<p role="status" className="admin-message">{message}</p>}
     {error&&<p role="alert" className="admin-message admin-message--error">{error}</p>}
