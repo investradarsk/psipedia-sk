@@ -316,9 +316,11 @@ export async function PUT(request: Request, { params }: Props) {
       if (!directoryMainImageMatches(profile, requestedMedia)) {
         const saved = await db.prepare(
           "UPDATE directory_profiles SET image_url=?, image_key=?, " +
-          "thumbnail_display_json=NULL, detail_display_json=NULL, updated_at=?, updated_by=? " +
+          "thumbnail_display_json=?, detail_display_json=?, updated_at=?, updated_by=? " +
           "WHERE id=? AND category=? AND status <> 'archived' AND updated_at=? RETURNING id",
         ).bind(requestedMedia.imageUrl, requestedMedia.imageKey,
+          requestedMedia.imageUrl ? JSON.stringify(payload.thumbnailImageDisplay ?? null) : null,
+          requestedMedia.imageUrl ? JSON.stringify(payload.detailImageDisplay ?? null) : null,
           new Date().toISOString(), user.email, id, profile.category, profile.updatedAt)
           .first<{ id: number }>();
         if (!saved)
