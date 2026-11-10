@@ -561,7 +561,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         <div className={styles.heading}><div><h2>08 · Publikovanie a SEO</h2><p>Stav profilu, URL, redakčná kontrola a metaúdaje.</p></div></div>
         <label className="admin-check"><input type="checkbox" checked={form.editorialComplete} onChange={e=>change("editorialComplete",e.target.checked)}/><span>Editorial complete – redakčne overený profil</span></label>
         <div className={styles.basicBottom}>
-          <label className="admin-field"><span>URL profil / slug</span><input value={form.slug} onChange={e=>change("slug",slugify(e.target.value))}/></label>
+          <label className="admin-field"><span>URL profil / slug</span><input readOnly={Boolean(breed)} value={form.slug} onChange={e=>change("slug",slugify(e.target.value))}/></label>
           <div className="admin-field"><span>Psipedia ID</span><div className={styles.readonlyValue}>{breed?.id??"Pridelí sa po uložení"}</div></div>
         </div>
         <label className="admin-field"><span>SEO title</span><input value={form.seo.title??""} onChange={e=>change("seo",{...form.seo,title:e.target.value})}/></label>
