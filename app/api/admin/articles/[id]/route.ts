@@ -230,25 +230,9 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   }
 }
 
-export async function DELETE(request: Request, { params }: RouteProps) {
-  const auth = await requireAdminMutation(request, { strictProvenance: true });
-  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
-  const id = await parsedId(params);
-  if (!id) return Response.json({ error: "Neplatné ID článku." }, { status: 400 });
-
-  try {
-    const article = await deleteManagedArticle(id);
-    if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
-    const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
-    if (bucket) {
-      const keys = [...new Set([article.imageKey, article.ogImageKey, ...articleBlockImageKeys(article.blocks ?? [])].filter((key): key is string => Boolean(key)))];
-      await Promise.all(keys.map((key) => bucket.delete(key).catch(() => undefined)));
-    }
-    return Response.json({ deleted: true, id });
-  } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Článok sa nepodarilo odstrániť." },
-      { status: 500 },
-    );
-  }
+/** Legacy DELETE must not bypass verified Notion trash + D1 tombstones. */
+export async function DELETE(request:Request) {
+  const auth=await requireAdminMutation(request,{strictProvenance:true});
+  if(auth.response)return auth.response;
+  return Response.json({error:"Použi Natrvalo odstrániť v editore: /api/admin/record-lifecycle."},{status:409});
 }
