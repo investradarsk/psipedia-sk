@@ -54,6 +54,7 @@ test("0151 is approved only by pinned SHA and protected canonical DB identity", 
     "0161_event_image_alt_private_notes.sql",
     "0162_lost_found_short_description.sql",
     "0163_breed_notion_controlled_values.sql",
+    "0164_admin_record_lifecycle.sql",
   ]);
   assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes("0158_admin_directory_list_indexes.sql"));
 });
