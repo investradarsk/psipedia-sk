@@ -218,7 +218,16 @@ export async function unpublishRecord(db:D1Database,bindings:LifecycleBindings,k
 }
 /** Called only AFTER a successful explicit Admin publication; never by Notion sync. */
 export async function clearAdminUnpublishGuard(db:D1Database,kind:RecordKind,id:number) {
-  await db.prepare("DELETE FROM admin_record_publication_guards WHERE kind=? AND record_id=?").bind(kind,id).run();
+  try {
+    await db.prepare("DELETE FROM admin_record_publication_guards WHERE kind=? AND record_id=?").bind(kind,id).run();
+  } catch(error) {
+    if(error instanceof Error && /no such table: admin_record_publication_guards/i.test(error.message))return;
+    throw error;
+  }
+}
+/** Explicit successful Admin publish removes the inbound publication guard. */
+export async function acknowledgeAdminPublication(db:D1Database|undefined,kind:RecordKind,id:number,status:string) {
+  if(db && specs[kind].publicStatuses.includes(status))await clearAdminUnpublishGuard(db,kind,id);
 }
 export async function adminUnpublishedGuard(db:D1Database,kind:RecordKind,id:number) {
   const row=await db.prepare("SELECT 1 AS found FROM admin_record_publication_guards WHERE kind=? AND record_id=? LIMIT 1")
