@@ -234,7 +234,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
 
 /** Legacy DELETE must not bypass verified Notion trash + D1 tombstones. */
 export async function DELETE(request:Request) {
-  const auth=await requireAdminMutation(request,{strictProvenance:true});
+  const auth=await requireAdminMutation(request, { strictProvenance: true });
   if(auth.response)return auth.response;
   return Response.json({error:"Použi Natrvalo odstrániť v editore: /api/admin/record-lifecycle."},{status:409});
 }
