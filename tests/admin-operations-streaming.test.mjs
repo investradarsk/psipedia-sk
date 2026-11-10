@@ -14,7 +14,7 @@ test("operations shell streams queue and independent unread-bell summary", () =>
   assert.match(handler, /<Suspense fallback=/);
   assert.match(handler, /<AdminOperationsContent attentionPromise=\{attentionPromise\}/);
   assert.match(source, /async function AdminOperationsContent/);
-  assert.match(source, /const attention = await attentionPromise/);
+  assert.match(source, /const \[attention, notionAlerts\] = await Promise\.all\(\[attentionPromise, notionAlertsPromise\]\)/);
   assert.match(source, /id="centrum-pozornosti"/);
   assert.match(source, /<AdminAttentionQueue[\s\S]*?page=\{attention\}/);
   assert.match(handler, /loadExactAdminAttentionSummary/);
