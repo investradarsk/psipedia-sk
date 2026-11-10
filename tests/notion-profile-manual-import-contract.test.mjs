@@ -51,6 +51,22 @@ test("one-profile Notion import is authenticated, mapped, and scoped to the prop
   }
 });
 
+test("Admin main-image writeback is narrowly scoped to mapped directory images", () => {
+  const sync = read("lib/notion-directory-sync.ts");
+  const route = read("app/api/admin/directory/[id]/route.ts");
+  const eventsSync = read("lib/notion-events-help-sync.ts");
+  assert.match(sync, /export async function mirrorDirectoryMainImageToNotion/);
+  assert.match(sync, /notionDirectoryPageBelongsToSource\(page, dataSourceId\)/);
+  assert.match(sync, /DIRECTORY_IMAGE_NOTION_TARGET_INVALID/);
+  assert.match(sync, /const imageField = "Obrázok Psipedia"/);
+  assert.match(sync, /const keyField = "Obrázok key"/);
+  assert.match(sync, /DIRECTORY_IMAGE_NOTION_WRITEBACK_UNVERIFIED/);
+  assert.match(route, /mainImageChanged/);
+  assert.match(route, /await mirrorDirectoryMainImageToNotion/);
+  assert.match(eventsSync, /if \(missingNotionImage\) protectedFields\.add/);
+  assert.match(eventsSync, /!plan\.changes\.length && !missingNotionImage/);
+});
+
 test("event field webhook distinguishes explicitly cleared optional values from missing properties", () => {
   const handler = read("lib/notion-event-field-sync.ts");
   assert.match(handler, /Object\.hasOwn\(input\.page\.properties\?\?\{\},property\)/);
