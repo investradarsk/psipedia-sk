@@ -39,6 +39,7 @@ export function AdminRecordLifecycleActions({
   const [error,setError]=useState("");
   const endpoint="/api/admin/record-lifecycle/"+encodeURIComponent(kind)+"/"+recordId;
   const visible=preview?preview.published:publicStates.has(status);
+  const draftStatus=kind==="adoptions"||kind==="lost-found"||kind==="organizations"?"DRAFT":"draft";
   useEffect(()=>{
     let live=true;
     fetch(endpoint,{cache:"no-store"}).then(async response=>{
@@ -87,9 +88,8 @@ export function AdminRecordLifecycleActions({
       if(!response.ok && response.status!==202)throw Error(data.error??"LIFECYCLE_REQUEST_FAILED");
       setMode(null);
       if(currentMode==="unpublish"){
-        setUnpublished(true);
-        setPreview(current=>current?{...current,published:false,status:status==="PUBLISHED"||status==="ACTIVE"||status==="RESERVED"?"DRAFT":"draft",publicationSync:data.notionSync??"PENDING",publicationError:data.errorCode??null}:current);
-        onUnpublished?.(status==="PUBLISHED"?"DRAFT":status==="ACTIVE"||status==="RESERVED"?"DRAFT":status==="scheduled"?"draft":status==="RESOLVED"||status==="EXPIRED"||status==="ARCHIVED"?"DRAFT":"draft",data.updatedAt);
+        setPreview(current=>current?{...current,published:false,status:draftStatus,publicationSync:data.notionSync??"PENDING",publicationError:data.errorCode??null}:current);
+        onUnpublished?.(draftStatus,data.updatedAt);
         setMessage(data.notionSync==="PENDING"
           ?"Záznam je stiahnutý z webu. Prenos publikačného stavu do Notionu čaká na opravu."
           :"Záznam je stiahnutý z webu. Údaje a obrázky zostali zachované.");
@@ -99,9 +99,8 @@ export function AdminRecordLifecycleActions({
       }else{
         setMessage("Záznam je skrytý. Odstránenie ešte nie je dokončené. Môžeš ho bezpečne zopakovať.");
         setError(errorText(data.errorCode??"NOTION_UNAVAILABLE"));
-        setUnpublished(true);
         setPreview(current=>current?{...current,published:false,removalState:data.state,removalError:data.errorCode??null}:current);
-        onUnpublished?.("draft");
+        onUnpublished?.(draftStatus);
       }
     }catch(e){setError(errorText(e instanceof Error?e.message:"LIFECYCLE_REQUEST_FAILED"));}
     finally{setPending(false);}
