@@ -36,3 +36,8 @@
 .history button{width:100%;text-align:left;display:block;margin:6px 0}
 .footer{margin-top:18px}
 @media(max-width:650px){.root{padding:14px}.controls{display:block}.controls label{margin:11px 0}.head h2{font-size:19px}.item summary{align-items:start}.item th,.item td{padding:8px 6px}.stats strong{font-size:19px}}
+
+.filters{display:flex;gap:14px;flex-wrap:wrap}
+.filters label{display:flex;gap:6px;align-items:center}
+.itemActions{padding:12px;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;border-top:1px solid #e8eee9;background:#f7faf8;font-size:12px}
+.itemActions button{min-height:36px}

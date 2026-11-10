@@ -5,15 +5,15 @@ import {
   type ManualTransferRequest,
   type NotionManualTransferDirection,
 } from "./notion-manual-transfer-contract";
-import { runNotionBreedSyncSweep, type NotionBreedSyncBindings } from "./notion-breed-sync";
-import { assertManualBreedSweepOutcome } from "./notion-breed-manual-transfer-guards";
+import { getManagedBreed } from "./breed-store";
+import { runNotionBreedWorkCopySyncSweep, writeBackBreedToWorkCopy, type BreedWorkCopyBindings } from "./notion-breed-workcopy-sync";
 import { runNotionDirectorySyncSweep, type NotionDirectorySyncBindings } from "./notion-directory-sync";
 import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync";
 import { runNotionEshopSyncSweep, type NotionEshopSyncBindings } from "./notion-eshop-sync";
 import type { BidirectionalAgendaKey } from "./notion-events-help-adapters";
 import { inspectManualTransferRecord, verifyManualTransferFields } from "./notion-manual-transfer-inspect";
 
-export type ManualTransferBindings = NotionBreedSyncBindings &
+export type ManualTransferBindings = BreedWorkCopyBindings &
   NotionDirectorySyncBindings & NotionEventsHelpSyncBindings &
   NotionEshopSyncBindings & {
     NOTION_MANUAL_TRANSFER_ENABLED?: string;
@@ -73,7 +73,7 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
     const byId=request.selection==="ONE";
     let sql:string;const bind:unknown[]=[];
     if(scope==="breeds"){
-      sql="SELECT breed_id AS profile_id,notion_page_id FROM breed_notion_sync";
+      sql="SELECT breed_id AS profile_id,work_notion_page_id AS notion_page_id FROM breed_notion_workcopy_links";
     }else if(scope.startsWith("directory:")){
       sql="SELECT m.directory_profile_id AS profile_id,m.notion_page_id FROM directory_notion_sync m " +
         "JOIN directory_profiles p ON p.id=m.directory_profile_id WHERE p.category=?";
@@ -91,6 +91,7 @@ async function linkedProfiles(db:D1Database, request:ManualTransferRequest):Prom
       :scope==="eshops"?"eshop_id"
       :scope.startsWith("directory:")?"m.directory_profile_id":"entity_id";
     sql+=(bind.length?" AND ":" WHERE ")+(byId?idColumn+"=?":"1=1");
+    if(scope==="breeds")sql+=" AND status='ACTIVE' AND work_sync_receipt IS NOT NULL";
     if(byId)bind.push(request.profileId);
     // A bounded single read per scope. Fail closed instead of reporting a
     // partial all-record queue as a completed whole-area transfer.
@@ -160,7 +161,7 @@ export async function prepareManualTransferRun(input:{
 async function mappingStillLinked(db:D1Database,link:LinkRow):Promise<boolean>{
   let sql:string,bind:unknown[];
   if(link.scope==="breeds"){
-    sql="SELECT notion_page_id AS page FROM breed_notion_sync WHERE breed_id=?";
+    sql="SELECT work_notion_page_id AS page FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE' AND work_sync_receipt IS NOT NULL";
     bind=[link.profile_id];
   }else if(link.scope.startsWith("directory:")){
     sql="SELECT m.notion_page_id AS page FROM directory_notion_sync m " +
@@ -181,18 +182,34 @@ async function mappingStillLinked(db:D1Database,link:LinkRow):Promise<boolean>{
   return result?.page===link.notion_page_id;
 }
 
-async function runOne(input:{db:D1Database;bindings:ManualTransferBindings;job:Job}){
+async function runOne(input:{db:D1Database;bindings:ManualTransferBindings;job:Job;changedFields:string[]}){
   const {db,bindings,job}=input;
   if(!await mappingStillLinked(db,job))throw Error("TRANSFER_IDENTITY_CHANGED");
   if(job.scope==="breeds"){
-    const summary=await runNotionBreedSyncSweep({
-      database:db,bindings,targetPageId:job.notion_page_id,
-      manualDirection:job.direction,
-    });
-    // A partially applied breed sweep already wrote its valid siblings.
-    // Let executeVerified read back and mark every mismatched field FAILED,
-    // rather than retrying blindly and hiding the true per-field outcome.
-    assertManualBreedSweepOutcome(summary);
+    // Use the active 60+2 workcopy and never the legacy 109-field mapping.
+    if(bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED!=="true" ||
+       bindings.NOTION_BREED_SYNC_ENABLED==="true")
+      throw Error("TRANSFER_BREED_WORKCOPY_INACTIVE");
+    if(job.direction==="NOTION_TO_ADMIN"){
+      const summary=await runNotionBreedWorkCopySyncSweep({
+        database:db,bindings,targetPageId:job.notion_page_id,manualImport:true,
+      });
+      if(!summary.enabled||summary.scanned!==1)
+        throw Error("TRANSFER_BREED_WORKCOPY_IMPORT_FAILED");
+      // Workcopy may have applied valid sibling fields before marking a
+      // malformed field failed. Let the post-write readback report EACH field.
+    }else{
+      const breed=await getManagedBreed(job.profile_id);
+      if(!breed)throw Error("TRANSFER_BREED_NOT_FOUND");
+      const result=await writeBackBreedToWorkCopy({
+        database:db,bindings,before:breed,breed,
+        forceFieldKeys:input.changedFields,
+      });
+      if(!result.linked)
+        throw Error("TRANSFER_BREED_WORKCOPY_WRITE_FAILED");
+      // Pending individual fields are classified by readback, not replayed
+      // blindly over edits made after approval.
+    }
     return;
   }
   if(job.scope.startsWith("directory:")){
@@ -232,19 +249,26 @@ async function runOne(input:{db:D1Database;bindings:ManualTransferBindings;job:J
 async function updateRun(db:D1Database,runId:string){
   const head=await db.prepare("SELECT status FROM notion_manual_transfer_runs WHERE id=?")
     .bind(runId).first<{status:string}>();
-  if(!head||!["PREVIEW","QUEUED","RUNNING"].includes(head.status))return;
-  const preview=head.status==="PREVIEW";
+  if(!head||!["PREVIEW","PREVIEW_READY","QUEUED","RUNNING"].includes(head.status))return;
   const totals=await db.prepare("SELECT COUNT(*) AS total,"+
     "SUM(CASE WHEN status IN ('PREVIEWED','DONE','PARTIAL','FAILED','SKIPPED') THEN 1 ELSE 0 END) AS settled,"+
-    "SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END) AS failed,"+
-    "SUM(CASE WHEN status='PARTIAL' THEN 1 ELSE 0 END) AS partial "+
+    "SUM(CASE WHEN preview_hash IS NOT NULL OR status IN ('FAILED','SKIPPED') THEN 1 ELSE 0 END) AS inspected,"+
+    "SUM(CASE WHEN status='PREVIEWED' THEN 1 ELSE 0 END) AS awaiting_approval,"+
+    "SUM(CASE WHEN status IN ('PARTIAL','FAILED') THEN 1 ELSE 0 END) AS failed,"+
+    "SUM(CASE WHEN preview_hash IS NULL AND status IN ('PENDING','PREVIEWING') THEN 1 ELSE 0 END) AS inspecting "+
     "FROM notion_manual_transfer_items WHERE run_id=?")
-    .bind(runId).first<{total:number;settled:number;failed:number;partial:number}>();
+    .bind(runId).first<{total:number;settled:number;inspected:number;
+      awaiting_approval:number;failed:number;inspecting:number}>();
   if(!totals)return;
+  const inspectedAll=totals.total>0&&totals.inspecting===0;
   const complete=totals.total>0&&totals.settled===totals.total;
-  const status=preview
-    ?(complete?(totals.failed?"FAILED":"PREVIEW_READY"):"PREVIEW")
-    :(complete?(totals.failed||totals.partial?"PARTIAL":"COMPLETED"):"RUNNING");
+  const previewMode=["PREVIEW","PREVIEW_READY"].includes(head.status);
+  // Approval of individual inspected records never stops the remaining previews.
+  const status=previewMode
+    ? !inspectedAll?"PREVIEW"
+      : totals.awaiting_approval>0?"PREVIEW_READY"
+      : complete?(totals.failed?"PARTIAL":"COMPLETED"):"RUNNING"
+    : complete?(totals.failed?"PARTIAL":"COMPLETED"):"RUNNING";
   const fields=await db.prepare("SELECT "+
     "SUM(CASE WHEN f.status='UPDATED' THEN 1 ELSE 0 END) AS updated,"+
     "SUM(CASE WHEN f.status='CHANGE' THEN 1 ELSE 0 END) AS preview_changed,"+
@@ -255,9 +279,11 @@ async function updateRun(db:D1Database,runId:string){
   const now=new Date().toISOString();
   await db.prepare("UPDATE notion_manual_transfer_runs SET status=?,processed_profiles=?,"+
     "changed_fields=?,failed_fields=?,updated_at=?,finished_at=? "+
-    "WHERE id=? AND status=?").bind(status,totals.settled,
-      preview?(fields?.preview_changed??0):(fields?.updated??0),fields?.failed??0,now,
-      !preview&&complete?now:null,runId,head.status).run();
+    "WHERE id=? AND status=?").bind(status,
+      previewMode?totals.inspected:totals.settled,
+      previewMode?(fields?.preview_changed??0)+(fields?.updated??0):(fields?.updated??0),
+      fields?.failed??0,now,["COMPLETED","PARTIAL"].includes(status)?now:null,
+      runId,head.status).run();
 }
 
 async function writeFieldResults(db:D1Database,itemId:number,
@@ -290,7 +316,7 @@ async function executeVerified(db:D1Database,bindings:ManualTransferBindings,job
   });
   if(!job.preview_hash||before.fingerprint!==job.preview_hash)
     throw Error("TRANSFER_PREVIEW_STALE");
-  if(before.changed)await runOne({db,bindings,job});
+  if(before.changed)await runOne({db,bindings,job,changedFields:before.fields.filter(f=>f.status==="CHANGE").map(f=>f.field)});
   // The read-only preview already proved a no-op. Avoid another provider GET.
   const after=before.changed?await inspectManualTransferRecord({
     database:db,bindings,link:job,direction:job.direction,
@@ -331,13 +357,15 @@ export async function runManualTransferQueueBatch(input:{
   }
   async function claim(preview:boolean,now:string,stale:string){
     const activeStatus=preview?"PREVIEWING":"RUNNING";
-    const runCondition=preview?"r.status='PREVIEW'":"r.status IN ('QUEUED','RUNNING')";
+    const runCondition=preview?"r.status='PREVIEW'":"r.status IN ('PREVIEW','PREVIEW_READY','QUEUED','RUNNING')";
+    // Approved profiles keep their verified preview hash; uninspected rows do not.
+    const approvalCondition=preview?"i.preview_hash IS NULL":"i.preview_hash IS NOT NULL";
     return input.database.prepare(
       "UPDATE notion_manual_transfer_items SET status=?,"+
       "attempts=attempts+1,started_at=?,updated_at=? WHERE id=("+
       "SELECT i.id FROM notion_manual_transfer_items i "+
       "JOIN notion_manual_transfer_runs r ON r.id=i.run_id "+
-      "WHERE "+runCondition+" AND "+
+      "WHERE "+runCondition+" AND "+approvalCondition+" AND "+
       "((i.status='PENDING' AND i.next_attempt_at<=?) OR "+
       "(i.status=? AND i.started_at<?)) "+
       "ORDER BY r.created_at,i.id LIMIT 1) "+
@@ -428,6 +456,25 @@ async function reconcileSettledManualTransferRuns(db:D1Database){
   for(const run of result.results??[])await updateRun(db,run.id);
 }
 
+/** Approve one inspected profile without waiting for all other previews. */
+export async function confirmManualTransferItem(
+  db:D1Database,runId:string,itemId:number,actor:string,
+){
+  if(!uuid(runId)||!Number.isSafeInteger(itemId)||itemId<1)
+    throw Error("TRANSFER_ITEM_INVALID");
+  const now=new Date().toISOString();
+  const changed=await db.prepare(
+    "UPDATE notion_manual_transfer_items SET status='PENDING',"+
+    "next_attempt_at=?,updated_at=? WHERE id=? AND run_id=? "+
+    "AND status='PREVIEWED' AND preview_hash IS NOT NULL AND changed_fields>0 "+
+    "AND EXISTS (SELECT 1 FROM notion_manual_transfer_runs "+
+    "WHERE id=? AND requested_by=? AND status IN ('PREVIEW','PREVIEW_READY')) "+
+    "RETURNING id"
+  ).bind(now,now,itemId,runId,runId,actor).first<{id:number}>();
+  if(!changed)throw Error("TRANSFER_ITEM_NOT_READY_OR_UNAUTHORIZED");
+  return {runId,itemId,status:"QUEUED_ITEM" as const};
+}
+
 /** Two-stage owner confirmation: never accept a failed/incomplete preview. */
 export async function confirmManualTransferRun(db:D1Database,runId:string,actor:string){
   if(!uuid(runId))throw Error("TRANSFER_RUN_ID_INVALID");
@@ -436,10 +483,13 @@ export async function confirmManualTransferRun(db:D1Database,runId:string,actor:
   ).bind(runId).first<{status:string;requested_by:string;total_profiles:number}>();
   if(!head||head.requested_by!==actor)throw Error("TRANSFER_RUN_ACCESS_DENIED");
   if(head.status!=="PREVIEW_READY")throw Error("TRANSFER_PREVIEW_INCOMPLETE");
-  const validated=await db.prepare("SELECT COUNT(*) AS n FROM notion_manual_transfer_items "+
-    "WHERE run_id=? AND status='PREVIEWED' AND preview_hash IS NOT NULL")
-    .bind(runId).first<{n:number}>();
-  if(validated?.n!==head.total_profiles)throw Error("TRANSFER_PREVIEW_INCOMPLETE");
+  const validated=await db.prepare("SELECT "+
+    "SUM(CASE WHEN status='PREVIEWED' AND preview_hash IS NOT NULL THEN 1 ELSE 0 END) AS remaining,"+
+    "SUM(CASE WHEN preview_hash IS NULL AND status NOT IN ('FAILED','SKIPPED') THEN 1 ELSE 0 END) AS uninspected "+
+    "FROM notion_manual_transfer_items WHERE run_id=?")
+    .bind(runId).first<{remaining:number|null;uninspected:number|null}>();
+  if(validated?.uninspected||!validated?.remaining)
+    throw Error("TRANSFER_PREVIEW_INCOMPLETE");
   const now=new Date().toISOString();
   // One D1 transaction: never leave QUEUED with PREVIEWED items if a
   // second statement fails. Re-enable immediately, even after preview retries.
@@ -449,7 +499,7 @@ export async function confirmManualTransferRun(db:D1Database,runId:string,actor:
       "WHERE id=? AND status='PREVIEW_READY'").bind(now,runId),
     db.prepare("UPDATE notion_manual_transfer_items SET status='PENDING',"+
       "attempts=0,started_at=NULL,next_attempt_at=?,updated_at=? "+
-      "WHERE run_id=? AND status='PREVIEWED' AND EXISTS ("+
+      "WHERE run_id=? AND status='PREVIEWED' AND preview_hash IS NOT NULL AND EXISTS ("+
       "SELECT 1 FROM notion_manual_transfer_runs "+
       "WHERE id=? AND status='QUEUED')").bind(now,now,runId,runId),
   ]);
@@ -495,7 +545,7 @@ export async function listManualTransferRuns(db:D1Database){
 }
 
 export async function readManualTransferRun(
-  db:D1Database,runId:string,offset=0,onlyErrors=false,
+  db:D1Database,runId:string,offset=0,onlyErrors=false,onlyDifferences=false,
 ){
   if(!uuid(runId))throw Error("TRANSFER_RUN_ID_INVALID");
   if(!await manualTransferSchemaReady(db))throw Error("TRANSFER_MIGRATION_REQUIRED");
@@ -507,14 +557,23 @@ export async function readManualTransferRun(
     "FROM notion_manual_transfer_runs WHERE id=?"
   ).bind(runId).first();
   if(!run)throw Error("TRANSFER_RUN_NOT_FOUND");
-  const clause=onlyErrors?" AND i.status IN ('PARTIAL','FAILED')":"";
+  const clause=(onlyErrors?" AND i.status IN ('PARTIAL','FAILED')":"")+
+    (onlyDifferences?" AND i.preview_hash IS NOT NULL AND (i.changed_fields>0 OR "+
+      "EXISTS (SELECT 1 FROM notion_manual_transfer_field_results f "+
+      "WHERE f.item_id=i.id AND f.status IN ('CHANGE','UPDATED','FAILED')))":"");
   const rows=await db.prepare(
     "SELECT i.id,i.scope,i.profile_id,i.status,i.attempts,i.changed_fields,i.failed_fields,"+
-    "i.last_error_code,i.updated_at FROM notion_manual_transfer_items i "+
-    "WHERE i.run_id=?"+clause+" ORDER BY i.id LIMIT 100 OFFSET ?"
+    "i.last_error_code,i.updated_at,COALESCE(d.name,b.name,e.title,'') AS profile_name "+
+    "FROM notion_manual_transfer_items i "+
+    "LEFT JOIN directory_profiles d ON i.scope LIKE 'directory:%' AND d.id=i.profile_id "+
+    "LEFT JOIN managed_breeds b ON i.scope='breeds' AND b.id=i.profile_id "+
+    "LEFT JOIN managed_events e ON i.scope='events' AND e.id=i.profile_id "+
+    "WHERE i.run_id=?"+clause+
+    " ORDER BY CASE WHEN i.preview_hash IS NOT NULL AND i.changed_fields>0 THEN 0 "+
+    "WHEN i.preview_hash IS NOT NULL THEN 1 ELSE 2 END,i.id LIMIT 100 OFFSET ?"
   ).bind(runId,offset).all<{id:number;scope:string;profile_id:number;
     status:string;attempts:number;changed_fields:number;failed_fields:number;
-    last_error_code:string|null;updated_at:string}>();
+    last_error_code:string|null;updated_at:string;profile_name:string}>();
   const eligible=(rows.results??[]).filter(row=>row.status!=="PENDING"||row.attempts>0);
   const fieldsByItem=new Map<number,Array<{
     field_key:string;status:string;reason_code:string|null;attempts:number;
@@ -543,5 +602,5 @@ export async function readManualTransferRun(
     ...row,fields:fieldsByItem.get(row.id)??[],
   }));
   return {run,items,offset,limit:100,hasMore:(rows.results?.length??0)===100,
-    onlyErrors};
+    onlyErrors,onlyDifferences};
 }
