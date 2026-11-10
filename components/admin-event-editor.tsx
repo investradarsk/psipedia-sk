@@ -234,6 +234,8 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
       // Even a malformed URL must not block edits to other fields.
     }
     // Missing/invalid optional contacts are warnings, never form blockers.
+    const imageChanged = Boolean(event) &&
+      JSON.parse(savedSnapshot).imageUrl !== imageUrl;
     savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
@@ -246,14 +248,17 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
             JSON.parse(editorSnapshot) as Record<string,unknown>,
           ) : undefined }),
       });
-      const data = await response.json() as { event?: DogEvent; error?: string; fieldWarnings?: string[] };
+      const data = await response.json() as { event?: DogEvent; error?: string; fieldWarnings?: string[]; notionFieldSync?: string };
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
       setStatus(data.event.status);
       setSavedSnapshot(editorSnapshot);
       setMessage((data.event.status === "published"
         ? (status === "published" ? "Zmeny publikovaného podujatia sú uložené." : "Podujatie je publikované v kalendári.")
         : (status === "published" ? "Podujatie bolo stiahnuté z kalendára." : "Koncept je bezpečne uložený.")) +
-        (data.fieldWarnings?.length ? " Upozornenia: " + data.fieldWarnings.join("; ") : ""));
+        (data.fieldWarnings?.length ? " Upozornenia: " + data.fieldWarnings.join("; ") : "") +
+        (imageChanged && ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? "")
+          ? " Fotografia je uložená v Admine, ale jej URL zatiaľ nie je potvrdená v Notione."
+          : ""));
       if (!event) {
         allowNavigationRef.current = true;
         router.replace(`/admin/podujatia/${data.event.id}?vytvorene=1`);
