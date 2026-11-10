@@ -34,6 +34,15 @@ const mappingTables: Partial<Record<RecordKind, { table:string; entity:string }>
 };
 type CanonicalRow = Record<string, unknown> & { id:number; slug:string; status:string };
 type NotionTarget = { pageId:string; sourceId:string };
+/** Fail before locally hiding a record if its remote identity is not
+ * trustworthy enough for the mandatory GET/PATCH/GET ownership checks. */
+function assertNotionTargetsConfigured(targets:NotionTarget[]) {
+  for(const target of targets) {
+    if(!/^[a-f0-9]{32}$|^[a-f0-9-]{36}$/i.test(target.pageId))
+      throw Error("NOTION_MAPPING_INVALID");
+    requireDataSource(target.sourceId);
+  }
+}
 type Tombstone = {
   kind: RecordKind; record_id:number; record_slug:string; record_name:string; record_category:string;
   notion_page_id:string|null; notion_data_source_id:string|null; notion_targets_json:string;
@@ -585,6 +594,7 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
   }else{
     targets=await mappedTargets(db,bindings,kind,id);
     if(!targets.length&&!localOnly)throw Error("LOCAL_ONLY_CONFIRMATION_REQUIRED");
+    assertNotionTargetsConfigured(targets);
     const spec=specs[kind];
     const insert=db.prepare("INSERT INTO admin_record_tombstones "+
       "(kind,record_id,record_slug,record_external_key,record_name,record_category,notion_page_id,notion_data_source_id,notion_targets_json,state,error_code,created_by,created_at,updated_at) "+
@@ -619,6 +629,7 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
     }
   }
   if(prior) {
+    assertNotionTargetsConfigured(targets);
     if(!matches({slug:prior.record_slug,name:prior.record_name,category:prior.record_category}))
       throw Error("RECORD_CONFIRMATION_MISMATCH");
     // A prior partial transaction or an out-of-band update must not leave the
