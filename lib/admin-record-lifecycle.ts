@@ -421,9 +421,18 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
   const present=new Set((schema.results??[]).map(item=>item.name));
   const now=new Date().toISOString();
   const mapping=syncMappings[kind];
-  if(mapping)statements.push(db.prepare("DELETE FROM "+mapping.table+" WHERE "+mapping.entity+"=?").bind(id));
-  if(spec.agenda && kind!=="events")
+  if(mapping && present.has(mapping.table))
+    statements.push(db.prepare("DELETE FROM "+mapping.table+" WHERE "+mapping.entity+"=?").bind(id));
+  if(spec.agenda && present.has("notion_agenda_sync"))
     statements.push(db.prepare("DELETE FROM notion_agenda_sync WHERE agenda=? AND entity_id=?").bind(spec.agenda,id));
+  if(kind==="breeds") {
+    // Keep deletion safe on deployments where SQLite foreign-key cascades are
+    // disabled or temporarily deferred. Both are exact canonical-ID links.
+    if(present.has("breed_notion_workcopy_links"))
+      statements.push(db.prepare("DELETE FROM breed_notion_workcopy_links WHERE breed_id=?").bind(id));
+    if(present.has("breed_notion_controlled_values"))
+      statements.push(db.prepare("DELETE FROM breed_notion_controlled_values WHERE breed_id=?").bind(id));
+  }
   // Delete only join rows or dangling foreign keys, never related entities.
   if(kind==="articles") statements.push(db.prepare("DELETE FROM breed_article_relations WHERE article_id=?").bind(id));
   if(kind==="breeds") {
