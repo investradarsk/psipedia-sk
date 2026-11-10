@@ -1,4 +1,5 @@
 "use client";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorToolFrame } from "@/components/admin-editor-tool-frame";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
@@ -8,7 +9,7 @@ import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { useRouter } from "next/navigation";
-import { AdminActionButton, AdminDestructiveConfirmDialog } from "@/components/admin-interaction-system";
+import { AdminActionButton } from "@/components/admin-interaction-system";
 import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, EditorUnsavedChangesGuard, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
 import { AdminEventMarkdownEditor } from "@/components/admin-event-markdown-editor";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
@@ -98,7 +99,6 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   const [savedSnapshot, setSavedSnapshot] = useState(editorSnapshot);
   const dirty = editorSnapshot !== savedSnapshot;
   const [confirmNavigation, setConfirmNavigation] = useState(false);
-  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
   const allowNavigationRef = useRef(false);
   const requestNavigation = useCallback((navigate: () => void) => {
@@ -293,7 +293,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         actions={
           <EditorActionBar
             message={dirty ? "Neuložené zmeny" : undefined}
-            destructive={status === "published" ? <AdminActionButton type="button" variant="secondary" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z kalendára</AdminActionButton> : undefined}
+            destructive={event ? <AdminRecordLifecycleActions kind="events" recordId={event.id} status={status} disabled={saving || uploading} returnHref="/admin/podujatia" onUnpublished={(next) => setStatus(next as EventStatus)} /> : undefined}
             secondary={<>
               {event && <AdminNotionProfileImportButton scope="events" profileId={event.id}
                 dirty={dirty} disabled={saving || uploading} />}
@@ -421,18 +421,6 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         onStay={stayInEditor}
         onDiscard={discardAndNavigate}
       />
-      <AdminDestructiveConfirmDialog
-        open={confirmUnpublish}
-        title="Stiahnuť podujatie z kalendára?"
-        description="Podujatie sa zmení na koncept a nebude verejne publikované."
-        affectedCount={1}
-        affectedLabel="podujatie"
-        confirmLabel="Potvrdiť stiahnutie"
-        cancelLabel="Ponechať publikované"
-        pending={saving || uploading}
-        onCancel={() => setConfirmUnpublish(false)}
-        onConfirm={() => { setConfirmUnpublish(false); void save("draft"); }}
-      />
-    </div>
+</div>
   );
 }
