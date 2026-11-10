@@ -218,6 +218,8 @@ export function AdminDirectoryEditor({
   // An explicit remove action must survive a stale full-form save; null alone
   // could merely be the old value of a never-edited image field.
   const removeMainImageRequestedRef = useRef(false);
+  // Remember the completed upload receipt independently of React render timing.
+  const replaceMainImageRequestedRef = useRef<{ imageUrl: string; imageKey: string } | null>(null);
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
   const [galleryUrls, setGalleryUrls] = useState<string[]>(profile?.galleryUrls ?? []);
   const [galleryBusy, setGalleryBusy] = useState(false);
@@ -331,6 +333,7 @@ export function AdminDirectoryEditor({
     setUploading(true); setError(""); setMessage("");
     try {
       const data = await uploadAdminImage(file, "directory");
+      replaceMainImageRequestedRef.current = { imageUrl: data.imageUrl, imageKey: data.imageKey };
       setImageUrl(data.imageUrl);
       removeMainImageRequestedRef.current = false;
       setFormDirty(true);
@@ -399,6 +402,9 @@ export function AdminDirectoryEditor({
       // sanitizes malformed optional values and returns field warnings.
       }
     const submittedRevision = formEditRevisionRef.current;
+    const imageReplacement = replaceMainImageRequestedRef.current;
+    const mainImageAction = removeMainImageRequestedRef.current
+      ? "remove" : imageReplacement ? "replace" : "keep";
     savePendingRef.current = true;
     setSaving(true); setError(""); setMessage("");
     try {
@@ -518,7 +524,7 @@ export function AdminDirectoryEditor({
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),
-          ...(removeMainImageRequestedRef.current ? { clearMainImage: true } : {}),
+          ...(profile ? { mainImageAction } : {}),
           ...(Object.keys(pilotMetadataFields).length ? { pilotMetadataFields } : {}),
           name, slug, category, status: nextStatus, excerpt, description,
           services: profile && isDirectoryEventPilotCategory(profile.category)
@@ -532,7 +538,8 @@ export function AdminDirectoryEditor({
           priceNote,
           websiteUrl: websiteUrl || null,
           publicPhone, publicEmail, facebookUrl, instagramUrl,
-          imageUrl: imageUrl || null, imageKey: imageKey || null,
+          imageUrl: imageReplacement?.imageUrl ?? imageUrl ?? null,
+          imageKey: imageReplacement?.imageKey ?? imageKey ?? null,
           ...(category === "chovatelske-stanice" ? { galleryUrls } : {}),
           thumbnailImageDisplay, detailImageDisplay,
           qualityResolutions,
