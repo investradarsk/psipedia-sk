@@ -524,18 +524,23 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
       targets=JSON.parse(raced.notion_targets_json) as NotionTarget[];
     }
   }
-  try{
-    for(const target of targets)await verifyTrash(bindings,target,id);
-  }catch(error){
-    const code=error instanceof Error && /^NOTION_[A-Z0-9_]+$/.test(error.message)?
-      error.message:"NOTION_UNAVAILABLE";
-    await setRemovalError(db,kind,id,code);
-    return {state:"ERROR_NOTION",id,notionTrash:"not-confirmed",errorCode:code,media:{removed:0,preserved:mediaKeys(row).length}};
+  if(prior?.state!=="READY_LOCAL") {
+    // A previous READY_LOCAL receipt already proves that every linked page
+    // reached Notion trash. Retrying D1 cleanup after a local failure must not
+    // depend on Notion's later availability or re-trash an unrelated page.
+    try{
+      for(const target of targets)await verifyTrash(bindings,target,id);
+    }catch(error){
+      const code=error instanceof Error && /^NOTION_[A-Z0-9_]+$/.test(error.message)?
+        error.message:"NOTION_UNAVAILABLE";
+      await setRemovalError(db,kind,id,code);
+      return {state:"ERROR_NOTION",id,notionTrash:"not-confirmed",errorCode:code,media:{removed:0,preserved:mediaKeys(row).length}};
+    }
+    // READY_LOCAL is a durable receipt that every linked Notion page has been
+    // independently verified in trash (or local-only consent was explicit).
+    await db.prepare("UPDATE admin_record_tombstones SET state='READY_LOCAL',error_code=NULL,updated_at=? WHERE kind=? AND record_id=? AND state<>'COMPLETE'")
+      .bind(new Date().toISOString(),kind,id).run();
   }
-  // READY_LOCAL is a durable receipt that every linked Notion page has been
-  // independently verified in trash (or local-only consent was explicit).
-  await db.prepare("UPDATE admin_record_tombstones SET state='READY_LOCAL',error_code=NULL,updated_at=? WHERE kind=? AND record_id=? AND state<>'COMPLETE'")
-    .bind(new Date().toISOString(),kind,id).run();
   try {
     await completeLocalRemoval(db,kind,id,targets);
   }catch{
@@ -543,7 +548,7 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
     // remain retryable; the record stays hidden behind the persistent tombstone.
     await db.prepare("UPDATE admin_record_tombstones SET state='READY_LOCAL',error_code='D1_DELETE_PENDING',updated_at=? WHERE kind=? AND record_id=?")
       .bind(new Date().toISOString(),kind,id).run();
-    return {state:"READY_LOCAL",id,notionTrash:"confirmed",errorCode:"D1_DELETE_PENDING",media:{removed:0,preserved:mediaKeys(row).length}};
+    return {state:"READY_LOCAL",id,notionTrash:targets.length?"confirmed":"unlinked",errorCode:"D1_DELETE_PENDING",media:{removed:0,preserved:mediaKeys(row).length}};
   }
   const media=await removeExclusiveMedia(db,bindings,row);
   return {state:"COMPLETE",id,notionTrash:targets.length?"confirmed":"unlinked",media};
