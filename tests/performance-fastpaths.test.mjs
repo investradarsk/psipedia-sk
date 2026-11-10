@@ -80,3 +80,12 @@ test("long public lists and admin tables do not trigger speculative RSC prefetch
     }
   }
 });
+
+test("public Google Maps renderer JavaScript loads only on test mode or consent", () => {
+  const source = readFileSync(new URL("../components/map/map-experience.tsx", import.meta.url), "utf8");
+  assert.match(source, /const GoogleMapRenderer = dynamic\(/);
+  assert.match(source, /import\("\.\/google-map-renderer"\)/);
+  assert.match(source, /testRenderer \|\| \(effectiveRendererEnabled && googleMapsConsent\) \? \(/);
+  assert.match(source, /<MapRendererPlaceholder \/>/);
+  assert.match(source, /<GoogleMapRenderer/);
+});
