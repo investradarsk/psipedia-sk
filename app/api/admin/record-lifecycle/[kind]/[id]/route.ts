@@ -13,7 +13,7 @@ function message(error:unknown) {
   const code=error instanceof Error?error.message:"UNKNOWN";
   const allowed=new Set([
     "INVALID_RECORD_ID","RECORD_NOT_FOUND","LOCAL_ONLY_CONFIRMATION_REQUIRED",
-    "RECORD_REMOVAL_IN_PROGRESS","NOTION_DATA_SOURCE_UNCONFIGURED",
+    "RECORD_REMOVAL_IN_PROGRESS","RECORD_NOT_PUBLIC","NOTION_DATA_SOURCE_UNCONFIGURED",
   ]);
   return allowed.has(code)?code:"RECORD_LIFECYCLE_FAILED";
 }
@@ -72,7 +72,7 @@ export async function POST(request:Request,context:Context) {
     return json({error:"UNSUPPORTED_LIFECYCLE_ACTION"},400);
   }catch(error){
     const code=message(error);
-    return json({error:code},code==="LOCAL_ONLY_CONFIRMATION_REQUIRED"||code==="RECORD_REMOVAL_IN_PROGRESS"?409:
+    return json({error:code},code==="LOCAL_ONLY_CONFIRMATION_REQUIRED"||code==="RECORD_REMOVAL_IN_PROGRESS"||code==="RECORD_NOT_PUBLIC"?409:
       code==="RECORD_NOT_FOUND"?404:code==="NOTION_DATA_SOURCE_UNCONFIGURED"?503:400);
   }
 }
