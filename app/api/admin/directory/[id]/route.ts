@@ -6,6 +6,8 @@ import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelect
 import { breederEditedFields, mirrorBreederCategoryFiltersToNotion, mirrorTrainerTrustFieldsToNotion, mirrorPilotDirectoryMetadataFieldsToNotion, mirrorDirectoryMainImageToNotion, preserveLiveBreederFields, runNotionDirectorySyncSweep, savePilotDirectoryMetadataField, PILOT_DIRECTORY_METADATA_FIELDS, type PilotDirectoryMetadataField } from "@/lib/notion-directory-sync";
 import { changedTrainerTrustAdminFields, preserveUneditedTrainerTrust, TRAINER_TRUST_FIELDS, type TrainerTrustField } from "@/lib/notion-trainer-trust-fields";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
+import { parseDirectoryMainImageAction, directoryMainImageMatches } from "@/lib/directory-main-image-action";
+import { cleanupUnreferencedNotionUpload } from "@/lib/notion-sync-shared";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
 import {
@@ -69,6 +71,7 @@ export async function PUT(request: Request, { params }: Props) {
       trainerServicesEdited?: unknown;
       trainerTrustEditedPaths?: unknown;
       clearMainImage?: unknown;
+      mainImageAction?: unknown;
       pilotMetadataFields?: unknown;
       explicitlyClearedContacts?: unknown;
     };
@@ -78,6 +81,7 @@ export async function PUT(request: Request, { params }: Props) {
       trainerServicesEdited: rawTrainerServicesEdited,
       trainerTrustEditedPaths: rawTrainerTrustEditedPaths,
       clearMainImage: rawClearMainImage,
+      mainImageAction: rawMainImageAction,
       pilotMetadataFields: rawPilotMetadataFields,
       explicitlyClearedContacts: rawExplicitlyClearedContacts,
       ...submittedBody
@@ -124,7 +128,31 @@ export async function PUT(request: Request, { params }: Props) {
       ? preserveUneditedTrainerTrust(before, submittedBody, trainerTrustEditedPaths) : {};
     // The retired internal e-mail is no longer editable. Keep historical D1
     // data until the archival migration, regardless of a stale client payload.
-    const safeSubmittedBody = { ...submittedBody, ...trust, internalEmail: before.internalEmail };
+    // Native editor media actions are explicit. A stale whole-form image field
+    // may not overwrite a photo changed since the form was opened.
+    const mainImageAction = parseDirectoryMainImageAction(
+      rawMainImageAction, submittedBody.imageUrl, submittedBody.imageKey,
+    );
+    if (mainImageAction?.kind === "replace" && rawClearMainImage === true)
+      return Response.json({ error: "Fotografiu nemožno súčasne odstrániť a nahradiť." }, { status: 400 });
+    const requestedMedia = mainImageAction?.kind === "replace" || mainImageAction?.kind === "remove"
+      ? { imageUrl: mainImageAction.imageUrl, imageKey: mainImageAction.imageKey }
+      : rawClearMainImage === true && mainImageAction === null
+        ? { imageUrl: null, imageKey: null }
+        : null;
+    if (mainImageAction?.kind === "replace") {
+      const bucket = (env as unknown as UploadBindings).BUCKET;
+      if (!bucket || !await bucket.head(mainImageAction.imageKey))
+        return Response.json({ error: "Nová fotografia nie je dostupná v úložisku. Nahraj ju znova." }, { status: 409 });
+    }
+    const mediaOverride = requestedMedia ?? (mainImageAction?.kind === "keep"
+      ? { imageUrl: before.imageUrl, imageKey: before.imageKey }
+      : {});
+    const safeSubmittedBody = {
+      ...submittedBody, ...trust, internalEmail: before.internalEmail,
+      ...mediaOverride,
+      ...(requestedMedia ? { thumbnailImageDisplay: null, detailImageDisplay: null } : {}),
+    };
     const fieldPreserved = editedPaths
       ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
       : safeSubmittedBody;
@@ -278,31 +306,28 @@ export async function PUT(request: Request, { params }: Props) {
     const changedTrainerTrustFields = serviceFilterCategories.includes(before.category as ServiceFilterCategory)
       ? changedTrainerTrustAdminFields(before, profile).filter(field => trainerTrustEditedPaths.includes(field))
       : [];
-    // Explicit media removal is a separate, guarded operation. In particular,
-    // do not mistake an old form's empty image field for a delete instruction.
-    if (rawClearMainImage === true && (profile.imageUrl || profile.imageKey)) {
-      const cleared = await db.prepare(
-        "UPDATE directory_profiles SET image_url=NULL, image_key=NULL, " +
-        "thumbnail_display_json=NULL, detail_display_json=NULL, updated_at=?, updated_by=? " +
-        "WHERE id=? AND category=? AND status <> 'archived' AND updated_at=? RETURNING id",
-      ).bind(new Date().toISOString(), user.email, id, profile.category, profile.updatedAt)
-        .first<{ id: number }>();
-      if (!cleared) {
-        return Response.json({
-          error: "Profil sa uložil, ale odstránenie fotografie sa nepodarilo potvrdiť. Obnov stránku.",
-        }, { status: 409 });
+    // Confirm the exact media URL and key committed by D1, independently
+    // of the profile's other editorial fields. A failed or raced image update
+    // must never return a misleading 200/"Uložené" response.
+    if (requestedMedia) {
+      if (!directoryMainImageMatches(profile, requestedMedia)) {
+        const saved = await db.prepare(
+          "UPDATE directory_profiles SET image_url=?, image_key=?, " +
+          "thumbnail_display_json=NULL, detail_display_json=NULL, updated_at=?, updated_by=? " +
+          "WHERE id=? AND category=? AND status <> 'archived' AND updated_at=? RETURNING id",
+        ).bind(requestedMedia.imageUrl, requestedMedia.imageKey,
+          new Date().toISOString(), user.email, id, profile.category, profile.updatedAt)
+          .first<{ id: number }>();
+        if (!saved)
+          return Response.json({ error: "Zmena hlavnej fotografie nebola potvrdená. Obnov profil a skús to znova." }, { status: 409 });
       }
-      const reloaded = await getManagedDirectoryProfileById(id, db);
-      if (!reloaded || reloaded.imageUrl || reloaded.imageKey)
-        throw new Error("DIRECTORY_IMAGE_REMOVAL_NOT_PERSISTED");
-      profile = reloaded;
+      const verifiedMedia = await getManagedDirectoryProfileById(id, db);
+      if (!verifiedMedia || !directoryMainImageMatches(verifiedMedia, requestedMedia))
+        return Response.json({ error: "Fotografia sa v databáze nepotvrdila. Zmeny ostatných polí mohli byť uložené." }, { status: 409 });
+      profile = verifiedMedia;
     }
     const mainImageChanged = before.imageUrl !== profile.imageUrl ||
       before.imageKey !== profile.imageKey;
-    if (before.imageKey && before.imageKey !== profile.imageKey) {
-      const bucket = (env as unknown as UploadBindings).BUCKET;
-      if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
-    }
     if (verified) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
     }
@@ -362,6 +387,10 @@ export async function PUT(request: Request, { params }: Props) {
         }
       }
     }
+    if (mainImageChanged && notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") {
+      notionFieldSync = "pending";
+      metadataWarnings.push("Fotografia je uložená v Admine, ale okamžitý prenos do Notionu je vypnutý.");
+    }
     if (mainImageChanged && notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true") {
       if (!notionEnv.DB) {
         notionFieldSync = "pending";
@@ -419,14 +448,19 @@ export async function PUT(request: Request, { params }: Props) {
         notionFieldSync = "pending";
       }
     }
-    if (notionEnv.DB && (isDirectoryFieldEventCategory(before.category) || changedTrainerTrustFields.length)) {
+    if (notionEnv.DB && (isDirectoryFieldEventCategory(before.category) || changedTrainerTrustFields.length || mainImageChanged)) {
       const edited = breederEditedFields(before, profile);
-      if (edited.length || changedTrainerTrustFields.length || Object.keys(changedPilotMetadata).length) {
+      if (edited.length || changedTrainerTrustFields.length || Object.keys(changedPilotMetadata).length || mainImageChanged) {
         const failed = ["pending", "disabled", "unlinked"].includes(notionFieldSync);
         await recordDirectoryNotionAlert(notionEnv.DB, id, failed ? "pending" : "resolved",
           failed ? "Zmena profilu je uložená v Admine, ale prenos do Notionu nie je potvrdený." : "",
           "ADMIN_TO_NOTION");
       }
+    }
+    if (mainImageChanged && before.imageKey && before.imageKey !== profile.imageKey) {
+      // Never delete a shared object: another Directory profile may use it.
+      await cleanupUnreferencedNotionUpload(db,
+        (env as unknown as UploadBindings).BUCKET, before.imageKey);
     }
     return Response.json({ profile, notionFieldSync, metadataWarnings });
   } catch (error) { return errorResponse(error); }
