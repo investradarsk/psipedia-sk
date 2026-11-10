@@ -16,6 +16,7 @@ import {
   notionNumberProperty, type NotionPage, type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
+import { notionPageMustSkipInboundSync } from "@/lib/admin-record-lifecycle";
 import {
   breedFieldSnapshot, parseBreedFieldSnapshot,
   BREED_NOTION_EDITABLE_FIELDS, type BreedFieldSnapshot,
@@ -181,6 +182,12 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     "AND work_notion_page_id=? LIMIT ?",
   ).bind(args.targetPageId, maxProfiles).all<ShadowLink>();
   for (const link of result.results) {
+    // An Admin-unpublished breed stays a draft even if a signed work-copy
+    // webhook arrives later. Explicit republishing remains Admin-owned.
+    if(await notionPageMustSkipInboundSync(args.database,link.work_notion_page_id)){
+      summary.unchanged++;
+      continue;
+    }
     summary.scanned++;
     try {
       const receipt = readReceipt(link.work_sync_receipt);
