@@ -211,6 +211,9 @@ function fixture(options = {}) {
     // The VM fixture extracts production functions without module imports.
     // Default-OFF gate must leave the legacy SQL/R2/GEO path unchanged.
     gemini22PriorityEnabled: () => false,
+    // Lifecycle guard belongs to the external D1 mapping layer; no owner
+    // unpublish has occurred in these isolated field-event fixtures.
+    notionPageMustSkipInboundSync: async () => false,
     isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
     Date, Error, Boolean,
   };
