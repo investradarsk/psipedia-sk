@@ -40,6 +40,11 @@ function harness({ status = "draft", target = "published", changed = false, writ
   };
   const services = {
     "cloudflare:workers": { env },
+    "@/lib/admin-record-lifecycle": {
+      // Isolated article publication fixture: D1 publication acknowledgement
+      // occurs after the canonical save and has no remote Notion side effects.
+      async acknowledgeAdminPublication() { calls.push(["publication-ack"]); },
+    },
     "@/lib/article-store": {
       ...classes,
       async getManagedArticleById() { calls.push(["read"]); return stored; },
