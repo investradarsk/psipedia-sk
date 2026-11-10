@@ -93,6 +93,7 @@ test("0158 adds all five exact indexes, preserves existing profiles", () => {
     db.exec(sql0158);
     assert.deepEqual(classify0158(inspect0158(db)), {
       installed: true, count: 2, presentIndexes: [...DIRECTORY_0158_INDEX_NAMES], missingIndexes: [],
+      legacyCompatibleIndexes: [],
     });
     assert.deepEqual(db.prepare("SELECT * FROM directory_profiles ORDER BY id").all(), baseline);
     for (const name of DIRECTORY_0158_INDEX_NAMES)
@@ -151,6 +152,47 @@ test("0158 mismatch error lists actual and expected DDL for read-only diagnosis"
         err.message.includes("updated_at DESC"),
     );
   } finally { db.close(); }
+});
+
+test("0158 accepts the observed legacy ascending composite through SQLite reverse scan", () => {
+  const db = setup();
+  try {
+    db.exec('CREATE INDEX `directory_profiles_admin_updated_idx` ON `directory_profiles` (`updated_at`,`id`)');
+    const before = classify0158(inspect0158(db));
+    assert.equal(before.installed, false);
+    assert.deepEqual(before.legacyCompatibleIndexes, ["directory_profiles_admin_updated_idx"]);
+    assert.deepEqual(before.missingIndexes, DIRECTORY_0158_INDEX_NAMES.slice(1));
+    const beforeRows = db.prepare("SELECT * FROM directory_profiles ORDER BY id").all();
+    const query = "SELECT id FROM directory_profiles ORDER BY updated_at DESC, id DESC";
+    const sqlPlan = db.prepare("EXPLAIN QUERY PLAN " + query).all().map((r) => r.detail);
+    assert.ok(sqlPlan.some((detail) => /USING COVERING INDEX directory_profiles_admin_updated_idx/.test(detail)),
+      JSON.stringify(sqlPlan));
+    assert.ok(!sqlPlan.some((detail) => /USE TEMP B-TREE FOR ORDER BY/.test(detail)),
+      JSON.stringify(sqlPlan));
+    db.exec(sql0158);
+    const after = classify0158(inspect0158(db));
+    assert.equal(after.installed, true);
+    assert.deepEqual(after.missingIndexes, []);
+    assert.deepEqual(after.legacyCompatibleIndexes, ["directory_profiles_admin_updated_idx"]);
+    assert.deepEqual(db.prepare("SELECT * FROM directory_profiles ORDER BY id").all(), beforeRows);
+    assert.deepEqual(db.prepare(query).all().map((r) => r.id), [4, 8]);
+    const ddl = db.prepare("SELECT sql FROM sqlite_master WHERE name='directory_profiles_admin_updated_idx'").get().sql;
+    assert.match(ddl, /updated_at`?,`?id/);
+  } finally { db.close(); }
+});
+
+test("0158 still rejects mixed-direction legacy and extra indexed expressions", () => {
+  for (const ddl of [
+    "CREATE INDEX directory_profiles_admin_updated_idx ON directory_profiles(updated_at ASC,id DESC)",
+    "CREATE INDEX directory_profiles_admin_updated_idx ON directory_profiles(updated_at,id,category)",
+    "CREATE INDEX directory_profiles_admin_updated_idx ON directory_profiles(updated_at COLLATE NOCASE,id)",
+  ]) {
+    const db = setup();
+    try {
+      db.exec(ddl);
+      assert.throws(() => classify0158(inspect0158(db)), /D1_0158_INDEX_MISMATCH/);
+    } finally { db.close(); }
+  }
 });
 
 test("0162 adds a default-empty short description without altering original descriptions", () => {
