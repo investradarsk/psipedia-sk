@@ -13,8 +13,10 @@ const migration = source("drizzle/0164_admin_record_lifecycle.sql");
 test("status-only operation cannot serialize editor payload, and records a Notion retry guard", () => {
   const body = core.split("export async function unpublishRecord(")[1]?.split("/** Called only AFTER")[0];
   assert.ok(body, "unpublish function must exist");
-  assert.match(body, /SET status=\?,updated_at=\? WHERE id=\? AND status=\?/);
+  assert.match(body, /SET status=\?,updated_at=\? WHERE id=\?/);
   assert.match(body, /db\.batch\(\[guard,update\]\)/);
+  assert.match(body, /hideResult\.meta\?\.changes/);
+  assert.match(body, /RECORD_HIDE_NOT_CONFIRMED/);
   assert.match(body, /await mirrorDraft\(db,bindings,kind,id,targets\)/);
   assert.doesNotMatch(body, /JSON\.stringify\(row\)|updateManaged|save\("draft"\)|\.imageKey\s*=/);
 });
@@ -121,4 +123,14 @@ test("archived records are not silently converted into drafts by the unpublish a
   assert.match(route, /code==="RECORD_NOT_PUBLIC"\?409/);
   assert.match(dialog, /preview\?preview\.published:publicStates\.has\(status\)/);
   assert.doesNotMatch(dialog.split("const publicStates=new Set(")[1]?.split(");")[0]??"", /ARCHIVED/);
+});
+
+test("remote Notion deletion cannot begin unless the canonical D1 row was hidden", () => {
+  const removal = core.split("export async function removeRecord(")[1] ?? "";
+  assert.match(removal, /const \[,hideResult\]=await db\.batch\(\[insert,hide\]\)/);
+  assert.match(removal, /hideResult\.meta\?\.changes/);
+  const hidden = removal.indexOf("RECORD_HIDE_NOT_CONFIRMED");
+  const remote = removal.indexOf("for(const target of targets)await verifyTrash");
+  assert.ok(hidden >= 0 && remote > hidden);
+  assert.match(removal, /WHERE id=\?"/);
 });
