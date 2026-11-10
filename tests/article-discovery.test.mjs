@@ -253,7 +253,8 @@ test("EDITORIAL-5 news menu, canonical route and sitemap agree on /novinky", () 
   assert.match(navStore, /item.id === "novinky" && item.href === "\/clanky"/);
   assert.match(navStore, /href: "\/novinky"/);
   assert.match(header, /item.id === "novinky" \? "novinky"/);
-  assert.match(footer, /<Link href="\/novinky">Novinky<\/Link>/);
+  // Navigational attributes may precede href (for example prefetch={false}).
+  assert.match(footer, /<Link\\b[^>]*\\bhref="\\/novinky"[^>]*>Novinky<\\/Link>/);
   assert.doesNotMatch(sitemap.split("export const NEWS_SITEMAP_WINDOW_MS")[0], /"\/novinky"/);
   assert.match(newsRoute, /path: "\/novinky"/);
   assert.match(newsRoute, /<NewsHub/);
@@ -263,6 +264,6 @@ test("EDITORIAL-5 homepage labels mixed latest articles separately from news", (
   const homepage = readFileSync("components/home-editorial.tsx", "utf8");
   const archive = readFileSync("app/clanky/page.tsx", "utf8");
   assert.match(homepage, /home-latest-title">Najnovšie články/);
-  assert.match(homepage, /<Link href="\/clanky"/);
+  assert.match(homepage, /<Link\\b[^>]*\\bhref="\\/clanky"/);
   assert.match(archive, /title: "Všetky články"/);
 });
