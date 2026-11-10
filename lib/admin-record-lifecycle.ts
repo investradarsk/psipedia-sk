@@ -34,11 +34,12 @@ const mappingTables: Partial<Record<RecordKind, { table:string; entity:string }>
 };
 type CanonicalRow = Record<string, unknown> & { id:number; slug:string; status:string };
 type NotionTarget = { pageId:string; sourceId:string };
+const NOTION_UUID=/^(?:[a-f0-9]{32}|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$/i;
 /** Fail before locally hiding a record if its remote identity is not
  * trustworthy enough for the mandatory GET/PATCH/GET ownership checks. */
 function assertNotionTargetsConfigured(targets:NotionTarget[]) {
   for(const target of targets) {
-    if(!/^[a-f0-9]{32}$|^[a-f0-9-]{36}$/i.test(target.pageId))
+    if(!NOTION_UUID.test(target.pageId))
       throw Error("NOTION_MAPPING_INVALID");
     requireDataSource(target.sourceId);
   }
@@ -73,7 +74,7 @@ function notionPageIdVariants(pageId:string):[string,string] {
   return [compact,dashed];
 }
 function requireDataSource(id:string) {
-  if (!/^[a-f0-9]{32}$|^[a-f0-9-]{36}$/i.test(id)) throw Error("NOTION_DATA_SOURCE_UNCONFIGURED");
+  if (!NOTION_UUID.test(id)) throw Error("NOTION_DATA_SOURCE_UNCONFIGURED");
   return id;
 }
 export async function lifecycleSchemaReady(db:D1Database) {
