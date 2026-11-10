@@ -98,5 +98,7 @@ test("admin feature styles do not block unrelated admin routes", () => {
   assert.match(uppy, /import "@uppy\/core\/css\/style\.min\.css"/);
   assert.match(uppy, /import "@uppy\/dashboard\/css\/style\.min\.css"/);
   assert.match(tour, /import\("driver\.js\/dist\/driver\.css"\)/);
-  assert.match(tour, /await Promise\.all\(\[/);
+  assert.match(tour, /const stylesPromise = import\("driver\.js\/dist\/driver\.css"\)/);
+  assert.match(tour, /await import\("driver\.js"\)/);
+  assert.match(tour, /await stylesPromise/);
 });

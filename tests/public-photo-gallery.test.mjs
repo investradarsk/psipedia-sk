@@ -117,7 +117,8 @@ test("preserved gallery variants keep every photo, captions, crop variants and e
 test("all existing public gallery families use central presentation without local duplicate CSS", () => {
   for (const [path, variant] of [
     ["app/plemena/[slug]/page.tsx", "breed"],
-    ["components/lost-found-dog-detail.tsx", "report"],
+    // Lost/found reports intentionally use the linked lightbox variant.
+    ["components/lost-found-dog-detail.tsx", "linked"],
     ["components/article-blocks.tsx", "editorial"],
   ]) {
     const source = read(path);
