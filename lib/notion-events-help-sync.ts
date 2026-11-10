@@ -1480,6 +1480,37 @@ await requireVerifiedMappedNotionWriteback({
           notion: notionSnapshot,
           confirmedGooglePlace,
         });
+        // The legacy Notion-filled-values priority path normally ignores
+        // empty properties. Preserve that rule for every existing field, but
+        // let an independently verified one-sided deletion of the optional
+        // new short description reach both D1 and Notion.
+        if (agenda === "lost-found" && schema[LOST_FOUND_SHORT_DESCRIPTION_FIELD]) {
+          const recorded = await readProfileFieldBaseline({
+            database: input.database, agenda, entityId, pageId: page.id,
+            expectedHash: mapping.content_hash,
+          });
+          let verified = trustedProfileBaselineFromHashes({
+            recorded, notion: notionSnapshot, psipedia: sourceSnapshot,
+            mappingHash: mapping.content_hash, notionHash, psipediaHash: canonicalHash,
+          });
+          if (!verified) {
+            for (const candidate of [
+              withoutLostFoundShortDescription(notionSnapshot),
+              withoutLostFoundShortDescription(sourceSnapshot),
+            ]) {
+              if (await snapshotHash("lost-found", candidate) !== mapping.content_hash) continue;
+              verified = extendLostFoundShortDescriptionBaseline(candidate);
+              break;
+            }
+          }
+          const deletes = verifiedLostFoundShortDescriptionDeletes(
+            verified, notionSnapshot, sourceSnapshot,
+          );
+          if (deletes.has("notion:" + LOST_FOUND_SHORT_DESCRIPTION_FIELD)
+            || deletes.has("psipedia:" + LOST_FOUND_SHORT_DESCRIPTION_FIELD)) {
+            desired[LOST_FOUND_SHORT_DESCRIPTION_FIELD] = "";
+          }
+        }
         const changedFields = differingAgendaSnapshotFields(agenda, sourceSnapshot, desired);
 
         if (input.mode !== "sync") {
