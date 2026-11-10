@@ -1,0 +1,96 @@
+name: Production D1 0163 Breed Controlled Values (manual)
+
+# PR merge and ordinary deploy NEVER apply D1 migrations.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Audit only reads D1; apply creates the empty 0163 sidecar table
+        required: true
+        type: choice
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: Enter AUDIT-0163-psipedia-sk-db or APPLY-0163-psipedia-sk-db exactly
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  breed-controlled-0163:
+    name: Protected 0163 audit or explicit schema-only apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      BREED_0163_MODE: ${{ inputs.mode }}
+      BREED_0163_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main, manual dispatch and exact owner confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          case "$BREED_0163_MODE" in
+            audit) expected="AUDIT-0163-psipedia-sk-db" ;;
+            apply) expected="APPLY-0163-psipedia-sk-db" ;;
+            *) exit 1 ;;
+          esac
+          test "$BREED_0163_CONFIRMATION" = "$expected"
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Checkout exact dispatched main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Reject stale main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Offline safety and 0163 schema regression
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-d1-0163-breed-controlled.test.mjs
+
+      - name: Load protected Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id)')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Audit remotely or perform explicitly approved 0163-only DDL
+        run: node scripts/production-d1-0163-breed-controlled.mjs "$BREED_0163_MODE"
+
+      - name: Keep aggregate report and Time Travel recovery bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-0163-${{ github.run_id }}
+          path: .production-d1-0163/report.json
+          if-no-files-found: ignore
+          retention-days: 30
