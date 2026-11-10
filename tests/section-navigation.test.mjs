@@ -263,10 +263,11 @@ test("ADMIN-CORE preserves the public SiteHeader contract with server-projected 
   assert.match(projection, /navigationItems\.filter\(\(item\) => item\.visible\)/);
   assert.match(projection, /storedChildren\.length \? storedChildren : fallbackChildren/);
   assert.match(projection, /visible\.filter\(\(item\) => !item\.parentId\)/);
-  assert.match(
-    layout,
-    /buildPublicHeaderNavigation\(await getNavigationItems\(\), portalSections\)/,
-  );
+  // The D1 navigation query starts before cookie/session work; the already
+  // resolved rows are projected on the server after both promises settle.
+  assert.match(layout, /const navigationPromise = getNavigationItems\(\)/);
+  assert.match(layout, /await Promise\.all\(\[\s*navigationPromise,/);
+  assert.match(layout, /buildPublicHeaderNavigation\(navigationRows, portalSections\)/);
   assert.match(header, /const nav = navigationItems;/);
   assert.match(header, /setMenuOpen\(false\)/);
   assert.doesNotMatch(header, /import \{ portalSections \}/);
