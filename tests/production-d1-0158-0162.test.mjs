@@ -7,7 +7,7 @@ import {
   COMPLETION_0158_SQL, COMPLETION_0162_SQL,
   COMPLETION_0158_BLOB, COMPLETION_0162_BLOB,
   DIRECTORY_0158_INDEX_SQL, DIRECTORY_0158_INDEX_NAMES,
-  normalizedDdl, classify0158, classify0162, assert0159to0161,
+  normalizedDdl, canonicalIndexDdl, classify0158, classify0162, assert0159to0161,
 } from "../lib/production-d1-0158-0162-guard.mjs";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -122,6 +122,35 @@ test("0158 completes compatible partial installations and rejects incompatible i
     }
     assert.throws(() => classify0158(inspect0158(other)), /INDEX_MISMATCH/);
   } finally { other.close(); }
+});
+
+test("0158 accepts equivalent quoted/whitespace SQLite index DDL only", () => {
+  const original = DIRECTORY_0158_INDEX_SQL[0];
+  const quoted = 'CREATE INDEX "directory_profiles_admin_updated_idx" ON "directory_profiles" ( "updated_at" DESC , "id" DESC )';
+  assert.equal(canonicalIndexDdl(original), canonicalIndexDdl(quoted));
+  assert.notEqual(canonicalIndexDdl(original),
+    canonicalIndexDdl('CREATE INDEX directory_profiles_admin_updated_idx ON directory_profiles(updated_at ASC, id DESC)'));
+  const db = setup();
+  try {
+    db.exec(quoted);
+    const partial = classify0158(inspect0158(db));
+    assert.deepEqual(partial.presentIndexes, [DIRECTORY_0158_INDEX_NAMES[0]]);
+    assert.deepEqual(partial.missingIndexes, DIRECTORY_0158_INDEX_NAMES.slice(1));
+    assert.equal(partial.installed, false);
+  } finally { db.close(); }
+});
+
+test("0158 mismatch error lists actual and expected DDL for read-only diagnosis", () => {
+  const db = setup();
+  try {
+    db.exec('CREATE INDEX directory_profiles_admin_updated_idx ON directory_profiles(updated_at ASC, id DESC)');
+    assert.throws(
+      () => classify0158(inspect0158(db)),
+      (err) => err.message.includes("D1_0158_INDEX_MISMATCH") &&
+        err.message.includes("updated_at ASC") &&
+        err.message.includes("updated_at DESC"),
+    );
+  } finally { db.close(); }
 });
 
 test("0162 adds a default-empty short description without altering original descriptions", () => {
