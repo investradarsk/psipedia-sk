@@ -55,6 +55,8 @@ test("tombstone remains after canonical delete and blocks automatic resurrection
   try{
     db.prepare("INSERT INTO managed_events(id,slug,status) VALUES (1,'deleted-event','draft')").run();
     tombstone(db,"events","deleted-event",1);
+    assert.throws(()=>db.prepare("DELETE FROM managed_events WHERE id=1").run(),/USE_VERIFIED_LIFECYCLE_DELETE/);
+    db.prepare("UPDATE admin_record_tombstones SET state='READY_LOCAL' WHERE kind='events' AND record_id=1").run();
     db.prepare("DELETE FROM managed_events WHERE id=1").run();
     db.prepare("UPDATE admin_record_tombstones SET state='COMPLETE' WHERE kind='events' AND record_id=1").run();
     assert.throws(()=>db.prepare("INSERT INTO managed_events(slug,status) VALUES ('deleted-event','draft')").run(),/RECORD_TOMBSTONED/);
@@ -64,6 +66,7 @@ test("all original record tables have both anti-resurrection and pending-removal
   for(const [table,kind] of records){
     assert.match(sql,new RegExp("BEFORE INSERT ON "+table+"\\b"));
     assert.match(sql,new RegExp("BEFORE UPDATE OF status, slug ON "+table+"\\b"));
+    assert.match(sql,new RegExp("BEFORE DELETE ON "+table+"\\b"));
     assert.match(sql,new RegExp("kind='"+kind+"'"));
   }
 });
