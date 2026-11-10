@@ -351,21 +351,6 @@ export default async function BreedDetailPage({ params }: Props) {
     managedBreed?.fciNumber ||
       Object.values(fci).some((value) => typeof value === "string" && value.trim()),
   );
-  const hasBreederContacts =
-    relations.breedingStations.length > 0 || relations.breedClubs.length > 0;
-  const sectionNavItems = [
-    hasCharacteristics ? { id: "prehlad", label: "Charakteristika" } : null,
-    ratings.length ? { id: "hodnotenia", label: "Povaha" } : null,
-    goodFor.length || consider.length ? { id: "vhodnost", label: "Vhodnosť" } : null,
-    accordions.length ? { id: "prakticke", label: "Život a starostlivosť" } : null,
-    healthParagraphs.length || healthRisks.length ? { id: "zdravie", label: "Zdravie" } : null,
-    sports.length ? { id: "sporty", label: "Športy" } : null,
-    hasFciReference ? { id: "fci", label: "FCI" } : null,
-    relations.articles.length ? { id: "suvisiaci-obsah", label: "Články" } : null,
-    hasBreederContacts ? { id: "chov-a-kluby", label: "Chov a kluby" } : null,
-    { id: "uzitocne", label: "Užitočné odkazy" },
-    relations.similarBreeds.length ? { id: "podobne", label: "Podobné plemená" } : null,
-  ].filter((item): item is { id: string; label: string } => Boolean(item));
 
   return (
     <main id="obsah" className={styles.page}>
@@ -444,19 +429,6 @@ export default async function BreedDetailPage({ params }: Props) {
                 <DetailFactsCard title="Plemeno v skratke" facts={quickFacts} />
               </div>
             ) : null}
-            <nav className={styles.sidebarIndex} aria-label="Rýchly prechod v profile">
-              <h2>V tomto profile</h2>
-              <ul>
-                {sectionNavItems
-                  .filter((item) => item.id !== "uzitocne")
-                  .slice(0, 6)
-                  .map((item) => (
-                    <li key={item.id}>
-                      <a href={`#${item.id}`}>{item.label}</a>
-                    </li>
-                  ))}
-              </ul>
-            </nav>
             <ArticlePromo promoKey="veterinari" variant="v1" seed={breed.slug} compact />
             <PublicMagazineBanner
               compact
