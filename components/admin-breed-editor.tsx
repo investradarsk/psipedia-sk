@@ -385,7 +385,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         <div className={styles.heading}><div><h2>01 · Základné údaje</h2><p>Najdôležitejšie fakty o plemene na jednom mieste. Bez dvojitého vypĺňania.</p></div></div>
         <div className={styles.basicTop}>
           <label className="admin-field"><span>Názov plemena</span><input required value={form.name} onChange={e=>changeName(e.target.value)}/></label>
-          {breed ? <>
+          {breed && controlledRevision!==null ? <>
             {renderControlled("originCountries")}
             {renderControlled("sizeSelect")}
             {renderControlled("coatTypes")}
@@ -398,7 +398,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
             </select></label>
           </>}
         </div>
-        {breed ? <>
+        {breed && controlledRevision!==null ? <>
           <div className={styles.measureGroups}>
             <fieldset className={styles.measureGroup}><legend>Výška v kohútiku · cm</legend>
               <div className={styles.measureInputs}>{renderControlled("heightMinCm")}{renderControlled("heightMaxCm")}</div>
@@ -447,12 +447,16 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           </label>
           <div className="admin-field"><span>FCI skupina</span><select aria-label="FCI skupina" value={form.fciGroup} onChange={e=>change("fciGroup",Number(e.target.value))}>
             {FCI_GROUP_OPTIONS.map(([number,label])=><option key={number} value={number}>{number}. {label}</option>)}</select></div>
+          <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={e=>change("fciSection",e.target.value)} /></label>
+          {breed && !controlledLoading && controlledRevision===null && <p role="status" className={styles.validation}>
+            Štruktúrované údaje zatiaľ nie sú pre tento profil prepojené s Notionom. Dostupné sú pôvodné polia; údaje zostanú v Admine.
+            {controlledError ? " "+controlledError : ""}
+          </p>}
         </div>}
         <details className={styles.officialFields}><summary>Oficiálne údaje FCI</summary>
           <div className="admin-field-grid">
             <label className="admin-field"><span>Oficiálny FCI názov</span><input value={form.officialFciName} onChange={e=>change("officialFciName",e.target.value)}/></label>
             <label className="admin-field"><span>FCI číslo</span><input type="number" min="1" max="9999" readOnly={Boolean(breed)} value={form.fciNumber} onChange={e=>change("fciNumber",e.target.value)}/></label>
-            {!breed && <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={e=>change("fciSection",e.target.value)}/></label>}
           </div>
         </details>
       </div>
