@@ -58,6 +58,11 @@ import {
   extendEventFocusKeywordBaseline,
   ignoreUnverifiedEmptyNotionEventKeyword,
 } from "./notion-event-focus-keyword.ts";
+import {
+  LOST_FOUND_SHORT_DESCRIPTION_FIELD,
+  withoutLostFoundShortDescription,
+  extendLostFoundShortDescriptionBaseline,
+} from "./notion-lost-found-short-description.ts";
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
@@ -1265,6 +1270,24 @@ await requireVerifiedMappedNotionWriteback({
               baseline = extendEventFocusKeywordBaseline(
                 extendEventContactBaseline(candidate),
               );
+              break;
+            }
+          }
+        }
+        // Migration 0162 introduced Krátky popis after existing Lost/Found
+        // page hashes were persisted. Trust an old baseline ONLY when the
+        // exact previous hash matches without the newly added property.
+        // The new field starts empty; never overwrite a real later edit.
+        if (agenda === "lost-found" && schema[LOST_FOUND_SHORT_DESCRIPTION_FIELD]) {
+          if (baseline) {
+            baseline = extendLostFoundShortDescriptionBaseline(baseline);
+          } else {
+            for (const candidate of [
+              withoutLostFoundShortDescription(notionSnapshot),
+              withoutLostFoundShortDescription(sourceSnapshot),
+            ]) {
+              if (await snapshotHash("lost-found", candidate) !== mapping.content_hash) continue;
+              baseline = extendLostFoundShortDescriptionBaseline(candidate);
               break;
             }
           }
