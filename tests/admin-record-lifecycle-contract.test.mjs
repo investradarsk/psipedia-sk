@@ -110,3 +110,15 @@ test("unpublish mirrors the exact existing Notion status enums and tolerates unm
   assert.match(guard, /if\(!present\.has\("admin_record_publication_guards"\)\)return false/);
   assert.match(guard, /if\(!present\.has\(table\)\)return/);
 });
+
+test("archived records are not silently converted into drafts by the unpublish action", () => {
+  const body = core.split("export async function unpublishRecord(")[1]
+    ?.split("/** Called only AFTER")[0];
+  assert.ok(body);
+  assert.match(body, /!spec\.publicStatuses\.includes\(clean\(row\.status\)\)/);
+  assert.match(body, /throw Error\("RECORD_NOT_PUBLIC"\)/);
+  const route = source("app/api/admin/record-lifecycle/[kind]/[id]/route.ts");
+  assert.match(route, /code==="RECORD_NOT_PUBLIC"\?409/);
+  assert.match(dialog, /preview\?preview\.published:publicStates\.has\(status\)/);
+  assert.doesNotMatch(dialog.split("const publicStates=new Set(")[1]?.split(");")[0]??"", /ARCHIVED/);
+});
