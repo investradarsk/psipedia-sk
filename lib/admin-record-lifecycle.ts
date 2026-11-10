@@ -226,9 +226,18 @@ export async function adminUnpublishedGuard(db:D1Database,kind:RecordKind,id:num
   return Boolean(row?.found);
 }
 export async function notionPageIsTombstoned(db:D1Database,pageId:string) {
-  const row=await db.prepare("SELECT 1 AS found FROM admin_record_tombstones WHERE notion_page_id=? OR instr(notion_targets_json,?)>0 LIMIT 1")
-    .bind(pageId,pageId).first<{found:number}>();
-  return Boolean(row?.found);
+  try {
+    const row=await db.prepare("SELECT 1 AS found FROM admin_record_tombstones WHERE notion_page_id=? OR EXISTS ("+
+      "SELECT 1 FROM json_each(admin_record_tombstones.notion_targets_json) "+
+      "WHERE json_extract(json_each.value,'$.pageId')=?) LIMIT 1")
+      .bind(pageId,pageId).first<{found:number}>();
+    return Boolean(row?.found);
+  } catch (error) {
+    // Existing sync workers may deploy before the owner explicitly applies
+    // additive migration 0164. The destructive API remains disabled until then.
+    if (error instanceof Error && /no such table: admin_record_tombstones/i.test(error.message)) return false;
+    throw error;
+  }
 }
 async function setRemovalError(db:D1Database,kind:RecordKind,id:number,code:string) {
   await db.prepare("UPDATE admin_record_tombstones SET state='ERROR_NOTION',error_code=?,attempts=attempts+1,updated_at=? WHERE kind=? AND record_id=? AND state<>'COMPLETE'")
