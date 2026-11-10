@@ -137,6 +137,37 @@ type AccessJwtPayload = {
 type AccessJwk = JsonWebKey & { kid?: string };
 type CachedAccessJwks = { expiresAt: number; keys: AccessJwk[] };
 
+// Redirect detection is D1-heavy and runs before the SSR page. A short,
+// bounded in-isolate cache coalesces simultaneous requests and repeated
+// cookie-bearing reads without sharing HTML or user data.
+const BREED_REDIRECT_CACHE_TTL_MS = 15_000;
+const BREED_REDIRECT_CACHE_MAX_ENTRIES = 400;
+const breedRedirectCache = new Map<string, {
+  expiresAt: number;
+  pending: Promise<string | null>;
+}>();
+
+function cachedCanonicalBreedRedirect(database: D1Database, slug: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = breedRedirectCache.get(slug);
+  if (cached && cached.expiresAt > now) return cached.pending;
+
+  const pending = canonicalBreedRedirect(database, slug).catch((error) => {
+    if (breedRedirectCache.get(slug)?.pending === pending) breedRedirectCache.delete(slug);
+    throw error;
+  });
+  breedRedirectCache.delete(slug);
+  breedRedirectCache.set(slug, {
+    expiresAt: now + BREED_REDIRECT_CACHE_TTL_MS,
+    pending,
+  });
+  if (breedRedirectCache.size > BREED_REDIRECT_CACHE_MAX_ENTRIES) {
+    const oldest = breedRedirectCache.keys().next().value;
+    if (oldest !== undefined) breedRedirectCache.delete(oldest);
+  }
+  return pending;
+}
+
 const ACCESS_JWKS_TTL_MS = 5 * 60 * 1000;
 const accessJwksCache = new Map<string, CachedAccessJwks>();
 // Concurrent admin requests reuse one certificate download; the verified JWT
@@ -291,7 +322,7 @@ const worker = {
 
     const breedMatch=url.pathname.match(/^\/plemena\/([a-z0-9-]+)$/);
     if(breedMatch&&env.DB){
-      const target=await canonicalBreedRedirect(env.DB,breedMatch[1]);
+      const target=await cachedCanonicalBreedRedirect(env.DB,breedMatch[1]);
       if(target){url.pathname=target;return Response.redirect(url,301);}
     }
 

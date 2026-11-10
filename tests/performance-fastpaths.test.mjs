@@ -50,3 +50,11 @@ test("partner session is memoized for one React request, and directory detail ov
   assert.match(directoryProfile, /partnerIdentityPromise\.then/);
   assert.match(directoryProfile, /await Promise\.all\(\[/);
 });
+
+test("breed redirects deduplicate D1 lookups with a short bounded isolate cache", () => {
+  assert.match(worker, /BREED_REDIRECT_CACHE_TTL_MS = 15_000/);
+  assert.match(worker, /BREED_REDIRECT_CACHE_MAX_ENTRIES = 400/);
+  assert.match(worker, /cachedCanonicalBreedRedirect\(env\.DB,breedMatch\[1\]\)/);
+  assert.match(worker, /breedRedirectCache\.delete\(slug\)/);
+  assert.match(worker, /canonicalBreedRedirect\(database, slug\)/);
+});
