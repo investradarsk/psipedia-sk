@@ -91,18 +91,26 @@ test("0158 adds all five exact indexes, preserves existing profiles", () => {
     const baseline = db.prepare("SELECT * FROM directory_profiles ORDER BY id").all();
     assert.equal(classify0158(inspect0158(db)).installed, false);
     db.exec(sql0158);
-    assert.deepEqual(classify0158(inspect0158(db)), { installed: true, count: 2 });
+    assert.deepEqual(classify0158(inspect0158(db)), {
+      installed: true, count: 2, presentIndexes: [...DIRECTORY_0158_INDEX_NAMES], missingIndexes: [],
+    });
     assert.deepEqual(db.prepare("SELECT * FROM directory_profiles ORDER BY id").all(), baseline);
     for (const name of DIRECTORY_0158_INDEX_NAMES)
       assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name=? AND type='index'").get(name).n, 1);
   } finally { db.close(); }
 });
 
-test("0158 rejects a partial installation and incompatible index reuse", () => {
+test("0158 completes compatible partial installations and rejects incompatible index reuse", () => {
   const db = setup();
   try {
     db.exec(executable(sql0158)[0]);
-    assert.throws(() => classify0158(inspect0158(db)), /PARTIAL_INDEX_SET/);
+    const partial = classify0158(inspect0158(db));
+    assert.equal(partial.installed, false);
+    assert.deepEqual(partial.presentIndexes, [DIRECTORY_0158_INDEX_NAMES[0]]);
+    assert.deepEqual(partial.missingIndexes, DIRECTORY_0158_INDEX_NAMES.slice(1));
+    db.exec(sql0158);
+    assert.equal(classify0158(inspect0158(db)).installed, true);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n, 2);
   } finally { db.close(); }
   const other = setup();
   try {
