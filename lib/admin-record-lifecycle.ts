@@ -321,6 +321,14 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
   if(mapping)statements.push(db.prepare("DELETE FROM "+mapping.table+" WHERE "+mapping.entity+"=?").bind(id));
   if(spec.agenda && kind!=="events")
     statements.push(db.prepare("DELETE FROM notion_agenda_sync WHERE agenda=? AND entity_id=?").bind(spec.agenda,id));
+  // Delete only join rows or dangling foreign keys, never related entities.
+  if(kind==="articles") statements.push(db.prepare("DELETE FROM breed_article_relations WHERE article_id=?").bind(id));
+  if(kind==="breeds") {
+    statements.push(db.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(id));
+    statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(id));
+  }
+  if(kind==="directory") statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE directory_profile_id=?").bind(id));
+  if(kind==="organizations") statements.push(db.prepare("UPDATE adoption_dogs SET organization_id=NULL WHERE organization_id=?").bind(id));
   for(const target of targets) {
     statements.push(db.prepare("DELETE FROM notion_webhook_inbox WHERE page_id=?").bind(target.pageId));
     statements.push(db.prepare("DELETE FROM gemini_notion_created_pages WHERE notion_page_id=?").bind(target.pageId));
