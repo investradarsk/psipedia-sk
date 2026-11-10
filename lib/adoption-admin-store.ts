@@ -96,8 +96,12 @@ export function buildAdoptionAdminListQuery(filters: AdoptionAdminListFilters = 
   const conditions: string[] = [];
   const bindings: unknown[] = [];
 
-  const q = normalizeAdoptionSearchText([filters.q]);
-  if (q) {
+  const idMatch = /^#?([1-9]\d*)$/.exec(filters.q?.trim() ?? "");
+  const q = idMatch ? "" : normalizeAdoptionSearchText([filters.q]);
+  if (idMatch) {
+    conditions.push("id = ?");
+    bindings.push(Number(idMatch[1]));
+  } else if (q) {
     conditions.push("search_text LIKE ?");
     bindings.push(`%${q}%`);
   }

@@ -83,16 +83,22 @@ function likeNeedle(value: string) {
 
 export function buildHelpAdminWhere(filters: HelpAdminFilters) {
   const clauses: string[] = [HELP_ADMIN_DOMAIN_SQL];
-  const args: string[] = [];
+  const args: Array<string | number> = [];
   if (filters.category !== "all") { clauses.push("category = ?"); args.push(filters.category); }
   if (filters.status !== "all") { clauses.push("status = ?"); args.push(filters.status); }
   if (filters.urgent === "urgent") clauses.push("urgent = 1 AND resolved = 0");
   if (filters.state === "current") clauses.push("resolved = 0");
   if (filters.state === "resolved") clauses.push("resolved = 1");
   if (filters.q) {
+    const idMatch = /^#?([1-9]\d*)$/.exec(filters.q.trim());
+    if (idMatch) {
+      clauses.push("id = ?");
+      args.push(Number(idMatch[1]));
+    } else {
     const needle = likeNeedle(filters.q);
     clauses.push(`(${foldedSql("title")} LIKE ? ESCAPE '\\' OR ${foldedSql("dog_name")} LIKE ? ESCAPE '\\' OR ${foldedSql("organization")} LIKE ? ESCAPE '\\' OR ${foldedSql("city")} LIKE ? ESCAPE '\\')`);
     args.push(needle, needle, needle, needle);
+    }
   }
   if (filters.organization) {
     clauses.push(`${foldedSql("organization")} LIKE ? ESCAPE '\\'`);

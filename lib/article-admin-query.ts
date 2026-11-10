@@ -96,8 +96,12 @@ export function buildArticleAdminListQuery(
     clauses.push("EXISTS (SELECT 1 FROM article_topic_assignments ata WHERE ata.article_id = managed_articles.id AND ata.topic_id = ?)");
     bindings.push(filters.topicId);
   }
-  const needle = adminContainsNeedle(filters.query);
-  if (needle) {
+  const idMatch = /^#?([1-9]\d*)$/.exec(filters.query.trim());
+  const needle = idMatch ? "" : adminContainsNeedle(filters.query);
+  if (idMatch) {
+    clauses.push("managed_articles.id = ?");
+    bindings.push(Number(idMatch[1]));
+  } else if (needle) {
     const searchable = sqlFoldAdminText(
       "coalesce(title, '') || ' ' || coalesce(slug, '') || ' ' || coalesce(excerpt, '') || ' ' || coalesce(category, '')",
     );

@@ -335,7 +335,11 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   if (filters.status && LOST_FOUND_STATUSES.includes(filters.status)) { where.push("r.status = ?"); args.push(filters.status); }
   if (filters.region) { where.push("r.region = ?"); args.push(filters.region); }
   if (filters.locality) { where.push("(r.district LIKE ? OR r.city LIKE ? OR r.location_description LIKE ?)"); const q = `%${filters.locality.trim()}%`; args.push(q, q, q); }
-  if (filters.q?.trim()) { where.push("r.search_text LIKE ?"); args.push(`%${normalizeSearch(filters.q)}%`); }
+  if (filters.q?.trim()) {
+    const idMatch = /^#?([1-9]\d*)$/.exec(filters.q.trim());
+    if (idMatch) { where.push("r.id = ?"); args.push(Number(idMatch[1])); }
+    else { where.push("r.search_text LIKE ?"); args.push(`%${normalizeSearch(filters.q)}%`); }
+  }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r ${whereSql}`).bind(...args).first<{ count: number }>();
   const total = Number(count?.count || 0);
