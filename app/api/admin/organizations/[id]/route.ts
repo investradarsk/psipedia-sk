@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -59,6 +60,7 @@ export async function PUT(request: Request, { params }: Props) {
         invalidateVersionedPublicHtmlCacheUrl(new URL(`/organizacie/${item.slug}`, request.url), version),
       ]);
     }
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"organizations",id,item.status);
     return Response.json({ item, notionFieldSync });
   } catch (error) {
     if (error instanceof OrganizationAdminValidationError) {
