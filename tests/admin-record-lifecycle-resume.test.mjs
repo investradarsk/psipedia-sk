@@ -9,16 +9,26 @@ import ts from "typescript";
 // boundaries. In particular, test the ORDER of the re-hide and remote trash.
 const source=readFileSync(fileURLToPath(new URL("../lib/admin-record-lifecycle.ts",import.meta.url)),"utf8");
 const start=source.indexOf("export async function removeRecord(");
-assert.ok(start>0);
-const js=ts.transpileModule(source.slice(start),{
-  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
+const validatorStart=source.indexOf("function assertNotionTargetsConfigured(");
+const validatorEnd=source.indexOf("\ntype Tombstone =",validatorStart);
+const sourceStart=source.indexOf("function requireDataSource(");
+const sourceEnd=source.indexOf("\nexport async function lifecycleSchemaReady(",sourceStart);
+assert.ok(start>0&&validatorStart>0&&validatorEnd>validatorStart&&sourceStart>0&&sourceEnd>sourceStart);
+const js=ts.transpileModule(
+  source.slice(validatorStart,validatorEnd)+"\n"+
+  source.slice(sourceStart,sourceEnd)+"\n"+source.slice(start),{
+    compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
 }).outputText;
 function fixture(options={}) {
   const calls=[];
   const data={
     kind:"events",record_id:14,record_slug:"skusobne-podujatie",
     record_name:"Skúšobné podujatie",record_category:"výstava",
-    notion_page_id:"page-1",notion_targets_json:JSON.stringify([{pageId:"page-1",sourceId:"db-1"}]),
+    notion_page_id:"1234567890abcdef1234567890abcdef",
+    notion_targets_json:JSON.stringify([{
+      pageId:"1234567890abcdef1234567890abcdef",
+      sourceId:"0123456789abcdef0123456789abcdef",
+    }]),
     state:options.state??"ERROR_NOTION",error_code:null,
   };
   const row={id:14,slug:data.record_slug,title:data.record_name,event_type:data.record_category,
@@ -41,7 +51,8 @@ function fixture(options={}) {
   };
   const globals={
     exports:{}, Error, Promise, JSON, Date, Number,
-    tombstone:async()=>data,
+    tombstone:async()=>options.noPrior?null:data,
+    mappedTargets:async()=>options.targets??[],
     canonical:async()=>row,
     identity:(_kind,value)=>({kind:"events",slug:value.slug,name:value.title,
       category:value.event_type,status:value.status}),
@@ -80,5 +91,30 @@ test("a changed tombstone identity aborts a resumed request without writes",asyn
   const f=fixture({state:"ERROR_NOTION"});
   f.prior.record_name="Different entity";
   await assert.rejects(f.remove(),/RECORD_CONFIRMATION_MISMATCH/);
+  assert.deepEqual(f.calls,[]);
+});
+
+test("invalid mapped source is rejected BEFORE starting a new D1 tombstone",async()=>{
+  const f=fixture({noPrior:true,targets:[{
+    pageId:"1234567890abcdef1234567890abcdef",sourceId:"not-a-uuid",
+  }]});
+  await assert.rejects(f.remove(),/NOTION_DATA_SOURCE_UNCONFIGURED/);
+  assert.deepEqual(f.calls,[]);
+});
+
+test("invalid mapped page ID is rejected BEFORE hiding a new record",async()=>{
+  const f=fixture({noPrior:true,targets:[{
+    pageId:"not-a-uuid",sourceId:"0123456789abcdef0123456789abcdef",
+  }]});
+  await assert.rejects(f.remove(),/NOTION_MAPPING_INVALID/);
+  assert.deepEqual(f.calls,[]);
+});
+
+test("corrupted stored retry target aborts without D1 or Notion changes",async()=>{
+  const f=fixture({state:"ERROR_NOTION",status:"published"});
+  f.prior.notion_targets_json=JSON.stringify([{
+    pageId:"1234567890abcdef1234567890abcdef",sourceId:"missing-source",
+  }]);
+  await assert.rejects(f.remove(),/NOTION_DATA_SOURCE_UNCONFIGURED/);
   assert.deepEqual(f.calls,[]);
 });
