@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -98,6 +99,7 @@ export async function PUT(request: Request, { params }: Props) {
       changedEventFields:edited??eventChangedAdminFields(
         before as unknown as Record<string,unknown>,event as unknown as Record<string,unknown>),
     });
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"events",id,event.status);
     return Response.json({ event, notionFieldSync, fieldWarnings });
   } catch (error) { return errorResponse(error); }
 }
