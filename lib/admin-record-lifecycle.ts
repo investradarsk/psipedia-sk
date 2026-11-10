@@ -370,6 +370,10 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
     await setRemovalError(db,kind,id,code);
     return {state:"ERROR_NOTION",id,notionTrash:"not-confirmed",errorCode:code,media:{removed:0,preserved:mediaKeys(row).length}};
   }
+  // READY_LOCAL is a durable receipt that every linked Notion page has been
+  // independently verified in trash (or local-only consent was explicit).
+  await db.prepare("UPDATE admin_record_tombstones SET state='READY_LOCAL',error_code=NULL,updated_at=? WHERE kind=? AND record_id=? AND state<>'COMPLETE'")
+    .bind(new Date().toISOString(),kind,id).run();
   try {
     await completeLocalRemoval(db,kind,id,targets);
   }catch{
