@@ -390,8 +390,8 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         <label className="admin-field"><span>Prehľad plemena</span><AdminLexicalTextField rows={5} value={form.editorial.overview??""} onChange={next=>updateEditorial("overview",next)} ariaLabel="Prehľad plemena" /></label>
         <label className="admin-field"><span>Povaha a temperament</span><AdminLexicalTextField rows={5} value={form.character} onChange={next=>change("character",next)} ariaLabel="Povaha" /></label>
         <label className="admin-field"><span>História a pôvod plemena</span><AdminLexicalTextField rows={5} value={form.history} onChange={next=>change("history",next)} ariaLabel="História" /></label>
-        <label className="admin-field"><span>Zaujímavosti</span><AdminLexicalTextField rows={4} value={form.editorial.curiosities??""} onChange={next=>updateEditorial("curiosities",next)} ariaLabel="Zaujímavosti" /></label>
         <AdminLexicalAppendButton disabled={saving} onAppend={text=>change("history",appendLexicalPlainText(form.history,text))}/>
+        <label className="admin-field"><span>Zaujímavosti</span><AdminLexicalTextField rows={4} value={form.editorial.curiosities??""} onChange={next=>updateEditorial("curiosities",next)} ariaLabel="Zaujímavosti" /></label>
       </div>
     </AdminEditorSection>
 
