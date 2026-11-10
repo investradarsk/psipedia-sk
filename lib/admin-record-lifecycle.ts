@@ -71,7 +71,9 @@ export async function lifecycleSchemaReady(db:D1Database) {
     .bind(...triggerNames).first<{total:number}>();
   if(triggers?.total!==triggerNames.length)return false;
   const columns=await db.prepare("PRAGMA table_info(admin_record_tombstones)").all<{name:string}>();
-  return (columns.results??[]).some(column=>column.name==="notion_targets_json");
+  const required=new Set(["notion_targets_json","record_external_key"]);
+  for(const column of columns.results??[])required.delete(column.name);
+  return required.size===0;
 }
 async function canonical(db:D1Database,kind:RecordKind,id:number):Promise<CanonicalRow|null> {
   const spec=specs[kind];
@@ -85,6 +87,15 @@ function identity(kind:RecordKind,row:CanonicalRow) {
   return { kind, id:Number(row.id), name:clean(row[spec.title])||"Bez názvu",
     category:clean(spec.category?row[spec.category]:kind)||kind, slug:clean(row.slug),
     status:clean(row.status), published:spec.publicStatuses.includes(clean(row.status)) };
+}
+function externalTombstoneKey(kind:RecordKind,row:CanonicalRow):string|null {
+  if(kind==="directory" || kind==="organizations") {
+    const key=clean(row.import_key);
+    return key || null;
+  }
+  if(kind==="breeds" && Number.isSafeInteger(Number(row.fci_number)) && Number(row.fci_number)>0)
+    return String(row.fci_number);
+  return null;
 }
 async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number):Promise<NotionTarget[]> {
   if (kind==="breeds") {
@@ -416,9 +427,9 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
     if(!targets.length&&!localOnly)throw Error("LOCAL_ONLY_CONFIRMATION_REQUIRED");
     const spec=specs[kind];
     const insert=db.prepare("INSERT INTO admin_record_tombstones "+
-      "(kind,record_id,record_slug,record_name,record_category,notion_page_id,notion_data_source_id,notion_targets_json,state,error_code,created_by,created_at,updated_at) "+
-      "VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?,?)")
-      .bind(kind,id,meta.slug,meta.name,meta.category,targets[0]?.pageId??null,targets[0]?.sourceId??null,
+      "(kind,record_id,record_slug,record_external_key,record_name,record_category,notion_page_id,notion_data_source_id,notion_targets_json,state,error_code,created_by,created_at,updated_at) "+
+      "VALUES (?,?,?,?,?,?,?,?,?,?,NULL,?,?,?)")
+      .bind(kind,id,meta.slug,externalTombstoneKey(kind,row),meta.name,meta.category,targets[0]?.pageId??null,targets[0]?.sourceId??null,
         JSON.stringify(targets),targets.length?"PENDING_NOTION":"READY_LOCAL",owner,now,now);
     const hide=db.prepare("UPDATE "+spec.table+" SET status=?,updated_at=? WHERE id=? AND status=?")
       .bind(spec.draft,now,id,meta.status);
