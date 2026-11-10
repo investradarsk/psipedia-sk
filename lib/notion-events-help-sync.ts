@@ -62,6 +62,7 @@ import {
   LOST_FOUND_SHORT_DESCRIPTION_FIELD,
   withoutLostFoundShortDescription,
   extendLostFoundShortDescriptionBaseline,
+  verifiedLostFoundShortDescriptionDeletes,
 } from "./notion-lost-found-short-description.ts";
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
@@ -1314,6 +1315,9 @@ await requireVerifiedMappedNotionWriteback({
             : notionSnapshot,
           psipedia: sourceSnapshot, protectedFields,
           canonicalFieldsWin: true, authorities: fieldAuthorities,
+          verifiedDeletes: agenda === "lost-found"
+            ? verifiedLostFoundShortDescriptionDeletes(baseline, notionSnapshot, sourceSnapshot)
+            : undefined,
           // Existing Events/Help hash comparison already trims strings and
           // normalizes timezone-aware lost/found instants. Apply the same
           // semantics to field-level change detection, not just record hashes.
