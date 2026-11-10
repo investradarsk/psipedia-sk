@@ -1498,12 +1498,43 @@
 .page .contentLayout .ratingItem strong {
   color: var(--detail-ink, #17352b);
 }
+/* Each everyday-life topic has its own readable panel, rather than
+   a long continuous paragraph list with repeated miniature captions. */
 .page .contentLayout .accordionList {
   display: grid;
-  gap: 0;
+  max-width: none;
+  gap: 12px;
+  border: 0;
 }
-.page .contentLayout .accordionHeading small:empty {
-  display: none;
+.page .contentLayout .accordion {
+  padding: 16px 18px;
+  border: 1px solid var(--detail-border, #dfe7e4);
+  border-radius: var(--ps-radius-control);
+  background: var(--sage-light, #f1f5ee);
+}
+.page .contentLayout .accordion:first-child {
+  padding-top: 16px;
+}
+.page .contentLayout .accordion:last-child {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--detail-border, #dfe7e4);
+}
+.page .contentLayout .accordionHeading {
+  margin: 0 0 9px;
+}
+.page .contentLayout .accordionHeading strong {
+  font: 750 1.04rem/1.35 "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+  color: var(--forest-dark);
+}
+.page .contentLayout .accordionPanel {
+  padding: 0;
+}
+.page .contentLayout .accordionContent {
+  max-width: none;
+}
+.page .contentLayout .accordion .riskBlock {
+  margin-top: 14px;
+  padding-top: 13px;
 }
 .page .contentLayout .utilitySidebar {
   display: grid;
@@ -1518,6 +1549,18 @@
 @media (max-width: 800px) {
   .page .contentLayout {
     margin-block: 12px 20px;
+  }
+  .page .contentLayout .accordionList {
+    gap: 9px;
+  }
+  .page .contentLayout .accordion {
+    padding: 13px 14px;
+  }
+  .page .contentLayout .accordion:first-child {
+    padding-top: 13px;
+  }
+  .page .contentLayout .accordion:last-child {
+    padding-bottom: 13px;
   }
   .page .contentLayout .readingSection,
   .page .contentLayout .practicalSection,
