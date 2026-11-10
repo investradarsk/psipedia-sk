@@ -1,0 +1,36 @@
+name: D1 0158–0162 Ledger Reconciliation Offline Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/production-d1-0158-0162-history-guard.mjs"
+      - "scripts/production-d1-0158-0162-ledger.mjs"
+      - "tests/production-d1-0158-0162-history.test.mjs"
+      - ".github/workflows/production-d1-0158-0162-ledger.yml"
+      - ".github/workflows/production-d1-0158-0162-ledger-contract.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: d1-ledger-0158-0162-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Receipt-only history guards and SQLite regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Check canonical migration chain and receipt-only reconciliation tests
+        run: |
+          npm run db:check-migrations
+          node --test tests/production-d1-0158-0162-history.test.mjs
