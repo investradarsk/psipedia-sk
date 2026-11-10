@@ -545,7 +545,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
 
         </div>
         <div className={styles.subsection}>
-          <h3 className={styles.subheading}>Odborné zdroje</h3>
+          <h3 className={styles.subheading}>Zdroje</h3>
           {form.sources.map((source,index)=><div className={styles.sourceRow} key={index}>
             <label className="admin-field"><span>Názov zdroja</span><input value={source.label} onChange={e=>updateSource(index,{label:e.target.value})}/></label>
             <label className="admin-field"><span>URL zdroja</span><input type="url" value={source.url} onChange={e=>updateSource(index,{url:e.target.value})}/></label>
