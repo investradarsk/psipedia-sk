@@ -1887,6 +1887,7 @@ async function syncMappedPage(input: {
   breederWebhookPropertyIds?: readonly string[];
   breederAdminFields?: readonly BreederEditorialField[];
 }) {
+  if (await notionPageIsTombstoned(input.database,input.mapping.notion_page_id)) return "unchanged" as const;
   const profile = await getManagedDirectoryProfileById(input.mapping.directory_profile_id, input.database);
   if (!profile) return "unchanged" as const;
 
@@ -2955,7 +2956,7 @@ export async function runNotionDirectorySyncSweep(input: {
   for (const profileId of changedIds) {
     if (attemptedMappedProfileIds.has(profileId)) continue;
     const mapping = await loadMappingByProfile(input.database, profileId);
-    if (!mapping) continue;
+    if (!mapping || await notionPageIsTombstoned(input.database,mapping.notion_page_id)) continue;
     const changedProfile = await getManagedDirectoryProfileById(profileId, input.database);
     if (changedProfile && isDirectoryFieldEventCategory(changedProfile.category)) continue;
     let page: NotionPage | undefined;
