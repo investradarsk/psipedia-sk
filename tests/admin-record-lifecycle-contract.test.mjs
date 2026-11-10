@@ -187,3 +187,10 @@ test("event deletion protects both legacy and generic Notion mapping identities"
   assert.match(guard, /WHEN 'events' THEN 'events'/);
   assert.match(route, /code==="NOTION_MAPPING_AMBIGUOUS"\?409/);
 });
+
+test("unpublished breeds cannot be revived from any Notion work-copy migration stage", () => {
+  const guard = core.split("export async function notionPageHasAdminUnpublishGuard")[1]
+    ?.split("export async function notionPageMustSkipInboundSync")[0] ?? "";
+  assert.match(guard, /w\.original_notion_page_id=\? OR w\.work_notion_page_id=\?/);
+  assert.doesNotMatch(guard, /w\.status='ACTIVE'/);
+});
