@@ -333,7 +333,8 @@ export default async function BreedDetailPage({ params }: Props) {
   });
   // The section NUMBER remains an internal navigation key for the atlas.
   // It is not a separate input or visible field in the compact Notion editor.
-  const sectionNumber = displayFacts.fciSection || managedBreed?.fciSectionNumber?.trim() || "";
+  const sectionNumber = typeof controlledFacts?.fciSectionSelect === "string" && controlledFacts.fciSectionSelect
+    ? controlledFacts.fciSectionSelect : (managedBreed?.fciSectionNumber?.trim() ?? "");
   const fciSectionHref = sectionNumber ? breedAtlasHref({
     query: "", fciGroup: String(displayFciGroup),
     fciSection: sectionNumber, origin: "",
