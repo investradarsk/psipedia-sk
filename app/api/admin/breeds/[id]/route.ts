@@ -144,11 +144,9 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   }
 }
 
-export async function DELETE(request: Request, { params }: RouteProps) {
-  const auth = await requireAdminMutation(request, { strictProvenance: true });
-  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
-  const id = await parsedId(params);
-  if (!id) return Response.json({ error: "Neplatné ID plemena." }, { status: 400 });
-  await deleteManagedBreed(id);
-  return Response.json({ ok: true });
+/** Legacy DELETE must not bypass verified Notion trash + D1 tombstones. */
+export async function DELETE(request:Request) {
+  const auth=await requireAdminMutation(request,{strictProvenance:true});
+  if(auth.response)return auth.response;
+  return Response.json({error:"Použi Natrvalo odstrániť v editore: /api/admin/record-lifecycle."},{status:409});
 }
