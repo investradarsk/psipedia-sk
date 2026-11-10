@@ -35,7 +35,11 @@ test("breed editor exposes all 60 editorial fields from the approved Notion mode
     const label = aliases[field] ?? field;
     assert.ok(editor.includes(label), `Missing Notion field: ${field} (shown as ${label})`);
   }
-  assert.equal((editor.match(/<AdminEditorSection id="breed-/g) ?? []).length, 7);
+  assert.equal((editor.match(/<AdminEditorSection id="breed-/g) ?? []).length, 8);
+  for (const section of [
+    "breed-basic", "breed-overview", "breed-character", "breed-practical",
+    "breed-health", "breed-fci", "breed-media", "breed-settings",
+  ]) assert.ok(editor.includes(`<AdminEditorSection id="${section}"`),section);
   for (const obsolete of [
     "<AdminBreedRelationGroup",
     "Tri hlavné vlastnosti v hero",
@@ -80,8 +84,8 @@ test("public pages render only new standalone content fields, not historical dup
     "fci.fci_standard_pdf",
   ]) assert.ok(publicFci.includes(field), field);
   assert.ok(!publicFci.includes("fci.fci_nomenklatura_url"));
-  assert.ok(!publicFci.includes("fci.oci"));
-  assert.ok(!publicFci.includes("fci.usi"));
+  assert.ok(publicFci.includes("fci.oci"));
+  assert.ok(publicFci.includes("fci.usi"));
 });
 
 test("the 60-field breed editor runs alongside only the new sync engine and a closed activation gate", () => {
