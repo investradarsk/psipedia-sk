@@ -9,6 +9,7 @@ import {
   LOST_FOUND_SHORT_DESCRIPTION_FIELD as field,
   withoutLostFoundShortDescription,
   extendLostFoundShortDescriptionBaseline,
+  verifiedLostFoundShortDescriptionDeletes,
 } from "../lib/notion-lost-found-short-description.ts";
 import { stableAgendaSnapshotJson } from "../lib/notion-bidirectional-reconciliation.ts";
 
@@ -85,17 +86,27 @@ test("short description propagates Admin -> Notion, Notion -> Admin, and deletes
   const cleared=reconcile({[field]:""}, {[field]:"Hľadá sa pes"});
   assert.equal(cleared.kind,"MERGE");
   const updatedBaseline={...baseline,[field]:"Pôvodný krátky text"};
+  const adminCleared={...updatedBaseline,[field]:""};
   const deleteFromAdmin=reconcileProfileFields({baseline:updatedBaseline,
-    notion:{...updatedBaseline},psipedia:{...updatedBaseline,[field]:""},
-    protectedFields,canonicalFieldsWin:true});
+    notion:{...updatedBaseline},psipedia:adminCleared,
+    protectedFields,canonicalFieldsWin:true,
+    verifiedDeletes:verifiedLostFoundShortDescriptionDeletes(updatedBaseline,updatedBaseline,adminCleared)});
   assert.equal(deleteFromAdmin.kind,"MERGE");
   assert.equal(deleteFromAdmin.merged[field],"");
   assert.equal(deleteFromAdmin.merged["Popis"],"Hlavný text");
+  const notionCleared={...updatedBaseline,[field]:""};
   const deleteFromNotion=reconcileProfileFields({baseline:updatedBaseline,
-    notion:{...updatedBaseline,[field]:""},psipedia:{...updatedBaseline},
-    protectedFields,canonicalFieldsWin:true});
+    notion:notionCleared,psipedia:{...updatedBaseline},
+    protectedFields,canonicalFieldsWin:true,
+    verifiedDeletes:verifiedLostFoundShortDescriptionDeletes(updatedBaseline,notionCleared,updatedBaseline)});
   assert.equal(deleteFromNotion.kind,"MERGE");
   assert.equal(deleteFromNotion.merged[field],"");
+  assert.deepEqual([...verifiedLostFoundShortDescriptionDeletes(updatedBaseline,
+    {...updatedBaseline,[field]:"Different"},adminCleared)],[],
+    "do not manufacture a deletion receipt for concurrent field changes");
+  assert.deepEqual([...verifiedLostFoundShortDescriptionDeletes(baseline,
+    {...baseline},{...baseline,[field]:""})],[],
+    "do not authorize deletion without a previously nonempty baseline");
   const simultaneous=reconcileProfileFields({baseline:updatedBaseline,
     notion:{...updatedBaseline,[field]:"Notion zmena"},psipedia:{...updatedBaseline,[field]:"Admin zmena"},
     protectedFields,canonicalFieldsWin:true});
