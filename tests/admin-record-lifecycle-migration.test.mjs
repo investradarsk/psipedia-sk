@@ -17,8 +17,11 @@ const records=[
 ];
 function fixture() {
   const db=new DatabaseSync(":memory:");
-  for(const [table] of records)
-    db.exec("CREATE TABLE "+table+" (id INTEGER PRIMARY KEY AUTOINCREMENT,slug TEXT NOT NULL,status TEXT NOT NULL,updated_at TEXT)");
+  for(const [table] of records) {
+    const identityColumns=table==="directory_profiles"||table==="help_organizations"
+      ?",import_key TEXT":table==="managed_breeds"?",fci_number INTEGER":"";
+    db.exec("CREATE TABLE "+table+" (id INTEGER PRIMARY KEY AUTOINCREMENT,slug TEXT NOT NULL,status TEXT NOT NULL,updated_at TEXT"+identityColumns+")");
+  }
   db.exec(sql);
   return db;
 }
@@ -70,4 +73,31 @@ test("all original record tables have both anti-resurrection and pending-removal
     assert.match(sql,new RegExp("BEFORE DELETE ON "+table+"\\b"));
     assert.match(sql,new RegExp("kind='"+kind+"'"));
   }
+});
+
+
+test("verified import keys and FCI identities cannot resurrect deleted entities under different slugs",()=>{
+  const db=fixture();
+  try{
+    const cases=[
+      ["directory_profiles","directory","import_key","source:vet:123"],
+      ["help_organizations","organizations","import_key","source:shelter:123"],
+      ["managed_breeds","breeds","fci_number",42],
+    ];
+    for(let idx=0;idx<cases.length;idx++){
+      const [table,kind,column,key]=cases[idx];
+      const id=idx+101;
+      db.prepare("INSERT INTO "+table+"(id,slug,status,"+column+") VALUES (?,?,?,?)")
+        .run(id,kind+"-old",kind==="organizations"?"DRAFT":"draft",key);
+      db.prepare("INSERT INTO admin_record_tombstones "+
+        "(kind,record_id,record_slug,record_external_key,record_name,record_category,notion_targets_json,state,created_by,created_at,updated_at) "+
+        "VALUES (?,?,?,?,'Test','Test','[]','READY_LOCAL','fixture','now','now')")
+        .run(kind,id,kind+"-old",String(key));
+      db.prepare("DELETE FROM "+table+" WHERE id=?").run(id);
+      assert.throws(()=>db.prepare("INSERT INTO "+table+"(slug,status,"+column+") VALUES (?,?,?)")
+        .run(kind+"-new",kind==="organizations"?"DRAFT":"draft",key),/RECORD_TOMBSTONED/);
+      db.prepare("INSERT INTO "+table+"(slug,status,"+column+") VALUES (?,?,?)")
+        .run(kind+"-unrelated",kind==="organizations"?"DRAFT":"draft",column==="fci_number"?52:"another-source");
+    }
+  }finally{db.close();}
 });
