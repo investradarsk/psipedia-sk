@@ -240,7 +240,7 @@ export async function unpublishRecord(db:D1Database,bindings:LifecycleBindings,k
   // the guard; a zero-row outcome must never be reported as unpublished.
   const update=db.prepare("UPDATE "+spec.table+" SET status=?,updated_at=? WHERE id=?")
     .bind(spec.draft,now,id);
-  const [guardResult,hideResult]=await db.batch([guard,update]);
+  const [,hideResult]=await db.batch([guard,update]);
   if((hideResult.meta?.changes??0)!==1) throw Error("RECORD_HIDE_NOT_CONFIRMED");
   let remoteState:"SYNCED"|"UNLINKED"|"NOT_APPLICABLE"|"PENDING"="PENDING";
   let code:string|null=null;
