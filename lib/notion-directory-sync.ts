@@ -1493,6 +1493,49 @@ export async function mirrorPilotDirectoryMetadataFieldsToNotion(input: {
 }
 
 /**
+ * Mirror an Admin-uploaded main image immediately for any linked directory
+ * category. "Hlavný obrázok URL" is reserved for the external SOURCE image;
+ * the actual published Psipedia asset belongs in "Obrázok Psipedia".
+ */
+export async function mirrorDirectoryMainImageToNotion(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  profileId: number;
+}): Promise<void> {
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!profile || profile.status === "archived")
+    throw new Error("DIRECTORY_IMAGE_PROFILE_UNAVAILABLE");
+  const mapping = await loadMappingByProfile(input.database, input.profileId);
+  if (!mapping) throw new Error("DIRECTORY_IMAGE_NOTION_UNLINKED");
+  const dataSourceId = input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
+  if (!dataSourceId || !input.bindings.NOTION_API_TOKEN?.trim())
+    throw new Error("DIRECTORY_IMAGE_NOTION_DISABLED");
+
+  const page = await fetchNotionPage(input.bindings, mapping.notion_page_id);
+  if (page.id !== mapping.notion_page_id ||
+      !notionDirectoryPageBelongsToSource(page, dataSourceId) ||
+      propertyText(page, "Psipedia ID") !== String(input.profileId))
+    throw new NotionDirectoryUnsafeTargetError("DIRECTORY_IMAGE_NOTION_TARGET_INVALID");
+
+  const imageField = "Obrázok Psipedia";
+  const keyField = "Obrázok key";
+  if (!page.properties?.[imageField] || !page.properties?.[keyField])
+    throw new Error("DIRECTORY_IMAGE_NOTION_FIELD_MISSING");
+  const expectedUrl = absoluteAsset(profile.imageUrl);
+  const expectedKey = profile.imageKey ?? "";
+  const patch: Record<string, unknown> = {};
+  if (propertyText(page, imageField) !== expectedUrl) patch[imageField] = url(expectedUrl);
+  if (propertyText(page, keyField) !== expectedKey) patch[keyField] = richText(expectedKey);
+  if (!Object.keys(patch).length) return;
+
+  const echoed = await patchNotionPage(input.bindings, page.id, patch);
+  if (echoed.id !== page.id ||
+      propertyText(echoed, imageField) !== expectedUrl ||
+      propertyText(echoed, keyField) !== expectedKey)
+    throw new Error("DIRECTORY_IMAGE_NOTION_WRITEBACK_UNVERIFIED");
+}
+
+/**
  * One-column CAS write. Trust status is deliberately distinct from publication
  * and from editorial profile updates. Never touch Services V3 or source_data_json.
  */
