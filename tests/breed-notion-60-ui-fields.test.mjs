@@ -69,10 +69,11 @@ test("public pages render only new standalone content fields, not historical dup
     "editorial.commonOwnerMistakes", "editorial.curiosities",
   ]) assert.ok(publicBreed.includes(field), field);
   for (const legacy of [
-    "breed.needs", "editorial.heroTraits", "editorial.exerciseTip",
+    "editorial.heroTraits", "editorial.exerciseTip",
     "editorial.trainingTip", "editorial.coatTip", "editorial.healthTip",
     "managedBreed?.workingTrial", "managedBreed?.validStandardDate",
   ]) assert.ok(!publicBreed.includes(legacy), legacy);
+  assert.ok(publicBreed.includes("textParagraphs(breed.needs)"),"Existing everyday-needs prose remains visible");
   for (const field of [
     "fci.celkovy_vzhlad", "fci.dolezite_proporcie", "fci.povaha_temperament",
     "fci.hlava_lebecna_cast", "fci.telo", "fci.predne_koncatiny",
