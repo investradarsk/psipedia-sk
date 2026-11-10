@@ -427,9 +427,24 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
               .filter(([,value])=>Boolean(value.trim())).map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
           </details>
         </> : <div className={styles.basicBottom}>
-          <label className="admin-field"><span>Výška v kohútiku</span><input value={form.height} onChange={e=>controlledNumericChange(e.target.value,form.height,"height",next=>change("height",next))}/></label>
-          <label className="admin-field"><span>Hmotnosť</span><input value={form.weight} onChange={e=>controlledNumericChange(e.target.value,form.weight,"weight",next=>change("weight",next))}/></label>
-          <label className="admin-field"><span>Dĺžka života</span><input value={form.lifespan} onChange={e=>controlledNumericChange(e.target.value,form.lifespan,"lifespan",next=>change("lifespan",next))}/></label>
+          <label className="admin-field"><span>Výška v kohútiku</span><input inputMode="decimal"
+            aria-invalid={measurementHasError(form.height,"height")}
+            aria-describedby={measurementMessage(form.height,"height") ? "breed-height-feedback" : undefined}
+            value={form.height} onChange={e=>controlledNumericChange(e.target.value,form.height,"height",next=>change("height",next))}/>
+            <AdminFieldFeedback id="breed-height-feedback" message={measurementMessage(form.height,"height")} invalid={measurementHasError(form.height,"height")} className="admin-field-warning"/>
+          </label>
+          <label className="admin-field"><span>Hmotnosť</span><input inputMode="decimal"
+            aria-invalid={measurementHasError(form.weight,"weight")}
+            aria-describedby={measurementMessage(form.weight,"weight") ? "breed-weight-feedback" : undefined}
+            value={form.weight} onChange={e=>controlledNumericChange(e.target.value,form.weight,"weight",next=>change("weight",next))}/>
+            <AdminFieldFeedback id="breed-weight-feedback" message={measurementMessage(form.weight,"weight")} invalid={measurementHasError(form.weight,"weight")} className="admin-field-warning"/>
+          </label>
+          <label className="admin-field"><span>Dĺžka života</span><input inputMode="decimal"
+            aria-invalid={measurementHasError(form.lifespan,"lifespan")}
+            aria-describedby={measurementMessage(form.lifespan,"lifespan") ? "breed-lifespan-feedback" : undefined}
+            value={form.lifespan} onChange={e=>controlledNumericChange(e.target.value,form.lifespan,"lifespan",next=>change("lifespan",next))}/>
+            <AdminFieldFeedback id="breed-lifespan-feedback" message={measurementMessage(form.lifespan,"lifespan")} invalid={measurementHasError(form.lifespan,"lifespan")} className="admin-field-warning"/>
+          </label>
           <div className="admin-field"><span>FCI skupina</span><select aria-label="FCI skupina" value={form.fciGroup} onChange={e=>change("fciGroup",Number(e.target.value))}>
             {FCI_GROUP_OPTIONS.map(([number,label])=><option key={number} value={number}>{number}. {label}</option>)}</select></div>
         </div>}
