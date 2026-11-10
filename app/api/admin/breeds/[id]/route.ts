@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import {
@@ -80,6 +81,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       }
     }
 
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"breeds",id,breed.status);
     return Response.json({ breed, ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}) });
   } catch (error) {
     if (error instanceof BreedUpdateConflictError) {
