@@ -29,8 +29,9 @@ function fixture(options={}) {
         bind(...params) {
           return {
             async run() {
-              calls.push({step:"d1-hide",sql,params});
-              return {meta:{changes:options.hideFails?0:1}};
+              const isHide=sql.startsWith("UPDATE managed_events SET status=");
+              calls.push({step:isHide?"d1-hide":"tombstone-ready",sql,params});
+              return {meta:{changes:isHide && options.hideFails?0:1}};
             },
           };
         },
@@ -63,7 +64,7 @@ function fixture(options={}) {
 test("a resumed ERROR_NOTION deletion re-hides D1 before remote trash",async()=>{
   const f=fixture({state:"ERROR_NOTION",status:"published"});
   assert.equal((await f.remove()).state,"COMPLETE");
-  assert.deepEqual(f.calls.map(item=>item.step),["d1-hide","notion-trash","d1-delete"]);
+  assert.deepEqual(f.calls.map(item=>item.step),["d1-hide","notion-trash","tombstone-ready","d1-delete"]);
 });
 test("READY_LOCAL replay re-hides the record but never contacts Notion again",async()=>{
   const f=fixture({state:"READY_LOCAL",status:"published"});
