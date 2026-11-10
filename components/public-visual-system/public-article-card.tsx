@@ -137,9 +137,10 @@ export function PublicArticleCard(props: PublicArticleCardProps) {
   const media = <ArticleMedia {...props} variant={variant} />;
   if (variant === "row")
     return (
-      <Link prefetch={false}
+      <Link
         id={anchorId}
         href={href}
+        prefetch={false}
         className={[
           styles.articleListItem,
           styles.articleListItemWithImage,
