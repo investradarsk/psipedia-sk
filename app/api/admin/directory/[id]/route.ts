@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -407,6 +408,7 @@ export async function PUT(request: Request, { params }: Props) {
           "ADMIN_TO_NOTION");
       }
     }
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"directory",id,profile.status);
     return Response.json({ profile, notionFieldSync, metadataWarnings });
   } catch (error) { return errorResponse(error); }
 }
