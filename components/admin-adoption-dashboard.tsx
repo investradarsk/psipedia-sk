@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordId } from "./admin-record-id";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
@@ -101,13 +102,13 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
       <button type="submit">Filtrovať</button>
     </form>
     {message && <p role="status">{message}</p>}
-    <AdminDataTableRegion className={`${styles.tableWrap} ${styles.adoptionTableRegion}`} label="Zoznam adopcií – tabuľka"><table className={styles.table}><thead><tr><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
-      {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><div className={styles.rowTitle}>{activeInline?.id === item.id
+    <AdminDataTableRegion className={`${styles.tableWrap} ${styles.adoptionTableRegion}`} label="Zoznam adopcií – tabuľka"><table className={styles.table}><thead><tr><th scope="col">ID</th><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
+      {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><AdminRecordId id={item.id} compact /></td><td><div className={styles.rowTitle}>{activeInline?.id === item.id
     ? <AdminInlineCellInput label={"Meno psa " + item.name} value={activeInline.name}
         maxLength={180} required disabled={busy}
         onChange={name => setInlineDraft(previous => previous ? { ...previous, name } : null)} />
     : <strong>{item.name}</strong>}
-    <small>#{item.id} · /{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />{item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
+    <small>/{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />{item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
     editing={activeInline?.id === item.id}
     busy={busy}
     disabled={Boolean(activeInline && activeInline.id !== item.id) ||
@@ -117,7 +118,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
     onCancel={() => { if (!busy) setInlineDraft(null); }}
   /></span>}
   <Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link></div></td></tr>})}
-      {!result.items.length&&<tr><td colSpan={7}>Žiadne adopcie pre zvolené filtre.</td></tr>}
+      {!result.items.length&&<tr><td colSpan={8}>Žiadne adopcie pre zvolené filtre.</td></tr>}
     </tbody></table></AdminDataTableRegion>
     <section className={styles.adoptionCards} aria-label="Zoznam adopcií – mobilné karty">
       {result.items.map((item) => {
@@ -128,6 +129,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
           <div className={styles.adoptionCardTop}>
             <div className={styles.adoptionCardIdentity}>
               <h2><Link href={`/admin/adopcie/${item.id}`}>{item.name}</Link></h2>
+              <AdminRecordId id={item.id} compact />
               <small>#{item.id} · {item.breedName || "Plemeno neuvedené"}</small>
             </div>
             <span className={styles.adoptionCardStatus}>{adoptionStatusLabels[item.status]}</span>

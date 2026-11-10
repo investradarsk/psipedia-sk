@@ -107,7 +107,12 @@ export function buildAdminEventPageSql(input: AdminEventListQuery, today: string
 
   // Each search term must occur somewhere in the same record. instr() makes
   // underscores/percent signs literal (unlike LIKE patterns).
-  const words = normalizeEventSearch(filters.query.slice(0, 160)).trim().split(/\s+/).filter(Boolean).slice(0, 16);
+  const idMatch = /^#?([1-9]\d*)$/.exec(filters.query.trim());
+  const words = idMatch ? [] : normalizeEventSearch(filters.query.slice(0, 160)).trim().split(/\s+/).filter(Boolean).slice(0, 16);
+  if (idMatch) {
+    conditions.push("id = ?");
+    values.push(Number(idMatch[1]));
+  }
   for (const word of words) {
     conditions.push("instr(" + foldedFieldsSql + ", ?) > 0");
     values.push(word);

@@ -15,6 +15,7 @@ import {
   type CellContext,
 } from "@tanstack/react-table";
 import { BulkSelectionCheckbox } from "./admin-bulk-selection";
+import { AdminRecordId } from "./admin-record-id";
 import styles from "./admin-record-table.module.css";
 
 export type AdminRecordColumn<T> = {
@@ -92,6 +93,16 @@ export function AdminRecordTable<T extends { id: number }>({
       size: 64,
       minSize: 64,
     } as ColumnDef<T>] : []),
+    // Always display the stable ID in every shared Admin table.
+    ...(columns.some(column => column.id === "__recordId" || column.id === "id") ? [] : [{
+      id: "__recordId",
+      header: "ID",
+      accessorFn: (record: T) => record.id,
+      cell: ({ row }: CellContext<T, unknown>) => <AdminRecordId id={row.original.id} compact />,
+      enableSorting: !serverSorted,
+      size: 109,
+      minSize: 96,
+    } as ColumnDef<T>]),
     ...columns.map((column) => ({
     id: column.id,
     header: column.label,

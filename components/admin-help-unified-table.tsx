@@ -441,7 +441,7 @@ export function AdminHelpUnifiedTable({
       <form className={styles.search} method="get">
         <input type="hidden" name="category" value={category} />
         <label htmlFor="help-unified-query">Hľadať v kategórii</label>
-        <input id="help-unified-query" name="q" defaultValue={query} placeholder="Meno psa, názov, mesto alebo organizácia…" maxLength={80} />
+        <input id="help-unified-query" name="q" defaultValue={query} placeholder="Admin ID, meno psa, názov alebo mesto…" maxLength={80} />
         <button type="submit">Hľadať</button>
         {query && <Link href={categoryHref(category).split("&q=")[0]}>Vyčistiť</Link>}
       </form>

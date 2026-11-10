@@ -90,6 +90,8 @@
 .contentArea {
   min-width: 0;
 }
+.recordId { margin-top: 7px; }
+
 /* Keep existing table wrappers scrollable without clipping the calendar. */
 .contentArea :global(.admin-table-scroll) {
   max-width: 100%;

@@ -180,8 +180,12 @@ function adminWhere(filters: OrganizationAdminFilters) {
     )`);
   }
   if (filters.q) {
-    const normalized = normalizeOrganizationAdminSearch(filters.q);
-    if (normalized) {
+    const idMatch = /^#?([1-9]\d*)$/.exec(filters.q.trim());
+    const normalized = idMatch ? "" : normalizeOrganizationAdminSearch(filters.q);
+    if (idMatch) {
+      clauses.push("o.id = ?");
+      args.push(Number(idMatch[1]));
+    } else if (normalized) {
       const expression = sqlOrganizationAdminNormalizedExpression(`coalesce(o.name, '') || ' ' || coalesce(o.legal_name, '') || ' ' || coalesce(o.slug, '') || ' ' || coalesce(o.registration_number, '') || ' ' || coalesce(o.public_email, '') || ' ' || coalesce(o.public_phone, '') || ' ' || coalesce(o.website_url, '') || ' ' || coalesce(${resolvedCity}, '') || ' ' || coalesce(${resolvedDistrict}, '') || ' ' || coalesce(${resolvedRegion}, '')`);
       clauses.push(`${expression} LIKE ?`);
       args.push(`%${normalized}%`);

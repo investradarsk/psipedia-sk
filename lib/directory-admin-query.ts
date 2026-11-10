@@ -175,10 +175,16 @@ export function directoryAdminMembershipQuery(
   if (membership.media === "with-image") clauses.push("coalesce(trim(image_url), '') <> ''");
   if (membership.media === "without-image") clauses.push("coalesce(trim(image_url), '') = ''");
   if (membership.q) {
-    const normalized = normalizeSearchText(membership.q);
-    if (normalized) {
-      clauses.push(`${adminSearchExpression(categories)} LIKE ?`);
-      args.push(`%${normalized}%`);
+    const idMatch = /^#?([1-9]\d*)$/.exec(membership.q.trim());
+    if (idMatch) {
+      clauses.push("id = ?");
+      args.push(Number(idMatch[1]));
+    } else {
+      const normalized = normalizeSearchText(membership.q);
+      if (normalized) {
+        clauses.push(`${adminSearchExpression(categories)} LIKE ?`);
+        args.push(`%${normalized}%`);
+      }
     }
   }
   return {

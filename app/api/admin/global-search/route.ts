@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   if (!(await getAdminApiUser())) return unauthorizedAdminResponse();
   const q = new URL(request.url).searchParams.get("q")?.trim().slice(0, 80) ?? "";
-  if (q.length < 2) return Response.json({ results: [], incomplete: false }, { headers: { "Cache-Control": "no-store" } });
+  if (q.length < 2 && !/^\d$/.test(q)) return Response.json({ results: [], incomplete: false }, { headers: { "Cache-Control": "no-store" } });
   const db = (env as unknown as { DB?: D1Database }).DB;
   if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   try {

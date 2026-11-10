@@ -69,7 +69,8 @@ export function breedCompletenessIssues(input: AdminBreedCompletenessInput): Bre
 }
 
 export function filterAdminBreeds<T extends AdminBreedFilterable>(breeds: T[], filters: AdminBreedFilters) {
-  const needles = normalizeAdminBreedSearch(filters.query).trim().split(/\s+/).filter(Boolean);
+  const idMatch = /^#?([1-9]\d*)$/.exec(filters.query.trim());
+  const needles = idMatch ? [] : normalizeAdminBreedSearch(filters.query).trim().split(/\s+/).filter(Boolean);
   return breeds.filter((breed) => {
     const haystack = normalizeAdminBreedSearch([
       breed.name,
@@ -80,7 +81,7 @@ export function filterAdminBreeds<T extends AdminBreedFilterable>(breeds: T[], f
       breed.fciSection,
       `FCI ${breed.fciGroup}`,
     ].join(" "));
-    return needles.every((needle) => haystack.includes(needle))
+    return (!idMatch || breed.id === Number(idMatch[1])) && needles.every((needle) => haystack.includes(needle))
       && (filters.fciGroup === "all" || breed.fciGroup === Number(filters.fciGroup))
       && (filters.fciSection === "all" || breed.fciSection === filters.fciSection)
       && (filters.origin === "all" || breed.origin === filters.origin)

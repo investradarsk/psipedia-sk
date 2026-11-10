@@ -144,7 +144,7 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
           <label className={`admin-search ${styles.search}`}>
             <SearchIcon size={19} />
             <span>Hľadať</span>
-            <input name="q" defaultValue={filters.q} maxLength={100} placeholder="Názov, mesto, okres alebo služba" />
+            <input name="q" defaultValue={filters.q} maxLength={100} placeholder="Názov, Admin ID, mesto, okres alebo služba" />
           </label>
           <label className="admin-select-filter"><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="">Všetky kategórie</option>{allDirectoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}</select></label>
           <label className="admin-select-filter"><span>Stav publikácie</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option><option value="archived">Archivované</option></select></label>

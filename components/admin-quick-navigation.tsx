@@ -45,7 +45,7 @@ export function AdminQuickNavigation() {
         onClick={() => setOpen(true)}
       >
         <Search size={16} aria-hidden="true" />
-        <span>Hľadať profil, článok, funkciu…</span>
+        <span>Hľadať profil, ID, článok, funkciu…</span>
         <kbd>Ctrl K</kbd>
       </button>
       {open && <AdminQuickNavigationDialog open={open} onOpenChange={changeOpen} />}
