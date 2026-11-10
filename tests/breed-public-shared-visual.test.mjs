@@ -9,12 +9,14 @@ test("breed profile composes the canonical public detail shell and shared cards"
   const css = read("app/plemena/[slug]/breed-profile.module.css");
   const shared = read("components/detail-primitives/detail-primitives.tsx");
 
-  assert.match(page, /import \{ DetailHero, PublicDetailLayout \}/);
+  assert.match(page, /import \{ DetailHero, DetailFactsCard \}/);
   assert.match(page, /<DetailHero\s+kind="breed"/);
-  assert.match(page, /<PublicDetailLayout\s+mode="inline"/);
+  assert.match(page, /<PublicHelpProfileDetailLayout\s+aside=\{/);
   assert.match(page, /data-testid="breed-content-layout"/);
   assert.match(shared, /data-public-detail-layout/);
-  assert.ok(page.indexOf('<article className={styles.mainColumn}>') < page.indexOf('data-testid="breed-utility-sidebar"'));
+  assert.match(page, /<article className=\{styles\.mainColumn\}>/);
+  assert.match(page, /data-testid="breed-utility-sidebar"/);
+  assert.match(page, /<DetailFactsCard title="Plemeno v skratke"/);
   assert.match(css, /composes: section from "\.\.\/\.\.\/\.\.\/components\/detail-primitives\/detail-primitives\.module\.css"/);
   assert.match(css, /composes: factTiles from "\.\.\/\.\.\/\.\.\/components\/detail-primitives\/detail-primitives\.module\.css"/);
   assert.doesNotMatch(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(230px, 280px\)/);
@@ -28,7 +30,7 @@ test("breed profile keeps data, image fallback, navigation, full gallery and rel
     'data-testid="breed-hero-photo"',
     'data-image-fallback="breed-photo"',
     'data-testid="breed-quick-facts"',
-    '<BreedSectionNav items={sectionNavItems} />',
+    '<PublicHelpProfileDetailLayout',
     'data-testid="breed-fit"',
     '<BreedProfileAccordion',
     'data-testid="breed-sports"',
