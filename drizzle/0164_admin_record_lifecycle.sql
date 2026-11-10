@@ -111,3 +111,37 @@ CREATE TRIGGER IF NOT EXISTS admin_removing_organizations_update
   WHEN (NEW.status <> 'DRAFT' OR NEW.slug <> OLD.slug)
     AND EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_id=OLD.id AND state<>'COMPLETE')
   BEGIN SELECT RAISE(ABORT, 'RECORD_REMOVAL_PENDING'); END;
+
+-- Direct DELETE from any legacy API/importer requires a confirmed lifecycle receipt.
+CREATE TRIGGER IF NOT EXISTS admin_guarded_directory_delete
+ BEFORE DELETE ON directory_profiles
+ WHEN NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='directory' AND record_id=OLD.id AND state='READY_LOCAL')
+ BEGIN SELECT RAISE(ABORT,'USE_VERIFIED_LIFECYCLE_DELETE'); END;
+CREATE TRIGGER IF NOT EXISTS admin_guarded_events_delete
+ BEFORE DELETE ON managed_events
+ WHEN NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='events' AND record_id=OLD.id AND state='READY_LOCAL')
+ BEGIN SELECT RAISE(ABORT,'USE_VERIFIED_LIFECYCLE_DELETE'); END;
+CREATE TRIGGER IF NOT EXISTS admin_guarded_help_delete
+ BEFORE DELETE ON help_cases
+ WHEN NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='help' AND record_id=OLD.id AND state='READY_LOCAL')
+ BEGIN SELECT RAISE(ABORT,'USE_VERIFIED_LIFECYCLE_DELETE'); END;
+CREATE TRIGGER IF NOT EXISTS admin_guarded_breeds_delete
+ BEFORE DELETE ON managed_breeds
+ WHEN NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='breeds' AND record_id=OLD.id AND state='READY_LOCAL')
+ BEGIN SELECT RAISE(ABORT,'USE_VERIFIED_LIFECYCLE_DELETE'); END;
+CREATE TRIGGER IF NOT EXISTS admin_guarded_articles_delete
+ BEFORE DELETE ON managed_articles
+ WHEN NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='articles' AND record_id=OLD.id AND state='READY_LOCAL')
+ BEGIN SELECT RAISE(ABORT,'USE_VERIFIED_LIFECYCLE_DELETE'); END;
+CREATE TRIGGER IF NOT EXISTS admin_guarded_adoptions_delete
+ BEFORE DELETE ON adoption_dogs
+ WHEN NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='adoptions' AND record_id=OLD.id AND state='READY_LOCAL')
+ BEGIN SELECT RAISE(ABORT,'USE_VERIFIED_LIFECYCLE_DELETE'); END;
+CREATE TRIGGER IF NOT EXISTS admin_guarded_lost_found_delete
+ BEFORE DELETE ON lost_found_dog_reports
+ WHEN NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='lost-found' AND record_id=OLD.id AND state='READY_LOCAL')
+ BEGIN SELECT RAISE(ABORT,'USE_VERIFIED_LIFECYCLE_DELETE'); END;
+CREATE TRIGGER IF NOT EXISTS admin_guarded_organizations_delete
+ BEFORE DELETE ON help_organizations
+ WHEN NOT EXISTS(SELECT 1 FROM admin_record_tombstones WHERE kind='organizations' AND record_id=OLD.id AND state='READY_LOCAL')
+ BEGIN SELECT RAISE(ABORT,'USE_VERIFIED_LIFECYCLE_DELETE'); END;
