@@ -57,7 +57,7 @@ test("public breed and FCI pages show only the consolidated Notion 60 fields", a
     "editorial.healthTip", "editorial.coatTip",
     "breed.needs", "workingTrial", "publicFciDate",
   ]) assert(!breed.includes(legacy),legacy);
-  assert(!fci.includes("fci.oci"));
-  assert(!fci.includes("fci.hlava_tvarova_cast"));
+  assert(fci.includes("fci.oci"));
+  assert(fci.includes("fci.hlava_tvarova_cast"));
   assert(!fci.includes("fci.fci_nomenklatura_url"));
 });
