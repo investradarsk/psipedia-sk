@@ -346,7 +346,7 @@ export default async function BreedDetailPage({ params }: Props) {
       value: fciGroupName ? `${displayFciGroup}. ${fciGroupName}` : String(displayFciGroup),
       href: fciGroupHref,
     },
-    { label: "FCI sekcia", value: displayFacts.fciSection || breed.fciSection?.trim() || sectionNumber, href: fciSectionHref },
+    { label: "FCI sekcia", value: breed.fciSection?.trim() || displayFacts.fciSection || sectionNumber, href: fciSectionHref },
   ].filter((item) => Boolean(item.value));
   const hasFciReference = Boolean(
     managedBreed?.fciNumber ||
