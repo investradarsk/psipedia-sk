@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import {
   deleteManagedArticle,
@@ -158,6 +159,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       }
     }
 
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"articles",id,article.status);
     return Response.json({ article, ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}) });
   } catch (error) {
     return updateErrorResponse(error);
