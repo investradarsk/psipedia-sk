@@ -1,3 +1,4 @@
+import { notionPageIsTombstoned } from "./admin-record-lifecycle";
 import { SITE_URL } from "@/config/public-site";
 import {
   createManagedEvent,
@@ -322,6 +323,7 @@ export async function runNotionEventSyncSweep(args: {
   summary.scanned = pages.length;
 
   for (const page of pages) {
+    if (await notionPageIsTombstoned(args.database,page.id)) { summary.unchanged += 1; continue; }
     try {
       const result = await syncOneEvent(args.database, args.bindings, page);
       summary[result] += 1;
