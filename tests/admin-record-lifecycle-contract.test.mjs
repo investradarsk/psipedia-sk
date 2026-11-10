@@ -153,3 +153,11 @@ test("verified breed removal clears exact work-copy identity and typed receipts"
   assert.match(cleanup, /DELETE FROM notion_agenda_sync WHERE agenda=\? AND entity_id=\?/);
   assert.match(cleanup, /if\(mapping && present\.has\(mapping\.table\)\)/);
 });
+
+test("optional relation cleanup is schema-gated and never removes linked entities", () => {
+  const cleanup = core.split("async function completeLocalRemoval(")[1]
+    ?.split("export async function removeRecord(")[0] ?? "";
+  assert.match(cleanup, /present\.has\("breed_article_relations"\)/);
+  assert.match(cleanup, /present\.has\("breed_directory_relations"\)/);
+  assert.doesNotMatch(cleanup, /DELETE FROM managed_breeds|DELETE FROM managed_articles WHERE.*breed_id|DELETE FROM directory_profiles WHERE.*breed_id/);
+});
