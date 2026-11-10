@@ -110,6 +110,36 @@ async function mappedTargets(db:D1Database,bindings:LifecycleBindings,kind:Recor
       ];
     }
   }
+  if (kind==="events") {
+    // Event synchronization has two historical mapping paths: the original
+    // event_notion_sync and the newer generic notion_agenda_sync. Deleting
+    // locally while checking only one would orphan the other Notion page.
+    const [legacy,agenda,target]=await Promise.all([
+      db.prepare("SELECT notion_page_id FROM event_notion_sync WHERE event_id=? LIMIT 1")
+        .bind(id).first<{notion_page_id:string}>(),
+      db.prepare("SELECT notion_page_id FROM notion_agenda_sync WHERE agenda='events' AND entity_id=? LIMIT 1")
+        .bind(id).first<{notion_page_id:string}>(),
+      db.prepare("SELECT data_source_id FROM notion_agenda_targets WHERE agenda='events' LIMIT 1")
+        .first<{data_source_id:string}>(),
+    ]);
+    const primarySource=clean(bindings.NOTION_EVENTS_DATA_SOURCE_ID||target?.data_source_id);
+    const secondarySource=clean(target?.data_source_id||bindings.NOTION_EVENTS_DATA_SOURCE_ID);
+    const candidates:NotionTarget[]=[];
+    if(legacy?.notion_page_id)candidates.push({pageId:legacy.notion_page_id,sourceId:primarySource});
+    if(agenda?.notion_page_id)candidates.push({pageId:agenda.notion_page_id,sourceId:secondarySource});
+    const unique=new Map<string,NotionTarget>();
+    for(const candidate of candidates) {
+      const key=candidate.pageId.replaceAll("-","").toLowerCase();
+      const existing=unique.get(key);
+      if(existing) {
+        // Identical page identities must agree on the Notion source. A mapping
+        // conflict is not permission to delete the wrong page.
+        if(!sameId(existing.sourceId,candidate.sourceId))
+          throw Error("NOTION_MAPPING_AMBIGUOUS");
+      } else unique.set(key,candidate);
+    }
+    return [...unique.values()];
+  }
   const map=mappingTables[kind];
   if (map) {
     const row=await db.prepare("SELECT notion_page_id FROM "+map.table+" WHERE "+map.entity+"=? LIMIT 1")
