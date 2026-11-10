@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -53,6 +54,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
     const publicProfileUrl = new URL(`/organizacie/${item.slug}`, request.url);
     await invalidateVersionedPublicHtmlCacheUrl(publicProfileUrl, workerVersionId);
 
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"organizations",id,item.status);
     return NextResponse.json({ item });
   } catch (error) {
     if (error instanceof OrganizationPublicationBlockedError) {
