@@ -262,9 +262,50 @@ export async function acknowledgeAdminPublication(db:D1Database|undefined,kind:R
   if(db && specs[kind].publicStatuses.includes(status))await clearAdminUnpublishGuard(db,kind,id);
 }
 export async function adminUnpublishedGuard(db:D1Database,kind:RecordKind,id:number) {
-  const row=await db.prepare("SELECT 1 AS found FROM admin_record_publication_guards WHERE kind=? AND record_id=? LIMIT 1")
-    .bind(kind,id).first<{found:number}>();
-  return Boolean(row?.found);
+  try {
+    const row=await db.prepare("SELECT 1 AS found FROM admin_record_publication_guards WHERE kind=? AND record_id=? LIMIT 1")
+      .bind(kind,id).first<{found:number}>();
+    return Boolean(row?.found);
+  } catch(error) {
+    // Sync workers can be deployed before the owner runs additive migration
+    // 0164. In that case no record has been explicitly unpublished by this API.
+    if(error instanceof Error && /no such table: admin_record_publication_guards/i.test(error.message))return false;
+    throw error;
+  }
+}
+
+/** Guard mapped Notion pages against any automatic inbound status write while
+ * an Admin unpublish is in effect. The protection is deliberately independent
+ * of Notion's editorial readiness ('Ready') and remains until explicit Admin
+ * publication clears the guard. Existing field values are not deleted. */
+export async function notionPageHasAdminUnpublishGuard(db:D1Database,pageId:string) {
+  if(!pageId)return false;
+  try {
+    const row=await db.prepare(
+      "SELECT 1 AS found FROM admin_record_publication_guards g WHERE "+
+      "(g.kind='directory' AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.notion_page_id=? AND m.directory_profile_id=g.record_id)) OR "+
+      "(g.kind='events' AND EXISTS(SELECT 1 FROM event_notion_sync m WHERE m.notion_page_id=? AND m.event_id=g.record_id)) OR "+
+      "(g.kind='breeds' AND (EXISTS(SELECT 1 FROM breed_notion_sync m WHERE m.notion_page_id=? AND m.breed_id=g.record_id) OR "+
+      "EXISTS(SELECT 1 FROM breed_notion_workcopy_links w WHERE w.breed_id=g.record_id AND w.status='ACTIVE' AND (w.original_notion_page_id=? OR w.work_notion_page_id=?)))) OR "+
+      "(g.kind='articles' AND EXISTS(SELECT 1 FROM article_notion_sync m WHERE m.notion_page_id=? AND m.article_id=g.record_id)) OR "+
+      "(g.kind IN ('help','adoptions','lost-found','organizations') AND EXISTS("+
+      "SELECT 1 FROM notion_agenda_sync m WHERE m.notion_page_id=? AND m.entity_id=g.record_id AND "+
+      "m.agenda=CASE g.kind WHEN 'help' THEN 'help-cases' WHEN 'adoptions' THEN 'adoptions' "+
+      "WHEN 'lost-found' THEN 'lost-found' ELSE 'organizations' END)) LIMIT 1")
+      .bind(pageId,pageId,pageId,pageId,pageId,pageId,pageId).first<{found:number}>();
+    return Boolean(row?.found);
+  } catch(error) {
+    if(error instanceof Error && /no such table: admin_record_publication_guards/i.test(error.message))return false;
+    throw error;
+  }
+}
+
+/** Used only on inbound Notion sweeps. Tombstones prevent resurrection; a
+ * publication guard prevents a later source revision from republishing the
+ * canonical draft. An owner may explicitly publish through Admin. */
+export async function notionPageMustSkipInboundSync(db:D1Database,pageId:string) {
+  if(await notionPageIsTombstoned(db,pageId))return true;
+  return notionPageHasAdminUnpublishGuard(db,pageId);
 }
 export async function notionPageIsTombstoned(db:D1Database,pageId:string) {
   try {
