@@ -1,4 +1,5 @@
 "use client";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
@@ -15,7 +16,7 @@ import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
 import { preservedEditorArticleMetadata } from "@/components/admin-article-editor-preserve";
 import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-field";
-import { AdminActionButton, AdminDestructiveConfirmDialog, AdminHelpText } from "@/components/admin-interaction-system";
+import { AdminActionButton, AdminHelpText } from "@/components/admin-interaction-system";
 import { EditorActionBar, EditorWorkspace } from "@/components/admin-editor-workspace";
 import editorStyles from "./admin-content-editor-v3.module.css";
 import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
@@ -231,7 +232,6 @@ export function AdminArticleEditor({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
-  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [dirty, setDirtyState] = useState(false);
   const dirtyRef = useRef(false);
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
@@ -493,10 +493,6 @@ export function AdminArticleEditor({
     else router.push("/admin/clanky");
   }
 
-  function unpublish() {
-    if (!saving && !uploading) setConfirmUnpublish(true);
-  }
-
   // Hidden required controls cannot be reached by native form validation.
   // Preserve the original submit checks and let server QA own publish rules.
   function submitArticleForm() {
@@ -577,8 +573,7 @@ export function AdminArticleEditor({
                   </button>
                 )}
                 {displayedStatus === "published" ? (
-                  <button type="button" className={editorStyles.railDanger}
-                    disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</button>
+                  <span>Publikovanie spravuje panel akcií editora.</span>
                 ) : (
                   <button type="button" className={editorStyles.railPrimary}
                     disabled={saving || uploading} onClick={() => void save("published")}>Publikovať článok</button>
@@ -647,7 +642,7 @@ export function AdminArticleEditor({
         }
         actions={<EditorActionBar
           message={<span className="admin-editor-dirty-state">{dirty ? "Neuložené zmeny" : article ? "Všetky zmeny uložené" : "Nový článok zatiaľ nie je uložený"}</span>}
-          destructive={displayedStatus === "published" ? <span className={editorStyles.desktopActions}><AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton></span> : undefined}
+          destructive={article ? <AdminRecordLifecycleActions kind="articles" recordId={article.id} status={displayedStatus} disabled={saving || uploading} returnHref="/admin/clanky" onUnpublished={(_next,updatedAt)=>{setStatus("draft");if(updatedAt)lastSavedUpdatedAtRef.current=updatedAt;}} /> : undefined}
           primary={<>
             <span className={editorStyles.desktopActions}>
               <AdminActionButton variant="secondary" type="submit" form="article-canonical-editor-form" disabled={saving || uploading}>{saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť zmeny" : displayedStatus === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}</AdminActionButton>
@@ -690,7 +685,7 @@ export function AdminArticleEditor({
           <div className={editorStyles.mobileExtraActions} aria-label="Ďalšie publikačné akcie">
             {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>Naplánovať publikovanie</AdminActionButton>}
             {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("published")}>Publikovať {portalSection === "novinky" ? "novinku" : "článok"}</AdminActionButton>}
-            {displayedStatus === "published" && <AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton>}
+            
           </div>
           <div className="admin-field-grid">
             <div className="admin-field">
@@ -1054,20 +1049,7 @@ export function AdminArticleEditor({
         blocks={blocks}
         promoUtcDay={promoUtcDay}
       />
-
-      <AdminDestructiveConfirmDialog
-        open={confirmUnpublish}
-        title="Stiahnuť článok z webu?"
-        description="Článok sa zmení na koncept a nebude verejne publikovaný."
-        affectedCount={1}
-        affectedLabel="článok"
-        confirmLabel="Potvrdiť stiahnutie"
-        cancelLabel="Ponechať publikované"
-        pending={saving || uploading}
-        onCancel={() => setConfirmUnpublish(false)}
-        onConfirm={() => { setConfirmUnpublish(false); void save("draft"); }}
-      />
-      {imageEditorOpen && imageUrl && <ImageDisplayEditor
+{imageEditorOpen && imageUrl && <ImageDisplayEditor
         src={imageUrl} alt={imageAlt || title} title={title} excerpt={excerpt}
         thumbnail={thumbnailImageDisplay} detail={detailImageDisplay}
         onCancel={() => setImageEditorOpen(false)}
