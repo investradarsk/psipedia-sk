@@ -19,6 +19,8 @@ import {
 import {
   adoptionStatusFromNotion,
   agendaEditableFields,
+  NOTION_MAIN_IMAGE_FIELDS,
+  needsAdminMainImageBackfill,
   eventStatusFromNotion,
   assertGeminiEventNotionPublicationAllowed,
   helpStatusFromNotion,
@@ -108,6 +110,25 @@ function response(body, status = 200) {
     headers: { "content-type": "application/json" },
   });
 }
+
+test("an empty Notion image cannot erase the uploaded Admin image in any Events/Help agenda", () => {
+  const fields = {
+    events: "Hlavný obrázok URL",
+    organizations: "Hlavný obrázok URL",
+    adoptions: "Hlavný obrázok URL",
+    "help-cases": "Obrázok",
+    "lost-found": "Hlavný obrázok",
+  };
+  assert.deepEqual(NOTION_MAIN_IMAGE_FIELDS, fields);
+  for (const [agenda, field] of Object.entries(fields)) {
+    const admin = { [field]: "https://psipedia.sk/media/posted.webp" };
+    assert.equal(needsAdminMainImageBackfill(agenda, { [field]: "" }, admin), true);
+    assert.equal(needsAdminMainImageBackfill(agenda, { [field]: null }, admin), true);
+    assert.equal(needsAdminMainImageBackfill(agenda,
+      { [field]: "https://example.org/replacement.webp" }, admin), false);
+    assert.equal(needsAdminMainImageBackfill(agenda, { [field]: "" }, { [field]: "" }), false);
+  }
+});
 
 test("unchanged snapshot stays unchanged", () => {
   assert.equal(decideBidirectionalChange({
