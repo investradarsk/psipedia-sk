@@ -51,9 +51,11 @@ test("one-shot breed partial update must go to field readback, not hidden whole-
   }),/TRANSFER_BREED_SYNC_DISABLED/);
 });
 
-test("manual queue uses verified field results and breed adapter respects filled source cells",()=>{
+test("manual queue verifies active workcopy outcomes; legacy adapter guards remain tested separately",()=>{
   const queue=readFileSync(new URL("../lib/notion-manual-transfer-queue.ts",import.meta.url),"utf8");
-  assert.match(queue,/assertManualBreedSweepOutcome\(summary\)/);
+  assert.match(queue,/runNotionBreedWorkCopySyncSweep/);
+  assert.match(queue,/writeBackBreedToWorkCopy/);
+  assert.doesNotMatch(queue,/runNotionBreedSyncSweep/);
   assert.match(queue,/verifyManualTransferFields\(before,after\)/);
   const sync=readFileSync(new URL("../lib/notion-breed-sync.ts",import.meta.url),"utf8");
   assert.match(sync,/manualBreedPresentFieldIds\(page\)/);
