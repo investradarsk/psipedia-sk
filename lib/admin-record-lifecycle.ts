@@ -174,7 +174,8 @@ function notionDraftProperties(kind:RecordKind,page:Record<string,unknown>) {
   const name=kind==="directory"||kind==="help"||kind==="lost-found"?"Psipedia stav":"Stav";
   if (!(page.properties as Record<string,unknown>|undefined)?.[name])
     throw Error("NOTION_PUBLICATION_PROPERTY_MISSING");
-  const value=kind==="articles"||kind==="breeds"?"Na kontrolu":"Koncept";
+  // Articles must remain Ready so the existing approved Admin republish flow can succeed.
+  const value=kind==="articles"?"Ready":kind==="breeds"?"Na kontrolu":"Koncept";
   const property=(page.properties as Record<string,unknown>)[name] as {type?:string};
   const publicationField=property.type==="status"?{status:{name:value}}:{select:{name:value}};
   // Directory mirrors two distinct fields: Psipedia publication vs editorial
