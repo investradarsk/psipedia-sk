@@ -27,7 +27,7 @@ export function AdminRecordLifecycleActions({
   kind,recordId,status,disabled=false,onUnpublished,returnHref,
 }:{
   kind:RecordKind;recordId:number;status:string;disabled?:boolean;
-  onUnpublished?:(status:string)=>void;returnHref:string;
+  onUnpublished?:(status:string,updatedAt?:string)=>void;returnHref:string;
 }) {
   const [preview,setPreview]=useState<Preview|null>(null);
   const [mode,setMode]=useState<"unpublish"|"delete"|null>(null);
@@ -62,12 +62,12 @@ export function AdminRecordLifecycleActions({
           ?{action:"delete",confirmation,localOnly:!preview.notionLinked&&localOnly}
           :{action:"unpublish"}),
       });
-      const data=await response.json() as RemovalResult & {error?:string;notionSync?:string;errorCode?:string};
+      const data=await response.json() as RemovalResult & {error?:string;notionSync?:string;errorCode?:string;updatedAt?:string};
       if(!response.ok && response.status!==202)throw Error(data.error??"LIFECYCLE_REQUEST_FAILED");
       setMode(null);
       if(currentMode==="unpublish"){
         setUnpublished(true);
-        onUnpublished?.(status==="PUBLISHED"?"DRAFT":status==="ACTIVE"||status==="RESERVED"?"DRAFT":status==="scheduled"?"draft":status==="RESOLVED"||status==="EXPIRED"||status==="ARCHIVED"?"DRAFT":"draft");
+        onUnpublished?.(status==="PUBLISHED"?"DRAFT":status==="ACTIVE"||status==="RESERVED"?"DRAFT":status==="scheduled"?"draft":status==="RESOLVED"||status==="EXPIRED"||status==="ARCHIVED"?"DRAFT":"draft",data.updatedAt);
         setMessage(data.notionSync==="PENDING"
           ?"Záznam je stiahnutý z webu. Prenos publikačného stavu do Notionu čaká na opravu."
           :"Záznam je stiahnutý z webu. Údaje a obrázky zostali zachované.");
