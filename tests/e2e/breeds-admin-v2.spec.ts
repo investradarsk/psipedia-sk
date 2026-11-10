@@ -121,17 +121,17 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.goto("/admin/plemena/novy", { waitUntil: "domcontentloaded" });
     await waitForBreedEditor(page);
     await page.getByLabel("Názov plemena").fill(draftName(testInfo));
-    await goToBreedEditorSection(page, "Charakteristika", "breed-overview");
+    await goToBreedEditorSection(page, "O plemene", "breed-overview");
     await page.getByLabel("Krátky úvod v hero (2–4 vety)").fill("Izolovaný lokálny koncept pre BREEDS-ADMIN E2E.");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page).toHaveURL(/\/admin\/plemena\/\d+$/);
     await waitForBreedEditor(page);
 
-    await goToBreedEditorSection(page, "Charakteristika", "breed-overview");
+    await goToBreedEditorSection(page, "O plemene", "breed-overview");
     await page.getByLabel("Prehľad plemena").fill("Overený lokálny prehľad používaný iba v izolovanom CI.");
     await goToBreedEditorSection(page, "Život a starostlivosť", "breed-practical");
     await page.getByLabel("Potreba pohybu").fill("Lokálny test praktického obsahu.");
-    await goToBreedEditorSection(page, "Základné údaje", "breed-basic");
+    await goToBreedEditorSection(page, "Plemeno v skratke", "breed-basic");
     await page.getByLabel("FCI skupina", { exact: true }).selectOption("8");
     const sectionField = page.getByLabel("FCI sekcia", { exact: true });
     // New, not-yet-linked breeds use the safe canonical fallback; linked breeds
@@ -143,7 +143,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(page.getByText(/^(Koncept je uložený\.|Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený\.)$/)).toBeVisible();
     await page.reload();
     await waitForBreedEditor(page);
-    await goToBreedEditorSection(page, "Charakteristika", "breed-overview");
+    await goToBreedEditorSection(page, "O plemene", "breed-overview");
     await expect(page.getByLabel("Prehľad plemena")).toContainText("Overený lokálny prehľad používaný iba v izolovanom CI.");
     await goToBreedEditorSection(page, "Život a starostlivosť", "breed-practical");
     await expect(page.getByLabel("Potreba pohybu")).toContainText("Lokálny test praktického obsahu.");
@@ -151,7 +151,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
   test("sports drawer and 60-field Notion section navigation persist", async ({ page }, testInfo) => {
     await openCreatedDraft(page, testInfo);
-    await goToBreedEditorSection(page, "Fotografie a aktivity", "breed-media");
+    await goToBreedEditorSection(page, "Fotografie, športy, zdroje", "breed-media");
 
     await page.getByRole("button", { name: "+ Pridať šport" }).click();
     const sportDrawer = page.getByRole("dialog", { name: "Pridať šport" });
@@ -166,7 +166,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(page.getByText(/^(Koncept je uložený\.|Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený\.)$/)).toBeVisible();
     await page.reload();
     await waitForBreedEditor(page);
-    await goToBreedEditorSection(page, "Fotografie a aktivity", "breed-media");
+    await goToBreedEditorSection(page, "Fotografie, športy, zdroje", "breed-media");
     await expect(page.locator("#breed-media").getByText("Nosework", { exact: true })).toBeVisible();
     const sportRow = page.getByRole("article").filter({ hasText: "Nosework" });
     await sportRow.getByRole("button", { name: "Upraviť" }).click();
@@ -195,7 +195,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await expect(seoSection.getByLabel("SEO title")).toBeVisible();
     await expect(seoSection.getByLabel("Meta description")).toBeVisible();
 
-    await goToBreedEditorSection(page, "Fotografie a aktivity", "breed-media");
+    await goToBreedEditorSection(page, "Fotografie, športy, zdroje", "breed-media");
     const imageSection = page.locator("#breed-media");
     await expect(imageSection.locator("img").first()).toBeVisible();
     await imageSection.getByRole("button", { name: "Odstrániť titulnú fotografiu" }).click();
