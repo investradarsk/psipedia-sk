@@ -34,3 +34,12 @@ test("all eight 1-to-5 breed ratings remain intact in the Help layout", () => {
   assert.match(css, /\.page \.contentLayout \.ratingSection/);
   assert.match(css, /@media \(max-width: 800px\)/);
 });
+
+test("breed profile omits redundant V tomto profile navigation without removing facts", () => {
+  assert.doesNotMatch(page, /V tomto profile|sidebarIndex|sectionNavItems|Rýchly prechod v profile/);
+  assert.doesNotMatch(css, /sidebarIndex/);
+  assert.match(page, /<DetailFactsCard title="Plemeno v skratke" facts=\{quickFacts\}/);
+  assert.match(page, /data-testid="breed-utility-sidebar"/);
+  assert.match(page, /id="hodnotenia"/);
+  assert.match(page, /<PublicMagazineBanner/);
+});
