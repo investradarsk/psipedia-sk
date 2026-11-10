@@ -23,7 +23,7 @@ test("admin access still verifies every JWT, but reuses JWK fetches and imported
 test("public layout overlaps navigation and optional partner authentication", () => {
   assert.match(layout, /const navigationPromise = getNavigationItems\(\)/);
   assert.match(layout, /Promise\.all\(\[\s*navigationPromise,/);
-  assert.match(layout, /partnerToken \? getPartnerSession/);
+  assert.match(layout, /partnerToken \? getPublicPartnerSession/);
 });
 
 test("name-day public lookup transfers only fields required for today's strip", () => {
