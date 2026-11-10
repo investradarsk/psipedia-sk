@@ -1,3 +1,4 @@
+import { notionPageIsTombstoned } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
@@ -2656,6 +2657,7 @@ export async function runNotionDirectorySyncSweep(input: {
   const attemptedMappedProfileIds = new Set<number>();
 
   for (const candidate of pages) {
+    if (await notionPageIsTombstoned(input.database,candidate.id)) continue;
     // Field-event profiles must never undergo a record-wide hourly merge.
     // Independently retry Services V3 relations for recently edited profiles:
     // missing/failed Notion relation events must not strand canonical choices.
