@@ -21,6 +21,8 @@ function errorText(value:string) {
     LOCAL_ONLY_CONFIRMATION_REQUIRED:"Záznam nie je overene prepojený s Notionom. Potvrď odstránenie iba z Psipedie.",
     RECORD_CONFIRMATION_MISMATCH:"Údaje profilu sa od otvorenia potvrdenia zmenili. Zatvor okno a skontroluj jeho aktuálnu podobu.",
     NOTION_MAPPING_AMBIGUOUS:"Notion má protichodné prepojenia na tento záznam. Odstránenie bolo bezpečne zastavené.",
+    NOTION_MAPPING_INVALID:"Prepojená Notion stránka má neplatné ID. Odstránenie bolo zastavené pred zmenou údajov.",
+    NOTION_DATA_SOURCE_UNCONFIGURED:"Nie je nakonfigurovaná overiteľná databáza Notion. Odstránenie sa nezačalo.",
     LIFECYCLE_MIGRATION_0164_REQUIRED:"Pred použitím je potrebné spustiť D1 migráciu 0164.",
   };
   return messages[value]??"Operácia sa nepodarila. Skontroluj stav a prípadne ju zopakuj ("+value+").";
