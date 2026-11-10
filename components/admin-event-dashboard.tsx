@@ -300,7 +300,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
           <legend className="sr-only">Vyhľadávanie a filtre podujatí</legend>
           <label className="admin-search">
             <span className="sr-only">Hľadať podujatie</span>
-            <input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, mesto, areál, organizátor, typ, kraj alebo slug" />
+            <input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, Admin ID, mesto, areál, organizátor alebo slug" />
           </label>
           <div className={`admin-status-filter admin-event-time-filters ${styles.timeFilters}`} aria-label="Časový stav">
             {[["all", "Všetky"], ["upcoming", "Nadchádzajúce"], ["current", "Prebiehajúce"], ["past", "Minulé"], ["cancelled", `Zrušené (${counts.cancelled})`]].map(([value, label]) => (

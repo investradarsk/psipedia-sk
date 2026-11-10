@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordId } from "./admin-record-id";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
@@ -209,7 +210,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       <div className={styles.filters} aria-label="Filtre plemien">
         <label className="admin-search">
           <span>Hľadať</span>
-          <div><SearchIcon size={18}/><input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, slug, pôvod, FCI…"/></div>
+          <div><SearchIcon size={18}/><input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, Admin ID, slug, pôvod, FCI…"/></div>
         </label>
         <label><span>FCI skupina</span><select value={filters.fciGroup} onChange={(event) => changeFilter("fciGroup", event.target.value)}><option value="all">Všetky skupiny</option>{fciGroups.map(([number, label]) => <option value={number} key={number}>FCI {number} · {label}</option>)}</select></label>
         <label><span>FCI sekcia</span><select value={filters.fciSection} onChange={(event) => changeFilter("fciSection", event.target.value)}><option value="all">Všetky sekcie</option>{sections.map((section) => <option value={section} key={section}>{section}</option>)}</select></label>
@@ -251,6 +252,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
           <div className={styles.identity}>
             <div className={styles.statusLine}><span className={`admin-status admin-status--${breed.status}`}>{breed.status === "published" ? "Publikované" : "Koncept"}</span>{breed.fciNumber && <span>FCI {breed.fciNumber}</span>}</div>
             <h2><Link prefetch={false} href={`/admin/plemena/${breed.id}`}>{breed.name}</Link></h2>
+            <AdminRecordId id={breed.id} compact />
             <p>/{breed.slug}</p>
             {activeInline?.id === breed.id
               ? <AdminInlineCellInput label={"Úvod plemena " + breed.name} value={activeInline.intro}

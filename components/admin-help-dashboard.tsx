@@ -173,7 +173,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
 
     <section className="admin-panel">
       <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať Help záznamy">
-        <label className={styles.searchField}><span>Hľadať</span><input name="q" defaultValue={filters.q} placeholder="Názov, pes, mesto alebo organizácia" maxLength={120} /></label>
+        <label className={styles.searchField}><span>Hľadať</span><input name="q" defaultValue={filters.q} placeholder="Názov, Admin ID, pes, mesto alebo organizácia" maxLength={120} /></label>
         <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="all">Všetky kategórie ({totals.total})</option>{HELP_ADMIN_CATEGORIES.map((slug) => <option value={slug} key={slug}>{slug === "utulky" ? "Útulky" : getHelpCategory(slug)?.label ?? slug} ({categoryCounts[slug] ?? 0})</option>)}</select></label>
         <label><span>Publikácia</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
         <label><span>Urgentnosť</span><select name="urgent" defaultValue={filters.urgent}><option value="all">Všetky</option><option value="urgent">Iba urgentné aktívne</option></select></label>
