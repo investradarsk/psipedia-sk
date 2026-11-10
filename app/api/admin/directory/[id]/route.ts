@@ -151,7 +151,10 @@ export async function PUT(request: Request, { params }: Props) {
     const safeSubmittedBody = {
       ...submittedBody, ...trust, internalEmail: before.internalEmail,
       ...mediaOverride,
-      ...(requestedMedia ? { thumbnailImageDisplay: null, detailImageDisplay: null } : {}),
+      // A replacement may already have a user-selected crop in the editor.
+      // Only clearing the image must clear its display configuration.
+      ...(requestedMedia?.imageUrl === null
+        ? { thumbnailImageDisplay: null, detailImageDisplay: null } : {}),
     };
     const fieldPreserved = editedPaths
       ? preserveLiveBreederFields(before, safeSubmittedBody, editedPaths)
