@@ -449,7 +449,7 @@ export default async function BreedDetailPage({ params }: Props) {
           <article className={styles.mainColumn}>
             {hasCharacteristics ? (
               <section id="prehlad" className={`${styles.readingSection} ${styles.anchorSection}`} aria-labelledby="breed-about">
-                                <h2 id="breed-about">O plemene</h2>
+                <h2 id="breed-about">O plemene</h2>
                 {overviewParagraphs.length ? <div className={styles.prose}><ReadingText paragraphs={overviewParagraphs}/></div> : null}
                 {characterParagraphs.length ? <div className={styles.characterBlock}>
                   <h3>Charakter a temperament</h3>
@@ -467,7 +467,7 @@ export default async function BreedDetailPage({ params }: Props) {
             ) : null}
             {ratings.length ? (
               <section id="hodnotenia" className={`${styles.ratingSection} ${styles.anchorSection}`} aria-labelledby="breed-ratings">
-                                <h2 id="breed-ratings">Povaha v číslach</h2>
+                <h2 id="breed-ratings">Povaha v číslach</h2>
                 <div className={styles.ratingGrid}>
                   {ratings.map(([label,value])=><div className={styles.ratingItem} key={label}>
                     <div><strong>{label}</strong><span>{value}/5</span></div>
@@ -484,7 +484,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 aria-labelledby="breed-practical"
               >
                 <div className={styles.sectionIntro}>
-                                    <h2 id="breed-practical">Život a starostlivosť</h2>
+                <h2 id="breed-practical">Život a starostlivosť</h2>
                 </div>
                 <div className={styles.accordionList}>
                   {accordions.map((item) => (
@@ -527,7 +527,7 @@ export default async function BreedDetailPage({ params }: Props) {
 
             {healthParagraphs.length || healthRisks.length ? (
               <section id="zdravie" className={`${styles.readingSection} ${styles.anchorSection}`} aria-labelledby="breed-health-heading">
-                                <h2 id="breed-health-heading">Zdravie plemena</h2>
+                <h2 id="breed-health-heading">Zdravie plemena</h2>
                 {healthParagraphs.length ? <div className={styles.prose}><ReadingText paragraphs={healthParagraphs}/></div> : null}
                 {healthRisks.length ? <div className={styles.riskBlock}><h3>Typické zdravotné riziká</h3>
                   <ul>{healthRisks.map(risk=><li key={risk}>{risk}</li>)}</ul></div> : null}
@@ -542,7 +542,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 data-testid="breed-fit"
               >
                 <div className={styles.sectionIntro}>
-                                    <h2 id="breed-fit">Je toto plemeno pre mňa?</h2>
+                <h2 id="breed-fit">Je toto plemeno pre mňa?</h2>
                 </div>
                 <div className={styles.fitGrid}>
                   {goodFor.length ? (
@@ -576,7 +576,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 aria-labelledby="breed-fci"
               >
                 <div className={styles.fciHeading}>
-                                    <h2 id="breed-fci">Oficiálne zaradenie FCI</h2>
+                <h2 id="breed-fci">Oficiálne zaradenie FCI</h2>
                   <p>
                     Na hlavnom profile uvádzame iba základné zaradenie. Úplný štandard je dostupný
                     samostatne ako odborná referencia.
@@ -616,7 +616,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 aria-labelledby="breed-sports-heading"
               >
                 <div className={styles.sectionIntro}>
-                                    <h2 id="breed-sports-heading">Šport a pracovné využitie</h2>
+                <h2 id="breed-sports-heading">Šport a pracovné využitie</h2>
                   <p>
                     Odporúčané aktivity sú zoradené priamo v profile, aby ich nebolo potrebné hľadať
                     v rozbalených témach.
@@ -642,7 +642,7 @@ export default async function BreedDetailPage({ params }: Props) {
 
             {sources.length ? (
               <section className={styles.readingSection} aria-labelledby="breed-sources">
-                                <h2 id="breed-sources">Odborné zdroje</h2>
+                <h2 id="breed-sources">Odborné zdroje</h2>
                 <ol className="breed-source-list">
                   {sources.map((source) => (
                     <li key={`${source.label}-${source.url}`}>
@@ -661,7 +661,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 id="chov-a-kluby"
               >
                 <header>
-                                    <h2>Chovateľské stanice pre toto plemeno</h2>
+                <h2>Chovateľské stanice pre toto plemeno</h2>
                 </header>
                 <div className={styles.dataCardGrid}>
                   {relations.breedingStations.slice(0, 3).map((profile) => (
@@ -686,7 +686,7 @@ export default async function BreedDetailPage({ params }: Props) {
                 id={relations.breedingStations.length ? undefined : "chov-a-kluby"}
               >
                 <header>
-                                    <h2>Chovateľské kluby pre toto plemeno</h2>
+                <h2>Chovateľské kluby pre toto plemeno</h2>
                 </header>
                 <div className={styles.dataCardGrid}>
                   {relations.breedClubs.slice(0, 3).map((profile) => (
@@ -740,7 +740,7 @@ export default async function BreedDetailPage({ params }: Props) {
             id="suvisiaci-obsah"
           >
             <header>
-                            <h2>Články o tomto plemene</h2>
+                <h2>Články o tomto plemene</h2>
             </header>
             <PublicContentList label="Súvisiace články k plemenu">
               {relatedArticles.map((article) => (
@@ -771,7 +771,7 @@ export default async function BreedDetailPage({ params }: Props) {
             className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}
           >
             <header>
-                            <h2>Podobné plemená</h2>
+                <h2>Podobné plemená</h2>
             </header>
             <div className="breed-similar-grid">
               {relations.similarBreeds.map((item) => (
