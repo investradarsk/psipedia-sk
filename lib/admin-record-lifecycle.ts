@@ -606,6 +606,18 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
       targets=JSON.parse(raced.notion_targets_json) as NotionTarget[];
     }
   }
+  if(prior) {
+    if(!matches({slug:prior.record_slug,name:prior.record_name,category:prior.record_category}))
+      throw Error("RECORD_CONFIRMATION_MISMATCH");
+    // A prior partial transaction or an out-of-band update must not leave the
+    // canonical profile visible while remote trash proceeds. Reassert the D1
+    // draft before ANY irreversible Notion mutation, including READY_LOCAL retry.
+    if(clean(row.status)!==specs[kind].draft) {
+      const hidden=await db.prepare("UPDATE "+specs[kind].table+" SET status=?,updated_at=? WHERE id=?")
+        .bind(specs[kind].draft,new Date().toISOString(),id).run();
+      if((hidden.meta?.changes??0)!==1)throw Error("RECORD_HIDE_NOT_CONFIRMED");
+    }
+  }
   if(prior?.state!=="READY_LOCAL") {
     // A previous READY_LOCAL receipt already proves that every linked page
     // reached Notion trash. Retrying D1 cleanup after a local failure must not
