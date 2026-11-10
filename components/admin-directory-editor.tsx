@@ -551,12 +551,20 @@ export function AdminDirectoryEditor({
       // Verify that the database acknowledges lifecycle and explicit web edits.
       if (data.profile.status !== nextStatus)
         throw new Error("Zmena stavu profilu sa nepotvrdila. Obnov stránku a skontroluj údaje.");
+      if (mainImageAction === "replace" && imageReplacement &&
+          (data.profile.imageUrl !== imageReplacement.imageUrl ||
+           data.profile.imageKey !== imageReplacement.imageKey))
+        throw new Error("Nová fotografia sa v databáze nepotvrdila. Skontroluj profil pred obnovením stránky.");
+      if (mainImageAction === "remove" &&
+          (data.profile.imageUrl || data.profile.imageKey))
+        throw new Error("Odstránenie fotografie sa v databáze nepotvrdilo.");
       // The canonical D1 column, not a legacy imported "Web" alias, confirms
       // the persisted public URL. A stale source_data_json alias can otherwise
       // produce a false failure even while the public profile shows the new URL.
       const unconfirmedWebsite = Boolean(breederChangedPaths?.includes("websiteUrl") &&
         (data.profile.websiteUrl ?? "").trim() !== websiteUrl.trim());
-      const pendingNotionFields = Boolean(breederChangedPaths?.length &&
+      const pendingNotionFields = Boolean((breederChangedPaths?.length ||
+        (profile && mainImageAction !== "keep")) &&
         ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? ""));
       // A committed D1 save is always successful independently of Notion.
       // Report any actual Notion pending state separately from D1 validation.
@@ -588,7 +596,15 @@ export function AdminDirectoryEditor({
         if (formEditRevisionRef.current === submittedRevision) setBreederRelationsDirty(false);
       }
       const hasNewerEdits = formEditRevisionRef.current !== submittedRevision;
-      if (!hasNewerEdits) removeMainImageRequestedRef.current = false;
+      if (!hasNewerEdits) {
+        removeMainImageRequestedRef.current = false;
+        replaceMainImageRequestedRef.current = null;
+        // The returned D1 record, not optimistic upload state, is authoritative.
+        setImageUrl(savedProfile.imageUrl ?? "");
+        setImageKey(savedProfile.imageKey ?? "");
+        setThumbnailImageDisplay(savedProfile.thumbnailImageDisplay ?? null);
+        setDetailImageDisplay(savedProfile.detailImageDisplay ?? null);
+      }
       if (!hasNewerEdits) {
         setFilterSourceData(savedProfile.importData ?? {});
         setFilterChanges({});
@@ -1068,7 +1084,7 @@ export function AdminDirectoryEditor({
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             {profile && <AdminShareToFacebook title={name} imageUrl={imageUrl} publicPath={"/adresar/" + profile.category + "/" + profile.slug} />}
             <div className="admin-card-heading"><div><span>{profile && ["chovatelske-stanice", "treneri"].includes(category) ? "06" : "05"}</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
-            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { removeMainImageRequestedRef.current = true; setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
+            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { replaceMainImageRequestedRef.current = null; removeMainImageRequestedRef.current = true; setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {!notionDraft && category === "chovatelske-stanice" ? (
               <AdminPhotoGallery
