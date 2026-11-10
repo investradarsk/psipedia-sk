@@ -133,7 +133,12 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.getByLabel("Potreba pohybu").fill("Lokálny test praktického obsahu.");
     await goToBreedEditorSection(page, "Základné údaje", "breed-basic");
     await page.getByLabel("FCI skupina", { exact: true }).selectOption("8");
-    await page.getByLabel("FCI sekcia", { exact: true }).selectOption("1");
+    const sectionField = page.getByLabel("FCI sekcia", { exact: true });
+    // New, not-yet-linked breeds use the safe canonical fallback; linked breeds
+    // have the separately versioned FCI section select.
+    if (await sectionField.evaluate(node => node.tagName === "SELECT"))
+      await sectionField.selectOption("1");
+    else await sectionField.fill("Retrievery");
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await expect(page.getByText(/^(Koncept je uložený\.|Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený\.)$/)).toBeVisible();
     await page.reload();
