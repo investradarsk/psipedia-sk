@@ -434,12 +434,17 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
       statements.push(db.prepare("DELETE FROM breed_notion_controlled_values WHERE breed_id=?").bind(id));
   }
   // Delete only join rows or dangling foreign keys, never related entities.
-  if(kind==="articles") statements.push(db.prepare("DELETE FROM breed_article_relations WHERE article_id=?").bind(id));
+  // These relation tables are optional on earlier D1 deployments.
+  if(kind==="articles" && present.has("breed_article_relations"))
+    statements.push(db.prepare("DELETE FROM breed_article_relations WHERE article_id=?").bind(id));
   if(kind==="breeds") {
-    statements.push(db.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(id));
-    statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(id));
+    if(present.has("breed_article_relations"))
+      statements.push(db.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(id));
+    if(present.has("breed_directory_relations"))
+      statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(id));
   }
-  if(kind==="directory") statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE profile_id=?").bind(id));
+  if(kind==="directory" && present.has("breed_directory_relations"))
+    statements.push(db.prepare("DELETE FROM breed_directory_relations WHERE profile_id=?").bind(id));
   if(kind==="organizations") statements.push(db.prepare("UPDATE adoption_dogs SET organization_id=NULL WHERE organization_id=?").bind(id));
   if(present.has("notion_profile_field_baselines") &&
       ["directory","events","organizations","adoptions","help","lost-found"].includes(kind)) {
