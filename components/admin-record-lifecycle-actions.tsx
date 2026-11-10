@@ -41,6 +41,9 @@ export function AdminRecordLifecycleActions({
   const endpoint="/api/admin/record-lifecycle/"+encodeURIComponent(kind)+"/"+recordId;
   const visible=publicStates.has(status)&&!unpublished;
   useEffect(()=>{
+    if(publicStates.has(status))setUnpublished(false);
+  },[status]);
+  useEffect(()=>{
     let live=true;
     fetch(endpoint,{cache:"no-store"}).then(async response=>{
       const value=await response.json() as Preview & {error?:string};
