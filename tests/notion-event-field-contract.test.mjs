@@ -15,6 +15,7 @@ test("Notion text fields for web and registration use same field names as Admin 
   assert.equal(EVENT_NOTION_FIELDS.websiteUrl,"Web");
   assert.equal(EVENT_NOTION_FIELDS.registrationUrl,"Registrácia");
   assert.equal(EVENT_NOTION_FIELDS.contactEmail,"E-mail organizátora");
+  assert.equal(EVENT_NOTION_FIELDS.imageUrl,"Hlavný obrázok URL");
   assert.equal(EVENT_NOTION_FIELDS["seo.focusKeyword"],"SEO kľúčové slovo");
   assert.equal(EVENT_NOTION_PATHS.includes("slug"),false);
   assert.equal(EVENT_NOTION_PATHS.includes("status"),false);
@@ -58,6 +59,31 @@ test("Admin save sends only dirty fields; unedited Notion changes stay in D1",()
   assert.equal(safe.contactEmail,"updated@example.sk");
   assert.equal(safe.description,"new Notion text");
   assert.equal(safe.seo.focusKeyword,"new Notion keyword");
+});
+test("Admin-uploaded main image URL is a dirty field and a stale image key is preserved",()=>{
+  const before={title:"Výstava",imageUrl:"/media/old.webp",imageKey:"old-r2-key"};
+  const uploaded={...before,imageUrl:"/media/new.webp",imageKey:"new-r2-key"};
+  assert.deepEqual(eventChangedAdminFields(before,uploaded),["imageUrl"]);
+
+  const live={...before,imageUrl:"/media/live.webp",imageKey:"live-r2-key"};
+  const stale={...before,title:"Upravená výstava"};
+  const changed=eventChangedAdminFields(before,stale);
+  const safe=eventPreserveUneditedAdminFields(stale,live,changed);
+  assert.equal(safe.title,"Upravená výstava");
+  assert.equal(safe.imageUrl,"/media/live.webp");
+  assert.equal(safe.imageKey,"live-r2-key");
+
+  const properties={"Hlavný obrázok URL":{id:"PHOTO",type:"url",url:"https://psipedia.sk/media/new.webp"}};
+  assert.deepEqual(eventChangedNotionFields(properties,["PHOTO"]),["imageUrl"]);
+});
+test("image mirroring is wired into targeted writeback and pending-save feedback",()=>{
+  const read=f=>readFileSync(new URL("../"+f,import.meta.url),"utf8");
+  const sync=read("lib/notion-event-field-sync.ts");
+  const editor=read("components/admin-event-editor.tsx");
+  assert.match(sync, /"imageUrl" as EventNotionField/);
+  assert.match(sync, /EVENT_NOTION_FIELDS\[path\]/);
+  assert.match(sync, /EVENT_IMAGE_URL_WRITE_FAILED/);
+  assert.match(editor, /Fotografia je uložená v Admine, ale jej URL zatiaľ nie je potvrdená v Notione/);
 });
 test("field-only sync wiring never runs mapped Event changes through whole-profile updater",()=>{
   const read=f=>readFileSync(new URL("../"+f,import.meta.url),"utf8");
