@@ -235,9 +235,13 @@ export async function unpublishRecord(db:D1Database,bindings:LifecycleBindings,k
     "ON CONFLICT(kind,record_id) DO UPDATE SET remote_state='PENDING',error_code=NULL,updated_at=excluded.updated_at")
     .bind(kind,id,now);
   // Publication field + revision only; no form payload, media or editorial changes.
-  const update=db.prepare("UPDATE "+spec.table+" SET status=?,updated_at=? WHERE id=? AND status=?")
-    .bind(spec.draft,now,id,clean(row.status));
-  await db.batch([guard,update]);
+  // Do not rely on a stale status from the preview when another editor just
+  // published or saved this record. The scoped, id-only hide is committed with
+  // the guard; a zero-row outcome must never be reported as unpublished.
+  const update=db.prepare("UPDATE "+spec.table+" SET status=?,updated_at=? WHERE id=?")
+    .bind(spec.draft,now,id);
+  const [guardResult,hideResult]=await db.batch([guard,update]);
+  if((hideResult.meta?.changes??0)!==1) throw Error("RECORD_HIDE_NOT_CONFIRMED");
   let remoteState:"SYNCED"|"UNLINKED"|"NOT_APPLICABLE"|"PENDING"="PENDING";
   let code:string|null=null;
   try {
@@ -493,16 +497,27 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
       "VALUES (?,?,?,?,?,?,?,?,?,?,NULL,?,?,?)")
       .bind(kind,id,meta.slug,externalTombstoneKey(kind,row),meta.name,meta.category,targets[0]?.pageId??null,targets[0]?.sourceId??null,
         JSON.stringify(targets),targets.length?"PENDING_NOTION":"READY_LOCAL",owner,now,now);
-    const hide=db.prepare("UPDATE "+spec.table+" SET status=?,updated_at=? WHERE id=? AND status=?")
-      .bind(spec.draft,now,id,meta.status);
+    // Tombstone + hide are one D1 transaction. A competing editorial update
+    // may change status after the earlier read; id-only UPDATE still hides the
+    // exact canonical entity that the owner confirmed.
+    const hide=db.prepare("UPDATE "+spec.table+" SET status=?,updated_at=? WHERE id=?")
+      .bind(spec.draft,now,id);
     try {
-      await db.batch([insert,hide]);
+      const [,hideResult]=await db.batch([insert,hide]);
+      if((hideResult.meta?.changes??0)!==1) {
+        // Do not start irreversible Notion trash if D1 no longer contains the
+        // expected row. Tombstone remains as a durable import barrier.
+        throw Error("RECORD_HIDE_NOT_CONFIRMED");
+      }
     } catch (error) {
       // Two administrators may confirm the same record concurrently. The
       // losing transaction must re-use the winner's exact persisted targets,
       // never perform another insert, guess a Notion page or undo the hide.
       const raced=await tombstone(db,kind,id);
       if(!raced)throw error;
+      // A zero-row hide is not a concurrent-delete success; it is a failed
+      // confirmation. Never proceed to remote trash in that case.
+      if(error instanceof Error && error.message==="RECORD_HIDE_NOT_CONFIRMED")throw error;
       if(raced.record_slug!==meta.slug)throw Error("RECORD_TOMBSTONE_IDENTITY_CHANGED");
       if(raced.state==="COMPLETE")return {state:"COMPLETE",id,notionTrash:raced.notion_page_id?"confirmed":"unlinked",media:{removed:0,preserved:0}};
       prior=raced;
