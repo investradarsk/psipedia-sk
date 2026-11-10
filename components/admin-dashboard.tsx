@@ -237,7 +237,7 @@ export function AdminDashboard({
           <label className="admin-search">
             <SearchIcon size={19} />
             <span className="sr-only">Hľadať článok</span>
-            <input name="query" defaultValue={filters.query} maxLength={120} placeholder="Názov, Admin ID, slug, perex alebo téma" />
+            <input name="query" defaultValue={filters.query} maxLength={120} placeholder="Názov, slug, perex alebo téma" title="Vyhľadáva aj podľa presného Admin ID, napr. 2295" />
           </label>
           <label className="admin-select-filter">
             <span>Stav</span>

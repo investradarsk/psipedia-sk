@@ -210,7 +210,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       <div className={styles.filters} aria-label="Filtre plemien">
         <label className="admin-search">
           <span>Hľadať</span>
-          <div><SearchIcon size={18}/><input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, Admin ID, slug, pôvod, FCI…"/></div>
+          <div><SearchIcon size={18}/><input value={filters.query} onChange={(event) => changeFilter("query", event.target.value)} placeholder="Názov, slug, pôvod, FCI…" title="Vyhľadáva aj podľa presného Admin ID, napr. 1842"/></div>
         </label>
         <label><span>FCI skupina</span><select value={filters.fciGroup} onChange={(event) => changeFilter("fciGroup", event.target.value)}><option value="all">Všetky skupiny</option>{fciGroups.map(([number, label]) => <option value={number} key={number}>FCI {number} · {label}</option>)}</select></label>
         <label><span>FCI sekcia</span><select value={filters.fciSection} onChange={(event) => changeFilter("fciSection", event.target.value)}><option value="all">Všetky sekcie</option>{sections.map((section) => <option value={section} key={section}>{section}</option>)}</select></label>
