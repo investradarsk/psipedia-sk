@@ -53,6 +53,16 @@ export function isRecordKind(value:string):value is RecordKind {
 }
 function clean(value:unknown) { return value == null?"":String(value).trim(); }
 const sameId = (a:string,b:string) => a.replaceAll("-","").toLowerCase() === b.replaceAll("-","").toLowerCase();
+/** Notion identifiers may be stored as UUIDs with or without dashes. Use both
+ * index-friendly spellings so an existing tombstone/guard cannot be bypassed
+ * by a different but equivalent representation of the same page ID. */
+function notionPageIdVariants(pageId:string):[string,string] {
+  const compact=pageId.trim().replaceAll("-","").toLowerCase();
+  if(!/^[a-f0-9]{32}$/.test(compact))return [pageId.trim(),pageId.trim()];
+  const dashed=[compact.slice(0,8),compact.slice(8,12),compact.slice(12,16),
+    compact.slice(16,20),compact.slice(20)].join("-");
+  return [compact,dashed];
+}
 function requireDataSource(id:string) {
   if (!/^[a-f0-9]{32}$|^[a-f0-9-]{36}$/i.test(id)) throw Error("NOTION_DATA_SOURCE_UNCONFIGURED");
   return id;
@@ -353,27 +363,28 @@ export async function notionPageHasAdminUnpublishGuard(db:D1Database,pageId:stri
     .all<{name:string}>();
   const present=new Set((tables.results??[]).map(row=>row.name));
   if(!present.has("admin_record_publication_guards"))return false;
+  const variants=notionPageIdVariants(pageId);
   const clauses:string[]=[];
   const params:string[]=[];
   const add=(table:string,sql:string,count=1)=>{
     if(!present.has(table))return;
     clauses.push(sql);
-    for(let i=0;i<count;i++)params.push(pageId);
+    for(let i=0;i<count;i++)params.push(...variants);
   };
   add("directory_notion_sync",
-    "(g.kind='directory' AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.notion_page_id=? AND m.directory_profile_id=g.record_id))");
+    "(g.kind='directory' AND EXISTS(SELECT 1 FROM directory_notion_sync m WHERE m.notion_page_id IN (?,?) AND m.directory_profile_id=g.record_id))");
   add("event_notion_sync",
-    "(g.kind='events' AND EXISTS(SELECT 1 FROM event_notion_sync m WHERE m.notion_page_id=? AND m.event_id=g.record_id))");
+    "(g.kind='events' AND EXISTS(SELECT 1 FROM event_notion_sync m WHERE m.notion_page_id IN (?,?) AND m.event_id=g.record_id))");
   add("breed_notion_sync",
-    "(g.kind='breeds' AND EXISTS(SELECT 1 FROM breed_notion_sync m WHERE m.notion_page_id=? AND m.breed_id=g.record_id))");
+    "(g.kind='breeds' AND EXISTS(SELECT 1 FROM breed_notion_sync m WHERE m.notion_page_id IN (?,?) AND m.breed_id=g.record_id))");
   add("breed_notion_workcopy_links",
     "(g.kind='breeds' AND EXISTS(SELECT 1 FROM breed_notion_workcopy_links w WHERE w.breed_id=g.record_id "+
-    "AND (w.original_notion_page_id=? OR w.work_notion_page_id=?)))",2);
+    "AND (w.original_notion_page_id IN (?,?) OR w.work_notion_page_id IN (?,?))))",2);
   add("article_notion_sync",
-    "(g.kind='articles' AND EXISTS(SELECT 1 FROM article_notion_sync m WHERE m.notion_page_id=? AND m.article_id=g.record_id))");
+    "(g.kind='articles' AND EXISTS(SELECT 1 FROM article_notion_sync m WHERE m.notion_page_id IN (?,?) AND m.article_id=g.record_id))");
   add("notion_agenda_sync",
     "(g.kind IN ('events','help','adoptions','lost-found','organizations') AND EXISTS("+
-    "SELECT 1 FROM notion_agenda_sync m WHERE m.notion_page_id=? AND m.entity_id=g.record_id AND "+
+    "SELECT 1 FROM notion_agenda_sync m WHERE m.notion_page_id IN (?,?) AND m.entity_id=g.record_id AND "+
     "m.agenda=CASE g.kind WHEN 'events' THEN 'events' WHEN 'help' THEN 'help-cases' "+
     "WHEN 'adoptions' THEN 'adoptions' WHEN 'lost-found' THEN 'lost-found' "+
     "ELSE 'organizations' END))");
@@ -392,10 +403,11 @@ export async function notionPageMustSkipInboundSync(db:D1Database,pageId:string)
 }
 export async function notionPageIsTombstoned(db:D1Database,pageId:string) {
   try {
-    const row=await db.prepare("SELECT 1 AS found FROM admin_record_tombstones WHERE notion_page_id=? OR EXISTS ("+
+    const [compact,dashed]=notionPageIdVariants(pageId);
+    const row=await db.prepare("SELECT 1 AS found FROM admin_record_tombstones WHERE notion_page_id IN (?,?) OR EXISTS ("+
       "SELECT 1 FROM json_each(admin_record_tombstones.notion_targets_json) "+
-      "WHERE json_extract(json_each.value,'$.pageId')=?) LIMIT 1")
-      .bind(pageId,pageId).first<{found:number}>();
+      "WHERE json_extract(json_each.value,'$.pageId') IN (?,?)) LIMIT 1")
+      .bind(compact,dashed,compact,dashed).first<{found:number}>();
     return Boolean(row?.found);
   } catch (error) {
     // Existing sync workers may deploy before the owner explicitly applies
