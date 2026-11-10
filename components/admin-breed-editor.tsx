@@ -1,4 +1,5 @@
 "use client";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
@@ -308,6 +309,8 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       actions={<EditorActionBar
         message={<span role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
         secondary={<>
+          {breed && <AdminRecordLifecycleActions kind="breeds" recordId={breed.id} status={form.status} disabled={saving || uploading} returnHref="/admin/plemena"
+            onUnpublished={(_next,updatedAt) => { setCanonicalForm(current=>({...current,status:"draft"})); if(updatedAt)setExpectedUpdatedAt(updatedAt); }} />}
           {breed && <AdminNotionProfileImportButton scope="breeds" profileId={breed.id}
             dirty={dirty} disabled={saving || uploading} />}
           <AdminActionButton variant="neutral" onClick={()=>setSettingsOpen(true)}>Nastavenia, FCI a SEO</AdminActionButton>
