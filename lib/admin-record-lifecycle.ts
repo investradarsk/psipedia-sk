@@ -229,6 +229,8 @@ export async function unpublishRecord(db:D1Database,bindings:LifecycleBindings,k
   if (!row) throw Error("RECORD_NOT_FOUND");
   if (await tombstone(db,kind,id)) throw Error("RECORD_REMOVAL_IN_PROGRESS");
   const spec=specs[kind],now=new Date().toISOString();
+  if(!spec.publicStatuses.includes(clean(row.status)) && clean(row.status)!==spec.draft)
+    throw Error("RECORD_NOT_PUBLIC");
   const guard=await db.prepare("INSERT INTO admin_record_publication_guards (kind,record_id,remote_state,error_code,updated_at) VALUES (?,?,'PENDING',NULL,?) "+
     "ON CONFLICT(kind,record_id) DO UPDATE SET remote_state='PENDING',error_code=NULL,updated_at=excluded.updated_at")
     .bind(kind,id,now);
