@@ -264,3 +264,88 @@
   .legacyInfo dl > div { grid-template-columns: 1fr; gap: 2px; }
   .editorForm .sectionCard > :global(.admin-form-card) { padding: 12px; }
 }
+
+
+/* Breed Admin v6: dense but touch-safe editing for 9 public-order sections.
+   Only this editor is affected; global Admin control sizes stay unchanged. */
+.editorForm { gap: 8px; }
+.editorTopbar { padding: 7px 10px; margin-bottom: 0; }
+.editorForm .sectionCard > :global(.admin-form-card) {
+  padding: clamp(10px, 1.2vw, 16px);
+}
+.editorForm :global(.admin-form-card) {
+  gap: 7px;
+  min-width: 0;
+}
+.heading { margin-bottom: 8px; gap: 8px; }
+.heading h2 { font-size: 1.02rem; line-height: 1.3; }
+.heading p { font-size: 0.78rem; line-height: 1.4; }
+.basicTop,.basicBottom {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+.basicTop > :first-child { grid-column: auto; }
+.basicTop :global(select[multiple]),
+.basicBottom :global(select[multiple]) { min-height: 72px; max-height: 100px; }
+.measureGroups { gap: 8px; margin: 8px 0; }
+.measureGroup { padding: 8px; }
+.measureInputs { gap: 6px; }
+.editorForm :global(.admin-breed-score-grid) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.editorForm :global(.admin-field) { min-width: 0; }
+.editorForm :global(.admin-field > span) {
+  line-height: 1.35;
+  font-size: 0.79rem;
+}
+.editorForm :global(input:not([type="checkbox"])),
+.editorForm :global(select) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+.editorForm :global(textarea) { width: 100%; max-width: 100%; box-sizing: border-box; }
+.fciFields { gap: 8px; }
+.fciFields :global(textarea) { min-height: 72px; }
+.fciGroup { margin: 4px 0; padding: 8px 10px; }
+.fciGroup > div { padding-top: 8px; }
+.subsection { padding-top: 12px; margin-top: 12px; }
+.subheading { margin-bottom: 8px; }
+.mediaGrid { gap: 12px; }
+.galleryList { gap: 8px; margin-top: 8px; }
+.fitEditGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+}
+.fitEditGrid > * { min-width: 0; }
+.sectionPager { padding: 6px 2px; }
+@media (max-width: 1100px) {
+  .editorForm :global(.admin-breed-score-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .measureGroups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .editorForm { gap: 6px; }
+  .editorForm .sectionCard > :global(.admin-form-card) { padding: 10px; }
+  .editorTopbar p { display: none; }
+  .heading { margin-bottom: 6px; }
+  .heading h2 { font-size: 0.98rem; }
+  .heading p { font-size: 0.75rem; }
+  .basicTop,.basicBottom,.fitEditGrid,.fciFields { grid-template-columns: minmax(0, 1fr); }
+  .measureGroups { grid-template-columns: minmax(0, 1fr); }
+  .measureGroup { padding: 8px; }
+  .editorForm :global(.admin-breed-score-grid) { gap: 6px; }
+  .mediaGrid { gap: 9px; }
+  .sectionPager { gap: 6px; }
+}
+@media (max-width: 370px) {
+  .editorForm :global(.admin-breed-score-grid) { grid-template-columns: minmax(0, 1fr); }
+  .measureInputs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
