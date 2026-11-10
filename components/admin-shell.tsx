@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import { AdminBreadcrumbs, AdminNavigation } from "./admin-navigation";
-import { AdminCurrentRecordId } from "./admin-record-id";
+import { AdminRecordId } from "./admin-record-id";
 import { AdminStickyMetrics } from "./admin-sticky-metrics";
 import { AdminHomeBrandLink } from "./admin-home-brand-link";
 import { AdminQuickNavigation } from "./admin-quick-navigation";
@@ -79,6 +79,7 @@ export function AdminShell({
   title,
   description,
   compactHeading = false,
+  recordId,
   actions,
   children,
   attentionCount,
@@ -91,6 +92,8 @@ export function AdminShell({
   description?: string;
   /** Compact page title for editorial article routes only. */
   compactHeading?: boolean;
+  /** Stable Admin/D1 ID passed by the editor page. */
+  recordId?: number;
   actions?: ReactNode;
   children: ReactNode;
   attentionCount?: number;
@@ -142,7 +145,7 @@ export function AdminShell({
                 <div>
                   {!compactHeading && <span className="admin-eyebrow">{eyebrow}</span>}
                   <h1>{title}</h1>
-                  <AdminCurrentRecordId />
+                  {recordId ? <div className={styles.recordId}><AdminRecordId id={recordId} /></div> : null}
                   {!compactHeading && description && <p>{description}</p>}
                 </div>
                 {actions && <div className="admin-heading-actions">{actions}</div>}

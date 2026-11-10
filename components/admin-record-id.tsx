@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { useState } from "react";
 import styles from "./admin-record-id.module.css";
 
@@ -29,12 +28,3 @@ export function AdminRecordId({ id, compact = false }: { id: number; compact?: b
   );
 }
 
-/** All editor routes get the same visible numeric identity beside their title. */
-export function AdminCurrentRecordId() {
-  const pathname = usePathname();
-  const match = /^\/admin\/(?:plemena|adresar|podujatia|clanky|adopcie|organizacie|pomoc|stratene-najdene)\/([1-9]\d*)\/?$/.exec(pathname ?? "");
-  if (!match) return null;
-  const id = Number(match[1]);
-  if (!Number.isSafeInteger(id)) return null;
-  return <div className={styles.editorId}><AdminRecordId id={id} /></div>;
-}

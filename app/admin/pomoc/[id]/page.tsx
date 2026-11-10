@@ -32,7 +32,7 @@ export default async function EditHelpCasePage({ params }: Props) {
     getCanonicalDraftDuplicateWarning(entityType, item.id).catch(() => null),
     listCanonicalAutomationUpdateSuggestions({ entityType, canonicalEntityId: item.id }),
   ]);
-  return <AdminShell
+  return <AdminShell recordId={numericId}
     user={user}
     eyebrow={item.status === "published" ? "Publikovaný Help záznam" : "Rozpracovaný Help koncept"}
     title="Upraviť Help prípad"
