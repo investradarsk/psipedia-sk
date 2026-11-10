@@ -1,3 +1,4 @@
+import { notionPageIsTombstoned } from "./admin-record-lifecycle";
 import {
   createManagedBreed,
   getManagedBreed,
@@ -1219,6 +1220,7 @@ export async function runNotionBreedSyncSweep(args: {
   }
   for (const page of pages) {
     if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
+    if (await notionPageIsTombstoned(args.database,page.id)) {summary.unchanged += 1;continue;}
     summary.scanned += 1;
     try {
       const result = await syncOneBreed(args.database, args.bindings, page,
