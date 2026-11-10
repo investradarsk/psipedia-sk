@@ -137,8 +137,65 @@ type AccessJwtPayload = {
 type AccessJwk = JsonWebKey & { kid?: string };
 type CachedAccessJwks = { expiresAt: number; keys: AccessJwk[] };
 
+// Redirect detection is D1-heavy and runs before the SSR page. A short,
+// bounded in-isolate cache coalesces simultaneous requests and repeated
+// cookie-bearing reads without sharing HTML or user data.
+const BREED_REDIRECT_CACHE_TTL_MS = 15_000;
+const BREED_REDIRECT_CACHE_MAX_ENTRIES = 400;
+const breedRedirectCache = new Map<string, {
+  expiresAt: number;
+  pending: Promise<string | null>;
+}>();
+
+function cachedCanonicalBreedRedirect(database: D1Database, slug: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = breedRedirectCache.get(slug);
+  if (cached && cached.expiresAt > now) return cached.pending;
+
+  const pending = canonicalBreedRedirect(database, slug).catch((error) => {
+    if (breedRedirectCache.get(slug)?.pending === pending) breedRedirectCache.delete(slug);
+    throw error;
+  });
+  breedRedirectCache.delete(slug);
+  breedRedirectCache.set(slug, {
+    expiresAt: now + BREED_REDIRECT_CACHE_TTL_MS,
+    pending,
+  });
+  if (breedRedirectCache.size > BREED_REDIRECT_CACHE_MAX_ENTRIES) {
+    const oldest = breedRedirectCache.keys().next().value;
+    if (oldest !== undefined) breedRedirectCache.delete(oldest);
+  }
+  return pending;
+}
+
 const ACCESS_JWKS_TTL_MS = 5 * 60 * 1000;
 const accessJwksCache = new Map<string, CachedAccessJwks>();
+// Concurrent admin requests reuse one certificate download; the verified JWT
+// itself is NEVER cached. Weak keys naturally expire with the five-minute JWK
+// snapshot, so rotation/revocation does not retain a stale verification key.
+const accessJwksLoads = new Map<string, Promise<AccessJwk[]>>();
+const importedAccessKeys = new WeakMap<AccessJwk, Promise<CryptoKey>>();
+
+async function getImportedAccessKey(jwk: AccessJwk): Promise<CryptoKey> {
+  let pending = importedAccessKeys.get(jwk);
+  if (!pending) {
+    pending = crypto.subtle.importKey(
+      "jwk",
+      jwk,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+    importedAccessKeys.set(jwk, pending);
+  }
+  try {
+    return await pending;
+  } catch (error) {
+    // A failed import must not poison future verification attempts.
+    importedAccessKeys.delete(jwk);
+    throw error;
+  }
+}
 
 const ADMIN_AUTH_PATHS = ["/admin", "/api/admin"];
 const ADMIN_AUTHORIZED_HEADER = "x-psipedia-admin-authorized";
@@ -265,7 +322,7 @@ const worker = {
 
     const breedMatch=url.pathname.match(/^\/plemena\/([a-z0-9-]+)$/);
     if(breedMatch&&env.DB){
-      const target=await canonicalBreedRedirect(env.DB,breedMatch[1]);
+      const target=await cachedCanonicalBreedRedirect(env.DB,breedMatch[1]);
       if(target){url.pathname=target;return Response.redirect(url,301);}
     }
 
@@ -827,13 +884,7 @@ async function verifyAccessIdentity(
     }
     if (!jwk) return null;
 
-    const publicKey = await crypto.subtle.importKey(
-      "jwk",
-      jwk,
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      false,
-      ["verify"],
-    );
+    const publicKey = await getImportedAccessKey(jwk);
     const signature = decodeBase64Url(parts[2]);
     const signedData = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
     const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", publicKey, signature, signedData);
@@ -857,16 +908,27 @@ async function getAccessJwks(teamDomain: URL, forceRefresh = false): Promise<Acc
   const cached = accessJwksCache.get(cacheKey);
   if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached.keys;
 
-  const certsResponse = await fetch(new URL("/cdn-cgi/access/certs", teamDomain), {
-    headers: { Accept: "application/json" },
-  });
-  if (!certsResponse.ok) return [];
+  const inFlight = accessJwksLoads.get(cacheKey);
+  if (inFlight) return inFlight;
 
-  const jwks: unknown = await certsResponse.json();
-  if (!isRecord(jwks) || !Array.isArray(jwks.keys)) return [];
-  const keys = jwks.keys.filter(isAccessJwk);
-  accessJwksCache.set(cacheKey, { expiresAt: Date.now() + ACCESS_JWKS_TTL_MS, keys });
-  return keys;
+  const request = (async () => {
+    const certsResponse = await fetch(new URL("/cdn-cgi/access/certs", teamDomain), {
+      headers: { Accept: "application/json" },
+    });
+    if (!certsResponse.ok) return [];
+
+    const jwks: unknown = await certsResponse.json();
+    if (!isRecord(jwks) || !Array.isArray(jwks.keys)) return [];
+    const keys = jwks.keys.filter(isAccessJwk);
+    accessJwksCache.set(cacheKey, { expiresAt: Date.now() + ACCESS_JWKS_TTL_MS, keys });
+    return keys;
+  })();
+  accessJwksLoads.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    if (accessJwksLoads.get(cacheKey) === request) accessJwksLoads.delete(cacheKey);
+  }
 }
 
 function normalizeAccessTeamDomain(value: string): URL | null {

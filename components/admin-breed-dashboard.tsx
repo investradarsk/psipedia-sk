@@ -250,7 +250,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
           <div className={styles.thumb}>{breed.image ? <img src={breed.image} alt="" loading="lazy" decoding="async"/> : <span>Bez<br/>obrázka</span>}</div>
           <div className={styles.identity}>
             <div className={styles.statusLine}><span className={`admin-status admin-status--${breed.status}`}>{breed.status === "published" ? "Publikované" : "Koncept"}</span>{breed.fciNumber && <span>FCI {breed.fciNumber}</span>}</div>
-            <h2><Link href={`/admin/plemena/${breed.id}`}>{breed.name}</Link></h2>
+            <h2><Link prefetch={false} href={`/admin/plemena/${breed.id}`}>{breed.name}</Link></h2>
             <p>/{breed.slug}</p>
             {activeInline?.id === breed.id
               ? <AdminInlineCellInput label={"Úvod plemena " + breed.name} value={activeInline.intro}
@@ -262,7 +262,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
           <div className={styles.issueList}>{breed.completenessIssues.length ? breed.completenessIssues.map((issue) => <span className={styles.issue} data-breed-completeness key={issue}>{issue}</span>) : <span className={styles.complete}>Bez detegovaných medzier</span>}</div>
           <div className={styles.updated}><strong>Upravené</strong><br/>{formatUpdatedAt(breed.updatedAt)}</div>
           <div className={styles.actions}>
-            {breed.status === "published" && <Link href={`/plemena/${breed.slug}`} target="_blank">Pozrieť ↗</Link>}
+            {breed.status === "published" && <Link prefetch={false} href={`/plemena/${breed.slug}`} target="_blank">Pozrieť ↗</Link>}
             <span className={styles.inlineDesktop}><AdminInlineRowActions
               editing={activeInline?.id === breed.id} busy={busy}
               disabled={Boolean(activeInline && activeInline.id !== breed.id)}
@@ -270,7 +270,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
               onSave={() => void saveInline()}
               onCancel={() => { if (!busy) setInlineDraft(null); }}
             /></span>
-            <Link className="admin-row-edit" href={`/admin/plemena/${breed.id}`}>Upraviť</Link>
+            <Link prefetch={false} className="admin-row-edit" href={`/admin/plemena/${breed.id}`}>Upraviť</Link>
             <AdminActionButton variant="destructive" disabled={busy} onClick={() => setDeleteTarget(breed)}>Odstrániť</AdminActionButton>
           </div>
         </article>)}

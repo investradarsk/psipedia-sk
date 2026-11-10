@@ -60,7 +60,10 @@ test("public header derives Partner auth state on the server", () => {
   assert.match(layout, /export const dynamic = "force-dynamic"/);
   assert.match(layout, /await cookies\(\)/);
   assert.match(layout, /PARTNER_SESSION_COOKIE/);
-  assert.match(layout, /partnerToken \? await getPartnerSession/);
+  // Partner identity is request-scoped and verified on the server while
+  // independent navigation data loads concurrently.
+  assert.match(layout, /partnerToken \? getPublicPartnerSession\(partnerToken\) : Promise\.resolve\(null\)/);
+  assert.match(layout, /await Promise\.all\(\[\s*navigationPromise,/);
   assert.match(layout, /partnerAuthenticated=\{Boolean\(partnerSession\)\}/);
 
   assert.match(header, /partnerAuthenticated: boolean/);

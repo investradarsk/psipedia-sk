@@ -412,7 +412,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
               type="checkbox" aria-label={"Vybrať " + event.title}
               checked={selected.has(event.id)} disabled={!hydrated || busy || loading}
               onChange={() => toggle(event.id)} /> },
-            { id: "title", label: "Podujatie", width: 270, sortValue: (event) => event.title, cell: (event) => <Link href={`/admin/podujatia/${event.id}`}><strong>{event.title}</strong></Link> },
+            { id: "title", label: "Podujatie", width: 270, sortValue: (event) => event.title, cell: (event) => <Link prefetch={false} href={`/admin/podujatia/${event.id}`}><strong>{event.title}</strong></Link> },
             { id: "date", label: "Termín", width: 170, sortValue: (event) => event.startDate + event.startTime, cell: (event) => formatEventDate(event) + (event.startTime ? " · " + event.startTime : "") },
             { id: "city", label: "Mesto", width: 145, sortValue: (event) => event.city || "", cell: (event) => event.city || "—" },
             { id: "type", label: "Typ", width: 160, sortValue: (event) => event.eventType,
@@ -432,8 +432,8 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
             { id: "organizer", label: "Organizátor", width: 180, initiallyHidden: true, sortValue: (event) => event.organizer || "", cell: (event) => event.organizer || "—" },
             { id: "reviewed", label: "AI kontrola", width: 145, cell: (event) => <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={reviewed.has(event.id)} compact /> },
             { id: "actions", label: "Akcie", width: 260, cell: (event) => <div className={styles.tableActions}>
-              <Link href={"/admin/podujatia/" + event.id}>Upraviť</Link>
-              {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Web ↗</Link>}
+              <Link prefetch={false} href={"/admin/podujatia/" + event.id}>Upraviť</Link>
+              {event.status === "published" && <Link prefetch={false} href={eventHref(event)} target="_blank" rel="noreferrer">Web ↗</Link>}
               <AdminInlineRowActions
                 editing={visibleInlineId === event.id}
                 busy={busy} disabled={!hydrated || loading || (visibleInlineId !== null && visibleInlineId !== event.id)}

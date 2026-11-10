@@ -55,7 +55,7 @@ function MetricCard({
       : String(value);
 
   return (
-    <Link className={`${styles.metricCard} ${emphasized ? styles.metricCardPrimary : ""}`} href={href}>
+    <Link prefetch={false} className={`${styles.metricCard} ${emphasized ? styles.metricCardPrimary : ""}`} href={href}>
       <div className={styles.metricTopline}>
         <span>{title}</span>
         <small data-status={status}>{availabilityLabel[status]}</small>
@@ -81,7 +81,7 @@ function QueueLink({
 }) {
   const metric = sourceMetric(summary, source);
   return (
-    <Link className={styles.queueLink} href={`/admin/operations?source=${source}`}>
+    <Link prefetch={false} className={styles.queueLink} href={`/admin/operations?source=${source}`}>
       <span>
         <strong>{title}</strong>
         <small data-status={metric.status}>{availabilityLabel[metric.status]}</small>
@@ -184,7 +184,7 @@ function WorkspaceCommunityPending() {
   return (
     <div className={styles.queueGrid} aria-busy="true">
       {communitySources.map(({ title, source }) => (
-        <Link
+        <Link prefetch={false}
           key={source}
           className={styles.queueLink}
           href={`/admin/operations?source=${source}`}
@@ -246,7 +246,7 @@ export function AdminWorkspaceDashboard({
             <span>Teraz</span>
             <h2 id="admin-priority-title">Čo potrebuje pozornosť</h2>
           </div>
-          <Link href="/admin/operations">Všetky upozornenia →</Link>
+          <Link prefetch={false} href="/admin/operations">Všetky upozornenia →</Link>
         </div>
         <div className={styles.priorityGrid}>
           <Suspense fallback={<PendingMetric label="Aktívne upozornenia" />}>
@@ -268,8 +268,8 @@ export function AdminWorkspaceDashboard({
           </div>
           <p>Nové vyhľadávanie spravujú Automatizácie Gemini. Návrhy chýbajúcich údajov spravuje samostatná Kvalita údajov.</p>
           <div className={styles.actionRow}>
-            <Link href="/admin/automatizacie-gemini">Automatizácie Gemini →</Link>
-            <Link href="/admin/kvalita">Kvalita údajov →</Link>
+            <Link prefetch={false} href="/admin/automatizacie-gemini">Automatizácie Gemini →</Link>
+            <Link prefetch={false} href="/admin/kvalita">Kvalita údajov →</Link>
           </div>
         </article>
 
@@ -281,13 +281,13 @@ export function AdminWorkspaceDashboard({
             </div>
           </div>
           <div className={styles.quickLinks}>
-            <Link href="/admin/clanky">Články</Link>
-            <Link href="/admin/recenzie">Recenzie a testy</Link>
-            <Link href="/admin/plemena">Plemená</Link>
-            <Link href="/admin/sluzby-pre-psov">Služby pre psov</Link>
-            <Link href="/admin/podujatia">Podujatia</Link>
-            <Link href="/admin/pomoc-psom">Pomoc psom</Link>
-            <Link href="/admin/partners">Partneri</Link>
+            <Link prefetch={false} href="/admin/clanky">Články</Link>
+            <Link prefetch={false} href="/admin/recenzie">Recenzie a testy</Link>
+            <Link prefetch={false} href="/admin/plemena">Plemená</Link>
+            <Link prefetch={false} href="/admin/sluzby-pre-psov">Služby pre psov</Link>
+            <Link prefetch={false} href="/admin/podujatia">Podujatia</Link>
+            <Link prefetch={false} href="/admin/pomoc-psom">Pomoc psom</Link>
+            <Link prefetch={false} href="/admin/partners">Partneri</Link>
           </div>
         </article>
       </section>

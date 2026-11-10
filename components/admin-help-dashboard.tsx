@@ -158,7 +158,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         <p>Späť na prehľade Pomoc psom nájdeš adopcie, útulky, dočasnú opateru, zbierky, stratené a nájdené psy aj dobrovoľníctvo.</p>
       </div>
       <nav className={styles.moduleLinks} aria-label="Pomoc psom">
-        <Link href="/admin/pomoc-psom">Všetky kategórie</Link>
+        <Link prefetch={false} href="/admin/pomoc-psom">Všetky kategórie</Link>
       </nav>
     </section>
 
@@ -180,7 +180,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         <label><span>Stav prípadu</span><select name="state" defaultValue={filters.state}><option value="all">Všetky</option><option value="current">Aktívne</option><option value="resolved">Vybavené</option></select></label>
         <label><span>Organizácia / osoba</span><input name="organization" defaultValue={filters.organization} placeholder="Napr. Žltý pes" maxLength={120} /></label>
         <label><span>Lokalita</span><input name="location" defaultValue={filters.location} placeholder="Mesto, kraj alebo poznámka" maxLength={120} /></label>
-        <div className={styles.filterActions}><button type="submit">Použiť filtre</button><Link href="/admin/pomoc">Vymazať filtre</Link></div>
+        <div className={styles.filterActions}><button type="submit">Použiť filtre</button><Link prefetch={false} href="/admin/pomoc">Vymazať filtre</Link></div>
       </form>
 
       <div className={styles.bulk} aria-busy={bulkBusy}>
@@ -207,7 +207,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
             type="checkbox" aria-label={"Označiť " + item.title} data-help-row-select
             checked={selected.has(item.id)} disabled={bulkBusy}
             onChange={() => toggle(item.id)} /> },
-          { id: "title", label: "Záznam", width: 270, sortValue: (item) => item.title, cell: (item) => <Link href={"/admin/pomoc/" + item.id}><strong>{item.title}</strong></Link> },
+          { id: "title", label: "Záznam", width: 270, sortValue: (item) => item.title, cell: (item) => <Link prefetch={false} href={"/admin/pomoc/" + item.id}><strong>{item.title}</strong></Link> },
           { id: "category", label: "Kategória", width: 160, sortValue: (item) => item.category, cell: (item) => item.category === "utulky" ? "Útulok" : getHelpCategory(item.category)?.label ?? item.category },
           { id: "city", label: "Mesto", width: 140, sortValue: (item) => item.city || "", cell: (item) => item.city || "—" },
           { id: "organization", label: "Organizácia", width: 180, sortValue: (item) => item.organization || "", cell: (item) => item.organization || "—" },
@@ -215,13 +215,13 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
           { id: "resolved", label: "Stav prípadu", width: 130, sortValue: (item) => item.resolved ? 1 : 0, cell: (item) => item.resolved ? "Vybavené" : item.urgent ? "Urgentné" : "Aktívne" },
           { id: "reviewed", label: "AI kontrola", width: 145, cell: (item) => <AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact /> },
           { id: "actions", label: "Akcie", width: 240, cell: (item) => <div className={styles.tableActions}>
-            <Link href={"/admin/pomoc/" + item.id}>Upraviť</Link>
-            {item.status === "published" && <Link href={helpCaseHref(item)} target="_blank" rel="noreferrer">Web ↗</Link>}
+            <Link prefetch={false} href={"/admin/pomoc/" + item.id}>Upraviť</Link>
+            {item.status === "published" && <Link prefetch={false} href={helpCaseHref(item)} target="_blank" rel="noreferrer">Web ↗</Link>}
             <AdminActionButton variant="destructive" disabled={deletingId !== null || bulkBusy} onClick={() => setPendingDelete(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</AdminActionButton>
           </div> },
         ]}
       />  : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}
-      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov">{page > 1 ? <Link href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link> : <span>Ďalšia →</span>}</nav>
+      <nav className={`admin-help-pagination ${styles.pagination}`} aria-label="Stránkovanie Help záznamov">{page > 1 ? <Link prefetch={false} href={url({ ...filters, page: page - 1 })}>← Predchádzajúca</Link> : <span>← Predchádzajúca</span>}<strong>Strana {page} / {pages}</strong>{page < pages ? <Link prefetch={false} href={url({ ...filters, page: page + 1 })}>Ďalšia →</Link> : <span>Ďalšia →</span>}</nav>
     </section>
 
     <AdminModalDialog

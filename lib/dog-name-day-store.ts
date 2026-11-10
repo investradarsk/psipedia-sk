@@ -6,6 +6,7 @@ import {
   normalizeDogNameDayName,
   resolveDogNameDay,
   type DogNameDayRecord,
+  type DogNameDayResolverRecord,
   type DogNameDayStatus,
 } from "@/lib/dog-name-days";
 
@@ -123,13 +124,12 @@ export async function getPublishedDogNameDaysForDate(date: Date = new Date()) {
   if (!database || !parts) return [] as string[];
   try {
     const result = await database.prepare(`
-      SELECT id, month, day, name, normalized_name, status, source, note,
-        created_at, updated_at, published_at, created_by, updated_by
+      SELECT month, day, name, status
       FROM dog_name_days
       WHERE status = 'published' AND month = ? AND day = ?
       ORDER BY normalized_name ASC, id ASC
-    `).bind(parts.month, parts.day).all<DogNameDayRow>();
-    return resolveDogNameDay(date, result.results.map(rowToRecord));
+    `).bind(parts.month, parts.day).all<DogNameDayResolverRecord>();
+    return resolveDogNameDay(date, result.results);
   } catch (error) {
     if (!isMissingTableError(error)) {
       console.error(JSON.stringify({ event: "dog_name_day_public_lookup_failed", error: error instanceof Error ? error.message : String(error) }));

@@ -12,7 +12,10 @@ export function AdminTourButton() {
     setStarting(true);
     try {
       // Driver is loaded only after an explicit user action, reducing admin JS.
+      // The tour is opt-in: fetch its CSS together with its JS only on click.
+      const stylesPromise = import("driver.js/dist/driver.css");
       const { driver } = await import("driver.js");
+      await stylesPromise;
       const tour = driver({
         showProgress: true,
         animate: true,

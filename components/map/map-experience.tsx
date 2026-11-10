@@ -1,4 +1,5 @@
 "use client";
+import dynamic from "next/dynamic";
 import { MapConsentState } from "./map-consent-state";
 import { PublicFilterPanel } from "@/components/public-filters";
 import {
@@ -66,12 +67,28 @@ import {
   hasGoogleMapsConsent,
   setGoogleMapsConsent,
 } from "@/lib/google-maps-consent";
-import {
-  GoogleMapRenderer,
-  type MapRendererCommand,
-  type MapRendererStatus,
-} from "./google-map-renderer";
+import type { MapRendererCommand, MapRendererStatus } from "./google-map-renderer";
 import styles from "./map-public.module.css";
+
+// Keep the no-consent HTML geometry identical without fetching the heavier
+// renderer/markers bundle. The Google Maps script is still gated separately
+// inside GoogleMapRenderer by explicit consent and renderer configuration.
+function MapRendererPlaceholder() {
+  return (
+    <div className={styles.rendererShell} data-testid="google-map-renderer">
+      <div
+        className={styles.googleMapCanvas}
+        role="region"
+        aria-label="Interaktívna mapa Psipedie"
+      />
+    </div>
+  );
+}
+
+const GoogleMapRenderer = dynamic(
+  () => import("./google-map-renderer").then((module) => module.GoogleMapRenderer),
+  { ssr: false, loading: () => <MapRendererPlaceholder /> },
+);
 
 type MapApiErrorKind = "validation" | "rate-limit" | "unavailable" | "network" | "server";
 
@@ -1269,6 +1286,7 @@ export function MapExperience({
           />
 
           <div className={styles.mapPanel}>
+            {testRenderer || (effectiveRendererEnabled && googleMapsConsent) ? (
             <GoogleMapRenderer
               apiKey={effectiveGoogleApiKey}
               mapId={effectiveGoogleMapId}
@@ -1286,6 +1304,9 @@ export function MapExperience({
               onClusterClick={selectCluster}
               onStatusChange={setRendererStatus}
             />
+            ) : (
+              <MapRendererPlaceholder />
+            )}
             {testRenderer || (effectiveRendererEnabled && googleMapsConsent) ? (
               <div
                 className={styles.mapTypeControl}

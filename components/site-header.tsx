@@ -190,7 +190,23 @@ export function SiteHeader({
 
   useEffect(() => {
     let active = true;
+    let lastSuccessfulFetch = 0;
+    let lastDateKey = "";
+    const dateFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Bratislava",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+
     async function updateDogNameDay() {
+      // The content changes at most daily in the usual case. Keep a five-minute
+      // editorial freshness window and always refresh after Bratislava midnight.
+      // Hidden tabs should never poll D1-backed endpoints.
+      if (document.visibilityState === "hidden") return;
+      const now = Date.now();
+      const dateKey = dateFormatter.format(new Date(now));
+      if (lastDateKey === dateKey && now - lastSuccessfulFetch < 5 * 60_000) return;
       try {
         const response = await fetch("/api/name-days/today", { cache: "no-store" });
         if (!response.ok) throw new Error("name-day lookup failed");
@@ -201,16 +217,26 @@ export function SiteHeader({
               return name ? [name] : [];
             })
           : [];
-        if (active) setDogNameDays((current) => current.join("\u0000") === next.join("\u0000") ? current : next);
+        if (active) {
+          lastSuccessfulFetch = Date.now();
+          lastDateKey = dateKey;
+          setDogNameDays((current) => current.join("\u0000") === next.join("\u0000") ? current : next);
+        }
       } catch {
         if (active) setDogNameDays([]);
       }
     }
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void updateDogNameDay();
+    };
     void updateDogNameDay();
     const timer = window.setInterval(() => { void updateDogNameDay(); }, 60_000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       active = false;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, []);
 

@@ -11,7 +11,7 @@ import { isValidGooglePublisherClientId } from "@/lib/monetization";
 import { getNavigationItems } from "@/lib/navigation-store";
 import { portalSections } from "@/lib/portal";
 import { buildPublicHeaderNavigation } from "@/lib/public-header-navigation";
-import { getPartnerSession } from "@/lib/partner-auth";
+import { getPublicPartnerSession } from "@/lib/public-partner-session";
 import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
 import { buildSiteIdentityJsonLd, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
@@ -74,10 +74,16 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const navigationItems = buildPublicHeaderNavigation(await getNavigationItems(), portalSections);
+  // Navigation is D1-backed while an optional partner session may require its
+  // own lookup. Start both independently instead of adding their latencies.
+  const navigationPromise = getNavigationItems();
   const jar = await cookies();
   const partnerToken = jar.get(PARTNER_SESSION_COOKIE)?.value;
-  const partnerSession = partnerToken ? await getPartnerSession({ token: partnerToken }) : null;
+  const [navigationRows, partnerSession] = await Promise.all([
+    navigationPromise,
+    partnerToken ? getPublicPartnerSession(partnerToken) : Promise.resolve(null),
+  ]);
+  const navigationItems = buildPublicHeaderNavigation(navigationRows, portalSections);
   const programmaticClientId = process.env.GOOGLE_ADSENSE_CLIENT_ID ?? "";
   const programmaticEnabled = process.env.PROGRAMMATIC_ADS_ENABLED === "true";
   const advertisingConsentEnabled = programmaticEnabled && isValidGooglePublisherClientId(programmaticClientId);

@@ -10,7 +10,7 @@ const modules = [
 
 export function AdminDirectoryModuleNav({ active }: { active: "services" | "help" | "events" }) {
   return <nav className={styles.modules} aria-label="Sekcie adresára">
-    {modules.map((module) => <Link key={module.key} href={module.href} aria-current={active === module.key ? "page" : undefined}>{module.label}</Link>)}
+    {modules.map((module) => <Link prefetch={false} key={module.key} href={module.href} aria-current={active === module.key ? "page" : undefined}>{module.label}</Link>)}
   </nav>;
 }
 
@@ -18,8 +18,8 @@ export function AdminDirectoryCategoryNav({ selected }: { selected: string }) {
   return <section className={styles.categoryWorkspace} aria-label="Kategórie a nástroje služieb pre psov">
     <div className={styles.categoryHeader}><h2>Kategórie služieb</h2><span>Vyber kategóriu, potom pracuj s tabuľkou profilov.</span></div>
     <nav className={styles.categories} aria-label="Kategórie profilov">
-      <Link href="/admin/sluzby-pre-psov" aria-current={!selected ? "page" : undefined}>Všetky profily</Link>
-      {allDirectoryCategories.map((category) => <Link
+      <Link prefetch={false} href="/admin/sluzby-pre-psov" aria-current={!selected ? "page" : undefined}>Všetky profily</Link>
+      {allDirectoryCategories.map((category) => <Link prefetch={false}
         key={category.slug}
         href={"/admin/sluzby-pre-psov?category=" + category.slug}
         aria-current={selected === category.slug ? "page" : undefined}
@@ -27,8 +27,8 @@ export function AdminDirectoryCategoryNav({ selected }: { selected: string }) {
     </nav>
     <div className={styles.tools}>
       <div><strong>Správa katalógu a technické nástroje</strong><span>Oddelené od zoznamu profilov, bez zásahu do existujúcej synchronizácie.</span></div>
-      <Link href="/admin/sluzby-pre-psov/katalog">Katalóg služieb a vlastností</Link>
-      <Link href="/admin/adresar/navrhy">Návrhy úprav</Link>
+      <Link prefetch={false} href="/admin/sluzby-pre-psov/katalog">Katalóg služieb a vlastností</Link>
+      <Link prefetch={false} href="/admin/adresar/navrhy">Návrhy úprav</Link>
     </div>
   </section>;
 }
