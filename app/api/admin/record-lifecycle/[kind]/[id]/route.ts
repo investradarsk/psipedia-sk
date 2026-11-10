@@ -13,7 +13,7 @@ function message(error:unknown) {
   const code=error instanceof Error?error.message:"UNKNOWN";
   const allowed=new Set([
     "INVALID_RECORD_ID","RECORD_NOT_FOUND","LOCAL_ONLY_CONFIRMATION_REQUIRED",
-    "RECORD_REMOVAL_IN_PROGRESS","RECORD_NOT_PUBLIC","NOTION_DATA_SOURCE_UNCONFIGURED",
+    "RECORD_REMOVAL_IN_PROGRESS","RECORD_NOT_PUBLIC","RECORD_CONFIRMATION_MISMATCH","NOTION_MAPPING_AMBIGUOUS","NOTION_DATA_SOURCE_UNCONFIGURED",
   ]);
   return allowed.has(code)?code:"RECORD_LIFECYCLE_FAILED";
 }
@@ -65,14 +65,22 @@ export async function POST(request:Request,context:Context) {
     }
     if(body.action==="delete") {
       if(body.confirmation!=="VYMAZAŤ")return json({error:"DELETE_CONFIRMATION_REQUIRED"},400);
-      const result=await removeRecord(db,bindings,target.kind,target.id,auth.user!.email,body.localOnly===true);
+      if(typeof body.expectedSlug!=="string"||typeof body.expectedName!=="string"||
+          typeof body.expectedCategory!=="string")
+        return json({error:"DELETE_IDENTITY_REQUIRED"},400);
+      const expected={
+        slug:body.expectedSlug,name:body.expectedName,category:body.expectedCategory,
+      };
+      const result=await removeRecord(db,bindings,target.kind,target.id,auth.user!.email,
+        body.localOnly===true,expected);
       await invalidateRecordPublicCache(target.kind,preview.slug,preview.category,(env as unknown as {CF_VERSION_METADATA?:{id?:string}}).CF_VERSION_METADATA?.id);
       return json(result,result.state==="COMPLETE"?200:202);
     }
     return json({error:"UNSUPPORTED_LIFECYCLE_ACTION"},400);
   }catch(error){
     const code=message(error);
-    return json({error:code},code==="LOCAL_ONLY_CONFIRMATION_REQUIRED"||code==="RECORD_REMOVAL_IN_PROGRESS"||code==="RECORD_NOT_PUBLIC"?409:
+    return json({error:code},code==="LOCAL_ONLY_CONFIRMATION_REQUIRED"||code==="RECORD_REMOVAL_IN_PROGRESS"||code==="RECORD_NOT_PUBLIC"||
+      code==="RECORD_CONFIRMATION_MISMATCH"||code==="NOTION_MAPPING_AMBIGUOUS"?409:
       code==="RECORD_NOT_FOUND"?404:code==="NOTION_DATA_SOURCE_UNCONFIGURED"?503:400);
   }
 }
