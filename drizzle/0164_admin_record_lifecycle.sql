@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS admin_record_tombstones (
   record_category TEXT NOT NULL,
   notion_page_id TEXT,
   notion_data_source_id TEXT,
+  notion_targets_json TEXT NOT NULL DEFAULT '[]',
   state TEXT NOT NULL CHECK(state IN ('PENDING_NOTION','ERROR_NOTION','READY_LOCAL','COMPLETE')),
   error_code TEXT,
   attempts INTEGER NOT NULL DEFAULT 0,
