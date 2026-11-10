@@ -118,3 +118,12 @@ test("corrupted stored retry target aborts without D1 or Notion changes",async()
   await assert.rejects(f.remove(),/NOTION_DATA_SOURCE_UNCONFIGURED/);
   assert.deepEqual(f.calls,[]);
 });
+
+test("a malformed 36-character dashed page ID cannot pass the deletion preflight",async()=>{
+  const f=fixture({noPrior:true,targets:[{
+    pageId:"------------------------------------",
+    sourceId:"0123456789abcdef0123456789abcdef",
+  }]});
+  await assert.rejects(f.remove(),/NOTION_MAPPING_INVALID/);
+  assert.deepEqual(f.calls,[]);
+});
