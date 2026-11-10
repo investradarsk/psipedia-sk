@@ -368,7 +368,7 @@ export async function notionPageHasAdminUnpublishGuard(db:D1Database,pageId:stri
     "(g.kind='breeds' AND EXISTS(SELECT 1 FROM breed_notion_sync m WHERE m.notion_page_id=? AND m.breed_id=g.record_id))");
   add("breed_notion_workcopy_links",
     "(g.kind='breeds' AND EXISTS(SELECT 1 FROM breed_notion_workcopy_links w WHERE w.breed_id=g.record_id "+
-    "AND w.status='ACTIVE' AND (w.original_notion_page_id=? OR w.work_notion_page_id=?)))",2);
+    "AND (w.original_notion_page_id=? OR w.work_notion_page_id=?)))",2);
   add("article_notion_sync",
     "(g.kind='articles' AND EXISTS(SELECT 1 FROM article_notion_sync m WHERE m.notion_page_id=? AND m.article_id=g.record_id))");
   add("notion_agenda_sync",
