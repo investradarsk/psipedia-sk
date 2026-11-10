@@ -18,7 +18,7 @@ test("breed profile reuses the canonical Help public detail shell", () => {
 test("coat detail is shown in one practical care section, not duplicated below hero", () => {
   assert.match(page, /const coatParagraphs = textParagraphs\(editorial\.coatCare\)/);
   assert.match(page, /const coatContent = coatParagraphs\.length \? coatParagraphs : textParagraphs\(breed\.coat\)/);
-  assert.match(page, /key: "coat",\s+eyebrow: "",\s+title: "Starostlivosť o srsť",\s+paragraphs: coatContent/);
+  assert.match(page, /key: "coat",\s+title: "Starostlivosť o srsť",\s+paragraphs: coatContent/);
   assert.doesNotMatch(page, /title: "Srsť a starostlivosť"|title: "Pohyb a každodenný život"/);
   assert.equal((page.match(/<DetailFactsCard title="Plemeno v skratke"/g) ?? []).length, 1);
 });
@@ -42,4 +42,15 @@ test("breed profile omits redundant V tomto profile navigation without removing 
   assert.match(page, /data-testid="breed-utility-sidebar"/);
   assert.match(page, /id="hodnotenia"/);
   assert.match(page, /<PublicMagazineBanner/);
+});
+
+test("each breed section uses a single editorial heading with distinct practical cards", () => {
+  const subsection = read("app/plemena/[slug]/breed-profile-accordion.tsx");
+  assert.match(page, /<h2 id="breed-practical">Život a starostlivosť<\/h2>/);
+  assert.match(page, /<h2 id="breed-fit">Je toto plemeno pre mňa\?<\/h2>/);
+  assert.doesNotMatch(page, /Praktický pohľad|Každodenný život so psom|Praktické informácie|Všeobecná charakteristika/);
+  assert.doesNotMatch(page, /<p className=\{styles\.eyebrow\}>|<span className="eyebrow">/);
+  assert.doesNotMatch(subsection, /<small>|eyebrow/);
+  assert.match(css, /\.page \.contentLayout \.accordion\s*\{[\s\S]*?border: 1px solid/);
+  assert.match(css, /\.page \.contentLayout \.accordionList\s*\{[\s\S]*?gap: 12px/);
 });
