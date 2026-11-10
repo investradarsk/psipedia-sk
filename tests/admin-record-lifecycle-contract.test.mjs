@@ -134,3 +134,22 @@ test("remote Notion deletion cannot begin unless the canonical D1 row was hidden
   assert.ok(hidden >= 0 && remote > hidden);
   assert.match(removal, /WHERE id=\?"/);
 });
+
+test("READY_LOCAL retries D1 only; the verified Notion-trash receipt is durable", () => {
+  const removal = core.split("export async function removeRecord(")[1] ?? "";
+  const skip = removal.indexOf('if(prior?.state!=="READY_LOCAL")');
+  const remote = removal.indexOf("for(const target of targets)await verifyTrash");
+  const cleanup = removal.indexOf("await completeLocalRemoval(db,kind,id,targets)");
+  assert.ok(skip >= 0 && remote > skip && cleanup > remote,
+    "remote trash must be skipped after an existing READY_LOCAL receipt");
+  assert.match(removal, /notionTrash:targets\.length\?"confirmed":"unlinked"/);
+});
+
+test("verified breed removal clears exact work-copy identity and typed receipts", () => {
+  const cleanup = core.split("async function completeLocalRemoval(")[1]
+    ?.split("export async function removeRecord(")[0] ?? "";
+  assert.match(cleanup, /DELETE FROM breed_notion_workcopy_links WHERE breed_id=\?/);
+  assert.match(cleanup, /DELETE FROM breed_notion_controlled_values WHERE breed_id=\?/);
+  assert.match(cleanup, /DELETE FROM notion_agenda_sync WHERE agenda=\? AND entity_id=\?/);
+  assert.match(cleanup, /if\(mapping && present\.has\(mapping\.table\)\)/);
+});
