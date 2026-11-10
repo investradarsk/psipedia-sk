@@ -86,7 +86,8 @@ test("breed editor retains draft state across switched sections and isolates FCI
   assert.match(editor, /<AdminEditorSection id="breed-overview"/);
   assert.match(editor, /<AdminEditorSection id="breed-health"/);
   assert.match(editor, /<AdminLexicalTextField/);
-  assert.match(editor, /title="Nastavenia plemena"/);
+  // FCI settings are an independent section in the current eight-section editor.
+  assert.match(editor, /<AdminEditorSection id="breed-fci"/);
   assert.match(editor, /fciSections\.map\(\(section\)=><details className=\{styles\.fciGroup\}/);
   assert.match(editor, /if \(formEditRevisionRef\.current === submittedRevision\) setDirty\(false\)/);
 });
