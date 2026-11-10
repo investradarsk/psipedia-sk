@@ -93,3 +93,20 @@ test("every Notion inbound sweep honors unpublished guards and pre-migration wor
     assert.ok(core.includes(mapping), "guard must recognize " + mapping);
   }
 });
+
+test("unpublish mirrors the exact existing Notion status enums and tolerates unmigrated schemas", () => {
+  const adapters = source("lib/notion-events-help-adapters.ts");
+  assert.match(adapters, /normalized === "draft"/);
+  assert.match(adapters, /const normalized = value\.toUpperCase\(\) \|\| "DRAFT"/);
+  const propertyMap = core.split("function notionDraftProperties(")[1]?.split("async function mirrorDraft")[0];
+  assert.ok(propertyMap, "must resolve exact Notion status selection per agenda");
+  assert.match(propertyMap, /kind==="help"\?"draft"/);
+  assert.match(propertyMap, /kind==="lost-found"\?"DRAFT"/);
+  assert.match(propertyMap, /kind==="articles"\?"Ready"/);
+  const guard = core.split("export async function notionPageHasAdminUnpublishGuard")[1]
+    ?.split("export async function notionPageMustSkipInboundSync")[0];
+  assert.ok(guard);
+  assert.match(guard, /sqlite_master/);
+  assert.match(guard, /if\(!present\.has\("admin_record_publication_guards"\)\)return false/);
+  assert.match(guard, /if\(!present\.has\(table\)\)return/);
+});
