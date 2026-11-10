@@ -436,7 +436,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         <details className={styles.officialFields}><summary>Oficiálne údaje FCI</summary>
           <div className="admin-field-grid">
             <label className="admin-field"><span>Oficiálny FCI názov</span><input value={form.officialFciName} onChange={e=>change("officialFciName",e.target.value)}/></label>
-            <label className="admin-field"><span>FCI číslo</span><input type="number" min="1" max="9999" value={form.fciNumber} onChange={e=>change("fciNumber",e.target.value)}/></label>
+            <label className="admin-field"><span>FCI číslo</span><input type="number" min="1" max="9999" readOnly={Boolean(breed)} value={form.fciNumber} onChange={e=>change("fciNumber",e.target.value)}/></label>
             {!breed && <label className="admin-field"><span>FCI sekcia</span><input value={form.fciSection} onChange={e=>change("fciSection",e.target.value)}/></label>}
           </div>
         </details>
