@@ -74,3 +74,22 @@ test("image files are deleted only after D1 deletion and a separate reference ch
   const media = core.lastIndexOf("await removeExclusiveMedia(db,bindings,row)");
   assert.ok(media > done);
 });
+
+test("every Notion inbound sweep honors unpublished guards and pre-migration workers remain compatible", () => {
+  assert.match(core, /export async function notionPageMustSkipInboundSync/);
+  assert.match(core, /notionPageHasAdminUnpublishGuard\(db,pageId\)/);
+  assert.match(core, /no such table: admin_record_publication_guards/);
+  for (const adapter of [
+    "notion-directory-sync", "notion-events-help-sync",
+    "notion-event-sync", "notion-breed-sync", "notion-article-sync",
+    "notion-breed-workcopy-sync",
+  ]) {
+    const content = source("lib/" + adapter + ".ts");
+    assert.match(content, /await notionPageMustSkipInboundSync\(/,
+      adapter + " must not replay a hidden Admin record");
+  }
+  for (const mapping of ["directory_notion_sync","event_notion_sync","breed_notion_sync",
+    "breed_notion_workcopy_links","article_notion_sync","notion_agenda_sync"]) {
+    assert.ok(core.includes(mapping), "guard must recognize " + mapping);
+  }
+});
