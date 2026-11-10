@@ -165,8 +165,16 @@ function notionDraftProperties(kind:RecordKind,page:Record<string,unknown>) {
     throw Error("NOTION_PUBLICATION_PROPERTY_MISSING");
   const value=kind==="articles"||kind==="breeds"?"Na kontrolu":"Koncept";
   const property=(page.properties as Record<string,unknown>)[name] as {type?:string};
-  if (property.type==="status") return { [name]:{status:{name:value}} };
-  return { [name]:{select:{name:value}} };
+  const publicationField=property.type==="status"?{status:{name:value}}:{select:{name:value}};
+  // Directory mirrors two distinct fields: Psipedia publication vs editorial
+  // readiness. Preserve the existing READY editorial transition, never leave
+  // a stale Published editorial marker after Admin unpublishes.
+  const state=(page.properties as Record<string,unknown>)["Stav"] as {type?:string}|undefined;
+  if(kind==="directory" && state){
+    const editorial=state.type==="status"?{status:{name:"Ready"}}:{select:{name:"Ready"}};
+    return {[name]:publicationField,"Stav":editorial};
+  }
+  return { [name]:publicationField };
 }
 async function mirrorDraft(db:D1Database,bindings:LifecycleBindings,kind:RecordKind,id:number,targets:NotionTarget[]) {
   if (!targets.length) return "UNLINKED" as const;
@@ -179,13 +187,14 @@ async function mirrorDraft(db:D1Database,bindings:LifecycleBindings,kind:RecordK
       method:"PATCH",body:JSON.stringify({properties}),
     });
     const verified=await requireOwnedNotionPage(bindings,target,id,false);
-    const expected=Object.entries(properties)[0];
+    for(const expected of Object.entries(properties)) {
     const p=(verified.properties as Record<string,unknown>|undefined)?.[expected[0]] as
       {select?:{name?:string};status?:{name?:string}}|undefined;
     const selected=p?.select?.name??p?.status?.name??"";
     const desired=(expected[1] as {select?:{name:string};status?:{name:string}}).select?.name
       ??(expected[1] as {status?:{name:string}}).status?.name;
     if (selected!==desired) throw Error("NOTION_PUBLICATION_NOT_CONFIRMED");
+    }
     changed++;
   }
   return changed?"SYNCED" as const:"NOT_APPLICABLE" as const;
