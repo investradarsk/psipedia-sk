@@ -10,7 +10,7 @@ type Preview={
   publicationSync?:string|null;publicationError?:string|null;
 };
 type RemovalResult={state:string;notionTrash:string;errorCode?:string;media?:{removed:number;preserved:number}};
-const publicStates=new Set(["published","scheduled","PUBLISHED","ACTIVE","RESERVED","RESOLVED","EXPIRED","ARCHIVED"]);
+const publicStates=new Set(["published","scheduled","PUBLISHED","ACTIVE","RESERVED","RESOLVED","EXPIRED"]);
 function errorText(value:string) {
   const messages:Record<string,string>={
     NOTION_UNAVAILABLE:"Notion sa nepodarilo kontaktovať. Profil je skrytý a odstránenie čaká na opakovanie.",
@@ -39,7 +39,7 @@ export function AdminRecordLifecycleActions({
   const [error,setError]=useState("");
   const [unpublished,setUnpublished]=useState(false);
   const endpoint="/api/admin/record-lifecycle/"+encodeURIComponent(kind)+"/"+recordId;
-  const visible=publicStates.has(status)&&!unpublished;
+  const visible=(preview?preview.published:publicStates.has(status))&&!unpublished;
   useEffect(()=>{
     if(publicStates.has(status))setUnpublished(false);
   },[status]);
