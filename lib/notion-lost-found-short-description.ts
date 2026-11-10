@@ -9,8 +9,9 @@ export const LOST_FOUND_SHORT_DESCRIPTION_FIELD = "Krátky popis";
 export function withoutLostFoundShortDescription<T>(
   values: Record<string, T>,
 ): Record<string, T> {
-  const { [LOST_FOUND_SHORT_DESCRIPTION_FIELD]: _ignored, ...previous } = values;
-  return previous;
+  return Object.fromEntries(
+    Object.entries(values).filter(([field]) => field !== LOST_FOUND_SHORT_DESCRIPTION_FIELD),
+  );
 }
 
 /**
