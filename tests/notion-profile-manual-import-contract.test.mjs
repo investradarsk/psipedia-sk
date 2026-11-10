@@ -51,6 +51,12 @@ test("one-profile Notion import is authenticated, mapped, and scoped to the prop
   }
 });
 
+test("visual review uses a deterministic new-event editor, not an absent D1 event id", () => {
+  const editorPage = read("app/admin/podujatia/nove/page.tsx");
+  assert.match(editorPage, /<AdminEventEditor\s*\/>/);
+  assert.doesNotMatch(editorPage, /getManagedEventById/);
+});
+
 test("Admin main-image writeback is narrowly scoped to mapped directory images", () => {
   const sync = read("lib/notion-directory-sync.ts");
   const route = read("app/api/admin/directory/[id]/route.ts");
