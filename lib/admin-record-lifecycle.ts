@@ -452,7 +452,9 @@ function mediaKeys(row:CanonicalRow) {
           if(Array.isArray(node)) {for(const item of node)walk(item,depth+1);return;}
           if(typeof node!=="object")return;
           for(const [k,v] of Object.entries(node)) {
-            if ((k==="imageKey"||k==="mainImageKey"||k==="key")&&typeof v==="string")found.add(v);
+            // An arbitrary JSON "key" may describe a relation, document or
+            // external asset. Only explicit image-key fields prove ownership.
+            if ((k==="imageKey"||k==="mainImageKey")&&typeof v==="string")found.add(v);
             else walk(v,depth+1);
           }
         };walk(JSON.parse(value),0);
