@@ -22,7 +22,7 @@ test("unilateral local changes propagate and unmodified sides remain intact",()=
 test("simultaneous edits to different service IDs merge without dropping either side",()=>{
  assert.deepEqual(plan([a,b],[a,c],[a]),{action:"merge",target:[a,b,c].sort()});
  // Admin removes a while Notion independently adds c: only a disappears.
- assert.deepEqual(plan([b],[a,c],[a,b]),{action:"merge",target:[b,c].sort()});
+ assert.deepEqual(plan([b],[a,b,c],[a,b]),{action:"merge",target:[b,c].sort()});
  // When the combined result is already present on one side, only push or pull.
  assert.deepEqual(plan([a,b],[a],[a]),{action:"push",target:[a,b].sort()});
  assert.deepEqual(plan([a],[a,c],[a]),{action:"pull",target:[a,c].sort()});
