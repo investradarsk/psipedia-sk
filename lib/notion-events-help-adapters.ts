@@ -124,7 +124,7 @@ export const agendaEditableFields: Record<BidirectionalAgendaKey, readonly strin
   ],
   "lost-found": [
     "Názov", "Slug", "Typ", "Psipedia stav", "Meno psa", "Pohlavie", "Plemeno", "Farba", "Vek",
-    "Veľkosť", "Popis", "Rozlišovacie znaky", "Obojok", "Čip", "Hlavný obrázok", "Dátum udalosti",
+    "Veľkosť", "Krátky popis", "Popis", "Rozlišovacie znaky", "Obojok", "Čip", "Hlavný obrázok", "Dátum udalosti",
     "Naposledy videný", "Kraj", "Okres", "Mesto", "Miesto", "Latitude", "Longitude",
     "Presnosť lokality", "Verejný kontakt", "Zdroj", "Zdroj URL",
   ],
@@ -540,6 +540,7 @@ function lostFoundPayload(
     color: s(values["Farba"]),
     approximateAge: s(values["Vek"]),
     size: s(values["Veľkosť"]),
+    shortDescription: s(values["Krátky popis"]),
     description: s(values["Popis"]),
     distinguishingMarks: s(values["Rozlišovacie znaky"]),
     collarDescription: s(values["Obojok"]),

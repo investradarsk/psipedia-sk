@@ -210,6 +210,7 @@ test("breed profile: White Swiss uses a visible, decoded real image and not the 
 
 test("breed profile: quick facts stay dense for rich data and collapse cleanly for sparse data", async ({ page }) => {
   await page.goto("/plemena/biely-svajciarsky-ovciak");
+  // The shared DetailFactsCard owns the semantic definition list inside the sidebar wrapper.
   const denseFacts = page.getByTestId("breed-quick-facts").locator("[data-public-fact-list] > div");
   const denseCount = await denseFacts.count();
   expect(denseCount, "White Swiss Shepherd should expose a compact row of the available Notion-60 facts").toBeGreaterThanOrEqual(4);
@@ -248,26 +249,40 @@ test("breed profile: suitability, permanently visible expert sections and normal
   expect(new Set(sportKeys).size, `Duplicate normalized sport keys: ${sportKeys.join(", ")}`).toBe(sportKeys.length);
 });
 
-test("breed profile: no redundant index, no-crop media, useful cards and accessibility work", async ({ page }) => {
+test("breed profile: canonical breadcrumbs and direct sections, no-crop media, useful cards and accessibility work", async ({ page }) => {
   await page.goto("/plemena/biely-svajciarsky-ovciak");
-  // The owner removed the redundant V tomto profile navigation; it must not return.
+  // The approved compact profile no longer displays a redundant section navigation.
+  // The breadcrumbs remain semantic and the content sections retain stable anchors.
+  const breadcrumbs = page.getByTestId("breed-hero").getByRole("navigation", { name: "Navigácia", exact: true });
+  await expect(breadcrumbs).toBeVisible();
+  await expect(breadcrumbs.getByRole("link", { name: "Plemená" })).toHaveAttribute("href", "/plemena");
   await expect(page.getByRole("navigation", { name: "Navigácia v profile plemena" })).toHaveCount(0);
-  await expect(page.getByText("V tomto profile", { exact: true })).toHaveCount(0);
-  // Desktop facts live in the sidebar; the phone has the same facts directly after O plemene.
+  // Desktop keeps facts in the sidebar; phones place the same card after O plemene.
   const isMobile = (page.viewportSize()?.width ?? 1440) <= 800;
   await expect(page.getByTestId(isMobile ? "breed-quick-facts-mobile" : "breed-quick-facts")).toBeVisible();
   await expect(page.getByTestId(isMobile ? "breed-quick-facts" : "breed-quick-facts-mobile")).toBeHidden();
+  await expect(page.getByText("V tomto profile", { exact: true })).toHaveCount(0);
 
   const image = page.getByTestId("breed-hero-image");
   await expect(image).toBeVisible();
   expect(await image.evaluate((element) => getComputedStyle(element).objectFit)).toBe("contain");
   expect(await image.evaluate((element) => getComputedStyle(element).objectPosition)).toContain("50%");
 
-  // Headings and ids remain accessible, while the dedicated FCI link stays keyboard-operable.
+  const fci = page.locator("#fci");
+  await expect(fci.getByRole("heading", { name: "Oficiálne zaradenie FCI" })).toBeVisible();
+  await expect(page.getByTestId("breed-fci-cta")).toHaveAttribute(
+    "href", "/plemena/biely-svajciarsky-ovciak/fci-standard",
+  );
+  // Direct fragment links continue to resolve after removing the redundant nav.
+  await page.goto("/plemena/biely-svajciarsky-ovciak#fci");
+  await expect(page).toHaveURL(/#fci$/);
   await expect(page.locator("#fci")).toBeVisible();
-  await expect(page.locator("#sporty")).toBeVisible();
-  const fciCta = page.getByTestId("breed-fci-cta");
-  await expect(fciCta).toHaveAttribute("href", "/plemena/biely-svajciarsky-ovciak/fci-standard");
+  const sports = page.locator("#sporty");
+  if (await sports.count()) {
+    await page.goto("/plemena/biely-svajciarsky-ovciak#sporty");
+    await expect(page).toHaveURL(/#sporty$/);
+    await expect(sports).toBeVisible();
+  }
 
   for (const href of [
     "/adresar/chovatelske-kluby",
@@ -281,6 +296,7 @@ test("breed profile: no redundant index, no-crop media, useful cards and accessi
   await expectNoHorizontalOverflow(page, "Breed profile section navigation");
   await expectAxeClean(page, "Breed profile");
 
+  const fciCta = page.getByTestId("breed-fci-cta");
   await fciCta.focus();
   await expect(fciCta).toBeFocused();
   await page.keyboard.press("Enter");
