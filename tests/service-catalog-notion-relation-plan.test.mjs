@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {planCatalogRelationSync as plan} from "../lib/service-catalog-notion-relation-plan.ts";
+import {planCatalogRelationSync as plan,planSignedCatalogRelationSync as signed} from "../lib/service-catalog-notion-relation-plan.ts";
 
 const a="svc.vet.vaccination",b="svc.vet.xray",c="svc.vet.microchipping";
 test("notion relation mirrors a new local YES without manual Notion receipt",()=>{
@@ -34,6 +34,18 @@ test("verified Notion removal affects only one service, never explicit NO",()=>{
  assert.deepEqual(plan([a,b],[b],[a,b]),{action:"pull",target:[b]});
  assert.deepEqual(plan([a,b],[],[a,b]),{action:"pull",target:[]});
  assert.deepEqual(plan([a,b],[a,b],[a,b]),{action:"record",target:[a,b]});
+});
+test("signed Notion relation events honor removal when baseline is verified",()=>{
+ assert.deepEqual(signed([a,b],[b],[a,b]),{action:"pull",target:[b]});
+ assert.deepEqual(signed([a,b],[],[a,b]),{action:"pull",target:[]});
+ assert.deepEqual(signed([a,b],[a,c],[a]),{action:"merge",target:[a,b,c].sort()});
+});
+test("unbaselined signed events import additions but cannot infer a deletion",()=>{
+ assert.deepEqual(signed([a],[a,b],null),{action:"pull",target:[a,b].sort()});
+ assert.deepEqual(signed([],[a],null),{action:"pull",target:[a]});
+ assert.deepEqual(signed([a],[a],null),{action:"record",target:[a]});
+ assert.deepEqual(signed([a,b],[b],null),{action:"conflict",target:[]});
+ assert.deepEqual(signed([a],[],null),{action:"conflict",target:[]});
 });
 test("Notion relations are additive and do not replace historical Služby text",()=>{
  const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
