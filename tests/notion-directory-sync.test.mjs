@@ -578,6 +578,11 @@ test("signed Services V3 relation updates may remove only baseline-confirmed IDs
   const sync=syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
   assert.ok(relation.includes("notionExplicitEdit&&previous===null&&local.some("));
   assert.ok(relation.includes("SERVICES_RELATION_UNVERIFIED_DELETE"));
+  assert.ok(relation.includes("SERVICES_RELATION_UNVERIFIED_INITIAL_PUSH"),
+    "ordinary hourly sync must not silently re-add a service Notion may have removed");
+  assert.ok(relation.includes("adminChoiceSave?:boolean"));
+  assert.ok(sync.includes("input.syncServiceRelations === true"),
+    "only explicit Admin checkbox writes may establish an unbaselined initial export");
   assert.ok(relation.includes("planSignedCatalogRelationSync(local,remote,previous)"));
   assert.ok(relation.includes("importNotionServiceIds(db,profileId,category,plan.target)"));
   assert.ok(relation.includes('plan.action==="pull"||plan.action==="merge"'));
