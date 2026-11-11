@@ -55,7 +55,19 @@ const groups: Group[] = [
   },
 ];
 
-export async function searchAdminRecords(database: D1Database, input: string) {
+const lifecycleScope: Record<string,{kind:string;table:string}> = {
+  "Služby pre psov":{kind:"directory",table:"directory_profiles"},
+  "Podujatia":{kind:"events",table:"managed_events"},
+  "Adopcie":{kind:"adoptions",table:"adoption_dogs"},
+  "Stratené a nájdené":{kind:"lost-found",table:"lost_found_dog_reports"},
+  "Pomoc psom":{kind:"help",table:"help_cases"},
+  "Organizácie":{kind:"organizations",table:"help_organizations"},
+  "Články":{kind:"articles",table:"managed_articles"},
+  "Plemená":{kind:"breeds",table:"managed_breeds"},
+};
+
+export async function searchAdminRecords(database: D1Database, input: string,
+  excludeLifecycleRemovals = false) {
   const query = input.trim().slice(0, 80);
   if (query.length < 2 && !/^\d$/.test(query)) return { results: [] as AdminGlobalRecord[], incomplete: false };
   // A numeric query resolves exact Admin IDs independently in each section.
@@ -63,15 +75,23 @@ export async function searchAdminRecords(database: D1Database, input: string) {
   const numericId = idMatch ? Number(idMatch[1]) : null;
   const byId = numericId !== null && Number.isSafeInteger(numericId);
   const statements = groups.map(group => {
-    if (byId) {
-      const extra = group.category === "Pomoc psom"
-        ? "category NOT IN ('adopcia','utulky','stratene-a-najdene') AND "
-        : "";
-      const sql = group.sql.replace(/ WHERE .+ ORDER BY .+ LIMIT 6$/, " WHERE " + extra + "id = ? LIMIT 6");
-      return database.prepare(sql).bind(numericId);
-    }
-    const matchCount = (group.sql.match(/lower\(\?\)/g) ?? []).length;
-    return database.prepare(group.sql).bind(...Array(matchCount).fill(query));
+    const extra = group.category === "Pomoc psom"
+      ? "category NOT IN ('adopcia','utulky','stratene-a-najdene') AND "
+      : "";
+    const original = byId
+      ? group.sql.replace(/ WHERE .+ ORDER BY .+ LIMIT 6$/, " WHERE " + extra + "id = ? LIMIT 6")
+      : group.sql;
+    const scoped = lifecycleScope[group.category];
+    const guard = "NOT EXISTS (SELECT 1 FROM admin_record_tombstones removed WHERE removed.kind='" +
+      scoped.kind + "' AND removed.record_id=" + scoped.table + ".id)";
+    // Parenthesize the original OR search expression before appending AND;
+    // otherwise an earlier name match could bypass the tombstone filter.
+    const sql = excludeLifecycleRemovals
+      ? original.replace(/ WHERE (.*?)( ORDER BY .+ LIMIT 6| LIMIT 6)$/,
+          (_match, where: string, tail: string) => " WHERE (" + where + ") AND " + guard + tail)
+      : original;
+    const args = byId ? [numericId!] : Array((group.sql.match(/lower\(\?\)/g) ?? []).length).fill(query);
+    return database.prepare(sql).bind(...args);
   });
 
   // One D1 round trip in the healthy case. If a module's table is missing

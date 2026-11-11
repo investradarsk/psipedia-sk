@@ -199,16 +199,27 @@ export async function queryDirectoryAdmin<T>(
   filters: DirectoryAdminFilters,
   categories: readonly DirectoryAdminCategoryOption[],
   pageSize = DIRECTORY_ADMIN_PAGE_SIZE,
+  excludeLifecycleRemovals = false,
 ) {
   const membershipQuery = directoryAdminMembershipQuery(directoryAdminMembershipFilters(filters), categories);
   const membership = membershipQuery.membership;
   const safePageSize = Math.max(1, Math.min(100, Math.trunc(pageSize)));
   const categoryWhere = membership.category ? " WHERE category = ?" : "";
   const categoryArgs = membership.category ? [membership.category] : [];
-
+  // Enabled only by the production admin store after D1 migration 0164.
+  // Tombstones persist even when a delayed remote/local cleanup is unfinished.
+  const removed = "NOT EXISTS (SELECT 1 FROM admin_record_tombstones deleted " +
+    "WHERE deleted.kind='directory' AND deleted.record_id=directory_profiles.id)";
+  const addExclusion = (where: string) => !excludeLifecycleRemovals ? where :
+    where ? where + " AND " + removed : " WHERE " + removed;
+  const filteredWhere = addExclusion(membershipQuery.where);
+  const filteredCategoryWhere = addExclusion(categoryWhere);
+  const locationExclusion = excludeLifecycleRemovals
+    ? " AND NOT EXISTS (SELECT 1 FROM admin_record_tombstones deleted " +
+      "WHERE deleted.kind='directory' AND deleted.record_id=d.id)" : "";
   // With no extra membership filters, filtered count and category totals
   // describe the exact same rows. Reuse totals rather than scanning twice.
-  const reuseTotalCount = membershipQuery.where === categoryWhere;
+  const reuseTotalCount = filteredWhere === filteredCategoryWhere;
 
   // Launch the bounded page together with counters and location facets:
   // only out-of-range URLs need a second read for the clamped last page.
@@ -224,17 +235,17 @@ export async function queryDirectoryAdmin<T>(
   const sortSql = orderBy[filters.sort ?? "updated"] ?? orderBy.updated;
   const loadPage = (page: number) => database.prepare(`SELECT id, slug, name, excerpt, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,
       COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
-    FROM directory_profiles${membershipQuery.where} ORDER BY ${sortSql} LIMIT ? OFFSET ?`)
+    FROM directory_profiles${filteredWhere} ORDER BY ${sortSql} LIMIT ? OFFSET ?`)
     .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();
   const [totals, count, locations, requestedResult] = await Promise.all([
     database.prepare(`SELECT COUNT(*) AS total,
       COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
       COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
       COUNT(CASE WHEN status = 'archived' THEN 1 END) AS archived
-      FROM directory_profiles${categoryWhere}`).bind(...categoryArgs).first<TotalsRow>(),
+      FROM directory_profiles${filteredCategoryWhere}`).bind(...categoryArgs).first<TotalsRow>(),
     reuseTotalCount
       ? Promise.resolve(null)
-      : database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${membershipQuery.where}`)
+      : database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${filteredWhere}`)
           .bind(...membershipQuery.args).first<CountRow>(),
     // Scan the directory once for all three global location facets instead
     // of issuing three separate DISTINCT scans. CROSS JOIN fixes d as the
@@ -247,7 +258,7 @@ export async function queryDirectoryAdmin<T>(
         SELECT 'region' AS kind UNION ALL SELECT 'district' UNION ALL SELECT 'city'
       ) AS label
       WHERE trim(CASE label.kind WHEN 'region' THEN d.region
-        WHEN 'district' THEN d.district ELSE d.city END) <> ''
+        WHEN 'district' THEN d.district ELSE d.city END) <> ''${locationExclusion}
       ORDER BY kind, value`).all<{ kind: "region" | "district" | "city"; value: string }>(),
     loadPage(requestedPage),
   ]);

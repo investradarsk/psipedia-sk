@@ -37,14 +37,13 @@ export function AdminRecordLifecycleActions({
 }) {
   const [preview,setPreview]=useState<Preview|null>(null);
   const [mode,setMode]=useState<"unpublish"|"delete"|null>(null);
-  const [confirmation,setConfirmation]=useState("");
-  const [localOnly,setLocalOnly]=useState(false);
   const [pending,setPending]=useState(false);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
   const endpoint="/api/admin/record-lifecycle/"+encodeURIComponent(kind)+"/"+recordId;
   const visible=preview?preview.published:publicStates.has(status);
   const draftStatus=kind==="adoptions"||kind==="lost-found"||kind==="organizations"?"DRAFT":"draft";
+  const deleteLabel=kind==="directory"?"Vymazať profil":"Natrvalo odstrániť";
   useEffect(()=>{
     let live=true;
     fetch(endpoint,{cache:"no-store"}).then(async response=>{
@@ -68,7 +67,7 @@ export function AdminRecordLifecycleActions({
 
   async function open(next:"unpublish"|"delete") {
     if(pending)return;
-    setError("");setMessage("");setConfirmation("");setLocalOnly(false);
+    setError("");setMessage("");
     setPending(true);
     try{
       const response=await fetch(endpoint,{cache:"no-store"});
@@ -86,7 +85,7 @@ export function AdminRecordLifecycleActions({
       const response=await fetch(endpoint,{
         method:"POST",headers:{"content-type":"application/json"},
         body:JSON.stringify(currentMode==="delete"
-          ?{action:"delete",confirmation,localOnly:!preview.notionLinked&&localOnly,
+          ?{action:"delete",confirmed:true,localOnly:!preview.notionLinked,
             expectedSlug:preview.slug,expectedName:preview.name,expectedCategory:preview.category}
           :{action:"unpublish"}),
       });
@@ -101,12 +100,14 @@ export function AdminRecordLifecycleActions({
           :"Záznam je stiahnutý z webu. Údaje a obrázky zostali zachované.");
         if(data.errorCode)setError(errorText(data.errorCode));
       }else if(data.state==="COMPLETE"){
+        // Do not leave the deleted record open in the editor after D1 confirms it.
+        window.location.assign(returnHref);
+      }else if(["PENDING_NOTION","ERROR_NOTION","READY_LOCAL"].includes(data.state)){
+        // Backend has persisted the tombstone and hidden the canonical record.
+        // The admin list excludes it while Notion/D1 finalization is pending.
         window.location.assign(returnHref);
       }else{
-        setMessage("Záznam je skrytý. Odstránenie ešte nie je dokončené. Môžeš ho bezpečne zopakovať.");
-        setError(errorText(data.errorCode??"NOTION_UNAVAILABLE"));
-        setPreview(current=>current?{...current,published:false,removalState:data.state,removalError:data.errorCode??null}:current);
-        onUnpublished?.(draftStatus);
+        throw Error("RECORD_DELETE_NOT_ACKNOWLEDGED");
       }
     }catch(e){setError(errorText(e instanceof Error?e.message:"LIFECYCLE_REQUEST_FAILED"));}
     finally{setPending(false);}
@@ -118,21 +119,21 @@ export function AdminRecordLifecycleActions({
       {preview?.publicationSync==="PENDING"&&<AdminActionButton type="button" variant="secondary" disabled={disabled||pending}
         onClick={()=>void open("unpublish")}>Zopakovať prenos do Notionu</AdminActionButton>}
       <AdminActionButton type="button" variant="destructive" disabled={disabled||pending}
-        onClick={()=>void open("delete")}>{preview?.removalState&&preview.removalState!=="COMPLETE"?"Zopakovať odstránenie":"Natrvalo odstrániť"}</AdminActionButton>
+        onClick={()=>void open("delete")}>{preview?.removalState&&preview.removalState!=="COMPLETE"?"Zopakovať odstránenie":deleteLabel}</AdminActionButton>
     </div>
     {message&&<p role="status" className="admin-message">{message}</p>}
     {error&&<p role="alert" className="admin-message admin-message--error">{error}</p>}
     <AdminModalDialog
-      open={mode!==null} title={mode==="delete"?"Natrvalo odstrániť záznam?":"Stiahnuť z webu?"}
+      open={mode!==null} title={mode==="delete"?"Vymazať tento záznam?":"Stiahnuť z webu?"}
       description={mode==="delete"?"Operácia je nevratná v Admine.":"Zmení sa iba publikačný stav, nie údaje formulára."}
       onClose={()=>{if(!pending)setMode(null);}}
       footer={<>
         <AdminActionButton type="button" variant="neutral" disabled={pending}
           onClick={()=>setMode(null)}>Zrušiť</AdminActionButton>
         <AdminActionButton type="button" variant={mode==="delete"?"destructive":"primary"}
-          disabled={pending||(mode==="delete"&&(confirmation!=="VYMAZAŤ"||(!preview?.notionLinked&&!localOnly)))}
+          disabled={pending}
           onClick={()=>void confirm()}>
-          {pending?"Spracúvam…":mode==="delete"?"Potvrdiť trvalé odstránenie":"Potvrdiť stiahnutie"}
+          {pending?"Spracúvam…":mode==="delete"?"Potvrdiť odstránenie":"Potvrdiť stiahnutie"}
         </AdminActionButton>
       </>}
     >
@@ -146,16 +147,9 @@ export function AdminRecordLifecycleActions({
               <p>Záznam bude odstránený z Adminu, verejného webu a príslušných D1 údajov.
                 Túto operáciu nemožno bežne vrátiť späť v Admine.</p>
               {preview.notionLinked
-                ?<p>Prepojená Notion stránka ({preview.notionPages}) bude po overení identity presunutá do <strong>koša Notion</strong>, nie definitívne vymazaná.</p>
-                :<label style={{display:"flex",alignItems:"flex-start",gap:8}}>
-                  <input type="checkbox" checked={localOnly} onChange={e=>setLocalOnly(e.target.checked)}/>
-                  <span>Nie je overené Notion prepojenie. Potvrdzujem odstránenie <strong>iba z Psipedie</strong>. Notion stránka sa nebude vyhľadávať podľa mena ani mazať.</span>
-                </label>}
-              <label style={{display:"grid",gap:6}}>
-                Na druhé potvrdenie napíš presne <strong>VYMAZAŤ</strong>:
-                <input type="text" autoComplete="off" value={confirmation}
-                  onChange={e=>setConfirmation(e.target.value)} aria-label="Druhé potvrdenie odstránenia" />
-              </label>
+                ?<p>Prepojené stránky ({preview.notionPages}) sa po overení presunú do koša Notion. Notion ich podľa vlastných pravidiel definitívne odstráni neskôr.</p>
+                :<p>Profil nemá overené prepojenie s Notionom. Odstráni sa iba z Psipedie; nijaká Notion stránka sa nebude hádať podľa názvu.</p>}
+              <p>Po potvrdení profil zmizne z aktívneho Adminu a nebude sa dať znova importovať. Ak dokončenie D1/Notion zlyhá, záznam zostane skrytý a chyba sa zaznamená.</p>
               {preview.removalState&&preview.removalState!=="COMPLETE"&&
                 <p role="status">Predchádzajúci pokus: {preview.removalState}. Opakovanie používa tú istú evidenciu a overuje Notion.</p>}
             </>}

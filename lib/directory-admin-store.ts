@@ -73,7 +73,9 @@ function rowToSummary(row: DirectoryAdminRow, reviewedAt = ""): ManagedDirectory
 
 export async function getManagedDirectoryAdminPage(filters: DirectoryAdminFilters): Promise<ManagedDirectoryAdminPage> {
   const database = requireD1Binding();
-  const result = await queryDirectoryAdmin<DirectoryAdminRow>(database, filters, allDirectoryCategories);
+  // Migration 0164 is live. Once a delete intent is persisted as a tombstone,
+  // the record must disappear from every active directory listing and counter.
+  const result = await queryDirectoryAdmin<DirectoryAdminRow>(database, filters, allDirectoryCategories, undefined, true);
   return {
     profiles: result.items.map((row) => rowToSummary(row, row.reviewed_at?.trim() ?? "")),
     counts: result.counts,

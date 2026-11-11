@@ -111,3 +111,17 @@ test("global search UI debounces, aborts stale responses and reuses a short-live
   assert.match(ui, /controller\.signal\.aborted/);
   assert.match(ui, /cache: "no-store"/);
 });
+
+test("tombstoned profile instantly disappears from global Admin search", async () => {
+  const {db,sqlite} = fixture();
+  try {
+    sqlite.exec("CREATE TABLE admin_record_tombstones (kind TEXT,record_id INTEGER)");
+    sqlite.exec("INSERT INTO admin_record_tombstones VALUES ('directory',7)");
+    const result = await searchAdminRecords(db, "labrador", true);
+    assert.equal(result.incomplete,false);
+    assert.equal(result.results.length,7);
+    assert.ok(!result.results.some(row=>row.category==="Služby pre psov"));
+    assert.ok(result.results.some(row=>row.category==="Podujatia"),
+      "other records with the same numeric ID must remain visible");
+  }finally { sqlite.close(); }
+});
