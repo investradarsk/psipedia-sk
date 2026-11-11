@@ -23,11 +23,11 @@ test("BREED public surface has a canonical breed identity without an invented co
   assert.match(source, /<h1>\{\s*breed\s*\.name\s*\}<\/h1>/);
   // Breed facts now use the shared Help-detail component instead of a local factGrid.
   const primitive = read("../components/detail-primitives/detail-primitives.tsx");
-  assert.match(source, /<DetailFactsCard title="Plemeno v skratke" facts=\\{quickFacts\\}/);
-  assert.match(source, /className=\\{styles\\.desktopFacts\\} data-testid="breed-quick-facts"/);
-  assert.match(source, /className=\\{styles\\.mobileFacts\\} data-testid="breed-quick-facts-mobile"/);
-  assert.match(primitive, /<DetailFactList facts=\\{visible\\}/);
-  assert.match(primitive, /<dl className=\\{styles\\.facts\\} data-public-fact-list>/);
+  assert.match(source, /<DetailFactsCard title="Plemeno v skratke" facts=\{quickFacts\}/);
+  assert.match(source, /className=\{styles\.desktopFacts\} data-testid="breed-quick-facts"/);
+  assert.match(source, /className=\{styles\.mobileFacts\} data-testid="breed-quick-facts-mobile"/);
+  assert.match(primitive, /<DetailFactList facts=\{visible\}/);
+  assert.match(primitive, /<dl className=\{styles\.facts\} data-public-fact-list>/);
   assert.match(source, /idSuffix:\s*"breed"/);
   assert.match(source, /about:\s*\{\s*"@id":\s*breedEntityId\s*\}/);
   assert.match(source, /mainEntityId:\s*breedEntityId/);
