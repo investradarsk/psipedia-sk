@@ -14,7 +14,7 @@ import {
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { PawMark, SparkIcon } from "@/components/icons";
-import { DogAgeCalculator } from "@/components/dog-age-calculator";
+import { LazyDogAgeCalculator } from "@/components/lazy-dog-age-calculator";
 import { AdSlot } from "@/components/ad-slot";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { listHomepageFeaturedBreeds } from "@/lib/breed-store";
@@ -399,7 +399,7 @@ async function HomeBelowHero({
               <PawMark size={120} />
             </span>
           </div>
-          <DogAgeCalculator />
+          <LazyDogAgeCalculator />
         </div>
       </section>
 
