@@ -20,6 +20,28 @@ export const dynamic = "force-dynamic";
 type SearchParams = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] ?? "" : value ?? "";
 
+async function AdminNotionAlertsPanel({ promise }: {
+  promise: ReturnType<typeof loadDirectoryNotionAlerts>;
+}) {
+  // A failed Notion summary must not hold back the actionable D1 queue.
+  const notionAlerts = await promise.catch(() => null);
+  if (notionAlerts === null) return <p role="alert" className="admin-panel">Stav prenosu do Notion sa nepodarilo načítať. Upozornenia sa nepovažujú za vybavené.</p>;
+  if (!notionAlerts.length) return null;
+  return <section className="admin-panel" aria-labelledby="notion-sync-alert-title">
+    <h2 id="notion-sync-alert-title">Synchronizácia Notion</h2>
+    <p>Profil je uložený v administrácii, ale niektoré zmeny čakajú na potvrdenie prenosu. Zobrazujú sa tu, nie v editore profilu.</p>
+    <ul>
+      {notionAlerts.map(alert => (
+        <li key={alert.profile_id}>
+          <Link href={`/admin/adresar/${alert.profile_id}`}>{alert.name} (#{alert.profile_id})</Link>
+          {" – "}{alert.direction === "NOTION_TO_ADMIN" ? "Notion → Admin" : "Admin → Notion"}
+          {": "}{alert.message || "Prenos nie je potvrdený."}
+        </li>
+      ))}
+    </ul>
+  </section>;
+}
+
 async function AdminOperationsContent({
   attentionPromise,
   notionAlertsPromise,
@@ -31,7 +53,7 @@ async function AdminOperationsContent({
   filters: AdminAttentionFilters;
   cursor?: string;
 }) {
-  const [attention, notionAlerts] = await Promise.all([attentionPromise, notionAlertsPromise]);
+  const attention = await attentionPromise;
 
   return (
     <>
@@ -50,21 +72,9 @@ async function AdminOperationsContent({
 
       </section>
 
-      {notionAlerts.length > 0 ? (
-        <section className="admin-panel" aria-labelledby="notion-sync-alert-title">
-          <h2 id="notion-sync-alert-title">Synchronizácia Notion</h2>
-          <p>Profil je uložený v administrácii, ale niektoré zmeny čakajú na potvrdenie prenosu. Zobrazujú sa tu, nie v editore profilu.</p>
-          <ul>
-            {notionAlerts.map(alert => (
-              <li key={alert.profile_id}>
-                <Link href={`/admin/adresar/${alert.profile_id}`}>{alert.name} (#{alert.profile_id})</Link>
-                {" – "}{alert.direction === "NOTION_TO_ADMIN" ? "Notion → Admin" : "Admin → Notion"}
-                {": "}{alert.message || "Prenos nie je potvrdený."}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <Suspense fallback={<p role="status" className="admin-panel">Načítavam upozornenia synchronizácie…</p>}>
+        <AdminNotionAlertsPanel promise={notionAlertsPromise} />
+      </Suspense>
       <p className="admin-panel"><Link href="/admin/operations/overovanie-zdrojov">Overovanie zdrojov psov – výsledky denných automatických kontrol →</Link></p>
 
       <AdminAttentionHistorySync cursor={cursor ?? ""} />
