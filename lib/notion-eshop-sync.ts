@@ -614,6 +614,34 @@ async function recoverMapping(input: { database: D1Database; page: NotionPage })
   return loadMappingByShop(input.database, shopId);
 }
 
+
+/** Narrow SQL writer: a Notion field event cannot rewrite any sibling field. */
+async function saveEshopEditorialField(
+  database: D1Database, current: ManagedEshop,
+  path: Exclude<EshopEventField, "logoUrl">, value: EditableSnapshot[typeof path],
+): Promise<ManagedEshop> {
+  const columns: Record<Exclude<EshopEventField, "logoUrl">, string> = {
+    name: "name", websiteUrl: "website_url", description: "description",
+    sourceUrl: "source_url", focusTags: "focus_tags_json",
+  };
+  const column = columns[path];
+  if (!column) throw new Error("ESHOP_FIELD_UNKNOWN");
+  const normalized = path === "focusTags"
+    ? JSON.stringify(Array.isArray(value)
+      ? value.filter(item => typeof item === "string" && item.trim()).slice(0, 12) : [])
+    : typeof value === "string" ? value.trim() : "";
+  if (path === "name" && !String(normalized).trim()) throw new Error("ESHOP_NAME_REQUIRED");
+  const now = new Date().toISOString();
+  const row = await database.prepare(
+    "UPDATE managed_eshops SET " + column + "=?, updated_at=?, updated_by=? " +
+    "WHERE id=? AND status <> 'archived' AND updated_at=? RETURNING id",
+  ).bind(normalized, now, SYSTEM_ACTOR, current.id, current.updatedAt).first<{id: number}>();
+  if (!row) throw new Error("ESHOP_FIELD_WRITE_CONFLICT");
+  const updated = await getManagedEshopById(current.id, database);
+  if (!updated) throw new Error("ESHOP_FIELD_RELOAD_FAILED");
+  return updated;
+}
+
 async function syncMapped(input: {
   database: D1Database;
   bindings: NotionEshopSyncBindings;
@@ -665,12 +693,9 @@ async function syncMapped(input: {
             desiredOverride: desired,
           });
         } else {
-          // Other fields must never download/reupload or delete the live logo.
-          await updateManagedEshop(
-            current.id, updateInput(desired, {
-              imageUrl: current.logoUrl, imageKey: current.logoKey,
-            }), SYSTEM_ACTOR, input.database,
-          );
+          // Exactly ONE D1 column is updated; stale editors cannot overwrite
+          // unrelated contacts, labels, publication or uploaded images.
+          await saveEshopEditorialField(input.database, current, path, remote[path]);
         }
         const saved = await getManagedEshopById(shop.id, input.database);
         if (!saved || JSON.stringify(profileSnapshot(saved)[path]) !== JSON.stringify(remote[path]))
