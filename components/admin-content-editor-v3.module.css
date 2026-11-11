@@ -84,7 +84,7 @@
 
 /* Article-only controls: keep shared EditorWorkspace unchanged for breed, events and other editors. */
 .desktopActions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; }
-.mobileActions, .mobileExtraActions { display: none; }
+.mobileActions, .mobileExtraActions, .mobileLifecycleActions { display: none; }
 .previewClose, .previewRestore, .breedMore {
   min-height: 40px;
   border: 1px solid var(--admin-v3-control-border, #b9c9bd);
@@ -187,6 +187,8 @@
     gap: 0.45rem;
     min-width: 0;
   }
+  .mobileLifecycleActions { display: block; flex: 1 1 100%; min-width: 0; }
+  .mobileLifecycleActions > div { width: 100%; }
   .mobileExtraActions > button {
     width: auto;
     min-height: 44px;
