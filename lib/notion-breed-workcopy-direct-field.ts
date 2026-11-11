@@ -32,6 +32,7 @@ function searchAfter(before:ManagedBreed,field:string,value:unknown) {
  */
 export async function saveBreedNotionField(input:{
   database:D1Database;breedId:number;field:string;value:unknown;
+  actor?:string;
 }):Promise<{updated:boolean;breed:ManagedBreed}> {
   if (!Number.isSafeInteger(input.breedId) || input.breedId<1)
     throw Error("BREED_EVENT_PSI_ID_INVALID");
@@ -49,7 +50,7 @@ export async function saveBreedNotionField(input:{
     const sql="UPDATE managed_breeds SET "+patch.assignments.join(",")+
       ",updated_at=?,updated_by=? WHERE id=? AND updated_at=? RETURNING id";
     const result=await input.database.prepare(sql)
-      .bind(...patch.params,next,actor,input.breedId,before.updatedAt)
+      .bind(...patch.params,next,input.actor??actor,input.breedId,before.updatedAt)
       .first<{id:number}>();
     if (!result) continue; // Independent legitimate writer won this version.
     const breed=await getManagedBreed(input.breedId);
