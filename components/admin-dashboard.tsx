@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { Suspense, use, useMemo, useRef, useState } from "react";
 import {
   AdminBulkSelectionControls,
   useAdminBulkSelection,
@@ -61,6 +61,24 @@ const statusLabels = {
 const sortLabels = { updated: "Posledná úprava", title: "Názov" } as const;
 const directionLabels = { desc: "Zostupne", asc: "Vzostupne" } as const;
 
+function SuspendedArticleTopics({ promise, value, onChange }: {
+  promise: Promise<ArticleTopic[] | null>;
+  value: string;
+  onChange: (value: number | null) => void;
+}) {
+  const options = use(promise);
+  if (options === null) return <select name="topic" disabled aria-label="Témy sú nedostupné">
+    <option>Témy sa nepodarilo načítať</option>
+  </select>;
+  return <select name="topic" defaultValue={value}
+    onChange={(event) => onChange(Number(event.target.value) || null)}>
+    <option value="">Všetky témy</option>
+    {options.map(topic => <option key={topic.id} value={topic.id}>
+      {topic.label}{topic.isActive ? "" : " (neaktívna)"}
+    </option>)}
+  </select>;
+}
+
 export function AdminDashboard({
   initialArticles,
   initialCounts,
@@ -71,6 +89,7 @@ export function AdminDashboard({
   fixedPortalSection,
   listPath = "/admin",
   topicOptions = [],
+  topicOptionsPromise,
 }: {
   initialArticles: ManagedArticleSummary[];
   initialCounts: ManagedArticleSummaryPage["counts"];
@@ -81,6 +100,7 @@ export function AdminDashboard({
   fixedPortalSection?: ManagedArticleSummary["portalSection"];
   listPath?: string;
   topicOptions?: ArticleTopic[];
+  topicOptionsPromise?: Promise<ArticleTopic[] | null>;
 }) {
   const router = useRouter();
   const [articles, setArticles] = useState(initialArticles);
@@ -258,12 +278,20 @@ export function AdminDashboard({
           {!fixedPortalSection && (
             <label className="admin-select-filter">
               <span>Téma</span>
-              <select name="topic" defaultValue={filters.topicId ? String(filters.topicId) : ""} onChange={(event) => applyFilter({ topicId: Number(event.target.value) || null })}>
-                <option value="">Všetky témy</option>
-                {topicOptions.map((topic) => (
-                  <option key={topic.id} value={topic.id}>{topic.label}{topic.isActive ? "" : " (neaktívna)"}</option>
-                ))}
-              </select>
+              {topicOptionsPromise ? (
+                <Suspense fallback={<select name="topic" disabled aria-label="Načítavam témy"><option>Načítavam témy…</option></select>}>
+                  <SuspendedArticleTopics promise={topicOptionsPromise}
+                    value={filters.topicId ? String(filters.topicId) : ""}
+                    onChange={(topicId) => applyFilter({ topicId })} />
+                </Suspense>
+              ) : (
+                <select name="topic" defaultValue={filters.topicId ? String(filters.topicId) : ""} onChange={(event) => applyFilter({ topicId: Number(event.target.value) || null })}>
+                  <option value="">Všetky témy</option>
+                  {topicOptions.map((topic) => (
+                    <option key={topic.id} value={topic.id}>{topic.label}{topic.isActive ? "" : " (neaktívna)"}</option>
+                  ))}
+                </select>
+              )}
             </label>
           )}
           <label className="admin-select-filter">
