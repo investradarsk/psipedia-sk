@@ -604,6 +604,10 @@ export async function writeBackBreedEditorialToNotion(args:{
       database: args.database, bindings: args.bindings,
       before: args.before, breed: args.breed,
       changedFieldKeys: args.changedFieldKeys,
+      // Explicit owner-approved Admin → Notion transfer must be able to
+      // resend selected fields even when the local save did not change them.
+      // The work-copy executor still verifies the remote per-field baseline.
+      forceFieldKeys: args.forceFieldKeys,
     });
   }
   if(!notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED))
