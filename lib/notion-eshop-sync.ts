@@ -634,6 +634,9 @@ async function syncMapped(input: {
   }
 
   const claimedId = notionRichTextProperty(page, "Psipedia ID");
+  if ((input.webhookChangedPropertyIds !== undefined || input.adminChangedFields !== undefined)
+      && claimedId !== String(shop.id))
+    throw new Error("ESHOP_FIELD_EVENT_IDENTITY_MISMATCH");
   if (claimedId !== String(shop.id)) {
     // Never overwrite a page explicitly claimed by a different D1 entity.
     if (claimedId) throw new Error("ESHOP_IDENTITY_CONFLICT");
