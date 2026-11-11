@@ -122,6 +122,7 @@ async function HomeBelowHero({
                           mode={event.imageDisplay}
                           config={event.thumbnailImageDisplay}
                           alt={`Obrázok k podujatiu ${event.title}`}
+                          sizes="76px"
                           loading="lazy"
                           decoding="async"
                         />
