@@ -1,8 +1,7 @@
-import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
-import { DetailHero } from "./detail-primitives/detail-primitives";
+import { PublicActionLink, PublicMediaFallback, PublicPhotoGallery } from "@/components/public-visual-system";
+import { DetailActions, DetailContactsCard, DetailFactsCard, DetailHero, DetailParagraphs, DetailSection, type DetailContact } from "./detail-primitives/detail-primitives";
 import { PublicHelpProfileDetailLayout } from "@/components/public-visual-system/public-help-profile-detail-layout";
 import { ImageDisplay } from "@/components/image-display";
-import { PublicMediaFallback } from "@/components/public-visual-system";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -72,6 +71,25 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
     ],
   };
   const hasFacts = report.sex !== "UNKNOWN" || report.size !== "UNKNOWN" || Boolean(report.breed) || Boolean(report.color) || Boolean(report.approximateAge) || report.chipped !== "UNKNOWN";
+  const publicPhoneHref = report.publicPhone ? "tel:" + report.publicPhone.replace(/[^+\\d]/g, "") : null;
+  const publicEmailHref = report.publicEmail ? "mailto:" + report.publicEmail : null;
+  const publishedContacts: DetailContact[] = [
+    ...(publicPhoneHref ? [{ label:"Telefón", value:<a href={publicPhoneHref}>{report.publicPhone}</a> }] : []),
+    ...(publicEmailHref ? [{ label:"E-mail", value:<a href={publicEmailHref}>{report.publicEmail}</a> }] : []),
+    ...(report.publicWebsiteUrl ? [{ label:"Web", value:<a href={report.publicWebsiteUrl} target="_blank" rel="noreferrer">Otvoriť web ↗</a> }] : []),
+    ...(report.publicFacebookUrl ? [{ label:"Facebook", value:<a href={report.publicFacebookUrl} target="_blank" rel="noreferrer">Facebook ↗</a> }] : []),
+    ...(report.publicInstagramUrl ? [{ label:"Instagram", value:<a href={report.publicInstagramUrl} target="_blank" rel="noreferrer">Instagram ↗</a> }] : []),
+    ...(report.sourceUrl ? [{ label:"Pôvodný zdroj", value:<a href={report.sourceUrl} target="_blank" rel="nofollow noreferrer">Otvoriť pôvodné hlásenie ↗</a> }] : []),
+  ];
+  const facts = [
+    ...(report.sex !== "UNKNOWN" ? [{label:"Pohlavie",value:dogSexLabel[report.sex]}] : []),
+    ...(report.size !== "UNKNOWN" ? [{label:"Veľkosť",value:dogSizeLabel[report.size]}] : []),
+    ...(report.breed ? [{label:"Plemeno",value:report.breedSlug
+      ? <Link className={styles.breedLink} href={"/plemena/" + report.breedSlug}>{report.breed}</Link> : report.breed}] : []),
+    ...(report.color ? [{label:"Farba",value:report.color}] : []),
+    ...(report.approximateAge ? [{label:"Vek",value:report.approximateAge}] : []),
+    ...(report.chipped !== "UNKNOWN" ? [{label:"Čip",value:chipStateLabel[report.chipped]}] : []),
+  ];
   // Never expose a technical URL slug as a visible breadcrumb label.
   const breadcrumbLabel = report.dogName?.trim() || report.breed?.trim()
     || `${type === "LOST" ? "Stratený" : "Nájdený"} pes – ${report.city}`;
@@ -81,23 +99,54 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
     <DetailHero kind="lost-found" breadcrumbs={    <nav className={styles.crumbs} aria-label="Omrvinková navigácia"><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><Link href={dogReportBasePath(type)}>{type === "LOST" ? "Stratené psy" : "Nájdené psy"}</Link><span aria-hidden="true">/</span><span>{breadcrumbLabel}</span></nav>}
       copy={<>    <div className={styles.statusBanner} data-state={report.status}><strong>{dogReportStatusLabel[report.status]}</strong><span>{active ? "Hlásenie je stále aktuálne." : "Tento prípad už nie je vedený ako aktívny."}</span></div>
         <span className={`${styles.badge} ${type === "LOST" ? styles.lost : styles.found}`}>{dogReportTypeLabel(type)}</span>
-        <h1 id={`dog-report-${report.id}`}>{report.dogName || report.breed || "Pes bez známeho mena"}</h1>
+        <h1 id={`dog-report-${report.id}`}>{dogReportTitle(report)}</h1>
         <div className={styles.detailMeta}><span><strong>Lokalita</strong> {report.city}{report.district ? ` · ${report.district}` : ""} · {report.region}</span><span><strong>Dátum</strong> {formatDogReportDate(report.eventDate)}</span></div>
         {type === "LOST" && <div className={styles.lastSeen}><strong>Naposledy videný:</strong><span>{formatDogReportDate(report.lastSeenDateTime || report.eventDate, Boolean(report.lastSeenDateTime))} · {report.locationDescription || report.city}</span></div>}
         {type === "FOUND" && report.locationDescription && <div className={styles.foundAt}><strong>Miesto nájdenia</strong><span>{report.locationDescription}</span></div>}{report.shortDescription?.trim() && <p className={styles.detailLead}>{report.shortDescription}</p>}
-        <div className={styles.detailActions}>{report.sourceUrl ? <a className={styles.cta} href={report.sourceUrl} target="_blank" rel="nofollow noreferrer">Otvoriť pôvodné hlásenie ↗</a> : active ? <Link className={styles.cta} href={relayHref}>Kontaktovať cez Psipediu</Link> : null}</div>
+        <DetailActions>
+          {active && publicPhoneHref ? <PublicActionLink href={publicPhoneHref}>Zavolať</PublicActionLink> : null}
+          {active && publicEmailHref ? <PublicActionLink href={publicEmailHref} variant={publicPhoneHref ? "secondary" : "primary"}>Napísať e-mail</PublicActionLink> : null}
+          {report.sourceUrl ? <PublicActionLink href={report.sourceUrl} target="_blank" rel="nofollow noreferrer" variant={publicPhoneHref || publicEmailHref ? "secondary" : "primary"}>Otvoriť pôvodné hlásenie</PublicActionLink>
+            : active && !publicPhoneHref && !publicEmailHref ? <PublicActionLink href={relayHref}>Kontaktovať cez Psipediu</PublicActionLink> : null}
+        </DetailActions>
 </>}
       media={report.mainImage ? <ImageDisplay roleHint="generic" fallbackOnError context="detail" config={report.detailImageDisplay} src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)} loading="eager" /> : <PublicMediaFallback size="detail" label="Fotografia psa zatiaľ nie je dostupná" />} />
 
-    <PublicHelpProfileDetailLayout><div className={styles.detailCopy}>
-      <section className={styles.panel}><h2>Popis</h2><p>{report.description}</p>{report.distinguishingMarks && <><h3>Rozpoznávacie znaky</h3><p>{report.distinguishingMarks}</p></>}{report.collarDescription && <><h3>Obojok alebo postroj</h3><p>{report.collarDescription}</p></>}</section>
-      {report.gallery.length > 0 && <section className={styles.panel}><h2>Ďalšie fotografie</h2><PublicPhotoGallery variant="linked" fit="contain" className={styles.reportGallery} label="Ďalšie fotografie" maxImages={report.gallery.length} images={report.gallery.map((image, index) => ({ src: image, alt: `${report.dogName || "Pes"} – fotografia ${index + 2}` }))} /></section>}
-    </div><aside className={styles.detailAside}>
-      {(report.publicContactNote || (!report.sourceUrl && active)) && <section className={`${styles.panel} ${styles.contactPanel}`}><h2>Kontakt</h2>{report.publicContactNote && <p>{report.publicContactNote}</p>}{!report.sourceUrl && active && <Link className={styles.cta} href={relayHref}>Kontaktovať cez Psipediu</Link>}<p className={styles.privacy}>Telefón a e-mail oznamovateľa nie sú automaticky publikované. Pomáha to obmedziť spam, scraping a zneužitie osobných údajov.</p></section>}
-      <section className={styles.safetyPanel}><h2>Bezpečný kontakt</h2><p>Pri osobnom stretnutí dbajte na vlastnú bezpečnosť a presnú súkromnú adresu nezverejňujte verejne. Ak je pes vystrašený alebo sa správa nepredvídateľne, neprenasledujte ho bez vhodného zabezpečenia.</p></section>
-      {hasFacts && <section className={styles.panel}><h2>Základné údaje</h2><dl className={styles.facts}>{report.sex !== "UNKNOWN" && <div><dt>Pohlavie</dt><dd>{dogSexLabel[report.sex]}</dd></div>}{report.size !== "UNKNOWN" && <div><dt>Veľkosť</dt><dd>{dogSizeLabel[report.size]}</dd></div>}{report.breed && <div><dt>Plemeno</dt><dd>{report.breedSlug ? <Link className={styles.breedLink} href={`/plemena/${report.breedSlug}`}>{report.breed}</Link> : report.breed}</dd></div>}{report.color && <div><dt>Farba</dt><dd>{report.color}</dd></div>}{report.approximateAge && <div><dt>Vek</dt><dd>{report.approximateAge}</dd></div>}{report.chipped !== "UNKNOWN" && <div><dt>Čip</dt><dd>{chipStateLabel[report.chipped]}</dd></div>}</dl></section>}
-      {(report.publicLatitude !== null || report.locationDescription) && <section className={styles.panel}><h2>Približná lokalita</h2><p>{report.locationDescription || report.city}</p><div className={styles.mapNote}>Zobrazuje sa len približná lokalita, nie súkromná adresa.</div></section>}
-      <section className={styles.trustPanel}><h2>Aktuálnosť a zdroj</h2><dl><div><dt>Aktualizované</dt><dd>{formatDogReportDate(report.updatedAt, true)}</dd></div>{report.source && <div><dt>Zdroj</dt><dd>{report.source}</dd></div>}</dl>{report.sourceUrl && <a href={report.sourceUrl} target="_blank" rel="nofollow noreferrer">Overiť pôvodný zdroj ↗</a>}</section>
-    </aside></PublicHelpProfileDetailLayout>
+    <PublicHelpProfileDetailLayout>
+      <article className={styles.detailCopy}>
+        <DetailSection compactHeading title="Popis">
+          <DetailParagraphs value={report.description} />
+          {report.distinguishingMarks ? <><h3>Rozpoznávacie znaky</h3><DetailParagraphs value={report.distinguishingMarks} /></> : null}
+          {report.collarDescription ? <><h3>Obojok alebo postroj</h3><DetailParagraphs value={report.collarDescription} /></> : null}
+        </DetailSection>
+        {report.gallery.length > 0 ? <DetailSection compactHeading title="Ďalšie fotografie">
+          <PublicPhotoGallery variant="linked" fit="contain" className={styles.reportGallery} label="Ďalšie fotografie"
+            maxImages={report.gallery.length} images={report.gallery.map((image,index)=>({src:image,alt:(report.dogName || "Pes") + " – fotografia " + (index+2)}))} />
+        </DetailSection> : null}
+      </article>
+      <aside className={styles.detailAside} aria-label="Kontakty a praktické informácie">
+        <DetailContactsCard title="Adresa a kontakt" id="lost-found-public-contact" contacts={publishedContacts}
+          emptyMessage="Priamy verejný kontakt zatiaľ nie je uvedený."
+          note={<>
+            {report.publicContactNote ? <span className={styles.publicContactNote}>{report.publicContactNote}</span> : null}
+            <span>Telefón a e-mail oznamovateľa nie sú automaticky publikované. Zobrazujú sa iba výslovne schválené verejné kontakty.</span>
+          </>} noteTone="neutral" />
+        {active && !report.sourceUrl && !publicPhoneHref && !publicEmailHref
+          ? <DetailActions><PublicActionLink href={relayHref}>Kontaktovať cez Psipediu</PublicActionLink></DetailActions>
+          : null}
+        <div className={styles.safetyPanel}><DetailSection compactHeading title="Bezpečný kontakt">
+          <p>Pri osobnom stretnutí dbajte na vlastnú bezpečnosť a presnú súkromnú adresu nezverejňujte verejne. Ak je pes vystrašený alebo sa správa nepredvídateľne, neprenasledujte ho bez vhodného zabezpečenia.</p>
+        </DetailSection></div>
+        {hasFacts ? <DetailFactsCard title="Základné údaje" facts={facts} /> : null}
+        {(report.publicLatitude !== null || report.locationDescription) ? <DetailSection compactHeading title="Približná lokalita">
+          <p>{report.locationDescription || report.city}</p>
+          <p className={styles.mapNote}>Zobrazuje sa len približná lokalita, nie súkromná adresa.</p>
+        </DetailSection> : null}
+        <DetailFactsCard title="Aktuálnosť a zdroj" facts={[
+          {label:"Aktualizované",value:formatDogReportDate(report.updatedAt,true)},
+          ...(report.source ? [{label:"Zdroj",value:report.source}] : []),
+        ]} />
+      </aside>
+    </PublicHelpProfileDetailLayout>
   </main>;
 }
