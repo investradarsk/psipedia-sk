@@ -39,10 +39,12 @@ test("merged FCI property includes its logical fields but unrelated properties a
   assert(!fields.includes("system.FCI číslo"));
 });
 
-test("system IDs, publication and media cannot become editorial write targets", () => {
-  const page = touched(["FCI číslo", "Psipedia ID", "Hlavný obrázok URL", "Galéria JSON"]);
+test("only Psipedia ID is excluded; signed image, gallery and sport cells can change", () => {
+  const page = touched(["FCI číslo", "Psipedia ID", "Hlavný obrázok URL",
+    "Galéria JSON", "Športy JSON"]);
   assert.deepEqual(workCopyChangedEditorialIds(page, ["FCI číslo", "Psipedia ID",
-    "Hlavný obrázok URL", "Galéria JSON"], BREED_NOTION_SCHEMA), []);
+    "Hlavný obrázok URL", "Galéria JSON", "Športy JSON"], BREED_NOTION_SCHEMA),
+    ["gallery", "image", "sports"]);
 });
 
 test("signed Notion edits include explicitly cleared sibling fields", () => {
