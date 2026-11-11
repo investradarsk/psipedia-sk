@@ -17,6 +17,8 @@ export default async function AdminEshopEditPage({ params }: { params: Promise<{
 
   return (
     <AdminShell
+      recordId={shop.id}
+      recordKind="eshops"
       user={user}
       eyebrow="Recenzie a testy · E-shopy"
       title={shop.name}

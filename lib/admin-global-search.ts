@@ -1,4 +1,5 @@
 import type { D1Database } from "@cloudflare/workers-types";
+import {formatDisplayId, parseDisplayId, looksLikeDisplayId, type DisplayIdKind} from "./admin-display-id";
 
 export type AdminGlobalRecord = {
   title: string;
@@ -6,7 +7,7 @@ export type AdminGlobalRecord = {
   href: string;
   category: string;
 };
-type SearchRow = { id: number; title: string; subtitle: string };
+type SearchRow = { id: number; title: string; subtitle: string; display_category?: string | null };
 type Group = { category: string; prefix: string; sql: string };
 const contains = (column: string) => "instr(lower(coalesce(" + column + ", '')), lower(?)) > 0";
 
@@ -15,7 +16,7 @@ const contains = (column: string) => "instr(lower(coalesce(" + column + ", '')),
 const groups: Group[] = [
   {
     category: "Služby pre psov", prefix: "/admin/adresar/",
-    sql: "SELECT id,name AS title, trim(coalesce(category,'') || ' · ' || coalesce(city,'')) AS subtitle FROM directory_profiles WHERE " +
+    sql: "SELECT id,name AS title, trim(coalesce(category,'') || ' · ' || coalesce(city,'')) AS subtitle, category AS display_category FROM directory_profiles WHERE " +
       [contains("name"), contains("city"), contains("category")].join(" OR ") + " ORDER BY updated_at DESC LIMIT 6",
   },
   {
@@ -35,7 +36,7 @@ const groups: Group[] = [
   },
   {
     category: "Pomoc psom", prefix: "/admin/pomoc/",
-    sql: "SELECT id,title,trim(coalesce(category,'') || ' · ' || coalesce(city,'')) AS subtitle FROM help_cases WHERE category NOT IN ('adopcia','utulky','stratene-a-najdene') AND (" +
+    sql: "SELECT id,title,trim(coalesce(category,'') || ' · ' || coalesce(city,'')) AS subtitle, category AS display_category FROM help_cases WHERE category NOT IN ('adopcia','utulky','stratene-a-najdene') AND (" +
       [contains("title"), contains("organization"), contains("city")].join(" OR ") + ") ORDER BY updated_at DESC LIMIT 6",
   },
   {
@@ -55,6 +56,14 @@ const groups: Group[] = [
   },
 ];
 
+// E-shops are not part of the 0164 deletion lifecycle yet, but their
+// user-facing ID is still globally searchable by the scoped form.
+const eshopScopedGroup: Group = {
+  category: "E-shopy",prefix: "/admin/recenzie/eshopy/",
+  sql: "SELECT id,name AS title,coalesce(website_url, \'\') AS subtitle FROM managed_eshops WHERE " +
+    [contains("name"),contains("slug"),contains("website_url")].join(" OR ") + " ORDER BY updated_at DESC LIMIT 6",
+};
+
 const lifecycleScope: Record<string,{kind:string;table:string}> = {
   "Služby pre psov":{kind:"directory",table:"directory_profiles"},
   "Podujatia":{kind:"events",table:"managed_events"},
@@ -64,22 +73,32 @@ const lifecycleScope: Record<string,{kind:string;table:string}> = {
   "Organizácie":{kind:"organizations",table:"help_organizations"},
   "Články":{kind:"articles",table:"managed_articles"},
   "Plemená":{kind:"breeds",table:"managed_breeds"},
+  "E-shopy":{kind:"eshops",table:"managed_eshops"},
 };
 
 export async function searchAdminRecords(database: D1Database, input: string,
   excludeLifecycleRemovals = false) {
   const query = input.trim().slice(0, 80);
   if (query.length < 2 && !/^\d$/.test(query)) return { results: [] as AdminGlobalRecord[], incomplete: false };
-  // A numeric query resolves exact Admin IDs independently in each section.
-  const idMatch = /^#?([1-9]\d*)$/.exec(query);
-  const numericId = idMatch ? Number(idMatch[1]) : null;
+  const scoped = parseDisplayId(query);
+  // A mistyped numeric suffix must not fall back to fuzzy text/name matches.
+  if (looksLikeDisplayId(query) && !scoped) return {results: [] as AdminGlobalRecord[], incomplete: false};
+  // Scoped IDs route to ONE canonical module; bare legacy numbers retain the
+  // existing cross-module behavior for backward compatibility.
+  const searchedGroups = scoped
+    ? [...groups,eshopScopedGroup].filter(group => lifecycleScope[group.category].kind === scoped.scope.kind)
+    : groups;
+  const idMatch = scoped ? null : /^#?([1-9]\d*)$/.exec(query);
+  const numericId = scoped?.id ?? (idMatch ? Number(idMatch[1]) : null);
   const byId = numericId !== null && Number.isSafeInteger(numericId);
-  const statements = groups.map(group => {
+  const statements = searchedGroups.map(group => {
     const extra = group.category === "Pomoc psom"
       ? "category NOT IN ('adopcia','utulky','stratene-a-najdene') AND "
       : "";
+    const categoryClause = scoped?.scope.category && ["directory","help"].includes(scoped.scope.kind)
+      ? " AND category = ?" : "";
     const original = byId
-      ? group.sql.replace(/ WHERE .+ ORDER BY .+ LIMIT 6$/, " WHERE " + extra + "id = ? LIMIT 6")
+      ? group.sql.replace(/ WHERE .+ ORDER BY .+ LIMIT 6$/, " WHERE " + extra + "id = ?" + categoryClause + " LIMIT 6")
       : group.sql;
     const scoped = lifecycleScope[group.category];
     const guard = "NOT EXISTS (SELECT 1 FROM admin_record_tombstones removed WHERE removed.kind='" +
@@ -90,7 +109,9 @@ export async function searchAdminRecords(database: D1Database, input: string,
       ? original.replace(/ WHERE (.*?)( ORDER BY .+ LIMIT 6| LIMIT 6)$/,
           (_match, where: string, tail: string) => " WHERE (" + where + ") AND " + guard + tail)
       : original;
-    const args = byId ? [numericId!] : Array((group.sql.match(/lower\(\?\)/g) ?? []).length).fill(query);
+    const args = byId
+      ? (categoryClause ? [numericId!, scoped!.scope.category!] : [numericId!])
+      : Array((group.sql.match(/lower\(\?\)/g) ?? []).length).fill(query);
     return database.prepare(sql).bind(...args);
   });
 
@@ -104,7 +125,7 @@ export async function searchAdminRecords(database: D1Database, input: string,
   if (typeof database.batch === "function") {
     try {
       const batch = await database.batch<SearchRow>(statements);
-      if (batch.length !== groups.length || batch.some(result => result.success === false)) {
+      if (batch.length !== searchedGroups.length || batch.some(result => result.success === false)) {
         throw new Error("Incomplete global search batch");
       }
       answers = batch.map(value => ({ status: "fulfilled" as const, value }));
@@ -126,11 +147,15 @@ export async function searchAdminRecords(database: D1Database, input: string,
     }
     for (const row of answer.value.results ?? []) {
       if (!Number.isSafeInteger(row.id) || row.id < 1) continue;
+      const group = searchedGroups[i];
+      const kind = lifecycleScope[group.category].kind as DisplayIdKind;
+      const displayId = formatDisplayId(row.id,kind,row.display_category);
+      if (scoped && displayId !== String(scoped.id) + "/" + scoped.code) continue;
       results.push({
         title: String(row.title || "Bez názvu"),
-        subtitle: "ID #" + row.id + (row.subtitle ? " · " + String(row.subtitle) : ""),
-        category: groups[i].category,
-        href: groups[i].prefix + row.id,
+        subtitle: "ID #" + displayId + (row.subtitle ? " · " + String(row.subtitle) : ""),
+        category: group.category,
+        href: group.prefix + row.id,
       });
     }
   }

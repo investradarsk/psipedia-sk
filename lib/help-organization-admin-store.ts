@@ -1,3 +1,4 @@
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
 import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
 import { env } from "cloudflare:workers";
 import type { AdoptionD1Database } from "./adoption-store.ts";
@@ -180,9 +181,13 @@ function adminWhere(filters: OrganizationAdminFilters) {
     )`);
   }
   if (filters.q) {
-    const idMatch = /^#?([1-9]\d*)$/.exec(filters.q.trim());
-    const normalized = idMatch ? "" : normalizeOrganizationAdminSearch(filters.q);
-    if (idMatch) {
+    const scoped = parseDisplayId(filters.q);
+    const invalidScoped = looksLikeDisplayId(filters.q) && (!scoped || scoped.scope.kind !== "organizations");
+    const idMatch = scoped ? null : /^#?([1-9]\d*)$/.exec(filters.q.trim());
+    const normalized = (idMatch || scoped || invalidScoped) ? "" : normalizeOrganizationAdminSearch(filters.q);
+    if (invalidScoped) clauses.push("1=0");
+    else if (scoped) {clauses.push("o.id = ?");args.push(scoped.id);}
+    else if (idMatch) {
       clauses.push("o.id = ?");
       args.push(Number(idMatch[1]));
     } else if (normalized) {

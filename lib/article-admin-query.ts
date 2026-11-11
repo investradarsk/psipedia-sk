@@ -1,3 +1,4 @@
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
 import type { ArticlePortalSection } from "./portal.ts";
 import { articleEffectiveStatusSql } from "./article-effective-status.ts";
 import {
@@ -96,9 +97,16 @@ export function buildArticleAdminListQuery(
     clauses.push("EXISTS (SELECT 1 FROM article_topic_assignments ata WHERE ata.article_id = managed_articles.id AND ata.topic_id = ?)");
     bindings.push(filters.topicId);
   }
-  const idMatch = /^#?([1-9]\d*)$/.exec(filters.query.trim());
-  const needle = idMatch ? "" : adminContainsNeedle(filters.query);
-  if (idMatch) {
+  const scoped = parseDisplayId(filters.query);
+  const invalidScoped = looksLikeDisplayId(filters.query) && (!scoped || scoped.scope.kind !== "articles");
+  const idMatch = scoped ? null : /^#?([1-9]\d*)$/.exec(filters.query.trim());
+  const needle = (idMatch || scoped || invalidScoped) ? "" : adminContainsNeedle(filters.query);
+  if (invalidScoped) {
+    clauses.push("1=0");
+  } else if (scoped) {
+    clauses.push("managed_articles.id = ?");
+    bindings.push(scoped.id);
+  } else if (idMatch) {
     clauses.push("managed_articles.id = ?");
     bindings.push(Number(idMatch[1]));
   } else if (needle) {

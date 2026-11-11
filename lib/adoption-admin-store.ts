@@ -1,3 +1,4 @@
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
 import { env } from "cloudflare:workers";
 import {
   ADOPTION_ADMIN_PAGE_SIZE,
@@ -96,9 +97,16 @@ export function buildAdoptionAdminListQuery(filters: AdoptionAdminListFilters = 
   const conditions: string[] = [];
   const bindings: unknown[] = [];
 
-  const idMatch = /^#?([1-9]\d*)$/.exec(filters.q?.trim() ?? "");
-  const q = idMatch ? "" : normalizeAdoptionSearchText([filters.q]);
-  if (idMatch) {
+  const scoped = parseDisplayId(filters.q ?? "");
+  const invalidScoped = looksLikeDisplayId(filters.q ?? "") && (!scoped || scoped.scope.kind !== "adoptions");
+  const idMatch = scoped ? null : /^#?([1-9]\d*)$/.exec(filters.q?.trim() ?? "");
+  const q = (idMatch || scoped || invalidScoped) ? "" : normalizeAdoptionSearchText([filters.q]);
+  if (invalidScoped) {
+    conditions.push("1=0");
+  } else if (scoped) {
+    conditions.push("id = ?");
+    bindings.push(scoped.id);
+  } else if (idMatch) {
     conditions.push("id = ?");
     bindings.push(Number(idMatch[1]));
   } else if (q) {

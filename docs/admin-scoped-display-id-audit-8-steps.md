@@ -56,7 +56,7 @@ Dátum: 11. november 2026 · Repozitár: `investradarsk/psipedia-sk`.
 5. **Lokálne vyhľadávanie** – rozpoznanie `id/kód` v najdôležitejších admin zoznamoch bez prepisu SQL kľúčov.
 6. **Notion kontrakt** – číselné pole `Psipedia ID` zachovať; nové *zobrazované ID* vypočítavať samostatne, bez vplyvu na LWW/Notion mapovania.
 7. **Testy** – pokrytie jedinečnosti kódov, presného výberu ID, starých kategórií, zmeny kategórie, odstránení a šetrenia Notion identity.
-8. **Nasadenie/rollout** – bez D1 migrácie; po merge overiť vzorky každého modulu, rozšíriť Notion zobrazované ID a prípadné backfilly, až potom upravovať ďalšie integrácie.
+8. **Nasadenie/rollout** – bez D1 migrácie; Notion computed schéma je pripravená, po merge overiť vzorky všetkých modulov a prípadné backfilly, až potom upravovať ďalšie integrácie.
 
 ## Notion
 

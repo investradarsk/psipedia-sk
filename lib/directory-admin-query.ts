@@ -1,3 +1,4 @@
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
 export const DIRECTORY_ADMIN_PAGE_SIZE = 50;
 export type DirectoryAdminStatus = "all" | "published" | "draft" | "archived";
 export type DirectoryAdminVerification = "all" | "verified" | "unverified";
@@ -175,8 +176,18 @@ export function directoryAdminMembershipQuery(
   if (membership.media === "with-image") clauses.push("coalesce(trim(image_url), '') <> ''");
   if (membership.media === "without-image") clauses.push("coalesce(trim(image_url), '') = ''");
   if (membership.q) {
-    const idMatch = /^#?([1-9]\d*)$/.exec(membership.q.trim());
-    if (idMatch) {
+    const scoped = parseDisplayId(membership.q);
+    const invalidScoped = looksLikeDisplayId(membership.q) && (!scoped || scoped.scope.kind !== "directory");
+    const idMatch = scoped ? null : /^#?([1-9]\d*)$/.exec(membership.q.trim());
+    if (invalidScoped) {
+      clauses.push("1=0");
+    } else if (scoped) {
+      clauses.push("id = ?");
+      args.push(scoped.id);
+      // Every service category shares the same D1 table, but the suffix
+      // identifies one category precisely.
+      if (scoped.scope.category) {clauses.push("category = ?");args.push(scoped.scope.category);}
+    } else if (idMatch) {
       clauses.push("id = ?");
       args.push(Number(idMatch[1]));
     } else {

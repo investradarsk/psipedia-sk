@@ -1,3 +1,4 @@
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
 export type BreedCompletenessIssue =
   | "Chýba obrázok"
   | "Chýba prehľad"
@@ -69,8 +70,10 @@ export function breedCompletenessIssues(input: AdminBreedCompletenessInput): Bre
 }
 
 export function filterAdminBreeds<T extends AdminBreedFilterable>(breeds: T[], filters: AdminBreedFilters) {
-  const idMatch = /^#?([1-9]\d*)$/.exec(filters.query.trim());
-  const needles = idMatch ? [] : normalizeAdminBreedSearch(filters.query).trim().split(/\s+/).filter(Boolean);
+  const scoped = parseDisplayId(filters.query);
+  const invalidScoped = looksLikeDisplayId(filters.query) && (!scoped || scoped.scope.kind !== "breeds");
+  const idMatch = scoped ? null : /^#?([1-9]\d*)$/.exec(filters.query.trim());
+  const needles = (idMatch || scoped || invalidScoped) ? [] : normalizeAdminBreedSearch(filters.query).trim().split(/\s+/).filter(Boolean);
   return breeds.filter((breed) => {
     const haystack = normalizeAdminBreedSearch([
       breed.name,
@@ -81,7 +84,7 @@ export function filterAdminBreeds<T extends AdminBreedFilterable>(breeds: T[], f
       breed.fciSection,
       `FCI ${breed.fciGroup}`,
     ].join(" "));
-    return (!idMatch || breed.id === Number(idMatch[1])) && needles.every((needle) => haystack.includes(needle))
+    return !invalidScoped && (!scoped || breed.id===scoped.id) && (!idMatch || breed.id === Number(idMatch[1])) && needles.every((needle) => haystack.includes(needle))
       && (filters.fciGroup === "all" || breed.fciGroup === Number(filters.fciGroup))
       && (filters.fciSection === "all" || breed.fciSection === filters.fciSection)
       && (filters.origin === "all" || breed.origin === filters.origin)

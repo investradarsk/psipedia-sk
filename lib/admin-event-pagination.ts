@@ -1,3 +1,4 @@
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
 import { defaultEventFilters, normalizeEventSearch, type AdminEventFilters, type AdminEventSummary } from "./admin-events";
 import { eventTypes, slovakRegions } from "./events";
 
@@ -107,9 +108,13 @@ export function buildAdminEventPageSql(input: AdminEventListQuery, today: string
 
   // Each search term must occur somewhere in the same record. instr() makes
   // underscores/percent signs literal (unlike LIKE patterns).
-  const idMatch = /^#?([1-9]\d*)$/.exec(filters.query.trim());
-  const words = idMatch ? [] : normalizeEventSearch(filters.query.slice(0, 160)).trim().split(/\s+/).filter(Boolean).slice(0, 16);
-  if (idMatch) {
+  const scoped = parseDisplayId(filters.query);
+  const invalidScoped = looksLikeDisplayId(filters.query) && (!scoped || scoped.scope.kind !== "events");
+  const idMatch = scoped ? null : /^#?([1-9]\d*)$/.exec(filters.query.trim());
+  const words = (idMatch || scoped || invalidScoped) ? [] : normalizeEventSearch(filters.query.slice(0, 160)).trim().split(/\s+/).filter(Boolean).slice(0, 16);
+  if (invalidScoped) conditions.push("1=0");
+  else if (scoped) {conditions.push("id = ?");values.push(scoped.id);}
+  else if (idMatch) {
     conditions.push("id = ?");
     values.push(Number(idMatch[1]));
   }

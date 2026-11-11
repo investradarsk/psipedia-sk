@@ -1,3 +1,4 @@
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
@@ -336,8 +337,12 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   if (filters.region) { where.push("r.region = ?"); args.push(filters.region); }
   if (filters.locality) { where.push("(r.district LIKE ? OR r.city LIKE ? OR r.location_description LIKE ?)"); const q = `%${filters.locality.trim()}%`; args.push(q, q, q); }
   if (filters.q?.trim()) {
-    const idMatch = /^#?([1-9]\d*)$/.exec(filters.q.trim());
-    if (idMatch) { where.push("r.id = ?"); args.push(Number(idMatch[1])); }
+    const scoped = parseDisplayId(filters.q);
+    const invalidScoped = looksLikeDisplayId(filters.q) && (!scoped || scoped.scope.kind !== "lost-found");
+    const idMatch = scoped ? null : /^#?([1-9]\d*)$/.exec(filters.q.trim());
+    if (invalidScoped) where.push("1=0");
+    else if (scoped) {where.push("r.id = ?");args.push(scoped.id);}
+    else if (idMatch) { where.push("r.id = ?"); args.push(Number(idMatch[1])); }
     else { where.push("r.search_text LIKE ?"); args.push(`%${normalizeSearch(filters.q)}%`); }
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";

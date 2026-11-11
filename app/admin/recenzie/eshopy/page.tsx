@@ -1,4 +1,5 @@
 import Link from "next/link";
+import {formatDisplayId} from "@/lib/admin-display-id";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminEshopNotionSyncButton } from "@/components/admin-eshop-notion-sync-button";
 import { AdminEshopListInline } from "@/components/admin-eshop-list-inline";
@@ -32,7 +33,7 @@ export default async function AdminEshopsPage() {
             <div className={styles.main}>
               <div className={styles.topline}>
                 <span data-status={shop.status}>{shop.status === "published" ? "Publikovaný" : shop.status === "archived" ? "Archivovaný" : "Koncept"}</span>
-                <small>ID {shop.id}</small>
+                <small>ID {formatDisplayId(shop.id,"eshops")}</small>
               </div>
               <AdminEshopListInline shop={shop} />
               <p>{shop.description}</p>
