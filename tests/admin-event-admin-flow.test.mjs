@@ -7,7 +7,9 @@ const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "u
 test("event editor protects unsaved changes against native reload and tab close", () => {
   const editor = source("components/admin-event-editor.tsx");
   const workspace = source("components/admin-editor-workspace.tsx");
-  assert.match(editor, /<EditorUnsavedChangesGuard\s+[\s\S]*?active=\{dirty\}/);
+  assert.doesNotMatch(editor, /<EditorUnsavedChangesGuard/);
+  assert.match(workspace, /useAdminEditorNavigationGuard/);
+  assert.match(workspace, /active=\{dirty && \(mode === "page" \|\| open\)\}/);
   assert.match(editor, /allowNativeExitRef=\{allowNavigationRef\}/);
   assert.match(workspace, /window\.addEventListener\("beforeunload", warn\)/);
   assert.match(editor, /allowNavigationRef\.current = true/);
