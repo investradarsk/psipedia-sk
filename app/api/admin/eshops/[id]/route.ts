@@ -57,7 +57,7 @@ export async function PUT(request: Request, { params }: Props) {
       if (bucket) await bucket.delete(before.logoKey).catch(() => undefined);
     }
 
-    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "eshops", entityId: shop.id });
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "eshops", entityId: shop.id, beforeEshop: before });
     return Response.json({ shop, notionFieldSync });
   } catch (error) {
     return errorResponse(error);
@@ -89,6 +89,8 @@ export async function PATCH(request: Request, { params }: Props) {
     return Response.json({ error: "Neplatné údaje." }, { status: 400 });
   }
   try {
+    const before = await getManagedEshopById(id);
+    if (!before) return Response.json({ error: "E-shop sa nenašiel." }, { status: 404 });
     const shop = await updateManagedEshopInline(id, {
       name: input.name, websiteUrl: input.websiteUrl,
       expectedUpdatedAt: input.expectedUpdatedAt,
@@ -96,7 +98,7 @@ export async function PATCH(request: Request, { params }: Props) {
     // Keep the existing targeted mirror; never bypass Notion authority.
     const notionFieldSync = await syncSavedNotionRecord({
       bindings: env as unknown as TargetedNotionSaveBindings,
-      agenda: "eshops", entityId: shop.id,
+      agenda: "eshops", entityId: shop.id, beforeEshop: before,
     });
     return Response.json({ shop, notionFieldSync }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

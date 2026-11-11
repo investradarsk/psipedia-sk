@@ -103,3 +103,20 @@ test("pagination clamps safely and dedicated URL categories cannot become Help f
   }
   assert.deepEqual(parseHelpAdminFilters(new URLSearchParams("status=bogus&urgent=no&state=bogus&page=-4")),filters());
 });
+
+test("global Help sorting applies before pagination and keeps filters", async () => {
+  const { db, sqlite } = fixture();
+  try {
+    const first = await queryHelpAdmin(db, filters({ sort: "title", direction: "desc" }));
+    const second = await queryHelpAdmin(db, filters({ sort: "title", direction: "desc", page: 2 }));
+    assert.equal(first.items.length, 50);
+    assert.equal(second.items.length, 50);
+    assert.equal(new Set([...first.items, ...second.items].map(item => item.id)).size, 100);
+    const city = await queryHelpAdmin(db, filters({ city: "Nitra", sort: "city", direction: "asc" }));
+    assert.equal(city.items.length, 50);
+    const parsed = parseHelpAdminFilters(new URLSearchParams("sort=title&direction=asc"));
+    assert.equal(parsed.sort, "title");
+    assert.equal(parsed.direction, "asc");
+    assert.equal(parseHelpAdminFilters(new URLSearchParams("sort=evil&direction=evil")).sort, undefined);
+  } finally { sqlite.close(); }
+});

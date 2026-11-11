@@ -16,6 +16,8 @@ export type HelpAdminFilters = {
   organization: string;
   location: string;
   q: string;
+  sort?: "updated" | "title" | "city" | "status";
+  direction?: "asc" | "desc";
   page: number;
 };
 
@@ -56,6 +58,10 @@ export function parseHelpAdminFilters(params: { get(name: string): string | null
     organization: limited(params.get("organization")),
     location: limited(params.get("location")),
     q: limited(params.get("q")),
+    ...(["updated", "title", "city", "status"].includes(params.get("sort") ?? "")
+      ? { sort: params.get("sort") as "updated" | "title" | "city" | "status" } : {}),
+    ...(["asc", "desc"].includes(params.get("direction") ?? "")
+      ? { direction: params.get("direction") as "asc" | "desc" } : {}),
     page: /^\d{1,9}$/.test(rawPage) ? Math.max(1, Number(rawPage)) : 1,
   };
 }
@@ -117,8 +123,16 @@ export async function queryHelpAdmin<T>(database: ReadDatabase, filters: HelpAdm
   // Avoid a duplicate COUNT and run independent reads concurrently.
   const reuseTotalCount = where === ` WHERE ${HELP_ADMIN_DOMAIN_SQL}`;
   const requestedPage = Math.max(1, Math.trunc(filters.page || 1));
+  const sortColumns: Record<string, string> = {
+    updated: "updated_at",
+    title: "title COLLATE NOCASE",
+    city: "city COLLATE NOCASE",
+    status: "status",
+  };
+  const sortColumn = sortColumns[filters.sort ?? "updated"] ?? sortColumns.updated;
+  const sortDirection = filters.direction === "asc" ? "ASC" : "DESC";
   const loadPage = (page: number) => database.prepare(`SELECT id, slug, title, excerpt, category, status, organization, dog_name, city, image_url, verified, urgent, resolved, updated_at
-    FROM help_cases${where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
+    FROM help_cases${where} ORDER BY ${sortColumn} ${sortDirection}, id ${sortDirection} LIMIT ? OFFSET ?`)
     .bind(...args, HELP_ADMIN_PAGE_SIZE, (page - 1) * HELP_ADMIN_PAGE_SIZE).all<T>();
   const [totals, grouped, count, requestedResult] = await Promise.all([
     database.prepare(`SELECT COUNT(*) AS total,

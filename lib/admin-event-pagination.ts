@@ -52,7 +52,8 @@ export function parseAdminEventListQuery(params: URLSearchParams): AdminEventLis
       region: pick("region", ["", ...slovakRegions], ""),
       month: pick("month", ["", ...Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"))], ""),
       year: /^\d{4}$/.test(params.get("year") ?? "") ? params.get("year")! : "",
-      sort: pick("sort", ["date", "updated", "created", "title"], defaultEventFilters.sort),
+      sort: pick("sort", ["date", "updated", "created", "title", "city", "status"], defaultEventFilters.sort),
+      direction: pick("direction", ["asc", "desc"], ["updated", "created"].includes(params.get("sort") ?? "") ? "desc" : "asc") as "asc" | "desc",
     },
   };
 }
@@ -121,9 +122,15 @@ export function buildAdminEventPageSql(input: AdminEventListQuery, today: string
   const where = conditions.length ? conditions.map((value) => "(" + value + ")").join(" AND ") : "1=1";
   let order: string;
   let orderValues: (string | number)[] = [];
-  if (filters.sort === "title") order = foldSql("title") + " ASC, title COLLATE NOCASE ASC, id ASC";
-  else if (filters.sort === "updated") order = "updated_at DESC, id ASC";
-  else if (filters.sort === "created") order = "created_at DESC, id ASC";
+  const direction = filters.direction === "desc" ? "DESC" : "ASC";
+  if (filters.sort === "title") order = foldSql("title") + " " + direction + ", title COLLATE NOCASE " + direction + ", id " + direction;
+  else if (filters.sort === "city") order = foldSql("city") + " " + direction + ", city COLLATE NOCASE " + direction + ", id " + direction;
+  else if (filters.sort === "status") order = "status " + direction + ", id " + direction;
+  else if (filters.sort === "updated") order = "updated_at " + (filters.direction === "asc" ? "ASC" : "DESC") + ", id ASC";
+  else if (filters.sort === "created") order = "created_at " + (filters.direction === "asc" ? "ASC" : "DESC") + ", id ASC";
+  else if (filters.direction === "desc") {
+    order = "start_date DESC, start_time DESC, id DESC";
+  }
   else {
     const rank = "CASE WHEN cancelled = 1 THEN 3 WHEN " + endDateSql + " < ? THEN 2 WHEN start_date > ? THEN 1 ELSE 0 END";
     order = rank + " ASC, " +

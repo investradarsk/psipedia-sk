@@ -143,9 +143,13 @@ export function buildAdoptionAdminListQuery(filters: AdoptionAdminListFilters = 
     ? "updated_at ASC, id ASC"
     : sort === "verified-desc"
       ? "last_verified_at DESC, updated_at DESC, id DESC"
-      : sort === "name-asc"
-        ? "name COLLATE NOCASE ASC, id ASC"
-        : "updated_at DESC, id DESC";
+      : sort === "verified-asc"
+        ? "last_verified_at ASC, updated_at ASC, id ASC"
+        : sort === "name-asc"
+          ? "name COLLATE NOCASE ASC, id ASC"
+          : sort === "name-desc"
+            ? "name COLLATE NOCASE DESC, id DESC"
+            : "updated_at DESC, id DESC";
 
   return {
     where: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "",

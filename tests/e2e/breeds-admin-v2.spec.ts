@@ -76,7 +76,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
       expect(secondPageRows).toBeLessThanOrEqual(50);
     }
     await page.getByPlaceholder("Názov, slug, pôvod, FCI…").fill("burgosky");
-    await expect(page.getByRole("article").filter({ hasText: "Burgoský stavač" })).toBeVisible();
+    await expect(page.locator("[data-admin-breed-row]").filter({ hasText: "Burgoský stavač" })).toBeVisible();
     await expect(rows).toHaveCount(1);
     await expect(pager).toHaveCount(0);
     await expect(page.getByText(/Nájdené: 1 z/)).toBeVisible();
@@ -90,7 +90,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
     const search = page.getByPlaceholder("Názov, slug, pôvod, FCI…");
     await search.fill("burgosky");
-    const burgos = page.getByRole("article").filter({ hasText: "Burgoský stavač" });
+    const burgos = page.locator("[data-admin-breed-row]").filter({ hasText: "Burgoský stavač" });
     await expect(burgos).toBeVisible();
     await expect(burgos.locator("[data-breed-completeness]").first()).toBeVisible();
 
@@ -101,7 +101,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.getByRole("button", { name: "Zrušiť filtre" }).click();
 
     await search.fill("Biely svajciarsky");
-    const row = page.getByRole("article").filter({ hasText: "Biely švajčiarsky ovčiak" });
+    const row = page.locator("[data-admin-breed-row]").filter({ hasText: "Biely švajčiarsky ovčiak" });
     await expect(row).toBeVisible();
     await row.getByRole("checkbox", { name: /Vybrať Biely švajčiarsky ovčiak/ }).check();
     await page.getByRole("button", { name: "Stiahnuť do konceptu" }).click();

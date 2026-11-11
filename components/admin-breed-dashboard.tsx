@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { AdminRecordId } from "./admin-record-id";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
+import { AdminRecordTable } from "./admin-record-table";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
@@ -10,6 +11,8 @@ import {
   defaultAdminBreedFilters,
   filterAdminBreeds,
   paginateAdminBreeds,
+  sortAdminBreedRows,
+  type AdminBreedSort,
   type AdminBreedFilters,
 } from "@/lib/admin-breeds";
 import {
@@ -34,6 +37,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
   const [breeds, setBreeds] = useState(initialBreeds);
   const [filters, setFilters] = useState<AdminBreedFilters>(defaultAdminBreedFilters);
   const [requestedPage, setRequestedPage] = useState(1);
+  const [breedSort, setBreedSort] = useState<AdminBreedSort>({ id: "fci", desc: false });
   const listRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -51,8 +55,10 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
   }, []);
 
   const visible = useMemo(() => filterAdminBreeds(breeds, filters), [breeds, filters]);
+  // Sort all matching breeds before paging. Sorting only a rendered 50-row slice is incorrect.
+  const sortedVisible = useMemo(() => sortAdminBreedRows(visible, breedSort), [visible, breedSort]);
   const counts = useMemo(() => adminBreedCounts(breeds), [breeds]);
-  const pageData = useMemo(() => paginateAdminBreeds(visible, requestedPage), [visible, requestedPage]);
+  const pageData = useMemo(() => paginateAdminBreeds(sortedVisible, requestedPage), [sortedVisible, requestedPage]);
   const fciGroups = useMemo(
     () => [...new Map(breeds.map((breed) => [breed.fciGroup, breed.group])).entries()].sort((a, b) => a[0] - b[0]),
     [breeds],
@@ -109,8 +115,6 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
     }
   }
   const selectedBreeds = breeds.filter((breed) => selected.has(breed.id));
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
-  const someVisibleSelected = visibleIds.some((id) => selected.has(id)) && !allVisibleSelected;
   const bulkTargets = bulkStatus ? selectedBreeds.filter((breed) => breed.status !== bulkStatus) : [];
 
   function changePage(nextPage: number) {
@@ -128,22 +132,6 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
     });
     setSelected(new Set());
     setRequestedPage(1);
-  }
-
-  function toggle(id: number) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleVisible(checked: boolean) {
-    setSelected((current) => {
-      const next = new Set(current);
-      visibleIds.forEach((id) => checked ? next.add(id) : next.delete(id));
-      return next;
-    });
   }
 
   async function removeBreed() {
@@ -221,17 +209,8 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       </div>
 
       <div className={styles.resultBar}>
-        <label className={styles.selectPage}>
-          <input
-            type="checkbox"
-            checked={allVisibleSelected}
-            ref={(node) => { if (node) node.indeterminate = someVisibleSelected; }}
-            disabled={!visible.length || busy}
-            onChange={(event) => toggleVisible(event.currentTarget.checked)}
-          />
-          Vybrať zobrazené ({pageData.items.length})
-        </label>
         <strong role="status">Nájdené: {visible.length} z {breeds.length} · Zobrazené {pageData.from}–{pageData.to}</strong>
+        <span>Výber platí pre záznamy na aktuálnej strane. Označené spolu: {selected.size}</span>
       </div>
 
       {selected.size > 500 && <p role="alert">V jednej dávke vyber najviac 500 plemien.</p>}
@@ -243,40 +222,89 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
         onClear={() => setSelected(new Set())}
       />}
 
+      {!!selected.size && <AdminRecordBulkDelete
+        kind="breeds" selectedIds={[...selected]} disabled={busy}
+        onFinished={ids => {
+          setBreeds(current => current.filter(item => !ids.includes(item.id)));
+          setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
+          setMessage("Požiadavka na odstránenie vybraných plemien bola spracovaná.");
+        }}
+      />}
       {message && <p className="admin-flash" role="status">{message}</p>}
 
-      <div className={styles.list} ref={listRef} aria-busy={busy}>
-        {pageData.items.map((breed) => <article data-admin-breed-row className={styles.row} key={breed.id}>
-          <input aria-label={`Vybrať ${breed.name}`} type="checkbox" checked={selected.has(breed.id)} disabled={busy} onChange={() => toggle(breed.id)}/>
-          <div className={styles.thumb}>{breed.image ? <img src={breed.image} alt="" loading="lazy" decoding="async"/> : <span>Bez<br/>obrázka</span>}</div>
-          <div className={styles.identity}>
-            <div className={styles.statusLine}><span className={`admin-status admin-status--${breed.status}`}>{breed.status === "published" ? "Publikované" : "Koncept"}</span>{breed.fciNumber && <span>FCI {breed.fciNumber}</span>}</div>
-            <h2><Link prefetch={false} href={`/admin/plemena/${breed.id}`}>{breed.name}</Link></h2>
-            <AdminRecordId id={breed.id} compact />
-            <p>/{breed.slug}</p>
-            {activeInline?.id === breed.id
-              ? <AdminInlineCellInput label={"Úvod plemena " + breed.name} value={activeInline.intro}
-                  maxLength={1000} disabled={busy}
-                  onChange={intro => setInlineDraft(current => current ? { ...current, intro } : null)} />
-              : <p className={styles.inlineDesktop}>{breed.intro || "Úvod nie je vyplnený."}</p>}
-          </div>
-          <div className={styles.meta}><strong>FCI {breed.fciGroup} · {breed.fciSection || "Sekcia neuvedená"}</strong><span>{breed.origin || "Pôvod neuvedený"}</span></div>
-          <div className={styles.issueList}>{breed.completenessIssues.length ? breed.completenessIssues.map((issue) => <span className={styles.issue} data-breed-completeness key={issue}>{issue}</span>) : <span className={styles.complete}>Bez detegovaných medzier</span>}</div>
-          <div className={styles.updated}><strong>Upravené</strong><br/>{formatUpdatedAt(breed.updatedAt)}</div>
-          <div className={styles.actions}>
-            {breed.status === "published" && <Link prefetch={false} href={`/plemena/${breed.slug}`} target="_blank">Pozrieť ↗</Link>}
-            <span className={styles.inlineDesktop}><AdminInlineRowActions
-              editing={activeInline?.id === breed.id} busy={busy}
-              disabled={Boolean(activeInline && activeInline.id !== breed.id)}
-              onEdit={() => beginInline(breed)}
-              onSave={() => void saveInline()}
-              onCancel={() => { if (!busy) setInlineDraft(null); }}
-            /></span>
-            <Link prefetch={false} className="admin-row-edit" href={`/admin/plemena/${breed.id}`}>Upraviť</Link>
-            <AdminActionButton variant="destructive" disabled={busy} onClick={() => setDeleteTarget(breed)}>Odstrániť</AdminActionButton>
-          </div>
-        </article>)}
-        {!visible.length && <div className={styles.empty}>Žiadne plemeno nezodpovedá zvoleným filtrom.</div>}
+      <div ref={listRef} aria-busy={busy}>
+        {pageData.items.length > 0 ? <AdminRecordTable
+          rows={pageData.items}
+          label="Plemená"
+          busy={busy}
+          rowDataAttribute="data-admin-breed-row"
+          stretch
+          serverSorting={{
+            id: breedSort.id,
+            desc: breedSort.desc,
+            allowedIds: ["name", "fci", "origin", "status", "updated"],
+            onChange: next => {
+              if (next.id !== "name" && next.id !== "fci" && next.id !== "origin" && next.id !== "status" && next.id !== "updated") return;
+              setBreedSort({ id: next.id, desc: next.desc });
+              setRequestedPage(1);
+            },
+          }}
+          selection={{
+            selectedIds: [...selected].filter(id => visibleIds.includes(id)),
+            onChange: ids => setSelected(current => new Set([
+              ...[...current].filter(id => !visibleIds.includes(id)),
+              ...ids,
+            ])),
+            labelForRow: breed => `Vybrať ${breed.name}`,
+          }}
+          columns={[
+            { id: "photo", label: "Foto", width: 75, cell: breed =>
+              <span className={styles.gridThumb}>{breed.image
+                ? <img src={breed.image} alt="" loading="lazy" decoding="async" />
+                : <span>—</span>}</span> },
+            { id: "name", label: "Plemeno", width: 260, sortValue: breed => breed.name,
+              cell: breed => <div className={styles.gridIdentity}>
+                <strong><Link prefetch={false} href={`/admin/plemena/${breed.id}`}>{breed.name}</Link></strong>
+                <small title={breed.slug}>/{breed.slug}</small>
+              </div> },
+            { id: "fci", label: "FCI", width: 125, sortValue: breed => breed.fciGroup,
+              cell: breed => <span>Sk. {breed.fciGroup}{breed.fciNumber ? ` · č. ${breed.fciNumber}` : ""}</span> },
+            { id: "origin", label: "Pôvod", width: 145, sortValue: breed => breed.origin,
+              cell: breed => breed.origin || "—" },
+            { id: "status", label: "Publikovanie", width: 130, sortValue: breed => breed.status,
+              cell: breed => <span className={`admin-status admin-status--${breed.status}`}>
+                {breed.status === "published" ? "Publikované" : "Koncept"}</span> },
+            { id: "completeness", label: "Úplnosť", width: 180,
+              cell: breed => breed.completenessIssues.length
+                ? <span className={styles.issue} data-breed-completeness
+                    title={breed.completenessIssues.join(", ")}>
+                    {breed.completenessIssues.length} nedostatkov · {breed.completenessIssues[0]}</span>
+                : <span className={styles.complete}>Bez detegovaných medzier</span> },
+            { id: "intro", label: "Úvod", width: 255, cell: breed =>
+              activeInline?.id === breed.id
+                ? <AdminInlineCellInput label={`Úvod plemena ${breed.name}`} value={activeInline.intro}
+                    maxLength={1000} disabled={busy}
+                    onChange={intro => setInlineDraft(current => current ? { ...current, intro } : null)} />
+                : <span className={styles.inlineDesktop} title={breed.intro || ""}>{breed.intro || "Úvod nie je vyplnený."}</span> },
+            { id: "updated", label: "Upravené", width: 155, sortValue: breed => breed.updatedAt,
+              cell: breed => formatUpdatedAt(breed.updatedAt) },
+            { id: "actions", label: "Akcie", width: 255, cell: breed =>
+              <div className={styles.gridActions}>
+                {breed.status === "published" && <Link prefetch={false}
+                  href={`/plemena/${breed.slug}`} target="_blank">Web ↗</Link>}
+                <span className={styles.inlineDesktop}><AdminInlineRowActions
+                  editing={activeInline?.id === breed.id} busy={busy}
+                  disabled={Boolean(activeInline && activeInline.id !== breed.id)}
+                  onEdit={() => beginInline(breed)}
+                  onSave={() => void saveInline()}
+                  onCancel={() => { if (!busy) setInlineDraft(null); }}
+                /></span>
+                <Link prefetch={false} href={`/admin/plemena/${breed.id}`}>Upraviť</Link>
+                <AdminActionButton variant="destructive" disabled={busy}
+                  onClick={() => setDeleteTarget(breed)}>Odstrániť</AdminActionButton>
+              </div> },
+          ]}
+        /> : <div className={styles.empty}>Žiadne plemeno nezodpovedá zvoleným filtrom.</div>}
       </div>
       {pageData.totalPages > 1 && (
         <nav className={styles.pagination} aria-label="Stránkovanie plemien">

@@ -8,6 +8,7 @@ import {
   filterAdminBreeds,
   ADMIN_BREED_PAGE_SIZE,
   paginateAdminBreeds,
+  sortAdminBreedRows,
   normalizeAdminBreedSearch,
   validateBulkBreedStatus,
 } from "../lib/admin-breeds.ts";
@@ -125,14 +126,18 @@ test("pagination clamps after filtering or deleting rows and handles zero, inval
 test("breed admin UI renders only a page and keeps bulk selection scoped to the current page", async () => {
   const {readFileSync} = await import("node:fs");
   const component=readFileSync(new URL("../components/admin-breed-dashboard.tsx",import.meta.url),"utf8");
-  assert.match(component,/paginateAdminBreeds\(visible, requestedPage\)/);
-  assert.match(component,/pageData\.items\.map\(\(breed\) => <article/);
+  assert.match(component,/paginateAdminBreeds\(sortedVisible, requestedPage\)/);
+  assert.match(component,/<AdminRecordTable/);
+  assert.match(component,/rows=\{pageData\.items\}/);
+  assert.match(component,/rowDataAttribute="data-admin-breed-row"/);
   assert.doesNotMatch(component,/\{visible\.map\(\(breed\) => <article/);
   assert.match(component,/const visibleIds = pageData\.items\.map/);
   assert.match(component,/selectedBreeds = breeds\.filter/);
   assert.match(component,/setRequestedPage\(1\)/);
   assert.match(component,/Strana \{pageData\.page\} z \{pageData\.totalPages\}/);
   assert.match(component,/loading="lazy" decoding="async"/);
+  assert.match(component,/serverSorting=\{\{/);
+  assert.match(component,/selection=\{\{/);
 });
 
 test("bulk publication accepts explicit fresh snapshots only", () => {
@@ -229,4 +234,22 @@ test("partial admin edits preserve untouched FCI/SEO/media; explicit clears rema
   assert.equal(cleared.seo.ogImage, "");
   assert.equal(cleared.fciStandard.oci, "");
   assert.equal(cleared.fciStandard.telo, "Pevné");
+});
+
+test("breed grid sorts the entire matching set before pagination, including Slovak accents", () => {
+  const fixture = [
+    { ...complete, id: 12, fciGroup: 2, name: "Žltý", updatedAt: "2026-11-01" },
+    { ...complete, id: 13, fciGroup: 1, name: "Čierny", updatedAt: "2026-11-03" },
+    { ...complete, id: 14, fciGroup: 1, name: "Áron", updatedAt: "2026-11-02" },
+    { ...complete, id: 15, fciGroup: 1, name: "Biely", updatedAt: "2026-11-04" },
+  ];
+  const byGroup = sortAdminBreedRows(fixture, { id: "fci", desc: false });
+  assert.deepEqual(byGroup.map(x => x.id), [14, 15, 13, 12]);
+  const byName = sortAdminBreedRows(fixture, { id: "name", desc: false });
+  assert.deepEqual(byName.map(x => x.name), ["Áron", "Biely", "Čierny", "Žltý"]);
+  assert.deepEqual(sortAdminBreedRows(fixture, { id: "name", desc: true }).map(x => x.name),
+    ["Žltý", "Čierny", "Biely", "Áron"]);
+  const page = paginateAdminBreeds(sortAdminBreedRows(fixture, { id: "name", desc: true }), 2, 2);
+  assert.deepEqual(page.items.map(x => x.id), [15, 14]);
+  assert.equal(fixture[0].name, "Žltý", "sorting must not mutate the original list");
 });
