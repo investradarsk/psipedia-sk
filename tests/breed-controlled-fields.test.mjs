@@ -46,7 +46,7 @@ test("Admin numeric drafts cannot add new prose or a wrong unit", () => {
   assert(!isBreedNumericDraft("23–28 cm","weight"));
 });
 
-test("new Notion changes to FCI numeric leaves are isolated at field-level", () => {
+test("legacy numeric parser remains strict, but ID-matched Notion editorial changes are not range-blocked", () => {
   assert.equal(breedNumericKindForField("fciStandard.vyska_suka_cm"),"height");
   assert.equal(breedNumericKindForField("fciStandard.hmotnost_pes_kg"),"weight");
   assert.equal(breedNumericKindForField("height"),"height");
@@ -55,9 +55,14 @@ test("new Notion changes to FCI numeric leaves are isolated at field-level", () 
   assert(isBreedStructuredMeasurement("height","50–60 cm"));
   assert(isBreedStructuredMeasurement("character","Povaha je energická."));
   const sync=read("lib/notion-breed-workcopy-sync.ts");
-  assert.match(sync,/const rejectedMeasurements = candidates\.filter/);
-  assert.match(sync,/isBreedStructuredMeasurement\(field, plan\.sourceSnapshot\[field\]\)/);
-  assert.match(sync,/safe\.skipped\.length \+ plan\.skipped\.length \+ rejectedMeasurements\.length/);
+  const store=read("lib/breed-store.ts");
+  // Signed edits of an already ID-mapped field are content changes, not a
+  // reason to drop all other cells. The public Admin editor stays strict.
+  assert.match(sync,/const accepted = candidates\.filter\(field => !rejectedMedia\.includes\(field\)\)/);
+  assert.doesNotMatch(sync,/isBreedStructuredMeasurement\(field, plan\.sourceSnapshot\[field\]\)/);
+  assert.match(sync,/planSafeBreedFields\(canonical/);
+  assert.match(store,/clean\(input, existing, true\)/);
+  assert.match(store,/input\.status === "published" && !allowNotionEditorialValues/);
 });
 
 test("Admin uses constrained categories without silently replacing old source text", () => {
