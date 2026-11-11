@@ -25,6 +25,24 @@ test("one signed Intro property changes only Intro, including explicit blank",()
   assert.equal(readChanged(props,["other-id"]).values.length,0);
 });
 
+test("90-column Notion page keeps overview and daily needs independent, including explicit clear",()=>{ 
+  const props={
+    "Prehľad plemena":rich("Prehľad plemena","Prehľad z Notionu","overview-id"),
+    "Každodenné potreby plemena":rich("Každodenné potreby plemena","Denné potreby","needs-id"),
+  };
+  const overview=readChanged(props,["overview-id"]);
+  assert.deepEqual(overview.values.map(x=>[x.field,x.value]),
+    [["editorial.overview","Prehľad z Notionu"]]);
+  const needs=readChanged(props,["needs-id"]);
+  assert.deepEqual(needs.values.map(x=>[x.field,x.value]),
+    [["needs","Denné potreby"]]);
+  props["Prehľad plemena"]=rich("Prehľad plemena","","overview-id");
+  const cleared=readChanged(props,["overview-id"]);
+  assert.deepEqual(cleared.values.map(x=>[x.field,x.value]),
+    [["editorial.overview",""]]);
+  assert.equal(cleared.failures.length,0);
+});
+
 test("FCI number is mutable content, never a second profile identifier",()=>{
   const c=readChanged({"FCI číslo":{id:"fci",type:"number",number:2}},["fci"]);
   assert.deepEqual(c.values.map(x=>[x.field,x.value]),[["fciNumber",2]]);
