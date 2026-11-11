@@ -12,6 +12,7 @@ import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { BreedEditorOptions, BreedSport, ManagedBreed } from "@/lib/breed-store";
+import { breedAdminDirtyPaths } from "@/lib/breed-admin-dirty-patch.mjs";
 import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminFieldFeedback, AdminFormFeedback } from "@/components/admin-form-feedback";
@@ -90,6 +91,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     training:breed?.training??"",health:breed?.health??"",healthRisks:breed?.healthRisks?.join("\n")??"",goodFor:breed?.goodFor.join("\n")??"",
     consider:breed?.consider.join("\n")??"",editorial:breed?.editorial??{},sports:breed?.sports??[],relatedBreedIds:breed?.relatedBreedIds??[],relatedArticleIds:breed?.relatedArticleIds??[],directoryProfileIds:breed?.directoryProfileIds??[],sources:breed?.sources?.length?breed.sources:[{...emptySource}],accent:breed?.accent??"forest",seo:breed?.seo??{},
   });
+  const baseFormRef=useRef(form);
   const [dirty,setDirty]=useState(false);
   const formEditRevisionRef = useRef(0);
   const setForm: typeof setCanonicalForm = (update) => { formEditRevisionRef.current += 1; setDirty(true); setCanonicalForm(update); };
@@ -209,6 +211,10 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       return;
     }
     const submittedRevision = formEditRevisionRef.current;
+    const submittedForm={...form,status};
+    const changedFieldKeys=breedAdminDirtyPaths(baseFormRef.current,submittedForm);
+    if (changedFieldKeys.includes("children") && !changedFieldKeys.includes("family"))
+      changedFieldKeys.push("family");
     const submittedControlledKeys=[...controlledDirtyKeys];
     const submittedControlled=Object.fromEntries(submittedControlledKeys.map(key=>[key,controlled[key]]));
     savePendingRef.current=true;
@@ -216,11 +222,29 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     try{
       const response=await fetch(breed?`/api/admin/breeds/${breed.id}`:"/api/admin/breeds",{
         method:breed?"PUT":"POST",headers:{"content-type":"application/json"},
-        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()&&item.url.trim()),...(breed?{expectedUpdatedAt}:{})})
+        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()&&item.url.trim()),...(breed?{expectedUpdatedAt,changedFieldKeys}:{})})
       });
-      const data=await response.json() as {breed?:ManagedBreed;error?:string;notionEditorialWriteback?:{status:string;code?:string}};
+      const data=await response.json() as {breed?:ManagedBreed;error?:string;rejectedDirtyFields?:string[];notionEditorialWriteback?:{status:string;code?:string}};
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
       setExpectedUpdatedAt(data.breed.updatedAt);
+      const rejectedDirtyFields=data.rejectedDirtyFields??[];
+      if (rejectedDirtyFields.length) {
+        // Never mark an unsuccessful field clean. All successfully saved fields
+        // become the new form baseline without erasing the owner's edits.
+        const revised=structuredClone(submittedForm) as Record<string,unknown>;
+        const previous=baseFormRef.current as unknown as Record<string,unknown>;
+        for (const path of rejectedDirtyFields) {
+          const keys=path.split(".");
+          if (keys.length===1) {
+            revised[path]=previous[path];
+          } else if (keys.length===2) {
+            const [root,key]=keys;
+            revised[root]={...(revised[root] as Record<string,unknown>??{}),
+              [key]:(previous[root] as Record<string,unknown>??{})[key]};
+          }
+        }
+        baseFormRef.current=revised as unknown as typeof form;
+      } else baseFormRef.current=submittedForm;
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
       let controlledSaveFailed=false;
       let controlledHasPending=controlledPendingKeys.length>0;
@@ -254,15 +278,17 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           }
         }
       }
-      if (!controlledSaveFailed) {
+      if (!controlledSaveFailed && !(data.rejectedDirtyFields?.length)) {
         if (formEditRevisionRef.current === submittedRevision) setDirty(false);
       }
       const notionStatus=data.notionEditorialWriteback?.status;
       const notionPending=notionStatus==="pending" ||
         notionStatus==="workcopy-inactive" ||
         notionStatus==="not-linked" || notionStatus==="disabled";
-      setMessage(controlledSaveFailed
-        ? "Pôvodný profil je uložený; zmeny kontrolovaných polí si vyžadujú opakovanie."
+      setMessage(data.rejectedDirtyFields?.length
+        ? "Časť polí sa uložila, tieto polia čakajú na opravu: "+data.rejectedDirtyFields.join(", ")
+        : controlledSaveFailed
+          ? "Pôvodný profil je uložený; zmeny kontrolovaných polí si vyžadujú opakovanie."
         : notionPending || controlledHasPending
           ? "Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený."
           : status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");

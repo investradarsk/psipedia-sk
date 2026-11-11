@@ -31,8 +31,8 @@ test("one unhealthy record cannot lock other profiles; drafts can receive conten
   assert.doesNotMatch(controlled, /BREED_CONTROLLED_COHORT_INACTIVE/);
   assert.match(sync, /await notionPageIsTombstoned\(args.database,link.work_notion_page_id\)/);
   assert.doesNotMatch(sync, /notionPageMustSkipInboundSync/);
-  assert.match(sync, /status: canonical.status/);
-  assert.match(sync, /readReceipt\(link.work_sync_receipt, canonical\)/);
+  assert.match(sync, /Only the signed edited property IDs/);
+  assert.match(sync, /saveBreedNotionField\(/);
 });
 
 test("signed Notion edits use fresh Admin values rather than stale receipt priorities", () => {
@@ -74,9 +74,9 @@ test("Notion physical FCI and media columns are not blocked by editorial allowli
   };
   const changed = workCopyChangedEditorialIds(p,["img","gallery","sports"],BREED_NOTION_SCHEMA);
   assert.deepEqual(changed,["gallery","image","sports"]);
-  assert.match(sync, /const fciEdited = Boolean/);
+  assert.match(sync, /breedWorkcopyEventValues\(page,edited,BREED_NOTION_SCHEMA\)/);
   assert.match(sync, /"FCI číslo":\{number\}/);
-  assert.match(sync, /validMediaJson/);
+  assert.match(read("lib/notion-breed-workcopy-field-values.mjs"), /JSON_ARRAY_FIELDS/);
   assert.doesNotMatch(fields, /"image", "gallery", "relatedBreedIds"/);
 });
 

@@ -58,9 +58,9 @@ test("legacy numeric parser remains strict, but ID-matched Notion editorial chan
   const store=read("lib/breed-store.ts");
   // Signed edits of an already ID-mapped field are content changes, not a
   // reason to drop all other cells. The public Admin editor stays strict.
-  assert.match(sync,/const accepted = candidates\.filter\(field => !rejectedMedia\.includes\(field\)\)/);
+  assert.match(sync,/breedWorkcopyEventValues\(page,edited,BREED_NOTION_SCHEMA\)/);
   assert.doesNotMatch(sync,/isBreedStructuredMeasurement\(field, plan\.sourceSnapshot\[field\]\)/);
-  assert.match(sync,/planSafeBreedFields\(canonical/);
+  assert.match(sync,/saveBreedNotionField\(/);
   assert.match(store,/clean\(input, existing, true\)/);
   assert.match(store,/input\.status === "published" && !allowNotionEditorialValues/);
 });

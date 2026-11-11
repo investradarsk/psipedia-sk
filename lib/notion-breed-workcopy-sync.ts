@@ -8,7 +8,7 @@
  * invalid siblings never lock otherwise valid fields.
  */
 import {
-  getManagedBreed, updateManagedBreed, validateNotionBreedCandidate,
+  getManagedBreed,
   type ManagedBreed,
 } from "@/lib/breed-store";
 import {
@@ -22,14 +22,14 @@ import {
   BREED_NOTION_EDITABLE_FIELDS, type BreedFieldSnapshot,
   type BreedNotionField,
 } from "@/lib/notion-breed-field-delta";
-import { planSafeBreedFields } from "@/lib/notion-breed-safe-patch";
 import { planBreedWorkCopyEditorialDelta } from "@/lib/notion-breed-workcopy-delta";
 import { planBreedWorkCopyFieldWrite } from "@/lib/notion-breed-workcopy-patch-bridge.mjs";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
 import { receiveBreedControlledNotionEdit } from "@/lib/notion-breed-workcopy-controlled";
+import { breedWorkcopyEventValues } from "@/lib/notion-breed-workcopy-field-values.mjs";
+import { saveBreedNotionField } from "@/lib/notion-breed-workcopy-direct-field";
 import {
-  workCopyChangedEditorialIds, workCopyNonblankChangedFields,
   workCopyAdminChangedFields,
 } from "@/lib/notion-breed-workcopy-field-events.mjs";
 
@@ -48,8 +48,6 @@ type ShadowLink = {
   status: string; work_sync_receipt: string | null;
 };
 type WorkReceipt = { notion: BreedFieldSnapshot; admin: BreedFieldSnapshot };
-const actor = "notion-breed-sync@psipedia.sk";
-const maxProfiles = 10;
 const skippedSpecial = new Set<string>([
   // Only virtual aggregates and relationships without real Notion columns.
   "fciStandard", "editorial", "relatedBreedIds",
@@ -147,178 +145,96 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
   bindings: BreedWorkCopyBindings;
   targetPageId?: string;
   changedPropertyIds?: readonly string[];
-  /** Owner-clicked import of a single ACTIVE, verified work-copy breed. */
+  /** Owner-clicked import of only the already-linked work-copy breed. */
   manualImport?: boolean;
 }) {
   if (args.manualImport && (!args.targetPageId || args.changedPropertyIds?.length))
     throw Error("BREED_WORKCOPY_MANUAL_SCOPE_INVALID");
-  const summary = {
-    enabled: notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED),
-    scanned: 0, created: 0, updated: 0, unchanged: 0, failed: 0,
+  const summary={
+    enabled:notionFlagEnabled(args.bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED),
+    scanned:0,notionScanned:0,created:0,updated:0,unchanged:0,failed:0,
   };
   if (!requireWorkCopyOnly(args.bindings)) return summary;
-  // As with breeders, periodic sweeps never replay whole profile values.
-  // Only a signed targeted property event is an inbound editorial change.
-  if (!args.targetPageId || (!args.manualImport && !args.changedPropertyIds?.length)) return summary;
-  // Process the addressed ACTIVE link independently. A problem with another
-  // breed must never block this profile's signed property update.
-  // Same as breeder field events: the verified edited Notion field is authoritative.
-  const authority = {};
-  const result = await args.database.prepare(
+  // Never reconcile 344 records from a stale hash or rewrite an entire profile.
+  // Only the signed edited property IDs, or explicit one-profile import, apply.
+  if (!args.targetPageId || (!args.manualImport && !args.changedPropertyIds?.length))
+    return summary;
+  const result=await args.database.prepare(
     "SELECT * FROM breed_notion_workcopy_links WHERE status='ACTIVE' "+
-    "AND work_notion_page_id=? LIMIT ?",
-  ).bind(args.targetPageId, maxProfiles).all<ShadowLink>();
+    "AND work_notion_page_id=? LIMIT 1",
+  ).bind(args.targetPageId).all<ShadowLink>();
   for (const link of result.results) {
-    // Unpublishing must never block a content update. Only a genuinely deleted
-    // (tombstoned) record is ineligible for resurrection.
-    if(await notionPageIsTombstoned(args.database,link.work_notion_page_id)){
-      summary.unchanged++;
-      continue;
+    if (await notionPageIsTombstoned(args.database,link.work_notion_page_id)) {
+      summary.unchanged++; continue;
     }
     summary.scanned++;
+    summary.notionScanned++;
+    const failedFields:string[]=[];
+    let updated=false;
     try {
-      const canonical = await getManagedBreed(link.breed_id);
-      if (!canonical) throw Error("BREED_WORKCOPY_CANONICAL_MISSING");
-      const receipt = readReceipt(link.work_sync_receipt, canonical);
-      const page = await notionRequest<NotionPage>(args.bindings,
-        "/pages/" + encodeURIComponent(link.work_notion_page_id));
-      assertOwnedPage(page, link, canonical, args.bindings);
-      // The new typed columns have their own independent per-property receipts.
-      // Never route them through the legacy descriptive-text parser.
-      let controlledUpdated = false;
+      const breed=await getManagedBreed(link.breed_id);
+      if (!breed) throw Error("BREED_EVENT_PROFILE_MISSING");
+      const page=await notionRequest<NotionPage>(args.bindings,
+        "/pages/"+encodeURIComponent(link.work_notion_page_id));
+      assertOwnedPage(page,link,breed,args.bindings);
+      const edited=args.manualImport
+        ?Object.keys(page.properties??{}) : [...(args.changedPropertyIds??[])];
       try {
-        const controlled = await receiveBreedControlledNotionEdit({
+        const controlled=await receiveBreedControlledNotionEdit({
           database:args.database,bindings:args.bindings,breedId:link.breed_id,
-          page,changedProperties:args.manualImport
-            ? Object.keys(page.properties ?? {}) : (args.changedPropertyIds ?? []),
+          page,changedProperties:edited,
         });
-        controlledUpdated = controlled.updated;
-        if (controlled.invalidKeys.length)
-          console.warn("breed_controlled_notion_fields_pending",{
-            breedId:link.breed_id,count:controlled.invalidKeys.length,
-          });
+        if (controlled.updated) updated=true;
+        failedFields.push(...controlled.invalidKeys.map(key=>"controlled."+key));
       } catch(error) {
-        // A missing migration or invalid structured value must never prevent
-        // an unrelated ordinary field from synchronizing.
-        console.warn("breed_controlled_sync_pending",{
-          breedId:link.breed_id,code:error instanceof Error?error.message:"UNKNOWN",
+        console.error("breed_workcopy_controlled_field_failed",{
+          breedId:link.breed_id,
+          code:error instanceof Error?error.message:"UNKNOWN",
         });
+        failedFields.push("controlled");
       }
-      const edited = workCopyChangedEditorialIds(
-        page, args.manualImport ? Object.keys(page.properties??{}) : args.changedPropertyIds,
-        BREED_NOTION_SCHEMA,
-      );
-      // FCI number has a physical Notion column but is absent from the
-      // historical editorial registry because it used to be an identity key.
-      // It is now a typed field, and only Psipedia ID identifies the record.
-      const fciProperty = page.properties?.["FCI číslo"];
-      const fciPropId = fciProperty && typeof fciProperty === "object"
-        ? (fciProperty as {id?:unknown}).id : undefined;
-      const changedProperties = new Set(args.changedPropertyIds ?? []);
-      const fciEdited = Boolean(args.manualImport ||
-        changedProperties.has("FCI číslo") ||
-        (typeof fciPropId === "string" && changedProperties.has(fciPropId)));
-      const incomingFci = notionNumberProperty(page, "FCI číslo");
-      let nextFci = canonical.fciNumber;
-      let rejectedFci = false;
-      if (fciEdited && incomingFci !== canonical.fciNumber) {
-        const usable = incomingFci === null ||
-          (Number.isSafeInteger(incomingFci) && incomingFci > 0);
-        const occupied = usable && incomingFci !== null
-          ? await args.database.prepare(
-              "SELECT id FROM managed_breeds WHERE fci_number=? AND id<>? LIMIT 1",
-            ).bind(incomingFci, canonical.id).first<{id:number}>()
-          : null;
-        if (usable && !occupied) nextFci = incomingFci;
-        else rejectedFci = true; // Database structural conflict, not profile identity.
+      const parsed=breedWorkcopyEventValues(page,edited,BREED_NOTION_SCHEMA);
+      failedFields.push(...parsed.failures.map(item=>item.field));
+      for (const field of parsed.values) {
+        try {
+          const saved=await saveBreedNotionField({
+            database:args.database,breedId:link.breed_id,
+            field:field.field,value:field.value,
+          });
+          if (saved.updated) {
+            updated=true;
+            console.info("breed_workcopy_field_applied",{
+              breedId:link.breed_id,field:field.field,
+            });
+          }
+        } catch(error) {
+          failedFields.push(field.field);
+          console.error("breed_workcopy_field_failed",{
+            breedId:link.breed_id,field:field.field,
+            code:error instanceof Error?error.message:"UNKNOWN",
+          });
+        }
       }
-      if (!edited.length && !fciEdited) {
-        if (controlledUpdated) summary.updated++; else summary.unchanged++;
-        continue;
-      }
-      // Manual import is explicitly Notion-authoritative even if the latest
-      // receipt previously acknowledged an unchanged Notion cell.
-      const manualBaseline = args.manualImport ? breedFieldSnapshot(canonical) : null;
-      const plan = planBreedWorkCopyEditorialDelta({
-        page, canonical,
-        previousNotion: manualBaseline ?? receipt.notion,
-        previousAdmin: manualBaseline ?? receipt.admin,
-        authority, eventFieldIds: edited,
-      });
-      if (!plan.ready || !plan.sourceSnapshot)
-        throw Error("BREED_WORKCOPY_PARSE_INVALID");
-      const candidates = workCopyNonblankChangedFields({
-        allowed: edited, changed: plan.changed,
-        values: plan.sourceSnapshot, accepted: plan.accepted,
-      }).filter(field => !skippedSpecial.has(field));
-      // A changed text value is content, not an approval request. The editor's
-      // data type is handled by D1's canonical storage; one malformed field is
-      // isolated in planSafeBreedFields without locking the other cells.
-      const validMediaJson = (property: string) => {
-        const raw = notionRichTextProperty(page, property).trim();
-        if (!raw) return true; // Deliberate clear maps to an empty list.
-        try { return Array.isArray(JSON.parse(raw)); }
-        catch { return false; }
-      };
-      const rejectedMedia = candidates.filter(field =>
-        (field === "gallery" && !validMediaJson("Galéria JSON")) ||
-        (field === "sports" && !validMediaJson("Športy JSON")));
-      const accepted = candidates.filter(field => !rejectedMedia.includes(field));
-      const rejectedMeasurements: string[] = [];
-      const safe = planSafeBreedFields(canonical, {
-        latest: plan.sourceSnapshot,
-        changed: accepted as BreedNotionField[],
-        accepted: accepted as BreedNotionField[],
-        conflicts: [] as BreedNotionField[],
-        patch: plan.patch,
-      }, new Set(), validateNotionBreedCandidate);
-      const candidate = {
-        ...safe.candidate,
-        fciNumber: nextFci,
-        status: canonical.status,
-        imageKey: safe.accepted.includes("image") ? null : canonical.imageKey,
-        relatedBreedIds: canonical.relatedBreedIds,
-        relatedArticleIds: canonical.relatedArticleIds,
-        directoryProfileIds: canonical.directoryProfileIds,
-      };
-      const changed = (accepted.length > 0 &&
-        !same(breedFieldSnapshot(canonical), breedFieldSnapshot(candidate))) ||
-        nextFci !== canonical.fciNumber;
-      const updated = changed
-        ? await updateManagedBreed(canonical.id, candidate, actor,
-          canonical.updatedAt, { preserveUnchangedInvalid: canonical })
-        : canonical;
-      if (!updated) throw Error("BREED_WORKCOPY_D1_UPDATE_FAILED");
-      const latest = breedFieldSnapshot(updated);
-      const next = {
-        notion: { ...receipt.notion },
-        admin: { ...receipt.admin },
-      };
-      for (const field of safe.accepted) {
-        next.notion[field] = plan.sourceSnapshot[field];
-        next.admin[field] = latest[field];
-      }
-      await advanceReceipt(args.database, link, next);
-      if (changed || controlledUpdated) summary.updated++; else summary.unchanged++;
-      // Bad or unsupported fields remain pending; unrelated valid fields still
-      // commit independently without modifying old Notion or publication.
-      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length ||
-          rejectedMedia.length || rejectedFci) {
-        console.warn("breed_workcopy_fields_pending",{
-          id: canonical.id,
-          count: safe.skipped.length + plan.skipped.length +
-            rejectedMeasurements.length + rejectedMedia.length + Number(rejectedFci),
-        });
-        if (args.manualImport) throw Error("BREED_WORKCOPY_MANUAL_PARTIAL_FIELDS");
-      }
-    } catch (error) {
+      // Equivalent to breeders' per-field acknowledgement: failed cells remain
+      // retryable and the successful D1 field writes are NOT rolled back.
+      const first=failedFields[0]??null;
+      await args.database.prepare(
+        "UPDATE breed_notion_workcopy_links SET work_last_error_code=? "+
+        "WHERE breed_id=? AND work_notion_page_id=? AND status='ACTIVE'",
+      ).bind(first?("FIELD:"+first).slice(0,100):null,
+        link.breed_id,link.work_notion_page_id).run();
+      if (failedFields.length) summary.failed++;
+      if (updated) summary.updated++; else summary.unchanged++;
+    } catch(error) {
       summary.failed++;
-      const code = error instanceof Error ? error.message : "BREED_WORKCOPY_UNKNOWN";
-      console.error("breed_workcopy_sync_failed", { breedId: link.breed_id, code });
+      console.error("breed_workcopy_sync_failed",{
+        breedId:link.breed_id,code:error instanceof Error?error.message:"UNKNOWN",
+      });
       await args.database.prepare(
         "UPDATE breed_notion_workcopy_links SET work_last_error_code=? "+
         "WHERE breed_id=? AND status='ACTIVE'",
-      ).bind(code.slice(0, 100), link.breed_id).run().catch(()=>{});
+      ).bind((error instanceof Error?error.message:"UNKNOWN").slice(0,100),
+        link.breed_id).run().catch(()=>{});
     }
   }
   return summary;

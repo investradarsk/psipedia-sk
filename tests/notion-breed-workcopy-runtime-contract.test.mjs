@@ -35,9 +35,9 @@ test("new work-copy adapter uses only the matching ACTIVE Psipedia ID, not whole
   assert.doesNotMatch(sync, /BREED_WORKCOPY_COHORT_NOT_ACTIVE/);
   assert.doesNotMatch(sync, /BREED_WORKCOPY_PER_FIELD_BASELINE_MISSING/);
   assert.match(sync, /BREED_WORKCOPY_ID_MISMATCH/);
-  assert.match(sync, /readReceipt\(link.work_sync_receipt, canonical\)/);
-  assert.match(sync, /planSafeBreedFields\(canonical/);
-  assert.match(sync, /updateManagedBreed\(canonical\.id, candidate, actor/);
+  assert.match(sync, /readReceipt\(link.work_sync_receipt, input.before\)/);
+  assert.match(sync, /breedWorkcopyEventValues\(page,edited,BREED_NOTION_SCHEMA\)/);
+  assert.match(sync, /saveBreedNotionField\(/);
   assert.match(sync, /WHERE breed_id=\? AND work_notion_page_id=\?/);
   assert.match(sync, /BREED_WORKCOPY_RECEIPT_CAS_CHANGED/);
   assert.doesNotMatch(sync, /UPDATE breed_notion_sync/);

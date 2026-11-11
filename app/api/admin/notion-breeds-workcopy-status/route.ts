@@ -19,7 +19,7 @@ type Counts = {
 /** Read-only production D1 proof after the 344-link cutover.
  * Never fetches private field contents, writes to Notion, or mutates D1.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getAdminApiUser();
   if (!user) return unauthorizedAdminResponse();
   const bindings = env as unknown as Bindings;
@@ -47,8 +47,39 @@ export async function GET() {
     const oldSyncEnabled = bindings.NOTION_BREED_SYNC_ENABLED === "true";
     const workCopySyncEnabled = bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "true";
     const activationEnabled = bindings.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED === "true";
+    // Owner-only evidence for one profile: distinguish undelivered webhook
+    // (no inbox row) from a queued/retried event and a D1 field-write failure.
+    // No Notion field contents, secret signatures or tokens are returned.
+    const requested=Number(new URL(request.url).searchParams.get("profileId")??0);
+    let profileDiagnostics: unknown = null;
+    if (Number.isSafeInteger(requested) && requested>0) {
+      const link=await bindings.DB.prepare(
+        "SELECT breed_id,work_notion_page_id,work_last_error_code,work_last_synced_at "+
+        "FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE' LIMIT 1",
+      ).bind(requested).first<{
+        breed_id:number;work_notion_page_id:string;
+        work_last_error_code:string|null;work_last_synced_at:string|null;
+      }>();
+      if (link) {
+        const inbox=await bindings.DB.prepare(
+          "SELECT event_type,status,attempts,received_at,updated_at,outcome,last_error_code "+
+          "FROM notion_webhook_inbox WHERE page_id=? "+
+          "ORDER BY received_at DESC LIMIT 5",
+        ).bind(link.work_notion_page_id).all<{
+          event_type:string;status:string;attempts:number;received_at:number;
+          updated_at:number;outcome:string|null;last_error_code:string|null;
+        }>().catch(()=>({results:[]}));
+        profileDiagnostics={
+          breedId:link.breed_id,workNotionPageId:link.work_notion_page_id,
+          lastFieldError:link.work_last_error_code,
+          lastSyncedAt:link.work_last_synced_at,
+          recentWebhookEvents:inbox.results,
+        };
+      }
+    }
     return Response.json({
       total, active, shadow, verified, receiptPrefixes, activeErrors,
+      ...(profileDiagnostics?{profileDiagnostics}:{}),
       oldSyncEnabled, workCopySyncEnabled, activationEnabled,
       activeCohortReady: total === 344 && active === 344 && shadow === 0 &&
         verified === 0 && receiptPrefixes === 344,

@@ -116,8 +116,8 @@ test("only technical metadata is non-editorial; mapped media and FCI stay editab
   const sync = read("lib/notion-breed-workcopy-sync.ts");
   assert.match(events, /breedWorkcopyPhysicalProperty\(entry.notion\)/);
   assert.match(bridge, /breedWorkcopyPhysicalProperty\(entry.notion\)/);
-  assert.match(sync, /const validMediaJson/);
-  assert.match(sync, /const fciEdited = Boolean/);
-  assert.match(sync, /nextFci !== canonical.fciNumber/);
+  assert.match(read("lib/notion-breed-workcopy-field-values.mjs"), /JSON_ARRAY_FIELDS/);
+  assert.match(sync, /breedWorkcopyEventValues\(page,edited,BREED_NOTION_SCHEMA\)/);
+  assert.match(read("lib/notion-breed-workcopy-field-values.mjs"), /field:"fciNumber"/);
   assert.match(bridge, /fieldId === "gallery" \|\| fieldId === "sports"/);
 });
