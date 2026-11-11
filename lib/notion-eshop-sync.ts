@@ -656,10 +656,19 @@ async function syncMapped(input: {
       try {
         if (path === "name" && !remote.name.trim()) throw new Error("ESHOP_NAME_REQUIRED");
         const desired: EditableSnapshot = { ...before, [path]: remote[path] };
-        await applyNotionToShop({
-          database: input.database, bindings: input.bindings, page, shop: current,
-          desiredOverride: desired,
-        });
+        if (path === "logoUrl") {
+          await applyNotionToShop({
+            database: input.database, bindings: input.bindings, page, shop: current,
+            desiredOverride: desired,
+          });
+        } else {
+          // Other fields must never download/reupload or delete the live logo.
+          await updateManagedEshop(
+            current.id, updateInput(desired, {
+              imageUrl: current.logoUrl, imageKey: current.logoKey,
+            }), SYSTEM_ACTOR, input.database,
+          );
+        }
         const saved = await getManagedEshopById(shop.id, input.database);
         if (!saved || JSON.stringify(profileSnapshot(saved)[path]) !== JSON.stringify(remote[path]))
           throw new Error("ESHOP_FIELD_WRITE_NOT_VERIFIED");
