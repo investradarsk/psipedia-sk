@@ -73,17 +73,21 @@ function requireWorkCopyOnly(bindings: BreedWorkCopyBindings) {
   return true;
 }
 
-function readReceipt(value: string | null): WorkReceipt {
-  if (!value?.startsWith("breed-field-v1:"))
-    throw Error("BREED_WORKCOPY_PER_FIELD_BASELINE_MISSING");
+function readReceipt(value: string | null, canonical: ManagedBreed): WorkReceipt {
+  // Receipts are for deduplication, not a second form of identity. Missing or
+  // historical malformed receipts must not lock an otherwise ID-matched breed.
+  const fallback = () => {
+    const current = breedFieldSnapshot(canonical);
+    return { notion: { ...current }, admin: { ...current } };
+  };
+  if (!value?.startsWith("breed-field-v1:")) return fallback();
   try {
     const encoded = JSON.parse(value.slice("breed-field-v1:".length));
     const notion = parseBreedFieldSnapshot(encoded.notion ?? null);
     const admin = parseBreedFieldSnapshot(encoded.admin ?? null);
-    if (!notion || !admin) throw Error();
-    return { notion, admin };
+    return notion && admin ? { notion, admin } : fallback();
   } catch {
-    throw Error("BREED_WORKCOPY_PER_FIELD_RECEIPT_INVALID");
+    return fallback();
   }
 }
 function encodeReceipt(receipt: WorkReceipt): string {
@@ -130,7 +134,7 @@ async function advanceReceipt(
     "UPDATE breed_notion_workcopy_links SET work_sync_receipt=?, "+
     "work_last_synced_at=?,work_last_error_code=NULL,updated_at=? "+
     "WHERE breed_id=? AND work_notion_page_id=? "+
-    "AND status='ACTIVE' AND work_sync_receipt=?",
+    "AND status='ACTIVE' AND work_sync_receipt IS ?",
   ).bind(next, now, now, link.breed_id, link.work_notion_page_id,
     link.work_sync_receipt).run();
   if (result.meta.changes !== 1)
@@ -174,9 +178,9 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     }
     summary.scanned++;
     try {
-      const receipt = readReceipt(link.work_sync_receipt);
       const canonical = await getManagedBreed(link.breed_id);
       if (!canonical) throw Error("BREED_WORKCOPY_CANONICAL_MISSING");
+      const receipt = readReceipt(link.work_sync_receipt, canonical);
       const page = await notionRequest<NotionPage>(args.bindings,
         "/pages/" + encodeURIComponent(link.work_notion_page_id));
       assertOwnedPage(page, link, canonical, args.bindings);
@@ -305,7 +309,7 @@ export async function writeBackBreedToWorkCopy(input: {
     throw Error("BREED_WORKCOPY_ADMIN_ID_MISMATCH");
   const link = await getActiveLink(input.database, input.breed.id);
   if (!link) return { linked:false, updated:false, reason:"not-linked" as const };
-  const receipt = readReceipt(link.work_sync_receipt);
+  const receipt = readReceipt(link.work_sync_receipt, input.before);
   const actualAdmin = breedFieldSnapshot(input.breed);
   const beforeAdmin = breedFieldSnapshot(input.before);
   const selected = input.forceFieldKeys
@@ -392,12 +396,11 @@ export async function inspectManualBreedWorkCopyProfile(input: {
   if (!requireWorkCopyOnly(input.bindings))
     throw Error("TRANSFER_BREED_WORKCOPY_INACTIVE");
   const link = await getActiveLink(input.database, input.profileId);
-  if (!link || !link.work_sync_receipt ||
-      normalized(link.work_notion_page_id) !== normalized(input.pageId))
+  if (!link || normalized(link.work_notion_page_id) !== normalized(input.pageId))
     throw Error("TRANSFER_BREED_WORKCOPY_LINK_INVALID");
-  readReceipt(link.work_sync_receipt);
   const canonical = await getManagedBreed(input.profileId);
   if (!canonical) throw Error("TRANSFER_BREED_NOT_FOUND");
+  readReceipt(link.work_sync_receipt, canonical);
   const page = await notionRequest<NotionPage>(input.bindings,
     "/pages/" + encodeURIComponent(input.pageId));
   assertOwnedPage(page, link, canonical, input.bindings);
