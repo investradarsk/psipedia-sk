@@ -23,7 +23,7 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 4. [x] **JavaScript a hydration.** Analýza route chunkov, minimalizovať client boundary, presunúť nevyhnutnú interaktivitu do izolovaných komponentov; bez zhoršenia navigácie.
 5. [x] **Úvodná stránka / D1.** Zmerať náklady paralelných čítaní, odstrániť iba preukázané duplicity, overiť obsah, poradie, publikovanie a SEO.
 6. [x] **HTML/RSC/cache.** Preskúmať reálny HIT/MISS, TTFB a invalidáciu; nikdy necacheovať administráciu, partnera, cookies, autentifikované, query alebo RSC požiadavky.
-7. [ ] **Fotografie a médiá.** Kompresia/rozmery, správne `srcSet`, lazy loading pod prvým viewportom, stabilné rozmery pre CLS; bez odstránenia originálov.
+7. [x] **Fotografie a médiá.** Kompresia/rozmery, správne `srcSet`, lazy loading pod prvým viewportom, stabilné rozmery pre CLS; bez odstránenia originálov.
 8. [ ] **Adresár, podujatia, plemená, mapy.** Route-specific profily, zoznamy a filtrovanie, mapové knižnice načítavať až pri potrebe, priebežne kontrolovať UX a funkčnosť.
 9. [ ] **Tretie strany a dlhé úlohy.** Skripty analytiky, súhlasov a reklám, event handlery, INP; rešpektovať consent, reklamnú funkcionalitu a interný traffic.
 10. [ ] **Záverečný tuning a kontrola regresií.** Opakovať Lighthouse mobil/desktop na rovnakých URL, rovnakom prostredí a intervaloch, porovnať skóre, LCP, CLS, TBT, skutočné INP len ak sú dostupné field dáta; testovať desktop/mobil, skontrolovať odkazy a SEO.
@@ -126,3 +126,23 @@ Referenčné postupy: https://react.dev/reference/react/lazy a https://web.dev/a
 **Zachované:** RSC/Flight sa **neukladá** do spoločnej HTML cache. Žiadna zmena Cloudflare nastavení, D1 migrácií, Adminu, Notion ani maximálneho TTL. Invalidácia cez Cache API je lokálna pre daný POP; okamžitá celosvetová invalidácia nie je garantovaná. Build, funkčné smoke testy a reálne HIT/MISS a TTFB zatiaľ neboli potvrdené a patria do kroku 10.
 
 Zdroje: https://developers.cloudflare.com/workers/runtime-apis/cache/ a https://developers.cloudflare.com/workers/reference/how-the-cache-works/
+
+
+## Krok 7 — menej dát pre obrázky, responzívne mriežky, LCP a CLS
+
+**Audit existujúcej infraštruktúry:** Verejné R2 obrázky už používajú URL `/media/...`, povolené šírky `160–1920` cez `?w=`, Cloudflare Images vytvára WebP s kvalitou 76 a originálne súbory v R2 sa vracajú bez zmeny. `responsiveMediaSrcSet` striktne odmieta cudzie, súkromné, nebezpečné a už parametrizované URL. Route `/media` už má samostatnú 300 s lokálnu edge cache. Túto funkcionalitu ani zásady vydávania originálov netreba prerábať.
+
+**Zmeny:**
+1. `components/directory-card.tsx`: namiesto len plného `src` dostane malá karta obrázok vo variantoch 160/320 px a `sizes` 76 px mobil / 88 px desktop. Rozmery 88×76 v atribútoch spolu s pevnou CSS šírkou/výškou rezervujú rámik.
+2. `components/help-card.tsx`: bezpečné R2 varianty 160/320/480/640 px, `sizes` podľa 96/112/180 px slotu.
+3. `components/adoption-card-media.tsx`: varianty 160–960 px a `sizes` pre úzky mobilný riadok a väčšiu desktopovú kartu.
+4. `components/public-profile/public-profile-hero.tsx`: hlavná detailná fotografia používa 320–1280 px varianty + reálny mobil/desktop `sizes`; `loading="eager"` a `fetchPriority="high"` ostali.
+5. `app/plemena/[slug]/page.tsx`: primárna fotografia plemena má explicitné `sizes`, `loading="eager"` a `fetchPriority="high"`; nižšie zobrazená galéria používa `loading="lazy"` a presnejšie `sizes`. Podobné plemená majú zmenšené 180 px hinty. `components/breed-card.tsx` / `components/breed-comparison.tsx` dostali hinty zodpovedajúce kartám.
+6. `app/page.tsx`: fotografia v malom pravom zozname podujatí dostala správny `sizes="76px"` namiesto predvolenej 100vw voľby prehliadača.
+7. `components/public-visual-system/public-photo-gallery.tsx`: `sizes` pri 3-stĺpcovej desktop / 2-stĺpcovej mobilnej galérii rešpektuje skutočné rozmerové obmedzenia CSS a má horný limit 394 px na širokých monitoroch. Breed/editorial majú samostatné hinty, široké redakčné obrázky si uchovávajú väčší slot. Neodkazové fotografie majú intrinsic atribúty 1280×960 (CSS už používal 4:3 aspect ratio a 16:9 override pre široké bloky); odkazy PhotoSwipe a originály zostávajú nezmenené.
+
+**Overenie:** upravený `tests/public-media-responsiveness-1216.test.mjs` a existujúci `tests/public-photo-gallery.test.mjs` sú pridané do `npm run test:homepage-media`. Kontroly pokrývajú zdrojové URL, jednotlivé šírky, lazy vs high-priority hero, media grid, rozmery/CLS a zákaz transformácií pre cudzí/súkromný obsah.
+
+**Limity a akceptácia:** Zdrojové R2 obrázky sa nemenia, neprepisuje sa uložený Notion odkaz a nevzniká nová migrácia. Nenastavujeme agresívne globálne `loading="lazy"` pre above-fold hero a nemeníme kvalitu kompresie bez Lighthouse. Voľba menšieho kandidáta závisí aj od DPR a šírky konkrétneho zariadenia; preto nemožno tvrdiť konkrétne prenesené kB alebo CLS zisk bez porovnateľného prehliadačového merania a validácie skutočného DOM. Následné merania mobil/desktop, kontrola fotografie pri zlyhaní transformácie a vizuálne porovnanie všetkých galérií musia prebehnúť pred merge v kroku 10.
+
+Referencia: https://web.dev/articles/serve-responsive-images a https://web.dev/articles/optimize-cls
