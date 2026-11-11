@@ -2,7 +2,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {DatabaseSync} from "node:sqlite";
 import {readFileSync} from "node:fs";
-import {lifecycleRetryDue,runRecordLifecycleRetrySweep} from "../lib/admin-record-lifecycle-retry.ts";
+import {runInNewContext} from "node:vm";
+import ts from "typescript";
+
+// Use a controlled D1/Notion boundary: the production lifecycle module has
+// Cloudflare-only imports that Node's .mjs test runner cannot resolve directly.
+const raw=readFileSync(new URL("../lib/admin-record-lifecycle-retry.ts",import.meta.url),"utf8");
+const compiled=ts.transpileModule(raw,{compilerOptions:{
+  target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,
+}}).outputText;
+const exports={};
+const allowedKinds=new Set(["directory","events","help","breeds","articles","adoptions","lost-found","organizations"]);
+runInNewContext(compiled,{
+  exports,Date,Math,Number,Promise,Error,console,
+  require:name=>{
+    if(name!=="./admin-record-lifecycle")throw Error("Unexpected dependency: "+name);
+    return {isRecordKind:value=>allowedKinds.has(value),
+      lifecycleSchemaReady:async()=>true,
+      removeRecord:async()=>{throw Error("Unexpected real deletion in test");}};
+  },
+});
+const {lifecycleRetryDue,runRecordLifecycleRetrySweep}=exports;
 
 const latest=new Date("2026-11-11T16:00:00.000Z");
 function fixture(errorCode=null) {
