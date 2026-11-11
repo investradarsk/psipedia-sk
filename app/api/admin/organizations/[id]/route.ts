@@ -45,7 +45,7 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getOrganizationPublicationAdminById(id);
     if (!before) return Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
-    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id, beforeHelpSnapshot });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id });
     const item = await updateOrganizationFromAdmin(id, body.payload, user.email, expectedUpdatedAt);
     if (!item) return Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
 
@@ -96,7 +96,7 @@ export async function PATCH(request: Request, { params }: Props) {
   try {
     const before = await getOrganizationPublicationAdminById(id);
     if (!before) return Response.json({ error: "Útulok už neexistuje." }, { status: 404 });
-    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id, beforeHelpSnapshot });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id });
     // The writer re-reads and uses an atomic updated_at compare-and-set.
     if (before.updatedAt !== expectedUpdatedAt) {
       return Response.json({ error: "Záznam sa medzitým zmenil. Obnov tabuľku." }, { status: 409 });
