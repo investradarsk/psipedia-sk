@@ -2888,6 +2888,13 @@ export async function runNotionDirectorySyncSweep(input: {
           const key = TRAINER_TRUST_NOTION_PROPERTIES[field];
           const raw = page.properties?.[key] as { id?: unknown } | undefined;
           return id === key || id === raw?.id;
+        }) ||
+        // A Notion confirmation may update sync metadata alongside the
+        // relation itself. These fields must never trigger a whole-profile
+        // merge that can overwrite independent Admin edits.
+        ["Sync stav","Sync chyba","Posledný sync","Sync hash"].some(key => {
+          const raw = page.properties?.[key] as { id?: unknown } | undefined;
+          return id === key || id === raw?.id;
         }));
       if (onlyTrustOrServices && (trustFields.length || relationChanged)) {
         let current = await getManagedDirectoryProfileById(mapping.directory_profile_id, input.database);
