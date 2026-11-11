@@ -13,10 +13,10 @@ import {
 } from "@/lib/breed-store";
 import {
   notionRequest, notionFlagEnabled, notionRichTextProperty,
-  notionNumberProperty, type NotionPage, type NotionSyncBindings,
+  type NotionPage, type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
-import { notionPageMustSkipInboundSync } from "@/lib/admin-record-lifecycle";
+import { notionPageIsTombstoned } from "@/lib/admin-record-lifecycle";
 import {
   breedFieldSnapshot, parseBreedFieldSnapshot,
   BREED_NOTION_EDITABLE_FIELDS, type BreedFieldSnapshot,
@@ -102,22 +102,16 @@ function assertOwnedPage(
   bindings: BreedWorkCopyBindings,
 ) {
   const source = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!;
+  // Page/source ownership prevents cross-database writes. The ONLY breed
+  // matching key is the immutable Admin / Psipedia numeric ID. Every other
+  // Notion value (including name, FCI, slug-adjacent text and provenance) is
+  // ordinary editorial data, never a prerequisite for changing a field.
   if (normalized(page.id) !== normalized(link.work_notion_page_id) ||
       !notionPageBelongsToDataSource(page, source) ||
       notionRichTextProperty(page, "Psipedia ID") !== String(breed.id) ||
-      notionNumberProperty(page, "FCI číslo") !== breed.fciNumber ||
-      link.canonical_slug !== breed.slug || link.fci_number !== breed.fciNumber ||
-      normalized(link.work_data_source_id) !== normalized(source) ||
-      normalized(link.original_data_source_id) !==
-        normalized(bindings.NOTION_BREEDS_DATA_SOURCE_ID!)) {
-    throw Error("BREED_WORKCOPY_IDENTITY_OR_SOURCE_CHANGED");
+      link.breed_id !== breed.id) {
+    throw Error("BREED_WORKCOPY_ID_MISMATCH");
   }
-  const provenance = page.properties?.["Zdrojový profil Notion"];
-  const raw = provenance && typeof provenance === "object" ?
-    (provenance as { url?: string }).url ?? "" : "";
-  const urlId = raw.replace(/[-/?#]/g, "").slice(-32).toLowerCase();
-  if (urlId !== normalized(link.original_notion_page_id))
-    throw Error("BREED_WORKCOPY_PROVENANCE_CHANGED");
 }
 
 async function getActiveLink(database: D1Database, breedId: number) {
@@ -174,7 +168,8 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
   // As with breeders, periodic sweeps never replay whole profile values.
   // Only a signed targeted property event is an inbound editorial change.
   if (!args.targetPageId || (!args.manualImport && !args.changedPropertyIds?.length)) return summary;
-  await requireActiveCohort(args.database);
+  // Process the addressed ACTIVE link independently. A problem with another
+  // breed must never block this profile's signed property update.
   // Same as breeder field events: the verified edited Notion field is authoritative.
   const authority = {};
   const result = await args.database.prepare(
@@ -182,9 +177,9 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     "AND work_notion_page_id=? LIMIT ?",
   ).bind(args.targetPageId, maxProfiles).all<ShadowLink>();
   for (const link of result.results) {
-    // An Admin-unpublished breed stays a draft even if a signed work-copy
-    // webhook arrives later. Explicit republishing remains Admin-owned.
-    if(await notionPageMustSkipInboundSync(args.database,link.work_notion_page_id)){
+    // Unpublishing must never block a content update. Only a genuinely deleted
+    // (tombstoned) record is ineligible for resurrection.
+    if(await notionPageIsTombstoned(args.database,link.work_notion_page_id)){
       summary.unchanged++;
       continue;
     }
@@ -240,13 +235,11 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         allowed: edited, changed: plan.changed,
         values: plan.sourceSnapshot, accepted: plan.accepted,
       }).filter(field => !skippedSpecial.has(field));
-      // If Notion AI replaces a numeric measurement with a sentence, ignore
-      // ONLY that edited cell. Keep the previous D1 value and its receipt;
-      // unrelated valid fields from the same event still transfer.
-      const accepted = candidates.filter(field =>
-        isBreedStructuredMeasurement(field, plan.sourceSnapshot[field]));
-      const rejectedMeasurements = candidates.filter(field =>
-        !isBreedStructuredMeasurement(field, plan.sourceSnapshot[field]));
+      // A changed text value is content, not an approval request. The editor's
+      // data type is handled by D1's canonical storage; one malformed field is
+      // isolated in planSafeBreedFields without locking the other cells.
+      const accepted = candidates;
+      const rejectedMeasurements: string[] = [];
       const safe = planSafeBreedFields(canonical, {
         latest: plan.sourceSnapshot,
         changed: accepted as BreedNotionField[],
@@ -319,17 +312,8 @@ export async function writeBackBreedToWorkCopy(input: {
 }) {
   if (!requireWorkCopyOnly(input.bindings))
     return { linked:false, updated:false, reason:"disabled" as const };
-  if (input.before.id !== input.breed.id ||
-      input.before.slug !== input.breed.slug ||
-      input.before.fciNumber !== input.breed.fciNumber)
-    throw Error("BREED_WORKCOPY_ADMIN_IDENTITY_CHANGED");
-  try {
-    await requireActiveCohort(input.database);
-  } catch (error) {
-    if (error instanceof Error && error.message === "BREED_WORKCOPY_COHORT_NOT_ACTIVE")
-      return { linked:false, updated:false, reason:"workcopy-inactive" as const };
-    throw error;
-  }
+  if (input.before.id !== input.breed.id)
+    throw Error("BREED_WORKCOPY_ADMIN_ID_MISMATCH");
   const link = await getActiveLink(input.database, input.breed.id);
   if (!link) return { linked:false, updated:false, reason:"not-linked" as const };
   const receipt = readReceipt(link.work_sync_receipt);
@@ -342,8 +326,7 @@ export async function writeBackBreedToWorkCopy(input: {
         beforeAdmin, actualAdmin, BREED_NOTION_EDITABLE_FIELDS, input.changedFieldKeys,
       );
   const keys = selected.filter((field): field is BreedNotionField =>
-    !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true) &&
-    isBreedStructuredMeasurement(field, actualAdmin[field]));
+    !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true));
   // No record-wide receipt diff: never resend an untouched Admin field.
   if (!keys.length) return {
     linked: true, updated: false, reason: "no-mirrored-field-change" as const,
@@ -361,6 +344,7 @@ export async function writeBackBreedToWorkCopy(input: {
         fieldId: field,
         value: actualAdmin[field],
         baseline: receipt.notion[field],
+        allowCurrentRemote: true,
         expectedPageRevision: page.last_edited_time,
       });
       if (plan.changed) {
@@ -380,6 +364,7 @@ export async function writeBackBreedToWorkCopy(input: {
       const recheck = planBreedWorkCopyFieldWrite({
         schema: BREED_NOTION_SCHEMA, page: confirmed,
         fieldId: field, value: actualAdmin[field], baseline: actualAdmin[field],
+        allowCurrentRemote: true,
         expectedPageRevision: confirmed.last_edited_time,
       });
       if (recheck.changed) throw Error("BREED_WORKCOPY_WRITE_NOT_CONFIRMED");
@@ -417,7 +402,6 @@ export async function inspectManualBreedWorkCopyProfile(input: {
 }): Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}> {
   if (!requireWorkCopyOnly(input.bindings))
     throw Error("TRANSFER_BREED_WORKCOPY_INACTIVE");
-  await requireActiveCohort(input.database);
   const link = await getActiveLink(input.database, input.profileId);
   if (!link || !link.work_sync_receipt ||
       normalized(link.work_notion_page_id) !== normalized(input.pageId))
@@ -442,8 +426,7 @@ export async function inspectManualBreedWorkCopyProfile(input: {
   const excluded = new Set<string>([...skippedSpecial, ...plan.skipped]);
   const notion = plan.sourceSnapshot as Record<string,unknown>;
   for (const field of BREED_NOTION_EDITABLE_FIELDS) {
-    if (!present.has(field) || !isBreedStructuredMeasurement(field, notion[field]))
-      excluded.add(field);
+    if (!present.has(field)) excluded.add(field);
   }
   return {notion,admin,excluded:[...excluded]};
 }
