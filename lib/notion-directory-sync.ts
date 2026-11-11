@@ -2598,7 +2598,7 @@ export async function runNotionDirectorySyncSweep(input: {
   // the entire service catalog; no new cron, schema or parallel writer.
   let relationSchemaReady: Promise<boolean> | undefined;
   let lookupPromise: Promise<CatalogRelationLookup> | null = null;
-  async function syncRelation(pageId: string, profileId: number, notionAdditionsOnly = false) {
+  async function syncRelation(pageId: string, profileId: number, notionExplicitEdit = false) {
     relationSchemaReady ??= input.database.prepare(
       "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'"
     ).first<{ok:number}>().then(Boolean);
@@ -2609,7 +2609,7 @@ export async function runNotionDirectorySyncSweep(input: {
     return syncProfileCatalogRelation({
       db: input.database, bindings: input.bindings, pageId, profileId,
       category: profile.category, directoryDataSourceId: dataSourceId,
-      lookup: await lookupPromise, notionAdditionsOnly,
+      lookup: await lookupPromise, notionExplicitEdit,
     });
   }
 
