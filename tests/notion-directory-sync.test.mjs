@@ -570,6 +570,27 @@ test("Services V3 relation sync runs only when requested for an existing mapped 
     "saving unrelated Directory fields must not requery the entire Notion catalog");
 });
 
+test("signed Services V3 relation updates may remove only baseline-confirmed IDs",async()=>{
+  const relation=await readFile(
+    new URL("../lib/service-catalog-notion-relations.ts",import.meta.url),"utf8");
+  const planner=await readFile(
+    new URL("../lib/service-catalog-notion-relation-plan.ts",import.meta.url),"utf8");
+  const sync=syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  assert.ok(relation.includes("notionExplicitEdit&&previous===null&&local.some("));
+  assert.ok(relation.includes("SERVICES_RELATION_UNVERIFIED_DELETE"));
+  assert.ok(relation.includes("planSignedCatalogRelationSync(local,remote,previous)"));
+  assert.ok(relation.includes("importNotionServiceIds(db,profileId,category,plan.target)"));
+  assert.ok(relation.includes('plan.action==="pull"||plan.action==="merge"'));
+  assert.ok(relation.includes("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_IMPORT"));
+  assert.ok(relation.includes("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_EXPORT"));
+  assert.ok(relation.includes("SERVICES_RELATION_CHANGED_BEFORE_BASELINE"));
+  assert.ok(planner.includes("export function planSignedCatalogRelationSync("));
+  assert.ok(sync.includes("notionExplicitEdit"));
+  assert.ok(sync.includes('relationChanged'));
+  assert.ok(sync.includes('summary.serviceRelationSync === "merged"'));
+  assert.ok(sync.includes("isDirectoryFieldEventCategory("),
+    "independent Notion relation updates must not re-merge unrelated profile fields");
+});
 test("Services V3 relation verifies current Directory owner and preserves conflict protection", async () => {
   const relation = await readFile(
     new URL("../lib/service-catalog-notion-relations.ts", import.meta.url), "utf8");
