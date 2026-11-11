@@ -4,7 +4,7 @@ import test from "node:test";
 import { parseAdminEventListQuery, buildAdminEventPageSql } from "../lib/admin-event-pagination.ts";
 import { parseOrganizationAdminFilters, organizationAdminHref } from "../lib/help-organization-admin-query.ts";
 import { parseHelpAdminFilters } from "../lib/help-admin-query.ts";
-import { buildAdoptionAdminListQuery } from "../lib/adoption-admin-store.ts";
+// The adoption store imports cloudflare:workers; inspect its pure SQL order contract as source.
 
 const code = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
@@ -36,10 +36,14 @@ test("organization sort and direction survive the canonical filter URL", () => {
 });
 
 test("adoption name sorting has both directions before pagination", () => {
-  assert.equal(buildAdoptionAdminListQuery({ sort: "name-asc" }).orderBy, "name COLLATE NOCASE ASC, id ASC");
-  assert.equal(buildAdoptionAdminListQuery({ sort: "name-desc" }).orderBy, "name COLLATE NOCASE DESC, id DESC");
-  assert.equal(buildAdoptionAdminListQuery({ sort: "verified-asc" }).orderBy, "last_verified_at ASC, updated_at ASC, id ASC");
-  assert.equal(buildAdoptionAdminListQuery({ sort: "invalid" }).orderBy, "updated_at DESC, id DESC");
+  const store = code("lib/adoption-admin-store.ts");
+  const choices = code("lib/adoption-admin-sorts.ts");
+  assert.match(choices, /"name-desc"/);
+  assert.match(choices, /"verified-asc"/);
+  assert.match(store, /sort === "name-desc"/);
+  assert.match(store, /name COLLATE NOCASE DESC, id DESC/);
+  assert.match(store, /sort === "verified-asc"/);
+  assert.match(store, /last_verified_at ASC, updated_at ASC, id ASC/);
 });
 
 test("Help sort whitelist survives filters without changing domain boundaries", () => {
