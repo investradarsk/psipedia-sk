@@ -7,14 +7,14 @@ const cases = [
     listPath: "/pomoc-psom/stratene-psy",
     detailPath: "/pomoc-psom/stratene-psy/strateny-e2e-rex-nitra",
     heading: "Stratené psy",
-    detailHeading: "Rex",
+    detailHeading: "Stratený Rex – Nitra",
   },
   {
     type: "FOUND",
     listPath: "/pomoc-psom/najdene-psy",
     detailPath: "/pomoc-psom/najdene-psy/najdeny-e2e-pes-nitra",
     heading: "Nájdené psy",
-    detailHeading: "Pes bez známeho mena",
+    detailHeading: "Nájdený pes – Nitra",
   },
 ] as const;
 
@@ -191,7 +191,7 @@ test("moderation duplicate action refuses to discard unrelated unsaved fields", 
 test("authorized admin detail receives private contact fields from the private table", async ({ page }) => {
   const response = await page.goto("/admin/stratene-najdene/910001", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
-  await expect(page.locator('input[type="email"]')).toHaveValue("lost-e2e@example.invalid");
+  await expect(page.locator('#lf-field-e-mail-iba-admin')).toHaveValue("lost-e2e@example.invalid");
   const inputValues = await page.locator("input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
   expect(inputValues).toContain("+421900000001");
 });
@@ -442,7 +442,7 @@ test("valid public submission stays private until admin approval, then publishes
   // A server-rendered button is visible before its React handler is hydrated.
   // Wait for the real editor readiness contract before clicking a state mutation.
   await expect(page.locator('form[data-hydrated="true"]')).toBeVisible();
-  await expect(page.locator('input[type="email"]')).toHaveValue(email);
+  await expect(page.locator('#lf-field-e-mail-iba-admin')).toHaveValue(email);
   const inputValues = await page.locator("input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
   expect(inputValues).toContain(phone);
 
@@ -459,7 +459,7 @@ test("valid public submission stays private until admin approval, then publishes
   expect(publicHref).toMatch(/^\/pomoc-psom\/najdene-psy\//);
 
   await page.goto(publicHref as string, { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { level: 1, name: unique })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: new RegExp("^Nájdený " + unique + " – ") })).toBeVisible();
   const html = await page.content();
   expect(html).not.toContain(email);
   expect(html).not.toContain(phone);
