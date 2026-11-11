@@ -54,6 +54,7 @@ export function AdminRecordTable<T extends { id: number }>({
   serverSorted = false,
   serverSorting,
   density = "compact",
+  rowDataAttribute,
 }: {
   rows: T[];
   columns: AdminRecordColumn<T>[];
@@ -67,6 +68,8 @@ export function AdminRecordTable<T extends { id: number }>({
   /** Controlled whole-result sorting; parent reloads page 1 with a server ORDER BY. */
   serverSorting?: AdminRecordServerSorting;
   density?: "compact" | "comfortable";
+  /** Optional stable data attribute for module-specific selectors and E2E tests. */
+  rowDataAttribute?: `data-${string}`;
 }) {
   const [clientSorting, setClientSorting] = useState<SortingState>([]);
   const sorting: SortingState = serverSorting
@@ -232,7 +235,8 @@ export function AdminRecordTable<T extends { id: number }>({
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} data-testid="admin-record-row">
+              <tr key={row.id} data-testid="admin-record-row"
+                {...(rowDataAttribute ? { [rowDataAttribute]: "" } : {})}>
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                 ))}
