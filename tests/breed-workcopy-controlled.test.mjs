@@ -18,9 +18,9 @@ const fixture=()=>{
         ? {id:"p-"+field.key,type:"select",select:null}
         : {id:"p-"+field.key,type:"multi_select",multi_select:[]};
   }
-  props["Srsť"]={id:"original-coat",type:"rich_text",rich_text:[
+  props["Opis srsti"]={id:"original-coat",type:"rich_text",rich_text:[
     {plain_text:"Hustá srsť s výraznou podsadou; pes potrebuje pravidelné česanie."}]};
-  props["Hmotnosť"]={id:"original-weight",type:"rich_text",rich_text:[
+  props["Historický opis hmotnosti"]={id:"original-weight",type:"rich_text",rich_text:[
     {plain_text:"Psy približne 26–35 kg; sučky podľa línie."}]};
   return {properties:props};
 };
@@ -50,27 +50,27 @@ test("numeric types permit null and 1/2 test values but still refuse non-numbers
 
 test("Notion reading, exact property-ID targeting, and independent clear round trips",()=>{
   const page=fixture();
-  page.properties["FCI skupina (výber)"].select={name:"8"};
-  page.properties["Krajiny pôvodu (výber)"].multi_select=[{name:"Spojené kráľovstvo"}];
-  page.properties["Hmotnosť od (kg)"].number=25.5;
+  page.properties["FCI skupina"].select={name:"8"};
+  page.properties["Krajiny pôvodu"].multi_select=[{name:"Spojené kráľovstvo"}];
+  page.properties["Hmotnosť od"].number=25.5;
   const found=readBreedControlledNotionPage(page);
   assert.deepEqual(found.errors,[]);
   assert.equal(found.values.fciGroupSelect,"8");
   assert.deepEqual(found.values.originCountries,["Spojené kráľovstvo"]);
   assert.equal(found.values.weightMinKg,25.5);
-  assert.deepEqual(touchedBreedControlledKeys(page,["p-weightMinKg","Srsť"]),["weightMinKg"]);
-  assert.deepEqual(breedControlledNotionPayload("weightMinKg",null),{"Hmotnosť od (kg)":{number:null}});
-  assert.deepEqual(breedControlledNotionPayload("coatTypes",[]),{"Typ srsti (výber)":{multi_select:[]}});
-  assert.deepEqual(breedControlledNotionPayload("fciGroupSelect",null),{"FCI skupina (výber)":{select:null}});
-  assert.equal(page.properties["Hmotnosť"].rich_text[0].plain_text,
+  assert.deepEqual(touchedBreedControlledKeys(page,["p-weightMinKg","Opis srsti"]),["weightMinKg"]);
+  assert.deepEqual(breedControlledNotionPayload("weightMinKg",null),{"Hmotnosť od":{number:null}});
+  assert.deepEqual(breedControlledNotionPayload("coatTypes",[]),{"Typ srsti":{multi_select:[]}});
+  assert.deepEqual(breedControlledNotionPayload("fciGroupSelect",null),{"FCI skupina":{select:null}});
+  assert.equal(page.properties["Historický opis hmotnosti"].rich_text[0].plain_text,
     "Psy približne 26–35 kg; sučky podľa línie.");
-  assert.equal(page.properties["Srsť"].rich_text[0].plain_text.includes("podsadou"),true);
+  assert.equal(page.properties["Opis srsti"].rich_text[0].plain_text.includes("podsadou"),true);
 });
 
 test("invalid controlled cells do not erase valid siblings",()=>{
   const page=fixture();
-  page.properties["Výška od (cm)"].number="šesťdesiat";
-  page.properties["Dĺžka života od (roky)"].number=10;
+  page.properties["Výška od"].number="šesťdesiat";
+  page.properties["Dĺžka života od"].number=10;
   const result=readBreedControlledNotionPage(page,["heightMinCm","lifespanMinYears"]);
   assert.deepEqual(result.errors.map(x=>x.key),["heightMinCm"]);
   assert.equal(result.values.lifespanMinYears,10);
