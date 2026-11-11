@@ -61,6 +61,11 @@ type ReportRow = {
   public_longitude: number | null;
   public_location_precision: string;
   public_contact_note: string;
+  public_phone?: string;
+  public_email?: string;
+  public_website_url?: string;
+  public_facebook_url?: string;
+  public_instagram_url?: string;
   source: string;
   source_url: string | null;
   updated_at: string;
@@ -114,6 +119,11 @@ export type ManagedDogReportInput = {
   contactPhone?: string | null;
   contactEmail?: string | null;
   publicContactNote?: string;
+  publicPhone?: string;
+  publicEmail?: string;
+  publicWebsiteUrl?: string;
+  publicFacebookUrl?: string;
+  publicInstagramUrl?: string;
   source?: string;
   sourceUrl?: string | null;
   expiresAt?: string | null;
@@ -196,6 +206,11 @@ function rowToPublic(row: ReportRow): PublicDogReport {
     publicLongitude: row.public_longitude,
     publicLocationPrecision: oneOf(row.public_location_precision, publicLocationPrecisions, "MUNICIPALITY"),
     publicContactNote: row.public_contact_note,
+    publicPhone: row.public_phone ?? "",
+    publicEmail: row.public_email ?? "",
+    publicWebsiteUrl: row.public_website_url ?? "",
+    publicFacebookUrl: row.public_facebook_url ?? "",
+    publicInstagramUrl: row.public_instagram_url ?? "",
     source: row.source,
     sourceUrl: row.source_url,
     updatedAt: row.updated_at,
@@ -239,7 +254,9 @@ const publicSelect = `
   r.color, r.approximate_age, r.size, r.short_description, r.description, r.distinguishing_marks, r.collar_description,
   r.chipped, r.main_image, r.thumbnail_display_json, r.detail_display_json, r.gallery_json, r.event_date, r.last_seen_date_time,
   r.region, r.district, r.city, r.location_description, r.public_latitude, r.public_longitude,
-  r.public_location_precision, r.public_contact_note, r.source, r.source_url,
+  r.public_location_precision, r.public_contact_note,
+  r.public_phone, r.public_email, r.public_website_url, r.public_facebook_url, r.public_instagram_url,
+  r.source, r.source_url,
   r.updated_at, r.published_at, r.expires_at, r.resolved_at`;
 
 /** Allow public and Admin reads to work before the additive 0162 schema is applied. */
@@ -256,9 +273,31 @@ async function hasShortDescriptionColumn(database: D1Database): Promise<boolean>
   }
 }
 
+const PUBLIC_CONTACT_COLUMNS = [
+  "public_phone", "public_email", "public_website_url", "public_facebook_url", "public_instagram_url",
+] as const;
+
+/** Older production D1 databases remain readable until the manual 0165 migration. */
+async function publicContactColumnNames(database: D1Database): Promise<Set<string>> {
+  try {
+    const result = await database.prepare("PRAGMA table_info(lost_found_dog_reports)").all<{ name: string }>();
+    return new Set((result.results ?? []).map((column) => column.name));
+  } catch { return new Set(); }
+}
+async function hasPublicContactColumns(database: D1Database): Promise<boolean> {
+  const columns = await publicContactColumnNames(database);
+  return PUBLIC_CONTACT_COLUMNS.every((column) => columns.has(column));
+}
 async function selectWithOptionalShortDescription(database: D1Database, sql: string): Promise<string> {
-  if (await hasShortDescriptionColumn(database)) return sql;
-  return sql.replace("r.short_description,", "'' AS short_description,");
+  // One schema probe covers both optional migrations (0162 and 0165).
+  const columns = await publicContactColumnNames(database);
+  let query = columns.has("short_description")
+    ? sql : sql.replace("r.short_description,", "'' AS short_description,");
+  for (const column of PUBLIC_CONTACT_COLUMNS) {
+    if (!columns.has(column))
+      query = query.replace(`r.${column},`, `'' AS ${column},`);
+  }
+  return query;
 }
 
 const adminSelect = `${publicSelect}, r.main_image_key, r.duplicate_of_id, r.duplicate_reason, r.created_at, r.archived_at,
@@ -411,19 +450,28 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
   const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
   const shortDescriptionReady = await hasShortDescriptionColumn(database);
+  const publicContactsReady = await hasPublicContactColumns(database);
+  if (!publicContactsReady && PUBLIC_CONTACT_COLUMNS.some((column) => (
+    column === "public_phone" ? clean.publicPhone :
+    column === "public_email" ? clean.publicEmail :
+    column === "public_website_url" ? clean.publicWebsiteUrl :
+    column === "public_facebook_url" ? clean.publicFacebookUrl : clean.publicInstagramUrl
+  ))) throw new Error("Verejné kontakty možno uložiť až po migrácii 0165.");
   if (!shortDescriptionReady && clean.shortDescription)
     throw new Error("Krátky popis bude možné uložiť po databázovej migrácii 0162.");
 
   const result = await database.prepare(`INSERT INTO lost_found_dog_reports (
     type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,${shortDescriptionReady ? "short_description," : ""}description,distinguishing_marks,collar_description,chipped,
     main_image,main_image_key,thumbnail_display_json,detail_display_json,gallery_json,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,public_location_precision,
-    public_contact_note,source,source_url,search_text,duplicate_of_id,duplicate_reason,created_at,updated_at,published_at,expires_at,resolved_at,archived_at
-  ) VALUES (${Array.from({ length: shortDescriptionReady ? 42 : 41 }, () => "?").join(",")})`).bind(
+    public_contact_note,${publicContactsReady ? "public_phone,public_email,public_website_url,public_facebook_url,public_instagram_url," : ""}source,source_url,search_text,duplicate_of_id,duplicate_reason,created_at,updated_at,published_at,expires_at,resolved_at,archived_at
+  ) VALUES (${Array.from({ length: (shortDescriptionReady ? 42 : 41) + (publicContactsReady ? 5 : 0) }, () => "?").join(",")})`).bind(
     clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, ...(shortDescriptionReady ? [clean.shortDescription] : []), clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey,
     clean.thumbnailImageDisplay ? JSON.stringify(clean.thumbnailImageDisplay) : null,
     clean.detailImageDisplay ? JSON.stringify(clean.detailImageDisplay) : null, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
-    clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, null, "", now, now, null, null, null, null
+    clean.publicContactNote,
+    ...(publicContactsReady ? [clean.publicPhone, clean.publicEmail, clean.publicWebsiteUrl, clean.publicFacebookUrl, clean.publicInstagramUrl] : []),
+    clean.source, clean.sourceUrl, clean.searchText, null, "", now, now, null, null, null, null
   ).run();
   const reportId = Number(result.meta.last_row_id);
 
@@ -550,23 +598,37 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   const requestedStatus = (input.status ?? existing.status) as LostFoundStatus;
   assertLostFoundStatusTransition(existing.status, requestedStatus);
   // Omitted gallery means unchanged; an explicit [] removes all references.
-  const clean = await cleanInput(database, { ...input, gallery: input.gallery === undefined ? existing.gallery : input.gallery, status: requestedStatus });
+  const clean = await cleanInput(database, {
+    ...input, gallery: input.gallery === undefined ? existing.gallery : input.gallery,
+    status: requestedStatus,
+    // An unrelated Notion event must never silently clear Admin-approved public contacts.
+    publicPhone: input.publicPhone ?? existing.publicPhone,
+    publicEmail: input.publicEmail ?? existing.publicEmail,
+    publicWebsiteUrl: input.publicWebsiteUrl ?? existing.publicWebsiteUrl,
+    publicFacebookUrl: input.publicFacebookUrl ?? existing.publicFacebookUrl,
+    publicInstagramUrl: input.publicInstagramUrl ?? existing.publicInstagramUrl,
+  });
   const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
   const shortDescriptionReady = await hasShortDescriptionColumn(database);
   if (!shortDescriptionReady && clean.shortDescription)
     throw new Error("Krátky popis bude možné uložiť po databázovej migrácii 0162.");
+  const publicContactsReady = await hasPublicContactColumns(database);
+  if (!publicContactsReady && [clean.publicPhone,clean.publicEmail,clean.publicWebsiteUrl,clean.publicFacebookUrl,clean.publicInstagramUrl].some(Boolean))
+    throw new Error("Verejné kontakty možno uložiť až po migrácii 0165.");
   const lifecycle = lifecycleFields(clean.status, existing, clean.expiresAt, now);
 
   const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports SET
     type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,${shortDescriptionReady ? "short_description=?," : ""}description=?,distinguishing_marks=?,collar_description=?,chipped=?,
     main_image=?,main_image_key=?,thumbnail_display_json=?,detail_display_json=?,gallery_json=?,event_date=?,last_seen_date_time=?,region=?,district=?,city=?,location_description=?,public_latitude=?,public_longitude=?,public_location_precision=?,
-    public_contact_note=?,source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
+    public_contact_note=?,${publicContactsReady ? "public_phone=?,public_email=?,public_website_url=?,public_facebook_url=?,public_instagram_url=?," : ""}source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
     clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, ...(shortDescriptionReady ? [clean.shortDescription] : []), clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
     clean.mainImage, clean.mainImageKey,
     JSON.stringify(input.thumbnailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.thumbnailImageDisplay ?? null : clean.thumbnailImageDisplay ?? null),
     JSON.stringify(input.detailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.detailImageDisplay ?? null : clean.detailImageDisplay ?? null), JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
-    clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, existing.duplicateOfId, existing.duplicateReason,
+    clean.publicContactNote,
+    ...(publicContactsReady ? [clean.publicPhone, clean.publicEmail, clean.publicWebsiteUrl, clean.publicFacebookUrl, clean.publicInstagramUrl] : []),
+    clean.source, clean.sourceUrl, clean.searchText, existing.duplicateOfId, existing.duplicateReason,
     now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, id
   );
   const privateUpsert = database.prepare(`INSERT INTO lost_found_dog_private_details (
@@ -680,6 +742,17 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
   }
   const contactEmail = cleanNullable(input.contactEmail, 254);
   if (contactEmail && !/^\S+@\S+\.\S+$/.test(contactEmail)) throw new Error("Kontaktný e-mail nemá platný formát.");
+  // Explicit public fields are editorially approved; never derive them from private PII.
+  const publicPhone = cleanText(input.publicPhone, 80);
+  if (publicPhone) {
+    try { normalizePhone(publicPhone); } catch { throw new Error("Verejný telefón nemá platný formát."); }
+  }
+  const publicEmail = cleanText(input.publicEmail, 254);
+  if (publicEmail && !/^\S+@\S+\.\S+$/.test(publicEmail))
+    throw new Error("Verejný e-mail nemá platný formát.");
+  const publicWebsiteUrl = cleanUrlNullable(input.publicWebsiteUrl) ?? "";
+  const publicFacebookUrl = cleanUrlNullable(input.publicFacebookUrl) ?? "";
+  const publicInstagramUrl = cleanUrlNullable(input.publicInstagramUrl) ?? "";
 
   const cleaned = {
     type, status, slug, dogName,
@@ -695,7 +768,9 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
     eventDate, lastSeenDateTime, region, district, city, locationDescription: cleanText(input.locationDescription, 1000),
     publicLatitude, publicLongitude, publicLocationPrecision: oneOf(input.publicLocationPrecision, publicLocationPrecisions, "MUNICIPALITY") as PublicLocationPrecision,
     contactName: cleanNullable(input.contactName, 160), contactPhone, contactEmail,
-    publicContactNote: cleanText(input.publicContactNote, 800), source: cleanText(input.source, 160) || "EDITORIAL", sourceUrl,
+    publicContactNote: cleanText(input.publicContactNote, 800),
+    publicPhone,publicEmail,publicWebsiteUrl,publicFacebookUrl,publicInstagramUrl,
+    source: cleanText(input.source, 160) || "EDITORIAL", sourceUrl,
     expiresAt, internalNote: cleanText(input.internalNote, 4000),
   };
   return { ...cleaned, searchText: normalizeSearch([type, dogName, breed, cleaned.color, cleaned.shortDescription, cleaned.description, cleaned.distinguishingMarks, region, district, city, cleaned.locationDescription, cleaned.source].filter(Boolean).join(" ")) };

@@ -13,16 +13,34 @@ const page=properties=>({id:"40f793fc-1d18-8111-a021-eb3cdc37e0ec",properties});
 const readChanged=(properties,changed)=>breedWorkcopyEventValues(page(properties),changed,BREED_NOTION_SCHEMA);
 
 test("one signed Intro property changes only Intro, including explicit blank",()=>{
-  const props={Intro:rich("Intro","Text x","intro-id"),Historia:rich("Historia","Nezmenené")};
+  const props={"Krátky úvod v hero (2–4 vety)":rich("Krátky úvod v hero (2–4 vety)","Text x","intro-id"),Historia:rich("Historia","Nezmenené")};
   const first=readChanged(props,["intro-id"]);
   assert.deepEqual(first.values.map(x=>x.field),["intro"]);
   assert.equal(first.values[0].value,"Text x");
   assert.deepEqual(first.failures,[]);
-  props.Intro=rich("Intro","","intro-id");
+  props["Krátky úvod v hero (2–4 vety)"]=rich("Krátky úvod v hero (2–4 vety)","","intro-id");
   const clear=readChanged(props,["intro-id"]);
   assert.equal(clear.values.length,1);
   assert.equal(clear.values[0].value,"");
   assert.equal(readChanged(props,["other-id"]).values.length,0);
+});
+
+test("90-column Notion page keeps overview and daily needs independent, including explicit clear",()=>{ 
+  const props={
+    "Prehľad plemena":rich("Prehľad plemena","Prehľad z Notionu","overview-id"),
+    "Každodenné potreby plemena":rich("Každodenné potreby plemena","Denné potreby","needs-id"),
+  };
+  const overview=readChanged(props,["overview-id"]);
+  assert.deepEqual(overview.values.map(x=>[x.field,x.value]),
+    [["editorial.overview","Prehľad z Notionu"]]);
+  const needs=readChanged(props,["needs-id"]);
+  assert.deepEqual(needs.values.map(x=>[x.field,x.value]),
+    [["needs","Denné potreby"]]);
+  props["Prehľad plemena"]=rich("Prehľad plemena","","overview-id");
+  const cleared=readChanged(props,["overview-id"]);
+  assert.deepEqual(cleared.values.map(x=>[x.field,x.value]),
+    [["editorial.overview",""]]);
+  assert.equal(cleared.failures.length,0);
 });
 
 test("FCI number is mutable content, never a second profile identifier",()=>{
@@ -61,9 +79,9 @@ test("FCI, SEO and editorial JSON keys update independently through allowlisted 
 
 test("missing JSON media only fails its own cell",()=>{
   const props={
-    "Galéria JSON":rich("Galéria JSON","not-json","gallery"),
-    Intro:rich("Intro","x","intro"),
-    "Športy JSON":rich("Športy JSON",'[{"key":"swim","label":"Plávanie","rating":2}]',"sport"),
+    "Ďalšie fotografie":rich("Ďalšie fotografie","not-json","gallery"),
+    "Krátky úvod v hero (2–4 vety)":rich("Krátky úvod v hero (2–4 vety)","x","intro"),
+    "Športy a aktivity":rich("Športy a aktivity",'[{"key":"swim","label":"Plávanie","rating":2}]',"sport"),
   };
   const result=readChanged(props,["gallery","intro","sport"]);
   assert(result.failures.some(x=>x.field==="gallery"));

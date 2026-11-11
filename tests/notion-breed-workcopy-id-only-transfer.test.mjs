@@ -67,9 +67,9 @@ test("all six measurement fields allow 1, 2 and clearing in either direction", (
 test("Notion physical FCI and media columns are not blocked by editorial allowlists", () => {
   const p = {
     properties: {
-      "Hlavný obrázok URL": {id:"img",type:"url",url:"https://psipedia.sk/media/old.png"},
-      "Galéria JSON": {id:"gallery",type:"rich_text",rich_text:[]},
-      "Športy JSON": {id:"sports",type:"rich_text",rich_text:[]},
+      "Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)": {id:"img",type:"url",url:"https://psipedia.sk/media/old.png"},
+      "Ďalšie fotografie": {id:"gallery",type:"rich_text",rich_text:[]},
+      "Športy a aktivity": {id:"sports",type:"rich_text",rich_text:[]},
     },
   };
   const changed = workCopyChangedEditorialIds(p,["img","gallery","sports"],BREED_NOTION_SCHEMA);
@@ -82,14 +82,14 @@ test("Notion physical FCI and media columns are not blocked by editorial allowli
 
 test("Admin PATCH may replace stale Notion text but does not bypass revision checking", () => {
   const page={last_edited_time:"2026-11-11T12:00:00.000Z",
-    properties:{Intro:{type:"rich_text",rich_text:[{plain_text:"Old"}]}}};
+    properties:{"Krátky úvod v hero (2–4 vety)":{type:"rich_text",rich_text:[{plain_text:"Old"}]}}};
   const plan=planBreedWorkCopyFieldWrite({
     schema:BREED_NOTION_SCHEMA,page,fieldId:"intro",
     value:"New",baseline:"outdated",allowCurrentRemote:true,
     expectedPageRevision:page.last_edited_time,
   });
   assert.equal(plan.changed,true);
-  assert.equal(plan.properties.Intro.rich_text[0].text.content,"New");
+  assert.equal(plan.properties["Krátky úvod v hero (2–4 vety)"].rich_text[0].text.content,"New");
   assert.throws(()=>planBreedWorkCopyFieldWrite({
     schema:BREED_NOTION_SCHEMA,page,fieldId:"intro",
     value:"New",baseline:"outdated",allowCurrentRemote:true,

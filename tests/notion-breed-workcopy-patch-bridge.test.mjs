@@ -1,148 +1,98 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BREED_NOTION_SCHEMA } from "../lib/notion-breed-property-registry.ts";
-import { planBreedWorkCopyFieldWrite as plan } from "../lib/notion-breed-workcopy-patch-bridge.mjs";
+import {BREED_NOTION_SCHEMA} from "../lib/notion-breed-property-registry.ts";
+import {planBreedWorkCopyFieldWrite as plan} from "../lib/notion-breed-workcopy-patch-bridge.mjs";
 
-const text = value => ({ type: "rich_text", rich_text: [{ plain_text: value }] });
-const page = () => ({
-  last_edited_time: "2026-11-06T12:00:00.000Z",
-  properties: {
-    "FCI lebka": text("Pôvodná hlava. — Oči podľa FCI: Hnedé. — Uši podľa FCI: Vzpriamené."),
-    "Redakcia prehľad": text("Krátky text. — Každodenné potreby: Denný pohyb."),
-    "Intro": text("Starý intro."),
-    "Deti": { type: "number", number: 3 },
-    "Editorial complete": { type: "checkbox", checkbox: true },
-    "Názov": { type:"title", title: [{ plain_text:"Labradorský retriever" }] },
-    "FCI číslo": { type: "number", number: 122 },
-    "Hlavný obrázok URL": { type: "url", url: "https://psipedia.sk/test" },
+const rich=value=>({type:"rich_text",rich_text:value?[{plain_text:value}]:[]});
+const page=()=>({
+  last_edited_time:"2026-11-11T20:00:00.000Z",
+  properties:{
+    "Názov plemena":{type:"title",title:[{plain_text:"Zlatý retriever"}]},
+    "Krátky úvod v hero (2–4 vety)":rich("Úvod."),
+    "Prehľad plemena":rich("Prehľad."),
+    "Každodenné potreby plemena":rich("Pohyb."),
+    "FCI lebka":rich("Lebka."),
+    "FCI oči":rich("Hnedé oči."),
+    "FCI uši":rich("Uši."),
+    "Vzťah k deťom":{type:"number",number:3},
+    "Editorial complete – redakčne overený profil":{type:"checkbox",checkbox:true},
+    "Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)":{type:"url",url:"https://psipedia.sk/media/a.jpg"},
+    "Ďalšie fotografie":rich("[]"),
+    "Športy a aktivity":rich("[]"),
+    "Typické zdravotné riziká — jedna položka na riadok":rich("Alergie; Oči"),
+    "Pre koho sa hodí — jedna položka na riadok":rich("Rodiny; Aktívni"),
+    "Na čo si dať pozor — jedna položka na riadok":rich("Pohyb"),
+    "Zdroje":rich("FCI|https://fci.be/"),
+    "FCI číslo":{type:"number",number:111},
+    "Psipedia ID":rich("2"),
   },
 });
-const patch = (fieldId, value, baseline, p = page(), rev = p.last_edited_time) =>
-  plan({ schema: BREED_NOTION_SCHEMA, page: p, fieldId, value, baseline, expectedPageRevision: rev });
+const patch=(fieldId,value,baseline,p=page(),revision=p.last_edited_time)=>
+  plan({schema:BREED_NOTION_SCHEMA,page:p,fieldId,value,baseline,expectedPageRevision:revision});
 
-test("Admin FCI eyes -> new Notion FCI lebka single property with other sections untouched", () => {
-  const p = patch("fciStandard.oci", "Modré oči.", "Hnedé.");
-  assert.equal(p.property, "FCI lebka");
-  assert.deepEqual(Object.keys(p.properties), ["FCI lebka"]);
-  assert.equal(p.nextText,
-    "Pôvodná hlava. — Oči podľa FCI: Modré oči. — Uši podľa FCI: Vzpriamené.");
+test("Prehľad and Každodenné potreby stay separate on Admin -> Notion",()=>{
+  const overview=patch("editorial.overview","Nový prehľad.","Prehľad.");
+  const needs=patch("needs","Viac pohybu.","Pohyb.");
+  assert.deepEqual(Object.keys(overview.properties),["Prehľad plemena"]);
+  assert.deepEqual(Object.keys(needs.properties),["Každodenné potreby plemena"]);
+  assert.equal(overview.properties["Prehľad plemena"].rich_text[0].text.content,"Nový prehľad.");
+  assert.equal(needs.properties["Každodenné potreby plemena"].rich_text[0].text.content,"Viac pohybu.");
+  assert.equal(patch("editorial.overview","","Prehľad.").properties["Prehľad plemena"].rich_text.length,0);
 });
-test("base FCI head can be edited independently of eye and ear sections", () => {
-  const p = patch("fciStandard.hlava_lebecna_cast", "Opravená hlava.", "Pôvodná hlava.");
-  assert.equal(p.nextText,
-    "Opravená hlava. — Oči podľa FCI: Hnedé. — Uši podľa FCI: Vzpriamené.");
+
+test("FCI eyes edits never touch skull, ears or other physical columns",()=>{
+  const eyes=patch("fciStandard.oci","Modré oči.","Hnedé oči.");
+  assert.equal(eyes.property,"FCI oči");
+  assert.deepEqual(Object.keys(eyes.properties),["FCI oči"]);
+  assert.equal(eyes.properties["FCI oči"].rich_text[0].text.content,"Modré oči.");
+  const skull=patch("fciStandard.hlava_lebecna_cast","Nová lebka.","Lebka.");
+  assert.deepEqual(Object.keys(skull.properties),["FCI lebka"]);
 });
-test("merged redakčné potreby go to one visible target preserving overview", () => {
-  const p = patch("needs", "Viac pohybu.", "Denný pohyb.");
-  assert.equal(p.property, "Redakcia prehľad");
-  assert.equal(p.nextText, "Krátky text. — Každodenné potreby: Viac pohybu.");
+
+test("text, numerical score, title and checkbox update their distinct Notion cells",()=>{
+  assert.deepEqual(Object.keys(patch("intro","Nový úvod","Úvod.").properties),["Krátky úvod v hero (2–4 vety)"]);
+  assert.deepEqual(patch("children",4,3).properties,{"Vzťah k deťom":{number:4}});
+  assert.deepEqual(patch("editorialComplete",false,true).properties,
+    {"Editorial complete – redakčne overený profil":{checkbox:false}});
+  assert.deepEqual(Object.keys(patch("name","Zlatý retríver","Zlatý retriever").properties),["Názov plemena"]);
 });
-test("direct 60-field text, score and checkbox use only their own Notion property", () => {
-  const intro = patch("intro", "Nový úvod", "Starý intro.");
-  assert.deepEqual(Object.keys(intro.properties), ["Intro"]);
-  const score = patch("children", 4, 3);
-  assert.deepEqual(score.properties, { "Deti": { number: 4 } });
-  const checked = patch("editorialComplete", false, true);
-  assert.deepEqual(checked.properties, { "Editorial complete": { checkbox: false } });
+
+test("only the edited cell wins, but a stale revision or actual same-cell conflict refuses write",()=>{
+  const p=page();p.properties["Prehľad plemena"]=rich("Zmenené inde");
+  assert.throws(()=>patch("editorial.overview","Nový","Prehľad.",p),/BREED_WORKCOPY_FIELD_CHANGED_IN_NOTION/);
+  assert.throws(()=>patch("needs","Nové","Pohyb.",page(),"old-revision"),/BREED_WORKCOPY_PAGE_REVISION_CHANGED/);
+  const force=plan({schema:BREED_NOTION_SCHEMA,page:p,fieldId:"editorial.overview",
+    value:"Potvrdená úprava",baseline:"Pôvodný receipt",allowCurrentRemote:true,
+    expectedPageRevision:p.last_edited_time});
+  assert.equal(force.properties["Prehľad plemena"].rich_text[0].text.content,"Potvrdená úprava");
 });
-test("old revision or independently changed Notion field prevents overwrite", () => {
-  const p = page();
-  p.properties.Intro = text("Zmenené v Notione.");
-  assert.throws(() => patch("intro", "Nový text", "Starý intro.", p),
-    /BREED_WORKCOPY_FIELD_CHANGED_IN_NOTION/);
-  assert.throws(() => patch("children", 5, 3, page(), "2026-11-05T00:00:00.000Z"),
-    /BREED_WORKCOPY_PAGE_REVISION_CHANGED/);
-});
-test("Psipedia identity is not patchable; valid images and JSON media are editable", () => {
-  assert.throws(() => patch("system.FCI číslo", 123, 122),
-    /BREED_WORKCOPY_FIELD_OR_BASELINE_UNKNOWN/);
-  const image=patch("image", "/media/b.jpg", "https://psipedia.sk/test");
-  assert.deepEqual(image.properties, {
-    "Hlavný obrázok URL": {url:"https://psipedia.sk/media/b.jpg"},
+
+test("media, gallery, sports, sources and lists serialize to their exact columns",()=>{
+  const image=patch("image","/media/b.jpg","https://psipedia.sk/media/a.jpg");
+  assert.deepEqual(image.properties,{
+    "Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)":{url:"https://psipedia.sk/media/b.jpg"},
   });
-  const p=page();
-  p.properties["Galéria JSON"]=text("[]");
-  p.properties["Športy JSON"]=text("[]");
-  const gallery=patch("gallery",[{imageUrl:"/media/b.jpg"}],[],p);
-  const sports=patch("sports",[{key:"plavanie",label:"Plávanie",rating:2}],[],p);
-  assert.deepEqual(JSON.parse(gallery.properties["Galéria JSON"].rich_text[0].text.content),
+  const gallery=patch("gallery",[{imageUrl:"/media/b.jpg"}],[]);
+  assert.deepEqual(JSON.parse(gallery.properties["Ďalšie fotografie"].rich_text[0].text.content),
     [{imageUrl:"/media/b.jpg"}]);
-  assert.deepEqual(JSON.parse(sports.properties["Športy JSON"].rich_text[0].text.content),
-    [{key:"plavanie",label:"Plávanie",rating:2}]);
+  const sports=patch("sports",[{key:"agility",rating:2}],[]);
+  assert.equal(JSON.parse(sports.properties["Športy a aktivity"].rich_text[0].text.content)[0].key,"agility");
+  assert.equal(patch("sources",[{label:"FCI",url:"https://fci.be/"}],
+    [{label:"FCI",url:"https://fci.be/"}]).changed,false);
+  assert.equal(patch("healthRisks",["Alergie","Oči","Kĺby"],["Alergie","Oči"])
+    .properties["Typické zdravotné riziká — jedna položka na riadok"].rich_text[0].text.content,
+    "Alergie; Oči; Kĺby");
+  assert.equal(patch("goodFor",["Rodiny","Aktívni","Športovci"],["Rodiny","Aktívni"])
+    .property,"Pre koho sa hodí — jedna položka na riadok");
 });
 
-test("Admin's newer direct and merged field edits overwrite old per-field receipts", () => {
-  const p=page();
-  p.properties.Intro=text("Novší Notion text");
-  const direct=plan({
-    schema:BREED_NOTION_SCHEMA,page:p,fieldId:"intro",value:"Editor má teraz prednosť",
-    baseline:"Neaktuálny receipt",allowCurrentRemote:true,
-    expectedPageRevision:p.last_edited_time,
-  });
-  assert.equal(direct.properties.Intro.rich_text[0].text.content,
-    "Editor má teraz prednosť");
-  p.properties["FCI lebka"]=text(
-    "Hlava. — Oči podľa FCI: Iné oči. — Uši podľa FCI: Vzpriamené.");
-  const merged=plan({
-    schema:BREED_NOTION_SCHEMA,page:p,fieldId:"fciStandard.oci",value:"Opravené oči",
-    baseline:"Staré oči",allowCurrentRemote:true,
-    expectedPageRevision:p.last_edited_time,
-  });
-  assert(merged.nextText.includes("— Oči podľa FCI: Opravené oči"));
-  assert(merged.nextText.includes("— Uši podľa FCI: Vzpriamené."));
-});
-test("invalid number and missing visible property fail closed", () => {
-  assert.throws(() => patch("children", NaN, 3), /BREED_WORKCOPY_NUMBER_INVALID/);
-  assert.throws(() => patch("children", "4", 3), /BREED_WORKCOPY_NUMBER_INVALID/);
-  assert.throws(() => patch("health", "Zdravie", ""), /BREED_WORKCOPY_TARGET_MISSING/);
-});
-
-
-test("visible health-risks and good-for arrays serialize as independent Notion text cells", () => {
-  const p = page();
-  p.properties["Zdravotné riziká"] = text("Alergie; Dysplázia");
-  p.properties["Vhodné pre"] = text("Rodiny; Aktívni ľudia");
-  const risks = patch("healthRisks", ["Alergie","Dysplázia","Oči"],
-    ["Alergie","Dysplázia"],p);
-  assert.equal(risks.properties["Zdravotné riziká"].rich_text[0].text.content,
-    "Alergie; Dysplázia; Oči");
-  const good = patch("goodFor", ["Rodiny","Aktívni ľudia","Športovci"],
-    ["Rodiny","Aktívni ľudia"],p);
-  assert.equal(good.property,"Vhodné pre");
-  assert.deepEqual(Object.keys(good.properties),["Vhodné pre"]);
-});
-
-test("structured sources preserve each existing label and URL", () => {
-  const p = page();
-  p.properties["Zdroje"] = text("FCI|https://fci.be/; Klub|https://example.org/");
-  const sources=patch("sources", [
-    {label:"FCI",url:"https://fci.be/"},
-    {label:"Klub",url:"https://example.org/"},
-    {label:"Štandard",url:"https://example.com/standard"},
-  ],[
-    {label:"FCI",url:"https://fci.be/"},
-    {label:"Klub",url:"https://example.org/"},
-  ],p);
-  assert.equal(sources.properties.Zdroje.rich_text[0].text.content,
-    "FCI|https://fci.be/; Klub|https://example.org/; Štandard|https://example.com/standard");
-});
-
-test("invalid structured data and stale list baselines block without a PATCH", () => {
-  const p=page();
-  p.properties["Zvážiť"]=text("Výcvik; Pohyb");
-  assert.throws(()=>patch("consider",["Zneužitie; neplatné"],["Výcvik","Pohyb"],p),
-    /BREED_WORKCOPY_LIST_INVALID/);
-  assert.throws(()=>patch("consider",["Bývanie"],["Staré hodnoty"],p),
-    /BREED_WORKCOPY_FIELD_CHANGED_IN_NOTION/);
-});
-
-test("breed display name is one independent Notion title cell; slug and ID are unchanged", () => {
-  const p=page();
-  const update=patch("name","Labradorský retríver","Labradorský retriever",p);
-  assert.equal(update.property,"Názov");
-  assert.deepEqual(Object.keys(update.properties),["Názov"]);
-  assert.equal(update.properties["Názov"].title[0].text.content,"Labradorský retríver");
-  p.properties["Názov"] = {type:"title",title:[{plain_text:"Premenované inde"}]};
-  assert.throws(()=>patch("name","Nové meno","Labradorský retriever",p),
-    /BREED_WORKCOPY_FIELD_CHANGED_IN_NOTION/);
+test("technical ID and historical/controlled aliases are not live editable prose",()=>{
+  for(const fieldId of ["fciGroup","fciSection","height","weight","size","origin"]){
+    assert.throws(()=>patch(fieldId,"x",""),/BREED_WORKCOPY_FIELD_NOT_EDITABLE/);
+  }
+  assert.throws(()=>patch("system.Psipedia ID","3","2"),/BREED_WORKCOPY_FIELD_OR_BASELINE_UNKNOWN/);
+  assert.throws(()=>patch("children","4",3),/BREED_WORKCOPY_NUMBER_INVALID/);
+  const invalid=page();invalid.properties["Vzťah k deťom"]=rich("text");
+  assert.throws(()=>patch("children",4,3,invalid),/BREED_WORKCOPY_PROPERTY_TYPE_MISMATCH/);
+  assert.throws(()=>patch("consider",["Neplatné; pole"],["Pohyb"]),/BREED_WORKCOPY_LIST_INVALID/);
 });

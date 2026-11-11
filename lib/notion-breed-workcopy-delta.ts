@@ -1,5 +1,5 @@
 /**
- * Work-copy editorial delta: interpret the 60 + 2 Notion breed database using
+ * Work-copy editorial delta: interpret the 90-field Notion breed database using
  * the EXISTING Psipedia per-field conflict-resolution engine.
  *
  * This function is read-only. It does NOT persist to D1, write to Notion, touch
@@ -7,7 +7,6 @@
  * A caller must prove old sync is disabled before applying any future plan.
  */
 import { materializeBreedWorkCopyForRead } from "@/lib/notion-breed-workcopy-compatible-page.mjs";
-import { BREED_COMPACT_MERGE } from "@/lib/breed-notion-compact-consolidation.mjs";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { notionPageToManagedBreedInput } from "@/lib/notion-breed-sync";
 import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
@@ -36,16 +35,11 @@ export function planBreedWorkCopyEditorialDelta(input: {
   if (!input.page?.id || !input.canonical?.id || !input.previousNotion || !input.previousAdmin)
     throw Error("BREED_WORKCOPY_DELTA_MISSING_BASELINE");
 
-  const targets = input.eventFieldIds
-    ? new Set(BREED_NOTION_SCHEMA.filter(spec =>
-      input.eventFieldIds!.includes(spec.id) && spec.mode === "content")
-      .map(spec => BREED_COMPACT_MERGE[spec.notion] ?? spec.notion))
-    : null;
   const projection = materializeBreedWorkCopyForRead(input.page, {
     id: input.canonical.id,
     slug: input.canonical.slug,
     fciNumber: input.canonical.fciNumber,
-  }, targets ? { onlyTargets: targets, allowPartial: true } : undefined);
+  });
   if (!projection.valid || !projection.page)
     return {
       ready: false as const,
@@ -66,7 +60,7 @@ export function planBreedWorkCopyEditorialDelta(input: {
   const invalidFieldIds = new Set(BREED_NOTION_SCHEMA
     .filter(spec => spec.mode === "content" && (
       invalidSources.has(spec.notion) ||
-      invalidTargets.has(BREED_COMPACT_MERGE[spec.notion] ?? spec.notion)))
+      invalidTargets.has(spec.notion)))
     .map(spec => spec.id));
   const managed = notionPageToManagedBreedInput(projection.page);
   const present = breedNotionPresentFieldIds(projection.page);
