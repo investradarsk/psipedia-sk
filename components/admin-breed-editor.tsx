@@ -224,10 +224,27 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         method:breed?"PUT":"POST",headers:{"content-type":"application/json"},
         body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()&&item.url.trim()),...(breed?{expectedUpdatedAt,changedFieldKeys}:{})})
       });
-      const data=await response.json() as {breed?:ManagedBreed;error?:string;notionEditorialWriteback?:{status:string;code?:string}};
+      const data=await response.json() as {breed?:ManagedBreed;error?:string;rejectedDirtyFields?:string[];notionEditorialWriteback?:{status:string;code?:string}};
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
       setExpectedUpdatedAt(data.breed.updatedAt);
-      baseFormRef.current=submittedForm;
+      const rejectedDirtyFields=data.rejectedDirtyFields??[];
+      if (rejectedDirtyFields.length) {
+        // Never mark an unsuccessful field clean. All successfully saved fields
+        // become the new form baseline without erasing the owner's edits.
+        const revised=structuredClone(submittedForm) as Record<string,unknown>;
+        const previous=baseFormRef.current as unknown as Record<string,unknown>;
+        for (const path of rejectedDirtyFields) {
+          const keys=path.split(".");
+          if (keys.length===1) {
+            revised[path]=previous[path];
+          } else if (keys.length===2) {
+            const [root,key]=keys;
+            revised[root]={...(revised[root] as Record<string,unknown>??{}),
+              [key]:(previous[root] as Record<string,unknown>??{})[key]};
+          }
+        }
+        baseFormRef.current=revised as typeof form;
+      } else baseFormRef.current=submittedForm;
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
       let controlledSaveFailed=false;
       let controlledHasPending=controlledPendingKeys.length>0;
@@ -261,15 +278,17 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           }
         }
       }
-      if (!controlledSaveFailed) {
+      if (!controlledSaveFailed && !(data.rejectedDirtyFields?.length)) {
         if (formEditRevisionRef.current === submittedRevision) setDirty(false);
       }
       const notionStatus=data.notionEditorialWriteback?.status;
       const notionPending=notionStatus==="pending" ||
         notionStatus==="workcopy-inactive" ||
         notionStatus==="not-linked" || notionStatus==="disabled";
-      setMessage(controlledSaveFailed
-        ? "Pôvodný profil je uložený; zmeny kontrolovaných polí si vyžadujú opakovanie."
+      setMessage(data.rejectedDirtyFields?.length
+        ? "Časť polí sa uložila, tieto polia čakajú na opravu: "+data.rejectedDirtyFields.join(", ")
+        : controlledSaveFailed
+          ? "Pôvodný profil je uložený; zmeny kontrolovaných polí si vyžadujú opakovanie."
         : notionPending || controlledHasPending
           ? "Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený."
           : status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
