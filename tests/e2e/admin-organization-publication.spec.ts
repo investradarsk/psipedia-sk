@@ -35,7 +35,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   let row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toBeVisible();
   await expect(row).toContainText("Koncept");
-  await expect(row).toContainText("READY");
+  await expect(row).toContainText("Pripravené");
   await expect(row.getByRole("button", { name: "Publikovať", exact: true })).toBeEnabled();
 
   // Canonical admin confirmation is an accessible HTML dialog, not window.confirm.
@@ -136,7 +136,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   const result = page.locator("[data-admin-organization-row]").filter({ hasText: name });
   await expect(result).toBeVisible();
   await expect(result).toContainText("Koncept");
-  await expect(result).toContainText("Publication READY");
+  await expect(result).toContainText("Pripravené");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.keyboard.press("Tab");
   expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
