@@ -16,7 +16,7 @@ test("recovery accepts only same-origin Admin destinations", () => {
   assert.equal(adminNavigationTarget("/admin", origin), "/admin");
   for (const href of [
     "/administer", "/partner", "/api/admin/breeds", "https://other.example/admin",
-    "javascript:alert(1)", "//other.example/admin", "%",
+    "javascript:alert(1)", "//other.example/admin", "http://[",
   ]) {
     assert.equal(adminNavigationTarget(href, origin), null, href);
   }
