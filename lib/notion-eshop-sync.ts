@@ -1,3 +1,4 @@
+import { sameNotionProperty } from "./notion-selective-property-patch.ts";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { selectiveNotionProperties } from "./notion-selective-property-patch.ts";
 import { SITE_URL } from "@/config/public-site";
@@ -166,6 +167,33 @@ function notionSnapshot(page: NotionPage): EditableSnapshot {
     focusTags: multiSelectProperty(page, "Zameranie"),
     logoUrl: notionUrlProperty(page, "Logo URL"),
   };
+}
+
+
+/** Only Notion property edits reported by a signed webhook can pull these fields. */
+const ESHOP_EVENT_FIELDS = {
+  name: "Názov",
+  websiteUrl: "Web",
+  description: "Popis",
+  sourceUrl: "Zdroj",
+  focusTags: "Zameranie",
+  logoUrl: "Logo URL",
+} as const;
+export type EshopEventField = keyof typeof ESHOP_EVENT_FIELDS;
+
+export function eshopAdminEditedFields(before: ManagedEshop, after: ManagedEshop): EshopEventField[] {
+  const old = profileSnapshot(before), next = profileSnapshot(after);
+  return (Object.keys(ESHOP_EVENT_FIELDS) as EshopEventField[]).filter(key =>
+    JSON.stringify(old[key]) !== JSON.stringify(next[key]));
+}
+
+function eshopNotionEditedFields(page: NotionPage, ids: readonly string[]): EshopEventField[] {
+  const changed = new Set(ids);
+  return (Object.keys(ESHOP_EVENT_FIELDS) as EshopEventField[]).filter(key => {
+    const name = ESHOP_EVENT_FIELDS[key];
+    const property = page.properties?.[name] as {id?: unknown} | undefined;
+    return changed.has(name) || (typeof property?.id === "string" && changed.has(property.id));
+  });
 }
 
 async function snapshotHash(snapshot: EditableSnapshot) {
@@ -593,6 +621,8 @@ async function syncMapped(input: {
   page?: NotionPage;
   forcePush?: boolean;
   manualDirection?: ManualFieldDirection;
+  webhookChangedPropertyIds?: readonly string[];
+  adminChangedFields?: readonly EshopEventField[];
 }) {
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) throw new Error("ESHOP_CANONICAL_MAPPING_ORPHAN");
@@ -607,6 +637,68 @@ async function syncMapped(input: {
     // Never overwrite a page explicitly claimed by a different D1 entity.
     if (claimedId) throw new Error("ESHOP_IDENTITY_CONFLICT");
     await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId, shop, pageId: page.id });
+    return "pushed" as const;
+  }
+
+  // Explicit field events replace record-wide reconciliation for mapped shops.
+  // Canonical slug and publication are never imported from Notion events.
+  if (!input.manualDirection && input.webhookChangedPropertyIds !== undefined) {
+    const paths = eshopNotionEditedFields(page, input.webhookChangedPropertyIds);
+    const remote = notionSnapshot(page);
+    let applied = 0;
+    const failed: EshopEventField[] = [];
+    for (const path of paths) {
+      const current = await getManagedEshopById(shop.id, input.database);
+      if (!current) throw new Error("ESHOP_FIELD_CANONICAL_MISSING");
+      const before = profileSnapshot(current);
+      if (JSON.stringify(before[path]) === JSON.stringify(remote[path])) continue;
+      try {
+        if (path === "name" && !remote.name.trim()) throw new Error("ESHOP_NAME_REQUIRED");
+        const desired: EditableSnapshot = { ...before, [path]: remote[path] };
+        await applyNotionToShop({
+          database: input.database, bindings: input.bindings, page, shop: current,
+          desiredOverride: desired,
+        });
+        const saved = await getManagedEshopById(shop.id, input.database);
+        if (!saved || JSON.stringify(profileSnapshot(saved)[path]) !== JSON.stringify(remote[path]))
+          throw new Error("ESHOP_FIELD_WRITE_NOT_VERIFIED");
+        applied++;
+      } catch (error) {
+        console.error("ESHOP_FIELD_EVENT_FAILED", shop.id, path, error);
+        failed.push(path);
+      }
+    }
+    if (failed.length) throw new Error("ESHOP_FIELD_EVENTS_PENDING: " + failed.join(","));
+    if (paths.length) await patchPage(input.bindings, page.id, {
+      "Sync stav": select("Synchronizované"),
+      "Sync chyba": notionTextValue(""),
+      "Posledný sync": date(new Date().toISOString()),
+    });
+    // Do not advance the old whole-record mapping hash after a partial event.
+    return applied ? "pulled" as const : "unchanged" as const;
+  }
+
+  if (!input.manualDirection && input.adminChangedFields !== undefined) {
+    const fields = [...new Set(input.adminChangedFields)];
+    if (!fields.length) return "unchanged" as const;
+    const properties = notionProperties(shop, "", new Date().toISOString());
+    const patch: Record<string, unknown> = {};
+    for (const field of fields) {
+      const name = ESHOP_EVENT_FIELDS[field];
+      if (!name || !Object.hasOwn(page.properties ?? {}, name))
+        throw new Error("ESHOP_ADMIN_FIELD_SCHEMA_MISSING: " + String(field));
+      patch[name] = properties[name];
+      if (field === "logoUrl" && Object.hasOwn(page.properties ?? {}, "Logo Psipedia"))
+        patch["Logo Psipedia"] = properties["Logo Psipedia"];
+    }
+    const actual = selectiveNotionProperties(page.properties ?? {}, patch);
+    if (!actual) return "unchanged" as const;
+    const written = await patchPage(input.bindings, page.id, actual);
+    const confirmed = written.properties ? written : await fetchPage(input.bindings, page.id);
+    if (confirmed.id !== page.id || !notionPageBelongsToDataSource(confirmed, input.dataSourceId)
+      || Object.entries(actual).some(([name, value]) =>
+        !sameNotionProperty(confirmed.properties?.[name], value)))
+      throw new Error("ESHOP_ADMIN_FIELD_ECHO_MISMATCH");
     return "pushed" as const;
   }
 
@@ -752,6 +844,10 @@ export async function runNotionEshopSyncSweep(input: {
   targetShopId?: number;
   /** Explicit, confirmed single linked profile transfer only. */
   manualDirection?: ManualFieldDirection;
+  /** Signed Notion property IDs for mapped field-event changes. */
+  changedPropertyIds?: readonly string[];
+  /** Explicit Admin before/after differences. */
+  adminChangedFields?: readonly EshopEventField[];
 }): Promise<NotionEshopSyncSummary> {
   if (input.targetPageId !== undefined && input.targetShopId !== undefined)
     throw new Error("NOTION_ESHOP_TARGET_SCOPE_AMBIGUOUS");
@@ -785,6 +881,7 @@ export async function runNotionEshopSyncSweep(input: {
       const action = await syncMapped({
         database: input.database, bindings: input.bindings, dataSourceId, mapping,
         manualDirection:input.manualDirection,
+        adminChangedFields:input.adminChangedFields,
       });
       if (action === "pulled") summary.pulledFromNotion++;
       else if (action === "pushed") summary.pushedToNotion++;
@@ -836,7 +933,11 @@ export async function runNotionEshopSyncSweep(input: {
         continue;
       }
 
-      const action = await syncMapped({ database: input.database, bindings: input.bindings, dataSourceId, mapping, page });
+      // The ordinary hourly sweep may bootstrap new shops, but it must not
+      // overwrite unrelated mapped fields after an explicit field event.
+      if (!input.targetPageId) { summary.unchanged++; continue; }
+      const action = await syncMapped({ database: input.database, bindings: input.bindings, dataSourceId, mapping, page,
+        webhookChangedPropertyIds: input.changedPropertyIds });
       if (action === "pulled") summary.pulledFromNotion += 1;
       else if (action === "pushed") summary.pushedToNotion += 1;
       else summary.unchanged += 1;
@@ -846,7 +947,9 @@ export async function runNotionEshopSyncSweep(input: {
     }
   }
 
-  for (const id of input.targetPageId ? [] : await changedIds(input.database)) {
+  // Mapped Admin edits use a synchronous, explicit dirty-field writeback.
+  // Do not run the legacy full-record push on the same entities.
+  for (const id of input.targetPageId ? [] : []) {
     try {
       const mapping = await loadMappingByShop(input.database, id);
       if (!mapping) continue;
