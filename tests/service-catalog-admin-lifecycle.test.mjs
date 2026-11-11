@@ -52,7 +52,7 @@ const actor="admin@example.com";
 const option=()=>({name:"Nová veterinárna metóda",category:"veterinari",kind:"service",group:"Diagnostika",meaning:"Presne vymedzená diagnostická metóda."});
 const edit=o=>({action:"edit",expectedVersion:o.version,name:o.label,category:o.categories[0],group:o.group,meaning:o.meaning});
 const result=(id,expectedVersion,outcome)=>({id,expectedVersion,outcome,evidence:{origin:"verified_notion_reconciliation",externalId:"notion-page-123"}});
-test("DRAFT edits preserve immutable identity, require strict payload and CAS, and invalidate mirror",async()=>{
+test("ACTIVE edits preserve immutable identity, require strict payload and CAS, and invalidate mirror",async()=>{
   const {sqlite,db}=fixture();
   try{
     const created=await createAdminCatalogOption(db,option(),actor);
@@ -67,6 +67,58 @@ test("DRAFT edits preserve immutable identity, require strict payload and CAS, a
     await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,edit(changed),actor),ServiceCatalogInputError);
     assert.equal(sqlite.prepare("SELECT updated_by FROM service_catalog_admin_options WHERE id=?").get(created.id).updated_by,actor);
   }finally{sqlite.close();}
+});
+test("ACTIVE service choices remain editable while the Notion mirror is pending",async()=>{
+ const {sqlite,db}=fixture();
+ try{
+  const created=await createAdminCatalogOption(db,option(),actor);
+  assert.equal(created.status,"ACTIVE");
+  assert.equal(created.notionMirrorStatus,"PENDING");
+  const first=await saveAdminServiceChoice(db,{
+    profileId:1,optionId:created.id,choice:"yes",expectedVersion:0,
+  },actor);
+  const second=await saveAdminServiceChoice(db,{
+    profileId:1,optionId:created.id,choice:"no",expectedVersion:first.version,
+  },actor);
+  assert.equal(second.choice,"no");
+  assert.equal(second.version,first.version+1);
+  const edited=await mutateAdminCatalogOption(db,created.id,{
+    ...edit(created),name:"Nová veterinárna metóda aktualizovaná",
+  },actor);
+  assert.equal(edited.id,created.id);
+  assert.equal(edited.status,"ACTIVE");
+  assert.equal(edited.notionMirrorStatus,"PENDING");
+  const third=await saveAdminServiceChoice(db,{
+    profileId:1,optionId:edited.id,choice:"yes",expectedVersion:second.version,
+  },actor);
+  assert.equal(third.choice,"yes");
+  assert.equal(third.version,second.version+1);
+  const retired=await mutateAdminCatalogOption(db,edited.id,{
+    action:"retire",expectedVersion:edited.version,
+  },actor);
+  assert.equal(retired.status,"RETIRED");
+  await assert.rejects(()=>saveAdminServiceChoice(db,{
+    profileId:1,optionId:edited.id,choice:"no",expectedVersion:third.version,
+  },actor),ServiceCatalogInputError);
+  await assert.rejects(()=>mutateAdminCatalogOption(db,edited.id,{
+    ...edit(retired),name:"Nepovolená úprava archivovanej služby",
+  },actor),ServiceCatalogConflictError);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM service_catalog_admin_change_audit WHERE option_id=? AND entity_type='choice'").get(edited.id).n,3);
+ }finally{sqlite.close();}
+});
+test("editing an ACTIVE catalog option after a mirror conflict requests reconciliation",async()=>{
+ const {sqlite,db}=fixture();
+ try{
+  const created=await createAdminCatalogOption(db,option(),actor);
+  const conflict=await recordCatalogMirrorOutcome(db,result(created.id,created.version,"CONFLICT"),actor);
+  assert.equal(conflict.notionMirrorStatus,"CONFLICT");
+  const revised=await mutateAdminCatalogOption(db,created.id,{
+    ...edit(conflict),name:"Nová veterinárna metóda po kontrole",
+  },actor);
+  assert.equal(revised.status,"ACTIVE");
+  assert.equal(revised.notionMirrorStatus,"PENDING");
+  assert.equal(revised.version,conflict.version+1);
+ }finally{sqlite.close();}
 });
 test("approve needs real synced mirror outcome, conflicts need explicit retry, retirement terminal",async()=>{
  const {sqlite,db}=fixture();
@@ -116,6 +168,7 @@ test("mirror outcome needs trusted reconciliation evidence; cannot be forged via
   assert.match(route,/SERVICE_CATALOG_ADMIN_WRITES_ENABLED/);
   assert.match(route,/SERVICE_CATALOG_NOTION_MIRROR_READY/);
   assert.match(route,/SyntaxError\?400/);
+  assert.match(route,/action!=="edit"&&action!=="retire"/);
   assert.doesNotMatch(route,/recordCatalogMirrorOutcome/);
  }finally{sqlite.close();}
 });
