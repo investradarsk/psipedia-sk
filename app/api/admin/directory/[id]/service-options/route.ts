@@ -48,8 +48,7 @@ export async function PATCH(request:Request,{params}:Props){
         // service selection: unrelated profile-field sync is not proof.
         notionFieldSync=(!result.enabled||!result.schemaReady||result.failed)?"pending"
           :result.serviceRelationSync==="pushed"||result.serviceRelationSync==="pulled"?"synced"
-          :result.serviceRelationSync==="unchanged"
-            ?(result.pulledFromNotion||result.pushedToNotion?"synced":"unchanged")
+          :result.serviceRelationSync==="unchanged"?"unchanged"
           :result.serviceRelationSync==="skipped"?"pending":"unlinked";
       }catch{
         notionFieldSync="pending";
