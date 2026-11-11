@@ -45,7 +45,7 @@ import {
   PUBLIC_MEDIA_EDGE_TTL_SECONDS,
   PUBLIC_MEDIA_BROWSER_CACHE_CONTROL,
 } from "../lib/public-media-edge-cache.ts";
-import { isExplicitAnonymousHtmlRoute, isExplicitAnonymousSsrHtml } from "../lib/public-anonymous-html-cache";
+import { isExplicitAnonymousHtmlRoute, isExplicitAnonymousSsrHtml, isSafePublicHtmlVary } from "../lib/public-anonymous-html-cache";
 import { eligiblePublicSitemapRequest, servePublicSitemap } from "../lib/sitemap-edge-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
@@ -781,9 +781,21 @@ function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): 
   if (request.headers.has("authorization") || request.headers.has("cookie") || request.headers.has("cf-access-jwt-assertion")) return null;
   // Reject any request carrying synthetic/verified identity signals as well.
   if (request.headers.has(USER_EMAIL_HEADER) || request.headers.has(ADMIN_AUTHORIZED_HEADER) || request.headers.has(AUTH_PROVIDER_HEADER)) return null;
-  // Next client/RSC/navigation variants are never normal document HTML.
+  // Next client/RSC/actions, prefetches and middleware probes are not HTML navigations.
   if (["rsc", "next-router-state-tree", "next-router-prefetch", "next-url", "purpose"].some((name) => request.headers.has(name))) return null;
-  const accept = request.headers.get("accept") ?? "";
+  if (["next-action", "next-router-segment-prefetch", "x-nextjs-data",
+    "x-middleware-prefetch", "x-middleware-subrequest", "sec-purpose"].some((name) => request.headers.has(name))) return null;
+  // A reload/conditional request must not silently receive our old anonymous
+  // snapshot or bypass its own revalidation semantics.
+  if (["range", "if-none-match", "if-modified-since", "if-range"].some((name) => request.headers.has(name))) return null;
+  const requestCacheControl = request.headers.get("cache-control") ?? "";
+  if (/(?:^|,)\\s*(?:no-cache|no-store|max-age\\s*=\\s*\\\"?0\\\"?)(?:\\s*[,;]|\\s*$)/i.test(requestCacheControl)) return null;
+  if ((request.headers.get("pragma") ?? "").toLowerCase().split(",").some((item) => item.trim() === "no-cache")) return null;
+  const fetchDest = request.headers.get("sec-fetch-dest");
+  if (fetchDest && fetchDest.toLowerCase() !== "document") return null;
+  const fetchMode = request.headers.get("sec-fetch-mode");
+  if (fetchMode && fetchMode.toLowerCase() !== "navigate") return null;
+  const accept = (request.headers.get("accept") ?? "").toLowerCase();
   if (accept && !accept.includes("text/html") && !accept.includes("*/*")) return null;
   const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
   if (!storage || !workerVersionId) return null;
@@ -792,7 +804,7 @@ function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): 
 
 function publicHtmlCacheHeaders(status: "HIT" | "MISS"): Record<string, string> {
   return {
-    "Cache-Control": `public, max-age=0, s-maxage=${PUBLIC_HTML_CACHE_TTL_SECONDS}, stale-while-revalidate=30`,
+    "Cache-Control": `public, max-age=0, s-maxage=${PUBLIC_HTML_CACHE_TTL_SECONDS}`,
     "CDN-Cache-Control": `public, max-age=${PUBLIC_HTML_CACHE_TTL_SECONDS}`,
     "Cloudflare-CDN-Cache-Control": `public, max-age=${PUBLIC_HTML_CACHE_TTL_SECONDS}`,
     "X-Psipedia-Cache": status,
@@ -829,11 +841,9 @@ function isCacheableHtmlResponse(response: Response): boolean {
   }
   if ((response.headers.get("pragma") ?? "").split(",").some((part) => part.trim().toLowerCase() === "no-cache")) return false;
 
-  // The shared cache key is URL-only; these variants cannot safely share it.
-  const vary = response.headers.get("vary");
-  if (vary && vary.split(",").some((part) =>
-    ["*", "cookie", "authorization", "cf-access-jwt-assertion"].includes(part.trim().toLowerCase())
-  )) return false;
+  // The shared cache key is URL-only. Accept only document-only Vary values
+  // whose alternate request variants are independently rejected at ingress.
+  if (!isSafePublicHtmlVary(response.headers.get("vary"))) return false;
   return true;
 }
 
