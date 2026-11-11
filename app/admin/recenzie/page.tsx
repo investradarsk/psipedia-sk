@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { AdminDataLoading } from "@/components/admin-data-loading";
 import { AdminReviewsHub } from "@/components/admin-reviews-hub";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -9,9 +11,9 @@ import { getManagedPortalSection } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminReviewsPage() {
-  const user = await requireAdminPageUser("/admin/recenzie");
-
+async function ReviewOverview() {
+  // Every summary source has its own failure status. A failed e-shop or
+  // review source never prevents the remaining cards from being displayed.
   const [articlesResult, pendingResult, allReviewsResult, sectionResult, eshopResult] = await Promise.allSettled([
     listManagedArticleSummaries({ portalSection: "recenzie", pageSize: 1 }),
     listProfileReviewsAdmin({ status: "PENDING_REVIEW", pageSize: 1 }),
@@ -30,21 +32,22 @@ export default async function AdminReviewsPage() {
     : null;
   const eshopCounts = eshopResult.status === "fulfilled" ? eshopResult.value : { total: null, published: null };
 
-  return (
-    <AdminShell
-      user={user}
-      eyebrow="Recenzie a testy"
-      title="Správa recenzií a testov"
-      description="Redakčné testy, používateľské recenzie a kategórie spravuj z jedného pracovného miesta. Každá agenda zostáva vo svojom canonical module."
-      actions={<Link className="admin-primary-action" href="/admin/novy?sekcia=recenzie">+ Nový test</Link>}
-    >
-      <AdminReviewsHub
-        articleCounts={articleCounts}
-        pendingReviews={pendingReviews}
-        totalReviews={totalReviews}
-        categoryCount={categoryCount}
-        eshopCounts={eshopCounts}
-      />
-    </AdminShell>
-  );
+  return <AdminReviewsHub articleCounts={articleCounts}
+    pendingReviews={pendingReviews} totalReviews={totalReviews}
+    categoryCount={categoryCount} eshopCounts={eshopCounts} />;
+}
+
+export default async function AdminReviewsPage() {
+  const user = await requireAdminPageUser("/admin/recenzie");
+  return <AdminShell
+    user={user}
+    eyebrow="Recenzie a testy"
+    title="Správa recenzií a testov"
+    description="Redakčné testy, používateľské recenzie a kategórie spravuj z jedného pracovného miesta. Každá agenda zostáva vo svojom canonical module."
+    actions={<Link className="admin-primary-action" href="/admin/novy?sekcia=recenzie">+ Nový test</Link>}
+  >
+    <Suspense fallback={<AdminDataLoading label="Recenzie a testy" />}>
+      <ReviewOverview />
+    </Suspense>
+  </AdminShell>;
 }
