@@ -56,19 +56,37 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const selected = sparse ? breedAdminSparseEdit(patch, dirty) : patch;
     let breed = before;
     const rejectedDirtyFields:string[]=[];
-    if (dirty?.length && dirty.every(breedEventIsDirectField)) {
-      // One SQL column / JSON leaf per actual Admin edit, without resaving
-      // status, relations, image keys, other editorial cells, or D1 baselines.
-      for (const field of dirty) {
-        const value = field.split(".").reduce<unknown>((v,key) =>
-          v && typeof v==="object" ? (v as Record<string,unknown>)[key] : undefined,
-          selected);
+    if (dirty) {
+      // The salon/club contract: every submitted field is its own operation.
+      // Even a structural/media field must not push unrelated text fields
+      // through a stale whole-profile update or veto a valid sibling edit.
+      const ordered = [
+        ...dirty.filter(breedEventIsDirectField),
+        ...dirty.filter(field => !breedEventIsDirectField(field) && field !== "status"),
+        ...dirty.filter(field => field === "status"),
+      ];
+      for (const field of [...new Set(ordered)]) {
         try {
-          const result=await saveBreedNotionField({
-            database:(env as unknown as {DB:D1Database}).DB,
-            breedId:id,field,value,actor:user.email,
-          });
-          breed=result.breed;
+          if (breedEventIsDirectField(field)) {
+            const value = field.split(".").reduce<unknown>((v,key) =>
+              v && typeof v==="object" ? (v as Record<string,unknown>)[key] : undefined,
+              selected);
+            const result = await saveBreedNotionField({
+              database:(env as unknown as {DB:D1Database}).DB,
+              breedId:id,field,value,actor:user.email,
+            });
+            breed=result.breed;
+          } else {
+            // Relation/media/status changes retain their own canonical writer,
+            // fed by a FRESH D1 record and only this one dirty property.
+            const current = await getManagedBreed(id);
+            if (!current) throw Error("BREED_ADMIN_PROFILE_MISSING");
+            const single = breedAdminSparseEdit(selected,[field]);
+            const saved = await updateManagedBreed(id,
+              mergeManagedBreedEdit(current,single), user.email,current.updatedAt);
+            if (!saved) throw Error("BREED_ADMIN_PROFILE_RELOAD_FAILED");
+            breed=saved;
+          }
         } catch(error) {
           rejectedDirtyFields.push(field);
           console.warn("breed_admin_single_field_pending",{
@@ -76,9 +94,11 @@ export async function PUT(request: Request, { params }: RouteProps) {
           });
         }
       }
-    } else if (!dirty || dirty.length) {
+    } else {
+      // Legacy clients without explicit dirty fields still use their original
+      // whole-profile contract. The actual editor always submits dirty paths.
       breed = await updateManagedBreed(id,mergeManagedBreedEdit(before,selected),
-        user.email,sparse ? before.updatedAt : expectedUpdatedAt);
+        user.email,expectedUpdatedAt);
       if (!breed) return Response.json({error:"Plemeno sa nenašlo."},{status:404});
     }
 

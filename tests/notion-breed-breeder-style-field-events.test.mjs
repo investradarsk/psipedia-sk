@@ -43,6 +43,64 @@ test("90-column Notion page keeps overview and daily needs independent, includin
   assert.equal(cleared.failures.length,0);
 });
 
+test("the signed webhook resolves dashed IDs against compact ACTIVE breed links",()=>{
+  const webhook=read("app/api/integrations/notion/webhook/route.ts");
+  const sweep=read("lib/notion-breed-workcopy-sync.ts");
+  assert.match(webhook,/replace\(lower\(work_notion_page_id\),'-',''\)=replace\(lower\(\?\),'-',''\)/);
+  assert.match(sweep,/replace\(lower\(work_notion_page_id\),'-',''\)=\?/);
+  assert.match(sweep,/\.bind\(normalized\(args\.targetPageId\)\)/);
+  // This is the failing production profile: Notion's dashed event and the
+  // compact D1 link are the same ID and must never be treated as two pages.
+  const compact="40f793fc1d188111a021eb3cdc37e0ec";
+  const dashed="40f793fc-1d18-8111-a021-eb3cdc37e0ec";
+  assert.equal(dashed.replaceAll("-",""),compact);
+});
+
+test("a free-text or Markdown source never blocks an independently edited overview",()=>{
+  const props={
+    "Prehľad plemena":rich("Prehľad plemena","TEST SYNC 1","overview"),
+    "Zdroje":rich("Zdroje",
+      "FCI: [https://fci.be/standard.pdf](https://fci.be/standard.pdf)<br />"+
+      "Poznámka bez odkazu<br />Klub|https://klub.sk/","sources"),
+    "FCI štandard PDF":rich("FCI štandard PDF","voľný text, nie URL","fci-pdf"),
+  };
+  const result=readChanged(props,["overview","sources","fci-pdf"]);
+  assert.deepEqual(result.failures,[]);
+  assert.equal(result.values.find(item=>item.field==="editorial.overview")?.value,"TEST SYNC 1");
+  assert.deepEqual(result.values.find(item=>item.field==="sources")?.value,[
+    {label:"FCI",url:"https://fci.be/standard.pdf"},
+    {label:"Poznámka bez odkazu",url:""},
+    {label:"Klub",url:"https://klub.sk/"},
+  ]);
+  assert.equal(result.values.find(item=>item.field==="fciStandard.fci_standard_pdf")?.value,
+    "voľný text, nie URL");
+});
+
+test("one bad JSON gallery cannot prevent other signed cells from being accepted",()=>{
+  const props={
+    "Prehľad plemena":rich("Prehľad plemena","Nový prehľad","overview"),
+    "Každodenné potreby plemena":rich("Každodenné potreby plemena","Potreby","needs"),
+    "Ďalšie fotografie":rich("Ďalšie fotografie","pokazený JSON","gallery"),
+  };
+  const result=readChanged(props,["gallery","overview","needs"]);
+  assert.deepEqual(result.failures.map(item=>item.field),["gallery"]);
+  assert.deepEqual(result.values.map(item=>item.field),
+    ["needs","editorial.overview"].sort((a,b)=>
+      // Ordering is registry-based, not event-order-based.
+      BREED_NOTION_SCHEMA.findIndex(item=>item.id===a)-
+      BREED_NOTION_SCHEMA.findIndex(item=>item.id===b)));
+  assert.equal(result.values.find(item=>item.field==="editorial.overview")?.value,
+    "Nový prehľad");
+});
+
+test("mixed Admin field saves cannot fall back to one stale whole-profile PUT",()=>{
+  const route=read("app/api/admin/breeds/[id]/route.ts");
+  assert.doesNotMatch(route,/dirty\.every\(breedEventIsDirectField\)/);
+  assert.match(route,/for \(const field of \[\.\.\.new Set\(ordered\)\]\)/);
+  assert.match(route,/const single = breedAdminSparseEdit\(selected,\[field\]\)/);
+  assert.match(route,/rejectedDirtyFields\.push\(field\)/);
+});
+
 test("FCI number is mutable content, never a second profile identifier",()=>{
   const c=readChanged({"FCI číslo":{id:"fci",type:"number",number:2}},["fci"]);
   assert.deepEqual(c.values.map(x=>[x.field,x.value]),[["fciNumber",2]]);

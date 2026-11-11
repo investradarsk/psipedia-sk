@@ -106,7 +106,8 @@ export async function POST(request: Request) {
       const mapping = workCopy
         ? await bindings.DB.prepare(
           "SELECT breed_id FROM breed_notion_workcopy_links " +
-          "WHERE work_notion_page_id=? AND status='ACTIVE' LIMIT 1",
+          "WHERE replace(lower(work_notion_page_id),'-','')=replace(lower(?),'-','') "+
+          "AND status='ACTIVE' LIMIT 1",
         ).bind(data.entity!.id).first<{ breed_id: number }>()
         : bindings.NOTION_BREED_SYNC_ENABLED === "true"
           ? await bindings.DB.prepare(

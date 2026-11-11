@@ -283,7 +283,11 @@ test("admin and Notion call-sites must use the read version and return an action
   // legacy structural saves still carry the current server-side version.
   assert.match(api, /breedAdminSparseEdit\(patch, dirty\)/);
   assert.match(api, /saveBreedNotionField\(/);
-  assert.match(api, /sparse \? before.updatedAt : expectedUpdatedAt/);
+  // Each dirty field uses current D1 optimistic concurrency, even if another
+  // field was edited between opening the form and saving.
+  assert.match(api, /for \(const field of \[\.\.\.new Set\(ordered\)\]\)/);
+  assert.match(api, /mergeManagedBreedEdit\(current,single\), user\.email,current\.updatedAt/);
+  assert.match(api, /user\.email,expectedUpdatedAt/);
   assert.match(editor, /expectedUpdatedAt,changedFieldKeys/);
   assert.match(editor, /setExpectedUpdatedAt\(\s*data\s*\.breed\s*\.updatedAt\s*\)/);
   assert.match(
