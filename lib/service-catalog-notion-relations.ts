@@ -82,7 +82,7 @@ async function canonicalItems(db:D1Database,category:string):Promise<Map<string,
   // Use the same effective names/categories as Admin and the Notion text
   // bridge: built-in D1 overrides must affect relation eligibility too.
   const resolved=await loadResolvedServiceDefinitions(db,category);
-  return new Map(resolved.map(x=>[x.id,{id:x.id,label:x.label,categories:x.categories}]));
+  return new Map<string,Item>(resolved.map(x=>[x.id,{id:x.id,label:x.label,categories:x.categories}] as const));
 }
 async function canonicalYes(db:D1Database,profileId:number,known:Map<string,Item>){
   const result=await db.prepare(
