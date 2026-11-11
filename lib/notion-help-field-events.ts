@@ -13,7 +13,7 @@ const PROTECTED: Readonly<Record<HelpFieldEventAgenda, readonly string[]>> = {
   adoptions: ["Slug", "Stav"],
   "help-cases": ["Slug", "Kategória", "Psipedia stav", "Vyriešené"],
   "lost-found": [
-    "Slug", "Typ", "Psipedia stav", "Latitude", "Longitude",
+    "Názov", "Slug", "Typ", "Psipedia stav", "Latitude", "Longitude",
     "Presnosť lokality", "Miesto", "Verejný kontakt",
   ],
 };
