@@ -1,3 +1,4 @@
+import {runRecordLifecycleRetrySweep} from "../lib/admin-record-lifecycle-retry.ts";
 import { recordNotionTransfer } from "../lib/notion-transfer-audit.ts";
 import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
 import { runFacebookImagePublishSweep } from "../lib/facebook-image-publisher.ts";
@@ -462,6 +463,14 @@ const worker = {
         console.error(JSON.stringify({event:"facebook_image_publish_sweep",result:"failed"}));
       }
       return;
+    }
+    // Resume ONLY previously owner-confirmed deletions. Tombstone CAS + bounded
+    // exponential backoff means one click suffices for transient D1/Notion errors.
+    // A permanent FK/partner/review dependency is never erased automatically.
+    if (controller.cron === "*/5 * * * *") {
+      _ctx.waitUntil(runRecordLifecycleRetrySweep({database:env.DB,bindings:env,limit:2})
+        .then(summary=>console.info(JSON.stringify({event:"record_lifecycle_delete_retry",...summary})))
+        .catch(()=>console.error(JSON.stringify({event:"record_lifecycle_delete_retry",result:"failed"}))));
     }
     // Existing five-minute Cron: standalone Notion image import + published result writeback.
     // Strict feature gate is OFF unless explicitly enabled; this is never a new Cron.
