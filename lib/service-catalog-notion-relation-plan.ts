@@ -37,3 +37,19 @@ export function planCatalogRelationSync(
   if(equal(target,remote))return {action:"pull",target};
   return {action:"merge",target};
 }
+
+/**
+ * Signed Notion field events may introduce services without a baseline, but
+ * cannot prove that an omitted local YES was deliberately deleted. Once a
+ * baseline is acknowledged the ordinary per-ID three-way planner applies.
+ */
+export function planSignedCatalogRelationSync(
+  canonical:readonly string[],notion:readonly string[],previous:readonly string[]|null
+):CatalogRelationPlan{
+  if(previous!==null)return planCatalogRelationSync(canonical,notion,previous);
+  const local=new Set(canonical),remote=new Set(notion);
+  if([...local].some(id=>!remote.has(id)))return {action:"conflict",target:[]};
+  const target=[...remote].sort();
+  if(target.length===local.size)return {action:"record",target};
+  return {action:"pull",target};
+}
