@@ -75,7 +75,9 @@ jobs:
         run: npm run build
 
       - name: Install Chromium and system dependencies
-        run: npx playwright install --with-deps chromium
+        # Reuse Ubuntu runner system libraries; Chromium launch stays enforced
+        # by the required desktop and mobile E2E jobs.
+        run: npx playwright install chromium
 
       - name: Configure CI-only local PII keys
         run: |
