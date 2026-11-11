@@ -9,7 +9,6 @@
 import { materializeBreedWorkCopyForRead } from "@/lib/notion-breed-workcopy-compatible-page.mjs";
 import { BREED_COMPACT_MERGE } from "@/lib/breed-notion-compact-consolidation.mjs";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
-import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
 import { notionPageToManagedBreedInput } from "@/lib/notion-breed-sync";
 import { breedNotionPresentFieldIds } from "@/lib/notion-breed-presence";
 import {
@@ -72,21 +71,22 @@ export function planBreedWorkCopyEditorialDelta(input: {
   const managed = notionPageToManagedBreedInput(projection.page);
   const present = breedNotionPresentFieldIds(projection.page);
   const actual = breedFieldSnapshot(managed);
+  // The explicitly edited Notion cell wins against its current Admin value.
+  // Old receipts never become content-level locks on a newer signed edit.
+  // Untouched fields are still excluded by the event + present-field filter.
+  const current = breedFieldSnapshot(input.canonical);
   const plan = planBreedNotionFieldDelta(
     input.canonical,
     managed,
-    input.previousNotion,
-    input.previousAdmin,
-    input.authority ?? {},
+    current,
+    current,
+    {},
     present,
   );
   const restricted = [...new Set([
     ...plan.accepted,
     ...plan.changed,
   ])].filter(field => FULL_FCI_AND_EDITORIAL.has(field));
-  // Only a signed, present edit may clear a field; an absent cell is preserved.
-  const blank = plan.accepted.filter(field =>
-    !isTransferableBreedWorkCopyValue(actual[field], true));
   // Isolate special media/relations: never let one unsupported field block
   // independently valid ordinary text and FCI edits. Those fields remain
   // pending in their prior receipt until their dedicated adapter is ready.
@@ -98,9 +98,8 @@ export function planBreedWorkCopyEditorialDelta(input: {
       code: "BREED_WORKCOPY_FIELD_CONFLICT", field,
     })),
     accepted: plan.accepted.filter(field =>
-      !restricted.includes(field) && !blank.includes(field) &&
-      !invalidFieldIds.has(field)),
-    skipped: [...new Set([...restricted, ...blank, ...invalidFieldIds])],
+      !restricted.includes(field) && !invalidFieldIds.has(field)),
+    skipped: [...new Set([...restricted, ...invalidFieldIds])],
     changed: plan.changed,
     patch: plan.patch,
     sourceSnapshot: actual,
