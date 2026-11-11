@@ -3,28 +3,17 @@
 import { useState } from "react";
 import { AdminActionButton, AdminModalDialog } from "@/components/admin-interaction-system";
 import type { RecordKind } from "@/lib/admin-record-lifecycle";
+import {
+  ADMIN_BULK_DELETE_LIMIT, validatedAdminBulkIds,
+  validatedAdminBulkPreview, runSequentialAdminRemovals,
+  type AdminBulkDeletionPreview,
+} from "@/lib/admin-record-bulk-delete";
 
-export const ADMIN_BULK_DELETE_LIMIT = 25;
-
-type LifecyclePreview = {
-  id: number;
-  name: string;
-  slug: string;
-  category: string;
-  notionLinked: boolean;
-  notionPages: number;
-  removalState: string | null;
-};
 type LifecycleResult = {
   state?: string;
   error?: string;
 };
 type Phase = "idle" | "preparing" | "ready" | "deleting" | "result";
-
-function exactIds(value: readonly number[]): number[] | null {
-  if (value.some(id => !Number.isSafeInteger(id) || id <= 0)) return null;
-  return [...new Set(value)];
-}
 
 function endpoint(kind: RecordKind, id: number) {
   return "/api/admin/record-lifecycle/" + kind + "/" + id;
@@ -40,7 +29,7 @@ export function AdminRecordBulkDelete({
   onFinished: (acknowledgedIds: number[]) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [previews, setPreviews] = useState<LifecyclePreview[]>([]);
+  const [previews, setPreviews] = useState<AdminBulkDeletionPreview[]>([]);
   const [error, setError] = useState("");
   const [done, setDone] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -51,13 +40,11 @@ export function AdminRecordBulkDelete({
 
   async function prepare() {
     if (!canStart) return;
-    const ids = exactIds(selectedIds);
-    if (!ids || !ids.length) {
-      setError("Výber obsahuje neplatné ID. Obnov zoznam.");
-      return;
-    }
-    if (ids.length > ADMIN_BULK_DELETE_LIMIT) {
-      setError("Na jednu dávku vyber najviac " + ADMIN_BULK_DELETE_LIMIT + " záznamov.");
+    let ids: number[];
+    try {
+      ids = validatedAdminBulkIds(selectedIds);
+    } catch {
+      setError("Vyber 1 až " + ADMIN_BULK_DELETE_LIMIT + " jedinečných platných ID.");
       return;
     }
     setPhase("preparing");
@@ -67,22 +54,17 @@ export function AdminRecordBulkDelete({
     setDone(0);
     setPendingCount(0);
     setFinishedIds([]);
-    const verified: LifecyclePreview[] = [];
+    const verified: AdminBulkDeletionPreview[] = [];
     try {
       // Preflight never performs a mutation. Freeze exact IDs before opening the dialog.
       for (const id of ids) {
         const response = await fetch(endpoint(kind, id), {
           credentials: "same-origin", cache: "no-store",
         });
-        const item = await response.json() as LifecyclePreview & { error?: string };
-        if (!response.ok) throw Error("ID " + id + ": " + (item.error ?? "Overenie zlyhalo."));
-        if (item.id !== id || typeof item.name !== "string" || !item.name.trim() ||
-            typeof item.slug !== "string" || typeof item.category !== "string" ||
-            typeof item.notionLinked !== "boolean" ||
-            !Number.isSafeInteger(item.notionPages) || item.notionPages < 0) {
-          throw Error("ID " + id + ": server neposlal overiteľnú identitu.");
-        }
-        verified.push(item);
+        const data = await response.json() as { error?: string };
+        if (!response.ok) throw Error("ID " + id + ": " + (data.error ?? "Overenie zlyhalo."));
+        try { verified.push(validatedAdminBulkPreview(id, data)); }
+        catch { throw Error("ID " + id + ": server neposlal overiteľnú identitu."); }
       }
       if (verified.length !== ids.length) throw Error("Nepodarilo sa overiť celý výber.");
       setPreviews(verified);
@@ -98,41 +80,26 @@ export function AdminRecordBulkDelete({
     const frozen = [...previews];
     setPhase("deleting");
     setError("");
-    const acknowledged: number[] = [];
-    let pending = 0;
-    let failed: number | null = null;
-    let failure = "";
-    // Deliberately sequential; the existing per-record route owns authorization,
-    // Notion ownership checks, D1 tombstones and cache invalidation.
-    for (const item of frozen) {
-      try {
-        const response = await fetch(endpoint(kind, item.id), {
-          method: "POST", credentials: "same-origin", cache: "no-store",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            action: "delete", confirmed: true, localOnly: !item.notionLinked,
-            expectedSlug: item.slug, expectedName: item.name,
-            expectedCategory: item.category,
-          }),
-        });
-        const result = await response.json() as LifecycleResult;
-        if (!response.ok || !["COMPLETE", "PENDING_NOTION", "ERROR_NOTION", "READY_LOCAL"].includes(result.state ?? "")) {
-          throw Error(result.error ?? "Server nepotvrdil odstránenie.");
-        }
-        acknowledged.push(item.id);
-        if (result.state !== "COMPLETE") pending++;
-        setDone(acknowledged.length);
-        setPendingCount(pending);
-      } catch (caught) {
-        failed = item.id;
-        failure = caught instanceof Error ? caught.message : "Odstránenie zlyhalo.";
-        // Fail closed: do not send the rest of the batch after any failure.
-        break;
-      }
-    }
-    setFailureId(failed);
-    setError(failure);
-    setFinishedIds(acknowledged);
+    const outcome = await runSequentialAdminRemovals(frozen, async item => {
+      const response = await fetch(endpoint(kind, item.id), {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "delete", confirmed: true, localOnly: !item.notionLinked,
+          expectedSlug: item.slug, expectedName: item.name,
+          expectedCategory: item.category,
+        }),
+      });
+      const result = await response.json() as LifecycleResult;
+      if (!response.ok) throw Error(result.error ?? "Server nepotvrdil odstránenie.");
+      return result.state ?? "";
+    }, (count, pending) => {
+      setDone(count);
+      setPendingCount(pending);
+    });
+    setFailureId(outcome.failedId);
+    setError(outcome.error);
+    setFinishedIds(outcome.acknowledgedIds);
     setPhase("result");
   }
 
