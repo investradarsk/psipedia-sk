@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import {useRouter} from "next/navigation";
-import {AdminUnsavedNavigationDialog} from "@/components/admin-unsaved-navigation-dialog";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { AdminSingleImageUpload } from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
@@ -37,8 +35,6 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [confirmLeave,setConfirmLeave]=useState(false);
-  const router=useRouter();
   const [savedSignature, setSavedSignature] = useState(() => JSON.stringify({
     name: shop.name, slug: shop.slug, websiteUrl: shop.websiteUrl,
     description: shop.description, sourceUrl: shop.sourceUrl,
@@ -140,9 +136,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         </div>}
         actions={<EditorActionBar
           secondary={<div className={styles.actionLinks}>
-            <Link href="/admin/recenzie/eshopy" onClick={event => {
-              if(dirty && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey){event.preventDefault();setConfirmLeave(true);}
-            }}>← Späť na e-shopy</Link>
+            <Link href="/admin/recenzie/eshopy">← Späť na e-shopy</Link>
             {shop.status === "published" && <Link href={"/recenzie/eshopy/" + shop.slug} target="_blank" rel="noopener noreferrer">Pozrieť publikovaný profil ↗</Link>}
           </div>}
           primary={<AdminActionButton type="submit" variant="primary" disabled={saving || uploading || !dirty}>{saving ? "Ukladám…" : "Uložiť zmeny"}</AdminActionButton>}
@@ -217,8 +211,6 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       </fieldset>
       <AdminFormFeedback message={message} error={error} pending={saving} errorClassName={styles.error} successClassName={styles.success} />
       </EditorWorkspace>
-      <AdminUnsavedNavigationDialog open={confirmLeave} destination="prehľad e-shopov" onStay={()=>setConfirmLeave(false)}
-        onLeave={()=>{setConfirmLeave(false);router.push("/admin/recenzie/eshopy");}}/>
     </form>
   );
 }
