@@ -209,3 +209,26 @@ test("PhotoSwipe lightbox and lower homepage calculator are not part of initial 
   assert.match(calculator, /export function DogAgeCalculator\(\)/);
   assert.match(calculator, /onChange=\{\(event\) => setAge/);
 });
+
+
+test("article image projection shares its cold-start D1 probe across concurrent public reads", () => {
+  const articles = readFileSync(new URL("../lib/article-store.ts", import.meta.url), "utf8");
+  const start = articles.indexOf("const articleImageProjectionCache");
+  const end = articles.indexOf("export async function getPublishedArticleSummaries", start);
+  assert.ok(start >= 0 && end > start);
+  const projection = articles.slice(start, end);
+  assert.match(projection, /new WeakMap<D1Database, string>\(\)/);
+  assert.match(projection, /new WeakMap<D1Database, Promise<string>>\(\)/);
+  assert.match(projection, /articleImageProjectionLoads\.get\(database\)/);
+  assert.match(projection, /if \(pending\) return pending/);
+  assert.match(projection, /articleImageProjectionLoads\.set\(database, load\)/);
+  assert.match(projection, /await database\.prepare\("PRAGMA table_info\('managed_articles'\)"\)\.all/);
+  assert.match(projection, /articleImageProjectionCache\.set\(database, projection\)/);
+  assert.match(projection, /return await load/);
+  assert.match(projection, /articleImageProjectionLoads\.delete\(database\)/);
+  assert.match(projection, /DEFAULT_IMAGE_PROJECTION/);
+  assert.match(projection, /thumbnail_display_json/);
+  assert.match(projection, /detail_display_json/);
+  // A failed/missing legacy projection must retain the existing fallbacks.
+  assert.match(projection, /catch \{[\s\S]*old fixture or a staged production rollout/);
+});
