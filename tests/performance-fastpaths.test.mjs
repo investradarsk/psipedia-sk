@@ -204,7 +204,7 @@ test("PhotoSwipe lightbox and lower homepage calculator are not part of initial 
   assert.match(island, /lazy\(async \(\) => \{[\s\S]*import\("\.\/dog-age-calculator"\)/);
   assert.match(island, /IntersectionObserver/);
   assert.match(island, /rootMargin: "600px 0px"/);
-  assert.match(island, /<Suspense fallback=\{<CalculatorPlaceholder \/>\\}>/);
+  assert.match(island, /<Suspense fallback=\{<CalculatorPlaceholder \/>\}>/);
   assert.match(island, /data-home-calculator-island/);
   assert.match(calculator, /export function DogAgeCalculator\(\)/);
   assert.match(calculator, /onChange=\{\(event\) => setAge/);
