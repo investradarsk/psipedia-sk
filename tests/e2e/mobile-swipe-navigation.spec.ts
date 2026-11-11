@@ -385,6 +385,7 @@ test("sitewide Chrome iPhone: calendar month changes stay client-side", async ({
     Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT),
   );
   await expect(page.locator("[data-public-calendar]")).toBeVisible();
+  await expect(page.locator("[data-public-calendar]")).toHaveAttribute("data-calendar-ready", "true");
   const loads = await loadCount(page);
   const month = page.getByRole("link", { name: "Nasledujúci mesiac" });
   await expect(month).toBeVisible();
