@@ -47,7 +47,7 @@ test("Admin Help edits use a before/after canonical field delta", async () => {
     const source = await code(path);
     assert.match(source, /const beforeHelpSnapshot = await captureHelpNotionSnapshot/);
     assert.match(source, /syncSavedNotionRecord/);
-    assert.ok(!source.includes("entityId: id, beforeHelpSnapshot });\n    const "), path);
+    assert.doesNotMatch(source, /captureHelpNotionSnapshot\\(\\{[^\\n}]*beforeHelpSnapshot/);
   }
 });
 
