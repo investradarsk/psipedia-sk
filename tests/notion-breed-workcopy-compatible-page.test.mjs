@@ -42,15 +42,16 @@ test("read-only work-copy projection restores FCI sources with canonical D1 slug
   assert.equal(JSON.stringify(page), before);
 });
 
-test("mismatched Psipedia ID or FCI cannot inherit a canonical slug", () => {
+test("only Psipedia ID is a breed match; changed FCI stays ordinary data", () => {
   const other = fixture();
   other.properties["Psipedia ID"] = rich("43");
   assert.throws(() => materializeBreedWorkCopyForRead(other, canonical),
-    /BREED_WORKCOPY_CANONICAL_IDENTITY_CHANGED/);
+    /BREED_WORKCOPY_PSI_ID_MISMATCH/);
   const fci = fixture();
   fci.properties["FCI číslo"].number = 123;
-  assert.throws(() => materializeBreedWorkCopyForRead(fci, canonical),
-    /BREED_WORKCOPY_CANONICAL_IDENTITY_CHANGED/);
+  const result = materializeBreedWorkCopyForRead(fci, canonical);
+  assert.equal(result.valid, true);
+  assert.equal(result.page.properties["FCI číslo"].number, 123);
 });
 
 test("invalid merged FCI subsection blocks only parsing, with no manufactured system fields", () => {
