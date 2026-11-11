@@ -1,11 +1,11 @@
 /**
- * Explicitly gated Notion 60+2 breed synchronization, independent from the
- * existing 109-property production mapping.
+ * Notion 74-property breed work-copy sync, mutually exclusive with the old
+ * source. A signed Notion page with an ACTIVE link and matching numeric
+ * Psipedia ID is enough for independent field updates.
  *
- * Disabled by default. NEVER run alongside the old breed sync. Every profile
- * needs a separately verified ACTIVE shadow D1 link with a valid per-field
- * baseline receipt. No new breeds, Notion system-field PATCHes, publication,
- * gallery, image ingestion, or relation changes.
+ * No creation or deletion of breeds, no changes to canonical publication.
+ * Real FCI, media and structured fields are editable with type-safe storage;
+ * invalid siblings never lock otherwise valid fields.
  */
 import {
   getManagedBreed, updateManagedBreed, validateNotionBreedCandidate,
