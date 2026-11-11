@@ -20,7 +20,7 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 1. [x] **Bezpečné zrýchlenie opakovaných SSR hero renderov.** Cache iba verejných D1 riadkov vizuálov: 15 s TTL, maximálne 128 kľúčov na isolate, deduplikácia súbežných čítaní, invalidácia pri úspešnom uložení/zmazaní. Admin `getStoredSectionVisual` zostáva vždy priamo z D1. Využiť existujúcu testovanú cache implementáciu.
 2. [x] **LCP na mobile/desktop.** Identifikovať skutočný LCP element Lighthouse/CrUX; hero priority, formáty, `srcSet`, `sizes`, preloading iba pri merateľnej výhode a bez duplicít.
 3. [x] **CSS cost a render-blocking.** Zmerať build CSS, vybrať len nepoužívané/zdieľané pravidlá a presunúť admin CSS mimo verejnej vetvy bez zmeny vzhľadu; regresné vizuálne testy.
-4. [ ] **JavaScript a hydration.** Analýza route chunkov, minimalizovať client boundary, presunúť nevyhnutnú interaktivitu do izolovaných komponentov; bez zhoršenia navigácie.
+4. [x] **JavaScript a hydration.** Analýza route chunkov, minimalizovať client boundary, presunúť nevyhnutnú interaktivitu do izolovaných komponentov; bez zhoršenia navigácie.
 5. [ ] **Úvodná stránka / D1.** Zmerať náklady paralelných čítaní, odstrániť iba preukázané duplicity, overiť obsah, poradie, publikovanie a SEO.
 6. [ ] **HTML/RSC/cache.** Preskúmať reálny HIT/MISS, TTFB a invalidáciu; nikdy necacheovať administráciu, partnera, cookies, autentifikované, query alebo RSC požiadavky.
 7. [ ] **Fotografie a médiá.** Kompresia/rozmery, správne `srcSet`, lazy loading pod prvým viewportom, stabilné rozmery pre CLS; bez odstránenia originálov.
@@ -83,3 +83,17 @@ Technické zdroje:
 **Overenie:** V kóde sa skontrolovalo vyváženie blokov a 504 pravidiel s výlučne administrátorskými selektormi, prítomnosť výnimiek v pôvodnom CSS a importy iba na Admin route. **Nejde o skutočnú nameranú úsporu gzip/Brotli ani konečného CSS bundle;** tú poskytne až porovnateľný produkčný build a Lighthouse. Po presune môže zmena poradia CSS medzi root a route ovplyvniť kaskádu v Admine, preto pred zlúčením vyžaduje vizuálny smoke test adminových editorov a mobilného rozloženia. Zmeny nevyžadujú D1 migrácie, zmeny dát ani nové závislosti.
 
 Dôležité: `globals.css` obsahuje ďalšie verejné CSS veľkého rozsahu. Automatická eliminácia podľa názvu bez kontroly používania by mohla rozbiť vzory a šablóny. Ďalšie čistenie vyhodnotiť až na základe build CSS reportu, route coverage a snímok kľúčových stránok.
+
+## Krok 4 — odložený JavaScript a izolovaná hydratácia (nižšia záťaž pred interakciou)
+
+**Audit existujúcich odkladov:** `LazyPublicSearchSuggestions` už používa `React.lazy` až od dvoch znakov vyhľadávania; desktopový FullCalendar je už samostatný `next/dynamic` komponent; Google Maps renderer má samostatný JS bundle a kontrolu súhlasu. Existujúce funkčné mechanizmy sa nemenili, aby nevznikli duplicity a regresie.
+
+**Nové zmeny:**
+
+1. **PhotoSwipe:** Z `components/public-visual-system/public-photoswipe-enhancer.tsx` bol odstránený runtime statický import `photoswipe/lightbox`; teraz sa Lightbox controller importuje dynamicky len po priblížení ku galérii (`IntersectionObserver`, predstih 600 px) alebo pri prvom kliknutí. Samotný PhotoSwipe core bol už importovaný až pri otvorení a tak ostal. Zachovaný predchádzajúci import CSS, výpočet rozmerov fotografií, pôvodný linked variant a standard cleanup. Prvý klik pred dokončením importu čaká na controller a otvorí správny index; pri chybe chunku použije priamy odkaz na fotografiu. Modifier-click a explicitné ciele odkazov sa nemenia. Observer sa viaže na prvý skutočný link (nie wrapper s `display: contents`).
+2. **Kalkulačka na konci homepage:** Nová klientská hranica `components/lazy-dog-age-calculator.tsx` používa `React.lazy` + `Suspense` pre `components/dog-age-calculator.tsx`; pri podpore `IntersectionObserver` sa skript načíta s predstihom 600 px pred príchodom používateľa. Fallback má stabilný minimálny rozmer, aby pri lazy rendrovaní nevznikal zbytočný CLS. Keď API `IntersectionObserver` chýba, skutočný kalkulátor sa načíta hneď. Funkcia výpočtu, jeho ovládacie prvky a hodnoty ostali nezmenené.
+3. **Regresie:** `tests/performance-fastpaths.test.mjs` chráni dynamický import lightboxu, funkčnosť odkazov a prvého kliknutia, vlastnosti observera a samostatnú kalkulačku; existujúce integračné kontrakty PhotoSwipe a domovskej stránky ostávajú zachované.
+
+**Účel:** Znížiť JavaScript, ktorý musí prehliadač parsovať a vykonať pri prvej návšteve. Nie je to dôkaz konkrétnej úspory KB/CPU: bundle analyzer a opakované Lighthouse merania ešte neprebehli. Nie všetky client komponenty sa dajú bez rizika odložiť (napr. primárna navigácia a vyhľadávanie musia reagovať okamžite). Reálny build a mobilné/desktop testy vrátane otvorenia PhotoSwipe pred dokončením načítania a ovládania kalkulačky po zobrazení sú nutné pred merge.
+
+Referenčné postupy: https://react.dev/reference/react/lazy a https://web.dev/articles/reduce-javascript-payloads-with-code-splitting.
