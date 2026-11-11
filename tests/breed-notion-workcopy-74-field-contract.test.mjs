@@ -49,7 +49,8 @@ test("every live editorial Admin field maps to one real Notion cell, never to a 
   assert.equal(new Set(mapped.map(x=>x.notion)).size,mapped.length);
   assert.deepEqual(sorted(mapped.map(x=>x.notion)),sorted(BREED_WORKCOPY_EDITORIAL_PROPERTIES));
   for(const spec of mapped){
-    const expected=spec.type==="text"?"text":spec.type;
+    // The new Notion source stores legacy URL-labelled editorial cells as text.
+    const expected=spec.type==="url"?"text":spec.type;
     assert.equal(notion[spec.notion]?.type,expected,spec.id+" -> "+spec.notion);
   }
   const field=id=>mapped.find(x=>x.id===id)?.notion;
