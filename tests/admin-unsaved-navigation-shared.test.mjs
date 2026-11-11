@@ -29,12 +29,12 @@ test("e-shop navigation uses same guard and keeps existing persistence",()=>{
 
 test("Directory back navigation uses shared guard and keeps existing canonical or Notion saves", () => {
   const source = read("components/admin-directory-editor.tsx");
-  assert.match(source, /const \[confirmDirectoryExit, setConfirmDirectoryExit\] = useState\(false\)/);
-  assert.match(source, /setConfirmDirectoryExit\(true\)/);
-  assert.match(source, /<EditorUnsavedChangesGuard\s+active=\{formDirty\}\s+open=\{confirmDirectoryExit\}/);
-  assert.match(source, /onStay=\{\(\) => setConfirmDirectoryExit\(false\)\}/);
-  assert.match(source, /allowDirectoryExitRef\.current = true/);
-  assert.match(source, /directoryBackLinkRef\.current\?\.click\(\)/);
+  assert.match(source, /useAdminEditorNavigationGuard/);
+  assert.match(source, /open=\{navigation\.confirmOpen\}/);
+  assert.match(source, /onStay=\{navigation\.stay\}/);
+  assert.match(source, /onDiscard=\{navigation\.discard\}/);
+  assert.match(source, /allowNativeExitRef=\{navigation\.allowNativeExitRef\}/);
+  assert.doesNotMatch(source, /confirmDirectoryExit|directoryBackLinkRef|allowDirectoryExitRef/);
   assert.doesNotMatch(source, /useRouter\(\)/);
   assert.doesNotMatch(source, /window\.confirm\("Zahodiť neuložené zmeny profilu/);
   assert.match(source, /setFilterSourceData\(savedProfile\.importData/);
