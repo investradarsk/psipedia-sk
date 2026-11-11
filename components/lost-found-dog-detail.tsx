@@ -17,7 +17,8 @@ export async function lostFoundDogMetadata(type: DogReportType, slug: string): P
   const report = await getPublicDogReport(type, slug);
   if (!report) return { title: "Hlásenie sa nenašlo | Psipedia", robots: { index: false, follow: true } };
   const title = `${dogReportTitle(report)} | Psipedia`;
-  const description = `${dogReportTypeLabel(type)} · ${report.city}${report.district ? `, ${report.district}` : ""}. ${report.description}`.slice(0, 158);
+  const lead = report.shortDescription?.trim() || report.description;
+  const description = `${dogReportTypeLabel(type)} · ${report.city}${report.district ? `, ${report.district}` : ""}. ${lead}`.slice(0, 158);
   const canonical = `${SITE_URL}${dogReportBasePath(type)}/${report.slug}`;
   const image = report.mainImage ? (report.mainImage.startsWith("http") ? report.mainImage : `${SITE_URL}${report.mainImage}`) : undefined;
   const shouldIndex = lostFoundStatusShouldIndex(report.status);
