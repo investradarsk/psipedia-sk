@@ -1040,7 +1040,8 @@ async function syncAgenda(input: {
         }
         continue;
       }
-      if (pageIdentity.url && pageIdentity.url !== source.url) {
+      if (pageIdentity.url && pageIdentity.url !== source.url
+          && !(input.adminChangedFields?.includes("Slug") && isHelpFieldEventAgenda(input.definition.key))) {
         summary.conflicts += 1;
         appendNotionReview(summary.reviewQueue, {
           entityId, notionPageId: page.id, reason: "IDENTITY_CONFLICT",
@@ -1137,7 +1138,7 @@ async function syncAgenda(input: {
           && input.webhookMappedOnly && !input.manualDirection
           && (input.changedPropertyIds !== undefined || input.adminChangedFields !== undefined)) {
         const agenda = input.definition.key;
-        const permitted = new Set(editableHelpEventFields(agenda));
+        const permitted = new Set(agendaEditableFields[agenda]);
         if (input.changedPropertyIds !== undefined) {
           const fields = changedNotionHelpFields(agenda, page.properties, input.changedPropertyIds);
           let live = sourceSnapshot;
@@ -1186,6 +1187,10 @@ async function syncAgenda(input: {
         const values = Object.fromEntries(fields.map(name => [name, sourceSnapshot[name] ?? null]))
           as Record<string, ReconciliationValue>;
         const patch = encodeProperties(values, schema);
+        if (fields.includes("Slug")) {
+          if (!schema["URL Psipedia"]) throw new Error("HELP_ADMIN_URL_SCHEMA_MISSING");
+          Object.assign(patch, encodeProperties({ "URL Psipedia": source.url }, schema));
+        }
         const changed = selectiveNotionProperties(page.properties ?? {}, patch);
         if (!changed) {
           summary.unchanged++;
@@ -1197,7 +1202,8 @@ async function syncAgenda(input: {
         if (verified.id !== page.id || !notionPageBelongsToDataSource(verified, target.dataSourceId)
           || fields.some(field =>
             JSON.stringify(pageProperty(verified, field) ?? null) !==
-            JSON.stringify(sourceSnapshot[field] ?? null))) {
+            JSON.stringify(sourceSnapshot[field] ?? null))
+          || (fields.includes("Slug") && pageProperty(verified, "URL Psipedia") !== source.url)) {
           throw new Error("HELP_ADMIN_FIELD_ECHO_MISMATCH");
         }
         summary.pushedToNotion++;
