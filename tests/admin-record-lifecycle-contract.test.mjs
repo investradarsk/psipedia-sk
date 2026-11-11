@@ -86,12 +86,16 @@ test("every Notion inbound sweep honors unpublished guards and pre-migration wor
   for (const adapter of [
     "notion-directory-sync", "notion-events-help-sync",
     "notion-event-sync", "notion-breed-sync", "notion-article-sync",
-    "notion-breed-workcopy-sync",
   ]) {
     const content = source("lib/" + adapter + ".ts");
     assert.match(content, /await notionPageMustSkipInboundSync\(/,
       adapter + " must not replay a hidden Admin record");
   }
+  // A breed draft still receives content edits; only tombstones stop replay.
+  const breeds = source("lib/notion-breed-workcopy-sync.ts");
+  assert.match(breeds, /await notionPageIsTombstoned\(args.database,link.work_notion_page_id\)/);
+  assert.doesNotMatch(breeds, /notionPageMustSkipInboundSync\(/);
+  assert.match(breeds, /status: canonical.status/);
   for (const mapping of ["directory_notion_sync","event_notion_sync","breed_notion_sync",
     "breed_notion_workcopy_links","article_notion_sync","notion_agenda_sync"]) {
     assert.ok(core.includes(mapping), "guard must recognize " + mapping);
