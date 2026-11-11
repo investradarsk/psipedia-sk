@@ -150,7 +150,7 @@ test("global details preserve domain-specific data, safe contacts and shared pho
 });
 
 
-test("Help dog detail profile polish is scoped, top-aligned and preserves safety", () => {
+test("Help dog detail shares service/organization contacts, actions and facts", () => {
   const css = read("components/detail-primitives/detail-primitives.module.css");
   for (const kind of ["lost-found", "adoption", "help"]) {
     assert.match(css, new RegExp('data-public-detail-hero="' + kind + '"'));
@@ -159,24 +159,21 @@ test("Help dog detail profile polish is scoped, top-aligned and preserves safety
   assert.match(css, /max-height: 390px/);
   const detail = read("components/lost-found-dog-detail.tsx");
   const detailCss = read("components/lost-found-dogs.module.css");
+  for (const token of ["<DetailContactsCard", "<DetailSection", "<DetailFactsCard", "<DetailActions", "<PublicActionLink", "<PublicPhotoGallery"]) {
+    assert.ok(detail.includes(token), token);
+  }
   assert.match(detail, /<DetailContactsCard title="Adresa a kontakt"/);
   assert.match(detail, /styles\.safetyPanel/);
   assert.match(detail, /variant="linked" fit="contain"/);
   assert.match(detail, /Zobrazuje sa len približná lokalita/);
   assert.ok(detail.indexOf('<DetailContactsCard title="Adresa a kontakt"') < detail.indexOf("styles.safetyPanel"));
-  assert.ok(detail.indexOf("styles.safetyPanel") < detail.indexOf("{hasFacts &&"));
+  assert.ok(detail.indexOf("styles.safetyPanel") < detail.indexOf("{hasFacts ?"));
   assert.match(detailCss, /\.reportGallery\s*\{/);
-  assert.match(read("components/adoption-detail.module.css"), /\.contactCard\s*\{/);
-  for(const token of ["<DetailSection", "<DetailFactsCard", "<DetailActions", "<PublicActionLink"]){
-    assert.match(detail,new RegExp(token.replace(/[.*+?^$\{\}()|[\]\\]/g,"\\  assert.match(read("components/adoption-detail.module.css"), /\.contactCard\s*\{/);
-});")));
+  for (const field of ["publicPhone","publicEmail","publicWebsiteUrl","publicFacebookUrl","publicInstagramUrl"]) {
+    assert.ok(detail.includes("report." + field),field);
   }
-  assert.match(detail, /report\.publicPhone/);
-  assert.match(detail, /report\.publicEmail/);
-  assert.match(detail, /report\.publicFacebookUrl/);
-  assert.match(detail, /report\.publicInstagramUrl/);
+  assert.match(detail, /Telefón a e-mail oznamovateľa nie sú automaticky publikované/);
 });
-
 
 test("unnamed lost/found reports show human-readable breadcrumb instead of URL slug", () => {
   const detail = read("components/lost-found-dog-detail.tsx");
