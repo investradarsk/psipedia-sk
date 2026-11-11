@@ -483,3 +483,10 @@
 .gridSelection button { padding: 6px 10px; border: 1px solid #bfd2c5; border-radius: 8px; background: white; color: #1f4a3a; cursor: pointer; }
 .gridRowActions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .gridRowActions :is(a,button) { font-size: .78rem; }
+
+/* Mobile adoption selection remains usable when the desktop grid is hidden. */
+.mobileCardSelect { display: none; }
+@media (max-width: 760px) {
+  .mobileCardSelect { display: inline-flex; align-items: center; gap: 9px; min-height: 40px; font-size: .83rem; font-weight: 650; }
+  .mobileCardSelect input { width: 18px; height: 18px; accent-color: #1f4a3a; }
+}

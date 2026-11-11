@@ -107,8 +107,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
       <button type="submit">Filtrovať</button>
     </form>
     {message && <p role="status">{message}</p>}
-    <div className={styles.adoptionTableRegion}>
-      {selected.size > 0 && <div className={styles.gridSelection}>
+    {selected.size > 0 && <div className={styles.gridSelection}>
         <strong>Označené: {selected.size}</strong>
         <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
         <AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy}
@@ -116,7 +115,8 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
             setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
             router.refresh();
           }} />
-      </div>}
+    </div>}
+    <div className={styles.adoptionTableRegion}>
       <AdminDataTableRegion className={styles.tableWrap} label="Zoznam adopcií – tabuľka">
         {result.items.length ? <AdminRecordTable
           rows={result.items}
@@ -182,6 +182,16 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
         const verified = formatDate(item.lastVerifiedAt);
         const isPublic = item.status === "ACTIVE" || item.status === "RESERVED";
         return <article key={item.id} className={styles.adoptionCard}>
+          <label className={styles.mobileCardSelect}>
+            <input type="checkbox" checked={selected.has(item.id)}
+              aria-label={"Označiť adopciu " + item.name}
+              onChange={event => setSelected(current => {
+                const next = new Set(current);
+                if (event.target.checked) next.add(item.id); else next.delete(item.id);
+                return next;
+              })} />
+            Označiť
+          </label>
           <div className={styles.adoptionCardTop}>
             <div className={styles.adoptionCardIdentity}>
               <h2><Link href={`/admin/adopcie/${item.id}`}>{item.name}</Link></h2>
