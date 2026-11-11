@@ -153,7 +153,8 @@
     "driver.js": "1.10.2",
     "@tiptap/core": "3.33.0",
     "@tiptap/react": "3.33.0",
-    "@tiptap/starter-kit": "3.33.0"
+    "@tiptap/starter-kit": "3.33.0",
+    "konva": "10.9.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
