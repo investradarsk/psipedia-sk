@@ -31,7 +31,7 @@ Dátum: 12. 11. 2026. Zmena v existujúcej vetve PR #1319 bez novej databázy, S
 
 ## Revízia verejného textu
 
-- Pri výslovnom odobratí služby z profilu sa odstráni aktuálny názov aj rozpoznané predchádzajúce označenia **toho istého ID**, nie ostatný historický voľný text.
+- Pri výslovnom odobratí služby z profilu sa odstráni aktuálny názov aj **jednoznačne priradené** predchádzajúce označenia toho istého ID, nie ostatný historický voľný text. Nejednoznačný alias zdieľaný s inou službou sa nikdy automaticky nevymaže ani neprevedie.
 - Pri synchronizácii potvrdenej služby do `services_json` sa starý rozpoznaný názov nahradí aktuálnym na pôvodnej pozícii; nevytvorí sa druhá položka.
 - Existujúce texty sa neprepisujú hromadne po úprave katalógu. Pri ďalšej cielenej synchronizácii profilu sa zosúladia; hromadné čistenie patrí do neskorších krokov s kontrolou konfliktov.
 
