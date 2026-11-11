@@ -789,7 +789,7 @@ function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): 
   // snapshot or bypass its own revalidation semantics.
   if (["range", "if-none-match", "if-modified-since", "if-range"].some((name) => request.headers.has(name))) return null;
   const requestCacheControl = request.headers.get("cache-control") ?? "";
-  if (/(?:^|,)\\s*(?:no-cache|no-store|max-age\\s*=\\s*\\\"?0\\\"?)(?:\\s*[,;]|\\s*$)/i.test(requestCacheControl)) return null;
+  if (/(?:^|,)\s*(?:no-cache|no-store|max-age\s*=\s*"?0"?)(?:\s*[,;]|\s*$)/i.test(requestCacheControl)) return null;
   if ((request.headers.get("pragma") ?? "").toLowerCase().split(",").some((item) => item.trim() === "no-cache")) return null;
   const fetchDest = request.headers.get("sec-fetch-dest");
   if (fetchDest && fetchDest.toLowerCase() !== "document") return null;
