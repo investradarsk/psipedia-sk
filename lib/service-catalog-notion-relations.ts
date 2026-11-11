@@ -190,6 +190,9 @@ export async function syncProfileCatalogRelation(input:{
    if(!equalIds(await readIds(),remote))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
    if(additions.length){
+     const currentLocal=await canonicalYes(db,profileId,available);
+     if(!equalIds(currentLocal,local))
+       throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_IMPORT");
      await importNotionServiceIds(db,profileId,category,target);
    }
    const confirmed=await canonicalYes(db,profileId,available);
@@ -222,6 +225,9 @@ export async function syncProfileCatalogRelation(input:{
    const latest=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
+   const currentLocal=await canonicalYes(db,profileId,available);
+   if(JSON.stringify(currentLocal)!==JSON.stringify(local))
+     throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_IMPORT");
    const before=new Set(local);
    await importNotionServiceIds(db,profileId,category,plan.target);
    const after=new Set(await canonicalYes(db,profileId,available));
