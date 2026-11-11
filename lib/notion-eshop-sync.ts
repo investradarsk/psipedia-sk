@@ -1,3 +1,4 @@
+import { sameNotionProperty } from "./notion-selective-property-patch.ts";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { selectiveNotionProperties } from "./notion-selective-property-patch.ts";
 import { SITE_URL } from "@/config/public-site";
@@ -166,6 +167,41 @@ function notionSnapshot(page: NotionPage): EditableSnapshot {
     focusTags: multiSelectProperty(page, "Zameranie"),
     logoUrl: notionUrlProperty(page, "Logo URL"),
   };
+}
+
+
+/** Only Notion property edits reported by a signed webhook can pull these fields. */
+const ESHOP_EVENT_FIELDS = {
+  name: "Názov",
+  websiteUrl: "Web",
+  description: "Popis",
+  sourceUrl: "Zdroj",
+  focusTags: "Zameranie",
+  logoUrl: "Logo URL",
+} as const;
+export type EshopEventField = keyof typeof ESHOP_EVENT_FIELDS;
+export type EshopAdminField = EshopEventField | "slug" | "status" | "logoKey";
+
+export function eshopAdminEditedFields(before: ManagedEshop, after: ManagedEshop): EshopAdminField[] {
+  const old = profileSnapshot(before), next = profileSnapshot(after);
+  const candidateFields: Array<Exclude<EshopAdminField, "logoKey">> = [
+    "name", "websiteUrl", "description", "sourceUrl", "focusTags",
+    "logoUrl", "slug", "status",
+  ];
+  const fields: EshopAdminField[] = candidateFields.filter(
+    key => JSON.stringify(old[key]) !== JSON.stringify(next[key]),
+  );
+  if (before.logoKey !== after.logoKey) fields.push("logoKey");
+  return fields;
+}
+
+function eshopNotionEditedFields(page: NotionPage, ids: readonly string[]): EshopEventField[] {
+  const changed = new Set(ids);
+  return (Object.keys(ESHOP_EVENT_FIELDS) as EshopEventField[]).filter(key => {
+    const name = ESHOP_EVENT_FIELDS[key];
+    const property = page.properties?.[name] as {id?: unknown} | undefined;
+    return changed.has(name) || (typeof property?.id === "string" && changed.has(property.id));
+  });
 }
 
 async function snapshotHash(snapshot: EditableSnapshot) {
@@ -585,6 +621,34 @@ async function recoverMapping(input: { database: D1Database; page: NotionPage })
   return loadMappingByShop(input.database, shopId);
 }
 
+
+/** Narrow SQL writer: a Notion field event cannot rewrite any sibling field. */
+async function saveEshopEditorialField(
+  database: D1Database, current: ManagedEshop,
+  path: Exclude<EshopEventField, "logoUrl">, value: EditableSnapshot[typeof path],
+): Promise<ManagedEshop> {
+  const columns: Record<Exclude<EshopEventField, "logoUrl">, string> = {
+    name: "name", websiteUrl: "website_url", description: "description",
+    sourceUrl: "source_url", focusTags: "focus_tags_json",
+  };
+  const column = columns[path];
+  if (!column) throw new Error("ESHOP_FIELD_UNKNOWN");
+  const normalized = path === "focusTags"
+    ? JSON.stringify(Array.isArray(value)
+      ? value.filter(item => typeof item === "string" && item.trim()).slice(0, 12) : [])
+    : typeof value === "string" ? value.trim() : "";
+  if (path === "name" && !String(normalized).trim()) throw new Error("ESHOP_NAME_REQUIRED");
+  const now = new Date().toISOString();
+  const row = await database.prepare(
+    "UPDATE managed_eshops SET " + column + "=?, updated_at=?, updated_by=? " +
+    "WHERE id=? AND status <> 'archived' AND updated_at=? RETURNING id",
+  ).bind(normalized, now, SYSTEM_ACTOR, current.id, current.updatedAt).first<{id: number}>();
+  if (!row) throw new Error("ESHOP_FIELD_WRITE_CONFLICT");
+  const updated = await getManagedEshopById(current.id, database);
+  if (!updated) throw new Error("ESHOP_FIELD_RELOAD_FAILED");
+  return updated;
+}
+
 async function syncMapped(input: {
   database: D1Database;
   bindings: NotionEshopSyncBindings;
@@ -593,6 +657,8 @@ async function syncMapped(input: {
   page?: NotionPage;
   forcePush?: boolean;
   manualDirection?: ManualFieldDirection;
+  webhookChangedPropertyIds?: readonly string[];
+  adminChangedFields?: readonly EshopAdminField[];
 }) {
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) throw new Error("ESHOP_CANONICAL_MAPPING_ORPHAN");
@@ -603,10 +669,98 @@ async function syncMapped(input: {
   }
 
   const claimedId = notionRichTextProperty(page, "Psipedia ID");
+  if ((input.webhookChangedPropertyIds !== undefined || input.adminChangedFields !== undefined)
+      && claimedId !== String(shop.id))
+    throw new Error("ESHOP_FIELD_EVENT_IDENTITY_MISMATCH");
   if (claimedId !== String(shop.id)) {
     // Never overwrite a page explicitly claimed by a different D1 entity.
     if (claimedId) throw new Error("ESHOP_IDENTITY_CONFLICT");
     await writeShopToNotion({ database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId, shop, pageId: page.id });
+    return "pushed" as const;
+  }
+
+  // Explicit field events replace record-wide reconciliation for mapped shops.
+  // Canonical slug and publication are never imported from Notion events.
+  if (!input.manualDirection && input.webhookChangedPropertyIds !== undefined) {
+    const paths = eshopNotionEditedFields(page, input.webhookChangedPropertyIds);
+    const remote = notionSnapshot(page);
+    let applied = 0;
+    const failed: EshopEventField[] = [];
+    for (const path of paths) {
+      const current = await getManagedEshopById(shop.id, input.database);
+      if (!current) throw new Error("ESHOP_FIELD_CANONICAL_MISSING");
+      const before = profileSnapshot(current);
+      if (JSON.stringify(before[path]) === JSON.stringify(remote[path])) continue;
+      try {
+        if (path === "name" && !remote.name.trim()) throw new Error("ESHOP_NAME_REQUIRED");
+        const desired: EditableSnapshot = { ...before, [path]: remote[path] };
+        if (path === "logoUrl") {
+          await applyNotionToShop({
+            database: input.database, bindings: input.bindings, page, shop: current,
+            desiredOverride: desired,
+          });
+        } else {
+          // Exactly ONE D1 column is updated; stale editors cannot overwrite
+          // unrelated contacts, labels, publication or uploaded images.
+          await saveEshopEditorialField(input.database, current, path, remote[path]);
+        }
+        const saved = await getManagedEshopById(shop.id, input.database);
+        if (!saved || JSON.stringify(profileSnapshot(saved)[path]) !== JSON.stringify(remote[path]))
+          throw new Error("ESHOP_FIELD_WRITE_NOT_VERIFIED");
+        applied++;
+      } catch (error) {
+        console.error("ESHOP_FIELD_EVENT_FAILED", shop.id, path, error);
+        failed.push(path);
+      }
+    }
+    if (failed.length) throw new Error("ESHOP_FIELD_EVENTS_PENDING: " + failed.join(","));
+    if (paths.length) await patchPage(input.bindings, page.id, {
+      "Sync stav": select("Synchronizované"),
+      "Sync chyba": notionTextValue(""),
+      "Posledný sync": date(new Date().toISOString()),
+    });
+    // Do not advance the old whole-record mapping hash after a partial event.
+    return applied ? "pulled" as const : "unchanged" as const;
+  }
+
+  if (!input.manualDirection && input.adminChangedFields !== undefined) {
+    const fields = [...new Set(input.adminChangedFields)];
+    if (!fields.length) return "unchanged" as const;
+    const properties = notionProperties(shop, "", new Date().toISOString()) as Record<string, unknown>;
+    const patch: Record<string, unknown> = {};
+    for (const field of fields) {
+      if (field === "logoKey") {
+        if (Object.hasOwn(page.properties ?? {}, "Logo key"))
+          patch["Logo key"] = properties["Logo key"];
+        continue;
+      }
+      if (field === "slug") {
+        for (const name of ["Slug", "URL Psipedia"]) {
+          if (!Object.hasOwn(page.properties ?? {}, name)) throw new Error("ESHOP_ADMIN_FIELD_SCHEMA_MISSING: " + name);
+          patch[name] = properties[name];
+        }
+        continue;
+      }
+      if (field === "status") {
+        if (!Object.hasOwn(page.properties ?? {}, "Psipedia stav")) throw new Error("ESHOP_STATUS_NOTION_MISSING");
+        patch["Psipedia stav"] = properties["Psipedia stav"];
+        continue;
+      }
+      const name = ESHOP_EVENT_FIELDS[field];
+      if (!name || !Object.hasOwn(page.properties ?? {}, name))
+        throw new Error("ESHOP_ADMIN_FIELD_SCHEMA_MISSING: " + String(field));
+      patch[name] = properties[name];
+      if (field === "logoUrl" && Object.hasOwn(page.properties ?? {}, "Logo Psipedia"))
+        patch["Logo Psipedia"] = properties["Logo Psipedia"];
+    }
+    const actual = selectiveNotionProperties(page.properties ?? {}, patch);
+    if (!actual) return "unchanged" as const;
+    const written = await patchPage(input.bindings, page.id, actual);
+    const confirmed = written.properties ? written : await fetchPage(input.bindings, page.id);
+    if (confirmed.id !== page.id || !notionPageBelongsToDataSource(confirmed, input.dataSourceId)
+      || Object.entries(actual).some(([name, value]) =>
+        !sameNotionProperty(confirmed.properties?.[name], value)))
+      throw new Error("ESHOP_ADMIN_FIELD_ECHO_MISMATCH");
     return "pushed" as const;
   }
 
@@ -698,6 +852,46 @@ async function syncMapped(input: {
   return changedCanonical ? "pulled" as const : "pushed" as const;
 }
 
+/**
+ * The hourly safety net still mirrors Admin-owned ratings and publication.
+ * Never replay old editorial hashes after a per-property webhook/PUT update.
+ */
+async function mirrorEshopSystemFields(input: {
+  database: D1Database; bindings: NotionEshopSyncBindings;
+  dataSourceId: string; mapping: EshopNotionMapping;
+}): Promise<"pushed" | "unchanged"> {
+  const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
+  if (!shop) return "unchanged";
+  const page = await fetchPage(input.bindings, input.mapping.notion_page_id);
+  if (page.id !== input.mapping.notion_page_id ||
+      !notionPageBelongsToDataSource(page, input.dataSourceId) ||
+      notionRichTextProperty(page, "Psipedia ID") !== String(shop.id))
+    throw new Error("ESHOP_SYSTEM_MIRROR_IDENTITY_MISMATCH");
+  const all = notionProperties(shop, "", new Date().toISOString()) as Record<string, unknown>;
+  const names = [
+    "Počet hodnotení", "Celkové hodnotenie", "Doručenie",
+    "Komunikácia", "Sortiment", "Ceny", "Aktualizované Psipedia",
+    "Publikované Psipedia", "Psipedia stav",
+  ];
+  const desired = Object.fromEntries(names.filter(name =>
+    Object.hasOwn(page.properties ?? {}, name)).map(name => [name, all[name]]));
+  const patch = selectiveNotionProperties(page.properties ?? {}, desired);
+  if (patch) {
+    const updated = await patchPage(input.bindings, page.id, patch);
+    const checked = updated.properties ? updated : await fetchPage(input.bindings, page.id);
+    if (checked.id !== page.id || !notionPageBelongsToDataSource(checked, input.dataSourceId) ||
+        Object.entries(patch).some(([name, value]) =>
+          !sameNotionProperty(checked.properties?.[name], value)))
+      throw new Error("ESHOP_SYSTEM_MIRROR_ECHO_MISMATCH");
+  }
+  // This is a last-observed timestamp, NOT a synthetic shared editorial hash.
+  await input.database.prepare(
+    "UPDATE eshop_notion_sync SET psipedia_updated_at=?,last_synced_at=? " +
+    "WHERE eshop_id=? AND notion_page_id=?",
+  ).bind(shop.updatedAt, new Date().toISOString(), shop.id, page.id).run();
+  return patch ? "pushed" : "unchanged";
+}
+
 function configured(bindings: NotionEshopSyncBindings) {
   return notionFlagEnabled(bindings.NOTION_ESHOP_SYNC_ENABLED)
     && Boolean(bindings.NOTION_API_TOKEN?.trim())
@@ -752,6 +946,10 @@ export async function runNotionEshopSyncSweep(input: {
   targetShopId?: number;
   /** Explicit, confirmed single linked profile transfer only. */
   manualDirection?: ManualFieldDirection;
+  /** Signed Notion property IDs for mapped field-event changes. */
+  changedPropertyIds?: readonly string[];
+  /** Explicit Admin before/after differences. */
+  adminChangedFields?: readonly EshopAdminField[];
 }): Promise<NotionEshopSyncSummary> {
   if (input.targetPageId !== undefined && input.targetShopId !== undefined)
     throw new Error("NOTION_ESHOP_TARGET_SCOPE_AMBIGUOUS");
@@ -785,6 +983,7 @@ export async function runNotionEshopSyncSweep(input: {
       const action = await syncMapped({
         database: input.database, bindings: input.bindings, dataSourceId, mapping,
         manualDirection:input.manualDirection,
+        adminChangedFields:input.adminChangedFields,
       });
       if (action === "pulled") summary.pulledFromNotion++;
       else if (action === "pushed") summary.pushedToNotion++;
@@ -836,7 +1035,18 @@ export async function runNotionEshopSyncSweep(input: {
         continue;
       }
 
-      const action = await syncMapped({ database: input.database, bindings: input.bindings, dataSourceId, mapping, page });
+      // The ordinary hourly sweep may bootstrap new shops, but it must not
+      // overwrite unrelated mapped fields after an explicit field event.
+      if (!input.targetPageId) {
+        const systemAction = await mirrorEshopSystemFields({
+          database: input.database, bindings: input.bindings, dataSourceId, mapping,
+        });
+        if (systemAction === "pushed") summary.pushedToNotion++;
+        else summary.unchanged++;
+        continue;
+      }
+      const action = await syncMapped({ database: input.database, bindings: input.bindings, dataSourceId, mapping, page,
+        webhookChangedPropertyIds: input.changedPropertyIds });
       if (action === "pulled") summary.pulledFromNotion += 1;
       else if (action === "pushed") summary.pushedToNotion += 1;
       else summary.unchanged += 1;
@@ -846,19 +1056,16 @@ export async function runNotionEshopSyncSweep(input: {
     }
   }
 
+  // Extra changed canonical rows (especially ratings) mirror system fields
+  // without touching editorial fields already reconciled by explicit events.
   for (const id of input.targetPageId ? [] : await changedIds(input.database)) {
     try {
       const mapping = await loadMappingByShop(input.database, id);
       if (!mapping) continue;
-      const action = await syncMapped({
-        database: input.database,
-        bindings: input.bindings,
-        dataSourceId,
-        mapping,
-        forcePush: true,
+      const action = await mirrorEshopSystemFields({
+        database: input.database, bindings: input.bindings, dataSourceId, mapping,
       });
       if (action === "pushed") summary.pushedToNotion += 1;
-      else if (action === "pulled") summary.pulledFromNotion += 1;
       else summary.unchanged += 1;
     } catch (error) {
       summary.failed += 1;
