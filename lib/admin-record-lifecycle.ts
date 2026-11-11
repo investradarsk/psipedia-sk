@@ -515,6 +515,21 @@ async function completeLocalRemoval(db:D1Database,kind:RecordKind,id:number,targ
     if(present.has("breed_notion_controlled_values"))
       statements.push(db.prepare("DELETE FROM breed_notion_controlled_values WHERE breed_id=?").bind(id));
   }
+  // Every Directory profile (and some events/organizations) has a partner
+  // resource created by the reviews/partner foundation. Its FK is RESTRICT,
+  // not CASCADE: deleting the canonical profile before its empty anchor
+  // deterministically fails with SQLITE_CONSTRAINT_FOREIGNKEY. Remove ONLY
+  // this record's orphanable anchor, before the canonical DELETE below.
+  // If there are real memberships, reviews, claims or financial references,
+  // their own RESTRICT FKs intentionally abort the entire batch: never erase
+  // partner accounts, audit history, review evidence or financial records.
+  const partnerResourceColumn = kind === "directory" ? "directory_profile_id"
+    : kind === "events" ? "managed_event_id"
+    : kind === "organizations" ? "help_organization_id" : null;
+  if (partnerResourceColumn && present.has("partner_resources")) {
+    statements.push(db.prepare("DELETE FROM partner_resources WHERE " + partnerResourceColumn + "=?")
+      .bind(id));
+  }
   // Delete only join rows or dangling foreign keys, never related entities.
   // These relation tables are optional on earlier D1 deployments.
   if(kind==="articles" && present.has("breed_article_relations"))
@@ -663,12 +678,16 @@ export async function removeRecord(db:D1Database,bindings:LifecycleBindings,kind
   }
   try {
     await completeLocalRemoval(db,kind,id,targets);
-  }catch{
-    // All Notion pages have been confirmed in trash, but local D1 cleanup must
-    // remain retryable; the record stays hidden behind the persistent tombstone.
-    await db.prepare("UPDATE admin_record_tombstones SET state='READY_LOCAL',error_code='D1_DELETE_PENDING',updated_at=? WHERE kind=? AND record_id=?")
-      .bind(new Date().toISOString(),kind,id).run();
-    return {state:"READY_LOCAL",id,notionTrash:targets.length?"confirmed":"unlinked",errorCode:"D1_DELETE_PENDING",media:{removed:0,preserved:mediaKeys(row).length}};
+  }catch(error){
+    // A failed D1 batch is atomic: do not trash Notion again or destroy
+    // resource/review/partner evidence. Keep the verified READY_LOCAL receipt.
+    console.error("RECORD_LIFECYCLE_LOCAL_DELETE_FAILED", {kind,id,
+      message:error instanceof Error?error.message:"UNKNOWN"});
+    const code = error instanceof Error && /FOREIGN KEY constraint failed|SQLITE_CONSTRAINT_FOREIGNKEY/i.test(error.message)
+      ? "D1_DELETE_BLOCKED_BY_REFERENCES" : "D1_DELETE_PENDING";
+    await db.prepare("UPDATE admin_record_tombstones SET state='READY_LOCAL',error_code=?,updated_at=? WHERE kind=? AND record_id=?")
+      .bind(code,new Date().toISOString(),kind,id).run();
+    return {state:"READY_LOCAL",id,notionTrash:targets.length?"confirmed":"unlinked",errorCode:code,media:{removed:0,preserved:mediaKeys(row).length}};
   }
   const media=await removeExclusiveMedia(db,bindings,row);
   return {state:"COMPLETE",id,notionTrash:targets.length?"confirmed":"unlinked",media};

@@ -18,6 +18,7 @@ function errorText(value:string) {
     NOTION_TRASH_NOT_CONFIRMED:"Notion nepotvrdil presunutie stránky do koša. Odstránenie zostáva nedokončené.",
     NOTION_PUBLICATION_NOT_CONFIRMED:"Notion nepotvrdil zmenu publikovania.",
     D1_DELETE_PENDING:"Notion je v koši, ale dokončenie odstránenia v Psipedii čaká na opakovanie.",
+    D1_DELETE_BLOCKED_BY_REFERENCES:"Notion je v koši, ale záznam má ešte aktívne recenzie alebo partnerské väzby. Tie systém bez overenia nemaže. Záznam zostáva skrytý.",
     LOCAL_ONLY_CONFIRMATION_REQUIRED:"Záznam nie je overene prepojený s Notionom. Potvrď odstránenie iba z Psipedie.",
     RECORD_CONFIRMATION_MISMATCH:"Údaje profilu sa od otvorenia potvrdenia zmenili. Zatvor okno a skontroluj jeho aktuálnu podobu.",
     NOTION_MAPPING_AMBIGUOUS:"Notion má protichodné prepojenia na tento záznam. Odstránenie bolo bezpečne zastavené.",
