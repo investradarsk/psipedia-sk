@@ -1197,8 +1197,9 @@ async function syncAgenda(input: {
           summary.unchanged++;
           continue;
         }
-        const values = Object.fromEntries(fields.map(name => [name, sourceSnapshot[name] ?? null]))
-          as Record<string, ReconciliationValue>;
+        const values: Record<string, ReconciliationValue> = Object.fromEntries(
+          fields.map(name => [name, sourceSnapshot[name] ?? null]),
+        );
         const patch = encodeProperties(values, schema);
         if (fields.includes("Slug") || (agenda === "lost-found" && fields.includes("Typ"))) {
           if (!schema["URL Psipedia"]) throw new Error("HELP_ADMIN_URL_SCHEMA_MISSING");
