@@ -4,6 +4,7 @@ import Link from "next/link";
 import { PublicMediaFallback } from "@/components/public-visual-system";
 import { PublicHelpProfileCard } from "@/components/public-visual-system/public-help-profile-card";
 import { ImageDisplay } from "@/components/image-display";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 import { getHelpCategory, helpCaseHref, type PublicHelpCard } from "@/lib/help";
 import styles from "./help-public.module.css";
@@ -60,6 +61,8 @@ export function HelpCard({ item: rawItem }: { item: PublicHelpCard }) {
               context="thumbnail"
               config={item.thumbnailImageDisplay}
               src={item.imageUrl}
+              srcSet={responsiveMediaSrcSet(item.imageUrl, [160, 320, 480, 640])}
+              sizes="(max-width: 360px) 96px, (max-width: 650px) 112px, 180px"
               alt={item.dogName ? item.dogName + " – " + item.title : item.title}
               loading="lazy"
               decoding="async"
