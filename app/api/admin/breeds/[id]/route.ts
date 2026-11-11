@@ -55,6 +55,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const dirty = sparse ? (changedFieldKeys as string[]) : null;
     const selected = sparse ? breedAdminSparseEdit(patch, dirty) : patch;
     let breed = before;
+    const rejectedDirtyFields:string[]=[];
     if (dirty?.length && dirty.every(breedEventIsDirectField)) {
       // One SQL column / JSON leaf per actual Admin edit, without resaving
       // status, relations, image keys, other editorial cells, or D1 baselines.
@@ -62,11 +63,18 @@ export async function PUT(request: Request, { params }: RouteProps) {
         const value = field.split(".").reduce<unknown>((v,key) =>
           v && typeof v==="object" ? (v as Record<string,unknown>)[key] : undefined,
           selected);
-        const result=await saveBreedNotionField({
-          database:(env as unknown as {DB:D1Database}).DB,
-          breedId:id,field,value,actor:user.email,
-        });
-        breed=result.breed;
+        try {
+          const result=await saveBreedNotionField({
+            database:(env as unknown as {DB:D1Database}).DB,
+            breedId:id,field,value,actor:user.email,
+          });
+          breed=result.breed;
+        } catch(error) {
+          rejectedDirtyFields.push(field);
+          console.warn("breed_admin_single_field_pending",{
+            breedId:id,field,code:error instanceof Error?error.message:"UNKNOWN",
+          });
+        }
       }
     } else if (!dirty || dirty.length) {
       breed = await updateManagedBreed(id,mergeManagedBreedEdit(before,selected),
@@ -111,7 +119,11 @@ export async function PUT(request: Request, { params }: RouteProps) {
     }
 
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"breeds",id,breed.status);
-    return Response.json({ breed, ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}) });
+    return Response.json({
+      breed,
+      ...(rejectedDirtyFields.length?{rejectedDirtyFields}:{}),
+      ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}),
+    });
   } catch (error) {
     if (error instanceof BreedUpdateConflictError) {
       return Response.json({ code: "BREED_EDIT_CONFLICT", error: error.message }, { status: 409 });
