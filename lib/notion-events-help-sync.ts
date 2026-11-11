@@ -1,4 +1,4 @@
-import { isHelpFieldEventAgenda, changedNotionHelpFields, editableHelpEventFields, helpFieldSnapshot } from "./notion-help-field-events.ts";
+import { isHelpFieldEventAgenda, changedNotionHelpFields, helpFieldSnapshot } from "./notion-help-field-events.ts";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
