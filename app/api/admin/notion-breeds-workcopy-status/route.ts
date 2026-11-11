@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { assessBreedWorkcopyReadiness } from "@/lib/breed-workcopy-readiness.mjs";
 
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store" };
@@ -47,23 +48,14 @@ export async function GET() {
     const oldSyncEnabled = bindings.NOTION_BREED_SYNC_ENABLED === "true";
     const workCopySyncEnabled = bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "true";
     const activationEnabled = bindings.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED === "true";
-    // D1 counters alone never prove that fields round-trip. They only decide
-    // whether it is safe to begin a single-profile bidirectional test.
-    const activeCohortReady = total === 344 && active === 344 && shadow === 0 &&
-      verified === 0 && receiptPrefixes === 344;
-    const singleNewEngine = !oldSyncEnabled && workCopySyncEnabled && !activationEnabled;
-    const blockers: string[] = [];
-    if (total !== 344) blockers.push("BREED_LINK_COUNT_MISMATCH");
-    if (active !== 344 || shadow !== 0 || verified !== 0)
-      blockers.push("BREED_ACTIVE_COHORT_INCOMPLETE");
-    if (receiptPrefixes !== 344) blockers.push("BREED_FIELD_RECEIPTS_INCOMPLETE");
-    if (!singleNewEngine) blockers.push("BREED_SYNC_FLAGS_MISMATCH");
-    if (activeErrors > 0) blockers.push("BREED_ACTIVE_FIELD_ERRORS");
+    const readiness = assessBreedWorkcopyReadiness({
+      total, active, shadow, verified, receiptPrefixes, activeErrors,
+      oldSyncEnabled, workCopySyncEnabled, activationEnabled,
+    });
     return Response.json({
       total, active, shadow, verified, receiptPrefixes, activeErrors,
       oldSyncEnabled, workCopySyncEnabled, activationEnabled,
-      activeCohortReady, singleNewEngine,
-      readyForManualRoundtrip: blockers.length === 0, blockers,
+      ...readiness,
     }, { headers });
   } catch {
     return Response.json({ code: "BREED_WORKCOPY_STATUS_READ_FAILED" }, { status: 503, headers });
