@@ -49,6 +49,7 @@ function publicationAction(page: import("@playwright/test").Page, name: string) 
 }
 
 async function mockArticleLifecycle(page: import("@playwright/test").Page) {
+  let unpublished = false;
   // Sandbox E2E articles have no production Notion mapping or lifecycle migration.
   // Exercise the real shared dialog and POST contract without performing any delete.
   await page.route("**/api/admin/record-lifecycle/articles/*", async (route) => {
@@ -56,12 +57,13 @@ async function mockArticleLifecycle(page: import("@playwright/test").Page) {
       const id = Number(new URL(route.request().url()).pathname.split("/").pop());
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
         id, name: "Testovací článok", slug: "e2e-clanok", category: "articles",
-        status: "published", published: true, notionLinked: false,
+        status: unpublished ? "draft" : "published", published: !unpublished, notionLinked: false,
         notionPages: 0, removalState: null, removalError: null,
       }) });
     }
     const request = route.request().postDataJSON() as { action: string };
     expect(request.action).toBe("unpublish");
+    unpublished = true;
     await route.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify({ notionSync: "SYNCED", updatedAt: "2026-11-11T08:00:00Z" }) });
   });
