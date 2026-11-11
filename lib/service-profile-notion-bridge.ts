@@ -90,12 +90,28 @@ export async function importNotionServiceChoices(db:DB,profileId:number,category
     const id=terms.get(normalizeCatalogLabel(name));
     if(id)selected.add(id);
   }
+  return importNotionServiceIds(db,profileId,category,[...selected],available);
+}
+
+/**
+ * Apply exact canonical Notion relation IDs through independent CAS/audit
+ * writes. Absence of an explicit YES resets it to unknown, never to NO.
+ */
+export async function importNotionServiceIds(
+  db:DB,profileId:number,category:string,ids:readonly string[],
+  resolved?:Awaited<ReturnType<typeof allowedCatalog>>,
+){
+  if(!categories.has(category))throw Error("SERVICES_RELATION_INVALID_CATEGORY");
+  const available=resolved??await allowedCatalog(db,category);
+  const availableIds=new Set(available.map(x=>x.id));
+  const selected=new Set(ids);
+  if([...selected].some(id=>!availableIds.has(id)))
+    throw Error("SERVICES_RELATION_UNKNOWN_OR_WRONG_CATEGORY");
   const rows=await db.prepare(
     "SELECT option_id,choice,version FROM service_profile_option_choices WHERE profile_id=?1"
   ).bind(profileId).all<ChoiceRow>();
   const saved=new Map((rows.results??[]).map(row=>[row.option_id,row]));
   let added=0,removed=0;
-  const availableIds=new Set(available.map(x=>x.id));
   for(const id of selected){
     const prior=saved.get(id);
     if(prior?.choice==="yes")continue;
