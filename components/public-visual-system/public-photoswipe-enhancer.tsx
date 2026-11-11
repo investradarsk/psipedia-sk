@@ -86,14 +86,15 @@ export function PublicPhotoSwipeEnhancer({ children }: { children: ReactNode }) 
           void prepareLightbox();
         }, { rootMargin: "600px 0px" })
       : null;
-    if (observer) observer.observe(gallery);
+    // display:contents has no own layout box; observe the first real image link.
+    if (observer) observer.observe(links().item(0) ?? gallery);
     else void prepareLightbox();
 
     return () => {
       active = false;
       observer?.disconnect();
       gallery.removeEventListener("click", onFirstClick, true);
-      lightbox?.destroy();
+      if (lightbox) lightbox.destroy();
     };
   }, []);
 
