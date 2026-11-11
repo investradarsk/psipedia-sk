@@ -1,5 +1,5 @@
 import type { D1Database } from "@cloudflare/workers-types";
-import {formatDisplayId, parseDisplayId, looksLikeDisplayId, type DisplayIdKind} from "./admin-display-id";
+import {formatDisplayId, parseDisplayId, looksLikeDisplayId, type DisplayIdKind} from "./admin-display-id.ts";
 
 export type AdminGlobalRecord = {
   title: string;

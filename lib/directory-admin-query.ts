@@ -1,4 +1,4 @@
-import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id.ts";
 export const DIRECTORY_ADMIN_PAGE_SIZE = 50;
 export type DirectoryAdminStatus = "all" | "published" | "draft" | "archived";
 export type DirectoryAdminVerification = "all" | "verified" | "unverified";

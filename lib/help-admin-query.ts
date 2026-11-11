@@ -1,4 +1,4 @@
-import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id.ts";
 /** Read-only server-side queries and domain rules for the canonical generic Help admin. */
 export const HELP_ADMIN_PAGE_SIZE = 50;
 export const HELP_ADMIN_DEDICATED_CATEGORIES = ["adopcia", "utulky", "stratene-a-najdene"] as const;

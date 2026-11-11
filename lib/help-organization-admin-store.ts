@@ -1,4 +1,4 @@
-import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id.ts";
 import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
 import { env } from "cloudflare:workers";
 import type { AdoptionD1Database } from "./adoption-store.ts";

@@ -1,4 +1,4 @@
-import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id.ts";
 import { defaultEventFilters, normalizeEventSearch, type AdminEventFilters, type AdminEventSummary } from "./admin-events";
 import { eventTypes, slovakRegions } from "./events";
 

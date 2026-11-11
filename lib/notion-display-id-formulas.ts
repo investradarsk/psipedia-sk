@@ -1,4 +1,4 @@
-import {displayIdScopes,displayIdScope,type DisplayIdKind} from "./admin-display-id";
+import {displayIdScopes,displayIdScope,type DisplayIdKind} from "./admin-display-id.ts";
 
 /**
  * Notion read-only display formula. The existing raw rich-text "Psipedia ID"

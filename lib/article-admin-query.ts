@@ -1,4 +1,4 @@
-import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id.ts";
 import type { ArticlePortalSection } from "./portal.ts";
 import { articleEffectiveStatusSql } from "./article-effective-status.ts";
 import {

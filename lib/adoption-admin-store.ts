@@ -1,4 +1,4 @@
-import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id.ts";
 import { env } from "cloudflare:workers";
 import {
   ADOPTION_ADMIN_PAGE_SIZE,

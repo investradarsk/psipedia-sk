@@ -1,4 +1,4 @@
-import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id.ts";
 export type BreedCompletenessIssue =
   | "Chýba obrázok"
   | "Chýba prehľad"

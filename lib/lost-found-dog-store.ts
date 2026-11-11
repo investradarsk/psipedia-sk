@@ -1,4 +1,4 @@
-import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id";
+import {parseDisplayId,looksLikeDisplayId} from "./admin-display-id.ts";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
