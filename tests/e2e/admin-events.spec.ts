@@ -189,7 +189,8 @@ test('time filters, start month/year and sorting work across the complete datase
   await expect(page.locator('[data-count="current"] strong')).toHaveText('1');
   await page.getByRole('button', { name: 'Nadchádzajúce', exact: true }).click();
   await expect(page.locator('[data-testid="admin-record-row"]').first()).toContainText('Agility pohár 2');
-  await expect(page.locator('[data-testid="admin-record-row"] td:nth-child(7)').first()).toHaveText('Nadchádzajúce');
+  // The seventh cell now displays publication status, not the time classification.
+  await expect(page.getByRole('button', { name: 'Nadchádzajúce', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Minulé', exact: true }).click();
   await expect(page.locator('[data-testid="admin-record-row"]').first()).toContainText('Stretnutie majiteľov psov 5');
   await expect(page.locator('[data-count="past"] strong')).toHaveText('15');
