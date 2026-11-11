@@ -27,6 +27,9 @@ function useAdminIntentPrefetch() {
   const prefetched = useRef(new Set<string>());
 
   return (href: string) => {
+    // Opening the mobile drawer focuses a link automatically. That is not
+    // user intent to fetch an authenticated, D1-backed route.
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     // Only iOS/iPadOS needs a full document on these two streamed routes.
     // Android and desktop can reuse the client router without a reload.
     if ((href === "/admin" || href === "/admin/clanky") &&
@@ -227,7 +230,22 @@ export function AdminNavigation({
                 ×
               </button>
             </div>
-            <nav className={styles.mobileNavigation} aria-label="Redakčné moduly">
+            <nav className={styles.mobileNavigation} aria-label="Redakčné moduly"
+              onClickCapture={(event) => {
+                // A dirty editor's document capture guard may cancel navigation.
+                // If it does, leave the drawer alone; never bypass the guard.
+                if (event.defaultPrevented || event.button !== 0 ||
+                  event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
+                if (!(anchor instanceof HTMLAnchorElement) || anchor.hasAttribute("download") ||
+                  (anchor.target && anchor.target !== "_self")) return;
+                const destination = new URL(anchor.href, window.location.href);
+                if (destination.origin !== window.location.origin ||
+                  (destination.pathname !== "/admin" && !destination.pathname.startsWith("/admin/"))) return;
+                // Release the overlay and body scroll before the RSC navigation.
+                // Otherwise a stalled transition leaves the entire mobile UI blocked.
+                setOpenPath(null);
+              }}>
               <NavigationGroups mobile />
             </nav>
             <div className={styles.mobilePublic}>

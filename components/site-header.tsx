@@ -39,12 +39,16 @@ export function SiteHeader({
   const headerRef = useRef<HTMLElement>(null);
   const suppressMenuFocus = useRef(false);
   const pathname = usePathname();
+  // The public header persists in the shared root layout on Admin routes.
+  // Keep Admin keyboard shortcuts and overlays exclusively in Admin.
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   const partnerHref = partnerAuthenticated ? "/partner" : "/partner/prihlasenie";
   const partnerLabel = "Partner účet";
   const nav = navigationItems;
 
 
   useEffect(() => {
+    if (isAdminRoute) return;
     function openWithKeyboard(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -55,7 +59,7 @@ export function SiteHeader({
     }
     window.addEventListener("keydown", openWithKeyboard);
     return () => window.removeEventListener("keydown", openWithKeyboard);
-  }, []);
+  }, [isAdminRoute]);
 
   useEffect(() => {
     const trigger = searchTriggerRef.current;
@@ -372,7 +376,7 @@ export function SiteHeader({
   }, [menuOpen, openMobileMenu]);
 
   useEffect(() => {
-    if (!searchOpen) return;
+    if (!searchOpen || isAdminRoute) return;
     const previous = document.body.style.overflow;
     const trigger = searchReturnFocusRef.current;
     document.body.style.overflow = "hidden";
@@ -408,7 +412,7 @@ export function SiteHeader({
       window.removeEventListener("keydown", onKeyDown);
       if (trigger && document.body.contains(trigger)) queueMicrotask(() => trigger.focus());
     };
-  }, [searchOpen]);
+  }, [searchOpen, isAdminRoute]);
 
   function submitSearch(event: FormEvent) {
     event.preventDefault();
@@ -592,7 +596,7 @@ export function SiteHeader({
         />
       )}
 
-      {searchOpen && (
+      {searchOpen && !isAdminRoute && (
         <div ref={searchDialogRef} className="search-modal" role="dialog" aria-modal="true" aria-label="Vyhľadávanie">
           <button className="search-backdrop" type="button" onClick={() => setSearchOpen(false)} aria-label="Zavrieť vyhľadávanie" />
           <div className="search-panel">
