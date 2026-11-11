@@ -180,12 +180,14 @@ const ESHOP_EVENT_FIELDS = {
   logoUrl: "Logo URL",
 } as const;
 export type EshopEventField = keyof typeof ESHOP_EVENT_FIELDS;
-export type EshopAdminField = EshopEventField | "slug" | "status";
+export type EshopAdminField = EshopEventField | "slug" | "status" | "logoKey";
 
 export function eshopAdminEditedFields(before: ManagedEshop, after: ManagedEshop): EshopAdminField[] {
   const old = profileSnapshot(before), next = profileSnapshot(after);
-  return ([...Object.keys(ESHOP_EVENT_FIELDS), "slug", "status"] as EshopAdminField[]).filter(key =>
-    JSON.stringify(old[key]) !== JSON.stringify(next[key]));
+  const fields = ([...Object.keys(ESHOP_EVENT_FIELDS), "slug", "status"] as EshopEventField[] | EshopAdminField[])
+    .filter(key => JSON.stringify(old[key as keyof EditableSnapshot]) !== JSON.stringify(next[key as keyof EditableSnapshot]));
+  if (before.logoKey !== after.logoKey) fields.push("logoKey");
+  return fields;
 }
 
 function eshopNotionEditedFields(page: NotionPage, ids: readonly string[]): EshopEventField[] {
@@ -722,6 +724,11 @@ async function syncMapped(input: {
     const properties = notionProperties(shop, "", new Date().toISOString()) as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
     for (const field of fields) {
+      if (field === "logoKey") {
+        if (Object.hasOwn(page.properties ?? {}, "Logo key"))
+          patch["Logo key"] = properties["Logo key"];
+        continue;
+      }
       if (field === "slug") {
         for (const name of ["Slug", "URL Psipedia"]) {
           if (!Object.hasOwn(page.properties ?? {}, name)) throw new Error("ESHOP_ADMIN_FIELD_SCHEMA_MISSING: " + name);
