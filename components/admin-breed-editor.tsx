@@ -243,7 +243,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
               [key]:(previous[root] as Record<string,unknown>??{})[key]};
           }
         }
-        baseFormRef.current=revised as typeof form;
+        baseFormRef.current=revised as unknown as typeof form;
       } else baseFormRef.current=submittedForm;
       setCanonicalForm((current)=>({...current,status:data.breed!.status}));
       let controlledSaveFailed=false;
