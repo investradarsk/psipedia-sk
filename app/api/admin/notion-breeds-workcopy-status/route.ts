@@ -47,12 +47,23 @@ export async function GET() {
     const oldSyncEnabled = bindings.NOTION_BREED_SYNC_ENABLED === "true";
     const workCopySyncEnabled = bindings.NOTION_BREED_WORKCOPY_SYNC_ENABLED === "true";
     const activationEnabled = bindings.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED === "true";
+    // D1 counters alone never prove that fields round-trip. They only decide
+    // whether it is safe to begin a single-profile bidirectional test.
+    const activeCohortReady = total === 344 && active === 344 && shadow === 0 &&
+      verified === 0 && receiptPrefixes === 344;
+    const singleNewEngine = !oldSyncEnabled && workCopySyncEnabled && !activationEnabled;
+    const blockers: string[] = [];
+    if (total !== 344) blockers.push("BREED_LINK_COUNT_MISMATCH");
+    if (active !== 344 || shadow !== 0 || verified !== 0)
+      blockers.push("BREED_ACTIVE_COHORT_INCOMPLETE");
+    if (receiptPrefixes !== 344) blockers.push("BREED_FIELD_RECEIPTS_INCOMPLETE");
+    if (!singleNewEngine) blockers.push("BREED_SYNC_FLAGS_MISMATCH");
+    if (activeErrors > 0) blockers.push("BREED_ACTIVE_FIELD_ERRORS");
     return Response.json({
       total, active, shadow, verified, receiptPrefixes, activeErrors,
       oldSyncEnabled, workCopySyncEnabled, activationEnabled,
-      activeCohortReady: total === 344 && active === 344 && shadow === 0 &&
-        verified === 0 && receiptPrefixes === 344,
-      singleNewEngine: !oldSyncEnabled && workCopySyncEnabled && !activationEnabled,
+      activeCohortReady, singleNewEngine,
+      readyForManualRoundtrip: blockers.length === 0, blockers,
     }, { headers });
   } catch {
     return Response.json({ code: "BREED_WORKCOPY_STATUS_READ_FAILED" }, { status: 503, headers });
