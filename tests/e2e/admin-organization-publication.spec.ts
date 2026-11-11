@@ -60,7 +60,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
 
   row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Publikované");
-  await expect(row).toContainText("Verejný profil");
+  await expect(row.getByRole("link", { name: "Web ↗" })).toBeVisible();
   await expect(row.getByRole("button", { name: "Presunúť do konceptu", exact: true })).toBeEnabled();
 
   const publicAfterPublish = await request.get(`/organizacie/${fixtureSlug}`);
@@ -85,7 +85,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
 
   row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Koncept");
-  await expect(row).toContainText("Neverejný profil");
+  await expect(row.getByRole("link", { name: "Web ↗" })).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Publikovať", exact: true })).toBeEnabled();
 
   const publicAfterUnpublish = await request.get(`/organizacie/${fixtureSlug}`);
