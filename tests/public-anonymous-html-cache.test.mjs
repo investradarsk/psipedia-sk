@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { isExplicitAnonymousHtmlRoute, isExplicitAnonymousSsrHtml } from "../lib/public-anonymous-html-cache.ts";
+import { isExplicitAnonymousHtmlRoute, isExplicitAnonymousSsrHtml, isSafePublicHtmlVary } from "../lib/public-anonymous-html-cache.ts";
 
 const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const wrangler = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
@@ -28,6 +28,9 @@ test("cache promotion rejects Set-Cookie, private variants, suspicious headers a
     ssr(undefined, { Vary: "Cookie" }),
     ssr(undefined, { Vary: "*" }),
     ssr(undefined, { Vary: "Authorization" }),
+    ssr(undefined, { Vary: "Accept-Language" }),
+    ssr(undefined, { Vary: "User-Agent" }),
+    ssr(undefined, { Vary: "RSC, X-Custom-User" }),
     ssr(undefined, { "CDN-Cache-Control": "no-store" }),
     ssr(undefined, { "Cloudflare-CDN-Cache-Control": "no-store" }),
     ssr(undefined, { "Surrogate-Control": "no-store" }),
@@ -62,4 +65,15 @@ test("help landing cache respects all response privacy restrictions and keeps sh
   assert.equal(isExplicitAnonymousSsrHtml(ssr(undefined, { "X-Robots-Tag": "noindex" }), path), false);
   assert.match(worker, /const PUBLIC_HTML_CACHE_TTL_SECONDS = 45;/);
   assert.match(worker, /url\.search \|\| isAdminAuthPath\(url\.pathname\) \|\| isReviewAuthorRoute\(url\.pathname\)/);
+});
+
+
+test("safe Vary whitelist is shared by both explicit anonymous SSR and regular public cache", () => {
+  assert.equal(isSafePublicHtmlVary(null), true);
+  assert.equal(isSafePublicHtmlVary("Accept-Encoding"), true);
+  assert.equal(isSafePublicHtmlVary("RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Url"), true);
+  for (const vary of ["*", "Cookie", "Origin", "Accept-Language", "User-Agent", " ", "RSC, X-Custom-User"]) {
+    assert.equal(isSafePublicHtmlVary(vary), false, vary);
+    assert.equal(isExplicitAnonymousSsrHtml(ssr(undefined, { Vary: vary }), "/"), false, vary);
+  }
 });
