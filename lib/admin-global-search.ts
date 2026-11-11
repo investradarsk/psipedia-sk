@@ -92,7 +92,9 @@ export async function searchAdminRecords(database: D1Database, input: string,
   const numericId = scoped?.id ?? (idMatch ? Number(idMatch[1]) : null);
   const byId = numericId !== null && Number.isSafeInteger(numericId);
   const statements = searchedGroups.map(group => {
-    const extra = group.category === "Pomoc psom"
+    // The default Help finder excludes legacy dedicated domains. Explicit
+    // typed IDs, however, may legitimately point to an older Help row.
+    const extra = group.category === "Pomoc psom" && !scoped
       ? "category NOT IN ('adopcia','utulky','stratene-a-najdene') AND "
       : "";
     const categoryClause = scoped?.scope.category && ["directory","help"].includes(scoped.scope.kind)
