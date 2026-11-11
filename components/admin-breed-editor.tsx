@@ -93,6 +93,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
   });
   const baseFormRef=useRef(form);
   const [dirty,setDirty]=useState(false);
+  const allowNavigationRef=useRef(false);
   const formEditRevisionRef = useRef(0);
   const setForm: typeof setCanonicalForm = (update) => { formEditRevisionRef.current += 1; setDirty(true); setCanonicalForm(update); };
   const slugEdited = Boolean(breed);
@@ -292,7 +293,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
         : notionPending || controlledHasPending
           ? "Plemeno je uložené v Admine, ale prenos do Notionu zatiaľ nie je potvrdený."
           : status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
-      if(!breed)router.replace(`/admin/plemena/${data.breed.id}`);
+      if(!breed){allowNavigationRef.current=true;router.replace(`/admin/plemena/${data.breed.id}`);}
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}
     finally{savePendingRef.current=false;setSaving(false);}
   }
@@ -382,6 +383,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       activeSectionId={activeBreedSection}
       onSectionChange={setActiveBreedSection}
       dirty={dirty}
+      allowNativeExitRef={allowNavigationRef}
       onClose={()=>{ setDirty(false); router.push("/admin/plemena"); }}
       closeLabel="Späť na plemená"
       actions={<EditorActionBar
