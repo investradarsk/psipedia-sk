@@ -25,13 +25,13 @@ type Filters = {
 
 async function LostFoundContent({ resultPromise, countsPromise, filters }: {
   resultPromise: ReturnType<typeof listAdminDogReports>;
-  countsPromise: ReturnType<typeof getAdminDogReportCounts>;
+  countsPromise: Promise<Awaited<ReturnType<typeof getAdminDogReportCounts>> | null>;
   filters: Filters;
 }) {
   // A failed summary must not hide an otherwise valid primary result list.
   const [result, counts] = await Promise.all([
     resultPromise,
-    countsPromise.catch(() => null),
+    countsPromise,
   ]);
   const reviewedIds = await listReviewedAdminEntityIds("LOST_FOUND", result.items.map((item) => item.id)).catch(() => null);
   return <>
@@ -59,7 +59,7 @@ export default async function LostFoundAdminPage({ searchParams }: { searchParam
   };
   const page = Math.max(1, parseInt(one(raw.page) || "1", 10) || 1);
   const resultPromise = listAdminDogReports({ ...filters, page, pageSize: 50 });
-  const countsPromise = getAdminDogReportCounts();
+  const countsPromise = getAdminDogReportCounts().catch(() => null);
 
   return <AdminShell user={user} eyebrow="Pomoc psom" title="Stratené a nájdené psy"
     description="Moderácia, publikovanie, životný cyklus a riešenie duplicít. Kontaktné osobné údaje zostávajú iba v administrácii."
