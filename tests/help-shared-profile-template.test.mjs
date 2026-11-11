@@ -159,14 +159,22 @@ test("Help dog detail profile polish is scoped, top-aligned and preserves safety
   assert.match(css, /max-height: 390px/);
   const detail = read("components/lost-found-dog-detail.tsx");
   const detailCss = read("components/lost-found-dogs.module.css");
-  assert.match(detail, /styles\.contactPanel/);
+  assert.match(detail, /<DetailContactsCard title="Adresa a kontakt"/);
   assert.match(detail, /styles\.safetyPanel/);
   assert.match(detail, /variant="linked" fit="contain"/);
   assert.match(detail, /Zobrazuje sa len približná lokalita/);
-  assert.ok(detail.indexOf("styles.contactPanel") < detail.indexOf("styles.safetyPanel"));
+  assert.ok(detail.indexOf('<DetailContactsCard title="Adresa a kontakt"') < detail.indexOf("styles.safetyPanel"));
   assert.ok(detail.indexOf("styles.safetyPanel") < detail.indexOf("{hasFacts &&"));
   assert.match(detailCss, /\.reportGallery\s*\{/);
   assert.match(read("components/adoption-detail.module.css"), /\.contactCard\s*\{/);
+  for(const token of ["<DetailSection", "<DetailFactsCard", "<DetailActions", "<PublicActionLink"]){
+    assert.match(detail,new RegExp(token.replace(/[.*+?^$\{\}()|[\]\\]/g,"\\  assert.match(read("components/adoption-detail.module.css"), /\.contactCard\s*\{/);
+});")));
+  }
+  assert.match(detail, /report\.publicPhone/);
+  assert.match(detail, /report\.publicEmail/);
+  assert.match(detail, /report\.publicFacebookUrl/);
+  assert.match(detail, /report\.publicInstagramUrl/);
 });
 
 
