@@ -29,7 +29,7 @@ test("organization sort and direction survive the canonical filter URL", () => {
   assert.match(href, /sort=name/);
   assert.match(href, /direction=asc/);
   assert.match(href, /status=DRAFT/);
-  assert.match(code("lib/help-organization-admin-store.ts"), /ORDER BY \\$\\{sortSql\\} \\$\\{directionSql\\}, o\\.id/);
+  assert.match(code("lib/help-organization-admin-store.ts"), /ORDER BY \$\{sortSql\} \$\{directionSql\}, o\.id/);
   const invalid = parseOrganizationAdminFilters(new URLSearchParams("sort=DROP&direction=DROP"));
   assert.equal(invalid.sort, "updated");
   assert.equal(invalid.direction, "desc");
@@ -48,17 +48,17 @@ test("Help sort whitelist survives filters without changing domain boundaries", 
   assert.equal(parsed.sort, "title");
   assert.equal(parsed.direction, "asc");
   assert.equal(parseHelpAdminFilters(new URLSearchParams("sort=DROP&direction=DROP")).sort, undefined);
-  assert.match(code("lib/help-admin-query.ts"), /ORDER BY \\$\\{sortColumn\\} \\$\\{sortDirection\\}, id/);
+  assert.match(code("lib/help-admin-query.ts"), /ORDER BY \$\{sortColumn\} \$\{sortDirection\}, id/);
 });
 
 test("lost-found sorting remains a readonly whitelisted SQL projection", () => {
   const source = code("lib/lost-found-dog-store.ts");
   const ui = code("components/admin-lost-found-dashboard.tsx");
   assert.match(source, /const sortExpressions: Record<string, string>/);
-  assert.match(source, /sortExpressions\\[sortKey\\]/);
-  assert.match(source, /ORDER BY \\$\\{orderSql\\} LIMIT/);
+  assert.match(source, /sortExpressions\[sortKey\]/);
+  assert.match(source, /ORDER BY \$\{orderSql\} LIMIT/);
   assert.match(ui, /<AdminRecordTable/);
-  assert.match(ui, /serverSorting=\\{\\{/);
+  assert.match(ui, /serverSorting=\{\{/);
   assert.match(ui, /rowDataAttribute="data-admin-lost-found-row"/);
 });
 
@@ -72,6 +72,6 @@ test("all canonical step 3 grids use compact shared table and preserve old modul
     assert.match(source, /<AdminRecordTable/, name);
   }
   const shared = code("components/admin-record-table.tsx");
-  assert.doesNotMatch(shared, /fetch\\(|method: "DELETE"|method: "PATCH"/);
-  assert.match(code("components/admin-adoption-dashboard.tsx"), /className=\\{styles\\.adoptionCards\\}/);
+  assert.doesNotMatch(shared, /fetch\(|method: "DELETE"|method: "PATCH"/);
+  assert.match(code("components/admin-adoption-dashboard.tsx"), /className=\{styles\.adoptionCards\}/);
 });
