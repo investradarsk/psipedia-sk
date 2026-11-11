@@ -23,7 +23,7 @@ export async function PUT(request: Request, { params }: Props) {
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID prípadu." }, { status: 400 });
   try {
     const before = await getManagedHelpCaseById(id); if (!before) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
-    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id, beforeHelpSnapshot });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
     const item = await updateManagedHelpCase(id, await request.json() as ManagedHelpCaseInput, user.email, before); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
     if (before.imageKey && before.imageKey !== item.imageKey) { const bucket = (env as unknown as UploadBindings).BUCKET; if (bucket) await bucket.delete(before.imageKey).catch(() => undefined); }
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id, beforeHelpSnapshot });
@@ -68,7 +68,7 @@ export async function PATCH(request: Request, { params }: Props) {
   const db = (env as unknown as { DB?: D1Database }).DB;
   if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
   try {
-    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id, beforeHelpSnapshot });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
     const row = await db.prepare(`UPDATE help_cases
       SET title=?1,excerpt=?2,updated_at=?3,updated_by=?4
       WHERE id=?5 AND updated_at=?6 AND category=?7 AND ${HELP_ADMIN_DOMAIN_SQL}
