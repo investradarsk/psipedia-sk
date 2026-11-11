@@ -1,0 +1,96 @@
+name: Production D1 0164 Lifecycle (manual)
+
+# Neither PR merge nor a normal deployment writes to D1.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Audit is read-only; Apply installs the exact pinned lifecycle schema
+        type: choice
+        required: true
+        default: audit
+        options:
+          - audit
+          - apply
+      confirmation:
+        description: Enter AUDIT-0164-psipedia-sk-db or APPLY-0164-psipedia-sk-db exactly
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  lifecycle-0164:
+    name: Protected 0164 audit or explicitly approved schema-only apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    env:
+      LIFECYCLE_0164_MODE: ${{ inputs.mode }}
+      LIFECYCLE_0164_CONFIRMATION: ${{ inputs.confirmation }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main, manual dispatch and explicit owner confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "investradarsk/psipedia-sk"
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          case "$LIFECYCLE_0164_MODE" in
+            audit) expected="AUDIT-0164-psipedia-sk-db" ;;
+            apply) expected="APPLY-0164-psipedia-sk-db" ;;
+            *) echo "Unsupported mode" >&2; exit 1 ;;
+          esac
+          test "$LIFECYCLE_0164_CONFIRMATION" = "$expected"
+          test -n "$CLOUDFLARE_API_TOKEN"
+
+      - name: Checkout exact dispatched main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Refuse stale main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Verify repository migrations and isolated 0164 safety
+        run: |
+          npm run db:check-migrations
+          node --test tests/admin-record-lifecycle-migration.test.mjs tests/production-d1-0164-lifecycle.test.mjs
+
+      - name: Bind approved Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id)')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Execute read-only audit or manual schema-only apply
+        run: node scripts/production-d1-0164-lifecycle.mjs "$LIFECYCLE_0164_MODE"
+
+      - name: Keep evidence including Time Travel recovery bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-0164-${{ github.run_id }}
+          path: .production-d1-0164/report.json
+          if-no-files-found: ignore
+          retention-days: 30
