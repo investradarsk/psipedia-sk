@@ -14,6 +14,7 @@ export async function syncOneAdminHelpRecord(input: {
   agenda: BidirectionalAgendaKey;
   entityId: number;
   changedEventFields?: readonly EventNotionField[];
+  changedHelpFields?: readonly string[];
 }): Promise<"disabled" | "unlinked" | "synced" | "pending"> {
   if (input.bindings.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED !== "true") return "disabled";
   if (!Number.isSafeInteger(input.entityId) || input.entityId < 1) return "unlinked";
@@ -36,6 +37,7 @@ export async function syncOneAdminHelpRecord(input: {
     const summary = await runNotionEventsHelpSyncSweep({
       database: input.database, bindings: input.bindings, mode: "sync",
       agendas: [input.agenda], targetPageId: mapping.notion_page_id, webhookMappedOnly: true,
+      adminChangedFields: input.changedHelpFields,
     });
     // A disabled, missing-target, or schema-unavailable runner cannot
     // acknowledge the canonical Admin edit. Only the exact mapped page counts.
