@@ -278,11 +278,13 @@ test("admin and Notion call-sites must use the read version and return an action
   assert.match(api, /status:\s*428/);
   assert.match(api, /error\s*instanceof\s*BreedUpdateConflictError/);
   assert.match(api, /status:\s*409/);
-  assert.match(
-    api,
-    /updateManagedBreed\(\s*id,\s*mergeManagedBreedEdit\(\s*before,\s*patch\s*\),\s*user\s*\.email,\s*expectedUpdatedAt\s*\)/,
-  );
-  assert.match(editor, /breed\?\{\s*expectedUpdatedAt\s*\}/);
+  // The breeder-style Admin editor submits only changed fields.
+  // Independent editorial changes are written through per-field CAS;
+  // legacy structural saves still carry the current server-side version.
+  assert.match(api, /breedAdminSparseEdit\(patch, dirty\)/);
+  assert.match(api, /saveBreedNotionField\(/);
+  assert.match(api, /sparse \? before.updatedAt : expectedUpdatedAt/);
+  assert.match(editor, /expectedUpdatedAt,changedFieldKeys/);
   assert.match(editor, /setExpectedUpdatedAt\(\s*data\s*\.breed\s*\.updatedAt\s*\)/);
   assert.match(
     notion,
