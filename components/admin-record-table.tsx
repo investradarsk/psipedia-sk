@@ -41,6 +41,7 @@ export type AdminRecordTableSelection<T> = {
   onChange: (ids: number[]) => void;
   labelForRow?: (record: T) => string;
   selectAllLabel?: string;
+  rowInputDataAttribute?: `data-${string}`;
   disabled?: boolean;
 };
 
@@ -103,6 +104,7 @@ export function AdminRecordTable<T extends { id: number }>({
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
           label={selection.labelForRow?.(row.original) ?? ("Označiť záznam " + row.original.id)}
+          inputDataAttribute={selection.rowInputDataAttribute}
           checked={row.getIsSelected()}
           disabled={busy || selection.disabled}
           onChange={checked => row.toggleSelected(checked)}

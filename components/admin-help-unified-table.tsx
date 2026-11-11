@@ -487,6 +487,7 @@ export function AdminHelpUnifiedTable({
         rows={rows}
         label={active.label}
         busy={bulkBusy || shelterBusy || helpBusy || dogBusy}
+        serverSorted
         stretch={canInlineEditShelters || canInlineEditHelp || canInlineEditDogs}
         selection={canBulkEdit ? {
           selectedIds,

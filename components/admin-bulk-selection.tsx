@@ -160,19 +160,21 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   };
 }
 
-export function BulkSelectionCheckbox({ checked, indeterminate = false, disabled = false, label, onChange, className }: {
+export function BulkSelectionCheckbox({ checked, indeterminate = false, disabled = false, label, onChange, className, inputDataAttribute }: {
   checked: boolean;
   indeterminate?: boolean;
   disabled?: boolean;
   label: string;
   onChange: (checked: boolean) => void;
   className?: string;
+  inputDataAttribute?: `data-${string}`;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (ref.current) ref.current.indeterminate = indeterminate; }, [indeterminate]);
   return (
     <label className={className ?? styles.checkLabel}>
       <input ref={ref} type="checkbox" checked={checked} disabled={disabled} aria-label={label}
+        {...(inputDataAttribute ? { [inputDataAttribute]: "" } : {})}
         onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.currentTarget.checked)} />
       <span>{label}</span>
     </label>
