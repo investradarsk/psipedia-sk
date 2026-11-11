@@ -16,7 +16,7 @@ import {
   notionNumberProperty, type NotionPage, type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
-import { notionPageMustSkipInboundSync } from "@/lib/admin-record-lifecycle";
+import { notionPageIsTombstoned } from "@/lib/admin-record-lifecycle";
 import {
   breedFieldSnapshot, parseBreedFieldSnapshot,
   BREED_NOTION_EDITABLE_FIELDS, type BreedFieldSnapshot,
@@ -182,9 +182,11 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     "AND work_notion_page_id=? LIMIT ?",
   ).bind(args.targetPageId, maxProfiles).all<ShadowLink>();
   for (const link of result.results) {
-    // An Admin-unpublished breed stays a draft even if a signed work-copy
-    // webhook arrives later. Explicit republishing remains Admin-owned.
-    if(await notionPageMustSkipInboundSync(args.database,link.work_notion_page_id)){
+    // Stiahnuť z webu only changes publication, not editorial ownership.
+    // An unpublished draft must still receive signed Notion content edits.
+    // Deleted (tombstoned) pages never re-enter D1. The candidate below keeps
+    // canonical.status unchanged, so a Notion edit can NEVER republish it.
+    if(await notionPageIsTombstoned(args.database,link.work_notion_page_id)){
       summary.unchanged++;
       continue;
     }
