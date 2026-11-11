@@ -61,9 +61,9 @@ test("FCI, SEO and editorial JSON keys update independently through allowlisted 
 
 test("missing JSON media only fails its own cell",()=>{
   const props={
-    "Galéria JSON":rich("Galéria JSON","not-json","gallery"),
+    "Ďalšie fotografie":rich("Ďalšie fotografie","not-json","gallery"),
     "Krátky úvod v hero (2–4 vety)":rich("Krátky úvod v hero (2–4 vety)","x","intro"),
-    "Športy JSON":rich("Športy JSON",'[{"key":"swim","label":"Plávanie","rating":2}]',"sport"),
+    "Športy a aktivity":rich("Športy a aktivity",'[{"key":"swim","label":"Plávanie","rating":2}]',"sport"),
   };
   const result=readChanged(props,["gallery","intro","sport"]);
   assert(result.failures.some(x=>x.field==="gallery"));
