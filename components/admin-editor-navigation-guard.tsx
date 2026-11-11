@@ -20,6 +20,21 @@ type NavigationEventLike = Event & {
 };
 
 let mountedDirtyGuardCount = 0;
+const activeDirtyAllowRefs = new Set<RefObject<boolean>>();
+let authorizedExitGeneration = 0;
+
+/** A page may contain two independent dirty editors (directory + Services V3).
+ * One user confirmation authorizes the same exit for all mounted editors.
+ */
+function authorizeCurrentPageExit() {
+  const refs = [...activeDirtyAllowRefs];
+  const generation = ++authorizedExitGeneration;
+  for (const ref of refs) ref.current = true;
+  setTimeout(() => {
+    if (generation !== authorizedExitGeneration) return;
+    for (const ref of refs) ref.current = false;
+  }, 2_000);
+}
 
 export function useAdminEditorNavigationGuard({
   dirty,
@@ -32,7 +47,6 @@ export function useAdminEditorNavigationGuard({
   const allowNativeExitRef = suppliedAllowNativeExitRef ?? ownAllowRef;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const pendingRef = useRef<(() => void) | null>(null);
-  const bypassTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const replayingRef = useRef(false);
 
   const requestNavigation = useCallback((navigate: () => void) => {
@@ -47,15 +61,8 @@ export function useAdminEditorNavigationGuard({
   }, []);
 
   const allowExitForNextNavigation = useCallback(() => {
-    if (bypassTimerRef.current) clearTimeout(bypassTimerRef.current);
-    allowNativeExitRef.current = true;
-    // If a router request is rejected, the form stays dirty and protection
-    // returns automatically rather than becoming permanently disabled.
-    bypassTimerRef.current = setTimeout(() => {
-      allowNativeExitRef.current = false;
-      bypassTimerRef.current = null;
-    }, 2_000);
-  }, [allowNativeExitRef]);
+    authorizeCurrentPageExit();
+  }, []);
 
   const discard = useCallback(() => {
     const navigate = pendingRef.current;
@@ -71,10 +78,6 @@ export function useAdminEditorNavigationGuard({
     }
   }, [allowExitForNextNavigation]);
 
-  useEffect(() => () => {
-    if (bypassTimerRef.current) clearTimeout(bypassTimerRef.current);
-  }, []);
-
   useEffect(() => {
     if (!dirty) return;
 
@@ -82,6 +85,7 @@ export function useAdminEditorNavigationGuard({
     // the capture click before this editor does. A shared marker makes it defer
     // to the unsaved-change confirmation regardless of registration order.
     mountedDirtyGuardCount++;
+    activeDirtyAllowRefs.add(allowNativeExitRef);
     document.documentElement.setAttribute("data-admin-unsaved-editor", "true");
 
     // Document capture runs before the mobile drawer and Next Link callbacks.
@@ -149,6 +153,7 @@ export function useAdminEditorNavigationGuard({
       navigationApi?.removeEventListener("navigate", onNativeNavigate);
       window.removeEventListener(ADMIN_NAVIGATION_INTENT_EVENT, onIntent);
       mountedDirtyGuardCount--;
+      activeDirtyAllowRefs.delete(allowNativeExitRef);
       if (mountedDirtyGuardCount === 0) {
         document.documentElement.removeAttribute("data-admin-unsaved-editor");
       }
