@@ -1,6 +1,8 @@
-DELETE FROM managed_articles WHERE id BETWEEN 970001 AND 970003 OR id BETWEEN 971001 AND 971051;
+-- Re-seed existing isolated E2E IDs without deleting canonical rows:
+-- production's 0164 lifecycle guard correctly blocks direct DELETE statements.
+-- ON CONFLICT DO NOTHING + targeted UPDATE preserves identity and makes each test independent.
 
-INSERT INTO managed_articles (
+INSERT OR IGNORE INTO managed_articles (
   id, slug, title, excerpt, category, portal_section, status, accent, author, intro, takeaway,
   created_at, updated_at, published_at, created_by, updated_by
 ) VALUES
@@ -13,7 +15,7 @@ WITH RECURSIVE seq(n) AS (
   UNION ALL
   SELECT n + 1 FROM seq WHERE n < 51
 )
-INSERT INTO managed_articles (
+INSERT OR IGNORE INTO managed_articles (
   id, slug, title, excerpt, category, portal_section, status, accent, author, intro, takeaway,
   created_at, updated_at, published_at, created_by, updated_by
 )
@@ -35,6 +37,29 @@ SELECT
   'e2e@psipedia.local',
   'e2e@psipedia.local'
 FROM seq;
+
+
+-- Restore fixture lifecycle and timestamps on every test without DELETE/REPLACE.
+UPDATE managed_articles
+SET status = CASE id
+  WHEN 970002 THEN 'scheduled'
+  WHEN 970003 THEN 'published'
+  ELSE 'draft'
+END,
+published_at = CASE id
+  WHEN 970002 THEN '2098-12-01T08:00:00.000Z'
+  WHEN 970003 THEN '2098-01-01T08:00:00.000Z'
+  ELSE NULL
+END,
+updated_at = CASE id
+  WHEN 970001 THEN '2098-01-03T10:00:00.000Z'
+  WHEN 970002 THEN '2098-01-02T10:00:00.000Z'
+  WHEN 970003 THEN '2098-01-01T10:00:00.000Z'
+  ELSE printf('2097-12-%02dT09:%02d:00.000Z', ((id - 971001) % 28) + 1, (id - 971000) % 60)
+END,
+intro = CASE WHEN id = 970001 THEN 'Intro' ELSE intro END
+WHERE id BETWEEN 970001 AND 970003
+   OR id BETWEEN 971001 AND 971051;
 
 
 -- ARTICLE-ADMIN proof-of-use: upgrade one pre-existing repository-managed fixture
