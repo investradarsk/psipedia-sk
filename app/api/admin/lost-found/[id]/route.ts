@@ -39,7 +39,7 @@ export async function PATCH(request: Request, { params }: Context) {
     return Response.json({ error: "Meno psa môže mať najviac 120 znakov." }, { status: 400 });
   }
   try {
-    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: id, beforeHelpSnapshot });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: id });
     const updatedId = await updateAdminDogReportInlineName(
       id, input.dogName as string | null, input.expectedUpdatedAt,
     );
@@ -70,7 +70,7 @@ export async function PUT(request: Request, { params }: Context) {
     let input = await request.json() as ManagedDogReportInput;
     const existing = await getAdminDogReport(numericId);
     if (!existing) return Response.json({ error: "Hlásenie neexistuje." }, { status: 404 });
-    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: numericId, beforeHelpSnapshot });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: numericId });
 
     if (input.type !== undefined && input.type !== existing.type) {
       await assertAdminDogReportTypeChangeKeepsDuplicateInvariant(numericId, input.type);
