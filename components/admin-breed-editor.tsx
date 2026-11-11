@@ -222,7 +222,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     try{
       const response=await fetch(breed?`/api/admin/breeds/${breed.id}`:"/api/admin/breeds",{
         method:breed?"PUT":"POST",headers:{"content-type":"application/json"},
-        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()&&item.url.trim()),...(breed?{expectedUpdatedAt,changedFieldKeys}:{})})
+        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()||item.url.trim()),...(breed?{expectedUpdatedAt,changedFieldKeys}:{})})
       });
       const data=await response.json() as {breed?:ManagedBreed;error?:string;rejectedDirtyFields?:string[];notionEditorialWriteback?:{status:string;code?:string}};
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
@@ -559,8 +559,8 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           </div>
         </details>)}
         <div className={styles.basicBottom}>
-          <label className="admin-field"><span>FCI štandard PDF</span><input type="url" value={form.fciStandard.fci_standard_pdf??""} onChange={e=>updateFci("fci_standard_pdf",e.target.value)}/></label>
-          <label className="admin-field"><span>FCI nomenklatúra URL</span><input type="url" value={form.fciStandard.fci_nomenklatura_url??""} onChange={e=>updateFci("fci_nomenklatura_url",e.target.value)}/></label>
+          <label className="admin-field"><span>FCI štandard PDF</span><input type="text" value={form.fciStandard.fci_standard_pdf??""} onChange={e=>updateFci("fci_standard_pdf",e.target.value)}/></label>
+          <label className="admin-field"><span>FCI nomenklatúra URL</span><input type="text" value={form.fciStandard.fci_nomenklatura_url??""} onChange={e=>updateFci("fci_nomenklatura_url",e.target.value)}/></label>
         </div>
       </div>
     </AdminEditorSection>
@@ -604,7 +604,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           <h3 className={styles.subheading}>Zdroje</h3>
           {form.sources.map((source,index)=><div className={styles.sourceRow} key={index}>
             <label className="admin-field"><span>Názov zdroja</span><input value={source.label} onChange={e=>updateSource(index,{label:e.target.value})}/></label>
-            <label className="admin-field"><span>URL zdroja</span><input type="url" value={source.url} onChange={e=>updateSource(index,{url:e.target.value})}/></label>
+            <label className="admin-field"><span>URL zdroja</span><input type="text" value={source.url} onChange={e=>updateSource(index,{url:e.target.value})}/></label>
             <AdminActionButton variant="destructive" onClick={()=>change("sources",form.sources.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton>
           </div>)}
           <AdminActionButton variant="secondary" onClick={()=>change("sources",[...form.sources,{...emptySource}])}>+ Pridať zdroj</AdminActionButton>
