@@ -32,17 +32,20 @@ test("V4 deletion blocks dirty, sending and in-flight calls in handler and prese
   assert.match(source,/disabled=\{busy\|\|notionBusy\|\|dirty\|\|editor\.post\.publicationState==="SENDING"\}/);
 });
 
-test("Facebook graphics contain three editable Psipedia layouts and reuse canonical upload",()=>{
+test("Facebook graphics offer five Konva layouts and reuse canonical upload",()=>{
   const editor=readFileSync(new URL("../components/admin-facebook-graphic-editor.tsx",import.meta.url),"utf8");
   const layout=readFileSync(new URL("../components/admin-facebook-graphic-editor.module.css",import.meta.url),"utf8");
   assert.match(editor,/id: "gradient"/);
   assert.match(editor,/id: "panel"/);
   assert.match(editor,/id: "editorial"/);
+  assert.match(editor,/id: "clean"/);
+  assert.match(editor,/id: "split"/);
   assert.match(editor,/useDropzone/);
   assert.match(editor,/maxSize: MAX_BYTES/);
   assert.match(editor,/onUse: \(file: File, title: string\) => Promise<boolean>/);
-  assert.match(editor,/canvas\.toBlob/);
-  assert.match(editor,/image\/png/);
+  assert.match(editor,/FacebookKonvaCanvas/);
+  assert.match(editor,/exportPng/);
+  assert.match(readFileSync(new URL("../components/facebook-konva-canvas.tsx",import.meta.url),"utf8"),/image\/png/);
   assert.match(editor,/facebook príspevok 4:5|Facebook príspevok 4:5/);
   assert.match(editor,/1080 × 1080/);
   assert.match(editor,/Fotografia sa nedá otvoriť/);
