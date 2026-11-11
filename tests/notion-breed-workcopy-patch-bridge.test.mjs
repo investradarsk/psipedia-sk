@@ -16,7 +16,7 @@ const page=()=>({
     "FCI uši":rich("Uši."),
     "Vzťah k deťom":{type:"number",number:3},
     "Editorial complete – redakčne overený profil":{type:"checkbox",checkbox:true},
-    "Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)":rich("https://psipedia.sk/media/a.jpg"),
+    "Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)":{type:"url",url:"https://psipedia.sk/media/a.jpg"},
     "Ďalšie fotografie":rich("[]"),
     "Športy a aktivity":rich("[]"),
     "Typické zdravotné riziká — jedna položka na riadok":rich("Alergie; Oči"),
@@ -70,7 +70,7 @@ test("only the edited cell wins, but a stale revision or actual same-cell confli
 test("media, gallery, sports, sources and lists serialize to their exact columns",()=>{
   const image=patch("image","/media/b.jpg","https://psipedia.sk/media/a.jpg");
   assert.deepEqual(image.properties,{
-    "Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)":{rich_text:[{type:"text",text:{content:"https://psipedia.sk/media/b.jpg"}}]},
+    "Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)":{url:"https://psipedia.sk/media/b.jpg"},
   });
   const gallery=patch("gallery",[{imageUrl:"/media/b.jpg"}],[]);
   assert.deepEqual(JSON.parse(gallery.properties["Ďalšie fotografie"].rich_text[0].text.content),
@@ -94,10 +94,22 @@ test("legacy URL labels are free-text Notion columns and sources allow no URL",(
   assert.equal(pdf.properties["FCI štandard PDF"].rich_text[0].text.content,
     "Nie je URL, je to text");
   p.properties["Zdroje"]=rich("Pôvodný text");
-  const sources=patch("sources",[{label:"Kynologický klub",url:""}],[],p);
+  const sources=patch("sources",[{label:"Kynologický klub",url:""}],
+    [{label:"Pôvodný text",url:""}],p);
   assert.equal(sources.properties["Zdroje"].rich_text[0].text.content,
     "Kynologický klub");
   assert.deepEqual(Object.keys(sources.properties),["Zdroje"]);
+});
+
+test("a migrated rich-text cover field receives rich-text PATCH independently",()=>{
+  const p=page();
+  p.properties["Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)"]=
+    rich("https://psipedia.sk/media/a.jpg");
+  const image=patch("image","/media/b.jpg","https://psipedia.sk/media/a.jpg",p);
+  assert.deepEqual(Object.keys(image.properties),
+    ["Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)"]);
+  assert.equal(image.properties["Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)"]
+    .rich_text[0].text.content,"https://psipedia.sk/media/b.jpg");
 });
 
 test("technical ID and historical/controlled aliases are not live editable prose",()=>{
