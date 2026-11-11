@@ -34,7 +34,8 @@ test("EDITOR-10: invalid publication reveals its section without blocking legacy
   assert.match(src, /onSubmit=\{\(submitEvent\)/);
   assert.match(src, /void save\("published"\)/);
   assert.match(src, /setConfirmUnpublish\(true\)/);
-  assert.match(src, /<EditorUnsavedChangesGuard/);
+  assert.match(src, /<EditorWorkspace/);
+  assert.match(read("components/admin-editor-workspace.tsx"), /useAdminEditorNavigationGuard/);
 });
 
 test("EDITOR-10: additive optional contacts/fee persist through normalized D1 and appear publicly", () => {
