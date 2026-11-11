@@ -184,8 +184,9 @@ export type EshopAdminField = EshopEventField | "slug" | "status" | "logoKey";
 
 export function eshopAdminEditedFields(before: ManagedEshop, after: ManagedEshop): EshopAdminField[] {
   const old = profileSnapshot(before), next = profileSnapshot(after);
-  const fields = ([...Object.keys(ESHOP_EVENT_FIELDS), "slug", "status"] as EshopEventField[] | EshopAdminField[])
-    .filter(key => JSON.stringify(old[key as keyof EditableSnapshot]) !== JSON.stringify(next[key as keyof EditableSnapshot]));
+  const fields: EshopAdminField[] = ([...Object.keys(ESHOP_EVENT_FIELDS), "slug", "status"]
+    as Array<Exclude<EshopAdminField, "logoKey">>)
+    .filter(key => JSON.stringify(old[key]) !== JSON.stringify(next[key]));
   if (before.logoKey !== after.logoKey) fields.push("logoKey");
   return fields;
 }
