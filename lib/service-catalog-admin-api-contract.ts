@@ -37,7 +37,7 @@ export type SaveAdminServiceChoiceRequest=Readonly<{
 }>;
 export type MutateAdminCatalogOptionRequest=Readonly<
   |{action:"edit";expectedVersion:number;name:string;category?:string;categories?:readonly string[];group?:string;meaning?:string}
-  |{action:"approve"|"retire"|"retryMirror";expectedVersion:number}
+  |{action:"retire";expectedVersion:number}
 >;
 export type ResetAdminServiceChoiceRequest=Readonly<{optionId:string;choice:"unknown";expectedVersion:number}>;
 export type AdminServiceChoiceWriteResult=AdminServiceChoiceDto|Readonly<{profileId:number;optionId:string;choice:"unknown";version:0}>;
@@ -53,7 +53,9 @@ export function selectionForEditor(row:Pick<AdminServiceChoiceDto,"choice">|null
   return row?.choice??"unknown";
 }
 
-/** Lifecycle edge validation: always re-check it inside the CAS writer. */
+/** Historical DRAFT transition validation retained for recovery of legacy rows.
+ * The ordinary Admin API exposes edit/retire only; new entries are ACTIVE from creation.
+ */
 export function canTransitionCatalogStatus(from:CatalogOptionStatus,to:CatalogOptionStatus,mirror:CatalogMirrorStatus):boolean{
   if(from===to)return true; // unchanged status, not a transition
   if(from==="RETIRED")return false; // immutable retirement; create a new ID only after governance review
