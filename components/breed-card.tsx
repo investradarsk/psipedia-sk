@@ -21,7 +21,7 @@ export function BreedCard({ breed }: { breed: BreedAtlasCard }) {
   return (
     <article className={`breed-card breed-card--${breed.accent}`} data-public-card="breed">
       <Link href={profileHref} className="breed-card-media" aria-label={`Otvoriť profil: ${breed.name}`}>
-        {breed.image ? <BreedPhoto src={breed.image} alt={`${breed.name} – fotografia plemena`} loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true"><PublicMediaFallback /></span>}
+        {breed.image ? <BreedPhoto src={breed.image} alt={`${breed.name} – fotografia plemena`} sizes="(max-width: 700px) calc(100vw - 32px), (max-width: 1100px) 45vw, 300px" loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true"><PublicMediaFallback /></span>}
         <span className="fci-badge">FCI {breed.fciGroup}</span>
       </Link>
       <div className="breed-card-body">
