@@ -141,6 +141,13 @@ export function AdoptionDetail({ dog, organization }: {
         {sections.story && <DetailSection compactHeading title="Popis">
           <DetailParagraphs value={dog.description} />
         </DetailSection>}
+        {sections.gallery && <DetailSection compactHeading title="Ďalšie fotografie">
+          <PublicPhotoGallery variant="linked" fit="contain" className={dogStyles.reportGallery}
+            label={`Galéria psa ${dog.name}`} maxImages={photos.length}
+            images={dog.gallery.filter(Boolean).slice(0, 6).map((image, index) => ({
+              src: image, alt: `${dog.name} – fotografia ${index + 2}`,
+            }))} />
+        </DetailSection>}
         {sections.temperament && <DetailSection compactHeading title="Charakter">
           <DetailParagraphs value={dog.temperament} />
         </DetailSection>}
@@ -154,13 +161,6 @@ export function AdoptionDetail({ dog, organization }: {
         </DetailSection>}
         {sections.requirements && <DetailSection compactHeading title="Podmienky adopcie">
           <DetailParagraphs value={dog.adoptionRequirements} />
-        </DetailSection>}
-        {sections.gallery && <DetailSection compactHeading title="Ďalšie fotografie">
-          <PublicPhotoGallery variant="linked" fit="contain" className={dogStyles.reportGallery}
-            label={`Galéria psa ${dog.name}`} maxImages={photos.length}
-            images={dog.gallery.filter(Boolean).slice(0, 6).map((image, index) => ({
-              src: image, alt: `${dog.name} – fotografia ${index + 2}`,
-            }))} />
         </DetailSection>}
       </article>
 
