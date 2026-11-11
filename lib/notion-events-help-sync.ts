@@ -1188,8 +1188,11 @@ async function syncAgenda(input: {
           else summary.unchanged++;
           continue;
         }
-        const fields = [...new Set(input.adminChangedFields ?? [])].filter(name =>
-          permitted.has(name) && Boolean(schema[name]));
+        const fields = [...new Set(input.adminChangedFields ?? [])].filter(name => permitted.has(name));
+        // A changed Admin field absent from Notion is PENDING, never "synced".
+        const missing = fields.filter(name => !schema[name] ||
+          !Object.hasOwn(page.properties ?? {}, name));
+        if (missing.length) throw new Error("HELP_ADMIN_FIELD_SCHEMA_MISSING: " + missing.join(","));
         if (!fields.length) {
           summary.unchanged++;
           continue;
