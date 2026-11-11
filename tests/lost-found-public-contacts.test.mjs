@@ -20,9 +20,9 @@ test("0165 is additive, defaults to no public contacts and never touches private
   for(const col of ["public_phone","public_email","public_website_url","public_facebook_url","public_instagram_url"])
     assert.equal(row[col],"",col);
   assert.equal(row.public_contact_note,"Kontakt cez Psipediu");
-  assert.deepEqual(db.prepare("SELECT contact_phone_encrypted,contact_email_encrypted FROM lost_found_dog_private_details WHERE report_id=1").get(), {
-    contact_phone_encrypted:"encrypted-phone",contact_email_encrypted:"encrypted-email",
-  });
+  const privateRow = db.prepare("SELECT contact_phone_encrypted,contact_email_encrypted FROM lost_found_dog_private_details WHERE report_id=1").get();
+  assert.equal(privateRow.contact_phone_encrypted,"encrypted-phone");
+  assert.equal(privateRow.contact_email_encrypted,"encrypted-email");
   db.close();
 });
 
