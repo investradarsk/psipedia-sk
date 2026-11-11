@@ -161,7 +161,7 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
       navigation.markSaved();setState(initial(data.report));setMessage("Hlásenie bolo označené ako duplicita a archivované.");
     }catch(err){setError(err instanceof Error?err.message:"Označenie duplicity zlyhalo.")}finally{mutationPendingRef.current=false;setSaving(false)}
   }
-  return <form ref={formRef} inert={saving} aria-busy={saving} noValidate data-hydrated="false" data-admin-form-system="v4" data-admin-lost-found-editor onChangeCapture={navigation.captureChange} onClickCapture={navigation.captureLinkClick} onSubmit={(e)=>{e.preventDefault();void save()}}>
+  return <form ref={formRef} inert={saving} aria-busy={saving} noValidate data-hydrated="false" data-admin-form-system="v4" data-admin-lost-found-editor onChangeCapture={navigation.captureChange} onSubmit={(e)=>{e.preventDefault();void save()}}>
     <EditorUnsavedChangesGuard active={navigation.dirty} open={navigation.confirmOpen} onStay={navigation.stay} onDiscard={navigation.discard} allowNativeExitRef={navigation.allowNativeExitRef} />
     <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
     {navigation.dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}
