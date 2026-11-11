@@ -40,6 +40,7 @@ export type AdminRecordTableSelection<T> = {
   selectedIds: readonly number[];
   onChange: (ids: number[]) => void;
   labelForRow?: (record: T) => string;
+  selectAllLabel?: string;
   disabled?: boolean;
 };
 
@@ -91,7 +92,7 @@ export function AdminRecordTable<T extends { id: number }>({
       header: ({ table }: { table: Table<T> }) => (
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
-          label={"Označiť všetky záznamy na tejto strane: " + label}
+          label={selection.selectAllLabel ?? ("Označiť všetky záznamy na tejto strane: " + label)}
           checked={table.getIsAllPageRowsSelected()}
           indeterminate={table.getIsSomePageRowsSelected()}
           disabled={busy || selection.disabled || !rows.length}

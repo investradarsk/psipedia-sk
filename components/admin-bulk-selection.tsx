@@ -195,6 +195,7 @@ export function AdminBulkSelectionControls({
   selectAllMatching,
   clear,
   supportsAllMatching = true,
+  pageSelectionInTable = false,
 }: {
   module: "directory" | "articles";
   membershipFilter: unknown;
@@ -211,6 +212,8 @@ export function AdminBulkSelectionControls({
   selectAllMatching: () => void;
   clear: () => void;
   supportsAllMatching?: boolean;
+  /** Shared grid owns the visible-page checkbox instead of duplicating it above the table. */
+  pageSelectionInTable?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -308,9 +311,9 @@ export function AdminBulkSelectionControls({
 
   return (
     <>
-      <div className={styles.pageSelect}>
-        <BulkSelectionCheckbox checked={currentPageAllSelected} indeterminate={currentPageSomeSelected} disabled={!selectionReady}
-          label={pageSelectionLabel} onChange={toggleCurrentPage} />
+      {(!pageSelectionInTable || selectedCount > 0) && <div className={styles.pageSelect}>
+        {!pageSelectionInTable && <BulkSelectionCheckbox checked={currentPageAllSelected} indeterminate={currentPageSomeSelected} disabled={!selectionReady}
+          label={pageSelectionLabel} onChange={toggleCurrentPage} />}
         {currentPageSelected > 0 && <span>{currentPageSelected} položiek vybraných na tejto strane</span>}
         {canOfferAllMatching && (
           <button className={styles.selectAllButton} type="button" onClick={selectAllMatching}>
@@ -318,7 +321,7 @@ export function AdminBulkSelectionControls({
           </button>
         )}
         {selection.mode === "all-matching" && supportsAllMatching && <strong>Vybraných všetkých {resultCount} výsledkov</strong>}
-      </div>
+      </div>}
 
       {selectedCount > 0 && (
         <>

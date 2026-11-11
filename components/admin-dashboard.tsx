@@ -305,6 +305,7 @@ export function AdminDashboard({
               selectAllMatching={bulkSelection.selectAllMatching}
               clear={bulkSelection.clear}
               supportsAllMatching={false}
+              pageSelectionInTable
             />
             <AdminRecordTable
               rows={articles}
@@ -326,6 +327,7 @@ export function AdminDashboard({
                 selectedIds: bulkSelection.selection.mode === "explicit" ? bulkSelection.selection.ids : [],
                 disabled: !bulkSelection.ready,
                 labelForRow: article => `Vybrať článok ${article.title}`,
+                selectAllLabel: "Vybrať všetky články na tejto strane",
                 onChange: ids => {
                   // Reconcile only currently visible IDs. Bulk selection ownership stays in the module.
                   for (const id of pageIds) {
