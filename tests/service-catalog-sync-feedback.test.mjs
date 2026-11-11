@@ -35,6 +35,17 @@ test("pending, disabled and unlinked Notion outcomes never masquerade as synced"
  assert.match(result.message,/bez prepojenia 1/);
  assert.match(result.message,/synchronizácia vypnutá 1/);
 });
+test("server warning remains visible after successful D1 persistence",()=>{
+ const warning="Výber je uložený v Psipedii, ale prenos textových služieb do Notionu vyžaduje kontrolu.";
+ const result=summarizeServiceChoiceSync([
+   {notionProjection:"updated",notionFieldSync:"synced",warning},
+   {notionProjection:"updated",notionFieldSync:"synced",warning},
+ ]);
+ assert.equal(result.savedCount,2);
+ assert.equal(result.confirmedCount,2);
+ assert.equal(result.needsAttention,true);
+ assert.equal(result.message.split(warning).length,2,"duplicate warnings should be shown once");
+});
 test("partial batch acknowledges only successful D1 selections",()=>{
   const feedback=summarizeServiceChoiceSync([
     {notionProjection:"updated",notionFieldSync:"synced"},
