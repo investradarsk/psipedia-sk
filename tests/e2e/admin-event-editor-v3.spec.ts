@@ -270,9 +270,22 @@ test("Existing published event: PUT preserves payload, save changes and unpublis
       body: JSON.stringify({ event: { id: 99990, status: payload.status } }),
     });
   });
+  const lifecycleRequests: Record<string, unknown>[] = [];
+  await page.route("**/api/admin/record-lifecycle/events/99990", async (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        id: 99990, name: "Existujúce podujatie E2E", slug: "existujuce-podujatie-e2e",
+        category: "events", status: "published", published: true,
+        notionLinked: false, notionPages: 0, removalState: null, removalError: null,
+      }) });
+    }
+    lifecycleRequests.push(route.request().postDataJSON() as Record<string, unknown>);
+    await route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ notionSync: "SYNCED", updatedAt: "2026-11-11T08:00:00Z" }) });
+  });
   const root = await openEditor(page, "published");
   await expect(root.getByRole("button", { name: "Uložiť zmeny", exact: true })).toBeVisible();
-  await expect(root.getByRole("button", { name: "Stiahnuť z kalendára", exact: true })).toBeVisible();
+  await expect(root.getByRole("button", { name: "Stiahnuť z webu", exact: true })).toBeVisible();
   await expect(root.getByRole("button", { name: "Uložiť koncept", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Späť na podujatia", exact: true })).toHaveCount(1);
   await root.getByLabel("Názov podujatia").fill("Upravená klubová výstava");
@@ -285,16 +298,18 @@ test("Existing published event: PUT preserves payload, save changes and unpublis
     seo: { title: "Úprava SEO" }, description: "Pôvodný popis",
   });
   await expect(root.getByRole("button", { name: "Uložiť zmeny", exact: true })).toBeVisible();
-  await root.getByRole("button", { name: "Stiahnuť z kalendára", exact: true }).click();
-  const unpublish = page.getByRole("dialog", { name: "Stiahnuť podujatie z kalendára?" });
+  await root.getByRole("button", { name: "Stiahnuť z webu", exact: true }).click();
+  const unpublish = page.getByRole("dialog", { name: "Stiahnuť z webu?" });
   await expect(unpublish).toBeVisible();
   await expect.poll(() => requests.length).toBe(1);
-  await unpublish.getByRole("button", { name: "Ponechať publikované" }).click();
-  await expect(unpublish).not.toBeVisible();
-  await root.getByRole("button", { name: "Stiahnuť z kalendára", exact: true }).click();
+  await unpublish.getByRole("button", { name: "Zrušiť" }).click();
+  await expect(unpublish).toBeHidden();
+  await root.getByRole("button", { name: "Stiahnuť z webu", exact: true }).click();
   await unpublish.getByRole("button", { name: "Potvrdiť stiahnutie" }).click();
-  await expect.poll(() => requests.length).toBe(2);
-  expect(requests[1]).toMatchObject({ status: "draft", title: "Upravená klubová výstava" });
+  await expect.poll(() => lifecycleRequests.length).toBe(1);
+  expect(lifecycleRequests[0]).toMatchObject({ action: "unpublish" });
+  // Unpublish must not resubmit the form or its unsaved fields.
+  expect(requests).toHaveLength(1);
   await expect(root.getByRole("button", { name: "Publikovať podujatie", exact: true })).toBeVisible();
 });
 
@@ -393,7 +408,7 @@ for (const width of [1440, 390, 320]) {
     const root = await openEditor(page, "published");
     await checkNoHorizontalOverflow(page);
     const footer = root.locator("[data-editor-actionbar]");
-    for (const label of ["Stiahnuť z kalendára", "Uložiť zmeny"]) {
+    for (const label of ["Stiahnuť z webu", "Uložiť zmeny"]) {
       const button = footer.getByRole("button", { name: label, exact: true });
       await expect(button).toBeInViewport({ ratio: 0.5 });
       const box = await button.boundingBox();
