@@ -51,7 +51,9 @@ export function changedAdminHelpFields(
   after: Record<string, ReconciliationValue>,
 ): string[] {
   const stable = (value: ReconciliationValue | undefined) => JSON.stringify(value ?? null);
-  return editableHelpEventFields(agenda).filter(name =>
+  // Admin owns structural, status and privacy-sensitive fields as well.
+  // Only the inbound Notion side excludes them.
+  return agendaEditableFields[agenda].filter(name =>
     stable(before[name]) !== stable(after[name]));
 }
 
