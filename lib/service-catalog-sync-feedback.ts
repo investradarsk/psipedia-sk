@@ -42,10 +42,12 @@ export function summarizeServiceChoiceSync(outcomes:readonly ServiceChoiceSyncOu
   if(pendingCount)notices.push(`čaká na kontrolu ${pendingCount}`);
   if(unlinkedCount)notices.push(`bez prepojenia ${unlinkedCount}`);
   if(disabledCount)notices.push(`synchronizácia vypnutá ${disabledCount}`);
-  const needsAttention=pendingCount>0||unlinkedCount>0||disabledCount>0;
+  const warnings=[...new Set(outcomes.map(x=>x.warning).filter((x):x is string=>typeof x==="string"&&x.trim().length>0))];
+  const needsAttention=pendingCount>0||unlinkedCount>0||disabledCount>0||warnings.length>0;
   return {
     savedCount,confirmedCount,unchangedCount,pendingCount,unlinkedCount,disabledCount,needsAttention,
     message:`V Psipedii uložené: ${savedCount}. ${savedCount?`Notion: ${notices.join(", ")}.`:""}`
+      +(warnings.length?` ${warnings.join(" ")}`:"")
       +(needsAttention?" Skontroluj prepojenie alebo stav synchronizácie v Notione.":""),
   };
 }
