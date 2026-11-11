@@ -1,0 +1,407 @@
+{
+  "dataSourceId": "f460b1e5-4454-4a10-9200-3b35106f9e32",
+  "propertyCount": 90,
+  "properties": {
+    "Dĺžka života do": {
+      "type": "number"
+    },
+    "Dĺžka života od": {
+      "type": "number"
+    },
+    "Editorial complete – redakčne overený profil": {
+      "type": "checkbox"
+    },
+    "Energia": {
+      "type": "number"
+    },
+    "FCI celkový vzhľad": {
+      "type": "text"
+    },
+    "FCI chov poznámka": {
+      "type": "text"
+    },
+    "FCI chvost": {
+      "type": "text"
+    },
+    "FCI chyby": {
+      "type": "text"
+    },
+    "FCI diskvalifikačné chyby": {
+      "type": "text"
+    },
+    "FCI farba": {
+      "type": "text"
+    },
+    "FCI historický súhrn": {
+      "type": "text"
+    },
+    "FCI hmotnosť pes kg": {
+      "type": "text"
+    },
+    "FCI hmotnosť suka kg": {
+      "type": "text"
+    },
+    "FCI koža": {
+      "type": "text"
+    },
+    "FCI krk": {
+      "type": "text"
+    },
+    "FCI lebka": {
+      "type": "text"
+    },
+    "FCI nomenklatúra URL": {
+      "type": "url"
+    },
+    "FCI oči": {
+      "type": "text"
+    },
+    "FCI pohyb": {
+      "type": "text"
+    },
+    "FCI povaha a temperament": {
+      "type": "text"
+    },
+    "FCI predné končatiny": {
+      "type": "text"
+    },
+    "FCI proporcie": {
+      "type": "text"
+    },
+    "FCI sekcia": {
+      "type": "select",
+      "options": [
+        "1",
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "2",
+        "2.1",
+        "2.2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11"
+      ]
+    },
+    "FCI sekcia názov": {
+      "type": "text"
+    },
+    "FCI skupina": {
+      "type": "select",
+      "options": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10"
+      ]
+    },
+    "FCI skupina názov": {
+      "type": "text"
+    },
+    "FCI srsť": {
+      "type": "text"
+    },
+    "FCI status": {
+      "type": "text"
+    },
+    "FCI telo": {
+      "type": "text"
+    },
+    "FCI tvár": {
+      "type": "text"
+    },
+    "FCI uši": {
+      "type": "text"
+    },
+    "FCI veľkosť a hmotnosť poznámka": {
+      "type": "text"
+    },
+    "FCI využitie": {
+      "type": "text"
+    },
+    "FCI výška pes cm": {
+      "type": "text"
+    },
+    "FCI výška suka cm": {
+      "type": "text"
+    },
+    "FCI zadné končatiny": {
+      "type": "text"
+    },
+    "FCI zdroj poznámka": {
+      "type": "text"
+    },
+    "FCI závažné chyby": {
+      "type": "text"
+    },
+    "FCI číslo": {
+      "type": "number"
+    },
+    "FCI štandard PDF": {
+      "type": "url"
+    },
+    "Historické číslo FCI skupiny": {
+      "type": "number"
+    },
+    "Historický opis FCI sekcie": {
+      "type": "text"
+    },
+    "Historický opis dĺžky života": {
+      "type": "text"
+    },
+    "Historický opis hmotnosti": {
+      "type": "text"
+    },
+    "Historický opis krajiny pôvodu": {
+      "type": "text"
+    },
+    "Historický opis veľkosti": {
+      "type": "text"
+    },
+    "Historický opis výšky": {
+      "type": "text"
+    },
+    "História a pôvod plemena": {
+      "type": "text"
+    },
+    "Hmotnosť do": {
+      "type": "number"
+    },
+    "Hmotnosť od": {
+      "type": "number"
+    },
+    "Každodenné potreby plemena": {
+      "type": "text"
+    },
+    "Krajiny pôvodu": {
+      "type": "multi_select",
+      "options": [
+        "Afganistan",
+        "Argentína",
+        "Austrália",
+        "Belgicko",
+        "Bielorusko",
+        "Bosna a Hercegovina",
+        "Brazília",
+        "Bulharsko",
+        "Cyprus",
+        "Česko",
+        "Čierna Hora",
+        "Čína",
+        "Dánsko",
+        "Egypt",
+        "Estónsko",
+        "Fínsko",
+        "Francúzsko",
+        "Grécko",
+        "Gruzínsko",
+        "Holandsko",
+        "Chorvátsko",
+        "India",
+        "Irán",
+        "Írsko",
+        "Island",
+        "Izrael",
+        "Japonsko",
+        "Južná Kórea",
+        "Kanada",
+        "Kuba",
+        "Maďarsko",
+        "Malta",
+        "Maroko",
+        "Mexiko",
+        "Mongolsko",
+        "Nemecko",
+        "Nepál",
+        "Nórsko",
+        "Nový Zéland",
+        "Pakistan",
+        "Peru",
+        "Poľsko",
+        "Portugalsko",
+        "Rakúsko",
+        "Rumunsko",
+        "Rusko",
+        "Slovensko",
+        "Slovinsko",
+        "Spojené kráľovstvo",
+        "Spojené štáty americké",
+        "Srbsko",
+        "Španielsko",
+        "Švajčiarsko",
+        "Švédsko",
+        "Taiwan",
+        "Thajsko",
+        "Tibet (Čína)",
+        "Turecko",
+        "Ukrajina",
+        "Uruguaj",
+        "Vietnam"
+      ]
+    },
+    "Krátky úvod v hero (2–4 vety)": {
+      "type": "text"
+    },
+    "Lovecký inštinkt": {
+      "type": "number"
+    },
+    "Meta description": {
+      "type": "text"
+    },
+    "Na čo si dať pozor — jedna položka na riadok": {
+      "type": "text"
+    },
+    "Náročnosť starostlivosti": {
+      "type": "number"
+    },
+    "Názov plemena": {
+      "type": "title"
+    },
+    "Oficiálny FCI názov": {
+      "type": "text"
+    },
+    "Opis srsti": {
+      "type": "text"
+    },
+    "Potreba pohybu": {
+      "type": "text"
+    },
+    "Povaha a temperament": {
+      "type": "text"
+    },
+    "Pre koho sa hodí — jedna položka na riadok": {
+      "type": "text"
+    },
+    "Prehľad plemena": {
+      "type": "text"
+    },
+    "Psipedia ID": {
+      "type": "text"
+    },
+    "Pĺznutie": {
+      "type": "number"
+    },
+    "SEO title": {
+      "type": "text"
+    },
+    "Spolužitie so psami": {
+      "type": "text"
+    },
+    "Starostlivosť o srsť": {
+      "type": "text"
+    },
+    "Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)": {
+      "type": "url"
+    },
+    "Trénovateľnosť": {
+      "type": "number"
+    },
+    "Typ srsti": {
+      "type": "multi_select",
+      "options": [
+        "Bezsrstá",
+        "Krátka",
+        "Stredne dlhá",
+        "Dlhá",
+        "Hladká",
+        "Drsná",
+        "Tvrdá",
+        "Hodvábna",
+        "Kučeravá",
+        "Vlnitá",
+        "Šnúrovitá",
+        "Dvojitá s podsadou"
+      ]
+    },
+    "Typické zdravotné riziká — jedna položka na riadok": {
+      "type": "text"
+    },
+    "URL profil / slug": {
+      "type": "text"
+    },
+    "Veľkosť": {
+      "type": "select",
+      "options": [
+        "Veľmi malé",
+        "Malé",
+        "Stredné",
+        "Veľké",
+        "Obrie",
+        "Rôzne veľkosti"
+      ]
+    },
+    "Vhodnosť do bytu": {
+      "type": "number"
+    },
+    "Využitie": {
+      "type": "multi_select",
+      "options": [
+        "Spoločenský",
+        "Pastiersky",
+        "Ovčiarsky",
+        "Strážny",
+        "Lovecký",
+        "Pracovný",
+        "Športový",
+        "Služobný",
+        "Záchranársky",
+        "Ťažný",
+        "Terapeutický",
+        "Iné"
+      ]
+    },
+    "Vzťah k deťom": {
+      "type": "number"
+    },
+    "Vzťah k iným psom": {
+      "type": "number"
+    },
+    "Výcvik": {
+      "type": "text"
+    },
+    "Výška do": {
+      "type": "number"
+    },
+    "Výška od": {
+      "type": "number"
+    },
+    "Zaujímavosti": {
+      "type": "text"
+    },
+    "Zdravie a prevencia": {
+      "type": "text"
+    },
+    "Zdroje": {
+      "type": "text"
+    },
+    "Zdrojový profil Notion": {
+      "type": "url"
+    },
+    "Časté chyby majiteľov": {
+      "type": "text"
+    },
+    "Ďalšie fotografie": {
+      "type": "text"
+    },
+    "Športy a aktivity": {
+      "type": "text"
+    },
+    "Život v rodine": {
+      "type": "text"
+    }
+  },
+  "verifiedAt": "2026-11-11"
+}
