@@ -35,9 +35,8 @@ test("directory and event editors stream before supplementary D1 reads", () => {
   }
 });
 
-test("organization, adoption and help retain guarded parallel canonical reads", () => {
+test("adoption and help retain guarded parallel canonical reads", () => {
   const checks = [
-    ["organization", "getOrganizationPublicationAdminById(organizationId)", "getCanonicalDraftDuplicateWarning(\"ORGANIZATION\", organizationId)", "getAdminEntityReview(\"ORGANIZATION\", organizationId)"],
     ["adoption", "getAdoptionById(numericId)", "getCanonicalDraftDuplicateWarning(\"ADOPTION\", numericId)", "getAdminEntityReview(\"ADOPTION\", numericId)"],
     ["help", "getManagedHelpCaseById(numericId)", "getAdminEntityReview(\"HELP_CASE\", numericId)"],
   ];
@@ -54,6 +53,28 @@ test("organization, adoption and help retain guarded parallel canonical reads", 
     assert.match(file.slice(parallelEnd), /if \(!(?:organization|item)\) notFound\(\)/);
     assert.doesNotMatch(file, /Promise\.allSettled/);
   }
+});
+
+test("organization editor uses required identity and location only; side panels are isolated", () => {
+  const page = read(paths.organization);
+  const editor = read("components/admin-organization-editor.tsx");
+  const suggestions = read("components/admin-organization-suggestions.tsx");
+  const coreStart = page.indexOf("const [organization, locations] = await Promise.all([");
+  const coreEnd = page.indexOf("]);", coreStart);
+  assert.ok(coreStart > page.indexOf("await requireAdminPageUser("), "authorize before canonical reads");
+  const core = page.slice(coreStart, coreEnd);
+  assert.match(core, /getOrganizationPublicationAdminById\(organizationId\)/);
+  assert.match(core, /listOrganizationLocationsAdmin\(organizationId\)/);
+  assert.doesNotMatch(core, /Fundraising|Duplicate|Review|Automation|Suggestion/);
+  assert.match(page, /if \(!organization\) notFound\(\)/);
+  assert.match(page, /<Suspense fallback=/);
+  assert.match(page, /OrganizationFundraisingPanel/);
+  assert.match(page, /OrganizationReviewAction/);
+  assert.match(page, /OrganizationDuplicateWarning/);
+  assert.match(page, /automationSuggestionsPromise=\{suggestionsPromise\}/);
+  assert.match(editor, /<AdminOrganizationSuggestions promise=\{automationSuggestionsPromise\}/);
+  assert.match(suggestions, /const \{ suggestions, failed \} = use\(promise\)/);
+  assert.match(page, /Fundraising sa nepodarilo načítať/);
 });
 
 test("automation reviews load independently with authorization, no-store and abort on route change", () => {
