@@ -39,9 +39,11 @@ test("failed remote delete stays hidden and durable, with retryable error expose
   assert.match(core, /state='READY_LOCAL'/);
   assert.match(dialog, /Zopakovať odstránenie/);
   assert.match(dialog, /value\.removalState/);
-  assert.match(dialog, /confirmation!=="VYMAZAŤ"/);
+  assert.match(dialog, /confirmed:true/);
+  assert.match(route, /body\.confirmed!==true/);
+  assert.doesNotMatch(dialog, /confirmation!==|"VYMAZAŤ"|Druhé potvrdenie/);
   assert.match(route, /strictProvenance:true/);
-  assert.match(route, /body\.confirmation!=="VYMAZAŤ"/);
+  assert.match(route, /body\.confirmed!==true/);
   assert.match(route, /body\.localOnly===true/);
 });
 

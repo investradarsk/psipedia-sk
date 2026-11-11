@@ -9,7 +9,9 @@ test("all directory categories ignore blank optional fields and verify save resp
   assert.match(editor, /if \(!name\.trim\(\)\)/, "Profile name is required");
   assert.match(editor, /if \(!slug\.trim\(\)\)/, "Profile slug is required");
   assert.doesNotMatch(editor, /checkValidity\(\)|validity\.valueMissing/, "Optional fields must not block Save or Publish");
-  assert.match(editor, /data\.profile\.status !== nextStatus/);
+  assert.match(editor, /confirmedProfile\.status !== nextStatus/);
+  assert.match(editor, /let confirmedProfile = data\.profile/);
+  assert.match(editor, /action: "publish-confirmed-draft"/);
   assert.match(editor, /Verejný web sa po uložení líši od hodnoty v databáze\./, "A persisted website mismatch is reported as a warning rather than a failed save");
   assert.match(source("../lib/directory-store.ts"), /if \(!name\) throw new Error/);
 });

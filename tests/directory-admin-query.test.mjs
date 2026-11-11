@@ -65,7 +65,7 @@ function fixture() {
       };
     },
   };
-  return { db };
+  return { db, sqlite };
 }
 
 test("all profiles are counted independently of the 50-row page", async () => {
@@ -304,4 +304,22 @@ test("directory list indexes support global pagination orders without temp sort"
     assert.ok(plan.every(row => !/USE TEMP B-TREE FOR ORDER BY/i.test(row.detail)), JSON.stringify(plan));
   }
   sqlite.close();
+});
+
+test("0164: confirming permanent removal hides the tombstoned record from ALL Admin list views", async () => {
+  const {db, sqlite} = fixture();
+  try {
+    sqlite.exec("CREATE TABLE admin_record_tombstones (kind TEXT,record_id INTEGER, state TEXT)");
+    sqlite.exec("INSERT INTO admin_record_tombstones VALUES ('directory',128,'READY_LOCAL')");
+    const before = await queryDirectoryAdmin(db, filters(), categories);
+    assert.equal(before.resultCount, 129, "legacy standalone query keeps its default contract");
+    const hidden = await queryDirectoryAdmin(db, filters(), categories, undefined, true);
+    assert.equal(hidden.resultCount, 128);
+    assert.equal(hidden.counts.total, 128);
+    assert.ok(hidden.items.every(row => row.id !== 128));
+    assert.ok(!hidden.options.cities.includes("Bratislava"), "location facets must hide removed profiles too");
+    assert.equal((await queryDirectoryAdmin(db, filters({q:"128"}), categories, undefined, true)).resultCount, 0);
+    assert.equal((await queryDirectoryAdmin(db, filters({category:"treneri"}), categories, undefined, true)).resultCount, 0);
+    assert.equal((await queryDirectoryAdmin(db, filters({status:"draft"}), categories, undefined, true)).resultCount, 61);
+  } finally { sqlite.close(); }
 });

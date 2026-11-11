@@ -12,7 +12,8 @@ export async function GET(request: Request) {
   const db = (env as unknown as { DB?: D1Database }).DB;
   if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   try {
-    const found = await searchAdminRecords(db, q);
+    // Exclude deletion tombstones from every active global-search result.
+    const found = await searchAdminRecords(db, q, true);
     return Response.json(found, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Global admin search failed", error);

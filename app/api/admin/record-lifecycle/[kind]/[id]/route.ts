@@ -67,7 +67,9 @@ export async function POST(request:Request,context:Context) {
       return json(result,result.notionSync==="PENDING"?202:200);
     }
     if(body.action==="delete") {
-      if(body.confirmation!=="VYMAZAŤ")return json({error:"DELETE_CONFIRMATION_REQUIRED"},400);
+      // The explicit destructive button in the preflight dialog is the sole
+      // confirmation. Never require the owner to type an extra phrase.
+      if(body.confirmed!==true)return json({error:"DELETE_CONFIRMATION_REQUIRED"},400);
       if(typeof body.expectedSlug!=="string"||typeof body.expectedName!=="string"||
           typeof body.expectedCategory!=="string")
         return json({error:"DELETE_IDENTITY_REQUIRED"},400);

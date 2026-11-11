@@ -99,7 +99,9 @@ test("all unpublish editors use one accessible status-only lifecycle confirmatio
   assert.match(dialog,/AdminModalDialog/);
   assert.match(dialog,/Stiahnuť z webu/);
   assert.match(dialog,/Natrvalo odstrániť/);
-  assert.match(dialog,/confirmation!=="VYMAZAŤ"/);
+  assert.match(dialog,/confirmed:true/);
+  assert.match(dialog,/Potvrdiť odstránenie/);
+  assert.doesNotMatch(dialog,/VYMAZAŤ|Druhé potvrdenie/);
   assert.match(dialog,/action:"unpublish"/);
   assert.match(dialog,/action:"delete"/);
   for(const path of ["components/admin-article-editor.tsx","components/admin-event-editor.tsx"]){

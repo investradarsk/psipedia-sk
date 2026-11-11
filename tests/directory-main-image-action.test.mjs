@@ -56,7 +56,8 @@ test("Admin sends media intent separately from editorial fields and verifies D1"
   assert.match(editor, /replaceMainImageRequestedRef\.current = null; removeMainImageRequestedRef\.current = true/);
   assert.match(editor, /\? "remove" : imageReplacement \? "replace" : "keep"/);
   assert.match(editor, /mainImageAction/);
-  assert.match(editor, /data\.profile\.imageUrl !== imageReplacement\.imageUrl/);
+  assert.match(editor, /confirmedProfile\.imageUrl !== imageReplacement\.imageUrl/);
+  assert.match(editor, /confirmedProfile\.imageKey !== imageReplacement\.imageKey/);
   assert.match(route, /parseDirectoryMainImageAction/);
   assert.match(route, /await bucket\.head\(mainImageAction\.imageKey\)/);
   assert.match(route, /directoryMainImageMatches\(verifiedMedia, requestedMedia\)/);
