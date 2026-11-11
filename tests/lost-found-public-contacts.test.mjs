@@ -47,7 +47,7 @@ test("Admin editor uses the existing contact section for approved public contact
   assert.equal((editor.match(/id="lost-found-contacts"/g)??[]).length,1);
   for(const field of ["publicPhone","publicEmail","publicWebsiteUrl","publicFacebookUrl","publicInstagramUrl"]){
     assert.match(editor,new RegExp("state\\."+field));
-    assert.match(editor,new RegExp("set\\(\\""+field+"\\""));
+    assert.ok(editor.includes('set("' + field + '"'),field);
   }
   assert.match(editor,/Verejný telefón/);
   assert.match(editor,/Súkromné kontakty vyššie zostávajú šifrované/);
