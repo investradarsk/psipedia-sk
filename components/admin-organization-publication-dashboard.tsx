@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { AdminRecordId } from "./admin-record-id";
+import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
 const subscribeToHydration = () => () => {};
 import {
-  BulkSelectionCheckbox,
   useAdminBulkSelection,
 } from "@/components/admin-bulk-selection";
 import {
@@ -237,18 +236,9 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
       {error && <p className={styles.message + " " + styles.error} role="alert">{error}</p>}
       <p className="admin-help-results">Nájdené: <strong>{data.resultCount}</strong> · Strana {data.pagination.page} z {data.pagination.totalPages}</p>
 
-      {!!data.items.length && (
-        <div className={styles.bulkSelect}>
-          <BulkSelectionCheckbox
-            checked={bulkSelection.currentPageAllSelected}
-            indeterminate={bulkSelection.currentPageSomeSelected}
-            disabled={!hydrated || !bulkSelection.ready || bulkBusy}
-            label="Označiť všetky zobrazené organizácie"
-            onChange={bulkSelection.toggleCurrentPage}
-          />
-          <span>{bulkSelection.currentPageSelected} z {data.items.length} označených na tejto strane</span>
-        </div>
-      )}
+      {!!data.items.length && <p className={styles.bulkSelect}>
+        {bulkSelection.currentPageSelected} z {data.items.length} označených na tejto strane
+      </p>}
 
       {bulkSelection.selectedCount > 0 && (
         <AdminBulkActionToolbar
@@ -264,66 +254,95 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
         />
       )}
 
-      <div className={styles.list}>
-        {data.items.map((item) => {
-          const location = [item.primaryCity, item.primaryDistrict, item.primaryRegion].filter(Boolean).join(" · ") || "Bez lokality";
-          const isPublic = item.status === "PUBLISHED" && Boolean(item.publishedAt) && !item.archivedAt;
-          return <article className={styles.row} key={item.id}>
-            <BulkSelectionCheckbox
-              checked={bulkSelection.isSelected(item.id)}
-              disabled={!hydrated || !bulkSelection.ready || bulkBusy}
-              label={`Označiť organizáciu ${item.name}`}
-              onChange={() => bulkSelection.toggleRow(item.id)}
-              className={styles.rowCheck}
-            />
-            <div className={styles.thumb}>{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span aria-hidden="true">🐾</span>}</div>
-            <div className={styles.main}>
-              <div className="admin-article-tags">
-                <span className={"admin-status admin-status--" + (item.status === "PUBLISHED" ? "published" : "draft")}>{statusLabels[item.status]}</span>
-                <span>{typeLabels[item.type] ?? item.type}</span>
-                <span>{location}</span>
-                <span>{isPublic ? "Verejný profil" : "Neverejný profil"}</span>
-                <span>{item.preflight.ready ? "Publication READY" : "Publication BLOCKED"}</span>
-              </div>
-              {activeInline?.id === item.id ? <>
-                <AdminInlineCellInput label={"Názov organizácie " + item.name} value={activeInline.name}
-                  maxLength={180} required disabled={inlineBusy}
-                  onChange={name => setInlineDraft(current => current ? { ...current, name } : null)} />
-                <AdminInlineCellInput label={"Krátky popis organizácie " + item.name} value={activeInline.shortDescription}
-                  maxLength={700} disabled={inlineBusy}
+      {data.items.length ? <AdminRecordTable
+        rows={data.items}
+        label="Organizácie"
+        rowDataAttribute="data-admin-organization-row"
+        serverSorted
+        stretch
+        busy={!hydrated || inlineBusy || bulkBusy || busyId !== null}
+        serverSorting={{
+          id: filters.sort ?? "updated",
+          desc: (filters.direction ?? "desc") === "desc",
+          allowedIds: ["name", "city", "status", "updated"],
+          onChange: next => {
+            const sort = ["name", "city", "status"].includes(next.id)
+              ? next.id as "name" | "city" | "status" : "updated";
+            router.push(organizationAdminHref({ ...filters, sort, direction: next.desc ? "desc" : "asc", page: 1 }));
+          },
+        }}
+        selection={{
+          selectedIds: bulkSelection.selection.mode === "explicit" ? bulkSelection.selection.ids : [],
+          disabled: !hydrated || !bulkSelection.ready || bulkBusy,
+          selectAllLabel: "Označiť všetky zobrazené organizácie",
+          labelForRow: item => `Označiť organizáciu ${item.name}`,
+          onChange: ids => {
+            for (const id of pageIds) {
+              if (bulkSelection.isSelected(id) !== ids.includes(id)) bulkSelection.toggleRow(id);
+            }
+          },
+        }}
+        columns={[
+          { id: "image", label: "Foto", width: 73, cell: item =>
+            <span className={styles.gridThumb}>{item.imageUrl
+              ? <img src={item.imageUrl} alt="" loading="lazy" decoding="async" />
+              : <span aria-hidden="true">🐾</span>}</span> },
+          { id: "name", label: "Organizácia", width: 260, sortValue: item => item.name,
+            cell: item => <div className={styles.gridIdentity}>
+              {activeInline?.id === item.id
+                ? <AdminInlineCellInput label={"Názov organizácie " + item.name} value={activeInline.name}
+                    maxLength={180} required disabled={inlineBusy}
+                    onChange={name => setInlineDraft(current => current ? { ...current, name } : null)} />
+                : <strong><Link href={`/admin/organizacie/${item.id}`}>{item.name || "Bez názvu"}</Link></strong>}
+              <small>/{item.slug || "—"}</small>
+            </div> },
+          { id: "status", label: "Publikovanie", width: 130, sortValue: item => item.status,
+            cell: item => <span className={"admin-status admin-status--" + (item.status === "PUBLISHED" ? "published" : "draft")}>{statusLabels[item.status]}</span> },
+          { id: "type", label: "Typ", width: 140, cell: item => typeLabels[item.type] ?? item.type },
+          { id: "city", label: "Mesto", width: 145, sortValue: item => item.primaryCity,
+            cell: item => item.primaryCity || "Bez lokality" },
+          { id: "description", label: "Krátky popis", width: 245,
+            cell: item => activeInline?.id === item.id
+              ? <AdminInlineCellInput label={"Krátky popis organizácie " + item.name}
+                  value={activeInline.shortDescription} maxLength={700} disabled={inlineBusy}
                   onChange={shortDescription => setInlineDraft(current => current ? { ...current, shortDescription } : null)} />
-              </> : <>
-                <h2><Link href={`/admin/organizacie/${item.id}`}>{item.name || "Bez názvu"}</Link></h2>
-                <p>{item.shortDescription || item.description || "Bez verejného popisu"}</p>
-              </>}
-              <AdminRecordId id={item.id} compact />
-              <p className={styles.meta}>/organizacie/{item.slug || "—"} · lokality {item.locationCount} · fundraising {item.fundraisingCount} · adresár {item.directoryProfileId ? "#" + item.directoryProfileId : "—"} · aktualizované {formatDate(item.updatedAt)}</p>
-              {item.completenessHints.length ? <div className={styles.hints} aria-label="Chýbajúce údaje">{item.completenessHints.map((hint) => <span key={hint}>{hint}</span>)}</div> : <div className={styles.hints}><span>Profil bez deterministických medzier</span></div>}
-              {!item.preflight.ready && <p className={styles.preflight}><strong>Publication BLOCKED:</strong> {item.preflight.blockers.map((blocker) => blocker.message).join(" ")}</p>}
-            </div>
-            <div className={styles.actions}>
+              : <span title={item.shortDescription || item.description || ""}>{item.shortDescription || item.description || "Bez verejného popisu"}</span> },
+          { id: "completeness", label: "Úplnosť", width: 173, cell: item =>
+            <span title={item.completenessHints.join(" · ") + (item.preflight.ready ? "" : " · " + item.preflight.blockers.map(b => b.message).join(" "))}>
+              {item.preflight.ready ? "Pripravené" : "Potrebná kontrola"} · {item.completenessHints.length} medzier
+            </span> },
+          { id: "updated", label: "Upravené", width: 160, sortValue: item => item.updatedAt,
+            cell: item => formatDate(item.updatedAt) },
+          { id: "actions", label: "Akcie", width: 360, cell: item => {
+            const isPublic = item.status === "PUBLISHED" && Boolean(item.publishedAt) && !item.archivedAt;
+            return <div className={styles.gridActions}>
               <AdminReviewCheckbox entityType="ORGANIZATION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
-              {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
+              {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank" rel="noreferrer">Web ↗</Link>}
               {item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
-                editing={activeInline?.id === item.id}
-                busy={inlineBusy}
-                disabled={busyId !== null || bulkBusy || (activeInline !== null && activeInline.id !== item.id) ||
-                  (activeInline?.id === item.id && !activeInline.name.trim())}
-                onEdit={() => editInline(item)}
-                onSave={() => void saveInline()}
+                editing={activeInline?.id === item.id} busy={inlineBusy}
+                disabled={busyId !== null || bulkBusy || (activeInline !== null && activeInline.id !== item.id)
+                  || (activeInline?.id === item.id && !activeInline.name.trim())}
+                onEdit={() => editInline(item)} onSave={() => void saveInline()}
                 onCancel={() => { if (!inlineBusy) setInlineDraft(null); }}
               /></span>}
-              <Link className="admin-row-edit" href={"/admin/organizacie/" + item.id}>Spravovať</Link>
+              <Link href={"/admin/organizacie/" + item.id}>Spravovať</Link>
               <Link href={`/admin/organizacie/${item.id}#fundraising`}>Fundraising</Link>
-              {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!hydrated || !item.preflight.ready || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "publish")}>Publikovať</AdminActionButton>}
-              {item.status === "PUBLISHED" && <AdminActionButton variant="secondary" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "unpublish")}>Presunúť do konceptu</AdminActionButton>}
-              {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "archive")}>Archivovať</AdminActionButton>}
-              {item.status === "ARCHIVED" && <AdminActionButton variant="secondary" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => requestPublication(item, "restore")}>Obnoviť do konceptu</AdminActionButton>}
-            </div>
-          </article>;
-        })}
-        {!data.items.length && <div className="admin-empty"><span>🐾</span><h2>Žiadne organizácie</h2><p>Zmeň filtre alebo vytvor nový canonical záznam.</p></div>}
-      </div>
+              {item.status === "DRAFT" && <AdminActionButton variant="primary"
+                disabled={!hydrated || !item.preflight.ready || busyId !== null || bulkBusy}
+                onClick={() => requestPublication(item, "publish")}>Publikovať</AdminActionButton>}
+              {item.status === "PUBLISHED" && <AdminActionButton variant="secondary"
+                disabled={!hydrated || busyId !== null || bulkBusy}
+                onClick={() => requestPublication(item, "unpublish")}>Do konceptu</AdminActionButton>}
+              {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive"
+                disabled={!hydrated || busyId !== null || bulkBusy}
+                onClick={() => requestPublication(item, "archive")}>Archivovať</AdminActionButton>}
+              {item.status === "ARCHIVED" && <AdminActionButton variant="secondary"
+                disabled={!hydrated || busyId !== null || bulkBusy}
+                onClick={() => requestPublication(item, "restore")}>Obnoviť</AdminActionButton>}
+            </div>;
+          } },
+        ]}
+      /> : <div className="admin-empty"><span>🐾</span><h2>Žiadne organizácie</h2><p>Zmeň filtre alebo vytvor nový canonical záznam.</p></div>}
       <AdminPagination pagination={data.pagination} basePath={organizationAdminHref({ ...filters, page: 1 })} />
     </section>
 

@@ -221,10 +221,19 @@ export async function getOrganizationAdminPage(
   const resultCount = Number(countRow?.count ?? 0);
   const totalPages = Math.max(1, Math.ceil(resultCount / ORGANIZATION_ADMIN_PAGE_SIZE));
   const page = Math.min(Math.max(1, filters.page), totalPages);
+  // Whole-result ordering is whitelisted before LIMIT/OFFSET, never applied per page.
+  const ordering: Record<string, string> = {
+    updated: "o.updated_at",
+    name: "o.name COLLATE NOCASE",
+    city: resolvedCity + " COLLATE NOCASE",
+    status: "o.status",
+  };
+  const sortSql = ordering[filters.sort ?? "updated"] ?? ordering.updated;
+  const directionSql = filters.direction === "asc" ? "ASC" : "DESC";
   const result = await db.prepare(`
     SELECT ${ORGANIZATION_PUBLICATION_SELECT}
     FROM help_organizations o${membership.where}
-    ORDER BY o.updated_at DESC, o.id DESC
+    ORDER BY ${sortSql} ${directionSql}, o.id ${directionSql}
     LIMIT ? OFFSET ?
   `).bind(...membership.args, ORGANIZATION_ADMIN_PAGE_SIZE, (page - 1) * ORGANIZATION_ADMIN_PAGE_SIZE).all<OrganizationPublicationRow>();
   const [regions, districts, cities] = await Promise.all([
