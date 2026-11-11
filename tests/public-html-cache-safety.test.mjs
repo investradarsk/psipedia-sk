@@ -95,6 +95,7 @@ test("CDN, Surrogate, Pragma and Vary restrictions cannot be overwritten", () =>
 test("Set-Cookie, JSON and error responses cannot enter public HTML cache", () => {
   const { isCacheableHtmlResponse: allowed } = cacheOps({});
   assert.equal(allowed(html(null, { "Set-Cookie": "fake=test; HttpOnly" })), false);
+  assert.equal(allowed(html(null, { "X-Robots-Tag": "noindex, nofollow" })), false);
   assert.equal(allowed(html(null, {}, 201)), false);
   assert.equal(allowed(html(null, {}, 404)), false);
   assert.equal(allowed(new Response("{}", { headers: { "content-type": "application/json" } })), false);
