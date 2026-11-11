@@ -30,12 +30,12 @@ test("cron and Admin POST select only one of two protected breed sync engines", 
   assert.match(sync, /BREED_DUAL_SYNCHRONIZERS_FORBIDDEN/);
 });
 
-test("new work-copy adapter requires 344 ACTIVE shadow links and per-field receipts", () => {
-  assert.match(sync, /COUNT\(\*\) AS total/);
-  assert.match(sync, /Number\(count\?\.total\) !== 344/);
-  assert.match(sync, /Number\(count\?\.ready\) !== 344/);
-  assert.match(sync, /status='ACTIVE' AND work_sync_receipt IS NOT NULL/);
-  assert.match(sync, /BREED_WORKCOPY_PER_FIELD_BASELINE_MISSING/);
+test("new work-copy adapter uses only the matching ACTIVE Psipedia ID, not whole-cohort gates", () => {
+  assert.match(sync, /WHERE breed_id=\? AND status='ACTIVE'/);
+  assert.doesNotMatch(sync, /BREED_WORKCOPY_COHORT_NOT_ACTIVE/);
+  assert.doesNotMatch(sync, /BREED_WORKCOPY_PER_FIELD_BASELINE_MISSING/);
+  assert.match(sync, /BREED_WORKCOPY_ID_MISMATCH/);
+  assert.match(sync, /readReceipt\(link.work_sync_receipt, canonical\)/);
   assert.match(sync, /planSafeBreedFields\(canonical/);
   assert.match(sync, /updateManagedBreed\(canonical\.id, candidate, actor/);
   assert.match(sync, /WHERE breed_id=\? AND work_notion_page_id=\?/);
@@ -50,8 +50,9 @@ test("field-level writeback re-reads Notion and confirms the single cell", () =>
   assert.match(sync, /BREED_WORKCOPY_WRITE_NOT_CONFIRMED/);
   assert.match(sync, /method: "PATCH", body: JSON\.stringify\(\{ properties:plan\.properties \}\)/);
   assert.match(delta, /planBreedNotionFieldDelta/);
-  assert.match(delta, /!restricted\.includes\(field\) && !blank\.includes\(field\)/);
-  assert.match(delta, /isTransferableBreedWorkCopyValue/);
+  assert.match(delta, /!restricted\.includes\(field\) && !invalidFieldIds\.has\(field\)/);
+  assert.match(delta, /const current = breedFieldSnapshot\(input.canonical\)/);
+  assert.match(sync, /allowCurrentRemote: true/);
 });
 
 test("staging is separately owner-confirmed, does not activate and leaves old links untouched", () => {

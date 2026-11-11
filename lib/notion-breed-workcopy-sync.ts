@@ -1,22 +1,22 @@
 /**
- * Explicitly gated Notion 60+2 breed synchronization, independent from the
- * existing 109-property production mapping.
+ * Notion 74-property breed work-copy sync, mutually exclusive with the old
+ * source. A signed Notion page with an ACTIVE link and matching numeric
+ * Psipedia ID is enough for independent field updates.
  *
- * Disabled by default. NEVER run alongside the old breed sync. Every profile
- * needs a separately verified ACTIVE shadow D1 link with a valid per-field
- * baseline receipt. No new breeds, Notion system-field PATCHes, publication,
- * gallery, image ingestion, or relation changes.
+ * No creation or deletion of breeds, no changes to canonical publication.
+ * Real FCI, media and structured fields are editable with type-safe storage;
+ * invalid siblings never lock otherwise valid fields.
  */
 import {
   getManagedBreed, updateManagedBreed, validateNotionBreedCandidate,
   type ManagedBreed,
 } from "@/lib/breed-store";
 import {
-  notionRequest, notionFlagEnabled, notionRichTextProperty,
-  notionNumberProperty, type NotionPage, type NotionSyncBindings,
+  notionRequest, notionFlagEnabled, notionRichTextProperty, notionNumberProperty,
+  type NotionPage, type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
-import { notionPageMustSkipInboundSync } from "@/lib/admin-record-lifecycle";
+import { notionPageIsTombstoned } from "@/lib/admin-record-lifecycle";
 import {
   breedFieldSnapshot, parseBreedFieldSnapshot,
   BREED_NOTION_EDITABLE_FIELDS, type BreedFieldSnapshot,
@@ -27,7 +27,6 @@ import { planBreedWorkCopyEditorialDelta } from "@/lib/notion-breed-workcopy-del
 import { planBreedWorkCopyFieldWrite } from "@/lib/notion-breed-workcopy-patch-bridge.mjs";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
-import { isBreedStructuredMeasurement } from "@/lib/breed-controlled-fields.mjs";
 import { receiveBreedControlledNotionEdit } from "@/lib/notion-breed-workcopy-controlled";
 import {
   workCopyChangedEditorialIds, workCopyNonblankChangedFields,
@@ -52,10 +51,9 @@ type WorkReceipt = { notion: BreedFieldSnapshot; admin: BreedFieldSnapshot };
 const actor = "notion-breed-sync@psipedia.sk";
 const maxProfiles = 10;
 const skippedSpecial = new Set<string>([
-  "fciStandard", "editorial",
-  "image", "gallery", "relatedBreedIds",
+  // Only virtual aggregates and relationships without real Notion columns.
+  "fciStandard", "editorial", "relatedBreedIds",
   "relatedArticleIds", "directoryProfileIds",
-  "sports",
 ]);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const normalized = (id: string) => id.replaceAll("-", "").toLowerCase();
@@ -74,17 +72,21 @@ function requireWorkCopyOnly(bindings: BreedWorkCopyBindings) {
   return true;
 }
 
-function readReceipt(value: string | null): WorkReceipt {
-  if (!value?.startsWith("breed-field-v1:"))
-    throw Error("BREED_WORKCOPY_PER_FIELD_BASELINE_MISSING");
+function readReceipt(value: string | null, canonical: ManagedBreed): WorkReceipt {
+  // Receipts are for deduplication, not a second form of identity. Missing or
+  // historical malformed receipts must not lock an otherwise ID-matched breed.
+  const fallback = () => {
+    const current = breedFieldSnapshot(canonical);
+    return { notion: { ...current }, admin: { ...current } };
+  };
+  if (!value?.startsWith("breed-field-v1:")) return fallback();
   try {
     const encoded = JSON.parse(value.slice("breed-field-v1:".length));
     const notion = parseBreedFieldSnapshot(encoded.notion ?? null);
     const admin = parseBreedFieldSnapshot(encoded.admin ?? null);
-    if (!notion || !admin) throw Error();
-    return { notion, admin };
+    return notion && admin ? { notion, admin } : fallback();
   } catch {
-    throw Error("BREED_WORKCOPY_PER_FIELD_RECEIPT_INVALID");
+    return fallback();
   }
 }
 function encodeReceipt(receipt: WorkReceipt): string {
@@ -102,22 +104,16 @@ function assertOwnedPage(
   bindings: BreedWorkCopyBindings,
 ) {
   const source = bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!;
+  // Page/source ownership prevents cross-database writes. The ONLY breed
+  // matching key is the immutable Admin / Psipedia numeric ID. Every other
+  // Notion value (including name, FCI, slug-adjacent text and provenance) is
+  // ordinary editorial data, never a prerequisite for changing a field.
   if (normalized(page.id) !== normalized(link.work_notion_page_id) ||
       !notionPageBelongsToDataSource(page, source) ||
       notionRichTextProperty(page, "Psipedia ID") !== String(breed.id) ||
-      notionNumberProperty(page, "FCI číslo") !== breed.fciNumber ||
-      link.canonical_slug !== breed.slug || link.fci_number !== breed.fciNumber ||
-      normalized(link.work_data_source_id) !== normalized(source) ||
-      normalized(link.original_data_source_id) !==
-        normalized(bindings.NOTION_BREEDS_DATA_SOURCE_ID!)) {
-    throw Error("BREED_WORKCOPY_IDENTITY_OR_SOURCE_CHANGED");
+      link.breed_id !== breed.id) {
+    throw Error("BREED_WORKCOPY_ID_MISMATCH");
   }
-  const provenance = page.properties?.["Zdrojový profil Notion"];
-  const raw = provenance && typeof provenance === "object" ?
-    (provenance as { url?: string }).url ?? "" : "";
-  const urlId = raw.replace(/[-/?#]/g, "").slice(-32).toLowerCase();
-  if (urlId !== normalized(link.original_notion_page_id))
-    throw Error("BREED_WORKCOPY_PROVENANCE_CHANGED");
 }
 
 async function getActiveLink(database: D1Database, breedId: number) {
@@ -127,16 +123,6 @@ async function getActiveLink(database: D1Database, breedId: number) {
   ).bind(breedId).first<ShadowLink>();
 }
 
-/** An ACTIVE cutover must be complete for ALL 344 profiles, never partial. */
-async function requireActiveCohort(database: D1Database) {
-  const count = await database.prepare(
-    "SELECT COUNT(*) AS total, "+
-    "SUM(CASE WHEN status='ACTIVE' AND work_sync_receipt IS NOT NULL "+
-    "THEN 1 ELSE 0 END) AS ready FROM breed_notion_workcopy_links",
-  ).first<{ total: number; ready: number | null }>();
-  if (Number(count?.total) !== 344 || Number(count?.ready) !== 344)
-    throw Error("BREED_WORKCOPY_COHORT_NOT_ACTIVE");
-}
 async function advanceReceipt(
   database: D1Database, link: ShadowLink,
   receipt: WorkReceipt,
@@ -147,7 +133,7 @@ async function advanceReceipt(
     "UPDATE breed_notion_workcopy_links SET work_sync_receipt=?, "+
     "work_last_synced_at=?,work_last_error_code=NULL,updated_at=? "+
     "WHERE breed_id=? AND work_notion_page_id=? "+
-    "AND status='ACTIVE' AND work_sync_receipt=?",
+    "AND status='ACTIVE' AND work_sync_receipt IS ?",
   ).bind(next, now, now, link.breed_id, link.work_notion_page_id,
     link.work_sync_receipt).run();
   if (result.meta.changes !== 1)
@@ -174,7 +160,8 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
   // As with breeders, periodic sweeps never replay whole profile values.
   // Only a signed targeted property event is an inbound editorial change.
   if (!args.targetPageId || (!args.manualImport && !args.changedPropertyIds?.length)) return summary;
-  await requireActiveCohort(args.database);
+  // Process the addressed ACTIVE link independently. A problem with another
+  // breed must never block this profile's signed property update.
   // Same as breeder field events: the verified edited Notion field is authoritative.
   const authority = {};
   const result = await args.database.prepare(
@@ -182,17 +169,17 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
     "AND work_notion_page_id=? LIMIT ?",
   ).bind(args.targetPageId, maxProfiles).all<ShadowLink>();
   for (const link of result.results) {
-    // An Admin-unpublished breed stays a draft even if a signed work-copy
-    // webhook arrives later. Explicit republishing remains Admin-owned.
-    if(await notionPageMustSkipInboundSync(args.database,link.work_notion_page_id)){
+    // Unpublishing must never block a content update. Only a genuinely deleted
+    // (tombstoned) record is ineligible for resurrection.
+    if(await notionPageIsTombstoned(args.database,link.work_notion_page_id)){
       summary.unchanged++;
       continue;
     }
     summary.scanned++;
     try {
-      const receipt = readReceipt(link.work_sync_receipt);
       const canonical = await getManagedBreed(link.breed_id);
       if (!canonical) throw Error("BREED_WORKCOPY_CANONICAL_MISSING");
+      const receipt = readReceipt(link.work_sync_receipt, canonical);
       const page = await notionRequest<NotionPage>(args.bindings,
         "/pages/" + encodeURIComponent(link.work_notion_page_id));
       assertOwnedPage(page, link, canonical, args.bindings);
@@ -221,7 +208,31 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         page, args.manualImport ? Object.keys(page.properties??{}) : args.changedPropertyIds,
         BREED_NOTION_SCHEMA,
       );
-      if (!edited.length) {
+      // FCI number has a physical Notion column but is absent from the
+      // historical editorial registry because it used to be an identity key.
+      // It is now a typed field, and only Psipedia ID identifies the record.
+      const fciProperty = page.properties?.["FCI číslo"];
+      const fciPropId = fciProperty && typeof fciProperty === "object"
+        ? (fciProperty as {id?:unknown}).id : undefined;
+      const changedProperties = new Set(args.changedPropertyIds ?? []);
+      const fciEdited = Boolean(args.manualImport ||
+        changedProperties.has("FCI číslo") ||
+        (typeof fciPropId === "string" && changedProperties.has(fciPropId)));
+      const incomingFci = notionNumberProperty(page, "FCI číslo");
+      let nextFci = canonical.fciNumber;
+      let rejectedFci = false;
+      if (fciEdited && incomingFci !== canonical.fciNumber) {
+        const usable = incomingFci === null ||
+          (Number.isSafeInteger(incomingFci) && incomingFci > 0);
+        const occupied = usable && incomingFci !== null
+          ? await args.database.prepare(
+              "SELECT id FROM managed_breeds WHERE fci_number=? AND id<>? LIMIT 1",
+            ).bind(incomingFci, canonical.id).first<{id:number}>()
+          : null;
+        if (usable && !occupied) nextFci = incomingFci;
+        else rejectedFci = true; // Database structural conflict, not profile identity.
+      }
+      if (!edited.length && !fciEdited) {
         if (controlledUpdated) summary.updated++; else summary.unchanged++;
         continue;
       }
@@ -240,13 +251,20 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         allowed: edited, changed: plan.changed,
         values: plan.sourceSnapshot, accepted: plan.accepted,
       }).filter(field => !skippedSpecial.has(field));
-      // If Notion AI replaces a numeric measurement with a sentence, ignore
-      // ONLY that edited cell. Keep the previous D1 value and its receipt;
-      // unrelated valid fields from the same event still transfer.
-      const accepted = candidates.filter(field =>
-        isBreedStructuredMeasurement(field, plan.sourceSnapshot[field]));
-      const rejectedMeasurements = candidates.filter(field =>
-        !isBreedStructuredMeasurement(field, plan.sourceSnapshot[field]));
+      // A changed text value is content, not an approval request. The editor's
+      // data type is handled by D1's canonical storage; one malformed field is
+      // isolated in planSafeBreedFields without locking the other cells.
+      const validMediaJson = (property: string) => {
+        const raw = notionRichTextProperty(page, property).trim();
+        if (!raw) return true; // Deliberate clear maps to an empty list.
+        try { return Array.isArray(JSON.parse(raw)); }
+        catch { return false; }
+      };
+      const rejectedMedia = candidates.filter(field =>
+        (field === "gallery" && !validMediaJson("Galéria JSON")) ||
+        (field === "sports" && !validMediaJson("Športy JSON")));
+      const accepted = candidates.filter(field => !rejectedMedia.includes(field));
+      const rejectedMeasurements: string[] = [];
       const safe = planSafeBreedFields(canonical, {
         latest: plan.sourceSnapshot,
         changed: accepted as BreedNotionField[],
@@ -256,15 +274,16 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       }, new Set(), validateNotionBreedCandidate);
       const candidate = {
         ...safe.candidate,
+        fciNumber: nextFci,
         status: canonical.status,
-        image: canonical.image, imageKey: canonical.imageKey,
-        gallery: canonical.gallery,
+        imageKey: safe.accepted.includes("image") ? null : canonical.imageKey,
         relatedBreedIds: canonical.relatedBreedIds,
         relatedArticleIds: canonical.relatedArticleIds,
         directoryProfileIds: canonical.directoryProfileIds,
       };
-      const changed = accepted.length > 0 &&
-        !same(breedFieldSnapshot(canonical), breedFieldSnapshot(candidate));
+      const changed = (accepted.length > 0 &&
+        !same(breedFieldSnapshot(canonical), breedFieldSnapshot(candidate))) ||
+        nextFci !== canonical.fciNumber;
       const updated = changed
         ? await updateManagedBreed(canonical.id, candidate, actor,
           canonical.updatedAt, { preserveUnchangedInvalid: canonical })
@@ -283,10 +302,12 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       if (changed || controlledUpdated) summary.updated++; else summary.unchanged++;
       // Bad or unsupported fields remain pending; unrelated valid fields still
       // commit independently without modifying old Notion or publication.
-      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length) {
+      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length ||
+          rejectedMedia.length || rejectedFci) {
         console.warn("breed_workcopy_fields_pending",{
           id: canonical.id,
-          count: safe.skipped.length + plan.skipped.length + rejectedMeasurements.length,
+          count: safe.skipped.length + plan.skipped.length +
+            rejectedMeasurements.length + rejectedMedia.length + Number(rejectedFci),
         });
         if (args.manualImport) throw Error("BREED_WORKCOPY_MANUAL_PARTIAL_FIELDS");
       }
@@ -319,20 +340,11 @@ export async function writeBackBreedToWorkCopy(input: {
 }) {
   if (!requireWorkCopyOnly(input.bindings))
     return { linked:false, updated:false, reason:"disabled" as const };
-  if (input.before.id !== input.breed.id ||
-      input.before.slug !== input.breed.slug ||
-      input.before.fciNumber !== input.breed.fciNumber)
-    throw Error("BREED_WORKCOPY_ADMIN_IDENTITY_CHANGED");
-  try {
-    await requireActiveCohort(input.database);
-  } catch (error) {
-    if (error instanceof Error && error.message === "BREED_WORKCOPY_COHORT_NOT_ACTIVE")
-      return { linked:false, updated:false, reason:"workcopy-inactive" as const };
-    throw error;
-  }
+  if (input.before.id !== input.breed.id)
+    throw Error("BREED_WORKCOPY_ADMIN_ID_MISMATCH");
   const link = await getActiveLink(input.database, input.breed.id);
   if (!link) return { linked:false, updated:false, reason:"not-linked" as const };
-  const receipt = readReceipt(link.work_sync_receipt);
+  const receipt = readReceipt(link.work_sync_receipt, input.before);
   const actualAdmin = breedFieldSnapshot(input.breed);
   const beforeAdmin = breedFieldSnapshot(input.before);
   const selected = input.forceFieldKeys
@@ -342,10 +354,12 @@ export async function writeBackBreedToWorkCopy(input: {
         beforeAdmin, actualAdmin, BREED_NOTION_EDITABLE_FIELDS, input.changedFieldKeys,
       );
   const keys = selected.filter((field): field is BreedNotionField =>
-    !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true) &&
-    isBreedStructuredMeasurement(field, actualAdmin[field]));
+    !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true));
+  const fciChanged = input.before.fciNumber !== input.breed.fciNumber &&
+    (!input.changedFieldKeys || input.changedFieldKeys.includes("fciNumber") ||
+      input.forceFieldKeys?.includes("fciNumber"));
   // No record-wide receipt diff: never resend an untouched Admin field.
-  if (!keys.length) return {
+  if (!keys.length && !fciChanged) return {
     linked: true, updated: false, reason: "no-mirrored-field-change" as const,
   };
   const pending:string[] = [];
@@ -361,6 +375,7 @@ export async function writeBackBreedToWorkCopy(input: {
         fieldId: field,
         value: actualAdmin[field],
         baseline: receipt.notion[field],
+        allowCurrentRemote: true,
         expectedPageRevision: page.last_edited_time,
       });
       if (plan.changed) {
@@ -380,6 +395,7 @@ export async function writeBackBreedToWorkCopy(input: {
       const recheck = planBreedWorkCopyFieldWrite({
         schema: BREED_NOTION_SCHEMA, page: confirmed,
         fieldId: field, value: actualAdmin[field], baseline: actualAdmin[field],
+        allowCurrentRemote: true,
         expectedPageRevision: confirmed.last_edited_time,
       });
       if (recheck.changed) throw Error("BREED_WORKCOPY_WRITE_NOT_CONFIRMED");
@@ -395,6 +411,39 @@ export async function writeBackBreedToWorkCopy(input: {
       pending.push(field);
       console.warn("breed_workcopy_field_write_pending",{
         breedId:input.breed.id, field,
+        code:error instanceof Error?error.message:"UNKNOWN",
+      });
+    }
+  }
+  if (fciChanged) {
+    try {
+      const number = input.breed.fciNumber;
+      let page = await notionRequest<NotionPage>(input.bindings,
+        "/pages/" + encodeURIComponent(link.work_notion_page_id));
+      assertOwnedPage(page, link, input.breed, input.bindings);
+      if (notionNumberProperty(page, "FCI číslo") !== number) {
+        const fresh = await notionRequest<NotionPage>(input.bindings,
+          "/pages/" + encodeURIComponent(link.work_notion_page_id));
+        assertOwnedPage(fresh, link, input.breed, input.bindings);
+        if (fresh.last_edited_time !== page.last_edited_time)
+          throw Error("BREED_WORKCOPY_FCI_CONCURRENT_EDIT");
+        await notionRequest(input.bindings,
+          "/pages/" + encodeURIComponent(link.work_notion_page_id),{
+            method:"PATCH",body:JSON.stringify({properties:{
+              "FCI číslo":{number},
+            }}),
+          });
+        page = await notionRequest<NotionPage>(input.bindings,
+          "/pages/" + encodeURIComponent(link.work_notion_page_id));
+        assertOwnedPage(page, link, input.breed, input.bindings);
+      }
+      if (notionNumberProperty(page,"FCI číslo") !== number)
+        throw Error("BREED_WORKCOPY_FCI_NOT_CONFIRMED");
+      acknowledged.push("fciNumber");
+    } catch (error) {
+      pending.push("fciNumber");
+      console.warn("breed_workcopy_field_write_pending",{
+        breedId:input.breed.id,field:"fciNumber",
         code:error instanceof Error?error.message:"UNKNOWN",
       });
     }
@@ -417,14 +466,12 @@ export async function inspectManualBreedWorkCopyProfile(input: {
 }): Promise<{notion:Record<string,unknown>;admin:Record<string,unknown>;excluded:string[]}> {
   if (!requireWorkCopyOnly(input.bindings))
     throw Error("TRANSFER_BREED_WORKCOPY_INACTIVE");
-  await requireActiveCohort(input.database);
   const link = await getActiveLink(input.database, input.profileId);
-  if (!link || !link.work_sync_receipt ||
-      normalized(link.work_notion_page_id) !== normalized(input.pageId))
+  if (!link || normalized(link.work_notion_page_id) !== normalized(input.pageId))
     throw Error("TRANSFER_BREED_WORKCOPY_LINK_INVALID");
-  readReceipt(link.work_sync_receipt);
   const canonical = await getManagedBreed(input.profileId);
   if (!canonical) throw Error("TRANSFER_BREED_NOT_FOUND");
+  readReceipt(link.work_sync_receipt, canonical);
   const page = await notionRequest<NotionPage>(input.bindings,
     "/pages/" + encodeURIComponent(input.pageId));
   assertOwnedPage(page, link, canonical, input.bindings);
@@ -442,8 +489,7 @@ export async function inspectManualBreedWorkCopyProfile(input: {
   const excluded = new Set<string>([...skippedSpecial, ...plan.skipped]);
   const notion = plan.sourceSnapshot as Record<string,unknown>;
   for (const field of BREED_NOTION_EDITABLE_FIELDS) {
-    if (!present.has(field) || !isBreedStructuredMeasurement(field, notion[field]))
-      excluded.add(field);
+    if (!present.has(field)) excluded.add(field);
   }
   return {notion,admin,excluded:[...excluded]};
 }

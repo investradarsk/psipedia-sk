@@ -1279,7 +1279,7 @@ export async function getBreedDetailRelations(
   };
 }
 
-function clean(input: ManagedBreedInput, preserved?: ManagedBreed) {
+function clean(input: ManagedBreedInput, preserved?: ManagedBreed, allowNotionEditorialValues = false) {
   const text = (value: unknown, max = 1000) =>
     String(value ?? "")
       .trim()
@@ -1350,7 +1350,7 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed) {
                 : label === "FCI hmotnosť – pes"
                   ? preserved?.fciStandard?.hmotnost_pes_kg
                   : preserved?.fciStandard?.hmotnost_suka_kg;
-    if (preserved && value === old) continue;
+    if (allowNotionEditorialValues || (preserved && value === old)) continue;
     throw new Error(`${label}: ${issue.message}`);
   }
   const rawEditorial = input.editorial ?? {};
@@ -1418,7 +1418,7 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed) {
     Number.isSafeInteger(input.fciNumber) && Number(input.fciNumber) > 0
       ? Number(input.fciNumber)
       : null;
-  if (input.status === "published") {
+  if (input.status === "published" && !allowNotionEditorialValues) {
     const publicSize = text(input.size, 160);
     const publicCoat = text(input.coat, 200);
     if (isSuspiciousNumericText(publicSize) || isSuspiciousPlaceholderText(publicSize))
@@ -1489,7 +1489,9 @@ function clean(input: ManagedBreedInput, preserved?: ManagedBreed) {
 }
 /** Validate a Notion editorial update without performing any D1 mutations. */
 export function validateNotionBreedCandidate(input: ManagedBreedInput, existing: ManagedBreed) {
-  clean(input, existing);
+  // Only the trusted, already ID-mapped Notion path is permissive. Admin
+  // publishing and ordinary editor saves retain their normal validation.
+  clean(input, existing, true);
 }
 
 function values(value: ReturnType<typeof clean>) {
@@ -1621,7 +1623,8 @@ export function buildManagedBreedUpdateStatements(
 ) {
   // Only the trusted Notion sync actor may preserve unchanged historical
   // invalid values. All Admin edits continue to use strict validation.
-  const value = clean(input, user === "notion-breed-sync@psipedia.sk" ? preserved : undefined);
+  const fromNotion = user === "notion-breed-sync@psipedia.sk";
+  const value = clean(input, fromNotion ? preserved : undefined, fromNotion);
   return [
     database
       .prepare(

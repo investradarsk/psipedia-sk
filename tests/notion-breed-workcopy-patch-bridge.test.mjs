@@ -53,11 +53,43 @@ test("old revision or independently changed Notion field prevents overwrite", ()
   assert.throws(() => patch("children", 5, 3, page(), "2026-11-05T00:00:00.000Z"),
     /BREED_WORKCOPY_PAGE_REVISION_CHANGED/);
 });
-test("identity and media never pass through ordinary editorial patch", () => {
+test("Psipedia identity is not patchable; valid images and JSON media are editable", () => {
   assert.throws(() => patch("system.FCI číslo", 123, 122),
     /BREED_WORKCOPY_FIELD_OR_BASELINE_UNKNOWN/);
-  assert.throws(() => patch("image", "https://example.org/b.jpg", "https://psipedia.sk/test"),
-    /BREED_WORKCOPY_FIELD_NOT_EDITABLE/);
+  const image=patch("image", "/media/b.jpg", "https://psipedia.sk/test");
+  assert.deepEqual(image.properties, {
+    "Hlavný obrázok URL": {url:"https://psipedia.sk/media/b.jpg"},
+  });
+  const p=page();
+  p.properties["Galéria JSON"]=text("[]");
+  p.properties["Športy JSON"]=text("[]");
+  const gallery=patch("gallery",[{imageUrl:"/media/b.jpg"}],[],p);
+  const sports=patch("sports",[{key:"plavanie",label:"Plávanie",rating:2}],[],p);
+  assert.deepEqual(JSON.parse(gallery.properties["Galéria JSON"].rich_text[0].text.content),
+    [{imageUrl:"/media/b.jpg"}]);
+  assert.deepEqual(JSON.parse(sports.properties["Športy JSON"].rich_text[0].text.content),
+    [{key:"plavanie",label:"Plávanie",rating:2}]);
+});
+
+test("Admin's newer direct and merged field edits overwrite old per-field receipts", () => {
+  const p=page();
+  p.properties.Intro=text("Novší Notion text");
+  const direct=plan({
+    schema:BREED_NOTION_SCHEMA,page:p,fieldId:"intro",value:"Editor má teraz prednosť",
+    baseline:"Neaktuálny receipt",allowCurrentRemote:true,
+    expectedPageRevision:p.last_edited_time,
+  });
+  assert.equal(direct.properties.Intro.rich_text[0].text.content,
+    "Editor má teraz prednosť");
+  p.properties["FCI lebka"]=text(
+    "Hlava. — Oči podľa FCI: Iné oči. — Uši podľa FCI: Vzpriamené.");
+  const merged=plan({
+    schema:BREED_NOTION_SCHEMA,page:p,fieldId:"fciStandard.oci",value:"Opravené oči",
+    baseline:"Staré oči",allowCurrentRemote:true,
+    expectedPageRevision:p.last_edited_time,
+  });
+  assert(merged.nextText.includes("— Oči podľa FCI: Opravené oči"));
+  assert(merged.nextText.includes("— Uši podľa FCI: Vzpriamené."));
 });
 test("invalid number and missing visible property fail closed", () => {
   assert.throws(() => patch("children", NaN, 3), /BREED_WORKCOPY_NUMBER_INVALID/);

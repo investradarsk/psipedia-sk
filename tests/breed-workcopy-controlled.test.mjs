@@ -33,11 +33,17 @@ test("12 Notion fields have distinct keys and physical names with exact types",(
     ["heightMinCm","heightMaxCm","weightMinKg","weightMaxKg","lifespanMinYears","lifespanMaxYears"]);
 });
 
-test("numeric types permit null clearing but refuse AI sentences/out-of-bounds",()=>{
+test("numeric types permit null and 1/2 test values but still refuse non-numbers",()=>{
   assert.equal(validateBreedControlledValue("heightMinCm",56.5),56.5);
   assert.equal(validateBreedControlledValue("weightMinKg",null),null);
+  for (const key of ["heightMinCm","heightMaxCm","weightMinKg","weightMaxKg",
+    "lifespanMinYears","lifespanMaxYears"]) {
+    assert.equal(validateBreedControlledValue(key,1),1);
+    assert.equal(validateBreedControlledValue(key,2),2);
+  }
+  assert.equal(validateBreedControlledValue("lifespanMaxYears",100),100);
   assert.throws(()=>validateBreedControlledValue("weightMinKg","asi 30 kg"),/NUMBER_INVALID/);
-  assert.throws(()=>validateBreedControlledValue("lifespanMaxYears",100),/NUMBER_INVALID/);
+  assert.throws(()=>validateBreedControlledValue("heightMinCm",NaN),/NUMBER_INVALID/);
   assert.throws(()=>validateBreedControlledValue("fciGroupSelect","99"),/SELECT_INVALID/);
   assert.throws(()=>validateBreedControlledValue("useTypes",["Lovecký","Neznáme"]),/MULTI_SELECT_INVALID/);
 });

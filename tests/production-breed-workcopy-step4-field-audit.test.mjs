@@ -163,7 +163,8 @@ test("production remains old-only and test never enables new sync or writes Noti
   assert.equal(vars.NOTION_BREED_WORKCOPY_ACTIVATE_ENABLED, "false");
   assert.equal(vars.NOTION_BREED_WORKCOPY_BASELINE_ENABLED, "false");
   assert.match(runtime, /BREED_DUAL_SYNCHRONIZERS_FORBIDDEN/);
-  assert.match(runtime, /BREED_WORKCOPY_COHORT_NOT_ACTIVE/);
+  assert.match(runtime, /BREED_WORKCOPY_ID_MISMATCH/);
+  assert.doesNotMatch(runtime, /BREED_WORKCOPY_COHORT_NOT_ACTIVE/);
   assert.match(runtime, /targetPageId/);
   assert.match(runtime, /changedPropertyIds/);
   assert.match(postflight, /summarizeBreedWorkcopyBaselineDifferences/);

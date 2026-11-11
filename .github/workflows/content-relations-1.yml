@@ -38,7 +38,7 @@ jobs:
     # Comprehensive PR regression runs once changes are ready for review.
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Explicit relations — unit, build, desktop/mobile
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
       E2E_BASE_URL: http://localhost:5173
@@ -75,7 +75,9 @@ jobs:
         run: npm run build
 
       - name: Install Chromium and system dependencies
-        run: npx playwright install --with-deps chromium
+        # Reuse Ubuntu runner system libraries; Chromium launch stays enforced
+        # by the required desktop and mobile E2E jobs.
+        run: npx playwright install chromium
 
       - name: Configure CI-only local PII keys
         run: |

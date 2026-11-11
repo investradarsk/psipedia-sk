@@ -604,6 +604,7 @@ export async function writeBackBreedEditorialToNotion(args:{
       database: args.database, bindings: args.bindings,
       before: args.before, breed: args.breed,
       changedFieldKeys: args.changedFieldKeys,
+      forceFieldKeys: args.forceFieldKeys,
     });
   }
   if(!notionFlagEnabled(args.bindings.NOTION_BREED_SYNC_ENABLED))
