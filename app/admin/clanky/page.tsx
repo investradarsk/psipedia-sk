@@ -15,15 +15,14 @@ type ArticleFilters = ReturnType<typeof parseArticleAdminListFilters>;
 
 async function ArticleList({
   dataPromise,
+  topicOptionsPromise,
   filters,
 }: {
-  dataPromise: Promise<[
-    Awaited<ReturnType<typeof listManagedArticleSummaries>>,
-    Awaited<ReturnType<typeof listArticleTopics>>,
-  ]>;
+  dataPromise: ReturnType<typeof listManagedArticleSummaries>;
+  topicOptionsPromise: Promise<Awaited<ReturnType<typeof listArticleTopics>> | null>;
   filters: ArticleFilters;
 }) {
-  const [result, topicOptions] = await dataPromise;
+  const result = await dataPromise;
   return (
     <AdminDashboard
       key={JSON.stringify(filters)}
@@ -33,7 +32,7 @@ async function ArticleList({
       pagination={result.pagination}
       filters={filters}
       listPath="/admin/clanky"
-      topicOptions={topicOptions}
+      topicOptionsPromise={topicOptionsPromise}
     />
   );
 }
@@ -45,14 +44,12 @@ export default async function AdminArticlesPage({ searchParams }: { searchParams
     get: (key) => typeof params[key] === "string" ? params[key] as string : null,
   });
 
-  // Start independent reads concurrently and stream the shell before either resolves.
-  const dataPromise = Promise.all([
-    listManagedArticleSummaries({
-      ...filters,
-      portalSection: filters.portalSection === "all" ? undefined : filters.portalSection,
-    }),
-    listArticleTopics({ includeInactive: true }),
-  ]);
+  // The topic filter is optional metadata; it must not delay the actual table.
+  const dataPromise = listManagedArticleSummaries({
+    ...filters,
+    portalSection: filters.portalSection === "all" ? undefined : filters.portalSection,
+  });
+  const topicOptionsPromise = listArticleTopics({ includeInactive: true }).catch(() => null);
 
   return (
     <AdminShell
@@ -63,7 +60,7 @@ export default async function AdminArticlesPage({ searchParams }: { searchParams
       actions={<><Link className="admin-secondary-action" href="/admin/clanky/kalendar">Redakčný kalendár</Link><Link className="admin-secondary-action" href="/admin/clanky/temy">Témy článkov</Link><Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link></>}
     >
       <Suspense fallback={<AdminDataLoading label="Články a novinky" />}>
-        <ArticleList dataPromise={dataPromise} filters={filters} />
+        <ArticleList dataPromise={dataPromise} topicOptionsPromise={topicOptionsPromise} filters={filters} />
       </Suspense>
     </AdminShell>
   );
