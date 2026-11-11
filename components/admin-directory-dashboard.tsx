@@ -148,7 +148,8 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
           </label>
           <label className="admin-select-filter"><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="">Všetky kategórie</option>{allDirectoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}</select></label>
           <label className="admin-select-filter"><span>Stav publikácie</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option><option value="archived">Archivované</option></select></label>
-          <label className="admin-select-filter"><span>Zoradiť celý zoznam</span><select name="sort" defaultValue={filters.sort ?? "updated"}><option value="updated">Naposledy aktualizované</option><option value="name">Názov A–Z</option><option value="city">Mesto A–Z</option><option value="status">Stav publikácie</option></select></label>
+          <label className="admin-select-filter"><span>Zoradiť celý zoznam</span><select name="sort" defaultValue={filters.sort ?? "updated"}><option value="updated">Naposledy aktualizované</option><option value="name">Názov</option><option value="city">Mesto</option><option value="status">Stav publikácie</option></select></label>
+          <label className="admin-select-filter"><span>Smer triedenia</span><select name="direction" defaultValue={filters.direction ?? ((filters.sort ?? "updated") === "updated" ? "desc" : "asc")}><option value="asc">Vzostupne ↑</option><option value="desc">Zostupne ↓</option></select></label>
           <label className="admin-select-filter"><span>Kraj</span><select name="region" defaultValue={filters.region}><option value="">Všetky kraje</option>{options.regions.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
           <label className="admin-select-filter"><span>Okres</span><select name="district" defaultValue={filters.district}><option value="">Všetky okresy</option>{options.districts.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
           <label className="admin-select-filter"><span>Mesto</span><select name="city" defaultValue={filters.city}><option value="">Všetky mestá</option>{options.cities.map((value) => <option value={value} key={value}>{value}</option>)}</select></label>
@@ -188,6 +189,17 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
               label="Profily služieb"
               busy={inlineBusy}
               serverSorted
+              serverSorting={{
+                id: filters.sort ?? "updated",
+                desc: (filters.direction ?? ((filters.sort ?? "updated") === "updated" ? "desc" : "asc")) === "desc",
+                allowedIds: ["name", "city", "status", "updated"],
+                onChange: ({ id, desc }) => {
+                  const sort = id === "name" || id === "city" || id === "status" ? id : "updated";
+                  router.push(directoryAdminHref({ ...filters, sort, direction: desc ? "desc" : "asc", page: 1 })
+                    .replace("/admin/adresar", basePath));
+                },
+              }}
+              density="compact"
               stretch
               columns={[
                 { id: "selected", label: "Výber", width: 76, cell: (profile) => <BulkSelectionCheckbox

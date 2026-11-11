@@ -323,3 +323,47 @@ test("0164: confirming permanent removal hides the tombstoned record from ALL Ad
     assert.equal((await queryDirectoryAdmin(db, filters({status:"draft"}), categories, undefined, true)).resultCount, 61);
   } finally { sqlite.close(); }
 });
+
+test("global header sorting supports both directions across page boundaries", async () => {
+  const { db, sqlite } = fixture();
+  try {
+    const first = await queryDirectoryAdmin(db, filters({ sort: "name", direction: "desc" }), categories);
+    const second = await queryDirectoryAdmin(db, filters({ sort: "name", direction: "desc", page: 2 }), categories);
+    assert.deepEqual(first.items.slice(0, 3).map(row => row.id), [127, 126, 125]);
+    assert.equal(first.items.at(-1).id, 78);
+    assert.equal(second.items[0].id, 77);
+    assert.equal(new Set([...first.items, ...second.items].map(row => row.id)).size, 100);
+
+    const oldest = await queryDirectoryAdmin(db, filters({ sort: "updated", direction: "asc" }), categories);
+    assert.equal(oldest.items[0].id, 1);
+    assert.equal(oldest.items.at(-1).id, 50);
+    const newest = await queryDirectoryAdmin(db, filters({ sort: "updated", direction: "desc" }), categories);
+    assert.equal(newest.items[0].id, 129);
+  } finally { sqlite.close(); }
+});
+
+test("directory header sort links validate direction without changing membership filters", () => {
+  const parsed = parseDirectoryAdminFilters(new URLSearchParams("sort=name&direction=desc&category=veterinari"), isCategory);
+  assert.equal(parsed.sort, "name");
+  assert.equal(parsed.direction, "desc");
+  assert.equal(parseDirectoryAdminFilters(new URLSearchParams("direction=DELETE&sort=name"), isCategory).direction, undefined);
+  assert.equal(directoryAdminHref(filters({ sort: "name", direction: "desc", page: 2 })),
+    "/admin/adresar?sort=name&direction=desc&page=2");
+  assert.equal(directoryAdminHref(filters({ sort: "updated", direction: "desc" })), "/admin/adresar");
+  assert.equal(directoryAdminHref(filters({ sort: "updated", direction: "asc" })), "/admin/adresar?direction=asc");
+});
+
+test("shared grid has compact density and controlled whole-result sorting contract", () => {
+  const table = readFileSync(new URL("../components/admin-record-table.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../components/admin-record-table.module.css", import.meta.url), "utf8");
+  const directory = readFileSync(new URL("../components/admin-directory-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(table, /manualSorting: Boolean\\(serverSorting\\)/);
+  assert.match(table, /enableSortingRemoval: false/);
+  assert.match(table, /aria-sort=\\{/);
+  assert.match(table, /serverSorting\\.onChange/);
+  assert.match(table, /data-density=\\{density\\}/);
+  assert.match(css, /data-density="compact"/);
+  assert.match(css, /height: 44px/);
+  assert.match(directory, /serverSorting=\\{\\{/);
+  assert.match(directory, /direction: desc \\? "desc" : "asc"/);
+});
