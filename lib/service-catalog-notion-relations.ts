@@ -4,7 +4,8 @@
  * One-way data-source ownership: the Notion relation can select *existing*
  * canonical service IDs, but never create new D1 catalog identities.
  * An acknowledged relation baseline makes "deselect all" unambiguous.
- * Divergent changes on both sides are never silently merged or overwritten.
+ * Independent changes to different service IDs are merged against the last
+ * acknowledged baseline; unverified initial deletions are never guessed.
  * The old Notion "Služby" rich-text property is preserved for historical data.
  */
 import {notionRequest,type NotionSyncBindings} from "./notion-sync-shared";
