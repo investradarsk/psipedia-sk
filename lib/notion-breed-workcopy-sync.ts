@@ -51,10 +51,9 @@ type WorkReceipt = { notion: BreedFieldSnapshot; admin: BreedFieldSnapshot };
 const actor = "notion-breed-sync@psipedia.sk";
 const maxProfiles = 10;
 const skippedSpecial = new Set<string>([
-  "fciStandard", "editorial",
-  "image", "gallery", "relatedBreedIds",
+  // Only virtual aggregates and relationships without real Notion columns.
+  "fciStandard", "editorial", "relatedBreedIds",
   "relatedArticleIds", "directoryProfileIds",
-  "sports",
 ]);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const normalized = (id: string) => id.replaceAll("-", "").toLowerCase();
@@ -231,7 +230,16 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       // A changed text value is content, not an approval request. The editor's
       // data type is handled by D1's canonical storage; one malformed field is
       // isolated in planSafeBreedFields without locking the other cells.
-      const accepted = candidates;
+      const validMediaJson = (property: string) => {
+        const raw = notionRichTextProperty(page, property).trim();
+        if (!raw) return true; // Deliberate clear maps to an empty list.
+        try { return Array.isArray(JSON.parse(raw)); }
+        catch { return false; }
+      };
+      const rejectedMedia = candidates.filter(field =>
+        (field === "gallery" && !validMediaJson("Galéria JSON")) ||
+        (field === "sports" && !validMediaJson("Športy JSON")));
+      const accepted = candidates.filter(field => !rejectedMedia.includes(field));
       const rejectedMeasurements: string[] = [];
       const safe = planSafeBreedFields(canonical, {
         latest: plan.sourceSnapshot,
@@ -243,8 +251,7 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       const candidate = {
         ...safe.candidate,
         status: canonical.status,
-        image: canonical.image, imageKey: canonical.imageKey,
-        gallery: canonical.gallery,
+        imageKey: safe.accepted.includes("image") ? null : canonical.imageKey,
         relatedBreedIds: canonical.relatedBreedIds,
         relatedArticleIds: canonical.relatedArticleIds,
         directoryProfileIds: canonical.directoryProfileIds,
@@ -269,10 +276,11 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       if (changed || controlledUpdated) summary.updated++; else summary.unchanged++;
       // Bad or unsupported fields remain pending; unrelated valid fields still
       // commit independently without modifying old Notion or publication.
-      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length) {
+      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length || rejectedMedia.length) {
         console.warn("breed_workcopy_fields_pending",{
           id: canonical.id,
-          count: safe.skipped.length + plan.skipped.length + rejectedMeasurements.length,
+          count: safe.skipped.length + plan.skipped.length +
+            rejectedMeasurements.length + rejectedMedia.length,
         });
         if (args.manualImport) throw Error("BREED_WORKCOPY_MANUAL_PARTIAL_FIELDS");
       }
