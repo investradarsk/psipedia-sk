@@ -69,10 +69,14 @@ test("live status checks exactly 344 ACTIVE receipts from D1 and never changes N
   assert.match(route, /COUNT\(\*\) AS total/);
   assert.match(route, /status='ACTIVE'/);
   assert.match(route, /status='SHADOW'/);
-  assert.match(route, /receiptPrefixes === 344/);
-  assert.match(route, /!oldSyncEnabled && workCopySyncEnabled && !activationEnabled/);
+  const pure = read("lib/breed-workcopy-readiness.mjs");
+  assert.match(route, /assessBreedWorkcopyReadiness/);
+  assert.match(pure, /receiptPrefixes === 344/);
+  assert.match(pure, /!oldSyncEnabled && workCopySyncEnabled && !activationEnabled/);
   assert.doesNotMatch(route, /\b(?:UPDATE|INSERT|DELETE|DROP|ALTER)\s+breed_notion_workcopy_links\b/i);
   assert.doesNotMatch(route, /method:\s*"PATCH"/);
   assert.match(ui, /Obnoviť živý stav D1/);
-  assert.match(ui, /!\(status\.activeCohortReady && status\.singleNewEngine\)/);
+  assert.match(ui, /!status\.readyForManualRoundtrip/);
+  assert.match(ui, /status\.blockers/);
+  assert.match(pure, /BREED_ACTIVE_FIELD_ERRORS/);
 });
