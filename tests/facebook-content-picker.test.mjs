@@ -97,17 +97,21 @@ test("Existing from-profile handoff reuses the media copy helper", () => {
   assert.match(read("lib/facebook-profile-image.ts"), /facebook-images\//);
 });
 
-test("Graphic editor offers three brand styles, safe drag-and-drop and mobile controls", () => {
+test("Graphic editor uses Konva for movable objects and the vector brand source", () => {
   const graphic = read("components/admin-facebook-graphic-editor.tsx");
+  const stage = read("components/facebook-konva-canvas.tsx");
   const styles = read("components/admin-facebook-graphic-editor.module.css");
-  assert.match(graphic, /type LogoStyle = "pill" \| "wordmark" \| "mark"/);
-  assert.match(graphic, /logoBounds/);
-  assert.match(graphic, /setPointerCapture\(event\.pointerId\)/);
-  assert.match(graphic, /onPointerDown=\{startLogoDrag\}/);
-  assert.match(graphic, /onPointerMove=\{moveLogoDrag\}/);
+  assert.match(graphic, /type LogoStyle = GraphicLogo/);
   assert.match(graphic, /logoScale/);
+  assert.match(graphic, /photoFit/);
   assert.match(graphic, /Vľavo hore/);
   assert.match(graphic, /Vpravo dole/);
+  assert.match(stage, /new Konva.Stage/);
+  assert.match(stage, /new Konva.Transformer/);
+  assert.match(stage, /createVectorMark/);
+  assert.match(stage, /public\/favicon.svg/);
+  assert.match(stage, /on\("dragend"/);
+  assert.match(stage, /stage.toCanvas\(\{pixelRatio:1\}\)/);
   assert.match(styles, /touch-action:none/);
 });
 
