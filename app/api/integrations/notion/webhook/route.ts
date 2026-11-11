@@ -128,6 +128,32 @@ export async function POST(request: Request) {
     }
   }
 
+  // The Lost/Found editor already writes one mapped record immediately.
+  // Mirror the same behavior for a signed inbound property edit: the global
+  // minute inbox can be backlogged by unrelated Notion pages. Never start
+  // a full-agenda scan or accept an unlinked Notion page here.
+  if (data.type === "page.properties_updated" && data.entity?.id &&
+      bindings.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED === "true") {
+    try {
+      const mapped = await bindings.DB.prepare(
+        "SELECT entity_id FROM notion_agenda_sync " +
+        "WHERE agenda='lost-found' AND notion_page_id=? LIMIT 1",
+      ).bind(data.entity.id).first<{ entity_id: number }>();
+      if (mapped && Number.isSafeInteger(mapped.entity_id) && mapped.entity_id > 0) {
+        // The dispatcher re-fetches the Notion page and verifies the exact
+        // source data_source_id and mapping before any D1 change. A failed
+        // or conflicted sync MUST fall back to the durable retry inbox.
+        const result = await dispatchNotionPageChange(data, bindings);
+        if (result === "processed" || result === "metadata-only" || result === "ignored") {
+          return Response.json({ received: true, result }, { status: 200 });
+        }
+      }
+    } catch {
+      // No provider content or personal details in logs.
+      console.error("notion_lost_found_immediate_dispatch_deferred");
+    }
+  }
+
   try {
     await enqueueNotionWebhook(bindings.DB, data, body);
     return Response.json({ received: true, result: "queued" }, { status: 200 });
