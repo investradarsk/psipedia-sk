@@ -1,6 +1,6 @@
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
-import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
+import { captureHelpNotionSnapshot, syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { HELP_ADMIN_DOMAIN_SQL, isHelpAdminCreateCategory } from "@/lib/help-admin-query";
 import { deleteManagedHelpCase, getManagedHelpCaseById, isHelpCaseConflict, updateManagedHelpCase, type ManagedHelpCaseInput } from "@/lib/help-store";
@@ -23,9 +23,10 @@ export async function PUT(request: Request, { params }: Props) {
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID prípadu." }, { status: 400 });
   try {
     const before = await getManagedHelpCaseById(id); if (!before) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
     const item = await updateManagedHelpCase(id, await request.json() as ManagedHelpCaseInput, user.email, before); if (!item) return Response.json({ error: "Prípad sa nenašiel." }, { status: 404 });
     if (before.imageKey && before.imageKey !== item.imageKey) { const bucket = (env as unknown as UploadBindings).BUCKET; if (bucket) await bucket.delete(before.imageKey).catch(() => undefined); }
-    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id, beforeHelpSnapshot });
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"help",id,item.status);
     return Response.json({ item, notionFieldSync });
   } catch (error) { return errorResponse(error); }
@@ -67,13 +68,14 @@ export async function PATCH(request: Request, { params }: Props) {
   const db = (env as unknown as { DB?: D1Database }).DB;
   if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
   try {
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
     const row = await db.prepare(`UPDATE help_cases
       SET title=?1,excerpt=?2,updated_at=?3,updated_by=?4
       WHERE id=?5 AND updated_at=?6 AND category=?7 AND ${HELP_ADMIN_DOMAIN_SQL}
       RETURNING id`).bind(title, excerpt, new Date().toISOString(), auth.user.email,
         id, input.expectedUpdatedAt, input.expectedCategory).first<{ id: number }>();
     if (!row) return Response.json({ error: "Prípad sa zmenil alebo nepatrí do tejto kategórie. Obnov tabuľku." }, { status: 409 });
-    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id });
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "help-cases", entityId: id, beforeHelpSnapshot });
     return Response.json({ item: await getManagedHelpCaseById(id), notionFieldSync },
       { headers: { "cache-control": "no-store" } });
   } catch (error) {
