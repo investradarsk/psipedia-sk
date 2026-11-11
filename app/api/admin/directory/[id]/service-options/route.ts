@@ -44,18 +44,30 @@ export async function PATCH(request:Request,{params}:Props){
         const result=await runNotionDirectorySyncSweep({
           database:cfg.DB,bindings:cfg,targetProfileId:profileId,syncServiceRelations:true,
         });
+        // Only an explicitly checked Services V3 relation can confirm the
+        // service selection: unrelated profile-field sync is not proof.
         notionFieldSync=(!result.enabled||!result.schemaReady||result.failed)?"pending"
-          :result.serviceRelationSync==="pushed"||result.serviceRelationSync==="pulled"
-            ||result.pulledFromNotion||result.pushedToNotion?"synced"
-          :result.serviceRelationSync==="unchanged"?"unchanged":"unlinked";
+          :result.serviceRelationSync==="pushed"||result.serviceRelationSync==="pulled"?"synced"
+          :result.serviceRelationSync==="unchanged"
+            ?(result.pulledFromNotion||result.pushedToNotion?"synced":"unchanged")
+          :result.serviceRelationSync==="skipped"?"pending":"unlinked";
       }catch{
         notionFieldSync="pending";
       }
     }
     if(notionProjection==="deferred"&&notionFieldSync!=="disabled")notionFieldSync="pending";
-    const needsReview=notionProjection==="deferred"||notionFieldSync==="pending";
+    // HTTP 200 acknowledges only the committed D1 choice. Never hide an
+    // unavailable, unlinked or disabled Notion writer behind a success toast.
+    const needsReview=notionProjection==="deferred"||["pending","unlinked","disabled"].includes(notionFieldSync);
+    const warning=notionProjection==="deferred"
+      ?"Výber je uložený v Psipedii, ale prenos textových služieb do Notionu vyžaduje kontrolu."
+      :notionFieldSync==="disabled"
+        ?"Výber je uložený v Psipedii, ale automatický prenos do Notionu je vypnutý."
+      :notionFieldSync==="unlinked"
+        ?"Výber je uložený v Psipedii, ale profil zatiaľ nemá potvrdené prepojenie s Notionom."
+      :"Výber je uložený v Psipedii, ale potvrdenie prenosu do Notionu vyžaduje kontrolu.";
     return Response.json({selection,notionProjection,notionFieldSync,
-      ...(needsReview?{warning:"Výber je uložený v Psipedii, ale prenos do Notionu vyžaduje kontrolu."}:{})});
+      ...(needsReview?{warning}:{})});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Selection failed."},
       {status:error instanceof ServiceCatalogInputError||error instanceof SyntaxError?400:error instanceof ServiceCatalogConflictError?409:error instanceof ServiceCatalogSchemaError?503:500});
