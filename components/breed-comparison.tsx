@@ -52,6 +52,8 @@ function BreedHeading({ breed }: { breed: BreedComparisonItem }) {
         className="compare-breed-image"
         src={breed.image}
         alt={`${breed.name} – fotografia plemena`}
+        sizes="(max-width: 760px) 45vw, 320px"
+        decoding="async"
       />
       <span>
         FCI {breed.fciGroup} · {breed.fciSection}
