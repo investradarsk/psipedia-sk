@@ -812,6 +812,46 @@ async function syncMapped(input: {
   return changedCanonical ? "pulled" as const : "pushed" as const;
 }
 
+/**
+ * The hourly safety net still mirrors Admin-owned ratings and publication.
+ * Never replay old editorial hashes after a per-property webhook/PUT update.
+ */
+async function mirrorEshopSystemFields(input: {
+  database: D1Database; bindings: NotionEshopSyncBindings;
+  dataSourceId: string; mapping: EshopNotionMapping;
+}): Promise<"pushed" | "unchanged"> {
+  const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
+  if (!shop) return "unchanged";
+  const page = await fetchPage(input.bindings, input.mapping.notion_page_id);
+  if (page.id !== input.mapping.notion_page_id ||
+      !notionPageBelongsToDataSource(page, input.dataSourceId) ||
+      notionRichTextProperty(page, "Psipedia ID") !== String(shop.id))
+    throw new Error("ESHOP_SYSTEM_MIRROR_IDENTITY_MISMATCH");
+  const all = notionProperties(shop, "", new Date().toISOString()) as Record<string, unknown>;
+  const names = [
+    "Počet hodnotení", "Celkové hodnotenie", "Doručenie",
+    "Komunikácia", "Sortiment", "Ceny", "Aktualizované Psipedia",
+    "Publikované Psipedia", "Psipedia stav",
+  ];
+  const desired = Object.fromEntries(names.filter(name =>
+    Object.hasOwn(page.properties ?? {}, name)).map(name => [name, all[name]]));
+  const patch = selectiveNotionProperties(page.properties ?? {}, desired);
+  if (patch) {
+    const updated = await patchPage(input.bindings, page.id, patch);
+    const checked = updated.properties ? updated : await fetchPage(input.bindings, page.id);
+    if (checked.id !== page.id || !notionPageBelongsToDataSource(checked, input.dataSourceId) ||
+        Object.entries(patch).some(([name, value]) =>
+          !sameNotionProperty(checked.properties?.[name], value)))
+      throw new Error("ESHOP_SYSTEM_MIRROR_ECHO_MISMATCH");
+  }
+  // This is a last-observed timestamp, NOT a synthetic shared editorial hash.
+  await input.database.prepare(
+    "UPDATE eshop_notion_sync SET psipedia_updated_at=?,last_synced_at=? " +
+    "WHERE eshop_id=? AND notion_page_id=?",
+  ).bind(shop.updatedAt, new Date().toISOString(), shop.id, page.id).run();
+  return patch ? "pushed" : "unchanged";
+}
+
 function configured(bindings: NotionEshopSyncBindings) {
   return notionFlagEnabled(bindings.NOTION_ESHOP_SYNC_ENABLED)
     && Boolean(bindings.NOTION_API_TOKEN?.trim())
@@ -957,7 +997,14 @@ export async function runNotionEshopSyncSweep(input: {
 
       // The ordinary hourly sweep may bootstrap new shops, but it must not
       // overwrite unrelated mapped fields after an explicit field event.
-      if (!input.targetPageId) { summary.unchanged++; continue; }
+      if (!input.targetPageId) {
+        const systemAction = await mirrorEshopSystemFields({
+          database: input.database, bindings: input.bindings, dataSourceId, mapping,
+        });
+        if (systemAction === "pushed") summary.pushedToNotion++;
+        else summary.unchanged++;
+        continue;
+      }
       const action = await syncMapped({ database: input.database, bindings: input.bindings, dataSourceId, mapping, page,
         webhookChangedPropertyIds: input.changedPropertyIds });
       if (action === "pulled") summary.pulledFromNotion += 1;
@@ -969,21 +1016,16 @@ export async function runNotionEshopSyncSweep(input: {
     }
   }
 
-  // Mapped Admin edits use a synchronous, explicit dirty-field writeback.
-  // Do not run the legacy full-record push on the same entities.
-  for (const id of input.targetPageId ? [] : []) {
+  // Extra changed canonical rows (especially ratings) mirror system fields
+  // without touching editorial fields already reconciled by explicit events.
+  for (const id of input.targetPageId ? [] : await changedIds(input.database)) {
     try {
       const mapping = await loadMappingByShop(input.database, id);
       if (!mapping) continue;
-      const action = await syncMapped({
-        database: input.database,
-        bindings: input.bindings,
-        dataSourceId,
-        mapping,
-        forcePush: true,
+      const action = await mirrorEshopSystemFields({
+        database: input.database, bindings: input.bindings, dataSourceId, mapping,
       });
       if (action === "pushed") summary.pushedToNotion += 1;
-      else if (action === "pulled") summary.pulledFromNotion += 1;
       else summary.unchanged += 1;
     } catch (error) {
       summary.failed += 1;
