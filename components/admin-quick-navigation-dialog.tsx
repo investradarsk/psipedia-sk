@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
-import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/components/admin-editor-navigation-guard";
+import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
 import styles from "./admin-quick-navigation.module.css";
 
 type Destination = { label: string; category: string; href: string; keywords: string; subtitle?: string };
