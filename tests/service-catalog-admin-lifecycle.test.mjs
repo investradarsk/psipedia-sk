@@ -6,6 +6,7 @@ import {createAdminCatalogOption,saveAdminServiceChoice,resetAdminServiceChoice,
 import {mutateAdminCatalogOption,recordCatalogMirrorOutcome} from "../lib/service-catalog-admin-lifecycle.ts";
 import {listBuiltinCatalogOverrides,updateBuiltinCatalogOption} from "../lib/service-catalog-builtin-overrides.ts";
 import {serviceCatalog} from "../lib/service-catalog-contract.ts";
+import {importNotionServiceIds} from "../lib/service-profile-notion-bridge.ts";
 
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const migration=read("drizzle/0133_services_canonical_admin_foundation.sql");
@@ -234,6 +235,37 @@ test("0134 history is append-only, RESET is attributed, and every physical delet
  }finally{sqlite.close();}
 });
 
+test("Notion relation removes only an explicitly deselected canonical service ID",async()=>{
+ const {sqlite,db}=fixture();
+ const vaccination="svc.vet.vaccination",microchip="svc.vet.microchipping",diagnostics="svc.vet.xray";
+ try{
+  await saveAdminServiceChoice(db,{profileId:1,optionId:vaccination,choice:"yes",expectedVersion:0},actor);
+  await saveAdminServiceChoice(db,{profileId:1,optionId:microchip,choice:"yes",expectedVersion:0},actor);
+  await saveAdminServiceChoice(db,{profileId:1,optionId:diagnostics,choice:"no",expectedVersion:0},actor);
+  const result=await importNotionServiceIds(db,1,"veterinari",[microchip]);
+  assert.deepEqual(result,{added:0,removed:1});
+  const rows=sqlite.prepare(
+   "SELECT option_id,choice,version FROM service_profile_option_choices WHERE profile_id=1 ORDER BY option_id"
+  ).all();
+  assert.deepEqual(rows.map(x=>[x.option_id,x.choice]),[[diagnostics,"no"],[microchip,"yes"]].sort((x,y)=>x[0].localeCompare(y[0])));
+  assert.equal(await importNotionServiceIds(db,1,"veterinari",[microchip]).then(x=>x.removed),0);
+  const restore=await importNotionServiceIds(db,1,"veterinari",[microchip,vaccination]);
+  assert.deepEqual(restore,{added:1,removed:0});
+  assert.equal(sqlite.prepare(
+    "SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(vaccination).choice,"yes");
+  assert.equal(sqlite.prepare(
+    "SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?"
+  ).get(diagnostics).choice,"no");
+  assert.ok(sqlite.prepare(
+    "SELECT COUNT(*) n FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND option_id=? AND operation='RESET'"
+  ).get(vaccination).n>=1);
+  await assert.rejects(
+    ()=>importNotionServiceIds(db,1,"veterinari",["svc.unknown"]),
+    /SERVICES_RELATION_UNKNOWN_OR_WRONG_CATEGORY/
+  );
+ }finally{sqlite.close();}
+});
 test("concurrent administrators have only one CAS winner per option and explicit choice",async()=>{
  const {sqlite,db}=fixture();
  try{
