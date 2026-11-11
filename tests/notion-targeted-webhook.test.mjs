@@ -531,7 +531,8 @@ test("mapped Lost/Found property webhook runs immediately with safe durable inbo
   assert.match(fast, /result === "processed" \|\| result === "metadata-only" \|\| result === "ignored"/);
   assert.doesNotMatch(fast, /runNotionEventsHelpSyncSweep|PATCH|DELETE|writeSourceToNotion/);
   const dispatch = await readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
-  assert.match(dispatch, /notionPageBelongsToDataSource\(page, target\.dataSourceId\)/);
+  const mappedSync = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(mappedSync, /notionPageBelongsToDataSource\(page, target\.dataSourceId\)/);
   assert.match(dispatch, /webhookMappedOnly: true/);
 });
 
