@@ -832,6 +832,7 @@ function responseForbidsSharedHtmlCache(value: string): boolean {
 function isCacheableHtmlResponse(response: Response): boolean {
   if (response.status !== 200 || !(response.headers.get("content-type") ?? "").toLowerCase().includes("text/html")) return false;
   if (response.headers.has("set-cookie")) return false;
+  if (/noindex/i.test(response.headers.get("x-robots-tag") ?? "")) return false;
 
   // Check *original* headers. Only a qualifying response may be rewritten
   // with public Cache-Control and subsequently stored using Cache API.
