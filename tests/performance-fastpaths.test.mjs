@@ -170,3 +170,42 @@ test("section LCP photos use visible SSR img, eager load and one high priority h
   assert.doesNotMatch(media, /preload\(/);
   assert.match(media, /alt=\{visual\.altText\}/);
 });
+
+
+test("PhotoSwipe lightbox and lower homepage calculator are not part of initial interactive chunks", () => {
+  const gallery = readFileSync(new URL("../components/public-visual-system/public-photo-gallery.tsx", import.meta.url), "utf8");
+  const lightbox = readFileSync(new URL("../components/public-visual-system/public-photoswipe-enhancer.tsx", import.meta.url), "utf8");
+  const home = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const island = readFileSync(new URL("../components/lazy-dog-age-calculator.tsx", import.meta.url), "utf8");
+  const calculator = readFileSync(new URL("../components/dog-age-calculator.tsx", import.meta.url), "utf8");
+
+  // PhotoSwipe core was already lazy; its Lightbox controller must now also
+  // load asynchronously. Preserve the original SSR image links and cleanup.
+  assert.match(gallery, /href=\{href\}/);
+  assert.match(gallery, /variant === "linked" \? <PublicPhotoSwipeEnhancer>/);
+  assert.match(lightbox, /import type PhotoSwipeLightbox from "photoswipe\/lightbox"/);
+  assert.doesNotMatch(lightbox, /import PhotoSwipeLightbox from "photoswipe\/lightbox"/);
+  assert.match(lightbox, /import\("photoswipe\/lightbox"\)/);
+  assert.match(lightbox, /pswpModule: \(\) => import\("photoswipe"\)/);
+  assert.match(lightbox, /onFirstClick\(event: MouseEvent\)/);
+  assert.match(lightbox, /event\.preventDefault\(\)/);
+  assert.match(lightbox, /instance\.loadAndOpen\(index\)/);
+  assert.match(lightbox, /window\.location\.assign\(anchor\.href\)/);
+  assert.match(lightbox, /lightbox\.destroy\(\)/);
+  assert.match(lightbox, /rootMargin: "600px 0px"/);
+  // display:contents isn't an IntersectionObserver target with a layout box.
+  assert.match(lightbox, /observer\.observe\(links\(\)\.item\(0\) \?\? gallery\)/);
+  assert.doesNotMatch(lightbox, /observer\.observe\(gallery\)/);
+
+  assert.match(home, /import \{ LazyDogAgeCalculator \} from "@\/components\/lazy-dog-age-calculator"/);
+  assert.match(home, /<LazyDogAgeCalculator \/>/);
+  assert.doesNotMatch(home, /import \{ DogAgeCalculator \} from/);
+  assert.match(island, /^"use client"/);
+  assert.match(island, /lazy\(async \(\) => \{[\s\S]*import\("\.\/dog-age-calculator"\)/);
+  assert.match(island, /IntersectionObserver/);
+  assert.match(island, /rootMargin: "600px 0px"/);
+  assert.match(island, /<Suspense fallback=\{<CalculatorPlaceholder \/>\\}>/);
+  assert.match(island, /data-home-calculator-island/);
+  assert.match(calculator, /export function DogAgeCalculator\(\)/);
+  assert.match(calculator, /onChange=\{\(event\) => setAge/);
+});
