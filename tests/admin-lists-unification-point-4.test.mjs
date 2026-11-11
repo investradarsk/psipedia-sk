@@ -40,7 +40,7 @@ test("adoptions and lost/found share URL, numeric pagination and table shell wit
     assert.match(src, /<AdminDataTableRegion/);
     assert.match(src, /method="get"/);
     assert.doesNotMatch(src, /Array\.from\(\{length:Math\.min\(result\./);
-    assert.match(src, /<table className=\{styles.table\}>/);
+    assert.match(src, /<AdminRecordTable/);
   }
   assert.match(adoption, /hrefForPage=\{\(page\)=>adminHref\(filters,\{page\}\)\}/);
   assert.match(adoption, /\["sort", next\.sort && next\.sort !== "updated-desc" \? next\.sort : ""\]/);

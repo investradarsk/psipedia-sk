@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AdminRecordId } from "./admin-record-id";
+import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
@@ -44,7 +45,9 @@ const sortLabels: Record<AdoptionAdminSort, string> = {
   "updated-desc": "Najnovšie aktualizované",
   "updated-asc": "Najstaršie aktualizované",
   "verified-desc": "Naposledy overené",
+  "verified-asc": "Najstaršie overené",
   "name-asc": "Meno A–Z",
+  "name-desc": "Meno Z–A",
 };
 
 export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] }) {
@@ -53,6 +56,7 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const viewKey = JSON.stringify([filters, result.pagination.page, result.items.map(item => item.id)]);
   const activeInline = inlineDraft?.key === viewKey && result.items.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.updatedAt)
     ? inlineDraft : null;
@@ -102,24 +106,70 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
       <button type="submit">Filtrovať</button>
     </form>
     {message && <p role="status">{message}</p>}
-    <AdminDataTableRegion className={`${styles.tableWrap} ${styles.adoptionTableRegion}`} label="Zoznam adopcií – tabuľka"><table className={styles.table}><thead><tr><th scope="col">ID</th><th scope="col">Pes</th><th scope="col">Stav</th><th scope="col">Organizácia</th><th scope="col">Lokalita</th><th scope="col">Overenie</th><th scope="col">Publikovanie / SEO</th><th scope="col">Akcia</th></tr></thead><tbody>
-      {result.items.map((item)=>{const locality=[item.city,item.district,item.region].filter(Boolean).join(" · ");const verified=formatDate(item.lastVerifiedAt);const published=formatDate(item.publishedAt);const isPublic=item.status==="ACTIVE"||item.status==="RESERVED";return <tr key={item.id}><td><AdminRecordId id={item.id} compact /></td><td><div className={styles.rowTitle}>{activeInline?.id === item.id
-    ? <AdminInlineCellInput label={"Meno psa " + item.name} value={activeInline.name}
-        maxLength={180} required disabled={busy}
-        onChange={name => setInlineDraft(previous => previous ? { ...previous, name } : null)} />
-    : <strong>{item.name}</strong>}
-    <small>/{item.slug}</small><small>{item.breedName||"Plemeno neuvedené"}</small></div></td><td className={styles.status}>{adoptionStatusLabels[item.status]}</td><td>{item.organizationName||"—"}</td><td>{locality||"—"}</td><td><div className={styles.rowTitle}><strong>{verified||"Neoverené"}</strong>{item.stale&&<small>Treba overiť</small>}</div></td><td><div className={styles.rowTitle}><strong>{isPublic?"Verejný profil":"Neverejný profil"}</strong><small>{item.indexable?"index":"noindex"}</small>{published&&<small>Publikované {published}</small>}</div></td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />{item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
-    editing={activeInline?.id === item.id}
-    busy={busy}
-    disabled={Boolean(activeInline && activeInline.id !== item.id) ||
-      (activeInline?.id === item.id && !activeInline.name.trim())}
-    onEdit={() => beginInline(item)}
-    onSave={() => void saveInline()}
-    onCancel={() => { if (!busy) setInlineDraft(null); }}
-  /></span>}
-  <Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link></div></td></tr>})}
-      {!result.items.length&&<tr><td colSpan={8}>Žiadne adopcie pre zvolené filtre.</td></tr>}
-    </tbody></table></AdminDataTableRegion>
+    <div className={styles.adoptionTableRegion}>
+      {selected.size > 0 && <div className={styles.gridSelection}>
+        <strong>Označené: {selected.size}</strong>
+        <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
+      </div>}
+      <AdminDataTableRegion className={styles.tableWrap} label="Zoznam adopcií – tabuľka">
+        {result.items.length ? <AdminRecordTable
+          rows={result.items}
+          label="Adopcie"
+          rowDataAttribute="data-admin-adoption-row"
+          stretch serverSorted busy={busy}
+          serverSorting={{
+            id: (filters.sort ?? "updated-desc").split("-")[0],
+            desc: (filters.sort ?? "updated-desc").endsWith("-desc"),
+            allowedIds: ["name", "updated", "verified"],
+            onChange: next => {
+              if (!["name", "updated", "verified"].includes(next.id)) return;
+              router.push(adminHref(filters, {
+                sort: (next.id + (next.desc ? "-desc" : "-asc")) as AdoptionAdminSort,
+                page: 1,
+              }));
+            },
+          }}
+          selection={{
+            selectedIds: [...selected],
+            labelForRow: item => `Označiť adopciu ${item.name}`,
+            onChange: ids => setSelected(new Set(ids)),
+          }}
+          columns={[
+            { id: "name", label: "Pes", width: 275, sortValue: item => item.name, cell: item =>
+              <div className={styles.rowTitle}>
+                {activeInline?.id === item.id
+                  ? <AdminInlineCellInput label={"Meno psa " + item.name} value={activeInline.name}
+                      maxLength={180} required disabled={busy}
+                      onChange={name => setInlineDraft(previous => previous ? { ...previous, name } : null)} />
+                  : <strong><Link href={`/admin/adopcie/${item.id}`}>{item.name}</Link></strong>}
+                <small>/{item.slug}</small><small>{item.breedName || "Plemeno neuvedené"}</small>
+              </div> },
+            { id: "status", label: "Stav", width: 145, cell: item => adoptionStatusLabels[item.status] },
+            { id: "organization", label: "Organizácia", width: 180, cell: item => item.organizationName || "—" },
+            { id: "city", label: "Lokalita", width: 175,
+              cell: item => [item.city, item.district, item.region].filter(Boolean).join(" · ") || "—" },
+            { id: "verified", label: "Overenie", width: 152,
+              sortValue: item => item.lastVerifiedAt || "",
+              cell: item => <div className={styles.rowTitle}><strong>{formatDate(item.lastVerifiedAt) || "Neoverené"}</strong>{item.stale && <small>Treba overiť</small>}</div> },
+            { id: "updated", label: "Aktualizované", width: 160, sortValue: item => item.updatedAt,
+              cell: item => formatDate(item.updatedAt) || "—" },
+            { id: "publication", label: "Web / SEO", width: 150, cell: item =>
+              <div className={styles.rowTitle}><strong>{item.status === "ACTIVE" || item.status === "RESERVED" ? "Verejný profil" : "Neverejný profil"}</strong><small>{item.indexable ? "index" : "noindex"}</small></div> },
+            { id: "actions", label: "Akcie", width: 240,
+              cell: item => <div className={styles.rowTitle}>
+                <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+                {item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
+                  editing={activeInline?.id === item.id} busy={busy}
+                  disabled={Boolean(activeInline && activeInline.id !== item.id) || (activeInline?.id === item.id && !activeInline.name.trim())}
+                  onEdit={() => beginInline(item)} onSave={() => void saveInline()}
+                  onCancel={() => { if (!busy) setInlineDraft(null); }}
+                /></span>}
+                <Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link>
+              </div> },
+          ]}
+        /> : <p>Žiadne adopcie pre zvolené filtre.</p>}
+      </AdminDataTableRegion>
+    </div>
     <section className={styles.adoptionCards} aria-label="Zoznam adopcií – mobilné karty">
       {result.items.map((item) => {
         const locality = [item.city, item.district, item.region].filter(Boolean).join(" · ");
