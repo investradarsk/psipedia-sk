@@ -33,7 +33,7 @@ export default async function EditArticlePage({ params, searchParams }: Props) {
     : undefined;
 
   return (
-    <AdminShell recordId={numericId}
+    <AdminShell recordId={numericId} recordKind="articles"
       user={user}
       compactHeading
       eyebrow={article.status === "published" ? (isNews ? "Publikovaná novinka" : "Publikovaný článok") : article.status === "scheduled" ? "Naplánované publikovanie" : "Rozpracovaný koncept"}

@@ -184,6 +184,8 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
               supportsAllMatching={false}
             />
             <AdminRecordTable
+              idKind="directory"
+              idCategory={(profile) => profile.category}
               rows={profiles}
               label="Profily služieb"
               busy={inlineBusy}

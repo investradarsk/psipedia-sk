@@ -81,7 +81,7 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
   if (!profile) notFound();
 
   const isServiceCategory = (serviceFilterCategories as readonly string[]).includes(profile.category);
-  return <AdminShell recordId={profile.id} user={user}
+  return <AdminShell recordId={profile.id} recordKind="directory" recordCategory={profile.category} user={user}
     eyebrow={profile.status === "published" ? "Publikovaný profil" : profile.status === "archived" ? "Archivovaný profil" : "Koncept profilu"}
     title={profile.status === "archived" ? "Archivovaný profil" : "Upraviť profil"}
     description={profile.status === "archived"

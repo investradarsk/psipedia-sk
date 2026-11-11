@@ -35,7 +35,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
   ]);
   if (!organization) notFound();
 
-  return <AdminShell recordId={organizationId}
+  return <AdminShell recordId={organizationId} recordKind="organizations"
     user={user}
     eyebrow="Organizácie · Detail"
     title={organization.name}

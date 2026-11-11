@@ -296,7 +296,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
                 <h2><Link href={`/admin/organizacie/${item.id}`}>{item.name || "Bez názvu"}</Link></h2>
                 <p>{item.shortDescription || item.description || "Bez verejného popisu"}</p>
               </>}
-              <AdminRecordId id={item.id} compact />
+              <AdminRecordId id={item.id} kind="organizations" compact />
               <p className={styles.meta}>/organizacie/{item.slug || "—"} · lokality {item.locationCount} · fundraising {item.fundraisingCount} · adresár {item.directoryProfileId ? "#" + item.directoryProfileId : "—"} · aktualizované {formatDate(item.updatedAt)}</p>
               {item.completenessHints.length ? <div className={styles.hints} aria-label="Chýbajúce údaje">{item.completenessHints.map((hint) => <span key={hint}>{hint}</span>)}</div> : <div className={styles.hints}><span>Profil bez deterministických medzier</span></div>}
               {!item.preflight.ready && <p className={styles.preflight}><strong>Publication BLOCKED:</strong> {item.preflight.blockers.map((blocker) => blocker.message).join(" ")}</p>}

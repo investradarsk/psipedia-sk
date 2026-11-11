@@ -199,6 +199,8 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
       {message && <p className="admin-flash" role="status">{message}</p>}
       <p className="admin-help-results">Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
       {items.length ? <AdminRecordTable
+        idKind="help"
+        idCategory={(item) => item.category}
         rows={items}
         label="Prípady Pomoci psom"
         busy={bulkBusy}

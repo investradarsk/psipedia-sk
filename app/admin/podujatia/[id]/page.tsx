@@ -38,7 +38,7 @@ export default async function EditEventPage({ params }: Props) {
   const event = await getManagedEventById(numericId);
   if (!event) notFound();
 
-  return <AdminShell recordId={event.id} user={user}
+  return <AdminShell recordId={event.id} recordKind="events" user={user}
     eyebrow={event.status === "published" ? "Publikované podujatie" : "Rozpracovaný koncept"}
     title="Upraviť podujatie"
     description="Zmeny ulož ako koncept alebo ich rovno publikuj v kalendári."

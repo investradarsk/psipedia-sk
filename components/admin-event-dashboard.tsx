@@ -404,6 +404,7 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
         </p>}
 
         {rows.length > 0 && <AdminRecordTable
+          idKind="events"
           rows={rows}
           label="Zoznam podujatí"
           busy={busy || loading}

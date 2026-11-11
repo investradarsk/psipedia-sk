@@ -4,6 +4,7 @@ import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import { AdminBreadcrumbs, AdminNavigation } from "./admin-navigation";
 import { AdminRecordId } from "./admin-record-id";
+import type {DisplayIdKind} from "@/lib/admin-display-id";
 import { AdminStickyMetrics } from "./admin-sticky-metrics";
 import { AdminHomeBrandLink } from "./admin-home-brand-link";
 import { AdminQuickNavigation } from "./admin-quick-navigation";
@@ -80,6 +81,8 @@ export function AdminShell({
   description,
   compactHeading = false,
   recordId,
+  recordKind,
+  recordCategory,
   actions,
   children,
   attentionCount,
@@ -94,6 +97,8 @@ export function AdminShell({
   compactHeading?: boolean;
   /** Stable Admin/D1 ID passed by the editor page. */
   recordId?: number;
+  recordKind?: DisplayIdKind;
+  recordCategory?: string | null;
   actions?: ReactNode;
   children: ReactNode;
   attentionCount?: number;
@@ -145,7 +150,7 @@ export function AdminShell({
                 <div>
                   {!compactHeading && <span className="admin-eyebrow">{eyebrow}</span>}
                   <h1>{title}</h1>
-                  {recordId ? <div className={styles.recordId}><AdminRecordId id={recordId} /></div> : null}
+                  {recordId ? <div className={styles.recordId}><AdminRecordId id={recordId} kind={recordKind} category={recordCategory} /></div> : null}
                   {!compactHeading && description && <p>{description}</p>}
                 </div>
                 {actions && <div className="admin-heading-actions">{actions}</div>}

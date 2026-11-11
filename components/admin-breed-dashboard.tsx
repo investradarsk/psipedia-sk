@@ -252,7 +252,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
           <div className={styles.identity}>
             <div className={styles.statusLine}><span className={`admin-status admin-status--${breed.status}`}>{breed.status === "published" ? "Publikované" : "Koncept"}</span>{breed.fciNumber && <span>FCI {breed.fciNumber}</span>}</div>
             <h2><Link prefetch={false} href={`/admin/plemena/${breed.id}`}>{breed.name}</Link></h2>
-            <AdminRecordId id={breed.id} compact />
+            <AdminRecordId id={breed.id} kind="breeds" compact />
             <p>/{breed.slug}</p>
             {activeInline?.id === breed.id
               ? <AdminInlineCellInput label={"Úvod plemena " + breed.name} value={activeInline.intro}

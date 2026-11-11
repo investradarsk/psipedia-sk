@@ -331,7 +331,7 @@ export function AdminDashboard({
                       {article.newsCategory && <span>{getNewsCategory(article.newsCategory)?.shortLabel}</span>}
                     </div>
                     <h2><Link href={`/admin/clanky/${article.id}`}>{article.title}</Link></h2>
-                    <AdminRecordId id={article.id} compact />
+                    <AdminRecordId id={article.id} kind="articles" compact />
                     {activeInline?.id === article.id
                       ? <AdminInlineCellInput label={"Krátky popis článku " + article.title}
                           value={activeInline.excerpt} maxLength={700} disabled={inlineBusy}

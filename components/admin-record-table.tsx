@@ -16,6 +16,7 @@ import {
 } from "@tanstack/react-table";
 import { BulkSelectionCheckbox } from "./admin-bulk-selection";
 import { AdminRecordId } from "./admin-record-id";
+import type { DisplayIdKind } from "@/lib/admin-display-id";
 import styles from "./admin-record-table.module.css";
 
 export type AdminRecordColumn<T> = {
@@ -44,6 +45,8 @@ export function AdminRecordTable<T extends { id: number }>({
   selection,
   stretch = false,
   serverSorted = false,
+  idKind,
+  idCategory,
 }: {
   rows: T[];
   columns: AdminRecordColumn<T>[];
@@ -54,6 +57,8 @@ export function AdminRecordTable<T extends { id: number }>({
   stretch?: boolean;
   /** Server already sorted the entire result set before pagination. */
   serverSorted?: boolean;
+  idKind?: DisplayIdKind;
+  idCategory?: (record: T) => string | null;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [visibility, setVisibility] = useState<VisibilityState>(() =>
@@ -98,7 +103,7 @@ export function AdminRecordTable<T extends { id: number }>({
       id: "__recordId",
       header: "ID",
       accessorFn: (record: T) => record.id,
-      cell: ({ row }: CellContext<T, unknown>) => <AdminRecordId id={row.original.id} compact />,
+      cell: ({ row }: CellContext<T, unknown>) => <AdminRecordId id={row.original.id} kind={idKind} category={idCategory?.(row.original)} compact />,
       enableSorting: !serverSorted,
       size: 109,
       minSize: 96,
@@ -112,7 +117,7 @@ export function AdminRecordTable<T extends { id: number }>({
     size: column.width ?? 165,
     minSize: 85,
   })),
-  ], [columns, selection, label, busy, rows.length, serverSorted]);
+  ], [columns, selection, label, busy, rows.length, serverSorted, idKind, idCategory]);
 
   const table = useReactTable({
     data: rows,
