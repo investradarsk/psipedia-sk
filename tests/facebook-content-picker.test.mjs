@@ -101,7 +101,7 @@ test("Graphic editor uses Konva for movable objects and the vector brand source"
   const graphic = read("components/admin-facebook-graphic-editor.tsx");
   const stage = read("components/facebook-konva-canvas.tsx");
   const styles = read("components/admin-facebook-graphic-editor.module.css");
-  assert.match(graphic, /type LogoStyle = GraphicLogo/);
+  assert.match(stage, /export type GraphicLogo = "pill" \| "wordmark" \| "mark"/);
   assert.match(graphic, /logoScale/);
   assert.match(graphic, /photoFit/);
   assert.match(graphic, /Vľavo hore/);
