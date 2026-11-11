@@ -172,7 +172,7 @@ export type NotionDirectorySyncSummary = {
   unchanged: number;
   failed: number;
   /** Only present when an explicit Admin choice save requests Services V3 sync. */
-  serviceRelationSync?: "skipped" | "unchanged" | "pushed" | "pulled";
+  serviceRelationSync?: "skipped" | "unchanged" | "pushed" | "pulled" | "merged";
 };
 
 export type NotionDirectoryBootstrapSummary = {
@@ -2634,7 +2634,7 @@ export async function runNotionDirectorySyncSweep(input: {
           action==="pulled"?"NOTION_TO_ADMIN":"ADMIN_TO_NOTION");
       // Explicit Admin service choice or approved one-profile Notion→Admin
       // transfer also updates canonical service selections/legacy public text.
-      // The latter imports only additions, never infers a deletion.
+      // Without a confirmed baseline, absence never implies deletion.
       if (input.syncServiceRelations || input.manualDirection === "NOTION_TO_ADMIN") {
         const relation = await syncRelation(mapping.notion_page_id, input.targetProfileId,
           input.manualDirection === "NOTION_TO_ADMIN");
@@ -2917,7 +2917,7 @@ export async function runNotionDirectorySyncSweep(input: {
         });
         await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id,
           "resolved", "", "NOTION_TO_ADMIN");
-        if (trustUpdated || summary.serviceRelationSync === "pulled")
+        if (trustUpdated || summary.serviceRelationSync === "pulled" || summary.serviceRelationSync === "merged")
           summary.pulledFromNotion += 1;
         else summary.unchanged += 1;
         continue;
@@ -2961,8 +2961,8 @@ export async function runNotionDirectorySyncSweep(input: {
         breederWebhookPropertyIds: input.changedPropertyIds,
       });
       // A signed change to the canonical relation is independent of text fields.
-      // The Notion event can add verified choices without silently removing
-      // older Admin YES selections. Ordinary sweeps retain 3-way reconciliation.
+      // A confirmed relation baseline permits precise deletion of an individual
+      // service ID. Without that baseline, omission cannot authorize a delete.
       if (input.changedPropertyIds === undefined || relationChanged) {
         const relation = await syncRelation(page.id, mapping.directory_profile_id, relationChanged);
         summary.serviceRelationSync = relation;
