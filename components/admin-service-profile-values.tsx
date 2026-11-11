@@ -3,6 +3,7 @@ import Link from "next/link";
 import {useMemo,useState} from "react";
 import {AdminActionButton} from "@/components/admin-interaction-system";
 import {EditorActionBar,EditorStatus,EditorUnsavedChangesGuard} from "@/components/admin-editor-workspace";
+import {useAdminEditorNavigationGuard} from "@/components/admin-editor-navigation-guard";
 import type {CatalogEditorItem} from "@/lib/service-catalog-admin-editor-view";
 import type {AdminServiceChoiceWriteResult} from "@/lib/service-catalog-admin-api-contract";
 import {selectionForEditor} from "@/lib/service-catalog-admin-api-contract";
@@ -22,6 +23,7 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
   const attributes=entries.filter(x=>x.kind==="attribute"&&x.valueKind==="tri_state");
   const structuredAttributes=entries.filter(x=>x.kind==="attribute"&&x.valueKind!=="tri_state");
   const changed=entries.filter(x=>(x.kind==="service"||(x.kind==="attribute"&&x.valueKind==="tri_state"))&&draft[x.id]!==undefined&&draft[x.id]!==selectionForEditor(saved[x.id]));
+  const navigation=useAdminEditorNavigationGuard({dirty:changed.length>0});
   async function save(){
     if(!writeEnabled||busy||changed.length===0)return;
     setBusy(true);setMessage("");
@@ -49,7 +51,7 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
     finally{setBusy(false);}
   }
   return <section className={styles.profileCard} aria-label="Services V3 — služby a vlastnosti na profile">
-    <div className={styles.profileHeading}><div><h2>Služby profilu</h2><p>Zaškrtni služby, ktoré profil poskytuje, a ulož.</p><div className={styles.profileBadges}><EditorStatus label={writeEnabled ? "Úpravy povolené" : "Iba na čítanie"} tone={writeEnabled ? "success" : "warning"}/>{changed.length > 0 && <EditorStatus label={"Neuložené: " + changed.length} tone="warning" />}</div></div><Link href="/admin/sluzby-pre-psov/katalog" onClick={event=>{if(changed.length>0&&!window.confirm("Zahodiť neuložené hodnoty služieb?"))event.preventDefault();}}>Správa katalógu →</Link></div>
+    <div className={styles.profileHeading}><div><h2>Služby profilu</h2><p>Zaškrtni služby, ktoré profil poskytuje, a ulož.</p><div className={styles.profileBadges}><EditorStatus label={writeEnabled ? "Úpravy povolené" : "Iba na čítanie"} tone={writeEnabled ? "success" : "warning"}/>{changed.length > 0 && <EditorStatus label={"Neuložené: " + changed.length} tone="warning" />}</div></div><Link href="/admin/sluzby-pre-psov/katalog">Správa katalógu →</Link></div>
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {!writeEnabled&&<p className={styles.notice}>Kanonické zápisy sú vypnuté. Aktuálne hodnoty môžeš čítať, ale nie meniť.</p>}
     <section className={styles.profileSection} aria-label="Služby profilu"><label className={styles.profileSearch}>Hľadať službu<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Názov služby"/></label>
@@ -85,6 +87,8 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
     </section>}
     <EditorActionBar message={message} primary={<AdminActionButton variant="primary" onClick={save} disabled={!writeEnabled||Boolean(error)||busy||changed.length===0}>{busy?"Ukladám…":`Uložiť hodnoty (${changed.length})`}</AdminActionButton>}/>
     <p className={styles.muted}>Zmeny služieb a trojstavových vlastností využívajú verziované API. Návrat na Neznáme odstráni iba explicitnú uloženú hodnotu cez CAS a auditované API; nikdy nezapíše Nie.</p>
-    <EditorUnsavedChangesGuard active={changed.length>0} open={false} onStay={()=>{}} onDiscard={()=>setDraft({})}/>
+    <EditorUnsavedChangesGuard active={changed.length>0} open={navigation.confirmOpen}
+      onStay={navigation.stay} onDiscard={navigation.discard}
+      allowNativeExitRef={navigation.allowNativeExitRef}/>
   </section>;
 }
