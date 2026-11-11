@@ -8,6 +8,8 @@ type Status = {
   oldSyncEnabled: boolean; workCopySyncEnabled: boolean;
   activationEnabled: boolean; activeCohortReady: boolean;
   singleNewEngine: boolean;
+  readyForManualRoundtrip: boolean;
+  blockers: string[];
 };
 
 async function fetchBreedWorkcopyStatus(signal?: AbortSignal): Promise<Status> {
@@ -70,15 +72,26 @@ export function AdminBreedWorkcopyLiveStatus() {
       ) : (
         <p role="status">{busy ? "Overujem živý stav D1…" : "Stav zatiaľ nie je načítaný."}</p>
       )}
-      {status && !(status.activeCohortReady && status.singleNewEngine) && (
-        <p role="alert">
-          Pozor: nebolo potvrdených 344 ACTIVE väzieb s jediným novým synchronizátorom.
-          Údaje plemien zatiaľ neupravuj.
-        </p>
+      {status && !status.readyForManualRoundtrip && (
+        <div role="alert">
+          <p>Synchronizácia ešte nie je pripravená na test. Najprv treba vyriešiť blokátory:</p>
+          <ul>
+            {(status.blockers ?? []).map((code) => (
+              <li key={code}>{({
+                BREED_LINK_COUNT_MISMATCH: "Počet prepojených plemien nie je 344.",
+                BREED_ACTIVE_COHORT_INCOMPLETE: "Nie všetkých 344 väzieb má stav ACTIVE.",
+                BREED_FIELD_RECEIPTS_INCOMPLETE: "Chýbajú potvrdené záznamy synchronizácie polí.",
+                BREED_SYNC_FLAGS_MISMATCH: "Nesprávne nastavenie pôvodného alebo nového synchronizátora.",
+                BREED_ACTIVE_FIELD_ERRORS: "Niektoré aktívne profily majú nevyriešenú chybu prenosu.",
+              } as Record<string, string>)[code] ?? code}</li>
+            ))}
+          </ul>
+        </div>
       )}
-      {status?.activeCohortReady && status?.singleNewEngine && (
-        <p>Kontrolované prepnutie je pripravené. Ďalej otestujeme jeden zmenený
-          text v Notione a jeden samostatný text v Admine.</p>
+      {status?.readyForManualRoundtrip && (
+        <p>Základné D1 prepojenie je pripravené na skúšku jedného plemena.
+          Funkčnosť overíme až po zmene textu v Notione, prenose do Adminu
+          a následnej zmene iného textu opačným smerom.</p>
       )}
       {error && <p role="alert">{error}</p>}
       <button type="button" onClick={() => void refresh()} disabled={busy}>
