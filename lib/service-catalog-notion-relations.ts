@@ -10,7 +10,7 @@
 import {notionRequest,type NotionSyncBindings} from "./notion-sync-shared";
 import {planCatalogRelationSync} from "./service-catalog-notion-relation-plan";
 import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
-import {importNotionServiceChoices,projectServiceChoiceToDirectoryNotion,ensureCanonicalServiceChoicesInLegacy} from "./service-profile-notion-bridge";
+import {importNotionServiceIds,projectServiceChoiceToDirectoryNotion,ensureCanonicalServiceChoicesInLegacy} from "./service-profile-notion-bridge";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port";
 import {notionPageBelongsToDataSource} from "./notion-sync-page-ownership";
 
@@ -147,9 +147,9 @@ async function reflectPublicServiceText(
 export async function syncProfileCatalogRelation(input:{
  db:D1Database;bindings:NotionSyncBindings;pageId:string;profileId:number;category:string;
  directoryDataSourceId:string;lookup:CatalogRelationLookup;
- /** Signed relation edit or owner-approved Notion→Admin import; never infer deletes. */
+ /** Signed relation event; absent services can only be deleted with confirmed baseline. */
  notionAdditionsOnly?:boolean;
-}):Promise<"skipped"|"unchanged"|"pushed"|"pulled">{
+}):Promise<"skipped"|"unchanged"|"pushed"|"pulled"|"merged">{
  const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
  if(!await schemaExists(db))return "skipped"; // Migration not yet applied: do not break existing sync.
  const page=await readRemote(bindings,pageId,directoryDataSourceId);
@@ -177,9 +177,11 @@ export async function syncProfileCatalogRelation(input:{
      throw Error("SERVICES_RELATION_BAD_BASELINE");
    previous=decoded;
  }
- // Signed Notion relation edits are append-only. Omitted entries are never
- // deletion receipts; the canonical catalog identities and Admin YES choices win.
- if(input.notionAdditionsOnly){
+ // With an acknowledged baseline, signed Notion edits are full, verifiable
+ // selection changes. Without one, an omitted service cannot authorize delete.
+ if(input.notionAdditionsOnly&&previous===null){
+   if(local.some(id=>!remote.includes(id)))
+     throw Error("SERVICES_RELATION_UNVERIFIED_DELETE");
    const target=[...new Set([...local,...remote])].sort();
    const additions=target.filter(id=>!local.includes(id));
    const readIds=async()=>relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
@@ -188,8 +190,7 @@ export async function syncProfileCatalogRelation(input:{
    if(!equalIds(await readIds(),remote))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
    if(additions.length){
-     await importNotionServiceChoices(db,profileId,category,
-       target.map(id=>available.get(id)!.label));
+     await importNotionServiceIds(db,profileId,category,target);
    }
    const confirmed=await canonicalYes(db,profileId,available);
    if(!equalIds(confirmed,target))throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
@@ -216,13 +217,13 @@ export async function syncProfileCatalogRelation(input:{
  }
  const plan=planCatalogRelationSync(local,remote,previous);
  if(plan.action==="conflict")throw Error("SERVICES_RELATION_BOTH_SIDES_CHANGED_REVIEW");
- if(plan.action==="pull"){
+ if(plan.action==="pull"||plan.action==="merge"){
    // Recheck the relation before touching D1; never import a truncated/superseded page.
    const latest=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
    const before=new Set(local);
-   await importNotionServiceChoices(db,profileId,category,plan.target.map(id=>available.get(id)!.label));
+   await importNotionServiceIds(db,profileId,category,plan.target);
    const after=new Set(await canonicalYes(db,profileId,available));
    for(const id of new Set([...before,...after])){
      if(before.has(id)===after.has(id))continue;
@@ -232,8 +233,11 @@ export async function syncProfileCatalogRelation(input:{
    if(JSON.stringify(confirmed)!==JSON.stringify([...plan.target].sort()))
      throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
  }
- if(plan.action==="push"){
+ if(plan.action==="push"||plan.action==="merge"){
    // Recheck before PATCH. PATCH touches only our relation, no editorial/identity fields.
+   const currentLocal=await canonicalYes(db,profileId,available);
+   if(JSON.stringify(currentLocal)!==JSON.stringify([...plan.target].sort()))
+     throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_EXPORT");
    const latest=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
    if(JSON.stringify(latest?.sort())!==JSON.stringify([...raw].sort()))
      throw Error("SERVICES_RELATION_CHANGED_BEFORE_EXPORT");
@@ -247,6 +251,13 @@ export async function syncProfileCatalogRelation(input:{
      throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
  }
  await ensureCanonicalServiceChoicesInLegacy(db,profileId,await canonicalYes(db,profileId,available));
+ if(plan.action==="pull"||plan.action==="merge")
+   await reflectPublicServiceText(db,bindings,pageId,profileId,directoryDataSourceId);
+ // Do not commit a baseline if the remote relation changed while reconciling.
+ const finalRelation=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
+ const targetPages=plan.target.map(id=>lookup.serviceToPage.get(id)!);
+ if(!finalRelation||JSON.stringify([...finalRelation].sort())!==JSON.stringify([...targetPages].sort()))
+   throw Error("SERVICES_RELATION_CHANGED_BEFORE_BASELINE");
  const now=new Date().toISOString();
  await db.prepare(
    "INSERT INTO directory_service_notion_relation_sync (directory_profile_id,notion_page_id,confirmed_ids_json,synced_at) "+
@@ -254,5 +265,5 @@ export async function syncProfileCatalogRelation(input:{
    "confirmed_ids_json=excluded.confirmed_ids_json,synced_at=excluded.synced_at "+
    "WHERE notion_page_id=excluded.notion_page_id"
  ).bind(profileId,pageId,JSON.stringify([...plan.target].sort()),now).run();
- return plan.action==="pull"?"pulled":plan.action==="push"?"pushed":"unchanged";
+ return plan.action==="pull"?"pulled":plan.action==="push"?"pushed":plan.action==="merge"?"merged":"unchanged";
 }
