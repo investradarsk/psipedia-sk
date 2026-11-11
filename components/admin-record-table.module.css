@@ -70,3 +70,19 @@
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+/* Compact is the default shared density; comfortable remains opt-in. */
+.workspace[data-density="compact"] .toolbar { padding: 8px 12px; gap: 8px; }
+.workspace[data-density="compact"] .table { font-size: .81rem; }
+.workspace[data-density="compact"] .table th,
+.workspace[data-density="compact"] .table td { padding: 6px 9px; height: 44px; }
+.workspace[data-density="compact"] .table th { font-size: .72rem; }
+.workspace[data-density="compact"] .table td { line-height: 1.25; }
+.workspace[data-density="compact"] .columnPicker summary { padding: 6px 10px; }
+.workspace .heading button { min-height: 32px; display: inline-flex; align-items: center; gap: 4px; }
+.workspace .heading button:focus-visible { outline: 2px solid #9a3d29; outline-offset: 3px; border-radius: 3px; }
+.workspace .table tbody tr:focus-within { background: #edf5ef; }
+@media (max-width: 700px) {
+  .workspace[data-density="compact"] .table th,
+  .workspace[data-density="compact"] .table td { padding: 7px 8px; }
+}
