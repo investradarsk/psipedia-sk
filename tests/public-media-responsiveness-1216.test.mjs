@@ -26,7 +26,7 @@ test("article blocks and prominent profile images keep source URLs but request r
     assert.match(source, /sizes=/, path);
   }
   assert.match(read("components/article-blocks.tsx"), /loading="lazy"\s+decoding="async"/);
-  assert.match(read("components/article-detail.tsx"), /loading="eager" fetchPriority="high"/);
+  assert.match(read("components/article-detail.tsx"), /loading="eager"\s+fetchPriority="high"/);
 });
 
 test("responsive variants never rewrite remote photos, source media URLs or private files", () => {
