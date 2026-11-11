@@ -25,7 +25,7 @@ test("article blocks and prominent profile images keep source URLs but request r
     assert.ok(source.includes(`srcSet={responsiveMediaSrcSet(${token},`), path);
     assert.match(source, /sizes=/, path);
   }
-  assert.match(read("components/article-blocks.tsx"), /loading="lazy" decoding="async"/);
+  assert.match(read("components/article-blocks.tsx"), /loading="lazy"\s+decoding="async"/);
   assert.match(read("components/article-detail.tsx"), /loading="eager" fetchPriority="high"/);
 });
 
