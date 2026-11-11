@@ -50,6 +50,12 @@ export type PublicDogReport = {
   publicLongitude: number | null;
   publicLocationPrecision: PublicLocationPrecision;
   publicContactNote: string;
+  /** Explicitly approved public contacts, never sourced from encrypted PII. */
+  publicPhone: string;
+  publicEmail: string;
+  publicWebsiteUrl: string;
+  publicFacebookUrl: string;
+  publicInstagramUrl: string;
   source: string;
   sourceUrl: string | null;
   updatedAt: string;
