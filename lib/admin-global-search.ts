@@ -100,9 +100,9 @@ export async function searchAdminRecords(database: D1Database, input: string,
     const original = byId
       ? group.sql.replace(/ WHERE .+ ORDER BY .+ LIMIT 6$/, " WHERE " + extra + "id = ?" + categoryClause + " LIMIT 6")
       : group.sql;
-    const scoped = lifecycleScope[group.category];
+    const groupScope = lifecycleScope[group.category];
     const guard = "NOT EXISTS (SELECT 1 FROM admin_record_tombstones removed WHERE removed.kind='" +
-      scoped.kind + "' AND removed.record_id=" + scoped.table + ".id)";
+      groupScope.kind + "' AND removed.record_id=" + groupScope.table + ".id)";
     // Parenthesize the original OR search expression before appending AND;
     // otherwise an earlier name match could bypass the tombstone filter.
     const sql = excludeLifecycleRemovals
