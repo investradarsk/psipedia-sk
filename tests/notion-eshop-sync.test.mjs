@@ -90,7 +90,7 @@ test("e-shop Notion sync is scheduled and manually available in admin", () => {
   assert.match(wrangler, /"NOTION_ESHOPS_DATA_SOURCE_ID": "24837932-2867-4809-9adb-f3f33ba47339"/);
 });
 
-test("mapping hash resolves conflicts while rating-only changes force a Notion mirror refresh", () => {
+test("legacy mapping remains for manual repair while rating-only changes use targeted system mirror", () => {
   const source = read("lib/notion-eshop-sync.ts");
   assert.match(source, /profileHash !== lastHash/);
   assert.match(source, /pageHash !== lastHash/);
@@ -99,7 +99,8 @@ test("mapping hash resolves conflicts while rating-only changes force a Notion m
   assert.match(source, /canonicalFieldsWin: true/);
   assert.doesNotMatch(source, /notionTime > profileTime/);
   assert.match(source, /rating\.updated_at > ens\.last_synced_at/);
-  assert.match(source, /forcePush: true/);
+  assert.match(source, /mirrorEshopSystemFields/);
+  assert.doesNotMatch(source, /forcePush: true/);
 });
 
 test("e-shop common baseline is recorded only after a verified remote payload", () => {

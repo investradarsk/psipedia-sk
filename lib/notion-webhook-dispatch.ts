@@ -111,6 +111,7 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       && notionPageBelongsToDataSource(page, bindings.NOTION_ESHOPS_DATA_SOURCE_ID!)) {
     summary = await runNotionEshopSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
+      changedPropertyIds: event.data?.updated_properties ?? [],
     });
   } else if (sameSource(sourceId, NOTION_FACEBOOK_IMAGES_SOURCE_ID)) {
     // An incorrectly configured Facebook source must remain queued for
@@ -147,6 +148,9 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
       database: bindings.DB, bindings, mode: "sync",
       agendas: [agenda.agenda as (typeof allowed)[number]],
       targetPageId: id, webhookMappedOnly: true,
+      // Events retain their existing specialized field sync.
+      ...(agenda.agenda !== "events"
+        ? { changedPropertyIds: event.data?.updated_properties ?? [] } : {}),
       // Signed, owner-verified one-page delivery: unmapped Ready pages and
       // trusted Gemini private drafts may now be imported immediately.
       // Admin targeted writeback still does NOT enable this option.

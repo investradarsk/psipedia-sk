@@ -40,7 +40,7 @@ test("adoptions and lost/found share URL, numeric pagination and table shell wit
     assert.match(src, /<AdminDataTableRegion/);
     assert.match(src, /method="get"/);
     assert.doesNotMatch(src, /Array\.from\(\{length:Math\.min\(result\./);
-    assert.match(src, /<table className=\{styles.table\}>/);
+    assert.match(src, /<AdminRecordTable/);
   }
   assert.match(adoption, /hrefForPage=\{\(page\)=>adminHref\(filters,\{page\}\)\}/);
   assert.match(adoption, /\["sort", next\.sort && next\.sort !== "updated-desc" \? next\.sort : ""\]/);
@@ -64,15 +64,17 @@ test("event and Help use existing indeterminate checkbox without changing explic
   assert.match(shared, /ref\.current\.indeterminate = indeterminate/);
   assert.match(shared, /onChange\(event\.currentTarget\.checked\)/);
   for (const src of [help, event]) {
-    assert.match(src, /<BulkSelectionCheckbox/);
-    assert.match(src, /indeterminate=\{pageSomeSelected\}/);
+    assert.match(src, /<AdminRecordTable/);
+    assert.match(src, /serverSorted/);
+    assert.match(src, /selection=\{\{/);
     assert.match(src, /const \[selected, setSelected\] = useState<Set<number>>\(new Set\(\)\)/);
     assert.doesNotMatch(src, /useAdminBulkSelection\(/);
   }
-  assert.match(help, /onChange=\{togglePage\}/);
+  assert.match(help, /rowInputDataAttribute: "data-help-row-select"/);
+  assert.match(help, /selectAllLabel: "Označiť všetky na tejto strane"/);
   assert.match(help, /mode: "ids" as const, ids: \[\.\.\.selected\]/);
   assert.match(help, /confirmedCount: preview\.items\.length/);
-  assert.match(event, /rows\.forEach\(\(row\) =>/);
+  assert.match(event, /selectAllLabel: "Vybrať túto stranu"/);
   assert.match(event, /selected\.size > 500/);
   assert.match(event, /selectionPayload\(targets\)/);
   assert.match(event, /setSelected\(new Set\(\)\)/);

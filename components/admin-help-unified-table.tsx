@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminRecordTable, type AdminRecordColumn } from "@/components/admin-record-table";
@@ -469,6 +470,14 @@ export function AdminHelpUnifiedTable({
           )}
         </div>
       )}
+      {canBulkEdit && selectedIds.length > 0 && <AdminRecordBulkDelete
+        kind="help" selectedIds={selectedIds}
+        disabled={bulkBusy || helpBusy || shelterBusy || dogBusy}
+        onFinished={ids => {
+          changeSelection(selectedIds.filter(id => !ids.includes(id)));
+          router.refresh();
+        }}
+      />}
       {canInlineEditShelters && rows.length > 0 && (
         <p className={styles.bulkHint}>
           Klikni na <strong>Upraviť v tabuľke</strong> a ulož názov, krátky popis či verejný kontakt priamo v riadku.
@@ -487,6 +496,7 @@ export function AdminHelpUnifiedTable({
         rows={rows}
         label={active.label}
         busy={bulkBusy || shelterBusy || helpBusy || dogBusy}
+        serverSorted
         stretch={canInlineEditShelters || canInlineEditHelp || canInlineEditDogs}
         selection={canBulkEdit ? {
           selectedIds,

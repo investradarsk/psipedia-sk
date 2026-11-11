@@ -1,6 +1,6 @@
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
-import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
+import { captureHelpNotionSnapshot, syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { requireAdminMutation } from "@/lib/admin-auth";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { assertAdminDogReportTypeChangeKeepsDuplicateInvariant } from "@/lib/lost-found-duplicate-invariant";
@@ -39,13 +39,14 @@ export async function PATCH(request: Request, { params }: Context) {
     return Response.json({ error: "Meno psa môže mať najviac 120 znakov." }, { status: 400 });
   }
   try {
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: id });
     const updatedId = await updateAdminDogReportInlineName(
       id, input.dogName as string | null, input.expectedUpdatedAt,
     );
     if (!updatedId) return Response.json({ error: "Hlásenie neexistuje." }, { status: 404 });
     const notionFieldSync = await syncSavedNotionRecord({
       bindings: env as unknown as TargetedNotionSaveBindings,
-      agenda: "lost-found", entityId: id,
+      agenda: "lost-found", entityId: id, beforeHelpSnapshot,
     });
     return Response.json({ id: updatedId, notionFieldSync }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
@@ -69,6 +70,7 @@ export async function PUT(request: Request, { params }: Context) {
     let input = await request.json() as ManagedDogReportInput;
     const existing = await getAdminDogReport(numericId);
     if (!existing) return Response.json({ error: "Hlásenie neexistuje." }, { status: 404 });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: numericId });
 
     if (input.type !== undefined && input.type !== existing.type) {
       await assertAdminDogReportTypeChangeKeepsDuplicateInvariant(numericId, input.type);
@@ -117,7 +119,7 @@ export async function PUT(request: Request, { params }: Context) {
       }
     }
 
-    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: numericId });
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: numericId, beforeHelpSnapshot });
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"lost-found",numericId,report.status);
     return Response.json({ report, notionFieldSync }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {

@@ -1,6 +1,6 @@
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
-import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
+import { captureHelpNotionSnapshot, syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { OrganizationAdminValidationError } from "@/lib/help-organization-admin-input";
 import { organizationInputWithShelterInlineChanges } from "@/lib/help-organization-inline-edit";
@@ -45,10 +45,11 @@ export async function PUT(request: Request, { params }: Props) {
   try {
     const before = await getOrganizationPublicationAdminById(id);
     if (!before) return Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id });
     const item = await updateOrganizationFromAdmin(id, body.payload, user.email, expectedUpdatedAt);
     if (!item) return Response.json({ error: "Organizácia neexistuje." }, { status: 404 });
 
-    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id });
+    const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id, beforeHelpSnapshot });
     const bindings = env as unknown as UploadBindings;
     if (before.imageKey && before.imageKey !== item.imageKey && bindings.BUCKET) {
       await bindings.BUCKET.delete(before.imageKey).catch(() => undefined);
@@ -95,6 +96,7 @@ export async function PATCH(request: Request, { params }: Props) {
   try {
     const before = await getOrganizationPublicationAdminById(id);
     if (!before) return Response.json({ error: "Útulok už neexistuje." }, { status: 404 });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "organizations", entityId: id });
     // The writer re-reads and uses an atomic updated_at compare-and-set.
     if (before.updatedAt !== expectedUpdatedAt) {
       return Response.json({ error: "Záznam sa medzitým zmenil. Obnov tabuľku." }, { status: 409 });
@@ -120,7 +122,7 @@ export async function PATCH(request: Request, { params }: Props) {
       if (!item) return Response.json({ error: "Organizácia už neexistuje." }, { status: 404 });
       const notionFieldSync = await syncSavedNotionRecord({
         bindings: env as unknown as TargetedNotionSaveBindings,
-        agenda: "organizations", entityId: id,
+        agenda: "organizations", entityId: id, beforeHelpSnapshot,
       });
       if (before.status === "PUBLISHED" || item.status === "PUBLISHED") {
         const version = (env as unknown as UploadBindings).CF_VERSION_METADATA?.id;
@@ -138,7 +140,7 @@ export async function PATCH(request: Request, { params }: Props) {
     const notionFieldSync = await syncSavedNotionRecord({
       bindings: env as unknown as TargetedNotionSaveBindings,
       agenda: "organizations",
-      entityId: id,
+      entityId: id, beforeHelpSnapshot,
     });
     if (before.status === "PUBLISHED" || item.status === "PUBLISHED") {
       const version = (env as unknown as UploadBindings).CF_VERSION_METADATA?.id;

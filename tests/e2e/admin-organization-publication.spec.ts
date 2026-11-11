@@ -32,7 +32,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   expect(response?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: "Organizácie", exact: true })).toBeVisible();
 
-  let row = page.locator("article").filter({ hasText: fixtureName });
+  let row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toBeVisible();
   await expect(row).toContainText("Koncept");
   await expect(row).toContainText("READY");
@@ -58,7 +58,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   expect(publishResponse.ok()).toBe(true);
   await expect(page.getByRole("status")).toContainText("Organizácia bola publikovaná");
 
-  row = page.locator("article").filter({ hasText: fixtureName });
+  row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Publikované");
   await expect(row).toContainText("Verejný profil");
   await expect(row.getByRole("button", { name: "Presunúť do konceptu", exact: true })).toBeEnabled();
@@ -83,7 +83,7 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   expect(unpublishResponse.ok()).toBe(true);
   await expect(page.getByRole("status")).toContainText("Organizácia bola presunutá do konceptu");
 
-  row = page.locator("article").filter({ hasText: fixtureName });
+  row = page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName });
   await expect(row).toContainText("Koncept");
   await expect(row).toContainText("Neverejný profil");
   await expect(row.getByRole("button", { name: "Publikovať", exact: true })).toBeEnabled();
@@ -106,7 +106,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   const slug = "org-final-" + suffix;
 
   await page.goto("/admin/organizacie?q=ORG-8A&status=DRAFT", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("article").filter({ hasText: fixtureName })).toBeVisible();
+  await expect(page.locator("[data-admin-organization-row]").filter({ hasText: fixtureName })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.getByRole("link", { name: "+ Nová organizácia" }).click();
@@ -133,7 +133,7 @@ test("organization admin supports mobile filters, DRAFT create and canonical edi
   await expect(page.locator('[data-admin-form-feedback="success"]')).toContainText("Údaje organizácie sú uložené");
 
   await page.goto("/admin/organizacie?q=" + encodeURIComponent(name), { waitUntil: "domcontentloaded" });
-  const result = page.locator("article").filter({ hasText: name });
+  const result = page.locator("[data-admin-organization-row]").filter({ hasText: name });
   await expect(result).toBeVisible();
   await expect(result).toContainText("Koncept");
   await expect(result).toContainText("Publication READY");
