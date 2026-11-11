@@ -108,7 +108,7 @@ function inspect() {
   const columns = {};
   for (const table of [...sourceTables, "admin_record_tombstones", "admin_record_publication_guards"]) {
     if (presentTables.has(table)) {
-      columns[table] = select("SELECT name,type,pk,"notnull" AS notnull_value,dflt_value FROM pragma_table_info('" +
+      columns[table] = select(`SELECT name,type,pk,"notnull" AS notnull_value,dflt_value FROM pragma_table_info('` +
         table + "')");
     }
   }
