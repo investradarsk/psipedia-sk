@@ -19,6 +19,8 @@ type NavigationEventLike = Event & {
   hashChange?: boolean;
 };
 
+let mountedDirtyGuardCount = 0;
+
 export function useAdminEditorNavigationGuard({
   dirty,
   allowNativeExitRef: suppliedAllowNativeExitRef,
@@ -75,6 +77,12 @@ export function useAdminEditorNavigationGuard({
 
   useEffect(() => {
     if (!dirty) return;
+
+    // The iOS document fallback is mounted in a parent layout and may receive
+    // the capture click before this editor does. A shared marker makes it defer
+    // to the unsaved-change confirmation regardless of registration order.
+    mountedDirtyGuardCount++;
+    document.documentElement.setAttribute("data-admin-unsaved-editor", "true");
 
     // Document capture runs before the mobile drawer and Next Link callbacks.
     const onClick = (event: MouseEvent) => {
@@ -140,6 +148,10 @@ export function useAdminEditorNavigationGuard({
       document.removeEventListener("click", onClick, true);
       navigationApi?.removeEventListener("navigate", onNativeNavigate);
       window.removeEventListener(ADMIN_NAVIGATION_INTENT_EVENT, onIntent);
+      mountedDirtyGuardCount--;
+      if (mountedDirtyGuardCount === 0) {
+        document.documentElement.removeAttribute("data-admin-unsaved-editor");
+      }
     };
   }, [dirty, allowNativeExitRef, requestNavigation]);
 
