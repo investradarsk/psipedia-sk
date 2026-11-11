@@ -148,7 +148,7 @@ export async function syncProfileCatalogRelation(input:{
  db:D1Database;bindings:NotionSyncBindings;pageId:string;profileId:number;category:string;
  directoryDataSourceId:string;lookup:CatalogRelationLookup;
  /** Signed relation event; absent services can only be deleted with confirmed baseline. */
- notionAdditionsOnly?:boolean;
+ notionExplicitEdit?:boolean;
 }):Promise<"skipped"|"unchanged"|"pushed"|"pulled"|"merged">{
  const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
  if(!await schemaExists(db))return "skipped"; // Migration not yet applied: do not break existing sync.
@@ -179,9 +179,9 @@ export async function syncProfileCatalogRelation(input:{
  }
  // A signed relation event cannot authorize deletion without a prior
  // confirmed common state. After that, every service is reconciled by ID.
- if(input.notionAdditionsOnly&&previous===null&&local.some(id=>!remote.includes(id)))
+ if(input.notionExplicitEdit&&previous===null&&local.some(id=>!remote.includes(id)))
    throw Error("SERVICES_RELATION_UNVERIFIED_DELETE");
- const plan=input.notionAdditionsOnly
+ const plan=input.notionExplicitEdit
    ?planSignedCatalogRelationSync(local,remote,previous)
    :planCatalogRelationSync(local,remote,previous);
  if(plan.action==="conflict")throw Error("SERVICES_RELATION_BOTH_SIDES_CHANGED_REVIEW");
@@ -222,7 +222,7 @@ export async function syncProfileCatalogRelation(input:{
      throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
  }
  await ensureCanonicalServiceChoicesInLegacy(db,profileId,await canonicalYes(db,profileId,available));
- if(plan.action==="pull"||plan.action==="merge"||input.notionAdditionsOnly)
+ if(plan.action==="pull"||plan.action==="merge"||input.notionExplicitEdit)
    await reflectPublicServiceText(db,bindings,pageId,profileId,directoryDataSourceId);
  // Do not commit a baseline if the remote relation changed while reconciling.
  const finalRelation=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
