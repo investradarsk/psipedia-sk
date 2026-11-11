@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AdminRecordId } from "./admin-record-id";
+import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminInlineRowActions, AdminInlineCellInput } from "@/components/admin-inline-edit-controls";
@@ -15,7 +15,7 @@ import styles from "./admin-lost-found.module.css";
 
 type Counts = { total: number } & Record<LostFoundStatus, number>;
 type Result = { items: AdminDogReport[]; total: number; page: number; pageSize: number; pages: number };
-type Filters = { q: string; type: string; status: string; region: string; locality: string };
+type Filters = { q: string; type: string; status: string; region: string; locality: string; sort?: "priority" | "name" | "city" | "status" | "date" | "updated"; direction?: "asc" | "desc" };
 const tabs: Array<{ key: string; label: string; count: (counts: Counts) => number }> = [
   { key: "", label: "Všetky", count: (c) => c.total }, { key: "PENDING", label: "Čakajúce", count: (c) => c.PENDING },
   { key: "ACTIVE", label: "Aktívne", count: (c) => c.ACTIVE }, { key: "RESOLVED", label: "Vyriešené", count: (c) => c.RESOLVED },
@@ -29,6 +29,8 @@ function href(filters: Filters, page = 1, status = filters.status) {
     ["status", status],
     ["region", filters.region],
     ["locality", filters.locality],
+    ["sort", filters.sort && filters.sort !== "priority" ? filters.sort : ""],
+    ["direction", filters.direction && filters.direction !== "desc" ? filters.direction : ""],
   ], page);
 }
 export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds = [] }: { result: Result; counts: Counts; filters: Filters; reviewedIds?: number[] }) {
@@ -37,6 +39,7 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; expectedUpdatedAt: string; dogName: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const viewKey = JSON.stringify([filters, result.page, result.items.map(item => item.id)]);
   const activeInline = inlineDraft?.key === viewKey && result.items.some(item => item.id === inlineDraft.id && item.updatedAt === inlineDraft.expectedUpdatedAt)
     ? inlineDraft : null;
@@ -72,18 +75,65 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
     <nav className={styles.tabs} aria-label="Stavy hlásení">{tabs.map((tab)=><Link key={tab.key||"all"} data-active={filters.status===tab.key} href={href(filters,1,tab.key)}>{tab.label} <strong>{tab.count(counts)}</strong></Link>)}</nav>
     <form className={styles.filters} method="get"><input name="q" defaultValue={filters.q} aria-label="Fulltext" placeholder="Meno, obec, farba, popis…"/><select name="type" defaultValue={filters.type} aria-label="Typ"><option value="">LOST + FOUND</option><option value="LOST">Stratené</option><option value="FOUND">Nájdené</option></select><input name="region" defaultValue={filters.region} aria-label="Kraj" placeholder="Kraj"/><input name="locality" defaultValue={filters.locality} aria-label="Okres alebo lokalita" placeholder="Okres / lokalita"/>{filters.status&&<input type="hidden" name="status" value={filters.status}/>}<button type="submit">Filtrovať</button></form>
     {message && <p role="status">{message}</p>}
-    <AdminDataTableRegion className={styles.tableWrap} label="Zoznam hlásení"><table className={styles.table}><thead><tr><th scope="col">ID</th><th scope="col">Hlásenie</th><th scope="col">Typ</th><th scope="col">Stav</th><th scope="col">Lokalita</th><th scope="col">Dátum</th><th scope="col">Aktualizované</th><th scope="col">Akcie</th></tr></thead><tbody>{result.items.map((report)=><tr key={report.id}><td><AdminRecordId id={report.id} compact /></td><td><div className={styles.rowTitle}>{activeInline?.id === report.id
-      ? <AdminInlineCellInput label={"Meno psa v hlásení " + report.id}
-          value={activeInline.dogName} maxLength={120} disabled={busy}
-          onChange={dogName => setInlineDraft(prev => prev ? { ...prev, dogName } : null)} />
-      : <strong>{report.dogName||report.breed||`Hlásenie #${report.id}`}</strong>}<small>/{report.slug}</small>{report.duplicateOfId&&<small>Duplicita hlásenia #{report.duplicateOfId}</small>}</div></td><td><span className={styles.type}>{dogReportTypeShortLabel(report.type)}</span></td><td className={styles.status}>{dogReportStatusLabel[report.status]}</td><td>{report.city}{report.district?` · ${report.district}`:""}</td><td>{report.eventDate||"—"}</td><td>{new Date(report.updatedAt).toLocaleDateString("sk-SK")}</td><td><div className={styles.rowTitle}><AdminReviewCheckbox entityType="LOST_FOUND" entityId={report.id} initialReviewed={reviewed.has(report.id)} compact />{report.status !== "ARCHIVED" && report.duplicateOfId === null && <span className={styles.inlineDesktop}><AdminInlineRowActions
-        editing={activeInline?.id === report.id} busy={busy}
-        disabled={Boolean(activeInline && activeInline.id !== report.id)}
-        onEdit={() => beginInline(report)}
-        onSave={() => void saveInline()}
-        onCancel={() => { if (!busy) setInlineDraft(null); }}
-      /></span>}
-      <Link className={styles.edit} href={`/admin/stratene-najdene/${report.id}`}>Upraviť →</Link></div></td></tr>)}{!result.items.length&&<tr><td colSpan={8}>Žiadne hlásenia pre zvolené filtre.</td></tr>}</tbody></table></AdminDataTableRegion>
+    {selected.size > 0 && <div className={styles.gridSelection}>
+      <strong>Označené: {selected.size}</strong>
+      <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
+    </div>}
+    <AdminDataTableRegion className={styles.tableWrap} label="Zoznam hlásení">
+      {result.items.length ? <AdminRecordTable
+        rows={result.items}
+        label="Stratené a nájdené psy"
+        stretch serverSorted busy={busy}
+        rowDataAttribute="data-admin-lost-found-row"
+        serverSorting={{
+          id: filters.sort ?? "priority",
+          desc: filters.direction !== "asc",
+          allowedIds: ["name", "city", "status", "date", "updated"],
+          onChange: next => {
+            if (!["name", "city", "status", "date", "updated"].includes(next.id)) return;
+            router.push(href({ ...filters, sort: next.id as Filters["sort"], direction: next.desc ? "desc" : "asc" }, 1));
+          },
+        }}
+        selection={{
+          selectedIds: [...selected],
+          labelForRow: report => `Označiť hlásenie ${report.dogName || report.breed || report.id}`,
+          onChange: ids => setSelected(new Set(ids)),
+        }}
+        columns={[
+          { id: "name", label: "Hlásenie", width: 275,
+            sortValue: report => report.dogName || report.breed,
+            cell: report => <div className={styles.rowTitle}>
+              {activeInline?.id === report.id
+                ? <AdminInlineCellInput label={"Meno psa v hlásení " + report.id}
+                    value={activeInline.dogName} maxLength={120} disabled={busy}
+                    onChange={dogName => setInlineDraft(prev => prev ? { ...prev, dogName } : null)} />
+                : <strong><Link href={`/admin/stratene-najdene/${report.id}`}>{report.dogName || report.breed || `Hlásenie #${report.id}`}</Link></strong>}
+              <small>/{report.slug}</small>
+              {report.duplicateOfId && <small>Duplicita hlásenia #{report.duplicateOfId}</small>}
+            </div> },
+          { id: "type", label: "Typ", width: 120, cell: report => dogReportTypeShortLabel(report.type) },
+          { id: "status", label: "Stav", width: 155, sortValue: report => report.status,
+            cell: report => dogReportStatusLabel[report.status] },
+          { id: "city", label: "Lokalita", width: 165, sortValue: report => report.city,
+            cell: report => report.city + (report.district ? " · " + report.district : "") },
+          { id: "date", label: "Dátum udalosti", width: 140, sortValue: report => report.eventDate,
+            cell: report => report.eventDate || "—" },
+          { id: "updated", label: "Aktualizované", width: 142, sortValue: report => report.updatedAt,
+            cell: report => new Date(report.updatedAt).toLocaleDateString("sk-SK") },
+          { id: "actions", label: "Akcie", width: 245, cell: report =>
+            <div className={styles.gridRowActions}>
+              <AdminReviewCheckbox entityType="LOST_FOUND" entityId={report.id} initialReviewed={reviewed.has(report.id)} compact />
+              {report.status !== "ARCHIVED" && report.duplicateOfId === null && <span className={styles.inlineDesktop}>
+                <AdminInlineRowActions editing={activeInline?.id === report.id} busy={busy}
+                  disabled={Boolean(activeInline && activeInline.id !== report.id)}
+                  onEdit={() => beginInline(report)} onSave={() => void saveInline()}
+                  onCancel={() => { if (!busy) setInlineDraft(null); }} />
+              </span>}
+              <Link className={styles.edit} href={`/admin/stratene-najdene/${report.id}`}>Upraviť →</Link>
+            </div> },
+        ]}
+      /> : <p>Žiadne hlásenia pre zvolené filtre.</p>}
+    </AdminDataTableRegion>
     <AdminNumberedPagination page={result.page} totalPages={result.pages}
       hrefForPage={(page)=>href(filters,page)} className={styles.pagination} ariaLabel="Stránkovanie" />
   </>;

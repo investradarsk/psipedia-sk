@@ -343,7 +343,20 @@ export async function listAdminDogReports(filters: AdminDogReportFilters = {}) {
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const count = await database.prepare(`SELECT COUNT(*) AS count FROM lost_found_dog_reports r ${whereSql}`).bind(...args).first<{ count: number }>();
   const total = Number(count?.count || 0);
-  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, adminSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
+  const sortExpressions: Record<string, string> = {
+    priority: "CASE r.status WHEN 'PENDING' THEN 0 WHEN 'ACTIVE' THEN 1 ELSE 2 END, r.updated_at DESC, r.id DESC",
+    name: "r.dog_name COLLATE NOCASE",
+    city: "r.city COLLATE NOCASE",
+    status: "r.status",
+    date: "r.event_date",
+    updated: "r.updated_at",
+  };
+  const sortKey = filters.sort ?? "priority";
+  const directionSql = filters.direction === "asc" ? "ASC" : "DESC";
+  const orderSql = sortKey !== "priority" && sortExpressions[sortKey]
+    ? sortExpressions[sortKey] + " " + directionSql + ", r.id " + directionSql
+    : sortExpressions.priority;
+  const result = await database.prepare(`SELECT ${await selectWithOptionalShortDescription(database, adminSelect)} FROM lost_found_dog_reports r LEFT JOIN managed_breeds b ON b.id = r.breed_id LEFT JOIN lost_found_dog_private_details p ON p.report_id = r.id ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`).bind(...args, pageSize, (page - 1) * pageSize).all<ReportRow>();
   const { encryptionKey } = requirePiiKeys();
   const items = await Promise.all((result.results ?? []).map((row) => rowToAdmin(row, encryptionKey)));
   return { items, total, page, pageSize, pages: Math.ceil(total / pageSize) };
