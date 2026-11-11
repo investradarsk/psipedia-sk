@@ -71,7 +71,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
     ],
   };
   const hasFacts = report.sex !== "UNKNOWN" || report.size !== "UNKNOWN" || Boolean(report.breed) || Boolean(report.color) || Boolean(report.approximateAge) || report.chipped !== "UNKNOWN";
-  const publicPhoneHref = report.publicPhone ? "tel:" + report.publicPhone.replace(/[^+\\d]/g, "") : null;
+  const publicPhoneHref = report.publicPhone ? "tel:" + report.publicPhone.replace(/[^+\d]/g, "") : null;
   const publicEmailHref = report.publicEmail ? "mailto:" + report.publicEmail : null;
   const publishedContacts: DetailContact[] = [
     ...(publicPhoneHref ? [{ label:"Telefón", value:<a href={publicPhoneHref}>{report.publicPhone}</a> }] : []),
