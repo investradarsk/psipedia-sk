@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { createShortLivedAsyncCache } from "@/lib/public-navigation-cache";
 import {
   findSectionVisualDefinition,
   normalizeSectionVisualCrop,
@@ -27,6 +28,31 @@ type SectionVisualRow = {
   updated_at: string;
   updated_by: string;
 };
+
+// Public hero visual rows are shared by anonymous visitors and change rarely.
+// Cache only public rendering reads; the admin editor continues to read D1 directly.
+// Bounded per-isolate cache deduplicates concurrent hero reads without KV, new
+// bindings, or cross-request personalization. Writes invalidate this isolate;
+// other isolates expire their entry shortly after (HTML already has an edge TTL).
+const PUBLIC_HERO_VISUAL_CACHE_TTL_MS = 15_000;
+const PUBLIC_HERO_VISUAL_CACHE_MAX_KEYS = 128;
+const publicHeroVisualRows = new Map<
+  string,
+  ReturnType<typeof createShortLivedAsyncCache<StoredSectionVisual | null>>
+>();
+
+function publicHeroVisualCache(visualKey: string) {
+  const existing = publicHeroVisualRows.get(visualKey);
+  if (existing) return existing;
+  // Limit the number of keys retained by a long-lived Worker isolate.
+  if (publicHeroVisualRows.size >= PUBLIC_HERO_VISUAL_CACHE_MAX_KEYS) {
+    const oldest = publicHeroVisualRows.keys().next().value;
+    if (oldest !== undefined) publicHeroVisualRows.delete(oldest);
+  }
+  const entry = createShortLivedAsyncCache<StoredSectionVisual | null>(PUBLIC_HERO_VISUAL_CACHE_TTL_MS);
+  publicHeroVisualRows.set(visualKey, entry);
+  return entry;
+}
 
 function database() {
   const db = (env as unknown as RuntimeBindings).DB;
@@ -94,7 +120,12 @@ export async function getResolvedSectionVisual(visualKey: string): Promise<Resol
 }
 
 export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedSectionVisual> {
-  const resolved = await getResolvedSectionVisual(visualKey) ?? {
+  const definition = findSectionVisualDefinition(visualKey);
+  const stored = definition
+    ? await publicHeroVisualCache(visualKey).get(() => getStoredSectionVisual(visualKey))
+    : null;
+  const resolved = definition ? resolveSectionVisual(definition, stored) : null;
+  const fallback = resolved ?? {
     visualKey,
     sectionSlug: null,
     subsectionSlug: null,
@@ -106,20 +137,20 @@ export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedS
     source: "default" as const,
   };
 
-  if (!resolved.sectionSlug) return resolved;
+  if (!fallback.sectionSlug) return fallback;
   let section;
   try {
-    section = await getManagedPortalSection(resolved.sectionSlug);
+    section = await getManagedPortalSection(fallback.sectionSlug);
   } catch {
-    return resolved;
+    return fallback;
   }
-  if (!section?.visible) return resolved;
-  const subpage = resolved.subsectionSlug
-    ? section.subpages.find((item) => item.slug === resolved.subsectionSlug && item.visible !== false)
+  if (!section?.visible) return fallback;
+  const subpage = fallback.subsectionSlug
+    ? section.subpages.find((item) => item.slug === fallback.subsectionSlug && item.visible !== false)
     : null;
 
   return {
-    ...resolved,
+    ...fallback,
     heroContent: subpage
       ? {
           title: subpage.label,
@@ -127,7 +158,7 @@ export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedS
           intro: subpage.intro,
           config: subpage.heroConfig ?? {},
         }
-      : !resolved.subsectionSlug
+      : !fallback.subsectionSlug
         ? {
             title: section.label,
             eyebrow: section.eyebrow,
@@ -225,6 +256,8 @@ export async function saveStoredSectionVisual(input: {
     throw error;
   }
 
+  publicHeroVisualRows.get(input.definition.visualKey)?.invalidate();
+
   return {
     visualKey: input.definition.visualKey,
     sectionSlug: input.definition.sectionSlug,
@@ -244,6 +277,7 @@ export async function deleteStoredSectionVisual(visualKey: string) {
   if (!db) return;
   try {
     await db.prepare("DELETE FROM section_visuals WHERE visual_key=?").bind(visualKey).run();
+    publicHeroVisualRows.get(visualKey)?.invalidate();
   } catch (error) {
     if (isMissingVisualTable(error)) return;
     throw error;
