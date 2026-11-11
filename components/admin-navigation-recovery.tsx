@@ -37,11 +37,13 @@ export function AdminNavigationRecovery() {
     };
     window.addEventListener(ADMIN_NAVIGATION_START_EVENT, onStart);
     window.addEventListener("psipedia:route-committed", clear);
+    window.addEventListener("psipedia:admin-route-committed", clear);
     window.addEventListener("pagehide", clear);
     window.addEventListener("pageshow", clear);
     return () => {
       window.removeEventListener(ADMIN_NAVIGATION_START_EVENT, onStart);
       window.removeEventListener("psipedia:route-committed", clear);
+      window.removeEventListener("psipedia:admin-route-committed", clear);
       window.removeEventListener("pagehide", clear);
       window.removeEventListener("pageshow", clear);
     };
@@ -50,8 +52,7 @@ export function AdminNavigationRecovery() {
   // Also clear on an actual route/search change, independently of the shared
   // site's progress indicator, which may be removed from Admin in a later step.
   useEffect(() => {
-    setPending(null);
-    setStalled(false);
+    window.dispatchEvent(new Event("psipedia:admin-route-committed"));
   }, [pathname, query]);
 
   useEffect(() => {
