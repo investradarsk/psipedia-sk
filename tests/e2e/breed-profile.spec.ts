@@ -253,7 +253,10 @@ test("breed profile: no redundant index, no-crop media, useful cards and accessi
   // The owner removed the redundant V tomto profile navigation; it must not return.
   await expect(page.getByRole("navigation", { name: "Navigácia v profile plemena" })).toHaveCount(0);
   await expect(page.getByText("V tomto profile", { exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("breed-quick-facts")).toBeVisible();
+  // Desktop facts live in the sidebar; the phone has the same facts directly after O plemene.
+  const isMobile = (page.viewportSize()?.width ?? 1440) <= 800;
+  await expect(page.getByTestId(isMobile ? "breed-quick-facts-mobile" : "breed-quick-facts")).toBeVisible();
+  await expect(page.getByTestId(isMobile ? "breed-quick-facts" : "breed-quick-facts-mobile")).toBeHidden();
 
   const image = page.getByTestId("breed-hero-image");
   await expect(image).toBeVisible();
