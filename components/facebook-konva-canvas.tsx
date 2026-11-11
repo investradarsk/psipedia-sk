@@ -79,13 +79,13 @@ function logoGroup(settings: GraphicSettings, h: number) {
     const textColor = settings.logoStyle==="wordmark" ? "#fffdf8" : GREEN;
     const title = new Konva.Text({
       x:settings.logoStyle==="pill"?94:80,y:21,text:"psipedia",fontFamily:"Arial",
-      fontSize:39,fontStyle:"bold",fill:textColor,letterSpacing:-1.1,perfectDrawEnabled:true,
+      fontSize:39,fontStyle:"bold",fill:textColor,perfectDrawEnabled:true,
     });
     group.add(title);
     group.add(new Konva.Text({
       x:title.x()+title.width(),y:21,text:".sk",fontFamily:"Arial",
       fontSize:39,fontStyle:"bold",fill:settings.logoStyle==="wordmark"?"#f8a38f":RED,
-      letterSpacing:-1.1,perfectDrawEnabled:true,
+      perfectDrawEnabled:true,
     }));
   }
   return {group,baseWidth,baseHeight};
@@ -174,7 +174,7 @@ export const FacebookKonvaCanvas = forwardRef<GraphicCanvasHandle, Props>(functi
     const designLayer=new Konva.Layer();
     const selectionLayer=new Konva.Layer();
     stage.add(photoLayer,designLayer,selectionLayer);
-    photoLayer.add(new Konva.Rect({width:W,height:h,fill:GREEN,listening:false}));
+    photoLayer.add(new Konva.Rect({width:W,height:h,fill:settings.photoFit==="contain"?CREAM:GREEN,listening:false}));
     if (bitmap) {
       const base=settings.photoFit==="contain"?
         Math.min(W/bitmap.width,h/bitmap.height):Math.max(W/bitmap.width,h/bitmap.height);
