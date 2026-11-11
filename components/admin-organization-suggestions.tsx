@@ -14,7 +14,7 @@ function SuggestionsContent({
   onAccepted,
 }: {
   promise: Promise<OrganizationSuggestionsResult>;
-  onAccepted: (values: Record<string, unknown>) => void;
+  onAccepted: (values: Record<string, unknown>, updatedAt: string) => void;
 }) {
   const { suggestions, failed } = use(promise);
   if (failed) {
@@ -28,7 +28,7 @@ function SuggestionsContent({
 /** Suspends only this optional suggestion panel, never the editable form. */
 export function AdminOrganizationSuggestions(props: {
   promise: Promise<OrganizationSuggestionsResult>;
-  onAccepted: (values: Record<string, unknown>) => void;
+  onAccepted: (values: Record<string, unknown>, updatedAt: string) => void;
 }) {
   return <Suspense fallback={<p role="status">Načítavam doplnkové návrhy…</p>}>
     <SuggestionsContent {...props} />
