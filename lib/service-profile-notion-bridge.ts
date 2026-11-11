@@ -25,6 +25,20 @@ async function allowedCatalog(db:DB,category:string){
   if(!categories.has(category))return [];
   return loadResolvedServiceDefinitions(db,category);
 }
+type ResolvedOption=Awaited<ReturnType<typeof allowedCatalog>>[number];
+/** Ambiguous historical aliases must not remove or reassign human text. */
+function uniqueServiceTerms(available:readonly ResolvedOption[]):Map<string,string|null>{
+  const terms=new Map<string,string|null>();
+  for(const entry of available){
+    for(const label of [entry.label,...entry.aliases]){
+      const key=normalizeCatalogLabel(label);
+      if(!key)continue;
+      const old=terms.get(key);
+      terms.set(key,old===undefined?entry.id:old===entry.id?entry.id:null);
+    }
+  }
+  return terms;
+}
 /** After an explicit Admin checkbox write, make its matching legacy Notion text
  * reflect the same choice without deleting unrelated historic service names.
  * Called only after canonical CAS succeeds; a failed projection is reported.
@@ -34,7 +48,8 @@ export async function projectServiceChoiceToDirectoryNotion(db:DB,profileId:numb
     "SELECT id,category,services_json,updated_at FROM directory_profiles WHERE id=?1 LIMIT 1"
   ).bind(profileId).first<Profile>();
   if(!profile)throw Error("SERVICE_PROFILE_NOT_FOUND");
-  const item=(await allowedCatalog(db,profile.category)).find(s=>s.id===optionId);
+  const available=await allowedCatalog(db,profile.category);
+  const item=available.find(s=>s.id===optionId);
   if(!item)return "unchanged" as const; // unrelated typed attribute, not a service
   if(profile.services_json!==null){
     try{
@@ -47,8 +62,8 @@ export async function projectServiceChoiceToDirectoryNotion(db:DB,profileId:numb
   // A service edited in Admin keeps its original ID and former labels as
   // aliases. Remove stale names for this exact canonical service, not unrelated
   // historical free text.
-  const names=new Set([item.label,...item.aliases].map(normalizeCatalogLabel));
-  const filtered=existing.filter(s=>!names.has(normalizeCatalogLabel(s)));
+  const terms=uniqueServiceTerms(available);
+  const filtered=existing.filter(s=>terms.get(normalizeCatalogLabel(s))!==item.id);
   if(choice==="yes")filtered.push(item.label);
   if(JSON.stringify(filtered)===JSON.stringify(existing))return "unchanged" as const;
   const now=new Date().toISOString();
@@ -69,15 +84,7 @@ export async function projectServiceChoiceToDirectoryNotion(db:DB,profileId:numb
 export async function importNotionServiceChoices(db:DB,profileId:number,category:string,names:readonly string[]){
   if(!categories.has(category))return {added:0,removed:0};
   const available=await allowedCatalog(db,category);
-  const terms=new Map<string,string|null>();
-  for(const entry of available){
-    for(const label of [entry.label,...entry.aliases]){
-      const key=normalizeCatalogLabel(label);
-      if(!key)continue;
-      const old=terms.get(key);
-      terms.set(key,old===undefined?entry.id:old===entry.id?entry.id:null);
-    }
-  }
+  const terms=uniqueServiceTerms(available);
   const selected=new Set<string>();
   for(const name of names){
     const id=terms.get(normalizeCatalogLabel(name));
@@ -129,12 +136,12 @@ export async function ensureCanonicalServiceChoicesInLegacy(
   }
   const current = parseServices(profile.services_json);
   const next = [...current];
+  const terms=uniqueServiceTerms(available);
   let updated = 0;
   for (const id of new Set(selectedIds)) {
     const option = byId.get(id);
     if (!option) throw Error("SERVICE_CATALOG_UNKNOWN_CHOICE");
-    const names = new Set([option.label, ...option.aliases].map(normalizeCatalogLabel));
-    const at = next.findIndex(value => names.has(normalizeCatalogLabel(value)));
+    const at = next.findIndex(value => terms.get(normalizeCatalogLabel(value)) === option.id);
     if (at === -1) {
       next.push(option.label);
       updated++;
