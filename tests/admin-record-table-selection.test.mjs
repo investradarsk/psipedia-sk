@@ -55,8 +55,29 @@ test("paginated admin tables avoid background prefetch and support server-wide o
   const table = source("components/admin-record-table.tsx");
   const directory = source("components/admin-directory-dashboard.tsx");
   assert.equal((pagination.match(/prefetch=\{false\}/g) ?? []).length, 5);
-  assert.match(table, /serverSorted \? "zoradenie platí pre celý zoznam"/);
-  assert.match(table, /enableSorting: Boolean\(column\.sortValue\) && !serverSorted/);
+  assert.match(table, /serverSorting \|\| serverSorted \? "zoradenie platí pre celý zoznam"/);
+  assert.match(table, /enableSorting: Boolean\(column\.sortValue\)/);
+  assert.match(table, /serverSorting\.allowedIds\.includes\(column\.id\)/);
+  assert.match(table, /manualSorting: Boolean\(serverSorting\)/);
   assert.match(directory, /serverSorted/);
   assert.match(directory, /name="sort"/);
+});
+
+test("breed and article lists share compact TanStack grid without moving lifecycle writes", () => {
+  const breed = source("components/admin-breed-dashboard.tsx");
+  const article = source("components/admin-dashboard.tsx");
+  const table = source("components/admin-record-table.tsx");
+  const breedSort = source("lib/admin-breeds.ts");
+  for (const module of [breed, article]) {
+    assert.match(module, /<AdminRecordTable/);
+    assert.match(module, /serverSorting=\{\{/);
+    assert.match(module, /selection=\{\{/);
+    assert.match(module, /<AdminInlineRowActions/);
+  }
+  assert.match(breed, /rowDataAttribute="data-admin-breed-row"/);
+  assert.match(article, /rowDataAttribute="data-admin-article-row"/);
+  assert.match(breedSort, /sortAdminBreedRows/);
+  assert.match(breedSort, /return \[\.\.\.rows\]\.sort/);
+  assert.match(table, /rowDataAttribute \? \{ \[rowDataAttribute\]: "" \}/);
+  assert.doesNotMatch(table, /fetch\(|DELETE|PATCH|POST/);
 });

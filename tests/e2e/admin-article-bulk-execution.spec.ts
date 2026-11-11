@@ -34,7 +34,7 @@ test.describe("ADMIN-2E article bulk execution", () => {
   });
 
   const rowFor = (page: import("@playwright/test").Page, title: string) =>
-    page.locator(".admin-article-row").filter({ hasText: title });
+    page.locator("[data-admin-article-row]").filter({ hasText: title });
 
   async function findArticleRowAcrossPages(page: import("@playwright/test").Page, title: string) {
     await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
@@ -42,7 +42,7 @@ test.describe("ADMIN-2E article bulk execution", () => {
       // The page streams the article table inside Suspense. DOMContentLoaded
       // fires before the server-rendered rows and pagination necessarily arrive.
       // Await the streamed table before deciding a record or next link is absent.
-      await expect(page.locator(".admin-article-row").first()).toBeVisible();
+      await expect(page.locator("[data-admin-article-row]").first()).toBeVisible();
       const row = rowFor(page, title);
       if ((await row.count()) > 0) return row;
       const next = page.getByRole("link", { name: "Ďalšia →" });
