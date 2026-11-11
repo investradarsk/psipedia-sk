@@ -1,4 +1,5 @@
-import {serviceCatalog,attributeCatalog} from "./service-catalog-contract.ts";
+import {attributeCatalog} from "./service-catalog-contract.ts";
+import {resolveBuiltInServiceDefinitions} from "./service-catalog-resolved.ts";
 import type {AdminCatalogOptionDto,CatalogMirrorStatus,CatalogOptionStatus} from "./service-catalog-admin-api-contract.ts";
 import type {ServiceFilterCategory} from "./directory-filter-contract.ts";
 import type {BuiltinCatalogOverride} from "./service-catalog-builtin-overrides.ts";
@@ -20,17 +21,13 @@ export function catalogEditorItems(
 ):CatalogEditorItem[]{
   const byId=new Map(overrides.map(item=>[item.id,item]));
   const builtIn:CatalogEditorItem[]=[
-    ...serviceCatalog.map(option=>{
-      const current=byId.get(option.id);
-      return {
-        id:option.id,label:current?.label??option.label,kind:"service" as const,
-        valueKind:"tri_state" as const,group:current?.group??option.group,
-        meaning:current?.meaning??option.meaning,
-        categories:current?.categories??option.categories,source:"built_in" as const,
-        status:"BUILT_IN" as const,mirror:"NOT_REQUIRED" as const,
-        version:current?.version??0,
-      };
-    }),
+    ...resolveBuiltInServiceDefinitions(overrides).map(option=>({
+      id:option.id,label:option.label,kind:"service" as const,
+      valueKind:"tri_state" as const,group:option.group,
+      meaning:option.meaning,categories:option.categories,source:"built_in" as const,
+      status:"BUILT_IN" as const,mirror:"NOT_REQUIRED" as const,
+      version:option.version,
+    })),
     ...attributeCatalog.map(option=>{
       const current=byId.get(option.id);
       return {
