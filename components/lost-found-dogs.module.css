@@ -876,3 +876,6 @@
   .detailCopy, .detailAside { gap: 10px; }
   .detailCopy .panel, .detailAside .panel { padding: 14px; }
 }
+
+/* Shared DetailContactsCard supplies visual geometry. Only multiline contact-note formatting is local. */
+.publicContactNote { display:block; margin-bottom:9px; white-space:pre-line; color:var(--detail-ink,#17352b); font-weight:650; overflow-wrap:anywhere; }
