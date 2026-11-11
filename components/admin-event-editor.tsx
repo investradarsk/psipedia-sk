@@ -10,10 +10,10 @@ import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { useRouter } from "next/navigation";
 import { AdminActionButton } from "@/components/admin-interaction-system";
-import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, EditorUnsavedChangesGuard, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
+import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
 import { AdminEventMarkdownEditor } from "@/components/admin-event-markdown-editor";
 import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
-import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useRef, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
@@ -98,79 +98,8 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
   });
   const [savedSnapshot, setSavedSnapshot] = useState(editorSnapshot);
   const dirty = editorSnapshot !== savedSnapshot;
-  const [confirmNavigation, setConfirmNavigation] = useState(false);
-  const pendingNavigationRef = useRef<(() => void) | null>(null);
+  // The shared EditorWorkspace now owns navigation and the unsaved dialog.
   const allowNavigationRef = useRef(false);
-  const requestNavigation = useCallback((navigate: () => void) => {
-    pendingNavigationRef.current = navigate;
-    setConfirmNavigation(true);
-  }, []);
-
-  // Scope navigation protection to this editor; the shared EditorWorkspace
-  // already guards its close button and native beforeunload.
-  useEffect(() => {
-    if (!dirty) return;
-    const onDocumentClick = (click: MouseEvent) => {
-      if (allowNavigationRef.current || click.defaultPrevented || click.button !== 0 ||
-          click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return;
-      const target = click.target;
-      const anchor = target instanceof Element ? target.closest<HTMLAnchorElement>("a[href]") : null;
-      if (!anchor || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
-      const destination = new URL(anchor.href, window.location.href);
-      if (destination.origin !== window.location.origin ||
-          (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
-      click.preventDefault();
-      click.stopPropagation();
-      requestNavigation(() => router.push(destination.pathname + destination.search + destination.hash));
-    };
-    document.addEventListener("click", onDocumentClick, true);
-
-    // The Navigation API catches history traversal and programmatic soft
-    // navigation that cannot be handled by a DOM link click.
-    const navigationApi = (window as Window & {
-      navigation?: EventTarget & { traverseTo?: (key: string) => Promise<unknown> };
-    }).navigation;
-    const onNativeNavigate = (event: Event) => {
-      if (allowNavigationRef.current || !event.cancelable) return;
-      const navigationEvent = event as Event & {
-        destination?: { url: string; key?: string };
-        navigationType?: string;
-        hashChange?: boolean;
-      };
-      if (navigationEvent.hashChange || !navigationEvent.destination?.url) return;
-      const destination = new URL(navigationEvent.destination.url);
-      if (destination.origin !== window.location.origin ||
-          (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
-      event.preventDefault();
-      const key = navigationEvent.destination.key;
-      if (navigationEvent.navigationType === "traverse") {
-        requestNavigation(() => {
-          if (key && navigationApi?.traverseTo) void navigationApi.traverseTo(key);
-          else window.history.back();
-        });
-      } else {
-        requestNavigation(() => router.push(destination.pathname + destination.search + destination.hash));
-      }
-    };
-    navigationApi?.addEventListener("navigate", onNativeNavigate);
-    return () => {
-      document.removeEventListener("click", onDocumentClick, true);
-      navigationApi?.removeEventListener("navigate", onNativeNavigate);
-    };
-  }, [dirty, requestNavigation, router]);
-
-  const stayInEditor = () => {
-    pendingNavigationRef.current = null;
-    setConfirmNavigation(false);
-  };
-  const discardAndNavigate = () => {
-    const navigate = pendingNavigationRef.current;
-    pendingNavigationRef.current = null;
-    allowNavigationRef.current = true;
-    setConfirmNavigation(false);
-    setSavedSnapshot(editorSnapshot);
-    navigate?.();
-  };
 
   function changeTitle(value: string) {
     setTitle(value);
@@ -293,6 +222,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
         previewFocusable
         previewTitle="Živý súhrn podujatia"
         dirty={dirty}
+        allowNativeExitRef={allowNavigationRef}
         onClose={() => router.push("/admin/podujatia")}
         closeLabel="Späť na podujatia"
         actions={
@@ -419,13 +349,7 @@ export function AdminEventEditor({ event, initialInternalNotes = "", automationS
           setImageEditorOpen(false);
         }} />}
       </EditorWorkspace>
-      <EditorUnsavedChangesGuard
-        active={dirty}
-        allowNativeExitRef={allowNavigationRef}
-        open={confirmNavigation}
-        onStay={stayInEditor}
-        onDiscard={discardAndNavigate}
-      />
+
 </div>
   );
 }

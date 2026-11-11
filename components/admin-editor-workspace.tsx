@@ -19,6 +19,7 @@ import styles from "./admin-editor-workspace.module.css";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminEditorSectionVisibility } from "@/components/admin-editor-section-visibility";
+import { useAdminEditorNavigationGuard } from "@/components/admin-editor-navigation-guard";
 
 export { AdminEditorSection as EditorSection } from "@/components/admin-interaction-system";
 
@@ -219,6 +220,7 @@ export function EditorWorkspace({
   actions,
   dirty = false,
   onClose,
+  allowNativeExitRef,
   closeLabel,
   children,
   sectionMode = "scroll",
@@ -249,12 +251,18 @@ export function EditorWorkspace({
   actions?: ReactNode | ((requestClose: () => void) => ReactNode);
   dirty?: boolean;
   onClose?: () => void;
+  /** Allow a confirmed create/save redirect without a second dirty prompt. */
+  allowNativeExitRef?: RefObject<boolean>;
   closeLabel?: string;
   children: ReactNode;
 }) {
   const [activeSection, setActiveSection] = useState(sections[0]?.id ?? "");
   const [showPreview, setShowPreview] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const navigation = useAdminEditorNavigationGuard({
+    dirty: dirty && (mode === "page" || open),
+    allowNativeExitRef,
+  });
   const contentRef = useRef<HTMLDivElement>(null);
   const currentSection = sections.some((section) => section.id === (activeSectionId ?? activeSection))
     ? (activeSectionId ?? activeSection)
@@ -287,8 +295,17 @@ export function EditorWorkspace({
     else onClose();
   }, [dirty, onClose]);
   const discard = () => {
+    if (confirmClose) {
+      setConfirmClose(false);
+      navigation.allowExitForNextNavigation();
+      onClose?.();
+    } else {
+      navigation.discard();
+    }
+  };
+  const stay = () => {
     setConfirmClose(false);
-    onClose?.();
+    navigation.stay();
   };
   const navigate = (id: string) => {
     if (!sections.some((section) => section.id === id)) return;
@@ -366,8 +383,9 @@ export function EditorWorkspace({
       )}
       <EditorUnsavedChangesGuard
         active={dirty && (mode === "page" || open)}
-        open={confirmClose && (mode === "page" || open)}
-        onStay={() => setConfirmClose(false)}
+        allowNativeExitRef={navigation.allowNativeExitRef}
+        open={(confirmClose || navigation.confirmOpen) && (mode === "page" || open)}
+        onStay={stay}
         onDiscard={discard}
       />
     </>
