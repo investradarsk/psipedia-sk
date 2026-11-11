@@ -21,10 +21,10 @@ type SearchParams = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] ?? "" : value ?? "";
 
 async function AdminNotionAlertsPanel({ promise }: {
-  promise: ReturnType<typeof loadDirectoryNotionAlerts>;
+  promise: Promise<Awaited<ReturnType<typeof loadDirectoryNotionAlerts>> | null>;
 }) {
   // A failed Notion summary must not hold back the actionable D1 queue.
-  const notionAlerts = await promise.catch(() => null);
+  const notionAlerts = await promise;
   if (notionAlerts === null) return <p role="alert" className="admin-panel">Stav prenosu do Notion sa nepodarilo načítať. Upozornenia sa nepovažujú za vybavené.</p>;
   if (!notionAlerts.length) return null;
   return <section className="admin-panel" aria-labelledby="notion-sync-alert-title">
@@ -49,7 +49,7 @@ async function AdminOperationsContent({
   cursor,
 }: {
   attentionPromise: ReturnType<typeof loadAdminAttentionPage>;
-  notionAlertsPromise: ReturnType<typeof loadDirectoryNotionAlerts>;
+  notionAlertsPromise: Promise<Awaited<ReturnType<typeof loadDirectoryNotionAlerts>> | null>;
   filters: AdminAttentionFilters;
   cursor?: string;
 }) {
@@ -105,7 +105,8 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
 
   // One canonical read for both the bell and page; stream the shell before D1 finishes.
   const attentionPromise = loadAdminAttentionPage({ filters, cursor });
-  const notionAlertsPromise = loadDirectoryNotionAlerts((env as unknown as { DB?: D1Database }).DB);
+  const notionAlertsPromise = loadDirectoryNotionAlerts((env as unknown as { DB?: D1Database }).DB)
+    .catch(() => null);
   const attentionSummaryPromise = loadExactAdminAttentionSummary();
 
   return (
