@@ -5,7 +5,7 @@ import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import {adminSelectedImage} from "@/lib/admin-selected-image";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Blocks, BookOpen, CalendarDays, Camera, CheckCircle2, ChevronDown, Clock3, Eye, PawPrint, Search, Settings2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
@@ -232,6 +232,7 @@ export function AdminArticleEditor({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [fullscreenPreviewOpen, setFullscreenPreviewOpen] = useState(false);
   const [activeArticleSection, setActiveArticleSection] = useState<string>("article-publish");
+  const [qaFocusRequest, setQaFocusRequest] = useState<{ sectionId: string } | null>(null);
   const [dirty, setDirtyState] = useState(false);
   const dirtyRef = useRef(false);
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
@@ -246,6 +247,15 @@ export function AdminArticleEditor({
       document.getElementById(visibleId)?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
   }
+  // Focus only after React has rendered the newly revealed QA-blocked section.
+  // Each new request also supports repeated validation failures in one section.
+  useLayoutEffect(() => {
+    if (!qaFocusRequest || activeArticleSection !== qaFocusRequest.sectionId) return;
+    const panel = document.getElementById(qaFocusRequest.sectionId);
+    if (panel?.hidden) return;
+    panel?.focus({ preventScroll: true });
+  }, [activeArticleSection, qaFocusRequest]);
+
   const focusResult = () => window.requestAnimationFrame(() => {
     resultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     resultRef.current?.focus({ preventScroll: true });
@@ -427,8 +437,9 @@ export function AdminArticleEditor({
             : firstBlocker?.field === "title" || firstBlocker?.field === "excerpt" ? "article-basics"
               : firstBlocker?.field.startsWith("sources") || firstBlocker?.field.startsWith("blocks") ? "article-blocks"
                 : firstBlocker?.field === "intro" ? "article-content" : "article-publish";
-          chooseArticleSection(targetId);
-          window.requestAnimationFrame(() => document.getElementById(targetId)?.focus({ preventScroll: true }));
+          const visibleTargetId = targetId === "article-content" ? "article-basics" : targetId;
+          chooseArticleSection(visibleTargetId);
+          setQaFocusRequest({ sectionId: visibleTargetId });
         }
         throw new Error(data.error || "Článok sa nepodarilo uložiť.");
       }
