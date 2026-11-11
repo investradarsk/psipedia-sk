@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
+import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/components/admin-editor-navigation-guard";
 import styles from "./admin-quick-navigation.module.css";
 
 type Destination = { label: string; category: string; href: string; keywords: string; subtitle?: string };
@@ -128,20 +129,26 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
     onOpenChange(value);
   }
   function go(href: string) {
+    const navigate = () => {
+      const target = new URL(href, window.location.origin);
+      if (target.origin === window.location.origin &&
+        (target.pathname === "/admin" || target.pathname === "/admin/clanky") &&
+        window.matchMedia("(max-width: 820px)").matches &&
+        isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) {
+        window.location.assign(target.href);
+        return;
+      }
+      router.push(href);
+    };
+    // Ctrl+K uses buttons. Ask the shared dirty editor guard before router.push,
+    // preserving the current draft if the user declines the exit.
     changeOpen(false);
-
-    // Ctrl+K uses buttons rather than anchors, so the iOS document fallback
-    // in AdminMobileDocumentNavigation cannot intercept this route change.
-    const target = new URL(href, window.location.origin);
-    if (target.origin === window.location.origin &&
-      (target.pathname === "/admin" || target.pathname === "/admin/clanky") &&
-      window.matchMedia("(max-width: 820px)").matches &&
-      isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) {
-      window.location.assign(target.href);
-      return;
-    }
-
-    router.push(href);
+    const event = new CustomEvent<AdminNavigationIntent>(ADMIN_NAVIGATION_INTENT_EVENT, {
+      cancelable: true,
+      detail: { href, navigate },
+    });
+    if (!window.dispatchEvent(event)) return;
+    navigate();
   }
   function handleKeys(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown" && results.length) {
