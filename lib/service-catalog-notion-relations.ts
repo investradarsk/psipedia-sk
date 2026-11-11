@@ -8,7 +8,7 @@
  * The old Notion "Služby" rich-text property is preserved for historical data.
  */
 import {notionRequest,type NotionSyncBindings} from "./notion-sync-shared";
-import {planCatalogRelationSync} from "./service-catalog-notion-relation-plan";
+import {planCatalogRelationSync,planSignedCatalogRelationSync} from "./service-catalog-notion-relation-plan";
 import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
 import {importNotionServiceIds,projectServiceChoiceToDirectoryNotion,ensureCanonicalServiceChoicesInLegacy} from "./service-profile-notion-bridge";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port";
@@ -177,48 +177,13 @@ export async function syncProfileCatalogRelation(input:{
      throw Error("SERVICES_RELATION_BAD_BASELINE");
    previous=decoded;
  }
- // With an acknowledged baseline, signed Notion edits are full, verifiable
- // selection changes. Without one, an omitted service cannot authorize delete.
- if(input.notionAdditionsOnly&&previous===null){
-   if(local.some(id=>!remote.includes(id)))
-     throw Error("SERVICES_RELATION_UNVERIFIED_DELETE");
-   const target=[...new Set([...local,...remote])].sort();
-   const additions=target.filter(id=>!local.includes(id));
-   const readIds=async()=>relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
-   const equalIds=(a:readonly string[]|null,b:readonly string[])=>
-     a!==null&&JSON.stringify([...a].sort())===JSON.stringify([...b].sort());
-   if(!equalIds(await readIds(),remote))
-     throw Error("SERVICES_RELATION_CHANGED_BEFORE_IMPORT");
-   if(additions.length){
-     const currentLocal=await canonicalYes(db,profileId,available);
-     if(!equalIds(currentLocal,local))
-       throw Error("SERVICES_RELATION_LOCAL_CHANGED_BEFORE_IMPORT");
-     await importNotionServiceIds(db,profileId,category,target);
-   }
-   const confirmed=await canonicalYes(db,profileId,available);
-   if(!equalIds(confirmed,target))throw Error("SERVICES_RELATION_IMPORT_INCOMPLETE");
-   await ensureCanonicalServiceChoicesInLegacy(db,profileId,confirmed);
-   await reflectPublicServiceText(db,bindings,pageId,profileId,directoryDataSourceId);
-   const pushed=!equalIds(remote,confirmed);
-   if(pushed){
-     if(!equalIds(await readIds(),remote))
-       throw Error("SERVICES_RELATION_CHANGED_BEFORE_EXPORT");
-     const pages=confirmed.map(id=>({id:lookup.serviceToPage.get(id)!}));
-     const ack=await notionRequest<Page>(bindings,"/pages/"+encodeURIComponent(pageId),{
-       method:"PATCH",body:JSON.stringify({properties:{[PROPERTY]:{relation:pages}}})
-     },{retryTransient:false});
-     if(normal(ack.id??"")!==normal(pageId)||!equalIds(await readIds(),pages.map(p=>p.id)))
-       throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
-   }
-   await db.prepare(
-     "INSERT INTO directory_service_notion_relation_sync (directory_profile_id,notion_page_id,confirmed_ids_json,synced_at) "+
-     "VALUES (?1,?2,?3,?4) ON CONFLICT(directory_profile_id) DO UPDATE SET "+
-     "confirmed_ids_json=excluded.confirmed_ids_json,synced_at=excluded.synced_at "+
-     "WHERE notion_page_id=excluded.notion_page_id"
-   ).bind(profileId,pageId,JSON.stringify(confirmed),new Date().toISOString()).run();
-   return additions.length?"pulled":pushed?"pushed":"unchanged";
- }
- const plan=planCatalogRelationSync(local,remote,previous);
+ // A signed relation event cannot authorize deletion without a prior
+ // confirmed common state. After that, every service is reconciled by ID.
+ if(input.notionAdditionsOnly&&previous===null&&local.some(id=>!remote.includes(id)))
+   throw Error("SERVICES_RELATION_UNVERIFIED_DELETE");
+ const plan=input.notionAdditionsOnly
+   ?planSignedCatalogRelationSync(local,remote,previous)
+   :planCatalogRelationSync(local,remote,previous);
  if(plan.action==="conflict")throw Error("SERVICES_RELATION_BOTH_SIDES_CHANGED_REVIEW");
  if(plan.action==="pull"||plan.action==="merge"){
    // Recheck the relation before touching D1; never import a truncated/superseded page.
@@ -257,7 +222,7 @@ export async function syncProfileCatalogRelation(input:{
      throw Error("SERVICES_RELATION_WRITE_NOT_VERIFIED");
  }
  await ensureCanonicalServiceChoicesInLegacy(db,profileId,await canonicalYes(db,profileId,available));
- if(plan.action==="pull"||plan.action==="merge")
+ if(plan.action==="pull"||plan.action==="merge"||input.notionAdditionsOnly)
    await reflectPublicServiceText(db,bindings,pageId,profileId,directoryDataSourceId);
  // Do not commit a baseline if the remote relation changed while reconciling.
  const finalRelation=relationIds(await readRemote(bindings,pageId,directoryDataSourceId));
