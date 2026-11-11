@@ -7,7 +7,7 @@ const cases = [
     listPath: "/pomoc-psom/stratene-psy",
     detailPath: "/pomoc-psom/stratene-psy/strateny-e2e-rex-nitra",
     heading: "Stratené psy",
-    detailHeading: "Rex",
+    detailHeading: "Stratený Rex – Nitra",
   },
   {
     type: "FOUND",
@@ -459,7 +459,7 @@ test("valid public submission stays private until admin approval, then publishes
   expect(publicHref).toMatch(/^\/pomoc-psom\/najdene-psy\//);
 
   await page.goto(publicHref as string, { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { level: 1, name: `Nájdený ${unique}` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: new RegExp("^Nájdený " + unique + " – ") })).toBeVisible();
   const html = await page.content();
   expect(html).not.toContain(email);
   expect(html).not.toContain(phone);
