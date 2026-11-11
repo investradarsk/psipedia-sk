@@ -208,7 +208,7 @@ test('time filters, start month/year and sorting work across the complete datase
   const sortedResponse = await request.get('/api/admin/events?sort=title');
   expect(sortedResponse.ok()).toBe(true);
   const sorted = await sortedResponse.json();
-  await expect(page.locator('[data-testid="admin-record-row"] td:nth-child(2) strong')).toHaveText(sorted.events.map((e: { title: string }) => e.title));
+  await expect(page.locator('[data-testid="admin-record-row"] a[href^="/admin/podujatia/"] strong')).toHaveText(sorted.events.map((e: { title: string }) => e.title));
   await page.getByLabel('Zoradiť', { exact: true }).selectOption('updated');
   await expect(page.locator('[data-testid="admin-record-row"]').first()).toContainText('Stretnutie majiteľov psov 175');
   await page.getByLabel('Zoradiť', { exact: true }).selectOption('created');
