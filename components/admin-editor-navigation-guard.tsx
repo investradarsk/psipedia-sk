@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { ADMIN_NAVIGATION_INTENT_EVENT, isEditorExit, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
 
 /**
  * One navigation gate shared by all Admin editors. This hook does not require
  * a router context (the directory editor also runs in Gemini modal previews).
  * It never writes form state, pushes fake history, or calls an API.
  */
-export const ADMIN_NAVIGATION_INTENT_EVENT = "psipedia:admin-navigation-intent";
-export type AdminNavigationIntent = { href: string; navigate: () => void };
-
 type NavigationHandle = EventTarget & {
   traverseTo?: (key: string) => Promise<unknown>;
   navigate?: (url: string, options?: { history?: "push" | "replace" }) => void;
@@ -20,17 +18,6 @@ type NavigationEventLike = Event & {
   navigationType?: string;
   hashChange?: boolean;
 };
-
-/** Compare pathname and query; a hash-only jump remains an in-editor action. */
-export function isEditorExit(href: string, currentHref: string): boolean {
-  try {
-    const to = new URL(href, currentHref);
-    const from = new URL(currentHref);
-    return (to.protocol === "http:" || to.protocol === "https:") &&
-      to.origin === from.origin &&
-      (to.pathname !== from.pathname || to.search !== from.search);
-  } catch { return false; }
-}
 
 export function useAdminEditorNavigationGuard({
   dirty,
