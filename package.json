@@ -32,7 +32,7 @@
     "test:seo-structured-data": "node --experimental-strip-types --test tests/seo-structured-data-2.test.mjs",
     "test:sitewide-ai-entity-surface": "node --experimental-strip-types --test tests/sitewide-ai-entity-surface.test.mjs tests/events-phase4.test.mjs tests/adoption-detail.test.mjs tests/organization-profile-presentation.test.mjs tests/organization-seo.test.mjs tests/seo-structured-data-2.test.mjs tests/directory-detail-presentation.test.mjs",
     "test:social-metadata-rendered": "node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/social-metadata-rendered.test.mjs",
-    "test:homepage-media": "node --experimental-strip-types --test tests/homepage-media-quality.test.mjs tests/homepage-directory-query-performance.test.mjs tests/public-location-presentation.test.mjs tests/responsive-media.test.mjs tests/smart-card-images.test.mjs",
+    "test:homepage-media": "node --experimental-strip-types --test tests/homepage-media-quality.test.mjs tests/homepage-directory-query-performance.test.mjs tests/public-location-presentation.test.mjs tests/responsive-media.test.mjs tests/public-media-responsiveness-1216.test.mjs tests/public-photo-gallery.test.mjs tests/smart-card-images.test.mjs",
     "test:perf-fastpaths": "node --experimental-strip-types --test tests/performance-fastpaths.test.mjs tests/public-anonymous-html-cache.test.mjs tests/public-html-cache-safety.test.mjs tests/public-html-cache.test.mjs tests/web-perf-html-cache-probe.test.mjs",
     "perf:html-cache:probe": "node --experimental-strip-types scripts/web-perf-html-cache-probe.mjs",
     "test:public-css-scope": "node --test tests/public-css-scope.test.mjs",
