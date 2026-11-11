@@ -54,3 +54,16 @@ test("each breed section uses a single editorial heading with distinct practical
   assert.match(css, /\.page \.contentLayout \.accordion\s*\{[\s\S]*?border: 1px solid/);
   assert.match(css, /\.page \.contentLayout \.accordionList\s*\{[\s\S]*?gap: 12px/);
 });
+
+test("mobile facts appear second, directly after O plemene, without changing desktop aside", () => {
+  const about = page.indexOf('<h2 id="breed-about">O plemene</h2>');
+  const mobile = page.indexOf('data-testid="breed-quick-facts-mobile"');
+  const ratings = page.indexOf('id="hodnotenia"');
+  assert.ok(about >= 0 && about < mobile && mobile < ratings);
+  assert.match(page, /className=\{styles\.desktopFacts\} data-testid="breed-quick-facts"/);
+  assert.match(page, /className=\{styles\.mobileFacts\} data-testid="breed-quick-facts-mobile"/);
+  assert.match(css, /\.mobileFacts \{ display: none/);
+  assert.match(css, /@media \(max-width: 800px\) \{[\s\S]*?\.desktopFacts \{ display: none/);
+  assert.match(css, /\.mobileFacts \{[\s\S]*?display: block/);
+  assert.match(page, /<DetailFactsCard title="Plemeno v skratke" facts=\{quickFacts\}/);
+});

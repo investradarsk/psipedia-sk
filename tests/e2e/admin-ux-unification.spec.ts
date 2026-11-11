@@ -309,7 +309,8 @@ test("breed FCI and SEO sections remain keyboard accessible while unsaved input 
   await expect(page.locator("#breed-settings").getByLabel("Meta description")).toBeVisible();
   await noOverflow(page);
   await accessible(page);
-  await activate("breed-basic", "Základné údaje");
+  await activate("breed-basic", "Plemeno v skratke");
+  await activate("breed-overview", "O plemene");
   await expect(nameInput).toHaveValue("Neuložené plemeno");
 });
 

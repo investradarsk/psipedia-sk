@@ -257,6 +257,11 @@ test("breed profile: canonical breadcrumbs and direct sections, no-crop media, u
   await expect(breadcrumbs).toBeVisible();
   await expect(breadcrumbs.getByRole("link", { name: "Plemená" })).toHaveAttribute("href", "/plemena");
   await expect(page.getByRole("navigation", { name: "Navigácia v profile plemena" })).toHaveCount(0);
+  // Desktop keeps facts in the sidebar; phones place the same card after O plemene.
+  const isMobile = (page.viewportSize()?.width ?? 1440) <= 800;
+  await expect(page.getByTestId(isMobile ? "breed-quick-facts-mobile" : "breed-quick-facts")).toBeVisible();
+  await expect(page.getByTestId(isMobile ? "breed-quick-facts" : "breed-quick-facts-mobile")).toBeHidden();
+  await expect(page.getByText("V tomto profile", { exact: true })).toHaveCount(0);
 
   const image = page.getByTestId("breed-hero-image");
   await expect(image).toBeVisible();
@@ -290,6 +295,12 @@ test("breed profile: canonical breadcrumbs and direct sections, no-crop media, u
   await expect(page.locator('a[href^="/adresar/treneri?breed="]')).toHaveCount(0);
   await expectNoHorizontalOverflow(page, "Breed profile section navigation");
   await expectAxeClean(page, "Breed profile");
+
+  const fciCta = page.getByTestId("breed-fci-cta");
+  await fciCta.focus();
+  await expect(fciCta).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/plemena\/biely-svajciarsky-ovciak\/fci-standard$/);
 
   await page.goto("/plemena/nova-scotia-duck-tolling-retriever");
   await expect(page.getByText("Fotografia sa pripravuje", { exact: true })).toBeVisible();
