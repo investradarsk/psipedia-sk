@@ -685,7 +685,11 @@ export function AdminArticleEditor({
           <div className={editorStyles.mobileExtraActions} aria-label="Ďalšie publikačné akcie">
             {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>Naplánovať publikovanie</AdminActionButton>}
             {displayedStatus !== "published" && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("published")}>Publikovať {portalSection === "novinky" ? "novinku" : "článok"}</AdminActionButton>}
-            
+            {article && <div className={editorStyles.mobileLifecycleActions}>
+              <AdminRecordLifecycleActions kind="articles" recordId={article.id} status={displayedStatus}
+                disabled={saving || uploading} returnHref="/admin/clanky"
+                onUnpublished={(_next,updatedAt)=>{setStatus("draft");if(updatedAt)lastSavedUpdatedAtRef.current=updatedAt;}} />
+            </div>}
           </div>
           <div className="admin-field-grid">
             <div className="admin-field">
