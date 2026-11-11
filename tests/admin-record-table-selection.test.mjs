@@ -68,11 +68,11 @@ test("breed and article lists share compact TanStack grid without moving lifecyc
   const article = source("components/admin-dashboard.tsx");
   const table = source("components/admin-record-table.tsx");
   const breedSort = source("lib/admin-breeds.ts");
-  for (const module of [breed, article]) {
-    assert.match(module, /<AdminRecordTable/);
-    assert.match(module, /serverSorting=\{\{/);
-    assert.match(module, /selection=\{\{/);
-    assert.match(module, /<AdminInlineRowActions/);
+  for (const listing of [breed, article]) {
+    assert.match(listing, /<AdminRecordTable/);
+    assert.match(listing, /serverSorting=\{\{/);
+    assert.match(listing, /selection=\{\{/);
+    assert.match(listing, /<AdminInlineRowActions/);
   }
   assert.match(breed, /rowDataAttribute="data-admin-breed-row"/);
   assert.match(article, /rowDataAttribute="data-admin-article-row"/);
