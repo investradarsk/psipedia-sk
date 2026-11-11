@@ -149,6 +149,8 @@ export async function syncProfileCatalogRelation(input:{
  directoryDataSourceId:string;lookup:CatalogRelationLookup;
  /** Signed relation event; absent services can only be deleted with confirmed baseline. */
  notionExplicitEdit?:boolean;
+ /** Only a fresh explicit Admin checkbox save may establish an initial D1→Notion baseline. */
+ adminChoiceSave?:boolean;
 }):Promise<"skipped"|"unchanged"|"pushed"|"pulled"|"merged">{
  const {db,bindings,pageId,profileId,category,lookup,directoryDataSourceId}=input;
  if(!await schemaExists(db))return "skipped"; // Migration not yet applied: do not break existing sync.
@@ -179,8 +181,10 @@ export async function syncProfileCatalogRelation(input:{
  }
  // A signed relation event cannot authorize deletion without a prior
  // confirmed common state. After that, every service is reconciled by ID.
- if(input.notionExplicitEdit&&previous===null&&local.some(id=>!remote.includes(id)))
-   throw Error("SERVICES_RELATION_UNVERIFIED_DELETE");
+ if(previous===null&&local.some(id=>!remote.includes(id))){
+   if(input.notionExplicitEdit)throw Error("SERVICES_RELATION_UNVERIFIED_DELETE");
+   if(!input.adminChoiceSave)throw Error("SERVICES_RELATION_UNVERIFIED_INITIAL_PUSH");
+ }
  const plan=input.notionExplicitEdit
    ?planSignedCatalogRelationSync(local,remote,previous)
    :planCatalogRelationSync(local,remote,previous);
