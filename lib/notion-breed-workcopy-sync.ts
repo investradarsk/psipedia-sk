@@ -12,7 +12,7 @@ import {
   type ManagedBreed,
 } from "@/lib/breed-store";
 import {
-  notionRequest, notionFlagEnabled, notionRichTextProperty,
+  notionRequest, notionFlagEnabled, notionRichTextProperty, notionNumberProperty,
   type NotionPage, type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
@@ -208,7 +208,30 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
         page, args.manualImport ? Object.keys(page.properties??{}) : args.changedPropertyIds,
         BREED_NOTION_SCHEMA,
       );
-      if (!edited.length) {
+      // FCI number has a physical Notion column but is absent from the
+      // historical editorial registry because it used to be an identity key.
+      // It is now a typed field, and only Psipedia ID identifies the record.
+      const fciProperty = page.properties?.["FCI číslo"];
+      const changedProperties = new Set(args.changedPropertyIds ?? []);
+      const fciEdited = Boolean(args.manualImport ||
+        (fciProperty && (changedProperties.has("FCI číslo") ||
+          (typeof fciProperty.id === "string" &&
+            changedProperties.has(fciProperty.id)))));
+      const incomingFci = notionNumberProperty(page, "FCI číslo");
+      let nextFci = canonical.fciNumber;
+      let rejectedFci = false;
+      if (fciEdited && incomingFci !== canonical.fciNumber) {
+        const usable = incomingFci === null ||
+          (Number.isSafeInteger(incomingFci) && incomingFci > 0);
+        const occupied = usable && incomingFci !== null
+          ? await args.database.prepare(
+              "SELECT id FROM managed_breeds WHERE fci_number=? AND id<>? LIMIT 1",
+            ).bind(incomingFci, canonical.id).first<{id:number}>()
+          : null;
+        if (usable && !occupied) nextFci = incomingFci;
+        else rejectedFci = true; // Database structural conflict, not profile identity.
+      }
+      if (!edited.length && !fciEdited) {
         if (controlledUpdated) summary.updated++; else summary.unchanged++;
         continue;
       }
@@ -250,14 +273,16 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       }, new Set(), validateNotionBreedCandidate);
       const candidate = {
         ...safe.candidate,
+        fciNumber: nextFci,
         status: canonical.status,
         imageKey: safe.accepted.includes("image") ? null : canonical.imageKey,
         relatedBreedIds: canonical.relatedBreedIds,
         relatedArticleIds: canonical.relatedArticleIds,
         directoryProfileIds: canonical.directoryProfileIds,
       };
-      const changed = accepted.length > 0 &&
-        !same(breedFieldSnapshot(canonical), breedFieldSnapshot(candidate));
+      const changed = (accepted.length > 0 &&
+        !same(breedFieldSnapshot(canonical), breedFieldSnapshot(candidate))) ||
+        nextFci !== canonical.fciNumber;
       const updated = changed
         ? await updateManagedBreed(canonical.id, candidate, actor,
           canonical.updatedAt, { preserveUnchangedInvalid: canonical })
@@ -276,11 +301,12 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       if (changed || controlledUpdated) summary.updated++; else summary.unchanged++;
       // Bad or unsupported fields remain pending; unrelated valid fields still
       // commit independently without modifying old Notion or publication.
-      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length || rejectedMedia.length) {
+      if (safe.skipped.length || plan.skipped.length || rejectedMeasurements.length ||
+          rejectedMedia.length || rejectedFci) {
         console.warn("breed_workcopy_fields_pending",{
           id: canonical.id,
           count: safe.skipped.length + plan.skipped.length +
-            rejectedMeasurements.length + rejectedMedia.length,
+            rejectedMeasurements.length + rejectedMedia.length + Number(rejectedFci),
         });
         if (args.manualImport) throw Error("BREED_WORKCOPY_MANUAL_PARTIAL_FIELDS");
       }
@@ -328,8 +354,11 @@ export async function writeBackBreedToWorkCopy(input: {
       );
   const keys = selected.filter((field): field is BreedNotionField =>
     !skippedSpecial.has(field) && isTransferableBreedWorkCopyValue(actualAdmin[field], true));
+  const fciChanged = input.before.fciNumber !== input.breed.fciNumber &&
+    (!input.changedFieldKeys || input.changedFieldKeys.includes("fciNumber") ||
+      input.forceFieldKeys?.includes("fciNumber"));
   // No record-wide receipt diff: never resend an untouched Admin field.
-  if (!keys.length) return {
+  if (!keys.length && !fciChanged) return {
     linked: true, updated: false, reason: "no-mirrored-field-change" as const,
   };
   const pending:string[] = [];
@@ -381,6 +410,39 @@ export async function writeBackBreedToWorkCopy(input: {
       pending.push(field);
       console.warn("breed_workcopy_field_write_pending",{
         breedId:input.breed.id, field,
+        code:error instanceof Error?error.message:"UNKNOWN",
+      });
+    }
+  }
+  if (fciChanged) {
+    try {
+      const number = input.breed.fciNumber;
+      let page = await notionRequest<NotionPage>(input.bindings,
+        "/pages/" + encodeURIComponent(link.work_notion_page_id));
+      assertOwnedPage(page, link, input.breed, input.bindings);
+      if (notionNumberProperty(page, "FCI číslo") !== number) {
+        const fresh = await notionRequest<NotionPage>(input.bindings,
+          "/pages/" + encodeURIComponent(link.work_notion_page_id));
+        assertOwnedPage(fresh, link, input.breed, input.bindings);
+        if (fresh.last_edited_time !== page.last_edited_time)
+          throw Error("BREED_WORKCOPY_FCI_CONCURRENT_EDIT");
+        await notionRequest(input.bindings,
+          "/pages/" + encodeURIComponent(link.work_notion_page_id),{
+            method:"PATCH",body:JSON.stringify({properties:{
+              "FCI číslo":{number},
+            }}),
+          });
+        page = await notionRequest<NotionPage>(input.bindings,
+          "/pages/" + encodeURIComponent(link.work_notion_page_id));
+        assertOwnedPage(page, link, input.breed, input.bindings);
+      }
+      if (notionNumberProperty(page,"FCI číslo") !== number)
+        throw Error("BREED_WORKCOPY_FCI_NOT_CONFIRMED");
+      acknowledged.push("fciNumber");
+    } catch (error) {
+      pending.push("fciNumber");
+      console.warn("breed_workcopy_field_write_pending",{
+        breedId:input.breed.id,field:"fciNumber",
         code:error instanceof Error?error.message:"UNKNOWN",
       });
     }
