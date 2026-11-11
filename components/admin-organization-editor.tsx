@@ -35,6 +35,7 @@ import { organizationAdminInputFromCandidate, type OrganizationAdminInput } from
 import type { OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
 import { organizationPublicationTypes } from "@/lib/help-organization-publication";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
+import { AdminOrganizationSuggestions, type OrganizationSuggestionsResult } from "@/components/admin-organization-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 
 const typeLabels: Record<string, string> = {
@@ -76,10 +77,12 @@ export function AdminOrganizationEditor({
   organization,
   initialLocations = [],
   automationSuggestions = [],
+  automationSuggestionsPromise,
 }: {
   organization?: OrganizationPublicationAdminItem | null;
   initialLocations?: OrganizationLocationAdminRecord[];
   automationSuggestions?: CanonicalUpdateSuggestion[];
+  automationSuggestionsPromise?: Promise<OrganizationSuggestionsResult>;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<OrganizationAdminInput>(() => organization ? organizationAdminInputFromCandidate(organization) : blankInput());
@@ -258,7 +261,9 @@ export function AdminOrganizationEditor({
         <div className={styles.content}>
           <AdminFormFeedback message={message} error={error} pending={saving} className="admin-message" errorClassName="admin-message--error" />
           <div className="admin-event-fields">
-      <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
+      {automationSuggestionsPromise
+        ? <AdminOrganizationSuggestions promise={automationSuggestionsPromise} onAccepted={applyAutomationUpdate} />
+        : <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />}
       {archived && <p className="admin-message admin-message--error">Archivovaná organizácia je iba na čítanie. Obnov ju zo zoznamu organizácií do konceptu, ak ju potrebuješ upraviť.</p>}
 
       <AdminEditorSection id="organization-general" className="admin-form-card">
