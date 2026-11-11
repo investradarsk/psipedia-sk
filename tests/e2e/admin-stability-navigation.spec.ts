@@ -67,17 +67,17 @@ test("consecutive Admin soft navigations remain usable with browser Back and For
   await expect(page.locator("[data-admin-sidebar][data-admin-hydrated='true']")).toBeVisible();
 
   await page.locator('[data-admin-shell] a[href="/admin/plemena"]:visible').first().click();
-  await expect(page).toHaveURL(/\\/admin\\/plemena$/);
+  await expect(page).toHaveURL(new RegExp("/admin/plemena$"));
   await expect(page.locator("[data-admin-shell]")).toBeVisible();
 
   await page.locator('[data-admin-sidebar] a[href="/admin/clanky"]').click();
-  await expect(page).toHaveURL(/\\/admin\\/clanky$/);
+  await expect(page).toHaveURL(new RegExp("/admin/clanky$"));
   await expect(page.locator("[data-admin-shell]")).toBeVisible();
 
   await page.goBack();
-  await expect(page).toHaveURL(/\\/admin\\/plemena$/);
+  await expect(page).toHaveURL(new RegExp("/admin/plemena$"));
   await expect(page.locator("[data-admin-shell]")).toBeVisible();
   await page.goForward();
-  await expect(page).toHaveURL(/\\/admin\\/clanky$/);
+  await expect(page).toHaveURL(new RegExp("/admin/clanky$"));
   await expect(page.locator("[data-admin-shell]")).toBeVisible();
 });
