@@ -160,9 +160,11 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
   if (!args.targetPageId || (!args.manualImport && !args.changedPropertyIds?.length))
     return summary;
   const result=await args.database.prepare(
+    // Notion sends dashed UUIDs; historical ACTIVE links store compact UUIDs.
+    // Treat them as the SAME page before looking up the individual field edit.
     "SELECT * FROM breed_notion_workcopy_links WHERE status='ACTIVE' "+
-    "AND work_notion_page_id=? LIMIT 1",
-  ).bind(args.targetPageId).all<ShadowLink>();
+    "AND replace(lower(work_notion_page_id),'-','')=? LIMIT 1",
+  ).bind(normalized(args.targetPageId)).all<ShadowLink>();
   for (const link of result.results) {
     if (await notionPageIsTombstoned(args.database,link.work_notion_page_id)) {
       summary.unchanged++; continue;

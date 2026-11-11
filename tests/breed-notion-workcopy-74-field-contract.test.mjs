@@ -49,8 +49,14 @@ test("every live editorial Admin field maps to one real Notion cell, never to a 
   assert.equal(new Set(mapped.map(x=>x.notion)).size,mapped.length);
   assert.deepEqual(sorted(mapped.map(x=>x.notion)),sorted(BREED_WORKCOPY_EDITORIAL_PROPERTIES));
   for(const spec of mapped){
-    const expected=spec.type==="text"?"text":spec.type;
-    assert.equal(notion[spec.notion]?.type,expected,spec.id+" -> "+spec.notion);
+    // Existing Notion URL properties remain compatible during a gradual
+    // conversion to ordinary text. Each physical cell is still independent.
+    if(spec.type==="url") {
+      assert.ok(["url","text"].includes(notion[spec.notion]?.type),
+        spec.id+" -> "+spec.notion);
+    } else {
+      assert.equal(notion[spec.notion]?.type,spec.type,spec.id+" -> "+spec.notion);
+    }
   }
   const field=id=>mapped.find(x=>x.id===id)?.notion;
   assert.equal(field("editorial.overview"),"Prehľad plemena");

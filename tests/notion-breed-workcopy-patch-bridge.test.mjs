@@ -86,6 +86,32 @@ test("media, gallery, sports, sources and lists serialize to their exact columns
     .property,"Pre koho sa hodí — jedna položka na riadok");
 });
 
+test("legacy URL labels are free-text Notion columns and sources allow no URL",()=>{
+  const p=page();
+  p.properties["FCI štandard PDF"]=rich("Pôvodný text");
+  const pdf=patch("fciStandard.fci_standard_pdf","Nie je URL, je to text","Pôvodný text",p);
+  assert.deepEqual(Object.keys(pdf.properties),["FCI štandard PDF"]);
+  assert.equal(pdf.properties["FCI štandard PDF"].rich_text[0].text.content,
+    "Nie je URL, je to text");
+  p.properties["Zdroje"]=rich("Pôvodný text");
+  const sources=patch("sources",[{label:"Kynologický klub",url:""}],
+    [{label:"Pôvodný text",url:""}],p);
+  assert.equal(sources.properties["Zdroje"].rich_text[0].text.content,
+    "Kynologický klub");
+  assert.deepEqual(Object.keys(sources.properties),["Zdroje"]);
+});
+
+test("a migrated rich-text cover field receives rich-text PATCH independently",()=>{
+  const p=page();
+  p.properties["Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)"]=
+    rich("https://psipedia.sk/media/a.jpg");
+  const image=patch("image","/media/b.jpg","https://psipedia.sk/media/a.jpg",p);
+  assert.deepEqual(Object.keys(image.properties),
+    ["Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)"]);
+  assert.equal(image.properties["Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)"]
+    .rich_text[0].text.content,"https://psipedia.sk/media/b.jpg");
+});
+
 test("technical ID and historical/controlled aliases are not live editable prose",()=>{
   for(const fieldId of ["fciGroup","fciSection","height","weight","size","origin"]){
     assert.throws(()=>patch(fieldId,"x",""),/BREED_WORKCOPY_FIELD_NOT_EDITABLE/);

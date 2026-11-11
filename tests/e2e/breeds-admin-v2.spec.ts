@@ -96,7 +96,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
 
     await page.getByLabel("FCI skupina").selectOption("7");
     await expect(burgos).toBeVisible();
-    await page.getByLabel("Úplnosť").selectOption("incomplete");
+    await page.getByRole("combobox", { name: "Úplnosť", exact: true }).selectOption("incomplete");
     await expect(burgos).toBeVisible();
     await page.getByRole("button", { name: "Zrušiť filtre" }).click();
 
