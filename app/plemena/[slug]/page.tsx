@@ -786,7 +786,7 @@ export default async function BreedDetailPage({ params }: Props) {
               {relations.similarBreeds.map((item) => (
                 <Link href={item.href} key={item.id}>
                   {item.image ? (
-                    <BreedPhoto src={item.image} alt="" loading="lazy" />
+                    <BreedPhoto src={item.image} alt="" sizes="(max-width: 620px) 45vw, 180px" loading="lazy" decoding="async" />
                   ) : (
                     <span aria-hidden="true">
                       <PublicMediaFallback />
