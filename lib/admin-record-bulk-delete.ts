@@ -37,7 +37,7 @@ export function validatedAdminBulkPreview(id: number, value: unknown): AdminBulk
       !Number.isSafeInteger(item.notionPages) || Number(item.notionPages) < 0) {
     throw Error("INVALID_BULK_PREVIEW");
   }
-  return item as AdminBulkDeletionPreview;
+  return item as unknown as AdminBulkDeletionPreview;
 }
 
 export async function runSequentialAdminRemovals(
