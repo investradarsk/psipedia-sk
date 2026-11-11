@@ -72,10 +72,13 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
     ],
   };
   const hasFacts = report.sex !== "UNKNOWN" || report.size !== "UNKNOWN" || Boolean(report.breed) || Boolean(report.color) || Boolean(report.approximateAge) || report.chipped !== "UNKNOWN";
+  // Never expose a technical URL slug as a visible breadcrumb label.
+  const breadcrumbLabel = report.dogName?.trim() || report.breed?.trim()
+    || `${type === "LOST" ? "Stratený" : "Nájdený"} pes – ${report.city}`;
 
   return <main id="obsah" tabIndex={-1} className={styles.detail}>
     <StructuredData value={schema} />
-    <DetailHero kind="lost-found" breadcrumbs={    <nav className={styles.crumbs} aria-label="Omrvinková navigácia"><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><Link href={dogReportBasePath(type)}>{type === "LOST" ? "Stratené psy" : "Nájdené psy"}</Link><span aria-hidden="true">/</span><span>{report.dogName || report.slug}</span></nav>}
+    <DetailHero kind="lost-found" breadcrumbs={    <nav className={styles.crumbs} aria-label="Omrvinková navigácia"><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><Link href={dogReportBasePath(type)}>{type === "LOST" ? "Stratené psy" : "Nájdené psy"}</Link><span aria-hidden="true">/</span><span>{breadcrumbLabel}</span></nav>}
       copy={<>    <div className={styles.statusBanner} data-state={report.status}><strong>{dogReportStatusLabel[report.status]}</strong><span>{active ? "Hlásenie je stále aktuálne." : "Tento prípad už nie je vedený ako aktívny."}</span></div>
         <span className={`${styles.badge} ${type === "LOST" ? styles.lost : styles.found}`}>{dogReportTypeLabel(type)}</span>
         <h1 id={`dog-report-${report.id}`}>{report.dogName || report.breed || "Pes bez známeho mena"}</h1>
