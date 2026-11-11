@@ -20,6 +20,12 @@ export async function PATCH(request:Request,{params}:Props){
     await requireServiceCatalogAuditSchema(cfg.DB);
     const {id}=await params;
     const body=await request.json();
+    // Routine catalog mutations have one public lifecycle: create ACTIVE,
+    // edit ACTIVE, or retire. Legacy approve/retry operations are internal-only.
+    const action=body&&typeof body==="object"&&!Array.isArray(body)
+      ?(body as Record<string,unknown>).action:undefined;
+    if(action!=="edit"&&action!=="retire")
+      return Response.json({error:"Only edit and retire are available in the catalog editor."},{status:400});
     const option=isEditableBuiltinCatalogOption(id)
       ? await updateBuiltinCatalogOption(cfg.DB,id,body,auth.user!.email)
       : await mutateAdminCatalogOption(cfg.DB,id,body,auth.user!.email);
