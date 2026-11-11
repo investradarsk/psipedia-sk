@@ -13,12 +13,12 @@ const page=properties=>({id:"40f793fc-1d18-8111-a021-eb3cdc37e0ec",properties});
 const readChanged=(properties,changed)=>breedWorkcopyEventValues(page(properties),changed,BREED_NOTION_SCHEMA);
 
 test("one signed Intro property changes only Intro, including explicit blank",()=>{
-  const props={Intro:rich("Intro","Text x","intro-id"),Historia:rich("Historia","Nezmenené")};
+  const props={"Krátky úvod v hero (2–4 vety)":rich("Krátky úvod v hero (2–4 vety)","Text x","intro-id"),Historia:rich("Historia","Nezmenené")};
   const first=readChanged(props,["intro-id"]);
   assert.deepEqual(first.values.map(x=>x.field),["intro"]);
   assert.equal(first.values[0].value,"Text x");
   assert.deepEqual(first.failures,[]);
-  props.Intro=rich("Intro","","intro-id");
+  props["Krátky úvod v hero (2–4 vety)"]=rich("Krátky úvod v hero (2–4 vety)","","intro-id");
   const clear=readChanged(props,["intro-id"]);
   assert.equal(clear.values.length,1);
   assert.equal(clear.values[0].value,"");
@@ -62,7 +62,7 @@ test("FCI, SEO and editorial JSON keys update independently through allowlisted 
 test("missing JSON media only fails its own cell",()=>{
   const props={
     "Galéria JSON":rich("Galéria JSON","not-json","gallery"),
-    Intro:rich("Intro","x","intro"),
+    "Krátky úvod v hero (2–4 vety)":rich("Krátky úvod v hero (2–4 vety)","x","intro"),
     "Športy JSON":rich("Športy JSON",'[{"key":"swim","label":"Plávanie","rating":2}]',"sport"),
   };
   const result=readChanged(props,["gallery","intro","sport"]);
