@@ -9,7 +9,7 @@
  */
 import {notionRequest,type NotionSyncBindings} from "./notion-sync-shared";
 import {planCatalogRelationSync} from "./service-catalog-notion-relation-plan";
-import {serviceCatalog} from "./service-catalog-contract";
+import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
 import {importNotionServiceChoices,projectServiceChoiceToDirectoryNotion,ensureCanonicalServiceChoicesInLegacy} from "./service-profile-notion-bridge";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port";
 import {notionPageBelongsToDataSource} from "./notion-sync-page-ownership";
@@ -79,17 +79,10 @@ export async function loadNotionCatalogRelationLookup(bindings:NotionSyncBinding
   throw Error("SERVICES_CATALOG_MAX_PAGES");
 }
 async function canonicalItems(db:D1Database,category:string):Promise<Map<string,Item>>{
-  const items=new Map<string,Item>();
-  for(const s of serviceCatalog)if(s.categories.some(x=>x===category))
-    items.set(s.id,{id:s.id,label:s.label,categories:s.categories});
-  const data=await db.prepare(
-    "SELECT id,label,categories_json FROM service_catalog_admin_options WHERE kind='service' AND status='ACTIVE'"
-  ).all<{id:string;label:string;categories_json:string}>();
-  for(const x of data.results??[]){
-    const cats=JSON.parse(x.categories_json) as string[];
-    if(Array.isArray(cats)&&cats.includes(category))items.set(x.id,{id:x.id,label:x.label,categories:cats});
-  }
-  return items;
+  // Use the same effective names/categories as Admin and the Notion text
+  // bridge: built-in D1 overrides must affect relation eligibility too.
+  const resolved=await loadResolvedServiceDefinitions(db,category);
+  return new Map(resolved.map(x=>[x.id,{id:x.id,label:x.label,categories:x.categories}]));
 }
 async function canonicalYes(db:D1Database,profileId:number,known:Map<string,Item>){
   const result=await db.prepare(
