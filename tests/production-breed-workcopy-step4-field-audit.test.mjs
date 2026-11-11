@@ -96,8 +96,8 @@ test("isolated Notion → Admin dry-run handles signed blank changes without tou
   const page = {
     last_edited_time: "2026-11-08T20:30:00.000Z",
     properties: {
-      "Intro": notionText("edit-intro", "Nové intro"),
-      "História": notionText("edit-history", "Nedotknutá história"),
+      "Krátky úvod v hero (2–4 vety)": notionText("edit-intro", "Nové intro"),
+      "História a pôvod plemena": notionText("edit-history", "Nedotknutá história"),
       "FCI číslo": { id: "system-fci", type: "number", number: 122 },
     },
   };
@@ -128,8 +128,8 @@ test("isolated Admin → Notion dry-run patches one exact property, not old conf
   const page = {
     last_edited_time: "2026-11-08T20:30:00.000Z",
     properties: {
-      Intro: notionText("id-intro", "Notion historické intro"),
-      História: notionText("id-history", "Iný historický obsah"),
+      "Krátky úvod v hero (2–4 vety)": notionText("id-intro", "Notion historické intro"),
+      "História a pôvod plemena": notionText("id-history", "Iný historický obsah"),
     },
   };
   const planned = planBreedWorkCopyFieldWrite({
@@ -139,8 +139,8 @@ test("isolated Admin → Notion dry-run patches one exact property, not old conf
     expectedPageRevision: page.last_edited_time,
   });
   assert.equal(planned.changed, true);
-  assert.deepEqual(Object.keys(planned.properties), ["Intro"]);
-  assert.equal(planned.properties.Intro.rich_text[0].text.content, "Nový krátky úvod");
+  assert.deepEqual(Object.keys(planned.properties), ["Krátky úvod v hero (2–4 vety)"]);
+  assert.equal(planned.properties["Krátky úvod v hero (2–4 vety)"].rich_text[0].text.content, "Nový krátky úvod");
   assert.throws(() => planBreedWorkCopyFieldWrite({
     schema: BREED_NOTION_PRIORITY_FIELDS, page, fieldId: "intro",
     value: after.intro, baseline: "V Notione už medzitým zmenené",
