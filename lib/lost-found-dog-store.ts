@@ -289,9 +289,10 @@ async function hasPublicContactColumns(database: D1Database): Promise<boolean> {
   return PUBLIC_CONTACT_COLUMNS.every((column) => columns.has(column));
 }
 async function selectWithOptionalShortDescription(database: D1Database, sql: string): Promise<string> {
-  let query = (await hasShortDescriptionColumn(database))
-    ? sql : sql.replace("r.short_description,", "'' AS short_description,");
+  // One schema probe covers both optional migrations (0162 and 0165).
   const columns = await publicContactColumnNames(database);
+  let query = columns.has("short_description")
+    ? sql : sql.replace("r.short_description,", "'' AS short_description,");
   for (const column of PUBLIC_CONTACT_COLUMNS) {
     if (!columns.has(column))
       query = query.replace(`r.${column},`, `'' AS ${column},`);
