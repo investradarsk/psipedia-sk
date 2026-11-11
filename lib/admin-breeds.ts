@@ -100,6 +100,25 @@ export function adminBreedCounts<T extends AdminBreedFilterable>(breeds: T[]) {
   }, { all: 0, published: 0, draft: 0, incomplete: 0 });
 }
 
+export type AdminBreedSort = { id: "name" | "fci" | "origin" | "status" | "updated"; desc: boolean };
+
+/** The full filtered breed set is in memory: sort before slicing to a page. */
+export function sortAdminBreedRows<T extends AdminBreedFilterable & { updatedAt: string }>(
+  rows: readonly T[], sort: AdminBreedSort,
+): T[] {
+  const collator = new Intl.Collator("sk", { sensitivity: "base", numeric: true });
+  const direction = sort.desc ? -1 : 1;
+  return [...rows].sort((a, b) => {
+    const primary = sort.id === "fci"
+      ? a.fciGroup - b.fciGroup
+      : sort.id === "name" ? collator.compare(a.name, b.name)
+      : sort.id === "origin" ? collator.compare(a.origin, b.origin)
+      : sort.id === "status" ? collator.compare(a.status, b.status)
+      : collator.compare(a.updatedAt, b.updatedAt);
+    return primary * direction || collator.compare(a.name, b.name) || a.id - b.id;
+  });
+}
+
 // Only render the current slice of a large admin breed list. Filtering and
 // aggregate counts still cover all loaded breeds; selection can span pages.
 export const ADMIN_BREED_PAGE_SIZE = 50;

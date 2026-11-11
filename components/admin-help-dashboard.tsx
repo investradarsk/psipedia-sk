@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
-import { BulkSelectionCheckbox } from "@/components/admin-bulk-selection";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
@@ -39,6 +39,8 @@ function url(filters: HelpAdminFilters) {
     ["organization", filters.organization],
     ["location", filters.location],
     ["q", filters.q],
+    ["sort", filters.sort && filters.sort !== "updated" ? filters.sort : ""],
+    ["direction", filters.direction && filters.direction !== "desc" ? filters.direction : ""],
   ], filters.page);
 }
 
@@ -54,11 +56,9 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
   const { items, totals, categoryCounts, resultCount, page, pages } = data;
   const viewFingerprint = [
     filters.category, filters.status, filters.urgent, filters.state,
-    filters.organization, filters.location, filters.q, String(page),
+    filters.organization, filters.location, filters.q, filters.sort ?? "updated", filters.direction ?? "desc", String(page),
   ].join("|");
   const selectedCount = selected.size;
-  const pageSelected = !!items.length && items.every((item) => selected.has(item.id));
-  const pageSomeSelected = items.some((item) => selected.has(item.id)) && !pageSelected;
 
   useEffect(() => {
     let active = true;
@@ -67,22 +67,6 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
     });
     return () => { active = false; };
   }, [viewFingerprint]);
-
-  function toggle(id: number) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  function togglePage(checked: boolean) {
-    setSelected((current) => {
-      const next = new Set(current);
-      for (const item of items) { if (checked) next.add(item.id); else next.delete(item.id); }
-      return next;
-    });
-  }
 
   function clearSelection() {
     setSelected(new Set());
@@ -184,9 +168,6 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
       </form>
 
       <div className={styles.bulk} aria-busy={bulkBusy}>
-        <BulkSelectionCheckbox checked={pageSelected} indeterminate={pageSomeSelected}
-          disabled={bulkBusy || !items.length} label="Označiť všetky na tejto strane"
-          onChange={togglePage} />
         <span role="status">Označené: {selectedCount}</span>
       </div>
       {selectedCount > 0 && <AdminBulkActionToolbar
@@ -196,23 +177,42 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         destructiveAction={<AdminActionButton variant="destructive" disabled={bulkBusy} onClick={() => void prepareBulk("draft")}>Prepnúť na koncept</AdminActionButton>}
         onClear={clearSelection}
       />}
+      {selectedCount > 0 && <AdminRecordBulkDelete
+        kind="help" selectedIds={[...selected]} disabled={bulkBusy}
+        onFinished={() => { setSelected(new Set()); router.refresh(); }}
+      />}
       {message && <p className="admin-flash" role="status">{message}</p>}
       <p className="admin-help-results">Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>
       {items.length ? <AdminRecordTable
         rows={items}
         label="Prípady Pomoci psom"
         busy={bulkBusy}
+        serverSorted
+        serverSorting={{
+          id: filters.sort ?? "updated",
+          desc: (filters.direction ?? "desc") === "desc",
+          allowedIds: ["title", "city", "status", "updated"],
+          onChange: next => {
+            if (!["title", "city", "status", "updated"].includes(next.id)) return;
+            router.push(url({ ...filters, sort: next.id as NonNullable<HelpAdminFilters["sort"]>,
+              direction: next.desc ? "desc" : "asc", page: 1 }));
+          },
+        }}
+        selection={{
+          selectedIds: [...selected],
+          rowInputDataAttribute: "data-help-row-select",
+          selectAllLabel: "Označiť všetky na tejto strane",
+          labelForRow: item => "Označiť " + item.title,
+          onChange: ids => setSelected(new Set(ids)),
+        }}
         columns={[
-          { id: "select", label: "Výber", width: 75, cell: (item) => <input
-            type="checkbox" aria-label={"Označiť " + item.title} data-help-row-select
-            checked={selected.has(item.id)} disabled={bulkBusy}
-            onChange={() => toggle(item.id)} /> },
           { id: "title", label: "Záznam", width: 270, sortValue: (item) => item.title, cell: (item) => <Link prefetch={false} href={"/admin/pomoc/" + item.id}><strong>{item.title}</strong></Link> },
           { id: "category", label: "Kategória", width: 160, sortValue: (item) => item.category, cell: (item) => item.category === "utulky" ? "Útulok" : getHelpCategory(item.category)?.label ?? item.category },
           { id: "city", label: "Mesto", width: 140, sortValue: (item) => item.city || "", cell: (item) => item.city || "—" },
           { id: "organization", label: "Organizácia", width: 180, sortValue: (item) => item.organization || "", cell: (item) => item.organization || "—" },
           { id: "status", label: "Publikácia", width: 130, sortValue: (item) => item.status, cell: (item) => <span className={"admin-status admin-status--" + item.status}>{item.status === "published" ? "Publikované" : "Koncept"}</span> },
           { id: "resolved", label: "Stav prípadu", width: 130, sortValue: (item) => item.resolved ? 1 : 0, cell: (item) => item.resolved ? "Vybavené" : item.urgent ? "Urgentné" : "Aktívne" },
+          { id: "updated", label: "Aktualizované", width: 148, sortValue: (item) => item.updatedAt, cell: (item) => new Date(item.updatedAt).toLocaleDateString("sk-SK") },
           { id: "reviewed", label: "AI kontrola", width: 145, cell: (item) => <AdminReviewCheckbox entityType="HELP_CASE" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact /> },
           { id: "actions", label: "Akcie", width: 240, cell: (item) => <div className={styles.tableActions}>
             <Link prefetch={false} href={"/admin/pomoc/" + item.id}>Upraviť</Link>

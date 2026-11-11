@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminRecordTable } from "@/components/admin-record-table";
 import { AdminInlineRowActions, AdminInlineCellSelect } from "@/components/admin-inline-edit-controls";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
-import { BulkSelectionCheckbox } from "@/components/admin-bulk-selection";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
@@ -120,8 +120,6 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   const visibleInlineId = inlineEventId !== null && rows.some(event => event.id === inlineEventId) ? inlineEventId : null;
   const years = data.years;
   const selectedEvents = events.filter((event) => selected.has(event.id));
-  const pageAllSelected = rows.length > 0 && rows.every((event) => selected.has(event.id));
-  const pageSomeSelected = rows.some((event) => selected.has(event.id)) && !pageAllSelected;
   const bulkValue: BulkValue = bulkField === "eventType" ? bulkType : bulkCancelled;
   const bulkTargets = selectedEvents.filter((event) => !matchesBulkValue(event, bulkField, bulkValue));
 
@@ -136,15 +134,6 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
   function clearSelection() {
     setSelected(new Set());
     setBulkEditOpen(false);
-  }
-
-  function toggle(id: number) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   }
 
   async function reload() {
@@ -313,27 +302,12 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
             <div><label htmlFor="admin-event-filter-region">Kraj</label><select id="admin-event-filter-region" value={filters.region} onChange={(event) => changeFilter("region", event.target.value)}><option value="">Všetky kraje</option>{slovakRegions.map((value) => <option key={value}>{value}</option>)}</select></div>
             <div><label htmlFor="admin-event-filter-month">Mesiac začiatku</label><select id="admin-event-filter-month" value={filters.month} onChange={(event) => changeFilter("month", event.target.value)}><option value="">Všetky mesiace</option>{["Január", "Február", "Marec", "Apríl", "Máj", "Jún", "Júl", "August", "September", "Október", "November", "December"].map((value, index) => <option value={String(index + 1).padStart(2, "0")} key={value}>{value}</option>)}</select></div>
             <div><label htmlFor="admin-event-filter-year">Rok začiatku</label><select id="admin-event-filter-year" value={filters.year} onChange={(event) => changeFilter("year", event.target.value)}><option value="">Všetky roky</option>{years.map((value) => <option key={value}>{value}</option>)}</select></div>
-            <div><label htmlFor="admin-event-filter-sort">Zoradiť</label><select id="admin-event-filter-sort" value={filters.sort} onChange={(event) => changeFilter("sort", event.target.value)}><option value="date">Podľa dátumu a priebehu</option><option value="updated">Posledná úprava</option><option value="created">Najnovšie vytvorené</option><option value="title">Podľa názvu A–Z</option></select></div>
+            <div><label htmlFor="admin-event-filter-sort">Zoradiť</label><select id="admin-event-filter-sort" value={filters.sort} onChange={(event) => changeFilter("sort", event.target.value)}><option value="date">Podľa dátumu a priebehu</option><option value="updated">Posledná úprava</option><option value="created">Najnovšie vytvorené</option><option value="title">Podľa názvu A–Z</option><option value="city">Mesto</option><option value="status">Stav publikácie</option></select></div>
           </div>
           <button type="button" onClick={() => { setFilters(defaultEventFilters); setPage(1); clearSelection(); setMessage(""); }}>Zrušiť filtre</button>
         </fieldset>
 
-        <div className="admin-event-bulk">
-          <BulkSelectionCheckbox checked={pageAllSelected} indeterminate={pageSomeSelected}
-            disabled={!hydrated || busy || loading || !rows.length}
-            label="Vybrať túto stranu"
-            onChange={(checked) => {
-              setSelected((current) => {
-                const next = new Set(current);
-                rows.forEach((row) => {
-                  if (checked) next.add(row.id);
-                  else next.delete(row.id);
-                });
-                return next;
-              });
-            }} />
-          <span role="status">Vybrané: {selected.size}</span>
-        </div>
+        <div className="admin-event-bulk"><span role="status">Vybrané: {selected.size}</span></div>
 
         {selected.size > 500 && <p role="alert">V jednej dávke vyber najviac 500 podujatí.</p>}
 
@@ -347,6 +321,11 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
             onClear={clearSelection}
           />
         )}
+
+        {!!selected.size && <AdminRecordBulkDelete
+          kind="events" selectedIds={[...selected]} disabled={busy || loading || !hydrated}
+          onFinished={() => { clearSelection(); void reload(); }}
+        />}
 
         {bulkEditOpen && !!selected.size && (
           <div className={styles.bulkEditPanel}>
@@ -406,12 +385,30 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
         {rows.length > 0 && <AdminRecordTable
           rows={rows}
           label="Zoznam podujatí"
-          busy={busy || loading}
+          busy={busy || loading || !hydrated}
+          serverSorted
+          serverSorting={{
+            id: filters.sort,
+            desc: filters.direction === "desc" || (!filters.direction && ["updated", "created"].includes(filters.sort)),
+            allowedIds: ["title", "date", "city", "status", "updated", "created"],
+            onChange: next => {
+              if (!["title", "date", "city", "status", "updated", "created"].includes(next.id)) return;
+              setFilters(current => ({ ...current, sort: next.id, direction: next.desc ? "desc" : "asc" }));
+              setPage(1);
+              clearSelection();
+            },
+          }}
+          selection={{
+            selectedIds: [...selected].filter(id => rows.some(item => item.id === id)),
+            disabled: !hydrated || loading,
+            selectAllLabel: "Vybrať túto stranu",
+            labelForRow: item => "Vybrať " + item.title,
+            onChange: ids => setSelected(current => new Set([
+              ...[...current].filter(id => !rows.some(item => item.id === id)),
+              ...ids,
+            ])),
+          }}
           columns={[
-            { id: "select", label: "Výber", width: 70, cell: (event) => <input
-              type="checkbox" aria-label={"Vybrať " + event.title}
-              checked={selected.has(event.id)} disabled={!hydrated || busy || loading}
-              onChange={() => toggle(event.id)} /> },
             { id: "title", label: "Podujatie", width: 270, sortValue: (event) => event.title, cell: (event) => <Link prefetch={false} href={`/admin/podujatia/${event.id}`}><strong>{event.title}</strong></Link> },
             { id: "date", label: "Termín", width: 170, sortValue: (event) => event.startDate + event.startTime, cell: (event) => formatEventDate(event) + (event.startTime ? " · " + event.startTime : "") },
             { id: "city", label: "Mesto", width: 145, sortValue: (event) => event.city || "", cell: (event) => event.city || "—" },
@@ -430,6 +427,8 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
                     onChange={change => setQuickCancelled(change.target.checked)} /> Zrušené</label>
                 : event.cancelled ? "Zrušené" : timeLabels[eventDateStatus(event, today)] },
             { id: "organizer", label: "Organizátor", width: 180, initiallyHidden: true, sortValue: (event) => event.organizer || "", cell: (event) => event.organizer || "—" },
+            { id: "updated", label: "Aktualizované", width: 150, sortValue: (event) => event.updatedAt, cell: (event) => new Date(event.updatedAt).toLocaleDateString("sk-SK") },
+            { id: "created", label: "Vytvorené", width: 145, initiallyHidden: true, sortValue: (event) => event.createdAt, cell: (event) => new Date(event.createdAt).toLocaleDateString("sk-SK") },
             { id: "reviewed", label: "AI kontrola", width: 145, cell: (event) => <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={reviewed.has(event.id)} compact /> },
             { id: "actions", label: "Akcie", width: 260, cell: (event) => <div className={styles.tableActions}>
               <Link prefetch={false} href={"/admin/podujatia/" + event.id}>Upraviť</Link>

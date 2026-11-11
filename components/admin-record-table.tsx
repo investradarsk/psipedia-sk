@@ -27,11 +27,21 @@ export type AdminRecordColumn<T> = {
   initiallyHidden?: boolean;
 };
 
+/** Controlled sorting for data sets paginated by the backend. Never reorder only a visible slice. */
+export type AdminRecordServerSorting = {
+  id: string;
+  desc: boolean;
+  allowedIds: readonly string[];
+  onChange: (next: { id: string; desc: boolean }) => void;
+};
+
 export type AdminRecordTableSelection<T> = {
   /** Only IDs visible on this page are selectable. Never imply cross-page selection. */
   selectedIds: readonly number[];
   onChange: (ids: number[]) => void;
   labelForRow?: (record: T) => string;
+  selectAllLabel?: string;
+  rowInputDataAttribute?: `data-${string}`;
   disabled?: boolean;
 };
 
@@ -44,6 +54,9 @@ export function AdminRecordTable<T extends { id: number }>({
   selection,
   stretch = false,
   serverSorted = false,
+  serverSorting,
+  density = "compact",
+  rowDataAttribute,
 }: {
   rows: T[];
   columns: AdminRecordColumn<T>[];
@@ -54,8 +67,16 @@ export function AdminRecordTable<T extends { id: number }>({
   stretch?: boolean;
   /** Server already sorted the entire result set before pagination. */
   serverSorted?: boolean;
+  /** Controlled whole-result sorting; parent reloads page 1 with a server ORDER BY. */
+  serverSorting?: AdminRecordServerSorting;
+  density?: "compact" | "comfortable";
+  /** Optional stable data attribute for module-specific selectors and E2E tests. */
+  rowDataAttribute?: `data-${string}`;
 }) {
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [clientSorting, setClientSorting] = useState<SortingState>([]);
+  const sorting: SortingState = serverSorting
+    ? [{ id: serverSorting.id, desc: serverSorting.desc }]
+    : clientSorting;
   const [visibility, setVisibility] = useState<VisibilityState>(() =>
     Object.fromEntries(columns.filter((column) => column.initiallyHidden).map((column) => [column.id, false])),
   );
@@ -72,7 +93,7 @@ export function AdminRecordTable<T extends { id: number }>({
       header: ({ table }: { table: Table<T> }) => (
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
-          label={"Označiť všetky záznamy na tejto strane: " + label}
+          label={selection.selectAllLabel ?? ("Označiť všetky záznamy na tejto strane: " + label)}
           checked={table.getIsAllPageRowsSelected()}
           indeterminate={table.getIsSomePageRowsSelected()}
           disabled={busy || selection.disabled || !rows.length}
@@ -83,12 +104,14 @@ export function AdminRecordTable<T extends { id: number }>({
         <BulkSelectionCheckbox
           className={styles.selectionCheck}
           label={selection.labelForRow?.(row.original) ?? ("Označiť záznam " + row.original.id)}
+          inputDataAttribute={selection.rowInputDataAttribute}
           checked={row.getIsSelected()}
           disabled={busy || selection.disabled}
           onChange={checked => row.toggleSelected(checked)}
         />
       ),
       enableSorting: false,
+      enableHiding: false,
       enableResizing: false,
       size: 64,
       minSize: 64,
@@ -99,7 +122,8 @@ export function AdminRecordTable<T extends { id: number }>({
       header: "ID",
       accessorFn: (record: T) => record.id,
       cell: ({ row }: CellContext<T, unknown>) => <AdminRecordId id={row.original.id} compact />,
-      enableSorting: !serverSorted,
+      enableSorting: serverSorting ? serverSorting.allowedIds.includes("__recordId") : !serverSorted,
+      enableHiding: false,
       size: 109,
       minSize: 96,
     } as ColumnDef<T>]),
@@ -108,17 +132,32 @@ export function AdminRecordTable<T extends { id: number }>({
     header: column.label,
     accessorFn: (record: T) => column.sortValue ? column.sortValue(record) : "",
     cell: ({ row }: CellContext<T, unknown>) => column.cell(row.original),
-    enableSorting: Boolean(column.sortValue) && !serverSorted,
+    enableSorting: Boolean(column.sortValue) && (serverSorting
+      ? serverSorting.allowedIds.includes(column.id)
+      : !serverSorted),
     size: column.width ?? 165,
     minSize: 85,
   })),
-  ], [columns, selection, label, busy, rows.length, serverSorted]);
+  ], [columns, selection, label, busy, rows.length, serverSorted, serverSorting]);
 
   const table = useReactTable({
     data: rows,
     columns: definitions,
     state: { sorting, columnVisibility: visibility, rowSelection },
-    onSortingChange: setSorting,
+    onSortingChange: updater => {
+      const next = typeof updater === "function" ? updater(sorting) : updater;
+      if (serverSorting) {
+        const first = next[0];
+        if (first && serverSorting.allowedIds.includes(first.id)) {
+          serverSorting.onChange({ id: first.id, desc: first.desc });
+        }
+      } else {
+        setClientSorting(next);
+      }
+    },
+    manualSorting: Boolean(serverSorting),
+    enableSortingRemoval: false,
+    sortDescFirst: false,
     onColumnVisibilityChange: setVisibility,
     enableRowSelection: Boolean(selection) && !busy && !selection?.disabled,
     onRowSelectionChange: updater => {
@@ -133,16 +172,16 @@ export function AdminRecordTable<T extends { id: number }>({
   });
 
   return (
-    <div className={styles.workspace} aria-busy={busy}>
+    <div className={styles.workspace} data-density={density} aria-busy={busy}>
       <div className={styles.toolbar}>
         <div className={styles.tableIntro}>
           <strong>{label}</strong>
-          <span>{rows.length} záznamov na tejto strane · {serverSorted ? "zoradenie platí pre celý zoznam" : "zoradenie platí len pre túto stranu"}</span>
+          <span>{rows.length} záznamov na tejto strane · {serverSorting || serverSorted ? "zoradenie platí pre celý zoznam" : "zoradenie platí len pre túto stranu"}</span>
         </div>
         <details className={styles.columnPicker}>
           <summary>Stĺpce</summary>
           <div className={styles.columnPickerMenu}>
-            {table.getAllLeafColumns().map((column) => (
+            {table.getAllLeafColumns().filter(column => column.getCanHide()).map((column) => (
               <label key={column.id}>
                 <input
                   type="checkbox"
@@ -166,10 +205,19 @@ export function AdminRecordTable<T extends { id: number }>({
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
                 {group.headers.map((header) => (
-                  <th key={header.id} scope="col" style={{ width: header.getSize() }}>
+                  <th
+                    key={header.id}
+                    scope="col"
+                    style={{ width: header.getSize() }}
+                    aria-sort={header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : "none"}
+                  >
                     <div className={styles.heading}>
                       {header.column.getCanSort() ? (
-                        <button type="button" onClick={header.column.getToggleSortingHandler()} aria-label={"Zoradiť podľa: " + String(header.column.columnDef.header)}>
+                        <button
+                          type="button"
+                          onClick={header.column.getToggleSortingHandler()}
+                          aria-label={"Zoradiť podľa " + String(header.column.columnDef.header) + (header.column.getIsSorted() === "asc" ? " zostupne" : " vzostupne")}
+                        >
                           {flexRender(header.column.columnDef.header, header.getContext())}
                           <span aria-hidden="true">{header.column.getIsSorted() === "asc" ? " ↑" : header.column.getIsSorted() === "desc" ? " ↓" : " ↕"}</span>
                         </button>
@@ -190,7 +238,8 @@ export function AdminRecordTable<T extends { id: number }>({
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} data-testid="admin-record-row">
+              <tr key={row.id} data-testid="admin-record-row"
+                {...(rowDataAttribute ? { [rowDataAttribute]: "" } : {})}>
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                 ))}

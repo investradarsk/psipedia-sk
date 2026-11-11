@@ -160,19 +160,21 @@ export function useAdminBulkSelection({ module, membershipFingerprint, pageIds, 
   };
 }
 
-export function BulkSelectionCheckbox({ checked, indeterminate = false, disabled = false, label, onChange, className }: {
+export function BulkSelectionCheckbox({ checked, indeterminate = false, disabled = false, label, onChange, className, inputDataAttribute }: {
   checked: boolean;
   indeterminate?: boolean;
   disabled?: boolean;
   label: string;
   onChange: (checked: boolean) => void;
   className?: string;
+  inputDataAttribute?: `data-${string}`;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (ref.current) ref.current.indeterminate = indeterminate; }, [indeterminate]);
   return (
     <label className={className ?? styles.checkLabel}>
       <input ref={ref} type="checkbox" checked={checked} disabled={disabled} aria-label={label}
+        {...(inputDataAttribute ? { [inputDataAttribute]: "" } : {})}
         onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.currentTarget.checked)} />
       <span>{label}</span>
     </label>
@@ -195,6 +197,7 @@ export function AdminBulkSelectionControls({
   selectAllMatching,
   clear,
   supportsAllMatching = true,
+  pageSelectionInTable = false,
 }: {
   module: "directory" | "articles";
   membershipFilter: unknown;
@@ -211,6 +214,8 @@ export function AdminBulkSelectionControls({
   selectAllMatching: () => void;
   clear: () => void;
   supportsAllMatching?: boolean;
+  /** Shared grid owns the visible-page checkbox instead of duplicating it above the table. */
+  pageSelectionInTable?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -308,9 +313,9 @@ export function AdminBulkSelectionControls({
 
   return (
     <>
-      <div className={styles.pageSelect}>
-        <BulkSelectionCheckbox checked={currentPageAllSelected} indeterminate={currentPageSomeSelected} disabled={!selectionReady}
-          label={pageSelectionLabel} onChange={toggleCurrentPage} />
+      {(!pageSelectionInTable || selectedCount > 0) && <div className={styles.pageSelect}>
+        {!pageSelectionInTable && <BulkSelectionCheckbox checked={currentPageAllSelected} indeterminate={currentPageSomeSelected} disabled={!selectionReady}
+          label={pageSelectionLabel} onChange={toggleCurrentPage} />}
         {currentPageSelected > 0 && <span>{currentPageSelected} položiek vybraných na tejto strane</span>}
         {canOfferAllMatching && (
           <button className={styles.selectAllButton} type="button" onClick={selectAllMatching}>
@@ -318,7 +323,7 @@ export function AdminBulkSelectionControls({
           </button>
         )}
         {selection.mode === "all-matching" && supportsAllMatching && <strong>Vybraných všetkých {resultCount} výsledkov</strong>}
-      </div>
+      </div>}
 
       {selectedCount > 0 && (
         <>

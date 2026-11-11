@@ -16,7 +16,10 @@ test("mobile adoption cards keep actions readable without horizontal table scrol
   const css = read("../components/admin-lost-found.module.css");
   assert.match(ui, /className=\{styles\.adoptionCards\}/);
   assert.match(ui, /className=\{styles\.adoptionCard\}/);
-  assert.match(ui, /className=\{\`\$\{styles\.tableWrap\} \$\{styles\.adoptionTableRegion\}\`\}/);
+  assert.match(ui, /className=\{styles\.adoptionTableRegion\}/);
+  assert.match(ui, /className=\{styles\.tableWrap\}/);
+  assert.match(ui, /<AdminRecordTable/);
+  assert.match(ui, /mobileCardSelect/);
   assert.match(ui, /<AdminReviewCheckbox entityType="ADOPTION"/);
   assert.match(ui, /adoptionStatusLabels\[item\.status\]/);
   assert.match(ui, /item\.organizationName/);

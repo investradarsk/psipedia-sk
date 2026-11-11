@@ -1,7 +1,7 @@
 import { eventDateStatus, eventTypes, type DogEvent, type EventType } from "./events";
 
 export type AdminEventSummary = Pick<DogEvent, "id" | "slug" | "title" | "eventType" | "status" | "startDate" | "startTime" | "endDate" | "endTime" | "city" | "venue" | "region" | "organizer" | "cancelled" | "imageUrl" | "createdAt" | "updatedAt">;
-export type AdminEventFilters = { query: string; time: string; status: string; type: string; region: string; month: string; year: string; sort: string };
+export type AdminEventFilters = { query: string; time: string; status: string; type: string; region: string; month: string; year: string; sort: string; direction?: "asc" | "desc" };
 export const defaultEventFilters: AdminEventFilters = { query: "", time: "all", status: "all", type: "", region: "", month: "", year: "", sort: "date" };
 
 export function normalizeEventSearch(value: string) {

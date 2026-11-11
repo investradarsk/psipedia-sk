@@ -3,6 +3,7 @@ export type DirectoryAdminStatus = "all" | "published" | "draft" | "archived";
 export type DirectoryAdminVerification = "all" | "verified" | "unverified";
 export type DirectoryAdminMedia = "all" | "with-image" | "without-image";
 export type DirectoryAdminSort = "updated" | "name" | "city" | "status";
+export type DirectoryAdminDirection = "asc" | "desc";
 export type DirectoryAdminMembershipFilters = {
   category: string;
   status: DirectoryAdminStatus;
@@ -13,7 +14,7 @@ export type DirectoryAdminMembershipFilters = {
   verification: DirectoryAdminVerification;
   media: DirectoryAdminMedia;
 };
-export type DirectoryAdminFilters = DirectoryAdminMembershipFilters & { page: number; sort?: DirectoryAdminSort };
+export type DirectoryAdminFilters = DirectoryAdminMembershipFilters & { page: number; sort?: DirectoryAdminSort; direction?: DirectoryAdminDirection };
 export type DirectoryAdminCategoryOption = { readonly slug: string; readonly label: string };
 
 type Statement = {
@@ -38,6 +39,8 @@ export function parseDirectoryAdminFilters(
   const rawStatus = firstParam(params.get("status"));
   const rawPage = firstParam(params.get("page")) || "1";
   const rawSort = firstParam(params.get("sort"));
+  const sort: DirectoryAdminSort = rawSort === "name" || rawSort === "city" || rawSort === "status" ? rawSort : "updated";
+  const rawDirection = firstParam(params.get("direction"));
   return {
     category: rawCategory && isCategory(rawCategory) ? rawCategory : "",
     status: rawStatus === "published" || rawStatus === "draft" || rawStatus === "archived" ? rawStatus : "all",
@@ -52,7 +55,8 @@ export function parseDirectoryAdminFilters(
       ? "with-image"
       : firstParam(params.get("media")) === "without-image" ? "without-image" : "all",
     page: /^\d{1,9}$/.test(rawPage) ? Math.max(1, Number(rawPage)) : 1,
-    sort: rawSort === "name" || rawSort === "city" || rawSort === "status" ? rawSort : "updated",
+    sort,
+    ...(rawDirection === "asc" || rawDirection === "desc" ? { direction: rawDirection } : {}),
   };
 }
 
@@ -113,6 +117,8 @@ export function directoryAdminHref(filters: DirectoryAdminFilters) {
   if (filters.verification !== "all") params.set("verification", filters.verification);
   if (filters.media !== "all") params.set("media", filters.media);
   if (filters.sort && filters.sort !== "updated") params.set("sort", filters.sort);
+  const defaultDirection = !filters.sort || filters.sort === "updated" ? "desc" : "asc";
+  if (filters.direction && filters.direction !== defaultDirection) params.set("direction", filters.direction);
   if (filters.page > 1) params.set("page", String(filters.page));
   const query = params.toString();
   return `/admin/adresar${query ? `?${query}` : ""}`;
@@ -226,13 +232,16 @@ export async function queryDirectoryAdmin<T>(
   const requestedPage = Math.max(1, Math.trunc(filters.page || 1));
   // Whitelist SQL order clauses: the database sorts the entire matching set
   // before LIMIT/OFFSET. Sorting only a loaded page gives misleading results.
-  const orderBy: Record<DirectoryAdminSort, string> = {
-    updated: "updated_at DESC, id DESC",
-    name: "name COLLATE NOCASE ASC, id ASC",
-    city: "city COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC",
-    status: "status ASC, updated_at DESC, id DESC",
+  const orderBy: Record<DirectoryAdminSort, Record<DirectoryAdminDirection, string>> = {
+    updated: { asc: "updated_at ASC, id ASC", desc: "updated_at DESC, id DESC" },
+    name: { asc: "name COLLATE NOCASE ASC, id ASC", desc: "name COLLATE NOCASE DESC, id DESC" },
+    city: { asc: "city COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC", desc: "city COLLATE NOCASE DESC, name COLLATE NOCASE DESC, id DESC" },
+    status: { asc: "status ASC, updated_at DESC, id DESC", desc: "status DESC, updated_at DESC, id DESC" },
   };
-  const sortSql = orderBy[filters.sort ?? "updated"] ?? orderBy.updated;
+  const sort = filters.sort ?? "updated";
+  const direction: DirectoryAdminDirection = filters.direction === "asc" || filters.direction === "desc"
+    ? filters.direction : sort === "updated" ? "desc" : "asc";
+  const sortSql = orderBy[sort]?.[direction] ?? orderBy.updated.desc;
   const loadPage = (page: number) => database.prepare(`SELECT id, slug, name, excerpt, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,
       COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
     FROM directory_profiles${filteredWhere} ORDER BY ${sortSql} LIMIT ? OFFSET ?`)

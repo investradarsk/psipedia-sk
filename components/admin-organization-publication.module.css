@@ -329,3 +329,13 @@
 
 /* New quick editing is desktop-only; retain established mobile organization controls. */
 @media (max-width: 899px) { .inlineDesktop { display: none; } }
+
+/* Unified compact organization list; preserve legacy editor styles. */
+.gridThumb { width: 39px; height: 39px; border-radius: 7px; overflow: hidden; background: #eef3ef; display: grid; place-items: center; }
+.gridThumb img { display: block; height: 100%; width: 100%; object-fit: cover; }
+.gridIdentity { display: grid; gap: 2px; min-width: 0; }
+.gridIdentity strong, .gridIdentity small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gridIdentity small { color: #728379; font-size: .72rem; }
+.gridActions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gridActions :is(a,button) { font-size: .76rem; }
+.gridActions :is(a,button):focus-visible { outline: 2px solid #266d4c; outline-offset: 2px; }

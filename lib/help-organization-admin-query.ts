@@ -1,6 +1,8 @@
 import { organizationPublicationStatuses, organizationPublicationTypes, type OrganizationPublicationStatus } from "./help-organization-publication.ts";
 
 export const ORGANIZATION_ADMIN_PAGE_SIZE = 50;
+export type OrganizationAdminSort = "updated" | "name" | "city" | "status";
+export type OrganizationAdminDirection = "asc" | "desc";
 
 export type OrganizationAdminFilters = {
   q: string;
@@ -11,6 +13,8 @@ export type OrganizationAdminFilters = {
   city: string;
   missingLocation: boolean;
   incomplete: boolean;
+  sort?: OrganizationAdminSort;
+  direction?: OrganizationAdminDirection;
   page: number;
 };
 
@@ -33,6 +37,10 @@ export function parseOrganizationAdminFilters(params: { get(name: string): strin
     city: value(params, "city", 120),
     missingLocation: value(params, "missingLocation", 10) === "1",
     incomplete: value(params, "incomplete", 10) === "1",
+    sort: (["updated", "name", "city", "status"].includes(value(params, "sort", 20))
+      ? value(params, "sort", 20) : "updated") as OrganizationAdminSort,
+    direction: (["asc", "desc"].includes(value(params, "direction", 10))
+      ? value(params, "direction", 10) : "desc") as OrganizationAdminDirection,
     page: /^\d{1,9}$/.test(rawPage) ? Math.max(1, Number(rawPage)) : 1,
   };
 }
@@ -47,6 +55,8 @@ export function organizationAdminHref(filters: OrganizationAdminFilters) {
   if (filters.city) params.set("city", filters.city);
   if (filters.missingLocation) params.set("missingLocation", "1");
   if (filters.incomplete) params.set("incomplete", "1");
+  if (filters.sort && filters.sort !== "updated") params.set("sort", filters.sort);
+  if (filters.direction && filters.direction !== "desc") params.set("direction", filters.direction);
   if (filters.page > 1) params.set("page", String(filters.page));
   const query = params.toString();
   return `/admin/organizacie${query ? `?${query}` : ""}`;

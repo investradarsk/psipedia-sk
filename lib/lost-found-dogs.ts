@@ -93,6 +93,8 @@ export type DogReportFilters = {
 export type AdminDogReportFilters = DogReportFilters & {
   type?: DogReportType | "";
   status?: LostFoundStatus | "";
+  sort?: "priority" | "name" | "city" | "status" | "date" | "updated";
+  direction?: "asc" | "desc";
 };
 
 export const dogReportTypeLabel = (type: DogReportType) => type === "LOST" ? "STRATENÝ PES" : "NÁJDENÝ PES";
