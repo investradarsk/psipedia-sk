@@ -1,3 +1,4 @@
+import { isHelpFieldEventAgenda, changedNotionHelpFields, editableHelpEventFields, helpFieldSnapshot } from "./notion-help-field-events.ts";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
@@ -696,6 +697,10 @@ async function syncAgenda(input: {
   expectedNotionRevision?: string;
   reviewedLegacy?: boolean;
   manualDirection?: ManualFieldDirection;
+  /** Signed webhook property IDs; undefined means a legacy/manual invocation. */
+  changedPropertyIds?: readonly string[];
+  /** Explicit Admin before/after delta; never compare the entire Notion page. */
+  adminChangedFields?: readonly string[];
 }) {
   const summary = emptyAgenda(input.definition, input.isEnabled, input.ready);
   if (!input.isEnabled || !input.ready) return summary;
@@ -846,7 +851,7 @@ async function syncAgenda(input: {
     // Existing mapped Events now use targeted field events on Admin saves and
     // signed Notion webhooks. Do not run an hourly whole-profile replay over
     // their pending/invalid individual fields. Keep new drafts/bootstrap.
-    if(input.definition.key==="events" && input.mode==="sync" &&
+    if((input.definition.key==="events" || isHelpFieldEventAgenda(input.definition.key)) && input.mode==="sync" &&
        !input.targetPageId && mapping){
       summary.unchanged+=1;
       continue;
@@ -1123,6 +1128,79 @@ async function syncAgenda(input: {
         });
         if(input.manualDirection==="NOTION_TO_ADMIN")summary.pulledFromNotion++;
         else summary.pushedToNotion++;
+        continue;
+      }
+      // Mapped Help agendas use the same explicit field-event semantics as Directory.
+      // Only an owner-authenticated Admin delta or a signed Notion property ID may
+      // change editorial content. No whole-profile hashes or legacy conflicts.
+      if (isHelpFieldEventAgenda(input.definition.key) && input.mode === "sync"
+          && input.webhookMappedOnly && !input.manualDirection
+          && (input.changedPropertyIds !== undefined || input.adminChangedFields !== undefined)) {
+        const agenda = input.definition.key;
+        const permitted = new Set(editableHelpEventFields(agenda));
+        if (input.changedPropertyIds !== undefined) {
+          const fields = changedNotionHelpFields(agenda, page.properties, input.changedPropertyIds);
+          let live = sourceSnapshot;
+          let applied = 0;
+          const failed: string[] = [];
+          for (const field of fields) {
+            if (JSON.stringify(live[field] ?? null) === JSON.stringify(notionSnapshot[field] ?? null)) continue;
+            try {
+              // Start from CURRENT canonical values on each field, never from
+              // an unrelated old Notion snapshot or a stale Admin form.
+              await applyNotionToCanonical(
+                agenda, entityId, helpFieldSnapshot(live, notionSnapshot, field), input.database,
+              );
+              const rows = await input.definition.load(input.database, entityId);
+              const reloaded = rows.find(item => sourceId(item) === entityId);
+              if (!reloaded) throw new Error("HELP_EVENT_RELOAD_MISSING");
+              const updated = editableSnapshot(agenda, reloaded.properties, schema);
+              if (JSON.stringify(updated[field] ?? null) !== JSON.stringify(notionSnapshot[field] ?? null))
+                throw new Error("HELP_EVENT_FIELD_VERIFY_FAILED");
+              live = updated;
+              applied++;
+            } catch (error) {
+              console.error("HELP_NOTION_FIELD_EVENT_FAILED", agenda, entityId, field, error);
+              failed.push(field);
+            }
+          }
+          if (failed.length) throw new Error("HELP_FIELD_EVENTS_PENDING: " + failed.join(","));
+          if (fields.length) {
+            // A field receipt is NOT a record-wide common baseline.
+            await patchPage(input.bindings, page.id, encodeProperties({
+              "Sync stav": "Synchronizované",
+              "Sync chyba": "",
+              "Posledný sync": new Date().toISOString(),
+            }, schema));
+          }
+          if (applied) summary.pulledFromNotion++;
+          else summary.unchanged++;
+          continue;
+        }
+        const fields = [...new Set(input.adminChangedFields ?? [])].filter(name =>
+          permitted.has(name) && Boolean(schema[name]));
+        if (!fields.length) {
+          summary.unchanged++;
+          continue;
+        }
+        const values = Object.fromEntries(fields.map(name => [name, sourceSnapshot[name] ?? null]))
+          as Record<string, ReconciliationValue>;
+        const patch = encodeProperties(values, schema);
+        const changed = selectiveNotionProperties(page.properties ?? {}, patch);
+        if (!changed) {
+          summary.unchanged++;
+          continue;
+        }
+        const written = await patchPage(input.bindings, page.id, changed);
+        const verified = written.properties ? written : await notionRequest<NotionPage>(
+          input.bindings, "/pages/" + encodeURIComponent(page.id));
+        if (verified.id !== page.id || !notionPageBelongsToDataSource(verified, target.dataSourceId)
+          || fields.some(field =>
+            JSON.stringify(pageProperty(verified, field) ?? null) !==
+            JSON.stringify(sourceSnapshot[field] ?? null))) {
+          throw new Error("HELP_ADMIN_FIELD_ECHO_MISMATCH");
+        }
+        summary.pushedToNotion++;
         continue;
       }
       const extensionFields = notionSeoSchemaExtensionFields(input.definition.key);
@@ -2162,6 +2240,8 @@ export async function runNotionEventsHelpSyncSweep(input: {
   reviewedLegacy?: boolean;
   /** Owner-confirmed, mapped one-page repair only. Not used by regular sweeps. */
   manualDirection?: ManualFieldDirection;
+  changedPropertyIds?: readonly string[];
+  adminChangedFields?: readonly string[];
 }): Promise<NotionEventsHelpSyncSummary> {
   if (input.webhookImportUnmapped && (!input.webhookMappedOnly || !input.targetPageId ||
       input.agendas?.length !== 1 || input.mode !== "sync" || input.reviewedLegacy))
@@ -2202,6 +2282,8 @@ export async function runNotionEventsHelpSyncSweep(input: {
         expectedNotionRevision: input.expectedNotionRevision,
         reviewedLegacy: input.reviewedLegacy,
         manualDirection: input.manualDirection,
+        changedPropertyIds: input.changedPropertyIds,
+        adminChangedFields: input.adminChangedFields,
       }));
     } catch (error) {
       const summary = emptyAgenda(definition, isEnabled, ready);
