@@ -1145,10 +1145,15 @@ async function syncAgenda(input: {
           let applied = 0;
           const failed: string[] = [];
           for (const field of fields) {
-            if (JSON.stringify(live[field] ?? null) === JSON.stringify(notionSnapshot[field] ?? null)) continue;
             try {
-              // Start from CURRENT canonical values on each field, never from
-              // an unrelated old Notion snapshot or a stale Admin form.
+              // Re-read the latest canonical profile BEFORE each field commit.
+              // Another Admin save must not be reverted by an older webhook.
+              const latestRows = await input.definition.load(input.database, entityId);
+              const latestSource = latestRows.find(item => sourceId(item) === entityId);
+              if (!latestSource) throw new Error("HELP_EVENT_CANONICAL_MISSING");
+              live = editableSnapshot(agenda, latestSource.properties, schema);
+              if (JSON.stringify(live[field] ?? null) === JSON.stringify(notionSnapshot[field] ?? null))
+                continue;
               await applyNotionToCanonical(
                 agenda, entityId, helpFieldSnapshot(live, notionSnapshot, field), input.database,
               );
