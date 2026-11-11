@@ -2,12 +2,11 @@
 
 import {useCallback, useEffect, useRef, useState} from "react";
 import {useDropzone} from "react-dropzone";
-import {FacebookKonvaCanvas, type GraphicCanvasHandle, type GraphicPart, type GraphicSettings, type GraphicTemplate, type GraphicFormat, type GraphicLogo} from "./facebook-konva-canvas";
+import {FacebookKonvaCanvas, type GraphicCanvasHandle, type GraphicPart, type GraphicSettings, type GraphicTemplate, type GraphicFormat} from "./facebook-konva-canvas";
 import styles from "./admin-facebook-graphic-editor.module.css";
 
 type Template = GraphicTemplate;
 type Format = GraphicFormat;
-type LogoStyle = GraphicLogo;
 type Settings = GraphicSettings;
 const TEMPLATES: { id: Template; name: string; description: string }[] = [
   {id:"gradient",name:"01 · Redakčná fotografia",description:"Jemný stmavovací prechod a čitateľný nadpis"},
