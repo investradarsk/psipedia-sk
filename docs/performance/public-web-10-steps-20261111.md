@@ -19,7 +19,7 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 
 1. [x] **Bezpečné zrýchlenie opakovaných SSR hero renderov.** Cache iba verejných D1 riadkov vizuálov: 15 s TTL, maximálne 128 kľúčov na isolate, deduplikácia súbežných čítaní, invalidácia pri úspešnom uložení/zmazaní. Admin `getStoredSectionVisual` zostáva vždy priamo z D1. Využiť existujúcu testovanú cache implementáciu.
 2. [x] **LCP na mobile/desktop.** Identifikovať skutočný LCP element Lighthouse/CrUX; hero priority, formáty, `srcSet`, `sizes`, preloading iba pri merateľnej výhode a bez duplicít.
-3. [ ] **CSS cost a render-blocking.** Zmerať build CSS, vybrať len nepoužívané/zdieľané pravidlá a presunúť admin CSS mimo verejnej vetvy bez zmeny vzhľadu; regresné vizuálne testy.
+3. [x] **CSS cost a render-blocking.** Zmerať build CSS, vybrať len nepoužívané/zdieľané pravidlá a presunúť admin CSS mimo verejnej vetvy bez zmeny vzhľadu; regresné vizuálne testy.
 4. [ ] **JavaScript a hydration.** Analýza route chunkov, minimalizovať client boundary, presunúť nevyhnutnú interaktivitu do izolovaných komponentov; bez zhoršenia navigácie.
 5. [ ] **Úvodná stránka / D1.** Zmerať náklady paralelných čítaní, odstrániť iba preukázané duplicity, overiť obsah, poradie, publikovanie a SEO.
 6. [ ] **HTML/RSC/cache.** Preskúmať reálny HIT/MISS, TTFB a invalidáciu; nikdy necacheovať administráciu, partnera, cookies, autentifikované, query alebo RSC požiadavky.
@@ -68,3 +68,18 @@ Statické regresné testy sú v `tests/performance-fastpaths.test.mjs`; vykoná 
 Technické zdroje:
 - https://web.dev/articles/optimize-lcp — LCP obrázky musia byť v HTML objaviteľné a s vysokou prioritou, nie lazy.
 - https://web.dev/articles/preload-responsive-images — nepreloadovať už objaviteľné obrázky bez dôkazu o výhode; pri `srcSet` hrozia duplicitné dáta.
+
+## Krok 3 — zmenšenie globálneho CSS a oddelenie Adminu
+
+**Pred:** `app/globals.css` obsahoval 339 828 znakov (18 054 riadkov), vrátane stále prítomných admin-only selektorov. Starší administrátorský balík `app/admin/admin-legacy-scoped.css` bol síce už správne izolovaný, no ďalšie admin pravidlá zostali zbytočne globálne. V `app/layout.tsx` sa navyše importovalo čisto administrátorské `navigation-hotfix.css`.
+
+**Implementované:**
+- 416 koreňových a 88 `@media` = **504 výlučne administrátorských CSS pravidiel** premiestnených do `app/admin/admin-root-extracted.css`; import iba v `app/admin/layout.tsx`, pred existujúcou admin legacy/workspace vrstvou.
+- Rovnako `app/navigation-hotfix.css` je teraz importované iba v administrátorskom layoute; pôvodný súbor ostáva zachovaný.
+- `app/globals.css` sa zmenšil z 339 828 na 285 776 znakov: **mínus 54 052 znakov (15,9 %)**. Nástroj vybral celé pravidlá vrátane mobilných variantov, neodstránil samotné štýly.
+- Konzervatívna výnimka: zmiešané selektory pre verejný web a Admin (`.admin-relation-grid`, `.admin-inquiry-body`, `.admin-directory-flags`) zostali v globálnom CSS. Zachované aj `.event-markdown`, všetky CSS premenné, verejné karty, fotografie, navigácia a príslušné `@media`.
+- Pridané statické testy rozdelenia CSS a rozpočtu zdrojového súboru v `tests/public-css-scope.test.mjs`. Upravené pôvodné testy umiestnenia CSS: `tests/public-design-tokens.test.mjs`, `tests/section-navigation.test.mjs`, `tests/rendered-html.test.mjs`.
+
+**Overenie:** V kóde sa skontrolovalo vyváženie blokov a 504 pravidiel s výlučne administrátorskými selektormi, prítomnosť výnimiek v pôvodnom CSS a importy iba na Admin route. **Nejde o skutočnú nameranú úsporu gzip/Brotli ani konečného CSS bundle;** tú poskytne až porovnateľný produkčný build a Lighthouse. Po presune môže zmena poradia CSS medzi root a route ovplyvniť kaskádu v Admine, preto pred zlúčením vyžaduje vizuálny smoke test adminových editorov a mobilného rozloženia. Zmeny nevyžadujú D1 migrácie, zmeny dát ani nové závislosti.
+
+Dôležité: `globals.css` obsahuje ďalšie verejné CSS veľkého rozsahu. Automatická eliminácia podľa názvu bez kontroly používania by mohla rozbiť vzory a šablóny. Ďalšie čistenie vyhodnotiť až na základe build CSS reportu, route coverage a snímok kľúčových stránok.
