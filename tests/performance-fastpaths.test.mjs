@@ -102,3 +102,32 @@ test("admin feature styles do not block unrelated admin routes", () => {
   assert.match(tour, /await import\("driver\.js"\)/);
   assert.match(tour, /await stylesPromise/);
 });
+
+
+test("public hero uses a bounded in-isolate read cache; admin visual reads remain fresh", () => {
+  const visual = readFileSync(new URL("../lib/section-visual-store.ts", import.meta.url), "utf8");
+  const heroStart = visual.indexOf("export async function getSectionHeroVisual");
+  const heroEnd = visual.indexOf("export function resolveSectionVisualList", heroStart);
+  const editorStart = visual.indexOf("export async function getStoredSectionVisual");
+  const editorEnd = visual.indexOf("export async function getResolvedSectionVisual", editorStart);
+  const heroSource = visual.slice(heroStart, heroEnd);
+  const editorSource = visual.slice(editorStart, editorEnd);
+  assert.match(visual, /PUBLIC_HERO_VISUAL_CACHE_TTL_MS = 15_000/);
+  assert.match(visual, /PUBLIC_HERO_VISUAL_CACHE_MAX_KEYS = 128/);
+  assert.match(visual, /publicHeroVisualRows\.size >= PUBLIC_HERO_VISUAL_CACHE_MAX_KEYS/);
+  assert.match(visual, /publicHeroVisualRows\.delete\(oldest\)/);
+  assert.match(heroSource, /publicHeroVisualCache\(visualKey\)\.get\(\(\) => getStoredSectionVisual\(visualKey\)\)/);
+  assert.match(heroSource, /resolveSectionVisual\(definition, stored\)/);
+  assert.doesNotMatch(editorSource, /publicHeroVisualCache|publicHeroVisualRows/);
+});
+
+test("public hero cache invalidates after successful image writes and deletions", () => {
+  const visual = readFileSync(new URL("../lib/section-visual-store.ts", import.meta.url), "utf8");
+  const saveStart = visual.indexOf("export async function saveStoredSectionVisual");
+  const deleteStart = visual.indexOf("export async function deleteStoredSectionVisual");
+  const saved = visual.slice(saveStart, deleteStart);
+  const deleted = visual.slice(deleteStart);
+  assert.match(saved, /\.run\(\);[\s\S]*publicHeroVisualRows\.get\(input\.definition\.visualKey\)\?\.invalidate\(\)/);
+  assert.match(deleted, /\.run\(\);[\s\S]*publicHeroVisualRows\.get\(visualKey\)\?\.invalidate\(\)/);
+  assert.match(visual, /createShortLivedAsyncCache<StoredSectionVisual \| null>/);
+});
