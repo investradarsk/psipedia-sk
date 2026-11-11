@@ -21,7 +21,7 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 2. [x] **LCP na mobile/desktop.** Identifikovať skutočný LCP element Lighthouse/CrUX; hero priority, formáty, `srcSet`, `sizes`, preloading iba pri merateľnej výhode a bez duplicít.
 3. [x] **CSS cost a render-blocking.** Zmerať build CSS, vybrať len nepoužívané/zdieľané pravidlá a presunúť admin CSS mimo verejnej vetvy bez zmeny vzhľadu; regresné vizuálne testy.
 4. [x] **JavaScript a hydration.** Analýza route chunkov, minimalizovať client boundary, presunúť nevyhnutnú interaktivitu do izolovaných komponentov; bez zhoršenia navigácie.
-5. [ ] **Úvodná stránka / D1.** Zmerať náklady paralelných čítaní, odstrániť iba preukázané duplicity, overiť obsah, poradie, publikovanie a SEO.
+5. [x] **Úvodná stránka / D1.** Zmerať náklady paralelných čítaní, odstrániť iba preukázané duplicity, overiť obsah, poradie, publikovanie a SEO.
 6. [ ] **HTML/RSC/cache.** Preskúmať reálny HIT/MISS, TTFB a invalidáciu; nikdy necacheovať administráciu, partnera, cookies, autentifikované, query alebo RSC požiadavky.
 7. [ ] **Fotografie a médiá.** Kompresia/rozmery, správne `srcSet`, lazy loading pod prvým viewportom, stabilné rozmery pre CLS; bez odstránenia originálov.
 8. [ ] **Adresár, podujatia, plemená, mapy.** Route-specific profily, zoznamy a filtrovanie, mapové knižnice načítavať až pri potrebe, priebežne kontrolovať UX a funkčnosť.
@@ -97,3 +97,15 @@ Dôležité: `globals.css` obsahuje ďalšie verejné CSS veľkého rozsahu. Aut
 **Účel:** Znížiť JavaScript, ktorý musí prehliadač parsovať a vykonať pri prvej návšteve. Nie je to dôkaz konkrétnej úspory KB/CPU: bundle analyzer a opakované Lighthouse merania ešte neprebehli. Nie všetky client komponenty sa dajú bez rizika odložiť (napr. primárna navigácia a vyhľadávanie musia reagovať okamžite). Reálny build a mobilné/desktop testy vrátane otvorenia PhotoSwipe pred dokončením načítania a ovládania kalkulačky po zobrazení sú nutné pred merge.
 
 Referenčné postupy: https://react.dev/reference/react/lazy a https://web.dev/articles/reduce-javascript-payloads-with-code-splitting.
+
+## Krok 5 — optimalizácia D1 dotazov domovskej stránky
+
+**Audit:** `app/page.tsx` už spúšťa 7 logických zdrojov paralelne (hero samostatne), vrátane jediného skupinového D1 dotazu pre veterinárov a trénerov a jediného batch dotazu pre dve publikované vizuálne úpravy bannerov. `getPublishedArticleSummaries({ limit: 120 })` zásobuje najnovšie články a tri redakčné sekcie s vylúčením duplicít, preto nebol limit znížený bez dôkazu, že zostane rovnaký obsah. Predbežné merania TTFB a `EXPLAIN QUERY PLAN` na produkčnom D1 nie sú k dispozícii.
+
+**Zmeny v existujúcom PR:**
+
+1. **`lib/homepage-directory-query.ts`** — CTE `candidates` a `ranked` pracujú len s `id`, `name`, `category`, `featured` a dvomi indexmi rotácie. Zobrazované polia (`slug`, `city`, `district`, `image_url`, `thumbnail_display_json`) a náročná extrakcia `fallback_district` z JSON sa teraz načítajú až **po filtrovaní `card_rank <= ?`** cez join na `directory_profiles.id`. Filtre `status = 'published'`, pôvodná podmienka kanonického R2 obrázka a poradie `featured` / dennej rotácie sa nemenia. Stále ide o **jediný D1 roundtrip**, nie o N+1 čítania.
+2. **`lib/article-store.ts`** — existujúci per-binding `WeakMap` cache pre `articleImageProjection` doplnený o `WeakMap` rozpracovaných `Promise` hodnôt. Ak viac paralelných verejných čítaní naraz zisťuje stĺpce `managed_articles`, zdieľajú jeden `PRAGMA table_info` dopyt. Po dokončení sa rozpracovaný Promise vymaže. Predchádzajúci režim kompatibilného fallbacku zostal nezmenený.
+3. **Testy** — nový `tests/homepage-directory-query-performance.test.mjs` porovnáva celý výsledok originálneho aj optimalizovaného SQL nad reálnym SQLite (rôzne kategórie, poradia, dátumy/offsety, limity, zlé JSON, draft/published a neplatné obrázky); zapojený do `npm run test:homepage-media`. Statické kontraktné testy v `tests/homepage-media-quality.test.mjs` a `tests/performance-fastpaths.test.mjs` zabezpečujú neskoré načítanie JSON, bezpečné publikovanie a deduplikáciu metadátových čítaní.
+
+**Hranice overenia:** samostatná lokálna kontrola parity ekvivalentného SQLite dotazu pre 20 kombinácií prešla; test zoznamu scenárov je uložený v repozitári, jeho CI výsledok ešte nie je potvrdený. Bez produkčného `EXPLAIN`, profileru a porovnateľného Lighthouse nemožno tvrdiť konkrétny pokles ms, D1 nákladov ani prenosu. Žiadna SQL migrácia, zmena schémy, indexov, publikovania, Notion synchronizácie ani administrácie.
