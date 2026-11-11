@@ -398,6 +398,10 @@ export default async function BreedDetailPage({ params }: Props) {
                     src={breed.image}
                     alt={breed.name + " – profilová fotografia plemena"}
                     className={styles.heroImage}
+                    sizes="(max-width: 700px) calc(100vw - 36px), (max-width: 1200px) 45vw, 520px"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     data-testid="breed-hero-image"
                   />
                 ) : (
@@ -734,7 +738,7 @@ export default async function BreedDetailPage({ params }: Props) {
                     </>
                   ) : undefined,
               }))}
-              renderImage={(image) => <BreedPhoto src={image.src} alt={image.alt} />}
+              renderImage={(image) => <BreedPhoto src={image.src} alt={image.alt} loading="lazy" decoding="async" sizes="(max-width: 620px) calc(100vw - 32px), (max-width: 900px) 48vw, (max-width: 1280px) 31vw, 360px" />}
             />
           </section>
         ) : null}
