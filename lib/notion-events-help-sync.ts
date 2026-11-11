@@ -1138,6 +1138,10 @@ async function syncAgenda(input: {
           && input.webhookMappedOnly && !input.manualDirection
           && (input.changedPropertyIds !== undefined || input.adminChangedFields !== undefined)) {
         const agenda = input.definition.key;
+        // Mapped identity is immutable in both directions. A missing ID is
+        // not proof that the current Notion page still belongs to this entity.
+        if (pageIdentity.psipediaId !== source.id)
+          throw new Error("HELP_FIELD_EVENT_IDENTITY_MISMATCH");
         const permitted = new Set(agendaEditableFields[agenda]);
         if (input.changedPropertyIds !== undefined) {
           const fields = changedNotionHelpFields(agenda, page.properties, input.changedPropertyIds);
