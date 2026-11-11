@@ -22,7 +22,7 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 3. [x] **CSS cost a render-blocking.** Zmerať build CSS, vybrať len nepoužívané/zdieľané pravidlá a presunúť admin CSS mimo verejnej vetvy bez zmeny vzhľadu; regresné vizuálne testy.
 4. [x] **JavaScript a hydration.** Analýza route chunkov, minimalizovať client boundary, presunúť nevyhnutnú interaktivitu do izolovaných komponentov; bez zhoršenia navigácie.
 5. [x] **Úvodná stránka / D1.** Zmerať náklady paralelných čítaní, odstrániť iba preukázané duplicity, overiť obsah, poradie, publikovanie a SEO.
-6. [ ] **HTML/RSC/cache.** Preskúmať reálny HIT/MISS, TTFB a invalidáciu; nikdy necacheovať administráciu, partnera, cookies, autentifikované, query alebo RSC požiadavky.
+6. [x] **HTML/RSC/cache.** Preskúmať reálny HIT/MISS, TTFB a invalidáciu; nikdy necacheovať administráciu, partnera, cookies, autentifikované, query alebo RSC požiadavky.
 7. [ ] **Fotografie a médiá.** Kompresia/rozmery, správne `srcSet`, lazy loading pod prvým viewportom, stabilné rozmery pre CLS; bez odstránenia originálov.
 8. [ ] **Adresár, podujatia, plemená, mapy.** Route-specific profily, zoznamy a filtrovanie, mapové knižnice načítavať až pri potrebe, priebežne kontrolovať UX a funkčnosť.
 9. [ ] **Tretie strany a dlhé úlohy.** Skripty analytiky, súhlasov a reklám, event handlery, INP; rešpektovať consent, reklamnú funkcionalitu a interný traffic.
@@ -109,3 +109,20 @@ Referenčné postupy: https://react.dev/reference/react/lazy a https://web.dev/a
 3. **Testy** — nový `tests/homepage-directory-query-performance.test.mjs` porovnáva celý výsledok originálneho aj optimalizovaného SQL nad reálnym SQLite (rôzne kategórie, poradia, dátumy/offsety, limity, zlé JSON, draft/published a neplatné obrázky); zapojený do `npm run test:homepage-media`. Statické kontraktné testy v `tests/homepage-media-quality.test.mjs` a `tests/performance-fastpaths.test.mjs` zabezpečujú neskoré načítanie JSON, bezpečné publikovanie a deduplikáciu metadátových čítaní.
 
 **Hranice overenia:** samostatná lokálna kontrola parity ekvivalentného SQLite dotazu pre 20 kombinácií prešla; test zoznamu scenárov je uložený v repozitári, jeho CI výsledok ešte nie je potvrdený. Bez produkčného `EXPLAIN`, profileru a porovnateľného Lighthouse nemožno tvrdiť konkrétny pokles ms, D1 nákladov ani prenosu. Žiadna SQL migrácia, zmena schémy, indexov, publikovania, Notion synchronizácie ani administrácie.
+
+
+## Krok 6 — Edge HTML cache, RSC bezpečnosť a HIT/MISS diagnostika
+
+**Zistený základ:** Worker už má 45-sekundové `caches.default` **iba pre explicitné anonymné HTML** z `psipedia.sk`. Verziovaný kľúč `CF_VERSION_METADATA.id` nevráti staré asset hashe po nasadení novej verzie. Ide o lokálnu POP Cache API, nie globálne synchronizovanú cache. Existujúca invalidácia používa rovnaký verziovaný kľúč a ostatné POP sa spoliehajú na krátku TTL.
+
+**Zmeny:**
+1. V `worker/index.ts` sa okrem pôvodných blokácií cookies, Authorization, Cloudflare Access, Admin/Partner/API, query a RSC blokujú tiež Server Actions, Next client/middleware prefetchy a `Sec-Purpose`. Požiadavka so `Sec-Fetch-Dest` musí byť dokument a `Sec-Fetch-Mode` navigácia.
+2. Požiadavky s vynúteným refreshom/revalidáciou (Cache-Control no-cache/no-store/max-age=0, Pragma no-cache, If-None-Match, If-Modified-Since, Range/If-Range) sa nikdy neuspokoja zo zdieľanej HTML cache.
+3. Zdieľaný helper `isSafePublicHtmlVary` v `lib/public-anonymous-html-cache.ts` povoľuje iba Accept-Encoding a známe Next dokumentové Vary hlavičky; pri neznámych závislostiach (Accept-Language, User-Agent, Origin, experimenty) odpoveď nie je vhodná na URL-only cache. Oba režimy cachovania používajú rovnakú kontrolu. `X-Robots-Tag: noindex` nie je možné povýšiť na cacheable HTML.
+4. 45 s TTL sa nemení; odstránené nepodporované `stale-while-revalidate=30` z Cache API. Cloudflare `cache.put/cache.match` nepodporuje SWR.
+5. Read-only diagnostika: `npm run perf:html-cache:probe -- / /adresar/veterinari /plemena`. Na každý vybraný verejný path odošle dve sekvenčné, neprihlásené GET požiadavky, vypíše prvý/druhý čas do hlavičiek, HTTP status a cache HIT/MISS/BYPASS. Nečíta privátne stránky, neodosiela cookies ani query, nevykonáva zápisy. Meranie nemá za cieľ umelo zvyšovať záťaž a nie je náhradou za Lighthouse.
+6. Regresné testy `tests/public-anonymous-html-cache.test.mjs`, `tests/public-html-cache-safety.test.mjs`, `tests/public-html-cache.test.mjs`, nový `tests/web-perf-html-cache-probe.test.mjs` a predchádzajúce perf testy sú v `npm run test:perf-fastpaths`.
+
+**Zachované:** RSC/Flight sa **neukladá** do spoločnej HTML cache. Žiadna zmena Cloudflare nastavení, D1 migrácií, Adminu, Notion ani maximálneho TTL. Invalidácia cez Cache API je lokálna pre daný POP; okamžitá celosvetová invalidácia nie je garantovaná. Build, funkčné smoke testy a reálne HIT/MISS a TTFB zatiaľ neboli potvrdené a patria do kroku 10.
+
+Zdroje: https://developers.cloudflare.com/workers/runtime-apis/cache/ a https://developers.cloudflare.com/workers/reference/how-the-cache-works/
