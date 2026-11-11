@@ -10,6 +10,9 @@ import {
   type ManagedBreedInput,
 } from "@/lib/breed-store";
 import { mergeManagedBreedEdit } from "@/lib/breed-sync-preservation";
+import { breedAdminSparseEdit } from "@/lib/breed-admin-dirty-patch.mjs";
+import { breedEventIsDirectField } from "@/lib/notion-breed-workcopy-field-sql.mjs";
+import { saveBreedNotionField } from "@/lib/notion-breed-workcopy-direct-field";
 import {
   writeBackDraftBreedEditorialToNotion,
   writeBackBreedEditorialToNotion,
@@ -39,12 +42,37 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const before = await getManagedBreed(id);
     if (!before) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
 
-    const { expectedUpdatedAt, ...patch } = await request.json() as ManagedBreedInput & { expectedUpdatedAt?: unknown };
+    const { expectedUpdatedAt, changedFieldKeys, ...patch } = await request.json() as ManagedBreedInput & {
+      expectedUpdatedAt?: unknown; changedFieldKeys?: unknown;
+    };
     if (typeof expectedUpdatedAt !== "string" || !expectedUpdatedAt.trim()) {
-      return Response.json({ code: "BREED_VERSION_REQUIRED", error: "Chýba verzia plemena. Obnov editor." }, { status: 428 });
+      return Response.json({ code:"BREED_VERSION_REQUIRED", error:"Chýba verzia plemena. Obnov editor." }, {status:428});
     }
-    const breed = await updateManagedBreed(id, mergeManagedBreedEdit(before, patch), user.email, expectedUpdatedAt);
-    if (!breed) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
+    // Same as the breeder editor: an old full-form snapshot cannot overwrite
+    // freshly imported Notion values of untouched fields. Only dirty paths
+    // are carried forward against the latest canonical D1 version.
+    const sparse = Array.isArray(changedFieldKeys);
+    const dirty = sparse ? (changedFieldKeys as string[]) : null;
+    const selected = sparse ? breedAdminSparseEdit(patch, dirty) : patch;
+    let breed = before;
+    if (dirty?.length && dirty.every(breedEventIsDirectField)) {
+      // One SQL column / JSON leaf per actual Admin edit, without resaving
+      // status, relations, image keys, other editorial cells, or D1 baselines.
+      for (const field of dirty) {
+        const value = field.split(".").reduce<unknown>((v,key) =>
+          v && typeof v==="object" ? (v as Record<string,unknown>)[key] : undefined,
+          selected);
+        const result=await saveBreedNotionField({
+          database:(env as unknown as {DB:D1Database}).DB,
+          breedId:id,field,value,actor:user.email,
+        });
+        breed=result.breed;
+      }
+    } else if (!dirty || dirty.length) {
+      breed = await updateManagedBreed(id,mergeManagedBreedEdit(before,selected),
+        user.email,sparse ? before.updatedAt : expectedUpdatedAt);
+      if (!breed) return Response.json({error:"Plemeno sa nenašlo."},{status:404});
+    }
 
     const bindings = env as unknown as BreedRouteBindings;
     let notionEditorialWriteback: { status: string; code?: string } | undefined;
@@ -54,6 +82,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       try {
         const result = await writeBackBreedEditorialToNotion({
           database:bindings.DB,bindings,before,breed,
+          changedFieldKeys:dirty??undefined,
         });
         notionEditorialWriteback={
           status: "pendingFields" in result && result.pendingFields?.length
