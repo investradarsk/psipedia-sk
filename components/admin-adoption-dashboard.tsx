@@ -51,9 +51,9 @@ const sortLabels: Record<AdoptionAdminSort, string> = {
   "name-desc": "Meno Z–A",
 };
 
-export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] }) {
+export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { result: AdoptionAdminListResult; filters: AdoptionAdminListFilters; reviewedIds?: number[] | null }) {
   const router = useRouter();
-  const reviewed = new Set(reviewedIds);
+  const reviewed = reviewedIds === null ? null : new Set(reviewedIds);
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; updatedAt: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -163,7 +163,9 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
               <div className={styles.rowTitle}><strong>{item.status === "ACTIVE" || item.status === "RESERVED" ? "Verejný profil" : "Neverejný profil"}</strong><small>{item.indexable ? "index" : "noindex"}</small></div> },
             { id: "actions", label: "Akcie", width: 240,
               cell: item => <div className={styles.rowTitle}>
-                <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+                {reviewed
+              ? <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+              : <span aria-label="Stav redakčnej kontroly nedostupný">—</span>}
                 {item.status !== "ARCHIVED" && <span className={styles.inlineDesktop}><AdminInlineRowActions
                   editing={activeInline?.id === item.id} busy={busy}
                   disabled={Boolean(activeInline && activeInline.id !== item.id) || (activeInline?.id === item.id && !activeInline.name.trim())}
@@ -207,7 +209,9 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
             <div><dt>Web</dt><dd>{isPublic ? "Verejný profil" : "Neverejný profil"} · {item.indexable ? "index" : "noindex"}</dd></div>
           </dl>
           <div className={styles.adoptionCardActions}>
-            <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+            {reviewed
+              ? <AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={reviewed.has(item.id)} compact />
+              : <span aria-label="Stav redakčnej kontroly nedostupný">—</span>}
             <Link className={styles.edit} href={`/admin/adopcie/${item.id}`}>Upraviť →</Link>
           </div>
         </article>;
