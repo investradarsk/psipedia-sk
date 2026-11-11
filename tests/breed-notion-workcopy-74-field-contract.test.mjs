@@ -99,13 +99,16 @@ test("11 historical Admin-only fields cannot create arbitrary new Notion propert
   assert.equal(breedWorkcopyPhysicalProperty("Súvisiace plemená ID"), null);
 });
 
-test("technical identity and media columns remain mapped without enabling unsafe writes", () => {
+test("only technical metadata is non-editorial; mapped media and FCI stay editable", () => {
   assert.deepEqual(sorted(BREED_WORKCOPY_TECHNICAL_PROPERTIES),
     sorted(["Psipedia ID", "Zdrojový profil Notion"]));
   for (const name of BREED_WORKCOPY_TECHNICAL_PROPERTIES)
     assert.equal(breedWorkcopyPropertyKind(name), "technical");
-  for (const name of ["Hlavný obrázok URL", "Galéria JSON", "Športy JSON"]) {
-    assert.ok(BREED_WORKCOPY_NON_EDITORIAL_COLUMNS.includes(name));
+  assert.deepEqual(sorted(BREED_WORKCOPY_NON_EDITORIAL_COLUMNS),
+    sorted(["Psipedia ID", "Zdrojový profil Notion"]));
+  for (const name of ["Hlavný obrázok URL", "Galéria JSON", "Športy JSON",
+    "FCI číslo"]) {
+    assert.ok(!BREED_WORKCOPY_NON_EDITORIAL_COLUMNS.includes(name));
     assert.ok(Object.hasOwn(notion, name));
   }
   const events = read("lib/notion-breed-workcopy-field-events.mjs");
@@ -113,6 +116,8 @@ test("technical identity and media columns remain mapped without enabling unsafe
   const sync = read("lib/notion-breed-workcopy-sync.ts");
   assert.match(events, /breedWorkcopyPhysicalProperty\(entry.notion\)/);
   assert.match(bridge, /breedWorkcopyPhysicalProperty\(entry.notion\)/);
-  assert.match(sync, /"image", "gallery", "relatedBreedIds"/);
-  assert.match(sync, /"sports"/);
+  assert.match(sync, /const validMediaJson/);
+  assert.match(sync, /const fciEdited = Boolean/);
+  assert.match(sync, /nextFci !== canonical.fciNumber/);
+  assert.match(bridge, /fieldId === "gallery" \|\| fieldId === "sports"/);
 });
