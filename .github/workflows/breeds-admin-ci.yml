@@ -53,7 +53,10 @@ jobs:
           node-version: 24.18.0
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # The hosted image already provides the browser runtime libraries.
+      # Avoid apt font-package downloads, which can fail on Ubuntu mirror DNS.
+      # Browser launch in Playwright remains a hard required check.
+      - run: npx playwright install chromium
       - name: BREEDS-ADMIN unit contract
         run: |
           node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breed-admin-v2.test.mjs
