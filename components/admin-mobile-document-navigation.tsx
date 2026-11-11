@@ -14,6 +14,9 @@ import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
 export function AdminMobileDocumentNavigation() {
   useEffect(() => {
     const handler = (event: MouseEvent) => {
+      // A dirty editor must own the click first; a full document request
+      // would otherwise bypass its custom confirmation on iOS.
+      if (document.documentElement.hasAttribute("data-admin-unsaved-editor")) return;
       if (event.defaultPrevented || event.button !== 0 ||
         event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
         !window.matchMedia("(max-width: 820px)").matches ||
