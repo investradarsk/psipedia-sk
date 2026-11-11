@@ -144,10 +144,10 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
   assert.match(groupedSql, /WHERE card_rank <= \?/);
   // Rank only lightweight ordering columns; load profile display JSON after LIMIT.
   assert.match(groupedSql, /SELECT id, name, category, featured/);
-  assert.match(groupedSql, /SELECT id, category, card_rank FROM ranked WHERE card_rank <= \\?/);
-  assert.match(groupedSql, /INNER JOIN directory_profiles AS profile ON profile\\.id = selected\\.id/);
-  assert.match(groupedSql, /profile\\.thumbnail_display_json/);
-  assert.match(groupedSql, /json_valid\\(profile\\.source_data_json\\)/);
+  assert.match(groupedSql, /SELECT id, category, card_rank FROM ranked WHERE card_rank <= \?/);
+  assert.match(groupedSql, /INNER JOIN directory_profiles AS profile ON profile\.id = selected\.id/);
+  assert.match(groupedSql, /profile\.thumbnail_display_json/);
+  assert.match(groupedSql, /json_valid\(profile\.source_data_json\)/);
   assert.match(groupedSql, /AS fallback_district/);
   // Upcoming events without uploaded photos remain visible; EventImage provides safe category artwork.
   const upcoming = events
