@@ -59,3 +59,25 @@ test("stalled transition offers a nonblocking safe exit without reloading the ed
   await notice.getByRole("button", { name: "Zavrieť upozornenie" }).click();
   await expect(notice).toHaveCount(0);
 });
+
+test("consecutive Admin soft navigations remain usable with browser Back and Forward", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Desktop sidebar and router history sequence");
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("[data-admin-sidebar][data-admin-hydrated='true']")).toBeVisible();
+
+  await page.locator('[data-admin-shell] a[href="/admin/plemena"]:visible').first().click();
+  await expect(page).toHaveURL(/\\/admin\\/plemena$/);
+  await expect(page.locator("[data-admin-shell]")).toBeVisible();
+
+  await page.locator('[data-admin-sidebar] a[href="/admin/clanky"]').click();
+  await expect(page).toHaveURL(/\\/admin\\/clanky$/);
+  await expect(page.locator("[data-admin-shell]")).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\\/admin\\/plemena$/);
+  await expect(page.locator("[data-admin-shell]")).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(/\\/admin\\/clanky$/);
+  await expect(page.locator("[data-admin-shell]")).toBeVisible();
+});
