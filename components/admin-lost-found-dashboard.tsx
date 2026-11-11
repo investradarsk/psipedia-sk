@@ -34,9 +34,9 @@ function href(filters: Filters, page = 1, status = filters.status) {
     ["direction", filters.direction && filters.direction !== "desc" ? filters.direction : ""],
   ], page);
 }
-export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds = [] }: { result: Result; counts: Counts; filters: Filters; reviewedIds?: number[] }) {
+export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds = [] }: { result: Result; counts: Counts | null; filters: Filters; reviewedIds?: number[] | null }) {
   const router = useRouter();
-  const reviewed = new Set(reviewedIds);
+  const reviewed = reviewedIds === null ? null : new Set(reviewedIds);
   const [inlineDraft, setInlineDraft] = useState<{ id: number; key: string; expectedUpdatedAt: string; dogName: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -73,7 +73,7 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
     }
   }
   return <>
-    <nav className={styles.tabs} aria-label="Stavy hlásení">{tabs.map((tab)=><Link key={tab.key||"all"} data-active={filters.status===tab.key} href={href(filters,1,tab.key)}>{tab.label} <strong>{tab.count(counts)}</strong></Link>)}</nav>
+    <nav className={styles.tabs} aria-label="Stavy hlásení">{tabs.map((tab)=><Link key={tab.key||"all"} data-active={filters.status===tab.key} href={href(filters,1,tab.key)}>{tab.label} <strong>{counts ? tab.count(counts) : "—"}</strong></Link>)}</nav>
     <form className={styles.filters} method="get"><input name="q" defaultValue={filters.q} aria-label="Fulltext" placeholder="Meno, obec, farba, popis…"/><select name="type" defaultValue={filters.type} aria-label="Typ"><option value="">LOST + FOUND</option><option value="LOST">Stratené</option><option value="FOUND">Nájdené</option></select><input name="region" defaultValue={filters.region} aria-label="Kraj" placeholder="Kraj"/><input name="locality" defaultValue={filters.locality} aria-label="Okres alebo lokalita" placeholder="Okres / lokalita"/>{filters.status&&<input type="hidden" name="status" value={filters.status}/>}<button type="submit">Filtrovať</button></form>
     {message && <p role="status">{message}</p>}
     {selected.size > 0 && <div className={styles.gridSelection}>
@@ -128,7 +128,9 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
             cell: report => new Date(report.updatedAt).toLocaleDateString("sk-SK") },
           { id: "actions", label: "Akcie", width: 245, cell: report =>
             <div className={styles.gridRowActions}>
-              <AdminReviewCheckbox entityType="LOST_FOUND" entityId={report.id} initialReviewed={reviewed.has(report.id)} compact />
+              {reviewed
+                ? <AdminReviewCheckbox entityType="LOST_FOUND" entityId={report.id} initialReviewed={reviewed.has(report.id)} compact />
+                : <span aria-label="Stav redakčnej kontroly nedostupný">—</span>}
               {report.status !== "ARCHIVED" && report.duplicateOfId === null && <span className={styles.inlineDesktop}>
                 <AdminInlineRowActions editing={activeInline?.id === report.id} busy={busy}
                   disabled={Boolean(activeInline && activeInline.id !== report.id)}
