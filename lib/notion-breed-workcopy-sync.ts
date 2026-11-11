@@ -27,7 +27,6 @@ import { planBreedWorkCopyEditorialDelta } from "@/lib/notion-breed-workcopy-del
 import { planBreedWorkCopyFieldWrite } from "@/lib/notion-breed-workcopy-patch-bridge.mjs";
 import { BREED_NOTION_SCHEMA } from "@/lib/notion-breed-property-registry";
 import { isTransferableBreedWorkCopyValue } from "@/lib/notion-breed-workcopy-value.mjs";
-import { isBreedStructuredMeasurement } from "@/lib/breed-controlled-fields.mjs";
 import { receiveBreedControlledNotionEdit } from "@/lib/notion-breed-workcopy-controlled";
 import {
   workCopyChangedEditorialIds, workCopyNonblankChangedFields,
@@ -121,16 +120,6 @@ async function getActiveLink(database: D1Database, breedId: number) {
   ).bind(breedId).first<ShadowLink>();
 }
 
-/** An ACTIVE cutover must be complete for ALL 344 profiles, never partial. */
-async function requireActiveCohort(database: D1Database) {
-  const count = await database.prepare(
-    "SELECT COUNT(*) AS total, "+
-    "SUM(CASE WHEN status='ACTIVE' AND work_sync_receipt IS NOT NULL "+
-    "THEN 1 ELSE 0 END) AS ready FROM breed_notion_workcopy_links",
-  ).first<{ total: number; ready: number | null }>();
-  if (Number(count?.total) !== 344 || Number(count?.ready) !== 344)
-    throw Error("BREED_WORKCOPY_COHORT_NOT_ACTIVE");
-}
 async function advanceReceipt(
   database: D1Database, link: ShadowLink,
   receipt: WorkReceipt,
