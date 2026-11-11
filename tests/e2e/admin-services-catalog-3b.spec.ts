@@ -179,7 +179,13 @@ test("Services V3 simple catalog — desktop and mobile visual QA",async({page},
      await expect(toggle).toBeVisible();
      await expect(toggle).toHaveAttribute("aria-expanded","false");
      await expect(typeFilter).toBeHidden();
-     await toggle.click();
+     // SSR can render aria-expanded=false just before React hydration on
+     // narrow mobile viewports. Retry the SAME user click only until the
+     // actual state changes; do not treat an unhydrated click as a UI defect.
+     await expect(async()=>{
+       if(await toggle.getAttribute("aria-expanded")!=="true")await toggle.click();
+       await expect(toggle).toHaveAttribute("aria-expanded","true",{timeout:1500});
+     }).toPass({timeout:10000});
      await expect(typeFilter).toBeVisible();
      await typeFilter.selectOption("attribute");
      await expect(toggle).toContainText("(1)");

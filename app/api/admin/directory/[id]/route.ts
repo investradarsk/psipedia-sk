@@ -1,4 +1,5 @@
 import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
+import { DirectoryPublicationConflictError, publishDirectoryDraftByCas } from "@/lib/admin-directory-publication";
 import { env } from "cloudflare:workers";
 import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -469,7 +470,35 @@ export async function PUT(request: Request, { params }: Props) {
         (env as unknown as UploadBindings).BUCKET, before.imageKey);
     }
     await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"directory",id,profile.status);
-    return Response.json({ profile, notionFieldSync, metadataWarnings });
+    // Trainer / breeder field-event writeback does not carry publication state.
+    // An owner-triggered publish must also run a separate id-only status mirror;
+    // never let a stale Notion concept silently override the canonical decision.
+    if (before.status !== "published" && profile.status === "published" &&
+        notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true") {
+      try {
+        const statusSync = await runNotionDirectorySyncSweep({
+          database: db,
+          bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
+          targetProfileId: id,
+          // Intentionally NO breederAdminFields: run the structural publication branch.
+        });
+        notionFieldSync = !statusSync.enabled || !statusSync.schemaReady || statusSync.failed
+          ? "pending" : statusSync.pushedToNotion || statusSync.unchanged ? "synced" : "pending";
+        if (notionFieldSync === "pending") {
+          metadataWarnings.push("Publikované v Admine; stav v Notione ešte nie je potvrdený.");
+        }
+      } catch (error) {
+        console.error("DIRECTORY_PUBLICATION_NOTION_WRITEBACK_FAILED", id, error);
+        notionFieldSync = "pending";
+        metadataWarnings.push("Publikovanie je uložené v Admine, ale prenos stavu do Notionu nie je potvrdený.");
+      }
+    }
+    // Re-read persisted D1 after all metadata and provider side-effects; a stale
+    // intermediate projection must never be reported as the final lifecycle.
+    const saved = await getManagedDirectoryProfileById(id, db);
+    if (!saved) return Response.json({ error: "Záznam po uložení neexistuje." }, { status: 409 });
+    return Response.json({ profile: saved, notionFieldSync, metadataWarnings },
+      { headers: { "cache-control": "no-store" } });
   } catch (error) { return errorResponse(error); }
 }
 
@@ -492,6 +521,68 @@ export async function PATCH(request: Request, { params }: Props) {
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
   try {
     const body = await request.json() as { action?: unknown; reviewed?: unknown };
+    if (body.action === "publish-confirmed-draft") {
+      // A signed-in owner has already requested publication and a full-form
+      // save returned an unconfirmed draft. Never retry the whole stale form.
+      // This narrow CAS changes ONLY the publication columns, provided that
+      // canonical identity and the latest D1 revision still match.
+      if (request.headers.get("origin") !== new URL(request.url).origin ||
+          !request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+        return Response.json({ error: "Neplatný pôvod alebo typ požiadavky." }, { status: 403 });
+      }
+      const fields = body as { action: string; expectedUpdatedAt?: unknown;
+        expectedSlug?: unknown; expectedCategory?: unknown };
+      if (Object.keys(fields).length !== 4 ||
+          typeof fields.expectedUpdatedAt !== "string" ||
+          typeof fields.expectedSlug !== "string" ||
+          typeof fields.expectedCategory !== "string") {
+        return Response.json({ error: "Chýba overená verzia alebo identita profilu." }, { status: 400 });
+      }
+      const db = (env as unknown as { DB?: D1Database }).DB;
+      if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+      try {
+        await publishDirectoryDraftByCas({
+          db, id, actor: user.email,
+          expectedUpdatedAt: fields.expectedUpdatedAt,
+          expectedSlug: fields.expectedSlug,
+          expectedCategory: fields.expectedCategory,
+        });
+      } catch (error) {
+        if (error instanceof DirectoryPublicationConflictError) {
+          return Response.json({ error: error.message }, { status: 409 });
+        }
+        throw error;
+      }
+      // The explicit Admin owner action may clear a prior inbound unpublish
+      // guard only after the canonical status transition is confirmed.
+      await acknowledgeAdminPublication(db, "directory", id, "published");
+      let notionFieldSync: "synced" | "pending" | "disabled" = "disabled";
+      const enabled = (env as unknown as {
+        NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string
+      }).NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true";
+      if (enabled) {
+        try {
+          const result = await runNotionDirectorySyncSweep({
+            database: db,
+            bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
+            targetProfileId: id,
+          });
+          notionFieldSync = !result.enabled || !result.schemaReady || result.failed
+            ? "pending" : result.pushedToNotion || result.unchanged ? "synced" : "pending";
+        } catch (error) {
+          console.error("DIRECTORY_PUBLICATION_TARGETED_SYNC_FAILED", id, error);
+          notionFieldSync = "pending";
+        }
+      }
+      const profile = await getManagedDirectoryProfileById(id, db);
+      if (!profile || profile.status !== "published" ||
+          profile.slug !== fields.expectedSlug ||
+          profile.category !== fields.expectedCategory) {
+        return Response.json({ error: "Zmena publikovania sa v databáze nepotvrdila. Obnov profil." },
+          { status: 409 });
+      }
+      return Response.json({ profile, notionFieldSync }, { headers: { "cache-control": "no-store" } });
+    }
     if (body.action === "set-inline-editorial") {
       // Quick edit is deliberately NOT the full PUT payload: it may change
       // only two text columns and never contacts, address, status, filters,
