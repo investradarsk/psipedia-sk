@@ -21,7 +21,7 @@ import type { NotionPage } from "@/lib/notion-sync-shared";
 import type { NotionFieldMode } from "@/lib/notion-field-authority";
 
 const FULL_FCI_AND_EDITORIAL = new Set([
-  "fciStandard", "editorial", "image", "gallery",
+  "fciStandard", "editorial",
   "relatedBreedIds", "relatedArticleIds", "directoryProfileIds",
 ]);
 
