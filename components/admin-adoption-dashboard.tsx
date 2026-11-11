@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordId } from "./admin-record-id";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
@@ -110,6 +111,11 @@ export function AdminAdoptionDashboard({ result, filters, reviewedIds = [] }: { 
       {selected.size > 0 && <div className={styles.gridSelection}>
         <strong>Označené: {selected.size}</strong>
         <button type="button" onClick={() => setSelected(new Set())}>Zrušiť výber</button>
+        <AdminRecordBulkDelete kind="adoptions" selectedIds={[...selected]} disabled={busy}
+          onFinished={ids => {
+            setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
+            router.refresh();
+          }} />
       </div>}
       <AdminDataTableRegion className={styles.tableWrap} label="Zoznam adopcií – tabuľka">
         {result.items.length ? <AdminRecordTable

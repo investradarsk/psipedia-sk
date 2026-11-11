@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -184,6 +185,12 @@ export function AdminDirectoryDashboard({ data, filters, basePath = "/admin/adre
               clear={bulkSelection.clear}
               supportsAllMatching={false}
             />
+            {bulkSelection.selectedCount > 0 && <AdminRecordBulkDelete
+              kind="directory"
+              selectedIds={bulkSelection.selection.mode === "explicit" ? bulkSelection.selection.ids : []}
+              disabled={!bulkSelection.ready || inlineBusy || deletingId !== null}
+              onFinished={() => { bulkSelection.clear(); router.refresh(); }}
+            />}
             <AdminRecordTable
               rows={profiles}
               label="Profily služieb"

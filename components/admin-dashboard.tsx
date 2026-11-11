@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
@@ -307,6 +308,16 @@ export function AdminDashboard({
               supportsAllMatching={false}
               pageSelectionInTable
             />
+            {bulkSelection.selectedCount > 0 && <AdminRecordBulkDelete
+              kind="articles"
+              selectedIds={bulkSelection.selection.mode === "explicit" ? bulkSelection.selection.ids : []}
+              disabled={!bulkSelection.ready || inlineBusy || deletingId !== null}
+              onFinished={ids => {
+                setArticles(current => current.filter(article => !ids.includes(article.id)));
+                bulkSelection.clear();
+                router.refresh();
+              }}
+            />}
             <AdminRecordTable
               rows={articles}
               label="Články"

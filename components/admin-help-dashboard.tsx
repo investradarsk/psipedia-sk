@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AdminRecordTable } from "@/components/admin-record-table";
@@ -175,6 +176,10 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
         primaryAction={<AdminActionButton variant="primary" disabled={bulkBusy} onClick={() => void prepareBulk("published")}>Publikovať</AdminActionButton>}
         destructiveAction={<AdminActionButton variant="destructive" disabled={bulkBusy} onClick={() => void prepareBulk("draft")}>Prepnúť na koncept</AdminActionButton>}
         onClear={clearSelection}
+      />}
+      {selectedCount > 0 && <AdminRecordBulkDelete
+        kind="help" selectedIds={[...selected]} disabled={bulkBusy}
+        onFinished={() => { setSelected(new Set()); router.refresh(); }}
       />}
       {message && <p className="admin-flash" role="status">{message}</p>}
       <p className="admin-help-results">Nájdené: <strong>{resultCount}</strong> · Strana {page} z {pages}</p>

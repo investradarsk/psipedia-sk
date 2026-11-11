@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
@@ -221,6 +222,14 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
         onClear={() => setSelected(new Set())}
       />}
 
+      {!!selected.size && <AdminRecordBulkDelete
+        kind="breeds" selectedIds={[...selected]} disabled={busy}
+        onFinished={ids => {
+          setBreeds(current => current.filter(item => !ids.includes(item.id)));
+          setSelected(current => new Set([...current].filter(id => !ids.includes(id))));
+          setMessage("Požiadavka na odstránenie vybraných plemien bola spracovaná.");
+        }}
+      />}
       {message && <p className="admin-flash" role="status">{message}</p>}
 
       <div ref={listRef} aria-busy={busy}>

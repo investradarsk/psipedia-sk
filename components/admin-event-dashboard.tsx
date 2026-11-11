@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminRecordTable } from "@/components/admin-record-table";
@@ -320,6 +321,11 @@ export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedI
             onClear={clearSelection}
           />
         )}
+
+        {!!selected.size && <AdminRecordBulkDelete
+          kind="events" selectedIds={[...selected]} disabled={busy || loading || !hydrated}
+          onFinished={() => { clearSelection(); void reload(); }}
+        />}
 
         {bulkEditOpen && !!selected.size && (
           <div className={styles.bulkEditPanel}>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminRecordBulkDelete } from "@/components/admin-record-bulk-delete";
 import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
@@ -253,6 +254,13 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
           onClear={bulkSelection.clear}
         />
       )}
+
+      {bulkSelection.selectedCount > 0 && <AdminRecordBulkDelete
+        kind="organizations"
+        selectedIds={bulkSelection.selection.mode === "explicit" ? bulkSelection.selection.ids : []}
+        disabled={!hydrated || !bulkSelection.ready || bulkBusy || busyId !== null || inlineBusy}
+        onFinished={() => { bulkSelection.clear(); router.refresh(); }}
+      />}
 
       {data.items.length ? <AdminRecordTable
         rows={data.items}
