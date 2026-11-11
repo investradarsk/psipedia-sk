@@ -39,7 +39,7 @@ export async function PATCH(request: Request, { params }: Props) {
     return Response.json({ error: "Meno psa musí mať 1–180 znakov." }, { status: 400 });
   }
   try {
-    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id, beforeHelpSnapshot });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id });
     const updatedId = await updateAdoptionInlineName(id, body.name, body.expectedUpdatedAt, auth.user.email);
     if (!updatedId) return Response.json({ error: "Adopčný profil neexistuje." }, { status: 404 });
     const notionFieldSync = await syncSavedNotionRecord({
@@ -64,7 +64,7 @@ export async function PUT(request: Request, { params }: Props) {
     if (!isRecord(body) || !isRecord(body.payload) || typeof body.expectedUpdatedAt !== "string") {
       return Response.json({ error: "Neplatný payload adopčného profilu alebo chýbajúca verzia záznamu." }, { status: 400 });
     }
-    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id, beforeHelpSnapshot });
+    const beforeHelpSnapshot = await captureHelpNotionSnapshot({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id });
     const item = await updateAdoptionFromAdmin(id, body.payload as ManagedAdoptionInput, user.email, body.expectedUpdatedAt);
     if (!item) return Response.json({ error: "Adopčný profil sa nenašiel." }, { status: 404 });
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id, beforeHelpSnapshot });
