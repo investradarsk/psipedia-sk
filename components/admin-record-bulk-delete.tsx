@@ -45,6 +45,7 @@ export function AdminRecordBulkDelete({
   const [done, setDone] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [failureId, setFailureId] = useState<number | null>(null);
+  const [finishedIds, setFinishedIds] = useState<number[]>([]);
   const working = phase === "preparing" || phase === "deleting";
   const canStart = !disabled && phase === "idle" && selectedIds.length > 0;
 
@@ -65,6 +66,7 @@ export function AdminRecordBulkDelete({
     setFailureId(null);
     setDone(0);
     setPendingCount(0);
+    setFinishedIds([]);
     const verified: LifecyclePreview[] = [];
     try {
       // Preflight never performs a mutation. Freeze exact IDs before opening the dialog.
@@ -130,14 +132,17 @@ export function AdminRecordBulkDelete({
     }
     setFailureId(failed);
     setError(failure);
+    setFinishedIds(acknowledged);
     setPhase("result");
-    if (acknowledged.length) onFinished(acknowledged);
   }
 
   function close() {
     if (working) return;
+    const toRefresh = phase === "result" ? finishedIds : [];
     setPhase("idle");
     setPreviews([]);
+    setFinishedIds([]);
+    if (toRefresh.length) onFinished(toRefresh);
   }
 
   return <>
