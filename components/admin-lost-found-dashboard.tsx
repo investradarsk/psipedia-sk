@@ -86,7 +86,7 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
         }} />
     </div>}
     <AdminDataTableRegion className={styles.tableWrap} label="Zoznam hlásení">
-      {result.items.length ? <AdminRecordTable
+      <AdminRecordTable
         rows={result.items}
         label="Stratené a nájdené psy"
         stretch serverSorted busy={busy}
@@ -138,7 +138,8 @@ export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds =
               <Link className={styles.edit} href={`/admin/stratene-najdene/${report.id}`}>Upraviť →</Link>
             </div> },
         ]}
-      /> : <p>Žiadne hlásenia pre zvolené filtre.</p>}
+      />
+      {!result.items.length && <p role="status">Žiadne hlásenia pre zvolené filtre.</p>}
     </AdminDataTableRegion>
     <AdminNumberedPagination page={result.page} totalPages={result.pages}
       hrefForPage={(page)=>href(filters,page)} className={styles.pagination} ariaLabel="Stránkovanie" />
