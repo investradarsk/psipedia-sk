@@ -253,7 +253,7 @@ test("breed profile: canonical breadcrumbs and direct sections, no-crop media, u
   await page.goto("/plemena/biely-svajciarsky-ovciak");
   // The approved compact profile no longer displays a redundant section navigation.
   // The breadcrumbs remain semantic and the content sections retain stable anchors.
-  const breadcrumbs = page.getByRole("navigation", { name: "Navigácia" });
+  const breadcrumbs = page.getByTestId("breed-hero").getByRole("navigation", { name: "Navigácia", exact: true });
   await expect(breadcrumbs).toBeVisible();
   await expect(breadcrumbs.getByRole("link", { name: "Plemená" })).toHaveAttribute("href", "/plemena");
   await expect(page.getByRole("navigation", { name: "Navigácia v profile plemena" })).toHaveCount(0);
