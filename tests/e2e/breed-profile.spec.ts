@@ -210,13 +210,13 @@ test("breed profile: White Swiss uses a visible, decoded real image and not the 
 
 test("breed profile: quick facts stay dense for rich data and collapse cleanly for sparse data", async ({ page }) => {
   await page.goto("/plemena/biely-svajciarsky-ovciak");
-  const denseFacts = page.getByTestId("breed-quick-facts").locator(":scope > div");
+  const denseFacts = page.getByTestId("breed-quick-facts").locator("[data-public-fact-list] > div");
   const denseCount = await denseFacts.count();
   expect(denseCount, "White Swiss Shepherd should expose a compact row of the available Notion-60 facts").toBeGreaterThanOrEqual(4);
 
   await page.goto("/plemena/burgosky-stavac");
   const sparseGrid = page.getByTestId("breed-quick-facts");
-  const sparseFacts = sparseGrid.locator(":scope > div");
+  const sparseFacts = sparseGrid.locator("[data-public-fact-list] > div");
   const sparseCount = await sparseFacts.count();
   expect(sparseCount, "Burgos Pointer should still expose known facts").toBeGreaterThan(0);
   expect(sparseCount, "Sparse facts must not reserve empty slots").toBeLessThan(denseCount);
@@ -234,9 +234,9 @@ test("breed profile: suitability, permanently visible expert sections and normal
   await expect(fit.getByRole("heading", { name: "Hodí sa pre" })).toBeVisible();
   await expect(fit.getByRole("heading", { name: "Treba zvážiť" })).toBeVisible();
 
-  const movement = page.locator('[data-breed-profile-section="Pohyb a každodenný život"]');
+  const movement = page.locator('[data-breed-profile-section="Pohyb a aktivita"]');
   await expect(movement).toBeVisible();
-  await expect(movement.getByRole("heading", { name: "Pohyb a každodenný život" })).toBeVisible();
+  await expect(movement.getByRole("heading", { name: "Pohyb a aktivita" })).toBeVisible();
   // Approved S-06: full article content remains visible without any disclosure control.
   await expect(movement.locator("button, [aria-expanded], [hidden]")).toHaveCount(0);
   await expect(movement.locator("p").first()).toBeVisible();
@@ -248,35 +248,23 @@ test("breed profile: suitability, permanently visible expert sections and normal
   expect(new Set(sportKeys).size, `Duplicate normalized sport keys: ${sportKeys.join(", ")}`).toBe(sportKeys.length);
 });
 
-test("breed profile: static anchor navigation, no-crop media, useful cards and accessibility work", async ({ page }) => {
+test("breed profile: no redundant index, no-crop media, useful cards and accessibility work", async ({ page }) => {
   await page.goto("/plemena/biely-svajciarsky-ovciak");
-  const nav = page.getByRole("navigation", { name: "Navigácia v profile plemena" });
-  await expect(nav).toBeVisible();
-
-  const position = await nav.evaluate((element) => getComputedStyle(element).position);
-  expect(position).toBe("static");
+  // The owner removed the redundant V tomto profile navigation; it must not return.
+  await expect(page.getByRole("navigation", { name: "Navigácia v profile plemena" })).toHaveCount(0);
+  await expect(page.getByText("V tomto profile", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("breed-quick-facts")).toBeVisible();
 
   const image = page.getByTestId("breed-hero-image");
   await expect(image).toBeVisible();
   expect(await image.evaluate((element) => getComputedStyle(element).objectFit)).toBe("contain");
   expect(await image.evaluate((element) => getComputedStyle(element).objectPosition)).toContain("50%");
 
-  const fciLink = nav.getByRole("link", { name: "FCI", exact: true });
-  await fciLink.focus();
-  await expect(fciLink).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/#fci$/);
+  // Headings and ids remain accessible, while the dedicated FCI link stays keyboard-operable.
   await expect(page.locator("#fci")).toBeVisible();
-  await expect(fciLink).not.toHaveAttribute("aria-current", "location");
-
-  const sportsLink = nav.getByRole("link", { name: "Športy", exact: true });
-  if (await sportsLink.count()) {
-    // Plain anchors must still navigate to the correct section without scrollspy.
-    await sportsLink.click();
-    await expect(page).toHaveURL(/#sporty$/);
-    await expect(page.locator("#sporty")).toBeVisible();
-    await expect(sportsLink).not.toHaveAttribute("aria-current", "location");
-  }
+  await expect(page.locator("#sporty")).toBeVisible();
+  const fciCta = page.getByTestId("breed-fci-cta");
+  await expect(fciCta).toHaveAttribute("href", "/plemena/biely-svajciarsky-ovciak/fci-standard");
 
   for (const href of [
     "/adresar/chovatelske-kluby",
@@ -289,6 +277,11 @@ test("breed profile: static anchor navigation, no-crop media, useful cards and a
   await expect(page.locator('a[href^="/adresar/treneri?breed="]')).toHaveCount(0);
   await expectNoHorizontalOverflow(page, "Breed profile section navigation");
   await expectAxeClean(page, "Breed profile");
+
+  await fciCta.focus();
+  await expect(fciCta).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/plemena\/biely-svajciarsky-ovciak\/fci-standard$/);
 
   await page.goto("/plemena/nova-scotia-duck-tolling-retriever");
   await expect(page.getByText("Fotografia sa pripravuje", { exact: true })).toBeVisible();
