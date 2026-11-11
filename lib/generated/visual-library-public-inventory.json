@@ -244,6 +244,10 @@
       "coverage": "live-preview"
     },
     {
+      "path": "components/facebook-konva-canvas.tsx",
+      "coverage": "nonvisual"
+    },
+    {
       "path": "components/favorite-button.tsx",
       "coverage": "needs-preview"
     },

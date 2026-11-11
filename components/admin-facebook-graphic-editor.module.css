@@ -48,3 +48,32 @@
 .logoThumbName{font-family:Arial,sans-serif;font-size:.84rem;font-weight:800;white-space:nowrap;letter-spacing:-.025em}
 .logoThumbName>span{color:#c93624}
 .logoThumbDark .logoThumbName>span{color:#f8a38f}
+
+
+/* Konva workspace: compact template choices and mobile-first stage. */
+.templateGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.previewFrame{background:#dbe8df;padding:10px}
+.previewFrame [aria-label^="Živý náhľad"]{touch-action:none;border-radius:8px;background:#174b38}
+.controls fieldset{gap:9px}
+.controls legend{font-size:.86rem}
+.controls label{font-size:.77rem}
+.controls textarea{resize:vertical}
+.logoStyles{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:850px){
+  .layout{gap:12px}
+  .previewSide{gap:7px}
+  .previewFrame{padding:6px}
+  .controls{gap:10px}
+  .controls fieldset{padding:10px}
+  .dual{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+  .templateGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .templateGrid button{padding:8px}
+  .logoStyles{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .logoThumb{justify-content:center;padding:5px}
+  .logoThumbName{display:none}
+  .logoStyles button{font-size:.69rem;padding:6px}
+  .dual{grid-template-columns:1fr}
+  .actions{position:sticky;bottom:0;background:#f8faf8;padding:7px 0 2px;z-index:5}
+}
