@@ -131,3 +131,42 @@ test("public hero cache invalidates after successful image writes and deletions"
   assert.match(deleted, /\.run\(\);[\s\S]*publicHeroVisualRows\.get\(visualKey\)\?\.invalidate\(\)/);
   assert.match(visual, /createShortLivedAsyncCache<StoredSectionVisual \| null>/);
 });
+
+test("homepage streams LCP hero before slower editorial D1 reads, keeping all six collection calls", () => {
+  const home = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const loadStart = home.indexOf("function loadHomepageContent()");
+  const belowStart = home.indexOf("async function HomeBelowHero");
+  const homeStart = home.indexOf("export default async function Home()");
+  assert.ok(loadStart >= 0 && belowStart > loadStart && homeStart > belowStart);
+
+  const contentLoader = home.slice(loadStart, belowStart);
+  for (const call of [
+    "getPublishedArticleSummaries({ limit: 120 })",
+    "getHomepageUpcomingEventsWithImages(8)",
+    "getHomepageHighlightedHelpCasesWithImages(3)",
+    'getHomepageDirectoryProfilesByCategoriesWithImages(["veterinari", "treneri"], 8)',
+    "listHomepageFeaturedBreeds(8)",
+    'getPublishedDesktopBannerColorsBatch(["homepage:profil", "help:lost-found"])',
+  ]) assert.ok(contentLoader.includes(call), "homepage content missing: " + call);
+  assert.doesNotMatch(contentLoader, /getSectionHeroVisual\(/);
+  assert.match(contentLoader, /return Promise\.all\(\[/);
+  assert.match(home.slice(belowStart, homeStart), /\] = await contentPromise/);
+
+  const homeRenderer = home.slice(homeStart);
+  assert.match(homeRenderer, /const heroPromise = getSectionHeroVisual\("home\.hero"\);[\s\S]*const contentPromise = loadHomepageContent\(\);[\s\S]*const homeHero = await heroPromise/);
+  assert.match(homeRenderer, /<UnifiedSectionHeroShell[\s\S]*visual=\{homeHero\}[\s\S]*<\/UnifiedSectionHeroShell>[\s\S]*<Suspense fallback=\{null\}>[\s\S]*<HomeBelowHero contentPromise=\{contentPromise\} \/>/);
+  assert.doesNotMatch(homeRenderer, /await contentPromise|await Promise\.all/);
+  assert.match(homeRenderer, /<main id="obsah" className=\{styles\.homeV2\}>/);
+});
+
+test("section LCP photos use visible SSR img, eager load and one high priority hint without duplicate preloads", () => {
+  const hero = readFileSync(new URL("../components/public-visual-system/unified-section-hero.tsx", import.meta.url), "utf8");
+  const media = hero.slice(hero.indexOf('data-unified-section-hero-media'));
+  assert.match(media, /<img[\s\S]*src=\{visual\.imageUrl\}/);
+  assert.match(media, /srcSet=\{responsiveMediaSrcSet\(visual\.imageUrl/);
+  assert.match(media, /loading="eager"/);
+  assert.match(media, /fetchPriority=\{variant === "homepage-style" \? "high" : undefined\}/);
+  assert.doesNotMatch(media, /<link[^>]*rel="preload"/);
+  assert.doesNotMatch(media, /preload\(/);
+  assert.match(media, /alt=\{visual\.altText\}/);
+});
