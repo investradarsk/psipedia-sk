@@ -180,10 +180,11 @@ const ESHOP_EVENT_FIELDS = {
   logoUrl: "Logo URL",
 } as const;
 export type EshopEventField = keyof typeof ESHOP_EVENT_FIELDS;
+export type EshopAdminField = EshopEventField | "slug" | "status";
 
-export function eshopAdminEditedFields(before: ManagedEshop, after: ManagedEshop): EshopEventField[] {
+export function eshopAdminEditedFields(before: ManagedEshop, after: ManagedEshop): EshopAdminField[] {
   const old = profileSnapshot(before), next = profileSnapshot(after);
-  return (Object.keys(ESHOP_EVENT_FIELDS) as EshopEventField[]).filter(key =>
+  return ([...Object.keys(ESHOP_EVENT_FIELDS), "slug", "status"] as EshopAdminField[]).filter(key =>
     JSON.stringify(old[key]) !== JSON.stringify(next[key]));
 }
 
@@ -622,7 +623,7 @@ async function syncMapped(input: {
   forcePush?: boolean;
   manualDirection?: ManualFieldDirection;
   webhookChangedPropertyIds?: readonly string[];
-  adminChangedFields?: readonly EshopEventField[];
+  adminChangedFields?: readonly EshopAdminField[];
 }) {
   const shop = await getManagedEshopById(input.mapping.eshop_id, input.database);
   if (!shop) throw new Error("ESHOP_CANONICAL_MAPPING_ORPHAN");
@@ -681,9 +682,21 @@ async function syncMapped(input: {
   if (!input.manualDirection && input.adminChangedFields !== undefined) {
     const fields = [...new Set(input.adminChangedFields)];
     if (!fields.length) return "unchanged" as const;
-    const properties = notionProperties(shop, "", new Date().toISOString());
+    const properties = notionProperties(shop, "", new Date().toISOString()) as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
     for (const field of fields) {
+      if (field === "slug") {
+        for (const name of ["Slug", "URL Psipedia"]) {
+          if (!Object.hasOwn(page.properties ?? {}, name)) throw new Error("ESHOP_ADMIN_FIELD_SCHEMA_MISSING: " + name);
+          patch[name] = properties[name];
+        }
+        continue;
+      }
+      if (field === "status") {
+        if (!Object.hasOwn(page.properties ?? {}, "Psipedia stav")) throw new Error("ESHOP_STATUS_NOTION_MISSING");
+        patch["Psipedia stav"] = properties["Psipedia stav"];
+        continue;
+      }
       const name = ESHOP_EVENT_FIELDS[field];
       if (!name || !Object.hasOwn(page.properties ?? {}, name))
         throw new Error("ESHOP_ADMIN_FIELD_SCHEMA_MISSING: " + String(field));
@@ -847,7 +860,7 @@ export async function runNotionEshopSyncSweep(input: {
   /** Signed Notion property IDs for mapped field-event changes. */
   changedPropertyIds?: readonly string[];
   /** Explicit Admin before/after differences. */
-  adminChangedFields?: readonly EshopEventField[];
+  adminChangedFields?: readonly EshopAdminField[];
 }): Promise<NotionEshopSyncSummary> {
   if (input.targetPageId !== undefined && input.targetShopId !== undefined)
     throw new Error("NOTION_ESHOP_TARGET_SCOPE_AMBIGUOUS");
