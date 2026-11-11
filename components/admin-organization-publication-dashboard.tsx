@@ -332,13 +332,13 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
                 onClick={() => requestPublication(item, "publish")}>Publikovať</AdminActionButton>}
               {item.status === "PUBLISHED" && <AdminActionButton variant="secondary"
                 disabled={!hydrated || busyId !== null || bulkBusy}
-                onClick={() => requestPublication(item, "unpublish")}>Do konceptu</AdminActionButton>}
+                onClick={() => requestPublication(item, "unpublish")}>Presunúť do konceptu</AdminActionButton>}
               {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive"
                 disabled={!hydrated || busyId !== null || bulkBusy}
                 onClick={() => requestPublication(item, "archive")}>Archivovať</AdminActionButton>}
               {item.status === "ARCHIVED" && <AdminActionButton variant="secondary"
                 disabled={!hydrated || busyId !== null || bulkBusy}
-                onClick={() => requestPublication(item, "restore")}>Obnoviť</AdminActionButton>}
+                onClick={() => requestPublication(item, "restore")}>Obnoviť do konceptu</AdminActionButton>}
             </div>;
           } },
         ]}
