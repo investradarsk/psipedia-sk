@@ -18,7 +18,7 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 ## Krokový plán
 
 1. [x] **Bezpečné zrýchlenie opakovaných SSR hero renderov.** Cache iba verejných D1 riadkov vizuálov: 15 s TTL, maximálne 128 kľúčov na isolate, deduplikácia súbežných čítaní, invalidácia pri úspešnom uložení/zmazaní. Admin `getStoredSectionVisual` zostáva vždy priamo z D1. Využiť existujúcu testovanú cache implementáciu.
-2. [ ] **LCP na mobile/desktop.** Identifikovať skutočný LCP element Lighthouse/CrUX; hero priority, formáty, `srcSet`, `sizes`, preloading iba pri merateľnej výhode a bez duplicít.
+2. [x] **LCP na mobile/desktop.** Identifikovať skutočný LCP element Lighthouse/CrUX; hero priority, formáty, `srcSet`, `sizes`, preloading iba pri merateľnej výhode a bez duplicít.
 3. [ ] **CSS cost a render-blocking.** Zmerať build CSS, vybrať len nepoužívané/zdieľané pravidlá a presunúť admin CSS mimo verejnej vetvy bez zmeny vzhľadu; regresné vizuálne testy.
 4. [ ] **JavaScript a hydration.** Analýza route chunkov, minimalizovať client boundary, presunúť nevyhnutnú interaktivitu do izolovaných komponentov; bez zhoršenia navigácie.
 5. [ ] **Úvodná stránka / D1.** Zmerať náklady paralelných čítaní, odstrániť iba preukázané duplicity, overiť obsah, poradie, publikovanie a SEO.
@@ -51,3 +51,20 @@ Dátum začatia: 2026-11-11. Rozsah: **verejný web**, nie Admin, editory, Notio
 Zmena cieli výlučne časté opakované vyhľadávanie **verejného hero vizuálu** `section_visuals` podľa `visualKey`. Používa existujúci `createShortLivedAsyncCache` (súbežné dopyty sa zlúčia, zamietnutý dopyt sa necacheuje, invalidácia počas čítania neotrávi novú cache). Zápisy invalidujú aktuálny isolate; ostatné isolate majú maximálne krátke 15-sekundové okno. Administrátorský editor nečíta zo zdieľanej cache. Bez migrácie, nového balíka alebo konfigurácie Cloudflare.
 
 Statické regresné testy sú v `tests/performance-fastpaths.test.mjs`; vykoná `npm run test:perf-fastpaths`. Bez aktuálneho produkčného benchmarku nepripisovať cache číselné zrýchlenie ani bodový nárast Lighthouse.
+
+## Krok 2 — skoršie vykreslenie hlavného hero bloku (LCP)
+
+**Identifikovaná príčina v kóde:** `app/page.tsx` pôvodne čakal na `Promise.all` so siedmimi operáciami D1 (články, podujatia, pomoc, adresár, hero, plemená a bannery), až potom začal vracať HTML úvodnej stránky. To znamenalo, že pomalšia nesúvisiaca sekcia pod hero blokovala vykreslenie LCP kandidáta — veľkej fotografie a titulku.
+
+**Implementované:**
+- `getSectionHeroVisual("home.hero")` sa spúšťa samostatne a pred šiestimi operáciami obsahu; všetkých sedem operácií zostáva paralelných.
+- Hlavná stránka po získaní hero dát vracia stabilnú hlavičku a `UnifiedSectionHero` ako prvé; ostatné šesť výsledkov vykresľuje serverový `HomeBelowHero` pod `<Suspense fallback={null}>`. Sekcie, odkazy, poradie, dostupnosť publikovaného obsahu, atribúty a počet dotazov sa nemenia.
+- Zdieľaný `UnifiedSectionHero` explicitne používa `loading="eager"` a zachováva `fetchPriority="high"` pre variant `homepage-style`, `srcSet` pre schválené R2 kandidáty, `sizes` pre mobil a desktop a pôvodný CSS crop.
+- **Bez duplicitného `<link rel="preload">`**: hero obrázok je objaviteľný priamo v HTML a odkaz na hero sa môže meniť v existujúcom Admin nastavení. Samostatný preload pre default obrázok by mohol sťahovať nesprávnu či dvojitú fotografiu.
+- Regresné kontraktné testy v `tests/performance-fastpaths.test.mjs` kontrolujú separáciu prísľubov, existenciu a poradie všetkých šiestich načítaní, zachovanie hero priority a neprítomnosť duplicitného preloadu.
+
+**Limity a overenie:** Táto zmena vytvára podmienky pre skoršie streamovanie HTML; bez prevádzkového benchmarku sa netvrdí, že už dosiahla konkrétny počet ms alebo Lighthouse bodov. Prechod na `Suspense` musí prejsť buildom a mobilnými/desktopovými smoke testami pred merge; pri vypnutom streamingu je prínos závislý od Vinext runtime. Neskorší krok 10 overí porovnateľné opakované merania na stránkach a reálne LCP elementy (Lighthouse/LCP waterfall; CrUX len dostupné field dáta).
+
+Technické zdroje:
+- https://web.dev/articles/optimize-lcp — LCP obrázky musia byť v HTML objaviteľné a s vysokou prioritou, nie lazy.
+- https://web.dev/articles/preload-responsive-images — nepreloadovať už objaviteľné obrázky bez dôkazu o výhode; pri `srcSet` hrozia duplicitné dáta.
