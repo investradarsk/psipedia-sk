@@ -271,15 +271,17 @@ test("Existing published event: PUT preserves payload, save changes and unpublis
     });
   });
   const lifecycleRequests: Record<string, unknown>[] = [];
+  let unpublished = false;
   await page.route("**/api/admin/record-lifecycle/events/99990", async (route) => {
     if (route.request().method() === "GET") {
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
         id: 99990, name: "Existujúce podujatie E2E", slug: "existujuce-podujatie-e2e",
-        category: "events", status: "published", published: true,
+        category: "events", status: unpublished ? "draft" : "published", published: !unpublished,
         notionLinked: false, notionPages: 0, removalState: null, removalError: null,
       }) });
     }
     lifecycleRequests.push(route.request().postDataJSON() as Record<string, unknown>);
+    unpublished = true;
     await route.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify({ notionSync: "SYNCED", updatedAt: "2026-11-11T08:00:00Z" }) });
   });
