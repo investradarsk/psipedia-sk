@@ -41,7 +41,7 @@ export async function saveBreedNotionField(input:{
     if (!before) throw Error("BREED_EVENT_PROFILE_NOT_FOUND");
     const previous=input.field==="fciNumber"
       ?before.fciNumber
-      :breedFieldSnapshot(before)[input.field];
+      :(breedFieldSnapshot(before) as Record<string,unknown>)[input.field];
     if (JSON.stringify(previous)===JSON.stringify(input.value))
       return {updated:false,breed:before};
     const patch=breedEventD1FieldPatch(input.field,input.value,
