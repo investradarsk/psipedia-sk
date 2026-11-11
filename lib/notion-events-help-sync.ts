@@ -1041,7 +1041,8 @@ async function syncAgenda(input: {
         continue;
       }
       if (pageIdentity.url && pageIdentity.url !== source.url
-          && !(input.adminChangedFields?.includes("Slug") && isHelpFieldEventAgenda(input.definition.key))) {
+          && !(isHelpFieldEventAgenda(input.definition.key) &&
+            input.adminChangedFields?.some(field => field === "Slug" || field === "Typ"))) {
         summary.conflicts += 1;
         appendNotionReview(summary.reviewQueue, {
           entityId, notionPageId: page.id, reason: "IDENTITY_CONFLICT",
@@ -1196,7 +1197,7 @@ async function syncAgenda(input: {
         const values = Object.fromEntries(fields.map(name => [name, sourceSnapshot[name] ?? null]))
           as Record<string, ReconciliationValue>;
         const patch = encodeProperties(values, schema);
-        if (fields.includes("Slug")) {
+        if (fields.includes("Slug") || (agenda === "lost-found" && fields.includes("Typ"))) {
           if (!schema["URL Psipedia"]) throw new Error("HELP_ADMIN_URL_SCHEMA_MISSING");
           Object.assign(patch, encodeProperties({ "URL Psipedia": source.url }, schema));
         }
@@ -1212,7 +1213,8 @@ async function syncAgenda(input: {
           || fields.some(field =>
             JSON.stringify(pageProperty(verified, field) ?? null) !==
             JSON.stringify(sourceSnapshot[field] ?? null))
-          || (fields.includes("Slug") && pageProperty(verified, "URL Psipedia") !== source.url)) {
+          || ((fields.includes("Slug") || (agenda === "lost-found" && fields.includes("Typ")))
+            && pageProperty(verified, "URL Psipedia") !== source.url)) {
           throw new Error("HELP_ADMIN_FIELD_ECHO_MISMATCH");
         }
         summary.pushedToNotion++;
