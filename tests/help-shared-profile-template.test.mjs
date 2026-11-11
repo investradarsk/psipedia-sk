@@ -168,3 +168,15 @@ test("Help dog detail profile polish is scoped, top-aligned and preserves safety
   assert.match(detailCss, /\.reportGallery\s*\{/);
   assert.match(read("components/adoption-detail.module.css"), /\.contactCard\s*\{/);
 });
+
+
+test("unnamed lost/found reports show human-readable breadcrumb instead of URL slug", () => {
+  const detail = read("components/lost-found-dog-detail.tsx");
+  assert.match(detail, /const breadcrumbLabel = report\.dogName\?\.trim\(\) \|\| report\.breed\?\.trim\(\)/);
+  assert.match(detail, /type === "LOST" \? "Stratený" : "Nájdený"/);
+  assert.match(detail, /<span>\{breadcrumbLabel\}<\/span><\/nav>/);
+  assert.doesNotMatch(detail, /<span>\{report\.dogName \|\| report\.slug\}<\/span>/);
+  // Editing presentation must not change the protected contact and media paths.
+  assert.match(detail, /report\.publicContactNote/);
+  assert.match(detail, /<PublicPhotoGallery/);
+});
