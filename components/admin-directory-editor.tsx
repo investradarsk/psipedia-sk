@@ -549,29 +549,77 @@ export function AdminDirectoryEditor({
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string; metadataWarnings?: string[]; notionFieldSync?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
-      // Verify that the database acknowledges lifecycle and explicit web edits.
-      if (data.profile.status !== nextStatus)
+      let confirmedProfile = data.profile;
+      let recoveredPublicationNotionState: string | undefined;
+      // A successful full-form save may return an unconfirmed draft during a
+      // concurrent Notion/metadata update. Never claim success from its HTTP
+      // status. Re-read D1, then retry ONLY the owner-requested status with a
+      // strict identity + revision CAS. Never replay stale editorial fields.
+      if (profile && nextStatus === "published" && confirmedProfile.status === "draft") {
+        const freshResponse = await fetch("/api/admin/directory/" + profile.id, {
+          credentials: "same-origin", cache: "no-store",
+        });
+        const freshData = await freshResponse.json() as { profile?: ManagedDirectoryProfile; error?: string };
+        if (!freshResponse.ok || !freshData.profile) {
+          throw new Error(freshData.error || "Publikovanie nie je potvrdené. Obnov profil.");
+        }
+        const fresh = freshData.profile;
+        if (fresh.id !== profile.id || fresh.slug !== slug ||
+            fresh.category !== category || fresh.name !== name) {
+          throw new Error("Identita profilu sa pri publikovaní zmenila. Obnov editor; nič ďalšie sa nepublikovalo.");
+        }
+        if (fresh.status === "published") {
+          // A subsequent authoritative GET supersedes a stale save echo.
+          confirmedProfile = fresh;
+        } else if (fresh.status === "draft") {
+          const publishResponse = await fetch("/api/admin/directory/" + profile.id, {
+            method: "PATCH", credentials: "same-origin",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              action: "publish-confirmed-draft",
+              expectedUpdatedAt: fresh.updatedAt,
+              expectedSlug: fresh.slug,
+              expectedCategory: fresh.category,
+            }),
+          });
+          const publishData = await publishResponse.json() as {
+            profile?: ManagedDirectoryProfile; error?: string; notionFieldSync?: string;
+          };
+          if (!publishResponse.ok || !publishData.profile) {
+            throw new Error(publishData.error || "Publikovanie sa nepodarilo potvrdiť. Obnov profil.");
+          }
+          confirmedProfile = publishData.profile;
+          recoveredPublicationNotionState = publishData.notionFieldSync;
+        } else {
+          throw new Error("Stav profilu sa súbežne zmenil. Obnov editor.");
+        }
+      }
+      // Verify the final D1-backed status, not an intermediate mutation echo.
+      if (confirmedProfile.status !== nextStatus)
         throw new Error("Zmena stavu profilu sa nepotvrdila. Obnov stránku a skontroluj údaje.");
       if (mainImageAction === "replace" && imageReplacement &&
-          (data.profile.imageUrl !== imageReplacement.imageUrl ||
-           data.profile.imageKey !== imageReplacement.imageKey))
+          (confirmedProfile.imageUrl !== imageReplacement.imageUrl ||
+           confirmedProfile.imageKey !== imageReplacement.imageKey))
         throw new Error("Nová fotografia sa v databáze nepotvrdila. Skontroluj profil pred obnovením stránky.");
       if (mainImageAction === "remove" &&
-          (data.profile.imageUrl || data.profile.imageKey))
+          (confirmedProfile.imageUrl || confirmedProfile.imageKey))
         throw new Error("Odstránenie fotografie sa v databáze nepotvrdilo.");
       // The canonical D1 column, not a legacy imported "Web" alias, confirms
       // the persisted public URL. A stale source_data_json alias can otherwise
       // produce a false failure even while the public profile shows the new URL.
       const unconfirmedWebsite = Boolean(breederChangedPaths?.includes("websiteUrl") &&
         (data.profile.websiteUrl ?? "").trim() !== websiteUrl.trim());
-      const pendingNotionFields = Boolean((breederChangedPaths?.length ||
-        (profile && mainImageAction !== "keep")) &&
-        ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? ""));
+      const pendingNotionFields = Boolean(
+        ((breederChangedPaths?.length || (profile && mainImageAction !== "keep")) &&
+          ["pending", "disabled", "unlinked"].includes(data.notionFieldSync ?? "")) ||
+        (recoveredPublicationNotionState &&
+          ["pending", "disabled", "unlinked"].includes(recoveredPublicationNotionState))
+      );
       // A committed D1 save is always successful independently of Notion.
       // Report any actual Notion pending state separately from D1 validation.
       // Write only explicit facet changes through the authenticated, CAS-protected endpoint.
       // The canonical profile save above continues to own all unrelated fields.
-      let savedProfile = data.profile;
+      let savedProfile = confirmedProfile;
       if (filterPatch && Object.keys(filterPatch.updates).length) {
         const filterResponse = await fetch(`/api/admin/directory/${savedProfile.id}`, {
           method: "PATCH", headers: { "content-type": "application/json" },
