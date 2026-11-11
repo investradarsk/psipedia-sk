@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { AdminRecordId } from "./admin-record-id";
+import { AdminRecordTable } from "./admin-record-table";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import {
   AdminBulkSelectionControls,
-  BulkSelectionCheckbox,
-  adminBulkSelectionStyles,
   useAdminBulkSelection,
 } from "@/components/admin-bulk-selection";
 import {
@@ -308,39 +306,61 @@ export function AdminDashboard({
               clear={bulkSelection.clear}
               supportsAllMatching={false}
             />
-            <div className="admin-article-list">
-              {articles.map((article) => (
-                <article className={`admin-article-row ${styles.row}`} key={article.id}>
-                  <BulkSelectionCheckbox
-                    checked={bulkSelection.isSelected(article.id)}
-                    disabled={!bulkSelection.ready}
-                    label={`Vybrať článok ${article.title}`}
-                    onChange={() => bulkSelection.toggleRow(article.id)}
-                    className={`${adminBulkSelectionStyles.rowCheck} ${styles.rowCheck}`}
-                  />
-                  <div className={`admin-article-thumb admin-article-thumb--${article.accent} ${styles.thumb}`}>
-                    {article.image ? <img src={article.image} alt="" /> : <span>🐾</span>}
-                  </div>
-                  <div className={`admin-article-main ${styles.main}`}>
-                    <div className="admin-article-tags">
-                      <span className={`admin-status admin-status--${article.status}`}>
-                        {article.status === "published" ? "Publikovaný" : article.status === "scheduled" ? "Naplánovaný" : "Koncept"}
-                      </span>
-                      <span>{article.category}</span>
-                      <span>{portalSectionLabel(article.portalSection)}</span>
-                      {article.newsCategory && <span>{getNewsCategory(article.newsCategory)?.shortLabel}</span>}
-                    </div>
-                    <h2><Link href={`/admin/clanky/${article.id}`}>{article.title}</Link></h2>
-                    <AdminRecordId id={article.id} compact />
-                    {activeInline?.id === article.id
-                      ? <AdminInlineCellInput label={"Krátky popis článku " + article.title}
-                          value={activeInline.excerpt} maxLength={700} disabled={inlineBusy}
-                          onChange={excerpt => setInlineDraft(current => current ? { ...current, excerpt } : null)} />
-                      : <p className={styles.inlineDesktop}>{article.excerpt || "Bez krátkeho popisu"}</p>}
-                    <p>Naposledy upravené {formattedDate(article.updatedAt)}</p>
-                  </div>
-                  <div className={`admin-row-actions ${styles.actions}`}>
-                    {article.status === "published" && <Link href={articleHref(article)} target="_blank">Pozrieť ↗</Link>}
+            <AdminRecordTable
+              rows={articles}
+              label="Články"
+              busy={inlineBusy || deletingId !== null}
+              rowDataAttribute="data-admin-article-row"
+              stretch
+              serverSorted
+              serverSorting={{
+                id: filters.sort,
+                desc: filters.direction === "desc",
+                allowedIds: ["title", "updated"],
+                onChange: next => applyFilter({
+                  sort: next.id === "title" ? "title" : "updated",
+                  direction: next.desc ? "desc" : "asc",
+                }),
+              }}
+              selection={{
+                selectedIds: bulkSelection.selection.mode === "explicit" ? bulkSelection.selection.ids : [],
+                disabled: !bulkSelection.ready,
+                labelForRow: article => `Vybrať článok ${article.title}`,
+                onChange: ids => {
+                  // Reconcile only currently visible IDs. Bulk selection ownership stays in the module.
+                  for (const id of pageIds) {
+                    if (bulkSelection.isSelected(id) !== ids.includes(id)) bulkSelection.toggleRow(id);
+                  }
+                },
+              }}
+              columns={[
+                { id: "photo", label: "Foto", width: 70, cell: article =>
+                  <span className={styles.gridThumb}>{article.image
+                    ? <img src={article.image} alt="" loading="lazy" decoding="async" />
+                    : <span>🐾</span>}</span> },
+                { id: "title", label: "Názov", width: 295, sortValue: article => article.title,
+                  cell: article => <div className={styles.gridIdentity}>
+                    <strong><Link href={`/admin/clanky/${article.id}`}>{article.title}</Link></strong>
+                    <small>{article.category}{article.newsCategory
+                      ? ` · ${getNewsCategory(article.newsCategory)?.shortLabel ?? article.newsCategory}` : ""}</small>
+                  </div> },
+                { id: "status", label: "Publikovanie", width: 130, cell: article =>
+                  <span className={`admin-status admin-status--${article.status}`}>
+                    {article.status === "published" ? "Publikovaný" : article.status === "scheduled" ? "Naplánovaný" : "Koncept"}
+                  </span> },
+                { id: "section", label: "Sekcia", width: 140, cell: article => portalSectionLabel(article.portalSection) },
+                { id: "excerpt", label: "Krátky popis", width: 245, cell: article =>
+                  activeInline?.id === article.id
+                    ? <AdminInlineCellInput label={`Krátky popis článku ${article.title}`}
+                        value={activeInline.excerpt} maxLength={700} disabled={inlineBusy}
+                        onChange={excerpt => setInlineDraft(current => current ? { ...current, excerpt } : null)} />
+                    : <span className={styles.inlineDesktop} title={article.excerpt || ""}>
+                        {article.excerpt || "Bez krátkeho popisu"}</span> },
+                { id: "updated", label: "Upravené", width: 150, sortValue: article => article.updatedAt,
+                  cell: article => formattedDate(article.updatedAt) },
+                { id: "actions", label: "Akcie", width: 265, cell: article =>
+                  <div className={styles.gridActions}>
+                    {article.status === "published" && <Link href={articleHref(article)} target="_blank">Web ↗</Link>}
                     <span className={styles.inlineDesktop}><AdminInlineRowActions
                       editing={activeInline?.id === article.id} busy={inlineBusy}
                       disabled={Boolean(activeInline && activeInline.id !== article.id) || deletingId !== null}
@@ -348,14 +368,14 @@ export function AdminDashboard({
                       onSave={() => void saveInline()}
                       onCancel={() => { if (!inlineBusy) setInlineDraft(null); }}
                     /></span>
-                    <Link className="admin-row-edit" href={`/admin/clanky/${article.id}`}>Upraviť</Link>
-                    <button type="button" disabled={deletingId === article.id} onClick={() => removeArticle(article)}>
+                    <Link href={`/admin/clanky/${article.id}`}>Upraviť</Link>
+                    <button type="button" disabled={deletingId === article.id}
+                      onClick={() => removeArticle(article)}>
                       {deletingId === article.id ? "Odstraňujem…" : "Odstrániť"}
                     </button>
-                  </div>
-                </article>
-              ))}
-            </div>
+                  </div> },
+              ]}
+            />
           </>
         ) : (
           <div className="admin-empty">
