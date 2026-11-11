@@ -21,7 +21,8 @@ test("ARTICLE public surface already exposes canonical editorial identity and da
 test("BREED public surface has a canonical breed identity without an invented commercial type", () => {
   const source = read("../app/plemena/[slug]/page.tsx");
   assert.match(source, /<h1>\{\s*breed\s*\.name\s*\}<\/h1>/);
-  assert.match(source, /<dl\s*className=\{\s*styles\s*\.factGrid\s*\}/);
+  assert.match(source, /<DetailFactsCard title="Plemeno v skratke" facts=\{quickFacts\}/);
+  assert.match(source, /data-testid="breed-quick-facts"/);
   assert.match(source, /idSuffix:\s*"breed"/);
   assert.match(source, /about:\s*\{\s*"@id":\s*breedEntityId\s*\}/);
   assert.match(source, /mainEntityId:\s*breedEntityId/);
