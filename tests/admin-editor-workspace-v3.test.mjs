@@ -159,7 +159,15 @@ test("ARTICLE-MOBILE-COMPACT: six changes remain scoped to the canonical article
   assert.match(editor, /type="submit" form="article-canonical-editor-form"/);
   assert.match(editor, /className=\{editorStyles\.mobileExtraActions\}/);
   assert.match(editor, /className=\{editorStyles\.mobileExtraActions\} aria-label="Ďalšie publikačné akcie"/);
-  assert.match(editor, /displayedStatus === "published" && <AdminActionButton variant="destructive"/);
+  // PR #1293 replaced legacy inline destructive buttons with one shared
+  // lifecycle component in both desktop and mobile article actions.
+  assert.match(editor, /destructive=\{article \? <AdminRecordLifecycleActions kind="articles"/);
+  assert.match(editor, /\{article && <div className=\{editorStyles\.mobileLifecycleActions\}>/);
+  assert.match(editor, /<AdminRecordLifecycleActions kind="articles" recordId=\{article\.id\} status=\{displayedStatus\}/);
+  const lifecycle = read("components/admin-record-lifecycle-actions.tsx");
+  assert.match(lifecycle, /Stiahnuť z webu/);
+  assert.match(lifecycle, /Natrvalo odstrániť/);
+  assert.doesNotMatch(editor, /displayedStatus === "published" && <AdminActionButton variant="destructive"/);
   assert.match(editor, /displayedStatus !== "published" && <AdminActionButton variant="secondary"[^>]*onClick=\{\(\) => void save\("scheduled"\)\}/);
   assert.doesNotMatch(editor, /disabled=\{saving \|\| uploading \|\| !publishedAt \|\| displayedStatus === "published"\}/);
 
