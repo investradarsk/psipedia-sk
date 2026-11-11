@@ -43,7 +43,8 @@ export async function captureHelpNotionSnapshot(input: {
 }): Promise<HelpSnapshot | null> {
   if (!input.bindings.DB || !Number.isSafeInteger(input.entityId) || input.entityId < 1)
     return null;
-  return currentHelpSnapshot(input.bindings.DB, input.agenda, input.entityId);
+  // A Notion snapshot probe must never make a normal Admin save fail.
+  return currentHelpSnapshot(input.bindings.DB, input.agenda, input.entityId).catch(() => null);
 }
 
 /**
