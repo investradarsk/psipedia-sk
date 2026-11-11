@@ -89,6 +89,22 @@ test("legacy Notion/public text is renamed in-place without duplicating old or u
   assert.deepEqual(services,["Historický marketingový text","Očkovanie psov"]);
  }finally{f.close();}
 });
+test("ambiguous historical alias never deletes unrelated text or binds to a guessed service",async()=>{
+ const f=fixture();
+ try{
+  setOverride(f.sqlite);
+  f.sqlite.prepare("UPDATE service_catalog_admin_options SET label='Vakcinácia' WHERE id=?")
+    .run(dynamicId);
+  f.sqlite.prepare("UPDATE directory_profiles SET services_json=? WHERE id=1")
+    .run(JSON.stringify(["Vakcinácia","Historický marketingový text"]));
+  assert.equal(await ensureCanonicalServiceChoicesInLegacy(f.db,1,[original.id]),1);
+  let services=JSON.parse(f.sqlite.prepare("SELECT services_json FROM directory_profiles WHERE id=1").get().services_json);
+  assert.deepEqual(services,["Vakcinácia","Historický marketingový text","Očkovanie psov"]);
+  assert.equal(await projectServiceChoiceToDirectoryNotion(f.db,1,original.id,"unknown"),"updated");
+  services=JSON.parse(f.sqlite.prepare("SELECT services_json FROM directory_profiles WHERE id=1").get().services_json);
+  assert.deepEqual(services,["Vakcinácia","Historický marketingový text"]);
+ }finally{f.close();}
+});
 test("code-first deployment without 0149 uses original canonical services",async()=>{
  const f=fixture({withOverrideTable:false});
  try{
