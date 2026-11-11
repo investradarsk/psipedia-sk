@@ -4,14 +4,14 @@
  * list is only a textual transport for the EXISTING directory sync pipeline.
  * Preserve unrelated free-text values: never infer "no" from missing legacy data.
  */
-import {serviceCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
+import {normalizeCatalogLabel} from "./service-catalog-contract.ts";
+import {loadResolvedServiceDefinitions} from "./service-catalog-resolved.ts";
 import {serviceFilterCategories} from "./directory-filter-contract.ts";
 import {saveAdminServiceChoice,resetAdminServiceChoice} from "./service-catalog-admin-store.ts";
 
 type DB=D1Database;
 type ChoiceRow={option_id:string;choice:"yes"|"no";version:number};
 type Profile={id:number;category:string;services_json:string|null;updated_at:string|null};
-type DynamicRow={id:string;label:string;categories_json:string;status:string;kind:string};
 const actor="notion-service-choices@psipedia.sk";
 const categories=new Set<string>(serviceFilterCategories);
 function parseServices(input:string|null):string[]{
@@ -23,16 +23,7 @@ function parseServices(input:string|null):string[]{
 }
 async function allowedCatalog(db:DB,category:string){
   if(!categories.has(category))return [];
-  const statics=serviceCatalog.filter(s=>s.categories.includes(category as typeof serviceFilterCategories[number]))
-    .map(s=>({id:s.id,label:s.label,aliases:s.aliases}));
-  const {results}=await db.prepare(
-    "SELECT id,label,categories_json,status,kind FROM service_catalog_admin_options WHERE status='ACTIVE' AND kind='service'"
-  ).all<DynamicRow>();
-  const dynamic=(results??[]).filter(x=>{
-    try{return (JSON.parse(x.categories_json) as string[]).includes(category);}
-    catch{return false;}
-  }).map(x=>({id:x.id,label:x.label,aliases:[] as readonly string[]}));
-  return [...statics,...dynamic];
+  return loadResolvedServiceDefinitions(db,category);
 }
 /** After an explicit Admin checkbox write, make its matching legacy Notion text
  * reflect the same choice without deleting unrelated historic service names.
@@ -53,8 +44,11 @@ export async function projectServiceChoiceToDirectoryNotion(db:DB,profileId:numb
     }catch{throw Error("INVALID_LEGACY_SERVICES_JSON");}
   }
   const existing=parseServices(profile.services_json);
-  const normalized=normalizeCatalogLabel(item.label);
-  const filtered=existing.filter(s=>normalizeCatalogLabel(s)!==normalized);
+  // A service edited in Admin keeps its original ID and former labels as
+  // aliases. Remove stale names for this exact canonical service, not unrelated
+  // historical free text.
+  const names=new Set([item.label,...item.aliases].map(normalizeCatalogLabel));
+  const filtered=existing.filter(s=>!names.has(normalizeCatalogLabel(s)));
   if(choice==="yes")filtered.push(item.label);
   if(JSON.stringify(filtered)===JSON.stringify(existing))return "unchanged" as const;
   const now=new Date().toISOString();
@@ -135,23 +129,28 @@ export async function ensureCanonicalServiceChoicesInLegacy(
   }
   const current = parseServices(profile.services_json);
   const next = [...current];
-  const present = new Set(current.map(normalizeCatalogLabel));
-  let added = 0;
+  let updated = 0;
   for (const id of new Set(selectedIds)) {
     const option = byId.get(id);
     if (!option) throw Error("SERVICE_CATALOG_UNKNOWN_CHOICE");
-    const names = [option.label, ...option.aliases].map(normalizeCatalogLabel);
-    if (names.some(name => present.has(name))) continue;
-    next.push(option.label);
-    names.forEach(name => present.add(name));
-    added++;
+    const names = new Set([option.label, ...option.aliases].map(normalizeCatalogLabel));
+    const at = next.findIndex(value => names.has(normalizeCatalogLabel(value)));
+    if (at === -1) {
+      next.push(option.label);
+      updated++;
+    } else if (next[at] !== option.label) {
+      // Re-label an already selected canonical service without adding a
+      // duplicate; preserve every other historical/unrecognized entry.
+      next[at] = option.label;
+      updated++;
+    }
   }
-  if (!added) return 0;
+  if (!updated) return 0;
   const result = await db.prepare(
     "UPDATE directory_profiles SET services_json=?1,updated_at=?2 " +
     "WHERE id=?3 AND COALESCE(services_json,'[]')=?4 AND updated_at IS ?5 RETURNING id",
   ).bind(JSON.stringify(next), new Date().toISOString(), profileId,
     profile.services_json ?? "[]", profile.updated_at).first<{id:number}>();
   if (!result) throw Error("SERVICE_LEGACY_PROJECTION_CONCURRENT_CHANGE");
-  return added;
+  return updated;
 }
