@@ -576,7 +576,8 @@ test("signed Services V3 relation updates may remove only baseline-confirmed IDs
   const planner=await readFile(
     new URL("../lib/service-catalog-notion-relation-plan.ts",import.meta.url),"utf8");
   const sync=syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
-  assert.ok(relation.includes("notionExplicitEdit&&previous===null&&local.some("));
+  assert.ok(relation.includes("if(previous===null&&local.some(id=>!remote.includes(id)))"));
+  assert.ok(relation.includes("if(input.notionExplicitEdit)throw Error("));
   assert.ok(relation.includes("SERVICES_RELATION_UNVERIFIED_DELETE"));
   assert.ok(relation.includes("SERVICES_RELATION_UNVERIFIED_INITIAL_PUSH"),
     "ordinary hourly sync must not silently re-add a service Notion may have removed");
