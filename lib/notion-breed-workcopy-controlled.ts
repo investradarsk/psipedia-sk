@@ -4,7 +4,7 @@
  * managed_breeds. It only uses the existing 344 ACTIVE work-copy links.
  */
 import { getManagedBreed } from "@/lib/breed-store";
-import { notionRequest, notionFlagEnabled, notionNumberProperty, notionRichTextProperty,
+import { notionRequest, notionFlagEnabled, notionRichTextProperty,
   type NotionPage, type NotionSyncBindings } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
 import {
@@ -37,12 +37,6 @@ function requireNewEngine(bindings:ControlledBreedBindings) {
     throw Error("BREED_CONTROLLED_SOURCE_INVALID");
 }
 async function activeLink(database:D1Database,id:number):Promise<Link> {
-  const ready=await database.prepare(
-    "SELECT COUNT(*) AS total, SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) AS active "+
-    "FROM breed_notion_workcopy_links",
-  ).first<{total:number;active:number}>();
-  if (Number(ready?.total)!==344 || Number(ready?.active)!==344)
-    throw Error("BREED_CONTROLLED_COHORT_INACTIVE");
   const link=await database.prepare(
     "SELECT breed_id,work_notion_page_id,canonical_slug,fci_number,status "+
     "FROM breed_notion_workcopy_links WHERE breed_id=? AND status='ACTIVE'",
@@ -52,12 +46,14 @@ async function activeLink(database:D1Database,id:number):Promise<Link> {
 }
 async function verifyPage(page:NotionPage,link:Link,bindings:ControlledBreedBindings) {
   const breed=await getManagedBreed(link.breed_id);
-  if (!breed || breed.slug!==link.canonical_slug || breed.fciNumber!==link.fci_number ||
+  // Data-source ownership and signed page-link routing stay enforced.
+  // The sole BREED identity match is the numeric Psipedia ID; FCI and slug
+  // are ordinary editable information and cannot veto unrelated field edits.
+  if (!breed || breed.id!==link.breed_id ||
       normalized(page.id)!==normalized(link.work_notion_page_id) ||
       !notionPageBelongsToDataSource(page,bindings.NOTION_BREEDS_WORK_DATA_SOURCE_ID!) ||
-      notionRichTextProperty(page,"Psipedia ID")!==String(link.breed_id) ||
-      notionNumberProperty(page,"FCI číslo")!==link.fci_number)
-    throw Error("BREED_CONTROLLED_IDENTITY_MISMATCH");
+      notionRichTextProperty(page,"Psipedia ID")!==String(link.breed_id))
+    throw Error("BREED_CONTROLLED_ID_MISMATCH");
 }
 async function record(database:D1Database,id:number):Promise<Raw|null> {
   return database.prepare(
