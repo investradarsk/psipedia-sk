@@ -35,11 +35,11 @@ test("V4 deletion blocks dirty, sending and in-flight calls in handler and prese
 test("Facebook graphics offer five Konva layouts and reuse canonical upload",()=>{
   const editor=readFileSync(new URL("../components/admin-facebook-graphic-editor.tsx",import.meta.url),"utf8");
   const layout=readFileSync(new URL("../components/admin-facebook-graphic-editor.module.css",import.meta.url),"utf8");
-  assert.match(editor,/id: "gradient"/);
-  assert.match(editor,/id: "panel"/);
-  assert.match(editor,/id: "editorial"/);
-  assert.match(editor,/id: "clean"/);
-  assert.match(editor,/id: "split"/);
+  assert.match(editor,/id:\s*"gradient"/);
+  assert.match(editor,/id:\s*"panel"/);
+  assert.match(editor,/id:\s*"editorial"/);
+  assert.match(editor,/id:\s*"clean"/);
+  assert.match(editor,/id:\s*"split"/);
   assert.match(editor,/useDropzone/);
   assert.match(editor,/maxSize: MAX_BYTES/);
   assert.match(editor,/onUse: \(file: File, title: string\) => Promise<boolean>/);
