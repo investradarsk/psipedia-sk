@@ -147,18 +147,6 @@ export const FacebookKonvaCanvas = forwardRef<GraphicCanvasHandle, Props>(functi
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const renderError = useRef<string>("");
-  useImperativeHandle(ref,()=>({
-    async exportPng() {
-      const stage=stageRef.current;
-      if (!stage || !bitmap) throw new Error("Najprv nahraj fotografiu.");
-      if (renderError.current) throw new Error(renderError.current);
-      // Export and preview use the very same scene at native resolution.
-      const canvas=stage.toCanvas({pixelRatio:1});
-      return new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>
-        blob?resolve(blob):reject(new Error("Export PNG sa nepodaril.")),"image/png"));
-    },
-  }),[bitmap]);
-
   useEffect(()=>{
     const host=hostRef.current;
     const viewport=viewportRef.current;
