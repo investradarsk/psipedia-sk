@@ -212,11 +212,12 @@ export async function runNotionBreedWorkCopySyncSweep(args: {
       // historical editorial registry because it used to be an identity key.
       // It is now a typed field, and only Psipedia ID identifies the record.
       const fciProperty = page.properties?.["FCI číslo"];
+      const fciPropId = fciProperty && typeof fciProperty === "object"
+        ? (fciProperty as {id?:unknown}).id : undefined;
       const changedProperties = new Set(args.changedPropertyIds ?? []);
       const fciEdited = Boolean(args.manualImport ||
-        (fciProperty && (changedProperties.has("FCI číslo") ||
-          (typeof fciProperty.id === "string" &&
-            changedProperties.has(fciProperty.id)))));
+        changedProperties.has("FCI číslo") ||
+        (typeof fciPropId === "string" && changedProperties.has(fciPropId)));
       const incomingFci = notionNumberProperty(page, "FCI číslo");
       let nextFci = canonical.fciNumber;
       let rejectedFci = false;
