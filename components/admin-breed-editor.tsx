@@ -327,7 +327,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     return <label className="admin-field" key={key}>
       <span>{label}</span>
       {field.type==="number"
-        ? <input type="number" inputMode="decimal" step="any" min={field.min} max={field.max}
+        ? <input type="number" inputMode="decimal" step="any"
             value={typeof value==="number"?value:""}
             onChange={event=>changeControlled(field.key,event.target.value===""?null:Number(event.target.value))}/>
         : field.type==="select"
