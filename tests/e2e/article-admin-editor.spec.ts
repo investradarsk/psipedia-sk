@@ -42,9 +42,7 @@ async function showArticleSection(page: import("@playwright/test").Page, id: str
  * avoids accidentally targeting the hidden duplicate from the other mode. */
 function publicationAction(page: import("@playwright/test").Page, name: string) {
   const mobile = (page.viewportSize()?.width ?? 1440) <= 820;
-  const scope = name === "Stiahnuť z webu"
-    ? page.locator("[data-editor-actionbar]")
-    : mobile ? page.locator("#article-publish") : page.locator("[data-editor-actionbar]");
+  const scope = mobile ? page.locator("#article-publish") : page.locator("[data-editor-actionbar]");
   return scope.getByRole("button", { name, exact: true });
 }
 
