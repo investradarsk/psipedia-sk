@@ -513,3 +513,39 @@ test("real SQLite inbox claims, processes and deduplicates signed page change", 
     assert.equal(again.claimed, 0);
   } finally { db.close(); }
 });
+
+test("mapped Lost/Found property webhook runs immediately with safe durable inbox fallback", async () => {
+  const route = await readFile(new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
+  const mark = route.indexOf("// The Lost/Found editor already writes one mapped record immediately.");
+  const inbox = route.indexOf("await enqueueNotionWebhook(bindings.DB, data, body)");
+  assert.ok(route.indexOf("verifyNotionWebhook(") >= 0 &&
+    mark > route.indexOf("verifyNotionWebhook(") && inbox > mark,
+    "the immediate path must run only after HMAC verification and retain the queue fallback");
+  const fast = route.slice(mark, inbox);
+  assert.match(fast, /data\.type === "page\.properties_updated"/);
+  assert.match(fast, /NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED === "true"/);
+  assert.match(fast, /FROM notion_agenda_sync/);
+  assert.match(fast, /agenda='lost-found' AND notion_page_id=\?/);
+  assert.match(fast, /Number\.isSafeInteger\(mapped\.entity_id\)/);
+  assert.match(fast, /await dispatchNotionPageChange\(data, bindings\)/);
+  assert.match(fast, /result === "processed" \|\| result === "metadata-only" \|\| result === "ignored"/);
+  assert.doesNotMatch(fast, /runNotionEventsHelpSyncSweep|PATCH|DELETE|writeSourceToNotion/);
+  const dispatch = await readFile(new URL("../lib/notion-webhook-dispatch.ts", import.meta.url), "utf8");
+  assert.match(dispatch, /notionPageBelongsToDataSource\(page, target\.dataSourceId\)/);
+  assert.match(dispatch, /webhookMappedOnly: true/);
+});
+
+test("Lost/Found inbound diagnostic is authenticated, one-profile, read-only and PII-free", async () => {
+  const path = "../app/api/admin/notion-lost-found-health/route.ts";
+  const source = await readFile(new URL(path, import.meta.url), "utf8");
+  assert.match(source, /await getAdminApiUser\(\)/);
+  assert.match(source, /Number\.isSafeInteger\(profileId\)/);
+  assert.match(source, /WHERE agenda='lost-found' AND entity_id=\? LIMIT 1/);
+  assert.match(source, /WHERE page_id=\?/);
+  assert.match(source, /LIMIT 8/);
+  assert.match(source, /notionPageBelongsToDataSource\(page, source\.id\)/);
+  assert.match(source, /shortDescriptionMatches/);
+  assert.match(source, /"Cache-Control": "private, no-store"/);
+  assert.doesNotMatch(source, /contact_name|contact_phone|contact_email|encrypted|private_note/i);
+  assert.doesNotMatch(source, /\.run\(|\.batch\(|method: "PATCH"|method: "POST"/);
+});
