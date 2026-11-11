@@ -1,3 +1,4 @@
+import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
 import { prepareGeminiDraftFields } from "./gemini-draft-import-fields.ts";
@@ -779,9 +780,14 @@ async function syncAgenda(input: {
   // Never infer authority from a Notion query result alone. Cross-check the
   // actual parent and trash/archive metadata before identity matching,
   // canonical imports, or ANY PATCH (including Sync chyba metadata).
-  const writablePages = pages.filter((page) =>
-    notionPageBelongsToDataSource(page, target.dataSourceId!));
+  const tombstonedPageIds = new Set<string>();
   for (const page of pages) {
+    if (await notionPageMustSkipInboundSync(input.database,page.id)) tombstonedPageIds.add(page.id);
+  }
+  const writablePages = pages.filter((page) =>
+    !tombstonedPageIds.has(page.id) && notionPageBelongsToDataSource(page, target.dataSourceId!));
+  for (const page of pages) {
+    if (tombstonedPageIds.has(page.id)) continue;
     if (notionPageBelongsToDataSource(page, target.dataSourceId)) continue;
     summary.conflicts += 1;
     appendNotionReview(summary.reviewQueue, {

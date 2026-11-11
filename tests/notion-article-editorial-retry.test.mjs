@@ -220,6 +220,7 @@ async function loadWriter(h) {
   }).outputText;
   const exports = {};
   const dependencies = {
+    "./admin-record-lifecycle": { notionPageMustSkipInboundSync: async () => false },
     "@/lib/notion-field-authority": {readNotionFieldAuthorities:async()=>({})},
     "@/lib/notion-transfer-audit": {recordNotionTransfer:async()=>{}},
     "@/lib/article-store": {},

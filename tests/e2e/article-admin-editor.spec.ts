@@ -46,6 +46,27 @@ function publicationAction(page: import("@playwright/test").Page, name: string) 
   return scope.getByRole("button", { name, exact: true });
 }
 
+async function mockArticleLifecycle(page: import("@playwright/test").Page) {
+  let unpublished = false;
+  // Sandbox E2E articles have no production Notion mapping or lifecycle migration.
+  // Exercise the real shared dialog and POST contract without performing any delete.
+  await page.route("**/api/admin/record-lifecycle/articles/*", async (route) => {
+    if (route.request().method() === "GET") {
+      const id = Number(new URL(route.request().url()).pathname.split("/").pop());
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        id, name: "Testovací článok", slug: "e2e-clanok", category: "articles",
+        status: unpublished ? "draft" : "published", published: !unpublished, notionLinked: false,
+        notionPages: 0, removalState: null, removalError: null,
+      }) });
+    }
+    const request = route.request().postDataJSON() as { action: string };
+    expect(request.action).toBe("unpublish");
+    unpublished = true;
+    await route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ notionSync: "SYNCED", updatedAt: "2026-11-11T08:00:00Z" }) });
+  });
+}
+
 async function fillMinimumArticle(page: import("@playwright/test").Page, title: string) {
   await waitForEditor(page);
   await page.locator("#article-title").fill(title);
@@ -413,6 +434,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   });
 
   test("preserves legacy article editing and publishes Novinky without a source", async ({ page }, testInfo) => {
+    await mockArticleLifecycle(page);
     const legacyId = testInfo.project.name.includes("mobile") ? 972002 : 972001;
     await page.goto(`/admin/clanky/${legacyId}`, { waitUntil: "domcontentloaded" });
     await waitForEditor(page);
@@ -440,6 +462,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
   });
 
   test("server-side publish gate blocks editorial placeholders, focuses content and allows draft recovery", async ({ page }, testInfo) => {
+    await mockArticleLifecycle(page);
     const suffix = projectSuffix(testInfo.project.name);
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     await fillMinimumArticle(page, `CONTENT QA publish gate ${suffix}`);
@@ -467,9 +490,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(publicationAction(page, "Stiahnuť z webu")).toBeVisible();
 
     await publicationAction(page, "Stiahnuť z webu").click();
-    const unpublish = page.getByRole("dialog", { name: "Stiahnuť článok z webu?" });
+    const unpublish = page.getByRole("dialog", { name: "Stiahnuť z webu?" });
     await expect(unpublish).toBeVisible();
-    await unpublish.getByRole("button", { name: "Ponechať publikované" }).click();
+    await unpublish.getByRole("button", { name: "Zrušiť" }).click();
     await expect(unpublish).toBeHidden();
     await expect(publicationAction(page, "Stiahnuť z webu")).toBeVisible();
 

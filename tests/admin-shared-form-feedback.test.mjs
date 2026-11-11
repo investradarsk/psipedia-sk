@@ -84,7 +84,9 @@ test("Event editor shows save feedback above switchable sections without nesting
   assert.match(event,/message=\{dirty \? "Neuložené zmeny" : undefined\}/);
   assert.match(event,/EditorUnsavedChangesGuard/);
   assert.match(event,/save\("published"\)/);
-  assert.match(event,/save\("draft"\)/);
+  assert.match(event,/<AdminRecordLifecycleActions kind="events"/);
+  assert.doesNotMatch(event,/void save\("draft"\)/);
+  assert.match(read("lib/admin-record-lifecycle.ts"),/unpublishRecord/);
 });
 
 test("Article feedback keeps focusable result wrapper and QA blocker focus", () => {

@@ -94,19 +94,24 @@ test("sortable IDs do not change on reordering a unique image URL",()=>{
   assert.doesNotMatch(read("components/admin-sortable-gallery.tsx"),/index\+":"\+url/);
 });
 
-test("all unpublish editors share accessible destructive confirmation instead of browser window.confirm",()=>{
-  const shared=read("components/admin-interaction-system.tsx");
-  assert.match(shared,/export function AdminDestructiveConfirmDialog/);
-  assert.match(shared,/cancelLabel = "Zrušiť"/);
-  const article=read("components/admin-article-editor.tsx");
-  const event=read("components/admin-event-editor.tsx");
-  for(const s of [article,event]){
-    assert.match(s,/<AdminDestructiveConfirmDialog/);
-    assert.match(s,/confirmLabel="Potvrdiť stiahnutie"/);
-    assert.match(s,/cancelLabel="Ponechať publikované"/);
-    assert.match(s,/void save\("draft"\)/);
+test("all unpublish editors use one accessible status-only lifecycle confirmation",()=>{
+  const dialog=read("components/admin-record-lifecycle-actions.tsx");
+  assert.match(dialog,/AdminModalDialog/);
+  assert.match(dialog,/Stiahnuť z webu/);
+  assert.match(dialog,/Natrvalo odstrániť/);
+  assert.match(dialog,/confirmation!=="VYMAZAŤ"/);
+  assert.match(dialog,/action:"unpublish"/);
+  assert.match(dialog,/action:"delete"/);
+  for(const path of ["components/admin-article-editor.tsx","components/admin-event-editor.tsx"]){
+    const editor=read(path);
+    assert.match(editor,/<AdminRecordLifecycleActions/);
+    assert.doesNotMatch(editor,/void save\("draft"\)/);
   }
-  assert.doesNotMatch(article,/window\.confirm\("Stiahnuť tento článok/);
+  const api=read("app/api/admin/record-lifecycle/[kind]/[id]/route.ts");
+  assert.match(api,/unpublishRecord/);
+  assert.match(api,/removeRecord/);
+  assert.match(api,/strictProvenance:true/);
+  assert.doesNotMatch(dialog,/window\.confirm/);
 });
 
 test("e-shop and puppy area reuse one safe content drafting and single-image picker",()=>{

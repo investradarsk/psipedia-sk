@@ -87,6 +87,9 @@ function createHarness(status, injectConcurrentWrite = null) {
     Date, Number, JSON, Response, Promise, Error,
     ArticleUpdateConflictError, ArticleRescheduleConflictError,
     requireD1Binding: () => db,
+    // Scope is the article CAS contract: a successful explicit Admin publish
+    // acknowledges the lifecycle guard independently of this isolated DB.
+    acknowledgeAdminPublication: async () => {},
     ensureArticleStore: async () => {},
     getManagedArticleById: async () => readArticle(),
     normalizeInput: async (payload) => {

@@ -226,6 +226,9 @@ test("mapped Directory native publication pushes verified D1 status to the same 
         isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
         TRAINER_SERVICES_TEXT_METADATA_KEY: "_psipedia_trainer_services_text",
         readNotionFieldAuthorities: async () => ({}),
+        // Production sync now checks the owner-controlled unpublish/tombstone
+        // barrier before any writes. This isolated publication fixture has none.
+        notionPageMustSkipInboundSync: async () => false,
         gemini22PriorityEnabled: () => false,
         notionDirectoryPageBelongsToSource,
         NotionDirectoryUnsafeTargetError,

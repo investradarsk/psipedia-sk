@@ -34,6 +34,7 @@ async function compiledModule(path, services, globals = {}) {
 }
 
 const syncDependencies = {
+  "./admin-record-lifecycle": { notionPageIsTombstoned: async () => false },
   "@/lib/notion-field-authority": {readNotionFieldAuthorities:async()=>({})},
   "@/lib/notion-transfer-audit": { recordNotionTransfer: async () => {} },
   "@/lib/article-store": {},

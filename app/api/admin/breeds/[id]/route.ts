@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import {
@@ -80,6 +81,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
       }
     }
 
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"breeds",id,breed.status);
     return Response.json({ breed, ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}) });
   } catch (error) {
     if (error instanceof BreedUpdateConflictError) {
@@ -144,11 +146,9 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   }
 }
 
-export async function DELETE(request: Request, { params }: RouteProps) {
-  const auth = await requireAdminMutation(request, { strictProvenance: true });
-  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
-  const id = await parsedId(params);
-  if (!id) return Response.json({ error: "Neplatné ID plemena." }, { status: 400 });
-  await deleteManagedBreed(id);
-  return Response.json({ ok: true });
+/** Legacy DELETE must not bypass verified Notion trash + D1 tombstones. */
+export async function DELETE(request:Request) {
+  const auth=await requireAdminMutation(request, { strictProvenance: true });
+  if(auth.response)return auth.response;
+  return Response.json({error:"Použi Natrvalo odstrániť v editore: /api/admin/record-lifecycle."},{status:409});
 }

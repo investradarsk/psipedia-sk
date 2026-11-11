@@ -293,7 +293,7 @@ test("breed profile: canonical breadcrumbs and direct sections, no-crop media, u
   }
   await expect(page.getByRole("link", { name: "Psí tréneri", exact: true })).toHaveAttribute("href", "/adresar/treneri");
   await expect(page.locator('a[href^="/adresar/treneri?breed="]')).toHaveCount(0);
-  await expectNoHorizontalOverflow(page, "Breed profile section navigation");
+  await expectNoHorizontalOverflow(page, "Breed profile shared detail layout");
   await expectAxeClean(page, "Breed profile");
 
   const fciCta = page.getByTestId("breed-fci-cta");

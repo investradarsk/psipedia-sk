@@ -1,4 +1,5 @@
 "use client";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
@@ -192,6 +193,7 @@ export function AdminLostFoundEditor({ report, breeds, automationSuggestions = [
     {report && state.status === "ACTIVE" && publicHref && <AdminShareToFacebook title={state.dogName || state.breed || "Pes"} publicPath={publicHref} />}
     {imageEditorOpen && state.mainImage && <ImageDisplayEditor src={state.mainImage} alt={state.dogName||"Pes"} title={state.dogName} entityLabel="strateného alebo nájdeného psa" thumbnailAspectRatio="4 / 3" thumbnail={state.thumbnailImageDisplay} detail={state.detailImageDisplay} onCancel={()=>setImageEditorOpen(false)} onSave={(thumbnail,detail)=>{navigation.markDirty();setState(s=>({...s,thumbnailImageDisplay:thumbnail,detailImageDisplay:detail}));setImageEditorOpen(false)}}/>}
     <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
+      {report && <AdminRecordLifecycleActions kind="lost-found" recordId={report.id} status={state.status} disabled={saving || uploading || galleryUploading} returnHref="/admin/stratene-najdene" onUnpublished={()=>setState(current=>({...current,status:"DRAFT"}))} />}
       <div className={styles.actions}><Link className={styles.secondary} href="/admin/stratene-najdene">← Späť</Link><div><button type="submit" className={styles.primary} disabled={saving||uploading||galleryUploading}>{saving?"Ukladám…":report?"Uložiť":"Vytvoriť koncept"}</button>{report&&allowedTransitions.map((status)=><button key={status} type="button" className={status==="ACTIVE"?styles.primary:styles.secondary} disabled={saving||uploading||galleryUploading} onClick={()=>void save(status)}>{transitionLabel[status]}</button>)}</div></div></AdminEditorFooter>
   </form>;
 }

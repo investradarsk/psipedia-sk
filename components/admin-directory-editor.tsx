@@ -1,4 +1,5 @@
 "use client";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminNotionProfileImportButton } from "@/components/admin-notion-profile-import-button";
@@ -727,6 +728,7 @@ export function AdminDirectoryEditor({
           {reviewedAt && <small>{formatProfileReviewDate(reviewedAt)}</small>}
         </label>
         <AdminFormFeedback message={message} error={error} pending={saving} pendingLabel="Obnovujem…" className="admin-flash" errorClassName="admin-flash--error" />
+        <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status="archived" disabled={saving || uploading || galleryBusy} returnHref="/admin/adresar" />
         <AdminActionButton variant="primary" disabled={saving} onClick={() => void restoreArchivedProfile()}>
           {saving ? "Obnovujem…" : "Obnoviť do konceptu"}
         </AdminActionButton>
@@ -1172,7 +1174,7 @@ export function AdminDirectoryEditor({
           : "Publikovať bude možné až po overenom importe v natívnom D1 editore."}</p>}
         {canonicalEditorUrl && <a href={canonicalEditorUrl}>Otvoriť overený D1 editor →</a>}
         <div>
-          {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading || galleryBusy} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
+          {profile && !notionDraft && <AdminRecordLifecycleActions kind="directory" recordId={profile.id} status={status} disabled={saving || uploading || galleryBusy} returnHref="/admin/adresar" onUnpublished={(next) => setStatus(next as DirectoryProfileStatus)} />}
           <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || galleryBusy || notionReadOnly}>{saving ? "Ukladám…" : status === "published" && !notionDraft ? "Uložiť bez zmeny publikovania" : "Uložiť koncept"}</AdminActionButton>
           {!notionDraft && <AdminActionButton variant="primary" disabled={saving || uploading || galleryBusy || Boolean(reviewConfirm)}
             onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}

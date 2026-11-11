@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -98,6 +99,7 @@ export async function PUT(request: Request, { params }: Props) {
       changedEventFields:edited??eventChangedAdminFields(
         before as unknown as Record<string,unknown>,event as unknown as Record<string,unknown>),
     });
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"events",id,event.status);
     return Response.json({ event, notionFieldSync, fieldWarnings });
   } catch (error) { return errorResponse(error); }
 }
@@ -125,18 +127,9 @@ export async function PATCH(request: Request, { params }: Props) {
   }
 }
 
-export async function DELETE(request: Request, { params }: Props) {
-  const auth = await requireAdminMutation(request, { strictProvenance: true });
-  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
-  const id = await numericId(params);
-  if (!id) return Response.json({ error: "Neplatné ID podujatia." }, { status: 400 });
-  try {
-    const event = await deleteManagedEvent(id);
-    if (!event) return Response.json({ error: "Podujatie sa nenašlo." }, { status: 404 });
-    if (event.imageKey) {
-      const bucket = (env as unknown as UploadBindings).BUCKET;
-      if (bucket) await bucket.delete(event.imageKey).catch(() => undefined);
-    }
-    return Response.json({ deleted: true, id });
-  } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Podujatie sa nepodarilo odstrániť." }, { status: 500 }); }
+/** Legacy DELETE must not bypass verified Notion trash + D1 tombstones. */
+export async function DELETE(request:Request) {
+  const auth=await requireAdminMutation(request, { strictProvenance: true });
+  if(auth.response)return auth.response;
+  return Response.json({error:"Použi Natrvalo odstrániť v editore: /api/admin/record-lifecycle."},{status:409});
 }

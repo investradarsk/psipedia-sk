@@ -1,4 +1,5 @@
 "use client";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
@@ -218,6 +219,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
     {navigation.dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
     <AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading || galleryUploading}>
+      {item && <AdminRecordLifecycleActions kind="adoptions" recordId={item.id} status={persistedStatus} disabled={saving || uploading || galleryUploading} returnHref="/admin/adopcie" onUnpublished={(_next,updatedAt)=>{setStatus("DRAFT");setPersistedStatus("DRAFT");if(updatedAt)setVersion(updatedAt);}} />}
       <div className="admin-editor-actions"><Link href="/admin/adopcie">Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
     </AdminEditorFooter>
   </form>;

@@ -211,6 +211,9 @@ function fixture(options = {}) {
     // The VM fixture extracts production functions without module imports.
     // Default-OFF gate must leave the legacy SQL/R2/GEO path unchanged.
     gemini22PriorityEnabled: () => false,
+    // Lifecycle guard belongs to the external D1 mapping layer; no owner
+    // unpublish has occurred in these isolated field-event fixtures.
+    notionPageMustSkipInboundSync: async () => { calls.push("lifecycle-guard"); return Boolean(options.unpublished); },
     isDirectoryEventPilotCategory, isDirectoryFieldEventCategory,
     Date, Error, Boolean,
   };
@@ -401,5 +404,13 @@ test("mapped field-event worker leaves GEO fault injection untouched without a s
   assert.deepEqual(f.read(), f.initial);
   assert.equal(f.objects.has("directory/old.webp"), true);
   assert.equal(f.calls.includes("notion-writeback"), false);
+  closes(f);
+});
+
+test("Admin-unpublished mapped profile rejects inbound Notion replay before any canonical or media write", async () => {
+  const f = fixture({ status: "draft", notionStatus: "published", unpublished: true });
+  assert.equal(await f.runMappedWorker(), "unchanged");
+  assert.deepEqual(f.read(), f.initial);
+  assert.deepEqual(f.calls, ["lifecycle-guard"]);
   closes(f);
 });

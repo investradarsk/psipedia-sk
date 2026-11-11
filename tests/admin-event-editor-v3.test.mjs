@@ -37,9 +37,13 @@ test("action bar keeps one guarded back navigation and full meaning of buttons",
   assert.doesNotMatch(eventPage, /<Link href="\/admin\/podujatia">← Späť na podujatia/);
   assert.match(editor, /status === "draft" && <AdminActionButton type="submit" form="event-editor-v3-form"/);
   assert.match(editor, /onSubmit=\{\(submitEvent\)[\s\S]*save\(status\)/);
-  assert.match(editor, /onClick=\{\(\) => setConfirmUnpublish\(true\)\}/);
-  assert.match(editor, /onConfirm=\{\(\) => \{ setConfirmUnpublish\(false\); void save\("draft"\); \}\}/);
-  for (const label of ["Uložiť koncept", "Publikovať podujatie", "Uložiť zmeny", "Stiahnuť z kalendára"]) {
+  // Unpublish and permanent deletion are now centralized in the audited
+  // lifecycle API rather than the old local save("draft") button.
+  assert.match(editor, /<AdminRecordLifecycleActions kind="events"/);
+  assert.match(editor, /onUnpublished=\{\(next\) => setStatus\(next as EventStatus\)\}/);
+  assert.doesNotMatch(editor, /setConfirmUnpublish\(true\)/);
+  assert.match(read("components/admin-record-lifecycle-actions.tsx"), /Stiahnuť z webu/);
+  for (const label of ["Uložiť koncept", "Publikovať podujatie", "Uložiť zmeny"]) {
     assert.ok(editor.includes(label), label);
   }
 });
@@ -62,7 +66,8 @@ test("event payload, markdown, maps, SEO, uploads and media behavior remain cano
   assert.match(editor, /<EditorUnsavedChangesGuard[\s\S]*open=\{confirmNavigation\}/);
   assert.match(editor, /document\.addEventListener\("click", onDocumentClick, true\)/);
   assert.match(editor, /navigationApi\?\.addEventListener\("navigate", onNativeNavigate\)/);
-  assert.match(editor, /<AdminDestructiveConfirmDialog[\s\S]*title="Stiahnuť podujatie z kalendára\?"/);
+  assert.match(editor, /<AdminRecordLifecycleActions kind="events"/);
+  assert.doesNotMatch(editor, /<AdminDestructiveConfirmDialog/);
   assert.match(editor, /dirty=\{dirty\}/);
 });
 

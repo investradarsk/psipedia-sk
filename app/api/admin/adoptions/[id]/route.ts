@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
@@ -65,6 +66,7 @@ export async function PUT(request: Request, { params }: Props) {
     const item = await updateAdoptionFromAdmin(id, body.payload as ManagedAdoptionInput, user.email, body.expectedUpdatedAt);
     if (!item) return Response.json({ error: "Adopčný profil sa nenašiel." }, { status: 404 });
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "adoptions", entityId: id });
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"adoptions",id,item.status);
     return Response.json({ item, notionFieldSync });
   } catch (error) {
     return errorResponse(error);

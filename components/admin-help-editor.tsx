@@ -1,4 +1,5 @@
 "use client";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorHydrated, useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
@@ -11,7 +12,7 @@ import { AdminLexicalTextField } from "@/components/admin-lexical-text-field";
 import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
 import Link from "next/link";
-import { AdminActionButton, AdminModalDialog } from "@/components/admin-interaction-system";
+import { AdminActionButton } from "@/components/admin-interaction-system";
 import { AdminFormFeedback } from "@/components/admin-form-feedback";
 import { AdminShareToFacebook } from "@/components/admin-share-to-facebook";
 import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
@@ -84,7 +85,6 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
   const [resolved, setResolved] = useState(item?.resolved ?? false);
   const [status, setStatus] = useState<HelpCaseStatus>(item?.status ?? "draft");
   const [seo, setSeo] = useState(item?.seo ?? {});
-  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const mutationPending = useRef(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -164,7 +164,6 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
     }
     const submittedRevision = navigation.getRevision();
     mutationPending.current = true;
-    setConfirmUnpublish(false);
     setSaving(true); setError(""); setMessage("");
     try {
       const response = await fetch(item ? `/api/admin/help/${item.id}` : "/api/admin/help", {
@@ -221,5 +220,5 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
   </div><aside className="admin-event-preview admin-help-preview"><span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overené" : ""}</span><h2>{title || "Názov prípadu"}</h2><p>{excerpt || "Krátky popis prípadu sa zobrazí tu."}</p><dl><div><dt>Lokalita</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Zodpovedá</dt><dd>{organization || "Organizácia"}</dd></div><div><dt>Stav</dt><dd>{resolved ? "Vybavené" : urgent ? "Urgentné" : "Aktívne"}</dd></div></dl></aside></div></div></div></AdminEditorSectionVisibility.Provider>{imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={title || "Pomoc psom"} title={title} excerpt={excerpt} entityLabel="prípadu pomoci" thumbnailAspectRatio="4 / 3"
     thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
     onSave={(thumbnail, detail) => { navigation.markDirty(); setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}{navigation.dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}<AdminEditorFooter dirty={navigation.dirty} pending={saving || uploading}>
-      <div className="admin-editor-actions"><div><Link href="/admin/pomoc">← Späť na prípady</Link></div><div>{status === "published" && <button className="admin-unpublish" type="button" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z webu</button>}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Uložiť koncept"}</button>{status !== "published" && <button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať prípad"}</button>}</div></div></AdminEditorFooter><AdminModalDialog open={confirmUnpublish} title="Stiahnuť prípad z webu?" description="Prípad sa zmení na koncept a prestane byť verejne dostupný." onClose={() => setConfirmUnpublish(false)} footer={<><AdminActionButton variant="neutral" onClick={() => setConfirmUnpublish(false)}>Ponechať publikované</AdminActionButton><AdminActionButton variant="destructive" disabled={saving || uploading} onClick={() => void save("draft")}>Potvrdiť stiahnutie</AdminActionButton></>}><p>Aktuálne úpravy sa uložia spolu so zmenou stavu.</p></AdminModalDialog></fieldset></form>;
+      <div className="admin-editor-actions"><div><Link href="/admin/pomoc">← Späť na prípady</Link></div><div>{item && <AdminRecordLifecycleActions kind="help" recordId={item.id} status={status} disabled={saving || uploading} returnHref="/admin/pomoc" onUnpublished={(next) => setStatus(next as HelpCaseStatus)} />}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Uložiť koncept"}</button>{status !== "published" && <button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať prípad"}</button>}</div></div></AdminEditorFooter></fieldset></form>;
 }

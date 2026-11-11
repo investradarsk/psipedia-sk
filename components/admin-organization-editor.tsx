@@ -1,4 +1,5 @@
 "use client";
+import { AdminRecordLifecycleActions } from "@/components/admin-record-lifecycle-actions";
 import { useProfileEditorSectionPager } from "@/components/admin-profile-editor-section-pager";
 import { AdminEditorFooter } from "@/components/admin-editor-footer";
 import { AdminSharedEditorNavigation } from "@/components/admin-shared-editor-navigation";
@@ -409,6 +410,7 @@ export function AdminOrganizationEditor({
        thumbnail={draft.thumbnailImageDisplay ?? null} detail={draft.detailImageDisplay ?? null} onCancel={() => setImageEditorOpen(false)}
        onSave={(thumbnail, detail) => { patch({ thumbnailImageDisplay: thumbnail, detailImageDisplay: detail }); setImageEditorOpen(false); }} />}
     <AdminEditorFooter dirty={dirty} pending={saving}>
+      {organization && <AdminRecordLifecycleActions kind="organizations" recordId={organization.id} status={organization.status} disabled={!hydrated || saving || uploading} returnHref="/admin/organizacie" />}
       <div className="admin-editor-actions">
       <div><Link href="/admin/organizacie">← Späť na organizácie</Link></div>
       <div><AdminActionButton variant="primary" type="submit" disabled={editingDisabled || saving || uploading}>{saving ? "Ukladám…" : organization ? "Uložiť organizáciu" : "Vytvoriť koncept"}</AdminActionButton></div>

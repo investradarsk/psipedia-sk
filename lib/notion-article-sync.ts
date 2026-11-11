@@ -1,3 +1,4 @@
+import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { notionRequest as notionSharedRequest } from "@/lib/notion-sync-shared";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
@@ -2013,6 +2014,7 @@ export async function runNotionArticleSyncSweep(args: {
   }
   for (const page of pages) {
     if (summary.created + summary.updated >= MAX_EDITORIAL_UPDATES_PER_SWEEP) break;
+    if (await notionPageMustSkipInboundSync(args.database,page.id)) {summary.unchanged += 1;continue;}
     summary.scanned += 1;
     try {
       const result = await syncOneNotionPage(args.database, args.bindings, page);

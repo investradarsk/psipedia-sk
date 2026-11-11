@@ -1,3 +1,4 @@
+import { acknowledgeAdminPublication } from "@/lib/admin-record-lifecycle";
 import { env } from "cloudflare:workers";
 import { syncSavedNotionRecord, type TargetedNotionSaveBindings } from "@/lib/notion-targeted-admin-save";
 import { requireAdminMutation } from "@/lib/admin-auth";
@@ -117,6 +118,7 @@ export async function PUT(request: Request, { params }: Context) {
     }
 
     const notionFieldSync = await syncSavedNotionRecord({ bindings: env as unknown as TargetedNotionSaveBindings, agenda: "lost-found", entityId: numericId });
+    await acknowledgeAdminPublication((env as unknown as {DB?:D1Database}).DB,"lost-found",numericId,report.status);
     return Response.json({ report, notionFieldSync }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Hlásenie sa nepodarilo uložiť.";
