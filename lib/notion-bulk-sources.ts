@@ -375,7 +375,7 @@ export async function loadNotionBulkHelpCases(database: D1Database, targetId?: n
 }
 
 export async function loadNotionBulkLostFound(database: D1Database, targetId?: number) {
-  const sourceRows = await rows(database, `SELECT id,type,status,slug,dog_name,sex,breed,color,approximate_age,size,description,distinguishing_marks,
+  const sourceRows = await rows(database, `SELECT id,type,status,slug,dog_name,sex,breed,color,approximate_age,size,short_description,description,distinguishing_marks,
     collar_description,chipped,main_image,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,
     public_location_precision,public_contact_note,source,source_url,updated_at,published_at,expires_at,resolved_at,duplicate_of_id,duplicate_reason
     FROM lost_found_dog_reports ${targetId === undefined ? "" : "WHERE id = ?"} ORDER BY id ASC`, targetId);
@@ -396,6 +396,7 @@ export async function loadNotionBulkLostFound(database: D1Database, targetId?: n
       "Farba": s(row.color),
       "Vek": s(row.approximate_age),
       "Veľkosť": s(row.size),
+      "Krátky popis": s(row.short_description),
       "Popis": s(row.description),
       "Rozlišovacie znaky": s(row.distinguishing_marks),
       "Obojok": s(row.collar_description),

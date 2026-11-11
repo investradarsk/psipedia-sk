@@ -101,7 +101,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
   const uploadPending = useRef(false);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
-  const [activeBreedSection,setActiveBreedSection]=useState("breed-basic");
+  const [activeBreedSection,setActiveBreedSection]=useState("breed-overview");
   const chooseBreedSection = useProfileEditorSectionPager(activeBreedSection, setActiveBreedSection);
   const [sportDraft,setSportDraft]=useState<SportDraft|null>(null);
   const [sportError,setSportError]=useState("");
@@ -199,12 +199,12 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     // section. Apply the existing essential required-field rules explicitly
     // and reveal the right section rather than silently submitting an error.
     if (!form.name.trim()) {
-      chooseBreedSection("breed-basic");
+      chooseBreedSection("breed-overview");
       setError("Vyplň názov plemena.");
       return;
     }
     if (!form.slug.trim()) {
-      chooseBreedSection("breed-basic");
+      chooseBreedSection("breed-settings");
       setError("Plemeno potrebuje platnú URL adresu vytvorenú z názvu.");
       return;
     }
@@ -271,18 +271,20 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     finally{savePendingRef.current=false;setSaving(false);}
   }
 
+  // Same editorial flow as the public breed profile, with editing tools last.
   const editorNavigation=[
-    {id:"breed-basic",label:"Základné údaje"},
-    {id:"breed-overview",label:"Charakteristika"},
-    {id:"breed-character",label:"Povaha a hodnotenia"},
+    {id:"breed-overview",label:"O plemene"},
+    {id:"breed-basic",label:"Plemeno v skratke"},
+    {id:"breed-character",label:"Povaha v číslach"},
     {id:"breed-practical",label:"Život a starostlivosť"},
-    {id:"breed-health",label:"Zdravie"},
+    {id:"breed-health",label:"Zdravie plemena"},
+    {id:"breed-fit",label:"Je toto plemeno pre mňa?"},
     {id:"breed-fci",label:"FCI štandard"},
-    {id:"breed-media",label:"Fotografie a aktivity"},
+    {id:"breed-media",label:"Fotografie, športy, zdroje"},
     {id:"breed-settings",label:"Publikovanie a SEO"},
   ];
   const scoreFields=[
-    ["energy","Úroveň energie"],["trainability","Cvičiteľnosť"],["children","Vzťah k deťom"],["otherDogs","Vzťah k iným psom"],
+    ["energy","Energia"],["trainability","Trénovateľnosť"],["children","Vzťah k deťom"],["otherDogs","Vzťah k iným psom"],
     ["apartment","Vhodnosť do bytu"],["grooming","Náročnosť starostlivosti"],["shedding","Pĺznutie"],["preyDrive","Lovecký inštinkt"],
   ] as const;
 
@@ -347,7 +349,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
     <EditorWorkspace
       mode="page"
       title={breed ? `Upraviť plemeno: ${form.name || breed.name}` : "Nové plemeno"}
-      description="Osem prehľadných sekcií. Údaje najprv upravuješ v Admine; Notion sa synchronizuje na pozadí."
+      description="Deväť sekcií v poradí verejného profilu. Zmeny uložíš jedným krokom."
       status={<><EditorStatus label={form.status === "published" ? "Publikované" : "Koncept"} tone={form.status === "published" ? "success" : "neutral"} /><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /></>}
       sections={editorNavigation}
       sectionMode="switch"
@@ -383,11 +385,23 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       </div>
     </div>
 
+    <AdminEditorSection id="breed-overview" className={styles.sectionCard}>
+      <div className="admin-form-card">
+        <div className={styles.heading}><div><h2>01 · O plemene</h2><p>Štyri samostatné texty: úvod, prehľad, charakter a história.</p></div></div>
+        <label className="admin-field"><span>Názov plemena</span><input required value={form.name} onChange={e=>changeName(e.target.value)}/></label>
+        <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><AdminLexicalTextField rows={3} value={form.intro} onChange={next=>change("intro",next)} ariaLabel="Krátky úvod v hero (2–4 vety)" /></label>
+        <label className="admin-field"><span>Prehľad plemena</span><AdminLexicalTextField rows={5} value={form.editorial.overview??""} onChange={next=>updateEditorial("overview",next)} ariaLabel="Prehľad plemena" /></label>
+        <label className="admin-field"><span>Povaha a temperament</span><AdminLexicalTextField rows={5} value={form.character} onChange={next=>change("character",next)} ariaLabel="Povaha" /></label>
+        <label className="admin-field"><span>História a pôvod plemena</span><AdminLexicalTextField rows={5} value={form.history} onChange={next=>change("history",next)} ariaLabel="História" /></label>
+        <AdminLexicalAppendButton disabled={saving} onAppend={text=>change("history",appendLexicalPlainText(form.history,text))}/>
+        <label className="admin-field"><span>Zaujímavosti</span><AdminLexicalTextField rows={4} value={form.editorial.curiosities??""} onChange={next=>updateEditorial("curiosities",next)} ariaLabel="Zaujímavosti" /></label>
+      </div>
+    </AdminEditorSection>
+
     <AdminEditorSection id="breed-basic" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>01 · Základné údaje</h2><p>Najdôležitejšie fakty o plemene na jednom mieste. Bez dvojitého vypĺňania.</p></div></div>
+        <div className={styles.heading}><div><h2>02 · Plemeno v skratke</h2><p>Najdôležitejšie fakty o plemene na jednom mieste. Bez dvojitého vypĺňania.</p></div></div>
         <div className={styles.basicTop}>
-          <label className="admin-field"><span>Názov plemena</span><input required value={form.name} onChange={e=>changeName(e.target.value)}/></label>
           {breed && controlledRevision!==null ? <>
             {renderControlled("originCountries")}
             {renderControlled("sizeSelect")}
@@ -465,20 +479,9 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
       </div>
     </AdminEditorSection>
 
-    <AdminEditorSection id="breed-overview" className={styles.sectionCard}>
-      <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>02 · Všeobecná charakteristika</h2><p>Štyri samostatné texty: úvod, prehľad, charakter a história.</p></div></div>
-        <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><AdminLexicalTextField rows={3} value={form.intro} onChange={next=>change("intro",next)} ariaLabel="Krátky úvod v hero (2–4 vety)" /></label>
-        <label className="admin-field"><span>Prehľad plemena</span><AdminLexicalTextField rows={5} value={form.editorial.overview??""} onChange={next=>updateEditorial("overview",next)} ariaLabel="Prehľad plemena" /></label>
-        <label className="admin-field"><span>Povaha a temperament</span><AdminLexicalTextField rows={5} value={form.character} onChange={next=>change("character",next)} ariaLabel="Povaha" /></label>
-        <label className="admin-field"><span>História a pôvod plemena</span><AdminLexicalTextField rows={5} value={form.history} onChange={next=>change("history",next)} ariaLabel="História" /></label>
-        <AdminLexicalAppendButton disabled={saving} onAppend={text=>change("history",appendLexicalPlainText(form.history,text))}/>
-      </div>
-    </AdminEditorSection>
-
     <AdminEditorSection id="breed-character" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>03 · Povaha a hodnotenia</h2><p>Osem nezávislých hodnotení od 1 do 5.</p></div></div>
+        <div className={styles.heading}><div><h2>03 · Povaha v číslach</h2><p>Osem nezávislých hodnotení od 1 do 5.</p></div></div>
         <div className="admin-breed-score-grid">{scoreFields.map(([key,label])=><label className="admin-field" key={key}>
           <span>{label}</span><input type="number" min="1" max="5" value={form[key]} onChange={e=>change(key,Number(e.target.value))}/></label>)}</div>
       </div>
@@ -486,7 +489,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
 
     <AdminEditorSection id="breed-practical" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>04 · Život, výcvik a starostlivosť</h2><p>Praktické informácie pre budúceho majiteľa. Texty je možné editovať samostatne.</p></div></div>
+        <div className={styles.heading}><div><h2>04 · Život a starostlivosť</h2><p>Praktické informácie pre budúceho majiteľa. Texty je možné editovať samostatne.</p></div></div>
         <label className="admin-field"><span>Každodenné potreby plemena</span><AdminLexicalTextField rows={4} value={form.needs} onChange={next=>change("needs",next)} ariaLabel="Potreby plemena" /></label>
         <label className="admin-field"><span>Potreba pohybu</span><AdminLexicalTextField rows={5} value={form.exercise} onChange={next=>change("exercise",next)} ariaLabel="Potreba pohybu" /></label>
         <label className="admin-field"><span>Výcvik</span><AdminLexicalTextField rows={5} value={form.training} onChange={next=>change("training",next)} ariaLabel="Výcvik" /></label>
@@ -496,26 +499,31 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
           <label className="admin-field"><span>Život v rodine</span><AdminLexicalTextField rows={4} value={form.editorial.familyLife??""} onChange={next=>updateEditorial("familyLife",next)} ariaLabel="Redakcia život v rodine" /></label>
           <label className="admin-field"><span>Spolužitie so psami</span><AdminLexicalTextField rows={4} value={form.editorial.otherDogsLife??""} onChange={next=>updateEditorial("otherDogsLife",next)} ariaLabel="Redakcia spolužitie so psami" /></label>
         </div>
-        <label className="admin-field"><span>Pre koho sa hodí — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.goodFor} onChange={next=>change("goodFor",next)} ariaLabel="Pre koho sa hodí — jedna položka na riadok" /></label>
-        <label className="admin-field"><span>Na čo si dať pozor — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.consider} onChange={next=>change("consider",next)} ariaLabel="Na čo si dať pozor — jedna položka na riadok" /></label>
-        <div className="admin-field-grid">
-          <label className="admin-field"><span>Zaujímavosti</span><AdminLexicalTextField rows={4} value={form.editorial.curiosities??""} onChange={next=>updateEditorial("curiosities",next)} ariaLabel="Zaujímavosti" /></label>
-          <label className="admin-field"><span>Časté chyby majiteľov</span><AdminLexicalTextField rows={4} value={form.editorial.commonOwnerMistakes??""} onChange={next=>updateEditorial("commonOwnerMistakes",next)} ariaLabel="Časté chyby majiteľov" /></label>
-        </div>
+        <label className="admin-field"><span>Časté chyby majiteľov</span><AdminLexicalTextField rows={4} value={form.editorial.commonOwnerMistakes??""} onChange={next=>updateEditorial("commonOwnerMistakes",next)} ariaLabel="Časté chyby majiteľov" /></label>
       </div>
     </AdminEditorSection>
 
     <AdminEditorSection id="breed-health" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>05 · Zdravie</h2><p>Zverejňuj iba odborne overený obsah; editor nepridáva žiadne odvodené zdravotné tvrdenia.</p></div></div>
+        <div className={styles.heading}><div><h2>05 · Zdravie plemena</h2><p>Zverejňuj iba odborne overený obsah; editor nepridáva žiadne odvodené zdravotné tvrdenia.</p></div></div>
         <label className="admin-field"><span>Zdravie a prevencia</span><AdminLexicalTextField rows={7} value={form.health} onChange={(next)=>change("health",next)} ariaLabel="Zdravie" /></label>
         <label className="admin-field"><span>Typické zdravotné riziká — jedna položka na riadok</span><AdminLexicalTextField rows={5} value={form.healthRisks} onChange={(next)=>change("healthRisks",next)} ariaLabel="Typické zdravotné riziká — jedna položka na riadok" /></label>
       </div>
     </AdminEditorSection>
 
+    <AdminEditorSection id="breed-fit" className={styles.sectionCard}>
+      <div className="admin-form-card">
+        <div className={styles.heading}><div><h2>06 · Je toto plemeno pre mňa?</h2><p>Dve samostatné skupiny odporúčaní, rovnako ako na verejnom profile.</p></div></div>
+        <div className={styles.fitEditGrid}>
+          <label className="admin-field"><span>Pre koho sa hodí — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.goodFor} onChange={next=>change("goodFor",next)} ariaLabel="Pre koho sa hodí — jedna položka na riadok" /></label>
+          <label className="admin-field"><span>Na čo si dať pozor — jedna položka na riadok</span><AdminLexicalTextField rows={4} value={form.consider} onChange={next=>change("consider",next)} ariaLabel="Na čo si dať pozor — jedna položka na riadok" /></label>
+        </div>
+      </div>
+    </AdminEditorSection>
+
     <AdminEditorSection id="breed-fci" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>06 · Rozšírený FCI štandard</h2><p>Samostatné odborné údaje podľa FCI. Každý text má svoje vlastné pole.</p></div></div>
+        <div className={styles.heading}><div><h2>07 · FCI štandard</h2><p>Samostatné odborné údaje podľa FCI. Každý text má svoje vlastné pole.</p></div></div>
         {fciSections.map(section=><details className={styles.fciGroup} key={section.title}>
           <summary>{section.title} <span className={styles.groupCount}>{section.fields.length} polí</span></summary>
           <div className={styles.fciFields}>
@@ -533,7 +541,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
 
     <AdminEditorSection id="breed-media" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>07 · Fotografie, športy a odkazy</h2><p>Obrázky, priradené aktivity a odborné zdroje na jednom mieste.</p></div></div>
+        <div className={styles.heading}><div><h2>08 · Fotografie, športy a zdroje</h2><p>Obrázky, priradené aktivity a odborné zdroje na jednom mieste.</p></div></div>
         <h3 className={styles.subheading}>Titulná fotografia a galéria</h3>
         <div className={styles.mediaGrid}>
           <div className={styles.coverPreview}>{form.image?<img src={form.image} alt={`Náhľad: ${form.name||"plemeno"}`} loading="lazy" decoding="async" srcSet={responsiveMediaSrcSet(form.image, [320, 480, 640])} sizes="(max-width: 680px) 92vw, 480px"/>:<span>Bez fotografie<br/>verejne sa použije fallback</span>}</div>
@@ -580,7 +588,7 @@ export function AdminBreedEditor({ breed }: { breed?: ManagedBreed;options:Breed
 
     <AdminEditorSection id="breed-settings" className={styles.sectionCard}>
       <div className="admin-form-card">
-        <div className={styles.heading}><div><h2>08 · Publikovanie a SEO</h2><p>Stav profilu, URL, redakčná kontrola a metaúdaje.</p></div></div>
+        <div className={styles.heading}><div><h2>09 · Publikovanie a SEO</h2><p>Stav profilu, URL, redakčná kontrola a metaúdaje.</p></div></div>
         <label className="admin-check"><input type="checkbox" checked={form.editorialComplete} onChange={e=>change("editorialComplete",e.target.checked)}/><span>Editorial complete – redakčne overený profil</span></label>
         <div className={styles.basicBottom}>
           <label className="admin-field"><span>URL profil / slug</span><input readOnly={Boolean(breed)} value={form.slug} onChange={e=>change("slug",slugify(e.target.value))}/></label>

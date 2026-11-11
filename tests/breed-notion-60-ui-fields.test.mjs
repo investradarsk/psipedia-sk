@@ -6,8 +6,8 @@ import { BREED_COMPACT_VISIBLE } from "../lib/breed-notion-compact-consolidation
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const aliases = {
   "Názov": "Názov plemena",
-  "Energia": "Úroveň energie",
-  "Trénovateľnosť": "Cvičiteľnosť",
+  "Energia": "Energia",
+  "Trénovateľnosť": "Trénovateľnosť",
   "Deti": "Vzťah k deťom",
   "Iné psy": "Vzťah k iným psom",
   "Byt": "Vhodnosť do bytu",
@@ -35,10 +35,10 @@ test("breed editor exposes all 60 editorial fields from the approved Notion mode
     const label = aliases[field] ?? field;
     assert.ok(editor.includes(label), `Missing Notion field: ${field} (shown as ${label})`);
   }
-  assert.equal((editor.match(/<AdminEditorSection id="breed-/g) ?? []).length, 8);
+  assert.equal((editor.match(/<AdminEditorSection id="breed-/g) ?? []).length, 9);
   for (const section of [
     "breed-basic", "breed-overview", "breed-character", "breed-practical",
-    "breed-health", "breed-fci", "breed-media", "breed-settings",
+    "breed-health", "breed-fit", "breed-fci", "breed-media", "breed-settings",
   ]) assert.ok(editor.includes(`<AdminEditorSection id="${section}"`),section);
   for (const obsolete of [
     "<AdminBreedRelationGroup",

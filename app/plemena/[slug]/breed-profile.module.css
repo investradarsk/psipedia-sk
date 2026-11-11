@@ -1580,3 +1580,17 @@
     padding: 10px 12px;
   }
 }
+
+/* Breed public v6: keep facts in the Help-style desktop sidebar;
+   on phones place the same card directly after "O plemene". */
+.desktopFacts { display: block; min-width: 0; }
+.mobileFacts { display: none; min-width: 0; }
+@media (max-width: 800px) {
+  .desktopFacts { display: none; }
+  .mobileFacts {
+    display: block;
+    min-width: 0;
+    scroll-margin-top: calc(var(--psipedia-sticky-header-height, 107px) + 12px);
+  }
+  .mobileFacts :global(section) { min-width: 0; }
+}

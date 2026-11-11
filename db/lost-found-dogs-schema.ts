@@ -16,6 +16,7 @@ export const lostFoundDogReports = sqliteTable(
     color: text("color").notNull().default(""),
     approximateAge: text("approximate_age").notNull().default(""),
     size: text("size").notNull().default("UNKNOWN"),
+    shortDescription: text("short_description").notNull().default(""),
     description: text("description").notNull().default(""),
     distinguishingMarks: text("distinguishing_marks").notNull().default(""),
     collarDescription: text("collar_description").notNull().default(""),

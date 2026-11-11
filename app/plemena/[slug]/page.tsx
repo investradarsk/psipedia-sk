@@ -345,6 +345,8 @@ export default async function BreedDetailPage({ params }: Props) {
     managedBreed?.fciNumber ||
       Object.values(fci).some((value) => typeof value === "string" && value.trim()),
   );
+  // Identical fact content, placed in separate desktop/mobile slots; CSS shows only one.
+  const factsCard = quickFacts.length ? <DetailFactsCard title="Plemeno v skratke" facts={quickFacts} /> : null;
 
   return (
     <main id="obsah" className={styles.page}>
@@ -418,11 +420,9 @@ export default async function BreedDetailPage({ params }: Props) {
             aria-label="Užitočné odkazy"
             data-testid="breed-utility-sidebar"
           >
-            {quickFacts.length > 0 ? (
-              <div data-testid="breed-quick-facts">
-                <DetailFactsCard title="Plemeno v skratke" facts={quickFacts} />
-              </div>
-            ) : null}
+            {factsCard ? <div className={styles.desktopFacts} data-testid="breed-quick-facts">
+              {factsCard}
+            </div> : null}
             <ArticlePromo promoKey="veterinari" variant="v1" seed={breed.slug} compact />
             <PublicMagazineBanner
               compact
@@ -464,6 +464,11 @@ export default async function BreedDetailPage({ params }: Props) {
                   <div className={styles.prose}><ReadingText paragraphs={textParagraphs(editorial.curiosities)}/></div>
                 </div> : null}
               </section>
+            ) : null}
+            {factsCard ? (
+              <div className={styles.mobileFacts} data-testid="breed-quick-facts-mobile">
+                {factsCard}
+              </div>
             ) : null}
             {ratings.length ? (
               <section id="hodnotenia" className={`${styles.ratingSection} ${styles.anchorSection}`} aria-labelledby="breed-ratings">

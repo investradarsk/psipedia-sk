@@ -59,6 +59,12 @@ import {
   extendEventFocusKeywordBaseline,
   ignoreUnverifiedEmptyNotionEventKeyword,
 } from "./notion-event-focus-keyword.ts";
+import {
+  LOST_FOUND_SHORT_DESCRIPTION_FIELD,
+  withoutLostFoundShortDescription,
+  extendLostFoundShortDescriptionBaseline,
+  verifiedLostFoundShortDescriptionDeletes,
+} from "./notion-lost-found-short-description.ts";
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
@@ -1275,6 +1281,24 @@ await requireVerifiedMappedNotionWriteback({
             }
           }
         }
+        // Migration 0162 introduced Krátky popis after existing Lost/Found
+        // page hashes were persisted. Trust an old baseline ONLY when the
+        // exact previous hash matches without the newly added property.
+        // The new field starts empty; never overwrite a real later edit.
+        if (agenda === "lost-found" && schema[LOST_FOUND_SHORT_DESCRIPTION_FIELD]) {
+          if (baseline) {
+            baseline = extendLostFoundShortDescriptionBaseline(baseline);
+          } else {
+            for (const candidate of [
+              withoutLostFoundShortDescription(notionSnapshot),
+              withoutLostFoundShortDescription(sourceSnapshot),
+            ]) {
+              if (await snapshotHash("lost-found", candidate) !== mapping.content_hash) continue;
+              baseline = extendLostFoundShortDescriptionBaseline(candidate);
+              break;
+            }
+          }
+        }
         // One shared field contract for UI and reconciliation. Safe Notion
         // edits may control event classification and unconfirmed addresses,
         // but never bypass canonical publication, identity or privacy locks.
@@ -1297,6 +1321,9 @@ await requireVerifiedMappedNotionWriteback({
             : notionSnapshot,
           psipedia: sourceSnapshot, protectedFields,
           canonicalFieldsWin: true, authorities: fieldAuthorities,
+          verifiedDeletes: agenda === "lost-found"
+            ? verifiedLostFoundShortDescriptionDeletes(baseline, notionSnapshot, sourceSnapshot)
+            : undefined,
           // Existing Events/Help hash comparison already trims strings and
           // normalizes timezone-aware lost/found instants. Apply the same
           // semantics to field-level change detection, not just record hashes.
@@ -1459,6 +1486,37 @@ await requireVerifiedMappedNotionWriteback({
           notion: notionSnapshot,
           confirmedGooglePlace,
         });
+        // The legacy Notion-filled-values priority path normally ignores
+        // empty properties. Preserve that rule for every existing field, but
+        // let an independently verified one-sided deletion of the optional
+        // new short description reach both D1 and Notion.
+        if (agenda === "lost-found" && schema[LOST_FOUND_SHORT_DESCRIPTION_FIELD]) {
+          const recorded = await readProfileFieldBaseline({
+            database: input.database, agenda, entityId, pageId: page.id,
+            expectedHash: mapping.content_hash,
+          });
+          let verified = trustedProfileBaselineFromHashes({
+            recorded, notion: notionSnapshot, psipedia: sourceSnapshot,
+            mappingHash: mapping.content_hash, notionHash, psipediaHash: canonicalHash,
+          });
+          if (!verified) {
+            for (const candidate of [
+              withoutLostFoundShortDescription(notionSnapshot),
+              withoutLostFoundShortDescription(sourceSnapshot),
+            ]) {
+              if (await snapshotHash("lost-found", candidate) !== mapping.content_hash) continue;
+              verified = extendLostFoundShortDescriptionBaseline(candidate);
+              break;
+            }
+          }
+          const deletes = verifiedLostFoundShortDescriptionDeletes(
+            verified, notionSnapshot, sourceSnapshot,
+          );
+          if (deletes.has("notion:" + LOST_FOUND_SHORT_DESCRIPTION_FIELD)
+            || deletes.has("psipedia:" + LOST_FOUND_SHORT_DESCRIPTION_FIELD)) {
+            desired[LOST_FOUND_SHORT_DESCRIPTION_FIELD] = "";
+          }
+        }
         const changedFields = differingAgendaSnapshotFields(agenda, sourceSnapshot, desired);
 
         if (input.mode !== "sync") {
