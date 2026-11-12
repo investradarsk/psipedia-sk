@@ -230,9 +230,12 @@ export function AdminOrganizationEditor({
         router.replace(`/admin/organizacie/${organizationId}`);
         return;
       }
-      setMessage(addressChanged ? "Údaje organizácie aj adresa sú uložené." : organizationSaved
+      setMessage(addressChanged ? (organizationSaved ? "Údaje organizácie aj adresa sú uložené." : "Adresa organizácie je uložená.") : organizationSaved
         ? "Údaje organizácie sú uložené." : "Žiadne neuložené zmeny.");
-      router.refresh();
+      // Address-only saves have already updated the canonical location state
+      // above. Avoid a second server round trip (and RSC remount risk) when
+      // neither the organization record nor its public header was changed.
+      if (organizationSaved) router.refresh();
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : "Organizáciu sa nepodarilo uložiť.";
       if (savingAddress) {
