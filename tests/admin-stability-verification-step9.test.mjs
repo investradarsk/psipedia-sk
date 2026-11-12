@@ -62,6 +62,7 @@ const paths = [
   "tests/e2e/admin-error-recovery-step8.spec.ts",
   "tests/e2e/admin-mobile-pwa-step7.spec.ts",
   "tests/e2e/admin-stability-navigation.spec.ts",
+  "tests/e2e/admin-performance-step9.spec.ts",
 ];
 
 function read(path) {
