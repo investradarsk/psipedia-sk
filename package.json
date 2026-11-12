@@ -75,7 +75,7 @@
     "test:admin-merge-step10": "node --test tests/admin-merge-step10.test.mjs",
     "test:admin-stability-step10": "npm run test:admin-stability-step9 && npm run test:admin-merge-step10",
     "test:admin-stability-step9": "npm run test:admin-pwa && npm run test:admin-editor-source-step9",
-    "benchmark:admin-search-v2": "node scripts/benchmark-admin-search-v2.mjs",
+    "benchmark:admin-search-v2": "node --experimental-strip-types scripts/benchmark-admin-search-v2.mjs",
     "test:admin-performance-v2-steps2-9": "node --experimental-strip-types --test tests/admin-performance-v2-steps2-9.test.mjs",
     "test:admin-performance-v2": "npm run test:admin-performance-v2-step1 && npm run test:admin-performance-v2-steps2-9 && npm run test:admin-pwa && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-global-search.test.mjs tests/admin-global-search-performance.test.mjs tests/admin-attention-header-performance.test.mjs && node --test tests/admin-performance-v2-typecheck.test.mjs",
     "audit:admin-performance-v2": "node scripts/audit-admin-performance-v2.mjs",
