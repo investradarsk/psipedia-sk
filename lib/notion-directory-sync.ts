@@ -1762,10 +1762,14 @@ async function syncBreederEvent(input: {
     } catch { return false; }
   };
   const confirmed = (candidate: NotionPage, path: BreederEditorialField): boolean => {
-    if (candidate.id !== page.id) return false;
+    const key = BREEDER_NOTION_EDITORIAL_FIELDS[path];
+    // A missing Notion property is NOT evidence that a requested empty value
+    // was deleted: only an explicit existing property may acknowledge a clear.
+    if (candidate.id !== page.id || !Object.hasOwn(candidate.properties ?? {}, key))
+      return false;
     const raw = breederReadPath(canonical, path);
     const expected = Array.isArray(raw) ? raw.join("\n") : typeof raw === "string" ? raw.trim() : "";
-    return equivalent(propertyText(candidate, BREEDER_NOTION_EDITORIAL_FIELDS[path]), expected);
+    return equivalent(propertyText(candidate, key), expected);
   };
   const failedFields: BreederEditorialField[] = [];
   for (const path of fields) {
