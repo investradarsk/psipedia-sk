@@ -92,6 +92,15 @@ export async function POST(request: Request) {
     ).bind(data.entity!.id, ...DIRECTORY_FIELD_EVENT_CATEGORIES).first<{ id: number }>();
     if (breeder) {
       const result = await dispatchNotionPageChange(data, bindings);
+      // Structured, value-free evidence for a specific Directory profile.
+      // Success here proves dispatch returned, not that an unrelated old
+      // profile-wide error or Services V3 relation was reconciled.
+      console.info(JSON.stringify({
+        event: "directory_notion_webhook",
+        profileId: breeder.id,
+        outcome: result,
+        changedPropertyCount: data.data?.updated_properties?.length ?? 0,
+      }));
       if (result === "processed" || result === "metadata-only" || result === "ignored") {
         return Response.json({ received: true, result }, { status: 200 });
       }
