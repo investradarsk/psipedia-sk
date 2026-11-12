@@ -66,7 +66,7 @@ function organizationDb({ total = 123, filtered = 11, holdTotals = null } = {}) 
           throw Error("Unexpected first(): " + sql);
         },
         async all() {
-          if (sql.includes("SELECT DISTINCT label.kind")) return { results: [
+          if (sql === ORGANIZATION_ADMIN_LOCATION_FACETS_SQL) return { results: [
             { kind: "city", value: "Nitra" },
             { kind: "district", value: "Nitra" },
             { kind: "region", value: "Nitriansky kraj" },
@@ -90,7 +90,7 @@ test("organizations request the bounded page during a blocked D1 summary, withou
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls.filter(call => /SELECT COUNT\(\*\) AS total/.test(call.sql)).length, 1);
     assert.equal(calls.filter(call => /SELECT COUNT\(\*\) AS count/.test(call.sql)).length, 0);
-    assert.equal(calls.filter(call => /SELECT DISTINCT label.kind/.test(call.sql)).length, 1);
+    assert.equal(calls.filter(call => call.sql === ORGANIZATION_ADMIN_LOCATION_FACETS_SQL).length, 1);
     assert.equal(calls.filter(call => /LIMIT \? OFFSET \?/.test(call.sql)).length, 1, "page started before summary returns");
   } finally {
     release();
