@@ -1370,6 +1370,11 @@ async function saveBreederEditorialValue(
       assignments.push("website_url = ?");
       params.push(value);
     }
+  } else if (path === "seo.noindex") {
+    // Checkbox false is an explicit action, never an omitted/empty string.
+    if (typeof raw !== "boolean") throw new Error("DIRECTORY_NOINDEX_BOOLEAN_REQUIRED");
+    assignments.push("seo_json = json_set(COALESCE(seo_json, '{}'), '$.noindex', json(?))");
+    params.push(raw ? "true" : "false");
   } else if (seoKey) {
     assignments.push("seo_json = json_set(COALESCE(seo_json, '{}'), ?, ?)");
     params.push("$." + seoKey, value);
@@ -1787,6 +1792,8 @@ async function syncBreederEvent(input: {
     if (candidate.id !== page.id || !Object.hasOwn(candidate.properties ?? {}, key))
       return false;
     const raw = breederReadPath(canonical, path);
+    if (path === "seo.noindex")
+      return typeof raw === "boolean" && property(candidate, key)?.checkbox === raw;
     const expected = Array.isArray(raw) ? raw.join("\n") : typeof raw === "string" ? raw.trim() : "";
     return equivalent(propertyText(candidate, key), expected);
   };
