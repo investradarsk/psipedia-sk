@@ -45,11 +45,11 @@ export async function saveFacebookWeeklyTemplate(
   const now = new Date().toISOString();
   const row = await database.prepare(
     "INSERT INTO facebook_weekly_template(id,version,slots_json,updated_at,updated_by) "+
-    "VALUES(1,1,?,?,?) ON CONFLICT(id) DO UPDATE SET "+
+    "SELECT 1,1,?,?,? WHERE ?=0 ON CONFLICT(id) DO UPDATE SET "+
     "version=facebook_weekly_template.version+1,slots_json=excluded.slots_json,"+
     "updated_at=excluded.updated_at,updated_by=excluded.updated_by "+
     "WHERE facebook_weekly_template.version=? RETURNING version",
-  ).bind(JSON.stringify(slots),now,actor,expectedVersion).first<{version:number}>();
+  ).bind(JSON.stringify(slots),now,actor,expectedVersion,expectedVersion).first<{version:number}>();
   // On first insert, require version zero; guard separately against accidental insert.
   if (!row) throw new FacebookTemplateConflict();
   return {available:true,custom:true,version:row.version,slots};
