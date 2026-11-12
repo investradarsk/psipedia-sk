@@ -13,7 +13,7 @@ import {canonicalPublicProfileServices} from "../lib/service-catalog-public-prof
 import {
   saveAdminServiceChoice,resetAdminServiceChoice,
 } from "../lib/service-catalog-admin-store.ts";
-import {projectServiceChoiceToDirectoryNotion,importNotionServiceIds} from "../lib/service-profile-notion-bridge.ts";
+import {importNotionServiceIds} from "../lib/service-profile-notion-bridge.ts";
 import {planSignedCatalogRelationSync} from "../lib/service-catalog-notion-relation-plan.ts";
 
 const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
@@ -87,23 +87,21 @@ test("Admin YES→NO→UNKNOWN→YES shows the same canonical service in detail,
  const f=fixture();
  try{
   const original=await saveAdminServiceChoice(f.db,{profileId:1,optionId:builtin,choice:"yes",expectedVersion:0},actor);
-  // Simulate a transient Notion projection error: canonical D1 is still
-  // committed, and detail must show it without waiting for remote recovery.
+  // The canonical choice is independent of historical textual services.
   const resolved=await loadResolvedServiceDefinitions(f.db);
   assert.deepEqual(selected(f.sqlite,"veterinari",builtin),[1]);
   assert.deepEqual(canonicalPublicProfileServices(["Historický text"],"veterinari",
     chosen(f.sqlite),resolved),["Historický text","Očkovanie"]);
-  await projectServiceChoiceToDirectoryNotion(f.db,1,builtin,"yes");
-  assert.deepEqual(legacy(f.sqlite),["Historický text","Očkovanie"]);
+  assert.deepEqual(legacy(f.sqlite),["Očkovanie","Historický text"],"V3 YES leaves legacy unchanged");
   const no=await saveAdminServiceChoice(f.db,{profileId:1,optionId:builtin,choice:"no",expectedVersion:original.version},actor);
   assert.deepEqual(selected(f.sqlite,"veterinari",builtin),[]);
   // A stale legacy copy cannot override explicit canonical NO.
   assert.deepEqual(canonicalPublicProfileServices(["Očkovanie","Historický text"],
     "veterinari",chosen(f.sqlite),resolved),["Historický text"]);
-  await projectServiceChoiceToDirectoryNotion(f.db,1,builtin,"no");
-  assert.deepEqual(legacy(f.sqlite),["Historický text"]);
+  assert.deepEqual(legacy(f.sqlite),["Očkovanie","Historický text"],"V3 NO leaves legacy unchanged");
   await resetAdminServiceChoice(f.db,{profileId:1,optionId:builtin,expectedVersion:no.version},actor);
   assert.deepEqual(selected(f.sqlite,"veterinari",builtin),[]);
+  assert.deepEqual(legacy(f.sqlite),["Očkovanie","Historický text"]);
   const again=await saveAdminServiceChoice(f.db,{profileId:1,optionId:builtin,choice:"yes",expectedVersion:0},actor);
   assert.ok(again.version>no.version,"reset does not recycle historic selection versions");
   assert.deepEqual(selected(f.sqlite,"veterinari",builtin),[1]);
@@ -149,17 +147,15 @@ test("Notion verified removal keeps unrelated historical text and a separate NO"
   assert.deepEqual(planSignedCatalogRelationSync([builtin],[],[builtin]),{action:"pull",target:[]});
   const removed=await importNotionServiceIds(f.db,1,"veterinari",[]);
   assert.deepEqual(removed,{added:0,removed:1});
-  await projectServiceChoiceToDirectoryNotion(f.db,1,builtin,"unknown");
-  assert.deepEqual(legacy(f.sqlite),["Historický text"]);
+  assert.deepEqual(legacy(f.sqlite),["Očkovanie","Historický text"],"Notion relation removal leaves legacy unchanged");
   assert.deepEqual(chosen(f.sqlite).map(({option_id,choice})=>({option_id,choice})),
     [{option_id:noId,choice:"no"}]);
   assert.deepEqual(selected(f.sqlite,"veterinari",builtin),[]);
   const selectedAgain=await importNotionServiceIds(f.db,1,"veterinari",[builtin]);
   assert.deepEqual(selectedAgain,{added:1,removed:0});
-  await projectServiceChoiceToDirectoryNotion(f.db,1,builtin,"yes");
   const defs=await loadResolvedServiceDefinitions(f.db);
   assert.deepEqual(canonicalPublicProfileServices(legacy(f.sqlite),"veterinari",
-   chosen(f.sqlite),defs),["Historický text","Očkovanie"]);
+   chosen(f.sqlite),defs),["Očkovanie","Historický text"]);
   assert.equal(chosen(f.sqlite).find(x=>x.option_id===noId).choice,"no");
  }finally{f.close();}
 });
@@ -179,5 +175,37 @@ test("map production code uses the same 0149 schema readiness and canonical opti
  assert.match(detail,/getPublishedDirectoryProfile\(category, resolvedSlug\)/);
  assert.match(detail,/buildDirectoryProfileJsonLd\(\{ profile, presentation/);
  assert.match(relation,/importNotionServiceIds\(db,profileId,category,plan.target\)/);
- assert.match(relation,/projectServiceChoiceToDirectoryNotion\(db,profileId,id,after.has\(id\)\?"yes":"unknown"\)/);
+ assert.doesNotMatch(relation,/projectServiceChoiceToDirectoryNotion|ensureCanonicalServiceChoicesInLegacy|reflectPublicServiceText/);
+});
+
+test("legacy editorial service changes are independent from V3 Notion relation choices",async()=>{
+ const f=fixture();
+ try{
+  await saveAdminServiceChoice(f.db,{profileId:1,optionId:builtin,choice:"yes",expectedVersion:0},actor);
+  const editorial=["Ručne doplnená služba","Informácie pre klientov"];
+  f.sqlite.prepare("UPDATE directory_profiles SET services_json=? WHERE id=?")
+   .run(JSON.stringify(editorial),1);
+  assert.deepEqual(legacy(f.sqlite),editorial);
+  assert.deepEqual(chosen(f.sqlite).map(x=>x.option_id),[builtin],
+   "editing old text must not change canonical V3 selections");
+  assert.deepEqual(await importNotionServiceIds(f.db,1,"veterinari",[]),{added:0,removed:1});
+  assert.deepEqual(legacy(f.sqlite),editorial,"Notion V3 removal must not edit old text");
+  assert.deepEqual(await importNotionServiceIds(f.db,1,"veterinari",[builtin]),{added:1,removed:0});
+  assert.deepEqual(legacy(f.sqlite),editorial,"Notion V3 addition must not edit old text");
+ }finally{f.close();}
+});
+
+test("the two Notion service properties have isolated write paths",()=>{
+ const route=read("app/api/admin/directory/[id]/service-options/route.ts");
+ const directory=read("lib/notion-directory-sync.ts");
+ const relation=read("lib/service-catalog-notion-relations.ts");
+ const bridge=read("lib/service-profile-notion-bridge.ts");
+ assert.match(directory,/"Služby": richText\(snapshot\.services\.join/);
+ assert.match(directory,/path === "services" \|\| path === "qualifications"/);
+ assert.doesNotMatch(directory,/importNotionServiceChoices/);
+ assert.match(relation,/const PROPERTY="Služby z katalógu"/);
+ assert.match(relation,/importNotionServiceIds\(db,profileId,category,plan.target\)/);
+ assert.doesNotMatch(relation,/reflectPublicServiceText|ensureCanonicalServiceChoicesInLegacy|projectServiceChoiceToDirectoryNotion/);
+ assert.doesNotMatch(route,/projectServiceChoiceToDirectoryNotion|notionProjection/);
+ assert.doesNotMatch(bridge,/UPDATE directory_profiles|services_json\s*=|projectServiceChoiceToDirectoryNotion/);
 });

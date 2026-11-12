@@ -4,7 +4,6 @@ import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,direct
 import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
-import {importNotionServiceChoices} from "./service-profile-notion-bridge.ts";
 import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
   from "./service-catalog-notion-relations";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
@@ -1161,11 +1160,7 @@ async function applyNotionToProfile(input: {
 
     // Paid Google Places search must only run after an explicit admin action.
 
-    if(JSON.stringify(desired.services)!==JSON.stringify(current.services)){
-      // Only a Notion-side "Služby" edit maps to canonical choices. The existing
-      // profile field conflict policy has already approved the editorial merge.
-      await importNotionServiceChoices(input.database,updated.id,updated.category,desired.services);
-    }
+    // Legacy Notion "Služby" edits update editorial fields only, never V3 choices.
     return await getManagedDirectoryProfileById(updated.id, input.database) ?? updated;
   } catch (error) {
     if (prepared?.uploadedKey) {
