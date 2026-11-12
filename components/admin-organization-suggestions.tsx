@@ -2,6 +2,7 @@
 
 import { Suspense, use } from "react";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
+import { AdminOptionalReadError } from "@/components/admin-recovery-actions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 
 export type OrganizationSuggestionsResult = {
@@ -18,9 +19,7 @@ function SuggestionsContent({
 }) {
   const { suggestions, failed } = use(promise);
   if (failed) {
-    return <p role="status" className="admin-message">
-      Návrhy automatizácie sa nepodarilo načítať. Údaje organizácie môžeš bezpečne upravovať a uložiť.
-    </p>;
+    return <AdminOptionalReadError message="Návrhy automatizácie sa nepodarilo načítať. Údaje organizácie môžeš bezpečne upravovať a uložiť." />;
   }
   return <AdminAutomationUpdateSuggestions initialSuggestions={suggestions} onAccepted={onAccepted} />;
 }
