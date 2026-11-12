@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   ORGANIZATION_ADMIN_LOCATION_FACETS_SQL,
@@ -172,4 +173,29 @@ test("adoption page and grouped counts start before the delayed filtered-count r
   assert.equal(result.counts.total, 8);
   assert.equal(result.counts.stale, 3);
   assert.equal(result.pagination.total, 8);
+});
+
+test("lost-found lookup starts schema-compatible projection and filtered count together", () => {
+  const source = readFileSync(new URL("../lib/lost-found-dog-store.ts", import.meta.url), "utf8");
+  const start = source.indexOf("export async function listAdminDogReports(");
+  const end = source.indexOf("export async function getAdminDogReport(", start);
+  const list = source.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(list, /const \[count, projection\] = await Promise\.all\(\[/);
+  assert.match(list, /selectWithOptionalShortDescription\(database, adminSelect\)/);
+  assert.match(list, /SELECT \$\{projection\} FROM lost_found_dog_reports/);
+  assert.match(list, /LIMIT \? OFFSET \?/);
+  assert.doesNotMatch(list, /SELECT \$\{await selectWithOptionalShortDescription\(database, adminSelect\)\}/);
+});
+
+test("existing organization and adoption indexes are preserved without a new migration", () => {
+  const schema = [
+    "drizzle/0034_adoption_dogs_foundation.sql",
+    "drizzle/0040_organization_locations_foundation.sql",
+    "drizzle/0041_organization_fundraising_methods.sql",
+  ].map(file => readFileSync(new URL("../" + file, import.meta.url), "utf8")).join("\n");
+  for (const name of [
+    "adoption_dogs_verified_idx", "adoption_dogs_admin_updated_idx",
+    "organization_locations_org_order_idx", "organization_fundraising_methods_org_order_idx",
+  ]) assert.ok(schema.includes(name), name);
 });
