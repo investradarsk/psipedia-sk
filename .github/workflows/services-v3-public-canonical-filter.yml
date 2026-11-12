@@ -8,6 +8,8 @@ on:
       - "components/directory-filter-form.tsx"
       - "components/directory-page.tsx"
       - "tests/service-catalog-public-filter.test.mjs"
+      - "tests/service-catalog-public-parity-e2e.test.mjs"
+      - "lib/service-catalog-public-profile-services.ts"
       - ".github/workflows/services-v3-public-canonical-filter.yml"
 permissions:
   contents: read
@@ -22,4 +24,4 @@ jobs:
           node-version: "24.18.0"
       - name: Canonical SQL, legacy filter compatibility, no inference
         run: |
-          node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs
+          node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs tests/service-catalog-public-parity-e2e.test.mjs
