@@ -23,7 +23,8 @@ test("only iOS mobile navigation reloads the two unstable streamed routes", () =
   assert.match(guard, /document\.removeEventListener\("click", handler, true\)/);
   assert.match(layout, /<AdminMobileDocumentNavigation \/>/);
   assert.match(navigation, /href === "\/admin" \|\| href === "\/admin\/clanky"/);
-  assert.match(navigation, /router\.prefetch\(href, \{ onInvalidate:/, "unaffected routes prefetch on intent and refresh invalidated payloads");
+  assert.match(navigation, /router\.prefetch\(href\)/, "unaffected routes prefetch only on deliberate user intent");
+  assert.match(navigation, /prefetched\.current\.clear\(\)/, "intent prefetch cache resets when the committed route changes");
   assert.match(navigation, /prefetch=\{false\}/, "admin destinations must not prefetch the whole D1-backed sidebar");
   assert.match(quickNavigation, /dynamic\(/, "Ctrl+K dialog must remain lazy loaded");
   assert.match(quickNavigation, /admin-quick-navigation-dialog/, "Ctrl+K navigation stays in the dynamically loaded dialog");
