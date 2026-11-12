@@ -997,7 +997,7 @@ jobs:
             printf 'production-probe path=%s ' "$path"
             curl --connect-timeout 5 --max-time 15 --location --silent --show-error \
               --output /dev/null \
-              --write-out 'status=%{http_code} remote_ip=%{remote_ip} dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s ttfb=%{time_starttransfer}s total=%{time_total}s\\n' \
+              --write-out 'status=%{http_code} remote_ip=%{remote_ip} dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s ttfb=%{time_starttransfer}s total=%{time_total}s\n' \
               "https://psipedia.sk${path}" || echo "production-probe-failed path=$path"
           done
       - name: Upload Playwright HTML report on failure
