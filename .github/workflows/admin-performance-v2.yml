@@ -8,6 +8,9 @@ on:
       - "app/admin/**"
       - "lib/admin-**"
       - "scripts/audit-admin-performance-v2.mjs"
+      - "scripts/benchmark-admin-search-v2.mjs"
+      - "lib/admin-gallery-order.ts"
+      - "lib/admin-attention-request.ts"
       - "tests/admin-performance-v2-*.test.mjs"
       - "docs/ADMIN-PERFORMANCE-V2-**"
       - "package.json"
@@ -25,7 +28,7 @@ concurrency:
 jobs:
   source-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -37,8 +40,14 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Validate source audit and safety
-        run: npm run test:admin-performance-v2-step1
+      - name: Validate phase 2 regressions and existing Admin/PWA invariants
+        run: npm run test:admin-performance-v2
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit --pretty false
+
+      - name: Capture local SQLite query-plan experiment
+        run: npm run benchmark:admin-search-v2 > admin-v2-search-plan.json
 
       - name: Capture reproducible source baseline
         run: npm run audit:admin-performance-v2 -- --json > admin-v2-source-baseline.json
@@ -47,7 +56,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: admin-performance-v2-source-baseline
-          path: admin-v2-source-baseline.json
+          path: |
+            admin-v2-source-baseline.json
+            admin-v2-search-plan.json
           retention-days: 14
 
 # Deliberately read-only: no Cloudflare/Notion credentials, schema writes,
