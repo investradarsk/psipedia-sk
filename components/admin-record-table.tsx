@@ -113,8 +113,6 @@ export function AdminRecordTable<T extends { id: number }>({
   const selectionRowLabel = selection?.labelForRow;
   const selectionAllLabel = selection?.selectAllLabel;
   const selectionRowInputDataAttribute = selection?.rowInputDataAttribute;
-  const serverSortingEnabled = Boolean(serverSorting);
-  const serverSortAllowedIdsKey = JSON.stringify(serverSorting?.allowedIds ?? []);
 
   const definitions = useMemo<ColumnDef<T>[]>(() => [
     ...(selectionEnabled ? [{
@@ -168,7 +166,7 @@ export function AdminRecordTable<T extends { id: number }>({
     minSize: 85,
   })),
   ], [columns, selectionEnabled, selectionDisabled, selectionRowLabel, selectionAllLabel,
-    selectionRowInputDataAttribute, label, busy, rows.length, serverSorted, serverSortingEnabled, serverSortAllowedIdsKey]);
+    selectionRowInputDataAttribute, label, busy, rows.length, serverSorted, serverSorting]);
 
   const table = useReactTable({
     data: rows,
