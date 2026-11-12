@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 
 export const changedPaths = new Set([
   "app/admin/page.tsx",
+  "app/admin/operations/page.tsx",
   "components/admin-article-editor.tsx",
   "components/admin-breed-editor.tsx",
   "components/admin-directory-editor.tsx",
