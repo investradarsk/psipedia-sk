@@ -153,7 +153,8 @@ test("notification click URLs are constrained to admin routes", () => {
   const sw = read("../public/sw.js");
   assert.match(sw, /url\.origin !== self\.location\.origin/);
   assert.match(sw, /clients\.matchAll/);
-  assert.match(sw, /existing\.navigate\(target\)/);
+  assert.doesNotMatch(sw, /existing\.navigate\(target\)/, "push must never navigate an existing editor without dirty-form confirmation");
+  assert.match(sw, /const matching = windows\.find\(\(client\) => client\.url === target\)/);
   assert.match(sw, /clients\.openWindow\(target\)/);
 });
 
