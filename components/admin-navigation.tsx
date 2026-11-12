@@ -24,7 +24,12 @@ function NavigationPendingIndicator() {
 
 function useAdminIntentPrefetch() {
   const router = useRouter();
+  const pathname = usePathname();
   const prefetched = useRef(new Set<string>());
+
+  // Vinext's router.prefetch currently has no onInvalidate option. Clear
+  // this intent-only guard on each committed route, not on every render.
+  useEffect(() => { prefetched.current.clear(); }, [pathname]);
 
   return (href: string) => {
     // Opening the mobile drawer focuses a link automatically. That is not
@@ -37,10 +42,11 @@ function useAdminIntentPrefetch() {
       isIosWebKitDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) return;
 
     // No speculative prefetch of dozens of authenticated D1-backed pages.
-    // One request per deliberate hover/focus, re-enabled when Next invalidates it.
+    // One request per deliberate hover/focus per committed route. No
+    // unsupported onInvalidate callback or speculative D1-backed traffic.
     if (prefetched.current.has(href)) return;
     prefetched.current.add(href);
-    router.prefetch(href, { onInvalidate: () => { prefetched.current.delete(href); } });
+    router.prefetch(href);
   };
 }
 
