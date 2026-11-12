@@ -1,4 +1,5 @@
 "use client";
+import { breedProfileHref } from "@/lib/breed-canonical";
 import { breedComparisonValue } from "@/lib/breed-comparison-values";
 import { PublicSelect } from "@/components/public-visual-system/public-form-controls";
 import { BreedPhoto } from "@/components/breed-photo";
@@ -29,6 +30,7 @@ function ComparisonValue({
   value: string;
   kind?: "weight" | "lifespan";
   slug: string;
+  fciGroup: number;
 }) {
   const display = breedComparisonValue(value, kind);
   return (
@@ -38,7 +40,7 @@ function ComparisonValue({
         <details key={slug + value}>
           <summary>Zobraziť poznámku</summary>
           <p>{display.explanation}</p>
-          <Link href={`/plemena/${slug}`}>Profil a zdroje plemena</Link>
+          <Link href={breedProfileHref(slug, fciGroup)}>Profil a zdroje plemena</Link>
         </details>
       ) : null}
     </div>
@@ -60,7 +62,7 @@ function BreedHeading({ breed }: { breed: BreedComparisonItem }) {
       </span>
       <h2>{breed.name}</h2>
       <small>{breed.origin}</small>
-      <Link href={`/plemena/${breed.slug}`}>
+      <Link href={breedProfileHref(breed.slug, breed.fciGroup)}>
         Celý profil <ArrowIcon size={17} />
       </Link>
     </div>
@@ -160,11 +162,13 @@ export function BreedComparison({ breeds }: { breeds: BreedComparisonItem[] }) {
               value={fact.first}
               kind={"kind" in fact ? fact.kind : undefined}
               slug={first.slug}
+              fciGroup={first.fciGroup}
             />
             <ComparisonValue
               value={fact.second}
               kind={"kind" in fact ? fact.kind : undefined}
               slug={second.slug}
+              fciGroup={second.fciGroup}
             />
           </div>
         ))}

@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { HOME_PROFILE_BANNER_ANCHOR } from "@/lib/visual-library-anchors";
 import { getPublishedDesktopBannerColorsBatch } from "@/lib/visual-library-edit-store";
@@ -169,7 +170,7 @@ async function HomeBelowHero({
               {featuredBreedCards.map((breed) => (
                 <HomeSidebarRow
                   key={breed.slug}
-                  href={`/plemena/${breed.slug}`}
+                  href={breedProfileHref(breed.slug, breed.fciGroup)}
                   media={
                     <BreedPhoto
                       src={breed.image!}

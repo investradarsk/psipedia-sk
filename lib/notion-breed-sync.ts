@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import {
   createManagedBreed,
@@ -1289,7 +1290,7 @@ export async function writeBackPublishedBreedToNotion(args: {
   }
 
   const now = new Date().toISOString();
-  const publicUrl = `${SITE_URL}/plemena/${args.breed.slug}`;
+  const publicUrl = `${SITE_URL}${breedProfileHref(args.breed.slug, args.breed.fciGroup)}`;
   await notionRequest(
     args.bindings,
     `/pages/${encodeURIComponent(mapping.notion_page_id)}`,

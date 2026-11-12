@@ -1,3 +1,4 @@
+import { breedProfileHref } from "@/lib/breed-canonical";
 import { BreedPhoto } from "@/components/breed-photo";
 import Link from "next/link";
 import type { BreedAtlasCard } from "@/lib/breed-store";
@@ -17,7 +18,7 @@ export function RatingDots({ value, label }: { value: number; label: string }) {
 }
 
 export function BreedCard({ breed }: { breed: BreedAtlasCard }) {
-  const profileHref = `/plemena/${breed.slug}`;
+  const profileHref = breedProfileHref(breed.slug, breed.fciGroup);
   return (
     <article className={`breed-card breed-card--${breed.accent}`} data-public-card="breed">
       <Link href={profileHref} className="breed-card-media" aria-label={`Otvoriť profil: ${breed.name}`}>
