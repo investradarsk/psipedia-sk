@@ -1,0 +1,54 @@
+name: Admin Performance V2 Read-Only
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/admin-**"
+      - "app/admin/**"
+      - "lib/admin-**"
+      - "scripts/audit-admin-performance-v2.mjs"
+      - "tests/admin-performance-v2-*.test.mjs"
+      - "docs/ADMIN-PERFORMANCE-V2-**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/admin-performance-v2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-performance-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate source audit and safety
+        run: npm run test:admin-performance-v2-step1
+
+      - name: Capture reproducible source baseline
+        run: npm run audit:admin-performance-v2 -- --json > admin-v2-source-baseline.json
+
+      - name: Save source metrics (not runtime/browser metrics)
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-performance-v2-source-baseline
+          path: admin-v2-source-baseline.json
+          retention-days: 14
+
+# Deliberately read-only: no Cloudflare/Notion credentials, schema writes,
+# production DB, deployment, runtime analytics, or automatic migrations.
