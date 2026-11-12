@@ -14,6 +14,7 @@ import {
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { articleBlockImageKeys } from "@/lib/article-blocks";
 import { orphanedArticleMediaKeys } from "@/lib/article-media-key-preservation";
+import { articleSeoChangedFields } from "@/lib/notion-article-seo-writeback";
 import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 import {
   writeBackPublishedArticleToNotion,
@@ -156,12 +157,14 @@ export async function PUT(request: Request, { params }: RouteProps) {
       // Only changed SEO properties are sent, for BOTH drafts and published
       // articles. They run before draft body writeback so its Notion hash
       // baseline reflects already-acknowledged SEO changes.
-      try {
-        report(await writeBackArticleSeoToNotion({
-          database: bindings.DB, bindings, before, article,
-        }));
-      } catch (error) {
-        reportError(error, "notion_article_seo_writeback_failed");
+      if (articleSeoChangedFields(before, article).length > 0) {
+        try {
+          report(await writeBackArticleSeoToNotion({
+            database: bindings.DB, bindings, before, article,
+          }));
+        } catch (error) {
+          reportError(error, "notion_article_seo_writeback_failed");
+        }
       }
       if (before.status === "draft" && article.status === "draft") {
         try {
