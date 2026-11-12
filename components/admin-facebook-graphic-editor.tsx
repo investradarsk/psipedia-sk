@@ -3,6 +3,12 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import {useDropzone} from "react-dropzone";
 import {FacebookProfileIntroCanvas} from "./facebook-profile-intro-canvas";
+import {removeEdgeWhite,suggestedLogoCrop} from "./facebook-profile-logo-processing";
+import {
+  DEFAULT_PROFILE_LAYOUT,DEFAULT_PROFILE_LOGO_OPTIONS,PROFILE_PARTS,constrainProfilePlacement,
+  type ProfilePart,type ProfileLayout,type ProfileLogoOptions,type ProfilePlacement,
+  type ProfileLogoShape,
+} from "./facebook-profile-intro-layout";
 import {FacebookKonvaCanvas, type GraphicCanvasHandle, type GraphicPart, type GraphicSettings, type GraphicTemplate, type GraphicFormat} from "./facebook-konva-canvas";
 import styles from "./admin-facebook-graphic-editor.module.css";
 
@@ -18,12 +24,29 @@ const TEMPLATES: { id: Template; name: string; description: string }[] = [
   {id:"profile",name:"06 · Predstavujeme profil",description:"Jednotná grafika s logom prevádzky, bez fotografie"},
 ];
 const MAX_BYTES = 8 * 1024 * 1024;
+const PROFILE_LAYOUT_KEY="psipedia-facebook-profile-intro-v2";
+async function loadProfileLogoFile(source:string,signal?:AbortSignal):Promise<File>{
+  const url=new URL(source,window.location.origin);
+  if(url.origin!==window.location.origin||!url.pathname.startsWith("/media/facebook-images/"))
+    throw Error("Logo musí byť uložené na Psipedia.sk. Nahraj ho ručne.");
+  const response=await fetch(url.pathname+url.search,{
+    credentials:"same-origin",cache:"no-store",signal,
+  });
+  if(!response.ok)throw Error("Logo sa nepodarilo načítať. Nahraj ho ručne.");
+  const blob=await response.blob();
+  const mime=blob.type.split(";")[0].toLowerCase();
+  if(!blob.size||blob.size>MAX_BYTES||!["image/jpeg","image/png","image/webp"].includes(mime))
+    throw Error("Logo musí byť JPG, PNG alebo WebP do 8 MB.");
+  return new File([blob],"logo-profilu",{type:mime});
+}
+
 
 export function AdminFacebookGraphicEditor({
   initialTitle,
   initialPhotoUrl,
   initialProfileCategory,
   initialProfileLogoUrl,
+  onReloadProfileLogo,
   onUse,
   onCancel,
 }: {
@@ -31,6 +54,7 @@ export function AdminFacebookGraphicEditor({
   initialPhotoUrl?: string;
   initialProfileCategory?: string;
   initialProfileLogoUrl?: string;
+  onReloadProfileLogo?: ()=>Promise<string>;
   onUse: (file: File, title: string) => Promise<boolean>;
   onCancel: () => void;
 }) {
@@ -53,11 +77,87 @@ export function AdminFacebookGraphicEditor({
     logoY: 0,
     logoScale: 100,
   });
-  const [selectedTemplate,setSelectedTemplate]=useState<Template>("gradient");
+  const [selectedTemplate,setSelectedTemplate]=useState<Template>(initialProfileCategory?"profile":"gradient");
+  const [profileLayout,setProfileLayout]=useState<ProfileLayout>(DEFAULT_PROFILE_LAYOUT);
+  const [profileOptions,setProfileOptions]=useState<ProfileLogoOptions>(DEFAULT_PROFILE_LOGO_OPTIONS);
+  const [selectedProfilePart,setSelectedProfilePart]=useState<ProfilePart|null>(null);
+  const [fullPreview,setFullPreview]=useState(false);
+  const [logoReloading,setLogoReloading]=useState(false);
+  const [profileHistory,setProfileHistory]=useState<Array<{layout:ProfileLayout;options:ProfileLogoOptions}>>([]);
+  const restoreReady=useRef(false);
+  useEffect(()=>{
+    const task=window.setTimeout(()=>{
+      try{
+        const stored=window.localStorage.getItem(PROFILE_LAYOUT_KEY);
+        if(stored){
+          const parsed=JSON.parse(stored) as {layout?:Partial<ProfileLayout>;options?:Partial<ProfileLogoOptions>};
+          if(parsed.layout&&PROFILE_PARTS.every(part=>{
+            const p=parsed.layout?.[part.id];
+            return p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.scale);
+          })){
+            const cleaned={} as ProfileLayout;
+            for(const part of PROFILE_PARTS)cleaned[part.id]=constrainProfilePlacement(parsed.layout[part.id]!);
+            setProfileLayout(cleaned);
+          }
+          if(parsed.options){
+            const o=parsed.options;
+            if(["circle","rounded","square","none"].includes(o.shape||""))setProfileOptions(old=>({
+              ...old,...Object.fromEntries(Object.entries(o).filter(([key,value])=>
+                key==="shape"?["circle","rounded","square","none"].includes(String(value))
+                  :key==="removeWhite"?typeof value==="boolean"
+                  :typeof value==="number"&&Number.isFinite(value)
+              )),
+            }));
+          }
+        }
+      }catch{/* Corrupted preferences never stop the editor. */}
+      restoreReady.current=true;
+    },0);
+    return()=>window.clearTimeout(task);
+  },[]);
+  useEffect(()=>{
+    if(!restoreReady.current)return;
+    try{window.localStorage.setItem(PROFILE_LAYOUT_KEY,JSON.stringify({layout:profileLayout,options:profileOptions}));}
+    catch{/* Private browsers may deny local storage; editing still works. */}
+  },[profileLayout,profileOptions]);
+  const saveProfileHistory=()=>setProfileHistory(old=>[{
+    layout:profileLayout,options:profileOptions,
+  },...old].slice(0,20));
+  const changeProfilePlacement=useCallback((part:ProfilePart,placement:ProfilePlacement)=>{
+    setProfileHistory(old=>[{layout:profileLayout,options:profileOptions},...old].slice(0,20));
+    setProfileLayout(old=>({...old,[part]:constrainProfilePlacement(placement)}));
+  },[profileLayout,profileOptions]);
+  const changeProfileOption=<K extends keyof ProfileLogoOptions>(key:K,value:ProfileLogoOptions[K])=>{
+    saveProfileHistory();
+    setProfileOptions(old=>({...old,[key]:value}));
+  };
+  function undoProfileChange(){
+    const previous=profileHistory[0];if(!previous)return;
+    setProfileLayout(previous.layout);setProfileOptions(previous.options);
+    setProfileHistory(old=>old.slice(1));
+  }
+  function resetProfileLayout(){
+    saveProfileHistory();
+    setProfileLayout(DEFAULT_PROFILE_LAYOUT);setProfileOptions(DEFAULT_PROFILE_LOGO_OPTIONS);
+    setSelectedProfilePart(null);
+  }
   const [profileCategory,setProfileCategory]=useState(initialProfileCategory||"");
   const [profileLogoFile,setProfileLogoFile]=useState<File|null>(null);
   const [profileLogoLoaded,setProfileLogoLoaded]=useState<{file:File;bitmap:ImageBitmap}|null>(null);
   const profileLogoBitmap=profileLogoLoaded?.file===profileLogoFile?profileLogoLoaded.bitmap:null;
+  const [cleanLogo,setCleanLogo]=useState<{source:ImageBitmap;bitmap:ImageBitmap}|null>(null);
+  const displayLogoBitmap=profileOptions.removeWhite&&cleanLogo?.source===profileLogoBitmap
+    ?cleanLogo.bitmap:profileLogoBitmap;
+  useEffect(()=>{
+    if(!profileLogoBitmap||!profileOptions.removeWhite)return;
+    let active=true,processed:ImageBitmap|null=null;
+    void removeEdgeWhite(profileLogoBitmap).then(result=>{
+      processed=result;
+      if(active)setCleanLogo({source:profileLogoBitmap,bitmap:result});
+      else result.close();
+    }).catch(()=>{if(active)setError("Pozadie loga sa nepodarilo odstrániť.");});
+    return()=>{active=false;processed?.close();};
+  },[profileLogoBitmap,profileOptions.removeWhite]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [loaded, setLoaded] = useState<{ file: File; bitmap: ImageBitmap } | null>(null);
   const bitmap = loaded?.file === photo ? loaded.bitmap : null;
@@ -116,7 +216,7 @@ export function AdminFacebookGraphicEditor({
     if (accepted[0]) { setPhoto(accepted[0]); setError(""); }
   }, []);
   const onLogoDrop=useCallback((accepted:File[])=>{
-    if(accepted[0]){setProfileLogoFile(accepted[0]);setError("");}
+    if(accepted[0]){setProfileLogoFile(accepted[0]);setCleanLogo(null);setError("");}
   },[]);
   const logoDropzone=useDropzone({
     onDrop:onLogoDrop,onDropRejected:()=>setError("Použi logo JPG, PNG alebo WebP do 8 MB."),
@@ -124,24 +224,32 @@ export function AdminFacebookGraphicEditor({
     maxSize:MAX_BYTES,multiple:false,disabled:busy,
   });
   useEffect(()=>{
-    const logoUrl: string = initialProfileLogoUrl ?? "";
+    const logoUrl: string=initialProfileLogoUrl??"";
     if(!logoUrl)return;
     const controller=new AbortController();
-    async function loadLogo(){
-      const url=new URL(logoUrl,window.location.origin);
-      if(url.origin!==window.location.origin||!url.pathname.startsWith("/media/facebook-images/"))
-        throw Error("Logo musí byť uložené na Psipedia.sk. Nahraj ho ručne.");
-      const response=await fetch(url.pathname+url.search,{credentials:"same-origin",cache:"no-store",signal:controller.signal});
-      if(!response.ok)throw Error("Logo sa nepodarilo načítať. Nahraj ho ručne.");
-      const blob=await response.blob();
-      const mime=blob.type.split(";")[0].toLowerCase();
-      if(!blob.size||blob.size>MAX_BYTES||!["image/jpeg","image/png","image/webp"].includes(mime))
-        throw Error("Logo musí byť JPG, PNG alebo WebP do 8 MB.");
-      if(!controller.signal.aborted)setProfileLogoFile(new File([blob],"logo-profilu",{type:mime}));
-    }
-    void loadLogo().catch(error=>{if(!controller.signal.aborted)setError(error instanceof Error?error.message:"Logo sa nepodarilo načítať.");});
+    void loadProfileLogoFile(logoUrl,controller.signal).then(file=>{
+      if(!controller.signal.aborted){setProfileLogoFile(file);setError("");}
+    }).catch(error=>{
+      if(!controller.signal.aborted)setError(error instanceof Error?error.message:"Logo sa nepodarilo načítať.");
+    });
     return()=>controller.abort();
   },[initialProfileLogoUrl]);
+  async function reloadProfileLogo(){
+    if(!onReloadProfileLogo||logoReloading)return;
+    setLogoReloading(true);setError("");
+    try{
+      const url=await onReloadProfileLogo();
+      const file=await loadProfileLogoFile(url);
+      setProfileLogoFile(file);setCleanLogo(null);
+    }catch(error){setError(error instanceof Error?error.message:"Logo sa nepodarilo načítať. Nahraj ho ručne.");}
+    finally{setLogoReloading(false);}
+  }
+  function autoCropProfileLogo(){
+    if(!displayLogoBitmap)return;
+    const crop=suggestedLogoCrop(displayLogoBitmap);
+    saveProfileHistory();
+    setProfileOptions(old=>({...old,...crop}));
+  }
   useEffect(()=>{
     if(!profileLogoFile)return;
     let active=true,bitmap:ImageBitmap|null=null;
