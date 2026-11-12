@@ -66,7 +66,15 @@ function addLogo(group:Konva.Group,bitmap:ImageBitmap|null,options:ProfileLogoOp
 function addBrand(group:Konva.Group,originalIcon:HTMLImageElement|null){
   if(originalIcon){
     // This is the exact public/favicon.svg asset, not a reconstructed paw.
-    group.add(new Konva.Image({image:originalIcon,x:0,y:0,width:100,height:100}));
+    const naturalWidth=originalIcon.naturalWidth||originalIcon.width;
+    const naturalHeight=originalIcon.naturalHeight||originalIcon.height;
+    const side=Math.min(naturalWidth,naturalHeight);
+    // A viewBox-only SVG may load into a 300x150 browser image; crop its
+    // centered square so the official mark keeps its native proportions.
+    group.add(new Konva.Image({
+      image:originalIcon,x:0,y:0,width:100,height:100,
+      cropX:(naturalWidth-side)/2,cropY:(naturalHeight-side)/2,cropWidth:side,cropHeight:side,
+    }));
   }else{
     group.add(new Konva.Rect({width:100,height:100,cornerRadius:28,fill:"#174b38"}));
     group.add(paw(21,16,64,WHITE));
@@ -140,6 +148,7 @@ export const FacebookProfileIntroCanvas=forwardRef<GraphicCanvasHandle,Props>(
         group.add(new Konva.Rect({width:484,height:90,cornerRadius:45,fill:GREEN}));
         const label=caption((category.trim()||"KATEGÓRIA").toLocaleUpperCase("sk"),24,18,436,43,WHITE,"center");
         while(label.height()>67&&label.fontSize()>23)label.fontSize(label.fontSize()-2);
+        label.height(67);label.ellipsis(true);
         group.add(label);
       });
       add("name",956,179,group=>{
