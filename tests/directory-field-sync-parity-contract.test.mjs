@@ -199,3 +199,15 @@ test("profile-specific read-only diagnostics distinguish legacy mapping, editori
  assert.match(hook,/changedPropertyCount:/);
  assert.doesNotMatch(hook,/console\.info\(JSON\.stringify\(data\)/);
 });
+
+test("a missing Notion GET property never clears unrelated Directory D1 data",async()=>{
+ const source=await repoFile("lib/notion-directory-sync.ts");
+ const event=source.slice(source.indexOf("async function syncBreederEvent("),
+  source.indexOf("export async function mirrorBreederCategoryFiltersToNotion("));
+ assert.match(event,/const notionKey = BREEDER_NOTION_EDITORIAL_FIELDS\[path\]/);
+ assert.match(event,/!Object\.hasOwn\(page\.properties \?\? \{\}, notionKey\)/);
+ assert.match(event,/failures\.push\(path\)/);
+ assert.match(event,/!Object\.hasOwn\(page\.properties \?\? \{\}, field\)/);
+ assert.match(event,/failures\.push\(field\)/);
+ assert.match(event,/BREEDER_FIELD_SAVE_FAILED/);
+});
