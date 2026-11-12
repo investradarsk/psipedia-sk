@@ -100,10 +100,12 @@ function completenessHints(row: OrganizationPublicationRow) {
   const hasLocation = Number(row.location_count) > 0 || Boolean(organizationAdminReadText(row.resolved_city).trim() ||
     organizationAdminReadText(row.resolved_district).trim() || organizationAdminReadText(row.resolved_region).trim());
   if (!hasLocation) hints.push("Bez lokality");
-  if (!(row.public_email?.trim() || row.public_phone?.trim() || row.website_url?.trim())) hints.push("Bez kontaktu");
+  if (!(organizationAdminReadText(row.public_email).trim() ||
+    organizationAdminReadText(row.public_phone).trim() ||
+    organizationAdminReadText(row.website_url).trim())) hints.push("Bez kontaktu");
   if (!(organizationAdminReadText(row.short_description).trim() ||
     organizationAdminReadText(row.description).trim())) hints.push("Bez verejného popisu");
-  if (!row.image_url?.trim()) hints.push("Bez obrázka");
+  if (!organizationAdminReadText(row.image_url).trim()) hints.push("Bez obrázka");
   if (!isOrganizationPublicationType(row.type)) hints.push("Neplatný typ");
   return hints;
 }
