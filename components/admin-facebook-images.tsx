@@ -18,7 +18,7 @@ type Form={title:string;imageUrl:string;imageKey:string;caption:string;date:stri
 type PickerKind = "none" | "article" | "profile";
 type PickerItem = {id:number;title:string;detail?:string;imageUrl:string;url:string;sharedToFacebook?:boolean};
 type PickerGroup = {id:string;label:string;categories:Array<{slug:string;label:string}>};
-const blank=(date=""):Form=>({title:"Nový príspevok",imageUrl:"",imageKey:"",caption:"",date,time:date?"09:00":"",repeatedHour:""});
+const blank=(date="",time="09:00"):Form=>({title:"Nový príspevok",imageUrl:"",imageKey:"",caption:"",date,time:date?time:"",repeatedHour:""});
 function formFor(post:FacebookImagePost):Form {
   const wall=post.scheduledAt?facebookWallTime(post.scheduledAt):{date:"",time:""};
   // Keep the stored occurrence when an unchanged autumn-hour schedule is saved.
@@ -49,6 +49,7 @@ const shownAt=(stamp:string|null|undefined)=>stamp?new Intl.DateTimeFormat("sk-S
 export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initialMonth:string}){
   const ready=useSyncExternalStore(subscribe,()=>true,()=>false);
   const[data,setData]=useState(initial),[month,setMonth]=useState(initialMonth),[status,setStatus]=useState("all"),[source,setSource]=useState("all"),[page,setPage]=useState(1);
+  const[calendarView,setCalendarView]=useState<"week"|"month">("month");
   const[opening,setOpening]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[day,setDay]=useState<string|null>(null),[refresh,setRefresh]=useState(0);
   const[publisher,setPublisher]=useState<{enabled:boolean;connected:boolean;technicallyEnabled:boolean}|null>(null);
   const[publisherError,setPublisherError]=useState(""),[publisherBusy,setPublisherBusy]=useState(false);
@@ -379,11 +380,11 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   useEffect(()=>{if(!dirty)return;const prevent=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue="";};window.addEventListener("beforeunload",prevent);return()=>window.removeEventListener("beforeunload",prevent);},[dirty]);
   useEffect(()=>()=>openRequest.current?.abort(),[]);
   function close(){if(lock.current||busy)return;if(graphicOpen){setGraphicOpen(false);return;}if(dirty&&!window.confirm("Zahodiť neuložené zmeny?"))return;dialog.current?.close();setEditor(null);origin.current?.focus();}
-  function edit(post:FacebookImagePost|null,date=""){
+  function edit(post:FacebookImagePost|null,date="",time="09:00"){
     if(post?.articleId){window.location.assign(`/admin/clanky/${post.articleId}`);return;}
     origin.current=document.activeElement as HTMLElement;setEditorError("");setNotice("");setGraphicOpen(false);openRequest.current?.abort();
     setPickerKind("none");setPickerQuery("");setPickerPage(1);setPickerCategory("");setPickerError("");setSelectedContentUrl("");
-    if(!post){const next=blank(date);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:null});return;}
+    if(!post){const next=blank(date,time);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:null});return;}
     const abort=new AbortController();openRequest.current=abort;setOpening(true);
     fetch(`/api/admin/facebook-images/${post.id}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as {post:FacebookImagePost;error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");if(abort.signal.aborted)return;const next=formFor(body.post);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:body.post});}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setOpening(false);});
   }
@@ -421,7 +422,6 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     .sort((a,b)=>(a.scheduledAt??"").localeCompare(b.scheduledAt??"")).slice(0,4);
   const publisherReady=Boolean(publisher?.connected&&publisher.technicallyEnabled);
   return <div className={styles.root} data-interactive={ready?"true":"false"}>
-    <AdminFacebookWeeklyPlanner />
     <div className={styles.dashboard}>
       <header className={styles.heading}>
         <div>
@@ -481,40 +481,58 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       </aside>
       <section className={styles.calendarPanel} aria-label="Kalendár Facebook obrázkov" aria-busy={loading}>
         <div className={styles.sectionHead}>
-          <div><h2>Kalendár</h2><p>Vyber deň na zobrazenie príspevkov alebo vytvorenie nového</p></div>
-          <div className={styles.monthNav}>
-            <AdminActionButton type="button" variant="secondary" disabled={loading||!ready}
-              onClick={()=>{setMonth(moveCalendarMonth(month,-1));setDay(null);}} aria-label="Predošlý mesiac">‹</AdminActionButton>
-            <strong>{calendarMonthLabel(month)}</strong>
-            <AdminActionButton type="button" variant="secondary" disabled={loading||!ready}
-              onClick={()=>{setMonth(moveCalendarMonth(month,1));setDay(null);}} aria-label="Ďalší mesiac">›</AdminActionButton>
+          <div>
+            <h2>Redakčný kalendár Facebooku</h2>
+            <p>Plán obsahu a skutočné stavy príspevkov na jednom mieste</p>
+          </div>
+          <div className={styles.calendarViewSwitch} role="group" aria-label="Zobrazenie kalendára">
+            <button type="button" aria-pressed={calendarView==="week"}
+              onClick={()=>setCalendarView("week")}>Týždeň</button>
+            <button type="button" aria-pressed={calendarView==="month"}
+              onClick={()=>setCalendarView("month")}>Mesiac</button>
           </div>
         </div>
-        <div className={[shared.grid,styles.compactGrid].join(" ")}>
-          {calendarWeekdays.map(d=><div key={d} className={[shared.weekday,styles.compactWeekday].join(" ")}>{d}</div>)}
-          {calendarMonthDays(month).map(cell=>{
-            const posts=facebookPostsForDay(data.calendar,cell.date).filter(post=>!post.deletedAt);
-            return <div key={cell.date} className={[shared.day,styles.calendarDay,!cell.inMonth?shared.blank:""].join(" ")}>
-              <AdminActionButton type="button" className={styles.calendarDayButton}
-                aria-label={posts.length?"Zobraziť príspevky "+cell.date:"Vytvoriť príspevok "+cell.date}
-                disabled={loading||!!error||!ready}
-                onClick={()=>posts.length?setDay(day===cell.date?null:cell.date):edit(null,cell.date)}>
-                <time dateTime={cell.date}>{cell.day}</time>
-                {posts.length>0&&<span className={styles.dayCount}>{posts.length}</span>}
-              </AdminActionButton>
-              {posts.slice(0,1).map(entry)}
-            </div>;
-          })}
-        </div>
-        {day&&<div className={styles.dayDetail}>
-          <div className={styles.sectionHead}>
-            <h3>Príspevky — {day}</h3>
-            <AdminActionButton type="button" variant="secondary" disabled={loading||!ready}
-              onClick={()=>edit(null,day)}>+ Nový v tento deň</AdminActionButton>
-          </div>
-          {facebookPostsForDay(data.calendar,day).filter(post=>!post.deletedAt).map(entry)}
-          {!facebookPostsForDay(data.calendar,day).filter(post=>!post.deletedAt).length&&<p>Na tento deň nie je naplánovaný príspevok.</p>}
-        </div>}
+        {calendarView==="week" ?
+          <AdminFacebookWeeklyPlanner refresh={refresh}
+            onCreate={(date,time)=>edit(null,date,time)}
+            onEdit={(post)=>edit(post)} /> :
+          <>
+            <div className={styles.monthNav}>
+              <AdminActionButton type="button" variant="secondary" disabled={loading||!ready}
+                onClick={()=>{setMonth(moveCalendarMonth(month,-1));setDay(null);}}
+                aria-label="Predošlý mesiac">‹</AdminActionButton>
+              <strong>{calendarMonthLabel(month)}</strong>
+              <AdminActionButton type="button" variant="secondary" disabled={loading||!ready}
+                onClick={()=>{setMonth(moveCalendarMonth(month,1));setDay(null);}}
+                aria-label="Ďalší mesiac">›</AdminActionButton>
+            </div>
+            <div className={[shared.grid,styles.compactGrid].join(" ")}>
+              {calendarWeekdays.map(d=><div key={d} className={[shared.weekday,styles.compactWeekday].join(" ")}>{d}</div>)}
+              {calendarMonthDays(month).map(cell=>{
+                const posts=facebookPostsForDay(data.calendar,cell.date).filter(post=>!post.deletedAt);
+                return <div key={cell.date} className={[shared.day,styles.calendarDay,!cell.inMonth?shared.blank:""].join(" ")}>
+                  <AdminActionButton type="button" className={styles.calendarDayButton}
+                    aria-label={posts.length?"Zobraziť príspevky "+cell.date:"Vytvoriť príspevok "+cell.date}
+                    disabled={loading||!!error||!ready}
+                    onClick={()=>posts.length?setDay(day===cell.date?null:cell.date):edit(null,cell.date)}>
+                    <time dateTime={cell.date}>{cell.day}</time>
+                    {posts.length>0&&<span className={styles.dayCount}>{posts.length}</span>}
+                  </AdminActionButton>
+                  {posts.slice(0,1).map(entry)}
+                  {posts.length>1&&<span className={styles.morePosts}>+ {posts.length-1} ďalšie</span>}
+                </div>;
+              })}
+            </div>
+            {day&&<div className={styles.dayDetail}>
+              <div className={styles.sectionHead}>
+                <h3>Príspevky — {day}</h3>
+                <AdminActionButton type="button" variant="secondary" disabled={loading||!ready}
+                  onClick={()=>edit(null,day)}>+ Nový v tento deň</AdminActionButton>
+              </div>
+              {facebookPostsForDay(data.calendar,day).filter(post=>!post.deletedAt).map(entry)}
+              {!facebookPostsForDay(data.calendar,day).filter(post=>!post.deletedAt).length&&<p>Na tento deň nie je naplánovaný príspevok.</p>}
+            </div>}
+          </>}
       </section>
       <section className={styles.listPanel} aria-labelledby="facebook-posts-heading">
         <div className={styles.sectionHead}>
