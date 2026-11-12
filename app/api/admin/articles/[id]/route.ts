@@ -141,7 +141,12 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const bindings = env as unknown as ArticleRouteBindings;
     if (bindings.DB) {
       const report = (result: { updated: boolean; reason?: string }) => {
-        if (notionEditorialWriteback?.status === "blocked") return;
+        if (notionEditorialWriteback?.status === "blocked" ||
+            notionEditorialWriteback?.status === "partial") return;
+        if (result.reason === "partial") {
+          notionEditorialWriteback = { status: "partial", code: "NOTION_ARTICLE_SEO_PARTIAL" };
+          return;
+        }
         notionEditorialWriteback = {
           status: result.updated || notionEditorialWriteback?.status === "synced"
             ? "synced" : (result.reason ?? "unchanged"),
@@ -166,7 +171,8 @@ export async function PUT(request: Request, { params }: RouteProps) {
           reportError(error, "notion_article_seo_writeback_failed");
         }
       }
-      if (before.status === "draft" && article.status === "draft") {
+      if (before.status === "draft" && article.status === "draft" &&
+          notionEditorialWriteback?.status !== "partial") {
         try {
           report(await writeBackDraftArticleContentToNotion({
             database: bindings.DB, bindings, article,
