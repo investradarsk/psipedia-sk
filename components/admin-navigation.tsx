@@ -172,10 +172,26 @@ export function AdminNavigation({
       }
     };
 
+    // A standalone iOS PWA can be frozen while its mobile drawer owns the
+    // body scroll lock. Release it on background/BFCache lifecycle events so
+    // a restored page never remains covered by an unresponsive overlay.
+    const releaseOnLifecycle = () => {
+      document.body.style.overflow = previousOverflow;
+      setOpenPath(null);
+    };
+    const releaseWhenHidden = () => {
+      if (document.visibilityState === "hidden") releaseOnLifecycle();
+    };
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pagehide", releaseOnLifecycle);
+    window.addEventListener("pageshow", releaseOnLifecycle);
+    document.addEventListener("visibilitychange", releaseWhenHidden);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pagehide", releaseOnLifecycle);
+      window.removeEventListener("pageshow", releaseOnLifecycle);
+      document.removeEventListener("visibilitychange", releaseWhenHidden);
     };
   }, [open]);
 
