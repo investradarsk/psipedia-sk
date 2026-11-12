@@ -15,7 +15,8 @@ test("shared TanStack table supports page-scoped, accessible and controlled row 
   assert.match(table, /row\.toggleSelected\(checked\)/);
   assert.match(table, /visibleIds\.has\(id\)/);
   assert.match(table, /rows\.filter\(record => next\[String\(record\.id\)\]\)/);
-  assert.match(table, /getRowId: \(record\) => String\(record\.id\)/);
+  assert.match(table, /getRowId: recordRowId/);
+  assert.match(table, /function recordRowId<T extends \{ id: number \}>/);
   assert.match(table, /!busy && !selection\?\.disabled/);
   assert.doesNotMatch(table, /fetch\(/);
 });
