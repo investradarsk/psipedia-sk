@@ -115,19 +115,20 @@ export function AdminFacebookGraphicEditor({
     if (rejected.length) { setError("Použi fotografiu JPG, PNG alebo WebP do 8 MB."); return; }
     if (accepted[0]) { setPhoto(accepted[0]); setError(""); }
   }, []);
-  const onLogoDrop=useCallback((accepted:File[],rejected:{errors:{message:string}[]}[])=>{
-    if(rejected.length){setError("Použi logo JPG, PNG alebo WebP do 8 MB.");return;}
+  const onLogoDrop=useCallback((accepted:File[])=>{
     if(accepted[0]){setProfileLogoFile(accepted[0]);setError("");}
   },[]);
   const logoDropzone=useDropzone({
-    onDrop:onLogoDrop,accept:{"image/jpeg":[],"image/png":[],"image/webp":[]},
+    onDrop:onLogoDrop,onDropRejected:()=>setError("Použi logo JPG, PNG alebo WebP do 8 MB."),
+    accept:{"image/jpeg":[],"image/png":[],"image/webp":[]},
     maxSize:MAX_BYTES,multiple:false,disabled:busy,
   });
   useEffect(()=>{
-    if(!initialProfileLogoUrl)return;
+    const logoUrl=initialProfileLogoUrl;
+    if(!logoUrl)return;
     const controller=new AbortController();
     async function loadLogo(){
-      const url=new URL(initialProfileLogoUrl,window.location.origin);
+      const url=new URL(logoUrl,window.location.origin);
       if(url.origin!==window.location.origin||!url.pathname.startsWith("/media/facebook-images/"))
         throw Error("Logo musí byť uložené na Psipedia.sk. Nahraj ho ručne.");
       const response=await fetch(url.pathname+url.search,{credentials:"same-origin",cache:"no-store",signal:controller.signal});
