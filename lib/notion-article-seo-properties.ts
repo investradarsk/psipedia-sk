@@ -18,7 +18,7 @@ export const ARTICLE_NOTION_SEO_PROPERTIES = {
 } as const satisfies Record<string, { name: string; type: "rich_text" | "url" | "checkbox" }>;
 
 export type ArticleNotionSeoKey = keyof typeof ARTICLE_NOTION_SEO_PROPERTIES;
-import { articleSeoExplicitClears, type ArticleSeoRemoteValues } from "./notion-article-seo-receipt";
+export type ArticleSeoRemoteValues = Partial<Record<ArticleNotionSeoKey, string | boolean>>;
 
 
 /** SEO values on a canonical article. New Notion properties are empty for
@@ -58,6 +58,33 @@ function textProperty(page: SeoNotionPage, name: string): string {
 function urlProperty(page: SeoNotionPage, name: string): string {
   const raw = property(page, name)?.url;
   return typeof raw === "string" ? raw.trim() : "";
+}
+
+/** A clear is authoritative only after a confirmed nonempty Notion baseline.
+ * Absent properties are not interpreted as clears. This helper deliberately
+ * lives with the pure parser to avoid a runtime import cycle.
+ */
+export function articleSeoExplicitClears(
+  page: SeoNotionPage,
+  previous?: ArticleSeoRemoteValues | null,
+): Set<ArticleNotionSeoKey> {
+  const cleared = new Set<ArticleNotionSeoKey>();
+  if (!previous) return cleared;
+  for (const field of Object.keys(ARTICLE_NOTION_SEO_PROPERTIES) as ArticleNotionSeoKey[]) {
+    const def = ARTICLE_NOTION_SEO_PROPERTIES[field];
+    if (!Object.hasOwn(previous, field) || !Object.hasOwn(page.properties ?? {}, def.name)) continue;
+    const oldValue = previous[field];
+    const current = def.type === "checkbox"
+      ? property(page, def.name)?.checkbox
+      : def.type === "url" ? urlProperty(page, def.name) : textProperty(page, def.name);
+    if (field === "noindex" && oldValue === true && current === false) {
+      cleared.add(field);
+    } else if (field !== "noindex" && typeof oldValue === "string" &&
+      oldValue.length > 0 && current === "") {
+      cleared.add(field);
+    }
+  }
+  return cleared;
 }
 
 /** Parses all eight SEO properties; does not change status, slug or article ID.
