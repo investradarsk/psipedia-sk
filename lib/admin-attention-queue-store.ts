@@ -933,14 +933,31 @@ async function probeSourcesSummary(
         return { sourceType, activeCount, state: activeCount > 0 ? "OK" : "EMPTY" };
       });
     } catch (error) {
-      // One unavailable table/source must not suppress the other counts.
-      // Retry only the failed group with the existing per-source read model.
+      // Preserve the unread/unsnoozed acknowledgement predicate even when
+      // one source forces a grouped-query fallback. The generic queue probe
+      // counts all active work and must not be used for the unread bell.
       console.warn("Admin attention summary group unavailable; retrying sources.", {
         sourceTypes: sources,
         errorCode: "ATTENTION_SOURCE_UNAVAILABLE",
         errorMessage: error instanceof Error ? error.message : undefined,
       });
-      return publicSourceAvailability(await probeSources(db, now, sources));
+      return Promise.all(sources.map(async (sourceType): Promise<AdminAttentionSourceAvailability> => {
+        try {
+          const response = await db.prepare(summaryGroupSql([sourceType]))
+            .bind(...bindings).all<AttentionActiveCountRow>();
+          const rows = response.results ?? [];
+          const count = Number(rows[0]?.activeCount);
+          if (rows.length !== 1 || rows[0]?.sourceType !== sourceType
+            || !Number.isSafeInteger(count) || count < 0) {
+            throw new Error("Invalid admin attention source summary response.");
+          }
+          return { sourceType, activeCount: count, state: count > 0 ? "OK" : "EMPTY" };
+        } catch (sourceError) {
+          safeLogSourceFailure(sourceType, "unread-summary", sourceError);
+          return { sourceType, state: "UNAVAILABLE", activeCount: null,
+            errorCode: "ATTENTION_SOURCE_UNAVAILABLE" };
+        }
+      }));
     }
   }));
   return results.flat();

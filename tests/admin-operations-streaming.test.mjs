@@ -9,7 +9,7 @@ test("operations shell streams queue and independent unread-bell summary", () =>
   const handler = source.slice(source.indexOf("export default async function AdminOperationsPage"));
   assert.match(handler, /const attentionPromise = loadAdminAttentionPage\(\{ filters, cursor \}\)/);
   assert.doesNotMatch(handler, /await loadAdminAttentionPage/);
-  assert.match(handler, /attentionSummaryPromise = loadExactAdminAttentionSummary\(\)/);
+  assert.match(handler, /attentionSummaryPromise = loadRequestAdminAttentionSummary\(\)/);
   assert.match(handler, /attentionSummaryPromise=\{attentionSummaryPromise\}/);
   assert.match(handler, /<Suspense fallback=/);
   assert.match(handler, /<AdminOperationsContent attentionPromise=\{attentionPromise\}/);
@@ -21,14 +21,18 @@ test("operations shell streams queue and independent unread-bell summary", () =>
   assert.doesNotMatch(source, /const \[attention, notionAlerts\] = await Promise\.all/);
   assert.match(source, /id="centrum-pozornosti"/);
   assert.match(source, /<AdminAttentionQueue[\s\S]*?page=\{attention\}/);
-  assert.match(handler, /loadExactAdminAttentionSummary/);
+  assert.match(handler, /loadRequestAdminAttentionSummary/);
 });
 
 test("operations bell counts unread notices and queue retains real active totals", () => {
   const source = read("app/admin/operations/page.tsx");
   const store = read("lib/admin-attention-queue-store.ts");
-  assert.match(source, /const attentionSummaryPromise = loadExactAdminAttentionSummary\(\)/);
+  assert.match(source, /const attentionSummaryPromise = loadRequestAdminAttentionSummary\(\)/);
   assert.match(source, /attentionSummaryPromise=\{attentionSummaryPromise\}/);
+  const requestCache = read("lib/admin-attention-request.ts");
+  assert.match(requestCache, /cache\(/);
+  assert.match(requestCache, /loadExactAdminAttentionSummary\(\)/);
+  assert.doesNotMatch(requestCache, /globalThis|setTimeout|localStorage/);
   assert.match(store, /admin_attention_ack/);
   assert.match(store, /read_at IS NULL/);
   assert.match(store, /probeSourcesGrouped/);

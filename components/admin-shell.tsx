@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
-import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
+import { loadRequestAdminAttentionSummary } from "@/lib/admin-attention-request";
 import { AdminBreadcrumbs, AdminNavigation } from "./admin-navigation";
 import { AdminRecordId } from "./admin-record-id";
 import { AdminStickyMetrics } from "./admin-sticky-metrics";
@@ -39,12 +39,12 @@ async function AdminNotificationBell({
 }: {
   count?: number;
   partial?: boolean;
-  summaryPromise?: ReturnType<typeof loadExactAdminAttentionSummary>;
+  summaryPromise?: ReturnType<typeof loadRequestAdminAttentionSummary>;
 }) {
   let activeCount = count;
   let incomplete = partial;
   if (activeCount === undefined) {
-    const summary = await (summaryPromise ?? loadExactAdminAttentionSummary());
+    const summary = await (summaryPromise ?? loadRequestAdminAttentionSummary());
     activeCount = summary.active;
     incomplete = summary.availability !== "OK";
   }
@@ -98,7 +98,7 @@ export function AdminShell({
   children: ReactNode;
   attentionCount?: number;
   attentionCountPartial?: boolean;
-  attentionSummaryPromise?: ReturnType<typeof loadExactAdminAttentionSummary>;
+  attentionSummaryPromise?: ReturnType<typeof loadRequestAdminAttentionSummary>;
 }) {
   return (
     <main id="obsah" className="admin-root" data-admin-shell>

@@ -27,6 +27,11 @@ timeout \
 
 "${script_dir}/validate-artifact.sh"
 
-node --experimental-strip-types --experimental-loader ./tests/breed-store-loader.mjs --test tests/breed-integrity.test.mjs
+# TypeScript source imports used by these ESM test loaders require Node 22's
+# opt-in type stripping. Pass it to subprocesses too (audit-breeds.mjs is
+# spawned by breed-integrity.test.mjs), without affecting the vinext build.
+NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--experimental-strip-types" \
+  node --experimental-loader ./tests/breed-store-loader.mjs --test tests/breed-integrity.test.mjs
 
-node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breed-fci-import.test.mjs
+NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--experimental-strip-types" \
+  node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breed-fci-import.test.mjs

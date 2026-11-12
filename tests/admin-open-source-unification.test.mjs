@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
 import {appendLexicalPlainText,appendLexicalPlainTextToMarkdown} from "../lib/editorial-lexical-append.ts";
+import {moveAdminGalleryItem} from "../lib/admin-gallery-order.ts";
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
 test("safe plain-text drafts append without converting canonical persisted data",()=>{
@@ -62,14 +63,28 @@ test("structured photo galleries support dnd-kit without altering alt/caption/cr
   const article=read("components/admin-article-block-editor.tsx");
   for(const source of [breed,article]){
     assert.match(source,/AdminSortableGallery/);
-    assert.match(source,/arrayMove/);
     assert.match(source,/alt/);
     assert.match(source,/caption/);
     assert.match(source,/credit/);
     assert.match(source,/Odstrániť/);
   }
-  assert.match(breed,/gallery:arrayMove\(current\.gallery,from,to\)/);
+  // The breed editor defers the dnd-kit chunk: its immutable reorder helper
+  // is deliberately separate from arrayMove; article blocks still use arrayMove.
+  assert.match(breed,/gallery:moveAdminGalleryItem\(current\.gallery,from,to\)/);
+  assert.match(breed,/import \{ moveAdminGalleryItem \} from/);
   assert.match(article,/images:arrayMove\(item\.images,from,to\)/);
+});
+
+test("breed gallery reorder preserves metadata and leaves original records untouched",()=>{
+  const first={imageUrl:"/one.jpg",alt:"Prvý",caption:"Popis 1",credit:"Autor 1"};
+  const second={imageUrl:"/two.jpg",alt:"Druhý",caption:"Popis 2",credit:"Autor 2"};
+  const gallery=[first,second];
+  const reordered=moveAdminGalleryItem(gallery,0,1);
+  assert.deepEqual(reordered,[second,first]);
+  assert.deepEqual(gallery,[first,second]);
+  assert.strictEqual(reordered[0],second);
+  assert.strictEqual(reordered[1],first);
+  assert.deepEqual(moveAdminGalleryItem(gallery,0,99),gallery);
 });
 
 test("shared Dropzone meets axe: file input labeled and not nested in interactive root",()=>{

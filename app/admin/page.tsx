@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminWorkspaceDashboard } from "@/components/admin-workspace-dashboard";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
+import { loadRequestAdminAttentionSummary } from "@/lib/admin-attention-request";
 import {
   readAdminAutomationData,
 } from "@/lib/admin-automation-reliability";
@@ -47,7 +47,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
   // Start independent D1 reads immediately, but do not hold back the admin shell.
   // Pass the *same* attention promise to the bell and dashboard: one exact read.
-  const attentionPromise = loadExactAdminAttentionSummary();
+  const attentionPromise = loadRequestAdminAttentionSummary();
   const qualityPromise = loadWorkspaceQuality();
   const workspaceFeedPromise = loadAdminWorkspaceOverview();
 

@@ -683,7 +683,7 @@ export async function writeBackBreedEditorialToNotion(args:{
     };
     try {
       written=await submit(patch);
-      const confirmed=breedFieldSnapshot(notionPageToManagedBreedInput(written));
+      const confirmed: Record<string, unknown> = breedFieldSnapshot(notionPageToManagedBreedInput(written));
       for(const {field} of queued){
         if(sameBreedField(confirmed[field],after[field]))acknowledged.push(field);
         else pending.push(field);
@@ -696,7 +696,7 @@ export async function writeBackBreedEditorialToNotion(args:{
       for(const {field,properties} of queued){
         try {
           const next=await submit(properties);
-          const confirmed=breedFieldSnapshot(notionPageToManagedBreedInput(next));
+          const confirmed: Record<string, unknown> = breedFieldSnapshot(notionPageToManagedBreedInput(next));
           written=next;
           if(sameBreedField(confirmed[field],after[field]))acknowledged.push(field);
           else pending.push(field);

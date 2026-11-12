@@ -20,6 +20,7 @@
 .trigger:focus-visible,
 .close:focus-visible,
 .result:focus-visible,
+.retry:focus-visible,
 .searchRow input:focus-visible {
   outline: 3px solid #b34832;
   outline-offset: 2px;
@@ -193,3 +194,22 @@
   .trigger { width: 36px; min-width: 36px; padding: 6px; }
   .trigger > span { display: none; }
 }
+
+/* Inline recovery action stays in the palette; no forced page reload or
+   navigation away from a dirty editor when a source is temporarily down. */
+.retry {
+  align-self: flex-start;
+  margin: 8px 18px 12px;
+  padding: 7px 11px;
+  min-height: 36px;
+  border: 1px solid #c5d9c9;
+  border-radius: 8px;
+  background: #eef5ed;
+  color: #174b38;
+  font: inherit;
+  font-size: .81rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.retry:hover { background: #e0eedf; }
+.retry:disabled { cursor: not-allowed; opacity: .65; }

@@ -61,7 +61,7 @@ test("admin home streams attention, quality and activity in independent suspense
   const dashboard = read("components/admin-workspace-dashboard.tsx");
   const shell = read("components/admin-shell.tsx");
   const home = page.slice(page.indexOf("export default async function AdminPage"));
-  assert.match(home, /const attentionPromise = loadExactAdminAttentionSummary\(\)/);
+  assert.match(home, /const attentionPromise = loadRequestAdminAttentionSummary\(\)/);
   assert.match(home, /attentionSummaryPromise=\{attentionPromise\}/);
   assert.match(home, /<AdminWorkspaceDashboard[\s\S]*?attentionPromise=\{attentionPromise\}/);
   assert.match(home, /qualityPromise=\{qualityPromise\}/);
@@ -73,7 +73,7 @@ test("admin home streams attention, quality and activity in independent suspense
   assert.match(dashboard, /function WorkspaceCommunity\(/);
   assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Kvalita údajov" \/>\}>/);
   assert.match(dashboard, /<WorkspaceCommunity promise=\{attentionPromise\} \/>/);
-  assert.match(shell, /summaryPromise \?\? loadExactAdminAttentionSummary\(\)/);
+  assert.match(shell, /summaryPromise \?\? loadRequestAdminAttentionSummary\(\)/);
   assert.doesNotMatch(home, /await Promise\.all\(/);
   assert.doesNotMatch(home, /attentionCount=\{attention\.active\}/);
 });
