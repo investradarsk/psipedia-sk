@@ -1,4 +1,11 @@
-@import "tailwindcss";
+/* Tailwind 4 auto-detection previously scanned the entire repository:
+ * docs, test fixtures, SQL and scripts yielded utilities no page renders.
+ * Scan the actual runtime app, components and shared view helpers only.
+ * Keep Admin in scope: it consumes this same root stylesheet. */
+@import "tailwindcss" source(none);
+@source "../app";
+@source "../components";
+@source "../lib";
 @import "../components/public-visual-system/public-result-global.css";
 
 :root {
