@@ -209,7 +209,15 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           imageUrl:selectedImage?.imageUrl||"",imageKey:selectedImage?.imageKey||""};
       });
       setSelectedContentUrl(selected.url);
-      const categoryLabel=pickerGroups.find(group=>group.id===pickerGroup)?.categories
+      const shortCategoryNames:Record<string,string>={
+        veterinari:"Veterinár",treneri:"Tréner / psia škola",
+        "kynologicke-kluby":"Kynologický klub","chovatelske-kluby":"Chovateľský klub",
+        "chovatelske-stanice":"Chovateľská stanica","salony-a-sluzby":"Psí salón",
+        "hotely-a-opatrovanie":"Hotel / opatrovanie",vencenie:"Venčenie",
+        fyzioterapia:"Fyzioterapia","dalsie-sluzby":"Služby pre psov",
+      };
+      const categoryLabel=(pickerGroup==="directory"?shortCategoryNames[pickerCategory]:null)||
+        pickerGroups.find(group=>group.id===pickerGroup)?.categories
         .find(category=>category.slug===pickerCategory)?.label||pickerCategory;
       setSelectedProfile(result.profile?{category:categoryLabel,logoUrl:result.logo?.imageUrl||""}:null);
       setPickerError(result.profile&&result.logo?.imageUrl?"":imageWarning);
