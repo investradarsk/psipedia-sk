@@ -685,6 +685,11 @@ async function markPageError(
   page?: NotionPage,
 ) {
   const message = error instanceof Error ? error.message : String(error);
+  // A failure in Services V3 must not erase an existing editorial, address,
+  // identity or unrelated field error from the same Notion record.
+  if (/^(?:SERVICES_RELATION_|DIRECTORY_SERVICES_RELATION_)/.test(message)
+      && (!page || page.id !== pageId ||
+        !directoryServiceErrorCanReplace(propertyText(page,"Sync chyba"),message)))return;
   if (page?.id === pageId && !directorySyncErrorMetadataNeedsWrite({
     syncStatus: propertyText(page, "Sync stav"),
     syncError: propertyText(page, "Sync chyba"),
@@ -2967,13 +2972,17 @@ export async function runNotionDirectorySyncSweep(input: {
           summary.serviceRelationSync = relation;
           if (relation === "skipped") throw new Error("DIRECTORY_SERVICES_RELATION_SCHEMA_MISSING");
         }
-        await patchNotionPage(input.bindings, page.id, {
-          "Sync stav": select("Synchronizované"),
-          "Sync chyba": richText(""),
-          "Posledný sync": date(new Date().toISOString()),
-        });
-        await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id,
-          "resolved", "", "NOTION_TO_ADMIN");
+        // A successfully reconciled relation or trust checkbox does not
+        // resolve independent older field errors. Keep their Notion metadata.
+        if(directoryServiceSuccessCanClear(propertyText(page,"Sync chyba"))){
+          await patchNotionPage(input.bindings, page.id, {
+            "Sync stav": select("Synchronizované"),
+            "Sync chyba": richText(""),
+            "Posledný sync": date(new Date().toISOString()),
+          });
+          await recordDirectoryNotionAlert(input.database, mapping.directory_profile_id,
+            "resolved", "", "NOTION_TO_ADMIN");
+        }
         if (trustUpdated || summary.serviceRelationSync === "pulled" || summary.serviceRelationSync === "merged")
           summary.pulledFromNotion += 1;
         else summary.unchanged += 1;
