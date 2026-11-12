@@ -45,7 +45,7 @@ test("profile card has independently movable and scalable layers",()=>{
   assert.match(stage,/transformend/);
   assert.match(stage,/touchmove/);
   assert.match(stage,/touchend/);
-  assert.match(stage,/original public\/favicon.svg/);
+  assert.match(stage,/exact public\/favicon.svg/);
   for(const id of ["brand","intro","category","name","logo","footer"])
     assert.match(layout,new RegExp(id+':\\{x:'));
   assert.match(stage,/title.height\(179\)/);
