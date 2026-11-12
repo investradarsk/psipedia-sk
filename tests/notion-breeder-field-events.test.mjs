@@ -239,7 +239,8 @@ test("salon changes remain per-field and explicit blanks clear selected values",
   const webhook = await readFile(new URL("../app/api/integrations/notion/webhook/route.ts", import.meta.url), "utf8");
   const scope = await readFile(new URL("../lib/notion-directory-field-event-scope.ts", import.meta.url), "utf8");
   assert.match(scope, /"salony-a-sluzby"/);
-  assert.match(webhook, /'treneri','salony-a-sluzby','veterinari'/);
+  assert.match(webhook, /DIRECTORY_FIELD_EVENT_CATEGORIES/);
+  assert.match(webhook, /\.bind\(data\.entity!\.id, \.\.\.DIRECTORY_FIELD_EVENT_CATEGORIES\)/);
   assert.match(directory, /"chovatelske-stanice", "salony-a-sluzby"/);
   const previous = { description: "Overený popis", services: ["Trimovanie"], seo: { title: "SEO" } };
   const fromNotion = { description: "", services: [], seo: { title: "" } };
