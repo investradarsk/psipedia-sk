@@ -63,9 +63,12 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,buil
     draft.name.length>0||draft.categories.length>0||draft.group.length>0||draft.meaning.length>0||draft.kind!=="service";
   const draftValid=writeEnabled&&!loadError&&draft.name.trim().length>=3&&draft.categories.length>0;
   const mayEdit=(item:CatalogEditorItem)=>writeEnabled&&!loadError&&
-    (item.source==="built_in"?builtinOverridesEnabled:item.status!=="RETIRED");
-  const mayInlineEdit=(item:CatalogEditorItem)=>mayEdit(item)&&
-    (item.source==="built_in"||item.status==="DRAFT")&&item.version!==null;
+    (item.source==="built_in"?builtinOverridesEnabled:item.status==="ACTIVE");
+  // Existing legacy DRAFT rows can be retired, not accidentally promoted by
+  // the ordinary editor. New options use ACTIVE from the first canonical save.
+  const mayRetire=(item:CatalogEditorItem)=>writeEnabled&&!loadError&&
+    item.source==="admin"&&item.status!=="RETIRED";
+  const mayInlineEdit=(item:CatalogEditorItem)=>mayEdit(item)&&item.version!==null;
   const activeInline=inlineDraft&&visible.some(item=>
     item.id===inlineDraft.id&&item.version===inlineDraft.version)?inlineDraft:null;
 
@@ -135,7 +138,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,buil
     setEditing(item);
   }
   async function archive(item:CatalogEditorItem){
-    if(!mayEdit(item)||busy)return;
+    if(!mayRetire(item)||busy)return;
     setBusy(true);setMessage("");setMessageIsError(false);
     try{
       const res=await fetch("/api/admin/service-catalog/options/"+encodeURIComponent(item.id),{
@@ -218,8 +221,10 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,buil
           <div className={styles.actions}>
             <AdminActionButton disabled={!mayEdit(selected)||busy} onClick={()=>beginEdit(selected)}>Upraviť</AdminActionButton>
             {selected.source==="admin"&&
-              <AdminActionButton variant="destructive" disabled={!mayEdit(selected)||busy}
+              <AdminActionButton variant="destructive" disabled={!mayRetire(selected)||busy}
                 onClick={()=>setArchiveCandidate(selected)}>Archivovať</AdminActionButton>}
+            {selected.source==="admin"&&selected.status==="DRAFT"&&
+              <p className={styles.muted}>Historický koncept: bežný editor ho neaktivuje. Je možné ho archivovať; pre novú službu použi Nová služba.</p>}
             {selected.source==="built_in"&&<p className={styles.muted}>Pôvodná služba. ID a typ zostanú zachované.</p>}
           </div>
         </>:<p>Vyber službu zo zoznamu.</p>}

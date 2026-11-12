@@ -6,6 +6,7 @@ import {EditorActionBar,EditorStatus,EditorUnsavedChangesGuard} from "@/componen
 import type {CatalogEditorItem} from "@/lib/service-catalog-admin-editor-view";
 import type {AdminServiceChoiceWriteResult} from "@/lib/service-catalog-admin-api-contract";
 import {selectionForEditor} from "@/lib/service-catalog-admin-api-contract";
+import {summarizeServiceChoiceSync,type ServiceChoiceSyncFeedback,type ServiceChoiceSyncOutcome} from "@/lib/service-catalog-sync-feedback";
 import styles from "./admin-service-catalog.module.css";
 
 type StoredChoice={optionId:string;choice:"yes"|"no";version:number};
@@ -18,14 +19,16 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
   const [query,setQuery]=useState("");
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
+  const [feedback,setFeedback]=useState<ServiceChoiceSyncFeedback|null>(null);
+  const [writeFailed,setWriteFailed]=useState(false);
   const services=useMemo(()=>entries.filter(x=>x.kind==="service"&&x.label.toLocaleLowerCase("sk").includes(query.toLocaleLowerCase("sk"))),[entries,query]);
   const attributes=entries.filter(x=>x.kind==="attribute"&&x.valueKind==="tri_state");
   const structuredAttributes=entries.filter(x=>x.kind==="attribute"&&x.valueKind!=="tri_state");
   const changed=entries.filter(x=>(x.kind==="service"||(x.kind==="attribute"&&x.valueKind==="tri_state"))&&draft[x.id]!==undefined&&draft[x.id]!==selectionForEditor(saved[x.id]));
   async function save(){
     if(!writeEnabled||busy||changed.length===0)return;
-    setBusy(true);setMessage("");
-    let completed=0;
+    setBusy(true);setMessage("");setFeedback(null);setWriteFailed(false);
+    const outcomes:ServiceChoiceSyncOutcome[]=[];
     try{
       for(const item of changed){
         const choice=draft[item.id];
@@ -33,8 +36,11 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
           method:"PATCH",headers:{"content-type":"application/json"},cache:"no-store",
           body:JSON.stringify({optionId:item.id,choice,expectedVersion:saved[item.id]?.version??0}),
         });
-        const json=await response.json() as {error?:string;selection?:AdminServiceChoiceWriteResult};
+        const json=await response.json() as {error?:string;selection?:AdminServiceChoiceWriteResult}&ServiceChoiceSyncOutcome;
         if(!response.ok||!json.selection)throw new Error(json.error??"Uloženie služby nebolo potvrdené.");
+        // The selection is durably committed in D1 even when Notion is pending.
+        // Preserve each result rather than inventing a successful batch sync.
+        outcomes.push(json);
         setSaved(old=>{
           const next={...old};
           if(json.selection!.choice==="unknown")delete next[item.id];
@@ -42,14 +48,23 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
           return next;
         });
         setDraft(old=>{const next={...old};delete next[item.id];return next;});
-        completed++;
       }
-      setMessage(`Uložených: ${completed} možností.`);
-    }catch(e){setMessage(`Uložených: ${completed}. ${e instanceof Error?e.message:"Chyba ukladania."} Obnov údaje pred ďalším pokusom pri konflikte.`);}
-    finally{setBusy(false);}
+      const summary=summarizeServiceChoiceSync(outcomes);
+      setFeedback(summary);
+      setMessage(summary.message);
+    }catch(e){
+      const summary=summarizeServiceChoiceSync(outcomes);
+      setFeedback(summary);
+      setWriteFailed(true);
+      setMessage(`${summary.message} Ďalšiu hodnotu sa nepodarilo potvrdiť: ${e instanceof Error?e.message:"Chyba ukladania."} Pri konflikte obnov údaje pred opakovaním.`);
+    }finally{setBusy(false);}
   }
   return <section className={styles.profileCard} aria-label="Services V3 — služby a vlastnosti na profile">
-    <div className={styles.profileHeading}><div><h2>Služby profilu</h2><p>Zaškrtni služby, ktoré profil poskytuje, a ulož.</p><div className={styles.profileBadges}><EditorStatus label={writeEnabled ? "Úpravy povolené" : "Iba na čítanie"} tone={writeEnabled ? "success" : "warning"}/>{changed.length > 0 && <EditorStatus label={"Neuložené: " + changed.length} tone="warning" />}</div></div><Link href="/admin/sluzby-pre-psov/katalog" onClick={event=>{if(changed.length>0&&!window.confirm("Zahodiť neuložené hodnoty služieb?"))event.preventDefault();}}>Správa katalógu →</Link></div>
+    <div className={styles.profileHeading}><div><h2>Služby profilu</h2><p>Zaškrtni služby, ktoré profil poskytuje, a ulož.</p><div className={styles.profileBadges}><EditorStatus label={writeEnabled ? "Úpravy povolené" : "Iba na čítanie"} tone={writeEnabled ? "success" : "warning"}/>{changed.length > 0 && <EditorStatus label={"Neuložené: " + changed.length} tone="warning" />}
+    {writeFailed&&<EditorStatus label="Zápis: čiastočne dokončený" tone="danger" />}
+    {feedback&&feedback.savedCount>0&&<EditorStatus
+      label={feedback.needsAttention?"Notion: vyžaduje kontrolu":"Notion: potvrdené"}
+      tone={feedback.needsAttention?"warning":"success"} />}</div></div><Link href="/admin/sluzby-pre-psov/katalog" onClick={event=>{if(changed.length>0&&!window.confirm("Zahodiť neuložené hodnoty služieb?"))event.preventDefault();}}>Správa katalógu →</Link></div>
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {!writeEnabled&&<p className={styles.notice}>Kanonické zápisy sú vypnuté. Aktuálne hodnoty môžeš čítať, ale nie meniť.</p>}
     <section className={styles.profileSection} aria-label="Služby profilu"><label className={styles.profileSearch}>Hľadať službu<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Názov služby"/></label>

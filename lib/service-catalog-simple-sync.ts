@@ -8,13 +8,15 @@
  * The only non-negotiable checks are stable IDs, exact destination, an
  * idempotent update/readback, and a one-time claim for page creation.
  */
-import {normalizeCatalogLabel} from "./service-catalog-contract.ts";
+import {normalizeCatalogLabel,serviceCatalog} from "./service-catalog-contract.ts";
+import {loadResolvedBuiltinServiceOverrides} from "./service-catalog-resolved.ts";
 import {PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "./service-catalog-notion-http-port.ts";
 
 const source=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
 const p=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.properties;
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const optionId=/^(svc|attr)\.admin\.[a-f0-9]{32}$/;
+const builtInServiceIds=new Set(serviceCatalog.map(option=>option.id));
 const sameUuid=(a:string,b:string)=>a.replaceAll("-","").toLowerCase()===b.replaceAll("-","").toLowerCase();
 const text=(value:unknown,key:"rich_text"|"title")=>{
   const items=(value as Record<string,unknown>|undefined)?.[key];
@@ -22,7 +24,8 @@ const text=(value:unknown,key:"rich_text"|"title")=>{
 };
 type Row={id:string;kind:"service"|"attribute";label:string;group_name:string;
   meaning:string;primary_category:string;categories_json:string;value_kind:"tri_state";
-  version:number;status:"ACTIVE"|"DRAFT"|"RETIRED";notion_mirror_status:string};
+  version:number;status:"ACTIVE"|"DRAFT"|"RETIRED";notion_mirror_status:string;
+  source?:"admin"|"built_in"};
 type Page={id?:string;parent?:{type?:string;data_source_id?:string};
   archived?:boolean;in_trash?:boolean;properties?:Record<string,unknown>};
 type Query={results?:Page[];has_more?:boolean;next_cursor?:string|null};
@@ -32,7 +35,8 @@ export type SimpleCatalogSyncSummary={state:"DISABLED"|"BLOCKED"|"IDLE"|"SYNCED"
   created:number;updated:number;verified:number;conflicts:number;reason?:string};
 function properties(row:Row){
   const cats=JSON.parse(row.categories_json) as string[];
-  if(!optionId.test(row.id)||!Array.isArray(cats)||!cats.length||
+  if(!(optionId.test(row.id)||(row.source==="built_in"&&builtInServiceIds.has(row.id)))||
+     !Array.isArray(cats)||!cats.length||
      !cats.includes(row.primary_category)||row.value_kind!=="tri_state")
     throw Error("INVALID_D1_CATALOG_OPTION");
   const rich=(v:string)=>({rich_text:[{text:{content:v}}]});
@@ -115,15 +119,29 @@ export async function runSimpleServiceCatalogSync(input:{
   }
   let rows:Row[];
   try{
-    rows=(await db.prepare(
+    const dynamic=(await db.prepare(
       "SELECT id,kind,label,group_name,meaning,primary_category,categories_json,value_kind,version,status,notion_mirror_status "+
       "FROM service_catalog_admin_options WHERE status='ACTIVE' ORDER BY created_at,id"
     ).all<Row>()).results;
-    if(!Array.isArray(rows))throw Error("D1_CATALOG_UNAVAILABLE");
+    if(!Array.isArray(dynamic))throw Error("D1_CATALOG_UNAVAILABLE");
+    // Built-in Admin overrides are canonical too. Reconcile only existing
+    // Notion pages by stable Option ID; never auto-create missing originals.
+    const overrides=await loadResolvedBuiltinServiceOverrides(db);
+    const existing:Row[]=overrides.map(option=>({
+      id:option.id,kind:"service",label:option.label,group_name:option.group,
+      meaning:option.meaning,primary_category:option.categories[0],
+      categories_json:JSON.stringify(option.categories),value_kind:"tri_state",
+      version:option.version,status:"ACTIVE",notion_mirror_status:"PENDING",
+      source:"built_in",
+    }));
+    rows=[...dynamic,...existing];
   }catch(e){return {...result,state:"BLOCKED",reason:e instanceof Error?e.message:"D1_READ_FAILED"};}
   const max=Math.max(1,Math.min(12,input.maxWrites??8));
   let writes=0;
   async function markSynced(row:Row){
+    // Only dynamic entries own a D1 mirror status. Built-in overlays have
+    // their own audit/version history and are checked on each Notion sweep.
+    if(row.source==="built_in")return;
     const saved=await db.prepare(
       "UPDATE service_catalog_admin_options SET notion_mirror_status='SYNCED' "+
       "WHERE id=?1 AND version=?2 AND status='ACTIVE' AND notion_mirror_status<>'SYNCED' RETURNING id"
@@ -147,6 +165,9 @@ export async function runSimpleServiceCatalogSync(input:{
         result.updated++;writes++;
         continue;
       }
+      // Original services already have canonical Notion pages. An absent page
+      // requires review, never automatic re-creation with a new page ID.
+      if(row.source==="built_in")throw Error("BUILTIN_NOTION_PAGE_MISSING");
       // Do not create a duplicate if a Notion page already has the same label
       // but has not yet been assigned its canonical ID.
       if(pages.some(x=>normalizeCatalogLabel(text(x.properties?.[p.label],"title"))===normalizeCatalogLabel(row.label)))

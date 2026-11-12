@@ -73,7 +73,7 @@ test("active options appear across all their categories",()=>{
  }
 });
 
-test("runtime dynamic attribute eligibility is fail-closed until ACTIVE and SYNCED",()=>{
+test("runtime dynamic attribute eligibility requires ACTIVE but not Notion SYNCED",()=>{
  const dynamic=(id,status,mirror)=>({
   id:"attr.admin."+id.repeat(32),kind:"attribute",label:"Test attribute "+id,
   group:"Audit",meaning:"Explicit test-only tri-state property.",
@@ -115,7 +115,9 @@ test("all catalog entries are editable while original IDs and kinds stay stable"
   assert.equal(item.version,3);
   assert.equal(item.source,"built_in");
   assert.ok(eligibleProfileServiceItems([item],"fyzioterapia").some(x=>x.id===original.id));
-  assert.match(catalog,/item.source==="built_in"\?builtinOverridesEnabled:item.status!=="RETIRED"/);
+  assert.match(catalog,/item.source==="built_in"\?builtinOverridesEnabled:item.status==="ACTIVE"/);
+  assert.match(catalog,/const mayInlineEdit=.*mayEdit\(item\)&&item.version!==null/);
+  assert.match(catalog,/const mayRetire=/);
   assert.match(catalog,/const body=isEdit[\s\S]*?action:"edit",expectedVersion:editing!\.version/);
   assert.match(catalog,/: \{\.\.\.fields,kind:draft\.kind\}/);
   assert.match(catalog,/selected.source==="admin"&&\s*<AdminActionButton variant="destructive"/);

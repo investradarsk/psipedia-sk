@@ -3,6 +3,8 @@ import test from "node:test";
 import {DatabaseSync} from "node:sqlite";
 import {readFileSync} from "node:fs";
 import {runSimpleServiceCatalogSync} from "../lib/service-catalog-simple-sync.ts";
+import {loadResolvedServiceDefinitions} from "../lib/service-catalog-resolved.ts";
+import {serviceCatalog} from "../lib/service-catalog-contract.ts";
 
 const SOURCE="8785fd64-36c3-4acf-aade-ad99c30ad45d";
 const ID="svc.admin."+"a".repeat(32);
@@ -30,6 +32,7 @@ function fixture(){
     status TEXT,notion_mirror_status TEXT,created_at TEXT
   )`);
   sqlite.exec(migration);
+  sqlite.exec("CREATE TABLE service_catalog_builtin_overrides (option_id TEXT PRIMARY KEY,label TEXT,categories_json TEXT,group_name TEXT,meaning TEXT,version INTEGER)");
   sqlite.prepare("INSERT INTO service_catalog_admin_options VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
     .run(ID,"service","BAER vyšetrenie sluchu","Diagnostika",
       "Objektívne vyšetrenie sluchu u psov.","veterinari",JSON.stringify(["veterinari"]),
@@ -128,6 +131,61 @@ test("matching Notion name with missing option ID is flagged, not duplicated",as
     assert.equal(n.createAttempts,0);
     assert.equal(f.status().notion_mirror_status,"PENDING");
   }finally{f.close();}
+});
+test("edited original service keeps its Option ID in Admin, Notion and category lookup",async()=>{
+ const f=fixture(),n=notionMock();
+ try{
+  const original=serviceCatalog.find(x=>x.id==="svc.vet.vaccination");
+  assert.ok(original);
+  f.sqlite.prepare(
+    "INSERT INTO service_catalog_builtin_overrides (option_id,label,categories_json,group_name,meaning,version) VALUES (?,?,?,?,?,?)"
+  ).run(original.id,"Očkovanie psov",JSON.stringify(["veterinari","treneri"]),
+    original.group,original.meaning,1);
+  const effective=await loadResolvedServiceDefinitions(f.db,"treneri");
+  const edited=effective.find(x=>x.id===original.id);
+  assert.ok(edited);
+  assert.equal(edited.label,"Očkovanie psov");
+  assert.deepEqual(edited.categories,["veterinari","treneri"]);
+  assert.ok(edited.aliases.includes("Očkovanie"));
+  assert.ok(edited.aliases.includes("Vakcinácia"));
+  const first=await runSimpleServiceCatalogSync({db:f.db,env:vars,fetcher:n.fetcher});
+  assert.equal(first.state,"SYNCED",JSON.stringify(first));
+  assert.equal(first.created,1,"only the new dynamic service may be created");
+  assert.equal(first.updated,1,"original Notion page is updated by stable Option ID");
+  assert.equal(n.createAttempts,1);
+  assert.equal(n.pages.length,2);
+  assert.equal(n.pages[0].id,STATIC);
+  assert.equal(n.pages[0].properties["Option ID"].rich_text[0].text.content,original.id);
+  assert.equal(n.pages[0].properties["Názov"].title[0].text.content,"Očkovanie psov");
+  assert.deepEqual(n.pages[0].properties["Kategórie"].multi_select.map(x=>x.name),
+    ["veterinari","treneri"]);
+  const second=await runSimpleServiceCatalogSync({db:f.db,env:vars,fetcher:n.fetcher});
+  assert.equal(second.state,"IDLE",JSON.stringify(second));
+  f.sqlite.prepare("UPDATE service_catalog_builtin_overrides SET label=?,version=2 WHERE option_id=?")
+    .run("Očkovanie a vakcinácia",original.id);
+  const third=await runSimpleServiceCatalogSync({db:f.db,env:vars,fetcher:n.fetcher});
+  assert.equal(third.updated,1);
+  assert.equal(third.created,0);
+  assert.equal(n.createAttempts,1);
+  assert.equal(n.pages[0].properties["Názov"].title[0].text.content,"Očkovanie a vakcinácia");
+  assert.equal(n.pages[0].properties["Verzia"].number,2);
+ }finally{f.close();}
+});
+test("a missing original Notion service is reported, never auto-provisioned",async()=>{
+ const f=fixture(),n=notionMock();
+ try{
+  const original=serviceCatalog.find(x=>x.id==="svc.vet.vaccination");
+  assert.ok(original);
+  f.sqlite.prepare("INSERT INTO service_catalog_builtin_overrides VALUES (?,?,?,?,?,?)")
+    .run(original.id,"Očkovanie psov",JSON.stringify(["veterinari"]),
+      original.group,original.meaning,1);
+  n.pages.splice(0,1); // historical canonical Notion page unexpectedly missing
+  const run=await runSimpleServiceCatalogSync({db:f.db,env:vars,fetcher:n.fetcher});
+  assert.equal(run.state,"REVIEW");
+  assert.equal(run.reason,"BUILTIN_NOTION_PAGE_MISSING");
+  assert.equal(n.createAttempts,1,"only unrelated dynamic option can be created");
+  assert.equal(n.pages.filter(x=>x.properties["Option ID"]?.rich_text?.[0]?.text?.content===original.id).length,0);
+ }finally{f.close();}
 });
 test("catalog sync is disabled without its own opt-in and cannot create any profile entries",async()=>{
   const f=fixture(),n=notionMock();
