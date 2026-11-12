@@ -385,10 +385,10 @@ test("article SEO property contract maps all eight Admin fields to the existing 
 
 test("article editorial draft writer uses existing OG popis and the shared SEO contract", async () => {
   const source = await readFile(new URL("../lib/notion-article-content-plan.ts", import.meta.url), "utf8");
-  assert.match(source, /SEO\\.ogDescription\\.name in pageProperties/);
-  assert.match(source, /SEO\\.ogTitle\\.name in pageProperties/);
+  assert.match(source, /SEO\.ogDescription\.name in pageProperties/);
+  assert.match(source, /SEO\.ogTitle\.name in pageProperties/);
   assert.doesNotMatch(source, /"OG description" in pageProperties/);
-  assert.match(syncSource, /richTextProperty\\(page, SEO\\.seoTitle\\.name\\)/);
-  assert.match(syncSource, /richTextProperty\\(page, SEO\\.metaDescription\\.name\\)/);
-  assert.match(syncSource, /richTextProperty\\(page, SEO\\.focusKeyword\\.name\\)/);
+  assert.match(syncSource, /richTextProperty\(page, SEO\.seoTitle\.name\)/);
+  assert.match(syncSource, /richTextProperty\(page, SEO\.metaDescription\.name\)/);
+  assert.match(syncSource, /richTextProperty\(page, SEO\.focusKeyword\.name\)/);
 });
