@@ -8,6 +8,7 @@ import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminOrganizationFundraising } from "@/components/admin-organization-fundraising";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminOptionalReadError } from "@/components/admin-recovery-actions";
 import type { OrganizationSuggestionsResult } from "@/components/admin-organization-suggestions";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
@@ -28,7 +29,7 @@ async function OrganizationReviewAction({ organizationId }: { organizationId: nu
     return <AdminReviewCheckbox entityType="ORGANIZATION" entityId={organizationId}
       initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />;
   } catch {
-    return <span role="status">Stav redakčnej kontroly sa nepodarilo načítať.</span>;
+    return <AdminOptionalReadError message="Stav redakčnej kontroly sa nepodarilo načítať." />;
   }
 }
 
@@ -37,7 +38,7 @@ async function OrganizationDuplicateWarning({ organizationId }: { organizationId
     const warning = await getCanonicalDraftDuplicateWarning("ORGANIZATION", organizationId);
     return <AdminCanonicalDraftWarning warning={warning} />;
   } catch {
-    return <p role="status">Kontrola duplicít je dočasne nedostupná.</p>;
+    return <AdminOptionalReadError message="Kontrola duplicít je dočasne nedostupná." />;
   }
 }
 
@@ -47,7 +48,7 @@ async function OrganizationFundraisingPanel({ organization }: { organization: Or
     const methods = await listOrganizationFundraisingMethodsAdmin(organization.id);
     return <AdminOrganizationFundraising organization={organization} initialMethods={methods} />;
   } catch {
-    return <p role="alert" className="admin-panel">Fundraising sa nepodarilo načítať. Existujúce údaje zostávajú zachované, úpravy tohto panelu sú dočasne nedostupné.</p>;
+    return <AdminOptionalReadError message="Fundraising sa nepodarilo načítať. Existujúce údaje zostávajú zachované, úpravy tohto panelu sú dočasne nedostupné." />;
   }
 }
 
@@ -61,17 +62,27 @@ function organizationSuggestions(organizationId: number): Promise<OrganizationSu
 
 export default async function OrganizationAdminDetailPage({ params }: Props) {
   const { id } = await params;
+  // Reject hexadecimal, decimals and accidental numeric coercions.
+  // An invalid/missing Admin ID is a real 404, never a SQL crash.
+  if (!/^[1-9][0-9]*$/.test(id)) notFound();
   const organizationId = Number(id);
-  if (!Number.isSafeInteger(organizationId) || organizationId <= 0) notFound();
+  if (!Number.isSafeInteger(organizationId)) notFound();
   const user = await requireAdminPageUser("/admin/organizacie/" + id);
 
   // Only the canonical profile and verified location state are required to
   // initialize an editable form. Never silently substitute an empty address.
-  const [organization, locations] = await Promise.all([
+  const [organizationResult, locationsResult] = await Promise.allSettled([
     getOrganizationPublicationAdminById(organizationId),
     listOrganizationLocationsAdmin(organizationId),
   ]);
+  // A genuinely missing canonical ID is 404 even if an unrelated location
+  // query failed. However, an existing record cannot enter an editor with
+  // missing/empty address data after a failed read: fail closed instead.
+  if (organizationResult.status === "rejected") throw organizationResult.reason;
+  const organization = organizationResult.value;
   if (!organization) notFound();
+  if (locationsResult.status === "rejected") throw locationsResult.reason;
+  const locations = locationsResult.value;
 
   // Start the non-essential request without awaiting it. React 19 Suspense
   // streams its panel when ready; failure never rejects the editor's render.
