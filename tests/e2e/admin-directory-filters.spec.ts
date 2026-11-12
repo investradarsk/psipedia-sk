@@ -297,6 +297,12 @@ test.describe("admin directory v2", () => {
     await page.getByRole("button", { name: "Uložiť koncept" }).click();
     await page.waitForURL(/\/admin\/adresar\/\d+\?vytvorene=1/);
     const id = Number(page.url().match(/\/admin\/adresar\/(\d+)/)?.[1]);
+    // A client-side URL transition is not proof the new (existing profile)
+    // editor has mounted. Prevent re-POST from the still-mounted create form.
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute(
+      "data-directory-profile-id", String(id),
+    );
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
     const api = await page.request.get(`/api/admin/directory/${id}`);
     expect(api.ok()).toBeTruthy();
     const savedProfile = (await api.json()).profile;
@@ -311,8 +317,18 @@ test.describe("admin directory v2", () => {
     const changedExcerpt = "Perex overený v D1 test444";
     await openDirectoryEditorSection(page, "Hlavné");
     await page.getByLabel("Krátky popis").fill(changedExcerpt);
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
-    await expect(page.locator("form.admin-directory-editor [data-editor-status]").filter({ hasText: "Neuložené zmeny" })).toHaveCount(0);
+    const [perexSaveResponse] = await Promise.all([
+      page.waitForResponse(response =>
+        response.url().endsWith(`/api/admin/directory/${id}`) &&
+        response.request().method() === "PUT",
+      ),
+      page.getByRole("button", { name: "Uložiť koncept" }).click(),
+    ]);
+    expect(perexSaveResponse.status()).toBe(200);
+    const perexReceipt = (await perexSaveResponse.json()).profile;
+    expect(perexReceipt.excerpt).toBe(changedExcerpt);
+    expect(perexReceipt.description).toBe(initialDescription);
+    await expect(page.locator("form.admin-directory-editor").getByText("Koncept je bezpečne uložený.")).toBeVisible();
     const afterPerexResponse = await page.request.get(`/api/admin/directory/${id}`);
     expect(afterPerexResponse.ok()).toBeTruthy();
     const afterPerex = (await afterPerexResponse.json()).profile;
@@ -325,7 +341,18 @@ test.describe("admin directory v2", () => {
     await openDirectoryEditorSection(page, "Obsah");
     const changedDescription = "Nový podrobný opis\n\nDruhý odstavec bez normalizácie.";
     await page.getByLabel("Podrobný popis").fill(changedDescription);
-    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    const [descriptionSaveResponse] = await Promise.all([
+      page.waitForResponse(response =>
+        response.url().endsWith(`/api/admin/directory/${id}`) &&
+        response.request().method() === "PUT",
+      ),
+      page.getByRole("button", { name: "Uložiť koncept" }).click(),
+    ]);
+    expect(descriptionSaveResponse.status()).toBe(200);
+    const descriptionReceipt = (await descriptionSaveResponse.json()).profile;
+    expect(descriptionReceipt.excerpt).toBe(changedExcerpt);
+    expect(descriptionReceipt.description).toBe(changedDescription);
+    await expect(page.locator("form.admin-directory-editor").getByText("Koncept je bezpečne uložený.")).toBeVisible();
     const afterDescriptionResponse = await page.request.get(`/api/admin/directory/${id}`);
     expect(afterDescriptionResponse.ok()).toBeTruthy();
     const afterDescription = (await afterDescriptionResponse.json()).profile;
