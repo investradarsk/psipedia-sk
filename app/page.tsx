@@ -417,6 +417,17 @@ export default async function Home() {
 
   return (
     <main id="obsah" className={styles.homeV2}>
+      {/* The resolved D1 hero is the actual LCP image: preload that exact URL,
+          never a guessed static default that might double-download. React
+          hoists image preloads into the document head during SSR. */}
+      <link
+        rel="preload"
+        as="image"
+        href={homeHero.imageUrl}
+        imageSrcSet={responsiveMediaSrcSet(homeHero.imageUrl, [640, 960, 1280, 1600, 1920])}
+        imageSizes="(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px"
+        fetchPriority="high"
+      />
       <UnifiedSectionHeroShell className="hero-section" data-home-hero>
         <UnifiedSectionHero
           variant="homepage-style"
@@ -438,7 +449,24 @@ export default async function Home() {
         />
       </UnifiedSectionHeroShell>
 
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={
+          <div className={styles.homeStreamFallback} aria-hidden="true" data-home-stream-fallback>
+            <div className={styles.homeStreamHeading} />
+            <div className={styles.homeStreamGrid}>
+              <div className={styles.homeStreamCard} />
+              <div className={styles.homeStreamCard} />
+              <div className={styles.homeStreamCard} />
+            </div>
+            <div className={styles.homeStreamHeading} />
+            <div className={styles.homeStreamGrid}>
+              <div className={styles.homeStreamCard} />
+              <div className={styles.homeStreamCard} />
+              <div className={styles.homeStreamCard} />
+            </div>
+          </div>
+        }
+      >
         <HomeBelowHero contentPromise={contentPromise} />
       </Suspense>
     </main>
