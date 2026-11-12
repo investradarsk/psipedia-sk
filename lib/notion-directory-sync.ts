@@ -1,5 +1,6 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
+import {recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,directoryServiceSuccessCanClear} from "./directory-sync-recovery-policy";
 import { getDirectoryFilterDefinition, mergeDirectoryFilterValues, normalizeDirectoryFilterValue, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { recordDirectoryNotionAlert } from "@/lib/directory-notion-sync-alerts";
 import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
@@ -1918,6 +1919,41 @@ export async function mirrorBreederRelationNamesToNotion(input: {
   return true;
 }
 
+/**
+ * Older mapped Directory profiles can carry a stale BASELINE_UNAVAILABLE error
+ * after they were migrated to immediate per-field events. Repair their common
+ * receipt only when the FULL current editorial snapshots are identical.
+ * A differing value, wrong owner, stale page or concurrent Admin write leaves
+ * both sides and their existing error untouched.
+ */
+async function recoverEqualLegacyDirectoryBaseline(input:{
+ database:D1Database;bindings:NotionDirectorySyncBindings;dataSourceId:string;
+ page:NotionPage;mapping:DirectoryNotionMapping;profile:ManagedDirectoryProfile;
+}):Promise<boolean>{
+ const {database,bindings,dataSourceId,page,mapping,profile}=input;
+ if(page.id!==mapping.notion_page_id||
+    propertyText(page,"Psipedia ID")!==String(profile.id)||
+    !notionDirectoryPageBelongsToSource(page,dataSourceId)||
+    !recoverableDirectoryBaselineError(propertyText(page,"Sync stav"),propertyText(page,"Sync chyba")))
+   return false;
+ const monitor=await getMediaSourceMonitorForEntity(database,"DIRECTORY_PROFILE",profile.id);
+ const imageUrl=monitor?.sourceImageUrl||externalSourceImageUrl(profile.imageUrl);
+ const canonical=await snapshotHash(profileSnapshot(profile,imageUrl));
+ if(canonical!==await snapshotHash(notionSnapshot(page)))return false;
+ const latest=await fetchNotionPage(bindings,page.id);
+ const current=await getManagedDirectoryProfileById(profile.id,database);
+ if(!current||current.updatedAt!==profile.updatedAt||
+    latest.id!==page.id||!notionDirectoryPageBelongsToSource(latest,dataSourceId)||
+    propertyText(latest,"Psipedia ID")!==String(profile.id)||
+    canonical!==await snapshotHash(notionSnapshot(latest))||
+    canonical!==await snapshotHash(profileSnapshot(current,imageUrl)))
+   return false;
+ // Reuse the existing echo-verified writer: this writes only the necessary
+ // metadata when content is already equal, then records its D1 field baseline.
+ await writeProfileToNotion({database,bindings,dataSourceId,profile:current,pageId:page.id});
+ return true;
+}
+
 async function syncMappedPage(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -1943,6 +1979,14 @@ async function syncMappedPage(input: {
   if (!notionDirectoryPageBelongsToSource(page, input.dataSourceId)) {
     throw new NotionDirectoryUnsafeTargetError("IDENTITY_CONFLICT: Notion profil už nepatrí do databázy Adresár.");
   }
+
+  // A historical missing-baseline marker is obsolete if and only if both
+  // current editable snapshots already agree. Never resolve differing values.
+  if(isDirectoryFieldEventCategory(profile.category)&&!input.manualDirection&&
+     await recoverEqualLegacyDirectoryBaseline({
+       database:input.database,bindings:input.bindings,dataSourceId:input.dataSourceId,
+       page,mapping:input.mapping,profile,
+     }))return "pushed" as const;
 
   // Trainers already linked to Notion also use explicit field events. A
   // plain targeted sweep has no changed-property IDs and must not fall through
@@ -2710,6 +2754,11 @@ export async function runNotionDirectorySyncSweep(input: {
       const mapped = await loadMappingByPage(input.database, candidate.id);
       if (mapped && propertyText(candidate, "Psipedia ID") === String(mapped.directory_profile_id)) {
         try {
+          const current=await getManagedDirectoryProfileById(mapped.directory_profile_id,input.database);
+          if(current&&await recoverEqualLegacyDirectoryBaseline({
+            database:input.database,bindings:input.bindings,dataSourceId,
+            page:candidate,mapping:mapped,profile:current,
+          }))summary.pushedToNotion++;
           const relation = await syncRelation(candidate.id, mapped.directory_profile_id);
           summary.serviceRelationSync = relation;
           if (relation === "skipped") throw new Error("DIRECTORY_SERVICES_RELATION_SCHEMA_MISSING");
