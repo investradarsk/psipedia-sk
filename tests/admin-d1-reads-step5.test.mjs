@@ -32,6 +32,10 @@ test("three organization location filters preserve legacy DISTINCT semantics in 
       [" ", " ", " "],
     ]) second.run(...row);
 
+    assert.doesNotMatch(ORGANIZATION_ADMIN_LOCATION_FACETS_SQL, /CROSS JOIN/,
+      "facets must not multiply every source row by a dimension lookup");
+    assert.equal((ORGANIZATION_ADMIN_LOCATION_FACETS_SQL.match(/UNION ALL/g) ?? []).length, 2,
+      "three legacy DISTINCT dimension reads share exactly one SQL request");
     const newRows = sqlite.prepare(ORGANIZATION_ADMIN_LOCATION_FACETS_SQL).all();
     for (const column of ["region", "district", "city"]) {
       const legacy = sqlite.prepare(`SELECT value FROM (
