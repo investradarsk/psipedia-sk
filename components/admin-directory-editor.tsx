@@ -288,10 +288,11 @@ export function AdminDirectoryEditor({
   // Delay heavy media widgets until the section is first opened. Then keep
   // them mounted so switching tabs never discards an unfinished gallery edit.
   const [mediaSectionVisited, setMediaSectionVisited] = useState(false);
-  useEffect(() => {
-    if (currentDirectorySection === "directory-media-trust") setMediaSectionVisited(true);
-  }, [currentDirectorySection]);
-  const navigateDirectoryPager = useProfileEditorSectionPager(currentDirectorySection, setActiveDirectorySection);
+  const chooseDirectorySection = (next: string) => {
+    if (next === "directory-media-trust") setMediaSectionVisited(true);
+    setActiveDirectorySection(next);
+  };
+  const navigateDirectoryPager = useProfileEditorSectionPager(currentDirectorySection, chooseDirectorySection);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
   const savePendingRef = useRef(false);
@@ -869,7 +870,7 @@ export function AdminDirectoryEditor({
 
       <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
       <div className={styles.editorWorkspace} data-admin-directory-editor-workspace>
-        <AdminSharedEditorNavigation sections={editorSectionsForProfile} activeId={currentDirectorySection} onNavigate={setActiveDirectorySection}
+        <AdminSharedEditorNavigation sections={editorSectionsForProfile} activeId={currentDirectorySection} onNavigate={chooseDirectorySection}
           layout="sidebar" mode="switch" ariaLabel="Sekcie profilu adresára" />
         <div className={styles.editorWorkspaceContent}>
       <div className="admin-event-editor-grid">
