@@ -148,6 +148,7 @@ export function AdminFacebookGraphicEditor({
   const [cleanLogo,setCleanLogo]=useState<{source:ImageBitmap;bitmap:ImageBitmap}|null>(null);
   const displayLogoBitmap=profileOptions.removeWhite&&cleanLogo?.source===profileLogoBitmap
     ?cleanLogo.bitmap:profileLogoBitmap;
+  const logoReady=!!profileLogoBitmap&&(!profileOptions.removeWhite||cleanLogo?.source===profileLogoBitmap);
   useEffect(()=>{
     if(!profileLogoBitmap||!profileOptions.removeWhite)return;
     let active=true,processed:ImageBitmap|null=null;
@@ -284,6 +285,7 @@ export function AdminFacebookGraphicEditor({
       if(!settings.title.trim())throw new Error("Doplň názov profilu.");
       if(!profileCategory.trim())throw new Error("Vyber kategóriu profilu.");
       if(!profileLogoBitmap)throw new Error("Najprv nahraj logo profilu.");
+      if(!logoReady)throw new Error("Úprava pozadia loga ešte nie je dokončená.");
     }else{
       if(!bitmap)throw new Error("Najprv nahraj fotografiu.");
       if(!settings.title.trim())throw new Error("Doplň nadpis článku.");
@@ -347,7 +349,99 @@ export function AdminFacebookGraphicEditor({
             <strong>{profileLogoFile?profileLogoFile.name:logoDropzone.isDragActive?"Pusti logo sem":"Nahraj logo prevádzky"}</strong>
             <small>JPG, PNG alebo WebP do 8 MB. Nevyžaduje sa fotografia psa.</small>
           </div>
-          <p className={styles.hint}>Rozmer výstupu: 1080 × 1350 px (4:5).</p>
+          <div className={styles.profileTools}>
+            <button type="button" disabled={!onReloadProfileLogo||logoReloading}
+              onClick={()=>void reloadProfileLogo()}>
+              {logoReloading?"Načítavam logo…":"Znova načítať logo z profilu"}
+            </button>
+          </div>
+          <p className={styles.hint}>Ak logo na profile chýba, nahraj ho ručne. Úpravy sa použijú iba v tomto obrázku. Výstup: 1080 × 1350 px.</p>
+        </fieldset>}
+        {selectedTemplate==="profile"&&<fieldset disabled={busy}>
+          <legend>3. Voľná úprava prvkov</legend>
+          <p className={styles.hint}>Ťukni na prvok v náhľade a potiahni ho prstom alebo myšou. Rohy menia veľkosť; dvoma prstami môžeš zväčšovať aj posúvať.</p>
+          <div className={styles.profileParts}>
+            {PROFILE_PARTS.map(part=><button key={part.id} type="button"
+              className={selectedProfilePart===part.id?styles.selected:""}
+              aria-pressed={selectedProfilePart===part.id} onClick={()=>setSelectedProfilePart(part.id)}>
+              {part.label}
+            </button>)}
+          </div>
+          {selectedProfilePart&&<div className={styles.profileAdjust}>
+            <strong>{PROFILE_PARTS.find(p=>p.id===selectedProfilePart)?.label}</strong>
+            <label>Veľkosť · {Math.round(profileLayout[selectedProfilePart].scale*100)} %
+              <input type="range" min="30" max="300" step="5"
+                value={Math.round(profileLayout[selectedProfilePart].scale*100)}
+                onChange={e=>changeProfilePlacement(selectedProfilePart,{
+                  ...profileLayout[selectedProfilePart],scale:Number(e.target.value)/100,
+                })}/>
+            </label>
+            <label>Vodorovná poloha · {Math.round(profileLayout[selectedProfilePart].x)}
+              <input type="range" min="0" max="1048" step="1" value={profileLayout[selectedProfilePart].x}
+                onChange={e=>changeProfilePlacement(selectedProfilePart,{
+                  ...profileLayout[selectedProfilePart],x:Number(e.target.value),
+                })}/>
+            </label>
+            <label>Zvislá poloha · {Math.round(profileLayout[selectedProfilePart].y)}
+              <input type="range" min="0" max="1318" step="1" value={profileLayout[selectedProfilePart].y}
+                onChange={e=>changeProfilePlacement(selectedProfilePart,{
+                  ...profileLayout[selectedProfilePart],y:Number(e.target.value),
+                })}/>
+            </label>
+          </div>}
+          <div className={styles.profileTools}>
+            <button type="button" disabled={!profileHistory.length} onClick={undoProfileChange}>Späť o krok</button>
+            <button type="button" onClick={resetProfileLayout}>Obnoviť pôvodné rozloženie</button>
+          </div>
+          <p className={styles.hint}>Rozloženie sa ukladá len do tohto prehliadača. Každý ďalší profil ho môže použiť ako základ.</p>
+        </fieldset>}
+        {selectedTemplate==="profile"&&<fieldset disabled={busy}>
+          <legend>4. Výrez a tvar loga</legend>
+          <label>Tvar zobrazenia
+            <select value={profileOptions.shape}
+              onChange={e=>changeProfileOption("shape",e.target.value as ProfileLogoShape)}>
+              <option value="circle">Kruh</option>
+              <option value="rounded">Zaoblený obdĺžnik</option>
+              <option value="square">Štvorec</option>
+              <option value="none">Bez rámčeka</option>
+            </select>
+          </label>
+          <label>Priblíženie loga vo vnútri · {profileOptions.zoom} %
+            <input type="range" min="40" max="280" step="5" value={profileOptions.zoom}
+              onChange={e=>changeProfileOption("zoom",Number(e.target.value))}/>
+          </label>
+          <div className={styles.dual}>
+            <label>Posun loga vodorovne · {profileOptions.offsetX}
+              <input type="range" min="-100" max="100" value={profileOptions.offsetX}
+                onChange={e=>changeProfileOption("offsetX",Number(e.target.value))}/>
+            </label>
+            <label>Posun loga zvisle · {profileOptions.offsetY}
+              <input type="range" min="-100" max="100" value={profileOptions.offsetY}
+                onChange={e=>changeProfileOption("offsetY",Number(e.target.value))}/>
+            </label>
+          </div>
+          <p className={styles.hint}>Orezať okraje pôvodného loga (bez zmeny súboru):</p>
+          <div className={styles.dual}>
+            {([
+              ["cropLeft","Ľavý okraj"],["cropRight","Pravý okraj"],
+              ["cropTop","Horný okraj"],["cropBottom","Dolný okraj"],
+            ] as const).map(([key,label])=><label key={key}>{label} · {profileOptions[key]} %
+              <input type="range" min="0" max="45" step="1" value={profileOptions[key]}
+                onChange={e=>changeProfileOption(key,Number(e.target.value))}/>
+            </label>)}
+          </div>
+          <div className={styles.profileTools}>
+            <button type="button" disabled={!displayLogoBitmap} onClick={autoCropProfileLogo}>Automatický výrez okrajov</button>
+            <button type="button" onClick={()=>{
+              saveProfileHistory();setProfileOptions(old=>({...old,cropLeft:0,cropRight:0,cropTop:0,cropBottom:0,zoom:100,offsetX:0,offsetY:0}));
+            }}>Zrušiť výrez</button>
+          </div>
+          <label className={styles.profileCheckbox}>
+            <input type="checkbox" checked={profileOptions.removeWhite}
+              onChange={e=>changeProfileOption("removeWhite",e.target.checked)}/>
+            Odstrániť jednoliate biele pozadie loga
+          </label>
+          <p className={styles.hint}>Odstránenie sa týka len bielej oblasti spojenej s okrajom. Pôvodný obrázok zostáva nedotknutý a zmenu môžeš kedykoľvek vypnúť.</p>
         </fieldset>}
         {selectedTemplate!=="profile"&&<fieldset disabled={busy}>
           <legend>2. Fotografia z článku/profilu alebo vlastná</legend>
@@ -425,18 +519,28 @@ export function AdminFacebookGraphicEditor({
           <p className={styles.hint}>Logo ostáva v bezpečných okrajoch. Môžeš ho tiež úplne vypnúť v nastaveniach nadpisu.</p>
         </fieldset>}
       </div>
-      <div className={styles.previewSide}>
+      <div className={[styles.previewSide,selectedTemplate==="profile"?styles.profilePreviewSide:"",
+        fullPreview?styles.previewFullscreen:""].filter(Boolean).join(" ")}>
+        {selectedTemplate==="profile"&&<div className={styles.previewToolbar}>
+          <strong>Živý náhľad grafiky</strong>
+          <button type="button" onClick={()=>setFullPreview(value=>!value)}>
+            {fullPreview?"Zavrieť celý náhľad":"Zväčšiť náhľad"}
+          </button>
+        </div>}
         <div className={styles.previewFrame}>
           {selectedTemplate==="profile"
-            ?<FacebookProfileIntroCanvas ref={previewRef} name={settings.title} category={profileCategory} logo={profileLogoBitmap}/>
+            ?<FacebookProfileIntroCanvas ref={previewRef} name={settings.title} category={profileCategory}
+              logo={displayLogoBitmap} layout={profileLayout} logoOptions={profileOptions}
+              selected={selectedProfilePart} onSelect={setSelectedProfilePart}
+              onChange={changeProfilePlacement}/>
             :<FacebookKonvaCanvas ref={previewRef} settings={settings} bitmap={bitmap} onMove={onMove} onWarning={setQualityWarning}/>}
         </div>
         <p className={styles.note}>{selectedTemplate==="profile"?(profileLogoBitmap?"Náhľad zodpovedá výslednému PNG.":"Nahraj logo profilu na dokončenie grafiky."):(bitmap?"Náhľad zodpovedá výslednému PNG.":"Nahraj fotografiu na dokončenie grafiky.")}</p>
         {qualityWarning && <p className={styles.error} role="status">{qualityWarning}</p>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
         <div className={styles.actions}>
-          <button type="button" disabled={busy || (selectedTemplate==="profile"?!profileLogoBitmap:!bitmap)} onClick={() => void download()}>Stiahnuť PNG</button>
-          <button className={styles.primary} type="button" disabled={busy || (selectedTemplate==="profile"?!profileLogoBitmap:!bitmap)} onClick={() => void applyGraphic()}>{busy ? "Pripravujem…" : "Použiť v príspevku"}</button>
+          <button type="button" disabled={busy || (selectedTemplate==="profile"?!logoReady:!bitmap)} onClick={() => void download()}>Stiahnuť PNG</button>
+          <button className={styles.primary} type="button" disabled={busy || (selectedTemplate==="profile"?!logoReady:!bitmap)} onClick={() => void applyGraphic()}>{busy ? "Pripravujem…" : "Použiť v príspevku"}</button>
         </div>
       </div>
     </div>
