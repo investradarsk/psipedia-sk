@@ -13,7 +13,7 @@
 | 5. D1 vyhľadávanie | Syntetický read-only SQLite benchmark teraz vykoná **skutočné generované SQL všetkých 8 kategórií** pre text, presné ID a tombstone filtering. Zaznamená pre každý dotaz `EXPLAIN QUERY PLAN`, lokálne p50/p95 a zachovanie výsledkov | Žiadna migrácia či zmena produkčného SQL, autentifikácie ani Notion dát; výsledky lokálneho SQLite nie sú produkčné D1 `rows_read` alebo reálny výkon iPhone |
 | 6. Command palette | Číselné Admin ID preskočí 140 ms debounce; textové zostanú so debounce. Doplnil sa request-generation guard proti oneskoreným odpovediam, opakovanie chybového alebo neúplného vyhľadávania, ochrana proti nadlimitným rovnakým query a správne správanie pri odmietnutom odchode z rozpracovaného editora | AbortController a 15-sekundová obmedzená cache zostávajú; neúplné výsledky sa **neukladajú** do cache a zrušená navigácia ponechá dialóg otvorený |
 | 7. Upozornenia | `react.cache` pre exact summary **len v rámci jedného server requestu**; zdieľané medzi AdminShell a pracovným prehľadom | Nie je to globálna alebo viacsekundová cache, pri ďalšom RSC requeste sa stav zistí znovu |
-| 8. Organizácie | Uloženie samotnej adresy alebo noop už nevyvolá celú `router.refresh()` sekvenciu; po uložení identity sa naďalej obnoví kanonický kontext | Údaje a snapshoty adresy sa aktualizujú podľa serverovej odpovede; ochrana novších úprav platí |
+| 8. Organizácie | Uloženie adresy, popisov, kontaktov alebo obrázka nevyvolá druhé `router.refresh()`; obnovenie serverového kontextu zostáva len pri zmene názvu alebo slug-u | Formulár, CAS verzia a adresa sa aktualizujú podľa serverovej odpovede; ochrana novších úprav platí |
 | 9. Tabuľky | Recyklovaná prázdna selekcia pre bežné tabuľky bez výberu, aby TanStack nemusel prepočítavať selection model; benchmark a kontrakt limitu 50 záznamov pri organizáciách | Server-side ordering, ID a bulk preflight bez zmeny |
 | 10. Integrácia | Regresný Node/AST test, rozšírený read-only CI, syntetický benchmark, meranie TypeScript diagnostík podľa zmenených súborov, konfliktový audit a zosúladenie `main` | Žiadny deploy, produkčný zápis, migrácia, Notion edit ani automatické zlúčenie |
 
@@ -76,6 +76,25 @@ Regresný test `tests/admin-global-search-ui-step6.test.mjs` overuje súvisiace
 source kontrakty a syntax JSX. Ide o statické a logické kontroly, nie o
 zmerané p95 používateľskej odozvy na skutočnom iPhone. Žiadne zmeny
 v D1 tabuľkách, vyhľadávacom SQL, prístupových oprávneniach alebo Notione.
+
+## Doplnený krok 8: obnova iba pri zmene identity
+
+Audit existujúceho editora organizácie potvrdil, že serverová stránka zobrazuje
+`organization.name` ako nadpis a `organization.slug` vo verejnom odkaze.
+Pôvodné zúženie refreshu na `organizationSaved` však obnovovalo celý RSC
+strom aj po uložení bežných textov, kontaktných údajov a obrázkov.
+
+Teraz sa `router.refresh()` volá **iba vtedy**, ak server po uložení vráti
+zmenený názov alebo slug. Pri úpravách ostatných polí editor už používa
+uložený payload, kanonický `updatedAt` a lokálne snapshoty. Uloženie adresy
+stále aktualizuje lokálny záznam lokality. Pri zakladaní organizácie zostáva
+presmerovanie až po úspešnom uložení identity aj adresy; pri zlyhaní adresy
+sa drží ID a bezpečný opakovaný pokus. Nový regresný kontrakt zároveň kontroluje
+jediné podmienené volanie `router.refresh()` a zachovanie CAS.
+
+Ide o optimalizáciu navigačného RSC roundtripu, **nie o meranie reálneho p95
+na zariadení**. API ukladanie, Cloudflare D1 zápisy a Notion synchronizácia
+zostávajú nezmenené.
 
 ## Integrácia kroku 10 a oprava hlavného CI
 
