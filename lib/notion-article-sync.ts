@@ -1446,6 +1446,42 @@ export async function writeBackArticleSeoToNotion(args: {
   const verifiedPage = await readPage();
   assertApproved(verifiedPage);
   await assertCurrentRevision();
+  // Verify the whole page is still the same preimage, except for the fields
+  // written by this save. This prevents acknowledging concurrent Notion edits
+  // to body, media or untouched SEO properties that arrived during PATCH.
+  const replayProperties = { ...verifiedPage.properties };
+  for (const field of changed) {
+    const name = SEO[field].name;
+    if (Object.hasOwn(page.properties ?? {}, name)) {
+      replayProperties[name] = page.properties![name];
+    }
+  }
+  const replayHash = await contentHash({ ...verifiedPage, properties: replayProperties }, before);
+  if (replayHash !== originalHash) {
+    await updateNotionSyncState(args.bindings, page.id, {
+      state: "Chyba", error: "ARTICLE_SEO_WRITEBACK_REMOTE_EDIT_PENDING",
+    });
+    return { linked: true, updated: written > 0, reason: "partial",
+      failedFields: [{ field: changed[0], code: "NOTION_ARTICLE_SEO_REMOTE_EDIT_PENDING" }] };
+  }
+  // Re-read completed SEO values after the last PATCH and before advancing
+  // the receipt; an external writer may have changed an earlier field.
+  const lateFailures: ArticleSeoFieldFailure[] = [];
+  for (const { field, plan } of ready) {
+    try {
+      verifyArticleSeoPatch(plan, verifiedPage.properties ?? {}, "after");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      lateFailures.push({ field,
+        code: /^NOTION_ARTICLE_SEO_[A-Z0-9_]+$/.test(code) ? code : "REMOTE_WRITEBACK_FAILED" });
+    }
+  }
+  if (lateFailures.length) {
+    await updateNotionSyncState(args.bindings, page.id, {
+      state: "Chyba", error: "ARTICLE_SEO_WRITEBACK_PARTIAL",
+    });
+    return { linked: true, updated: written > 0, reason: "partial", failedFields: lateFailures };
+  }
   const finalHash = await contentHash(verifiedPage, article);
   const now = new Date().toISOString();
   const saved = await args.database.prepare(
