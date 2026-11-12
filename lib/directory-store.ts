@@ -837,20 +837,6 @@ function rowToChangeRequest(
   };
 }
 
-function normalizeUrl(value: string | null | undefined) {
-  const clean = value?.trim() || null;
-  if (!clean) return null;
-  let parsed: URL;
-  try {
-    parsed = new URL(clean);
-  } catch {
-    throw new Error("Webová adresa nie je platná.");
-  }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
-    throw new Error("Webová adresa musí začínať http:// alebo https://.");
-  return clean;
-}
-
 function normalizeEmail(value: string | null | undefined, required = false) {
   const clean = value?.trim().toLowerCase() || null;
   if (!clean && !required) return null;
@@ -868,17 +854,6 @@ function cleanText(value: unknown, maxLength: number) {
     .slice(0, maxLength);
 }
 
-function safeDirectoryAddressText(value: unknown, maxLength: number, label: string) {
-  if (value === undefined || value === null) return "";
-  if (typeof value !== "string") throw new Error(`${label} musí byť text.`);
-  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F<>]/u.test(value)) {
-    throw new Error(`${label} obsahuje nepovolené znaky.`);
-  }
-  const clean = value.replace(/\r\n?/g, "\n").trim();
-  if (clean.length > maxLength) throw new Error(`${label} je príliš dlhá hodnota.`);
-  return clean;
-}
-
 function normalizeOptionalUrl(value: unknown, label: string) {
   const clean = cleanText(value, 500);
   if (!clean) return "";
@@ -889,14 +864,6 @@ function normalizeOptionalUrl(value: unknown, label: string) {
   } catch {
     throw new Error(`${label} musí byť platná adresa začínajúca http:// alebo https://.`);
   }
-}
-
-function normalizePublicPhone(value: string | null | undefined) {
-  const clean = value?.trim() ?? "";
-  if (!clean) return "";
-  if (clean.length > 50 || !/^[+0-9() .\/-]+$/.test(clean))
-    throw new Error("Telefónne číslo nie je platné.");
-  return clean;
 }
 
 function normalizeQualityCheckedAt(value: string | undefined) {
