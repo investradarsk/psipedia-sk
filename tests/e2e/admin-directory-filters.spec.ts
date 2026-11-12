@@ -325,8 +325,16 @@ test.describe("admin directory v2", () => {
       page.getByRole("button", { name: "Uložiť koncept" }).click(),
     ]);
     expect(perexSaveResponse.status()).toBe(200);
+    const perexRequest = perexSaveResponse.request().postDataJSON() as {
+      excerpt?: string; breederEditedPaths?: string[]; breederOriginalText?: { excerpt?: string };
+    };
+    // Diagnose the source of an unchanged D1 value: client payload vs server
+    // field-preservation policy. Never accept an HTTP 200 with silent data loss.
+    expect(perexRequest.excerpt, "React/editor submitted an outdated Perex").toBe(changedExcerpt);
+    expect(perexRequest.breederOriginalText?.excerpt).toBe(savedProfile.excerpt);
+    expect(perexRequest.breederEditedPaths, "New Perex missing in changedPaths").toContain("excerpt");
     const perexReceipt = (await perexSaveResponse.json()).profile;
-    expect(perexReceipt.excerpt).toBe(changedExcerpt);
+    expect(perexReceipt.excerpt, "Server returned 200 without persisting the changed Perex").toBe(changedExcerpt);
     expect(perexReceipt.description).toBe(initialDescription);
     await expect(page.locator("form.admin-directory-editor").getByText("Koncept je bezpečne uložený.")).toBeVisible();
     const afterPerexResponse = await page.request.get(`/api/admin/directory/${id}`);
