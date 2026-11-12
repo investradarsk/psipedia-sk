@@ -72,7 +72,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const[pickerMarkerBusy,setPickerMarkerBusy]=useState<number|null>(null);
   const[selectionBusy,setSelectionBusy]=useState(false);
   const[selectedContentUrl,setSelectedContentUrl]=useState("");
-  const[selectedProfile,setSelectedProfile]=useState<{category:string;logoUrl:string}|null>(null);
+  const[selectedProfile,setSelectedProfile]=useState<{id:number;group:string;categorySlug:string;category:string;logoUrl:string}|null>(null);
   const[inlineDraft,setInlineDraft]=useState<{id:string;version:number;key:string;title:string;caption:string}|null>(null);
   const[inlineBusy,setInlineBusy]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
@@ -220,7 +220,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       const categoryLabel=(pickerGroup==="directory"?shortCategoryNames[pickerCategory]:null)||
         pickerGroups.find(group=>group.id===pickerGroup)?.categories
         .find(category=>category.slug===pickerCategory)?.label||pickerCategory;
-      setSelectedProfile(result.profile?{category:categoryLabel,logoUrl:result.logo?.imageUrl||""}:null);
+      setSelectedProfile(result.profile?{id:selected.id,group:pickerGroup,categorySlug:pickerCategory,category:categoryLabel,logoUrl:result.logo?.imageUrl||""}:null);
       setPickerError(result.profile&&result.logo?.imageUrl?"":imageWarning);
       setNotice(result.profile?(result.logo?.imageUrl
         ?"Profil a logo boli prevzaté. V editore vyber šablónu Predstavujeme profil."
@@ -231,6 +231,20 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       setPickerKind("none");
     }catch(error){setPickerError(error instanceof Error?error.message:"Výber obsahu zlyhal.");}
     finally{setSelectionBusy(false);}
+  }
+  async function reloadSelectedProfileLogo():Promise<string>{
+    if(!selectedProfile)throw Error("Najprv vyber profil z adresára.");
+    const response=await fetch("/api/admin/facebook-images/profile-picker",{
+      method:"POST",credentials:"same-origin",cache:"no-store",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({profileId:selectedProfile.id,group:selectedProfile.group,category:selectedProfile.categorySlug}),
+    });
+    const result=await response.json() as {logo?:{imageUrl:string};logoWarning?:string;error?:string};
+    if(!response.ok)throw Error(result.error||"Logo sa nepodarilo načítať.");
+    const url=result.logo?.imageUrl||"";
+    if(!url)throw Error(result.logoWarning||"Profil nemá uložené logo. Nahraj ho ručne.");
+    setSelectedProfile(old=>old?{...old,logoUrl:url}:old);
+    return url;
   }
   const queryKey=`${month}|${status}|${source}|${page}|${refresh}`;
   const activeInline=inlineDraft?.key===queryKey&&data.items.some(item=>
@@ -625,6 +639,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         {graphicOpen?
           <AdminFacebookGraphicEditor initialTitle={form.title} initialPhotoUrl={form.imageUrl}
             initialProfileCategory={selectedProfile?.category} initialProfileLogoUrl={selectedProfile?.logoUrl}
+            onReloadProfileLogo={selectedProfile?reloadSelectedProfileLogo:undefined}
             onUse={async(file,title)=>{const success=await upload(file);if(success){setForm(old=>({...old,title}));setGraphicOpen(false);}return success;}}
             onCancel={()=>setGraphicOpen(false)} />:
           <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked||selectionBusy||pickerMarkerBusy!==null} className={styles.fields}>
