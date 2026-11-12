@@ -94,6 +94,7 @@ export type NotionArticleSyncSummary = {
 
 const SYNC_ACTOR = "notion-sync@psipedia.sk";
 const MAX_SYNC_ITEMS = 100;
+const MAX_LEGACY_READY_RECEIPTS_PER_SWEEP = 30;
 const MAX_EDITORIAL_UPDATES_PER_SWEEP = 20;
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_REMOTE_IMAGE_REDIRECTS = 3;
@@ -1047,7 +1048,26 @@ async function listReadyNotionPages(bindings: NotionSyncBindings) {
   const dataSourceId = bindings.NOTION_ARTICLES_DATA_SOURCE_ID?.trim();
   if (!dataSourceId) throw new Error("NOTION_ARTICLES_DATA_SOURCE_ID nie je nakonfigurovaný.");
 
-  const results: NotionPage[] = [];
+  // Retry legacy unapproved Ready errors for receipt-only reconciliation.
+  // A matching published canonical article and unchanged hash are mandatory.
+  const legacy = await notionRequest<NotionQueryResponse>(
+    bindings,
+    `/data_sources/${encodeURIComponent(dataSourceId)}/query`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        filter: { and: [
+          { property: "Stav", select: { equals: "Ready" } },
+          { property: "Odoslať na Psipedia", checkbox: { equals: false } },
+          { property: "Psipedia ID", rich_text: { is_not_empty: true } },
+          { property: "Sync chyba", rich_text: { contains: "Prepojený článok už nie je Draft" } },
+        ] },
+        sorts: [{ timestamp: "last_edited_time", direction: "ascending" }],
+        page_size: MAX_LEGACY_READY_RECEIPTS_PER_SWEEP,
+      }),
+    },
+  );
+  const results: NotionPage[] = [...(legacy.results ?? [])];
   let cursor: string | null = null;
   do {
     const response = await notionRequest<NotionQueryResponse>(
@@ -2013,8 +2033,15 @@ async function syncOneNotionPage(
     if (pending) throw new Error("NOTION_EDITORIAL_WRITEBACK_PENDING");
   }
   const mapping = await loadMapping(database, page.id);
+  const legacyUnapprovedReady = selectProperty(page, "Stav") === "Ready"
+    && !checkboxProperty(page, "Odoslať na Psipedia")
+    && richTextProperty(page, "Sync chyba").includes("Prepojený článok už nie je Draft");
   const previousSeo = mapping ? decodeArticleSeoReceipt(mapping.content_hash).seo : null;
   const mappedExisting = mapping ? await getManagedArticleById(Number(mapping.article_id)) : null;
+  // Unapproved legacy Ready rows must never create a new draft or publish.
+  if (legacyUnapprovedReady && (!mapping || mappedExisting?.status !== "published")) {
+    return "unchanged";
+  }
   // Review-only Notion drafts must not be treated as failed syncs. A public
   // canonical counterpart is the sole exception to their review-state gate.
   if (selectProperty(page, "Stav") === "Na kontrolu") {
@@ -2077,6 +2104,29 @@ async function syncOneNotionPage(
     notionImageCreditUrl,
   }));
   const now = new Date().toISOString();
+
+  if (legacyUnapprovedReady) {
+    // Metadata-only repair: keep the opt-in false and public content intact.
+    if (!mapping || !existing || existing.status !== "published"
+      || richTextProperty(page, "Psipedia ID") !== String(existing.id)) {
+      throw new Error("ARTICLE_LEGACY_READY_IDENTITY_REVIEW_REQUIRED");
+    }
+    if (decodeArticleSeoReceipt(mapping.content_hash).hash !== contentHash) {
+      throw new Error("ARTICLE_LEGACY_READY_CONTENT_REVIEW_REQUIRED");
+    }
+    const receiptTime = Date.parse(mapping.last_synced_at);
+    const adminTime = Date.parse(existing.updatedAt);
+    if (existing.updatedBy !== SYNC_ACTOR
+      && (!Number.isFinite(receiptTime) || !Number.isFinite(adminTime)
+        || adminTime > receiptTime)) {
+      throw new Error("ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION");
+    }
+    await upsertMapping(database, page, existing.id, contentHash, now);
+    await updateNotionSyncState(bindings, page.id, {
+      state: "Synchronizované", articleId: existing.id, syncedAt: now,
+    });
+    return "unchanged";
+  }
 
   if (existing) {
     if (mapping && decodeArticleSeoReceipt(mapping.content_hash).hash === contentHash) {
