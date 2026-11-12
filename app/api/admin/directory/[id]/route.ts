@@ -521,7 +521,7 @@ export async function PUT(request: Request, { params }: Props) {
     // Validate the actual D1 result, never a successful HTTP call or a stale
     // form echo. In particular, an unpersisted Perex must never say "Uložené".
     const cleanText = (value: unknown) => typeof value === "string"
-      ? value.replace(/\\r\\n?/g, "\\n").trim() : "";
+      ? value.replace(/\r\n?/g, "\n").trim() : "";
     const mismatchedText = (["excerpt", "description"] as const).filter(field =>
       editedPaths?.includes(field) &&
       cleanText(saved[field]) !== cleanText(payload[field]),
