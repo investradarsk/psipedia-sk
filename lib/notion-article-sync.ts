@@ -1,4 +1,5 @@
 import { notionPageMustSkipInboundSync } from "./admin-record-lifecycle";
+import { ARTICLE_NOTION_SEO_PROPERTIES as SEO } from "./notion-article-seo-properties";
 import { notionRequest as notionSharedRequest } from "@/lib/notion-sync-shared";
 import { recordNotionTransfer } from "@/lib/notion-transfer-audit";
 import { readNotionFieldAuthorities, type NotionFieldMode } from "@/lib/notion-field-authority";
@@ -965,12 +966,12 @@ export function notionPageToManagedArticleInput(
   const notionCategory = selectProperty(page, "Kategória");
   const notionSubsection = selectProperty(page, "Podsekcia");
   const contentType = selectProperty(page, "Typ obsahu");
-  const metaDescription = richTextProperty(page, "Meta description");
+  const metaDescription = richTextProperty(page, SEO.metaDescription.name);
   const socialCaption = propertyRecord(page, "Popis na sociálne siete")
     ? richTextProperty(page, "Popis na sociálne siete")
     : (existing && "socialCaption" in existing ? (existing as { socialCaption?: string }).socialCaption ?? "" : "");
-  const seoTitle = richTextProperty(page, "SEO title");
-  const focusKeyword = richTextProperty(page, "Hlavné kľúčové slovo");
+  const seoTitle = richTextProperty(page, SEO.seoTitle.name);
+  const focusKeyword = richTextProperty(page, SEO.focusKeyword.name);
   const { intro, introRichText, blocks: articleBlocks } = convertBodyBlocks(blocks);
 
   if (!title) throw new Error("Doplň v Notione názov článku.");
