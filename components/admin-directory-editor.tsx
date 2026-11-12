@@ -393,7 +393,9 @@ export function AdminDirectoryEditor({
   }
 
   async function save(nextStatus: DirectoryProfileStatus) {
-    if (saving || uploading || galleryBusy || savePendingRef.current || notionReadOnly) return;
+    // A newly created profile must finish navigation into its canonical D1 editor
+    // before another save may run; otherwise a pending create form can POST twice.
+    if (saving || uploading || galleryBusy || savePendingRef.current || notionReadOnly || createdProfileHref) return;
     if (notionDraft && nextStatus === "published") {
       setError("Najprv bezpečne importuj koncept do D1 a publikuj v natívnom editore.");
       return;
@@ -858,7 +860,7 @@ export function AdminDirectoryEditor({
 
   const categoryInfo = getDirectoryCategory(category);
   return (
-    <form ref={formRef} inert={saving} aria-busy={saving} noValidate data-hydrated="false" data-admin-form-system="v4" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
+    <form ref={formRef} inert={saving} aria-busy={saving} data-directory-profile-id={profile?.id ?? ""} noValidate data-hydrated="false" data-admin-form-system="v4" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
       <AdminEditorSectionVisibility.Provider value={{ activeId: currentDirectorySection, mode: "switch" }}>
       <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
 
