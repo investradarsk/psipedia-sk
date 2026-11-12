@@ -217,7 +217,11 @@ export function AdminFacebookGraphicEditor({
     if (accepted[0]) { setPhoto(accepted[0]); setError(""); }
   }, []);
   const onLogoDrop=useCallback((accepted:File[])=>{
-    if(accepted[0]){setProfileLogoFile(accepted[0]);setCleanLogo(null);setError("");}
+    if(accepted[0]){
+      setProfileLogoFile(accepted[0]);setCleanLogo(null);setError("");
+      setProfileOptions(old=>({...old,cropLeft:0,cropRight:0,cropTop:0,cropBottom:0,
+        zoom:100,offsetX:0,offsetY:0,removeWhite:false}));
+    }
   },[]);
   const logoDropzone=useDropzone({
     onDrop:onLogoDrop,onDropRejected:()=>setError("Použi logo JPG, PNG alebo WebP do 8 MB."),
@@ -242,6 +246,8 @@ export function AdminFacebookGraphicEditor({
       const url=await onReloadProfileLogo();
       const file=await loadProfileLogoFile(url);
       setProfileLogoFile(file);setCleanLogo(null);
+      setProfileOptions(old=>({...old,cropLeft:0,cropRight:0,cropTop:0,cropBottom:0,
+        zoom:100,offsetX:0,offsetY:0,removeWhite:false}));
     }catch(error){setError(error instanceof Error?error.message:"Logo sa nepodarilo načítať. Nahraj ho ručne.");}
     finally{setLogoReloading(false);}
   }
