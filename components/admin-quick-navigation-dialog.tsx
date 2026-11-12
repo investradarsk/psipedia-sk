@@ -63,6 +63,8 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
   const [loading, setLoading] = useState(false);
   const [incomplete, setIncomplete] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
+  const searchGeneration = useRef(0);
   const cache = useRef(new Map<string, CachedRecords>());
   // Match the server's 80-character bound: keystrokes beyond that limit
   // must not refetch the identical D1 query or create duplicate cache keys.
@@ -83,6 +85,8 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
     if (cached) cache.current.delete(term);
 
     const controller = new AbortController();
+    const generation = searchGeneration.current;
+    const isCurrent = () => !controller.signal.aborted && generation === searchGeneration.current;
     const timer = window.setTimeout(async () => {
       try {
         const response = await fetch("/api/admin/global-search?q=" + encodeURIComponent(term), {
@@ -94,31 +98,36 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
           error?: string;
         };
         if (!response.ok) throw new Error(data.error ?? "Vyhľadávanie nie je dostupné.");
-        if (controller.signal.aborted) return;
+        if (!isCurrent()) return;
         const results = (data.results ?? []).map(record => ({
           label: record.title, subtitle: record.subtitle, category: record.category,
           href: record.href, keywords: "",
         }));
         const incomplete = Boolean(data.incomplete);
+        // Partial results can be stale as soon as a migrating data source
+        // recovers. Never keep incomplete responses in the local cache.
         cache.current.delete(term);
-        cache.current.set(term, { results, incomplete, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
-        if (cache.current.size > SEARCH_CACHE_LIMIT) {
-          const oldest = cache.current.keys().next().value;
-          if (oldest !== undefined) cache.current.delete(oldest);
+        if (!incomplete) {
+          cache.current.set(term, { results, incomplete, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
+          if (cache.current.size > SEARCH_CACHE_LIMIT) {
+            const oldest = cache.current.keys().next().value;
+            if (oldest !== undefined) cache.current.delete(oldest);
+          }
         }
         setRecords(results);
         setIncomplete(incomplete);
         setSearchError("");
         setLoading(false);
       } catch (error) {
-        if (!controller.signal.aborted) {
+        if (isCurrent()) {
           setSearchError(error instanceof Error ? error.message : "Vyhľadávanie nie je dostupné.");
+          setIncomplete(false);
           setLoading(false);
         }
       }
     }, /^#?[1-9]\d*$/.test(term) ? 0 : SEARCH_DEBOUNCE_MS);
     return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [open, searchTerm]);
+  }, [open, searchTerm, retryCount]);
 
 
   // Keyboard navigation and pointer hover only update active index. Neither
@@ -134,6 +143,16 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
   function changeOpen(value: boolean) {
     onOpenChange(value);
   }
+  function retrySearch() {
+    if (!shouldSearchRecords(searchTerm)) return;
+    searchGeneration.current += 1;
+    cache.current.delete(searchTerm);
+    setRecords([]);
+    setLoading(true);
+    setSearchError("");
+    setIncomplete(false);
+    setRetryCount(count => count + 1);
+  }
   function go(href: string) {
     const navigate = () => {
       const target = new URL(href, window.location.origin);
@@ -148,12 +167,14 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
     };
     // Ctrl+K uses buttons. Ask the shared dirty editor guard before router.push,
     // preserving the current draft if the user declines the exit.
-    changeOpen(false);
     const event = new CustomEvent<AdminNavigationIntent>(ADMIN_NAVIGATION_INTENT_EVENT, {
       cancelable: true,
       detail: { href, navigate },
     });
+    // A dirty editor may cancel navigation; keep this dialog and its search
+    // results intact in that case, rather than closing and losing the query.
     if (!window.dispatchEvent(event)) return;
+    changeOpen(false);
     navigate();
   }
   function handleKeys(event: KeyboardEvent<HTMLInputElement>) {
@@ -192,7 +213,7 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
               aria-controls="admin-quick-navigation-results"
               aria-activedescendant={results.length ? "admin-quick-nav-option-" + selected : undefined}
               value={query}
-              onChange={event => { setQuery(event.target.value); setActive(0); setRecords([]); setLoading(shouldSearchRecords(event.target.value)); setSearchError(""); setIncomplete(false); }}
+              onChange={event => { setQuery(event.target.value); searchGeneration.current += 1; setActive(0); setRecords([]); setLoading(shouldSearchRecords(event.target.value)); setSearchError(""); setIncomplete(false); }}
               onKeyDown={handleKeys}
               placeholder="Názov profilu alebo Admin ID (napr. 1842)…"
             />
@@ -213,11 +234,14 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
                 <span><strong>{item.label}</strong><small>{item.category}{item.subtitle ? " · " + item.subtitle : ""}</small></span>
                 <span className={styles.arrow} aria-hidden="true">↗</span>
               </button>
-            )) : !loading && <p className={styles.empty}>Takúto sekciu som nenašiel. Skús iné slovo.</p>}
+            )) : !loading && !searchError && !incomplete && <p className={styles.empty}>Takúto sekciu som nenašiel. Skús iné slovo.</p>}
           </div>
           {loading && <p className={styles.searchFeedback} role="status">Hľadám záznamy…</p>}
           {searchError && <p className={styles.searchFeedback} role="alert">{searchError}</p>}
           {incomplete && <p className={styles.searchFeedback} role="status">Niektoré zdroje sú dočasne nedostupné.</p>}
+          {(searchError || incomplete) && shouldSearchRecords(searchTerm) && (
+            <button type="button" className={styles.retry} onClick={retrySearch} disabled={loading}>Skúsiť vyhľadávanie znova</button>
+          )}
           <div className={styles.footer}>↑ ↓ výber · Enter otvoriť · Esc zavrieť</div>
         </Dialog.Content>
       </Dialog.Portal>
