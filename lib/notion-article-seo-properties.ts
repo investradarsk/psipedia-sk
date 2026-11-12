@@ -44,6 +44,21 @@ function property(page: SeoNotionPage, name: string): NotionProperty | null {
     ? value as NotionProperty : null;
 }
 
+/** Malformed remote properties must never be interpreted as explicit deletes. */
+function readableSeoProperty(page: SeoNotionPage, field: ArticleNotionSeoKey): boolean {
+  const def = ARTICLE_NOTION_SEO_PROPERTIES[field];
+  const raw = property(page, def.name);
+  if (!raw || (raw.type && raw.type !== def.type)) return false;
+  if (def.type === "checkbox") return typeof raw.checkbox === "boolean";
+  if (def.type === "url") return raw.url === null || typeof raw.url === "string";
+  if (!Array.isArray(raw.rich_text)) return false;
+  return raw.rich_text.every((node: unknown) => {
+    if (!node || typeof node !== "object") return false;
+    const item = node as { plain_text?: unknown; text?: { content?: unknown } };
+    return typeof item.plain_text === "string" || typeof item.text?.content === "string";
+  });
+}
+
 function textProperty(page: SeoNotionPage, name: string): string {
   const raw = property(page, name)?.rich_text;
   if (!Array.isArray(raw)) return "";
@@ -72,7 +87,8 @@ export function articleSeoExplicitClears(
   if (!previous) return cleared;
   for (const field of Object.keys(ARTICLE_NOTION_SEO_PROPERTIES) as ArticleNotionSeoKey[]) {
     const def = ARTICLE_NOTION_SEO_PROPERTIES[field];
-    if (!Object.hasOwn(previous, field) || !Object.hasOwn(page.properties ?? {}, def.name)) continue;
+    if (!Object.hasOwn(previous, field) || !Object.hasOwn(page.properties ?? {}, def.name) ||
+        !readableSeoProperty(page, field)) continue;
     const oldValue = previous[field];
     const current = def.type === "checkbox"
       ? property(page, def.name)?.checkbox
@@ -107,7 +123,9 @@ export function articleSeoFromNotion(
   const canonicalUrl = cleared.has("canonicalUrl") ? "" : urlProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.canonicalUrl.name)
     || old?.canonicalUrl || "";
   const noindex = cleared.has("noindex") ? false
-    : property(page, ARTICLE_NOTION_SEO_PROPERTIES.noindex.name)?.checkbox === true || old?.noindex === true;
+    : (readableSeoProperty(page, "noindex") &&
+       property(page, ARTICLE_NOTION_SEO_PROPERTIES.noindex.name)?.checkbox === true) ||
+      old?.noindex === true;
   const ogTitle = cleared.has("ogTitle") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogTitle.name)
     || (existing ? old?.ogTitle ?? "" : seoTitle);
   const ogDescription = cleared.has("ogDescription") ? "" : textProperty(page, ARTICLE_NOTION_SEO_PROPERTIES.ogDescription.name)
