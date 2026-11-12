@@ -51,7 +51,8 @@ test("homepage uses the shared responsive hero and cards use R2 srcsets", () => 
   const unifiedHero = read("components/public-visual-system/unified-section-hero.tsx");
   // The homepage now delegates its hero image, crop and priority to this shared component.
   assert.match(homepage, /<UnifiedSectionHero\s+[\s\S]*?visual=\{homeHero\}/);
-  assert.match(unifiedHero, /responsiveMediaSrcSet\(visual\.imageUrl/);
+  assert.match(unifiedHero, /publicHeroImageSrcSet\(visual\.imageUrl/);
+  assert.match(read("lib/public-hero-image.ts"), /responsiveMediaSrcSet\(src, \[640, 960, 1280, 1600, 1920\]\)/);
   assert.match(unifiedHero, /sizes=/);
   assert.match(unifiedHero, /fetchPriority=\{variant === "homepage-style" \? "high" : undefined\}/);
   assert.match(unifiedHero, /style=\{visualStyle\(visual\)\}/);
