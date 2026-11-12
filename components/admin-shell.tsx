@@ -39,7 +39,7 @@ async function AdminNotificationBell({
 }: {
   count?: number;
   partial?: boolean;
-  summaryPromise?: ReturnType<typeof loadExactAdminAttentionSummary>;
+  summaryPromise?: ReturnType<typeof loadRequestAdminAttentionSummary>;
 }) {
   let activeCount = count;
   let incomplete = partial;
@@ -98,7 +98,7 @@ export function AdminShell({
   children: ReactNode;
   attentionCount?: number;
   attentionCountPartial?: boolean;
-  attentionSummaryPromise?: ReturnType<typeof loadExactAdminAttentionSummary>;
+  attentionSummaryPromise?: ReturnType<typeof loadRequestAdminAttentionSummary>;
 }) {
   return (
     <main id="obsah" className="admin-root" data-admin-shell>
