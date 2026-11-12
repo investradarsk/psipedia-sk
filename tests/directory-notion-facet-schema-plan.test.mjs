@@ -6,6 +6,7 @@ import {
 import { directoryFilterRegistry } from "../lib/directory-filter-contract.ts";
 
 const options=[{name:"Áno"},{name:"Nie"},{name:"Neznáme"}];
+const facilityOptions=[{name:"Ambulancia"},{name:"Klinika"},{name:"Nemocnica"},{name:"Neznáme"}];
 const base={
   "Názov":{type:"title"},
   "Psipedia ID":{type:"text"},
@@ -17,7 +18,7 @@ const provisioned=[
 ];
 const schemaWithSeven=()=>Object.fromEntries([
   ...Object.entries(base),
-  ...provisioned.map(key=>[key,{type:"select",options}]),
+  ...provisioned.map(key=>[key,{type:"select",options:key==="Typ pracoviska"?facilityOptions:options}]),
 ]);
 
 test("the existing Directory data source has a deterministic read-only 14-column select plan",()=>{
@@ -38,7 +39,9 @@ test("the existing Directory data source has a deterministic read-only 14-column
 });
 test("schema plan is idempotent and cannot target an unrelated workspace database",()=>{
  const schema=schemaWithSeven();
- for(const field of directoryFilterRegistry)schema[field.notion.property]={type:"select",options};
+ for(const field of directoryFilterRegistry)schema[field.notion.property]={
+  type:"select",options:field.id==="veterinari.facility_type"?facilityOptions:options,
+ };
  const noOp=planDirectoryNotionFacetColumns({
   dataSourceId:DIRECTORY_NOTION_DATA_SOURCE_ID.replaceAll("-","").toUpperCase(),schema,
  });
@@ -50,5 +53,16 @@ test("schema plan is idempotent and cannot target an unrelated workspace databas
  const bad={...schema, "Pohotovosť":{type:"text"}};
  assert.throws(()=>planDirectoryNotionFacetColumns({
   dataSourceId:DIRECTORY_NOTION_DATA_SOURCE_ID,schema:bad,
+ }),/DIRECTORY_NOTION_FACET_SCHEMA_CONFLICT/);
+});
+
+test("facility type uses the existing four Notion select labels, not yes/no",()=>{
+ const actual=schemaWithSeven();
+ assert.equal(planDirectoryNotionFacetColumns({
+  dataSourceId:DIRECTORY_NOTION_DATA_SOURCE_ID,schema:actual,
+ }).existing,7);
+ assert.throws(()=>planDirectoryNotionFacetColumns({
+  dataSourceId:DIRECTORY_NOTION_DATA_SOURCE_ID,
+  schema:{...actual,"Typ pracoviska":{type:"select",options}},
  }),/DIRECTORY_NOTION_FACET_SCHEMA_CONFLICT/);
 });
