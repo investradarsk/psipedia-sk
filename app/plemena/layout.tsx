@@ -1,8 +1,16 @@
 import type { ReactNode } from "react";
-import "./breed-reference.css";
 
-// Route-only CSS: the full breed atlas/editorial reference rules are not
-// required on the homepage, articles or directory.
+// React 19 hoists route-owned stylesheets into <head> with precedence and
+// suspends rendering until styles are ready. Unlike a Vite CSS import,
+// this public file cannot be concatenated into the homepage's index CSS.
+// Change the fingerprint whenever its contents change.
+const BREED_STYLESHEET = "/styles/breed-reference-3f5dab25d000.css";
+
 export default function BreedLayout({ children }: { children: ReactNode }) {
-  return children;
+  return (
+    <>
+      <link rel="stylesheet" href={BREED_STYLESHEET} precedence="high" />
+      {children}
+    </>
+  );
 }

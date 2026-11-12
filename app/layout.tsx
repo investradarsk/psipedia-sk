@@ -6,7 +6,7 @@ import { NativeHistoryNavigation } from "@/components/native-history-navigation"
 import { CookieConsent } from "@/components/cookie-consent";
 import { ProgrammaticAdLoader } from "@/components/programmatic-ad-loader";
 import { StructuredData } from "@/components/structured-data";
-import { BackToTop } from "@/components/back-to-top";
+import { LazyBackToTop } from "@/components/lazy-back-to-top";
 import { isValidGooglePublisherClientId } from "@/lib/monetization";
 import { getNavigationItems } from "@/lib/navigation-store";
 import { portalSections } from "@/lib/portal";
@@ -96,7 +96,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <SiteHeader navigationItems={navigationItems} partnerAuthenticated={Boolean(partnerSession)} />
         {children}
         <SiteFooter />
-        <BackToTop />
+        <LazyBackToTop />
         <CookieConsent advertisingEnabled={advertisingConsentEnabled} />
         <ProgrammaticAdLoader enabled={advertisingConsentEnabled} clientId={programmaticClientId} />
       </body>
