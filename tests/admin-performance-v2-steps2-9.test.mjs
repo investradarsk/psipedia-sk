@@ -129,7 +129,7 @@ test("9/10 Shared table stabilizes equal page selections without changing bulk w
   assert.match(table, /inputDataAttribute=\{selectionRowInputDataAttribute\}/);
   assert.match(table, /disabled=\{busy \|\| selectionDisabled\}/);
   assert.match(table, /\[columns, selectionEnabled, selectionDisabled, selectionRowLabel, selectionAllLabel,/);
-  assert.match(table, /serverSortingEnabled, serverSortAllowedIdsKey\]/);
+  assert.match(table, /selectionRowInputDataAttribute, label, busy, rows\.length, serverSorted, serverSorting\]/);
   assert.doesNotMatch(table, /\[columns, selection, label, busy, rows\.length, serverSorted, serverSorting\]/);
   assert.match(table, /selection\.onChange\(rows\.filter/);
   const orgQuery = parse("lib/help-organization-admin-query.ts");
