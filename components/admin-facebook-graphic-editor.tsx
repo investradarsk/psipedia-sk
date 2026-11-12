@@ -78,6 +78,7 @@ export function AdminFacebookGraphicEditor({
     logoScale: 100,
   });
   const [selectedTemplate,setSelectedTemplate]=useState<Template>(initialProfileCategory?"profile":"gradient");
+  const [error, setError] = useState("");
   const [profileLayout,setProfileLayout]=useState<ProfileLayout>(DEFAULT_PROFILE_LAYOUT);
   const [profileOptions,setProfileOptions]=useState<ProfileLogoOptions>(DEFAULT_PROFILE_LOGO_OPTIONS);
   const [selectedProfilePart,setSelectedProfilePart]=useState<ProfilePart|null>(null);
@@ -162,7 +163,6 @@ export function AdminFacebookGraphicEditor({
   const [photo, setPhoto] = useState<File | null>(null);
   const [loaded, setLoaded] = useState<{ file: File; bitmap: ImageBitmap } | null>(null);
   const bitmap = loaded?.file === photo ? loaded.bitmap : null;
-  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   // Display the exact image selected in the Facebook post. Normally it is
   // staged under /media/facebook-images; allow older safe Psipedia assets too.
