@@ -31,9 +31,12 @@ export function directoryEditedFieldMismatches(input: {
     return JSON.stringify(norm(left)) === JSON.stringify(norm(right));
   };
   return [...new Set(input.editedPaths)].filter(path => {
-    // Services V3 choices are saved via their dedicated CAS endpoint, never
-    // as editorial free-text in the ordinary profile PUT.
-    if (path === "services") return false;
+    // These five categories use a separate Services V3 / trainer prose
+    // channel. Salon and breeder legacy service lines are still editable.
+    if (path === "services" && [
+      "treneri", "veterinari", "kynologicke-kluby",
+      "fyzioterapia", "dalsie-sluzby",
+    ].includes(input.persisted.category)) return false;
     const requested = breederReadPath(expected, path);
     if (requested === undefined) return false;
     const persisted = breederReadPath(actual, path);
