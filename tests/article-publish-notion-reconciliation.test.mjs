@@ -46,6 +46,31 @@ const syncDependencies = {
   "@/lib/portal": { articleHref: ({ portalSection, slug }) => "/" + portalSection + "/" + slug },
   "@/lib/article-subsection-taxonomy": {},
   "@/config/public-site": { SITE_URL: "https://psipedia.sk" },
+  "./notion-article-seo-properties": {
+    ARTICLE_NOTION_SEO_PROPERTIES: {
+      seoTitle: { name: "SEO title", type: "rich_text" },
+      metaDescription: { name: "Meta description", type: "rich_text" },
+      focusKeyword: { name: "Hlavné kľúčové slovo", type: "rich_text" },
+      canonicalUrl: { name: "Canonical URL", type: "url" },
+      noindex: { name: "Noindex", type: "checkbox" },
+      ogTitle: { name: "OG title", type: "rich_text" },
+      ogDescription: { name: "OG popis", type: "rich_text" },
+      ogImageUrl: { name: "OG obrázok", type: "url" },
+    },
+    articleSeoFromNotion: () => ({}),
+    articleSeoExplicitClears: () => new Set(),
+  },
+  "./notion-article-seo-receipt": {
+    decodeArticleSeoReceipt: value => ({ hash: value, seo: null }),
+    encodeArticleSeoReceipt: hash => hash,
+  },
+  "./notion-article-seo-writeback": {
+    articleSeoChangedFields: () => [],
+    articleSeoUnacknowledgedRemoteFields: () => [],
+    planArticleSeoIndependentWriteback: () => ({ ready: [], failures: [] }),
+    projectArticleSeoConfirmedBaseline: page => page,
+    verifyArticleSeoPatch: () => {},
+  },
   "@/lib/notion-article-content-plan": {},
 };
 
