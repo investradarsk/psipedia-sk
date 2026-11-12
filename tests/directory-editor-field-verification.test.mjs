@@ -64,6 +64,12 @@ test("explicit clear, multi-line qualification and field-scoped checks", () => {
     submitted: { seo: { noindex: true } },
     persisted: p, editedPaths: ["seo.noindex"],
   }), ["seo.noindex"]);
+  // Salon service lines are still editable in the ordinary profile editor.
+  assert.deepEqual(directoryEditedFieldMismatches({
+    submitted: { services: ["Strihanie psov"] },
+    persisted: profile({ category: "salony-a-sluzby", services: ["Kúpanie psov"] }),
+    editedPaths: ["services"],
+  }), ["services"]);
 });
 
 test("all ten categories are guarded by the same confirmed-save contract", () => {
