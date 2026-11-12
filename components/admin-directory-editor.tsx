@@ -983,11 +983,9 @@ export function AdminDirectoryEditor({
                 setDistrict(location.district);
                 setCity(location.city);
                 if (changed) {
+                  // Changing one location choice must not silently erase other
+                  // editorial text. Only revoke an obsolete provider selection.
                   setAddressProviderResultId("");
-                  setPostalCode("");
-                  setStreet("");
-                  setHouseNumber("");
-                  setAddressFormat("");
                   setNumberlessLocalityConfirmed(false);
                 }
               }}
@@ -998,7 +996,7 @@ export function AdminDirectoryEditor({
               </p>
             ) : null}
             <DirectoryAddressAutocomplete
-              key={`${region}|${district}|${city}|${street}`}
+              key={`${region}|${district}|${city}`}
               region={region}
               district={district}
               city={city}
@@ -1029,11 +1027,12 @@ export function AdminDirectoryEditor({
                 setAddressFormat(next.addressFormat);
               }}
             />
-            {street ? (
-              <div className="admin-field-grid" aria-label="Adresa prevádzky">
+            <div className="admin-field-grid" aria-label="Adresa prevádzky">
                 <div className="admin-field">
-                  <label>Ulica</label>
-                  <input value={street} readOnly />
+                  <label htmlFor="directory-street">Ulica / lokalita</label>
+                  <input id="directory-street" type="text" value={street}
+                    onChange={(event) => { setStreet(event.target.value); setAddressProviderResultId(""); }}
+                    placeholder="Ulica, areál alebo iná lokalita" />
                 </div>
                 <div className="admin-field">
                   <label htmlFor="directory-house-number">Číslo domu <small>nepovinné pri miestach bez prideleného čísla</small></label>
@@ -1042,10 +1041,7 @@ export function AdminDirectoryEditor({
                     value={houseNumber}
                     onChange={(event) => {
                       setHouseNumber(event.target.value);
-                      if (event.target.value.trim()) {
-                        setPostalCode("");
-                        setNumberlessLocalityConfirmed(false);
-                      }
+                      setNumberlessLocalityConfirmed(false);
                     }}
                     placeholder="Napríklad 1892/74 alebo 74"
                   />
@@ -1058,12 +1054,10 @@ export function AdminDirectoryEditor({
                     value={postalCode}
                     onChange={(event) => setPostalCode(event.target.value)}
                     placeholder="Napríklad 031 01"
-                    inputMode="numeric"
                   />
                   <small>{houseNumber.trim() ? "Ak PSČ nepoznáš, môže zostať prázdne; provider ho môže doplniť." : "PSČ je nepovinné. Ak ho nepoznáš, nechaj ho prázdne."}</small>
                 </div>
               </div>
-            ) : null}
             {addressEvaluation.state !== "COMPLETE" ? (
               <QualityResolutionField
                 field="address"
@@ -1144,11 +1138,11 @@ export function AdminDirectoryEditor({
             <div className="admin-card-heading"><div><span>04</span><div><h2>Kontakty a odkazy</h2><p>Kontaktné údaje, ktoré sa zobrazujú návštevníkom profilu.</p></div></div></div>
 <AdminEditorToolFrame kind="contacts">
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="tel" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type={category === "chovatelske-stanice" ? "text" : "email"} value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type={category === "chovatelske-stanice" ? "text" : "url"} value={websiteUrl} onChange={(event) => { const value = event.target.value; setWebsiteUrl(value); if (value.trim()) clearQualityResolution("website"); }} placeholder="https://…" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
-              <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type={category === "chovatelske-stanice" ? "text" : "url"} value={facebookUrl} onChange={(event) => setFacebookUrl(event.target.value)} placeholder="https://facebook.com/…" /></div>
-              <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type={category === "chovatelske-stanice" ? "text" : "url"} value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
+              <div className="admin-field"><label htmlFor="directory-phone">Verejný telefón <small>nepovinné</small></label><input id="directory-phone" type="text" value={publicPhone} onChange={(event) => { const value = event.target.value; setPublicPhone(value); if (value.trim()) clearQualityResolution("phone"); }} placeholder="+421 900 000 000" />{!publicPhone.trim() ? <QualityResolutionField field="phone" value={qualityResolutions.phone ?? ""} checkedAt={qualityCheckedAt.phone} onChange={(value) => setQualityResolution("phone", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-public-email">Verejný e-mail <small>nepovinné</small></label><input id="directory-public-email" type="text" value={publicEmail} onChange={(event) => { const value = event.target.value; setPublicEmail(value); if (value.trim()) clearQualityResolution("email"); }} placeholder="kontakt@profil.sk" />{!publicEmail.trim() ? <QualityResolutionField field="email" value={qualityResolutions.email ?? ""} checkedAt={qualityCheckedAt.email} onChange={(value) => setQualityResolution("email", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-website">Verejný web <small>nepovinné</small></label><input id="directory-website" type="text" value={websiteUrl} onChange={(event) => { const value = event.target.value; setWebsiteUrl(value); if (value.trim()) clearQualityResolution("website"); }} placeholder="https://…" />{!websiteUrl.trim() ? <QualityResolutionField field="website" value={qualityResolutions.website ?? ""} checkedAt={qualityCheckedAt.website} onChange={(value) => setQualityResolution("website", value)} /> : null}</div>
+              <div className="admin-field"><label htmlFor="directory-facebook">Facebook <small>nepovinné</small></label><input id="directory-facebook" type="text" value={facebookUrl} onChange={(event) => setFacebookUrl(event.target.value)} placeholder="https://facebook.com/…" /></div>
+              <div className="admin-field"><label htmlFor="directory-instagram">Instagram <small>nepovinné</small></label><input id="directory-instagram" type="text" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="https://instagram.com/…" /></div>
             </div>
             </AdminEditorToolFrame>
             <AdminHelpText term="Kvalita údajov">Ak profil web, telefón alebo e-mail naozaj nemá, nie je verejný alebo sa ho nepodarilo dohľadať, označ stav pri prázdnom poli. Taký údaj prestane byť falošným problémom v Kvalite údajov a po 12 mesiacoch sa automaticky znovu skontroluje.</AdminHelpText>
@@ -1216,7 +1210,7 @@ export function AdminDirectoryEditor({
                 onChange={(urls) => { setGalleryUrls(urls); setFormDirty(true); }}
               />
             ) : null}
-            {notionDraft && <div className="admin-field"><label htmlFor="directory-notion-logo">URL oficiálneho loga</label><input id="directory-notion-logo" type="url" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://…" /><small>Logo je samostatné od hlavnej fotografie. Nastavenie výrezu fotografie bude dostupné po synchronizácii profilu do Adresára.</small></div>}
+            {notionDraft && <div className="admin-field"><label htmlFor="directory-notion-logo">URL oficiálneho loga</label><input id="directory-notion-logo" type="text" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://…" /><small>Logo je samostatné od hlavnej fotografie. Nastavenie výrezu fotografie bude dostupné po synchronizácii profilu do Adresára.</small></div>}
             {!imageUrl ? (
               <QualityResolutionField
                 field="image"
