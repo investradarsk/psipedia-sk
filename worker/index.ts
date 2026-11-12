@@ -40,6 +40,11 @@ import {
 import { runMediaSourceMonitorSweep } from "../lib/media-source-monitor";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
 import {
+  IMMUTABLE_BUILD_ASSET_CACHE_CONTROL,
+  isEligibleImmutableBuildAsset,
+  isImmutableBuildAssetResponse,
+} from "../lib/public-static-asset-cache";
+import {
   isEligiblePublicMediaEdgeRequest,
   isCacheablePublicMediaEdgeResponse,
   PUBLIC_MEDIA_EDGE_TTL_SECONDS,
@@ -297,6 +302,16 @@ const worker = {
       }
       const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
       return servePublicSitemap(request, () => handler.fetch(request, env, ctx), storage, ctx);
+    }
+
+    // Fingerprinted vinext client chunks are immutable. Serve them directly
+    // from the public asset binding before running SSR/D1, but never intercept
+    // documents, admin/API endpoints, previews, ranges or missing asset files.
+    if (!isWorkersDevPreview && env.ASSETS && isEligibleImmutableBuildAsset(request, url)) {
+      const asset = await env.ASSETS.fetch(request);
+      if (isImmutableBuildAssetResponse(asset, url.pathname)) {
+        return responseWithHeader(asset, "Cache-Control", IMMUTABLE_BUILD_ASSET_CACHE_CONTROL);
+      }
     }
 
     const cache = publicHtmlCache(request, url, env.CF_VERSION_METADATA?.id);
