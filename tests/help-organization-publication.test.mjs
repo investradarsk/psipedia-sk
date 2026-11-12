@@ -162,7 +162,13 @@ test("organization admin finalization keeps create draft-only, OCC edits and exp
   assert.doesNotMatch(editorSource, /AdminRichTextEditor/);
   assert.match(listSource, /name="missingLocation"/);
   assert.match(listSource, /name="incomplete"/);
-  assert.match(listSource, /directoryProfileId/);
+  // The unified AdminRecordTable no longer renders directoryProfileId directly.
+  // Preserve the canonical Directory link in the data model and SQL projection.
+  const storeSource = readFileSync(new URL("../lib/help-organization-admin-store.ts", import.meta.url), "utf8");
+  assert.match(storeSource, /o\.directory_profile_id/);
+  assert.match(storeSource, /directoryProfileId: row\.directory_profile_id/);
+  assert.match(listSource, /<AdminRecordTable/);
+  assert.match(listSource, /href=\{`\/admin\/organizacie\/\$\{item\.id\}`\}/);
 });
 
 
