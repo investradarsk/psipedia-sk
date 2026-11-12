@@ -85,6 +85,9 @@ export function notionConflictMetadataNeedsWrite(input: {
 
 export type DirectorySyncErrorKind =
   | "BIDIRECTIONAL_CONFLICT"
+  | "MISSING_VERIFIED_BASELINE"
+  | "SERVICE_RELATION_UNVERIFIED_DELETE"
+  | "SERVICE_RELATION_SYNC_ERROR"
   | "CONFIRMED_SITE_REVIEW_REQUIRED"
   | "MISSING_HOUSE_NUMBER"
   | "INVALID_LOCALITY"
@@ -104,6 +107,14 @@ export type DirectorySyncErrorKind =
 
 export function classifyDirectorySyncError(message: string): DirectorySyncErrorKind {
   const error = message.trim().toLowerCase();
+  // Recovery categories: do not collapse all historic conflicts into the
+  // same opaque label or suggest a blind full-record write to fix them.
+  if (/services_relation_unverified_delete|services:unverified_delete/.test(error))
+    return "SERVICE_RELATION_UNVERIFIED_DELETE";
+  if (/services_relation_|directory_services_relation_/.test(error))
+    return "SERVICE_RELATION_SYNC_ERROR";
+  if (/baseline_unavailable/.test(error))
+    return "MISSING_VERIFIED_BASELINE";
   if (/^conflict:|bidirectional.conflict/.test(error)) return "BIDIRECTIONAL_CONFLICT";
   if (/illegal invocation|incorrect .this. reference/.test(error)) return "ILLEGAL_INVOCATION";
   if (/potvrden.*prevádz|confirmed.service.location/.test(error)) return "CONFIRMED_SITE_REVIEW_REQUIRED";
