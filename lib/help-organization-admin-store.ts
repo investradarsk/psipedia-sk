@@ -199,20 +199,29 @@ function adminWhere(filters: OrganizationAdminFilters) {
   return { where: clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "", args };
 }
 
-/** One read of each location table produces the three original global facets.
- * The labels are a fixed SQL literal whitelist; user filters never enter SQL.
+/** One D1 statement for all three global facets. Each UNION branch exactly
+ * matches the former DISTINCT query, including whitespace and case semantics.
+ * Unlike a CROSS JOIN with three CASE branches per source row, this form
+ * avoids repeated per-row CASE evaluation on large directories.
  */
 export const ORGANIZATION_ADMIN_LOCATION_FACETS_SQL = `
-  SELECT DISTINCT label.kind AS kind,
-    trim(CASE label.kind WHEN 'region' THEN source.region
-      WHEN 'district' THEN source.district ELSE source.city END) AS value
-  FROM (
-    SELECT region,district,city FROM organization_locations
-    UNION ALL SELECT region,district,city FROM help_organizations
-  ) AS source
-  CROSS JOIN (SELECT 'region' AS kind UNION ALL SELECT 'district' UNION ALL SELECT 'city') AS label
-  WHERE trim(CASE label.kind WHEN 'region' THEN source.region
-    WHEN 'district' THEN source.district ELSE source.city END) <> ''
+  SELECT 'region' AS kind, value FROM (
+    SELECT trim(region) AS value FROM organization_locations WHERE trim(region) <> ''
+    UNION
+    SELECT trim(region) AS value FROM help_organizations WHERE trim(region) <> ''
+  )
+  UNION ALL
+  SELECT 'district' AS kind, value FROM (
+    SELECT trim(district) AS value FROM organization_locations WHERE trim(district) <> ''
+    UNION
+    SELECT trim(district) AS value FROM help_organizations WHERE trim(district) <> ''
+  )
+  UNION ALL
+  SELECT 'city' AS kind, value FROM (
+    SELECT trim(city) AS value FROM organization_locations WHERE trim(city) <> ''
+    UNION
+    SELECT trim(city) AS value FROM help_organizations WHERE trim(city) <> ''
+  )
   ORDER BY kind, value COLLATE NOCASE ASC
 `;
 
