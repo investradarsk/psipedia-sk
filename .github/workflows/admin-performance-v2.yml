@@ -14,6 +14,8 @@ on:
       - "lib/admin-attention-request.ts"
       - "tests/admin-performance-v2-*.test.mjs"
       - "tests/admin-search-query-plans-v2.test.mjs"
+      - "tests/admin-global-search-ui-step6.test.mjs"
+      - "components/admin-quick-navigation.module.css"
       - "docs/ADMIN-PERFORMANCE-V2-**"
       - "package.json"
       - "package-lock.json"
