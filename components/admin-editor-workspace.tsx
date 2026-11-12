@@ -269,7 +269,7 @@ export function EditorWorkspace({
   // reattached for every keystroke in a long canonical editor.
   const sectionIds = sections.map(section => section.id).join("|");
   const onSectionChangeRef = useRef(onSectionChange);
-  onSectionChangeRef.current = onSectionChange;
+  useEffect(() => { onSectionChangeRef.current = onSectionChange; }, [onSectionChange]);
   const lastObservedSectionRef = useRef<string | null>(null);
   const currentSection = sections.some((section) => section.id === (activeSectionId ?? activeSection))
     ? (activeSectionId ?? activeSection)
