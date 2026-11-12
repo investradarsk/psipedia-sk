@@ -1,6 +1,7 @@
 /**
  * PSIPEDIA-SERVICES-V2 / 4: proposed, NOT activated public category facets.
- * Source of truth for definitions; no D1/Notion writes and no text inference.
+ * Source of truth for definitions. All 21 Notion select columns are now provisioned;
+ * this module does not perform D1/Notion writes or infer values from text.
  */
 import type { DirectoryCategorySlug } from "./directory";
 
@@ -40,7 +41,7 @@ export type DirectoryFilterDefinition = Readonly<{
   allowedValues: readonly string[];
   unknownPolicy: Readonly<{ missing: "unknown"; invalid: "review"; conflict: "review"; publicBehavior: "exclude" }>;
   d1: Readonly<{ column: "source_data_json"; key: string; status: "proposed" }>;
-  notion: Readonly<{ property: string; type: "select"; status: "not_provisioned" | "provisioned" }>;
+  notion: Readonly<{ property: string; type: "select"; status: "provisioned" }>;
   legacyAliases: readonly string[];
   version: typeof DIRECTORY_FILTER_CONTRACT_VERSION;
 }>;
@@ -59,13 +60,6 @@ function defineFacet(
   legacyAliases: readonly string[] = [],
 ): DirectoryFilterDefinition {
   const id = `${category}.${name}`;
-  const provisionedInNotion =
-    (category === "veterinari" &&
-      (name === "facility_type" || name === "emergency" || name === "home_visits")) ||
-    (category === "chovatelske-stanice" &&
-      (name === "visits_by_appointment" || name === "health_testing_information")) ||
-    (category === "treneri" &&
-      (name === "individual_training" || name === "group_training"));
   const notionProperty = category === "veterinari" && name === "facility_type"
     ? "Typ pracoviska"
     : category === "veterinari" && name === "emergency"
@@ -87,13 +81,14 @@ function defineFacet(
     allowedValues: values,
     unknownPolicy,
     d1: { column: "source_data_json", key: `_psipedia_filter_v1_${category.replace(/-/g, "_")}_${name}`, status: "proposed" },
-    notion: { property: notionProperty, type: "select", status: provisionedInNotion ? "provisioned" : "not_provisioned" },
+    notion: { property: notionProperty, type: "select", status: "provisioned" },
     legacyAliases,
     version: DIRECTORY_FILTER_CONTRACT_VERSION,
   };
 }
 
-/** Candidate fields, not claims that current D1 or Notion already stores them. */
+/** Notion select fields are provisioned in the existing Adresár data source;
+ * D1 categories retain their separately managed per-field metadata keys. */
 export const directoryFilterRegistry: readonly DirectoryFilterDefinition[] = [
   defineFacet("veterinari", "facility_type", "Typ pracoviska", ["ambulance", "clinic", "hospital", "unknown"]),
   defineFacet("veterinari", "emergency", "Pohotovosť"),
