@@ -1,4 +1,4 @@
-import { responsiveMediaSrcSet } from "./responsive-media";
+import { responsiveMediaSrcSet } from "./responsive-media.ts";
 
 // The bundled homepage photograph is the only local image this opt-in
 // changes. Managed D1 /media URLs continue using the established R2
