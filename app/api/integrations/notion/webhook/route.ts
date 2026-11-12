@@ -68,7 +68,10 @@ export async function POST(request: Request) {
   if (bindings.NOTION_WEBHOOK_INBOX_ENABLED !== "true") {
     try {
       const result = await dispatchNotionPageChange(data, bindings);
-      if (result === "not-configured") return new Response(null, { status: 503 });
+      // Without the durable inbox, a deferred targeted event must be retried
+      // by Notion; returning HTTP 200 would permanently lose its field edit.
+      if (result === "not-configured" || result === "deferred")
+        return new Response(null, { status: 503 });
       return Response.json({ received: true, result }, { status: 200 });
     } catch {
       console.error("notion_targeted_webhook_failed");
