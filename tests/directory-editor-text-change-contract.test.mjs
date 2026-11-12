@@ -139,7 +139,9 @@ test("Directory Save reads committed Lexical content, posts it, and confirms the
   assert.match(editor, /const submittedDescription = selectDirectoryTextForSave\(\{/);
   assert.match(editor, /name, excerpt: submittedExcerpt, description: submittedDescription/);
   assert.match(editor, /status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription/);
-  assert.match(editor, /textSaved\(savedProfile\[field\]\)/);
+  assert.match(editor, /textSaved\(candidate\[field\]\)/);
+  assert.match(editor, /freshResponse = await fetch/);
+  assert.match(editor, /textMismatch = mismatchedTextFields\(savedProfile\)/);
   assert.match(editor, /throw new Error\("Zmena Perexu alebo Popisu sa nepotvrdila/);
   assert.match(api, /expectedUpdatedAt: before\.updatedAt/);
   assert.match(api, /status: 409, headers: \{ "cache-control": "no-store" \}/);
