@@ -8,7 +8,7 @@ Chovateľské stanice sú manuálne otestovaný model: podpísaný webhook `page
 
 **Všetkých 10 kategórií**: `chovatelske-stanice`, `treneri`, `chovatelske-kluby`, `kynologicke-kluby`, `veterinari`, `fyzioterapia`, `dalsie-sluzby`, `salony-a-sluzby`, `hotely-a-opatrovanie`, `vencenie`.
 
-### Pevné invariatny
+### Pevné invarianty
 
 - Rovnaký webhook, overovanie HMAC, identita Notion page ID ↔ Psipedia ID ↔ kategória; žiadna kategória nie je mimo cieleného dispatchu.
 - Každý editovateľný atribút má vlastný per-field prevod a samostatné uloženie. Chyba poľa A nesmie preventívne blokovať samostatný zápis poľa B; zlyhania však musia ostať dohľadateľné a nesmú byť označené za úspech.
@@ -24,13 +24,13 @@ Chovateľské stanice sú manuálne otestovaný model: podpísaný webhook `page
 1. **Inventár a kontrakt (hotový).** Vymenovať 10 kategórií a overiť ich prijímanie webhookom, cestu Admin PUT a univerzálne mapovanie `Popis`, SEO, kontaktov a mazania. Zachovať red/regresné testy konkrétneho incidentu Tarabora #1826.
 2. **Jeden register kategórií a polí (hotový základ).** Registrácia všetkých 10 kategórií je zjednotená v `DIRECTORY_FIELD_EVENT_CATEGORIES` a používa ju aj SQL whitelist okamžitého webhookového dispatchu. Existujúcu mapu bežných redakčných polí `BREEDER_NOTION_EDITORIAL_FIELDS` znovu používajú všetky kategórie; podrobné kategóriové adaptéry sa dopracujú v kroku 6. Regresné testy aktualizované.
 3. **Notion → Admin, rovnaké cielené spracovanie (hotové v kóde).** Pre všetkých 10 kategórií existujúci per-field runner používa presné Notion property ID. Opravená falošná úspešná odpoveď pri `page.properties_updated` bez platných changed-property ID: cielený dispatcher vráti `deferred`, aktívny D1 inbox uchová opakovanie/review a bez inboxu endpoint vráti retryable HTTP 503. Žiadny celoprofilový merge ani automatické prepisovanie údajov bez podpísaných polí. Regresné testy zahrňujú `Popis` a staré `Služby` pri Tarabore.
-4. **Admin → Notion, rovnaké ukladanie.** Dirty-field tracking, nezmenené hodnoty neprepisovať; jednotlivé zápisy s overením odpovede/GET a presnou spätnou väzbou.
-5. **Vymazanie a prázdne hodnoty.** Správne šíriť `""`, vymazanie URL, e-mailu, textu a voliteľných hodnôt; name/identita ostávajú chránené.
-6. **Kategóriové adaptéry.** Zjednotiť kontakt, lokalitu, SEO, výcvikové/veterinárne/facet polia a technické typy; každé skutočne editovateľné Admin pole má korektné Notion zrkadlo.
-7. **Služby V3 a staré služby.** Zachovať samostatnú reláciu a per-ID zmeny; odstrániť vedľajšie prepísania medzi `Služby`, `services_json`, metadata textom a V3, bez automatického plošného mazania.
-8. **Historické sync chyby a potvrdzovanie.** Rozlišovať staré `UNVERIFIED_DELETE` od aktuálnych eventov, opravovať iba bezpečne potvrdené stavy; chyba jednej časti nesmie vyradiť ostatné a úspech jednej časti nesmie falošne vymazať konflikt druhej.
-9. **Odolnosť webhookov a diagnostika.** Preveriť inline dispatch, fallback inbox, retry, paused subscription, 401/403/503, frontu, prevádzkové pozorovanie a administrátorský prehľad na úrovni profilu.
-10. **Akceptačné testy všetkých 10 kategórií.** Testovať u každej Notion → Admin i Admin → Notion: text, prázdna hodnota, SEO, kontakt, voliteľné hodnoty, súčasné zmeny, Services V3 a nulový dopad na iné polia; build a kontrola konfliktov s `main`. PR zostáva bez automatického merge.
+4. **Admin → Notion (zapracované).** Rýchla úprava v tabuľke používa spoločný prenos vo všetkých 10 kategóriách; každé zmenené pole má samostatný PATCH a echo/readback. Jedna zlá hodnota nesmie blokovať ostatné. Neúspešné polia zostanú čakajúce.
+5. **Vymazanie (zapracované v existujúcej ceste).** Textové, kontaktné a SEO prázdne hodnoty sú explicitné zmeny. Pridané je vymazanie jedného Notion select do D1 aj opačne. Neexistujúca Notion vlastnosť nesmie potvrdiť vymazanie.
+6. **Kategóriové adaptéry (kód pripravený, schéma otvorená).** Všetkých 21 kategóriových select filtrov používa jeden register a oddelené zápisy. Z reálneho Notion Adresára existuje 7 stĺpcov, 14 chýba. Pridaný idempotentný read-only plán ich vytvorenia v tej istej databáze; zatiaľ sa nič nepridávalo.
+7. **Služby V3 a starý text (zapracované).** V3 ostáva nezávislá ID relácia s CAS a potvrdeným baseline. Staré Služby sa prenášajú iba v kategóriách, ktoré povoľujú voľný text, pri tréneroch do súkromného metadata kľúča; štyri V3-only pilotné kategórie starý text neprepisujú.
+8. **Historické chyby (zapracované).** Úspešne potvrdený per-field prenos smie vymazať iba historickú chybu o konkrétnom prenesenom poli. Chyba services:UNVERIFIED_DELETE zostane aj po prenose iného Popis; iné konflikty a V3 chyby zostanú.
+9. **Diagnostika a webhooky (zapracované).** Pri chybných/missing changed-property ID sa nevracia falošný úspech. Pribudlo value-free logovanie per-profile dispatchu a read-only diagnostika v každom editore Adresára: mapping, oba baselines, V3 count, inbox/retry a aktívne upozornenie. Stav Notion subscription sa overuje osobitne.
+10. **Regresné testy a akceptácia (pripravené, live ešte otvorené).** Pridané kontrakty všetkých 10 kategórií, izolovaného writebacku, vymazávania, V3, historických chýb, diagnostiky a schéma plánu 14 stĺpcov. CI/build a produkčné testy oboma smermi zostávajú povinné pred merge. Bez automatického zlúčenia.
 
 ## Reálny incident: Psia škola Tarabora #1826
 
@@ -48,4 +48,11 @@ Chovateľské stanice sú manuálne otestovaný model: podpísaný webhook `page
 4. Rovnako fungujú aspoň referenčné profily každej z 10 kategórií a spätný smer Admin → Notion.
 5. Ak Notion webhook subscription zostáva `Paused`, produkčný test nemôže prejsť bez ownerom vykonaného obnovenia subscription; úpravy kódu ho samy neobnovia.
 
-**Kroky 1–2 sú pripravené a zapísané do PR; zostávajúce kroky 3–10 ešte nie sú dokončené.**
+**Kódové kroky 1–9 sú zapracované. Krok 10 má pridané regresné testy, ale CI/build a živá produkčná akceptácia nie sú potvrdené. 14 chýbajúcich Notion select polí vyžaduje osobitné schválenie nasadenia.**
+
+
+## Produkčná schéma (read-only overenie 12. 11. 2026)
+
+V existujúcej Notion databáze Adresár (97 vlastností) je 7 z 21 výberových polí. Chýbajúcich 14 má bezpečný iba read-only plán v lib/directory-notion-facet-schema-plan.ts; návrhy ADD COLUMN sú idempotentné a viazané na presný Notion data source. Žiadna nová databáza ani živá schema zmena sa nevykonala.
+
+Po merge treba jednotlivo otestovať Notion → Admin a Admin → Notion pre každú kategóriu: Popis, SEO, kontakty, prázdne hodnoty, select filtre, samostatné V3, zmazanie a súbežné editácie. Tarabora #1826 zostáva otvorený produkčný test (Popis končí x; staré Služby obsahujú test). Subscription môže byť Paused a jej stav nie je z D1 doložený.
