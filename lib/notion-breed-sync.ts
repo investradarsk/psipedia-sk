@@ -635,9 +635,9 @@ export async function writeBackBreedEditorialToNotion(args:{
     .filter(key=>args.forceFieldKeys?.includes(key)||!sameBreedField(before[key],after[key]));
   if(!changed.length)return {linked:true,updated:false,reason:"no-mirrored-field-change" as const};
   const patch:Record<string,unknown>={};
-  const queued:Array<{field:string;properties:Record<string,unknown>}>=[];
-  const acknowledged:string[]=[];
-  const pending:string[]=[];
+  const queued:Array<{field:BreedNotionField;properties:Record<string,unknown>}>=[];
+  const acknowledged:BreedNotionField[]=[];
+  const pending:BreedNotionField[]=[];
   for(const field of changed){
     // When a canonical Notion cell already contains migrated legacy sections,
     // blindly writing the Admin copy would erase those sections. Keep only
