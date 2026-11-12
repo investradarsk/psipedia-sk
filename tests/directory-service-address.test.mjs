@@ -137,7 +137,8 @@ test("ADDRESS-UX-1 editor keeps confirmed preview based on canonical equality, n
   assert.match(directoryEditorSource, /directoryCanonicalAddressSemanticallyEqual/);
   assert.match(directoryEditorSource, /addressMatchesPersistedConfirmed/);
   assert.doesNotMatch(directoryEditorSource, /!addressProviderResultId\s*&&\s*profile\?\.serviceAddressConfirmation/);
-  assert.match(directoryEditorSource, /setAddressProviderResultId\(""\);\s*setPostalCode\(""\);\s*setStreet\(""\);\s*setHouseNumber\(""\);\s*setAddressFormat\(""\);/s);
+  assert.match(directoryEditorSource, /setAddressProviderResultId/);
+  assert.doesNotMatch(directoryEditorSource.slice(directoryEditorSource.indexOf("onChange={(location) => {"), directoryEditorSource.indexOf("<DirectoryAddressAutocomplete")), /setPostalCode/);
 });
 
 test("ADDRESS-UX-1 autocomplete waits for intentional editing and preserves combobox accessibility", () => {
