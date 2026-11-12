@@ -579,7 +579,14 @@ export async function PUT(request: Request, { params }: Props) {
     // Every user-edited text field must be retained, including deliberately
     // malformed contact strings. Do not exempt fields from D1 verification.
     const unconfirmedEditorial = directoryEditedFieldMismatches({
-      submitted: payload, persisted: saved, editedPaths: editedPaths ?? [],
+      // Check against the user's actual form values, not a preservation-layer
+      // payload that may have silently reverted the edited Perex/Popis.
+      submitted: {
+        ...payload,
+        excerpt: submittedBody.excerpt,
+        description: submittedBody.description,
+      },
+      persisted: saved, editedPaths: editedPaths ?? [],
     });
     const unconfirmedTrust = trainerTrustEditedPaths.filter(field =>
       Boolean(saved[field]) !== Boolean(payload[field]),
