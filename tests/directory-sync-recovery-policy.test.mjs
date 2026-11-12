@@ -3,7 +3,7 @@ import test from "node:test";
 import {readFileSync} from "node:fs";
 import {
  recoverableDirectoryBaselineError,directoryServiceErrorCanReplace,
- directoryServiceSuccessCanClear,
+ directoryServiceSuccessCanClear,directoryEditorialEventMayClearError,
 } from "../lib/directory-sync-recovery-policy.ts";
 import {classifyDirectorySyncError} from "../lib/notion-data-quality-recovery.ts";
 import {summarizeNotionAuditBatch} from "../lib/notion-data-quality-audit.ts";
@@ -79,4 +79,23 @@ test("Directory recovery is current-snapshot and identity gated, never record-wi
  assert.match(sweep,/await recoverEqualLegacyDirectoryBaseline\(\{/);
  assert.match(sweep,/directoryServiceSuccessCanClear\(propertyText\(page,"Sync chyba"\)\)/);
  assert.match(src,/directoryServiceErrorCanReplace\(propertyText\(page,"Sync chyba"\),message\)/);
+});
+
+test("a verified Popis edit cannot erase Tarabora's separate legacy services conflict",()=>{
+ const err="CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (services:UNVERIFIED_DELETE)";
+ assert.equal(directoryEditorialEventMayClearError(err,["description"]),false);
+ assert.equal(directoryEditorialEventMayClearError(err,["services"]),true);
+ assert.equal(directoryEditorialEventMayClearError(err,["description","services"]),true);
+ assert.equal(directoryEditorialEventMayClearError(err,[]),false);
+ assert.equal(directoryEditorialEventMayClearError("",["description"]),true);
+ assert.equal(directoryEditorialEventMayClearError(
+  "CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (description:AMBIGUOUS_SAME_FIELD)",["description"]),true);
+ assert.equal(directoryEditorialEventMayClearError(
+  "CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (description:AMBIGUOUS_SAME_FIELD, services:UNVERIFIED_DELETE)",["description"]),false);
+ assert.equal(directoryEditorialEventMayClearError(
+  "CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (*:BASELINE_UNAVAILABLE)",["description"]),false);
+ assert.equal(directoryEditorialEventMayClearError(
+  "SERVICES_RELATION_UNVERIFIED_DELETE",["services"]),false);
+ assert.equal(directoryEditorialEventMayClearError(
+  "IDENTITY_CONFLICT: WRONG_SOURCE",["name"]),false);
 });
