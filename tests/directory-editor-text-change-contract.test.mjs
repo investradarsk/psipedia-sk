@@ -126,23 +126,26 @@ test("same-value concurrent edit is safe and normal explicit Admin edits still s
   assert.deepEqual(equal.conflicts, []);
 });
 
-test("Directory Save reads committed Lexical content, posts it, and confirms the persisted D1 text", () => {
+test("Directory follows Events: controlled textareas, state diff, one canonical PUT, D1 receipt", () => {
   const editor = readFileSync("components/admin-directory-editor.tsx", "utf8");
-  const lexical = readFileSync("components/admin-lexical-text-field.tsx", "utf8");
+  const eventEditor = readFileSync("components/admin-event-editor.tsx", "utf8");
   const api = readFileSync("app/api/admin/directory/[id]/route.ts", "utf8");
-  assert.match(lexical, /const readCurrentText = \(\) => editor\.getEditorState\(\)\.read\(readPlainText\)/);
-  assert.match(lexical, /valueReaderRef\.current = readCurrentText/);
-  assert.match(lexical, /valueReaderRef\.current === readCurrentText/);
-  assert.match(editor, /valueReaderRef=\{excerptValueReaderRef\}/);
-  assert.match(editor, /valueReaderRef=\{descriptionValueReaderRef\}/);
-  assert.match(editor, /const submittedExcerpt = selectDirectoryTextForSave\(\{/);
-  assert.match(editor, /const submittedDescription = selectDirectoryTextForSave\(\{/);
+  assert.match(eventEditor, /const response = await fetch\(event \?/);
+  assert.match(eventEditor, /eventChangedAdminFields\(/);
+  assert.match(editor, /<textarea id="directory-excerpt" rows=\{3\} value=\{excerpt\}/);
+  assert.match(editor, /<textarea id="directory-description" rows=\{9\} value=\{description\}/);
+  assert.match(editor, /const submittedExcerpt = excerpt;/);
+  assert.match(editor, /const submittedDescription = description;/);
+  assert.match(editor, /breederAdminChangedFields\(/);
+  assert.match(editor, /breederOriginalText: \{/);
+  assert.match(editor, /excerpt: breederBaseline\?\.excerpt/);
+  assert.match(editor, /description: breederBaseline\?\.description/);
   assert.match(editor, /name, excerpt: submittedExcerpt, description: submittedDescription/);
   assert.match(editor, /status: nextStatus, excerpt: submittedExcerpt, description: submittedDescription/);
-  assert.match(editor, /textSaved\(candidate\[field\]\)/);
-  assert.match(editor, /freshResponse = await fetch/);
-  assert.match(editor, /textMismatch = mismatchedTextFields\(savedProfile\)/);
-  assert.match(editor, /throw new Error\("Zmena Perexu alebo Popisu sa nepotvrdila/);
+  assert.doesNotMatch(editor, /AdminLexicalTextField|valueReaderRef|selectDirectoryTextForSave|excerptExplicitlyEditedRef|descriptionExplicitlyEditedRef/);
+  assert.doesNotMatch(editor, /Zmena Perexu alebo Popisu sa nepotvrdila ani po opätovnom načítaní D1/);
+  assert.match(api, /DIRECTORY_TEXT_D1_SAVE_NOT_CONFIRMED/);
+  assert.match(api, /getManagedDirectoryProfileById\(id, db\)/);
   assert.match(api, /expectedUpdatedAt: before\.updatedAt/);
   assert.match(api, /status: 409, headers: \{ "cache-control": "no-store" \}/);
 });
@@ -164,17 +167,19 @@ test("an untouched Popis keeps its exact D1 value despite Lexical formatting cha
   }), "");
 });
 
-test("saving only Perex never reports an untouched description mismatch", () => {
+test("Perex and Popis changes are independent without Lexical and without Notion input", () => {
   const editor = readFileSync("components/admin-directory-editor.tsx", "utf8");
-  const lexical = readFileSync("components/admin-lexical-text-field.tsx", "utf8");
-  assert.match(editor, /path !== "description" \|\| descriptionExplicitlyEditedRef\.current/);
-  assert.match(editor, /path !== "excerpt" \|\| excerptExplicitlyEditedRef\.current/);
-  assert.match(editor, /valueReaderRef=\{excerptValueReaderRef\} onUserInput=/);
-  assert.match(editor, /valueReaderRef=\{descriptionValueReaderRef\} onUserInput=/);
-  assert.match(editor, /descriptionExplicitlyEditedRef\.current = false/);
-  assert.match(editor, /excerptExplicitlyEditedRef\.current = false/);
-  assert.match(editor, /descriptionExplicitlyEditedRef\.current = true; setDescription\(appendLexicalPlainText/);
-  assert.match(lexical, /root\?\.addEventListener\("input", markRealUserInput\)/);
-  assert.match(lexical, /previousRoot\?\.removeEventListener\("input", markRealUserInput\)/);
-  assert.match(lexical, /onUserInputRef\.current\?\.\(\)/);
+  const old = { excerpt: "Starý Perex", description: "Odstavec A\n\nOdstavec B" };
+  const perexOnly = breederStyleDiff(old, { excerpt: "Starý Perex test444", description: old.description });
+  assert.deepEqual(perexOnly, ["excerpt"]);
+  const descriptionOnly = breederStyleDiff(old, { excerpt: old.excerpt, description: "Iný popis" });
+  assert.deepEqual(descriptionOnly, ["description"]);
+  assert.match(editor, /<textarea id="directory-excerpt"/);
+  assert.match(editor, /onChange=\{\(event\) => \{ setExcerpt\(event\.target\.value\); setFormDirty\(true\); \}\}/);
+  assert.match(editor, /<textarea id="directory-description"/);
+  assert.match(editor, /onChange=\{\(event\) => \{ setDescription\(event\.target\.value\); setFormDirty\(true\); \}\}/);
 });
+
+function breederStyleDiff(before, after) {
+  return ["excerpt", "description"].filter(field => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
+}
