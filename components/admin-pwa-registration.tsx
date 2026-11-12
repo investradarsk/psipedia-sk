@@ -16,9 +16,13 @@ export function AdminPwaRegistration() {
     // Re-evaluate the connection when Safari restores the document from BFCache.
     setOnline(navigator.onLine);
     const handleResume = () => setOnline(navigator.onLine);
+    const handleForeground = () => {
+      if (document.visibilityState === "visible") handleResume();
+    };
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     window.addEventListener("pageshow", handleResume);
+    document.addEventListener("visibilitychange", handleForeground);
 
     let removePushListener = () => {};
     if ("serviceWorker" in navigator) {
@@ -54,6 +58,7 @@ export function AdminPwaRegistration() {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("pageshow", handleResume);
+      document.removeEventListener("visibilitychange", handleForeground);
       removePushListener();
     };
   }, []);
