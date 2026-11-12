@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { adminNavigationGroups } from "@/lib/admin-navigation";
 import { isIosWebKitDevice } from "@/lib/admin-navigation-device";
+import { mergeUniqueAdminDestinations } from "@/lib/admin-quick-navigation-results";
 import { ADMIN_NAVIGATION_INTENT_EVENT, type AdminNavigationIntent } from "@/lib/admin-editor-navigation";
 import styles from "./admin-quick-navigation.module.css";
 
@@ -121,14 +122,9 @@ export function AdminQuickNavigationDialog({ open, onOpenChange }: { open: boole
   const sectionResults = useMemo(() => query.trim()
     ? search.search(query.trim(), { limit: 12 }).map(match => match.item)
     : destinations.filter(item => suggestedHrefs.has(item.href)), [query]);
-  const results = useMemo(() => {
-    const seen = new Set<string>();
-    return [...sectionResults, ...(shouldSearchRecords(query) ? records : [])].filter(item => {
-      if (seen.has(item.href)) return false;
-      seen.add(item.href);
-      return true;
-    });
-  }, [sectionResults, records, query]);
+  const results = useMemo(() => mergeUniqueAdminDestinations(
+    sectionResults, shouldSearchRecords(query) ? records : [],
+  ), [sectionResults, records, query]);
   const selected = Math.min(active, Math.max(0, results.length - 1));
 
   function changeOpen(value: boolean) {
