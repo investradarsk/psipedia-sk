@@ -297,3 +297,22 @@
   .pickerMark{min-height:55px;padding:4px}
   .pickerMark span{font-size:.65rem}
 }
+
+
+/* Unified Facebook editorial calendar – week/month share one panel. */
+.calendarViewSwitch { display: inline-flex; align-items: center; gap: 3px; padding: 3px;
+  border: 1px solid #d2dfd5; border-radius: 9px; background: #f2f6f2; }
+.calendarViewSwitch button { min-height: 40px; min-width: 82px; padding: 7px 12px;
+  border: 0; border-radius: 7px; color: #315a43; background: transparent;
+  font: inherit; font-size: .8rem; font-weight: 750; cursor: pointer; }
+.calendarViewSwitch button[aria-pressed="true"] { background: #1f4a3a; color: #fff; }
+.calendarViewSwitch button:focus-visible { outline: 3px solid #b7553b; outline-offset: 2px; }
+.calendarPanel > .monthNav { margin: 2px 0 12px; justify-content: center; }
+.calendarPanel .calendarDay { height: 91px; }
+.morePosts { display: block; padding: 3px 7px; font-size: .66rem; color: #586f60; }
+@media (max-width: 600px) {
+  .calendarViewSwitch { width: 100%; }
+  .calendarViewSwitch button { flex: 1; }
+  .calendarPanel .calendarDay { height: 50px; }
+  .morePosts { display: none; }
+}
