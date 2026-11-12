@@ -45,10 +45,8 @@ export type AdminRecordTableSelection<T> = {
   disabled?: boolean;
 };
 
-// Keep TanStack model factories stable across selection and inline-edit state
-// updates. All Admin list pages have bounded server pagination.
-const coreRowModel = getCoreRowModel();
-const clientSortedRowModel = getSortedRowModel();
+// All Admin list pages have bounded server pagination. A stable ID keeps
+// selection and the TanStack row cache aligned across local state changes.
 function recordRowId<T extends { id: number }>(record: T) { return String(record.id); }
 
 /** Read-first grid; optional selection delegates writes to the domain's existing bulk API. */
@@ -79,6 +77,10 @@ export function AdminRecordTable<T extends { id: number }>({
   /** Optional stable data attribute for module-specific selectors and E2E tests. */
   rowDataAttribute?: `data-${string}`;
 }) {
+  // Table<T> is invariant; cache typed factories per instance, not as
+  // module-level unknown factories that can break TypeScript generics.
+  const coreRowModel = useMemo(() => getCoreRowModel<T>(), []);
+  const clientSortedRowModel = useMemo(() => getSortedRowModel<T>(), []);
   const [clientSorting, setClientSorting] = useState<SortingState>([]);
   const sorting = useMemo<SortingState>(() => serverSorting
     ? [{ id: serverSorting.id, desc: serverSorting.desc }]
