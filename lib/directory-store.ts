@@ -14,6 +14,8 @@ import {
   type DirectoryPublicFacets,
 } from "@/lib/directory-public-filters";
 import { serviceFilterCategories } from "@/lib/directory-filter-contract";
+import {loadResolvedServiceDefinitions} from "./service-catalog-resolved";
+import {canonicalPublicProfileServices,type PublicServiceChoice} from "./service-catalog-public-profile-services";
 import {
   canonicalPublicServiceWhere,
   canonicalPublicServiceOptions,
@@ -1683,7 +1685,30 @@ const getPublishedDirectoryProfileUncached = async (category: string, slug: stri
     )
     .bind(category, slug)
     .first<DirectoryProfileRow>();
-  return row ? rowToPublicProfile(row) : null;
+  if(!row)return null;
+  const profile=rowToPublicProfile(row);
+  // The detail page and its JSON-LD must reflect confirmed D1 choices even
+  // when an earlier text/Notion projection failed. Keep old unmatched prose.
+  // This optional read only runs for a published profile on a V3-enabled site.
+  if((env as unknown as {SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?:string})
+      .SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED!=="true")return profile;
+  try{
+    const records=await database.prepare(
+      "SELECT option_id,choice FROM service_profile_option_choices WHERE profile_id=?1"
+    ).bind(profile.id).all<PublicServiceChoice>();
+    if(!records.results?.length)return profile;
+    const catalog=await loadResolvedServiceDefinitions(database);
+    return {...profile,services:canonicalPublicProfileServices(
+      profile.services,profile.category,records.results,catalog,
+    )};
+  }catch(error){
+    // An optional service-catalog read must not make a published profile 500.
+    // Keep existing editorial text, without incorrectly claiming V3 parity.
+    console.error("Public directory Services V3 projection unavailable",{
+      profileId:profile.id,error:error instanceof Error?error.message:String(error),
+    });
+    return profile;
+  }
 };
 export const getPublishedDirectoryProfile = cache(getPublishedDirectoryProfileUncached);
 
