@@ -31,7 +31,9 @@ test("large breed-specific CSS is route scoped, preserving public global guards"
   const global = read("app/globals.css");
   const breed = read("public/styles/breed-reference-3f5dab25d000.css");
   const nested = read("app/plemena/layout.tsx");
-  assert.match(nested, /import "\.\/breed-reference\.css"/);
+  assert.match(nested, /<link rel="stylesheet" href=\{BREED_STYLESHEET\} precedence="high" \/>/);
+  assert.match(nested, /BREED_STYLESHEET = "\/styles\/breed-reference-3f5dab25d000\.css"/);
+  assert.doesNotMatch(nested, /import "\.\/breed-reference\.css"/);
   assert.match(breed, /\/\* Breed encyclopedia UI \*\//);
   assert.match(breed, /\/\* Editorial breed profile/);
   assert.match(breed, /\.breed-search-wrap/);
