@@ -176,8 +176,11 @@ test("organization editor protects unsaved payload and does not clear it after f
   const editor = readFileSync(new URL("../components/admin-organization-editor.tsx", import.meta.url), "utf8");
   assert.match(editor, /const editorSnapshot = JSON\.stringify\(draft\)/);
   assert.match(editor, /<EditorUnsavedChangesGuard active=\{dirty\}/);
-  assert.match(editor, /document\.addEventListener\("click", onDocumentClick, true\)/);
-  assert.match(editor, /navigationApi\?\.addEventListener\("navigate", onNativeNavigate\)/);
+  const sharedGuard = readFileSync(new URL("../components/admin-editor-navigation-guard.tsx", import.meta.url), "utf8");
+  assert.match(editor, /useAdminEditorNavigationGuard\(\{ dirty \}\)/);
+  assert.match(sharedGuard, /document\.addEventListener\("click", onClick, true\)/);
+  assert.match(sharedGuard, /navigationApi\?\.addEventListener\("navigate", onNativeNavigate\)/);
+  assert.doesNotMatch(editor, /document\.addEventListener\("click"/, "editor must not duplicate the shared navigation guard");
   assert.match(editor, /mutationPending\.current = true/);
   assert.match(editor, /JSON\.stringify\(current\) === submittedSnapshot \? persistedDraft : current/);
   const catchBlock = editor.slice(editor.indexOf('    } catch (caught) {', editor.indexOf('  async function save')));
