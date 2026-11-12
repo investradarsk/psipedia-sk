@@ -25,11 +25,10 @@ test("all 10 Directory categories are included in the same signed field-event di
     repoFile("lib/notion-directory-sync.ts"),
     repoFile("lib/notion-directory-field-event-scope.ts"),
   ]);
-  const match = webhook.match(/WHERE dns\.notion_page_id=\? AND dp\.category IN \(([^)]*)\) LIMIT 1/);
-  assert.ok(match, "mapped directory profiles must use immediate signed webhook dispatch");
-  const actual = [...match[1].matchAll(/'([^']+)'/g)].map(x => x[1]);
-  assert.deepEqual(new Set(actual), new Set(directoryCategories), "webhook allowlist drifted from the 10 categories");
-  assert.equal(actual.length, directoryCategories.length, "duplicate or unsupported webhook category");
+  assert.deepEqual(DIRECTORY_FIELD_EVENT_CATEGORIES, directoryCategories);
+  assert.match(webhook, /import \{ DIRECTORY_FIELD_EVENT_CATEGORIES \}/);
+  assert.match(webhook, /dp\.category IN \("/);
+  assert.match(webhook, /\.bind\(data\.entity!\.id, \.\.\.DIRECTORY_FIELD_EVENT_CATEGORIES\)/);
   for (const category of directoryCategories) {
     assert.equal(isDirectoryFieldEventCategory(category), true, category + " omitted by the field-event engine");
   }
