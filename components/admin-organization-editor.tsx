@@ -170,6 +170,9 @@ export function AdminOrganizationEditor({
     const addressChanged = submittedAddressSnapshot !== savedAddressSnapshot;
     let savingAddress = false;
     let organizationSaved = false;
+    // Only server-rendered heading/public link depend on identity fields.
+    // Description, contacts, media and address are already reconciled locally.
+    let serverIdentityChanged = false;
     setSaving(true); setError(""); setMessage("");
     try {
       let organizationId = organization?.id ?? createdOrganizationId.current;
@@ -187,6 +190,8 @@ export function AdminOrganizationEditor({
         if (!organization) createdOrganizationId.current = organizationId;
         setExpectedUpdatedAt(body.item.updatedAt);
         const persistedDraft = organizationAdminInputFromCandidate(body.item);
+        serverIdentityChanged = Boolean(organization &&
+          (body.item.name !== organization.name || body.item.slug !== organization.slug));
         setSavedSnapshot(JSON.stringify(persistedDraft));
         // Do not overwrite a newer automation change accepted during the request.
         setDraft((current) => JSON.stringify(current) === submittedSnapshot ? persistedDraft : current);
@@ -230,9 +235,12 @@ export function AdminOrganizationEditor({
         router.replace(`/admin/organizacie/${organizationId}`);
         return;
       }
-      setMessage(addressChanged ? "Údaje organizácie aj adresa sú uložené." : organizationSaved
+      setMessage(addressChanged ? (organizationSaved ? "Údaje organizácie aj adresa sú uložené." : "Adresa organizácie je uložená.") : organizationSaved
         ? "Údaje organizácie sú uložené." : "Žiadne neuložené zmeny.");
-      router.refresh();
+      // The server heading and public-profile link only need a fresh RSC
+      // payload when canonical name/slug changed. All other writes already
+      // reconcile local form/location snapshots from their API responses.
+      if (serverIdentityChanged) router.refresh();
     } catch (caught) {
       const detail = caught instanceof Error ? caught.message : "Organizáciu sa nepodarilo uložiť.";
       if (savingAddress) {

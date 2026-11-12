@@ -1,0 +1,75 @@
+name: Admin Performance V2 Read-Only
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/admin-**"
+      - "app/admin/**"
+      - "lib/admin-**"
+      - "scripts/audit-admin-performance-v2.mjs"
+      - "scripts/benchmark-admin-search-v2.mjs"
+      - "scripts/check-admin-v2-types.mjs"
+      - "lib/admin-gallery-order.ts"
+      - "lib/admin-attention-request.ts"
+      - "tests/admin-performance-v2-*.test.mjs"
+      - "tests/admin-search-query-plans-v2.test.mjs"
+      - "tests/admin-global-search-ui-step6.test.mjs"
+      - "components/admin-quick-navigation.module.css"
+      - "docs/ADMIN-PERFORMANCE-V2-**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/admin-performance-v2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-performance-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate phase 2 regressions and existing Admin/PWA invariants
+        run: npm run test:admin-performance-v2
+
+      - name: Check new TypeScript diagnostics in changed Admin files
+        run: |
+          npx tsc --noEmit --pretty false > admin-v2-tsc-output.txt 2>&1 || true
+          node scripts/check-admin-v2-types.mjs admin-v2-tsc-output.txt > admin-v2-scoped-types.json
+          cat admin-v2-scoped-types.json
+
+      - name: Capture local SQLite query-plan experiment
+        run: node --experimental-strip-types scripts/benchmark-admin-search-v2.mjs > admin-v2-search-plan.json
+      - name: Validate captured SQL-plan JSON
+        run: node -e 'const data=require("./admin-v2-search-plan.json");if(data.checkedCategories!==8||data.cases.exactId.resultCount!==8||data.cases.tombstonedExactId.resultCount!==7)process.exit(1)'
+
+      - name: Capture reproducible source baseline
+        run: node scripts/audit-admin-performance-v2.mjs --json > admin-v2-source-baseline.json
+
+      - name: Save source metrics (not runtime/browser metrics)
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-performance-v2-source-baseline
+          path: |
+            admin-v2-source-baseline.json
+            admin-v2-search-plan.json
+            admin-v2-scoped-types.json
+          retention-days: 14
+
+# Deliberately read-only: no Cloudflare/Notion credentials, schema writes,
+# production DB, deployment, runtime analytics, or automatic migrations.
