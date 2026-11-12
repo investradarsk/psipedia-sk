@@ -46,3 +46,22 @@ export function filterIndexedBreeds<T extends BreedSearchFields>(
     })
     .map(({ breed }) => breed);
 }
+
+/** One pass into FCI buckets, preserving the supplied group order and Slovak sort. */
+export function groupVisibleBreeds<T extends { fciGroup: number; name: string }, G extends { number: number }>(
+  visible: readonly T[],
+  groups: readonly G[],
+): Array<{ group: G; breeds: T[] }> {
+  const byGroup = new Map<number, T[]>();
+  for (const breed of visible) {
+    const groupBreeds = byGroup.get(breed.fciGroup);
+    if (groupBreeds) groupBreeds.push(breed);
+    else byGroup.set(breed.fciGroup, [breed]);
+  }
+  return groups.flatMap((group) => {
+    const groupBreeds = byGroup.get(group.number);
+    return groupBreeds?.length
+      ? [{ group, breeds: groupBreeds.sort((first, second) => first.name.localeCompare(second.name, "sk")) }]
+      : [];
+  });
+}
