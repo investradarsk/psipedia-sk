@@ -48,7 +48,8 @@ test("navigation and cancel do not silently discard draft values",()=>{
  assert.match(catalog,/onClick=\{requestClose\}>Zrušiť/);
  assert.match(workspace,/if \(dirty\) setConfirmClose\(true\)/);
  assert.match(workspace,/EditorUnsavedChangesGuard/);
- assert.match(profile,/Zahodiť neuložené hodnoty služieb/);
+ assert.match(profile,/useAdminEditorNavigationGuard\(\{dirty:changed\.length>0\}\)/);
+ assert.match(profile,/<EditorUnsavedChangesGuard active=\{changed\.length>0\}/);
 });
 test("Services profile delegates its single feedback status to shared EditorActionBar",()=>{const workspace=read("components/admin-editor-workspace.tsx");assert.doesNotMatch(profile,/<span role="status">|<span aria-live="polite" aria-atomic="true">/);assert.match(profile,/<EditorActionBar message=\{message\}/);assert.match(workspace,/\<AdminEditorFooter/);const footer=read("components/admin-editor-footer.tsx");assert.match(footer,/className=\{styles\.status\} role="status" aria-live="polite"/);});
 test("simple catalog retains CAS, auth and multi-category inputs",()=>{
