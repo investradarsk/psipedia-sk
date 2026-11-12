@@ -5,8 +5,8 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 // This interactive calculator lives at the end of the homepage. Keep its
 // controls and state logic out of the hero/header's initial JS evaluation.
 const InteractiveCalculator = lazy(async () => {
-  const module = await import("./dog-age-calculator");
-  return { default: module.DogAgeCalculator };
+  const calculatorModule = await import("./dog-age-calculator");
+  return { default: calculatorModule.DogAgeCalculator };
 });
 
 function CalculatorPlaceholder() {
@@ -25,8 +25,10 @@ export function LazyDogAgeCalculator() {
     const element = container.current;
     if (!element) return;
     if (typeof IntersectionObserver === "undefined") {
-      setEnabled(true);
-      return;
+      // Schedule the no-observer fallback outside the synchronous effect body.
+      // This avoids cascaded React renders while preserving Safari support.
+      const frame = window.requestAnimationFrame(() => setEnabled(true));
+      return () => window.cancelAnimationFrame(frame);
     }
     // Begin fetching before the visitor reaches the bottom-of-page widget.
     const observer = new IntersectionObserver((entries) => {
