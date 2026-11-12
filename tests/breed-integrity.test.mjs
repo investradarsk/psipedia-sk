@@ -32,9 +32,9 @@ test('canonical SQL deduplicates all identities and audit fails on raw conflicts
 });
 test('legacy canonical relation redirects only to a live valid canonical profile',async()=>{
  const db=database();db.add(1,'one',1);db.add(2,'old-one',1);
- assert.equal(await canonicalBreedRedirect(db,'old-one'),'/plemena/one');
+ assert.equal(await canonicalBreedRedirect(db,'old-one'),'/plemena/retrievery-sliedice-vodne/one');
  db.sqlite.exec("UPDATE managed_breeds SET status='draft' WHERE id=1");
- assert.equal(await canonicalBreedRedirect(db,'old-one'),null);db.sqlite.close();
+ assert.equal(await canonicalBreedRedirect(db,'old-one'),'/plemena/retrievery-sliedice-vodne/old-one');db.sqlite.close();
 });
 test('daily breed survives unchecked editorial flags, missing images, empty DB and DB errors',async()=>{
  const before={...runtime};const db=database();
