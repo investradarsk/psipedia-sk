@@ -9,10 +9,12 @@ import type { NotionFieldMode } from "./notion-field-authority";
 import { BREED_NOTION_PRIORITY_FIELDS } from "./notion-breed-property-registry.ts";
 
 /** Every content field has its own priority, including FCI subfields and media. */
-export const BREED_NOTION_EDITABLE_FIELDS = BREED_NOTION_PRIORITY_FIELDS
+const editableBreedFieldIds = BREED_NOTION_PRIORITY_FIELDS
   .filter(e=>e.mode==="content").map(e=>e.id);
 
-export type BreedNotionField = (typeof BREED_NOTION_EDITABLE_FIELDS)[number];
+/** Legacy aggregate names are still legal in webhook receipts, not editable columns. */
+export type BreedNotionField = (typeof editableBreedFieldIds)[number] | "fciStandard" | "editorial";
+export const BREED_NOTION_EDITABLE_FIELDS: readonly BreedNotionField[] = editableBreedFieldIds;
 export type BreedFieldSnapshot = Record<BreedNotionField, unknown>;
 const numeric = new Set<string>([
   "fciGroup", "energy", "trainability", "family", "children",

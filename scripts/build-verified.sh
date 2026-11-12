@@ -27,6 +27,6 @@ timeout \
 
 "${script_dir}/validate-artifact.sh"
 
-node --experimental-loader ./tests/breed-store-loader.mjs --test tests/breed-integrity.test.mjs
+node --experimental-strip-types --experimental-loader ./tests/breed-store-loader.mjs --test tests/breed-integrity.test.mjs
 
-node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breed-fci-import.test.mjs
+node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breed-fci-import.test.mjs
