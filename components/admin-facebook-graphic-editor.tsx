@@ -124,7 +124,7 @@ export function AdminFacebookGraphicEditor({
     maxSize:MAX_BYTES,multiple:false,disabled:busy,
   });
   useEffect(()=>{
-    const logoUrl=initialProfileLogoUrl;
+    const logoUrl: string = initialProfileLogoUrl ?? "";
     if(!logoUrl)return;
     const controller=new AbortController();
     async function loadLogo(){
