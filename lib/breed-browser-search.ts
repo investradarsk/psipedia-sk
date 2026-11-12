@@ -1,4 +1,4 @@
-import { normalizeBreedSearchText } from "./breed-fci";
+import { normalizeBreedSearchText } from "./breed-fci.ts";
 import type { BreedAtlasCard } from "./breed-store";
 
 // Normalize each breed's searchable text once when the catalog changes,
