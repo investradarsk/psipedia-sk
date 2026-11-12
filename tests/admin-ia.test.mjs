@@ -117,7 +117,9 @@ test("admin shell renders shared active navigation, breadcrumbs, sticky position
   assert.ok(shell.includes("userDisplayName={user.displayName}"));
   assert.ok(navigation.includes("<a href={signOutHref}>Odhlásiť</a>"));
   assert.match(shell, /<AdminBreadcrumbs \/>/);
-  assert.match(shell, /loadExactAdminAttentionSummary/);
+  assert.match(shell, /loadRequestAdminAttentionSummary/);
+  const attentionRequest = read("lib/admin-attention-request.ts");
+  assert.match(attentionRequest, /cache\(\s*\(\) => loadExactAdminAttentionSummary\(\)/);
   assert.match(shell, /href="\/admin\/operations"/);
   assert.match(shell, /activeCount > 99 \? "99\+" : activeCount/);
   assert.match(shellCss, /\.stickyNav\s*\{[^}]*position:\s*sticky;[^}]*top:\s*var\(--admin-sticky-top,\s*76px\);/s);
@@ -142,7 +144,9 @@ test("sidebar links are mounted only for expanded groups and prefetched only on 
   assert.match(navigation, /onMouseEnter=\{\(\) => prefetchOnIntent\(item\.href\)\}/);
   assert.match(navigation, /onFocus=\{\(\) => prefetchOnIntent\(item\.href\)\}/);
   assert.match(navigation, /prefetched\.current\.has\(href\)/);
-  assert.match(navigation, /router\.prefetch\(href, \{ onInvalidate: \(\) => prefetched\.current\.delete\(href\) \}\)/);
+  assert.match(navigation, /router\.prefetch\(href\)/);
+  assert.match(navigation, /prefetched\.current\.clear\(\)/);
+  assert.doesNotMatch(navigation, /router\.prefetch\(href,\s*\{\s*onInvalidate/);
   assert.match(navigation, /aria-expanded=\{expanded\}/);
   assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
   assert.match(shell, /<AdminNavigation/);
@@ -174,7 +178,9 @@ test("admin landing is the read-only workspace and old article filters redirect 
   const articleEditor = read("components/admin-article-editor.tsx");
 
   assert.match(landing, /title="Pracovný prehľad"/);
-  assert.match(landing, /loadExactAdminAttentionSummary\(\)/);
+  assert.match(landing, /const attentionPromise = loadRequestAdminAttentionSummary\(\)/);
+  assert.match(landing, /attentionSummaryPromise=\{attentionPromise\}/);
+  assert.match(landing, /attentionPromise=\{attentionPromise\}/);
   assert.match(landing, /readAdminAutomationData/);
   assert.match(read("components/admin-workspace-dashboard.tsx"), /summarizeAdminAutomationReads/);
   assert.match(landing, /loadAdminQualityPendingSummary/);
@@ -199,7 +205,7 @@ test("dashboard uses bounded existing summaries and never treats unavailable dat
   const store = read("lib/admin-dashboard-store.ts");
   const reliability = read("lib/admin-automation-reliability.ts");
 
-  assert.match(landing, /loadExactAdminAttentionSummary/);
+  assert.match(landing, /loadRequestAdminAttentionSummary/);
   assert.doesNotMatch(landing, /countOpenAutomationLifecycleSuggestions/);
   assert.match(store, /SELECT COUNT\(\*\) AS count[\s\S]*FROM directory_profiles/);
   assert.match(store, /SELECT COUNT\(\*\) AS count FROM media_source_monitors/);

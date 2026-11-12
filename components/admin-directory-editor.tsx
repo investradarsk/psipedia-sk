@@ -526,8 +526,17 @@ export function AdminDirectoryEditor({
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          ...(breederChangedPaths ? { breederEditedPaths: breederChangedPaths,
-            explicitlyClearedContacts } : {}),
+          ...(breederChangedPaths ? {
+            breederEditedPaths: breederChangedPaths,
+            // Only these two Lexical text fields have an original value
+            // receipt. The server can recover missing dirty paths safely,
+            // without replaying a stale full-form edit over newer D1 data.
+            breederOriginalText: {
+              excerpt: breederBaseline?.excerpt ?? "",
+              description: breederBaseline?.description ?? "",
+            },
+            explicitlyClearedContacts,
+          } : {}),
           ...(category === "treneri" && !notionDraft ? { trainerServicesText } : {}),
           ...(trainerServicesEdited !== undefined ? { trainerServicesEdited } : {}),
           ...(trainerTrustEditedPaths.length ? { trainerTrustEditedPaths } : {}),

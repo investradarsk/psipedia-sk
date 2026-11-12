@@ -12,6 +12,7 @@ import { parseDirectoryMainImageAction, directoryMainImageMatches } from "@/lib/
 import { cleanupUnreferencedNotionUpload } from "@/lib/notion-sync-shared";
 import { BREEDER_NOTION_EDITORIAL_FIELDS, type BreederEditorialField } from "@/lib/notion-breeder-field-events";
 import { isDirectoryEventPilotCategory, isDirectoryFieldEventCategory } from "@/lib/notion-directory-field-event-scope";
+import { reconcileDirectorySubmittedTextFields } from "@/lib/directory-editor-text-change-contract";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -76,6 +77,7 @@ export async function PUT(request: Request, { params }: Props) {
       mainImageAction?: unknown;
       pilotMetadataFields?: unknown;
       explicitlyClearedContacts?: unknown;
+      breederOriginalText?: unknown;
     };
     const {
       numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed,
@@ -86,11 +88,12 @@ export async function PUT(request: Request, { params }: Props) {
       mainImageAction: rawMainImageAction,
       pilotMetadataFields: rawPilotMetadataFields,
       explicitlyClearedContacts: rawExplicitlyClearedContacts,
+      breederOriginalText: rawBreederOriginalText,
       ...submittedBody
     } = rawBody;
     // A stale full-form payload must never silently undo a newer Notion edit
     // to a field the editor did not touch.
-    const editedPaths: BreederEditorialField[] | null =
+    let editedPaths: BreederEditorialField[] | null =
       isDirectoryFieldEventCategory(before.category) && Array.isArray(rawBreederEditedPaths)
         ? rawBreederEditedPaths.filter(
             (path): path is BreederEditorialField =>
@@ -98,6 +101,24 @@ export async function PUT(request: Request, { params }: Props) {
               !(path === "services" && isDirectoryEventPilotCategory(before.category)),
           )
         : null;
+    if (editedPaths) {
+      const recovered = reconcileDirectorySubmittedTextFields({
+        current: { excerpt: before.excerpt, description: before.description },
+        submitted: submittedBody,
+        original: rawBreederOriginalText,
+        editedPaths,
+      });
+      // A changed Lexical field can be missing from the client's dirty list
+      // when its last editor update is still being committed on blur. Accept
+      // it only if its form baseline matches current D1. No stale overwrite.
+      if (recovered.conflicts.length) {
+        return Response.json({
+          error: "Text profilu sa medzičasom zmenil. Obnov stránku a zopakuj úpravu: " +
+            recovered.conflicts.join(", "),
+        }, { status: 409 });
+      }
+      editedPaths = recovered.editedPaths as BreederEditorialField[];
+    }
     // An explicit empty contact field is a deletion, not an omitted field in
     // an old editor. Only whitelisted, expressly edited contacts qualify.
     const contactAliases = {
@@ -497,6 +518,21 @@ export async function PUT(request: Request, { params }: Props) {
     // intermediate projection must never be reported as the final lifecycle.
     const saved = await getManagedDirectoryProfileById(id, db);
     if (!saved) return Response.json({ error: "Záznam po uložení neexistuje." }, { status: 409 });
+    // Validate the actual D1 result, never a successful HTTP call or a stale
+    // form echo. In particular, an unpersisted Perex must never say "Uložené".
+    const cleanText = (value: unknown) => typeof value === "string"
+      ? value.replace(/\r\n?/g, "\n").trim() : "";
+    const mismatchedText = (["excerpt", "description"] as const).filter(field =>
+      editedPaths?.includes(field) &&
+      cleanText(saved[field]) !== cleanText(payload[field]),
+    );
+    if (mismatchedText.length) {
+      console.warn("DIRECTORY_TEXT_D1_SAVE_NOT_CONFIRMED", id, mismatchedText);
+      return Response.json({
+        error: "Text profilu sa po uložení v databáze nepotvrdil (" +
+          mismatchedText.join(", ") + "). Obnov profil a skontroluj hodnotu.",
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
     return Response.json({ profile: saved, notionFieldSync, metadataWarnings },
       { headers: { "cache-control": "no-store" } });
   } catch (error) { return errorResponse(error); }
