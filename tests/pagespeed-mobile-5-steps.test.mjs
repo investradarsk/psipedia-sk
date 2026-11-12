@@ -26,3 +26,21 @@ test("homepage still overlaps hero and below-fold data reads", () => {
   assert.match(page, /<UnifiedSectionHero/);
   assert.match(layout, /\{children\}\s*<SiteFooter \/>/);
 });
+
+test("large breed-specific CSS is route scoped, preserving public global guards", () => {
+  const global = read("app/globals.css");
+  const breed = read("app/plemena/breed-reference.css");
+  const nested = read("app/plemena/layout.tsx");
+  assert.match(nested, /import "\.\/breed-reference\.css"/);
+  assert.match(breed, /\/\* Breed encyclopedia UI \*\//);
+  assert.match(breed, /\/\* Editorial breed profile/);
+  assert.match(breed, /\.breed-search-wrap/);
+  assert.match(breed, /\.breed-detail-hero/);
+  assert.doesNotMatch(global, /\/\* Breed encyclopedia UI \*\//);
+  assert.doesNotMatch(global, /\/\* Editorial breed profile/);
+  assert.match(global, /\/\* PUBLIC-POLISH-2 photo contract/);
+  assert.match(global, /@media \(max-width: 760px\) \{\s*html,\s*body \{\s*max-width: 100%/);
+  assert.match(global, /#fci-standard,\s*#suvisiaci-obsah \{\s*scroll-margin-top: 92px/);
+  assert.ok(global.length < 240_000);
+  assert.ok(breed.length > 65_000);
+});
