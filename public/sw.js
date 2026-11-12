@@ -59,20 +59,16 @@ self.addEventListener("notificationclick", (event) => {
       }
     });
 
-    // Never force-navigate an existing Admin tab from the service worker.
-    // It cannot see a dirty form or invoke the React unsaved-change guard.
-    // Reuse only an already matching tab; otherwise open the notification
-    // target in a separate client so unsaved drafts remain intact.
+    // The service worker has no access to dirty form state. On iOS an
+    // installed PWA may reuse its only window even for openWindow(), so never
+    // navigate or open a replacement client while an Admin window exists.
+    // The focused app displays the target as an ordinary, guarded link.
     const matching = windows.find((client) => client.url === target);
     if (matching) return matching.focus();
-    try {
-      const opened = await self.clients.openWindow(target);
-      if (opened) return opened.focus();
-    } catch (error) {
-      console.warn("Admin push could not open a separate window.", error);
+    if (existing) {
+      existing.postMessage({ type: "psipedia-admin-push-intent", url: path });
+      return existing.focus();
     }
-    // If the platform forbids new windows (notably some installed iOS PWAs),
-    // focus the current admin without changing its route or discarding edits.
-    return existing ? existing.focus() : undefined;
+    return self.clients.openWindow(target);
   })());
 });
