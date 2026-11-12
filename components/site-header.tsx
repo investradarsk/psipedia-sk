@@ -65,7 +65,7 @@ export function SiteHeader({
     const trigger = searchTriggerRef.current;
     if (!trigger) return;
     trigger.setAttribute("data-search-ready", "true");
-    return () => trigger.removeAttribute("data-search-ready");
+    return () => { trigger.removeAttribute("data-search-ready"); };
   }, []);
 
   useEffect(() => {
@@ -332,8 +332,10 @@ export function SiteHeader({
     const trigger = menuReturnFocusRef.current;
     if (!menu || !trigger) return;
 
+    const menuElement = menu;
+    const menuTrigger = trigger;
     function focusableMenuItems() {
-      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled]):not([tabindex="-1"])'))
+      return Array.from(menuElement.querySelectorAll<HTMLElement>('a[href], button:not([disabled]):not([tabindex="-1"])'))
         .filter((element) => element.offsetParent !== null && !element.closest("[inert]"));
     }
 
@@ -341,13 +343,13 @@ export function SiteHeader({
       if (event.key === "Escape") {
         event.preventDefault();
         if (openMobileMenu) {
-          const submenuToggle = menu.querySelector<HTMLButtonElement>(`[aria-controls="mobile-submenu-${openMobileMenu}"]`);
+          const submenuToggle = menuElement.querySelector<HTMLButtonElement>(`[aria-controls="mobile-submenu-${openMobileMenu}"]`);
           setOpenMobileMenu(null);
           submenuToggle?.focus();
           return;
         }
         setMenuOpen(false);
-        trigger.focus();
+        menuTrigger.focus();
         return;
       }
       if (event.key !== "Tab") return;
@@ -361,13 +363,13 @@ export function SiteHeader({
         (event.shiftKey ? last : first).focus();
       } else if (!items.includes(active as HTMLElement)) {
         event.preventDefault();
-        trigger.focus();
+        menuTrigger.focus();
       } else if (event.shiftKey && active === first) {
         event.preventDefault();
-        trigger.focus();
+        menuTrigger.focus();
       } else if (!event.shiftKey && active === last) {
         event.preventDefault();
-        trigger.focus();
+        menuTrigger.focus();
       }
     }
 
