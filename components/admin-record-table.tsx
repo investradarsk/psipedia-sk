@@ -48,6 +48,9 @@ export type AdminRecordTableSelection<T> = {
 // All Admin list pages have bounded server pagination. A stable ID keeps
 // selection and the TanStack row cache aligned across local state changes.
 function recordRowId<T extends { id: number }>(record: T) { return String(record.id); }
+// Most list views do not enable bulk selection. Keep a stable empty state so
+// TanStack need not reconcile selection or regenerate row models for those views.
+const EMPTY_ROW_SELECTION: RowSelectionState = {};
 
 /** Read-first grid; optional selection delegates writes to the domain's existing bulk API. */
 export function AdminRecordTable<T extends { id: number }>({
@@ -93,8 +96,9 @@ export function AdminRecordTable<T extends { id: number }>({
 
   const selectedIds = selection?.selectedIds;
   const rowSelection = useMemo<RowSelectionState>(() => {
+    if (!selectedIds?.length) return EMPTY_ROW_SELECTION;
     const visibleIds = new Set(rows.map(row => row.id));
-    return Object.fromEntries((selectedIds ?? []).filter(id => visibleIds.has(id)).map(id => [String(id), true]));
+    return Object.fromEntries(selectedIds.filter(id => visibleIds.has(id)).map(id => [String(id), true]));
   }, [rows, selectedIds]);
 
   const definitions = useMemo<ColumnDef<T>[]>(() => [
