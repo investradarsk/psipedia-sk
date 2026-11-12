@@ -49,7 +49,7 @@ test("4/10 Event map and geo tools are deferred, but stay mounted after first vi
   assert.match(event, /dynamic\(\(\) => import\("@\/components\/admin-profile-google-maps"\)/);
   assert.match(event, /dynamic\(\(\) => import\("@\/components\/admin-geo-location"\)/);
   assert.match(event, /locationSectionVisited/);
-  assert.match(event, /if \(activeEventSection === "event-location"\) setLocationSectionVisited\(true\)/);
+  assert.match(event, /if \(next === "event-location"\) setLocationSectionVisited\(true\)/);
   assert.match(event, /event && locationSectionVisited/);
   assert.match(event, /imageEditorOpen && imageUrl && <ImageDisplayEditor/);
 });
